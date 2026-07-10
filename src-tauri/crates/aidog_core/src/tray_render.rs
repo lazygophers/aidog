@@ -9,9 +9,67 @@ use tauri::State;
 use serde_json::Value;
 #[allow(unused_imports)]
 use std::sync::Arc;
+use std::future::Future;
+use std::pin::Pin;
+
+// TrayColumn / TrayLayout / TRAY_FONT_SIZE 数据类型下沉 core（原 commands/tray.rs）。
+// commands::tray（root 过渡 → C8 commands-tray crate）保留 build_tray_menu / tray_layout /
+// tray_separator 等 UI 构造函数，通过 TrayMenuBuild trait 注入 refresh_tray_menu（防 core→commands 循环）。
+
+/// 托盘单列：name（标签）+ value（值）+ 颜色（三态）+ 字号 + two_line（该列是否两行展示）。
+#[derive(Debug, Clone)]
+pub struct TrayColumn {
+    pub name: String,
+    pub value: String,
+    pub color: TrayColor,
+    // 以下 4 字段为 macOS 富文本渲染（set_tray_attributed_title）专属参数；
+    // 非 macOS 走 fallback 纯文本路径不读取，故平台条件 allow(dead_code)。
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub font_size: f64,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub two_line: bool,
+    /// "left" | "center" | "right"
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub align: String,
+    /// 两行模式第二行对齐，None = 跟随 align
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
+    pub align_row2: Option<String>,
+}
+
+/// 托盘渲染布局：columns（数据列）+ gaps（列间间隙）。
+/// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认 2px 空白。
+pub struct TrayLayout {
+    pub columns: Vec<TrayColumn>,
+    /// 长度 = columns.len() - 1（若 columns.len() ≥ 2）。
+    /// None = 默认空白间隙；Some(text) = 自定义分隔符文本。
+    pub gaps: Vec<Option<String>>,
+}
+
 #[cfg(target_os = "macos")]
-use crate::commands::tray::{TrayColumn, TRAY_FONT_SIZE};
-use crate::commands::tray::{build_tray_menu, tray_layout, tray_separator};
+pub const TRAY_FONT_SIZE: f64 = 9.0;
+
+/// UI 构造注入点：refresh_tray_menu 需要的 3 个 UI 辅助函数（build_tray_menu /
+/// tray_layout / tray_separator）由 commands::tray 层（root 过渡 → C8 commands-tray）
+/// 实现，避免 core 反向依赖 commands crate（循环）。
+pub trait TrayMenuBuild: Sync {
+    /// 构造菜单（proxy 状态 / quota 详情 / show+quit 项）。
+    fn build_menu<'a>(
+        &'a self,
+        app: &'a tauri::AppHandle,
+    ) -> Pin<Box<dyn Future<Output = Result<tauri::menu::Menu<tauri::Wry>, String>> + Send + 'a>>;
+
+    /// 取当前 enabled + ordered 的渲染布局（数据列 + gaps）。
+    fn layout<'a>(
+        &'a self,
+        app: &'a tauri::AppHandle,
+    ) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>>;
+
+    /// 配置的 separator（多 item 横排间隔）。
+    fn separator<'a>(
+        &'a self,
+        app: &'a tauri::AppHandle,
+    ) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
+}
 
 
 #[cfg(target_os = "macos")]
@@ -289,21 +347,21 @@ pub(crate) fn set_tray_attributed_title(
     .map_err(|e| e.to_string())?
 }
 
-pub(crate) async fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
+pub async fn refresh_tray_menu(app: &tauri::AppHandle, builder: &dyn TrayMenuBuild) -> Result<(), String> {
     let tray = app.tray_by_id("main").ok_or("tray not found")?;
-    let menu = build_tray_menu(app).await?;
+    let menu = builder.build_menu(app).await?;
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
     // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        let layout = tray_layout(app).await;
+        let layout = builder.layout(app).await;
         if layout.columns.is_empty() {
             tray.set_icon(app.default_window_icon().cloned())
                 .map_err(|e| e.to_string())?;
             tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
         } else {
-            let separator = tray_separator(app).await;
+            let separator = builder.separator(app).await;
             tray.set_icon(None).map_err(|e| e.to_string())?;
             // 兜底文字：各列 "名 值"，间隙用 separator
             let fallback_text = layout.columns

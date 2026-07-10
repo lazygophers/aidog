@@ -1,6 +1,6 @@
-use crate::gateway::{self};
+use aidog_core::gateway::{self};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -28,7 +28,7 @@ pub(crate) struct AboutInfo {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub fn about_info() -> AboutInfo {
     tracing::debug!(command = "about_info", "command invoked");
     AboutInfo {

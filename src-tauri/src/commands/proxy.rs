@@ -1,10 +1,10 @@
-use crate::shared::*;
-use crate::commands::sync_settings::do_sync_group_settings;
-use crate::commands::tray_render::refresh_tray_menu;
-use crate::gateway::middleware::MiddlewareEngine;
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::shared::*;
+use aidog_core::sync_settings::do_sync_group_settings;
+use aidog_core::tray_render::refresh_tray_menu;
+use aidog_core::gateway::middleware::MiddlewareEngine;
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -18,7 +18,7 @@ use tauri::Manager;
 
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub(crate) async fn proxy_start(
     port: u16,
     app: tauri::AppHandle,
@@ -64,7 +64,7 @@ pub(crate) async fn proxy_start(
     }
 
     // 更新托盘菜单
-    refresh_tray_menu(&app).await?;
+    refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl).await?;
 
     let msg = if actual_port != port {
         format!("proxy started on port {} ({} was occupied)", actual_port, port)
@@ -76,7 +76,7 @@ pub(crate) async fn proxy_start(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub(crate) async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "proxy_stop", "command invoked");
     let handle = app.state::<ProxyHandle>();
@@ -93,13 +93,13 @@ pub(crate) async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
             .map_err(|e| { tracing::error!(command = "proxy_stop", error = %e, "persist proxy settings failed"); e })?;
     }
 
-    refresh_tray_menu(&app).await?;
+    refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl).await?;
     tracing::info!(command = "proxy_stop", "proxy stopped");
     Ok(())
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
     tracing::debug!(command = "proxy_status", "command invoked");
     let handle = app.state::<ProxyHandle>();
@@ -108,14 +108,14 @@ pub fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
     tracing::debug!(command = "proxy_get_settings", "command invoked");
     load_proxy_settings(&app).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "proxy_set_autostart", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
@@ -125,7 +125,7 @@ pub async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_set_bind_lan(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "proxy_set_bind_lan", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
@@ -140,7 +140,7 @@ pub async fn proxy_set_bind_lan(app: tauri::AppHandle, enabled: bool) -> Result<
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_autolaunch", enabled, "command invoked");
     use tauri_plugin_autostart::ManagerExt;
@@ -154,7 +154,7 @@ pub fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), St
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
     tracing::debug!(command = "app_get_autolaunch", "command invoked");
     use tauri_plugin_autostart::ManagerExt;
@@ -163,7 +163,7 @@ pub fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_silent_launch", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
@@ -175,7 +175,7 @@ pub async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Resu
 // ─── Proxy Client Settings (upstream HTTP proxy) ─────────────
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
     tracing::debug!(command = "proxy_client_get_settings", "command invoked");
     let db = app.try_state::<Db>()
@@ -186,7 +186,7 @@ pub async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway:
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
     tracing::debug!(command = "proxy_client_set_settings", "command invoked");
     let db = app.try_state::<Db>()

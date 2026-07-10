@@ -2,9 +2,14 @@
 //! hooks 命令端到端覆盖：HOME 隔离（tempdir）下走 generate_hook_scripts / enabled_hook_events /
 //! seed_default_templates / inject_hooks / remove_hooks / set/get default_hooks_enabled /
 //! build_notify_hooks_fragment。transitively 覆盖 do_sync_group_settings + codex config 写入。
-use super::*;
+use aidog_core::hooks::*;
+use aidog_core::sync_settings::do_sync_group_settings;
+#[allow(unused_imports)]
+use aidog_core::shared::*;
+use aidog_core::gateway::{self, db::Db};
+use aidog_core::gateway::models::*;
 use crate::commands::test_harness::mock_app_with_db;
-use crate::gateway::db::test_support::HomeGuard;
+use aidog_core::gateway::db::test_support::HomeGuard;
 use tauri::Manager;
 
 #[tokio::test]
@@ -39,7 +44,7 @@ async fn generate_scripts_writes_files() {
     assert!(!paths.complete.is_empty());
     assert!(!paths.event_notify.is_empty());
     // 脚本目录应存在生成文件
-    let scripts_dir = crate::shared::aidog_scripts_dir().unwrap();
+    let scripts_dir = aidog_core::shared::aidog_scripts_dir().unwrap();
     assert!(scripts_dir.join(gateway::hooks::SCRIPT_COMPLETE).exists());
     assert!(scripts_dir.join(gateway::hooks::SCRIPT_EVENT_NOTIFY).exists());
 }

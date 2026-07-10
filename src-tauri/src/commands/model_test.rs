@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -14,7 +14,7 @@ use tauri::Manager;
 
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_test(
     db: State<'_, Db>,
     req: ModelTestRequest,

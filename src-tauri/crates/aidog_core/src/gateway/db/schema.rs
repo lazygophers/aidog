@@ -180,7 +180,7 @@ pub(crate) fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlR
 ///
 /// 语义：按 (name, is_builtin=1) 幂等判定，已存在 → skip（不 update enabled，
 /// 尊重用户禁用态）；不存在 → INSERT (enabled=1, is_builtin=1, scope=global)。
-pub(crate) fn seed_builtin_middleware_rules_counted(
+pub fn seed_builtin_middleware_rules_counted(
     conn: &rusqlite::Connection,
 ) -> SqlResult<(u32, u32)> {
     let ts = now();

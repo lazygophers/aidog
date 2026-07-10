@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -90,7 +90,7 @@ pub(crate) async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), 
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsSettings, String> {
     tracing::debug!(command = "coding_tools_settings_get", "command invoked");
     let current = load_coding_tools_settings(&db).await;
@@ -98,7 +98,7 @@ pub async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsS
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn coding_tools_settings_set(
     apply_to_claude_plugin: Option<bool>,
     skip_claude_onboarding: Option<bool>,
