@@ -1,6 +1,6 @@
 ---
 updated: 2026-07-10
-rewrite-version: 5
+rewrite-version: 6
 supersedes:
   - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals; v1 renamed → cross-layer-rules.md)
 authored-by: trellisx-spec
@@ -92,6 +92,35 @@ mode: sediment
 3. 前端 `src/services/api/<域>.ts` diff 0（`git diff master -- src/services/api/<域>.ts` 空）
 
 实例：task 07-09-mitm-tables-to-setting（RootCa 6 字段 + WhitelistEntry 4 字段 + 13 个 `#[tauri::command]` 签名 0 diff，仅 SQL → `get_setting`/`set_setting` 调用换，前端 `src/services/api/mitm.ts` 零改）
+
+## Rust enum → type alias arbitrary 全 JSON 驱动 (MUST)
+
+Rust enum 当变体集合属「后端 JSON 真值源派生」类（值集合由 `src-tauri/defaults/*.json` 定义，前端派生层消费，如 `ClientType`）→ **MUST** 改 `pub type X = String`（serde 天然 arbitrary），**禁**保留枚举。
+
+- **判定边界（MUST，区分两类 enum）**：
+  - **适合 → String**：小枚举常量（client_type / 请求格式等 ≤20 变体），变体集合由 JSON 真值源驱动，Rust 不对变体做行为 match（或 match 仅分支选 fn，无变体专属数据）—— 改 String 后远端 JSON 新增变体不丢（原值保留）
+  - **保留枚举**：协议类核心域 enum（如 `Protocol` 60+ 变体），路由 / converter 对变体做行为 match 臂依赖变体身份，变体扩展走 [Protocol 枚举变体扩展范式](../backend/protocol-enum-extension.md)（先 grep 同构变体命中点，零专属 match 臂则加枚举即覆盖）
+- **enum 删后清理（MUST，grep 可验）**：
+  - 未知值（JSON 新增变体 / 旧库残留）原值保留不丢 —— serde `String` arbitrary 天然支持；`deserialize_x_lenient` 改「空串/null → 默认值，非空原值保留」（不再回退 `Default::default()`）
+  - migration `X::Variant` 字面量化 **禁驼峰**，用 serde rename 值（如 `ClientType::CodexTui` → `"codex_tui".to_string()`，非 `"CodexTui"`）
+  - 测试 `X::Variant` → 字面量字符串（同 serde rename 值），禁保留枚举构造
+  - Default impl + `default_for_x` fn **彻底删**（映射移 JSON 真值源 per-entry 字段，禁 Rust 残留第二份映射表）
+- **公共契约字段名禁改（MUST）**：仅 Rust 内部类型简化（enum → type alias），公共契约层（struct 字段名 / serde 字段名 / command 签名 / 前端 TS union）字段名不动 —— 见上「持久化路径换、公共契约零改」段。前端 TS union 同步改 `string`（删字面量 union）。
+
+**验收断言（grep 可复用）**：
+```bash
+# enum 彻底删（仅注释残留）
+grep -rn '\bClientType::' src-tauri/  # 仅注释
+grep -rn 'default_for_protocol\|default_client_for_protocol' src-tauri/  # 0
+# type alias 落地
+grep -n 'pub type ClientType = String' src-tauri/crates/aidog_core/src/gateway/models/platform.rs
+# migration 字面量（serde rename 值，禁驼峰）
+grep -n '"codex_tui"\|"claude_code"' src-tauri/crates/aidog_core/src/gateway/db/schema_early.rs
+# 前端 union 同步
+grep -n 'export type ClientType = string' src/services/api/types/part1.ts
+```
+
+实例：task 07-10-client-types-json-sync（Rust `ClientType` enum 13 变体 → `pub type ClientType = String`，83 命中点字面量化，migration `schema_early.rs` + 全 test 改 `"codex_tui"`/`"claude_code"` 字面量；前端 union → `string`；`Protocol` 枚举保留走变体扩展 spec）
 
 ## Verification
 
