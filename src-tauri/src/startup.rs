@@ -195,12 +195,12 @@ pub fn run() {
             crate::commands::coding_tools::coding_tools_settings_set,
             // Settings
             crate::commands::fs_autocomplete::fs_autocomplete,
-            crate::commands::settings::settings_get,
-            crate::commands::settings::settings_set,
-            crate::commands::settings::settings_delete,
-            crate::commands::settings::settings_list,
-            crate::commands::settings::generate_statusline_script,
-            crate::commands::settings::read_claude_code_settings,
+            commands_config::settings::settings_get,
+            commands_config::settings::settings_set,
+            commands_config::settings::settings_delete,
+            commands_config::settings::settings_list,
+            commands_config::settings::generate_statusline_script,
+            commands_config::settings::read_claude_code_settings,
             // Codex Config
             aidog_core::gateway::codex::codex_config_read,
             aidog_core::gateway::codex::codex_config_write,
@@ -237,13 +237,13 @@ pub fn run() {
             crate::commands::cli_env::cli_diagnose_conflicts,
             crate::commands::cli_env::cli_check_updates,
             // Platform defaults JSON
-            crate::commands::defaults::get_defaults_json,
-            crate::commands::defaults::sync_defaults_json,
-            crate::commands::defaults::get_protocol_logo_path,
-            crate::commands::defaults::sync_protocol_logo,
+            commands_config::defaults::get_defaults_json,
+            commands_config::defaults::sync_defaults_json,
+            commands_config::defaults::get_protocol_logo_path,
+            commands_config::defaults::sync_protocol_logo,
             // Client types JSON (13 client_type entries, sync 链同 defaults_sync)
-            crate::commands::defaults::get_client_types_json,
-            crate::commands::defaults::sync_client_types_json,
+            commands_config::defaults::get_client_types_json,
+            commands_config::defaults::sync_client_types_json,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             commands_proxy::mitm::mitm_status,
             commands_proxy::mitm::mitm_enable,
