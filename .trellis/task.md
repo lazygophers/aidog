@@ -16,7 +16,7 @@
 | ws-skeleton | C1 workspace 骨架 + 空门禁 | — | 已完成 | — | — |
 | core-extract | C2 aidog_core 提取 + 业务下沉 | — | 已完成 | — | 07-10-ws-skeleton, 07-10-protocols-rust-enum |
 | cmd-platform | C3 commands-platform crate | — | 已完成 | — | 07-10-core-extract |
-| cmd-proxy | C4 commands-proxy crate | — | 规划中 | — | 07-10-core-extract,07-09-mitm-tables-to-setting |
+| cmd-proxy | C4 commands-proxy crate | — | 实施中 | — | 07-10-core-extract, 07-09-mitm-tables-to-setting |
 | cmd-config | C5 commands-config crate | — | 规划中 | — | 07-10-core-extract |
 | cmd-system | C6 commands-system crate | — | 规划中 | — | 07-10-core-extract |
 | cmd-ai-tools | C7 commands-ai-tools crate | — | 规划中 | — | 07-10-core-extract |
@@ -27,7 +27,8 @@
 | client-types-json-sync | CLIENT_TYPES 移除 → defaults JSON 独立 + 远端同步 | — | 已完成 | — | — |
 | client-types-headers-expand | client-types.json simulation header 全补全（~/.aidog 真实请求驱动） | — | 已完成 | — | — |
 | protocol-name-display | 平台协议创建后锁定 + preset name 派生展示 | — | 已完成 | — | — |
-| groups-delete-only-removes-from-group | Groups 单组平台点删除只移除分组未销毁 | — | 实施中 | — | — |
+| groups-delete-only-removes-from-group | Groups 单组平台点删除只移除分组未销毁 | — | 已完成 | — | — |
+| presets-desc-remove-format | platform-presets.json 删 desc + peak_hours/models 单行压缩 | — | 实施中 | — | — |
 
 ## 依赖关系图 (DAG)
 
@@ -62,4 +63,5 @@ flowchart TD
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-commands-restructure | 07-10-commands-restructure | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-groups-delete-only-removes-from-group | 07-10-groups-delete-only-removes-from-group | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-presets-desc-remove-format | 07-10-presets-desc-remove-format | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-cmd-proxy | 07-10-cmd-proxy | trellisx-start |

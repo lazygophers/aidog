@@ -3,7 +3,7 @@
   "name": "presets-desc-remove-format",
   "title": "platform-presets.json 删 desc + peak_hours/models 单行压缩",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
