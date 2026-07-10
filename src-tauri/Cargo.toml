@@ -134,6 +134,9 @@ commands_config = { path = "crates/commands_config" }
 # C6 commands-system：about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete 7 域迁此 crate。
 # 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
 commands_system = { path = "crates/commands_system" }
+# C7 commands-ai-tools：coding_tools/mcp/skills/script_executor/model_test 5 域迁此 crate。
+# 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
+commands_ai_tools = { path = "crates/commands_ai_tools" }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
