@@ -1,5 +1,5 @@
 {
-  "last_updated": 1752192000,
+  "last_updated": 1754534400,
   "client_types": [
     {
       "value": "default",
@@ -23,6 +23,20 @@
         "ru-RU": "Без эмуляции конкретного клиента, только заголовки аутентификации",
         "ja-JP": "特定のクライアントエミュレートなし、認証ヘッダーのみ",
         "es-ES": "Sin emulación de cliente específica, solo cabeceras de autenticación"
+      },
+      "simulation": {
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ]
+        }
       }
     },
     {
@@ -47,6 +61,25 @@
         "ru-RU": "Эмуляция клиента Claude Code CLI (anthropic Stainless SDK User-Agent)",
         "ja-JP": "Claude Code CLI クライアントをエミュレート (anthropic Stainless SDK User-Agent)",
         "es-ES": "Emular cliente Claude Code CLI (User-Agent anthropic Stainless SDK)"
+      },
+      "simulation": {
+        "user_agent": "claude-cli/1.0.117 (external, cli)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ]
+        }
       }
     },
     {
@@ -71,6 +104,25 @@
         "ru-RU": "Эмуляция клиента расширения Claude Code VSCode",
         "ja-JP": "Claude Code VSCode 拡張クライアントをエミュレート",
         "es-ES": "Emular cliente de la extensión Claude Code VSCode"
+      },
+      "simulation": {
+        "user_agent": "claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ]
+        }
       }
     },
     {
@@ -95,6 +147,25 @@
         "ru-RU": "Эмуляция клиента Claude Code TypeScript SDK",
         "ja-JP": "Claude Code TypeScript SDK クライアントをエミュレート",
         "es-ES": "Emular cliente Claude Code TypeScript SDK"
+      },
+      "simulation": {
+        "user_agent": "claude-cli/1.0.117 (external, sdk-ts)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ]
+        }
       }
     },
     {
@@ -119,6 +190,25 @@
         "ru-RU": "Эмуляция клиента Claude Code Python SDK",
         "ja-JP": "Claude Code Python SDK クライアントをエミュレート",
         "es-ES": "Emular cliente Claude Code Python SDK"
+      },
+      "simulation": {
+        "user_agent": "claude-cli/1.0.117 (external, sdk-py)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ]
+        }
       }
     },
     {
@@ -143,6 +233,25 @@
         "ru-RU": "Эмуляция клиента Claude Code GitHub Action",
         "ja-JP": "Claude Code GitHub Action クライアントをエミュレート",
         "es-ES": "Emular cliente Claude Code GitHub Action"
+      },
+      "simulation": {
+        "user_agent": "claude-cli/1.0.117 (external, claude-code-github-action)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"}
+          ]
+        }
       }
     },
     {
@@ -167,6 +276,27 @@
         "ru-RU": "Эмуляция клиента Codex CLI (Rust)",
         "ja-JP": "Codex CLI (Rust) クライアントをエミュレート",
         "es-ES": "Emular cliente Codex CLI (Rust)"
+      },
+      "simulation": {
+        "user_agent": "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"},
+            {"name": "OpenAI-Beta", "value": "responses=experimental"},
+            {"name": "conversation_id", "value": "{uuid}"},
+            {"name": "session_id", "value": "{uuid}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
       }
     },
     {
@@ -191,6 +321,27 @@
         "ru-RU": "Эмуляция клиента Codex TUI",
         "ja-JP": "Codex TUI クライアントをエミュレート",
         "es-ES": "Emular cliente Codex TUI"
+      },
+      "simulation": {
+        "user_agent": "Codex/0.38.0",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"},
+            {"name": "OpenAI-Beta", "value": "responses=experimental"},
+            {"name": "conversation_id", "value": "{uuid}"},
+            {"name": "session_id", "value": "{uuid}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
       }
     },
     {
@@ -215,6 +366,27 @@
         "ru-RU": "Эмуляция клиента Codex Desktop",
         "ja-JP": "Codex Desktop クライアントをエミュレート",
         "es-ES": "Emular cliente Codex Desktop"
+      },
+      "simulation": {
+        "user_agent": "codex desktop/0.38.0",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"},
+            {"name": "OpenAI-Beta", "value": "responses=experimental"},
+            {"name": "conversation_id", "value": "{uuid}"},
+            {"name": "session_id", "value": "{uuid}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
       }
     },
     {
@@ -239,6 +411,27 @@
         "ru-RU": "Эмуляция клиента расширения Codex VSCode",
         "ja-JP": "Codex VSCode 拡張クライアントをエミュレート",
         "es-ES": "Emular cliente de la extensión Codex VSCode"
+      },
+      "simulation": {
+        "user_agent": "codex-vscode/0.38.0",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"},
+            {"name": "api-key", "value": "{api_key}"},
+            {"name": "OpenAI-Beta", "value": "responses=experimental"},
+            {"name": "conversation_id", "value": "{uuid}"},
+            {"name": "session_id", "value": "{uuid}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
       }
     },
     {
@@ -263,6 +456,23 @@
         "ru-RU": "Эмуляция клиента Cursor IDE",
         "ja-JP": "Cursor IDE クライアントをエミュレート",
         "es-ES": "Emular cliente Cursor IDE"
+      },
+      "simulation": {
+        "user_agent": "Cursor/0.50.7",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
       }
     },
     {
@@ -287,6 +497,23 @@
         "ru-RU": "Эмуляция клиента Windsurf IDE",
         "ja-JP": "Windsurf IDE クライアントをエミュレート",
         "es-ES": "Emular cliente Windsurf IDE"
+      },
+      "simulation": {
+        "user_agent": "Windsurf/1.5.0",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
       }
     }
   ]

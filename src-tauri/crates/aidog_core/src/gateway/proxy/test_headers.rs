@@ -641,3 +641,256 @@ use super::*;
             "已存在的头应保留"
         );
     }
+
+    // ── simulation 配置驱动：12 client_type × anthropic/openai/gemini 行为等价覆盖 ──
+    //
+    // 验证 apply_client_headers 输出与重构前（match 臂 + per-variant UA + family fn）1:1：
+    //   - UA：default 无 UA；claude_code 家族 claude-cli/<...>；codex 家族 codex*；cursor/windsurf 各自
+    //   - auth 矩阵：anthropic → x-api-key；gemini → x-goog-api-key；openai → Authorization + （codex/cc/default）api-key
+    //   - codex×openai 额外：OpenAI-Beta + conversation_id + session_id（{uuid} 占位符）
+
+    /// 12 client_type 全列表（与 client-types.json value 集合对齐）。
+    const ALL_CLIENT_TYPES: &[&str] = &[
+        "default",
+        "claude_code",
+        "claude_code_vscode",
+        "claude_code_sdk_ts",
+        "claude_code_sdk_py",
+        "claude_code_gh_action",
+        "codex_cli",
+        "codex_tui",
+        "codex_desktop",
+        "codex_vscode",
+        "cursor",
+        "windsurf",
+    ];
+
+    /// 某 client_type 是否应注入 UA（default 不注入，其他 11 个注入）。
+    fn expect_has_ua(client_type: &str) -> bool {
+        client_type != "default"
+    }
+
+    /// 期望 UA 子串（与 client-types.json simulation.user_agent 对齐）。
+    fn expected_ua_substring(client_type: &str) -> Option<&'static str> {
+        match client_type {
+            "default" => None,
+            "claude_code" => Some("claude-cli/1.0.117 (external, cli)"),
+            "claude_code_vscode" => Some("claude-vscode"),
+            "claude_code_sdk_ts" => Some("sdk-ts"),
+            "claude_code_sdk_py" => Some("sdk-py"),
+            "claude_code_gh_action" => Some("claude-code-github-action"),
+            "codex_cli" => Some("codex_cli_rs/"),
+            "codex_tui" => Some("Codex/"),
+            "codex_desktop" => Some("codex desktop/"),
+            "codex_vscode" => Some("codex-vscode/"),
+            "cursor" => Some("Cursor/"),
+            "windsurf" => Some("Windsurf/"),
+            _ => None,
+        }
+    }
+
+    /// 某 client_type × protocol 是否应在 openai 路径叠加 api-key 头
+    /// （小米 token-plan openai 端点要求；cursor/windsurf 不叠加）。
+    fn expect_openai_api_key_header(client_type: &str) -> bool {
+        matches!(
+            client_type,
+            "default"
+                | "claude_code"
+                | "claude_code_vscode"
+                | "claude_code_sdk_ts"
+                | "claude_code_sdk_py"
+                | "claude_code_gh_action"
+                | "codex_cli"
+                | "codex_tui"
+                | "codex_desktop"
+                | "codex_vscode"
+        )
+    }
+
+    /// 某 client_type 是否在 openai 路径叠加 codex extras（OpenAI-Beta + uuid headers）。
+    fn expect_codex_openai_extras(client_type: &str) -> bool {
+        matches!(
+            client_type,
+            "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode"
+        )
+    }
+
+    #[test]
+    fn apply_all_client_types_anthropic_protocol() {
+        let client = reqwest::Client::new();
+        for &c in ALL_CLIENT_TYPES {
+            let rb = client.post("http://localhost");
+            let rb = apply_client_headers(rb, &ct(c), &crate::gateway::models::Protocol::Anthropic, "sk-test-key-1234567890");
+            let h = headers_from_builder(rb);
+            // anthropic → x-api-key 一律
+            assert!(h.contains_key("x-api-key"), "[{c}] anthropic: x-api-key");
+            assert!(!h.contains_key("OpenAI-Beta"), "[{c}] anthropic: no OpenAI-Beta");
+            // UA
+            if expect_has_ua(c) {
+                let ua = h.get("User-Agent").unwrap().to_str().unwrap();
+                assert!(ua.contains(expected_ua_substring(c).unwrap()), "[{c}] UA mismatch: {ua}");
+            } else {
+                assert!(!h.contains_key("User-Agent"), "[{c}] default: no UA");
+            }
+        }
+    }
+
+    #[test]
+    fn apply_all_client_types_openai_protocol() {
+        let client = reqwest::Client::new();
+        for &c in ALL_CLIENT_TYPES {
+            let rb = client.post("http://localhost");
+            let rb = apply_client_headers(rb, &ct(c), &crate::gateway::models::Protocol::OpenAI, "sk-test-key-1234567890");
+            let h = headers_from_builder(rb);
+            assert!(h.contains_key("Authorization"), "[{c}] openai: Authorization");
+            assert!(
+                h.get("Authorization").unwrap().to_str().unwrap().starts_with("Bearer "),
+                "[{c}] openai: Bearer prefix"
+            );
+            // api-key 头（除 cursor/windsurf）
+            assert_eq!(
+                h.contains_key("api-key"),
+                expect_openai_api_key_header(c),
+                "[{c}] openai: api-key expectation mismatch"
+            );
+            // codex extras
+            assert_eq!(
+                h.contains_key("OpenAI-Beta"),
+                expect_codex_openai_extras(c),
+                "[{c}] openai: OpenAI-Beta expectation mismatch"
+            );
+            assert_eq!(
+                h.contains_key("session_id"),
+                expect_codex_openai_extras(c),
+                "[{c}] openai: session_id expectation mismatch"
+            );
+            assert_eq!(
+                h.contains_key("conversation_id"),
+                expect_codex_openai_extras(c),
+                "[{c}] openai: conversation_id expectation mismatch"
+            );
+            // UA
+            if expect_has_ua(c) {
+                let ua = h.get("User-Agent").unwrap().to_str().unwrap();
+                assert!(ua.contains(expected_ua_substring(c).unwrap()), "[{c}] UA mismatch: {ua}");
+            }
+        }
+    }
+
+    #[test]
+    fn apply_all_client_types_gemini_protocol() {
+        let client = reqwest::Client::new();
+        for &c in ALL_CLIENT_TYPES {
+            let rb = client.post("http://localhost");
+            let rb = apply_client_headers(rb, &ct(c), &crate::gateway::models::Protocol::Gemini, "AIza-test-key-1234567890");
+            let h = headers_from_builder(rb);
+            assert!(h.contains_key("x-goog-api-key"), "[{c}] gemini: x-goog-api-key");
+            assert!(!h.contains_key("OpenAI-Beta"), "[{c}] gemini: no OpenAI-Beta");
+            assert!(!h.contains_key("Authorization"), "[{c}] gemini: no Authorization");
+            if expect_has_ua(c) {
+                let ua = h.get("User-Agent").unwrap().to_str().unwrap();
+                assert!(ua.contains(expected_ua_substring(c).unwrap()), "[{c}] UA mismatch: {ua}");
+            }
+        }
+    }
+
+    /// 未知 client_type（JSON 无 entry）→ 等价 default entry：用 default 的 simulation.auth 矩阵
+    /// （PRD R2「等价 default」语义）—— anthropic → x-api-key；gemini → x-goog-api-key；
+    /// openai/其它 → Authorization Bearer + api-key。不注入 UA（default entry user_agent 缺省）。
+    #[test]
+    fn apply_client_headers_unknown_client_type_fallback_bearer() {
+        let client = reqwest::Client::new();
+        let rb = client.post("http://localhost");
+        let rb = apply_client_headers(rb, &ct("brand_new_unknown"), &crate::gateway::models::Protocol::DeepSeek, "sk-key");
+        let h = headers_from_builder(rb);
+        assert!(h.contains_key("Authorization"), "unknown client_type: Bearer fallback");
+        assert!(!h.contains_key("User-Agent"), "unknown client_type: no UA");
+        // DeepSeek → default 兜底 → 应含 api-key（与旧 apply_default_headers 的 _ 分支等价）
+        assert!(h.contains_key("api-key"), "unknown client_type: default entry → api-key present");
+    }
+
+    /// 未知 client_type × anthropic → default entry 兜底 x-api-key（PRD R2 等价 default）。
+    #[test]
+    fn apply_client_headers_unknown_client_type_anthropic_uses_default_entry() {
+        let client = reqwest::Client::new();
+        let rb = client.post("http://localhost");
+        let rb = apply_client_headers(rb, &ct("brand_new_unknown"), &crate::gateway::models::Protocol::Anthropic, "sk-key");
+        let h = headers_from_builder(rb);
+        assert!(h.contains_key("x-api-key"), "unknown + anthropic → x-api-key (default entry)");
+        assert!(!h.contains_key("Authorization"), "unknown + anthropic → no Bearer");
+        assert!(!h.contains_key("User-Agent"), "unknown + anthropic → no UA");
+    }
+
+    /// 未知 client_type × gemini → default entry 兜底 x-goog-api-key。
+    #[test]
+    fn apply_client_headers_unknown_client_type_gemini_uses_default_entry() {
+        let client = reqwest::Client::new();
+        let rb = client.post("http://localhost");
+        let rb = apply_client_headers(rb, &ct("brand_new_unknown"), &crate::gateway::models::Protocol::Gemini, "sk-key");
+        let h = headers_from_builder(rb);
+        assert!(h.contains_key("x-goog-api-key"), "unknown + gemini → x-goog-api-key (default entry)");
+        assert!(!h.contains_key("User-Agent"), "unknown + gemini → no UA");
+    }
+
+    /// build_upstream_headers 12 client_type × anthropic/openai/gemini：UA + auth + 占位符脱敏。
+    #[test]
+    fn build_upstream_headers_all_client_types_protocol_matrix() {
+        let orig = axum::http::HeaderMap::new();
+        let protocols = [
+            (crate::gateway::models::Protocol::Anthropic, "anthropic"),
+            (crate::gateway::models::Protocol::OpenAI, "openai"),
+            (crate::gateway::models::Protocol::Gemini, "gemini"),
+        ];
+        for &c in ALL_CLIENT_TYPES {
+            for (proto, proto_key) in &protocols {
+                let h = build_upstream_headers(
+                    &ct(c),
+                    proto,
+                    "sk-realkey-1234567890",
+                    &orig,
+                    "https://api.example.com",
+                );
+                let m: std::collections::HashMap<&str, &str> =
+                    h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+                assert_eq!(m.get("Content-Type"), Some(&"application/json"), "[{c}/{proto_key}] Content-Type");
+                // UA
+                if expect_has_ua(c) {
+                    let ua = m.get("User-Agent").unwrap_or(&"");
+                    assert!(ua.contains(expected_ua_substring(c).unwrap()), "[{c}/{proto_key}] UA mismatch: {ua}");
+                }
+                // auth redact：api_key 值经 redact_key 后出现在日志镜像中
+                if *proto == crate::gateway::models::Protocol::Anthropic {
+                    let v = m.get("x-api-key").unwrap();
+                    assert!(v.contains("****"), "[{c}/{proto_key}] x-api-key redacted: {v}");
+                } else if *proto == crate::gateway::models::Protocol::Gemini {
+                    let v = m.get("x-goog-api-key").unwrap();
+                    assert!(v.contains("****"), "[{c}/{proto_key}] x-goog-api-key redacted: {v}");
+                } else {
+                    // openai
+                    let v = m.get("Authorization").unwrap();
+                    assert!(v.starts_with("Bearer "), "[{c}/{proto_key}] Bearer prefix");
+                    assert!(v.contains("****"), "[{c}/{proto_key}] Authorization redacted: {v}");
+                }
+                // codex×openai extras
+                assert_eq!(
+                    m.contains_key("OpenAI-Beta"),
+                    expect_codex_openai_extras(c) && *proto == crate::gateway::models::Protocol::OpenAI,
+                    "[{c}/{proto_key}] OpenAI-Beta expectation"
+                );
+            }
+        }
+    }
+
+    /// 占位符引擎：{uuid} 每次调用生成新值（session_id != conversation_id 同一请求内）。
+    #[test]
+    fn apply_codex_openai_uuid_placeholders_distinct() {
+        let client = reqwest::Client::new();
+        let rb = client.post("http://localhost");
+        let rb = apply_client_headers(rb, &ct("codex_tui"), &crate::gateway::models::Protocol::OpenAI, "sk-key");
+        let h = headers_from_builder(rb);
+        let conv = h.get("conversation_id").unwrap().to_str().unwrap();
+        let sess = h.get("session_id").unwrap().to_str().unwrap();
+        assert!(!conv.is_empty() && !sess.is_empty(), "uuid placeholders filled");
+        assert!(conv.contains('-'), "conversation_id uuid-like: {conv}");
+        assert!(sess.contains('-'), "session_id uuid-like: {sess}");
+    }
