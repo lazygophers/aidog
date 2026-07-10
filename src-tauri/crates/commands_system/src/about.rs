@@ -14,7 +14,7 @@ use tauri::Manager;
 
 
 #[derive(serde::Serialize)]
-pub(crate) struct AboutInfo {
+pub struct AboutInfo {
     app_version: String,
     tauri_version: String,
     os: String,
