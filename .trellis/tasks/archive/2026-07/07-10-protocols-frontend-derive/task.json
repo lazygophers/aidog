@@ -1,0 +1,30 @@
+{
+  "id": "protocols-frontend-derive",
+  "name": "protocols-frontend-derive",
+  "title": "前端派生层 + 删 3 常量 + 调用点 async",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-07-10",
+  "completedAt": "2026-07-10",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-10-protocols-from-presets",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "depends_on": [
+    "07-10-protocols-json-schema",
+    "07-10-protocols-rust-enum"
+  ]
+}
