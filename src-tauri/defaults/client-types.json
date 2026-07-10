@@ -1,5 +1,5 @@
 {
-  "last_updated": 1754534400,
+  "last_updated": 1783677800,
   "client_types": [
     {
       "value": "default",
@@ -63,10 +63,22 @@
         "es-ES": "Emular cliente Claude Code CLI (User-Agent anthropic Stainless SDK)"
       },
       "simulation": {
-        "user_agent": "claude-cli/1.0.117 (external, cli)",
+        "user_agent": "claude-cli/2.1.204 (external, cli)",
         "auth": {
           "anthropic": [
-            {"name": "x-api-key", "value": "{api_key}"}
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "anthropic-version", "value": "2023-06-01"},
+            {"name": "anthropic-beta", "value": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advanced-tool-use-2025-11-20,effort-2025-11-24,extended-cache-ttl-2025-04-11"},
+            {"name": "anthropic-dangerous-direct-browser-access", "value": "true"},
+            {"name": "x-app", "value": "cli"},
+            {"name": "x-stainless-arch", "value": "arm64"},
+            {"name": "x-stainless-lang", "value": "js"},
+            {"name": "x-stainless-os", "value": "MacOS"},
+            {"name": "x-stainless-package-version", "value": "0.94.0"},
+            {"name": "x-stainless-retry-count", "value": "0"},
+            {"name": "x-stainless-runtime", "value": "node"},
+            {"name": "x-stainless-runtime-version", "value": "v26.3.0"},
+            {"name": "x-stainless-timeout", "value": "600"}
           ],
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
@@ -106,10 +118,22 @@
         "es-ES": "Emular cliente de la extensión Claude Code VSCode"
       },
       "simulation": {
-        "user_agent": "claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)",
+        "user_agent": "claude-cli/2.1.204 (external, claude-vscode, agent-sdk/0.1.30)",
         "auth": {
           "anthropic": [
-            {"name": "x-api-key", "value": "{api_key}"}
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "anthropic-version", "value": "2023-06-01"},
+            {"name": "anthropic-beta", "value": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advanced-tool-use-2025-11-20,effort-2025-11-24,extended-cache-ttl-2025-04-11"},
+            {"name": "anthropic-dangerous-direct-browser-access", "value": "true"},
+            {"name": "x-app", "value": "cli"},
+            {"name": "x-stainless-arch", "value": "arm64"},
+            {"name": "x-stainless-lang", "value": "js"},
+            {"name": "x-stainless-os", "value": "MacOS"},
+            {"name": "x-stainless-package-version", "value": "0.94.0"},
+            {"name": "x-stainless-retry-count", "value": "0"},
+            {"name": "x-stainless-runtime", "value": "node"},
+            {"name": "x-stainless-runtime-version", "value": "v26.3.0"},
+            {"name": "x-stainless-timeout", "value": "600"}
           ],
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
@@ -149,10 +173,22 @@
         "es-ES": "Emular cliente Claude Code TypeScript SDK"
       },
       "simulation": {
-        "user_agent": "claude-cli/1.0.117 (external, sdk-ts)",
+        "user_agent": "claude-cli/2.1.204 (external, sdk-cli)",
         "auth": {
           "anthropic": [
-            {"name": "x-api-key", "value": "{api_key}"}
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "anthropic-version", "value": "2023-06-01"},
+            {"name": "anthropic-beta", "value": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advanced-tool-use-2025-11-20,effort-2025-11-24,extended-cache-ttl-2025-04-11"},
+            {"name": "anthropic-dangerous-direct-browser-access", "value": "true"},
+            {"name": "x-app", "value": "cli"},
+            {"name": "x-stainless-arch", "value": "arm64"},
+            {"name": "x-stainless-lang", "value": "js"},
+            {"name": "x-stainless-os", "value": "MacOS"},
+            {"name": "x-stainless-package-version", "value": "0.94.0"},
+            {"name": "x-stainless-retry-count", "value": "0"},
+            {"name": "x-stainless-runtime", "value": "node"},
+            {"name": "x-stainless-runtime-version", "value": "v26.3.0"},
+            {"name": "x-stainless-timeout", "value": "600"}
           ],
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
@@ -192,10 +228,22 @@
         "es-ES": "Emular cliente Claude Code Python SDK"
       },
       "simulation": {
-        "user_agent": "claude-cli/1.0.117 (external, sdk-py)",
+        "user_agent": "claude-cli/2.1.204 (external, sdk-py)",
         "auth": {
           "anthropic": [
-            {"name": "x-api-key", "value": "{api_key}"}
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "anthropic-version", "value": "2023-06-01"},
+            {"name": "anthropic-beta", "value": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advanced-tool-use-2025-11-20,effort-2025-11-24,extended-cache-ttl-2025-04-11"},
+            {"name": "anthropic-dangerous-direct-browser-access", "value": "true"},
+            {"name": "x-app", "value": "cli"},
+            {"name": "x-stainless-arch", "value": "arm64"},
+            {"name": "x-stainless-lang", "value": "js"},
+            {"name": "x-stainless-os", "value": "MacOS"},
+            {"name": "x-stainless-package-version", "value": "0.94.0"},
+            {"name": "x-stainless-retry-count", "value": "0"},
+            {"name": "x-stainless-runtime", "value": "node"},
+            {"name": "x-stainless-runtime-version", "value": "v26.3.0"},
+            {"name": "x-stainless-timeout", "value": "600"}
           ],
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
@@ -235,10 +283,22 @@
         "es-ES": "Emular cliente Claude Code GitHub Action"
       },
       "simulation": {
-        "user_agent": "claude-cli/1.0.117 (external, claude-code-github-action)",
+        "user_agent": "claude-cli/2.1.204 (external, claude-code-github-action)",
         "auth": {
           "anthropic": [
-            {"name": "x-api-key", "value": "{api_key}"}
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "anthropic-version", "value": "2023-06-01"},
+            {"name": "anthropic-beta", "value": "claude-code-20250219,interleaved-thinking-2025-05-14,thinking-token-count-2026-05-13,context-management-2025-06-27,prompt-caching-scope-2026-01-05,mid-conversation-system-2026-04-07,advanced-tool-use-2025-11-20,effort-2025-11-24,extended-cache-ttl-2025-04-11"},
+            {"name": "anthropic-dangerous-direct-browser-access", "value": "true"},
+            {"name": "x-app", "value": "cli"},
+            {"name": "x-stainless-arch", "value": "arm64"},
+            {"name": "x-stainless-lang", "value": "js"},
+            {"name": "x-stainless-os", "value": "MacOS"},
+            {"name": "x-stainless-package-version", "value": "0.94.0"},
+            {"name": "x-stainless-retry-count", "value": "0"},
+            {"name": "x-stainless-runtime", "value": "node"},
+            {"name": "x-stainless-runtime-version", "value": "v26.3.0"},
+            {"name": "x-stainless-timeout", "value": "600"}
           ],
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
@@ -286,9 +346,7 @@
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
             {"name": "api-key", "value": "{api_key}"},
-            {"name": "OpenAI-Beta", "value": "responses=experimental"},
-            {"name": "conversation_id", "value": "{uuid}"},
-            {"name": "session_id", "value": "{uuid}"}
+            {"name": "OpenAI-Beta", "value": "responses=experimental"}
           ],
           "gemini": [
             {"name": "x-goog-api-key", "value": "{api_key}"}
@@ -331,9 +389,7 @@
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
             {"name": "api-key", "value": "{api_key}"},
-            {"name": "OpenAI-Beta", "value": "responses=experimental"},
-            {"name": "conversation_id", "value": "{uuid}"},
-            {"name": "session_id", "value": "{uuid}"}
+            {"name": "OpenAI-Beta", "value": "responses=experimental"}
           ],
           "gemini": [
             {"name": "x-goog-api-key", "value": "{api_key}"}
@@ -376,9 +432,7 @@
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
             {"name": "api-key", "value": "{api_key}"},
-            {"name": "OpenAI-Beta", "value": "responses=experimental"},
-            {"name": "conversation_id", "value": "{uuid}"},
-            {"name": "session_id", "value": "{uuid}"}
+            {"name": "OpenAI-Beta", "value": "responses=experimental"}
           ],
           "gemini": [
             {"name": "x-goog-api-key", "value": "{api_key}"}
@@ -421,9 +475,7 @@
           "openai": [
             {"name": "Authorization", "value": "Bearer {api_key}"},
             {"name": "api-key", "value": "{api_key}"},
-            {"name": "OpenAI-Beta", "value": "responses=experimental"},
-            {"name": "conversation_id", "value": "{uuid}"},
-            {"name": "session_id", "value": "{uuid}"}
+            {"name": "OpenAI-Beta", "value": "responses=experimental"}
           ],
           "gemini": [
             {"name": "x-goog-api-key", "value": "{api_key}"}
