@@ -2,7 +2,7 @@
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state/handlers 经 props 从 usePlatformsState 传入。
 //   渲染：页头（搜索 + 添加分组 + 添加平台 + 清理失效）+ GroupsEmbedded（分组段）+ 未分组平台列表 +
 //   ModelTestPanel overlay + groupDrag portal + ShareModal + toast portal。
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { type Platform } from "../../services/api";
@@ -11,7 +11,7 @@ import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
 import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
 import { ShareModal } from "../../components/platforms/ShareModal";
-import { PROTOCOL_COLORS, PROTOCOL_LABELS } from "../../domains/platforms";
+import { getProtocolColorMap, getProtocolLabelMap } from "../../domains/platforms/defaults";
 import type { PlatformsState } from "./usePlatformsState";
 
 export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
@@ -19,7 +19,17 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   cardActions: PlatformCardActions;
   openCreateGroupRef: React.MutableRefObject<(() => void) | null>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // colorMap / labelMap：async 派生自 platform-presets.json；首帧空 map（fallback platform_type key）。
+  const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([getProtocolColorMap(), getProtocolLabelMap(i18n.language)]).then(([c, l]) => {
+      if (!cancelled) { setColorMap(c); setLabelMap(l); }
+    });
+    return () => { cancelled = true; };
+  }, [i18n.language]);
   const {
     platforms, loading, headerActive, headerTotal,
     searchQuery, setSearchQuery,
@@ -95,7 +105,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           {standalonePlatforms.map((p, i) => {
             const isDragging = platDrag?.from === i;
             const draggedPlat = platDrag ? standalonePlatforms[platDrag.from] : null;
-            const draggedColor = draggedPlat ? (PROTOCOL_COLORS[draggedPlat.platform_type] || "var(--accent)") : "";
+            const draggedColor = draggedPlat ? (colorMap[draggedPlat.platform_type] || "var(--accent)") : "";
             return (
               <React.Fragment key={p.id}>
                 {/* Ghost card at insertion point */}
@@ -110,7 +120,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
                   }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: draggedColor, flexShrink: 0 }} />
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{draggedPlat.name}</span>
-                    <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
+                    <span className="badge badge-muted" style={{ fontSize: 10 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
                   </div>
                 )}
                 {/* 未分组平台 pointer 拖拽加入分组（按住卡片空白区拖到分组）；HTML5 DnD 跨区域在 WKWebView 失效故用 pointer events */}
@@ -146,7 +156,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           {platDrag && (() => {
             if (platDrag.to !== standalonePlatforms.length) return null;
             const dp = standalonePlatforms[platDrag.from];
-            const dc = PROTOCOL_COLORS[dp.platform_type] || "var(--accent)";
+            const dc = colorMap[dp.platform_type] || "var(--accent)";
             return (
               <div style={{
                 display: "flex", alignItems: "center", gap: 14, paddingLeft: 44,
@@ -158,7 +168,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
               }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
-                <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[dp.platform_type] || dp.platform_type}</span>
+                <span className="badge badge-muted" style={{ fontSize: 10 }}>{labelMap[dp.platform_type] || dp.platform_type}</span>
               </div>
             );
           })()}
