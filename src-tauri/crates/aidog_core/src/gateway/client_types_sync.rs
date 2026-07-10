@@ -281,6 +281,77 @@ pub(crate) fn validate_structure(body: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// **Reader deep merge**：app data 优先，bundled 补 app data 缺的 client_type entry。
+///
+/// 触发场景（同 `defaults_sync::merge_with_bundled`）：用户 app data 旧，缺 bundled 新增的
+/// client_type。merge 后派生层即时拿全量，不依赖同步链下次覆盖。
+///
+/// 合并规则：
+/// - `client_types` 数组：保留 app data 全部 entry，bundled 的 entry 仅当 `value` 不在 app data
+///   时追加（按 `value` 去重，app data 已有的保留 app 值不覆盖）。
+/// - 顶层 `last_updated`：取 `max(app, bundled)`（同 platform-presets merge 语义）。
+/// - 顶层其他字段：取 app data（向后兼容）。
+///
+/// 异常 fallback：app 或 bundled 非 object / 缺 client_types 字段 → 返另一边整体。
+pub fn merge_with_bundled(app: &serde_json::Value, bundled: &serde_json::Value) -> serde_json::Value {
+    let app_obj = match app.as_object() {
+        Some(o) => o,
+        None => return bundled.clone(),
+    };
+    let bundled_obj = match bundled.as_object() {
+        Some(o) => o,
+        None => return app.clone(),
+    };
+
+    let mut result = app.clone();
+    let result_obj = result.as_object_mut().expect("cloned from app_obj");
+
+    // client_types 数组按 value 去重 merge：app data 有用 app data，缺用 bundled 补
+    let app_arr = app_obj.get("client_types").and_then(|v| v.as_array());
+    let bundled_arr = bundled_obj.get("client_types").and_then(|v| v.as_array());
+    match (app_arr, bundled_arr) {
+        (Some(app_a), Some(bundled_a)) => {
+            let mut merged = app_a.clone();
+            let app_values: std::collections::HashSet<String> = app_a
+                .iter()
+                .filter_map(|e| {
+                    e.get("value")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string())
+                })
+                .collect();
+            for entry in bundled_a.iter() {
+                let v = entry.get("value").and_then(|v| v.as_str());
+                if let Some(v) = v
+                    && !app_values.contains(v)
+                {
+                    merged.push(entry.clone());
+                }
+            }
+            result_obj.insert("client_types".into(), serde_json::Value::Array(merged));
+        }
+        (None, Some(bundled_a)) => {
+            result_obj.insert("client_types".into(), serde_json::Value::Array(bundled_a.clone()));
+        }
+        _ => {}
+    }
+
+    // 顶层 last_updated 取 max（与 defaults_sync 同语义）
+    let app_ts = app_obj.get("last_updated").and_then(|v| v.as_i64());
+    let bundled_ts = bundled_obj.get("last_updated").and_then(|v| v.as_i64());
+    match (app_ts, bundled_ts) {
+        (Some(a), Some(b)) => {
+            result_obj.insert("last_updated".into(), serde_json::json!(a.max(b)));
+        }
+        (None, Some(b)) => {
+            result_obj.insert("last_updated".into(), serde_json::json!(b));
+        }
+        _ => {}
+    }
+
+    result
+}
+
 /// 校验单 entry 的 `simulation` 结构（仅当字段存在时调用）。
 ///
 /// 合法结构：
@@ -638,5 +709,81 @@ mod tests {
     fn sha256_hex_matches_container() {
         let bytes = b"test payload";
         assert_eq!(sha256_hex(bytes), crate::gateway::import_export::container::sha256_hex(bytes));
+    }
+
+    // ===== Reader deep merge 单测 =====
+
+    /// merge：app data 缺某 client_type，bundled 补全（按 value 去重）。
+    #[test]
+    fn merge_client_types_fills_missing_value() {
+        let app = serde_json::json!({
+            "last_updated": 100,
+            "client_types": [
+                {"value": "default", "group": "", "name": {}}
+            ]
+        });
+        let bundled = serde_json::json!({
+            "last_updated": 200,
+            "client_types": [
+                {"value": "default", "group": "", "name": {}},
+                {"value": "claude_code", "group": "x", "name": {}}
+            ]
+        });
+        let merged = merge_with_bundled(&app, &bundled);
+        let arr = merged.get("client_types").unwrap().as_array().unwrap();
+        let values: Vec<&str> = arr.iter().map(|e| e.get("value").unwrap().as_str().unwrap()).collect();
+        assert_eq!(values, vec!["default", "claude_code"]);
+    }
+
+    /// merge：app data 已有 value 保留 app 值（不被 bundled 覆盖）。
+    #[test]
+    fn merge_client_types_keeps_app_entry() {
+        let app = serde_json::json!({
+            "last_updated": 100,
+            "client_types": [
+                {"value": "default", "group": "app-group", "name": {"zh-Hans": "app"}}
+            ]
+        });
+        let bundled = serde_json::json!({
+            "last_updated": 200,
+            "client_types": [
+                {"value": "default", "group": "bundled-group", "name": {"zh-Hans": "bundled"}}
+            ]
+        });
+        let merged = merge_with_bundled(&app, &bundled);
+        let arr = merged.get("client_types").unwrap().as_array().unwrap();
+        assert_eq!(arr.len(), 1);
+        assert_eq!(arr[0].get("group").unwrap().as_str().unwrap(), "app-group");
+    }
+
+    /// merge：last_updated 取 max。
+    #[test]
+    fn merge_client_types_last_updated_max() {
+        let app = serde_json::json!({"last_updated": 100, "client_types": []});
+        let bundled = serde_json::json!({"last_updated": 200, "client_types": []});
+        let merged = merge_with_bundled(&app, &bundled);
+        assert_eq!(merged.get("last_updated").unwrap().as_i64().unwrap(), 200);
+    }
+
+    /// merge：app data 非 object → 返 bundled 全量。
+    #[test]
+    fn merge_client_types_app_not_object_returns_bundled() {
+        let app = serde_json::json!([1, 2, 3]);
+        let bundled = serde_json::json!({"last_updated": 200, "client_types": []});
+        let merged = merge_with_bundled(&app, &bundled);
+        assert_eq!(merged, bundled);
+    }
+
+    /// merge：app data 缺 client_types 字段（异常）→ 用 bundled 的。
+    #[test]
+    fn merge_client_types_app_missing_field() {
+        let app = serde_json::json!({"last_updated": 100});
+        let bundled = serde_json::json!({
+            "last_updated": 200,
+            "client_types": [{"value": "default", "group": "", "name": {}}]
+        });
+        let merged = merge_with_bundled(&app, &bundled);
+        let arr = merged.get("client_types").unwrap().as_array().unwrap();
+        assert_eq!(arr.len(), 1);
     }
 }
