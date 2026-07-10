@@ -121,6 +121,10 @@ function buildFallback(
     const endpoint: PlatformEndpoint = {
       protocol: endpointProtocol,
       base_url: baseUrl,
+      // 与 src-tauri/defaults/client-types.json `codex_tui` entry 对齐（simulation.user_agent = "Codex/0.38.0"）。
+      // 此处属 ccswitch 协议检测启发式的默认值（请求格式协议的小常量例外类，spec frontend/derived-constants.md），
+      // 后端无对应 simulation 真值源（client-types.json 真值源由 Rust 内部消费，前端不感知）。
+      // 改 default 值需同步此字面量。
       client_type: "codex_tui",
     };
     return {
