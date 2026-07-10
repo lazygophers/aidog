@@ -26,9 +26,9 @@ use aidog_core::tray_render::TrayMenuBuild;
 use std::future::Future;
 use std::pin::Pin;
 
-/// TrayMenuBuild 的 commands_platform::tray 实现：把 core 的 refresh_tray_menu 调用桥接到本文件的
-/// build_tray_menu / tray_layout / tray_separator。root aidog crate（popover/app_setup/proxy）
-/// 经 commands_platform::tray::TrayMenuBuildImpl 路径引（C8 cmd-tray 迁 commands-tray）。
+/// TrayMenuBuild 的 commands_tray::tray 实现：把 core 的 refresh_tray_menu 调用桥接到本文件的
+/// build_tray_menu / tray_layout / tray_separator。root aidog crate（app_setup）
+/// 经 commands_tray::tray::TrayMenuBuildImpl 路径引（C8 cmd-tray 迁入）。
 pub struct TrayMenuBuildImpl;
 
 impl TrayMenuBuild for TrayMenuBuildImpl {

@@ -1,5 +1,4 @@
 use aidog_core::shared::*;
-use aidog_core::tray_render::refresh_tray_menu;
 use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
 use aidog_core::logging;
@@ -13,6 +12,7 @@ use serde_json::Value;
 use std::sync::Arc;
 #[allow(unused_imports)]
 use tauri::Manager;
+use tauri::Emitter;
 
 
 pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform, level_priority: Option<i32>) -> Result<(), String> {
@@ -250,7 +250,9 @@ pub async fn platform_set_tray(
         db::clear_tray(&db).await
             .map_err(|e| { tracing::error!(command = "platform_set_tray", error = %e, "clear_tray failed"); e })?;
     }
-    refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl).await?;
+    // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
+    // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
+    let _ = app.emit("tray-refresh", ());
     Ok(())
 }
 
@@ -273,7 +275,9 @@ pub async fn tray_config_set(
     tracing::debug!(command = "tray_config_set", "command invoked");
     db::set_tray_config(&db, &config).await
         .map_err(|e| { tracing::error!(command = "tray_config_set", error = %e, "set_tray_config failed"); e })?;
-    refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl).await?;
+    // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
+    // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
+    let _ = app.emit("tray-refresh", ());
     Ok(())
 }
 
