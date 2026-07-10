@@ -23,7 +23,7 @@ import {
 } from "../themes";
 import { settingsApi } from "../services/api";
 // buildProtocolsFromPresets 由各 consumer 自行 await（hosts 内联派生，无需启动期注入）。
-import { buildProtocolsFromPresets } from "../domains/platforms";
+import { buildProtocolsFromPresets, buildClientTypesFromPresets } from "../domains/platforms";
 
 interface Settings {
   locale: Locale;
@@ -189,6 +189,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       // PROTOCOLS 已删（派生层 buildProtocolsFromPresets 内联 hosts 派生，consumer 各自 await）；
       // 此处仅预热 docPromise 单次 RPC 缓存，让首个 consumer 拿到同步态快。
       buildProtocolsFromPresets().catch(() => { /* best-effort 预热 */ });
+      // CLIENT_TYPES 删除（JSON 派生）：预热 clientTypesDocPromise 单次 RPC 缓存（同上范式）。
+      buildClientTypesFromPresets().catch(() => { /* best-effort 预热 */ });
       const dbPartial = await loadSettingsFromDB();
       if (cancelled) return;
       setSettings((prev) => {

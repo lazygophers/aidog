@@ -1,7 +1,11 @@
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { useEffect, useState } from "react";
-import { getDefaultsJson, syncDefaultsJson } from "../../services/api";
-import type { DefaultsSyncResult } from "../../services/api";
+import {
+  getDefaultsJson, syncDefaultsJson,
+  getClientTypesJson, syncClientTypesJson,
+} from "../../services/api";
+import type { DefaultsSyncResult, ClientTypesSyncResult } from "../../services/api";
 import { formatDateTime } from "../../utils/formatters";
 import type { SystemSettings } from "./useSystemSettings";
 
@@ -210,28 +214,87 @@ export function VersionToastSection({ s }: { s: SystemSettings }) {
 /**
  * defaults.json 同步区：显示当前 last_updated + 「立即检查更新」按钮 + 同步结果反馈。
  * 手动触发无视节流。同步失败不破坏现有功能（reader 端自动回退 bundled）。
+ *
+ * prd `07-10-client-types-json-sync` R8：抽出通用 RemoteJsonSyncSection 后双复用，
+ * client-types 同步 UI 与 defaults 同范式（仅 fetcher / syncer / 文案不同）。
  */
 export function DefaultsSyncSection() {
   const { t } = useTranslation();
+  return (
+    <RemoteJsonSyncSection
+      titleKey="settings.defaultsSync"
+      hintKey="settings.defaultsSyncHint"
+      fetcher={getDefaultsJson}
+      syncer={syncDefaultsJson}
+      lastUpdatedOf={(raw) => {
+        try {
+          const parsed = JSON.parse(raw) as { last_updated?: number };
+          return parsed.last_updated ?? null;
+        } catch {
+          return null;
+        }
+      }}
+      t={t}
+      logTag="defaultsSync"
+      makeErrorResult={(error) => ({ updated: false, lastUpdated: 0, source: "local", error } as DefaultsSyncResult)}
+    />
+  );
+}
+
+/**
+ * client-types.json 同步区（同 DefaultsSyncSection 范式；标题 / 提示走独立 locale key）。
+ */
+export function ClientTypesSyncSection() {
+  const { t } = useTranslation();
+  return (
+    <RemoteJsonSyncSection
+      titleKey="settings.clientTypesSync"
+      hintKey="settings.clientTypesSyncHint"
+      fetcher={getClientTypesJson}
+      syncer={syncClientTypesJson}
+      lastUpdatedOf={(raw) => {
+        try {
+          const parsed = JSON.parse(raw) as { last_updated?: number };
+          return parsed.last_updated ?? null;
+        } catch {
+          return null;
+        }
+      }}
+      t={t}
+      logTag="clientTypesSync"
+      makeErrorResult={(error) => ({ updated: false, lastUpdated: 0, source: "local", error } as ClientTypesSyncResult)}
+    />
+  );
+}
+
+/** 通用远端 JSON 同步区（platform-presets / client-types 共用）：显示 last_updated +
+ * 「立即检查更新」按钮 + 同步结果反馈。手动触发无视节流；失败 reader 端自动回退 bundled。 */
+type AnySyncResult = { updated: boolean; lastUpdated: number; source: string; error?: string };
+function RemoteJsonSyncSection(props: {
+  titleKey: string;
+  hintKey: string;
+  fetcher: () => Promise<string>;
+  syncer: () => Promise<AnySyncResult>;
+  lastUpdatedOf: (raw: string) => number | null;
+  t: TFunction;
+  logTag: string;
+  makeErrorResult: (error: string) => AnySyncResult;
+}) {
+  const { titleKey, hintKey, fetcher, syncer, lastUpdatedOf, t, logTag, makeErrorResult } = props;
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [result, setResult] = useState<DefaultsSyncResult | null>(null);
+  const [result, setResult] = useState<AnySyncResult | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
-    getDefaultsJson()
+    fetcher()
       .then((raw) => {
         if (!alive) return;
-        try {
-          const parsed = JSON.parse(raw) as { last_updated?: number };
-          setLastUpdated(parsed.last_updated ?? null);
-        } catch {
-          setLastUpdated(null);
-        }
+        setLastUpdated(lastUpdatedOf(raw));
       })
       .catch((e) => {
-        console.error("[defaultsSync] getDefaultsJson failed:", e);
+        console.error(`[${logTag}] fetch failed:`, e);
         if (alive) setLoadErr(String(e));
       });
     return () => { alive = false; };
@@ -240,11 +303,11 @@ export function DefaultsSyncSection() {
   const handleSync = async () => {
     setSyncing(true);
     try {
-      const r = await syncDefaultsJson();
+      const r = await syncer();
       setResult(r);
     } catch (e) {
-      console.error("[defaultsSync] syncDefaultsJson failed:", e);
-      setResult({ updated: false, lastUpdated: 0, source: "local", error: String(e) });
+      console.error(`[${logTag}] sync failed:`, e);
+      setResult(makeErrorResult(String(e)));
     } finally {
       setSyncing(false);
     }
@@ -266,9 +329,9 @@ export function DefaultsSyncSection() {
       gap: 12,
     }}>
       <div>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.defaultsSync")}</div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t(titleKey)}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-          {t("settings.defaultsSyncHint")}
+          {t(hintKey)}
         </div>
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>

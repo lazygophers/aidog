@@ -187,9 +187,9 @@ CREATE TABLE IF NOT EXISTS model_price (
                         for ep in &mut eps {
                             if ep.protocol == Protocol::OpenAI
                                 && ep.coding_plan
-                                && ep.client_type == ClientType::CodexTui
+                                && ep.client_type == "codex_tui"
                             {
-                                ep.client_type = ClientType::ClaudeCode;
+                                ep.client_type = "claude_code".to_string();
                                 changed = true;
                             }
                         }

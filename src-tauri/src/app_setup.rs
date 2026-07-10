@@ -162,6 +162,28 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 }
             });
 
+            // client-types.json 同步调度器（同 defaults_sync 模式：启动 hook + 24h 循环）。
+            // 失败仅 warn；不破坏现有功能（reader 端自动回退 bundled）。
+            tauri::async_runtime::spawn(async move {
+                use tracing::Instrument;
+                let startup_span =
+                    tracing::info_span!("client_types_sync_startup", trace_id = %logging::new_trace_id());
+                gateway::client_types_sync::maybe_sync_on_startup()
+                    .instrument(startup_span)
+                    .await;
+                let interval = std::time::Duration::from_secs(24 * 3600);
+                loop {
+                    tokio::time::sleep(interval).await;
+                    let cycle_span = tracing::info_span!(
+                        "client_types_sync_daily",
+                        trace_id = %logging::new_trace_id()
+                    );
+                    gateway::client_types_sync::maybe_sync_on_startup()
+                        .instrument(cycle_span)
+                        .await;
+                }
+            });
+
             // Protocol logo 后台批量同步：启动时预热 `~/.aidog/logos/<protocol>.png`，
             // 三路 fallback（simpleicons → favicon → clearbit），缓存命中跳过，不阻塞启动。
             // 非 DB 依赖预热场景：clone 现有 Db handle + app_data_dir 后 spawn，失败仅 debug log。

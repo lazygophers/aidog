@@ -1961,5 +1961,7 @@
   "logs.clearDone": "クリア済み",
   "logs.cleaning": "清理中...",
   "logs.cleanupDisabledHint": "永久保持モード — 期限切れログはありません",
-  "platform.models_placeholder": "例: claude-sonnet-4-5"
+  "platform.models_placeholder": "例: claude-sonnet-4-5",
+  "settings.clientTypesSync": "クライアントエミュレート型の同期",
+  "settings.clientTypesSyncHint": "GitHub からクライアントタイプ辞書（13 エントリ、多言語 name/desc）を取得し、新しい場合はローカルに書き込みます"
 }

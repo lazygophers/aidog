@@ -1961,5 +1961,7 @@
   "logs.clearDone": "Geleert",
   "logs.cleaning": "Wird bereinigt...",
   "logs.cleanupDisabledHint": "Dauerhaft speichern — keine abgelaufenen Protokolle zum Bereinigen",
-  "platform.models_placeholder": "z. B. claude-sonnet-4-5"
+  "platform.models_placeholder": "z. B. claude-sonnet-4-5",
+  "settings.clientTypesSync": "Client-Emulationstypen-Sync",
+  "settings.clientTypesSyncHint": "Client-Typ-Katalog (13 Einträge mit mehrsprachigem Name/Beschreibung) von GitHub abrufen; bei neuerer Version lokal schreiben"
 }

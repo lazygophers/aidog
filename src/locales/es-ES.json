@@ -1939,5 +1939,7 @@
   "platform.windows_dim_month": "Día del mes",
   "platform.models_placeholder": "ej. claude-sonnet-4-5",
   "action.moveDown": "Bajar",
-  "action.moveUp": "Subir"
+  "action.moveUp": "Subir",
+  "settings.clientTypesSync": "Sincronización de tipos de emulación de cliente",
+  "settings.clientTypesSyncHint": "Obtener el catálogo de tipos de cliente (13 entradas con nombre/descripción multilingüe) desde GitHub; escribir localmente cuando sea más reciente"
 }

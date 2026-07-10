@@ -6,6 +6,8 @@ use aidog_core::shared::aidog_data_dir;
 
 const BUNDLED: &str = include_str!("../../defaults/platform-presets.json");
 
+const CLIENT_TYPES_BUNDLED: &str = include_str!("../../defaults/client-types.json");
+
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn get_defaults_json() -> Result<String, String> {
@@ -36,12 +38,50 @@ pub async fn get_defaults_json() -> Result<String, String> {
     Ok(BUNDLED.to_string())
 }
 
+/// client-types.json 读取：app data (`~/.aidog/client-types.json`) 优先 → 回退 bundled。
+/// 同 get_defaults_json 模式（schema gate 失败 / 损坏 → bundled）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+pub async fn get_client_types_json() -> Result<String, String> {
+    tracing::debug!(command = "get_client_types_json", "command invoked");
+    if let Ok(dir) = aidog_data_dir() {
+        let path = dir.join("client-types.json");
+        if path.exists() {
+            match std::fs::read_to_string(&path) {
+                Ok(content) if content.trim().is_empty() => {
+                    tracing::warn!(path = %path.display(), "client-types.json empty, fallback to bundled");
+                }
+                Ok(content) => {
+                    match serde_json::from_str::<serde_json::Value>(&content) {
+                        Ok(_) => {
+                            tracing::debug!(source = "app_data", "client-types.json served from app data");
+                            return Ok(content);
+                        }
+                        Err(e) => tracing::warn!(error = %e, path = %path.display(), "client-types.json parse failed, fallback to bundled"),
+                    }
+                }
+                Err(e) => tracing::warn!(error = %e, path = %path.display(), "read client-types.json failed, fallback to bundled"),
+            }
+        }
+    }
+    tracing::debug!(source = "bundled", "client-types.json served from bundled");
+    Ok(CLIENT_TYPES_BUNDLED.to_string())
+}
+
 /// platform-presets.json 同步（jsDelivr 主 + raw fallback）。无视节流——前端手动按钮专用。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn sync_defaults_json() -> Result<aidog_core::gateway::defaults_sync::DefaultsSyncResult, String> {
     tracing::debug!(command = "sync_defaults_json", "command invoked");
     Ok(aidog_core::gateway::defaults_sync::sync_defaults_json().await)
+}
+
+/// client-types.json 同步（jsDelivr 主 + raw fallback）。无视节流——前端手动按钮专用。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+pub async fn sync_client_types_json() -> Result<aidog_core::gateway::client_types_sync::ClientTypesSyncResult, String> {
+    tracing::debug!(command = "sync_client_types_json", "command invoked");
+    Ok(aidog_core::gateway::client_types_sync::sync_client_types_json().await)
 }
 
 /// 返回 protocol logo 缓存文件路径（前端 `convertFileSrc` 用）。文件不存在/无缓存目录返空串。

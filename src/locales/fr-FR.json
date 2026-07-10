@@ -1961,5 +1961,7 @@
   "logs.clearDone": "Vidé",
   "logs.cleaning": "Nettoyage...",
   "logs.cleanupDisabledHint": "Mode conservation illimitée — aucun journal expiré à nettoyer",
-  "platform.models_placeholder": "ex. claude-sonnet-4-5"
+  "platform.models_placeholder": "ex. claude-sonnet-4-5",
+  "settings.clientTypesSync": "Sync des types d'émulation client",
+  "settings.clientTypesSyncHint": "Récupérer le catalogue des types de client (13 entrées avec nom/description multilingues) depuis GitHub ; écriture locale si plus récent"
 }

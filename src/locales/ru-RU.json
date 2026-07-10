@@ -1961,5 +1961,7 @@
   "logs.clearDone": "Очищено",
   "logs.cleaning": "Очистка...",
   "logs.cleanupDisabledHint": "Режим хранения навсегда — нет истёкших журналов для очистки",
-  "platform.models_placeholder": "напр. claude-sonnet-4-5"
+  "platform.models_placeholder": "напр. claude-sonnet-4-5",
+  "settings.clientTypesSync": "Синхронизация типов эмуляции клиента",
+  "settings.clientTypesSyncHint": "Получить каталог типов клиента (13 записей с многоязычным name/desc) из GitHub; записать локально при более новой версии"
 }

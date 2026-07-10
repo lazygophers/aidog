@@ -72,7 +72,7 @@ use super::test_support::*;
         let eps = vec![crate::gateway::models::PlatformEndpoint {
             protocol: crate::gateway::models::Protocol::OpenAI,
             base_url: "https://api.openai.com/v1".to_string(),
-            client_type: crate::gateway::models::ClientType::default(),
+            client_type: "default".to_string(),
             coding_plan: false,
         }];
         let json = serialize_endpoints(&eps);

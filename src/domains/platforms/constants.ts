@@ -1,4 +1,4 @@
-import type { Protocol, ClientType, ModelSlot } from "../../services/api";
+import type { Protocol, ModelSlot } from "../../services/api";
 
 /** 支持的协议选项（含 coding plan 变体）。
  *  派生自 platform-presets.json（见 defaults.ts::buildProtocolsFromPresets）。 */
@@ -16,25 +16,11 @@ export const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "gemini", label: "Gemini" },
 ];
 
-/** 客户端模拟选项：用于通过上游客户端校验 */
-export const CLIENT_TYPES: { value: ClientType; labelKey?: string; label?: string; group: string }[] = [
-  // 默认
-  { value: "default", labelKey: "platform.mockDefault", group: "" },
-  // Claude Code 家族
-  { value: "claude_code", label: "Claude Code CLI", group: "Claude Code" },
-  { value: "claude_code_vscode", label: "Claude Code VSCode", group: "Claude Code" },
-  { value: "claude_code_sdk_ts", label: "Claude Code SDK (TS)", group: "Claude Code" },
-  { value: "claude_code_sdk_py", label: "Claude Code SDK (Python)", group: "Claude Code" },
-  { value: "claude_code_gh_action", label: "Claude Code GitHub Action", group: "Claude Code" },
-  // Codex 家族
-  { value: "codex_cli", label: "Codex CLI (Rust)", group: "Codex" },
-  { value: "codex_tui", label: "Codex TUI", group: "Codex" },
-  { value: "codex_desktop", label: "Codex Desktop", group: "Codex" },
-  { value: "codex_vscode", label: "Codex VSCode", group: "Codex" },
-  // IDE
-  { value: "cursor", label: "Cursor", group: "IDE" },
-  { value: "windsurf", label: "Windsurf", group: "IDE" },
-];
+/** 客户端模拟选项已迁移到 JSON 派生层（见 defaults.ts::buildClientTypesFromPresets）。
+ *  真值源 `src-tauri/defaults/client-types.json`（12 entry：1 默认 + 5 Claude Code
+ *  + 4 Codex + 2 IDE），前端 invoke `get_client_types_json` 后按 locale 派生 label，
+ *  禁直读 github / 文件系统。
+ *  旧模块级 CLIENT_TYPES 常量已删除（见 prd `07-10-client-types-json-sync`）。 */
 
 /** 请求格式协议 label（仅 5 条 endpoint 协议；平台类型 label 由 JSON name 经
  *  getProtocolLabelMap 派生）。PROTOCOL_LABELS 5 条与 ENDPOINT_PROTOCOLS 5 条同集，
