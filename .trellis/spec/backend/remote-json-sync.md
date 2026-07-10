@@ -53,10 +53,19 @@ mode: sediment
 - 启动 hook 检测：本地 `<file>.json` 实际 sha256 ≠ `.hash` 快照 → 判用户手工修改 → **跳过自动同步**（保用户定制）
 - 手动按钮强制覆盖 + 重置快照（用户显式触发）
 
-### 7. reader + bundled fallback (MUST)
+### 7. reader + bundled deep merge (MUST)
 
-- `get_<x>_json` command reader 优先级：`~/.aidog/<file>.json`（app data，sync 写入）→ 缺失/损坏/schema gate 失败回退 `include_str!("../../../../defaults/<file>.json")` bundled（编译期 `include_str!` 注入）
-- 打包时 bundled 已是最新 master 版本；`~/.aidog/` 是运行期同步结果
+- `get_<x>_json` command reader 优先级：`~/.aidog/<file>.json`（app data，sync 写入）→ **deep merge** bundled（`include_str!` 编译期注入）补 app data 缺的 key → 缺失/损坏/schema gate 失败回退 bundled 全量
+- **deep merge 语义 (MUST)**：app data 优先（已有 key 保留，保用户定制 / endpoint flag），bundled 仅补 app data 缺的 key（protocol entry / client-type entry）；非整体 fallback（避免 app data 旧缺新 key 时派生层拿不到，如 app data 旧缺 glm_coding → reader merge 即时补全 → 派生层展示正确）
+- **顶层 `last_updated` 取 max(app, bundled)**（关键：reader 返 merge JSON 仅给派生层展示，**不写盘**；sync 的 `read_local_last_updated` 仍读 app data 原文件，故 max 不污染 sync 比对 —— app 旧 + bundled 新 → 取新 → 同步链仍判需更新触发覆盖）
+- **fallback 链 (MUST)**：app data 缺失/空/损坏/非 object/缺顶层集合字段（`protocols` / `client_types`）→ 返 bundled 全量（向后兼容，同原 fallback 语义）
+- 打包时 bundled 已是最新 master 版本；`~/.aidog/` 是运行期同步结果（可能旧于 bundled，故 deep merge 补缺）
+
+**验收（reader merge 单测矩阵，MUST）**：
+- app 缺 key 时 bundled 补全（synthetic + 真 BUNDLED 集成，如 platform-presets 删 glm_coding 模拟旧 app data → merge 后必含）
+- app 已有 key 保留不覆盖（保 endpoint flag 用户定制 / app 独有 protocol 保留）
+- 顶层 last_updated max（双向：app > bundled / bundled > app；app 缺 ts 用 bundled）
+- app 缺失/非 object/缺顶层集合字段 → bundled 全量 fallback
 
 ## 数据流架构 (MUST，禁前端直读 github)
 
@@ -87,6 +96,7 @@ grep -n 'maybe_sync_on_startup\|spawn_daily_sync\|sync_now' crates/aidog_core/sr
 grep -n 'fn validate_structure' crates/aidog_core/src/gateway/<x>_sync.rs  # schema gate
 grep -n 'write_hash_snapshot\|is_user_modified\|\.hash' crates/aidog_core/src/gateway/<x>_sync.rs  # .hash
 grep -n 'fn get_<x>_json\|include_str!' src/commands/defaults.rs  # reader + bundled
+grep -n 'fn merge_with_bundled\|merge_top_last_updated' crates/aidog_core/src/gateway/<x>_sync.rs  # reader deep merge
 
 # 启动 + 定时器 + command 接入
 grep -n '<x>_sync::maybe_sync\|<x>_sync::spawn_daily' src/app_setup.rs  # 启动 + 定时
@@ -103,6 +113,7 @@ grep -n 'include_str!.*defaults/<file>.json' crates/aidog_core/src/gateway/<x>_s
 
 - task 07-09-*（platform-presets 同步首次落地，`defaults_sync.rs` 先例建立 7 件套）
 - task 07-10-client-types-json-sync（`client_types_sync.rs` 第 2 次实例化，照抄 `defaults_sync.rs` 全套，含 11 单测；`get_client_types_json` reader + `sync_client_types_json` command + `app_setup.rs` 启动 hook / 24h 循环 + `ClientTypesSyncSection` 手动按钮 UI + 8 locale 反馈文案）
+- task 07-10-protocol-name-display（reader **deep merge** 范式落地：`defaults_sync.rs` + `client_types_sync.rs` 各加 `merge_with_bundled` + `merge_top_last_updated`；reader `get_defaults_json` / `get_client_types_json` 改 deep merge；13 单测含真 BUNDLED glm_coding 补全集成；app data 旧缺 glm_coding → reader merge 补全 → 派生层 `getProtocolLabel` 展示 preset name。同步链诊断结论：无 bug，24h 节流未到，reader merge 根治展示不依赖同步时序）
 
 ## Cross-reference
 

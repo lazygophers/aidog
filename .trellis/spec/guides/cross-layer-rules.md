@@ -138,6 +138,15 @@ Rust 执行层（如 proxy headers 注入）写死 per-variant dispatch (`match 
 
 - **`build_upstream_headers` 日志镜像 (MUST)**: 日志/审计路径（如 `build_upstream_headers`）MUST 复用同一 simulation 配置（apply 与 log 同源，禁日志路径单独 hardcode 一份；redact_key 脱敏 Authorization 等）
 
+- **注入路径 invariant 对称律 (MUST)**: 配置驱动 header 注入路径（`apply_client_headers` 实发推送 + `build_upstream_headers` 日志镜像推送）与**入站透传路径**（`passthrough_convert_headers`）是**三条独立 header 推送链**。任一 header invariant（strip / redact / transform）MUST **三路对称实现**，**禁假设 A 路覆盖 B 路**。原 JSON 配置不含该 header 时漏洞不可观察（simulation 注入路径长期只推 `x-api-key`，无 `anthropic-beta`，故 `strip_anthropic_beta_for_third_party` 漏 simulation 路径长期不炸）；新加 header（如 `anthropic-beta`）后立破坏 invariant（第三方 anthropic 端点收 beta → GLM 400 code 1210）。**每加一个 simulation header，MUST 回查该 header 是否有既存 invariant 需对称应用到注入路径**。
+
+**验收断言（注入路径 invariant 对称，grep 三处对称，MUST）**:
+```bash
+# 任一 header invariant 函数（如 strip_anthropic_beta_for_third_party）MUST 在三处对称调用
+grep -n 'strip_anthropic_beta_for_third_party' crates/aidog_core/src/gateway/proxy/headers.rs
+# 期望 ≥3 命中：passthrough_convert_headers（透传）+ apply_client_headers（注入 apply）+ build_upstream_headers（注入日志）
+```
+
 **验收断言（grep 可复用）**:
 ```bash
 # match 臂 + per-variant fn + variant 字面量全删（仅注释残留）
