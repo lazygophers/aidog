@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/crate-boundaries.md", "reason": "workspace 边界 5 规则 + 迁移三件齐 + 5a/5b + C8 复查清单 + grep 验收 —— C8 cmd-tray 落地复用 (tray.rs 从 commands_platform 临时居所迁 commands_tray; C4 复查 platform.rs:253,276 改 emit tray-refresh; 删 mock_app_with_db 最后 caller test_popover 迁后)"}
+{"file": ".trellis/spec/backend/cargo-workspace.md", "reason": "workspace 重构过程契约 (核心提取下沉防循环) —— 迁移范式参考"}
+{"file": ".trellis/tasks/07-10-commands-restructure/prd.md", "reason": "parent prd 决策 3 (commands_* 禁互依赖 + 方案 A event 解耦 tray-refresh 复用) + R3 commands-tray 域文件映射 (tray/tray_render/popover, popover 域重划理由) + C4 复查清单 platform.rs:253,276"}
