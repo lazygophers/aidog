@@ -1,7 +1,7 @@
 //! Tauri command 实现按领域下沉到子模块（lib.rs 仅做 glue + handler 注册）。
 //! 纯结构搬移，零行为变更。
 
-pub mod cli_env;
+// cli_env 下沉 commands_cli_env crate（C9）；
 // hooks / sync_settings / tray_render 下沉 aidog_core（C2 core-extract）；
 // startup.rs generate_handler 直接用 `aidog_core::hooks::*` / `aidog_core::sync_settings::*`
 // 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
