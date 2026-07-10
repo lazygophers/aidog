@@ -128,6 +128,9 @@ commands_platform = { path = "crates/commands_platform" }
 # C4 commands-proxy：proxy/proxy_log/proxy_timeout/middleware/mitm 5 域迁此 crate。
 # 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
 commands_proxy = { path = "crates/commands_proxy" }
+# C5 commands-config：settings/defaults 2 域迁此 crate（hooks/sync_settings 源已 C2 下沉 aidog_core）。
+# 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
+commands_config = { path = "crates/commands_config" }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
