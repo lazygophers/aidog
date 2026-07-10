@@ -3,7 +3,7 @@
   "name": "app-wiring",
   "title": "C10 app crate wiring + Tauri 验证",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
