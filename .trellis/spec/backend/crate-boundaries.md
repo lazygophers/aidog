@@ -1,6 +1,6 @@
 ---
 updated: 2026-07-10
-rewrite-version: 1
+rewrite-version: 2
 authored-by: trellisx-spec
 mode: sediment
 ---
@@ -54,9 +54,26 @@ workspace 拓扑（commands-restructure 落地后）：`crates/{aidog_core, comm
 - 迁 command 文件入 crate 时 MUST 三件齐: ① 源文件 `git mv` 入 `crates/commands_<X>/src/`（含 test_*.rs）② `crates/commands_<X>/{Cargo.toml,src/lib.rs}` 填齐（pub mod + deps 对齐同域先例）③ root `src-tauri/Cargo.toml` `[dependencies]` 加 `commands_<X> = { path = "crates/commands_<X>" }`
 - 路径迁移: 源文件内 `crate::commands::<Y>::` → `commands_<X>::`（跨 crate）/ `aidog_core::`（core 下沉的）；`crate::gateway::` → `aidog_core::gateway::`；测试 `use crate::commands::test_harness::*` → `use aidog_test_util::*`
 - `src/commands.rs` 删迁出域的 `pub mod <Y>;`；`src/startup.rs` generate_handler 迁出域 `crate::commands::<Y>::` → `commands_<X>::`
-- 迁后 root 死代码清理: root `src/commands/test_harness.rs` 内仅被已迁 caller 用的 mock fn 成死代码 → 删（clippy never_used）
+- 迁后 root 死代码清理: root `src/commands/test_harness.rs` 内仅被已迁 caller 用的 mock fn 成死代码 → 删（clippy never_used）。**多 crate 共享 mock 需查全 caller**：仅当本 task 迁走**所有** caller 后才删（如 `mock_app_with_db` 被 C6/C7/C8 三批 test 用，C6 迁 5 个后仍有 C7/C8 3 caller → C6 不删，C8 迁最后 caller 后才删）
 - 违反后果: build 红（mod 漏 / dep 漏 / 路径漏改）或死代码积累
 - 验收: `grep crate::commands::<迁出域>` in `src/` MUST 0 残留；`cargo build/test/clippy --workspace` 全绿（clippy warning 数 = baseline，0 new）
+
+#### 5a. env! / include_bytes! / include_str! 编译期注入独立 build.rs (MUST)
+
+- 含 `env!("VAR")` / `include_bytes!` / 编译期注入的源文件迁 commands_* crate 时，**env! 不跨 crate 传递**（root build.rs 注入的 env 变量仅 root crate 可见）→ 本 crate **MUST 独立 build.rs** 重新注入
+- 独立 build.rs 规格：同 root build.rs 注入逻辑（如 `git rev-parse HEAD` + `SystemTime` epoch 秒 + 失败回退 "unknown"）；**lib crate 省略 `tauri_build::build()`**（仅 binary/app crate 需要）；`rerun-if-changed` 指向 root `.git/HEAD` 相对路径（`crates/<X>/` → `../../../.git/HEAD`）
+- 违反后果: env! 变量本 crate 读到 "unknown"/空 → about/version 命令返回错误信息（无 `private_interfaces` lint 警告，运行期静默错误）
+- 验收: `cargo build` 时 env! 变量实际注入 —— 跑 `cargo test` 专用 test 或运行期验命令返回值非 "unknown"/非空；`grep 'env!("' crates/commands_<X>/src/` 命中 → 该 crate MUST 有 build.rs 注入对应变量
+- 先例: task 07-10-cmd-system（`about.rs` 的 `env!("AIDOG_GIT_COMMIT")` / `env!("AIDOG_BUILD_TIME")` → `crates/commands_system/build.rs` 独立注入，rerun-if-changed `../../../.git/HEAD`，省略 tauri_build::build()）
+
+#### 5b. pub 可见性放宽（cross-crate 注册类型 / helper）(MUST)
+
+- `#[tauri::command]` 的**返回类型** MUST ≥ fn 可见度（`private_interfaces` lint 捕获不足，返回 struct 若 `pub(crate)` 而 command fn `pub` → lint 报警）→ 迁 crate 后这些类型 MUST `pub(crate) → pub`
+- 被 root/他 crate 直接调用的 helper fn/struct（非 #[tauri::command]，如 `app_setup.rs` startup 期调的迁移/加载函数）MUST `pub(crate) → pub`（cross-crate caller 需公开可见度）
+- **私有不必要泄露禁放宽**：域内 helper（仅本 crate 内部 mod 间调用）保持 `pub(crate)`，无 cross-crate caller 禁改 pub
+- 违反后果: build 红（`private type in public interface`）或 cross-crate caller `unresolved`；过度放宽 → 域封装泄露
+- 验收: `grep 'pub(crate).*fn\|pub(crate).*struct' crates/commands_<X>/src/` 每项核有无 cross-crate caller（root app_setup.rs / startup.rs generate_handler）—— 有则 pub，无则保持 pub(crate)；`cargo build` 零 `private_interfaces` warning
+- 先例: task 07-10-cmd-system（`AboutInfo` / `PathEntry` 类型 + `app_log::load_app_log_settings_from_db` / `migrate_log_settings_file_to_db` helper pub 放宽 3 处，均 cross-crate caller 或 lint 必要；域内 `expand_path` 等 helper 保持 pub(crate)）
 
 ## C8 复查清单模式 (MUST，迁移期临时合法 → 后续 task 改)
 
