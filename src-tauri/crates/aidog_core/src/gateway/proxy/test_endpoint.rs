@@ -53,11 +53,11 @@ use super::*;
     #[test]
     fn select_endpoint_coding_plan_exclusivity() {
         use super::select_endpoint_for_protocol as sel;
-        use super::super::models::{ClientType, PlatformEndpoint, Protocol};
+        use super::super::models::{PlatformEndpoint, Protocol};
         let ep = |proto: Protocol, url: &str, cp: bool| PlatformEndpoint {
             protocol: proto,
             base_url: url.to_string(),
-            client_type: ClientType::ClaudeCode,
+            client_type: "claude_code".to_string(),
             coding_plan: cp,
         };
 

@@ -1939,5 +1939,7 @@
   "logs.clearDone": "Cleared",
   "logs.cleaning": "Cleaning...",
   "logs.cleanupDisabledHint": "Retention forever mode — no expired logs to clean up",
-  "platform.models_placeholder": "e.g. claude-sonnet-4-5"
+  "platform.models_placeholder": "e.g. claude-sonnet-4-5",
+  "settings.clientTypesSync": "Client emulation types sync",
+  "settings.clientTypesSyncHint": "Pull client type catalog (13 entries with multilingual name/desc) from GitHub; write locally when newer"
 }

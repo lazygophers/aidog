@@ -66,7 +66,7 @@ pub async fn model_test(
             .unwrap_or(&platform.endpoints[0]);
         (ep.protocol.clone(), ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan)
     } else {
-        (platform.platform_type.clone(), platform.base_url.clone(), ClientType::default(), false)
+        (platform.platform_type.clone(), platform.base_url.clone(), "default".to_string(), false)
     };
 
     let (mut req_body, mut api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.platform_type);

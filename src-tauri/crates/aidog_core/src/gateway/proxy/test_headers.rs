@@ -1,5 +1,11 @@
 use super::*;
 
+    /// ClientType = String 后的测试构造 helper：避免每处散落 `.to_string()`。
+    /// 所有 `ClientType::Variant` 在本文件内统一改写为 `ct("<serde rename 值>")`。
+    fn ct(s: &str) -> ClientType {
+        s.to_string()
+    }
+
     #[test]
     fn build_upstream_headers_passes_through_and_overrides_auth() {
         let mut orig = axum::http::HeaderMap::new();
@@ -10,7 +16,7 @@ use super::*;
 
         // 官方 Anthropic 上游 → anthropic-beta 保留（依赖 beta 协商 1m-context/thinking 等能力）
         let h = build_upstream_headers(
-            &ClientType::ClaudeCode,
+            &ct("claude_code"),
             &crate::gateway::models::Protocol::Anthropic,
             "sk-realkey-1234567890",
             &orig,
@@ -39,7 +45,7 @@ use super::*;
 
         // GLM anthropic 兼容端点 → 剔 anthropic-beta，其余 SDK 头照常透传
         let h = build_upstream_headers(
-            &ClientType::ClaudeCode,
+            &ct("claude_code"),
             &crate::gateway::models::Protocol::Anthropic,
             "sk-realkey-1234567890",
             &orig,
@@ -159,7 +165,7 @@ use super::*;
     fn build_upstream_headers_codex_openai() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::CodexCli,
+            &ct("codex_cli"),
             &crate::gateway::models::Protocol::OpenAI,
             "sk-test-key-1234567890",
             &orig,
@@ -177,7 +183,7 @@ use super::*;
     fn build_upstream_headers_codex_tui_openai() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::CodexTui,
+            &ct("codex_tui"),
             &crate::gateway::models::Protocol::OpenAI,
             "sk-test-key-1234567890",
             &orig,
@@ -191,7 +197,7 @@ use super::*;
     fn build_upstream_headers_codex_anthropic() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::CodexCli,
+            &ct("codex_cli"),
             &crate::gateway::models::Protocol::Anthropic,
             "sk-test-key-1234567890",
             &orig,
@@ -208,7 +214,7 @@ use super::*;
     fn build_upstream_headers_cursor_and_windsurf() {
         let orig = axum::http::HeaderMap::new();
         let h_cursor = build_upstream_headers(
-            &ClientType::Cursor,
+            &ct("cursor"),
             &crate::gateway::models::Protocol::Anthropic,
             "sk-test-key-1234567890",
             &orig,
@@ -218,7 +224,7 @@ use super::*;
         assert_eq!(m_cursor.get("User-Agent"), Some(&"Cursor/0.50.7"));
 
         let h_windsurf = build_upstream_headers(
-            &ClientType::Windsurf,
+            &ct("windsurf"),
             &crate::gateway::models::Protocol::Anthropic,
             "sk-test-key-1234567890",
             &orig,
@@ -232,7 +238,7 @@ use super::*;
     fn build_upstream_headers_default_client_gemini() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::Default,
+            &ct("default"),
             &crate::gateway::models::Protocol::Gemini,
             "AIza-test-key-1234567890",
             &orig,
@@ -247,7 +253,7 @@ use super::*;
     fn build_upstream_headers_default_client_openai() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::Default,
+            &ct("default"),
             &crate::gateway::models::Protocol::OpenAI,
             "sk-test-key-1234567890",
             &orig,
@@ -264,10 +270,10 @@ use super::*;
     fn build_upstream_headers_claude_code_variants() {
         let orig = axum::http::HeaderMap::new();
         let variants = [
-            (ClientType::ClaudeCodeVscode, "claude-vscode"),
-            (ClientType::ClaudeCodeSdkTs, "sdk-ts"),
-            (ClientType::ClaudeCodeSdkPy, "sdk-py"),
-            (ClientType::ClaudeCodeGhAction, "claude-code-github-action"),
+            (ct("claude_code_vscode"), "claude-vscode"),
+            (ct("claude_code_sdk_ts"), "sdk-ts"),
+            (ct("claude_code_sdk_py"), "sdk-py"),
+            (ct("claude_code_gh_action"), "claude-code-github-action"),
         ];
         for (ct, expected_part) in &variants {
             let h = build_upstream_headers(
@@ -288,8 +294,8 @@ use super::*;
     fn build_upstream_headers_codex_variants() {
         let orig = axum::http::HeaderMap::new();
         let variants = [
-            (ClientType::CodexDesktop, "codex desktop"),
-            (ClientType::CodexVscode, "codex-vscode"),
+            (ct("codex_desktop"), "codex desktop"),
+            (ct("codex_vscode"), "codex-vscode"),
         ];
         for (ct, expected_part) in &variants {
             let h = build_upstream_headers(
@@ -310,7 +316,7 @@ use super::*;
     fn build_upstream_headers_cursor_openai() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::Cursor,
+            &ct("cursor"),
             &crate::gateway::models::Protocol::OpenAI,
             "sk-test-key-1234567890",
             &orig,
@@ -325,7 +331,7 @@ use super::*;
     fn build_upstream_headers_windsurf_gemini() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::Windsurf,
+            &ct("windsurf"),
             &crate::gateway::models::Protocol::Gemini,
             "AIza-test-key-1234567890",
             &orig,
@@ -409,7 +415,7 @@ use super::*;
     fn build_upstream_headers_claude_code_gemini() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::ClaudeCode,
+            &ct("claude_code"),
             &crate::gateway::models::Protocol::Gemini,
             "AIza-test-key-1234567890",
             &orig,
@@ -423,7 +429,7 @@ use super::*;
     fn build_upstream_headers_claude_code_openai_third_party() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::ClaudeCode,
+            &ct("claude_code"),
             &crate::gateway::models::Protocol::OpenAI,
             "sk-test-key-1234567890",
             &orig,
@@ -438,7 +444,7 @@ use super::*;
     fn build_upstream_headers_codex_gemini() {
         let orig = axum::http::HeaderMap::new();
         let h = build_upstream_headers(
-            &ClientType::CodexCli,
+            &ct("codex_cli"),
             &crate::gateway::models::Protocol::Gemini,
             "AIza-test-key-1234567890",
             &orig,
@@ -459,7 +465,7 @@ use super::*;
     fn apply_client_headers_default_anthropic() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Default, &crate::gateway::models::Protocol::Anthropic, "sk-test-key-1234");
+        let rb = apply_client_headers(rb, &ct("default"), &crate::gateway::models::Protocol::Anthropic, "sk-test-key-1234");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-api-key"));
     }
@@ -468,7 +474,7 @@ use super::*;
     fn apply_client_headers_default_gemini() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Default, &crate::gateway::models::Protocol::Gemini, "AIza-key");
+        let rb = apply_client_headers(rb, &ct("default"), &crate::gateway::models::Protocol::Gemini, "AIza-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-goog-api-key"));
     }
@@ -477,7 +483,7 @@ use super::*;
     fn apply_client_headers_default_openai() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Default, &crate::gateway::models::Protocol::OpenAI, "sk-key");
+        let rb = apply_client_headers(rb, &ct("default"), &crate::gateway::models::Protocol::OpenAI, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("Authorization"));
         assert!(h.contains_key("api-key"));
@@ -487,7 +493,7 @@ use super::*;
     fn apply_client_headers_claude_code_anthropic() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::ClaudeCode, &crate::gateway::models::Protocol::Anthropic, "sk-key");
+        let rb = apply_client_headers(rb, &ct("claude_code"), &crate::gateway::models::Protocol::Anthropic, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("User-Agent"));
         assert!(h.contains_key("x-api-key"));
@@ -497,7 +503,7 @@ use super::*;
     fn apply_client_headers_claude_code_gemini() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::ClaudeCodeVscode, &crate::gateway::models::Protocol::Gemini, "AIza-key");
+        let rb = apply_client_headers(rb, &ct("claude_code_vscode"), &crate::gateway::models::Protocol::Gemini, "AIza-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-goog-api-key"));
     }
@@ -506,7 +512,7 @@ use super::*;
     fn apply_client_headers_claude_code_other_protocol() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::ClaudeCodeSdkTs, &crate::gateway::models::Protocol::DeepSeek, "sk-key");
+        let rb = apply_client_headers(rb, &ct("claude_code_sdk_ts"), &crate::gateway::models::Protocol::DeepSeek, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("Authorization"));
     }
@@ -515,7 +521,7 @@ use super::*;
     fn apply_client_headers_codex_anthropic() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::CodexCli, &crate::gateway::models::Protocol::Anthropic, "sk-key");
+        let rb = apply_client_headers(rb, &ct("codex_cli"), &crate::gateway::models::Protocol::Anthropic, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-api-key"));
         assert!(!h.contains_key("OpenAI-Beta"));
@@ -525,7 +531,7 @@ use super::*;
     fn apply_client_headers_codex_gemini() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::CodexTui, &crate::gateway::models::Protocol::Gemini, "AIza-key");
+        let rb = apply_client_headers(rb, &ct("codex_tui"), &crate::gateway::models::Protocol::Gemini, "AIza-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-goog-api-key"));
     }
@@ -534,7 +540,7 @@ use super::*;
     fn apply_client_headers_codex_other() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::CodexDesktop, &crate::gateway::models::Protocol::OpenRouter, "sk-key");
+        let rb = apply_client_headers(rb, &ct("codex_desktop"), &crate::gateway::models::Protocol::OpenRouter, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("Authorization"));
     }
@@ -543,7 +549,7 @@ use super::*;
     fn apply_client_headers_cursor_openai() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Cursor, &crate::gateway::models::Protocol::OpenAI, "sk-key");
+        let rb = apply_client_headers(rb, &ct("cursor"), &crate::gateway::models::Protocol::OpenAI, "sk-key");
         let h = headers_from_builder(rb);
         let ua = h.get("User-Agent").unwrap().to_str().unwrap();
         assert_eq!(ua, "Cursor/0.50.7");
@@ -554,7 +560,7 @@ use super::*;
     fn apply_client_headers_cursor_gemini() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Cursor, &crate::gateway::models::Protocol::Gemini, "AIza-key");
+        let rb = apply_client_headers(rb, &ct("cursor"), &crate::gateway::models::Protocol::Gemini, "AIza-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-goog-api-key"));
     }
@@ -563,7 +569,7 @@ use super::*;
     fn apply_client_headers_cursor_other() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Cursor, &crate::gateway::models::Protocol::Kimi, "sk-key");
+        let rb = apply_client_headers(rb, &ct("cursor"), &crate::gateway::models::Protocol::Kimi, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("Authorization"));
     }
@@ -572,7 +578,7 @@ use super::*;
     fn apply_client_headers_windsurf_openai() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Windsurf, &crate::gateway::models::Protocol::OpenAI, "sk-key");
+        let rb = apply_client_headers(rb, &ct("windsurf"), &crate::gateway::models::Protocol::OpenAI, "sk-key");
         let h = headers_from_builder(rb);
         let ua = h.get("User-Agent").unwrap().to_str().unwrap();
         assert_eq!(ua, "Windsurf/1.5.0");
@@ -583,7 +589,7 @@ use super::*;
     fn apply_client_headers_windsurf_gemini() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Windsurf, &crate::gateway::models::Protocol::Gemini, "AIza-key");
+        let rb = apply_client_headers(rb, &ct("windsurf"), &crate::gateway::models::Protocol::Gemini, "AIza-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("x-goog-api-key"));
     }
@@ -592,7 +598,7 @@ use super::*;
     fn apply_client_headers_windsurf_other() {
         let client = reqwest::Client::new();
         let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ClientType::Windsurf, &crate::gateway::models::Protocol::DeepSeek, "sk-key");
+        let rb = apply_client_headers(rb, &ct("windsurf"), &crate::gateway::models::Protocol::DeepSeek, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("Authorization"));
     }

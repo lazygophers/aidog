@@ -72,67 +72,31 @@ impl PlatformModels {
 // ─── ClientType (客户端模拟) ─────────────────────────────────
 
 /// 可模拟的客户端类型，用于通过上游的客户端校验。
+///
+/// 完全 JSON 驱动：值来自 `defaults/client-types.json`（13 entry，见 prd
+/// `07-10-client-types-json-sync`）。serde 天然 arbitrary：远端 / DB 中任何
+/// 字符串都原值保留，前端展示走 `buildClientTypesFromPresets` 派生层。
+/// 默认值 = `"default"`（空串等价默认；`deserialize_client_type_lenient`
+/// 把空串归一化为 `"default"`，与旧 enum `Default` 变体语义一致）。
+///
 /// 参考 claude-code-hub 的客户端检测逻辑：
 ///   - Claude Code 家族: CLI / VSCode / SDK-TS / SDK-PY / GitHub Action
 ///   - Codex 家族: CLI-Rust / TUI / Desktop / VSCode
 ///   - IDE: Cursor / Windsurf
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
-pub enum ClientType {
-    #[default]
-    #[serde(rename = "default")]
-    Default,
-    // ── Claude Code family ──
-    #[serde(rename = "claude_code")]
-    ClaudeCode,
-    #[serde(rename = "claude_code_vscode")]
-    ClaudeCodeVscode,
-    #[serde(rename = "claude_code_sdk_ts")]
-    ClaudeCodeSdkTs,
-    #[serde(rename = "claude_code_sdk_py")]
-    ClaudeCodeSdkPy,
-    #[serde(rename = "claude_code_gh_action")]
-    ClaudeCodeGhAction,
-    // ── Codex family ──
-    #[serde(rename = "codex_cli")]
-    CodexCli,
-    #[serde(rename = "codex_tui")]
-    CodexTui,
-    #[serde(rename = "codex_desktop")]
-    CodexDesktop,
-    #[serde(rename = "codex_vscode")]
-    CodexVscode,
-    // ── IDE ──
-    #[serde(rename = "cursor")]
-    Cursor,
-    #[serde(rename = "windsurf")]
-    Windsurf,
-}
-
-impl ClientType {
-    /// 根据 endpoint 协议返回推荐的默认客户端类型：
-    /// - anthropic → claude_code (CLI)
-    /// - openai → codex_tui
-    /// - 其他 → default
-    #[allow(dead_code)]
-    pub fn default_for_protocol(protocol: &Protocol) -> Self {
-        match protocol {
-            Protocol::Anthropic => ClientType::ClaudeCode,
-            Protocol::OpenAI | Protocol::OpenAIResponses | Protocol::OpenAICompletions => ClientType::CodexTui,
-            _ => ClientType::Default,
-        }
-    }
-}
+pub type ClientType = String;
 
 // ─── Platform Endpoint ──────────────────────────────────────
 
-/// 容错反序列化 client_type：未知字符串回退为 ClientType::Default，
-/// 而非让整个 endpoints 数组解析失败。
+/// 容错反序列化 client_type：空串 / 缺省 → `"default"`，
+/// 非空串原值保留（String 天然 arbitrary，未知值不再回退）。
+/// 保留 `deserialize_with` 是为了把 DB 中历史遗留的空串 / null 归一化为
+/// `"default"`，避免下游 match 字面量散落空串分支。
 fn deserialize_client_type_lenient<'de, D>(deserializer: D) -> Result<ClientType, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let s = String::deserialize(deserializer)?;
-    Ok(serde_json::from_value(serde_json::Value::String(s)).unwrap_or_default())
+    let s = String::deserialize(deserializer).unwrap_or_default();
+    Ok(if s.trim().is_empty() { "default".to_string() } else { s })
 }
 
 /// 平台协议端点：同一平台可支持多种协议，每种协议对应不同的 base_url
@@ -141,14 +105,21 @@ pub struct PlatformEndpoint {
     pub protocol: Protocol,
     pub base_url: String,
     /// 模拟的客户端类型（用于通过上游客户端校验）。
-    /// 用 `deserialize_with` 容错：DB 中历史遗留 / 未知 client_type 字符串
-    /// （如旧数据里的 "anthropic"）回退为 Default，避免单个未知值导致整个
-    /// endpoints 数组反序列化失败 → 空 Vec → 前端 Protocol Endpoints 丢失。
-    #[serde(default, deserialize_with = "deserialize_client_type_lenient")]
+    /// JSON 驱动字符串（13 entry 见 `defaults/client-types.json`）。
+    /// `deserialize_with` 容错：DB 中历史遗留空串 / null 归一化为 `"default"`，
+    /// 非空未知值原值保留（String arbitrary，前端从 client-types.json 派生
+    /// label 时未知 value 直接展示原值，无反序列化失败风险）。
+    #[serde(default = "default_client_type", deserialize_with = "deserialize_client_type_lenient")]
     pub client_type: ClientType,
     /// 是否为 Coding Plan（针对支持编程代理订阅的平台，如 Kimi Code Plan）
     #[serde(default)]
     pub coding_plan: bool,
+}
+
+/// `PlatformEndpoint::client_type` 的 serde default 工厂：`"default"`。
+/// 与旧 enum `#[default] Default` 变体的 serde rename 值一致（向后兼容旧 JSON）。
+fn default_client_type() -> ClientType {
+    "default".to_string()
 }
 
 // ─── Platform ──────────────────────────────────────────────

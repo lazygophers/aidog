@@ -4,13 +4,15 @@ use super::test_support::*;
 use rusqlite::params;
 
     /// endpoints 反序列化容错：DB 中含未知 client_type（如旧数据 "anthropic"）的
-    /// endpoint 数组应仍能完整解析，而非因单个未知枚举值整体失败 → 空 Vec → 前端丢失。
+    /// endpoint 数组应仍能完整解析。ClientType = String 后未知值原值保留（arbitrary），
+    /// 仅空串 / null 归一化为 "default"（`deserialize_client_type_lenient`）。
     #[tokio::test]
     async fn endpoints_with_unknown_client_type_still_parse() {
         let json = r#"[{"protocol":"openai","base_url":"https://x/v1","client_type":"codex_tui","coding_plan":false},{"protocol":"anthropic","base_url":"https://x/anthropic","client_type":"anthropic","coding_plan":false}]"#;
         let parsed = parse_endpoints(json);
         assert_eq!(parsed.len(), 2, "未知 client_type 不应导致整个数组解析失败");
-        assert_eq!(parsed[1].client_type, ClientType::Default, "未知值回退为 Default");
+        // String arbitrary：未知值原值保留（不再回退 Default）
+        assert_eq!(parsed[1].client_type, "anthropic", "未知 client_type 原值保留");
         assert_eq!(parsed[1].protocol, Protocol::Anthropic);
 
         // 端到端：写入 DB 后 list_platforms 应带回 endpoints
@@ -19,7 +21,7 @@ use rusqlite::params;
         input.endpoints = Some(vec![PlatformEndpoint {
             protocol: Protocol::OpenAI,
             base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
-            client_type: ClientType::CodexTui,
+            client_type: "codex_tui".to_string(),
             coding_plan: true,
         }]);
         create_platform(&db, input).await.unwrap();

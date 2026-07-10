@@ -74,7 +74,7 @@ pub(crate) async fn forward_attempt(
 
     let (target_protocol_enum, target_base_url, client_type, coding_plan) = matched_ep
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
-        .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), ClientType::Default, false));
+        .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), "default".to_string(), false));
 
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
