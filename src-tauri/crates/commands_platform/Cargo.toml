@@ -5,5 +5,18 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C3 才迁 platform/group/model_fetch/stats/price/quota 入此 crate。
+# C3 commands-platform：platform/group/model_fetch/stats/price/quota 6 域 command。
+# 铁律：禁依赖其他 commands_* crate（跨域边下沉 aidog_core）。
 [dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yml = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+aidog_test_util = { path = "../aidog_test_util" }
+tauri = { workspace = true, features = ["test"] }
+tokio = { workspace = true }
