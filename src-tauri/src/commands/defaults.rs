@@ -1,4 +1,9 @@
-//! platform-presets.json 读取：app data (`~/.aidog/platform-presets.json`) 优先 → 回退编译内 bundled。
+//! platform-presets.json 读取：app data (`~/.aidog/platform-presets.json`) 优先 → **deep merge**
+//! 编译内 bundled（补 app data 缺的 protocol key）→ 缺失/损坏回退 bundled。
+//!
+//! reader deep merge（2026-07-10）：用户 app data 旧缺 bundled 新增 protocol（如 `glm_coding`）
+//! 时，merge 补全让派生层即时拿到全量，不依赖 24h 节流的同步链覆盖。merge 规则见
+//! `aidog_core::gateway::defaults_sync::merge_with_bundled`。
 //!
 //! 同 settings.json：用 `include_str!` 把 `src-tauri/defaults/platform-presets.json` 编入二进制，
 //! 不走 Tauri resources（项目现行约定）。
@@ -23,9 +28,29 @@ pub async fn get_defaults_json() -> Result<String, String> {
                 Ok(content) => {
                     // 校验可解析，损坏回退 bundled（避免前端拿到坏 JSON 全平台默认值失效）
                     match serde_json::from_str::<serde_json::Value>(&content) {
-                        Ok(_) => {
-                            tracing::debug!(source = "app_data", "platform-presets.json served from app data");
-                            return Ok(content);
+                        Ok(app_value) => {
+                            // deep merge：app data 优先，bundled 补 app data 缺的 protocol key
+                            // （用户 app data 旧缺 glm_coding 等 → bundled 补全，派生层不依赖同步）
+                            let merged = match serde_json::from_str::<serde_json::Value>(BUNDLED) {
+                                Ok(bundled_value) => aidog_core::gateway::defaults_sync::merge_with_bundled(
+                                    &app_value,
+                                    &bundled_value,
+                                ),
+                                Err(e) => {
+                                    // bundled 解析失败（不可能发生，编译期 JSON 已固定）→ 退 app data 原值
+                                    tracing::error!(error = %e, "platform-presets.json bundled parse failed (should never happen), serving app data");
+                                    app_value
+                                }
+                            };
+                            match serde_json::to_string(&merged) {
+                                Ok(s) => {
+                                    tracing::debug!(source = "app_data+merged", "platform-presets.json served from app data (deep merged with bundled)");
+                                    return Ok(s);
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = %e, "platform-presets.json merged serialize failed, fallback to bundled");
+                                }
+                            }
                         }
                         Err(e) => tracing::warn!(error = %e, path = %path.display(), "platform-presets.json parse failed, fallback to bundled"),
                     }
@@ -38,8 +63,9 @@ pub async fn get_defaults_json() -> Result<String, String> {
     Ok(BUNDLED.to_string())
 }
 
-/// client-types.json 读取：app data (`~/.aidog/client-types.json`) 优先 → 回退 bundled。
-/// 同 get_defaults_json 模式（schema gate 失败 / 损坏 → bundled）。
+/// client-types.json 读取：app data (`~/.aidog/client-types.json`) 优先 → **deep merge**
+/// 编译内 bundled（按 value 去重补 app data 缺的 client_type）→ 缺失/损坏回退 bundled。
+/// 同 get_defaults_json 模式（deep merge + schema gate 失败 / 损坏 → bundled）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn get_client_types_json() -> Result<String, String> {
@@ -53,9 +79,26 @@ pub async fn get_client_types_json() -> Result<String, String> {
                 }
                 Ok(content) => {
                     match serde_json::from_str::<serde_json::Value>(&content) {
-                        Ok(_) => {
-                            tracing::debug!(source = "app_data", "client-types.json served from app data");
-                            return Ok(content);
+                        Ok(app_value) => {
+                            let merged = match serde_json::from_str::<serde_json::Value>(CLIENT_TYPES_BUNDLED) {
+                                Ok(bundled_value) => aidog_core::gateway::client_types_sync::merge_with_bundled(
+                                    &app_value,
+                                    &bundled_value,
+                                ),
+                                Err(e) => {
+                                    tracing::error!(error = %e, "client-types.json bundled parse failed (should never happen), serving app data");
+                                    app_value
+                                }
+                            };
+                            match serde_json::to_string(&merged) {
+                                Ok(s) => {
+                                    tracing::debug!(source = "app_data+merged", "client-types.json served from app data (deep merged with bundled)");
+                                    return Ok(s);
+                                }
+                                Err(e) => {
+                                    tracing::warn!(error = %e, "client-types.json merged serialize failed, fallback to bundled");
+                                }
+                            }
                         }
                         Err(e) => tracing::warn!(error = %e, path = %path.display(), "client-types.json parse failed, fallback to bundled"),
                     }

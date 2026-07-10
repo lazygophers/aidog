@@ -273,6 +273,83 @@ pub(crate) fn validate_structure(body: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// **Reader deep merge**：app data 优先，bundled 补 app data 缺的 protocol key。
+///
+/// 触发场景：用户 app data 旧（`last_updated` 落后 bundled），缺 bundled 新增的 protocol
+/// （如 `glm_coding`）。reader 仅优先 app data 不 merge → 派生层 `getProtocolLabel` 在 app
+/// data 找不到 → fallback raw protocol 名（"glm_coding"）。merge 后派生层即时拿全量，不依赖
+/// 同步链覆盖 app data（同步受 24h 节流，下次才能更新）。
+///
+/// 合并规则：
+/// - `protocols` 层：clone app data，per-key 补缺（app data 已有的 key 保留 app 值，**不**用
+///   bundled 覆盖——protocol entry 是真值源非用户数据，但 app data 可能含中间版本的用户定制
+///   endpoint flag，宁可滞后也不覆盖丢定制）。
+/// - 顶层 `last_updated`：取 `max(app, bundled)`（让同步链 `remote_ts > local_ts` 比对仍正确：
+///   本地 merge 后看起来新了，但同步链读 app data 原文件 `last_updated` 非 merge 结果，比对不受影响）。
+///   reader 返 merge JSON 仅给派生层展示，不写盘，所以 sync 的 `read_local_last_updated` 仍读旧 app data。
+/// - 顶层其他字段（`version` 等）：取 app data（向后兼容）。
+///
+/// 异常 fallback：app 或 bundled 非 object / 缺 protocols 字段 → 返另一边整体（保 reader
+/// 永不返半坏 JSON）。
+pub fn merge_with_bundled(app: &serde_json::Value, bundled: &serde_json::Value) -> serde_json::Value {
+    let app_obj = match app.as_object() {
+        Some(o) => o,
+        None => return bundled.clone(),
+    };
+    let bundled_obj = match bundled.as_object() {
+        Some(o) => o,
+        None => return app.clone(),
+    };
+
+    let mut result = app.clone();
+    let result_obj = result.as_object_mut().expect("cloned from app_obj");
+
+    // protocols 层 per-key 补缺
+    let app_protocols = app_obj.get("protocols").and_then(|v| v.as_object());
+    let bundled_protocols = bundled_obj.get("protocols").and_then(|v| v.as_object());
+    match (app_protocols, bundled_protocols) {
+        (Some(app_p), Some(bundled_p)) => {
+            let mut merged = app_p.clone();
+            for (k, v) in bundled_p.iter() {
+                // 仅补 app data 缺的 key，已有的不动（保用户定制 endpoint flag 等）
+                merged.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+            result_obj.insert("protocols".into(), serde_json::Value::Object(merged));
+        }
+        (None, Some(bundled_p)) => {
+            // app data 异常缺 protocols 字段，整体用 bundled 的 protocols
+            result_obj.insert("protocols".into(), serde_json::Value::Object(bundled_p.clone()));
+        }
+        _ => {}
+    }
+
+    // 顶层 last_updated 取 max（保同步链比对不受 merge 影响——见上注释）
+    merge_top_last_updated(result_obj, app_obj, bundled_obj);
+
+    result
+}
+
+/// 顶层 `last_updated` 合并：取 `max(app, bundled)`。
+/// 同步链 `read_local_last_updated` 读 app data 原文件（非 merge 结果），所以这里取 max 不
+/// 影响同步触发判定；reader 返 merge JSON 仅给派生层展示用。
+fn merge_top_last_updated(
+    result_obj: &mut serde_json::Map<String, serde_json::Value>,
+    app_obj: &serde_json::Map<String, serde_json::Value>,
+    bundled_obj: &serde_json::Map<String, serde_json::Value>,
+) {
+    let app_ts = app_obj.get("last_updated").and_then(|v| v.as_i64());
+    let bundled_ts = bundled_obj.get("last_updated").and_then(|v| v.as_i64());
+    match (app_ts, bundled_ts) {
+        (Some(a), Some(b)) => {
+            result_obj.insert("last_updated".into(), serde_json::json!(a.max(b)));
+        }
+        (None, Some(b)) => {
+            result_obj.insert("last_updated".into(), serde_json::json!(b));
+        }
+        _ => {}
+    }
+}
+
 fn app_data_path() -> Result<std::path::PathBuf, String> {
     Ok(aidog_data_dir()?.join("platform-presets.json"))
 }
@@ -553,5 +630,125 @@ mod tests {
     fn sha256_hex_matches_container() {
         let bytes = b"test payload";
         assert_eq!(sha256_hex(bytes), crate::gateway::import_export::container::sha256_hex(bytes));
+    }
+
+    // ===== Reader deep merge 单测 =====
+
+    /// merge：app data 旧（缺 glm_coding）+ bundled 新（含）→ merge 后含 glm_coding。
+    #[test]
+    fn merge_presets_fills_missing_protocol() {
+        let app = serde_json::json!({
+            "version": "1",
+            "last_updated": 100,
+            "protocols": {
+                "anthropic": {"endpoints": {}, "models": {}, "model_list": {}}
+            }
+        });
+        let bundled = serde_json::json!({
+            "version": "1",
+            "last_updated": 200,
+            "protocols": {
+                "anthropic": {"endpoints": {"x": []}, "models": {}, "model_list": {}},
+                "glm_coding": {"endpoints": {}, "models": {}, "model_list": {}}
+            }
+        });
+        let merged = merge_with_bundled(&app, &bundled);
+        let protocols = merged.get("protocols").unwrap().as_object().unwrap();
+        assert!(protocols.contains_key("glm_coding"), "missing protocol should be filled from bundled");
+        assert!(protocols.contains_key("anthropic"));
+        // app data 已有 key 保留 app 值（不被 bundled 覆盖）
+        assert_eq!(
+            protocols.get("anthropic").unwrap().get("endpoints").unwrap().as_object().unwrap().len(),
+            0
+        );
+    }
+
+    /// merge：last_updated 取 max（app 旧 100 + bundled 新 200 → 200）。
+    #[test]
+    fn merge_presets_last_updated_max() {
+        let app = serde_json::json!({"last_updated": 100, "protocols": {}});
+        let bundled = serde_json::json!({"last_updated": 200, "protocols": {}});
+        let merged = merge_with_bundled(&app, &bundled);
+        assert_eq!(merged.get("last_updated").unwrap().as_i64().unwrap(), 200);
+
+        // 反向也成立
+        let app2 = serde_json::json!({"last_updated": 300, "protocols": {}});
+        let merged2 = merge_with_bundled(&app2, &bundled);
+        assert_eq!(merged2.get("last_updated").unwrap().as_i64().unwrap(), 300);
+    }
+
+    /// merge：app data 缺 last_updated，bundled 有 → 用 bundled 的。
+    #[test]
+    fn merge_presets_app_missing_last_updated() {
+        let app = serde_json::json!({"protocols": {}});
+        let bundled = serde_json::json!({"last_updated": 200, "protocols": {}});
+        let merged = merge_with_bundled(&app, &bundled);
+        assert_eq!(merged.get("last_updated").unwrap().as_i64().unwrap(), 200);
+    }
+
+    /// merge：app data 非 object（损坏解析后是 array / null）→ 返 bundled 全量。
+    #[test]
+    fn merge_presets_app_not_object_returns_bundled() {
+        let app = serde_json::json!([1, 2, 3]);
+        let bundled = serde_json::json!({"last_updated": 200, "protocols": {"x": {}}});
+        let merged = merge_with_bundled(&app, &bundled);
+        assert_eq!(merged, bundled);
+    }
+
+    /// merge：app data 缺 protocols 字段（异常但兼容）→ 用 bundled 的 protocols。
+    #[test]
+    fn merge_presets_app_missing_protocols_field() {
+        let app = serde_json::json!({"version": "1", "last_updated": 100});
+        let bundled = serde_json::json!({"version": "1", "last_updated": 200, "protocols": {"glm_coding": {}}});
+        let merged = merge_with_bundled(&app, &bundled);
+        let protocols = merged.get("protocols").unwrap().as_object().unwrap();
+        assert!(protocols.contains_key("glm_coding"));
+        assert_eq!(merged.get("last_updated").unwrap().as_i64().unwrap(), 200);
+    }
+
+    /// merge：app data 有 bundled 没有的 protocol（理论上不会发生，但要兼容）→ app 保留。
+    #[test]
+    fn merge_presets_keeps_app_only_protocols() {
+        let app = serde_json::json!({
+            "last_updated": 100,
+            "protocols": {"app_only": {"endpoints": {}, "models": {}, "model_list": {}}}
+        });
+        let bundled = serde_json::json!({
+            "last_updated": 200,
+            "protocols": {"bundled_only": {"endpoints": {}, "models": {}, "model_list": {}}}
+        });
+        let merged = merge_with_bundled(&app, &bundled);
+        let protocols = merged.get("protocols").unwrap().as_object().unwrap();
+        assert!(protocols.contains_key("app_only"));
+        assert!(protocols.contains_key("bundled_only"));
+    }
+
+    /// merge：顶层其他字段（version）取 app data（向后兼容）。
+    #[test]
+    fn merge_presets_keeps_app_version() {
+        let app = serde_json::json!({"version": "2-app", "last_updated": 100, "protocols": {}});
+        let bundled = serde_json::json!({"version": "1-bundled", "last_updated": 200, "protocols": {}});
+        let merged = merge_with_bundled(&app, &bundled);
+        assert_eq!(merged.get("version").unwrap().as_str().unwrap(), "2-app");
+    }
+
+    /// merge：真实 bundled 含 glm_coding，模拟 app data 旧（缺 glm_coding）→ merge 后必含。
+    /// 验收断言 R3：用户当前 app data 场景下 merge 后 glm_coding 可见。
+    #[test]
+    fn merge_presets_real_bundled_fills_glm_coding() {
+        let bundled: serde_json::Value =
+            serde_json::from_str(BUNDLED).expect("bundled parse");
+        // 构造 app data：bundled 删 glm_coding，模拟旧版本同步结果
+        let mut app = bundled.clone();
+        app.get_mut("protocols").unwrap().as_object_mut().unwrap().remove("glm_coding");
+        app["last_updated"] = serde_json::json!(1); // 旧时间戳
+        let merged = merge_with_bundled(&app, &bundled);
+        let protocols = merged.get("protocols").unwrap().as_object().unwrap();
+        assert!(protocols.contains_key("glm_coding"), "glm_coding must be filled by merge");
+        // last_updated 取 max（bundled 的原值）
+        assert_eq!(
+            merged.get("last_updated").unwrap().as_i64().unwrap(),
+            bundled.get("last_updated").unwrap().as_i64().unwrap()
+        );
     }
 }
