@@ -19,7 +19,7 @@ use gateway::models::{
 };
 
 // 复用 mitm 模块的 ImportDefaultsResult（{imported, skipped} 计数，serde camelCase → 前端对象契约）。
-use crate::commands::mitm::ImportDefaultsResult;
+use crate::mitm::ImportDefaultsResult;
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]

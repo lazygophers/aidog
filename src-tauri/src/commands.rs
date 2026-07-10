@@ -13,14 +13,11 @@ pub mod fs_autocomplete;
 // startup.rs generate_handler 直接用 `aidog_core::hooks::*` / `aidog_core::sync_settings::*`
 // 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
 pub mod mcp;
-pub mod middleware;
-pub mod mitm;
+// middleware/mitm/proxy/proxy_log/proxy_timeout 下沉 commands_proxy crate（C4）；
+// startup.rs generate_handler 直接用 `commands_proxy::*` 路径调用。
 pub mod model_test;
 pub mod notification;
 pub mod popover;
-pub mod proxy;
-pub mod proxy_log;
-pub mod proxy_timeout;
 pub mod scheduling;
 pub mod script_executor;
 pub mod settings;
