@@ -10,17 +10,20 @@ import { __resetDefaultsCacheForTests } from "../domains/platforms";
 import type { CcProvider } from "../services/api";
 
 // defaults.json 走 Tauri command 异步读，测试环境 mock 最小数据（deepseek + anthropic + openai）。
+// PROTOCOLS async 化后 keywords/name 也从 JSON 派生（buildProtocolsFromPresets），mock 须含字段。
+// keywords 对齐 platform-presets.json 真值（anthropic: ["claude","克劳德","官方"]，禁用 "anthropic"
+// 避免误匹配 base_url 子串 https://api.deepseek.com/anthropic）。
 const DEFAULTS_MOCK = JSON.stringify({
   version: "1",
   last_updated: 0,
   protocols: {
-    anthropic: { client_type: "claude_code", endpoints: { default: [
+    anthropic: { client_type: "claude_code", keywords: ["claude", "克劳德", "官方"], name: { "en-US": "Anthropic" }, endpoints: { default: [
       { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "claude_code" },
     ] }, models: { default: {} }, model_list: { default: [] } },
-    openai: { client_type: "codex_tui", endpoints: { default: [
+    openai: { client_type: "codex_tui", keywords: ["gpt", "chatgpt", "官方"], name: { "en-US": "OpenAI" }, endpoints: { default: [
       { protocol: "openai", base_url: "https://api.openai.com/v1", client_type: "codex_tui" },
     ] }, models: { default: {} }, model_list: { default: [] } },
-    deepseek: { client_type: "default", endpoints: { default: [
+    deepseek: { client_type: "default", keywords: ["深度求索", "deepseek"], name: { "en-US": "DeepSeek" }, endpoints: { default: [
       { protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "codex_tui" },
       { protocol: "anthropic", base_url: "https://api.deepseek.com/anthropic", client_type: "claude_code" },
     ] }, models: { default: {} }, model_list: { default: [] } },

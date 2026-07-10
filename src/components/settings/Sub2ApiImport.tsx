@@ -16,8 +16,8 @@ import {
   type ImportReport,
   type Protocol,
 } from "../../services/api";
-import { PROTOCOLS } from "../../domains/platforms";
-import { getProtocolLabelMap } from "../../domains/platforms/defaults";
+import { buildProtocolsFromPresets, getProtocolLabelMap } from "../../domains/platforms/defaults";
+import type { ProtocolOption } from "../../domains/platforms";
 import { mapPlatformToProtocol, sub2apiAccountToPlatformJson } from "../../utils/sub2apiMatch";
 import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
@@ -37,12 +37,12 @@ export function Sub2ApiImportSection({
 }) {
   const { t, i18n } = useTranslation();
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const m = await getProtocolLabelMap(i18n.language);
-      if (!cancelled) setLabelMap(m);
-    })();
+    Promise.all([getProtocolLabelMap(i18n.language), buildProtocolsFromPresets(i18n.language)]).then(([m, list]) => {
+      if (!cancelled) { setLabelMap(m); setProtocols(list); }
+    });
     return () => { cancelled = true; };
   }, [i18n.language]);
   const [pasteText, setPasteText] = useState("");
@@ -254,7 +254,7 @@ export function Sub2ApiImportSection({
                     onChange={(e) => setOverride(i, e.target.value as Protocol)}
                     style={{ fontSize: 12, padding: "4px 8px", width: "auto", minWidth: 140 }}
                   >
-                    {PROTOCOLS.filter((p) => !p.codingPlan).map((p) => (
+                    {protocols.filter((p) => !p.codingPlan).map((p) => (
                       <option key={`${p.value}-${p.label}`} value={p.value}>{labelMap[p.value] || p.label}</option>
                     ))}
                   </select>

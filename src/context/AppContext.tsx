@@ -22,7 +22,8 @@ import {
   DEFAULT_MODE,
 } from "../themes";
 import { settingsApi } from "../services/api";
-import { injectProtocolHosts } from "../domains/platforms";
+// buildProtocolsFromPresets 由各 consumer 自行 await（hosts 内联派生，无需启动期注入）。
+import { buildProtocolsFromPresets } from "../domains/platforms";
 
 interface Settings {
   locale: Locale;
@@ -185,9 +186,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      // defaults.json 异步加载完成后注入 PROTOCOLS[].hosts（智能识别 base_url 子串匹配用）。
-      // 旧版模块加载即跑（同步源）→ async 化后需显式触发，早于第一次粘贴/匹配。
-      injectProtocolHosts().catch(() => { /* best-effort，失败仅 hosts 缺失 */ });
+      // PROTOCOLS 已删（派生层 buildProtocolsFromPresets 内联 hosts 派生，consumer 各自 await）；
+      // 此处仅预热 docPromise 单次 RPC 缓存，让首个 consumer 拿到同步态快。
+      buildProtocolsFromPresets().catch(() => { /* best-effort 预热 */ });
       const dbPartial = await loadSettingsFromDB();
       if (cancelled) return;
       setSettings((prev) => {

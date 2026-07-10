@@ -7,10 +7,10 @@ import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
 import {
-  PROTOCOLS, PROTOCOL_COLORS, PROTOCOL_LABELS,
   SearchableProtocolSelect, MockConfigEditor,
+  type ProtocolOption,
 } from "../../domains/platforms";
-import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { getProtocolLabel, getProtocolColorMap, buildProtocolsFromPresets } from "../../domains/platforms/defaults";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
 // 表单分区组件（9 个 section + FormSection / ApiKeyField / toDatetimeLocal）从此导入。
@@ -58,7 +58,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     handleSave, resetForm, applyPaste, getPrimaryBaseUrl,
   } = s;
 
-  // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码 → key。
+  // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码（5 请求格式协议）→ key。
   // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
   // ponytail: 仅拉取当前 protocol + editing.platform_type（编辑态）的 label，最小 RPC。
   useEffect(() => {
@@ -73,6 +73,21 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     return () => { cancelled = true; };
   }, [i18n.language, protocol, editing?.platform_type]);
 
+  // 品牌色（async 派生自 platform-presets.json）；首帧 fallback var(--accent)。
+  const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolColorMap().then(m => { if (!cancelled) setColorMap(m); });
+    return () => { cancelled = true; };
+  }, []);
+  // SmartPasteModal presets（ProtocolOption[]，hosts 内联派生）；首帧空数组（弹窗未开时不渲染）。
+  const [presets, setPresets] = useState<ProtocolOption[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
+    return () => { cancelled = true; };
+  }, [i18n.language]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Edit page header */}
@@ -85,7 +100,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             {editing ? editing.name : t("platform.add")}
           </div>
           {editing && (
-            <div className="section-desc">{labelMap[editing.platform_type] || PROTOCOL_LABELS[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}</div>
+            <div className="section-desc">{labelMap[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}</div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -106,7 +121,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
       {showPaste && (
         <SmartPasteModal
-          presets={PROTOCOLS}
+          presets={presets}
           onApply={applyPaste}
           initialText={pasteInitialText}
           onClose={() => { setShowPaste(false); setPasteInitialText(undefined); }}
@@ -127,11 +142,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             }}>
               <span style={{
                 display: "inline-block", padding: "2px 8px", borderRadius: "var(--radius-sm)",
-                background: `${PROTOCOL_COLORS[protocol] || "var(--accent)"}20`,
-                color: PROTOCOL_COLORS[protocol] || "var(--accent)",
+                background: `${colorMap[protocol] || "var(--accent)"}20`,
+                color: colorMap[protocol] || "var(--accent)",
                 fontSize: 11, fontWeight: 700,
               }}>
-                {labelMap[protocol] || PROTOCOL_LABELS[protocol] || protocol}
+                {labelMap[protocol] || protocol}
               </span>
               <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
                 {t("platform.protocolLocked", "Protocol cannot be changed after creation")}
