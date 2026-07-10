@@ -9,29 +9,22 @@ pub mod cli_env;
 pub mod coding_tools;
 pub mod defaults;
 pub mod fs_autocomplete;
-pub mod group;
 // hooks / sync_settings / tray_render 下沉 aidog_core（C2 core-extract）；
 // startup.rs generate_handler 直接用 `aidog_core::hooks::*` / `aidog_core::sync_settings::*`
 // 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
 pub mod mcp;
 pub mod middleware;
 pub mod mitm;
-pub mod model_fetch;
 pub mod model_test;
 pub mod notification;
-pub mod platform;
 pub mod popover;
-pub mod price;
 pub mod proxy;
 pub mod proxy_log;
 pub mod proxy_timeout;
-pub mod quota;
 pub mod scheduling;
 pub mod script_executor;
 pub mod settings;
 pub mod skills;
-pub mod stats;
-pub mod tray;
 
 #[cfg(test)]
 #[path = "commands/test_harness.rs"]
