@@ -24,6 +24,7 @@
   "notes": "",
   "meta": {},
   "depends_on": [
-    "07-10-core-extract"
+    "07-10-core-extract",
+    "07-09-mitm-tables-to-setting"
   ]
 }

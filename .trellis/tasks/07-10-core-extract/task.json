@@ -3,7 +3,7 @@
   "name": "core-extract",
   "title": "C2 aidog_core 提取 + 业务下沉",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
@@ -24,6 +24,7 @@
   "notes": "",
   "meta": {},
   "depends_on": [
-    "07-10-ws-skeleton"
+    "07-10-ws-skeleton",
+    "07-10-protocols-rust-enum"
   ]
 }
