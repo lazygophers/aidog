@@ -6,7 +6,7 @@
 //! 需要 AppHandle 的 command（tray 刷新等）走 MockRuntime AppHandle，能调用则覆盖，
 //! 否则在各自测试里降级测内部 helper。
 
-use crate::gateway::db::Db;
+use aidog_core::gateway::db::Db;
 use tauri::test::{mock_builder, mock_context, noop_assets};
 use tauri::{App, Manager};
 use tauri::test::MockRuntime;
@@ -24,7 +24,7 @@ pub(crate) async fn mock_app_with_db() -> App<MockRuntime> {
 
 /// 同 [`mock_app_with_db`]，额外 manage 一个 MiddlewareEngine（供 middleware 命令测试）。
 pub(crate) async fn mock_app_with_db_and_engine() -> App<MockRuntime> {
-    use crate::gateway::middleware::MiddlewareEngine;
+    use aidog_core::gateway::middleware::MiddlewareEngine;
     use std::sync::Arc;
     let db = Db::new(":memory:").await.expect("open memory db");
     db.init_tables().await.expect("init tables");

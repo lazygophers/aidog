@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -14,7 +14,7 @@ use tauri::Manager;
 
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn stats_query(
     db: State<'_, Db>,
     query: StatsQuery,
@@ -26,7 +26,7 @@ pub async fn stats_query(
 /// 批量统计查询：浮窗 N 卡一次 IPC 拉全部卡数据，替代每卡独立 `stats_query` fan-out。
 /// 返回顺序与 `queries` 一一对应；单卡值与逐卡 `stats_query` 完全一致。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn stats_query_batch(
     db: State<'_, Db>,
     queries: Vec<StatsQuery>,
@@ -38,7 +38,7 @@ pub async fn stats_query_batch(
 use gateway::models::StatsSettings;
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn stats_settings_get(db: State<'_, Db>) -> Result<StatsSettings, String> {
     tracing::debug!(command = "stats_settings_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "stats", "settings").await
@@ -49,7 +49,7 @@ pub async fn stats_settings_get(db: State<'_, Db>) -> Result<StatsSettings, Stri
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn stats_settings_set(db: State<'_, Db>, settings: StatsSettings) -> Result<(), String> {
     tracing::debug!(command = "stats_settings_set", "command invoked");
     let value = serde_json::to_value(&settings)
@@ -69,7 +69,7 @@ pub async fn stats_settings_set(db: State<'_, Db>, settings: StatsSettings) -> R
 
 /// 清空 stats_agg_hourly 后从 proxy_log 全量重建（用户启用日志后修复历史聚合用）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn stats_rebuild_from_logs(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "stats_rebuild_from_logs", "command invoked");
     gateway::db::rebuild_stats_agg_from_logs(&db).await

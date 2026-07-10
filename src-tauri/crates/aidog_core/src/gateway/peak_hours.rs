@@ -49,7 +49,7 @@ pub struct PeakWindow {
 /// 解析失败（不应发生，JSON 已校验）回退空 Map → `default_peak_hours` 返空 → caller 退 1.0。
 static PRESETS: OnceLock<serde_json::Value> = OnceLock::new();
 
-const BUNDLED: &str = include_str!("../../defaults/platform-presets.json");
+const BUNDLED: &str = include_str!("../../../../defaults/platform-presets.json");
 
 fn presets() -> &'static serde_json::Value {
     PRESETS.get_or_init(|| {

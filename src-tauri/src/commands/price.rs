@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::Db};
+use aidog_core::gateway::{self, db::Db};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -14,28 +14,28 @@ use tauri::Manager;
 
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_list", limit, offset, "command invoked");
     gateway::db::list_model_prices(&db, limit, offset).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
     tracing::debug!(command = "model_price_count", "command invoked");
     gateway::db::count_model_prices(&db).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_search", query = %query, limit, "command invoked");
     gateway::db::search_model_prices(&db, &query, limit).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_list_filtered(
     db: State<'_, Db>,
     query: Option<String>,
@@ -48,7 +48,7 @@ pub async fn model_price_list_filtered(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_count_filtered(
     db: State<'_, Db>,
     query: Option<String>,
@@ -59,7 +59,7 @@ pub async fn model_price_count_filtered(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_resolve(
     db: State<'_, Db>,
     model_name: String,
@@ -73,7 +73,7 @@ pub async fn model_price_resolve(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
     tracing::debug!(command = "model_price_sync", "command invoked");
     gateway::price_sync::sync_github_prices(&db).await
@@ -81,14 +81,14 @@ pub async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::Pric
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
     tracing::debug!(command = "price_sync_settings_get", "command invoked");
     Ok(gateway::price_sync::get_sync_settings(&db).await)
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
     tracing::debug!(command = "price_sync_settings_set", "command invoked");
     gateway::price_sync::save_sync_settings(&db, &settings).await;

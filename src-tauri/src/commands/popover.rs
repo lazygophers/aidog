@@ -1,8 +1,8 @@
-use crate::shared::*;
+use aidog_core::shared::*;
 use crate::commands::tray::tray_layout;
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -41,7 +41,7 @@ pub(crate) struct PopoverData {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<PopoverData, String> {
     tracing::debug!(command = "popover_data", "command invoked");
     let config = db::get_popover_config(&db).await?;
@@ -72,7 +72,7 @@ pub async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<Po
 
 /// 读取 PopoverConfig（无配置 → 默认配置）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn popover_config_get(db: State<'_, Db>) -> Result<gateway::models::PopoverConfig, String> {
     tracing::debug!(command = "popover_config_get", "command invoked");
     db::get_popover_config(&db).await
@@ -80,7 +80,7 @@ pub async fn popover_config_get(db: State<'_, Db>) -> Result<gateway::models::Po
 
 /// 保存 PopoverConfig。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn popover_config_set(
     config: gateway::models::PopoverConfig,
     db: State<'_, Db>,
@@ -92,7 +92,7 @@ pub async fn popover_config_set(
 
 /// 各平台当日使用（供设置页预览）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<db::TodayPlatformStat>, String> {
     tracing::debug!(command = "popover_platform_today", "command invoked");
     db::today_platform_stats(&db).await
