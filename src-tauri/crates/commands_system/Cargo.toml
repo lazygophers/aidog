@@ -5,5 +5,19 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C6 才迁 about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete 入此 crate。
+# C6 commands-system：about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete 7 域 command。
+# 铁律：禁依赖其他 commands_* crate（跨域边下沉 aidog_core）。
 [dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+dirs = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+aidog_test_util = { path = "../aidog_test_util" }
+tauri = { workspace = true, features = ["test"] }
+tokio = { workspace = true }
+tempfile = { workspace = true }
