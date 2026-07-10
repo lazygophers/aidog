@@ -24,8 +24,8 @@ use super::*;
         );
         let m: std::collections::HashMap<&str, &str> = h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
 
-        // 入站 SDK 头透传（官方端点 beta 保留）
-        assert_eq!(m.get("anthropic-beta"), Some(&"beta-x"));
+        // 入站 SDK 头透传；anthropic-beta 由 simulation 覆盖（claude_code 家族注入 DB 实测 snapshot）
+        assert!(m.get("anthropic-beta").unwrap().contains("claude-code-"), "anthropic-beta overridden by simulation snapshot");
         assert_eq!(m.get("x-stainless-package-version"), Some(&"0.94.0"));
         // cookie 脱敏
         assert_eq!(m.get("cookie"), Some(&"[REDACTED]"));
@@ -174,8 +174,9 @@ use super::*;
         let m: std::collections::HashMap<&str, &str> = h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
         assert!(m.get("User-Agent").unwrap().contains("codex"), "codex UA");
         assert!(m.contains_key("OpenAI-Beta"), "OpenAI-Beta header");
-        assert!(m.contains_key("conversation_id"), "conversation_id present");
-        assert!(m.contains_key("session_id"), "session_id present");
+        // codex family session/conversation ids are NOT injected (passthrough-only per rule)
+        assert!(!m.contains_key("conversation_id"), "conversation_id must not be injected");
+        assert!(!m.contains_key("session_id"), "session_id must not be injected");
         assert!(m.get("Authorization").unwrap().starts_with("Bearer "), "Bearer auth");
     }
 
@@ -271,7 +272,7 @@ use super::*;
         let orig = axum::http::HeaderMap::new();
         let variants = [
             (ct("claude_code_vscode"), "claude-vscode"),
-            (ct("claude_code_sdk_ts"), "sdk-ts"),
+            (ct("claude_code_sdk_ts"), "sdk-cli"),
             (ct("claude_code_sdk_py"), "sdk-py"),
             (ct("claude_code_gh_action"), "claude-code-github-action"),
         ];
@@ -492,11 +493,40 @@ use super::*;
     #[test]
     fn apply_client_headers_claude_code_anthropic() {
         let client = reqwest::Client::new();
-        let rb = client.post("http://localhost");
+        // 官方 anthropic 端点 → simulation 注入的 anthropic-beta 保留（非官方会被 strip）
+        let rb = client.post("https://api.anthropic.com/v1/messages");
         let rb = apply_client_headers(rb, &ct("claude_code"), &crate::gateway::models::Protocol::Anthropic, "sk-key");
         let h = headers_from_builder(rb);
         assert!(h.contains_key("User-Agent"));
         assert!(h.contains_key("x-api-key"));
+        // claude_code family: 12 anthropic-feature headers injected (DB-driven snapshot)
+        assert!(h.contains_key("anthropic-version"), "anthropic-version injected");
+        assert!(h.contains_key("anthropic-beta"), "anthropic-beta injected");
+        assert!(h.contains_key("anthropic-dangerous-direct-browser-access"));
+        assert_eq!(h.get("x-app").unwrap(), "cli");
+        assert_eq!(h.get("x-stainless-arch").unwrap(), "arm64");
+        assert_eq!(h.get("x-stainless-lang").unwrap(), "js");
+        assert_eq!(h.get("x-stainless-os").unwrap(), "MacOS");
+        assert_eq!(h.get("x-stainless-package-version").unwrap(), "0.94.0");
+        assert_eq!(h.get("x-stainless-retry-count").unwrap(), "0");
+        assert_eq!(h.get("x-stainless-runtime").unwrap(), "node");
+        assert_eq!(h.get("x-stainless-runtime-version").unwrap(), "v26.3.0");
+        assert_eq!(h.get("x-stainless-timeout").unwrap(), "600");
+        // x-claude-code-session-id is passthrough-only (not injected)
+        assert!(!h.contains_key("x-claude-code-session-id"));
+    }
+
+    #[test]
+    fn apply_client_headers_claude_code_anthropic_third_party_strips_beta() {
+        // 第三方 anthropic 兼容端点 → simulation 注入的 anthropic-beta 仍被剔（invariant 同 passthrough）
+        let client = reqwest::Client::new();
+        let rb = client.post("https://open.bigmodel.cn/api/anthropic/v1/messages");
+        let rb = apply_client_headers(rb, &ct("claude_code"), &crate::gateway::models::Protocol::Anthropic, "sk-key");
+        let h = headers_from_builder(rb);
+        assert!(!h.contains_key("anthropic-beta"), "anthropic-beta stripped for third-party endpoint");
+        // 其余特征头照常注入
+        assert!(h.contains_key("x-stainless-lang"), "non-beta feature headers still injected");
+        assert!(h.contains_key("anthropic-version"), "anthropic-version still injected");
     }
 
     #[test]
@@ -674,9 +704,9 @@ use super::*;
     fn expected_ua_substring(client_type: &str) -> Option<&'static str> {
         match client_type {
             "default" => None,
-            "claude_code" => Some("claude-cli/1.0.117 (external, cli)"),
+            "claude_code" => Some("claude-cli/2.1.204 (external, cli)"),
             "claude_code_vscode" => Some("claude-vscode"),
-            "claude_code_sdk_ts" => Some("sdk-ts"),
+            "claude_code_sdk_ts" => Some("sdk-cli"),
             "claude_code_sdk_py" => Some("sdk-py"),
             "claude_code_gh_action" => Some("claude-code-github-action"),
             "codex_cli" => Some("codex_cli_rs/"),
@@ -759,16 +789,9 @@ use super::*;
                 expect_codex_openai_extras(c),
                 "[{c}] openai: OpenAI-Beta expectation mismatch"
             );
-            assert_eq!(
-                h.contains_key("session_id"),
-                expect_codex_openai_extras(c),
-                "[{c}] openai: session_id expectation mismatch"
-            );
-            assert_eq!(
-                h.contains_key("conversation_id"),
-                expect_codex_openai_extras(c),
-                "[{c}] openai: conversation_id expectation mismatch"
-            );
+            // codex session_id/conversation_id are passthrough-only (never injected)
+            assert!(!h.contains_key("session_id"), "[{c}] openai: session_id must not be injected");
+            assert!(!h.contains_key("conversation_id"), "[{c}] openai: conversation_id must not be injected");
             // UA
             if expect_has_ua(c) {
                 let ua = h.get("User-Agent").unwrap().to_str().unwrap();
@@ -881,16 +904,5 @@ use super::*;
         }
     }
 
-    /// 占位符引擎：{uuid} 每次调用生成新值（session_id != conversation_id 同一请求内）。
-    #[test]
-    fn apply_codex_openai_uuid_placeholders_distinct() {
-        let client = reqwest::Client::new();
-        let rb = client.post("http://localhost");
-        let rb = apply_client_headers(rb, &ct("codex_tui"), &crate::gateway::models::Protocol::OpenAI, "sk-key");
-        let h = headers_from_builder(rb);
-        let conv = h.get("conversation_id").unwrap().to_str().unwrap();
-        let sess = h.get("session_id").unwrap().to_str().unwrap();
-        assert!(!conv.is_empty() && !sess.is_empty(), "uuid placeholders filled");
-        assert!(conv.contains('-'), "conversation_id uuid-like: {conv}");
-        assert!(sess.contains('-'), "session_id uuid-like: {sess}");
-    }
+    // 占位符引擎 {uuid}：codex conversation_id/session_id 已按「session-id 透传不注入」规则删除，
+    // 当前 JSON 无 {uuid} 消费者；engine（fill_placeholder L253-257）保留供未来扩展，此处不验。

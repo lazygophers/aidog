@@ -306,7 +306,17 @@ pub fn apply_client_headers(
         // simulation/auth 完全缺（含 default entry 被远端裁剪的极端情况）：保守 Bearer only。
         rb = rb.header("Authorization", format!("Bearer {api_key}"));
     } else {
+        // 上游 URL 用于 anthropic-beta 第三方端点剔除（与 build_upstream_headers 同源 invariant：
+        // simulation 注入的 anthropic-beta 仅发官方 api.anthropic.com，第三方兼容端点剔）。
+        let upstream_url: String = rb
+            .try_clone()
+            .and_then(|c| c.build().ok())
+            .map(|r| r.url().as_str().to_string())
+            .unwrap_or_default();
         for h in headers {
+            if strip_anthropic_beta_for_third_party(&h.name, &upstream_url) {
+                continue;
+            }
             rb = rb.header(&h.name, fill_placeholder(&h.value, api_key));
         }
     }
@@ -377,6 +387,10 @@ pub fn build_upstream_headers(
         h.push(("Authorization".into(), format!("Bearer {redacted}")));
     } else {
         for hdr in headers {
+            // anthropic-beta 第三方剔除（与 apply_client_headers / passthrough_convert_headers 同源 invariant）。
+            if strip_anthropic_beta_for_third_party(&hdr.name, upstream_url) {
+                continue;
+            }
             h.push((hdr.name.clone(), fill_placeholder(&hdr.value, &redacted)));
         }
     }
