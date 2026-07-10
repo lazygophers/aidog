@@ -7,7 +7,6 @@ pub mod cli_env;
 // 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
 // middleware/mitm/proxy/proxy_log/proxy_timeout 下沉 commands_proxy crate（C4）；
 // startup.rs generate_handler 直接用 `commands_proxy::*` 路径调用。
-pub mod popover;
 // settings/defaults 下沉 commands_config crate（C5）；
 // hooks/sync_settings 源已 C2 下沉 aidog_core，test_hooks 随 commands_config crate 走
 // （依赖 aidog_test_util::mock_app_with_db）。
@@ -16,7 +15,6 @@ pub mod popover;
 // startup.rs generate_handler 直接用 `commands_system::*` 路径调用。
 // coding_tools/mcp/skills/script_executor/model_test 下沉 commands_ai_tools crate（C7）；
 // startup.rs generate_handler 直接用 `commands_ai_tools::*` 路径调用。
-
-#[cfg(test)]
-#[path = "commands/test_harness.rs"]
-pub(crate) mod test_harness;
+// tray/popover 下沉 commands_tray crate（C8）；
+// startup.rs generate_handler 直接用 `commands_tray::*` 路径调用。
+// test_harness 删除（C8）：mock_app_with_db 已下沉 aidog_test_util，root 测试已迁完。
