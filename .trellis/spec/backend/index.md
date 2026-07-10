@@ -1,6 +1,6 @@
 ---
 updated: 2026-07-10
-rewrite-version: 2
+rewrite-version: 3
 supersedes:
   - backend/index.md (v1, 无 cargo-workspace / protocol-enum-extension 条目)
 authored-by: trellisx-spec
@@ -18,7 +18,7 @@ mode: sediment
 ## Index
 
 - [DB Conventions](./db-conventions.md) — 数据库表设计强制规范（命名 / 主键 / 时间 / 软删除 / 默认值 / 专属表→setting 迁移模式），唯一 DB spec 入口
-- [Cargo Workspace 重构门禁](./cargo-workspace.md) — 单 crate→workspace 多 crate 重构 PoC 空骨架门禁（[workspace.dependencies] 版本照抄 / build.rs 执行验 Tauri path 解析 / GUI 冒烟降级证据链 / binary 同名延后）
+- [Cargo Workspace 重构门禁](./cargo-workspace.md) — 单 crate→workspace 多 crate 重构 PoC 空骨架门禁（[workspace.dependencies] 版本照抄 / build.rs 执行验 Tauri path 解析 / GUI 冒烟降级证据链 / binary 同名延后）+ **核心提取下沉防循环范式**（互耦同移 / trait 桥接 / 共享基建随链下沉 / 过渡期去 cfg(test) gate + C3+ 回归 / root 过渡路径迁移 + commands 域不动）
 - [Protocol 枚举变体扩展范式](./protocol-enum-extension.md) — 新增 Protocol 变体 MUST 先 grep 同构变体命中点（零专属 match 臂则加枚举即覆盖，禁预设全链复制分支 / serde round-trip / research 证伪禁加变体）
 - [DB Connection Resilience](./db-connection-resilience.md) — tokio_rusqlite 连接韧性契约（**MUST `call_traced`/`call_read_traced` 检测 `ConnectionClosed` 自动重连重试 1 次**, 写连接 reopen 替换槽位 / 读连接 pool.pick 轮询, 内存库跳过, FnOnce cell 重取, warn 日志反向定位 panic 源)
 - [Mock Platform](./mock-platform.md) — mock 平台类型规范（extra.mock schema / 三层配置覆盖 / 5 协议响应 builder / error_mode 语义 / 拦截点 / 假 token）
