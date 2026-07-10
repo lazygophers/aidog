@@ -70,6 +70,13 @@ export interface PlatformsState extends PlatformsStateParams {
   groupDetails: GroupDetail[];
   setGroupDetails: React.Dispatch<React.SetStateAction<GroupDetail[]>>;
   handleGroupsChanged: () => Promise<void>;
+  /** 平台被删后全量 refetch platforms state（独立信号，与 onGroupsChanged 分组刷新分离）。
+   *  - 触发点：Groups 页 confirmDeletePlatform（删平台入口之一）成功后经父级 onPlatformDeleted 回调调本方法。
+   *  - 不复用 onGroupsChanged：后者语义「分组结构变更 → 刷 groupDetails」，扩它刷 platforms 会污染其他调用点
+   *    （group 增删 / 拖拽 / 映射变更）。本方法语义专一「platform 被删 → 刷 platforms state」。
+   *  - 全量 refetch 非乐观 filter：乐观 filter 快但需保后端真删，且 groupDetails 需另刷。全量 refetch 一次 RPC
+   *    同时刷 platforms + 触发派生层（membership/standalonePlatforms）重算，语义清晰。多一次 RPC（~10ms）可接受。 */
+  refreshPlatforms: () => Promise<void>;
   // ── standalone (未分组 + 搜索) ──
   standalonePlatforms: Platform[];
   searchQuery: string;
@@ -345,6 +352,19 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     try {
       setGroupDetails(await groupDetailApi.list());
     } catch { /* ignore */ }
+  };
+
+  /** 全量 refetch platforms state：删平台（Groups 页 confirmDeletePlatform）后由父级 onPlatformDeleted
+   *  回调触发。++epoch 让派生层（membership/standalonePlatforms）跟随重算，对齐 load() 现有写链。
+   *  复用 load() 的 epoch 守卫语义：自增 epoch 后整列表覆盖，防在途乐观写回弹。 */
+  const refreshPlatforms = async () => {
+    platformsEpochRef.current++;
+    try {
+      const list = (await platformApi.list()) || [];
+      setPlatforms(list);
+    } catch (e) {
+      console.error("refreshPlatforms failed", e);
+    }
   };
 
   // ════════════ SHARED STATE (toast / breaker 默认 / 搜索 / consumedEditPid ref) ════════════
@@ -708,7 +728,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     platDrag, platListRef, handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
     groupDrag, onStandaloneGroupPointerDown, onStandaloneGroupPointerMove, onStandaloneGroupPointerUp,
     quota,
-    platformMembership, groupDetails, setGroupDetails, handleGroupsChanged,
+    platformMembership, groupDetails, setGroupDetails, handleGroupsChanged, refreshPlatforms,
     standalonePlatforms, searchQuery, setSearchQuery,
     enabledCount, headerActive, headerTotal,
     toast, setToast,
