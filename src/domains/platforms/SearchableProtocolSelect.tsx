@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Protocol } from "../../services/api";
 import { pinyinMatch } from "../../utils/pinyin";
-import { PROTOCOLS, PROTOCOL_LABELS } from "./constants";
-import { getProtocolLabel } from "./defaults";
+import type { ProtocolOption } from "./constants";
+import { buildProtocolsFromPresets, getProtocolLabel } from "./defaults";
 import { ProtocolLogo } from "./ProtocolLogo";
 
 /** 可搜索的协议选择器（支持拼音模糊匹配 + Tab/方向键键盘导航） */
@@ -24,16 +24,24 @@ export function SearchableProtocolSelect({
   // 仅键盘导航/打开下拉时才自动滚动；鼠标 hover 改高亮不滚动（避免滚动→hover→滚动死循环）
   const autoScrollRef = useRef(false);
 
+  // ProtocolOption 列表（async 派生自 platform-presets.json）。
+  // 首帧 fallback 空数组（不崩），加载后 setState 重渲染。
+  const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
   // 协议本地化 label 映射（value → 按 i18n.language 取 JSON name）。
   // fallback: locale 缺失 → en-US → value key。docPromise 单次 RPC，切语言重拉。
   // ponytail: value 作 key（coding 变体共用同 value 的 name，调用方追加 Coding 后缀）
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   useEffect(() => {
     let cancelled = false;
-    // 切语言或挂载时拉取；不阻塞渲染，先显 fallback（PROTOCOLS[].label 硬编码）后异步替换
+    // 切语言或挂载时拉取；不阻塞渲染，先显空 fallback 后异步替换
     (async () => {
+      const list = await buildProtocolsFromPresets(i18n.language);
+      if (cancelled) return;
+      setProtocols(list);
+      // labelMap 直接从 list派生（label 已按 locale 解析），免再发一次 RPC。
       const entries = await Promise.all(
-        Array.from(new Set(PROTOCOLS.map(p => p.value))).map(async v => [v, await getProtocolLabel(v, i18n.language)] as const)
+        Array.from(new Set(list.map(p => p.value)))
+          .map(async v => [v, await getProtocolLabel(v, i18n.language)] as const),
       );
       if (!cancelled) setLabelMap(Object.fromEntries(entries));
     })();
@@ -42,18 +50,18 @@ export function SearchableProtocolSelect({
 
   // 当前选中项的显示文本（优先本地化，coding plan 追加后缀）
   // ponytail: JSON name 不区分 coding plan，硬编码 fallback label 已含 "Coding Plan" 后缀时直接用
-  const selectedBase = labelMap[value] || PROTOCOL_LABELS[value] || value;
+  const selectedBase = labelMap[value] || value;
   const selectedLabel = codingPlan && !/Coding/i.test(selectedBase)
     ? `${selectedBase} Coding Plan`
     : selectedBase;
 
   // 按拼音/关键词过滤 — 用本地化 label（zh-Hans name 含中文，拼音搜索自动生效）
   // ponytail: labelOf 同步取，filtered 渲染共享
-  const labelOf = (p: typeof PROTOCOLS[number]): string => {
+  const labelOf = (p: ProtocolOption): string => {
     const base = labelMap[p.value] || p.label;
     return p.codingPlan && !/Coding/i.test(base) ? `${base} Coding Plan` : base;
   };
-  const filtered = PROTOCOLS.filter(p => {
+  const filtered = protocols.filter(p => {
     if (!query.trim()) return true;
     if (pinyinMatch(query, labelOf(p))) return true;
     if (pinyinMatch(query, p.label)) return true; // fallback 英文兜底也参与匹配
@@ -64,11 +72,12 @@ export function SearchableProtocolSelect({
 
   // Tab 切换：在完整列表中循环到下一个平台
   const tabCycle = (shift: boolean) => {
-    const idx = PROTOCOLS.findIndex(p => p.value === value && !!p.codingPlan === codingPlan);
+    const idx = protocols.findIndex(p => p.value === value && !!p.codingPlan === codingPlan);
+    if (idx < 0 || protocols.length === 0) return;
     const next = shift
-      ? (idx - 1 + PROTOCOLS.length) % PROTOCOLS.length
-      : (idx + 1) % PROTOCOLS.length;
-    const target = PROTOCOLS[next];
+      ? (idx - 1 + protocols.length) % protocols.length
+      : (idx + 1) % protocols.length;
+    const target = protocols[next];
     onChange(target.value, target.codingPlan);
   };
 

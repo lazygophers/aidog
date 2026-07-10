@@ -13,7 +13,6 @@ import {
 } from "../../utils/platformPaste";
 import { platformApi, type SharePlatform } from "../../services/api";
 import { getProtocolLabel } from "../../domains/platforms/defaults";
-import { PROTOCOL_LABELS } from "../../domains/platforms/constants";
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
@@ -256,7 +255,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               {t("platform.paste.shareDetected", "已识别 AiDog 平台分享")}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-              {share.name} · {protocolLabel || PROTOCOL_LABELS[share.platform_type] || share.platform_type}
+              {share.name} · {protocolLabel || share.platform_type}
             </div>
             <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
               {t("platform.paste.shareDetectedHint", "点击下方按钮将完整配置（含 API Key）灌入表单。")}

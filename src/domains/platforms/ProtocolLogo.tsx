@@ -1,7 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import type { Protocol } from "../../services/api";
 import { useProtocolLogo } from "./useProtocolLogo";
-import { PROTOCOL_COLORS } from "./constants";
+import { getProtocolColorMap } from "./defaults";
 
 /** Protocol brand logo（缓存命中）+ 首字母圆圈 fallback。
  *
@@ -19,7 +19,15 @@ export function ProtocolLogo({
   const { logoSrc, fallbackInitial } = useProtocolLogo(protocol);
   // `<img>` onError（缓存文件存在但渲染失败 / 格式坏）→ 触发首字母圆圈 fallback
   const [imgFailed, setImgFailed] = useState(false);
-  const color = PROTOCOL_COLORS[protocol] || "var(--accent)";
+  // 品牌色（async 派生自 platform-presets.json）；首帧 fallback var(--accent)。
+  const [color, setColor] = useState<string>("var(--accent)");
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolColorMap().then(m => {
+      if (!cancelled && m[protocol]) setColor(m[protocol]!);
+    });
+    return () => { cancelled = true; };
+  }, [protocol]);
 
   if (logoSrc && !imgFailed) {
     return (

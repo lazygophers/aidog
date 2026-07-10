@@ -9,7 +9,6 @@ import {
 import { IconClose, IconCheck } from "../components/icons";
 import { TestResultBody } from "../components/shared";
 import { getProtocolLabel } from "../domains/platforms/defaults";
-import { PROTOCOL_LABELS } from "../domains/platforms/constants";
 
 interface Props {
   platform: Platform;
@@ -126,7 +125,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           <div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</div>
             <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-              {platform.name} · {protocolLabel || PROTOCOL_LABELS[platform.platform_type] || platform.platform_type}
+              {platform.name} · {protocolLabel || platform.platform_type}
             </div>
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><IconClose size={16} /></button>

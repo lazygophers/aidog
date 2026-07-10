@@ -1,7 +1,7 @@
 // cc-switch provider → aidog Platform 匹配回退链（纯函数）。
 //
 // **禁在 Rust 重复实现 preset 匹配**：preset 单一事实源是 domains/platforms
-// 的 PROTOCOLS + getDefaultEndpoints，此文件复用之（记忆
+// 的 buildProtocolsFromPresets + getDefaultEndpoints，此文件复用之（记忆
 // `aidog-add-platform-skill` 反直觉点 1）。后端 ccswitch.rs 只做原始数据
 // 读取 + DTO 透传。
 //
@@ -13,7 +13,7 @@
 
 import type { Protocol, PlatformEndpoint, PlatformModels } from "../services/api";
 import type { CcProvider } from "../services/api";
-import { PROTOCOLS, getDefaultEndpoints, type ProtocolOption } from "../domains/platforms";
+import { getDefaultEndpoints, buildProtocolsFromPresets, type ProtocolOption } from "../domains/platforms";
 import {
   normalizeForMatch,
   guessProtocol,
@@ -40,7 +40,7 @@ function toPastePresets(protocols: ProtocolOption[]): PastePresetRef[] {
     value: p.value,
     label: p.label,
     keywords: p.keywords,
-    // hosts 由模块加载时从 getDefaultEndpoints 派生注入 PROTOCOLS[].hosts，
+    // hosts 由 buildProtocolsFromPresets 派生自 endpoints 内联写入 ProtocolOption.hosts，
     // 必须透传，否则 matchPlatform 优先级1（host 子串匹配）对所有 preset 失效。
     hosts: p.hosts,
     codingPlan: p.codingPlan,
@@ -156,19 +156,20 @@ function buildClaudeFallback(baseUrl: string): CcMatchResult {
 /**
  * 匹配主入口：cc-switch provider → aidog platform_type + endpoints。
  * @param provider 后端 DTO（已含 detected_base_url / codex_config_parsed）
- * @param protocols Platforms.tsx PROTOCOLS（默认导入）
+ * @param protocols 可选 ProtocolOption[]（默认 buildProtocolsFromPresets 派生自 platform-presets.json）
  */
 export async function matchCcProvider(
   provider: CcProvider,
-  protocols: ProtocolOption[] = PROTOCOLS,
+  protocols?: ProtocolOption[],
 ): Promise<CcMatchResult> {
+  const list = protocols ?? await buildProtocolsFromPresets();
   const baseUrl = provider.detectedBaseUrl ?? "";
   const text = `${provider.name} ${baseUrl}`;
 
   // 步骤 1：preset 关键词匹配（name + base_url 整体做 hay）。
-  const hit = matchPlatform(text, toPastePresets(protocols));
+  const hit = matchPlatform(text, toPastePresets(list));
   if (hit) {
-    const preset = protocols.find(
+    const preset = list.find(
       (p) => p.value === hit.value && p.label === hit.label,
     );
     return buildMatch(
@@ -181,7 +182,7 @@ export async function matchCcProvider(
   }
 
   // 步骤 2：base_url host 匹配。
-  const hostHit = await matchByBaseUrlHost(baseUrl, protocols);
+  const hostHit = await matchByBaseUrlHost(baseUrl, list);
   if (hostHit) {
     return buildMatch(
       hostHit.protocol,

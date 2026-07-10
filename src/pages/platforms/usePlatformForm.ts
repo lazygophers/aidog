@@ -5,7 +5,7 @@
 //
 // 边界（自包含）：仅持有 form 编辑态 + form 业务 handlers；不持有 list state（platforms/drag/quota）。
 //   owner 调用 usePlatformForm(listDeps) 拿 form state + handlers，并入 PlatformsState 返回。
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import type { TFunction } from "i18next";
 import {
   platformApi, settingsApi, groupDetailApi,
@@ -27,6 +27,7 @@ import {
   getDefaultEndpoints, getDefaultModels,
   autoCategorize, type PeakWindow,
 } from "../../domains/platforms";
+import { getProtocolLabelMap } from "../../domains/platforms/defaults";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
 
@@ -171,6 +172,14 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [name, setName] = useState("OpenAI");
   const [protocol, setProtocol] = useState<Protocol>("openai");
   const [codingPlan, setCodingPlan] = useState(false);
+  // 协议 label 全表（async 派生自 JSON name）；首帧 {} 用 key fallback，加载后 setState。
+  // DEFAULT_NAMES 运行时并入此 map 的 value 集合（替代旧 PROTOCOL_LABELS 全表派生）。
+  const [protocolLabelMap, setProtocolLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolLabelMap().then(m => { if (!cancelled) setProtocolLabelMap(m); });
+    return () => { cancelled = true; };
+  }, []);
   const [apiKey, setApiKey] = useState("");
   // 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表。
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
@@ -240,9 +249,13 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const handleProtocolChange = async (newProtocol: Protocol, newCodingPlan?: boolean) => {
     const cp = !!newCodingPlan;
-    // Auto-fill name with protocol label if empty or still at a default name
-    if (!name.trim() || DEFAULT_NAMES.has(name)) {
-      setName(cp ? `${PROTOCOL_LABELS[newProtocol]} Coding Plan` : PROTOCOL_LABELS[newProtocol]);
+    // DEFAULT_NAMES 运行时并入 protocolLabelMap value 集合（覆盖 60+ platform JSON name）
+    // + 静态 5 请求格式协议 label；任一命中视为「name 仍是协议默认名 → 切协议时自动覆盖」。
+    const label = protocolLabelMap[newProtocol] || PROTOCOL_LABELS[newProtocol] || newProtocol;
+    const isDefaultName = !name.trim() || DEFAULT_NAMES.has(name)
+      || Object.values(protocolLabelMap).includes(name);
+    if (isDefaultName) {
+      setName(cp ? `${label} Coding Plan` : label);
     }
     // Auto-fill endpoints from defaults（mock 无真实上游，返回空）
     const defaultEps = await getDefaultEndpoints(newProtocol, cp);

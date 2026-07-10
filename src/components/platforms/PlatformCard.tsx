@@ -6,11 +6,11 @@ import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, co
 import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
-  PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
+  PROTOCOL_LABELS, HEALTH_COLORS,
   getDefaultModels, getProtocolHomepage, isCodingPlanProtocol, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
 } from "../../domains/platforms";
-import { getProtocolLabel, getProtocolLabelMap } from "../../domains/platforms/defaults";
+import { getProtocolLabel, getProtocolLabelMap, getProtocolColorMap } from "../../domains/platforms/defaults";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
@@ -102,7 +102,15 @@ export const PlatformCard = memo(function PlatformCard({
     () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal),
     [p, quotaRaw, quotaPreferReal],
   );
-  const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
+  const [color, setColor] = useState<string>("var(--accent)");
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolColorMap().then(m => {
+      if (!cancelled && m[p.platform_type]) setColor(m[p.platform_type]!);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.platform_type]);
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
   // 协议层 coding plan 套餐标记（数据驱动，读 preset.is_coding_plan 真值源；非硬编码协议键名）。
   const [isCpProtocol, setIsCpProtocol] = useState(false);
@@ -286,7 +294,7 @@ export const PlatformCard = memo(function PlatformCard({
                   </div>
                 )}
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {protocolLabel || PROTOCOL_LABELS[p.platform_type] || p.platform_type} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
+                  {protocolLabel || p.platform_type} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
                 {p.status === "auto_disabled" && (
                   <div
