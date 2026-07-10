@@ -27,7 +27,7 @@ use serde_json::json;
     async fn ensure_default_coding_tools_settings_no_record_no_db_write() {
         use aidog_core::gateway::db::test_support::HomeGuard;
         let _h = HomeGuard::new();
-        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        let db = aidog_core::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
         // 首次：无记录
@@ -46,7 +46,7 @@ use serde_json::json;
     /// 这里验证 ensure 看到记录后 DB 值原样保留。
     #[tokio::test]
     async fn ensure_default_coding_tools_settings_respects_existing_record() {
-        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        let db = aidog_core::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
         // 预置：用户把两开关都开了（DB true,true）
@@ -54,7 +54,7 @@ use serde_json::json;
             "apply_to_claude_plugin": true,
             "skip_claude_onboarding": true,
         });
-        aidog_core::gateway::db::set_setting(&db, crate::SetSettingInput {
+        aidog_core::gateway::db::set_setting(&db, aidog_core::SetSettingInput {
             scope: "global".to_string(),
             key: "coding_tools_settings".to_string(),
             value: user_value,
@@ -75,7 +75,7 @@ use serde_json::json;
     /// load_coding_tools_settings: DB 无记录时返回默认值。
     #[tokio::test]
     async fn load_coding_tools_settings_no_record_returns_default() {
-        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        let db = aidog_core::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
         let s = super::load_coding_tools_settings(&db).await;
         assert!(!s.apply_to_claude_plugin);
@@ -85,9 +85,9 @@ use serde_json::json;
     /// load_coding_tools_settings: DB 有记录时返回正确值。
     #[tokio::test]
     async fn load_coding_tools_settings_with_record() {
-        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        let db = aidog_core::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
-        aidog_core::gateway::db::set_setting(&db, crate::SetSettingInput {
+        aidog_core::gateway::db::set_setting(&db, aidog_core::SetSettingInput {
             scope: "global".to_string(),
             key: "coding_tools_settings".to_string(),
             value: serde_json::json!({
