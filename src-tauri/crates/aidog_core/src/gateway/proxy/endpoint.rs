@@ -39,7 +39,8 @@ pub(crate) fn detect_source_protocol(path: &str) -> String {
 
 /// 按入站 User-Agent 推断客户端"原生" wire 协议（仅用于 UA 透传分支，见 [protocol-same-proto-passthrough] 扩展）。
 ///
-/// 复用现有出站合成 UA 的子串特征规则（`claude_code_ua` / `codex_ua`）应用到入站匹配：
+/// 复用现有出站合成 UA 的子串特征规则（现由 client-types.json `simulation.user_agent` 配置驱动，
+/// 详见 `headers.rs::simulation_map`）应用到入站匹配：
 /// - 含 `claude-cli`（Claude Code CLI/VSCode/SDK/GhAction 全家族）→ `"anthropic"`
 /// - 含 `codex`（codex_cli_rs / Codex/ / codex desktop / codex-vscode 全家族）→ `"openai_responses"`
 /// - 其它（Cursor / Windsurf / gemini-cli / 未知 / 缺失）→ None（回退现有处理）
