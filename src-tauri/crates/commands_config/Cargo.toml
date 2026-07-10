@@ -5,5 +5,17 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C5 才迁 settings/defaults + sync/hooks 薄壳入此 crate。
+# C5 commands-config：settings/defaults 2 域 command（hooks/sync_settings 源已 C2 下沉 aidog_core）。
+# 铁律：禁依赖其他 commands_* crate（跨域边下沉 aidog_core）。
 [dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+aidog_test_util = { path = "../aidog_test_util" }
+tauri = { workspace = true, features = ["test"] }
+tokio = { workspace = true }

@@ -8,7 +8,7 @@ use aidog_core::sync_settings::do_sync_group_settings;
 use aidog_core::shared::*;
 use aidog_core::gateway::{self, db::Db};
 use aidog_core::gateway::models::*;
-use crate::commands::test_harness::mock_app_with_db;
+use aidog_test_util::mock_app_with_db;
 use aidog_core::gateway::db::test_support::HomeGuard;
 use tauri::Manager;
 
