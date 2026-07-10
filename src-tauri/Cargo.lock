@@ -72,6 +72,7 @@ dependencies = [
  "aidog_core",
  "axum",
  "chrono",
+ "commands_ai_tools",
  "commands_config",
  "commands_platform",
  "commands_proxy",
@@ -930,6 +931,17 @@ dependencies = [
 [[package]]
 name = "commands_ai_tools"
 version = "0.1.5"
+dependencies = [
+ "aidog_core",
+ "aidog_test_util",
+ "axum",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tokio",
+ "tracing",
+ "uuid",
+]
 
 [[package]]
 name = "commands_cli_env"

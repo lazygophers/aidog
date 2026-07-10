@@ -28,7 +28,7 @@ const CODING_TOOLS_DEFAULT_APPLY: bool = false;
 const CODING_TOOLS_DEFAULT_SKIP: bool = false;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
-pub(crate) struct CodingToolsSettings {
+pub struct CodingToolsSettings {
     #[serde(default = "coding_tools_default_apply")]
     apply_to_claude_plugin: bool,
     #[serde(default = "coding_tools_default_skip")]
@@ -64,7 +64,7 @@ pub(crate) async fn load_coding_tools_settings(db: &Db) -> CodingToolsSettings {
 ///
 /// 幂等：claude_integration 内部对已存在字段做 diff 跳过（重复写无副作用）。
 /// 失败仅 warn 不中断启动。
-pub(crate) async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String> {
+pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String> {
     if db::get_setting(db, "global", "coding_tools_settings").await.ok().flatten().is_some() {
         // 用户已 toggle 过两开关，完全尊重 DB 值，不强制默认写。
         return Ok(());

@@ -8,7 +8,7 @@ use aidog_core::shared::{aidog_data_dir, load_proxy_settings, ProxyHandle, Proxy
 use aidog_core::gateway::middleware::MiddlewareEngine;
 use commands_system::app_log::{load_app_log_settings_from_db, migrate_log_settings_file_to_db};
 use aidog_core::sync_settings::try_sync_settings;
-use crate::commands::coding_tools::ensure_default_coding_tools_settings;
+use commands_ai_tools::coding_tools::ensure_default_coding_tools_settings;
 use commands_proxy::proxy::{proxy_start, proxy_stop};
 use commands_platform::tray::build_tray_menu;
 use aidog_core::tray_render::refresh_tray_menu;
