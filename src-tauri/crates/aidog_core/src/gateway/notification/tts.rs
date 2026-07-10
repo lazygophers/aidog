@@ -17,7 +17,7 @@ pub const NOTIF_SPEAK: &str = "notif-speak";
 /// 启动时的 request_permission（lib.rs setup）。
 ///
 /// 失败仅记日志，不阻塞调用方。
-pub(crate) fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
+pub fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
     use tauri_plugin_notification::NotificationExt;
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
         tracing::warn!(error = %e, "notify: popup show failed");
@@ -29,7 +29,7 @@ pub(crate) fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
 ///   speak 为非阻塞触发，线程随即退出，平台 backend 自行排播）。
 /// - MacSay：std::process `say`（macOS only；其他平台退化为 CrossPlatform）。
 /// - WebSpeech：emit 事件给前端 webview，由 N3 webview SpeechSynthesis 朗读。
-pub(crate) fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
+pub fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
     match backend {
         TtsBackend::WebSpeech => {
             if let Some(app) = app {
@@ -102,7 +102,7 @@ fn fallback_say(_text: &str) {}
 /// - Linux: `paplay <freedesktop bell>`，缺则 stdout `\a`
 ///
 /// spawn 后立即返回；失败仅记日志，不阻塞调用方。
-pub(crate) fn play_beep() {
+pub fn play_beep() {
     std::thread::spawn(|| {
         #[cfg(target_os = "macos")]
         {

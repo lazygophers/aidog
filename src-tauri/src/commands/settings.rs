@@ -1,8 +1,8 @@
-use crate::shared::*;
-use crate::commands::sync_settings::try_sync_settings;
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::shared::*;
+use aidog_core::sync_settings::try_sync_settings;
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -18,7 +18,7 @@ use tauri::Manager;
 use gateway::models::SetSettingInput;
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn settings_get(
     scope: String,
     key: String,
@@ -29,7 +29,7 @@ pub async fn settings_get(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "settings_set", scope = %input.scope, key = %input.key, "command invoked");
     db::set_setting(&db, input).await
@@ -40,7 +40,7 @@ pub async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri:
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "settings_delete", scope = %scope, key = %key, "command invoked");
     db::delete_setting(&db, &scope, &key).await
@@ -48,14 +48,14 @@ pub async fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> R
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String> {
     tracing::debug!(command = "settings_list", scope = %scope, "command invoked");
     db::list_setting_keys(&db, &scope).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn generate_statusline_script(
     script_type: String,
     content: String,
@@ -86,7 +86,7 @@ pub async fn generate_statusline_script(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub fn read_claude_code_settings() -> Result<serde_json::Value, String> {
     tracing::debug!(command = "read_claude_code_settings", "command invoked");
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;

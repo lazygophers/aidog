@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::Db};
+use aidog_core::gateway::{self, db::Db};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -16,7 +16,7 @@ use tauri::Manager;
 use gateway::models::ProxyTimeoutSettings;
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
     tracing::debug!(command = "proxy_timeout_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "proxy", "timeout").await
@@ -27,7 +27,7 @@ pub async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
     tracing::debug!(command = "proxy_timeout_set", "command invoked");
     gateway::db::set_setting(&db, SetSettingInput {

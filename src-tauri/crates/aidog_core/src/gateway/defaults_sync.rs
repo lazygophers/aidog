@@ -30,7 +30,7 @@ const THROTTLE_SECS: i64 = 24 * 3600;
 
 /// 编译期编入的本地真值（与 `commands/defaults.rs::BUNDLED` 同源同文件，各自 include_str!，
 /// 编译期同值无重复维护负担）。`validate_structure` 据此判定远端协议集合是否 ⊇ 本地。
-const BUNDLED: &str = include_str!("../../defaults/platform-presets.json");
+const BUNDLED: &str = include_str!("../../../../defaults/platform-presets.json");
 
 /// bundled 解析缓存：首次访问解析一次，后续直接索引（参考 peak_hours.rs `PRESETS` 模式）。
 static BUNDLED_VALUE: OnceLock<serde_json::Value> = OnceLock::new();

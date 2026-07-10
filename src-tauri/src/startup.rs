@@ -92,9 +92,9 @@ pub fn run() {
             crate::commands::proxy::proxy_client_get_settings,
             crate::commands::proxy::proxy_client_set_settings,
             // Config Export
-            crate::commands::sync_settings::export_claude_config,
-            crate::commands::sync_settings::sync_group_settings,
-            crate::commands::sync_settings::get_managed_paths,
+            aidog_core::sync_settings::export_claude_config,
+            aidog_core::sync_settings::sync_group_settings,
+            aidog_core::sync_settings::get_managed_paths,
             // Proxy Logs
             crate::commands::proxy_log::proxy_log_list,
             crate::commands::proxy_log::proxy_log_list_filtered,
@@ -134,11 +134,11 @@ pub fn run() {
             crate::commands::notification::notification_test_popup,
             crate::commands::notification::notification_test_beep,
             // Notification Hook Integration (N2)
-            crate::commands::hooks::inject_hooks,
-            crate::commands::hooks::remove_hooks,
-            crate::commands::hooks::get_default_hooks_enabled,
-            crate::commands::hooks::set_default_hooks_enabled,
-            crate::commands::hooks::build_notify_hooks_fragment,
+            aidog_core::hooks::inject_hooks,
+            aidog_core::hooks::remove_hooks,
+            aidog_core::hooks::get_default_hooks_enabled,
+            aidog_core::hooks::set_default_hooks_enabled,
+            aidog_core::hooks::build_notify_hooks_fragment,
             // 脚本执行器（uv / python3）
             crate::commands::script_executor::check_uv,
             crate::commands::script_executor::install_uv,
@@ -202,9 +202,9 @@ pub fn run() {
             crate::commands::settings::generate_statusline_script,
             crate::commands::settings::read_claude_code_settings,
             // Codex Config
-            crate::gateway::codex::codex_config_read,
-            crate::gateway::codex::codex_config_write,
-            crate::gateway::codex::codex_config_path,
+            aidog_core::gateway::codex::codex_config_read,
+            aidog_core::gateway::codex::codex_config_write,
+            aidog_core::gateway::codex::codex_config_path,
             // Statistics
             crate::commands::stats::stats_query,
             crate::commands::model_test::model_test,

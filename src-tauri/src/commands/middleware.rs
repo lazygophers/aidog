@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::Db};
+use aidog_core::gateway::{self, db::Db};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -22,14 +22,14 @@ use gateway::models::{
 use crate::commands::mitm::ImportDefaultsResult;
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_list_rules(db: State<'_, Db>) -> Result<Vec<MiddlewareRule>, String> {
     tracing::debug!(command = "middleware_list_rules", "command invoked");
     gateway::db::list_middleware_rules(&db).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_create_rule(
     input: CreateMiddlewareRule,
     db: State<'_, Db>,
@@ -44,7 +44,7 @@ pub async fn middleware_create_rule(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_update_rule(
     input: UpdateMiddlewareRule,
     db: State<'_, Db>,
@@ -59,7 +59,7 @@ pub async fn middleware_update_rule(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_delete_rule(
     id: i64,
     db: State<'_, Db>,
@@ -74,7 +74,7 @@ pub async fn middleware_delete_rule(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_settings_get(db: State<'_, Db>) -> Result<MiddlewareSettings, String> {
     tracing::debug!(command = "middleware_settings_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "middleware", "settings").await
@@ -85,7 +85,7 @@ pub async fn middleware_settings_get(db: State<'_, Db>) -> Result<MiddlewareSett
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_settings_set(
     db: State<'_, Db>,
     settings: MiddlewareSettings,
@@ -108,7 +108,7 @@ pub async fn middleware_settings_set(
 /// 返 [`ImportDefaultsResult`] `{ imported, skipped }`：前端 toast 反馈计数。
 /// 写库后 reload 引擎缓存（与 create/update/delete 同模式）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_import_default_rules(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,

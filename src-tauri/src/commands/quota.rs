@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -16,7 +16,7 @@ use tauri::Manager;
 use gateway::quota::PlatformQuota;
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>, db: State<'_, Db>,
@@ -32,7 +32,7 @@ pub async fn platform_query_quota(
 
 /// New API 专用余额查询（两步：先查 token quota 类型，再按需查用户余额）
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>, db: State<'_, Db>,

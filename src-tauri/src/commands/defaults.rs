@@ -2,12 +2,12 @@
 //!
 //! 同 settings.json：用 `include_str!` 把 `src-tauri/defaults/platform-presets.json` 编入二进制，
 //! 不走 Tauri resources（项目现行约定）。
-use crate::shared::aidog_data_dir;
+use aidog_core::shared::aidog_data_dir;
 
 const BUNDLED: &str = include_str!("../../defaults/platform-presets.json");
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn get_defaults_json() -> Result<String, String> {
     tracing::debug!(command = "get_defaults_json", "command invoked");
     // app data 优先（运行时同步链写入）
@@ -38,17 +38,17 @@ pub async fn get_defaults_json() -> Result<String, String> {
 
 /// platform-presets.json 同步（jsDelivr 主 + raw fallback）。无视节流——前端手动按钮专用。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-pub async fn sync_defaults_json() -> Result<crate::gateway::defaults_sync::DefaultsSyncResult, String> {
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+pub async fn sync_defaults_json() -> Result<aidog_core::gateway::defaults_sync::DefaultsSyncResult, String> {
     tracing::debug!(command = "sync_defaults_json", "command invoked");
-    Ok(crate::gateway::defaults_sync::sync_defaults_json().await)
+    Ok(aidog_core::gateway::defaults_sync::sync_defaults_json().await)
 }
 
 /// 返回 protocol logo 缓存文件路径（前端 `convertFileSrc` 用）。文件不存在/无缓存目录返空串。
 #[tauri::command]
 pub fn get_protocol_logo_path(protocol: String) -> Result<String, String> {
     let dir = aidog_data_dir()?;
-    let path = crate::gateway::logo_sync::logo_cache_path(&dir, &protocol);
+    let path = aidog_core::gateway::logo_sync::logo_cache_path(&dir, &protocol);
     if path.exists() {
         if let Ok(meta) = std::fs::metadata(&path) {
             if meta.len() > 0 {
@@ -66,12 +66,12 @@ pub async fn sync_protocol_logo(
     protocol: String,
 ) -> Result<(), String> {
     use tauri::Manager;
-    let db = app.try_state::<crate::gateway::db::Db>()
+    let db = app.try_state::<aidog_core::gateway::db::Db>()
         .map(|s| std::sync::Arc::new(s.inner().clone()))
         .ok_or("db not initialized")?;
     let dir = aidog_data_dir()?;
     tauri::async_runtime::spawn(async move {
-        crate::gateway::logo_sync::sync_one_logo(db, dir, protocol).await;
+        aidog_core::gateway::logo_sync::sync_one_logo(db, dir, protocol).await;
     });
     Ok(())
 }

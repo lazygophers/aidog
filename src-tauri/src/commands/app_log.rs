@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -54,14 +54,14 @@ pub(crate) async fn migrate_log_settings_file_to_db(db: &Db) {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
     tracing::debug!(command = "app_log_settings_get", "command invoked");
     Ok(load_app_log_settings_from_db(&db).await)
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "app_log_settings_set", "command invoked");
     let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
