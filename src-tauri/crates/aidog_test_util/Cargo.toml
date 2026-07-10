@@ -5,5 +5,8 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C3+ 各 commands crate dev-deps 引此 crate（mock_app_with_db 等）。
+# C3+ 各 commands crate dev-deps 引此 crate（mock_app_with_db 等）。
+# mock_app_with_db 构造 MockRuntime App + manage(Db)，依赖 tauri test feature。
 [dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true, features = ["test"] }

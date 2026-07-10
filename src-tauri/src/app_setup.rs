@@ -10,9 +10,9 @@ use crate::commands::app_log::{load_app_log_settings_from_db, migrate_log_settin
 use aidog_core::sync_settings::try_sync_settings;
 use crate::commands::coding_tools::ensure_default_coding_tools_settings;
 use crate::commands::proxy::{proxy_start, proxy_stop};
-use crate::commands::tray::build_tray_menu;
+use commands_platform::tray::build_tray_menu;
 use aidog_core::tray_render::refresh_tray_menu;
-use crate::commands::quota::cold_start_init_tray_estimates;
+use commands_platform::quota::cold_start_init_tray_estimates;
 use tauri::tray::TrayIconBuilder;
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -393,7 +393,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 use tauri::Listener;
                 let handle = app.handle().clone();
                 app.listen("tray-refresh", move |_| {
-                    let _ = tauri::async_runtime::block_on(refresh_tray_menu(&handle, &crate::commands::tray::TrayMenuBuildImpl));
+                    let _ = tauri::async_runtime::block_on(refresh_tray_menu(&handle, &commands_platform::tray::TrayMenuBuildImpl));
                 });
             }
 
@@ -426,7 +426,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                             "tray_refresh_tick",
                             trace_id = %logging::new_trace_id()
                         );
-                        let _ = refresh_tray_menu(&handle, &crate::commands::tray::TrayMenuBuildImpl).instrument(cycle_span).await;
+                        let _ = refresh_tray_menu(&handle, &commands_platform::tray::TrayMenuBuildImpl).instrument(cycle_span).await;
                     }
                 });
             }

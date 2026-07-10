@@ -122,6 +122,9 @@ tauri = { version = "2", features = ["test"] }
 # C2 core-extract：gateway/shared/sync/hooks/tray_render/logging 全部下沉 aidog_core。
 # 过渡期 root package 仍引（commands 域 C3+ 才迁）。
 aidog_core = { path = "crates/aidog_core" }
+# C3 commands-platform：platform/group/model_fetch/stats/price/quota 6 域迁此 crate。
+# 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
+commands_platform = { path = "crates/commands_platform" }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"
