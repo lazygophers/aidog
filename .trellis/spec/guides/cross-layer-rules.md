@@ -1,8 +1,9 @@
 ---
 updated: 2026-07-10
-rewrite-version: 6
+rewrite-version: 7
 supersedes:
   - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals; v1 renamed → cross-layer-rules.md)
+  - guides/cross-layer-rules.md (v6, 无「执行层 match 臂 → JSON 配置驱动引擎」段)
 authored-by: trellisx-spec
 mode: sediment
 ---
@@ -121,6 +122,37 @@ grep -n 'export type ClientType = string' src/services/api/types/part1.ts
 ```
 
 实例：task 07-10-client-types-json-sync（Rust `ClientType` enum 13 变体 → `pub type ClientType = String`，83 命中点字面量化，migration `schema_early.rs` + 全 test 改 `"codex_tui"`/`"claude_code"` 字面量；前端 union → `string`；`Protocol` 枚举保留走变体扩展 spec）
+
+## Rust 执行层 match 臂 → JSON 真值源配置驱动引擎 (MUST)
+
+Rust 执行层（如 proxy headers 注入）写死 per-variant dispatch (`match x { "A" => fn_a(), "B" => fn_b(), _ => default() }`) + per-variant fn + variant 字面量，当变体集合属「后端 JSON 真值源派生」类（client_type / 平台 / 模拟行为等）→ **MUST** 改 JSON 真值源 per-entry 配置驱动 + 通用占位符引擎，**禁**保留 match 臂 / per-variant fn / variant 字面量。
+
+- **配置驱动引擎 5 要素 (MUST)**:
+  1. **JSON 真值源 per-entry 配置**: 每 variant 一个 entry，含全自包含行为字段（UA / auth 矩阵 / extra headers / 占位符模板），**禁 family 继承**（继承需 Rust 代码，违「禁写代码依赖」）
+  2. **通用占位符引擎**: `{api_key}` / `{uuid}` 等模板由通用 `fill_placeholder(template, ctx)` 求值，**非 variant 特定代码**（合「禁写代码依赖」）；`{uuid}` 每次调用新 uuid 求值（禁缓存，同请求内不同字段 `conversation_id ≠ session_id`）
+  3. **OnceLock 启动加载**: `OnceLock<HashMap<String, Simulation>>` 启动时一次性加载 JSON（app data → bundled `include_str!` fallback，同 `get_defaults_json` 模式），**禁每请求读盘 / IPC**（性能 + 单次加载）
+  4. **未知值 fallback to `default` entry**: `map.get(variant).or_else(|| map.get("default"))`，**禁** bare Bearer 兜底（保协议 auth 一致：unknown + anthropic 仍 `x-api-key`，unknown + gemini 仍 `x-goog-api-key`，unknown + openai 仍 `Authorization` + `api-key`）—— bare Bearer 会让 unknown variant 在 anthropic/gemini 协议下 auth 头类型错位
+  5. **公共契约层禁改**: 见上「持久化路径换、公共契约零改」段 —— struct 字段名 / serde 字段名 / command 签名 / 前端 TS union 不动，仅 Rust 内部执行逻辑换
+
+- **行为等价 test 矩阵 (MUST)**: 重构后 MUST 覆盖 `variant × protocol` 矩阵 test，验证 apply 输出 headers（UA 子串 + auth 头 + extras）与重构前 1:1 等价；含 uuid 占位符（同请求内 `conversation_id ≠ session_id`）+ 未知 variant 兜底（逐协议验 default entry auth 类型对齐，非 bare Bearer）test
+
+- **`build_upstream_headers` 日志镜像 (MUST)**: 日志/审计路径（如 `build_upstream_headers`）MUST 复用同一 simulation 配置（apply 与 log 同源，禁日志路径单独 hardcode 一份；redact_key 脱敏 Authorization 等）
+
+**验收断言（grep 可复用）**:
+```bash
+# match 臂 + per-variant fn + variant 字面量全删（仅注释残留）
+grep -rn '"claude_code"\|"codex_tui"\|"cursor"\|"windsurf"' <执行层文件>.rs  # 0
+grep -rn 'apply_variant_a_headers\|apply_variant_b_headers\|variant_ua' crates/  # 0
+grep -rn 'match client_type\|match x' <执行层文件>.rs  # 0
+# OnceLock 加载（禁每请求读盘）
+grep -n 'OnceLock\|get_or_init' <执行层文件>.rs
+# 通用占位符引擎（非 variant 特定）
+grep -n 'fn fill_placeholder' <执行层文件>.rs
+# 未知值 fallback to default entry
+grep -n '\.or_else.*default' <执行层文件>.rs
+```
+
+实例：task 07-10-config-externalization（`headers.rs` 删 8 fn：`apply_client_headers` match 臂 + `claude_code_ua` / `codex_ua` / `apply_claude_code_family_headers` / `apply_codex_family_headers` / `apply_cursor_headers` / `apply_windsurf_headers` / `apply_default_headers` → `client-types.json` 12 entry `simulation` 配置（user_agent + auth<protocol,headers[]> 矩阵 + `{api_key}`/`{uuid}` 占位符，全自包含禁 family 继承）+ `SIMULATION_CACHE: OnceLock<HashMap<String, Simulation>>` + `fill_placeholder({api_key}/{uuid})` 通用引擎 + `resolve_simulation` default 兜底；`apply_client_headers` + `build_upstream_headers` 共享配置；12 client_type × anthropic/openai/gemini 行为等价 test 矩阵 + R6 grep 全 0；P1 unknown client_type fallback regression 发现保协议 auth 一致，补 3 个逐协议兜底 test）
 
 ## Verification
 
