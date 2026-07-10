@@ -22,16 +22,5 @@ pub(crate) async fn mock_app_with_db() -> App<MockRuntime> {
     app
 }
 
-/// 同 [`mock_app_with_db`]，额外 manage 一个 MiddlewareEngine（供 middleware 命令测试）。
-pub(crate) async fn mock_app_with_db_and_engine() -> App<MockRuntime> {
-    use aidog_core::gateway::middleware::MiddlewareEngine;
-    use std::sync::Arc;
-    let db = Db::new(":memory:").await.expect("open memory db");
-    db.init_tables().await.expect("init tables");
-    let app = mock_builder()
-        .build(mock_context(noop_assets()))
-        .expect("build mock app");
-    app.manage(db);
-    app.manage(Arc::new(MiddlewareEngine::new()));
-    app
-}
+// mock_app_with_db_and_engine 随 middleware 命令测试 C4 一同下沉至
+// aidog_test_util（crates/aidog_test_util/src/lib.rs），root 不再持有此变体。

@@ -5,5 +5,18 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C4 才迁 proxy/proxy_log/proxy_timeout/middleware/mitm 入此 crate。
+# C4 commands-proxy：proxy/proxy_log/proxy_timeout/middleware/mitm 5 域 command。
+# 铁律：禁依赖其他 commands_* crate（跨域边下沉 aidog_core）。
 [dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tauri-plugin-autostart = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+aidog_test_util = { path = "../aidog_test_util" }
+tauri = { workspace = true, features = ["test"] }
+tokio = { workspace = true }
