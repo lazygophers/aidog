@@ -10,7 +10,9 @@ pub mod coding_tools;
 pub mod defaults;
 pub mod fs_autocomplete;
 pub mod group;
-pub mod hooks;
+// hooks / sync_settings / tray_render 下沉 aidog_core（C2 core-extract）；
+// startup.rs generate_handler 直接用 `aidog_core::hooks::*` / `aidog_core::sync_settings::*`
+// 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
 pub mod mcp;
 pub mod middleware;
 pub mod mitm;
@@ -29,10 +31,14 @@ pub mod script_executor;
 pub mod settings;
 pub mod skills;
 pub mod stats;
-pub mod sync_settings;
 pub mod tray;
-pub mod tray_render;
 
 #[cfg(test)]
 #[path = "commands/test_harness.rs"]
 pub(crate) mod test_harness;
+
+// hooks 测试：源文件已下沉 aidog_core，但 test 依赖 root 的 test_harness
+// （mock_app_with_db）+ tauri MockRuntime，留 root 测试（C3+ 拆 commands-config 时随 crate 走）。
+#[cfg(test)]
+#[path = "commands/test_hooks.rs"]
+pub(crate) mod test_hooks;

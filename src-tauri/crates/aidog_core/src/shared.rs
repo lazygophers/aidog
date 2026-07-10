@@ -10,7 +10,7 @@ use tauri::Manager;
 use std::sync::Mutex as StdMutex;
 use tokio::task::JoinHandle;
 
-pub(crate) fn slugify(input: &str) -> String {
+pub fn slugify(input: &str) -> String {
     input
         .to_lowercase()
         .replace(" ", "-")
@@ -39,24 +39,24 @@ pub(crate) fn slugify(input: &str) -> String {
 }
 
 /// 代理服务器状态
-pub(crate) struct ProxyHandle(pub(crate) StdMutex<Option<JoinHandle<()>>>);
+pub struct ProxyHandle(pub StdMutex<Option<JoinHandle<()>>>);
 
 fn default_bind_lan() -> bool { true }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
-pub(crate) struct ProxySettings {
-    pub(crate) port: u16,
-    pub(crate) autostart: bool,
+pub struct ProxySettings {
+    pub port: u16,
+    pub autostart: bool,
     #[serde(default)]
-    pub(crate) silent_launch: bool,
+    pub silent_launch: bool,
     /// 代理绑定地址：true=0.0.0.0(局域网可访问) / false=127.0.0.1(仅本机)。
     /// 默认开 LAN（升级后存量用户走 serde default = true）。
     #[serde(default = "default_bind_lan")]
-    pub(crate) bind_lan: bool,
+    pub bind_lan: bool,
 }
 
 /// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件
-pub(crate) async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
+pub async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
@@ -90,7 +90,7 @@ pub(crate) async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxyS
     Ok(ProxySettings { port: 9876, autostart: true, silent_launch: false, bind_lan: true })
 }
 
-pub(crate) async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
+pub async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
     let value = serde_json::to_value(settings)
         .map_err(|e| format!("serialize proxy settings: {e}"))?;
     db::set_setting(db, gateway::models::SetSettingInput {
@@ -100,7 +100,7 @@ pub(crate) async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings)
     }).await
 }
 
-pub(crate) async fn save_proxy_settings(
+pub async fn save_proxy_settings(
     app: &tauri::AppHandle,
     port: u16,
     autostart: bool,
@@ -115,7 +115,7 @@ pub(crate) async fn save_proxy_settings(
 }
 
 
-pub(crate) fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
+pub fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     let dir = home.join(".aidog");
     std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog: {e}"))?;
@@ -123,7 +123,7 @@ pub(crate) fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
 }
 
 /// 生成脚本目录：~/.aidog/scripts/（hook / statusline 脚本统一存放，不再 ~/.aidog/ 根）。
-pub(crate) fn aidog_scripts_dir() -> Result<std::path::PathBuf, String> {
+pub fn aidog_scripts_dir() -> Result<std::path::PathBuf, String> {
     let dir = aidog_data_dir()?.join("scripts");
     std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog/scripts: {e}"))?;
     Ok(dir)
@@ -131,7 +131,7 @@ pub(crate) fn aidog_scripts_dir() -> Result<std::path::PathBuf, String> {
 
 /// 删除 ~/.aidog/ 根下遗留的旧脚本文件（迁移到 scripts/ 后清理，避免残留 stale 路径）。
 /// best-effort：删除失败仅记录，不阻断。
-pub(crate) fn cleanup_legacy_root_script(filename: &str) {
+pub fn cleanup_legacy_root_script(filename: &str) {
     if let Ok(root) = aidog_data_dir() {
         let legacy = root.join(filename);
         if legacy.exists() {
@@ -144,7 +144,7 @@ pub(crate) fn cleanup_legacy_root_script(filename: &str) {
 
 /// 删除 ~/.aidog/scripts/ 下遗留的旧脚本文件（statusline 由 .sh 迁 .py，清理同目录旧 .sh）。
 /// best-effort：删除失败仅记录，不阻断。
-pub(crate) fn cleanup_legacy_scripts_dir_file(scripts_dir: &std::path::Path, filename: &str) {
+pub fn cleanup_legacy_scripts_dir_file(scripts_dir: &std::path::Path, filename: &str) {
     let legacy = scripts_dir.join(filename);
     if legacy.exists() {
         if let Err(e) = std::fs::remove_file(&legacy) {
@@ -153,7 +153,7 @@ pub(crate) fn cleanup_legacy_scripts_dir_file(scripts_dir: &std::path::Path, fil
     }
 }
 
-pub(crate) fn detect_uv() -> bool {
+pub fn detect_uv() -> bool {
     std::process::Command::new("uv")
         .arg("--version")
         .output()
@@ -166,7 +166,7 @@ pub(crate) fn detect_uv() -> bool {
 /// 优先用户持久化选择（`app/script_executor` = "uv" | "python3"）；未持久化时按 live
 /// 探测（uv 可用 → uv，否则 python3）。生成脚本 command 串时调用，保证 hook / statusline /
 /// codex 一致。
-pub(crate) async fn resolve_script_invoker(db: &Db) -> gateway::scripts::ScriptInvoker {
+pub async fn resolve_script_invoker(db: &Db) -> gateway::scripts::ScriptInvoker {
     use gateway::scripts::ScriptInvoker;
     if let Ok(Some(v)) = db::get_setting(db, "app", "script_executor").await {
         if let Some(s) = v.as_str() {

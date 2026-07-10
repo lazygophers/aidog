@@ -5,5 +5,56 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C2 才迁 gateway/shared/models 入此 crate，并填实业务依赖。
+# C2 core-extract：gateway + shared + models + sync + hooks + tray_refresh + logging
+# 全部业务下沉此 crate。所有依赖从 [workspace.dependencies] 引，禁自定版本。
 [dependencies]
+tauri = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
+url = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+axum = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+reqwest = { workspace = true }
+tower = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }
+regex = { workspace = true }
+ipnet = { workspace = true }
+aes-gcm = { workspace = true }
+sha2 = { workspace = true }
+sha1 = { workspace = true }
+hmac = { workspace = true }
+rand = { workspace = true }
+tts = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rcgen = { workspace = true }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }
+# test_support 模块（pub 暴露给 root package 测试跨 crate 引，非 #[cfg(test)] gate）
+# 含 `tempfile::TempDir` 字段，编译进 release。tempfile 轻量（纯 std 封装），代价可接受。
+# C3+ aidog_test_util crate 抽出后从 main deps 移除。
+tempfile = { workspace = true }
+
+# macOS 托盘小字：refresh_tray_menu → set_tray_attributed_title 直连 NSStatusItem button。
+# 与 root package 同版本（workspace.dependencies 集中声明）。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-app-kit = { workspace = true }
+
+# 测试期 dev-deps：gateway 内 skills（tempdir 隔离 FS）+ proxy/test_stream（gzip round-trip）。
+[dev-dependencies]
+tempfile = { workspace = true }
+flate2 = { workspace = true }

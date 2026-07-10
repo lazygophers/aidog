@@ -321,7 +321,7 @@ fn is_conflicting(installs: &[CliInstallation]) -> bool {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub fn cli_check_versions() -> Vec<CliToolStatus> {
     tracing::debug!(command = "cli_check_versions", "command invoked");
     TOOLS
@@ -350,7 +350,7 @@ pub fn cli_check_versions() -> Vec<CliToolStatus> {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn cli_install(tool: String) -> Result<(), String> {
     tracing::debug!(command = "cli_install", tool = %tool, "command invoked");
     if !TOOLS.contains(&tool.as_str()) {
@@ -389,7 +389,7 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn cli_upgrade(tool: String) -> Result<(), String> {
     tracing::debug!(command = "cli_upgrade", tool = %tool, "command invoked");
     if !TOOLS.contains(&tool.as_str()) {
@@ -444,7 +444,7 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn cli_diagnose_conflicts() -> Vec<CliConflict> {
     tracing::debug!(command = "cli_diagnose_conflicts", "command invoked");
     TOOLS
@@ -527,7 +527,7 @@ fn has_update_available(local: &str, latest: &str) -> Option<bool> {
 /// 检查 CLI 工具是否有更新可用（npm registry + semver 比对）。
 /// 返回值含 latest_version / has_update 字段（检测失败时为 None）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn cli_check_updates() -> Vec<CliToolStatus> {
     tracing::debug!(command = "cli_check_updates", "command invoked");
 

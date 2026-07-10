@@ -667,7 +667,7 @@ async fn reopen_write_conn(path: &str) -> Result<AsyncConnection, String> {
 }
 
 /// 当前毫秒级 Unix 时间戳
-pub(crate) fn now() -> i64 {
+pub fn now() -> i64 {
     chrono::Utc::now().timestamp_millis()
 }
 
@@ -703,7 +703,7 @@ mod mcp;
 // pub use 按各项自身可见性导出（pub → pub，pub(crate) → pub(crate)），
 // 故跨子模块 `use super::*` 也能拿到 pub(crate) 共享 helper。
 pub(crate) use trace::*;
-pub(crate) use schema::*;
+pub use schema::*;
 pub(crate) use schema_early::*;
 pub(crate) use schema_late::*;
 pub use platform::*;
@@ -724,8 +724,12 @@ pub use mcp::*;
 // 测试模块：test_<源文件名> 1:1 命名，每个源文件 X.rs 的测试只在 test_X.rs（同目录）。
 // 因 db/ 为扁平目录，所有子模块声明须由父模块 mod.rs 持有（test_X.rs 是 db 的兄弟文件，
 // 非 X 的子目录文件，无法挂在 X.rs 名下）。test_support 持共享夹具（test_db / sample_* 等）。
-#[cfg(test)]
-pub(crate) mod test_support;
+//
+// C2 core-extract：test_support 由 root package 测试跨 crate 引（`aidog_core::gateway::db::
+// test_support::*`），`#[cfg(test)]` 仅对当前 crate 生效不跨 crate，故去 cfg gate 始终 pub。
+// 编译进 release 的代价 = 几个 helper fn（test_db / sample_*），无运行时副作用，可接受。
+// C3+ aidog_test_util crate 抽出后由 dev-deps / feature gate 控制可见性。
+pub mod test_support;
 #[cfg(test)]
 mod test_mod;
 #[cfg(test)]

@@ -1,5 +1,5 @@
 use crate::shared::*;
-use crate::commands::sync_settings::do_sync_group_settings;
+use crate::sync_settings::do_sync_group_settings;
 use crate::gateway::{self, db::Db};
 #[allow(unused_imports)]
 use crate::logging;
@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tauri::Manager;
 
 
-pub(crate) fn generate_hook_scripts(
+pub fn generate_hook_scripts(
     invoker: gateway::scripts::ScriptInvoker,
 ) -> Result<gateway::hooks::ScriptPaths, String> {
     let scripts_dir = aidog_scripts_dir()?;
@@ -65,7 +65,7 @@ pub(crate) fn generate_hook_scripts(
 
 /// 从 NotificationSettings 解析 enabled 的 CC hook 事件名列表（用于注入遍历）。
 /// per_event 为空（旧配置/未配）时回退默认精选 ON 集，保证总开关开时有事件可注入。
-pub(crate) async fn enabled_hook_events(db: &Db) -> Vec<String> {
+pub async fn enabled_hook_events(db: &Db) -> Vec<String> {
     let settings = gateway::db::get_notification_settings(db).await;
     if settings.per_event.is_empty() {
         return gateway::models::DEFAULT_ON_EVENTS.iter().map(|s| s.to_string()).collect();
@@ -80,7 +80,7 @@ pub(crate) async fn enabled_hook_events(db: &Db) -> Vec<String> {
 
 /// 把内置默认模板物化进 NotificationSettings.per_type[task_complete/waiting_input]（仅在缺失/空时填）。
 /// 用户已自定义模板则不覆盖。
-pub(crate) async fn seed_default_templates(db: &Db) -> Result<(), String> {
+pub async fn seed_default_templates(db: &Db) -> Result<(), String> {
     use gateway::models::{NotifType, TypeSetting};
     let mut settings = gateway::db::get_notification_settings(db).await;
     let mut changed = false;
@@ -127,7 +127,7 @@ pub async fn inject_hooks(
             let mut config = gateway::db::get_setting(&db, "global", "claude_code").await
                 .ok().flatten()
                 .filter(|v| v.is_object())
-                .unwrap_or_else(|| serde_json::from_str(include_str!("../../defaults/settings.json"))
+                .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
                     .unwrap_or(serde_json::Value::Object(Default::default())));
             let events = enabled_hook_events(&db).await;
             gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
@@ -196,7 +196,7 @@ pub async fn get_default_hooks_enabled(db: State<'_, Db>) -> Result<bool, String
     let config = gateway::db::get_setting(&db, "global", "claude_code").await
         .ok().flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
-        .unwrap_or_else(|| serde_json::from_str(include_str!("../../defaults/settings.json"))
+        .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
             .unwrap_or(serde_json::Value::Object(Default::default())));
     Ok(gateway::hooks::hooks_marker_enabled(&config))
 }
@@ -215,7 +215,7 @@ pub async fn set_default_hooks_enabled(
     let mut config = gateway::db::get_setting(&db, "global", "claude_code").await
         .ok().flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
-        .unwrap_or_else(|| serde_json::from_str(include_str!("../../defaults/settings.json"))
+        .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
             .unwrap_or(serde_json::Value::Object(Default::default())));
     if let Some(obj) = config.as_object_mut() {
         obj.insert(
@@ -258,6 +258,3 @@ pub async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json
         .unwrap_or_else(|| serde_json::Value::Object(Default::default())))
 }
 
-#[cfg(test)]
-#[path = "test_hooks.rs"]
-mod test_hooks;

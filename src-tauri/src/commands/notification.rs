@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::Db};
+use aidog_core::gateway::{self, db::Db};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -14,14 +14,14 @@ use tauri::Manager;
 
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_settings_get(db: State<'_, Db>) -> Result<NotificationSettings, String> {
     tracing::debug!(command = "notification_settings_get", "command invoked");
     Ok(gateway::db::get_notification_settings(&db).await)
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_settings_set(
     db: State<'_, Db>,
     settings: NotificationSettings,
@@ -42,21 +42,21 @@ pub async fn notification_settings_set(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_inbox_list(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Notification>, String> {
     tracing::debug!(command = "notification_inbox_list", "command invoked");
     gateway::db::list_notifications(&db, limit.unwrap_or(100)).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "notification_clear", "command invoked");
     gateway::db::clear_notifications(&db).await
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_test(
     db: State<'_, Db>,
     app: tauri::AppHandle,
@@ -78,7 +78,7 @@ pub async fn notification_test(
 
 /// 仅测 TTS 通道（绕过 dispatch，按当前 settings.tts_backend 播报 text）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_test_tts(
     db: State<'_, Db>,
     app: tauri::AppHandle,
@@ -93,7 +93,7 @@ pub async fn notification_test_tts(
 
 /// 仅测系统弹窗通道（绕过 dispatch，直接调 tauri-plugin-notification）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_test_popup(
     app: tauri::AppHandle,
     title: String,
@@ -106,7 +106,7 @@ pub async fn notification_test_popup(
 
 /// 仅测系统提示音通道（跨平台 spawn system beep）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn notification_test_beep() -> Result<(), String> {
     tracing::debug!(command = "notification_test_beep", "command invoked");
     gateway::notification::play_beep();

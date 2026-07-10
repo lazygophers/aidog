@@ -10,7 +10,7 @@
 //!   前端用 `@tauri-apps/plugin-shell` `Command.create(name, args).execute()` 触发 sudo 弹窗（D8）。
 //!   执行结果（exit code）由前端回传 `mitm_set_ca_installed(bool)` 落账。
 
-use crate::gateway::{
+use aidog_core::gateway::{
     self,
     db::{get_setting, set_setting, Db},
     mitm::{
@@ -21,8 +21,8 @@ use crate::gateway::{
         whitelist::{evaluate_host, list_whitelist, WhitelistEntry},
     },
 };
-use crate::gateway::models::SetSettingInput;
-use crate::shared::aidog_data_dir;
+use aidog_core::gateway::models::SetSettingInput;
+use aidog_core::shared::aidog_data_dir;
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -90,7 +90,7 @@ pub struct CaUninstallSpec {
 // ─── 状态查询 ───────────────────────────────────────────────
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
     tracing::debug!(command = "mitm_status", "command invoked");
     let ca = load_root_ca(&db).await?;
@@ -114,7 +114,7 @@ pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
 
 /// 启用 MITM（D7：首次启用时 ensure_root_ca 生成假 CA）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_enable(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "mitm_enable", "command invoked");
     // ensure 先建 CA（若 DB 无），再设 enabled=true。两步都需成功。
@@ -125,7 +125,7 @@ pub async fn mitm_enable(db: State<'_, Db>) -> Result<(), String> {
 
 /// 禁用 MITM（CA 保留，仅置 enabled=false；后续 ST9 提供「移除 CA + 卸信任库」清理）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_disable(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "mitm_disable", "command invoked");
     set_enabled(&db, false).await?;
@@ -140,7 +140,7 @@ pub async fn mitm_disable(db: State<'_, Db>) -> Result<(), String> {
 ///   - exit code 0 → 调 `mitm_set_ca_installed(true)`
 ///   - 非 0 / reject → 调 `mitm_set_ca_installed(false)` + UI 弹窗给 spec + ca_pem_path 引导手动装（D8 兜底）
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec, String> {
     tracing::debug!(command = "mitm_install_ca_prepare", "command invoked");
     let ca = ensure_root_ca(&db).await?;
@@ -160,7 +160,7 @@ pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec,
 
 /// 准备卸载信任库（ST9 实装 reverse 命令；当前提供 spec 供 UI 展示）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallSpec, String> {
     tracing::debug!(command = "mitm_uninstall_ca_prepare", "command invoked");
     let ca = load_root_ca(&db)
@@ -174,7 +174,7 @@ pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallS
 
 /// 前端 shell execute 完成后回写 CA 安装状态（成功 true / 失败 false）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_set_ca_installed(db: State<'_, Db>, installed: bool) -> Result<(), String> {
     tracing::debug!(command = "mitm_set_ca_installed", installed, "command invoked");
     set_ca_installed(&db, installed).await
@@ -190,7 +190,7 @@ pub async fn mitm_set_ca_installed(db: State<'_, Db>, installed: bool) -> Result
 ///
 /// snake_case args：前端 invoke 传 `{ name, code, stderr }`（serde 自动转 snake_case）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_classify_trust_error(
     name: String,
     code: Option<i32>,
@@ -249,7 +249,7 @@ async fn save_whitelist_array(db: &Db, entries: Vec<WhitelistEntry>) -> Result<(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_whitelist_add(
     input: WhitelistAddInput,
     db: State<'_, Db>,
@@ -276,7 +276,7 @@ pub async fn mitm_whitelist_add(
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_whitelist_remove(host_pattern: String, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "mitm_whitelist_remove", pattern = %host_pattern, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
@@ -287,7 +287,7 @@ pub async fn mitm_whitelist_remove(host_pattern: String, db: State<'_, Db>) -> R
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_whitelist_toggle(
     host_pattern: String,
     enabled: bool,
@@ -313,7 +313,7 @@ pub async fn mitm_whitelist_toggle(
 /// 返 `ImportDefaultsResult { imported, skipped }`：imported = 新插入；skipped = 已存在。
 /// 可重复点击（幂等）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_whitelist_import_defaults(
     db: State<'_, Db>,
 ) -> Result<ImportDefaultsResult, String> {
@@ -356,7 +356,7 @@ pub struct ImportDefaultsResult {
 ///
 /// 安全：不可撤销，前端必走 confirm 弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_whitelist_clear(db: State<'_, Db>) -> Result<usize, String> {
     tracing::debug!(command = "mitm_whitelist_clear", "command invoked");
     let entries = load_whitelist_array(&db).await?;
@@ -387,7 +387,7 @@ pub struct MatchedRuleDto {
 /// 仅 enabled 规则参与匹配（复用 whitelist::evaluate_host 单源引擎，反映 MITM 实际行为）。
 /// 返命中规则列表（前端展示 host_pattern + rule_type badge），或空 Vec = 未命中。
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn mitm_whitelist_test_url(
     url: String,
     db: State<'_, Db>,

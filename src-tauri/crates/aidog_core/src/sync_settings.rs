@@ -1,5 +1,5 @@
 use crate::shared::*;
-use crate::commands::hooks::{generate_hook_scripts, enabled_hook_events};
+use crate::hooks::{generate_hook_scripts, enabled_hook_events};
 use crate::gateway::{self, db::Db};
 #[allow(unused_imports)]
 use crate::logging;
@@ -50,7 +50,7 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
 }
 
 /// Helper: attempt sync, log errors but don't propagate
-pub(crate) async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
+pub async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     if let Ok(settings) = load_proxy_settings(app).await {
         if let Err(e) = do_sync_group_settings(db, settings.port).await {
             tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
@@ -116,7 +116,7 @@ fn collect_leaf_paths(value: &serde_json::Value, prefix: &str, out: &mut Vec<Str
 /// 用户文件里残留的旧 marker 值（老用户迁移）。
 ///
 /// CC 原生支持 settings.json 的 env 字段 → 用户直接 `claude` 不带任何参数/env 即走该组。
-pub(crate) async fn write_default_claude_settings(
+pub async fn write_default_claude_settings(
     db: &Db,
     config: &serde_json::Value,
 ) -> Result<(), String> {
@@ -181,7 +181,7 @@ pub(crate) async fn write_default_claude_settings(
 /// - overlay 非 object → 直接覆盖 base（*base = overlay.clone()）
 /// - overlay 为 object → 逐键递归合并；base 非 object 时先升级为空 object
 /// - overlay 中显式 null → 删 base 同键（等同 strip）
-pub(crate) fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
+pub fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
     match overlay {
         serde_json::Value::Object(over_map) => {
             if !base.is_object() {
@@ -209,7 +209,7 @@ pub(crate) fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Val
 
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
-pub(crate) async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
+pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
     let groups = gateway::db::list_groups(db).await?;
 
     let aidog_dir = dirs::home_dir()
@@ -227,7 +227,7 @@ pub(crate) async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<Str
         .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
         .unwrap_or_else(|| {
-            serde_json::from_str(include_str!("../../defaults/settings.json"))
+            serde_json::from_str(include_str!("../../../defaults/settings.json"))
                 .unwrap_or(serde_json::Value::Object(Default::default()))
         });
 
@@ -432,6 +432,7 @@ pub async fn get_managed_paths(db: State<'_, Db>) -> Result<Vec<String>, String>
     }))
     .unwrap_or_default())
 }
+
 
 #[cfg(test)]
 #[path = "test_sync_settings.rs"]

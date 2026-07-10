@@ -14,7 +14,7 @@ use std::sync::OnceLock;
 /// 解析失败（不应发生，JSON 已校验）回退空 Object → `default_is_coding_plan` 返 false。
 static PRESETS: OnceLock<Value> = OnceLock::new();
 
-const BUNDLED: &str = include_str!("../../defaults/platform-presets.json");
+const BUNDLED: &str = include_str!("../../../../defaults/platform-presets.json");
 
 // 跨层对称：与 TS `isCodingPlanProtocol` 同义。当前无 Rust 路由消费（路由层仍用 endpoint
 // 级 `coding_plan` flag，语义不同），保留供未来 protocol 级判定 + 编译期 JSON schema 自检。

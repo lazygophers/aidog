@@ -22,7 +22,7 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
 #[tokio::test]
 async fn create_list_get_update_delete_flow() {
     let app = mock_app_with_db().await;
-    let db = app.state::<crate::gateway::db::Db>();
+    let db = app.state::<aidog_core::gateway::db::Db>();
 
     // create with auto_group
     let p = platform_create(sample_create("P1", Some(true), None), db.clone()).await.unwrap();
@@ -68,7 +68,7 @@ async fn create_list_get_update_delete_flow() {
 #[tokio::test]
 async fn create_without_auto_group_and_join_groups() {
     let app = mock_app_with_db().await;
-    let db = app.state::<crate::gateway::db::Db>();
+    let db = app.state::<aidog_core::gateway::db::Db>();
     // no auto group + empty join
     let p = platform_create(sample_create("NA", Some(false), Some(vec![])), db.clone()).await.unwrap();
     assert!(p.id > 0);
@@ -77,7 +77,7 @@ async fn create_without_auto_group_and_join_groups() {
 #[tokio::test]
 async fn ensure_auto_group_idempotent() {
     let app = mock_app_with_db().await;
-    let db = app.state::<crate::gateway::db::Db>();
+    let db = app.state::<aidog_core::gateway::db::Db>();
     // create without auto group, then ensure
     let p = platform_create(sample_create("E1", Some(false), None), db.clone()).await.unwrap();
     platform_ensure_auto_group(p.id, db.clone()).await.unwrap();
@@ -90,7 +90,7 @@ async fn ensure_auto_group_idempotent() {
 #[tokio::test]
 async fn purge_disabled_returns_result() {
     let app = mock_app_with_db().await;
-    let db = app.state::<crate::gateway::db::Db>();
+    let db = app.state::<aidog_core::gateway::db::Db>();
     // no disabled platforms → empty result, global scope
     let res = platform_purge_disabled(None, db.clone()).await.unwrap();
     assert!(res.deleted_ids.is_empty());
@@ -99,7 +99,7 @@ async fn purge_disabled_returns_result() {
 #[tokio::test]
 async fn tray_config_and_today_stats() {
     let app = mock_app_with_db().await;
-    let db = app.state::<crate::gateway::db::Db>();
+    let db = app.state::<aidog_core::gateway::db::Db>();
     // default tray config (no config yet)
     let cfg = tray_config_get(db.clone()).await.unwrap();
     let _ = cfg;
@@ -114,8 +114,8 @@ async fn tray_config_and_today_stats() {
 // 这里走 serde_yml::to_string 直接验证序列化产物，绕开 DB / tauri command。
 // PlatformModels 经 commands/platform.rs 的 `use gateway::models::*` 引入（super::* 链）。
 
-use crate::gateway::models::PlatformModels;
-use crate::gateway::models::Protocol;
+use aidog_core::gateway::models::PlatformModels;
+use aidog_core::gateway::models::Protocol;
 
 fn empty_share() -> SharePlatform {
     SharePlatform {

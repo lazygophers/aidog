@@ -1,7 +1,7 @@
-use crate::shared::*;
-use crate::gateway::{self, db::{self, Db}};
+use aidog_core::shared::*;
+use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -15,43 +15,40 @@ use tauri::Manager;
 
 
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
+// TrayColumn / TrayLayout / TRAY_FONT_SIZE / TrayMenuBuild 数据类型下沉 aidog_core（C2），
+// 本文件保留 build_tray_menu / tray_layout / tray_separator 等 UI 构造函数 + 实现 TrayMenuBuild
+// trait 供 aidog_core::refresh_tray_menu 注入调用（防 core→commands 反向依赖循环）。
+pub(crate) use aidog_core::tray_render::{TrayColumn, TrayLayout};
+#[cfg(target_os = "macos")]
+#[allow(unused_imports)]
+pub(crate) use aidog_core::tray_render::TRAY_FONT_SIZE;
+use aidog_core::tray_render::TrayMenuBuild;
+use std::future::Future;
+use std::pin::Pin;
 
-/// 托盘渲染（多 item）。从 settings tray config 读取 enabled items（按 order），
-/// 每项独立颜色（三态）/ 字号 / line_mode，作为「一列」参与列对齐。
-/// 多平台两行模式（iStat Menus 式）：第一行各列标签横排、第二行各列值横排，列上下对齐。
-/// 列对齐用 NSTextTab（NSParagraphStyle tabStops），每列一个 tab stop（按列宽估位置）。
-/// 全部 single 且无 two_line 列 → 退单行横排（separator 拼接）。
-/// 纯文字无 emoji。GUI 实际渲染（暗亮模式对比度 / 列对齐 / 垂直居中）留用户验证。
-///
-/// 托盘单列：name（标签）+ value（值）+ 颜色（三态）+ 字号 + two_line（该列是否两行展示）。
-/// - two_line=true：第一行该列显 name，第二行该列显 value。
-/// - two_line=false（single）：第一行该列显 "name value"，第二行该列留空（tab 占位）。
-#[derive(Debug, Clone)]
-pub(crate) struct TrayColumn {
-    pub(crate) name: String,
-    pub(crate) value: String,
-    pub(crate) color: TrayColor,
-    // 以下 4 字段为 macOS 富文本渲染（set_tray_attributed_title）专属参数；
-    // 非 macOS 走 fallback 纯文本路径不读取，故平台条件 allow(dead_code)。
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    pub(crate) font_size: f64,
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    pub(crate) two_line: bool,
-    /// "left" | "center" | "right"
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    pub(crate) align: String,
-    /// 两行模式第二行对齐，None = 跟随 align
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    pub(crate) align_row2: Option<String>,
-}
+/// TrayMenuBuild 的 commands::tray 实现：把 core 的 refresh_tray_menu 调用桥接到本文件的
+/// build_tray_menu / tray_layout / tray_separator。
+pub(crate) struct TrayMenuBuildImpl;
 
-/// 托盘渲染布局：columns（数据列）+ gaps（列间间隙）。
-/// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认 2px 空白。
-pub(crate) struct TrayLayout {
-    pub(crate) columns: Vec<TrayColumn>,
-    /// 长度 = columns.len() - 1（若 columns.len() ≥ 2）。
-    /// None = 默认空白间隙；Some(text) = 自定义分隔符文本。
-    pub(crate) gaps: Vec<Option<String>>,
+impl TrayMenuBuild for TrayMenuBuildImpl {
+    fn build_menu<'a>(
+        &'a self,
+        app: &'a tauri::AppHandle,
+    ) -> Pin<Box<dyn Future<Output = Result<tauri::menu::Menu<tauri::Wry>, String>> + Send + 'a>> {
+        Box::pin(build_tray_menu(app))
+    }
+    fn layout<'a>(
+        &'a self,
+        app: &'a tauri::AppHandle,
+    ) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>> {
+        Box::pin(tray_layout(app))
+    }
+    fn separator<'a>(
+        &'a self,
+        app: &'a tauri::AppHandle,
+    ) -> Pin<Box<dyn Future<Output = String> + Send + 'a>> {
+        Box::pin(tray_separator(app))
+    }
 }
 
 /// 计算单个 platform item 的（名, 值）二元组。
@@ -205,9 +202,6 @@ pub(crate) async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::men
 
     Ok(menu)
 }
-
-#[cfg(target_os = "macos")]
-pub(crate) const TRAY_FONT_SIZE: f64 = 9.0;
 
 /// 去除浮点数格式化尾部多余的零：10.10 → "10.1", 0.00 → "0", 965.80 → "965.8"
 pub(crate) fn trim_trailing_zeros(s: &str) -> String {

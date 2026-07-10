@@ -1,6 +1,6 @@
-use crate::gateway::{self, db::Db};
+use aidog_core::gateway::{self, db::Db};
 #[allow(unused_imports)]
-use crate::logging;
+use aidog_core::logging;
 #[allow(unused_imports)]
 use gateway::models::*;
 #[allow(unused_imports)]
@@ -16,14 +16,14 @@ use tauri::Manager;
 // ─── Scheduling & Breaker Settings ─────────────────────────
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn scheduling_settings_get(db: State<'_, Db>) -> Result<SchedulingBreakerSettings, String> {
     tracing::debug!(command = "scheduling_settings_get", "command invoked");
     Ok(gateway::db::get_scheduling_settings(&db).await)
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn scheduling_settings_set(
     db: State<'_, Db>,
     settings: SchedulingBreakerSettings,
