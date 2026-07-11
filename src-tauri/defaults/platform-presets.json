@@ -92,8 +92,8 @@
           {"protocol": "anthropic", "base_url": "https://open.bigmodel.cn/api/anthropic", "client_type": "claude_code", "coding_plan": true}
         ]
       },
-      "models": {"default": {"default": "glm-5.2", "opus": "glm-5.2", "sonnet": "glm-5.2", "gpt": "glm-5-turbo", "haiku": "glm-4.7"}},
-      "model_list": {"default": ["glm-5.2", "glm-5-turbo", "glm-4.7", "glm-5.1", "glm-5"]},
+      "models": {"default": {"default": "glm-5.2", "opus": "glm-5.2", "sonnet": "glm-4.7", "gpt": "glm-5.2", "haiku": "glm-4.5"}, "peak": {"default": "glm-4.7", "opus": "glm-4.7", "sonnet": "glm-4.6", "gpt": "glm-4.7", "haiku": "glm-4.5"}},
+      "model_list": {"default": ["glm-5.2", "glm-5-turbo", "glm-4.7", "glm-4.6", "glm-4.5", "glm-5.1", "glm-5"]},
       "name": {"en-US": "GLM Coding Plan (Zhipu AI)", "zh-Hans": "GLM 编码套餐（智谱）", "ar-SA": "GLM Coding Plan (Zhipu AI)", "fr-FR": "GLM Coding Plan (Zhipu AI)", "de-DE": "GLM Coding Plan (Zhipu AI)", "ru-RU": "GLM Coding Plan (Zhipu AI)", "ja-JP": "GLM コーディングプラン（智譜）", "es-ES": "GLM Coding Plan (Zhipu AI)"},
       "source_urls": {"docs": "https://docs.bigmodel.cn/cn/coding-plan/quick-start", "pricing": "https://docs.bigmodel.cn/cn/coding-plan/overview"},
       "homepage": "https://www.zhipuai.cn",

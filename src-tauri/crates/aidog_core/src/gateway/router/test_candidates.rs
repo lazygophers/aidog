@@ -707,3 +707,104 @@ async fn least_latency_prefers_earliest_expiry_within_same_ema() {
     assert_eq!(set.candidates[1].platform.id, p_far.id, "farther expiry second");
     assert_eq!(set.candidates[2].platform.id, p_forever.id, "never-expiring (0) last within same EMA bucket");
 }
+
+// ── PRD 07-11: preset.models.peak 分支路由层切换 ──────────────────────────────
+
+/// 构造一个 glm_coding 协议的 Platform（带 peak_hours + preset.models.default 填入 platform.models）。
+fn glm_coding_platform(extra: &str, platform_models: PlatformModels) -> Platform {
+    let mut p = super::super::test_mod::mk_platform(PlatformStatus::Enabled, 0);
+    p.platform_type = Protocol::GlmCoding;
+    p.extra = extra.into();
+    p.models = platform_models;
+    p
+}
+
+/// 高峰窗口 06:00-10:00 UTC × 3.0（与 platform-presets.json glm_coding.peak_hours[0] 同）。
+/// 测试时间戳选 2024-01-01T07:00:00Z（hour=7 落 [6,10)）→ 命中高峰。
+const PEAK_MS: i64 = (1_704_067_200 + 7 * 3600) * 1000;
+/// 非高峰时间戳 2024-01-01T12:00:00Z（hour=12，[6,10) 外）。
+const OFF_MS: i64 = (1_704_067_200 + 12 * 3600) * 1000;
+
+#[test]
+fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
+    // preset.glm_coding.models.default 填入 platform.models（创建时常见路径）
+    let platform_models = PlatformModels {
+        default: Some("glm-5.2".into()),
+        opus: Some("glm-5.2".into()),
+        sonnet: Some("glm-4.7".into()),
+        gpt: Some("glm-5.2".into()),
+        haiku: Some("glm-4.5".into()),
+    };
+    // extra 无用户覆盖 → peak_hours_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
+    let p = glm_coding_platform("", platform_models);
+    let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
+    // 命中高峰 → 切到 preset.models.peak（glm-4.7 / glm-4.6 ...）
+    assert_eq!(eff.default.as_deref(), Some("glm-4.7"), "peak: default 切 glm-4.7");
+    assert_eq!(eff.sonnet.as_deref(), Some("glm-4.6"), "peak: sonnet 切 glm-4.6");
+    assert_eq!(eff.haiku.as_deref(), Some("glm-4.5"), "peak: haiku 不变 glm-4.5");
+}
+
+#[test]
+fn resolve_effective_models_no_peak_when_off_peak() {
+    let platform_models = PlatformModels {
+        default: Some("glm-5.2".into()),
+        sonnet: Some("glm-4.7".into()),
+        ..Default::default()
+    };
+    let p = glm_coding_platform("", platform_models);
+    let eff = resolve_effective_models(&p, &[], OFF_MS, "");
+    // 非高峰 → 保持 platform.models（不切 peak）
+    assert_eq!(eff.default.as_deref(), Some("glm-5.2"), "off-peak: 保持 default");
+    assert_eq!(eff.sonnet.as_deref(), Some("glm-4.7"), "off-peak: 保持 sonnet");
+}
+
+#[test]
+fn resolve_effective_models_user_time_models_overrides_peak_branch() {
+    // 用户显式 time_models 优先级高于 preset.models.peak（time_rules 非空 → 跳过 peak 分支）
+    let platform_models = PlatformModels {
+        default: Some("glm-5.2".into()),
+        ..Default::default()
+    };
+    // extra 含 time_models（全天命中 → models.default=custom-model）
+    let extra = serde_json::json!({
+        "time_models": [{
+            "windows": [{"start_hour": 0, "end_hour": 24}],
+            "models": {"default": "custom-model"}
+        }]
+    }).to_string();
+    let p = glm_coding_platform(&extra, platform_models);
+    let time_rules = crate::gateway::time_models::parse_platform_time_models(&p.extra);
+    let eff = resolve_effective_models(&p, &time_rules, PEAK_MS, "");
+    // time_models 命中 → custom-model（不被 preset.models.peak 覆盖）
+    assert_eq!(eff.default.as_deref(), Some("custom-model"), "user time_models 优先于 preset peak");
+}
+
+#[test]
+fn resolve_effective_models_protocol_without_peak_branch_unchanged() {
+    // 协议无 preset.models.peak 分支（如 anthropic）→ 行为零变更（向后兼容）
+    // mk_platform 默认协议即 anthropic
+    let mut p = super::super::test_mod::mk_platform(PlatformStatus::Enabled, 0);
+    p.models = PlatformModels {
+        default: Some("claude-sonnet-4".into()),
+        ..Default::default()
+    };
+    let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
+    assert_eq!(eff.default.as_deref(), Some("claude-sonnet-4"), "无 peak 分支 → 不动");
+}
+
+#[test]
+fn resolve_effective_models_user_peak_hours_override_takes_effect() {
+    // 用户 extra.peak_hours 覆盖 preset 默认（peak_hours_for 优先返用户值）
+    // 此处用户窗口设为非时段（start=end=0 退化 = 全天命中）→ is_in_peak_window=true
+    let platform_models = PlatformModels {
+        default: Some("glm-5.2".into()),
+        ..Default::default()
+    };
+    let extra = serde_json::json!({
+        "peak_hours": [{"start_hour": 0, "end_hour": 0, "multiplier": 1.5}]
+    }).to_string();
+    let p = glm_coding_platform(&extra, platform_models);
+    // OFF_MS（hour=12，正常非高峰）但用户窗口全天命中 → 仍切 peak
+    let eff = resolve_effective_models(&p, &[], OFF_MS, "");
+    assert_eq!(eff.default.as_deref(), Some("glm-4.7"), "用户 peak_hours 命中 → 切 peak");
+}

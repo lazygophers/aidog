@@ -241,6 +241,20 @@ pub fn default_peak_hours(protocol: &str) -> Vec<PeakWindow> {
     })
 }
 
+/// 按 protocol 名查 bundled preset 的 `models.peak` 分支（PRD 07-11）。
+/// 返回解析后的 PlatformModels；protocol 缺失 / 无 models.peak 字段 / 解析失败 → None
+/// （caller 退 platform.models 默认）。仅 glm_coding 等少数协议 preset 带 peak 分支。
+///
+/// 与 `default_peak_hours` 同源同 OnceLock：bundled `platform-presets.json`（禁抄第二份）。
+/// 路由层 candidates.rs 命中高峰窗口且 preset 提供本协议 peak 分支时用此替换 effective_models。
+pub fn default_peak_models(protocol: &str) -> Option<crate::gateway::models::PlatformModels> {
+    let doc = presets();
+    let proto_obj = doc.get("protocols").and_then(|p| p.get(protocol))?;
+    let models_obj = proto_obj.get("models")?;
+    let peak_val = models_obj.get("peak")?;
+    serde_json::from_value(peak_val.clone()).ok()
+}
+
 /// 从 `platform.extra` JSON 字符串解析 `peak_hours` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_peak_hours(extra: &str) -> Vec<PeakWindow> {
     if extra.trim().is_empty() {
@@ -844,5 +858,31 @@ mod tests {
         // 非布尔值（数字/字符串）→ false，禁把 "true" 字符串误判
         assert!(!parse_disable_during_peak(r#"{"disable_during_peak":"true"}"#));
         assert!(!parse_disable_during_peak(r#"{"disable_during_peak":1}"#));
+    }
+
+    // ── default_peak_models（PRD 07-11 models.peak 分支）──
+
+    #[test]
+    fn default_peak_models_glm_coding_present() {
+        // glm_coding preset 带 models.{default,peak} 双分支（PRD 07-11）
+        let m = default_peak_models("glm_coding").expect("glm_coding preset has models.peak");
+        // peak 分支值（platform-presets.json 真值，禁硬编码第二份 — 此处仅锁 schema 解析正确）
+        assert_eq!(m.default.as_deref(), Some("glm-4.7"));
+        assert_eq!(m.opus.as_deref(), Some("glm-4.7"));
+        assert_eq!(m.sonnet.as_deref(), Some("glm-4.6"));
+        assert_eq!(m.gpt.as_deref(), Some("glm-4.7"));
+        assert_eq!(m.haiku.as_deref(), Some("glm-4.5"));
+    }
+
+    #[test]
+    fn default_peak_models_absent_for_protocol_without_peak_branch() {
+        // 无 models.peak 分支的协议（如 anthropic / deepseek）→ None（向后兼容，caller 退 platform.models）
+        assert!(default_peak_models("anthropic").is_none());
+        assert!(default_peak_models("deepseek").is_none());
+    }
+
+    #[test]
+    fn default_peak_models_unknown_protocol_none() {
+        assert!(default_peak_models("__never_exists__").is_none());
     }
 }
