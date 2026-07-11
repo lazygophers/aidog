@@ -10,7 +10,7 @@ import {
   getDefaultModels, getProtocolHomepage, isCodingPlanProtocol, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
 } from "../../domains/platforms";
-import { getProtocolLabel, getProtocolLabelMap, getProtocolColorMap } from "../../domains/platforms/defaults";
+import { getProtocolLabel, getProtocolLabelMap, getProtocolColorMap, getDefaultPeakHours } from "../../domains/platforms/defaults";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
@@ -124,16 +124,20 @@ export const PlatformCard = memo(function PlatformCard({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.platform_type]);
   // 默认模型异步从 defaults.json 取（4 函数 async 化后），首次渲染为 []，加载完触发更新。
+  // PRD 07-11：高峰期切 models.peak 分支。isPeak 判定 = 用户 extra.peak_hours ?? preset peak_hours。
   const [defaultModels, setDefaultModels] = useState<ReturnType<typeof allModelValues>>([]);
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const m = await getDefaultModels(p.platform_type, hasCodingEndpoint);
+      const userPh = parsePlatformPeakHours(p.extra ?? "");
+      const phWindows = userPh.length > 0 ? userPh : await getDefaultPeakHours(p.platform_type);
+      const isPeak = isCurrentlyPeak(phWindows, Date.now());
+      const m = await getDefaultModels(p.platform_type, hasCodingEndpoint, isPeak);
       if (!cancelled) setDefaultModels(allModelValues(m));
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.platform_type, hasCodingEndpoint]);
+  }, [p.platform_type, hasCodingEndpoint, p.extra]);
   const configuredModels = (() => {
     const explicit = allModelValues(p.models);
     if (explicit.length > 0) return explicit;
