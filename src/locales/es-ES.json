@@ -878,6 +878,7 @@
   "platform.days_of_week": "Días de la semana (0=Dom…6=Sáb, vacío=todos)",
   "platform.timezone_local": "Local",
   "platform.timezone_utc": "UTC+0",
+  "platform.peak_hours_next_day": "Día siguiente",
   "platform.add_window": "Añadir ventana",
   "platform.remove_window": "Eliminar ventana",
   "platform.clientType": "Tipo de cliente",
