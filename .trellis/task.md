@@ -29,9 +29,9 @@
 | protocol-name-display | 平台协议创建后锁定 + preset name 派生展示 | — | 已完成 | — | — |
 | groups-delete-only-removes-from-group | Groups 单组平台点删除只移除分组未销毁 | — | 已完成 | — | — |
 | presets-desc-remove-format | platform-presets.json 删 desc + peak_hours/models 单行压缩 | — | 已完成 | — | — |
-| peak-hours-window-preview | peak_hours 窗口预览行：本地/UTC 时区可读时段 | — | 实施中 | — | — |
-| opencode-preset-models | opencode/opencode_zen preset models+endpoints 补全 | — | 实施中 | — | — |
-| glm-coding-responses-peak-models | glm_coding preset: responses endpoint + models.peak 分支 | — | 规划中 | — | 07-11-opencode-preset-models |
+| peak-hours-window-preview | peak_hours 窗口预览行：本地/UTC 时区可读时段 | — | 已完成 | — | — |
+| opencode-preset-models | opencode/opencode_zen preset models+endpoints 补全 | — | 已完成 | — | — |
+| glm-coding-responses-peak-models | glm_coding preset: responses endpoint + models.peak 分支 | — | 实施中 | — | 07-11-opencode-preset-models |
 
 ## 依赖关系图 (DAG)
 
@@ -66,5 +66,4 @@ flowchart TD
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-11-opencode-preset-models | 07-11-opencode-preset-models | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-11-peak-hours-window-preview | 07-11-peak-hours-window-preview | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-11-glm-coding-responses-peak-models | 07-11-glm-coding-responses-peak-models | trellisx-start |
