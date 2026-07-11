@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 公共契约 — pickBranch 三参数（加 isPeak）双侧对齐 + models.peak 分支 schema 跨层一致；Rust PlatformModels 解析 + TS pickBranch 必须同步扩 peak 分支"}
+{"file": ".trellis/spec/backend/protocol-enum-extension.md", "reason": "Protocol 枚举扩展范式 — OpenAIResponses 变体已存在（protocol.rs:13），本 task 加 responses endpoint 无需扩枚举，converter 全链已支持（request.rs:25-26,60）"}
+{"file": ".trellis/spec/backend/crate-boundaries.md", "reason": "workspace crate 边界 — Rust 改动跨 aidog_core（peak_hours/candidates/models）+ commands_* 无；跨 crate 复用 is_in_peak_window 走 aidog_core 单向合规"}
+{"file": ".trellis/tasks/07-11-glm-coding-responses-peak-models/prd.md", "reason": "本 task PRD：R1 endpoints +responses / R2 models.peak 分支双侧改 / R3 default 映射改 / R4 model_list 补 glm-4.5/4.6；含用户给的两套映射 + 向后兼容回落 + Open Questions（responses base_url 待确认）"}
+{"file": ".trellis/tasks/07-11-opencode-preset-models/prd.md", "reason": "前置 task（DAG 依赖）— 同改 platform-presets.json 不同 section，本 task 在 opencode 完成后串行执行避免 git 冲突"}
