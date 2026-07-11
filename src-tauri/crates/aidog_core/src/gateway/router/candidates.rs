@@ -86,7 +86,7 @@ pub async fn select_candidates_ctx(
         }
         // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
         let time_rules = time_models::parse_platform_time_models(&only.platform.extra);
-        let effective_models = time_models::resolve_time_models(&time_rules, &only.platform.models, now_ms);
+        let effective_models = resolve_effective_models(&only.platform, &time_rules, now_ms, source_model);
         let target_model = mapped_target_model
             .clone()
             .unwrap_or_else(|| resolve_model(&effective_models, source_model));
@@ -255,7 +255,7 @@ pub async fn select_candidates_ctx(
             } else {
                 // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
                 let time_rules = time_models::parse_platform_time_models(&gp.platform.extra);
-                let effective_models = time_models::resolve_time_models(&time_rules, &gp.platform.models, now_ms);
+                let effective_models = resolve_effective_models(&gp.platform, &time_rules, now_ms, source_model);
                 resolve_model(&effective_models, source_model)
             };
             RouteResult {
@@ -274,6 +274,40 @@ pub async fn select_candidates_ctx(
     );
 
     Ok(CandidateSet { candidates })
+}
+
+/// 解析当前时段的有效模型配置（effective_models）。
+///
+/// 三层级联（优先级高 → 低）：
+/// 1. **time_models**（用户级显式时段切换，`platform.extra.time_models`）：命中 → 用该时段 models；
+///    用户已自定义 time_models 时不再应用 preset peak 分支（用户显式覆盖优先）。
+/// 2. **preset.models.peak**（preset 级高峰分支，PRD 07-11）：用户未配 time_models 且
+///    preset 提供本协议 `models.peak` 分支 + 当前命中 `peak_hours_for` 任一窗口 → 用 peak 替换。
+/// 3. **platform.models**（用户级显式槽位 / 创建时填入 preset.models.default）：兜底默认。
+///
+/// `source_model`：请求模型名（透传给 peak_hours model scope 过滤；空串 = 无上下文跳过）。
+fn resolve_effective_models(
+    platform: &Platform,
+    time_rules: &[serde_json::Value],
+    now_ms: i64,
+    source_model: &str,
+) -> PlatformModels {
+    let mut effective = time_models::resolve_time_models(time_rules, &platform.models, now_ms);
+    // PRD 07-11：time_models 未自定义时查 preset.models.peak 分支
+    if time_rules.is_empty() {
+        // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
+        let ptype = serde_json::to_string(&platform.platform_type)
+            .unwrap_or_default()
+            .trim_matches('"')
+            .to_string();
+        if let Some(peak_models) = super::super::peak_hours::default_peak_models(&ptype) {
+            let windows = super::super::peak_hours::peak_hours_for(&platform.extra, &ptype);
+            if super::super::peak_hours::is_in_peak_window(&windows, now_ms, source_model) {
+                effective = peak_models;
+            }
+        }
+    }
+    effective
 }
 
 #[cfg(test)]
