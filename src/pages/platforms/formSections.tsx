@@ -394,6 +394,42 @@ function displayToUtc(displayHour: number, mode: "local" | "utc"): number {
   return ((displayHour - tzOffset(mode)) % 24 + 24) % 24;
 }
 
+/** 窗口预览可读时段：半开区间 [start, end) → 显示 end-1:59:59。
+ *  格式：HH:MM:SS - HH:MM:SS（<tz 标签>）+ (次日) 如跨天。
+ *  全天特例：end==24 或 start==end 退化 → 00:00:00 - 23:59:59。 */
+function formatWindowPreview(w: PeakWindow, tzMode: "local" | "utc", t: TFunction): string {
+  const startMin = w.start_minute ?? 0;
+  const endMin = w.end_minute ?? 0;
+
+  // start：直接时区换算（minute 不受时区影响）
+  const startHourDisplay = utcToDisplay(w.start_hour, tzMode);
+
+  // end：先算绝对分钟 -1（半开区间），再拆 hour:minute
+  const endTotalMin = w.end_hour * 60 + endMin;
+  const endMinusOneMin = endTotalMin - 1;
+  // 负数 → 23:59（跨天边界，如 0:00 -1 = -1 → 前一天 23:59）
+  const endHourRaw = endMinusOneMin < 0 ? 23 : Math.floor(endMinusOneMin / 60);
+  const endMinRaw = endMinusOneMin < 0 ? 59 : endMinusOneMin % 60;
+  // 再对 end hour 做时区换算
+  const endHourDisplay = utcToDisplay(endHourRaw, tzMode);
+
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const startStr = `${pad(startHourDisplay)}:${pad(startMin)}:00`;
+  const endStr = `${pad(endHourDisplay)}:${pad(endMinRaw)}:59`;
+
+  const tzLabel = tzMode === "local"
+    ? t("platform.timezone_local", "本地")
+    : t("platform.timezone_utc", "UTC+0");
+
+  // 跨天判定：end_hour < start_hour（原始 UTC 值，不在 display 层比较）
+  const isNextDay = w.end_hour < w.start_hour;
+  const nextDayLabel = isNextDay
+    ? t("platform.peak_hours_next_day", "次日")
+    : "";
+
+  return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
+}
+
 export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, themeMode, t }: {
   windows: PeakWindow[];
   setWindows: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
@@ -605,6 +641,10 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
             >
               ✕
             </button>
+          </div>
+          {/* 窗口预览行：可读时段（半开区间 [start, end) → end-1:59:59） */}
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+            {formatWindowPreview(w, tzMode, t)}
           </div>
           {/* model scope（受影响模型）：chip 多选 + 自由输入（支持 `prefix*` 通配）。
               absent / 空 = 全平台（标「全部模型」），UI 暴露 model 维度过滤可见性。 */}
