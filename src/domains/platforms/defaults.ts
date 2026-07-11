@@ -55,7 +55,10 @@ type DefaultsDoc = {
     is_coding_plan?: boolean;
     client_type?: ClientType;
     endpoints: { default?: PlatformEndpoint[]; coding_plan?: PlatformEndpoint[] };
-    models: { default?: Partial<Record<ModelSlot, string>>; coding_plan?: Partial<Record<ModelSlot, string>> };
+    /** models 分支：default = 非高峰默认映射；coding_plan = 编程套餐端点专用映射；
+     *  peak = 高峰时段映射（PRD 07-11，命中 peak_hours 任一窗口时启用，仅 glm_coding 等少数协议带）。
+     *  absent peak = 无高峰切换（向后兼容，旧协议不受影响）。 */
+    models: { default?: Partial<Record<ModelSlot, string>>; coding_plan?: Partial<Record<ModelSlot, string>>; peak?: Partial<Record<ModelSlot, string>> };
     model_list: { default?: string[]; coding_plan?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
     /** 维护用 metadata：官方文档页 + 定价页 URL（非 UI 展示，仅手动核对更新时一站直达）。 */
@@ -108,13 +111,31 @@ export function __resetDefaultsCacheForTests(): void {
 }
 
 
-/** 短路空响应：JSON 缺 protocol 时返默认值（保 4 函数向后兼容）。 */
+/** 短路空响应：JSON 缺 protocol 时返默认值（保 4 函数向后兼容）。
+ *  pickBranch 仅处理 `endpoints` / `model_list` 等不含 peak 分支的 section（两分支：default/coding_plan）。
+ *  models section 含 peak 第三分支，走 `pickModelsBranch`（独立 fn 处理高峰维度）。 */
 function pickBranch<T>(section: { default?: T; coding_plan?: T } | undefined, codingPlan: boolean | undefined, fallback: T): T {
   if (!section) return fallback;
   const cp = !!codingPlan;
   const branch = cp ? section.coding_plan : section.default;
   // coding_plan 分支缺失时回落 default（保旧行为：cp 但无独立配置 = 与 default 同）
   return (branch ?? section.default ?? fallback);
+}
+
+/** models section 专用 picker：三分支 default / coding_plan / peak（PRD 07-11）。
+ *  优先级：codingPlan=true 且有 coding_plan → coding_plan；isPeak=true 且有 peak → peak；
+ *  否则 → default。coding_plan/peak 分支缺失自动回落 default（向后兼容）。
+ *  coding_plan 与 peak 同时命中时 coding_plan 优先（cp 是端点维度硬性约束，peak 是时段维度软切换）。 */
+function pickModelsBranch<T>(
+  section: { default?: T; coding_plan?: T; peak?: T } | undefined,
+  codingPlan: boolean | undefined,
+  isPeak: boolean | undefined,
+  fallback: T,
+): T {
+  if (!section) return fallback;
+  if (codingPlan && section.coding_plan) return section.coding_plan;
+  if (isPeak && section.peak) return section.peak;
+  return section.default ?? fallback;
 }
 
 /** 根据端点协议返回推荐的默认客户端类型（async：从 defaults.json 读 client_type 字段）。 */
@@ -135,12 +156,20 @@ export async function getDefaultEndpoints(protocol: Protocol, codingPlan?: boole
 }
 
 /** 主流平台预设默认模型（按 PlatformModels 槽位语义归类）。
- *  与 getDefaultEndpoints 同址同模式：从 defaults.json 读，落 CreatePlatform.models。 */
-export async function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Promise<Partial<Record<ModelSlot, string>>> {
+ *  与 getDefaultEndpoints 同址同模式：从 defaults.json 读，落 CreatePlatform.models。
+ *
+ *  `isPeak`（PRD 07-11）：true 且 preset 含 `models.peak` 分支时返回 peak 映射；否则返 default。
+ *  caller 应传 `isCurrentlyPeak(platform.extra.peak_hours ?? (await getDefaultPeakHours(protocol)), Date.now())`。
+ *  缺省 false（向后兼容：旧 caller 无 peak 切换）。 */
+export async function getDefaultModels(
+  protocol: Protocol,
+  codingPlan?: boolean,
+  isPeak?: boolean,
+): Promise<Partial<Record<ModelSlot, string>>> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
   if (!entry) return {};
-  return { ...pickBranch<Partial<Record<ModelSlot, string>>>(entry.models, codingPlan, {}) };
+  return { ...pickModelsBranch<Partial<Record<ModelSlot, string>>>(entry.models, codingPlan, isPeak, {}) };
 }
 
 /** 平台内置候选模型列表（供模型槽位下拉冷启动兜底）。 */
