@@ -2,8 +2,8 @@
 // Custom in-app confirm (NOT browser `confirm`, which breaks Tauri).
 // Mirrors the ImportDiffModal overlay/glass-elevated visual language.
 
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { Modal } from "../shared/Modal";
 import { F, S } from "./editors";
 
 export interface UnsavedChangesModalProps {
@@ -24,87 +24,59 @@ export function UnsavedChangesModal({
   saving,
 }: UnsavedChangesModalProps) {
   const { t } = useTranslation();
-  // portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。
-  return createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.5)",
-        animation: "fadeIn 150ms ease both",
-      }}
-      onClick={onCancel}
-    >
+  return (
+    <Modal open onClose={onCancel} className="glass-elevated" maxWidth={420} style={{ padding: "22px 24px" }}>
       <div
-        className="glass-elevated"
         style={{
-          width: 420,
-          maxWidth: "90vw",
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: "var(--radius-lg)",
-          animation: "fadeIn 200ms ease both",
-          padding: "22px 24px",
+          fontSize: F.title,
+          fontWeight: 600,
+          color: "var(--text-primary)",
+          marginBottom: 8,
         }}
-        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            fontSize: F.title,
-            fontWeight: 600,
-            color: "var(--text-primary)",
-            marginBottom: 8,
-          }}
-        >
-          {t("settings.unsavedTitle", "未保存的更改")}
-        </div>
-        <div
-          style={{
-            fontSize: F.body,
-            color: "var(--text-secondary)",
-            lineHeight: 1.6,
-            marginBottom: 20,
-          }}
-        >
-          {t(
-            "settings.unsavedBody",
-            "你有尚未保存的更改。离开此页面前要如何处理？",
-          )}
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: F.body, padding: S.btnPad }}
-            onClick={onCancel}
-            disabled={saving}
-          >
-            {t("action.cancel", "取消")}
-          </button>
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: F.body, padding: S.btnPad, color: "var(--color-danger)" }}
-            onClick={onDiscard}
-            disabled={saving}
-          >
-            {t("settings.discardChanges", "放弃更改")}
-          </button>
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: F.body, padding: S.btnPad, minWidth: 96 }}
-            onClick={onSave}
-            disabled={saving}
-          >
-            {saving
-              ? t("status.loading", "加载中…")
-              : t("settings.saveAndLeave", "保存并离开")}
-          </button>
-        </div>
+        {t("settings.unsavedTitle", "未保存的更改")}
       </div>
-    </div>,
-    document.body
+      <div
+        style={{
+          fontSize: F.body,
+          color: "var(--text-secondary)",
+          lineHeight: 1.6,
+          marginBottom: 20,
+        }}
+      >
+        {t(
+          "settings.unsavedBody",
+          "你有尚未保存的更改。离开此页面前要如何处理？",
+        )}
+      </div>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: F.body, padding: S.btnPad }}
+          onClick={onCancel}
+          disabled={saving}
+        >
+          {t("action.cancel", "取消")}
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: F.body, padding: S.btnPad, color: "var(--color-danger)" }}
+          onClick={onDiscard}
+          disabled={saving}
+        >
+          {t("settings.discardChanges", "放弃更改")}
+        </button>
+        <button
+          className="btn btn-primary"
+          style={{ fontSize: F.body, padding: S.btnPad, minWidth: 96 }}
+          onClick={onSave}
+          disabled={saving}
+        >
+          {saving
+            ? t("status.loading", "加载中…")
+            : t("settings.saveAndLeave", "保存并离开")}
+        </button>
+      </div>
+    </Modal>
   );
 }

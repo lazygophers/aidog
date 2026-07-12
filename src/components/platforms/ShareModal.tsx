@@ -5,11 +5,11 @@
 // macOS WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，Tauri 侧走权限系统更可靠。
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { stringify as yamlStringify } from "yaml";
 import QRCode from "qrcode";
+import { Modal } from "../shared/Modal";
 
 // ponytail: QR v40 L 级二进制上限 2953B，留余量 2900 触发降级提示
 const QR_MAX_URL_LEN = 2900;
@@ -142,34 +142,8 @@ export function ShareModal<T extends object = Record<string, unknown>>({
     color: active ? "var(--accent)" : "var(--text-secondary)",
   });
 
-  return createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.5)",
-        animation: "fadeIn 150ms ease both",
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="glass-elevated"
-        style={{
-          width: 560,
-          maxWidth: "92vw",
-          maxHeight: "86vh",
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: "var(--radius-lg)",
-          animation: "fadeIn 200ms ease both",
-          padding: "22px 24px",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  return (
+    <Modal open onClose={onClose} className="glass-elevated" zIndex={1100} maxWidth={560} style={{ padding: "22px 24px", maxHeight: "86vh", overflowY: "auto" }}>
         <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
           {t(titleKey ?? "platform.share.title", "分享平台")} · {title}
         </div>
@@ -287,8 +261,6 @@ export function ShareModal<T extends object = Record<string, unknown>>({
             {copied ? t("platform.share.copiedBtn", "已复制") : t("platform.share.copyBtn", "复制")}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }

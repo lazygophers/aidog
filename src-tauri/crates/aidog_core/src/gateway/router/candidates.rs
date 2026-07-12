@@ -59,99 +59,23 @@ pub async fn select_candidates_ctx(
     }
 
     let now_ms = db::now();
-
-    // 有效调度策略：Group routing_mode 即为最终策略；旧 settings 中全局默认仅在无 ctx 时不参与。
-    // （Group 总是携带 routing_mode；全局默认 default_routing_mode 是 GB 写 Group 时的初值来源。）
     let effective_mode = group.routing_mode;
-    let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
-    // ── 单平台分组：无视平台状态（auto_disabled / 熔断）必请求 ──
-    // 用户语义：只有多平台分组才需要在乎平台状态做摘除（择优切换到健康平台）；
-    // 单平台无可切目标，摘除只会 blackhole（返回 400 no available platform）。
-    // 故单平台直接纳入唯一平台必请求，哪怕 auto_disabled / 熔断 Open 也尝试。
-    // 例外：手动 Disabled 是用户显式关停意图，仍为唯一硬停（分组无效 → Err）。
+    // ── 阶段 0: 单平台分组短路 ──
     if group_platforms.len() == 1 {
-        let only = &group_platforms[0];
-        if only.platform.status == PlatformStatus::Disabled {
-            return Err("group's only platform is manually disabled".to_string());
-        }
-        // 高峰禁用优先级高于 status bypass：单平台组高峰期请求直接 fail（PRD: 此开关优先级高于 status bypass，
-        // 单平台组不 bypass 此维度）。status 维度照旧 bypass（auto_disabled / 熔断仍必请求）。
-        if is_peak_disabled(&only.platform, now_ms, source_model) {
-            tracing::info!(
-                group = %group.name, platform = %only.platform.name,
-                "single-platform group: peak-disabled, request blocked"
-            );
-            return Err("peak_disabled".to_string());
-        }
-        // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
-        let time_rules = time_models::parse_platform_time_models(&only.platform.extra);
-        let effective_models = resolve_effective_models(&only.platform, &time_rules, now_ms, source_model);
-        let target_model = mapped_target_model
-            .clone()
-            .unwrap_or_else(|| resolve_model(&effective_models, source_model));
-        tracing::info!(
-            group = %group.name, platform = %only.platform.name,
-            status = ?only.platform.status,
-            "single-platform group: bypassing status filter, forcing request"
-        );
-        return Ok(CandidateSet {
-            candidates: vec![RouteResult {
-                platform: only.platform.clone(),
-                target_model,
-                mapping: mapping.cloned(),
-            }],
-        });
+        return handle_single_platform(
+            db, group, &group_platforms[0], source_model, ctx,
+            &mapped_target_model, mapping, now_ms
+        ).await;
     }
 
-    // 1. 拆分候选：先按 auto_disabled 三态分桶（enabled / 过期试探）。
-    //    再叠加熔断准入门：[熔断 Open] ∪ [auto_disabled 未到期] 取并集踢出。
-    //    HalfOpen 平台限量放行（计入 active）。二者状态独立判定，互不改写。
-    let mut active: Vec<&GroupPlatformDetail> = Vec::new();
-    let mut probe: Vec<&GroupPlatformDetail> = Vec::new();
-    // 仅被「熔断」踢出的候选（区别于 auto_disabled / 手动 disabled 踢出的）暂存于此，
-    // 携带其 auto_state 以便回退时正确分桶。用于「候选全被熔断踢空 → 回退透传」：
-    // 熔断语义是在多个健康平台间择优摘坏，无可切目标时（单平台分组 / 多平台全坏）
-    // 不应制造空候选 blackhole（否则丢失上游真实 429/5xx + retry-after，客户端无法退避）。
-    let mut breaker_rejected: Vec<(&GroupPlatformDetail, Option<bool>)> = Vec::new();
-    // 被高峰禁用排除的候选计数：整组全被高峰排除时返特殊 Err "peak_disabled"，
-    // handler.rs 据此落 proxy_log blocked_reason='peak_hours'（区别于普通 NoCandidate）。
-    let mut peak_disabled_count: usize = 0;
-    for gp in &group_platforms {
-        // auto_disabled 维度（DB 持久态）
-        let auto_state = candidate_state(&gp.platform, now_ms, source_model);
-        if auto_state.is_none() {
-            // 区分高峰禁用与其他排除原因（disabled / auto_disabled 未到期 / 过期）
-            if is_peak_disabled(&gp.platform, now_ms, source_model) {
-                peak_disabled_count += 1;
-            }
-            continue; // 用户手动 disabled / auto_disabled 未到退避 / 高峰禁用 → 跳过
-        }
-        // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定
-        if let Some(c) = ctx {
-            if breaker_enabled {
-                let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
-                let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
-                match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
-                    Admission::Reject => {
-                        // 熔断 Open / HalfOpen 名额满 → 暂踢出，留作全空回退候选
-                        breaker_rejected.push((gp, auto_state));
-                        continue;
-                    }
-                    Admission::Probe | Admission::Allow => {}
-                }
-            }
-        }
-        match auto_state {
-            Some(false) => active.push(gp),
-            Some(true) => probe.push(gp),
-            None => {}
-        }
-    }
+    // ── 阶段 1: 候选分桶过滤 ──
+    let FilteredCandidates { mut active, mut probe, breaker_rejected, peak_disabled_count } =
+        filter_candidates(&group_platforms, ctx, now_ms, source_model);
 
-    // ── 候选全被熔断踢空 → 回退透传 ──
+    // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
-    // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err，下游返回路由错误）。
+    // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err）。
     if active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty() {
         tracing::warn!(
             group = %group.name, rejected = breaker_rejected.len(),
@@ -166,72 +90,24 @@ pub async fn select_candidates_ctx(
         }
     }
 
-    // 2. 按路由模式排序两组
-    match effective_mode {
-        RoutingMode::Failover => {
-            // 排序键：level_priority 降序（10 先）→ priority 升序 → expires_at 升序（快过期先用，
-            // expires_at=0 视为 i64::MAX 排末尾）。expires_at 是同 priority 内最强"用掉它"信号，
-            // 插在 priority 之后、负载均衡 / coding plan 偏好之前（[platform-expiry-priority]）。
-            active.sort_by_key(|gp| {
-                (
-                    std::cmp::Reverse(gp.level_priority),
-                    gp.priority,
-                    expiry_sort_key(gp.platform.expires_at),
-                )
-            });
-            probe.sort_by_key(|gp| {
-                (
-                    std::cmp::Reverse(gp.level_priority),
-                    gp.priority,
-                    expiry_sort_key(gp.platform.expires_at),
-                )
-            });
-            apply_coding_plan_priority(&mut active);
-            apply_coding_plan_priority(&mut probe);
-        }
-        // LoadBalance / HealthAware：健康集加权随机（准入门已摘 Open，等价加权随机 on 健康集）
-        RoutingMode::LoadBalance | RoutingMode::HealthAware => {
-            order_load_balance(&mut active, now_ms);
-            order_load_balance(&mut probe, now_ms);
-            apply_coding_plan_priority(&mut active);
-            apply_coding_plan_priority(&mut probe);
-        }
-        // LeastLatency：按延迟 EMA 升序（无样本视为最大，排末尾）
-        RoutingMode::LeastLatency => {
-            order_least_latency(&mut active, ctx);
-            order_least_latency(&mut probe, ctx);
-            apply_coding_plan_priority(&mut active);
-            apply_coding_plan_priority(&mut probe);
-        }
-        // Sticky：绑定平台若健康提到首位，否则回退加权随机 + 写绑定
-        RoutingMode::Sticky => {
-            order_load_balance(&mut active, now_ms);
-            order_load_balance(&mut probe, now_ms);
-            // coding plan 偏好须在 apply_sticky 之前应用：否则 sticky 提首后又被分桶打乱。
-            apply_coding_plan_priority(&mut active);
-            apply_coding_plan_priority(&mut probe);
-            apply_sticky(&mut active, ctx, now_ms);
-        }
-    }
+    // ── 阶段 3: 按路由模式排序 ──
+    sort_by_routing_mode(&mut active, &mut probe, effective_mode, ctx, now_ms);
 
-    // 3. 合并：正常候选在前，试探候选在后
-    let mut ordered: Vec<&GroupPlatformDetail> = Vec::with_capacity(active.len() + probe.len());
-    ordered.extend(active);
-    ordered.extend(probe);
-
-    // 4. 显式映射目标平台提到最前（若它本身在候选集中）
+    // ── 阶段 4: 合并 + 映射提升 ──
+    // 显式映射目标平台不在候选集时记录 warn（沿用原逻辑）
     if let Some(target_id) = mapped_platform_id {
-        if let Some(pos) = ordered.iter().position(|gp| gp.platform.id == target_id) {
-            let gp = ordered.remove(pos);
-            ordered.insert(0, gp);
-        } else {
+        let has_target = active.iter().any(|gp| gp.platform.id == target_id)
+            || probe.iter().any(|gp| gp.platform.id == target_id);
+        if !has_target {
             tracing::warn!(
                 group = %group.name, target_platform_id = target_id,
                 "mapped target platform not an available candidate, falling back to routing order"
             );
         }
     }
+    let ordered = merge_and_promote_mapping(active, probe, mapped_platform_id);
 
+    // ── 阶段 5: 空候选处理 ──
     if ordered.is_empty() {
         // 整组所有候选被高峰禁用排除 → 返特殊 Err，caller handler.rs 据此落审计 proxy_log
         // (blocked_by='router', blocked_reason='peak_hours', est_cost=0, status_code=503)。
@@ -246,14 +122,221 @@ pub async fn select_candidates_ctx(
         return Err("no available platform (all disabled, backing off, or circuit-broken)".to_string());
     }
 
-    // 5. 为每个候选解析目标模型
-    let candidates: Vec<RouteResult> = ordered
+    // ── 阶段 6: 生成最终候选 ──
+    let candidates = build_route_results(ordered, &mapped_target_model, now_ms, source_model, mapping);
+
+    tracing::info!(
+        group = %group.name, source_model = %source_model,
+        candidate_count = candidates.len(), mode = ?group.routing_mode,
+        first_platform = %candidates[0].platform.name,
+        "candidates selected"
+    );
+
+    Ok(CandidateSet { candidates })
+}
+
+// ── Helper: 单平台分组短路逻辑 ──
+
+/// 单平台分组：唯一平台熔断 Open / auto_disabled 时仍必请求（无视状态），
+/// 手动 Disabled / 高峰禁用 + 命中窗口 → Err（唯一硬停）。
+#[allow(clippy::too_many_arguments)]
+async fn handle_single_platform(
+    _db: &db::Db,
+    group: &Group,
+    only: &GroupPlatformDetail,
+    source_model: &str,
+    _ctx: Option<&ScheduleCtx<'_>>,
+    mapped_target_model: &Option<String>,
+    mapping: Option<&ModelMapping>,
+    now_ms: i64,
+) -> Result<CandidateSet, String> {
+    // 手动 Disabled 是唯一硬停
+    if only.platform.status == PlatformStatus::Disabled {
+        return Err("group's only platform is manually disabled".to_string());
+    }
+
+    // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
+    if is_peak_disabled(&only.platform, now_ms, source_model) {
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            "single-platform group: peak-disabled, request blocked"
+        );
+        return Err("peak_disabled".to_string());
+    }
+
+    // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
+    let time_rules = time_models::parse_platform_time_models(&only.platform.extra);
+    let effective_models = resolve_effective_models(&only.platform, &time_rules, now_ms, source_model);
+    let target_model = mapped_target_model
+        .clone()
+        .unwrap_or_else(|| resolve_model(&effective_models, source_model));
+
+    tracing::info!(
+        group = %group.name, platform = %only.platform.name,
+        status = ?only.platform.status,
+        "single-platform group: bypassing status filter, forcing request"
+    );
+
+    Ok(CandidateSet {
+        candidates: vec![RouteResult {
+            platform: only.platform.clone(),
+            target_model,
+            mapping: mapping.cloned(),
+        }],
+    })
+}
+
+// ── Helper: 候选分桶过滤 ──
+
+/// 候选分桶结果：active（健康/已过期试探）、probe（退避中）、breaker_rejected（熔断踢出）、peak_disabled_count
+struct FilteredCandidates<'a> {
+    active: Vec<&'a GroupPlatformDetail>,
+    probe: Vec<&'a GroupPlatformDetail>,
+    breaker_rejected: Vec<(&'a GroupPlatformDetail, Option<bool>)>,
+    peak_disabled_count: usize,
+}
+
+/// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
+/// 再叠加熔断准入门（Open/HalfOpen 满踢出），高峰禁用计数。
+fn filter_candidates<'a>(
+    group_platforms: &'a [GroupPlatformDetail],
+    ctx: Option<&ScheduleCtx<'_>>,
+    now_ms: i64,
+    source_model: &str,
+) -> FilteredCandidates<'a> {
+    let mut active = Vec::new();
+    let mut probe = Vec::new();
+    let mut breaker_rejected = Vec::new();
+    let mut peak_disabled_count = 0;
+
+    let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
+
+    for gp in group_platforms {
+        // auto_disabled 维度（DB 持久态）
+        let auto_state = candidate_state(&gp.platform, now_ms, source_model);
+        if auto_state.is_none() {
+            // 区分高峰禁用与其他排除原因
+            if is_peak_disabled(&gp.platform, now_ms, source_model) {
+                peak_disabled_count += 1;
+            }
+            continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
+        }
+
+        // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定
+        if let Some(c) = ctx {
+            if breaker_enabled {
+                let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
+                let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
+                match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
+                    Admission::Reject => {
+                        breaker_rejected.push((gp, auto_state));
+                        continue;
+                    }
+                    Admission::Probe | Admission::Allow => {}
+                }
+            }
+        }
+
+        match auto_state {
+            Some(false) => active.push(gp),
+            Some(true) => probe.push(gp),
+            None => {}
+        }
+    }
+
+    FilteredCandidates { active, probe, breaker_rejected, peak_disabled_count }
+}
+
+// ── Helper: 按路由模式排序 ──
+
+/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/LeastLatency/Sticky）。
+fn sort_by_routing_mode(
+    active: &mut Vec<&GroupPlatformDetail>,
+    probe: &mut Vec<&GroupPlatformDetail>,
+    mode: RoutingMode,
+    ctx: Option<&ScheduleCtx<'_>>,
+    now_ms: i64,
+) {
+    match mode {
+        RoutingMode::Failover => {
+            active.sort_by_key(|gp| {
+                (
+                    std::cmp::Reverse(gp.level_priority),
+                    gp.priority,
+                    expiry_sort_key(gp.platform.expires_at),
+                )
+            });
+            probe.sort_by_key(|gp| {
+                (
+                    std::cmp::Reverse(gp.level_priority),
+                    gp.priority,
+                    expiry_sort_key(gp.platform.expires_at),
+                )
+            });
+            apply_coding_plan_priority(active);
+            apply_coding_plan_priority(probe);
+        }
+        RoutingMode::LoadBalance | RoutingMode::HealthAware => {
+            order_load_balance(active, now_ms);
+            order_load_balance(probe, now_ms);
+            apply_coding_plan_priority(active);
+            apply_coding_plan_priority(probe);
+        }
+        RoutingMode::LeastLatency => {
+            order_least_latency(active, ctx);
+            order_least_latency(probe, ctx);
+            apply_coding_plan_priority(active);
+            apply_coding_plan_priority(probe);
+        }
+        RoutingMode::Sticky => {
+            order_load_balance(active, now_ms);
+            order_load_balance(probe, now_ms);
+            apply_coding_plan_priority(active);
+            apply_coding_plan_priority(probe);
+            apply_sticky(active, ctx, now_ms);
+        }
+    }
+}
+
+// ── Helper: 合并 + 映射提升 ──
+
+/// 合并 active+probe 桶（active 在前，probe 在后），再将显式映射目标平台提到最前。
+fn merge_and_promote_mapping<'a>(
+    active: Vec<&'a GroupPlatformDetail>,
+    probe: Vec<&'a GroupPlatformDetail>,
+    mapped_platform_id: Option<u64>,
+) -> Vec<&'a GroupPlatformDetail> {
+    let mut ordered = Vec::with_capacity(active.len() + probe.len());
+    ordered.extend(active);
+    ordered.extend(probe);
+
+    // 显式映射目标平台提到最前（若它本身在候选集中）
+    if let Some(target_id) = mapped_platform_id {
+        if let Some(pos) = ordered.iter().position(|gp| gp.platform.id == target_id) {
+            let gp = ordered.remove(pos);
+            ordered.insert(0, gp);
+        }
+    }
+
+    ordered
+}
+
+// ── Helper: 生成最终候选 ──
+
+/// 为每个候选解析目标模型（时段模型 + resolve_model），构建 RouteResult 列表。
+fn build_route_results(
+    ordered: Vec<&GroupPlatformDetail>,
+    mapped_target_model: &Option<String>,
+    now_ms: i64,
+    source_model: &str,
+    mapping: Option<&ModelMapping>,
+) -> Vec<RouteResult> {
+    ordered
         .into_iter()
         .map(|gp| {
-            let target_model = if let Some(ref tm) = mapped_target_model {
+            let target_model = if let Some(tm) = mapped_target_model.as_ref() {
                 tm.clone()
             } else {
-                // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
                 let time_rules = time_models::parse_platform_time_models(&gp.platform.extra);
                 let effective_models = resolve_effective_models(&gp.platform, &time_rules, now_ms, source_model);
                 resolve_model(&effective_models, source_model)
@@ -264,16 +347,7 @@ pub async fn select_candidates_ctx(
                 mapping: mapping.cloned(),
             }
         })
-        .collect();
-
-    tracing::info!(
-        group = %group.name, source_model = %source_model,
-        candidate_count = candidates.len(), mode = ?group.routing_mode,
-        first_platform = %candidates[0].platform.name,
-        "candidates selected"
-    );
-
-    Ok(CandidateSet { candidates })
+        .collect()
 }
 
 /// 解析当前时段的有效模型配置（effective_models）。
