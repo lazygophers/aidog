@@ -283,6 +283,9 @@ pub async fn select_candidates_ctx(
 ///    用户已自定义 time_models 时不再应用 preset peak 分支（用户显式覆盖优先）。
 /// 2. **preset.models.peak**（preset 级高峰分支，PRD 07-11）：用户未配 time_models 且
 ///    preset 提供本协议 `models.peak` 分支 + 当前命中 `peak_hours_for` 任一窗口 → 用 peak 替换。
+///    **设计意图：peak 分支为 preset 级硬约束，覆盖用户手工定制的 `platform.models`**
+///    （等同 coding_plan 端点维度优先级；用户显式定制在高峰窗口期内不保留，如需保留请配
+///    `time_models` 显式时段切换，其优先级高于 peak）。非 bug — 见 CLAUDE.md `models.peak` 段。
 /// 3. **platform.models**（用户级显式槽位 / 创建时填入 preset.models.default）：兜底默认。
 ///
 /// `source_model`：请求模型名（透传给 peak_hours model scope 过滤；空串 = 无上下文跳过）。
