@@ -2,7 +2,6 @@ use aidog_core::gateway::{self, db::{self, Db}, adapter, models::Protocol};
 use gateway::models::*;
 use tauri::State;
 use serde_json::Value;
-use std::sync::Arc;
 
 // ── 测试上下文：准备阶段的聚合 ──
 struct TestContext {
@@ -17,7 +16,8 @@ struct TestContext {
 struct HttpRequestContext {
     target_protocol: Protocol,
     url: String,
-    client: reqwest::Client,
+    client_type: String,
+    eff_api_key: String,
     request_id: String,
     created_at: i64,
     model: String,
@@ -25,15 +25,13 @@ struct HttpRequestContext {
     req_body_str: String,
     upstream_headers_json: String,
     start: std::time::Instant,
-    reqwest_url: String,
 }
 
 // ── 阶段1：准备测试上下文 ──
-fn prepare_test_context(
+async fn prepare_test_context(
     db: &Db,
     req: &ModelTestRequest,
-) -> impl std::future::Future<Output = Result<TestContext, String>> + '_ {
-    async move {
+) -> Result<TestContext, String> {
         let platform = db::get_platform(db, req.platform_id).await?
             .ok_or_else(|| {
                 tracing::warn!(command = "model_test", platform_id = req.platform_id, "platform not found");
@@ -47,9 +45,6 @@ fn prepare_test_context(
                 "no model specified and no default model configured".to_string()
             })?;
 
-        // prompt 来源二选一：
-        //   - req.prompt 有值 → 自定义模式（ModelTestPanel）：跳过随机 + 跳过内容校验，success=响应非空。
-        //   - req.prompt 为空 → 默认/快速测试：随机生成可校验题（算术/常识轮换），expected 用于子串校验。
         let (prompt, expected) = match req.prompt.clone() {
             Some(p) => (p, None),
             None => {
@@ -65,13 +60,7 @@ fn prepare_test_context(
                 content: adapter::MessageContent::Text(prompt.clone()),
             }],
             system: None,
-            // 默认 max_tokens 需容纳推理模型（如 MiniMax-M3）的前导：
-            //   只给 16 token 会被思维链吃光，finish_reason=length，答案（expected 子串）
-            //   永不出现 → 内容校验失败 → 健康模型被误判 422。给足 1024 让答案有空间产出。
-            //   自定义模式（req.prompt 有值、跳过内容校验）调用方仍可显式传 req.max_tokens 收窄。
             max_tokens: Some(req.max_tokens.unwrap_or(1024)),
-            // 不强制 temperature：部分模型（如 Kimi coding plan）只允许 temperature=1，
-            // 发任何其他值会被上游 400 拒绝。省略让上游用模型默认值，避开所有挑剔 temperature 的模型。
             temperature: None,
             top_p: None,
             stream: Some(false),
@@ -81,16 +70,12 @@ fn prepare_test_context(
         };
 
         Ok(TestContext { platform, model, prompt, expected, chat_req })
-    }
 }
 
 // ── 阶段2：准备 HTTP 请求 ──
-async fn prepare_http_request(
+fn prepare_http_request(
     ctx: &TestContext,
-    db: &Db,
-) -> Result<HttpRequestContext, String> {
-    // 优先使用 endpoint 匹配（同 proxy 逻辑），回退到平台主配置
-    // model-test 优先选 coding_plan endpoint（测试 coding 端点更有意义），否则取第一个
+) -> HttpRequestContext {
     let (target_protocol, target_base_url, client_type, coding_plan) = if !ctx.platform.endpoints.is_empty() {
         let ep = ctx.platform.endpoints.iter()
             .find(|ep| ep.coding_plan)
@@ -101,7 +86,6 @@ async fn prepare_http_request(
     };
 
     let (mut req_body, mut api_path) = adapter::convert_request(&ctx.chat_req, &target_protocol, &ctx.platform.platform_type);
-    // coding plan 注入（与 proxy.rs 对齐）
     if coding_plan {
         gateway::proxy::inject_coding_plan_fields(&mut req_body, &target_protocol);
         gateway::proxy::override_coding_plan_path(&mut api_path, &target_protocol);
@@ -110,11 +94,8 @@ async fn prepare_http_request(
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
 
-    // OpenCode Zen api_key 兜底（与 proxy.rs 路径对齐，model-test proxy parity）。
     let eff_api_key = gateway::proxy::resolve_opencode_zen_key(&ctx.platform);
 
-    // ── 使用与 proxy 相同的客户端 header 模拟逻辑 ──
-    // model_test 无入站请求头（平台测试），传空 HeaderMap —— 仅 apply 模拟头，无透传。
     let upstream_headers = gateway::proxy::build_upstream_headers(
         &client_type, &target_protocol, &eff_api_key,
         &axum::http::HeaderMap::new(), &url
@@ -125,20 +106,15 @@ async fn prepare_http_request(
             .collect()
     ).to_string();
 
-    // ponytail: build_http_client 需要 &Arc<Db>，但这里只有 &Db。
-    // 直接调用 helper 构建 client（复用 proxy.rs 逻辑）。
-    let client = gateway::http_client::build_http_client_simple(
-        30, 10, Some(&ctx.platform.extra), None,
-    ).await;
-
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
     let created_at = gateway::db::now();
 
-    Ok(HttpRequestContext {
+    HttpRequestContext {
         target_protocol,
-        url: url.clone(),
-        client,
+        url,
+        client_type,
+        eff_api_key,
         request_id,
         created_at,
         model: ctx.model.clone(),
@@ -146,11 +122,11 @@ async fn prepare_http_request(
         req_body_str,
         upstream_headers_json,
         start,
-        reqwest_url: url,
-    })
+    }
 }
 
-// ── 阶段3：构造 ProxyLog（替换原 make_log 闭包） ──
+// ── 阶段3：构造 ProxyLog ──
+#[allow(clippy::too_many_arguments)]
 fn build_test_proxy_log(
     http_ctx: &HttpRequestContext,
     platform_id: u64,
@@ -211,7 +187,7 @@ fn handle_mock_test(
     let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
     let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
     let source_proto_str = "test";
-    let (success, status_code, resp_body, err_msg, in_tok, out_tok, preview): (bool, u16, String, String, i32, i32, String) = match cfg.error_mode.as_str() {
+    let (success, status_code, _resp_body, err_msg, in_tok, out_tok, preview): (bool, u16, String, String, i32, i32, String) = match cfg.error_mode.as_str() {
         "http_error" => {
             let body = adapter::mock::build_error_body(source_proto_str, cfg.status_code, "mock http_error");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
@@ -258,10 +234,6 @@ fn handle_success_response(
     let response_text = extract_response_text(&resp_json, target_protocol);
     let (in_tok, out_tok) = extract_test_usage(&resp_json, target_protocol);
 
-    // 内容校验：
-    //   - expected 有值（随机可校验题）：归一化后响应须含 expected 子串，否则失败。
-    //     容忍模型自然长答（含解释/标点），只要关键词出现即算通过。
-    //   - expected 为 None（自定义 prompt）：跳过内容校验，仅要求响应非空。
     let success = verify_test_response(&response_text, ctx.expected.as_deref());
     let error = if success { String::new() } else { "响应内容校验失败".to_string() };
 
@@ -289,11 +261,15 @@ pub async fn model_test(
     let ctx = prepare_test_context(&db, &req).await?;
 
     // 阶段2：准备 HTTP 请求
-    let http_ctx = prepare_http_request(&ctx, &db).await?;
+    let http_ctx = prepare_http_request(&ctx);
 
-    // 阶段4：Mock 处理（同步逻辑，提前返回）
+    // 阶段4：Mock 处理
     if let Some(result) = handle_mock_test(&ctx, &http_ctx) {
-        // 落库
+        let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
+        let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
+        if cfg.delay_ms > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
+        }
         if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
             &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
             "", 200, 200, r#"{"content-type":"application/json"}"#, "",
@@ -301,34 +277,23 @@ pub async fn model_test(
         )).await {
             tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
         }
-        // 异步 sleep（如有延迟）
-        let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
-        let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
-        if cfg.delay_ms > 0 {
-            tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
-        }
         return Ok(result);
     }
 
-    tracing::info!(method = "POST", url = %http_ctx.reqwest_url, "model test request");
-    tracing::debug!(method = "POST", url = %http_ctx.reqwest_url, body = %gateway::log_util::log_body_preview(&http_ctx.req_body_str), "model test request body");
+    // 构建 HTTP 客户端（复用 proxy.rs 逻辑）
+    let db_arc = std::sync::Arc::new(db.inner().clone());
+    let client = gateway::http_client::build_http_client(
+        &db_arc, 30, 10, Some(&ctx.platform.extra), None,
+    ).await;
 
-    // 阶段5：HTTP 执行
-    let eff_api_key = gateway::proxy::resolve_opencode_zen_key(&ctx.platform);
-    let (target_base_url, client_type, coding_plan) = if !ctx.platform.endpoints.is_empty() {
-        let ep = ctx.platform.endpoints.iter()
-            .find(|ep| ep.coding_plan)
-            .unwrap_or(&ctx.platform.endpoints[0]);
-        (ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan)
-    } else {
-        (ctx.platform.base_url.clone(), "default".to_string(), false)
-    };
-    
-    let req_builder = http_ctx.client
-        .post(&http_ctx.reqwest_url)
+    tracing::info!(method = "POST", url = %http_ctx.url, "model test request");
+    tracing::debug!(method = "POST", url = %http_ctx.url, body = %gateway::log_util::log_body_preview(&http_ctx.req_body_str), "model test request body");
+
+    let req_builder = client
+        .post(&http_ctx.url)
         .header("Content-Type", "application/json")
         .body(http_ctx.req_body_str.clone());
-    let req_builder = gateway::proxy::apply_client_headers(req_builder, &client_type, &http_ctx.target_protocol, &eff_api_key);
+    let req_builder = gateway::proxy::apply_client_headers(req_builder, &http_ctx.client_type, &http_ctx.target_protocol, &http_ctx.eff_api_key);
 
     let resp = match req_builder.send().await {
         Ok(r) => r,
@@ -357,7 +322,6 @@ pub async fn model_test(
     let upstream_status_code = resp.status().as_u16() as i32;
     let status = resp.status();
 
-    // 捕获上游响应头
     let upstream_resp_headers = {
         let mut h = serde_json::Map::new();
         for (k, v) in resp.headers() {
@@ -370,7 +334,6 @@ pub async fn model_test(
 
     let body = resp.text().await.unwrap_or_default();
 
-    // 非成功响应处理
     if !status.is_success() {
         let result = ModelTestResult {
             success: false,
@@ -393,10 +356,8 @@ pub async fn model_test(
         return Ok(result);
     }
 
-    // 阶段6：成功响应处理
     let result = handle_success_response(&ctx, &http_ctx, &body, &http_ctx.target_protocol);
 
-    // 落库
     if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
         &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
         &body, upstream_status_code, if result.success { 200 } else { 422 },
