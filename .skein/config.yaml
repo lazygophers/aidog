@@ -6,3 +6,5 @@ retain_days: 7
 board_theme: sketch
 board_palette: stone
 board_mode: light
+board_server: false
+web_serve: true
