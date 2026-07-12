@@ -13,6 +13,7 @@ import {
 } from "../../utils/platformPaste";
 import { platformApi, type SharePlatform } from "../../services/api";
 import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { formatDateTime } from "../../utils/formatters";
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
@@ -368,7 +369,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               <div style={labelStyle}>{t("platform.expiresAt", "过期时间")}</div>
               <div style={{ ...optRow, cursor: "default", borderColor: "var(--accent)" }}>
                 <span style={{ color: "var(--accent)", fontWeight: 600 }}>
-                  {new Date(parsed.expiresAt!).toLocaleString()}
+                  {formatDateTime(parsed.expiresAt!) || "-"}
                 </span>
               </div>
             </div>

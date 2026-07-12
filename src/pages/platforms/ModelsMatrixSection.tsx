@@ -12,6 +12,7 @@ import {
 } from "../../services/api";
 import type { PeakWindow } from "../../domains/platforms/defaults";
 import { pinyinMatch } from "../../utils/pinyin";
+import { pad } from "../../utils/formatters";
 import {
   MODEL_SLOTS, getDefaultModelList,
 } from "../../domains/platforms";
@@ -27,17 +28,13 @@ type CellKey = string;
 //   全天 0-24 无 minute 无 day → `全天`。
 const WEEKDAY_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
-function pad2(n: number): string {
-  return n < 10 ? `0${n}` : String(n);
-}
-
 function describeWindow(w: PeakWindow): string {
   const sMin = w.start_minute ?? 0;
   const eMin = w.end_minute ?? 0;
   const hourOnly = sMin === 0 && eMin === 0;
   const timePart = hourOnly
     ? `${w.start_hour}-${w.end_hour}`
-    : `${pad2(w.start_hour)}:${pad2(sMin)}-${pad2(w.end_hour)}:${pad2(eMin)}`;
+    : `${pad(w.start_hour)}:${pad(sMin)}-${pad(w.end_hour)}:${pad(eMin)}`;
   const isFullDay = w.start_hour === 0 && w.end_hour === 24 && hourOnly
     && !w.days_of_week && !w.days_of_month;
   if (isFullDay) {

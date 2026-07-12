@@ -10,6 +10,7 @@ import type { TFunction } from "i18next";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { backupApi, type BackupSettings, type BackupResult } from "../../../services/api";
 import { SectionHeader } from "./primitives";
+import { pad } from "../../../utils/formatters";
 
 const INTERVAL_PRESETS: { labelKey: string; defaultLabel: string; hours: number }[] = [
   { labelKey: "settings.backup.preset1h", defaultLabel: "1h", hours: 1 },
@@ -22,7 +23,6 @@ const INTERVAL_PRESETS: { labelKey: string; defaultLabel: string; hours: number 
 function formatBackupTime(ms: number, t: TFunction): string {
   if (!ms) return t("settings.backup.never", "从未");
   const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
