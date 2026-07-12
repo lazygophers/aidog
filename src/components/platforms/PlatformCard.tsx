@@ -787,10 +787,9 @@ function relativeTime(createdMs: number, now: number = Date.now()): string {
 
 export function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const { t } = useTranslation();
-  const clamp = (v: number) => Math.min(10, Math.max(1, v));
   // 按钮即调：上下按钮=明确确认动作，保留 clamp + 立即 onChange
   const set = (v: number) => {
-    const next = clamp(v);
+    const next = clamp(v, 1, 10);
     if (next !== value) onChange(next);
   };
   // ponytail: 输入框走本地态编辑，blur/Enter 时 clamp+提交，避免按键中间态打后端
@@ -804,7 +803,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
     editingRef.current = false;
     const v = parseInt(local, 10);
     if (Number.isNaN(v)) { setLocal(String(value)); return; }
-    const next = clamp(v);
+    const next = clamp(v, 1, 10);
     if (next !== value) onChange(next);
     setLocal(String(next)); // 同步显示为 clamp 后值（范围外静默纠正：99→10, 0→1）
   };
