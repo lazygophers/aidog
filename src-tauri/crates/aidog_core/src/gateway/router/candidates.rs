@@ -4,9 +4,11 @@ use super::super::db;
 use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_models;
+use super::super::peak_hours;
 use super::model_mapping::resolve_model;
 use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
-use super::{candidate_state, is_peak_disabled, RouteResult};
+use super::{candidate_state, RouteResult};
+use std::collections::HashMap;
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
 /// `target_model` / `mapping` 对每个候选独立解析（显式映射命中时全部候选共享映射目标模型；
@@ -23,6 +25,38 @@ pub struct ScheduleCtx<'a> {
     /// Sticky 模式 session 键（group_key + 客户端稳定标识，调用侧拼接）。
     pub sticky_key: Option<String>,
 }
+
+/// Platform extra 解析缓存：避免每个候选重复解析 time_models 和 peak_hours
+#[derive(Clone, Debug)]
+struct ExtraCache {
+    time_models: Vec<serde_json::Value>,
+    peak_windows: Vec<peak_hours::PeakWindow>,
+}
+
+impl ExtraCache {
+    fn new(extra: &str) -> Self {
+        let time_models = time_models::parse_platform_time_models(extra);
+        let ptype = infer_protocol_from_extra(extra);
+        let peak_windows = peak_hours::peak_hours_for(extra, &ptype);
+        Self { time_models, peak_windows }
+    }
+}
+
+/// 从 extra 字符串推断协议类型（用于 peak_hours 解析）
+/// ponytail: 简化版，只处理常见情况；完整逻辑应参考 gateway/models/platform.rs
+fn infer_protocol_from_extra(extra: &str) -> String {
+    // 尝试从 extra 中提取 platform_type 字段
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(extra) {
+        if let Some(pt) = v.get("platform_type").and_then(|t| t.as_str()) {
+            return pt.to_string();
+        }
+    }
+    // 默认返回空字符串，peak_hours_for 会回落到 bundled preset
+    String::new()
+}
+
+/// 候选平台的 extra 解析缓存（key: platform_id）
+type ExtraCacheMap = HashMap<u64, ExtraCache>;
 
 /// 根据分组路由规则选择**有序候选平台列表**，用于失败逐个重试。
 ///
@@ -61,17 +95,23 @@ pub async fn select_candidates_ctx(
     let now_ms = db::now();
     let effective_mode = group.routing_mode;
 
+    // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
+    // ponytail: 在入口处统一解析 time_models 和 peak_hours，缓存传递给 helper 函数
+    let extra_cache: ExtraCacheMap = group_platforms.iter()
+        .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra)))
+        .collect();
+
     // ── 阶段 0: 单平台分组短路 ──
     if group_platforms.len() == 1 {
         return handle_single_platform(
             db, group, &group_platforms[0], source_model, ctx,
-            &mapped_target_model, mapping, now_ms
+            &mapped_target_model, mapping, now_ms, &extra_cache
         ).await;
     }
 
     // ── 阶段 1: 候选分桶过滤 ──
     let FilteredCandidates { mut active, mut probe, breaker_rejected, peak_disabled_count } =
-        filter_candidates(&group_platforms, ctx, now_ms, source_model);
+        filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache);
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
@@ -123,7 +163,7 @@ pub async fn select_candidates_ctx(
     }
 
     // ── 阶段 6: 生成最终候选 ──
-    let candidates = build_route_results(ordered, &mapped_target_model, now_ms, source_model, mapping);
+    let candidates = build_route_results(ordered, &mapped_target_model, now_ms, source_model, mapping, &extra_cache);
 
     tracing::info!(
         group = %group.name, source_model = %source_model,
@@ -149,6 +189,7 @@ async fn handle_single_platform(
     mapped_target_model: &Option<String>,
     mapping: Option<&ModelMapping>,
     now_ms: i64,
+    extra_cache: &ExtraCacheMap,
 ) -> Result<CandidateSet, String> {
     // 手动 Disabled 是唯一硬停
     if only.platform.status == PlatformStatus::Disabled {
@@ -156,7 +197,9 @@ async fn handle_single_platform(
     }
 
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
-    if is_peak_disabled(&only.platform, now_ms, source_model) {
+    let cache = extra_cache.get(&only.platform.id);
+    let peak_windows: &[peak_hours::PeakWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
+    if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
             "single-platform group: peak-disabled, request blocked"
@@ -164,9 +207,9 @@ async fn handle_single_platform(
         return Err("peak_disabled".to_string());
     }
 
-    // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
-    let time_rules = time_models::parse_platform_time_models(&only.platform.extra);
-    let effective_models = resolve_effective_models(&only.platform, &time_rules, now_ms, source_model);
+    // 时段模型：从缓存获取 time_models，再用 resolve_model
+    let time_rules: &[serde_json::Value] = cache.map(|c| c.time_models.as_slice()).unwrap_or_default();
+    let effective_models = resolve_effective_models_cached(&only.platform, time_rules, now_ms, source_model);
     let target_model = mapped_target_model
         .clone()
         .unwrap_or_else(|| resolve_model(&effective_models, source_model));
@@ -203,6 +246,7 @@ fn filter_candidates<'a>(
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
     source_model: &str,
+    extra_cache: &ExtraCacheMap,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
     let mut probe = Vec::new();
@@ -215,8 +259,10 @@ fn filter_candidates<'a>(
         // auto_disabled 维度（DB 持久态）
         let auto_state = candidate_state(&gp.platform, now_ms, source_model);
         if auto_state.is_none() {
-            // 区分高峰禁用与其他排除原因
-            if is_peak_disabled(&gp.platform, now_ms, source_model) {
+            // 区分高峰禁用与其他排除原因（使用缓存避免重新解析）
+            let cache = extra_cache.get(&gp.platform.id);
+            let peak_windows: &[peak_hours::PeakWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
+            if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
                 peak_disabled_count += 1;
             }
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
@@ -330,6 +376,7 @@ fn build_route_results(
     now_ms: i64,
     source_model: &str,
     mapping: Option<&ModelMapping>,
+    extra_cache: &ExtraCacheMap,
 ) -> Vec<RouteResult> {
     ordered
         .into_iter()
@@ -337,8 +384,9 @@ fn build_route_results(
             let target_model = if let Some(tm) = mapped_target_model.as_ref() {
                 tm.clone()
             } else {
-                let time_rules = time_models::parse_platform_time_models(&gp.platform.extra);
-                let effective_models = resolve_effective_models(&gp.platform, &time_rules, now_ms, source_model);
+                let cache = extra_cache.get(&gp.platform.id);
+                let time_rules: &[serde_json::Value] = cache.map(|c| c.time_models.as_slice()).unwrap_or_default();
+                let effective_models = resolve_effective_models_cached(&gp.platform, time_rules, now_ms, source_model);
                 resolve_model(&effective_models, source_model)
             };
             RouteResult {
@@ -350,7 +398,12 @@ fn build_route_results(
         .collect()
 }
 
-/// 解析当前时段的有效模型配置（effective_models）。
+/// 缓存版本的 peak_hours 窗口判定（避免重新解析 peak_hours）
+fn is_in_peak_window_cached(windows: &[peak_hours::PeakWindow], now_ms: i64, source_model: &str) -> bool {
+    peak_hours::is_in_peak_window(windows, now_ms, source_model)
+}
+
+/// 解析当前时段的有效模型配置（effective_models）—— 使用已解析的 time_models 缓存。
 ///
 /// 三层级联（优先级高 → 低）：
 /// 1. **time_models**（用户级显式时段切换，`platform.extra.time_models`）：命中 → 用该时段 models；
@@ -363,6 +416,47 @@ fn build_route_results(
 /// 3. **platform.models**（用户级显式槽位 / 创建时填入 preset.models.default）：兜底默认。
 ///
 /// `source_model`：请求模型名（透传给 peak_hours model scope 过滤；空串 = 无上下文跳过）。
+fn resolve_effective_models_cached(
+    platform: &Platform,
+    time_rules: &[serde_json::Value],
+    now_ms: i64,
+    source_model: &str,
+) -> PlatformModels {
+    let mut effective = time_models::resolve_time_models(time_rules, &platform.models, now_ms);
+    // PRD 07-11：time_models 未自定义时查 preset.models.peak 分支
+    if time_rules.is_empty() {
+        // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
+        let ptype = serde_json::to_string(&platform.platform_type)
+            .unwrap_or_default()
+            .trim_matches('"')
+            .to_string();
+        if let Some(peak_models) = super::super::peak_hours::default_peak_models(&ptype) {
+            let windows = super::super::peak_hours::peak_hours_for(&platform.extra, &ptype);
+            if super::super::peak_hours::is_in_peak_window(&windows, now_ms, source_model) {
+                effective = peak_models;
+            }
+        }
+    }
+    effective
+}
+
+/// 解析当前时段的有效模型配置（effective_models）—— 原始版本（保留兼容）。
+///
+/// 注意：此函数会重新解析 platform.extra，推荐使用 resolve_effective_models_cached 或预解析缓存。
+///
+/// 三层级联（优先级高 → 低）：
+/// 1. **time_models**（用户级显式时段切换，`platform.extra.time_models`）：命中 → 用该时段 models；
+///    用户已自定义 time_models 时不再应用 preset peak 分支（用户显式覆盖优先）。
+/// 2. **preset.models.peak**（preset 级高峰分支，PRD 07-11）：用户未配 time_models 且
+///    preset 提供本协议 `models.peak` 分支 + 当前命中 `peak_hours_for` 任一窗口 → 用 peak 替换。
+///    **设计意图：peak 分支为 preset 级硬约束，覆盖用户手工定制的 `platform.models`**
+///    （等同 coding_plan 端点维度优先级；用户显式定制在高峰窗口期内不保留，如需保留请配
+///    `time_models` 显式时段切换，其优先级高于 peak）。非 bug — 见 CLAUDE.md `models.peak` 段。
+/// 3. **platform.models**（用户级显式槽位 / 创建时填入 preset.models.default）：兜底默认。
+///
+/// `source_model`：请求模型名（透传给 peak_hours model scope 过滤；空串 = 无上下文跳过）。
+#[allow(dead_code)]
+// 保留供 test_candidates.rs 直接调（cached 版走生产路径；test 需原始函数测基础逻辑）
 fn resolve_effective_models(
     platform: &Platform,
     time_rules: &[serde_json::Value],
