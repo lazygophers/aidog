@@ -1,2 +1,0 @@
-{"path": ".trellis/spec/backend/db-conventions.md", "purpose": "db.rs 新查询遵循的 SQLite/db 访问约定", "phase": "implement"}
-{"path": ".trellis/spec/frontend/conventions.md", "purpose": "前端编码/主题/i18n 约定（徽章色值走 CSS 变量）", "phase": "implement"}

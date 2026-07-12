@@ -1,4 +1,0 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端通用约定 + DB spec 入口"}
-{"file": ".trellis/tasks/06-13-comprehensive-backend-logging/research/gap-inventory.md", "reason": "日志盲区精确清单 + 静默吞错triage + 脱敏模式"}
-{"file": ".trellis/tasks/06-13-comprehensive-backend-logging/prd.md", "reason": "分级策略 + 验收标准"}

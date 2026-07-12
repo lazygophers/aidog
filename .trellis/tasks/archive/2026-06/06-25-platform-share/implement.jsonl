@@ -1,5 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/API/类型/i18n 约定 — 新增 ShareModal 组件 + PlatformCard 分享按钮 + Platforms 链路"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 边界契约 — 新增 platform_share_export/parse command 三层对齐(camelCase/serde rename)"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用既有 toast/clipboard/UpdatePromptModal/SmartPasteModal,禁重复造"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "后端读 platform 数据约定(导出取平台字段)"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端 pre-dev checklist 入口"}

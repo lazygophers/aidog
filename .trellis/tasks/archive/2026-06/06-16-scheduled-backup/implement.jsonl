@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "db settings KV 读写约定 (backup.* key)"}
-{"file": ".trellis/spec/backend/index.md", "reason": "gateway 模块组织约定, backup.rs 挂载"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 import_export collect/encrypt 约定"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust cmd ↔ TS api ↔ 前端跨层约定"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "i18n key + formatters + 组件约定"}
-{"file": ".trellis/tasks/06-16-scheduled-backup/design.md", "reason": "架构决策 + 伪码 (本任务)"}

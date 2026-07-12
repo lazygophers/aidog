@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/06-12-default-statusline-layout-3line/prd.md", "reason": "目标布局逐字 + 配色 + 色逻辑权威源"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "端点 7d 查询 + 锁约定"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "端点字段 前后端契约一致"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "段/默认布局/i18n 规约"}

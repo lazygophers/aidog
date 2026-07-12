@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验：无新造内联样式类、控件复用既定 .toggle/.badge、主题经 CSS 变量自适应。"}
-{"file": "src/styles/globals.css", "reason": "校验：toggle/badge 用法参数与设计系统一致(未私自改 radius/fontSize/fontWeight)。"}

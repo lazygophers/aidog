@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 入口"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "DB schema/命名/软删除强制规范, 迁移不得漂移"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "DB 调用方转 async 跨 Rust 层改动"}
-{"file": ".trellis/tasks/06-12-s1-db-async/research/tokio-rusqlite-migration.md", "reason": "迁移模式/Cargo/避坑/测试样例"}

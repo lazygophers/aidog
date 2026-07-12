@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "group_source Option<String> 跨 Rust↔TS, null = None 组"}
-{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "5 步流程 + check 闭环 + 破坏性二次确认约定"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "modal createPortal + i18n key + 破坏性操作约定"}

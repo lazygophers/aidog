@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "校验 sync 物化逻辑 + command"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 marker/开关契约前后端一致"}

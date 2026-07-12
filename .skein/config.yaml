@@ -1,0 +1,8 @@
+max_active: 2
+max_parallel: 2
+auto_commit: true
+worktree_root: .worktrees
+retain_days: 7
+board_theme: sketch
+board_palette: stone
+board_mode: light

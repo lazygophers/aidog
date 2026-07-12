@@ -1,6 +1,0 @@
-{"file": ".trellis/tasks/06-11-quota-usage-estimation/design.md", "reason": "方案B 拟合算法 + migration 004 + 触发/校准架构 — 实施契约"}
-{"file": ".trellis/tasks/06-11-quota-usage-estimation/research/00-summary-file-inventory.md", "reason": "完整涉及文件清单 + 悬而未决点"}
-{"file": ".trellis/tasks/06-11-quota-usage-estimation/research/coding-plan-base-feasibility.md", "reason": "coding plan 基数可行性 + Kimi/GLM/MiniMax 分平台策略"}
-{"file": ".trellis/tasks/06-11-quota-usage-estimation/research/estimate-trigger-architecture.md", "reason": "tokio::spawn 触发 + 禁持锁跨 await + 原子自减"}
-{"file": ".trellis/tasks/06-11-quota-usage-estimation/research/calibration-trigger.md", "reason": "5min/100次 校准触发实现"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "加列 migration + NOT NULL DEFAULT + ms 时间规范"}

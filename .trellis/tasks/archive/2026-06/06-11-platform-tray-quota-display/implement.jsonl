@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-11-platform-tray-quota-display/design.md", "reason": "tray 展示方案 + 加列 + 互斥 + set_title + 刷新触发 — 实施契约"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "加列 migration 005 + NOT NULL DEFAULT 规范"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "platform show_in_tray/tray_display 前后端契约一致"}

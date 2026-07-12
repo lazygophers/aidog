@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "验收 setting 迁移幂等 + 不破坏现有 setting 读写"}
-{"file": ".trellis/tasks/06-16-backup-default-on/prd.md", "reason": "AC1-AC9 逐条核对 + 迁移权衡确认"}

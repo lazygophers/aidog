@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验 Skills.tsx 是否合规: 类型/API 封装/i18n 7 语言/无页内重复 formatter"}
-{"file": ".trellis/spec/backend/index.md", "reason": "校验 gateway/skills.rs + command 注册是否合后端约定"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验前后端契约字段名/类型一致"}

@@ -1,6 +1,0 @@
-{"file": ".trellis/tasks/06-13-group-scoped-usage-stats/prd.md", "reason": "目标/范围/纯前端切数据源 唯一事实源"}
-{"file": ".trellis/tasks/06-13-group-scoped-usage-stats/research/01-group-name-current.md", "reason": "group_name 填充时机 + 空值场景"}
-{"file": ".trellis/tasks/06-13-group-scoped-usage-stats/research/02-group-stats-source.md", "reason": "现平台级求和 vs 已就绪 group_usage_stats 全链路 file:line"}
-{"file": ".trellis/tasks/06-13-group-scoped-usage-stats/research/03-fix-points.md", "reason": "改造点 + 风险(与重试 task 协调/recent 健康度/_platformStats)"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端数据源/类型/组件约定"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用已存在 groupApi.usageStats, 禁新造 query"}

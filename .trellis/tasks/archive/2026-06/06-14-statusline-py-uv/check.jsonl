@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验 statusline 生成器 + golden 字节一致"}
-{"file": ".trellis/spec/backend/index.md", "reason": "校验 invoker/路径/清理"}

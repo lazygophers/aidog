@@ -1,2 +1,0 @@
-{"id":"cleanup-rules","type":"spec","path":".trellis/spec/guides/trellisx-conventions.md","note":"task 实施流程 + 收尾"}
-{"id":"cross-layer","type":"spec","path":".trellis/spec/guides/cross-layer-rules.md","note":"本 task 跨 Rust↔TS 但仅删空目录不改契约, 弱相关, 备查"}

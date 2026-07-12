@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-11-db-schema-conventions-refactor/design.md", "reason": "校验 10 规范逐条落地 + 新 schema 一致性"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端类型安全/API 层合规校验"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "前后端契约一致性校验"}

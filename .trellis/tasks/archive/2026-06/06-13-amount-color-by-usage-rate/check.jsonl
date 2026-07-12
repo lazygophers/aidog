@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/06-13-amount-color-by-usage-rate/prd.md", "reason": "对照算法规范 + 验收标准逐条验"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "验后端下发字段与前端消费契约一致, 无阈值漂移"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "i18n/类型/颜色变量合规"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端规约合规"}

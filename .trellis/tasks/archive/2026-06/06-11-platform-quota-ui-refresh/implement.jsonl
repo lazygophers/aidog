@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/06-11-platform-quota-ui-refresh/design.md", "reason": "quota 区分样式/位置 + 刷新 handler 设计 — 实施契约"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/类型安全规则（禁 any，inline style + glass class）"}

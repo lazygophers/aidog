@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "setting 操作规范（get_setting/set_setting/invalidate cache），MITM 2 key 存储必遵"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "公共契约层稳定：RootCa/WhitelistEntry struct + 全 #[tauri::command] 签名零改，前端 api/mitm.ts 零改"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 get_setting/set_setting（禁重写 SQL），seed 并入 migration 单源"}

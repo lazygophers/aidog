@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "改 Cargo/tauri.conf/lib.rs/capabilities, 加 updater/process 插件, 遵后端约定"}
-{"file": ".trellis/guides/cross-layer-rules.md", "reason": "updater 前后端契约 + capabilities 权限对齐"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "About 加检查更新 UI + i18n 8 locale + 依赖"}

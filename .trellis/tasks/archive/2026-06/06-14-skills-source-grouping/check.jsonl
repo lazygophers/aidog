@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "check Rust↔TS source 字段对齐"}
-{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "check 闭环标准: clippy/test/build/i18n"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "check i18n key 7 locale 齐 + 组件约定"}

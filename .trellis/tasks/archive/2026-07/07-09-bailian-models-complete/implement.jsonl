@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/07-09-bailian-models-complete/research/bailian-models.md", "reason": "全谱模型清单真值源（主线文本/Coder/VL/Math/MT/Doc/开源 + bailian_coding 套餐），implement 按 provider 分组整组替换两数组"}
-{"file": ".trellis/tasks/07-09-bailian-models-complete/prd.md", "reason": "Acceptance Criteria + 改动面（bailian+bailian_coding 两字段）+ 排除规则（去日期快照/Audio/tongyi-xiaomi）"}

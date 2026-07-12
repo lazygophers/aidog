@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "组件/状态/类型/Hook 强制约定 —— Groups.tsx 改动须遵守 (禁新增 any / inline style+glass / named export)"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "group 卡片拖拽收口到已有通用 SortableList 的依据, 禁重复实现拖拽"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "groupApi.reorder 排序持久化跨层契约 (invoke 包装 / snake_case / catch console.error)"}

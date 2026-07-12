@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 Rust 规约 — proxy Axum 路由 + lib settings 生成"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "env 名/端点路径/字段名 前后端契约一致"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "statusline 段/i18n 规约"}

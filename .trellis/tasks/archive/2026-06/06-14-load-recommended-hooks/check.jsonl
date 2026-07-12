@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验前端改动合规：类型/状态/复用/i18n"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校验 deepMerge 单一实现、无页内重复"}

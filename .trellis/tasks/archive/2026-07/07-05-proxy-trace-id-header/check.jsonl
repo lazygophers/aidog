@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "backend 验收基线"}
-{"file": ".trellis/spec/backend/proxy-connect-relay.md", "reason": "blind_relay 豁免契约 — 验证未误注入"}
-{"file": ".trellis/spec/backend/http-client-forward.md", "reason": "forward 路径不回归"}

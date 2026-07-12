@@ -1,3 +1,0 @@
-Usage Error: Couldn't find a script named "list".
-
-$ yarn run [--inspect] [--inspect-brk] [-T,--top-level] [-B,--binaries-only] [--require #0] <scriptName> ...

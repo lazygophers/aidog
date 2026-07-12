@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust serde PeakWindow 字段 ↔ TS type ↔ JSON key ↔ i18n key 全栈对称重命名"}
-{"file": ".trellis/spec/frontend/locale-tag-cross-layer.md", "reason": "8 语言 i18n key 重命名需跨语言对齐，避免裸 key"}

@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 入口"}
-{"file": ".trellis/spec/backend/mock-platform.md", "reason": "拦截点/响应 builder 语义不得变"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "透传 header 剔除/Authorization 保留语义不变"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "log 异步/event 跨层"}

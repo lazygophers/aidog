@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/07-03-longcat-default-models/research/longcat-openai-endpoint.md", "reason": "Longcat openai base_url 实证 (/openai/v1) + model_fetch.rs:103 status 透传接入点 + 9 anthropic-only / 17 openaiEp 平台影响面 + 错误处理现状"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "build_models_url / apply_models_auth 按 protocol 构造 URL + 鉴权头, platform_fetch_models 复用"}
-{"file": ".trellis/spec/backend/platform-error-handling.md", "reason": "401/403 auto_disable 成熟语义对照 (fetch-models 路径独立不经 non_success.rs, 但码值语义一致)"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "i18n key 新增 8 locale 对齐 + api.ts invoke 封装类型约定 + 组件状态"}

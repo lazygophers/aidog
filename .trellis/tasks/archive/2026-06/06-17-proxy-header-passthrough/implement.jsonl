@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "后端约定：proxy 上游请求构建路径、header 处理规范。本任务改 convert 路径上游头透传须遵。"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "Claude Code 透传子系统规范：passthrough_headers / hop-by-hop 剔除 / handle_passthrough vs convert 路径分流。本任务 convert 路径借鉴其全量透传模式。"}

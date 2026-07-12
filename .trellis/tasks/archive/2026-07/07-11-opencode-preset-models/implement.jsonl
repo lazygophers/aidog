@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/remote-json-sync.md", "reason": "defaults JSON 真值源契约 — platform-presets.json 手维护禁机器生成覆盖；本 task 按官方 API 返回手工校对入库，仅改 bundled preset 不动同步链"}
-{"file": ".trellis/tasks/07-11-opencode-preset-models/prd.md", "reason": "本 task PRD：含 2026-07-11 API 实测返回的 opencode Go 20 模型 + opencode_zen 55 模型完整清单（exec 直接抄入 model_list），含 glm-4.7-free 已下线需删 + big-pickle 保留"}

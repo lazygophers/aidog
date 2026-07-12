@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/06-11-add-mock-platform-type/design.md", "reason": "架构 + 三层配置覆盖 + 5 协议 builder shape + 超时语义 + 前端 — 实施契约源"}
-{"file": ".trellis/tasks/06-11-add-mock-platform-type/research/mock-platform-insertion-points.md", "reason": "精确插入点 file:line（proxy.rs:340 拦截 / to_client_sse 复用 / extra 配置）"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "extra 列用法 + 无 schema 变更约束"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Protocol 跨层契约（Rust enum ↔ 前端 union 同步）"}

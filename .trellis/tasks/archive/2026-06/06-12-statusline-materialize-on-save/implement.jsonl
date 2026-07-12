@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "保存时物化 statusLine 的 Hook/异步/导出规约"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "statuslineApi.generate 命令 + statusLine 字段契约"}

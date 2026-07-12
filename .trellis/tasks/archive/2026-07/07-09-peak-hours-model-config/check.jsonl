@@ -1,6 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "本 task 跨 Rust↔TS 边界：extra.time_models 字段 Rust serde ↔ TS 类型 ↔ resolve_model 路由，字段名/类型对齐防运行时静默失败"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 PeakWindow editor + ModelsSection 档位输入 + peak_hours hit 逻辑（first-match）；禁重复实现"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端 TimeModelsSection 新区块 + state 管理 + i18n key 规范"}
-{"file": ".trellis/spec/frontend/locale-tag-cross-layer.md", "reason": "8 语言 i18n key 新增（time_models.* 命名空间）"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "extra JSON blob 解析模式（time_models 字段，与 peak_hours/breaker 同模式 parse_platform_*）"}
-{"file": ".trellis/spec/backend/platform-lifecycle.md", "reason": "platform models 流转 + extra 字段读写生命周期"}

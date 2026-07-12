@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/07-06-delete-platform-keep-empty-group/prd.md", "reason": "需求 + 验收 + platform_lifecycle.rs ② 步删除方案"}
-{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 入口 (查 platform lifecycle 段)"}

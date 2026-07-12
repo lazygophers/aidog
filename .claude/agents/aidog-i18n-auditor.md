@@ -87,7 +87,7 @@ docs 缺译（基准 en-US）：
 
 ## 相关
 
-- 前端 i18n 规约：`.trellis/spec/frontend/conventions.md` i18n 章节
+- 前端 i18n 规约：`memory.py recall "frontend i18n conventions"` （.skein/spec/recall/frontend/）
 - 自动检查：`scripts/check-i18n.mjs`（4 类 A/B/C/D）
 - docs 构建：`docs/rspress.config.ts` + `docs/i18n.json`
 - memory：`frontend-i18n-coverage`、`docs-site-i18n-coverage`

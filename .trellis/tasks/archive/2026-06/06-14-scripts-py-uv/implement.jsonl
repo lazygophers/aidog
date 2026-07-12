@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "脚本生成/command 注册约定"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用脚本生成/shell out 模式, command 串构造抽公共函数"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "uv 询问 modal UI/i18n"}

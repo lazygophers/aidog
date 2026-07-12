@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验：迁移幂等(老库 auto_group 默认 1 行为不变)、auto 分组删除保护未破坏、平台入组 helper 不绕过 set_group_platforms。"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验：Rust models.rs 与 TS api.ts 的 auto_group/join_group_ids 字段名/类型/可选性对齐。"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验：i18n 7 语言 key 全覆盖(check-i18n.mjs)、无页内重复控件、表单状态走既有模式。"}

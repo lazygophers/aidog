@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/06-11-tray-configurable-panel/design.md", "reason": "config 模型 + 渲染重构 + 颜色三态 + 今日tokens + 迁移 — 实施契约"}
-{"file": ".trellis/tasks/06-11-tray-configurable-panel/research/01-macos-menubar-boundary.md", "reason": "macOS 可配技术边界(多段色/字号/排序/≤2行/绝对位置✗)"}
-{"file": ".trellis/tasks/06-11-tray-configurable-panel/research/05-tray-render-refactor.md", "reason": "lib.rs 渲染重构 + 今日消耗数据源"}
-{"file": ".trellis/tasks/06-11-tray-configurable-panel/research/03-settings-page-ui.md", "reason": "AppSettings.tsx 新 tab 插入点"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "settings KV + ms 时间 + 无 schema 变更"}

@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "校验：convert 路径透传不破坏 passthrough 分流(passthrough 仍 1:1 relay 不经 convert)；hop-by-hop 剔除完整；auth/UA 强覆盖未漏。"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验：上游头日志记录(build_upstream_headers)与实际透传+覆盖一致，无脱敏漏。"}

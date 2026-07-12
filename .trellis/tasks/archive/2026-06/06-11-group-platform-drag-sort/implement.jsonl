@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/06-11-group-platform-drag-sort/design.md", "reason": "前端 HTML5 DnD 重排 + priority 复用 — 实施契约"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/类型规则（禁 any）"}

@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/07-09-shengsuanyun-models-complete/research/shengsuanyun-models.md", "reason": "全量 172 模型清单真值源（19 provider 分组，line 39-247），implement 按 provider 顺序整组替换 + endpoints 三端点 + models.default 三档"}
-{"file": ".trellis/tasks/07-09-shengsuanyun-models-complete/prd.md", "reason": "Acceptance Criteria + 改动面（model_list+endpoints+models.default 三字段）+ 移除 gpt-5.3-codex 决策"}

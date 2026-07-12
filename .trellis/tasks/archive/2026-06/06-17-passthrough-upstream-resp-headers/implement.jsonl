@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-17-passthrough-upstream-resp-headers/prd.md", "reason": "本任务 PRD: 选择性透传策略 + RFC 7230 黑名单 + 非流式/流式两路 + 日志字段≠实发头澄清 + 验收"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "同协议透传路径约定, 回客户端头处理涉透传链"}
-{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 索引"}

@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "sync 物化 + command 注册约定"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "set_default_hooks_enabled 契约 + marker 字段前后端对齐"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "NotificationSettings 总开关 UI/i18n 合规"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 hooks.rs inject/build 函数 + generate_hook_scripts, 禁重造"}

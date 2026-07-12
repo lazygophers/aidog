@@ -1,1 +1,0 @@
-{"file": ".trellis/tasks/06-11-fix-streaming-token-log/design.md", "reason": "校验流式 token 修正 + 非流式无回归 + 不重复 upsert"}

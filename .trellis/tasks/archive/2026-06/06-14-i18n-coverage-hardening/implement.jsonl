@@ -1,2 +1,0 @@
-{"file":".trellis/spec/frontend/conventions.md","reason":"前端强制规则唯一入口; 本任务新增 i18n 章节(8 locale 同步 + 动态模板枚举 + check 脚本必跑)"}
-{"file":"src/locales/zh-CN.json","reason":"基准 locale(最全 1077 key); 翻译缺失 key 时取中文原文为源"}

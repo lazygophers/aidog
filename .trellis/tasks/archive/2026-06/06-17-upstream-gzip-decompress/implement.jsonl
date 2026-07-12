@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-17-upstream-gzip-decompress/prd.md", "reason": "本任务 PRD: 根因链 file:line + 方案 A(reqwest 四 feature) + reqwest 解压调研结论 + 验收"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "同协议透传路径约定, gzip 修复涉透传 forward 链"}
-{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 索引"}

@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-11-add-mock-platform-type/design.md", "reason": "校验 5 协议 builder + 三层覆盖 + error_mode 各分支落地"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端类型安全 / mock 配置 UI 合规"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Protocol 前后端契约一致性"}

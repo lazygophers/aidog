@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/07-06-trace-id-log-format/prd.md", "reason": "验收基线 (7 条 acceptance)"}
-{"file": ".trellis/tasks/07-06-trace-id-log-format/design.md", "reason": "架构决策验收点 + 调用点清单对账"}
-{"file": ".trellis/spec/backend/proxy-diagnostic-headers.md", "reason": "header 注入侧契约, 验证 current_trace_id 取值链未破"}
-{"file": ".trellis/spec/backend/index.md", "reason": "backend 验收基线"}

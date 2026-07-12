@@ -1,1 +1,0 @@
-{"file": ".trellis/tasks/06-16-count-tokens-endpoint/prd.md", "reason": "完整根因(A/B)+方案X(透传优先+本地估算兜底,已拍板)+全部 file:line 证据(proxy.rs:2572/1132/1148, converter.rs:56/15)+影响面。实现唯一权威 spec。"}

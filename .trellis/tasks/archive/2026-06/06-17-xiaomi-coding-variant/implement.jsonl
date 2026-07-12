@@ -1,3 +1,0 @@
-{"file": "prd.md", "reason": "决策: 默认cn集群+双端点+coding_plan标记+manual_budget配额"}
-{"file": "implement.md", "reason": "精确改动清单(PROTOCOLS+getDefaultEndpoints cp分支)"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端编码约定"}

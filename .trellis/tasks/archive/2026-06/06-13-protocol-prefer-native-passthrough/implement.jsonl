@@ -1,8 +1,0 @@
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/prd.md", "reason": "目标 + 决策(显式 endpoint 透传) + 透传 5 项保留 + 风险, 唯一事实源"}
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/research/01-current-protocol-flow.md", "reason": "入站推断 + 端点匹配 + convert_request 调用链 file:line"}
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/research/02-platform-protocol-capability.md", "reason": "Protocol 枚举 + endpoints 能力声明 + 协议匹配点"}
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/research/03-conversion-points.md", "reason": "convert_request/parse_sse 唯一调用点 + 原始字节复用点 + ClaudeCode 透传现状"}
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/research/04-design-options.md", "reason": "3 方案 + 6 风险(URL/鉴权/model remap/coding_plan/usage)"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 spec 索引 + URL 构造约束"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "协议字段契约"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用现有端点匹配/clone 原始请求, 禁重复"}

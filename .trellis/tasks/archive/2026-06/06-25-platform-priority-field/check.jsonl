@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端 check: 表单模式/i18n 覆盖合规"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "check Rust↔TS 字段名/类型对齐"}
-{"file": ".trellis/tasks/06-25-platform-priority-field/prd.md", "reason": "check 验收清单对照"}

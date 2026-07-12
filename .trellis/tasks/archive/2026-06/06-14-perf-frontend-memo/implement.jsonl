@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "改 Logs/Platforms 组件/状态/memo, 守前端组件约定"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "抽 LogRow/派生值前 grep 已有, 禁重复造"}

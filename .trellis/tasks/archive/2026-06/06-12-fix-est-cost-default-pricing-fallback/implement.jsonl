@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 Rust 规约入口 — 改 gateway db/proxy 须遵守"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "db.rs 锁/查询/CRUD 约定 — calc_est_cost 锁安全改写"}

@@ -1,1 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "ShareModal 泛化契约 (L103-105): URL base64 恒取接收端可解析格式 + ShareModal <T extends object> 泛型 + 可选 i18n keys (titleKey/warningKey/urlScheme/copyUrlKey); QR 加在 ShareModal 须遵此泛化契约不破坏 mcp/skill 调用点"}

@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "Skills.tsx 乐观更新/状态/i18n 合规"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用现有 state/handler, 不重造"}

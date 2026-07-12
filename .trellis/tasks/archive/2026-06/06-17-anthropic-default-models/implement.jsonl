@@ -1,2 +1,0 @@
-{"file": ".claude/skills/aidog-add-platform/references/default-model.md", "reason": "默认模型维护文档：列各 protocol preset 默认值 + 月级腐化/fetchModels 兜底说明。改 anthropic preset 须同步此文档保持一致。"}
-{"file": ".claude/skills/aidog-add-platform/SKILL.md", "reason": "加/改平台默认模型走 aidog-add-platform skill 的反直觉点：预设住前端 getDefaultModels 非 db.rs；改值须核官方（本次用户指定值即权威）。"}

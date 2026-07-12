@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端 Hook/effect/状态规约 — StatusLinePanel 自动维护字段 + Settings 保存后同步"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "statusLine 字段 + sync_group_settings 命令契约"}

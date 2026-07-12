@@ -1,5 +1,0 @@
-{"file": "prd.md", "reason": "验收标准核对"}
-{"file": ".trellis/spec/backend/conventions.md", "reason": "Rust 约定合规"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端约定合规"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层数据流一致性"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用而非重复实现"}

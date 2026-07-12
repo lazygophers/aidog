@@ -1,1 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "ShareModal 泛化 + URL base64 格式契约, check 对齐 (QR 内容 URL 须遵 base64 恒取接收端格式; 不破坏 mcp/skill 调用点)"}
