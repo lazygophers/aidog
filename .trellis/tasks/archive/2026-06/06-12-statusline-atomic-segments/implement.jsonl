@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/06-12-statusline-atomic-segments/research/statusline-input-schema.md", "reason": "权威字段清单 + 原子拆分方案 + jq 路径 — 每段严格对照"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/i18n 规约 — SEGMENT_DEFS/StatusLinePanel 改动"}

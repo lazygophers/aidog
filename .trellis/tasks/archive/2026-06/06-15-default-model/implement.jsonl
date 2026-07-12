@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/01-platform-model-presets.md", "reason": "默认模型现状(§平台默认模型 行106-125)+PlatformModels结构+getDefaultEndpoints/allModelValues展示链路 file:line，child A 实现唯一依据"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端组件/状态/类型/i18n 约定 + Pre-Development Checklist，改 Platforms.tsx 须遵守"}

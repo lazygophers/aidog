@@ -1,6 +1,0 @@
-{"file": "prd.md", "reason": "本 task 需求/设计/验收标准"}
-{"file": "implement.md", "reason": "subtask 拆分/调度/跨层契约"}
-{"file": ".trellis/spec/backend/conventions.md", "reason": "Rust 后端编码约定"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/API/类型/i18n 约定"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "写新函数前 grep 查已有实现, 复用 collect/build_items/is_selected"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 边界契约: export_to_file selection 参数/scope 字符串/字段名一致"}

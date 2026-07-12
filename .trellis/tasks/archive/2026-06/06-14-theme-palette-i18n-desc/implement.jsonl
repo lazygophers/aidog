@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/06-14-theme-palette-i18n-desc/prd.md", "reason": "本任务 PRD: 3 palette × 8 locale 本地化描述表 + 风格决策 (纯描述同 nord)"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端 i18n 约定: brand 名策略 + check-i18n 防线"}

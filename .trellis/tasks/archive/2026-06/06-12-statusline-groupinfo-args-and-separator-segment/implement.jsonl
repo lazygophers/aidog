@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "statusLine command 参数 + do_sync_group_settings 跨层契约"}
-{"file": ".trellis/spec/backend/index.md", "reason": "lib.rs do_sync_group_settings 改 statusLine command 追加参数"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "段系统/分隔符段/面板 UI 改动 + i18n"}

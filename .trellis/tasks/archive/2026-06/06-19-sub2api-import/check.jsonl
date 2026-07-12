@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-19-sub2api-import/prd.md", "reason": "验收标准来源: 核心映射/auto-group 双分组+toggle/双入口/预览下拉/ensure 幂等/非目标(不导 models/proxy/quota)"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验 ensure_group_and_attach 写库 + 解析器合规"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验前端导入组件合规(无 react-router/i18n 8 locale)"}

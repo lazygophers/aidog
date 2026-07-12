@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/prd.md", "reason": "对照数据结构/验收逐条"}
-{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/research/04-fix-points.md", "reason": "验 platform_id 回溯/tray wip 衔接/语义标注守住"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "PopoverConfig 契约一致"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "拖拽/i18n/类型合规"}
-{"file": ".trellis/spec/backend/index.md", "reason": "today_platform_stats query 合规"}

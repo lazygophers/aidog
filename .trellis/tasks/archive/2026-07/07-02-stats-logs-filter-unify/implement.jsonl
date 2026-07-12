@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/API/类型/i18n 约定,抽 FilterDropdown + 替换 Stats/Logs 须遵"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "抽公共组件复用规则,grep 查已有实现禁重复"}
-{"file": ".trellis/tasks/07-02-stats-logs-filter-unify/prd.md", "reason": "本 child 交付/验收/非目标"}

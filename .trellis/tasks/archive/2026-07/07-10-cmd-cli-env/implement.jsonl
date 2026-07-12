@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/crate-boundaries.md", "reason": "workspace 边界 5 规则 + 迁移三件齐 + 5a/5b + grep 验收 —— C9 cmd-cli-env 落地复用 (cli_env.rs + test_cli_env.rs 单文件域, 22KB 609 行独立复杂)"}
-{"file": ".trellis/spec/backend/cargo-workspace.md", "reason": "workspace 重构过程契约 (核心提取下沉防循环) —— 迁移范式参考"}
-{"file": ".trellis/tasks/07-10-commands-restructure/prd.md", "reason": "parent prd 决策 3 + R3 commands-cli-env 域文件映射 (cli_env 1 文件 22KB, 独立复杂)"}

@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-17-anthropic-tool-optional-input-schema/prd.md", "reason": "本任务 PRD: 根因 file:line + 方案 A 决策 + 验收标准 + 三处出站触点"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "anthropic 入站解析/透传约定, 改 Tool 解析需遵守"}
-{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 索引, 定位相关约定"}

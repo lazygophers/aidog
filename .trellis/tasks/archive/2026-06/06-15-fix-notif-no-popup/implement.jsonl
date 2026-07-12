@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "后端约定 + Pre-Development Checklist；改 notification.rs/lib.rs 须遵守日志分级/错误处理"}
-{"file": "prd.md", "reason": "现象 + 已定位路径(notification_test→dispatch→do_popup→show_popup) + H1/H2 根因假设 + 验收"}

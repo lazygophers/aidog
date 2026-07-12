@@ -1,9 +1,0 @@
-{"file": ".trellis/tasks/06-13-amount-color-by-usage-rate/prd.md", "reason": "算法规范唯一事实源 (pace/days_remaining 公式 + 阈值)"}
-{"file": ".trellis/tasks/06-13-amount-color-by-usage-rate/research/01-current-color.md", "reason": "前端三处定色入口 file:line"}
-{"file": ".trellis/tasks/06-13-amount-color-by-usage-rate/research/02-statusline.md", "reason": "statusline 脚本生成 + group-info 字段 + ANSI 上色现状"}
-{"file": ".trellis/tasks/06-13-amount-color-by-usage-rate/research/03-est-cost-stats.md", "reason": "est_cost 日聚合查询能力 + 动态窗口需新增包装"}
-{"file": ".trellis/tasks/06-13-amount-color-by-usage-rate/research/04-coding-plan-cycle.md", "reason": "EstTier/tier_pace 现状 + 周期硬编码 + window_start 持久化点"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 spec 索引 + checklist"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/类型/i18n/颜色变量约定"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 字段名/契约一致 (后端下发 level 字段)"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用现有 query_stats 桶查询/var(--color-*), 禁重复"}

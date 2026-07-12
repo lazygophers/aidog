@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-15-fix-skills-install-claude-code/research/skills-claude-code-env.md", "reason": "根因证据：cli.mjs claude-code detectInstalled 仅依赖 HOME env 无兜底，codex 有 /etc/codex 兜底；修复方向 spawn 注入 HOME + 透传 CLAUDE_CONFIG_DIR"}
-{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "标准 5 步实施 + check 闭环 + 分工表"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "apply_home_env 须 mirror 已有 apply_proxy_env 模式，禁重复造轮子；dirs::home_dir() 已在 skills.rs:261 使用"}

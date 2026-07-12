@@ -1,3 +1,0 @@
-{"file": "prd.md", "reason": "交付矩阵 D1/D2 + R1/R2 需求 + 内置提示词池 + 验证命令"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 Tauri command 约定"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端组件/i18n 约定"}

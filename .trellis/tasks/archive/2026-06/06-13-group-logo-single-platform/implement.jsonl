@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-13-group-logo-single-platform/prd.md", "reason": "目标 + 范围 + 验收唯一事实源"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "组件/复用/类型约定"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "getFaviconUrl 需抽共享, 禁两页各自复制"}

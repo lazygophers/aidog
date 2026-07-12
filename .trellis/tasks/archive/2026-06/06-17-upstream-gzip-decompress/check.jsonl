@@ -1,2 +1,0 @@
-{"file": ".trellis/tasks/06-17-upstream-gzip-decompress/prd.md", "reason": "验收来源: build/clippy/test + 新增 gzip 解压 test + 真实请求 token>0 est_cost>0 + 日志可读"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "校验透传链路未回归"}

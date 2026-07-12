@@ -1,5 +1,0 @@
-{"file": ".trellis/tasks/06-16-proxy-ua-passthrough/prd.md", "reason": "§10 验收标准 8 条逐条核对：UA 透传命中(1,2)、级别2/3 回退零变更(3,4)、级别0 零变更(5)、子端点不受影响(6)、proxy_log 表结构未变(7)、clippy/test(8)"}
-{"file": "src-tauri/src/gateway/proxy.rs", "reason": "核对 UA 分支仅在 matched_ep==None 触发、命中重绑定后 target_protocol/client_type/coding_plan 同步重算；same-protocol passthrough 旧路径(1135-1142,1414-1512)不回归；验证: cargo clippy 无 warning + cargo test 通过(含 infer_protocol_from_ua 单测 + 三级回退分支)"}
-{"file": "src-tauri/src/gateway/adapter/converter.rs", "reason": "核对透传 path 走 passthrough_api_path(54) 未额外拼前缀(url-construction-rule)"}
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "验证 D4：proxy_log 无新增列、无迁移，命中信息仅填现有可填字段 + tracing"}
-{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "回归校验：现有同协议透传与字节透传行为不受新分支影响"}

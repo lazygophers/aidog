@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/06-26-logs-tokens-recording-fix/prd.md", "reason": "本任务 PRD：P0 count_tokens 计费污染(单条保留cost+不进stats_agg+历史重建)/P1 status=0卡死行/P2 空model行/P4 path idx+=1 的范围、修复点、验收"}
-{"file": ".trellis/tasks/06-26-logs-tokens-recording-fix/research/recording-chain-audit.md", "reason": "记录链审计实证：4 个真 bug 的 file:line 定位、DB 取证数据、症状③无bug对账结论、P3/P5/P6 排除依据"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 spec 索引：改 gateway/proxy(count_tokens/log/stream)、gateway/db(proxy_log/stats_agg) 前的 Rust 约定与门禁"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端 spec 索引：改 Logs.tsx(P1 中断标签/P2 占位符) 前的组件/状态/i18n 约定"}

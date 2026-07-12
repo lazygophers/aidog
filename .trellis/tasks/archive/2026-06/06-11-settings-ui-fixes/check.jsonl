@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验组件/类型/状态约定 (禁 any / named export / inline style+glass / invoke 集中 api.ts)"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校验拖拽逻辑是否真收口到单一 SortableList, 无重复 draggable 实现散落"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验排序持久化跨层契约 + 错误处理 (catch console.error)"}

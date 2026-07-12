@@ -1,0 +1,5 @@
+# skein.py 自动渲染, 从 task.json 无损重建, 不入库
+task.md
+task.html
+board/
+.lock

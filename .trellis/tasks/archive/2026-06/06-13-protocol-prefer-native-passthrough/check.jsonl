@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/prd.md", "reason": "对照透传语义 5 项 + 验收标准逐条验"}
-{"file": ".trellis/tasks/06-13-protocol-prefer-native-passthrough/research/04-design-options.md", "reason": "验 6 风险点是否守住(URL/鉴权/usage)"}
-{"file": ".trellis/spec/backend/index.md", "reason": "URL 构造约束合规"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "协议字段契约一致"}

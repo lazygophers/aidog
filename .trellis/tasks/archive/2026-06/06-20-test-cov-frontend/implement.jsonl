@@ -1,6 +1,0 @@
-{"file": ".trellis/tasks/06-20-test-cov-frontend/prd.md", "reason": "本任务 PRD：四维全卡 80、隔离 tsconfig.test.json、依赖清单、T0-T10 deliverable"}
-{"file": ".trellis/tasks/06-20-test-cov-frontend/research/plan.md", "reason": "vitest 接入配置、测试目标优先级、mockIPC 策略、难测点缓解"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端 spec 索引"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端约定(formatters 统一/navGuard/无 react-router)，测试目标行为依据"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层规则，api.ts invoke 参数 camelCase 防回归依据"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "代码复用规则，shared 组件/utils 复用边界"}

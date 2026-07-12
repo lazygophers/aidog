@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-15-notify-project-name/prd.md", "reason": "需求+设计决策+诊断+具体文件清单+测试要求 (完整设计文档, 子代理首读)"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端规范索引: rust 风格/clippy/test 约束"}
-{"file": ".trellis/spec/frontend/index.md", "reason": "前端规范索引: TS 严格/i18n/无 lint"}

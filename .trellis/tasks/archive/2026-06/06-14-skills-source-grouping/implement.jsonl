@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "SkillInfo 加 source 字段跨 Rust↔TS 边界, 须 snake_case 对齐 + TS 类型同步"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端分组渲染 + i18n key + 组件状态, 遵 frontend conventions"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "组级批量复用 enable/disable 内部逻辑 + 三态图标复用 per-item SVG"}
-{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "5 步流程 + check 闭环 + 写命令 invalidate 缓存约定"}

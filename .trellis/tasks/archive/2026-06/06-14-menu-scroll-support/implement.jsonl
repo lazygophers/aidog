@@ -1,5 +1,0 @@
-{"path":".trellis/spec/frontend/conventions.md","why":"组件模式: inline style + glass class; 新 overflow 约束须不破坏布局"}
-{"path":"src/components/Sidebar.tsx","why":"侧栏 nav 纵向容器, 加 overflow-y:auto+flex"}
-{"path":"src/components/settings/SectionAnchorNav.tsx","why":"设置锚点纵向列表, 加 overflow-y:auto+maxHeight"}
-{"path":"src/pages/AppSettings.tsx","why":"横向 tab 栏, 加 overflow-x:auto+nowrap"}
-{"path":"src/index.css","why":"全局 ::-webkit-scrollbar 样式 (Liquid Glass)"}

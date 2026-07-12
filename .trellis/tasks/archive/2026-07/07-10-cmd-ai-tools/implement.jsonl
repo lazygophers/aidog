@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/crate-boundaries.md", "reason": "workspace 边界 5 规则 + 迁移完整三件齐 + 5a env! 独立 build.rs + 5b pub 放宽 + C8 复查 + grep 验收断言 —— C7 commands_ai_tools 落地复用, 逐条对齐 (C6 cmd-system 已实证 5a/5b)"}
-{"file": ".trellis/spec/backend/cargo-workspace.md", "reason": "workspace 重构过程契约 (核心提取下沉防循环) —— 迁移范式参考"}
-{"file": ".trellis/tasks/07-10-commands-restructure/prd.md", "reason": "parent prd 决策 3 (commands_* 禁互依赖 + 仅 → aidog_core) + R3 commands-ai-tools 域文件映射 (coding_tools/mcp/skills/script_executor/model_test 5 文件)"}

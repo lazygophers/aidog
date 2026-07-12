@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/07-03-longcat-default-models/research/longcat-openai-endpoint.md", "reason": "验收基线: status 透传 + 401/403 vs 404 区分 + Longcat /openai/v1 实证"}
-{"file": ".trellis/spec/backend/platform-error-handling.md", "reason": "401/403 码值语义合规 (fetch-models 路径独立, 不触发 auto_disable)"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "i18n 8 locale 对齐 + check-i18n.mjs 验收门"}

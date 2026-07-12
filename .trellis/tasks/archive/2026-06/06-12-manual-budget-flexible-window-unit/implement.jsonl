@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "ManualBudget 加 window_unit 列 + 迁移 + maybe_reset 时长换算锁安全"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "ManualBudget 字段 Rust↔TS 契约一致"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "Platforms 手动预算 UI 单位选择 + i18n"}

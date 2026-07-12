@@ -1,9 +1,0 @@
-{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/prd.md", "reason": "数据模型/重试编排/自动禁用/前端 唯一事实源"}
-{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/research/01-routing-failover.md", "reason": "router select_platform + proxy 转发 + 现有 failover file:line"}
-{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/research/02-platform-status.md", "reason": "平台 enabled bool 现状 + DB + 前端 toggle"}
-{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/research/03-proxylog-record.md", "reason": "proxy_log 一请求一行 + upsert_log 渐进更新"}
-{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/research/04-fix-points.md", "reason": "改造点 + bool→enum 影响面 + 风险"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端 spec + URL/迁移约定"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/类型/i18n/状态展示"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "status enum/attempts/max_retries Rust↔TS 契约"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用现有 upsert_log/StreamAggregator/migration 模式, 禁重复"}

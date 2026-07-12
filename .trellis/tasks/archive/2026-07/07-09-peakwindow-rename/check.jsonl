@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "验收全栈字段对称 + Platform.expires_at 边界未误伤"}
-{"file": ".trellis/spec/frontend/locale-tag-cross-layer.md", "reason": "8 语言 key 对齐 + check-i18n 通过"}

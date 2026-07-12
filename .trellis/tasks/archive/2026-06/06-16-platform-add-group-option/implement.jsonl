@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "db 层约定：platform 表迁移模式(guarded ALTER 幂等)、auto_from_platform / group_platform / ensure_platform_groups 现状。本任务加 auto_group 列 + 平台入组 helper 必遵。"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层规则：Rust↔TS 类型双写。CreatePlatform/UpdatePlatform 加 auto_group + join_group_ids 须 models.rs 与 api.ts 同步，避免漂移。"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端约定：表单状态、i18n 7 语言 key 全覆盖(check-i18n.mjs)、数值/选项控件规范。双复选 + chips + cc-switch 导入批量开关须遵。"}

@@ -1,1 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验锁安全 + 查询约定 + 无重入死锁"}

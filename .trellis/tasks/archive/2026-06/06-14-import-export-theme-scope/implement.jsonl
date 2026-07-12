@@ -1,3 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "改 AppContext(状态/异步初始化) + ImportExport(组件) + api.ts + locale json — 组件/状态/Hook/类型/i18n/无 any 强制规则"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "settingsApi 已封装 get/set/list — 复用禁重造；loadSettings 迁移逻辑复用现有 LEGACY_THEME_MAP"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "前端 settingsApi.set/get ↔ 后端 settings_set/get 命令 + setting 表 scope=app 契约；导入导出 collect.rs/apply.rs 通用收集应用(setting 行)零改验证"}

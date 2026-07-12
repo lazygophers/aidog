@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/07-06-trace-id-log-format/prd.md", "reason": "需求 + 决策 + 验收基线"}
-{"file": ".trellis/tasks/07-06-trace-id-log-format/design.md", "reason": "架构决策 D1-D7 + 调用点清单 + subtask 拆分"}
-{"file": ".trellis/spec/backend/proxy-diagnostic-headers.md", "reason": "header 注入侧契约 (本任务日志侧对偶), inject_trace_header + current_trace_id 取值链 MUST 不破"}
-{"file": ".trellis/spec/backend/index.md", "reason": "backend 入口 + 验收基线"}

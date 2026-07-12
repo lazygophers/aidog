@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 公共契约 — 预览行复用 Rust peak_hours 半开区间 [start,end) 语义，终点显 end-1:59:59，需与 Rust hit 逻辑（peak_hours.rs:94）对称"}
-{"file": ".trellis/tasks/07-11-peak-hours-window-preview/prd.md", "reason": "本 task PRD：4 种边界（glm 默认/全天/跨天/minute 精度）+ 复用 utcToDisplay/timezone_local key + Out of Scope 明示不动判定逻辑"}

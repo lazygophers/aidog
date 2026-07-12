@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "Skills.tsx 统一列表+toggle 布局/状态/i18n/类型合规"}
-{"file": ".trellis/spec/backend/index.md", "reason": "skills.rs npx 化 command 改写约定"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "SkillInfo.enabled_agents + enable/disable 契约前后端对齐"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 Command shell out 模式(notification.rs) + http_client; 禁重造"}

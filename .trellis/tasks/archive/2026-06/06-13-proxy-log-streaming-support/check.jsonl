@@ -1,4 +1,0 @@
-{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/prd.md", "reason": "对照改造点 + 验收标准逐条验"}
-{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/research/04-fix-points.md", "reason": "验风险点(零阻塞/Drop兑底/内存)是否守住"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "is_stream 字段契约一致"}
-{"file": ".trellis/spec/backend/index.md", "reason": "后端规约合规"}

@@ -1,4 +1,0 @@
-{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验 backup.* settings 读写符合 db 约定"}
-{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校验未重复造 collect/encrypt"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 command/api/前端三层一致"}
-{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验 i18n key + formatters 合规"}

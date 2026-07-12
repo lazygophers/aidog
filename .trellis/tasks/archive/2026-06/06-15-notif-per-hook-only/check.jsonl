@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/06-15-notif-per-hook-only/prd.md", "reason": "权威需求+设计+30 事件专属模板/入参目录表，实现必读"}
-{"file": ".trellis/tasks/archive/2026-06/06-15-claude-hook-notify/research/01-current-hook-injection.md", "reason": "hook 注入/脚本机制 file:line 基线（上一任务调研，本次复用）"}
-{"file": ".trellis/tasks/archive/2026-06/06-15-claude-hook-notify/research/05-event-catalog-defaults-and-impact.md", "reason": "事件全集 + Codex 解耦 + 影响清单"}

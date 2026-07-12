@@ -1,3 +1,0 @@
-{"file": ".trellis/tasks/07-08-anthropic-model-list-complete/research/anthropic-models.md", "reason": "9 id 清单真值源（§6 每 id 官方文档 URL + deprecations 表）+ 排除项理由（§6.5 Caveats）"}
-{"file": ".trellis/tasks/07-08-anthropic-model-list-complete/prd.md", "reason": "Acceptance Criteria + 4 改动面（model_list/models.default/passthrough STATIC_MODEL_IDS/last_updated）"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "passthrough.rs STATIC_MODEL_IDS 与 preset model_list 跨层一致（GET /proxy/models 返回同步）"}

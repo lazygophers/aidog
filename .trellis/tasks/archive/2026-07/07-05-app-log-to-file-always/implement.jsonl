@@ -1,2 +1,0 @@
-{"file": ".trellis/spec/backend/index.md", "reason": "backend 入口 + 验收基线"}
-{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "AppLogSettings 跨 Rust↔TS 边界, 改 settings 字段需 TS 同步 (本任务不改字段, 仅改 init 行为)"}
