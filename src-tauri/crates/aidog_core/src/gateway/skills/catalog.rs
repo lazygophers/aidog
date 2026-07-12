@@ -20,6 +20,12 @@ pub async fn browse_catalog(_proxy_url: Option<&str>) -> Vec<CatalogEntry> {
     Vec::new()
 }
 
+/// 共享 ANSI 转义序列剥离正则（两解析函数共用）。
+static ANSI_RE: OnceLock<Regex> = OnceLock::new();
+fn ansi_re() -> &'static Regex {
+    ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap())
+}
+
 /// 搜索 catalog：双模式。
 ///
 /// - **精确 source 形态** (`^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`)：走 `npx skills add <source> -l -y`
@@ -87,9 +93,7 @@ fn npx_list_source(source: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
 ///
 /// 容错: 空输入 / 无 "Available Skills" / 残缺均不崩, 返回已收集到的。
 fn parse_add_list_output(raw: &str, source: &str) -> Vec<CatalogEntry> {
-    static ANSI_RE: OnceLock<Regex> = OnceLock::new();
-    let ansi_re = ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap());
-    let clean: String = ansi_re.replace_all(raw, "").to_string();
+    let clean: String = ansi_re().replace_all(raw, "").to_string();
 
     static NAME_RE: OnceLock<Regex> = OnceLock::new();
     let name_re = NAME_RE.get_or_init(|| Regex::new(r"^[A-Za-z0-9._-]+$").unwrap());
@@ -229,9 +233,7 @@ fn npx_find(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
 /// 解析 `npx skills find` 的 stdout（已含 ANSI / spinner 残留）为 CatalogEntry。
 fn parse_find_output(raw: &str) -> Vec<CatalogEntry> {
     // 剥离 ANSI 转义序列（颜色 / 光标控制）。
-    static ANSI_RE: OnceLock<Regex> = OnceLock::new();
-    let ansi_re = ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap());
-    let clean: String = ansi_re.replace_all(raw, "").to_string();
+    let clean: String = ansi_re().replace_all(raw, "").to_string();
 
     // id 行：`owner/repo@skill   <count> installs`（owner/repo 与 @skill 间无空格）。
     static ID_RE: OnceLock<Regex> = OnceLock::new();
