@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
-import { clamp, formatNumber, formatCost, formatPercent } from "../../utils/formatters";
+import { clamp, formatNumber, formatPercent, formatCostUsd, formatDateTime } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, HEALTH_COLORS,
@@ -274,7 +274,7 @@ export const PlatformCard = memo(function PlatformCard({
                   }}
                   title={p.last_error
                     ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
-                        .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? new Date(p.last_error_at as number).toLocaleString() : "")
+                        .replace("{{time}}", formatDateTime(p.last_error_at) ?? "")
                         .replace("{{error}}", p.last_error)
                     : undefined}
                 />
@@ -310,7 +310,7 @@ export const PlatformCard = memo(function PlatformCard({
                       borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
                     }}
                     title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
-                      .replace("{{time}}", p.auto_disabled_until > 0 ? new Date(p.auto_disabled_until).toLocaleString() : "-")}
+                      .replace("{{time}}", p.auto_disabled_until > 0 ? (formatDateTime(p.auto_disabled_until) ?? "-") : "-")}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 9v4" /><path d="M12 17h.01" />
@@ -382,7 +382,7 @@ export const PlatformCard = memo(function PlatformCard({
                           borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
                         }}
                         title={t("platform.expiredHint", "已过期：{{time}}，路由自动排除")
-                          .replace("{{time}}", new Date(p.expires_at).toLocaleString())}
+                          .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
                       >
                         {t("platform.expired", "已过期")}
                       </div>
@@ -399,7 +399,7 @@ export const PlatformCard = memo(function PlatformCard({
                       title={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
                     >
                       {t("platform.expiresAtBadge", "到期 {{time}}")
-                        .replace("{{time}}", new Date(p.expires_at).toLocaleString())}
+                        .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
                     </div>
                   );
                 })()}
@@ -426,7 +426,7 @@ export const PlatformCard = memo(function PlatformCard({
                       borderRadius: 5, padding: "1px 6px",
                     }}
                     title={t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
-                      .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? new Date(p.last_error_at as number).toLocaleString() : "-")
+                      .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? (formatDateTime(p.last_error_at) ?? "-") : "-")
                       .replace("{{error}}", p.last_error)}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -574,7 +574,7 @@ export const PlatformCard = memo(function PlatformCard({
                     </span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconCost size={12} />
-                      ${formatCost(u.total_cost)}
+                      {formatCostUsd(u.total_cost)}
                     </span>
                   </div>
                 )}
@@ -664,7 +664,7 @@ export const PlatformCard = memo(function PlatformCard({
                   <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
-                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+                    <StatChip icon={<IconCost size={13} />} value={formatCostUsd(u.total_cost)} label="cost" level={costLevel(u.total_cost)} />
                     <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
                   </div>
                 </div>
@@ -672,7 +672,7 @@ export const PlatformCard = memo(function PlatformCard({
                   <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <StatChip icon={<IconBolt size={13} />} value={formatNumber(u.today_tokens)} label="tokens" />
-                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.today_cost)}`} label="cost" level={costLevel(u.today_cost)} />
+                    <StatChip icon={<IconCost size={13} />} value={formatCostUsd(u.today_cost)} label="cost" level={costLevel(u.today_cost)} />
                   </div>
                 </div>
               </div>
@@ -770,7 +770,11 @@ export const PlatformCard = memo(function PlatformCard({
 
 // ── 最近一次测试徽章 ──
 
-/** 毫秒 epoch → 相对时间文案（刚刚 / N 分钟前 / N 小时前 / N 天前）。 */
+/** 毫秒 epoch → 相对时间简写（N 分钟/小时/天）。
+ * ponytail: 保留本地实现而非 formatRelativeTime(formatters.ts)，
+ * 因为后者返回完整文案（"刚刚"/"N 分钟前"）本组件需简写（"3m"/"5h"/"2d"）且 <1 分钟时空字符串。
+ * 改用 formatRelativeTime 会导致 LastTestBadge 快照变化（增加 "刚刚"）破坏回归。
+ */
 function relativeTime(createdMs: number, now: number = Date.now()): string {
   const diff = Math.max(0, now - createdMs);
   const sec = Math.floor(diff / 1000);
@@ -889,9 +893,9 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           cursor: hasBody ? "pointer" : "default",
         }}
         title={ok
-          ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: new Date(result.created_at).toLocaleString() })
+          ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: formatDateTime(result.created_at) ?? "" })
           : t("platform.lastTestFailHint", "最近测试失败 · {{time}}{{error}}", {
-              time: new Date(result.created_at).toLocaleString(),
+              time: formatDateTime(result.created_at) ?? "",
               error: result.error ? `\n${result.error}` : "",
             })}
       >
