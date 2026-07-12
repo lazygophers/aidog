@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
-import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
+import { clamp, formatNumber, formatCost, formatPercent } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, HEALTH_COLORS,

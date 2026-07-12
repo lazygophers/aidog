@@ -389,11 +389,26 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 .build(app).map_err(|e| e.to_string())?;
 
             // 监听后台预估发出的 tray-refresh 事件，在主线程刷新托盘（避免后台线程直接操作 tray）
+            // trailing 防抖：单请求生命周期内多次 emit（4-6 次）合并成一次菜单重建，避免 UI 卡顿
             {
                 use tauri::Listener;
                 let handle = app.handle().clone();
+                let pending_task: Arc<StdMutex<Option<tauri::async_runtime::JoinHandle<()>>>> = Arc::new(StdMutex::new(None));
                 app.listen("tray-refresh", move |_| {
-                    let _ = tauri::async_runtime::block_on(refresh_tray_menu(&handle, &commands_tray::tray::TrayMenuBuildImpl));
+                    let handle = handle.clone();
+                    let pending = pending_task.clone();
+                    tauri::async_runtime::spawn(async move {
+                        // 取消上一次 pending 的刷新任务
+                        if let Some(old_task) = pending.lock().unwrap().take() {
+                            old_task.abort();
+                        }
+                        // 启动新的延迟刷新任务（50ms 后执行）
+                        let new_task = tauri::async_runtime::spawn(async move {
+                            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                            let _ = refresh_tray_menu(&handle, &commands_tray::tray::TrayMenuBuildImpl).await;
+                        });
+                        *pending.lock().unwrap() = Some(new_task);
+                    });
                 });
             }
 

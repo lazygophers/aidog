@@ -8,6 +8,7 @@ import {
   notificationApi,
   type Notification,
 } from "../services/api";
+import { formatDateTime } from "../utils/formatters";
 
 function notifTypeLabel(type: string, t: (k: string, f: string) => string): string {
   return t(`notif.type.${type}`, type);
@@ -114,7 +115,7 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
                   </div>
                 )}
                 <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-                  {new Date(item.created_at).toLocaleString()}
+                  {formatDateTime(item.created_at) || "-"}
                 </div>
               </div>
             </div>

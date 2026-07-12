@@ -5,6 +5,7 @@ import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/
 import { useTranslation } from "react-i18next";
 import type { Group, GroupDetail } from "./services/api";
 import { groupApi, groupDetailApi, statsApi, onProxyLogUpdated } from "./services/api";
+import { clamp } from "./utils/formatters";
 import { applyTheme, DEFAULT_STYLE, DEFAULT_COLOR, DEFAULT_MODE } from "./themes";
 import type { ThemeStyle, ThemeColor, ThemeMode } from "./themes/types";
 import {
@@ -72,8 +73,6 @@ const MAX_W = 480;
 const MIN_H = 80;
 const MAX_H = 600;
 const DELTA = 1; // 尺寸/位置 delta ≤ 1px 不触发，防抖动循环。
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
 function Popover() {
   const { t } = useTranslation();
