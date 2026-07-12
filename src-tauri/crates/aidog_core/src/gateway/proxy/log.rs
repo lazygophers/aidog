@@ -32,28 +32,38 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
         && log.response_body != "[stream]"
         && !is_count_tokens
         && agg_mark_first(state, &log.id);
+
+    // est_cost 统一计算（两分支复用，避免重复 get_platform + calc_est_cost 调用）。
+    // 结果存局部变量，first_agg 分支用值，日志写入分支用 Option（后续覆盖）。
+    let est_cost_value = if log.est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
+        let model_name = if log.actual_model.is_empty() {
+            log.model.clone()
+        } else {
+            log.actual_model.clone()
+        };
+        let platform_type = super::db::get_platform(&state.db, log.platform_id)
+            .await
+            .ok()
+            .flatten()
+            .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
+            .unwrap_or_default();
+        Some(super::db::calc_est_cost(
+            &state.db,
+            &model_name,
+            &platform_type,
+            log.input_tokens,
+            log.output_tokens,
+            log.cache_tokens,
+            log.platform_id as i64,
+            log.created_at,
+        )
+        .await)
+    } else {
+        None
+    };
+
     if first_agg {
-        let mut est_cost = log.est_cost;
-        if est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
-            let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
-            let platform_type = super::db::get_platform(&state.db, log.platform_id)
-                .await
-                .ok()
-                .flatten()
-                .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
-                .unwrap_or_default();
-            est_cost = super::db::calc_est_cost(
-                &state.db,
-                model_name,
-                &platform_type,
-                log.input_tokens,
-                log.output_tokens,
-                log.cache_tokens,
-                log.platform_id as i64,
-                log.created_at,
-            )
-            .await;
-        }
+        let cost = est_cost_value.unwrap_or(log.est_cost);
         let agg_input = super::db::StatsAggInput {
             created_at: log.created_at,
             model: if log.actual_model.is_empty() { log.model.clone() } else { log.actual_model.clone() },
@@ -63,7 +73,7 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
             input_tokens: log.input_tokens as i64,
             output_tokens: log.output_tokens as i64,
             cache_tokens: log.cache_tokens as i64,
-            est_cost,
+            est_cost: cost,
             duration_ms: log.duration_ms as i64,
         };
         if let Err(e) = super::db::upsert_stats_agg(&state.db, agg_input).await {
@@ -80,7 +90,7 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
             input_tokens = log.input_tokens,
             output_tokens = log.output_tokens,
             cache_tokens = log.cache_tokens,
-            est_cost = est_cost,
+            est_cost = cost,
             duration_ms = log.duration_ms,
             "request final"
         );
@@ -94,28 +104,9 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
     let strip_upstream = !settings.log_upstream_request;
     let mut cols = super::db::ProxyLogColumns::from_log(log, strip_user, strip_upstream);
 
-    // Calculate est_cost from model_price if tokens are present（语义同旧路径，作用于列快照）
-    if cols.est_cost == 0.0 && (cols.input_tokens > 0 || cols.output_tokens > 0) {
-        let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
-        // best-effort 取平台主类型的 serde 裸名（如 "deepseek"）以启用 pricing[platform_type] override；
-        // 拿不到则传 ""，calc_est_cost 的 fallback 回退链仍保证非 0。
-        let platform_type = super::db::get_platform(&state.db, log.platform_id)
-            .await
-            .ok()
-            .flatten()
-            .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
-            .unwrap_or_default();
-        cols.est_cost = super::db::calc_est_cost(
-            &state.db,
-            model_name,
-            &platform_type,
-            cols.input_tokens,
-            cols.output_tokens,
-            cols.cache_tokens,
-            cols.platform_id,
-            cols.created_at,
-        )
-        .await;
+    // est_cost 复用上方计算结果（避免重复 get_platform + calc_est_cost）。
+    if let Some(cost) = est_cost_value {
+        cols.est_cost = cost;
     }
 
     let id = cols.id.clone();
