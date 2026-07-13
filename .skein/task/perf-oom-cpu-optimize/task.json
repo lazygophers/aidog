@@ -1,0 +1,106 @@
+{
+  "id": "perf-oom-cpu-optimize",
+  "name": "高 CPU / OOM 性能优化",
+  "desc": "深度解析持续高 CPU + OOM 根因(触发场景未明), 审计三层(Rust 代理热路径/SQLite/序列化 + React 重渲染/巨石组件 + 转换层开销), 产出修复方案并实施",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "STREAM_BODY_MAX_BYTES MUST ≤ 16MB",
+    "record_upstream_body 流式上游累积 MUST 受 log_upstream_request 控制(非 master switch)",
+    "ProxyLogColumns snapshot MUST 不持 body 字段(仅 meta)",
+    "upsert_log emit proxy-log-updated/tray-refresh MUST 仅终态触发",
+    "禁改公开 API/serde 字段名/DB schema(向后兼容)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "OOM 止血: 流式内存收紧 + snapshot 去 body",
+      "desc": "STREAM_BODY_MAX_BYTES 512MB→16MB; record_upstream_body 改 log_upstream_request 同侧控制(默认关); ProxyLogColumns snapshot 去 5 body 字段(仅 meta); changed_since 同步; flush join 不预分配 + 16MB 截断; body 三份拷贝优化(log_user_request 才克隆)",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过(除 9 baseline)",
+        "STREAM_BODY_MAX_BYTES≤16MB",
+        "snapshot 无 body 字段",
+        "proxy_log 写入读取不破坏"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "estimate": 60,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783959944,
+      "started": 1783959989,
+      "finished": 1783960768
+    },
+    {
+      "sid": "s2",
+      "name": "CPU emit 节流: upsert_log 仅终态 emit",
+      "desc": "upsert_log 加 is_terminal 标记, 仅终态(请求结束/StreamLogGuard.flush/status 终态)emit proxy-log-updated + tray-refresh; grep 全调用点标终态; app_setup.rs tray-refresh debounce 50ms→200ms",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过",
+        "upsert_log 仅终态 emit(grep 验证)",
+        "tray debounce≥200ms"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": 45,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783959944,
+      "started": 1783960768,
+      "finished": 1783961217
+    },
+    {
+      "sid": "s3",
+      "name": "CPU 计算优化: platform/price 缓存 + SSE 借用",
+      "desc": "forward_attempt 算一次 get_platform+calc_est_cost 存 ProxyState/log context; upsert_log 加 cached 参数命中跳过重复查询; feed_sse_usage 改 buf.lines() 借用迭代去 split+to_string; 保持 usage 解析正确",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过(SSE usage 单测绿)",
+        "upsert_log 不重复查 get_platform",
+        "feed_sse 无 to_string 分配"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": 50,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783959944,
+      "started": 1783961217,
+      "finished": 1783961782
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/perf-oom-cpu-optimize",
+  "estimate": 180,
+  "created": 1783958504,
+  "started": 1783959989,
+  "finished": 1783961924,
+  "updated": 1783961924
+}
