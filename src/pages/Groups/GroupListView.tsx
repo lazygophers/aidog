@@ -10,6 +10,8 @@ import { IconBolt, IconCost, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { BatchDeleteModal } from "../../components/platforms/BatchDeleteModal";
+import { BatchOverrideModelsModal } from "../../components/platforms/BatchOverrideModelsModal";
+import type { PlatformModels } from "../../services/api";
 import { GroupTestPanel, type GroupRow } from "../../domains/groups";
 import { GroupListItem, type CardsSnapshot } from "./GroupListItem";
 import type { GroupTestState } from "./useGroupTest";
@@ -80,6 +82,14 @@ export interface GroupListViewProps {
   batchDeleteBusy: boolean;
   confirmBatchDelete: () => Promise<void>;
   setBatchDeleteTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> } | null>>;
+  // 批量覆盖模型（group-batch-ops s4）
+  onBatchOverrideModels: (ids: number[], gid: number) => void;
+  batchOverrideTarget: { platforms: Platform[] } | null;
+  batchOverrideBusy: boolean;
+  confirmBatchOverrideModels: (models: PlatformModels) => Promise<void>;
+  setBatchOverrideTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[] } | null>>;
+  /** 非删除类批量完成信号（GroupListItem 监听退出多选）。 */
+  batchDoneSignal?: number;
 }
 
 /** 分组列表视图：页头操作栏 + 测试面板 + SortableList + 加载哨兵 + 弹窗（自定义测试 / 分享 / 删平台确认）。 */
@@ -100,6 +110,8 @@ export function GroupListView(props: GroupListViewProps) {
     handleSetLevelPriority, handlePurgeDisabled,
     onCreatePlatform, onNavigate,
     onBatchDelete, batchDeleteTarget, batchDeleteBusy, confirmBatchDelete, setBatchDeleteTarget,
+    onBatchOverrideModels, batchOverrideTarget, batchOverrideBusy, confirmBatchOverrideModels, setBatchOverrideTarget,
+    batchDoneSignal,
   } = props;
 
   return (
@@ -212,6 +224,8 @@ export function GroupListView(props: GroupListViewProps) {
                 onSetLevelPriority={handleSetLevelPriority}
                 onPurgeDisabled={handlePurgeDisabled}
                 onBatchDelete={onBatchDelete}
+                onBatchOverrideModels={onBatchOverrideModels}
+                batchDoneSignal={batchDoneSignal}
                 handle={handle}
               />
             );
@@ -317,6 +331,17 @@ export function GroupListView(props: GroupListViewProps) {
         onConfirm={() => void confirmBatchDelete()}
         onClose={() => { if (!batchDeleteBusy) setBatchDeleteTarget(null); }}
         busy={batchDeleteBusy}
+        t={t}
+      />
+
+      {/* 批量覆盖平台模型弹窗（group-batch-ops s4）：三来源 radio + 全 diff + 原子事务整体覆盖。 */}
+      <BatchOverrideModelsModal
+        open={batchOverrideTarget !== null}
+        platforms={batchOverrideTarget?.platforms ?? []}
+        allPlatforms={platforms}
+        onConfirm={(m) => void confirmBatchOverrideModels(m)}
+        onClose={() => { if (!batchOverrideBusy) setBatchOverrideTarget(null); }}
+        busy={batchOverrideBusy}
         t={t}
       />
     </div>

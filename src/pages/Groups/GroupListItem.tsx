@@ -1,4 +1,4 @@
-import { Fragment, memo, useState, useEffect } from "react";
+import { Fragment, memo, useState, useEffect, useRef } from "react";
 import type { TFunction } from "i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
@@ -72,6 +72,11 @@ export interface GroupListItemProps {
   onPurgeDisabled: (gid: number) => void;
   /** 批量删除：收 selectedIds + gid → 开 BatchDeleteModal（父级渲染 modal）。 */
   onBatchDelete: (ids: number[], gid: number) => void;
+  /** 批量覆盖模型：收 selectedIds + gid → 开 BatchOverrideModelsModal（父级渲染 modal）。 */
+  onBatchOverrideModels: (ids: number[], gid: number) => void;
+  /** 批量操作完成信号（每次成功 +1）；非删除类批量（平台仍存活，auto-exist effect 不触发）
+   *  靠本信号强制退出多选模式。删除类靠平台从 gps 消失自动退出，不依赖本信号。 */
+  batchDoneSignal?: number;
   // drag handle（来自 SortableList，每次由父 renderItem 传入，非稳定）
   handle: DragHandleProps;
 }
@@ -94,6 +99,8 @@ export const GroupListItem = memo(function GroupListItem({
   onSetMSource, onSetMTargetPlatform, onSetMTargetModel, onAddMapping,
   onSetLevelPriority, onPurgeDisabled,
   onBatchDelete,
+  onBatchOverrideModels,
+  batchDoneSignal,
   handle,
 }: GroupListItemProps) {
   const { group, platforms: gps, model_mappings } = detail;
@@ -114,6 +121,19 @@ export const GroupListItem = memo(function GroupListItem({
       setSelectedIds(new Set());
     }
   }, [gps, mode, selectedIds]);
+
+  // 非删除类批量成功（覆盖模型 / 改状态 / 移组 add 模式）：平台仍存活，auto-exist effect 不触发，
+  // 靠父级 batchDoneSignal 自增强制退出多选模式（初始 0 跳过，避免 mount 误触发）。
+  const batchDoneSignalRef = useRef(0);
+  useEffect(() => {
+    if (batchDoneSignal === undefined) return;
+    if (batchDoneSignal === batchDoneSignalRef.current) return;
+    batchDoneSignalRef.current = batchDoneSignal;
+    if (mode === "select") {
+      setMode("view");
+      setSelectedIds(new Set());
+    }
+  }, [batchDoneSignal, mode]);
 
   const header = (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
@@ -333,7 +353,7 @@ export const GroupListItem = memo(function GroupListItem({
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
                   disabled={selectedIds.size === 0}
-                  onClick={() => console.log("[batch] override_models", { gid: group.id, ids: [...selectedIds] })}>
+                  onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
                   {t("group.batchOverrideModels", "覆盖模型")}
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}

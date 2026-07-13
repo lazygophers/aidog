@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type {
-  GroupDetail, Platform, RoutingMode, ModelMapping,
+  GroupDetail, Platform, PlatformModels, RoutingMode, ModelMapping,
 } from "../services/api";
 import { groupApi, groupDetailApi, platformApi } from "../services/api";
 import { allModelValues } from "../domains/platforms";
@@ -256,6 +256,50 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [batchDeleteTarget, load, onToast, t, onGroupsChanged, onPlatformDeleted]);
+
+  // ── 批量覆盖平台模型（group-batch-ops s4）──
+  // 工具栏「覆盖模型」→ 开 BatchOverrideModelsModal（三来源 radio + 全 diff）→
+  // 确认调 batch_override_models 原子事务（PlatformModels 整体覆盖 5 槽）。
+  const [batchOverrideTarget, setBatchOverrideTarget] = useState<{ platforms: Platform[] } | null>(null);
+  const [batchOverrideBusy, setBatchOverrideBusy] = useState(false);
+  // 非删除类批量完成信号（+1 触发 GroupListItem 退出多选；删除类靠平台消失 auto-exit，不走此信号）
+  const [batchDoneSignal, setBatchDoneSignal] = useState(0);
+
+  /** 工具栏「覆盖模型」按钮：收 selectedIds → 解析选中平台全量信息 → 开 modal。 */
+  const handleBatchOverrideModels = useCallback(async (ids: number[], _gid: number) => {
+    const selectedPlatforms = ids
+      .map(id => platforms.find(p => p.id === id))
+      .filter((p): p is Platform => !!p);
+    if (selectedPlatforms.length === 0) return;
+    setBatchOverrideTarget({ platforms: selectedPlatforms });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platforms]);
+
+  /** BatchOverrideModelsModal 确认：调 batch_override_models 原子事务 → toast → 刷新 → 关 modal。 */
+  const confirmBatchOverrideModels = useCallback(async (models: PlatformModels) => {
+    if (!batchOverrideTarget) return;
+    setBatchOverrideBusy(true);
+    try {
+      const ids = batchOverrideTarget.platforms.map(p => p.id);
+      const report = await platformApi.batchOverrideModels(ids, models);
+      setBatchOverrideTarget(null);
+      setBatchDoneSignal(n => n + 1);
+      load(); onGroupsChanged?.();
+      onToast?.({
+        text: t("group.batchOverrideModelsDone", "已覆盖 {{count}} 个平台的模型", { count: report.applied }),
+        ok: true,
+      });
+      setTimeout(() => onToast?.(null), 3000);
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.batchOverrideModelsFailed", "批量覆盖模型失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
+      setBatchOverrideTarget(null);
+    } finally {
+      setBatchOverrideBusy(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchOverrideTarget, load, onToast, t, onGroupsChanged]);
 
   // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
   // 拖拽 no-op（分组内禁拖拽）；启停后 load() 刷新本地 platforms。
@@ -598,6 +642,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       batchDeleteBusy={batchDeleteBusy}
       confirmBatchDelete={confirmBatchDelete}
       setBatchDeleteTarget={setBatchDeleteTarget}
+      onBatchOverrideModels={handleBatchOverrideModels}
+      batchOverrideTarget={batchOverrideTarget}
+      batchOverrideBusy={batchOverrideBusy}
+      confirmBatchOverrideModels={confirmBatchOverrideModels}
+      setBatchOverrideTarget={setBatchOverrideTarget}
+      batchDoneSignal={batchDoneSignal}
     />
   );
 }

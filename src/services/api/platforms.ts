@@ -341,6 +341,10 @@ export const platformApi = {
    *  原子事务：任一失败 → 全部 rollback（applied=0 或全 N）。 */
   batchDelete: (ids: number[]) =>
     invoke<BatchReport>("batch_delete_platforms", { ids }),
+
+  /** 批量覆盖平台 models（5 槽整体覆盖；原子事务：任一失败 → 全部 rollback）。 */
+  batchOverrideModels: (ids: number[], models: PlatformModels) =>
+    invoke<BatchReport>("batch_override_models", { ids, models }),
 };
 
 /** 批量操作结果（对应 Rust BatchReport，serde rename_all = "camelCase"）。 */
