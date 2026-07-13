@@ -321,3 +321,44 @@ async fn collect_platform_whitespace_only_extra_omitted() {
     assert_eq!(p.platform.len(), 1);
     assert!(p.platform[0].get("extra").is_none());
 }
+
+/// 导出清洗：extra 含 `_ui_*` 前缀键 → 导出时剥离，业务键（peak_hours 等）保留。
+/// 仿 `_aidog_statusline` strip 模式（sync_settings.rs）。
+#[tokio::test]
+async fn collect_platform_strips_ui_keys_from_extra() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    insert_platform_with_extra(
+        &db,
+        "with-ui",
+        r#"{"_ui_expand_plat":true,"_ui_expand_grp":false,"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}]}"#,
+    )
+    .await;
+    // 仅含 `_ui_*` → strip 后空 obj → 省略（与「空 extra 省略」对称）。
+    insert_platform_with_extra(&db, "ui-only", r#"{"_ui_collapsed":true}"#).await;
+
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    assert_eq!(p.platform.len(), 2);
+
+    let with_ui = p
+        .platform
+        .iter()
+        .find(|v| v.get("name").and_then(|n| n.as_str()) == Some("with-ui"))
+        .expect("with-ui 平台存在");
+    let extra = with_ui.get("extra").expect("业务键保留 → extra 非空");
+    assert!(extra.is_object(), "extra 应为 obj: {extra}");
+    assert!(extra.get("_ui_expand_plat").is_none(), "_ui_* 不应导出");
+    assert!(extra.get("_ui_expand_grp").is_none(), "_ui_* 不应导出");
+    assert!(extra.get("_ui_collapsed").is_none(), "_ui_* 不应导出");
+    assert_eq!(extra["peak_hours"][0]["multiplier"], 3.0, "业务键 peak_hours 保留");
+
+    let ui_only = p
+        .platform
+        .iter()
+        .find(|v| v.get("name").and_then(|n| n.as_str()) == Some("ui-only"))
+        .expect("ui-only 平台存在");
+    assert!(
+        ui_only.get("extra").is_none(),
+        "仅含 _ui_* 的 extra strip 后省略: {ui_only}"
+    );
+}

@@ -252,6 +252,8 @@ export interface Group {
    * ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
    * 不带 -c/--profile 即走该组。 */
   is_default?: boolean;
+  /** JSON 扩展字段（仿 platform.extra）。承载 `_ui_*` UI 态（卡片折叠等）。空串视作 {}。 */
+  extra: string;
 }
 
 

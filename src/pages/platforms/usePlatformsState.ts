@@ -21,6 +21,13 @@ import { type SmartPasteApplyResult } from "../../components/platforms/SmartPast
 import { usePlatformQuota, getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformForm } from "./usePlatformForm";
 import { type PeakWindow } from "../../domains/platforms";
+import { setUiExtra } from "../../services/api/ui_extra";
+
+// ponytail: 读 platform.extra JSON 内 _ui_expand_plat bool（缺/解析失败→false）。跨会话展开态持久化。
+function readExtraExpanded(extra: string | undefined | null): boolean {
+  if (!extra) return false;
+  try { return JSON.parse(extra)._ui_expand_plat === true; } catch { return false; }
+}
 
 export interface PlatformsStateParams {
   onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void;
@@ -198,12 +205,20 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
   const [faviconFailed, setFaviconFailed] = useState<Set<number>>(new Set());
   /** 列表卡片已展开（显 endpoints/模型明细）的平台 ID 集合 */
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  // ponytail: per-id debounce timer，连续 toggle 仅末次写 DB（300ms）。无 useDebounce hook → 内联 setTimeout。
+  const expandDebounceRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const toggleExpanded = (id: number, next: boolean) => {
     setExpandedIds(prev => {
       const s = new Set(prev);
       if (next) s.add(id); else s.delete(id);
       return s;
     });
+    const timers = expandDebounceRef.current;
+    if (timers[id]) clearTimeout(timers[id]);
+    timers[id] = setTimeout(() => {
+      delete timers[id];
+      setUiExtra("platform", id, "_ui_expand_plat", next).catch(console.error);
+    }, 300);
   };
 
   // ════════════ DRAG REORDER ════════════
@@ -405,6 +420,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     quota.resetForLoad(list);
 
     setPlatforms(list);
+    // 初始化展开态：从 platform.extra._ui_expand_plat 回灌（跨会话持久化）。
+    setExpandedIds(new Set(list.filter(p => readExtraExpanded(p.extra)).map(p => p.id)));
     // 平台列表到手即渲染，余额/用量改后台渐进填充，禁止外部 quota HTTP 阻塞整页
     setLoading(false);
 
