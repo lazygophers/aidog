@@ -1,4 +1,4 @@
-import { Fragment, memo } from "react";
+import { Fragment, memo, useState } from "react";
 import type { TFunction } from "i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
@@ -97,6 +97,10 @@ export const GroupListItem = memo(function GroupListItem({
   const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
   const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
 
+  // ── per-group 多选模式（本地 state, 不持久化）──
+  const [mode, setMode] = useState<"view" | "select">("view");
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
   const header = (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
       {/* ── 行 1：身份 + 快操作 ── */}
@@ -180,6 +184,17 @@ export const GroupListItem = memo(function GroupListItem({
         >
           {t("group.purgeDisabled", "清理失效")}
         </button>
+        {/* 进入 per-group 多选模式 */}
+        {gps.length > 0 && (
+          <button
+            className="btn btn-ghost"
+            onClick={(e) => { e.stopPropagation(); setMode("select"); setSelectedIds(new Set()); }}
+            title={t("group.batchOps", "多选")}
+            style={{ fontSize: 11, gap: 4, padding: "3px 8px", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
+          >
+            {t("group.batchOps", "多选")}
+          </button>
+        )}
         {/* 设为默认分组（单选） */}
         <button
           className="btn btn-ghost"
@@ -262,10 +277,13 @@ export const GroupListItem = memo(function GroupListItem({
     >
       <CompactCard
         header={header}
-        expanded={forceExpanded || isExpanded}
-        onToggle={(next) => onSetCollapsed(prev => {
-          const s = new Set(prev); next ? s.delete(group.id) : s.add(group.id); return s;
-        })}
+        expanded={forceExpanded || isExpanded || mode === "select"}
+        onToggle={(next) => {
+          if (mode === "select") return; // 多选模式禁折叠
+          onSetCollapsed(prev => {
+            const s = new Set(prev); next ? s.delete(group.id) : s.add(group.id); return s;
+          });
+        }}
         toggleLabel={t("group.toggleDetails", "展开/收起明细")}
         style={handle.isDragging
           ? { opacity: 0.5 }
@@ -275,6 +293,47 @@ export const GroupListItem = memo(function GroupListItem({
       >
         {(
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }} onClick={e => e.stopPropagation()}>
+            {/* 多选模式工具栏 */}
+            {mode === "select" && (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+                padding: "8px 0", borderBottom: "1px solid var(--border)",
+              }}>
+                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                  onClick={() => { setMode("view"); setSelectedIds(new Set()); }}>
+                  {t("action.cancel", "取消")}
+                </button>
+                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                  onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
+                  {t("group.selectAll", "全选")}
+                </button>
+                <span className="text-secondary" style={{ fontSize: 12 }}>
+                  {t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}
+                </span>
+                <div style={{ flex: 1 }} />
+                {/* 4 批量操作按钮（占位 handler, modal 在 s3-s5 实现） */}
+                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                  disabled={selectedIds.size === 0}
+                  onClick={() => console.log("[batch] delete", { gid: group.id, ids: [...selectedIds] })}>
+                  {t("group.batchDelete", "删除")}
+                </button>
+                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                  disabled={selectedIds.size === 0}
+                  onClick={() => console.log("[batch] override_models", { gid: group.id, ids: [...selectedIds] })}>
+                  {t("group.batchOverrideModels", "覆盖模型")}
+                </button>
+                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                  disabled={selectedIds.size === 0}
+                  onClick={() => console.log("[batch] set_status", { gid: group.id, ids: [...selectedIds] })}>
+                  {t("group.batchSetStatus", "改状态")}
+                </button>
+                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                  disabled={selectedIds.size === 0}
+                  onClick={() => console.log("[batch] move_group", { gid: group.id, ids: [...selectedIds] })}>
+                  {t("group.batchMoveGroup", "移组")}
+                </button>
+              </div>
+            )}
             {/* 关联平台：完整 PlatformCard（同 Platforms 主列表），点卡片就地展开详情 */}
             {fullPlats.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -284,15 +343,31 @@ export const GroupListItem = memo(function GroupListItem({
                       <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-3px 0", opacity: 0.7 }} />
                     )}
                     <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
-                      {/* pointer 拖拽把手：组内排序 + 跨分组移动（WKWebView 下 HTML5 drop 不可靠，改 pointer） */}
-                      <span
-                        onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
-                        className="drag-handle drag-handle-inline"
-                        style={{ cursor: "grab", display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", touchAction: "none" }}
-                        title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
-                      >
-                        <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
-                      </span>
+                      {mode === "select" ? (
+                        /* 多选 checkbox */
+                        <label style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", cursor: "pointer", padding: "0 4px" }}>
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(p.id)}
+                            onChange={() => setSelectedIds(prev => {
+                              const s = new Set(prev);
+                              s.has(p.id) ? s.delete(p.id) : s.add(p.id);
+                              return s;
+                            })}
+                            style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--accent)" }}
+                          />
+                        </label>
+                      ) : (
+                        /* pointer 拖拽把手：组内排序 + 跨分组移动（WKWebView 下 HTML5 drop 不可靠，改 pointer） */
+                        <span
+                          onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
+                          className="drag-handle drag-handle-inline"
+                          style={{ cursor: "grab", display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", touchAction: "none" }}
+                          title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
+                        >
+                          <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
+                        </span>
+                      )}
                       <div data-gp-id={p.id} style={{ flex: 1, minWidth: 0 }}>
                         <PlatformCard
                           platform={p}
