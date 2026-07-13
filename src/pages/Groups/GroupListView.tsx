@@ -11,6 +11,8 @@ import { ModelTestPanel } from "../ModelTestPanel";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { BatchDeleteModal } from "../../components/platforms/BatchDeleteModal";
 import { BatchOverrideModelsModal } from "../../components/platforms/BatchOverrideModelsModal";
+import { BatchSetStatusModal } from "../../components/platforms/BatchSetStatusModal";
+import { BatchMoveGroupModal } from "../../components/platforms/BatchMoveGroupModal";
 import type { PlatformModels } from "../../services/api";
 import { GroupTestPanel, type GroupRow } from "../../domains/groups";
 import { GroupListItem, type CardsSnapshot } from "./GroupListItem";
@@ -90,6 +92,20 @@ export interface GroupListViewProps {
   setBatchOverrideTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[] } | null>>;
   /** 非删除类批量完成信号（GroupListItem 监听退出多选）。 */
   batchDoneSignal?: number;
+  // 批量改状态（group-batch-ops s5）
+  onBatchSetStatus: (ids: number[], gid: number) => void;
+  batchSetStatusTarget: { platforms: Platform[]; groupEnabledIds: number[] } | null;
+  batchSetStatusBusy: boolean;
+  confirmBatchSetStatus: (status: "enabled" | "disabled") => Promise<void>;
+  setBatchSetStatusTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; groupEnabledIds: number[] } | null>>;
+  // 批量移组（group-batch-ops s5）
+  onBatchMoveGroup: (ids: number[], gid: number) => void;
+  batchMoveGroupTarget: { platforms: Platform[]; gid: number } | null;
+  batchMoveGroupBusy: boolean;
+  confirmBatchMoveGroup: (targetGroupId: number, mode: "move" | "add") => Promise<void>;
+  setBatchMoveGroupTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; gid: number } | null>>;
+  /** 全部分组（目标组下拉数据源）。 */
+  allGroups: { id: number; name: string }[];
 }
 
 /** 分组列表视图：页头操作栏 + 测试面板 + SortableList + 加载哨兵 + 弹窗（自定义测试 / 分享 / 删平台确认）。 */
@@ -112,6 +128,9 @@ export function GroupListView(props: GroupListViewProps) {
     onBatchDelete, batchDeleteTarget, batchDeleteBusy, confirmBatchDelete, setBatchDeleteTarget,
     onBatchOverrideModels, batchOverrideTarget, batchOverrideBusy, confirmBatchOverrideModels, setBatchOverrideTarget,
     batchDoneSignal,
+    onBatchSetStatus, batchSetStatusTarget, batchSetStatusBusy, confirmBatchSetStatus, setBatchSetStatusTarget,
+    onBatchMoveGroup, batchMoveGroupTarget, batchMoveGroupBusy, confirmBatchMoveGroup, setBatchMoveGroupTarget,
+    allGroups,
   } = props;
 
   return (
@@ -225,6 +244,8 @@ export function GroupListView(props: GroupListViewProps) {
                 onPurgeDisabled={handlePurgeDisabled}
                 onBatchDelete={onBatchDelete}
                 onBatchOverrideModels={onBatchOverrideModels}
+                onBatchSetStatus={onBatchSetStatus}
+                onBatchMoveGroup={onBatchMoveGroup}
                 batchDoneSignal={batchDoneSignal}
                 handle={handle}
               />
@@ -342,6 +363,29 @@ export function GroupListView(props: GroupListViewProps) {
         onConfirm={(m) => void confirmBatchOverrideModels(m)}
         onClose={() => { if (!batchOverrideBusy) setBatchOverrideTarget(null); }}
         busy={batchOverrideBusy}
+        t={t}
+      />
+
+      {/* 批量改状态弹窗（group-batch-ops s5）：启用/禁用 radio + 无候选警告 + 原子事务。 */}
+      <BatchSetStatusModal
+        open={batchSetStatusTarget !== null}
+        platforms={batchSetStatusTarget?.platforms ?? []}
+        groupEnabledIds={batchSetStatusTarget?.groupEnabledIds ?? []}
+        onConfirm={(s) => void confirmBatchSetStatus(s)}
+        onClose={() => { if (!batchSetStatusBusy) setBatchSetStatusTarget(null); }}
+        busy={batchSetStatusBusy}
+        t={t}
+      />
+
+      {/* 批量移组弹窗（group-batch-ops s5）：目标组下拉 + move/add radio + 原子事务。 */}
+      <BatchMoveGroupModal
+        open={batchMoveGroupTarget !== null}
+        platforms={batchMoveGroupTarget?.platforms ?? []}
+        groups={allGroups}
+        currentGroupId={batchMoveGroupTarget?.gid ?? 0}
+        onConfirm={(gid, mode) => void confirmBatchMoveGroup(gid, mode)}
+        onClose={() => { if (!batchMoveGroupBusy) setBatchMoveGroupTarget(null); }}
+        busy={batchMoveGroupBusy}
         t={t}
       />
     </div>
