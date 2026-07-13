@@ -679,6 +679,40 @@ mod tests {
         assert!(result.is_ok(), "modern schema migration should succeed: {:?}", result);
     }
 
+    /// Migration 044: group.extra 列。两条路径：
+    /// ① 无 extra 列 → ALTER ADD 成功；② 已有 extra 列 → duplicate column 错误被 `let _` 忽略，幂等。
+    #[test]
+    fn migrations_late_group_extra_column_044() {
+        let conn = make_modern_conn(); // 现代库但 group 无 extra 列
+        // 预插一行 group 验证迁移不丢数据
+        conn.execute(
+            "INSERT INTO \"group\" (name, group_key, created_at, updated_at) VALUES ('g044', 'gk044', 0, 0)",
+            [],
+        )
+        .unwrap();
+
+        // ① 首次跑：ALTER ADD extra 列
+        let r1 = run_migrations_late(&conn);
+        assert!(r1.is_ok(), "first migration 044 should succeed: {:?}", r1);
+        let has_extra = conn
+            .prepare("PRAGMA table_info(\"group\")")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "extra");
+        assert!(has_extra, "extra column must exist after migration 044");
+        // 行数据保留 + extra 默认 ''（空串 = "{}" 轻量表示）
+        let extra: String = conn
+            .query_row("SELECT extra FROM \"group\" WHERE name='g044'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(extra, "", "extra default should be empty string");
+
+        // ② 再跑：duplicate column 错误被忽略，幂等（不返 Err，extra 列仍存在）
+        let r2 = run_migrations_late(&conn);
+        assert!(r2.is_ok(), "re-running migration 044 must be idempotent: {:?}", r2);
+    }
+
     /// Migration 026: platform with breaker columns → backfill into extra + drop columns.
     /// Uses a platform row with non-zero breaker values to exercise the backfill branch.
     #[test]
