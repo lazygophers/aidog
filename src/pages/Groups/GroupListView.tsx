@@ -9,6 +9,7 @@ import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate
 import { IconBolt, IconCost, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { ShareModal } from "../../components/platforms/ShareModal";
+import { BatchDeleteModal } from "../../components/platforms/BatchDeleteModal";
 import { GroupTestPanel, type GroupRow } from "../../domains/groups";
 import { GroupListItem, type CardsSnapshot } from "./GroupListItem";
 import type { GroupTestState } from "./useGroupTest";
@@ -73,6 +74,12 @@ export interface GroupListViewProps {
   handlePurgeDisabled: (gid: number) => void;
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
+  // 批量删除（group-batch-ops s3）
+  onBatchDelete: (ids: number[], gid: number) => void;
+  batchDeleteTarget: { platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> } | null;
+  batchDeleteBusy: boolean;
+  confirmBatchDelete: () => Promise<void>;
+  setBatchDeleteTarget: React.Dispatch<React.SetStateAction<{ platforms: Platform[]; groupNamesByPlatform: Record<number, string[]> } | null>>;
 }
 
 /** 分组列表视图：页头操作栏 + 测试面板 + SortableList + 加载哨兵 + 弹窗（自定义测试 / 分享 / 删平台确认）。 */
@@ -92,6 +99,7 @@ export function GroupListView(props: GroupListViewProps) {
     handleTestGroup, handleDeleteMapping, handleAddMapping,
     handleSetLevelPriority, handlePurgeDisabled,
     onCreatePlatform, onNavigate,
+    onBatchDelete, batchDeleteTarget, batchDeleteBusy, confirmBatchDelete, setBatchDeleteTarget,
   } = props;
 
   return (
@@ -203,6 +211,7 @@ export function GroupListView(props: GroupListViewProps) {
                 onAddMapping={handleAddMapping}
                 onSetLevelPriority={handleSetLevelPriority}
                 onPurgeDisabled={handlePurgeDisabled}
+                onBatchDelete={onBatchDelete}
                 handle={handle}
               />
             );
@@ -299,6 +308,17 @@ export function GroupListView(props: GroupListViewProps) {
         </div>,
         document.body,
       )}
+
+      {/* 批量删除平台确认弹窗（group-batch-ops s3）：全列可滚 + 跨组警告 + 原子事务物理删。 */}
+      <BatchDeleteModal
+        open={batchDeleteTarget !== null}
+        platforms={batchDeleteTarget?.platforms ?? []}
+        groupNamesByPlatform={batchDeleteTarget?.groupNamesByPlatform ?? {}}
+        onConfirm={() => void confirmBatchDelete()}
+        onClose={() => { if (!batchDeleteBusy) setBatchDeleteTarget(null); }}
+        busy={batchDeleteBusy}
+        t={t}
+      />
     </div>
   );
 }
