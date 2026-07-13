@@ -1,15 +1,17 @@
 use super::*;
 
-/// 聚合 SSE body 的上限（字节）。完整记录但防物理崩溃：超限截断 + 标记，禁 panic / OOM。
-/// SQLite 单值上限 ~1GB；取 512MB 为安全上限（拼接 + UTF-8 lossy 仍有余量）。
-const STREAM_BODY_MAX_BYTES: usize = 512 * 1024 * 1024;
+/// 聚合 SSE body 的上限（字节）。OOM 止血：512MB → 16MB（N 并发 × 上限 = 物理内存预算）。
+/// 超限截断 + 标记，禁 panic / OOM。完整上游响应正文落库不依赖此上限（DB schema 列仍在）。
+const STREAM_BODY_MAX_BYTES: usize = 16 * 1024 * 1024;
 
 /// 把聚合的 SSE chunk（Vec<Bytes>）拼接为字符串，超上限则截断并加标记。
 /// 旁路累积零阻塞转发，此处一次性拼接（仅 flush 时调用，非 chunk 热路径）。
+/// ponytail: 不预分配大 Vec —— 截断分支按需 grow（避免每次 flush 预占 16MB），非截断分支
+/// total 已是实际字节和（≤16MB）可用 with_capacity。
 fn join_stream_body(chunks: &[Bytes]) -> String {
     let total: usize = chunks.iter().map(|c| c.len()).sum();
     if total > STREAM_BODY_MAX_BYTES {
-        let mut buf: Vec<u8> = Vec::with_capacity(STREAM_BODY_MAX_BYTES);
+        let mut buf: Vec<u8> = Vec::new();
         for c in chunks {
             if buf.len() >= STREAM_BODY_MAX_BYTES {
                 break;
@@ -66,15 +68,17 @@ impl StreamAggregator {
             Err(_) => return,
         };
         buf.push_str(text);
-        // 末尾若无换行，说明最后一行可能被切断 → 保留为残行，仅处理已完整行。
-        let ends_complete = buf.ends_with('\n');
-        let mut remainder = String::new();
-        let mut lines: Vec<String> = buf.split('\n').map(|s| s.to_string()).collect();
-        if !ends_complete {
-            // 最后一段是不完整残行，留到下次。
-            remainder = lines.pop().unwrap_or_default();
-        }
-        for line in &lines {
+        // ponytail: 末尾若无换行 → 残行留到下次。按最后换行位置 split_off 切分：
+        // 前段（已完整行）用 lines() 借用迭代（&str，零分配）；后段（残行）保留为 String 写回 buf。
+        // 比 split('\n').map(to_string).collect::<Vec<String>>() 少 N 次 String 分配 / chunk。
+        // 无换行（split_pos=0）→ 整段作 remainder，不迭代；末尾换行（split_pos=len）→ 全段迭代。
+        let split_pos = if buf.ends_with('\n') {
+            buf.len()
+        } else {
+            buf.rfind('\n').map(|p| p + 1).unwrap_or(0)
+        };
+        let remainder = buf.split_off(split_pos);
+        for line in buf.lines() {
             let line = line.trim();
             if let Some(data) = line.strip_prefix("data: ") {
                 let data = data.trim();
