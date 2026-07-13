@@ -345,6 +345,15 @@ export const platformApi = {
   /** 批量覆盖平台 models（5 槽整体覆盖；原子事务：任一失败 → 全部 rollback）。 */
   batchOverrideModels: (ids: number[], models: PlatformModels) =>
     invoke<BatchReport>("batch_override_models", { ids, models }),
+
+  /** 批量设置平台 status（仅 enabled/disabled，拒 auto_disabled；原子事务）。 */
+  batchSetStatus: (ids: number[], status: "enabled" | "disabled") =>
+    invoke<BatchReport>("batch_set_status", { ids, status }),
+
+  /** 批量移组/加组（原子事务：任一失败 → 全部 rollback）。
+   *  mode="move": 从所有现组移除 + 加目标组；mode="add": 仅加目标组保留现组。 */
+  batchMoveGroup: (ids: number[], targetGroupId: number, mode: "move" | "add") =>
+    invoke<BatchReport>("batch_move_group", { ids, targetGroupId, mode }),
 };
 
 /** 批量操作结果（对应 Rust BatchReport，serde rename_all = "camelCase"）。 */

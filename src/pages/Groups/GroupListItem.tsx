@@ -74,6 +74,10 @@ export interface GroupListItemProps {
   onBatchDelete: (ids: number[], gid: number) => void;
   /** 批量覆盖模型：收 selectedIds + gid → 开 BatchOverrideModelsModal（父级渲染 modal）。 */
   onBatchOverrideModels: (ids: number[], gid: number) => void;
+  /** 批量改状态：收 selectedIds + gid → 开 BatchSetStatusModal（父级渲染 modal）。 */
+  onBatchSetStatus: (ids: number[], gid: number) => void;
+  /** 批量移组：收 selectedIds + gid → 开 BatchMoveGroupModal（父级渲染 modal）。 */
+  onBatchMoveGroup: (ids: number[], gid: number) => void;
   /** 批量操作完成信号（每次成功 +1）；非删除类批量（平台仍存活，auto-exist effect 不触发）
    *  靠本信号强制退出多选模式。删除类靠平台从 gps 消失自动退出，不依赖本信号。 */
   batchDoneSignal?: number;
@@ -100,6 +104,8 @@ export const GroupListItem = memo(function GroupListItem({
   onSetLevelPriority, onPurgeDisabled,
   onBatchDelete,
   onBatchOverrideModels,
+  onBatchSetStatus,
+  onBatchMoveGroup,
   batchDoneSignal,
   handle,
 }: GroupListItemProps) {
@@ -358,12 +364,12 @@ export const GroupListItem = memo(function GroupListItem({
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
                   disabled={selectedIds.size === 0}
-                  onClick={() => console.log("[batch] set_status", { gid: group.id, ids: [...selectedIds] })}>
+                  onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
                   {t("group.batchSetStatus", "改状态")}
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
                   disabled={selectedIds.size === 0}
-                  onClick={() => console.log("[batch] move_group", { gid: group.id, ids: [...selectedIds] })}>
+                  onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
                   {t("group.batchMoveGroup", "移组")}
                 </button>
               </div>
