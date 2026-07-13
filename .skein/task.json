@@ -25,6 +25,12 @@
       "worktree": null
     },
     {
+      "id": "perf-oom-cpu-optimize",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "ui-state-persist",
       "status": "已完成",
       "deps": [],
