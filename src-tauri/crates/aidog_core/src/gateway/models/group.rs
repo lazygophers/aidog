@@ -44,6 +44,10 @@ pub struct Group {
     /// 不带 `-c`/`--profile` 即走此组。全局文件用 deep merge 保护用户其它字段。
     #[serde(default)]
     pub is_default: bool,
+    /// JSON 扩展字段（仿 platform.extra）。当前承载 `_ui_*` UI 态（卡片折叠等），
+    /// 业务键扩展同模式插入。空串 = "{}" 的轻量表示（解析时空串视作 {}）。
+    #[serde(default)]
+    pub extra: String,
 }
 
 fn default_source_protocol() -> String { "anthropic".to_string() }

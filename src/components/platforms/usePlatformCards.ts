@@ -1,7 +1,8 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Platform, LastTestResult, SharePlatform } from "../../services/api";
 import { platformApi, quotaApi, modelTestApi } from "../../services/api";
+import { setUiExtra } from "../../services/api/ui_extra";
 import {
   computeQuotaDisplay,
   computeManualBudgetDisplay,
@@ -27,6 +28,7 @@ interface UsePlatformCardsReturn {
   testResults: Record<number, "ok" | "fail">;
   faviconFailed: Set<number>;
   expandedIds: Set<number>;
+  setExpandedIds: React.Dispatch<React.SetStateAction<Set<number>>>;
   testingId: number | null;
   setUsageMap: React.Dispatch<React.SetStateAction<Record<number, import("../../services/api").PlatformUsageStats>>>;
   setQuotaMap: React.Dispatch<React.SetStateAction<Record<number, import("../../services/api").PlatformQuota>>>;
@@ -82,13 +84,22 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   // 默认的 toast 设置函数
   const setToast = setToastProp ?? (() => {});
 
-  // Toggle expanded
+  // Toggle expanded — ponytail: 乐观更新 + 300ms debounce 写 platform.extra._ui_expand_grp
+  //   （连续 toggle 仅末次落盘）。键 _ui_expand_grp 独立于 Platforms 页的 _ui_expand_plat（s4），
+  //   同一 platform 两键并存：Groups 内卡展开态与 Platforms 主列表展开态分别持久化。
+  const expandDebounceRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const toggleExpanded = useCallback((id: number, next: boolean) => {
     setExpandedIds(prev => {
       const s = new Set(prev);
       if (next) s.add(id); else s.delete(id);
       return s;
     });
+    const timers = expandDebounceRef.current;
+    if (timers[id]) clearTimeout(timers[id]);
+    timers[id] = setTimeout(() => {
+      delete timers[id];
+      setUiExtra("platform", id, "_ui_expand_grp", next).catch(console.error);
+    }, 300);
   }, []);
 
   // Refresh quota
@@ -232,6 +243,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     testResults,
     faviconFailed,
     expandedIds,
+    setExpandedIds,
     testingId,
     setUsageMap,
     setQuotaMap,

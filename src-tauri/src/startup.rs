@@ -83,6 +83,8 @@ pub fn run() {
             commands_platform::group::group_platform_reorder,
             commands_platform::group::group_platform_set_level_priority,
             commands_platform::group::group_platform_move,
+            // UI 态持久化（_ui_* extra 键）
+            commands_platform::ui_extra::set_ui_extra,
             // Proxy
             commands_proxy::proxy::proxy_start,
             commands_proxy::proxy::proxy_stop,
