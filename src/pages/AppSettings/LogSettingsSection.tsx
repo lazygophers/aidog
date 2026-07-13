@@ -30,10 +30,8 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   async function handleCleanupExpired() {
     if (busy) return;
     setBusy(true);
-    console.log("[LogSettings] cleanupExpired start");
     try {
       await proxyLogApi.cleanupExpired();
-      console.log("[LogSettings] cleanupExpired done");
       flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"), "success");
     } catch (e) {
       console.error("[LogSettings] cleanupExpired failed", e);

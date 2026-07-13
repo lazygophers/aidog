@@ -1,18 +1,8 @@
 use crate::shared::*;
 use crate::sync_settings::do_sync_group_settings;
 use crate::gateway::{self, db::Db};
-#[allow(unused_imports)]
-use crate::logging;
-#[allow(unused_imports)]
 use gateway::models::*;
-#[allow(unused_imports)]
 use tauri::State;
-#[allow(unused_imports)]
-use serde_json::Value;
-#[allow(unused_imports)]
-use std::sync::Arc;
-#[allow(unused_imports)]
-use tauri::Manager;
 
 
 pub fn generate_hook_scripts(

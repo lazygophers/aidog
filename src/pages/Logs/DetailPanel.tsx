@@ -3,6 +3,7 @@ import { F } from "../../domains/shared/tokens";
 import { CopyButton, MetaItem, RequestTabs } from "./primitives";
 import { safeParseJson } from "./types";
 import type { LogsData } from "./useLogsData";
+import { formatDateTime } from "../../utils/formatters";
 
 /**
  * 日志详情视图（自原 Logs.tsx L265-453 外迁）。
@@ -121,7 +122,7 @@ export function DetailPanel({ d }: { d: LogsData }) {
         <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} copyText={`${detail.input_tokens}`} t={t} />
         <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} copyText={`${detail.output_tokens}`} t={t} />
         <MetaItem label={t("logs.cacheTokens", "缓存 Token")} value={`${detail.cache_tokens}`} copyText={`${detail.cache_tokens}`} t={t} />
-        <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} copyText={new Date(detail.created_at).toLocaleString()} t={t} />
+        <MetaItem label={t("logs.time", "时间")} value={formatDateTime(detail.created_at) || "-"} copyText={formatDateTime(detail.created_at) || "-"} t={t} />
       </div>
 
       {/* ── 平台尝试时序（多平台重试时展示每次尝试：平台/状态码/耗时/错误）── */}

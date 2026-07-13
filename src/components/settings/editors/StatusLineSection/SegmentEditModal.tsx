@@ -1,7 +1,6 @@
 // ponytail: 自 StatusLineSection.tsx L100-286 外迁，零逻辑变更。
 
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   type RowAlign,
@@ -13,6 +12,7 @@ import {
 import { F, S } from "../tokens";
 import { Toggle } from "../_shared";
 import { autoColorPreviewHex } from "./preview";
+import { Modal } from "../../../shared/Modal";
 
 export function SegmentEditModal({
   segment,
@@ -40,20 +40,8 @@ export function SegmentEditModal({
     ? autoColorPreviewHex(segment.type)
     : (validHex ? color : null);
 
-  // portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。
-  return createPortal(
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 1000,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.5)", animation: "fadeIn 150ms ease both",
-    }} onClick={onClose}>
-      <div className="glass-elevated"
-        style={{
-          width: 420, maxHeight: "80vh", overflow: "auto",
-          padding: 24, borderRadius: "var(--radius-lg)",
-          animation: "fadeIn 200ms ease both",
-        }}
-        onClick={(e) => e.stopPropagation()}>
+  return (
+    <Modal open onClose={onClose} className="glass-elevated" zIndex={1000} maxWidth={420} style={{ padding: 24 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
             {t(`statusline.seg.${def.type}.name`, def.name)}
@@ -198,8 +186,6 @@ export function SegmentEditModal({
             {t("statusline.save")}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

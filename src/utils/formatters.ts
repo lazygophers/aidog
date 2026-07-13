@@ -107,3 +107,21 @@ export function formatRelativeTime(input: string | number | null | undefined): s
   const year = Math.floor(day / 365);
   return `${year} 年前`;
 }
+
+/**
+ * 数字补零到 2 位：7 → "07"，12 → "12"。
+ * 用于日期时间格式化（时/分/秒/月/日）。
+ * 合并自 formSections.tsx（两处）、ScheduledBackupSection.tsx、ModelsMatrixSection.tsx 的 pad/pad2 实现。
+ */
+export function pad(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+/**
+ * 数值限制：将 value 限制在 [min, max] 区间内。
+ * 例：clamp(15, 1, 10) → 10，clamp(-5, 0, 100) → 0，clamp(50, 0, 100) → 50。
+ * 合并自 popover.tsx / usageColor.ts / PlatformCard.tsx 各自的 clamp 实现。
+ */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}

@@ -3,7 +3,6 @@
 // 解析逻辑见 utils/platformPaste.ts（纯函数）。视觉沿用 glass-elevated overlay 范式。
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import {
@@ -13,6 +12,8 @@ import {
 } from "../../utils/platformPaste";
 import { platformApi, type SharePlatform } from "../../services/api";
 import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { formatDateTime } from "../../utils/formatters";
+import { Modal } from "../shared/Modal";
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
@@ -185,35 +186,8 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     wordBreak: "break-all",
   };
 
-  return createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.5)",
-        animation: "fadeIn 150ms ease both",
-      }}
-      onClick={onClose}
-    >
-      <div
-        className="glass-elevated"
-        style={{
-          width: 540,
-          maxWidth: "92vw",
-          maxHeight: "86vh",
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: "var(--radius-lg)",
-          animation: "fadeIn 200ms ease both",
-          padding: "22px 24px",
-          overflowY: "auto",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  return (
+    <Modal open onClose={onClose} className="glass-elevated" zIndex={1100} maxWidth={540} style={{ padding: "22px 24px", maxHeight: "86vh", overflowY: "auto" }}>
         <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
           {t("platform.paste.title", "智能识别")}
         </div>
@@ -368,7 +342,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               <div style={labelStyle}>{t("platform.expiresAt", "过期时间")}</div>
               <div style={{ ...optRow, cursor: "default", borderColor: "var(--accent)" }}>
                 <span style={{ color: "var(--accent)", fontWeight: 600 }}>
-                  {new Date(parsed.expiresAt!).toLocaleString()}
+                  {formatDateTime(parsed.expiresAt!) || "-"}
                 </span>
               </div>
             </div>
@@ -411,8 +385,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
             {t("platform.paste.apply", "填入表单")}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

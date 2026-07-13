@@ -212,11 +212,15 @@ pub(crate) async fn handle_proxy_core(
     log.request_body = String::from_utf8_lossy(&bytes).to_string();
     tracing::debug!(method = %orig_method, path = %path, body = %super::log_util::log_body_preview(&log.request_body), "inbound request body");
 
-    // Best-effort model extraction
-    let raw_model = serde_json::from_slice::<Value>(&bytes)
+    // ── 单次解析 request body：提取 model + 缓存完整 JSON ──
+    // ponytail: 最佳情况下只解析一次，但如果 JSON 无效，早期错误路径跳过完整解析
+    let (raw_model, req_value_opt) = serde_json::from_slice::<Value>(&bytes)
         .ok()
-        .and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from))
-        .unwrap_or_default();
+        .map(|v| {
+            let model = v.get("model").and_then(|m| m.as_str()).map(String::from).unwrap_or_default();
+            (model, Some(v))
+        })
+        .unwrap_or_else(|| (String::new(), None));
     log.model = raw_model.clone();
 
     // Upsert #1: request received
@@ -302,14 +306,15 @@ pub(crate) async fn handle_proxy_core(
     }
 
     // ── 解析 ChatRequest（按入站协议解析） ──
-    let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
-        Ok(v) => v,
-        Err(e) => {
-            log.response_body = format!("parse request json error: {e}");
+    // ponytail: 复用上面已解析的 req_value_opt，避免重复 from_slice
+    let req_value = match req_value_opt {
+        Some(v) => v,
+        None => {
+            log.response_body = "parse request json error: invalid JSON".to_string();
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ParseJson))).into_response();
+            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {}", i18n::t(lang, ErrorKey::ParseJson), "invalid JSON")).into_response();
             inject_trace_header(&mut r);
             return r;
         }

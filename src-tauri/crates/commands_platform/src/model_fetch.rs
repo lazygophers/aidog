@@ -1,17 +1,9 @@
 use aidog_core::gateway::{self, db::{self, Db}};
-#[allow(unused_imports)]
-use aidog_core::logging;
-#[allow(unused_imports)]
 use gateway::models::*;
-#[allow(unused_imports)]
 use tauri::State;
-#[allow(unused_imports)]
-use serde_json::Value;
-#[allow(unused_imports)]
-use std::sync::Arc;
-#[allow(unused_imports)]
-use tauri::Manager;
 use serde::Serialize;
+use serde_json::Value;
+use std::sync::Arc;
 
 /// fetch-models 失败的结构化错误。前端按 `kind` 分流：
 /// - `Auth`(401/403) → 鉴权问题，立即 break 回退链 + 鉴权专用文案

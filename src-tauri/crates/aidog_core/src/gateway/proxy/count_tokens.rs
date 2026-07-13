@@ -153,7 +153,12 @@ pub(crate) async fn handle_count_tokens(
         obj.insert("model".to_string(), Value::String(actual_model.clone()));
     }
     let upstream_body_str = serde_json::to_string(&upstream_body).unwrap_or_default();
-    log.upstream_request_body = format_pretty_json(&upstream_body_str);
+    // ponytail: pretty 序列化仅当 log_upstream_request 开启时执行，关日志零开销
+    log.upstream_request_body = if log_settings.log_upstream_request {
+        format_pretty_json(&upstream_body_str)
+    } else {
+        String::new()
+    };
 
     let system_timeout = get_system_timeout(&state.db).await;
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
