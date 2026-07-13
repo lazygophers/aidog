@@ -208,3 +208,41 @@ fn convert_request_openai_responses_path() {
     let (_body, path) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
     assert_eq!(path, "/v1/responses");
 }
+
+// ── CPA 4 协议 platform_type 作为 wire 回退时路径正确（design.md: grok→/v1/responses, 其余→gemini 路径）──
+#[test]
+fn convert_request_cpa_protocol_paths() {
+    let req = ChatRequest {
+        model: "grok-4".to_string(),
+        messages: vec![],
+        system: None, max_tokens: None, temperature: None, top_p: None,
+        stream: None, tools: None, tool_choice: None, extra: None,
+    };
+    // cpa-grok → /v1/responses（OpenAI Responses 同语义）
+    let (_body, path) = convert_request(&req, &Protocol::CpaGrok, &Protocol::CpaGrok);
+    assert_eq!(path, "/v1/responses");
+
+    // cpa-aistudio / cpa-antigravity / cpa-vertex → gemini path 占位（仅存配置）
+    let req_g = ChatRequest { model: "gemini-2.5-pro".to_string(), ..req.clone() };
+    for proto in [Protocol::CpaAistudio, Protocol::CpaAntigravity, Protocol::CpaVertex] {
+        let (_body, path) = convert_request(&req_g, &proto, &proto);
+        assert_eq!(path, "/v1beta/models/gemini-2.5-pro:streamGenerateContent",
+            "cpa gemini-family path placeholder for {:?}", proto);
+    }
+}
+
+// ── 透传 path 与 convert_request 对 CPA 4 协议产出一致（不转 body）──
+#[test]
+fn passthrough_path_matches_convert_request_cpa() {
+    let req = ChatRequest {
+        model: "grok-4".to_string(),
+        messages: vec![],
+        system: None, max_tokens: None, temperature: None, top_p: None,
+        stream: None, tools: None, tool_choice: None, extra: None,
+    };
+    for proto in [Protocol::CpaGrok, Protocol::CpaAistudio, Protocol::CpaAntigravity, Protocol::CpaVertex] {
+        let (_body, conv_path) = convert_request(&req, &proto, &proto);
+        let pass_path = passthrough_api_path(&proto, &req.model, &proto);
+        assert_eq!(conv_path, pass_path, "cpa path mismatch for {:?}", proto);
+    }
+}

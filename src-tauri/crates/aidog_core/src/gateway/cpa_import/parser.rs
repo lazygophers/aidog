@@ -75,7 +75,7 @@ pub enum CpaOAuthType {
 
 impl CpaOAuthType {
     /// 从字符串解析（容错：不区分大小写）。
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse_oauth_type(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "codex" => Some(CpaOAuthType::Codex),
             "claude" => Some(CpaOAuthType::Claude),
@@ -386,10 +386,10 @@ fn parse_models(models_val: Option<&Value>) -> Vec<String> {
     let mut model_names = Vec::new();
     if let Some(arr) = models_val.and_then(|v| v.as_array()) {
         for item in arr {
-            if let Some(obj) = item.as_object() {
-                if let Some(name) = obj.get("name").and_then(|v| v.as_str()) {
-                    model_names.push(name.to_string());
-                }
+            if let Some(obj) = item.as_object()
+                && let Some(name) = obj.get("name").and_then(|v| v.as_str())
+            {
+                model_names.push(name.to_string());
             }
         }
     }
@@ -501,7 +501,10 @@ struct OAuthCredential {
     email: Option<String>,
     #[serde(default)]
     access_token: Option<String>,
+    /// refresh_token 解析但丢弃（CPA 导入策略：access_token 当 api_key，refresh 不持久化，
+    /// 过期由用户手补。serde 字段保留以容错解析含该字段的 JSON）。见 design.md OAuth 取舍。
     #[serde(default)]
+    #[allow(dead_code)]
     refresh_token: Option<String>,
     #[serde(default)]
     model_aliases: Option<Vec<OAuthModelAlias>>,
@@ -511,7 +514,10 @@ struct OAuthCredential {
 struct OAuthModelAlias {
     #[serde(default)]
     name: String,
+    /// alias 解析但未用（CPA 不导入上游 alias 映射；preset model_list 给默认模型集）。
+    /// serde 字段保留以容错解析含该字段的 JSON。
     #[serde(default)]
+    #[allow(dead_code)]
     alias: String,
 }
 
@@ -539,31 +545,29 @@ fn scan_auth_dir(auth_dir: &Path) -> Vec<CpaProvider> {
             providers.extend(scan_auth_dir(&path));
         } else if path.extension().and_then(|s| s.to_str()) == Some("json") {
             // 解析 JSON 凭据
-            if let Ok(content) = fs::read_to_string(&path) {
-                if let Ok(cred) = serde_json::from_str::<OAuthCredential>(&content) {
-                    if let Some(oauth_type) = CpaOAuthType::from_str(&cred.cred_type) {
-                        if let Some(access_token) = cred.access_token {
-                            // 从 model_aliases 提取模型名
-                            let models: Vec<String> = cred.model_aliases
-                                .unwrap_or_default()
-                                .into_iter()
-                                .map(|m| m.name)
-                                .collect();
+            if let Ok(content) = fs::read_to_string(&path)
+                && let Ok(cred) = serde_json::from_str::<OAuthCredential>(&content)
+                && let Some(oauth_type) = CpaOAuthType::parse_oauth_type(&cred.cred_type)
+                && let Some(access_token) = cred.access_token
+            {
+                // 从 model_aliases 提取模型名
+                let models: Vec<String> = cred.model_aliases
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|m| m.name)
+                    .collect();
 
-                            providers.push(CpaProvider {
-                                source_segment: CpaSourceSegment::OAuth,
-                                name: cred.email.clone(),
-                                base_url: String::new(), // OAuth 平台 base_url 由后续映射确定
-                                api_key: access_token,
-                                models,
-                                prefix: None,
-                                headers: HashMap::new(),
-                                disabled: false,
-                                oauth_type: Some(oauth_type),
-                            });
-                        }
-                    }
-                }
+                providers.push(CpaProvider {
+                    source_segment: CpaSourceSegment::OAuth,
+                    name: cred.email.clone(),
+                    base_url: String::new(), // OAuth 平台 base_url 由后续映射确定
+                    api_key: access_token,
+                    models,
+                    prefix: None,
+                    headers: HashMap::new(),
+                    disabled: false,
+                    oauth_type: Some(oauth_type),
+                });
             }
         }
     }
@@ -586,12 +590,10 @@ fn collect_config_files(dir: &Path) -> Vec<PathBuf> {
         let path = entry.path();
         if path.is_dir() {
             files.extend(collect_config_files(&path));
-        } else {
-            if let Some(ext) = path.extension().and_then(|s| s.to_str()) {
-                if matches!(ext, "yaml" | "yml" | "json") {
-                    files.push(path);
-                }
-            }
+        } else if let Some(ext) = path.extension().and_then(|s| s.to_str())
+            && matches!(ext, "yaml" | "yml" | "json")
+        {
+            files.push(path);
         }
     }
 
@@ -624,7 +626,7 @@ fn deduplicate_providers(providers: Vec<CpaProvider>) -> Vec<CpaProvider> {
                 true
             } else {
                 // 无 name，按 base_url 去重
-                if !seen_keys.insert((provider.source_segment.clone(), provider.base_url.clone())) {
+                if !seen_keys.insert((provider.source_segment, provider.base_url.clone())) {
                     if let Some(existing) = result.iter_mut().find(|p| {
                         p.source_segment == provider.source_segment && p.base_url == provider.base_url
                     }) {
@@ -636,7 +638,7 @@ fn deduplicate_providers(providers: Vec<CpaProvider>) -> Vec<CpaProvider> {
             }
         } else {
             // 其他段按 source_segment + base_url 去重
-            if !seen_keys.insert((provider.source_segment.clone(), provider.base_url.clone())) {
+            if !seen_keys.insert((provider.source_segment, provider.base_url.clone())) {
                 if let Some(existing) = result.iter_mut().find(|p| {
                     p.source_segment == provider.source_segment && p.base_url == provider.base_url
                 }) {
@@ -795,10 +797,10 @@ mod tests {
 
     #[test]
     fn test_oauth_type_from_str() {
-        assert_eq!(CpaOAuthType::from_str("xai"), Some(CpaOAuthType::Xai));
-        assert_eq!(CpaOAuthType::from_str("XAi"), Some(CpaOAuthType::Xai));
-        assert_eq!(CpaOAuthType::from_str("vertex"), Some(CpaOAuthType::Vertex));
-        assert_eq!(CpaOAuthType::from_str("unknown"), None);
+        assert_eq!(CpaOAuthType::parse_oauth_type("xai"), Some(CpaOAuthType::Xai));
+        assert_eq!(CpaOAuthType::parse_oauth_type("XAi"), Some(CpaOAuthType::Xai));
+        assert_eq!(CpaOAuthType::parse_oauth_type("vertex"), Some(CpaOAuthType::Vertex));
+        assert_eq!(CpaOAuthType::parse_oauth_type("unknown"), None);
     }
 
     #[test]
