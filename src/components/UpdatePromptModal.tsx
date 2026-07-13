@@ -1,14 +1,12 @@
 // ─── 发现新版本提醒 modal ───────────────────────────────────
 // 自定义 in-app modal (禁原生 confirm/alert，破坏 Tauri)。
 // 视觉沿用 UnsavedChangesModal 的 overlay + glass-elevated 语言。
-// portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先（即便本组件不使用 transform 终态，
-// 祖先 glass-surface/animation 终态 transform 仍波及），致弹窗只在 page 内居中。glass-elevated 走 var(--bg-floating) 不透明。
 
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { runUpdate } from "../services/updater";
+import { Modal } from "./shared/Modal";
 
 export interface UpdatePromptModalProps {
   /** check() 返回的可用更新。 */
@@ -35,33 +33,8 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
     }
   };
 
-  return createPortal(
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 1100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.5)",
-        animation: "fadeIn 150ms ease both",
-      }}
-      onClick={busy ? undefined : onClose}
-    >
-      <div
-        className="glass-elevated"
-        style={{
-          width: 460,
-          maxWidth: "90vw",
-          display: "flex",
-          flexDirection: "column",
-          borderRadius: "var(--radius-lg)",
-          animation: "fadeIn 200ms ease both",
-          padding: "22px 24px",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
+  return (
+    <Modal open onClose={onClose} closeOnBackdrop={!busy} closeOnEscape={false} className="glass-elevated" maxWidth={460} style={{ padding: "22px 24px" }}>
         <div
           style={{
             fontSize: 16,
@@ -116,8 +89,6 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
               : t("updater.updateNow", "立即更新")}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body
+    </Modal>
   );
 }

@@ -1,11 +1,4 @@
 use crate::gateway::{self, db::{self, Db}};
-#[allow(unused_imports)]
-use gateway::models::*;
-#[allow(unused_imports)]
-use serde_json::Value;
-#[allow(unused_imports)]
-use std::sync::Arc;
-#[allow(unused_imports)]
 use tauri::Manager;
 use std::sync::Mutex as StdMutex;
 use tokio::task::JoinHandle;

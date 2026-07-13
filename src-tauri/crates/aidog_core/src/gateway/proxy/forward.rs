@@ -288,7 +288,12 @@ pub(crate) async fn forward_attempt(
     log.upstream_request_headers = serde_json::Value::Object(
         upstream_headers.into_iter().map(|(k, v)| (k, Value::String(v))).collect()
     ).to_string();
-    log.upstream_request_body = format_pretty_json(&req_body_str);
+    // ponytail: pretty 序列化仅当 log_upstream_request 开启时执行，关日志零开销
+    log.upstream_request_body = if log_settings.log_upstream_request {
+        format_pretty_json(&req_body_str)
+    } else {
+        String::new()
+    };
     tracing::info!(method = "POST", url = %url, "upstream request");
     tracing::debug!(method = "POST", url = %url, body = %super::log_util::log_body_preview(&req_body_str), "upstream request body");
 

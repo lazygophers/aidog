@@ -3,6 +3,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { F } from "../../domains/shared/tokens";
 import type { ProxyLogSummary } from "../../services/api";
 import type { TFunc } from "./types";
+import { formatDateTime } from "../../utils/formatters";
 
 export const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
@@ -257,7 +258,7 @@ export const LogRow = memo(function LogRow({ log, platformName, groupName, onOpe
       className="log-row"
       onClick={() => onOpen(log.id)}
       style={ROW_STYLE}>
-      <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
+      <TdCell>{formatDateTime(log.created_at) || "-"}</TdCell>
       <TdCell><span className="badge badge-accent" style={GROUP_BADGE_STYLE}>{groupName}</span></TdCell>
       <TdCell>
         <span style={INLINE_FLEX_STYLE}>

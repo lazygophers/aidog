@@ -6,18 +6,8 @@ use aidog_core::gateway::middleware::MiddlewareEngine;
 // listener（同 proxy/log.rs:164 同域 precedent），避 commands_proxy → commands_platform
 // 跨 command 依赖 + 零新 wiring 代码。
 use aidog_core::gateway::{self, db::{self, Db}};
-#[allow(unused_imports)]
-use aidog_core::logging;
-#[allow(unused_imports)]
-use gateway::models::*;
-#[allow(unused_imports)]
-use tauri::State;
-#[allow(unused_imports)]
-use serde_json::Value;
-#[allow(unused_imports)]
-use std::sync::Arc;
-#[allow(unused_imports)]
 use tauri::{Emitter, Manager};
+use std::sync::Arc;
 
 
 #[tauri::command]
