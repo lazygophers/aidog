@@ -146,15 +146,17 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
         remove_log_snapshot(state, &id);
     }
 
-    if write_ok {
-        // 日志写库成功后通知前端三页（Platforms/Groups/Stats）实时刷新统计。
-        // 同时通知托盘刷新今日统计（请求数、Token、费用等）。
-        // app handle 为 None（无 GUI 上下文）时安全跳过，不影响代理逻辑。
-        if let Some(app) = &state.app {
-            use tauri::Emitter;
-            let _ = app.emit("proxy-log-updated", platform_id);
-            let _ = app.emit("tray-refresh", ());
-        }
+    // ponytail: emit 节流 —— 仅终态触发前端 + 托盘事件，中间态 upsert（占位写 / 无 status 的
+    // 流式中间 chunk）静默写库。upsert_log 单请求生命周期被调用 40+ 次（见 mod.rs 注释），
+    // emit 从 40+ 次/请求 降到 1-2 次/请求（终态后少数重复调用）。前端 listener 各自 debounce
+    // 兜底，丢失中间态刷新对 UI 无感（用户关心的是请求结束后的累计值）。
+    if write_ok
+        && is_terminal
+        && let Some(app) = &state.app
+    {
+        use tauri::Emitter;
+        let _ = app.emit("proxy-log-updated", platform_id);
+        let _ = app.emit("tray-refresh", ());
     }
 }
 
