@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule, MappedPlatform, CpaImportParseResult, CpaBatchReport } from "./types";
 import type { PeakWindow } from "../../domains/platforms/defaults";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
@@ -354,6 +354,23 @@ export const quotaApi = {
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey, platformId: platformId ?? null }),
   queryNewapi: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>
     invoke<PlatformQuota>("platform_query_quota_newapi", { baseUrl, apiKey, extra, platformId: platformId ?? null }),
+};
+
+// ─── CPA(CLIProxyAPI) 配置导入 ────────────────────────────
+// 三段式：parse(解析+映射，纯读) → preview_quota(临时查余额，不落库) → apply(逐个建平台，非原子)。
+// 字段对齐 Rust `commands_platform/src/cpa_import.rs` serde。
+
+export const cpaImportApi = {
+  /** 解析 CPA 配置文件/压缩包/目录（+ 可选 auth-dir）→ MappedPlatform[]。纯读，不建平台。 */
+  parse: (path: string, authDir?: string) =>
+    invoke<CpaImportParseResult>("cpa_import_parse", { path, authDir: authDir ?? null }),
+  /** 预览期临时查余额，不落库（platform_id=0 → persist_quota_to_db None-guard）。
+   *  仅 9 provider 有值，不支持者 success=false 前端显「—」。 */
+  previewQuota: (baseUrl: string, apiKey: string) =>
+    invoke<PlatformQuota>("cpa_import_preview_quota", { baseUrl, apiKey }),
+  /** 批量创建平台（非原子尽力：逐个 platform_create，失败收集不中断）。 */
+  apply: (platforms: MappedPlatform[]) =>
+    invoke<CpaBatchReport>("cpa_import_apply", { platforms }),
 };
 
 // ─── Model Price Types & API ──────────────────────────────
