@@ -1,0 +1,128 @@
+{
+  "id": "group-batch-ops",
+  "name": "分组内平台多选 + 批量操作",
+  "desc": "分组内多选平台,支持批量删除/覆盖模型配置等(每个批量操作独立,文字表达 UI)",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [
+    "批量操作 MUST 原子事务:全成或全回滚,禁部分成功",
+    "删除=物理删平台实体(DB DELETE),跨组副作用 modal 显式警告",
+    "每个批量操作独立 modal,禁混在一个编辑面板",
+    "多选 per-group:每组独立,禁跨组全局多选",
+    "UI MUST 文字按钮表达,非纯图标",
+    "改状态仅 enabled/disabled,禁批量手设 auto_disabled(系统熔断态)",
+    "覆盖模型=替换语义,diff 预览全部列出每个平台 before→after",
+    "移组 move=从当前组移除关联+加目标组(保留其他组);add=保留所有现组+加目标",
+    "modal MUST createPortal(document.body)(modal-window-center-rule)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "后端 4 batch command + 事务 + 注册",
+      "desc": "batch_delete_platforms/batch_override_models/batch_set_status/batch_move_group 各原子事务 + db helper + generate_handler 注册",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 60,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783873559,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2",
+      "name": "前端 per-group 多选模式 UI",
+      "desc": "GroupListItem 加 mode view/select + per-group Set<number> 选中态 + 顶部工具栏([取消][全选] 已选 N | [删除][覆盖模型][改状态][移组] 文字按钮) + PlatformCard checkbox 容器",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 50,
+      "agent": "claude",
+      "skills": [],
+      "created": 1783873559,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3",
+      "name": "BatchDeleteModal 删除流",
+      "desc": "物理删确认 modal:全列可滚 + 跨组副作用警告 + 调 batch_delete_platforms + toast/刷新/退出多选",
+      "depends_on": [
+        "s1",
+        "s2"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 30,
+      "agent": "claude",
+      "skills": [],
+      "created": 1783873559,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4",
+      "name": "BatchOverrideModelsModal 覆盖流",
+      "desc": "替换语义 + 全 diff(before→after 含无变化)+ 三来源(手输/preset 下拉/从别平台复制) + 调 batch_override_models",
+      "depends_on": [
+        "s1",
+        "s2"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 40,
+      "agent": "claude",
+      "skills": [],
+      "created": 1783873559,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5",
+      "name": "BatchSetStatusModal + BatchMoveGroupModal",
+      "desc": "改状态(启用/禁用二态+整组无候选警告)+ 移组(move/add 两选项+目标组下拉) 两 modal + 调 batch command",
+      "depends_on": [
+        "s1",
+        "s2"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 40,
+      "agent": "claude",
+      "skills": [],
+      "created": 1783873559,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6",
+      "name": "api.ts 封装 + i18n 8 语言",
+      "desc": "platformApi.batch* 4 封装 + TS 类型 + 8 locale key 齐(check-i18n 过)",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 25,
+      "agent": "claude",
+      "skills": [],
+      "created": 1783873559,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "worktree": null,
+  "branch": "skein/group-batch-ops",
+  "estimate": 150,
+  "created": 1783872743,
+  "started": null,
+  "finished": null,
+  "updated": 1783873559
+}

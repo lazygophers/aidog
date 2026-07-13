@@ -1,3 +1,34 @@
 {
-  "tasks": []
+  "tasks": [
+    {
+      "id": "deep-audit-optimize",
+      "status": "进行中",
+      "deps": [],
+      "worktree": ".worktrees/skein-deep-audit-optimize"
+    },
+    {
+      "id": "cpa-import",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "group-batch-ops",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "ui-state-persist",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "07-12-peak-models-review-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    }
+  ]
 }
