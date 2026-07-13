@@ -193,6 +193,70 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [removeTarget, cards, load, onToast, t, onPlatformDeleted]);
 
+  // ── 批量删除平台（group-batch-ops s3）──
+  // 工具栏「删除」→ 开 BatchDeleteModal（全列可滚 + 跨组警告）→ 确认调 batch_delete_platforms 原子事务。
+  // 跨组成员关系实时拉后端（同 handleGroupRemovePlatform idiom：groupDetailApi.list 走后端缓存，写时 invalidate）。
+  const [batchDeleteTarget, setBatchDeleteTarget] = useState<{
+    platforms: Platform[];
+    groupNamesByPlatform: Record<number, string[]>;
+  } | null>(null);
+  const [batchDeleteBusy, setBatchDeleteBusy] = useState(false);
+
+  /** 工具栏「删除」按钮：收 selectedIds → 拉 fresh details → 算跨组成员关系 → 开 modal。 */
+  const handleBatchDelete = useCallback(async (ids: number[], _gid: number) => {
+    // 解析选中平台全量信息（platforms 来自 useGroupData，含全库平台）
+    const selectedPlatforms = ids
+      .map(id => platforms.find(p => p.id === id))
+      .filter((p): p is Platform => !!p);
+    if (selectedPlatforms.length === 0) return;
+
+    // 实时拉 fresh details 算跨组成员关系（防分页 stale 致跨组警告缺显）
+    let groupNamesByPlatform: Record<number, string[]> = {};
+    try {
+      const fresh = await groupDetailApi.list();
+      for (const p of selectedPlatforms) {
+        groupNamesByPlatform[p.id] = fresh
+          .filter(d => d.platforms.some(gp => gp.platform.id === p.id))
+          .map(d => d.group.name);
+      }
+    } catch {
+      // 回退到前端 details（可能 stale，但保证 modal 仍能弹）
+      for (const p of selectedPlatforms) {
+        groupNamesByPlatform[p.id] = details
+          .filter(d => d.platforms.some(gp => gp.platform.id === p.id))
+          .map(d => d.group.name);
+      }
+    }
+
+    setBatchDeleteTarget({ platforms: selectedPlatforms, groupNamesByPlatform });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platforms, details]);
+
+  /** BatchDeleteModal 确认：调 batch_delete_platforms 原子事务 → toast → 刷新 → 关 modal。 */
+  const confirmBatchDelete = useCallback(async () => {
+    if (!batchDeleteTarget) return;
+    setBatchDeleteBusy(true);
+    try {
+      const ids = batchDeleteTarget.platforms.map(p => p.id);
+      const report = await platformApi.batchDelete(ids);
+      setBatchDeleteTarget(null);
+      load(); onGroupsChanged?.(); onPlatformDeleted?.();
+      onToast?.({
+        text: t("group.batchDeleteDone", "已删除 {{count}} 个平台", { count: report.applied }),
+        ok: true,
+      });
+      setTimeout(() => onToast?.(null), 3000);
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.batchDeleteFailed", "批量删除失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
+      setBatchDeleteTarget(null);
+    } finally {
+      setBatchDeleteBusy(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [batchDeleteTarget, load, onToast, t, onGroupsChanged, onPlatformDeleted]);
+
   // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
   // 拖拽 no-op（分组内禁拖拽）；启停后 load() 刷新本地 platforms。
   const makeGroupCardActions = useCallback((gid: number): PlatformCardActions => ({
@@ -529,6 +593,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       handlePurgeDisabled={handlePurgeDisabled}
       onCreatePlatform={onCreatePlatform}
       onNavigate={onNavigate}
+      onBatchDelete={handleBatchDelete}
+      batchDeleteTarget={batchDeleteTarget}
+      batchDeleteBusy={batchDeleteBusy}
+      confirmBatchDelete={confirmBatchDelete}
+      setBatchDeleteTarget={setBatchDeleteTarget}
     />
   );
 }

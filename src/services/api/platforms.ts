@@ -336,7 +336,18 @@ export const platformApi = {
   /** 解析分享串（YAML / JSON 通吃）；非合法 aidog 分享串 throw → 调用方 fallback 原杂乱文本解析。 */
   shareParse: (text: string) =>
     invoke<SharePlatform>("platform_share_parse", { text }),
+
+  /** 批量删除平台（物理删 = 软删 platform + 清所有 group_platform 关联）。
+   *  原子事务：任一失败 → 全部 rollback（applied=0 或全 N）。 */
+  batchDelete: (ids: number[]) =>
+    invoke<BatchReport>("batch_delete_platforms", { ids }),
 };
+
+/** 批量操作结果（对应 Rust BatchReport，serde rename_all = "camelCase"）。 */
+export interface BatchReport {
+  applied: number;
+  skipped: { id: number; reason: string }[];
+}
 
 /** 系统托盘 quota 展示（互斥单平台） */
 

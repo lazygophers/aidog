@@ -1,4 +1,4 @@
-import { Fragment, memo, useState } from "react";
+import { Fragment, memo, useState, useEffect } from "react";
 import type { TFunction } from "i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
@@ -70,6 +70,8 @@ export interface GroupListItemProps {
   onAddMapping: () => void;
   onSetLevelPriority: (gid: number, pid: number, v: number) => void;
   onPurgeDisabled: (gid: number) => void;
+  /** 批量删除：收 selectedIds + gid → 开 BatchDeleteModal（父级渲染 modal）。 */
+  onBatchDelete: (ids: number[], gid: number) => void;
   // drag handle（来自 SortableList，每次由父 renderItem 传入，非稳定）
   handle: DragHandleProps;
 }
@@ -91,6 +93,7 @@ export const GroupListItem = memo(function GroupListItem({
   onPlatPointerDown, onDeleteMapping, onSetMappingGroupId,
   onSetMSource, onSetMTargetPlatform, onSetMTargetModel, onAddMapping,
   onSetLevelPriority, onPurgeDisabled,
+  onBatchDelete,
   handle,
 }: GroupListItemProps) {
   const { group, platforms: gps, model_mappings } = detail;
@@ -100,6 +103,17 @@ export const GroupListItem = memo(function GroupListItem({
   // ── per-group 多选模式（本地 state, 不持久化）──
   const [mode, setMode] = useState<"view" | "select">("view");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+
+  // 批量删除成功后：selectedIds 内平台从 gps 全消失 → 自动退出多选模式（load 刷新后 gps 变化触发）。
+  useEffect(() => {
+    if (mode !== "select" || selectedIds.size === 0) return;
+    const currentIds = new Set(gps.map(gp => gp.platform.id));
+    const anyAlive = [...selectedIds].some(id => currentIds.has(id));
+    if (!anyAlive) {
+      setMode("view");
+      setSelectedIds(new Set());
+    }
+  }, [gps, mode, selectedIds]);
 
   const header = (
     <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
@@ -314,7 +328,7 @@ export const GroupListItem = memo(function GroupListItem({
                 {/* 4 批量操作按钮（占位 handler, modal 在 s3-s5 实现） */}
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
                   disabled={selectedIds.size === 0}
-                  onClick={() => console.log("[batch] delete", { gid: group.id, ids: [...selectedIds] })}>
+                  onClick={() => onBatchDelete([...selectedIds], group.id)}>
                   {t("group.batchDelete", "删除")}
                 </button>
                 <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
