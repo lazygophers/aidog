@@ -35,7 +35,16 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
 
     // est_cost 统一计算（两分支复用，避免重复 get_platform + calc_est_cost 调用）。
     // 结果存局部变量，first_agg 分支用值，日志写入分支用 Option（后续覆盖）。
-    let est_cost_value = if log.est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
+    //
+    // ponytail: 仅在终态（status_code != 0）计算 cost。upsert_log 单请求生命周期被调 40+ 次
+    // （见 mod.rs 注释），中间态（status=0 / 流式聚合中）每次重复 get_platform + calc_est_cost
+    // 是 CPU/DB 浪费 —— 中间态的 est_cost 列写入会被后续 upsert 覆盖，最终值由终态 upsert 决定；
+    // first_agg 也仅在 status_code != 0 时触发，二者天然对齐。无终态 upsert 的请求（被 abort）
+    // 由 RequestLogGuard Drop 兜底写 status=499，仍会命中此分支计算。统计正确性不变。
+    let est_cost_value = if log.est_cost == 0.0
+        && (log.input_tokens > 0 || log.output_tokens > 0)
+        && log.status_code != 0
+    {
         let model_name = if log.actual_model.is_empty() {
             log.model.clone()
         } else {
