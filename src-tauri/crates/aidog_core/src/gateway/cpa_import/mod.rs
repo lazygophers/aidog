@@ -7,6 +7,8 @@
 //! - 可选 auth-dir OAuth 凭据扫描
 //! - 多文件 name+base_url 去重合并
 
+pub mod mapper;
 pub mod parser;
 
+pub use mapper::{map_provider, map_providers, MappedPlatform};
 pub use parser::{parse_cpa_config, CpaOAuthType, CpaProvider, ParseResult, SkipReason};
