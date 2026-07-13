@@ -209,7 +209,13 @@ pub(crate) async fn handle_proxy_core(
             return r;
         }
     };
-    log.request_body = String::from_utf8_lossy(&bytes).to_string();
+    // OOM 止血：request_body 仅在 log_user_request 开启时克隆到 String（默认关 → 省一次全量拷贝）。
+    // model 提取走下方 serde_json::from_slice(&bytes) 借用，不依赖此 String。
+    log.request_body = if log_settings.enabled && log_settings.log_user_request {
+        String::from_utf8_lossy(&bytes).to_string()
+    } else {
+        String::new()
+    };
     tracing::debug!(method = %orig_method, path = %path, body = %super::log_util::log_body_preview(&log.request_body), "inbound request body");
 
     // ── 单次解析 request body：提取 model + 缓存完整 JSON ──

@@ -155,8 +155,9 @@ pub(crate) async fn handle_passthrough(
     let req_span = tracing::Span::current();
 
     // 透传原样 relay：response_body == user_response_body == 上游 SSE 原文。
-    // response_body 受 master(enabled) 控制；user_response_body 受 log_user_request 控制。
-    let record_upstream_body = log_settings.enabled;
+    // OOM 止血：response_body(上游) 改受 log_upstream_request 同侧控制（与 finish.rs 一致）。
+    // user_response_body 受 log_user_request 控制。
+    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
     let record_client_body = log_settings.enabled && log_settings.log_user_request;
 
     // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
@@ -524,7 +525,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
     // 流式：原样透传 bytes，不解析（普通浏览流量极少 SSE，仍兜底支持）。
     log.is_stream = true;
     log.status_code = status.as_u16() as i32;
-    let record_upstream_body = log_settings.enabled;
+    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
     let record_client_body = log_settings.enabled && log_settings.log_user_request;
     let agg = Arc::new(StreamAggregator::new());
     let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
