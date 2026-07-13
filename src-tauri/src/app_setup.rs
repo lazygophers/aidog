@@ -402,9 +402,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         if let Some(old_task) = pending.lock().unwrap().take() {
                             old_task.abort();
                         }
-                        // 启动新的延迟刷新任务（50ms 后执行）
+                        // 启动新的延迟刷新任务（200ms 后执行）
+                        // ponytail: 50ms → 200ms，配合 upsert_log 终态 emit 节流进一步降低重建频率。
+                        // 单请求生命周期内终态 emit 通常 1-2 次，200ms trailing 合并多请求 burst。
                         let new_task = tauri::async_runtime::spawn(async move {
-                            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+                            tokio::time::sleep(std::time::Duration::from_millis(200)).await;
                             let _ = refresh_tray_menu(&handle, &commands_tray::tray::TrayMenuBuildImpl).await;
                         });
                         *pending.lock().unwrap() = Some(new_task);
