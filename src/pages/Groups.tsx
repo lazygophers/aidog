@@ -148,6 +148,23 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     }, 300);
   }, []);
 
+  // 分组内卡（PlatformCard）展开态：默认收起。从 platform.extra._ui_expand_grp 跨会话回灌（仅一次）。
+  // ponytail: 键 _ui_expand_grp 独立于 Platforms 页的 _ui_expand_plat（s4）—— 同一 platform 两键并存，
+  //   Groups 内卡展开与 Platforms 主列表展开分别持久化。idiom 对齐 collapseInitRef（s3）。
+  const expandInitRef = useRef(false);
+  const cardsSetExpandedIds = cards.setExpandedIds;
+  useEffect(() => {
+    if (expandInitRef.current || platforms.length === 0) return;
+    expandInitRef.current = true;
+    const ids: number[] = [];
+    for (const p of platforms) {
+      try {
+        if (JSON.parse(p.extra || "{}")._ui_expand_grp === true) ids.push(p.id);
+      } catch { /* extra 非法 JSON → 视作未展开 */ }
+    }
+    if (ids.length > 0) cardsSetExpandedIds(new Set(ids));
+  }, [platforms, cardsSetExpandedIds]);
+
   // 分组卡片「移除平台」确认态：总弹 modal 让用户选（单组→删平台；多组→移出本组 or 删全部）。
   // 根因旁路：去掉 count 决定行为，避免 groupCountOf stale 走错分支。
   const [removeTarget, setRemoveTarget] = useState<
