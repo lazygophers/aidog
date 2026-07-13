@@ -1,16 +1,16 @@
 {
   "tasks": [
     {
+      "id": "cpa-import",
+      "status": "进行中",
+      "deps": [],
+      "worktree": ".worktrees/skein-cpa-import"
+    },
+    {
       "id": "deep-audit-optimize",
       "status": "进行中",
       "deps": [],
       "worktree": ".worktrees/skein-deep-audit-optimize"
-    },
-    {
-      "id": "cpa-import",
-      "status": "待处理",
-      "deps": [],
-      "worktree": null
     },
     {
       "id": "group-batch-ops",

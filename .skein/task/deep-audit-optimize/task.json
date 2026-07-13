@@ -349,14 +349,16 @@
       "验收": [
         "每 crate cargo check 0 warning。无 cascade"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 60,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868329,
       "started": 1783873720,
-      "finished": null
+      "finished": 1783911592
     }
   ],
   "worktree": ".worktrees/skein-deep-audit-optimize",
@@ -365,5 +367,5 @@
   "created": 1783849633,
   "started": 1783868345,
   "finished": null,
-  "updated": 1783873720
+  "updated": 1783911592
 }
