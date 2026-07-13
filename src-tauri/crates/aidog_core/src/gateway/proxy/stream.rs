@@ -1,15 +1,17 @@
 use super::*;
 
-/// 聚合 SSE body 的上限（字节）。完整记录但防物理崩溃：超限截断 + 标记，禁 panic / OOM。
-/// SQLite 单值上限 ~1GB；取 512MB 为安全上限（拼接 + UTF-8 lossy 仍有余量）。
-const STREAM_BODY_MAX_BYTES: usize = 512 * 1024 * 1024;
+/// 聚合 SSE body 的上限（字节）。OOM 止血：512MB → 16MB（N 并发 × 上限 = 物理内存预算）。
+/// 超限截断 + 标记，禁 panic / OOM。完整上游响应正文落库不依赖此上限（DB schema 列仍在）。
+const STREAM_BODY_MAX_BYTES: usize = 16 * 1024 * 1024;
 
 /// 把聚合的 SSE chunk（Vec<Bytes>）拼接为字符串，超上限则截断并加标记。
 /// 旁路累积零阻塞转发，此处一次性拼接（仅 flush 时调用，非 chunk 热路径）。
+/// ponytail: 不预分配大 Vec —— 截断分支按需 grow（避免每次 flush 预占 16MB），非截断分支
+/// total 已是实际字节和（≤16MB）可用 with_capacity。
 fn join_stream_body(chunks: &[Bytes]) -> String {
     let total: usize = chunks.iter().map(|c| c.len()).sum();
     if total > STREAM_BODY_MAX_BYTES {
-        let mut buf: Vec<u8> = Vec::with_capacity(STREAM_BODY_MAX_BYTES);
+        let mut buf: Vec<u8> = Vec::new();
         for c in chunks {
             if buf.len() >= STREAM_BODY_MAX_BYTES {
                 break;

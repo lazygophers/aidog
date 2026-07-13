@@ -126,7 +126,8 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
             // 首节点：建行。成功后存快照供后续 diff。
             let ok = super::db::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
             if ok {
-                state.log_snapshots.lock().unwrap().insert(id.clone(), cols);
+                // OOM 止血：快照表只留 meta（清空 body/headers 大字段），N 并发不累积大 String。
+                state.log_snapshots.lock().unwrap().insert(id.clone(), cols.into_snapshot_meta());
             }
             ok
         }
@@ -134,7 +135,7 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
             // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
             let ok = super::db::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
             if ok {
-                state.log_snapshots.lock().unwrap().insert(id.clone(), cols);
+                state.log_snapshots.lock().unwrap().insert(id.clone(), cols.into_snapshot_meta());
             }
             ok
         }

@@ -167,6 +167,10 @@ impl ProxyLogColumns {
     }
 
     /// 与上一快照 `old` 逐列对比，返回 (列名, 绑定值) 的变化集。id 主键不在内（用于 WHERE）。
+    /// body / headers 类大字段**不参与 diff 比较**：调用方 `update_proxy_log_columns` 永远把这些列
+    /// 加入 UPDATE 集（绑定 `self` 当前值）。配合 `into_snapshot_meta`（清空 body 字段后入快照），
+    /// in-flight 快照表永不持有 body String，从根上消除 N 并发 × body 的内存累积（OOM 止血）。
+    /// 前端轮询的增量字段不含 body（按需单查 `get_proxy_log` 拿正文），不依赖 changed_since 推送 body。
     fn changed_since(&self, old: &ProxyLogColumns) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> {
         let mut out: Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> = Vec::new();
         macro_rules! diff {
@@ -182,17 +186,9 @@ impl ProxyLogColumns {
         diff!("source_protocol", source_protocol);
         diff!("target_protocol", target_protocol);
         diff!("platform_id", platform_id);
-        diff!("request_headers", request_headers);
-        diff!("request_body", request_body);
-        diff!("upstream_request_headers", upstream_request_headers);
-        diff!("upstream_request_body", upstream_request_body);
-        diff!("response_body", response_body);
         diff!("request_url", request_url);
         diff!("upstream_request_url", upstream_request_url);
-        diff!("upstream_response_headers", upstream_response_headers);
         diff!("upstream_status_code", upstream_status_code);
-        diff!("user_response_headers", user_response_headers);
-        diff!("user_response_body", user_response_body);
         diff!("status_code", status_code);
         diff!("duration_ms", duration_ms);
         diff!("input_tokens", input_tokens);
@@ -208,6 +204,36 @@ impl ProxyLogColumns {
         diff!("updated_at", updated_at);
         diff!("deleted_at", deleted_at);
         out
+    }
+
+    /// 大字段列名 + 绑定值（body / headers 侧）。`update_proxy_log_columns` 每次强制写入，
+    /// 不依赖 diff（snapshot 已清空这些字段，diff 永远命中也等价，但显式列出更清晰且省一次比较）。
+    fn large_fields(&self) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> {
+        vec![
+            ("request_headers", Box::new(self.request_headers.clone())),
+            ("request_body", Box::new(self.request_body.clone())),
+            ("upstream_request_headers", Box::new(self.upstream_request_headers.clone())),
+            ("upstream_request_body", Box::new(self.upstream_request_body.clone())),
+            ("response_body", Box::new(self.response_body.clone())),
+            ("upstream_response_headers", Box::new(self.upstream_response_headers.clone())),
+            ("user_response_headers", Box::new(self.user_response_headers.clone())),
+            ("user_response_body", Box::new(self.user_response_body.clone())),
+        ]
+    }
+
+    /// 返回一个 body / headers 字段全部清空的副本，用作 in-flight 快照表里的「meta-only」快照。
+    /// OOM 止血：log_snapshots HashMap 不再持大字段 String，仅留 meta（id/status/tokens/...）。
+    /// DB schema 不变，body 列照常写入（每次 upsert_log 仍 UPDATE 绑定 ProxyLog 当前值）。
+    pub fn into_snapshot_meta(mut self) -> Self {
+        self.request_headers.clear();
+        self.request_body.clear();
+        self.upstream_request_headers.clear();
+        self.upstream_request_body.clear();
+        self.response_body.clear();
+        self.upstream_response_headers.clear();
+        self.user_response_headers.clear();
+        self.user_response_body.clear();
+        self
     }
 }
 
@@ -242,7 +268,9 @@ pub fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> impl std::fut
 pub fn update_proxy_log_columns<'a>(db: &'a Db, new: ProxyLogColumns, prev: &'a ProxyLogColumns) -> impl std::future::Future<Output = Result<(), String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let changed = new.changed_since(prev);
+    // body / headers 类大字段：每次 UPDATE 强制写入（不参与 diff，见 changed_since 注释）。
+    let mut changed = new.changed_since(prev);
+    changed.extend(new.large_fields());
     if changed.is_empty() {
         return Ok(());
     }

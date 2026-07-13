@@ -180,8 +180,10 @@ where
     let req_span = tracing::Span::current();
 
     // ── body 记录受 ProxyLogSettings 开关控制：仅相应开关开启才聚合，零开关时不耗内存。
-    // response_body(上游) 受 master(enabled) 控制；user_response_body 受 log_user_request 控制。──
-    let record_upstream_body = log_settings.enabled;
+    // OOM 止血：response_body(上游) 改受 log_upstream_request 同侧控制（默认关 → 流式不累积上游原文，
+    // 内存占用与开关语义一致；upstream response_body 仍按 settings 二次脱敏写库）。
+    // user_response_body 受 log_user_request 控制。master switch(enabled) 仍由 upsert_log 早退兜底。──
+    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
     let record_client_body = log_settings.enabled && log_settings.log_user_request;
 
     // ── 最终回写 guard：[DONE] 正常结束 或 客户端断连 Drop 时回写聚合 token/body（幂等）。──
