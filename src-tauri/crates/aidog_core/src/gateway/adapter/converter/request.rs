@@ -32,6 +32,26 @@ pub fn convert_request(req: &ChatRequest, wire_protocol: &Protocol, platform_pro
             let json = serde_json::to_value(&completions_req).unwrap();
             (json, "/v1/completions".to_string())
         }
+        // CPA(CLIProxyAPI)导入平台类型：platform_type 作为 wire 回退（无 endpoint 匹配时），
+        // 各自映射到同族 adapter（design.md: grok→openai_responses / 其余→gemini）。
+        // 正常路径下 endpoint[].protocol 已显式声明同族 wire，不会落到这里。
+        Protocol::CpaGrok => {
+            // xAI Grok 原生 `/responses`（同 OpenAI Responses 语义）。
+            let responses_req = super::super::openai_responses::to_responses(req);
+            let json = serde_json::to_value(&responses_req).unwrap();
+            (json, "/v1/responses".to_string())
+        }
+        Protocol::CpaAistudio | Protocol::CpaAntigravity | Protocol::CpaVertex => {
+            // cpa-aistudio: 与 gemini-api-key 同 API（generativelanguage.googleapis.com），仅 auth 不同。
+            // cpa-antigravity / cpa-vertex: 仅存配置，路由暂不支持——
+            //   antigravity 实际路径 `/v1internal:streamGenerateContent` / vertex 含
+            //   `projects/{p}/locations/{l}/publishers/google/models/...` 结构，gemini adapter
+            //   path 不兼容。这里给 gemini 占位（preset endpoint 显式 protocol=gemini 才真正生效）。
+            let gemini_req = super::super::gemini::to_gemini(req);
+            let json = serde_json::to_value(&gemini_req).unwrap();
+            let path = format!("/v1beta/models/{}:streamGenerateContent", req.model);
+            (json, path)
+        }
         // OpenAI Chat Completions — 标准 /v1/chat/completions，OpenAI-compatible 平台用各自路径
         _ => {
             let openai_req = super::super::openai::to_openai(req);
@@ -59,6 +79,11 @@ pub fn passthrough_api_path(wire_protocol: &Protocol, model: &str, platform_prot
         Protocol::Gemini => format!("/v1beta/models/{}:streamGenerateContent", model),
         Protocol::OpenAIResponses => "/v1/responses".to_string(),
         Protocol::OpenAICompletions => "/v1/completions".to_string(),
+        // CPA 平台类型 wire 回退（见 convert_request 对应 arm 注释）。
+        Protocol::CpaGrok => "/v1/responses".to_string(),
+        Protocol::CpaAistudio | Protocol::CpaAntigravity | Protocol::CpaVertex => {
+            format!("/v1beta/models/{}:streamGenerateContent", model)
+        }
         _ => provider_api_path(platform_protocol),
     }
 }
