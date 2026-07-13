@@ -4,6 +4,7 @@ import type {
   GroupDetail, Platform, PlatformModels, RoutingMode, ModelMapping,
 } from "../services/api";
 import { groupApi, groupDetailApi, platformApi } from "../services/api";
+import { setUiExtra } from "../services/api/ui_extra";
 import { allModelValues } from "../domains/platforms";
 import type { PlatformCardActions } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
@@ -115,10 +116,37 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   }, [platforms, cardsSetUsageMap, usageReqRef]);
 
   // 分组展开态：默认全展开。追踪「已折叠」集（默认空 = 全展开）。
+  // ponytail: 折叠态从 group.extra._ui_collapsed 跨会话持久化；toggle 乐观更新本地 state + 300ms debounce 写 DB
+  //   （连续 toggle 仅末次落盘）。idiom 对齐 usePlatformsState.toggleExpanded（s4）。
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
-  const toggleGroupExpanded = useCallback((id: number) => setCollapsedGroups(prev => {
-    const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
-  }), []);
+  const collapseDebounceRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
+  const collapseInitRef = useRef(false);
+  // mount 首次拿到 details 后从 extra 回灌折叠态（仅一次，避免 load() 刷新覆盖用户后续 toggle）。
+  useEffect(() => {
+    if (collapseInitRef.current || details.length === 0) return;
+    collapseInitRef.current = true;
+    const ids: number[] = [];
+    for (const d of details) {
+      try {
+        if (JSON.parse(d.group.extra || "{}")._ui_collapsed === true) ids.push(d.group.id);
+      } catch { /* extra 非法 JSON → 视作未折叠 */ }
+    }
+    if (ids.length > 0) setCollapsedGroups(new Set(ids));
+  }, [details]);
+  const toggleGroupExpanded = useCallback((id: number) => {
+    let nextCollapsed = false;
+    setCollapsedGroups(prev => {
+      const s = new Set(prev);
+      if (s.has(id)) { s.delete(id); nextCollapsed = false; } else { s.add(id); nextCollapsed = true; }
+      return s;
+    });
+    const timers = collapseDebounceRef.current;
+    if (timers[id]) clearTimeout(timers[id]);
+    timers[id] = setTimeout(() => {
+      delete timers[id];
+      setUiExtra("group", id, "_ui_collapsed", nextCollapsed).catch(console.error);
+    }, 300);
+  }, []);
 
   // 分组卡片「移除平台」确认态：总弹 modal 让用户选（单组→删平台；多组→移出本组 or 删全部）。
   // 根因旁路：去掉 count 决定行为，避免 groupCountOf stale 走错分支。
