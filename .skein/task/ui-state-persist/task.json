@@ -1,0 +1,130 @@
+{
+  "id": "ui-state-persist",
+  "name": "ui-state-persist",
+  "desc": "记住平台分组展开/折叠状态 + 上次打包设定,跨会话恢复",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [
+    "UI 键统一 _ui_ 前缀:_ui_collapsed(group)/_ui_expand_plat(Platforms 页)/_ui_expand_grp(Groups 页内卡)",
+    "import/export 导出 snapshot strip _ui_* 键(仿 _aidog_statusline 模式),import 不恢复 UI 态",
+    "toggle 折叠/展开 debounce 300ms 后写 DB,禁每 toggle 即写",
+    "新 Rust command set_ui_extra(target:\"group\"|\"platform\", id, key, value) 单键改 extra JSON",
+    "各页展开态独立:Groups 页内卡(_ui_expand_grp)≠ Platforms 页(_ui_expand_plat),同 platform 两键并存",
+    "向后兼容:不改 extra 现有业务键(peak_hours/coding_plan/breaker/time_models);后端解析函数只读己键天然忽略 _ui_*",
+    "Rust 改完 cargo clippy+test,前端改完 yarn build+test+check:i18n,失败禁 finish",
+    "新 Rust command 需 yarn tauri dev 重启验证(HMR 仅前端)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "新 Rust command set_ui_extra + db 单键改 extra helper",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy+test 通过。command 注册 generate_handler。db 单键改 extra helper"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 25,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868872,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2",
+      "name": "api.ts setUiExtra 封装 + TS 类型",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "yarn build+test 通过。api.ts setUiExtra 封装 + TS 类型"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 10,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868872,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3",
+      "name": "Groups collapsedGroups 持久化(读 _ui_collapsed + debounce 300ms 写)",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [
+        "yarn build+test+check:i18n 通过。初始化从 group.extra._ui_collapsed 读。toggle debounce 300ms 写"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 20,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868872,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4",
+      "name": "Platforms expandedIds 持久化(_ui_expand_plat 各页独立)",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [
+        "yarn build+test 通过。初始化从 _ui_expand_plat 读。toggle debounce 写"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 20,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868872,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5",
+      "name": "GroupListItem 内卡展开持久化(_ui_expand_grp)",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [
+        "yarn build+test 通过。_ui_expand_grp 独立持久化"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 15,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868872,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6",
+      "name": "import/export 导出 strip _ui_* 键",
+      "depends_on": [],
+      "验收": [
+        "cargo test 通过。export snapshot strip _ui_*。import 不恢复 UI 态"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 15,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868872,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "worktree": null,
+  "branch": "skein/ui-state-persist",
+  "estimate": 30,
+  "created": 1783868545,
+  "started": null,
+  "finished": null,
+  "updated": 1783868872
+}

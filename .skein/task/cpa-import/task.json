@@ -1,0 +1,148 @@
+{
+  "id": "cpa-import",
+  "name": "CPA 格式导入 + cpa-* 平台类型",
+  "desc": "支持导入 CLIProxyAPI 的 cpa 格式(平台添加页导入按钮,预览多平台,用户确认创建+选模型),新增 cpa-grok/cpa-codex 等平台类型",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [
+    "导入 MUST 不自动创建平台: cpa_import_parse 仅返预览数据, apply (cpa_import_apply) 才创建",
+    "压缩格式 MUST 仅 zip/tgz/tar; rar/7z MUST 拒绝并提示「请先解压再选文件夹」",
+    "多文件解析 MUST name+base_url 去重合并 (openai-compat 按 name, api-key 段按 segment+base_url); api_key 取首, models 并集",
+    "4 cpa-* adapter MUST 复用现有 (grok→openai_responses, aistudio/antigravity/vertex→gemini); 禁新写 adapter",
+    "adapter 兼容验证: antigravity /v1internal:* 路径与 vertex project/location URL 结构 s2 MUST 验证; 不符则该协议标注「仅存配置不路由」, 不阻塞导入",
+    "cpa_import_apply MUST 非原子尽力: 逐个 platform_create, 返 BatchReport {created, failed[]}; 禁部分成功当全成",
+    "余额预览 MUST 临时不落库: cpa_import_preview_quota 调 query_quota(db, base_url, api_key, 0), platform_id=0 触发 persist_quota_to_db None-guard return",
+    "OAuth access_token MUST 填 platform.api_key; refresh_token MUST 丢弃 (aidog 无刷新, 过期手补)",
+    "多 api-key (api-key-entries[]) MUST 取首个; 禁拆多平台 (范围外, 后续迭代)",
+    "openai-compatibility 段 MUST 不转 cpa-*: 一律走 openai 兼容族 name 关键词路由 (无匹配→openai 兜底); cpa-* 仅来自 OAuth channel 凭据 / vertex-api-key 段",
+    "4 cpa-* preset 条目 MUST 手维护 src-tauri/defaults/platform-presets.json; 禁机器生成覆盖",
+    "CpaImportModal MUST createPortal(document.body); 新 Rust command 注册后 MUST 提示重启 yarn tauri dev",
+    "apply 时同名/同 base_url 冲突 MUST 默认跳过(进 failed[] 报「同名/同 base_url 已存」); 禁覆盖已存平台; 用户预览改名后重试",
+    "每协议(含 4 cpa-* + openai 兜底)preset MUST 配默认 model_list (对应上游 web 端模型列表); cpa-vertex 配 Vertex 公开模型不留空; 映射后 provider 无 models 段 MUST 用 getDefaultModels(protocol) 拉默认"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "后端解析器(parser.rs)+serde_yaml+压缩解压",
+      "desc": "新增 aidog_core/src/gateway/cpa_import/parser.rs: 判文件类型(单文件/zip/tgz/tar/目录), zip+tar+flate2 解压到 tempdir, 递归扫候选(.yaml/.yml/.json), serde_yaml/serde_json 逐个尝试解析, 识别 6 cpa 段顶层 key, 提取 CpaProvider{source_segment,name,base_url,api_key,models,prefix,headers,disabled}, auth-dir 可选扫描(.json 按 type/access_token/refresh_token 解析, refresh 丢), 跨文件 name 或 segment+base_url 去重合并(api_key 取首, models 并集)。rar/7z 拒绝+提示。加 serde_yaml 依赖到 aidog_core Cargo.toml",
+      "depends_on": [
+        "-"
+      ],
+      "验收": [
+        "解析 sample config.example.yaml 返正确 CpaProvider[]",
+        "压缩 zip/tgz/tar 解压扫多文件",
+        "rar/7z 拒绝带提示",
+        "auth-dir JSON 解析 OAuth provider",
+        "多文件去重合并",
+        "cargo test 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 35,
+      "agent": "general-purpose",
+      "skills": [],
+      "created": 1783909971,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2",
+      "name": "新 4 Protocol(cpa-grok/vertex/aistudio/antigravity)+adapter 接线",
+      "desc": "Rust Protocol 枚举加 4 变体 + serde(rename cpa-grok/cpa-vertex/cpa-aistudio/cpa-antigravity); 手维护 platform-presets.json 加 4 条(base_url/model_list 见 research/cpa-format-round2.md preset 表, cpa-vertex region-specific 留空); provider_api_path() 返对应路径(grok→/responses 复 codex 模式, aistudio/antigravity/vertex→generateContent 模式); 路由层 adapter 映射(grok→openai_responses, aistudio/antigravity/vertex→gemini); s2 验证 antigravity /v1internal:* 与 vertex project/location URL 结构兼容, 不符则标「仅存配置不路由」",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "cargo clippy 0 warning + cargo test 通过(含 test_candidates)",
+        "preset JSON 4 条在且手维护",
+        "4 协议 Protocol serde round-trip",
+        "adapter 路由映射在"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 45,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783909971,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3",
+      "name": "映射器(mapper.rs)+3 Tauri command+handler 注册",
+      "desc": "新增 mapper.rs: CpaProvider→MappedPlatform 映射表(design.md 表, openai-compat name 关键词路由对照 preset 75 协议, 无匹配兜底 openai; OAuth channel→cpa-*); commands_platform/src/cpa_import.rs 3 command: cpa_import_parse(path, auth_dir)→ParseResult, cpa_import_preview_quota(base_url, api_key)→PlatformQuota(调 query_quota(... 0) 不落库), cpa_import_apply(platforms)→BatchReport(逐个 platform_create 非原子); 注册 generate_handler!",
+      "depends_on": [
+        "s1",
+        "s2"
+      ],
+      "验收": [
+        "cargo clippy 0 warning + cargo test",
+        "3 command 注册",
+        "映射表全覆盖 6 段+OAuth channel",
+        "apply 非原子返 created/failed",
+        "余额查询 platform_id=0 不落库(persist_quota_to_db None-guard)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 35,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783909971,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4",
+      "name": "前端 CpaImportModal+入口按钮+api.ts 封装",
+      "desc": "新增 src/components/platforms/CpaImportModal.tsx(仿 CcSwitchImport): 平台添加页「导入 CPA 配置」文字按钮; 步骤 1 Tauri open dialog(文件/压缩/文件夹+可选 auth-dir); 步骤 2 预览表格(列:☑/名称可编辑/协议badge/base_url/api_key掩码/模型可编辑默认 getDefaultModels/余额占位/冲突黄警告); 工具栏[全部查询余额并发≤5][全选][确认创建]; 步骤 3 cpa_import_apply→toast created/failed+刷新+关 modal; createPortal(document.body) 复用 Modal.tsx; src/services/api/ 加 cpaImport 封装+TS 类型",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [
+        "yarn build+test 通过",
+        "预览渲染+多选+改名+选模型+冲突检测+惰性余额",
+        "createPortal",
+        "api.ts 类型齐"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 40,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783909971,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5",
+      "name": "i18n 8 语言+全门禁收尾",
+      "desc": "8 语言(zh-Hans/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP/es-ES) key 齐: 导入按钮/预览表头/余额/冲突警告/toast; 跑 check-i18n.mjs; 全门禁 cargo clippy+test / yarn build+test+check:i18n 零回归",
+      "depends_on": [
+        "s2",
+        "s3",
+        "s4"
+      ],
+      "验收": [
+        "check-i18n 4 类通过",
+        "clippy 0 warning",
+        "cargo test + yarn test 全过",
+        "8 语言 key 无缺译"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": 20,
+      "agent": "aidog-i18n-auditor",
+      "skills": [],
+      "created": 1783909971,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "worktree": null,
+  "branch": "skein/cpa-import",
+  "estimate": 180,
+  "created": 1783872632,
+  "started": null,
+  "finished": null,
+  "updated": 1783911295
+}

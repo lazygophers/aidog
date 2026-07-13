@@ -1,0 +1,85 @@
+{
+  "id": "07-12-peak-models-review-fix",
+  "name": "peak models 分支 review 修复",
+  "desc": "code-review ce041727 发现: peak 分支整替用户定制 models / model_list 缺 peak / CLAUDE.md 未更新",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "candidates.rs peak 覆盖意图注释",
+      "depends_on": [],
+      "验收": [
+        "resolve_effective_models tier2 peak 段含'设计意图: 覆盖用户 platform.models 定制'注释",
+        "cargo clippy -p aidog_core 0 warning"
+      ],
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
+      "estimate": 3,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783849136,
+      "started": 1783849148,
+      "finished": 1783849301
+    },
+    {
+      "sid": "s2",
+      "name": "model_list.peak 分支 (preset + defaults.ts + caller)",
+      "depends_on": [],
+      "验收": [
+        "platform-presets.json glm_coding.model_list.peak 存在",
+        "DefaultsDoc.model_list 含 peak 键",
+        "getDefaultModelList 加 isPeak 第3参走 pickModelsBranch",
+        "yarn build 绿",
+        "所有 caller await"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "estimate": 12,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783849136,
+      "started": 1783849148,
+      "finished": 1783849301
+    },
+    {
+      "sid": "s3",
+      "name": "CLAUDE.md peak models 机制文档",
+      "depends_on": [],
+      "验收": [
+        "CLAUDE.md peak_hours 小节含 models.peak 机制段",
+        "前端函数列表含 getDefaultPeakHours (5函数)",
+        "getDefaultModels/getDefaultModelList 标 isPeak 第3参"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "estimate": 5,
+      "agent": "general-purpose",
+      "skills": [],
+      "created": 1783849136,
+      "started": null,
+      "finished": 1783849301
+    }
+  ],
+  "worktree": null,
+  "branch": "skein/07-12-peak-models-review-fix",
+  "estimate": 25,
+  "created": 1783848596,
+  "started": 1783849143,
+  "finished": 1783849363,
+  "updated": 1783849363
+}
