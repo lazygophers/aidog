@@ -11,3 +11,4 @@ pub mod model_fetch;
 pub mod stats;
 pub mod price;
 pub mod quota;
+pub mod batch;

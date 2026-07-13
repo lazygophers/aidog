@@ -51,6 +51,11 @@ pub fn run() {
             commands_platform::platform::platform_ensure_auto_group,
             commands_platform::platform::platform_set_tray,
             commands_platform::model_fetch::platform_fetch_models,
+            // Batch Operations
+            commands_platform::batch::batch_delete_platforms,
+            commands_platform::batch::batch_override_models,
+            commands_platform::batch::batch_set_status,
+            commands_platform::batch::batch_move_group,
             // Tray Config
             commands_platform::platform::tray_config_get,
             commands_platform::platform::tray_config_set,

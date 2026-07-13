@@ -980,6 +980,7 @@ version = "0.1.5"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
+ "rusqlite",
  "serde",
  "serde_json",
  "serde_yml",
