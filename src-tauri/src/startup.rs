@@ -223,6 +223,10 @@ pub fn run() {
             commands_platform::quota::platform_query_quota,
             commands_platform::quota::platform_query_quota_newapi,
             commands_platform::platform::platform_reorder,
+            // CPA Import (CLIProxyAPI 配置导入)
+            commands_platform::cpa_import::cpa_import_parse,
+            commands_platform::cpa_import::cpa_import_preview_quota,
+            commands_platform::cpa_import::cpa_import_apply,
             // Model Prices
             commands_platform::price::model_price_list,
             commands_platform::price::model_price_count,

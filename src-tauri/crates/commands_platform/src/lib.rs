@@ -12,3 +12,4 @@ pub mod stats;
 pub mod price;
 pub mod quota;
 pub mod batch;
+pub mod cpa_import;

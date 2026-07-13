@@ -2,7 +2,7 @@
   "id": "deep-audit-optimize",
   "name": "deep-audit-optimize",
   "desc": "深度审计全项目不合理处,每发现/优化点独立 Agent 执行",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "向后兼容:禁改公开 API / serde 字段名 / Tauri command 签名 / 设置 JSON 格式",
@@ -361,11 +361,11 @@
       "finished": 1783911592
     }
   ],
-  "worktree": ".worktrees/skein-deep-audit-optimize",
+  "worktree": null,
   "branch": "skein/deep-audit-optimize",
   "estimate": 240,
   "created": 1783849633,
   "started": 1783868345,
-  "finished": null,
-  "updated": 1783911592
+  "finished": 1783913977,
+  "updated": 1783913977
 }

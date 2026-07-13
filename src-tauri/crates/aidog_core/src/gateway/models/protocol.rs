@@ -155,6 +155,23 @@ pub enum Protocol {
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
+    // ── CPA(CLIProxyAPI)导入平台类型 ──
+    // 4 协议均无独立 Rust adapter：endpoints[].protocol 决定 wire format
+    // (cpa-grok→openai_responses / 其余→gemini)，platform_type 仅作平台标识。
+    /// xAI Grok 原生 `/responses` 端点（OAuth token 当 api_key）。wire = openai_responses。
+    #[serde(rename = "cpa-grok")]
+    CpaGrok,
+    /// Google AI Studio 原生 generateContent（OAuth token 当 api_key）。wire = gemini。
+    #[serde(rename = "cpa-aistudio")]
+    CpaAistudio,
+    /// Antigravity(Google Cloud Code internal) `/v1internal:*`：仅存配置，
+    /// 路径 `/v1internal:streamGenerateContent` 与 gemini adapter 不兼容 → 路由暂不支持。
+    #[serde(rename = "cpa-antigravity")]
+    CpaAntigravity,
+    /// Vertex AI：URL 含 projects/{p}/locations/{l}/publishers/google/models/ 结构，
+    /// gemini adapter 不兼容 → 仅存配置，路由暂不支持。base_url region-specific 用户预览补全。
+    #[serde(rename = "cpa-vertex")]
+    CpaVertex,
 }
 
 /// 路由模式
@@ -204,6 +221,11 @@ mod test_protocol_coding_variants {
             ("kimi_coding", Protocol::KimiCoding),
             ("qianfan_coding", Protocol::QianfanCoding),
             ("xiaomi_mimo_coding", Protocol::XiaomiMimoCoding),
+            // CPA(CLIProxyAPI)导入 4 协议（PRD cpa-import s2）
+            ("cpa-grok", Protocol::CpaGrok),
+            ("cpa-aistudio", Protocol::CpaAistudio),
+            ("cpa-antigravity", Protocol::CpaAntigravity),
+            ("cpa-vertex", Protocol::CpaVertex),
         ];
         for (key, expected) in cases {
             let json = format!("\"{key}\"");

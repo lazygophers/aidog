@@ -7,18 +7,6 @@
       "worktree": ".worktrees/skein-cpa-import"
     },
     {
-      "id": "deep-audit-optimize",
-      "status": "进行中",
-      "deps": [],
-      "worktree": ".worktrees/skein-deep-audit-optimize"
-    },
-    {
-      "id": "group-batch-ops",
-      "status": "待处理",
-      "deps": [],
-      "worktree": null
-    },
-    {
       "id": "ui-state-persist",
       "status": "待处理",
       "deps": [],
@@ -26,6 +14,18 @@
     },
     {
       "id": "07-12-peak-models-review-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "deep-audit-optimize",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "group-batch-ops",
       "status": "已完成",
       "deps": [],
       "worktree": null

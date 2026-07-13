@@ -12,6 +12,7 @@ tauri = { workspace = true }
 tauri-plugin-notification = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 toml = { workspace = true }
 url = { workspace = true }
 tokio = { workspace = true }
@@ -42,6 +43,10 @@ rustls-pemfile = { workspace = true }
 rcgen = { workspace = true }
 tokio-rustls = { workspace = true }
 webpki-roots = { workspace = true }
+# 压缩格式支持（CPA config 导入）
+zip = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
 # test_support 模块（pub 暴露给 root package 测试跨 crate 引，非 #[cfg(test)] gate）
 # 含 `tempfile::TempDir` 字段，编译进 release。tempfile 轻量（纯 std 封装），代价可接受。
 # C3+ aidog_test_util crate 抽出后从 main deps 移除。
