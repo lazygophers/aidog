@@ -205,12 +205,27 @@ fn to_export(p: Platform) -> ExportPlatform {
 
 /// 导出 extra 清洗：空 / `{}` / 非法 JSON → None（省略）；合法 obj / 其它 JSON → Some(Value)。
 /// 注：分享场景下 extra 习惯放 JSON object（breaker / mock / newapi）；非法 string 兜底省略（design 决策）。
+/// UI 态 `_ui_*` 前缀键在导出前剥离（仿 `_aidog_statusline` strip 模式，sync_settings.rs），
+/// 防分享/快照携带本机 UI 状态；strip 后空 obj 一并省略（与「空 extra 省略」对称）。
 fn parse_export_extra(extra: &str) -> Option<serde_json::Value> {
     let trimmed = extra.trim();
     if trimmed.is_empty() || trimmed == "{}" {
         return None;
     }
-    serde_json::from_str::<serde_json::Value>(trimmed).ok()
+    let mut value = serde_json::from_str::<serde_json::Value>(trimmed).ok()?;
+    strip_ui_keys(&mut value);
+    if value.as_object().is_some_and(|o| o.is_empty()) {
+        return None;
+    }
+    Some(value)
+}
+
+/// 原地删除 JSON object 中所有 `_ui_*` 前缀键（前端 UI 态：_ui_collapsed / _ui_expand_plat / _ui_expand_grp）。
+/// 非 object 值不动（extra 历史上可能塞裸 string，design 兜底不动）。
+fn strip_ui_keys(value: &mut serde_json::Value) {
+    if let Some(obj) = value.as_object_mut() {
+        obj.retain(|k, _| !k.starts_with("_ui_"));
+    }
 }
 
 fn read_text_optional(path: &std::path::Path) -> Option<String> {
