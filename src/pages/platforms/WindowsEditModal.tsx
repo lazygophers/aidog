@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { TFunction } from "i18next";
 import type { PeakWindow } from "../../domains/platforms/defaults";
+import { Modal } from "../../components/shared/Modal";
 
 /** 周几按钮标签（0=Sunday…6=Saturday，与 PeakWindow.days_of_week 索引对齐）。 */
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
@@ -26,7 +26,6 @@ function clampInt(v: number, min: number, max: number, fallback: number): number
 }
 
 /** WindowsEditModal — 列头点击弹窗编辑时段档 windows。
- *  modal-window-center-rule：liquid glass 主题 transform 祖先致 fixed 退化，必须 createPortal(document.body)。
  *  内部持 localCopy state（windows 副本），编辑不直接改 props；确认 → onSave(localCopy) + onClose。 */
 export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
   open: boolean;
@@ -97,27 +96,8 @@ export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
     onClose();
   };
 
-  return createPortal(
-    <div
-      style={{
-        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999,
-      }}
-      onClick={onClose}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{
-          background: "var(--bg-surface)",
-          borderRadius: "var(--radius-md)",
-          padding: 16,
-          maxWidth: 500,
-          width: "100%",
-          maxHeight: "85vh",
-          overflowY: "auto",
-          border: "1px solid var(--border)",
-        }}
-      >
+  return (
+    <Modal open={open} onClose={onClose} zIndex={9999} maxWidth={500} style={{ padding: 16 }}>
         <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600 }}>
           {t("platform.windows_edit_title", "编辑时段窗口")}
         </h3>
@@ -275,8 +255,6 @@ export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
             {t("action.confirm", "确认")}
           </button>
         </div>
-      </div>
-    </div>,
-    document.body,
+    </Modal>
   );
 }
