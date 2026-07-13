@@ -34,8 +34,10 @@ pub fn update_extra_key<'a>(
             ));
         }
         let key = key.to_string();
-        let sql_read = format!("SELECT extra FROM {table} WHERE id = ?1");
-        let sql_write = format!("UPDATE {table} SET extra = ?1 WHERE id = ?2");
+        // 表名白名单已校验（防注入），但 SQLite 部分白名单值是保留字（"group"），
+        // 须用双引号包标识符；"platform" 加引号同样合法。
+        let sql_read = format!("SELECT extra FROM \"{table}\" WHERE id = ?1");
+        let sql_write = format!("UPDATE \"{table}\" SET extra = ?1 WHERE id = ?2");
         db.call_traced(None, __db_caller, move |conn| {
             // 闭包返回 tokio_rusqlite::Result<u64>（行计数），String 包装在外层 await 后做。
             let raw: String = conn.query_row(&sql_read, params![id as i64], |r| r.get(0))?;
