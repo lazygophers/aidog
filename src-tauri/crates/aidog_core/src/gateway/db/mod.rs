@@ -698,6 +698,9 @@ mod usage_stats;
 mod query_stats;
 mod model_price;
 mod mcp;
+mod ui_extra;
+#[cfg(test)]
+mod test_ui_extra;
 
 // 对外 re-export：保持 `gateway::db::X` 调用路径不变（外部代码无需改）。
 // pub use 按各项自身可见性导出（pub → pub，pub(crate) → pub(crate)），
@@ -720,6 +723,7 @@ pub use usage_stats::*;
 pub use query_stats::*;
 pub use model_price::*;
 pub use mcp::*;
+pub use ui_extra::*;
 
 // 测试模块：test_<源文件名> 1:1 命名，每个源文件 X.rs 的测试只在 test_X.rs（同目录）。
 // 因 db/ 为扁平目录，所有子模块声明须由父模块 mod.rs 持有（test_X.rs 是 db 的兄弟文件，
