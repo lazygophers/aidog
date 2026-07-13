@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
+import { CpaImportModal } from "../../components/platforms/CpaImportModal";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
 import {
   SearchableProtocolSelect, MockConfigEditor,
@@ -87,6 +88,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
+  // CpaImportModal 开关（仅新建态入口展示，同 SmartPaste 模式；apply 后由父级 refreshPlatforms 刷新列表）。
+  const [showCpaImport, setShowCpaImport] = useState(false);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
@@ -105,9 +108,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {!editing && (
-            <button className="btn" onClick={() => setShowPaste(true)}>
-              {t("platform.paste.title", "智能识别")}
-            </button>
+            <>
+              <button className="btn" onClick={() => setShowPaste(true)}>
+                {t("platform.paste.title", "智能识别")}
+              </button>
+              <button className="btn" onClick={() => setShowCpaImport(true)}>
+                {t("platform.cpaImport.entry", "导入 CPA 配置")}
+              </button>
+            </>
           )}
           <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={handleSave}
@@ -125,6 +133,27 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           onApply={applyPaste}
           initialText={pasteInitialText}
           onClose={() => { setShowPaste(false); setPasteInitialText(undefined); }}
+        />
+      )}
+
+      {showCpaImport && (
+        <CpaImportModal
+          open={showCpaImport}
+          onClose={() => setShowCpaImport(false)}
+          onApplied={async (created, failed) => {
+            // toast：created N / failed M + 失败原因摘要。
+            const ok = created.length;
+            const fail = failed.length;
+            const detail = failed.length > 0
+              ? ` · ${failed.map(f => `${f.name}: ${f.error}`).join("; ").slice(0, 200)}`
+              : "";
+            const text = `${t("platform.cpaImport.created", "创建 {{n}}", { n: ok })}${fail > 0 ? ` / ${t("platform.cpaImport.failed", "失败 {{n}}", { n: fail })}${detail}` : ""}`;
+            s.setToast({ text, ok: fail === 0 });
+            setTimeout(() => s.setToast(null), 3500);
+            await s.refreshPlatforms();
+            // 回列表态（已创建平台需在列表展示）。
+            resetForm();
+          }}
         />
       )}
 

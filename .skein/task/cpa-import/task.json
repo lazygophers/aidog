@@ -34,14 +34,21 @@
         "多文件去重合并",
         "cargo test 通过"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "estimate": 35,
       "agent": "general-purpose",
       "skills": [],
       "created": 1783909971,
       "started": 1783912880,
-      "finished": null
+      "finished": 1783916002
     },
     {
       "sid": "s2",
@@ -56,14 +63,19 @@
         "4 协议 Protocol serde round-trip",
         "adapter 路由映射在"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "estimate": 45,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783909971,
-      "started": null,
-      "finished": null
+      "started": 1783916096,
+      "finished": 1783920835
     },
     {
       "sid": "s3",
@@ -80,14 +92,20 @@
         "apply 非原子返 created/failed",
         "余额查询 platform_id=0 不落库(persist_quota_to_db None-guard)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "estimate": 35,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783909971,
-      "started": null,
-      "finished": null
+      "started": 1783920835,
+      "finished": 1783922205
     },
     {
       "sid": "s4",
@@ -102,14 +120,19 @@
         "createPortal",
         "api.ts 类型齐"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "estimate": 40,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783909971,
-      "started": null,
-      "finished": null
+      "started": 1783922205,
+      "finished": 1783923077
     },
     {
       "sid": "s5",
@@ -126,14 +149,19 @@
         "cargo test + yarn test 全过",
         "8 语言 key 无缺译"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "estimate": 20,
       "agent": "aidog-i18n-auditor",
       "skills": [],
       "created": 1783909971,
-      "started": null,
-      "finished": null
+      "started": 1783923077,
+      "finished": 1783924025
     }
   ],
   "worktree": ".worktrees/skein-cpa-import",
@@ -142,5 +170,5 @@
   "created": 1783872632,
   "started": 1783912623,
   "finished": null,
-  "updated": 1783912880
+  "updated": 1783924025
 }
