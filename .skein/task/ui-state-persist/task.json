@@ -2,7 +2,7 @@
   "id": "ui-state-persist",
   "name": "ui-state-persist",
   "desc": "记住平台分组展开/折叠状态 + 上次打包设定,跨会话恢复",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "UI 键统一 _ui_ 前缀:_ui_collapsed(group)/_ui_expand_plat(Platforms 页)/_ui_expand_grp(Groups 页内卡)",
@@ -22,14 +22,16 @@
       "验收": [
         "cargo clippy+test 通过。command 注册 generate_handler。db 单键改 extra helper"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 25,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868872,
-      "started": null,
-      "finished": null
+      "started": 1783930645,
+      "finished": 1783932030
     },
     {
       "sid": "s2",
@@ -40,32 +42,37 @@
       "验收": [
         "yarn build+test 通过。api.ts setUiExtra 封装 + TS 类型"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 10,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868872,
-      "started": null,
-      "finished": null
+      "started": 1783932149,
+      "finished": 1783932409
     },
     {
       "sid": "s3",
       "name": "Groups collapsedGroups 持久化(读 _ui_collapsed + debounce 300ms 写)",
       "depends_on": [
-        "s2"
+        "s2",
+        "s7"
       ],
       "验收": [
         "yarn build+test+check:i18n 通过。初始化从 group.extra._ui_collapsed 读。toggle debounce 300ms 写"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 20,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868872,
-      "started": null,
-      "finished": null
+      "started": 1783934064,
+      "finished": 1783934336
     },
     {
       "sid": "s4",
@@ -76,14 +83,16 @@
       "验收": [
         "yarn build+test 通过。初始化从 _ui_expand_plat 读。toggle debounce 写"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 20,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868872,
-      "started": null,
-      "finished": null
+      "started": 1783932419,
+      "finished": 1783932765
     },
     {
       "sid": "s5",
@@ -94,14 +103,16 @@
       "验收": [
         "yarn build+test 通过。_ui_expand_grp 独立持久化"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 15,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868872,
-      "started": null,
-      "finished": null
+      "started": 1783934064,
+      "finished": 1783934549
     },
     {
       "sid": "s6",
@@ -110,21 +121,38 @@
       "验收": [
         "cargo test 通过。export snapshot strip _ui_*。import 不恢复 UI 态"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "estimate": 15,
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1783868872,
-      "started": null,
-      "finished": null
+      "started": 1783930645,
+      "finished": 1783932125
+    },
+    {
+      "sid": "s7",
+      "name": "group.extra schema migration",
+      "desc": "group 表加 extra 列(ALTER) + Group struct extra 字段 + db/group.rs SELECT/INSERT/row_to_group 同步 + update_extra_key 白名单追加 group + 失效缓存",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783932137,
+      "started": 1783932149,
+      "finished": 1783934063
     }
   ],
   "worktree": null,
   "branch": "skein/ui-state-persist",
   "estimate": 30,
   "created": 1783868545,
-  "started": null,
-  "finished": null,
-  "updated": 1783868872
+  "started": 1783930552,
+  "finished": 1783934830,
+  "updated": 1783934830
 }
