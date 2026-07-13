@@ -10,6 +10,7 @@ import { aboutApi, cliEnvApi, type AboutInfo, type CliToolStatus, type CliConfli
 import { checkForUpdateManual } from "../services/updater";
 import { UpdatePromptModal } from "../components/UpdatePromptModal";
 import { IconGlobe } from "../components/icons";
+import { formatDateTime } from "../utils/formatters";
 
 type UpdateState = "idle" | "checking" | "uptodate" | "error";
 
@@ -80,7 +81,7 @@ export function About() {
     if (!info?.build_time) return "—";
     const secs = Number(info.build_time);
     if (!Number.isFinite(secs) || secs <= 0) return info.build_time;
-    return new Date(secs * 1000).toLocaleString();
+    return formatDateTime(secs * 1000) || info.build_time;
   })();
 
   // ─── 本地环境：检查版本 / 安装 / 升级 / 诊断冲突 ───────────────

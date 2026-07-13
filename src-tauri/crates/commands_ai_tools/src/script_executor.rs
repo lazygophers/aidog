@@ -1,11 +1,7 @@
 use aidog_core::shared::*;
 use aidog_core::gateway::{self, db::{self, Db}};
-#[allow(unused_imports)]
 use gateway::models::*;
-#[allow(unused_imports)]
 use tauri::State;
-#[allow(unused_imports)]
-use serde_json::Value;
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]

@@ -2,7 +2,7 @@
   "id": "cpa-import",
   "name": "CPA 格式导入 + cpa-* 平台类型",
   "desc": "支持导入 CLIProxyAPI 的 cpa 格式(平台添加页导入按钮,预览多平台,用户确认创建+选模型),新增 cpa-grok/cpa-codex 等平台类型",
-  "status": "待处理",
+  "status": "进行中",
   "deps": [],
   "contracts": [
     "导入 MUST 不自动创建平台: cpa_import_parse 仅返预览数据, apply (cpa_import_apply) 才创建",
@@ -25,9 +25,7 @@
       "sid": "s1",
       "name": "后端解析器(parser.rs)+serde_yaml+压缩解压",
       "desc": "新增 aidog_core/src/gateway/cpa_import/parser.rs: 判文件类型(单文件/zip/tgz/tar/目录), zip+tar+flate2 解压到 tempdir, 递归扫候选(.yaml/.yml/.json), serde_yaml/serde_json 逐个尝试解析, 识别 6 cpa 段顶层 key, 提取 CpaProvider{source_segment,name,base_url,api_key,models,prefix,headers,disabled}, auth-dir 可选扫描(.json 按 type/access_token/refresh_token 解析, refresh 丢), 跨文件 name 或 segment+base_url 去重合并(api_key 取首, models 并集)。rar/7z 拒绝+提示。加 serde_yaml 依赖到 aidog_core Cargo.toml",
-      "depends_on": [
-        "-"
-      ],
+      "depends_on": [],
       "验收": [
         "解析 sample config.example.yaml 返正确 CpaProvider[]",
         "压缩 zip/tgz/tar 解压扫多文件",
@@ -37,12 +35,12 @@
         "cargo test 通过"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "estimate": 35,
       "agent": "general-purpose",
       "skills": [],
       "created": 1783909971,
-      "started": null,
+      "started": 1783912880,
       "finished": null
     },
     {
@@ -138,11 +136,11 @@
       "finished": null
     }
   ],
-  "worktree": null,
+  "worktree": ".worktrees/skein-cpa-import",
   "branch": "skein/cpa-import",
   "estimate": 180,
   "created": 1783872632,
-  "started": null,
+  "started": 1783912623,
   "finished": null,
-  "updated": 1783911295
+  "updated": 1783912880
 }

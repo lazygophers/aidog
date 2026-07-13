@@ -1,7 +1,8 @@
 /// Shared HTTP client builder with optional upstream proxy support.
 use super::db::Db;
 use super::models::ProxyClientSettings;
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 /// Load system proxy client settings from DB.
@@ -12,6 +13,53 @@ pub async fn load_proxy_client_settings(db: &Arc<Db>) -> ProxyClientSettings {
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default()
+}
+
+/// Client cache key: (use_proxy, timeout_secs, conn_timeout_secs)
+type ClientKey = (bool, u64, u64);
+
+/// Simple LRU cache for reqwest::Client instances.
+/// Reuses TLS/connections across requests with same proxy+timeout config.
+struct ClientCache {
+    map: HashMap<ClientKey, Arc<reqwest::Client>>,
+    order: Vec<ClientKey>, // For LRU eviction
+    capacity: usize,
+}
+
+impl ClientCache {
+    fn new(capacity: usize) -> Self {
+        Self {
+            map: HashMap::new(),
+            order: Vec::new(),
+            capacity,
+        }
+    }
+
+    fn get(&self, key: ClientKey) -> Option<Arc<reqwest::Client>> {
+        self.map.get(&key).cloned()
+    }
+
+    fn put(&mut self, key: ClientKey, client: Arc<reqwest::Client>) {
+        if self.map.contains_key(&key) {
+            return;
+        }
+        if self.map.len() >= self.capacity {
+            if let Some(old_key) = self.order.first() {
+                self.map.remove(old_key);
+                self.order.remove(0);
+            }
+        }
+        self.map.insert(key, client);
+        self.order.push(key);
+    }
+}
+
+/// Global client cache: lazy-initialized on first use.
+/// Capacity=16 covers common (proxy, timeout) combinations.
+fn global_client_cache() -> &'static Arc<RwLock<ClientCache>> {
+    use std::sync::OnceLock;
+    static CACHE: OnceLock<Arc<RwLock<ClientCache>>> = OnceLock::new();
+    CACHE.get_or_init(|| Arc::new(RwLock::new(ClientCache::new(16))))
 }
 
 /// Parse platform `extra` JSON for `proxy_enabled` field.
@@ -30,6 +78,8 @@ pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
 /// - `None` = check system proxy + platform `proxy_enabled`
 /// - `Some(true)` = always use system proxy if configured
 /// - `Some(false)` = never use proxy
+///
+/// Caches clients by (use_proxy, timeout_secs, conn_timeout_secs) to reuse TLS/connections.
 pub async fn build_http_client(
     db: &Arc<Db>,
     timeout_secs: u64,
@@ -49,6 +99,17 @@ pub async fn build_http_client(
         }
     };
 
+    let cache_key = (use_proxy, timeout_secs, conn_timeout_secs);
+
+    // Try cache first (read lock, fast path)
+    {
+        let cache = global_client_cache().read().unwrap();
+        if let Some(client) = cache.get(cache_key) {
+            return (*client).clone();
+        }
+    }
+
+    // Cache miss: build new client
     // proxy 协商：
     // - `use_proxy=true`（用户显式配 DB proxy）：`.proxy(explicit)` 自动关 auto_sys_proxy
     //   （reqwest 文档：调 .proxy() 后不再读 env），env 代理天然失效。
@@ -72,7 +133,18 @@ pub async fn build_http_client(
     } else {
         builder = builder.no_proxy();
     }
-    builder.build().unwrap_or_else(|_| reqwest::Client::new())
+    let client = builder.build().unwrap_or_else(|_| reqwest::Client::new());
+
+    // Cache for reuse (write lock)
+    {
+        let mut cache = global_client_cache().write().unwrap();
+        // Double-check in case another thread already inserted
+        if !cache.map.contains_key(&cache_key) {
+            cache.put(cache_key, Arc::new(client.clone()));
+        }
+    }
+
+    client
 }
 
 /// Convenience: build client without platform context (always follows system proxy).

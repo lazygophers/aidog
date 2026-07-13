@@ -1,18 +1,7 @@
 use aidog_core::shared::*;
 use aidog_core::sync_settings::try_sync_settings;
 use aidog_core::gateway::{self, db::{self, Db}};
-#[allow(unused_imports)]
-use aidog_core::logging;
-#[allow(unused_imports)]
-use gateway::models::*;
-#[allow(unused_imports)]
 use tauri::State;
-#[allow(unused_imports)]
-use serde_json::Value;
-#[allow(unused_imports)]
-use std::sync::Arc;
-#[allow(unused_imports)]
-use tauri::Manager;
 
 
 use gateway::models::SetSettingInput;

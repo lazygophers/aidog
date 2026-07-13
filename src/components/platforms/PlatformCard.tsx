@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
-import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
+import { clamp, formatNumber, formatPercent, formatCostUsd, formatDateTime } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, HEALTH_COLORS,
@@ -274,7 +274,7 @@ export const PlatformCard = memo(function PlatformCard({
                   }}
                   title={p.last_error
                     ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
-                        .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? new Date(p.last_error_at as number).toLocaleString() : "")
+                        .replace("{{time}}", formatDateTime(p.last_error_at) ?? "")
                         .replace("{{error}}", p.last_error)
                     : undefined}
                 />
@@ -310,7 +310,7 @@ export const PlatformCard = memo(function PlatformCard({
                       borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
                     }}
                     title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
-                      .replace("{{time}}", p.auto_disabled_until > 0 ? new Date(p.auto_disabled_until).toLocaleString() : "-")}
+                      .replace("{{time}}", p.auto_disabled_until > 0 ? (formatDateTime(p.auto_disabled_until) ?? "-") : "-")}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 9v4" /><path d="M12 17h.01" />
@@ -382,7 +382,7 @@ export const PlatformCard = memo(function PlatformCard({
                           borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
                         }}
                         title={t("platform.expiredHint", "已过期：{{time}}，路由自动排除")
-                          .replace("{{time}}", new Date(p.expires_at).toLocaleString())}
+                          .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
                       >
                         {t("platform.expired", "已过期")}
                       </div>
@@ -399,7 +399,7 @@ export const PlatformCard = memo(function PlatformCard({
                       title={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
                     >
                       {t("platform.expiresAtBadge", "到期 {{time}}")
-                        .replace("{{time}}", new Date(p.expires_at).toLocaleString())}
+                        .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
                     </div>
                   );
                 })()}
@@ -426,7 +426,7 @@ export const PlatformCard = memo(function PlatformCard({
                       borderRadius: 5, padding: "1px 6px",
                     }}
                     title={t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
-                      .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? new Date(p.last_error_at as number).toLocaleString() : "-")
+                      .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? (formatDateTime(p.last_error_at) ?? "-") : "-")
                       .replace("{{error}}", p.last_error)}
                   >
                     <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -439,87 +439,13 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
               </div>
               {/* 快操作 */}
-              <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
-                {showQuota && (
-                  <button
-                    className="btn btn-ghost btn-icon"
-                    style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}
-                    disabled={refreshing}
-                    title={t("platform.quotaRefresh", "刷新额度")}
-                    onClick={(e) => { e.stopPropagation(); actions.onRefreshQuota(p); }}
-                  >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                      strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                      style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}>
-                      <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                      <polyline points="21 3 21 9 15 9" />
-                    </svg>
-                  </button>
-                )}
-                <div
-                  className={`toggle ${p.status === "enabled" ? "active" : ""}`}
-                  style={{ cursor: "pointer" }}
-                  onClick={(e) => { e.stopPropagation(); actions.onToggleEnabled(p); }}
-                  title={p.status === "enabled"
-                    ? t("platform.disable", "禁用")
-                    : p.status === "auto_disabled"
-                      ? t("platform.reenable", "重新启用")
-                      : t("platform.enable", "启用")}
-                />
-                <div style={{ display: "inline-flex", fontSize: 11 }}>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
-                    disabled={testing}
-                    onClick={(e) => { e.stopPropagation(); actions.onQuickTest(p); }}
-                    title={t("platform.quickTest", "快速测试默认模型")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                      <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
-                    </svg>
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
-                    onClick={(e) => { e.stopPropagation(); actions.onCustomTest(p); }}
-                    title={t("platform.customTest", "自定义测试")}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 5l4 4 4-4" />
-                    </svg>
-                  </button>
-                </div>
-                <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(p); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 2h10v10H2z" />
-                    <path d="M4 5h6M4 7h4M4 9h5" />
-                  </svg>
-                </button>
-                <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(p); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10 2l2 2-7 7H3v-2l7-7z" />
-                  </svg>
-                </button>
-                <button className="btn btn-ghost btn-icon" title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(p); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="3" r="1.6" />
-                    <circle cx="3" cy="7" r="1.6" />
-                    <circle cx="11" cy="11" r="1.6" />
-                    <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
-                  </svg>
-                </button>
-                <button className="btn btn-ghost btn-icon" title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(p); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="4" y="4" width="8" height="8" rx="1.2" />
-                    <path d="M9 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" />
-                  </svg>
-                </button>
-                <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); actions.onDelete(p.id); }}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                  </svg>
-                </button>
-              </div>
+              <PlatformActionButtons
+                showQuota={showQuota}
+                refreshing={refreshing}
+                testing={testing}
+                platform={p}
+                actions={actions}
+              />
             </div>
             {/* ── 行 1.5：per-group 优先级编辑（仅分组展开区上下文，主列表不渲染） ── */}
             {onLevelPriorityChange && (
@@ -574,7 +500,7 @@ export const PlatformCard = memo(function PlatformCard({
                     </span>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconCost size={12} />
-                      ${formatCost(u.total_cost)}
+                      {formatCostUsd(u.total_cost)}
                     </span>
                   </div>
                 )}
@@ -658,36 +584,14 @@ export const PlatformCard = memo(function PlatformCard({
               </div>
             )}
             {/* 已使用统计（总计 + 今日） */}
-            {u && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
-                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
-                    <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
-                  </div>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                    <StatChip icon={<IconBolt size={13} />} value={formatNumber(u.today_tokens)} label="tokens" />
-                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.today_cost)}`} label="cost" level={costLevel(u.today_cost)} />
-                  </div>
-                </div>
-              </div>
-            )}
-            {/* ④ 用量区骨架：渐进档批量 usage 待回时占位（无既有 usage），禁空白 */}
-            {!u && usagePending && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "用量加载中")} />
-                  <span className="skeleton" style={{ width: 70, height: 24 }} />
-                  <span className="skeleton" style={{ width: 60, height: 24 }} />
-                </div>
-              </div>
-            )}
+            <UsageSection
+              usage={u}
+              usagePending={usagePending}
+              totalTokens={total}
+              totalCost={u?.total_cost ?? 0}
+              successRate={sr}
+              totalRequests={u?.total_requests ?? 0}
+            />
             {/* 配额各档明细 */}
             {showQuota && quota.tiers.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -737,30 +641,11 @@ export const PlatformCard = memo(function PlatformCard({
               </div>
             )}
             {/* Endpoints badges */}
-            {p.endpoints && p.endpoints.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  {p.endpoints.map((ep, ei) => (
-                    <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
-                      {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
-                      {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* 模型 badges */}
-            {configuredModels.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                  {configuredModels.map((m, mi) => (
-                    <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <EndpointsSection
+              endpoints={p.endpoints}
+              labelMap={labelMap}
+              configuredModels={configuredModels}
+            />
           </div>
         )}
       </CompactCard>
@@ -768,9 +653,208 @@ export const PlatformCard = memo(function PlatformCard({
   );
 });
 
+// ── Endpoints & 模型展示区 ──
+
+function EndpointsSection({
+  endpoints,
+  labelMap,
+  configuredModels,
+}: {
+  endpoints: Platform["endpoints"];
+  labelMap: Record<string, string>;
+  configuredModels: string[];
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {endpoints && endpoints.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {endpoints.map((ep, ei) => (
+              <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
+                {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
+                {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+      {configuredModels.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {configuredModels.map((m, mi) => (
+              <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</span>
+            ))}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── 用量统计区 ──
+
+function UsageSection({
+  usage,
+  usagePending,
+  totalTokens,
+  totalCost,
+  successRate,
+  totalRequests,
+}: {
+  usage: PlatformUsageStats | undefined;
+  usagePending: boolean;
+  totalTokens: number;
+  totalCost: number;
+  successRate: number;
+  totalRequests: number;
+}) {
+  const { t } = useTranslation();
+  return (
+    <>
+      {usage && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
+              <StatChip icon={<IconCost size={13} />} value={formatCostUsd(totalCost)} label="cost" level={costLevel(totalCost)} />
+              <StatChip icon={<IconCheck size={13} />} value={formatPercent(successRate)} label="ok" level={successRateLevel(successRate, totalRequests)} />
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <StatChip icon={<IconBolt size={13} />} value={formatNumber(usage.today_tokens)} label="tokens" />
+              <StatChip icon={<IconCost size={13} />} value={formatCostUsd(usage.today_cost)} label="cost" level={costLevel(usage.today_cost)} />
+            </div>
+          </div>
+        </div>
+      )}
+      {!usage && usagePending && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "用量加载中")} />
+            <span className="skeleton" style={{ width: 70, height: 24 }} />
+            <span className="skeleton" style={{ width: 60, height: 24 }} />
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+// ── 平台快操作按钮组 ──
+
+function PlatformActionButtons({
+  showQuota,
+  refreshing,
+  testing,
+  platform,
+  actions,
+}: {
+  showQuota: boolean;
+  refreshing: boolean;
+  testing: boolean;
+  platform: Platform;
+  actions: PlatformCardActions;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+      {showQuota && (
+        <button
+          className="btn btn-ghost btn-icon"
+          style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}
+          disabled={refreshing}
+          title={t("platform.quotaRefresh", "刷新额度")}
+          onClick={(e) => { e.stopPropagation(); actions.onRefreshQuota(platform); }}
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+            style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}>
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+        </button>
+      )}
+      <div
+        className={`toggle ${platform.status === "enabled" ? "active" : ""}`}
+        style={{ cursor: "pointer" }}
+        onClick={(e) => { e.stopPropagation(); actions.onToggleEnabled(platform); }}
+        title={platform.status === "enabled"
+          ? t("platform.disable", "禁用")
+          : platform.status === "auto_disabled"
+            ? t("platform.reenable", "重新启用")
+            : t("platform.enable", "启用")}
+      />
+      <div style={{ display: "inline-flex", fontSize: 11 }}>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
+          disabled={testing}
+          onClick={(e) => { e.stopPropagation(); actions.onQuickTest(platform); }}
+          title={t("platform.quickTest", "快速测试默认模型")}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
+          </svg>
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
+          onClick={(e) => { e.stopPropagation(); actions.onCustomTest(platform); }}
+          title={t("platform.customTest", "自定义测试")}
+        >
+          <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 5l4 4 4-4" />
+          </svg>
+        </button>
+      </div>
+      <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 2h10v10H2z" />
+          <path d="M4 5h6M4 7h4M4 9h5" />
+        </svg>
+      </button>
+      <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(platform); }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M10 2l2 2-7 7H3v-2l7-7z" />
+        </svg>
+      </button>
+      <button className="btn btn-ghost btn-icon" title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(platform); }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="11" cy="3" r="1.6" />
+          <circle cx="3" cy="7" r="1.6" />
+          <circle cx="11" cy="11" r="1.6" />
+          <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
+        </svg>
+      </button>
+      <button className="btn btn-ghost btn-icon" title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(platform); }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="4" y="4" width="8" height="8" rx="1.2" />
+          <path d="M9 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" />
+        </svg>
+      </button>
+      <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); actions.onDelete(platform.id); }}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+        </svg>
+      </button>
+    </div>
+  );
+}
+
 // ── 最近一次测试徽章 ──
 
-/** 毫秒 epoch → 相对时间文案（刚刚 / N 分钟前 / N 小时前 / N 天前）。 */
+/** 毫秒 epoch → 相对时间简写（N 分钟/小时/天）。
+ * ponytail: 保留本地实现而非 formatRelativeTime(formatters.ts)，
+ * 因为后者返回完整文案（"刚刚"/"N 分钟前"）本组件需简写（"3m"/"5h"/"2d"）且 <1 分钟时空字符串。
+ * 改用 formatRelativeTime 会导致 LastTestBadge 快照变化（增加 "刚刚"）破坏回归。
+ */
 function relativeTime(createdMs: number, now: number = Date.now()): string {
   const diff = Math.max(0, now - createdMs);
   const sec = Math.floor(diff / 1000);
@@ -787,10 +871,9 @@ function relativeTime(createdMs: number, now: number = Date.now()): string {
 
 export function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const { t } = useTranslation();
-  const clamp = (v: number) => Math.min(10, Math.max(1, v));
   // 按钮即调：上下按钮=明确确认动作，保留 clamp + 立即 onChange
   const set = (v: number) => {
-    const next = clamp(v);
+    const next = clamp(v, 1, 10);
     if (next !== value) onChange(next);
   };
   // ponytail: 输入框走本地态编辑，blur/Enter 时 clamp+提交，避免按键中间态打后端
@@ -804,7 +887,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
     editingRef.current = false;
     const v = parseInt(local, 10);
     if (Number.isNaN(v)) { setLocal(String(value)); return; }
-    const next = clamp(v);
+    const next = clamp(v, 1, 10);
     if (next !== value) onChange(next);
     setLocal(String(next)); // 同步显示为 clamp 后值（范围外静默纠正：99→10, 0→1）
   };
@@ -890,9 +973,9 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           cursor: hasBody ? "pointer" : "default",
         }}
         title={ok
-          ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: new Date(result.created_at).toLocaleString() })
+          ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: formatDateTime(result.created_at) ?? "" })
           : t("platform.lastTestFailHint", "最近测试失败 · {{time}}{{error}}", {
-              time: new Date(result.created_at).toLocaleString(),
+              time: formatDateTime(result.created_at) ?? "",
               error: result.error ? `\n${result.error}` : "",
             })}
       >

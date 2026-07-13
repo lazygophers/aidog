@@ -4,6 +4,7 @@
 // 直接消费后端 level，本模块供前端列表页从原始 est 数据本地算 level（同一阈值，无漂移）。
 
 import type { ColorLevel } from "./colorScale";
+import { clamp } from "../../utils/formatters";
 
 // ── Coding plan tier：剩余可用时间% 阈值（对齐 usage_color.rs）──
 /** 剩余可用时间% < 40 → 红 */
@@ -52,8 +53,6 @@ export function cycleMsForTier(name: string): number | null {
       return null;
   }
 }
-
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 
 /**
  * 剩余可用时间% = clamp(100 / pace, 0, 100)；pace = util_ratio / elapsed_ratio。

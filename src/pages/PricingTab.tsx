@@ -12,6 +12,7 @@ import { IconClose } from "../components/icons";
 
 // ponytail: 统一 token (title 15→20, body 14→15), 视觉差异可忽略
 import { F } from "../domains/shared/tokens";
+import { formatDateTime } from "../utils/formatters";
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 export function PricingTab() {
@@ -132,7 +133,7 @@ export function PricingTab() {
 
   const formatTime = (ts: number) => {
     if (!ts) return "-";
-    return new Date(ts).toLocaleString();
+    return formatDateTime(ts) || "-";
   };
 
   return (

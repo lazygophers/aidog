@@ -4,8 +4,6 @@
 //! build_notify_hooks_fragment。transitively 覆盖 do_sync_group_settings + codex config 写入。
 use aidog_core::hooks::*;
 use aidog_core::sync_settings::do_sync_group_settings;
-#[allow(unused_imports)]
-use aidog_core::shared::*;
 use aidog_core::gateway::{self, db::Db};
 use aidog_core::gateway::models::*;
 use aidog_test_util::mock_app_with_db;

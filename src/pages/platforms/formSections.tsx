@@ -17,13 +17,13 @@ import {
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelList } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
+import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
  *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
 export function toDatetimeLocal(ms: number): string {
   const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
@@ -413,7 +413,6 @@ function formatWindowPreview(w: PeakWindow, tzMode: "local" | "utc", t: TFunctio
   // 再对 end hour 做时区换算
   const endHourDisplay = utcToDisplay(endHourRaw, tzMode);
 
-  const pad = (n: number) => String(n).padStart(2, "0");
   const startStr = `${pad(startHourDisplay)}:${pad(startMin)}:00`;
   const endStr = `${pad(endHourDisplay)}:${pad(endMinRaw)}:59`;
 
@@ -921,7 +920,7 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
                   return t("platform.expired", "已过期");
                 }
                 const inDay = expiresAt - nowMs < 86_400_000;
-                const txt = new Date(expiresAt).toLocaleString();
+                const txt = formatDateTime(expiresAt) || "-";
                 return inDay
                   ? t("platform.expiresAtSoon", "临近过期：{{time}}", { time: txt })
                   : txt;

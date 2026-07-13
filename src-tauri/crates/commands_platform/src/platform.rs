@@ -1,18 +1,7 @@
 use aidog_core::shared::*;
 use aidog_core::gateway::{self, db::{self, Db}};
-#[allow(unused_imports)]
-use aidog_core::logging;
-#[allow(unused_imports)]
 use gateway::models::*;
-#[allow(unused_imports)]
-use tauri::State;
-#[allow(unused_imports)]
-use serde_json::Value;
-#[allow(unused_imports)]
-use std::sync::Arc;
-#[allow(unused_imports)]
-use tauri::Manager;
-use tauri::Emitter;
+use tauri::{State, Emitter};
 
 
 pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform, level_priority: Option<i32>) -> Result<(), String> {
