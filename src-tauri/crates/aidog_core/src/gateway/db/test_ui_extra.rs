@@ -60,12 +60,15 @@ use crate::gateway::db::update_extra_key;
         assert!(err.contains("unsupported table"), "got: {err}");
     }
 
-    /// 当前 group 表无 extra 列：白名单拒绝（防 SQL 错误）。
+    /// group.extra 读改写 round-trip：写 _ui_* → 读 Group.extra 应含该键（schema_late migration 044 起 group 带 extra 列）。
     #[tokio::test]
-    async fn ui_extra_group_target_currently_unsupported() {
+    async fn ui_extra_group_round_trip() {
         let db = test_db().await;
-        let err = update_extra_key(&db, "group", 1, "_ui_x", serde_json::json!(true))
+        let g = create_group(&db, sample_group("ui-group", vec![])).await.unwrap();
+        update_extra_key(&db, "group", g.id, "_ui_collapsed", serde_json::json!(true))
             .await
-            .unwrap_err();
-        assert!(err.contains("unsupported table 'group'"), "got: {err}");
+            .unwrap();
+        let got = get_group(&db, g.id).await.unwrap().unwrap();
+        let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
+        assert_eq!(v["_ui_collapsed"], serde_json::json!(true));
     }

@@ -368,6 +368,14 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // + DROP 两表。新库不再建两表，MITM 配置复用 setting 的 get_setting/set_setting + 缓存机制。
                 // 详见 migration 043（migrate_mitm_legacy_tables_to_setting）。
                 migrate_mitm_legacy_tables_to_setting(conn);
+
+                // Migration 044: group.extra JSON 列（_ui_* UI 态 + 未来业务扩展，仿 platform.extra）。
+                // 空串 = "{}" 的轻量表示（update_extra_key 读时统一视作 {}）。幂等：旧库 ALTER 无 IF NOT EXISTS，
+                // duplicate column 错误被忽略；新库本就有此列。
+                let _ = conn.execute(
+                    "ALTER TABLE \"group\" ADD COLUMN extra TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
     Ok(())
 }
 
