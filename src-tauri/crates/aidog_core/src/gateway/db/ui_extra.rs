@@ -4,12 +4,12 @@
 //! 后端业务解析（peak_hours_for / parse_disable_during_peak / parse_breaker 等）用
 //! serde_json 读己键天然忽略未知键，故 _ui_* 与业务键共存无副作用。
 //!
-//! 当前白名单仅 `platform`（group 表当前无 extra 列；待 schema 迁移后追加 "group"）。
+//! 白名单：`platform` / `group`（两表均有 extra 列，schema_late migration 044 起 group 也带）。
 use super::*;
 use rusqlite::params;
 
 /// 允许操作 extra 键的表名白名单（表名无法参数化绑定，须拼 SQL 前显式校验防注入）。
-const EXTRA_TABLES: &[&str] = &["platform"];
+const EXTRA_TABLES: &[&str] = &["platform", "group"];
 
 /// 读 extra JSON → set 单键 → 写回（单 SQL UPDATE）。
 /// - `table`：白名单内的表名（当前仅 "platform"）
@@ -70,8 +70,12 @@ pub fn update_extra_key<'a>(
         })
         .await
         .map_err(|e| format!("update_extra_key: {e}"))?;
-        // extra 改动影响 group_details 缓存（platform.extra 被内嵌）；group 表暂无此路径。
-        db.invalidate_group_details_cache();
+        // extra 改动影响 group_details 缓存（platform.extra 被内嵌）+ groups 缓存（group.extra 内嵌于 Group）。
+        // 两失效一并调：platform 写只污染 group_details（groups 缓存不含 platform.extra），
+        // group 写两缓存都污染（Group.extra 直接进 groups 列表 + group_details）。
+        // ponytail: 不分支按 table 挑调用——invalidate_groups_cache 内部已联动清 group_details，
+        // 多调一次 group_details 失效是无害的空写（RwLock 写清 None）。
+        db.invalidate_groups_cache();
         Ok(())
     }
 }

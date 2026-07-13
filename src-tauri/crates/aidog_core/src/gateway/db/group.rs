@@ -21,12 +21,13 @@ fn parse_env_vars(json: &str) -> Vec<EnvVar> {
 
 /// Group SELECT 列序
 const GROUP_COLUMNS: &str =
-    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default, env_vars";
+    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default, env_vars, extra";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(2)?;
     let mappings_str: String = row.get(9)?;
     let env_vars_str: String = row.get(14)?;
+    let extra_str: String = row.get::<_, String>(15).unwrap_or_default();
     Ok(Group {
         id: row.get::<_, i64>(0)? as u64,
         name: row.get(1)?,
@@ -44,6 +45,7 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
         group_key: row.get(12)?,
         is_default: row.get::<_, i64>(13)? != 0,
         env_vars: parse_env_vars(&env_vars_str),
+        extra: extra_str,
     })
 }
 
@@ -102,6 +104,7 @@ pub fn create_group(db: &Db, input: CreateGroup) -> impl std::future::Future<Out
         max_retries: input.max_retries,
         is_default: false,
         env_vars: input.env_vars,
+        extra: String::new(),
     })
     }
 }
