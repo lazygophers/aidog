@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { Modal } from "../shared/Modal";
 import { StatChip } from "../shared/StatChip";
 import { IconClose } from "../icons";
@@ -80,6 +81,16 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
 
   const [applying, setApplying] = useState(false);
 
+  // 原生拖入高亮态（Tauri onDragDropEvent；HTML5 DnD 在 macOS WKWebView drop 不触发）。
+  const [dragActive, setDragActive] = useState(false);
+  // ponytail: rowId 跨源唯一性——以 orderLenRef 作 baseIdx 偏移，避免每批 idx 从 0 起跨源撞 id。
+  const orderLenRef = useRef(0);
+  // 并发解析计数：>0 即 setParsing(true)，drop 串行 + handleParse 共享同一闸门。
+  const parseInFlightRef = useRef(0);
+  // 拖放目标识别：默认 "source"（modal 根 div 全域），HTML5 onDragEnter 标记 "authdir"。
+  // ponytail: WKWebView 若 onDragEnter 也不触发（与 onDrop 同病），此退化失效，auth-dir 回退 dialog。
+  const dragTargetRef = useRef<"source" | "authdir">("source");
+
   // 协议色 + label map（async 派生自 presets）。
   const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
@@ -105,6 +116,10 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
     setSourcePath(""); setAuthDir(""); setError("");
     setSkipped([]); setSourceFiles([]);
     setOriginals({}); setOrder([]); setRows({});
+    setDragActive(false);
+    orderLenRef.current = 0;
+    parseInFlightRef.current = 0;
+    dragTargetRef.current = "source";
   }, [isOpen]);
 
   const handlePickSource = async () => {
@@ -122,64 +137,132 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
     if (picked && typeof picked === "string") setter(picked);
   };
 
+  // ponytail: 抽取 parseAndMerge —— 单源解析 + 增量合并。dialog 单源 / drop 多源共享同一合并逻辑。
+  // rowId 以 orderLenRef 作 baseIdx 偏移，跨源递增，防 `${idx}::${name}::${base_url}` 撞 id。
+  const parseAndMerge = async (path: string) => {
+    const r = await cpaImportApi.parse(path, authDir || undefined);
+    // 累加 skipped / sourceFiles（多源非覆盖）。
+    if (r.skipped.length > 0) setSkipped(prev => [...prev, ...r.skipped]);
+    setSourceFiles(prev => [...prev, ...r.source_files]);
+
+    const plats = r.platforms;
+    const existingNames = new Set(existing.map(p => p.name));
+    const existingBaseUrls = new Set(existing.flatMap(p =>
+      (p.endpoints ?? []).map(ep => ep.base_url).concat(p.base_url || []).filter(Boolean),
+    ));
+    const baseIdx = orderLenRef.current;
+    // ponytail: getDefaultModelList 从 docPromise 缓存取，并发 N 次 O(1) RPC。
+    const enriched = await Promise.all(plats.map(async (p, idx): Promise<[MappedPlatform, RowState]> => {
+      const rowId = `${baseIdx + idx}::${p.name}::${p.base_url}`;
+      let modelsList = p.models;
+      if (modelsList.length === 0) {
+        modelsList = await getDefaultModelList(p.protocol);
+      }
+      const conflictReason = existingNames.has(p.name)
+        ? t("platform.cpaImport.conflictName", "同名平台已存")
+        : (p.base_url && existingBaseUrls.has(p.base_url)
+          ? t("platform.cpaImport.conflictBaseUrl", "同 base_url 平台已存")
+          : "");
+      return [p, {
+        rowId,
+        name: p.name,
+        modelsText: modelsList.join(", "),
+        selected: !conflictReason,
+        quota: undefined,
+        querying: false,
+        conflict: !!conflictReason,
+        conflictReason,
+      }];
+    }));
+    // 增量合并到 originals/rows/order（非覆盖，保留已解析源）。
+    const addOriginals: Record<string, MappedPlatform> = {};
+    const addRows: Record<string, RowState> = {};
+    const newIds: string[] = [];
+    for (const [p, row] of enriched) {
+      addOriginals[row.rowId] = p;
+      addRows[row.rowId] = row;
+      newIds.push(row.rowId);
+    }
+    setOriginals(prev => ({ ...prev, ...addOriginals }));
+    setRows(prev => ({ ...prev, ...addRows }));
+    setOrder(prev => [...prev, ...newIds]);
+    orderLenRef.current = baseIdx + enriched.length;
+  };
+
   const handleParse = async () => {
     if (!sourcePath) {
       setError(t("platform.cpaImport.errNoSource", "请先选择配置源"));
       return;
     }
-    setError(""); setParsing(true);
+    setError("");
+    parseInFlightRef.current += 1;
+    setParsing(true);
     try {
-      const r = await cpaImportApi.parse(sourcePath, authDir || undefined);
-      setSkipped(r.skipped);
-      setSourceFiles(r.source_files);
-      // 异步预填默认模型槽（getDefaultModels async）。每条目拉一次协议的默认模型槽位，
-      // 合并源 models[] + 默认槽，去重保序。
-      const plats = r.platforms;
-      const existingNames = new Set(existing.map(p => p.name));
-      const existingBaseUrls = new Set(existing.flatMap(p =>
-        (p.endpoints ?? []).map(ep => ep.base_url).concat(p.base_url || []).filter(Boolean),
-      ));
-      // ponytail: getDefaultModelList 从 docPromise 缓存取，并发 N 次 O(1) RPC。
-      const enriched = await Promise.all(plats.map(async (p, idx): Promise<[MappedPlatform, RowState]> => {
-        const rowId = `${idx}::${p.name}::${p.base_url}`;
-        let modelsList = p.models;
-        if (modelsList.length === 0) {
-          // 源无 models → 拉 preset model_list 兜底（MUST 不留空，contract 第 14 条）。
-          modelsList = await getDefaultModelList(p.protocol);
-        }
-        const conflictReason = existingNames.has(p.name)
-          ? t("platform.cpaImport.conflictName", "同名平台已存")
-          : (p.base_url && existingBaseUrls.has(p.base_url)
-            ? t("platform.cpaImport.conflictBaseUrl", "同 base_url 平台已存")
-            : "");
-        return [p, {
-          rowId,
-          name: p.name,
-          modelsText: modelsList.join(", "),
-          selected: !conflictReason,
-          quota: undefined,
-          querying: false,
-          conflict: !!conflictReason,
-          conflictReason,
-        }];
-      }));
-      const nextOriginals: Record<string, MappedPlatform> = {};
-      const nextRows: Record<string, RowState> = {};
-      const nextOrder: string[] = [];
-      for (const [p, row] of enriched) {
-        nextOriginals[row.rowId] = p;
-        nextRows[row.rowId] = row;
-        nextOrder.push(row.rowId);
-      }
-      setOriginals(nextOriginals);
-      setRows(nextRows);
-      setOrder(nextOrder);
+      await parseAndMerge(sourcePath);
     } catch (e) {
       setError(String(e));
     } finally {
-      setParsing(false);
+      parseInFlightRef.current = Math.max(0, parseInFlightRef.current - 1);
+      if (parseInFlightRef.current === 0) setParsing(false);
     }
   };
+
+  // drop 多源串行解析（非并行：避免 orderLenRef 竞态 + 后端 IO 抢锁）。
+  const handleDropSources = async (paths: string[]) => {
+    setError("");
+    for (const path of paths) {
+      parseInFlightRef.current += 1;
+      if (parseInFlightRef.current === 1) setParsing(true);
+      try {
+        await parseAndMerge(path);
+      } catch (e) {
+        setError(prev => prev ? `${prev}\n${String(e)}` : String(e));
+      } finally {
+        parseInFlightRef.current = Math.max(0, parseInFlightRef.current - 1);
+        if (parseInFlightRef.current === 0) setParsing(false);
+      }
+    }
+  };
+
+  // 原生文件拖入：Tauri onDragDropEvent（HTML5 onDrop 在 macOS WKWebView 不触发）。
+  // enter/over 高亮；drop 按 dragTargetRef 分流（source→handleDropSources / authdir→setAuthDir）；
+  // leave/cancel 清高亮。listener 仅 isOpen 时注册，卸载 unlisten。
+  // ponytail: 用 handleDropRef 避免把 handleDropSources 列入依赖导致 listener 频繁重注册。
+  const handleDropRef = useRef(handleDropSources);
+  handleDropRef.current = handleDropSources;
+  useEffect(() => {
+    if (!isOpen) return;
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    getCurrentWebview()
+      .onDragDropEvent((event) => {
+        const { type } = event.payload;
+        if (type === "enter" || type === "over") {
+          setDragActive(true);
+        } else if (type === "drop") {
+          setDragActive(false);
+          const paths = (event.payload as { paths?: string[] }).paths ?? [];
+          if (paths.length === 0) return;
+          if (dragTargetRef.current === "authdir") {
+            setAuthDir(paths[0]);
+          } else {
+            void handleDropRef.current(paths);
+          }
+        } else {
+          // leave / cancel
+          setDragActive(false);
+        }
+      })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [isOpen]);
 
   // ── 余额查询（惰性，并发 ≤5）──
   const quotaQueueRef = useRef<MappedPlatform[] | null>(null);
@@ -297,7 +380,23 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
 
   return (
     <Modal open={isOpen} onClose={onClose} maxWidth={920} maxHeight="88vh">
-      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{
+        display: "flex", flexDirection: "column", gap: 14,
+        borderRadius: "var(--radius-md)",
+        outline: dragActive ? "2px dashed var(--accent)" : "none",
+        outlineOffset: 4,
+        transition: "outline 120ms ease",
+      }}>
+        {dragActive && !parsing && (
+          <div style={{
+            padding: "8px 12px", fontSize: 13, fontWeight: 600, textAlign: "center",
+            borderRadius: "var(--radius-md)", color: "var(--accent)",
+            background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+            border: "1px solid var(--accent)",
+          }}>
+            {t("platform.cpaImport.dropRelease", "松开以导入拖入的配置源")}
+          </div>
+        )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
             {t("platform.cpaImport.title", "导入 CPA 配置")}
@@ -326,6 +425,10 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
             <button
               className="btn btn-ghost"
               onClick={() => handlePickDir(setAuthDir)}
+              // ponytail: WKWebView 若 HTML5 onDragEnter 也不触发（与 onDrop 同病），此标记失效，
+              // auth-dir 拖入退化为 dialog 选目录；源拖入主路径不受影响。
+              onDragEnter={() => { dragTargetRef.current = "authdir"; }}
+              onDragLeave={() => { dragTargetRef.current = "source"; }}
               disabled={parsing || applying}
               style={{ fontSize: 12 }}
             >

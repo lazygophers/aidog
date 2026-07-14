@@ -2046,5 +2046,6 @@
   "platform.cpaImport.applying": "جاري الإنشاء…",
   "platform.cpaImport.apply": "تأكيد إنشاء {{n}}",
   "platform.cpaImport.created": "تم إنشاء {{n}}",
-  "platform.cpaImport.failed": "فشل {{n}}"
+  "platform.cpaImport.failed": "فشل {{n}}",
+  "platform.cpaImport.dropRelease": "حرّر لاستيراد مصادر التهيئة المسحوبة"
 }

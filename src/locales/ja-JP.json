@@ -2046,5 +2046,6 @@
   "platform.cpaImport.applying": "作成中…",
   "platform.cpaImport.apply": "{{n}} 件作成を確認",
   "platform.cpaImport.created": "{{n}} 件作成",
-  "platform.cpaImport.failed": "失敗 {{n}}"
+  "platform.cpaImport.failed": "失敗 {{n}}",
+  "platform.cpaImport.dropRelease": "ドロップしてドラッグした設定ソースをインポート"
 }

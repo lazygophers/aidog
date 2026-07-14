@@ -2024,5 +2024,6 @@
   "platform.cpaImport.applying": "创建中…",
   "platform.cpaImport.apply": "确认创建 {{n}} 项",
   "platform.cpaImport.created": "创建 {{n}}",
-  "platform.cpaImport.failed": "失败 {{n}}"
+  "platform.cpaImport.failed": "失败 {{n}}",
+  "platform.cpaImport.dropRelease": "松开以导入拖入的配置源"
 }
