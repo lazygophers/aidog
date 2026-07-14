@@ -557,7 +557,20 @@ export function parsePlatformPaste(
     if (parts.model) pushUnique(models, parts.model);
   }
 
-  let platform = matchPlatform(text, presets, baseUrls);
+  // 优先级 2（新）：apiKeys 命中某 preset 的 codingKeyPrefixes → 直接返该 preset，跳过 keyword 打分。
+  // 纯 token 粘贴（无文案无 URL）也能识别；host 匹配（优先级 1）未命中时此前置兜底。
+  let platform: { value: string; label: string; codingPlan?: boolean } | null = null;
+  if (apiKeys.length) {
+    for (const p of presets) {
+      if (NEVER_AUTO_MATCH.has(p.value)) continue;
+      const prefixes = p.codingKeyPrefixes ?? [];
+      if (prefixes.length && apiKeys.some(k => prefixes.some(pre => k.startsWith(pre)))) {
+        platform = { value: p.value, label: p.label, codingPlan: p.codingPlan };
+        break;
+      }
+    }
+  }
+  if (!platform) platform = matchPlatform(text, presets, baseUrls);
   // 机制 B — coding plan token 前缀升级（数据驱动，覆盖所有声明 codingKeyPrefixes 的平台）。
   // 普通版 preset 命中后，若同 value 存在带 codingKeyPrefixes 的 coding 变体且任一 apiKey 命中其
   // 前缀 → 升级到 coding 变体。纯 token 粘贴无 base_url，host 匹配（机制 A）触不到 coding host，
