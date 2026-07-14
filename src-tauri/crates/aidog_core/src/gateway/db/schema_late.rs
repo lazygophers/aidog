@@ -399,6 +399,33 @@ ALTER TABLE "group_new" RENAME TO "group";
                      );
                      CREATE INDEX IF NOT EXISTS idx_cli_proxy_group ON cli_proxy_provider(group_id) WHERE group_id IS NOT NULL;",
                 )?;
+
+                // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— cpa-standalone-module s4。
+                // s4 删 Protocol enum 4 个 CPA 变体，存量库中 platform_type 序列化为 serde JSON
+                // 串（含双引号，见 LIKE 模式），from_str 反序列化会 panic —— 必须先删数据再
+                // 删 enum 变体（顺序见 task.json）。
+                // 依赖关系：proxy_log / stats_agg_hourly / group_platform 均按 platform_id
+                // 关联 platform，须先删子表再删 platform 行。SQLite 未开 FK 强制，显式 DELETE。
+                // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
+                let _ = conn.execute(
+                    "DELETE FROM proxy_log WHERE platform_id IN \
+                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
+                    [],
+                );
+                let _ = conn.execute(
+                    "DELETE FROM stats_agg_hourly WHERE platform_id IN \
+                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
+                    [],
+                );
+                let _ = conn.execute(
+                    "DELETE FROM group_platform WHERE platform_id IN \
+                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
+                    [],
+                );
+                let _ = conn.execute(
+                    "DELETE FROM platform WHERE platform_type LIKE '\"cpa-%'",
+                    [],
+                );
     Ok(())
 }
 

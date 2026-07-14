@@ -1,7 +1,6 @@
 pub mod adapter;
 pub mod backup;
 pub mod cli_proxy_parser;
-pub mod cpa_import;
 pub mod client_types_sync;
 pub mod codex;
 pub mod db;

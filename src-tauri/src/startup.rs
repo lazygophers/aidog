@@ -225,10 +225,6 @@ pub fn run() {
             commands_platform::quota::platform_query_quota,
             commands_platform::quota::platform_query_quota_newapi,
             commands_platform::platform::platform_reorder,
-            // CPA Import (CLIProxyAPI 配置导入)
-            commands_platform::cpa_import::cpa_import_parse,
-            commands_platform::cpa_import::cpa_import_preview_quota,
-            commands_platform::cpa_import::cpa_import_apply,
             // CLI Proxy（cpa-standalone-module s3）：provider CRUD + test + platform + import
             commands_cli_proxy::provider::cli_proxy_list,
             commands_cli_proxy::provider::cli_proxy_get,
