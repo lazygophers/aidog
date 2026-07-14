@@ -1,9 +1,10 @@
 # SKEIN recall 规则索引
 
-类目: arch(3), build(1), cross-layer(1), db(2), domain(5), encoding(1), frontend(4), i18n(1), ops(1), proxy(5), style(1)
+类目: arch(4), build(1), cross-layer(1), db(2), domain(6), encoding(1), frontend(4), i18n(1), ops(1), proxy(5), style(1)
 
 | file | category | title | keywords | summary |
 |---|---|---|---|---|
+| arch/parser-multi-path-format-symmetry.md | arch | parser 多路径格式识别必须对称 | parser,多路径,symmetry,对称,格式识别,抽函数,复用,入口分裂,oauth | # parser 多路径格式识别必须对称  何时被读: 写 / 改 parser 有多个入口识别同一格式时(如「单文件导… |
 | arch/trellis-03.md | arch | Workspace crate 边界契约 | crate,boundary,边界,commands,aidog_core,event,依赖 | # Workspace Crate 边界契约  何时被读: commands_* crate 内改源码 / 迁移 com… |
 | arch/trellis-04.md | arch | Protocol 枚举变体扩展范式 | protocol,enum,变体,grep,serde,match,union | # Protocol 枚举变体扩展范式  何时被读: 新增 `Protocol` 枚举变体时（新协议 / 新 cp 变体… |
 | arch/trellis-05.md | arch | 前端常量派生自后端 JSON 真值源 | derived,constants,docpromise,defaults,派生,presets,async | # 前端派生层（常量 → 后端 JSON 派生）  何时被读: 前端硬编码常量（协议列表 / label 映射 / 颜色… |
@@ -11,6 +12,7 @@
 | cross-layer/trellis-20.md | cross-layer | 跨 Rust TS 边界契约 | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | # Cross-Layer Rules  何时被读: 改动跨越 Rust↔TypeScript 边界的功能时 谁读: t… |
 | db/trellis-00.md | db | DB 表设计强制规范 | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | # DB Conventions  何时被读: 新增 / 修改任何数据库表、字段、模型、CRUD、迁移时 谁读: tre… |
 | db/trellis-01.md | db | tokio_rusqlite 连接韧性契约 | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | # DB Connection Resilience  何时被读: 改 `Db` 结构 / DB 调用路径（`call_… |
+| domain/cpa-oauth-credential-format.md | domain | CPA OAuth 凭据格式（CLIProxyAPI） | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | # CPA OAuth 凭据格式（CLIProxyAPI）  何时被读: 改 CPA 导入解析器 / 加新 OAuth … |
 | domain/trellis-06.md | domain | mock 平台类型规范 | mock,platform,extra,test,builder,error_mode | # Mock Platform Type  何时被读: 改 mock 平台逻辑（adapter/mock.rs / pr… |
 | domain/trellis-07.md | domain | Claude Code 订阅透传平台 | claude,passthrough,透传,subscription,header | # Claude Code Passthrough Platform Type  何时被读: 改 Claude Code… |
 | domain/trellis-08.md | domain | 平台失败处理契约 | platform,error,429,auto_disable,熔断,purge,stream,status | # Platform Error Handling  何时被读: 改 proxy 失败处理 / 加平台 / 调 auto… |
