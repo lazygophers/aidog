@@ -78,12 +78,13 @@ export interface PlatformsState extends PlatformsStateParams {
   setGroupDetails: React.Dispatch<React.SetStateAction<GroupDetail[]>>;
   handleGroupsChanged: () => Promise<void>;
   /** 平台被删后全量 refetch platforms state（独立信号，与 onGroupsChanged 分组刷新分离）。
-   *  - 触发点：Groups 页 confirmDeletePlatform（删平台入口之一）成功后经父级 onPlatformDeleted 回调调本方法。
-   *  - 不复用 onGroupsChanged：后者语义「分组结构变更 → 刷 groupDetails」，扩它刷 platforms 会污染其他调用点
-   *    （group 增删 / 拖拽 / 映射变更）。本方法语义专一「platform 被删 → 刷 platforms state」。
-   *  - 全量 refetch 非乐观 filter：乐观 filter 快但需保后端真删，且 groupDetails 需另刷。全量 refetch 一次 RPC
-   *    同时刷 platforms + 触发派生层（membership/standalonePlatforms）重算，语义清晰。多一次 RPC（~10ms）可接受。 */
+   *  - 触发点：PlatformEditForm CPA apply 创建场景（保存后整列表 refetch，语义合理）。
+   *  - Groups 删平台不再用本方法（改 removePlatformsByIds 局部移除，消除整页刷新体感）。 */
   refreshPlatforms: () => Promise<void>;
+  /** 平台被删后局部移除（按 id filter，不调 API，epoch++ 先于 setPlatforms 触发派生层重算）。
+   *  调用方必须已先成功调 delete API（失败不误移）。Groups 页 confirmDeletePlatform /
+   *  confirmBatchDelete 用本方法替代 refreshPlatforms 全量 refetch。 */
+  removePlatformsByIds: (ids: number[]) => void;
   // ── standalone (未分组 + 搜索) ──
   standalonePlatforms: Platform[];
   searchQuery: string;
@@ -381,6 +382,15 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       console.error("refreshPlatforms failed", e);
     }
   };
+
+  /** 局部移除：按 id filter，不调 API（调用方已调），epoch++ 先于 setPlatforms 让派生层重算。
+   *  复用 handleDelete:492 的乐观移除模式，但删除 API 调用交调用方（Groups 已调）。 */
+  const removePlatformsByIds = useCallback((ids: number[]) => {
+    if (ids.length === 0) return;
+    platformsEpochRef.current++;
+    const idSet = new Set(ids);
+    setPlatforms(prev => prev.filter(x => !idSet.has(x.id)));
+  }, []);
 
   // ════════════ SHARED STATE (toast / breaker 默认 / 搜索 / consumedEditPid ref) ════════════
   // 全局 toast：list 态（拖入分组/删除/测试）+ form 态（保存/批量）共用，故留本 hook。
@@ -745,7 +755,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     platDrag, platListRef, handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
     groupDrag, onStandaloneGroupPointerDown, onStandaloneGroupPointerMove, onStandaloneGroupPointerUp,
     quota,
-    platformMembership, groupDetails, setGroupDetails, handleGroupsChanged, refreshPlatforms,
+    platformMembership, groupDetails, setGroupDetails, handleGroupsChanged, refreshPlatforms, removePlatformsByIds,
     standalonePlatforms, searchQuery, setSearchQuery,
     enabledCount, headerActive, headerTotal,
     toast, setToast,
