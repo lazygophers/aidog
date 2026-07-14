@@ -24,11 +24,12 @@ import { usePlatformDrag } from "./Groups/usePlatformDrag";
 export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
   onGroupsChanged?: () => void;
-  /** 平台被删后触发父级（Platforms 页 usePlatformsState.refreshPlatforms）全量 refetch platforms state。
+  /** 平台被删后触发父级（Platforms 页 usePlatformsState.removePlatformsByIds）局部移除 platforms state。
    *  独立信号不复用 onGroupsChanged：后者语义是「分组结构变更 → 刷 groupDetails」，扩它刷 platforms 会污染
-   *  其他调用点（group 增删 / 拖拽 / 映射）。本回调语义专一「platform 被删 → 刷 platforms state」。
-   *  触发点仅 confirmDeletePlatform（删平台入口之一）；removePlatformFromGroup 不触发（仅移组不删平台）。 */
-  onPlatformDeleted?: () => void;
+   *  其他调用点（group 增删 / 拖拽 / 映射）。本回调语义专一「platform 被删 → 局部移除 platforms state」。
+   *  触发点仅 confirmDeletePlatform（删平台入口之一）；removePlatformFromGroup 不触发（仅移组不删平台）。
+   *  调用方传入被删 platform id[]，父级按 id filter 移除（不调 API，不整页 refetch）。 */
+  onPlatformDeleted?: (ids: number[]) => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   /** 编辑分组展开区平台卡片：父级(Platforms)直接打开同页编辑表单，避免经 onNavigate 往返导航
@@ -225,10 +226,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       await cards.handleDelete(target.platform.id);
       setRemoveTarget(null);
       load(); onGroupsChanged?.();
-      // 触发父级 platforms state 全量 refetch（独立信号）：被删平台须从 usePlatformsState.platforms 移除，
+      // 触发父级 platforms state 局部移除（独立信号）：被删平台须从 usePlatformsState.platforms 移除，
       // 否则 stale platforms 内被删平台在 membership effect 清理后归 standalonePlatforms「未分组」段，
-      // 用户体感「只移除分组未彻底销毁」（07-10 回归根因）。
-      onPlatformDeleted?.();
+      // 用户体感「只移除分组未彻底销毁」（07-10 回归根因）。局部移除替代全量 refetch，消除整页刷新体感。
+      onPlatformDeleted?.([target.platform.id]);
     } catch (e) {
       console.error(e);
       onToast?.({ text: `${t("platform.deleteFail", "删除失败")}: ${e}`, ok: false });
@@ -285,7 +286,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       const ids = batchDeleteTarget.platforms.map(p => p.id);
       const report = await platformApi.batchDelete(ids);
       setBatchDeleteTarget(null);
-      load(); onGroupsChanged?.(); onPlatformDeleted?.();
+      load(); onGroupsChanged?.(); onPlatformDeleted?.(ids);
       onToast?.({
         text: t("group.batchDeleteDone", "已删除 {{count}} 个平台", { count: report.applied }),
         ok: true,
