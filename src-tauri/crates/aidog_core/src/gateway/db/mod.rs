@@ -698,6 +698,7 @@ mod usage_stats;
 mod query_stats;
 mod model_price;
 mod mcp;
+mod cli_proxy;
 mod ui_extra;
 #[cfg(test)]
 mod test_ui_extra;
@@ -723,6 +724,7 @@ pub use usage_stats::*;
 pub use query_stats::*;
 pub use model_price::*;
 pub use mcp::*;
+pub use cli_proxy::*;
 pub use ui_extra::*;
 
 // 测试模块：test_<源文件名> 1:1 命名，每个源文件 X.rs 的测试只在 test_X.rs（同目录）。
@@ -768,6 +770,8 @@ mod test_maintenance;
 mod test_schema;
 #[cfg(test)]
 mod test_mcp;
+#[cfg(test)]
+mod test_cli_proxy;
 #[cfg(test)]
 mod test_rw_pool;
 
