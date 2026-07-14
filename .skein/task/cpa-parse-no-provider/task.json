@@ -1,0 +1,49 @@
+{
+  "id": "cpa-parse-no-provider",
+  "name": "CPA 解析器漏认 CLIProxyAPI 配置格式",
+  "desc": "1.zip 内 xai-tmp*.json 全跳过「无 CPA provider 段」, 对比上游 router-for-me/CLIProxyAPI 实际 config 结构, 修 aidog cpa_import 解析器识别正确格式",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "CPA config 段识别向后兼容: parse_single_file 对含 gemini-api-key/codex-api-key/claude-api-key/openai-compatibility/interactions-api-key/vertex-api-key 的 yaml/json 行为不变, cargo test 原有断言全绿",
+    "OAuth 单文件识别: JSON 含 type(可 parse 为 CpaOAuthType) + 非空 access_token → OAuth provider, 不跳过",
+    "OAuth 多凭据独立: 不同 email 的 OAuth provider 不被 dedup 合并(dedup key = (OAuth, name/email)), 10 个 xai 凭据 → 10 provider",
+    "损坏 OAuth 文案: JSON 是 OAuth 凭据(type 可 parse)但缺 access_token → Err「OAuth 凭据缺少 access_token」(非「无任何 CPA provider 段」)",
+    "mapper.rs 零改动: diff 不沾 mapper.rs",
+    "scan_auth_dir 公开行为不变: 仅内部复用 parse_oauth_json, auth_dir 扫描对外语义不变"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "parser.rs OAuth 识别 + dedup 修 + W2 文案 + 测试",
+      "desc": "parser.rs 单文件: A)parse_single_file JSON 分支先试 parse_oauth_json OAuth 识别; B)抽 parse_oauth_json 复用 scan_auth_dir; C)deduplicate_providers OAuth 段 dedup key 改 (OAuth, name/email) 避免空 base_url 合并; D)加 is_oauth_credential 探测 + 损坏 OAuth 缺 access_token 独立文案; E)补 4 测试(OAuth 单件/无 token/未知 type/dedup 不合并) + parse_single_file 缺 token 文案测试。详见 design.md A-E 节。mapper.rs 零改。",
+      "depends_on": [],
+      "验收": [
+        "cargo test -p aidog_core cpa_import 全绿(含 4 新测试 + 回归)",
+        "cargo clippy -p aidog_core 零 warning",
+        "diff 不沾 mapper.rs"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "estimate": 25,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784036371,
+      "started": 1784036384,
+      "finished": 1784036859
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cpa-parse-no-provider",
+  "estimate": 40,
+  "created": 1784035769,
+  "started": 1784036372,
+  "finished": 1784037523,
+  "updated": 1784037523
+}

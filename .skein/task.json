@@ -19,6 +19,12 @@
       "worktree": null
     },
     {
+      "id": "cpa-parse-no-provider",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "deep-audit-optimize",
       "status": "已完成",
       "deps": [],
