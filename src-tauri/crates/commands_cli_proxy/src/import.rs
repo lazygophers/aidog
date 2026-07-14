@@ -97,7 +97,7 @@ fn resolve_wire_protocol(p: &CpaProvider) -> String {
             p.name.as_deref().unwrap_or(""),
         ),
         CpaSourceSegment::OAuth => match p.oauth_type {
-            // grok 原生 /responses 端点 → openai_responses wire（与旧 cpa-grok 标注一致）。
+            // grok 原生 /responses 端点 → openai_responses wire（与旧 CPA Grok 协议标注一致）。
             Some(CpaOAuthType::Xai) => Protocol::OpenAIResponses,
             // Google 系 OAuth（Vertex/Aistudio/Antigravity）均走 gemini wire。
             Some(CpaOAuthType::Vertex)
