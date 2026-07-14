@@ -165,7 +165,8 @@ export function ListView({ d }: { d: LogsData }) {
         </div>
       ) : (
         <>
-          <div className="glass-surface" style={{ overflow: "auto" }}>
+          {/* ponytail: contain:paint 隔离滚动重绘范围，表格行多时减少合成层影响面（glass-surface 本身无 backdrop-filter，不含 GPU 合成叠加） */}
+          <div className="glass-surface" style={{ overflow: "auto", contain: "paint" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
