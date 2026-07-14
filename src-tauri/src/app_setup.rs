@@ -201,14 +201,23 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 });
             }
 
-            // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）。
+            // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）
+            // + proxy_log 三级 retention 清理链（user/upstream fields + retention_days + tombstone）
+            // + 阈值触发全量 VACUUM（db>100MB；retention 后大块 free pages 回收）。
             // 启动首跑补「关机错过」，之后每 24h 一轮；非关键路径，失败仅 warn。
+            //
+            // VACUUM 经 db.call_traced 跑在 DB 专属后台线程（共享唯一连接），不阻塞 async
+            // runtime；锁库期间代理写请求排队（busy_timeout=5000 兜底）。compact_database 内部
+            // 已 wal_checkpoint(TRUNCATE)+ANALYZE，无需额外善后。
             {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     use tracing::Instrument;
                     let interval = std::time::Duration::from_secs(24 * 3600);
                     let older_than_secs: i64 = 3 * 24 * 3600;
+                    // 全量 VACUUM 触发阈值：100MB。低于此 incremental_vacuum 已够；高于此
+                    // compact_database 整库重建激进回收（response_body 累积型胀库主因）。
+                    const VACUUM_THRESHOLD_BYTES: i64 = 100 * 1024 * 1024;
                     loop {
                         // 每个清理周期一个真实唯一链路 id：本周期内所有 SQL 共享该 id（SQL 日志
                         // req= 经 call_traced 的环境捕获自动带上），不同周期 id 不同。
@@ -243,6 +252,44 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                                     .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
                                 if let Err(e) = gateway::db::cleanup_stats_agg(&db, stats_settings.retention_days).await {
                                     tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
+                                }
+                                // proxy_log 三级 retention（默认 7d/7d/90d 保留不动）：复用
+                                // settings_set/cleanup_expired 同一清理链，单步失败 warn 容错。
+                                // purge_deleted_proxy_logs 内部已调 incremental_vacuum(100) 回收
+                                // 小块 free pages；大块回收由阈值 VACUUM 兜底。
+                                let log_settings: gateway::models::ProxyLogSettings = gateway::db::get_setting(&db, "proxy", "logging").await
+                                    .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+                                commands_proxy::proxy_log::run_retention_cleanup(&db, &log_settings).await;
+                                // 阈值触发全量 VACUUM：胀库（>100MB）时整库重建回收大块 free pages。
+                                // 失败仅 warn（锁冲突 / 磁盘满等），不阻塞后续周期。
+                                match gateway::db::db_file_size(&db).await {
+                                    Ok(size) if size > VACUUM_THRESHOLD_BYTES => {
+                                        tracing::info!(
+                                            size_bytes = size,
+                                            threshold = VACUUM_THRESHOLD_BYTES,
+                                            "scheduled: db size exceeds threshold, running full VACUUM"
+                                        );
+                                        match gateway::db::compact_database(&db).await {
+                                            Ok(r) => tracing::info!(
+                                                before = r.before_bytes,
+                                                after = r.after_bytes,
+                                                "scheduled: full VACUUM completed"
+                                            ),
+                                            Err(e) => tracing::warn!(
+                                                error = %e,
+                                                "scheduled: full VACUUM failed (locked or disk full), will retry next cycle"
+                                            ),
+                                        }
+                                    }
+                                    Ok(size) => tracing::debug!(
+                                        size_bytes = size,
+                                        threshold = VACUUM_THRESHOLD_BYTES,
+                                        "scheduled: db size below VACUUM threshold, skip"
+                                    ),
+                                    Err(e) => tracing::warn!(
+                                        error = %e,
+                                        "scheduled: db_file_size probe failed, skip VACUUM this cycle"
+                                    ),
                                 }
                             }
                         }
