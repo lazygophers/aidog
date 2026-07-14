@@ -76,6 +76,47 @@ pub(crate) async fn forward_attempt(
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
         .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), "default".to_string(), false));
 
+    // ── base_url 缺失 guard ──
+    // endpoints/base_url 均空（OAuth 未回填 / 用户手建平台漏配）→ 友好错误替代 reqwest builder error。
+    // 空 base_url 拼 api_path 得无 host 相对 URL，reqwest builder 直接 error → 502「upstream error」无诊断价值。
+    // 不发上游：记录平台 last_error + attempts；非末位候选 → Next 换下个；末位候选 → 502 + 审计落库。
+    // ponytail: 对称防护——forward.rs 单一 URL 构造点覆盖流式 + 非流式两分支（URL 在分支前已定）。
+    if target_base_url.trim().is_empty() {
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id,
+            "upstream base_url empty, skipping platform"
+        );
+        attempts.push(ProxyAttempt {
+            platform_id: route.platform.id,
+            platform_name: route.platform.name.clone(),
+            status_code: 0,
+            error: "base_url missing".to_string(),
+            duration_ms: attempt_start.elapsed().as_millis() as i64,
+            ts: attempt_ts,
+        });
+        let _ = super::db::set_platform_last_error(
+            &state.db, route.platform.id, Some("base_url missing".to_string()),
+        ).await;
+        if !is_last_candidate {
+            return AttemptOutcome::Next;
+        }
+        let msg = format!("{}: base_url 缺失", i18n::t(lang, ErrorKey::Upstream));
+        log.platform_id = route.platform.id;
+        log.response_body = "base_url missing".to_string();
+        log.status_code = 502;
+        log.user_response_body = msg.clone();
+        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.retry_count = (attempts.len() as i32 - 1).max(0);
+        log.attempts = std::mem::take(attempts);
+        upsert_log(state, log, log_settings).await;
+        return AttemptOutcome::Respond({
+            let mut r = (StatusCode::BAD_GATEWAY, msg).into_response();
+            inject_trace_header(&mut r);
+            r
+        });
+    }
+
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
 
