@@ -51,7 +51,7 @@ async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
         middleware: Arc::new(MiddlewareEngine::new()),
         scheduler: Arc::new(scheduling::SchedulerState::new()),
         sticky: Arc::new(scheduling::StickyTable::new()),
-        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        log_snapshots: dashmap::DashMap::new(),
         agg_done: std::sync::Mutex::new((
             std::collections::VecDeque::new(),
             std::collections::HashSet::new(),
