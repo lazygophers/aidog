@@ -2046,5 +2046,6 @@
   "platform.cpaImport.applying": "Création…",
   "platform.cpaImport.apply": "Confirmer la création de {{n}}",
   "platform.cpaImport.created": "Créés {{n}}",
-  "platform.cpaImport.failed": "Échec {{n}}"
+  "platform.cpaImport.failed": "Échec {{n}}",
+  "platform.cpaImport.dropRelease": "Relâchez pour importer les sources de config déplacées"
 }
