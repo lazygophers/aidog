@@ -127,16 +127,22 @@ pub(crate) async fn handle_passthrough(
     // ── 非流式：原样 relay bytes ──
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
-        let resp_str = String::from_utf8_lossy(&body).to_string();
-        let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
+        // usage 借用：lossy 不经 to_string 中转
+        let (input_tokens, output_tokens, cache_tokens) =
+            extract_usage(String::from_utf8_lossy(&body).as_ref());
 
-        log.response_body = resp_str.clone();
+        // ── record gate（与流式分支 :160/:168 对称）：上游/客户端 body 各自受对应开关控制，
+        //   开启时走 cap_nonstream_body 截断 + 落库（对齐 STREAM_BODY_MAX_BYTES 16MB）。──
+        let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+        let record_client_body = log_settings.enabled && log_settings.log_user_request;
         log.status_code = status.as_u16() as i32;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
         log.cache_tokens = cache_tokens;
-        log.user_response_body = resp_str;
+        // 透传：upstream body == client body（无协议转换），但仍按侧 gate 落库
+        log.response_body = if record_upstream_body { cap_nonstream_body(&body) } else { String::new() };
+        log.user_response_body = if record_client_body { cap_nonstream_body(&body) } else { String::new() };
         log.user_response_headers = log.upstream_response_headers.clone();
         upsert_log(state, log, log_settings).await;
 

@@ -461,11 +461,13 @@ pub(crate) async fn forward_attempt(
     // 非流式：直接透传 JSON
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
-        let resp_str = String::from_utf8_lossy(&body).to_string();
+        // usage 借用：lossy 不经 to_string 中转（extract_usage 在 finish_nonstream 内）
+        let lossy = String::from_utf8_lossy(&body);
+        let resp_str: &str = &lossy;
 
         // ── 决策 B（非流式）：200 但空 body / error 结构 / 无有效 choices/content → 失败重试。──
-        if !is_nonstream_body_valid(&resp_str) {
-            retry_on_empty_2xx!("200 but empty/invalid body", &resp_str);
+        if !is_nonstream_body_valid(resp_str) {
+            retry_on_empty_2xx!("200 but empty/invalid body", resp_str);
         }
         commit_2xx_success!();
 

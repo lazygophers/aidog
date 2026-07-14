@@ -4,6 +4,22 @@ use super::*;
 /// 超限截断 + 标记，禁 panic / OOM。完整上游响应正文落库不依赖此上限（DB schema 列仍在）。
 const STREAM_BODY_MAX_BYTES: usize = 16 * 1024 * 1024;
 
+/// 非流式响应 body 落库上限（对齐 STREAM_BODY_MAX_BYTES）。仅落库 String 经此截断 + 标记；
+/// 转发客户端的原文不受影响（与流式「转发全量、聚合上限」语义对称）。
+pub(crate) const NONSTREAM_BODY_MAX_BYTES: usize = 16 * 1024 * 1024;
+
+/// 非流式 body cap：超 NONSTREAM_BODY_MAX_BYTES 截断并追加 truncation 标记（同 join_stream_body idiom）。
+/// ponytail: 与 join_stream_body 同 ceiling 16MB，落库侧用，转发原文照旧全量。
+pub(crate) fn cap_nonstream_body(bytes: &[u8]) -> String {
+    if bytes.len() > NONSTREAM_BODY_MAX_BYTES {
+        let mut s = String::from_utf8_lossy(&bytes[..NONSTREAM_BODY_MAX_BYTES]).into_owned();
+        s.push_str("\n[truncated: non-stream body exceeded size limit]");
+        s
+    } else {
+        String::from_utf8_lossy(bytes).into_owned()
+    }
+}
+
 /// 把聚合的 SSE chunk（Vec<Bytes>）拼接为字符串，超上限则截断并加标记。
 /// 旁路累积零阻塞转发，此处一次性拼接（仅 flush 时调用，非 chunk 热路径）。
 /// ponytail: 不预分配大 Vec —— 截断分支按需 grow（避免每次 flush 预占 16MB），非截断分支
