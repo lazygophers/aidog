@@ -28,8 +28,8 @@ export type Protocol =
   | "newapi"
   // ── 订阅透传 ──
   | "claude_code"
-  // ── CPA(CLIProxyAPI) 导入专属：OAuth channel / vertex-api-key 段衍生，复用现有 adapter ──
-  | "cpa-grok" | "cpa-aistudio" | "cpa-antigravity" | "cpa-vertex"
+  // ── CLI 代理（cpa-standalone-module）：platform_type 仅标识，wire/base_url/api_key/models 由 candidate resolve 时从 cli_proxy_provider 表注入 ──
+  | "cli-proxy"
   // ── 测试 ──
   | "mock";
 /** 路由 / 调度策略。

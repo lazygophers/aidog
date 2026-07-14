@@ -2,59 +2,6 @@
 // 由 types.ts barrel 统一 re-export；外部应 `import type { X } from "../types"`，
 // 不直接 import 本文件（分片边界为实现细节）。
 
-import type { Protocol, Platform } from "./part1";
-
-// ─── CPA(CLIProxyAPI) 配置导入 ─────────────────────────────
-// 镜像 Rust `commands_platform/src/cpa_import.rs` + `aidog_core/src/gateway/cpa_import/mapper.rs`
-// serde 字段名一一对应（snake_case）。MappedPlatform 同时是 apply 的输入。
-
-/** 映射后的 aidog 平台（cpa_import_parse 输出 / cpa_import_apply 输入）。 */
-export interface MappedPlatform {
-  /** 映射后的协议（platform_type），含 4 cpa-* 变体 */
-  protocol: Protocol;
-  /** 平台名称（openai-compat 从 name；OAuth 从 email；api-key 段由 protocol + host 派生） */
-  name: string;
-  /** 上游 base URL（OAuth 段可能为空，前端预览回填） */
-  base_url: string;
-  /** API key（OAuth = access_token；预览由前端掩码展示） */
-  api_key: string;
-  /** 可用模型列表（来自 cpa models[].name，alias 丢） */
-  models: string[];
-  /** 序列化后的 extra JSON（含 prefix/headers/cpa 源信息） */
-  extra: string;
-  /** 是否禁用（来自 CPA `disabled=true`，apply 时 post-create 置 status=disabled） */
-  disabled: boolean;
-  /** 来源标签（UI 展示用，如 "openai-compatibility / glm"） */
-  source_label: string;
-}
-
-/** 解析时被跳过的文件（rar/7z、解析失败、无 cpa 段等）。 */
-export interface CpaSkipReason {
-  /** 文件路径 */
-  path: string;
-  /** 跳过原因类型 */
-  reason: string;
-}
-
-/** cpa_import_parse 返回（providers 已是 MappedPlatform，纯读，不建平台）。 */
-export interface CpaImportParseResult {
-  platforms: MappedPlatform[];
-  skipped: CpaSkipReason[];
-  source_files: string[];
-}
-
-/** apply 失败项（非原子：成功的入库，失败的收集原因）。 */
-export interface CpaBatchFailure {
-  name: string;
-  error: string;
-}
-
-/** cpa_import_apply 返回：created 入库平台列表 + failed 失败原因列表。 */
-export interface CpaBatchReport {
-  created: Platform[];
-  failed: CpaBatchFailure[];
-}
-
 export interface Sub2ApiAccount {
   name: string;
   /** sub2api 原始 platform 值（小写），前端做 Protocol 映射。 */
