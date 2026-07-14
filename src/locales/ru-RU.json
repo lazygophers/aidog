@@ -2046,5 +2046,6 @@
   "platform.cpaImport.applying": "Создание…",
   "platform.cpaImport.apply": "Подтвердить создание {{n}}",
   "platform.cpaImport.created": "Создано {{n}}",
-  "platform.cpaImport.failed": "Ошибка {{n}}"
+  "platform.cpaImport.failed": "Ошибка {{n}}",
+  "platform.cpaImport.dropRelease": "Отпустите, чтобы импортировать перетянутые источники конфигурации"
 }
