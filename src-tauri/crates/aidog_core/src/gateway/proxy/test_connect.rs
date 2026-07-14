@@ -24,6 +24,7 @@ async fn make_state() -> Arc<ProxyState> {
             std::collections::HashSet::new(),
         )),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     })
 }
 
@@ -69,6 +70,7 @@ async fn upsert_connect_log_writes_http_connect_row() {
         log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     });
 
     log::upsert_connect_log(
@@ -440,6 +442,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
             std::collections::HashSet::new(),
         )),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     });
     let plat = crate::gateway::db::create_platform(&state.db, CreatePlatform {
         name: "mitm-stub".into(),
@@ -514,6 +517,7 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
             std::collections::HashSet::new(),
         )),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     });
 
     // 明文 Request 无 Authorization（模拟客户端未带 apikey 的官方协议请求）。
@@ -670,6 +674,7 @@ async fn connect_failure_records_breaker_fail_count() {
         log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     });
 
     // 触发失败：127.0.0.1 关闭端口（立即 RST = connection refused，秒级失败）。
@@ -727,6 +732,7 @@ async fn connect_failure_sets_platform_last_error() {
         log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     });
 
     let th = BreakerThresholds { failure_threshold: 5, open_secs: 60, half_open_max: 2 };
