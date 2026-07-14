@@ -174,6 +174,17 @@ fn parse_single_file(path: &Path) -> Result<Vec<CpaProvider>, String> {
         .and_then(|s| s.to_str())
         .unwrap_or("");
 
+    // JSON 扩展名：先试 OAuth 凭据（CLIProxyAPI OAuth 凭据均 JSON 单文件）
+    if ext == "json" {
+        if let Some(oauth_providers) = parse_oauth_json(&content) {
+            return Ok(oauth_providers);
+        }
+        // 是 OAuth 凭据但 parse_oauth_json None = 缺 access_token → 独立文案
+        if is_oauth_credential(&content) {
+            return Err("OAuth 凭据缺少 access_token".to_string());
+        }
+    }
+
     let stub: CpaConfigStub = if ext == "yaml" || ext == "yml" {
         serde_yaml::from_str(&content)
             .map_err(|e| format!("YAML 解析失败: {e}"))?
@@ -521,6 +532,44 @@ struct OAuthModelAlias {
     alias: String,
 }
 
+/// 解析 JSON 内容为 OAuth provider 列表（单文件/单凭据，Vec 长度 0 或 1）。
+/// 返回 None = 不是 OAuth 凭据或缺少 access_token（交回 CPA config 流程或跳过）。
+fn parse_oauth_json(content: &str) -> Option<Vec<CpaProvider>> {
+    let cred: OAuthCredential = serde_json::from_str(content).ok()?;
+    let oauth_type = CpaOAuthType::parse_oauth_type(&cred.cred_type)?;
+    let access_token = cred.access_token?;
+    let models: Vec<String> = cred.model_aliases
+        .unwrap_or_default()
+        .into_iter()
+        .map(|m| m.name)
+        .collect();
+    Some(vec![CpaProvider {
+        source_segment: CpaSourceSegment::OAuth,
+        name: cred.email.clone(),
+        base_url: String::new(), // OAuth 平台 base_url 由后续映射确定
+        api_key: access_token,
+        models,
+        prefix: None,
+        headers: HashMap::new(),
+        disabled: false,
+        oauth_type: Some(oauth_type),
+    }])
+}
+
+/// 探测 JSON 是否为 OAuth 凭据（仅看 `type` 能否识别为 CpaOAuthType，不要求 access_token）。
+/// 供 parse_single_file 区分「非 OAuth JSON」vs「OAuth 缺 token」给独立错误文案。
+fn is_oauth_credential(content: &str) -> bool {
+    #[derive(Deserialize)]
+    struct TypeProbe {
+        #[serde(rename = "type")]
+        t: String,
+    }
+    serde_json::from_str::<TypeProbe>(content)
+        .ok()
+        .and_then(|p| CpaOAuthType::parse_oauth_type(&p.t))
+        .is_some()
+}
+
 /// 递归扫描 auth-dir 目录，解析 OAuth JSON 凭据。
 fn scan_auth_dir(auth_dir: &Path) -> Vec<CpaProvider> {
     let mut providers = Vec::new();
@@ -544,30 +593,11 @@ fn scan_auth_dir(auth_dir: &Path) -> Vec<CpaProvider> {
             // 递归子目录
             providers.extend(scan_auth_dir(&path));
         } else if path.extension().and_then(|s| s.to_str()) == Some("json") {
-            // 解析 JSON 凭据
+            // 解析 JSON 凭据（无 token / 非 OAuth → 静默跳过，同原行为）
             if let Ok(content) = fs::read_to_string(&path)
-                && let Ok(cred) = serde_json::from_str::<OAuthCredential>(&content)
-                && let Some(oauth_type) = CpaOAuthType::parse_oauth_type(&cred.cred_type)
-                && let Some(access_token) = cred.access_token
+                && let Some(oauth_providers) = parse_oauth_json(&content)
             {
-                // 从 model_aliases 提取模型名
-                let models: Vec<String> = cred.model_aliases
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|m| m.name)
-                    .collect();
-
-                providers.push(CpaProvider {
-                    source_segment: CpaSourceSegment::OAuth,
-                    name: cred.email.clone(),
-                    base_url: String::new(), // OAuth 平台 base_url 由后续映射确定
-                    api_key: access_token,
-                    models,
-                    prefix: None,
-                    headers: HashMap::new(),
-                    disabled: false,
-                    oauth_type: Some(oauth_type),
-                });
+                providers.extend(oauth_providers);
             }
         }
     }
@@ -636,6 +666,20 @@ fn deduplicate_providers(providers: Vec<CpaProvider>) -> Vec<CpaProvider> {
                 }
                 true
             }
+        } else if provider.source_segment == CpaSourceSegment::OAuth {
+            // OAuth base_url 全空，按 (segment, name/email) 去重；
+            // CLIProxyAPI 多账号语义：各凭据 email 不同 → 各自独立 key 不撞
+            let key_name = provider.name.clone().unwrap_or_default();
+            if !seen_keys.insert((provider.source_segment, key_name.clone())) {
+                if let Some(existing) = result.iter_mut().find(|p| {
+                    p.source_segment == CpaSourceSegment::OAuth
+                        && p.name.as_deref() == Some(&key_name)
+                }) {
+                    merge_models(existing, &provider);
+                }
+                continue;
+            }
+            true
         } else {
             // 其他段按 source_segment + base_url 去重
             if !seen_keys.insert((provider.source_segment, provider.base_url.clone())) {
@@ -883,5 +927,172 @@ mod tests {
         };
         merge_models(&mut existing, &new);
         assert_eq!(existing.models.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_oauth_json_single() {
+        let content = r#"{"type":"xai","email":"a@b","access_token":"tok","model_aliases":[{"name":"grok-1","alias":"g1"}]}"#;
+        let result = parse_oauth_json(content).expect("应识别为 OAuth 凭据");
+        assert_eq!(result.len(), 1);
+        let p = &result[0];
+        assert_eq!(p.source_segment, CpaSourceSegment::OAuth);
+        assert_eq!(p.oauth_type, Some(CpaOAuthType::Xai));
+        assert_eq!(p.name.as_deref(), Some("a@b"));
+        assert_eq!(p.api_key, "tok");
+        assert_eq!(p.models, vec!["grok-1".to_string()]);
+        assert!(p.base_url.is_empty());
+    }
+
+    #[test]
+    fn test_parse_oauth_json_no_token() {
+        // 是 OAuth 类型但无 access_token → None
+        let content = r#"{"type":"xai","email":"a@b"}"#;
+        assert!(parse_oauth_json(content).is_none());
+    }
+
+    #[test]
+    fn test_parse_oauth_json_unknown_type() {
+        // type 不可识别为 CpaOAuthType → None
+        let content = r#"{"type":"unknown","access_token":"tok"}"#;
+        assert!(parse_oauth_json(content).is_none());
+    }
+
+    #[test]
+    fn test_is_oauth_credential() {
+        assert!(is_oauth_credential(r#"{"type":"xai"}"#));
+        assert!(is_oauth_credential(r#"{"type":"claude","email":"x"}"#)); // 缺 token 也是 OAuth
+        assert!(!is_oauth_credential(r#"{"type":"unknown"}"#));
+        assert!(!is_oauth_credential(r#"{"gemini-api-key":["x"]}"#));
+        assert!(!is_oauth_credential("not json"));
+    }
+
+    #[test]
+    fn test_dedup_oauth_distinct_emails() {
+        // 2 个 xai OAuth 凭据 email 不同 → 保留两个，不合并
+        let providers = vec![
+            CpaProvider {
+                source_segment: CpaSourceSegment::OAuth,
+                name: Some("a@b".to_string()),
+                base_url: String::new(),
+                api_key: "tok1".to_string(),
+                models: vec!["grok-1".to_string()],
+                prefix: None,
+                headers: HashMap::new(),
+                disabled: false,
+                oauth_type: Some(CpaOAuthType::Xai),
+            },
+            CpaProvider {
+                source_segment: CpaSourceSegment::OAuth,
+                name: Some("c@d".to_string()),
+                base_url: String::new(),
+                api_key: "tok2".to_string(),
+                models: vec!["grok-2".to_string()],
+                prefix: None,
+                headers: HashMap::new(),
+                disabled: false,
+                oauth_type: Some(CpaOAuthType::Xai),
+            },
+        ];
+        let result = deduplicate_providers(providers);
+        assert_eq!(result.len(), 2);
+        let names: Vec<_> = result.iter().map(|p| p.name.as_deref()).collect();
+        assert!(names.contains(&Some("a@b")));
+        assert!(names.contains(&Some("c@d")));
+    }
+
+    #[test]
+    fn test_dedup_oauth_same_email_merges() {
+        // 同 email OAuth 凭据 → 合并模型
+        let providers = vec![
+            CpaProvider {
+                source_segment: CpaSourceSegment::OAuth,
+                name: Some("a@b".to_string()),
+                base_url: String::new(),
+                api_key: "tok1".to_string(),
+                models: vec!["grok-1".to_string()],
+                prefix: None,
+                headers: HashMap::new(),
+                disabled: false,
+                oauth_type: Some(CpaOAuthType::Xai),
+            },
+            CpaProvider {
+                source_segment: CpaSourceSegment::OAuth,
+                name: Some("a@b".to_string()),
+                base_url: String::new(),
+                api_key: "tok2".to_string(),
+                models: vec!["grok-2".to_string()],
+                prefix: None,
+                headers: HashMap::new(),
+                disabled: false,
+                oauth_type: Some(CpaOAuthType::Xai),
+            },
+        ];
+        let result = deduplicate_providers(providers);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].models.len(), 2);
+    }
+
+    #[test]
+    fn test_parse_single_file_oauth_missing_token() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cred.json");
+        std::fs::write(&path, r#"{"type":"xai","email":"a@b"}"#).unwrap();
+        let result = parse_single_file(&path);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("access_token"),
+            "应提示 OAuth 缺 token，实际: {err}"
+        );
+    }
+
+    #[test]
+    fn test_parse_single_file_oauth_complete() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cred.json");
+        std::fs::write(
+            &path,
+            r#"{"type":"xai","email":"a@b","access_token":"tok","model_aliases":[{"name":"grok-1"}]}"#,
+        )
+        .unwrap();
+        let providers = parse_single_file(&path).expect("应解析为 OAuth provider");
+        assert_eq!(providers.len(), 1);
+        assert_eq!(providers[0].oauth_type, Some(CpaOAuthType::Xai));
+        assert_eq!(providers[0].api_key, "tok");
+    }
+
+    #[test]
+    fn test_parse_single_file_unknown_type_not_oauth() {
+        // type=unknown → 非 OAuth 凭据 → 走 CPA stub → 无 CPA 段
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("cred.json");
+        std::fs::write(&path, r#"{"type":"unknown","access_token":"tok"}"#).unwrap();
+        let result = parse_single_file(&path);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("CPA provider 段"),
+            "应走 CPA stub 文案，实际: {err}"
+        );
+    }
+
+    #[test]
+    fn test_scan_auth_dir_via_parse_oauth_json() {
+        // 回归：scan_auth_dir 抽函数后行为不变
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(
+            dir.path().join("a.json"),
+            r#"{"type":"claude","email":"x@y","access_token":"tok","model_aliases":[]}"#,
+        )
+        .unwrap();
+        // 无 token 的 OAuth 凭据 → 静默跳过
+        std::fs::write(dir.path().join("b.json"), r#"{"type":"claude","email":"z"}"#).unwrap();
+        // 非 OAuth JSON → 静默跳过
+        std::fs::write(dir.path().join("c.json"), r#"{"type":"unknown"}"#).unwrap();
+
+        let providers = scan_auth_dir(dir.path());
+        assert_eq!(providers.len(), 1);
+        assert_eq!(providers[0].name.as_deref(), Some("x@y"));
+        assert_eq!(providers[0].api_key, "tok");
     }
 }
