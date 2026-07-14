@@ -140,19 +140,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <CpaImportModal
           open={showCpaImport}
           onClose={() => setShowCpaImport(false)}
-          onApplied={async (created, failed) => {
-            // toast：created N / failed M + 失败原因摘要。
-            const ok = created.length;
-            const fail = failed.length;
-            const detail = failed.length > 0
-              ? ` · ${failed.map(f => `${f.name}: ${f.error}`).join("; ").slice(0, 200)}`
-              : "";
-            const text = `${t("platform.cpaImport.created", "创建 {{n}}", { n: ok })}${fail > 0 ? ` / ${t("platform.cpaImport.failed", "失败 {{n}}", { n: fail })}${detail}` : ""}`;
-            s.setToast({ text, ok: fail === 0 });
-            setTimeout(() => s.setToast(null), 3500);
-            await s.refreshPlatforms();
-            // 回列表态（已创建平台需在列表展示）。
-            resetForm();
+          onApplied={async (providers) => {
+            // 填表单模式：单条 → 灌入创建表单（用户改配置 + 设 group + 保存）；
+            // 多条 → 前端批量创建（各独立 platform，用表单 group）。
+            setShowCpaImport(false);
+            if (providers.length === 1) {
+              await s.applyCpaToForm(providers[0]);
+            } else {
+              await s.runBatchCreateFromCpa(providers);
+            }
           }}
         />
       )}

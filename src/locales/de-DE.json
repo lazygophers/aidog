@@ -2045,6 +2045,11 @@
   "platform.cpaImport.query": "Abfragen",
   "platform.cpaImport.applying": "Wird erstellt…",
   "platform.cpaImport.apply": "Erstellung von {{n}} bestätigen",
+  "platform.cpaImport.applyOne": "Formular ausfüllen",
+  "platform.cpaImport.applyBatch": "{{n}} stapelweise erstellen",
+  "platform.cpaImport.batchProgress": "Stapelweise Erstellung… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "Stapel abgeschlossen: {{n}} erstellt",
+  "platform.cpaImport.batchFailSummary": "Erfolg {{ok}} / Fehlschlag {{fail}} · {{detail}}",
   "platform.cpaImport.created": "Erstellt {{n}}",
   "platform.cpaImport.failed": "Fehlgeschlagen {{n}}",
   "platform.cpaImport.dropRelease": "Loslassen, um gezogene Konfigurationsquellen zu importieren"

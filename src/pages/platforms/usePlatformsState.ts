@@ -10,7 +10,7 @@ import type { TFunction } from "i18next";
 import {
   platformApi, modelTestApi, groupDetailApi, schedulingApi,
   onProxyLogUpdated,
-  type Platform, type PlatformStatus, type Protocol, type PlatformEndpoint,
+  type Platform, type PlatformStatus, type Protocol, type PlatformEndpoint, type MappedPlatform,
   type PlatformUsageStats, type LastTestResult,
   type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type ModelSlot, type MockConfig, type NewApiConfig, type ManualBudget,
@@ -177,6 +177,8 @@ export interface PlatformsState extends PlatformsStateParams {
   applyPaste: (r: SmartPasteApplyResult) => Promise<void>;
   handlePurgeDisabled: () => Promise<void>;
   runBatchCreateFromPaste: (keys: string[], baseName?: string, effectiveEndpoints?: PlatformEndpoint[], effectiveProtocol?: Protocol) => Promise<void>;
+  applyCpaToForm: (p: MappedPlatform) => Promise<void>;
+  runBatchCreateFromCpa: (providers: MappedPlatform[]) => Promise<void>;
   /** 主 URL 推导 helper（form header desc + fetch models 回退链共用） */
   getPrimaryBaseUrl: (proto: Protocol, eps: PlatformEndpoint[]) => string;
 }
