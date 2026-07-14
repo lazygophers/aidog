@@ -172,6 +172,11 @@ pub enum Protocol {
     /// gemini adapter 不兼容 → 仅存配置，路由暂不支持。base_url region-specific 用户预览补全。
     #[serde(rename = "cpa-vertex")]
     CpaVertex,
+    /// CLI 代理（cpa-standalone-module）：platform_type 仅作平台标识，
+    /// wire/base_url/api_key/models 由 candidate resolve 时从 `cli_proxy_provider` 表拉
+    /// （`extra.cli_proxy_provider_id` 关联）。`platform.models` 字段只读，被 provider.models 覆盖。
+    #[serde(rename = "cli-proxy")]
+    CliProxy,
 }
 
 /// 路由模式
@@ -226,6 +231,8 @@ mod test_protocol_coding_variants {
             ("cpa-aistudio", Protocol::CpaAistudio),
             ("cpa-antigravity", Protocol::CpaAntigravity),
             ("cpa-vertex", Protocol::CpaVertex),
+            // CLI 代理独立协议（cpa-standalone-module s2）
+            ("cli-proxy", Protocol::CliProxy),
         ];
         for (key, expected) in cases {
             let json = format!("\"{key}\"");

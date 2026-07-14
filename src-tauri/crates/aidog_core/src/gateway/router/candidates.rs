@@ -8,7 +8,7 @@ use super::super::peak_hours;
 use super::model_mapping::resolve_model;
 use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
 use super::{candidate_state, RouteResult};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
 /// `target_model` / `mapping` 对每个候选独立解析（显式映射命中时全部候选共享映射目标模型；
@@ -58,6 +58,62 @@ fn infer_protocol_from_extra(extra: &str) -> String {
 /// 候选平台的 extra 解析缓存（key: platform_id）
 type ExtraCacheMap = HashMap<u64, ExtraCache>;
 
+// ── cli-proxy（cpa-standalone-module s2）──
+
+/// 从 `platform.extra` JSON 读 `cli_proxy_provider_id`（u64）。
+/// 与 parse_disable_during_peak / parse_breaker 同 idiom：extra 是 JSON blob。
+fn read_cli_proxy_provider_id(extra: &str) -> Option<u64> {
+    if extra.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str::<serde_json::Value>(extra)
+        .ok()
+        .and_then(|v| v.get("cli_proxy_provider_id").and_then(|x| x.as_u64()))
+}
+
+/// 用 provider 配置覆写 platform 的 wire 字段（endpoints/base_url/api_key）。
+/// 注入单一合成 endpoint：protocol = provider.wire_protocol parse 为 Protocol；
+/// parse 失败返回原 platform 不变（caller 已按 Protocol::CliProxy 过滤，正常应可 parse）。
+fn apply_cli_proxy_override(mut p: Platform, provider: &CliProxyProvider) -> Platform {
+    let wire: Protocol = serde_json::from_value(
+        serde_json::Value::String(provider.wire_protocol.clone()),
+    )
+    .unwrap_or_else(|_| {
+        tracing::warn!(
+            platform_id = p.id, wire = %provider.wire_protocol,
+            "cli-proxy: invalid wire_protocol, falling back to Anthropic"
+        );
+        Protocol::Anthropic
+    });
+    p.base_url = provider.base_url.clone();
+    p.api_key = provider.api_key.clone();
+    p.endpoints = vec![PlatformEndpoint {
+        protocol: wire,
+        base_url: provider.base_url.clone(),
+        client_type: "default".to_string(),
+        coding_plan: false,
+    }];
+    p
+}
+
+/// 解析 cli-proxy 平台的 effective target_model：source_model 在 provider.models 列表中
+/// 则透传；否则回落到 provider.models 首项；列表空则透传 source（去 budget 后缀）。
+fn resolve_cli_proxy_target_model(provider: &CliProxyProvider, source_model: &str) -> String {
+    let base = source_model.split('[').next().unwrap_or(source_model);
+    if provider.models.iter().any(|m| m == base) {
+        return base.to_string();
+    }
+    provider.models.first().cloned().unwrap_or_else(|| base.to_string())
+}
+
+/// cli-proxy 平台预解析结果（per platform_id）。
+/// Resolved = provider active 且 wire 可用；Skipped = provider 缺失/disabled → 平台排除。
+#[derive(Default)]
+struct CliProxyCache {
+    providers: HashMap<u64, CliProxyProvider>,
+    skip: HashSet<u64>,
+}
+
 /// 根据分组路由规则选择**有序候选平台列表**，用于失败逐个重试。
 ///
 /// 排序：
@@ -101,17 +157,60 @@ pub async fn select_candidates_ctx(
         .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra)))
         .collect();
 
+    // ── 阶段 -1b: cli-proxy 平台预解析（cpa-standalone-module s2）──
+    // 每个 CliProxy 平台按 extra.cli_proxy_provider_id 拉 provider；缺失/disabled → skip（排除）。
+    let mut cli_cache = CliProxyCache::default();
+    for gp in &group_platforms {
+        if gp.platform.platform_type != Protocol::CliProxy {
+            continue;
+        }
+        let pid = match read_cli_proxy_provider_id(&gp.platform.extra) {
+            Some(id) => id,
+            None => {
+                tracing::warn!(
+                    platform_id = gp.platform.id, platform = %gp.platform.name,
+                    "cli-proxy platform missing extra.cli_proxy_provider_id; excluding"
+                );
+                cli_cache.skip.insert(gp.platform.id);
+                continue;
+            }
+        };
+        match db::get_cli_proxy_provider(db, pid).await {
+            Ok(Some(provider)) if provider.status == "active" => {
+                cli_cache.providers.insert(gp.platform.id, provider);
+            }
+            Ok(Some(provider)) => {
+                tracing::info!(
+                    platform_id = gp.platform.id, provider_id = pid, status = %provider.status,
+                    "cli-proxy provider not active; excluding platform"
+                );
+                cli_cache.skip.insert(gp.platform.id);
+            }
+            Ok(None) => {
+                tracing::warn!(
+                    platform_id = gp.platform.id, provider_id = pid,
+                    "cli-proxy provider not found; excluding platform"
+                );
+                cli_cache.skip.insert(gp.platform.id);
+            }
+            Err(e) => {
+                tracing::warn!(error = %e, platform_id = gp.platform.id, "cli-proxy provider fetch failed; excluding");
+                cli_cache.skip.insert(gp.platform.id);
+            }
+        }
+    }
+
     // ── 阶段 0: 单平台分组短路 ──
     if group_platforms.len() == 1 {
         return handle_single_platform(
             db, group, &group_platforms[0], source_model, ctx,
-            &mapped_target_model, mapping, now_ms, &extra_cache
+            &mapped_target_model, mapping, now_ms, &extra_cache, &cli_cache
         ).await;
     }
 
     // ── 阶段 1: 候选分桶过滤 ──
     let FilteredCandidates { mut active, mut probe, breaker_rejected, peak_disabled_count } =
-        filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache);
+        filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, &cli_cache);
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
@@ -163,7 +262,7 @@ pub async fn select_candidates_ctx(
     }
 
     // ── 阶段 6: 生成最终候选 ──
-    let candidates = build_route_results(ordered, &mapped_target_model, now_ms, source_model, mapping, &extra_cache);
+    let candidates = build_route_results(ordered, &mapped_target_model, now_ms, source_model, mapping, &extra_cache, &cli_cache);
 
     tracing::info!(
         group = %group.name, source_model = %source_model,
@@ -178,7 +277,7 @@ pub async fn select_candidates_ctx(
 // ── Helper: 单平台分组短路逻辑 ──
 
 /// 单平台分组：唯一平台熔断 Open / auto_disabled 时仍必请求（无视状态），
-/// 手动 Disabled / 高峰禁用 + 命中窗口 → Err（唯一硬停）。
+/// 手动 Disabled / 高峰禁用 + 命中窗口 / cli-proxy provider 缺失或 disabled → Err（唯一硬停）。
 #[allow(clippy::too_many_arguments)]
 async fn handle_single_platform(
     _db: &db::Db,
@@ -190,10 +289,16 @@ async fn handle_single_platform(
     mapping: Option<&ModelMapping>,
     now_ms: i64,
     extra_cache: &ExtraCacheMap,
+    cli_cache: &CliProxyCache,
 ) -> Result<CandidateSet, String> {
     // 手动 Disabled 是唯一硬停
     if only.platform.status == PlatformStatus::Disabled {
         return Err("group's only platform is manually disabled".to_string());
+    }
+
+    // cli-proxy 单平台且 provider 缺失/disabled → 硬停（同手动 disabled 语义）
+    if only.platform.platform_type == Protocol::CliProxy && cli_cache.skip.contains(&only.platform.id) {
+        return Err("group's only cli-proxy platform has missing or disabled provider".to_string());
     }
 
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
@@ -208,11 +313,18 @@ async fn handle_single_platform(
     }
 
     // 时段模型：从缓存获取 time_models，再用 resolve_model
-    let time_rules: &[serde_json::Value] = cache.map(|c| c.time_models.as_slice()).unwrap_or_default();
-    let effective_models = resolve_effective_models_cached(&only.platform, time_rules, now_ms, source_model);
-    let target_model = mapped_target_model
-        .clone()
-        .unwrap_or_else(|| resolve_model(&effective_models, source_model));
+    // cli-proxy 平台：effective_models 从 provider.models 覆盖（platform.models 只读）
+    let target_model = if let Some(provider) = cli_cache.providers.get(&only.platform.id) {
+        mapped_target_model
+            .clone()
+            .unwrap_or_else(|| resolve_cli_proxy_target_model(provider, source_model))
+    } else {
+        let time_rules: &[serde_json::Value] = cache.map(|c| c.time_models.as_slice()).unwrap_or_default();
+        let effective_models = resolve_effective_models_cached(&only.platform, time_rules, now_ms, source_model);
+        mapped_target_model
+            .clone()
+            .unwrap_or_else(|| resolve_model(&effective_models, source_model))
+    };
 
     tracing::info!(
         group = %group.name, platform = %only.platform.name,
@@ -220,9 +332,16 @@ async fn handle_single_platform(
         "single-platform group: bypassing status filter, forcing request"
     );
 
+    // cli-proxy 平台：注入 provider 配置（wire/base_url/api_key/endpoints）
+    let platform = if let Some(provider) = cli_cache.providers.get(&only.platform.id) {
+        apply_cli_proxy_override(only.platform.clone(), provider)
+    } else {
+        only.platform.clone()
+    };
+
     Ok(CandidateSet {
         candidates: vec![RouteResult {
-            platform: only.platform.clone(),
+            platform,
             target_model,
             mapping: mapping.cloned(),
         }],
@@ -241,12 +360,14 @@ struct FilteredCandidates<'a> {
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
 /// 再叠加熔断准入门（Open/HalfOpen 满踢出），高峰禁用计数。
+/// cli-proxy 平台 provider 缺失/disabled（cli_cache.skip）→ 跳过（同 disabled 语义）。
 fn filter_candidates<'a>(
     group_platforms: &'a [GroupPlatformDetail],
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
     source_model: &str,
     extra_cache: &ExtraCacheMap,
+    cli_cache: &CliProxyCache,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
     let mut probe = Vec::new();
@@ -256,6 +377,10 @@ fn filter_candidates<'a>(
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
     for gp in group_platforms {
+        // cli-proxy provider 缺失/disabled → 直接跳过（等效 disabled，不进候选也不计入 peak）
+        if cli_cache.skip.contains(&gp.platform.id) {
+            continue;
+        }
         // auto_disabled 维度（DB 持久态）
         let auto_state = candidate_state(&gp.platform, now_ms, source_model);
         if auto_state.is_none() {
@@ -370,6 +495,7 @@ fn merge_and_promote_mapping<'a>(
 // ── Helper: 生成最终候选 ──
 
 /// 为每个候选解析目标模型（时段模型 + resolve_model），构建 RouteResult 列表。
+/// cli-proxy 平台：target_model 从 provider.models 覆盖，platform 注入 provider wire/base_url/api_key。
 fn build_route_results(
     ordered: Vec<&GroupPlatformDetail>,
     mapped_target_model: &Option<String>,
@@ -377,10 +503,23 @@ fn build_route_results(
     source_model: &str,
     mapping: Option<&ModelMapping>,
     extra_cache: &ExtraCacheMap,
+    cli_cache: &CliProxyCache,
 ) -> Vec<RouteResult> {
     ordered
         .into_iter()
         .map(|gp| {
+            // cli-proxy 分支：provider 已在 select 入口拉到缓存
+            if let Some(provider) = cli_cache.providers.get(&gp.platform.id) {
+                let target_model = mapped_target_model
+                    .clone()
+                    .unwrap_or_else(|| resolve_cli_proxy_target_model(provider, source_model));
+                let platform = apply_cli_proxy_override(gp.platform.clone(), provider);
+                return RouteResult {
+                    platform,
+                    target_model,
+                    mapping: mapping.cloned(),
+                };
+            }
             let target_model = if let Some(tm) = mapped_target_model.as_ref() {
                 tm.clone()
             } else {
