@@ -2046,5 +2046,6 @@
   "platform.cpaImport.applying": "Wird erstellt…",
   "platform.cpaImport.apply": "Erstellung von {{n}} bestätigen",
   "platform.cpaImport.created": "Erstellt {{n}}",
-  "platform.cpaImport.failed": "Fehlgeschlagen {{n}}"
+  "platform.cpaImport.failed": "Fehlgeschlagen {{n}}",
+  "platform.cpaImport.dropRelease": "Loslassen, um gezogene Konfigurationsquellen zu importieren"
 }
