@@ -87,6 +87,20 @@ impl CpaOAuthType {
             _ => None,
         }
     }
+
+    /// OAuth provider 静态上游 base_url（不含 path，path 在 converter 拼接）。
+    /// None = 需用户填（Vertex region-specific / 未覆盖 type）。
+    /// 与 platform-presets.json 同名 `cpa-*` 协议 endpoints.default.base_url 对齐。
+    pub fn default_base_url(&self) -> Option<&'static str> {
+        match self {
+            Self::Xai => Some("https://api.x.ai"),
+            Self::Aistudio => Some("https://generativelanguage.googleapis.com"),
+            Self::Antigravity => Some("https://cloudcode-pa.googleapis.com"),
+            // Vertex: region-specific（projects/{p}/locations/{l}/...），禁硬编码。
+            // Codex/Claude/Kimi: 非 OAuth 上游路由（走 ChatCompletions / Messages），留空。
+            Self::Vertex | Self::Codex | Self::Claude | Self::Kimi => None,
+        }
+    }
 }
 
 /// 从单个 config 文件解析出的 Provider（映射前的中间表示）。
@@ -546,7 +560,7 @@ fn parse_oauth_json(content: &str) -> Option<Vec<CpaProvider>> {
     Some(vec![CpaProvider {
         source_segment: CpaSourceSegment::OAuth,
         name: cred.email.clone(),
-        base_url: String::new(), // OAuth 平台 base_url 由后续映射确定
+        base_url: oauth_type.default_base_url().unwrap_or_default().to_string(),
         api_key: access_token,
         models,
         prefix: None,
@@ -940,7 +954,7 @@ mod tests {
         assert_eq!(p.name.as_deref(), Some("a@b"));
         assert_eq!(p.api_key, "tok");
         assert_eq!(p.models, vec!["grok-1".to_string()]);
-        assert!(p.base_url.is_empty());
+        assert_eq!(p.base_url, "https://api.x.ai");
     }
 
     #[test]
@@ -1094,5 +1108,43 @@ mod tests {
         assert_eq!(providers.len(), 1);
         assert_eq!(providers[0].name.as_deref(), Some("x@y"));
         assert_eq!(providers[0].api_key, "tok");
+    }
+
+    #[test]
+    fn test_default_base_url_static_mappings() {
+        assert_eq!(CpaOAuthType::Xai.default_base_url(), Some("https://api.x.ai"));
+        assert_eq!(
+            CpaOAuthType::Aistudio.default_base_url(),
+            Some("https://generativelanguage.googleapis.com")
+        );
+        assert_eq!(
+            CpaOAuthType::Antigravity.default_base_url(),
+            Some("https://cloudcode-pa.googleapis.com")
+        );
+        // Vertex region-specific / 其余未覆盖 → 留空（需用户填）
+        assert_eq!(CpaOAuthType::Vertex.default_base_url(), None);
+        assert_eq!(CpaOAuthType::Codex.default_base_url(), None);
+        assert_eq!(CpaOAuthType::Claude.default_base_url(), None);
+        assert_eq!(CpaOAuthType::Kimi.default_base_url(), None);
+    }
+
+    #[test]
+    fn test_parse_oauth_json_aistudio_base_url() {
+        // Aistudio base_url 不含 /v1beta（path 由 converter 拼接，见 request.rs:52）
+        let content = r#"{"type":"aistudio","access_token":"tok","model_aliases":[{"name":"gemini-1.5-pro"}]}"#;
+        let result = parse_oauth_json(content).expect("应识别为 Aistudio OAuth");
+        let p = &result[0];
+        assert_eq!(p.oauth_type, Some(CpaOAuthType::Aistudio));
+        assert_eq!(p.base_url, "https://generativelanguage.googleapis.com");
+    }
+
+    #[test]
+    fn test_parse_oauth_json_vertex_base_url_empty() {
+        // Vertex region-specific → base_url 留空，由用户后续填
+        let content = r#"{"type":"vertex","access_token":"tok"}"#;
+        let result = parse_oauth_json(content).expect("应识别为 Vertex OAuth");
+        let p = &result[0];
+        assert_eq!(p.oauth_type, Some(CpaOAuthType::Vertex));
+        assert!(p.base_url.is_empty());
     }
 }

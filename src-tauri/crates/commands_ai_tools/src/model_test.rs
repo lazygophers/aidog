@@ -75,7 +75,7 @@ async fn prepare_test_context(
 // ── 阶段2：准备 HTTP 请求 ──
 fn prepare_http_request(
     ctx: &TestContext,
-) -> HttpRequestContext {
+) -> Result<HttpRequestContext, String> {
     let (target_protocol, target_base_url, client_type, coding_plan) = if !ctx.platform.endpoints.is_empty() {
         let ep = ctx.platform.endpoints.iter()
             .find(|ep| ep.coding_plan)
@@ -84,6 +84,16 @@ fn prepare_http_request(
     } else {
         (ctx.platform.platform_type.clone(), ctx.platform.base_url.clone(), "default".to_string(), false)
     };
+
+    // base_url 缺失 guard：OAuth 未回填 / 用户手建平台漏配 → 友好错误替代 reqwest builder error。
+    // 空 base_url 拼 api_path 得无 host 相对 URL，reqwest builder 直接 error → client 502，错误不友好。
+    if target_base_url.trim().is_empty() {
+        tracing::warn!(
+            command = "model_test", platform_id = ctx.platform.id,
+            "base_url empty, cannot build upstream url"
+        );
+        return Err("base_url 缺失，请在平台 endpoints 配置上游地址".to_string());
+    }
 
     let (mut req_body, mut api_path) = adapter::convert_request(&ctx.chat_req, &target_protocol, &ctx.platform.platform_type);
     if coding_plan {
@@ -110,7 +120,7 @@ fn prepare_http_request(
     let request_id = uuid::Uuid::new_v4().simple().to_string();
     let created_at = gateway::db::now();
 
-    HttpRequestContext {
+    Ok(HttpRequestContext {
         target_protocol,
         url,
         client_type,
@@ -122,7 +132,7 @@ fn prepare_http_request(
         req_body_str,
         upstream_headers_json,
         start,
-    }
+    })
 }
 
 // ── 阶段3：构造 ProxyLog ──
@@ -261,7 +271,7 @@ pub async fn model_test(
     let ctx = prepare_test_context(&db, &req).await?;
 
     // 阶段2：准备 HTTP 请求
-    let http_ctx = prepare_http_request(&ctx);
+    let http_ctx = prepare_http_request(&ctx)?;
 
     // 阶段4：Mock 处理
     if let Some(result) = handle_mock_test(&ctx, &http_ctx) {
@@ -404,5 +414,84 @@ pub(crate) fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
             let out_tok = usage.and_then(|u| u.get("completion_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
             (in_tok, out_tok)
         }
+    }
+}
+
+#[cfg(test)]
+mod test_prepare_http_request {
+    use super::*;
+    use aidog_core::gateway::adapter::{ChatRequest, Message, MessageContent, Role};
+
+    fn make_ctx(base_url: &str, endpoints: Vec<gateway::models::PlatformEndpoint>) -> TestContext {
+        let platform = serde_json::from_value(serde_json::json!({
+            "id": 1,
+            "name": "test",
+            "platform_type": "openai",
+            "base_url": base_url,
+            "api_key": "",
+            "extra": "",
+            "models": {},
+            "available_models": [],
+            "created_at": 0,
+            "updated_at": 0,
+            "endpoints": endpoints,
+        })).unwrap();
+        TestContext {
+            platform,
+            model: "gpt-4".to_string(),
+            prompt: "hi".to_string(),
+            expected: None,
+            chat_req: ChatRequest {
+                model: "gpt-4".to_string(),
+                messages: vec![Message {
+                    role: Role::User,
+                    content: MessageContent::Text("hi".to_string()),
+                }],
+                system: None,
+                max_tokens: Some(16),
+                temperature: None,
+                top_p: None,
+                stream: Some(false),
+                tools: None,
+                tool_choice: None,
+                extra: None,
+            },
+        }
+    }
+
+    #[test]
+    fn empty_base_url_no_endpoints_returns_friendly_error() {
+        // 平台 base_url 空 + 无 endpoints → guard 触发返友好错误，非 reqwest builder error。
+        let ctx = make_ctx("", vec![]);
+        let err = prepare_http_request(&ctx).err().expect("expected error");
+        assert!(err.contains("base_url"), "错误文案应含 base_url，实际: {err}");
+        assert!(!err.to_lowercase().contains("builder"), "不应是 reqwest builder error");
+    }
+
+    #[test]
+    fn whitespace_base_url_returns_friendly_error() {
+        // 纯空白 base_url 视为缺失（trim 后空）。
+        let ctx = make_ctx("   ", vec![]);
+        let err = prepare_http_request(&ctx).err().expect("expected error");
+        assert!(err.contains("base_url"));
+    }
+
+    #[test]
+    fn empty_endpoint_base_url_falls_back_to_platform_then_errors() {
+        // endpoints 存在但端点 base_url 空 + 平台 base_url 空 → 仍 guard 拦截。
+        let ep = serde_json::from_value(serde_json::json!({
+            "protocol": "openai", "base_url": "", "client_type": "default", "coding_plan": false,
+        })).unwrap();
+        let ctx = make_ctx("", vec![ep]);
+        let err = prepare_http_request(&ctx).err().expect("expected error");
+        assert!(err.contains("base_url"));
+    }
+
+    #[test]
+    fn non_empty_base_url_proceeds_past_guard() {
+        // 正常 base_url → 通过 guard（后续 url 拼接成功，不验证完整 HTTP 链路）。
+        let ctx = make_ctx("https://api.openai.com/v1", vec![]);
+        let http_ctx = prepare_http_request(&ctx).expect("non-empty base_url should pass guard");
+        assert!(http_ctx.url.starts_with("https://api.openai.com/v1"));
     }
 }
