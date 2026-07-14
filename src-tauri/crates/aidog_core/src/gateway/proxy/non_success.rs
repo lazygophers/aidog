@@ -82,7 +82,7 @@ pub(crate) async fn handle_non_success(
         //   无命中        → 默认重试语义不变（is_last_candidate 决定）。
         //   熔断器不在本树：此处只产标记驱动现有重试循环，不引入任何熔断状态。──
         let err_class = {
-            let mw_settings = super::db::get_middleware_settings(&state.db).await;
+            let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
             state.middleware.classify_error(
                 &mw_settings, code, &body,
                 Some(&group.group_key), Some(route.platform.id as i64),

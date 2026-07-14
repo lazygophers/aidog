@@ -102,12 +102,16 @@ async fn handle_connect_inner(
     };
 
     // 日志开关：disabled 时整条不落 proxy_log（与 upsert_log 早退语义一致）。
-    let settings = get_log_settings(&state.db).await;
+    // settings + system_timeout 一次缓存借齐（每请求 ≥2 次 DB 缓存读 → 1 次 read lock）。
+    let (settings, system_timeout) = {
+        let c = state.settings_cache.read().await;
+        (c.log_settings.clone(), c.system_timeout.clone())
+    };
     let log_enabled = settings.enabled;
 
     // P2-A：connect 阶段超时（system 级；CONNECT 无 group/model_mapping 输入，仅 system 兜底）。
     // 隧道建后 idle 不套超时（避长连接 SSE/WebSocket over TLS 误杀），仅 TCP 握手阶段超时。
-    let system_timeout = get_system_timeout(&state.db).await;
+    // system_timeout 已在上块从缓存借出。
     let conn_timeout_secs = if system_timeout.connect_timeout_secs > 0 {
         system_timeout.connect_timeout_secs
     } else {

@@ -135,7 +135,7 @@ pub(crate) async fn forward_attempt(
     // block 在 forward 前返回，对透传/转换分支均生效；mask/inject 改写 chat_req，
     // 转换分支(convert_request 读 chat_req)生效，同协议透传分支(用 req_value 原体)不生效（已知限制，见 report）。
     {
-        let mw_settings = super::db::get_middleware_settings(&state.db).await;
+        let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
         if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
             state.middleware.apply_inbound_platform(&mw_settings, chat_req, route.platform.id as i64)
         {
@@ -257,15 +257,18 @@ pub(crate) async fn forward_attempt(
 
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
-    // ── 解析超时：模型 > 分组 > 系统 ──
-    let system_timeout = get_system_timeout(&state.db).await;
+    // ── 解析超时：模型 > 分组 > 系统 ──（system_timeout + proxy_client 一次缓存借齐）
+    let (system_timeout, proxy_client) = {
+        let c = state.settings_cache.read().await;
+        (c.system_timeout.clone(), c.proxy_client.clone())
+    };
     let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, group, &system_timeout);
     // 流式响应 body 读取不计入总超时：reqwest .timeout 覆盖「连接→响应头→body 全部读完」，
     // 会砍断长 thinking/tool_use 流（body 读取 > request_timeout_secs）致无 message_stop → 客户端
     // JSON Parse error / 内容残缺。流式禁总超时（传 0），connect_timeout 仍保护连接期，客户端自有超时兜底。
     let req_timeout = if is_stream { 0 } else { req_timeout };
     let client = super::http_client::build_http_client(
-        &state.db, req_timeout, conn_timeout,
+        &proxy_client, req_timeout, conn_timeout,
         Some(&route.platform.extra), None,
     ).await;
 

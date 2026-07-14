@@ -57,6 +57,7 @@ async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
             std::collections::HashSet::new(),
         )),
         listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
     });
     (state, ca)
 }

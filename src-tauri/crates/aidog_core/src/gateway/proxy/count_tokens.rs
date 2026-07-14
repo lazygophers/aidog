@@ -160,11 +160,14 @@ pub(crate) async fn handle_count_tokens(
         String::new()
     };
 
-    let system_timeout = get_system_timeout(&state.db).await;
+    let (system_timeout, proxy_client) = {
+        let c = state.settings_cache.read().await;
+        (c.system_timeout.clone(), c.proxy_client.clone())
+    };
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(
-        &state.db, req_timeout, conn_timeout, Some(&route.platform.extra), None,
+        &proxy_client, req_timeout, conn_timeout, Some(&route.platform.extra), None,
     )
     .await;
 

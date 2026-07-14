@@ -6,7 +6,8 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 
 /// Load system proxy client settings from DB.
-pub async fn load_proxy_client_settings(db: &Arc<Db>) -> ProxyClientSettings {
+/// 非请求路径用（model_test / price_sync / logo_sync / quota）。请求路径改读 ProxyState 缓存。
+pub async fn load_proxy_client_settings(db: &Db) -> ProxyClientSettings {
     super::db::get_setting(db, "proxy", "proxy_client")
         .await
         .ok()
@@ -79,16 +80,17 @@ pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
 /// - `Some(true)` = always use system proxy if configured
 /// - `Some(false)` = never use proxy
 ///
+/// `settings` 由 caller 传入：请求路径从 ProxyState 缓存借（避免每请求 DB 读），
+/// 非请求路径用 `load_proxy_client_settings(db).await` 现读现用。
+///
 /// Caches clients by (use_proxy, timeout_secs, conn_timeout_secs) to reuse TLS/connections.
 pub async fn build_http_client(
-    db: &Arc<Db>,
+    settings: &ProxyClientSettings,
     timeout_secs: u64,
     conn_timeout_secs: u64,
     platform_extra: Option<&str>,
     force_proxy: Option<bool>,
 ) -> reqwest::Client {
-    let settings = load_proxy_client_settings(db).await;
-
     let use_proxy = match force_proxy {
         Some(v) => v && settings.enabled,
         None => {
@@ -148,12 +150,14 @@ pub async fn build_http_client(
 }
 
 /// Convenience: build client without platform context (always follows system proxy).
+/// 非请求路径用（model_fetch/price_sync/logo_sync/quota）：现读 DB settings 再委托。
 pub async fn build_http_client_system(
     db: &Arc<Db>,
     timeout_secs: u64,
     conn_timeout_secs: u64,
 ) -> reqwest::Client {
-    build_http_client(db, timeout_secs, conn_timeout_secs, None, None).await
+    let settings = load_proxy_client_settings(db).await;
+    build_http_client(&settings, timeout_secs, conn_timeout_secs, None, None).await
 }
 
 #[cfg(test)]
@@ -237,7 +241,8 @@ mod tests {
 
         // 4. test_db（proxy_client settings 默认空 → use_proxy=false）。
         let db = crate::gateway::db::test_support::test_db().await;
-        let client = build_http_client(&Arc::new(db), 0, 0, None, None).await;
+        let settings = load_proxy_client_settings(&db).await;
+        let client = build_http_client(&settings, 0, 0, None, None).await;
 
         // 5. 请求上游：use_proxy=false + .no_proxy() → 直连上游，不连 stub proxy。
         let url = format!("http://{up_addr}/");

@@ -106,10 +106,13 @@ pub(crate) async fn handle_responses_subendpoint(
     log.upstream_request_url = url.clone();
     log.upstream_request_headers = r#"{"authorization":"[REDACTED]","openai-beta":"responses=experimental"}"#.to_string();
 
-    let system_timeout = get_system_timeout(&state.db).await;
+    let (system_timeout, proxy_client) = {
+        let c = state.settings_cache.read().await;
+        (c.system_timeout.clone(), c.proxy_client.clone())
+    };
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, Some(&platform.extra), None).await;
+    let client = super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, Some(&platform.extra), None).await;
 
     // 保留原始 method + 原样转发 body（GET/DELETE 无 body；POST cancel/compact 原样）。
     let mut rb = client
