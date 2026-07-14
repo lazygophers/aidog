@@ -8,8 +8,24 @@ import {
   extractExpiryAt,
   type PastePresetRef,
 } from "./platformPaste";
+// 真值源（platform-presets.json，68 协议）——数据驱动回归矩阵用。
+import presetsJson from "../../src-tauri/defaults/platform-presets.json";
 
 const PRESETS: PastePresetRef[] = [
+  // anthropic + openai 真值 fixture（对齐 platform-presets.json:18/34）——
+  // 历版 fixture 缺这俩致 anthropic/openai 抢匹配回归从未被覆盖（platform-detect-minimax 根因之一）。
+  {
+    value: "anthropic",
+    label: "Anthropic",
+    keywords: ["claude", "克劳德", "官方"],
+    hosts: ["api.anthropic.com"],
+  },
+  {
+    value: "openai",
+    label: "OpenAI",
+    keywords: ["gpt", "chatgpt", "官方"],
+    hosts: ["api.openai.com/v1"],
+  },
   { value: "deepseek", label: "DeepSeek", keywords: ["deepseek"], hosts: ["api.deepseek.com"] },
   {
     value: "glm",
@@ -534,5 +550,144 @@ describe("extractExpiryAt — MM.DD (月.日) format", () => {
     expect(d.getMonth() + 1).toBe(1);
     expect(d.getDate()).toBe(15);
     expect(d.getHours()).toBe(23);
+  });
+});
+
+// ─── 全协议回归矩阵（platform-presets.json 数据驱动）─────────────────────
+// platform-detect-minimax s3：fixture 补 anthropic + 遍历全 presets 协议，
+// 每协议造典型分享帖（自身 keywords + anthropic/openai 通用干扰词「官方 API」），
+// 断言 matchPlatform 识别为自身（非 anthropic/openai 抢匹配）。根因根治验证：
+// s1 打分（命中数 desc > 最长命中 keyword 优先）让多 keyword 协议胜出；
+// s2 codingKeyPrefixes 前置判定让 minimax/xiaomi_mimo 等 sk-cp-/tp- key 协议跳过 keyword 路径。
+
+/** presets.json 单协议 entry 的最小子集（仅取解析器所需字段，避免 any）。 */
+interface PresetEntry {
+  keywords?: string[];
+  codingKeyPrefixes?: string[];
+  is_coding_plan?: boolean;
+  name?: { "en-US"?: string; [locale: string]: string | undefined };
+  endpoints?: {
+    default?: { base_url: string }[];
+    coding_plan?: { base_url: string }[];
+  };
+}
+
+/**
+ * 从 presets.json 派生 PastePresetRef[]——镜像 defaults.ts::buildProtocolsFromPresets +
+ * deriveProtocolHosts（hosts = host+path 子串，让同 host 分裂如 glm 普通/coding 可区分）。
+ * 单一事实源：presets.json 改动自动反映到矩阵，无需手维护第二份 fixture。
+ * ponytail: 内联派生而非 import 真实 loadDoc（避免 RPC + async 测试复杂度），逻辑等同。
+ */
+function buildAllPresetsFromJson(): PastePresetRef[] {
+  const protocols = (presetsJson as { protocols: Record<string, PresetEntry> }).protocols ?? {};
+  const out: PastePresetRef[] = [];
+  for (const [key, entry] of Object.entries(protocols)) {
+    const hosts = new Set<string>();
+    const epsAll = [
+      ...(entry.endpoints?.default ?? []),
+      ...(entry.endpoints?.coding_plan ?? []),
+    ];
+    for (const ep of epsAll) {
+      try {
+        const u = new URL(ep.base_url);
+        const host = u.host.replace(/^www\./, "").toLowerCase();
+        const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+        const sub = path && path !== "/" ? host + path : host;
+        if (host) hosts.add(sub);
+      } catch {
+        // 非法 URL 跳过（同 deriveProtocolHosts 容错）
+      }
+    }
+    out.push({
+      value: key,
+      label: entry.name?.["en-US"] ?? key,
+      keywords: entry.keywords ?? [],
+      ...(hosts.size ? { hosts: [...hosts] } : {}),
+      ...(entry.is_coding_plan ? { codingPlan: true } : {}),
+      ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
+    });
+  }
+  return out;
+}
+
+const ALL_PRESETS = buildAllPresetsFromJson();
+const PROTOCOLS_JSON = (presetsJson as { protocols: Record<string, PresetEntry> }).protocols;
+
+/**
+ * 已知弱 keyword 协议：brand keyword 含 "claude" 子串 → anthropic keyword "claude" 免费命中，
+ * 叠加 "官方" 干扰词 = 2 hits，胜过单 brand keyword 的 1 hit。
+ * SPEC: 交 main 判是否补更独特 keyword（如 "claude api 中转"/"claude cn 镜像"），禁擅自改 presets.json。
+ */
+const KNOWN_WEAK_KEYWORD_PROTOCOLS = new Set(["claudeapi", "claudecn"]);
+
+describe("全协议回归矩阵（platform-presets.json 数据驱动）", () => {
+  // 排除 mock（NEVER_AUTO_MATCH）、xiaomi_mimo_coding（coding 变体同族，需 tp- key 区分，见专项测试）、
+  // KNOWN_WEAK_KEYWORD_PROTOCOLS（brand 含 "claude" 子串，单独文档化）。
+  const matrixProtocols = Object.entries(PROTOCOLS_JSON).filter(
+    ([k]) => k !== "mock" && k !== "xiaomi_mimo_coding" && !KNOWN_WEAK_KEYWORD_PROTOCOLS.has(k),
+  );
+
+  it.each(matrixProtocols)(
+    "keyword 识别: %s 自身 keywords + ' 官方 API' 干扰 → 识别为自身",
+    (key, entry) => {
+      const e = entry as PresetEntry;
+      // 典型分享帖：自身全 keywords（最大化命中数）+ anthropic/openai 通用干扰词。
+      // anthropic/openai 各得 "官方" 1 hit；目标协议靠 ≥2 distinctive keywords 或更长 keyword 胜出。
+      const text = (e.keywords ?? []).join(" ") + " 官方 API";
+      const hit = matchPlatform(text, ALL_PRESETS);
+      expect(hit?.value).toBe(key);
+    },
+  );
+
+  it("anthropic 不回归：纯 anthropic 文案（无其他平台词）→ anthropic", () => {
+    // 无更强信号竞争时，anthropic 自身文案仍识别正确。
+    expect(matchPlatform("claude 克劳德 官方", ALL_PRESETS)?.value).toBe("anthropic");
+  });
+
+  it("openai 自身文案 → openai（非 anthropic 抢匹配，二者共享 '官方' keyword）", () => {
+    // anthropic 与 openai 共享 "官方"，但 openai 的 "gpt"+"chatgpt" 命中数胜出。
+    expect(matchPlatform("gpt chatgpt 官方", ALL_PRESETS)?.value).toBe("openai");
+  });
+
+  it("minimax 根因场景（s1 打分根治）：'minimax 海螺 claude code 官方' → minimax（非 anthropic）", () => {
+    // bug 根因：minimax 分享帖含 "claude code 官方" 致旧版 idx0 anthropic 抢匹配。
+    // s1 打分：minimax 2 hits（海螺 + minimax，longest=7）vs anthropic 2 hits（claude + 官方，longest=6）→
+    // tie 命中数后最长 keyword 胜出 → minimax。literal 文案无 key 纯走 keyword 路径验证打分逻辑。
+    const hit = matchPlatform("minimax 海螺 claude code 官方", ALL_PRESETS);
+    expect(hit?.value).toBe("minimax");
+  });
+
+  it("minimax 根因场景（s2 codingKeyPrefixes 前置）：含 sk-cp- key 的分享帖 → minimax", () => {
+    // s2 根治：parsePlatformPaste 优先级 2 命中 sk-cp- 前缀直接返 minimax，跳过 keyword 打分。
+    // 含 key 的真实分享帖（key 用脱敏 placeholder，禁用真实 key）。
+    const out = parsePlatformPaste(
+      "minimax 海螺 claude code 官方 API key sk-cp-abcdefghijklmnop1234567890",
+      ALL_PRESETS,
+    );
+    expect(out.apiKeys.some((k) => k.startsWith("sk-cp-"))).toBe(true);
+    expect(out.platform?.value).toBe("minimax");
+  });
+
+  it("xiaomi_mimo 同族：tp- key（无文案无 URL）→ xiaomi_mimo（presets.json 中 xiaomi_mimo 与 xiaomi_mimo_coding 共享 tp- 前缀，首个胜出）", () => {
+    // SPEC 数据现状：presets.json 中 xiaomi_mimo 与 xiaomi_mimo_coding 均 codingKeyPrefixes=['tp-']，
+    // parsePlatformPaste priority-2 取首个匹配 → xiaomi_mimo（普通版，在 JSON 中先于 coding 变体）。
+    // coding 变体在真实场景靠 host 区分（token-plan-cn.xiaomimimo.com，机制 A），纯 token 无法区分。
+    // ponytail: 测试断言实际行为（非理想行为），让数据歧义可见；交 main 判是否调整 codingKeyPrefixes 归属。
+    const out = parsePlatformPaste("tp-abcdefghijklmnop1234567890", ALL_PRESETS);
+    expect(out.apiKeys.some((k) => k.startsWith("tp-"))).toBe(true);
+    expect(out.platform?.value).toBe("xiaomi_mimo");
+  });
+
+  it("SPEC 已知限制: claudeapi/claudecn brand 含 'claude' 子串，'官方 API' 干扰下 anthropic 抢匹配", () => {
+    // 文档化（不禁跳过，让限制可见）：keyword 打分下 anthropic "claude"(子串命中 brand) + "官方" = 2 hits，
+    // 而 claudeapi/claudecn 单 brand keyword = 1 hit → anthropic 胜。
+    // 真实场景影响：用户粘贴 "claudeapi 官方 API key sk-..." 会被识别为 anthropic 而非 claudeapi。
+    // SPEC(交 main 判): 是否给 claudeapi/claudecn 补 distinctive keyword（如 "claude api 中转"/"claude cn 镜像"），
+    // 或调整 keyword 打分权重（brand 完整匹配 > 子串匹配），禁擅自改 presets.json。
+    for (const proto of ["claudeapi", "claudecn"]) {
+      const entry = PROTOCOLS_JSON[proto];
+      const text = (entry.keywords ?? []).join(" ") + " 官方 API";
+      expect(matchPlatform(text, ALL_PRESETS)?.value).toBe("anthropic");
+    }
   });
 });
