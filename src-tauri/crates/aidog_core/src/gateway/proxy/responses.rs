@@ -102,6 +102,28 @@ pub(crate) async fn handle_responses_subendpoint(
     let sub_path = api_path.strip_prefix("/v1").unwrap_or(api_path);
     let url = format!("{}{}", base_url.trim_end_matches('/'), sub_path);
 
+    // ── base_url 缺失 guard ──
+    // endpoints/base_url 均空（OAuth 未回填 / 用户手建平台漏配）→ 友好错误替代 reqwest builder error。
+    // 空 base_url 拼 sub_path 得无 host 相对 URL，reqwest builder 直接 error → 502「upstream error」无诊断价值。
+    // ponytail: responses subendpoint 无 failover（单平台已选定），直接 502 + 审计落库（对齐 line 128 上游错误路径）。
+    if base_url.trim().is_empty() {
+        tracing::warn!(group = %group.name, platform = %platform.name, platform_id = platform.id, "responses subendpoint upstream base_url empty");
+        let msg = format!("{}: base_url 缺失", i18n::t(lang, ErrorKey::Upstream));
+        log.platform_id = platform.id;
+        log.response_body = "base_url missing".to_string();
+        log.status_code = 502;
+        log.upstream_status_code = 0;
+        log.user_response_body = msg.clone();
+        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(state, log, log_settings).await;
+        return {
+            let mut r = (StatusCode::BAD_GATEWAY, msg).into_response();
+            inject_trace_header(&mut r);
+            r
+        };
+    }
+
     log.platform_id = platform.id;
     log.upstream_request_url = url.clone();
     log.upstream_request_headers = r#"{"authorization":"[REDACTED]","openai-beta":"responses=experimental"}"#.to_string();
