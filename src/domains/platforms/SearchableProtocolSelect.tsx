@@ -214,7 +214,7 @@ export function SearchableProtocolSelect({
                   type="button"
                   className="btn btn-ghost"
                   style={{
-                    width: "100%", justifyContent: "flex-start",
+                    display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left",
                     padding: "7px 12px", fontSize: 13,
                     fontWeight: isActive ? 600 : 400,
                     color: isActive ? "var(--accent)" : "var(--text-primary)",
