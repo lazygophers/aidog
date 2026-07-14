@@ -169,7 +169,8 @@
       "homepage": "https://www.minimaxi.com",
       "logo_url": "minimax",
       "keywords": ["海螺", "minimax", "海螺编程", "minimax coding", "minimax code"],
-      "color": "#FF6B6B"
+      "color": "#FF6B6B",
+      "codingKeyPrefixes": ["sk-cp-"]
     },
     "minimax_en": {
       "client_type": "default",
