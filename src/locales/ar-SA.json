@@ -2088,5 +2088,16 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "platform.cliProxy.addFromProvider": "إضافة من cli-proxy",
+  "platform.cliProxy.pickerTitle": "اختر مزود cli-proxy",
+  "platform.cliProxy.pickerHint": "سيتم إنشاء منصة cli-proxy فورًا وإضافتها إلى المجموعة الحالية",
+  "platform.cliProxy.pickerEmpty": "لا يوجد مزود cli-proxy بعد، يرجى الاستيراد من صفحة cli-proxy أولاً",
+  "platform.cliProxy.inheritedTitle": "حقول cli-proxy الموروثة (للقراءة فقط)",
+  "platform.cliProxy.inheritedDesc": "هذه الحقول موروثة من مزود cli-proxy؛ قم بتحريرها في صفحة cli-proxy",
+  "platform.cliProxy.provider": "المزود",
+  "platform.cliProxy.wireProtocol": "بروتوكول الاتصال",
+  "platform.cliProxy.baseUrl": "Base URL",
+  "platform.cliProxy.models": "النماذج",
+  "platform.cliProxy.created": "تم إنشاء منصة cli-proxy"
 }

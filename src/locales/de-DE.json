@@ -2088,5 +2088,16 @@
   "updater.releaseNotes": "Versionshinweise",
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
-  "updater.updating": "Wird aktualisiert…"
+  "updater.updating": "Wird aktualisiert…",
+  "platform.cliProxy.addFromProvider": "Aus cli-proxy hinzufügen",
+  "platform.cliProxy.pickerTitle": "cli-proxy Provider auswählen",
+  "platform.cliProxy.pickerHint": "Es wird sofort eine cli-proxy-Plattform erstellt und zur aktuellen Gruppe hinzugefügt",
+  "platform.cliProxy.pickerEmpty": "Noch kein cli-proxy-Provider, bitte zuerst auf der cli-proxy-Seite importieren",
+  "platform.cliProxy.inheritedTitle": "Geerbte cli-proxy-Felder (schreibgeschützt)",
+  "platform.cliProxy.inheritedDesc": "Diese Felder werden vom cli-proxy-Provider geerbt; auf der cli-proxy-Seite bearbeiten",
+  "platform.cliProxy.provider": "Provider",
+  "platform.cliProxy.wireProtocol": "Wire-Protokoll",
+  "platform.cliProxy.baseUrl": "Base URL",
+  "platform.cliProxy.models": "Modelle",
+  "platform.cliProxy.created": "cli-proxy-Plattform erstellt"
 }

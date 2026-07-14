@@ -8,7 +8,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { TFunction } from "i18next";
 import {
-  platformApi, settingsApi, groupDetailApi,
+  platformApi, settingsApi, groupDetailApi, cliProxyApi,
   parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig,
   parsePlatformBreaker, serializePlatformBreaker,
   parsePlatformPeakHours, serializePlatformPeakHours,
@@ -19,6 +19,7 @@ import {
   type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError, type TimeModelRule, type MappedPlatform,
+  type CliProxyProvider,
 } from "../../services/api";
 import { splitApiKeys } from "../../utils/platformPaste";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
@@ -145,6 +146,8 @@ export interface PlatformFormState {
   runBatchCreateFromPaste: (keys: string[], baseName?: string, effectiveEndpoints?: PlatformEndpoint[], effectiveProtocol?: Protocol) => Promise<void>;
   applyCpaToForm: (p: MappedPlatform) => Promise<void>;
   runBatchCreateFromCpa: (providers: MappedPlatform[]) => Promise<void>;
+  /** 从 cli-proxy provider 建平台（cpa-standalone-module s6）。 */
+  createCliProxyPlatform: (provider: CliProxyProvider) => Promise<void>;
 }
 
 export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormState {
@@ -780,6 +783,33 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
   };
 
+  /** 从 cli-proxy provider 建平台（cpa-standalone-module s6）。
+   *  name 默认取 provider.name；group_id 取当前表单态（locked 或首个 join），未选传 null。 */
+  const createCliProxyPlatform = async (provider: CliProxyProvider): Promise<void> => {
+    try {
+      const groupId = lockedGroupId ?? (joinGroupIds.length > 0 ? joinGroupIds[0] : null);
+      const saved = await cliProxyApi.createPlatform(provider.id, provider.name, groupId);
+      resetForm();
+      platformsEpochRef.current++;
+      setPlatforms(prev => prev.some(x => x.id === saved.id) ? prev : [...prev, saved]);
+      quota.scheduleQuotaFor(saved);
+      platformApi.usageStats(saved.id)
+        .then(u => setUsageMap(prev => ({ ...prev, [saved.id]: u })))
+        .catch(() => {});
+      handleGroupsChanged();
+      groupsReloadRef.current?.();
+      window.dispatchEvent(new Event("aidog-groups-changed"));
+      setToast({ text: t("platform.cliProxy.created", "已创建 cli-proxy 平台"), ok: true });
+      setTimeout(() => setToast(null), 2500);
+    } catch (e: any) {
+      const msg = e?.toString() || "Unknown error";
+      console.error(msg);
+      setSaveError(msg);
+      setToast({ text: `${t("platform.saveFail", "保存失败")}: ${msg}`, ok: false });
+      setTimeout(() => setToast(null), 4000);
+    }
+  };
+
   return {
     editing, setEditing, showForm, setShowForm, showPaste, setShowPaste,
     pasteInitialText, setPasteInitialText, shareData, setShareData,
@@ -810,5 +840,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelChange, handleModelSelect, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste, applyCpaToForm, runBatchCreateFromCpa,
+    /** 建 cli-proxy 平台（cpa-standalone-module s6）：platform_type=cli-proxy, extra=cli_proxy_provider_id。
+     *  从 PlatformEditForm 新建态「从 cli-proxy 添加」入口调用，后端建行后局部刷新 + 关表单（同 handleSave aftercare）。 */
+    createCliProxyPlatform,
   };
 }
