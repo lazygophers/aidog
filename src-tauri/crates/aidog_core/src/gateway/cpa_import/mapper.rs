@@ -10,8 +10,9 @@
 //!   `aistudio`→`cpa-aistudio`; `antigravity`→`cpa-antigravity`;
 //!   `claude`/`codex`/`kimi` → 各原生协议。
 //!
-//! 字段映射：base-url → base_url（OAuth 段 base_url 留空，前端预览从
-//! `defaultClientForProtocol`/`getDefaultEndpoints` 回填，避免与 preset 重复）；
+//! 字段映射：base-url → base_url（OAuth 段 base_url 由 parser 按 oauth_type 静态
+//! 回填：Xai/Aistudio/Antigravity 有默认值，Vertex/Codex/Claude/Kimi 留空由用户填，
+//! 前端预览再从 `defaultClientForProtocol`/`getDefaultEndpoints` 补全）；
 //! models[].name → available_models；prefix/headers → extra JSON；disabled=true
 //! → apply 时 post-create UpdatePlatform 置 status=disabled（CreatePlatform 无 status 字段）。
 
@@ -31,7 +32,7 @@ pub struct MappedPlatform {
     pub protocol: Protocol,
     /// 平台名称（openai-compat 从 name；OAuth 从 email；api-key 段由 protocol + host 派生）
     pub name: String,
-    /// 上游 base URL（OAuth 段可能为空，前端预览回填）
+    /// 上游 base URL（OAuth 段：parser 按 oauth_type 回填静态值或留空，前端预览补全）
     pub base_url: String,
     /// API key（OAuth = access_token）
     pub api_key: String,
