@@ -2045,6 +2045,11 @@
   "platform.cpaImport.query": "Interroger",
   "platform.cpaImport.applying": "Création…",
   "platform.cpaImport.apply": "Confirmer la création de {{n}}",
+  "platform.cpaImport.applyOne": "Remplir le formulaire",
+  "platform.cpaImport.applyBatch": "Créer par lot {{n}}",
+  "platform.cpaImport.batchProgress": "Création par lot… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "Terminé : {{n}} créés",
+  "platform.cpaImport.batchFailSummary": "Réussi {{ok}} / Échoué {{fail}} · {{detail}}",
   "platform.cpaImport.created": "Créés {{n}}",
   "platform.cpaImport.failed": "Échec {{n}}",
   "platform.cpaImport.dropRelease": "Relâchez pour importer les sources de config déplacées"

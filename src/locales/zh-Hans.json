@@ -2023,6 +2023,11 @@
   "platform.cpaImport.query": "查",
   "platform.cpaImport.applying": "创建中…",
   "platform.cpaImport.apply": "确认创建 {{n}} 项",
+  "platform.cpaImport.applyOne": "填入表单",
+  "platform.cpaImport.applyBatch": "批量创建 {{n}} 个",
+  "platform.cpaImport.batchProgress": "批量创建中… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "批量创建完成：成功 {{n}} 个",
+  "platform.cpaImport.batchFailSummary": "成功 {{ok}} / 失败 {{fail}} · {{detail}}",
   "platform.cpaImport.created": "创建 {{n}}",
   "platform.cpaImport.failed": "失败 {{n}}",
   "platform.cpaImport.dropRelease": "松开以导入拖入的配置源"

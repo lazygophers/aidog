@@ -392,7 +392,9 @@ export const cpaImportApi = {
    *  仅 9 provider 有值，不支持者 success=false 前端显「—」。 */
   previewQuota: (baseUrl: string, apiKey: string) =>
     invoke<PlatformQuota>("cpa_import_preview_quota", { baseUrl, apiKey }),
-  /** 批量创建平台（非原子尽力：逐个 platform_create，失败收集不中断）。 */
+  /** @deprecated 改用前端 applyCpaToForm（单条灌表单）/ runBatchCreateFromCpa（多条批量）。
+   *  后端命令保留无害，但前端不再调用（CPA 导入改填表单模式：单条进创建表单用户改配置，
+   *  多条前端批量创建）。 */
   apply: (platforms: MappedPlatform[]) =>
     invoke<CpaBatchReport>("cpa_import_apply", { platforms }),
 };

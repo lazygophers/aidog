@@ -8,6 +8,7 @@ import {
   parseMockConfig, parseNewApiConfig, parsePlatformBreaker,
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type MockConfig, type NewApiConfig,
+  type MappedPlatform,
 } from "../../services/api";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import {
@@ -339,6 +340,141 @@ export async function runBatchCreateFromPaste(
     const failList = failures.map(f => `${f.key.slice(-4)}: ${f.err}`).join("; ");
     setToast({
       text: `${t("platform.batch.summary", "批量创建：成功 {{ok}} / 失败 {{fail}}", { ok: okCount, fail: failures.length })} — ${failList}`,
+      ok: okCount > 0,
+    });
+  }
+  setTimeout(() => setToast(null), 6000);
+}
+
+/**
+ * CPA 导入单条 → 灌入创建表单（用户改配置 + 设 group + 保存）。
+ * 范本：applyPaste fullShare 路径（platformPasteApply.ts:81-114）。setEditing(null) + setShowForm(true) 走新建态。
+ * ponytail: CPA provider 各字段独立（非 SmartPaste 解析结构），直接拆 MappedPlatform 灌表单。
+ *  - p.base_url 非空 → 覆盖 handleProtocolChange 填的默认 endpoints（单 endpoint）
+ *  - p.base_url 空（OAuth）→ 保留默认 endpoints（preset 已带）
+ *  - p.disabled 忽略（表单无 status 字段；用户创建后手 disable）
+ */
+export async function applyCpaToForm(p: MappedPlatform, ctx: PlatformPasteCtx): Promise<void> {
+  const {
+    setName, setApiKey, setAvailableModels, setEndpoints, setExtra,
+    setMockConfig, setNewApiConfig,
+    setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
+    setEditing, setLockedGroupId, setJoinGroupIds,
+    setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
+    setBatchPreviewKeys, setShowForm,
+    handleProtocolChange,
+  } = ctx;
+  setName(p.name);
+  await handleProtocolChange(p.protocol, false);  // 填默认 endpoints + client_type + codingPlan=false
+  setApiKey(p.api_key);
+  setAvailableModels(p.models ?? []);
+  // provider base_url 非空 → 单 endpoint 覆盖；空（OAuth）→ 保留 preset 默认 endpoints。
+  if (p.base_url) {
+    setEndpoints([{
+      protocol: p.protocol,
+      base_url: p.base_url,
+      client_type: await defaultClientForProtocol(p.protocol),
+    }]);
+  }
+  const ex = p.extra ?? "";
+  setExtra(ex);
+  setMockConfig(parseMockConfig(ex));
+  setNewApiConfig(parseNewApiConfig(ex));
+  {
+    const brk = parsePlatformBreaker(ex);
+    setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
+    setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
+    setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
+  }
+  setEditing(null);
+  setLockedGroupId(null);
+  setJoinGroupIds([]);
+  setShowClaudeConfig(false);
+  setClaudeConfigJson("");
+  setFetchError("");
+  setSaveError("");
+  setBatchPreviewKeys(null);
+  setShowForm(true);
+}
+
+/**
+ * CPA 导入多条 → 前端批量创建（各 provider 独立 protocol/base_url/api_key/models）。
+ * 范本：runBatchCreateFromPaste（platformPasteApply.ts:275-346）。
+ * 差异：各 provider 各自 protocol/base_url/api_key（非共享表单态）；name 直接用 provider name；
+ *  disabled provider post-create update status=disabled（保留 CPA disabled 语义）。
+ */
+export async function runBatchCreateFromCpa(providers: MappedPlatform[], ctx: PlatformPasteCtx): Promise<void> {
+  const {
+    t, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
+    setPlatforms, platformsEpochRef, quota, handleGroupsChanged, groupsReloadRef,
+    resetForm, setToast,
+  } = ctx;
+  const joinIds = lockedGroupId != null ? [lockedGroupId] : joinGroupIds;
+  const auto = lockedGroupId != null ? false : autoGroup;
+  const usedNames = new Set(ctx.platforms.map(p => p.name));
+  let okCount = 0;
+  const failures: { name: string; err: string }[] = [];
+  setToast({
+    text: t("platform.cpaImport.batchProgress", "批量创建中… {{done}}/{{total}}", { done: 0, total: providers.length }),
+    ok: true,
+  });
+  for (let i = 0; i < providers.length; i++) {
+    const p = providers[i];
+    // 撞名追号（与 runBatchCreateFromPaste 同语义）：name 后缀 -2 -3 …
+    let pname = p.name;
+    if (usedNames.has(pname)) {
+      let seq = 2;
+      while (usedNames.has(`${pname}-${seq}`)) seq++;
+      pname = `${pname}-${seq}`;
+    }
+    try {
+      const ep = p.base_url
+        ? [{ protocol: p.protocol, base_url: p.base_url, client_type: await defaultClientForProtocol(p.protocol) }]
+        : undefined;
+      const saved = await platformApi.create({
+        name: pname,
+        platform_type: p.protocol,
+        base_url: p.base_url || "",
+        api_key: p.api_key,
+        endpoints: ep,
+        available_models: p.models?.length ? p.models : undefined,
+        extra: p.extra || undefined,
+        auto_group: auto,
+        join_group_ids: joinIds,
+        expires_at: expiresAt,
+      });
+      usedNames.add(pname);
+      okCount++;
+      platformsEpochRef.current++;
+      setPlatforms(prev => prev.some(x => x.id === saved.id) ? prev : [...prev, saved]);
+      quota.scheduleQuotaFor(saved);
+      // CPA disabled 语义：post-create 置 status=disabled（保留原 cpa_import.rs:115-128 行为）。
+      if (p.disabled) {
+        try { await platformApi.update({ id: saved.id, status: "disabled" }); }
+        catch { /* 状态切换失败不阻塞整批，主资源已创建 */ }
+      }
+      setToast({
+        text: t("platform.cpaImport.batchProgress", "批量创建中… {{done}}/{{total}}", { done: i + 1, total: providers.length }),
+        ok: true,
+      });
+    } catch (e: any) {
+      failures.push({ name: p.name, err: e?.toString() || "Unknown error" });
+      console.error("cpa batch create failed", { name: p.name }, e);
+    }
+  }
+  handleGroupsChanged();
+  groupsReloadRef.current?.();
+  window.dispatchEvent(new Event("aidog-groups-changed"));
+  resetForm();
+  if (failures.length === 0) {
+    setToast({
+      text: t("platform.cpaImport.batchAllOk", "批量创建完成：成功 {{n}} 个", { n: okCount }),
+      ok: true,
+    });
+  } else {
+    const detail = failures.map(f => `${f.name}: ${f.err}`).join("; ").slice(0, 200);
+    setToast({
+      text: t("platform.cpaImport.batchFailSummary", "成功 {{ok}} / 失败 {{fail}} · {{detail}}", { ok: okCount, fail: failures.length, detail }),
       ok: okCount > 0,
     });
   }
