@@ -51,6 +51,8 @@ flate2 = { workspace = true }
 # 含 `tempfile::TempDir` 字段，编译进 release。tempfile 轻量（纯 std 封装），代价可接受。
 # C3+ aidog_test_util crate 抽出后从 main deps 移除。
 tempfile = { workspace = true }
+# proxy log_snapshots：分片并发 map，替代 std::sync::Mutex<HashMap> 全局锁（perf-full-audit s5）
+dashmap = { workspace = true }
 
 # macOS 托盘小字：refresh_tray_menu → set_tray_attributed_title 直连 NSStatusItem button。
 # 与 root package 同版本（workspace.dependencies 集中声明）。

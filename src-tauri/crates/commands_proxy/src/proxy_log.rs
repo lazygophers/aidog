@@ -118,8 +118,9 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
 }
 
 /// 跑 4 步 retention 清理链（user/upstream fields + retention_days + purge tombstone）。
-/// 每步 `tracing::warn!` 容错（单步失败不阻塞其余）。settings_set 与 cleanup_expired 共用。
-async fn run_retention_cleanup(db: &State<'_, Db>, settings: &ProxyLogSettings) {
+/// 每步 `tracing::warn!` 容错（单步失败不阻塞其余）。settings_set / cleanup_expired /
+/// app_setup 每日调度共用（&Db 入参脱离 State 绑定，便于后台 spawn 调用）。
+pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     // Run field-level cleanup for user/upstream request data
     if let Err(e) = gateway::db::cleanup_user_request_fields(db, settings.user_request_retention_days).await {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup user_request fields failed");

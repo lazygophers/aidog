@@ -77,6 +77,8 @@ webpki-roots = "0.26"
 # 测试期 dev-deps（C3+ 各 commands crate dev-deps 引）
 tempfile = "3"
 flate2 = "1"
+# proxy log_snapshots 分片并发 map（s5：去 std::sync::Mutex<HashMap> 全局锁）
+dashmap = "6"
 # 压缩格式支持（CPA config 导入）
 zip = "2"
 tar = "0.4"

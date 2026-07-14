@@ -25,6 +25,9 @@ pub async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri:
         .map_err(|e| { tracing::error!(command = "settings_set", error = %e, "persist setting failed"); e })?;
     // Auto-sync group settings files when claude code config changes
     try_sync_settings(&app, &db).await;
+    // P2 #4: 同步刷新 ProxyState 设置缓存，禁陈旧（请求路径直接读缓存）。
+    // proxy 未启动 → no-op（refresh 内部判 weak stale）。
+    gateway::proxy::refresh_proxy_settings_cache(&db).await;
     Ok(())
 }
 

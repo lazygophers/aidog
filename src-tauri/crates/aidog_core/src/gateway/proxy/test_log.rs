@@ -65,9 +65,10 @@ use super::*;
             middleware: Arc::new(MiddlewareEngine::new()),
             scheduler: Arc::new(super::super::scheduling::SchedulerState::new()),
             sticky: Arc::new(super::super::scheduling::StickyTable::new()),
-            log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+            log_snapshots: dashmap::DashMap::new(),
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
             listen_addr: std::sync::OnceLock::new(),
+            settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         })
     }
 

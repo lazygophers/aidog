@@ -205,9 +205,10 @@ use super::*;
             middleware: Arc::new(MiddlewareEngine::new()),
             scheduler: Arc::new(super::super::scheduling::SchedulerState::new()),
             sticky: Arc::new(super::super::scheduling::StickyTable::new()),
-            log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+            log_snapshots: dashmap::DashMap::new(),
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
             listen_addr: std::sync::OnceLock::new(),
+            settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         })
     }
 
@@ -322,8 +323,6 @@ use super::*;
         .unwrap();
         state
             .log_snapshots
-            .lock()
-            .unwrap()
             .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
 
         let chunks = [
@@ -356,8 +355,6 @@ use super::*;
         .unwrap();
         state
             .log_snapshots
-            .lock()
-            .unwrap()
             .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
 
         // 典型 anthropic 透传尾块：message_delta + message_stop，无 [DONE]
@@ -390,8 +387,6 @@ use super::*;
         .unwrap();
         state
             .log_snapshots
-            .lock()
-            .unwrap()
             .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
 
         // 仅有部分内容，无 [DONE]/message_stop（模拟中途断裂 / 客户端断连）。
@@ -421,8 +416,6 @@ use super::*;
         .unwrap();
         state
             .log_snapshots
-            .lock()
-            .unwrap()
             .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
 
         let guard = make_guard(&state, log, &[], 0); // 零 upstream chunk

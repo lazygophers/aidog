@@ -23,8 +23,11 @@ pub(crate) async fn handle_passthrough(
     let url = build_passthrough_url(base_url, &orig_uri);
     log.upstream_request_url = url.clone();
 
-    // 解析超时（系统级；透传无 group/model mapping 覆盖）
-    let system_timeout = get_system_timeout(&state.db).await;
+    // 解析超时（系统级；透传无 group/model mapping 覆盖）—— system_timeout + proxy_client 一次缓存借齐
+    let (system_timeout, proxy_client) = {
+        let c = state.settings_cache.read().await;
+        (c.system_timeout.clone(), c.proxy_client.clone())
+    };
     // passthrough 透明 relay：禁用总超时——reqwest .timeout 覆盖「连接→响应头→body 全部读完」，
     // 会砍断长 SSE 流（thinking/tool_use body 读取 > request_timeout_secs）致无 message_stop → 客户端
     // JSON Parse error / 内容残缺。透传语义上不替客户端施加任意 body 超时；connect_timeout 仍保护连接期，
@@ -32,7 +35,7 @@ pub(crate) async fn handle_passthrough(
     let req_timeout = 0u64;
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(
-        &state.db, req_timeout, conn_timeout,
+        &proxy_client, req_timeout, conn_timeout,
         None, None,
     ).await;
 
@@ -127,16 +130,22 @@ pub(crate) async fn handle_passthrough(
     // ── 非流式：原样 relay bytes ──
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
-        let resp_str = String::from_utf8_lossy(&body).to_string();
-        let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
+        // usage 借用：lossy 不经 to_string 中转
+        let (input_tokens, output_tokens, cache_tokens) =
+            extract_usage(String::from_utf8_lossy(&body).as_ref());
 
-        log.response_body = resp_str.clone();
+        // ── record gate（与流式分支 :160/:168 对称）：上游/客户端 body 各自受对应开关控制，
+        //   开启时走 cap_nonstream_body 截断 + 落库（对齐 STREAM_BODY_MAX_BYTES 16MB）。──
+        let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+        let record_client_body = log_settings.enabled && log_settings.log_user_request;
         log.status_code = status.as_u16() as i32;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
         log.cache_tokens = cache_tokens;
-        log.user_response_body = resp_str;
+        // 透传：upstream body == client body（无协议转换），但仍按侧 gate 落库
+        log.response_body = if record_upstream_body { cap_nonstream_body(&body) } else { String::new() };
+        log.user_response_body = if record_client_body { cap_nonstream_body(&body) } else { String::new() };
         log.user_response_headers = log.upstream_response_headers.clone();
         upsert_log(state, log, log_settings).await;
 
@@ -412,10 +421,13 @@ pub(crate) async fn forward_passthrough_to_orig_host(
     log.upstream_request_url = url.clone();
 
     // 超时：连接期保护，body 不设总超时（与 handle_passthrough 同款，避免砍长响应）。
-    let system_timeout = get_system_timeout(&state.db).await;
+    let (system_timeout, proxy_client) = {
+        let c = state.settings_cache.read().await;
+        (c.system_timeout.clone(), c.proxy_client.clone())
+    };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(
-        &state.db, 0u64, conn_timeout, None, None,
+        &proxy_client, 0u64, conn_timeout, None, None,
     ).await;
 
     // 剥 proxy-only headers（hop-by-hop 由 passthrough_headers 已剔 host/content-length；

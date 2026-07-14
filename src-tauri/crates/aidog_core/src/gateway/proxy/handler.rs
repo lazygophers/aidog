@@ -107,8 +107,8 @@ pub(crate) async fn handle_proxy_core(
     let start = std::time::Instant::now();
     let created_at = super::db::now();
 
-    // Load log settings once per request
-    let log_settings = get_log_settings(&state.db).await;
+    // Load log settings once per request（从 ProxyState 缓存借，零 DB / serde 反序列化）
+    let log_settings = state.settings_cache.read().await.log_settings.clone();
 
     // ── 初始化日志条目 ──
     let mut log = ProxyLog {
@@ -146,8 +146,8 @@ pub(crate) async fn handle_proxy_core(
         deleted_at: 0,
     };
 
-    // ── 读取当前语言（用于错误消息翻译） ──
-    let lang = get_lang(&state.db).await;
+    // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──
+    let lang = state.settings_cache.read().await.lang;
 
     // ── 捕获请求头 ──
     log.request_headers = {
@@ -347,7 +347,7 @@ pub(crate) async fn handle_proxy_core(
     // settings 读取 fail-open（异常 → Default 总开关 ON）；apply 内单条规则异常不阻断主链路。
     // 顺序：request_filter→sensitive_word→redaction→content_filter→dynamic_injection。
     {
-        let mw_settings = super::db::get_middleware_settings(&state.db).await;
+        let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
         if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
             state.middleware.apply_inbound(&mw_settings, &mut chat_req, Some(&group.group_key))
         {

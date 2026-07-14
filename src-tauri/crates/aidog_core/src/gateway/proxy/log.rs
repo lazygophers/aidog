@@ -126,17 +126,15 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
     let is_terminal = cols.status_code != 0 && cols.response_body != "[stream]";
 
     // 取上一快照决定 INSERT(首节点) 还是 部分列 UPDATE(后续节点)。
-    let prev = {
-        let map = state.log_snapshots.lock().unwrap();
-        map.get(&id).cloned()
-    };
+    // DashMap 分片 get 返回 Ref（持读锁），.map(|r| r.clone()) 释锁后返回克隆，避免持锁跨 await。
+    let prev = state.log_snapshots.get(&id).map(|r| r.clone());
     let write_ok = match prev {
         None => {
             // 首节点：建行。成功后存快照供后续 diff。
             let ok = super::db::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
             if ok {
                 // OOM 止血：快照表只留 meta（清空 body/headers 大字段），N 并发不累积大 String。
-                state.log_snapshots.lock().unwrap().insert(id.clone(), cols.into_snapshot_meta());
+                state.log_snapshots.insert(id.clone(), cols.into_snapshot_meta());
             }
             ok
         }
@@ -144,7 +142,7 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
             // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
             let ok = super::db::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
             if ok {
-                state.log_snapshots.lock().unwrap().insert(id.clone(), cols.into_snapshot_meta());
+                state.log_snapshots.insert(id.clone(), cols.into_snapshot_meta());
             }
             ok
         }
@@ -174,7 +172,7 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
 /// 注意：不在此清 agg_done——终态 upsert_log 会被反复调用（remove 后下次 prev=None 又走终态），
 /// 在此清会破坏去重；agg_done 自带 FIFO 容量上限，无需按请求清理。
 pub(crate) fn remove_log_snapshot(state: &Arc<ProxyState>, id: &str) {
-    state.log_snapshots.lock().unwrap().remove(id);
+    state.log_snapshots.remove(id);
 }
 
 /// 中间件入站拦截：写审计日志（blocked_by/blocked_reason，不计费）并立即返回 403。
