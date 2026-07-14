@@ -150,6 +150,9 @@ commands_tray = { path = "crates/commands_tray" }
 # C9 commands-cli-env：cli_env 域迁此 crate（Claude Code / Codex CLI 版本 / 安装 / 升级 / 冲突诊断）。
 # 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
 commands_cli_env = { path = "crates/commands_cli_env" }
+# commands-cli-proxy：cli_proxy provider/platform/import 域（cpa-standalone-module s3）。
+# 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
+commands_cli_proxy = { path = "crates/commands_cli_proxy" }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"

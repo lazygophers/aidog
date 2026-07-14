@@ -808,3 +808,141 @@ fn resolve_effective_models_user_peak_hours_override_takes_effect() {
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
     assert_eq!(eff.default.as_deref(), Some("glm-4.7"), "用户 peak_hours 命中 → 切 peak");
 }
+
+// ── cpa-standalone-module s2: cli-proxy 平台路由 ──────────────────────────────
+
+/// 创建一个 cli-proxy 平台（extra 指向 provider_id）。
+async fn mk_cli_proxy_platform(db: &db::Db, name: &str, provider_id: u64) -> Platform {
+    let extra = serde_json::json!({ "cli_proxy_provider_id": provider_id }).to_string();
+    db::create_platform(db, CreatePlatform {
+        name: name.into(),
+        platform_type: Protocol::CliProxy,
+        base_url: String::new(),  // cli-proxy 平台 base_url 空由 provider 注入
+        api_key: String::new(),
+        extra,
+        models: None, available_models: None, endpoints: None, manual_budgets: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+    }).await.expect("create cli-proxy platform")
+}
+
+/// 创建一个 cli_proxy_provider 行。
+async fn mk_cli_proxy_provider(db: &db::Db, name: &str, wire: &str, base_url: &str, status: &str) -> CliProxyProvider {
+    db::create_cli_proxy_provider(db, CreateCliProxyProvider {
+        name: name.into(),
+        wire_protocol: wire.into(),
+        base_url: base_url.into(),
+        api_key: "sk-cli".into(),
+        models: vec!["claude-sonnet-4".into(), "claude-opus-4".into()],
+        extra: String::new(),
+        status: status.into(),
+        group_id: None,
+    }).await.expect("create provider")
+}
+
+/// cli-proxy 平台路由：provider 配置注入 endpoint + base_url + api_key。
+#[tokio::test]
+async fn cli_proxy_platform_injects_provider_config() {
+    let db = mk_test_db().await;
+    let provider = mk_cli_proxy_provider(&db, "p1", "anthropic", "https://upstream.example/v1", "active").await;
+    let p = mk_cli_proxy_platform(&db, "cli-plat", provider.id).await;
+    let g = mk_db_group(&db, "g", &[p.id]).await;
+
+    let set = select_candidates(&db, &g, "claude-sonnet-4").await.expect("ok");
+    assert_eq!(set.candidates.len(), 1);
+    let c = &set.candidates[0];
+    // endpoint 注入：wire = provider.wire_protocol = anthropic
+    assert_eq!(c.platform.endpoints.len(), 1, "cli-proxy injects 1 synthetic endpoint");
+    assert_eq!(format!("{:?}", c.platform.endpoints[0].protocol).to_lowercase(), "anthropic");
+    // base_url + api_key 由 provider 覆盖
+    assert_eq!(c.platform.base_url, "https://upstream.example/v1");
+    assert_eq!(c.platform.api_key, "sk-cli");
+    // target_model: source_model 在 provider.models 中 → 透传
+    assert_eq!(c.target_model, "claude-sonnet-4");
+}
+
+/// cli-proxy 平台 target_model 回落：source_model 不在 provider.models → 取首项。
+#[tokio::test]
+async fn cli_proxy_target_model_falls_back_to_first() {
+    let db = mk_test_db().await;
+    let provider = mk_cli_proxy_provider(&db, "p1", "anthropic", "https://up.example/v1", "active").await;
+    let p = mk_cli_proxy_platform(&db, "cli-plat", provider.id).await;
+    let g = mk_db_group(&db, "g", &[p.id]).await;
+
+    let set = select_candidates(&db, &g, "some-unknown-model").await.expect("ok");
+    assert_eq!(set.candidates[0].target_model, "claude-sonnet-4", "unknown model falls back to provider.models[0]");
+}
+
+/// cli-proxy provider 缺失（id 无效）→ 平台排除；单平台组 → Err。
+#[tokio::test]
+async fn cli_proxy_missing_provider_excludes() {
+    let db = mk_test_db().await;
+    // 不创建 provider，直接指向不存在的 id
+    let p = mk_cli_proxy_platform(&db, "cli-plat", 9999).await;
+    let g = mk_db_group(&db, "g", &[p.id]).await;
+
+    let res = select_candidates(&db, &g, "claude-sonnet-4").await;
+    let err = match res {
+        Err(e) => e,
+        Ok(_) => panic!("missing provider should exclude platform"),
+    };
+    assert!(err.contains("missing") || err.contains("disabled"), "got: {err}");
+}
+
+/// cli-proxy provider status != active → 平台排除。
+#[tokio::test]
+async fn cli_proxy_disabled_provider_excludes() {
+    let db = mk_test_db().await;
+    let provider = mk_cli_proxy_provider(&db, "p1", "anthropic", "https://up.example/v1", "disabled").await;
+    let p = mk_cli_proxy_platform(&db, "cli-plat", provider.id).await;
+    let g = mk_db_group(&db, "g", &[p.id]).await;
+
+    let res = select_candidates(&db, &g, "claude-sonnet-4").await;
+    let err = match res {
+        Err(e) => e,
+        Ok(_) => panic!("disabled provider should exclude platform"),
+    };
+    assert!(err.contains("missing") || err.contains("disabled"), "got: {err}");
+}
+
+/// cli-proxy 平台 extra 缺 cli_proxy_provider_id → 排除。
+#[tokio::test]
+async fn cli_proxy_missing_provider_id_excludes() {
+    let db = mk_test_db().await;
+    let p = db::create_platform(&db, CreatePlatform {
+        name: "cli-no-id".into(),
+        platform_type: Protocol::CliProxy,
+        base_url: String::new(),
+        api_key: String::new(),
+        extra: String::new(),  // 无 cli_proxy_provider_id
+        models: None, available_models: None, endpoints: None, manual_budgets: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+    }).await.expect("create platform");
+    let g = mk_db_group(&db, "g", &[p.id]).await;
+
+    let res = select_candidates(&db, &g, "claude-sonnet-4").await;
+    let err = match res {
+        Err(e) => e,
+        Ok(_) => panic!("missing provider_id should exclude platform"),
+    };
+    assert!(err.contains("missing") || err.contains("disabled"), "got: {err}");
+}
+
+/// 多平台分组：cli-proxy 平台与普通平台混合，cli-proxy 被正确注入，普通平台不受影响。
+#[tokio::test]
+async fn cli_proxy_mixed_with_normal_platform() {
+    let db = mk_test_db().await;
+    let provider = mk_cli_proxy_provider(&db, "p1", "openai", "https://up.example/v1", "active").await;
+    let p_cli = mk_cli_proxy_platform(&db, "cli-plat", provider.id).await;
+    let p_normal = mk_db_platform(&db, "normal-plat").await;
+    let g = mk_db_group(&db, "g", &[p_cli.id, p_normal.id]).await;
+
+    let set = select_candidates(&db, &g, "claude-sonnet-4").await.expect("ok");
+    assert_eq!(set.candidates.len(), 2);
+    let cli_candidate = set.candidates.iter().find(|c| c.platform.id == p_cli.id).expect("cli candidate present");
+    assert_eq!(cli_candidate.platform.base_url, "https://up.example/v1", "cli-proxy base_url injected");
+    assert_eq!(cli_candidate.platform.endpoints.len(), 1, "cli-proxy endpoint injected");
+    let normal = set.candidates.iter().find(|c| c.platform.id == p_normal.id).expect("normal candidate present");
+    assert_eq!(normal.platform.base_url, "https://example.invalid", "normal platform base_url untouched");
+    assert!(normal.platform.endpoints.is_empty(), "normal platform endpoints untouched");
+}
+

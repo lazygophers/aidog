@@ -85,6 +85,7 @@ dependencies = [
  "chrono",
  "commands_ai_tools",
  "commands_cli_env",
+ "commands_cli_proxy",
  "commands_config",
  "commands_platform",
  "commands_proxy",
@@ -1000,6 +1001,20 @@ dependencies = [
  "serde",
  "serde_json",
  "tauri",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
+name = "commands_cli_proxy"
+version = "0.1.6"
+dependencies = [
+ "aidog_core",
+ "aidog_test_util",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tempfile",
  "tokio",
  "tracing",
 ]

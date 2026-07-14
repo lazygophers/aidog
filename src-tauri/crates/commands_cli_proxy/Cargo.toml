@@ -1,0 +1,21 @@
+[package]
+name = "commands_cli_proxy"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# cpa-standalone-module s3：cli_proxy provider CRUD + test + create_cli_proxy_platform + import。
+# 铁律：禁依赖其他 commands_* crate（跨域边下沉 aidog_core）。
+[dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+aidog_test_util = { path = "../aidog_test_util" }
+tauri = { workspace = true, features = ["test"] }
+tokio = { workspace = true }
+tempfile = { workspace = true }

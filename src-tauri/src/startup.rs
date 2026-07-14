@@ -229,6 +229,15 @@ pub fn run() {
             commands_platform::cpa_import::cpa_import_parse,
             commands_platform::cpa_import::cpa_import_preview_quota,
             commands_platform::cpa_import::cpa_import_apply,
+            // CLI Proxy（cpa-standalone-module s3）：provider CRUD + test + platform + import
+            commands_cli_proxy::provider::cli_proxy_list,
+            commands_cli_proxy::provider::cli_proxy_get,
+            commands_cli_proxy::provider::cli_proxy_create,
+            commands_cli_proxy::provider::cli_proxy_update,
+            commands_cli_proxy::provider::cli_proxy_delete,
+            commands_cli_proxy::test_cmd::cli_proxy_test,
+            commands_cli_proxy::platform::create_cli_proxy_platform,
+            commands_cli_proxy::import::cli_proxy_import,
             // Model Prices
             commands_platform::price::model_price_list,
             commands_platform::price::model_price_count,
