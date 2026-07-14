@@ -4,9 +4,9 @@
 // 三段式（design.md）：
 // 1. 选源：Tauri open dialog（文件/压缩包/文件夹）+ 可选第二 dialog 选 auth-dir 凭据目录。
 // 2. 预览：cpa_import_parse → 表格（多选/改名/选模型/冲突检测/惰性余额，并发 ≤5）。
-// 3. apply：cpa_import_apply（非原子尽力）→ toast created/failed + 关 modal。
+// 3. apply：选中 providers 回调父级 → 单条灌创建表单 / 多条前端批量创建（cpa_import_apply 已废弃）。
 //
-// 复用：Modal.tsx 基元、cpaImportApi（services/api/platforms.ts）、getDefaultModelList（async preset 兜底）。
+// 复用：Modal.tsx 基元、cpaImportApi.parse / previewQuota（services/api/platforms.ts）、getDefaultModelList（async preset 兜底）。
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -59,8 +59,9 @@ function parseModelsText(text: string): string[] {
 export interface CpaImportModalProps {
   open: boolean;
   onClose: () => void;
-  /** apply 成功后回调（刷新平台列表 + toast）。 */
-  onApplied: (created: Platform[], failed: { name: string; error: string }[]) => void;
+  /** apply：选中 providers 回调父级 → 单条灌创建表单 / 多条前端批量创建。
+   *  父级（PlatformEditForm）按 providers.length 分派 applyCpaToForm / runBatchCreateFromCpa。 */
+  onApplied: (providers: MappedPlatform[]) => void | Promise<void>;
 }
 
 export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportModalProps) {
@@ -366,8 +367,9 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
         setError(t("platform.cpaImport.errNoSelect", "未选中任何条目"));
         return;
       }
-      const report = await cpaImportApi.apply(payload);
-      onApplied(report.created, report.failed);
+      // 选中 providers 回调父级：单条 → 灌创建表单 / 多条 → 前端批量创建。
+      // cpa_import_apply 后端命令已废弃（保留无害），改由前端控制创建路径。
+      await onApplied(payload);
       onClose();
     } catch (e) {
       setError(String(e));
@@ -596,7 +598,9 @@ export function CpaImportModal({ open: isOpen, onClose, onApplied }: CpaImportMo
               >
                 {applying
                   ? t("platform.cpaImport.applying", "创建中…")
-                  : t("platform.cpaImport.apply", "确认创建 {{n}} 项", { n: selectedCount })}
+                  : selectedCount === 1
+                    ? t("platform.cpaImport.applyOne", "填入表单")
+                    : t("platform.cpaImport.applyBatch", "批量创建 {{n}} 个", { n: selectedCount })}
               </button>
             </div>
           </>

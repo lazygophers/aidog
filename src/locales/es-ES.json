@@ -2023,6 +2023,11 @@
   "platform.cpaImport.query": "Consultar",
   "platform.cpaImport.applying": "Creando…",
   "platform.cpaImport.apply": "Confirmar creación de {{n}}",
+  "platform.cpaImport.applyOne": "Rellenar formulario",
+  "platform.cpaImport.applyBatch": "Crear lote {{n}}",
+  "platform.cpaImport.batchProgress": "Creando lote… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "Lote completado: {{n}} creados",
+  "platform.cpaImport.batchFailSummary": "Éxito {{ok}} / Fallo {{fail}} · {{detail}}",
   "platform.cpaImport.created": "Creados {{n}}",
   "platform.cpaImport.failed": "Fallidos {{n}}",
   "platform.cpaImport.dropRelease": "Suelta para importar las fuentes de configuración arrastradas"

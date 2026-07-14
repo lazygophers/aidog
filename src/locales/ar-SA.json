@@ -2045,6 +2045,11 @@
   "platform.cpaImport.query": "استعلام",
   "platform.cpaImport.applying": "جاري الإنشاء…",
   "platform.cpaImport.apply": "تأكيد إنشاء {{n}}",
+  "platform.cpaImport.applyOne": "تعبئة النموذج",
+  "platform.cpaImport.applyBatch": "إنشاء دفعي {{n}}",
+  "platform.cpaImport.batchProgress": "إنشاء دفعي… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "اكتمل الإنشاء الدفعي: تم إنشاء {{n}}",
+  "platform.cpaImport.batchFailSummary": "نجاح {{ok}} / فشل {{fail}} · {{detail}}",
   "platform.cpaImport.created": "تم إنشاء {{n}}",
   "platform.cpaImport.failed": "فشل {{n}}",
   "platform.cpaImport.dropRelease": "حرّر لاستيراد مصادر التهيئة المسحوبة"

@@ -2045,6 +2045,11 @@
   "platform.cpaImport.query": "Запр.",
   "platform.cpaImport.applying": "Создание…",
   "platform.cpaImport.apply": "Подтвердить создание {{n}}",
+  "platform.cpaImport.applyOne": "Заполнить форму",
+  "platform.cpaImport.applyBatch": "Пакетное создание {{n}}",
+  "platform.cpaImport.batchProgress": "Пакетное создание… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "Пакет завершён: создано {{n}}",
+  "platform.cpaImport.batchFailSummary": "Успех {{ok}} / Ошибка {{fail}} · {{detail}}",
   "platform.cpaImport.created": "Создано {{n}}",
   "platform.cpaImport.failed": "Ошибка {{n}}",
   "platform.cpaImport.dropRelease": "Отпустите, чтобы импортировать перетянутые источники конфигурации"
