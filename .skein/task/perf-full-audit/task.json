@@ -1,0 +1,185 @@
+{
+  "id": "perf-full-audit",
+  "name": "全量性能审计(前端+跨层+已修项复验)",
+  "desc": "二轮全量: 验证上轮 perf-oom-cpu-optimize 3 修复仍生效无回归 + 攻未覆盖维度(前端 React 重渲染/巨石组件/Liquid Glass CPU/event listener 泄漏/invoke 轮询/大 payload + 跨层多页并发重拉) + Rust 残留(log_snapshots 锁/DashMap 必要性)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "非流式 body MUST cap ≤16MB(与流式对称)",
+    "非流式 record gate MUST 受 log_upstream_request 控制",
+    "retention run_retention_cleanup MUST 纳入每日 spawn 调度",
+    "VACUUM MUST 后台 spawn 不阻塞主线程 + 低频",
+    "禁改公开 API/serde 字段名/DB schema(向后兼容)",
+    "前端 store 重构 MUST 保持各页数据流正确(Home 7 invoke/Stats/Logs/Groups/Platforms)",
+    "store 不加新依赖(用 AppContext 扩展, 禁 Zustand)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "P0 非流式 body cap + record gate",
+      "desc": "NONSTREAM_BODY_MAX_BYTES=16MB(对齐流式); forward.rs:463/passthrough.rs:129 resp.bytes() 前预检+超限截断; finish.rs/passthrough.rs 非流式 body 赋值 gate 到 record_upstream_body(与流式对称); usage 提取借用不必 to_string",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过",
+        "非流式 body cap≤16MB",
+        "record gate 受 log_upstream_request",
+        "无 to_string 冗余分配"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "estimate": 50,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784002917,
+      "started": 1784002929,
+      "finished": 1784003664
+    },
+    {
+      "sid": "s2",
+      "name": "P0 retention 每日调度 + VACUUM",
+      "desc": "app_setup.rs:206 每日 spawn 补 run_retention_cleanup(复用 proxy_log.rs:122); 启动首跑补关机错过; VACUUM 后台 spawn 独立 task 不阻塞主线程, 低频(每日 retention 后 or db>100MB 阈值); 不改默认天数 7/7/90",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过",
+        "run_retention_cleanup 在每日 spawn",
+        "VACUUM 后台非阻塞",
+        "不改 retention 天数"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "estimate": 40,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784002917,
+      "started": 1784002929,
+      "finished": 1784003709
+    },
+    {
+      "sid": "s3",
+      "name": "P1 前端集中 proxy store(去 8 listener)",
+      "desc": "AppContext 扩展持 today_stats/platforms/groups/logs; app 根单 onProxyLogUpdated listener 按 platform_id selector 精准刷新; 各页(popover/Home/Stats/Logs/Groups/Platforms)订阅 store 去各自 listener+reload; 不加 Zustand 新依赖; 逐页验证数据流不破坏",
+      "depends_on": [],
+      "验收": [
+        "yarn build+test 通过",
+        "单 proxy-log-updated listener(store)",
+        "各页订阅 store 不各自 reload",
+        "8 页数据流正确"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": 70,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784002917,
+      "started": 1784003664,
+      "finished": 1784004109
+    },
+    {
+      "sid": "s4",
+      "name": "P2 ProxyState settings 缓存",
+      "desc": "ProxyState 持 Arc<RwLock<ProxyLogSettings>>+lang+middleware_settings+system_timeout+proxy_client_settings; settings_set 写时更新; 请求路径(handler/forward/finish/http_client)read lock 一借零 DB 缓存读",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过",
+        "请求路径不走 db/settings.rs 缓存读",
+        "settings_set 更新 ProxyState 缓存"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": 45,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784002917,
+      "started": 1784003709,
+      "finished": 1784005007
+    },
+    {
+      "sid": "s5",
+      "name": "P3 log_snapshots DashMap",
+      "desc": "mod.rs:144 Mutex<HashMap>→DashMap; log.rs get/insert/remove 改 entry/shard api; 高并发降锁竞争",
+      "depends_on": [
+        "s4"
+      ],
+      "验收": [
+        "cargo clippy 0 新 warning",
+        "cargo test 通过",
+        "log_snapshots 用 DashMap",
+        "调用点全改 entry/shard"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": 35,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784002917,
+      "started": 1784005007,
+      "finished": 1784005495
+    },
+    {
+      "sid": "s6",
+      "name": "P3 Liquid Glass 滚动容器审计+最小改",
+      "desc": "审计 globals.css backdrop-filter 层叠 + Logs ListView 4 glass-surface 嵌套 + 其他滚动容器; 最小改去显眼嵌套(滚动祖先禁 backdrop-filter or will-change); 不盲改主题架构; 大改落报告",
+      "depends_on": [],
+      "验收": [
+        "yarn build 通过",
+        "审计报告产出",
+        "滚动容器 glass 嵌套减少",
+        "主题不破坏"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": 30,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784002918,
+      "started": 1784004109,
+      "finished": 1784004318
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/perf-full-audit",
+  "estimate": 200,
+  "created": 1784001643,
+  "started": 1784002929,
+  "finished": 1784006300,
+  "updated": 1784006300
+}
