@@ -107,8 +107,8 @@ pub(crate) use retry::{
     truncate_peek_text, StreamPeek,
 };
 pub(crate) use stream::{
-    extract_usage, replace_model_in_json, resolve_is_stream, StreamAggregator, StreamEstCtx,
-    StreamLogGuard,
+    cap_nonstream_body, extract_usage, replace_model_in_json, resolve_is_stream,
+    StreamAggregator, StreamEstCtx, StreamLogGuard,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 

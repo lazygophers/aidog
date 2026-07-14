@@ -21,10 +21,20 @@ pub(crate) async fn finish_nonstream(
     start: std::time::Instant,
     body: Bytes,
 ) -> Response {
-    let resp_str = String::from_utf8_lossy(&body).to_string();
-        let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
+    // usage 借用：lossy 不经 to_string 中转
+        let (input_tokens, output_tokens, cache_tokens) =
+            extract_usage(String::from_utf8_lossy(&body).as_ref());
 
-        log.response_body = resp_str.clone();
+        // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，
+        //   客户端侧 body 受 log_user_request。body 先不分配——gate 开才走 cap_nonstream_body 截断 + 落库。──
+        let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+        let upstream_body_str: String = if record_upstream_body {
+            cap_nonstream_body(&body)
+        } else {
+            String::new()
+        };
+
+        log.response_body = upstream_body_str;
         log.status_code = 200;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
@@ -71,7 +81,13 @@ pub(crate) async fn finish_nonstream(
             );
             s.into_bytes()
         };
-        log.user_response_body = String::from_utf8_lossy(&body).to_string();
+        // 客户端侧 body gate（受 log_user_request）+ 16MB cap
+        let record_client_body = log_settings.enabled && log_settings.log_user_request;
+        log.user_response_body = if record_client_body {
+            cap_nonstream_body(&body)
+        } else {
+            String::new()
+        };
 
         // ── 透传上游响应头（黑名单剔除 content-encoding/content-length/hop-by-hop）──
         let mut filtered = filter_upstream_resp_headers(upstream_resp_headers, false);
