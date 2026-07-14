@@ -33,7 +33,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   const {
     platforms, loading, headerActive, headerTotal,
     searchQuery, setSearchQuery,
-    handleGroupsChanged, refreshPlatforms, openCreatePlatform, handleEdit, handleDuplicate,
+    handleGroupsChanged, openCreatePlatform, handleEdit, handleDuplicate,
     setGroupFullscreen, setProgressiveCount,
     groupFullscreen,
     platDrag, platListRef,
@@ -85,7 +85,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={refreshPlatforms} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => s.removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>
