@@ -6,7 +6,6 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
-import { CpaImportModal } from "../../components/platforms/CpaImportModal";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
 import { cliProxyApi, type CliProxyProvider } from "../../services/api";
 import {
@@ -90,8 +89,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
-  // CpaImportModal 开关（仅新建态入口展示，同 SmartPaste 模式；apply 后由父级 refreshPlatforms 刷新列表）。
-  const [showCpaImport, setShowCpaImport] = useState(false);
   // 「从 cli-proxy 添加」picker 开关（cpa-standalone-module s6）：新建态入口，
   // 选定 provider 后调 createCliProxyPlatform → 后端建 cli-proxy 平台 → 刷新列表 + 关表单。
   const [showCliProxyPicker, setShowCliProxyPicker] = useState(false);
@@ -146,9 +143,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
               <button className="btn" onClick={() => setShowPaste(true)}>
                 {t("platform.paste.title", "智能识别")}
               </button>
-              <button className="btn" onClick={() => setShowCpaImport(true)}>
-                {t("platform.cpaImport.entry", "导入 CPA 配置")}
-              </button>
               <button className="btn" onClick={() => setShowCliProxyPicker(true)}>
                 {t("platform.cliProxy.addFromProvider", "从 cli-proxy 添加")}
               </button>
@@ -172,23 +166,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           onApply={applyPaste}
           initialText={pasteInitialText}
           onClose={() => { setShowPaste(false); setPasteInitialText(undefined); }}
-        />
-      )}
-
-      {showCpaImport && (
-        <CpaImportModal
-          open={showCpaImport}
-          onClose={() => setShowCpaImport(false)}
-          onApplied={async (providers) => {
-            // 填表单模式：单条 → 灌入创建表单（用户改配置 + 设 group + 保存）；
-            // 多条 → 前端批量创建（各独立 platform，用表单 group）。
-            setShowCpaImport(false);
-            if (providers.length === 1) {
-              await s.applyCpaToForm(providers[0]);
-            } else {
-              await s.runBatchCreateFromCpa(providers);
-            }
-          }}
         />
       )}
 
