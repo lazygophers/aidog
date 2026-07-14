@@ -376,6 +376,29 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "ALTER TABLE \"group\" ADD COLUMN extra TEXT NOT NULL DEFAULT ''",
                     [],
                 );
+
+                // Migration 045: cli_proxy_provider 表 —— cpa-standalone-module s1。
+                // 独立的 CLI 代理上游 provider（与 platform 表解耦，路由/转换 s2/s4 接入）。
+                // wire_protocol = 入站协议标识（anthropic/openai/glm_coding 等，对应 Protocol serde 形式）；
+                // models = JSON 数组（Vec<String>）；extra = 原始 JSON 串（仿 platform.extra，空串视作 "{}"）；
+                // status = active/disabled（默认 active）；group_id = 可空，归属分组（s2 路由层消费）。
+                // 幂等：CREATE TABLE IF NOT EXISTS（对齐项目 migration idiom —— 无版本号机制，每次 init 跑全部）。
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS cli_proxy_provider (
+                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                       name          TEXT NOT NULL,
+                       wire_protocol TEXT NOT NULL,
+                       base_url      TEXT NOT NULL,
+                       api_key       TEXT NOT NULL DEFAULT '',
+                       models        TEXT NOT NULL DEFAULT '[]',
+                       extra         TEXT NOT NULL DEFAULT '{}',
+                       status        TEXT NOT NULL DEFAULT 'active',
+                       group_id      INTEGER,
+                       created_at    INTEGER NOT NULL,
+                       updated_at    INTEGER NOT NULL
+                     );
+                     CREATE INDEX IF NOT EXISTS idx_cli_proxy_group ON cli_proxy_provider(group_id) WHERE group_id IS NOT NULL;",
+                )?;
     Ok(())
 }
 
