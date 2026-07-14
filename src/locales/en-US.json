@@ -2023,6 +2023,11 @@
   "platform.cpaImport.query": "Query",
   "platform.cpaImport.applying": "Creating…",
   "platform.cpaImport.apply": "Confirm Create {{n}}",
+  "platform.cpaImport.applyOne": "Fill form",
+  "platform.cpaImport.applyBatch": "Batch create {{n}}",
+  "platform.cpaImport.batchProgress": "Batch creating… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "Batch done: {{n}} created",
+  "platform.cpaImport.batchFailSummary": "Success {{ok}} / Failed {{fail}} · {{detail}}",
   "platform.cpaImport.created": "Created {{n}}",
   "platform.cpaImport.failed": "Failed {{n}}",
   "platform.cpaImport.dropRelease": "Release to import dragged config sources"

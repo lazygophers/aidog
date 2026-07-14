@@ -2045,6 +2045,11 @@
   "platform.cpaImport.query": "照会",
   "platform.cpaImport.applying": "作成中…",
   "platform.cpaImport.apply": "{{n}} 件作成を確認",
+  "platform.cpaImport.applyOne": "フォームに反映",
+  "platform.cpaImport.applyBatch": "{{n}} 件を一括作成",
+  "platform.cpaImport.batchProgress": "一括作成中… {{done}}/{{total}}",
+  "platform.cpaImport.batchAllOk": "一括作成完了：{{n}} 件作成",
+  "platform.cpaImport.batchFailSummary": "成功 {{ok}} / 失敗 {{fail}} · {{detail}}",
   "platform.cpaImport.created": "{{n}} 件作成",
   "platform.cpaImport.failed": "失敗 {{n}}",
   "platform.cpaImport.dropRelease": "ドロップしてドラッグした設定ソースをインポート"
