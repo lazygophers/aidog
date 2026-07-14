@@ -316,7 +316,7 @@ function extractBaseUrls(text: string): ParsedBaseUrl[] {
  *          hosts 存 hostname（如 api.deepseek.com）或含 path 的 URL 子串（如
  *          open.bigmodel.cn/api/coding 区分 coding/普通同 host 分裂）。hostname 是 URL 子串
  *          的特例，故向后兼容。
- *  优先级 2：keyword 文本扫描（fallback，按 presets 列表顺序首个命中）。
+ *  优先级 2：keyword 文本扫描（fallback，打分: 命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
  *  返回 codingPlan 标记（透传到 applyPaste 选对普通/coding 变体的 endpoints）。 */
 export function matchPlatform(
   text: string,
@@ -346,18 +346,36 @@ export function matchPlatform(
     }
   }
 
-  // 2) fallback: keyword 文本扫描（与 presets 列表顺序一致，首个命中胜出）。
+  // 2) fallback: keyword 文本扫描打分（命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
+  //    打分根治「idx0 preset 通用词（如 claude/官方）抢匹配同族更具体 preset」：统计每 preset 命中数 +
+  //    最长命中关键字长度，多命中 / 更长关键字者胜出。复杂度仍 O(presets × keywords)。
   const hay = normalizeForMatch(text);
-  for (const p of presets) {
+  let best: { value: string; label: string; codingPlan?: boolean } | null = null;
+  let bestHits = 0;
+  let bestLongest = 0;
+  for (let i = 0; i < presets.length; i++) {
+    const p = presets[i];
     if (NEVER_AUTO_MATCH.has(p.value)) continue;
+    let hits = 0;
+    let longest = 0;
     for (const kw of p.keywords ?? []) {
       const needle = normalizeForMatch(kw);
       if (needle && hay.includes(needle)) {
-        return { value: p.value, label: p.label, codingPlan: p.codingPlan };
+        hits++;
+        if (needle.length > longest) longest = needle.length;
       }
     }
+    if (hits === 0) continue;
+    if (
+      hits > bestHits ||
+      (hits === bestHits && longest > bestLongest)
+    ) {
+      best = { value: p.value, label: p.label, codingPlan: p.codingPlan };
+      bestHits = hits;
+      bestLongest = longest;
+    }
   }
-  return null;
+  return best;
 }
 
 /** 扫描 base64 token → UTF-8 解码 → 标签复合串解析（第三变体）。
