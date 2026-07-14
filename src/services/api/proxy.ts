@@ -1,7 +1,7 @@
 // proxy.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { ProxySettings, ProxyClientSettings, ProxyLogSummary, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter } from "./types";
 
 
@@ -73,21 +73,44 @@ export const proxyTimeoutApi = {
 
 export const PROXY_LOG_UPDATED = "proxy-log-updated";
 
+// ─── proxy-log-updated hub (single shared listen per JS context) ────────
+// ponytail: 1 underlying Tauri listen() per webview, fan-out to N subscribers.
+// Previously each page called listen() separately (7 concurrent listeners in
+// main window). Each webview has its own JS context → its own module state:
+// main window = 1 listener for all pages; popover window = 1 for its own.
+// Subscribers carry their own debounce; hub just fans out the raw event with
+// platform_id (Rust emit payload = platform_id number).
+type ProxyLogSubscriber = (platformId: number | null) => void;
+const proxyLogSubscribers = new Set<ProxyLogSubscriber>();
+let proxyLogListenPromise: Promise<UnlistenFn> | null = null;
+
+function ensureProxyLogListener(): Promise<UnlistenFn> {
+  if (!proxyLogListenPromise) {
+    proxyLogListenPromise = listen(PROXY_LOG_UPDATED, (event) => {
+      const pid = typeof event.payload === "number" ? event.payload : null;
+      proxyLogSubscribers.forEach((cb) => {
+        try { cb(pid); } catch (e) { console.error(e); }
+      });
+    });
+  }
+  return proxyLogListenPromise;
+}
+
 /**
- * 监听 proxy-log-updated，debounce 合并突发后调 callback。
- * 返回 cleanup 函数：清 timer + unlisten，供 useEffect cleanup 使用。
+ * 监听 proxy-log-updated（共享单 listener），debounce 合并突发后调 callback。
+ * 返回 cleanup 函数：清 timer + 注销 subscriber，供 useEffect cleanup 使用。
  */
-
-
 export function onProxyLogUpdated(callback: () => void, debounceMs = 500): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  const unlistenPromise = listen(PROXY_LOG_UPDATED, () => {
+  const wrapped: ProxyLogSubscriber = () => {
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { callback(); }, debounceMs);
-  });
+  };
+  proxyLogSubscribers.add(wrapped);
+  ensureProxyLogListener().catch((e) => console.error(e));
   return () => {
+    proxyLogSubscribers.delete(wrapped);
     if (timer) clearTimeout(timer);
-    unlistenPromise.then((un) => un()).catch((e) => console.error(e));
   };
 }
 
