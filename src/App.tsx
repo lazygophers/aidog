@@ -9,6 +9,7 @@ import { Stats } from "./pages/Stats";
 import { Notifications } from "./pages/Notifications";
 import { Skills } from "./pages/Skills";
 import { Mcp } from "./pages/Mcp";
+import { CliProxy } from "./pages/CliProxy";
 import { About } from "./pages/About";
 import { UpdatePromptModal } from "./components/UpdatePromptModal";
 import {
@@ -24,6 +25,7 @@ import { requestNavigation } from "./utils/navGuard";
 const BASE_NAV: NavItem[] = [
   { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.proxy" },
+  { id: "cli-proxy", icon: "proxy", labelKey: "nav.cliProxy", section: "nav.section.proxy" },
   { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.observe" },
   { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.observe" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.observe" },
@@ -173,6 +175,7 @@ function App() {
         <div className="animate-fade-in" key={effectiveNav}>
           {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
           {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
+          {effectiveNav === "cli-proxy" && <CliProxy />}
           {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
           {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
