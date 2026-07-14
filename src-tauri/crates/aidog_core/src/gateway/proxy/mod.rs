@@ -143,9 +143,10 @@ pub struct ProxyState {
     pub sticky: Arc<super::scheduling::StickyTable>,
     /// 渐进式日志的 per-id 已落库列快照（in-flight 请求各 1 份）。
     /// 首节点 INSERT 后存快照；后续节点与快照 diff，仅 UPDATE 变化列；终态写入后移除。
-    /// 用 Mutex<HashMap> 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
+    /// 用 DashMap 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
     /// 须与 handler 主链路共享同一 id 的快照才能正确 diff。
-    pub log_snapshots: std::sync::Mutex<std::collections::HashMap<String, super::db::ProxyLogColumns>>,
+    /// DashMap 分片锁替代原 std::sync::Mutex<HashMap> 全局锁，降并发竞争（perf s5）。
+    pub log_snapshots: dashmap::DashMap<String, super::db::ProxyLogColumns>,
     /// 已聚合（写入 stats_agg_hourly）的请求 id 去重缓存，防重复计数。
     /// 背景：upsert_log 在单个请求生命周期内被调用 40+ 次（insert + 多次 update + 流式 flush），
     /// 终态后每次调用仍满足 agg gate → 同一请求被 +1 多次（实测 ~8 倍虚高）。
@@ -207,7 +208,7 @@ pub async fn start_proxy(
             middleware,
             scheduler: Arc::new(super::scheduling::SchedulerState::new()),
             sticky: Arc::new(super::scheduling::StickyTable::new()),
-            log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+            log_snapshots: dashmap::DashMap::new(),
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
             listen_addr: std::sync::OnceLock::new(),
             settings_cache,
