@@ -2088,5 +2088,16 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新に失敗しました",
   "updater.updateNow": "今すぐ更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "platform.cliProxy.addFromProvider": "cli-proxy から追加",
+  "platform.cliProxy.pickerTitle": "cli-proxy プロバイダーを選択",
+  "platform.cliProxy.pickerHint": "選択すると cli-proxy プラットフォームが即時作成され、現在のグループに追加されます",
+  "platform.cliProxy.pickerEmpty": "cli-proxy プロバイダーがありません。先に cli-proxy ページでインポートしてください",
+  "platform.cliProxy.inheritedTitle": "cli-proxy 継承フィールド（読み取り専用）",
+  "platform.cliProxy.inheritedDesc": "これらのフィールドは cli-proxy プロバイダーから継承されます。cli-proxy ページで編集してください",
+  "platform.cliProxy.provider": "プロバイダー",
+  "platform.cliProxy.wireProtocol": "ワイヤープロトコル",
+  "platform.cliProxy.baseUrl": "Base URL",
+  "platform.cliProxy.models": "モデル",
+  "platform.cliProxy.created": "cli-proxy プラットフォームを作成しました"
 }

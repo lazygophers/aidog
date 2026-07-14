@@ -2066,5 +2066,16 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新失败",
   "updater.updateNow": "立即更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "platform.cliProxy.addFromProvider": "从 cli-proxy 添加",
+  "platform.cliProxy.pickerTitle": "选择 cli-proxy provider",
+  "platform.cliProxy.pickerHint": "选定后将立即创建 cli-proxy 平台并加入当前分组",
+  "platform.cliProxy.pickerEmpty": "暂无 cli-proxy provider，请先在 cli-proxy 页导入",
+  "platform.cliProxy.inheritedTitle": "cli-proxy 继承字段（只读）",
+  "platform.cliProxy.inheritedDesc": "以下字段从 cli-proxy provider 继承，请到 cli-proxy 页编辑",
+  "platform.cliProxy.provider": "Provider",
+  "platform.cliProxy.wireProtocol": "入站协议",
+  "platform.cliProxy.baseUrl": "Base URL",
+  "platform.cliProxy.models": "模型",
+  "platform.cliProxy.created": "已创建 cli-proxy 平台"
 }

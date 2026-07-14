@@ -2088,5 +2088,16 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "platform.cliProxy.addFromProvider": "Добавить из cli-proxy",
+  "platform.cliProxy.pickerTitle": "Выберите провайдер cli-proxy",
+  "platform.cliProxy.pickerHint": "Платформа cli-proxy будет создана немедленно и добавлена в текущую группу",
+  "platform.cliProxy.pickerEmpty": "Нет провайдера cli-proxy, сначала импортируйте на странице cli-proxy",
+  "platform.cliProxy.inheritedTitle": "Унаследованные поля cli-proxy (только чтение)",
+  "platform.cliProxy.inheritedDesc": "Эти поля наследуются от провайдера cli-proxy; изменяйте их на странице cli-proxy",
+  "platform.cliProxy.provider": "Провайдер",
+  "platform.cliProxy.wireProtocol": "Wire-протокол",
+  "platform.cliProxy.baseUrl": "Base URL",
+  "platform.cliProxy.models": "Модели",
+  "platform.cliProxy.created": "Платформа cli-proxy создана"
 }
