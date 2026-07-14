@@ -1,0 +1,74 @@
+{
+  "id": "platform-detect-minimax",
+  "name": "minimax 帖子文本误识别为 claude",
+  "desc": "用户粘贴 minimax token plan 分享帖(含 Minimax 关键词 + sk-cp- 前缀 key), matchPlatform 误识别为 claude/anthropic, 预期 minimax。需复现+定位根因+修复",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "matchPlatform keyword fallback 改打分: 命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc; 禁改 base_url URL 子串匹配(优先级1 不变)",
+    "parsePlatformPaste: apiKeys 非空时前置扫各 preset codingKeyPrefixes, 命中则直接返该 preset 跳 keyword fallback",
+    "minimax preset 加 codingKeyPrefixes:[\"sk-cp-\"](platform-presets.json 手维护, 不机器覆盖)",
+    "全 75 协议回归矩阵: 数据驱动遍历 platform-presets.json protocols 构造 fixture, 每协议典型帖(含自身 keywords + anthropic/openai 通用词)识别为自身非 anthropic/openai",
+    "不改已有 keywords 字段(向后兼容); anthropic 真实分享帖(无更强平台信号)仍识别 anthropic 不回归"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "matchPlatform keyword 打分",
+      "desc": "keyword fallback 改打分(命中数>最长>顺序), platformPaste.ts:349-360",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784014957,
+      "started": 1784015040,
+      "finished": 1784015330
+    },
+    {
+      "sid": "s2",
+      "name": "key 前缀前置判定 + minimax codingKeyPrefixes",
+      "desc": "parsePlatformPaste 前置 codingKeyPrefixes 扫描 + presets.json minimax 加 sk-cp-",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784014957,
+      "started": 1784015330,
+      "finished": 1784015577
+    },
+    {
+      "sid": "s3",
+      "name": "全 75 协议回归矩阵",
+      "desc": "platformPaste.test.ts fixture 补 anthropic + 数据驱动 75 协议典型帖矩阵用例",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784014957,
+      "started": 1784015578,
+      "finished": 1784016514
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/platform-detect-minimax",
+  "estimate": null,
+  "created": 1784012892,
+  "started": 1784015013,
+  "finished": 1784017079,
+  "updated": 1784017079
+}

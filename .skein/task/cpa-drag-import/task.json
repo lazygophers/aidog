@@ -1,0 +1,73 @@
+{
+  "id": "cpa-drag-import",
+  "name": "CPA 配置导入拖拽支持",
+  "desc": "CpaImportModal 加拖拽导入文件: 拖入文件/压缩包/文件夹 → 取路径 → 复用现有 parse 流程",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "后端 cpa_import_parse(path, auth_dir) 签名禁改, 多源由前端循环调",
+    "拖拽走 Tauri onDragDropEvent(非 HTML5 DnD, macOS WKWebView onDrop 不触发)",
+    "多源累加 rowId 必唯一(baseIdx 偏移防跨源撞 idx)",
+    "8 locale i18n key 全补, check:i18n 全绿",
+    "auth-dir 拖拽 HTML5 target 不可靠则退化为 dialog, 源拖拽(主路径)不受影响"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "CpaImportModal 拖拽主体",
+      "desc": "onDragDropEvent hook + handleDropSources 多源累加 + parseAndMerge 抽取 + dragActive 视觉 + auth-dir HTML5 target 识别(带退化) + 关闭清状态",
+      "depends_on": [],
+      "验收": [
+        "yarn build 过",
+        "拖单文件/多文件/压缩包/文件夹均自动解析累加",
+        "dragActive 高亮",
+        "关闭重开状态清"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784034194,
+      "started": 1784034212,
+      "finished": 1784034670
+    },
+    {
+      "sid": "s2",
+      "name": "i18n 8 locale key 补全",
+      "desc": "补 cpaImport.dropHint/dropActive 等 8 locale; check:i18n 全绿; yarn build 过",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "scripts/check-i18n.mjs 全绿",
+        "yarn build 过"
+      ],
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784034194,
+      "started": 1784034670,
+      "finished": 1784034868
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cpa-drag-import",
+  "estimate": 30,
+  "created": 1784033746,
+  "started": 1784034201,
+  "finished": 1784035667,
+  "updated": 1784035667
+}
