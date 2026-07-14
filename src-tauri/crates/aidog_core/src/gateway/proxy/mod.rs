@@ -44,6 +44,7 @@ mod notify;
 mod passthrough;
 mod responses;
 mod retry;
+mod settings_cache;
 mod stream;
 mod timeout;
 
@@ -59,6 +60,8 @@ mod test_e2e_mitm;
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
+/// settings_set 写 DB 后调此重建 ProxyState 设置缓存（跨 crate：commands_config 调用）。
+pub use settings_cache::refresh_proxy_settings_cache;
 // ST5：明文 MITM 路径灌入用（CONNECT 分流已移至 handle_proxy_inner，core 只处理 AI 请求，
 // 打破与 handle_connect 的互递归 Send 死锁）。
 pub(crate) use handler::handle_proxy_core;
@@ -107,13 +110,14 @@ pub(crate) use retry::{
     truncate_peek_text, StreamPeek,
 };
 pub(crate) use stream::{
-    extract_usage, replace_model_in_json, resolve_is_stream, StreamAggregator, StreamEstCtx,
-    StreamLogGuard,
+    cap_nonstream_body, extract_usage, replace_model_in_json, resolve_is_stream,
+    StreamAggregator, StreamEstCtx, StreamLogGuard,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
+pub(crate) use settings_cache::{register as register_settings_cache, ProxySettingsCache};
 
 /// 从 DB 读取 app locale，失败则回退英文
-pub(crate) async fn get_lang(db: &Arc<Db>) -> Lang {
+pub(crate) async fn get_lang(db: &Db) -> Lang {
     super::db::get_setting(db, "app", "locale")
         .await
         .ok()
@@ -139,9 +143,10 @@ pub struct ProxyState {
     pub sticky: Arc<super::scheduling::StickyTable>,
     /// 渐进式日志的 per-id 已落库列快照（in-flight 请求各 1 份）。
     /// 首节点 INSERT 后存快照；后续节点与快照 diff，仅 UPDATE 变化列；终态写入后移除。
-    /// 用 Mutex<HashMap> 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
+    /// 用 DashMap 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
     /// 须与 handler 主链路共享同一 id 的快照才能正确 diff。
-    pub log_snapshots: std::sync::Mutex<std::collections::HashMap<String, super::db::ProxyLogColumns>>,
+    /// DashMap 分片锁替代原 std::sync::Mutex<HashMap> 全局锁，降并发竞争（perf s5）。
+    pub log_snapshots: dashmap::DashMap<String, super::db::ProxyLogColumns>,
     /// 已聚合（写入 stats_agg_hourly）的请求 id 去重缓存，防重复计数。
     /// 背景：upsert_log 在单个请求生命周期内被调用 40+ 次（insert + 多次 update + 流式 flush），
     /// 终态后每次调用仍满足 agg gate → 同一请求被 +1 多次（实测 ~8 倍虚高）。
@@ -156,6 +161,10 @@ pub struct ProxyState {
     /// 供 fallback 直通判定识别「代理自身 host 直连」vs「MITM 解密灌入」（Host ≠ 自身）。
     /// None = 未启动 / 测试构造的 state；fallback 走保守分支（不直通，保留 404）。
     pub listen_addr: std::sync::OnceLock<(std::net::IpAddr, u16)>,
+    /// 请求路径设置缓存（log_settings/lang/middleware_settings/system_timeout/proxy_client），
+    /// start_proxy 初始化；settings_set 写 DB 后 refresh_proxy_settings_cache 重建。
+    /// 详见 settings_cache.rs。请求路径 read().await 一借即得 typed struct，零 serde 反序列化。
+    pub(crate) settings_cache: Arc<tokio::sync::RwLock<ProxySettingsCache>>,
 }
 
 /// agg 去重缓存容量上限。远大于任一时刻 in-flight + 近期完成请求数，保证同一请求的全部
@@ -187,15 +196,23 @@ pub async fn start_proxy(
     middleware: Arc<MiddlewareEngine>,
     bind_lan: bool,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
-    let state = Arc::new(ProxyState {
-        db,
-        app,
-        middleware,
-        scheduler: Arc::new(super::scheduling::SchedulerState::new()),
-        sticky: Arc::new(super::scheduling::StickyTable::new()),
-        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
-        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
-        listen_addr: std::sync::OnceLock::new(),
+    let state = Arc::new({
+        // 初始化设置缓存：从 DB 读一次填入 typed struct，注册到全局 weak 槽供 settings_set 重建。
+        let settings_cache = Arc::new(tokio::sync::RwLock::new(
+            ProxySettingsCache::load_from(&db).await,
+        ));
+        register_settings_cache(&settings_cache);
+        ProxyState {
+            db,
+            app,
+            middleware,
+            scheduler: Arc::new(super::scheduling::SchedulerState::new()),
+            sticky: Arc::new(super::scheduling::StickyTable::new()),
+            log_snapshots: dashmap::DashMap::new(),
+            agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+            listen_addr: std::sync::OnceLock::new(),
+            settings_cache,
+        }
     });
 
     // Try binding from port upward; if occupied, try port+1..port+100

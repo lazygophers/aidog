@@ -280,10 +280,11 @@ pub async fn model_test(
         return Ok(result);
     }
 
-    // 构建 HTTP 客户端（复用 proxy.rs 逻辑）
+    // 构建 HTTP 客户端（复用 proxy.rs 逻辑；非请求路径，现读 DB settings）
     let db_arc = std::sync::Arc::new(db.inner().clone());
+    let proxy_client_settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
     let client = gateway::http_client::build_http_client(
-        &db_arc, 30, 10, Some(&ctx.platform.extra), None,
+        &proxy_client_settings, 30, 10, Some(&ctx.platform.extra), None,
     ).await;
 
     tracing::info!(method = "POST", url = %http_ctx.url, "model test request");

@@ -176,6 +176,18 @@ pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<Com
     }
 }
 
+/// 当前 DB 文件占用的逻辑字节数（`page_count * page_size`）。调度器阈值触发全量 VACUUM 用。
+/// ponytail: 复用 db_size_bytes，对外只多一层 call_traced 包装。
+#[track_caller]
+pub fn db_file_size(db: &Db) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
+            .await
+            .map_err(|e| format!("db_file_size: {e}"))
+    }
+}
+
 /// `PRAGMA page_count * PRAGMA page_size` = 当前 DB 文件占用的逻辑字节数。
 fn db_size_bytes(conn: &Connection) -> SqlResult<i64> {
     let pages: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
