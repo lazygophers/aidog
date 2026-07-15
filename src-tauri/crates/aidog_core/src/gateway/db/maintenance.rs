@@ -10,19 +10,29 @@ use rusqlite::{params, Connection, Result as SqlResult};
 /// `purge_all_soft_deleted` 的 per-table 错误兜底（warn + skip）会吞掉单表失败，不阻塞他表。
 ///
 /// `"group"` 是 SQL 保留字，SQL 标识符引号必须保留；map key 用 `group`（去引号）便于日志可读。
+///
+/// **分库归属**（proxy-log-db-split）：主库表清单见 `SOFT_DELETE_TABLES`；
+/// proxy_log 表（落 log.db）见 `SOFT_DELETE_TABLES_PROXY_LOG`。
+/// `purge_all_soft_deleted` 各走对应 handle（`call_traced` / `call_proxy_log_traced`）。
 pub(crate) const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
-    // (SQL 标识符（含引号）, map key / 日志名（去引号）)
+    // (SQL 标识符（含引号）, map key / 日志名（去引号）) —— 主库 handle
     ("platform", "platform"),
     ("\"group\"", "group"),
     ("group_platform", "group_platform"),
     ("setting", "setting"),
-    ("proxy_log", "proxy_log"),
     ("model_price", "model_price"),
+];
+
+/// log.db 下的软删表清单（s5：purge 按归属拆 handle）。
+/// `notification` 表无 `deleted_at` 列（s7 范围，本次不动归属），不在此清单也不在主清单。
+pub(crate) const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
+    ("proxy_log", "proxy_log"),
 ];
 
 /// 每日定时清理：跨表永久删除软删行（`deleted_at > 0 AND deleted_at < now - older_than_secs`）。
 ///
-/// - 表驱动：遍历 `SOFT_DELETE_TABLES`，每表独立 `call_traced` DELETE。
+/// - 表驱动：遍历 `SOFT_DELETE_TABLES`（主库，`call_traced`）+ `SOFT_DELETE_TABLES_PROXY_LOG`
+///   （log.db，`call_proxy_log_traced`），每表独立 DELETE。
 /// - 容错：单表失败（如 schema 漂移致缺列、SQL 错误）→ `tracing::warn!(table, error)` + 该表不插 map + 继续；
 ///   全部失败才返 Err（罕见，仅保留 Result 语义）。
 /// - 返回 `HashMap<表名(去引号), 删除行数>`：调用方记 per-table 日志，空 map 或全 0 由调用方降级 debug。
@@ -40,6 +50,10 @@ pub fn purge_all_soft_deleted(
         let cutoff_ms = now() - older_than_secs.saturating_mul(1000);
         let mut map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
         let mut failures: u32 = 0;
+        let total_tables = SOFT_DELETE_TABLES.len() + SOFT_DELETE_TABLES_PROXY_LOG.len();
+
+        // 主库表（元数据：platform / group / group_platform / setting / model_price）走 call_traced。
+        // ponytail: 两个清单 + 同构闭包，比抽泛型 helper（需参数化 handle 方法引用）更短更直白。
         for &(sql_ident, key) in SOFT_DELETE_TABLES {
             let sql = format!(
                 "DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1"
@@ -63,7 +77,32 @@ pub fn purge_all_soft_deleted(
                 }
             }
         }
-        if failures as usize == SOFT_DELETE_TABLES.len() {
+        // log.db 表（proxy_log / 后续 s7 附加 notification 不在此）走 call_proxy_log_traced。
+        // 内存库 fallback 下 proxy_log_handle == 主连接，purge 仍正确（DELETE 幂等，第二次 0 行）。
+        for &(sql_ident, key) in SOFT_DELETE_TABLES_PROXY_LOG {
+            let sql = format!(
+                "DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1"
+            );
+            let res = db
+                .call_proxy_log_traced(None, __db_caller, move |conn| {
+                    Ok(conn.execute(&sql, params![cutoff_ms])? as u64)
+                })
+                .await;
+            match res {
+                Ok(n) => {
+                    map.insert(key.to_string(), n);
+                }
+                Err(e) => {
+                    failures += 1;
+                    tracing::warn!(
+                        table = key,
+                        error = %e,
+                        "purge_all_soft_deleted: skip proxy_log table (schema drift or SQL error)"
+                    );
+                }
+            }
+        }
+        if failures as usize == total_tables {
             return Err(format!(
                 "purge_all_soft_deleted: all {failures} tables failed"
             ));
@@ -89,6 +128,10 @@ pub(crate) fn incremental_vacuum_conn(conn: &Connection, max_pages: i64) {
 /// 非 INCREMENTAL(2) 则 `PRAGMA auto_vacuum=INCREMENTAL` + `VACUUM`（VACUUM 重建库切换模式），
 /// 成功后置 setting(db/compact_migrated_v1)=true 持久标记，幂等。
 ///
+/// **双库覆盖**（s5）：主库 + log.db 各跑一次探测 + VACUUM 重建。
+/// 内存库 fallback 下 proxy_log_handle == 主连接，跳过避免对同一物理连接重复 VACUUM。
+/// 幂等标记只在主库 `setting` 表，两库迁移状态同步（同一次启动跑完两库才置标记）。
+///
 /// **VACUUM 不在事务内**（rusqlite 独立调用），锁库期间代理请求排队（busy_timeout 兜底）。
 /// 失败仅返回 Err，调用方（启动 spawn）warn 不阻塞，不置标记，下次启动重试。
 #[track_caller]
@@ -101,40 +144,53 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
             return Ok(false);
         }
     }
-    // 探测当前 auto_vacuum 模式
-    let current: i64 = db
-        
+    // 主库：探测 auto_vacuum，非 INCREMENTAL 则 VACUUM 重建切换模式。
+    let main_current: i64 = db
         .call_traced(None, __db_caller, |c| {
             Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
         })
         .await
-        .map_err(|e| format!("probe auto_vacuum: {e}"))?;
-    if current == 2 {
-        // 已是 INCREMENTAL（可能是新装库建表前设过），直接置标记，无需 VACUUM。
-        set_setting(
-            db,
-            SetSettingInput {
-                scope: "db".into(),
-                key: "compact_migrated_v1".into(),
-                value: serde_json::Value::Bool(true),
-            },
-        )
-        .await?;
-        return Ok(false);
+        .map_err(|e| format!("probe main auto_vacuum: {e}"))?;
+    let mut migrated = false;
+    if main_current != 2 {
+        // VACUUM 必须在 autocommit（无活动事务）下执行，不能包在 transaction 内；
+        // rusqlite 独立 execute_batch 默认 autocommit。先 checkpoint 合并 WAL 避免模式约束。
+        db
+            .call_traced(None, __db_caller, |c| {
+                let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+                c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
+                // VACUUM 清空 sqlite_stat1，重建统计（迁移 034 已建过一次，VACUUM 后须重跑）。
+                let _ = c.execute_batch("ANALYZE;");
+                Ok(())
+            })
+            .await
+            .map_err(|e| format!("migrate main auto_vacuum (VACUUM): {e}"))?;
+        tracing::info!("main auto_vacuum migrated to INCREMENTAL via VACUUM");
+        migrated = true;
     }
-    // 切换为 INCREMENTAL 并 VACUUM 重建。VACUUM 必须在 autocommit（无活动事务）下执行，
-    // 不能包在 transaction 内；此处独立 execute_batch 调用，rusqlite 默认 autocommit。
-    db
-        .call_traced(None, __db_caller, |c| {
-            // 先 checkpoint 把 WAL 内容合并回主库，避免 WAL+VACUUM 模式约束
-            let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-            c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
-            // VACUUM 清空 sqlite_stat1，重建统计（迁移 034 已建过一次，VACUUM 后须重跑）。
-            let _ = c.execute_batch("ANALYZE;");
-            Ok(())
-        })
-        .await
-        .map_err(|e| format!("migrate auto_vacuum (VACUUM): {e}"))?;
+    // log.db：同模式探测 + VACUUM 重建。内存库 fallback 下两 handle 共享同一物理
+    // 连接，主库 VACUUM 已覆盖，跳过避免二次 VACUUM（重复 VACUUM 无正确性影响但锁库加倍）。
+    if !db.is_memory() {
+        let proxy_current: i64 = db
+            .call_proxy_log_traced(None, __db_caller, |c| {
+                Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+            })
+            .await
+            .map_err(|e| format!("probe proxy_log auto_vacuum: {e}"))?;
+        if proxy_current != 2 {
+            db
+                .call_proxy_log_traced(None, __db_caller, |c| {
+                    let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+                    c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
+                    let _ = c.execute_batch("ANALYZE;");
+                    Ok(())
+                })
+                .await
+                .map_err(|e| format!("migrate proxy_log auto_vacuum (VACUUM): {e}"))?;
+            tracing::info!("proxy_log auto_vacuum migrated to INCREMENTAL via VACUUM");
+            migrated = true;
+        }
+    }
     set_setting(
         db,
         SetSettingInput {
@@ -144,12 +200,15 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
         },
     )
     .await?;
-    tracing::info!("db auto_vacuum migrated to INCREMENTAL via VACUUM");
-    Ok(true)
+    Ok(migrated)
     }
 }
 
 /// 全量 VACUUM 压缩数据库到最小。返回前后字节大小（page_count × page_size）。
+///
+/// **双库覆盖**（s5）：主库 + log.db 各跑一次 VACUUM，返回字节求和。
+/// 内存库 fallback 下 proxy_log_handle == 主连接，跳过避免对同一物理连接二次 VACUUM
+/// （重复 VACUUM 不会错但锁库加倍、字节翻倍）。
 ///
 /// 用于设置页「立即压缩数据库」按钮：比 incremental 更激进，整库重写。
 /// VACUUM 不在事务内（独立 conn 调用）；锁库期间请求排队，UI 有警示。
@@ -157,7 +216,8 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
 pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<CompactResult, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
+    // 主库 VACUUM
+    let main = db
         .call_traced(None, __db_caller, |c| {
             let before = db_size_bytes(c)?;
             // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
@@ -172,19 +232,53 @@ pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<Com
             })
         })
         .await
-        .map_err(|e| format!("compact database: {e}"))
+        .map_err(|e| format!("compact main database: {e}"))?;
+    // log.db VACUUM（内存库跳过）
+    let proxy = if db.is_memory() {
+        CompactResult { before_bytes: 0, after_bytes: 0 }
+    } else {
+        db
+            .call_proxy_log_traced(None, __db_caller, |c| {
+                let before = db_size_bytes(c)?;
+                let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+                c.execute_batch("VACUUM;")?;
+                let _ = c.execute_batch("ANALYZE;");
+                let after = db_size_bytes(c)?;
+                Ok(CompactResult {
+                    before_bytes: before,
+                    after_bytes: after,
+                })
+            })
+            .await
+            .map_err(|e| format!("compact proxy_log database: {e}"))?
+    };
+    Ok(CompactResult {
+        before_bytes: main.before_bytes + proxy.before_bytes,
+        after_bytes: main.after_bytes + proxy.after_bytes,
+    })
     }
 }
 
-/// 当前 DB 文件占用的逻辑字节数（`page_count * page_size`）。调度器阈值触发全量 VACUUM 用。
-/// ponytail: 复用 db_size_bytes，对外只多一层 call_traced 包装。
+/// 当前 DB 文件占用的逻辑字节数（`page_count * page_size`）。
+///
+/// **双库求和**（s5）：主库 + log.db（内存库跳过 proxy_log 避免翻倍）。
+/// 调度器阈值触发全量 VACUUM 用；胀库阈值 100MB 对两库总和判定。
 #[track_caller]
 pub fn db_file_size(db: &Db) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        db.call_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
+        let main_size = db
+            .call_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
             .await
-            .map_err(|e| format!("db_file_size: {e}"))
+            .map_err(|e| format!("db_file_size main: {e}"))?;
+        if db.is_memory() {
+            return Ok(main_size);
+        }
+        let proxy_size = db
+            .call_proxy_log_traced(None, __db_caller, |c| Ok(db_size_bytes(c)?))
+            .await
+            .map_err(|e| format!("db_file_size proxy_log: {e}"))?;
+        Ok(main_size + proxy_size)
     }
 }
 
@@ -211,8 +305,9 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' \
                  WHERE created_at < ?1 AND (request_headers != '' OR request_body != '' OR user_response_headers != '' OR user_response_body != '')",
@@ -238,8 +333,9 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '' \
                  WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '')",
@@ -256,8 +352,9 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
 pub fn count_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await

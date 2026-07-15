@@ -1,18 +1,47 @@
 use super::*;
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
+/// 查主库 platform 表中 CPA 平台 ID（migration 046 清理用）。跨库不能子查询，由 init_tables
+/// 在主库闭包内预查后传入 proxy_log_late。无 CPA 行返空 Vec（proxy_log_late for-loop 空转）。
+fn fetch_cpa_platform_ids(conn: &rusqlite::Connection) -> Vec<i64> {
+    conn.prepare("SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%'")
+        .and_then(|mut s| {
+            s.query_map([], |r| r.get::<_, i64>(0))
+                .map(|iter| iter.filter_map(Result::ok).collect())
+        })
+        .unwrap_or_default()
+}
+
 impl Db {
     #[track_caller]
     pub fn init_tables(&self) -> impl std::future::Future<Output = Result<(), String>> + '_ {
         let __db_caller = std::panic::Location::caller();
         async move {
-            self.call_traced(None, __db_caller, |conn| {
-                run_migrations_early(conn)?;
-                run_migrations_late(conn)?;
+            // Phase 1: 主库 migration + 预加载 proxy_log 阶段所需的主库数据。
+            // auto_map: backfill_stats_agg_if_empty 回溯 eff_pid 需要（log.db 无 group 表）。
+            // cpa_pids: migration 046 CPA 清理需要（跨库不能子查询 JOIN platform）。
+            let (auto_map, cpa_pids) = self
+                .call_traced(None, __db_caller, |conn| {
+                    run_migrations_early(conn)?;
+                    run_migrations_late(conn)?;
+                    let auto_map = load_auto_from_map(conn)?;
+                    let cpa_pids = fetch_cpa_platform_ids(conn);
+                    Ok((auto_map, cpa_pids))
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+
+            // Phase 2: log.db migration（proxy_log + stats_agg_hourly 建表/索引/回填）。
+            // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
+            self.call_proxy_log_traced(None, __db_caller, move |conn| {
+                run_migrations_proxy_log_early(conn)?;
+                run_migrations_proxy_log_late(conn, &auto_map, &cpa_pids)?;
                 Ok(())
             })
             .await
-            .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())?;
+
+            Ok(())
         }
     }
 }
