@@ -1,0 +1,157 @@
+{
+  "id": "cli-proxy-request-log",
+  "name": "cli-proxy 测试 + 平台余额/测试 统一请求日志",
+  "desc": "cli-proxy provider 测试独立请求日志 + AI 平台余额查询/测试迁入统一请求日志",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "get_last_test_result 徽章链不断: 后端查 source_protocol='test' 最新一条, 前端 Logs 分流不影响",
+    "quota_get_json 是 provider_id 透传唯一挂点, 禁多处落库",
+    "migration 047 幂等: ALTER ADD COLUMN 重复跑不报错",
+    "Logs 主页排除 test/quota 后纯代理转发; test/quota 仅请求日志页可见"
+  ],
+  "subtasks": [
+    {
+      "sid": "add-column-migration",
+      "name": "proxy_log 加 cli_proxy_provider_id 列",
+      "desc": "schema_late 编号 047 幂等 ALTER 加 INTEGER NULL 列; models/proxy_log.rs ProxyLog struct + ProxyLogColumns 加字段",
+      "depends_on": [],
+      "验收": [
+        "ALTER 幂等(重复跑不报错)",
+        "ProxyLog struct 加 cli_proxy_provider_id:Option<i64>",
+        "cargo test 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784084895,
+      "started": 1784085158,
+      "finished": 1784086202
+    },
+    {
+      "sid": "quota-provider-passthrough",
+      "name": "quota 链透传 provider_id",
+      "desc": "task_local QUOTA_CLI_PROXY_PROVIDER_ID 同 QUOTA_PLATFORM_ID idiom; cli_proxy_test 传入; quota_get_json 落库读 task_local 传 upsert; ProxyLogColumns/upsert_log/upsert_proxy_log 对称支持新列; model_test/platform_query_quota 走 NULL 不变",
+      "depends_on": [
+        "add-column-migration"
+      ],
+      "验收": [
+        "cli_proxy_test 落库带真实 provider_id",
+        "平台余额/测试 provider_id NULL 不变",
+        "upsert_log/upsert_proxy_log 对称",
+        "cargo clippy 无新增"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784084895,
+      "started": 1784086202,
+      "finished": 1784087413
+    },
+    {
+      "sid": "request-log-commands",
+      "name": "后端 list_request_logs + Logs 排除",
+      "desc": "新 command list_request_logs(source IN test/quota + provider_id/platform_id/status 筛选 + 分页); list_proxy_logs/filtered_list_proxy_logs 加 exclude_sources 参数; ProxyLogFilter/build_filter_where 加分支; commands 注册 + lib.rs 暴露",
+      "depends_on": [
+        "quota-provider-passthrough"
+      ],
+      "验收": [
+        "list_request_logs 过滤 test/quota + provider 筛选",
+        "list_proxy_logs exclude_sources 生效",
+        "Tauri command 注册",
+        "cargo test 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784084895,
+      "started": 1784087413,
+      "finished": 1784093127
+    },
+    {
+      "sid": "request-log-page",
+      "name": "前端 RequestLog 页 + 侧栏",
+      "desc": "新 RequestLog.tsx(list + 筛选 类型/平台/provider/状态/时间 + 详情面板, 复用 Logs primitives); BASE_NAV 加 request-log(proxy section); api requestLogApi.list 封装; i18n 8 locale nav.requestLog + requestLog.*",
+      "depends_on": [
+        "request-log-commands"
+      ],
+      "验收": [
+        "侧栏菜单显示",
+        "list 渲染 test/quota 行",
+        "筛选/provider 归属工作",
+        "详情面板",
+        "yarn build 过",
+        "check:i18n 全绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784084895,
+      "started": 1784093127,
+      "finished": 1784093992
+    },
+    {
+      "sid": "logs-exclude-test-quota",
+      "name": "Logs 主页排除 test/quota",
+      "desc": "Logs useLogsData 默认 invoke 带 exclude_sources=[test,quota]; 主列表纯代理转发; 徽章链 get_last_test_result 不受影响(后端独立查询)",
+      "depends_on": [
+        "request-log-commands"
+      ],
+      "验收": [
+        "Logs 主页不显 test/quota 行",
+        "徽章仍正常",
+        "yarn build 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784084895,
+      "started": 1784093127,
+      "finished": 1784093378
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cli-proxy-request-log",
+  "estimate": null,
+  "created": 1784083081,
+  "started": 1784085158,
+  "finished": 1784094737,
+  "updated": 1784094737
+}

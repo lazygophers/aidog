@@ -440,7 +440,7 @@ export const PlatformCard = memo(function PlatformCard({
               </div>
               {/* 快操作 */}
               <PlatformActionButtons
-                showQuota={showQuota}
+                canRefresh={quotaCapable}
                 refreshing={refreshing}
                 testing={testing}
                 platform={p}
@@ -750,13 +750,13 @@ function UsageSection({
 // ── 平台快操作按钮组 ──
 
 function PlatformActionButtons({
-  showQuota,
+  canRefresh,
   refreshing,
   testing,
   platform,
   actions,
 }: {
-  showQuota: boolean;
+  canRefresh: boolean;
   refreshing: boolean;
   testing: boolean;
   platform: Platform;
@@ -765,7 +765,7 @@ function PlatformActionButtons({
   const { t } = useTranslation();
   return (
     <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
-      {showQuota && (
+      {canRefresh && (
         <button
           className="btn btn-ghost btn-icon"
           style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}

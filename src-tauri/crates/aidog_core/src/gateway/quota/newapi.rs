@@ -42,7 +42,14 @@ pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
 /// Response: { data: { unlimited_quota, total_granted, total_used, total_available } }
 async fn query_token_usage(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> Result<(bool, f64, f64, f64), String> {
     let root = newapi_instance_root(base_url);
-    let url = format!("{}/api/usage/token/", root);
+    // newapi 服务端变体兼容: 同时带 key/api_key query 入参 (服务端取其一);
+    // Authorization header 保留, header + query 双通道最大化兼容。
+    let mut url = reqwest::Url::parse(&format!("{}/api/usage/token/", root))
+        .map_err(|e| format!("url parse: {e}"))?;
+    url.query_pairs_mut()
+        .append_pair("key", api_key)
+        .append_pair("api_key", api_key);
+    let url = url.to_string();
     let body = quota_get_json(db, &url,
         &[("Authorization", format!("Bearer {api_key}"))]).await?;
     let data = body.get("data").ok_or("Missing data field")?;

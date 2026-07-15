@@ -100,6 +100,29 @@ exports[`PlatformCard > 余额态: quotaRaw 显示余额条 1`] = `
             <div
               style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;"
             >
+              <button
+                class="btn btn-ghost btn-icon"
+                style="padding: 4px; line-height: 0; min-width: auto;"
+                title="platform.quotaRefresh"
+              >
+                <svg
+                  fill="none"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                  viewBox="0 0 24 24"
+                  width="13"
+                >
+                  <path
+                    d="M21 12a9 9 0 1 1-2.64-6.36"
+                  />
+                  <polyline
+                    points="21 3 21 9 15 9"
+                  />
+                </svg>
+              </button>
               <div
                 class="toggle active"
                 style="cursor: pointer;"
@@ -435,6 +458,29 @@ exports[`PlatformCard > 健康态: auto_disabled + last_error 显示警告徽标
             <div
               style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;"
             >
+              <button
+                class="btn btn-ghost btn-icon"
+                style="padding: 4px; line-height: 0; min-width: auto;"
+                title="platform.quotaRefresh"
+              >
+                <svg
+                  fill="none"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                  viewBox="0 0 24 24"
+                  width="13"
+                >
+                  <path
+                    d="M21 12a9 9 0 1 1-2.64-6.36"
+                  />
+                  <polyline
+                    points="21 3 21 9 15 9"
+                  />
+                </svg>
+              </button>
               <div
                 class="toggle "
                 style="cursor: pointer;"
@@ -708,6 +754,29 @@ exports[`PlatformCard > 展开态: expanded=true 显示明细 1`] = `
             <div
               style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;"
             >
+              <button
+                class="btn btn-ghost btn-icon"
+                style="padding: 4px; line-height: 0; min-width: auto;"
+                title="platform.quotaRefresh"
+              >
+                <svg
+                  fill="none"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                  viewBox="0 0 24 24"
+                  width="13"
+                >
+                  <path
+                    d="M21 12a9 9 0 1 1-2.64-6.36"
+                  />
+                  <polyline
+                    points="21 3 21 9 15 9"
+                  />
+                </svg>
+              </button>
               <div
                 class="toggle active"
                 style="cursor: pointer;"
@@ -1218,6 +1287,29 @@ exports[`PlatformCard > 折叠态: 默认 platform 渲染 1`] = `
             <div
               style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;"
             >
+              <button
+                class="btn btn-ghost btn-icon"
+                style="padding: 4px; line-height: 0; min-width: auto;"
+                title="platform.quotaRefresh"
+              >
+                <svg
+                  fill="none"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                  viewBox="0 0 24 24"
+                  width="13"
+                >
+                  <path
+                    d="M21 12a9 9 0 1 1-2.64-6.36"
+                  />
+                  <polyline
+                    points="21 3 21 9 15 9"
+                  />
+                </svg>
+              </button>
               <div
                 class="toggle active"
                 style="cursor: pointer;"
@@ -1491,6 +1583,29 @@ exports[`PlatformCard > 测试态: testing=true 禁用测试按钮 1`] = `
             <div
               style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;"
             >
+              <button
+                class="btn btn-ghost btn-icon"
+                style="padding: 4px; line-height: 0; min-width: auto;"
+                title="platform.quotaRefresh"
+              >
+                <svg
+                  fill="none"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                  viewBox="0 0 24 24"
+                  width="13"
+                >
+                  <path
+                    d="M21 12a9 9 0 1 1-2.64-6.36"
+                  />
+                  <polyline
+                    points="21 3 21 9 15 9"
+                  />
+                </svg>
+              </button>
               <div
                 class="toggle active"
                 style="cursor: pointer;"
@@ -1784,6 +1899,29 @@ exports[`PlatformCard > 高峰态: lastTest 显示测试徽标 1`] = `
             <div
               style="display: flex; gap: 4px; flex-shrink: 0; align-items: center;"
             >
+              <button
+                class="btn btn-ghost btn-icon"
+                style="padding: 4px; line-height: 0; min-width: auto;"
+                title="platform.quotaRefresh"
+              >
+                <svg
+                  fill="none"
+                  height="13"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2.2"
+                  viewBox="0 0 24 24"
+                  width="13"
+                >
+                  <path
+                    d="M21 12a9 9 0 1 1-2.64-6.36"
+                  />
+                  <polyline
+                    points="21 3 21 9 15 9"
+                  />
+                </svg>
+              </button>
               <div
                 class="toggle active"
                 style="cursor: pointer;"

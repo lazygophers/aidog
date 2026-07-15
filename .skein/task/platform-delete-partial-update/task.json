@@ -1,0 +1,43 @@
+{
+  "id": "platform-delete-partial-update",
+  "name": "平台列表删除平台改组件级局部更新",
+  "desc": "删除平台后整页刷新, 应改为只移除该平台卡片+组件级局部更新, 非页面级 reload/全量 refetch",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "onPlatformDeleted 签名改 (ids: number[]) => void, 单删传 [id] 批删传 ids[]",
+    "removePlatformsByIds 不调 API(调用方已调), epoch++ 必须先于 setPlatforms filter",
+    "onPlatformDeleted 调用必须在 try 内 API 成功之后, catch 不触发(失败不误移)",
+    "禁改 refreshPlatforms(PlatformEditForm:153 CPA apply 仍用) / handleDelete(standalone 无 bug) / Groups load()(scope 排除) / 后端"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "onPlatformDeleted 改局部移除",
+      "desc": "onPlatformDeleted 签名 (ids)=>void; usePlatformsState 加 removePlatformsByIds(局部 filter+epoch++ 不调 API); PlatformListView:88 接线改; Groups.tsx confirmDeletePlatform+confirmBatchDelete 传 ids",
+      "depends_on": [],
+      "验收": [
+        "yarn build 过 + usePlatformsState.test.ts 不回归 + 删除失败不误移(onPlatformDeleted 在 try 内)"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784039926,
+      "started": 1784039935,
+      "finished": 1784040237
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/platform-delete-partial-update",
+  "estimate": 25,
+  "created": 1784039452,
+  "started": 1784039927,
+  "finished": 1784040484,
+  "updated": 1784040484
+}

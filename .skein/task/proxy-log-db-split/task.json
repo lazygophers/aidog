@@ -1,0 +1,154 @@
+{
+  "id": "proxy-log-db-split",
+  "name": "proxy_log 独立库 + 嵌入式库选型落地",
+  "desc": "proxy_log 拆独立 db 解写竞争; 调研替代嵌入式库(LMDB/Redb/DuckDB/RocksDB 等)对比 SQLite, 选型后落地分库",
+  "status": "进行中",
+  "deps": [
+    "cli-proxy-request-log"
+  ],
+  "contracts": [
+    "跨库无事务: proxy_log autocommit, 仅 platform_lifecycle 2 处显式事务纯元数据, 拆库零原子性损失",
+    "proxy_log 表无 FK 子句: platform_id/cli_proxy_provider_id 裸 INTEGER, 拆库无跨库 FK 损失",
+    "command 签名不变: 方案 B 内嵌 handle, State<Db> 全仓 151 处零改",
+    "代理 ProxyState 改持 Arc<Db>: 删 proxy.rs:32 独立 open, 统一 handle 路由",
+    "跨表读全批量 IN 查询禁 per-row: 防 N+1",
+    "migration 幂等: 各 handle 独立 let _ = 幂等, proxy_log/stats_agg 归 proxy_log_handle",
+    "WAL 独立: 两 .db 各 -wal/-shm, 备份覆盖 6 文件",
+    "notification 表归 proxy_log.db: 与 proxy_log 同类时间序列, CREATE/ALTER/idx migration 走 proxy_log_handle, 访问点 call_proxy_log_traced"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-db-struct-embed",
+      "name": "Db struct 内嵌 proxy_log handle",
+      "desc": "Db struct 加 proxy_log_handle + proxy_log_read_pool 字段; Db::new 建 ~/.aidog/proxy_log.db (WAL/synchronous=NORMAL/busy_timeout/auto_vacuum 全套同主库 idiom); 新方法 call_proxy_log_traced/call_read_proxy_log_traced (镜像 call_traced); ReconnectCtx 双 handle",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784096257,
+      "started": 1784096536,
+      "finished": 1784097333
+    },
+    {
+      "sid": "s2-migration-split",
+      "name": "migration 分流",
+      "desc": "migration runner 按表归属选 handle: proxy_log+stats_agg_hourly CREATE/ALTER/INDEX 归 proxy_log_handle, 余归 main_handle; backfill_stats_agg_if_empty (schema_late.rs:275) 跨表读 proxy_log+group 改应用层合并; 各 handle 独立幂等",
+      "depends_on": [
+        "s1-db-struct-embed"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784096257,
+      "started": 1784097333,
+      "finished": 1784099518
+    },
+    {
+      "sid": "s3-db-route-proxy-unify",
+      "name": "db 函数路由 + 代理统一",
+      "desc": "~39 proxy_log/stats_agg 访问站点 (proxy_log.rs/stats_agg.rs/query_stats.rs/usage_stats.rs/stats_today.rs/maintenance) 换 call_proxy_log_traced; 代理 ProxyState.db (proxy/mod.rs:134) 改 Arc<Db>, 删 proxy.rs:32 独立 Db::new, 代理写走 proxy_log_handle",
+      "depends_on": [
+        "s2-migration-split"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "运行中",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784096257,
+      "started": 1784108580,
+      "finished": null
+    },
+    {
+      "sid": "s4-cross-read-merge",
+      "name": "跨表读应用层合并",
+      "desc": "跨表读点改应用层: list_request_logs LEFT JOIN cli_proxy_provider (proxy_log.rs:430) / today_platform_stats 读 platform (stats_today.rs:122) / query_stats 读 platform+group (query_stats.rs:308) / usage_stats.rs:341 / aggregate_proxy_logs 读 group (stats_agg.rs:34) — 按 id set 批量 IN 查主库 + Rust 合并, 禁 per-row 防 N+1",
+      "depends_on": [
+        "s3-db-route-proxy-unify"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784096257,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5-backup-vacuum-dual",
+      "name": "备份/VACUUM 双库",
+      "desc": "compact_database (maintenance.rs:157) 双库各跑; db_file_size (maintenance.rs:182) 双库求和; migrate_auto_vacuum (maintenance.rs:95) 覆盖 proxy_log.db 建表前设 INCREMENTAL; purge_all_soft_deleted (maintenance.rs:34) 表清单拆 handle; retention/stats_agg cleanup 走 proxy_log_handle; backup collect 不改 (不碰 proxy_log)",
+      "depends_on": [
+        "s3-db-route-proxy-unify"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784096257,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6-startup-lifecycle",
+      "name": "启动 + 双 handle 生命周期",
+      "desc": "app_setup.rs:35 Db::new 建双 handle; app.manage(Db) 注入; scheduled tasks (compact/retention VACUUM :265/:272) 双库调度; 启动顺序 main_handle 先 (元数据) → proxy_log_handle; 双 handle ReconnectCtx 各自",
+      "depends_on": [
+        "s1-db-struct-embed"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784096257,
+      "started": 1784097333,
+      "finished": 1784097760
+    },
+    {
+      "sid": "s7-notification-to-proxy-log-db",
+      "name": "notification 表迁 proxy_log.db",
+      "desc": "notification 表从主库迁 proxy_log.db: migration 分组调整 (CREATE schema_early.rs:193 + ALTER DROP read :204 + idx schema_late.rs:228 从主库组移 proxy_log 组 run_migrations_proxy_log_early/late); 访问点换 call_proxy_log_traced (maintenance.rs cleanup_notifications + middleware.rs notification 查询); purge_all_soft_deleted 表清单 notification 归 proxy_log handle; backup collect 若收 notification 需核",
+      "depends_on": [
+        "s3-db-route-proxy-unify"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784107790,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": ".worktrees/skein-proxy-log-db-split",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-proxy-log-db-split",
+      "branch": "skein/proxy-log-db-split",
+      "merged": false
+    }
+  ],
+  "branch": "skein/proxy-log-db-split",
+  "estimate": 240,
+  "created": 1784085863,
+  "started": 1784096535,
+  "finished": null,
+  "updated": 1784108580
+}
