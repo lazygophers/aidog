@@ -18,7 +18,7 @@ impl Db {
         let __db_caller = std::panic::Location::caller();
         async move {
             // Phase 1: 主库 migration + 预加载 proxy_log 阶段所需的主库数据。
-            // auto_map: backfill_stats_agg_if_empty 回溯 eff_pid 需要（proxy_log.db 无 group 表）。
+            // auto_map: backfill_stats_agg_if_empty 回溯 eff_pid 需要（log.db 无 group 表）。
             // cpa_pids: migration 046 CPA 清理需要（跨库不能子查询 JOIN platform）。
             let (auto_map, cpa_pids) = self
                 .call_traced(None, __db_caller, |conn| {
@@ -31,7 +31,7 @@ impl Db {
                 .await
                 .map_err(|e| e.to_string())?;
 
-            // Phase 2: proxy_log.db migration（proxy_log + stats_agg_hourly 建表/索引/回填）。
+            // Phase 2: log.db migration（proxy_log + stats_agg_hourly 建表/索引/回填）。
             // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
             self.call_proxy_log_traced(None, __db_caller, move |conn| {
                 run_migrations_proxy_log_early(conn)?;

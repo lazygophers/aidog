@@ -28,7 +28,7 @@ pub async fn proxy_start(
     }
 
     // 复用主 Db 实例（app.manage 在 app_setup 注入，含 proxy_log / stats_agg 独立 handle +
-    // 读池 + 进程内缓存）。禁独立 Db::new：会开第二条 proxy_log.db 写连接，与主实例争锁且
+    // 读池 + 进程内缓存）。禁独立 Db::new：会开第二条 log.db 写连接，与主实例争锁且
     // 绕过 proxy_log/settings 缓存，致数据不一致。clone 廉价（Arc 引用计数，共享同一后台线程）。
     let proxy_db = std::sync::Arc::new(
         app.state::<Db>().inner().clone()

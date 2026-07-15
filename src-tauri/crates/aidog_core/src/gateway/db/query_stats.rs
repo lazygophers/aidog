@@ -13,7 +13,7 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
     let __db_caller = std::panic::Location::caller();
     async move {
     let query = query.clone();
-    // 跨库预查（proxy-log-db-split s3）：stats_agg_hourly / proxy_log 在 proxy_log.db，
+    // 跨库预查（proxy-log-db-split s3）：stats_agg_hourly / proxy_log 在 log.db，
     // `"group"` / `platform` 表在主库 → 预查 auto_map + platform_names 移入 proxy_log 闭包。
     let auto_map = db
         .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
@@ -327,7 +327,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     // 不再用 SQL 标量子查询/LEFT JOIN，改为内存预取 group_key→eff_pid 映射逐行回溯 + 内存聚合。
     // 时间/group/model 过滤仍在 SQL（缩小行集），唯 eff_pid(platform) 过滤与平台维度 GROUP BY 搬内存。
     // auto_map + platform_names 由调用方 (query_stats/query_stats_batch) 跨库预查自主库传入
-    // （proxy_log.db 无 "group"/platform 表，禁在 proxy_log 闭包内现取）。
+    // （log.db 无 "group"/platform 表，禁在 proxy_log 闭包内现取）。
     let five_min = matches!(query.granularity.as_deref(), Some("5min"));
     // filter_platform value = eff_pid 十进制字符串；解析为整数后内存按行 eff_pid 等值过滤。
     let want_pid: Option<i64> = qp.filter_platform.as_ref().and_then(|s| s.parse::<i64>().ok());

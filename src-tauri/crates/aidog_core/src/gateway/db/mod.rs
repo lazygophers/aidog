@@ -170,7 +170,7 @@ impl ReadPoolHandle {
 /// 兜底：`call_traced` / `call_read_traced` 检测 `ConnectionClosed` 后，用本上下文重开
 /// 连接并重试一次（详见各方法）。`is_memory=true` 时禁用重开（内存库重开会读到空库）。
 ///
-/// `proxy_log_path`：拆库后 proxy_log.db 路径（与主库平级，用于 `call_proxy_log_traced`
+/// `proxy_log_path`：拆库后 log.db 路径（与主库平级，用于 `call_proxy_log_traced`
 /// 兜底重开）。`None` = 内存库 fallback（proxy_log handle 复用主内存连接，无独立文件，
 /// 重开同主库一样无意义 → 走 is_memory 短路）。
 struct ReconnectCtx {
@@ -194,7 +194,7 @@ struct ReconnectCtx {
 /// - `self.2`：`ReadPoolHandle` 只读连接池，供 UI 热读路径（stats / 列表 / 日志查询）走
 ///   `call_read_traced` 并发查询，不阻塞于写连接队列。
 /// - `self.3`：`Arc<ReconnectCtx>` 重连上下文（DB 路径 + 是否内存库）。
-/// - `self.4`：**proxy_log 写连接槽**（拆库后 `~/.aidog/proxy_log.db` 独立 handle，
+/// - `self.4`：**proxy_log 写连接槽**（拆库后 `~/.aidog/log.db` 独立 handle，
 ///   独立 Mutex，proxy_log / stats_agg_hourly 写走此槽，不与元数据写锁竞争）。
 ///   访问走 `call_proxy_log_traced`。内存库 fallback 下复用主内存连接（同 read_pool idiom）。
 /// - `self.5`：`ReadPoolHandle` proxy_log 只读池（N=8），供 UI 查 proxy_log 走
@@ -338,19 +338,19 @@ impl Db {
         let read_pool = Self::build_read_pool(path, &conn).await?;
         let is_memory = path == ":memory:" || path.contains("mode=memory") || path.is_empty();
 
-        // proxy_log.db：与主库平级独立 SQLite 文件，承载 proxy_log / stats_agg_hourly 写
+        // log.db：与主库平级独立 SQLite 文件，承载 proxy_log / stats_agg_hourly 写
         // （独立 Mutex 不争元数据写锁，独立 WAL 不与主库读竞争）。内存库 fallback：
         // proxy_log handle 复用主内存连接（同 build_read_pool idiom），测试无感。
         //
         // ponytail: 内存库 proxy_log_path = None（重连走 is_memory 短路）；
-        // 文件库取主路径同目录下 "proxy_log.db"，与主库 aidog.db 同级（备份 / 迁移路径一致）。
+        // 文件库取主路径同目录下 "log.db"，与主库 aidog.db 同级（备份 / 迁移路径一致）。
         let (proxy_log_conn, proxy_log_path) = if is_memory {
             (conn.clone(), None)
         } else {
             let pl_path = std::path::Path::new(path)
                 .parent()
                 .unwrap_or_else(|| std::path::Path::new("."))
-                .join("proxy_log.db")
+                .join("log.db")
                 .to_string_lossy()
                 .into_owned();
             let c = Self::open_proxy_log_conn(&pl_path).await?;
@@ -376,7 +376,7 @@ impl Db {
         ))
     }
 
-    /// 打开 proxy_log.db 写连接（pragma + profile 全套，同主库 `Db::new` idiom）。
+    /// 打开 log.db 写连接（pragma + profile 全套，同主库 `Db::new` idiom）。
     /// auto_vacuum 仅空库可设；新独立文件库首次打开必然空 → 直接设 INCREMENTAL。
     /// 供 `Db::new` 初始化 + `call_proxy_log_traced` ConnectionClosed 后重连复用。
     async fn open_proxy_log_conn(path: &str) -> Result<AsyncConnection, String> {
@@ -643,7 +643,7 @@ impl Db {
         }
     }
 
-    /// proxy_log.db 写连接 chokepoint：与 `call_traced` **完整同形 / 同语义**
+    /// log.db 写连接 chokepoint：与 `call_traced` **完整同形 / 同语义**
     /// （同闭包签名、同 req 解析链、同 CURRENT_DB_CTX guard、同 profile、同 FnOnce 重取、
     /// 同 ConnectionClosed 重连重试），唯一差异是连接来源——取 `self.4`（proxy_log
     /// 独立 Mutex 写槽），重连走 `ReconnectCtx::proxy_log_path`。
@@ -652,7 +652,7 @@ impl Db {
     /// 写锁，proxy_log 密集写不再阻塞 platform/group 写队列）。内存库 fallback 下 `self.4`
     /// 是主内存连接 clone（同 `build_read_pool` idiom），测试代码无感。
     ///
-    /// 跨表读约束：proxy_log.db 无 `"group"` / `platform` / `cli_proxy_provider` 表，
+    /// 跨表读约束：log.db 无 `"group"` / `platform` / `cli_proxy_provider` 表，
     /// 本方法闭包内**禁**跨表 JOIN 这些主库表（s4 改应用层合并）。当前 s1 仅加基础设施，
     /// 现有 ~39 站点仍在 s3 切换。
     pub fn call_proxy_log_traced<F, R>(
@@ -729,7 +729,7 @@ impl Db {
         }
     }
 
-    /// proxy_log.db 只读 chokepoint：与 `call_read_traced` **完整同形 / 同语义**，
+    /// log.db 只读 chokepoint：与 `call_read_traced` **完整同形 / 同语义**，
     /// 唯一差异是读池来源——取 `self.5`（proxy_log 独立 N=8 读池）。供 UI 查 proxy_log /
     /// stats_agg_hourly 纯 SELECT 热读路径走，不阻塞主库读池。同 `call_read_traced`：
     /// 某槽位死亡时 `pick()` 重试下一条，不替换死槽位。
