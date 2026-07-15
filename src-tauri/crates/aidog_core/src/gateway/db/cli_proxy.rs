@@ -11,7 +11,7 @@ use rusqlite::{params, OptionalExtension};
 
 /// SELECT 列序
 const CLI_PROXY_COLUMNS: &str =
-    "id, name, wire_protocol, base_url, api_key, models, extra, status, group_id, created_at, updated_at";
+    "id, name, wire_protocol, base_url, api_key, models, extra, quota, status, group_id, created_at, updated_at";
 
 /// 从查询行构造 CliProxyProvider
 fn row_to_provider(row: &rusqlite::Row) -> rusqlite::Result<CliProxyProvider> {
@@ -24,10 +24,11 @@ fn row_to_provider(row: &rusqlite::Row) -> rusqlite::Result<CliProxyProvider> {
         api_key: row.get(4)?,
         models: parse_cli_proxy_models(&models_str),
         extra: row.get(6)?,
-        status: row.get(7)?,
-        group_id: row.get(8)?,
-        created_at: row.get(9)?,
-        updated_at: row.get(10)?,
+        quota: row.get(7)?,
+        status: row.get(8)?,
+        group_id: row.get(9)?,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
     })
 }
 
@@ -85,8 +86,8 @@ pub fn create_cli_proxy_provider(
             let models_str = serialize_cli_proxy_models(&input.models);
             conn.execute(
                 "INSERT INTO cli_proxy_provider \
-                 (name, wire_protocol, base_url, api_key, models, extra, status, group_id, created_at, updated_at) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?9)",
+                 (name, wire_protocol, base_url, api_key, models, extra, quota, status, group_id, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
                 params![
                     input.name,
                     input.wire_protocol,
@@ -94,6 +95,7 @@ pub fn create_cli_proxy_provider(
                     input.api_key,
                     models_str,
                     input.extra,
+                    input.quota,
                     input.status,
                     input.group_id,
                     ts,
@@ -126,8 +128,8 @@ pub fn update_cli_proxy_provider(
             let affected = conn.execute(
                 "UPDATE cli_proxy_provider SET \
                    name = ?1, wire_protocol = ?2, base_url = ?3, api_key = ?4, \
-                   models = ?5, extra = ?6, status = ?7, group_id = ?8, updated_at = ?9 \
-                 WHERE id = ?10",
+                   models = ?5, extra = ?6, quota = ?7, status = ?8, group_id = ?9, updated_at = ?10 \
+                 WHERE id = ?11",
                 params![
                     input.name,
                     input.wire_protocol,
@@ -135,6 +137,7 @@ pub fn update_cli_proxy_provider(
                     input.api_key,
                     models_str,
                     input.extra,
+                    input.quota,
                     input.status,
                     input.group_id,
                     ts,
