@@ -274,8 +274,8 @@ use rusqlite::params;
         let db = test_db().await;
         // 空库跑 purge：所有表 DELETE 0 行，应返 Ok(map)，无表失败
         let map = purge_all_soft_deleted(&db, 3 * 24 * 3600).await.expect("empty purge ok");
-        // 空库 map 含每表 key，值为 0（无单表失败）
-        for &(_sql, key) in SOFT_DELETE_TABLES {
+        // 空库 map 含每表 key，值为 0（无单表失败）—— 主库 + proxy_log 两清单合并
+        for &(_sql, key) in SOFT_DELETE_TABLES.iter().chain(SOFT_DELETE_TABLES_PROXY_LOG.iter()) {
             assert!(
                 map.contains_key(key),
                 "empty db: table '{key}' should be in map with count 0"
