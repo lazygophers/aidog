@@ -35,7 +35,8 @@ pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodaySta
     let today_key = local_today_hour_key();
 
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
             let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
@@ -97,8 +98,10 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
     async move {
     let today_key = local_today_hour_key();
 
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
+    // proxy-log-db-split s3：stats_agg_hourly 在 proxy_log.db，platform 表在主库 → 跨库禁 JOIN。
+    // 先 proxy_log handle 跑聚合（含排序），再主库预查全量 platform id→name 映射，Rust 合并。
+    let mut rows: Vec<(i64, i64, f64, i64)> = db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
             // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
             let sql = "
@@ -117,28 +120,35 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
                     Ok((pid, row.get::<_, i64>(1)?, row.get::<_, f64>(2)?, row.get::<_, i64>(3)?))
                 })?
                 .collect::<SqlResult<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await
+        .map_err(|e| format!("today platform stats agg: {e}"))?;
 
-            // 平台名映射（含软删平台，名仍可显示）。
-            let mut name_stmt = conn.prepare_cached("SELECT id, name FROM platform")?;
-            let names: std::collections::HashMap<i64, String> = name_stmt
+    // 主库预查全量 platform id→name 映射（含软删平台，名仍可显示）。
+    let names: std::collections::HashMap<i64, String> = db
+        .call_read_traced(None, __db_caller, move |conn| {
+            let mut name_stmt = conn.prepare("SELECT id, name FROM platform")?;
+            let names = name_stmt
                 .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
                 .collect::<SqlResult<Vec<_>>>()?
                 .into_iter()
                 .collect();
-
-            Ok(rows
-                .into_iter()
-                .map(|(pid, tokens, cost, reqs)| TodayPlatformStat {
-                    platform_id: pid.max(0) as u64,
-                    platform_name: names.get(&pid).cloned().unwrap_or_default(),
-                    tokens,
-                    cost,
-                    requests: reqs,
-                })
-                .collect())
+            Ok(names)
         })
         .await
-        .map_err(|e| format!("today platform stats: {e}"))
+        .map_err(|e| format!("today platform stats names: {e}"))?;
+
+    Ok(rows
+        .drain(..)
+        .map(|(pid, tokens, cost, reqs)| TodayPlatformStat {
+            platform_id: pid.max(0) as u64,
+            platform_name: names.get(&pid).cloned().unwrap_or_default(),
+            tokens,
+            cost,
+            requests: reqs,
+        })
+        .collect())
     }
 }
 

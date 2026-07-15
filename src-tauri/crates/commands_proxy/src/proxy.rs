@@ -27,11 +27,12 @@ pub async fn proxy_start(
         }
     }
 
-    // 获取 DB 的路径并克隆一份连接
-    let db_path = aidog_data_dir()?.join("aidog.db");
-    let proxy_db = Db::new(db_path.to_str().unwrap_or("")).await
-        .map_err(|e| { tracing::error!(command = "proxy_start", error = %e, "open proxy db failed"); e })?;
-    let proxy_db = std::sync::Arc::new(proxy_db);
+    // 复用主 Db 实例（app.manage 在 app_setup 注入，含 proxy_log / stats_agg 独立 handle +
+    // 读池 + 进程内缓存）。禁独立 Db::new：会开第二条 proxy_log.db 写连接，与主实例争锁且
+    // 绕过 proxy_log/settings 缓存，致数据不一致。clone 廉价（Arc 引用计数，共享同一后台线程）。
+    let proxy_db = std::sync::Arc::new(
+        app.state::<Db>().inner().clone()
+    );
 
     // 读取绑定模式（0.0.0.0 LAN / 127.0.0.1 本机）；地址只在 bind 时读取一次。
     let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false, bind_lan: true });
