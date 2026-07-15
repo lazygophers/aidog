@@ -1,0 +1,91 @@
+{
+  "id": "cpa-import-group-missing",
+  "name": "CPA 导入平台未落到指定分组",
+  "desc": "CPA 导入时 UI 指定了分组, 但创建平台未关联到该 group(无 group_id 传递或 apply 链漏)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "group 逻辑与 platformPasteApply.ts:300-301 完全一致: joinIds = lockedGroupId!=null ? [lockedGroupId] : joinGroupIds; auto = lockedGroupId!=null ? false : autoGroup",
+    "cpa_import_apply 命令签名加 group: CpaImportGroup { auto_group: bool, join_group_ids: Vec<i64> }, CreatePlatform 用传入值替代写死",
+    "MappedPlatform 结构不变(group 是 apply 独立参数, 非 per-platform 字段)",
+    "cpa_import_parse 行为不变(回归)",
+    "modal 顶部显示 group badge(locked/autoOnly/joinAuto/none 四态)",
+    "CPA 导入不再直接 cpa_import_apply 创建: 单 provider 灌表单(applyCpaToForm), 多 provider 前端批量(runBatchCreateFromCpa 各 provider 独立 platformApi.create)",
+    "单条填表单: setEditing(null)+setShowForm(true), 用户改配置+设 group(GroupAssignSection)+手动 handleSave 保存",
+    "多条批量 group 用表单当前设置(同 runBatchCreateFromPaste:300-301: joinIds=lockedGroupId!=null?[lockedGroupId]:joinGroupIds; auto=lockedGroupId!=null?false:autoGroup)",
+    "CpaImportModal onApplied 改签名传 MappedPlatform[](选中条), 移除 cpaImportApi.apply + group badge, 按钮文案动态(1/N)",
+    "cpa_import_parse / MappedPanel / cpa_import.rs 后端命令不改(回归); SmartPaste applyPaste/runBatchCreateFromPaste 不改(仅模式参考)",
+    "批量 disabled provider → post-create update status=disabled(保留语义); 单条填表单忽略 disabled(用户手设)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "后端 cpa_import_apply 加 group 参数 + 测试",
+      "desc": "cpa_import.rs: cpa_import_apply 命令加 group: CpaImportGroup { auto_group: bool, join_group_ids: Vec<i64> } 参数。CreatePlatform 用 group.auto_group / group.join_group_ids 替代写死的 auto_group:Some(true)/join_group_ids:None。补单测: locked 场景(join=[N], auto=false) / join 多 / 空场景(auto=true, join=[])。详见 design A 节。",
+      "depends_on": [],
+      "验收": [
+        "cargo test -p commands_platform cpa_import 全绿",
+        "cargo clippy -p commands_platform 零 warning"
+      ],
+      "验收done": [],
+      "status": "失败",
+      "estimate": 15,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784038539,
+      "started": 1784038539,
+      "finished": null
+    },
+    {
+      "sid": "s2",
+      "name": "前端 CpaImportModal group 透传 + badge + api + i18n",
+      "desc": "CpaImportModal.tsx 加 props(lockedGroupId/joinGroupIds/autoGroup/groupDetails) + handleApply 算 group(复用 platformPasteApply.ts:300-301 逻辑) + cpaImportApi.apply 加 group 参数 + modal 顶部 group badge(四态: locked/autoOnly/joinAuto/none)。PlatformEditForm.tsx:140 传 s.lockedGroupId/joinGroupIds/autoGroup/groupDetails。services/api platforms.ts cpaImportApi.apply(platforms, group)。8 locale badge 文案。详见 design B/C/D/E 节。契约对齐 s1 后端签名。",
+      "depends_on": [],
+      "验收": [
+        "yarn build 过(tsc+vite)",
+        "scripts/check-i18n.mjs 全绿",
+        "8 locale badge key 补全"
+      ],
+      "验收done": [],
+      "status": "失败",
+      "estimate": 25,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784038539,
+      "started": 1784038539,
+      "finished": null
+    },
+    {
+      "sid": "s3",
+      "name": "CPA 导入填表单模式全链(单条填表单+多条批量)",
+      "desc": "CPA 导入改填表单模式。platformPasteApply.ts 加 applyCpaToForm(单 provider 灌表单, 范本 fullShare:81-114)+ runBatchCreateFromCpa(多 provider 前端批量各独立 create, 范本 runBatchCreateFromPaste:283-355, group 用表单 line 300-301, disabled provider post-create update)。CpaImportModal onApplied 改签名传 MappedPlatform[](移除 cpaImportApi.apply + group badge, 按钮文案动态)。PlatformEditForm onApplied 接入(1条 applyCpaToForm / N条 runBatchCreateFromCpa, 复用 buildPasteCtx)。services/api cpaImportApi.apply 标 @deprecated。8 locale(applyOne/applyBatch/batchProgress/batchAllOk/batchFailSummary)。详见 design A-G 节。",
+      "depends_on": [],
+      "验收": [
+        "yarn build 过(tsc+vite)",
+        "scripts/check-i18n.mjs 全绿",
+        "SmartPaste/parse 回归不变"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "estimate": 35,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784039298,
+      "started": 1784039298,
+      "finished": 1784040308
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cpa-import-group-missing",
+  "estimate": 30,
+  "created": 1784037743,
+  "started": 1784038539,
+  "finished": 1784042234,
+  "updated": 1784042234
+}

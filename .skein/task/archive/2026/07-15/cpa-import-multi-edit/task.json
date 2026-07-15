@@ -1,0 +1,18 @@
+{
+  "id": "cpa-import-multi-edit",
+  "name": "CPA 多 provider 导入改确认+多平台编辑页",
+  "desc": "N provider 不再批量创建, 改确认后进添加平台页展示多个导入项, 每项可改模型等(仅 token 区样式不同), 其余复用添加平台逻辑",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cpa-import-multi-edit",
+  "estimate": 40,
+  "created": 1784042338,
+  "started": null,
+  "finished": null,
+  "updated": 1784042338
+}

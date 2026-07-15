@@ -1,0 +1,173 @@
+{
+  "id": "cpa-standalone-module",
+  "name": "CPA 独立模块重构",
+  "desc": "推翻现有 cpa-* 协议平台, 新建独立菜单模块(独立数据表+内部平台类型+自有路由), AI平台页可引本模块配置, 模型不可选(从 provider 继承)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "命名: cli-proxy (模块/菜单/protocol serde=cli-proxy/表=cli_proxy_provider/crate=commands_cli_proxy 全统一)",
+    "删旧 cpa-* 后代码 grep CpaGrok|CpaAistudio|CpaAntigravity|CpaVertex|cpa-grok|cpa-aistudio|cpa-antigravity|cpa-vertex 零命中",
+    "migration 严格顺序: 先 DELETE proxy_log + stats_agg_hourly + platform 含旧 cpa platform_id 行, 再删 Protocol enum 4 变体 (防 from_str unwrap panic)",
+    "cli-proxy 平台 models 字段忽略只读, effective_models 从 cli_proxy_provider 表拉",
+    "路由候选源仍 platform 表; cli_proxy_provider 不独立成候选, 被 platform(cli-proxy 类型)引用; candidate resolve 时 join provider 注入 wire/base_url/key/models",
+    "proxy_log + stats_agg_hourly 含旧 cpa platform_id 历史行同步清 (用户授权破坏性不可逆)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "provider 表 + db 模块 + migration",
+      "desc": "aidog_core: 新建 cli_proxy_provider 表 schema migration (id/name/wire_protocol/base_url/api_key/models JSON/extra JSON/status/group_id/created_at/updated_at) + db/cli_proxy.rs CRUD + models/cli_proxy.rs CliProxyProvider struct serde。migration 幂等。cargo clippy + test 过",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 无新增 + cargo test 过 + migration 幂等(重复跑不报错)"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051960,
+      "started": 1784060247,
+      "finished": 1784060853
+    },
+    {
+      "sid": "s2",
+      "name": "Protocol::CliProxy + 路由 resolve",
+      "desc": "protocol.rs 加 Protocol::CliProxy 变体 (serde cli-proxy) + candidates.rs candidate resolve 加 cli-proxy 分支: 从 extra 读 cli_proxy_provider_id, join cli_proxy_provider 表拉 wire_protocol/base_url/api_key/models 注入 endpoint, effective_models=provider.models。provider 不存在/disabled 则 candidate 排除。禁改 selection/ordering。converter 删 4 旧 cpa-* arm (convert_request + passthrough_api_path)",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "cargo clippy 无新增 + cargo test 过 (含 cli-proxy 平台路由单测) + Protocol::CliProxy serde roundtrip"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051960,
+      "started": 1784060853,
+      "finished": 1784061973
+    },
+    {
+      "sid": "s3",
+      "name": "commands_cli_proxy crate",
+      "desc": "新 crate commands_cli_proxy: provider CRUD (list/get/create/update/delete) + test (临时用 provider 配置发探测请求) + create_cli_proxy_platform (建 platform 表 cli-proxy 行, extra 存 cli_proxy_provider_id) + import.rs (迁旧 cpa_import/parser.rs 解析逻辑, 产出 CliProxyProvider 非 MappedProvider; mapper 段→wire_protocol 直映, 去旧 cpa-* 协议中转)。lib.rs 注册 command, startup.rs 注册 invoke_handler",
+      "depends_on": [
+        "s1",
+        "s2"
+      ],
+      "验收": [
+        "cargo clippy 无新增 + cargo test 过 + provider CRUD 命令可调 + import 解析旧 config.yaml 成功"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051974,
+      "started": 1784061973,
+      "finished": 1784063029
+    },
+    {
+      "sid": "s4",
+      "name": "删旧 cpa-* 后端 + 数据 migration",
+      "desc": "删 aidog_core/gateway/cpa_import/ 整目录 + commands_platform/cpa_import.rs + Protocol enum 4 cpa-* 变体 (CpaGrok/CpaAistudio/CpaAntigravity/CpaVertex) + protocol.rs test 相关 + converter/test_request.rs cpa test + gateway/mod.rs pub mod cpa_import + commands_platform/lib.rs pub mod cpa_import + startup.rs 3 cpa command 注册 + platform-presets.json 删 4 cpa-* 条目。数据 migration (严格顺序): SELECT 旧 cpa platform id 集 → DELETE proxy_log WHERE platform_id IN 集 → DELETE stats_agg_hourly WHERE platform_id IN 集 → DELETE platform WHERE platform_type LIKE cpa-% → 再删 enum 变体防 panic。migration 在 app 启动幂等跑",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [
+        "cargo clippy 无新增 + cargo test 过 + 代码 grep CpaGrok|CpaAistudio|CpaAntigravity|CpaVertex|cpa-grok|cpa-aistudio|cpa-antigravity|cpa-vertex 零命中 + migration 幂等 + 旧 cpa 平台行清零"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051974,
+      "started": 1784061973,
+      "finished": 1784063584
+    },
+    {
+      "sid": "s5",
+      "name": "前端 CliProxy 页 + 菜单 + i18n",
+      "desc": "新建 src/pages/CliProxy.tsx (provider 列表表格 + 新增/编辑/删除/测试/导入按钮) + src/services/api/cliProxy.ts (api 封装 invoke commands_cli_proxy) + src/services/api/types/cliProxy.ts (CliProxyProvider 类型)。App.tsx BASE_NAV 加 {id:cli-proxy, labelKey:nav.cliProxy, section:nav.section.proxy} + 渲染分支加 CliProxy 页。8 locale 补 nav.cliProxy + cliProxy.* 键",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [
+        "yarn build 过 + check:i18n 全绿 + 页面渲染 + provider CRUD 可调"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051994,
+      "started": 1784063046,
+      "finished": 1784063628
+    },
+    {
+      "sid": "s6",
+      "name": "前端 PlatformEditForm cli-proxy 入口 + 模型只读",
+      "desc": "PlatformEditForm 新建态加「从 cli-proxy 添加」按钮 → 弹 provider 选择器 → 选后调 create_cli_proxy_platform 建 cli-proxy 平台。formSections.tsx 渲染 platform.protocol==cli-proxy 时 models 区只读显示「继承自 provider X」+ provider.models 列表, 禁用编辑; base_url/api_key 区同样只读提示",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [
+        "yarn build 过 + check:i18n 全绿 + 选 provider 建平台成功 + 模型区只读"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051994,
+      "started": 1784063595,
+      "finished": 1784064107
+    },
+    {
+      "sid": "s7",
+      "name": "删旧 cpa-* 前端",
+      "desc": "删 src/components/platforms/CpaImportModal.tsx 整文件 + platformPasteApply.ts 内 applyCpaToForm/runBatchCreateFromCpa 段 + usePlatformForm.ts import+2方法暴露 + usePlatformsState.ts 接口声明 + PlatformEditForm.tsx import+showCpaImport+按钮+Modal + platforms.ts cpaImportApi 段 + types/part4.ts MappedPlatform/CpaSkipReason/CpaImportParseResult/CpaBatchFailure/CpaBatchReport + types/part1.ts Protocol union 4 cpa-* + 8 locale platform.cpaImport.* 键",
+      "depends_on": [
+        "s5",
+        "s6"
+      ],
+      "验收": [
+        "yarn build 过 + check:i18n 全绿 + 代码 grep cpaImport|applyCpaToForm|runBatchCreateFromCpa|CpaImportModal 零命中"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784051994,
+      "started": 1784064107,
+      "finished": 1784064425
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cpa-standalone-module",
+  "estimate": null,
+  "created": 1784050990,
+  "started": 1784060240,
+  "finished": 1784065243,
+  "updated": 1784065243
+}

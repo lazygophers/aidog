@@ -1,0 +1,20 @@
+{
+  "id": "config-db-split",
+  "name": "配置库拆分 platform/group/cli_proxy 独立 db",
+  "desc": "platform+group+group_platform+cli_proxy_provider+model_test_results 拆独立配置库; 选型 SQLite(关系+事务+低频写高频读, DuckDB 多连接读不可见更致命); 主库留轻配置 settings/hooks/mcp/middleware",
+  "status": "待处理",
+  "deps": [
+    "proxy-log-db-split"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/config-db-split",
+  "estimate": 200,
+  "created": 1784093127,
+  "started": null,
+  "finished": null,
+  "updated": 1784093127
+}

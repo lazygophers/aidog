@@ -1,0 +1,90 @@
+{
+  "id": "cpa-oauth-modeltest-baseurl",
+  "name": "CPA OAuth platform model-test base_url 空致 502 builder error",
+  "desc": "CPA 导入的 OAuth provider(cpa-grok, base_url 空+endpoints 空+无 preset 兜底) model-test 时 reqwest 无 base_url 致 builder error client 502. 调研 mapper 是否该 fill base_url + model-test OAuth 支持",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "Xai/Aistudio/Antigravity OAuth 导入 MUST 按 oauth_type 回填静态 base_url(parser/mapper 层), 禁透传空值到 DB",
+    "base_url 不含 path 段(path 在 converter CpaGrok /v1/responses), 禁 /v1/v1/responses 重复",
+    "Vertex/Codex/Claude/Kimi OAuth base_url 留空(用户表单填/guard 兜底), 不回填",
+    "model_test + forward base_url 空 MUST 返友好错误(base_url 缺失), 非 reqwest builder error; 两处对称禁漏",
+    "禁改前端 / 禁改已入库数据(输出 SQL 用户自跑) / 禁改 cpa-import-multi-edit(另 task)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "OAuth base_url 回填",
+      "desc": "CpaOAuthType::default_base_url 方法(Xai/Aistudio/Antigravity 静态, Vertex/Codex/Claude/Kimi None); parse_oauth_json 接入回填(parser.rs:546-556 base_url 不再硬编码空); base_url 不含 path(读 converter/request.rs + gemini adapter 确认格式)",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy + parser/mapper test 过",
+        "Xai OAuth 导入 platform.base_url=https://api.x.ai"
+      ],
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784046000,
+      "started": 1784046000,
+      "finished": 1784046803
+    },
+    {
+      "sid": "s2",
+      "name": "base_url 空 guard 两处对称",
+      "desc": "model_test.rs prepare_http_request(line 79-95) + forward.rs(line 75-77 + 231-232) 加 base_url.is_empty() guard 返友好错误; 两处对称禁漏(流式/非流式)",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "cargo clippy + model_test/forward test 过",
+        "空 base_url 返友好错误非 builder error"
+      ],
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784046000,
+      "started": 1784046803,
+      "finished": 1784047786
+    },
+    {
+      "sid": "s3",
+      "name": "responses.rs base_url guard",
+      "desc": "responses.rs handle_responses_subendpoint(line 54-103) 同类 base_url 拼接(OAuth 子路径 cancel/compact) 加 guard, 空 base_url 友好错误非 builder error, 同 s2 idiom",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [
+        "cargo clippy 无新增 + cargo test 过 + 空 base_url 友好错误"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1784047786,
+      "started": 1784047786,
+      "finished": 1784047987
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cpa-oauth-modeltest-baseurl",
+  "estimate": 30,
+  "created": 1784044933,
+  "started": 1784046000,
+  "finished": 1784048400,
+  "updated": 1784048400
+}

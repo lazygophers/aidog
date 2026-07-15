@@ -1,7 +1,29 @@
 {
   "tasks": [
     {
+      "id": "proxy-log-db-split",
+      "status": "进行中",
+      "deps": [
+        "cli-proxy-request-log"
+      ],
+      "worktree": ".worktrees/skein-proxy-log-db-split"
+    },
+    {
+      "id": "config-db-split",
+      "status": "待处理",
+      "deps": [
+        "proxy-log-db-split"
+      ],
+      "worktree": null
+    },
+    {
       "id": "07-12-peak-models-review-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "cli-proxy-request-log",
       "status": "已完成",
       "deps": [],
       "worktree": null
@@ -19,7 +41,25 @@
       "worktree": null
     },
     {
+      "id": "cpa-import-group-missing",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "cpa-oauth-modeltest-baseurl",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "cpa-parse-no-provider",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "cpa-standalone-module",
       "status": "已完成",
       "deps": [],
       "worktree": null
@@ -44,6 +84,12 @@
     },
     {
       "id": "perf-oom-cpu-optimize",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "platform-delete-partial-update",
       "status": "已完成",
       "deps": [],
       "worktree": null
