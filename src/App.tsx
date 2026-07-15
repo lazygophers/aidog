@@ -25,14 +25,12 @@ import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
   { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
-  { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.proxy" },
-  { id: "cli-proxy", icon: "proxy", labelKey: "nav.cliProxy", section: "nav.section.proxy" },
-  { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.proxy" },
-  { id: "test-log", icon: "logs", labelKey: "nav.testLog", section: "nav.section.proxy" },
-  { id: "quota-log", icon: "logs", labelKey: "nav.quotaLog", section: "nav.section.proxy" },
-  { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.observe" },
-  { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.observe" },
-  { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.observe" },
+  { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.platform" },
+  { id: "cli-proxy", icon: "proxy", labelKey: "nav.cliProxy", section: "nav.section.platform" },
+  { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
+  { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats" },
+  { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
+  { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.logStats" },
   { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
   { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
   {
@@ -181,8 +179,6 @@ function App() {
           {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
           {effectiveNav === "cli-proxy" && <CliProxy />}
           {effectiveNav === "request-log" && <RequestLog />}
-          {effectiveNav === "test-log" && <RequestLog defaultSource="test" lockSource />}
-          {effectiveNav === "quota-log" && <RequestLog defaultSource="quota" lockSource />}
           {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
           {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
