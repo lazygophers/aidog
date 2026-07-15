@@ -19,6 +19,8 @@ pub struct CliProxyProvider {
     pub models: Vec<String>,
     /// 原始 JSON 串（空串视作 "{}"，仿 platform.extra）
     pub extra: String,
+    /// 余额查询配置 JSON 串（{"type":"none"|"newapi"}，默认 "{}"）
+    pub quota: String,
     /// active / disabled
     pub status: String,
     /// 归属分组 id；NULL = 未分配（s2 路由层消费）
@@ -40,6 +42,9 @@ pub struct CreateCliProxyProvider {
     pub models: Vec<String>,
     #[serde(default)]
     pub extra: String,
+    /// 余额查询配置 JSON 串（{"type":"none"|"newapi"}，默认 "{}"）
+    #[serde(default)]
+    pub quota: String,
     #[serde(default = "default_active_status")]
     pub status: String,
     #[serde(default)]
@@ -69,6 +74,15 @@ pub fn serialize_cli_proxy_models(models: &[String]) -> String {
     })
 }
 
+/// 解析 quota.type 字段（失败/空 → "none"）。
+/// quota JSON 形如 `{"type":"newapi"}`；type 缺省或解析失败回落 "none"。
+pub fn parse_quota_type(quota_json: &str) -> String {
+    serde_json::from_str::<serde_json::Value>(quota_json)
+        .ok()
+        .and_then(|v| v.get("type").and_then(|t| t.as_str()).map(String::from))
+        .unwrap_or_else(|| "none".to_string())
+}
+
 #[cfg(test)]
 mod serde_tests {
     use super::*;
@@ -83,6 +97,7 @@ mod serde_tests {
             api_key: "sk-x".into(),
             models: vec!["claude-sonnet-4".into(), "claude-opus-4".into()],
             extra: "{\"k\":\"v\"}".into(),
+            quota: "{}".into(),
             status: "active".into(),
             group_id: Some(3),
             created_at: 1000,

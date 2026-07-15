@@ -319,6 +319,14 @@ ALTER TABLE "group_new" RENAME TO "group";
                 );
 
                 // Migration 047: proxy_log 加 cli_proxy_provider_id → run_migrations_proxy_log_late
+
+                // Migration 048: cli_proxy_provider 加 quota JSON 列（余额查询类型配置，仿 extra 模式）。
+                // {"type":"none"|"newapi"}；默认 "{}"（parse_quota_type 视作 none）。
+                // 幂等：旧库 ALTER 无 IF NOT EXISTS，duplicate column 错误被忽略（对齐项目 idiom）。
+                let _ = conn.execute(
+                    "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
+                    [],
+                );
     Ok(())
 }
 

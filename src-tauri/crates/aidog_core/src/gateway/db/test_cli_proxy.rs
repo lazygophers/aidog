@@ -11,6 +11,7 @@ fn input(name: &str) -> CreateCliProxyProvider {
         api_key: "sk-test".into(),
         models: vec!["claude-sonnet-4".into()],
         extra: String::new(),
+        quota: String::new(),
         status: "active".into(),
         group_id: None,
     }

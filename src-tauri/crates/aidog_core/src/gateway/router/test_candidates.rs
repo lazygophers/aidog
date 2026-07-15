@@ -834,6 +834,7 @@ async fn mk_cli_proxy_provider(db: &db::Db, name: &str, wire: &str, base_url: &s
         api_key: "sk-cli".into(),
         models: vec!["claude-sonnet-4".into(), "claude-opus-4".into()],
         extra: String::new(),
+        quota: String::new(),
         status: status.into(),
         group_id: None,
     }).await.expect("create provider")

@@ -2080,5 +2080,8 @@
   "platform.cliProxy.wireProtocol": "ワイヤープロトコル",
   "platform.cliProxy.baseUrl": "Base URL",
   "platform.cliProxy.models": "モデル",
-  "platform.cliProxy.created": "cli-proxy プラットフォームを作成しました"
+  "platform.cliProxy.created": "cli-proxy プラットフォームを作成しました",
+  "cliProxy.quotaType": "残高照会",
+  "cliProxy.quotaTypeNone": "非対応",
+  "cliProxy.quotaTypeNewapi": "NewAPI中継"
 }

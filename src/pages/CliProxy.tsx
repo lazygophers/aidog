@@ -51,8 +51,13 @@ const modalBody: React.CSSProperties = {
 
 const EMPTY_FORM: CreateCliProxyProvider = {
   name: "", wire_protocol: "anthropic", base_url: "", api_key: "",
-  models: [], extra: "", status: "active", group_id: null,
+  models: [], extra: "", quota: "{}", status: "active", group_id: null,
 };
+
+/** 解析 quota JSON → type 值（none/newapi），异常/缺省回落 none。 */
+function quotaTypeOf(q: string | undefined): string {
+  try { return (JSON.parse(q || "{}").type) || "none"; } catch { return "none"; }
+}
 
 type Msg = { kind: "ok" | "err"; text: string } | null;
 
@@ -105,6 +110,7 @@ export function CliProxy() {
     setForm({
       name: p.name, wire_protocol: p.wire_protocol, base_url: p.base_url,
       api_key: p.api_key, models: p.models, extra: p.extra,
+      quota: p.quota ?? "{}",
       status: p.status, group_id: p.group_id ?? null,
     });
     setModelsText(p.models.join("\n"));
@@ -351,6 +357,17 @@ export function CliProxy() {
                 placeholder="{}"
               />
             </label>
+            <label style={fieldLabel}>
+              {t("cliProxy.quotaType")}
+              <select
+                style={inputStyle}
+                value={quotaTypeOf(form.quota)}
+                onChange={e => setForm({ ...form, quota: JSON.stringify({ type: e.target.value }) })}
+              >
+                <option value="none">{t("cliProxy.quotaTypeNone")}</option>
+                <option value="newapi">{t("cliProxy.quotaTypeNewapi")}</option>
+              </select>
+            </label>
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button onClick={cancelForm} disabled={busyKey !== null} style={btnGhost}>
@@ -400,6 +417,14 @@ export function CliProxy() {
               }}>
                 {p.status === "active" ? t("cliProxy.statusActive") : t("cliProxy.statusDisabled")}
               </span>
+              {quotaTypeOf(p.quota) === "newapi" && (
+                <span style={{
+                  padding: "2px 8px", borderRadius: 6, fontSize: 11,
+                  border: "1px solid var(--accent)", color: "var(--accent)",
+                }}>
+                  {t("cliProxy.quotaTypeNewapi")}
+                </span>
+              )}
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   onClick={() => void handleTest(p)}
