@@ -112,6 +112,8 @@ pub fn run() {
             commands_proxy::proxy_log::proxy_log_settings_get,
             commands_proxy::proxy_log::proxy_log_settings_set,
             commands_proxy::proxy_log::proxy_log_cleanup_expired,
+            // Request Logs (cli-proxy test/quota page)
+            commands_proxy::proxy_log::request_log_list,
             // Stats aggregation settings + rebuild
             commands_platform::stats::stats_settings_get,
             commands_platform::stats::stats_settings_set,

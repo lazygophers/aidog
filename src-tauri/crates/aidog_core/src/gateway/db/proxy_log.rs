@@ -3,7 +3,7 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at";
+    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, cli_proxy_provider_id";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::ProxyLog> {
@@ -40,6 +40,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::Pr
         created_at: row.get(29)?,
         updated_at: row.get(30)?,
         deleted_at: row.get(31)?,
+        cli_proxy_provider_id: row.get(32)?,
     })
 }
 
@@ -56,10 +57,10 @@ pub fn upsert_proxy_log(db: &Db, log: crate::gateway::models::ProxyLog) -> impl 
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)"),
             )?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.cli_proxy_provider_id],
             )?;
             Ok(())
         })
@@ -109,6 +110,7 @@ pub struct ProxyLogColumns {
     pub created_at: i64,
     pub updated_at: i64,
     pub deleted_at: i64,
+    pub cli_proxy_provider_id: Option<i64>,
 }
 
 impl ProxyLogColumns {
@@ -163,6 +165,7 @@ impl ProxyLogColumns {
             created_at: log.created_at,
             updated_at: log.updated_at,
             deleted_at: log.deleted_at,
+            cli_proxy_provider_id: log.cli_proxy_provider_id,
         }
     }
 
@@ -203,6 +206,7 @@ impl ProxyLogColumns {
         diff!("created_at", created_at);
         diff!("updated_at", updated_at);
         diff!("deleted_at", deleted_at);
+        diff!("cli_proxy_provider_id", cli_proxy_provider_id);
         out
     }
 
@@ -249,10 +253,10 @@ pub fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> impl std::fut
             // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)"),
             )?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.cli_proxy_provider_id],
             )?;
             Ok(())
         })
@@ -385,6 +389,66 @@ pub fn filtered_count_proxy_logs<'a>(
     }
 }
 
+/// 请求日志页列表查询（cli-proxy-request-log s3）。
+///
+/// 语义契约：
+/// - **默认 sources=[test, quota]**：调用方未显式传 sources 时强制覆盖为 cli_proxy 测试 +
+///   quota 探测两类（与 Logs 主页 `exclude_sources=[test,quota]` 相反，互不重叠）。
+///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
+/// - LEFT JOIN cli_proxy_provider：带 provider name（provider 行已删 / 走 platform 路由均返 None）。
+/// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
+///   exclude_sources / cli_proxy_provider_id 全部生效（请求日志页前端可按 provider 筛）。
+/// - 不影响 `get_last_test_result`（独立 query，不经此函数，徽章链不断）。
+#[track_caller]
+pub fn list_request_logs<'a>(
+    db: &'a Db,
+    filter: &'a crate::gateway::models::ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::RequestLogSummary>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    let mut filter = filter.clone();
+    // 默认 sources 兜底：None → [test, quota]；Some(_) 尊重调用方（含空 Vec = 全 source）。
+    if filter.sources.is_none() {
+        filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
+    }
+    db
+        .call_read_traced(None, __db_caller, move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(limit));
+            p.push(Box::new(offset));
+            // ponytail: LEFT JOIN 仅取 cpp.name 一列（provider 已删时 NULL）。
+            // p / cpp 双别名：避免两表 id 列歧义；build_filter_where 裸列名（platform_id /
+            // source_protocol 等）在 cli_proxy_provider 表无同名列 → sqlite 自动消歧解析到 p。
+            let sql = format!(
+                "SELECT p.id, p.group_key, p.model, p.actual_model, p.source_protocol, p.target_protocol, \
+                 p.platform_id, p.status_code, p.duration_ms, p.input_tokens, p.output_tokens, \
+                 p.cache_tokens, p.is_stream, p.retry_count, p.created_at, \
+                 p.cli_proxy_provider_id, cpp.name \
+                 FROM proxy_log p \
+                 LEFT JOIN cli_proxy_provider cpp ON cpp.id = p.cli_proxy_provider_id \
+                 WHERE p.deleted_at = 0{where_sql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let rows = stmt.query_map(refs.as_slice(), |row| {
+                let base = row_to_proxy_log_summary(row)?;
+                let cli_proxy_provider_id: Option<i64> = row.get(15)?;
+                let cli_proxy_provider_name: Option<String> = row.get(16)?;
+                Ok(crate::gateway::models::RequestLogSummary {
+                    base,
+                    cli_proxy_provider_id,
+                    cli_proxy_provider_name,
+                })
+            })?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// Build WHERE clause extensions + params from filter.
 /// Returns (" AND ...", params). Empty filter → ("", []).
 fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (String, Vec<Box<dyn rusqlite::types::ToSql>>) {
@@ -440,8 +504,38 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
             idx += 1;
         }
     }
-    // idx 在 path（当前最后分支）后递增以防新增绑定参数时错位（命中 logs-path-search-idx-bug）；
-    // path 之后暂无分支，显式消费 idx 避免 unused_assignments warning。
+    // source 维度（cli-proxy-request-log s3）：包含 / 排除筛选，参数化 IN / NOT IN。
+    // 空 Vec 视为未设置（Some(vec![]) 与 None 同义），避免 `IN ()` sqlite 语法错。
+    if let Some(ref srcs) = filter.sources {
+        if !srcs.is_empty() {
+            let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
+            parts.push(format!("AND source_protocol IN ({})", placeholders.join(", ")));
+            for s in srcs {
+                p.push(Box::new(s.clone()));
+            }
+            idx += srcs.len() as u32;
+        }
+    }
+    if let Some(ref srcs) = filter.exclude_sources {
+        if !srcs.is_empty() {
+            let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
+            // `OR source_protocol IS NULL`：理论 source_protocol 各路径均硬赋值无 NULL，
+            // 但 NULL NOT IN (...) 返 NULL（被 WHERE 视作 false 而 filter 掉），加 OR 保 NULL 行不丢。
+            parts.push(format!(
+                "AND (source_protocol NOT IN ({}) OR source_protocol IS NULL)",
+                placeholders.join(", ")
+            ));
+            for s in srcs {
+                p.push(Box::new(s.clone()));
+            }
+            idx += srcs.len() as u32;
+        }
+    }
+    if let Some(pid) = filter.cli_proxy_provider_id {
+        parts.push(format!("AND cli_proxy_provider_id = ?{idx}"));
+        p.push(Box::new(pid));
+        idx += 1;
+    }
     let _ = idx;
 
     let where_sql = if parts.is_empty() { String::new() } else { format!(" {}", parts.join(" ")) };
@@ -570,7 +664,8 @@ mod test_filter_where {
             "CREATE TABLE proxy_log (
                 id TEXT, platform_id INTEGER, group_key TEXT, status_code INTEGER,
                 created_at INTEGER, model TEXT, actual_model TEXT, request_url TEXT,
-                deleted_at INTEGER DEFAULT 0
+                deleted_at INTEGER DEFAULT 0,
+                source_protocol TEXT, cli_proxy_provider_id INTEGER
             );",
         )
         .unwrap();
@@ -613,6 +708,52 @@ mod test_filter_where {
             model: Some("m".into()),
             model_type: Some("actual".into()),
             path: Some("p".into()),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn sources_in_binds_ok() {
+        // sources IN (?, ?)：占位符随 vec 长度递增（cli-proxy-request-log s3）。
+        assert_binds_ok(&ProxyLogFilter {
+            sources: Some(vec!["test".into(), "quota".into()]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn exclude_sources_not_in_binds_ok() {
+        // exclude_sources NOT IN (?, ?)：Logs 主页排除 test/quota → 纯代理转发。
+        assert_binds_ok(&ProxyLogFilter {
+            exclude_sources: Some(vec!["test".into(), "quota".into()]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn empty_sources_is_noop_binds_ok() {
+        // Some(vec![]) = 空集，分支应跳过（不发 IN ()）→ 与 None 同义。
+        assert_binds_ok(&ProxyLogFilter {
+            sources: Some(vec![]),
+            exclude_sources: Some(vec![]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn all_filters_plus_sources_binds_ok() {
+        // 全标量 + sources + exclude + cli_proxy_provider_id：穷举 idx 递增链路不错位。
+        assert_binds_ok(&ProxyLogFilter {
+            platform_id: Some(7),
+            status: Some(404),
+            time_start: Some(1000),
+            time_end: Some(2000),
+            model: Some("m".into()),
+            path: Some("p".into()),
+            sources: Some(vec!["test".into(), "quota".into()]),
+            exclude_sources: Some(vec!["claude_code".into()]),
+            cli_proxy_provider_id: Some(42),
+            ..Default::default()
         });
     }
 }
