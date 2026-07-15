@@ -114,6 +114,8 @@ export interface ProxyLogFilter {
   model_type?: "original" | "actual";
   /** 路径片段：对 request_url 做 LIKE %v% 模糊匹配 */
   path?: string;
+  /** 排除指定 source_protocol（如 ["test","quota"]）；NULL source_protocol 保留 */
+  exclude_sources?: string[];
 }
 
 // ─── Proxy Log API ─────────────────────────────────────────
