@@ -1,0 +1,70 @@
+{
+  "id": "log-menu-restructure",
+  "name": "日志菜单重构: 代理/请求双菜单+cli_proxy 分流+日志统计组",
+  "desc": "Logs→代理日志, RequestLog→请求日志, 删 test/quota 菜单; section 日志统计(使用统计+代理日志+请求日志); cli_proxy 代理日志→代理日志, cli_proxy 测试→请求日志",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "纯前端+i18n 改, 禁改后端 Rust / proxy_log 查询逻辑 / source 分流机制",
+    "删 test-log/quota-log 菜单 + nav.section.observe + nav.testLog/quotaLog key, 禁留 dangling",
+    "Logs(代理日志) 后端 exclude_sources=[test,quota] 不动; RequestLog(请求日志) sources=[test,quota] 不动"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "前端结构: BASE_NAV 重组 + RequestLog 清 dead props",
+      "desc": "App.tsx BASE_NAV 删 test-log/quota-log, logs/request-log/notifications/stats → section.logStats, platforms/cli-proxy → section.platform; RequestLog.tsx 删 defaultSource/lockSource/lockedType dead props 回滚 log-menu-split 参数化",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784121539,
+      "started": 1784121574,
+      "finished": 1784122196
+    },
+    {
+      "sid": "s2",
+      "name": "i18n 8 locale label/section 改",
+      "desc": "8 locale: nav.logs→代理日志, nav.requestLog→请求日志, nav.section.proxy→平台, 删 nav.section.observe, 加 nav.section.logStats=日志统计, 删 nav.testLog/nav.quotaLog",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784121539,
+      "started": 1784121574,
+      "finished": 1784122196
+    },
+    {
+      "sid": "s3",
+      "name": "修复: 8 locale nav.section.proxy key→nav.section.platform",
+      "desc": "check FAIL 修复: locale 只改了 nav.section.proxy 的值未改 key, App.tsx 用 nav.section.platform 找不到。8 locale 将 key nav.section.proxy rename 为 nav.section.platform (值不变)",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784122359,
+      "started": 1784122360,
+      "finished": 1784122462
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/log-menu-restructure",
+  "estimate": null,
+  "created": 1784121117,
+  "started": 1784121554,
+  "finished": 1784122599,
+  "updated": 1784122599
+}

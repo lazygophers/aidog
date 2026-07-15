@@ -2,7 +2,7 @@
   "id": "proxy-log-db-split",
   "name": "proxy_log 独立库 + 嵌入式库选型落地",
   "desc": "proxy_log 拆独立 db 解写竞争; 调研替代嵌入式库(LMDB/Redb/DuckDB/RocksDB 等)对比 SQLite, 选型后落地分库",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [
     "cli-proxy-request-log"
   ],
@@ -58,13 +58,13 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "运行中",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784096257,
       "started": 1784108580,
-      "finished": null
+      "finished": 1784109837
     },
     {
       "sid": "s4-cross-read-merge",
@@ -75,13 +75,13 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "待处理",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784096257,
-      "started": null,
-      "finished": null
+      "started": 1784109837,
+      "finished": 1784110363
     },
     {
       "sid": "s5-backup-vacuum-dual",
@@ -92,13 +92,13 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "待处理",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784096257,
-      "started": null,
-      "finished": null
+      "started": 1784109837,
+      "finished": 1784110729
     },
     {
       "sid": "s6-startup-lifecycle",
@@ -126,29 +126,39 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "待处理",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784107790,
-      "started": null,
-      "finished": null
+      "started": 1784110363,
+      "finished": 1784111206
+    },
+    {
+      "sid": "s8-rename-log-db",
+      "name": "proxy_log.db 重命名 log.db",
+      "desc": "文件路径 ~/.aidog/proxy_log.db → ~/.aidog/log.db; grep proxy_log.db 字面量全替换 (mod.rs Db::new 路径常量 + 注释 + 文档 + 测试)",
+      "depends_on": [
+        "s7-notification-to-proxy-log-db"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784110942,
+      "started": 1784111206,
+      "finished": 1784111488
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-proxy-log-db-split",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-proxy-log-db-split",
-      "branch": "skein/proxy-log-db-split",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/proxy-log-db-split",
   "estimate": 240,
   "created": 1784085863,
   "started": 1784096535,
-  "finished": null,
-  "updated": 1784108580
+  "finished": 1784113850,
+  "updated": 1784113850
 }

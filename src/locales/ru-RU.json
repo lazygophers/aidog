@@ -959,8 +959,6 @@
   "page.home": "Главная",
   "page.logs": "Журнал запросов",
   "page.requestLog": "Журнал запросов (Тест / Баланс)",
-  "page.testLog": "Журнал тестов",
-  "page.quotaLog": "Журнал баланса",
   "requestLog.empty": "Нет записей запросов",
   "requestLog.filterType": "Тип",
   "requestLog.typeTest": "Тест",

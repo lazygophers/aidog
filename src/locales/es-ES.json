@@ -937,8 +937,6 @@
   "page.home": "Inicio",
   "page.logs": "Registro de peticiones",
   "page.requestLog": "Registro de peticiones (Prueba / Saldo)",
-  "page.testLog": "Registro de pruebas",
-  "page.quotaLog": "Registro de saldo",
   "requestLog.empty": "Sin registros de peticiones",
   "requestLog.filterType": "Tipo",
   "requestLog.typeTest": "Prueba",

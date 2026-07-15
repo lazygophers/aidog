@@ -959,8 +959,6 @@
   "page.home": "ホーム",
   "page.logs": "リクエストログ",
   "page.requestLog": "リクエスト記録（テスト / 残高）",
-  "page.testLog": "テストログ",
-  "page.quotaLog": "残高ログ",
   "requestLog.empty": "リクエスト記録がありません",
   "requestLog.filterType": "タイプ",
   "requestLog.typeTest": "テスト",

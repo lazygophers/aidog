@@ -937,8 +937,6 @@
   "page.home": "首页",
   "page.logs": "请求日志",
   "page.requestLog": "请求记录（测试 / 余额）",
-  "page.testLog": "测试日志",
-  "page.quotaLog": "余额日志",
   "requestLog.empty": "暂无请求记录",
   "requestLog.filterType": "类型",
   "requestLog.typeTest": "测试",

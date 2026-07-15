@@ -234,6 +234,13 @@ fn map_to_create_input(p: CpaProvider, group_id: Option<i64>) -> CreateCliProxyP
     let wire_protocol = resolve_wire_protocol(&p);
     let extra = build_extra(&p);
     let status = if p.disabled { "disabled" } else { "active" };
+    // NewAPI 中转 base_url 不匹配 query_quota 原生 dispatch, 按 wire_protocol 回填 quota.type
+    // → test_cmd 分流到 query_quota_newapi (cli-proxy-quota-type)。否则导入的 NewAPI 中继测余额返 Unsupported。
+    let quota = if wire_protocol == "newapi" {
+        r#"{"type":"newapi"}"#.to_string()
+    } else {
+        String::new()
+    };
     CreateCliProxyProvider {
         name,
         wire_protocol,
@@ -241,7 +248,7 @@ fn map_to_create_input(p: CpaProvider, group_id: Option<i64>) -> CreateCliProxyP
         api_key: p.api_key,
         models: p.models,
         extra,
-        quota: String::new(),
+        quota,
         status: status.to_string(),
         group_id,
     }

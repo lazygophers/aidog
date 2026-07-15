@@ -959,8 +959,6 @@
   "page.home": "الرئيسية",
   "page.logs": "سجل الطلبات",
   "page.requestLog": "سجل الطلب (اختبار / رصيد)",
-  "page.testLog": "سجل الاختبار",
-  "page.quotaLog": "سجل الرصيد",
   "requestLog.empty": "لا توجد سجلات طلبات",
   "requestLog.filterType": "النوع",
   "requestLog.typeTest": "اختبار",

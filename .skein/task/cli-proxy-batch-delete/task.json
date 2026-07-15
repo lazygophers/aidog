@@ -1,0 +1,18 @@
+{
+  "id": "cli-proxy-batch-delete",
+  "name": "CLI 代理 Provider 批量删除",
+  "desc": "CliProxy 页加多选+批量删除。后端加批量删除 command, 前端加 checkbox 多选+批量删除按钮",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cli-proxy-batch-delete",
+  "estimate": null,
+  "created": 1784133570,
+  "started": null,
+  "finished": null,
+  "updated": 1784133570
+}
