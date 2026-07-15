@@ -18,7 +18,7 @@ const AGG_TOTAL_COLS: &str = "COALESCE(SUM(request_count), 0), \
 /// （十进制字符串）回溯，按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；
 /// 见 migration 024 / group-name-group-key-split）。
 ///
-/// proxy-log-db-split s3：`"group"` 表在主库，`proxy_log` 在 proxy_log.db。`auto_keys` 由调用方
+/// proxy-log-db-split s3：`"group"` 表在主库，`proxy_log` 在 log.db。`auto_keys` 由调用方
 /// 在主库闭包内预查后传入（跨库禁在一个连接内同时查两库）。
 fn recent_health_single(conn: &Connection, platform_id: u64, auto_keys: &[String]) -> (i64, i64) {
     let pid = platform_id as i64;
@@ -54,7 +54,7 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
-    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 proxy_log.db。
+    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 log.db。
     // 先主库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
     let pid_str = platform_id.to_string();
     let auto_keys: Vec<String> = db
@@ -122,7 +122,7 @@ pub fn get_last_test_result(
 ) -> impl std::future::Future<Output = Result<Option<crate::gateway::models::LastTestResult>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
@@ -172,7 +172,7 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     async move {
     let group_key = group_key.to_string();
     let today_key = local_today_hour_key();
-    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+    // stats_agg_hourly 在 log.db（proxy-log-db-split s3），走专用读池。
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
@@ -227,7 +227,7 @@ pub fn get_all_group_usage_stats(
 ) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, crate::gateway::models::PlatformUsageStats>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+    // stats_agg_hourly 在 log.db（proxy-log-db-split s3），走专用读池。
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
@@ -291,7 +291,7 @@ pub fn platform_usage_stats_all(
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
-    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 proxy_log.db。
+    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 log.db。
     // 先主库预查 auto_map（recent 的 eff_pid 内存回溯需要），再入 proxy_log 闭包跑两阶段聚合。
     let auto_map = db
         .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
@@ -459,7 +459,7 @@ pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
     let group_key = group_key.to_string();
-    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+    // stats_agg_hourly 在 log.db（proxy-log-db-split s3），走专用读池。
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(hourly_rate_inner(conn, now_ms, &window_key, "group_key = ?2", &[&group_key])?)
@@ -480,7 +480,7 @@ pub fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> impl std::future::
     async move {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
-    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+    // stats_agg_hourly 在 log.db（proxy-log-db-split s3），走专用读池。
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;

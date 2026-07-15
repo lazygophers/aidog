@@ -36,7 +36,7 @@ pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodaySta
 
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+            // stats_agg_hourly 在 log.db（proxy-log-db-split s3），走专用读池。
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
             let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
@@ -98,7 +98,7 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
     async move {
     let today_key = local_today_hour_key();
 
-    // proxy-log-db-split s3：stats_agg_hourly 在 proxy_log.db，platform 表在主库 → 跨库禁 JOIN。
+    // proxy-log-db-split s3：stats_agg_hourly 在 log.db，platform 表在主库 → 跨库禁 JOIN。
     // 先 proxy_log handle 跑聚合（含排序），再主库预查全量 platform id→name 映射，Rust 合并。
     let mut rows: Vec<(i64, i64, f64, i64)> = db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {

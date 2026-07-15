@@ -109,7 +109,7 @@ ALTER TABLE "group_new" RENAME TO "group";
 "#,
                     )?;
                 }
-                // proxy_log.group_key RENAME → run_migrations_proxy_log_late（proxy_log.db）
+                // proxy_log.group_key RENAME → run_migrations_proxy_log_late（log.db）
                 // Migration 025: GLM Coding Plan anthropic 端点补标 coding_plan=true。
                 // 根因：Platforms.tsx glm 预设曾把 anthropic 端点漏标 coding_plan，coding plan 平台
                 // (含 openai coding 端点)的 anthropic(Claude Code)入站经 select_endpoint_for_protocol
@@ -223,7 +223,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                 );
 
                 // Migration 031 ①: idx_proxy_log_group_key_stats → run_migrations_proxy_log_late
-                // Migration 031 ②: notification 时间索引 → run_migrations_proxy_log_late（proxy_log.db）
+                // Migration 031 ②: notification 时间索引 → run_migrations_proxy_log_late（log.db）
                 // Migration 032: stats_agg_hourly 建表 + 回填 → run_migrations_proxy_log_late
                 // Migration 033: proxy_log.is_final DROP → run_migrations_proxy_log_late
                 // Migration 034: proxy_log 索引精简 → run_migrations_proxy_log_late
@@ -304,7 +304,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                 )?;
 
                 // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— cpa-standalone-module s4。
-                // proxy_log / stats_agg_hourly 删除 → run_migrations_proxy_log_late（proxy_log.db，
+                // proxy_log / stats_agg_hourly 删除 → run_migrations_proxy_log_late（log.db，
                 // 主库无这两表）。主库仅删 group_platform + platform。
                 // CPA platform IDs 由 init_tables 预查主库后传入 proxy_log_late（跨库不能 JOIN）。
                 // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
@@ -324,8 +324,8 @@ ALTER TABLE "group_new" RENAME TO "group";
 
 /// proxy_log / stats_agg_hourly 表的 late migrations（021–047 范围内的 proxy_log / stats_agg 部分）。
 ///
-/// 拆库后这些 DDL 跑在 proxy_log.db 写连接。`auto_map` 由 init_tables 从主库 `"group"` 表
-/// 预加载传入（proxy_log.db 无 group 表，无法在闭包内 `load_auto_from_map`）。`cpa_pids` 为
+/// 拆库后这些 DDL 跑在 log.db 写连接。`auto_map` 由 init_tables 从主库 `"group"` 表
+/// 预加载传入（log.db 无 group 表，无法在闭包内 `load_auto_from_map`）。`cpa_pids` 为
 /// migration 046 需清理的 CPA 平台 ID 列表（主库预查，跨库不能子查询 JOIN platform）。
 pub(crate) fn run_migrations_proxy_log_late(
     conn: &Connection,
@@ -409,7 +409,7 @@ pub(crate) fn run_migrations_proxy_log_late(
                     "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
                     [],
                 );
-                // Migration 031 ②: notification 时间索引（从主库迁入 proxy_log.db）。
+                // Migration 031 ②: notification 时间索引（从主库迁入 log.db）。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],

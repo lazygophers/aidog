@@ -395,7 +395,7 @@ pub fn filtered_count_proxy_logs<'a>(
 /// - **默认 sources=[test, quota]**：调用方未显式传 sources 时强制覆盖为 cli_proxy 测试 +
 ///   quota 探测两类（与 Logs 主页 `exclude_sources=[test,quota]` 相反，互不重叠）。
 ///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
-/// - provider name 解析（跨库应用层合并，proxy-log-db-split s3）：proxy_log.db 无
+/// - provider name 解析（跨库应用层合并，proxy-log-db-split s3）：log.db 无
 ///   `cli_proxy_provider` 表，禁 LEFT JOIN。先 proxy_log handle 取行（含 cli_proxy_provider_id），
 ///   收集去重 id set → main handle 单次 `IN(?,?...)` 批量查 id→name → Rust 合并（s4 优化，替代 per-id N+1）。
 /// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /

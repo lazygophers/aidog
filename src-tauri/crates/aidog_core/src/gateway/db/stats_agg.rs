@@ -167,7 +167,7 @@ pub struct StatsAggInput {
 /// 替代旧 SQL 内 `CASE WHEN ?4=0 THEN (SELECT ... FROM "group")` 标量子查询。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
 ///
-/// 跨库预查（proxy-log-db-split s3）：stats_agg_hourly 在 proxy_log.db，`"group"` 表在主库，
+/// 跨库预查（proxy-log-db-split s3）：stats_agg_hourly 在 log.db，`"group"` 表在主库，
 /// `load_auto_from_map` 不能在 proxy_log 写闭包内查 → 主 handle 预查 auto_map，move 进闭包。
 #[track_caller]
 pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {

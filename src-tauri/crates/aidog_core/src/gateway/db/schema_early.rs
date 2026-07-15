@@ -5,7 +5,7 @@ use rusqlite::{params, Connection, Result as SqlResult};
 /// 自 init_tables 拆出（纯结构搬移，执行顺序不变）。
 pub(crate) fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
                 // Migration 001: 基础 schema（platform / group / group_platform / setting）。
-                // proxy_log 建表已移至 run_migrations_proxy_log_early（落 proxy_log.db）。
+                // proxy_log 建表已移至 run_migrations_proxy_log_early（落 log.db）。
                 conn.execute_batch(
                     r#"-- AiDog Schema (v2 — singular table names, uint64 PKs, ms timestamps, soft delete, no NULL)
 
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS setting (
 );
 "#,
                 )?;
-                // Migration 002: proxy_log 索引已移至 run_migrations_proxy_log_early（落 proxy_log.db）。
+                // Migration 002: proxy_log 索引已移至 run_migrations_proxy_log_early（落 log.db）。
                 // Migration 003: 模型价格表 model_price。
                 conn.execute_batch(
                     r#"-- Model price table: stores per-model pricing data synced from LiteLLM or entered manually
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS model_price (
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_failure_threshold INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_open_secs INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_half_open_max INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 017/018: notification 表 → run_migrations_proxy_log_early（落 proxy_log.db）
+                // Migration 017/018: notification 表 → run_migrations_proxy_log_early（落 log.db）
                 // Migration 019: idx_proxy_log_stats → run_migrations_proxy_log_early
                 // Migration 020: MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
                 // enabled_agents = 逗号分隔 agent slug（claude-code/codex）。
@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS model_price (
 
 /// proxy_log / stats_agg_hourly 表的 early migrations（001–020 范围内的 proxy_log 部分）。
 ///
-/// 拆库后这些 DDL 跑在 proxy_log.db 写连接（`call_proxy_log_traced`），主库不再建
+/// 拆库后这些 DDL 跑在 log.db 写连接（`call_proxy_log_traced`），主库不再建
 /// proxy_log / stats_agg_hourly 表。migration 内容与原 run_migrations_early 中的
 /// proxy_log 语句一一对应，幂等 idiom 不变（CREATE IF NOT EXISTS / `let _ =` 吞 dup）。
 pub(crate) fn run_migrations_proxy_log_early(conn: &Connection) -> SqlResult<()> {
@@ -274,7 +274,7 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
                      WHERE deleted_at = 0",
                     [],
                 );
-                // Migration 017: notification 表（从主库迁入 proxy_log.db）。
+                // Migration 017: notification 表（从主库迁入 log.db）。
                 // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/clear 消费。
                 // 设置（NotificationSettings）走 settings KV scope=notification（主库），不在此表。
                 conn.execute_batch(

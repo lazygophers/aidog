@@ -12,7 +12,7 @@ use rusqlite::{params, Connection, Result as SqlResult};
 /// `"group"` 是 SQL 保留字，SQL 标识符引号必须保留；map key 用 `group`（去引号）便于日志可读。
 ///
 /// **分库归属**（proxy-log-db-split）：主库表清单见 `SOFT_DELETE_TABLES`；
-/// proxy_log 表（落 proxy_log.db）见 `SOFT_DELETE_TABLES_PROXY_LOG`。
+/// proxy_log 表（落 log.db）见 `SOFT_DELETE_TABLES_PROXY_LOG`。
 /// `purge_all_soft_deleted` 各走对应 handle（`call_traced` / `call_proxy_log_traced`）。
 pub(crate) const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
     // (SQL 标识符（含引号）, map key / 日志名（去引号）) —— 主库 handle
@@ -23,7 +23,7 @@ pub(crate) const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
     ("model_price", "model_price"),
 ];
 
-/// proxy_log.db 下的软删表清单（s5：purge 按归属拆 handle）。
+/// log.db 下的软删表清单（s5：purge 按归属拆 handle）。
 /// `notification` 表无 `deleted_at` 列（s7 范围，本次不动归属），不在此清单也不在主清单。
 pub(crate) const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
     ("proxy_log", "proxy_log"),
@@ -32,7 +32,7 @@ pub(crate) const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
 /// 每日定时清理：跨表永久删除软删行（`deleted_at > 0 AND deleted_at < now - older_than_secs`）。
 ///
 /// - 表驱动：遍历 `SOFT_DELETE_TABLES`（主库，`call_traced`）+ `SOFT_DELETE_TABLES_PROXY_LOG`
-///   （proxy_log.db，`call_proxy_log_traced`），每表独立 DELETE。
+///   （log.db，`call_proxy_log_traced`），每表独立 DELETE。
 /// - 容错：单表失败（如 schema 漂移致缺列、SQL 错误）→ `tracing::warn!(table, error)` + 该表不插 map + 继续；
 ///   全部失败才返 Err（罕见，仅保留 Result 语义）。
 /// - 返回 `HashMap<表名(去引号), 删除行数>`：调用方记 per-table 日志，空 map 或全 0 由调用方降级 debug。
@@ -77,7 +77,7 @@ pub fn purge_all_soft_deleted(
                 }
             }
         }
-        // proxy_log.db 表（proxy_log / 后续 s7 附加 notification 不在此）走 call_proxy_log_traced。
+        // log.db 表（proxy_log / 后续 s7 附加 notification 不在此）走 call_proxy_log_traced。
         // 内存库 fallback 下 proxy_log_handle == 主连接，purge 仍正确（DELETE 幂等，第二次 0 行）。
         for &(sql_ident, key) in SOFT_DELETE_TABLES_PROXY_LOG {
             let sql = format!(
@@ -128,7 +128,7 @@ pub(crate) fn incremental_vacuum_conn(conn: &Connection, max_pages: i64) {
 /// 非 INCREMENTAL(2) 则 `PRAGMA auto_vacuum=INCREMENTAL` + `VACUUM`（VACUUM 重建库切换模式），
 /// 成功后置 setting(db/compact_migrated_v1)=true 持久标记，幂等。
 ///
-/// **双库覆盖**（s5）：主库 + proxy_log.db 各跑一次探测 + VACUUM 重建。
+/// **双库覆盖**（s5）：主库 + log.db 各跑一次探测 + VACUUM 重建。
 /// 内存库 fallback 下 proxy_log_handle == 主连接，跳过避免对同一物理连接重复 VACUUM。
 /// 幂等标记只在主库 `setting` 表，两库迁移状态同步（同一次启动跑完两库才置标记）。
 ///
@@ -168,7 +168,7 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
         tracing::info!("main auto_vacuum migrated to INCREMENTAL via VACUUM");
         migrated = true;
     }
-    // proxy_log.db：同模式探测 + VACUUM 重建。内存库 fallback 下两 handle 共享同一物理
+    // log.db：同模式探测 + VACUUM 重建。内存库 fallback 下两 handle 共享同一物理
     // 连接，主库 VACUUM 已覆盖，跳过避免二次 VACUUM（重复 VACUUM 无正确性影响但锁库加倍）。
     if !db.is_memory() {
         let proxy_current: i64 = db
@@ -206,7 +206,7 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
 
 /// 全量 VACUUM 压缩数据库到最小。返回前后字节大小（page_count × page_size）。
 ///
-/// **双库覆盖**（s5）：主库 + proxy_log.db 各跑一次 VACUUM，返回字节求和。
+/// **双库覆盖**（s5）：主库 + log.db 各跑一次 VACUUM，返回字节求和。
 /// 内存库 fallback 下 proxy_log_handle == 主连接，跳过避免对同一物理连接二次 VACUUM
 /// （重复 VACUUM 不会错但锁库加倍、字节翻倍）。
 ///
@@ -233,7 +233,7 @@ pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<Com
         })
         .await
         .map_err(|e| format!("compact main database: {e}"))?;
-    // proxy_log.db VACUUM（内存库跳过）
+    // log.db VACUUM（内存库跳过）
     let proxy = if db.is_memory() {
         CompactResult { before_bytes: 0, after_bytes: 0 }
     } else {
@@ -261,7 +261,7 @@ pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<Com
 
 /// 当前 DB 文件占用的逻辑字节数（`page_count * page_size`）。
 ///
-/// **双库求和**（s5）：主库 + proxy_log.db（内存库跳过 proxy_log 避免翻倍）。
+/// **双库求和**（s5）：主库 + log.db（内存库跳过 proxy_log 避免翻倍）。
 /// 调度器阈值触发全量 VACUUM 用；胀库阈值 100MB 对两库总和判定。
 #[track_caller]
 pub fn db_file_size(db: &Db) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
@@ -305,7 +305,7 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用写连接。
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
     db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
@@ -333,7 +333,7 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用写连接。
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
     db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
@@ -352,7 +352,7 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
 pub fn count_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
+    // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
