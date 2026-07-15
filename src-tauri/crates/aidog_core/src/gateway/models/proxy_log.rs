@@ -73,6 +73,9 @@ pub struct ProxyLog {
     pub updated_at: i64,
     #[serde(default)]
     pub deleted_at: i64,
+    /// 经 CLI 代理上游（cli_proxy_provider 表）路由时记录的 provider id；走传统 platform 路由为 None。
+    #[serde(default)]
+    pub cli_proxy_provider_id: Option<i64>,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）

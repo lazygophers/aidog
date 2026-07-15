@@ -324,6 +324,7 @@ pub(crate) async fn upsert_connect_log(
         created_at: now,
         updated_at: now,
         deleted_at: 0,
+        cli_proxy_provider_id: None,
     };
     if let Err(e) = super::db::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");

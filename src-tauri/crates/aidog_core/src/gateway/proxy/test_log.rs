@@ -35,6 +35,7 @@ use super::*;
             created_at: ts,
             updated_at: ts,
             deleted_at: 0,
+            cli_proxy_provider_id: None,
         }
     }
 
