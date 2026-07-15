@@ -25,7 +25,7 @@ use super::db::Db;
 // allow(unused_imports): cdylib/staticlib crate 下 facade re-export 的部分项仅被 #[cfg(test)]
 // 消费 (estimate.rs 测试) 或保留为对外 API, 非 test 构建视作未用 → 误报。
 #[allow(unused_imports)]
-pub use http::{BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
+pub use http::{with_cli_proxy_provider_id, BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
 #[allow(unused_imports)]
 pub use newapi::{parse_newapi_extra, query_quota_newapi};
 
