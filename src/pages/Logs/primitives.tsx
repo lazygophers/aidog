@@ -247,12 +247,14 @@ interface LogRowProps {
   log: ProxyLogSummary;
   platformName: string;
   groupName: string;
+  /** CLI 代理 provider 名（请求日志页传入；代理日志页不传 → 不渲染该列） */
+  providerName?: string | null;
   onOpen: (id: string) => void;
   onCopy: (id: string) => void;
   t: TFunc;
 }
 
-export const LogRow = memo(function LogRow({ log, platformName, groupName, onOpen, onCopy, t }: LogRowProps) {
+export const LogRow = memo(function LogRow({ log, platformName, groupName, providerName, onOpen, onCopy, t }: LogRowProps) {
   return (
     <tr
       className="log-row"
@@ -271,6 +273,9 @@ export const LogRow = memo(function LogRow({ log, platformName, groupName, onOpe
           )}
         </span>
       </TdCell>
+      {providerName !== undefined && (
+        <TdCell><span style={PLATFORM_NAME_STYLE}>{providerName || "-"}</span></TdCell>
+      )}
       <TdCell>
         <span style={INLINE_FLEX_STYLE}>
           <span style={MODEL_NAME_STYLE}>{log.model || "-"}</span>
