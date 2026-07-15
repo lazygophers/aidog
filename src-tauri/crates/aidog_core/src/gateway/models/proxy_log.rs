@@ -73,6 +73,9 @@ pub struct ProxyLog {
     pub updated_at: i64,
     #[serde(default)]
     pub deleted_at: i64,
+    /// 经 CLI 代理上游（cli_proxy_provider 表）路由时记录的 provider id；走传统 platform 路由为 None。
+    #[serde(default)]
+    pub cli_proxy_provider_id: Option<i64>,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）
@@ -115,6 +118,21 @@ pub struct LastTestResult {
     pub response_body: String,
 }
 
+/// 请求日志页摘要行 = `ProxyLogSummary` + 关联 CLI 代理 provider 信息。
+/// 由 `list_request_logs` LEFT JOIN cli_proxy_provider 产出（provider 已删则 name=None）。
+/// 独立于 `ProxyLogSummary`，因请求日志页要展示 provider 归属（代理转发日志页无此字段）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RequestLogSummary {
+    #[serde(flatten)]
+    pub base: ProxyLogSummary,
+    /// proxy_log.cli_proxy_provider_id（走传统 platform 路由为 None）
+    #[serde(default)]
+    pub cli_proxy_provider_id: Option<i64>,
+    /// LEFT JOIN cli_proxy_provider.name；provider 行被删 / 走 platform 路由均为 None
+    #[serde(default)]
+    pub cli_proxy_provider_name: Option<String>,
+}
+
 /// Summary row for list view (excludes large body fields)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLogSummary {
@@ -154,6 +172,17 @@ pub struct ProxyLogFilter {
     /// 路径片段：对 request_url 做 LIKE %v% 模糊匹配
     #[serde(default)]
     pub path: Option<String>,
+    /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["test","quota"]）
+    #[serde(default)]
+    pub sources: Option<Vec<String>>,
+    /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选。
+    /// Logs 主页传 ["test","quota"] → 仅留纯代理转发，test/quota 仅请求日志页可见。
+    /// NULL 行（理论不存在，source_protocol 各路径均硬赋值）视为「不属于排除集」保留。
+    #[serde(default)]
+    pub exclude_sources: Option<Vec<String>>,
+    /// CLI 代理 provider id 筛选（cli_proxy_provider_id = ?）。请求日志页按 provider 归属过滤。
+    #[serde(default)]
+    pub cli_proxy_provider_id: Option<i64>,
 }
 
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)

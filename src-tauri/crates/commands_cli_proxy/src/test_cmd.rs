@@ -5,7 +5,10 @@
 
 use std::sync::Arc;
 
-use aidog_core::gateway::{db::{self, Db}, quota::PlatformQuota};
+use aidog_core::gateway::{
+    db::{self, Db},
+    quota::{with_cli_proxy_provider_id, PlatformQuota},
+};
 use tauri::State;
 
 /// 临时用 provider 配置查余额，不落库（preview）。
@@ -26,7 +29,17 @@ pub async fn cli_proxy_test(db: State<'_, Db>, id: u64) -> Result<PlatformQuota,
     );
     let db_arc = Arc::new(db.inner().clone());
     // platform_id=0：persist_quota_to_db 的 None-guard 等价直接绕过（见 cpa_import_preview_quota 注释）。
-    let q = aidog_core::gateway::quota::query_quota(Some(&db_arc), &provider.base_url, &provider.api_key, 0).await;
+    // with_cli_proxy_provider_id scope 透传 provider id → make_quota_log 填 cli_proxy_provider_id。
+    let q = with_cli_proxy_provider_id(
+        provider.id as i64,
+        aidog_core::gateway::quota::query_quota(
+            Some(&db_arc),
+            &provider.base_url,
+            &provider.api_key,
+            0,
+        ),
+    )
+    .await;
     tracing::info!(command = "cli_proxy_test", success = q.success, "quota preview done");
     Ok(q)
 }

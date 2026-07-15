@@ -2,7 +2,7 @@ use aidog_core::gateway::{self, db::Db};
 use tauri::State;
 
 
-use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilter};
+use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilter, RequestLogSummary};
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
@@ -31,6 +31,21 @@ pub async fn proxy_log_count_filtered(
 ) -> Result<u32, String> {
     tracing::debug!(command = "proxy_log_count_filtered", "command invoked");
     gateway::db::filtered_count_proxy_logs(&db, &filter).await
+}
+
+/// 请求日志页列表（cli-proxy-request-log s3）。
+/// 默认 sources=[test,quota]（db 层兜底）；前端可显式传 filter 覆盖。
+/// 返回 RequestLogSummary（含 cli_proxy_provider_name，LEFT JOIN provider 表）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+pub async fn request_log_list(
+    db: State<'_, Db>,
+    filter: ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<RequestLogSummary>, String> {
+    tracing::debug!(command = "request_log_list", limit, offset, "command invoked");
+    gateway::db::list_request_logs(&db, &filter, limit, offset).await
 }
 
 #[tauri::command]

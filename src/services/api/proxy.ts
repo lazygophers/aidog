@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ProxySettings, ProxyClientSettings, ProxyLogSummary, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter } from "./types";
+import type { ProxySettings, ProxyClientSettings, ProxyLogSummary, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary } from "./types";
 
 
 // ─── Proxy API ─────────────────────────────────────────────
@@ -48,6 +48,15 @@ export const proxyLogApi = {
     invoke<ProxyLogSettings>("proxy_log_settings_get"),
   setSettings: (settings: ProxyLogSettings) =>
     invoke<void>("proxy_log_settings_set", { settings }),
+};
+
+// ─── Request Log API (cli-proxy test/quota page) ───────────
+// request_log_list 后端默认 sources=[test,quota]（db 层兜底；filter.sources=None 时）。
+// filter 显式传 sources（含空 Vec）则尊重前端值。返回 RequestLogSummary（含 provider 归属）。
+
+export const requestLogApi = {
+  list: (filter?: ProxyLogFilter, limit = 50, offset = 0) =>
+    invoke<RequestLogSummary[]>("request_log_list", { filter: filter ?? {}, limit, offset }),
 };
 
 // ─── Proxy Timeout API ──────────────────────────────────────

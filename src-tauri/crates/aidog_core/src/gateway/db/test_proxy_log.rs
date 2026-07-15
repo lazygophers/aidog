@@ -256,8 +256,7 @@ use rusqlite::params;
 
         let filter = crate::gateway::models::ProxyLogFilter {
             group_key: Some("group_a".to_string()),
-            platform_id: None, status: None, time_start: None, time_end: None,
-            model: None, model_type: None, path: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 1);
@@ -281,8 +280,7 @@ use rusqlite::params;
 
         let filter_ok = crate::gateway::models::ProxyLogFilter {
             status: Some(200),
-            group_key: None, platform_id: None, time_start: None, time_end: None,
-            model: None, model_type: None, path: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter_ok, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 1);
@@ -290,8 +288,7 @@ use rusqlite::params;
 
         let filter_fail = crate::gateway::models::ProxyLogFilter {
             status: Some(-1),
-            group_key: None, platform_id: None, time_start: None, time_end: None,
-            model: None, model_type: None, path: None,
+            ..Default::default()
         };
         let rows2 = filtered_list_proxy_logs(&db, &filter_fail, 10, 0).await.unwrap();
         assert_eq!(rows2.len(), 1);
@@ -312,8 +309,7 @@ use rusqlite::params;
         let filter_actual = crate::gateway::models::ProxyLogFilter {
             model: Some("glm-4-plus".to_string()),
             model_type: Some("actual".to_string()),
-            group_key: None, platform_id: None, status: None,
-            time_start: None, time_end: None, path: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter_actual, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 1, "actual model match should work");
@@ -322,8 +318,7 @@ use rusqlite::params;
         let filter_orig = crate::gateway::models::ProxyLogFilter {
             model: Some("claude-sonnet-4".to_string()),
             model_type: Some("original".to_string()),
-            group_key: None, platform_id: None, status: None,
-            time_start: None, time_end: None, path: None,
+            ..Default::default()
         };
         let rows2 = filtered_list_proxy_logs(&db, &filter_orig, 10, 0).await.unwrap();
         assert_eq!(rows2.len(), 1, "original model match should work");
@@ -340,10 +335,7 @@ use rusqlite::params;
         assert_eq!(count_all_proxy_logs(&db).await, 2);
         clear_proxy_logs(&db).await.unwrap();
         // 软删后 filtered_list（WHERE deleted_at=0）应为空
-        let filter = crate::gateway::models::ProxyLogFilter {
-            group_key: None, platform_id: None, status: None,
-            time_start: None, time_end: None, model: None, model_type: None, path: None,
-        };
+        let filter = crate::gateway::models::ProxyLogFilter::default();
         let rows = filtered_list_proxy_logs(&db, &filter, 100, 0).await.unwrap();
         assert_eq!(rows.len(), 0, "cleared logs should be soft-deleted (hidden from list)");
     }
@@ -361,8 +353,7 @@ use rusqlite::params;
         let filter = crate::gateway::models::ProxyLogFilter {
             time_start: Some(now - 10_000),
             time_end: Some(now + 10_000),
-            group_key: None, platform_id: None, status: None,
-            model: None, model_type: None, path: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 1);
@@ -399,8 +390,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log2, false, false)).await.unwrap();
         let filter = crate::gateway::models::ProxyLogFilter {
             path: Some("chat".into()),
-            group_key: None, platform_id: None, status: None,
-            model: None, model_type: None, time_start: None, time_end: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
         // Both sample logs have same url, both should match "chat" if it's in the url
@@ -422,8 +412,7 @@ use rusqlite::params;
 
         let filter = crate::gateway::models::ProxyLogFilter {
             status: Some(429),
-            group_key: None, platform_id: None, path: None,
-            model: None, model_type: None, time_start: None, time_end: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 1);
@@ -447,10 +436,108 @@ use rusqlite::params;
         let filter = crate::gateway::models::ProxyLogFilter {
             model: Some("claude-3-5-sonnet".into()),
             model_type: Some("actual".into()),
-            group_key: None, platform_id: None, status: None,
-            path: None, time_start: None, time_end: None,
+            ..Default::default()
         };
         let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "mta-1");
+    }
+
+    /// list_request_logs (cli-proxy-request-log s3)：默认 sources=[test,quota]，
+    /// 排除纯代理转发行；LEFT JOIN cli_proxy_provider 带 provider name。
+    #[tokio::test]
+    async fn list_request_logs_filters_test_and_quota() {
+        let db = test_db().await;
+        let now = now();
+
+        // 三行：1 条 test + 1 条 quota + 1 条 anthropic 代理转发
+        let mut l_test = sample_log("t1", "g", now);
+        l_test.source_protocol = "test".into();
+        l_test.cli_proxy_provider_id = Some(7);
+        let mut l_quota = sample_log("q1", "g", now - 100);
+        l_quota.source_protocol = "quota".into();
+        let mut l_fwd = sample_log("f1", "g", now - 50);
+        l_fwd.source_protocol = "anthropic".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_test, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_quota, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fwd, false, false)).await.unwrap();
+
+        // 插入关联 cli_proxy_provider id=7（list_request_logs LEFT JOIN 应带出 name）。
+        db.call_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute(
+                "INSERT INTO cli_proxy_provider (id, name, wire_protocol, base_url, models, extra, status, created_at, updated_at) \
+                 VALUES (7, 'prov-A', 'openai', 'https://x', '[]', '{}', 'active', 0, 0)",
+                [],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+        // 默认 sources 兜底 → 仅返 test + quota 两行（按 created_at DESC：t1, q1）
+        let filter_default = crate::gateway::models::ProxyLogFilter::default();
+        let rows = list_request_logs(&db, &filter_default, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 2, "default sources should exclude anthropic forward");
+        assert_eq!(rows[0].base.id, "t1");
+        assert_eq!(rows[1].base.id, "q1");
+        // LEFT JOIN：test 行带 provider_id=7 + name="prov-A"；quota 行均 None
+        assert_eq!(rows[0].cli_proxy_provider_id, Some(7));
+        assert_eq!(rows[0].cli_proxy_provider_name.as_deref(), Some("prov-A"));
+        assert!(rows[1].cli_proxy_provider_id.is_none());
+        assert!(rows[1].cli_proxy_provider_name.is_none());
+
+        // 显式 sources 覆盖：传 [anthropic] → 仅返代理转发行
+        let filter_override = crate::gateway::models::ProxyLogFilter {
+            sources: Some(vec!["anthropic".into()]),
+            ..Default::default()
+        };
+        let rows2 = list_request_logs(&db, &filter_override, 10, 0).await.unwrap();
+        assert_eq!(rows2.len(), 1);
+        assert_eq!(rows2[0].base.id, "f1");
+
+        // cli_proxy_provider_id 筛选 → 仅返 provider_id=7 的 test 行
+        let filter_by_pid = crate::gateway::models::ProxyLogFilter {
+            cli_proxy_provider_id: Some(7),
+            ..Default::default()
+        };
+        let rows3 = list_request_logs(&db, &filter_by_pid, 10, 0).await.unwrap();
+        assert_eq!(rows3.len(), 1);
+        assert_eq!(rows3[0].base.id, "t1");
+
+        // provider 已删（DELETE id=7）→ LEFT JOIN 仍返行但 name=None
+        db.call_traced(None, std::panic::Location::caller(), |conn| {
+            conn.execute("DELETE FROM cli_proxy_provider WHERE id = 7", [])?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+        let rows4 = list_request_logs(&db, &filter_default, 10, 0).await.unwrap();
+        let t1 = rows4.iter().find(|r| r.base.id == "t1").unwrap();
+        assert_eq!(t1.cli_proxy_provider_id, Some(7), "fk column unchanged");
+        assert!(t1.cli_proxy_provider_name.is_none(), "deleted provider → name None");
+    }
+
+    /// exclude_sources：Logs 主页排除 test/quota → 仅纯代理转发。
+    /// 契约：list_proxy_logs/exclude_sources 走同一 build_filter_where；这里用 filtered_list 验证。
+    #[tokio::test]
+    async fn exclude_sources_hides_test_and_quota() {
+        let db = test_db().await;
+        let now = now();
+        let mut l_test = sample_log("t1", "g", now);
+        l_test.source_protocol = "test".into();
+        let mut l_quota = sample_log("q1", "g", now - 100);
+        l_quota.source_protocol = "quota".into();
+        let mut l_fwd = sample_log("f1", "g", now - 50);
+        l_fwd.source_protocol = "anthropic".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_test, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_quota, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fwd, false, false)).await.unwrap();
+
+        let filter = crate::gateway::models::ProxyLogFilter {
+            exclude_sources: Some(vec!["test".into(), "quota".into()]),
+            ..Default::default()
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1, "only anthropic forward should remain");
+        assert_eq!(rows[0].id, "f1");
     }
