@@ -182,6 +182,7 @@ fn build_test_proxy_log(
         created_at: http_ctx.created_at,
         updated_at: http_ctx.created_at,
         deleted_at: 0,
+        cli_proxy_provider_id: None,
     }
 }
 

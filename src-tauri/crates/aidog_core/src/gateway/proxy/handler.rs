@@ -144,6 +144,7 @@ pub(crate) async fn handle_proxy_core(
         created_at,
         updated_at: created_at,
         deleted_at: 0,
+        cli_proxy_provider_id: None,
     };
 
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──

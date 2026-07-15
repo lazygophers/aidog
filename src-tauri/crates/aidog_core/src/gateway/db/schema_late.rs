@@ -426,6 +426,15 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "DELETE FROM platform WHERE platform_type LIKE '\"cpa-%'",
                     [],
                 );
+
+                // Migration 047: proxy_log 加 cli_proxy_provider_id（可空）—— cli-proxy-request-log s1。
+                // 当请求经 CLI 代理上游（cli_proxy_provider 表，migration 045 建表）路由时记录 provider id；
+                // 走传统 platform 路由的请求该列为 NULL。后续 subtask 路由层接入时回填。
+                // 幂等：旧库 ALTER 无 IF NOT EXISTS，`let _ =` 吞 "duplicate column" 错误（项目惯用 idiom，见 027/036/037）。
+                let _ = conn.execute(
+                    "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
+                    [],
+                );
     Ok(())
 }
 
