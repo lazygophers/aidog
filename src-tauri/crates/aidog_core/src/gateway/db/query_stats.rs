@@ -13,9 +13,19 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
     let __db_caller = std::panic::Location::caller();
     async move {
     let query = query.clone();
+    // 跨库预查（proxy-log-db-split s3）：stats_agg_hourly / proxy_log 在 proxy_log.db，
+    // `"group"` / `platform` 表在主库 → 预查 auto_map + platform_names 移入 proxy_log 闭包。
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("query_stats load auto_map: {e}"))?;
+    let platform_names = db
+        .call_read_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("query_stats load platform_names: {e}"))?;
     db
-        .call_read_traced(None, __db_caller, move |conn| {
-            query_stats_inner(conn, &query)
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            query_stats_inner(conn, &query, &auto_map, &platform_names)
                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
         })
         .await
@@ -31,12 +41,21 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
 pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future::Future<Output = Result<Vec<StatsResult>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // 跨库预查（同 query_stats）：auto_map + platform_names 在主库，预查移入 proxy_log 闭包。
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("query_stats_batch load auto_map: {e}"))?;
+    let platform_names = db
+        .call_read_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut out = Vec::with_capacity(queries.len());
             for q in &queries {
                 out.push(
-                    query_stats_inner(conn, q)
+                    query_stats_inner(conn, q, &auto_map, &platform_names)
                         .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
                 );
             }
@@ -84,6 +103,8 @@ fn query_stats_inner_agg(
     query: &StatsQuery,
     start: i64,
     end: i64,
+    _auto_map: &HashMap<String, i64>,
+    platform_names: &HashMap<i64, String>,
 ) -> Result<StatsResult, String> {
     // start 向下取整到所属本地小时桶；end 同理（time_hour <= end_hour 含 end 所在整点桶）。
     let start_key = utc_ms_to_local_hour_key(start);
@@ -210,10 +231,10 @@ fn query_stats_inner_agg(
                 .map_err(|e| format!("agg dimension: {e}"))?
                 .filter_map(|r| r.ok())
                 .collect();
-            let names = platform_id_name_map(conn).map_err(|e| format!("agg dimension names: {e}"))?;
+            // platform_names 由调用方跨库预查自主库传入（agg 走 proxy_log handle，无 platform 表）。
             rows.into_iter()
                 .map(|(pid, mut e)| {
-                    e.name = names.get(&pid).cloned().unwrap_or_else(|| "未知".to_string());
+                    e.name = platform_names.get(&pid).cloned().unwrap_or_else(|| "未知".to_string());
                     e
                 })
                 .collect()
@@ -283,7 +304,7 @@ fn query_stats_inner_agg(
     Ok(StatsResult { overview, buckets, dimension_data, available_models })
 }
 
-pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResult, String> {
+pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map: &HashMap<String, i64>, platform_names: &HashMap<i64, String>) -> Result<StatsResult, String> {
     let end = query.end.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
     let start = query.start.unwrap_or_else(|| {
         (chrono::Utc::now() - chrono::Duration::days(7)).timestamp_millis()
@@ -299,14 +320,14 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result
     // minute / 5min 粒度聚合表不覆盖（hourly 桶无法下钻到分钟），仍走下方 proxy_log 原路径。
     match query.granularity.as_deref() {
         Some("minute") | Some("5min") => {} // fall through to proxy_log path
-        _ => return query_stats_inner_agg(conn, query, start, end),
+        _ => return query_stats_inner_agg(conn, query, start, end, auto_map, platform_names),
     }
 
     // minute/5min 细粒度走 proxy_log 原始行；eff_pid（auto 分组 platform_id=0 回溯源平台）
     // 不再用 SQL 标量子查询/LEFT JOIN，改为内存预取 group_key→eff_pid 映射逐行回溯 + 内存聚合。
     // 时间/group/model 过滤仍在 SQL（缩小行集），唯 eff_pid(platform) 过滤与平台维度 GROUP BY 搬内存。
-    let auto_map = load_auto_from_map(conn).map_err(|e| format!("eff_pid map: {e}"))?;
-    let platform_names = platform_id_name_map(conn).map_err(|e| format!("platform names: {e}"))?;
+    // auto_map + platform_names 由调用方 (query_stats/query_stats_batch) 跨库预查自主库传入
+    // （proxy_log.db 无 "group"/platform 表，禁在 proxy_log 闭包内现取）。
     let five_min = matches!(query.granularity.as_deref(), Some("5min"));
     // filter_platform value = eff_pid 十进制字符串；解析为整数后内存按行 eff_pid 等值过滤。
     let want_pid: Option<i64> = qp.filter_platform.as_ref().and_then(|s| s.parse::<i64>().ok());

@@ -166,19 +166,28 @@ pub struct StatsAggInput {
 /// eff_pid 写时物化：platform_id!=0 直接用（零查询）；=0 才 `load_auto_from_map` 内存回溯，
 /// 替代旧 SQL 内 `CASE WHEN ?4=0 THEN (SELECT ... FROM "group")` 标量子查询。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
+///
+/// 跨库预查（proxy-log-db-split s3）：stats_agg_hourly 在 proxy_log.db，`"group"` 表在主库，
+/// `load_auto_from_map` 不能在 proxy_log 写闭包内查 → 主 handle 预查 auto_map，move 进闭包。
 #[track_caller]
 pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // platform_id=0（auto 分组）才需 auto_map 回溯；预查 move 进 proxy_log 写闭包。
+    let auto_map = if input.platform_id == 0 {
+        db.call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+            .await
+            .map_err(|e| format!("upsert stats agg load auto_map: {e}"))?
+    } else {
+        HashMap::new()
+    };
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            // eff_pid 写时物化：直挂请求(platform_id!=0)零查询；auto 组(=0)才查 group 映射回溯。
             let eff_pid = if input.platform_id != 0 {
                 input.platform_id
             } else {
-                let map = load_auto_from_map(conn)?;
-                resolve_eff_pid(0, &input.group_key, &map)
+                resolve_eff_pid(0, &input.group_key, &auto_map)
             };
             // 本地小时桶由 SQL 内 strftime('...','localtime') 算，与 bucket_time_expr/回填一致。
             let is_2xx = input.status_code >= 200 && input.status_code < 300;
@@ -229,14 +238,20 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
 /// 从 proxy_log upsert 覆盖写 stats_agg_hourly（用户启用 log 后手动修复用）。
 /// 存在则按 proxy_log 真值覆盖、不存在才创建；不再清空整表。
 /// 关日志期间未落 proxy_log 但已聚合的旧行【保留】（不被抹掉）。
+///
+/// 跨库预查（proxy-log-db-split s3）：`"group"` 表在主库，proxy_log 写闭包内禁查 →
+/// 主 handle 预查 auto_map，move 进闭包。
 #[track_caller]
 pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("rebuild stats agg load auto_map: {e}"))?;
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            let auto_map = load_auto_from_map(conn)?;
             let agg = aggregate_proxy_logs(conn, &auto_map)?;
             upsert_aggregated(conn, &agg, now)?;
             Ok(())
@@ -290,10 +305,14 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
         }
     }
     let __db_caller = std::panic::Location::caller();
-    db.call_traced(None, __db_caller, move |conn| {
+    // 跨库预查：`"group"` 表在主库，proxy_log 写闭包内禁查 → 主 handle 预查 move 进闭包。
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("correct count_tokens agg load auto_map: {e}"))?;
+    db.call_proxy_log_traced(None, __db_caller, move |conn| {
         let now = chrono::Utc::now().timestamp_millis();
         // 不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
-        let auto_map = load_auto_from_map(conn)?;
         let agg = aggregate_proxy_logs(conn, &auto_map)?;
         // ① 覆盖写有 backing 行的桶。
         upsert_aggregated(conn, &agg, now)?;
@@ -352,7 +371,7 @@ pub fn cleanup_stats_agg(db: &Db, retention_days: u32) -> impl std::future::Futu
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
