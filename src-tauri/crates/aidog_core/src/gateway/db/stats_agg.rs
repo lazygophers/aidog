@@ -31,8 +31,10 @@ struct AggBucket {
 /// 逐行算，再 HashMap 累加。`time_hour` 用 `utc_ms_to_local_hour_key` 复刻
 /// `strftime('%Y-%m-%d %H:00:00', ...,'localtime')`；model 用 actual_model 非空优先（与旧 SELECT 别名一致）。
 /// success=2xx，error=终态非 2xx，与旧 SQL CASE 逐字段等价。
-fn aggregate_proxy_logs(conn: &Connection) -> rusqlite::Result<HashMap<AggKey, AggBucket>> {
-    let auto_map = load_auto_from_map(conn)?;
+fn aggregate_proxy_logs(
+    conn: &Connection,
+    auto_map: &HashMap<String, i64>,
+) -> rusqlite::Result<HashMap<AggKey, AggBucket>> {
     // count_tokens 子端点（/v1/messages/count_tokens）纯计数、不计入 stats_agg 聚合（与增量
     // 写入路径 log.rs first_agg gate 的 is_count_tokens 排除同口径），故回填/重建时一并排除，
     // 避免 count_tokens 行的 input_tokens/est_cost 污染聚合总统计（实测占全库 cost 17.6%）。
@@ -63,7 +65,7 @@ fn aggregate_proxy_logs(conn: &Connection) -> rusqlite::Result<HashMap<AggKey, A
     let mut map: HashMap<AggKey, AggBucket> = HashMap::new();
     for r in rows {
         let (created_at, model, group_key, platform_id, status_code, inp, out, cache, cost, dur) = r?;
-        let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
+        let eff_pid = resolve_eff_pid(platform_id, &group_key, auto_map);
         let key = AggKey {
             time_hour: utc_ms_to_local_hour_key(created_at),
             model,
@@ -124,7 +126,10 @@ fn upsert_aggregated(conn: &Connection, agg: &HashMap<AggKey, AggBucket>, now: i
 /// 存量一次性回填（schema migration 内调用，紧随 stats_agg_hourly 建表 DDL）。
 /// 空表守卫在 Rust 内判（`SELECT 1 FROM stats_agg_hourly LIMIT 1`），替代旧 DDL 串内 `NOT EXISTS`。
 /// 表非空（已回填/已有增量写入）则跳过，避免重复执行翻倍。
-pub(crate) fn backfill_stats_agg_if_empty(conn: &Connection) -> rusqlite::Result<()> {
+pub(crate) fn backfill_stats_agg_if_empty(
+    conn: &Connection,
+    auto_map: &HashMap<String, i64>,
+) -> rusqlite::Result<()> {
     let exists: bool = conn
         .query_row("SELECT 1 FROM stats_agg_hourly LIMIT 1", [], |_| Ok(true))
         .optional()?
@@ -132,7 +137,7 @@ pub(crate) fn backfill_stats_agg_if_empty(conn: &Connection) -> rusqlite::Result
     if exists {
         return Ok(());
     }
-    let agg = aggregate_proxy_logs(conn)?;
+    let agg = aggregate_proxy_logs(conn, auto_map)?;
     let now = chrono::Utc::now().timestamp_millis();
     upsert_aggregated(conn, &agg, now)
 }
@@ -161,19 +166,28 @@ pub struct StatsAggInput {
 /// eff_pid 写时物化：platform_id!=0 直接用（零查询）；=0 才 `load_auto_from_map` 内存回溯，
 /// 替代旧 SQL 内 `CASE WHEN ?4=0 THEN (SELECT ... FROM "group")` 标量子查询。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
+///
+/// 跨库预查（proxy-log-db-split s3）：stats_agg_hourly 在 log.db，`"group"` 表在主库，
+/// `load_auto_from_map` 不能在 proxy_log 写闭包内查 → 主 handle 预查 auto_map，move 进闭包。
 #[track_caller]
 pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // platform_id=0（auto 分组）才需 auto_map 回溯；预查 move 进 proxy_log 写闭包。
+    let auto_map = if input.platform_id == 0 {
+        db.call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+            .await
+            .map_err(|e| format!("upsert stats agg load auto_map: {e}"))?
+    } else {
+        HashMap::new()
+    };
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            // eff_pid 写时物化：直挂请求(platform_id!=0)零查询；auto 组(=0)才查 group 映射回溯。
             let eff_pid = if input.platform_id != 0 {
                 input.platform_id
             } else {
-                let map = load_auto_from_map(conn)?;
-                resolve_eff_pid(0, &input.group_key, &map)
+                resolve_eff_pid(0, &input.group_key, &auto_map)
             };
             // 本地小时桶由 SQL 内 strftime('...','localtime') 算，与 bucket_time_expr/回填一致。
             let is_2xx = input.status_code >= 200 && input.status_code < 300;
@@ -224,14 +238,21 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
 /// 从 proxy_log upsert 覆盖写 stats_agg_hourly（用户启用 log 后手动修复用）。
 /// 存在则按 proxy_log 真值覆盖、不存在才创建；不再清空整表。
 /// 关日志期间未落 proxy_log 但已聚合的旧行【保留】（不被抹掉）。
+///
+/// 跨库预查（proxy-log-db-split s3）：`"group"` 表在主库，proxy_log 写闭包内禁查 →
+/// 主 handle 预查 auto_map，move 进闭包。
 #[track_caller]
 pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("rebuild stats agg load auto_map: {e}"))?;
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            let agg = aggregate_proxy_logs(conn)?;
+            let agg = aggregate_proxy_logs(conn, &auto_map)?;
             upsert_aggregated(conn, &agg, now)?;
             Ok(())
         })
@@ -284,10 +305,15 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
         }
     }
     let __db_caller = std::panic::Location::caller();
-    db.call_traced(None, __db_caller, move |conn| {
+    // 跨库预查：`"group"` 表在主库，proxy_log 写闭包内禁查 → 主 handle 预查 move 进闭包。
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("correct count_tokens agg load auto_map: {e}"))?;
+    db.call_proxy_log_traced(None, __db_caller, move |conn| {
         let now = chrono::Utc::now().timestamp_millis();
         // 不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
-        let agg = aggregate_proxy_logs(conn)?;
+        let agg = aggregate_proxy_logs(conn, &auto_map)?;
         // ① 覆盖写有 backing 行的桶。
         upsert_aggregated(conn, &agg, now)?;
         // ② 删孤儿桶（stats_agg 有但过滤后聚合无 → 纯 count_tokens 贡献，扣净后应为 0）。
@@ -345,7 +371,7 @@ pub fn cleanup_stats_agg(db: &Db, retention_days: u32) -> impl std::future::Futu
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
@@ -395,7 +421,7 @@ mod test_count_tokens_exclusion {
         insert(&conn, "/glm-auto/v1/messages/count_tokens", 99.0, 9999); // count_tokens → 排除
         insert(&conn, "/proxy/v1/messages/count_tokens/", 50.0, 5000); // 容尾斜杠 → 排除
 
-        let agg = aggregate_proxy_logs(&conn).unwrap();
+        let agg = aggregate_proxy_logs(&conn, &std::collections::HashMap::new()).unwrap();
         let total_cost: f64 = agg.values().map(|b| b.sum_est_cost).sum();
         let total_input: i64 = agg.values().map(|b| b.sum_input_tokens).sum();
         let total_reqs: i64 = agg.values().map(|b| b.request_count).sum();
