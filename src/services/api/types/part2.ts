@@ -114,8 +114,23 @@ export interface ProxyLogFilter {
   model_type?: "original" | "actual";
   /** 路径片段：对 request_url 做 LIKE %v% 模糊匹配 */
   path?: string;
+  /** 仅包含指定 source_protocol（如 ["test","quota"]）；NULL source_protocol 不匹配 */
+  sources?: string[];
   /** 排除指定 source_protocol（如 ["test","quota"]）；NULL source_protocol 保留 */
   exclude_sources?: string[];
+  /** CLI 代理 provider id 筛选（cli_proxy_provider_id = ?） */
+  cli_proxy_provider_id?: number;
+}
+
+/**
+ * 请求日志页摘要行（对应 Rust `RequestLogSummary`）。
+ * `#[serde(flatten)] ProxyLogSummary` + cli-proxy provider 归属信息。
+ */
+export interface RequestLogSummary extends ProxyLogSummary {
+  /** proxy_log.cli_proxy_provider_id（走传统 platform 路由为 null） */
+  cli_proxy_provider_id?: number | null;
+  /** LEFT JOIN cli_proxy_provider.name；provider 已删 / 走 platform 路由均为 null */
+  cli_proxy_provider_name?: string | null;
 }
 
 // ─── Proxy Log API ─────────────────────────────────────────
