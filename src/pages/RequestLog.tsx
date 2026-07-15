@@ -70,9 +70,7 @@ function buildMarkdown(d: ProxyLogDetail): string {
   ].join("\n");
 }
 
-type LockSource = "test" | "quota";
-
-export function RequestLog({ defaultSource, lockSource }: { defaultSource?: LockSource; lockSource?: boolean } = {}) {
+export function RequestLog() {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<RequestLogSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -80,14 +78,10 @@ export function RequestLog({ defaultSource, lockSource }: { defaultSource?: Lock
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
 
-  // lockSource: filter.sources 锁定为 [defaultSource], 隐藏 TypeFilter 切换 UI
-  // ponytail: defaultSource 当初始 TypeFilter 用; lockSource 时清空 key 出 menu 不切回 all
-  const lockedType: TypeFilter | undefined = lockSource && defaultSource ? defaultSource : undefined;
-
   // ── Filter state ──
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [providers, setProviders] = useState<CliProxyProvider[]>([]);
-  const [filterType, setFilterType] = useState<TypeFilter>(lockedType ?? "all");
+  const [filterType, setFilterType] = useState<TypeFilter>("all");
   const [filterPlatform, setFilterPlatform] = useState<string>("");
   const [filterProvider, setFilterProvider] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
@@ -117,7 +111,7 @@ export function RequestLog({ defaultSource, lockSource }: { defaultSource?: Lock
     return f;
   }, [filterType, filterPlatform, filterProvider, filterStatus, filterTime]);
 
-  const hasFilter = !!((!lockedType && filterType !== "all") || filterPlatform || filterProvider || filterStatus || filterTime !== "all");
+  const hasFilter = !!(filterType !== "all" || filterPlatform || filterProvider || filterStatus || filterTime !== "all");
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -173,7 +167,7 @@ export function RequestLog({ defaultSource, lockSource }: { defaultSource?: Lock
   useEffect(() => onProxyLogUpdated(() => { refreshDetail(); }, 1000), [refreshDetail]);
 
   const clearFilter = () => {
-    if (!lockedType) setFilterType("all");
+    setFilterType("all");
     setFilterPlatform("");
     setFilterProvider("");
     setFilterStatus("");
@@ -206,11 +200,7 @@ export function RequestLog({ defaultSource, lockSource }: { defaultSource?: Lock
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>
-          <div className="section-title">{
-            lockedType === "test" ? t("page.testLog", "测试日志")
-            : lockedType === "quota" ? t("page.quotaLog", "余额日志")
-            : t("page.requestLog", "请求日志（测试 / 余额）")
-          }</div>
+          <div className="section-title">{t("page.requestLog", "请求日志（测试 / 余额）")}</div>
           <div className="section-desc">
             {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("requestLog.empty", "暂无请求记录")}
           </div>
@@ -224,8 +214,7 @@ export function RequestLog({ defaultSource, lockSource }: { defaultSource?: Lock
 
       {/* ── Filter bar ── */}
       <div className="glass-surface" style={{ padding: "12px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-        {/* Type: all / test / quota — lockSource 时隐藏 (sources 固定 [defaultSource]) */}
-        {!lockedType && (
+        {/* Type: all / test / quota */}
         <FilterSelect
           value={filterType}
           onChange={v => setFilterType(v as TypeFilter)}
@@ -235,7 +224,6 @@ export function RequestLog({ defaultSource, lockSource }: { defaultSource?: Lock
           ]}
           placeholder={t("requestLog.filterType", "类型")}
         />
-        )}
         {/* Provider */}
         <FilterSelect
           value={filterProvider}
