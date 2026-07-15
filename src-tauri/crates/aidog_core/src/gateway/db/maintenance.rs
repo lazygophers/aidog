@@ -211,8 +211,9 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用写连接。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' \
                  WHERE created_at < ?1 AND (request_headers != '' OR request_body != '' OR user_response_headers != '' OR user_response_body != '')",
@@ -238,8 +239,9 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用写连接。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '' \
                  WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '')",
@@ -256,8 +258,9 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
 pub fn count_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await

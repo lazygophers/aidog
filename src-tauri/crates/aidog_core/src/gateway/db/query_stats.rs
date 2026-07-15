@@ -377,7 +377,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
         .query_map(refs.as_slice(), |r| {
             let platform_id: i64 = r.get(7)?;
             let group_key: String = r.get(8)?;
-            let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
+            let eff_pid = resolve_eff_pid(platform_id, group_key.as_str(), auto_map);
             Ok(Row {
                 created_at: r.get(0)?,
                 status_code: r.get(1)?,
@@ -550,7 +550,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
             let group_key: String = r.get(1)?;
             let actual_model: String = r.get(2)?;
             let model: String = r.get(3)?;
-            Ok((resolve_eff_pid(platform_id, &group_key, &auto_map),
+            Ok((resolve_eff_pid(platform_id, group_key.as_str(), auto_map),
                 if !actual_model.is_empty() { actual_model } else { model }))
         })
         .map_err(|e| format!("available_models: {e}"))?

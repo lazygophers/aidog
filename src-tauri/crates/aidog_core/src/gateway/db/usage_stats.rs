@@ -17,26 +17,13 @@ const AGG_TOTAL_COLS: &str = "COALESCE(SUM(request_count), 0), \
 /// 直挂日志 `platform_id = ?1`；自动分组日志 `platform_id = 0` 经 group.auto_from_platform
 /// （十进制字符串）回溯，按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；
 /// 见 migration 024 / group-name-group-key-split）。
-fn recent_health_single(conn: &Connection, platform_id: u64) -> (i64, i64) {
+///
+/// proxy-log-db-split s3：`"group"` 表在主库，`proxy_log` 在 proxy_log.db。`auto_keys` 由调用方
+/// 在主库闭包内预查后传入（跨库禁在一个连接内同时查两库）。
+fn recent_health_single(conn: &Connection, platform_id: u64, auto_keys: &[String]) -> (i64, i64) {
     let pid = platform_id as i64;
-    let pid_str = platform_id.to_string();
-    // ① 先取该平台作为 auto_from_platform 源的所有 group_key（替代旧 `group_key IN (SELECT ...)`
-    //    相关子查询）。回溯不到则空列表，仅按 platform_id 直挂匹配。
-    let auto_keys: Vec<String> = {
-        let mut stmt = match conn.prepare(
-            "SELECT group_key FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0",
-        ) {
-            Ok(s) => s,
-            Err(_) => return (0, 0),
-        };
-        let rows = match stmt.query_map(params![pid_str], |r| r.get::<_, String>(0)) {
-            Ok(r) => r,
-            Err(_) => return (0, 0),
-        };
-        rows.filter_map(|r| r.ok()).collect()
-    };
-    // ② proxy_log 仍裸单表查近 5 条：platform_id 直挂 OR (platform_id=0 AND group_key IN(动态列表))。
-    //    动态构造 ?2,?3,... 占位（无子查询）；auto_keys 为空时退化为纯 platform_id 匹配。
+    // proxy_log 裸单表查近 5 条：platform_id 直挂 OR (platform_id=0 AND group_key IN(动态列表))。
+    // 动态构造 ?2,?3,... 占位（无子查询）；auto_keys 为空时退化为纯 platform_id 匹配。
     let mut binds: Vec<&dyn rusqlite::types::ToSql> = vec![&pid];
     let group_clause = if auto_keys.is_empty() {
         String::new()
@@ -46,7 +33,7 @@ fn recent_health_single(conn: &Connection, platform_id: u64) -> (i64, i64) {
             .enumerate()
             .map(|(i, _)| format!("?{}", i + 2))
             .collect();
-        for k in &auto_keys {
+        for k in auto_keys {
             binds.push(k);
         }
         format!(" OR (platform_id = 0 AND group_key IN ({}))", placeholders.join(", "))
@@ -67,8 +54,22 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
-    db
+    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 proxy_log.db。
+    // 先主库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
+    let pid_str = platform_id.to_string();
+    let auto_keys: Vec<String> = db
         .call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT group_key FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0",
+            )?;
+            let rows = stmt.query_map(params![pid_str], |r| r.get::<_, String>(0))?;
+            Ok(rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
+        })
+        .await
+        .map_err(|e| format!("platform usage stats load auto_keys: {e}"))?;
+    // proxy_log 闭包：stats_agg_hourly 累计/今日 + proxy_log 近 5 条健康度。
+    db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             // 累计/今日从聚合表查。stats_agg_hourly.platform_id 写入时已按 group.auto_from_platform
             // 回溯（upsert_stats_agg），故直接 `platform_id = ?1`，无需 proxy_log 那套子查询回溯。
             let pid = platform_id as i64;
@@ -102,7 +103,7 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
                 })
             })?;
             // 最近 5 条健康度：聚合表无法重建，裸查 proxy_log（LIMIT 5 走索引）。
-            let (recent_failures, recent_total) = recent_health_single(conn, platform_id);
+            let (recent_failures, recent_total) = recent_health_single(conn, platform_id, &auto_keys);
             stats.recent_failures = recent_failures;
             stats.recent_total = recent_total;
             Ok(stats)
@@ -121,8 +122,9 @@ pub fn get_last_test_result(
 ) -> impl std::future::Future<Output = Result<Option<crate::gateway::models::LastTestResult>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // proxy_log 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             let mut stmt = conn.prepare_cached(
                 "SELECT status_code, duration_ms, created_at, response_body \
@@ -170,8 +172,9 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     async move {
     let group_key = group_key.to_string();
     let today_key = local_today_hour_key();
+    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
             let mut stmt = conn.prepare_cached(
@@ -224,8 +227,9 @@ pub fn get_all_group_usage_stats(
 ) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, crate::gateway::models::PlatformUsageStats>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
                 &format!("SELECT group_key, {AGG_TOTAL_COLS} \
                  FROM stats_agg_hourly WHERE deleted_at = 0 AND group_key <> '' \
@@ -287,8 +291,14 @@ pub fn platform_usage_stats_all(
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
+    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 proxy_log.db。
+    // 先主库预查 auto_map（recent 的 eff_pid 内存回溯需要），再入 proxy_log 闭包跑两阶段聚合。
+    let auto_map = db
+        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .await
+        .map_err(|e| format!("all platform usage stats load auto_map: {e}"))?;
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             // ① 全量聚合（每 platform_id 的 total/success/tokens/cost + 今日 tokens/cost），
             // 直接从 stats_agg_hourly GROUP BY platform_id（已是 eff_pid，无需回溯）。
             let mut stmt = conn.prepare_cached(
@@ -338,7 +348,6 @@ pub fn platform_usage_stats_all(
             // 聚合表无法重建请求级顺序。去 eff_pid 标量子查询/窗口函数：单表取
             // (platform_id, group_key, status_code) 按 created_at DESC，内存逐行回溯 eff_pid，
             // 每 eff_pid 取前 5 条（已按时间降序），统计 total/failures（与旧 ROW_NUMBER rn<=5 等价）。
-            let auto_map = load_auto_from_map(conn)?;
             let mut recent_stmt = conn.prepare(
                 "SELECT platform_id, group_key, status_code FROM proxy_log \
                  WHERE deleted_at = 0 ORDER BY created_at DESC",
@@ -450,8 +459,9 @@ pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
     let group_key = group_key.to_string();
+    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(hourly_rate_inner(conn, now_ms, &window_key, "group_key = ?2", &[&group_key])?)
         })
         .await
@@ -470,8 +480,9 @@ pub fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> impl std::future::
     async move {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
+    // stats_agg_hourly 在 proxy_log.db（proxy-log-db-split s3），走专用读池。
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             Ok(hourly_rate_inner(conn, now_ms, &window_key, "platform_id = ?2", &[&pid])?)
         })
