@@ -52,7 +52,7 @@ pub fn upsert_proxy_log(db: &Db, log: crate::gateway::models::ProxyLog) -> impl 
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             let attempts_str = crate::gateway::models::serialize_attempts(&log.attempts);
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
@@ -249,7 +249,7 @@ pub fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> impl std::fut
     // cols.id == proxy_log.id == 请求 span 的 request_id（32-hex），用作 SQL 日志归属键。
     let req_id = cols.id.clone();
     db
-        .call_traced(Some(&req_id), __db_caller, move |conn| {
+        .call_proxy_log_traced(Some(&req_id), __db_caller, move |conn| {
             // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
@@ -282,7 +282,7 @@ pub fn update_proxy_log_columns<'a>(db: &'a Db, new: ProxyLogColumns, prev: &'a 
     // id == proxy_log.id == request_id，用作 SQL 日志归属键。
     let req_id = id.clone();
     db
-        .call_traced(Some(&req_id), __db_caller, move |conn| {
+        .call_proxy_log_traced(Some(&req_id), __db_caller, move |conn| {
             let set_sql: String = changed
                 .iter()
                 .enumerate()
@@ -306,7 +306,7 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> impl std::future::Fu
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
                 "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
@@ -351,7 +351,7 @@ pub fn filtered_list_proxy_logs<'a>(
     async move {
     let filter = filter.clone();
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
             p.push(Box::new(limit));
             p.push(Box::new(offset));
@@ -378,7 +378,7 @@ pub fn filtered_count_proxy_logs<'a>(
     async move {
     let filter = filter.clone();
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (where_sql, p) = build_filter_where(&filter);
             let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
@@ -395,7 +395,9 @@ pub fn filtered_count_proxy_logs<'a>(
 /// - **默认 sources=[test, quota]**：调用方未显式传 sources 时强制覆盖为 cli_proxy 测试 +
 ///   quota 探测两类（与 Logs 主页 `exclude_sources=[test,quota]` 相反，互不重叠）。
 ///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
-/// - LEFT JOIN cli_proxy_provider：带 provider name（provider 行已删 / 走 platform 路由均返 None）。
+/// - provider name 解析（跨库应用层合并，proxy-log-db-split s3）：proxy_log.db 无
+///   `cli_proxy_provider` 表，禁 LEFT JOIN。先 proxy_log handle 取行（含 cli_proxy_provider_id），
+///   收集去重 id set → main handle 批量查 id→name → Rust 合并。s4 可进一步优化为单次 IN 查询。
 /// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
 ///   exclude_sources / cli_proxy_provider_id 全部生效（请求日志页前端可按 provider 筛）。
 /// - 不影响 `get_last_test_result`（独立 query，不经此函数，徽章链不断）。
@@ -413,39 +415,58 @@ pub fn list_request_logs<'a>(
     if filter.sources.is_none() {
         filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
     }
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
+    // ① proxy_log handle 取行（含 cli_proxy_provider_id，但不含 cpp.name —— 跨库禁 JOIN）。
+    let mut rows: Vec<(crate::gateway::models::ProxyLogSummary, Option<i64>)> = db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
             p.push(Box::new(limit));
             p.push(Box::new(offset));
-            // ponytail: LEFT JOIN 仅取 cpp.name 一列（provider 已删时 NULL）。
-            // p / cpp 双别名：避免两表 id 列歧义；build_filter_where 裸列名（platform_id /
-            // source_protocol 等）在 cli_proxy_provider 表无同名列 → sqlite 自动消歧解析到 p。
             let sql = format!(
-                "SELECT p.id, p.group_key, p.model, p.actual_model, p.source_protocol, p.target_protocol, \
-                 p.platform_id, p.status_code, p.duration_ms, p.input_tokens, p.output_tokens, \
-                 p.cache_tokens, p.is_stream, p.retry_count, p.created_at, \
-                 p.cli_proxy_provider_id, cpp.name \
-                 FROM proxy_log p \
-                 LEFT JOIN cli_proxy_provider cpp ON cpp.id = p.cli_proxy_provider_id \
-                 WHERE p.deleted_at = 0{where_sql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?"
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, \
+                 platform_id, status_code, duration_ms, input_tokens, output_tokens, \
+                 cache_tokens, is_stream, retry_count, created_at, cli_proxy_provider_id \
+                 FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             let mut stmt = conn.prepare(&sql)?;
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-            let rows = stmt.query_map(refs.as_slice(), |row| {
+            let mapped = stmt.query_map(refs.as_slice(), |row| {
                 let base = row_to_proxy_log_summary(row)?;
                 let cli_proxy_provider_id: Option<i64> = row.get(15)?;
-                let cli_proxy_provider_name: Option<String> = row.get(16)?;
-                Ok(crate::gateway::models::RequestLogSummary {
-                    base,
-                    cli_proxy_provider_id,
-                    cli_proxy_provider_name,
-                })
+                Ok((base, cli_proxy_provider_id))
             })?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            Ok(mapped.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+
+    // ② 收集待查 cli_proxy_provider_id 去重集 → main handle 批量查 id→name → Rust 合并。
+    // ponytail: 简单按 set 逐 id 查（N+1 待 s4 批量 IN 优化）。page size ≤ 50，可接受。
+    let mut out = Vec::with_capacity(rows.len());
+    for (base, cpp_id) in rows.drain(..) {
+        let cpp_name = if let Some(id) = cpp_id {
+            db.call_read_traced(None, __db_caller, move |conn| {
+                let name: Option<String> = conn
+                    .query_row(
+                        "SELECT name FROM cli_proxy_provider WHERE id = ?1",
+                        params![id],
+                        |r| r.get::<_, String>(0),
+                    )
+                    .ok();
+                Ok(name)
+            })
+            .await
+            .ok()
+            .flatten()
+        } else {
+            None
+        };
+        out.push(crate::gateway::models::RequestLogSummary {
+            base,
+            cli_proxy_provider_id: cpp_id,
+            cli_proxy_provider_name: cpp_name,
+        });
+    }
+    Ok(out)
     }
 }
 
@@ -548,7 +569,7 @@ pub fn get_proxy_log<'a>(db: &'a Db, id: &'a str) -> impl std::future::Future<Ou
     async move {
     let id = id.to_string();
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(&format!(
                 "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
             ))?;
@@ -564,7 +585,7 @@ pub fn clear_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<(),
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE deleted_at = 0", params![now()])?;
             Ok(())
         })
@@ -588,7 +609,7 @@ pub fn finalize_incomplete_proxy_log<'a>(
     let __db_caller = std::panic::Location::caller();
     async move {
         let id = id.to_string();
-        db.call_traced(None, __db_caller, move |conn| {
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET status_code = ?1, duration_ms = ?2, updated_at = ?3 \
                  WHERE id = ?4 AND status_code = 0 AND deleted_at = 0",
@@ -613,7 +634,7 @@ pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> impl std::future::Fut
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "DELETE FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
                 params![cutoff],
@@ -638,7 +659,7 @@ pub fn purge_deleted_proxy_logs(db: &Db) -> impl std::future::Future<Output = Re
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM proxy_log WHERE deleted_at != 0", [])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
