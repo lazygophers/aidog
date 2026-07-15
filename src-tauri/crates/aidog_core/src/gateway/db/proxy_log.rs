@@ -389,6 +389,66 @@ pub fn filtered_count_proxy_logs<'a>(
     }
 }
 
+/// 请求日志页列表查询（cli-proxy-request-log s3）。
+///
+/// 语义契约：
+/// - **默认 sources=[test, quota]**：调用方未显式传 sources 时强制覆盖为 cli_proxy 测试 +
+///   quota 探测两类（与 Logs 主页 `exclude_sources=[test,quota]` 相反，互不重叠）。
+///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
+/// - LEFT JOIN cli_proxy_provider：带 provider name（provider 行已删 / 走 platform 路由均返 None）。
+/// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
+///   exclude_sources / cli_proxy_provider_id 全部生效（请求日志页前端可按 provider 筛）。
+/// - 不影响 `get_last_test_result`（独立 query，不经此函数，徽章链不断）。
+#[track_caller]
+pub fn list_request_logs<'a>(
+    db: &'a Db,
+    filter: &'a crate::gateway::models::ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::RequestLogSummary>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    let mut filter = filter.clone();
+    // 默认 sources 兜底：None → [test, quota]；Some(_) 尊重调用方（含空 Vec = 全 source）。
+    if filter.sources.is_none() {
+        filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
+    }
+    db
+        .call_read_traced(None, __db_caller, move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(limit));
+            p.push(Box::new(offset));
+            // ponytail: LEFT JOIN 仅取 cpp.name 一列（provider 已删时 NULL）。
+            // p / cpp 双别名：避免两表 id 列歧义；build_filter_where 裸列名（platform_id /
+            // source_protocol 等）在 cli_proxy_provider 表无同名列 → sqlite 自动消歧解析到 p。
+            let sql = format!(
+                "SELECT p.id, p.group_key, p.model, p.actual_model, p.source_protocol, p.target_protocol, \
+                 p.platform_id, p.status_code, p.duration_ms, p.input_tokens, p.output_tokens, \
+                 p.cache_tokens, p.is_stream, p.retry_count, p.created_at, \
+                 p.cli_proxy_provider_id, cpp.name \
+                 FROM proxy_log p \
+                 LEFT JOIN cli_proxy_provider cpp ON cpp.id = p.cli_proxy_provider_id \
+                 WHERE p.deleted_at = 0{where_sql} ORDER BY p.created_at DESC LIMIT ? OFFSET ?"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let rows = stmt.query_map(refs.as_slice(), |row| {
+                let base = row_to_proxy_log_summary(row)?;
+                let cli_proxy_provider_id: Option<i64> = row.get(15)?;
+                let cli_proxy_provider_name: Option<String> = row.get(16)?;
+                Ok(crate::gateway::models::RequestLogSummary {
+                    base,
+                    cli_proxy_provider_id,
+                    cli_proxy_provider_name,
+                })
+            })?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// Build WHERE clause extensions + params from filter.
 /// Returns (" AND ...", params). Empty filter → ("", []).
 fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (String, Vec<Box<dyn rusqlite::types::ToSql>>) {
@@ -444,8 +504,38 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
             idx += 1;
         }
     }
-    // idx 在 path（当前最后分支）后递增以防新增绑定参数时错位（命中 logs-path-search-idx-bug）；
-    // path 之后暂无分支，显式消费 idx 避免 unused_assignments warning。
+    // source 维度（cli-proxy-request-log s3）：包含 / 排除筛选，参数化 IN / NOT IN。
+    // 空 Vec 视为未设置（Some(vec![]) 与 None 同义），避免 `IN ()` sqlite 语法错。
+    if let Some(ref srcs) = filter.sources {
+        if !srcs.is_empty() {
+            let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
+            parts.push(format!("AND source_protocol IN ({})", placeholders.join(", ")));
+            for s in srcs {
+                p.push(Box::new(s.clone()));
+            }
+            idx += srcs.len() as u32;
+        }
+    }
+    if let Some(ref srcs) = filter.exclude_sources {
+        if !srcs.is_empty() {
+            let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
+            // `OR source_protocol IS NULL`：理论 source_protocol 各路径均硬赋值无 NULL，
+            // 但 NULL NOT IN (...) 返 NULL（被 WHERE 视作 false 而 filter 掉），加 OR 保 NULL 行不丢。
+            parts.push(format!(
+                "AND (source_protocol NOT IN ({}) OR source_protocol IS NULL)",
+                placeholders.join(", ")
+            ));
+            for s in srcs {
+                p.push(Box::new(s.clone()));
+            }
+            idx += srcs.len() as u32;
+        }
+    }
+    if let Some(pid) = filter.cli_proxy_provider_id {
+        parts.push(format!("AND cli_proxy_provider_id = ?{idx}"));
+        p.push(Box::new(pid));
+        idx += 1;
+    }
     let _ = idx;
 
     let where_sql = if parts.is_empty() { String::new() } else { format!(" {}", parts.join(" ")) };
@@ -574,7 +664,8 @@ mod test_filter_where {
             "CREATE TABLE proxy_log (
                 id TEXT, platform_id INTEGER, group_key TEXT, status_code INTEGER,
                 created_at INTEGER, model TEXT, actual_model TEXT, request_url TEXT,
-                deleted_at INTEGER DEFAULT 0
+                deleted_at INTEGER DEFAULT 0,
+                source_protocol TEXT, cli_proxy_provider_id INTEGER
             );",
         )
         .unwrap();
@@ -617,6 +708,52 @@ mod test_filter_where {
             model: Some("m".into()),
             model_type: Some("actual".into()),
             path: Some("p".into()),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn sources_in_binds_ok() {
+        // sources IN (?, ?)：占位符随 vec 长度递增（cli-proxy-request-log s3）。
+        assert_binds_ok(&ProxyLogFilter {
+            sources: Some(vec!["test".into(), "quota".into()]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn exclude_sources_not_in_binds_ok() {
+        // exclude_sources NOT IN (?, ?)：Logs 主页排除 test/quota → 纯代理转发。
+        assert_binds_ok(&ProxyLogFilter {
+            exclude_sources: Some(vec!["test".into(), "quota".into()]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn empty_sources_is_noop_binds_ok() {
+        // Some(vec![]) = 空集，分支应跳过（不发 IN ()）→ 与 None 同义。
+        assert_binds_ok(&ProxyLogFilter {
+            sources: Some(vec![]),
+            exclude_sources: Some(vec![]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn all_filters_plus_sources_binds_ok() {
+        // 全标量 + sources + exclude + cli_proxy_provider_id：穷举 idx 递增链路不错位。
+        assert_binds_ok(&ProxyLogFilter {
+            platform_id: Some(7),
+            status: Some(404),
+            time_start: Some(1000),
+            time_end: Some(2000),
+            model: Some("m".into()),
+            path: Some("p".into()),
+            sources: Some(vec!["test".into(), "quota".into()]),
+            exclude_sources: Some(vec!["claude_code".into()]),
+            cli_proxy_provider_id: Some(42),
+            ..Default::default()
         });
     }
 }
