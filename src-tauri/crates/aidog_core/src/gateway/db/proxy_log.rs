@@ -397,7 +397,7 @@ pub fn filtered_count_proxy_logs<'a>(
 ///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
 /// - provider name 解析（跨库应用层合并，proxy-log-db-split s3）：proxy_log.db 无
 ///   `cli_proxy_provider` 表，禁 LEFT JOIN。先 proxy_log handle 取行（含 cli_proxy_provider_id），
-///   收集去重 id set → main handle 批量查 id→name → Rust 合并。s4 可进一步优化为单次 IN 查询。
+///   收集去重 id set → main handle 单次 `IN(?,?...)` 批量查 id→name → Rust 合并（s4 优化，替代 per-id N+1）。
 /// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
 ///   exclude_sources / cli_proxy_provider_id 全部生效（请求日志页前端可按 provider 筛）。
 /// - 不影响 `get_last_test_result`（独立 query，不经此函数，徽章链不断）。
@@ -439,33 +439,51 @@ pub fn list_request_logs<'a>(
         .await
         .map_err(|e| e.to_string())?;
 
-    // ② 收集待查 cli_proxy_provider_id 去重集 → main handle 批量查 id→name → Rust 合并。
-    // ponytail: 简单按 set 逐 id 查（N+1 待 s4 批量 IN 优化）。page size ≤ 50，可接受。
-    let mut out = Vec::with_capacity(rows.len());
-    for (base, cpp_id) in rows.drain(..) {
-        let cpp_name = if let Some(id) = cpp_id {
-            db.call_read_traced(None, __db_caller, move |conn| {
-                let name: Option<String> = conn
-                    .query_row(
-                        "SELECT name FROM cli_proxy_provider WHERE id = ?1",
-                        params![id],
-                        |r| r.get::<_, String>(0),
-                    )
-                    .ok();
-                Ok(name)
+    // ② 收集 cli_proxy_provider_id 去重集 → main handle 单次 IN(?,?...) 批量查 id→name → Rust 合并。
+    // proxy-log-db-split s4：替代 s3 per-id N+1。跨库禁 JOIN/IN(SELECT...)，主库预查 id set 参数化。
+    let cpp_ids: Vec<i64> = {
+        let mut set: Vec<i64> = rows
+            .iter()
+            .filter_map(|(_, id)| *id)
+            .collect();
+        set.sort_unstable();
+        set.dedup();
+        set
+    };
+    let mut cpp_map: std::collections::HashMap<i64, String> = std::collections::HashMap::new();
+    if !cpp_ids.is_empty() {
+        let placeholders: Vec<String> = (1..=cpp_ids.len()).map(|i| format!("?{i}")).collect();
+        let sql = format!(
+            "SELECT id, name FROM cli_proxy_provider WHERE id IN ({})",
+            placeholders.join(", ")
+        );
+        cpp_map = db
+            .call_read_traced(None, __db_caller, move |conn| {
+                let binds: Vec<&dyn rusqlite::types::ToSql> = cpp_ids
+                    .iter()
+                    .map(|id| id as &dyn rusqlite::types::ToSql)
+                    .collect();
+                let mut stmt = conn.prepare(&sql)?;
+                let mapped = stmt
+                    .query_map(binds.as_slice(), |row| {
+                        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                    })?
+                    .collect::<SqlResult<Vec<_>>>()?
+                    .into_iter()
+                    .collect();
+                Ok(mapped)
             })
             .await
-            .ok()
-            .flatten()
-        } else {
-            None
-        };
-        out.push(crate::gateway::models::RequestLogSummary {
+            .map_err(|e| format!("list_request_logs cpp names: {e}"))?;
+    }
+    let out = rows
+        .drain(..)
+        .map(|(base, cpp_id)| crate::gateway::models::RequestLogSummary {
+            cli_proxy_provider_name: cpp_id.and_then(|id| cpp_map.get(&id).cloned()),
             base,
             cli_proxy_provider_id: cpp_id,
-            cli_proxy_provider_name: cpp_name,
-        });
-    }
+        })
+        .collect();
     Ok(out)
     }
 }
