@@ -241,6 +241,7 @@ fn map_to_create_input(p: CpaProvider, group_id: Option<i64>) -> CreateCliProxyP
         api_key: p.api_key,
         models: p.models,
         extra,
+        quota: String::new(),
         status: status.to_string(),
         group_id,
     }

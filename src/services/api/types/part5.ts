@@ -15,6 +15,8 @@ export interface CliProxyProvider {
   models: string[];
   /** 原始 JSON 串（空串视作 "{}"，仿 platform.extra） */
   extra: string;
+  /** 余额查询配置 JSON（`{"type":"none"|"newapi"}`，空/缺省 "{}" = none） */
+  quota: string;
   /** active / disabled */
   status: string;
   /** 归属分组 id；null = 未分配 */
@@ -31,6 +33,8 @@ export interface CreateCliProxyProvider {
   api_key?: string;
   models?: string[];
   extra?: string;
+  /** 余额查询配置 JSON（`{"type":"none"|"newapi"}`，缺省 "{}" = none） */
+  quota?: string;
   status?: string;
   group_id?: number | null;
 }

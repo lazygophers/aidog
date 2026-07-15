@@ -2058,5 +2058,8 @@
   "platform.cliProxy.wireProtocol": "入站协议",
   "platform.cliProxy.baseUrl": "Base URL",
   "platform.cliProxy.models": "模型",
-  "platform.cliProxy.created": "已创建 cli-proxy 平台"
+  "platform.cliProxy.created": "已创建 cli-proxy 平台",
+  "cliProxy.quotaType": "余额查询",
+  "cliProxy.quotaTypeNone": "不支持",
+  "cliProxy.quotaTypeNewapi": "NewAPI 中转"
 }

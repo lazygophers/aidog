@@ -2058,5 +2058,8 @@
   "platform.cliProxy.wireProtocol": "Protocolo wire",
   "platform.cliProxy.baseUrl": "Base URL",
   "platform.cliProxy.models": "Modelos",
-  "platform.cliProxy.created": "Plataforma cli-proxy creada"
+  "platform.cliProxy.created": "Plataforma cli-proxy creada",
+  "cliProxy.quotaType": "Consulta Saldo",
+  "cliProxy.quotaTypeNone": "No soportado",
+  "cliProxy.quotaTypeNewapi": "NewAPI Relay"
 }
