@@ -834,6 +834,13 @@ impl Db {
             .clone()
     }
 
+    /// 是否内存库（`:memory:` / `mode=memory`）。内存库下 proxy_log handle 复用主连接，
+    /// 双库聚合函数（`compact_database` / `db_file_size` / `migrate_auto_vacuum`）需据此
+    /// 短路 proxy_log 分支，避免对同一物理连接重复 VACUUM / 重复求和。
+    pub fn is_memory(&self) -> bool {
+        self.3.is_memory
+    }
+
     /// 测试专用：杀掉下一条读池连接（在闭包里 panic 让 tokio_rusqlite 后台线程退出）。
     /// 用于验证 `call_read_traced` 在某槽位死亡时能透明重试到下一条。
     #[cfg(test)]
