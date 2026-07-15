@@ -51,7 +51,9 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
   }, []);
 
   const activeFilter: ProxyLogFilter = useMemo(() => {
-    const f: ProxyLogFilter = {};
+    // ponytail: Logs 主页默认排除 test/quota 两类（已迁到 RequestLog 新页），
+    // 徽章链 get_last_test_result 是独立 query，不经 list_proxy_logs，不受此影响。
+    const f: ProxyLogFilter = { exclude_sources: ["test", "quota"] };
     if (filterPlatform) f.platform_id = Number(filterPlatform);
     if (filterGroup) f.group_key = filterGroup === NO_GROUP_SENTINEL ? "" : filterGroup;
     if (filterStatus === "success") f.status = 200;
@@ -73,7 +75,8 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
   useEffect(() => {
     (async () => {
       try {
-        const items = await proxyLogApi.list(200, 0);
+        // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型
+        const items = await proxyLogApi.listFiltered({ exclude_sources: ["test", "quota"] }, 200, 0);
         const col = filterModelType === "actual" ? "actual_model" : "model";
         const set = new Set<string>();
         (items || []).forEach(l => { if ((l as any)[col]) set.add((l as any)[col]); });
@@ -147,24 +150,16 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      if (hasFilter) {
-        const [items, count] = await Promise.all([
-          proxyLogApi.listFiltered(activeFilter, pageSize, offset),
-          proxyLogApi.countFiltered(activeFilter),
-        ]);
-        setLogs(items || []);
-        setTotal(count);
-      } else {
-        const [items, count] = await Promise.all([
-          proxyLogApi.list(pageSize, offset),
-          proxyLogApi.count(),
-        ]);
-        setLogs(items || []);
-        setTotal(count);
-      }
+      // 始终走 filtered 路径：activeFilter 默认带 exclude_sources=["test","quota"]
+      const [items, count] = await Promise.all([
+        proxyLogApi.listFiltered(activeFilter, pageSize, offset),
+        proxyLogApi.countFiltered(activeFilter),
+      ]);
+      setLogs(items || []);
+      setTotal(count);
     } catch (e) { console.error(e); }
     if (!silent) setLoading(false);
-  }, [offset, pageSize, hasFilter, activeFilter]);
+  }, [offset, pageSize, activeFilter]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { setOffset(0); }, [hasFilter, activeFilter, pageSize]);
