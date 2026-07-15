@@ -12,8 +12,9 @@ use aidog_core::gateway::{
 use tauri::State;
 
 /// 临时用 provider 配置查余额，不落库（preview）。
-/// 9 provider 支持（DeepSeek/OpenRouter/GLM/Kimi/MiniMax/NewAPI/SiliconFlow/StepFun/Novita），
-/// 不支持者 PlatformQuota.success=false 前端显「—」。
+/// 9 原生 provider 支持（DeepSeek/OpenRouter/GLM/Kimi/MiniMax/SiliconFlow/StepFun/Novita）；
+/// NewAPI 中转 base_url 不匹配原生 dispatch → Unsupported 时 fallback 试 NewAPI 入口
+/// （provider.extra 透传 balance_api_key 等配置）。不支持者 PlatformQuota.success=false 前端显「—」。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn cli_proxy_test(db: State<'_, Db>, id: u64) -> Result<PlatformQuota, String> {
@@ -40,6 +41,23 @@ pub async fn cli_proxy_test(db: State<'_, Db>, id: u64) -> Result<PlatformQuota,
         ),
     )
     .await;
+    // query_quota 只覆盖 9 原生平台（dispatch 按 base_url 关键词）；NewAPI 中转域名不匹配
+    // → Unsupported（同步返回，未发 HTTP）。fallback 试 NewAPI 入口（extra 透传 balance 配置）。
+    let q = if !q.success && q.error.as_deref() == Some("Unsupported platform for quota query") {
+        with_cli_proxy_provider_id(
+            provider.id as i64,
+            aidog_core::gateway::quota::query_quota_newapi(
+                Some(&db_arc),
+                &provider.base_url,
+                &provider.api_key,
+                &provider.extra,
+                0,
+            ),
+        )
+        .await
+    } else {
+        q
+    };
     tracing::info!(command = "cli_proxy_test", success = q.success, "quota preview done");
     Ok(q)
 }
