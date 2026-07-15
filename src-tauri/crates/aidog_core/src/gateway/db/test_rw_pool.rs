@@ -8,16 +8,14 @@
 use super::*;
 use rusqlite::params;
 
-/// 经写连接插入一行 proxy_log。
+/// 经写连接插入一行 setting（proxy_log 拆库后改用主库 setting 表测读池）。
 async fn insert_log(db: &Db, id: &str, tokens: i64) {
     let id = id.to_string();
     db.call_traced(None, std::panic::Location::caller(), move |conn| {
         conn.execute(
-            "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
-             status_code, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, \
-             created_at, deleted_at) \
-             VALUES (?1, 0, '', 'm', 'anthropic', 200, ?2, 0, 0, 0.0, 0, 1, 0)",
-            params![id, tokens],
+            "INSERT OR REPLACE INTO setting (scope, key, value, created_at, updated_at, deleted_at) \
+             VALUES ('test', ?1, ?2, 0, 0, 0)",
+            params![id, tokens.to_string()],
         )?;
         Ok(())
     })
@@ -25,10 +23,10 @@ async fn insert_log(db: &Db, id: &str, tokens: i64) {
     .expect("insert log");
 }
 
-/// 经读路径（call_read_traced）统计 proxy_log 行数。
+/// 经读路径（call_read_traced）统计 setting 行数。
 async fn read_count(db: &Db) -> i64 {
     db.call_read_traced(None, std::panic::Location::caller(), |conn| {
-        Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |r| {
+        Ok(conn.query_row("SELECT COUNT(*) FROM setting WHERE scope = 'test' AND deleted_at = 0", [], |r| {
             r.get(0)
         })?)
     })

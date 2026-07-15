@@ -109,18 +109,7 @@ ALTER TABLE "group_new" RENAME TO "group";
 "#,
                     )?;
                 }
-                // proxy_log.group_key → group_key（幂等：探测列存在性）。
-                let has_log_group_key = conn
-                    .prepare("PRAGMA table_info(proxy_log)")?
-                    .query_map([], |r| r.get::<_, String>(1))?
-                    .filter_map(Result::ok)
-                    .any(|c| c == "group_key");
-                if !has_log_group_key {
-                    let _ = conn.execute(
-                        "ALTER TABLE proxy_log RENAME COLUMN group_name TO group_key",
-                        [],
-                    );
-                }
+                // proxy_log.group_key RENAME → run_migrations_proxy_log_late（proxy_log.db）
                 // Migration 025: GLM Coding Plan anthropic 端点补标 coding_plan=true。
                 // 根因：Platforms.tsx glm 预设曾把 anthropic 端点漏标 coding_plan，coding plan 平台
                 // (含 openai coding 端点)的 anthropic(Claude Code)入站经 select_endpoint_for_protocol
@@ -216,21 +205,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
                 // 不带 -c/--profile 即走该组。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
                 let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 028: platform / group 维度用量聚合偏索引（平台列表页 usage 批量化 N+1 消除）。
-                // platform_usage_stats_all 的 eff_pid 子查询按 platform_id 分组 + group_key 回溯，
-                // get_all_group_usage_stats 按 group_key 分组；现有 idx_proxy_log_stats 前导列是
-                // created_at（不覆盖 platform_id/group_key 的等值/分组扫描）。带 WHERE deleted_at=0
-                // 偏索引缩范围、减写放大与磁盘占用。幂等（IF NOT EXISTS），新装/老库均建。
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_id \
-                     ON proxy_log(platform_id) WHERE deleted_at = 0",
-                    [],
-                );
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key \
-                     ON proxy_log(group_key) WHERE deleted_at = 0",
-                    [],
-                );
+                // Migration 028: proxy_log 偏索引 → run_migrations_proxy_log_late
                 // Migration 029: group_platform per-group 平台优先级 level_priority（1~10，默认 5，10=最高优先）。
                 // 独立于 priority（拖拽排序连续序号）与 weight（负载均衡权重）。
                 // Failover：level_priority 降序 tiebreak；weighted（LoadBalance/HealthAware/Sticky）：有效权重=weight×level_priority；
@@ -247,86 +222,18 @@ ALTER TABLE "group_new" RENAME TO "group";
                     [],
                 );
 
-                // Migration 031: 前瞻覆盖索引 + notification 时间索引。
-                //
-                // ① idx_proxy_log_group_key_stats：覆盖 get_all_group_usage_stats（GROUP BY group_key
-                //    + SUM input/output/cache_tokens + SUM est_cost + status_code 成功率）。现有
-                //    idx_proxy_log_group_key 只含 group_key，SUM/status_code 须回表；本覆盖索引把所有
-                //    被聚合列纳入 → index-only scan 免回表。列序：分组键前导 + 各 SUM/谓词列。
-                //    带 WHERE deleted_at=0 偏索引，与查询谓词对齐、缩范围减写放大。
-                //    当前 13680 行收益有限，proxy_log 增长到数十万行后显著（前瞻）。幂等 IF NOT EXISTS。
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key_stats \
-                     ON proxy_log(group_key, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
-                     WHERE deleted_at = 0",
-                    [],
-                );
-                // ② idx_notification_created：notification 表原无二级索引，收件箱 ORDER BY created_at DESC
-                //    LIMIT + retention DELETE WHERE created_at< 现走全表扫。低成本、前瞻。幂等。
+                // Migration 031 ①: idx_proxy_log_group_key_stats → run_migrations_proxy_log_late
+                // Migration 031 ②: notification 时间索引（主库）。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],
                 );
-                // Migration 032: 小时级聚合统计表 stats_agg_hourly（建表 + 索引）+ 存量一次性回填。
-                // 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。
-                // DDL（建表 + 建索引）由 STATS_AGG_HOURLY_SQL 串执行；存量回填改 Rust
-                // backfill_stats_agg_if_empty（内存算 eff_pid + 批量 UPSERT），空表守卫在 Rust 内判。
-                conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
-                backfill_stats_agg_if_empty(conn)?;
-                // Migration 033: 删除无意义的 proxy_log.is_final 列（旧版本曾 ALTER 加过）。
-                // bundled sqlite 支持 DROP COLUMN；列不存在则报错忽略（新库本就无此列）。
-                let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
-                // Migration 034: proxy_log 索引精简 + 复合化 + ANALYZE 统计。
-                //
-                // ① 删 2 个完全冗余索引：
-                //    idx_proxy_log_group(group_name 旧列，已 RENAME 为 group_key) 与
-                //    idx_proxy_log_platform(platform_id) 分别与 idx_proxy_log_group_key /
-                //    idx_proxy_log_platform_id 同列同 WHERE 条件，纯重复占写放大与磁盘。
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group", []);
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform", []);
-                // ② 建 3 个 (等值列, created_at) 复合偏索引。Logs 页所有 filter 均带
-                //    ORDER BY created_at DESC：纯单列等值索引命中后仍需 TEMP B-TREE 排序
-                //    （EXPLAIN 实测）。复合索引把 created_at 纳入第二列 → 索引天然有序，
-                //    消除 TEMP B-TREE；第一列等值仍覆盖原单列 COUNT/最近N次子查询用途
-                //    （usage_stats.rs 最近5次 / 最近测试 ORDER BY created_at DESC LIMIT）。
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_status_created \
-                     ON proxy_log(status_code, created_at) WHERE deleted_at = 0",
-                    [],
-                );
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_created \
-                     ON proxy_log(platform_id, created_at) WHERE deleted_at = 0",
-                    [],
-                );
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_created \
-                     ON proxy_log(group_key, created_at) WHERE deleted_at = 0",
-                    [],
-                );
-                // ③ 删被复合索引取代的纯单列索引。EXPLAIN 实测：删后等值/COUNT 查询走
-                //    复合索引第一列（COUNT 仍 COVERING INDEX，不退化全表扫），filter+ORDER BY
-                //    无 TEMP B-TREE。保留 *_stats / model 类索引（用途不同）。
-                //    （idx_proxy_log_created 后由 migration 035 删——纯 created_at 范围扫描已被复合索引覆盖。）
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_status", []);
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform_id", []);
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
-                // ④ ANALYZE 建/重建 sqlite_stat1（真实库从未 ANALYZE，规划器靠默认估算）。
-                //    给规划器真实选择度，避免错选索引。compact/VACUUM 后统计失效，由
-                //    maintenance.rs 维护钩子重建（见 cleanup_proxy_logs / compact_database 后追加）。
-                let _ = conn.execute("ANALYZE proxy_log", []);
-                // Migration 035: 删 4 个冗余 / 未用索引（SQL/索引审计）。无条件幂等 DROP（IF EXISTS）：
-                //  - idx_stats_agg_model / idx_stats_agg_group：model/group_key 等值过滤总伴随
-                //    time_hour 范围谓词，规划器走 idx_stats_agg_time，二者从未被选中。
-                //  - idx_proxy_log_created：纯 created_at 范围扫描已被 034 的复合
-                //    idx_proxy_log_*_created 覆盖（第二列 created_at 天然有序）。
-                //  - idx_model_price_name：UNIQUE(model_name, source) 隐式索引前导列即 model_name，
-                //    已覆盖按 model_name 查找，单列偏索引纯重复。
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_model", []);
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_group", []);
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
+                // Migration 032: stats_agg_hourly 建表 + 回填 → run_migrations_proxy_log_late
+                // Migration 033: proxy_log.is_final DROP → run_migrations_proxy_log_late
+                // Migration 034: proxy_log 索引精简 → run_migrations_proxy_log_late
+                // Migration 035: 删冗余索引（proxy_log/stats_agg 相关 → proxy_log_late；idx_model_price_name 留主库）。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_model_price_name", []);
-                tracing::info!("migration 035: dropped 4 redundant/unused indexes");
+                tracing::info!("migration 035: dropped redundant indexes (proxy_log/stats_agg部分在proxy_log_late)");
                 // Migration 036: platform 过期时间（毫秒 unix 时间戳，0 = 永不过期）。
                 // >0 且 now>=expires_at 时路由 candidate_state 排除（等效自动禁用，独立于 status 枚举）；
                 // purge_auto_disabled_platforms 也一并清过期平台。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
@@ -401,22 +308,10 @@ ALTER TABLE "group_new" RENAME TO "group";
                 )?;
 
                 // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— cpa-standalone-module s4。
-                // s4 删 Protocol enum 4 个 CPA 变体，存量库中 platform_type 序列化为 serde JSON
-                // 串（含双引号，见 LIKE 模式），from_str 反序列化会 panic —— 必须先删数据再
-                // 删 enum 变体（顺序见 task.json）。
-                // 依赖关系：proxy_log / stats_agg_hourly / group_platform 均按 platform_id
-                // 关联 platform，须先删子表再删 platform 行。SQLite 未开 FK 强制，显式 DELETE。
+                // proxy_log / stats_agg_hourly 删除 → run_migrations_proxy_log_late（proxy_log.db，
+                // 主库无这两表）。主库仅删 group_platform + platform。
+                // CPA platform IDs 由 init_tables 预查主库后传入 proxy_log_late（跨库不能 JOIN）。
                 // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
-                let _ = conn.execute(
-                    "DELETE FROM proxy_log WHERE platform_id IN \
-                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
-                    [],
-                );
-                let _ = conn.execute(
-                    "DELETE FROM stats_agg_hourly WHERE platform_id IN \
-                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
-                    [],
-                );
                 let _ = conn.execute(
                     "DELETE FROM group_platform WHERE platform_id IN \
                      (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
@@ -427,10 +322,93 @@ ALTER TABLE "group_new" RENAME TO "group";
                     [],
                 );
 
-                // Migration 047: proxy_log 加 cli_proxy_provider_id（可空）—— cli-proxy-request-log s1。
-                // 当请求经 CLI 代理上游（cli_proxy_provider 表，migration 045 建表）路由时记录 provider id；
-                // 走传统 platform 路由的请求该列为 NULL。后续 subtask 路由层接入时回填。
-                // 幂等：旧库 ALTER 无 IF NOT EXISTS，`let _ =` 吞 "duplicate column" 错误（项目惯用 idiom，见 027/036/037）。
+                // Migration 047: proxy_log 加 cli_proxy_provider_id → run_migrations_proxy_log_late
+    Ok(())
+}
+
+/// proxy_log / stats_agg_hourly 表的 late migrations（021–047 范围内的 proxy_log / stats_agg 部分）。
+///
+/// 拆库后这些 DDL 跑在 proxy_log.db 写连接。`auto_map` 由 init_tables 从主库 `"group"` 表
+/// 预加载传入（proxy_log.db 无 group 表，无法在闭包内 `load_auto_from_map`）。`cpa_pids` 为
+/// migration 046 需清理的 CPA 平台 ID 列表（主库预查，跨库不能子查询 JOIN platform）。
+pub(crate) fn run_migrations_proxy_log_late(
+    conn: &Connection,
+    auto_map: &HashMap<String, i64>,
+    cpa_pids: &[i64],
+) -> SqlResult<()> {
+                // Migration 024 (proxy_log): group_name → group_key（幂等：探测列存在性）。
+                let has_log_group_key = conn
+                    .prepare("PRAGMA table_info(proxy_log)")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "group_key");
+                if !has_log_group_key {
+                    let _ = conn.execute(
+                        "ALTER TABLE proxy_log RENAME COLUMN group_name TO group_key",
+                        [],
+                    );
+                }
+                // Migration 028: proxy_log 偏索引。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_id \
+                     ON proxy_log(platform_id) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key \
+                     ON proxy_log(group_key) WHERE deleted_at = 0",
+                    [],
+                );
+                // Migration 031 ①: idx_proxy_log_group_key_stats 覆盖索引。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key_stats \
+                     ON proxy_log(group_key, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
+                     WHERE deleted_at = 0",
+                    [],
+                );
+                // Migration 032: stats_agg_hourly 建表 + 存量回填。
+                conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
+                backfill_stats_agg_if_empty(conn, auto_map)?;
+                // Migration 033: 删 proxy_log.is_final 列。
+                let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
+                // Migration 034: proxy_log 索引精简 + 复合化 + ANALYZE。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform", []);
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_status_created \
+                     ON proxy_log(status_code, created_at) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_created \
+                     ON proxy_log(platform_id, created_at) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_created \
+                     ON proxy_log(group_key, created_at) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_status", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform_id", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
+                let _ = conn.execute("ANALYZE proxy_log", []);
+                // Migration 035 (proxy_log/stats_agg 部分): 删冗余索引。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_model", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_group", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
+                // Migration 046 (proxy_log 部分): CPA 数据清理。cpa_pids 由主库预查传入。
+                for pid in cpa_pids {
+                    let _ = conn.execute(
+                        "DELETE FROM proxy_log WHERE platform_id = ?1",
+                        params![pid],
+                    );
+                    let _ = conn.execute(
+                        "DELETE FROM stats_agg_hourly WHERE platform_id = ?1",
+                        params![pid],
+                    );
+                }
+                // Migration 047: proxy_log 加 cli_proxy_provider_id。
                 let _ = conn.execute(
                     "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
                     [],
