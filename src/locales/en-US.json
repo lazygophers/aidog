@@ -937,8 +937,6 @@
   "page.home": "Home",
   "page.logs": "Request Logs",
   "page.requestLog": "Request Log (Test / Balance)",
-  "page.testLog": "Test Logs",
-  "page.quotaLog": "Balance Logs",
   "requestLog.empty": "No request logs",
   "requestLog.filterType": "Type",
   "requestLog.typeTest": "Test",

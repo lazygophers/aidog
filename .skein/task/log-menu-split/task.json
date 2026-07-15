@@ -1,0 +1,56 @@
+{
+  "id": "log-menu-split",
+  "name": "日志菜单拆分: 测试/余额单独菜单",
+  "desc": "拆 RequestLog 为测试日志/余额查询日志单独菜单 (或新增), source 过滤区分",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "前端 only, 禁改后端 request_log_list / db 层",
+    "RequestLog 保持现状 (test+quota 合并 + TypeFilter), 仅加 props 复用",
+    "新菜单 source 锁定 (filter.sources=[test] 或 [quota]), 隐藏 TypeFilter",
+    "i18n 8 语言齐全 (nav.testLog/nav.quotaLog + page 标题), check:i18n 过"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-page-nav-route",
+      "name": "RequestLog 参数化 + 侧栏菜单 + 路由",
+      "desc": "RequestLog 加 defaultSource/lockSource props (锁定隐藏 TypeFilter, filter.sources 固定); BASE_NAV 加 test-log/quota-log; App.tsx 渲染分支传 props",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784119738,
+      "started": 1784119756,
+      "finished": 1784119986
+    },
+    {
+      "sid": "s2-i18n",
+      "name": "i18n 8 语言 nav+page",
+      "desc": "8 locale 加 nav.testLog/nav.quotaLog + page.testLog/page.quotaLog 标题; check:i18n 过",
+      "depends_on": [
+        "s1-page-nav-route"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784119738,
+      "started": 1784119986,
+      "finished": 1784120257
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/log-menu-split",
+  "estimate": null,
+  "created": 1784119015,
+  "started": 1784119756,
+  "finished": 1784120447,
+  "updated": 1784120447
+}

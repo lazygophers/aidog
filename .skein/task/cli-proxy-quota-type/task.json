@@ -1,0 +1,55 @@
+{
+  "id": "cli-proxy-quota-type",
+  "name": "cli_proxy provider quota_type 字段: NewAPI 显式标识才 fallback",
+  "desc": "CliProxyProvider 加 quota_type 列(none/newapi), test 按 type 分流(newapi→query_quota_newapi), 前端 form 加选项。替代无脑 fallback, 避免 x.ai 等非 newapi 平台发无效请求留垃圾日志",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "quota 列 JSON 类型 (同 extra 模式), 默认 '{}', 禁 enum TEXT",
+    "migration 048 主库 (cli_proxy_provider 主库归属), 幂等",
+    "回退 01f0acbe 无脑 fallback, 改按 quota.type 显式分流"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "后端: migration 048 + model + CRUD + test_cmd 分流",
+      "desc": "schema_late.rs migration 048 加 quota列; cli_proxy.rs struct+Create加字段; db/cli_proxy.rs COLUMNS/INSERT/UPDATE/row.get 加 quota; test_cmd.rs 回退01f0acbe fallback改按quota.type分流(newapi→query_quota_newapi, none→query_quota); cargo clippy+test",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784133596,
+      "started": 1784133608,
+      "finished": 1784134377
+    },
+    {
+      "sid": "s2",
+      "name": "前端: 类型+form quota select+i18n",
+      "desc": "cliProxy.ts 类型加quota; CliProxy.tsx form加quota类型select(none/newapi)存JSON{type:...}; 列表徽标可选; 8 locale加label; yarn build+check:i18n",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784133596,
+      "started": 1784134377,
+      "finished": 1784134578
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cli-proxy-quota-type",
+  "estimate": null,
+  "created": 1784133538,
+  "started": 1784133608,
+  "finished": 1784134810,
+  "updated": 1784134810
+}

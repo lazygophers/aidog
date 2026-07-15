@@ -1,12 +1,10 @@
 {
   "tasks": [
     {
-      "id": "proxy-log-db-split",
-      "status": "进行中",
-      "deps": [
-        "cli-proxy-request-log"
-      ],
-      "worktree": ".worktrees/skein-proxy-log-db-split"
+      "id": "cli-proxy-batch-delete",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null
     },
     {
       "id": "config-db-split",
@@ -18,6 +16,12 @@
     },
     {
       "id": "07-12-peak-models-review-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "cli-proxy-quota-type",
       "status": "已完成",
       "deps": [],
       "worktree": null
@@ -77,6 +81,18 @@
       "worktree": null
     },
     {
+      "id": "log-menu-restructure",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "log-menu-split",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "perf-full-audit",
       "status": "已完成",
       "deps": [],
@@ -98,6 +114,14 @@
       "id": "platform-detect-minimax",
       "status": "已完成",
       "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "proxy-log-db-split",
+      "status": "已完成",
+      "deps": [
+        "cli-proxy-request-log"
+      ],
       "worktree": null
     },
     {

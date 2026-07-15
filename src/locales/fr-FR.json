@@ -959,8 +959,6 @@
   "page.home": "Accueil",
   "page.logs": "Journaux des requêtes",
   "page.requestLog": "Journal des requêtes (Test / Solde)",
-  "page.testLog": "Journal des tests",
-  "page.quotaLog": "Journal du solde",
   "requestLog.empty": "Aucun journal de requête",
   "requestLog.filterType": "Type",
   "requestLog.typeTest": "Test",

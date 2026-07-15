@@ -959,8 +959,6 @@
   "page.home": "Startseite",
   "page.logs": "Anfrageprotokoll",
   "page.requestLog": "Anfrageprotokoll (Test / Guthaben)",
-  "page.testLog": "Testprotokoll",
-  "page.quotaLog": "Guthabenprotokoll",
   "requestLog.empty": "Keine Anfrageprotokolle",
   "requestLog.filterType": "Typ",
   "requestLog.typeTest": "Test",
