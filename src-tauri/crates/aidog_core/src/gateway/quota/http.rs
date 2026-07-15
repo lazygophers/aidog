@@ -11,6 +11,19 @@ use crate::gateway::db::Db;
 // 避免沿 10 个 provider 函数链逐层透传 platform_id 签名。未设（如裸调测试）→ 0。
 tokio::task_local! {
     pub(crate) static QUOTA_PLATFORM_ID: i64;
+    // cli_proxy_test 透传的 provider 归属 ID。scope 内有值 → make_quota_log 填
+    // ProxyLog.cli_proxy_provider_id；未设（platform_query_quota / cold_start 等路径）→ None。
+    pub(crate) static QUOTA_CLI_PROXY_PROVIDER_ID: i64;
+}
+
+/// 在 cli_proxy_provider_id task_local scope 内执行 fut。
+/// cli_proxy_test 调 query_quota 前用此包裹，provider_id 透传至 make_quota_log 落库。
+/// scope() 本身是 RAII——future 结束即释放，无 leak。其他路径不调此 = try_get 返 None = NULL。
+pub async fn with_cli_proxy_provider_id<R>(
+    pid: i64,
+    fut: impl std::future::Future<Output = R>,
+) -> R {
+    QUOTA_CLI_PROXY_PROVIDER_ID.scope(pid, fut).await
 }
 
 // ── 公共类型 ──────────────────────────────────────────────
@@ -174,6 +187,7 @@ fn make_quota_log(
         source_protocol: "quota".into(),
         target_protocol: String::new(),
         platform_id: QUOTA_PLATFORM_ID.try_get().unwrap_or(0) as u64,
+        cli_proxy_provider_id: QUOTA_CLI_PROXY_PROVIDER_ID.try_get().ok(),
         request_headers: r#"{"source":"quota"}"#.into(),
         request_body: String::new(),
         upstream_request_headers: String::new(),
@@ -199,7 +213,6 @@ fn make_quota_log(
         created_at,
         updated_at: created_at,
         deleted_at: 0,
-        cli_proxy_provider_id: None,
     }
 }
 
