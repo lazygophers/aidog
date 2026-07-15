@@ -2080,5 +2080,8 @@
   "platform.cliProxy.wireProtocol": "Wire-протокол",
   "platform.cliProxy.baseUrl": "Base URL",
   "platform.cliProxy.models": "Модели",
-  "platform.cliProxy.created": "Платформа cli-proxy создана"
+  "platform.cliProxy.created": "Платформа cli-proxy создана",
+  "cliProxy.quotaType": "Запрос баланса",
+  "cliProxy.quotaTypeNone": "Не поддерживается",
+  "cliProxy.quotaTypeNewapi": "NewAPI-релей"
 }

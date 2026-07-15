@@ -2080,5 +2080,8 @@
   "platform.cliProxy.wireProtocol": "بروتوكول الاتصال",
   "platform.cliProxy.baseUrl": "Base URL",
   "platform.cliProxy.models": "النماذج",
-  "platform.cliProxy.created": "تم إنشاء منصة cli-proxy"
+  "platform.cliProxy.created": "تم إنشاء منصة cli-proxy",
+  "cliProxy.quotaType": "استعلام الرصيد",
+  "cliProxy.quotaTypeNone": "غير مدعوم",
+  "cliProxy.quotaTypeNewapi": "وسيط NewAPI"
 }
