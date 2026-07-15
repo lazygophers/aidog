@@ -181,21 +181,13 @@ use super::*;
 
     /// 构造一个最小可用、初始化好表的临时文件 DB（避免 :memory: 全局缓存跨 test 串味）。
     async fn flush_test_db() -> (Arc<super::super::db::Db>, std::path::PathBuf) {
-        use std::sync::atomic::AtomicU64;
-        static SEQ: AtomicU64 = AtomicU64::new(0);
-        let mut path = std::env::temp_dir();
-        let uniq = format!(
-            "aidog_flush_test_{}_{}_{}.db",
-            std::process::id(),
-            super::super::db::now(),
-            SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-        );
-        path.push(uniq);
-        let db = super::super::db::Db::new(path.to_str().unwrap())
+        // ponytail: proxy_log 拆库后用 :memory:（主+proxy_log 共享同一物理连接，proxy_log 表可见）。
+        // 旧实现用文件库，但本测试关注流式 flush 逻辑而非文件 I/O，:memory: 足够。
+        let db = super::super::db::Db::new(":memory:")
             .await
-            .expect("open temp db");
+            .expect("open memory db");
         db.init_tables().await.expect("init tables");
-        (Arc::new(db), path)
+        (Arc::new(db), std::path::PathBuf::new())
     }
 
     fn flush_test_state(db: Arc<super::super::db::Db>) -> Arc<ProxyState> {

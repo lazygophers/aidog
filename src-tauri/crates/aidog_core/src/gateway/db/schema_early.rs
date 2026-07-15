@@ -4,7 +4,8 @@ use rusqlite::{params, Connection, Result as SqlResult};
 /// Migrations 001–020（基础 schema / 索引 / 列补全 / 中间件基座 + seed / 通知 / MCP 表）。
 /// 自 init_tables 拆出（纯结构搬移，执行顺序不变）。
 pub(crate) fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
-                // Migration 001: 基础 schema（platform / group / group_platform / setting / proxy_log）。
+                // Migration 001: 基础 schema（platform / group / group_platform / setting）。
+                // proxy_log 建表已移至 run_migrations_proxy_log_early（落 proxy_log.db）。
                 conn.execute_batch(
                     r#"-- AiDog Schema (v2 — singular table names, uint64 PKs, ms timestamps, soft delete, no NULL)
 
@@ -71,56 +72,9 @@ CREATE TABLE IF NOT EXISTS setting (
     deleted_at INTEGER NOT NULL DEFAULT 0,
     UNIQUE(scope, key)
 );
-
--- proxy_log PK 用无连字符 uuid（请求 ID），R7 uint64 主键规则的明示例外（R8）
-CREATE TABLE IF NOT EXISTS proxy_log (
-    id                        TEXT PRIMARY KEY,
-    group_name                TEXT NOT NULL DEFAULT '',
-    model                     TEXT NOT NULL DEFAULT '',
-    actual_model              TEXT NOT NULL DEFAULT '',
-    source_protocol           TEXT NOT NULL DEFAULT '',
-    target_protocol           TEXT NOT NULL DEFAULT '',
-    platform_id               INTEGER NOT NULL DEFAULT 0,
-    request_headers           TEXT NOT NULL DEFAULT '{}',
-    request_body              TEXT NOT NULL DEFAULT '',
-    upstream_request_headers  TEXT NOT NULL DEFAULT '',
-    upstream_request_body     TEXT NOT NULL DEFAULT '',
-    response_body             TEXT NOT NULL DEFAULT '',
-    request_url               TEXT NOT NULL DEFAULT '',
-    upstream_request_url      TEXT NOT NULL DEFAULT '',
-    upstream_response_headers TEXT NOT NULL DEFAULT '',
-    upstream_status_code      INTEGER NOT NULL DEFAULT 0,
-    user_response_headers     TEXT NOT NULL DEFAULT '',
-    user_response_body        TEXT NOT NULL DEFAULT '',
-    status_code               INTEGER NOT NULL DEFAULT 0,
-    duration_ms               INTEGER NOT NULL DEFAULT 0,
-    input_tokens              INTEGER NOT NULL DEFAULT 0,
-    output_tokens             INTEGER NOT NULL DEFAULT 0,
-    cache_tokens              INTEGER NOT NULL DEFAULT 0,
-    created_at                INTEGER NOT NULL DEFAULT 0,
-    updated_at                INTEGER NOT NULL DEFAULT 0,
-    deleted_at                INTEGER NOT NULL DEFAULT 0
-);
-
--- idx_proxy_log_created 已删（纯 created_at 范围扫描总伴随 filter 等值列，走复合
--- idx_proxy_log_*_created；无 filter 的 ORDER BY created_at DESC 走任一复合索引第二列即有序）。
--- 旧库由 migration 035 DROP。详见 SQL/索引审计任务。
 "#,
                 )?;
-                // Migration 002: 请求日志过滤索引。
-                conn.execute_batch(
-                    r#"-- Indexes for proxy log filtering
--- 注：idx_proxy_log_platform / idx_proxy_log_status 已由 Migration 034 的
--- 复合索引(platform_id,created_at)/(status_code,created_at) 取代并 DROP，此处不再建
--- （避免每次 init 建一个随即被 034 删的索引）。model 类保留（用途不同）。
-
-CREATE INDEX IF NOT EXISTS idx_proxy_log_model
-    ON proxy_log(model) WHERE deleted_at = 0;
-
-CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
-    ON proxy_log(actual_model) WHERE deleted_at = 0;
-"#,
-                )?;
+                // Migration 002: proxy_log 索引已移至 run_migrations_proxy_log_early（落 proxy_log.db）。
                 // Migration 003: 模型价格表 model_price。
                 conn.execute_batch(
                     r#"-- Model price table: stores per-model pricing data synced from LiteLLM or entered manually
@@ -152,12 +106,10 @@ CREATE TABLE IF NOT EXISTS model_price (
                 let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
                 // Migration 007: platform 排序权重
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 008: proxy_log 预估花费列
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
+                // Migration 008: proxy_log 预估花费列 → run_migrations_proxy_log_early
                 // Migration 009: platform 手动预算列（无上游 quota 平台手动限额 + 耗尽阻断）
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
-                // Migration 010: proxy_log 流式标记列（流式 SSE 请求显式标记，替代 response_body=="[stream]" 哨兵）
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_stream INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 010: proxy_log 流式标记列 → run_migrations_proxy_log_early
                 // Migration 011: 多平台重试 + 401/403 自动禁用 + 尝试记录（旧 007_retry_failover，逻辑已内联）
                 // platform 三态 status + 退避字段；enabled 列保留向后兼容（写入端从 status 同步）
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN status TEXT NOT NULL DEFAULT 'enabled'", []);
@@ -168,9 +120,7 @@ CREATE TABLE IF NOT EXISTS model_price (
                 let _ = conn.execute("UPDATE platform SET status = 'disabled' WHERE enabled = 0 AND status = 'enabled'", []);
                 // group 分组级最大重试次数
                 let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 2", []);
-                // proxy_log 每次尝试快照（JSON 数组）+ 重试次数
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN attempts TEXT NOT NULL DEFAULT '[]'", []);
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0", []);
+                // proxy_log attempts/retry_count → run_migrations_proxy_log_early
                 // Migration 012: Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）
                 // 根因：Platforms.tsx 预设曾把 kimi coding openai endpoint 配为 codex_tui，
                 // 但 Kimi coding 上游拒绝 Codex（只接 Kimi CLI/Claude Code/Roo Code/Kilo Code）。
@@ -225,11 +175,7 @@ CREATE TABLE IF NOT EXISTS model_price (
                      );
                      CREATE INDEX IF NOT EXISTS idx_mw_rule_lookup ON middleware_rule(enabled, rule_type, scope);",
                 )?;
-                // Migration 014: proxy_log 中间件拦截审计列（C2 入站 block）。
-                // blocked_by = 命中规则标识（rule_type#id name）；blocked_reason = 人读拦截原因。
-                // 空值表示未被拦截。拦截类请求不计费（est_cost 仍为 0），但写完整审计行。
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_by TEXT NOT NULL DEFAULT ''", []);
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_reason TEXT NOT NULL DEFAULT ''", []);
+                // Migration 014: proxy_log blocked_by/blocked_reason → run_migrations_proxy_log_early
                 // Migration 015: 内置预设中间件规则 seed（C4）。
                 // is_builtin=1 默认 enabled；幂等——按 (name, is_builtin=1) 唯一判定，已存在跳过（尊重用户禁用状态，不重新启用）。
                 seed_builtin_middleware_rules(conn)?;
@@ -256,15 +202,7 @@ CREATE TABLE IF NOT EXISTS model_price (
                 // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
                 let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
-                // Migration 019: usage stats 覆盖索引（问题3 数据层优化）。
-                // today/group/platform stats 聚合走 created_at 范围扫 + SUM(est_cost/tokens)；
-                // 此覆盖索引让计费聚合无需回表（index-only scan），命中 deleted_at=0 部分索引。
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_stats \
-                     ON proxy_log(created_at, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
-                     WHERE deleted_at = 0",
-                    [],
-                );
+                // Migration 019: idx_proxy_log_stats → run_migrations_proxy_log_early
                 // Migration 020: MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
                 // enabled_agents = 逗号分隔 agent slug（claude-code/codex）。
                 // env_json/headers_json 含敏感值（token/key/secret），前端展示经 mcp.rs::mask_env 脱敏。
@@ -283,5 +221,73 @@ CREATE TABLE IF NOT EXISTS model_price (
                        updated_at     INTEGER NOT NULL
                      );",
                 )?;
+    Ok(())
+}
+
+/// proxy_log / stats_agg_hourly 表的 early migrations（001–020 范围内的 proxy_log 部分）。
+///
+/// 拆库后这些 DDL 跑在 proxy_log.db 写连接（`call_proxy_log_traced`），主库不再建
+/// proxy_log / stats_agg_hourly 表。migration 内容与原 run_migrations_early 中的
+/// proxy_log 语句一一对应，幂等 idiom 不变（CREATE IF NOT EXISTS / `let _ =` 吞 dup）。
+pub(crate) fn run_migrations_proxy_log_early(conn: &Connection) -> SqlResult<()> {
+                // Migration 001 (proxy_log): 建表。
+                conn.execute_batch(
+                    r#"-- proxy_log PK 用无连字符 uuid（请求 ID），R7 uint64 主键规则的明示例外（R8）
+CREATE TABLE IF NOT EXISTS proxy_log (
+    id                        TEXT PRIMARY KEY,
+    group_name                TEXT NOT NULL DEFAULT '',
+    model                     TEXT NOT NULL DEFAULT '',
+    actual_model              TEXT NOT NULL DEFAULT '',
+    source_protocol           TEXT NOT NULL DEFAULT '',
+    target_protocol           TEXT NOT NULL DEFAULT '',
+    platform_id               INTEGER NOT NULL DEFAULT 0,
+    request_headers           TEXT NOT NULL DEFAULT '{}',
+    request_body              TEXT NOT NULL DEFAULT '',
+    upstream_request_headers  TEXT NOT NULL DEFAULT '',
+    upstream_request_body     TEXT NOT NULL DEFAULT '',
+    response_body             TEXT NOT NULL DEFAULT '',
+    request_url               TEXT NOT NULL DEFAULT '',
+    upstream_request_url      TEXT NOT NULL DEFAULT '',
+    upstream_response_headers TEXT NOT NULL DEFAULT '',
+    upstream_status_code      INTEGER NOT NULL DEFAULT 0,
+    user_response_headers     TEXT NOT NULL DEFAULT '',
+    user_response_body        TEXT NOT NULL DEFAULT '',
+    status_code               INTEGER NOT NULL DEFAULT 0,
+    duration_ms               INTEGER NOT NULL DEFAULT 0,
+    input_tokens              INTEGER NOT NULL DEFAULT 0,
+    output_tokens             INTEGER NOT NULL DEFAULT 0,
+    cache_tokens              INTEGER NOT NULL DEFAULT 0,
+    created_at                INTEGER NOT NULL DEFAULT 0,
+    updated_at                INTEGER NOT NULL DEFAULT 0,
+    deleted_at                INTEGER NOT NULL DEFAULT 0
+);
+"#,
+                )?;
+                // Migration 002: proxy_log model 索引。
+                conn.execute_batch(
+                    r#"CREATE INDEX IF NOT EXISTS idx_proxy_log_model
+    ON proxy_log(model) WHERE deleted_at = 0;
+
+CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
+    ON proxy_log(actual_model) WHERE deleted_at = 0;
+"#,
+                )?;
+                // Migration 008: proxy_log 预估花费列。
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
+                // Migration 010: proxy_log 流式标记列。
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_stream INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 011 (proxy_log): 每次尝试快照 + 重试次数。
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN attempts TEXT NOT NULL DEFAULT '[]'", []);
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 014: proxy_log 中间件拦截审计列。
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_by TEXT NOT NULL DEFAULT ''", []);
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_reason TEXT NOT NULL DEFAULT ''", []);
+                // Migration 019: usage stats 覆盖索引。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_stats \
+                     ON proxy_log(created_at, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
+                     WHERE deleted_at = 0",
+                    [],
+                );
     Ok(())
 }

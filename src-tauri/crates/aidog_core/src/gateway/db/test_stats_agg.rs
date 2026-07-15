@@ -52,7 +52,8 @@ use super::test_support::*;
         let n1: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
         // 再跑带空表守卫的回填（模拟 init 重放）：表非空 → 不插。
         db.call_traced(None, std::panic::Location::caller(), move |c| {
-            backfill_stats_agg_if_empty(c)?;
+            let auto_map = load_auto_from_map(c)?;
+            backfill_stats_agg_if_empty(c, &auto_map)?;
             Ok(())
         }).await.unwrap();
         let n2: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
