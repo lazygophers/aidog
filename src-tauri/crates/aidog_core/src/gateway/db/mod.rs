@@ -169,8 +169,13 @@ impl ReadPoolHandle {
 ///
 /// 兜底：`call_traced` / `call_read_traced` 检测 `ConnectionClosed` 后，用本上下文重开
 /// 连接并重试一次（详见各方法）。`is_memory=true` 时禁用重开（内存库重开会读到空库）。
+///
+/// `proxy_log_path`：拆库后 proxy_log.db 路径（与主库平级，用于 `call_proxy_log_traced`
+/// 兜底重开）。`None` = 内存库 fallback（proxy_log handle 复用主内存连接，无独立文件，
+/// 重开同主库一样无意义 → 走 is_memory 短路）。
 struct ReconnectCtx {
     path: String,
+    proxy_log_path: Option<String>,
     is_memory: bool,
 }
 
@@ -189,8 +194,22 @@ struct ReconnectCtx {
 /// - `self.2`：`ReadPoolHandle` 只读连接池，供 UI 热读路径（stats / 列表 / 日志查询）走
 ///   `call_read_traced` 并发查询，不阻塞于写连接队列。
 /// - `self.3`：`Arc<ReconnectCtx>` 重连上下文（DB 路径 + 是否内存库）。
+/// - `self.4`：**proxy_log 写连接槽**（拆库后 `~/.aidog/proxy_log.db` 独立 handle，
+///   独立 Mutex，proxy_log / stats_agg_hourly 写走此槽，不与元数据写锁竞争）。
+///   访问走 `call_proxy_log_traced`。内存库 fallback 下复用主内存连接（同 read_pool idiom）。
+/// - `self.5`：`ReadPoolHandle` proxy_log 只读池（N=8），供 UI 查 proxy_log 走
+///   `call_read_proxy_log_traced`，不阻塞主库读池。
 #[derive(Clone)]
-pub struct Db(pub Arc<std::sync::Mutex<AsyncConnection>>, Arc<DbCache>, ReadPoolHandle, Arc<ReconnectCtx>);
+pub struct Db(
+    pub Arc<std::sync::Mutex<AsyncConnection>>,
+    Arc<DbCache>,
+    ReadPoolHandle,
+    Arc<ReconnectCtx>,
+    /// proxy_log 写连接槽（拆库独立 Mutex，不争元数据写锁）。
+    Arc<std::sync::Mutex<AsyncConnection>>,
+    /// proxy_log 只读池。
+    ReadPoolHandle,
+);
 
 /// eff_pid 回溯映射：`group_key → 源平台 id`（单一事实源，替代旧 SQL 标量子查询 `eff_pid_case`）。
 ///
@@ -318,15 +337,73 @@ impl Db {
 
         let read_pool = Self::build_read_pool(path, &conn).await?;
         let is_memory = path == ":memory:" || path.contains("mode=memory") || path.is_empty();
+
+        // proxy_log.db：与主库平级独立 SQLite 文件，承载 proxy_log / stats_agg_hourly 写
+        // （独立 Mutex 不争元数据写锁，独立 WAL 不与主库读竞争）。内存库 fallback：
+        // proxy_log handle 复用主内存连接（同 build_read_pool idiom），测试无感。
+        //
+        // ponytail: 内存库 proxy_log_path = None（重连走 is_memory 短路）；
+        // 文件库取主路径同目录下 "proxy_log.db"，与主库 aidog.db 同级（备份 / 迁移路径一致）。
+        let (proxy_log_conn, proxy_log_path) = if is_memory {
+            (conn.clone(), None)
+        } else {
+            let pl_path = std::path::Path::new(path)
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join("proxy_log.db")
+                .to_string_lossy()
+                .into_owned();
+            let c = Self::open_proxy_log_conn(&pl_path).await?;
+            (c, Some(pl_path))
+        };
+        let proxy_log_read_pool = Self::build_read_pool(
+            proxy_log_path.as_deref().unwrap_or(path),
+            &proxy_log_conn,
+        )
+        .await?;
+
         Ok(Self(
             Arc::new(std::sync::Mutex::new(conn)),
             Arc::new(DbCache::default()),
             read_pool,
             Arc::new(ReconnectCtx {
                 path: path.to_string(),
+                proxy_log_path,
                 is_memory,
             }),
+            Arc::new(std::sync::Mutex::new(proxy_log_conn)),
+            proxy_log_read_pool,
         ))
+    }
+
+    /// 打开 proxy_log.db 写连接（pragma + profile 全套，同主库 `Db::new` idiom）。
+    /// auto_vacuum 仅空库可设；新独立文件库首次打开必然空 → 直接设 INCREMENTAL。
+    /// 供 `Db::new` 初始化 + `call_proxy_log_traced` ConnectionClosed 后重连复用。
+    async fn open_proxy_log_conn(path: &str) -> Result<AsyncConnection, String> {
+        let conn = AsyncConnection::open(path)
+            .await
+            .map_err(|e| e.to_string())?;
+        conn.call(|c| {
+            c.execute_batch(
+                "PRAGMA journal_mode=WAL; \
+                 PRAGMA foreign_keys=ON; \
+                 PRAGMA busy_timeout=5000; \
+                 PRAGMA synchronous=NORMAL;",
+            )?;
+            let table_count: i64 = c.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+                [],
+                |r| r.get(0),
+            )?;
+            if table_count == 0 {
+                c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
+            }
+            c.profile(Some(sql_profile_callback));
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(conn)
     }
 
     /// 构造只读连接池。
@@ -550,6 +627,152 @@ impl Db {
             tracing::warn!(
                 caller = %crate::gateway::db::trace::fmt_caller(caller),
                 "db read pool slot returned ConnectionClosed, retrying on next slot"
+            );
+
+            let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
+                return r1;
+            };
+            let conn2 = pool.pick();
+            let req2 = req.clone();
+            conn2
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req2, caller);
+                    f_retry(conn)
+                })
+                .await
+        }
+    }
+
+    /// proxy_log.db 写连接 chokepoint：与 `call_traced` **完整同形 / 同语义**
+    /// （同闭包签名、同 req 解析链、同 CURRENT_DB_CTX guard、同 profile、同 FnOnce 重取、
+    /// 同 ConnectionClosed 重连重试），唯一差异是连接来源——取 `self.4`（proxy_log
+    /// 独立 Mutex 写槽），重连走 `ReconnectCtx::proxy_log_path`。
+    ///
+    /// 拆库后 proxy_log / stats_agg_hourly 的写 / DDL / 事务走本方法（独立于主库元数据
+    /// 写锁，proxy_log 密集写不再阻塞 platform/group 写队列）。内存库 fallback 下 `self.4`
+    /// 是主内存连接 clone（同 `build_read_pool` idiom），测试代码无感。
+    ///
+    /// 跨表读约束：proxy_log.db 无 `"group"` / `platform` / `cli_proxy_provider` 表，
+    /// 本方法闭包内**禁**跨表 JOIN 这些主库表（s4 改应用层合并）。当前 s1 仅加基础设施，
+    /// 现有 ~39 站点仍在 s3 切换。
+    pub fn call_proxy_log_traced<F, R>(
+        &self,
+        req: Option<&str>,
+        caller: &'static std::panic::Location<'static>,
+        f: F,
+    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    where
+        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        let req = req
+            .map(|s| s.to_string())
+            .or_else(crate::logging::current_trace_id)
+            .unwrap_or_else(crate::logging::new_trace_id);
+        let req = Some(req);
+        let slot = self.4.clone();
+        let ctx = self.3.clone();
+        async move {
+            let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            let conn = slot.lock().expect("proxy_log write conn slot poisoned").clone();
+            let cell1 = cell.clone();
+            let req1 = req.clone();
+            let r1 = conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req1, caller);
+                    let f = cell1
+                        .lock()
+                        .expect("f cell poisoned")
+                        .take()
+                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                    f(conn)
+                })
+                .await;
+
+            if !matches!(&r1, Err(tokio_rusqlite::Error::ConnectionClosed)) || ctx.is_memory {
+                return r1;
+            }
+
+            // 内存库走 is_memory 短路（重开读到空库）；文件库取 proxy_log_path 兜底重开。
+            // proxy_log_path = None 仅在内存库出现，上面已 return，此处 unwrap 安全。
+            let pl_path = ctx.proxy_log_path.as_deref().unwrap_or(&ctx.path);
+            tracing::warn!(
+                path = %pl_path,
+                caller = %crate::gateway::db::trace::fmt_caller(caller),
+                "proxy_log write conn returned ConnectionClosed, reopening and retrying once"
+            );
+
+            let new_conn = match Self::open_proxy_log_conn(pl_path).await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::error!(error = %e, path = %pl_path, "proxy_log write conn reopen failed");
+                    return r1;
+                }
+            };
+            *slot.lock().expect("proxy_log write conn slot poisoned") = new_conn.clone();
+
+            let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
+                tracing::warn!(
+                    "proxy_log call closure was consumed before ConnectionClosed \
+                     (background thread died mid-call) — cannot retry"
+                );
+                return r1;
+            };
+
+            let req2 = req.clone();
+            new_conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req2, caller);
+                    f_retry(conn)
+                })
+                .await
+        }
+    }
+
+    /// proxy_log.db 只读 chokepoint：与 `call_read_traced` **完整同形 / 同语义**，
+    /// 唯一差异是读池来源——取 `self.5`（proxy_log 独立 N=8 读池）。供 UI 查 proxy_log /
+    /// stats_agg_hourly 纯 SELECT 热读路径走，不阻塞主库读池。同 `call_read_traced`：
+    /// 某槽位死亡时 `pick()` 重试下一条，不替换死槽位。
+    pub fn call_read_proxy_log_traced<F, R>(
+        &self,
+        req: Option<&str>,
+        caller: &'static std::panic::Location<'static>,
+        f: F,
+    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    where
+        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        let req = req
+            .map(|s| s.to_string())
+            .or_else(crate::logging::current_trace_id)
+            .unwrap_or_else(crate::logging::new_trace_id);
+        let req = Some(req);
+        let pool = self.5.clone();
+        async move {
+            let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            let conn = pool.pick();
+            let cell1 = cell.clone();
+            let req1 = req.clone();
+            let r1 = conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req1, caller);
+                    let f = cell1
+                        .lock()
+                        .expect("f cell poisoned")
+                        .take()
+                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                    f(conn)
+                })
+                .await;
+
+            if !matches!(&r1, Err(tokio_rusqlite::Error::ConnectionClosed)) {
+                return r1;
+            }
+
+            tracing::warn!(
+                caller = %crate::gateway::db::trace::fmt_caller(caller),
+                "proxy_log read pool slot returned ConnectionClosed, retrying on next slot"
             );
 
             let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
