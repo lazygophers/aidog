@@ -223,11 +223,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                 );
 
                 // Migration 031 ①: idx_proxy_log_group_key_stats → run_migrations_proxy_log_late
-                // Migration 031 ②: notification 时间索引（主库）。
-                let _ = conn.execute(
-                    "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
-                    [],
-                );
+                // Migration 031 ②: notification 时间索引 → run_migrations_proxy_log_late（proxy_log.db）
                 // Migration 032: stats_agg_hourly 建表 + 回填 → run_migrations_proxy_log_late
                 // Migration 033: proxy_log.is_final DROP → run_migrations_proxy_log_late
                 // Migration 034: proxy_log 索引精简 → run_migrations_proxy_log_late
@@ -411,6 +407,11 @@ pub(crate) fn run_migrations_proxy_log_late(
                 // Migration 047: proxy_log 加 cli_proxy_provider_id。
                 let _ = conn.execute(
                     "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
+                    [],
+                );
+                // Migration 031 ②: notification 时间索引（从主库迁入 proxy_log.db）。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],
                 );
     Ok(())

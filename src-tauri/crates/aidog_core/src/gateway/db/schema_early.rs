@@ -186,22 +186,7 @@ CREATE TABLE IF NOT EXISTS model_price (
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_failure_threshold INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_open_secs INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_half_open_max INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 017: 系统通知收件箱表（N1 — 系统通知模块）。
-                // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/clear 消费。
-                // 设置（NotificationSettings）走 settings KV scope=notification，不在此表。
-                conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS notification (
-                       id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                       notif_type  TEXT NOT NULL,
-                       title       TEXT NOT NULL DEFAULT '',
-                       body        TEXT NOT NULL DEFAULT '',
-                       created_at  INTEGER NOT NULL
-                     );",
-                )?;
-                // Migration 018: 去 read 列 + idx_notif_read 索引（通知完成即结束，无已读未读）。
-                // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
-                let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
-                let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
+                // Migration 017/018: notification 表 → run_migrations_proxy_log_early（落 proxy_log.db）
                 // Migration 019: idx_proxy_log_stats → run_migrations_proxy_log_early
                 // Migration 020: MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
                 // enabled_agents = 逗号分隔 agent slug（claude-code/codex）。
@@ -289,5 +274,21 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
                      WHERE deleted_at = 0",
                     [],
                 );
+                // Migration 017: notification 表（从主库迁入 proxy_log.db）。
+                // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/clear 消费。
+                // 设置（NotificationSettings）走 settings KV scope=notification（主库），不在此表。
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS notification (
+                       id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                       notif_type  TEXT NOT NULL,
+                       title       TEXT NOT NULL DEFAULT '',
+                       body        TEXT NOT NULL DEFAULT '',
+                       created_at  INTEGER NOT NULL
+                     );",
+                )?;
+                // Migration 018: 去 read 列 + idx_notif_read 索引（通知完成即结束，无已读未读）。
+                // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
+                let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
     Ok(())
 }

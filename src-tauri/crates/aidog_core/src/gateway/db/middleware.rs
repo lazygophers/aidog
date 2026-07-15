@@ -212,7 +212,7 @@ pub fn insert_notification<'a>(
     let body = body.to_string();
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO notification (notif_type, title, body, created_at) VALUES (?1, ?2, ?3, ?4)",
                 params![notif_type, title, body, ts],
@@ -233,7 +233,7 @@ pub fn list_notifications(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
@@ -259,7 +259,7 @@ pub fn clear_notifications(db: &Db) -> impl std::future::Future<Output = Result<
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, |conn| {
+        .call_proxy_log_traced(None, __db_caller, |conn| {
             conn.execute("DELETE FROM notification", [])?;
             Ok(())
         })
@@ -279,7 +279,7 @@ pub fn cleanup_notifications(db: &Db, retention_days: u32) -> impl std::future::
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM notification WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
