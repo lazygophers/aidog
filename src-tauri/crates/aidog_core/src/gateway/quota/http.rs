@@ -193,7 +193,8 @@ fn make_quota_log(
         upstream_request_headers: String::new(),
         upstream_request_body: String::new(),
         response_body: body.into(),
-        request_url: "/quota".into(),
+        // quota 是 aidog 主动拉余额，无独立用户侧 URL；记完整上游 URL（非占位 path）便于日志可读。
+        request_url: url.to_string(),
         upstream_request_url: url.to_string(),
         upstream_response_headers: String::new(),
         upstream_status_code: upstream_status,
