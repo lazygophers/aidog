@@ -9,6 +9,7 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
+mod batch;
 mod cli_proxy;
 mod group;
 mod manual_budget;
@@ -23,6 +24,7 @@ mod settings;
 mod stats;
 mod tray;
 
+pub use batch::*;
 pub use cli_proxy::*;
 pub use group::*;
 pub use manual_budget::*;
