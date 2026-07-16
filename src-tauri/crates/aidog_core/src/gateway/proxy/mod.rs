@@ -30,6 +30,7 @@ pub(crate) use super::router::{select_candidates_ctx, RouteResult, ScheduleCtx};
 
 mod count_tokens;
 mod connect;
+mod devin;
 mod endpoint;
 mod finish;
 mod forward;

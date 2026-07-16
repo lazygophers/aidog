@@ -447,6 +447,27 @@ pub(crate) async fn handle_proxy_core(
             )
             .await;
         }
+        // ── Devin（Cognition）：stateful session API，接入走 handle_devin（不经 forward_attempt / wire 层）。
+        // 重试循环外拦截（与 Mock / ClaudeCode 同层）：Devin 单 session 即终态，无候选切换语义。──
+        if matches!(first.platform.platform_type, Protocol::Devin) {
+            let platform = first.platform.clone();
+            log.target_protocol = "devin".to_string();
+            tracing::info!(platform = %platform.name, base_url = %platform.base_url, "devin session intercept (chat↔session)");
+            return super::devin::handle_devin(
+                state,
+                log,
+                log_settings,
+                &platform,
+                &chat_req,
+                &req_value,
+                &source_protocol,
+                &requested_model,
+                is_stream,
+                start,
+                lang,
+            )
+            .await;
+        }
     }
 
     // ── 重试编排：遍历候选，逐个 forward。
