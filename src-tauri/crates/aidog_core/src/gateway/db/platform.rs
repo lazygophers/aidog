@@ -106,7 +106,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
 
     let id = db
 
-        .call_traced(None, __db_caller, {
+        .call_platform_traced(None, __db_caller, {
             let name = input.name.clone();
             let base_url = input.base_url.clone();
             let api_key = input.api_key.clone();
@@ -162,7 +162,7 @@ pub fn list_platforms(db: &Db) -> impl std::future::Future<Output = Result<Vec<P
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, |conn| {
+        .call_read_platform_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_platform)?;
@@ -178,7 +178,7 @@ pub fn get_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Resul
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row(params![id as i64], row_to_platform).optional()?)
@@ -277,7 +277,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
     let endpoints_str = serialize_endpoints(&updated.endpoints);
     let manual_budgets_str = crate::gateway::models::serialize_manual_budgets(&updated.manual_budgets);
     db
-        .call_traced(None, __db_caller, {
+        .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
             let base_url = updated.base_url.clone();
             let api_key = updated.api_key.clone();
@@ -338,7 +338,7 @@ pub fn set_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Future<
     let ts = now();
     let until = db
         
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
             let row: Option<(String, i64)> = conn
                 .query_row(
@@ -380,7 +380,7 @@ pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Fut
     async move {
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE platform SET status='enabled', enabled=1, auto_disable_strikes=0, auto_disabled_until=0, updated_at=?1 WHERE id=?2 AND status='auto_disabled'",
                 params![ts, id as i64],
@@ -397,8 +397,10 @@ pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Fut
 /// 写/清平台最近一次错误信息（卡片展示，非请求记录实时取）。
 /// `Some(msg)` → 记 last_error=msg + last_error_at=now；`None` → 清空 ''/0（最近一次成功）。
 /// 代理热路径调用，单条 SQL；不失效 group_details 缓存（last_error 不入 GroupDetail）。
+/// config-db-split：platform 表落 platform.db，走 platform 写连接（同 `write_conn` idiom，
+/// 不经 call_platform_traced 重连重试——热路径性能优先，连接死亡由上层重试兜底）。
 pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> Result<(), String> {
-    db.write_conn()
+    db.platform_write_conn()
         .call(move |conn| {
             match err {
                 Some(msg) => conn.execute(

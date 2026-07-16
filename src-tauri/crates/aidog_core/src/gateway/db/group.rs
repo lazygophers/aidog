@@ -67,7 +67,7 @@ pub fn create_group(db: &Db, input: CreateGroup) -> impl std::future::Future<Out
 
     let id = db
 
-        .call_traced(None, __db_caller, {
+        .call_platform_traced(None, __db_caller, {
             let name = input.name.clone();
             let group_key = group_key.clone();
             let auto_from_platform = input.auto_from_platform.clone();
@@ -116,7 +116,7 @@ pub fn reorder_groups<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::futur
     async move {
     let ordered_ids = ordered_ids.to_vec();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -139,7 +139,7 @@ pub fn reorder_platforms<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::fu
     async move {
     let ordered_ids = ordered_ids.to_vec();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -168,7 +168,7 @@ pub fn reorder_group_platforms<'a>(
     let ordered = ordered_platform_ids.to_vec();
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             for (i, &pid) in ordered.iter().enumerate() {
                 conn.execute(
                     "UPDATE group_platform SET priority = ?1, updated_at = ?2 \
@@ -201,7 +201,7 @@ pub fn set_group_platform_level_priority(
     let pid = platform_id as i64;
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE group_platform SET level_priority = ?1, updated_at = ?2 \
                  WHERE group_id = ?3 AND platform_id = ?4 AND deleted_at = 0",
@@ -231,7 +231,7 @@ pub fn move_group_platform(
     let to = to_group_id as i64;
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                 params![from, pid],
@@ -275,7 +275,7 @@ pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Grou
     }
     let groups = db
         
-        .call_read_traced(None, __db_caller, |conn| {
+        .call_read_platform_traced(None, __db_caller, |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
             let rows = stmt.query_map([], row_to_group)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -294,7 +294,7 @@ pub fn get_group(db: &Db, id: u64) -> impl std::future::Future<Output = Result<O
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))?;
             Ok(stmt.query_row(params![id as i64], row_to_group).optional()?)
         })
@@ -326,7 +326,7 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> impl std::future::Future<Out
     let mappings_str = serialize_mappings(&updated.model_mappings);
     let env_vars_str = serialize_env_vars(&updated.env_vars);
     db
-        .call_traced(None, __db_caller, {
+        .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
             let updated_at = updated.updated_at;
             let request_timeout_secs = updated.request_timeout_secs as i64;
@@ -359,7 +359,7 @@ pub fn set_default_group(db: &Db, target_id: Option<u64>) -> impl std::future::F
     async move {
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             match target_id {
                 Some(id) => {
                     conn.execute(

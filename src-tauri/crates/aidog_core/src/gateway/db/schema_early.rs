@@ -1,5 +1,5 @@
 use super::*;
-use rusqlite::{params, Connection, Result as SqlResult};
+use rusqlite::{Connection, Result as SqlResult};
 
 /// Migrations 001–020（基础 schema / 索引 / 列补全 / 中间件基座 + seed / 通知 / MCP 表）。
 /// 自 init_tables 拆出（纯结构搬移，执行顺序不变）。
@@ -8,59 +8,11 @@ pub(crate) fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
                 // proxy_log 建表已移至 run_migrations_proxy_log_early（落 log.db）。
                 conn.execute_batch(
                     r#"-- AiDog Schema (v2 — singular table names, uint64 PKs, ms timestamps, soft delete, no NULL)
+-- config-db-split: platform / "group" / group_platform CREATE 迁出 → run_migrations_platform_early（落 platform.db）。
+-- 主库仅留 setting（+ model_price 003 / middleware_rule 013 / mcp_server 020，见后续 migration）。
 
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
-
-CREATE TABLE IF NOT EXISTS platform (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    name             TEXT NOT NULL DEFAULT '',
-    platform_type    TEXT NOT NULL DEFAULT '',
-    base_url         TEXT NOT NULL DEFAULT '',
-    api_key          TEXT NOT NULL DEFAULT '',
-    extra            TEXT NOT NULL DEFAULT '',
-    models           TEXT NOT NULL DEFAULT '{}',
-    available_models TEXT NOT NULL DEFAULT '[]',
-    endpoints        TEXT NOT NULL DEFAULT '[]',
-    enabled          INTEGER NOT NULL DEFAULT 1,
-    est_balance_remaining REAL NOT NULL DEFAULT 0,
-    est_coding_plan       TEXT NOT NULL DEFAULT '',
-    last_real_query_at    INTEGER NOT NULL DEFAULT 0,
-    estimate_count        INTEGER NOT NULL DEFAULT 0,
-    show_in_tray          INTEGER NOT NULL DEFAULT 0,
-    tray_display          TEXT NOT NULL DEFAULT 'balance',
-    created_at       INTEGER NOT NULL DEFAULT 0,
-    updated_at       INTEGER NOT NULL DEFAULT 0,
-    deleted_at       INTEGER NOT NULL DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS "group" (
-    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name                 TEXT NOT NULL DEFAULT '',
-    path                 TEXT NOT NULL DEFAULT '',
-    routing_mode         TEXT NOT NULL DEFAULT '',
-    auto_from_platform   TEXT NOT NULL DEFAULT '',
-    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
-    model_mappings       TEXT NOT NULL DEFAULT '[]',
-    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-    created_at           INTEGER NOT NULL DEFAULT 0,
-    updated_at           INTEGER NOT NULL DEFAULT 0,
-    deleted_at           INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(path)
-);
-
-CREATE TABLE IF NOT EXISTS group_platform (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_id    INTEGER NOT NULL DEFAULT 0,
-    platform_id INTEGER NOT NULL DEFAULT 0,
-    priority    INTEGER NOT NULL DEFAULT 0,
-    weight      INTEGER NOT NULL DEFAULT 1,
-    created_at  INTEGER NOT NULL DEFAULT 0,
-    updated_at  INTEGER NOT NULL DEFAULT 0,
-    deleted_at  INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(group_id, platform_id)
-);
 
 CREATE TABLE IF NOT EXISTS setting (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,65 +46,8 @@ CREATE TABLE IF NOT EXISTS model_price (
 -- 已覆盖按 model_name 的等值/前缀查找，单列偏索引纯重复。旧库由 migration 035 DROP。
 "#,
                 )?;
-                // Migration 004: 旧库补预估列（ALTER 无 IF NOT EXISTS → 忽略 duplicate column）
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_balance_remaining REAL NOT NULL DEFAULT 0", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_coding_plan TEXT NOT NULL DEFAULT ''", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN last_real_query_at INTEGER NOT NULL DEFAULT 0", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN estimate_count INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 005: tray 展示列（互斥单平台 show_in_tray + balance/coding 二选一 tray_display）
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN show_in_tray INTEGER NOT NULL DEFAULT 0", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN tray_display TEXT NOT NULL DEFAULT 'balance'", []);
-                // Migration 006: group 排序权重
-                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 007: platform 排序权重
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 008: proxy_log 预估花费列 → run_migrations_proxy_log_early
-                // Migration 009: platform 手动预算列（无上游 quota 平台手动限额 + 耗尽阻断）
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
-                // Migration 010: proxy_log 流式标记列 → run_migrations_proxy_log_early
-                // Migration 011: 多平台重试 + 401/403 自动禁用 + 尝试记录（旧 007_retry_failover，逻辑已内联）
-                // platform 三态 status + 退避字段；enabled 列保留向后兼容（写入端从 status 同步）
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN status TEXT NOT NULL DEFAULT 'enabled'", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_disabled_until INTEGER NOT NULL DEFAULT 0", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_disable_strikes INTEGER NOT NULL DEFAULT 0", []);
-                // 数据迁移：旧 enabled=0 → status='disabled'（幂等：仅作用于仍为默认 'enabled' 的行，
-                // 绝不覆盖 auto_disabled，避免重启误判用户禁用 vs 自动禁用）
-                let _ = conn.execute("UPDATE platform SET status = 'disabled' WHERE enabled = 0 AND status = 'enabled'", []);
-                // group 分组级最大重试次数
-                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 2", []);
-                // proxy_log attempts/retry_count → run_migrations_proxy_log_early
-                // Migration 012: Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）
-                // 根因：Platforms.tsx 预设曾把 kimi coding openai endpoint 配为 codex_tui，
-                // 但 Kimi coding 上游拒绝 Codex（只接 Kimi CLI/Claude Code/Roo Code/Kilo Code）。
-                // 扫描已有 kimi 平台 endpoints JSON，修正该 endpoint 身份。幂等：仅改 codex_tui，已 claude_code 不动。
-                if let Ok(mut stmt) = conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'kimi'") {
-                    let rows: Vec<(i64, String)> = stmt
-                        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
-                        .ok()
-                        .map(|iter| iter.filter_map(Result::ok).collect())
-                        .unwrap_or_default();
-                    for (id, endpoints_json) in rows {
-                        let mut eps = parse_endpoints(&endpoints_json);
-                        let mut changed = false;
-                        for ep in &mut eps {
-                            if ep.protocol == Protocol::OpenAI
-                                && ep.coding_plan
-                                && ep.client_type == "codex_tui"
-                            {
-                                ep.client_type = "claude_code".to_string();
-                                changed = true;
-                            }
-                        }
-                        if changed {
-                            let new_json = serialize_endpoints(&eps);
-                            let _ = conn.execute(
-                                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
-                                params![new_json, id],
-                            );
-                            tracing::info!(platform_id = id, "migration 012: kimi coding endpoint client_type codex_tui→claude_code");
-                        }
-                    }
-                }
+                // Migration 004–012: platform / "group" 的 ALTER 与 012 kimi endpoint 修正
+                // → run_migrations_platform_early / run_migrations_platform_late（落 platform.db）。
                 // Migration 013: 中间件规则引擎基座（C1）。单表 middleware_rule，
                 // 8 类规则 + 三级作用域就近覆盖；schema 严格按 design.md。
                 conn.execute_batch(
@@ -179,13 +74,7 @@ CREATE TABLE IF NOT EXISTS model_price (
                 // Migration 015: 内置预设中间件规则 seed（C4）。
                 // is_builtin=1 默认 enabled；幂等——按 (name, is_builtin=1) 唯一判定，已存在跳过（尊重用户禁用状态，不重新启用）。
                 seed_builtin_middleware_rules(conn)?;
-                // Migration 016: Platform 级熔断配置列（GA — group 智能调度与熔断器）。
-                // 0 = 继承全局 SchedulingBreakerSettings 默认（settings scope=scheduling）。
-                // 熔断与 auto_disabled 解耦：熔断临时(5xx/超时自动恢复)，状态在内存(scheduling.rs)不持久化；
-                // 本 3 列仅持久化阈值配置，运行态 BreakerState 不落库。
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_failure_threshold INTEGER NOT NULL DEFAULT 0", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_open_secs INTEGER NOT NULL DEFAULT 0", []);
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_half_open_max INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 016: Platform 级熔断配置列 → run_migrations_platform_late（platform 表已迁 platform.db）
                 // Migration 017/018: notification 表 → run_migrations_proxy_log_early（落 log.db）
                 // Migration 019: idx_proxy_log_stats → run_migrations_proxy_log_early
                 // Migration 020: MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
@@ -290,5 +179,92 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
                 // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
                 let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
+    Ok(())
+}
+
+/// platform.db 的 early migrations：建 platform / "group" / group_platform 三表。
+///
+/// config-db-split：从原 `run_migrations_early` 抽出（CREATE 语句原样搬移，幂等 idiom 不变）。
+/// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内调用。内存库 fallback 下
+/// platform handle = 主内存连接 clone，三表落在同一物理库，行为与拆库前一致。
+///
+/// 三表 schema 与原 `run_migrations_early` Migration 001 完全一致（含 enabled / sort_order /
+/// status / max_retries / manual_budgets 等列 —— 对齐旧库经 004–016 ALTER 后的终态，省去
+/// platform_late 的 30+ 条 `let _ = ALTER` 幂等重试）。
+pub(crate) fn run_migrations_platform_early(conn: &Connection) -> SqlResult<()> {
+    conn.execute_batch(
+        r#"PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+
+CREATE TABLE IF NOT EXISTS platform (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL DEFAULT '',
+    platform_type    TEXT NOT NULL DEFAULT '',
+    base_url         TEXT NOT NULL DEFAULT '',
+    api_key          TEXT NOT NULL DEFAULT '',
+    extra            TEXT NOT NULL DEFAULT '',
+    models           TEXT NOT NULL DEFAULT '{}',
+    available_models TEXT NOT NULL DEFAULT '[]',
+    endpoints        TEXT NOT NULL DEFAULT '[]',
+    enabled          INTEGER NOT NULL DEFAULT 1,
+    est_balance_remaining REAL NOT NULL DEFAULT 0,
+    est_coding_plan       TEXT NOT NULL DEFAULT '',
+    last_real_query_at    INTEGER NOT NULL DEFAULT 0,
+    estimate_count        INTEGER NOT NULL DEFAULT 0,
+    show_in_tray          INTEGER NOT NULL DEFAULT 0,
+    tray_display          TEXT NOT NULL DEFAULT 'balance',
+    created_at       INTEGER NOT NULL DEFAULT 0,
+    updated_at       INTEGER NOT NULL DEFAULT 0,
+    deleted_at       INTEGER NOT NULL DEFAULT 0,
+    sort_order       INTEGER NOT NULL DEFAULT 0,
+    manual_budgets   TEXT NOT NULL DEFAULT '[]',
+    status           TEXT NOT NULL DEFAULT 'enabled',
+    auto_disabled_until     INTEGER NOT NULL DEFAULT 0,
+    auto_disable_strikes    INTEGER NOT NULL DEFAULT 0,
+    breaker_failure_threshold INTEGER NOT NULL DEFAULT 0,
+    breaker_open_secs         INTEGER NOT NULL DEFAULT 0,
+    breaker_half_open_max     INTEGER NOT NULL DEFAULT 0,
+    auto_group       INTEGER NOT NULL DEFAULT 1,
+    expires_at       INTEGER NOT NULL DEFAULT 0,
+    last_error       TEXT NOT NULL DEFAULT '',
+    last_error_at    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "group" (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                 TEXT NOT NULL DEFAULT '',
+    group_key            TEXT NOT NULL DEFAULT '',
+    routing_mode         TEXT NOT NULL DEFAULT '',
+    auto_from_platform   TEXT NOT NULL DEFAULT '',
+    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
+    model_mappings       TEXT NOT NULL DEFAULT '[]',
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    created_at           INTEGER NOT NULL DEFAULT 0,
+    updated_at           INTEGER NOT NULL DEFAULT 0,
+    deleted_at           INTEGER NOT NULL DEFAULT 0,
+    sort_order           INTEGER NOT NULL DEFAULT 0,
+    max_retries          INTEGER NOT NULL DEFAULT 2,
+    is_default           INTEGER NOT NULL DEFAULT 0,
+    env_vars             TEXT NOT NULL DEFAULT '[]',
+    extra                TEXT NOT NULL DEFAULT '',
+    UNIQUE(name),
+    UNIQUE(group_key)
+);
+
+CREATE TABLE IF NOT EXISTS group_platform (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id       INTEGER NOT NULL DEFAULT 0,
+    platform_id    INTEGER NOT NULL DEFAULT 0,
+    priority       INTEGER NOT NULL DEFAULT 0,
+    weight         INTEGER NOT NULL DEFAULT 1,
+    level_priority INTEGER NOT NULL DEFAULT 5,
+    created_at     INTEGER NOT NULL DEFAULT 0,
+    updated_at     INTEGER NOT NULL DEFAULT 0,
+    deleted_at     INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(group_id, platform_id)
+);
+"#,
+    )?;
     Ok(())
 }
