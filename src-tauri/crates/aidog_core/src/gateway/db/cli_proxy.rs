@@ -1,7 +1,8 @@
 //! CLI 代理 provider CRUD（cpa-standalone-module s1）。
 //!
 //! 对应 `cli_proxy_provider` 表。list/get 走 read pool，create/update/delete 走 write pool。
-//! idiom 对齐 mcp.rs（track_caller + call_traced/call_read_traced）。
+//! idiom 对齐 mcp.rs（track_caller + call_platform_traced/call_read_platform_traced）。
+//! config-db-split：cli_proxy_provider 表落 platform.db，访问走 platform handle。
 
 use super::*;
 use crate::gateway::models::{
@@ -38,7 +39,7 @@ pub fn list_cli_proxy_providers(
 ) -> impl std::future::Future<Output = Result<Vec<CliProxyProvider>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        db.call_read_traced(None, __db_caller, move |conn| {
+        db.call_read_platform_traced(None, __db_caller, move |conn| {
             let mut stmt =
                 conn.prepare(&format!("SELECT {CLI_PROXY_COLUMNS} FROM cli_proxy_provider ORDER BY id"))?;
             let rows = stmt.query_map([], row_to_provider)?;
@@ -60,7 +61,7 @@ pub fn get_cli_proxy_provider(
 ) -> impl std::future::Future<Output = Result<Option<CliProxyProvider>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        db.call_read_traced(None, __db_caller, move |conn| {
+        db.call_read_platform_traced(None, __db_caller, move |conn| {
             Ok(conn
                 .query_row(
                     &format!("SELECT {CLI_PROXY_COLUMNS} FROM cli_proxy_provider WHERE id = ?1"),
@@ -82,7 +83,7 @@ pub fn create_cli_proxy_provider(
     let __db_caller = std::panic::Location::caller();
     async move {
         let ts = now();
-        db.call_traced(None, __db_caller, move |conn| {
+        db.call_platform_traced(None, __db_caller, move |conn| {
             let models_str = serialize_cli_proxy_models(&input.models);
             conn.execute(
                 "INSERT INTO cli_proxy_provider \
@@ -123,7 +124,7 @@ pub fn update_cli_proxy_provider(
     let __db_caller = std::panic::Location::caller();
     async move {
         let ts = now();
-        db.call_traced(None, __db_caller, move |conn| {
+        db.call_platform_traced(None, __db_caller, move |conn| {
             let models_str = serialize_cli_proxy_models(&input.models);
             let affected = conn.execute(
                 "UPDATE cli_proxy_provider SET \
@@ -168,7 +169,7 @@ pub fn delete_cli_proxy_provider(
 ) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        db.call_traced(None, __db_caller, move |conn| {
+        db.call_platform_traced(None, __db_caller, move |conn| {
             let affected = conn.execute(
                 "DELETE FROM cli_proxy_provider WHERE id = ?1",
                 params![id as i64],
