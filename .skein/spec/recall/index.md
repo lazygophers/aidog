@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(4), build(1), cross-layer(1), db(2), domain(6), encoding(1), frontend(4), i18n(1), ops(1), proxy(5), style(1)
+类目: arch(6), build(1), cross-layer(1), db(3), domain(6), encoding(1), frontend(4), i18n(1), ops(1), proxy(5), style(1)
 
 | file | category | title | keywords | summary |
 |---|---|---|---|---|
@@ -8,10 +8,13 @@
 | arch/trellis-03.md | arch | Workspace crate 边界契约 | crate,boundary,边界,commands,aidog_core,event,依赖 | # Workspace Crate 边界契约  何时被读: commands_* crate 内改源码 / 迁移 com… |
 | arch/trellis-04.md | arch | Protocol 枚举变体扩展范式 | protocol,enum,变体,grep,serde,match,union | # Protocol 枚举变体扩展范式  何时被读: 新增 `Protocol` 枚举变体时（新协议 / 新 cp 变体… |
 | arch/trellis-05.md | arch | 前端常量派生自后端 JSON 真值源 | derived,constants,docpromise,defaults,派生,presets,async | # 前端派生层（常量 → 后端 JSON 派生）  何时被读: 前端硬编码常量（协议列表 / label 映射 / 颜色… |
+| arch/non-typical-sql-audit-pattern.md | arch | 非典型 SQL 形态易漏审计 | db,sqlite,sql,审计,helper,裸sql,grep,易漏,访问点 | # 非典型 SQL 形态易漏审计  何时被读: 拆库审计某表访问点时 谁读: trellis-implement sub-agent / main… |
+| arch/cross-db-subquery-handle-selection.md | arch | 跨库补查闭包 handle 按补查表归属 | db,sqlite,跨库,补查,handle,闭包,cpp,平台名,N+1 | # 跨库补查闭包 handle 按补查表归属  何时被读: 跨库查询（主表查 A 库 + 补查 B 库表，如 proxy_log(log.db) 补查 platform/group 名(platform… |
 | build/trellis-02.md | build | Cargo workspace 重构门禁 | cargo,workspace,crate,build.rs,重构,门禁,下沉 | # Cargo Workspace 重构门禁  何时被读: 单 crate → cargo workspace 多 cr… |
 | cross-layer/trellis-20.md | cross-layer | 跨 Rust TS 边界契约 | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | # Cross-Layer Rules  何时被读: 改动跨越 Rust↔TypeScript 边界的功能时 谁读: t… |
 | db/trellis-00.md | db | DB 表设计强制规范 | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | # DB Conventions  何时被读: 新增 / 修改任何数据库表、字段、模型、CRUD、迁移时 谁读: tre… |
 | db/trellis-01.md | db | tokio_rusqlite 连接韧性契约 | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | # DB Connection Resilience  何时被读: 改 `Db` 结构 / DB 调用路径（`call_… |
+| db/crash-safe-db-split-migration.md | db | 拆库 crash-safe 四阶段迁移模式 | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | # 拆库 crash-safe 四阶段迁移模式  何时被读: 表从一个 SQLite 库迁移到另一个库（主库→log.db / platform.db），需迁存量数据 + DROP 源表时 谁读: trellis-imple… |
 | domain/cpa-oauth-credential-format.md | domain | CPA OAuth 凭据格式（CLIProxyAPI） | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | # CPA OAuth 凭据格式（CLIProxyAPI）  何时被读: 改 CPA 导入解析器 / 加新 OAuth … |
 | domain/trellis-06.md | domain | mock 平台类型规范 | mock,platform,extra,test,builder,error_mode | # Mock Platform Type  何时被读: 改 mock 平台逻辑（adapter/mock.rs / pr… |
 | domain/trellis-07.md | domain | Claude Code 订阅透传平台 | claude,passthrough,透传,subscription,header | # Claude Code Passthrough Platform Type  何时被读: 改 Claude Code… |
