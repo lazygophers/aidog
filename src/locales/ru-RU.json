@@ -2096,5 +2096,14 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "platform.devinConfig": "Настройка Devin",
+  "platform.devinConfigHint": "API-ключ использует префик cog_ ; ID организации обязателен (сегмент пути v3), доступен в консоли Devin",
+  "platform.devinOrgId": "ID организации",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "Тайм-аут сессии (секунды, необязательно)",
+  "platform.devinTimeoutPlaceholder": "По умолчанию 300",
+  "platform.devinMode": "Режим по умолчанию (необязательно)",
+  "platform.devinModeAuto": "Авто-сопоставление по модели",
+  "platform.acuUsage": "Использование ACU"
 }

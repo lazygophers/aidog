@@ -2096,5 +2096,14 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "platform.devinConfig": "إعدادات Devin",
+  "platform.devinConfigHint": "مفتاح API يستخدم بادئة cog_ ؛ معرف المؤسسة مطلوب (مقطع مسار v3)، متاح في لوحة تحكم Devin",
+  "platform.devinOrgId": "معرف المؤسسة",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "مهلة الجلسة (ثوانٍ، اختياري)",
+  "platform.devinTimeoutPlaceholder": "افتراضي 300",
+  "platform.devinMode": "الوضع الافتراضي (اختياري)",
+  "platform.devinModeAuto": "تعيين تلقائي حسب النموذج",
+  "platform.acuUsage": "استهلاك ACU"
 }
