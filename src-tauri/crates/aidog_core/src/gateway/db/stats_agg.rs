@@ -175,7 +175,7 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
     async move {
     // platform_id=0（auto 分组）才需 auto_map 回溯；预查 move 进 proxy_log 写闭包。
     let auto_map = if input.platform_id == 0 {
-        db.call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
             .await
             .map_err(|e| format!("upsert stats agg load auto_map: {e}"))?
     } else {
@@ -246,7 +246,7 @@ pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output =
     let __db_caller = std::panic::Location::caller();
     async move {
     let auto_map = db
-        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("rebuild stats agg load auto_map: {e}"))?;
     db
@@ -307,7 +307,7 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
     let __db_caller = std::panic::Location::caller();
     // 跨库预查：`"group"` 表在主库，proxy_log 写闭包内禁查 → 主 handle 预查 move 进闭包。
     let auto_map = db
-        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("correct count_tokens agg load auto_map: {e}"))?;
     db.call_proxy_log_traced(None, __db_caller, move |conn| {
