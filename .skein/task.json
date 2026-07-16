@@ -2,9 +2,9 @@
   "tasks": [
     {
       "id": "cli-proxy-batch-delete",
-      "status": "待处理",
+      "status": "进行中",
       "deps": [],
-      "worktree": null
+      "worktree": ".worktrees/skein-cli-proxy-batch-delete"
     },
     {
       "id": "config-db-split",
