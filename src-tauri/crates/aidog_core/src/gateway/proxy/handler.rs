@@ -465,6 +465,7 @@ pub(crate) async fn handle_proxy_core(
                 is_stream,
                 start,
                 lang,
+                &orig_headers,
             )
             .await;
         }
