@@ -1,5 +1,97 @@
 use super::*;
 
+// ── s5: X-Devin-Session-Id → devin_id 内存映射（LRU + TTL 30min）──
+//
+// 设计：客户端传 `X-Devin-Session-Id` 请求头 → 命中且 session 非终态 → 复用（POST messages
+// 续聊，省 ACU + 保上下文）；未传 / 未命中 / 已终态 / 已过期 → 新建 session + 响应头回传新
+// session id（客户端下次续）。内存即可（Devin session 闲置 sleep，映射过期=新建可接受；
+// 重启丢=下次新建不致命，非契约）。ponytail: 模块级 OnceLock<DashMap>，分片锁自带
+// Send+Sync，无需 Arc<Mutex> 包裹（见 memory DashMap 分片锁）。
+
+const DEVIN_SESSION_TTL_SECS: u64 = 30 * 60;
+
+#[derive(Clone)]
+struct DevinSessionMapping {
+    devin_id: String,
+    created_at: std::time::Instant,
+}
+
+static DEVIN_SESSION_MAP: std::sync::OnceLock<dashmap::DashMap<String, DevinSessionMapping>> =
+    std::sync::OnceLock::new();
+
+fn session_map() -> &'static dashmap::DashMap<String, DevinSessionMapping> {
+    DEVIN_SESSION_MAP.get_or_init(dashmap::DashMap::new)
+}
+
+/// 查映射 + TTL 判定 + 命中滑动续期。返回 `Some(devin_id)` 当且仅当 key 存在且未过期。
+///
+/// ponytail: 滑动 TTL（命中时刷新 created_at）——活跃会话不会被 30min 硬上限误杀；
+/// 全局 DashMap 查询 + 潜在 get_mut 二次写，O(1) 不持锁跨 await（memory DashMap 分片锁）。
+fn lookup_session_at(client_id: &str, now: std::time::Instant) -> Option<String> {
+    let map = session_map();
+    let devin_id = {
+        let entry = map.get(client_id)?;
+        if now.duration_since(entry.created_at).as_secs() > DEVIN_SESSION_TTL_SECS {
+            return None;
+        }
+        entry.devin_id.clone()
+    };
+    // 滑动续期（单独 get_mut 避免持读锁跨写）
+    if let Some(mut entry) = map.get_mut(client_id) {
+        entry.created_at = now;
+    }
+    Some(devin_id)
+}
+
+/// 存映射 + 惰性 sweep（size > 128 时清过期项，避免长跑泄漏）。
+fn store_session_at(client_id: String, devin_id: String, now: std::time::Instant) {
+    let map = session_map();
+    if map.len() > 128 {
+        map.retain(|_, v| now.duration_since(v.created_at).as_secs() <= DEVIN_SESSION_TTL_SECS);
+    }
+    map.insert(client_id, DevinSessionMapping { devin_id, created_at: now });
+}
+
+/// 生产入口：用当前时刻查映射。
+fn lookup_session(client_id: &str) -> Option<String> {
+    lookup_session_at(client_id, std::time::Instant::now())
+}
+
+/// 生产入口：用当前时刻存映射。
+fn store_session(client_id: String, devin_id: String) {
+    store_session_at(client_id, devin_id, std::time::Instant::now());
+}
+
+/// 纯函数决策（便于单测，不触网络 / 不触 map）：给定 header / mapped / status 推导复用 vs 新建。
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum SessionDecision {
+    Reuse(String),
+    CreateNew,
+}
+
+pub(crate) fn decide_session_reuse(
+    header: Option<&str>,
+    mapped: Option<&str>,
+    current_status: Option<&str>,
+) -> SessionDecision {
+    match (header, mapped, current_status) {
+        (Some(_), Some(devin_id), Some(status)) if !is_terminal_status(status) => {
+            SessionDecision::Reuse(devin_id.to_string())
+        }
+        _ => SessionDecision::CreateNew,
+    }
+}
+
+/// 给 AirDog 构造的响应附 `x-devin-session-id` 头（client_id 空则跳过）。
+fn attach_session_header(resp: &mut axum::response::Response, client_id: &str) {
+    if client_id.is_empty() { return; }
+    let Ok(hv) = axum::http::HeaderValue::from_str(client_id) else { return };
+    resp.headers_mut().insert(
+        axum::http::HeaderName::from_static("x-devin-session-id"),
+        hv,
+    );
+}
+
 /// Devin（Cognition）平台请求处理：chat ↔ session 协议转换。
 ///
 /// Devin 是 stateful session API（create → poll → fetch output），非标准 chat completions wire。
@@ -27,6 +119,7 @@ pub(crate) async fn handle_devin(
     is_stream: bool,
     start: std::time::Instant,
     lang: Lang,
+    req_headers: &axum::http::HeaderMap,
 ) -> Response {
     log.target_protocol = "devin".to_string();
     log.platform_id = platform.id;
@@ -96,19 +189,80 @@ pub(crate) async fn handle_devin(
         Some(&platform.extra), None,
     ).await;
 
-    // ── 1. create session ──
-    let session_id = match create_session(&client, &base_url, api_key, &prompt, requested_model).await {
-        Ok(id) => id,
-        Err(e) => {
-            tracing::warn!(platform_id = platform.id, error = %e, "devin create_session failed");
-            return devin_error(
-                &state, &mut log, &log_settings, lang, start,
-                StatusCode::BAD_GATEWAY,
-                &format!("devin create_session error: {e}"),
-            ).await;
+    // ── 1. resolve session id（s5: X-Devin-Session-Id 复用 / 否则新建）──
+    //   有 header + 映射命中 + session 非终态 → POST messages 复用（省 ACU + 保上下文）
+    //   有 header 但未命中/过期/终态/probe 失败 → 新建 + 存映射（覆盖旧条目）
+    //   无 header → 新建 + 存映射（client_id = devin_id 本身，省 UUID）
+    let header_id = req_headers
+        .get("x-devin-session-id")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| !s.is_empty())
+        .map(String::from);
+    let mut client_id: String = header_id.clone().unwrap_or_default();
+
+    // 命中映射 + probe 当前 status（任一缺失 → CreateNew）
+    let mapped: Option<String> = header_id.as_ref().and_then(|hid| lookup_session(hid));
+    let probed_status: Option<String> = match &mapped {
+        Some(id) => fetch_session_state(&client, &base_url, api_key, id).await.ok().map(|s| s.status),
+        None => None,
+    };
+    let session_id: String = match decide_session_reuse(
+        header_id.as_deref(),
+        mapped.as_deref(),
+        probed_status.as_deref(),
+    ) {
+        SessionDecision::Reuse(mapped_id) => {
+            client_id = header_id.clone().unwrap_or_default();
+            tracing::info!(
+                platform_id = platform.id,
+                client_session_id = %client_id,
+                devin_id = %mapped_id,
+                status = probed_status.as_deref().unwrap_or("?"),
+                "devin reuse session via X-Devin-Session-Id"
+            );
+            if let Err(e) = send_message_to_session(&client, &base_url, api_key, &mapped_id, &prompt).await {
+                tracing::warn!(
+                    platform_id = platform.id,
+                    devin_id = %mapped_id,
+                    error = %e,
+                    "devin POST messages failed"
+                );
+                let mut r = devin_error(
+                    &state, &mut log, &log_settings, lang, start,
+                    StatusCode::BAD_GATEWAY,
+                    &format!("devin send_message error: {e}"),
+                ).await;
+                attach_session_header(&mut r, &client_id);
+                return r;
+            }
+            mapped_id
+        }
+        SessionDecision::CreateNew => {
+            let new_id = match create_session(&client, &base_url, api_key, &prompt, requested_model).await {
+                Ok(id) => id,
+                Err(e) => {
+                    tracing::warn!(platform_id = platform.id, error = %e, "devin create_session failed");
+                    let mut r = devin_error(
+                        &state, &mut log, &log_settings, lang, start,
+                        StatusCode::BAD_GATEWAY,
+                        &format!("devin create_session error: {e}"),
+                    ).await;
+                    attach_session_header(&mut r, &client_id);
+                    return r;
+                }
+            };
+            let cid = header_id.clone().unwrap_or_else(|| new_id.clone());
+            tracing::info!(
+                platform_id = platform.id,
+                devin_id = %new_id,
+                client_session_id = %cid,
+                "devin session created (new)"
+            );
+            store_session(cid.clone(), new_id.clone());
+            client_id = cid;
+            new_id
         }
     };
-    tracing::info!(platform_id = platform.id, session_id = %session_id, "devin session created");
 
     // ── 2. poll until terminal (10s 间隔 + 300s 上限) ──
     // TODO(s6): 超时返 504 + 结构化 body；s3 先简单 Err → 502 占位。
@@ -116,11 +270,13 @@ pub(crate) async fn handle_devin(
         Ok(s) => s,
         Err(e) => {
             tracing::warn!(platform_id = platform.id, session_id = %session_id, error = %e, "devin poll_session failed");
-            return devin_error(
+            let mut r = devin_error(
                 &state, &mut log, &log_settings, lang, start,
                 StatusCode::BAD_GATEWAY,
                 &format!("devin poll_session error: {e}"),
             ).await;
+            attach_session_header(&mut r, &client_id);
+            return r;
         }
     };
     tracing::info!(
@@ -141,11 +297,13 @@ pub(crate) async fn handle_devin(
                 Ok(text) => text,
                 Err(e) => {
                     tracing::warn!(platform_id = platform.id, session_id = %session_id, error = %e, "devin get_messages failed");
-                    return devin_error(
+                    let mut r = devin_error(
                         &state, &mut log, &log_settings, lang, start,
                         StatusCode::BAD_GATEWAY,
                         &format!("devin get_messages error: {e}"),
                     ).await;
+                    attach_session_header(&mut r, &client_id);
+                    return r;
                 }
             }
         }
@@ -163,6 +321,7 @@ pub(crate) async fn handle_devin(
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (StatusCode::BAD_GATEWAY, [(axum::http::header::CONTENT_TYPE, "application/json")], body).into_response();
             inject_trace_header(&mut r);
+            attach_session_header(&mut r, &client_id);
             return r;
         }
         "suspended" => {
@@ -182,16 +341,19 @@ pub(crate) async fn handle_devin(
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (StatusCode::PAYMENT_REQUIRED, [(axum::http::header::CONTENT_TYPE, "application/json")], body).into_response();
             inject_trace_header(&mut r);
+            attach_session_header(&mut r, &client_id);
             return r;
         }
         other => {
             // 兜底：未预期非终态 status（理论上 poll_session 只返终态）
             tracing::error!(platform_id = platform.id, session_id = %session_id, status = %other, "devin unexpected non-terminal status reached handler");
-            return devin_error(
+            let mut r = devin_error(
                 &state, &mut log, &log_settings, lang, start,
                 StatusCode::BAD_GATEWAY,
                 &format!("devin unexpected status: {other}"),
             ).await;
+            attach_session_header(&mut r, &client_id);
+            return r;
         }
     };
 
@@ -205,7 +367,7 @@ pub(crate) async fn handle_devin(
         return stream_terminal_response(
             state, log, log_settings, source_protocol, requested_model,
             &session_id, &content, acus_consumed, final_state.status.as_str(),
-            final_state.status_detail.as_deref(), start,
+            final_state.status_detail.as_deref(), start, &client_id,
         ).await;
     }
     let body = format_chat_response(source_protocol, &session_id, requested_model, &content, acus_consumed);
@@ -224,6 +386,7 @@ pub(crate) async fn handle_devin(
 
     let mut r = (StatusCode::OK, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
     inject_trace_header(&mut r);
+    attach_session_header(&mut r, &client_id);
     r
 }
 
@@ -432,6 +595,58 @@ pub(crate) struct DevinSessionState {
     pub acus_consumed: f64,
 }
 
+/// 单次 GET /sessions/{id}（非轮询）：复用路径的状态探测。
+///
+/// ponytail: 与 poll_session 共享响应解析形态，但不轮询 —— 复用前一次性查 status，
+/// 终态即 fallback 新建。返回的 `acus_consumed` 复用路径不消费（仅 create/poll 累计）。
+async fn fetch_session_state(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    session_id: &str,
+) -> Result<DevinSessionState, String> {
+    let url = format!("{base_url}/sessions/{session_id}");
+    let resp = client.get(&url)
+        .bearer_auth(api_key)
+        .send().await
+        .map_err(|e| format!("http: {e}"))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("status {}: {}", status.as_u16(), text));
+    }
+    let v: Value = resp.json().await.map_err(|e| format!("decode: {e}"))?;
+    Ok(DevinSessionState {
+        status: v.get("status").and_then(|x| x.as_str()).unwrap_or("running").to_string(),
+        status_detail: v.get("status_detail").and_then(|x| x.as_str()).map(String::from),
+        acus_consumed: v.get("acus_consumed").and_then(|x| x.as_f64()).unwrap_or(0.0),
+    })
+}
+
+/// POST /sessions/{id}/messages body=`{"message": "..."}`（s5：续聊复用路径）。
+/// 须 session running/claimed/new/resuming 态（调用方保证：先 fetch_session_state 探测）。
+async fn send_message_to_session(
+    client: &reqwest::Client,
+    base_url: &str,
+    api_key: &str,
+    session_id: &str,
+    message: &str,
+) -> Result<(), String> {
+    let url = format!("{base_url}/sessions/{session_id}/messages");
+    let body = serde_json::json!({ "message": message });
+    let resp = client.post(&url)
+        .bearer_auth(api_key)
+        .json(&body)
+        .send().await
+        .map_err(|e| format!("http: {e}"))?;
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        return Err(format!("status {}: {}", status.as_u16(), text));
+    }
+    Ok(())
+}
+
 /// 轮询 GET /sessions/{id} 直到终态（exit/error/suspended）或超时（300s）。
 ///
 /// 间隔 10s（tokio::time::sleep）。超时上限硬编 300s（TODO(s6) extra 可配）。
@@ -546,6 +761,7 @@ async fn stream_terminal_response(
     final_status: &str,
     final_status_detail: Option<&str>,
     start: std::time::Instant,
+    client_session_id: &str,
 ) -> Response {
     use crate::gateway::adapter::converter::to_client_sse;
 
@@ -597,6 +813,7 @@ async fn stream_terminal_response(
         body,
     ).into_response();
     inject_trace_header(&mut r);
+    attach_session_header(&mut r, client_session_id);
     r
 }
 
@@ -898,5 +1115,118 @@ mod tests {
         assert!(a.starts_with("event: error\ndata: "));
         let av: Value = serde_json::from_str(a.split("data: ").nth(1).unwrap().trim()).unwrap();
         assert_eq!(av["error"]["message"], "kaboom");
+    }
+
+    // ── s5: X-Devin-Session-Id 映射（LRU + TTL 30min）──
+
+    /// 唯一 key 工厂：避免共享 DashMap 跨测试污染（memory singleton 警示）。
+    fn fresh_key(tag: &str) -> String {
+        static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+        let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        format!("test-key-{tag}-{n}-{}", std::time::Instant::now().elapsed().as_nanos())
+    }
+
+    #[test]
+    fn session_map_store_and_lookup_hit() {
+        let now = std::time::Instant::now();
+        let k = fresh_key("hit");
+        let id = format!("devin-{k}");
+        store_session_at(k.clone(), id.clone(), now);
+        assert_eq!(lookup_session_at(&k, now), Some(id));
+    }
+
+    #[test]
+    fn session_map_miss_returns_none() {
+        let now = std::time::Instant::now();
+        let k = fresh_key("miss");
+        assert_eq!(lookup_session_at(&k, now), None);
+    }
+
+    #[test]
+    fn session_map_expired_returns_none() {
+        // ponytail: 用 Instant 减法模拟过期（30min TTL，回拨 31min）
+        let now = std::time::Instant::now();
+        let past = now - std::time::Duration::from_secs(31 * 60);
+        let k = fresh_key("expired");
+        let id = format!("devin-{k}");
+        store_session_at(k.clone(), id, past);
+        assert_eq!(lookup_session_at(&k, now), None);
+    }
+
+    #[test]
+    fn session_map_lookup_slides_ttl() {
+        // 命中刷新 created_at，再过 20min（< 30min）仍命中
+        let t0 = std::time::Instant::now();
+        let k = fresh_key("slide");
+        store_session_at(k.clone(), "devin-slide".into(), t0);
+        // 29min 后查 → 命中且续期
+        let t1 = t0 + std::time::Duration::from_secs(29 * 60);
+        assert_eq!(lookup_session_at(&k, t1).as_deref(), Some("devin-slide"));
+        // 再过 20min（从 t1 起，总 49min > 30 但滑动后续期）→ 仍命中
+        let t2 = t1 + std::time::Duration::from_secs(20 * 60);
+        assert_eq!(lookup_session_at(&k, t2).as_deref(), Some("devin-slide"));
+    }
+
+    // ── decide_session_reuse（纯函数决策，便于单测）──
+
+    #[test]
+    fn decide_reuse_when_header_mapped_non_terminal() {
+        // 有 header + 映射命中 + 非终态 → Reuse
+        assert_eq!(
+            decide_session_reuse(Some("c1"), Some("devin-1"), Some("running")),
+            SessionDecision::Reuse("devin-1".into())
+        );
+        assert_eq!(
+            decide_session_reuse(Some("c1"), Some("devin-1"), Some("claimed")),
+            SessionDecision::Reuse("devin-1".into())
+        );
+        assert_eq!(
+            decide_session_reuse(Some("c1"), Some("devin-1"), Some("resuming")),
+            SessionDecision::Reuse("devin-1".into())
+        );
+        assert_eq!(
+            decide_session_reuse(Some("c1"), Some("devin-1"), Some("new")),
+            SessionDecision::Reuse("devin-1".into())
+        );
+    }
+
+    #[test]
+    fn decide_new_when_terminal_status() {
+        // 终态（exit/error/suspended）→ 不复用，新建
+        for s in &["exit", "error", "suspended"] {
+            assert_eq!(
+                decide_session_reuse(Some("c1"), Some("devin-1"), Some(s)),
+                SessionDecision::CreateNew,
+                "status {s} should force new"
+            );
+        }
+    }
+
+    #[test]
+    fn decide_new_when_mapping_miss_or_no_header() {
+        // 映射未命中（None）→ 新建
+        assert_eq!(
+            decide_session_reuse(Some("c1"), None, None),
+            SessionDecision::CreateNew
+        );
+        // 无 header → 即使有映射也走新建（client_id 后续从 devin_id 派生）
+        assert_eq!(
+            decide_session_reuse(None, Some("devin-1"), Some("running")),
+            SessionDecision::CreateNew
+        );
+        // 完全空白 → 新建
+        assert_eq!(
+            decide_session_reuse(None, None, None),
+            SessionDecision::CreateNew
+        );
+    }
+
+    #[test]
+    fn decide_new_when_status_probe_failed() {
+        // probe 失败（current_status = None）→ 安全侧 fallback 新建
+        assert_eq!(
+            decide_session_reuse(Some("c1"), Some("devin-1"), None),
+            SessionDecision::CreateNew
+        );
     }
 }
