@@ -7,7 +7,7 @@ pub fn force_delete_group(db: &Db, id: u64) -> impl std::future::Future<Output =
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute("UPDATE \"group\" SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
             Ok(())
         })
@@ -31,7 +31,7 @@ pub fn set_group_platforms<'a>(
     let ts = now();
     let platforms = platforms.to_vec();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             // 物理清除旧关联后重建（关联表无需软删保留）
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1",
@@ -71,7 +71,7 @@ pub fn sync_platform_manual_groups<'a>(
     // 该平台当前所在的所有 (group_id, auto_from_platform)。
     let current: Vec<(i64, String)> = db
         
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             // 去 JOIN：① 取该平台所在的 group_id 列表；② 按 group_id 批量取 (id, auto_from_platform)，
             // 内存配对。非热路径、行数极小（单平台所属组数）。
             let mut gp_stmt = conn.prepare(
@@ -112,7 +112,7 @@ pub fn sync_platform_manual_groups<'a>(
         if auto_from.is_empty() && !target.contains(gid) {
             let gid = *gid;
             db
-                .call_traced(None, __db_caller, move |conn| {
+                .call_platform_traced(None, __db_caller, move |conn| {
                     conn.execute(
                         "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
                         params![gid, platform_id as i64],
@@ -189,7 +189,7 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<O
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             // 去 JOIN：① 取本组 group_platform 行（保 ORDER BY priority）；② 按 platform_id 批量取
             // platform；③ 内存按 priority 重组（软删平台不在 map 自然剔除）。
             let mut gp_stmt = conn.prepare(
@@ -253,7 +253,7 @@ fn list_group_platforms_for_groups<'a>(
     }
     let group_ids: Vec<i64> = group_ids.iter().map(|&g| g as i64).collect();
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             // ① 给定组的 group_platform 行（保 group_id + priority 排序）。
             let placeholders: Vec<String> =
                 (0..group_ids.len()).map(|i| format!("?{}", i + 1)).collect();

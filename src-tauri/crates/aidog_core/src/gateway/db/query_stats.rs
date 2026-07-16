@@ -16,11 +16,11 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
     // 跨库预查（proxy-log-db-split s3）：stats_agg_hourly / proxy_log 在 log.db，
     // `"group"` / `platform` 表在主库 → 预查 auto_map + platform_names 移入 proxy_log 闭包。
     let auto_map = db
-        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("query_stats load auto_map: {e}"))?;
     let platform_names = db
-        .call_read_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("query_stats load platform_names: {e}"))?;
     db
@@ -43,11 +43,11 @@ pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future:
     async move {
     // 跨库预查（同 query_stats）：auto_map + platform_names 在主库，预查移入 proxy_log 闭包。
     let auto_map = db
-        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("query_stats_batch load auto_map: {e}"))?;
     let platform_names = db
-        .call_read_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
     db

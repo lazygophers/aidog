@@ -11,7 +11,7 @@ pub fn update_platform_quota<'a>(db: &'a Db, id: u64, balance: f64, coding_plan_
     async move {
     let coding_plan_json = coding_plan_json.to_string();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2 WHERE id = ?3",
                 params![balance, coding_plan_json, id as i64],
@@ -32,7 +32,7 @@ pub fn delete_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Re
     // ① 软删平台 + 物理清除该平台在所有分组（含手动组与 auto 组）的成员关系。
     //    单事务保证：平台行软删与关联行清理同步，不留指向已删平台的悬空 group_platform。
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             let tx = conn.transaction()?;
             tx.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
             tx.execute("DELETE FROM group_platform WHERE platform_id = ?1", params![id as i64])?;
@@ -82,7 +82,7 @@ pub fn purge_auto_disabled_platforms(
             let now_ms = now();
             let ids: Vec<i64> = db
 
-                .call_traced(None, __db_caller, move |conn| {
+                .call_platform_traced(None, __db_caller, move |conn| {
                     // auto_disabled 仅删 401/403（key 失效，重建才恢复）；402/429-配额等可恢复
                     //   auto_disabled（充值后自愈）保留，不被一键清理误删。过期平台照删。
                     let mut stmt = conn.prepare(
@@ -115,7 +115,7 @@ pub fn purge_auto_disabled_platforms(
             // 本分组内 auto_disabled 或已过期平台 id（活跃关联 + 平台未软删）。
             let ids: Vec<i64> = db
 
-                .call_traced(None, __db_caller, move |conn| {
+                .call_platform_traced(None, __db_caller, move |conn| {
                     // 去 JOIN：① 取本组活跃关联的 platform_id；② 在这些 id 中筛 auto_disabled 或已过期且未软删。
                     let mut gp_stmt = conn.prepare(
                         "SELECT platform_id FROM group_platform WHERE group_id = ?1 AND deleted_at = 0",
@@ -153,7 +153,7 @@ pub fn purge_auto_disabled_platforms(
                 // 该平台跨全库的活跃分组成员数（deleted_at=0 过滤，避免软删残留误判独占）。
                 let member_count: i64 = db
                     
-                    .call_traced(None, __db_caller, move |conn| {
+                    .call_platform_traced(None, __db_caller, move |conn| {
                         Ok(conn.query_row(
                             "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
                             params![pid],
@@ -171,7 +171,7 @@ pub fn purge_auto_disabled_platforms(
                     // 共享（属多分组）→ 仅删本分组关联，platform 行保留。
                     // 对齐 move_group_platform 既有模式（db.rs:1622）：物理 DELETE + deleted_at=0 过滤当前活跃行。
                     db
-                        .call_traced(None, __db_caller, move |conn| {
+                        .call_platform_traced(None, __db_caller, move |conn| {
                             conn.execute(
                                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                                 params![gid_i, pid],
@@ -211,7 +211,7 @@ pub fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> impl s
     let cutoff = now() - older_than_secs;
     let n = db
         
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             Ok(conn.execute(
                 "DELETE FROM platform WHERE deleted_at > 0 AND deleted_at < ?1",
                 params![cutoff],
@@ -234,7 +234,7 @@ pub fn set_tray_platform<'a>(db: &'a Db, platform_id: u64, tray_display: &'a str
     let display = if tray_display == "coding" { "coding" } else { "balance" }.to_string();
     let ts = now();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             let tx = conn.transaction()?;
             tx.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![ts])?;
             tx.execute(
@@ -257,7 +257,7 @@ pub fn clear_tray(db: &Db) -> impl std::future::Future<Output = Result<(), Strin
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![now()])?;
             Ok(())
         })
@@ -274,7 +274,7 @@ pub fn get_tray_platform(db: &Db) -> impl std::future::Future<Output = Result<Op
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, |conn| {
+        .call_platform_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row([], row_to_platform).optional()?)

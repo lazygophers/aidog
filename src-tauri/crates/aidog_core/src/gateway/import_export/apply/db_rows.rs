@@ -16,7 +16,8 @@ pub(super) async fn upsert_group_row(
     let row = row.clone();
     let group_key = group_key.to_string();
     let effective_name = effective_name.to_string();
-    db.write_conn()
+    // config-db-split：group 表落 platform.db，走 platform 写连接。
+    db.platform_write_conn()
         .call(move |conn| {
             let tx = conn.transaction()?;
             let existing_id: Option<i64> = tx
@@ -99,7 +100,8 @@ pub(super) async fn upsert_platform_row(
     // effective_name 仍尊重 rename 决策（若 .aidogx 传 rename）。
     let row = row.clone();
     let effective = effective_name.to_string();
-    db.write_conn()
+    // config-db-split：platform 表落 platform.db，走 platform 写连接。
+    db.platform_write_conn()
         .call(move |conn| {
             let tx = conn.transaction()?;
             let now = now_ts();
@@ -199,7 +201,8 @@ pub(super) fn effective_extra_with_breaker(row: &serde_json::Value) -> String {
 pub(super) async fn relink_group_platform(db: &Db, group_key: &str, platform_name: &str) -> Result<(), String> {
     let g = group_key.to_string();
     let p = platform_name.to_string();
-    db.write_conn()
+    // config-db-split：group/platform/group_platform 表落 platform.db，走 platform 写连接。
+    db.platform_write_conn()
         .call(move |conn| {
             let tx = conn.transaction()?;
             let gid: Option<i64> = tx
@@ -250,7 +253,8 @@ pub(super) async fn relink_group_platform(db: &Db, group_key: &str, platform_nam
 
 /// 快照当前未删除 platform 的 id 集合（apply 前调用，用于回出本次新建行）。
 pub async fn snapshot_platform_ids(db: &Db) -> Result<std::collections::BTreeSet<i64>, String> {
-    db.write_conn()
+    // config-db-split：platform 表落 platform.db，走 platform 写连接。
+    db.platform_write_conn()
         .call(|conn| {
             let mut stmt =
                 conn.prepare("SELECT id FROM platform WHERE deleted_at = 0")?;
@@ -274,7 +278,8 @@ pub async fn ensure_group_and_attach(
 ) -> Result<(), String> {
     let group_name = group_name.to_string();
     let before = before.clone();
-    db.write_conn()
+    // config-db-split：group/platform/group_platform 表落 platform.db，走 platform 写连接。
+    db.platform_write_conn()
         .call(move |conn| {
             let tx = conn.transaction()?;
             // 1. ensure group by name（命中复用；未命中 create 生成 group_key）。

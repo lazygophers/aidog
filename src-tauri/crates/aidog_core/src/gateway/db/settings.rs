@@ -136,7 +136,7 @@ pub fn list_all_group_platform_pairs(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             // 去双 JOIN：分别取 group/platform 的 id→name 全表映射 + group_platform 关联，
             // 内存按 group_id/platform_id 解析名称（任一端缺失则丢弃，等价旧 inner JOIN）。
             let group_names: std::collections::HashMap<i64, String> = {

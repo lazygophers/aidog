@@ -1055,6 +1055,19 @@ impl Db {
             .clone()
     }
 
+    /// 取 platform.db 写连接的 clone（短暂持锁，纳秒级 channel sender clone）。
+    ///
+    /// 与 `write_conn` 同形，唯连接来源为 `self.6`（platform 写槽）。供历史「直接访问
+    /// `db.0.call(...)`」模式中触及 platform / group / group_platform / cli_proxy_provider
+    /// 的调用方（`db_rows.rs` upsert / `estimate::db_ops` / `manual_budget` 等）切换而来。
+    /// 内存库 fallback 下 `self.6` 是主内存连接 clone，与 `write_conn()` 同物理库，测试无感。
+    pub fn platform_write_conn(&self) -> AsyncConnection {
+        self.6
+            .lock()
+            .expect("platform write conn slot poisoned")
+            .clone()
+    }
+
     /// 是否内存库（`:memory:` / `mode=memory`）。内存库下 proxy_log handle 复用主连接，
     /// 双库聚合函数（`compact_database` / `db_file_size` / `migrate_auto_vacuum`）需据此
     /// 短路 proxy_log 分支，避免对同一物理连接重复 VACUUM / 重复求和。
