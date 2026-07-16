@@ -10,6 +10,8 @@ import type {
   PlatformQuota,
   Platform,
 } from "./types";
+// ponytail: BatchReport 已在 platforms.ts 定义（Rust aidog_core::gateway::models::BatchReport 统一类型，serde camelCase），复用禁重定义。
+import type { BatchReport } from "./platforms";
 
 export const cliProxyApi = {
   /** 列出全部 cli_proxy_provider。 */
@@ -44,4 +46,14 @@ export const cliProxyApi = {
       authDir: authDir ?? null,
       groupId: groupId ?? null,
     }),
+
+  /** 批量物理删 provider（单条 DELETE IN，非事务级联）。 */
+  batchDelete: (ids: number[]) =>
+    invoke<BatchReport>("batch_delete_cli_proxy_providers", { ids }),
+  /** 批量覆盖 provider models（完全覆盖，一维 string[] = models.json default 分支）。 */
+  batchOverrideModels: (ids: number[], models: string[]) =>
+    invoke<BatchReport>("batch_override_cli_proxy_models", { ids, models }),
+  /** 批量覆盖 provider quota（整 quota JSON 字符串，如 `{"type":"newapi"}`）。 */
+  batchSetQuota: (ids: number[], quota: string) =>
+    invoke<BatchReport>("batch_set_cli_proxy_quota", { ids, quota }),
 };

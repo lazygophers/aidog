@@ -6,27 +6,12 @@
 //! - batch_set_status: 改平台 status（仅 enabled/disabled）
 //! - batch_move_group: 移组/加组（操作 group_platform 关联）
 
-use aidog_core::gateway::{db::{self, now, Db}, models::{PlatformStatus, PlatformModels, UpdatePlatform}};
+use aidog_core::gateway::{
+    db::{self, now, Db},
+    models::{BatchReport, PlatformModels, PlatformStatus, SkipReason, UpdatePlatform},
+};
 use rusqlite::params;
 use tauri::State;
-
-/// 批量操作结果
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct BatchReport {
-    /// 成功应用的操作数（原子事务下 = 0 或 ids.len()）
-    pub applied: u64,
-    /// 跳过的项目（当前原子事务下必为空，保留结构供扩展）
-    pub skipped: Vec<SkipReason>,
-}
-
-/// 跳过原因
-#[derive(Debug, Clone, serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SkipReason {
-    pub id: u64,
-    pub reason: String,
-}
 
 /// 批量删除平台（物理删 = 软删 platform + 清所有 group_platform 关联）
 ///
