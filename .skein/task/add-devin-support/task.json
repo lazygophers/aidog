@@ -1,0 +1,187 @@
+{
+  "id": "add-devin-support",
+  "name": "添加 Devin 协议支持",
+  "desc": "加 devin (api.devin.ai / app.devin.ai) platform preset + Protocol enum + 路由支持",
+  "status": "进行中",
+  "deps": [],
+  "contracts": [
+    "Protocol::Devin serde \"devin\" 归「平台类型」组(非 AI 请求协议组), Rust enum + TS part1.ts union 字面量同步",
+    "preset devin 条目 MUST 无标准 endpoint (Devin 不兼容 openai/anthropic/gemini 任一 wire), 仅 platform_type 标识 + cog_ key/org_id 配置",
+    "接入点 MUST 在 handler.rs Protocol::Devin 分支(仿 ClaudeCode:432 重试循环外拦截), 禁经 forward_attempt/adapter/converter wire 层",
+    "handle_devin 内做 chat↔session 转换(messages→prompt, model→mode, response 包装), 禁在 adapter 层",
+    "伪流式 stream:true 轮询 messages diff 切块 SSE, 终态 [DONE]; 禁声称真流式(Devin 无原生 SSE)",
+    "stateful session: X-Devin-Session-Id header→复用 session(POST messages), 无 header→新建",
+    "超时 MUST 返 504 + body{session_id,url}, 禁 200 假回复混淆 chat 语义",
+    "tool calling MUST 丢弃 + warn, 禁崩",
+    "est_cost MUST 记 acus_consumed(ACU 数), 禁 token 折算 $"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "preset + Protocol::Devin enum + TS union",
+      "desc": "platform-presets.json 加 devin 平台条目(无标准 endpoint, platform_type 标识 + cog_/org_id 配置占位); protocol.rs 加 Protocol::Devin serde devin 归平台类型组; part1.ts TS union 加 devin 字面量; serde round-trip 测试",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204919,
+      "started": 1784205014,
+      "finished": 1784205744
+    },
+    {
+      "sid": "s2",
+      "name": "handle_devin 骨架 + handler.rs Devin 分支",
+      "desc": "handler.rs 仿 ClaudeCode:432 重试循环外加 Protocol::Devin 分支拦截调 handle_devin; 新建 proxy/devin.rs handle_devin 骨架: session 编排 create→poll→messages 空壳能编译",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204919,
+      "started": 1784205744,
+      "finished": 1784206535
+    },
+    {
+      "sid": "s3",
+      "name": "chat↔session 转换",
+      "desc": "handle_devin 内: messages→prompt 拼接, model→devin_mode(5档), tools 丢弃+warn, 轮询 GET /sessions/{id} 到终态, GET /messages 取最后 devin message, 包 chat response(usage=acus_consumed)",
+      "depends_on": [
+        "s2"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204919,
+      "started": 1784206535,
+      "finished": 1784207177
+    },
+    {
+      "sid": "s4",
+      "name": "伪流式(轮询切块 SSE)",
+      "desc": "stream:true 时轮询 diff 新 devin message 切块发 chat SSE chunk, 终态 [DONE]; chunk 粒度=轮询周期非 token",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204919,
+      "started": 1784207181,
+      "finished": 1784208555
+    },
+    {
+      "sid": "s5",
+      "name": "stateful session 映射",
+      "desc": "X-Devin-Session-Id header→devin_id 内存 LRU+TTL 30min; 有 header 复用(POST messages), 无 header 新建+回存",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204919,
+      "started": 1784208555,
+      "finished": 1784209577
+    },
+    {
+      "sid": "s6",
+      "name": "超时 504 异步",
+      "desc": "devin_timeout 默认 300s(platform.extra 可配); 超时返 504 + body{type,session_id,url,message}; 禁 200 假回复",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204920,
+      "started": 1784208555,
+      "finished": 1784210358
+    },
+    {
+      "sid": "s7",
+      "name": "quota consumption/daily + est_cost ACU",
+      "desc": "quota provider: GET consumption/daily → balance.used=total_acus(无 remaining); est_cost=acus_consumed 不折算 $; UI 标 ACU",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204920,
+      "started": 1784205744,
+      "finished": 1784206406
+    },
+    {
+      "sid": "s8",
+      "name": "前端 devin 平台支持",
+      "desc": "ProtocolCard/formSections 支持 devin 展示+编辑; cog_ key+org_id 字段; 平台类型徽标; i18n 8 语言",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784204920,
+      "started": 1784206406,
+      "finished": 1784207542
+    },
+    {
+      "sid": "s9",
+      "name": "修复 proxy/devin.rs org_id 读 nested extra.devin.org_id",
+      "desc": "proxy/devin.rs 读 org_id 从 flat extra.org_id 改 nested extra.devin.org_id, 对齐前端(s8) + quota/devin.rs(s7); 否则 Devin session 链路 BAD_REQUEST",
+      "depends_on": [
+        "s6"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784207542,
+      "started": 1784210358,
+      "finished": 1784210674
+    }
+  ],
+  "repos": [],
+  "worktree": ".worktrees/skein-add-devin-support",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-add-devin-support",
+      "branch": "skein/add-devin-support",
+      "merged": false
+    }
+  ],
+  "branch": "skein/add-devin-support",
+  "estimate": 60,
+  "created": 1784202467,
+  "started": 1784204999,
+  "finished": null,
+  "updated": 1784212378
+}

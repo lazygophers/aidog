@@ -1,6 +1,18 @@
 {
   "tasks": [
     {
+      "id": "add-devin-support",
+      "status": "进行中",
+      "deps": [],
+      "worktree": ".worktrees/skein-add-devin-support"
+    },
+    {
+      "id": "custom-quota-script",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "07-12-peak-models-review-fix",
       "status": "已完成",
       "deps": [],
