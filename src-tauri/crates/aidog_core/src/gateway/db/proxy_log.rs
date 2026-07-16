@@ -458,7 +458,7 @@ pub fn list_request_logs<'a>(
             placeholders.join(", ")
         );
         cpp_map = db
-            .call_read_traced(None, __db_caller, move |conn| {
+            .call_read_platform_traced(None, __db_caller, move |conn| {
                 let binds: Vec<&dyn rusqlite::types::ToSql> = cpp_ids
                     .iter()
                     .map(|id| id as &dyn rusqlite::types::ToSql)
