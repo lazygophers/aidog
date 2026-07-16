@@ -103,9 +103,8 @@ fn attach_session_header(resp: &mut axum::response::Response, client_id: &str) {
 ///   3. get_messages: GET /sessions/{id}/messages → 取最后 source==devin 的 message 作输出
 ///
 /// **s3 已填充真实转换逻辑**（messages→prompt 拼接 / model→mode 映射 / 轮询循环 /
-/// chat response 包装 / usage+est_cost 落库）。**未实现**：伪流式（s4，is_stream=true
-/// 走非流式占位）/ stateful X-Devin-Session-Id 映射（s5，每次新建 session）/ 超时 504 body
-/// 完善 + extra 可配（s6，超时先简单 502 占位）。
+/// chat response 包装 / usage+est_cost 落库）。**s4** 伪流式 SSE / **s5** stateful
+/// X-Devin-Session-Id 映射 / **s6** 轮询超时 504 body + `extra.devin.dev_timeout` 可配。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_devin(
     state: Arc<ProxyState>,
@@ -145,6 +144,8 @@ pub(crate) async fn handle_devin(
             "devin platform missing api_key",
         ).await;
     }
+    // s6: devin 轮询超时（extra.devin.dev_timeout 秒，缺省 300）。nested 读取，禁 flat。
+    let dev_timeout_secs = read_dev_timeout_secs(&extra_v);
     // base = base_url（platform.base_url 已含 /v3/organizations/{org_id}；缺失则用官方 host 拼）。
     // ponytail: base_url 真值源单一——preset / 用户已含完整 path，仅空兜底官方 host。
     let base_url = if platform.base_url.trim().is_empty() {
@@ -177,12 +178,13 @@ pub(crate) async fn handle_devin(
     }
 
     // 超时 + proxy_client 一次缓存借齐（与 passthrough 同款）。
+    // ponytail: req_timeout 是单次 HTTP 调用上限（poll 循环每次 GET 各自计时）；
+    // session 级轮询总上限 = dev_timeout_secs（poll_session 内 deadline），两者独立。
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
         (c.system_timeout.clone(), c.proxy_client.clone())
     };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    // TODO(s6): Devin session 轮询可达分钟级；这里先用系统 request_timeout，s6 再加 session 专用超时 + 504 body。
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
     let client = http_client::build_http_client(
         &proxy_client, req_timeout, conn_timeout,
@@ -264,17 +266,59 @@ pub(crate) async fn handle_devin(
         }
     };
 
-    // ── 2. poll until terminal (10s 间隔 + 300s 上限) ──
-    // TODO(s6): 超时返 504 + 结构化 body；s3 先简单 Err → 502 占位。
-    let final_state = match poll_session(&client, &base_url, api_key, &session_id).await {
+    // ── 2. poll until terminal (10s 间隔 + dev_timeout_secs 上限) ──
+    //   s6: 超时 → 504 + 结构化 body（禁 200 假回复，spec design.md line 72-76）。
+    let final_state = match poll_session(&client, &base_url, api_key, &session_id, dev_timeout_secs).await {
         Ok(s) => s,
-        Err(e) => {
+        Err(PollError::Other(e)) => {
             tracing::warn!(platform_id = platform.id, session_id = %session_id, error = %e, "devin poll_session failed");
             let mut r = devin_error(
                 &state, &mut log, &log_settings, lang, start,
                 StatusCode::BAD_GATEWAY,
                 &format!("devin poll_session error: {e}"),
             ).await;
+            attach_session_header(&mut r, &client_id);
+            return r;
+        }
+        Err(PollError::Timeout { last_state }) => {
+            // 超时：session 仍非终态 → 504 + devin_timeout body（含 session_id+url+message）。
+            // est_cost = 轮询期间累计的 acus_consumed（契约 9）；blocked_reason="devin_timeout" 落库审计。
+            let timeout_body = format_devin_timeout_body(&session_id);
+            let acus_consumed = last_state.acus_consumed;
+            tracing::warn!(
+                platform_id = platform.id,
+                session_id = %session_id,
+                timeout_secs = dev_timeout_secs,
+                last_status = %last_state.status,
+                acus_consumed,
+                "devin poll_session timeout → 504"
+            );
+            if is_stream {
+                // 流式：emit Start + error SSE chunk（复用 sse_error_chunk）+ http 504。
+                // ponytail: 直接复用 stream_terminal_response 的 "timeout" 分支，最小改。
+                log.blocked_reason = "devin_timeout".into();
+                return stream_terminal_response(
+                    state, log, log_settings, source_protocol, requested_model,
+                    &session_id, "", acus_consumed, "timeout",
+                    None, start, &client_id,
+                ).await;
+            }
+            log.status_code = StatusCode::GATEWAY_TIMEOUT.as_u16() as i32;
+            log.blocked_reason = "devin_timeout".into();
+            log.input_tokens = 0;
+            log.output_tokens = 0;
+            log.est_cost = acus_consumed; // 契约 9: 超时仍记 ACU 已消费部分
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            log.response_body = timeout_body.clone();
+            log.user_response_body = timeout_body.clone();
+            log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+            upsert_log(&state, &log, &log_settings).await;
+            let mut r = (
+                StatusCode::GATEWAY_TIMEOUT,
+                [(axum::http::header::CONTENT_TYPE, "application/json")],
+                timeout_body,
+            ).into_response();
+            inject_trace_header(&mut r);
             attach_session_header(&mut r, &client_id);
             return r;
         }
@@ -543,6 +587,50 @@ pub(crate) fn format_chat_response(
     }
 }
 
+/// 默认 Devin 轮询超时（秒）。spec design.md line 72-76。
+pub(crate) const DEVIN_DEFAULT_TIMEOUT_SECS: u64 = 300;
+
+/// 从 platform.extra JSON 读 `devin.dev_timeout`（秒），缺省 DEVIN_DEFAULT_TIMEOUT_SECS。
+/// ponytail: nested 读取（与 quota/devin.rs extra.devin.org_id 同层级），禁 flat extra.dev_timeout。
+/// ≤ 0 或非 u64 → 默认（安全侧兜底，禁 0 触发立即超时）。
+pub(crate) fn read_dev_timeout_secs(extra_v: &Value) -> u64 {
+    extra_v
+        .get("devin")
+        .and_then(|d| d.get("dev_timeout"))
+        .and_then(|v| v.as_u64())
+        .filter(|s| *s > 0)
+        .unwrap_or(DEVIN_DEFAULT_TIMEOUT_SECS)
+}
+
+/// Devin session 前台 URL（app.devin.ai，非 API base_url）。
+/// ponytail: 不读 create_session 响应的 url 字段（调用方已丢）——格式固定，拼即可。
+pub(crate) fn devin_session_url(session_id: &str) -> String {
+    format!("https://app.devin.ai/sessions/{session_id}")
+}
+
+/// 轮询超时 body（spec design.md line 72-76）：
+/// `{"error":{"type":"devin_timeout","session_id":"...","url":"...","message":"Devin task still running, check url"}}`
+/// 禁 200 假回复（chat 语义混淆），超时必 504 + 本 body。
+pub(crate) fn format_devin_timeout_body(session_id: &str) -> String {
+    serde_json::json!({
+        "error": {
+            "type": "devin_timeout",
+            "session_id": session_id,
+            "url": devin_session_url(session_id),
+            "message": "Devin task still running, check url"
+        }
+    }).to_string()
+}
+
+/// poll_session 错误：区分超时（带最后状态 → 504）与网络/解码错误（→ 502）。
+#[derive(Debug)]
+pub(crate) enum PollError {
+    /// 到 deadline 仍未达终态，携带最后一次 poll 的 state（acus_consumed 部分累计）。
+    Timeout { last_state: DevinSessionState },
+    /// 网络 / 解析 / 非 2xx 错误。
+    Other(String),
+}
+
 /// 按入站 source_protocol 格式化错误 body（error / suspended 终态用）。
 pub(crate) fn format_chat_error_body(source_protocol: &str, session_id: &str, msg: &str) -> String {
     match source_protocol {
@@ -647,38 +735,42 @@ async fn send_message_to_session(
     Ok(())
 }
 
-/// 轮询 GET /sessions/{id} 直到终态（exit/error/suspended）或超时（300s）。
+/// 轮询 GET /sessions/{id} 直到终态（exit/error/suspended）或超时。
 ///
-/// 间隔 10s（tokio::time::sleep）。超时上限硬编 300s（TODO(s6) extra 可配）。
-/// 每次轮询解析 status / status_detail / acus_consumed；非终态则 sleep 后重试。
+/// 间隔 10s（tokio::time::sleep）。超时上限由 `timeout_secs` 传入（s6：`extra.devin.dev_timeout`，
+/// 默认 DEVIN_DEFAULT_TIMEOUT_SECS=300）。超时返 `PollError::Timeout` 携带最后状态（含部分 acus），
+/// 调用方构造 504 body（禁 200 假回复，spec design.md line 72-76）。
 async fn poll_session(
     client: &reqwest::Client,
     base_url: &str,
     api_key: &str,
     session_id: &str,
-) -> Result<DevinSessionState, String> {
+    timeout_secs: u64,
+) -> Result<DevinSessionState, PollError> {
     let url = format!("{base_url}/sessions/{session_id}");
-    // TODO(s6): 上限改 extra.devin_timeout，超时返 504 body。
-    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(300);
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
     loop {
         let resp = client.get(&url)
             .bearer_auth(api_key)
             .send().await
-            .map_err(|e| format!("http: {e}"))?;
+            .map_err(|e| PollError::Other(format!("http: {e}")))?;
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            return Err(format!("status {}: {}", status.as_u16(), text));
+            return Err(PollError::Other(format!("status {}: {}", status.as_u16(), text)));
         }
-        let v: Value = resp.json().await.map_err(|e| format!("decode: {e}"))?;
+        let v: Value = resp.json().await.map_err(|e| PollError::Other(format!("decode: {e}")))?;
         let status = v.get("status").and_then(|x| x.as_str()).unwrap_or("running").to_string();
         let status_detail = v.get("status_detail").and_then(|x| x.as_str()).map(String::from);
         let acus_consumed = v.get("acus_consumed").and_then(|x| x.as_f64()).unwrap_or(0.0);
+        // ponytail: 当前迭代拿到的 state 即「最后一次 poll」——终态直接 return Ok，
+        // 超时（下方 deadline check）时 state 仍是本轮最新，作 last_state 透传给 504 body。
+        let state = DevinSessionState { status: status.clone(), status_detail, acus_consumed };
         if is_terminal_status(&status) {
-            return Ok(DevinSessionState { status, status_detail, acus_consumed });
+            return Ok(state);
         }
         if std::time::Instant::now() >= deadline {
-            return Err(format!("poll timeout (300s), last status: {status}"));
+            return Err(PollError::Timeout { last_state: state });
         }
         tokio::time::sleep(std::time::Duration::from_secs(10)).await;
     }
@@ -781,6 +873,12 @@ async fn stream_terminal_response(
             v.push(sse_error_chunk(source_protocol, &human));
             v
         }
+        "timeout" => {
+            // s6: 轮询超时 → Start + error SSE chunk（spec design.md line 72-76，禁 200）
+            let mut v = vec![to_client_sse(&ChatStreamEvent::Start { id: sse_id.clone(), model: requested_model.to_string() }, source_protocol, requested_model).unwrap_or_default()];
+            v.push(sse_error_chunk(source_protocol, "Devin task still running, check url"));
+            v
+        }
         _ => build_devin_sse_seq(source_protocol, &sse_id, requested_model, &[content.to_string()], "stop"),
     };
 
@@ -788,6 +886,7 @@ async fn stream_terminal_response(
     let (http_status, body_marker) = match final_status {
         "error" => (StatusCode::BAD_GATEWAY, "[devin stream error]".to_string()),
         "suspended" => (StatusCode::PAYMENT_REQUIRED, "[devin stream suspended]".to_string()),
+        "timeout" => (StatusCode::GATEWAY_TIMEOUT, "[devin stream timeout]".to_string()),
         _ => (StatusCode::OK, content.to_string()),
     };
     log.status_code = http_status.as_u16() as i32;
@@ -1227,6 +1326,88 @@ mod tests {
         assert_eq!(
             decide_session_reuse(Some("c1"), Some("devin-1"), None),
             SessionDecision::CreateNew
+        );
+    }
+
+    // ── s6: devin_timeout 配置 + 504 body ──
+
+    #[test]
+    fn read_dev_timeout_secs_default_when_absent() {
+        // 无 devin key / 无 dev_timeout → 默认 300
+        assert_eq!(read_dev_timeout_secs(&json!({})), DEVIN_DEFAULT_TIMEOUT_SECS);
+        assert_eq!(read_dev_timeout_secs(&json!({"devin": {}})), DEVIN_DEFAULT_TIMEOUT_SECS);
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {"org_id": "o-1"}})),
+            DEVIN_DEFAULT_TIMEOUT_SECS,
+            "仅有 org_id 无 dev_timeout → 默认"
+        );
+    }
+
+    #[test]
+    fn read_dev_timeout_secs_reads_nested_devin_dev_timeout() {
+        // nested 路径 extra.devin.dev_timeout 命中
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {"dev_timeout": 120}})),
+            120
+        );
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {"org_id": "o-1", "dev_timeout": 600}})),
+            600
+        );
+    }
+
+    #[test]
+    fn read_dev_timeout_secs_rejects_flat_and_invalid() {
+        // 禁 flat extra.dev_timeout（非 nested）→ 默认
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"dev_timeout": 60})),
+            DEVIN_DEFAULT_TIMEOUT_SECS,
+            "flat extra.dev_timeout 禁读取，强制 nested extra.devin.dev_timeout"
+        );
+        // ≤ 0 → 默认（禁立即超时）
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {"dev_timeout": 0}})),
+            DEVIN_DEFAULT_TIMEOUT_SECS
+        );
+        // 非 u64（字符串 / float）→ 默认
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {"dev_timeout": "300"}})),
+            DEVIN_DEFAULT_TIMEOUT_SECS
+        );
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {"dev_timeout": 300.5}})),
+            DEVIN_DEFAULT_TIMEOUT_SECS
+        );
+    }
+
+    #[test]
+    fn format_devin_timeout_body_has_all_required_fields() {
+        // spec design.md line 72-76: type/session_id/url/message 全部就位
+        let body = format_devin_timeout_body("devin-abc123");
+        let v: Value = serde_json::from_str(&body).unwrap();
+        let err = &v["error"];
+        assert_eq!(err["type"], "devin_timeout", "type 必须 devin_timeout");
+        assert_eq!(err["session_id"], "devin-abc123", "session_id 必须透传");
+        assert_eq!(
+            err["url"],
+            "https://app.devin.ai/sessions/devin-abc123",
+            "url 必须是 app.devin.ai 前台 session URL"
+        );
+        assert_eq!(
+            err["message"],
+            "Devin task still running, check url",
+            "message 文案对齐 spec"
+        );
+        // 禁 200 假回复：body 内不含 fake content / choices（chat 语义污染）
+        assert!(v.get("choices").is_none(), "禁choices假回复");
+        assert!(v.get("content").is_none(), "禁content假回复");
+    }
+
+    #[test]
+    fn devin_session_url_format() {
+        assert_eq!(
+            devin_session_url("devin-x"),
+            "https://app.devin.ai/sessions/devin-x"
         );
     }
 }
