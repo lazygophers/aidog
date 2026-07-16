@@ -12,7 +12,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
-  type NewApiConfig, type SchedulingBreakerSettings, type GroupDetail,
+  type NewApiConfig, type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelList } from "../../domains/platforms";
@@ -164,6 +164,60 @@ export function NewApiBalanceConfigSection({ config, onChange, t }: {
           value={config.user_id}
           onChange={(e) => onChange(prev => ({ ...prev, user_id: e.target.value }))}
         />
+      </div>
+    </FormSection>
+  );
+}
+
+export function DevinConfigSection({ config, onChange, t }: {
+  config: DevinConfig;
+  onChange: React.Dispatch<React.SetStateAction<DevinConfig>>;
+  t: TFunction;
+}) {
+  const devinModes = ["normal", "fast", "lite", "ultra", "fusion"];
+  return (
+    <FormSection
+      title={t("platform.devinConfig", "Devin 配置")}
+      desc={t("platform.devinConfigHint", "API Key 填 cog_ 前缀凭证；组织 ID 必填（v3 path 段），可在 Devin 控制台获取")}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          {t("platform.devinOrgId", "组织 ID")}
+        </div>
+        <input
+          className="input"
+          placeholder={t("platform.devinOrgIdPlaceholder", "org-xxxxxxxx")}
+          value={config.org_id}
+          onChange={(e) => onChange(prev => ({ ...prev, org_id: e.target.value }))}
+        />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          {t("platform.devinTimeout", "Session 超时（秒，可选）")}
+        </div>
+        <input
+          className="input"
+          type="number"
+          min={0}
+          placeholder={t("platform.devinTimeoutPlaceholder", "默认 300")}
+          value={config.devin_timeout}
+          onChange={(e) => onChange(prev => ({ ...prev, devin_timeout: e.target.value }))}
+        />
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          {t("platform.devinMode", "默认模式（可选）")}
+        </div>
+        <select
+          className="input"
+          value={config.devin_mode}
+          onChange={(e) => onChange(prev => ({ ...prev, devin_mode: e.target.value }))}
+        >
+          <option value="">{t("platform.devinModeAuto", "按模型自动映射")}</option>
+          {devinModes.map(m => (
+            <option key={m} value={m}>{m}</option>
+          ))}
+        </select>
       </div>
     </FormSection>
   );

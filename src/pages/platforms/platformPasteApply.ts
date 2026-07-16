@@ -5,9 +5,9 @@
 import type { TFunction } from "i18next";
 import {
   platformApi,
-  parseMockConfig, parseNewApiConfig, parsePlatformBreaker,
+  parseMockConfig, parseNewApiConfig, parseDevinConfig, parsePlatformBreaker,
   type Platform, type Protocol, type PlatformEndpoint,
-  type ManualBudget, type MockConfig, type NewApiConfig,
+  type ManualBudget, type MockConfig, type NewApiConfig, type DevinConfig,
 } from "../../services/api";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import {
@@ -39,6 +39,7 @@ export interface PlatformPasteCtx {
   setExtra: React.Dispatch<React.SetStateAction<string>>;
   setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
   setNewApiConfig: React.Dispatch<React.SetStateAction<NewApiConfig>>;
+  setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
   setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
@@ -73,7 +74,7 @@ export interface PlatformPasteCtx {
 export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): Promise<void> {
   const {
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig,
+    setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig, setDevinConfig,
     setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
@@ -103,6 +104,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     setExtra(ex);
     setMockConfig(parseMockConfig(ex));
     setNewApiConfig(parseNewApiConfig(ex));
+    setDevinConfig(parseDevinConfig(ex));
     {
       const brk = parsePlatformBreaker(ex);
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");

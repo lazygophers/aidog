@@ -129,6 +129,17 @@ export interface NewApiConfig {
 }
 
 
+/** Devin（Cognition）平台配置（持久化在 platform.extra 的 `devin` 子对象内）。
+ *  - org_id：必填，`org-` 前缀组织 ID（v3 path 段 + Bearer realm），缺则 quota/handler 均 fail。
+ *  - devin_timeout：可选，session 轮询超时秒数（默认 300，s6 后端读取）。
+ *  - devin_mode：可选，默认 session 模式（normal/fast/lite/ultra/fusion）。 */
+export interface DevinConfig {
+  org_id: string;
+  devin_timeout: string;
+  devin_mode: string;
+}
+
+
 export type ManualBudgetKind = "total" | "rolling" | "fixed" | "daily";
 /** 手动预算计量单位。 */
 
