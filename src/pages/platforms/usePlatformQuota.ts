@@ -62,6 +62,8 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
   const platformWantsQuota = useCallback((p: Platform): boolean => {
     if (p.platform_type === "mock" || p.platform_type === "claude_code") return false;
     if (!p.api_key) return false;
+    // Devin quota 端点固定（backend 忽略 base_url），仅需 api_key + extra.org_id 即可查。
+    if (p.platform_type === "devin") return !!(p.extra && p.extra.includes("org_id"));
     return !!getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
   }, []);
 
@@ -70,7 +72,9 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
     try {
       const q = p.platform_type === "newapi"
         ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "", p.id)
-        : await quotaApi.query(baseUrl, p.api_key, p.id);
+        : p.platform_type === "devin"
+          ? await quotaApi.queryDevin(baseUrl, p.api_key, p.extra ?? "", p.id)
+          : await quotaApi.query(baseUrl, p.api_key, p.id);
       if (q.success) setQuotaMap(prev => ({ ...prev, [p.id]: q }));
     } catch { /* ignore */ }
     finally {
@@ -128,7 +132,9 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
       const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url;
       const q = p.platform_type === "newapi"
         ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "", p.id)
-        : await quotaApi.query(baseUrl, p.api_key, p.id);
+        : p.platform_type === "devin"
+          ? await quotaApi.queryDevin(baseUrl, p.api_key, p.extra ?? "", p.id)
+          : await quotaApi.query(baseUrl, p.api_key, p.id);
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
         setQuotaRealIds((s) => ({ ...s, [p.id]: true }));

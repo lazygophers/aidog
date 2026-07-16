@@ -2074,5 +2074,14 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新失败",
   "updater.updateNow": "立即更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "platform.devinConfig": "Devin 配置",
+  "platform.devinConfigHint": "API Key 填 cog_ 前缀凭证；组织 ID 必填（v3 path 段），可在 Devin 控制台获取",
+  "platform.devinOrgId": "组织 ID",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "Session 超时（秒，可选）",
+  "platform.devinTimeoutPlaceholder": "默认 300",
+  "platform.devinMode": "默认模式（可选）",
+  "platform.devinModeAuto": "按模型自动映射",
+  "platform.acuUsage": "ACU 用量"
 }

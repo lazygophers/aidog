@@ -160,6 +160,11 @@ pub enum Protocol {
     /// （`extra.cli_proxy_provider_id` 关联）。`platform.models` 字段只读，被 provider.models 覆盖。
     #[serde(rename = "cli-proxy")]
     CliProxy,
+    /// Devin（Cognition）平台：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层。
+    /// API base `https://api.devin.ai`，Bearer `cog_` key + `org-` 前缀 org_id，计费 ACU，无原生流式。
+    /// preset endpoints 为空（无标准 wire endpoint），models 5 档虚拟映射 devin-normal/fast/lite/ultra/fusion。
+    #[serde(rename = "devin")]
+    Devin,
 }
 
 /// 路由模式
@@ -211,6 +216,8 @@ mod test_protocol_coding_variants {
             ("xiaomi_mimo_coding", Protocol::XiaomiMimoCoding),
             // CLI 代理独立协议（cpa-standalone-module s2）
             ("cli-proxy", Protocol::CliProxy),
+            // Devin 平台（add-devin-support s1）
+            ("devin", Protocol::Devin),
         ];
         for (key, expected) in cases {
             let json = format!("\"{key}\"");

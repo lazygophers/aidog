@@ -85,8 +85,12 @@ export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, p
       : [];
     return {
       estimated: false,
-      balanceRemaining: q.balance ? q.balance.remaining : null,
-      balanceTotal: q.balance?.total ?? null,
+      // ponytail: ACU (Devin) 无余额端点，balance.remaining 恒 0；改用 used (累计 ACU) 作展示值，
+      //   total=null 抑制进度条，currency="ACU" 让 PlatformCard 标"ACU 用量" label 而非 $ 前缀。
+      balanceRemaining: q.balance
+        ? (q.balance.currency === "ACU" ? (q.balance.used ?? 0) : q.balance.remaining)
+        : null,
+      balanceTotal: q.balance?.currency === "ACU" ? null : (q.balance?.total ?? null),
       currency: q.balance?.currency || "USD",
       tiers,
       hasData: !!q.balance || tiers.length > 0,

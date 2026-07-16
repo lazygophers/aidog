@@ -2074,5 +2074,14 @@
   "updater.releaseNotes": "Notas de la versión",
   "updater.updateFailed": "Error al actualizar",
   "updater.updateNow": "Actualizar ahora",
-  "updater.updating": "Actualizando…"
+  "updater.updating": "Actualizando…",
+  "platform.devinConfig": "Configuración Devin",
+  "platform.devinConfigHint": "API Key usa credencial con prefijo cog_ ; el ID de organización es obligatorio (segmento de ruta v3), disponible en la consola de Devin",
+  "platform.devinOrgId": "ID de organización",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "Tiempo de espera de sesión (segundos, opcional)",
+  "platform.devinTimeoutPlaceholder": "Predeterminado 300",
+  "platform.devinMode": "Modo predeterminado (opcional)",
+  "platform.devinModeAuto": "Auto-mapear por modelo",
+  "platform.acuUsage": "Uso de ACU"
 }

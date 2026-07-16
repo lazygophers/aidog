@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule } from "./types";
 import type { PeakWindow } from "../../domains/platforms/defaults";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
@@ -24,6 +24,13 @@ export const DEFAULT_NEWAPI_CONFIG: NewApiConfig = {
   balance_base_url: "",
   balance_api_key: "",
   user_id: "",
+};
+
+/** Devin 平台默认配置（org_id 必填，timeout/mode 可选）。timeout 用 string 与 number input 兼容。 */
+export const DEFAULT_DEVIN_CONFIG: DevinConfig = {
+  org_id: "",
+  devin_timeout: "",
+  devin_mode: "",
 };
 
 /** 从 platform.extra JSON 字符串解析 New API 配置 */
@@ -57,6 +64,53 @@ export function serializeNewApiConfig(extra: string, cfg: NewApiConfig): string 
     } catch { /* ignore */ }
   }
   obj.newapi = cfg;
+  return JSON.stringify(obj);
+}
+
+/** 从 platform.extra JSON 解析 Devin 配置（org_id / devin_timeout / devin_mode）。
+ *  形态：`{"devin":{"org_id":"<id>","devin_timeout":300,"devin_mode":"normal"}}`。
+ *  与 Rust `quota/devin.rs::parse_devin_extra` 形态对称（nested `devin` 子对象）。 */
+export function parseDevinConfig(extra: string): DevinConfig {
+  if (!extra.trim()) return { ...DEFAULT_DEVIN_CONFIG };
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "devin" in parsed) {
+      const d = (parsed as { devin: unknown }).devin;
+      if (d && typeof d === "object") {
+        const o = d as Record<string, unknown>;
+        return {
+          org_id: typeof o.org_id === "string" ? o.org_id : "",
+          devin_timeout: typeof o.devin_timeout === "number" ? String(o.devin_timeout) : (typeof o.devin_timeout === "string" ? o.devin_timeout : ""),
+          devin_mode: typeof o.devin_mode === "string" ? o.devin_mode : "",
+        };
+      }
+    }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_DEVIN_CONFIG };
+}
+
+/** 把 Devin 配置写回 extra JSON（保留其余键）。
+ *  org_id 为空 → 移除整个 `devin` 键（无意义配置不入库，避免下次编辑误读半填值）。 */
+export function serializeDevinConfig(extra: string, cfg: DevinConfig): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  const trimmedOrg = cfg.org_id.trim();
+  if (!trimmedOrg && !cfg.devin_timeout.trim() && !cfg.devin_mode.trim()) {
+    delete obj.devin;
+  } else {
+    const devin: Record<string, unknown> = { org_id: trimmedOrg };
+    const timeoutNum = Math.max(0, Math.floor(Number(cfg.devin_timeout) || 0));
+    if (timeoutNum > 0) devin.devin_timeout = timeoutNum;
+    if (cfg.devin_mode.trim()) devin.devin_mode = cfg.devin_mode.trim();
+    obj.devin = devin;
+  }
   return JSON.stringify(obj);
 }
 
@@ -378,6 +432,8 @@ export const quotaApi = {
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey, platformId: platformId ?? null }),
   queryNewapi: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>
     invoke<PlatformQuota>("platform_query_quota_newapi", { baseUrl, apiKey, extra, platformId: platformId ?? null }),
+  queryDevin: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>
+    invoke<PlatformQuota>("platform_query_quota_devin", { baseUrl, apiKey, extra, platformId: platformId ?? null }),
 };
 
 // ─── Model Price Types & API ──────────────────────────────

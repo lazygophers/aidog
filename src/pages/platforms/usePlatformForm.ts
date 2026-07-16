@@ -10,13 +10,14 @@ import type { TFunction } from "i18next";
 import {
   platformApi, settingsApi, groupDetailApi, cliProxyApi,
   parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig,
+  parseDevinConfig, serializeDevinConfig,
   parsePlatformBreaker, serializePlatformBreaker,
   parsePlatformPeakHours, serializePlatformPeakHours,
   parseDisableDuringPeak, serializeDisableDuringPeak,
   parsePlatformTimeModels, serializePlatformTimeModels,
-  DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG,
+  DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, DEFAULT_DEVIN_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
-  type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig,
+  type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig, type DevinConfig,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError, type TimeModelRule,
   type CliProxyProvider,
@@ -108,6 +109,8 @@ export interface PlatformFormState {
   extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
   mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
   newApiConfig: NewApiConfig; setNewApiConfig: React.Dispatch<React.SetStateAction<NewApiConfig>>;
+  /** Devin 配置（org_id + 可选 devin_timeout/devin_mode，存 platform.extra.devin 子对象）。 */
+  devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
   breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
   breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
@@ -200,6 +203,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [extra, setExtra] = useState("");
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
   const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ ...DEFAULT_NEWAPI_CONFIG });
+  // Devin 平台配置（org_id / devin_timeout / devin_mode，持久化 platform.extra.devin）
+  const [devinConfig, setDevinConfig] = useState<DevinConfig>({ ...DEFAULT_DEVIN_CONFIG });
   // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
   const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
   // 熔断阈值覆盖（0/空 = 继承全局默认；编辑表单态）。空字符串表示继承。
@@ -282,6 +287,10 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     if (newProtocol === "newapi") {
       setNewApiConfig(parseNewApiConfig(extra));
     }
+    // 切到 devin 时用当前 extra 初始化 devin 配置
+    if (newProtocol === "devin") {
+      setDevinConfig(parseDevinConfig(extra));
+    }
     setProtocol(newProtocol);
     setCodingPlan(cp);
   };
@@ -295,6 +304,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
+    setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     setPeakHours([]); setPeakHoursTz("local"); setDisableDuringPeak(false);
@@ -356,8 +366,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
     setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
+    setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
-    // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
       const gds = await groupDetailApi.list();
       setGroupDetails(gds);
@@ -426,6 +436,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
     setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
+    setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -569,7 +580,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     t,
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig,
+    setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig, setDevinConfig,
     setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
@@ -656,6 +667,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       let extraPayload = extra;
       if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
       if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
+      if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
       // 熔断覆盖现写入 extra.breaker：空 = 继承（写 0 → 移除 breaker 键）；负值钳为 0。
       const toBreakerNum = (s: string) => Math.max(0, Math.floor(Number(s) || 0));
       extraPayload = serializePlatformBreaker(extraPayload, {
@@ -809,6 +821,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
     globalClaudeConfig, setGlobalClaudeConfig, extra, setExtra,
     mockConfig, setMockConfig, newApiConfig, setNewApiConfig,
+    devinConfig, setDevinConfig,
     manualBudgets, setManualBudgets,
     breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs,

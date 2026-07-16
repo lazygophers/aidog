@@ -30,6 +30,8 @@ export type Protocol =
   | "claude_code"
   // ── CLI 代理（cpa-standalone-module）：platform_type 仅标识，wire/base_url/api_key/models 由 candidate resolve 时从 cli_proxy_provider 表注入 ──
   | "cli-proxy"
+  // ── Devin（Cognition）：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层，preset 无标准 endpoint ──
+  | "devin"
   // ── 测试 ──
   | "mock";
 /** 路由 / 调度策略。
@@ -124,6 +126,17 @@ export interface NewApiConfig {
   balance_api_key: string;
   /** 用户 ID（用于 New-Api-User 请求头） */
   user_id: string;
+}
+
+
+/** Devin（Cognition）平台配置（持久化在 platform.extra 的 `devin` 子对象内）。
+ *  - org_id：必填，`org-` 前缀组织 ID（v3 path 段 + Bearer realm），缺则 quota/handler 均 fail。
+ *  - devin_timeout：可选，session 轮询超时秒数（默认 300，s6 后端读取）。
+ *  - devin_mode：可选，默认 session 模式（normal/fast/lite/ultra/fusion）。 */
+export interface DevinConfig {
+  org_id: string;
+  devin_timeout: string;
+  devin_mode: string;
 }
 
 

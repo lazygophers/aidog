@@ -4,11 +4,13 @@
 //!   - 余额查询: DeepSeek, StepFun, SiliconFlow, OpenRouter, Novita
 //!   - Coding Plan: Kimi, GLM (智谱), MiniMax
 //!   - New API (中转平台): 两步余额查询
+//!   - Devin: ACU 用量查询（est_cost 记 ACU 数，禁 $ 折算，见 devin.rs）
 //!
 //! 对于无法实时获取的平台，前端可通过 proxy_logs 估算用量。
 
 mod balance;
 mod coding_plan;
+mod devin;
 mod http;
 mod newapi;
 
@@ -21,13 +23,15 @@ use std::sync::Arc;
 use super::db::Db;
 
 // 对外路径保持不变: gateway::quota::{PlatformQuota, BalanceInfo, CodingPlanInfo, QuotaTier,
-// query_quota, query_quota_newapi, parse_newapi_extra}。
+// query_quota, query_quota_newapi, query_quota_devin, parse_newapi_extra}。
 // allow(unused_imports): cdylib/staticlib crate 下 facade re-export 的部分项仅被 #[cfg(test)]
 // 消费 (estimate.rs 测试) 或保留为对外 API, 非 test 构建视作未用 → 误报。
 #[allow(unused_imports)]
 pub use http::{with_cli_proxy_provider_id, BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
 #[allow(unused_imports)]
 pub use newapi::{parse_newapi_extra, query_quota_newapi};
+#[allow(unused_imports)]
+pub use devin::{parse_devin_extra, query_quota_devin};
 
 use balance::{
     query_deepseek_balance, query_novita_balance, query_openrouter_balance,
