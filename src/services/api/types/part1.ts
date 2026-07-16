@@ -30,6 +30,8 @@ export type Protocol =
   | "claude_code"
   // ── CLI 代理（cpa-standalone-module）：platform_type 仅标识，wire/base_url/api_key/models 由 candidate resolve 时从 cli_proxy_provider 表注入 ──
   | "cli-proxy"
+  // ── Devin（Cognition）：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层，preset 无标准 endpoint ──
+  | "devin"
   // ── 测试 ──
   | "mock";
 /** 路由 / 调度策略。
