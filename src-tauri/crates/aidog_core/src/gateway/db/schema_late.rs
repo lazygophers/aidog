@@ -339,6 +339,7 @@ pub(crate) fn run_migrations_proxy_log_late(
     conn: &Connection,
     auto_map: &HashMap<String, i64>,
     cpa_pids: &[i64],
+    notif_rows: &[(String, String, String, i64)],
 ) -> SqlResult<()> {
                 // Migration 024 (proxy_log): group_name → group_key（幂等：探测列存在性）。
                 let has_log_group_key = conn
@@ -422,6 +423,17 @@ pub(crate) fn run_migrations_proxy_log_late(
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],
                 );
+                // Migration 049: notification 表归属 log.db —— 接收主库迁出的历史行。
+                // 行由 init_tables Phase 1 从主库残留 notification 表读出（同批 DROP 主库表）；
+                // 本处回填 log.db.notification（DDL 由 run_migrations_proxy_log_early 017 建好）。
+                // 幂等：主库表已 DROP 后续启动 notif_rows 空 → for 空转，不重复写入。
+                for (t, title, body, ts) in notif_rows {
+                    let _ = conn.execute(
+                        "INSERT INTO notification (notif_type, title, body, created_at) \
+                         VALUES (?1, ?2, ?3, ?4)",
+                        params![t, title, body, ts],
+                    );
+                }
     Ok(())
 }
 

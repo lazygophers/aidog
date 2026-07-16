@@ -1,6 +1,35 @@
 use super::*;
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
+/// 主库迁出的 notification 行（migration 049）。由 init_tables 在主库闭包内读出 + DROP 主库
+/// 残留表后，传入 proxy_log_late 写入 log.db.notification。空 Vec = 主库表已不存在（已迁移过）。
+type NotifRow = (String, String, String, i64);
+
+/// Migration 049: `notification` 表归属 log.db（b2ef9811 已搬 DDL + 4 访问点，但未搬数据 / 未
+/// DROP 主库旧表）。主库残留表读出全部行后 DROP；行数据在 init_tables Phase 2 写入 log.db。
+/// 幂等：表已不存在 → SELECT 报错吞空 Vec，DROP IF EXISTS no-op；后续启动 notif_rows 空，写入侧 for 空转。
+fn migrate_main_notification_out(conn: &rusqlite::Connection) -> Vec<NotifRow> {
+    let rows: Vec<NotifRow> = conn
+        .prepare("SELECT notif_type, title, body, created_at FROM notification")
+        .and_then(|mut s| {
+            s.query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                ))
+            })
+            .map(|iter| iter.filter_map(Result::ok).collect())
+        })
+        .unwrap_or_default();
+    if !rows.is_empty() {
+        tracing::info!(rows = rows.len(), "migration 049: 主库 notification 表数据迁出 → log.db");
+    }
+    let _ = conn.execute("DROP TABLE IF EXISTS notification", []);
+    rows
+}
+
 /// 查主库 platform 表中 CPA 平台 ID（migration 046 清理用）。跨库不能子查询，由 init_tables
 /// 在主库闭包内预查后传入 proxy_log_late。无 CPA 行返空 Vec（proxy_log_late for-loop 空转）。
 fn fetch_cpa_platform_ids(conn: &rusqlite::Connection) -> Vec<i64> {
@@ -20,13 +49,15 @@ impl Db {
             // Phase 1: 主库 migration + 预加载 proxy_log 阶段所需的主库数据。
             // auto_map: backfill_stats_agg_if_empty 回溯 eff_pid 需要（log.db 无 group 表）。
             // cpa_pids: migration 046 CPA 清理需要（跨库不能子查询 JOIN platform）。
-            let (auto_map, cpa_pids) = self
+            // notif_rows: migration 049 主库 notification 表迁出数据（log.db 写入侧消费）。
+            let (auto_map, cpa_pids, notif_rows) = self
                 .call_traced(None, __db_caller, |conn| {
                     run_migrations_early(conn)?;
                     run_migrations_late(conn)?;
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
-                    Ok((auto_map, cpa_pids))
+                    let notif_rows = migrate_main_notification_out(conn);
+                    Ok((auto_map, cpa_pids, notif_rows))
                 })
                 .await
                 .map_err(|e| e.to_string())?;
@@ -35,7 +66,7 @@ impl Db {
             // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
             self.call_proxy_log_traced(None, __db_caller, move |conn| {
                 run_migrations_proxy_log_early(conn)?;
-                run_migrations_proxy_log_late(conn, &auto_map, &cpa_pids)?;
+                run_migrations_proxy_log_late(conn, &auto_map, &cpa_pids, &notif_rows)?;
                 Ok(())
             })
             .await
