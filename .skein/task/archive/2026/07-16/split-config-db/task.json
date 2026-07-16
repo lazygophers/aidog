@@ -1,0 +1,18 @@
+{
+  "id": "split-config-db",
+  "name": "config 表拆独立库",
+  "desc": "cli_proxy_provider/group_platform/group/platform 4 表从主库拆到独立 config.db（第 3 个库）。涉及 3rd db handle + 58 个查询访问点重写 + migration 数据迁移 + 跨库 JOIN 影响（stats_today 等）",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/split-config-db",
+  "estimate": null,
+  "created": 1784176590,
+  "started": null,
+  "finished": null,
+  "updated": 1784176590
+}

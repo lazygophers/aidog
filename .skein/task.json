@@ -2,11 +2,11 @@
   "tasks": [
     {
       "id": "config-db-split",
-      "status": "待处理",
+      "status": "进行中",
       "deps": [
         "proxy-log-db-split"
       ],
-      "worktree": null
+      "worktree": ".worktrees/skein-config-db-split"
     },
     {
       "id": "07-12-peak-models-review-fix",
