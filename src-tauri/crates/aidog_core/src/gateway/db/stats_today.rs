@@ -125,9 +125,9 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
         .await
         .map_err(|e| format!("today platform stats agg: {e}"))?;
 
-    // 主库预查全量 platform id→name 映射（含软删平台，名仍可显示）。
+    // platform.db 预查全量 platform id→name 映射（含软删平台，名仍可显示）。
     let names: std::collections::HashMap<i64, String> = db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             let mut name_stmt = conn.prepare("SELECT id, name FROM platform")?;
             let names = name_stmt
                 .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?

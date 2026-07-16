@@ -173,9 +173,13 @@ impl ReadPoolHandle {
 /// `proxy_log_path`：拆库后 log.db 路径（与主库平级，用于 `call_proxy_log_traced`
 /// 兜底重开）。`None` = 内存库 fallback（proxy_log handle 复用主内存连接，无独立文件，
 /// 重开同主库一样无意义 → 走 is_memory 短路）。
+///
+/// `platform_path`：拆库后 platform.db 路径（与主库平级，用于 `call_platform_traced`
+/// 兜底重开）。`None` = 内存库 fallback（platform handle 复用主内存连接）。
 struct ReconnectCtx {
     path: String,
     proxy_log_path: Option<String>,
+    platform_path: Option<String>,
     is_memory: bool,
 }
 
@@ -199,6 +203,11 @@ struct ReconnectCtx {
 ///   访问走 `call_proxy_log_traced`。内存库 fallback 下复用主内存连接（同 read_pool idiom）。
 /// - `self.5`：`ReadPoolHandle` proxy_log 只读池（N=8），供 UI 查 proxy_log 走
 ///   `call_read_proxy_log_traced`，不阻塞主库读池。
+/// - `self.6`：**platform 写连接槽**（拆库后 `~/.aidog/platform.db` 独立 handle，
+///   独立 Mutex，platform / group / cli_proxy_provider 写走此槽，不与元数据写锁竞争）。
+///   访问走 `call_platform_traced`。内存库 fallback 下复用主内存连接（同 read_pool idiom）。
+/// - `self.7`：`ReadPoolHandle` platform 只读池（N=8），供 UI 查 platform 走
+///   `call_read_platform_traced`，不阻塞主库读池。
 #[derive(Clone)]
 pub struct Db(
     pub Arc<std::sync::Mutex<AsyncConnection>>,
@@ -208,6 +217,10 @@ pub struct Db(
     /// proxy_log 写连接槽（拆库独立 Mutex，不争元数据写锁）。
     Arc<std::sync::Mutex<AsyncConnection>>,
     /// proxy_log 只读池。
+    ReadPoolHandle,
+    /// platform 写连接槽（拆库独立 Mutex，不争元数据写锁）。
+    Arc<std::sync::Mutex<AsyncConnection>>,
+    /// platform 只读池。
     ReadPoolHandle,
 );
 
@@ -219,10 +232,15 @@ pub struct Db(
 pub(crate) fn load_auto_from_map(
     conn: &Connection,
 ) -> rusqlite::Result<HashMap<String, i64>> {
-    let mut stmt = conn.prepare(
+    // config-db-split: "group" 表迁 platform.db，主库 Phase 1 调用时表可能不存在（首次新装 /
+    // 已迁过）。缺表 → 返空 map（语义：无 auto_from_platform 映射），不阻断 init_tables。
+    // backfill_stats_agg_if_empty 在 stats_agg 非空时本就跳过，auto_map 空无回归。
+    let Ok(mut stmt) = conn.prepare(
         "SELECT group_key, CAST(auto_from_platform AS INTEGER) FROM \"group\" \
          WHERE auto_from_platform != '' AND deleted_at = 0",
-    )?;
+    ) else {
+        return Ok(HashMap::new());
+    };
     let rows = stmt.query_map([], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
     })?;
@@ -362,6 +380,30 @@ impl Db {
         )
         .await?;
 
+        // platform.db：与主库平级独立 SQLite 文件，承载 platform / group / cli_proxy_provider 写
+        // （独立 Mutex 不争元数据写锁，独立 WAL 不与主库读竞争）。内存库 fallback：
+        // platform handle 复用主内存连接（同 build_read_pool idiom），测试无感。
+        //
+        // ponytail: 内存库 platform_path = None（重连走 is_memory 短路）；
+        // 文件库取主路径同目录下 "platform.db"，与主库 aidog.db 同级（备份 / 迁移路径一致）。
+        let (platform_conn, platform_path) = if is_memory {
+            (conn.clone(), None)
+        } else {
+            let p_path = std::path::Path::new(path)
+                .parent()
+                .unwrap_or_else(|| std::path::Path::new("."))
+                .join("platform.db")
+                .to_string_lossy()
+                .into_owned();
+            let c = Self::open_platform_conn(&p_path).await?;
+            (c, Some(p_path))
+        };
+        let platform_read_pool = Self::build_read_pool(
+            platform_path.as_deref().unwrap_or(path),
+            &platform_conn,
+        )
+        .await?;
+
         Ok(Self(
             Arc::new(std::sync::Mutex::new(conn)),
             Arc::new(DbCache::default()),
@@ -369,10 +411,13 @@ impl Db {
             Arc::new(ReconnectCtx {
                 path: path.to_string(),
                 proxy_log_path,
+                platform_path,
                 is_memory,
             }),
             Arc::new(std::sync::Mutex::new(proxy_log_conn)),
             proxy_log_read_pool,
+            Arc::new(std::sync::Mutex::new(platform_conn)),
+            platform_read_pool,
         ))
     }
 
@@ -380,6 +425,36 @@ impl Db {
     /// auto_vacuum 仅空库可设；新独立文件库首次打开必然空 → 直接设 INCREMENTAL。
     /// 供 `Db::new` 初始化 + `call_proxy_log_traced` ConnectionClosed 后重连复用。
     async fn open_proxy_log_conn(path: &str) -> Result<AsyncConnection, String> {
+        let conn = AsyncConnection::open(path)
+            .await
+            .map_err(|e| e.to_string())?;
+        conn.call(|c| {
+            c.execute_batch(
+                "PRAGMA journal_mode=WAL; \
+                 PRAGMA foreign_keys=ON; \
+                 PRAGMA busy_timeout=5000; \
+                 PRAGMA synchronous=NORMAL;",
+            )?;
+            let table_count: i64 = c.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+                [],
+                |r| r.get(0),
+            )?;
+            if table_count == 0 {
+                c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
+            }
+            c.profile(Some(sql_profile_callback));
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(conn)
+    }
+
+    /// 打开 platform.db 写连接（pragma + profile 全套，同主库 `Db::new` idiom）。
+    /// auto_vacuum 仅空库可设；新独立文件库首次打开必然空 → 直接设 INCREMENTAL。
+    /// 供 `Db::new` 初始化 + `call_platform_traced` ConnectionClosed 后重连复用。
+    async fn open_platform_conn(path: &str) -> Result<AsyncConnection, String> {
         let conn = AsyncConnection::open(path)
             .await
             .map_err(|e| e.to_string())?;
@@ -789,6 +864,152 @@ impl Db {
         }
     }
 
+    /// platform.db 写连接 chokepoint：与 `call_proxy_log_traced` **完整同形 / 同语义**
+    /// （同闭包签名、同 req 解析链、同 CURRENT_DB_CTX guard、同 profile、同 FnOnce 重取、
+    /// 同 ConnectionClosed 重连重试），唯一差异是连接来源——取 `self.6`（platform
+    /// 独立 Mutex 写槽），重连走 `ReconnectCtx::platform_path`。
+    ///
+    /// 拆库后 platform / group / cli_proxy_provider 的写 / DDL / 事务走本方法（独立于主库元数据
+    /// 写锁，platform 密集写不再阻塞 proxy_log 写队列）。内存库 fallback 下 `self.6`
+    /// 是主内存连接 clone（同 `build_read_pool` idiom），测试代码无感。
+    ///
+    /// 跨表读约束：platform.db 无 `"group"` / `proxy_log` / `stats_agg_hourly` 表，
+    /// 本方法闭包内**禁**跨表 JOIN 这些主库 / log 库表（s4 改应用层合并）。当前 s1 仅加基础设施，
+    /// 现有 ~39 站点仍在 s3 切换。
+    pub fn call_platform_traced<F, R>(
+        &self,
+        req: Option<&str>,
+        caller: &'static std::panic::Location<'static>,
+        f: F,
+    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    where
+        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        let req = req
+            .map(|s| s.to_string())
+            .or_else(crate::logging::current_trace_id)
+            .unwrap_or_else(crate::logging::new_trace_id);
+        let req = Some(req);
+        let slot = self.6.clone();
+        let ctx = self.3.clone();
+        async move {
+            let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            let conn = slot.lock().expect("platform write conn slot poisoned").clone();
+            let cell1 = cell.clone();
+            let req1 = req.clone();
+            let r1 = conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req1, caller);
+                    let f = cell1
+                        .lock()
+                        .expect("f cell poisoned")
+                        .take()
+                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                    f(conn)
+                })
+                .await;
+
+            if !matches!(&r1, Err(tokio_rusqlite::Error::ConnectionClosed)) || ctx.is_memory {
+                return r1;
+            }
+
+            // 内存库走 is_memory 短路（重开读到空库）；文件库取 platform_path 兜底重开。
+            // platform_path = None 仅在内存库出现，上面已 return，此处 unwrap 安全。
+            let p_path = ctx.platform_path.as_deref().unwrap_or(&ctx.path);
+            tracing::warn!(
+                path = %p_path,
+                caller = %crate::gateway::db::trace::fmt_caller(caller),
+                "platform write conn returned ConnectionClosed, reopening and retrying once"
+            );
+
+            let new_conn = match Self::open_platform_conn(p_path).await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::error!(error = %e, path = %p_path, "platform write conn reopen failed");
+                    return r1;
+                }
+            };
+            *slot.lock().expect("platform write conn slot poisoned") = new_conn.clone();
+
+            let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
+                tracing::warn!(
+                    "platform call closure was consumed before ConnectionClosed \
+                     (background thread died mid-call) — cannot retry"
+                );
+                return r1;
+            };
+
+            let req2 = req.clone();
+            new_conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req2, caller);
+                    f_retry(conn)
+                })
+                .await
+        }
+    }
+
+    /// platform.db 只读 chokepoint：与 `call_read_proxy_log_traced` **完整同形 / 同语义**，
+    /// 唯一差异是读池来源——取 `self.7`（platform 独立 N=8 读池）。供 UI 查 platform /
+    /// group / cli_proxy_provider 纯 SELECT 热读路径走，不阻塞主库 / log 库读池。同 `call_read_traced`：
+    /// 某槽位死亡时 `pick()` 重试下一条，不替换死槽位。
+    pub fn call_read_platform_traced<F, R>(
+        &self,
+        req: Option<&str>,
+        caller: &'static std::panic::Location<'static>,
+        f: F,
+    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    where
+        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        let req = req
+            .map(|s| s.to_string())
+            .or_else(crate::logging::current_trace_id)
+            .unwrap_or_else(crate::logging::new_trace_id);
+        let req = Some(req);
+        let pool = self.7.clone();
+        async move {
+            let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            let conn = pool.pick();
+            let cell1 = cell.clone();
+            let req1 = req.clone();
+            let r1 = conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req1, caller);
+                    let f = cell1
+                        .lock()
+                        .expect("f cell poisoned")
+                        .take()
+                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                    f(conn)
+                })
+                .await;
+
+            if !matches!(&r1, Err(tokio_rusqlite::Error::ConnectionClosed)) {
+                return r1;
+            }
+
+            tracing::warn!(
+                caller = %crate::gateway::db::trace::fmt_caller(caller),
+                "platform read pool slot returned ConnectionClosed, retrying on next slot"
+            );
+
+            let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
+                return r1;
+            };
+            let conn2 = pool.pick();
+            let req2 = req.clone();
+            conn2
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req2, caller);
+                    f_retry(conn)
+                })
+                .await
+        }
+    }
+
     /// 失效全部 setting 缓存槽（写入端粗粒度失效，settings 写入低频，无需按 key 精修）。
     fn invalidate_settings_cache(&self) {
         if let Ok(mut g) = self.1.settings.write() {
@@ -831,6 +1052,19 @@ impl Db {
         self.0
             .lock()
             .expect("write conn slot poisoned")
+            .clone()
+    }
+
+    /// 取 platform.db 写连接的 clone（短暂持锁，纳秒级 channel sender clone）。
+    ///
+    /// 与 `write_conn` 同形，唯连接来源为 `self.6`（platform 写槽）。供历史「直接访问
+    /// `db.0.call(...)`」模式中触及 platform / group / group_platform / cli_proxy_provider
+    /// 的调用方（`db_rows.rs` upsert / `estimate::db_ops` / `manual_budget` 等）切换而来。
+    /// 内存库 fallback 下 `self.6` 是主内存连接 clone，与 `write_conn()` 同物理库，测试无感。
+    pub fn platform_write_conn(&self) -> AsyncConnection {
+        self.6
+            .lock()
+            .expect("platform write conn slot poisoned")
             .clone()
     }
 

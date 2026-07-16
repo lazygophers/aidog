@@ -54,11 +54,11 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
-    // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 log.db。
-    // 先主库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
+    // proxy-log-db-split s3：`"group"` 表在 platform.db，stats_agg_hourly / proxy_log 在 log.db。
+    // 先 platform 库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
     let pid_str = platform_id.to_string();
     let auto_keys: Vec<String> = db
-        .call_read_traced(None, __db_caller, move |conn| {
+        .call_read_platform_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT group_key FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0",
             )?;
@@ -294,7 +294,7 @@ pub fn platform_usage_stats_all(
     // proxy-log-db-split s3：`"group"` 表在主库，stats_agg_hourly / proxy_log 在 log.db。
     // 先主库预查 auto_map（recent 的 eff_pid 内存回溯需要），再入 proxy_log 闭包跑两阶段聚合。
     let auto_map = db
-        .call_read_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("all platform usage stats load auto_map: {e}"))?;
     db
