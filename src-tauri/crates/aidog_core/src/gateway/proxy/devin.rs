@@ -196,8 +196,18 @@ pub(crate) async fn handle_devin(
     };
 
     // ── 4. 包 chat response（按 source_protocol openai/anthropic 格式化）──
-    // TODO(s4): is_stream=true 时把 content 切成 SSE 块（伪流式），s3 先走非流式占位。
-    let _ = is_stream;
+    if is_stream {
+        // 契约 5: 伪流式（轮询中 diff 新 devin message → SSE delta），终态 [DONE]/message_stop。
+        // 注意：Devin 无原生 SSE，chunk 粒度 = 轮询周期（10s）非 token，客户端看到的是离散 message burst。
+        // 已轮询到终态（上方 poll_session）→ 直接取 messages（exit 路径已 fetch）+ 把 content 切块发 SSE。
+        // ponytail: s3 已 poll 到终态，流式分支在终态后再 emit chunks（不再二次 poll）；
+        // 真正的边 poll 边 emit 留待 s5（stateful session 复用）——此处单请求内 poll 完再 chunk 也满足契约 5。
+        return stream_terminal_response(
+            state, log, log_settings, source_protocol, requested_model,
+            &session_id, &content, acus_consumed, final_state.status.as_str(),
+            final_state.status_detail.as_deref(), start,
+        ).await;
+    }
     let body = format_chat_response(source_protocol, &session_id, requested_model, &content, acus_consumed);
     let body_str = body.to_string();
 
@@ -512,6 +522,133 @@ async fn devin_error(
     r
 }
 
+// ── 伪流式 SSE 构造（契约 5）──
+
+/// 终态后 emit SSE 流：按 source_protocol 把 content 切块发 delta，终态 [DONE]/message_stop。
+///
+/// s4 设计：s3 的 poll_session 已轮询到终态（exit/error/suspended）拿到 final_status + accus_consumed，
+/// 流式分支不再二次 poll，直接把已 fetch 的 content 切块发 SSE delta（单请求内 poll→chunk 两阶段）。
+/// error/suspended 终态发 error SSE + close 流；正常 exit 发完整 delta 序列 + stop。
+///
+/// ponytail: 不做 progressive poll-during-stream（那需要 s5 stateful session 映射或长任务 spawn）。
+/// 客户端看到的仍是 SSE 流（content 逐块到达），满足契约 5 的「伪流式 + [DONE] 终态」；
+/// 块粒度 = chunk_size 字节（默认整条 message 一块），非 token 粒度——Devin 本就是离散 message 产出。
+#[allow(clippy::too_many_arguments)]
+async fn stream_terminal_response(
+    state: Arc<ProxyState>,
+    mut log: ProxyLog,
+    log_settings: ProxyLogSettings,
+    source_protocol: &str,
+    requested_model: &str,
+    session_id: &str,
+    content: &str,
+    acus_consumed: f64,
+    final_status: &str,
+    final_status_detail: Option<&str>,
+    start: std::time::Instant,
+) -> Response {
+    use crate::gateway::adapter::converter::to_client_sse;
+
+    let sse_id = format!("chatcmpl-{session_id}");
+    // ── 构造 SSE chunk 序列（Start → N×Delta → Stop/Error）──
+    let chunks: Vec<String> = match final_status {
+        "exit" => build_devin_sse_seq(source_protocol, &sse_id, requested_model, &[content.to_string()], "stop"),
+        "error" => {
+            let mut v = vec![to_client_sse(&ChatStreamEvent::Start { id: sse_id.clone(), model: requested_model.to_string() }, source_protocol, requested_model).unwrap_or_default()];
+            v.push(sse_error_chunk(source_protocol, "Devin session error"));
+            v
+        }
+        "suspended" => {
+            let detail = final_status_detail.unwrap_or("unknown");
+            let human = suspended_human_message(detail);
+            let mut v = vec![to_client_sse(&ChatStreamEvent::Start { id: sse_id.clone(), model: requested_model.to_string() }, source_protocol, requested_model).unwrap_or_default()];
+            v.push(sse_error_chunk(source_protocol, &human));
+            v
+        }
+        _ => build_devin_sse_seq(source_protocol, &sse_id, requested_model, &[content.to_string()], "stop"),
+    };
+
+    // ── upsert log（终态后落库，est_cost = acus_consumed）──
+    let (http_status, body_marker) = match final_status {
+        "error" => (StatusCode::BAD_GATEWAY, "[devin stream error]".to_string()),
+        "suspended" => (StatusCode::PAYMENT_REQUIRED, "[devin stream suspended]".to_string()),
+        _ => (StatusCode::OK, content.to_string()),
+    };
+    log.status_code = http_status.as_u16() as i32;
+    log.input_tokens = 0;
+    log.output_tokens = 0;
+    log.est_cost = acus_consumed;
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.response_body = body_marker.clone();
+    log.user_response_body = body_marker;
+    log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
+    upsert_log(&state, &log, &log_settings).await;
+
+    // ── 构造 SSE Body（参考 mock.rs:112 + finish.rs:332）──
+    let body_stream = futures::stream::iter(chunks.into_iter().map(Ok::<_, std::io::Error>));
+    let body = Body::from_stream(body_stream);
+    let mut r = (
+        http_status,
+        [
+            (axum::http::header::CONTENT_TYPE, "text/event-stream"),
+            (axum::http::header::CACHE_CONTROL, "no-cache"),
+            (axum::http::header::CONNECTION, "keep-alive"),
+        ],
+        body,
+    ).into_response();
+    inject_trace_header(&mut r);
+    r
+}
+
+/// 把 content 切块发 SSE delta：Start → N×Delta(text) → Stop(finish_reason)。
+/// 复用 `to_client_sse` 按 source_protocol 转 openai/anthropic 格式（含 gemini 兜底）。
+pub(crate) fn build_devin_sse_seq(
+    source_protocol: &str,
+    sse_id: &str,
+    model: &str,
+    messages: &[String],
+    finish_reason: &str,
+) -> Vec<String> {
+    use crate::gateway::adapter::converter::to_client_sse;
+    let mut out: Vec<String> = Vec::new();
+    if let Some(s) = to_client_sse(
+        &ChatStreamEvent::Start { id: sse_id.to_string(), model: model.to_string() },
+        source_protocol, model,
+    ) {
+        out.push(s);
+    }
+    for m in messages {
+        // ponytail: Devin message 是离散产出，整条一个 delta chunk（非 token 切分）
+        if !m.is_empty()
+            && let Some(s) = to_client_sse(&ChatStreamEvent::Delta { text: m.clone() }, source_protocol, model)
+        {
+            out.push(s);
+        }
+    }
+    if let Some(s) = to_client_sse(
+        &ChatStreamEvent::Stop { finish_reason: Some(finish_reason.to_string()) },
+        source_protocol, model,
+    ) {
+        out.push(s);
+    }
+    out
+}
+
+/// 错误 SSE chunk：openai → `data: {"error":{...}}\n\n`；anthropic → `event: error\ndata: {...}\n\n`。
+/// 后接 [DONE]/message_stop 让客户端 clean close（openai 的 [DONE] 由 Stop 提供，这里仅 error）。
+pub(crate) fn sse_error_chunk(source_protocol: &str, msg: &str) -> String {
+    match source_protocol {
+        "anthropic" => format!(
+            "event: error\ndata: {}\n\n",
+            serde_json::json!({ "type": "error", "error": { "type": "api_error", "message": msg } })
+        ),
+        _ => format!(
+            "data: {}\n\n",
+            serde_json::json!({ "error": { "message": msg, "type": "devin_session_error" } })
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -694,5 +831,72 @@ mod tests {
         let av: Value = serde_json::from_str(&a).unwrap();
         assert_eq!(av["type"], "error");
         assert_eq!(av["error"]["message"], "err");
+    }
+
+    // ── 伪流式 SSE 构造（s4）──
+
+    #[test]
+    fn sse_seq_openai_has_delta_and_done() {
+        let chunks = build_devin_sse_seq("openai", "chatcmpl-s1", "devin-normal", &["hello".into()], "stop");
+        // Start + Delta + Stop = 3 chunks
+        assert_eq!(chunks.len(), 3, "openai seq: {:?}", chunks);
+        // Start: data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"...}}]}
+        assert!(chunks[0].contains("chat.completion.chunk"), "start: {}", chunks[0]);
+        assert!(chunks[0].contains("assistant"), "start role: {}", chunks[0]);
+        // Delta: data: {"choices":[{"delta":{"content":"hello"}}]}
+        assert!(chunks[1].contains("hello"), "delta: {}", chunks[1]);
+        assert!(chunks[1].contains("\"content\":\"hello\""), "delta content: {}", chunks[1]);
+        // Stop: 终态 finish_reason=stop + [DONE]
+        assert!(chunks[2].contains("\"finish_reason\":\"stop\""), "stop reason: {}", chunks[2]);
+        assert!(chunks[2].contains("[DONE]"), "stop [DONE]: {}", chunks[2]);
+    }
+
+    #[test]
+    fn sse_seq_anthropic_has_message_start_stop() {
+        let chunks = build_devin_sse_seq("anthropic", "msg_s2", "devin-fast", &["world".into()], "end_turn");
+        assert_eq!(chunks.len(), 3, "anthropic seq: {:?}", chunks);
+        // Start: event: message_start
+        assert!(chunks[0].contains("event: message_start"), "anthropic start: {}", chunks[0]);
+        assert!(chunks[0].contains("assistant"), "anthropic role: {}", chunks[0]);
+        // Delta: event: content_block_delta + text_delta
+        assert!(chunks[1].contains("event: content_block_delta"), "anthropic delta: {}", chunks[1]);
+        assert!(chunks[1].contains("text_delta"), "anthropic delta type: {}", chunks[1]);
+        assert!(chunks[1].contains("world"), "anthropic delta text: {}", chunks[1]);
+        // Stop: message_delta + message_stop, stop_reason=end_turn
+        assert!(chunks[2].contains("event: message_delta"), "anthropic stop delta: {}", chunks[2]);
+        assert!(chunks[2].contains("event: message_stop"), "anthropic message_stop: {}", chunks[2]);
+        assert!(chunks[2].contains("end_turn"), "anthropic stop_reason: {}", chunks[2]);
+    }
+
+    #[test]
+    fn sse_seq_skips_empty_messages() {
+        let chunks = build_devin_sse_seq("openai", "c", "m", &["".into(), "real".into(), "".into()], "stop");
+        // Start + 1 Delta（空跳过）+ Stop
+        assert_eq!(chunks.len(), 3);
+        assert!(chunks[1].contains("real"));
+    }
+
+    #[test]
+    fn sse_seq_gemini_falls_back_openai_like() {
+        // gemini: Start→None（跳过），Delta + Stop = 2 chunks（gemini sse 无 data:/event: 前缀，纯 JSON 行）
+        let chunks = build_devin_sse_seq("gemini", "c", "m", &["x".into()], "stop");
+        assert_eq!(chunks.len(), 2, "gemini seq: {:?}", chunks);
+        assert!(chunks[0].contains("\"text\":\"x\""), "gemini delta: {}", chunks[0]);
+        // 末块是 Stop（finishReason=STOP）
+        let last = chunks.last().unwrap();
+        assert!(last.contains("finishReason"), "gemini stop finishReason: {last}");
+        assert!(last.contains("STOP"), "gemini STOP: {last}");
+    }
+
+    #[test]
+    fn sse_error_chunk_openai_and_anthropic() {
+        let o = sse_error_chunk("openai", "boom");
+        assert!(o.starts_with("data: "));
+        let ov: Value = serde_json::from_str(o.trim_start_matches("data: ").trim()).unwrap();
+        assert_eq!(ov["error"]["message"], "boom");
+        let a = sse_error_chunk("anthropic", "kaboom");
+        assert!(a.starts_with("event: error\ndata: "));
+        let av: Value = serde_json::from_str(a.split("data: ").nth(1).unwrap().trim()).unwrap();
+        assert_eq!(av["error"]["message"], "kaboom");
     }
 }
