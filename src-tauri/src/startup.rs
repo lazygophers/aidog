@@ -236,6 +236,10 @@ pub fn run() {
             commands_cli_proxy::test_cmd::cli_proxy_test,
             commands_cli_proxy::platform::create_cli_proxy_platform,
             commands_cli_proxy::import::cli_proxy_import,
+            // CLI Proxy batch ops（cli-proxy-batch-delete s1）
+            commands_cli_proxy::batch::batch_delete_cli_proxy_providers,
+            commands_cli_proxy::batch::batch_override_cli_proxy_models,
+            commands_cli_proxy::batch::batch_set_cli_proxy_quota,
             // Model Prices
             commands_platform::price::model_price_list,
             commands_platform::price::model_price_count,
