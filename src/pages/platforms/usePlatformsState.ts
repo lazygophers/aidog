@@ -13,7 +13,7 @@ import {
   type Platform, type PlatformStatus, type Protocol, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult,
   type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
-  type ModelSlot, type MockConfig, type NewApiConfig, type ManualBudget,
+  type ModelSlot, type MockConfig, type NewApiConfig, type DevinConfig, type ManualBudget,
   type TimeModelRule, type CliProxyProvider,
 } from "../../services/api";
 import { pinyinMatch } from "../../utils/pinyin";
@@ -132,6 +132,7 @@ export interface PlatformsState extends PlatformsStateParams {
   extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
   mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
   newApiConfig: NewApiConfig; setNewApiConfig: React.Dispatch<React.SetStateAction<NewApiConfig>>;
+  devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
   breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
   breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;

@@ -2074,5 +2074,14 @@
   "updater.releaseNotes": "Release notes",
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
-  "updater.updating": "Updating…"
+  "updater.updating": "Updating…",
+  "platform.devinConfig": "Devin Configuration",
+  "platform.devinConfigHint": "API Key uses cog_ prefixed credential; Organization ID is required (v3 path segment), available in Devin console",
+  "platform.devinOrgId": "Organization ID",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "Session timeout (seconds, optional)",
+  "platform.devinTimeoutPlaceholder": "Default 300",
+  "platform.devinMode": "Default mode (optional)",
+  "platform.devinModeAuto": "Auto-map by model",
+  "platform.acuUsage": "ACU usage"
 }

@@ -2096,5 +2096,14 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新に失敗しました",
   "updater.updateNow": "今すぐ更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "platform.devinConfig": "Devin 設定",
+  "platform.devinConfigHint": "APIキーは cog_ プレフィックス付き; 組織 ID は必須 (v3 パスセグメント)、Devin コンソールで取得可能",
+  "platform.devinOrgId": "組織 ID",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "セッションタイムアウト（秒、任意）",
+  "platform.devinTimeoutPlaceholder": "デフォルト 300",
+  "platform.devinMode": "デフォルトモード（任意）",
+  "platform.devinModeAuto": "モデルで自動マッピング",
+  "platform.acuUsage": "ACU 使用量"
 }
