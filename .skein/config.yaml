@@ -4,8 +4,9 @@ auto_commit: true
 use_worktree: true
 worktree_root: .worktrees
 retain_days: 7
-board_theme: sketch
-board_server: false
+board_theme: skein
 web_serve: true
+board_open: true
+board_server: false
 board_palette: stone
 board_mode: light

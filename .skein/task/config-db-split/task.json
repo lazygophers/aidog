@@ -2,19 +2,136 @@
   "id": "config-db-split",
   "name": "配置库拆分 platform/group/cli_proxy 独立 db",
   "desc": "platform+group+group_platform+cli_proxy_provider+model_test_results 拆独立配置库; 选型 SQLite(关系+事务+低频写高频读, DuckDB 多连接读不可见更致命); 主库留轻配置 settings/hooks/mcp/middleware",
-  "status": "待处理",
+  "status": "进行中",
   "deps": [
     "proxy-log-db-split"
   ],
-  "contracts": [],
-  "subtasks": [],
+  "contracts": [
+    "数据迁移 crash-safe: INSERT OR IGNORE(保 id) 先落 platform.db 成功后才 DROP 主库表; 禁 notification 049 的 read+DROP->INSERT 顺序",
+    "内存库 fallback: is_memory 下 platform handle=主内存 conn clone (同 proxy_log idiom)",
+    "保 id 迁移: INSERT 显式含 id 列禁自增, 保 log.db.proxy_log.platform_id 引用",
+    "log.db 零改动: proxy_log/stats_agg_hourly/notification 留 log.db",
+    "主库剩 4 表不动: setting/model_price/middleware_rule/mcp_server 留主库",
+    "4 表访问点零 call_traced 残留: 全换 call_platform_traced (grep 核)",
+    "migration 046 CPA 清理: cpa_pids 预查改 platform handle",
+    "backup 同步: platform.db 加入 backup/scheduler.rs 备份清单"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-handle",
+      "name": "Db 3rd handle 接线",
+      "desc": "Db tuple+2(platform 写槽+读池) clone proxy_log 双槽; open_platform_conn/call_platform_traced/call_read_platform_traced/reconnect_platform; ReconnectCtx.platform_path; Db::new 开 platform.db + 内存 fallback",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": 60,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784176987,
+      "started": 1784177465,
+      "finished": 1784177951
+    },
+    {
+      "sid": "s2-migrate",
+      "name": "DDL 分流 + crash-safe 迁移",
+      "desc": "4 表 DDL 搬到 run_migrations_platform_early/late; init_tables 4 阶段(主读/log/platform 建表+INSERT OR IGNORE/主 DROP); maintenance 按表归属分流; migration 046 CPA cpa_pids 改 platform handle",
+      "depends_on": [
+        "s1-handle"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": 90,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784176987,
+      "started": 1784177951,
+      "finished": 1784179150
+    },
+    {
+      "sid": "s3-access",
+      "name": "58 访问点换 handle",
+      "desc": "platform.rs/group.rs/group_platform.rs/platform_lifecycle.rs/cli_proxy.rs/settings.rs(部分)/query_stats.rs/stats_today.rs/import_export/db mod load_auto_from_map 的 call_traced->call_platform_traced, call_read_traced->call_read_platform_traced; grep 核零残留",
+      "depends_on": [
+        "s2-migrate"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": 80,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784176987,
+      "started": 1784179151,
+      "finished": 1784179734
+    },
+    {
+      "sid": "s4-backup-verify",
+      "name": "backup 同步 + 验证",
+      "desc": "backup/scheduler.rs 加 platform.db 备份(仿 log.db); cargo build/clippy/test -p aidog_core 全绿; 内存库 db:: 测试过; 跨库访问点一致性",
+      "depends_on": [
+        "s3-access"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": 40,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784176987,
+      "started": 1784179734,
+      "finished": 1784180073
+    },
+    {
+      "sid": "s5-fix-usage-stats",
+      "name": "修复: usage_stats/stats_agg 漏网 call_read_traced",
+      "desc": "usage_stats.rs:297 + stats_agg.rs:178/249/310 共 3 处 load_auto_from_map 调用点 call_read_traced -> call_read_platform_traced (s3 漏网, check 契约6 FAIL, auto_map 数据源不一致致 stats eff_pid 回溯错)",
+      "depends_on": [
+        "s4-backup-verify"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": 15,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784180675,
+      "started": 1784180675,
+      "finished": 1784180908
+    },
+    {
+      "sid": "s6-fix-proxy-log-cpp",
+      "name": "修复: proxy_log.rs:461 cli_proxy_provider 漏网",
+      "desc": "proxy_log.rs:461 SELECT id,name FROM cli_proxy_provider 用 call_read_traced(主库) -> call_read_platform_traced (check 重验契约6 FAIL, 单点)",
+      "depends_on": [
+        "s5-fix-usage-stats"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": 10,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784181214,
+      "started": 1784181214,
+      "finished": 1784181313
+    }
+  ],
   "repos": [],
-  "worktree": null,
-  "worktrees": [],
+  "worktree": ".worktrees/skein-config-db-split",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-config-db-split",
+      "branch": "skein/config-db-split",
+      "merged": false
+    }
+  ],
   "branch": "skein/config-db-split",
   "estimate": 200,
   "created": 1784093127,
-  "started": null,
+  "started": 1784177457,
   "finished": null,
-  "updated": 1784093127
+  "updated": 1784181313
 }
