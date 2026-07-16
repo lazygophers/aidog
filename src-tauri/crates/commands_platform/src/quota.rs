@@ -36,6 +36,23 @@ pub async fn platform_query_quota_newapi(
     Ok(q)
 }
 
+/// Devin 用量查询（ACU 数，est_cost 记 ACU 不折 $）。
+/// extra 需含 `{"devin":{"org_id":"<id>"}}`，缺 org_id → 失败 PlatformQuota。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+pub async fn platform_query_quota_devin(
+    base_url: String, api_key: String, extra: String,
+    platform_id: Option<u64>, db: State<'_, Db>,
+) -> Result<PlatformQuota, String> {
+    tracing::debug!(command = "platform_query_quota_devin", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
+    let q = gateway::quota::query_quota_devin(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
+    tracing::info!(command = "platform_query_quota_devin", platform_id = ?platform_id, success = q.success, "quota query result");
+    if q.success {
+        persist_quota_to_db(&db, platform_id, &q).await;
+    }
+    Ok(q)
+}
+
 /// 将 quota 真查结果写回 platform 表，并作为一次「校准」严格对齐 est = 真实。
 /// 走 estimate::calibrate_from_quota：est_coding_plan 写入正确的 EstCodingPlan 形态
 /// （est_utilization=真实 util、util_at_last_real=真实、tokens_since_real=0、拟合 coef），
@@ -71,9 +88,12 @@ pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
             let Some(db) = handle.try_state::<Db>() else { return };
             let db_arc = Arc::new(db.inner().clone());
             let is_newapi = matches!(p.platform_type, gateway::models::Protocol::NewApi);
+            let is_devin = matches!(p.platform_type, gateway::models::Protocol::Devin);
             // 锁外 async 真查
             let q = if is_newapi {
                 gateway::quota::query_quota_newapi(Some(&db_arc), &p.base_url, &p.api_key, &p.extra, p.id as i64).await
+            } else if is_devin {
+                gateway::quota::query_quota_devin(Some(&db_arc), &p.base_url, &p.api_key, &p.extra, p.id as i64).await
             } else {
                 gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64).await
             };
