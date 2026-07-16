@@ -19,7 +19,7 @@ import type { PlatformsState } from "./usePlatformsState";
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
   FormSection, ApiKeyField,
-  NewApiBalanceConfigSection, PassthroughConfigSection, EndpointsSection,
+  NewApiBalanceConfigSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
   ManualBudgetsSection, BreakerSection, PeakHoursSection, GroupAssignSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
@@ -41,6 +41,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, confirmBatchCreate, cancelBatchPreview, previewNames,
     newApiConfig, setNewApiConfig,
+    devinConfig, setDevinConfig,
     endpoints, setEndpoints,
     models, handleModelChange, handleModelSelect, activeDropdown, setActiveDropdown,
     availableModels, protocol: proto, fetching, fetchError, handleFetchModels, handleFillAll,
@@ -307,6 +308,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* New API 余额查询配置（仅 newapi 平台显示） */}
         {protocol === "newapi" && (
           <NewApiBalanceConfigSection config={newApiConfig} onChange={setNewApiConfig} t={t} />
+        )}
+
+        {/* Devin 平台配置（org_id + 可选 timeout/mode，仅 devin 协议显示） */}
+        {protocol === "devin" && (
+          <DevinConfigSection config={devinConfig} onChange={setDevinConfig} t={t} />
         )}
 
         {/* Claude Code 订阅（透传）配置：仅 base_url（host 根）+ 可空 api_key */}
