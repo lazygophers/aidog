@@ -232,10 +232,15 @@ pub struct Db(
 pub(crate) fn load_auto_from_map(
     conn: &Connection,
 ) -> rusqlite::Result<HashMap<String, i64>> {
-    let mut stmt = conn.prepare(
+    // config-db-split: "group" 表迁 platform.db，主库 Phase 1 调用时表可能不存在（首次新装 /
+    // 已迁过）。缺表 → 返空 map（语义：无 auto_from_platform 映射），不阻断 init_tables。
+    // backfill_stats_agg_if_empty 在 stats_agg 非空时本就跳过，auto_map 空无回归。
+    let Ok(mut stmt) = conn.prepare(
         "SELECT group_key, CAST(auto_from_platform AS INTEGER) FROM \"group\" \
          WHERE auto_from_platform != '' AND deleted_at = 0",
-    )?;
+    ) else {
+        return Ok(HashMap::new());
+    };
     let rows = stmt.query_map([], |r| {
         Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
     })?;

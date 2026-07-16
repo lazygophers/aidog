@@ -9,210 +9,9 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_input_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_output_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN context_window INTEGER", []);
-                // Migration 022: platform auto_group 开关（false = 不建/不维护默认分组，
-                // ensure_platform_groups 永久跳过）。DEFAULT 1 = 老平台保持旧行为。
-                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_group INTEGER NOT NULL DEFAULT 1", []);
-                // Migration 023: 移除 group.path（路由纯按 apikey=group_key）+ name 加 UNIQUE。
-                // 门控：仅老库（仍有 path 列）重建。009 重建出的新表无 group_key 列，会触发 010
-                // 用 name 兜底重建 group_key —— 若 009 无门控每次启动重跑，group_key 会被反复
-                // 覆盖回 name（含中文 name 时污染路由键）。已迁移库无 path 列 → 跳过 → group_key 稳定。
-                let has_group_path = conn
-                    .prepare("PRAGMA table_info(\"group\")")?
-                    .query_map([], |r| r.get::<_, String>(1))?
-                    .filter_map(Result::ok)
-                    .any(|c| c == "path");
-                if has_group_path {
-                    conn.execute_batch(
-                        r#"-- Migration 009: 移除 group.path，分组路由纯按 apikey(group.name)。
--- 原 path 用作 URL 前缀路由 fallback + UNIQUE 标识；现统一按
--- Authorization Bearer(apikey = group.name) 精确匹配，不再支持路径前缀路由。
--- SQLite 不能直接 DROP COLUMN + 加表级约束，重建表。
--- group 无独立 index，重建不丢索引；列名显式匹配保证幂等（path 已删的库 SELECT 同样命中）。
--- name 加 UNIQUE（apikey 语义唯一，防重名 group 创建）。
-CREATE TABLE IF NOT EXISTS "group_new" (
-    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name                 TEXT NOT NULL DEFAULT '',
-    routing_mode         TEXT NOT NULL DEFAULT '',
-    auto_from_platform   TEXT NOT NULL DEFAULT '',
-    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
-    model_mappings       TEXT NOT NULL DEFAULT '[]',
-    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-    created_at           INTEGER NOT NULL DEFAULT 0,
-    updated_at           INTEGER NOT NULL DEFAULT 0,
-    deleted_at           INTEGER NOT NULL DEFAULT 0,
-    sort_order           INTEGER NOT NULL DEFAULT 0,
-    max_retries          INTEGER NOT NULL DEFAULT 2,
-    UNIQUE(name)
-);
-INSERT INTO "group_new"
-    (id, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
-     request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
-     sort_order, max_retries)
-SELECT
-    id, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
-    request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
-    sort_order, max_retries
-FROM "group";
-DROP TABLE "group";
-ALTER TABLE "group_new" RENAME TO "group";
-"#,
-                    )?;
-                }
-                // Migration 024: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
-                // group_key UNIQUE: Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
-                // name UNIQUE: 防重名。老 group.group_key 初值 = 旧 name（statusline 脚本/已分发 token 不破）。
-                // 幂等：PRAGMA 探测 group_key 列存在性，已迁移则跳过重建。
-                let has_group_key = conn
-                    .prepare("PRAGMA table_info(\"group\")")?
-                    .query_map([], |r| r.get::<_, String>(1))?
-                    .filter_map(Result::ok)
-                    .any(|c| c == "group_key");
-                if !has_group_key {
-                    conn.execute_batch(
-                        r#"-- Migration 010: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
--- group_key UNIQUE: Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
--- name UNIQUE: 防重名显示。
--- 老 group.group_key 初值 = 旧 name（statusline 脚本 / 已分发 token 不破，用户后续可改）。
--- SQLite 不能给现存表加 UNIQUE 列约束，重建表（仿 009_drop_group_path.sql 幂等范式）。
-CREATE TABLE IF NOT EXISTS "group_new" (
-    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-    name                 TEXT NOT NULL DEFAULT '',
-    group_key            TEXT NOT NULL DEFAULT '',
-    routing_mode         TEXT NOT NULL DEFAULT '',
-    auto_from_platform   TEXT NOT NULL DEFAULT '',
-    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
-    model_mappings       TEXT NOT NULL DEFAULT '[]',
-    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-    created_at           INTEGER NOT NULL DEFAULT 0,
-    updated_at           INTEGER NOT NULL DEFAULT 0,
-    deleted_at           INTEGER NOT NULL DEFAULT 0,
-    sort_order           INTEGER NOT NULL DEFAULT 0,
-    max_retries          INTEGER NOT NULL DEFAULT 2,
-    UNIQUE(name),
-    UNIQUE(group_key)
-);
--- 仅当源表存在 group_key 列时取已存值，否则用 name 兜底（首次迁移 + 兼容已迁移库）。
--- SQLite 无 IF_COL_EXISTS；靠列名显式匹配：旧库无 group_key → 用 name 作 group_key。
-INSERT INTO "group_new"
-    (id, name, group_key, routing_mode, auto_from_platform, source_protocol, model_mappings,
-     request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
-     sort_order, max_retries)
-SELECT
-    id, name, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
-    request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
-    sort_order, max_retries
-FROM "group";
-DROP TABLE "group";
-ALTER TABLE "group_new" RENAME TO "group";
-"#,
-                    )?;
-                }
-                // proxy_log.group_key RENAME → run_migrations_proxy_log_late（log.db）
-                // Migration 025: GLM Coding Plan anthropic 端点补标 coding_plan=true。
-                // 根因：Platforms.tsx glm 预设曾把 anthropic 端点漏标 coding_plan，coding plan 平台
-                // (含 openai coding 端点)的 anthropic(Claude Code)入站经 select_endpoint_for_protocol
-                // 同协议匹配落空 → 回退 openai coding 端点 → 被转换成 openai。GLM 与 Kimi 不同：
-                // openai/anthropic 端点同处 open.bigmodel.cn 同一把 key 通用，anthropic 端点合法。
-                // 仅修「已是 coding plan(有 coding openai 端点)且 anthropic 端点未标 coding_plan」的 GLM 平台。
-                // 幂等：已标 coding_plan 的不动；非 coding plan GLM(无 coding 端点)不动。
-                if let Ok(mut stmt) =
-                    conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'glm'")
-                {
-                    let rows: Vec<(i64, String)> = stmt
-                        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
-                        .ok()
-                        .map(|iter| iter.filter_map(Result::ok).collect())
-                        .unwrap_or_default();
-                    for (id, endpoints_json) in rows {
-                        let mut eps = parse_endpoints(&endpoints_json);
-                        // 仅当该平台确为 coding plan（存在 coding_plan 的 openai 端点）才补标 anthropic。
-                        let is_coding_plan = eps
-                            .iter()
-                            .any(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI);
-                        if !is_coding_plan {
-                            continue;
-                        }
-                        let mut changed = false;
-                        for ep in &mut eps {
-                            if ep.protocol == Protocol::Anthropic && !ep.coding_plan {
-                                ep.coding_plan = true;
-                                changed = true;
-                            }
-                        }
-                        if changed {
-                            let new_json = serialize_endpoints(&eps);
-                            let _ = conn.execute(
-                                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
-                                params![new_json, id],
-                            );
-                            tracing::info!(platform_id = id, "migration 025: glm coding-plan anthropic endpoint coding_plan→true");
-                        }
-                    }
-                }
-                // Migration 026: platform 表精简 —— 删 auto_group(022) + 3 breaker 列(016)。
-                // auto_group 改为创建时一次性判断（CreatePlatform transient 输入），不持久化。
-                // breaker 阈值覆盖移入 extra JSON 的 breaker 对象（extra.breaker.{failure_threshold,
-                // open_secs, half_open_max}），语义不变（0/缺省=继承全局默认）。
-                // 步骤：① 把每行非 0 breaker 列值无损 backfill 进 extra.breaker；② DROP 4 列。
-                // 幂等：PRAGMA 探测 breaker_failure_threshold 列存在性 —— 存在才迁移，已迁库跳过。
-                let has_breaker_col = conn
-                    .prepare("PRAGMA table_info(platform)")?
-                    .query_map([], |r| r.get::<_, String>(1))?
-                    .filter_map(Result::ok)
-                    .any(|c| c == "breaker_failure_threshold");
-                if has_breaker_col {
-                    // ① backfill：逐行读旧 breaker 列 + extra，合并写回 extra。
-                    let rows: Vec<(i64, String, i64, i64, i64)> = {
-                        let mut stmt = conn.prepare(
-                            "SELECT id, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max FROM platform",
-                        )?;
-                        let mapped = stmt.query_map([], |r| {
-                            Ok((
-                                r.get::<_, i64>(0)?,
-                                r.get::<_, String>(1)?,
-                                r.get::<_, i64>(2)?,
-                                r.get::<_, i64>(3)?,
-                                r.get::<_, i64>(4)?,
-                            ))
-                        })?;
-                        mapped.filter_map(Result::ok).collect()
-                    };
-                    for (id, extra, ft, os, hom) in rows {
-                        if ft == 0 && os == 0 && hom == 0 {
-                            continue; // 无覆盖 → 不动 extra
-                        }
-                        let breaker = crate::gateway::models::PlatformBreaker {
-                            failure_threshold: ft.max(0) as u32,
-                            open_secs: os.max(0) as u64,
-                            half_open_max: hom.max(0) as u32,
-                        };
-                        let new_extra = crate::gateway::models::merge_breaker_into_extra(&extra, &breaker);
-                        conn.execute(
-                            "UPDATE platform SET extra = ?1 WHERE id = ?2",
-                            params![new_extra, id],
-                        )?;
-                    }
-                    // ② DROP 4 列（SQLite 3.35+ 支持 ALTER DROP COLUMN，逐列执行）。
-                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_failure_threshold", []);
-                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_open_secs", []);
-                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_half_open_max", []);
-                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN auto_group", []);
-                    tracing::info!("migration 026: backfilled breaker into extra + dropped auto_group/breaker_* columns");
-                }
-                // Migration 027: 默认分组标记（单选）。is_default=1 的组 config merge 写入
-                // ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
-                // 不带 -c/--profile 即走该组。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
-                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 028: proxy_log 偏索引 → run_migrations_proxy_log_late
-                // Migration 029: group_platform per-group 平台优先级 level_priority（1~10，默认 5，10=最高优先）。
-                // 独立于 priority（拖拽排序连续序号）与 weight（负载均衡权重）。
-                // Failover：level_priority 降序 tiebreak；weighted（LoadBalance/HealthAware/Sticky）：有效权重=weight×level_priority；
-                // LeastLatency：延迟 EMA 主导，level_priority 作次级 tiebreaker。
-                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column；老行默认 5。
-                let _ = conn.execute("ALTER TABLE group_platform ADD COLUMN level_priority INTEGER NOT NULL DEFAULT 5", []);
-
+                // Migration 022–048: platform / "group" / group_platform / cli_proxy_provider
+                // 的 ALTER / 数据回填 / 045 建表 / 046 CPA 清理 / 048 quota →
+                // run_migrations_platform_late（落 platform.db）。主库零 platform/group DDL。
                 // Migration 030: 「Claude Code / Codex 联动」重命名为通用「AI 编程工具」。
                 // 把旧 settings key cc_codex_settings 迁到 coding_tools_settings，保留老用户两开关状态
                 // （apply_to_claude_plugin / skip_claude_onboarding），避免重命名后开关回到默认关。
@@ -230,103 +29,15 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // Migration 035: 删冗余索引（proxy_log/stats_agg 相关 → proxy_log_late；idx_model_price_name 留主库）。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_model_price_name", []);
                 tracing::info!("migration 035: dropped redundant indexes (proxy_log/stats_agg部分在proxy_log_late)");
-                // Migration 036: platform 过期时间（毫秒 unix 时间戳，0 = 永不过期）。
-                // >0 且 now>=expires_at 时路由 candidate_state 排除（等效自动禁用，独立于 status 枚举）；
-                // purge_auto_disabled_platforms 也一并清过期平台。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
-                let _ = conn.execute(
-                    "ALTER TABLE platform ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0",
-                    [],
-                );
-
-                // Migration 037: 平台最近一次错误信息（卡片展示用，非请求记录实时取）。
-                // 上游非 2xx / 连接失败 / 空 2xx 重试时写 last_error+last_error_at；成功时清空。
-                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
-                let _ = conn.execute(
-                    "ALTER TABLE platform ADD COLUMN last_error TEXT NOT NULL DEFAULT ''",
-                    [],
-                );
-                let _ = conn.execute(
-                    "ALTER TABLE platform ADD COLUMN last_error_at INTEGER NOT NULL DEFAULT 0",
-                    [],
-                );
-
-                // Migration 038: group 自定义环境变量（内联 JSON 数组，仿 model_mappings）。
-                // sync 时注入 settings.{group}.json 的 env block（ANTHROPIC_BASE_URL /
-                // ANTHROPIC_AUTH_TOKEN 由 aidog 强写，用户同名 key 在 sync_settings 过滤丢弃）。
-                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column；老行回填 '[]'。
-                let _ = conn.execute(
-                    "ALTER TABLE \"group\" ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
-                    [],
-                );
-
-                // Migration 039: 重写历史 last_error 残留完整 JSON body 为提取后 message。
-                // 037 加列时 last_error 直接存 `HTTP {code}: {truncate_attempt_error(body)}`（含完整 JSON），
-                // 后续 b9f82ed 才在写入前接入 extract_error_message。3 小时窗口内落库的旧行需一次性重提：
-                // 拆 `HTTP {code}: ` 前缀后的 body → extract_error_message → 命中则重写。
-                // 幂等：重提后行再跑命中相同 message（已是字符串非 JSON），不变；非 JSON / 无字段不动。
-                // 仅处理 message 能提取且与原文不同的，其余（含连接错 / 纯文本限流）保留。
-                reextract_legacy_last_error(conn);
 
                 // Migration 040–042 已移除：旧 mitm_ca / mitm_whitelist 两表数据迁 setting（scope=mitm）
                 // + DROP 两表。新库不再建两表，MITM 配置复用 setting 的 get_setting/set_setting + 缓存机制。
                 // 详见 migration 043（migrate_mitm_legacy_tables_to_setting）。
+                // 注意：migrate_mitm_legacy_tables_to_setting 内部 SELECT platform.base_url 提取 host
+                // 入默认白名单 —— config-db-split 后 platform 表在 platform.db（主库无此表），
+                // SELECT 失败被 `if let Ok` 吞，entries 仅含 37 条 Clash 默认规则，无平台 host。
+                // 仅影响首启新装（无 platform 数据可提取）；老库首迁 Phase 1 时主库仍有 platform 表，host 正常。
                 migrate_mitm_legacy_tables_to_setting(conn);
-
-                // Migration 044: group.extra JSON 列（_ui_* UI 态 + 未来业务扩展，仿 platform.extra）。
-                // 空串 = "{}" 的轻量表示（update_extra_key 读时统一视作 {}）。幂等：旧库 ALTER 无 IF NOT EXISTS，
-                // duplicate column 错误被忽略；新库本就有此列。
-                let _ = conn.execute(
-                    "ALTER TABLE \"group\" ADD COLUMN extra TEXT NOT NULL DEFAULT ''",
-                    [],
-                );
-
-                // Migration 045: cli_proxy_provider 表 —— cpa-standalone-module s1。
-                // 独立的 CLI 代理上游 provider（与 platform 表解耦，路由/转换 s2/s4 接入）。
-                // wire_protocol = 入站协议标识（anthropic/openai/glm_coding 等，对应 Protocol serde 形式）；
-                // models = JSON 数组（Vec<String>）；extra = 原始 JSON 串（仿 platform.extra，空串视作 "{}"）；
-                // status = active/disabled（默认 active）；group_id = 可空，归属分组（s2 路由层消费）。
-                // 幂等：CREATE TABLE IF NOT EXISTS（对齐项目 migration idiom —— 无版本号机制，每次 init 跑全部）。
-                conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS cli_proxy_provider (
-                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                       name          TEXT NOT NULL,
-                       wire_protocol TEXT NOT NULL,
-                       base_url      TEXT NOT NULL,
-                       api_key       TEXT NOT NULL DEFAULT '',
-                       models        TEXT NOT NULL DEFAULT '[]',
-                       extra         TEXT NOT NULL DEFAULT '{}',
-                       status        TEXT NOT NULL DEFAULT 'active',
-                       group_id      INTEGER,
-                       created_at    INTEGER NOT NULL,
-                       updated_at    INTEGER NOT NULL
-                     );
-                     CREATE INDEX IF NOT EXISTS idx_cli_proxy_group ON cli_proxy_provider(group_id) WHERE group_id IS NOT NULL;",
-                )?;
-
-                // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— cpa-standalone-module s4。
-                // proxy_log / stats_agg_hourly 删除 → run_migrations_proxy_log_late（log.db，
-                // 主库无这两表）。主库仅删 group_platform + platform。
-                // CPA platform IDs 由 init_tables 预查主库后传入 proxy_log_late（跨库不能 JOIN）。
-                // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
-                let _ = conn.execute(
-                    "DELETE FROM group_platform WHERE platform_id IN \
-                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
-                    [],
-                );
-                let _ = conn.execute(
-                    "DELETE FROM platform WHERE platform_type LIKE '\"cpa-%'",
-                    [],
-                );
-
-                // Migration 047: proxy_log 加 cli_proxy_provider_id → run_migrations_proxy_log_late
-
-                // Migration 048: cli_proxy_provider 加 quota JSON 列（余额查询类型配置，仿 extra 模式）。
-                // {"type":"none"|"newapi"}；默认 "{}"（parse_quota_type 视作 none）。
-                // 幂等：旧库 ALTER 无 IF NOT EXISTS，duplicate column 错误被忽略（对齐项目 idiom）。
-                let _ = conn.execute(
-                    "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
-                    [],
-                );
 
                 // Migration 050: 清主库拆库遗留孤儿表 proxy_log / stats_agg_hourly。
                 // b2ef9811 把这两表 DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
@@ -442,6 +153,288 @@ pub(crate) fn run_migrations_proxy_log_late(
                         params![t, title, body, ts],
                     );
                 }
+    Ok(())
+}
+
+/// platform.db 的 late migrations：原 `run_migrations_late` 内所有操作 platform / "group" /
+/// group_platform / cli_proxy_provider 的迁移（022 auto_group / 023–024 group 重建 / 025 GLM
+/// coding_plan 回填 / 026 breaker backfill + 列裁剪 / 027 is_default / 029 level_priority /
+/// 036 expires_at / 037 last_error / 038 env_vars / 039 last_error 重提 / 044 extra / 045
+/// cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota）。
+///
+/// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内、紧随
+/// `run_migrations_platform_early` 之后调用。fresh install：platform_early 已建现代 schema，
+/// 本函数各 ALTER 因 duplicate column 被 `let _ =` 吞 / 各 PRAGMA 探测分支跳过 → 全幂等空转。
+/// 存量库（经 Phase 3 INSERT OR IGNORE 回填行）：列补齐 + 历史 data 回填逐条重放，幂等。
+pub(crate) fn run_migrations_platform_late(conn: &Connection) -> SqlResult<()> {
+                // Migration 012: Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）。
+                // 根因：Platforms.tsx 预设曾把 kimi coding openai endpoint 配为 codex_tui，
+                // 但 Kimi coding 上游拒绝 Codex（只接 Kimi CLI/Claude Code/Roo Code/Kilo Code）。
+                // 扫描已有 kimi 平台 endpoints JSON，修正该 endpoint 身份。幂等：仅改 codex_tui，已 claude_code 不动。
+                if let Ok(mut stmt) = conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'kimi'") {
+                    let rows: Vec<(i64, String)> = stmt
+                        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+                        .ok()
+                        .map(|iter| iter.filter_map(Result::ok).collect())
+                        .unwrap_or_default();
+                    for (id, endpoints_json) in rows {
+                        let mut eps = parse_endpoints(&endpoints_json);
+                        let mut changed = false;
+                        for ep in &mut eps {
+                            if ep.protocol == Protocol::OpenAI
+                                && ep.coding_plan
+                                && ep.client_type == "codex_tui"
+                            {
+                                ep.client_type = "claude_code".to_string();
+                                changed = true;
+                            }
+                        }
+                        if changed {
+                            let new_json = serialize_endpoints(&eps);
+                            let _ = conn.execute(
+                                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
+                                params![new_json, id],
+                            );
+                            tracing::info!(platform_id = id, "migration 012: kimi coding endpoint client_type codex_tui→claude_code");
+                        }
+                    }
+                }
+                // Migration 022: platform auto_group（已在 platform_early 建表时含此列，ALTER 幂等）。
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_group INTEGER NOT NULL DEFAULT 1", []);
+
+                // Migration 023: 移除 group.path（路由纯按 apikey=group_key）+ name 加 UNIQUE。
+                // 门控：仅老库（仍有 path 列）重建。已迁移库无 path 列 → 跳过 → group_key 稳定。
+                let has_group_path = conn
+                    .prepare("PRAGMA table_info(\"group\")")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "path");
+                if has_group_path {
+                    conn.execute_batch(
+                        r#"CREATE TABLE IF NOT EXISTS "group_new" (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                 TEXT NOT NULL DEFAULT '',
+    routing_mode         TEXT NOT NULL DEFAULT '',
+    auto_from_platform   TEXT NOT NULL DEFAULT '',
+    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
+    model_mappings       TEXT NOT NULL DEFAULT '[]',
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    created_at           INTEGER NOT NULL DEFAULT 0,
+    updated_at           INTEGER NOT NULL DEFAULT 0,
+    deleted_at           INTEGER NOT NULL DEFAULT 0,
+    sort_order           INTEGER NOT NULL DEFAULT 0,
+    max_retries          INTEGER NOT NULL DEFAULT 2,
+    UNIQUE(name)
+);
+INSERT INTO "group_new"
+    (id, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
+     request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+     sort_order, max_retries)
+SELECT
+    id, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
+    request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+    sort_order, max_retries
+FROM "group";
+DROP TABLE "group";
+ALTER TABLE "group_new" RENAME TO "group";
+"#,
+                    )?;
+                }
+                // Migration 024: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
+                let has_group_key = conn
+                    .prepare("PRAGMA table_info(\"group\")")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "group_key");
+                if !has_group_key {
+                    conn.execute_batch(
+                        r#"CREATE TABLE IF NOT EXISTS "group_new" (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                 TEXT NOT NULL DEFAULT '',
+    group_key            TEXT NOT NULL DEFAULT '',
+    routing_mode         TEXT NOT NULL DEFAULT '',
+    auto_from_platform   TEXT NOT NULL DEFAULT '',
+    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
+    model_mappings       TEXT NOT NULL DEFAULT '[]',
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    created_at           INTEGER NOT NULL DEFAULT 0,
+    updated_at           INTEGER NOT NULL DEFAULT 0,
+    deleted_at           INTEGER NOT NULL DEFAULT 0,
+    sort_order           INTEGER NOT NULL DEFAULT 0,
+    max_retries          INTEGER NOT NULL DEFAULT 2,
+    UNIQUE(name),
+    UNIQUE(group_key)
+);
+INSERT INTO "group_new"
+    (id, name, group_key, routing_mode, auto_from_platform, source_protocol, model_mappings,
+     request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+     sort_order, max_retries)
+SELECT
+    id, name, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
+    request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+    sort_order, max_retries
+FROM "group";
+DROP TABLE "group";
+ALTER TABLE "group_new" RENAME TO "group";
+"#,
+                    )?;
+                }
+
+                // Migration 025: GLM Coding Plan anthropic 端点补标 coding_plan=true。
+                if let Ok(mut stmt) =
+                    conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'glm'")
+                {
+                    let rows: Vec<(i64, String)> = stmt
+                        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+                        .ok()
+                        .map(|iter| iter.filter_map(Result::ok).collect())
+                        .unwrap_or_default();
+                    for (id, endpoints_json) in rows {
+                        let mut eps = parse_endpoints(&endpoints_json);
+                        let is_coding_plan = eps
+                            .iter()
+                            .any(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI);
+                        if !is_coding_plan {
+                            continue;
+                        }
+                        let mut changed = false;
+                        for ep in &mut eps {
+                            if ep.protocol == Protocol::Anthropic && !ep.coding_plan {
+                                ep.coding_plan = true;
+                                changed = true;
+                            }
+                        }
+                        if changed {
+                            let new_json = serialize_endpoints(&eps);
+                            let _ = conn.execute(
+                                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
+                                params![new_json, id],
+                            );
+                            tracing::info!(platform_id = id, "migration 025: glm coding-plan anthropic endpoint coding_plan→true");
+                        }
+                    }
+                }
+
+                // Migration 026: platform 表精简 —— 删 auto_group(022) + 3 breaker 列(016)，
+                // backfill 进 extra JSON 后 DROP 4 列。已迁移库跳过（PRAGMA 探测）。
+                let has_breaker_col = conn
+                    .prepare("PRAGMA table_info(platform)")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "breaker_failure_threshold");
+                if has_breaker_col {
+                    let rows: Vec<(i64, String, i64, i64, i64)> = {
+                        let mut stmt = conn.prepare(
+                            "SELECT id, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max FROM platform",
+                        )?;
+                        let mapped = stmt.query_map([], |r| {
+                            Ok((
+                                r.get::<_, i64>(0)?,
+                                r.get::<_, String>(1)?,
+                                r.get::<_, i64>(2)?,
+                                r.get::<_, i64>(3)?,
+                                r.get::<_, i64>(4)?,
+                            ))
+                        })?;
+                        mapped.filter_map(Result::ok).collect()
+                    };
+                    for (id, extra, ft, os, hom) in rows {
+                        if ft == 0 && os == 0 && hom == 0 {
+                            continue;
+                        }
+                        let breaker = crate::gateway::models::PlatformBreaker {
+                            failure_threshold: ft.max(0) as u32,
+                            open_secs: os.max(0) as u64,
+                            half_open_max: hom.max(0) as u32,
+                        };
+                        let new_extra = crate::gateway::models::merge_breaker_into_extra(&extra, &breaker);
+                        conn.execute(
+                            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+                            params![new_extra, id],
+                        )?;
+                    }
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_failure_threshold", []);
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_open_secs", []);
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_half_open_max", []);
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN auto_group", []);
+                    tracing::info!("migration 026: backfilled breaker into extra + dropped auto_group/breaker_* columns");
+                }
+
+                // Migration 027: 默认分组标记（已在 platform_early 建表含此列，ALTER 幂等）。
+                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0", []);
+
+                // Migration 029: group_platform level_priority（已在 platform_early 建表含此列，ALTER 幂等）。
+                let _ = conn.execute("ALTER TABLE group_platform ADD COLUMN level_priority INTEGER NOT NULL DEFAULT 5", []);
+
+                // Migration 036: platform 过期时间（已在 platform_early 建表含此列，ALTER 幂等）。
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0",
+                    [],
+                );
+
+                // Migration 037: 平台最近一次错误信息（已在 platform_early 建表含此列，ALTER 幂等）。
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN last_error TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN last_error_at INTEGER NOT NULL DEFAULT 0",
+                    [],
+                );
+
+                // Migration 038: group 自定义环境变量（已在 platform_early 建表含此列，ALTER 幂等）。
+                let _ = conn.execute(
+                    "ALTER TABLE \"group\" ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
+                    [],
+                );
+
+                // Migration 039: 重写历史 last_error 残留完整 JSON body 为提取后 message。
+                reextract_legacy_last_error(conn);
+
+                // Migration 044: group.extra JSON 列（已在 platform_early 建表含此列，ALTER 幂等）。
+                let _ = conn.execute(
+                    "ALTER TABLE \"group\" ADD COLUMN extra TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
+
+                // Migration 045: cli_proxy_provider 表。
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS cli_proxy_provider (
+                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                       name          TEXT NOT NULL,
+                       wire_protocol TEXT NOT NULL,
+                       base_url      TEXT NOT NULL,
+                       api_key       TEXT NOT NULL DEFAULT '',
+                       models        TEXT NOT NULL DEFAULT '[]',
+                       extra         TEXT NOT NULL DEFAULT '{}',
+                       status        TEXT NOT NULL DEFAULT 'active',
+                       group_id      INTEGER,
+                       created_at    INTEGER NOT NULL,
+                       updated_at    INTEGER NOT NULL
+                     );
+                     CREATE INDEX IF NOT EXISTS idx_cli_proxy_group ON cli_proxy_provider(group_id) WHERE group_id IS NOT NULL;",
+                )?;
+
+                // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— platform.db 部分。
+                // proxy_log / stats_agg_hourly 删除归 run_migrations_proxy_log_late（log.db，cpa_pids 预查传入）。
+                // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
+                let _ = conn.execute(
+                    "DELETE FROM group_platform WHERE platform_id IN \
+                     (SELECT id FROM platform WHERE platform_type LIKE '\"cpa-%')",
+                    [],
+                );
+                let _ = conn.execute(
+                    "DELETE FROM platform WHERE platform_type LIKE '\"cpa-%'",
+                    [],
+                );
+
+                // Migration 048: cli_proxy_provider 加 quota JSON 列。
+                let _ = conn.execute(
+                    "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
+                    [],
+                );
     Ok(())
 }
 
@@ -673,16 +666,16 @@ mod tests {
         conn
     }
 
-    /// run_migrations_late on a legacy DB that has group.path → exercises has_group_path=true branch.
+    /// run_migrations_platform_late on a legacy DB that has group.path → exercises has_group_path=true branch.
     #[test]
     fn migrations_late_group_path_migration_executed() {
         let conn = make_legacy_conn_with_group_path();
         // The legacy DB has group.path but no group.group_key.
-        // run_migrations_late should:
+        // run_migrations_platform_late should:
         //   1. Detect has_group_path=true → rebuild group table (removes path, adds UNIQUE(name))
         //   2. Detect !has_group_key=true → rebuild group table again (adds group_key)
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+        let result = run_migrations_platform_late(&conn);
+        assert!(result.is_ok(), "run_migrations_platform_late failed: {:?}", result);
         // After migration, group_key column should exist.
         let has_gk = conn
             .prepare("PRAGMA table_info(\"group\")")
@@ -758,7 +751,7 @@ mod tests {
         .unwrap();
 
         // ① 首次跑：ALTER ADD extra 列
-        let r1 = run_migrations_late(&conn);
+        let r1 = run_migrations_platform_late(&conn);
         assert!(r1.is_ok(), "first migration 044 should succeed: {:?}", r1);
         let has_extra = conn
             .prepare("PRAGMA table_info(\"group\")")
@@ -775,7 +768,7 @@ mod tests {
         assert_eq!(extra, "", "extra default should be empty string");
 
         // ② 再跑：duplicate column 错误被忽略，幂等（不返 Err，extra 列仍存在）
-        let r2 = run_migrations_late(&conn);
+        let r2 = run_migrations_platform_late(&conn);
         assert!(r2.is_ok(), "re-running migration 044 must be idempotent: {:?}", r2);
     }
 
@@ -828,7 +821,7 @@ mod tests {
             "INSERT INTO platform (name, platform_type, endpoints, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max) VALUES (?1, ?2, ?3, ?4, 0, 0, 0)",
             rusqlite::params!["zero-plat", "openai", "[]", "{}"],
         ).unwrap();
-        let result = run_migrations_late(&conn);
+        let result = run_migrations_platform_late(&conn);
         assert!(result.is_ok(), "breaker backfill migration should succeed: {:?}", result);
         // After migration, breaker_failure_threshold column should be gone.
         let has_breaker = conn
@@ -894,7 +887,7 @@ mod tests {
             "INSERT INTO platform (name, platform_type, endpoints, extra) VALUES (?1, 'glm', ?2, '{}')",
             rusqlite::params!["GLM Test", endpoints_json],
         ).unwrap();
-        let result = run_migrations_late(&conn);
+        let result = run_migrations_platform_late(&conn);
         assert!(result.is_ok(), "GLM coding_plan migration should succeed: {:?}", result);
         // After migration, anthropic endpoint should have coding_plan=true.
         let ep_json: String = conn
@@ -939,8 +932,8 @@ mod tests {
             CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
             CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
         "#).unwrap();
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+        let result = run_migrations_platform_late(&conn);
+        assert!(result.is_ok(), "run_migrations_platform_late failed: {:?}", result);
         let has_gk = conn
             .prepare("PRAGMA table_info(\"group\")")
             .unwrap()
@@ -994,8 +987,8 @@ mod tests {
             rusqlite::params![stale, plain, already, stale_toplevel],
         ).unwrap();
 
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+        let result = run_migrations_platform_late(&conn);
+        assert!(result.is_ok(), "run_migrations_platform_late failed: {:?}", result);
 
         let get_last_error = |name: &str| -> String {
             conn.query_row("SELECT last_error FROM platform WHERE name = ?1", [name], |r| r.get(0)).unwrap()
@@ -1006,7 +999,7 @@ mod tests {
         assert_eq!(get_last_error("toplevel"), "HTTP 401: 身份验证失败。");
 
         // 幂等：再跑一次所有行不变。
-        let _ = run_migrations_late(&conn);
+        let _ = run_migrations_platform_late(&conn);
         assert_eq!(get_last_error("stale"), "HTTP 429: 余额不足或无可用资源包,请充值。");
         assert_eq!(get_last_error("plain"), "HTTP 429: Too many requests");
     }
