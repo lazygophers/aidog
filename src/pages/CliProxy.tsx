@@ -17,6 +17,7 @@ import {
   type CreateCliProxyProvider,
   type Group,
   type CliProxyImportResult,
+  type BatchReport,
 } from "../services/api";
 
 const btnPrimary: React.CSSProperties = {
@@ -83,6 +84,41 @@ export function CliProxy() {
 
   // 删除确认。
   const [deleteTarget, setDeleteTarget] = useState<CliProxyProvider | null>(null);
+
+  // 批量操作：selectMode 切换 + 选中集合 + 3 modal 各自 payload。
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+  const [batchModelsOpen, setBatchModelsOpen] = useState(false);
+  const [batchModelsText, setBatchModelsText] = useState("");
+  const [batchQuotaOpen, setBatchQuotaOpen] = useState(false);
+  const [batchQuotaType, setBatchQuotaType] = useState<"none" | "newapi">("none");
+
+  const enterSelect = () => {
+    setSelectMode(true);
+    setSelectedIds(new Set());
+    setMsg(null);
+  };
+  const exitSelect = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+    setBatchDeleteOpen(false);
+    setBatchModelsOpen(false);
+    setBatchQuotaOpen(false);
+  };
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      if (prev.size === providers.length) return new Set();
+      return new Set(providers.map(p => p.id));
+    });
+  };
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -193,6 +229,77 @@ export function CliProxy() {
     }
   };
 
+  // ─── 批量提交 ───────────────────────────────────────────
+  // ponytail: 3 handler 共用 reporter，骨架同（setBusyKey → invoke → toast → reload → close），
+  // 不抽公共 fn：每 handler 的 close + payload reset 各异，抽了反而加 indirection。
+  const reportToast = (r: BatchReport, okKey: string) => {
+    if (r.skipped.length > 0) {
+      setMsg({
+        kind: "err",
+        text: `${t(okKey, { count: r.applied })} (skipped ${r.skipped.length})`,
+      });
+    } else {
+      setMsg({ kind: "ok", text: t(okKey, { count: r.applied }) });
+    }
+  };
+
+  const handleBatchDelete = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    setBusyKey("batch-del");
+    setMsg(null);
+    try {
+      const r = await cliProxyApi.batchDelete(ids);
+      reportToast(r, "cliProxy.batchDeleted");
+      setBatchDeleteOpen(false);
+      exitSelect();
+      await reload();
+    } catch (e) {
+      setMsg({ kind: "err", text: String(e) });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleBatchOverrideModels = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const models = batchModelsText.split("\n").map(s => s.trim()).filter(Boolean);
+    setBusyKey("batch-models");
+    setMsg(null);
+    try {
+      const r = await cliProxyApi.batchOverrideModels(ids, models);
+      reportToast(r, "cliProxy.batchModelsUpdated");
+      setBatchModelsOpen(false);
+      setBatchModelsText("");
+      exitSelect();
+      await reload();
+    } catch (e) {
+      setMsg({ kind: "err", text: String(e) });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const handleBatchSetQuota = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+    const quota = JSON.stringify({ type: batchQuotaType });
+    setBusyKey("batch-quota");
+    setMsg(null);
+    try {
+      const r = await cliProxyApi.batchSetQuota(ids, quota);
+      reportToast(r, "cliProxy.batchQuotaUpdated");
+      setBatchQuotaOpen(false);
+      exitSelect();
+      await reload();
+    } catch (e) {
+      setMsg({ kind: "err", text: String(e) });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const pickFile = async (setter: (v: string) => void) => {
     const picked = await open({ multiple: false });
     if (picked && typeof picked === "string") setter(picked);
@@ -249,7 +356,58 @@ export function CliProxy() {
         >
           {t("cliProxy.import")}
         </button>
+        <button
+          onClick={selectMode ? exitSelect : enterSelect}
+          disabled={busyKey !== null}
+          style={selectMode ? btnDanger : btnGhost}
+        >
+          {selectMode ? t("cliProxy.exitSelect") : t("cliProxy.selectMode")}
+        </button>
       </div>
+
+      {/* 选择模式工具栏 */}
+      {selectMode && (
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+          padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10,
+          background: "var(--bg-elevated)",
+        }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", color: "var(--text-primary)" }}>
+            <input
+              type="checkbox"
+              checked={providers.length > 0 && selectedIds.size === providers.length}
+              onChange={toggleSelectAll}
+              style={{ cursor: "pointer" }}
+            />
+            {t("cliProxy.selectAll")}
+          </label>
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("cliProxy.selectedCount", { count: selectedIds.size })}
+          </span>
+          <div style={{ flex: 1 }} />
+          <button
+            onClick={() => setBatchDeleteOpen(true)}
+            disabled={selectedIds.size === 0 || busyKey !== null}
+            style={{ ...btnDanger, opacity: selectedIds.size === 0 ? 0.4 : 1 }}
+          >
+            {t("cliProxy.batchDelete")}
+          </button>
+          <button
+            onClick={() => { setBatchModelsText(""); setBatchModelsOpen(true); }}
+            disabled={selectedIds.size === 0 || busyKey !== null}
+            style={{ ...btnGhost, opacity: selectedIds.size === 0 ? 0.4 : 1 }}
+          >
+            {t("cliProxy.batchOverrideModels")}
+          </button>
+          <button
+            onClick={() => { setBatchQuotaType("none"); setBatchQuotaOpen(true); }}
+            disabled={selectedIds.size === 0 || busyKey !== null}
+            style={{ ...btnGhost, opacity: selectedIds.size === 0 ? 0.4 : 1 }}
+          >
+            {t("cliProxy.batchSetQuota")}
+          </button>
+        </div>
+      )}
 
       {/* 消息条 */}
       {msg && (
@@ -403,6 +561,14 @@ export function CliProxy() {
                 display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
               }}
             >
+              {selectMode && (
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(p.id)}
+                  onChange={() => toggleSelect(p.id)}
+                  style={{ cursor: "pointer", flexShrink: 0 }}
+                />
+              )}
               <div style={{ minWidth: 160 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{p.name}</div>
                 <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{p.wire_protocol}</div>
@@ -478,6 +644,102 @@ export function CliProxy() {
               </button>
               <button onClick={handleDelete} disabled={busyKey !== null} style={btnDanger}>
                 {t("cliProxy.delete")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* 批量删除确认 modal */}
+      {batchDeleteOpen && createPortal(
+        <div style={modalOverlay} onClick={() => setBatchDeleteOpen(false)}>
+          <div style={modalBody} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+              {t("cliProxy.batchDeleteTitle")}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+              {selectedIds.size <= 5
+                ? providers
+                    .filter(p => selectedIds.has(p.id))
+                    .map(p => `${p.name} (${p.wire_protocol})`)
+                    .join("、")
+                : t("cliProxy.batchDeleteConfirm", { count: selectedIds.size })}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              {t("cliProxy.batchDeleteConfirm", { count: selectedIds.size })}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setBatchDeleteOpen(false)} disabled={busyKey !== null} style={btnGhost}>
+                {t("cliProxy.cancel")}
+              </button>
+              <button onClick={handleBatchDelete} disabled={busyKey !== null} style={btnDanger}>
+                {t("cliProxy.batchDelete")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* 批量覆盖 models modal */}
+      {batchModelsOpen && createPortal(
+        <div style={modalOverlay} onClick={() => setBatchModelsOpen(false)}>
+          <div style={modalBody} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+              {t("cliProxy.batchModelsTitle")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              {t("cliProxy.selectedCount", { count: selectedIds.size })}
+            </div>
+            <label style={fieldLabel}>
+              <textarea
+                style={{ ...inputStyle, minHeight: 120, resize: "vertical" }}
+                value={batchModelsText}
+                onChange={e => setBatchModelsText(e.target.value)}
+                placeholder={t("cliProxy.batchModelsPlaceholder")}
+              />
+            </label>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setBatchModelsOpen(false)} disabled={busyKey !== null} style={btnGhost}>
+                {t("cliProxy.cancel")}
+              </button>
+              <button onClick={handleBatchOverrideModels} disabled={busyKey !== null} style={btnPrimary}>
+                {t("cliProxy.save")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* 批量设置 quota modal */}
+      {batchQuotaOpen && createPortal(
+        <div style={modalOverlay} onClick={() => setBatchQuotaOpen(false)}>
+          <div style={modalBody} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+              {t("cliProxy.batchQuotaTitle")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              {t("cliProxy.selectedCount", { count: selectedIds.size })}
+            </div>
+            <label style={fieldLabel}>
+              {t("cliProxy.quotaType")}
+              <select
+                style={inputStyle}
+                value={batchQuotaType}
+                onChange={e => setBatchQuotaType(e.target.value as "none" | "newapi")}
+              >
+                <option value="none">{t("cliProxy.quotaTypeNone")}</option>
+                <option value="newapi">{t("cliProxy.quotaTypeNewapi")}</option>
+              </select>
+            </label>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={() => setBatchQuotaOpen(false)} disabled={busyKey !== null} style={btnGhost}>
+                {t("cliProxy.cancel")}
+              </button>
+              <button onClick={handleBatchSetQuota} disabled={busyKey !== null} style={btnPrimary}>
+                {t("cliProxy.save")}
               </button>
             </div>
           </div>
