@@ -255,8 +255,10 @@ use super::test_support::*;
              VALUES ('other', 'anthropic', '[{\"protocol\":\"openai\",\"base_url\":\"\",\"client_type\":\"codex_tui\",\"coding_plan\":true}]', 0, 0, 0)",
             [],
         ).unwrap();
-        // 运行完整 early migrations（CREATE TABLE IF NOT EXISTS 幂等，012 会修正 kimi）
-        run_migrations_early(&conn).expect("run_migrations_early should succeed");
+        // 运行 platform migrations（012 已搬至 run_migrations_platform_late；platform_early 建
+        // "group" / group_platform 兜底 012 不踩「group 表缺」坑，CREATE IF NOT EXISTS 幂等）。
+        run_migrations_platform_early(&conn).expect("run_migrations_platform_early should succeed");
+        run_migrations_platform_late(&conn).expect("run_migrations_platform_late should succeed");
         // 验证 kimi 平台的 endpoint 被修正
         let kimi_eps: String = conn.query_row(
             "SELECT endpoints FROM platform WHERE name = 'kimi-test'",
