@@ -327,6 +327,14 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
                     [],
                 );
+
+                // Migration 050: 清主库拆库遗留孤儿表 proxy_log / stats_agg_hourly。
+                // b2ef9811 把这两表 DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
+                // 但未 DROP 主库旧表 → 旧装用户主库残留历史日志行（可达数 GB，随 WAL 膨胀）。
+                // proxy_log 是请求日志非业务数据（retention 90d 本就清理），不迁移直接 DROP。
+                // 幂等：表已不存在 → DROP IF EXISTS no-op；新装从未建过主库这两表，空操作。
+                let _ = conn.execute("DROP TABLE IF EXISTS proxy_log", []);
+                let _ = conn.execute("DROP TABLE IF EXISTS stats_agg_hourly", []);
     Ok(())
 }
 
