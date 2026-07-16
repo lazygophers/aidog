@@ -8,6 +8,7 @@
 //!
 //! 旧 `commands_platform::cpa_import` 保持工作（re-export shim），s4 整模块删除。
 
+pub mod batch;
 pub mod import;
 pub mod platform;
 pub mod provider;
