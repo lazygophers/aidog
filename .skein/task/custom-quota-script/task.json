@@ -1,0 +1,18 @@
+{
+  "id": "custom-quota-script",
+  "name": "自定义 quota 脚本支持（HTTP 模板 + 外部脚本）",
+  "desc": "平台余额/coding plan 支持 HTTP 模板(B JSONPath) + 外部命令脚本(A spawn) 自定义查询，D 混合方案",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/custom-quota-script",
+  "estimate": 90,
+  "created": 1784205324,
+  "started": null,
+  "finished": null,
+  "updated": 1784205324
+}
