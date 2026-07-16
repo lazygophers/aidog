@@ -2,17 +2,80 @@
   "id": "cli-proxy-batch-delete",
   "name": "CLI 代理 Provider 批量删除",
   "desc": "CliProxy 页加多选+批量删除。后端加批量删除 command, 前端加 checkbox 多选+批量删除按钮",
-  "status": "待处理",
+  "status": "进行中",
   "deps": [],
-  "contracts": [],
-  "subtasks": [],
+  "contracts": [
+    "批量改 models = 完全覆盖选中行 models (非追加), 与单编辑 form 语义一致",
+    "批量改 quota = 覆盖整 quota JSON = {type:value}, 与单编辑 JSON.stringify({type}) 一致",
+    "批量删除物理删不可逆, MUST confirm modal 列选中项 (≤5 名称 else 数量)",
+    "3 批量 modal MUST 各独立 createPortal(document.body), 禁混编辑",
+    "BatchReport 提 aidog_core::gateway::models, commands_platform/batch.rs import 改路径 (波及 1 处)",
+    "3 batch command 各原子 SQL (IN 占位符 idx 递增), 无级联 (cli_proxy_provider 无关联表)",
+    "选择模式保留单行操作按钮 (checkbox 与测试/编辑/删除并存, 非互斥)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-backend",
+      "name": "后端 batch commands + BatchReport 提 core",
+      "desc": "BatchReport 提 aidog_core::gateway::models + commands_platform import 改路径; commands_cli_proxy/src/batch.rs 新建 3 command (batch_delete_cli_proxy_providers/batch_override_cli_proxy_models/batch_set_cli_proxy_quota) 各原子 SQL; lib.rs invoke_handler 注册; cargo clippy 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784167398,
+      "started": 1784169299,
+      "finished": 1784170183
+    },
+    {
+      "sid": "s2-frontend",
+      "name": "前端选择模式 + 3 批量 modal + api 封装",
+      "desc": "CliProxy.tsx 选择模式开关 + checkbox 多选 + 全选 + 选中计数 + 3 操作按钮 (0 选禁用); 3 批量 modal (createPortal: 删除 confirm/模型 textarea/quota select); api 加 batchDelete/batchOverrideModels/batchSetQuota; yarn build 过",
+      "depends_on": [
+        "s1-backend"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784167398,
+      "started": 1784170183,
+      "finished": 1784171009
+    },
+    {
+      "sid": "s3-i18n",
+      "name": "i18n 8 语言 key",
+      "desc": "8 locale json 加 key: selectMode/batchDelete/batchOverrideModels/batchSetQuota + 各 modal 标题/确认/计数文案; check:i18n 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784167398,
+      "started": 1784169299,
+      "finished": 1784169713
+    }
+  ],
   "repos": [],
-  "worktree": null,
-  "worktrees": [],
+  "worktree": ".worktrees/skein-cli-proxy-batch-delete",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-cli-proxy-batch-delete",
+      "branch": "skein/cli-proxy-batch-delete",
+      "merged": false
+    }
+  ],
   "branch": "skein/cli-proxy-batch-delete",
   "estimate": null,
   "created": 1784133570,
-  "started": null,
+  "started": 1784169271,
   "finished": null,
-  "updated": 1784133570
+  "updated": 1784171009
 }
