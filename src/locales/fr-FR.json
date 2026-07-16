@@ -2096,5 +2096,14 @@
   "updater.releaseNotes": "Notes de version",
   "updater.updateFailed": "Échec de la mise à jour",
   "updater.updateNow": "Mettre à jour maintenant",
-  "updater.updating": "Mise à jour…"
+  "updater.updating": "Mise à jour…",
+  "platform.devinConfig": "Configuration Devin",
+  "platform.devinConfigHint": "L'API Key utilise le préfixe cog_ ; l'ID d'organisation est requis (segment v3), disponible dans la console Devin",
+  "platform.devinOrgId": "ID d'organisation",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "Délai de session (secondes, facultatif)",
+  "platform.devinTimeoutPlaceholder": "Défaut 300",
+  "platform.devinMode": "Mode par défaut (facultatif)",
+  "platform.devinModeAuto": "Auto-mapping par modèle",
+  "platform.acuUsage": "Usage ACU"
 }

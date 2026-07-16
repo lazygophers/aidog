@@ -460,9 +460,16 @@ export const PlatformCard = memo(function PlatformCard({
                 {/* 余额 */}
                 {quota.balanceRemaining != null && (() => {
                   const balColor = usageLevelToColor(p.balance_level);
+                  const isAcu = quota.currency === "ACU";
                   return (
                     <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
-                      <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} level={balColor === "neutral" ? undefined : balColor} />
+                      <BalanceBar
+                        remaining={quota.balanceRemaining}
+                        total={quota.balanceTotal}
+                        currency={isAcu ? "" : (quota.currency === "USD" ? "$" : quota.currency)}
+                        level={balColor === "neutral" ? undefined : balColor}
+                        label={isAcu ? t("platform.acuUsage", "ACU 用量") : undefined}
+                      />
                     </div>
                   );
                 })()}

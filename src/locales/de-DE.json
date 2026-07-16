@@ -2096,5 +2096,14 @@
   "updater.releaseNotes": "Versionshinweise",
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
-  "updater.updating": "Wird aktualisiert…"
+  "updater.updating": "Wird aktualisiert…",
+  "platform.devinConfig": "Devin-Konfiguration",
+  "platform.devinConfigHint": "API-Key verwendet cog_ Präfix; Organisations-ID ist erforderlich (v3-Pfadsegment), in der Devin-Konsole verfügbar",
+  "platform.devinOrgId": "Organisations-ID",
+  "platform.devinOrgIdPlaceholder": "org-xxxxxxxx",
+  "platform.devinTimeout": "Session-Timeout (Sekunden, optional)",
+  "platform.devinTimeoutPlaceholder": "Standard 300",
+  "platform.devinMode": "Standardmodus (optional)",
+  "platform.devinModeAuto": "Auto-Zuordnung nach Modell",
+  "platform.acuUsage": "ACU-Verbrauch"
 }

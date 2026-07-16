@@ -226,6 +226,7 @@ pub fn run() {
             // Platform Quota
             commands_platform::quota::platform_query_quota,
             commands_platform::quota::platform_query_quota_newapi,
+            commands_platform::quota::platform_query_quota_devin,
             commands_platform::platform::platform_reorder,
             // CLI Proxy（cpa-standalone-module s3）：provider CRUD + test + platform + import
             commands_cli_proxy::provider::cli_proxy_list,
