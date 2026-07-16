@@ -1,12 +1,6 @@
 {
   "tasks": [
     {
-      "id": "cli-proxy-batch-delete",
-      "status": "进行中",
-      "deps": [],
-      "worktree": ".worktrees/skein-cli-proxy-batch-delete"
-    },
-    {
       "id": "config-db-split",
       "status": "待处理",
       "deps": [
@@ -16,6 +10,12 @@
     },
     {
       "id": "07-12-peak-models-review-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
+      "id": "cli-proxy-batch-delete",
       "status": "已完成",
       "deps": [],
       "worktree": null
