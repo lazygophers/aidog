@@ -125,14 +125,17 @@ pub(crate) async fn handle_devin(
     log.actual_model = requested_model.to_string();
 
     // org_id 必填（path 段 + Bearer realm），api_key = Devin cog_ key。
+    // s9: nested `extra.devin.org_id`（对齐前端 serializeDevinConfig + quota/devin.rs::parse_devin_extra
+    // + s6 read_dev_timeout_secs 同层级）。禁 flat extra.org_id（s2/s3 旧代码 bug，前端从未写此形态）。
+    // ponytail: 复用 quota::parse_devin_extra 作单一真值源，避免 proxy/quota 两份解析逻辑漂移。
     let extra_v: Value = serde_json::from_str(&platform.extra).unwrap_or_else(|_| Value::Object(Default::default()));
-    let org_id = match extra_v.get("org_id").and_then(|v| v.as_str()) {
-        Some(id) if !id.is_empty() => id.to_string(),
-        _ => {
+    let org_id = match crate::gateway::quota::parse_devin_extra(&platform.extra) {
+        Some(id) => id,
+        None => {
             return devin_error(
                 &state, &mut log, &log_settings, lang, start,
                 StatusCode::BAD_REQUEST,
-                "devin platform missing extra.org_id",
+                r#"devin platform missing extra.devin.org_id (expected {"devin":{"org_id":"..."}})"#,
             ).await;
         }
     };
@@ -1409,5 +1412,34 @@ mod tests {
             devin_session_url("devin-x"),
             "https://app.devin.ai/sessions/devin-x"
         );
+    }
+
+    // ── s9: org_id nested 读取回归（对齐前端 serializeDevinConfig + quota::parse_devin_extra）──
+
+    /// 回归 guard：handle_devin 读 org_id 必须走 nested `extra.devin.org_id`。
+    /// flat `extra.org_id`（s2/s3 旧 bug 形态）必须返 None，否则 Devin session 请求 BAD_REQUEST。
+    /// ponytail: 直接调 quota::parse_devin_extra（proxy 复用的真值源），禁再抄一份 nested 解析到 proxy。
+    #[test]
+    fn org_id_nested_read_hits_and_flat_misses() {
+        // nested 形态（前端 serializeDevinConfig 实际写入）→ 命中
+        assert_eq!(
+            crate::gateway::quota::parse_devin_extra(r#"{"devin":{"org_id":"org-abc"}}"#),
+            Some("org-abc".to_string())
+        );
+        // 同时含 api_key + dev_timeout 的完整 nested 形态 → 仍命中
+        assert_eq!(
+            crate::gateway::quota::parse_devin_extra(
+                r#"{"devin":{"org_id":"org-xyz","api_key":"cog_xxx","dev_timeout":120}}"#
+            ),
+            Some("org-xyz".to_string())
+        );
+        // flat 形态（s2/s3 旧 bug 读法，前端从未写）→ 必须返 None
+        assert!(
+            crate::gateway::quota::parse_devin_extra(r#"{"org_id":"org-flat"}"#).is_none(),
+            "flat extra.org_id 必须不命中（nested-only，防 s2/s3 bug 回归）"
+        );
+        // 空 / 非 JSON / 缺 devin → None
+        assert!(crate::gateway::quota::parse_devin_extra("").is_none());
+        assert!(crate::gateway::quota::parse_devin_extra(r#"{"devin":{}}"#).is_none());
     }
 }
