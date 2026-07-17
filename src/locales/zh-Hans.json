@@ -1,4 +1,13 @@
 {
+  "modality.text2text": "文本 → 文本",
+  "modality.text2image": "文本 → 图像",
+  "modality.text2video": "文本 → 视频",
+  "modality.text2speech": "文本 → 语音",
+  "modality.speech2text": "语音 → 文本",
+  "modality.speech2speech": "语音 → 语音",
+  "modality.image2text": "图像 → 文本",
+  "modality.embedding": "向量嵌入",
+  "modality.rerank": "重排序",
   "about.appVersion": "应用版本",
   "about.arch": "架构",
   "about.buildTime": "构建时间",

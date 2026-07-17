@@ -2,6 +2,12 @@
   "tasks": [
     {
       "id": "custom-quota-script",
+      "status": "进行中",
+      "deps": [],
+      "worktree": ".worktrees/skein-custom-quota-script"
+    },
+    {
+      "id": "drop-cli-proxy-support",
       "status": "待处理",
       "deps": [],
       "worktree": null

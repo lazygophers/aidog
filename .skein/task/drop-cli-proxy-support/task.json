@@ -1,0 +1,18 @@
+{
+  "id": "drop-cli-proxy-support",
+  "name": "移除 cli-proxy 平台支持",
+  "desc": "添加平台移除 cli-proxy 支持；该功能应由独立 cli代理提供，非 aidog 内置平台类型",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/drop-cli-proxy-support",
+  "estimate": null,
+  "created": 1784259255,
+  "started": null,
+  "finished": null,
+  "updated": 1784259255
+}

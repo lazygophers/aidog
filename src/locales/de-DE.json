@@ -1,4 +1,13 @@
 {
+  "modality.text2text": "Text → Text",
+  "modality.text2image": "Text → Bild",
+  "modality.text2video": "Text → Video",
+  "modality.text2speech": "Text → Sprache",
+  "modality.speech2text": "Sprache → Text",
+  "modality.speech2speech": "Sprache → Sprache",
+  "modality.image2text": "Bild → Text",
+  "modality.embedding": "Embedding",
+  "modality.rerank": "Rerank",
   "about.appVersion": "App-Version",
   "about.arch": "Architektur",
   "about.buildTime": "Build-Zeit",

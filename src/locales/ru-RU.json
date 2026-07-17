@@ -1,4 +1,13 @@
 {
+  "modality.text2text": "Текст → Текст",
+  "modality.text2image": "Текст → Изображение",
+  "modality.text2video": "Текст → Видео",
+  "modality.text2speech": "Текст → Речь",
+  "modality.speech2text": "Речь → Текст",
+  "modality.speech2speech": "Речь → Речь",
+  "modality.image2text": "Изображение → Текст",
+  "modality.embedding": "Эмбеддинг",
+  "modality.rerank": "Переранжирование",
   "about.appVersion": "Версия приложения",
   "about.arch": "Архитектура",
   "about.buildTime": "Время сборки",
