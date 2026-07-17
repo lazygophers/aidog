@@ -134,7 +134,8 @@ fn minimax_general_model_buckets() {
 }
 
 #[test]
-fn minimax_weekly_skipped_when_status_not_one() {
+fn minimax_weekly_skipped_when_status_zero() {
+    // status=0 → 无周计划 → 跳过 weekly 桶
     let q = parse_minimax_coding_plan(&json!({
         "model_remains": [{
             "model_name": "general",
@@ -145,6 +146,46 @@ fn minimax_weekly_skipped_when_status_not_one() {
     }));
     assert_eq!(q.coding_plan.as_ref().unwrap().tiers.len(), 1);
     assert_eq!(q.coding_plan.as_ref().unwrap().tiers[0].name, "five_hour");
+}
+
+#[test]
+fn minimax_weekly_shown_when_status_two_used_up() {
+    // 回归: 实测 general 周上限用满时 status=2, 旧实现 ==Some(1) 门控丢桶 → 周上限不显示。
+    // 现 status 1|2 均建桶。general 为 token 型 (count=0) → limit/remaining None, 仅百分比。
+    let q = parse_minimax_coding_plan(&json!({
+        "model_remains": [{
+            "model_name": "general",
+            "current_interval_remaining_percent": 100.0,
+            "current_weekly_total_count": 0,
+            "current_weekly_usage_count": 0,
+            "weekly_end_time": 1784476800000_i64,
+            "current_weekly_status": 2,
+            "current_weekly_remaining_percent": 0.0
+        }]
+    }));
+    let wk = tier(&q, "weekly_limit");
+    assert!((wk.utilization - 100.0).abs() < 1e-6);
+    assert!(wk.resets_at.is_some());
+    assert_eq!(wk.limit, None);
+    assert_eq!(wk.remaining, None);
+}
+
+#[test]
+fn minimax_weekly_count_based_limit_stored() {
+    // 次数型模型 total_count>0 → 暴露绝对周上限 limit/remaining (供精确预估基数)
+    let q = parse_minimax_coding_plan(&json!({
+        "model_remains": [{
+            "model_name": "general",
+            "current_interval_remaining_percent": 100.0,
+            "current_weekly_total_count": 100,
+            "current_weekly_usage_count": 30,
+            "current_weekly_status": 1,
+            "current_weekly_remaining_percent": 70.0
+        }]
+    }));
+    let wk = tier(&q, "weekly_limit");
+    assert_eq!(wk.limit, Some(100.0));
+    assert_eq!(wk.remaining, Some(70.0));
 }
 
 #[test]
