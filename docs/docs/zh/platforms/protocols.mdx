@@ -6,34 +6,131 @@ title: 支持的平台与接口
 
 AiDog 支持丰富的 AI 平台和接口类型，并自动处理不同平台间的协议转换。
 
+## 协议转换
+
+AiDog 采用 **N+N 中枢架构**：所有入站请求先 parse 为中立 `ChatRequest` 模型，再 serialize 为目标平台的 wire 协议。协议间不直接两两互转（N×N），全部经中立模型中转。
+
+```
+客户端请求（5 种 wire 协议任一）
+  ↓ parse_incoming_request
+ChatRequest（中立模型）
+  ↓ convert_request
+上游请求（5 种 wire 协议任一）+ api_path
+
+上游 SSE（5 种 wire 协议任一）
+  ↓ parse_sse
+ChatStreamEvent（中立）
+  ↓ to_client_sse
+客户端 SSE（与入站协议一致）
+```
+
+### Wire 协议
+
+endpoint 上 `protocol` 字段支持 5 种 wire 协议：
+
+| Wire 协议 | serde key | API path | 说明 |
+|---|---|---|---|
+| `Anthropic` | `anthropic` | `/v1/messages` | Claude 系列原生格式 |
+| `OpenAI` | `openai` | `/chat/completions` | 默认兜底；主流聚合平台 |
+| `OpenAIResponses` | `openai_responses` | `/v1/responses` | Codex / 新版 OpenAI 编程接口 |
+| `OpenAICompletions` | `openai_completions` | `/v1/completions` | 旧版文本补全 |
+| `Gemini` | `gemini` | `/v1beta/models/{model}:streamGenerateContent` | Google Gemini 原生 |
+
+### 转换矩阵
+
+中立模型保证任一入站协议都能路由到任一出站协议。非流式响应的真转换目前覆盖 **OpenAI → Anthropic**（修复 tool_calls 与 content 共存的兼容 bug）；其余跨协议路径运行时回退到上游 body 原样透传。
+
+| 入站 \ 出站 | anthropic | openai | openai_responses | openai_completions | gemini |
+|---|:---:|:---:|:---:|:---:|:---:|
+| anthropic | 透传 | ✓ | ✓ | ✓ | ✓ |
+| openai | ✓ | 透传 | ✓ | ✓ | ✓ |
+| openai_responses | ✓ | ✓ | 透传 | ✓ | ✓ |
+| openai_completions | ✓ | ✓ | ✓ | 透传 | ✓ |
+| gemini | ✓ | ✓ | ✓ | ✓ | 透传 |
+
+### 特殊平台（绕过 wire 层）
+
+下列 `platform_type` 不经 `convert_request` / `forward_attempt`，在 `proxy/handler.rs` 重试循环之前就被拦截：
+
+| platform_type | 处理方式 |
+|---|---|
+| `mock` | 内置 mock 适配器，无真实上游 |
+| `claude_code` | 1:1 纯透传 OAuth 订阅型 Claude Code 请求 |
+| `devin` | 在 `proxy/devin.rs` 内做 chat ↔ session 协议转换（create session → poll → fetch messages → 包装回 openai/anthropic） |
+| `cli-proxy` | wire/base_url/key 在候选解析阶段从关联的 `cli_proxy_provider` 行读取 |
+
 ## 支持的平台
 
-AiDog 内置 50+ 平台预设，涵盖主流 AI 服务：
+AiDog 在 `src-tauri/defaults/platform-presets.json` 内置 **65 个平台预设**，覆盖主流 AI 服务。平台按 endpoint 暴露的 wire 协议分组：
 
-| 平台类型 | 示例 |
-|----------|------|
-| 国际平台 | OpenAI、Anthropic、Google Gemini、Mistral |
-| 国内平台 | DeepSeek、通义千问、智谱 GLM、Kimi、MiniMax |
-| 聚合平台 | OpenRouter、SiliconFlow、Novita |
+### 仅 `anthropic`（8 个）
 
-选择平台预设后，所有配置自动填充，无需手动选择接口类型。
+| Preset key | 显示名 |
+|---|---|
+| `anthropic` | Anthropic |
+| `claude_code` | Claude Code Subscription (Passthrough) |
+| `bailian_coding` | Bailian Coding |
+| `qianfan` | Baidu Qianfan |
+| `bailing` | Bailing |
+| `claudeapi` | ClaudeAPI |
+| `compshare_coding` | Compshare Coding Plan |
+| `eflowcode` | E-FlowCode |
+
+### 仅 `openai`（5 个）
+
+| Preset key | 显示名 |
+|---|---|
+| `openai` | OpenAI |
+| `nvidia` | NVIDIA |
+| `opencode` | OpenCode Go |
+| `opencode_zen` | OpenCode Zen (Free) |
+| `newapi` | New API |
+
+### 仅 `gemini`（1 个）
+
+| Preset key | 显示名 |
+|---|---|
+| `gemini` | Gemini |
+
+### 仅 `openai_responses`（1 个）
+
+| Preset key | 显示名 |
+|---|---|
+| `codex` | OpenAI Codex |
+
+### `anthropic` + `openai`（26 个）
+
+`glm`、`glm_coding`、`glm_en`、`kimi`、`kimi_coding`、`minimax`、`minimax_en`、`bailian`、`deepseek`、`stepfun`、`stepfun_en`、`qianfan_coding`、`xiaomi_mimo`、`xiaomi_mimo_coding`、`longcat`、`sensenova`、`openrouter`、`siliconflow`、`siliconflow_en`、`dmxapi`、`modelscope`、`atlascloud`、`novita`、`pateway`、`claudecn`、`sssaicode`
+
+### `anthropic` + `openai` + `openai_responses`（2 个）
+
+| Preset key | 显示名 |
+|---|---|
+| `doubao` | Volcano Engine (ByteDance) |
+| `byteplus` | BytePlus |
+
+### `anthropic` + `openai` + `gemini`（21 个）
+
+`aihubmix`、`shengsuanyun`、`therouter`、`cherryin`、`packycode`、`cubence`、`aigocode`、`rightcode`、`aicodemirror`、`ccsub`、`apikeyfun`、`apinebula`、`sudocode`、`runapi`、`relaxycode`、`crazyrouter`、`compshare`、`micu`、`ctok`、`lemondata`、`pipellm`
+
+### 特殊平台类型（2 个，不在 presets 内）
+
+| platform_type | 说明 |
+|---|---|
+| `mock` | 本地 mock 适配器，用于开发测试 |
+| `cli-proxy` | wire/key/models 委派给关联的 `cli_proxy_provider` 行 |
+
+选择平台预设后，endpoint 配置（protocol / base_url / models）自动填充。每平台可单独增删 wire 协议 endpoint。
 
 ## 接口自动识别
 
-AiDog 会根据客户端请求自动识别接口类型，无需手动配置：
+AiDog 根据客户端请求路径和 body 自动识别接口类型，无需手动配置：
 
-- 对话接口 — 最常用的 AI 对话请求
-- 编程助手接口 — Codex、Claude Code 等编程工具使用的接口
-- 文本补全接口 — 旧版文本补全请求
+- **对话接口**（`/v1/chat/completions`、`/v1/messages`）— 最常用的 AI 对话请求
+- **编程助手接口**（`/v1/responses`、Codex / Claude Code）— 编程工具使用的接口
+- **文本补全接口**（`/v1/completions`）— 旧版文本补全请求
 
 这意味着你可以用同一个代理地址同时服务不同类型的客户端。
-
-## 协议自动转换
-
-如果你的客户端使用一种格式发请求，但目标平台使用另一种格式，AiDog 会自动转换。例如：
-
-- 客户端用 OpenAI 格式发请求 → 自动转换为 Anthropic 格式发到 Claude
-- 编程助手用专用接口 → 自动转换为对应平台的格式
 
 ## Mock
 

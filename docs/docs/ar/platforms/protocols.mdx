@@ -6,34 +6,131 @@ title: المنصات والواجهات المدعومة
 
 يدعم AiDog طيفًا واسعًا من منصات AI وأنواع الواجهات، ويتولى تلقائيًا تحويل البروتوكول بين المنصات المختلفة.
 
+## تحويل البروتوكول
+
+يستخدم AiDog **بنية hub مركزية N+N**: يُوزَّع كل طلب وارد أولًا إلى نموذج `ChatRequest` محايد، ثم يُعاد تسلسله إلى بروتوكول wire للمنصة المستهدفة. التحويلات لا تحدث زوجيًا (N×N)؛ بل جميعها تمر عبر النموذج المحايد.
+
+```
+طلب العميل (أحد بروتوكولات wire الخمسة)
+  ↓ parse_incoming_request
+ChatRequest (محايد)
+  ↓ convert_request
+طلب المنبع (أحد بروتوكولات wire الخمسة) + api_path
+
+SSE المنبع (أحد بروتوكولات wire الخمسة)
+  ↓ parse_sse
+ChatStreamEvent (محايد)
+  ↓ to_client_sse
+SSE العميل (يطابق البروتوكول الوارد)
+```
+
+### بروتوكولات wire
+
+يتم دعم خمسة بروتوكولات wire كنقاط نهاية (حقل `protocol` على كل إدخال endpoint):
+
+| بروتوكول wire | serde key | مسار API | ملاحظات |
+|---|---|---|---|
+| `Anthropic` | `anthropic` | `/v1/messages` | تنسيق عائلة Claude الأصلي |
+| `OpenAI` | `openai` | `/chat/completions` | الاحتياطي الافتراضي؛ أغلب المجمّعات |
+| `OpenAIResponses` | `openai_responses` | `/v1/responses` | Codex / واجهة OpenAI coding الجديدة |
+| `OpenAICompletions` | `openai_completions` | `/v1/completions` | إكمال النص القديم |
+| `Gemini` | `gemini` | `/v1beta/models/{model}:streamGenerateContent` | Google Gemini الأصلي |
+
+### مصفوفة التحويل
+
+يضمن النموذج المحايد إمكانية توجيه أي بروتوكول وارد إلى أي بروتوكول صادر. التحويل الكامل للاستجابات غير المتدفقة منفذ حاليًا بالكامل لـ **OpenAI ← Anthropic** (إصلاح تعايش tool_calls + content)؛ مسارات البروتوكولات المتقاطعة الأخرى ترجع في وقت التشغيل إلى تمرير body المنبع كما هو.
+
+| وارد \ صادر | anthropic | openai | openai_responses | openai_completions | gemini |
+|---|:---:|:---:|:---:|:---:|:---:|
+| anthropic | شفاف | ✓ | ✓ | ✓ | ✓ |
+| openai | ✓ | شفاف | ✓ | ✓ | ✓ |
+| openai_responses | ✓ | ✓ | شفاف | ✓ | ✓ |
+| openai_completions | ✓ | ✓ | ✓ | شفاف | ✓ |
+| gemini | ✓ | ✓ | ✓ | ✓ | شفاف |
+
+### منصات خاصة (تتجاوز طبقة wire)
+
+قيم `platform_type` التالية لا تمر عبر `convert_request` / `forward_attempt`. يتم اعتراضها في `proxy/handler.rs` قبل حلقة إعادة المحاولة:
+
+| platform_type | المعالجة |
+|---|---|
+| `mock` | محول mock مدمج؛ لا منبع فعلي |
+| `claude_code` | تمرير شفاف 1:1 لطلبات Claude Code المشتركة عبر OAuth |
+| `devin` | ترجمة chat ↔ session في `proxy/devin.rs` (create session → poll → fetch messages → لفّ إلى openai/anthropic) |
+| `cli-proxy` | يتم حل wire/base_url/key من صف `cli_proxy_provider` المرتبط وقت الترشيح |
+
 ## المنصات المدعومة
 
-يضم AiDog أكثر من 50 مُعدّ منصة مدمج يغطي خدمات AI الرئيسية:
+يأتي AiDog مع **65 مُعدّ منصة** في `src-tauri/defaults/platform-presets.json`، يغطي خدمات AI السائدة. تُجمَّع أنواع المنصات حسب بروتوكول(ات) wire التي تكشفها نقاط نهايتها:
 
-| الفئة | أمثلة |
-|----------|----------|
-| دولية | OpenAI، Anthropic، Google Gemini، Mistral |
-| صينية | DeepSeek، Qwen، Zhipu GLM، Kimi، MiniMax |
-| مجمّعات | OpenRouter، SiliconFlow، Novita |
+### `anthropic` فقط (8)
 
-اختر مُعدّ منصة ويُملأ كل الإعداد تلقائيًا — لا حاجة لاختيار نوع الواجهة يدويًا.
+| Preset key | اسم العرض |
+|---|---|
+| `anthropic` | Anthropic |
+| `claude_code` | Claude Code Subscription (Passthrough) |
+| `bailian_coding` | Bailian Coding |
+| `qianfan` | Baidu Qianfan |
+| `bailing` | Bailing |
+| `claudeapi` | ClaudeAPI |
+| `compshare_coding` | Compshare Coding Plan |
+| `eflowcode` | E-FlowCode |
+
+### `openai` فقط (5)
+
+| Preset key | اسم العرض |
+|---|---|
+| `openai` | OpenAI |
+| `nvidia` | NVIDIA |
+| `opencode` | OpenCode Go |
+| `opencode_zen` | OpenCode Zen (Free) |
+| `newapi` | New API |
+
+### `gemini` فقط (1)
+
+| Preset key | اسم العرض |
+|---|---|
+| `gemini` | Gemini |
+
+### `openai_responses` فقط (1)
+
+| Preset key | اسم العرض |
+|---|---|
+| `codex` | OpenAI Codex |
+
+### `anthropic` + `openai` (26)
+
+`glm`, `glm_coding`, `glm_en`, `kimi`, `kimi_coding`, `minimax`, `minimax_en`, `bailian`, `deepseek`, `stepfun`, `stepfun_en`, `qianfan_coding`, `xiaomi_mimo`, `xiaomi_mimo_coding`, `longcat`, `sensenova`, `openrouter`, `siliconflow`, `siliconflow_en`, `dmxapi`, `modelscope`, `atlascloud`, `novita`, `pateway`, `claudecn`, `sssaicode`
+
+### `anthropic` + `openai` + `openai_responses` (2)
+
+| Preset key | اسم العرض |
+|---|---|
+| `doubao` | Volcano Engine (ByteDance) |
+| `byteplus` | BytePlus |
+
+### `anthropic` + `openai` + `gemini` (21)
+
+`aihubmix`, `shengsuanyun`, `therouter`, `cherryin`, `packycode`, `cubence`, `aigocode`, `rightcode`, `aicodemirror`, `ccsub`, `apikeyfun`, `apinebula`, `sudocode`, `runapi`, `relaxycode`, `crazyrouter`, `compshare`, `micu`, `ctok`, `lemondata`, `pipellm`
+
+### أنواع منصات خاصة (2، ليست في presets)
+
+| platform_type | ملاحظات |
+|---|---|
+| `mock` | محول mock محلي للتطوير |
+| `cli-proxy` | يفوّض wire/key/models إلى صف `cli_proxy_provider` |
+
+اختر مُعدّ منصة ويُملأ إعداد نقطة النهاية (protocol / base_url / models) تلقائيًا. يمكن تحرير نقاط النهاية لكل منصة لإضافة أو إزالة بروتوكولات wire.
 
 ## الكشف التلقائي عن الواجهة
 
-يكتشف AiDog نوع الواجهة تلقائيًا من طلبات العميل — لا إعداد يدوي مطلوب:
+يكتشف AiDog نوع الواجهة من مسارات وبودي طلبات العميل — لا إعداد يدوي مطلوب:
 
-- **واجهة الدردشة** — طلبات دردشة AI الأكثر شيوعًا
-- **واجهة مساعد البرمجة** — تُستخدم من أدوات مثل Codex، Claude Code
-- **واجهة إكمال النص** — طلبات إكمال النص القديمة
+- **واجهة الدردشة** (`/v1/chat/completions`, `/v1/messages`) — طلبات دردشة AI الأكثر شيوعًا
+- **واجهة مساعد البرمجة** (`/v1/responses`, Codex / Claude Code) — تُستخدم من أدوات البرمجة
+- **واجهة إكمال النص** (`/v1/completions`) — طلبات إكمال النص القديمة
 
 هذا يعني أنه يمكنك خدمة أنواع مختلفة من العملاء عبر عنوان البروكسي نفسه.
-
-## التحويل التلقائي للبروتوكول
-
-إذا أرسل عميلك الطلبات بتنسيق بينما تستخدم المنصة المستهدفة تنسيقًا آخر، يحوّل AiDog تلقائيًا. مثلًا:
-
-- العميل يرسل تنسيق OpenAI ← يُحوَّل تلقائيًا إلى تنسيق Anthropic لـ Claude
-- مساعد البرمجة يستخدم واجهته الخاصة ← يُحوَّل تلقائيًا إلى تنسيق المنصة
 
 ## منصة المحاكاة
 
