@@ -339,32 +339,56 @@ pub(crate) fn set_tray_attributed_title(
 }
 
 pub async fn refresh_tray_menu(app: &tauri::AppHandle, builder: &dyn TrayMenuBuild) -> Result<(), String> {
-    let tray = app.tray_by_id("main").ok_or("tray not found")?;
+    // 异步准备（可在任意线程）：菜单 + 布局数据。tray 句柄不在此触碰。
     let menu = builder.build_menu(app).await?;
-    tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
-    // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
-    // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
-    {
-        let layout = builder.layout(app).await;
-        if layout.columns.is_empty() {
-            tray.set_icon(app.default_window_icon().cloned())
-                .map_err(|e| e.to_string())?;
-            tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
-        } else {
-            let separator = builder.separator(app).await;
-            tray.set_icon(None).map_err(|e| e.to_string())?;
-            // 兜底文字：各列 "名 值"，间隙用 separator
-            let fallback_text = layout.columns
-                .iter()
-                .map(|c| format!("{} {}", c.name, c.value))
-                .collect::<Vec<_>>()
-                .join(separator.as_str());
-            tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
-            if let Err(e) = set_tray_attributed_title(&tray, layout.columns, layout.gaps, separator) {
-                tracing::warn!("tray attributed title failed, fallback to default font: {e}");
+    let layout = builder.layout(app).await;
+    #[cfg(target_os = "macos")]
+    let separator = builder.separator(app).await;
+
+    // tauri TrayIcon<R> 内含非原子 Rc（tray-icon crate 的 Rc<RefCell<platform TrayIcon>>），
+    // 其 `unsafe impl Send` 的安全契约是「所有访问（含 Drop）恒在主线程」。
+    // refresh_tray_menu 跑在 tokio worker：若在此 tray_by_id 克隆（Rc 递增）+ 函数末尾
+    // Drop（Rc 递减），且多个 tray-refresh 并发（cold_start_init_tray_estimates 每平台扇出
+    // 一个 spawn → 各自 emit tray-refresh），非原子 Rc 会被多线程 clone/drop 竞争 → 计数
+    // 损坏 → 提前 free → platform TrayIcon::drop 调 removeStatusItem 在非主线程执行 →
+    // BoardServices assertBarrierOnQueue SIGTRAP（崩溃报告 thread 7 tokio-rt-worker）。
+    // 故把 tray 获取 + 全部变更 + Drop 整体挪进主线程闭包：高层 set_* 内部的
+    // run_item_main_thread 在主线程会 inline 同步执行（send_user_message 判定同线程直跑），
+    // 不自锁。
+    let app = app.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.clone().run_on_main_thread(move || {
+        let r = (|| -> Result<(), String> {
+            let tray = app.tray_by_id("main").ok_or("tray not found")?;
+            tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+            // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
+            // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
+            #[cfg(target_os = "macos")]
+            {
+                if layout.columns.is_empty() {
+                    tray.set_icon(app.default_window_icon().cloned())
+                        .map_err(|e| e.to_string())?;
+                    tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
+                } else {
+                    tray.set_icon(None).map_err(|e| e.to_string())?;
+                    // 兜底文字：各列 "名 值"，间隙用 separator
+                    let fallback_text = layout.columns
+                        .iter()
+                        .map(|c| format!("{} {}", c.name, c.value))
+                        .collect::<Vec<_>>()
+                        .join(separator.as_str());
+                    tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
+                    if let Err(e) = set_tray_attributed_title(&tray, layout.columns, layout.gaps, separator) {
+                        tracing::warn!("tray attributed title failed, fallback to default font: {e}");
+                    }
+                }
             }
-        }
-    }
-    Ok(())
+            Ok(())
+            // tray 在此 drop —— 主线程内，Rc 递减安全。
+        })();
+        let _ = tx.send(r);
+    })
+    .map_err(|e| e.to_string())?;
+    rx.recv().map_err(|e| e.to_string())?
 }

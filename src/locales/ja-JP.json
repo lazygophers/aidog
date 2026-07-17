@@ -1,4 +1,13 @@
 {
+  "modality.text2text": "テキスト → テキスト",
+  "modality.text2image": "テキスト → 画像",
+  "modality.text2video": "テキスト → 動画",
+  "modality.text2speech": "テキスト → 音声",
+  "modality.speech2text": "音声 → テキスト",
+  "modality.speech2speech": "音声 → 音声",
+  "modality.image2text": "画像 → テキスト",
+  "modality.embedding": "埋め込み",
+  "modality.rerank": "リランク",
   "about.appVersion": "アプリバージョン",
   "about.arch": "アーキテクチャ",
   "about.buildTime": "ビルド時刻",

@@ -2,17 +2,136 @@
   "id": "custom-quota-script",
   "name": "自定义 quota 脚本支持（HTTP 模板 + 外部脚本）",
   "desc": "平台余额/coding plan 支持 HTTP 模板(B JSONPath) + 外部命令脚本(A spawn) 自定义查询，D 混合方案",
-  "status": "待处理",
+  "status": "进行中",
   "deps": [],
-  "contracts": [],
-  "subtasks": [],
+  "contracts": [
+    "query_quota 原签名禁改(波及 N 调用点), custom 走独立 query_custom_quota entry",
+    "脚本 MUST 禁 shell(Command::new argv 单元素), 禁 sh -c / cmd /C",
+    "脚本 MUST timeout 30s + kill_on_drop + stdout cap 64KiB(禁 .output())",
+    "脚本 MUST env_clear(仅 PATH/HOME/LANG, Windows 加 SystemRoot/TEMP/USERPROFILE), 禁透传父 env(含凭证)",
+    "模板 {{var}} 严格模式: 未知变量报错, 禁空字符串透传上游",
+    "HTTP MUST 复用 http_client::build_http_client_system, 禁新建 reqwest::Client",
+    "custom_quota 字段跨 Rust serde + TS type + JSON 三层字面量一致(type/response_mapping/command/stdin)",
+    "JSONPath 用 serde_json_path(RFC 9535), response_mapping 各段可选, 提取失败该字段 None 禁整体 fail",
+    "custom override 优先(extra.custom_quota 有值跳 host 匹配)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "依赖+类型+模板引擎+JSONPath 提取",
+      "desc": "加 serde_json_path 依赖; CustomQuotaConfig Rust serde 类型(type/response_mapping/command/stdin); render_template 正则严格引擎; extract_by_path JSONPath; PlatformQuota 加 custom_metrics; TS part1.ts 类型同步; 单测",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784254385,
+      "started": 1784255435,
+      "finished": 1784256859
+    },
+    {
+      "sid": "s2",
+      "name": "HTTP 模板执行器",
+      "desc": "custom.rs HTTP 分支: render url/headers/body + 复用 http_client + JSONPath 提取 balance/coding_plan/metrics → PlatformQuota; 落 proxy_log(source=quota); 单测(含未知变量报错)",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784254385,
+      "started": 1784256859,
+      "finished": 1784257606
+    },
+    {
+      "sid": "s3",
+      "name": "脚本 spawn 执行器",
+      "desc": "custom.rs script 分支: 禁 shell(argv) + timeout 30s kill_on_drop + stdout cap 64KiB + env_clear(PATH/HOME/LANG) + stdin config + cwd temp + 退出码契约; parse stdout JSON; 单测",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784254385,
+      "started": 1784256859,
+      "finished": 1784258922
+    },
+    {
+      "sid": "s4",
+      "name": "query_custom_quota entry + command",
+      "desc": "query_custom_quota(db,extra,base_url,api_key,pid) 调度(http vs script); commands_platform 加 query_custom_quota + test_custom_quota(test 不落库即时返); startup.rs 注册; custom override 优先分流(平台 command 层)",
+      "depends_on": [
+        "s2",
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "运行中",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784254385,
+      "started": 1784259050,
+      "finished": null
+    },
+    {
+      "sid": "s5",
+      "name": "cold_start 分支 + est_balance_remaining 落库",
+      "desc": "cold_start_init_tray_estimates 加 custom 分支(extra.custom_quota 有值走 query_custom_quota); balance.remaining 写 est_balance_remaining; 失败处理复用 trellis-08",
+      "depends_on": [
+        "s4"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784254385,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6",
+      "name": "前端 CustomQuotaSection + i18n",
+      "desc": "formSections CustomQuotaSection(type 选+模板/response_mapping 编辑+测试按钮); platforms.ts parseCustomQuotaConfig/serializeCustomQuotaConfig + quotaApi.queryCustom/testCustom; part1.ts 类型; 8 locale i18n; modal createPortal",
+      "depends_on": [
+        "s4"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "estimate": null,
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784254385,
+      "started": null,
+      "finished": null
+    }
+  ],
   "repos": [],
-  "worktree": null,
-  "worktrees": [],
+  "worktree": ".worktrees/skein-custom-quota-script",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-custom-quota-script",
+      "branch": "skein/custom-quota-script",
+      "merged": false
+    }
+  ],
   "branch": "skein/custom-quota-script",
   "estimate": 90,
   "created": 1784205324,
-  "started": null,
+  "started": 1784255435,
   "finished": null,
-  "updated": 1784205324
+  "updated": 1784259050
 }

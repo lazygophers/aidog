@@ -1,4 +1,13 @@
 {
+  "modality.text2text": "نص → نص",
+  "modality.text2image": "نص → صورة",
+  "modality.text2video": "نص → فيديو",
+  "modality.text2speech": "نص → صوت",
+  "modality.speech2text": "صوت → نص",
+  "modality.speech2speech": "صوت → صوت",
+  "modality.image2text": "صورة → نص",
+  "modality.embedding": "تضمين",
+  "modality.rerank": "إعادة ترتيب",
   "about.appVersion": "إصدار التطبيق",
   "about.arch": "المعمارية",
   "about.buildTime": "وقت البناء",
