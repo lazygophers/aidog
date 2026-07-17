@@ -6,34 +6,131 @@ title: Plataformas e Interfaces Soportadas
 
 AiDog soporta una amplia gama de plataformas AI y tipos de interfaz, manejando automáticamente la conversión de protocolo entre diferentes plataformas.
 
+## Conversión de protocolo
+
+AiDog usa una **arquitectura hub canónica N+N**: cada petición entrante se parsea primero a un modelo neutro `ChatRequest`, luego se serializa al wire protocol de la plataforma destino. Las conversiones no ocurren pareja a pareja (N×N); todo fluye a través del modelo neutro.
+
+```
+petición del cliente (uno de 5 wire protocols)
+  ↓ parse_incoming_request
+ChatRequest (neutro)
+  ↓ convert_request
+petición upstream (uno de 5 wire protocols) + api_path
+
+SSE upstream (uno de 5 wire protocols)
+  ↓ parse_sse
+ChatStreamEvent (neutro)
+  ↓ to_client_sse
+SSE cliente (idéntico al protocolo entrante)
+```
+
+### Wire protocols
+
+Cinco wire protocols se soportan como endpoints (campo `protocol` en cada entrada endpoint):
+
+| Wire protocol | serde key | Ruta API | Notas |
+|---|---|---|---|
+| `Anthropic` | `anthropic` | `/v1/messages` | Formato nativo familia Claude |
+| `OpenAI` | `openai` | `/chat/completions` | Fallback por defecto; la mayoría de agregadores |
+| `OpenAIResponses` | `openai_responses` | `/v1/responses` | Codex / nueva interfaz codificación OpenAI |
+| `OpenAICompletions` | `openai_completions` | `/v1/completions` | Completado de texto heredado |
+| `Gemini` | `gemini` | `/v1beta/models/{model}:streamGenerateContent` | Google Gemini nativo |
+
+### Matriz de conversión
+
+El modelo neutro garantiza que cualquier protocolo entrante pueda rutearse a cualquier protocolo saliente. La conversión completa de respuestas non-streaming está actualmente implementada para **OpenAI → Anthropic** (fix de coexistencia tool_calls + content); otras rutas cross-protocol caen en runtime a passthrough del body upstream.
+
+| Entrante \ Saliente | anthropic | openai | openai_responses | openai_completions | gemini |
+|---|:---:|:---:|:---:|:---:|:---:|
+| anthropic | transparente | ✓ | ✓ | ✓ | ✓ |
+| openai | ✓ | transparente | ✓ | ✓ | ✓ |
+| openai_responses | ✓ | ✓ | transparente | ✓ | ✓ |
+| openai_completions | ✓ | ✓ | ✓ | transparente | ✓ |
+| gemini | ✓ | ✓ | ✓ | ✓ | transparente |
+
+### Plataformas especiales (evitan la capa wire)
+
+Los siguientes valores `platform_type` no se rutean a través de `convert_request` / `forward_attempt`. Se interceptan en `proxy/handler.rs` antes del bucle de retry:
+
+| platform_type | Manejo |
+|---|---|
+| `mock` | Adaptador mock integrado; sin upstream real |
+| `claude_code` | Passthrough 1:1 de peticiones Claude Code suscritas vía OAuth |
+| `devin` | Traducción chat ↔ session en `proxy/devin.rs` (create session → poll → fetch messages → envolver a openai/anthropic) |
+| `cli-proxy` | wire/base_url/key se resuelven desde la fila `cli_proxy_provider` vinculada al momento del candidato |
+
 ## Plataformas soportadas
 
-AiDog incluye 50+ presets de plataforma integrados que cubren los principales servicios AI:
+AiDog incluye **65 presets de plataforma** en `src-tauri/defaults/platform-presets.json`, cubriendo servicios AI mainstream. Los tipos de plataforma se agrupan por wire protocol(s) que exponen sus endpoints:
 
-| Categoría | Ejemplos |
-|----------|----------|
-| Internacionales | OpenAI, Anthropic, Google Gemini, Mistral |
-| Chinas | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
-| Agregadores | OpenRouter, SiliconFlow, Novita |
+### Solo `anthropic` (8)
 
-Selecciona un preset de plataforma y toda la configuración se autorellena — sin necesidad de elegir manualmente un tipo de interfaz.
+| Preset key | Nombre a mostrar |
+|---|---|
+| `anthropic` | Anthropic |
+| `claude_code` | Claude Code Subscription (Passthrough) |
+| `bailian_coding` | Bailian Coding |
+| `qianfan` | Baidu Qianfan |
+| `bailing` | Bailing |
+| `claudeapi` | ClaudeAPI |
+| `compshare_coding` | Compshare Coding Plan |
+| `eflowcode` | E-FlowCode |
+
+### Solo `openai` (5)
+
+| Preset key | Nombre a mostrar |
+|---|---|
+| `openai` | OpenAI |
+| `nvidia` | NVIDIA |
+| `opencode` | OpenCode Go |
+| `opencode_zen` | OpenCode Zen (Free) |
+| `newapi` | New API |
+
+### Solo `gemini` (1)
+
+| Preset key | Nombre a mostrar |
+|---|---|
+| `gemini` | Gemini |
+
+### Solo `openai_responses` (1)
+
+| Preset key | Nombre a mostrar |
+|---|---|
+| `codex` | OpenAI Codex |
+
+### `anthropic` + `openai` (26)
+
+`glm`, `glm_coding`, `glm_en`, `kimi`, `kimi_coding`, `minimax`, `minimax_en`, `bailian`, `deepseek`, `stepfun`, `stepfun_en`, `qianfan_coding`, `xiaomi_mimo`, `xiaomi_mimo_coding`, `longcat`, `sensenova`, `openrouter`, `siliconflow`, `siliconflow_en`, `dmxapi`, `modelscope`, `atlascloud`, `novita`, `pateway`, `claudecn`, `sssaicode`
+
+### `anthropic` + `openai` + `openai_responses` (2)
+
+| Preset key | Nombre a mostrar |
+|---|---|
+| `doubao` | Volcano Engine (ByteDance) |
+| `byteplus` | BytePlus |
+
+### `anthropic` + `openai` + `gemini` (21)
+
+`aihubmix`, `shengsuanyun`, `therouter`, `cherryin`, `packycode`, `cubence`, `aigocode`, `rightcode`, `aicodemirror`, `ccsub`, `apikeyfun`, `apinebula`, `sudocode`, `runapi`, `relaxycode`, `crazyrouter`, `compshare`, `micu`, `ctok`, `lemondata`, `pipellm`
+
+### Tipos de plataforma especiales (2, fuera de presets)
+
+| platform_type | Notas |
+|---|---|
+| `mock` | Adaptador mock local para desarrollo |
+| `cli-proxy` | Delega wire/key/models a una fila `cli_proxy_provider` |
+
+Selecciona un preset de plataforma y la configuración de endpoint (protocol / base_url / models) se autorellena. Los endpoints pueden editarse por plataforma para añadir o eliminar wire protocols.
 
 ## Detección automática de interfaz
 
-AiDog detecta automáticamente el tipo de interfaz de las peticiones del cliente — sin configuración manual:
+AiDog detecta el tipo de interfaz desde rutas y bodies de peticiones del cliente — sin configuración manual:
 
-- **Interfaz de chat** — Las peticiones de chat AI más comunes
-- **Interfaz de asistente de codificación** — Usada por herramientas como Codex, Claude Code
-- **Interfaz de completado de texto** — Peticiones de completado de texto heredadas
+- **Interfaz de chat** (`/v1/chat/completions`, `/v1/messages`) — Las peticiones de chat AI más comunes
+- **Interfaz de asistente de codificación** (`/v1/responses`, Codex / Claude Code) — Usada por herramientas de codificación
+- **Interfaz de completado de texto** (`/v1/completions`) — Peticiones de completado de texto heredadas
 
 Esto significa que puedes servir diferentes tipos de clientes a través de la misma dirección proxy.
-
-## Conversión automática de protocolo
-
-Si tu cliente envía peticiones en un formato pero la plataforma destino usa otro, AiDog convierte automáticamente. Por ejemplo:
-
-- El cliente envía formato OpenAI → Automáticamente convertido a formato Anthropic para Claude
-- El asistente de codificación usa su propia interfaz → Automáticamente convertido al formato de la plataforma
 
 ## Plataforma mock
 

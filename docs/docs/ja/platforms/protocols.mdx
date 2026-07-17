@@ -6,34 +6,131 @@ title: 対応プラットフォームとインターフェース
 
 AiDog は幅広い AI プラットフォームとインターフェースタイプをサポートし、異なるプラットフォーム間のプロトコル変換を自動処理します。
 
+## プロトコル変換
+
+AiDog は **N+N 中枢アーキテクチャ** を採用：全入力リクエストを一度中立 `ChatRequest` モデルに parse し、その後対象プラットフォームの wire プロトコルへ再 serialize します。プロトコル間の直接相互変換（N×N）ではなく、全て中立モデル経由で中継します。
+
+```
+クライアントリクエスト（5 種の wire プロトコルいずれか）
+  ↓ parse_incoming_request
+ChatRequest（中立モデル）
+  ↓ convert_request
+上流リクエスト（5 種の wire プロトコルいずれか）+ api_path
+
+上流 SSE（5 種の wire プロトコルいずれか）
+  ↓ parse_sse
+ChatStreamEvent（中立）
+  ↓ to_client_sse
+クライアント SSE（入力プロトコルと一致）
+```
+
+### Wire プロトコル
+
+endpoint の `protocol` フィールドで 5 種の wire プロトコルをサポート：
+
+| Wire プロトコル | serde key | API path | 説明 |
+|---|---|---|---|
+| `Anthropic` | `anthropic` | `/v1/messages` | Claude 系ネイティブ形式 |
+| `OpenAI` | `openai` | `/chat/completions` | デフォルトフォールバック；主要アグリゲータ |
+| `OpenAIResponses` | `openai_responses` | `/v1/responses` | Codex / 新版 OpenAI コーディング接口 |
+| `OpenAICompletions` | `openai_completions` | `/v1/completions` | レガシーテキスト補完 |
+| `Gemini` | `gemini` | `/v1beta/models/{model}:streamGenerateContent` | Google Gemini ネイティブ |
+
+### 変換マトリクス
+
+中立モデルにより、入力プロトコルいずれからも出力プロトコルいずれへルーティング可能。非ストリーミングレスポンスの真変換は現在 **OpenAI → Anthropic** を完全実装（tool_calls と content 共存の互換バグ修正）；他のクロスプロトコルパスは実行時に上流 body のそのまま透過へフォールバックします。
+
+| 入力 \ 出力 | anthropic | openai | openai_responses | openai_completions | gemini |
+|---|:---:|:---:|:---:|:---:|:---:|
+| anthropic | 透過 | ✓ | ✓ | ✓ | ✓ |
+| openai | ✓ | 透過 | ✓ | ✓ | ✓ |
+| openai_responses | ✓ | ✓ | 透過 | ✓ | ✓ |
+| openai_completions | ✓ | ✓ | ✓ | 透過 | ✓ |
+| gemini | ✓ | ✓ | ✓ | ✓ | 透過 |
+
+### 特殊プラットフォーム（wire 層をバイパス）
+
+以下の `platform_type` は `convert_request` / `forward_attempt` を経由せず、`proxy/handler.rs` のリトループ前に拦截されます：
+
+| platform_type | 処理方式 |
+|---|---|
+| `mock` | 内蔵モックアダプタ、実上流なし |
+| `claude_code` | OAuth 購読型 Claude Code リクエストの 1:1 純透過 |
+| `devin` | `proxy/devin.rs` 内で chat ↔ session プロトコル変換（create session → poll → fetch messages → openai/anthropic へ包装） |
+| `cli-proxy` | wire/base_url/key は候補解決時に関連 `cli_proxy_provider` 行から読取 |
+
 ## 対応プラットフォーム
 
-AiDog は主要 AI サービスをカバーする 50以上の内蔵プラットフォームプリセットを含みます:
+AiDog は `src-tauri/defaults/platform-presets.json` に **65 個のプラットフォームプリセット** を内蔵、主要 AI サービスをカバー。プラットフォーム型は endpoint が公開する wire プロトコル毎にグループ化：
 
-| カテゴリ | 例 |
-|----------|----------|
-| 国際 | OpenAI、Anthropic、Google Gemini、Mistral |
-| 中国 | DeepSeek、Qwen、Zhipu GLM、Kimi、MiniMax |
-| アグリゲータ | OpenRouter、SiliconFlow、Novita |
+### `anthropic` のみ（8 個）
 
-プラットフォームプリセットを選択すると全設定が自動入力 — インターフェースタイプを手動選択する必要なし。
+| Preset key | 表示名 |
+|---|---|
+| `anthropic` | Anthropic |
+| `claude_code` | Claude Code Subscription (Passthrough) |
+| `bailian_coding` | Bailian Coding |
+| `qianfan` | Baidu Qianfan |
+| `bailing` | Bailing |
+| `claudeapi` | ClaudeAPI |
+| `compshare_coding` | Compshare Coding Plan |
+| `eflowcode` | E-FlowCode |
+
+### `openai` のみ（5 個）
+
+| Preset key | 表示名 |
+|---|---|
+| `openai` | OpenAI |
+| `nvidia` | NVIDIA |
+| `opencode` | OpenCode Go |
+| `opencode_zen` | OpenCode Zen (Free) |
+| `newapi` | New API |
+
+### `gemini` のみ（1 個）
+
+| Preset key | 表示名 |
+|---|---|
+| `gemini` | Gemini |
+
+### `openai_responses` のみ（1 個）
+
+| Preset key | 表示名 |
+|---|---|
+| `codex` | OpenAI Codex |
+
+### `anthropic` + `openai`（26 個）
+
+`glm`、`glm_coding`、`glm_en`、`kimi`、`kimi_coding`、`minimax`、`minimax_en`、`bailian`、`deepseek`、`stepfun`、`stepfun_en`、`qianfan_coding`、`xiaomi_mimo`、`xiaomi_mimo_coding`、`longcat`、`sensenova`、`openrouter`、`siliconflow`、`siliconflow_en`、`dmxapi`、`modelscope`、`atlascloud`、`novita`、`pateway`、`claudecn`、`sssaicode`
+
+### `anthropic` + `openai` + `openai_responses`（2 個）
+
+| Preset key | 表示名 |
+|---|---|
+| `doubao` | Volcano Engine (ByteDance) |
+| `byteplus` | BytePlus |
+
+### `anthropic` + `openai` + `gemini`（21 個）
+
+`aihubmix`、`shengsuanyun`、`therouter`、`cherryin`、`packycode`、`cubence`、`aigocode`、`rightcode`、`aicodemirror`、`ccsub`、`apikeyfun`、`apinebula`、`sudocode`、`runapi`、`relaxycode`、`crazyrouter`、`compshare`、`micu`、`ctok`、`lemondata`、`pipellm`
+
+### 特殊プラットフォーム型（2 個、プリセット外）
+
+| platform_type | 説明 |
+|---|---|
+| `mock` | ローカルモックアダプタ、開発テスト用 |
+| `cli-proxy` | wire/key/models を関連 `cli_proxy_provider` 行へ委譲 |
+
+プラットフォームプリセットを選択すると、endpoint 設定（protocol / base_url / models）が自動入力。プラットフォーム毎に wire プロトコル endpoint を追加・削除可能です。
 
 ## インターフェース自動検出
 
-AiDog はクライアントリクエストからインターフェースタイプを自動検出 — 手動設定不要:
+AiDog はクライアントリクエストのパスと body からインターフェースタイプを自動検出 — 手動設定不要：
 
-- **チャットインターフェース** — 最も一般的な AI チャットリクエスト
-- **コーディングアシスタントインターフェース** — Codex、Claude Code などのツールが使用
-- **テキスト補完インターフェース** — レガシーテキスト補完リクエスト
+- **チャットインターフェース**（`/v1/chat/completions`、`/v1/messages`）— 最も一般的な AI チャットリクエスト
+- **コーディングアシスタントインターフェース**（`/v1/responses`、Codex / Claude Code）— コーディングツールが使用
+- **テキスト補完インターフェース**（`/v1/completions`）— レガシーテキスト補完リクエスト
 
-つまり、同じプロキシアドレス経由で異なるタイプのクライアントにサービス提供可能。
-
-## プロトコル自動変換
-
-クライアントが一方のフォーマットでリクエストを送信し、対象プラットフォームが別のフォーマットを使用する場合、AiDog が自動変換。例:
-
-- クライアントが OpenAI フォーマット送信 → Claude 用に Anthropic フォーマットへ自動変換
-- コーディングアシスタントが独自インターフェース使用 → プラットフォームのフォーマットへ自動変換
+同じプロキシアドレスで異なるタイプのクライアントにサービス提供可能です。
 
 ## モックプラットフォーム
 

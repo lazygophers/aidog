@@ -6,34 +6,131 @@ title: Supported Platforms & Interfaces
 
 AiDog supports a wide range of AI platforms and interface types, automatically handling protocol conversion between different platforms.
 
+## Protocol Conversion
+
+AiDog uses an **N+N canonical-hub architecture**: every incoming request is parsed into a neutral `ChatRequest` model, then re-serialized into the target platform's wire format. Conversions do not happen pairwise (N×N); they all flow through the neutral model.
+
+```
+client request (any of 5 wire protocols)
+  ↓ parse_incoming_request
+ChatRequest (neutral)
+  ↓ convert_request
+upstream request (any of 5 wire protocols) + api_path
+
+upstream SSE (any of 5 wire protocols)
+  ↓ parse_sse
+ChatStreamEvent (neutral)
+  ↓ to_client_sse
+client SSE (matches incoming protocol)
+```
+
+### Wire protocols
+
+Five wire protocols are supported as endpoints (the `protocol` field on each endpoint entry):
+
+| Wire protocol | serde key | API path | Notes |
+|---|---|---|---|
+| `Anthropic` | `anthropic` | `/v1/messages` | Claude family native format |
+| `OpenAI` | `openai` | `/chat/completions` | Default fallback; most aggregators |
+| `OpenAIResponses` | `openai_responses` | `/v1/responses` | Codex / new OpenAI coding interface |
+| `OpenAICompletions` | `openai_completions` | `/v1/completions` | Legacy text completion |
+| `Gemini` | `gemini` | `/v1beta/models/{model}:streamGenerateContent` | Google Gemini native |
+
+### Conversion matrix
+
+The neutral model guarantees every incoming protocol can be routed to every outgoing protocol. Non-streaming response conversion is currently fully implemented for **OpenAI → Anthropic** (tool-call + content coexistence fix); other cross-protocol paths fall through to upstream body passthrough at runtime.
+
+| Incoming \ Outgoing | anthropic | openai | openai_responses | openai_completions | gemini |
+|---|:---:|:---:|:---:|:---:|:---:|
+| anthropic | passthrough | ✓ | ✓ | ✓ | ✓ |
+| openai | ✓ | passthrough | ✓ | ✓ | ✓ |
+| openai_responses | ✓ | ✓ | passthrough | ✓ | ✓ |
+| openai_completions | ✓ | ✓ | ✓ | passthrough | ✓ |
+| gemini | ✓ | ✓ | ✓ | ✓ | passthrough |
+
+### Special platforms (bypass wire layer)
+
+The following `platform_type` values are not routed through `convert_request` / `forward_attempt`. They are intercepted in `proxy/handler.rs` before the retry loop:
+
+| platform_type | Handling |
+|---|---|
+| `mock` | Built-in mock adapter; no real upstream |
+| `claude_code` | 1:1 passthrough of OAuth-subscribed Claude Code requests |
+| `devin` | Chat ↔ session translation in `proxy/devin.rs` (create session → poll → fetch messages → wrap back to openai/anthropic) |
+| `cli-proxy` | Wire / base_url / key resolved from the linked `cli_proxy_provider` row at candidate time |
+
 ## Supported Platforms
 
-AiDog includes 50+ built-in platform presets covering major AI services:
+AiDog ships **65 platform presets** in `src-tauri/defaults/platform-presets.json`, covering mainstream AI services. Platform types group by the wire protocol(s) their endpoints expose:
 
-| Category | Examples |
-|----------|----------|
-| International | OpenAI, Anthropic, Google Gemini, Mistral |
-| Chinese | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
-| Aggregators | OpenRouter, SiliconFlow, Novita |
+### `anthropic` only (8)
 
-Select a platform preset and all configuration is auto-filled — no need to manually choose an interface type.
+| Preset key | Display name |
+|---|---|
+| `anthropic` | Anthropic |
+| `claude_code` | Claude Code Subscription (Passthrough) |
+| `bailian_coding` | Bailian Coding |
+| `qianfan` | Baidu Qianfan |
+| `bailing` | Bailing |
+| `claudeapi` | ClaudeAPI |
+| `compshare_coding` | Compshare Coding Plan |
+| `eflowcode` | E-FlowCode |
+
+### `openai` only (5)
+
+| Preset key | Display name |
+|---|---|
+| `openai` | OpenAI |
+| `nvidia` | NVIDIA |
+| `opencode` | OpenCode Go |
+| `opencode_zen` | OpenCode Zen (Free) |
+| `newapi` | New API |
+
+### `gemini` only (1)
+
+| Preset key | Display name |
+|---|---|
+| `gemini` | Gemini |
+
+### `openai_responses` only (1)
+
+| Preset key | Display name |
+|---|---|
+| `codex` | OpenAI Codex |
+
+### `anthropic` + `openai` (26)
+
+`glm`, `glm_coding`, `glm_en`, `kimi`, `kimi_coding`, `minimax`, `minimax_en`, `bailian`, `deepseek`, `stepfun`, `stepfun_en`, `qianfan_coding`, `xiaomi_mimo`, `xiaomi_mimo_coding`, `longcat`, `sensenova`, `openrouter`, `siliconflow`, `siliconflow_en`, `dmxapi`, `modelscope`, `atlascloud`, `novita`, `pateway`, `claudecn`, `sssaicode`
+
+### `anthropic` + `openai` + `openai_responses` (2)
+
+| Preset key | Display name |
+|---|---|
+| `doubao` | Volcano Engine (ByteDance) |
+| `byteplus` | BytePlus |
+
+### `anthropic` + `openai` + `gemini` (21)
+
+`aihubmix`, `shengsuanyun`, `therouter`, `cherryin`, `packycode`, `cubence`, `aigocode`, `rightcode`, `aicodemirror`, `ccsub`, `apikeyfun`, `apinebula`, `sudocode`, `runapi`, `relaxycode`, `crazyrouter`, `compshare`, `micu`, `ctok`, `lemondata`, `pipellm`
+
+### Special platform types (2, not in presets)
+
+| platform_type | Notes |
+|---|---|
+| `mock` | Local mock adapter for development |
+| `cli-proxy` | Delegates wire/key/models to a `cli_proxy_provider` row |
+
+Select a platform preset and endpoint configuration (protocol, base_url, models) is auto-filled. Endpoints can be edited per-platform to add or remove wire protocols.
 
 ## Automatic Interface Detection
 
-AiDog automatically detects the interface type from client requests — no manual configuration needed:
+AiDog detects the interface type from client request paths and bodies — no manual configuration needed:
 
-- **Chat interface** — The most common AI chat requests
-- **Coding assistant interface** — Used by tools like Codex, Claude Code
-- **Text completion interface** — Legacy text completion requests
+- **Chat interface** (`/v1/chat/completions`, `/v1/messages`) — the most common AI chat requests
+- **Coding assistant interface** (`/v1/responses`, Codex / Claude Code) — used by coding tools
+- **Text completion interface** (`/v1/completions`) — legacy text completion requests
 
 This means you can serve different types of clients through the same proxy address.
-
-## Automatic Protocol Conversion
-
-If your client sends requests in one format but the target platform uses another, AiDog converts automatically. For example:
-
-- Client sends OpenAI format → Automatically converted to Anthropic format for Claude
-- Coding assistant uses its own interface → Automatically converted to the platform's format
 
 ## Mock Platform
 
