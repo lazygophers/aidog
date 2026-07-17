@@ -2,7 +2,7 @@
   "id": "add-devin-support",
   "name": "添加 Devin 协议支持",
   "desc": "加 devin (api.devin.ai / app.devin.ai) platform preset + Protocol enum + 路由支持",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "Protocol::Devin serde \"devin\" 归「平台类型」组(非 AI 请求协议组), Rust enum + TS part1.ts union 字面量同步",
@@ -169,19 +169,12 @@
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-add-devin-support",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-add-devin-support",
-      "branch": "skein/add-devin-support",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/add-devin-support",
   "estimate": 60,
   "created": 1784202467,
   "started": 1784204999,
-  "finished": null,
-  "updated": 1784212390
+  "finished": 1784212479,
+  "updated": 1784212479
 }

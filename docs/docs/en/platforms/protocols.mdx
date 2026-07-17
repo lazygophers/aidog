@@ -63,6 +63,8 @@ The following `platform_type` values are not routed through `convert_request` / 
 
 AiDog ships **65 platform presets** in `src-tauri/defaults/platform-presets.json`, covering mainstream AI services. Platform types group by the wire protocol(s) their endpoints expose:
 
+64 of these expose standard wire protocols (bucketed below); `devin` uses a special platform branch with no wire endpoint (see "Special platforms (bypass wire layer)" above).
+
 ### `anthropic` only (8)
 
 | Preset key | Display name |

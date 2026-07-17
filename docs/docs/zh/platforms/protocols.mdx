@@ -63,6 +63,8 @@ endpoint 上 `protocol` 字段支持 5 种 wire 协议：
 
 AiDog 在 `src-tauri/defaults/platform-presets.json` 内置 **65 个平台预设**，覆盖主流 AI 服务。平台按 endpoint 暴露的 wire 协议分组：
 
+其中 64 个暴露标准 wire 协议（按下分桶），`devin` 走特殊平台分支（无 wire endpoint，见上方「特殊平台（绕过 wire 层）」）。
+
 ### 仅 `anthropic`（8 个）
 
 | Preset key | 显示名 |
