@@ -283,8 +283,11 @@ pub(crate) fn parse_minimax_coding_plan(body: &serde_json::Value) -> PlatformQuo
                     remaining: None,
                 });
             }
-            // 周桶 (仅 status=1)
-            if item.get("current_weekly_status").and_then(|v| v.as_i64()) == Some(1) {
+            // 周桶：status 1=有剩余 / 2=已用满，均代表存在周计划窗口 → 建桶；
+            // 0/缺失=无周计划 → 跳过。旧实现仅认 status==1，把「周上限已用满(status=2)」
+            // 的模型整个丢掉，导致周上限最该展示时反而不显示（general 实测 status=2）。
+            let weekly_status = item.get("current_weekly_status").and_then(|v| v.as_i64());
+            if matches!(weekly_status, Some(1) | Some(2)) {
                 if let Some(remain_pct) = item
                     .get("current_weekly_remaining_percent")
                     .and_then(|v| v.as_f64())
@@ -293,12 +296,23 @@ pub(crate) fn parse_minimax_coding_plan(body: &serde_json::Value) -> PlatformQuo
                         .get("weekly_end_time")
                         .and_then(|v| v.as_i64())
                         .and_then(millis_to_iso8601);
+                    // 次数型模型（current_weekly_total_count>0，如 video）暴露绝对周上限，
+                    // 供精确预估基数（has_base）；token 型（general，count=0）仅保留百分比。
+                    let limit = item
+                        .get("current_weekly_total_count")
+                        .and_then(|v| v.as_f64())
+                        .filter(|v| *v > 0.0);
+                    let remaining = limit.and_then(|t| {
+                        item.get("current_weekly_usage_count")
+                            .and_then(|v| v.as_f64())
+                            .map(|used| (t - used).max(0.0))
+                    });
                     tiers.push(QuotaTier {
                         name: "weekly_limit".into(),
                         utilization: 100.0 - remain_pct,
                         resets_at,
-                        limit: None,
-                        remaining: None,
+                        limit,
+                        remaining,
                     });
                 }
             }
