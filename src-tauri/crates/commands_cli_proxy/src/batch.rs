@@ -29,7 +29,7 @@ pub async fn batch_delete_cli_proxy_providers(
     let bind: Vec<i64> = ids.iter().map(|id| *id as i64).collect();
 
     let changes = db
-        .call_traced(None, std::panic::Location::caller(), move |conn| {
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
             let affected = conn.execute(&sql, params_from_iter(bind.iter()))?;
             Ok(affected as u64)
         })
@@ -61,7 +61,7 @@ pub async fn batch_override_cli_proxy_models(
     let ids_i64: Vec<i64> = ids.iter().map(|id| *id as i64).collect();
 
     let changes = db
-        .call_traced(None, std::panic::Location::caller(), move |conn| {
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
             // ponytail: Vec<&dyn ToSql> 统一异类型（String + i64 + i64…）供 params_from_iter
             let mut bind: Vec<&dyn ToSql> = Vec::with_capacity(2 + ids_i64.len());
             bind.push(&models_str);
@@ -97,7 +97,7 @@ pub async fn batch_set_cli_proxy_quota(
     let ids_i64: Vec<i64> = ids.iter().map(|id| *id as i64).collect();
 
     let changes = db
-        .call_traced(None, std::panic::Location::caller(), move |conn| {
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
             let mut bind: Vec<&dyn ToSql> = Vec::with_capacity(2 + ids_i64.len());
             bind.push(&quota);
             bind.push(&ts);
