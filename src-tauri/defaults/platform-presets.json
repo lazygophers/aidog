@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1784160000,
+  "last_updated": 1784332800,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -211,7 +211,7 @@
       "client_type": "default",
       "endpoints": {
         "default": [
-          {"protocol": "anthropic", "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic", "client_type": "claude_code"}
+          {"protocol": "anthropic", "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic", "client_type": "claude_code", "coding_plan": true}
         ]
       },
       "models": {"default": {"default": "qwen3-coder-plus"}},
@@ -945,7 +945,7 @@
       "client_type": "default",
       "endpoints": {
         "default": [
-          {"protocol": "anthropic", "base_url": "https://cp.compshare.cn", "client_type": "claude_code"}
+          {"protocol": "anthropic", "base_url": "https://cp.compshare.cn", "client_type": "claude_code", "coding_plan": true}
         ]
       },
       "models": {"default": {"sonnet": "claude-sonnet-4-6", "opus": "claude-opus-4-8", "haiku": "claude-haiku-4-5"}},
