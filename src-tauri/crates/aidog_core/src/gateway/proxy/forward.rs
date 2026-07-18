@@ -519,7 +519,7 @@ pub(crate) async fn forward_attempt(
             finish_nonstream(
                 state, log, log_settings, group, &route, source_protocol, requested_model,
                 &actual_model, &eff_api_key, target_protocol_enum, same_protocol_passthrough,
-                needs_model_remap, coding_plan, &upstream_resp_headers, start, body,
+                needs_model_remap, coding_plan, target_base_url.clone(), &upstream_resp_headers, start, body,
             )
             .await,
         );
@@ -574,7 +574,7 @@ pub(crate) async fn forward_attempt(
         finish_stream(
             upstream_stream, peek_buf, state, log, log_settings, group, &route, source_protocol,
             requested_model, &actual_model, &eff_api_key, target_protocol_enum,
-            same_protocol_passthrough, needs_model_remap, coding_plan, &upstream_resp_headers, start,
+            same_protocol_passthrough, needs_model_remap, coding_plan, target_base_url.clone(), &upstream_resp_headers, start,
         )
         .await,
     )

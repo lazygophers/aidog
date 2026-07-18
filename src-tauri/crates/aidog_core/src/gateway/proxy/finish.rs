@@ -17,10 +17,18 @@ pub(crate) async fn finish_nonstream(
     same_protocol_passthrough: bool,
     needs_model_remap: bool,
     coding_plan: bool,
+    // 校准/预估链路用的 base_url：endpoint 真 base_url（coding plan 平台级 base_url 恒空，
+    // 用它 dispatch query_quota 子串匹配才命中）。空则回退平台级（等价现状）。
+    quota_base_url: String,
     upstream_resp_headers: &reqwest::header::HeaderMap,
     start: std::time::Instant,
     body: Bytes,
 ) -> Response {
+    let quota_base_url = if quota_base_url.trim().is_empty() {
+        route.platform.base_url.clone()
+    } else {
+        quota_base_url
+    };
     // usage 借用：lossy 不经 to_string 中转
         let (input_tokens, output_tokens, cache_tokens) =
             extract_usage(String::from_utf8_lossy(&body).as_ref());
@@ -116,7 +124,7 @@ pub(crate) async fn finish_nonstream(
             state,
             route.platform.id,
             &route.platform.platform_type,
-            route.platform.base_url.clone(),
+            quota_base_url,
             eff_api_key.to_string(),
             actual_model.to_string(),
             route.platform.extra.clone(),
@@ -159,12 +167,20 @@ pub(crate) async fn finish_stream<S>(
     same_protocol_passthrough: bool,
     needs_model_remap: bool,
     coding_plan: bool,
+    // 校准/预估链路用的 base_url：endpoint 真 base_url（见 finish_nonstream 注）。空则回退平台级。
+    quota_base_url: String,
     upstream_resp_headers: &reqwest::header::HeaderMap,
     start: std::time::Instant,
 ) -> Response
 where
     S: futures::Stream<Item = reqwest::Result<Bytes>> + Unpin + Send + 'static,
 {
+
+    let quota_base_url = if quota_base_url.trim().is_empty() {
+        route.platform.base_url.clone()
+    } else {
+        quota_base_url
+    };
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
     // 同协议透传时（passthrough_response），下方闭包内原样 relay 上游 SSE，仅提取 usage。
@@ -216,7 +232,7 @@ where
         est: Some(StreamEstCtx {
             platform_id: route.platform.id,
             platform_type: route.platform.platform_type.clone(),
-            base_url: route.platform.base_url.clone(),
+            base_url: quota_base_url,
             api_key: eff_api_key.to_string(),
             model: actual_model.to_string(),
             extra: route.platform.extra.clone(),
