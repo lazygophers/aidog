@@ -1,0 +1,132 @@
+{
+  "id": "coding-plan-utilization-calib-fix",
+  "name": "coding plan 套餐用量校准失效修复",
+  "desc": "coding plan 平台(glm/kimi/bailian)套餐用量 tiers(est_coding_plan)未被预估更新且平台列表不展示。根因候选: 自动校准链路 spawn_estimate 传 platform.base_url(coding plan 平台级为空) → query_quota 按 base_url 子串分派失败返 Unsupported → calibrate early-return → est_coding_plan 永不填充 → 前端 tiers 空白不展示。修复方向: 校准传端点级 base_url; 含 bailian_coding 端点漏 coding_plan flag 次生 bug 待核。",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "coding plan 平台 est_balance_remaining 恒 0, 禁按 $ 扣; 走 apply_coding_plan_delta 更新 est_coding_plan tiers",
+    "finish 新增 base_url 参数与 coding_plan 参数同 idiom, 禁改 RouteResult 结构",
+    "C 各 handler 复用 CodingPlanInfo + calibrate_from_quota, 禁改校准下游签名",
+    "preset 改动手维护 + 同步 last_updated, 禁机器生成覆盖",
+    "某平台无上游用量 API → 降级标 需要:, 禁伪造 tiers 数据",
+    "check e2e 降级: check 门只验 cargo build/clippy/test(含 dispatch 命中单测)+yarn build; 真 tiers 展示交用户真实账号手验, 非 check 阻塞门"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "A: finish 传 endpoint base_url 到校准链路",
+      "desc": "根因修复。finish.rs 的 finish_nonstream(:119 spawn_estimate) 与 finish_stream(:219 StreamEstCtx) 当前传 route.platform.base_url(coding plan 平台级恒空)→query_quota dispatch 失败。改: 两函数签名各加 quota_base_url 参数; forward.rs 调这两处时把已在 scope 的 target_base_url(forward.rs:74-76, endpoint 真 base_url, 与 coding_plan flag 同源) 传入; finish 内用新参替换 route.platform.base_url。防御: 新参空串回退 route.platform.base_url。禁改 RouteResult 结构。验收: cargo build+clippy 零warning; 逻辑上 glm_coding 请求校准时 query_quota 收到 open.bigmodel.cn 而非空。",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784371531,
+      "started": 1784372434,
+      "finished": 1784375856
+    },
+    {
+      "sid": "s2",
+      "name": "B: preset 补 bailian/compshare 端点 coding_plan flag",
+      "desc": "defaults/platform-presets.json 的 bailian_coding + compshare_coding 的 anthropic 端点对象补 \"coding_plan\": true(其余 coding plan 平台端点均已 true, 这俩漏致 forward.rs:76 得 false→误走 apply_balance_delta 扣 est_balance_remaining 成负数)。同步更新该协议 last_updated Unix 秒。手维护禁机器生成覆盖。验收: 两端点含 coding_plan:true; JSON 合法; 逻辑上请求走 apply_coding_plan_delta。",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784371531,
+      "started": 1784375856,
+      "finished": 1784416167
+    },
+    {
+      "sid": "s3",
+      "name": "C 契约: 调研 4 平台上游 coding plan 用量 API",
+      "desc": "调研 bailian(coding.dashscope.aliyuncs.com)/qianfan(qianfan.baidubce.com)/xiaomi(token-plan-cn.xiaomimimo.com)/compshare(cp.compshare.cn) 四平台的 coding plan 套餐用量查询 API: endpoint 路径 / auth header 形式 / response JSON schema / tier 字段→CodingPlanInfo{tiers[],level} 映射。参照 quota/coding_plan.rs 既有 query_zhipu/query_kimi handler 的解析范式。结论落 .skein/task/coding-plan-utilization-calib-fix/research/ 每平台一节。无公开用量 API 的平台明确标注'无 API→降级'。验收: research/ 有 4 平台 API 契约或降级结论, 每个可直接指导 handler 实现。",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-researcher",
+      "skills": [],
+      "created": 1784371533,
+      "started": 1784372434,
+      "finished": 1784416167
+    },
+    {
+      "sid": "s4",
+      "name": "C-bailian: query_quota 补百炼 coding plan handler",
+      "desc": "按 s3 research/ 的 bailian API 契约, quota/coding_plan.rs 加 query_bailian_coding_plan handler + quota/mod.rs::query_quota_inner 补子串分派 coding.dashscope.aliyuncs.com。解析上游返回→CodingPlanInfo{tiers[],level}(复用现有 struct+calibrate_from_quota, 禁改下游)。若 s3 判无公开 API→返 err_quota 并标 需要:降级, 不阻塞其余。验收: cargo build+clippy 零warning; dispatch 命中 coding.dashscope; 有 API 则解析出 tiers。",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784371557,
+      "started": null,
+      "finished": 1784375914
+    },
+    {
+      "sid": "s5",
+      "name": "C-qianfan: query_quota 补千帆 coding plan handler",
+      "desc": "按 s3 research/ 的 qianfan API 契约, quota/coding_plan.rs 加 query_qianfan_coding_plan handler + query_quota_inner 补子串分派 qianfan.baidubce.com。解析→CodingPlanInfo(复用 struct+calibrate, 禁改下游)。无 API→err_quota 标 需要:降级。验收: build+clippy 零warning; dispatch 命中 qianfan.baidubce.com。",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784371558,
+      "started": null,
+      "finished": 1784375914
+    },
+    {
+      "sid": "s6",
+      "name": "C-xiaomi: query_quota 补小米 mimo coding plan handler",
+      "desc": "按 s3 research/ 的 xiaomi API 契约, quota/coding_plan.rs 加 query_xiaomi_coding_plan handler + query_quota_inner 补子串分派 token-plan-cn.xiaomimimo.com。解析→CodingPlanInfo(复用 struct+calibrate, 禁改下游)。无 API→err_quota 标 需要:降级。验收: build+clippy 零warning; dispatch 命中 token-plan-cn.xiaomimimo.com。",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784371560,
+      "started": null,
+      "finished": 1784375914
+    },
+    {
+      "sid": "s7",
+      "name": "C-compshare: query_quota 补 compshare coding plan handler",
+      "desc": "按 s3 research/ 的 compshare API 契约, quota/coding_plan.rs 加 query_compshare_coding_plan handler + query_quota_inner 补子串分派 cp.compshare.cn。解析→CodingPlanInfo(复用 struct+calibrate, 禁改下游)。无 API→err_quota 标 需要:降级。验收: build+clippy 零warning; dispatch 命中 cp.compshare.cn。",
+      "depends_on": [
+        "s3"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784371562,
+      "started": null,
+      "finished": 1784375914
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/coding-plan-utilization-calib-fix",
+  "created": 1784369393,
+  "started": 1784372401,
+  "checked": null,
+  "finished": 1784417202,
+  "updated": 1784417202
+}

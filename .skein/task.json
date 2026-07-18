@@ -43,6 +43,12 @@
       "worktree": null
     },
     {
+      "id": "coding-plan-utilization-calib-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "config-db-split",
       "status": "已完成",
       "deps": [
