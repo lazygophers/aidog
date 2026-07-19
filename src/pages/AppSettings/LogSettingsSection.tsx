@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi } from "../../services/api/proxy";
+import type { RetentionUnit } from "../../services/api";
 import type { SystemSettings } from "./useSystemSettings";
 
 /**
@@ -11,9 +12,13 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   const { t } = useTranslation();
   const {
     logEnabled, logUserReq, logUpstreamReq,
-    userReqRetention, upstreamReqRetention, logRetention,
+    userReqRetention, userReqRetentionUnit,
+    upstreamReqRetention, upstreamReqRetentionUnit,
+    logRetention, logRetentionUnit,
     setLogUserReq, setLogUpstreamReq,
-    setUserReqRetention, setUpstreamReqRetention, setLogRetention,
+    setUserReqRetention, setUserReqRetentionUnit,
+    setUpstreamReqRetention, setUpstreamReqRetentionUnit,
+    setLogRetention, setLogRetentionUnit,
     handleLogEnabledChange, updateLogSettings,
     logFileEnabled, logLevel, logRetHours, handleLogSettingsChange,
   } = s;
@@ -120,7 +125,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               {logUserReq && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-                    {t("proxy.userReqRetention", "原始请求保留天数")}
+                    {t("proxy.userReqRetention", "原始请求保留时间")}
                   </label>
                   <input
                     className="input"
@@ -130,15 +135,32 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); updateLogSettings({ user_request_retention_days: v }); }}
                     style={{ width: 70 }}
                   />
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                    {userReqRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
-                  </span>
+                  {userReqRetention === 0 ? (
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                      {t("proxy.logRetentionForever", "永久保留")}
+                    </span>
+                  ) : (
+                    <select
+                      className="input"
+                      value={userReqRetentionUnit}
+                      onChange={(e) => {
+                        const u = e.target.value as RetentionUnit;
+                        setUserReqRetentionUnit(u);
+                        updateLogSettings({ user_request_retention_unit: u });
+                      }}
+                      style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+                    >
+                      <option value="hour">{t("unit.hour", "小时")}</option>
+                      <option value="day">{t("unit.day", "天")}</option>
+                      <option value="week">{t("unit.week", "周")}</option>
+                    </select>
+                  )}
                 </div>
               )}
               {logUpstreamReq && (
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-                    {t("proxy.upstreamReqRetention", "上游请求保留天数")}
+                    {t("proxy.upstreamReqRetention", "上游请求保留时间")}
                   </label>
                   <input
                     className="input"
@@ -148,14 +170,31 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); updateLogSettings({ upstream_request_retention_days: v }); }}
                     style={{ width: 70 }}
                   />
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                    {upstreamReqRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
-                  </span>
+                  {upstreamReqRetention === 0 ? (
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                      {t("proxy.logRetentionForever", "永久保留")}
+                    </span>
+                  ) : (
+                    <select
+                      className="input"
+                      value={upstreamReqRetentionUnit}
+                      onChange={(e) => {
+                        const u = e.target.value as RetentionUnit;
+                        setUpstreamReqRetentionUnit(u);
+                        updateLogSettings({ upstream_request_retention_unit: u });
+                      }}
+                      style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+                    >
+                      <option value="hour">{t("unit.hour", "小时")}</option>
+                      <option value="day">{t("unit.day", "天")}</option>
+                      <option value="week">{t("unit.week", "周")}</option>
+                    </select>
+                  )}
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
-                  {t("proxy.logRetention", "日志记录保留天数")}
+                  {t("proxy.logRetention", "日志记录保留时间")}
                 </label>
                 <input
                   className="input"
@@ -165,9 +204,26 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); updateLogSettings({ retention_days: v }); }}
                   style={{ width: 70 }}
                 />
-                <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                  {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
-                </span>
+                {logRetention === 0 ? (
+                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {t("proxy.logRetentionForever", "永久保留")}
+                  </span>
+                ) : (
+                  <select
+                    className="input"
+                    value={logRetentionUnit}
+                    onChange={(e) => {
+                      const u = e.target.value as RetentionUnit;
+                      setLogRetentionUnit(u);
+                      updateLogSettings({ retention_unit: u });
+                    }}
+                    style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+                  >
+                    <option value="hour">{t("unit.hour", "小时")}</option>
+                    <option value="day">{t("unit.day", "天")}</option>
+                    <option value="week">{t("unit.week", "周")}</option>
+                  </select>
+                )}
               </div>
             </div>
           </>
