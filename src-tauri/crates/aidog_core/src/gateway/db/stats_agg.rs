@@ -239,9 +239,9 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
 /// 存在则按 proxy_log 真值覆盖、不存在才创建；不再清空整表。
 /// 关日志期间未落 proxy_log 但已聚合的旧行【保留】（不被抹掉）。
 ///
-/// stats_agg_hourly 已迁回主库（stats-agg-to-main-db s3）：写入走主库写槽 `call_traced`。
-/// 注意：`aggregate_proxy_logs` 在主库写闭包内读 proxy_log —— 需 s4 应用层合并（log.db 读 +
-/// 主库写两阶段），s3 仅切 handle 路由；在此之前 rebuild 路径运行期暂不可用。
+/// stats-agg-to-main-db s4：跨库两阶段——proxy_log 在 log.db，stats_agg_hourly 在主库，
+/// 禁同闭包跨库读。① log.db 读池跑 `aggregate_proxy_logs` 内存聚合 → Vec；
+/// ② 主库写槽 `call_traced` 跑 `upsert_aggregated` 批量写入。
 #[track_caller]
 pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
@@ -250,10 +250,17 @@ pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output =
         .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("rebuild stats agg load auto_map: {e}"))?;
+    // ① log.db 读池：proxy_log 内存聚合（无写）。
+    let agg = db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            aggregate_proxy_logs(conn, &auto_map).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        })
+        .await
+        .map_err(|e| format!("rebuild stats agg aggregate: {e}"))?;
+    // ② 主库写槽：批量 UPSERT 进 stats_agg_hourly。
     db
         .call_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            let agg = aggregate_proxy_logs(conn, &auto_map)?;
             upsert_aggregated(conn, &agg, now)?;
             Ok(())
         })
@@ -306,16 +313,22 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
         }
     }
     let __db_caller = std::panic::Location::caller();
-    // stats_agg_hourly 已迁回主库：主库读槽预查 auto_map，主库写槽 `call_traced` 写聚合。
-    // 注意：`aggregate_proxy_logs` 在主库写闭包内读 proxy_log —— 需 s4 应用层合并，s3 仅切 handle。
+    // stats-agg-to-main-db s4：跨库两阶段——proxy_log 在 log.db，stats_agg_hourly 在主库，
+    // 禁同闭包跨库读。① log.db 读池跑聚合；② 主库写槽 upsert + 删孤儿。
     let auto_map = db
         .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("correct count_tokens agg load auto_map: {e}"))?;
+    // ① log.db 读池：不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
+    let agg = db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            aggregate_proxy_logs(conn, &auto_map).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        })
+        .await
+        .map_err(|e| format!("correct count_tokens agg aggregate: {e}"))?;
+    // ② 主库写槽：覆盖写 + 删孤儿桶（纯 count_tokens 贡献，扣净后应为 0）。
     db.call_traced(None, __db_caller, move |conn| {
         let now = chrono::Utc::now().timestamp_millis();
-        // 不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
-        let agg = aggregate_proxy_logs(conn, &auto_map)?;
         // ① 覆盖写有 backing 行的桶。
         upsert_aggregated(conn, &agg, now)?;
         // ② 删孤儿桶（stats_agg 有但过滤后聚合无 → 纯 count_tokens 贡献，扣净后应为 0）。

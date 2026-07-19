@@ -35,8 +35,8 @@ pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodaySta
     let today_key = local_today_hour_key();
 
     db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            // stats_agg_hourly 在 log.db（proxy-log-db-split s3），走专用读池。
+        .call_read_traced(None, __db_caller, move |conn| {
+            // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
             let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
@@ -98,10 +98,10 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
     async move {
     let today_key = local_today_hour_key();
 
-    // proxy-log-db-split s3：stats_agg_hourly 在 log.db，platform 表在主库 → 跨库禁 JOIN。
-    // 先 proxy_log handle 跑聚合（含排序），再主库预查全量 platform id→name 映射，Rust 合并。
+    // stats_agg_hourly 已迁回主库（s1）；platform 表也在主库 → 同库，但仍走两次读（聚合 + 名字）
+    // 以复用 prepare_cached，避免 JOIN 触发新索引需求。先主库读池跑聚合（含排序），再查 platform 名。
     let mut rows: Vec<(i64, i64, f64, i64)> = db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
             // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
             let sql = "
