@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../../services/api";
+import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type RetentionUnit } from "../../services/api";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
@@ -17,10 +17,13 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   const [silentLaunch, setSilentLaunch] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
   const [logRetention, setLogRetention] = useState(90);
+  const [logRetentionUnit, setLogRetentionUnit] = useState<RetentionUnit>("day");
   const [logUserReq, setLogUserReq] = useState(true);
   const [logUpstreamReq, setLogUpstreamReq] = useState(true);
   const [userReqRetention, setUserReqRetention] = useState(7);
+  const [userReqRetentionUnit, setUserReqRetentionUnit] = useState<RetentionUnit>("day");
   const [upstreamReqRetention, setUpstreamReqRetention] = useState(7);
+  const [upstreamReqRetentionUnit, setUpstreamReqRetentionUnit] = useState<RetentionUnit>("day");
   const [reqTimeout, setReqTimeout] = useState(300);
   const [connTimeout, setConnTimeout] = useState(10);
   const [logFileEnabled, setLogFileEnabled] = useState(true);
@@ -67,10 +70,13 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
         const ls = await proxyLogApi.getSettings();
         setLogEnabled(ls.enabled);
         setLogRetention(ls.retention_days);
+        setLogRetentionUnit(ls.retention_unit ?? "day");
         setLogUserReq(ls.log_user_request);
         setLogUpstreamReq(ls.log_upstream_request);
         setUserReqRetention(ls.user_request_retention_days);
+        setUserReqRetentionUnit(ls.user_request_retention_unit ?? "day");
         setUpstreamReqRetention(ls.upstream_request_retention_days);
+        setUpstreamReqRetentionUnit(ls.upstream_request_retention_unit ?? "day");
       } catch { /* defaults */ }
       try {
         const ts = await proxyTimeoutApi.get();
@@ -164,8 +170,11 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     log_user_request: logUserReq,
     log_upstream_request: logUpstreamReq,
     user_request_retention_days: userReqRetention,
+    user_request_retention_unit: userReqRetentionUnit,
     upstream_request_retention_days: upstreamReqRetention,
+    upstream_request_retention_unit: upstreamReqRetentionUnit,
     retention_days: logRetention,
+    retention_unit: logRetentionUnit,
   });
 
   const handleLogEnabledChange = async (val: boolean) => {
@@ -245,14 +254,18 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   return {
     // state
     running, proxyPort, autostart, bindLan, autolaunch, silentLaunch,
-    logEnabled, logRetention, logUserReq, logUpstreamReq,
-    userReqRetention, upstreamReqRetention, reqTimeout, connTimeout,
+    logEnabled, logRetention, logRetentionUnit, logUserReq, logUpstreamReq,
+    userReqRetention, userReqRetentionUnit,
+    upstreamReqRetention, upstreamReqRetentionUnit,
+    reqTimeout, connTimeout,
     logFileEnabled, logLevel, logRetHours, message, appVersion,
     dbCompacting, statsRetention, statsRebuilding, proxyClient,
     autoUpdateEnabled,
     // state setters needed directly in JSX (inline onChange)
     setProxyPort, setLogUserReq, setLogUpstreamReq,
-    setUserReqRetention, setUpstreamReqRetention, setLogRetention,
+    setUserReqRetention, setUserReqRetentionUnit,
+    setUpstreamReqRetention, setUpstreamReqRetentionUnit,
+    setLogRetention, setLogRetentionUnit,
     // actions
     handleProxyStart, handleProxyStop,
     handleAutostartChange, handleBindLanChange,

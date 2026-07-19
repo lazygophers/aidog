@@ -75,7 +75,7 @@ use rusqlite::params;
             Ok(())
         }).await.unwrap();
 
-        cleanup_user_request_fields(&db, 1).await.unwrap();
+        cleanup_user_request_fields(&db, 1, RetentionUnit::Day).await.unwrap();
 
         let (req_h, req_body, ur_h, resp_body): (String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
@@ -114,7 +114,7 @@ use rusqlite::params;
             Ok(())
         }).await.unwrap();
 
-        cleanup_upstream_request_fields(&db, 1).await.unwrap();
+        cleanup_upstream_request_fields(&db, 1, RetentionUnit::Day).await.unwrap();
 
         let (up_h, up_req, up_resp_h, resp): (String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
@@ -148,8 +148,8 @@ use rusqlite::params;
         let now = chrono::Utc::now().timestamp_millis();
         insert_proxy_log_at(&db, now).await;
         // retention_days=0 → retention_cutoff returns None → early return
-        cleanup_user_request_fields(&db, 0).await.unwrap();
-        cleanup_upstream_request_fields(&db, 0).await.unwrap();
+        cleanup_user_request_fields(&db, 0, RetentionUnit::Day).await.unwrap();
+        cleanup_upstream_request_fields(&db, 0, RetentionUnit::Day).await.unwrap();
         // No panic = pass
     }
 

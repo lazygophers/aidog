@@ -109,7 +109,7 @@ use super::test_support::*;
         assert_eq!(count_proxy_logs(&db).await.unwrap(), 2);
 
         // retention 30 天：旧日志被软删
-        cleanup_proxy_logs(&db, 30).await.unwrap();
+        cleanup_proxy_logs(&db, 30, RetentionUnit::Day).await.unwrap();
         assert_eq!(count_proxy_logs(&db).await.unwrap(), 1);
         assert!(get_proxy_log(&db, &old_id).await.unwrap().is_none());
         assert!(get_proxy_log(&db, &new_id).await.unwrap().is_some());
