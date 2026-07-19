@@ -137,15 +137,15 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
 /// app_setup 每日调度共用（&Db 入参脱离 State 绑定，便于后台 spawn 调用）。
 pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     // Run field-level cleanup for user/upstream request data
-    if let Err(e) = gateway::db::cleanup_user_request_fields(db, settings.user_request_retention_days).await {
+    if let Err(e) = gateway::db::cleanup_user_request_fields(db, settings.user_request_retention_days, settings.user_request_retention_unit).await {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup user_request fields failed");
     }
-    if let Err(e) = gateway::db::cleanup_upstream_request_fields(db, settings.upstream_request_retention_days).await {
+    if let Err(e) = gateway::db::cleanup_upstream_request_fields(db, settings.upstream_request_retention_days, settings.upstream_request_retention_unit).await {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup upstream_request fields failed");
     }
     // Delete entire log rows older than overall retention (hard delete → physical row removal)
     if settings.retention_days > 0 {
-        if let Err(e) = gateway::db::cleanup_proxy_logs(db, settings.retention_days).await {
+        if let Err(e) = gateway::db::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit).await {
             tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
         }
     }
