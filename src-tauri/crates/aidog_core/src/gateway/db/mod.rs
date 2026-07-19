@@ -11,13 +11,17 @@ use crate::gateway::models::*;
 /// 让 UI 读查询不再排在代理密集写日志之后。动态扩容（空闲回收 / 加锁扩容）本轮不做。
 const READ_POOL_SIZE: usize = 8;
 
-/// Migration 032（旧 011 文件）: 小时级聚合统计表 stats_agg_hourly（建表 + 索引）。
-/// 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。
+/// Migration 032（旧 011 文件，曾落 log.db）→ 现 Migration 051（落主库）: 小时级聚合统计表
+/// stats_agg_hourly（建表 + 索引）。统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。
 ///
 /// 历史上本 DDL 串还内联了一次性回填 `INSERT ... SELECT`（含 eff_pid 标量子查询 + NOT EXISTS
 /// 空表守卫）。去 JOIN/子查询重构后，回填改由 Rust `backfill_stats_agg_if_empty` 在内存算
-/// eff_pid + 批量 UPSERT（schema_late.rs 紧随本 DDL 调用），DDL 串只保留纯建表 + 建索引。
-const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 011 (file) / 032 (inline): 小时级聚合统计表 stats_agg_hourly。
+/// eff_pid + 批量 UPSERT（schema_late.rs Mig 051 紧随本 DDL 调用），DDL 串只保留纯建表 + 建索引。
+///
+/// 归属变迁：proxy-log-db-split 把 stats_agg_hourly 搬到 log.db（Mig 032）；stats-agg-to-main-db
+/// 任务把它迁回主库（Mig 051，落 run_migrations_late）——retention/VACUUM 误伤 + backup 归属
+/// 错位 + 语义主库。proxy_log 仍留 log.db。
+const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 011 (file) / 032 (inline, log.db) / 051 (inline, main db): 小时级聚合统计表 stats_agg_hourly。
 --
 -- 目的：统计读取（today_stats / today_platform_stats / group usage / Stats hourly+daily）
 -- 从逐请求扫 proxy_log 改为查预聚合表，且【不受 ProxyLogSettings.enabled 日志开关影响】
@@ -199,8 +203,9 @@ struct ReconnectCtx {
 ///   `call_read_traced` 并发查询，不阻塞于写连接队列。
 /// - `self.3`：`Arc<ReconnectCtx>` 重连上下文（DB 路径 + 是否内存库）。
 /// - `self.4`：**proxy_log 写连接槽**（拆库后 `~/.aidog/log.db` 独立 handle，
-///   独立 Mutex，proxy_log / stats_agg_hourly 写走此槽，不与元数据写锁竞争）。
+///   独立 Mutex，proxy_log 写走此槽，不与元数据写锁竞争）。
 ///   访问走 `call_proxy_log_traced`。内存库 fallback 下复用主内存连接（同 read_pool idiom）。
+///   注：stats_agg_hourly 已迁回主库（stats-agg-to-main-db），log.db 仅承载 proxy_log。
 /// - `self.5`：`ReadPoolHandle` proxy_log 只读池（N=8），供 UI 查 proxy_log 走
 ///   `call_read_proxy_log_traced`，不阻塞主库读池。
 /// - `self.6`：**platform 写连接槽**（拆库后 `~/.aidog/platform.db` 独立 handle，
@@ -356,9 +361,10 @@ impl Db {
         let read_pool = Self::build_read_pool(path, &conn).await?;
         let is_memory = path == ":memory:" || path.contains("mode=memory") || path.is_empty();
 
-        // log.db：与主库平级独立 SQLite 文件，承载 proxy_log / stats_agg_hourly 写
+        // log.db：与主库平级独立 SQLite 文件，承载 proxy_log 写
         // （独立 Mutex 不争元数据写锁，独立 WAL 不与主库读竞争）。内存库 fallback：
         // proxy_log handle 复用主内存连接（同 build_read_pool idiom），测试无感。
+        // 注：stats_agg_hourly 已迁回主库（stats-agg-to-main-db），log.db 仅承载 proxy_log。
         //
         // ponytail: 内存库 proxy_log_path = None（重连走 is_memory 短路）；
         // 文件库取主路径同目录下 "log.db"，与主库 aidog.db 同级（备份 / 迁移路径一致）。
@@ -723,9 +729,10 @@ impl Db {
     /// 同 ConnectionClosed 重连重试），唯一差异是连接来源——取 `self.4`（proxy_log
     /// 独立 Mutex 写槽），重连走 `ReconnectCtx::proxy_log_path`。
     ///
-    /// 拆库后 proxy_log / stats_agg_hourly 的写 / DDL / 事务走本方法（独立于主库元数据
-    /// 写锁，proxy_log 密集写不再阻塞 platform/group 写队列）。内存库 fallback 下 `self.4`
-    /// 是主内存连接 clone（同 `build_read_pool` idiom），测试代码无感。
+    /// 拆库后 proxy_log 的写 / DDL / 事务走本方法（独立于主库元数据写锁，proxy_log 密集写
+    /// 不再阻塞 platform/group 写队列）。stats_agg_hourly 已迁回主库（stats-agg-to-main-db），
+    /// 本方法仅承载 proxy_log 路径。内存库 fallback 下 `self.4` 是主内存连接 clone
+    /// （同 `build_read_pool` idiom），测试代码无感。
     ///
     /// 跨表读约束：log.db 无 `"group"` / `platform` / `cli_proxy_provider` 表，
     /// 本方法闭包内**禁**跨表 JOIN 这些主库表（s4 改应用层合并）。当前 s1 仅加基础设施，
@@ -805,9 +812,9 @@ impl Db {
     }
 
     /// log.db 只读 chokepoint：与 `call_read_traced` **完整同形 / 同语义**，
-    /// 唯一差异是读池来源——取 `self.5`（proxy_log 独立 N=8 读池）。供 UI 查 proxy_log /
-    /// stats_agg_hourly 纯 SELECT 热读路径走，不阻塞主库读池。同 `call_read_traced`：
-    /// 某槽位死亡时 `pick()` 重试下一条，不替换死槽位。
+    /// 唯一差异是读池来源——取 `self.5`（proxy_log 独立 N=8 读池）。供 UI 查 proxy_log 纯
+    /// SELECT 热读路径走，不阻塞主库读池（stats_agg_hourly 已迁回主库，读走主库读池）。
+    /// 同 `call_read_traced`：某槽位死亡时 `pick()` 重试下一条，不替换死槽位。
     pub fn call_read_proxy_log_traced<F, R>(
         &self,
         req: Option<&str>,

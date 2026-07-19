@@ -167,13 +167,13 @@ pub struct StatsAggInput {
 /// 替代旧 SQL 内 `CASE WHEN ?4=0 THEN (SELECT ... FROM "group")` 标量子查询。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
 ///
-/// 跨库预查（proxy-log-db-split s3）：stats_agg_hourly 在 log.db，`"group"` 表在主库，
-/// `load_auto_from_map` 不能在 proxy_log 写闭包内查 → 主 handle 预查 auto_map，move 进闭包。
+/// stats_agg_hourly 已迁回主库（stats-agg-to-main-db s3）：写入走主库写槽 `call_traced`。
+/// auto_map 预查（主库读槽）仍保留——避免在每条请求的写闭包内重复 prepare/load_auto_from_map。
 #[track_caller]
 pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // platform_id=0（auto 分组）才需 auto_map 回溯；预查 move 进 proxy_log 写闭包。
+    // platform_id=0（auto 分组）才需 auto_map 回溯；主库读槽预查 move 进写闭包。
     let auto_map = if input.platform_id == 0 {
         db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
             .await
@@ -182,7 +182,7 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
         HashMap::new()
     };
     db
-        .call_proxy_log_traced(None, __db_caller, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
             let eff_pid = if input.platform_id != 0 {
                 input.platform_id
@@ -239,8 +239,9 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
 /// 存在则按 proxy_log 真值覆盖、不存在才创建；不再清空整表。
 /// 关日志期间未落 proxy_log 但已聚合的旧行【保留】（不被抹掉）。
 ///
-/// 跨库预查（proxy-log-db-split s3）：`"group"` 表在主库，proxy_log 写闭包内禁查 →
-/// 主 handle 预查 auto_map，move 进闭包。
+/// stats-agg-to-main-db s4：跨库两阶段——proxy_log 在 log.db，stats_agg_hourly 在主库，
+/// 禁同闭包跨库读。① log.db 读池跑 `aggregate_proxy_logs` 内存聚合 → Vec；
+/// ② 主库写槽 `call_traced` 跑 `upsert_aggregated` 批量写入。
 #[track_caller]
 pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
@@ -249,10 +250,17 @@ pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output =
         .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("rebuild stats agg load auto_map: {e}"))?;
+    // ① log.db 读池：proxy_log 内存聚合（无写）。
+    let agg = db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            aggregate_proxy_logs(conn, &auto_map).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        })
+        .await
+        .map_err(|e| format!("rebuild stats agg aggregate: {e}"))?;
+    // ② 主库写槽：批量 UPSERT 进 stats_agg_hourly。
     db
-        .call_proxy_log_traced(None, __db_caller, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            let agg = aggregate_proxy_logs(conn, &auto_map)?;
             upsert_aggregated(conn, &agg, now)?;
             Ok(())
         })
@@ -305,15 +313,22 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
         }
     }
     let __db_caller = std::panic::Location::caller();
-    // 跨库预查：`"group"` 表在主库，proxy_log 写闭包内禁查 → 主 handle 预查 move 进闭包。
+    // stats-agg-to-main-db s4：跨库两阶段——proxy_log 在 log.db，stats_agg_hourly 在主库，
+    // 禁同闭包跨库读。① log.db 读池跑聚合；② 主库写槽 upsert + 删孤儿。
     let auto_map = db
         .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("correct count_tokens agg load auto_map: {e}"))?;
-    db.call_proxy_log_traced(None, __db_caller, move |conn| {
+    // ① log.db 读池：不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
+    let agg = db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            aggregate_proxy_logs(conn, &auto_map).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        })
+        .await
+        .map_err(|e| format!("correct count_tokens agg aggregate: {e}"))?;
+    // ② 主库写槽：覆盖写 + 删孤儿桶（纯 count_tokens 贡献，扣净后应为 0）。
+    db.call_traced(None, __db_caller, move |conn| {
         let now = chrono::Utc::now().timestamp_millis();
-        // 不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
-        let agg = aggregate_proxy_logs(conn, &auto_map)?;
         // ① 覆盖写有 backing 行的桶。
         upsert_aggregated(conn, &agg, now)?;
         // ② 删孤儿桶（stats_agg 有但过滤后聚合无 → 纯 count_tokens 贡献，扣净后应为 0）。
@@ -365,13 +380,14 @@ pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, St
 
 /// 按 retention_days 硬删过期聚合行（参考 cleanup_proxy_logs；0=永久保留）。
 /// 截止时间为 UTC ms；与 time_hour 文本桶比较走 created_at 列（行写入时间）。
+/// stats_agg_hourly 已迁回主库：走主库写槽 `call_traced`。
 #[track_caller]
 pub fn cleanup_stats_agg(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_proxy_log_traced(None, __db_caller, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
