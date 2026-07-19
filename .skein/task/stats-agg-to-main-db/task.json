@@ -1,0 +1,156 @@
+{
+  "id": "stats-agg-to-main-db",
+  "name": "stats_agg_hourly 表迁回主库",
+  "desc": "把 stats_agg_hourly 从 log.db 迁回主库（proxy_log 留 log.db 不动），含 DDL 迁移 + 现有数据拷贝 + 读写 handle 换 + retention/backup/VACUUM 适配",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "DDL 迁移主库 + Migration 050 修正",
+      "desc": "STATS_AGG_HOURLY_SQL 从 run_migrations_proxy_log_late 搬主库 run_migrations_late(Migration 051 紧随 050); Migration 050 删 DROP stats_agg_hourly 保留 DROP proxy_log; 回填段搬主库; schema_late/early 注释更新",
+      "depends_on": [],
+      "验收": [
+        "主库 run_migrations_late 建 stats_agg_hourly",
+        "run_migrations_proxy_log_late 不再建",
+        "Migration 050 仅 DROP proxy_log"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784454762,
+      "started": 1784454813,
+      "finished": 1784457641
+    },
+    {
+      "sid": "s2",
+      "name": "数据搬迁 migration (log.db→main)",
+      "desc": "新 Migration 051 幂等三守卫(主库 COUNT>0/log.db 无表/is_memory 跳过); ATTACH log.db + INSERT INTO main SELECT FROM src 显式列名; 失败 log.warning 不阻断; 搬迁后不删 log.db 旧表",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "幂等三守卫",
+        "ATTACH 搬迁",
+        "失败不阻断启动"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784454763,
+      "started": null,
+      "finished": 1784458568
+    },
+    {
+      "sid": "s3",
+      "name": "写入 handle 换主库 (stats_agg.rs)",
+      "desc": "upsert_stats_agg/rebuild/backfill 全 call_proxy_log_traced → call_traced; 空表守卫 SELECT 1 FROM stats_agg_hourly 走主库连接",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "stats_agg.rs 全写入走 call_traced 主库写槽"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784454763,
+      "started": null,
+      "finished": 1784458855
+    },
+    {
+      "sid": "s4",
+      "name": "读取 handle 换主库 (usage_stats+stats_today)",
+      "desc": "usage_stats.rs + stats_today.rs 全 call_read_proxy_log_traced → call_read_traced; 行内注释 log.db 字样删/改",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "usage_stats + stats_today 全读取走 call_read_traced 主库读池"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784454763,
+      "started": null,
+      "finished": 1784459377
+    },
+    {
+      "sid": "s5",
+      "name": "retention/VACUUM/backup/is_memory 适配",
+      "desc": "maintenance.rs 三库 VACUUM 覆盖核对(stats_agg 随主库); retention 无 stats_agg 独立逻辑(永久保留确认); backup 枚举核对; is_memory 短路主库覆盖; mod.rs doc 注释更新(202/359/726/809)",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "VACUUM/backup 无回归",
+        "is_memory 路径正确",
+        "doc 注释更新"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784454763,
+      "started": null,
+      "finished": 1784460208
+    },
+    {
+      "sid": "s6",
+      "name": "测试 handle 适配 + 全量验证",
+      "desc": "test_stats_agg/test_stats_today/test_usage_stats fixture handle 适配; cargo clippy 零新增 + cargo test 全过 + yarn build + check-i18n",
+      "depends_on": [
+        "s2",
+        "s3",
+        "s4",
+        "s5"
+      ],
+      "验收": [
+        "cargo clippy 0 new",
+        "cargo test 全过",
+        "yarn build OK"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784454764,
+      "started": null,
+      "finished": 1784461633
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/stats-agg-to-main-db",
+  "created": 1784454648,
+  "started": 1784454800,
+  "checked": null,
+  "finished": 1784461895,
+  "updated": 1784461895
+}

@@ -1,0 +1,99 @@
+{
+  "id": "retention-unit-selector",
+  "name": "保留时间单位选择器(天/小时/周) 默认6h",
+  "desc": "ProxyLogSettings 三项(user/upstream/retention)加单位选择器, 默认 6h, 老配置 serde default day 向后兼容",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "Rust 后端 RetentionUnit+3字段+cutoff_secs+cleanup改造",
+      "desc": "ProxyLogSettings 加 3 unit 字段+RetentionUnit enum, retention_cutoff 改 secs, 3 cleanup_* caller 适配",
+      "depends_on": [],
+      "验收": [
+        "cargo check 通过",
+        "serde default Day 老兼容",
+        "Default impl Hour+6 新装",
+        "cargo test gateway::db 全过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784457803,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2",
+      "name": "前端 TS 类型+useSystemSettings+LogSettingsSection UI",
+      "desc": "part2.ts ProxyLogSettings 加 unit 字段, useSystemSettings 加 3 state+setters, LogSettingsSection 三项加 select 单位下拉",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "yarn build 通过",
+        "三项各带 select",
+        "切单位即时 updateLogSettings"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784457803,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3",
+      "name": "i18n 8 locale unit key + label 改保留时间",
+      "desc": "8 locale 加 unit.hour/day/week 扁平 key, proxy.userReqRetention/upstreamReqRetention/logRetention 文案改保留时间",
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "check-i18n 零缺失",
+        "8 locale 均含 3 新 key"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784457803,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4",
+      "name": "全量验证 cargo+yarn build+check-i18n",
+      "desc": "cargo clippy 0 新增, cargo test 全过, yarn build OK, check-i18n 零缺失",
+      "depends_on": [
+        "s2",
+        "s3"
+      ],
+      "验收": [
+        "clippy 0 new",
+        "cargo test pass",
+        "yarn build OK",
+        "check-i18n 零缺失"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784457803,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/retention-unit-selector",
+  "created": 1784457726,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1784457803
+}

@@ -2,7 +2,7 @@
   "id": "custom-quota-script",
   "name": "自定义 quota 脚本支持（HTTP 模板 + 外部脚本）",
   "desc": "平台余额/coding plan 支持 HTTP 模板(B JSONPath) + 外部命令脚本(A spawn) 自定义查询，D 混合方案",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "query_quota 原签名禁改(波及 N 调用点), custom 走独立 query_custom_quota entry",
@@ -75,13 +75,13 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "运行中",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784254385,
       "started": 1784259050,
-      "finished": null
+      "finished": 1784436327
     },
     {
       "sid": "s5",
@@ -92,13 +92,13 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "待处理",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784254385,
       "started": null,
-      "finished": null
+      "finished": 1784436327
     },
     {
       "sid": "s6",
@@ -109,13 +109,13 @@
       ],
       "验收": [],
       "验收done": [],
-      "status": "待处理",
+      "status": "已完成",
       "estimate": null,
       "agent": "skein-executor",
       "skills": [],
       "created": 1784254385,
       "started": null,
-      "finished": null
+      "finished": 1784436327
     }
   ],
   "repos": [],
@@ -132,6 +132,6 @@
   "estimate": 90,
   "created": 1784205324,
   "started": 1784255435,
-  "finished": null,
+  "finished": 1784454657,
   "updated": 1784259050
 }

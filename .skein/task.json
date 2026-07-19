@@ -1,20 +1,14 @@
 {
   "tasks": [
     {
-      "id": "custom-quota-script",
-      "status": "进行中",
-      "deps": [],
-      "worktree": ".worktrees/skein-custom-quota-script"
-    },
-    {
       "id": "drop-cli-proxy-support",
       "status": "待处理",
       "deps": [],
       "worktree": null
     },
     {
-      "id": "07-12-peak-models-review-fix",
-      "status": "已完成",
+      "id": "retention-unit-selector",
+      "status": "待处理",
       "deps": [],
       "worktree": null
     },
@@ -93,6 +87,12 @@
       "worktree": null
     },
     {
+      "id": "custom-quota-script",
+      "status": "已完成",
+      "deps": [],
+      "worktree": ".worktrees/skein-custom-quota-script"
+    },
+    {
       "id": "deep-audit-optimize",
       "status": "已完成",
       "deps": [],
@@ -146,6 +146,12 @@
       "deps": [
         "cli-proxy-request-log"
       ],
+      "worktree": null
+    },
+    {
+      "id": "stats-agg-to-main-db",
+      "status": "已完成",
+      "deps": [],
       "worktree": null
     },
     {
