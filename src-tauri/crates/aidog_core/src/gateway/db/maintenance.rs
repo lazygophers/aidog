@@ -372,10 +372,10 @@ pub struct CompactResult {
 /// user_response_headers / user_response_body（与 from_log 的 strip_user 列集对称）。
 /// Does NOT delete the log row — keeps token stats and metadata.
 #[track_caller]
-pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn cleanup_user_request_fields(db: &Db, value: u32, unit: RetentionUnit) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else { return Ok(()); };
     // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
     db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
@@ -400,10 +400,10 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
 /// 注意：仅改清理逻辑，存量大体积 body 的实际回收发生在用户下次 retention 周期运行
 /// 触发本 UPDATE + 后续 incremental_vacuum，迁移本身不强清存量（避免启动期长锁）。
 #[track_caller]
-pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn cleanup_upstream_request_fields(db: &Db, value: u32, unit: RetentionUnit) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else { return Ok(()); };
     // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
     db
         .call_proxy_log_traced(None, __db_caller, move |conn| {

@@ -213,6 +213,38 @@ pub struct ProxyLogSettings {
     /// Days to retain entire log record; 0 = keep forever
     #[serde(default = "default_retention_days")]
     pub retention_days: u32,
+
+    /// 单位（小时/天/周）—— 与同名 `*_retention_days` 字段值配对。
+    /// serde default = Day：老 settings.json 缺此字段时按天解，配老 value 7 → 7 天不变（零迁移）。
+    /// 新装 Default::default() 三项均改 6 + Hour = 6 小时。
+    /// value=0 永久保留（不看单位，0 小时 = 0 天 = 永久）。
+    #[serde(default)]
+    pub user_request_retention_unit: RetentionUnit,
+    #[serde(default)]
+    pub upstream_request_retention_unit: RetentionUnit,
+    #[serde(default)]
+    pub retention_unit: RetentionUnit,
+}
+
+/// 保留期单位。serde lowercase（hour/day/week），Default = Day（老配置兼容）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum RetentionUnit {
+    Hour,
+    #[default]
+    Day,
+    Week,
+}
+
+impl RetentionUnit {
+    /// 与数值配对换算成秒。Hour=3600 / Day=86400 / Week=604800。
+    pub fn secs(self, value: u32) -> u64 {
+        match self {
+            Self::Hour => 3600 * value as u64,
+            Self::Day => 86400 * value as u64,
+            Self::Week => 604800 * value as u64,
+        }
+    }
 }
 
 fn default_user_req_retention() -> u32 { 7 }
@@ -221,13 +253,19 @@ fn default_retention_days() -> u32 { 90 }
 
 impl Default for ProxyLogSettings {
     fn default() -> Self {
+        // 新装默认：三项均 6h（value=6 + Hour）。
+        // serde 反序列化路径独立：老 settings.json 走 serde field default（days 7/7/90 + unit Day），
+        // 此处仅新装首次落库走 Default impl。
         Self {
             enabled: true,
             log_user_request: false,
             log_upstream_request: false,
-            user_request_retention_days: default_user_req_retention(),
-            upstream_request_retention_days: default_upstream_req_retention(),
-            retention_days: default_retention_days(),
+            user_request_retention_days: 6,
+            upstream_request_retention_days: 6,
+            retention_days: 6,
+            user_request_retention_unit: RetentionUnit::Hour,
+            upstream_request_retention_unit: RetentionUnit::Hour,
+            retention_unit: RetentionUnit::Hour,
         }
     }
 }

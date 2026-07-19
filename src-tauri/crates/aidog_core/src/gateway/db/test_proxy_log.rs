@@ -181,11 +181,11 @@ use rusqlite::params;
         assert_eq!(count_all_proxy_logs(&db).await, 2);
 
         // retention_days=30 → 删除 100 天前行，保留 1 天前行
-        cleanup_proxy_logs(&db, 30).await.unwrap();
+        cleanup_proxy_logs(&db, 30, RetentionUnit::Day).await.unwrap();
         assert_eq!(count_all_proxy_logs(&db).await, 1, "old row should be physically deleted");
 
         // retention_days=0 → 跳过清理（保持现行为）
-        cleanup_proxy_logs(&db, 0).await.unwrap();
+        cleanup_proxy_logs(&db, 0, RetentionUnit::Day).await.unwrap();
         assert_eq!(count_all_proxy_logs(&db).await, 1, "retention_days=0 must skip");
     }
 
