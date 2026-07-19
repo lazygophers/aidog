@@ -13,23 +13,39 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
     let __db_caller = std::panic::Location::caller();
     async move {
     let query = query.clone();
-    // 跨库预查（proxy-log-db-split s3）：stats_agg_hourly / proxy_log 在 log.db，
-    // `"group"` / `platform` 表在主库 → 预查 auto_map + platform_names 移入 proxy_log 闭包。
-    let auto_map = db
-        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
-        .await
-        .map_err(|e| format!("query_stats load auto_map: {e}"))?;
+    // 跨库预查（stats-agg-to-main-db s5）：stats_agg_hourly 在主库，proxy_log 在 log.db，
+    // `"group"` / `platform` 表在 platform.db → 预查 auto_map + platform_names 移入读闭包。
+    // 按粒度路由 handle：agg（hourly/daily/None）走主库读池（stats_agg_hourly 主库 s1），
+    // minute/5min 走 log.db 读池（proxy_log 主库已 Mig 050 DROP）。
+    let needs_auto_map = matches!(query.granularity.as_deref(), Some("minute") | Some("5min"));
+    let auto_map = if needs_auto_map {
+        db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+            .await
+            .map_err(|e| format!("query_stats load auto_map: {e}"))?
+    } else {
+        HashMap::new()
+    };
     let platform_names = db
         .call_read_platform_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("query_stats load platform_names: {e}"))?;
-    db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            query_stats_inner(conn, &query, &auto_map, &platform_names)
-                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
-        })
-        .await
-        .map_err(|e| e.to_string())
+    if needs_auto_map {
+        db
+            .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+                query_stats_inner(conn, &query, &auto_map, &platform_names)
+                    .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
+            .await
+            .map_err(|e| e.to_string())
+    } else {
+        db
+            .call_read_traced(None, __db_caller, move |conn| {
+                query_stats_inner(conn, &query, &auto_map, &platform_names)
+                    .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
+            .await
+            .map_err(|e| e.to_string())
+    }
     }
 }
 
@@ -41,28 +57,78 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
 pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future::Future<Output = Result<Vec<StatsResult>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // 跨库预查（同 query_stats）：auto_map + platform_names 在主库，预查移入 proxy_log 闭包。
-    let auto_map = db
-        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
-        .await
-        .map_err(|e| format!("query_stats_batch load auto_map: {e}"))?;
+    // 跨库预查（同 query_stats）：auto_map + platform_names 在 platform 库，预查移入读闭包。
+    // minute/5min 查询需 auto_map（eff_pid 内存回溯）；agg 查询不用（_auto_map）。
+    let any_minute = queries.iter().any(|q| matches!(q.granularity.as_deref(), Some("minute") | Some("5min")));
+    let auto_map = if any_minute {
+        db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+            .await
+            .map_err(|e| format!("query_stats_batch load auto_map: {e}"))?
+    } else {
+        HashMap::new()
+    };
     let platform_names = db
         .call_read_platform_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
         .await
         .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
-    db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            let mut out = Vec::with_capacity(queries.len());
-            for q in &queries {
-                out.push(
-                    query_stats_inner(conn, q, &auto_map, &platform_names)
-                        .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
-                );
+    // 按粒度分两组保留原 idx（stats-agg-to-main-db s5）：agg 走主库读池（stats_agg_hourly 主库），
+    // minute/5min 走 log.db 读池（proxy_log）。混批两次闭包，仍 ≤ 2 次 IPC；纯批单次。
+    let (agg_idx, minute_idx): (Vec<usize>, Vec<usize>) = queries
+        .iter()
+        .enumerate()
+        .fold((Vec::new(), Vec::new()), |(mut a, mut m), (i, q)| {
+            if matches!(q.granularity.as_deref(), Some("minute") | Some("5min")) {
+                m.push(i);
+            } else {
+                a.push(i);
             }
-            Ok(out)
-        })
-        .await
-        .map_err(|e| e.to_string())
+            (a, m)
+        });
+    let mut results: Vec<Option<StatsResult>> = (0..queries.len()).map(|_| None).collect();
+
+    // agg 批：主库读池串行跑 query_stats_inner（agg 分支）。
+    if !agg_idx.is_empty() {
+        let pick: Vec<StatsQuery> = agg_idx.iter().map(|&i| queries[i].clone()).collect();
+        let am = auto_map.clone(); // agg 路径 query_stats_inner 签名要求，实际未用
+        let pn = platform_names.clone();
+        let out: Vec<StatsResult> = db
+            .call_read_traced(None, __db_caller, move |conn| {
+                let mut out = Vec::with_capacity(pick.len());
+                for q in &pick {
+                    out.push(
+                        query_stats_inner(conn, q, &am, &pn)
+                            .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                    );
+                }
+                Ok(out)
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+        for (i, r) in agg_idx.into_iter().zip(out) {
+            results[i] = Some(r);
+        }
+    }
+    // minute 批：log.db 读池串行跑 query_stats_inner（minute 分支，proxy_log 内存聚合）。
+    if !minute_idx.is_empty() {
+        let pick: Vec<StatsQuery> = minute_idx.iter().map(|&i| queries[i].clone()).collect();
+        let out: Vec<StatsResult> = db
+            .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+                let mut out = Vec::with_capacity(pick.len());
+                for q in &pick {
+                    out.push(
+                        query_stats_inner(conn, q, &auto_map, &platform_names)
+                            .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                    );
+                }
+                Ok(out)
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+        for (i, r) in minute_idx.into_iter().zip(out) {
+            results[i] = Some(r);
+        }
+    }
+    Ok(results.into_iter().map(|r| r.expect("idx covered by agg/minute partition")).collect())
     }
 }
 
@@ -231,7 +297,7 @@ fn query_stats_inner_agg(
                 .map_err(|e| format!("agg dimension: {e}"))?
                 .filter_map(|r| r.ok())
                 .collect();
-            // platform_names 由调用方跨库预查自主库传入（agg 走 proxy_log handle，无 platform 表）。
+            // platform_names 由调用方跨库预查自 platform 库传入（agg 走主库读池，无 platform 表）。
             rows.into_iter()
                 .map(|(pid, mut e)| {
                     e.name = platform_names.get(&pid).cloned().unwrap_or_else(|| "未知".to_string());
@@ -326,7 +392,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     // minute/5min 细粒度走 proxy_log 原始行；eff_pid（auto 分组 platform_id=0 回溯源平台）
     // 不再用 SQL 标量子查询/LEFT JOIN，改为内存预取 group_key→eff_pid 映射逐行回溯 + 内存聚合。
     // 时间/group/model 过滤仍在 SQL（缩小行集），唯 eff_pid(platform) 过滤与平台维度 GROUP BY 搬内存。
-    // auto_map + platform_names 由调用方 (query_stats/query_stats_batch) 跨库预查自主库传入
+    // auto_map + platform_names 由调用方 (query_stats/query_stats_batch) 跨库预查自 platform 库传入
     // （log.db 无 "group"/platform 表，禁在 proxy_log 闭包内现取）。
     let five_min = matches!(query.granularity.as_deref(), Some("5min"));
     // filter_platform value = eff_pid 十进制字符串；解析为整数后内存按行 eff_pid 等值过滤。
