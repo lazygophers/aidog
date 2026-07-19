@@ -269,3 +269,45 @@ impl Default for ProxyLogSettings {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ponytail: serde field default vs struct Default impl 是本任务核心契约，留一个可运行检查。
+    /// 老配置 JSON（无 unit 字段）反序列化：serde field default 路径
+    /// → days 7/7/90（fn 默认）+ unit Day（enum #[default]）→ 行为零迁移。
+    #[test]
+    fn old_config_without_unit_fields_defaults_to_day() {
+        let json = r#"{"enabled":true}"#;
+        let s: ProxyLogSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(s.user_request_retention_days, 7);
+        assert_eq!(s.upstream_request_retention_days, 7);
+        assert_eq!(s.retention_days, 90);
+        assert_eq!(s.user_request_retention_unit, RetentionUnit::Day);
+        assert_eq!(s.upstream_request_retention_unit, RetentionUnit::Day);
+        assert_eq!(s.retention_unit, RetentionUnit::Day);
+        // 7 Day = 604800s（与改动前 7d 一致）
+        assert_eq!(RetentionUnit::Day.secs(7), 604_800);
+    }
+
+    /// 新装 Default::default()：三项 value=6 + Hour → 6h（21600s）。
+    #[test]
+    fn default_impl_uses_hour_and_six() {
+        let s = ProxyLogSettings::default();
+        assert_eq!(s.user_request_retention_days, 6);
+        assert_eq!(s.upstream_request_retention_days, 6);
+        assert_eq!(s.retention_days, 6);
+        assert_eq!(s.user_request_retention_unit, RetentionUnit::Hour);
+        assert_eq!(s.retention_unit, RetentionUnit::Hour);
+        assert_eq!(RetentionUnit::Hour.secs(6), 21_600);
+    }
+
+    /// value=0 永久保留：单位无关（Hour/Day/Week × 0 均为 0）。
+    #[test]
+    fn zero_value_is_forever_regardless_of_unit() {
+        assert_eq!(RetentionUnit::Hour.secs(0), 0);
+        assert_eq!(RetentionUnit::Day.secs(0), 0);
+        assert_eq!(RetentionUnit::Week.secs(0), 0);
+    }
+}
