@@ -7,12 +7,6 @@
       "worktree": null
     },
     {
-      "id": "retention-unit-selector",
-      "status": "待处理",
-      "deps": [],
-      "worktree": null
-    },
-    {
       "id": "add-devin-support",
       "status": "已完成",
       "deps": [],
@@ -146,6 +140,12 @@
       "deps": [
         "cli-proxy-request-log"
       ],
+      "worktree": null
+    },
+    {
+      "id": "retention-unit-selector",
+      "status": "已完成",
+      "deps": [],
       "worktree": null
     },
     {
