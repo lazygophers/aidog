@@ -23,7 +23,7 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
 
                 // Migration 031 ①: idx_proxy_log_group_key_stats → run_migrations_proxy_log_late
                 // Migration 031 ②: notification 时间索引 → run_migrations_proxy_log_late（log.db）
-                // Migration 032: stats_agg_hourly 建表 + 回填 → run_migrations_proxy_log_late
+                // Migration 032: stats_agg_hourly 建表 + 回填 → 已迁回本函数 Migration 051（落主库）
                 // Migration 033: proxy_log.is_final DROP → run_migrations_proxy_log_late
                 // Migration 034: proxy_log 索引精简 → run_migrations_proxy_log_late
                 // Migration 035: 删冗余索引（proxy_log/stats_agg 相关 → proxy_log_late；idx_model_price_name 留主库）。
@@ -39,24 +39,51 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                 // 仅影响首启新装（无 platform 数据可提取）；老库首迁 Phase 1 时主库仍有 platform 表，host 正常。
                 migrate_mitm_legacy_tables_to_setting(conn);
 
-                // Migration 050: 清主库拆库遗留孤儿表 proxy_log / stats_agg_hourly。
-                // b2ef9811 把这两表 DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
+                // Migration 051: stats_agg_hourly DDL 迁回主库（原 Mig 032 落 log.db，
+                // 拆库后 retention/VACUUM 误伤 + backup 归属错位 + 语义归属主库）。
+                // CREATE IF NOT EXISTS 幂等：pre-split 老装用户主库已有 stats_agg_hourly
+                // （Mig 050 不再 DROP 此表）→ 沿用；fresh install 空表。
+                //
+                // 回填前置：主库需有 legacy proxy_log（pre-split 升级路径，Mig 050 DROP 之前的
+                // 存量行）。fresh install 主库从未有 proxy_log（Phase 2 log.db 才建）→ 跳过回填
+                // （无存量可回填，stats_agg 留空正确）。post-split 升级（旧 Mig 050 已 DROP 主库
+                // 两表）：主库空 stats_agg + 无 proxy_log → CREATE 空表 + 跳过；log.db 残留
+                // stats_agg 数据由 s2 跨库搬迁恢复。
+                //
+                // 排序约束：必须先于 Mig 050 执行（050 DROP legacy proxy_log 后回填无源）。
+                // 迁移编号 051 仍为 050 的下一号（源序 vs 编号分离）。
+                conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
+                let has_legacy_proxy_log = conn
+                    .prepare("PRAGMA table_info(proxy_log)")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .next()
+                    .is_some();
+                if has_legacy_proxy_log {
+                    let auto_map = load_auto_from_map(conn)?;
+                    backfill_stats_agg_if_empty(conn, &auto_map)?;
+                }
+
+                // Migration 050: 清主库拆库遗留孤儿表 proxy_log（stats_agg_hourly 已迁回主库
+                // Migration 051，本处不再 DROP）。
+                // b2ef9811 把 proxy_log DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
                 // 但未 DROP 主库旧表 → 旧装用户主库残留历史日志行（可达数 GB，随 WAL 膨胀）。
                 // proxy_log 是请求日志非业务数据（retention 90d 本就清理），不迁移直接 DROP。
-                // 幂等：表已不存在 → DROP IF EXISTS no-op；新装从未建过主库这两表，空操作。
+                // 幂等：表已不存在 → DROP IF EXISTS no-op；新装从未建过主库此表，空操作。
                 let _ = conn.execute("DROP TABLE IF EXISTS proxy_log", []);
-                let _ = conn.execute("DROP TABLE IF EXISTS stats_agg_hourly", []);
     Ok(())
 }
 
-/// proxy_log / stats_agg_hourly 表的 late migrations（021–047 范围内的 proxy_log / stats_agg 部分）。
+/// proxy_log 表的 late migrations（021–047 范围内的 proxy_log 部分）。
 ///
-/// 拆库后这些 DDL 跑在 log.db 写连接。`auto_map` 由 init_tables 从主库 `"group"` 表
-/// 预加载传入（log.db 无 group 表，无法在闭包内 `load_auto_from_map`）。`cpa_pids` 为
-/// migration 046 需清理的 CPA 平台 ID 列表（主库预查，跨库不能子查询 JOIN platform）。
+/// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为 migration 046 需清理的 CPA 平台 ID
+/// 列表（主库预查，跨库不能子查询 JOIN platform）。
+///
+/// `_auto_map` stats-agg-to-main-db 后已无使用方（原为 Mig 032 stats_agg 回填用，已迁主库
+/// Mig 051）。参数保留避免改签名波及 init_tables 调用点（s3/s4 层合并时一并清理）。
 pub(crate) fn run_migrations_proxy_log_late(
     conn: &Connection,
-    auto_map: &HashMap<String, i64>,
+    _auto_map: &HashMap<String, i64>,
     cpa_pids: &[i64],
     notif_rows: &[(String, String, String, i64)],
 ) -> SqlResult<()> {
@@ -90,9 +117,8 @@ pub(crate) fn run_migrations_proxy_log_late(
                      WHERE deleted_at = 0",
                     [],
                 );
-                // Migration 032: stats_agg_hourly 建表 + 存量回填。
-                conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
-                backfill_stats_agg_if_empty(conn, auto_map)?;
+                // Migration 032: stats_agg_hourly 建表 + 存量回填 → 已迁回主库 run_migrations_late
+                // （Migration 051，落 main DB）。proxy_log 仍留 log.db，跨库数据搬迁由 s2 负责。
                 // Migration 033: 删 proxy_log.is_final 列。
                 let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
                 // Migration 034: proxy_log 索引精简 + 复合化 + ANALYZE。
@@ -122,6 +148,9 @@ pub(crate) fn run_migrations_proxy_log_late(
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_group", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
                 // Migration 046 (proxy_log 部分): CPA 数据清理。cpa_pids 由主库预查传入。
+                // 注：`DELETE FROM stats_agg_hourly` 在 stats-agg-to-main-db s1 后 log.db 不再有
+                // 此表 → execute 报 no such table，被 `let _ =` 吞掉。CPA stats_agg 行清理待
+                // s3/s4 把 CPA 清理搬主库后恢复（cpa_pids 需透传 run_migrations_late）。
                 for pid in cpa_pids {
                     let _ = conn.execute(
                         "DELETE FROM proxy_log WHERE platform_id = ?1",

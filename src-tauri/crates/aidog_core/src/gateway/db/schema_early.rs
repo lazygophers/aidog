@@ -98,11 +98,14 @@ CREATE TABLE IF NOT EXISTS model_price (
     Ok(())
 }
 
-/// proxy_log / stats_agg_hourly 表的 early migrations（001–020 范围内的 proxy_log 部分）。
+/// proxy_log 表的 early migrations（001–020 范围内的 proxy_log 部分）。
 ///
-/// 拆库后这些 DDL 跑在 log.db 写连接（`call_proxy_log_traced`），主库不再建
-/// proxy_log / stats_agg_hourly 表。migration 内容与原 run_migrations_early 中的
-/// proxy_log 语句一一对应，幂等 idiom 不变（CREATE IF NOT EXISTS / `let _ =` 吞 dup）。
+/// 拆库后这些 DDL 跑在 log.db 写连接（`call_proxy_log_traced`），主库不再建 proxy_log 表。
+/// migration 内容与原 run_migrations_early 中的 proxy_log 语句一一对应，幂等 idiom 不变
+/// （CREATE IF NOT EXISTS / `let _ =` 吞 dup）。
+///
+/// 注：stats_agg_hourly 原 Mig 032（log.db late）已迁回主库 Mig 051（stats-agg-to-main-db），
+/// log.db 现仅承载 proxy_log + notification。
 pub(crate) fn run_migrations_proxy_log_early(conn: &Connection) -> SqlResult<()> {
                 // Migration 001 (proxy_log): 建表。
                 conn.execute_batch(
