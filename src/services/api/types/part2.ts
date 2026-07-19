@@ -73,13 +73,18 @@ export interface ProxyLogDetail {
 }
 
 
+export type RetentionUnit = "hour" | "day" | "week";
+
 export interface ProxyLogSettings {
   enabled: boolean;
   log_user_request: boolean;
   log_upstream_request: boolean;
   user_request_retention_days: number;
+  user_request_retention_unit: RetentionUnit;
   upstream_request_retention_days: number;
+  upstream_request_retention_unit: RetentionUnit;
   retention_days: number;
+  retention_unit: RetentionUnit;
 }
 
 

@@ -1144,10 +1144,16 @@ pub fn now() -> i64 {
 
 /// 计算保留期截止时间戳（毫秒）。`days == 0` 表示跳过清理，返回 None。
 pub(crate) fn retention_cutoff(days: u32) -> Option<i64> {
-    if days == 0 {
+    retention_cutoff_secs(86400 * days as u64)
+}
+
+/// 计算保留期截止时间戳（毫秒）。`secs == 0` 表示跳过清理，返回 None。
+/// 单位感知版本的底层实现（hour/day/week 经 `RetentionUnit::secs` 折算后传入）。
+pub(crate) fn retention_cutoff_secs(secs: u64) -> Option<i64> {
+    if secs == 0 {
         return None;
     }
-    Some((chrono::Utc::now() - chrono::Duration::days(days as i64)).timestamp_millis())
+    Some((chrono::Utc::now() - chrono::Duration::seconds(secs as i64)).timestamp_millis())
 }
 
 // ─── 领域子模块（按 concern 拆分，纯结构搬移，行为零变更）───
