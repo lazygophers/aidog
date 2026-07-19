@@ -2,7 +2,7 @@
   "id": "retention-unit-selector",
   "name": "保留时间单位选择器(天/小时/周) 默认6h",
   "desc": "ProxyLogSettings 三项(user/upstream/retention)加单位选择器, 默认 6h, 老配置 serde default day 向后兼容",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -17,13 +17,18 @@
         "Default impl Hour+6 新装",
         "cargo test gateway::db 全过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784457803,
       "started": null,
-      "finished": null
+      "finished": 1784465564
     },
     {
       "sid": "s2",
@@ -37,13 +42,17 @@
         "三项各带 select",
         "切单位即时 updateLogSettings"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784457803,
       "started": null,
-      "finished": null
+      "finished": 1784465819
     },
     {
       "sid": "s3",
@@ -56,13 +65,16 @@
         "check-i18n 零缺失",
         "8 locale 均含 3 新 key"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784457803,
       "started": null,
-      "finished": null
+      "finished": 1784465835
     },
     {
       "sid": "s4",
@@ -78,13 +90,18 @@
         "yarn build OK",
         "check-i18n 零缺失"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784457803,
       "started": null,
-      "finished": null
+      "finished": 1784466516
     }
   ],
   "repos": [],
@@ -92,8 +109,8 @@
   "worktrees": [],
   "branch": "skein/retention-unit-selector",
   "created": 1784457726,
-  "started": null,
+  "started": 1784463812,
   "checked": null,
-  "finished": null,
-  "updated": 1784457803
+  "finished": 1784466526,
+  "updated": 1784466526
 }
