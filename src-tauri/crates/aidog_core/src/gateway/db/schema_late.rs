@@ -64,6 +64,81 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                     backfill_stats_agg_if_empty(conn, &auto_map)?;
                 }
 
+                // Migration 052: log.db 残留 stats_agg_hourly 跨库搬迁到主库。
+                // post-split 升级路径：旧版 stats_agg_hourly 落 log.db（Mig 032），s1 把 DDL 迁回
+                // 主库 Mig 051 后，log.db 残留存量数据需搬回主库统一查询 / retention / backup。
+                //
+                // 幂等三守卫（全满足才执行搬迁）：
+                //  ① 主库 stats_agg_hourly 已有数据 → 已搬过 / Mig 051 已回填，跳过
+                //  ② 内存库（PRAGMA database_list main file 为空 / :memory: / mode=memory）→
+                //    log.db 无独立文件（同内存连接），跳过
+                //  ③ log.db 无 stats_agg_hourly 表 → 新装 / 已迁 / 表已删，跳过
+                //
+                // 失败不阻断启动（log::warn! + 继续）：数据可后续 rebuild（stats 重算路径）。
+                // 搬迁后不 DROP log.db 旧表（YAGNI，下次 log.db VACUUM 自然回收）。
+                //
+                // ponytail: log.db 路径从 PRAGMA database_list 推导（主库同目录 "log.db"），
+                // 与 Db::new 的路径派生同源；不改 run_migrations_late 签名。
+                let main_count: i64 = conn
+                    .query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))
+                    .unwrap_or(0);
+                if main_count == 0 {
+                    let main_file: String = {
+                        let mut stmt = conn.prepare("PRAGMA database_list")?;
+                        stmt.query_map([], |r| {
+                            let name: String = r.get(1)?;
+                            let file: String = r.get(2).unwrap_or_default();
+                            Ok((name, file))
+                        })?
+                        .filter_map(Result::ok)
+                        .find(|(n, _)| n == "main")
+                        .map(|(_, f)| f)
+                        .unwrap_or_default()
+                    };
+                    let is_memory = main_file.is_empty()
+                        || main_file == ":memory:"
+                        || main_file.contains("mode=memory");
+                    if !is_memory {
+                        let log_path = std::path::Path::new(&main_file)
+                            .parent()
+                            .unwrap_or_else(|| std::path::Path::new("."))
+                            .join("log.db");
+                        if log_path.exists() {
+                            let log_path_sql = log_path.to_string_lossy().replace("'", "''");
+                            let migrate_result = (|| -> SqlResult<()> {
+                                conn.execute_batch(&format!(
+                                    "ATTACH DATABASE '{log_path_sql}' AS src_log"
+                                ))?;
+                                let has_table: bool = conn
+                                    .query_row(
+                                        "SELECT 1 FROM src_log.sqlite_master \
+                                         WHERE type='table' AND name='stats_agg_hourly'",
+                                        [],
+                                        |r| r.get::<_, i64>(0),
+                                    )
+                                    .is_ok();
+                                if has_table {
+                                    conn.execute_batch(
+                                        "BEGIN;\
+                                         INSERT OR IGNORE INTO stats_agg_hourly \
+                                         SELECT * FROM src_log.stats_agg_hourly;\
+                                         COMMIT;",
+                                    )?;
+                                    tracing::info!("migration 052: stats_agg_hourly 跨库搬迁 log.db → main 完成");
+                                }
+                                let _ = conn.execute("DETACH DATABASE 'src_log'", []);
+                                Ok(())
+                            })();
+                            if let Err(e) = migrate_result {
+                                tracing::warn!(
+                                    "migration 052: stats_agg 跨库搬迁失败（不阻断启动，可后续 rebuild）: {e}"
+                                );
+                                let _ = conn.execute("DETACH DATABASE 'src_log'", []);
+                            }
+                        }
+                    }
+                }
+
                 // Migration 050: 清主库拆库遗留孤儿表 proxy_log（stats_agg_hourly 已迁回主库
                 // Migration 051，本处不再 DROP）。
                 // b2ef9811 把 proxy_log DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
