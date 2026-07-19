@@ -219,13 +219,16 @@ pub(crate) fn run_migrations_proxy_log_late(
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
                 let _ = conn.execute("ANALYZE proxy_log", []);
                 // Migration 035 (proxy_log/stats_agg 部分): 删冗余索引。
+                // 注：stats-agg-to-main-db s1 后 stats_agg 索引建在主库 Mig 051（idx_stats_agg_time /
+                // idx_stats_agg_platform）；此处对 idx_stats_agg_model/group 走 log.db DROP IF EXISTS
+                // 是 cosmetic no-op（log.db 此前若建过则删，无则空转，幂等）。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_model", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_group", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
                 // Migration 046 (proxy_log 部分): CPA 数据清理。cpa_pids 由主库预查传入。
                 // 注：`DELETE FROM stats_agg_hourly` 在 stats-agg-to-main-db s1 后 log.db 不再有
-                // 此表 → execute 报 no such table，被 `let _ =` 吞掉。CPA stats_agg 行清理待
-                // s3/s4 把 CPA 清理搬主库后恢复（cpa_pids 需透传 run_migrations_late）。
+                // 此表 → execute 报 no such table，被 `let _ =` 吞掉（cosmetic no-op）。
+                // CPA stats_agg 行清理由 schema.rs Phase 1 `cleanup_cpa_stats_agg` 在主库补做（s5）。
                 for pid in cpa_pids {
                     let _ = conn.execute(
                         "DELETE FROM proxy_log WHERE platform_id = ?1",
@@ -522,7 +525,8 @@ ALTER TABLE "group_new" RENAME TO "group";
                 )?;
 
                 // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— platform.db 部分。
-                // proxy_log / stats_agg_hourly 删除归 run_migrations_proxy_log_late（log.db，cpa_pids 预查传入）。
+                // proxy_log 删除归 run_migrations_proxy_log_late（log.db，cpa_pids 预查传入）；
+                // stats_agg_hourly 删除归 schema.rs Phase 1 cleanup_cpa_stats_agg（主库，s5）。
                 // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
                 let _ = conn.execute(
                     "DELETE FROM group_platform WHERE platform_id IN \

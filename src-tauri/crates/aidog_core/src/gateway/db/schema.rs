@@ -42,6 +42,39 @@ fn fetch_cpa_platform_ids(conn: &rusqlite::Connection) -> Vec<i64> {
         .unwrap_or_default()
 }
 
+/// CPA（CLIProxyAPI）平台聚合行清理 —— stats-agg-to-main-db s5 补 Mig 046 在主库的缺失。
+///
+/// 背景：Mig 046 的 CPA 清理在 `run_migrations_proxy_log_late`（log.db 写连接）内跑，含
+/// `DELETE FROM stats_agg_hourly`。s1 把 stats_agg_hourly DDL 迁回主库后，log.db 不再有此表，
+/// 那条 DELETE 报 no such table 被 `let _ =` 吞 → CPA stats_agg 残留行不再清理。
+///
+/// 本函数在 Phase 1 主库连接上补做：对每个 cpa pid 删 stats_agg_hourly 残留行。
+/// 幂等：DELETE 无匹配行 0 影响；每次启动跑无副作用。
+fn cleanup_cpa_stats_agg(conn: &rusqlite::Connection, cpa_pids: &[i64]) {
+    if cpa_pids.is_empty() {
+        return;
+    }
+    let mut deleted = 0u64;
+    for pid in cpa_pids {
+        match conn.execute(
+            "DELETE FROM stats_agg_hourly WHERE platform_id = ?1",
+            rusqlite::params![pid],
+        ) {
+            Ok(n) => deleted += n as u64,
+            Err(e) => {
+                tracing::warn!(
+                    pid,
+                    error = %e,
+                    "cleanup_cpa_stats_agg: DELETE failed for pid (stats_agg_hourly DDL 预期已存在)"
+                );
+            }
+        }
+    }
+    if deleted > 0 {
+        tracing::info!(deleted, "cleanup_cpa_stats_agg: 主库 CPA 残留聚合行清理完成");
+    }
+}
+
 /// 读主库 4 表（platform / "group" / group_platform / cli_proxy_provider）全行（**不 DROP**）。
 /// config-db-split crash-safe 四阶段迁移的 Phase 1 read：仅读不删，Phase 3 成功后才由 Phase 4 DROP。
 /// 表不存在（已迁过 / 新装主库从未建）→ 返空 TableRows，Phase 3 INSERT for 空转。
@@ -108,6 +141,12 @@ impl Db {
                     run_migrations_late(conn)?;
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
+                    // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（Mig 046 在 log.db 上的
+                    // `DELETE FROM stats_agg_hourly` 因表已迁主库而 no-op，被 `let _ =` 吞）。
+                    // 此处主库补做：每次启动幂等 DELETE CPA 残留聚合行（platform_type='"cpa-%'）。
+                    // ponytail: 不改 run_migrations_late 签名透传 cpa_pids，避免波及 s1/s2 已锁的
+                    // migration 逻辑；post-migration 一次性清理等价、幂等、零回归。
+                    cleanup_cpa_stats_agg(conn, &cpa_pids);
                     let notif_rows = migrate_main_notification_out(conn);
                     // 读 4 表全行（保 id）。首次迁移主库仍有存量；二次启动主库已 DROP → 空 TableRows。
                     let plat_rows = read_platform_tables_out(conn, "platform");
@@ -130,7 +169,8 @@ impl Db {
                 .await
                 .map_err(|e| e.to_string())?;
 
-            // Phase 2: log.db migration（proxy_log + stats_agg_hourly + notification 建表/索引/回填）。
+            // Phase 2: log.db migration（proxy_log + notification 建表/索引/回填）。
+            // stats-agg-to-main-db：stats_agg_hourly 已迁主库（Phase 1 run_migrations_late Mig 051）。
             // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
             self.call_proxy_log_traced(None, __db_caller, move |conn| {
                 run_migrations_proxy_log_early(conn)?;
