@@ -108,7 +108,7 @@ use serde_json::json;
             "env": { "ANTHROPIC_BASE_URL": "x", "ANTHROPIC_AUTH_TOKEN": "y" },
             "statusLine": { "type": "command", "command": "z" },
             "enabledPlugins": { "a@m": true },
-            "language": "zh-CN",
+            "language": "zh-Hans",
             "_aidog_statusline": { "enabled": true }
         });
         let mut out = Vec::new();

@@ -1,4 +1,4 @@
-// Claude Code settings schema — aligned with https://code.claude.com/docs/zh-CN/settings
+// Claude Code settings schema — aligned with https://code.claude.com/docs/zh-Hans/settings
 // Organized by section for GUI rendering
 
 import DEFAULT_SETTINGS from "../../src-tauri/defaults/settings.json";
@@ -28,7 +28,7 @@ export interface SettingSection {
 /** Claude Code `language` 字段可选值（settings.json 顶层 language key）。
  *  单一事实源：CLI 集成 tab 与 claudeTab 的 language 字段共用，禁复制。 */
 export const LANGUAGE_OPTIONS: string[] = [
-  "zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE",
+  "zh-Hans", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE",
   "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA", "hi-IN", "th-TH", "vi-VN",
 ];
 
@@ -41,7 +41,7 @@ export const SECTIONS: SettingSection[] = [
       { key: "model", label: "Model", type: "string", placeholder: "e.g. claude-sonnet-4-6, sonnet" },
       { key: "effortLevel", label: "Effort Level", type: "select", options: ["low", "medium", "high", "xhigh"] },
       { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise..." },
-      { key: "language", label: "Language", type: "string", placeholder: "zh-CN, en-US, ja-JP...", options: LANGUAGE_OPTIONS },
+      { key: "language", label: "Language", type: "string", placeholder: "zh-Hans, en-US, ja-JP...", options: LANGUAGE_OPTIONS },
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
       { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh", pathType: "file" },
       { key: "modelOverrides", label: "Model Overrides", type: "kv", description: "模型 ID 映射，如 Bedrock ARN" },
@@ -297,7 +297,7 @@ function detectLanguage(): string {
 }
 
 // 单一事实源：派生自后端内置默认 src-tauri/defaults/settings.json，避免前后端两份默认漂移。
-// 仅 language 用运行时检测覆盖（JSON 内固定为 zh-CN）。
+// 仅 language 用运行时检测覆盖（JSON 内固定为 zh-Hans）。
 export const RECOMMENDED_CONFIG: Record<string, any> = {
   ...DEFAULT_SETTINGS,
   language: detectLanguage(),

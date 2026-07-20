@@ -138,7 +138,7 @@ impl Default for EventSetting {
     }
 }
 
-/// Claude Code 官方 hook 事件全量目录（约 30 个；来源 code.claude.com/docs/zh-CN/hooks）。
+/// Claude Code 官方 hook 事件全量目录（约 30 个；来源 code.claude.com/docs/zh-Hans/hooks）。
 /// UI 列全量，默认仅 `DEFAULT_ON_EVENTS` 精选集 on，其余默认 off。
 /// **跨层镜像**：前端 `src/components/settings/NotificationEventList.tsx` 的 `CC_HOOK_EVENTS`
 /// 逐字镜像此表，改此处务必同步前端。事件名为 CC 官方英文原样，不翻译。
@@ -183,7 +183,7 @@ pub const DEFAULT_ON_EVENTS: &[&str] = &["Stop", "PermissionRequest"];
 /// 事件名 → 该事件**专属独立默认模板**（zh 硬编码，非 i18n）。
 ///
 /// 每事件一套模板、用各自专属入参（禁所有事件共用一个统一模板）。通用入参所有事件都有：
-/// `{project}`(项目名)/`{session}`(会话id)。专属入参来源 code.claude.com/docs/zh-CN/hooks
+/// `{project}`(项目名)/`{session}`(会话id)。专属入参来源 code.claude.com/docs/zh-Hans/hooks
 /// 各事件 stdin 字段。为避免可选字段缺失残留裸 `{x}`，默认模板**只用高确定字段**
 /// （脚本通用透传所有标量字段，确有则填，缺失字段通过 substitute_vars 的 fill_empty 选项
 /// 在 event 路径替换为空串 → 见 notification.rs render_event；故默认模板可放心用专属入参）。

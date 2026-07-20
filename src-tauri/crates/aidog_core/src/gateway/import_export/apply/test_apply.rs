@@ -62,7 +62,7 @@ async fn seed_source(db: &crate::gateway::db::Db) {
         crate::gateway::models::SetSettingInput {
             scope: "app".into(),
             key: "locale".into(),
-            value: serde_json::json!({"locale": "zh-CN"}),
+            value: serde_json::json!({"locale": "zh-Hans"}),
         },
     )
     .await
