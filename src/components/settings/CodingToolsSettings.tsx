@@ -79,7 +79,7 @@ export function CodingToolsSettingsTab() {
           : codexVal != null && codexVal !== "" ? String(codexVal) : "";
         if (compact) {
           setCompactApplied(compact);
-          setCompactDraft(compact);
+          setCompactDraft(formatCompactDisplay(compact));
         }
       })
       .catch(() => {
@@ -199,15 +199,34 @@ export function CodingToolsSettingsTab() {
   };
 
   // 自动压缩窗口：单值双写 claude env + codex config。空串 = 清除两侧键。
-  // 校验仅非负整数（token 数）；claude env 存字符串数字，codex 存字符串。
+  // 输入支持 K/M 后缀（如 200K → 200000，1M → 1000000），存原始 token 数。
+  // claude env 存字符串数字，codex 存字符串。
+  const parseCompactInput = (s: string): string | null => {
+    const m = s.trim().toLowerCase();
+    if (!m) return "";
+    const mt = m.match(/^(\d+)([km])?$/);
+    if (!mt) return null;
+    const base = Number(mt[1]);
+    const mul = mt[2] === "k" ? 1000 : mt[2] === "m" ? 1000000 : 1;
+    return String(base * mul);
+  };
+  // 格式化为 K 单位展示：整千 → "N K"，非整千 → 原值。
+  const formatCompactDisplay = (s: string): string => {
+    if (!s) return "";
+    const n = Number(s);
+    if (!Number.isFinite(n) || n <= 0) return s;
+    if (n % 1000 === 0) return `${n / 1000} K`;
+    return s;
+  };
   const handleCompactCommit = async (raw: string) => {
     if (busy) return;
-    const next = raw.trim();
-    if (next && !/^\d+$/.test(next)) {
+    const parsed = parseCompactInput(raw);
+    if (parsed === null) {
       setError(t("codingTools.compact.invalid", "请输入非负整数"));
       setCompactDraft(compactApplied);
       return;
     }
+    const next = parsed;
     const prev = compactApplied;
     dirtyRef.current = true;
     setMessage("");
@@ -233,11 +252,11 @@ export function CodingToolsSettingsTab() {
       else delete updatedCx.model_auto_compact_token_limit;
       await codexApi.write(updatedCx);
       setCompactApplied(next);
-      setCompactDraft(next);
+      setCompactDraft(formatCompactDisplay(next));
       setMessage(next ? t("codingTools.applied", "已应用") : t("codingTools.cleared", "已清除"));
     } catch (e: any) {
       setCompactApplied(prev);
-      setCompactDraft(prev);
+      setCompactDraft(formatCompactDisplay(prev));
       setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
     } finally {
       setBusy(false);
@@ -378,15 +397,20 @@ export function CodingToolsSettingsTab() {
           <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
             claude · env.CLAUDE_CODE_AUTO_COMPACT_WINDOW · codex · model_auto_compact_token_limit
           </div>
+          {compactApplied && (
+            <div className="text-tertiary" style={{ fontSize: 11, marginTop: 4 }}>
+              {t("codingTools.compact.current", "当前")}: {formatCompactDisplay(compactApplied)}{Number(compactApplied) % 1000 === 0 ? ` (${compactApplied} tokens)` : ""}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <input
             className="input"
-            type="number"
-            min={0}
-            style={{ fontSize: 13, width: 160, padding: "4px 8px" }}
+            type="text"
+            inputMode="numeric"
+            style={{ fontSize: 13, width: 140, padding: "4px 8px" }}
             value={compactDraft}
-            placeholder="180000"
+            placeholder="200K"
             onChange={(e) => setCompactDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {

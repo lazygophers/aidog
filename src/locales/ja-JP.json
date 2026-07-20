@@ -164,6 +164,7 @@
   "codingTools.applyPlugin.title": "Claude Code プラグインに適用",
   "codingTools.cleared": "クリアしました",
   "codingTools.cliIntegrationTitle": "Coding 設定",
+  "codingTools.compact.current": "現在",
   "codingTools.compact.desc": "コンテキスト自動圧縮のウィンドウ・トークン数を設定。単一の値を Claude Code と Codex CLI の両設定に同期します。",
   "codingTools.compact.invalid": "非負の整数を入力してください",
   "codingTools.compact.title": "自動圧縮ウィンドウ",
