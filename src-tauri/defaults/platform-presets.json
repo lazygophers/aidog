@@ -377,7 +377,7 @@
       "source_urls": {"docs": "https://platform.xiaomimimo.com/static/docs/price/tokenplan/subscription.md", "pricing": "https://platform.xiaomimimo.com/#/token-plan"},
       "homepage": "https://mimo.mi.com",
       "logo_url": "xiaomi",
-      "keywords": ["xiaomi coding", "小米编程", "mimo token plan", "token plan", "tp-", "小米套餐", "mimo 套餐"],
+      "keywords": ["xiaomi coding", "小米编程", "mimo token plan", "token plan", "小米套餐", "mimo 套餐"],
       "color": "#FF6900",
       "codingKeyPrefixes": ["tp-"]
     },
