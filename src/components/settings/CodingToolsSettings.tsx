@@ -205,6 +205,7 @@ export function CodingToolsSettingsTab() {
     const next = raw.trim();
     if (next && !/^\d+$/.test(next)) {
       setError(t("codingTools.compact.invalid", "请输入非负整数"));
+      setCompactDraft(compactApplied);
       return;
     }
     const prev = compactApplied;
@@ -383,33 +384,20 @@ export function CodingToolsSettingsTab() {
             className="input"
             type="number"
             min={0}
-            style={{ fontSize: 13, width: 140, padding: "4px 8px" }}
+            style={{ fontSize: 13, width: 160, padding: "4px 8px" }}
             value={compactDraft}
             placeholder="180000"
             onChange={(e) => setCompactDraft(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter") void handleCompactCommit(compactDraft);
+              if (e.key === "Enter") {
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            onBlur={() => {
+              if (compactDraft !== compactApplied) void handleCompactCommit(compactDraft);
             }}
             disabled={busy}
           />
-          <button
-            className="btn"
-            style={{ fontSize: 13, padding: "4px 12px" }}
-            onClick={() => void handleCompactCommit(compactDraft)}
-            disabled={busy || compactDraft === compactApplied}
-          >
-            {t("codingTools.compact.apply", "应用")}
-          </button>
-          {compactApplied && (
-            <button
-              className="btn"
-              style={{ fontSize: 13, padding: "4px 12px" }}
-              onClick={() => void handleCompactCommit("")}
-              disabled={busy}
-            >
-              {t("codingTools.compact.clear", "清除")}
-            </button>
-          )}
         </div>
       </div>
 

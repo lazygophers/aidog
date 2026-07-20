@@ -164,8 +164,6 @@
   "codingTools.applyPlugin.title": "Apply to Claude Code Plugin",
   "codingTools.cleared": "Cleared",
   "codingTools.cliIntegrationTitle": "Coding Setting",
-  "codingTools.compact.apply": "Apply",
-  "codingTools.compact.clear": "Clear",
   "codingTools.compact.desc": "Set the context auto-compact window token count; a single value synced to both Claude Code and Codex CLI configs.",
   "codingTools.compact.invalid": "Enter a non-negative integer",
   "codingTools.compact.title": "Auto Compact Window",
