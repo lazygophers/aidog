@@ -79,25 +79,17 @@ async fn run_backup_inner(db: &Db) -> Result<PathBuf, String> {
 /// tick = min(interval, 60s), 平衡响应性与唤醒开销。app 生命周期内常驻。
 pub fn spawn_scheduler(app: tauri::AppHandle) {
     tauri::async_runtime::spawn(async move {
-        // 启动首次检查: 补「关机错过」场景。
-        {
-            let db = app.state::<Db>();
-            if let Err(e) = maybe_backup(&db).await {
-                tracing::warn!(error = %e, "backup: startup maybe_backup failed");
-            }
-            // 启动也清理一次 (防长期未开 backup 后首次启用堆积)。
-            let s = BackupSettings::load(&db).await;
-            let _ = cleanup_expired(s.retention_days).await;
-        }
+        // 启动不立即跑（用户要求「启动不做定时操作」）；先 sleep 一个 tick 再进入循环，
+        // 周期触发照旧。关机错过的补偿交由周期内 maybe_backup 的到点判定自然吸收。
         loop {
             let db = app.state::<Db>();
             let s = BackupSettings::load(&db).await.sanitized();
-            if let Err(e) = maybe_backup(&db).await {
-                tracing::warn!(error = %e, "backup: scheduler maybe_backup failed");
-            }
             // 下一轮 tick: 不超过 60s, 不超过 interval。
             let tick_secs = (s.interval_hours * 3600).clamp(1, 60) as u64;
             tokio::time::sleep(Duration::from_secs(tick_secs)).await;
+            if let Err(e) = maybe_backup(&db).await {
+                tracing::warn!(error = %e, "backup: scheduler maybe_backup failed");
+            }
         }
     });
 }

@@ -13,7 +13,6 @@ import {
   type Platform,
   type CliProxyProvider,
 } from "../services/api";
-import { usePolling } from "../hooks/usePolling";
 import { F } from "../domains/shared/tokens";
 import { LogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
 import { DetailPanel } from "./Logs/DetailPanel";
@@ -134,7 +133,6 @@ export function RequestLog() {
   useEffect(() => { setOffset(0); }, [hasFilter, activeFilter, pageSize]);
 
   const refreshList = useCallback(() => { load(true); }, [load]);
-  usePolling(refreshList, 30_000, !detail);
   useEffect(() => onProxyLogUpdated(() => { refreshList(); }, 500), [refreshList]);
 
   const openDetail = useCallback(async (id: string) => {
@@ -163,7 +161,6 @@ export function RequestLog() {
     if (!detail) return;
     proxyLogApi.get(detail.id).then(d => { if (d) setDetail(d); }).catch(() => {});
   }, [detail]);
-  usePolling(refreshDetail, 5_000, !!detail);
   useEffect(() => onProxyLogUpdated(() => { refreshDetail(); }, 1000), [refreshDetail]);
 
   const clearFilter = () => {
