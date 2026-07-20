@@ -79,6 +79,17 @@ tempfile = "3"
 flate2 = "1"
 # proxy log_snapshots 分片并发 map（s5：去 std::sync::Mutex<HashMap> 全局锁）
 dashmap = "6"
+# count_tokens 本地估算（research/tiktoken-rs-research.md）：
+#   tiktoken-rs 0.12 — OpenAI 官方 BPE Rust port，BPE 表 include_str! 编译期嵌入，
+#     cl100k_base + o200k_base 通过 *_singleton() 全局单例；离线零运行时 IO。
+#     仅默认 features（async-openai/dhat-heap 均不启）。
+#   tokenizers (HF) — 加载 tokenizer.json (Qwen/GLM 等原生 BPE)，default features 含
+#     onig (C 依赖) 必须关；纯 Rust fancy-regex 后端 (tokenizers compile_error 强制
+#     onig/fancy-regex 二选一，fancy-regex 是其 optional dep 走隐式 feature 启用)。
+#     evidence: https://raw.githubusercontent.com/huggingface/tokenizers/v0.21.4/tokenizers/Cargo.toml
+#     default = ["progressbar", "onig", "esaxx_fast"]
+tiktoken-rs = "0.12"
+tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
 # 压缩格式支持（CPA config 导入）
 zip = "2"
 tar = "0.4"
