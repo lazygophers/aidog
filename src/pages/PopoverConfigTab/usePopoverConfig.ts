@@ -19,6 +19,7 @@ import {
   platformApi,
   trayConfigApi,
   statsApi,
+  onProxyLogUpdated,
   type PopoverConfig,
   type PopoverItem,
   type PopoverItemType,
@@ -28,7 +29,6 @@ import {
   type GroupDetail,
   type Platform,
 } from "../../services/api";
-import { usePolling } from "../../hooks/usePolling";
 import { formatNumber, formatCostUsd, formatPercent } from "../../utils/formatters";
 import {
   collectStatsQueries,
@@ -116,7 +116,8 @@ export function usePopoverConfig(): PopoverConfigData {
       setPlatformToday(pt);
     } catch { /* */ }
   }, []);
-  usePolling(refreshStats, 30_000);
+  // 今日统计随 proxy_log 终态写入刷新（替代 30s 轮询）；mount 首拉由上层 reload 负责。
+  useEffect(() => onProxyLogUpdated(() => { refreshStats(); }, 1000), [refreshStats]);
 
   // 预览统计：批量拉取当前 config 所需的全部卡数据（一次 IPC），与真实浮窗同口径。
   const [statsMap, setStatsMap] = useState<PopoverStatsMap>(new Map());

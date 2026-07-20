@@ -9,9 +9,9 @@ import {
   type TrayItem,
   type TrayColor,
   type TodayStats,
+  onProxyLogUpdated,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
-import { usePolling } from "../hooks/usePolling";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
@@ -175,7 +175,8 @@ export function TrayConfigTab() {
   const refreshStats = useCallback(async () => {
     try { setTodayStats(await trayConfigApi.todayStats()); } catch { /* */ }
   }, []);
-  usePolling(refreshStats, 30_000);
+  // 今日统计随 proxy_log 终态写入刷新（替代 30s 轮询）。
+  useEffect(() => onProxyLogUpdated(() => { refreshStats(); }, 1000), [refreshStats]);
 
   const persist = async (next: TrayConfig) => {
     setConfig(next);

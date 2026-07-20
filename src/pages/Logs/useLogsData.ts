@@ -12,7 +12,6 @@ import {
   type GroupDetail,
 } from "../../services/api";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
-import { usePolling } from "../../hooks/usePolling";
 import { timePresetToRange, NO_GROUP_SENTINEL, type TimePreset } from "./types";
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -165,7 +164,6 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
   useEffect(() => { setOffset(0); }, [hasFilter, activeFilter, pageSize]);
 
   const refreshList = useCallback(() => { load(true); }, [load]);
-  usePolling(refreshList, 30_000, !detail);
   useEffect(() => onProxyLogUpdated(() => { refreshList(); }, 500), [refreshList]);
 
   const handleClear = async () => {
@@ -217,7 +215,6 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
       .then(d => { if (d) setDetail(d); })
       .catch(() => {});
   }, [detail]);
-  usePolling(refreshDetail, 5_000, !!detail);
   useEffect(() => onProxyLogUpdated(() => { refreshDetail(); }, 1000), [refreshDetail]);
 
   const platformMap = useMemo(() => {

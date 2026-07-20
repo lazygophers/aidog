@@ -139,16 +139,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
             gateway::backup::spawn_scheduler(app.handle().clone());
 
-            // platform-presets.json 同步调度器（同 backup/scheduler.rs 模式）：单 spawn，启动首跑补
-            // 「关机错过」+ 24h 循环。非阻塞 spawn，失败仅 warn；不破坏现有功能（child 1 reader
-            // 端自动回退 bundled）。maybe_sync_on_startup 内部判 24h 节流，重复触发安全。
+            // platform-presets.json 同步调度器（同 backup/scheduler.rs 模式）：单 spawn，
+            // 24h 循环。启动不立即跑（用户要求「启动不做定时操作」）；周期触发照旧，失败仅 warn。
+            // maybe_sync_on_startup 内部判 24h 节流，重复触发安全。
             tauri::async_runtime::spawn(async move {
                 use tracing::Instrument;
-                let startup_span =
-                    tracing::info_span!("defaults_sync_startup", trace_id = %logging::new_trace_id());
-                gateway::defaults_sync::maybe_sync_on_startup()
-                    .instrument(startup_span)
-                    .await;
                 let interval = std::time::Duration::from_secs(24 * 3600);
                 loop {
                     tokio::time::sleep(interval).await;
@@ -162,15 +157,10 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 }
             });
 
-            // client-types.json 同步调度器（同 defaults_sync 模式：启动 hook + 24h 循环）。
-            // 失败仅 warn；不破坏现有功能（reader 端自动回退 bundled）。
+            // client-types.json 同步调度器（同 defaults_sync 模式：24h 循环）。
+            // 启动不立即跑；失败仅 warn，reader 端自动回退 bundled。
             tauri::async_runtime::spawn(async move {
                 use tracing::Instrument;
-                let startup_span =
-                    tracing::info_span!("client_types_sync_startup", trace_id = %logging::new_trace_id());
-                gateway::client_types_sync::maybe_sync_on_startup()
-                    .instrument(startup_span)
-                    .await;
                 let interval = std::time::Duration::from_secs(24 * 3600);
                 loop {
                     tokio::time::sleep(interval).await;
@@ -204,7 +194,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）
             // + proxy_log 三级 retention 清理链（user/upstream fields + retention_days + tombstone）
             // + 阈值触发全量 VACUUM（db>100MB；retention 后大块 free pages 回收）。
-            // 启动首跑补「关机错过」，之后每 24h 一轮；非关键路径，失败仅 warn。
+            // 启动不立即跑（用户要求「启动不做定时操作」），每 24h 一轮；非关键路径，失败仅 warn。
             //
             // VACUUM 经 db.call_traced 跑在 DB 专属后台线程（共享唯一连接），不阻塞 async
             // runtime；锁库期间代理写请求排队（busy_timeout=5000 兜底）。compact_database 内部
@@ -219,6 +209,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     // compact_database 整库重建激进回收（response_body 累积型胀库主因）。
                     const VACUUM_THRESHOLD_BYTES: i64 = 100 * 1024 * 1024;
                     loop {
+                        // 启动不立即跑：先 sleep 到下一周期再执行清理。
+                        tokio::time::sleep(interval).await;
                         // 每个清理周期一个真实唯一链路 id：本周期内所有 SQL 共享该 id（SQL 日志
                         // req= 经 call_traced 的环境捕获自动带上），不同周期 id 不同。
                         let cycle_span = tracing::info_span!(
@@ -295,7 +287,6 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         }
                         .instrument(cycle_span)
                         .await;
-                        tokio::time::sleep(interval).await;
                     }
                 });
             }
