@@ -79,7 +79,7 @@ export function CodingToolsSettingsTab() {
           : codexVal != null && codexVal !== "" ? String(codexVal) : "";
         if (compact) {
           setCompactApplied(compact);
-          setCompactDraft(formatCompactDisplay(compact));
+          setCompactDraft(tokensToDraft(compact));
         }
       })
       .catch(() => {
@@ -199,31 +199,28 @@ export function CodingToolsSettingsTab() {
   };
 
   // 自动压缩窗口：单值双写 claude env + codex config。空串 = 清除两侧键。
-  // 输入支持 K/M 后缀（如 200K → 200000，1M → 1000000），存原始 token 数。
-  // claude env 存字符串数字，codex 存字符串。
+  // 输入框单位为 K（外侧静态标签展示），存原始 token = K × 1000。
+  // 允许 1 位小数（1.5K = 1500 tokens）；claude env 存字符串整数，codex 存字符串。
   const parseCompactInput = (s: string): string | null => {
-    const m = s.trim().toLowerCase();
+    const m = s.trim();
     if (!m) return "";
-    const mt = m.match(/^(\d+)([km])?$/);
-    if (!mt) return null;
-    const base = Number(mt[1]);
-    const mul = mt[2] === "k" ? 1000 : mt[2] === "m" ? 1000000 : 1;
-    return String(base * mul);
+    if (!/^\d+(\.\d+)?$/.test(m)) return null;
+    return String(Math.round(Number(m) * 1000));
   };
-  // 格式化为 K 单位展示：整千 → "N K"，非整千 → 原值。
-  const formatCompactDisplay = (s: string): string => {
+  // 原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
+  const tokensToDraft = (s: string): string => {
     if (!s) return "";
     const n = Number(s);
-    if (!Number.isFinite(n) || n <= 0) return s;
-    if (n % 1000 === 0) return `${n / 1000} K`;
-    return s;
+    if (!Number.isFinite(n)) return "";
+    const k = n / 1000;
+    return Number.isInteger(k) ? String(k) : String(k);
   };
   const handleCompactCommit = async (raw: string) => {
     if (busy) return;
     const parsed = parseCompactInput(raw);
     if (parsed === null) {
       setError(t("codingTools.compact.invalid", "请输入非负整数"));
-      setCompactDraft(compactApplied);
+      setCompactDraft(tokensToDraft(compactApplied));
       return;
     }
     const next = parsed;
@@ -252,11 +249,11 @@ export function CodingToolsSettingsTab() {
       else delete updatedCx.model_auto_compact_token_limit;
       await codexApi.write(updatedCx);
       setCompactApplied(next);
-      setCompactDraft(formatCompactDisplay(next));
+      setCompactDraft(tokensToDraft(next));
       setMessage(next ? t("codingTools.applied", "已应用") : t("codingTools.cleared", "已清除"));
     } catch (e: any) {
       setCompactApplied(prev);
-      setCompactDraft(formatCompactDisplay(prev));
+      setCompactDraft(tokensToDraft(prev));
       setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
     } finally {
       setBusy(false);
@@ -399,18 +396,19 @@ export function CodingToolsSettingsTab() {
           </div>
           {compactApplied && (
             <div className="text-tertiary" style={{ fontSize: 11, marginTop: 4 }}>
-              {t("codingTools.compact.current", "当前")}: {formatCompactDisplay(compactApplied)}{Number(compactApplied) % 1000 === 0 ? ` (${compactApplied} tokens)` : ""}
+              {t("codingTools.compact.current", "当前")}: {compactApplied} tokens
             </div>
           )}
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <input
             className="input"
-            type="text"
-            inputMode="numeric"
-            style={{ fontSize: 13, width: 140, padding: "4px 8px" }}
+            type="number"
+            min={0}
+            step="0.1"
+            style={{ fontSize: 13, width: 110, padding: "4px 8px" }}
             value={compactDraft}
-            placeholder="200K"
+            placeholder="200"
             onChange={(e) => setCompactDraft(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -418,10 +416,11 @@ export function CodingToolsSettingsTab() {
               }
             }}
             onBlur={() => {
-              if (compactDraft !== compactApplied) void handleCompactCommit(compactDraft);
+              if (tokensToDraft(compactApplied) !== compactDraft) void handleCompactCommit(compactDraft);
             }}
             disabled={busy}
           />
+          <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>K</span>
         </div>
       </div>
 
