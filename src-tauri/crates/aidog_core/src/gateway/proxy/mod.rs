@@ -48,6 +48,7 @@ mod retry;
 mod settings_cache;
 mod stream;
 mod timeout;
+mod tokenizer;
 
 #[cfg(test)]
 mod test_integration;
