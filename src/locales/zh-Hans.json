@@ -164,8 +164,6 @@
   "codingTools.applyPlugin.title": "应用到 Claude Code 插件",
   "codingTools.cleared": "已清除",
   "codingTools.cliIntegrationTitle": "Coding 设置",
-  "codingTools.compact.apply": "应用",
-  "codingTools.compact.clear": "清除",
   "codingTools.compact.desc": "设定上下文自动压缩的窗口令牌数，单值同步写入 Claude Code 与 Codex CLI 配置。",
   "codingTools.compact.invalid": "请输入非负整数",
   "codingTools.compact.title": "自动压缩窗口",

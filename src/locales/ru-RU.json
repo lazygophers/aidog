@@ -164,8 +164,6 @@
   "codingTools.applyPlugin.title": "Применить к плагину Claude Code",
   "codingTools.cleared": "Очищено",
   "codingTools.cliIntegrationTitle": "Настройки Coding",
-  "codingTools.compact.apply": "Применить",
-  "codingTools.compact.clear": "Очистить",
   "codingTools.compact.desc": "Задаёт количество токенов окна автокомпактизации контекста; одно значение синхронизируется в конфиги Claude Code и Codex CLI.",
   "codingTools.compact.invalid": "Введите неотрицательное целое",
   "codingTools.compact.title": "Окно Автокомпактизации",
