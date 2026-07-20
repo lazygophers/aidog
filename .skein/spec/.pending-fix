@@ -1,0 +1,68 @@
+{
+  "ts": "2026-07-20T21:31:08",
+  "core_chars": 11430,
+  "budget": 8000,
+  "problems": [
+    {
+      "type": "over-budget",
+      "detail": "[超预算] core 11430 > 8000 字符 — 考虑降级: arch/agent-platform-handler-branch(3002), frontend/cpa-drag-import-01(1557), arch/db-handle-ownership-audit-three-forms(1449)",
+      "size": 11430
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "core/arch/agent-platform-handler-branch"
+      ],
+      "detail": "[断链] core/arch/agent-platform-handler-branch: [[dashmap-sharding]] ✗ 目标缺失"
+    },
+    {
+      "type": "stale",
+      "files": [
+        "core/arch/cross-db-read-two-phase"
+      ],
+      "detail": "[stale] core/arch/cross-db-read-two-phase (created 12月,365天前, updated -,?, status active)"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "core/arch/cross-db-read-two-phase"
+      ],
+      "detail": "[断链] core/arch/cross-db-read-two-phase: [[sqlite-cross-db-no-join]] ✗ 目标缺失"
+    },
+    {
+      "type": "stale",
+      "files": [
+        "core/arch/db-table-cross-db-migrate-idiom"
+      ],
+      "detail": "[stale] core/arch/db-table-cross-db-migrate-idiom (created 12月,365天前, updated -,?, status active)"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/cross-db-subquery-handle-selection"
+      ],
+      "detail": "[断链] recall/arch/cross-db-subquery-handle-selection: [[sqlite-cross-db-no-join]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/cross-db-subquery-handle-selection"
+      ],
+      "detail": "[断链] recall/arch/cross-db-subquery-handle-selection: [[sqlite-cross-db-no-join]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/db/crash-safe-db-split-migration"
+      ],
+      "detail": "[断链] recall/db/crash-safe-db-split-migration: [[dual-db-aggregate-is-memory-shortcut]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/db/crash-safe-db-split-migration"
+      ],
+      "detail": "[断链] recall/db/crash-safe-db-split-migration: [[dual-db-aggregate-is-memory-shortcut]] ✗ 目标缺失"
+    }
+  ]
+}

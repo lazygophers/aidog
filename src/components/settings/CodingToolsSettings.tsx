@@ -4,10 +4,12 @@
 // 语言字段写 ~/.claude/settings.json 的 language key（复用 claudeTab 同一 sync 路径：
 // settingsApi.set(global, claude_code, …) + configApi.syncGroupSettings()）。
 // 即时保存（无 unsaved state），不走 navGuard 离页拦截。
+// 自动压缩窗口：单值双写 —— Claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW（数字）+
+// Codex model_auto_compact_token_limit（字符串）。读时以 claude 优先（与 language 同 sync 路径）。
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { codingToolsSettingsApi, settingsApi, configApi, middlewareApi, type CodingToolsSettings, type MiddlewareRule } from "../../services/api";
+import { codingToolsSettingsApi, settingsApi, configApi, codexApi, middlewareApi, type CodingToolsSettings, type MiddlewareRule } from "../../services/api";
 import { LANGUAGE_OPTIONS } from "../../services/claude-settings-schema";
 
 const CLAUDE_CONFIG_KEY = "claude_code";
@@ -22,6 +24,9 @@ export function CodingToolsSettingsTab() {
     skip_claude_onboarding: false,
   });
   const [language, setLanguage] = useState<string>("");
+  // 自动压缩窗口：local draft + 已落盘值。draft 由用户编辑，commit 时写 claude/codex。
+  const [compactDraft, setCompactDraft] = useState<string>("");
+  const [compactApplied, setCompactApplied] = useState<string>("");
   // 日期改写防检测开关：镜像 middleware_rule.enabled（不写 coding_tools_settings）。
   // null = 加载中/规则未找到，true/false = 规则 enabled。
   const [dateRewriteEnabled, setDateRewriteEnabled] = useState<boolean | null>(null);
@@ -56,16 +61,29 @@ export function CodingToolsSettingsTab() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    // 语言字段（与 claudeTab 共享同一 claude_code config 对象的 language key）
-    settingsApi
-      .get("global", CLAUDE_CONFIG_KEY)
-      .then((cfg) => {
+    // 语言字段（与 claudeTab 共享同一 claude_code config 对象的 language key）+
+    // 自动压缩窗口（claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW 优先，codex 回落）。
+    Promise.all([
+      settingsApi.get("global", CLAUDE_CONFIG_KEY).catch(() => null),
+      codexApi.read().catch(() => null),
+    ])
+      .then(([cfg, cx]) => {
         if (cancelled || dirtyRef.current) return;
-        const lang = (cfg as Record<string, any> | null)?.language;
+        const obj = cfg as Record<string, any> | null;
+        const lang = obj?.language;
         if (typeof lang === "string") setLanguage(lang);
+        const envVal = (obj?.env as Record<string, any> | undefined)?.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+        const codexVal = (cx as Record<string, any> | null)?.model_auto_compact_token_limit;
+        const compact = envVal != null && envVal !== ""
+          ? String(envVal)
+          : codexVal != null && codexVal !== "" ? String(codexVal) : "";
+        if (compact) {
+          setCompactApplied(compact);
+          setCompactDraft(compact);
+        }
       })
       .catch(() => {
-        // 语言读失败不阻塞开关加载：留空 option 占位即可
+        // 读失败不阻塞开关加载：语言留空 option 占位，自动压缩窗口留空
       });
     // 日期改写规则开关态：从 middleware_rule 读 enabled（按 name filter 内置规则）
     middlewareApi
@@ -174,6 +192,51 @@ export function CodingToolsSettingsTab() {
       setMessage(t("codingTools.applied", "已应用"));
     } catch (e: any) {
       setLanguage(prev);
+      setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // 自动压缩窗口：单值双写 claude env + codex config。空串 = 清除两侧键。
+  // 校验仅非负整数（token 数）；claude env 存字符串数字，codex 存字符串。
+  const handleCompactCommit = async (raw: string) => {
+    if (busy) return;
+    const next = raw.trim();
+    if (next && !/^\d+$/.test(next)) {
+      setError(t("codingTools.compact.invalid", "请输入非负整数"));
+      return;
+    }
+    const prev = compactApplied;
+    dirtyRef.current = true;
+    setMessage("");
+    setError("");
+    setBusy(true);
+    try {
+      // ── claude：读全量 → 改 env.CLAUDE_CODE_AUTO_COMPACT_WINDOW → 写回 → sync ──
+      const cfg = (await settingsApi.get("global", CLAUDE_CONFIG_KEY)) as Record<string, any> | null;
+      const envObj: Record<string, any> = { ...((cfg?.env as Record<string, any>) ?? {}) };
+      if (next) envObj.CLAUDE_CODE_AUTO_COMPACT_WINDOW = next;
+      else delete envObj.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+      const updatedCfg = { ...(cfg ?? {}), env: envObj };
+      await settingsApi.set("global", CLAUDE_CONFIG_KEY, updatedCfg);
+      try {
+        await configApi.syncGroupSettings();
+      } catch (e) {
+        console.error("sync_group_settings (compact):", e);
+      }
+      // ── codex：读全量 → 改 model_auto_compact_token_limit → 写回 ──
+      const cx = (await codexApi.read()) as Record<string, any> | null;
+      const updatedCx: Record<string, any> = { ...(cx ?? {}) };
+      if (next) updatedCx.model_auto_compact_token_limit = next;
+      else delete updatedCx.model_auto_compact_token_limit;
+      await codexApi.write(updatedCx);
+      setCompactApplied(next);
+      setCompactDraft(next);
+      setMessage(next ? t("codingTools.applied", "已应用") : t("codingTools.cleared", "已清除"));
+    } catch (e: any) {
+      setCompactApplied(prev);
+      setCompactDraft(prev);
       setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
     } finally {
       setBusy(false);
@@ -296,6 +359,58 @@ export function CodingToolsSettingsTab() {
             <option key={lc} value={lc}>{lc}</option>
           ))}
         </select>
+      </div>
+
+      {/* 自动压缩窗口：单值双写 claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + codex model_auto_compact_token_limit */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 16,
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.compact.title")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("codingTools.compact.desc")}
+          </div>
+          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+            claude · env.CLAUDE_CODE_AUTO_COMPACT_WINDOW · codex · model_auto_compact_token_limit
+          </div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            className="input"
+            type="number"
+            min={0}
+            style={{ fontSize: 13, width: 140, padding: "4px 8px" }}
+            value={compactDraft}
+            placeholder="180000"
+            onChange={(e) => setCompactDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void handleCompactCommit(compactDraft);
+            }}
+            disabled={busy}
+          />
+          <button
+            className="btn"
+            style={{ fontSize: 13, padding: "4px 12px" }}
+            onClick={() => void handleCompactCommit(compactDraft)}
+            disabled={busy || compactDraft === compactApplied}
+          >
+            {t("codingTools.compact.apply", "应用")}
+          </button>
+          {compactApplied && (
+            <button
+              className="btn"
+              style={{ fontSize: 13, padding: "4px 12px" }}
+              onClick={() => void handleCompactCommit("")}
+              disabled={busy}
+            >
+              {t("codingTools.compact.clear", "清除")}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 常驻错误态：写外部文件失败时不可错过，红色 inline、不自动消失 */}
