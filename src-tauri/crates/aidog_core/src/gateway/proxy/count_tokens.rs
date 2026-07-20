@@ -11,30 +11,33 @@ pub(crate) fn is_count_tokens_endpoint(path: &str) -> bool {
 }
 
 /// 本地近似估算 anthropic count_tokens body 的 input_tokens（透传失败兜底）。
-/// 启发式：累计 system + 全部 messages 文本 + tools 定义的字符数，按 ~4 字符/token 折算
-/// （英文经验值；中文偏低但 count_tokens 仅用于客户端预估，可接受偏差）。
+/// 累计 system + messages + tools 全部字符串值拼单串，按 `model` 对应 tokenizer 真 BPE 分词
+/// （glm/qwen 走 HF bundled tokenizer.json；gpt-4o/o 系走 o200k；其余 cl100k；失败链路 → chars/4）。
 /// 计费口径：proxy_log 单行仍保留估算的 input_tokens + est_cost（供单行审计可见），
 /// 但聚合路径（log.rs first_agg gate 按 request_url 识别 count_tokens）跳过 stats_agg，
 /// 故不计入 Stats 页/托盘总统计。
-/// 拿不到任何文本字段 → 返回保底 1（避免返回 0 误导客户端流程）。
-pub(crate) fn estimate_input_tokens(body: &Value) -> i64 {
-    fn collect_text(v: &Value, acc: &mut usize) {
+/// model 无法判定 / 未知族 → cl100k 兜底（仍优于纯 chars/4）。拿不到任何文本字段 → 返回保底 1。
+pub(crate) fn estimate_input_tokens(body: &Value, model: &str) -> i64 {
+    fn collect_text(v: &Value, acc: &mut String) {
         match v {
-            Value::String(s) => *acc += s.len(),
+            Value::String(s) => acc.push_str(s),
             Value::Array(arr) => arr.iter().for_each(|e| collect_text(e, acc)),
             Value::Object(map) => map.values().for_each(|e| collect_text(e, acc)),
             _ => {}
         }
     }
-    let mut chars = 0usize;
+    let mut buf = String::new();
     if let Some(obj) = body.as_object() {
         for key in ["system", "messages", "tools"] {
             if let Some(v) = obj.get(key) {
-                collect_text(v, &mut chars);
+                collect_text(v, &mut buf);
             }
         }
     }
-    let tokens = chars.div_ceil(4) as i64;
+    if buf.is_empty() {
+        return 1;
+    }
+    let tokens = super::tokenizer::count_tokens(&buf, model) as i64;
     tokens.max(1)
 }
 
@@ -69,7 +72,7 @@ pub(crate) async fn handle_count_tokens(
     log.model = requested_model.clone();
 
     // 本地估算值（透传失败时回客户端；提前算好，避免分支重复）
-    let est_tokens = estimate_input_tokens(&raw_body);
+    let est_tokens = estimate_input_tokens(&raw_body, &requested_model);
     let est_body = serde_json::json!({ "input_tokens": est_tokens }).to_string();
     // 兜底响应：返回本地估算 `{"input_tokens":N}` 200，并把回客户端正文记入 log.user_response_body
     // （与 handle_responses_subendpoint 成功路径一致：客户端实际收到的正文落库）。

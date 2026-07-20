@@ -1,0 +1,115 @@
+{
+  "id": "count-tokens-tokenizer",
+  "name": "count_tokens 本地估算升级 per-model tokenizer",
+  "desc": "estimate_input_tokens 改用 tiktoken-rs BPE 分词; model→encoding 映射 (cl100k/o200k); 透传优先 + 本地兜底保持不变; 更新 test 覆盖 per-model 分流",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1-deps",
+      "name": "Cargo 加 tiktoken-rs + tokenizers 依赖",
+      "desc": "aidog_core/Cargo.toml 加 tiktoken-rs 0.12 (空 feature) + tokenizers (HF, default-features=false); cargo build 验证",
+      "depends_on": [],
+      "验收": [
+        "cargo build 通过",
+        "tiktoken-rs 与 tokenizers 版本固定无歧义",
+        "default-features 显式声明禁 onig"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784520034,
+      "started": 1784520151,
+      "finished": 1784521649
+    },
+    {
+      "sid": "s2-vocab",
+      "name": "下载并 bundled glm/qwen tokenizer.json",
+      "desc": "assets/tokenizers/ 下放 glm-4 + qwen2 tokenizer.json (include_bytes!); 记录体积; 若 qwen 超 10MB 改用小版本",
+      "depends_on": [
+        "s1-deps"
+      ],
+      "验收": [
+        "assets/tokenizers/glm-4.json 与 qwen2.json 存在",
+        "两文件体积记录到 findings.md",
+        "qwen 文件 < 10MB 或记录降级决策"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784520034,
+      "started": 1784521650,
+      "finished": 1784521876
+    },
+    {
+      "sid": "s3-dispatch",
+      "name": "tokenizer 调度模块 + estimate_input_tokens 重写",
+      "desc": "新建 gateway/proxy/tokenizer.rs (pick_encoding/count_tokens/OnceLock 缓存); estimate_input_tokens 加 model 参数接入; handle_count_tokens 改传 requested_model; 失败硬兜底 chars/4",
+      "depends_on": [
+        "s2-vocab"
+      ],
+      "验收": [
+        "tokenizer.rs 存在且 count_tokens 入口可调",
+        "estimate_input_tokens 签名含 model 参数且 handle_count_tokens 调用点已更新",
+        "失败链路 fallback 到 chars/4",
+        "cargo clippy 零 warning"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784520034,
+      "started": 1784521876,
+      "finished": 1784522431
+    },
+    {
+      "sid": "s4-test",
+      "name": "per-model 分流测试",
+      "desc": "test_count_tokens.rs 加 per-model 用例 (gpt-4o=gpt-4o, gpt-4=gpt-4, glm=glm, qwen=qwen, unknown 兜底); 同文本不同模型 token 数差异断言",
+      "depends_on": [
+        "s3-dispatch"
+      ],
+      "验收": [
+        "cargo test test_count_tokens 全过",
+        "至少 5 个 per-model 分流用例",
+        "同文本 gpt-4o 与 gpt-4 token 数不同断言"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784520034,
+      "started": 1784522431,
+      "finished": 1784522623
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/count-tokens-tokenizer",
+  "created": 1784519437,
+  "started": 1784520142,
+  "checked": 1784522623,
+  "finished": 1784523333,
+  "updated": 1784523333
+}

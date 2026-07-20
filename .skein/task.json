@@ -45,6 +45,12 @@
       "worktree": null
     },
     {
+      "id": "count-tokens-tokenizer",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null
+    },
+    {
       "id": "cpa-drag-import",
       "status": "已完成",
       "deps": [],
@@ -85,12 +91,6 @@
       "status": "已完成",
       "deps": [],
       "worktree": ".worktrees/skein-custom-quota-script"
-    },
-    {
-      "id": "deep-audit-optimize",
-      "status": "已完成",
-      "deps": [],
-      "worktree": null
     },
     {
       "id": "group-batch-ops",
