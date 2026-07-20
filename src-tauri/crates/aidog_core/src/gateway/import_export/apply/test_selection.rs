@@ -87,7 +87,7 @@ async fn apply_selection_filters_unchecked_items() {
     let db = test_db().await;
     let payload = payload_with(
         &["alpha", "beta"],
-        &[("ui", "theme", "\"dark\""), ("ui", "locale", "\"zh-CN\"")],
+        &[("ui", "theme", "\"dark\""), ("ui", "locale", "\"zh-Hans\"")],
     );
 
     let mut sel: Selection = Selection::new();

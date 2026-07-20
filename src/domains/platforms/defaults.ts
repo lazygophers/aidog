@@ -194,9 +194,8 @@ export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindo
   }));
 }
 
-/** i18next locale 与 JSON name locale key 已统一为 BCP 47 script 子标签 (zh-Hans)。
- *  locale-rename (07-06) 前 i18next 用 zh-CN 区域子标签，需 LOCALE_TO_DEFAULTS 桥接；
- *  rename 后两端一致，直接用 i18next locale 作 DefaultsLocale 查 name。 */
+/** i18next locale 与 JSON name locale key 统一为 BCP 47 script 子标签 (zh-Hans)。
+ *  两端一致，直接用 i18next locale 作 DefaultsLocale 查 name。 */
 
 /** 派生协议本地化显示名（fallback: locale → en-US → protocol key）。
  *  调用方: SearchableProtocolSelect 渲染 + 拼音搜索 + Sub2ApiImport option。
