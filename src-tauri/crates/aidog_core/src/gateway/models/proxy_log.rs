@@ -119,7 +119,8 @@ pub struct LastTestResult {
 }
 
 /// 请求日志页摘要行 = `ProxyLogSummary` + 关联 CLI 代理 provider 信息。
-/// 由 `list_request_logs` LEFT JOIN cli_proxy_provider 产出（provider 已删则 name=None）。
+/// 由 `list_request_logs` 应用层合并 cli_proxy_provider 产出（provider 已删则 name=None）：
+/// 单表读 proxy_log 取行 → 主库 IN 批量查 id→name → Rust HashMap 合并（跨库禁 JOIN）。
 /// 独立于 `ProxyLogSummary`，因请求日志页要展示 provider 归属（代理转发日志页无此字段）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RequestLogSummary {
@@ -128,7 +129,7 @@ pub struct RequestLogSummary {
     /// proxy_log.cli_proxy_provider_id（走传统 platform 路由为 None）
     #[serde(default)]
     pub cli_proxy_provider_id: Option<i64>,
-    /// LEFT JOIN cli_proxy_provider.name；provider 行被删 / 走 platform 路由均为 None
+    /// 应用层合并自 cli_proxy_provider.name；provider 行被删 / 走 platform 路由均为 None
     #[serde(default)]
     pub cli_proxy_provider_name: Option<String>,
 }

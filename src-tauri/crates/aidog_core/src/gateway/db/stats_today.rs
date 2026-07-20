@@ -91,7 +91,8 @@ pub struct TodayPlatformStat {
 ///
 /// platform_id=0 的自动分组日志经 `group.auto_from_platform` 回溯到源平台后归并，
 /// 回溯不到（auto 分组已删 / 非 auto 分组的 platform_id=0）则归 platform_id=0（前端显「未知平台」）。
-/// 平台名 JOIN platform 表（含已软删平台，名仍可显示；查不到则空字符串）。
+/// 平台名应用层合并（含已软删平台，名仍可显示；查不到则空字符串）：先单表 GROUP BY
+/// stats_agg_hourly，再单表查 platform id→name，Rust HashMap 合并（跨库禁 JOIN）。
 #[track_caller]
 pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result<Vec<TodayPlatformStat>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
