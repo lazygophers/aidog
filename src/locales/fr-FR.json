@@ -164,6 +164,7 @@
   "codingTools.applyPlugin.title": "Appliquer au plugin Claude Code",
   "codingTools.cleared": "Effacé",
   "codingTools.cliIntegrationTitle": "Configuration Coding",
+  "codingTools.compact.current": "Actuel",
   "codingTools.compact.desc": "Définit le nombre de jetons de la fenêtre de compactage automatique du contexte ; une valeur unique est synchronisée vers les configurations Claude Code et Codex CLI.",
   "codingTools.compact.invalid": "Saisir un entier non négatif",
   "codingTools.compact.title": "Fenêtre de Compactage Auto",
