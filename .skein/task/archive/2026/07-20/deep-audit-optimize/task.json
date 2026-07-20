@@ -1,0 +1,371 @@
+{
+  "id": "deep-audit-optimize",
+  "name": "deep-audit-optimize",
+  "desc": "深度审计全项目不合理处,每发现/优化点独立 Agent 执行",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "向后兼容:禁改公开 API / serde 字段名 / Tauri command 签名 / 设置 JSON 格式",
+    "每发现 = 独立 exec Agent(用户硬约束)",
+    "Rust 改完跑 cargo clippy(0 warning)+ cargo test,失败禁 finish",
+    "前端改完跑 yarn build + yarn test + scripts/check-i18n.mjs,失败禁 finish",
+    "C1 PlatformCard: 先补 characterization 快照测(C1a)再拆(C1b),公开 props/导出不变",
+    "A4 清 179 allow unused: 逐 crate 增量,每 crate cargo check 验,禁一次清完",
+    "D 批 6 条不直接 exec,各派生独立 task 先 planning",
+    "E1-E5 各派生独立 task(架构决策专项)",
+    "砍除:perf F8/F12 + quality F13 + boundary F1/F3,不进本 task"
+  ],
+  "subtasks": [
+    {
+      "sid": "a1",
+      "name": "reqwest 共享 client(TLS/连接池复用)",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy+test 通过。Client 不每请求重建"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 20,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783868354,
+      "finished": 1783869385,
+      "note": "agent idle 无输出,http_client/forward 零改动,重派"
+    },
+    {
+      "sid": "a2",
+      "name": "tray-refresh 防抖(菜单重建≤1次/请求)",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy+test 通过。单请求菜单重建≤1次"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 25,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783868354,
+      "finished": 1783869190
+    },
+    {
+      "sid": "a3",
+      "name": "清 console.log debug 残留",
+      "depends_on": [],
+      "验收": [
+        "yarn build+test+check:i18n 通过。LogSettingsSection 无 console.log"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 5,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869190,
+      "finished": 1783869280
+    },
+    {
+      "sid": "a5",
+      "name": "CLAUDE.md 全量核对(路径/页数/无测试错/crate布局/Protocol数)",
+      "depends_on": [],
+      "验收": [
+        "CLAUDE.md 所有 file:line 可点开。无过期描述"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 30,
+      "agent": "general-purpose",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869190,
+      "finished": 1783869461
+    },
+    {
+      "sid": "a6",
+      "name": "15处 .toLocaleString→formatDateTime(非PlatformCard)",
+      "depends_on": [],
+      "验收": [
+        "yarn build+test+check:i18n 通过。grep .toLocaleString 仅余 formatters.ts"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 20,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869385,
+      "finished": 1783869539
+    },
+    {
+      "sid": "a7",
+      "name": "13处 commands_* import 模板去重",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 通过。import 模板抽公共 use"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 15,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869461,
+      "finished": 1783869575
+    },
+    {
+      "sid": "b1",
+      "name": "pad 抽 formatters 公共版",
+      "depends_on": [],
+      "验收": [
+        "yarn build+test 通过。3处 pad 调公共"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 10,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869539,
+      "finished": 1783869671
+    },
+    {
+      "sid": "b2",
+      "name": "clamp 抽公共(签名归一)",
+      "depends_on": [],
+      "验收": [
+        "yarn build+test 通过。3处 clamp 签名一致调公共"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 15,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869575,
+      "finished": 1783869781
+    },
+    {
+      "sid": "b3",
+      "name": "ANSI_RE OnceLock 去重(catalog.rs)",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy+test 通过。OnceLock 单实例"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 10,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869671,
+      "finished": 1783869864
+    },
+    {
+      "sid": "b4",
+      "name": "Modal 基元抽取(22处 createPortal 收敛)",
+      "depends_on": [],
+      "验收": [
+        "yarn build+test+check:i18n 通过。createPortal 统一走 Modal"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 40,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869781,
+      "finished": 1783870119
+    },
+    {
+      "sid": "c1a",
+      "name": "PlatformCard characterization 快照测",
+      "depends_on": [],
+      "验收": [
+        "yarn test 通过。快照测建立并绿"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 30,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783869864,
+      "finished": 1783870052
+    },
+    {
+      "sid": "c2",
+      "name": "select_candidates_ctx 232行拆分(签名不变)",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy+test 通过。test_candidates.rs 20+case 全过。签名不变"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 40,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783870052,
+      "finished": 1783870456
+    },
+    {
+      "sid": "c3",
+      "name": "model_test 272行拆阶段",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy+test 通过。拆阶段"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 30,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783870120,
+      "finished": 1783870943
+    },
+    {
+      "sid": "c1b",
+      "name": "拆 PlatformCard(含B6/B5/A6平台内改动)",
+      "depends_on": [
+        "c1a",
+        "a6"
+      ],
+      "验收": [
+        "yarn build+test+check:i18n 通过。12 import 点零影响。快照测过。props/导出不变"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 45,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868328,
+      "started": 1783870456,
+      "finished": 1783871262
+    },
+    {
+      "sid": "c4",
+      "name": "路由 JSON 重复解析→一次解析传递",
+      "depends_on": [
+        "c2"
+      ],
+      "验收": [
+        "cargo clippy+test 通过。每候选解析≤1次"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 35,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868329,
+      "started": 1783870943,
+      "finished": 1783873720
+    },
+    {
+      "sid": "c5",
+      "name": "upsert_log 重复计算合并",
+      "depends_on": [
+        "a2"
+      ],
+      "验收": [
+        "cargo clippy+test 通过。不重复算 est_cost+get_platform"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 20,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868329,
+      "started": 1783871262,
+      "finished": 1783872325
+    },
+    {
+      "sid": "c6",
+      "name": "pretty 序列化条件化(仅log开启)",
+      "depends_on": [
+        "a1"
+      ],
+      "验收": [
+        "cargo clippy+test 通过。关日志零 pretty 序列化"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 20,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868329,
+      "started": 1783872325,
+      "finished": 1783873720
+    },
+    {
+      "sid": "a4",
+      "name": "清179处 allow(unused_imports) 逐crate增量",
+      "depends_on": [
+        "a1",
+        "a2",
+        "b3",
+        "a7",
+        "c2",
+        "c3",
+        "c4",
+        "c5",
+        "c6"
+      ],
+      "验收": [
+        "每 crate cargo check 0 warning。无 cascade"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "estimate": 60,
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1783868329,
+      "started": 1783873720,
+      "finished": 1783911592
+    }
+  ],
+  "worktree": null,
+  "branch": "skein/deep-audit-optimize",
+  "estimate": 240,
+  "created": 1783849633,
+  "started": 1783868345,
+  "finished": 1783913977,
+  "updated": 1783913977
+}
