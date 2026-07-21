@@ -25,12 +25,12 @@ pub fn convert_request(req: &ChatRequest, wire_protocol: &Protocol, platform_pro
         Protocol::OpenAIResponses => {
             let responses_req = super::super::openai_responses::to_responses(req);
             let json = serde_json::to_value(&responses_req).unwrap();
-            (json, "/v1/responses".to_string())
+            (json, "/responses".to_string())
         }
         Protocol::OpenAICompletions => {
             let completions_req = super::super::openai_completions::to_completions(req);
             let json = serde_json::to_value(&completions_req).unwrap();
-            (json, "/v1/completions".to_string())
+            (json, "/completions".to_string())
         }
         // OpenAI Chat Completions — 标准 /v1/chat/completions，OpenAI-compatible 平台用各自路径
         _ => {
@@ -53,12 +53,15 @@ fn provider_api_path(_protocol: &Protocol) -> String {
 /// - `wire_protocol`: 出站 wire 协议（= 入站协议，因为透传仅在精确同协议时触发）
 /// - `model`: 用于 Gemini path 中的模型段（其余协议忽略）
 /// - `platform_protocol`: 平台类型，决定 OpenAI-compatible 平台的 chat path 后缀
+///
+/// 路径约定：Anthropic/Gemini 的 base_url 不带版本，path 含 `/v1`；OpenAI 系（chat/responses/completions）
+/// base_url 约定带 `/v1`，path 只返后缀，禁重复拼。
 pub fn passthrough_api_path(wire_protocol: &Protocol, model: &str, platform_protocol: &Protocol) -> String {
     match wire_protocol {
         Protocol::Anthropic => "/v1/messages".to_string(),
         Protocol::Gemini => format!("/v1beta/models/{}:streamGenerateContent", model),
-        Protocol::OpenAIResponses => "/v1/responses".to_string(),
-        Protocol::OpenAICompletions => "/v1/completions".to_string(),
+        Protocol::OpenAIResponses => "/responses".to_string(),
+        Protocol::OpenAICompletions => "/completions".to_string(),
         _ => provider_api_path(platform_protocol),
     }
 }
