@@ -1,6 +1,14 @@
 {
   "tasks": [
     {
+      "id": "proxy-settings-card",
+      "status": "进行中",
+      "deps": [],
+      "worktree": ".worktrees/skein-proxy-settings-card",
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "startup-no-scheduled",
       "status": "已完成",
       "deps": [],

@@ -177,6 +177,8 @@
   "codingTools.introDesc": "تكتب هذه المفاتيح في ملفات الإعداد المحلية لـ Claude Code CLI، لتوجيه الإضافة وواجهة CLI عبر aidog وتخطي الإعداد الأولي.",
   "codingTools.language.desc": "يكتب حقل language في ~/.claude/settings.json لتحديد لغة جلسة Claude Code CLI.",
   "codingTools.language.title": "اللغة",
+  "codingTools.proxy.desc": "تكوين متغيرات بيئة الوكيل الصادر لـ Claude Code CLI (HTTP/HTTPS/ALL/NO_PROXY)، تُكتب في قسم env داخل ~/.claude/settings.json وتُحقن تلقائيًا عند التشغيل. لا يمتلك Codex CLI حقل وكيل على مستوى الإعدادات؛ يُحقن عبر أمر التشغيل.",
+  "codingTools.proxy.title": "إعدادات الوكيل",
   "codingTools.skipOnboarding.desc": "يكتب hasCompletedOnboarding=true في جذر ~/.claude.json لتخطي إعداد Claude Code عند أول تشغيل. الإيقاف يحذف الحقل.",
   "codingTools.skipOnboarding.title": "تخطي إعداد Claude Code",
   "codingTools.writeFailed": "فشلت الكتابة",

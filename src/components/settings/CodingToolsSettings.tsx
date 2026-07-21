@@ -7,6 +7,9 @@
 //   努力级别                → 单值双写：claude 顶层 effortLevel + codex model_reasoning_effort；读时 claude 优先
 //   自动压缩窗口            → 单值双写：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW（数字）+
 //                             codex model_auto_compact_token_limit（字符串）；读时 claude 优先
+//   代理设置                → 仅 Claude：env.HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY（4 键）。
+//                             Codex config.toml 无原生 proxy 字段（官方 issue #4242/#6060 未实现），
+//                             codex 侧由「复制启动命令」注入代理 env（另见 Groups 启动命令复制点）。
 // writeClaudeConfigField（services/api/settings.ts）统一「读全量 → 改 → 写回 → sync」路径，
 // language / compact-claude 共用。runCommit 统一 5 项「乐观翻转 → persist → 回滚/提示」模板。
 // dirtyRef 防 React 19 StrictMode 双 mount 下慢 get() resolve 覆盖用户已操作值（见 runCommit）。
@@ -34,6 +37,18 @@ const DATE_REWRITE_RULE_NAME = "内置·日期格式改写防检测";
 // 双写时若任一侧不识别该值由对应 CLI 自行忽略/回落。默认 medium。
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh", "max"] as const;
 const EFFORT_DEFAULT = "medium";
+
+// 代理设置：4 个出站代理 env 键（写 claude settings.json env 段，启动注入 process env）。
+// key = 本地 draft 字段名；value = claude env 键名。Codex 无 config 级 proxy（issue #4242/#6060）。
+const PROXY_ENV_KEYS = {
+  http: "HTTP_PROXY",
+  https: "HTTPS_PROXY",
+  all: "ALL_PROXY",
+  no: "NO_PROXY",
+} as const;
+type ProxyKey = keyof typeof PROXY_ENV_KEYS;
+const PROXY_KEYS: ProxyKey[] = ["http", "https", "all", "no"];
+const emptyProxy = (): Record<ProxyKey, string> => ({ http: "", https: "", all: "", no: "" });
 
 // 自动压缩窗口：原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
 function tokensToDraft(s: string): string {
@@ -100,6 +115,9 @@ export function CodingToolsSettingsTab() {
   // 日期改写开关：null = 加载中/规则未找到（Toggle 不响应）；true/false = 镜像 rule.enabled。
   const [dateRewriteEnabled, setDateRewriteEnabled] = useState<boolean | null>(null);
   const [dateRewriteRuleId, setDateRewriteRuleId] = useState<number | null>(null);
+  // 代理设置 draft（用户编辑中）；applied ref 用于 onBlur diff 判定是否需要提交。
+  const [proxyDraft, setProxyDraft] = useState<Record<ProxyKey, string>>(emptyProxy);
+  const proxyAppliedRef = useRef<Record<ProxyKey, string>>(emptyProxy());
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   // 写外部文件失败的常驻错误态（与瞬时成功提示分离）：失败不自动消失，
@@ -144,6 +162,15 @@ export function CodingToolsSettingsTab() {
         setCompactApplied(compact);
         setCompactDraft(tokensToDraft(compact));
       }
+      // 代理设置：从 claude env 读 4 键（空值留空）。
+      const env = (obj?.env as Record<string, any> | undefined);
+      const loaded = emptyProxy();
+      for (const k of PROXY_KEYS) {
+        const v = env?.[PROXY_ENV_KEYS[k]];
+        if (typeof v === "string") loaded[k] = v;
+      }
+      setProxyDraft(loaded);
+      proxyAppliedRef.current = loaded;
     }).catch(() => {
       // 读失败不阻塞开关加载：language 留空，compact 留空
     });
@@ -301,6 +328,36 @@ export function CodingToolsSettingsTab() {
     );
   };
 
+  // 代理设置：onBlur 任一输入触发批量提交。trim 后与 applied diff 才写 claude env。
+  // 空值 = 删键；任一键变化即整批重写（writeClaudeConfigField 读全量 → 改 env → 写回）。
+  const handleProxyCommit = () => {
+    if (busy) return;
+    const prev = { ...proxyAppliedRef.current };
+    const next = { ...proxyDraft };
+    const same = PROXY_KEYS.every((k) => prev[k].trim() === next[k].trim());
+    if (same) return;
+    runCommit(
+      () => { /* draft 保持用户输入；applied 等 persist 确认后再写 */ },
+      () => {
+        setProxyDraft(prev);
+        proxyAppliedRef.current = prev;
+      },
+      async () => {
+        await writeClaudeConfigField((c) => {
+          const env: Record<string, any> = { ...((c.env as Record<string, any>) ?? {}) };
+          for (const k of PROXY_KEYS) {
+            const v = next[k].trim();
+            if (v) env[PROXY_ENV_KEYS[k]] = v;
+            else delete env[PROXY_ENV_KEYS[k]];
+          }
+          return { ...c, env };
+        });
+        proxyAppliedRef.current = next;
+        return true;
+      },
+    );
+  };
+
   if (loading) {
     return <div style={{ padding: 20, color: "var(--text-secondary)" }}>{t("common.loading", "加载中…")}</div>;
   }
@@ -448,6 +505,40 @@ export function CodingToolsSettingsTab() {
             disabled={busy}
           />
           <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>K</span>
+        </div>
+      </div>
+
+      {/* 代理设置：仅 Claude env.HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY（4 输入，onBlur 批量提交）。
+          Codex 无 config 级 proxy 字段，由「复制启动命令」注入 env（另见 Groups 启动命令复制点）。 */}
+      <div className="glass-surface" style={{ padding: "16px 20px" }}>
+        <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.proxy.title")}</div>
+        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          {t("codingTools.proxy.desc")}
+        </div>
+        <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+          claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
+          {PROXY_KEYS.map((k) => (
+            <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+                {PROXY_ENV_KEYS[k]}
+              </label>
+              <input
+                className="input"
+                type="text"
+                style={{ fontSize: 13, padding: "4px 8px" }}
+                value={proxyDraft[k]}
+                placeholder={k === "no" ? "localhost,127.0.0.1,*.local" : "http://host:port"}
+                onChange={(e) => setProxyDraft((d) => ({ ...d, [k]: e.target.value }))}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                }}
+                onBlur={handleProxyCommit}
+                disabled={busy}
+              />
+            </div>
+          ))}
         </div>
       </div>
 
