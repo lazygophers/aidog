@@ -170,6 +170,8 @@
   "codingTools.compact.title": "نافذة الضغط التلقائي",
   "codingTools.dateRewrite.desc": "يعيد كتابة التواريخ بتنسيق الشرطة المائلة YYYY/MM/DD في نصوص الطلبات إلى شرطات ISO YYYY-MM-DD، لتجنب الكشف المستهدف كمستخدم من منطقة صينية.",
   "codingTools.dateRewrite.title": "إعادة كتابة تنسيق التاريخ (مضاد للكشف)",
+  "codingTools.effort.desc": "ضبط مستوى جهد الاستدلال لـ Claude Code و Codex CLI؛ قيمة واحدة تُزامَن إلى كلا الإعدادين.",
+  "codingTools.effort.title": "مستوى الجهد",
   "codingTools.errorHint": "يرجى التحقق من تنسيق JSON للملف وأذونات القراءة/الكتابة ثم إعادة المحاولة.",
   "codingTools.errorTitle": "لم يتم تطبيق المفتاح",
   "codingTools.introDesc": "تكتب هذه المفاتيح في ملفات الإعداد المحلية لـ Claude Code CLI، لتوجيه الإضافة وواجهة CLI عبر aidog وتخطي الإعداد الأولي.",

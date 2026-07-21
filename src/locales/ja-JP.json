@@ -170,6 +170,8 @@
   "codingTools.compact.title": "自動圧縮ウィンドウ",
   "codingTools.dateRewrite.desc": "リクエスト body 内のスラッシュ日付 YYYY/MM/DD を ISO ハイフン YYYY-MM-DD に書き換え、中国語圏ユーザーとしての標的型検出を回避します。",
   "codingTools.dateRewrite.title": "日付フォーマット書き換え（検出回避）",
+  "codingTools.effort.desc": "Claude Code と Codex CLI の推論努力度を設定。単一の値を両設定に同期します。",
+  "codingTools.effort.title": "エフォートレベル",
   "codingTools.errorHint": "ファイルの JSON 形式と読み書き権限を確認してから再試行してください。",
   "codingTools.errorTitle": "スイッチが適用されていません",
   "codingTools.introDesc": "これらのスイッチは Claude Code CLI のローカル設定ファイルに書き込み、拡張機能と CLI を aidog 経由にし、初回オンボーディングをスキップします。",

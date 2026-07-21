@@ -170,6 +170,8 @@
   "codingTools.compact.title": "Fenêtre de Compactage Auto",
   "codingTools.dateRewrite.desc": "Réécrit les dates au format slash YYYY/MM/DD dans le corps des requêtes vers le format ISO YYYY-MM-DD, pour éviter une détection ciblée comme utilisateur de région chinoise.",
   "codingTools.dateRewrite.title": "Réécriture du format de date (anti-détection)",
+  "codingTools.effort.desc": "Définit le niveau d'effort de raisonnement pour Claude Code et Codex CLI ; une valeur unique est synchronisée vers les deux configurations.",
+  "codingTools.effort.title": "Niveau d'Effort",
   "codingTools.errorHint": "Veuillez vérifier le format JSON du fichier et les autorisations de lecture/écriture, puis réessayez.",
   "codingTools.errorTitle": "Interrupteur non appliqué",
   "codingTools.introDesc": "Ces interrupteurs écrivent dans les fichiers de configuration locaux de Claude Code CLI, acheminant l'extension et la CLI via aidog et ignorant l'onboarding de premier lancement.",

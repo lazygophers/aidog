@@ -4,6 +4,7 @@
 //   skip_claude_onboarding  → ~/.claude.json hasCompletedOnboarding
 //   日期改写防检测          → 镜像 middleware_rule.enabled（非 coding_tools_settings）
 //   language                → ~/.claude/settings.json language key（复用 claudeTab sync 路径）
+//   努力级别                → 单值双写：claude 顶层 effortLevel + codex model_reasoning_effort；读时 claude 优先
 //   自动压缩窗口            → 单值双写：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW（数字）+
 //                             codex model_auto_compact_token_limit（字符串）；读时 claude 优先
 // writeClaudeConfigField（services/api/settings.ts）统一「读全量 → 改 → 写回 → sync」路径，
@@ -27,6 +28,10 @@ import { Toggle } from "./editors";
 // 内置·日期格式改写防检测 规则名（与 schema.rs builtin_rule_specs 一致）。
 // 该开关镜像 middleware_rule.enabled，不写 coding_tools_settings。
 const DATE_REWRITE_RULE_NAME = "内置·日期格式改写防检测";
+
+// 努力级别枚举：claude effortLevel 与 codex model_reasoning_effort 的公共子集。
+// claude 无 minimal，codex 无 max/auto（CLAUDE_CODE_EFFORT_LEVEL env 才有），取交集避免落盘无效值。
+const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
 
 // 自动压缩窗口：原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
 function tokensToDraft(s: string): string {
@@ -85,6 +90,8 @@ export function CodingToolsSettingsTab() {
     skip_claude_onboarding: false,
   });
   const [language, setLanguage] = useState<string>("");
+  // 努力级别：claude 顶层 effortLevel 优先，codex model_reasoning_effort 回落。
+  const [effort, setEffort] = useState<string>("");
   // 自动压缩窗口：draft = 用户编辑中的 K 值；applied = 已落盘原始 token 字符串。
   const [compactDraft, setCompactDraft] = useState<string>("");
   const [compactApplied, setCompactApplied] = useState<string>("");
@@ -120,6 +127,12 @@ export function CodingToolsSettingsTab() {
       const obj = cfg as Record<string, any> | null;
       const lang = obj?.language;
       if (typeof lang === "string") setLanguage(lang);
+      const effortVal = (obj as any)?.effortLevel;
+      const codexEffort = (cx as Record<string, any> | null)?.model_reasoning_effort;
+      const eff = typeof effortVal === "string" && effortVal
+        ? effortVal
+        : typeof codexEffort === "string" && codexEffort ? codexEffort : "";
+      if (eff) setEffort(eff);
       const envVal = (obj?.env as Record<string, any> | undefined)?.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
       const codexVal = (cx as Record<string, any> | null)?.model_auto_compact_token_limit;
       const compact = envVal != null && envVal !== ""
@@ -231,6 +244,23 @@ export function CodingToolsSettingsTab() {
     );
   };
 
+  // 努力级别：单值双写 claude 顶层 effortLevel + codex model_reasoning_effort。
+  const handleEffortChange = (next: string) => {
+    if (busy || next === effort) return;
+    runCommit(
+      () => setEffort(next),
+      () => setEffort(effort),  // effort 闭包 = 翻转前 prev
+      async () => {
+        await writeClaudeConfigField((c) => ({ ...c, effortLevel: next }));
+        const cx = (await codexApi.read()) as Record<string, any> | null;
+        const updatedCx: Record<string, any> = { ...(cx ?? {}) };
+        updatedCx.model_reasoning_effort = next;
+        await codexApi.write(updatedCx);
+        return true;
+      },
+    );
+  };
+
   // 自动压缩窗口：单值双写 claude env + codex config。空串 = 清除两侧键。
   // 输入框单位为 K（外侧静态标签），存原始 token = K × 1000，允许 1 位小数（1.5K = 1500）。
   const handleCompactCommit = (raw: string) => {
@@ -334,6 +364,37 @@ export function CodingToolsSettingsTab() {
           {!language && <option value="">—</option>}
           {LANGUAGE_OPTIONS.map((lc) => (
             <option key={lc} value={lc}>{lc}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* 努力级别：claude 顶层 effortLevel + codex model_reasoning_effort 双写 */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 16,
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.effort.title")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("codingTools.effort.desc")}
+          </div>
+          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+            claude · effortLevel · codex · model_reasoning_effort
+          </div>
+        </div>
+        <select
+          className="input"
+          style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}
+          value={effort}
+          onChange={(e) => handleEffortChange(e.target.value)}
+          disabled={busy}
+        >
+          {!effort && <option value="">—</option>}
+          {EFFORT_OPTIONS.map((lv) => (
+            <option key={lv} value={lv}>{lv}</option>
           ))}
         </select>
       </div>

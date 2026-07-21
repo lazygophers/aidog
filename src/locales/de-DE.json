@@ -170,6 +170,8 @@
   "codingTools.compact.title": "Auto-Compact-Fenster",
   "codingTools.dateRewrite.desc": "Schreibt Schrägstrich-Daten YYYY/MM/DD in Anfrage-Bodys in ISO-Striche YYYY-MM-DD um, um eine gezielte Erkennung als Nutzer einer chinesischen Region zu vermeiden.",
   "codingTools.dateRewrite.title": "Datumsformat-Umschreibung (Anti-Erkennung)",
+  "codingTools.effort.desc": "Setzt das Inferenzaufwand-Niveau für Claude Code und Codex CLI; ein Wert wird in beide Konfigurationen synchronisiert.",
+  "codingTools.effort.title": "Aufwandsniveau",
   "codingTools.errorHint": "Bitte prüfen Sie das JSON-Format der Datei sowie die Lese-/Schreibberechtigungen und versuchen Sie es erneut.",
   "codingTools.errorTitle": "Schalter nicht angewendet",
   "codingTools.introDesc": "Diese Schalter schreiben in die lokalen Konfigurationsdateien der Claude Code CLI und leiten die Erweiterung und CLI über aidog, wobei das erste Onboarding übersprungen wird.",
