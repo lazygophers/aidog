@@ -43,6 +43,9 @@ const EFFORT_DEFAULT = "medium";
 const PROXY_URL_KEYS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"] as const;
 const NO_PROXY_KEY = "NO_PROXY";
 const emptyProxy = (): { url: string; no: string } => ({ url: "", no: "" });
+// 代理 URL 预置：常见本地代理端口（Clash 7890 / 通用 8080 / SS 1080 / Clash Verge 7899）。
+// datalist 原生允许下拉选 + 自由输入任意 URL。
+const PROXY_URL_PRESETS = ["7890", "8080", "1080", "7899"].map((p) => `http://127.0.0.1:${p}`);
 
 // 自动压缩窗口：原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
 function tokensToDraft(s: string): string {
@@ -522,6 +525,7 @@ export function CodingToolsSettingsTab() {
             <input
               className="input"
               type="text"
+              list="coding-proxy-url-presets"
               style={{ fontSize: 13, padding: "4px 8px" }}
               value={proxyDraft.url}
               placeholder="http://host:port"
@@ -532,6 +536,11 @@ export function CodingToolsSettingsTab() {
               onBlur={handleProxyCommit}
               disabled={busy}
             />
+            <datalist id="coding-proxy-url-presets">
+              {PROXY_URL_PRESETS.map((u) => (
+                <option key={u} value={u} />
+              ))}
+            </datalist>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
