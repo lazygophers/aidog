@@ -2,7 +2,7 @@
   "id": "proxy-card-merge-url",
   "name": "代理卡片合并 URL 输入",
   "desc": "CodingToolsSettings 代理卡片改 2 输入: URL(写 HTTP/HTTPS/ALL_PROXY 三键同值) + NO_PROXY(单独); state/load/handler/JSX 改; i18n 8 locale desc 更新; 验证 build+check-i18n+test",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -17,31 +17,29 @@
         "test 全过",
         "2 输入写三键同值"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784644368,
       "started": null,
-      "finished": null
+      "finished": 1784644685
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-proxy-card-merge-url",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-proxy-card-merge-url",
-      "branch": "skein/proxy-card-merge-url",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/proxy-card-merge-url",
   "parent": null,
   "kind": "task",
   "created": 1784644345,
   "started": 1784644369,
   "checked": null,
-  "finished": null,
-  "updated": 1784644369
+  "finished": 1784644686,
+  "updated": 1784644686
 }
