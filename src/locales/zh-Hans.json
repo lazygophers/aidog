@@ -177,6 +177,8 @@
   "codingTools.introDesc": "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。",
   "codingTools.language.desc": "写入 ~/.claude/settings.json 的 language 字段，设定 Claude Code CLI 会话语言。",
   "codingTools.language.title": "语言",
+  "codingTools.proxy.desc": "配置 Claude Code CLI 的出站代理环境变量（HTTP/HTTPS/ALL/NO_PROXY），写入 ~/.claude/settings.json 的 env 段，启动时自动注入。Codex CLI 无 config 级代理字段，改由其启动命令注入。",
+  "codingTools.proxy.title": "代理设置",
   "codingTools.skipOnboarding.desc": "向 ~/.claude.json 根对象写入 hasCompletedOnboarding=true，跳过 Claude Code 首次启动引导。关闭则移除该字段。",
   "codingTools.skipOnboarding.title": "跳过 Claude Code 安装确认",
   "codingTools.writeFailed": "写入失败",

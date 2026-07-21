@@ -177,6 +177,8 @@
   "codingTools.introDesc": "These toggles write to the Claude Code CLI local config files, routing the extension and CLI through aidog and skipping first-run onboarding.",
   "codingTools.language.desc": "Writes the language field of ~/.claude/settings.json, setting the Claude Code CLI session language.",
   "codingTools.language.title": "Language",
+  "codingTools.proxy.desc": "Configure Claude Code CLI outbound proxy env vars (HTTP/HTTPS/ALL/NO_PROXY), written to the env section of ~/.claude/settings.json, auto-injected on startup. Codex CLI has no config-level proxy field; inject via its launch command instead.",
+  "codingTools.proxy.title": "Proxy Settings",
   "codingTools.skipOnboarding.desc": "Writes hasCompletedOnboarding=true into the root object of ~/.claude.json to skip the Claude Code first-run onboarding. Off removes the field.",
   "codingTools.skipOnboarding.title": "Skip Claude Code Onboarding",
   "codingTools.writeFailed": "Write failed",
