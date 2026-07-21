@@ -22,7 +22,7 @@ import {
   type CodingToolsSettings,
   type MiddlewareRule,
 } from "../../services/api";
-import { LANGUAGE_OPTIONS } from "../../services/claude-settings-schema";
+import { LANGUAGE_GROUPS } from "../../services/claude-settings-schema";
 import { Toggle } from "./editors";
 
 // 内置·日期格式改写防检测 规则名（与 schema.rs builtin_rule_specs 一致）。
@@ -364,8 +364,12 @@ export function CodingToolsSettingsTab() {
           disabled={busy}
         >
           {!language && <option value="">—</option>}
-          {LANGUAGE_OPTIONS.map((lc) => (
-            <option key={lc} value={lc}>{lc}</option>
+          {LANGUAGE_GROUPS.map((g) => (
+            <optgroup key={g.family} label={g.family}>
+              {g.options.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </div>
