@@ -2,7 +2,7 @@
   "id": "codex-cmd-proxy-inject",
   "name": "Codex 启动命令注入代理 env",
   "desc": "buildCodexCommand 2 caller (GroupListItem/GroupEditPanel) 合并 claude 代理 env (HTTP/HTTPS/ALL/NO_PROXY) 进 envVars; 新建 domains/groups/proxy-env.ts 共享常量+loader+hook; CodingToolsSettings 复用共享常量去重; i18n 如需; 验证 build+check-i18n+test",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -18,31 +18,30 @@
         "2 caller 命令含代理 export",
         "共享常量去重"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784642075,
       "started": null,
-      "finished": null
+      "finished": 1784642383
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-codex-cmd-proxy-inject",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-codex-cmd-proxy-inject",
-      "branch": "skein/codex-cmd-proxy-inject",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/codex-cmd-proxy-inject",
   "parent": null,
   "kind": "task",
   "created": 1784642032,
   "started": 1784642076,
   "checked": null,
-  "finished": null,
-  "updated": 1784642076
+  "finished": 1784642384,
+  "updated": 1784642384
 }
