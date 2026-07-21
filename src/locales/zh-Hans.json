@@ -170,6 +170,8 @@
   "codingTools.compact.title": "自动压缩窗口",
   "codingTools.dateRewrite.desc": "将请求 body 中的斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，避免被上游针对性检测识别为中文用户。",
   "codingTools.dateRewrite.title": "日期格式改写防检测",
+  "codingTools.effort.desc": "设定 Claude Code 与 Codex CLI 的推理努力程度，单值同步写入两者配置。",
+  "codingTools.effort.title": "努力级别",
   "codingTools.errorHint": "请检查该文件的 JSON 格式与读写权限后重试。",
   "codingTools.errorTitle": "开关未生效",
   "codingTools.introDesc": "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。",

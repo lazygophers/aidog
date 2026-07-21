@@ -170,6 +170,8 @@
   "codingTools.compact.title": "Ventana de Compactación Automática",
   "codingTools.dateRewrite.desc": "Reescribe las fechas en formato con barras YYYY/MM/DD en los cuerpos de las solicitudes al formato ISO con guiones YYYY-MM-DD, para evitar la detección dirigida como usuario de región china.",
   "codingTools.dateRewrite.title": "Reescritura de formato de fecha (antidetección)",
+  "codingTools.effort.desc": "Establece el nivel de esfuerzo de razonamiento para Claude Code y Codex CLI; un único valor se sincroniza con ambas configuraciones.",
+  "codingTools.effort.title": "Nivel de Esfuerzo",
   "codingTools.errorHint": "Comprueba el formato JSON del archivo y los permisos de lectura/escritura, y vuelve a intentarlo.",
   "codingTools.errorTitle": "Interruptor no aplicado",
   "codingTools.introDesc": "Estos interruptores escriben en los archivos de configuración locales de Claude Code CLI, enrutando la extensión y la CLI a través de aidog y omitiendo el onboarding inicial.",

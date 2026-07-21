@@ -170,6 +170,8 @@
   "codingTools.compact.title": "Окно Автокомпактизации",
   "codingTools.dateRewrite.desc": "Переписывает даты в формате слэша YYYY/MM/DD в телах запросов на ISO-тире YYYY-MM-DD, избегая целевого обнаружения как пользователя китайского региона.",
   "codingTools.dateRewrite.title": "Переписывание формата даты (анти-обнаружение)",
+  "codingTools.effort.desc": "Задаёт уровень усилий рассуждения для Claude Code и Codex CLI; одно значение синхронизируется в оба конфига.",
+  "codingTools.effort.title": "Уровень Усилий",
   "codingTools.errorHint": "Проверьте формат JSON файла и права на чтение/запись, затем повторите попытку.",
   "codingTools.errorTitle": "Переключатель не применён",
   "codingTools.introDesc": "Эти переключатели записывают в локальные файлы конфигурации Claude Code CLI, направляя расширение и CLI через aidog и пропуская первоначальную настройку.",
