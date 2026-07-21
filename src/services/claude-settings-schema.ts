@@ -29,15 +29,51 @@ export interface SettingSection {
  *  单一事实源：CLI 集成 tab 与 claudeTab 的 language 字段共用，禁复制。
  *  注意：最终落盘值由 Claude Code CLI 消费，CLI 不识别的 code 会被忽略回落英文，
  *  新增 code 前最好核对 CLI 实际支持集。 */
-export const LANGUAGE_OPTIONS: string[] = [
-  "zh-Hans", "zh-CN", "zh-SG", "zh-TW", "zh-HK",
-  "en-US", "ja-JP", "ko-KR",
-  "fr-FR", "de-DE", "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA",
-  "hi-IN", "th-TH", "vi-VN",
-  "nl-NL", "pl-PL", "tr-TR", "id-ID", "ms-MY", "bn-BD",
-  "fa-IR", "he-IL",
-  "cs-CZ", "da-DK", "fi-FI", "el-GR", "hu-HU", "no-NO", "ro-RO", "sk-SK", "sv-SE", "uk-UA",
+
+/** 两级语族分组：第一级语族（中文/English/...），第二级变体（中文 → 简体/繁体各变种）。
+ *  Coding 设置 language select 用 optgroup 渲染；LANGUAGE_OPTIONS 由其派生保持单源。 */
+export const LANGUAGE_GROUPS: { family: string; options: { value: string; label: string }[] }[] = [
+  { family: "中文", options: [
+    { value: "zh-Hans", label: "简体（通用）" },
+    { value: "zh-CN", label: "简体（中国）" },
+    { value: "zh-SG", label: "简体（新加坡）" },
+    { value: "zh-TW", label: "繁体（台湾）" },
+    { value: "zh-HK", label: "繁体（香港）" },
+  ]},
+  { family: "English", options: [{ value: "en-US", label: "English (US)" }] },
+  { family: "日本語", options: [{ value: "ja-JP", label: "日本語" }] },
+  { family: "한국어", options: [{ value: "ko-KR", label: "한국어" }] },
+  { family: "Français", options: [{ value: "fr-FR", label: "Français" }] },
+  { family: "Deutsch", options: [{ value: "de-DE", label: "Deutsch" }] },
+  { family: "Español", options: [{ value: "es-ES", label: "Español" }] },
+  { family: "Português", options: [{ value: "pt-BR", label: "Português (Brasil)" }] },
+  { family: "Italiano", options: [{ value: "it-IT", label: "Italiano" }] },
+  { family: "Русский", options: [{ value: "ru-RU", label: "Русский" }] },
+  { family: "العربية", options: [{ value: "ar-SA", label: "العربية" }] },
+  { family: "हिन्दी", options: [{ value: "hi-IN", label: "हिन्दी" }] },
+  { family: "ไทย", options: [{ value: "th-TH", label: "ไทย" }] },
+  { family: "Tiếng Việt", options: [{ value: "vi-VN", label: "Tiếng Việt" }] },
+  { family: "Nederlands", options: [{ value: "nl-NL", label: "Nederlands" }] },
+  { family: "Polski", options: [{ value: "pl-PL", label: "Polski" }] },
+  { family: "Türkçe", options: [{ value: "tr-TR", label: "Türkçe" }] },
+  { family: "Bahasa Indonesia", options: [{ value: "id-ID", label: "Bahasa Indonesia" }] },
+  { family: "Bahasa Melayu", options: [{ value: "ms-MY", label: "Bahasa Melayu" }] },
+  { family: "বাংলা", options: [{ value: "bn-BD", label: "বাংলা" }] },
+  { family: "فارسی", options: [{ value: "fa-IR", label: "فارسی" }] },
+  { family: "עברית", options: [{ value: "he-IL", label: "עברית" }] },
+  { family: "Čeština", options: [{ value: "cs-CZ", label: "Čeština" }] },
+  { family: "Dansk", options: [{ value: "da-DK", label: "Dansk" }] },
+  { family: "Suomi", options: [{ value: "fi-FI", label: "Suomi" }] },
+  { family: "Ελληνικά", options: [{ value: "el-GR", label: "Ελληνικά" }] },
+  { family: "Magyar", options: [{ value: "hu-HU", label: "Magyar" }] },
+  { family: "Norsk", options: [{ value: "no-NO", label: "Norsk" }] },
+  { family: "Română", options: [{ value: "ro-RO", label: "Română" }] },
+  { family: "Slovenčina", options: [{ value: "sk-SK", label: "Slovenčina" }] },
+  { family: "Svenska", options: [{ value: "sv-SE", label: "Svenska" }] },
+  { family: "Українська", options: [{ value: "uk-UA", label: "Українська" }] },
 ];
+
+export const LANGUAGE_OPTIONS: string[] = LANGUAGE_GROUPS.flatMap((g) => g.options.map((o) => o.value));
 
 export const SECTIONS: SettingSection[] = [
   {
