@@ -52,6 +52,23 @@ export const settingsApi = {
     invoke<string[]>("settings_list", { scope }),
 };
 
+/**
+ * 读全量 `claude_code` config → 用 mutator 改字段 → 写回 DB → best-effort syncGroupSettings。
+ * sync 失败仅 console.error 不阻断（与原 inline 行为一致）；read/set 失败抛错交 caller。
+ * 抽自 CodingToolsSettings（language / compact 双写路径）+ Settings.handleSave 同类模式。
+ */
+export async function writeClaudeConfigField(
+  mutator: (cfg: Record<string, any>) => Record<string, any>,
+): Promise<void> {
+  const cfg = (await settingsApi.get("global", "claude_code")) ?? {};
+  await settingsApi.set("global", "claude_code", mutator({ ...cfg }));
+  try {
+    await configApi.syncGroupSettings();
+  } catch (e) {
+    console.error("sync_group_settings:", e);
+  }
+}
+
 // ─── StatusLine Script Generation ──────────────────────────
 
 

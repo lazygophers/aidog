@@ -1,11 +1,11 @@
 {
-  "ts": "2026-07-21T00:50:28",
+  "ts": "2026-07-21T11:08:25",
   "core_chars": 11430,
-  "budget": 8000,
+  "budget": 1000,
   "problems": [
     {
       "type": "over-budget",
-      "detail": "[超预算] core 11430 > 8000 字符 — 考虑降级: arch/agent-platform-handler-branch(3002), frontend/cpa-drag-import-01(1557), arch/db-handle-ownership-audit-three-forms(1449)",
+      "detail": "[超预算] core 11430 > 1000 字符 — 考虑降级: arch/agent-platform-handler-branch(3002), frontend/cpa-drag-import-01(1557), arch/db-handle-ownership-audit-three-forms(1449)",
       "size": 11430
     },
     {
@@ -30,11 +30,25 @@
       "detail": "[断链] core/arch/cross-db-read-two-phase: [[sqlite-cross-db-no-join]] ✗ 目标缺失"
     },
     {
+      "type": "orphan",
+      "files": [
+        "core/arch/cross-db-read-two-phase"
+      ],
+      "detail": "[孤立] core/arch/cross-db-read-two-phase 无入度+active+超180天 — 候选归档/降级"
+    },
+    {
       "type": "stale",
       "files": [
         "core/arch/db-table-cross-db-migrate-idiom"
       ],
       "detail": "[stale] core/arch/db-table-cross-db-migrate-idiom (created 12月,366天前, updated -,?, status active)"
+    },
+    {
+      "type": "orphan",
+      "files": [
+        "core/arch/db-table-cross-db-migrate-idiom"
+      ],
+      "detail": "[孤立] core/arch/db-table-cross-db-migrate-idiom 无入度+active+超180天 — 候选归档/降级"
     },
     {
       "type": "broken-link",
