@@ -38,17 +38,11 @@ const DATE_REWRITE_RULE_NAME = "内置·日期格式改写防检测";
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh", "max"] as const;
 const EFFORT_DEFAULT = "medium";
 
-// 代理设置：4 个出站代理 env 键（写 claude settings.json env 段，启动注入 process env）。
-// key = 本地 draft 字段名；value = claude env 键名。Codex 无 config 级 proxy（issue #4242/#6060）。
-const PROXY_ENV_KEYS = {
-  http: "HTTP_PROXY",
-  https: "HTTPS_PROXY",
-  all: "ALL_PROXY",
-  no: "NO_PROXY",
-} as const;
-type ProxyKey = keyof typeof PROXY_ENV_KEYS;
-const PROXY_KEYS: ProxyKey[] = ["http", "https", "all", "no"];
-const emptyProxy = (): Record<ProxyKey, string> => ({ http: "", https: "", all: "", no: "" });
+// 代理设置：URL 输入同步写 HTTP/HTTPS/ALL 三键同值（绝大多数代理三协议同址，合并消除冗余输入）；
+// NO_PROXY 单独。写 claude settings.json env 段。Codex 无 config 级 proxy（issue #4242/#6060）。
+const PROXY_URL_KEYS = ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"] as const;
+const NO_PROXY_KEY = "NO_PROXY";
+const emptyProxy = (): { url: string; no: string } => ({ url: "", no: "" });
 
 // 自动压缩窗口：原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
 function tokensToDraft(s: string): string {
@@ -116,8 +110,8 @@ export function CodingToolsSettingsTab() {
   const [dateRewriteEnabled, setDateRewriteEnabled] = useState<boolean | null>(null);
   const [dateRewriteRuleId, setDateRewriteRuleId] = useState<number | null>(null);
   // 代理设置 draft（用户编辑中）；applied ref 用于 onBlur diff 判定是否需要提交。
-  const [proxyDraft, setProxyDraft] = useState<Record<ProxyKey, string>>(emptyProxy);
-  const proxyAppliedRef = useRef<Record<ProxyKey, string>>(emptyProxy());
+  const [proxyDraft, setProxyDraft] = useState<{ url: string; no: string }>(emptyProxy);
+  const proxyAppliedRef = useRef<{ url: string; no: string }>(emptyProxy());
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   // 写外部文件失败的常驻错误态（与瞬时成功提示分离）：失败不自动消失，
@@ -162,13 +156,13 @@ export function CodingToolsSettingsTab() {
         setCompactApplied(compact);
         setCompactDraft(tokensToDraft(compact));
       }
-      // 代理设置：从 claude env 读 4 键（空值留空）。
+      // 代理设置：三键不一致取首个非空作 URL 显示；NO_PROXY 单独。
       const env = (obj?.env as Record<string, any> | undefined);
-      const loaded = emptyProxy();
-      for (const k of PROXY_KEYS) {
-        const v = env?.[PROXY_ENV_KEYS[k]];
-        if (typeof v === "string") loaded[k] = v;
-      }
+      const url = PROXY_URL_KEYS
+        .map((k) => env?.[k])
+        .find((v) => typeof v === "string" && v !== "") ?? "";
+      const noV = env?.[NO_PROXY_KEY];
+      const loaded = { url, no: typeof noV === "string" ? noV : "" };
       setProxyDraft(loaded);
       proxyAppliedRef.current = loaded;
     }).catch(() => {
@@ -328,14 +322,13 @@ export function CodingToolsSettingsTab() {
     );
   };
 
-  // 代理设置：onBlur 任一输入触发批量提交。trim 后与 applied diff 才写 claude env。
-  // 空值 = 删键；任一键变化即整批重写（writeClaudeConfigField 读全量 → 改 env → 写回）。
+  // 代理设置：onBlur 任一输入触发提交。URL 写 HTTP/HTTPS/ALL 三键同值，NO_PROXY 单独。
+  // trim 后与 applied diff 才写；空值删键。
   const handleProxyCommit = () => {
     if (busy) return;
     const prev = { ...proxyAppliedRef.current };
     const next = { ...proxyDraft };
-    const same = PROXY_KEYS.every((k) => prev[k].trim() === next[k].trim());
-    if (same) return;
+    if (prev.url.trim() === next.url.trim() && prev.no.trim() === next.no.trim()) return;
     runCommit(
       () => { /* draft 保持用户输入；applied 等 persist 确认后再写 */ },
       () => {
@@ -345,11 +338,14 @@ export function CodingToolsSettingsTab() {
       async () => {
         await writeClaudeConfigField((c) => {
           const env: Record<string, any> = { ...((c.env as Record<string, any>) ?? {}) };
-          for (const k of PROXY_KEYS) {
-            const v = next[k].trim();
-            if (v) env[PROXY_ENV_KEYS[k]] = v;
-            else delete env[PROXY_ENV_KEYS[k]];
+          const url = next.url.trim();
+          for (const k of PROXY_URL_KEYS) {
+            if (url) env[k] = url;
+            else delete env[k];
           }
+          const no = next.no.trim();
+          if (no) env[NO_PROXY_KEY] = no;
+          else delete env[NO_PROXY_KEY];
           return { ...c, env };
         });
         proxyAppliedRef.current = next;
@@ -508,7 +504,7 @@ export function CodingToolsSettingsTab() {
         </div>
       </div>
 
-      {/* 代理设置：仅 Claude env.HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY（4 输入，onBlur 批量提交）。
+      {/* 代理设置：URL 写 HTTP/HTTPS/ALL 三键同值 + NO_PROXY 单独（onBlur 批量提交）。
           Codex 无 config 级 proxy 字段，由「复制启动命令」注入 env（另见 Groups 启动命令复制点）。 */}
       <div className="glass-surface" style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.proxy.title")}</div>
@@ -516,29 +512,45 @@ export function CodingToolsSettingsTab() {
           {t("codingTools.proxy.desc")}
         </div>
         <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
-          claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY
+          claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY · NO_PROXY
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
-          {PROXY_KEYS.map((k) => (
-            <div key={k} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
-                {PROXY_ENV_KEYS[k]}
-              </label>
-              <input
-                className="input"
-                type="text"
-                style={{ fontSize: 13, padding: "4px 8px" }}
-                value={proxyDraft[k]}
-                placeholder={k === "no" ? "localhost,127.0.0.1,*.local" : "http://host:port"}
-                onChange={(e) => setProxyDraft((d) => ({ ...d, [k]: e.target.value }))}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                }}
-                onBlur={handleProxyCommit}
-                disabled={busy}
-              />
-            </div>
-          ))}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+              {t("codingTools.proxy.title")}
+            </label>
+            <input
+              className="input"
+              type="text"
+              style={{ fontSize: 13, padding: "4px 8px" }}
+              value={proxyDraft.url}
+              placeholder="http://host:port"
+              onChange={(e) => setProxyDraft((d) => ({ ...d, url: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              onBlur={handleProxyCommit}
+              disabled={busy}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
+              NO_PROXY
+            </label>
+            <input
+              className="input"
+              type="text"
+              style={{ fontSize: 13, padding: "4px 8px" }}
+              value={proxyDraft.no}
+              placeholder="localhost,127.0.0.1,*.local"
+              onChange={(e) => setProxyDraft((d) => ({ ...d, no: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+              }}
+              onBlur={handleProxyCommit}
+              disabled={busy}
+            />
+          </div>
         </div>
       </div>
 

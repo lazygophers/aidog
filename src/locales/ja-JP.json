@@ -177,7 +177,7 @@
   "codingTools.introDesc": "これらのスイッチは Claude Code CLI のローカル設定ファイルに書き込み、拡張機能と CLI を aidog 経由にし、初回オンボーディングをスキップします。",
   "codingTools.language.desc": "~/.claude/settings.json の language フィールドに書き込み、Claude Code CLI のセッション言語を設定します。",
   "codingTools.language.title": "言語",
-  "codingTools.proxy.desc": "Claude Code CLI の送信プロキシ環境変数（HTTP/HTTPS/ALL/NO_PROXY）を設定し、~/.claude/settings.json の env セクションに書き込み、起動時に自動注入します。Codex CLI には設定レベルのプロキシ欄がなく、起動コマンド経由で注入します。",
+  "codingTools.proxy.desc": "Claude Code CLI の送信プロキシを設定します。プロキシ URL は HTTP/HTTPS/ALL_PROXY の 3 つの環境変数に同期的に書き込まれ、NO_PROXY は個別に設定します。~/.claude/settings.json の env セクションに書き込み、起動時に自動注入します。Codex CLI には設定レベルのプロキシ欄がなく、起動コマンド経由で注入します。",
   "codingTools.proxy.title": "プロキシ設定",
   "codingTools.skipOnboarding.desc": "~/.claude.json のルートオブジェクトに hasCompletedOnboarding=true を書き込み、Claude Code 初回起動のオンボーディングをスキップします。オフでフィールドを削除します。",
   "codingTools.skipOnboarding.title": "Claude Code オンボーディングをスキップ",

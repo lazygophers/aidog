@@ -1,10 +1,18 @@
 {
   "tasks": [
     {
-      "id": "claude-default-max-subagents",
+      "id": "proxy-card-merge-url",
       "status": "进行中",
       "deps": [],
-      "worktree": ".worktrees/skein-claude-default-max-subagents",
+      "worktree": ".worktrees/skein-proxy-card-merge-url",
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "claude-default-max-subagents",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
       "parent": null,
       "kind": "task"
     },

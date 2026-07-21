@@ -177,7 +177,7 @@
   "codingTools.introDesc": "Diese Schalter schreiben in die lokalen Konfigurationsdateien der Claude Code CLI und leiten die Erweiterung und CLI über aidog, wobei das erste Onboarding übersprungen wird.",
   "codingTools.language.desc": "Schreibt das Feld language in ~/.claude/settings.json und legt die CLI-Sitzungssprache von Claude Code fest.",
   "codingTools.language.title": "Sprache",
-  "codingTools.proxy.desc": "Konfiguriert die Outbound-Proxy-Umgebungsvariablen für Claude Code CLI (HTTP/HTTPS/ALL/NO_PROXY), geschrieben in den env-Abschnitt von ~/.claude/settings.json, beim Start automatisch injiziert. Codex CLI hat kein Proxy-Feld auf Konfigurationsebene; stattdessen über den Startbefehl injizieren.",
+  "codingTools.proxy.desc": "Konfiguriert den Outbound-Proxy für Claude Code CLI. Die Proxy-URL wird synchron in HTTP/HTTPS/ALL_PROXY geschrieben; NO_PROXY wird separat konfiguriert. Geschrieben in den env-Abschnitt von ~/.claude/settings.json, beim Start automatisch injiziert. Codex CLI hat kein Proxy-Feld auf Konfigurationsebene; stattdessen über den Startbefehl injizieren.",
   "codingTools.proxy.title": "Proxy-Einstellungen",
   "codingTools.skipOnboarding.desc": "Schreibt hasCompletedOnboarding=true in das Wurzelobjekt von ~/.claude.json, um das Onboarding beim ersten Start von Claude Code zu überspringen. Aus entfernt das Feld.",
   "codingTools.skipOnboarding.title": "Claude Code Onboarding überspringen",
