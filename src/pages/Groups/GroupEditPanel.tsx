@@ -7,7 +7,7 @@ import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
 import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
-import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, PlatformPicker } from "../../domains/groups";
+import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, PlatformPicker, useProxyEnvVars } from "../../domains/groups";
 import { CopyButton } from "../../components/shared";
 import { IconClose } from "../../components/icons";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
@@ -28,6 +28,8 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
     connTimeout: editConnTimeout, maxRetries: editMaxRetries } = edit;
   const editPlatformOptions = platforms.filter(p => p.enabled);
   const { i18n } = useTranslation();
+  // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
+  const proxyVars = useProxyEnvVars();
   // 协议 label 全表（一次 RPC，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -50,7 +52,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         </div>
         <CopyButton text={editTarget!.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
         <CopyButton text={buildClaudeCommand(editTarget!.group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
-        <CopyButton text={buildCodexCommand(editTarget!.group.group_key, editEnvVars)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+        <CopyButton text={buildCodexCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
         <button className="btn" onClick={onCancel}>{t("action.cancel")}</button>
         <button className="btn btn-primary" onClick={onSave}
           disabled={!editName}>{t("action.save")}</button>

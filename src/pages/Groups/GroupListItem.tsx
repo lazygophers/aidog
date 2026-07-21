@@ -8,7 +8,7 @@ import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLe
 import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
 import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
 import type { DragHandleProps } from "../../components/SortableList";
-import { buildClaudeCommand, buildCodexCommand, routingModeLabel, GroupIcon } from "../../domains/groups";
+import { buildClaudeCommand, buildCodexCommand, routingModeLabel, GroupIcon, useProxyEnvVars } from "../../domains/groups";
 
 /** usePlatformCards 的卡片展示状态快照（memo 化子组件按需接收） */
 export interface CardsSnapshot {
@@ -110,6 +110,8 @@ export const GroupListItem = memo(function GroupListItem({
   handle,
 }: GroupListItemProps) {
   const { group, platforms: gps, model_mappings } = detail;
+  // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
+  const proxyVars = useProxyEnvVars();
   const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
   const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
 
@@ -193,7 +195,7 @@ export const GroupListItem = memo(function GroupListItem({
           menu={[
             { key: "key", label: t("group.menuCopyKey", "API Key"), text: group.group_key },
             { key: "claude", label: t("group.menuCopyClaude", "Claude 启动命令"), text: buildClaudeCommand(group.group_key), icon: <img src={claudeIcon} width={14} height={14} alt="Claude" /> },
-            { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, group.env_vars), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
+            { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
           ]}
         />
         <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>

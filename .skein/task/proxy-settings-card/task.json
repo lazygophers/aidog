@@ -2,7 +2,7 @@
   "id": "proxy-settings-card",
   "name": "Coding 设置添加代理设置卡片",
   "desc": "CodingToolsSettings.tsx 添加代理卡片 4 输入 HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY 写 claude env; codex 复制启动命令注入代理 env 另点; i18n 8 locale; 验证 yarn build+check-i18n+yarn test",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -17,31 +17,29 @@
         "yarn test 全过",
         "代理卡片 4 输入写 claude env 生效"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784641475,
       "started": null,
-      "finished": null
+      "finished": 1784641866
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-proxy-settings-card",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-proxy-settings-card",
-      "branch": "skein/proxy-settings-card",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/proxy-settings-card",
   "parent": null,
   "kind": "task",
   "created": 1784641439,
   "started": 1784641530,
   "checked": null,
-  "finished": null,
-  "updated": 1784641530
+  "finished": 1784641874,
+  "updated": 1784641874
 }

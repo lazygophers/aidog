@@ -1,10 +1,18 @@
 {
   "tasks": [
     {
-      "id": "proxy-settings-card",
+      "id": "codex-cmd-proxy-inject",
       "status": "进行中",
       "deps": [],
-      "worktree": ".worktrees/skein-proxy-settings-card",
+      "worktree": ".worktrees/skein-codex-cmd-proxy-inject",
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "proxy-settings-card",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
       "parent": null,
       "kind": "task"
     },
