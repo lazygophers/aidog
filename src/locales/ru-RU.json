@@ -177,7 +177,7 @@
   "codingTools.introDesc": "Эти переключатели записывают в локальные файлы конфигурации Claude Code CLI, направляя расширение и CLI через aidog и пропуская первоначальную настройку.",
   "codingTools.language.desc": "Записывает поле language в ~/.claude/settings.json, задавая язык сессии Claude Code CLI.",
   "codingTools.language.title": "Язык",
-  "codingTools.proxy.desc": "Настраивает переменные окружения исходящего прокси Claude Code CLI (HTTP/HTTPS/ALL/NO_PROXY), записываются в раздел env файла ~/.claude/settings.json и авто-инъецируются при запуске. У Codex CLI нет поля прокси на уровне конфига; инъецируется через команду запуска.",
+  "codingTools.proxy.desc": "Настраивает исходящий прокси Claude Code CLI. URL прокси синхронно записывается в HTTP/HTTPS/ALL_PROXY; NO_PROXY настраивается отдельно. Записывается в раздел env файла ~/.claude/settings.json и авто-инъецируется при запуске. У Codex CLI нет поля прокси на уровне конфига; инъецируется через команду запуска.",
   "codingTools.proxy.title": "Настройки прокси",
   "codingTools.skipOnboarding.desc": "Записывает hasCompletedOnboarding=true в корневой объект ~/.claude.json, чтобы пропустить онбординг при первом запуске Claude Code. Выкл удаляет поле.",
   "codingTools.skipOnboarding.title": "Пропустить онбординг Claude Code",

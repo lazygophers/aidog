@@ -2,7 +2,7 @@
   "id": "claude-default-max-subagents",
   "name": "默认设置加 CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION=1000",
   "desc": "src-tauri/defaults/settings.json env 段加 CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION=1000 (subagent 相关, FORK_SUBAGENT 附近); 前端 DEFAULT_SETTINGS 自动派生; 验证 build+check-i18n+test",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -16,31 +16,28 @@
         "test 全过",
         "env 段含该键"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784644234,
       "started": null,
-      "finished": null
+      "finished": 1784644308
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-claude-default-max-subagents",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-claude-default-max-subagents",
-      "branch": "skein/claude-default-max-subagents",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/claude-default-max-subagents",
   "parent": null,
   "kind": "task",
   "created": 1784644173,
   "started": 1784644235,
   "checked": null,
-  "finished": null,
-  "updated": 1784644235
+  "finished": 1784644309,
+  "updated": 1784644309
 }
