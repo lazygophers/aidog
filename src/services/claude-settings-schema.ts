@@ -26,10 +26,17 @@ export interface SettingSection {
 // ── Sections ──
 
 /** Claude Code `language` 字段可选值（settings.json 顶层 language key）。
- *  单一事实源：CLI 集成 tab 与 claudeTab 的 language 字段共用，禁复制。 */
+ *  单一事实源：CLI 集成 tab 与 claudeTab 的 language 字段共用，禁复制。
+ *  注意：最终落盘值由 Claude Code CLI 消费，CLI 不识别的 code 会被忽略回落英文，
+ *  新增 code 前最好核对 CLI 实际支持集。 */
 export const LANGUAGE_OPTIONS: string[] = [
-  "zh-Hans", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE",
-  "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA", "hi-IN", "th-TH", "vi-VN",
+  "zh-Hans", "zh-CN", "zh-SG", "zh-TW", "zh-HK",
+  "en-US", "ja-JP", "ko-KR",
+  "fr-FR", "de-DE", "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA",
+  "hi-IN", "th-TH", "vi-VN",
+  "nl-NL", "pl-PL", "tr-TR", "id-ID", "ms-MY", "bn-BD",
+  "fa-IR", "he-IL",
+  "cs-CZ", "da-DK", "fi-FI", "el-GR", "hu-HU", "no-NO", "ro-RO", "sk-SK", "sv-SE", "uk-UA",
 ];
 
 export const SECTIONS: SettingSection[] = [
