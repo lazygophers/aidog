@@ -29,9 +29,11 @@ import { Toggle } from "./editors";
 // 该开关镜像 middleware_rule.enabled，不写 coding_tools_settings。
 const DATE_REWRITE_RULE_NAME = "内置·日期格式改写防检测";
 
-// 努力级别枚举：claude effortLevel 与 codex model_reasoning_effort 的公共子集。
-// claude 无 minimal，codex 无 max/auto（CLAUDE_CODE_EFFORT_LEVEL env 才有），取交集避免落盘无效值。
-const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"] as const;
+// 努力级别枚举。claude 顶层 effortLevel 原生档位 low/medium/high/xhigh，
+// codex model_reasoning_effort 原生 minimal/low/medium/high/xhigh；max 为 claude env 档位，
+// 双写时若任一侧不识别该值由对应 CLI 自行忽略/回落。默认 medium。
+const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh", "max"] as const;
+const EFFORT_DEFAULT = "medium";
 
 // 自动压缩窗口：原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
 function tokensToDraft(s: string): string {
@@ -132,7 +134,7 @@ export function CodingToolsSettingsTab() {
       const eff = typeof effortVal === "string" && effortVal
         ? effortVal
         : typeof codexEffort === "string" && codexEffort ? codexEffort : "";
-      if (eff) setEffort(eff);
+      setEffort(eff || EFFORT_DEFAULT);
       const envVal = (obj?.env as Record<string, any> | undefined)?.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
       const codexVal = (cx as Record<string, any> | null)?.model_auto_compact_token_limit;
       const compact = envVal != null && envVal !== ""
