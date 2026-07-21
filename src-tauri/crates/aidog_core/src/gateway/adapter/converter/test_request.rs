@@ -194,7 +194,8 @@ fn convert_request_openai_completions_path() {
         stream: None, tools: None, tool_choice: None, extra: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
-    assert_eq!(path, "/v1/completions");
+    // base_url 约定带 /v1（OpenAI 系），path 只返后缀，禁重复拼。
+    assert_eq!(path, "/completions");
 }
 
 #[test]
@@ -206,5 +207,6 @@ fn convert_request_openai_responses_path() {
         stream: None, tools: None, tool_choice: None, extra: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
-    assert_eq!(path, "/v1/responses");
+    // base_url 约定带 /v1（OpenAI 系），path 只返后缀，禁重复拼（回归：曾出 /v1/v1/responses）。
+    assert_eq!(path, "/responses");
 }
