@@ -1,12 +1,13 @@
 max_active: 2
-max_parallel: 2
 auto_commit: true
 use_worktree: true
 worktree_root: .worktrees
 retain_days: 7
-board_theme: skein
 web_serve: true
 board_open: true
+spec_core_budget: 1000
+max_parallel: 2
+board_theme: skein
 board_server: false
 board_palette: stone
 board_mode: light
