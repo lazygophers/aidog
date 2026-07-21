@@ -1,10 +1,18 @@
 {
   "tasks": [
     {
-      "id": "codex-cmd-proxy-inject",
+      "id": "claude-default-max-subagents",
       "status": "进行中",
       "deps": [],
-      "worktree": ".worktrees/skein-codex-cmd-proxy-inject",
+      "worktree": ".worktrees/skein-claude-default-max-subagents",
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "codex-cmd-proxy-inject",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
       "parent": null,
       "kind": "task"
     },
