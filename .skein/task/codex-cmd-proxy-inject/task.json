@@ -1,0 +1,48 @@
+{
+  "id": "codex-cmd-proxy-inject",
+  "name": "Codex 启动命令注入代理 env",
+  "desc": "buildCodexCommand 2 caller (GroupListItem/GroupEditPanel) 合并 claude 代理 env (HTTP/HTTPS/ALL/NO_PROXY) 进 envVars; 新建 domains/groups/proxy-env.ts 共享常量+loader+hook; CodingToolsSettings 复用共享常量去重; i18n 如需; 验证 build+check-i18n+test",
+  "status": "进行中",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "impl-inject",
+      "name": "实现 codex 命令代理注入",
+      "desc": "新建 domains/groups/proxy-env.ts (PROXY_ENV_KEYS+loadProxyEnvVars+useProxyEnvVars); GroupListItem+GroupEditPanel 合并代理 envVars; CodingToolsSettings 复用共享常量; 验证 build+check-i18n+test",
+      "depends_on": [],
+      "验收": [
+        "build 通过",
+        "check-i18n 通过",
+        "test 全过",
+        "2 caller 命令含代理 export",
+        "共享常量去重"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784642075,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": ".worktrees/skein-codex-cmd-proxy-inject",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-codex-cmd-proxy-inject",
+      "branch": "skein/codex-cmd-proxy-inject",
+      "merged": false
+    }
+  ],
+  "branch": "skein/codex-cmd-proxy-inject",
+  "parent": null,
+  "kind": "task",
+  "created": 1784642032,
+  "started": 1784642076,
+  "checked": null,
+  "finished": null,
+  "updated": 1784642076
+}
