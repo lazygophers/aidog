@@ -1,0 +1,105 @@
+{
+  "id": "startup-no-scheduled",
+  "name": "启动不做定时操作",
+  "desc": "app_setup spawn 周期定时器去启动立即跑（backup/defaults_sync/client_types_sync/scheduled_cleanup），保留周期 + 一次性迁移；前端 5 处 usePolling 改后端事件推送",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "sub1",
+      "name": "backend 去启动立即跑",
+      "desc": "backup spawn_scheduler + defaults_sync + client_types_sync + scheduled_cleanup 4 处：去 spawn 后立即首跑，保留周期 sleep loop",
+      "depends_on": [],
+      "验收": [
+        "backup scheduler 先 sleep 后 run",
+        "defaults_sync/client_types_sync 去启动 maybe_sync_on_startup 仅留 24h loop",
+        "scheduled_cleanup loop 改先 sleep 后 cleanup",
+        "tray_refresh_tick 已先 sleep 不动",
+        "一次性迁移任务保留",
+        "cargo clippy 净",
+        "cargo build 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784564697,
+      "started": 1784564799,
+      "finished": 1784566119
+    },
+    {
+      "sid": "sub2",
+      "name": "后端事件推送 emit",
+      "desc": "proxy_log insert 终态 + retention 清理后 emit proxy_log_changed 事件;tray stats 已有 tray-refresh 复用;Popover/TrayConfig stats 触发点补 emit",
+      "depends_on": [],
+      "验收": [
+        "proxy_log 终态落库后 emit proxy_log_changed",
+        "retention 清理后 emit",
+        "Popover/TrayConfig stats 写后 emit tray-refresh 或专用 event",
+        "cargo clippy 净",
+        "cargo build 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784564697,
+      "started": 1784564799,
+      "finished": 1784566119
+    },
+    {
+      "sid": "sub3",
+      "name": "前端 usePolling 改 listen",
+      "desc": "Logs/RequestLog list+detail + Popover/TrayConfig 5 处 usePolling 替换为后端事件 listen;保留可见性前台立即刷新一次",
+      "depends_on": [
+        "sub2"
+      ],
+      "验收": [
+        "5 处 usePolling 移除",
+        "改为 listen event 触发 refresh",
+        "前台可见性立即刷新保留",
+        "tsc 净",
+        "yarn test 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784564698,
+      "started": null,
+      "finished": 1784566120
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/startup-no-scheduled",
+  "parent": null,
+  "kind": "task",
+  "created": 1784564676,
+  "started": 1784564786,
+  "checked": null,
+  "finished": 1784566174,
+  "updated": 1784566174
+}
