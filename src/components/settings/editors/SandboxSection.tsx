@@ -58,7 +58,7 @@ function TagList({
         />
         <Button variant="outline" type="button" disabled={!draft.trim()} onClick={add}
           style={{
-            background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)",
+            background: "var(--primary)", color: "var(--primary-foreground)", border: "none", borderRadius: "var(--radius-sm)",
             padding: "5px 10px", fontSize: F.hint, cursor: draft.trim() ? "pointer" : "default",
             opacity: draft.trim() ? 1 : 0.4,
           }}>+</Button>
@@ -115,7 +115,7 @@ function PathList({
         </div>
         <Button variant="outline" type="button" disabled={!draftStr.trim()} onClick={add}
           style={{
-            background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)",
+            background: "var(--primary)", color: "var(--primary-foreground)", border: "none", borderRadius: "var(--radius-sm)",
             padding: "5px 10px", fontSize: F.hint, cursor: draftStr.trim() ? "pointer" : "default",
             opacity: draftStr.trim() ? 1 : 0.4, flexShrink: 0,
           }}>+</Button>

@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 // 与 api.ts 契约对齐（禁裸 string）。
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
@@ -253,12 +254,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             {t("notif.masterToggleDesc", "关闭后所有通知分发被旁路")}
           </div>
         </div>
-        <div
-          className={`toggle ${settings.enabled ? "active" : ""}`}
-          onClick={() => persist(prev => ({ ...prev, enabled: !prev.enabled }))}
-          role="switch"
-          aria-checked={settings.enabled}
-          tabIndex={0}
+        <Switch
+          checked={settings.enabled}
+          onCheckedChange={() => persist(prev => ({ ...prev, enabled: !prev.enabled }))}
         />
       </div>
 
@@ -293,12 +291,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               {t("notif.ttsToggleDesc", "启用后按类型配置朗读通知内容")}
             </div>
           </div>
-          <div
-            className={`toggle ${settings.tts_enabled ? "active" : ""}`}
-            onClick={() => persist(prev => ({ ...prev, tts_enabled: !prev.tts_enabled }))}
-            role="switch"
-            aria-checked={settings.tts_enabled}
-            tabIndex={0}
+          <Switch
+            checked={settings.tts_enabled}
+            onCheckedChange={() => persist(prev => ({ ...prev, tts_enabled: !prev.tts_enabled }))}
           />
         </div>
         {settings.tts_enabled && (
@@ -380,14 +375,11 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                   {t("notif.retentionDesc", "超过保留天数的通知历史将被永久删除；关闭则永久保留")}
                 </div>
               </div>
-              <div
-                className={`toggle ${cleanupOn ? "active" : ""}`}
-                // 关 → 0（不清理）；开 → 回 7 天默认。
-                onClick={() => persist(prev => ({ ...prev, inbox_retention_days: cleanupOn ? 0 : 7 }))}
-                role="switch"
-                aria-checked={cleanupOn}
+              {/* 关 → 0（不清理）；开 → 回 7 天默认。 */}
+              <Switch
+                checked={cleanupOn}
+                onCheckedChange={() => persist(prev => ({ ...prev, inbox_retention_days: cleanupOn ? 0 : 7 }))}
                 aria-label={t("notif.retentionTitle", "通知历史自动清理")}
-                tabIndex={0}
               />
             </div>
             {cleanupOn && (
@@ -427,15 +419,11 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             {hooksDisabled && <span style={{ marginLeft: 4 }}>· {t("notif.defaultHooksDisabledHint", "需先开启通知")}</span>}
           </div>
         </div>
-        <div
-          className={`toggle ${defaultHooks && !hooksDisabled ? "active" : ""}`}
-          style={hooksDisabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
-          onClick={() => { if (!hooksDisabled && !defaultHooksBusy) handleToggleDefaultHooks(); }}
-          role="switch"
-          aria-checked={defaultHooks && !hooksDisabled}
-          aria-disabled={hooksDisabled}
+        <Switch
+          checked={defaultHooks && !hooksDisabled}
+          disabled={hooksDisabled || defaultHooksBusy}
+          onCheckedChange={() => handleToggleDefaultHooks()}
           aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
-          tabIndex={hooksDisabled ? -1 : 0}
         />
       </div>
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * Log recording + Application Logging 两个日志相关 section（原 L562-678 + L757-818）。
@@ -92,13 +93,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               {t("proxy.logRequestsDesc", "记录代理请求的头部、内容、耗时和 Token 消耗")}
             </div>
           </div>
-          <div
-            className={`toggle ${logEnabled ? "active" : ""}`}
-            onClick={() => handleLogEnabledChange(!logEnabled)}
-            role="switch"
-            aria-checked={logEnabled}
-            tabIndex={0}
-          />
+          <Switch checked={logEnabled} onCheckedChange={handleLogEnabledChange} />
         </div>
 
         {logEnabled && (
@@ -112,13 +107,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     {t("proxy.logUserReqDesc", "用户发送的请求头和请求体")}
                   </div>
                 </div>
-                <div
-                  className={`toggle ${logUserReq ? "active" : ""}`}
-                  onClick={() => { setLogUserReq(!logUserReq); updateLogSettings({ log_user_request: !logUserReq }); }}
-                  role="switch"
-                  aria-checked={logUserReq}
-                  tabIndex={0}
-                />
+                <Switch checked={logUserReq} onCheckedChange={(c) => { setLogUserReq(c); updateLogSettings({ log_user_request: c }); }} />
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -127,13 +116,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     {t("proxy.logUpstreamReqDesc", "发送到上游平台的请求头和请求体")}
                   </div>
                 </div>
-                <div
-                  className={`toggle ${logUpstreamReq ? "active" : ""}`}
-                  onClick={() => { setLogUpstreamReq(!logUpstreamReq); updateLogSettings({ log_upstream_request: !logUpstreamReq }); }}
-                  role="switch"
-                  aria-checked={logUpstreamReq}
-                  tabIndex={0}
-                />
+                <Switch checked={logUpstreamReq} onCheckedChange={(c) => { setLogUpstreamReq(c); updateLogSettings({ log_upstream_request: c }); }} />
               </div>
             </div>
 
@@ -230,8 +213,8 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 fontSize: 12,
                 marginTop: 4,
                 color: message.type === "success"
-                  ? "var(--color-success, #22c55e)"
-                  : "var(--color-error, #ef4444)",
+                  ? "var(--color-success)"
+                  : "var(--color-danger)",
               }}
             >
               {message.text}
@@ -254,13 +237,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件")}
             </div>
           </div>
-          <div
-            className={`toggle ${logFileEnabled ? "active" : ""}`}
-            onClick={() => handleLogSettingsChange({ file_enabled: !logFileEnabled })}
-            role="switch"
-            aria-checked={logFileEnabled}
-            tabIndex={0}
-          />
+          <Switch checked={logFileEnabled} onCheckedChange={(c) => handleLogSettingsChange({ file_enabled: c })} />
         </div>
 
         {logFileEnabled && (

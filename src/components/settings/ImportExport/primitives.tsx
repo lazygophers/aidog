@@ -77,7 +77,7 @@ export function ScopeCard({
         padding: 14,
         borderRadius: "var(--radius-lg)",
         cursor: "pointer",
-        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+        border: `1px solid ${on ? "var(--primary)" : "var(--border)"}`,
         background: on ? "var(--accent-subtle)" : "transparent",
         boxShadow: hover ? "var(--shadow-md)" : "var(--shadow-sm)",
         transform: hover ? "translateY(-1px)" : "none",
@@ -99,16 +99,16 @@ export function ScopeCard({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
-          background: on ? "var(--accent)" : "transparent",
+          border: `1px solid ${on ? "var(--primary)" : "var(--border)"}`,
+          background: on ? "var(--primary)" : "transparent",
           transition: "var(--transition)",
         }}
       >
-        {selected && !indeterminate && <IconCheck size={12} color="#fff" strokeWidth={2.5} />}
-        {indeterminate && <span style={{ width: 8, height: 2, background: "#fff", borderRadius: 1 }} />}
+        {selected && !indeterminate && <IconCheck size={12} color="var(--primary-foreground)" strokeWidth={2.5} />}
+        {indeterminate && <span style={{ width: 8, height: 2, background: "var(--primary-foreground)", borderRadius: 1 }} />}
       </span>
 
-      <SectionIcon name={icon} size={20} style={{ color: on ? "var(--accent)" : "var(--text-secondary)" }} />
+      <SectionIcon name={icon} size={20} style={{ color: on ? "var(--primary)" : "var(--text-secondary)" }} />
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", paddingRight: 24 }}>{label}</div>
       <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{desc}</div>
     </div>
@@ -167,7 +167,7 @@ export function DropZone({ onClick, active, title, hint }: { onClick: () => void
       style={{
         padding: "28px 20px",
         borderRadius: "var(--radius-lg)",
-        border: `1.5px dashed ${lit ? "var(--accent)" : "var(--border)"}`,
+        border: `1.5px dashed ${lit ? "var(--primary)" : "var(--border)"}`,
         background: lit ? "var(--accent-subtle)" : "var(--bg-glass)",
         cursor: "pointer",
         transition: "var(--transition)",
@@ -179,7 +179,7 @@ export function DropZone({ onClick, active, title, hint }: { onClick: () => void
         textAlign: "center",
       }}
     >
-      <SectionIcon name="file" size={28} style={{ color: lit ? "var(--accent)" : "var(--text-secondary)" }} />
+      <SectionIcon name="file" size={28} style={{ color: lit ? "var(--primary)" : "var(--text-secondary)" }} />
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{title}</div>
       <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{hint}</div>
     </div>
@@ -199,13 +199,13 @@ export function CheckBox({ checked, indeterminate }: { checked: boolean; indeter
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
-        background: on ? "var(--accent)" : "transparent",
+        border: `1px solid ${on ? "var(--primary)" : "var(--border)"}`,
+        background: on ? "var(--primary)" : "transparent",
         transition: "var(--transition)",
       }}
     >
-      {checked && !indeterminate && <IconCheck size={11} color="#fff" strokeWidth={3} />}
-      {indeterminate && <span style={{ width: 8, height: 2, background: "#fff", borderRadius: 1 }} />}
+      {checked && !indeterminate && <IconCheck size={11} color="var(--primary-foreground)" strokeWidth={3} />}
+      {indeterminate && <span style={{ width: 8, height: 2, background: "var(--primary-foreground)", borderRadius: 1 }} />}
     </span>
   );
 }
@@ -272,7 +272,7 @@ export function Segmented({
               border: "none",
               borderLeft: i > 0 ? "1px solid var(--border)" : "none",
               background: active ? "var(--accent-subtle)" : "transparent",
-              color: active ? "var(--accent)" : "var(--text-secondary)",
+              color: active ? "var(--primary)" : "var(--text-secondary)",
               transition: "var(--transition)",
             }}
           >

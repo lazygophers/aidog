@@ -54,7 +54,7 @@ export function MultiKeyPreview({
       </div>
 
       {/* 只读预览列表（D2：不支持改 name / 跳过 key）。每行：#序号 + name 预览 + 协议 + base_url + key 尾4位掩码 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, overflowX: "auto" }}>
         {keys.map((k, i) => (
           <div
             key={i}

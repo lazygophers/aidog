@@ -195,7 +195,7 @@ export function SkillInstallView({
       {error && (
         <div
           className="glass-surface"
-          style={{ padding: "12px 16px", fontSize: 13, color: "var(--danger, #e06c75)" }}
+          style={{ padding: "12px 16px", fontSize: 13, color: "var(--color-danger)" }}
         >
           {t("skills.install.loadFailed", { defaultValue: "加载失败" })}: {error}
         </div>
@@ -251,7 +251,7 @@ export function SkillInstallView({
                             fontSize: 11,
                             padding: "1px 6px",
                             borderRadius: 4,
-                            background: "var(--accent-subtle, rgba(0,0,0,0.06))",
+                            background: "var(--accent-subtle)",
                             color: "var(--text-secondary)",
                           }}
                         >
@@ -279,7 +279,7 @@ export function SkillInstallView({
                         href={entry.repo_url}
                         target="_blank"
                         rel="noreferrer"
-                        style={{ fontSize: 11, color: "var(--accent, #5b8def)" }}
+                        style={{ fontSize: 11, color: "var(--accent)" }}
                       >
                         {entry.repo_url}
                       </a>

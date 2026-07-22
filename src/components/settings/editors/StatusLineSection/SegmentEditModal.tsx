@@ -80,9 +80,9 @@ export function SegmentEditModal({
                     style={{
                       flex: 1, padding: "6px 10px", fontSize: F.body,
                       fontWeight: active ? 600 : 400,
-                      color: active ? "var(--accent)" : "var(--text-secondary)",
+                      color: active ? "var(--primary)" : "var(--text-secondary)",
                       background: active ? "var(--accent-subtle, rgba(0,122,255,0.1))" : "transparent",
-                      border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                      border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
                       borderRadius: "var(--radius-sm)", cursor: "pointer",
                     }}
                     onClick={() => setAlign(a)}>

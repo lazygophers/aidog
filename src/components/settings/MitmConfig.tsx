@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 
 /// CA 安装失败分类后端化（阶段 B）：分类逻辑真源在后端 `classify_trust_error`（Rust 纯函数 +
 /// 单测矩阵），前端 invoke `mitm_classify_trust_error` 取 TrustErrorKind，消除前后端双源。
@@ -241,13 +242,7 @@ export function MitmConfigTab() {
             {t("mitm.masterToggleDesc", "启用后 CONNECT 隧道内 HTTPS 流量经 AirDog 解密采集（需装假 CA）")}
           </div>
         </div>
-        <div
-          className={`toggle ${enabled ? "active" : ""}`}
-          onClick={() => !busy && handleToggle()}
-          role="switch"
-          aria-checked={enabled}
-          tabIndex={0}
-        />
+        <Switch checked={enabled} disabled={busy} onCheckedChange={() => handleToggle()} />
       </div>
 
       {/* 风险提示（启用后展示）*/}
@@ -256,7 +251,7 @@ export function MitmConfigTab() {
           className="glass-surface"
           style={{
             padding: "14px 16px",
-            borderLeft: "3px solid var(--color-warning, #f0a020)",
+            borderLeft: "3px solid var(--color-warning)",
             fontSize: 12,
             color: "var(--text-secondary)",
           }}
@@ -319,8 +314,8 @@ export function MitmConfigTab() {
           {manualInstall && (
             <div style={{
               marginTop: 4, padding: 12, borderRadius: "var(--radius-md)",
-              background: "color-mix(in srgb, var(--color-warning, #f0a020) 10%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--color-warning, #f0a020) 30%, transparent)",
+              background: "color-mix(in srgb, var(--color-warning) 10%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--color-warning) 30%, transparent)",
               fontSize: 12,
             }}>
               <div style={{ fontWeight: 600, marginBottom: 6 }}>
@@ -341,8 +336,8 @@ export function MitmConfigTab() {
                 {installResult && (
                   <div style={{
                     marginTop: 4, padding: 8, borderRadius: "var(--radius-sm)",
-                    background: "color-mix(in srgb, var(--color-error, #ef4444) 8%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--color-error, #ef4444) 25%, transparent)",
+                    background: "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--color-danger) 25%, transparent)",
                     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                     fontSize: 11, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-all",
                   }}>
@@ -386,7 +381,7 @@ export function MitmConfigTab() {
                 style={{
                   padding: "6px 12px", fontSize: 12,
                   opacity: busy || whitelist.length === 0 ? 0.6 : 1,
-                  color: "var(--color-error, #ef4444)",
+                  color: "var(--color-danger)",
                 }}
               >
                 {t("mitm.clear", "清空")}
@@ -484,7 +479,7 @@ export function MitmConfigTab() {
                       <span
                         style={{
                           fontSize: 10, padding: "2px 6px", borderRadius: 4,
-                          background: "color-mix(in srgb, var(--color-success, #10b981) 15%, transparent)",
+                          background: "color-mix(in srgb, var(--color-success) 15%, transparent)",
                           color: "var(--text-secondary)",
                         }}
                       >
@@ -525,7 +520,7 @@ export function MitmConfigTab() {
                   style={{
                     fontSize: 10, padding: "2px 6px", borderRadius: 4,
                     background: e.source === "default"
-                      ? "color-mix(in srgb, var(--color-info, #3b82f6) 15%, transparent)"
+                      ? "color-mix(in srgb, var(--primary) 15%, transparent)"
                       : "color-mix(in srgb, var(--text-tertiary) 15%, transparent)",
                     color: "var(--text-secondary)",
                   }}
@@ -544,7 +539,7 @@ export function MitmConfigTab() {
                     <span
                       style={{
                         fontSize: 10, padding: "2px 6px", borderRadius: 4,
-                        background: "color-mix(in srgb, var(--color-success, #10b981) 15%, transparent)",
+                        background: "color-mix(in srgb, var(--color-success) 15%, transparent)",
                         color: "var(--text-secondary)",
                       }}
                     >
@@ -552,12 +547,9 @@ export function MitmConfigTab() {
                     </span>
                   );
                 })()}
-                <div
-                  className={`toggle ${e.enabled ? "active" : ""}`}
-                  onClick={() => handleToggleEntry(e.host_pattern, !e.enabled)}
-                  role="switch"
-                  aria-checked={e.enabled}
-                  tabIndex={0}
+                <Switch
+                  checked={e.enabled}
+                  onCheckedChange={(v) => handleToggleEntry(e.host_pattern, v)}
                   style={{ transform: "scale(0.85)" }}
                 />
                 <Button variant="outline"

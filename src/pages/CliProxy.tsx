@@ -414,9 +414,9 @@ export function CliProxy() {
       {msg && (
         <div style={{
           padding: "8px 12px", borderRadius: 8,
-          border: `1px solid ${msg.kind === "ok" ? "var(--success)" : "var(--danger)"}`,
+          border: `1px solid ${msg.kind === "ok" ? "var(--color-success)" : "var(--color-danger)"}`,
           background: "var(--bg-elevated)",
-          color: msg.kind === "ok" ? "var(--success)" : "var(--danger)",
+          color: msg.kind === "ok" ? "var(--color-success)" : "var(--color-danger)",
           fontSize: 13,
         }}>
           {msg.text}
@@ -433,7 +433,7 @@ export function CliProxy() {
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
             {editingId === "new" ? t("cliProxy.add") : t("cliProxy.edit")}
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 }}>
             <label style={fieldLabel}>
               {t("cliProxy.name")}
               <Input
@@ -590,8 +590,8 @@ export function CliProxy() {
               </div>
               <span style={{
                 padding: "2px 8px", borderRadius: 6, fontSize: 11,
-                border: `1px solid ${p.status === "active" ? "var(--success)" : "var(--text-tertiary)"}`,
-                color: p.status === "active" ? "var(--success)" : "var(--text-tertiary)",
+                border: `1px solid ${p.status === "active" ? "var(--color-success)" : "var(--text-tertiary)"}`,
+                color: p.status === "active" ? "var(--color-success)" : "var(--text-tertiary)",
               }}>
                 {p.status === "active" ? t("cliProxy.statusActive") : t("cliProxy.statusDisabled")}
               </span>
@@ -660,7 +660,7 @@ export function CliProxy() {
             <AlertDialogAction
               onClick={handleDelete}
               disabled={busyKey !== null}
-              style={{ background: "var(--danger)" }}
+              style={{ background: "var(--color-danger)" }}
             >
               {t("cliProxy.delete")}
             </AlertDialogAction>
@@ -692,7 +692,7 @@ export function CliProxy() {
             <AlertDialogAction
               onClick={handleBatchDelete}
               disabled={busyKey !== null}
-              style={{ background: "var(--danger)" }}
+              style={{ background: "var(--color-danger)" }}
             >
               {t("cliProxy.batchDelete")}
             </AlertDialogAction>

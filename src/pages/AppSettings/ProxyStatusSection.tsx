@@ -3,6 +3,7 @@ import type { SystemSettings } from "./useSystemSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * Proxy Status section（原 L258-314）。
@@ -95,13 +96,7 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
             {t("proxy.upstreamProxyDesc")}
           </div>
         </div>
-        <div
-          className={`toggle ${proxyClient.enabled ? "active" : ""}`}
-          onClick={() => handleProxyClientChange({ enabled: !proxyClient.enabled })}
-          role="switch"
-          aria-checked={proxyClient.enabled}
-          tabIndex={0}
-        />
+        <Switch checked={proxyClient.enabled} onCheckedChange={(c) => handleProxyClientChange({ enabled: c })} />
       </div>
 
       {proxyClient.enabled && (
@@ -177,13 +172,7 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
                   {t("proxy.dnsOverProxyDesc", "SOCKS5h: DNS 解析也走代理解析")}
                 </div>
               </div>
-              <div
-                className={`toggle ${proxyClient.dns_over_proxy ? "active" : ""}`}
-                onClick={() => handleProxyClientChange({ dns_over_proxy: !proxyClient.dns_over_proxy })}
-                role="switch"
-                aria-checked={proxyClient.dns_over_proxy}
-                tabIndex={0}
-              />
+              <Switch checked={proxyClient.dns_over_proxy} onCheckedChange={(c) => handleProxyClientChange({ dns_over_proxy: c })} />
             </div>
           )}
         </div>

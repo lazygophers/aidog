@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { IconClose, IconCheck } from "../../icons";
 import { F, S } from "./tokens";
 import { SectionIcon } from "./icons";
-import { Section, FieldRow, JsonEditor } from "./_shared";
+import { Section, FieldRow, JsonEditor, Toggle } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -159,8 +159,8 @@ function PermissionsEditor({ perms, updateField, t }: {
                 fontSize: F.small, fontWeight: active ? 600 : 400,
                 padding: "3px 12px", borderRadius: "var(--radius-sm)",
                 border: "none", cursor: "pointer",
-                color: active ? "#fff" : "var(--text-secondary)",
-                background: active ? "var(--accent)" : "transparent",
+                color: active ? "var(--primary-foreground)" : "var(--text-secondary)",
+                background: active ? "var(--primary)" : "transparent",
                 transition: "all 120ms ease",
               }}
             >
@@ -215,16 +215,16 @@ function PermissionsEditor({ perms, updateField, t }: {
       {/* ── Safety Toggles ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <FieldRow label={t("settings.perm.disableBypass", "禁用绕过模式")} icon={<SectionIcon name="bolt" size={14} />}>
-          <div
-            className={`toggle${perms.disableBypassPermissionsMode ? " active" : ""}`}
-            onClick={() => updatePermKey("disableBypassPermissionsMode", perms.disableBypassPermissionsMode ? undefined : "disable")}
+          <Toggle
+            active={!!perms.disableBypassPermissionsMode}
+            onChange={(v) => updatePermKey("disableBypassPermissionsMode", v ? "disable" : undefined)}
           />
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableBypassPermissionsMode</span>
         </FieldRow>
         <FieldRow label={t("settings.perm.disableAuto", "禁用自动模式")} icon={<SectionIcon name="bolt" size={14} />}>
-          <div
-            className={`toggle${perms.disableAutoMode ? " active" : ""}`}
-            onClick={() => updatePermKey("disableAutoMode", perms.disableAutoMode ? undefined : "disable")}
+          <Toggle
+            active={!!perms.disableAutoMode}
+            onChange={(v) => updatePermKey("disableAutoMode", v ? "disable" : undefined)}
           />
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableAutoMode</span>
         </FieldRow>
@@ -239,7 +239,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             <Button variant="outline" key={g.tool} type="button"
               style={{
                 padding: "6px 12px", fontSize: F.small, fontWeight: active ? 600 : 400,
-                color: active ? "var(--accent)" : "var(--text-secondary)",
+                color: active ? "var(--primary)" : "var(--text-secondary)",
                 background: "transparent", border: "none", borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
                 transition: "all 150ms ease",
@@ -250,8 +250,8 @@ function PermissionsEditor({ perms, updateField, t }: {
               {count > 0 && (
                 <span style={{
                   fontSize: 10, padding: "1px 5px", borderRadius: 8,
-                  background: active ? "var(--accent)" : "var(--bg-glass)",
-                  color: active ? "#fff" : "var(--text-tertiary)", fontWeight: 600,
+                  background: active ? "var(--primary)" : "var(--bg-glass)",
+                  color: active ? "var(--primary-foreground)" : "var(--text-tertiary)", fontWeight: 600,
                 }}>{count}</span>
               )}
             </Button>
@@ -330,7 +330,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             style={{
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
               width: 24, height: 24, minWidth: 24, padding: 0,
-              color: showTemplates ? "var(--accent)" : "var(--text-tertiary)",
+              color: showTemplates ? "var(--primary)" : "var(--text-tertiary)",
             }}
             onClick={() => setShowTemplates(!showTemplates)}
             title={t("settings.perm.ruleTemplates", "规则模板")}

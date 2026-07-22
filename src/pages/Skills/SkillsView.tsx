@@ -35,7 +35,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
             </span>
           )}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}

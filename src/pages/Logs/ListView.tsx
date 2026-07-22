@@ -68,7 +68,7 @@ export function ListView({ d }: { d: LogsData }) {
       </div>
 
       {/* ── Filter bar ── */}
-      <div className="glass-surface" style={{ padding: "12px 16", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+      <div className="glass-surface" style={{ padding: "12px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         {/* Platform */}
         <FilterDropdown
           width={140}
@@ -234,7 +234,7 @@ export function ListView({ d }: { d: LogsData }) {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleClear}
-              style={{ padding: "6px 14px", fontSize: 12, background: "var(--color-error, #ef4444)" }}
+              style={{ padding: "6px 14px", fontSize: 12, background: "var(--color-danger)" }}
             >
               {t("logs.clear", "清除全部")}
             </AlertDialogAction>

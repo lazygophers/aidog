@@ -11,20 +11,24 @@ import { SectionIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
-/** Toggle switch */
+/** Toggle switch — shadcn Switch under the hood, legacy `active`/`onChange` props kept for callers */
 export function Toggle({
   active,
   onChange,
+  disabled,
 }: {
   active: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
-    <div
-      className={`toggle ${active ? "active" : ""}`}
-      style={{ cursor: "pointer", flexShrink: 0 }}
-      onClick={() => onChange(!active)}
+    <Switch
+      checked={active}
+      onCheckedChange={onChange}
+      disabled={disabled}
+      className="shrink-0"
     />
   );
 }
@@ -96,7 +100,7 @@ export function Highlighted({ text, query }: { text: string; query?: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark style={{ background: "var(--accent)", color: "#fff", borderRadius: 3, padding: "0 2px" }}>
+      <mark style={{ background: "var(--primary)", color: "var(--primary-foreground)", borderRadius: 3, padding: "0 2px" }}>
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}
