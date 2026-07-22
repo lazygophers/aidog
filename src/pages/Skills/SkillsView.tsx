@@ -4,6 +4,11 @@ import { formatDateTime, formatRelativeTime } from "../../utils/formatters";
 import { AGENTS, AGENT_ICONS } from "./constants";
 import { skillCatalogId } from "./share";
 import type { SkillsData } from "./useSkillsData";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
  * 主列表视图（自原 Skills.tsx L545-969 外迁）。
@@ -31,57 +36,56 @@ export function SkillsView({ s }: { s: SkillsData }) {
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-primary"
+          <Button
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}
             onClick={() => setSubView("install")}
             title={t("skills.install.addBtn", "添加 Skills")}
           >
             {t("skills.install.addBtn", "+ 添加")}
-          </button>
-          <button
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="outline"
             style={{ fontSize: 12 }}
             disabled={busyKey !== null}
             onClick={() => { setPasteText(""); setMessage(null); setPasteOpen(true); }}
             title={t("skills.importFromShare", "从分享导入")}
           >
             {t("skills.importFromShare", "从分享导入")}
-          </button>
-          <button
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="outline"
             style={{ fontSize: 12 }}
             disabled={scopeInvalid || busyKey !== null || refreshing}
             onClick={refreshInstalled}
             title={t("skills.refresh", "刷新")}
           >
             {refreshing ? t("skills.refreshing", "刷新中…") : t("skills.refresh", "刷新")}
-          </button>
-          <button
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="outline"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}
             onClick={handleUpdate}
           >
             {busyKey === "__update__" ? t("skills.updating", "更新中…") : t("skills.updateAll", "更新全部")}
-          </button>
-          <button
-            className="btn btn-danger"
+          </Button>
+          <Button
+            variant="destructive"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
             onClick={() => setConfirmUninstall(true)}
           >
             {busyKey === "__uninstall__" ? t("skills.uninstalling", "卸载中…") : t("skills.uninstallAll", "卸载全部")}
-          </button>
-          <button
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="outline"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
             onClick={() => setAlignOpen(true)}
           >
             {busyKey === "__align__" ? t("skills.aligning", "对齐中…") : t("skills.alignTitle", "对齐配置")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -130,29 +134,29 @@ export function SkillsView({ s }: { s: SkillsData }) {
             }}
           >
             <span style={{ flex: 1 }}>{message}</span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => setMessage(null)}
               aria-label={t("action.dismiss", "关闭")}
               style={{
                 background: "transparent",
-                border: "none",
                 color: "var(--text-secondary)",
-                cursor: "pointer",
                 fontSize: 14,
                 padding: 0,
                 lineHeight: 1,
+                height: "auto",
               }}
             >
               ✕
-            </button>
+            </Button>
           </div>
         </div>,
         document.body,
       )}
 
       {/* 统计 + scope 筛选 (合并单卡: 左统计 右筛选右对齐) */}
-      <div
+      <Card
         className="glass-elevated"
         style={{
           padding: "20px 24px",
@@ -183,15 +187,15 @@ export function SkillsView({ s }: { s: SkillsData }) {
                     {t(`skills.agent.${a}`, a)}
                   </span>
                 </div>
-                <button
-                  className="btn btn-ghost"
+                <Button
+                  variant="outline"
                   style={{ fontSize: 11, padding: "3px 8px" }}
                   disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0 || agentCounts[a] === installed.length}
                   onClick={() => handleEnableAll(a)}
                   title={t("skills.enableAll", "全部启用")}
                 >
                   {busyKey === `__enableall_${a}__` ? t("skills.enabling", "启用中…") : t("skills.enableAll", "全部启用")}
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -199,39 +203,37 @@ export function SkillsView({ s }: { s: SkillsData }) {
 
         {/* 右: scope 筛选 (右对齐) */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <span className="text-secondary">{t("skills.scope", "范围")}</span>
-            <select
-              className="input"
-              style={{ width: "auto" }}
-              value={scopeKind}
-              onChange={(e) => setScopeKind(e.target.value as "global" | "project")}
-            >
-              <option value="global">{t("skills.scopeGlobal", "用户级（全局）")}</option>
-              <option value="project">{t("skills.scopeProject", "项目级")}</option>
-            </select>
-          </label>
+            <Select value={scopeKind} onValueChange={(v) => setScopeKind(v as "global" | "project")}>
+              <SelectTrigger style={{ width: "auto", fontSize: 13 }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="global">{t("skills.scopeGlobal", "用户级（全局）")}</SelectItem>
+                <SelectItem value="project">{t("skills.scopeProject", "项目级")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           {scopeKind === "project" && (
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                className="input"
+              <Input
                 style={{ flex: 1 }}
                 placeholder={t("skills.projectPathPlaceholder", "项目目录绝对路径")}
                 value={projectPath}
                 onChange={(e) => setProjectPath(e.target.value)}
               />
-              <button className="btn" style={{ fontSize: 12 }} onClick={pickProjectDir}>
+              <Button variant="outline" style={{ fontSize: 12 }} onClick={pickProjectDir}>
                 {t("skills.browse", "浏览…")}
-              </button>
+              </Button>
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* 搜索框（仅有已装 skills 时显示，照 Platforms/Groups 搜索框样式） */}
       {!installedLoading && installed.length > 0 && (
-        <input
-          className="input"
+        <Input
           placeholder={t("skills.searchPlaceholder", "搜索 skills...")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -254,22 +256,22 @@ export function SkillsView({ s }: { s: SkillsData }) {
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {filteredInstalled.map((skill) => (
-              <div
+              <Card
                 key={skill.name}
                 className="glass-surface"
                 style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <button
+                    <Button
                       type="button"
-                      className="btn btn-ghost"
+                      variant="ghost"
                       title={t("skills.detail.view", "查看详情")}
-                      style={{ fontSize: 13, fontWeight: 600, padding: 0, cursor: "pointer" }}
+                      style={{ fontSize: 13, fontWeight: 600, padding: 0, height: "auto" }}
                       onClick={() => setDetailTarget(skill)}
                     >
                       {skill.name}
-                    </button>
+                    </Button>
                     {/* 锁文件元数据标签：source / sourceType / plugin / updatedAt 相对时间 */}
                     {skill.source && (
                       <a
@@ -297,36 +299,34 @@ export function SkillsView({ s }: { s: SkillsData }) {
                       </a>
                     )}
                     {skill.source_type && (
-                      <span
+                      <Badge
+                        variant="outline"
                         title={t("skills.sourceType", "来源类型")}
                         style={{
                           fontSize: 10,
                           padding: "2px 6px",
-                          borderRadius: 4,
                           background: "var(--bg-floating)",
                           color: "var(--text-secondary)",
-                          border: "1px solid var(--border)",
                           textTransform: "uppercase",
                           letterSpacing: 0.3,
                         }}
                       >
                         {skill.source_type}
-                      </span>
+                      </Badge>
                     )}
                     {skill.plugin_name && (
-                      <span
+                      <Badge
+                        variant="outline"
                         title={t("skills.pluginName", "plugin 来源")}
                         style={{
                           fontSize: 10,
                           padding: "2px 6px",
-                          borderRadius: 4,
                           background: "var(--bg-floating)",
                           color: "var(--text-secondary)",
-                          border: "1px solid var(--border)",
                         }}
                       >
                         plugin: {skill.plugin_name}
-                      </span>
+                      </Badge>
                     )}
                     {skill.updated_at && (
                       <span
@@ -369,10 +369,10 @@ export function SkillsView({ s }: { s: SkillsData }) {
                       ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
                       : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
                     return (
-                      <button
+                      <Button
                         key={a}
                         type="button"
-                        className="glass"
+                        variant={enabled ? "default" : "outline"}
                         title={aria}
                         aria-label={aria}
                         aria-pressed={enabled}
@@ -383,10 +383,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
                           alignItems: "center",
                           gap: 6,
                           padding: "5px 10px",
-                          cursor: writeReady && busyKey === null ? "pointer" : "default",
-                          borderRadius: 10,
-                          border: enabled ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-                          background: enabled ? "var(--accent-subtle)" : "transparent",
+                          height: "auto",
                           opacity: enabled ? 1 : 0.45,
                           transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
                         }}
@@ -399,24 +396,24 @@ export function SkillsView({ s }: { s: SkillsData }) {
                         <span style={{ fontSize: 11, fontWeight: 600 }}>
                           {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
                         </span>
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
                 {/* 分享（仅 catalog 来源可分享：source 缺失的手动 symlink skill 隐藏按钮） */}
                 {skillCatalogId(skill) && (
-                  <button
-                    className="btn btn-ghost"
+                  <Button
+                    variant="outline"
                     style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
                     onClick={() => handleShare(skill)}
                     title={t("skills.share", "分享")}
                   >
                     {t("skills.share", "分享")}
-                  </button>
+                  </Button>
                 )}
                 {/* 单条卸载（破坏性，二次确认） */}
-                <button
-                  className="btn btn-danger"
+                <Button
+                  variant="destructive"
                   style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
                   disabled={!writeReady || busyKey !== null}
                   onClick={() => setUninstallTarget(skill)}
@@ -425,8 +422,8 @@ export function SkillsView({ s }: { s: SkillsData }) {
                   {busyKey === `__uninstall_single_${skill.name}__`
                     ? t("skills.uninstalling", "卸载中…")
                     : t("skills.uninstall", "卸载")}
-                </button>
-              </div>
+                </Button>
+              </Card>
             ))}
           </div>
         )}

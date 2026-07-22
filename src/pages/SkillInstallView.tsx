@@ -15,6 +15,9 @@ import {
 } from "../services/api";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
 
 const AGENTS: SkillAgent[] = ["claude", "codex"];
 const AGENT_ICONS: Record<SkillAgent, string> = { claude: claudeIcon, codex: codexIcon };
@@ -143,15 +146,15 @@ export function SkillInstallView({
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button
-            className="btn btn-ghost"
+          <Button
+            variant="ghost"
             style={{ fontSize: 12 }}
             onClick={onBack}
             disabled={busyId !== null}
             title={t("skills.install.back", { defaultValue: "返回" })}
           >
             {t("skills.install.back", { defaultValue: "← 返回" })}
-          </button>
+          </Button>
           <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
             {t("skills.install.title", { defaultValue: "添加 Skills" })}
           </h2>
@@ -164,8 +167,7 @@ export function SkillInstallView({
       </div>
 
       {/* 搜索框 */}
-      <input
-        className="input"
+      <Input
         style={{ width: "100%" }}
         value={keyword}
         onChange={(e) => setKeyword(e.target.value)}
@@ -234,15 +236,10 @@ export function SkillInstallView({
             const disabled =
               installing || otherBusy || !writeReady || already || noAgent;
             return (
-              <div
+              <Card
                 key={entry.id}
                 className="glass-elevated"
-                style={{
-                  padding: "12px 16px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 8,
-                }}
+                style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                   <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
@@ -288,8 +285,7 @@ export function SkillInstallView({
                       </a>
                     )}
                   </div>
-                  <button
-                    className="btn btn-primary"
+                  <Button
                     style={{ fontSize: 12, flexShrink: 0 }}
                     disabled={disabled}
                     onClick={() => handleInstall(entry)}
@@ -306,7 +302,7 @@ export function SkillInstallView({
                       : already
                         ? t("skills.install.installed", { defaultValue: "已装" })
                         : t("skills.install.install", { defaultValue: "安装" })}
-                  </button>
+                  </Button>
                 </div>
                 {/* agent 选择 */}
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -316,16 +312,15 @@ export function SkillInstallView({
                   {AGENTS.map((a) => {
                     const on = agents.has(a);
                     return (
-                      <button
+                      <Button
                         key={a}
-                        className="btn btn-ghost"
+                        variant={on ? "default" : "outline"}
                         style={{
                           padding: "4px 8px",
                           display: "flex",
                           alignItems: "center",
                           gap: 4,
                           opacity: on ? 1 : 0.4,
-                          border: on ? "1px solid var(--accent, #5b8def)" : "1px solid transparent",
                           fontSize: 11,
                         }}
                         onClick={() => toggleAgent(entry.id, a)}
@@ -337,11 +332,11 @@ export function SkillInstallView({
                           style={{ width: 16, height: 16, filter: on ? "none" : "grayscale(1)" }}
                         />
                         {t(`skills.agent.${a}`, a)}
-                      </button>
+                      </Button>
                     );
                   })}
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
