@@ -3,9 +3,10 @@
 // 从 Stats 本地 SearchableFilter 提炼而来，保留 glass-elevated + zIndex 1000 + search。
 // 数据源由各调用方传入（Stats: 有数据平台派生；Logs: 全平台 / 全分组 / 全模型）。
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 
 export interface FilterDropdownProps {
   width: number;
@@ -22,16 +23,6 @@ export interface FilterDropdownProps {
 export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceholder, options, emptyLabel }: FilterDropdownProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onDoc = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDoc);
-    return () => document.removeEventListener("mousedown", onDoc);
-  }, [open]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -42,58 +33,45 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
   const current = options.find(o => o.value === value);
 
   return (
-    <div ref={ref} style={{ position: "relative", width }}>
-      <Button
-        variant="outline"
-        // ponytail: lineHeight/height 显式锁, 防 .input transition:all + 继承链抖动致 trigger 文字错位
-        style={{ fontSize: 14, lineHeight: 1.5, height: 36, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "flex-start" }}
-        onClick={() => setOpen(o => !o)}
-      >
-        {current ? current.label : allLabel}
-      </Button>
-      {open && (
-        <div
-          className="glass-elevated"
-          style={{
-            position: "absolute",
-            top: "calc(100% + 4px)",
-            left: 0,
-            width: Math.max(width, 320),
-            // ponytail: zIndex 提到 1000, Stats 下方 OverviewCard/图表 canvas 建立层叠上下文会盖住 zIndex:20 的浮层, 致选项视觉上叠在图表文字上
-            zIndex: 1000,
-            borderRadius: "var(--radius-sm)",
-            padding: 8,
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            maxHeight: 320,
-          }}
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (!o) setSearch(""); }}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          // ponytail: lineHeight/height 显式锁, 防 .input transition:all + 继承链抖动致 trigger 文字错位
+          style={{ fontSize: 14, lineHeight: 1.5, height: 36, width, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "flex-start" }}
         >
-          <Input
-            autoFocus
-            style={{ fontSize: 14 }}
-            placeholder={searchPlaceholder}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          <div style={{ overflowY: "auto", maxHeight: 250, display: "flex", flexDirection: "column", gap: 2 }}>
-            <FilterOption label={allLabel} active={value === ""} onClick={() => { onChange(""); setOpen(false); setSearch(""); }} />
-            {filtered.length === 0 ? (
-              <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "6px 8px" }}>{emptyLabel}</div>
-            ) : (
-              filtered.map(o => (
-                <FilterOption
-                  key={o.value}
-                  label={o.label}
-                  active={value === o.value}
-                  onClick={() => { onChange(o.value); setOpen(false); setSearch(""); }}
-                />
-              ))
-            )}
-          </div>
+          {current ? current.label : allLabel}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        align="start"
+        // Popover 走 Radix Portal → 脱离 Stats canvas 层叠上下文, 无需自研 zIndex:1000
+        style={{ width: Math.max(width, 320), padding: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320 }}
+      >
+        <Input
+          autoFocus
+          style={{ fontSize: 14 }}
+          placeholder={searchPlaceholder}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+        <div style={{ overflowY: "auto", maxHeight: 250, display: "flex", flexDirection: "column", gap: 2 }}>
+          <FilterOption label={allLabel} active={value === ""} onClick={() => { onChange(""); setOpen(false); setSearch(""); }} />
+          {filtered.length === 0 ? (
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "6px 8px" }}>{emptyLabel}</div>
+          ) : (
+            filtered.map(o => (
+              <FilterOption
+                key={o.value}
+                label={o.label}
+                active={value === o.value}
+                onClick={() => { onChange(o.value); setOpen(false); setSearch(""); }}
+              />
+            ))
+          )}
         </div>
-      )}
-    </div>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -109,7 +87,7 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         textAlign: "left",
         justifyContent: "flex-start",
         background: active ? "var(--bg-glass)" : "transparent",
-        color: active ? "var(--accent)" : "var(--text-primary)",
+        color: active ? "var(--primary)" : "var(--text-primary)",
         fontWeight: active ? 600 : 400,
         padding: "20px 14px",
         borderRadius: "var(--radius-sm)",

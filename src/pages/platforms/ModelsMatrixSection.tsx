@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 // 单元格 key：默认列 = `d:<slot>`；时段档列 = `r<idx>:<slot>`。整矩阵单开（activeCell 唯一）。
 type CellKey = string;
@@ -179,86 +180,74 @@ export function ModelsMatrixSection({
       : [];
     const open = activeCell === cellKey && filtered.length > 0;
     return (
-      <div style={{ position: "relative", width: "100%" }}>
-        <Input
-          className="input"
-          style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
-          placeholder={t("platform.models_placeholder", "模型名")}
-          value={value}
-          onChange={(e) => {
-            onChange(e.target.value);
-            if (hasDropdown) setActiveCell(cellKey);
-          }}
-          onFocus={() => {
-            if (hasDropdown) setActiveCell(cellKey);
-          }}
-        />
-        {hasDropdown && (
-          <Button
-            variant="ghost"
-            size="icon"
-            style={{
-              position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-              width: 22, height: 22, minWidth: 22, padding: 0,
-              color: "var(--text-tertiary)", cursor: "pointer",
-            }}
-            onMouseDown={(e) => {
-              e.preventDefault();
-              setActiveCell(activeCell === cellKey ? null : cellKey);
-            }}
-            title={t("platform.selectModel")}
-          >
-            ▾
-          </Button>
-        )}
-        {open && (
-          <>
-            <div
-              style={{ position: "fixed", inset: 0, zIndex: 99 }}
-              onMouseDown={() => setActiveCell(null)}
+      <Popover open={open} onOpenChange={(o) => { if (!o) setActiveCell(null); }}>
+        <PopoverAnchor asChild>
+          <div style={{ position: "relative", width: "100%" }}>
+            <Input
+              className="input"
+              style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
+              placeholder={t("platform.models_placeholder", "模型名")}
+              value={value}
+              onChange={(e) => {
+                onChange(e.target.value);
+                if (hasDropdown) setActiveCell(cellKey);
+              }}
+              onFocus={() => {
+                if (hasDropdown) setActiveCell(cellKey);
+              }}
             />
-            <div
-              className="glass-elevated"
+            {hasDropdown && (
+              <Button
+                variant="ghost"
+                size="icon"
+                style={{
+                  position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
+                  width: 22, height: 22, minWidth: 22, padding: 0,
+                  color: "var(--text-tertiary)", cursor: "pointer",
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  setActiveCell(activeCell === cellKey ? null : cellKey);
+                }}
+                title={t("platform.selectModel")}
+              >
+                ▾
+              </Button>
+            )}
+          </div>
+        </PopoverAnchor>
+        <PopoverContent
+          align="start"
+          className="glass-elevated"
+          style={{ width: "var(--radix-popover-trigger-width)", maxHeight: 200, overflowY: "auto", padding: 4 }}
+          // 焦点留在单元格 input 内以继续输入过滤（下拉在 portal，不抢焦点）。
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {filtered.map((m) => (
+            <Button
+              key={m}
+              variant="ghost"
               style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                right: 0,
-                marginTop: 4,
-                maxHeight: 200,
-                overflowY: "auto",
-                zIndex: 100,
-                padding: 4,
-                animation: "fadeIn 150ms ease both",
+                width: "100%",
+                justifyContent: "flex-start",
+                padding: "8px 12px",
+                fontSize: 13,
+                fontWeight: value === m ? 600 : 400,
+                color: value === m ? "var(--primary)" : "var(--text-primary)",
+                background: value === m ? "var(--accent-subtle)" : "transparent",
+                borderRadius: "var(--radius-sm)",
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(m);
+                setActiveCell(null);
               }}
             >
-              {filtered.map((m) => (
-                <Button
-                  key={m}
-                  variant="ghost"
-                  style={{
-                    width: "100%",
-                    justifyContent: "flex-start",
-                    padding: "8px 12px",
-                    fontSize: 13,
-                    fontWeight: value === m ? 600 : 400,
-                    color: value === m ? "var(--accent)" : "var(--text-primary)",
-                    background: value === m ? "var(--accent-subtle)" : "transparent",
-                    borderRadius: "var(--radius-sm)",
-                  }}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    onSelect(m);
-                    setActiveCell(null);
-                  }}
-                >
-                  {m}
-                </Button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+              {m}
+            </Button>
+          ))}
+        </PopoverContent>
+      </Popover>
     );
   };
 
@@ -315,7 +304,7 @@ export function ModelsMatrixSection({
       )}
     >
       {fetchError && (
-        <div style={{ fontSize: 12, color: "var(--danger, #e55)", padding: "2px 0" }}>
+        <div style={{ fontSize: 12, color: "var(--color-danger)", padding: "2px 0" }}>
           {fetchError}
         </div>
       )}

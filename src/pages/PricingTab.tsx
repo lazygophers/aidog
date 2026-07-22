@@ -23,6 +23,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 // radix Select 的 SelectItem value="" 会抛错 → 用 __none__ 哨兵映射回空值（= 不筛选）
 const NONE = "__none__";
@@ -176,12 +185,9 @@ export function PricingTab() {
         {/* Sync settings row */}
         <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              className={`toggle ${syncSettings.auto_sync_enabled ? "active" : ""}`}
-              onClick={() => updateSettings({ auto_sync_enabled: !syncSettings.auto_sync_enabled })}
-              role="switch"
-              aria-checked={syncSettings.auto_sync_enabled}
-              tabIndex={0}
+            <Switch
+              checked={syncSettings.auto_sync_enabled}
+              onCheckedChange={(v) => updateSettings({ auto_sync_enabled: v })}
             />
             <span style={{ fontSize: F.small, fontWeight: 600 }}>{t("pricing.autoSync", "自动同步")}</span>
           </div>
@@ -276,9 +282,9 @@ export function PricingTab() {
       ) : (
         <>
           <div className="glass-surface" style={{ overflow: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+            <Table style={{ fontSize: F.hint }}>
+              <TableHeader>
+                <TableRow>
                   <ThCell>{t("pricing.model", "模型")}</ThCell>
                   <ThCell>{t("pricing.source", "来源")}</ThCell>
                   <ThCell>{t("pricing.defaultPlatform", "默认平台")}</ThCell>
@@ -287,18 +293,18 @@ export function PricingTab() {
                   <ThCell>{t("pricing.cacheReadPrice", "缓存读取 $/M")}</ThCell>
                   <ThCell>{t("pricing.contextWindow", "上下文")}</ThCell>
                   <ThCell>{t("pricing.maxOutput", "最大输出")}</ThCell>
-                </tr>
-              </thead>
-              <tbody>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {prices.map((p) => (
-                  <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                  <TableRow key={p.id}>
                     <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{p.model_name}</span></TdCell>
                     <TdCell>
                       <Badge variant="secondary" style={{
                         fontSize: 10,
                         padding: "1px 6px",
                         background: p.source === "manual" ? "var(--accent-subtle)" : "var(--bg-secondary)",
-                        color: p.source === "manual" ? "var(--accent)" : "var(--text-secondary)",
+                        color: p.source === "manual" ? "var(--primary)" : "var(--text-secondary)",
                         border: "none",
                       }}>
                         {p.source}
@@ -310,10 +316,10 @@ export function PricingTab() {
                     <TdCell>{formatPrice(p.cache_read_price)}</TdCell>
                     <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.context_window)}</span></TdCell>
                     <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.max_output_tokens)}</span></TdCell>
-                  </tr>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
 
           {/* Pagination */}
@@ -439,19 +445,19 @@ function Pagination({
 
 function ThCell({ children }: { children: React.ReactNode }) {
   return (
-    <th style={{
-      padding: "8px 12px", textAlign: "left", fontWeight: 600,
-      color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: 12,
+    <TableHead style={{
+      padding: "8px 12px", fontWeight: 600,
+      color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: 12, height: "auto",
     }}>
       {children}
-    </th>
+    </TableHead>
   );
 }
 
 function TdCell({ children }: { children: React.ReactNode }) {
   return (
-    <td style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
+    <TableCell style={{ padding: "8px 12px", whiteSpace: "nowrap" }}>
       {children}
-    </td>
+    </TableCell>
   );
 }

@@ -56,15 +56,13 @@ export function SettingsHeader({
       }}
     >
       {/* Mode switch */}
-      <Button variant="outline"
-        className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
+      <Button variant={mode === "gui" ? "default" : "ghost"}
         style={{ fontSize: F.body, padding: S.btnPad }}
         onClick={() => onModeChange("gui")}
       >
         {t("settings.guiMode")}
       </Button>
-      <Button variant="outline"
-        className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
+      <Button variant={mode === "json" ? "default" : "ghost"}
         style={{ fontSize: F.body, padding: S.btnPad }}
         onClick={() => onModeChange("json")}
       >
@@ -145,8 +143,7 @@ export function SettingsHeader({
         </span>
       )}
 
-      <Button variant="outline"
-        className={`btn ${dirty ? "btn-primary" : "btn-ghost"}`}
+      <Button variant={dirty ? "default" : "ghost"}
         style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
         onClick={onSave}
         disabled={saving || !dirty}

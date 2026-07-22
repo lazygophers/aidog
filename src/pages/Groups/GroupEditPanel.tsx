@@ -68,7 +68,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         {/* Name */}
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
-          <Input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+          <Input style={{ fontSize: F.body, padding: S.inputPad }}
             value={editName} onChange={e => dispatchEdit({ type: "patch", patch: { name: e.target.value } })} />
         </div>
 
@@ -76,7 +76,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "密钥")}</span>
           <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
-            <Input className="input" style={{ fontSize: F.body, padding: S.inputPad, opacity: 0.7 }}
+            <Input style={{ fontSize: F.body, padding: S.inputPad, opacity: 0.7 }}
               value={editTarget!.group.group_key} disabled
               title={t("group.groupKeyLocked", "分组密钥创建后锁定，不可修改")} />
             <CopyButton text={editTarget!.group.group_key} title={t("group.copyApiKeyTitle", "复制 API Key")} size={14} />
@@ -88,7 +88,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)", paddingTop: 6 }}>{t("group.routingMode", "路由模式")}</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
             <Select value={editMode} onValueChange={(v) => dispatchEdit({ type: "patch", patch: { mode: v as RoutingMode } })}>
-              <SelectTrigger className="input" style={{ fontSize: F.body, padding: S.inputPad }}>
+              <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad }}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -105,10 +105,10 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.timeout", "超时")}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Input className="input" type="number" min={0} placeholder={t("group.reqTimeout", "请求(s)")}
+            <Input type="number" min={0} placeholder={t("group.reqTimeout", "请求(s)")}
               value={editReqTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { reqTimeout: Math.max(0, Number(e.target.value)) } })}
               style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
-            <Input className="input" type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
+            <Input type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
               value={editConnTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { connTimeout: Math.max(0, Number(e.target.value)) } })}
               style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
             <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.timeoutDefault", "0 = 系统默认（秒）")}</span>
@@ -119,7 +119,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.maxRetries", "最大重试")}</span>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Input className="input" type="number" min={0} max={10}
+            <Input type="number" min={0} max={10}
               value={editMaxRetries}
               onChange={e => dispatchEdit({ type: "patch", patch: { maxRetries: Math.max(0, Number(e.target.value)) } })}
               style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
@@ -168,7 +168,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                 padding: "8px 12px", borderRadius: "var(--radius-sm)",
                 background: "var(--bg-glass)", border: "1px solid var(--border)",
               }}>
-                <Input className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}
+                <Input style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}
                   placeholder={t("mapping.source", "源模型")}
                   value={m.source_model}
                   onChange={e => {
@@ -187,7 +187,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                     ms[i] = { ...ms[i], target_platform_id: v === "__none__" ? 0 : Number(v), target_model: "" };
                     dispatchEdit({ type: "patch", patch: { mappings: ms } });
                   }}>
-                  <SelectTrigger className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}>
+                  <SelectTrigger style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}>
                     <SelectValue placeholder={t("mapping.targetPlatform", "目标平台")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -203,7 +203,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                       ms[i] = { ...ms[i], target_model: v === "__none__" ? "" : v };
                       dispatchEdit({ type: "patch", patch: { mappings: ms } });
                     }}>
-                    <SelectTrigger className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}>
+                    <SelectTrigger style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}>
                       <SelectValue placeholder={t("mapping.target", "目标模型")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -212,7 +212,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+                  <Input style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
                     placeholder={t("mapping.target", "目标模型")}
                     value={m.target_model}
                     onChange={e => {
@@ -249,9 +249,9 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
               <div key={i} style={{
                 display: "flex", gap: 8, alignItems: "center",
                 padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                background: "var(--bg-glass)", border: `1px solid ${reserved ? "var(--warning, #d97706)" : "var(--border)"}`,
+                background: "var(--bg-glass)", border: `1px solid ${reserved ? "var(--color-warning)" : "var(--border)"}`,
               }}>
-                <Input className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 200, flexShrink: 0, fontFamily: "var(--font-mono, monospace)" }}
+                <Input style={{ fontSize: F.hint, padding: "6px 10px", width: 200, flexShrink: 0, fontFamily: "var(--font-mono, monospace)" }}
                   placeholder={t("group.envVarKey", "变量名 (如 ANTHROPIC_DEFAULT_OPUS_MODEL)")}
                   value={ev.key}
                   onChange={e => {
@@ -259,7 +259,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                     next[i] = { ...next[i], key: e.target.value };
                     dispatchEdit({ type: "patch", patch: { envVars: next } });
                   }} />
-                <Input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1, fontFamily: "var(--font-mono, monospace)" }}
+                <Input style={{ fontSize: F.hint, padding: "6px 10px", flex: 1, fontFamily: "var(--font-mono, monospace)" }}
                   placeholder={t("group.envVarValue", "变量值")}
                   value={ev.value}
                   onChange={e => {
@@ -274,7 +274,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
             );
           })}
           {editEnvVars.some(ev => ev.key === "ANTHROPIC_BASE_URL" || ev.key === "ANTHROPIC_AUTH_TOKEN" || ev.key === "AIDOG_KEY") && (
-            <div style={{ fontSize: F.small, color: "var(--warning, #d97706)", lineHeight: 1.4 }}>
+            <div style={{ fontSize: F.small, color: "var(--color-warning)", lineHeight: 1.4 }}>
               {t("group.envVarReservedHint", "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY 为 aidog 路由字段，保存时将被丢弃。")}
             </div>
           )}

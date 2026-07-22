@@ -147,15 +147,13 @@ export function CodexSettings() {
           {t("codex.title", "Codex 配置")}
         </div>
 
-        <Button variant="outline"
-          className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
+        <Button variant={mode === "gui" ? "default" : "outline"}
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => setMode("gui")}
         >
           {t("settings.guiMode", "图形")}
         </Button>
-        <Button variant="outline"
-          className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
+        <Button variant={mode === "json" ? "default" : "outline"}
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => {
             setEditJson(JSON.stringify(config, null, 2));
@@ -168,7 +166,6 @@ export function CodexSettings() {
         <div style={{ flex: 1 }} />
 
         <Button variant="ghost"
-          
           style={{ fontSize: F.hint, padding: "6px 14px" }}
           onClick={handleLoadRecommended}
         >
@@ -200,8 +197,7 @@ export function CodexSettings() {
           </span>
         )}
 
-        <Button variant="outline"
-          className={`btn ${dirty ? "btn-primary" : "btn-ghost"}`}
+        <Button variant={dirty ? "default" : "outline"}
           style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
           onClick={handleSave}
           disabled={saving || !dirty}
@@ -216,7 +212,6 @@ export function CodexSettings() {
           style={{ flex: 1, display: "flex", flexDirection: "column", padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 12 }}
         >
           <Textarea
-            
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',
               fontSize: F.body,

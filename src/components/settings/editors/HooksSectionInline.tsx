@@ -178,7 +178,7 @@ export function HooksSectionInline(props: {
                               fontSize: 13, padding: "4px 12px", borderRadius: 16,
                               fontWeight: selected ? 600 : 400,
                               background: selected ? "var(--accent-subtle)" : "transparent",
-                              color: selected ? "var(--accent)" : "var(--text-secondary)",
+                              color: selected ? "var(--primary)" : "var(--text-secondary)",
                               border: selected ? "1px solid var(--accent)" : "1px solid var(--border)",
                             }} onClick={() => toggleMatcherTag(opt)}>{opt}</Button>
                           );

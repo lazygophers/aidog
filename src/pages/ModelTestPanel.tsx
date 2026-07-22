@@ -1,5 +1,4 @@
 import { useState, useCallback, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   modelTestApi,
@@ -10,6 +9,7 @@ import { IconClose, IconCheck } from "../components/icons";
 import { TestResultBody } from "../components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { getProtocolLabel } from "../domains/platforms/defaults";
 
 interface Props {
@@ -113,25 +113,18 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
 
   const needsModelSelect = mode === "single" || mode === "batch" || mode === "custom";
 
-  return createPortal((
-    <div style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100,
-      backdropFilter: "blur(4px)",
-      display: "flex", alignItems: "center", justifyContent: "center",
-    }} onClick={onClose}>
-      <div className="glass-elevated" style={{
-        width: 560, maxHeight: "80vh", overflow: "auto", padding: 24,
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="glass-elevated" style={{
+        width: 560, maxWidth: 560, maxHeight: "80vh", overflow: "auto", padding: 24,
         borderRadius: 16, display: "flex", flexDirection: "column", gap: 16,
-      }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</div>
-            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-              {platform.name} · {protocolLabel || platform.platform_type}
-            </div>
-          </div>
-          <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={onClose}><IconClose size={16} /></Button>
-        </div>
+      }}>
+        <DialogHeader style={{ display: "block" }}>
+          <DialogTitle style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</DialogTitle>
+          <DialogDescription className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {platform.name} · {protocolLabel || platform.platform_type}
+          </DialogDescription>
+        </DialogHeader>
 
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {modes.map(m => (
@@ -177,23 +170,23 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
             {results.map((r, i) => (
               <div key={i} className="glass-surface" style={{
                 padding: "10px 14px",
-                borderLeft: `3px solid ${r.success ? "var(--success, #22c55e)" : "var(--danger, #ef4444)"}`,
+                borderLeft: `3px solid ${r.success ? "var(--color-success)" : "var(--color-danger)"}`,
               }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontWeight: 600, fontSize: 12 }}>{r.model}</div>
                   <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--text-secondary)" }}>
-                    <span style={{ display: "inline-flex" }}>{r.success ? <IconCheck size={12} color="var(--success, #22c55e)" /> : <IconClose size={12} color="var(--danger, #ef4444)" />}</span>
+                    <span style={{ display: "inline-flex" }}>{r.success ? <IconCheck size={12} color="var(--color-success)" /> : <IconClose size={12} color="var(--color-danger)" />}</span>
                     {r.duration_ms > 0 && <span>{r.duration_ms}ms</span>}
                     {r.output_tokens > 0 && <span>{r.input_tokens + r.output_tokens} tok</span>}
                   </div>
                 </div>
-                {r.error && <div style={{ fontSize: 11, color: "var(--danger, #ef4444)", marginTop: 4 }}>{r.error}</div>}
+                {r.error && <div style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 4 }}>{r.error}</div>}
                 {r.response_preview && <TestResultBody body={r.response_preview} />}
               </div>
             ))}
           </div>
         )}
-      </div>
-    </div>
-  ), document.body);
+      </DialogContent>
+    </Dialog>
+  );
 }

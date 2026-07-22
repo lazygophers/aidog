@@ -135,7 +135,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                     fontSize: 11,
                     padding: "1px 6px",
                     borderRadius: 4,
-                    background: "var(--accent-subtle, rgba(0,0,0,0.06))",
+                    background: "var(--accent-subtle)",
                     color: "var(--text-secondary)",
                   }}
                 >
@@ -229,9 +229,9 @@ export function SkillDetailView({ skill, onClose }: Props) {
                     fontSize: 12,
                     height: "auto",
                     justifyContent: "flex-start",
-                    background: on ? "var(--accent-subtle, rgba(0,0,0,0.06))" : "transparent",
-                    borderLeft: on ? "2px solid var(--accent, #5b8def)" : "2px solid transparent",
-                    color: on ? "var(--accent, #5b8def)" : "var(--text)",
+                    background: on ? "var(--accent-subtle)" : "transparent",
+                    borderLeft: on ? "2px solid var(--accent)" : "2px solid transparent",
+                    color: on ? "var(--primary)" : "var(--text)",
                     fontFamily: "var(--font-mono, monospace)",
                     whiteSpace: "nowrap",
                     overflow: "hidden",
@@ -249,7 +249,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
           {/* 右：内容 */}
           <div style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0 }}>
             {error && (
-              <div style={{ fontSize: 13, color: "var(--danger, #e06c75)" }}>
+              <div style={{ fontSize: 13, color: "var(--color-danger)" }}>
                 {t("skills.detail.readFailed", { defaultValue: "读取失败" })}: {error}
               </div>
             )}
