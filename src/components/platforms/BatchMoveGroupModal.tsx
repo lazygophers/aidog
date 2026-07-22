@@ -3,12 +3,28 @@
 // move = 从所有现组移除 + 加目标组；add = 仅加目标组保留现组。
 // 目标组=当前组 → 禁用确认（无意义）。
 // 确认 → 调 batch_move_group 原子事务。
-// 复用 shared/Modal 基元（createPortal document.body，liquid glass 居中）。
+// Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。
 
 import { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Platform } from "../../services/api";
-import { Modal } from "../shared/Modal";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type MoveMode = "move" | "add";
 
@@ -41,7 +57,6 @@ export function BatchMoveGroupModal({
   const [targetGroupId, setTargetGroupId] = useState<number | "">("");
   const [mode, setMode] = useState<MoveMode>("move");
 
-  // 开 modal 时重置
   useEffect(() => {
     if (open) {
       setTargetGroupId("");
@@ -49,121 +64,117 @@ export function BatchMoveGroupModal({
     }
   }, [open]);
 
-  // 目标组=当前组 → 禁用确认（move/add 都无意义）
   const isCurrentGroup = targetGroupId === currentGroupId;
   const canConfirm = targetGroupId !== "" && !isCurrentGroup;
 
   return (
-    <Modal
+    <Dialog
       open={open}
-      onClose={busy ? () => {} : onClose}
-      className="glass-elevated"
-      maxWidth={480}
-      maxHeight="80vh"
-      style={{ padding: "20px 22px" }}
-      closeOnBackdrop={!busy}
-      closeOnEscape={!busy}
+      onOpenChange={(next) => {
+        if (!next && !busy) onClose();
+      }}
     >
-      {/* 标题 */}
-      <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>
-        {t("group.batchMoveGroupTitle", "批量移组")}
-      </div>
-      <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
-        {t("group.batchMoveGroupDesc", "将以下 {{count}} 个平台移动或加入到目标分组：", { count: platforms.length })}
-      </div>
+      <DialogContent
+        className="glass-elevated"
+        style={{ maxWidth: 480, maxHeight: "80vh", overflowY: "auto", padding: "20px 22px" }}
+        onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}
+        onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
+      >
+        <DialogHeader>
+          <DialogTitle>{t("group.batchMoveGroupTitle", "批量移组")}</DialogTitle>
+          <DialogDescription>
+            {t("group.batchMoveGroupDesc", "将以下 {{count}} 个平台移动或加入到目标分组：", { count: platforms.length })}
+          </DialogDescription>
+        </DialogHeader>
 
-      {/* 目标组下拉 */}
-      <div style={{ marginBottom: 10 }}>
-        <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 4 }}>
-          {t("group.batchMoveGroupTarget", "目标分组")}
-        </span>
-        <select
-          className="input"
-          style={{ fontSize: 13, width: "100%" }}
-          value={targetGroupId}
-          onChange={e => setTargetGroupId(e.target.value === "" ? "" : Number(e.target.value))}
-        >
-          <option value="">{t("group.batchMoveGroupSelect", "选择目标分组…")}</option>
-          {groups.map(g => (
-            <option key={g.id} value={g.id}>
-              {g.name}{g.id === currentGroupId ? ` (${t("group.batchMoveGroupCurrent", "当前组")})` : ""}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* 目标=当前组提示 */}
-      {isCurrentGroup && (
-        <div style={{
-          fontSize: 12, color: "var(--color-warning)", lineHeight: 1.5,
-          marginBottom: 10, padding: "6px 10px", borderRadius: "var(--radius-sm)",
-          background: "var(--bg-glass)", border: "1px solid var(--color-warning)",
-        }}>
-          {t("group.batchMoveGroupSameAsCurrent", "目标分组与当前分组相同，无需操作。")}
+        <div style={{ marginBottom: 10 }}>
+          <span style={{ fontSize: 12, color: "var(--text-secondary)", fontWeight: 500, display: "block", marginBottom: 4 }}>
+            {t("group.batchMoveGroupTarget", "目标分组")}
+          </span>
+          <Select
+            value={targetGroupId === "" ? undefined : String(targetGroupId)}
+            onValueChange={(v) => setTargetGroupId(v === "" ? "" : Number(v))}
+          >
+            <SelectTrigger style={{ fontSize: 13, width: "100%" }} className="input">
+              <SelectValue placeholder={t("group.batchMoveGroupSelect", "选择目标分组…")} />
+            </SelectTrigger>
+            <SelectContent>
+              {groups.map(g => (
+                <SelectItem key={g.id} value={String(g.id)}>
+                  {g.name}{g.id === currentGroupId ? ` (${t("group.batchMoveGroupCurrent", "当前组")})` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-      )}
 
-      {/* move/add radio */}
-      <div style={{ display: "flex", gap: 16, marginBottom: 12 }}>
-        {(["move", "add"] as const).map(m => (
-          <label key={m} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13, cursor: "pointer" }}>
-            <input
-              type="radio"
-              name="batch-move-mode"
-              checked={mode === m}
-              onChange={() => setMode(m)}
-              style={{ accentColor: "var(--accent)" }}
-            />
-            {m === "move"
-              ? t("group.batchMoveGroupModeMove", "移动（移出所有现组）")
-              : t("group.batchMoveGroupModeAdd", "加入（保留现组）")}
-          </label>
-        ))}
-      </div>
-
-      {/* 平台全列（可滚） */}
-      <div style={{
-        display: "flex", flexDirection: "column", gap: 4,
-        maxHeight: "28vh", overflowY: "auto",
-        padding: "6px 10px", borderRadius: "var(--radius-sm)",
-        background: "var(--bg-glass)", border: "1px solid var(--border)",
-      }}>
-        {platforms.map(p => (
-          <div key={p.id} style={{
-            display: "flex", alignItems: "center", gap: 6, minWidth: 0,
-            padding: "5px 0", borderBottom: "1px solid var(--border)",
+        {isCurrentGroup && (
+          <div style={{
+            fontSize: 12, color: "var(--color-warning)", lineHeight: 1.5,
+            marginBottom: 10, padding: "6px 10px", borderRadius: "var(--radius-sm)",
+            background: "var(--bg-glass)", border: "1px solid var(--color-warning)",
           }}>
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <path d="M2 6h8M8 4l2 2-2 2" />
-            </svg>
-            <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {p.name}
-            </span>
+            {t("group.batchMoveGroupSameAsCurrent", "目标分组与当前分组相同，无需操作。")}
           </div>
-        ))}
-      </div>
+        )}
 
-      {/* 操作按钮 */}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
-        <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose} disabled={busy}>
-          {t("action.cancel", "取消")}
-        </button>
-        <button
-          className="btn btn-primary"
-          style={{ fontSize: 13, padding: "6px 14px" }}
-          onClick={() => targetGroupId !== "" && onConfirm(targetGroupId, mode)}
-          disabled={busy || !canConfirm}
+        <RadioGroup
+          value={mode}
+          onValueChange={(v) => setMode(v as MoveMode)}
+          style={{ display: "flex", gap: 16, marginBottom: 12 }}
         >
-          {busy
-            ? t("group.batchMoveGroupApplying", "移组中…")
-            : t("group.batchMoveGroupConfirm", "{{mode}} {{count}} 个平台", {
-                count: platforms.length,
-                mode: mode === "move"
-                  ? t("group.batchMoveGroupModeMoveShort", "移动")
-                  : t("group.batchMoveGroupModeAddShort", "加入"),
-              })}
-        </button>
-      </div>
-    </Modal>
+          {(["move", "add"] as const).map(m => (
+            <div key={m} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 13 }}>
+              <RadioGroupItem value={m} id={`batch-move-${m}`} />
+              <label htmlFor={`batch-move-${m}`} style={{ cursor: "pointer" }}>
+                {m === "move"
+                  ? t("group.batchMoveGroupModeMove", "移动（移出所有现组）")
+                  : t("group.batchMoveGroupModeAdd", "加入（保留现组）")}
+              </label>
+            </div>
+          ))}
+        </RadioGroup>
+
+        <div style={{
+          display: "flex", flexDirection: "column", gap: 4,
+          maxHeight: "28vh", overflowY: "auto",
+          padding: "6px 10px", borderRadius: "var(--radius-sm)",
+          background: "var(--bg-glass)", border: "1px solid var(--border)",
+        }}>
+          {platforms.map(p => (
+            <div key={p.id} style={{
+              display: "flex", alignItems: "center", gap: 6, minWidth: 0,
+              padding: "5px 0", borderBottom: "1px solid var(--border)",
+            }}>
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <path d="M2 6h8M8 4l2 2-2 2" />
+              </svg>
+              <span style={{ fontSize: 13, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {p.name}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={onClose} disabled={busy}>
+            {t("action.cancel", "取消")}
+          </Button>
+          <Button
+            onClick={() => targetGroupId !== "" && onConfirm(targetGroupId, mode)}
+            disabled={busy || !canConfirm}
+          >
+            {busy
+              ? t("group.batchMoveGroupApplying", "移组中…")
+              : t("group.batchMoveGroupConfirm", "{{mode}} {{count}} 个平台", {
+                  count: platforms.length,
+                  mode: mode === "move"
+                    ? t("group.batchMoveGroupModeMoveShort", "移动")
+                    : t("group.batchMoveGroupModeAddShort", "加入"),
+                })}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
