@@ -76,14 +76,15 @@ export function FieldRenderer({
         <div style={rowStyle}>
           {label()}
           <Select
-            
-            
-            value={value ?? ""}
-            onValueChange={(v) => onChange(v || undefined)}
+
+
+
+            value={!value ? "__none__" : value}
+            onValueChange={(v) => onChange(v === "__none__" ? undefined : v)}
           >
 <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 0 }}><SelectValue/></SelectTrigger>
 <SelectContent>
-            <SelectItem value="">—</SelectItem>
+            <SelectItem value="__none__">—</SelectItem>
             {field.options?.map((opt) => (
               <SelectItem key={opt} value={opt}>
                 {opt}

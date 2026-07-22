@@ -54,11 +54,11 @@ function EnvVarRow({ def, value, onChange, t }: {
         const opts = options ?? [];
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Select  
-              value={value ?? ""} onValueChange={(v) => onChange(v || undefined)}>
+            <Select
+              value={!value ? "__none__" : value} onValueChange={(v) => onChange(v === "__none__" ? undefined : v)}>
 <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}><SelectValue/></SelectTrigger>
 <SelectContent>
-              <SelectItem value="">—</SelectItem>
+              <SelectItem value="__none__">—</SelectItem>
               {opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
             </SelectContent>
 </Select>

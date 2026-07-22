@@ -192,14 +192,14 @@ function PermissionsEditor({ perms, updateField, t }: {
       {/* ── Default Mode ── */}
       <FieldRow label={t("settings.permissionsDefaultMode")} icon={<SectionIcon name="permissions" size={14} />}>
         <Select
-          
-          
-          value={perms.defaultMode ?? ""}
-          onValueChange={(v) => updatePermKey("defaultMode", v || undefined)}
+
+
+          value={!perms.defaultMode ? "__none__" : perms.defaultMode}
+          onValueChange={(v) => updatePermKey("defaultMode", v === "__none__" ? undefined : v)}
         >
 <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}><SelectValue/></SelectTrigger>
 <SelectContent>
-          <SelectItem value="">—</SelectItem>
+          <SelectItem value="__none__">—</SelectItem>
           {PERMISSION_MODES.map(m => (
             <SelectItem key={m.value} value={m.value}>{t(`settings.perm.mode_${m.value}`, m.desc)} — {t(`settings.perm.mode_${m.value}_desc`, m.hint)}</SelectItem>
           ))}

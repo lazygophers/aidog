@@ -110,11 +110,11 @@ export function HooksSectionInline(props: {
 
       {/* Event selector */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <Select   value=""
-          onValueChange={(v) => { if (v) addMatcherGroup(v); }}>
+        <Select   value="__none__"
+          onValueChange={(v) => { if (v && v !== "__none__") addMatcherGroup(v); }}>
 <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }}><SelectValue/></SelectTrigger>
 <SelectContent>
-          <SelectItem value="">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</SelectItem>
+          <SelectItem value="__none__">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</SelectItem>
           {HOOK_EVENTS.map(ev => (
             <SelectItem key={ev.id} value={ev.id}>{ev.id} — {t(`settings.hooks.event.${ev.id}.desc`, ev.desc)}</SelectItem>
           ))}
@@ -238,11 +238,11 @@ export function HooksSectionInline(props: {
                             />
                           </FieldRow>
                           <FieldRow label="Shell" icon={<SectionIcon name="advanced" size={13} />}>
-                            <Select  
-                              value={handler.shell ?? ""} onValueChange={(v) => updateHandler(eventId, gi, hi, { shell: v || undefined })}>
+                            <Select
+                              value={!handler.shell ? "__none__" : handler.shell} onValueChange={(v) => updateHandler(eventId, gi, hi, { shell: v === "__none__" ? undefined : v })}>
 <SelectTrigger style={{ ...inputStyle, width: 140 }}><SelectValue/></SelectTrigger>
 <SelectContent>
-                              <SelectItem value="">Bash</SelectItem><SelectItem value="powershell">PowerShell</SelectItem>
+                              <SelectItem value="__none__">Bash</SelectItem><SelectItem value="powershell">PowerShell</SelectItem>
                             </SelectContent>
 </Select>
                           </FieldRow>
