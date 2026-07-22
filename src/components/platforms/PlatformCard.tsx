@@ -919,16 +919,17 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
         {t("group.levelPriority", "优先级")}
       </span>
       <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          size="icon"
           style={btnStyle}
           disabled={value <= 1}
           title={t("group.levelPriorityDown", "降低优先级")}
           onClick={e => { e.stopPropagation(); set(value - 1); }}
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7h8" /></svg>
-        </button>
-        <input
+        </Button>
+        <Input
           type="number"
           min={1}
           max={10}
@@ -939,21 +940,22 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           onBlur={commit}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
           style={{
-            width: 38, textAlign: "center", fontSize: 12, fontWeight: 700,
+            width: 38, height: "auto", textAlign: "center", fontSize: 12, fontWeight: 700,
             padding: "2px 4px", borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)", border: "1px solid var(--border)",
             color: "var(--text-primary)",
           }}
         />
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          size="icon"
           style={btnStyle}
           disabled={value >= 10}
           title={t("group.levelPriorityUp", "提高优先级")}
           onClick={e => { e.stopPropagation(); set(value + 1); }}
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3v8M3 7h8" /></svg>
-        </button>
+        </Button>
       </div>
       <span className="text-tertiary" style={{ fontSize: 9, opacity: 0.7 }}>
         {t("group.levelPriorityMax", "10=最高优先")}
