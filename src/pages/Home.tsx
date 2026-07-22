@@ -23,6 +23,7 @@ import {
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
 import { BalanceBar, costLevel, levelColor, CopyButton } from "../components/shared";
+import { Button } from "@/components/ui/button";
 import { F } from "../domains/shared/tokens";
 import {
   IconCost,
@@ -455,15 +456,15 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.quickActions", "快捷操作")}</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <button className="btn" style={{ gap: 6, fontSize: 13 }} onClick={() => onNavigate("platforms")}>
+          <Button variant="default" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={() => onNavigate("platforms")}>
             <IconPlatforms size={15} /> {t("home.addPlatform", "添加平台")}
-          </button>
-          <button className="btn" style={{ gap: 6, fontSize: 13 }} onClick={() => onNavigate("stats")}>
+          </Button>
+          <Button variant="default" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={() => onNavigate("stats")}>
             <IconStats size={15} /> {t("home.viewStats", "查看统计")}
-          </button>
-          <button className="btn" style={{ gap: 6, fontSize: 13 }} onClick={() => onNavigate("logs")}>
+          </Button>
+          <Button variant="default" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={() => onNavigate("logs")}>
             <IconLogs size={15} /> {t("home.viewLogs", "查看日志")}
-          </button>
+          </Button>
           <CopyButton text={proxyBaseUrl} label={t("home.copyBaseUrl", "复制代理地址")} title={t("home.copyBaseUrlTitle", "复制代理 base_url")} />
         </div>
       </div>

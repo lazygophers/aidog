@@ -288,15 +288,15 @@ export function About() {
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
           {linkBtns.map((b) => (
-            <button
+            <Button
+              variant="default"
               key={b.key}
-              className="btn"
-              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }}
               onClick={() => openUrl(GITHUB_LINKS[b.key])}
             >
               <IconGlobe size={14} />
               {b.label}
-            </button>
+            </Button>
           ))}
         </div>
         <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
@@ -316,22 +316,22 @@ export function About() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              className="btn"
-              style={{ fontSize: 13, padding: "6px 12px" }}
+            <Button
+              variant="default"
+              style={{ fontSize: 13, padding: "6px 12px", height: "auto" }}
               disabled={cliBusy !== ""}
               onClick={handleCliCheck}
             >
               {cliBusy === "check" ? t("about.localEnv.checking", "检查中…") : t("about.localEnv.check", "检查版本")}
-            </button>
-            <button
-              className="btn"
-              style={{ fontSize: 13, padding: "6px 12px" }}
+            </Button>
+            <Button
+              variant="default"
+              style={{ fontSize: 13, padding: "6px 12px", height: "auto" }}
               disabled={cliBusy !== ""}
               onClick={handleCliDiagnose}
             >
               {cliBusy === "diagnose" ? t("about.localEnv.diagnosing", "诊断中…") : t("about.localEnv.diagnose", "诊断冲突")}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -372,33 +372,33 @@ export function About() {
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {!s.installed && (
-                    <button
-                      className="btn btn-primary"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
+                    <Button
+                      variant="default"
+                      style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={() => handleCliInstall(s.name as "claude" | "codex")}
                     >
                       {cliBusy === "install" && isPending
                         ? t("about.localEnv.installing", "安装中…")
                         : t("about.localEnv.install", "安装")}
-                    </button>
+                    </Button>
                   )}
                   {s.installed && !s.broken && s.has_update === true && (
-                    <button
-                      className="btn"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
+                    <Button
+                      variant="default"
+                      style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={() => handleCliUpgrade(s.name as "claude" | "codex")}
                     >
                       {cliBusy === "upgrade" && isPending
                         ? t("about.localEnv.upgrading", "升级中…")
                         : t("about.localEnv.upgrade", "升级")}
-                    </button>
+                    </Button>
                   )}
                   {s.broken && (
-                    <button
-                      className="btn btn-primary"
-                      style={{ fontSize: 12, padding: "4px 10px" }}
+                    <Button
+                      variant="default"
+                      style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
                       onClick={() => handleCliUpgrade(s.name as "claude" | "codex")}
                       title={t("about.localEnv.brokenHint", "已损坏，尝试重新安装以修复")}
@@ -406,7 +406,7 @@ export function About() {
                       {cliBusy === "upgrade" && isPending
                         ? t("about.localEnv.upgrading", "升级中…")
                         : t("about.localEnv.repair", "修复")}
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
