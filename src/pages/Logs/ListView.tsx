@@ -1,14 +1,26 @@
-import { createPortal } from "react-dom";
 import { IconClose } from "../../components/icons";
 import { FilterDropdown } from "../../components/shared";
 import { F } from "../../domains/shared/tokens";
 import { LogRow, Pagination, FilterSelect, ThCell } from "./primitives";
 import { NO_GROUP_SENTINEL, type TimePreset } from "./types";
 import type { LogsData } from "./useLogsData";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { TableHeader, TableBody } from "@/components/ui/table";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /**
  * 日志列表视图（自原 Logs.tsx L455-637 外迁）。
- * header + 筛选条 + 表格 + 分页，零 UI 变更。
+ * header + 筛选条 + 表格 + 分页；详情由 Logs.tsx 以 Sheet 叠加（本组件恒常渲染）。
  */
 export function ListView({ d }: { d: LogsData }) {
   const {
@@ -39,17 +51,17 @@ export function ListView({ d }: { d: LogsData }) {
           {cleanupMessage && (
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{cleanupMessage}</span>
           )}
-          <button className="btn" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint }}>
+          <Button variant="default" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
-          </button>
+          </Button>
           {total > 0 && (
             <>
-              <button className="btn" onClick={handleCleanupExpired} style={{ fontSize: F.hint }}>
+              <Button variant="default" onClick={handleCleanupExpired} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
                 {t("logs.cleanupExpired", "清理过期")}
-              </button>
-              <button className="btn btn-danger" onClick={() => setShowClearConfirm(true)} style={{ fontSize: F.hint }}>
+              </Button>
+              <Button variant="destructive" onClick={() => setShowClearConfirm(true)} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
                 {t("logs.clear", "清除全部")}
-              </button>
+              </Button>
             </>
           )}
         </div>
@@ -110,16 +122,18 @@ export function ListView({ d }: { d: LogsData }) {
         />
         {/* Model type toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: F.small }}>
-          <button
-            className={`btn btn-ghost ${filterModelType === "actual" ? "active" : ""}`}
-            style={{ padding: "2px 8px", fontSize: F.small, fontWeight: filterModelType === "actual" ? 700 : 400, opacity: filterModelType === "actual" ? 1 : 0.6 }}
+          <Button
+            variant="ghost"
+            type="button"
+            style={{ padding: "2px 8px", fontSize: F.small, height: "auto", fontWeight: filterModelType === "actual" ? 700 : 400, opacity: filterModelType === "actual" ? 1 : 0.6 }}
             onClick={() => setFilterModelType("actual")}
-          >{t("logs.actualModel", "实际模型")}</button>
-          <button
-            className={`btn btn-ghost ${filterModelType === "original" ? "active" : ""}`}
-            style={{ padding: "2px 8px", fontSize: F.small, fontWeight: filterModelType === "original" ? 700 : 400, opacity: filterModelType === "original" ? 1 : 0.6 }}
+          >{t("logs.actualModel", "实际模型")}</Button>
+          <Button
+            variant="ghost"
+            type="button"
+            style={{ padding: "2px 8px", fontSize: F.small, height: "auto", fontWeight: filterModelType === "original" ? 700 : 400, opacity: filterModelType === "original" ? 1 : 0.6 }}
             onClick={() => setFilterModelType("original")}
-          >{t("logs.model", "原始模型")}</button>
+          >{t("logs.model", "原始模型")}</Button>
         </div>
         {/* Model dropdown — options from unfiltered query */}
         <FilterDropdown
@@ -132,27 +146,18 @@ export function ListView({ d }: { d: LogsData }) {
           emptyLabel={t("stats.noMatch", "无匹配结果")}
         />
         {/* Path search — LIKE match on request_url */}
-        <input
+        <Input
           type="text"
           value={filterPath}
           onChange={e => setFilterPath(e.target.value)}
           placeholder={t("logs.filterPath", "搜索路径（如 /v1/messages）")}
-          style={{
-            fontSize: F.small,
-            padding: "4px 8px",
-            borderRadius: 6,
-            border: "1px solid var(--border)",
-            background: "var(--bg-secondary, rgba(255,255,255,0.05))",
-            color: "var(--text-primary)",
-            maxWidth: 180,
-            minWidth: 120,
-          }}
+          style={{ fontSize: F.small, height: 30, maxWidth: 180, minWidth: 120 }}
         />
         {/* Clear */}
         {hasFilter && (
-          <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "2px 8px", color: "var(--text-tertiary)" }}>
+          <Button variant="ghost" type="button" onClick={clearFilter} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={11} /> {t("logs.clearFilter", "清除")}</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -168,21 +173,19 @@ export function ListView({ d }: { d: LogsData }) {
           {/* ponytail: contain:paint 隔离滚动重绘范围，表格行多时减少合成层影响面（glass-surface 本身无 backdrop-filter，不含 GPU 合成叠加） */}
           <div className="glass-surface" style={{ overflow: "auto", contain: "paint" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
-                  <ThCell>{t("logs.time")}</ThCell>
-                  <ThCell>{t("logs.group")}</ThCell>
-                  <ThCell>{t("logs.platform", "平台")}</ThCell>
-                  <ThCell>{t("logs.model", "原始模型")}</ThCell>
-                  <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
-                  <ThCell>{t("logs.status")}</ThCell>
-                  <ThCell>{t("logs.duration")}</ThCell>
-                  <ThCell>{t("logs.inputTokens")}</ThCell>
-                  <ThCell>{t("logs.outputTokens")}</ThCell>
-                  <ThCell sticky>{""}</ThCell>
-                </tr>
-              </thead>
-              <tbody>
+              <TableHeader>
+                <ThCell>{t("logs.time")}</ThCell>
+                <ThCell>{t("logs.group")}</ThCell>
+                <ThCell>{t("logs.platform", "平台")}</ThCell>
+                <ThCell>{t("logs.model", "原始模型")}</ThCell>
+                <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
+                <ThCell>{t("logs.status")}</ThCell>
+                <ThCell>{t("logs.duration")}</ThCell>
+                <ThCell>{t("logs.inputTokens")}</ThCell>
+                <ThCell>{t("logs.outputTokens")}</ThCell>
+                <ThCell sticky>{""}</ThCell>
+              </TableHeader>
+              <TableBody>
                 {logs.map((log) => (
                   <LogRow
                     key={log.id}
@@ -194,7 +197,7 @@ export function ListView({ d }: { d: LogsData }) {
                     t={t}
                   />
                 ))}
-              </tbody>
+              </TableBody>
             </table>
           </div>
 
@@ -213,53 +216,31 @@ export function ListView({ d }: { d: LogsData }) {
         </>
       )}
 
-      {/* 清空确认弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
-          portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。 */}
-      {showClearConfirm && createPortal(
-        <div
-          style={{
-            position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0, 0, 0, 0.4)", zIndex: 1000,
-          }}
-          onClick={() => setShowClearConfirm(false)}
-        >
-          <div
-            className="glass-surface"
-            style={{
-              padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)",
-              display: "flex", flexDirection: "column", gap: 16,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600 }}>
+      {/* 清空确认弹窗 — AlertDialog（Radix Portal，替代手工 createPortal）。
+          原实现禁 window.confirm（破坏 Tauri）；AlertDialog 自带 Portal 居中，绕开祖先 transform/backdrop-filter 退化。 */}
+      <AlertDialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 20 }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
               {t("logs.clearConfirmTitle", "清空全部日志")}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                className="btn"
-                onClick={() => setShowClearConfirm(false)}
-                style={{ padding: "6px 14px", fontSize: 12 }}
-              >
-                {t("logs.cancel", "取消")}
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleClear}
-                style={{
-                  padding: "6px 14px", fontSize: 12,
-                  background: "var(--color-error, #ef4444)",
-                }}
-              >
-                {t("logs.clear", "清除全部")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 12 }}>
+              {t("logs.cancel", "取消")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleClear}
+              style={{ padding: "6px 14px", fontSize: 12, background: "var(--color-error, #ef4444)" }}
+            >
+              {t("logs.clear", "清除全部")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
