@@ -418,12 +418,12 @@ export function CodingToolsSettingsTab() {
           
           
           value={language}
-          onValueChange={(v) => handleLanguageChange(v)}
+          onValueChange={(v) => handleLanguageChange(v === "__none__" ? "" : v)}
           disabled={busy}
         >
-<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue/></SelectTrigger>
+<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue placeholder="—"/></SelectTrigger>
 <SelectContent>
-          {!language && <SelectItem value="">—</SelectItem>}
+          {!language && <SelectItem value="__none__">—</SelectItem>}
           {LANGUAGE_GROUPS.map((g) => (
             <SelectGroup><SelectLabel>{g.family}</SelectLabel>
               {g.options.map((o) => (
@@ -456,12 +456,12 @@ export function CodingToolsSettingsTab() {
           
           
           value={effort}
-          onValueChange={(v) => handleEffortChange(v)}
+          onValueChange={(v) => handleEffortChange(v === "__none__" ? "" : v)}
           disabled={busy}
         >
-<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue/></SelectTrigger>
+<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue placeholder="—"/></SelectTrigger>
 <SelectContent>
-          {!effort && <SelectItem value="">—</SelectItem>}
+          {!effort && <SelectItem value="__none__">—</SelectItem>}
           {EFFORT_OPTIONS.map((lv) => (
             <SelectItem key={lv} value={lv}>{lv}</SelectItem>
           ))}
