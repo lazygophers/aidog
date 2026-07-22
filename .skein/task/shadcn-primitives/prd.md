@@ -12,14 +12,14 @@
 - 不引入未使用组件 (YAGNI), 清单按现有原生元素用法反推, 新增按需走后续 task
 - dnd-kit (SortableList) / qrcode / react-markdown 等非 shadcn 依赖保留不动
 ## 验收标准
-- [ ] 清单内所有组件 npx shadcn@latest add 成功, 源码落 resolvedPaths.ui
-- [ ] 每个组件可 import 且 TypeScript 类型完整 (yarn build 过)
-- [ ] wrapper 封装 (如有) 满足: modal 类走 Radix Portal (createPortal 对称规则满足), i18n 文案可注入
-- [ ] cn() 用于条件 className, 无手写模板字符串三元 (shadcn 规则)
-- [ ] 无 space-x/y (用 gap-*), 无手写 z-index 于 overlay 组件 (shadcn 规则)
-- [ ] Button 无 isPending/isLoading, 用 Spinner + disabled 组合
-- [ ] 新增 icon 走 data-icon, 无 sizing 类 (shadcn 规则)
-- [ ] yarn build + yarn test 过无回归
+- [x] 清单内所有组件 npx shadcn@latest add 成功, 源码落 resolvedPaths.ui
+- [x] 每个组件可 import 且 TypeScript 类型完整 (yarn build 过)
+- [x] wrapper 封装 (如有) 满足: modal 类走 Radix Portal (createPortal 对称规则满足), i18n 文案可注入
+- [x] cn() 用于条件 className, 无手写模板字符串三元 (shadcn 规则)
+- [x] 无 space-x/y (用 gap-*), 无手写 z-index 于 overlay 组件 (shadcn 规则)
+- [x] Button 无 isPending/isLoading, 用 Spinner + disabled 组合
+- [x] 新增 icon 走 data-icon, 无 sizing 类 (shadcn 规则)
+- [x] yarn build + yarn test 过无回归
 ## 索引
 - 详细设计: [design.md](design.md)
 - 调研收敛: [findings.md](findings.md)

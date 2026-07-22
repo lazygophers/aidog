@@ -2,7 +2,7 @@
   "id": "shadcn-pages",
   "name": "前端页面全量迁移至 shadcn",
   "desc": "18 pages + 40 组件文件全量从原生元素+自定义组件迁到 shadcn primitives,按域拆并行 subtask(settings/platforms/groups/logs/stats/skills/mcp/home/top-level)",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [
     "shadcn-primitives"
   ],
@@ -30,15 +30,22 @@
         "Field/FieldGroup 布局表单",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696813,
-      "started": null,
-      "finished": null
+      "started": 1784707927,
+      "finished": 1784725968
     },
     {
       "sid": "m-platforms",
@@ -52,15 +59,21 @@
         "PlatformCard.test.tsx 过",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696814,
-      "started": null,
-      "finished": null
+      "started": 1784707927,
+      "finished": 1784726976
     },
     {
       "sid": "m-groups",
@@ -74,15 +87,21 @@
         "操作菜单走 DropdownMenu",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696814,
-      "started": null,
-      "finished": null
+      "started": 1784726976,
+      "finished": 1784727708
     },
     {
       "sid": "m-logs",
@@ -95,15 +114,20 @@
         "详情走 Sheet (Radix Portal)",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696815,
-      "started": null,
-      "finished": null
+      "started": 1784726976,
+      "finished": 1784727642
     },
     {
       "sid": "m-stats",
@@ -116,15 +140,20 @@
         "CostTrendChart.test.tsx 过",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696815,
-      "started": null,
-      "finished": null
+      "started": 1784727708,
+      "finished": 1784728009
     },
     {
       "sid": "m-skills-mcp",
@@ -137,15 +166,20 @@
         "详情走 Tabs",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696816,
-      "started": null,
-      "finished": null
+      "started": 1784727708,
+      "finished": 1784728206
     },
     {
       "sid": "m-misc",
@@ -159,15 +193,21 @@
         "BalanceBar/StatChip/CompactCard 测试过",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696816,
-      "started": null,
-      "finished": null
+      "started": 1784728206,
+      "finished": 1784728801
     },
     {
       "sid": "m-toplevel",
@@ -182,15 +222,22 @@
         "SortableList dnd-kit 保留",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696817,
-      "started": null,
-      "finished": null
+      "started": 1784728206,
+      "finished": 1784728654
     },
     {
       "sid": "m-domains",
@@ -203,15 +250,20 @@
         "var() 引用指向 shadcn token",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784697117,
-      "started": null,
-      "finished": null
+      "started": 1784728801,
+      "finished": 1784729117
     },
     {
       "sid": "m-popover",
@@ -224,15 +276,48 @@
         "主题切换在 popover 窗口生效",
         "yarn build 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784697118,
-      "started": null,
-      "finished": null
+      "started": 1784728801,
+      "finished": 1784728971
+    },
+    {
+      "sid": "m-cleanup",
+      "name": "cleanup: m-settings 遗留 + 删 Modal.tsx",
+      "desc": "修 CodingToolsSettings.tsx:426/464 SelectItem value=\"\" -> __none__ 哨兵; SegmentEditModal.tsx 自研 Modal -> shadcn Dialog 去 shared/Modal 消费; grep 确认 Modal.tsx 无消费者后删除 Modal.tsx; yarn build + test 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784729117,
+      "started": 1784729117,
+      "finished": 1784729312
+    },
+    {
+      "sid": "m-checkfix",
+      "name": "fix: i18n 3 key + SelectItem 空值 8 处",
+      "desc": "补 group.deleteFailed/saveFailed/setDefaultFailed 3 key 到 8 locale (zh-Hans/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP/es-ES); 修 HooksSection.tsx:125,355 / HooksSectionInline.tsx:117,245 / FieldRenderer.tsx:86 / EnvEditor.tsx:61 / PermissionsSection.tsx:202 的 SelectItem value=__none__ 哨兵 + 双向映射; yarn build + test + check-i18n 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784729491,
+      "started": 1784729492,
+      "finished": 1784729892
     }
   ],
   "repos": [],
@@ -242,8 +327,8 @@
   "parent": "frontend-shadcn-migration",
   "kind": "task",
   "created": 1784696567,
-  "started": null,
+  "started": 1784707912,
   "checked": null,
-  "finished": null,
-  "updated": 1784697119
+  "finished": 1784730397,
+  "updated": 1784730397
 }

@@ -2,7 +2,7 @@
   "id": "shadcn-infra",
   "name": "shadcn 基础设施+主题 token 体系",
   "desc": "shadcn init(Vite+Tailwind v4+nova preset)+ cn util + globals.css 建 shadcn token + 9 Style 映射 radius/blur + 调色板精简到 4 并生成 shadcn 语义色 token + 保留 applyTheme 运行时切换。tracer-bullet:一个页面用 shadcn button + 主题切换生效",
-  "status": "检查中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "调色板固定 4 个: gruvbox/nord/dracula/catppuccin; 删 8 个 (appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl) 不再加回",
@@ -220,21 +220,14 @@
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-shadcn-infra",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-shadcn-infra",
-      "branch": "skein/shadcn-infra",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/shadcn-infra",
   "parent": "frontend-shadcn-migration",
   "kind": "task",
   "created": 1784696567,
   "started": 1784701058,
   "checked": 1784704916,
-  "finished": null,
-  "updated": 1784706473
+  "finished": 1784706536,
+  "updated": 1784706536
 }
