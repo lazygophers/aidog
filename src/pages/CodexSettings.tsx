@@ -13,6 +13,8 @@ import {
 } from "../services/codex-settings-schema";
 import { deepMerge } from "../utils/deepMerge";
 import { stableStringify } from "../components/shared";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 
 type CodexConfig = Record<string, unknown>;
 
@@ -145,14 +147,14 @@ export function CodexSettings() {
           {t("codex.title", "Codex 配置")}
         </div>
 
-        <button
+        <Button variant="outline"
           className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => setMode("gui")}
         >
           {t("settings.guiMode", "图形")}
-        </button>
-        <button
+        </Button>
+        <Button variant="outline"
           className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => {
@@ -161,17 +163,17 @@ export function CodexSettings() {
           }}
         >
           {t("settings.jsonMode", "JSON")}
-        </button>
+        </Button>
 
         <div style={{ flex: 1 }} />
 
-        <button
-          className="btn btn-ghost"
+        <Button variant="ghost"
+          
           style={{ fontSize: F.hint, padding: "6px 14px" }}
           onClick={handleLoadRecommended}
         >
           <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended", "加载推荐配置")}
-        </button>
+        </Button>
 
         {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
         {!toast && (
@@ -198,14 +200,14 @@ export function CodexSettings() {
           </span>
         )}
 
-        <button
+        <Button variant="outline"
           className={`btn ${dirty ? "btn-primary" : "btn-ghost"}`}
           style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
           onClick={handleSave}
           disabled={saving || !dirty}
         >
           {saving ? t("status.loading", "保存中…") : t("action.save", "保存")}
-        </button>
+        </Button>
       </div>
 
       {mode === "json" ? (
@@ -213,8 +215,8 @@ export function CodexSettings() {
           className="glass-surface"
           style={{ flex: 1, display: "flex", flexDirection: "column", padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 12 }}
         >
-          <textarea
-            className="input"
+          <Textarea
+            
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',
               fontSize: F.body,

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { notificationApi, type NotifyHooksFragment } from "../../../services/api";
 import { F } from "./tokens";
+import { Button } from "@/components/ui/button";
 
 // ─── Hooks Section (friendly editor) ────────────────────────
 
@@ -167,17 +168,17 @@ export function NotifyHookQuickBar(props: {
           </span>
         </div>
         {injected ? (
-          <button type="button" className="btn btn-ghost" disabled={busy}
+          <Button variant="ghost" type="button"  disabled={busy}
             style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
             onClick={handleRemove}>
             {t("notif.hookRemove", "移除")}
-          </button>
+          </Button>
         ) : (
-          <button type="button" className="btn btn-primary" disabled={busy}
+          <Button variant="default" type="button"  disabled={busy}
             style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
             onClick={handleInject}>
             {busy ? t("settings.hooksNotifyBusy", "处理中…") : t("settings.hooksNotifyInject", "注入通知 hook")}
-          </button>
+          </Button>
         )}
       </div>
       {error && (

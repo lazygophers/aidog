@@ -8,6 +8,8 @@ import { IconClose } from "../../icons";
 import { F, S } from "./tokens";
 import { SvgIcon } from "./icons";
 import { Toggle, Section, FieldRow, PathInput, Hint, SubHeading } from "./_shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 
 /** Editable string list with add/remove — plain text input */
@@ -38,28 +40,28 @@ function TagList({
           }}>
             {p}
           </code>
-          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
+          <Button variant="outline" type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
             style={{
               background: "none", border: "none", cursor: "pointer",
               color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-            }}><IconClose size={12} /></button>
+            }}><IconClose size={12} /></Button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <input
-          className="input"
+        <Input
+          
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
           onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
           style={{ flex: 1, fontSize: F.hint, fontFamily: "monospace", padding: "6px 10px" }}
         />
-        <button type="button" disabled={!draft.trim()} onClick={add}
+        <Button variant="outline" type="button" disabled={!draft.trim()} onClick={add}
           style={{
             background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)",
             padding: "5px 10px", fontSize: F.hint, cursor: draft.trim() ? "pointer" : "default",
             opacity: draft.trim() ? 1 : 0.4,
-          }}>+</button>
+          }}>+</Button>
       </div>
     </div>
   );
@@ -95,11 +97,11 @@ function PathList({
           }}>
             {p}
           </code>
-          <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
+          <Button variant="outline" type="button" onClick={() => onChange(items.filter((_, j) => j !== i))}
             style={{
               background: "none", border: "none", cursor: "pointer",
               color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-            }}><IconClose size={12} /></button>
+            }}><IconClose size={12} /></Button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
@@ -111,12 +113,12 @@ function PathList({
             placeholder={placeholder ?? t("settings.editor.dirOrPathPh", "选择目录或输入路径…")}
           />
         </div>
-        <button type="button" disabled={!draftStr.trim()} onClick={add}
+        <Button variant="outline" type="button" disabled={!draftStr.trim()} onClick={add}
           style={{
             background: "var(--accent)", color: "#fff", border: "none", borderRadius: "var(--radius-sm)",
             padding: "5px 10px", fontSize: F.hint, cursor: draftStr.trim() ? "pointer" : "default",
             opacity: draftStr.trim() ? 1 : 0.4, flexShrink: 0,
-          }}>+</button>
+          }}>+</Button>
       </div>
     </div>
   );
@@ -293,8 +295,8 @@ function SandboxEditor({
 
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
               <FieldRow label={t("settings.sandbox.httpProxy", "HTTP 代理")}>
-                <input
-                  className="input"
+                <Input
+                  
                   type="number"
                   value={net.httpProxyPort ?? ""}
                   onChange={(e) => setNetPort("httpProxyPort", e.target.value)}
@@ -303,8 +305,8 @@ function SandboxEditor({
                 />
               </FieldRow>
               <FieldRow label={t("settings.sandbox.socksProxy", "SOCKS 代理")}>
-                <input
-                  className="input"
+                <Input
+                  
                   type="number"
                   value={net.socksProxyPort ?? ""}
                   onChange={(e) => setNetPort("socksProxyPort", e.target.value)}

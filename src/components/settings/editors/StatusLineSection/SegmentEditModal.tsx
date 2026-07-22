@@ -13,6 +13,9 @@ import { F, S } from "../tokens";
 import { Toggle } from "../_shared";
 import { autoColorPreviewHex } from "./preview";
 import { Modal } from "../../../shared/Modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function SegmentEditModal({
   segment,
@@ -46,9 +49,9 @@ export function SegmentEditModal({
           <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
             {t(`statusline.seg.${def.type}.name`, def.name)}
           </div>
-          <button type="button" className="btn btn-ghost btn-icon"
+          <Button variant="ghost" type="button" 
             style={{ width: 28, height: 28, fontSize: F.body }}
-            onClick={onClose}>×</button>
+            onClick={onClose}>×</Button>
         </div>
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 16 }}>{t(`statusline.seg.${def.type}.desc`, def.desc)}</div>
 
@@ -70,7 +73,7 @@ export function SegmentEditModal({
               {(["left", "center", "right"] as RowAlign[]).map(a => {
                 const active = align === a;
                 return (
-                  <button key={a} type="button"
+                  <Button variant="outline" key={a} type="button"
                     style={{
                       flex: 1, padding: "6px 10px", fontSize: F.body,
                       fontWeight: active ? 600 : 400,
@@ -81,7 +84,7 @@ export function SegmentEditModal({
                     }}
                     onClick={() => setAlign(a)}>
                     {t(`statusline.align.${a}`)}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -105,7 +108,7 @@ export function SegmentEditModal({
             opacity: autoColor && canAutoColor ? 0.45 : 1,
             pointerEvents: autoColor && canAutoColor ? "none" : "auto",
           }}>
-            <input
+            <Input
               type="color"
               value={validHex ? `#${hexToRgb(color)!.map(v => v.toString(16).padStart(2, "0")).join("")}` : "#4a9eff"}
               onChange={(e) => setColor(e.target.value)}
@@ -114,14 +117,14 @@ export function SegmentEditModal({
                 borderRadius: "var(--radius-sm)", background: "transparent", cursor: "pointer", flexShrink: 0,
               }}
             />
-            <input className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+            <Input  style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
               value={color} placeholder="#4A9EFF"
               onChange={(e) => setColor(e.target.value)} />
-            <button type="button" className="btn btn-ghost"
+            <Button variant="ghost" type="button" 
               style={{ fontSize: F.hint, padding: "4px 10px", color: "var(--text-tertiary)" }}
               onClick={() => setColor("")}>
               {t("statusline.clearColor")}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -134,17 +137,20 @@ export function SegmentEditModal({
                   {t(`statusline.seg.${def.type}.field.${f.key}`, f.label)}
                 </label>
                 {f.type === "select" ? (
-                  <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+                  <Select  
                     value={String(opts[f.key] ?? f.options?.[0] ?? "")}
-                    onChange={(e) => setOpts({ ...opts, [f.key]: e.target.value })}>
-                    {f.options?.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                    onValueChange={(v) => setOpts({ ...opts, [f.key]: v })}>
+<SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+                    {f.options?.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                  </SelectContent>
+</Select>
                 ) : f.type === "number" ? (
-                  <input className="input" type="number" style={{ fontSize: F.body, padding: S.inputPad, flex: 1, width: 80 }}
+                  <Input  type="number" style={{ fontSize: F.body, padding: S.inputPad, flex: 1, width: 80 }}
                     value={opts[f.key] ?? ""} placeholder={f.placeholder}
                     onChange={(e) => setOpts({ ...opts, [f.key]: Number(e.target.value) })} />
                 ) : (
-                  <input className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+                  <Input  style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
                     value={String(opts[f.key] ?? "")} placeholder={f.placeholder}
                     onChange={(e) => setOpts({ ...opts, [f.key]: e.target.value })} />
                 )}
@@ -169,10 +175,10 @@ export function SegmentEditModal({
         </div>
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }} onClick={onClose}>
+          <Button variant="ghost"  style={{ fontSize: F.body, padding: S.btnPad }} onClick={onClose}>
             {t("statusline.cancel")}
-          </button>
-          <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
+          </Button>
+          <Button variant="default"  style={{ fontSize: F.body, padding: S.btnPad }}
             onClick={() => {
               onSave({
                 options: opts,
@@ -184,7 +190,7 @@ export function SegmentEditModal({
               onClose();
             }}>
             {t("statusline.save")}
-          </button>
+          </Button>
         </div>
     </Modal>
   );

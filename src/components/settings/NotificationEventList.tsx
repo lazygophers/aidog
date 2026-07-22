@@ -10,6 +10,7 @@
 
 import { useTranslation } from "react-i18next";
 import type { EventSetting } from "../../services/api";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * Claude Code 官方 hook 事件全量目录（约 30 个）。
@@ -223,8 +224,8 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
               </div>
 
               {/* 第二行：模板 textarea（placeholder = 该事件专属默认模板） */}
-              <textarea
-                className="input"
+              <Textarea
+                
                 style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 40, resize: "vertical", width: "100%", boxSizing: "border-box" }}
                 value={es.template}
                 disabled={!es.enabled}

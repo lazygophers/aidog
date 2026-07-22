@@ -27,6 +27,8 @@ import {
 } from "../../services/api";
 import { LANGUAGE_GROUPS } from "../../services/claude-settings-schema";
 import { Toggle } from "./editors";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
 
 // 内置·日期格式改写防检测 规则名（与 schema.rs builtin_rule_specs 一致）。
 // 该开关镜像 middleware_rule.enabled，不写 coding_tools_settings。
@@ -412,22 +414,25 @@ export function CodingToolsSettingsTab() {
             {t("codingTools.language.desc")}
           </div>
         </div>
-        <select
-          className="input"
-          style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}
+        <Select
+          
+          
           value={language}
-          onChange={(e) => handleLanguageChange(e.target.value)}
+          onValueChange={(v) => handleLanguageChange(v)}
           disabled={busy}
         >
-          {!language && <option value="">—</option>}
+<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue/></SelectTrigger>
+<SelectContent>
+          {!language && <SelectItem value="">—</SelectItem>}
           {LANGUAGE_GROUPS.map((g) => (
-            <optgroup key={g.family} label={g.family}>
+            <SelectGroup><SelectLabel>{g.family}</SelectLabel>
               {g.options.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
               ))}
-            </optgroup>
+            </SelectGroup>
           ))}
-        </select>
+        </SelectContent>
+</Select>
       </div>
 
       {/* 努力级别：claude 顶层 effortLevel + codex model_reasoning_effort 双写 */}
@@ -447,18 +452,21 @@ export function CodingToolsSettingsTab() {
             claude · effortLevel · codex · model_reasoning_effort
           </div>
         </div>
-        <select
-          className="input"
-          style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}
+        <Select
+          
+          
           value={effort}
-          onChange={(e) => handleEffortChange(e.target.value)}
+          onValueChange={(v) => handleEffortChange(v)}
           disabled={busy}
         >
-          {!effort && <option value="">—</option>}
+<SelectTrigger style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}><SelectValue/></SelectTrigger>
+<SelectContent>
+          {!effort && <SelectItem value="">—</SelectItem>}
           {EFFORT_OPTIONS.map((lv) => (
-            <option key={lv} value={lv}>{lv}</option>
+            <SelectItem key={lv} value={lv}>{lv}</SelectItem>
           ))}
-        </select>
+        </SelectContent>
+</Select>
       </div>
 
       {/* 自动压缩窗口：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + codex model_auto_compact_token_limit */}
@@ -484,8 +492,8 @@ export function CodingToolsSettingsTab() {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <input
-            className="input"
+          <Input
+            
             type="number"
             min={0}
             step="0.1"
@@ -522,8 +530,8 @@ export function CodingToolsSettingsTab() {
             <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
               {t("codingTools.proxy.title")}
             </label>
-            <input
-              className="input"
+            <Input
+              
               type="text"
               list="coding-proxy-url-presets"
               style={{ fontSize: 13, padding: "4px 8px" }}
@@ -546,8 +554,8 @@ export function CodingToolsSettingsTab() {
             <label className="text-secondary" style={{ fontSize: 11, fontWeight: 600 }}>
               NO_PROXY
             </label>
-            <input
-              className="input"
+            <Input
+              
               type="text"
               style={{ fontSize: 13, padding: "4px 8px" }}
               value={proxyDraft.no}

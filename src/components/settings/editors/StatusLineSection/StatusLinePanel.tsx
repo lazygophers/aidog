@@ -14,6 +14,8 @@ import { Toggle, Hint } from "../_shared";
 import { previewColor, StatusLinePreview } from "./preview";
 import { SegmentEditModal } from "./SegmentEditModal";
 import { useStatusLinePanel, type ScriptType } from "./useStatusLinePanel";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export function StatusLinePanel({
   config,
@@ -64,7 +66,7 @@ export function StatusLinePanel({
             {(["builtin", "custom"] as const).map(m => {
               const active = mode === m;
               return (
-                <button key={m} type="button"
+                <Button variant="outline" key={m} type="button"
                   style={{
                     flex: 1, padding: "8px 12px", fontSize: F.body, fontWeight: active ? 600 : 400,
                     color: active ? "var(--accent)" : "var(--text-secondary)",
@@ -76,7 +78,7 @@ export function StatusLinePanel({
                   {m === "builtin"
                     ? t("statusline.modeBuiltin", "内置结构化")
                     : t("statusline.modeCustom", "自定义脚本")}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -92,23 +94,23 @@ export function StatusLinePanel({
           {/* type — 固定 command，只读展示 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customType", "类型")}</label>
-            <input className="input" readOnly value="command"
+            <Input  readOnly value="command"
               style={{ fontSize: F.body, padding: S.inputPad, width: 140, opacity: 0.7, fontFamily: '"SF Mono", "Fira Code", monospace' }} />
           </div>
           {/* command — 脚本路径 / 命令 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customCommand", "命令 / 脚本路径")}</label>
-            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+            <Input  style={{ fontSize: F.body, padding: S.inputPad }}
               value={customCommand}
               placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh 或 inline 命令")}
               onChange={(e) => updateField(aidogKey, { ...stored, customCommand: e.target.value })} />
             <Hint>{t("statusline.customCommandDesc", "支持绝对路径、~ 路径或内联命令")}</Hint>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
+            <Button variant="default"  style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={handleApplyCustom}>
               {t("statusline.applyCustom", "应用自定义脚本")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -148,18 +150,18 @@ export function StatusLinePanel({
                         padding: "2px 4px 4px", fontSize: F.hint, color: "var(--text-tertiary)",
                       }}>
                         <span style={{ fontWeight: 600 }}>{t("statusline.rowLabel")}</span>
-                        <button type="button" className="btn btn-ghost"
+                        <Button variant="ghost" type="button" 
                           style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--accent)" }}
                           onClick={() => cycleRowAlign(seg.id)}
                           title={t("statusline.rowAlign")}>
                           {t(`statusline.align.${seg.align ?? "left"}`)}
-                        </button>
-                        <button type="button" className="btn btn-ghost"
+                        </Button>
+                        <Button variant="ghost" type="button" 
                           style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--text-tertiary)" }}
                           onClick={() => deleteRow(seg.id)}
                           title={t("statusline.deleteRow", "删除整行")}>
                           {t("statusline.deleteRow", "删除整行")}
-                        </button>
+                        </Button>
                       </div>
                     )}
                     <div className="glass-surface" style={{
@@ -203,25 +205,25 @@ export function StatusLinePanel({
                         {def.toPreview({ ...def.defaultOptions, ...seg.options })}
                       </span>
                       {/* Break-to-new-line toggle (moves segment between rows) */}
-                      <button type="button" className="btn btn-ghost btn-icon"
+                      <Button variant="ghost" type="button" 
                         style={{
                           width: 24, height: 24, minWidth: 24, fontSize: F.hint,
                           color: seg.newline ? "var(--accent)" : "var(--text-tertiary)",
                         }}
                         title={t("statusline.toggleNewline")}
-                        onClick={() => updateSegments(segments.map(s => s.id === seg.id ? { ...s, newline: !s.newline } : s))}>↵</button>
+                        onClick={() => updateSegments(segments.map(s => s.id === seg.id ? { ...s, newline: !s.newline } : s))}>↵</Button>
                       {/* Edit button */}
-                      <button type="button" className="btn btn-ghost"
+                      <Button variant="ghost" type="button" 
                         style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--accent)" }}
                         onClick={() => setEditSeg({ ...seg })}>
                         <IconEdit size={13} />
-                      </button>
+                      </Button>
                       {/* Delete */}
-                      <button type="button" className="btn btn-ghost btn-icon"
+                      <Button variant="ghost" type="button" 
                         style={{ width: 24, height: 24, minWidth: 24, fontSize: F.hint, color: "var(--text-tertiary)" }}
                         onClick={() => updateSegments(segments.filter((s) => s.id !== seg.id))}>
                         <IconClose size={13} />
-                      </button>
+                      </Button>
                     </div>
                     </div>
                   );
@@ -230,19 +232,19 @@ export function StatusLinePanel({
 
               {/* Add segment / row */}
               <div style={{ position: "relative", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
-                <button className="btn btn-ghost" style={{ fontSize: F.body, padding: "6px 14px", marginRight: "auto", color: "var(--text-tertiary)" }}
+                <Button variant="ghost"  style={{ fontSize: F.body, padding: "6px 14px", marginRight: "auto", color: "var(--text-tertiary)" }}
                   onClick={resetToDefaultLayout}
                   title={t("statusline.resetLayoutHint", "恢复内置默认 3 行布局")}>
                   {t("statusline.resetLayout", "恢复默认布局")}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: F.body, padding: "6px 14px" }}
+                </Button>
+                <Button variant="ghost"  style={{ fontSize: F.body, padding: "6px 14px" }}
                   onClick={addRow}>
                   {t("statusline.addRow")}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: F.body, padding: "6px 14px" }}
+                </Button>
+                <Button variant="ghost"  style={{ fontSize: F.body, padding: "6px 14px" }}
                   onClick={() => setShowAddMenu(!showAddMenu)}>
                   {t("statusline.addSegment")}
-                </button>
+                </Button>
                 {showAddMenu && (
                   <div style={{
                     position: "absolute", bottom: "100%", right: 0, zIndex: 100,
@@ -261,7 +263,7 @@ export function StatusLinePanel({
                           const def = SEGMENT_DEF_MAP.get(type);
                           if (!def) return null;
                           return (
-                            <button key={def.type} type="button" style={{
+                            <Button variant="outline" key={def.type} type="button" style={{
                               display: "block", width: "100%", textAlign: "left",
                               padding: "6px 12px", fontSize: F.body,
                               background: "transparent", border: "none", borderRadius: "var(--radius-sm)",
@@ -272,7 +274,7 @@ export function StatusLinePanel({
                               onClick={() => addSegment(def.type)}>
                               <span style={{ fontWeight: 500 }}>{t(`statusline.seg.${def.type}.name`, def.name)}</span>
                               <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8 }}>{t(`statusline.seg.${def.type}.desc`, def.desc)}</span>
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
@@ -287,7 +289,7 @@ export function StatusLinePanel({
           <div style={{
             padding: "10px 16px", background: "var(--bg-glass)", borderRadius: "var(--radius-md)",
           }}>
-            <button type="button" className="btn btn-ghost"
+            <Button variant="ghost" type="button" 
               style={{ fontSize: F.body, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, width: "100%", justifyContent: "space-between" }}
               onClick={() => setShowScript(!showScript)}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -297,7 +299,7 @@ export function StatusLinePanel({
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontFamily: '"SF Mono", "Fira Code", monospace' }}>
                 ~/.aidog/aidog-{scriptType === "subagent" ? "subagent-" : ""}statusline.sh
               </span>
-            </button>
+            </Button>
             {showScript && (
               <pre style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
@@ -313,10 +315,10 @@ export function StatusLinePanel({
 
           {/* Apply button */}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
+            <Button variant="default"  style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={handleSave} disabled={saving}>
               {saving ? t("statusline.generating", "生成中…") : t("statusline.applyGenerate", "应用并生成脚本")}
-            </button>
+            </Button>
           </div>
         </>
       )}

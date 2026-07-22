@@ -5,6 +5,7 @@
 import { useTranslation } from "react-i18next";
 import { SECTIONS } from "../../services/claude-settings-schema";
 import { F, SectionIcon } from "./editors";
+import { Button } from "@/components/ui/button";
 
 export interface SectionAnchorNavProps {
   activeId: string;
@@ -38,7 +39,7 @@ export function SectionAnchorNav({ activeId, onJump, top, rootRef }: SectionAnch
       {SECTIONS.map((section) => {
         const active = activeId === section.id;
         return (
-          <button
+          <Button variant="outline"
             key={section.id}
             type="button"
             onClick={() => onJump(section.id)}
@@ -60,7 +61,7 @@ export function SectionAnchorNav({ activeId, onJump, top, rootRef }: SectionAnch
           >
             <SectionIcon name={section.id} size={14} />
             {t(section.labelKey)}
-          </button>
+          </Button>
         );
       })}
     </div>
