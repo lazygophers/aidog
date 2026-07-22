@@ -170,12 +170,12 @@ export function About() {
       return { text: t("about.localEnv.notInstalled", "未安装"), color: "var(--text-tertiary)" };
     }
     if (s.broken) {
-      return { text: t("about.localEnv.broken", "已损坏"), color: "var(--color-danger, #ef4444)" };
+      return { text: t("about.localEnv.broken", "已损坏"), color: "var(--color-danger)" };
     }
     if (s.conflict) {
-      return { text: t("about.localEnv.conflict", "冲突"), color: "var(--color-warning, #f59e0b)" };
+      return { text: t("about.localEnv.conflict", "冲突"), color: "var(--color-warning)" };
     }
-    return { text: t("about.localEnv.installed", "已安装"), color: "var(--color-success, #22c55e)" };
+    return { text: t("about.localEnv.installed", "已安装"), color: "var(--color-success)" };
   };
 
   const conflictFor = (tool: string) => cliConflicts.find((c) => c.tool === tool);
@@ -364,7 +364,7 @@ export function About() {
                       padding: "2px 8px",
                       borderRadius: 4,
                       color: st.color,
-                      background: "var(--bg-secondary, rgba(125,125,125,0.08))",
+                      background: "var(--bg-glass)",
                     }}
                   >
                     {st.text}
@@ -417,7 +417,7 @@ export function About() {
                     {s.version || (s.installed ? t("about.localEnv.unknown", "未知") : "—")}
                   </span>
                   {s.latest_version && (
-                    <span style={{ marginLeft: 8, color: "var(--color-success, #22c55e)" }}>
+                    <span style={{ marginLeft: 8, color: "var(--color-success)" }}>
                       {t("about.localEnv.latest", "最新 {{version}}", { version: s.latest_version })}
                     </span>
                   )}
@@ -438,11 +438,11 @@ export function About() {
                     padding: 10,
                     borderRadius: 8,
                     border: conflict.is_conflicting
-                      ? "1px solid var(--color-warning, #f59e0b)"
+                      ? "1px solid var(--color-warning)"
                       : "1px solid var(--border)",
                     background: conflict.is_conflicting
-                      ? "rgba(245, 158, 11, 0.08)"
-                      : "var(--bg-secondary, rgba(125,125,125,0.04))",
+                      ? "color-mix(in srgb, var(--color-warning) 8%, transparent)"
+                      : "var(--bg-glass)",
                     display: "flex",
                     flexDirection: "column",
                     gap: 6,
@@ -453,7 +453,7 @@ export function About() {
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
                     {t("about.localEnv.installations", "共 {{count}} 处安装", { count: conflict.installations.length })}
                     {conflict.is_conflicting && (
-                      <span style={{ color: "var(--color-warning, #f59e0b)", marginLeft: 6 }}>
+                      <span style={{ color: "var(--color-warning)", marginLeft: 6 }}>
                         {t("about.localEnv.conflict", "冲突")}
                       </span>
                     )}
@@ -482,7 +482,7 @@ export function About() {
                         style={{
                           padding: "1px 6px",
                           borderRadius: 3,
-                          background: "var(--bg-tertiary, rgba(125,125,125,0.12))",
+                          background: "var(--bg-glass)",
                           color: "var(--text-secondary)",
                         }}
                       >
@@ -494,12 +494,12 @@ export function About() {
                         </span>
                       )}
                       {!inst.runnable && (
-                        <span style={{ color: "var(--color-danger, #ef4444)" }}>
+                        <span style={{ color: "var(--color-danger)" }}>
                           {t("about.localEnv.broken", "已损坏")}
                         </span>
                       )}
                       {inst.is_path_default && (
-                        <span style={{ color: "var(--color-success, #22c55e)" }}>
+                        <span style={{ color: "var(--color-success)" }}>
                           {t("about.localEnv.pathDefault", "PATH 默认")}
                         </span>
                       )}
@@ -518,12 +518,12 @@ export function About() {
         })}
 
         {cliMsg && (
-          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success, #22c55e)" }}>
+          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success)" }}>
             {cliMsg}
           </div>
         )}
         {cliErr && (
-          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-danger, #ef4444)" }}>
+          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-danger)" }}>
             {cliErr}
           </div>
         )}
