@@ -76,11 +76,10 @@ pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
     let mut targets: Vec<gateway::models::Platform> = Vec::new();
     for item in config.items.iter().filter(|i| i.enabled && i.item_type == "platform") {
         let Some(pid) = item.platform_id else { continue };
-        if let Ok(Some(p)) = db::get_platform(&db_state, pid).await {
-            if p.last_real_query_at == 0 {
+        if let Ok(Some(p)) = db::get_platform(&db_state, pid).await
+            && p.last_real_query_at == 0 {
                 targets.push(p);
             }
-        }
     }
     for p in targets {
         let handle = app.clone();

@@ -263,11 +263,10 @@ where
         };
 
         // 旁路累积上游响应原文（受 master 开关控制；锁为同步短临界区）
-        if record_upstream_body {
-            if let Ok(mut up) = guard.agg.upstream_body.lock() {
+        if record_upstream_body
+            && let Ok(mut up) = guard.agg.upstream_body.lock() {
                 up.push(chunk.clone());
             }
-        }
 
         let text = String::from_utf8_lossy(&chunk);
 
@@ -292,8 +291,8 @@ where
                         continue;
                     }
 
-                    if let Ok(json) = serde_json::from_str::<Value>(data) {
-                        if let Some(event) = adapter::parse_sse(&json, &protocol) {
+                    if let Ok(json) = serde_json::from_str::<Value>(data)
+                        && let Some(event) = adapter::parse_sse(&json, &protocol) {
                             let event = if !model_for_response.is_empty() {
                                 match event {
                                     ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
@@ -309,7 +308,6 @@ where
                                 output.push_str(&sse);
                             }
                         }
-                    }
                 }
             }
             Bytes::from(output)
@@ -333,11 +331,10 @@ where
         };
 
         // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制）
-        if record_client_body && !out_bytes.is_empty() {
-            if let Ok(mut cl) = guard.agg.client_body.lock() {
+        if record_client_body && !out_bytes.is_empty()
+            && let Ok(mut cl) = guard.agg.client_body.lock() {
                 cl.push(out_bytes.clone());
             }
-        }
         // 正常结束：本 chunk 含 [DONE] 即触发 flush（token 已累加完整）；否则由断连 Drop 兜底。
         // flush 幂等（est_fired 守卫），[DONE] 与 Drop 二者只生效一次。flush 内仅 tokio::spawn，不阻塞转发。
         guard.flush_if_done(&text);

@@ -203,17 +203,15 @@ pub(crate) async fn handle_passthrough(
             }
         };
         // 旁路累积上游 SSE 原文（受 master 开关控制）
-        if record_upstream_body {
-            if let Ok(mut up) = guard.agg.upstream_body.lock() {
+        if record_upstream_body
+            && let Ok(mut up) = guard.agg.upstream_body.lock() {
                 up.push(chunk.clone());
             }
-        }
         // 透传 user_response_body == upstream 原文：受 log_user_request 控制时同步聚合到 client_body
-        if passthrough_user_body {
-            if let Ok(mut cl) = guard.agg.client_body.lock() {
+        if passthrough_user_body
+            && let Ok(mut cl) = guard.agg.client_body.lock() {
                 cl.push(chunk.clone());
             }
-        }
         // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段，含 message.usage 兜底），不改写 chunk。
         // 跨 chunk 行重组：data: 行被切到两个 chunk 时逐 chunk .lines() 会丢 usage。
         let text = String::from_utf8_lossy(&chunk);
@@ -562,16 +560,14 @@ pub(crate) async fn forward_passthrough_to_orig_host(
                 return Ok::<_, std::io::Error>(Bytes::new());
             }
         };
-        if record_upstream_body {
-            if let Ok(mut up) = guard.agg.upstream_body.lock() {
+        if record_upstream_body
+            && let Ok(mut up) = guard.agg.upstream_body.lock() {
                 up.push(chunk.clone());
             }
-        }
-        if record_client_body {
-            if let Ok(mut cl) = guard.agg.client_body.lock() {
+        if record_client_body
+            && let Ok(mut cl) = guard.agg.client_body.lock() {
                 cl.push(chunk.clone());
             }
-        }
         Ok::<_, std::io::Error>(chunk)
     });
     let body = Body::from_stream(stream);

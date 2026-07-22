@@ -168,12 +168,11 @@ impl StreamLogGuard {
                 }
             }
             // SSE event 行形式：`event: message_stop`
-            if let Some(ev) = line.strip_prefix("event: ") {
-                if ev.trim() == "message_stop" {
+            if let Some(ev) = line.strip_prefix("event: ")
+                && ev.trim() == "message_stop" {
                     self.flush();
                     return;
                 }
-            }
         }
     }
 
@@ -204,11 +203,10 @@ impl StreamLogGuard {
         } else {
             final_log.response_body = String::new();
         }
-        if self.record_client_body {
-            if let Ok(chunks) = self.agg.client_body.lock() {
+        if self.record_client_body
+            && let Ok(chunks) = self.agg.client_body.lock() {
                 final_log.user_response_body = join_stream_body(&chunks);
             }
-        }
 
         tracing::info!(
             platform_id = final_log.platform_id, model = %final_log.actual_model,

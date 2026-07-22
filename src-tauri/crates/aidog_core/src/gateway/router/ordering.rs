@@ -103,13 +103,12 @@ pub(crate) fn apply_sticky(platforms: &mut [&GroupPlatformDetail], ctx: Option<&
     if platforms.is_empty() {
         return;
     }
-    if let Some(bound_id) = c.sticky.get(key, now_ms) {
-        if let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id) {
+    if let Some(bound_id) = c.sticky.get(key, now_ms)
+        && let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id) {
             platforms.swap(0, pos);
             return; // 绑定健康，维持
         }
         // 绑定平台已失效 / 熔断 / 不在集 → 落到重绑（用新首选）
-    }
     // 写 / 重写绑定为当前首选平台
     c.sticky.put(key.clone(), platforms[0].platform.id, now_ms);
 }

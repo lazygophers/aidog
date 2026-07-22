@@ -338,11 +338,10 @@ pub async fn list_group_details_paged(
 
 pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
     // 缓存命中：Groups 页一次拉全量（消除前端逐组 N+1）+ refreshStats 复用，命中即返 clone。
-    if let Ok(g) = db.1.group_details.read() {
-        if let Some(cached) = g.as_ref() {
+    if let Ok(g) = db.1.group_details.read()
+        && let Some(cached) = g.as_ref() {
             return Ok(cached.clone());
         }
-    }
     let groups = list_groups(db).await?;
     // 去 JOIN：单查全部组的 group_platform 行 + 批量补 platform，按 group_id 内存分桶（消除逐组 N+1）。
     let all_gids: Vec<u64> = groups.iter().map(|g| g.id).collect();

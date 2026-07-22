@@ -114,11 +114,10 @@ pub async fn dispatch(
             Err(e) => tracing::warn!(error = %e, "notify: insert inbox failed"),
         }
 
-        if do_popup {
-            if let Some(app) = app {
+        if do_popup
+            && let Some(app) = app {
                 show_popup(app, &title, &body);
             }
-        }
         if do_tts {
             let speak_text = if body.is_empty() { title.clone() } else { body.clone() };
             speak(app, settings.tts_backend, &speak_text);
@@ -143,8 +142,8 @@ pub async fn dispatch(
     // CC hook 事件来源守卫：通用 hook 脚本 POST 时带 event、不带 type（见 hooks.rs「不传 type」），
     // 当 event 存在但未在 per_event 启用时，禁止回退类型路径（type_str="" → from_str_or_default → TaskComplete）
     // 误派通知。仅 event=None（Codex）或携带显式 type 的旧/Codex 路径才走下方类型路径。
-    if let Some(ev) = event.filter(|e| !e.is_empty()) {
-        if type_str.is_empty() {
+    if let Some(ev) = event.filter(|e| !e.is_empty())
+        && type_str.is_empty() {
             // 未启用事件：不入库、不触发任何通道。title/body 仅填充返回结构，不产生任何副作用。
             return DispatchResult {
                 dispatched: false,
@@ -157,7 +156,6 @@ pub async fn dispatch(
                 inbox_id: None,
             };
         }
-    }
 
     // 类型路径（无 event / 未命中 / 未启用）：向后兼容 + Codex。
     let notif_type = NotifType::from_str_or_default(type_str);
@@ -198,8 +196,8 @@ pub async fn dispatch(
     }
 
     // 弹窗：title 空（无 project 注入）时退化到类型默认名，避免空标题弹窗
-    if do_popup {
-        if let Some(app) = app {
+    if do_popup
+        && let Some(app) = app {
             let popup_title = if title.is_empty() {
                 default_title(notif_type)
             } else {
@@ -207,7 +205,6 @@ pub async fn dispatch(
             };
             show_popup(app, popup_title, &body);
         }
-    }
 
     // TTS（含 sound 语义：播报本身即声音；SoundOnly 无文本则播 title）
     if do_tts {

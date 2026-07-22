@@ -163,8 +163,8 @@ impl MiddlewareEngine {
         }
 
         // group 层
-        if let Some(gname) = group_key {
-            if let Some(bucket) = guard.get(&(rule_type, RuleScope::Group)) {
+        if let Some(gname) = group_key
+            && let Some(bucket) = guard.get(&(rule_type, RuleScope::Group)) {
                 let matched: Vec<CompiledRule> = bucket
                     .iter()
                     .filter(|c| c.rule.scope_ref == gname)
@@ -174,7 +174,6 @@ impl MiddlewareEngine {
                     return matched;
                 }
             }
-        }
 
         // global 层（兜底）
         guard
