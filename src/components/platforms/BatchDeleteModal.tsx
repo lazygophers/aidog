@@ -58,8 +58,9 @@ export function BatchDeleteModal({
       <AlertDialogContent
         className="glass-elevated"
         style={{ maxWidth: 520, maxHeight: "80vh", overflowY: "auto", padding: "20px 22px" }}
+        // ponytail: AlertDialog 设计上禁外部点击关闭（ radix 不暴露 onPointerDownOutside）；
+        // busy 时阻止 Escape 关闭（onOpenChange 也会因 busy 回滚，双保险防 invoke 中关闭）。
         onEscapeKeyDown={(e) => { if (busy) e.preventDefault(); }}
-        onPointerDownOutside={(e) => { if (busy) e.preventDefault(); }}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{t("group.batchDeleteTitle", "批量删除平台")}</AlertDialogTitle>
