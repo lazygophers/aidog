@@ -70,6 +70,30 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* ── Legacy token aliases → shadcn (compat for business pages pre-migration) ──
+     ponytail: CSS var live resolution. palette overrides --foreground etc. via inline
+     setProperty; these aliases follow automatically at computed-value time.
+     Saves 700+ sed renames across 90+ files; shadcn-pages removes aliases when migrating. */
+  --text-primary: var(--foreground);
+  --text-secondary: var(--muted-foreground);
+  --text-tertiary: var(--muted-foreground);
+  --text-on-accent: var(--primary-foreground);
+  --bg-base: var(--background);
+  --bg-elevated: var(--card);
+  --bg-floating: var(--popover);
+  --bg-surface: var(--card);
+  --bg-glass: var(--card);
+  --bg-glass-hover: var(--accent);
+  --shadow-rgb: var(--shadow-color, 0, 0, 0);
+  --shadow-color: 0, 0, 0;
+  --glass-edge: var(--border);
+  --accent-hover: var(--primary);
+  --accent-subtle: color-mix(in srgb, var(--primary) 13%, transparent);
+  --border-focus: var(--ring);
+  --accent-1: var(--primary);
+  --accent-2: var(--secondary);
+  --accent-3: var(--accent);
 }
 
 html,
@@ -688,6 +712,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --shadow-color: 0, 0, 0;
 }
 
 @theme inline {
