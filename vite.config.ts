@@ -2,6 +2,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
+import path from "node:path";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
@@ -9,6 +10,13 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vite.dev/config/
 export default defineConfig(async () => ({
   plugins: [react(), tailwindcss()],
+
+  resolve: {
+    // ponytail: @ alias 供 shadcn 组件 (@/components/ui, @/lib/utils) 解析, 与 tsconfig paths 同步
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 
   clearScreen: false,
   server: {
