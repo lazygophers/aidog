@@ -549,7 +549,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
-      alert(String(e) || "Failed to save group");
+      onToast?.({ text: `${t("group.saveFailed", "保存分组失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
     }
   };
 
@@ -578,7 +579,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       load();
       onGroupsChanged?.();
     } catch (e) {
-      alert(String(e) || "Failed to delete group");
+      console.error(e);
+      onToast?.({ text: `${t("group.deleteFailed", "删除分组失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, onGroupsChanged]);
@@ -590,7 +593,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       load();
       onGroupsChanged?.();
     } catch (e) {
-      alert(String(e) || "Failed to set default group");
+      console.error(e);
+      onToast?.({ text: `${t("group.setDefaultFailed", "设置默认分组失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [load, onGroupsChanged]);

@@ -1,4 +1,3 @@
-import { createPortal } from "react-dom";
 import type { TFunction } from "i18next";
 import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
 import type { PlatformCardActions } from "../../components/platforms/PlatformCard";
@@ -17,6 +16,19 @@ import type { PlatformModels } from "../../services/api";
 import { GroupTestPanel, type GroupRow } from "../../domains/groups";
 import { GroupListItem, type CardsSnapshot } from "./GroupListItem";
 import type { GroupTestState } from "./useGroupTest";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export interface GroupListViewProps {
   details: GroupDetail[];
@@ -297,52 +309,45 @@ export function GroupListView(props: GroupListViewProps) {
 
       {/* 删平台确认弹窗：总弹（根因旁路，去 count 决定行为）。
           单组 → 单按钮「删除平台」（销毁平台）；多组 → 双按钮「移出本组」+「删除平台（全部组）」。
-          createPortal 挂 body 脱离 transform 祖先，参考 GroupTestPanel。 */}
-      {removeTarget !== null && createPortal(
-        <div onClick={() => setRemoveTarget(null)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1001,
-          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-        }}>
-          <div className="glass-surface" onClick={e => e.stopPropagation()} style={{
-            width: "min(420px, 92vw)", display: "flex", flexDirection: "column", gap: 14, padding: 20,
-            background: "var(--bg-floating)",
-          }}>
-            <div style={{ fontSize: 15, fontWeight: 700 }}>
-              {removeTarget.groupCount > 1
+          AlertDialog 走 Radix Portal（脱离 transform 祖先，参考 BatchDeleteModal）。 */}
+      <AlertDialog open={removeTarget !== null} onOpenChange={(next) => { if (!next) setRemoveTarget(null); }}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {removeTarget?.groupCount && removeTarget.groupCount > 1
                 ? t("group.deletePlatformMultiTitle", "移出或删除平台")
                 : t("group.deletePlatformTitle", "删除平台")}
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-              {removeTarget.groupCount > 1
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {removeTarget?.groupCount && removeTarget.groupCount > 1
                 ? t("group.deletePlatformMultiDesc",
                     "「{{name}}」属 {{count}} 个分组：{{groups}}。选择操作：",
                     { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join("、") })
                 : t("group.deletePlatformConfirm",
                     "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？",
-                    { name: removeTarget.platform.name })}
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-              <button className="btn btn-ghost" onClick={() => setRemoveTarget(null)}>
-                {t("action.cancel", "取消")}
-              </button>
-              {removeTarget.groupCount > 1 && (
-                <button className="btn btn-ghost" onClick={() => {
-                  removePlatformFromGroup(removeTarget.platform.id, removeTarget.gid);
-                  setRemoveTarget(null);
-                }}>
-                  {t("group.removeFromGroupAction", "移出本组")}
-                </button>
-              )}
-              <button className="btn btn-danger" onClick={confirmDeletePlatform}>
-                {removeTarget.groupCount > 1
-                  ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
-                  : t("group.deletePlatformAction", "删除平台")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+                    { name: removeTarget?.platform.name ?? "" })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+            {removeTarget?.groupCount && removeTarget.groupCount > 1 && (
+              <Button variant="outline" onClick={() => {
+                removePlatformFromGroup(removeTarget.platform.id, removeTarget.gid);
+                setRemoveTarget(null);
+              }}>
+                {t("group.removeFromGroupAction", "移出本组")}
+              </Button>
+            )}
+            <AlertDialogAction
+              style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "#fff" }}
+              onClick={() => { void confirmDeletePlatform(); }}>
+              {removeTarget?.groupCount && removeTarget.groupCount > 1
+                ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
+                : t("group.deletePlatformAction", "删除平台")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* 批量删除平台确认弹窗（group-batch-ops s3）：全列可滚 + 跨组警告 + 原子事务物理删。 */}
       <BatchDeleteModal
@@ -399,27 +404,31 @@ function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFun
   const totalTokens = u.total_input_tokens + u.total_output_tokens;
   const sRate = calcSuccessRate(u.success_count, u.total_requests);
   return (
-    <div className="glass-surface" style={{
+    <Card className="glass-surface" style={{
       padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8,
-      opacity: 0.85, border: "1px dashed var(--border-color)",
+      opacity: 0.85, border: "1px dashed var(--border-color)", borderRadius: "var(--radius-md)",
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontWeight: 600, fontSize: 14 }}>{t("group.unmatched", "未匹配")}</span>
-        <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 6px", fontWeight: 500 }}>
-          {t("group.unmatchedBadge", "虚拟桶")}
-        </span>
-      </div>
-      <div className="text-tertiary" style={{ fontSize: 12, lineHeight: 1.5 }}>
-        {t("group.unmatchedHint", "MITM 解密的非 API 流量未匹配分组时透明转发到原 host，不计费，仅统计请求数。")}
-      </div>
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
-        <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
-        {u.total_requests > 0 && (
-          <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
-            level={successRateLevel(sRate, u.total_requests)} />
-        )}
-      </div>
-    </div>
+      <CardHeader style={{ padding: 0, gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <CardTitle style={{ fontSize: 14, fontWeight: 600 }}>{t("group.unmatched", "未匹配")}</CardTitle>
+          <Badge variant="secondary" style={{ fontSize: 10, padding: "0 6px", fontWeight: 500 }}>
+            {t("group.unmatchedBadge", "虚拟桶")}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent style={{ padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div className="text-tertiary" style={{ fontSize: 12, lineHeight: 1.5 }}>
+          {t("group.unmatchedHint", "MITM 解密的非 API 流量未匹配分组时透明转发到原 host，不计费，仅统计请求数。")}
+        </div>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
+          <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+          {u.total_requests > 0 && (
+            <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
+              level={successRateLevel(sRate, u.total_requests)} />
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }

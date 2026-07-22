@@ -5,6 +5,9 @@ import type { Platform, RoutingMode } from "../../services/api";
 import { getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, PlatformPicker } from "../../domains/groups";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export interface GroupCreateModalProps {
   cName: string;
@@ -40,16 +43,16 @@ export function GroupCreateModal({
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button className="btn btn-ghost btn-icon" onClick={onClose} title={t("action.cancel")}>
+        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={onClose} title={t("action.cancel")}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M19 12H5M12 19l-7-7 7-7" />
           </svg>
-        </button>
+        </Button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("group.add")}</div>
         </div>
-        <button className="btn" onClick={onClose}>{t("action.cancel")}</button>
-        <button className="btn btn-primary" onClick={onCreate} disabled={!cName}>{t("action.create")}</button>
+        <Button variant="outline" onClick={onClose}>{t("action.cancel")}</Button>
+        <Button onClick={onCreate} disabled={!cName}>{t("action.create")}</Button>
       </div>
 
       {/* Basic info */}
@@ -59,7 +62,7 @@ export function GroupCreateModal({
         {/* Name */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
-          <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+          <Input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
             placeholder={t("group.name", "分组名称")} value={cName}
             onChange={(e) => onCName(e.target.value)} />
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
@@ -70,7 +73,7 @@ export function GroupCreateModal({
         {/* Group key */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "密钥")}</span>
-          <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+          <Input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
             placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
             onChange={(e) => onCGroupKey(e.target.value.replace(/[^\w-]/g, ""))} />
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
@@ -81,11 +84,16 @@ export function GroupCreateModal({
         {/* Routing mode */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
-          <select className="input" style={{ fontSize: F.body, padding: S.inputPad }} value={cMode} onChange={(e) => onCMode(e.target.value as RoutingMode)}>
-            {ROUTING_MODES.map(m => (
-              <option key={m} value={m}>{routingModeLabel(t, m)}</option>
-            ))}
-          </select>
+          <Select value={cMode} onValueChange={(v) => onCMode(v as RoutingMode)}>
+            <SelectTrigger className="input" style={{ fontSize: F.body, padding: S.inputPad }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ROUTING_MODES.map(m => (
+                <SelectItem key={m} value={m}>{routingModeLabel(t, m)}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{routingModeDesc(t, cMode)}</div>
         </div>
       </div>

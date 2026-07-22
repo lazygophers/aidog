@@ -9,6 +9,21 @@ import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons"
 import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
 import type { DragHandleProps } from "../../components/SortableList";
 import { buildClaudeCommand, buildCodexCommand, routingModeLabel, GroupIcon, useProxyEnvVars } from "../../domains/groups";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 /** usePlatformCards 的卡片展示状态快照（memo 化子组件按需接收） */
 export interface CardsSnapshot {
@@ -119,6 +134,9 @@ export const GroupListItem = memo(function GroupListItem({
   const [mode, setMode] = useState<"view" | "select">("view");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
+  // ponytail: purge 确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规），open 态本地管理。
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
+
   // 批量删除成功后：selectedIds 内平台从 gps 全消失 → 自动退出多选模式（load 刷新后 gps 变化触发）。
   useEffect(() => {
     if (mode !== "select" || selectedIds.size === 0) return;
@@ -171,16 +189,16 @@ export const GroupListItem = memo(function GroupListItem({
           <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
             {group.name}
             {group.is_default && (
-              <span className="badge badge-accent" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</span>
+              <Badge style={{ fontSize: 10, padding: "0 5px", fontWeight: 500, background: "var(--accent)", color: "#fff", border: "none" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
             )}
             {group.auto_from_platform && (
-              <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</span>
+              <Badge variant="secondary" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
             )}
           </div>
           <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1, alignItems: "center", flexWrap: "wrap" }}>
-            <span className="badge badge-muted" style={{ padding: "0 6px" }}>
+            <Badge variant="secondary" style={{ padding: "0 6px" }}>
               {routingModeLabel(t, group.routing_mode)}
-            </span>
+            </Badge>
             {gps.length > 0 && (
               <span className="text-tertiary">{gps.length} {t("group.platforms", "平台")}</span>
             )}
@@ -198,48 +216,44 @@ export const GroupListItem = memo(function GroupListItem({
             { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
           ]}
         />
-        <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
+        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
           <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
           </svg>
-        </button>
-        <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onTestGroup(group, gps); }} disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning} title={t("group.testAll", "一键测试本组全部平台")}>
+        </Button>
+        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onTestGroup(group, gps); }} disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning} title={t("group.testAll", "一键测试本组全部平台")}>
           <IconBolt size={14} />
-        </button>
+        </Button>
         {onCreatePlatform && (
-          <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>
+          <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 2v10M2 7h10" />
             </svg>
-          </button>
+          </Button>
         )}
         {/* 清理本分组失效（auto_disabled）平台：独占的永久删，共享的仅移除本分组关联 */}
-        <button
-          className="btn btn-ghost"
-          onClick={async (e) => {
-            e.stopPropagation();
-            if (!window.confirm(t("group.purgeDisabledConfirm", "将清理本分组失效平台（独占的永久删除，共享的仅从本分组移除），确定？"))) return;
-            onPurgeDisabled(group.id);
-          }}
+        <Button
+          variant="ghost"
+          onClick={(e) => { e.stopPropagation(); setPurgeConfirmOpen(true); }}
           title={t("group.purgeDisabled", "清理失效")}
-          style={{ fontSize: 11, gap: 4, padding: "3px 8px", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
+          style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
         >
           {t("group.purgeDisabled", "清理失效")}
-        </button>
+        </Button>
         {/* 进入 per-group 多选模式 */}
         {gps.length > 0 && (
-          <button
-            className="btn btn-ghost"
+          <Button
+            variant="ghost"
             onClick={(e) => { e.stopPropagation(); setMode("select"); setSelectedIds(new Set()); }}
             title={t("group.batchOps", "多选")}
-            style={{ fontSize: 11, gap: 4, padding: "3px 8px", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
+            style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
           >
             {t("group.batchOps", "多选")}
-          </button>
+          </Button>
         )}
         {/* 设为默认分组（单选） */}
-        <button
-          className="btn btn-ghost"
+        <Button
+          variant="ghost"
           aria-pressed={group.is_default}
           aria-label={group.is_default
             ? t("group.unsetDefault", "取消默认分组")
@@ -249,7 +263,7 @@ export const GroupListItem = memo(function GroupListItem({
             ? t("group.isDefaultTitle", "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml")
             : t("group.setAsDefault", "设为默认分组")}
           style={{
-            fontSize: 11, gap: 4, padding: "3px 8px",
+            fontSize: 11, gap: 4, padding: "3px 8px", height: "auto",
             display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
             ...(group.is_default ? {
               color: "var(--accent)",
@@ -265,19 +279,19 @@ export const GroupListItem = memo(function GroupListItem({
           {group.is_default
             ? t("group.defaultConfigWritten", "默认配置已写入")
             : t("group.setAsDefault", "设为默认")}
-        </button>
-        <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
+        </Button>
+        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
-        </button>
+        </Button>
         {(!group.auto_from_platform || gps.length === 0) && (
-          <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); onDelete(group.id); }}>
+          <Button variant="ghost" size="icon" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); onDelete(group.id); }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
       {/* ── 行 2：统计 + 余额 ── */}
@@ -341,39 +355,39 @@ export const GroupListItem = memo(function GroupListItem({
                 display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
                 padding: "8px 0", borderBottom: "1px solid var(--border)",
               }}>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                   onClick={() => { setMode("view"); setSelectedIds(new Set()); }}>
                   {t("action.cancel", "取消")}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                </Button>
+                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                   onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
                   {t("group.selectAll", "全选")}
-                </button>
+                </Button>
                 <span className="text-secondary" style={{ fontSize: 12 }}>
                   {t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}
                 </span>
                 <div style={{ flex: 1 }} />
                 {/* 4 批量操作按钮（占位 handler, modal 在 s3-s5 实现） */}
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                   disabled={selectedIds.size === 0}
                   onClick={() => onBatchDelete([...selectedIds], group.id)}>
                   {t("group.batchDelete", "删除")}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                </Button>
+                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                   disabled={selectedIds.size === 0}
                   onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
                   {t("group.batchOverrideModels", "覆盖模型")}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                </Button>
+                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                   disabled={selectedIds.size === 0}
                   onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
                   {t("group.batchSetStatus", "改状态")}
-                </button>
-                <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }}
+                </Button>
+                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                   disabled={selectedIds.size === 0}
                   onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
                   {t("group.batchMoveGroup", "移组")}
-                </button>
+                </Button>
               </div>
             )}
             {/* 关联平台：完整 PlatformCard（同 Platforms 主列表），点卡片就地展开详情 */}
@@ -388,15 +402,13 @@ export const GroupListItem = memo(function GroupListItem({
                       {mode === "select" ? (
                         /* 多选 checkbox */
                         <label style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", cursor: "pointer", padding: "0 4px" }}>
-                          <input
-                            type="checkbox"
+                          <Checkbox
                             checked={selectedIds.has(p.id)}
-                            onChange={() => setSelectedIds(prev => {
+                            onCheckedChange={() => setSelectedIds(prev => {
                               const s = new Set(prev);
                               s.has(p.id) ? s.delete(p.id) : s.add(p.id);
                               return s;
                             })}
-                            style={{ width: 16, height: 16, cursor: "pointer", accentColor: "var(--accent)" }}
                           />
                         </label>
                       ) : (
@@ -454,60 +466,91 @@ export const GroupListItem = memo(function GroupListItem({
                       <path d="M2 6h8M8 4l2 2-2 2" />
                     </svg>
                     <span style={{ flex: 1 }}>{m.target_model}</span>
-                    <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                    <Button variant="ghost" size="icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
                       onClick={(e) => { e.stopPropagation(); onDeleteMapping(group.id, mi); }}>
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
                         <path d="M2 2l6 6M8 2l-6 6" />
                       </svg>
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Quick Add Mapping */}
-            <button className="btn btn-ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", color: "var(--text-secondary)", alignSelf: "flex-start" }}
+            <Button variant="ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", height: "auto", color: "var(--text-secondary)", alignSelf: "flex-start" }}
               onClick={(e) => { e.stopPropagation(); onSetMappingGroupId(showMappingForm ? null : group.id); }}>
               <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                 <path d="M6 2v8M2 6h8" />
               </svg>
               {t("mapping.add")}
-            </button>
+            </Button>
 
             {showMappingForm && (
               <div className="animate-fade-in" style={{
                 paddingTop: 10, borderTop: "1px solid var(--border)",
                 display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
               }} onClick={e => e.stopPropagation()}>
-                <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                <Input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                   placeholder={t("mapping.source")} value={mSource}
                   onChange={(e) => onSetMSource(e.target.value)} />
-                <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
-                  onChange={(e) => { onSetMTargetPlatform(e.target.value === "" ? "" : Number(e.target.value)); onSetMTargetModel(""); }}>
-                  <option value="">{t("mapping.targetPlatform")}</option>
-                  {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                </select>
+                {/* radix Select 禁 value="" → __none__ 哨兵映射回 "" */}
+                <Select
+                  value={mTargetPlatform === "" ? "__none__" : String(mTargetPlatform)}
+                  onValueChange={(v) => { onSetMTargetPlatform(v === "__none__" ? "" : Number(v)); onSetMTargetModel(""); }}>
+                  <SelectTrigger className="input" style={{ fontSize: 12, width: 140 }}>
+                    <SelectValue placeholder={t("mapping.targetPlatform")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">{t("mapping.targetPlatform")}</SelectItem>
+                    {platforms.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
                 {availableModels.length > 0 ? (
-                  <select className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }} value={mTargetModel}
-                    onChange={(e) => onSetMTargetModel(e.target.value)}>
-                    <option value="">{t("mapping.target")}</option>
-                    {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
+                  <Select
+                    value={mTargetModel || "__none__"}
+                    onValueChange={(v) => onSetMTargetModel(v === "__none__" ? "" : v)}>
+                    <SelectTrigger className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}>
+                      <SelectValue placeholder={t("mapping.target")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">{t("mapping.target")}</SelectItem>
+                      {availableModels.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 ) : (
-                  <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                  <Input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                     placeholder={t("mapping.target")} value={mTargetModel}
                     onChange={(e) => onSetMTargetModel(e.target.value)} />
                 )}
-                <button className="btn btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}
+                <Button style={{ fontSize: 12, padding: "6px 12px", height: "auto" }}
                   onClick={onAddMapping}
                   disabled={!mSource || !mTargetPlatform || !mTargetModel}>
                   {t("action.create")}
-                </button>
+                </Button>
               </div>
             )}
           </div>
         )}
       </CompactCard>
+
+      {/* 清理失效确认 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）。 */}
+      <AlertDialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("group.purgeDisabled", "清理失效")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("group.purgeDisabledConfirm", "将清理本分组失效平台（独占的永久删除，共享的仅从本分组移除），确定？")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { onPurgeDisabled(group.id); }}>
+              {t("action.confirm", "确认")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 });
