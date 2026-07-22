@@ -1,0 +1,114 @@
+{
+  "id": "shadcn-primitives",
+  "name": "shadcn 核心 primitives 落地",
+  "desc": "add 核心 shadcn 组件(button/input/select/textarea/dialog/sheet/dropdown-menu/tabs/tooltip/checkbox/switch/label/badge/card/separator/scroll-area/popover/alert-dialog) + 项目级 wrapper 封装(i18n/变体)",
+  "status": "待处理",
+  "deps": [
+    "shadcn-infra"
+  ],
+  "contracts": [
+    "shadcn 组件源码进 src/components/ui/ 禁手改 (便于后续 add --diff 升级), 项目 wrapper 进 components/shared/",
+    "modal 类 (Dialog/Sheet/Drawer/AlertDialog) 经 Radix Portal, 满足 createPortal(document.body) 规则 (memory modal-window-center-rule), 禁自研 Portal",
+    "Button 无 isLoading/isPending prop, 用 Spinner+data-icon+disabled 组合",
+    "cn() 用于条件 className, 禁手写模板字符串三元; 无 space-x/y (用 gap-*); overlay 类无手写 z-index"
+  ],
+  "subtasks": [
+    {
+      "sid": "p1-form",
+      "name": "表单基础+高级组件 add",
+      "desc": "npx shadcn@latest add button input textarea label select checkbox switch slider radio-group toggle-group combobox field field-group; 各组件源码落 components/ui/; 验证 import + ts 类型完整",
+      "depends_on": [],
+      "验收": [
+        "清单内组件全 add 成功落 components/ui/",
+        "各组件可 import 且 ts 类型完整",
+        "cn() 用于条件类",
+        "Button 无 isLoading prop",
+        "无 space-x/y (用 gap)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696791,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "p2-overlay",
+      "name": "覆盖层+反馈组件 add",
+      "desc": "add dialog sheet drawer popover tooltip alert-dialog sonner alert progress skeleton spinner; 验证 Radix Portal (Dialog/Sheet/Drawer) 天然满足 createPortal 规则; sonner toast() 可用",
+      "depends_on": [],
+      "验收": [
+        "清单组件全 add",
+        "Dialog/Sheet/Drawer 内置 Radix Portal",
+        "sonner toast() import 可用",
+        "无手写 z-index 于 overlay 组件"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696792,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "p3-display",
+      "name": "数据展示+导航组件 add",
+      "desc": "add card badge avatar separator table scroll-area collapsible accordion tabs breadcrumb pagination; 验证 Card 完整组合 (CardHeader/Title/Content/Footer); TabsTrigger 在 TabsList 内",
+      "depends_on": [],
+      "验收": [
+        "清单组件全 add",
+        "Card 含完整子组件组合",
+        "TabsTrigger 在 TabsList 内 (非裸 Tabs 直接渲染 trigger)",
+        "Separator 替代 hr"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696792,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "p4-menu-wrapper",
+      "name": "菜单组件 + 项目 wrapper 封装",
+      "desc": "add dropdown-menu context-menu command; 封装 wrapper: Liquid Glass 变体 (Card/Dialog/Sheet 叠 backdrop-blur + glass 变量 className 进 components/shared/); LoadingButton 糖 (Button+Spinner+disabled); i18n 注入点 (Dialog close aria-label 等); 删旧 components/shared/Modal.tsx 自研 Portal 逻辑 (统一走 shadcn Dialog)",
+      "depends_on": [],
+      "验收": [
+        "dropdown-menu/context-menu/command add 成功",
+        "wrapper 落 components/shared/ 且 cn() 条件类",
+        "LoadingButton 封装 Button+Spinner+disabled 组合 (无 isLoading prop)",
+        "旧 Modal.tsx 自研 Portal 删除 (shadcn Dialog 替代)",
+        "yarn build + yarn test 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696793,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/shadcn-primitives",
+  "parent": "frontend-shadcn-migration",
+  "kind": "task",
+  "created": 1784696567,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1784696841
+}

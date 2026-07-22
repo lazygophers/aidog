@@ -1,0 +1,240 @@
+{
+  "id": "shadcn-infra",
+  "name": "shadcn 基础设施+主题 token 体系",
+  "desc": "shadcn init(Vite+Tailwind v4+nova preset)+ cn util + globals.css 建 shadcn token + 9 Style 映射 radius/blur + 调色板精简到 4 并生成 shadcn 语义色 token + 保留 applyTheme 运行时切换。tracer-bullet:一个页面用 shadcn button + 主题切换生效",
+  "status": "检查中",
+  "deps": [],
+  "contracts": [
+    "调色板固定 4 个: gruvbox/nord/dracula/catppuccin; 删 8 个 (appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl) 不再加回",
+    "9 Style 全保留 (liquidGlass/flat/soft/sharp/aurora/paper/terminal/bento/sketchy), 禁删",
+    "applyTheme(style,color,mode) 运行时 setProperty 切换机制保留, 禁改静态多 CSS 文件方案",
+    "shadcn 标准 token 命名 (--background/--foreground/--primary/--muted/--border/--ring/--radius-*), 禁自创变量名替代语义色",
+    "被删调色板的旧用户设置回退 gruvbox, 启动/读 settings 时检测 ∈ 删除集则回退",
+    "Tailwind v4 preflight (CSS reset) infra 阶段禁用 (@layer base 跳过或 @import 不带 preflight), pages 全迁完后再启用; 禁中间状态令未迁原生元素崩盘",
+    "infra 批量 sed 改名旧 var() (214 处): --bg-base→--background, --bg-elevated→--card, --bg-floating→--popover, --radius-*→同名, --shadow-rgb→--shadow-color 等, 保中间状态不断",
+    "8 locale 文件 (zh-Hans/en-US/ar-SA/de-DE/es-ES/fr-FR/ja-JP/ru-RU) 的 theme.color.{appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl} 死键删除 (64 键); theme.style.* key 全保留; yarn check:i18n 零多余"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-init",
+      "name": "shadcn init + Tailwind v4 + cn util",
+      "desc": "装 tailwindcss@4 + @tailwindcss/vite, vite.config.ts 加 plugin; npx shadcn@latest init (nova preset, Vite 模板, src/ 目录, importAlias @/); 生成 components.json + lib/utils.ts cn(); 验证 npx shadcn@latest info 显示正确 project context",
+      "depends_on": [],
+      "验收": [
+        "tailwindcss@4 + @tailwindcss/vite 装入 package.json",
+        "vite.config.ts 含 tailwindcss plugin",
+        "components.json 生成且 aliases/style/base/iconLibrary 正确",
+        "lib/utils.ts cn() 可 import",
+        "npx shadcn@latest info 输出 framework=Vite + tailwindVersion=v4"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696769,
+      "started": 1784701097,
+      "finished": 1784701906
+    },
+    {
+      "sid": "s2-token",
+      "name": "globals.css 建 shadcn token 体系",
+      "desc": "globals.css 加 @import tailwindcss + @theme inline 块 (nova preset 标准 shadcn 语义色: --background/--foreground/--primary/--secondary/--muted/--accent/--destructive/--border/--input/--ring/--card/--popover + --radius-sm/md/lg/xl); light+.dark 两套 (用 :root + .dark 或 @media prefers-color-scheme); 保留 --glass-blur/--glass-saturate/--glass-border/--shadow-color 扩展 token 段",
+      "depends_on": [
+        "s1-init"
+      ],
+      "验收": [
+        "globals.css 含 @import tailwindcss",
+        "@theme inline 块含全部 shadcn 标准语义色 token (light+dark)",
+        "扩展 glass/shadow token 段保留",
+        "yarn build 过 (tsc+vite)"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696771,
+      "started": 1784701914,
+      "finished": 1784702432
+    },
+    {
+      "sid": "s3-palette",
+      "name": "调色板 12→4 + 生成 shadcn 语义色 token",
+      "desc": "删 8 调色板文件 (appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl) + ThemeColor union 缩到 4; 保留 gruvbox/nord/dracula/catppuccin 各重写为 shadcn 语义色 token (light+dark 两套, 按 design token 映射表); DEFAULT_COLOR 仍 gruvbox",
+      "depends_on": [
+        "s2-token"
+      ],
+      "验收": [
+        "palettes/ 仅 4 文件 (gruvbox/nord/dracula/catppuccin)",
+        "ThemeColor union 4 变体",
+        "每个 palette 的 light+dark vars 含全量 shadcn 语义色 (--background/--primary/--muted/--border/--ring 等)",
+        "DEFAULT_COLOR=gruvbox",
+        "ts 编译过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696772,
+      "started": 1784702436,
+      "finished": 1784703318
+    },
+    {
+      "sid": "s4-style",
+      "name": "9 Style 映射 radius + glass token",
+      "desc": "9 Style 文件 (liquidGlass/flat/soft/sharp/aurora/paper/terminal/bento/sketchy) 的结构 vars key 改投 shadcn token: --radius-sm/md/lg/xl 各 Style 调不同阶梯 (liquidGlass 大圆角/sharp 近 0/soft 中); 保留 --glass-blur/--glass-saturate/--glass-border (Liquid Glass 皮肤层消费); 删与 shadcn 语义色冲突的旧结构 vars",
+      "depends_on": [
+        "s2-token"
+      ],
+      "验收": [
+        "9 Style 文件均含 --radius-sm/md/lg/xl 四档 (值各 Style 不同)",
+        "glass 扩展 token 保留",
+        "无与 shadcn 语义色重名冲突",
+        "ts 编译过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696773,
+      "started": 1784702436,
+      "finished": 1784703572
+    },
+    {
+      "sid": "s5-apply",
+      "name": "applyTheme 运行时切换 + 选择器 UI + 回退",
+      "desc": "types.ts applyThemeVars/clearThemeKeys 机制不变 (仅 vars key 已改名); index.ts applyTheme 组合 style+palette+mode 后 setProperty 验证切换生效; Settings 主题选择器 UI 适配 4 color × 9 style × light/dark (i18n key 沿用); 用户已选被删调色板 (8 个) 回退逻辑: 读 settings theme color ∈ 删除集 → 回退 gruvbox",
+      "depends_on": [
+        "s3-palette",
+        "s4-style"
+      ],
+      "验收": [
+        "applyTheme(style,color,mode) 三轴切换运行时 setProperty 生效",
+        "切换无残留旧变量 (clearThemeKeys 清并集)",
+        "主题选择器 UI 正常显示 4×9×2",
+        "被删调色板的旧用户设置回退 gruvbox 无报错",
+        "切主题视觉变化正确"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696774,
+      "started": 1784703572,
+      "finished": 1784704433
+    },
+    {
+      "sid": "s6-tracer",
+      "name": "tracer-bullet: Button 端到端验证",
+      "desc": "npx shadcn@latest add button (唯一本 task 组件); Home 或 About 一处原生 button 换 shadcn Button; dev 启动切 style/color/mode 验证 Button 视觉跟随变; yarn build + yarn test 过",
+      "depends_on": [
+        "s5-apply"
+      ],
+      "验收": [
+        "Button 源码落 components/ui/",
+        "1 处页面消费 shadcn Button",
+        "切主题 (9 style × 4 color × light/dark) Button 视觉正确变化",
+        "yarn build 过",
+        "yarn test (vitest) 全过无回归"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696775,
+      "started": 1784704433,
+      "finished": 1784704915
+    },
+    {
+      "sid": "fix-locale-deadkeys",
+      "name": "修复: 清 locale 死键 (8×8=64)",
+      "desc": "删 8 locale 文件 (src/locales/*.json) 的 theme.color.{appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl} 死键; theme.style.* key 保留; check:i18n 零多余。checker FAIL 修复",
+      "depends_on": [
+        "s3-palette"
+      ],
+      "验收": [
+        "8 locale 文件中 8 个 theme.color.{删palette} 死键全删 (64 键)",
+        "theme.style.* key 保留",
+        "yarn check:i18n 零多余零缺失",
+        "yarn build 过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784705503,
+      "started": 1784705503,
+      "finished": 1784705697
+    }
+  ],
+  "repos": [],
+  "worktree": ".worktrees/skein-shadcn-infra",
+  "worktrees": [
+    {
+      "repo": ".",
+      "wt": ".worktrees/skein-shadcn-infra",
+      "branch": "skein/shadcn-infra",
+      "merged": false
+    }
+  ],
+  "branch": "skein/shadcn-infra",
+  "parent": "frontend-shadcn-migration",
+  "kind": "task",
+  "created": 1784696567,
+  "started": 1784701058,
+  "checked": 1784704916,
+  "finished": null,
+  "updated": 1784706473
+}
