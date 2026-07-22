@@ -974,8 +974,9 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
   const hasBody = result.response_body.trim().length > 0;
   return (
     <div style={{ marginTop: 3, maxWidth: "100%" }}>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={hasBody ? () => setOpen(o => !o) : undefined}
         style={{
           display: "inline-flex", alignItems: "center", gap: 4,
@@ -983,6 +984,7 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           background: `color-mix(in srgb, ${color} 12%, transparent)`,
           border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
           borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",
+          height: "auto",
           cursor: hasBody ? "pointer" : "default",
         }}
         title={ok
@@ -999,7 +1001,7 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           <span style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{errorText}</span>
         )}
         {hasBody && <span style={{ opacity: 0.7 }}>{open ? "▾" : "▸"}</span>}
-      </button>
+      </Button>
       {open && hasBody && (
         <div className="glass-surface" style={{ marginTop: 4, padding: "6px 8px", borderRadius: 6, maxWidth: "100%" }}>
           <TestResultBody body={result.response_body} />
