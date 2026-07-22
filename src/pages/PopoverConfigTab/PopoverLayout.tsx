@@ -14,6 +14,7 @@ import { TYPE_LABELS, GROUP_TYPES } from "./constants";
 import { RowContainer } from "./RowContainer";
 import { SortableCard } from "./SortableCard";
 import { CardEditor } from "./CardEditor";
+import { Button } from "@/components/ui/button";
 
 export function PopoverLayout(d: PopoverConfigData) {
   const {
@@ -54,28 +55,28 @@ export function PopoverLayout(d: PopoverConfigData) {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.items", "展示项")}</div>
           <div style={{ position: "relative" }}>
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: "4px 10px" }}
+            <Button
+              variant="ghost"
+              style={{ fontSize: 12, padding: "4px 10px", height: 28 }}
               disabled={availableTypes.length === 0}
               onClick={() => setShowAddMenu((v) => !v)}
             >
               + {t("popover.addItem", "添加项")}
-            </button>
+            </Button>
             {showAddMenu && availableTypes.length > 0 && (
               <div className="glass-surface" style={{
                 position: "absolute", top: "100%", right: 0, marginTop: 4, zIndex: 50,
                 minWidth: 160, padding: 6, borderRadius: 10, display: "flex", flexDirection: "column", gap: 2,
               }}>
                 {availableTypes.map((ty) => (
-                  <button
+                  <Button
                     key={ty}
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: "6px 10px", justifyContent: "flex-start", textAlign: "left" }}
+                    variant="ghost"
+                    style={{ fontSize: 12, padding: "6px 10px", height: 32, justifyContent: "flex-start", textAlign: "left" }}
                     onClick={() => addItem(ty)}
                   >
                     {t(TYPE_LABELS[ty].key, TYPE_LABELS[ty].fallback)}
-                  </button>
+                  </Button>
                 ))}
               </div>
             )}
@@ -138,13 +139,13 @@ export function PopoverLayout(d: PopoverConfigData) {
           </DndContext>
         )}
 
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 11, padding: "2px 8px", alignSelf: "flex-start", color: "var(--text-tertiary)" }}
+        <Button
+          variant="ghost"
+          style={{ fontSize: 11, padding: "2px 8px", height: 24, alignSelf: "flex-start", color: "var(--text-tertiary)" }}
           onClick={showLayoutHint}
         >
           {t("popover.rowHintBtn", "布局说明")}
-        </button>
+        </Button>
       </div>
 
       {/* 实时预览（draft state，即改即见；与真实浮窗共用 renderGrid） */}

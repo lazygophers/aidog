@@ -27,6 +27,8 @@ import { materializeStatusline } from "../components/settings/statusline-gen";
 import { SettingsHeader } from "../components/settings/SettingsHeader";
 import { SectionAnchorNav } from "../components/settings/SectionAnchorNav";
 import { stableStringify } from "../components/shared";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 const CONFIG_KEY = "claude_code";
 
@@ -511,7 +513,7 @@ export function Settings() {
                     {field === "commit" ? t("settings.attribution.commit", "Commit Author") : t("settings.attribution.pr", "PR Author")}
                     <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>{field}</span>
                   </label>
-                  <input className="input" style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
+                  <Input  style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
                     placeholder="e.g. Your Name <you@example.com>"
                     value={attr[field] ?? ""}
                     onChange={(e) => {
@@ -550,8 +552,8 @@ export function Settings() {
             className="glass-surface"
             style={{ flex: 1, display: "flex", flexDirection: "column", padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 12 }}
           >
-            <textarea
-              className="input"
+            <Textarea
+              
               style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
                 fontSize: F.body,

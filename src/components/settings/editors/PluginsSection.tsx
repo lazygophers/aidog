@@ -7,6 +7,9 @@ import { IconClose } from "../../icons";
 import { F, S } from "./tokens";
 import { SvgIcon, ICON_PATHS } from "./icons";
 import { Section, Toggle, Hint, SubHeading } from "./_shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const MARKETPLACE_SOURCE_TYPES = ["github", "git", "url", "npm", "file", "directory", "settings", "hostPattern", "pathPattern"] as const;
 type SourceType = typeof MARKETPLACE_SOURCE_TYPES[number];
@@ -82,17 +85,20 @@ function MarketplaceSourceEditor({
       {/* Source type selector */}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>Type</span>
-        <select className="input" style={{ fontSize: fs, padding: pad, flex: 1 }}
+        <Select  
           value={srcType}
-          onChange={(e) => {
-            const newType = e.target.value as SourceType;
+          onValueChange={(v) => {
+            const newType = v as SourceType;
             // Keep only source type, clear type-specific fields
             onChange({ source: newType });
           }}>
+<SelectTrigger style={{ fontSize: fs, padding: pad, flex: 1 }}><SelectValue/></SelectTrigger>
+<SelectContent>
           {MARKETPLACE_SOURCE_TYPES.map((t) => (
-            <option key={t} value={t}>{SOURCE_TYPE_LABELS[t]}</option>
+            <SelectItem key={t} value={t}>{SOURCE_TYPE_LABELS[t]}</SelectItem>
           ))}
-        </select>
+        </SelectContent>
+</Select>
       </div>
 
       {/* Type-specific fields */}
@@ -101,7 +107,7 @@ function MarketplaceSourceEditor({
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>
             {f.label}{f.required && " *"}
           </span>
-          <input className="input" style={{ fontSize: fs, padding: pad, flex: 1 }}
+          <Input  style={{ fontSize: fs, padding: pad, flex: 1 }}
             placeholder={f.placeholder} value={source[f.key] ?? ""}
             onChange={(e) => setField(f.key, e.target.value)} />
         </div>
@@ -120,7 +126,7 @@ function MarketplaceSourceEditor({
       {srcType === "url" && (
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 80, flexShrink: 0, whiteSpace: "nowrap" }}>Headers</span>
-          <input className="input" style={{ fontSize: fs, padding: pad, flex: 1 }}
+          <Input  style={{ fontSize: fs, padding: pad, flex: 1 }}
             placeholder='{"Authorization": "Bearer ${TOKEN}"}'
             value={source.headers ? JSON.stringify(source.headers) : ""}
             onChange={(e) => {
@@ -135,7 +141,7 @@ function MarketplaceSourceEditor({
         <>
           {(source.plugins as Array<Record<string, any>> | undefined)?.map((plug, pi) => (
             <div key={pi} style={{ display: "flex", gap: 4, alignItems: "flex-start", paddingLeft: 8, paddingTop: 4 }}>
-              <input className="input" style={{ fontSize: F.hint, padding: "4px 8px", width: 100, flexShrink: 0 }}
+              <Input  style={{ fontSize: F.hint, padding: "4px 8px", width: 100, flexShrink: 0 }}
                 placeholder="plugin-name" value={plug.name ?? ""}
                 onChange={(e) => {
                   const plugs = [...(source.plugins ?? [])];
@@ -153,20 +159,20 @@ function MarketplaceSourceEditor({
                   compact
                 />
               </div>
-              <button type="button" onClick={() => {
+              <Button variant="outline" type="button" onClick={() => {
                 const plugs = (source.plugins ?? []).filter((_: any, j: number) => j !== pi);
                 onChange({ ...source, plugins: plugs.length > 0 ? plugs : undefined });
               }} style={{
                 background: "none", border: "none", cursor: "pointer",
                 color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1, flexShrink: 0,
-              }}><IconClose size={12} /></button>
+              }}><IconClose size={12} /></Button>
             </div>
           ))}
-          <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 10px", alignSelf: "flex-start", marginLeft: 8 }}
+          <Button variant="ghost" type="button"  style={{ fontSize: F.small, padding: "4px 10px", alignSelf: "flex-start", marginLeft: 8 }}
             onClick={() => {
               const plugs = [...(source.plugins ?? []), { name: "", source: { source: "github" } }];
               onChange({ ...source, plugins: plugs });
-            }}>+ Plugin</button>
+            }}>+ Plugin</Button>
         </>
       )}
 
@@ -254,7 +260,7 @@ function PluginsEditor({
                 {key}
               </code>
               <Toggle active={val} onChange={(v) => setPluginEnabled(key, v)} />
-              <button type="button" onClick={() => removePlugin(key)}
+              <Button variant="outline" type="button" onClick={() => removePlugin(key)}
                 title={t("settings.plugins.removePlugin", "删除插件")}
                 aria-label={t("settings.plugins.removePlugin", "删除插件")}
                 style={{
@@ -264,20 +270,20 @@ function PluginsEditor({
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = "var(--danger)"; }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; }}
-              ><SvgIcon d={ICON_PATHS.trash} size={15} /></button>
+              ><SvgIcon d={ICON_PATHS.trash} size={15} /></Button>
             </div>
           ))}
           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
-            <input
-              className="input"
+            <Input
+              
               style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
               placeholder="plugin-name@marketplace"
               value={newPluginKey}
               onChange={(e) => setNewPluginKey(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addPlugin()}
             />
-            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
-              onClick={addPlugin}>+</button>
+            <Button variant="ghost" type="button"  style={{ fontSize: F.small, padding: "4px 12px" }}
+              onClick={addPlugin}>+</Button>
           </div>
         </div>
       </div>
@@ -301,7 +307,7 @@ function PluginsEditor({
                   fontFamily: "monospace",
                 }}>{name}</span>
                 <div style={{ flex: 1 }} />
-                <button type="button" onClick={() => removeMarketplace(name)}
+                <Button variant="outline" type="button" onClick={() => removeMarketplace(name)}
                   title={t("settings.plugins.removeMarketplace", "删除市场源")}
                   aria-label={t("settings.plugins.removeMarketplace", "删除市场源")}
                   style={{
@@ -311,7 +317,7 @@ function PluginsEditor({
                   }}
                   onMouseEnter={(e) => { e.currentTarget.style.color = "var(--danger)"; }}
                   onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; }}
-                ><SvgIcon d={ICON_PATHS.trash} size={15} /></button>
+                ><SvgIcon d={ICON_PATHS.trash} size={15} /></Button>
               </div>
               <MarketplaceSourceEditor
                 source={mktConfig.source ?? { source: "github" }}
@@ -320,7 +326,7 @@ function PluginsEditor({
               {/* Path field — local installation path */}
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
                 <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 80, flexShrink: 0, whiteSpace: "nowrap" }}>Path</span>
-                <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+                <Input  style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
                   placeholder={t("settings.plugins.localPathPh", "本地安装路径（留空自动管理）")}
                   value={mktConfig.path ?? ""}
                   onChange={(e) => updateMarketplace(name, { ...mktConfig, path: e.target.value || undefined })}
@@ -329,16 +335,16 @@ function PluginsEditor({
             </div>
           ))}
           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
-            <input
-              className="input"
+            <Input
+              
               style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
               placeholder="marketplace-name"
               value={newMktName}
               onChange={(e) => setNewMktName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addMarketplace()}
             />
-            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
-              onClick={addMarketplace}>+</button>
+            <Button variant="ghost" type="button"  style={{ fontSize: F.small, padding: "4px 12px" }}
+              onClick={addMarketplace}>+</Button>
           </div>
         </div>
       </div>

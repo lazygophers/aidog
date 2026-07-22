@@ -10,6 +10,9 @@ import {
 import { F, S } from "./tokens";
 import { SvgIcon } from "./icons";
 import { Toggle } from "./_shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** Parse env boolean: "1"/"true"/"yes"/"on" → true */
 function envBool(v: string | undefined): boolean {
@@ -33,9 +36,9 @@ function EnvVarRow({ def, value, onChange, t }: {
   const isSet = value !== undefined && value !== "";
 
   const removeBtn = (
-    <button type="button" className="btn btn-ghost btn-icon"
+    <Button variant="ghost" type="button" 
       style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.small, color: "var(--text-tertiary)" }}
-      onClick={() => onChange(undefined)} title={t("action.remove", "Remove")}>×</button>
+      onClick={() => onChange(undefined)} title={t("action.remove", "Remove")}>×</Button>
   );
 
   const renderControl = () => {
@@ -51,11 +54,14 @@ function EnvVarRow({ def, value, onChange, t }: {
         const opts = options ?? [];
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
-              value={value ?? ""} onChange={(e) => onChange(e.target.value || undefined)}>
-              <option value="">—</option>
-              {opts.map((o) => <option key={o} value={o}>{o}</option>)}
-            </select>
+            <Select  
+              value={value ?? ""} onValueChange={(v) => onChange(v || undefined)}>
+<SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+              <SelectItem value="">—</SelectItem>
+              {opts.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+            </SelectContent>
+</Select>
             {isSet && removeBtn}
           </div>
         );
@@ -63,7 +69,7 @@ function EnvVarRow({ def, value, onChange, t }: {
       case "number":
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input className="input" type="number"
+            <Input  type="number"
               style={{ fontSize: F.body, padding: S.inputPad, width: 160 }}
               placeholder={placeholder} value={value ?? ""} min={min} max={max}
               onChange={(e) => onChange(e.target.value || undefined)} />
@@ -74,17 +80,17 @@ function EnvVarRow({ def, value, onChange, t }: {
         const [show, setShow] = useState(false);
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input className="input" type={show ? "text" : "password"}
+            <Input  type={show ? "text" : "password"}
               style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
               placeholder={placeholder} value={value ?? ""}
               onChange={(e) => onChange(e.target.value || undefined)} />
-            <button type="button" className="btn btn-ghost btn-icon"
+            <Button variant="ghost" type="button" 
               style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon }}
               onClick={() => setShow(!show)}>
               <SvgIcon d={show
                 ? "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"
                 : "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"} size={14} />
-            </button>
+            </Button>
             {isSet && removeBtn}
           </div>
         );
@@ -93,7 +99,7 @@ function EnvVarRow({ def, value, onChange, t }: {
       default:
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <input className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+            <Input  style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
               placeholder={placeholder} value={value ?? ""}
               onChange={(e) => onChange(e.target.value || undefined)} />
             {isSet && removeBtn}
@@ -186,14 +192,14 @@ export function EnvEditor({ env, onChange, t }: {
         <div style={{ position: "relative", flex: 1 }}>
           <SvgIcon d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z M21 21l-4.35-4.35" size={14}
             style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)" }} />
-          <input className="input" style={{ fontSize: F.body, padding: S.inputPad, paddingLeft: 32, width: "100%" }}
+          <Input  style={{ fontSize: F.body, padding: S.inputPad, paddingLeft: 32, width: "100%" }}
             placeholder={t("env.searchPlaceholder", "Search environment variables…")}
             value={search} onChange={(e) => setSearch(e.target.value)} />
           {search && (
-            <button type="button" style={{
+            <Button variant="outline" type="button" style={{
               position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
               background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 14,
-            }} onClick={() => setSearch("")}>×</button>
+            }} onClick={() => setSearch("")}>×</Button>
           )}
         </div>
       </div>
@@ -224,13 +230,13 @@ export function EnvEditor({ env, onChange, t }: {
           <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
             {filteredUnknown.map(([k, v]) => (
               <div key={k} style={{ display: "grid", gridTemplateColumns: `${ENV_LABEL_W}px 1fr`, alignItems: "center", gap: 12 }}>
-                <input className="input" style={{ fontSize: F.body, padding: S.inputPad }} value={k} readOnly />
+                <Input  style={{ fontSize: F.body, padding: S.inputPad }} value={k} readOnly />
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <input className="input" style={{ flex: 1, fontSize: F.body, padding: S.inputPad }} value={v}
+                  <Input  style={{ flex: 1, fontSize: F.body, padding: S.inputPad }} value={v}
                     onChange={(e) => updateEnv(k, e.target.value)} />
-                  <button type="button" className="btn btn-ghost btn-icon"
+                  <Button variant="ghost" type="button" 
                     style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
-                    onClick={() => updateEnv(k, undefined)}>×</button>
+                    onClick={() => updateEnv(k, undefined)}>×</Button>
                 </div>
               </div>
             ))}
@@ -243,25 +249,25 @@ export function EnvEditor({ env, onChange, t }: {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {/* Custom variable add */}
           <div style={{ display: "flex", gap: 6 }}>
-            <input className="input" style={{ fontSize: F.body, padding: S.inputPad, width: 120 }}
+            <Input  style={{ fontSize: F.body, padding: S.inputPad, width: 120 }}
               placeholder="KEY" value={customKey} onChange={(e) => setCustomKey(e.target.value)} />
-            <input className="input" style={{ fontSize: F.body, padding: S.inputPad, width: 120 }}
+            <Input  style={{ fontSize: F.body, padding: S.inputPad, width: 120 }}
               placeholder="VALUE" value={customVal} onChange={(e) => setCustomVal(e.target.value)} />
-            <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
+            <Button variant="ghost"  style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={() => {
                 if (customKey.trim()) { updateEnv(customKey.trim(), customVal); setCustomKey(""); setCustomVal(""); }
               }}>
               {t("env.addCustom", "+ Custom")}
-            </button>
+            </Button>
           </div>
 
           {/* Add known dropdown */}
           {addableDefs.length > 0 && (
             <div style={{ position: "relative" }}>
-              <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
+              <Button variant="ghost"  style={{ fontSize: F.body, padding: S.btnPad }}
                 onClick={() => setShowAddMenu(!showAddMenu)}>
                 {t("env.addKnown", "+ Add Known")}
-              </button>
+              </Button>
               {showAddMenu && (
                 <div style={{
                   position: "absolute", bottom: "100%", right: 0, zIndex: 100,
@@ -279,7 +285,7 @@ export function EnvEditor({ env, onChange, t }: {
                           {t(`env.group.${g}`, g)}
                         </div>
                         {defs.map(d => (
-                          <button key={d.key} style={{
+                          <Button variant="outline" key={d.key} style={{
                             display: "block", width: "100%", textAlign: "left",
                             padding: "6px 10px", fontSize: F.body,
                             background: "transparent", border: "none", borderRadius: "var(--radius-sm)",
@@ -297,7 +303,7 @@ export function EnvEditor({ env, onChange, t }: {
                             <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
                               {d.key}
                             </span>
-                          </button>
+                          </Button>
                         ))}
                       </div>
                     );

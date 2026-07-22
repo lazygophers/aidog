@@ -7,6 +7,9 @@ import { IconClose, IconCheck } from "../../icons";
 import { F, S } from "./tokens";
 import { SectionIcon } from "./icons";
 import { Section, FieldRow, JsonEditor } from "./_shared";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type RuleMode = "allow" | "ask" | "deny";
 
@@ -119,23 +122,26 @@ function PermissionsEditor({ perms, updateField, t }: {
 
   /** Styled mode dropdown — colored border + background per mode */
   const ModeSelect = ({ mode, onChange }: { mode: RuleMode; onChange: (m: RuleMode) => void }) => (
-    <select
-      className="input"
+    <Select
+      
       value={mode}
-      onChange={(e) => onChange(e.target.value as RuleMode)}
-      style={{
+      onValueChange={(v) => onChange(v as RuleMode)}
+      
+    >
+<SelectTrigger style={{
         fontSize: F.small, fontWeight: 600, minWidth: 72,
         padding: "4px 8px", borderRadius: "var(--radius-sm)",
         background: `${MODE_COLORS[mode]}12`,
         color: MODE_COLORS[mode],
         border: `1px solid ${MODE_COLORS[mode]}35`,
         cursor: "pointer", outline: "none",
-      }}
-    >
+      }}><SelectValue/></SelectTrigger>
+<SelectContent>
       {ALL_MODES.map(m => (
-        <option key={m} value={m}>{modeLabel(m)}</option>
+        <SelectItem key={m} value={m}>{modeLabel(m)}</SelectItem>
       ))}
-    </select>
+    </SelectContent>
+</Select>
   );
 
   const toolGroup = TOOL_GROUPS.find(g => g.tool === activeToolGroup) ?? TOOL_GROUPS[0];
@@ -147,7 +153,7 @@ function PermissionsEditor({ perms, updateField, t }: {
         {(["visual", "json"] as const).map((m) => {
           const active = viewMode === m;
           return (
-            <button key={m} type="button"
+            <Button variant="outline" key={m} type="button"
               onClick={() => setViewMode(m)}
               style={{
                 fontSize: F.small, fontWeight: active ? 600 : 400,
@@ -159,7 +165,7 @@ function PermissionsEditor({ perms, updateField, t }: {
               }}
             >
               {m === "visual" ? t("settings.permissionsVisualView") : t("settings.permissionsJsonView")}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -185,17 +191,20 @@ function PermissionsEditor({ perms, updateField, t }: {
       {ViewToggle}
       {/* ── Default Mode ── */}
       <FieldRow label={t("settings.permissionsDefaultMode")} icon={<SectionIcon name="permissions" size={14} />}>
-        <select
-          className="input"
-          style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+        <Select
+          
+          
           value={perms.defaultMode ?? ""}
-          onChange={(e) => updatePermKey("defaultMode", e.target.value || undefined)}
+          onValueChange={(v) => updatePermKey("defaultMode", v || undefined)}
         >
-          <option value="">—</option>
+<SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+          <SelectItem value="">—</SelectItem>
           {PERMISSION_MODES.map(m => (
-            <option key={m.value} value={m.value}>{t(`settings.perm.mode_${m.value}`, m.desc)} — {t(`settings.perm.mode_${m.value}_desc`, m.hint)}</option>
+            <SelectItem key={m.value} value={m.value}>{t(`settings.perm.mode_${m.value}`, m.desc)} — {t(`settings.perm.mode_${m.value}_desc`, m.hint)}</SelectItem>
           ))}
-        </select>
+        </SelectContent>
+</Select>
       </FieldRow>
       <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6, paddingLeft: 92 }}>
         {t("settings.perm.priorityLabel", "规则优先级")}: <span style={{ color: MODE_COLORS.deny, fontWeight: 600 }}>deny</span> →{" "}
@@ -227,7 +236,7 @@ function PermissionsEditor({ perms, updateField, t }: {
           const count = grouped.get(g.tool)?.length ?? 0;
           const active = activeToolGroup === g.tool;
           return (
-            <button key={g.tool} type="button"
+            <Button variant="outline" key={g.tool} type="button"
               style={{
                 padding: "6px 12px", fontSize: F.small, fontWeight: active ? 600 : 400,
                 color: active ? "var(--accent)" : "var(--text-secondary)",
@@ -245,7 +254,7 @@ function PermissionsEditor({ perms, updateField, t }: {
                   color: active ? "#fff" : "var(--text-tertiary)", fontWeight: 600,
                 }}>{count}</span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -271,8 +280,8 @@ function PermissionsEditor({ perms, updateField, t }: {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {groupRules.map((rule) => (
               <div key={rule.idx} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input
-                  className="input"
+                <Input
+                  
                   style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0, fontFamily: '"SF Mono", "Fira Code", monospace' }}
                   value={rule.pattern}
                   onChange={(e) => {
@@ -289,12 +298,12 @@ function PermissionsEditor({ perms, updateField, t }: {
                     syncRules(updated);
                   }}
                 />
-                <button type="button" className="btn btn-ghost btn-icon"
+                <Button variant="ghost" type="button" 
                   style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
                   onClick={() => syncRules(rules.filter((_, j) => j !== rule.idx))}
                 >
                   ×
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -304,8 +313,8 @@ function PermissionsEditor({ perms, updateField, t }: {
       {/* ── Add Rule ── */}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
-          <input
-            className="input"
+          <Input
+            
             style={{ fontSize: F.body, padding: S.inputPad, width: "100%", paddingRight: 28, fontFamily: '"SF Mono", "Fira Code", monospace' }}
             placeholder={toolGroup.examples[0]}
             value={draftRule}
@@ -317,7 +326,7 @@ function PermissionsEditor({ perms, updateField, t }: {
               }
             }}
           />
-          <button type="button" className="btn btn-ghost btn-icon"
+          <Button variant="ghost" type="button" 
             style={{
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
               width: 24, height: 24, minWidth: 24, padding: 0,
@@ -327,7 +336,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             title={t("settings.perm.ruleTemplates", "规则模板")}
           >
             <SectionIcon name="bolt" size={14} />
-          </button>
+          </Button>
           {showTemplates && (
             <>
               <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowTemplates(false)} />
@@ -348,7 +357,7 @@ function PermissionsEditor({ perms, updateField, t }: {
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                       {g.examples.map(ex => (
-                        <button key={ex} type="button" className="btn btn-ghost"
+                        <Button variant="ghost" key={ex} type="button" 
                           style={{
                             padding: "3px 8px", fontSize: 13, fontWeight: 400,
                             color: "var(--text-primary)", borderRadius: "var(--radius-sm)",
@@ -357,7 +366,7 @@ function PermissionsEditor({ perms, updateField, t }: {
                           onClick={() => { setDraftRule(ex); setShowTemplates(false); }}
                         >
                           {ex}
-                        </button>
+                        </Button>
                       ))}
                     </div>
                   </div>
@@ -367,7 +376,7 @@ function PermissionsEditor({ perms, updateField, t }: {
           )}
         </div>
         <ModeSelect mode={draftMode} onChange={setDraftMode} />
-        <button type="button" className="btn btn-ghost"
+        <Button variant="ghost" type="button" 
           style={{ fontSize: F.body, padding: S.btnPad, width: S.btnIcon, minWidth: S.btnIcon }}
           onClick={() => {
             if (draftRule.trim()) {
@@ -377,7 +386,7 @@ function PermissionsEditor({ perms, updateField, t }: {
           }}
         >
           +
-        </button>
+        </Button>
       </div>
 
       {/* ── All Rules Summary ── */}

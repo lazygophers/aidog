@@ -8,6 +8,8 @@ import {
 import type { DefaultsSyncResult, ClientTypesSyncResult } from "../../services/api";
 import { formatDateTime } from "../../utils/formatters";
 import type { SystemSettings } from "./useSystemSettings";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
  * Timeout + DB Maintenance + Aggregate Stats + App version + toast（原 L519-560 + L680-755 + L820-837）。
@@ -34,8 +36,7 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
             <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {t("proxy.requestTimeout", "请求超时")}
             </label>
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               value={reqTimeout}
@@ -48,8 +49,7 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
             <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {t("proxy.connectTimeout", "连接超时")}
             </label>
-            <input
-              className="input"
+            <Input
               type="number"
               min={0}
               value={connTimeout}
@@ -90,19 +90,17 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
             {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
           </div>
         </div>
-        <button
-          className="btn"
+        <Button
+          variant="outline"
           onClick={handleDbCompact}
           disabled={dbCompacting}
           style={{
-            padding: "7px 16px", fontSize: 13, cursor: dbCompacting ? "not-allowed" : "pointer",
-            borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
-            background: "transparent", color: "var(--text-primary)",
+            padding: "7px 16px", fontSize: 13,
             opacity: dbCompacting ? 0.6 : 1,
           }}
         >
           {dbCompacting ? t("common.loading", "加载中…") : t("settings.dbCompact", "立即压缩数据库")}
-        </button>
+        </Button>
       </div>
 
       {/* Aggregate Stats — 聚合统计表保留与重建（与日志开关解耦：关日志也累计统计） */}
@@ -122,8 +120,7 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
           <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
             {t("stats.aggRetention", "统计保留天数")}
           </label>
-          <input
-            className="input"
+          <Input
             type="number"
             min={0}
             value={statsRetention}
@@ -138,19 +135,17 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
           <div className="text-secondary" style={{ fontSize: 12 }}>
             {t("stats.rebuildHint", "从历史请求日志全量重建聚合统计表")}
           </div>
-          <button
-            className="btn"
+          <Button
+            variant="outline"
             onClick={handleStatsRebuild}
             disabled={statsRebuilding}
             style={{
-              padding: "7px 16px", fontSize: 13, cursor: statsRebuilding ? "not-allowed" : "pointer",
-              borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
-              background: "transparent", color: "var(--text-primary)",
+              padding: "7px 16px", fontSize: 13,
               opacity: statsRebuilding ? 0.6 : 1, whiteSpace: "nowrap",
             }}
           >
             {statsRebuilding ? t("common.loading", "加载中…") : t("stats.rebuild", "从日志重建统计")}
-          </button>
+          </Button>
         </div>
       </div>
     </>
@@ -339,19 +334,17 @@ function RemoteJsonSyncSection(props: {
           {t("settings.defaultsSyncLastUpdated")}{" "}
           {formatDateTime(lastUpdated ? lastUpdated * 1000 : null) ?? (loadErr ? t("settings.defaultsSyncUnknown") : "—")}
         </div>
-        <button
-          className="btn"
+        <Button
+          variant="outline"
           onClick={handleSync}
           disabled={syncing}
           style={{
-            padding: "7px 16px", fontSize: 13, cursor: syncing ? "not-allowed" : "pointer",
-            borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
-            background: "transparent", color: "var(--text-primary)",
+            padding: "7px 16px", fontSize: 13,
             opacity: syncing ? 0.6 : 1, whiteSpace: "nowrap",
           }}
         >
           {syncing ? t("common.loading") : t("settings.defaultsSyncCheck")}
-        </button>
+        </Button>
       </div>
       {feedback && (
         <div className="text-secondary" style={{ fontSize: 12 }}>{feedback}</div>

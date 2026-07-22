@@ -6,6 +6,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 import type { PopoverItem } from "../../services/api";
 import { MAX_COLS } from "./constants";
+import { Button } from "@/components/ui/button";
 
 export function RowContainer({
   row, cols, items, onSetCols, children,
@@ -34,18 +35,14 @@ export function RowContainer({
         </span>
         <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{t("popover.cols", "列数")}</span>
         {[1, 2, 3].map((c) => (
-          <button
+          <Button
             key={c}
-            style={{
-              fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-              border: cols === c ? "none" : "1px solid var(--glass-border)",
-              background: cols === c ? "var(--accent)" : "transparent",
-              color: cols === c ? "#fff" : "var(--text-secondary)",
-            }}
+            variant={cols === c ? "default" : "outline"}
+            style={{ fontSize: 11, padding: "2px 8px", height: 22 }}
             onClick={() => onSetCols(c)}
           >
             {c}
-          </button>
+          </Button>
         ))}
       </div>
       <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>

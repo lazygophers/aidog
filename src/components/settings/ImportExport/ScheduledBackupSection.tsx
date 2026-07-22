@@ -11,6 +11,8 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { backupApi, type BackupSettings, type BackupResult } from "../../../services/api";
 import { SectionHeader } from "./primitives";
 import { pad } from "../../../utils/formatters";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const INTERVAL_PRESETS: { labelKey: string; defaultLabel: string; hours: number }[] = [
   { labelKey: "settings.backup.preset1h", defaultLabel: "1h", hours: 1 },
@@ -96,7 +98,7 @@ export function ScheduledBackupSection() {
           {t("settings.backup.enable", "启用定时备份")}
         </span>
         <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <input
+          <Input
             type="checkbox"
             checked={settings.enabled}
             onChange={(e) => patch({ enabled: e.target.checked })}
@@ -114,7 +116,7 @@ export function ScheduledBackupSection() {
               {t("settings.backup.interval", "备份间隔（小时）")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <input
+              <Input
                 type="number"
                 min={1}
                 value={settings.interval_hours}
@@ -130,7 +132,7 @@ export function ScheduledBackupSection() {
               />
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("settings.backup.hours", "小时")}</span>
               {INTERVAL_PRESETS.map((p) => (
-                <button
+                <Button variant="outline"
                   key={p.hours}
                   onClick={() => patch({ interval_hours: p.hours })}
                   className="ie-chip"
@@ -147,7 +149,7 @@ export function ScheduledBackupSection() {
                   }}
                 >
                   {t(p.labelKey, p.defaultLabel)}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
@@ -158,7 +160,7 @@ export function ScheduledBackupSection() {
               {t("settings.backup.retention", "保留天数")}
             </span>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
+              <Input
                 type="number"
                 min={1}
                 max={90}
@@ -193,7 +195,7 @@ export function ScheduledBackupSection() {
 
           {/* 立即备份 */}
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button
+            <Button variant="outline"
               onClick={runNow}
               disabled={running}
               style={{
@@ -204,9 +206,9 @@ export function ScheduledBackupSection() {
               }}
             >
               {running ? t("settings.backup.running", "备份中…") : t("settings.backup.runNow", "立即备份一次")}
-            </button>
+            </Button>
             {lastResultPath && (
-              <button
+              <Button variant="outline"
                 onClick={() => { revealItemInDir(lastResultPath).catch(() => {}); }}
                 style={{
                   padding: "7px 14px", fontSize: 12, cursor: "pointer",
@@ -215,7 +217,7 @@ export function ScheduledBackupSection() {
                 }}
               >
                 {t("settings.backup.reveal", "在文件夹显示")}
-              </button>
+              </Button>
             )}
           </div>
         </>
