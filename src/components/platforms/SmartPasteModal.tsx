@@ -1,6 +1,7 @@
 // ─── 平台「智能识别」弹窗 ──────────────────────────
 // 读剪贴板 / 手动粘贴杂乱文案 → 解析 base_url / 平台 / apikey → 用户确认后填入添加表单。
 // 解析逻辑见 utils/platformPaste.ts（纯函数）。视觉沿用 glass-elevated overlay 范式。
+// Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -13,7 +14,18 @@ import {
 import { platformApi, type SharePlatform } from "../../services/api";
 import { getProtocolLabel } from "../../domains/platforms/defaults";
 import { formatDateTime } from "../../utils/formatters";
-import { Modal } from "../shared/Modal";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
@@ -51,19 +63,13 @@ const PROTO_LABEL: Record<ParsedProtocol, string> = {
 export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, initialText }: SmartPasteModalProps) {
   const { t, i18n } = useTranslation();
   const [text, setText] = useState(initialText ?? "");
-  // 多 key 场景：selKeys 多选（默认全选）；单 key 场景：selKeys 长度 1（保持单选 UX）。
   const [selKeys, setSelKeys] = useState<string[]>([]);
-  // 多选 base_url：按协议类型分组，每类型最多选一个（不同类型可并存 → 多 endpoint）。
   const [selUrls, setSelUrls] = useState<string[]>([]);
 
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
-  // 命中 aidog 平台分享串（YAML / JSON / Base64）→ 整体灌表单（优先于杂乱解析）。
   const [share, setShare] = useState<SharePlatform | null>(null);
-  // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
   const [protocolLabel, setProtocolLabel] = useState("");
 
-  // 文本变化时尝试解析 aidog 分享串：先原文（serde_yml 兼容 YAML/JSON），失败再试 base64 解码后解析。
-  // 非分享文本两路都失败 → share=null，回退原杂乱解析（无回归）。
   useEffect(() => {
     let cancelled = false;
     const trimmed = text.trim();
@@ -73,7 +79,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     }
     const tryParse = async () => {
       const candidates = [trimmed];
-      // base64 包裹的 YAML：仅当文本像单段 base64 时才尝试解码（避免误伤普通文本）。
       if (/^[A-Za-z0-9+/=\s]+$/.test(trimmed) && !trimmed.includes(":")) {
         try {
           const bin = atob(trimmed.replace(/\s+/g, ""));
@@ -100,10 +105,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     };
   }, [text]);
 
-  // 渲染完成自动读剪贴板填入（仅首次 mount 且 text 空；失败静默兜底手动粘贴）。
-  // 走 Tauri 插件非 navigator.clipboard：macOS WKWebView 无手势激活时 navigator API 被拒静默失败，
-  // 而 Tauri Rust 侧 read_text 走权限系统无需手势，可靠。
-  // deep-link 导入（initialText 已预填）跳过：data 来自 URL，不应被剪贴板覆盖。
   useEffect(() => {
     if (initialText) return;
     let cancelled = false;
@@ -120,7 +121,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 协议本地化 label（依赖 share.platform_type）
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -132,14 +132,12 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language, share?.platform_type]);
 
-  // 默认选中：每个协议类型的首个 url（不同类型并存，同类型只取第一个）。
   useEffect(() => {
     const byProto = new Map<ParsedProtocol, string>();
     for (const b of parsed.baseUrls) {
       if (!byProto.has(b.protocol)) byProto.set(b.protocol, b.url);
     }
     setSelUrls(Array.from(byProto.values()));
-    // 默认全选 key（单 key → 长度 1 数组，向后兼容；多 key → 默认全选走批量）。
     setSelKeys(parsed.apiKeys.slice());
   }, [parsed]);
 
@@ -148,13 +146,11 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     setSelKeys(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
   };
 
-  // 切换某 url 选中态：同协议类型内互斥（选新自动替旧），不同类型可并存。
   const toggleUrl = (url: string, protocol: ParsedProtocol) => {
     setSelUrls((prev) => {
       if (prev.includes(url)) {
         return prev.filter((u) => u !== url);
       }
-      // 剔除同协议已选，加入新选
       const sameProtoUrl = parsed.baseUrls.find((b) => b.protocol === protocol && prev.includes(b.url))?.url;
       return sameProtoUrl ? prev.map((u) => (u === sameProtoUrl ? url : u)) : [...prev, url];
     });
@@ -162,7 +158,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
 
   const hasResult = parsed.apiKeys.length > 0 || parsed.baseUrls.length > 0 || !!parsed.platform;
   const hasExpiry = !!parsed.expiresAt && parsed.expiresAt > 0;
-  // 单 key 时沿用 selKeys[0] 作为「有选中 key」判定；多 key 时 selKeys 至少 1 个才允许应用。
   const hasSelKey = parsed.apiKeys.length <= 1 ? !!selKeys[0] : selKeys.length > 0;
   const canApply = !!share || !!(hasSelKey || selUrls.length > 0 || parsed.platform);
 
@@ -187,15 +182,21 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
   };
 
   return (
-    <Modal open onClose={onClose} className="glass-elevated" zIndex={1100} maxWidth={540} style={{ padding: "22px 24px", maxHeight: "86vh", overflowY: "auto" }}>
-        <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
-          {t("platform.paste.title", "智能识别")}
-        </div>
-        <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.55, marginBottom: 14 }}>
-          {t("platform.paste.hint", "粘贴分享文案，自动识别 Base URL、平台与 API Key（base64 自动解码）。")}
-        </div>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent
+        className="glass-elevated"
+        style={{ maxWidth: 540, padding: "22px 24px", maxHeight: "86vh", overflowY: "auto" }}
+      >
+        <DialogHeader>
+          <DialogTitle style={{ fontSize: 17 }}>
+            {t("platform.paste.title", "智能识别")}
+          </DialogTitle>
+          <DialogDescription style={{ lineHeight: 1.55 }}>
+            {t("platform.paste.hint", "粘贴分享文案，自动识别 Base URL、平台与 API Key（base64 自动解码）。")}
+          </DialogDescription>
+        </DialogHeader>
 
-        <textarea
+        <Textarea
           className="input"
           style={{
             width: "100%",
@@ -280,10 +281,9 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                     key={b.url}
                     style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
                   >
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={checked}
-                      onChange={() => toggleUrl(b.url, b.protocol)}
+                      onCheckedChange={() => toggleUrl(b.url, b.protocol)}
                     />
                     <span
                       style={{
@@ -315,24 +315,43 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                   </span>
                 )}
               </div>
-              {parsed.apiKeys.map((k) => {
-                const multi = parsed.apiKeys.length > 1;
-                const checked = multi ? selKeys.includes(k) : selKeys[0] === k;
-                return (
-                  <label
-                    key={k}
-                    style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
-                  >
-                    <input
-                      type={multi ? "checkbox" : "radio"}
-                      name="paste-key"
-                      checked={checked}
-                      onChange={() => (multi ? toggleKey(k) : setSelKeys([k]))}
-                    />
-                    <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono, monospace)" }}>{k}</span>
-                  </label>
-                );
-              })}
+              {/* 多 key 走 Checkbox 多选；单 key 走 RadioGroup 单选（向后兼容） */}
+              {parsed.apiKeys.length > 1 ? (
+                parsed.apiKeys.map((k) => {
+                  const checked = selKeys.includes(k);
+                  return (
+                    <label
+                      key={k}
+                      style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
+                    >
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={() => toggleKey(k)}
+                      />
+                      <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono, monospace)" }}>{k}</span>
+                    </label>
+                  );
+                })
+              ) : (
+                <RadioGroup
+                  value={selKeys[0] ?? ""}
+                  onValueChange={(v) => setSelKeys([v])}
+                  style={{ display: "flex", flexDirection: "column", gap: 6 }}
+                >
+                  {parsed.apiKeys.map((k) => {
+                    const checked = selKeys[0] === k;
+                    return (
+                      <label
+                        key={k}
+                        style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
+                      >
+                        <RadioGroupItem value={k} id={`paste-key-${k}`} />
+                        <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono, monospace)" }}>{k}</span>
+                      </label>
+                    );
+                  })}
+                </RadioGroup>
+              )}
             </div>
           )}
 
@@ -350,18 +369,16 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
         </div>
         )}
 
-        {/* 操作 */}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+        <DialogFooter>
           {onManualEntry && (
-            <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onManualEntry}>
+            <Button variant="ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onManualEntry}>
               {t("platform.paste.manualEntry", "手动填写")}
-            </button>
+            </Button>
           )}
-          <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
+          <Button variant="ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
             {t("action.cancel", "取消")}
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
             style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
             disabled={!canApply}
             onClick={() => {
@@ -383,8 +400,9 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
             }}
           >
             {t("platform.paste.apply", "填入表单")}
-          </button>
-        </div>
-    </Modal>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
