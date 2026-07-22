@@ -7,6 +7,7 @@
 //   + 「确认批量创建 / 取消」按钮。只读（D2：不支持改 name / 跳过 key）。
 import type { TFunction } from "i18next";
 import type { Protocol } from "../../services/api";
+import { Button } from "@/components/ui/button";
 
 export interface MultiKeyPreviewProps {
   /** splitApiKeys 拆分后的 key 数组（与 previewNames 等长，用于显示 key 尾4位掩码）。 */
@@ -78,8 +79,8 @@ export function MultiKeyPreview({
       </div>
 
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <button className="btn" onClick={onCancel}>{t("platform.batch.cancel", "取消")}</button>
-        <button className="btn btn-primary" onClick={onConfirm}>{t("platform.batch.confirm", "确认批量创建")}</button>
+        <Button variant="outline" onClick={onCancel}>{t("platform.batch.cancel", "取消")}</Button>
+        <Button onClick={onConfirm}>{t("platform.batch.confirm", "确认批量创建")}</Button>
       </div>
     </div>
   );
