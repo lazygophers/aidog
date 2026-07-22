@@ -7,7 +7,10 @@ import {
   transportStyle,
   summaryOf,
 } from "./constants";
-import { inputStyle, btnGhost } from "./styles";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 
 // ─── 单行 ───
 
@@ -28,15 +31,12 @@ export function McpRow({
 }) {
   const { t } = useTranslation();
   return (
-    <div
+    <Card
       style={{
         display: "flex",
         alignItems: "center",
         gap: 10,
         padding: "10px 12px",
-        borderRadius: 10,
-        border: "1px solid var(--border)",
-        background: "var(--bg-elevated)",
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -85,8 +85,10 @@ export function McpRow({
           const supported = agentSupported(srv.transport, agent);
           const busy = busyKey === `${srv.name}::${agent}`;
           return (
-            <button
+            <Button
               key={agent}
+              variant={enabled ? "default" : "outline"}
+              size="icon"
               title={
                 !supported
                   ? t("mcp.unsupportedTransportTip", {
@@ -100,18 +102,7 @@ export function McpRow({
               style={{
                 width: 30,
                 height: 30,
-                borderRadius: 8,
-                border: enabled
-                  ? "1.5px solid var(--accent)"
-                  : "1px solid var(--border)",
-                background: enabled ? "var(--accent-subtle)" : "transparent",
-                padding: 0,
-                cursor: supported && !busy ? "pointer" : "not-allowed",
                 opacity: !supported ? 0.3 : enabled ? 1 : 0.55,
-                transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
               }}
             >
               <img
@@ -123,27 +114,17 @@ export function McpRow({
                   filter: enabled ? "none" : "grayscale(1)",
                 }}
               />
-            </button>
+            </Button>
           );
         })}
 
         {/* 分享 */}
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           title={t("mcp.share", "分享")}
           onClick={onShare}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            background: "transparent",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          style={{ width: 30, height: 30, color: "var(--text-secondary)" }}
         >
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="4" r="2" />
@@ -151,58 +132,38 @@ export function McpRow({
             <circle cx="11" cy="11" r="2" />
             <path d="M6 6.5l3-1.5M6 8.5l3 1.5" />
           </svg>
-        </button>
+        </Button>
 
         {/* 编辑 */}
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           title={t("mcp.edit", "编辑")}
           onClick={onEdit}
-          disabled={busyKey?.startsWith(`edit::${srv.name}`)}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            background: "transparent",
-            cursor: "pointer",
-            color: "var(--text-secondary)",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          disabled={busyKey?.startsWith(`edit::${srv.name}`) ?? false}
+          style={{ width: 30, height: 30, color: "var(--text-secondary)" }}
         >
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M9.5 2.5l3 3L5 13H2v-3z" />
             <path d="M8 4l3 3" />
           </svg>
-        </button>
+        </Button>
 
         {/* 删除 */}
-        <button
+        <Button
+          variant="outline"
+          size="icon"
           title={t("common.delete", "删除")}
           onClick={onDelete}
-          disabled={busyKey?.startsWith(`del::${srv.name}`)}
-          style={{
-            width: 30,
-            height: 30,
-            borderRadius: 8,
-            border: "1px solid var(--border)",
-            background: "transparent",
-            cursor: "pointer",
-            color: "var(--danger)",
-            padding: 0,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
+          disabled={busyKey?.startsWith(`del::${srv.name}`) ?? false}
+          style={{ width: 30, height: 30, color: "var(--danger)" }}
         >
           <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 4h9M5.5 4V2.8a.8.8 0 0 1 .8-.8h2.4a.8.8 0 0 1 .8.8V4M4.2 4l.5 8.2a1 1 0 0 0 1 .8h3.6a1 1 0 0 0 1-.8L11.3 4" />
           </svg>
-        </button>
+        </Button>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -210,20 +171,21 @@ export function TransportBadge({ transport }: { transport: string }) {
   const { t } = useTranslation();
   const s = transportStyle(transport);
   return (
-    <span
+    <Badge
+      variant="outline"
       style={{
         fontSize: 10,
         fontWeight: 600,
         padding: "1px 6px",
-        borderRadius: 4,
         background: s.bg,
         color: s.fg,
         textTransform: "uppercase",
         letterSpacing: 0.3,
+        border: "none",
       }}
     >
       {t(`mcp.transport.${transport}`, transport)}
-    </span>
+    </Badge>
   );
 }
 
@@ -251,33 +213,35 @@ export function KVRows({
       </span>
       {rows.map((r, i) => (
         <div key={i} style={{ display: "flex", gap: 6 }}>
-          <input
-            style={{ ...inputStyle, flex: 1 }}
+          <Input
+            style={{ flex: 1 }}
             value={r.k}
             placeholder="KEY"
             onChange={(e) => update(i, { k: e.target.value })}
           />
-          <input
-            style={{ ...inputStyle, flex: 1.4, fontFamily: "var(--font-mono, monospace)" }}
+          <Input
+            style={{ flex: 1.4, fontFamily: "var(--font-mono, monospace)" }}
             value={r.v}
             placeholder="***"
             onChange={(e) => update(i, { v: e.target.value })}
           />
-          <button
+          <Button
+            variant="outline"
             onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
-            style={{ ...btnGhost, padding: "6px 10px" }}
+            style={{ padding: "6px 10px" }}
             title={t("common.delete", "删除")}
           >
             ×
-          </button>
+          </Button>
         </div>
       ))}
-      <button
+      <Button
+        variant="outline"
         onClick={() => onChange([...rows, { k: "", v: "" }])}
-        style={{ ...btnGhost, alignSelf: "flex-start", padding: "5px 10px", fontSize: 12 }}
+        style={{ alignSelf: "flex-start", padding: "5px 10px", fontSize: 12 }}
       >
         + {t("mcp.addRow", "添加")}
-      </button>
+      </Button>
     </div>
   );
 }
