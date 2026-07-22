@@ -1,5 +1,10 @@
 /* === AiDog · Liquid Glass Design System === */
 
+/* ── Tailwind CSS v4 (preflight DISABLED - will enable after component migration) ── */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme" layer(theme);
+@import "tailwindcss/utilities" layer(utilities);
+
 *,
 *::before,
 *::after {
