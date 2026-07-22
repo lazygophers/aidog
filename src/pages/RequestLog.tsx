@@ -18,9 +18,12 @@ import { LogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
 import { DetailPanel } from "./Logs/DetailPanel";
 import { timePresetToRange, type TimePreset } from "./Logs/types";
 import { formatDateTime } from "../utils/formatters";
+import { Button } from "@/components/ui/button";
+import { TableHeader, TableBody } from "@/components/ui/table";
 
 // ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (LogRow/Pagination/ThCell/FilterSelect)
 // + Logs/DetailPanel（ProxyLogDetail 经 proxyLogApi.get 取回 — request_log_list 仅摘要行）。
+// 详情现为 Sheet 叠加（DetailPanel 内部以 Radix Portal 渲染），列表恒常可见。
 // 筛选维度: 类型(test/quota) / 平台 / cli-proxy provider / 状态 / 时间 — 独立于 Logs 主页。
 // 后端 request_log_list 默认 sources=[test,quota]（db 兜底），前端 filter.sources 显式覆盖。
 
@@ -190,94 +193,92 @@ export function RequestLog() {
     setDetail,
   }), [t, detail, copied, copiedId, openDetail, copyDetail, platformMap]);
 
-  if (detail) return <DetailPanel d={detailData as any} />;
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-      {/* Header */}
-      <div className="section-header" style={{ justifyContent: "space-between" }}>
-        <div>
-          <div className="section-title">{t("page.requestLog", "请求日志（测试 / 余额）")}</div>
-          <div className="section-desc">
-            {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("requestLog.empty", "暂无请求记录")}
+    <>
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+        {/* Header */}
+        <div className="section-header" style={{ justifyContent: "space-between" }}>
+          <div>
+            <div className="section-title">{t("page.requestLog", "请求日志（测试 / 余额）")}</div>
+            <div className="section-desc">
+              {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("requestLog.empty", "暂无请求记录")}
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <Button variant="default" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
+            </Button>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button className="btn" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
-          </button>
-        </div>
-      </div>
 
-      {/* ── Filter bar ── */}
-      <div className="glass-surface" style={{ padding: "12px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-        {/* Type: all / test / quota */}
-        <FilterSelect
-          value={filterType}
-          onChange={v => setFilterType(v as TypeFilter)}
-          options={[
-            { value: "test", label: t("requestLog.typeTest", "测试") },
-            { value: "quota", label: t("requestLog.typeQuota", "余额") },
-          ]}
-          placeholder={t("requestLog.filterType", "类型")}
-        />
-        {/* Provider */}
-        <FilterSelect
-          value={filterProvider}
-          onChange={setFilterProvider}
-          options={providers.map(p => ({ value: String(p.id), label: p.name }))}
-          placeholder={t("requestLog.filterProvider", "Provider")}
-        />
-        {/* Platform */}
-        <FilterSelect
-          value={filterPlatform}
-          onChange={setFilterPlatform}
-          options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
-          placeholder={t("logs.filterPlatform", "平台")}
-        />
-        {/* Status */}
-        <FilterSelect
-          value={filterStatus}
-          onChange={setFilterStatus}
-          options={[
-            { value: "success", label: t("logs.statusSuccess", "成功") },
-            { value: "error", label: t("logs.statusError", "失败") },
-          ]}
-          placeholder={t("logs.filterStatus", "状态")}
-        />
-        {/* Time */}
-        <FilterSelect
-          value={filterTime}
-          onChange={v => setFilterTime(v as TimePreset)}
-          options={[
-            { value: "1h", label: "1h" },
-            { value: "6h", label: "6h" },
-            { value: "24h", label: "24h" },
-            { value: "7d", label: "7d" },
-            { value: "30d", label: "30d" },
-          ]}
-          placeholder={t("logs.filterTime", "时间")}
-        />
-        {hasFilter && (
-          <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "2px 8px", color: "var(--text-tertiary)" }}>
-            {t("logs.clearFilter", "清除")}
-          </button>
-        )}
-      </div>
-
-      {/* Table */}
-      {loading ? (
-        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
-      ) : logs.length === 0 ? (
-        <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
-          <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("requestLog.empty", "暂无请求记录")}</div>
+        {/* ── Filter bar ── */}
+        <div className="glass-surface" style={{ padding: "12px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+          {/* Type: all / test / quota */}
+          <FilterSelect
+            value={filterType}
+            onChange={v => setFilterType(v as TypeFilter)}
+            options={[
+              { value: "test", label: t("requestLog.typeTest", "测试") },
+              { value: "quota", label: t("requestLog.typeQuota", "余额") },
+            ]}
+            placeholder={t("requestLog.filterType", "类型")}
+          />
+          {/* Provider */}
+          <FilterSelect
+            value={filterProvider}
+            onChange={setFilterProvider}
+            options={providers.map(p => ({ value: String(p.id), label: p.name }))}
+            placeholder={t("requestLog.filterProvider", "Provider")}
+          />
+          {/* Platform */}
+          <FilterSelect
+            value={filterPlatform}
+            onChange={setFilterPlatform}
+            options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
+            placeholder={t("logs.filterPlatform", "平台")}
+          />
+          {/* Status */}
+          <FilterSelect
+            value={filterStatus}
+            onChange={setFilterStatus}
+            options={[
+              { value: "success", label: t("logs.statusSuccess", "成功") },
+              { value: "error", label: t("logs.statusError", "失败") },
+            ]}
+            placeholder={t("logs.filterStatus", "状态")}
+          />
+          {/* Time */}
+          <FilterSelect
+            value={filterTime}
+            onChange={v => setFilterTime(v as TimePreset)}
+            options={[
+              { value: "1h", label: "1h" },
+              { value: "6h", label: "6h" },
+              { value: "24h", label: "24h" },
+              { value: "7d", label: "7d" },
+              { value: "30d", label: "30d" },
+            ]}
+            placeholder={t("logs.filterTime", "时间")}
+          />
+          {hasFilter && (
+            <Button variant="ghost" type="button" onClick={clearFilter} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>
+              {t("logs.clearFilter", "清除")}
+            </Button>
+          )}
         </div>
-      ) : (
-        <>
-          <div className="glass-surface" style={{ overflow: "auto", contain: "paint" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+
+        {/* Table */}
+        {loading ? (
+          <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
+        ) : logs.length === 0 ? (
+          <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
+            <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("requestLog.empty", "暂无请求记录")}</div>
+          </div>
+        ) : (
+          <>
+            <div className="glass-surface" style={{ overflow: "auto", contain: "paint" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
+                <TableHeader>
                   <ThCell>{t("logs.time")}</ThCell>
                   <ThCell>{t("logs.group")}</ThCell>
                   <ThCell>{t("logs.platform", "平台")}</ThCell>
@@ -289,37 +290,39 @@ export function RequestLog() {
                   <ThCell>{t("logs.inputTokens")}</ThCell>
                   <ThCell>{t("logs.outputTokens")}</ThCell>
                   <ThCell sticky>{""}</ThCell>
-                </tr>
-              </thead>
-              <tbody>
-                {logs.map((log) => (
-                  <LogRow
-                    key={log.id}
-                    log={log}
-                    platformName={platformMap.get(log.platform_id) || "-"}
-                    groupName={groupName(log.group_key)}
-                    providerName={log.cli_proxy_provider_name ?? null}
-                    onOpen={openDetail}
-                    onCopy={copyRow}
-                    t={t}
-                  />
-                ))}
-              </tbody>
-            </table>
-          </div>
-          {total > 0 && (
-            <Pagination
-              currentPage={currentPage}
-              totalPages={totalPages}
-              total={total}
-              pageSize={pageSize}
-              onPageChange={page => setOffset((page - 1) * pageSize)}
-              onPageSizeChange={setPageSize}
-              t={t}
-            />
-          )}
-        </>
-      )}
-    </div>
+                </TableHeader>
+                <TableBody>
+                  {logs.map((log) => (
+                    <LogRow
+                      key={log.id}
+                      log={log}
+                      platformName={platformMap.get(log.platform_id) || "-"}
+                      groupName={groupName(log.group_key)}
+                      providerName={log.cli_proxy_provider_name ?? null}
+                      onOpen={openDetail}
+                      onCopy={copyRow}
+                      t={t}
+                    />
+                  ))}
+                </TableBody>
+              </table>
+            </div>
+            {total > 0 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                total={total}
+                pageSize={pageSize}
+                onPageChange={page => setOffset((page - 1) * pageSize)}
+                onPageSizeChange={setPageSize}
+                t={t}
+              />
+            )}
+          </>
+        )}
+      </div>
+      {/* 详情 Sheet 叠加（Radix Portal），列表恒常可见 */}
+      <DetailPanel d={detailData as any} />
+    </>
   );
 }
