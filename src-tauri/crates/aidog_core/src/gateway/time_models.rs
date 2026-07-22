@@ -47,16 +47,14 @@ pub fn resolve_time_models(
         if let Some(windows) = rule.get("windows").and_then(|w| w.as_array()) {
             // 转换窗口为 PeakWindow 格式进行判定
             for w in windows {
-                if let Some(parsed) = parse_peak_window(w) {
-                    if crate::gateway::peak_hours::hit(&parsed, hour, minute, weekday, day_of_month) {
+                if let Some(parsed) = parse_peak_window(w)
+                    && crate::gateway::peak_hours::hit(&parsed, hour, minute, weekday, day_of_month) {
                         // 命中：解析该 rule 的 models
-                        if let Some(models_val) = rule.get("models") {
-                            if let Ok(models) = serde_json::from_value::<PlatformModels>(models_val.clone()) {
+                        if let Some(models_val) = rule.get("models")
+                            && let Ok(models) = serde_json::from_value::<PlatformModels>(models_val.clone()) {
                                 return models;
                             }
-                        }
                     }
-                }
             }
         }
     }

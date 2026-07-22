@@ -287,8 +287,8 @@ pub(crate) fn parse_minimax_coding_plan(body: &serde_json::Value) -> PlatformQuo
             // 0/缺失=无周计划 → 跳过。旧实现仅认 status==1，把「周上限已用满(status=2)」
             // 的模型整个丢掉，导致周上限最该展示时反而不显示（general 实测 status=2）。
             let weekly_status = item.get("current_weekly_status").and_then(|v| v.as_i64());
-            if matches!(weekly_status, Some(1) | Some(2)) {
-                if let Some(remain_pct) = item
+            if matches!(weekly_status, Some(1) | Some(2))
+                && let Some(remain_pct) = item
                     .get("current_weekly_remaining_percent")
                     .and_then(|v| v.as_f64())
                 {
@@ -315,7 +315,6 @@ pub(crate) fn parse_minimax_coding_plan(body: &serde_json::Value) -> PlatformQuo
                         remaining,
                     });
                 }
-            }
         }
     }
     coding_plan_ok(tiers, None)

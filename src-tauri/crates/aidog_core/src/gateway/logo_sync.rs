@@ -58,13 +58,11 @@ pub async fn sync_all_logos(db: Arc<Db>, app_data_dir: PathBuf) {
 
     for (protocol_id, logo_slug, homepage) in entries {
         let cache = logo_cache_path(&app_data_dir, &protocol_id);
-        if cache.exists() {
-            if let Ok(meta) = std::fs::metadata(&cache) {
-                if meta.len() > 0 {
+        if cache.exists()
+            && let Ok(meta) = std::fs::metadata(&cache)
+                && meta.len() > 0 {
                     continue; // 命中
                 }
-            }
-        }
         if let Err(e) = sync_one_into(&client, &app_data_dir, &protocol_id, &logo_slug, &homepage).await {
             tracing::debug!(protocol = %protocol_id, error = %e, "logos sync: all sources failed, leave uncached");
         }
@@ -76,13 +74,11 @@ pub async fn sync_all_logos(db: Arc<Db>, app_data_dir: PathBuf) {
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn sync_one_logo(db: Arc<Db>, app_data_dir: PathBuf, protocol_id: String) {
     let cache = logo_cache_path(&app_data_dir, &protocol_id);
-    if cache.exists() {
-        if let Ok(meta) = std::fs::metadata(&cache) {
-            if meta.len() > 0 {
+    if cache.exists()
+        && let Ok(meta) = std::fs::metadata(&cache)
+            && meta.len() > 0 {
                 return; // 已缓存
             }
-        }
-    }
     let (logo_slug, homepage) = match read_one_protocol(&protocol_id) {
         Ok(v) => v,
         Err(e) => {
@@ -109,11 +105,10 @@ async fn sync_one_into(
     // 路 1 simpleicons：仅当 slug 非空
     if !logo_slug.is_empty() {
         let url = format!("https://cdn.simpleicons.org/{}", logo_slug);
-        if let Ok(bytes) = fetch_bytes(client, &url).await {
-            if write_if_nonzero(&cache, &bytes) {
+        if let Ok(bytes) = fetch_bytes(client, &url).await
+            && write_if_nonzero(&cache, &bytes) {
                 return Ok(());
             }
-        }
     }
 
     // 路 2 / 3 需 homepage 域名
@@ -123,19 +118,17 @@ async fn sync_one_into(
 
     // 路 2 favicon
     let fav_url = format!("https://{domain}/favicon.ico");
-    if let Ok(bytes) = fetch_bytes(client, &fav_url).await {
-        if write_if_nonzero(&cache, &bytes) {
+    if let Ok(bytes) = fetch_bytes(client, &fav_url).await
+        && write_if_nonzero(&cache, &bytes) {
             return Ok(());
         }
-    }
 
     // 路 3 clearbit（末路）
     let cb_url = format!("https://logo.clearbit.com/{domain}");
-    if let Ok(bytes) = fetch_bytes(client, &cb_url).await {
-        if write_if_nonzero(&cache, &bytes) {
+    if let Ok(bytes) = fetch_bytes(client, &cb_url).await
+        && write_if_nonzero(&cache, &bytes) {
             return Ok(());
         }
-    }
 
     Err("all three sources failed".into())
 }
@@ -181,13 +174,11 @@ fn extract_domain(homepage: &str) -> Option<String> {
 fn read_local_presets_json() -> Result<String, String> {
     if let Ok(dir) = aidog_data_dir() {
         let path = dir.join("platform-presets.json");
-        if path.exists() {
-            if let Ok(content) = std::fs::read_to_string(&path) {
-                if !content.trim().is_empty() && serde_json::from_str::<serde_json::Value>(&content).is_ok() {
+        if path.exists()
+            && let Ok(content) = std::fs::read_to_string(&path)
+                && !content.trim().is_empty() && serde_json::from_str::<serde_json::Value>(&content).is_ok() {
                     return Ok(content);
                 }
-            }
-        }
     }
     // 回退 bundled（commands/defaults.rs::BUNDLED 同源；避免循环引用此处独立 include_str!）
     Ok(std::include_str!("../../../../defaults/platform-presets.json").to_string())

@@ -11,14 +11,13 @@ pub struct PathEntry {
 
 /// Expand `~` to home directory and resolve path
 pub(crate) fn expand_path(input: &str) -> std::path::PathBuf {
-    if input.starts_with("~/") || input == "~" {
-        if let Some(home) = dirs::home_dir() {
+    if (input.starts_with("~/") || input == "~")
+        && let Some(home) = dirs::home_dir() {
             if input == "~" {
                 return home;
             }
             return home.join(&input[2..]);
         }
-    }
     std::path::PathBuf::from(input)
 }
 

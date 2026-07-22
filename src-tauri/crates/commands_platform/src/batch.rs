@@ -8,7 +8,7 @@
 
 use aidog_core::gateway::{
     db::{self, now, Db},
-    models::{BatchReport, PlatformModels, PlatformStatus, SkipReason, UpdatePlatform},
+    models::{BatchReport, PlatformModels, PlatformStatus, UpdatePlatform},
 };
 use rusqlite::params;
 use tauri::State;

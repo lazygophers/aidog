@@ -140,11 +140,10 @@ fn run_npx(args: &[String], scope: &SkillScope) -> skills::SkillsOpResult {
     full.extend(args.iter().cloned());
     let mut cmd = std::process::Command::new("npx");
     cmd.args(&full);
-    if let SkillScope::Project { path } = scope {
-        if !path.trim().is_empty() {
+    if let SkillScope::Project { path } = scope
+        && !path.trim().is_empty() {
             cmd.current_dir(path);
         }
-    }
     match cmd.output() {
         Ok(o) => skills::SkillsOpResult {
             success: o.status.success(),

@@ -425,11 +425,10 @@ fn parse_host_from_input(input: &str) -> String {
     } else {
         trimmed.to_string()
     };
-    if let Ok(parsed) = url::Url::parse(&candidate) {
-        if let Some(host) = parsed.host_str() {
+    if let Ok(parsed) = url::Url::parse(&candidate)
+        && let Some(host) = parsed.host_str() {
             return host.to_lowercase();
         }
-    }
     // 兜底：url crate 解析失败 → 取首段（剥 path/port）。
     // 例：`api.anthropic.com/v1` → `api.anthropic.com`；`api.anthropic.com:443` → `api.anthropic.com`。
     let no_scheme = trimmed

@@ -13,11 +13,10 @@ pub fn get_setting<'a>(
     // 命中路径零分配：借 `(&str, &str)` 经 `dyn KeyPair` 探测 map，不构造 `(String, String)`。
     {
         let probe: &dyn KeyPair = &(scope, key);
-        if let Ok(g) = db.1.settings.read() {
-            if let Some(hit) = g.get(probe) {
+        if let Ok(g) = db.1.settings.read()
+            && let Some(hit) = g.get(probe) {
                 return Ok(hit.clone());
             }
-        }
     }
     let scope = scope.to_string();
     let key = key.to_string();

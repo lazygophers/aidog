@@ -376,15 +376,14 @@ pub async fn update_server(
     // kept: 改名则先 remove 旧 name，再 write 新 name 新 cfg。
     for agent in &kept {
         let be = backend_for(*agent);
-        if payload.name != old.name {
-            if let Err(e) = be.remove(old_name) {
+        if payload.name != old.name
+            && let Err(e) = be.remove(old_name) {
                 tracing::warn!(
                     agent = agent.slug(),
                     error = %e,
                     "mcp update: remove old-name agent config failed"
                 );
             }
-        }
         be.write(&payload.name, &cfg)
             .map_err(|e| format!("write {} config: {e}", agent.slug()))?;
     }

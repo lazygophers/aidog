@@ -227,8 +227,8 @@ pub async fn resolve_price(
     }
 
     // 3. Try default_platform pricing
-    if let Some(dp) = pd.get("default_platform").and_then(|v| v.as_str()) {
-        if let Some(pricing_node) = pd.get("pricing").and_then(|p| p.get(dp)) {
+    if let Some(dp) = pd.get("default_platform").and_then(|v| v.as_str())
+        && let Some(pricing_node) = pd.get("pricing").and_then(|p| p.get(dp)) {
             let input = pricing_node.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
@@ -245,7 +245,6 @@ pub async fn resolve_price(
                 ));
             }
         }
-    }
 
     // 4. Fallback
     Ok(crate::gateway::models::ResolvedPrice {
@@ -335,20 +334,18 @@ pub fn filtered_list_model_prices<'a>(
     let mut param_idx = 1;
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-    if let Some(q) = query {
-        if !q.is_empty() {
+    if let Some(q) = query
+        && !q.is_empty() {
             where_parts.push(format!("model_name LIKE ?{param_idx}"));
             params.push(Box::new(format!("%{q}%")));
             param_idx += 1;
         }
-    }
-    if let Some(s) = source {
-        if !s.is_empty() {
+    if let Some(s) = source
+        && !s.is_empty() {
             where_parts.push(format!("source = ?{param_idx}"));
             params.push(Box::new(s.to_string()));
             param_idx += 1;
         }
-    }
 
     let where_sql = where_parts.join(" AND ");
     let sql = format!(
@@ -391,19 +388,17 @@ pub fn filtered_count_model_prices<'a>(
     let mut param_idx = 1;
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
-    if let Some(q) = query {
-        if !q.is_empty() {
+    if let Some(q) = query
+        && !q.is_empty() {
             where_parts.push(format!("model_name LIKE ?{param_idx}"));
             params.push(Box::new(format!("%{q}%")));
             param_idx += 1;
         }
-    }
-    if let Some(s) = source {
-        if !s.is_empty() {
+    if let Some(s) = source
+        && !s.is_empty() {
             where_parts.push(format!("source = ?{param_idx}"));
             params.push(Box::new(s.to_string()));
         }
-    }
 
     let where_sql = where_parts.join(" AND ");
     let sql = format!("SELECT COUNT(*) FROM model_price WHERE {where_sql}");

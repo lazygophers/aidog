@@ -10,9 +10,9 @@ pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {
     let delta = choice.get("delta")?;
 
     // 检查是否有 tool_calls
-    if let Some(tool_calls_val) = delta.get("tool_calls") {
-        if let Some(tool_calls) = tool_calls_val.as_array() {
-            if let Some(tc) = tool_calls.first() {
+    if let Some(tool_calls_val) = delta.get("tool_calls")
+        && let Some(tool_calls) = tool_calls_val.as_array()
+            && let Some(tc) = tool_calls.first() {
                 let id = tc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
                 let func = tc.get("function");
                 let name = func.and_then(|f| f.get("name")).and_then(|v| v.as_str()).map(|s| s.to_string());
@@ -28,8 +28,6 @@ pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {
                     input,
                 });
             }
-        }
-    }
 
     // 文本 delta
     if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
@@ -42,13 +40,12 @@ pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {
     }
 
     // 结束
-    if let Some(reason) = choice.get("finish_reason").and_then(|v| v.as_str()) {
-        if reason == "stop" || reason == "tool_calls" || reason == "length" {
+    if let Some(reason) = choice.get("finish_reason").and_then(|v| v.as_str())
+        && (reason == "stop" || reason == "tool_calls" || reason == "length") {
             return Some(ChatStreamEvent::Stop {
                 finish_reason: Some(reason.to_string()),
             });
         }
-    }
 
     None
 }

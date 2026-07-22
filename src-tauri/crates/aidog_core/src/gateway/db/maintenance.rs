@@ -172,11 +172,10 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
     let __db_caller = std::panic::Location::caller();
     async move {
     // 幂等标记：已迁移直接跳过
-    if let Ok(Some(v)) = get_setting(db, "db", "compact_migrated_v1").await {
-        if v == serde_json::Value::Bool(true) {
+    if let Ok(Some(v)) = get_setting(db, "db", "compact_migrated_v1").await
+        && v == serde_json::Value::Bool(true) {
             return Ok(false);
         }
-    }
     // 主库：探测 auto_vacuum，非 INCREMENTAL 则 VACUUM 重建切换模式。
     let main_current: i64 = db
         .call_traced(None, __db_caller, |c| {

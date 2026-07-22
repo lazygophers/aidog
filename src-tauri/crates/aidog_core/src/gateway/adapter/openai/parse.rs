@@ -31,13 +31,11 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         if let Some(tool_calls) = &m.tool_calls {
             let mut blocks: Vec<ContentBlock> = Vec::new();
             // Add text content if present
-            if let Some(content) = &m.content {
-                if let Some(text) = content.as_str() {
-                    if !text.is_empty() {
+            if let Some(content) = &m.content
+                && let Some(text) = content.as_str()
+                    && !text.is_empty() {
                         blocks.push(ContentBlock::Text { text: text.to_string() });
                     }
-                }
-            }
             for tc in tool_calls {
                 let input: serde_json::Value = serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Object(Default::default()));
                 blocks.push(ContentBlock::ToolUse {

@@ -268,11 +268,10 @@ pub fn move_group_platform(
 pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Group>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    if let Ok(g) = db.1.groups.read() {
-        if let Some(cached) = g.as_ref() {
+    if let Ok(g) = db.1.groups.read()
+        && let Some(cached) = g.as_ref() {
             return Ok(cached.clone());
         }
-    }
     let groups = db
         
         .call_read_platform_traced(None, __db_caller, |conn| {

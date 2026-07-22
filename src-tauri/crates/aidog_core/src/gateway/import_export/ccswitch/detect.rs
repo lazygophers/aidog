@@ -11,31 +11,26 @@ fn resolve_ccswitch_dir() -> Result<PathBuf, String> {
     let default_dir = home.join(".cc-switch");
     // settings.json 含 configDir 自定义。
     let settings_path = default_dir.join("settings.json");
-    if settings_path.exists() {
-        if let Ok(txt) = std::fs::read_to_string(&settings_path) {
-            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
-                if let Some(custom) = v.get("configDir").and_then(|x| x.as_str()) {
-                    if !custom.is_empty() {
+    if settings_path.exists()
+        && let Ok(txt) = std::fs::read_to_string(&settings_path)
+            && let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt)
+                && let Some(custom) = v.get("configDir").and_then(|x| x.as_str())
+                    && !custom.is_empty() {
                         let p = PathBuf::from(custom);
                         if p.is_absolute() {
                             return Ok(expand_tilde(&p));
                         }
                     }
-                }
-            }
-        }
-    }
     Ok(default_dir)
 }
 
 /// 展开 `~` 前缀（cc-switch settings 可能写 `~/xxx`）。
 pub(super) fn expand_tilde(p: &Path) -> PathBuf {
     let s = p.to_string_lossy();
-    if let Some(rest) = s.strip_prefix("~") {
-        if let Some(home) = dirs::home_dir() {
+    if let Some(rest) = s.strip_prefix("~")
+        && let Some(home) = dirs::home_dir() {
             return home.join(rest.trim_start_matches('/'));
         }
-    }
     p.to_path_buf()
 }
 
