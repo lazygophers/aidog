@@ -28,7 +28,7 @@ interface Settings {
 }
 
 /** 旧 themeName → 新 {style,color} 迁移映射（与 AppContext 保持一致）。
- *  已删 palette (appleBlue/solarized) 回退 gruvbox (DEFAULT_COLOR)。 */
+ *  已删 palette (appleBlue/solarized/...) 回退 gruvbox (DEFAULT_COLOR)。 */
 const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }> = {
   liquidGlass: { style: "liquidGlass", color: "gruvbox" },
   nord: { style: "flat", color: "nord" },
@@ -36,6 +36,13 @@ const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }>
   catppuccin: { style: "flat", color: "catppuccin" },
   solarized: { style: "flat", color: "gruvbox" },
 };
+
+/** 废弃 palette id → gruvbox (与 AppContext DEPRECATED_PALETTE_MIGRATION 同步)。 */
+const DEPRECATED_PALETTE_IDS = new Set([
+  "appleBlue", "solarized", "rosePine", "tokyoNight",
+  "oneDark", "material", "github", "nightOwl",
+  "morandi", "monet", "wafu", "guofeng",
+]);
 
 interface RawSettings {
   locale?: Locale;
@@ -55,7 +62,12 @@ function loadSettings(): Settings {
   const locale = raw.locale;
   const themeMode: ThemeMode = raw.themeMode ?? DEFAULT_MODE;
   if (raw.themeStyle && raw.themeColor) {
-    return { locale, themeStyle: raw.themeStyle, themeColor: raw.themeColor, themeMode };
+    return {
+      locale,
+      themeStyle: raw.themeStyle,
+      themeColor: DEPRECATED_PALETTE_IDS.has(raw.themeColor) ? DEFAULT_COLOR : raw.themeColor,
+      themeMode,
+    };
   }
   const migrated = raw.themeName ? LEGACY_THEME_MAP[raw.themeName] : undefined;
   return {

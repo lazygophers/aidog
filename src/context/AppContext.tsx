@@ -61,9 +61,18 @@ const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }>
   solarized: { style: "flat", color: "gruvbox" },
 };
 
-/** 废弃 palette id → 替换 palette id 迁移映射（morandi/monet/wafu/guofeng 移除）。
- *  目标 palette (oneDark/material/github/nightOwl) 已删 → 统一回退 gruvbox (DEFAULT_COLOR)；s5 细化。 */
+/** 废弃 palette id → 替换 palette id 迁移映射。
+ *  s1 删 8 palette (appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl)
+ *  + 更早 morandi/monet/wafu/guofeng → 统一回退 gruvbox (DEFAULT_COLOR)。 */
 const DEPRECATED_PALETTE_MIGRATION: Record<string, ThemeColor> = {
+  appleBlue: "gruvbox",
+  solarized: "gruvbox",
+  rosePine: "gruvbox",
+  tokyoNight: "gruvbox",
+  oneDark: "gruvbox",
+  material: "gruvbox",
+  github: "gruvbox",
+  nightOwl: "gruvbox",
   morandi: "gruvbox",
   monet: "gruvbox",
   wafu: "gruvbox",
