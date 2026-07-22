@@ -776,9 +776,10 @@ function PlatformActionButtons({
   return (
     <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
       {canRefresh && (
-        <button
-          className="btn btn-ghost btn-icon"
-          style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}
+        <Button
+          variant="ghost"
+          size="icon"
+          style={{ padding: 4, height: "auto", minWidth: "auto" }}
           disabled={refreshing}
           title={t("platform.quotaRefresh", "刷新额度")}
           onClick={(e) => { e.stopPropagation(); actions.onRefreshQuota(platform); }}
@@ -789,7 +790,7 @@ function PlatformActionButtons({
             <path d="M21 12a9 9 0 1 1-2.64-6.36" />
             <polyline points="21 3 21 9 15 9" />
           </svg>
-        </button>
+        </Button>
       )}
       <div
         className={`toggle ${platform.status === "enabled" ? "active" : ""}`}
@@ -802,9 +803,9 @@ function PlatformActionButtons({
             : t("platform.enable", "启用")}
       />
       <div style={{ display: "inline-flex", fontSize: 11 }}>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
+        <Button
+          variant="ghost"
+          style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
           disabled={testing}
           onClick={(e) => { e.stopPropagation(); actions.onQuickTest(platform); }}
           title={t("platform.quickTest", "快速测试默认模型")}
@@ -812,48 +813,48 @@ function PlatformActionButtons({
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
             <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
           </svg>
-        </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
+        </Button>
+        <Button
+          variant="ghost"
+          style={{ fontSize: 11, padding: "3px 6px", height: "auto", borderRadius: "0 6px 6px 0" }}
           onClick={(e) => { e.stopPropagation(); actions.onCustomTest(platform); }}
           title={t("platform.customTest", "自定义测试")}
         >
           <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 5l4 4 4-4" />
           </svg>
-        </button>
+        </Button>
       </div>
-      <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 2h10v10H2z" />
           <path d="M4 5h6M4 7h4M4 9h5" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(platform); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); actions.onEdit(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 2l2 2-7 7H3v-2l7-7z" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon" title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(platform); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="3" r="1.6" />
           <circle cx="3" cy="7" r="1.6" />
           <circle cx="11" cy="11" r="1.6" />
           <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon" title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(platform); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="4" width="8" height="8" rx="1.2" />
           <path d="M9 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); actions.onDelete(platform.id); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); actions.onDelete(platform.id); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
         </svg>
-      </button>
+      </Button>
     </div>
   );
 }
