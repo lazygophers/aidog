@@ -4,6 +4,7 @@ import { useApp } from "../context/AppContext";
 import { ALL_LOCALES } from "../locales";
 import type { ThemeStyle, ThemeColor } from "../themes";
 import { IconPalette, IconGlobe } from "./icons";
+import { Button } from "@/components/ui/button";
 
 // ── SVG Icons ──
 
@@ -194,8 +195,8 @@ function DropdownItem({
   onClick: () => void;
 }) {
   return (
-    <button
-      className="btn btn-ghost"
+    <Button
+      variant="ghost"
       style={{
         width: "100%",
         justifyContent: "flex-start",
@@ -206,11 +207,12 @@ function DropdownItem({
         color: active ? "var(--accent)" : "var(--text-primary)",
         background: active ? "var(--accent-subtle)" : "transparent",
         borderRadius: "var(--radius-sm)",
+        height: "auto",
       }}
       onClick={onClick}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -290,8 +292,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           return (
             <div key={sec.key || "_"} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               {hasHeader && (
-                <button
-                  className="btn btn-ghost"
+                <Button
+                  variant="ghost"
                   style={{
                     justifyContent: "space-between",
                     padding: "8px 10px 4px",
@@ -313,7 +315,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     transition: "transform 200ms",
                     display: "inline-flex",
                   }}>{icons.chevron}</span>
-                </button>
+                </Button>
               )}
               {(!hasHeader || !collapsed) && sec.items.map((item) => {
                 const isActive = item.id === topId;
@@ -322,8 +324,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 const expanded = expandedNav[item.id] ?? (inThis ? true : false);
                 return (
             <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <button
-                className="btn btn-ghost"
+              <Button
+                variant="ghost"
                 style={{
                   justifyContent: "flex-start",
                   gap: 10,
@@ -335,6 +337,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   background: isActive ? "var(--accent-subtle)" : "transparent",
                   borderRadius: "var(--radius-sm)",
                   fontSize: 13,
+                  height: "auto",
                 }}
                 onClick={() => {
                   if (hasChildren) {
@@ -386,7 +389,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     {item.badge > 99 ? "99+" : item.badge}
                   </span>
                 )}
-              </button>
+              </Button>
               {hasChildren && expanded && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12 }}>
                   {(() => {
@@ -411,9 +414,9 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                         {g.items.map((c) => {
                           const childActive = activeId === c.id;
                           return (
-                            <button
+                            <Button
+                              variant="ghost"
                               key={c.id}
-                              className="btn btn-ghost"
                               style={{
                                 justifyContent: "flex-start",
                                 padding: "7px 10px 7px 26px",
@@ -423,11 +426,12 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
                                 borderLeft: childActive ? "2px solid var(--accent)" : "2px solid transparent",
+                                height: "auto",
                               }}
                               onClick={() => onNavigate(c.id)}
                             >
                               {t(c.labelKey)}
-                            </button>
+                            </Button>
                           );
                         })}
                       </div>
@@ -457,12 +461,13 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             open={styleOpen}
             onToggle={() => setStyleOpen((v) => !v)}
             trigger={
-              <button className="btn btn-ghost" style={{
+              <Button variant="ghost" style={{
                 width: "100%",
                 justifyContent: "space-between",
                 fontSize: 12,
                 padding: "7px 10px",
                 color: "var(--text-secondary)",
+                height: "auto",
               }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconPalette size={14} /> {t(`theme.style.${themeStyle}`)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
@@ -476,7 +481,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   </span>
                   <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
                 </span>
-              </button>
+              </Button>
             }
           >
             {availableStyles.map((st) => (
@@ -499,12 +504,13 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           open={colorOpen}
           onToggle={() => setColorOpen((v) => !v)}
           trigger={
-            <button className="btn btn-ghost" style={{
+            <Button variant="ghost" style={{
               width: "100%",
               justifyContent: "space-between",
               fontSize: 12,
               padding: "7px 10px",
               color: "var(--text-secondary)",
+              height: "auto",
             }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                 <span style={{
@@ -518,7 +524,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 {t(`theme.color.${themeColor}`)}
               </span>
               <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
-            </button>
+            </Button>
           }
         >
           {availableColors.map((c) => (
@@ -540,16 +546,17 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           open={langOpen}
           onToggle={() => setLangOpen((v) => !v)}
           trigger={
-            <button className="btn btn-ghost" style={{
+            <Button variant="ghost" style={{
               width: "100%",
               justifyContent: "space-between",
               fontSize: 12,
               padding: "7px 10px",
               color: "var(--text-secondary)",
+              height: "auto",
             }}>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconGlobe size={14} /> {t(`lang.${locale}`)}</span>
               <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
-            </button>
+            </Button>
           }
         >
           {ALL_LOCALES.map((loc) => (
