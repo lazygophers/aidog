@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { Button } from "@/components/ui/button";
 
 export interface CopyMenuItem {
   key: string;
@@ -127,9 +128,10 @@ export function CopyButton({
 
   return (
     <>
-      <button
+      <Button
         ref={btnRef}
-        className={hasContent ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
+        variant="ghost"
+        size={hasContent ? "default" : "icon"}
         onClick={handleCopy}
         onMouseEnter={isMenu ? () => {
           cancelClose();
@@ -141,7 +143,7 @@ export function CopyButton({
           setHovered(false);
         } : undefined}
         title={title || text}
-        style={{ position: "relative", flexShrink: 0, gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
+        style={{ position: "relative", flexShrink: 0, height: "auto", gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
       >
         {icon ? icon : copied ? (
           <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -154,7 +156,7 @@ export function CopyButton({
           </svg>
         )}
         {!icon && effectiveLabel && <span style={{ fontWeight: 500 }}>{effectiveLabel}</span>}
-      </button>
+      </Button>
 
       {open && isMenu && menu && createPortal(
         <div
@@ -175,10 +177,10 @@ export function CopyButton({
           onMouseLeave={() => scheduleClose(120)}
         >
           {menu.map(item => (
-            <button
+            <Button
+              variant="ghost"
               key={item.key}
-              className="btn btn-ghost"
-              style={{ justifyContent: "flex-start", gap: 8, fontSize: 12, padding: "6px 10px", width: "100%", whiteSpace: "nowrap" }}
+              style={{ justifyContent: "flex-start", gap: 8, fontSize: 12, padding: "6px 10px", width: "100%", height: "auto", whiteSpace: "nowrap" }}
               onClick={(e) => {
                 e.stopPropagation();
                 runCopy(item.text);
@@ -187,7 +189,7 @@ export function CopyButton({
             >
               {item.icon ?? <span style={{ width: 14, display: "inline-block" }} />}
               <span>{item.label}</span>
-            </button>
+            </Button>
           ))}
         </div>,
         document.body,

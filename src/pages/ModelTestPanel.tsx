@@ -8,6 +8,8 @@ import {
 } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { TestResultBody } from "../components/shared";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { getProtocolLabel } from "../domains/platforms/defaults";
 
 interface Props {
@@ -128,46 +130,46 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
               {platform.name} · {protocolLabel || platform.platform_type}
             </div>
           </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}><IconClose size={16} /></button>
+          <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={onClose}><IconClose size={16} /></Button>
         </div>
 
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {modes.map(m => (
-            <button key={m.key}
-              className={mode === m.key ? "btn-active" : "btn"}
-              style={{ fontSize: 11, padding: "4px 8px" }}
+            <Button key={m.key}
+              variant={mode === m.key ? "default" : "outline"}
+              style={{ fontSize: 11, padding: "4px 8px", height: "auto" }}
               onClick={() => { setMode(m.key); setSelectedModels([]); setResults([]); }}
-            >{m.label}</button>
+            >{m.label}</Button>
           ))}
         </div>
 
         {needsModelSelect && (
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", maxHeight: 100, overflow: "auto" }}>
             {allModels.map(m => (
-              <button key={m}
-                className={selectedModels.includes(m) ? "btn-active" : "btn"}
-                style={{ fontSize: 11, padding: "3px 8px" }}
+              <Button key={m}
+                variant={selectedModels.includes(m) ? "default" : "outline"}
+                style={{ fontSize: 11, padding: "3px 8px", height: "auto" }}
                 onClick={() => toggleModel(m)}
-              >{m}</button>
+              >{m}</Button>
             ))}
           </div>
         )}
 
         {mode === "custom" && (
-          <textarea className="input" style={{ fontSize: 12, minHeight: 60, resize: "vertical" }}
+          <Textarea style={{ fontSize: 12, minHeight: 60, resize: "vertical" }}
             placeholder={t("test.promptPlaceholder", "输入测试提示词...")}
             value={customPrompt} onChange={e => setCustomPrompt(e.target.value)} />
         )}
 
-        <button className="btn-active"
-          style={{ fontSize: 13, padding: "8px 16px", alignSelf: "flex-start" }}
+        <Button variant="default"
+          style={{ fontSize: 13, padding: "8px 16px", height: "auto", alignSelf: "flex-start" }}
           onClick={runTest}
           disabled={running || (needsModelSelect && selectedModels.length === 0 && mode !== "batch" && allModels.length === 0)}
         >
           {running
             ? t("test.running", "测试中...") + (currentIdx >= 0 ? ` (${currentIdx + 1}/${getModels().length})` : "")
             : t("test.run", "开始测试")}
-        </button>
+        </Button>
 
         {results.length > 0 && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
