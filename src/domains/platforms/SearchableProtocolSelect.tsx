@@ -5,6 +5,8 @@ import { pinyinMatch } from "../../utils/pinyin";
 import type { ProtocolOption } from "./constants";
 import { buildProtocolsFromPresets, getProtocolLabel } from "./defaults";
 import { ProtocolLogo } from "./ProtocolLogo";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 /** 可搜索的协议选择器（支持拼音模糊匹配 + Tab/方向键键盘导航） */
 export function SearchableProtocolSelect({
@@ -187,7 +189,7 @@ export function SearchableProtocolSelect({
           }}
         >
           {/* 搜索输入 */}
-          <input
+          <Input
             ref={inputRef}
             className="input"
             placeholder={t("platform.searchPlaceholder", "搜索平台...")}
@@ -209,13 +211,13 @@ export function SearchableProtocolSelect({
               const isActive = p.value === value && !!p.codingPlan === codingPlan;
               const isHighlighted = idx === highlightedIndex;
               return (
-                <button
+                <Button
                   key={`${p.value}-${p.codingPlan ? 1 : 0}`}
                   type="button"
-                  className="btn btn-ghost"
+                  variant="ghost"
                   style={{
                     display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left",
-                    padding: "7px 12px", fontSize: 13,
+                    padding: "7px 12px", fontSize: 13, height: "auto",
                     fontWeight: isActive ? 600 : 400,
                     color: isActive ? "var(--accent)" : "var(--text-primary)",
                     background: isHighlighted
@@ -246,7 +248,7 @@ export function SearchableProtocolSelect({
                       Code
                     </span>
                   )}
-                </button>
+                </Button>
               );
             })}
           </div>
