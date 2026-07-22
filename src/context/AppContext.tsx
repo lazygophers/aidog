@@ -51,21 +51,32 @@ const SETTING_SCOPE = "app";
 const THEME_KEY = "theme";
 const LOCALE_KEY = "locale";
 
-/** 旧 themeName → 新 {style,color} 迁移映射。 */
+/** 旧 themeName → 新 {style,color} 迁移映射。
+ *  已删 palette (appleBlue/solarized) 回退 gruvbox (DEFAULT_COLOR)；s5 细化检测逻辑。 */
 const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }> = {
-  liquidGlass: { style: "liquidGlass", color: "appleBlue" },
+  liquidGlass: { style: "liquidGlass", color: "gruvbox" },
   nord: { style: "flat", color: "nord" },
   dracula: { style: "flat", color: "dracula" },
   catppuccin: { style: "flat", color: "catppuccin" },
-  solarized: { style: "flat", color: "solarized" },
+  solarized: { style: "flat", color: "gruvbox" },
 };
 
-/** 废弃 palette id → 替换 palette id 迁移映射（morandi/monet/wafu/guofeng 移除）。 */
+/** 废弃 palette id → 替换 palette id 迁移映射。
+ *  s1 删 8 palette (appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl)
+ *  + 更早 morandi/monet/wafu/guofeng → 统一回退 gruvbox (DEFAULT_COLOR)。 */
 const DEPRECATED_PALETTE_MIGRATION: Record<string, ThemeColor> = {
-  morandi: "oneDark",
-  monet: "material",
-  wafu: "github",
-  guofeng: "nightOwl",
+  appleBlue: "gruvbox",
+  solarized: "gruvbox",
+  rosePine: "gruvbox",
+  tokyoNight: "gruvbox",
+  oneDark: "gruvbox",
+  material: "gruvbox",
+  github: "gruvbox",
+  nightOwl: "gruvbox",
+  morandi: "gruvbox",
+  monet: "gruvbox",
+  wafu: "gruvbox",
+  guofeng: "gruvbox",
 };
 
 /** 迁移废弃 palette id 到当前有效 id；非废弃原样返回。 */

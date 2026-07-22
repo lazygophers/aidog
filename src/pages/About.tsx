@@ -10,6 +10,7 @@ import { aboutApi, cliEnvApi, type AboutInfo, type CliToolStatus, type CliConfli
 import { checkForUpdateManual } from "../services/updater";
 import { UpdatePromptModal } from "../components/UpdatePromptModal";
 import { IconGlobe } from "../components/icons";
+import { Button } from "@/components/ui/button";
 import { formatDateTime } from "../utils/formatters";
 
 type UpdateState = "idle" | "checking" | "uptodate" | "error";
@@ -271,14 +272,13 @@ export function About() {
             </div>
           )}
         </div>
-        <button
-          className="btn btn-primary"
-          style={{ fontSize: 13, padding: "6px 14px" }}
+        <Button
+          variant="default"
           disabled={updBusy}
           onClick={handleCheckUpdate}
         >
           {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
-        </button>
+        </Button>
       </div>
 
       {/* GitHub 链接 */}
