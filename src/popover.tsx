@@ -27,13 +27,14 @@ interface Settings {
   themeMode: ThemeMode;
 }
 
-/** 旧 themeName → 新 {style,color} 迁移映射（与 AppContext 保持一致）。 */
+/** 旧 themeName → 新 {style,color} 迁移映射（与 AppContext 保持一致）。
+ *  已删 palette (appleBlue/solarized) 回退 gruvbox (DEFAULT_COLOR)。 */
 const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }> = {
-  liquidGlass: { style: "liquidGlass", color: "appleBlue" },
+  liquidGlass: { style: "liquidGlass", color: "gruvbox" },
   nord: { style: "flat", color: "nord" },
   dracula: { style: "flat", color: "dracula" },
   catppuccin: { style: "flat", color: "catppuccin" },
-  solarized: { style: "flat", color: "solarized" },
+  solarized: { style: "flat", color: "gruvbox" },
 };
 
 interface RawSettings {

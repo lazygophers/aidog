@@ -8,18 +8,10 @@ import { terminal } from "./styles/terminal";
 import { bento } from "./styles/bento";
 import { sketchy } from "./styles/sketchy";
 
-import { appleBlue } from "./palettes/appleBlue";
+import { gruvbox } from "./palettes/gruvbox";
 import { nord } from "./palettes/nord";
 import { dracula } from "./palettes/dracula";
 import { catppuccin } from "./palettes/catppuccin";
-import { solarized } from "./palettes/solarized";
-import { rosePine } from "./palettes/rosePine";
-import { tokyoNight } from "./palettes/tokyoNight";
-import { gruvbox } from "./palettes/gruvbox";
-import { oneDark } from "./palettes/oneDark";
-import { material } from "./palettes/material";
-import { github } from "./palettes/github";
-import { nightOwl } from "./palettes/nightOwl";
 
 import {
   type ThemeMode,
@@ -54,21 +46,13 @@ const styleMap: Record<ThemeStyle, StyleDefinition> = {
 };
 
 /**
- * Palette 注册表（色彩轴）。12 个均为业界知名命名色板。
+ * Palette 注册表（色彩轴）。4 个业界知名命名色板。
  */
 const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
-  appleBlue,
+  gruvbox,
   nord,
   dracula,
   catppuccin,
-  solarized,
-  rosePine,
-  tokyoNight,
-  gruvbox,
-  oneDark,
-  material,
-  github,
-  nightOwl,
 };
 
 /** 默认轴值（迁移失败 / 未注册时回退）。 */
