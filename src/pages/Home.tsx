@@ -309,7 +309,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                       border: "1px solid var(--border)",
                       borderRadius: 8,
                       padding: "8px 12px",
-                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      boxShadow: "var(--shadow-md)",
                       pointerEvents: "none",
                       zIndex: 10,
                       minWidth: 140,
@@ -335,7 +335,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                               return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
                             }
                             const pct = ((diff / prev) * 100).toFixed(0);
-                            const color = diff >= 0 ? "var(--color-success)" : "var(--danger)";
+                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
                             return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
                           })()}
                         </span>
@@ -357,7 +357,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                               return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
                             }
                             const pct = ((diff / prevTokens) * 100).toFixed(0);
-                            const color = diff >= 0 ? "var(--color-success)" : "var(--danger)";
+                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
                             return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
                           })()}
                         </span>

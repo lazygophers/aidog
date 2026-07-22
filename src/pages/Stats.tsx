@@ -31,6 +31,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from "@/components/ui/table";
 
 type TimePreset = "today" | "7d" | "30d";
 
@@ -529,9 +537,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                   />
                 )}
               </div>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)" }}>
+              <Table style={{ fontSize: F.hint }}>
+                <TableHeader>
+                  <TableRow style={{ borderBottom: "1px solid var(--border)" }}>
                     <SortableTh label={t("stats.dimName", "名称")} col="name" align="left" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.requests", "请求")} col="total_requests" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.success", "成功")} col="success_count" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
@@ -540,26 +548,26 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                     <SortableTh label={t("stats.cacheTokens", "缓存")} col="cache_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.avgMs", "平均延迟")} col="avg_duration_ms" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.totalCost", "预估成本")} col="total_cost" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
-                  </tr>
-                </thead>
-                <tbody>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {pagedDims.map((d, i) => {
                     const rate = successRate(d.success_count, d.total_requests);
                     return (
-                      <tr key={safePage * PAGE_SIZE + i} style={{ borderBottom: "1px solid var(--border)", opacity: 0.9 }}>
-                        <td style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.total_requests)}</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px", color: levelColor(successRateLevel(rate, d.total_requests)) }}>{formatNumber(d.success_count)}</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens)}</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px" }}>{d.avg_duration_ms.toFixed(0)} ms</td>
-                        <td style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(d.total_cost)) }}>${formatCost(d.total_cost)}</td>
-                      </tr>
+                      <TableRow key={safePage * PAGE_SIZE + i} style={{ borderBottom: "1px solid var(--border)", opacity: 0.9 }}>
+                        <TableCell style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.total_requests)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(successRateLevel(rate, d.total_requests)) }}>{formatNumber(d.success_count)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{d.avg_duration_ms.toFixed(0)} ms</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(d.total_cost)) }}>${formatCost(d.total_cost)}</TableCell>
+                      </TableRow>
                     );
                   })}
-                </tbody>
-              </table>
+                </TableBody>
+              </Table>
             </div>
           ) : null}
         </>
@@ -683,10 +691,11 @@ interface SortableThProps {
 function SortableTh({ label, col, align = "right", sortKey, sortDir, onSort }: SortableThProps) {
   const active = sortKey === col;
   return (
-    <th
+    <TableHead
       onClick={() => onSort(col)}
       style={{
         textAlign: align,
+        height: "auto",
         padding: "6px 8px",
         fontWeight: 600,
         cursor: "pointer",
@@ -699,7 +708,7 @@ function SortableTh({ label, col, align = "right", sortKey, sortDir, onSort }: S
         {label}
         {active && (sortDir === "asc" ? <ArrowUp color="var(--accent)" /> : <ArrowDown color="var(--accent)" />)}
       </span>
-    </th>
+    </TableHead>
   );
 }
 
