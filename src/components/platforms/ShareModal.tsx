@@ -1,15 +1,22 @@
 // ─── 平台「分享」弹窗 ──────────────────────────
 // 展示单平台可分享配置（含明文 api_key）→ 打开即自动复制剪贴板 + 手动复制按钮。
-// 格式切换器 YAML(默认) / JSON / Base64 三路；视觉沿用 glass-elevated overlay 范式
-// (参 UpdatePromptModal / SmartPasteModal)。剪贴板走 Tauri 插件 writeText：
-// macOS WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，Tauri 侧走权限系统更可靠。
+// 格式切换器 YAML(默认) / JSON / Base64 三路；视觉沿用 glass-elevated overlay 范式。
+// 剪贴板走 Tauri 插件 writeText：macOS WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，
+// Tauri 侧走权限系统更可靠。
+// Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { stringify as yamlStringify } from "yaml";
 import QRCode from "qrcode";
-import { Modal } from "../shared/Modal";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // ponytail: QR v40 L 级二进制上限 2953B，留余量 2900 触发降级提示
 const QR_MAX_URL_LEN = 2900;
@@ -76,7 +83,6 @@ export function ShareModal<T extends object = Record<string, unknown>>({
 
   const text = useMemo(() => formatShare(share, format, urlScheme), [share, format, urlScheme]);
 
-  // aidog:// 深链 URL（与 copyUrl 同款）。提取为 useMemo 共享：copyUrl 与 QR 同源，避免重复拼接
   const deepLinkUrl = useMemo(() => {
     if (!urlScheme) return null;
     const url = `${urlScheme}?data=${toBase64Utf8(JSON.stringify(share, null, 2))}`;
@@ -119,9 +125,6 @@ export function ShareModal<T extends object = Record<string, unknown>>({
     }
   };
 
-  // ponytail: deepLinkUrl 复用为 QR 内容（已在 useMemo 内做超长降级，此处仅消费）
-
-  // 打开即自动复制当前格式（YAML 默认）。仅首次 mount 触发，切换格式不重复自动复制。
   useEffect(() => {
     void copy(true);
     return () => {
@@ -143,10 +146,16 @@ export function ShareModal<T extends object = Record<string, unknown>>({
   });
 
   return (
-    <Modal open onClose={onClose} className="glass-elevated" zIndex={1100} maxWidth={560} style={{ padding: "22px 24px", maxHeight: "86vh", overflowY: "auto" }}>
-        <div style={{ fontSize: 17, fontWeight: 600, color: "var(--text-primary)", marginBottom: 6 }}>
-          {t(titleKey ?? "platform.share.title", "分享平台")} · {title}
-        </div>
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      <DialogContent
+        className="glass-elevated"
+        style={{ maxWidth: 560, padding: "22px 24px", maxHeight: "86vh", overflowY: "auto" }}
+      >
+        <DialogHeader>
+          <DialogTitle style={{ fontSize: 17 }}>
+            {t(titleKey ?? "platform.share.title", "分享平台")} · {title}
+          </DialogTitle>
+        </DialogHeader>
 
         {/* 安全警示 */}
         <div
@@ -154,7 +163,6 @@ export function ShareModal<T extends object = Record<string, unknown>>({
             fontSize: 12.5,
             color: "var(--color-danger)",
             lineHeight: 1.55,
-            marginBottom: 14,
             padding: "8px 12px",
             borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)",
@@ -170,15 +178,15 @@ export function ShareModal<T extends object = Record<string, unknown>>({
         {/* 格式切换器 */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           {formats.map((f) => (
-            <button
+            <Button
               key={f}
               type="button"
-              className="btn"
+              variant="ghost"
               style={fmtTabStyle(format === f)}
               onClick={() => setFormat(f)}
             >
               {t(`platform.share.format.${f}`, f.toUpperCase())}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -250,17 +258,17 @@ export function ShareModal<T extends object = Record<string, unknown>>({
 
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
-          <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
+          <Button variant="ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
             {t("action.close", "关闭")}
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
             style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
             onClick={() => void copy(false)}
           >
             {copied ? t("platform.share.copiedBtn", "已复制") : t("platform.share.copyBtn", "复制")}
-          </button>
+          </Button>
         </div>
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 }

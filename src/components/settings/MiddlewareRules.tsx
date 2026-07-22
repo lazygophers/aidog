@@ -18,6 +18,10 @@ import {
 } from "../../services/api";
 import { F, S } from "./editors";
 import { IconClose, IconEdit } from "../icons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ── 静态枚举常量（与 api.ts 契约对齐，禁裸 string）──
 
@@ -177,15 +181,15 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
       </div>
 
       {/* 名称 + 描述 */}
-      <input
-        className="input"
+      <Input
+        
         style={{ fontSize: F.body }}
         placeholder={t("middleware.name", "规则名称")}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
-      <input
-        className="input"
+      <Input
+        
         style={{ fontSize: F.hint }}
         placeholder={t("middleware.description", "描述（可选）")}
         value={description}
@@ -198,62 +202,71 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
             {t("middleware.ruleType", "规则类型")}
           </span>
-          <select
-            className="input"
-            style={{ fontSize: F.hint }}
+          <Select
+            
+            
             value={ruleType}
-            onChange={(e) => handleRuleTypeChange(e.target.value as RuleType)}
+            onValueChange={(v) => handleRuleTypeChange(v as RuleType)}
           >
+<SelectTrigger style={{ fontSize: F.hint }}><SelectValue/></SelectTrigger>
+<SelectContent>
             {RULE_TYPES.map((rt) => (
-              <option key={rt} value={rt}>
+              <SelectItem key={rt} value={rt}>
                 {ruleTypeLabel(t, rt)}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+          </SelectContent>
+</Select>
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 120px" }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
             {t("middleware.matchType", "匹配方式")}
           </span>
-          <select
-            className="input"
-            style={{ fontSize: F.hint }}
+          <Select
+            
+            
             value={matchType}
-            onChange={(e) => setMatchType(e.target.value as MatchType)}
+            onValueChange={(v) => setMatchType(v as MatchType)}
           >
+<SelectTrigger style={{ fontSize: F.hint }}><SelectValue/></SelectTrigger>
+<SelectContent>
             {MATCH_TYPES.map((mt) => (
-              <option key={mt} value={mt}>
+              <SelectItem key={mt} value={mt}>
                 {matchTypeLabel(t, mt)}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+          </SelectContent>
+</Select>
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 120px" }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
             {t("middleware.action", "动作")}
           </span>
-          <select
-            className="input"
-            style={{ fontSize: F.hint }}
+          <Select
+            
+            
             value={action}
-            onChange={(e) => setAction(e.target.value as RuleAction)}
+            onValueChange={(v) => setAction(v as RuleAction)}
           >
+<SelectTrigger style={{ fontSize: F.hint }}><SelectValue/></SelectTrigger>
+<SelectContent>
             {RULE_ACTIONS.map((a) => (
-              <option key={a} value={a}>
+              <SelectItem key={a} value={a}>
                 {actionLabel(t, a)}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+          </SelectContent>
+</Select>
         </label>
 
         <label style={{ display: "flex", flexDirection: "column", gap: 4, width: 90 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
             {t("middleware.priority", "优先级")}
           </span>
-          <input
-            className="input"
+          <Input
+            
             type="number"
             style={{ fontSize: F.hint }}
             value={priority}
@@ -267,8 +280,8 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.pattern", "匹配模式 / 目标")}
         </span>
-        <input
-          className="input"
+        <Input
+          
           style={{ fontSize: F.hint, fontFamily: '"SF Mono", "Fira Code", monospace' }}
           placeholder={t("middleware.patternHint", "匹配模式 / 目标 path / header 名")}
           value={pattern}
@@ -281,8 +294,8 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.config", "配置 (JSON)")}
         </span>
-        <textarea
-          className="input"
+        <Textarea
+          
           style={{
             fontFamily: '"SF Mono", "Fira Code", monospace',
             fontSize: 12,
@@ -326,17 +339,17 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
 
       {/* actions */}
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <button className="btn" style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
+        <Button variant="outline"  style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
           {t("action.cancel", "取消")}
-        </button>
-        <button
-          className="btn btn-primary"
+        </Button>
+        <Button variant="default"
+          
           style={{ fontSize: F.hint }}
           onClick={handleSave}
           disabled={saving || !name || !!configError}
         >
           {t("action.save", "保存")}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -449,22 +462,22 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
       />
 
       {/* 内置规则禁删，仅可禁用（与 C4 约定）；非内置可编辑+删除 */}
-      <button
-        className="btn btn-ghost btn-icon"
+      <Button variant="ghost"
+        
         onClick={() => onEdit(rule)}
         title={t("action.edit", "编辑")}
       >
         <IconEdit size={14} />
-      </button>
+      </Button>
       {!rule.is_builtin && (
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button variant="ghost"
+          
           onClick={() => onDelete(rule.id)}
           title={t("action.delete", "删除")}
           style={{ color: "var(--text-tertiary)" }}
         >
           <IconClose size={14} />
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -628,22 +641,22 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
         />
       ) : (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <button
-            className="btn btn-ghost"
+          <Button variant="ghost"
+            
             style={{ fontSize: F.hint }}
             onClick={openCreate}
           >
             + {t("middleware.addRule", "新增规则")}
-          </button>
+          </Button>
           {scope === "global" && (
-            <button
-              className="btn btn-ghost"
+            <Button variant="ghost"
+              
               style={{ fontSize: F.hint, opacity: importing ? 0.6 : 1 }}
               onClick={handleImportDefaults}
               disabled={importing}
             >
               {t("middleware.importDefaults", "导入默认规则")}
-            </button>
+            </Button>
           )}
         </div>
       )}

@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { SectionIcon } from "../editors";
 import { IconCheck } from "../../icons";
+import { Button } from "@/components/ui/button";
 
 /** section 头：图标 + 标题 + 描述。 */
 export function SectionHeader({ icon, title, desc }: { icon: string; title: string; desc: string }) {
@@ -22,7 +23,7 @@ export function SectionHeader({ icon, title, desc }: { icon: string; title: stri
 /** 文字按钮（全选/反选/批量），accent 文字、无填充。 */
 export function TextButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
+    <Button variant="outline"
       onClick={onClick}
       style={{
         background: "transparent",
@@ -35,7 +36,7 @@ export function TextButton({ onClick, children }: { onClick: () => void; childre
       }}
     >
       {children}
-    </button>
+    </Button>
   );
 }
 
@@ -260,7 +261,7 @@ export function Segmented({
       {options.map((opt, i) => {
         const active = value === opt.id;
         return (
-          <button
+          <Button variant="outline"
             key={opt.id}
             onClick={() => onSelect(opt.id)}
             style={{
@@ -276,7 +277,7 @@ export function Segmented({
             }}
           >
             {opt.label}
-          </button>
+          </Button>
         );
       })}
     </div>

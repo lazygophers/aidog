@@ -15,6 +15,10 @@ import {
   HANDLER_LABELS,
   NotifyHookQuickBar,
 } from "./hooks-types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function HooksSectionInline(props: {
   hooksValue: HooksConfig | undefined;
@@ -106,13 +110,16 @@ export function HooksSectionInline(props: {
 
       {/* Event selector */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-        <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }} value=""
-          onChange={(e) => { if (e.target.value) addMatcherGroup(e.target.value); }}>
-          <option value="">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</option>
+        <Select   value="__none__"
+          onValueChange={(v) => { if (v && v !== "__none__") addMatcherGroup(v); }}>
+<SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+          <SelectItem value="__none__">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</SelectItem>
           {HOOK_EVENTS.map(ev => (
-            <option key={ev.id} value={ev.id}>{ev.id} — {t(`settings.hooks.event.${ev.id}.desc`, ev.desc)}</option>
+            <SelectItem key={ev.id} value={ev.id}>{ev.id} — {t(`settings.hooks.event.${ev.id}.desc`, ev.desc)}</SelectItem>
           ))}
-        </select>
+        </SelectContent>
+</Select>
       </div>
 
       {totalHooks === 0 && (
@@ -145,10 +152,10 @@ export function HooksSectionInline(props: {
                 background: "var(--accent-subtle)", color: "var(--accent)", marginLeft: "auto" }}>
                 {count} handler{count !== 1 ? "s" : ""}
               </span>
-              <button type="button" className="btn btn-ghost btn-icon"
+              <Button variant="ghost" type="button" 
                 style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
                 onClick={() => { const u = { ...hooks }; delete u[eventId]; syncHooks(u); }} title={t("action.delete", "删除")}>×
-              </button>
+              </Button>
             </div>
 
             {/* Matcher groups + handlers — same as HooksSection */}
@@ -167,27 +174,27 @@ export function HooksSectionInline(props: {
                         {eventMeta.matcherOptions.map(opt => {
                           const selected = matcherTags.includes(opt);
                           return (
-                            <button key={opt} type="button" className="btn btn-ghost" style={{
+                            <Button variant="ghost" key={opt} type="button"  style={{
                               fontSize: 13, padding: "4px 12px", borderRadius: 16,
                               fontWeight: selected ? 600 : 400,
                               background: selected ? "var(--accent-subtle)" : "transparent",
                               color: selected ? "var(--accent)" : "var(--text-secondary)",
                               border: selected ? "1px solid var(--accent)" : "1px solid var(--border)",
-                            }} onClick={() => toggleMatcherTag(opt)}>{opt}</button>
+                            }} onClick={() => toggleMatcherTag(opt)}>{opt}</Button>
                           );
                         })}
                       </>
                     ) : eventMeta?.matcherFreeform ? (
-                      <input className="input" style={{ ...inputStyle, flex: 1 }}
+                      <Input  style={{ ...inputStyle, flex: 1 }}
                         placeholder={eventMeta?.id === "FileChanged" ? t("settings.hooks.matcherFilePh", "文件名，如 .envrc|.env") : t("settings.hooks.matcherToolPh", "工具名称或正则，多个用 | 分隔")}
                         value={group.matcher} onChange={(e) => updateMatcher(eventId, gi, e.target.value)} />
                     ) : (
                       <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.matchAll", "匹配所有")}</span>
                     )}
-                    <button type="button" className="btn btn-ghost btn-icon"
+                    <Button variant="ghost" type="button" 
                       style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
                       onClick={() => removeMatcherGroup(eventId, gi)} title={t("action.delete", "删除")}>×
-                    </button>
+                    </Button>
                   </div>
 
                   {/* Handlers */}
@@ -202,21 +209,24 @@ export function HooksSectionInline(props: {
                           background: "var(--bg-glass)", color: "var(--accent)", border: "1px solid var(--border)", flexShrink: 0 }}>
                           {t(`settings.hooks.handler.${handler.type}`, HANDLER_LABELS[handler.type])}
                         </span>
-                        <select className="input" style={{ ...inputStyle, width: 130, flexShrink: 0 }}
-                          value={handler.type} onChange={(e) => updateHandler(eventId, gi, hi, { type: e.target.value as HandlerType })}>
-                          {HANDLER_TYPES.map(ht => <option key={ht} value={ht}>{t(`settings.hooks.handler.${ht}`, HANDLER_LABELS[ht])}</option>)}
-                        </select>
-                        <button type="button" className="btn btn-ghost btn-icon"
+                        <Select  
+                          value={handler.type} onValueChange={(v) => updateHandler(eventId, gi, hi, { type: v as HandlerType })}>
+<SelectTrigger style={{ ...inputStyle, width: 130, flexShrink: 0 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+                          {HANDLER_TYPES.map(ht => <SelectItem key={ht} value={ht}>{t(`settings.hooks.handler.${ht}`, HANDLER_LABELS[ht])}</SelectItem>)}
+                        </SelectContent>
+</Select>
+                        <Button variant="ghost" type="button" 
                           style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
                           onClick={() => removeHandler(eventId, gi, hi)} title={t("action.delete", "删除")}>×
-                        </button>
+                        </Button>
                       </div>
 
                       {handler.type === "command" && (
                         <>
                           <FieldRow label={t("settings.hooks.fieldCommand", "命令")} icon={<SectionIcon name="bolt" size={13} />}>
-                            <textarea
-                              className="input"
+                            <Textarea
+                              
                               style={{
                                 flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0,
                                 fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
@@ -228,35 +238,38 @@ export function HooksSectionInline(props: {
                             />
                           </FieldRow>
                           <FieldRow label="Shell" icon={<SectionIcon name="advanced" size={13} />}>
-                            <select className="input" style={{ ...inputStyle, width: 140 }}
-                              value={handler.shell ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { shell: e.target.value || undefined })}>
-                              <option value="">Bash</option><option value="powershell">PowerShell</option>
-                            </select>
+                            <Select
+                              value={!handler.shell ? "__none__" : handler.shell} onValueChange={(v) => updateHandler(eventId, gi, hi, { shell: v === "__none__" ? undefined : v })}>
+<SelectTrigger style={{ ...inputStyle, width: 140 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+                              <SelectItem value="__none__">Bash</SelectItem><SelectItem value="powershell">PowerShell</SelectItem>
+                            </SelectContent>
+</Select>
                           </FieldRow>
                         </>
                       )}
                       {handler.type === "http" && (
                         <FieldRow label="URL" icon={<SectionIcon name="network" size={13} />}>
-                          <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.urlPh", "HTTP URL，如 http://localhost:8080/hooks/pre-tool-use")}
+                          <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.urlPh", "HTTP URL，如 http://localhost:8080/hooks/pre-tool-use")}
                             value={handler.url ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })} />
                         </FieldRow>
                       )}
                       {handler.type === "mcp_tool" && (
                         <>
                           <FieldRow label={t("settings.hooks.fieldServer", "服务器")} icon={<SectionIcon name="network" size={13} />}>
-                            <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.serverPh", "MCP 服务器名称")}
+                            <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.serverPh", "MCP 服务器名称")}
                               value={handler.server ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })} />
                           </FieldRow>
                           <FieldRow label={t("settings.hooks.fieldTool", "工具")} icon={<SectionIcon name="advanced" size={13} />}>
-                            <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.toolPh", "工具名称")}
+                            <Input  style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.toolPh", "工具名称")}
                               value={handler.tool ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })} />
                           </FieldRow>
                         </>
                       )}
                       {(handler.type === "prompt" || handler.type === "agent") && (
                         <FieldRow label={t("settings.hooks.fieldPrompt", "提示")} icon={<SectionIcon name="behavior" size={13} />}>
-                          <textarea
-                            className="input"
+                          <Textarea
+                            
                             style={{
                               flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0,
                               fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
@@ -271,7 +284,7 @@ export function HooksSectionInline(props: {
 
                       {eventMeta?.hasMatcher && (
                         <FieldRow label={t("settings.hooks.fieldIf", "条件 if")} icon={<SectionIcon name="permissions" size={13} />}>
-                          <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder={t("settings.hooks.ifPh", "匹配条件，如 Bash(rm *)")}
+                          <Input  style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder={t("settings.hooks.ifPh", "匹配条件，如 Bash(rm *)")}
                             value={handler["if"] ?? ""} onChange={(e) => {
                               const patch: Partial<HookHandler> = {};
                               if (e.target.value) (patch as any)["if"] = e.target.value;
@@ -281,7 +294,7 @@ export function HooksSectionInline(props: {
                         </FieldRow>
                       )}
                       <FieldRow label={t("settings.hooks.fieldTimeout", "超时")} icon={<SectionIcon name="status" size={13} />}>
-                        <input className="input" style={{ ...inputStyle, width: 80, fontSize: F.hint }} type="number" placeholder="600"
+                        <Input  style={{ ...inputStyle, width: 80, fontSize: F.hint }} type="number" placeholder="600"
                           value={handler.timeout ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })} />
                         <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.seconds", "秒")}</span>
                       </FieldRow>
@@ -294,24 +307,24 @@ export function HooksSectionInline(props: {
                         </FieldRow>
                       )}
                       <FieldRow label={t("settings.hooks.fieldStatus", "状态")} icon={<SectionIcon name="status" size={13} />}>
-                        <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
+                        <Input  style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
                           placeholder={t("settings.hooks.statusPh", "运行时显示的状态消息")} value={handler.statusMessage ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })} />
                       </FieldRow>
                     </div>
                   ))}
 
-                  <button type="button" className="btn btn-ghost"
+                  <Button variant="ghost" type="button" 
                     style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start", marginLeft: 72 }}
-                    onClick={() => addHandler(eventId, gi)}>{t("settings.hooks.addHandler", "+ 处理器")}</button>
+                    onClick={() => addHandler(eventId, gi)}>{t("settings.hooks.addHandler", "+ 处理器")}</Button>
                 </div>
               );
             })}
 
             {isExpanded && (
-              <button type="button" className="btn btn-ghost"
+              <Button variant="ghost" type="button" 
                 style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start" }}
-                onClick={() => addMatcherGroup(eventId)}>{t("settings.hooks.addMatcherGroup", "+ 匹配器组")}</button>
+                onClick={() => addMatcherGroup(eventId)}>{t("settings.hooks.addMatcherGroup", "+ 匹配器组")}</Button>
             )}
           </div>
         );

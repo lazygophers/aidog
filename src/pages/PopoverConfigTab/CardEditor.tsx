@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import type { PopoverItem, Group, Platform } from "../../services/api";
 import { SIZE_OPTIONS, COLOR_PRESETS, TYPE_LABELS, defaultColor, isValidHex } from "./constants";
 import { ScopeConfig } from "./ScopeConfig";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type TFn = (k: string, d: string, o?: Record<string, unknown>) => string;
 
@@ -45,14 +47,14 @@ export function CardEditor({
           tabIndex={0}
           title={t("popover.toggleVisible", "显隐")}
         />
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 12, padding: "2px 8px", color: "var(--status-error, #ff3b30)" }}
+        <Button
+          variant="ghost"
+          style={{ fontSize: 12, padding: "2px 8px", height: 24, color: "var(--status-error, #ff3b30)" }}
           onClick={onRemove}
           title={t("common.delete", "删除")}
         >
           ✕
-        </button>
+        </Button>
       </div>
 
       {/* scope 配置（cost_trend / platform_metric / group_*） */}
@@ -62,19 +64,17 @@ export function CardEditor({
       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
         <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 36 }}>{t("popover.size", "尺寸")}</span>
         {SIZE_OPTIONS.map((s) => (
-          <button
+          <Button
             key={s}
+            variant={size === s ? "default" : "outline"}
             style={{
-              fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
-              border: size === s ? "none" : "1px solid var(--glass-border)",
-              background: size === s ? "var(--accent)" : "transparent",
-              color: size === s ? "#fff" : "var(--text-secondary)",
+              fontSize: 11, padding: "2px 8px", height: 22,
             }}
             onClick={() => onUpdate({ size: s })}
             title={t(`popover.size_${s}`, s === "s" ? "小" : s === "l" ? "大" : "中")}
           >
             {s.toUpperCase()}
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -86,11 +86,12 @@ export function CardEditor({
             ? color.mode === "follow"
             : color.mode === "preset" && color.value === c.value;
           return (
-            <button
+            <Button
               key={`${c.mode}-${c.value}`}
+              variant="ghost"
               title={c.mode === "follow" ? t("popover.colorFollow", "跟随") : c.value}
               style={{
-                width: 18, height: 18, borderRadius: "50%", padding: 0, cursor: "pointer",
+                width: 18, height: 18, borderRadius: "50%", padding: 0, minWidth: 18,
                 border: selected ? "2px solid var(--accent)" : "1px solid var(--glass-border)",
                 background: c.css,
               }}
@@ -122,8 +123,7 @@ function CustomHexInput({
   useEffect(() => { setDraft(value); }, [value]);
   const valid = draft === "" || isValidHex(draft);
   return (
-    <input
-      className="input"
+    <Input
       placeholder={t("popover.colorHex", "#RRGGBB")}
       value={draft}
       onChange={(e) => {
@@ -132,7 +132,7 @@ function CustomHexInput({
         if (isValidHex(v)) onChange(v.replace(/^#/, ""));
       }}
       style={{
-        fontSize: 11, width: 80, padding: "2px 6px",
+        fontSize: 11, width: 80, height: 22, padding: "2px 6px",
         border: active ? "1px solid var(--accent)" : valid ? "1px solid var(--glass-border)" : "1px solid var(--status-error, #ff3b30)",
       }}
     />

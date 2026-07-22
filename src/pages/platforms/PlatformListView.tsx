@@ -3,6 +3,7 @@
 //   渲染：页头（搜索 + 添加分组 + 添加平台 + 清理失效）+ GroupsEmbedded（分组段）+ 未分组平台列表 +
 //   ModelTestPanel overlay + groupDrag portal + ShareModal + toast portal。
 import React, { useEffect, useState } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { type Platform } from "../../services/api";
@@ -13,6 +14,9 @@ import { PlatformCard, type PlatformCardActions } from "../../components/platfor
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { getProtocolColorMap, getProtocolLabelMap } from "../../domains/platforms/defaults";
 import type { PlatformsState } from "./usePlatformsState";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   s: PlatformsState;
@@ -20,6 +24,9 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   openCreateGroupRef: React.MutableRefObject<(() => void) | null>;
 }) {
   const { t, i18n } = useTranslation();
+  // ponytail: 清理失效平台确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
+  const [purging, setPurging] = useState(false);
   // colorMap / labelMap：async 派生自 platform-presets.json；首帧空 map（fallback platform_type key）。
   const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
@@ -48,6 +55,11 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
     toast, setToast,
     onNavigate,
   } = s;
+  // ponytail: purge 确认在 AlertDialog Action 触发（busy 期间禁按钮防双击）
+  const onPurgeConfirm = async () => {
+    setPurging(true);
+    try { await handlePurgeDisabled(); } finally { setPurging(false); setPurgeConfirmOpen(false); }
+  };
 
   return (
     <>
@@ -61,26 +73,26 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
+          <Input
             className="input"
             placeholder={t("platform.searchPlaceholder", "搜索平台...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: 180, fontSize: 13 }}
           />
-          <button className="btn btn-primary" onClick={() => openCreateGroupRef.current?.()}>
+          <Button onClick={() => openCreateGroupRef.current?.()}>
             + {t("group.add", "添加分组")}
-          </button>
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+          </Button>
+          <Button onClick={() => { resetForm(); setShowForm(true); }}>
             + {t("platform.add")}
-          </button>
-          <button
-            className="btn btn-ghost"
-            onClick={handlePurgeDisabled}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setPurgeConfirmOpen(true)}
             title={t("platform.purgeDisabled", "清理失效平台")}
           >
             {t("platform.purgeDisabled", "清理失效平台")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -120,7 +132,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
                   }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: draggedColor, flexShrink: 0 }} />
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{draggedPlat.name}</span>
-                    <span className="badge badge-muted" style={{ fontSize: 10 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
+                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 10 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</Badge>
                   </div>
                 )}
                 {/* 未分组平台 pointer 拖拽加入分组（按住卡片空白区拖到分组）；HTML5 DnD 跨区域在 WKWebView 失效故用 pointer events */}
@@ -168,7 +180,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
               }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
-                <span className="badge badge-muted" style={{ fontSize: 10 }}>{labelMap[dp.platform_type] || dp.platform_type}</span>
+                <Badge variant="secondary" className="badge-muted" style={{ fontSize: 10 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
               </div>
             );
           })()}
@@ -223,6 +235,25 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{toast.ok ? <IconCheck size={14} color="#fff" /> : <IconClose size={14} color="#fff" />} {toast.text}</span>
         </div>,
         document.body,
+      )}
+      {purgeConfirmOpen && (
+        <AlertDialog open={purgeConfirmOpen} onOpenChange={(next) => { if (!next && !purging) setPurgeConfirmOpen(false); }}>
+          <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}
+            onEscapeKeyDown={(e) => { if (purging) e.preventDefault(); }}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("platform.purgeDisabled", "清理失效平台")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("platform.purgeDisabledConfirm", "将永久删除所有自动禁用态平台，此操作不可撤销。")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={purging}>{t("action.cancel", "取消")}</AlertDialogCancel>
+              <AlertDialogAction disabled={purging} onClick={onPurgeConfirm}>
+                {purging ? t("status.loading", "处理中…") : t("action.confirm", "确认")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </>
   );

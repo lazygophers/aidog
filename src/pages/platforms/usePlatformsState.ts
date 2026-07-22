@@ -601,9 +601,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     }
   };
 
-  /** 清理失效平台（自动禁用态）：永久删除，乐观从列表移除，失败不动（后端事务回滚保证一致性）。 */
+  /** 清理失效平台（自动禁用态）：永久删除，乐观从列表移除，失败不动（后端事务回滚保证一致性）。
+   *  ponytail: 确认对话框由调用方 (PlatformListView AlertDialog) 处理，本函数仅执行 invoke。 */
   const handlePurgeDisabled = async () => {
-    if (!window.confirm(t("platform.purgeDisabledConfirm", "将永久删除全库失效(自动禁用)平台，不可恢复，确定？"))) return;
     try {
       const r = await platformApi.purgeDisabled();
       if (r.deletedIds.length === 0) {

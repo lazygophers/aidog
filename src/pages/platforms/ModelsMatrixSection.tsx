@@ -5,7 +5,6 @@
 //   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_models.rules[*].models。
 //   仍纯 props 驱动，无外部 state（矩阵内部仅 UI 临时态：activeCell / editingIdx / importModalOpen）。
 import React, { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import type { TFunction } from "i18next";
 import {
   type Protocol, type ModelSlot, type TimeModelRule,
@@ -18,6 +17,11 @@ import {
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
 import { WindowsEditModal } from "./WindowsEditModal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 // 单元格 key：默认列 = `d:<slot>`；时段档列 = `r<idx>:<slot>`。整矩阵单开（activeCell 唯一）。
 type CellKey = string;
@@ -176,7 +180,7 @@ export function ModelsMatrixSection({
     const open = activeCell === cellKey && filtered.length > 0;
     return (
       <div style={{ position: "relative", width: "100%" }}>
-        <input
+        <Input
           className="input"
           style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
           placeholder={t("platform.models_placeholder", "模型名")}
@@ -190,9 +194,9 @@ export function ModelsMatrixSection({
           }}
         />
         {hasDropdown && (
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
+          <Button
+            variant="ghost"
+            size="icon"
             style={{
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
               width: 22, height: 22, minWidth: 22, padding: 0,
@@ -205,7 +209,7 @@ export function ModelsMatrixSection({
             title={t("platform.selectModel")}
           >
             ▾
-          </button>
+          </Button>
         )}
         {open && (
           <>
@@ -229,10 +233,9 @@ export function ModelsMatrixSection({
               }}
             >
               {filtered.map((m) => (
-                <button
+                <Button
                   key={m}
-                  type="button"
-                  className="btn btn-ghost"
+                  variant="ghost"
                   style={{
                     width: "100%",
                     justifyContent: "flex-start",
@@ -250,7 +253,7 @@ export function ModelsMatrixSection({
                   }}
                 >
                   {m}
-                </button>
+                </Button>
               ))}
             </div>
           </>
@@ -271,41 +274,43 @@ export function ModelsMatrixSection({
       title={t("platform.models")}
       action={(
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          <button
-            className="btn btn-ghost"
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--text-secondary)" }}
             onClick={onFillAll}
             disabled={!models.default.trim()}
             title={t("platform.fillAllHint")}
           >
             {t("platform.fillAll")}
-          </button>
-          <button
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
             onClick={onFetchModels}
             disabled={apiKeyMissing || endpointsCount === 0 || fetching}
           >
             {fetching ? t("status.loading") : t("platform.fetchModels")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
             disabled={peakHours.length === 0}
             title={peakHours.length === 0 ? t("platform.time_models_no_peak", "当前无高峰时段配置") : ""}
             onClick={() => setImportModalOpen(true)}
           >
             {t("platform.time_models_import_peak", "从高峰时段导入")}
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
             style={{ fontSize: 12, padding: "4px 10px", color: "var(--accent)" }}
             onClick={addRule}
           >
             + {t("platform.time_models_add_rule", "添加时段档")}
-          </button>
+          </Button>
         </div>
       )}
     >
@@ -334,11 +339,11 @@ export function ModelsMatrixSection({
                   gap: 2, alignItems: "stretch",
                 }}
               >
-                <button
-                  type="button"
-                  className="btn btn-ghost"
+                <Button
+                  variant="ghost"
+                  size="sm"
                   style={{
-                    fontSize: 12, padding: "3px 4px", cursor: "pointer",
+                    fontSize: 12, padding: "3px 4px", cursor: "pointer", height: "auto",
                     color: "var(--text-secondary)", whiteSpace: "nowrap",
                     overflow: "hidden", textOverflow: "ellipsis",
                     border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
@@ -347,37 +352,38 @@ export function ModelsMatrixSection({
                   onClick={() => setEditingIdx(idx)}
                 >
                   {describeWindows(rule.windows)}
-                </button>
+                </Button>
                 <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    style={{ padding: "1px 4px", fontSize: 12 }}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style={{ padding: "1px 4px", fontSize: 12, height: "auto", minWidth: "auto" }}
                     disabled={idx === 0}
                     onClick={() => moveUp(idx)}
                     title={t("action.moveUp", "上移")}
                   >
                     ↑
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon"
-                    style={{ padding: "1px 4px", fontSize: 12 }}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    style={{ padding: "1px 4px", fontSize: 12, height: "auto", minWidth: "auto" }}
                     disabled={idx === rules.length - 1}
                     onClick={() => moveDown(idx)}
                     title={t("action.moveDown", "下移")}
                   >
                     ↓
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-ghost btn-icon btn-danger"
-                    style={{ padding: "1px 4px", fontSize: 12 }}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="btn-danger"
+                    style={{ padding: "1px 4px", fontSize: 12, height: "auto", minWidth: "auto", color: "var(--color-danger)" }}
                     onClick={() => removeRule(idx)}
                     title={t("action.delete", "删除")}
                   >
                     ×
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -438,41 +444,31 @@ export function ModelsMatrixSection({
       />
 
       {/* 导入高峰时段确认 modal */}
-      {importModalOpen && createPortal(
-        <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex",
-          alignItems: "center", justifyContent: "center", zIndex: 9999,
-        }}>
-          <div style={{
-            background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
-            padding: 16, maxWidth: 400, width: "100%", border: "1px solid var(--border)",
-          }}>
-            <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600 }}>
+      <Dialog open={importModalOpen} onOpenChange={(v) => { if (!v) setImportModalOpen(false); }}>
+        <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 13 }}>
               {t("platform.time_models_import_confirm_title", "导入高峰时段配置？")}
-            </h3>
-            <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-secondary)" }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12 }}>
               {t("platform.time_models_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peakHours.length))}
-            </p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setImportModalOpen(false)}
-              >
-                {t("action.cancel", "取消")}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={importFromPeakHours}
-              >
-                {t("platform.time_models_import_confirm_button", "确认")}
-              </button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Button
+              variant="ghost"
+              onClick={() => setImportModalOpen(false)}
+            >
+              {t("action.cancel", "取消")}
+            </Button>
+            <Button
+              onClick={importFromPeakHours}
+            >
+              {t("platform.time_models_import_confirm_button", "确认")}
+            </Button>
           </div>
-        </div>,
-        document.body,
-      )}
+        </DialogContent>
+      </Dialog>
     </FormSection>
   );
 }

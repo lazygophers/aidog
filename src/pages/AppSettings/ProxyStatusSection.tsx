@@ -1,5 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { SystemSettings } from "./useSystemSettings";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
  * Proxy Status section（原 L258-314）。
@@ -50,8 +53,7 @@ export function ProxyStatusSection({ s }: { s: SystemSettings }) {
         <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
           {t("proxy.port")}
         </label>
-        <input
-          className="input"
+        <Input
           type="number"
           value={proxyPort}
           onChange={(e) => setProxyPort(Number(e.target.value))}
@@ -59,13 +61,13 @@ export function ProxyStatusSection({ s }: { s: SystemSettings }) {
           style={{ width: 80 }}
         />
         {!running ? (
-          <button className="btn btn-primary" onClick={handleProxyStart}>
+          <Button variant="default" onClick={handleProxyStart}>
             {t("proxy.start")}
-          </button>
+          </Button>
         ) : (
-          <button className="btn btn-danger" onClick={handleProxyStop}>
+          <Button variant="destructive" onClick={handleProxyStop}>
             {t("proxy.stop")}
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -109,38 +111,36 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyType", "协议")}
               </label>
-              <select
-                className="input"
-                value={proxyClient.proxy_type}
-                onChange={(e) => handleProxyClientChange({ proxy_type: e.target.value })}
-                style={{ width: 90, padding: "4px 8px", fontSize: 12 }}
-              >
-                <option value="socks5">SOCKS5</option>
-                <option value="http">HTTP</option>
-                <option value="https">HTTPS</option>
-              </select>
+              <Select value={proxyClient.proxy_type} onValueChange={(v) => handleProxyClientChange({ proxy_type: v })}>
+                <SelectTrigger style={{ width: 100, height: 28, fontSize: 12 }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="socks5">SOCKS5</SelectItem>
+                  <SelectItem value="http">HTTP</SelectItem>
+                  <SelectItem value="https">HTTPS</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyHost", "地址")}
               </label>
-              <input
-                className="input"
+              <Input
                 value={proxyClient.host}
                 onChange={(e) => handleProxyClientChange({ host: e.target.value })}
-                style={{ width: 120, padding: "4px 8px", fontSize: 12 }}
+                style={{ width: 120, height: 28, fontSize: 12 }}
               />
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyPort", "端口")}
               </label>
-              <input
-                className="input"
+              <Input
                 type="number"
                 value={proxyClient.port}
                 onChange={(e) => handleProxyClientChange({ port: Number(e.target.value) || 7890 })}
-                style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+                style={{ width: 70, height: 28, fontSize: 12 }}
               />
             </div>
           </div>
@@ -149,25 +149,23 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyUser", "用户名")}
               </label>
-              <input
-                className="input"
+              <Input
                 value={proxyClient.username}
                 onChange={(e) => handleProxyClientChange({ username: e.target.value })}
                 placeholder={t("proxy.proxyUserPlaceholder", "可选")}
-                style={{ width: 100, padding: "4px 8px", fontSize: 12 }}
+                style={{ width: 100, height: 28, fontSize: 12 }}
               />
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("proxy.proxyPass", "密码")}
               </label>
-              <input
-                className="input"
+              <Input
                 type="password"
                 value={proxyClient.password}
                 onChange={(e) => handleProxyClientChange({ password: e.target.value })}
                 placeholder={t("proxy.proxyPassPlaceholder", "可选")}
-                style={{ width: 100, padding: "4px 8px", fontSize: 12 }}
+                style={{ width: 100, height: 28, fontSize: 12 }}
               />
             </div>
           </div>

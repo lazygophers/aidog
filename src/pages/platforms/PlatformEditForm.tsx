@@ -3,7 +3,6 @@
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires/claude/middleware）
 //   均为 props 驱动的 JSX，无跨组件 setState。
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
@@ -15,6 +14,11 @@ import {
 import { getProtocolLabel, getProtocolColorMap, buildProtocolsFromPresets } from "../../domains/platforms/defaults";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 // 表单分区组件（9 个 section + FormSection / ApiKeyField / toDatetimeLocal）从此导入。
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
@@ -127,9 +131,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Edit page header */}
       <div className="section-header" style={{ gap: 10 }}>
-        <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 14 }} onClick={resetForm}>
+        <Button variant="ghost" style={{ padding: "4px 8px", fontSize: 14 }} onClick={resetForm}>
           ← {t("action.back", "Back")}
-        </button>
+        </Button>
         <div style={{ flex: 1 }}>
           <div className="section-title">
             {editing ? editing.name : t("platform.add")}
@@ -141,23 +145,23 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <div style={{ display: "flex", gap: 8 }}>
           {!editing && (
             <>
-              <button className="btn" onClick={() => setShowPaste(true)}>
+              <Button variant="outline" onClick={() => setShowPaste(true)}>
                 {t("platform.paste.title", "智能识别")}
-              </button>
-              <button className="btn" onClick={() => setShowCliProxyPicker(true)}>
+              </Button>
+              <Button variant="outline" onClick={() => setShowCliProxyPicker(true)}>
                 {t("platform.cliProxy.addFromProvider", "从 cli-proxy 添加")}
-              </button>
+              </Button>
             </>
           )}
-          <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
-          <button className="btn btn-primary" onClick={handleSave}
+          <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
+          <Button onClick={handleSave}
             disabled={!name
               || (!!batchPreviewKeys && batchPreviewKeys.length > 1)
               || (isCliProxyEditing
                   ? false
                   : (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey))))}>
             {editing ? t("action.save") : t("action.create")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -170,59 +174,53 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         />
       )}
 
-      {showCliProxyPicker && createPortal(
-        <div onClick={() => setShowCliProxyPicker(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-        }}>
-          <div onClick={e => e.stopPropagation()} style={{
-            background: "var(--bg-elevated)", borderRadius: "var(--radius-md)",
-            padding: 20, minWidth: 420, maxWidth: 560, maxHeight: "70vh",
-            overflowY: "auto", border: "1px solid var(--border)",
-            boxShadow: "var(--shadow-lg, 0 8px 32px rgba(0,0,0,0.3))",
-          }}>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>
+      <Dialog open={showCliProxyPicker} onOpenChange={(v) => { if (!v) setShowCliProxyPicker(false); }}>
+        <DialogContent
+          className="glass-elevated"
+          style={{ minWidth: 420, maxWidth: 560, maxHeight: "70vh", overflowY: "auto" }}
+        >
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 16 }}>
               {t("platform.cliProxy.pickerTitle", "选择 cli-proxy provider")}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginBottom: 12 }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12 }}>
               {t("platform.cliProxy.pickerHint", "选定后将立即创建 cli-proxy 平台并加入当前分组")}
+            </DialogDescription>
+          </DialogHeader>
+          {cliProxyProviders.length === 0 ? (
+            <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "20px 0", textAlign: "center" }}>
+              {t("platform.cliProxy.pickerEmpty", "暂无 cli-proxy provider，请先在 cli-proxy 页导入")}
             </div>
-            {cliProxyProviders.length === 0 ? (
-              <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "20px 0", textAlign: "center" }}>
-                {t("platform.cliProxy.pickerEmpty", "暂无 cli-proxy provider，请先在 cli-proxy 页导入")}
-              </div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {cliProxyProviders.map(p => (
-                  <button key={p.id} className="btn btn-ghost" style={{
-                    justifyContent: "flex-start", textAlign: "left", padding: "10px 12px",
-                    border: "1px solid var(--border)",
-                  }} onClick={async () => {
-                    setShowCliProxyPicker(false);
-                    await createCliProxyPlatform(p);
-                  }}>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-                    <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                      {p.wire_protocol} · {p.base_url} · {p.models.length} models
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-              <button className="btn btn-ghost" onClick={() => setShowCliProxyPicker(false)}>
-                {t("action.cancel", "取消")}
-              </button>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {cliProxyProviders.map(p => (
+                <Button key={p.id} variant="ghost" style={{
+                  justifyContent: "flex-start", textAlign: "left", padding: "10px 12px", height: "auto",
+                  border: "1px solid var(--border)",
+                }} onClick={async () => {
+                  setShowCliProxyPicker(false);
+                  await createCliProxyPlatform(p);
+                }}>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {p.wire_protocol} · {p.base_url} · {p.models.length} models
+                  </div>
+                </Button>
+              ))}
             </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+            <Button variant="ghost" onClick={() => setShowCliProxyPicker(false)}>
+              {t("action.cancel", "取消")}
+            </Button>
           </div>
-        </div>,
-        document.body,
-      )}
+        </DialogContent>
+      </Dialog>
 
       <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* 基础信息：名称 + 协议 */}
         <FormSection title={t("platform.sectionBasic", "基础信息")}>
-          <input className="input" placeholder={t("platform.name")} value={name}
+          <Input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
           {editing ? (
             <div style={{

@@ -2,9 +2,10 @@
 // 点击已装 skill 名触发（modal）。左文件树 + 右内容查看器。
 // SKILL.md / *.md 走 react-markdown 渲染；其他文本 <pre>；二进制提示。
 // 全程只读，无编辑入口。
+//
+// Dialog 走 Radix Portal（脱离 Skills 页 transform 祖先，liquid glass 居中由 Portal 保证）。
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -14,6 +15,12 @@ import {
   type SkillFile,
   type SkillFileContent,
 } from "../services/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   skill: SkillInfo;
@@ -90,27 +97,19 @@ export function SkillDetailView({ skill, onClose }: Props) {
   const isMd = (rel: string) => /\.md$/i.test(rel);
   const selectedFile = files.find((f) => f.rel_path === selected);
 
-  return createPortal(
-    <div
-      onClick={onClose}
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 250,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "rgba(0,0,0,0.45)",
-        animation: "fadeIn 150ms ease both",
-        padding: 24,
-      }}
-    >
-      <div
+  return (
+    <Dialog open onOpenChange={(next) => { if (!next) onClose(); }}>
+      {/* ponytail: 不用 DialogTitle 的可见 header（会与内容区头部重复）；
+          但 radix Dialog 需要 Title 才不告警 a11y，故 DialogTitle sr-only。 */}
+      <DialogTitle className="sr-only">{skill.name}</DialogTitle>
+      <DialogContent
         className="glass-elevated"
-        onClick={(e) => e.stopPropagation()}
         style={{
           width: "min(95vw, 1100px)",
           height: "min(88vh, 760px)",
+          maxWidth: "min(95vw, 1100px)",
+          padding: 0,
+          gap: 0,
           display: "flex",
           flexDirection: "column",
           overflow: "hidden",
@@ -171,14 +170,14 @@ export function SkillDetailView({ skill, onClose }: Props) {
               </span>
             )}
           </div>
-          <button
-            className="btn btn-ghost"
+          <Button
+            variant="ghost"
             style={{ fontSize: 12, flexShrink: 0 }}
             onClick={onClose}
             aria-label="close"
           >
             ✕
-          </button>
+          </Button>
         </div>
 
         {/* Body: 左文件树 + 右内容 */}
@@ -217,8 +216,9 @@ export function SkillDetailView({ skill, onClose }: Props) {
             {files.map((f) => {
               const on = selected === f.rel_path;
               return (
-                <button
+                <Button
                   key={f.rel_path}
+                  variant="ghost"
                   onClick={() => setSelected(f.rel_path)}
                   title={`${f.rel_path} (${formatSize(f.size)})`}
                   style={{
@@ -227,6 +227,8 @@ export function SkillDetailView({ skill, onClose }: Props) {
                     textAlign: "left",
                     padding: "5px 14px",
                     fontSize: 12,
+                    height: "auto",
+                    justifyContent: "flex-start",
                     background: on ? "var(--accent-subtle, rgba(0,0,0,0.06))" : "transparent",
                     borderLeft: on ? "2px solid var(--accent, #5b8def)" : "2px solid transparent",
                     color: on ? "var(--accent, #5b8def)" : "var(--text)",
@@ -234,12 +236,12 @@ export function SkillDetailView({ skill, onClose }: Props) {
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    cursor: "pointer",
+                    borderRadius: 0,
                   }}
                 >
                   {!f.is_text && "📄 "}
                   {f.rel_path}
-                </button>
+                </Button>
               );
             })}
           </div>
@@ -322,8 +324,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
             )}
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

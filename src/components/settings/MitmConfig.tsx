@@ -11,7 +11,6 @@
 // 消费 services/api.ts mitmApi 契约（ST7 冻结），只读不改。
 
 import { useState, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Command } from "@tauri-apps/plugin-shell";
 import {
@@ -21,6 +20,10 @@ import {
   type TrustErrorKind,
   type WhitelistRuleType,
 } from "../../services/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 /// CA 安装失败分类后端化（阶段 B）：分类逻辑真源在后端 `classify_trust_error`（Rust 纯函数 +
 /// 单测矩阵），前端 invoke `mitm_classify_trust_error` 取 TrustErrorKind，消除前后端双源。
@@ -297,14 +300,14 @@ export function MitmConfigTab() {
           )}
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button
-              className="btn btn-primary"
+            <Button variant="default"
+              
               onClick={handleInstallCa}
               disabled={busy || !caPresent}
               style={{ padding: "7px 16px", fontSize: 13, opacity: busy || !caPresent ? 0.6 : 1 }}
             >
               {busy ? t("common.loading", "加载中…") : t("mitm.installCa", "安装 CA")}
-            </button>
+            </Button>
             {caInstalled && (
               <span style={{ fontSize: 12, color: "var(--color-success)" }}>
                 {t("mitm.installedHint", "已装，客户端应已信任")}
@@ -368,16 +371,16 @@ export function MitmConfigTab() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-              <button
-                className="btn"
+              <Button variant="outline"
+                
                 onClick={handleImportDefaults}
                 disabled={busy}
                 style={{ padding: "6px 12px", fontSize: 12, opacity: busy ? 0.6 : 1 }}
               >
                 {t("mitm.importDefaults", "导入默认白名单")}
-              </button>
-              <button
-                className="btn"
+              </Button>
+              <Button variant="outline"
+                
                 onClick={() => setShowClearConfirm(true)}
                 disabled={busy || whitelist.length === 0}
                 style={{
@@ -387,46 +390,49 @@ export function MitmConfigTab() {
                 }}
               >
                 {t("mitm.clear", "清空")}
-              </button>
+              </Button>
             </div>
           </div>
 
           {/* 添加输入 */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             {/* 匹配方式 select（4 类型，option label 裸字符串 — 技术常量不译）+ aria-label 国际化 */}
-            <select
-              className="input"
+            <Select
+              
               value={newRuleType}
-              onChange={(e) => setNewRuleType(e.target.value as WhitelistRuleType)}
+              onValueChange={(v) => setNewRuleType(v as WhitelistRuleType)}
               aria-label={t("mitm.ruleTypeLabel", "匹配方式")}
-              style={{ maxWidth: 120, fontSize: 12 }}
+              
             >
-              <option value="domain">domain</option>
-              <option value="suffix">suffix</option>
-              <option value="keyword">keyword</option>
-              <option value="ipcidr">ipcidr</option>
-            </select>
-            <input
-              className="input"
+<SelectTrigger style={{ maxWidth: 120, fontSize: 12 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+              <SelectItem value="domain">domain</SelectItem>
+              <SelectItem value="suffix">suffix</SelectItem>
+              <SelectItem value="keyword">keyword</SelectItem>
+              <SelectItem value="ipcidr">ipcidr</SelectItem>
+            </SelectContent>
+</Select>
+            <Input
+              
               value={newPattern}
               onChange={(e) => setNewPattern(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
               placeholder={t("mitm.addPlaceholder", "*.anthropic.com")}
               style={{ flex: 1, maxWidth: 320 }}
             />
-            <button
-              className="btn"
+            <Button variant="outline"
+              
               onClick={handleAdd}
               disabled={busy || !newPattern.trim()}
               style={{ padding: "7px 14px", fontSize: 13, opacity: busy || !newPattern.trim() ? 0.6 : 1 }}
             >
               {t("common.add", "添加")}
-            </button>
+            </Button>
           </div>
 
           {/* D2 搜索过滤（前端纯 filter，实时无按钮）*/}
-          <input
-            className="input"
+          <Input
+            
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("mitm.searchPlaceholder", "搜索规则…")}
@@ -439,22 +445,22 @@ export function MitmConfigTab() {
               {t("mitm.testUrlLabel", "URL 命中测试")}
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                className="input"
+              <Input
+                
                 value={testUrl}
                 onChange={(e) => setTestUrl(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && testUrl.trim()) handleTestUrl(); }}
                 placeholder={t("mitm.testUrlPlaceholder", "https://api.anthropic.com/v1/messages")}
                 style={{ flex: 1, maxWidth: 360, fontSize: 12 }}
               />
-              <button
-                className="btn"
+              <Button variant="outline"
+                
                 onClick={handleTestUrl}
                 disabled={busy || !testUrl.trim()}
                 style={{ padding: "6px 14px", fontSize: 12, opacity: busy || !testUrl.trim() ? 0.6 : 1 }}
               >
                 {t("mitm.testUrlBtn", "测试")}
-              </button>
+              </Button>
             </div>
             {testResult && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
@@ -554,7 +560,7 @@ export function MitmConfigTab() {
                   tabIndex={0}
                   style={{ transform: "scale(0.85)" }}
                 />
-                <button
+                <Button variant="outline"
                   onClick={() => handleRemove(e.host_pattern)}
                   aria-label={t("common.delete", "删除")}
                   style={{
@@ -563,7 +569,7 @@ export function MitmConfigTab() {
                   }}
                 >
                   ✕
-                </button>
+                </Button>
               </div>
             ))}
           </div>
@@ -577,54 +583,36 @@ export function MitmConfigTab() {
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
       )}
 
-      {/* D1 清空确认弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
-          portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。 */}
-      {showClearConfirm && createPortal(
-        <div
-          style={{
-            position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0, 0, 0, 0.4)", zIndex: 1000,
-          }}
-          onClick={() => setShowClearConfirm(false)}
-        >
-          <div
-            className="glass-surface"
-            style={{
-              padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)",
-              display: "flex", flexDirection: "column", gap: 16,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600 }}>
+      {/* D1 清空确认弹窗（shadcn Dialog Radix Portal 满足 createPortal(document.body) 居中规则，禁 window.confirm 破坏 Tauri）。 */}
+      <Dialog open={showClearConfirm} onOpenChange={setShowClearConfirm}>
+        <DialogContent className="glass-surface" style={{ padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)", gap: 16 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
               {t("mitm.clear", "清空")}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {t("mitm.clearConfirm", "确认清空全部 {{n}} 条白名单？此操作不可撤销，但可重新导入默认规则", { n: whitelist.length })}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                className="btn"
-                onClick={() => setShowClearConfirm(false)}
-                style={{ padding: "6px 14px", fontSize: 12 }}
-              >
-                {t("mitm.cancel", "取消")}
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleClearConfirm}
-                disabled={busy}
-                style={{
-                  padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1,
-                  background: "var(--color-error, #ef4444)",
-                }}
-              >
-                {t("mitm.clear", "清空")}
-              </button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Button variant="ghost"
+              onClick={() => setShowClearConfirm(false)}
+              style={{ padding: "6px 14px", fontSize: 12 }}
+            >
+              {t("mitm.cancel", "取消")}
+            </Button>
+            <Button variant="destructive"
+              onClick={handleClearConfirm}
+              disabled={busy}
+              style={{
+                padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1,
+              }}
+            >
+              {t("mitm.clear", "清空")}
+            </Button>
           </div>
-        </div>,
-        document.body
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

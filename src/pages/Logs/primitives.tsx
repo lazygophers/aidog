@@ -4,11 +4,23 @@ import { F } from "../../domains/shared/tokens";
 import type { ProxyLogSummary } from "../../services/api";
 import type { TFunc } from "./types";
 import { formatDateTime } from "../../utils/formatters";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { TableHead, TableRow, TableCell } from "@/components/ui/table";
 
 export const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 
+// radix Select 的 SelectItem value="" 会抛错 → 用 __none__ 哨兵映射回空值（= 不筛选）
+const NONE = "__none__";
+
 // ── 行内固定 style 提模块级常量（避免每行每次渲染重建对象，且让 LogRow memo 不被 inline 对象击穿）──
-export const ROW_STYLE: React.CSSProperties = { cursor: "pointer", borderBottom: "1px solid var(--border)" };
+export const ROW_STYLE: React.CSSProperties = { cursor: "pointer" };
 export const INLINE_FLEX_STYLE: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6 };
 export const PLATFORM_NAME_STYLE: React.CSSProperties = { fontSize: F.small, color: "var(--text-secondary)" };
 export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
@@ -31,8 +43,9 @@ export function CopyButton({ text, title }: { text: string; title?: string }) {
   const [copied, setCopied] = useState(false);
   if (!text) return null;
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       className="copy-btn"
       style={COPY_ICON_STYLE}
       title={title}
@@ -50,7 +63,7 @@ export function CopyButton({ text, title }: { text: string; title?: string }) {
       ) : (
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
       )}
-    </button>
+    </Button>
   );
 }
 
@@ -88,17 +101,18 @@ export function RequestTabs({
           const item = key === "user" ? userTab : upstreamTab;
           const isActive = active === key;
           return (
-            <button
+            <Button
               key={key}
               type="button"
+              variant="ghost"
               onClick={() => setActive(key)}
               style={{
                 padding: "10px 20px", fontSize: F.hint, fontWeight: isActive ? 700 : 400,
                 color: isActive ? "var(--accent)" : "var(--text-secondary)",
-                background: "transparent", border: "none", cursor: "pointer",
+                background: "transparent", cursor: "pointer",
                 borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
                 transition: "all 0.15s ease",
-                display: "flex", alignItems: "center", gap: 8,
+                display: "flex", alignItems: "center", gap: 8, height: "auto",
               }}
             >
               {item.title}
@@ -112,7 +126,7 @@ export function RequestTabs({
                   {item.statusCode}
                 </span>
               )}
-            </button>
+            </Button>
           );
         })}
       </div>
@@ -210,9 +224,10 @@ function RequestSectionContent({
 
 export function ThCell({ children, sticky }: { children: React.ReactNode; sticky?: boolean }) {
   return (
-    <th style={{
+    <TableHead style={{
       padding: "10px 14px", textAlign: "left", fontWeight: 600,
       color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: F.small,
+      borderBottom: "1px solid var(--border)",
       ...(sticky ? {
         position: "sticky" as const, right: 0, zIndex: 2,
         background: "var(--bg-surface)",
@@ -220,13 +235,13 @@ export function ThCell({ children, sticky }: { children: React.ReactNode; sticky
       } : {}),
     }}>
       {children}
-    </th>
+    </TableHead>
   );
 }
 
 export function TdCell({ children, sticky }: { children: React.ReactNode; sticky?: boolean }) {
   return (
-    <td style={{
+    <TableCell style={{
       padding: "10px 14px", whiteSpace: "nowrap",
       ...(sticky ? {
         position: "sticky" as const, right: 0, zIndex: 2,
@@ -235,7 +250,7 @@ export function TdCell({ children, sticky }: { children: React.ReactNode; sticky
       } : {}),
     }}>
       {children}
-    </td>
+    </TableCell>
   );
 }
 
@@ -256,7 +271,7 @@ interface LogRowProps {
 
 export const LogRow = memo(function LogRow({ log, platformName, groupName, providerName, onOpen, onCopy, t }: LogRowProps) {
   return (
-    <tr
+    <TableRow
       className="log-row"
       onClick={() => onOpen(log.id)}
       style={ROW_STYLE}>
@@ -298,16 +313,17 @@ export const LogRow = memo(function LogRow({ log, platformName, groupName, provi
       <TdCell>{log.input_tokens || "-"}</TdCell>
       <TdCell>{log.output_tokens || "-"}</TdCell>
       <TdCell sticky>
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          className="btn-icon"
           style={ACTION_BTN_STYLE}
           title={t("logs.copyAll", "复制完整信息")}
           onClick={(e) => { e.stopPropagation(); onCopy(log.id); }}
         >
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
-        </button>
+        </Button>
       </TdCell>
-    </tr>
+    </TableRow>
   );
 });
 
@@ -340,7 +356,7 @@ export function Pagination({
   }
 
   const btnStyle: React.CSSProperties = {
-    fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center",
+    fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center", height: "auto",
   };
 
   return (
@@ -351,53 +367,51 @@ export function Pagination({
         </span>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           <span className="text-tertiary" style={{ fontSize: 12 }}>{t("logs.pageSize", "每页")}</span>
-          <select
-            aria-label={t("logs.pageSize", "每页")}
-            value={pageSize}
-            onChange={e => onPageSizeChange(Number(e.target.value))}
-            style={{
-              fontSize: F.small,
-              padding: "4px 8px",
-              borderRadius: 6,
-              border: "1px solid var(--border)",
-              background: "var(--bg-secondary, rgba(255,255,255,0.05))",
-              color: "var(--text-primary)",
-              cursor: "pointer",
-            }}
+          <Select
+            value={String(pageSize)}
+            onValueChange={v => onPageSizeChange(Number(v))}
           >
-            {PAGE_SIZE_OPTIONS.map(size => (
-              <option key={size} value={size}>{size}</option>
-            ))}
-          </select>
+            <SelectTrigger
+              aria-label={t("logs.pageSize", "每页")}
+              style={{ fontSize: F.small, padding: "4px 8px", height: 28, width: 80 }}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PAGE_SIZE_OPTIONS.map(size => (
+                <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </label>
       </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
-          onClick={() => onPageChange(1)} title="First">⟪</button>
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
-          onClick={() => onPageChange(currentPage - 1)}>←</button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(1)} title="First">⟪</Button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}>←</Button>
         {pages.map((p, i) =>
           p === "ellipsis" ? (
             <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
           ) : (
-            <button key={p} className={`btn ${p === currentPage ? "" : "btn-ghost"}`}
+            <Button key={p} variant={p === currentPage ? "default" : "ghost"}
               style={{
                 ...btnStyle,
                 ...(p === currentPage ? { fontWeight: 700, color: "var(--accent)" } : {}),
               }}
-              onClick={() => onPageChange(p)}>{p}</button>
+              onClick={() => onPageChange(p)}>{p}</Button>
           ),
         )}
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
-          onClick={() => onPageChange(currentPage + 1)}>→</button>
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
-          onClick={() => onPageChange(totalPages)} title="Last">⟫</button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}>→</Button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(totalPages)} title="Last">⟫</Button>
       </div>
     </div>
   );
 }
 
-/** 通用筛选下拉 */
+/** 通用筛选下拉（短列表，shadcn Select；空值用 __none__ 哨兵映射回 ""） */
 export function FilterSelect({
   value,
   onChange,
@@ -410,25 +424,19 @@ export function FilterSelect({
   placeholder: string;
 }) {
   return (
-    <select
-      value={value}
-      onChange={e => onChange(e.target.value)}
-      style={{
-        fontSize: F.small,
-        padding: "4px 8px",
-        borderRadius: 6,
-        border: "1px solid var(--border)",
-        background: "var(--bg-secondary, rgba(255,255,255,0.05))",
-        color: "var(--text-primary)",
-        cursor: "pointer",
-        maxWidth: 140,
-      }}
+    <Select
+      value={value || NONE}
+      onValueChange={v => onChange(v === NONE ? "" : v)}
     >
-      <option value="">{placeholder}</option>
-      {options.map(o => (
-        <option key={o.value} value={o.value}>{o.label}</option>
-      ))}
-    </select>
+      <SelectTrigger style={{ fontSize: F.small, padding: "4px 8px", height: 30, width: "auto", maxWidth: 140 }}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value={NONE}>{placeholder}</SelectItem>
+        {options.map(o => (
+          <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
-

@@ -12,6 +12,9 @@ import {
   onProxyLogUpdated,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
@@ -443,7 +446,7 @@ export function TrayConfigTab() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 40 }}>{t("tray.color", "颜色")}</span>
                   {PRESET_COLORS.map((c) => (
-                    <button key={c.value} title={c.value}
+                    <Button variant="outline" key={c.value} title={c.value}
                       style={{
                         width: 18, height: 18, borderRadius: "50%", border: item.color.value === c.cssVar || (item.color.mode !== "custom" && c.value === "follow") ? "2px solid var(--accent)" : "1px solid var(--glass-border)",
                         background: c.value === "follow" ? "var(--text-primary)" : c.cssVar,
@@ -461,7 +464,7 @@ export function TrayConfigTab() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 40 }}>{t("tray.lineMode", "行")}</span>
                   {(["single", "two"] as const).map((m) => (
-                    <button key={m}
+                    <Button variant="outline" key={m}
                       className={item.line_mode === m ? "accent-btn" : ""}
                       style={{
                         fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
@@ -475,7 +478,7 @@ export function TrayConfigTab() {
                       }}
                     >
                       {m === "single" ? t("tray.singleLine", "单行") : t("tray.twoLine", "两行")}
-                    </button>
+                    </Button>
                   ))}
                 </div>
 
@@ -483,7 +486,7 @@ export function TrayConfigTab() {
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
                   <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 40 }}>{t("tray.align", "对齐")}</span>
                   {(["left", "center", "right"] as const).map((a) => (
-                    <button key={a}
+                    <Button variant="outline" key={a}
                       style={{
                         fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
                         border: item.align === a ? "none" : "1px solid var(--glass-border)",
@@ -496,17 +499,17 @@ export function TrayConfigTab() {
                       }}
                     >
                       {a === "left" ? "←" : a === "center" ? "↔" : "→"}
-                    </button>
+                    </Button>
                   ))}
                 </div>
 
                 {/* Close */}
-                <button style={{
+                <Button variant="outline" style={{
                   fontSize: 11, color: "var(--text-tertiary)", cursor: "pointer",
                   background: "none", border: "none", padding: "2px 0", marginTop: 4,
                 }} onClick={() => setPopover(null)}>
                   {t("common.close", "关闭")}
-                </button>
+                </Button>
               </div>
             </div>
           );
@@ -574,9 +577,9 @@ export function TrayConfigTab() {
                     onClick={(e) => { e.stopPropagation(); updateItem(i, { enabled: !item.enabled }); }}
                     role="switch" aria-checked={item.enabled} tabIndex={0} style={{ width: 32, height: 18, flexShrink: 0 }}
                   />
-                  <button className="btn btn-ghost btn-icon"
+                  <Button variant="ghost" 
                     style={{ fontSize: 12, color: "var(--danger, var(--color-danger))", width: 24, height: 24, padding: 0, flexShrink: 0 }}
-                    onClick={(e) => { e.stopPropagation(); removeItem(i); }}>×</button>
+                    onClick={(e) => { e.stopPropagation(); removeItem(i); }}>×</Button>
                 </div>
 
                 {isExpanded && isSep && (
@@ -585,12 +588,12 @@ export function TrayConfigTab() {
                     <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.separatorChar", "分隔符")}</label>
                     <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                       {PRESET_SEPARATORS.map((s) => (
-                        <button key={s.value} className="btn btn-ghost"
+                        <Button variant="ghost" key={s.value} 
                           style={{ padding: "3px 10px", fontSize: 13, borderRadius: 0, minWidth: 28, background: item.display === s.value ? "var(--accent)" : "transparent", color: item.display === s.value ? "#fff" : "var(--text-secondary)" }}
-                          onClick={() => updateItem(i, { display: s.value })}>{s.value === " " ? t("tray.sep.space", "空格") : s.label}</button>
+                          onClick={() => updateItem(i, { display: s.value })}>{s.value === " " ? t("tray.sep.space", "空格") : s.label}</Button>
                       ))}
                     </div>
-                    <input className="input" type="text" value={item.display} placeholder={t("tray.custom", "自定义")}
+                    <Input  type="text" value={item.display} placeholder={t("tray.custom", "自定义")}
                       onChange={(e) => updateItem(i, { display: e.target.value })} style={{ width: 60, fontSize: 12, padding: "3px 8px" }} />
                   </div>
                 )}
@@ -603,11 +606,11 @@ export function TrayConfigTab() {
                         <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.display", "展示")}</label>
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {(["balance", "coding"] as const).map((d) => (
-                            <button key={d} className="btn btn-ghost"
+                            <Button variant="ghost" key={d} 
                               style={{ padding: "3px 10px", fontSize: 11, borderRadius: 0, background: item.display === d ? "var(--accent)" : "transparent", color: item.display === d ? "#fff" : "var(--text-secondary)" }}
                               onClick={() => updateItem(i, { display: d })}>
                               {d === "balance" ? t("tray.displayBalance", "余额") : t("tray.displayCoding", "Coding")}
-                            </button>
+                            </Button>
                           ))}
                         </div>
                       </div>
@@ -617,22 +620,22 @@ export function TrayConfigTab() {
                         <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.metric", "指标")}</label>
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {TODAY_METRICS.map((m) => (
-                            <button key={m.value} className="btn btn-ghost"
+                            <Button variant="ghost" key={m.value} 
                               style={{ padding: "3px 8px", fontSize: 11, borderRadius: 0, background: (item.metric || "tokens") === m.value ? "var(--accent)" : "transparent", color: (item.metric || "tokens") === m.value ? "#fff" : "var(--text-secondary)" }}
-                              onClick={() => updateItem(i, { metric: m.value })}>{metricLabel(m.value)}</button>
+                              onClick={() => updateItem(i, { metric: m.value })}>{metricLabel(m.value)}</Button>
                           ))}
                         </div>
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.customLabel", "标签")}</label>
-                      <input className="input" type="text" value={item.label || ""} placeholder={t("tray.customLabelPlaceholder", "默认")}
+                      <Input  type="text" value={item.label || ""} placeholder={t("tray.customLabelPlaceholder", "默认")}
                         onChange={(e) => updateItem(i, { label: e.target.value || null })}
                         style={{ width: 80, fontSize: 12, padding: "3px 8px" }} />
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.decimals", "小数位")}</label>
-                      <input className="input" type="number" min={0} max={10} value={item.decimals ?? 5}
+                      <Input  type="number" min={0} max={10} value={item.decimals ?? 5}
                         onChange={(e) => updateItem(i, { decimals: Number(e.target.value) || null })}
                         style={{ width: 52, fontSize: 12, padding: "3px 8px" }} />
                     </div>
@@ -640,10 +643,10 @@ export function TrayConfigTab() {
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.lineMode", "行模式")}</label>
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                         {(["single", "two"] as const).map((lm) => (
-                          <button key={lm} className="btn btn-ghost"
+                          <Button variant="ghost" key={lm} 
                             style={{ padding: "3px 10px", fontSize: 11, borderRadius: 0, background: item.line_mode === lm ? "var(--accent)" : "transparent", color: item.line_mode === lm ? "#fff" : "var(--text-secondary)" }}
                             onClick={() => updateItem(i, { line_mode: lm })}>
-                            {lm === "single" ? t("tray.lineModeSingle", "单行") : t("tray.lineModeTwo", "两行")}</button>
+                            {lm === "single" ? t("tray.lineModeSingle", "单行") : t("tray.lineModeTwo", "两行")}</Button>
                         ))}
                       </div>
                     </div>
@@ -651,9 +654,9 @@ export function TrayConfigTab() {
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.align", "对齐")}</label>
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                         {ALIGN_OPTIONS.map((a) => (
-                          <button key={a.value} className="btn btn-ghost"
+                          <Button variant="ghost" key={a.value} 
                             style={{ padding: "3px 8px", fontSize: 12, borderRadius: 0, background: item.align === a.value ? "var(--accent)" : "transparent", color: item.align === a.value ? "#fff" : "var(--text-secondary)" }}
-                            onClick={() => updateItem(i, { align: a.value })}>{a.label}</button>
+                            onClick={() => updateItem(i, { align: a.value })}>{a.label}</Button>
                         ))}
                       </div>
                     </div>
@@ -662,29 +665,35 @@ export function TrayConfigTab() {
                         <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.alignRow2", "值行对齐")}</label>
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {ALIGN_OPTIONS.map((a) => (
-                            <button key={a.value} className="btn btn-ghost"
+                            <Button variant="ghost" key={a.value} 
                               style={{ padding: "3px 8px", fontSize: 12, borderRadius: 0, background: (item.align_row2 || item.align) === a.value ? "var(--accent)" : "transparent", color: (item.align_row2 || item.align) === a.value ? "#fff" : "var(--text-secondary)" }}
-                              onClick={() => updateItem(i, { align_row2: a.value })}>{a.label}</button>
+                              onClick={() => updateItem(i, { align_row2: a.value })}>{a.label}</Button>
                           ))}
                         </div>
                       </div>
                     )}
                     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.color", "颜色")}</label>
-                      <select className="input" value={item.color.mode}
-                        onChange={(e) => { const mode = e.target.value as TrayColor["mode"]; updateItem(i, { color: { mode, value: mode === "preset" ? PRESET_COLORS[0].value : mode === "custom" ? (item.color.value || "#ffffff") : "" } }); }}
-                        style={{ width: 100, padding: "3px 8px", fontSize: 11 }}>
-                        <option value="follow">{t("tray.colorFollow", "跟随系统")}</option>
-                        <option value="preset">{t("tray.colorPreset", "预设色")}</option>
-                        <option value="custom">{t("tray.colorCustom", "自定义")}</option>
-                      </select>
+                      <Select  value={item.color.mode}
+                        onValueChange={(v) => { const mode = v as TrayColor["mode"]; updateItem(i, { color: { mode, value: mode === "preset" ? PRESET_COLORS[0].value : mode === "custom" ? (item.color.value || "#ffffff") : "" } }); }}
+                        >
+<SelectTrigger style={{ width: 100, padding: "3px 8px", fontSize: 11 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+                        <SelectItem value="follow">{t("tray.colorFollow", "跟随系统")}</SelectItem>
+                        <SelectItem value="preset">{t("tray.colorPreset", "预设色")}</SelectItem>
+                        <SelectItem value="custom">{t("tray.colorCustom", "自定义")}</SelectItem>
+                      </SelectContent>
+</Select>
                       {item.color.mode === "preset" && (
-                        <select className="input" value={item.color.value} onChange={(e) => updateItem(i, { color: { mode: "preset", value: e.target.value } })} style={{ width: 80, padding: "3px 8px", fontSize: 11 }}>
-                          {PRESET_COLORS.map((c) => <option key={c.value} value={c.value}>{c.value}</option>)}
-                        </select>
+                        <Select  value={item.color.value} onValueChange={(v) => updateItem(i, { color: { mode: "preset", value: v } })} >
+<SelectTrigger style={{ width: 80, padding: "3px 8px", fontSize: 11 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+                          {PRESET_COLORS.map((c) => <SelectItem key={c.value} value={c.value}>{c.value}</SelectItem>)}
+                        </SelectContent>
+</Select>
                       )}
                       {item.color.mode === "custom" && (
-                        <input type="color" value={/^#[0-9a-fA-F]{6}$/.test(item.color.value) ? item.color.value : "#ffffff"}
+                        <Input type="color" value={/^#[0-9a-fA-F]{6}$/.test(item.color.value) ? item.color.value : "#ffffff"}
                           onChange={(e) => updateItem(i, { color: { mode: "custom", value: e.target.value } })}
                           style={{ width: 28, height: 22, padding: 0, border: "1px solid var(--border)", borderRadius: 4, background: "transparent" }} />
                       )}
@@ -705,10 +714,10 @@ export function TrayConfigTab() {
 
       {/* ── Add Item ── */}
       <div style={{ position: "relative" }}>
-        <button className="btn btn-primary" onClick={() => setShowAddMenu(!showAddMenu)} style={{ fontSize: 12, gap: 6 }}>
+        <Button variant="default"  onClick={() => setShowAddMenu(!showAddMenu)} style={{ fontSize: 12, gap: 6 }}>
           <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
           {t("tray.addItem", "添加展示项")}
-        </button>
+        </Button>
 
         {showAddMenu && (
           <>
@@ -721,27 +730,27 @@ export function TrayConfigTab() {
                 <>
                   <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5 }}>{t("tray.catPlatform", "平台")}</div>
                   {availablePlatforms.map((p) => (
-                    <button key={p.id} className="btn btn-ghost" style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }} onClick={() => addPlatform(p.id)}>{p.name}</button>
+                    <Button variant="ghost" key={p.id}  style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }} onClick={() => addPlatform(p.id)}>{p.name}</Button>
                   ))}
                 </>
               )}
               <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>{t("tray.todayStats", "今日统计")}</div>
               {TODAY_METRICS.map((m) => (
-                <button key={m.value} className="btn btn-ghost" style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }} onClick={() => addTodayUsage(m.value)}>
+                <Button variant="ghost" key={m.value}  style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }} onClick={() => addTodayUsage(m.value)}>
                   {t("tray.todayUsage", "今日消耗")} — {metricLabel(m.value)}
-                </button>
+                </Button>
               ))}
               <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>{t("tray.separatorChar", "分隔符")}</div>
               <div style={{ display: "flex", gap: 2, padding: "4px 8px" }}>
                 {PRESET_SEPARATORS.map((s) => (
-                  <button key={s.value} className="btn btn-ghost"
+                  <Button variant="ghost" key={s.value} 
                     style={{ fontSize: 14, padding: "6px 10px", minWidth: 32, textAlign: "center" }}
                     onClick={() => {
                       const items = [...config.items, makeSeparatorItem(s.value, config.items.length)];
                       persist({ ...config, items: withOrders(items) });
                       setShowAddMenu(false);
                     }}
-                  >{s.value === " " ? t("tray.sep.space", "空格") : s.label}</button>
+                  >{s.value === " " ? t("tray.sep.space", "空格") : s.label}</Button>
                 ))}
               </div>
             </div>

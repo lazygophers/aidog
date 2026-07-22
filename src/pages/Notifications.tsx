@@ -9,6 +9,7 @@ import {
   type Notification,
 } from "../services/api";
 import { formatDateTime } from "../utils/formatters";
+import { Button } from "@/components/ui/button";
 
 function notifTypeLabel(type: string, t: (k: string, f: string) => string): string {
   return t(`notif.type.${type}`, type);
@@ -51,22 +52,22 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("notif.inboxTitle", "通知中心")}</h2>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {onNavigate && (
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 12 }}
+            <Button
+              variant="ghost"
+              style={{ fontSize: 12, height: "auto", padding: "4px 10px" }}
               onClick={() => onNavigate("settings/notifications")}
             >
               {t("notifications.goSettings", "通知设置")}
-            </button>
+            </Button>
           )}
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 12 }}
+          <Button
+            variant="ghost"
+            style={{ fontSize: 12, height: "auto", padding: "4px 10px" }}
             disabled={items.length === 0}
             onClick={handleClear}
           >
             {t("notif.clear", "清空")}
-          </button>
+          </Button>
         </div>
       </div>
 

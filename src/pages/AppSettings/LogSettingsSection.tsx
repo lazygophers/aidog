@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi } from "../../services/api/proxy";
 import type { RetentionUnit } from "../../services/api";
 import type { SystemSettings } from "./useSystemSettings";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 /**
  * Log recording + Application Logging 两个日志相关 section（原 L562-678 + L757-818）。
@@ -58,6 +61,20 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
       setBusy(false);
     }
   }
+
+  // ponytail: 单位 Select 复用，三 option (hour/day/week) 固定。
+  const UnitSelect = ({ value, onChange }: { value: RetentionUnit; onChange: (u: RetentionUnit) => void }) => (
+    <Select value={value} onValueChange={(v) => onChange(v as RetentionUnit)}>
+      <SelectTrigger style={{ width: 80, height: 28, fontSize: 12 }}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="hour">{t("unit.hour", "小时")}</SelectItem>
+        <SelectItem value="day">{t("unit.day", "天")}</SelectItem>
+        <SelectItem value="week">{t("unit.week", "周")}</SelectItem>
+      </SelectContent>
+    </Select>
+  );
 
   return (
     <>
@@ -127,33 +144,19 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
                     {t("proxy.userReqRetention", "原始请求保留时间")}
                   </label>
-                  <input
-                    className="input"
+                  <Input
                     type="number"
                     min={0}
                     value={userReqRetention}
                     onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); updateLogSettings({ user_request_retention_days: v }); }}
-                    style={{ width: 70 }}
+                    style={{ width: 70, height: 28, fontSize: 12 }}
                   />
                   {userReqRetention === 0 ? (
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                       {t("proxy.logRetentionForever", "永久保留")}
                     </span>
                   ) : (
-                    <select
-                      className="input"
-                      value={userReqRetentionUnit}
-                      onChange={(e) => {
-                        const u = e.target.value as RetentionUnit;
-                        setUserReqRetentionUnit(u);
-                        updateLogSettings({ user_request_retention_unit: u });
-                      }}
-                      style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
-                    >
-                      <option value="hour">{t("unit.hour", "小时")}</option>
-                      <option value="day">{t("unit.day", "天")}</option>
-                      <option value="week">{t("unit.week", "周")}</option>
-                    </select>
+                    <UnitSelect value={userReqRetentionUnit} onChange={(u) => { setUserReqRetentionUnit(u); updateLogSettings({ user_request_retention_unit: u }); }} />
                   )}
                 </div>
               )}
@@ -162,33 +165,19 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
                     {t("proxy.upstreamReqRetention", "上游请求保留时间")}
                   </label>
-                  <input
-                    className="input"
+                  <Input
                     type="number"
                     min={0}
                     value={upstreamReqRetention}
                     onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); updateLogSettings({ upstream_request_retention_days: v }); }}
-                    style={{ width: 70 }}
+                    style={{ width: 70, height: 28, fontSize: 12 }}
                   />
                   {upstreamReqRetention === 0 ? (
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                       {t("proxy.logRetentionForever", "永久保留")}
                     </span>
                   ) : (
-                    <select
-                      className="input"
-                      value={upstreamReqRetentionUnit}
-                      onChange={(e) => {
-                        const u = e.target.value as RetentionUnit;
-                        setUpstreamReqRetentionUnit(u);
-                        updateLogSettings({ upstream_request_retention_unit: u });
-                      }}
-                      style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
-                    >
-                      <option value="hour">{t("unit.hour", "小时")}</option>
-                      <option value="day">{t("unit.day", "天")}</option>
-                      <option value="week">{t("unit.week", "周")}</option>
-                    </select>
+                    <UnitSelect value={upstreamReqRetentionUnit} onChange={(u) => { setUpstreamReqRetentionUnit(u); updateLogSettings({ upstream_request_retention_unit: u }); }} />
                   )}
                 </div>
               )}
@@ -196,33 +185,19 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
                   {t("proxy.logRetention", "日志记录保留时间")}
                 </label>
-                <input
-                  className="input"
+                <Input
                   type="number"
                   min={0}
                   value={logRetention}
                   onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); updateLogSettings({ retention_days: v }); }}
-                  style={{ width: 70 }}
+                  style={{ width: 70, height: 28, fontSize: 12 }}
                 />
                 {logRetention === 0 ? (
                   <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
                     {t("proxy.logRetentionForever", "永久保留")}
                   </span>
                 ) : (
-                  <select
-                    className="input"
-                    value={logRetentionUnit}
-                    onChange={(e) => {
-                      const u = e.target.value as RetentionUnit;
-                      setLogRetentionUnit(u);
-                      updateLogSettings({ retention_unit: u });
-                    }}
-                    style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
-                  >
-                    <option value="hour">{t("unit.hour", "小时")}</option>
-                    <option value="day">{t("unit.day", "天")}</option>
-                    <option value="week">{t("unit.week", "周")}</option>
-                  </select>
+                  <UnitSelect value={logRetentionUnit} onChange={(u) => { setLogRetentionUnit(u); updateLogSettings({ retention_unit: u }); }} />
                 )}
               </div>
             </div>
@@ -232,23 +207,21 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         {/* Cleanup actions — 独立于 logEnabled：关闭记录后仍需可清已存日志 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <button
-              className="btn"
+            <Button variant="outline"
               onClick={handleCleanupExpired}
               disabled={busy || logRetention === 0}
               title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
-              style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
+              style={{ fontSize: 12, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
-            </button>
-            <button
-              className="btn btn-danger"
+            </Button>
+            <Button variant="destructive"
               onClick={() => setShowClearConfirm(true)}
               disabled={busy}
-              style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
+              style={{ fontSize: 12, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
-            </button>
+            </Button>
           </div>
           {message && (
             <div
@@ -296,28 +269,27 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("appLog.level", "日志级别")}
               </label>
-              <select
-                className="input"
-                value={logLevel}
-                onChange={(e) => handleLogSettingsChange({ level: e.target.value })}
-                style={{ width: 90, padding: "4px 8px", fontSize: 12 }}
-              >
-                {["trace", "debug", "info", "warn", "error"].map((l) => (
-                  <option key={l} value={l}>{l.toUpperCase()}</option>
-                ))}
-              </select>
+              <Select value={logLevel} onValueChange={(v) => handleLogSettingsChange({ level: v })}>
+                <SelectTrigger style={{ width: 100, height: 28, fontSize: 12 }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["trace", "debug", "info", "warn", "error"].map((l) => (
+                    <SelectItem key={l} value={l}>{l.toUpperCase()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("appLog.retention", "保留时长")}
               </label>
-              <input
-                className="input"
+              <Input
                 type="number"
                 min={0}
                 value={logRetHours}
                 onChange={(e) => handleLogSettingsChange({ retention_hours: Math.max(0, Number(e.target.value)) })}
-                style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+                style={{ width: 70, height: 28, fontSize: 12 }}
               />
               <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                 {t("appLog.retentionUnit", "小时")}
@@ -330,54 +302,35 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         )}
       </div>
 
-      {/* 清空确认 modal — 必须 portal document.body（祖先 transform/backdrop-filter 让 fixed 退化） */}
-      {showClearConfirm && createPortal(
-        <div
-          style={{
-            position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0, 0, 0, 0.4)", zIndex: 1000,
-          }}
-          onClick={() => !busy && setShowClearConfirm(false)}
-        >
-          <div
-            className="glass-surface"
-            style={{
-              padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)",
-              display: "flex", flexDirection: "column", gap: 16,
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div style={{ fontSize: 13, fontWeight: 600 }}>
+      {/* 清空确认 modal — shadcn Dialog (Radix Portal) 满足 createPortal(document.body) 居中规则。 */}
+      <Dialog open={showClearConfirm} onOpenChange={(o) => { if (!busy) setShowClearConfirm(o); }}>
+        <DialogContent className="glass-surface" style={{ maxWidth: 380, padding: 20, borderRadius: "var(--radius-lg)", gap: 16 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
               {t("logs.clearConfirmTitle", "清空全部日志")}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
               {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                className="btn"
-                onClick={() => setShowClearConfirm(false)}
-                disabled={busy}
-                style={{ padding: "6px 14px", fontSize: 12 }}
-              >
-                {t("logs.cancel", "取消")}
-              </button>
-              <button
-                className="btn btn-danger"
-                onClick={handleClearConfirm}
-                disabled={busy}
-                style={{
-                  padding: "6px 14px", fontSize: 12,
-                  opacity: busy ? 0.6 : 1,
-                }}
-              >
-                {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
-              </button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Button variant="ghost"
+              onClick={() => setShowClearConfirm(false)}
+              disabled={busy}
+              style={{ padding: "6px 14px", fontSize: 12 }}
+            >
+              {t("logs.cancel", "取消")}
+            </Button>
+            <Button variant="destructive"
+              onClick={handleClearConfirm}
+              disabled={busy}
+              style={{ padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1 }}
+            >
+              {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
+            </Button>
           </div>
-        </div>,
-        document.body
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

@@ -7,6 +7,7 @@ import { SectionIcon } from "../editors";
 import { StatChip } from "../../shared/StatChip";
 import { SCOPE_ICON } from "./meta";
 import { Segmented } from "./primitives";
+import { Input } from "@/components/ui/input";
 
 export function ConflictRow({
   item,
@@ -57,8 +58,8 @@ export function ConflictRow({
           }}
         />
         {isRename && (
-          <input
-            className="input"
+          <Input
+            
             type="text"
             value={(current as { kind: "rename"; new_key: string }).new_key}
             onChange={(e) => onChange({ kind: "rename", new_key: e.target.value })}
