@@ -244,13 +244,12 @@ pub fn parse_gemini_sse(data: &Value) -> Option<ChatStreamEvent> {
 
     // 结束
     let finish_reason = candidate.get("finishReason").and_then(|v| v.as_str());
-    if let Some(reason) = finish_reason {
-        if reason == "STOP" || reason == "MAX_TOKENS" {
+    if let Some(reason) = finish_reason
+        && (reason == "STOP" || reason == "MAX_TOKENS") {
             return Some(ChatStreamEvent::Stop {
                 finish_reason: Some(reason.to_lowercase()),
             });
         }
-    }
 
     None
 }

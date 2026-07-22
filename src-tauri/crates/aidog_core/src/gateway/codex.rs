@@ -23,11 +23,10 @@ pub fn profile_path_public(group: &str) -> Result<PathBuf, String> {
 }
 
 fn codex_home() -> Result<PathBuf, String> {
-    if let Ok(custom) = std::env::var("CODEX_HOME") {
-        if !custom.trim().is_empty() {
+    if let Ok(custom) = std::env::var("CODEX_HOME")
+        && !custom.trim().is_empty() {
             return Ok(PathBuf::from(custom));
         }
-    }
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     Ok(home.join(".codex"))
 }
@@ -119,15 +118,14 @@ pub fn cleanup_group_profiles(keep: &std::collections::HashSet<String>) -> Resul
         if name == "config.toml" {
             continue;
         }
-        if let Some(group) = name.strip_suffix(".config.toml") {
-            if !group.is_empty() && !keep.contains(group) {
+        if let Some(group) = name.strip_suffix(".config.toml")
+            && !group.is_empty() && !keep.contains(group) {
                 if let Err(e) = std::fs::remove_file(entry.path()) {
                     tracing::warn!(group, path = %entry.path().display(), error = %e, "cleanup codex profile: remove failed");
                 } else {
                     tracing::debug!(group, "cleanup codex profile: removed stale profile");
                 }
             }
-        }
     }
     Ok(())
 }
@@ -287,11 +285,10 @@ pub fn remove_default_profile_from_config() -> Result<Option<String>, String> {
             changed = true;
         }
         // 空 providers 表也清理（避免留下空 [model_providers]）
-        if providers.is_empty() {
-            if let Some(obj) = config.as_object_mut() {
+        if providers.is_empty()
+            && let Some(obj) = config.as_object_mut() {
                 obj.remove("model_providers");
             }
-        }
     }
 
     if !changed {

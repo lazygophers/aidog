@@ -195,8 +195,8 @@ fn apply_mask(rule_type: RuleType, cr: &CompiledRule, chat_req: &mut ChatRequest
     let use_builtin = rule_type == RuleType::ContentFilter && cr.rule.pattern.is_empty();
     let replace = |s: &str| -> String { mask_text(s, rule_type, cr, use_builtin, &replacement) };
 
-    if touch_system {
-        if let Some(sys) = chat_req.system.as_mut() {
+    if touch_system
+        && let Some(sys) = chat_req.system.as_mut() {
             match sys {
                 SystemContent::Text(t) => *t = replace(t),
                 SystemContent::Blocks(blocks) => {
@@ -211,7 +211,6 @@ fn apply_mask(rule_type: RuleType, cr: &CompiledRule, chat_req: &mut ChatRequest
                 }
             }
         }
-    }
     if touch_messages {
         for m in chat_req.messages.iter_mut() {
             map_text(&mut m.content, &replace);

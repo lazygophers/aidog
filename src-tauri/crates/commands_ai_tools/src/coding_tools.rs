@@ -99,8 +99,8 @@ pub async fn coding_tools_settings_set(
 
     // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
     // 不再静默 warn+返原值（旧实现致前端乐观翻转后被 setSettings(原值) 回滚 = 「开关点击无反应」）。
-    if let Some(v) = apply_to_claude_plugin {
-        if v != current.apply_to_claude_plugin {
+    if let Some(v) = apply_to_claude_plugin
+        && v != current.apply_to_claude_plugin {
             let res = if v {
                 gateway::claude_integration::write_plugin_primary_key()
             } else {
@@ -119,10 +119,9 @@ pub async fn coding_tools_settings_set(
                 }
             }
         }
-    }
 
-    if let Some(v) = skip_claude_onboarding {
-        if v != current.skip_claude_onboarding {
+    if let Some(v) = skip_claude_onboarding
+        && v != current.skip_claude_onboarding {
             let res = if v {
                 gateway::claude_integration::set_has_completed_onboarding()
             } else {
@@ -141,7 +140,6 @@ pub async fn coding_tools_settings_set(
                 }
             }
         }
-    }
 
     // 写回 DB。
     let value = serde_json::to_value(&current).map_err(|e| e.to_string())?;

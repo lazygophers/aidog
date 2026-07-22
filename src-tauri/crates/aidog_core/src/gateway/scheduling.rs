@@ -202,11 +202,10 @@ impl SchedulerState {
 
     /// 不计入熔断的请求结束（401/403/客户端 4xx 非 429）：仅 inflight-1，不动 breaker/EMA。
     pub fn record_ignored(&self, platform_id: u64) {
-        if let Ok(mut g) = self.health.write() {
-            if let Some(h) = g.get_mut(&platform_id) {
+        if let Ok(mut g) = self.health.write()
+            && let Some(h) = g.get_mut(&platform_id) {
                 Self::dec_inflight(h);
             }
-        }
     }
 
     /// 测试 / 诊断：读取当前 breaker 状态副本。
@@ -270,15 +269,14 @@ impl StickyTable {
     /// 写绑定（回退调度选定平台后）。超容量时淘汰最久未访问项。
     pub fn put(&self, key: String, platform_id: u64, now_ms: i64) {
         if let Ok(mut g) = self.map.write() {
-            if g.len() >= STICKY_CAP && !g.contains_key(&key) {
-                if let Some(oldest) = g
+            if g.len() >= STICKY_CAP && !g.contains_key(&key)
+                && let Some(oldest) = g
                     .iter()
                     .min_by_key(|(_, e)| e.last_access_ms)
                     .map(|(k, _)| k.clone())
                 {
                     g.remove(&oldest);
                 }
-            }
             g.insert(
                 key,
                 StickyEntry {

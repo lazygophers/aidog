@@ -157,8 +157,8 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
 
 /// 读取 PopoverConfig。无配置 / 损坏 → 默认配置（不持久化，按需懒生成）。
 pub async fn get_popover_config(db: &Db) -> Result<crate::gateway::models::PopoverConfig, String> {
-    if let Some(v) = get_setting(db, "popover", "config").await? {
-        if !v.is_null() {
+    if let Some(v) = get_setting(db, "popover", "config").await?
+        && !v.is_null() {
             let cfg: crate::gateway::models::PopoverConfig =
                 serde_json::from_value(v).unwrap_or_else(|e| {
                     tracing::warn!(error = %e, "popover config JSON is corrupt, falling back to default");
@@ -166,7 +166,6 @@ pub async fn get_popover_config(db: &Db) -> Result<crate::gateway::models::Popov
                 });
             return Ok(cfg);
         }
-    }
     Ok(crate::gateway::models::PopoverConfig::default())
 }
 

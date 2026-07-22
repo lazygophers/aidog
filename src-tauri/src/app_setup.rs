@@ -509,11 +509,10 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             }
 
             // 静默启动：隐藏主窗口，仅托盘运行
-            if settings.silent_launch {
-                if let Some(w) = app.get_webview_window("main") {
+            if settings.silent_launch
+                && let Some(w) = app.get_webview_window("main") {
                     let _ = w.hide();
                 }
-            }
 
             // aidog:// deep link 协议层：挂 on_open_url + 冷启动 get_current 补发 +
             // Win/Linux register_all。失败仅 warn 不阻塞启动（非关键路径）。

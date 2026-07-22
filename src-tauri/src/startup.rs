@@ -31,11 +31,10 @@ pub fn run() {
         // 其余 3 失活场景 (点桌面 / silent_launch 主窗 hide 后点别处 / 点 Dock 菜单栏空白)
         // 由 app_setup.rs 的 NSWindow.setHidesOnDeactivate:YES 覆盖 (app 失活即隐藏).
         .on_window_event(|window, event| {
-            if let tauri::WindowEvent::Focused(false) = event {
-                if window.label() == "popover" {
+            if let tauri::WindowEvent::Focused(false) = event
+                && window.label() == "popover" {
                     let _ = window.destroy();
                 }
-            }
         })
         .setup(|app| crate::app_setup::setup(app))
         .invoke_handler(tauri::generate_handler![

@@ -23,10 +23,10 @@ pub async fn migrate_log_settings_file_to_db(db: &Db) {
     if !path.exists() {
         return;
     }
-    if let Ok(content) = std::fs::read_to_string(&path) {
-        if let Ok(settings) = serde_json::from_str::<logging::AppLogSettings>(&content) {
-            if db::get_setting(db, "app", "logging").await.ok().flatten().is_none() {
-                if let Ok(value) = serde_json::to_value(&settings) {
+    if let Ok(content) = std::fs::read_to_string(&path)
+        && let Ok(settings) = serde_json::from_str::<logging::AppLogSettings>(&content)
+            && db::get_setting(db, "app", "logging").await.ok().flatten().is_none()
+                && let Ok(value) = serde_json::to_value(&settings) {
                     let _ = db::set_setting(
                         db,
                         SetSettingInput {
@@ -37,9 +37,6 @@ pub async fn migrate_log_settings_file_to_db(db: &Db) {
                     )
                     .await;
                 }
-            }
-        }
-    }
     // 无论解析成功与否都删除：坏文件不保留，DB 已是唯一源（缺失则 default）。
     let _ = std::fs::remove_file(&path);
 }

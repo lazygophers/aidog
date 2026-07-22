@@ -40,11 +40,10 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
 
 /// Helper: attempt sync, log errors but don't propagate
 pub async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
-    if let Ok(settings) = load_proxy_settings(app).await {
-        if let Err(e) = do_sync_group_settings(db, settings.port).await {
+    if let Ok(settings) = load_proxy_settings(app).await
+        && let Err(e) = do_sync_group_settings(db, settings.port).await {
             tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
         }
-    }
 }
 
 /// aidog 托管字段 marker 键名（历史遗留：曾写入 `~/.claude/settings.json`，现已迁至
@@ -378,13 +377,11 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     if let Ok(entries) = std::fs::read_dir(&aidog_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if let Some(group_key) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json")) {
-                if !group_keys.contains(group_key) {
-                    if let Err(e) = std::fs::remove_file(entry.path()) {
+            if let Some(group_key) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json"))
+                && !group_keys.contains(group_key)
+                    && let Err(e) = std::fs::remove_file(entry.path()) {
                         tracing::debug!(group = %group_key, error = %e, "remove stale settings file failed");
                     }
-                }
-            }
         }
     }
 

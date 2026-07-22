@@ -278,11 +278,10 @@ pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output =
 /// **关日志期间未落 proxy_log 但已聚合的旧行保留**（不再被抹掉）。
 /// 失败仅返回 Err，调用方（启动 spawn）warn 不置标记，下次启动重试。
 pub async fn rebuild_stats_agg_once_if_needed(db: &Db) -> Result<bool, String> {
-    if let Ok(Some(v)) = get_setting(db, "stats", "agg_rebuild_v1").await {
-        if v == serde_json::Value::Bool(true) {
+    if let Ok(Some(v)) = get_setting(db, "stats", "agg_rebuild_v1").await
+        && v == serde_json::Value::Bool(true) {
             return Ok(false);
         }
-    }
     rebuild_stats_agg_from_logs(db).await?;
     set_setting(
         db,
@@ -307,11 +306,10 @@ pub async fn rebuild_stats_agg_once_if_needed(db: &Db) -> Result<bool, String> {
 /// 注意：关日志期间未落 proxy_log 的旧桶会被误删——但本项目 P6 已确认日志主开关常开未动，
 /// 且先前 agg_rebuild_v1 纠正同样不保留此类桶，口径一致。
 pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, String> {
-    if let Ok(Some(v)) = get_setting(db, "stats", "agg_count_tokens_excluded_v1").await {
-        if v == serde_json::Value::Bool(true) {
+    if let Ok(Some(v)) = get_setting(db, "stats", "agg_count_tokens_excluded_v1").await
+        && v == serde_json::Value::Bool(true) {
             return Ok(false);
         }
-    }
     let __db_caller = std::panic::Location::caller();
     // stats-agg-to-main-db s4：跨库两阶段——proxy_log 在 log.db，stats_agg_hourly 在主库，
     // 禁同闭包跨库读。① log.db 读池跑聚合；② 主库写槽 upsert + 删孤儿。

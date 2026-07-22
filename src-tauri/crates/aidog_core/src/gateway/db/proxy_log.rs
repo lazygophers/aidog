@@ -545,8 +545,8 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
     }
     // source 维度（cli-proxy-request-log s3）：包含 / 排除筛选，参数化 IN / NOT IN。
     // 空 Vec 视为未设置（Some(vec![]) 与 None 同义），避免 `IN ()` sqlite 语法错。
-    if let Some(ref srcs) = filter.sources {
-        if !srcs.is_empty() {
+    if let Some(ref srcs) = filter.sources
+        && !srcs.is_empty() {
             let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
             parts.push(format!("AND source_protocol IN ({})", placeholders.join(", ")));
             for s in srcs {
@@ -554,9 +554,8 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
             }
             idx += srcs.len() as u32;
         }
-    }
-    if let Some(ref srcs) = filter.exclude_sources {
-        if !srcs.is_empty() {
+    if let Some(ref srcs) = filter.exclude_sources
+        && !srcs.is_empty() {
             let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
             // `OR source_protocol IS NULL`：理论 source_protocol 各路径均硬赋值无 NULL，
             // 但 NULL NOT IN (...) 返 NULL（被 WHERE 视作 false 而 filter 掉），加 OR 保 NULL 行不丢。
@@ -569,7 +568,6 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
             }
             idx += srcs.len() as u32;
         }
-    }
     if let Some(pid) = filter.cli_proxy_provider_id {
         parts.push(format!("AND cli_proxy_provider_id = ?{idx}"));
         p.push(Box::new(pid));

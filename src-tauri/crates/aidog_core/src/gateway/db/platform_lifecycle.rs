@@ -289,8 +289,8 @@ pub fn get_tray_platform(db: &Db) -> impl std::future::Future<Output = Result<Op
 /// 读取 TrayConfig。无配置时（首次/升级）从旧 `show_in_tray=1` 平台迁移生成默认配置并持久化。
 /// 返回 None 仅当迁移后仍无任何 enabled 平台（即旧配置也为空）。
 pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
-    if let Some(v) = get_setting(db, "tray", "config").await? {
-        if !v.is_null() {
+    if let Some(v) = get_setting(db, "tray", "config").await?
+        && !v.is_null() {
             // 旧全局 layout(single_line/two_line) → 各 item line_mode 迁移：
             // 解析前先抓顶层 layout，若旧配置含该字段则映射到所有 item（two_line→"two" / 其他→"single"）。
             let legacy_line_mode = v
@@ -309,7 +309,6 @@ pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
             }
             return Ok(Some(cfg));
         }
-    }
     // 迁移：无 tray config → 从旧 show_in_tray=1 平台生成默认。
     let migrated = migrate_tray_config(db).await?;
     Ok(migrated)

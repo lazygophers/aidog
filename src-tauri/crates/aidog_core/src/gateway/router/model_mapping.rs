@@ -16,11 +16,10 @@ pub(crate) fn resolve_model(models: &PlatformModels, source_model: &str) -> Stri
         ("gpt", &models.gpt),
     ];
     for (slot_name, slot_value) in &slots {
-        if lower.contains(slot_name) {
-            if let Some(v) = slot_value {
+        if lower.contains(slot_name)
+            && let Some(v) = slot_value {
                 return v.clone();
             }
-        }
     }
     // 回退到 default
     if let Some(ref default) = models.default {

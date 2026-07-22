@@ -51,11 +51,10 @@ pub async fn proxy_start(
     save_proxy_settings(&app, actual_port, true, saved.silent_launch, saved.bind_lan).await?;
 
     // 同步所有分组的 settings 文件（端口可能变了）
-    if let Some(db) = app.try_state::<Db>() {
-        if let Err(e) = do_sync_group_settings(&db, actual_port).await {
+    if let Some(db) = app.try_state::<Db>()
+        && let Err(e) = do_sync_group_settings(&db, actual_port).await {
             tracing::warn!(command = "proxy_start", port = actual_port, error = %e, "sync group settings after start failed");
         }
-    }
 
     // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
     let _ = app.emit("tray-refresh", ());
