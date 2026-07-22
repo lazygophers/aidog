@@ -3,6 +3,7 @@
 //   渲染：页头（搜索 + 添加分组 + 添加平台 + 清理失效）+ GroupsEmbedded（分组段）+ 未分组平台列表 +
 //   ModelTestPanel overlay + groupDrag portal + ShareModal + toast portal。
 import React, { useEffect, useState } from "react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { type Platform } from "../../services/api";
@@ -23,6 +24,9 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   openCreateGroupRef: React.MutableRefObject<(() => void) | null>;
 }) {
   const { t, i18n } = useTranslation();
+  // ponytail: 清理失效平台确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）
+  const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
+  const [purging, setPurging] = useState(false);
   // colorMap / labelMap：async 派生自 platform-presets.json；首帧空 map（fallback platform_type key）。
   const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
@@ -51,6 +55,11 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
     toast, setToast,
     onNavigate,
   } = s;
+  // ponytail: purge 确认在 AlertDialog Action 触发（busy 期间禁按钮防双击）
+  const onPurgeConfirm = async () => {
+    setPurging(true);
+    try { await handlePurgeDisabled(); } finally { setPurging(false); setPurgeConfirmOpen(false); }
+  };
 
   return (
     <>
@@ -79,7 +88,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           </Button>
           <Button
             variant="ghost"
-            onClick={handlePurgeDisabled}
+            onClick={() => setPurgeConfirmOpen(true)}
             title={t("platform.purgeDisabled", "清理失效平台")}
           >
             {t("platform.purgeDisabled", "清理失效平台")}
@@ -226,6 +235,25 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{toast.ok ? <IconCheck size={14} color="#fff" /> : <IconClose size={14} color="#fff" />} {toast.text}</span>
         </div>,
         document.body,
+      )}
+      {purgeConfirmOpen && (
+        <AlertDialog open={purgeConfirmOpen} onOpenChange={(next) => { if (!next && !purging) setPurgeConfirmOpen(false); }}>
+          <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}
+            onEscapeKeyDown={(e) => { if (purging) e.preventDefault(); }}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("platform.purgeDisabled", "清理失效平台")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("platform.purgeDisabledConfirm", "将永久删除所有自动禁用态平台，此操作不可撤销。")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={purging}>{t("action.cancel", "取消")}</AlertDialogCancel>
+              <AlertDialogAction disabled={purging} onClick={onPurgeConfirm}>
+                {purging ? t("status.loading", "处理中…") : t("action.confirm", "确认")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </>
   );
