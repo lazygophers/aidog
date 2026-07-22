@@ -1,12 +1,19 @@
 // ─── 发现新版本提醒 modal ───────────────────────────────────
 // 自定义 in-app modal (禁原生 confirm/alert，破坏 Tauri)。
-// 视觉沿用 UnsavedChangesModal 的 overlay + glass-elevated 语言。
+// shadcn Dialog (Radix Portal) satisfies createPortal(document.body) centering rule.
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { runUpdate } from "../services/updater";
-import { Modal } from "./shared/Modal";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 export interface UpdatePromptModalProps {
   /** check() 返回的可用更新。 */
@@ -33,53 +40,53 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
     }
   };
 
+  // ponytail: 原 Modal closeOnEscape={false} + closeOnBackdrop={!busy} → Radix Dialog 统一
+  // onOpenChange，busy 时拦截所有非用户主动关闭（backdrop/escape），非 busy 时允许。
   return (
-    <Modal open onClose={onClose} closeOnBackdrop={!busy} closeOnEscape={false} className="glass-elevated" maxWidth={460} style={{ padding: "22px 24px" }}>
-        <div
-          style={{
-            fontSize: 16,
-            fontWeight: 600,
-            color: "var(--text-primary)",
-            marginBottom: 8,
-          }}
-        >
-          {t("updater.foundTitle", "发现新版本")} v{update.version}
-        </div>
-        {update.body && (
-          <div
-            style={{
-              fontSize: 13,
-              color: "var(--text-secondary)",
-              lineHeight: 1.6,
-              marginBottom: 16,
-              maxHeight: 220,
-              overflowY: "auto",
-              whiteSpace: "pre-wrap",
-              wordBreak: "break-word",
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--text-primary)" }}>
-              {t("updater.releaseNotes", "更新内容")}
-            </div>
-            {update.body}
-          </div>
-        )}
+    <Dialog open onOpenChange={(o) => { if (!o && busy) return; if (!o) onClose(); }}>
+      <DialogContent className="glass-elevated" style={{ maxWidth: 460, padding: "22px 24px" }}>
+        <DialogHeader>
+          <DialogTitle style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>
+            {t("updater.foundTitle", "发现新版本")} v{update.version}
+          </DialogTitle>
+          {update.body && (
+            <DialogDescription
+              asChild
+              style={{
+                fontSize: 13,
+                color: "var(--text-secondary)",
+                lineHeight: 1.6,
+                maxHeight: 220,
+                overflowY: "auto",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-word",
+              }}
+            >
+              <div>
+                <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--text-primary)" }}>
+                  {t("updater.releaseNotes", "更新内容")}
+                </div>
+                {update.body}
+              </div>
+            </DialogDescription>
+          )}
+        </DialogHeader>
         {error && (
           <div style={{ fontSize: 12, color: "var(--color-danger)", marginBottom: 12, wordBreak: "break-all" }}>
             {error}
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <button
-            className="btn btn-ghost"
+          <Button
+            variant="ghost"
             style={{ fontSize: 13, padding: "6px 14px" }}
             onClick={onClose}
             disabled={busy}
           >
             {t("updater.later", "稍后")}
-          </button>
-          <button
-            className="btn btn-primary"
+          </Button>
+          <Button
+            variant="default"
             style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
             onClick={handleUpdate}
             disabled={busy}
@@ -87,8 +94,9 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
             {busy
               ? t("updater.updating", "更新中…")
               : t("updater.updateNow", "立即更新")}
-          </button>
+          </Button>
         </div>
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 }
