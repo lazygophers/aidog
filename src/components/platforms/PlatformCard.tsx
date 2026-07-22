@@ -410,9 +410,9 @@ export const PlatformCard = memo(function PlatformCard({
                 {platformMembership && platformMembership.length > 0 && (
                   <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {platformMembership.map(gName => (
-                      <span key={gName} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px" }}>
+                      <Badge key={gName} variant="secondary" style={{ fontSize: 10, padding: "1px 6px" }}>
                         {gName}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 )}
@@ -682,10 +682,10 @@ function EndpointsSection({
           <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {endpoints.map((ep, ei) => (
-              <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
+              <Badge key={ei} variant="secondary" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
                 {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
                 {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
@@ -695,7 +695,7 @@ function EndpointsSection({
           <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {configuredModels.map((m, mi) => (
-              <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</span>
+              <Badge key={mi} variant="secondary" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</Badge>
             ))}
           </div>
         </div>
