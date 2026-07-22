@@ -2,7 +2,7 @@
   "id": "proxy-url-presets",
   "name": "代理 URL 下拉预置端口",
   "desc": "CodingToolsSettings 代理 URL input 加 datalist 预置 4 个本地 http://127.0.0.1:{7890,8080,1080,7899}; 支持下拉选 + 自由输入; 验证 build+check-i18n+test",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -16,31 +16,28 @@
         "test 全过",
         "input 带 4 预置可自由输入"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1784648331,
       "started": null,
-      "finished": null
+      "finished": 1784648409
     }
   ],
   "repos": [],
-  "worktree": ".worktrees/skein-proxy-url-presets",
-  "worktrees": [
-    {
-      "repo": ".",
-      "wt": ".worktrees/skein-proxy-url-presets",
-      "branch": "skein/proxy-url-presets",
-      "merged": false
-    }
-  ],
+  "worktree": null,
+  "worktrees": [],
   "branch": "skein/proxy-url-presets",
   "parent": null,
   "kind": "task",
   "created": 1784648311,
   "started": 1784648332,
   "checked": null,
-  "finished": null,
-  "updated": 1784648332
+  "finished": 1784648410,
+  "updated": 1784648410
 }

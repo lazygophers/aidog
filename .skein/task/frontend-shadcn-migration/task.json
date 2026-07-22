@@ -1,0 +1,20 @@
+{
+  "id": "frontend-shadcn-migration",
+  "name": "前端迁移至 shadcn/ui",
+  "desc": "全量重写前端 UI 至 shadcn/ui + Tailwind v4,废弃现有主题系统迁到 shadcn token 体系,补复杂组件、统一组件库、规范化主题、外观现代化",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/frontend-shadcn-migration",
+  "parent": null,
+  "kind": "supertask",
+  "created": 1784696126,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1784696126
+}

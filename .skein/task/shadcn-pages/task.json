@@ -1,0 +1,249 @@
+{
+  "id": "shadcn-pages",
+  "name": "前端页面全量迁移至 shadcn",
+  "desc": "18 pages + 40 组件文件全量从原生元素+自定义组件迁到 shadcn primitives,按域拆并行 subtask(settings/platforms/groups/logs/stats/skills/mcp/home/top-level)",
+  "status": "待处理",
+  "deps": [
+    "shadcn-primitives"
+  ],
+  "contracts": [
+    "仅换 UI 渲染层 (JSX+className): Tauri invoke 调用 + 参数名 + i18n key + 业务逻辑 + props 契约零改 (memory ts-protocol-rust-serde-sync)",
+    "modal/confirm 走 shadcn Dialog/AlertDialog/Sheet (Radix Portal), 禁原生 confirm/beforeunload",
+    "数值格式化走 utils/formatters.ts, 禁页内重复定义 (CLAUDE.md)",
+    "导航本地 state + utils/navGuard.ts, 禁 react-router (CLAUDE.md)",
+    "8 语言 i18n key 零改 (check-i18n 过); 迁完删旧自定义 CSS 类不留死代码",
+    "组件测试改测行为不测实现 (findByRole/交互断言), 禁断言 className/内部 DOM 结构; PlatformCard/BalanceBar/CompactCard/StatChip/CostTrendChart 测试迁后改写",
+    "m-settings 含 components/settings/editors/ 全部 15 文件 (StatusLineSection/子目录 + FieldRenderer/EnvEditor/PermissionsSection/HooksSection/HooksSectionInline/PluginsSection/icons/hooks-types/preview + SandboxSection/ImportDiff/_shared), 非仅 design 初列 3 个",
+    "i18n theme.color.{appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl} 8 个死 key 从 8 locale 文件清; theme.style.* 全保留"
+  ],
+  "subtasks": [
+    {
+      "sid": "m-settings",
+      "name": "迁移 settings 域",
+      "desc": "AppSettings/Settings/CodexSettings/TrayConfigTab/PopoverConfigTab + components/settings/* (SchedulingSettings/MiddlewareRules/CodingToolsSettings/MitConfig/CcSwitchImport/NotificationSettings/SectionAnchorNav/editors/SettingsHeader/Sub2ApiImport/NotificationEventList/UnsavedChangesModal + editors/SandboxSection/ImportDiff/_shared): 原生 button/input/select/textarea→shadcn 表单; 自定义 tab→Tabs; UnsavedChangesModal→Dialog; 编辑器表单用 Field/FieldGroup",
+      "depends_on": [],
+      "验收": [
+        "settings 域文件全迁完",
+        "无残留原生 button/input/select/textarea (grep 验证)",
+        "UnsavedChangesModal 走 Dialog (Radix Portal)",
+        "tabs→shadcn Tabs (trigger 在 list 内)",
+        "Field/FieldGroup 布局表单",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696813,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-platforms",
+      "name": "迁移 platforms 域",
+      "desc": "Platforms + pages/platforms/* + components/platforms/* (PlatformCard/SmartPasteModal/BatchDeleteModal/BatchOverrideModelsModal/BatchMoveGroupModal/BatchSetStatusModal/ShareModal): 表单→shadcn; 各 Modal→Dialog/AlertDialog; 批量操作 confirm→AlertDialog; 状态徽标→Badge; PlatformCard.test.tsx 测试过",
+      "depends_on": [],
+      "验收": [
+        "platforms 域全迁",
+        "Modal 走 Dialog/AlertDialog (createPortal 规则)",
+        "批量 confirm 走 AlertDialog (非原生 confirm)",
+        "PlatformCard.test.tsx 过",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696814,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-groups",
+      "name": "迁移 groups 域",
+      "desc": "Groups.tsx (37K) + pages/Groups/*: 平台列表/拖拽/统计卡片; 拖拽保留 dnd-kit (SortableList 内部 button 换 shadcn); 统计卡→Card+Badge; 操作菜单→DropdownMenu",
+      "depends_on": [],
+      "验收": [
+        "groups 域全迁",
+        "dnd-kit 拖拽逻辑保留",
+        "统计卡走 Card",
+        "操作菜单走 DropdownMenu",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696814,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-logs",
+      "name": "迁移 logs 域",
+      "desc": "Logs.tsx + RequestLog.tsx + pages/Logs/*: 日志列表/详情/过滤; 表格→Table 或列表; 过滤→FilterDropdown 换 shadcn Select/Combobox; 详情抽屉→Sheet",
+      "depends_on": [],
+      "验收": [
+        "logs 域全迁",
+        "过滤走 shadcn Select/Combobox",
+        "详情走 Sheet (Radix Portal)",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696815,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-stats",
+      "name": "迁移 stats 域",
+      "desc": "Stats.tsx (32K) + PricingTab.tsx + CostTrendChart: 统计卡片→Card+StatChip(Badge); 图表区保留 (CostTrendChart 若需 shadcn chart 按需 add); 数值格式化仍走 utils/formatters.ts",
+      "depends_on": [],
+      "验收": [
+        "stats 域全迁",
+        "数值格式化走 utils/formatters.ts (CLAUDE.md)",
+        "CostTrendChart.test.tsx 过",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696815,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-skills-mcp",
+      "name": "迁移 skills+mcp 域",
+      "desc": "Skills/SkillDetailView/SkillInstallView/Mcp + pages/Skills/* + pages/Mcp/*: 列表→Card; 详情→Tabs; 安装流程→Form+Dialog; 操作→Button+DropdownMenu",
+      "depends_on": [],
+      "验收": [
+        "skills+mcp 域全迁",
+        "列表走 Card",
+        "详情走 Tabs",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696816,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-misc",
+      "name": "迁移 misc 域 (Home/About/Notifications/ModelTestPanel/CliProxy/shared)",
+      "desc": "Home/About/Notifications/ModelTestPanel/CliProxy + components/shared (StatChip/BalanceBar/CompactCard/CopyButton/TestResultBody/FilterDropdown): StatChip→Badge; CompactCard→Card; CopyButton→Button; 删 shared/Modal.tsx (走 Dialog); BalanceBar/StatChip/CompactCard 测试过",
+      "depends_on": [],
+      "验收": [
+        "misc 域全迁",
+        "StatChip→Badge/CompactCard→Card",
+        "旧 shared/Modal.tsx 删除",
+        "BalanceBar/StatChip/CompactCard 测试过",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696816,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-toplevel",
+      "name": "迁移顶层 (App/Sidebar/PopoverCards/UpdatePromptModal/SortableList)",
+      "desc": "App.tsx + Sidebar.tsx + PopoverCards.tsx + UpdatePromptModal.tsx + SortableList.tsx: 侧栏导航保留本地 state (禁 react-router); PopoverCards→Popover; UpdatePromptModal→Dialog; SortableList 内 button 换 (dnd-kit 保留)",
+      "depends_on": [],
+      "验收": [
+        "顶层全迁",
+        "导航仍本地 state + navGuard (CLAUDE.md)",
+        "UpdatePromptModal→Dialog",
+        "PopoverCards→shadcn Popover",
+        "SortableList dnd-kit 保留",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784696817,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-domains",
+      "name": "迁移 src/domains/ (6 tsx 697 行)",
+      "desc": "domains/platforms/* (MockConfigEditor/SearchableProtocolSelect/ProtocolLogo) + domains/groups/* (PlatformPicker/GroupTestPanel/GroupIcon): 原生表单→shadcn, var() 旧引用改投 shadcn token (若 infra 批量改名已处理则校验), 图标按需换 lucide",
+      "depends_on": [],
+      "验收": [
+        "domains/ 6 tsx 全迁",
+        "无残留原生 button/input/select",
+        "var() 引用指向 shadcn token",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784697117,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "m-popover",
+      "name": "迁移 popover 独立窗口 (src/popover.tsx + popover.css)",
+      "desc": "src/popover.tsx (8K, Tauri popover 第二 ReactDOM root) + popover.css (293 行): 入口组件 UI 迁 shadcn, popover.css 旧自定义类清/改 tailwind token; 该入口共享主题系统验证切换生效",
+      "depends_on": [],
+      "验收": [
+        "popover.tsx 迁 shadcn 组件",
+        "popover.css 旧类清理到 tailwind token",
+        "主题切换在 popover 窗口生效",
+        "yarn build 过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [
+        "shadcn"
+      ],
+      "created": 1784697118,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/shadcn-pages",
+  "parent": "frontend-shadcn-migration",
+  "kind": "task",
+  "created": 1784696567,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1784697119
+}

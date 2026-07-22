@@ -1,5 +1,5 @@
 {
-  "ts": "2026-07-21T22:38:14",
+  "ts": "2026-07-22T15:43:28",
   "core_chars": 11430,
   "budget": 1000,
   "problems": [
@@ -20,7 +20,7 @@
       "files": [
         "core/arch/cross-db-read-two-phase"
       ],
-      "detail": "[stale] core/arch/cross-db-read-two-phase (created 12月,366天前, updated -,?, status active)"
+      "detail": "[stale] core/arch/cross-db-read-two-phase (created 12月,367天前, updated -,?, status active)"
     },
     {
       "type": "broken-link",
@@ -41,7 +41,7 @@
       "files": [
         "core/arch/db-table-cross-db-migrate-idiom"
       ],
-      "detail": "[stale] core/arch/db-table-cross-db-migrate-idiom (created 12月,366天前, updated -,?, status active)"
+      "detail": "[stale] core/arch/db-table-cross-db-migrate-idiom (created 12月,367天前, updated -,?, status active)"
     },
     {
       "type": "orphan",
