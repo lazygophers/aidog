@@ -23,7 +23,7 @@ export function RowContainer({
     <div
       ref={setNodeRef}
       style={{
-        border: `1px solid ${isOver ? "var(--accent)" : "var(--border)"}`,
+        border: `1px solid ${isOver ? "var(--primary)" : "var(--border)"}`,
         borderRadius: 10, padding: 8,
         background: isOver ? "var(--bg-glass)" : "transparent",
         display: "flex", flexDirection: "column", gap: 8,

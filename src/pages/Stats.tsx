@@ -700,7 +700,7 @@ function SortableTh({ label, col, align = "right", sortKey, sortDir, onSort }: S
         fontWeight: 600,
         cursor: "pointer",
         userSelect: "none",
-        color: active ? "var(--accent)" : "var(--text-primary)",
+        color: active ? "var(--primary)" : "var(--text-primary)",
         whiteSpace: "nowrap",
       }}
     >

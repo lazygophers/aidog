@@ -339,7 +339,7 @@ export function GroupListView(props: GroupListViewProps) {
               </Button>
             )}
             <AlertDialogAction
-              style={{ backgroundColor: "var(--color-danger, #ef4444)", color: "#fff" }}
+              style={{ backgroundColor: "var(--color-danger)", color: "var(--destructive-foreground)" }}
               onClick={() => { void confirmDeletePlatform(); }}>
               {removeTarget?.groupCount && removeTarget.groupCount > 1
                 ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
@@ -406,7 +406,7 @@ function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFun
   return (
     <Card className="glass-surface" style={{
       padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8,
-      opacity: 0.85, border: "1px dashed var(--border-color)", borderRadius: "var(--radius-md)",
+      opacity: 0.85, border: "1px dashed var(--border)", borderRadius: "var(--radius-md)",
     }}>
       <CardHeader style={{ padding: 0, gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

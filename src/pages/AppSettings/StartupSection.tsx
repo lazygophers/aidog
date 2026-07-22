@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { SystemSettings } from "./useSystemSettings";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * Autostart + Bind LAN + Autolaunch + Silent Launch 四个启动相关 section（原 L316-404）。
@@ -27,13 +28,7 @@ export function StartupSection({ s }: { s: SystemSettings }) {
             {t("proxy.autostartDesc")}
           </div>
         </div>
-        <div
-          className={`toggle ${autostart ? "active" : ""}`}
-          onClick={() => handleAutostartChange(!autostart)}
-          role="switch"
-          aria-checked={autostart}
-          tabIndex={0}
-        />
+        <Switch checked={autostart} onCheckedChange={handleAutostartChange} />
       </div>
 
       {/* Bind LAN — allow other devices on the local network to connect */}
@@ -49,13 +44,7 @@ export function StartupSection({ s }: { s: SystemSettings }) {
             {t("proxy.bindLanDesc")}
           </div>
         </div>
-        <div
-          className={`toggle ${bindLan ? "active" : ""}`}
-          onClick={() => handleBindLanChange(!bindLan)}
-          role="switch"
-          aria-checked={bindLan}
-          tabIndex={0}
-        />
+        <Switch checked={bindLan} onCheckedChange={handleBindLanChange} />
       </div>
 
       {/* Autolaunch — OS login auto start */}
@@ -71,13 +60,7 @@ export function StartupSection({ s }: { s: SystemSettings }) {
             {t("proxy.autolaunchDesc")}
           </div>
         </div>
-        <div
-          className={`toggle ${autolaunch ? "active" : ""}`}
-          onClick={() => handleAutolaunchChange(!autolaunch)}
-          role="switch"
-          aria-checked={autolaunch}
-          tabIndex={0}
-        />
+        <Switch checked={autolaunch} onCheckedChange={handleAutolaunchChange} />
       </div>
 
       {/* Silent Launch — start minimized to tray; 仅在 autolaunch (开机自启) 开启时展示 */}
@@ -94,13 +77,7 @@ export function StartupSection({ s }: { s: SystemSettings }) {
             {t("proxy.silentLaunchDesc")}
           </div>
         </div>
-        <div
-          className={`toggle ${silentLaunch ? "active" : ""}`}
-          onClick={() => handleSilentLaunchChange(!silentLaunch)}
-          role="switch"
-          aria-checked={silentLaunch}
-          tabIndex={0}
-        />
+        <Switch checked={silentLaunch} onCheckedChange={handleSilentLaunchChange} />
       </div>
       )}
     </>

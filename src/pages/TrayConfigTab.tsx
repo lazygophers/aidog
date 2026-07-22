@@ -15,6 +15,8 @@ import { SortableList } from "../components/SortableList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
@@ -307,21 +309,23 @@ export function TrayConfigTab() {
   }));
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }} onClick={() => setPopover(null)}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* ── Preview Bar ── */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tray.preview", "实时预览")}</div>
           <div style={{
             display: "flex", alignItems: "center", gap: 6, fontSize: 11,
-            color: layout.overBudget ? "var(--color-warning)" : layout.totalLines === 2 ? "var(--accent)" : "var(--text-secondary)",
+            color: layout.overBudget ? "var(--color-warning)" : layout.totalLines === 2 ? "var(--primary)" : "var(--text-secondary)",
           }}>
             <span style={{ fontWeight: 600 }}>{t("tray.lineBudget", "行数")} {layout.totalLines}/2</span>
             {layout.overBudget && <span style={{ color: "var(--color-warning)" }}>{t("tray.overBudgetHint", "超限")}</span>}
           </div>
         </div>
 
-        {/* Simulated macOS menu bar — match tray rendering precisely */}
+        {/* Simulated macOS menu bar — match tray rendering precisely.
+            此块内所有硬编码 rgba(30,30,30) / rgba(255,255,255,*) 是 macOS 菜单栏模拟色，
+            必须 NOT 跟随 app 主题，勿 token 化。 */}
         <div style={{
           background: "rgba(30, 30, 30, 0.95)", borderRadius: 8,
           padding: hasTwoLine ? "4px 14px" : "2px 14px",
@@ -414,30 +418,24 @@ export function TrayConfigTab() {
           )}
         </div>
 
-        {/* ── Popover for preview item settings ── */}
-        {popover && (() => {
-          const col = layout.columns[popover.colIdx];
-          if (!col) return null;
-          const item = col.item;
-          const isPlatform = item.item_type === "platform";
-          // Position popover below the anchor
-          const anchorCenter = popover.rect.left + popover.rect.width / 2;
-          const anchorBottom = popover.rect.bottom + 8; // 8px gap + preview padding
-          return (
-            <div
-              style={{ position: "fixed", top: anchorBottom, left: anchorCenter, transform: "translateX(-50%)", zIndex: 100 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Arrow */}
+        {/* ── Popover for preview item settings (shadcn/Radix — portals to body, 符合居中规则) ── */}
+        <Popover open={!!popover} onOpenChange={(o) => { if (!o) setPopover(null); }}>
+          {popover && (
+            // 虚拟锚点：固定在被点击的预览列位置，Radix 据此定位并 portal 到 body
+            <PopoverAnchor asChild>
               <div style={{
-                width: 0, height: 0, margin: "0 auto",
-                borderLeft: "6px solid transparent", borderRight: "6px solid transparent",
-                borderBottom: "6px solid var(--glass-bg, rgba(255,255,255,0.12))",
+                position: "fixed", top: popover.rect.bottom, left: popover.rect.left,
+                width: popover.rect.width, height: 0, pointerEvents: "none",
               }} />
-              <div className="glass-surface" style={{
-                padding: 12, minWidth: 220, borderRadius: 10,
-                backdropFilter: "blur(20px)", border: "1px solid var(--glass-border, rgba(255,255,255,0.08))",
-              }}>
+            </PopoverAnchor>
+          )}
+          {popover && (() => {
+            const col = layout.columns[popover.colIdx];
+            if (!col) return null;
+            const item = col.item;
+            const isPlatform = item.item_type === "platform";
+            return (
+              <PopoverContent align="center" sideOffset={8} className="glass-surface" style={{ padding: 12, minWidth: 220, width: "auto" }}>
                 <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
                   {isPlatform ? platformName(item.platform_id) : t("tray.todayStats", "今日统计")}
                 </div>
@@ -469,8 +467,8 @@ export function TrayConfigTab() {
                       style={{
                         fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
                         border: item.line_mode === m ? "none" : "1px solid var(--glass-border)",
-                        background: item.line_mode === m ? "var(--accent)" : "transparent",
-                        color: item.line_mode === m ? "#fff" : "var(--text-secondary)",
+                        background: item.line_mode === m ? "var(--primary)" : "transparent",
+                        color: item.line_mode === m ? "var(--primary-foreground)" : "var(--text-secondary)",
                       }}
                       onClick={() => {
                         const idx = config.items.indexOf(item);
@@ -490,8 +488,8 @@ export function TrayConfigTab() {
                       style={{
                         fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
                         border: item.align === a ? "none" : "1px solid var(--glass-border)",
-                        background: item.align === a ? "var(--accent)" : "transparent",
-                        color: item.align === a ? "#fff" : "var(--text-secondary)",
+                        background: item.align === a ? "var(--primary)" : "transparent",
+                        color: item.align === a ? "var(--primary-foreground)" : "var(--text-secondary)",
                       }}
                       onClick={() => {
                         const idx = config.items.indexOf(item);
@@ -510,10 +508,10 @@ export function TrayConfigTab() {
                 }} onClick={() => setPopover(null)}>
                   {t("common.close", "关闭")}
                 </Button>
-              </div>
-            </div>
-          );
-        })()}
+              </PopoverContent>
+            );
+          })()}
+        </Popover>
       </div>
 
       {/* ── Items List ── */}
@@ -573,9 +571,10 @@ export function TrayConfigTab() {
                     style={{ transition: "transform 200ms ease", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)", flexShrink: 0 }}>
                     <path d="M3.5 5.25L7 8.75L10.5 5.25" />
                   </svg>
-                  <div className={`toggle ${item.enabled ? "active" : ""}`}
-                    onClick={(e) => { e.stopPropagation(); updateItem(i, { enabled: !item.enabled }); }}
-                    role="switch" aria-checked={item.enabled} tabIndex={0} style={{ width: 32, height: 18, flexShrink: 0 }}
+                  <Switch checked={item.enabled}
+                    onClick={(e) => e.stopPropagation()}
+                    onCheckedChange={(v) => updateItem(i, { enabled: v })}
+                    style={{ flexShrink: 0 }}
                   />
                   <Button variant="ghost" 
                     style={{ fontSize: 12, color: "var(--danger, var(--color-danger))", width: 24, height: 24, padding: 0, flexShrink: 0 }}
@@ -589,7 +588,7 @@ export function TrayConfigTab() {
                     <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                       {PRESET_SEPARATORS.map((s) => (
                         <Button variant="ghost" key={s.value} 
-                          style={{ padding: "3px 10px", fontSize: 13, borderRadius: 0, minWidth: 28, background: item.display === s.value ? "var(--accent)" : "transparent", color: item.display === s.value ? "#fff" : "var(--text-secondary)" }}
+                          style={{ padding: "3px 10px", fontSize: 13, borderRadius: 0, minWidth: 28, background: item.display === s.value ? "var(--primary)" : "transparent", color: item.display === s.value ? "var(--primary-foreground)" : "var(--text-secondary)" }}
                           onClick={() => updateItem(i, { display: s.value })}>{s.value === " " ? t("tray.sep.space", "空格") : s.label}</Button>
                       ))}
                     </div>
@@ -607,7 +606,7 @@ export function TrayConfigTab() {
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {(["balance", "coding"] as const).map((d) => (
                             <Button variant="ghost" key={d} 
-                              style={{ padding: "3px 10px", fontSize: 11, borderRadius: 0, background: item.display === d ? "var(--accent)" : "transparent", color: item.display === d ? "#fff" : "var(--text-secondary)" }}
+                              style={{ padding: "3px 10px", fontSize: 11, borderRadius: 0, background: item.display === d ? "var(--primary)" : "transparent", color: item.display === d ? "var(--primary-foreground)" : "var(--text-secondary)" }}
                               onClick={() => updateItem(i, { display: d })}>
                               {d === "balance" ? t("tray.displayBalance", "余额") : t("tray.displayCoding", "Coding")}
                             </Button>
@@ -621,7 +620,7 @@ export function TrayConfigTab() {
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {TODAY_METRICS.map((m) => (
                             <Button variant="ghost" key={m.value} 
-                              style={{ padding: "3px 8px", fontSize: 11, borderRadius: 0, background: (item.metric || "tokens") === m.value ? "var(--accent)" : "transparent", color: (item.metric || "tokens") === m.value ? "#fff" : "var(--text-secondary)" }}
+                              style={{ padding: "3px 8px", fontSize: 11, borderRadius: 0, background: (item.metric || "tokens") === m.value ? "var(--primary)" : "transparent", color: (item.metric || "tokens") === m.value ? "var(--primary-foreground)" : "var(--text-secondary)" }}
                               onClick={() => updateItem(i, { metric: m.value })}>{metricLabel(m.value)}</Button>
                           ))}
                         </div>
@@ -644,7 +643,7 @@ export function TrayConfigTab() {
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                         {(["single", "two"] as const).map((lm) => (
                           <Button variant="ghost" key={lm} 
-                            style={{ padding: "3px 10px", fontSize: 11, borderRadius: 0, background: item.line_mode === lm ? "var(--accent)" : "transparent", color: item.line_mode === lm ? "#fff" : "var(--text-secondary)" }}
+                            style={{ padding: "3px 10px", fontSize: 11, borderRadius: 0, background: item.line_mode === lm ? "var(--primary)" : "transparent", color: item.line_mode === lm ? "var(--primary-foreground)" : "var(--text-secondary)" }}
                             onClick={() => updateItem(i, { line_mode: lm })}>
                             {lm === "single" ? t("tray.lineModeSingle", "单行") : t("tray.lineModeTwo", "两行")}</Button>
                         ))}
@@ -655,7 +654,7 @@ export function TrayConfigTab() {
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                         {ALIGN_OPTIONS.map((a) => (
                           <Button variant="ghost" key={a.value} 
-                            style={{ padding: "3px 8px", fontSize: 12, borderRadius: 0, background: item.align === a.value ? "var(--accent)" : "transparent", color: item.align === a.value ? "#fff" : "var(--text-secondary)" }}
+                            style={{ padding: "3px 8px", fontSize: 12, borderRadius: 0, background: item.align === a.value ? "var(--primary)" : "transparent", color: item.align === a.value ? "var(--primary-foreground)" : "var(--text-secondary)" }}
                             onClick={() => updateItem(i, { align: a.value })}>{a.label}</Button>
                         ))}
                       </div>
@@ -666,7 +665,7 @@ export function TrayConfigTab() {
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {ALIGN_OPTIONS.map((a) => (
                             <Button variant="ghost" key={a.value} 
-                              style={{ padding: "3px 8px", fontSize: 12, borderRadius: 0, background: (item.align_row2 || item.align) === a.value ? "var(--accent)" : "transparent", color: (item.align_row2 || item.align) === a.value ? "#fff" : "var(--text-secondary)" }}
+                              style={{ padding: "3px 8px", fontSize: 12, borderRadius: 0, background: (item.align_row2 || item.align) === a.value ? "var(--primary)" : "transparent", color: (item.align_row2 || item.align) === a.value ? "var(--primary-foreground)" : "var(--text-secondary)" }}
                               onClick={() => updateItem(i, { align_row2: a.value })}>{a.label}</Button>
                           ))}
                         </div>

@@ -21,6 +21,8 @@ import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -383,11 +385,10 @@ export function ManualBudgetsSection({ budgets, setBudgets, t }: {
                 </Select>
               </>
             )}
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-              <Input
-                type="checkbox"
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
+              <Checkbox
                 checked={b.enabled}
-                onChange={e => update({ enabled: e.target.checked })}
+                onCheckedChange={v => update({ enabled: v === true })}
               />
               {t("platform.manualBudgetEnabled", "启用")}
             </label>
@@ -624,10 +625,9 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
       {/* 高峰禁用开关：启用后该平台在 peak window 命中时从路由候选排除（不改 status，临时闸门）。 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
-          <Input
-            type="checkbox"
+          <Checkbox
             checked={disableDuringPeak}
-            onChange={e => setDisableDuringPeak(e.target.checked)}
+            onCheckedChange={v => setDisableDuringPeak(v === true)}
           />
           <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.disable_during_peak", "高峰期禁用")}</span>
         </label>
@@ -700,8 +700,8 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                     style={{
                       width: 22, height: 22, padding: 0, fontSize: 11, lineHeight: 1,
                       borderRadius: "var(--radius-sm)", cursor: "pointer",
-                      background: active ? "var(--accent)" : "transparent",
-                      color: active ? "#fff" : "var(--text-secondary)",
+                      background: active ? "var(--primary)" : "transparent",
+                      color: active ? "var(--primary-foreground)" : "var(--text-secondary)",
                       border: "1px solid var(--border)",
                     }}
                   >
@@ -875,10 +875,7 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
         // 创建默认分组是「创建时一次性判断」，仅创建表单显示；编辑表单不再判断建组。
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
-          <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-            <Input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
-            <span className={`toggle ${autoGroup ? "active" : ""}`} />
-          </label>
+          <Switch checked={autoGroup} onCheckedChange={setAutoGroup} />
         </div>
       ) : null}
       {lockedGroupId == null && groupDetails.length > 0 && (
@@ -904,9 +901,9 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
                       display: "inline-flex", alignItems: "center", height: "auto",
                       padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
                       cursor: "pointer",
-                      border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                      border: `1px solid ${checked ? "var(--primary)" : "var(--border)"}`,
                       background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
-                      color: checked ? "var(--accent)" : "var(--text-secondary)",
+                      color: checked ? "var(--primary)" : "var(--text-secondary)",
                       transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
                   >
@@ -941,20 +938,14 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: expiryEnabled ? 8 : 0 }}>
         <span style={{ fontSize: 13 }}>{t("platform.expiresAtEnable", "启用过期")}</span>
-        <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <Input
-            type="checkbox"
-            checked={expiryEnabled}
-            onChange={e => {
-              const v = e.target.checked;
-              setExpiryEnabled(v);
-              // ON→OFF：清零 expiresAt（不生效）；OFF→ON：保留 expiresAt 若有粘贴识别值（预填）。
-              if (!v) setExpiresAt(0);
-            }}
-            style={{ display: "none" }}
-          />
-          <span className={`toggle ${expiryEnabled ? "active" : ""}`} />
-        </label>
+        <Switch
+          checked={expiryEnabled}
+          onCheckedChange={(v) => {
+            setExpiryEnabled(v);
+            // ON→OFF：清零 expiresAt（不生效）；OFF→ON：保留 expiresAt 若有粘贴识别值（预填）。
+            if (!v) setExpiresAt(0);
+          }}
+        />
       </div>
       {expiryEnabled && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

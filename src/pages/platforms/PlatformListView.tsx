@@ -204,7 +204,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           position: "fixed", left: groupDrag.x + 14, top: groupDrag.y + 14,
           pointerEvents: "none", zIndex: 3000,
           padding: "6px 12px", borderRadius: 8,
-          background: "var(--accent)", color: "#fff",
+          background: "var(--primary)", color: "var(--primary-foreground)",
           fontSize: 12, fontWeight: 600,
           boxShadow: "0 4px 12px rgba(0,0,0,0.35)", opacity: 0.92,
         }}>
@@ -226,13 +226,13 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
           zIndex: 2000, pointerEvents: "none",
           padding: "10px 20px", borderRadius: 10,
-          background: toast.ok ? "var(--color-success, #22c55e)" : "var(--color-danger, #ef4444)",
-          color: "#fff", fontSize: 13, fontWeight: 600,
+          background: toast.ok ? "var(--color-success)" : "var(--color-danger)",
+          color: "var(--primary-foreground)", fontSize: 13, fontWeight: 600,
           boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
           opacity: 0.95,
           transition: "opacity 0.3s",
         }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{toast.ok ? <IconCheck size={14} color="#fff" /> : <IconClose size={14} color="#fff" />} {toast.text}</span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{toast.ok ? <IconCheck size={14} color="var(--primary-foreground)" /> : <IconClose size={14} color="var(--primary-foreground)" />} {toast.text}</span>
         </div>,
         document.body,
       )}

@@ -189,7 +189,7 @@ export const GroupListItem = memo(function GroupListItem({
           <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
             {group.name}
             {group.is_default && (
-              <Badge style={{ fontSize: 10, padding: "0 5px", fontWeight: 500, background: "var(--accent)", color: "#fff", border: "none" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
+              <Badge style={{ fontSize: 10, padding: "0 5px", fontWeight: 500, background: "var(--primary)", color: "var(--primary-foreground)", border: "none" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
             )}
             {group.auto_from_platform && (
               <Badge variant="secondary" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
@@ -491,14 +491,14 @@ export const GroupListItem = memo(function GroupListItem({
                 paddingTop: 10, borderTop: "1px solid var(--border)",
                 display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
               }} onClick={e => e.stopPropagation()}>
-                <Input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                   placeholder={t("mapping.source")} value={mSource}
                   onChange={(e) => onSetMSource(e.target.value)} />
                 {/* radix Select 禁 value="" → __none__ 哨兵映射回 "" */}
                 <Select
                   value={mTargetPlatform === "" ? "__none__" : String(mTargetPlatform)}
                   onValueChange={(v) => { onSetMTargetPlatform(v === "__none__" ? "" : Number(v)); onSetMTargetModel(""); }}>
-                  <SelectTrigger className="input" style={{ fontSize: 12, width: 140 }}>
+                  <SelectTrigger style={{ fontSize: 12, width: 140 }}>
                     <SelectValue placeholder={t("mapping.targetPlatform")} />
                   </SelectTrigger>
                   <SelectContent>
@@ -510,7 +510,7 @@ export const GroupListItem = memo(function GroupListItem({
                   <Select
                     value={mTargetModel || "__none__"}
                     onValueChange={(v) => onSetMTargetModel(v === "__none__" ? "" : v)}>
-                    <SelectTrigger className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}>
+                    <SelectTrigger style={{ flex: 1, minWidth: 100, fontSize: 12 }}>
                       <SelectValue placeholder={t("mapping.target")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -519,7 +519,7 @@ export const GroupListItem = memo(function GroupListItem({
                     </SelectContent>
                   </Select>
                 ) : (
-                  <Input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                  <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                     placeholder={t("mapping.target")} value={mTargetModel}
                     onChange={(e) => onSetMTargetModel(e.target.value)} />
                 )}

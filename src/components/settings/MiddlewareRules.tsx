@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 // ── 静态枚举常量（与 api.ts 契约对齐，禁裸 string）──
 
@@ -328,13 +329,7 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.enabled", "启用")}
         </span>
-        <div
-          className={`toggle ${enabled ? "active" : ""}`}
-          onClick={() => setEnabled(!enabled)}
-          role="switch"
-          aria-checked={enabled}
-          tabIndex={0}
-        />
+        <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
 
       {/* actions */}
@@ -452,12 +447,9 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
       </div>
 
       {/* enable toggle */}
-      <div
-        className={`toggle ${rule.enabled ? "active" : ""}`}
-        onClick={() => onToggle(rule)}
-        role="switch"
-        aria-checked={rule.enabled}
-        tabIndex={0}
+      <Switch
+        checked={rule.enabled}
+        onCheckedChange={() => onToggle(rule)}
         title={t("middleware.enabled", "启用")}
       />
 
@@ -662,7 +654,7 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
       )}
 
       {message && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success, #22c55e)" }}>
+        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success)" }}>
           {message}
         </div>
       )}
@@ -739,13 +731,7 @@ export function MiddlewareSettingsTab() {
             {t("middleware.masterToggleDesc", "关闭后全部规则旁路，请求 / 响应不经过中间件处理")}
           </div>
         </div>
-        <div
-          className={`toggle ${settings.enabled ? "active" : ""}`}
-          onClick={toggleMaster}
-          role="switch"
-          aria-checked={settings.enabled}
-          tabIndex={0}
-        />
+        <Switch checked={settings.enabled} onCheckedChange={toggleMaster} />
       </div>
 
       {/* rule_type 子开关 */}
@@ -758,13 +744,7 @@ export function MiddlewareSettingsTab() {
           {RULE_TYPES.map((rt) => (
             <div key={rt} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 12 }}>{ruleTypeLabel(t, rt)}</span>
-              <div
-                className={`toggle ${typeEnabled(rt) ? "active" : ""}`}
-                onClick={() => toggleType(rt)}
-                role="switch"
-                aria-checked={typeEnabled(rt)}
-                tabIndex={0}
-              />
+              <Switch checked={typeEnabled(rt)} onCheckedChange={() => toggleType(rt)} />
             </div>
           ))}
         </div>

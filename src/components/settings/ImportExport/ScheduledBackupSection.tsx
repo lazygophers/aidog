@@ -13,6 +13,7 @@ import { SectionHeader } from "./primitives";
 import { pad } from "../../../utils/formatters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 const INTERVAL_PRESETS: { labelKey: string; defaultLabel: string; hours: number }[] = [
   { labelKey: "settings.backup.preset1h", defaultLabel: "1h", hours: 1 },
@@ -97,15 +98,7 @@ export function ScheduledBackupSection() {
         <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500 }}>
           {t("settings.backup.enable", "启用定时备份")}
         </span>
-        <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <Input
-            type="checkbox"
-            checked={settings.enabled}
-            onChange={(e) => patch({ enabled: e.target.checked })}
-            style={{ display: "none" }}
-          />
-          <span className={`toggle ${settings.enabled ? "active" : ""}`} />
-        </label>
+        <Switch checked={settings.enabled} onCheckedChange={(v) => patch({ enabled: v })} />
       </div>
 
       {settings.enabled && (
@@ -126,7 +119,7 @@ export function ScheduledBackupSection() {
                 }}
                 style={{
                   width: 90, padding: "6px 10px", fontSize: 13,
-                  borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                  borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                   background: "var(--bg-input)", color: "var(--text-primary)",
                 }}
               />
@@ -141,7 +134,7 @@ export function ScheduledBackupSection() {
                     borderRadius: "var(--radius-md)",
                     border: settings.interval_hours === p.hours
                       ? "1px solid var(--accent)"
-                      : "1px solid var(--border-default)",
+                      : "1px solid var(--border)",
                     background: settings.interval_hours === p.hours
                       ? "var(--accent-subtle)"
                       : "transparent",
@@ -171,7 +164,7 @@ export function ScheduledBackupSection() {
                 }}
                 style={{
                   width: 90, padding: "6px 10px", fontSize: 13,
-                  borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                  borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                   background: "var(--bg-input)", color: "var(--text-primary)",
                 }}
               />
@@ -201,7 +194,7 @@ export function ScheduledBackupSection() {
               style={{
                 padding: "7px 16px", fontSize: 13, cursor: running ? "not-allowed" : "pointer",
                 borderRadius: "var(--radius-md)", border: "1px solid var(--accent)",
-                background: "var(--accent)", color: "var(--text-on-accent, #fff)",
+                background: "var(--primary)", color: "var(--primary-foreground)",
                 opacity: running ? 0.6 : 1,
               }}
             >
@@ -212,7 +205,7 @@ export function ScheduledBackupSection() {
                 onClick={() => { revealItemInDir(lastResultPath).catch(() => {}); }}
                 style={{
                   padding: "7px 14px", fontSize: 12, cursor: "pointer",
-                  borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                  borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                   background: "transparent", color: "var(--text-secondary)",
                 }}
               >

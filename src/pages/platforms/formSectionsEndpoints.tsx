@@ -143,9 +143,9 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
               width: 28, height: 28, minWidth: 28,
               padding: 0,
               fontSize: 11, fontWeight: 700,
-              color: ep.coding_plan ? "var(--color-success, var(--color-success))" : "var(--text-tertiary)",
-              background: ep.coding_plan ? "var(--color-success, var(--color-success))15" : "transparent",
-              border: `1px solid ${ep.coding_plan ? "var(--color-success, var(--color-success))40" : "var(--border)"}`,
+              color: ep.coding_plan ? "var(--color-success)" : "var(--text-tertiary)",
+              background: ep.coding_plan ? "color-mix(in srgb, var(--color-success) 8%, transparent)" : "transparent",
+              border: `1px solid ${ep.coding_plan ? "color-mix(in srgb, var(--color-success) 25%, transparent)" : "var(--border)"}`,
               borderRadius: "var(--radius-sm)",
             }}
             title={ep.coding_plan ? "Coding Plan ON" : "Coding Plan"}

@@ -6,6 +6,7 @@ import { SIZE_OPTIONS, COLOR_PRESETS, TYPE_LABELS, defaultColor, isValidHex } fr
 import { ScopeConfig } from "./ScopeConfig";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 type TFn = (k: string, d: string, o?: Record<string, unknown>) => string;
 
@@ -39,17 +40,14 @@ export function CardEditor({
             {summary}
           </div>
         </div>
-        <div
-          className={`toggle ${item.visible ? "active" : ""}`}
-          onClick={onToggleVisible}
-          role="switch"
-          aria-checked={item.visible}
-          tabIndex={0}
+        <Switch
+          checked={item.visible}
+          onCheckedChange={onToggleVisible}
           title={t("popover.toggleVisible", "显隐")}
         />
         <Button
           variant="ghost"
-          style={{ fontSize: 12, padding: "2px 8px", height: 24, color: "var(--status-error, #ff3b30)" }}
+          style={{ fontSize: 12, padding: "2px 8px", height: 24, color: "var(--color-danger)" }}
           onClick={onRemove}
           title={t("common.delete", "删除")}
         >
@@ -133,7 +131,7 @@ function CustomHexInput({
       }}
       style={{
         fontSize: 11, width: 80, height: 22, padding: "2px 6px",
-        border: active ? "1px solid var(--accent)" : valid ? "1px solid var(--glass-border)" : "1px solid var(--status-error, #ff3b30)",
+        border: active ? "1px solid var(--accent)" : valid ? "1px solid var(--glass-border)" : "1px solid var(--color-danger)",
       }}
     />
   );

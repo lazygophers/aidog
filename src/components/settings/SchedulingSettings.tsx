@@ -13,6 +13,7 @@ import {
 import { ROUTING_MODES, routingModeLabel } from "../../domains/groups/routing";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   default_routing_mode: "health_aware",
@@ -81,13 +82,7 @@ export function SchedulingSettingsTab() {
             {t("scheduling.masterToggleDesc", "关闭后旁路熔断：失败平台不再被临时摘除")}
           </div>
         </div>
-        <div
-          className={`toggle ${settings.enabled ? "active" : ""}`}
-          onClick={toggleEnabled}
-          role="switch"
-          aria-checked={settings.enabled}
-          tabIndex={0}
-        />
+        <Switch checked={settings.enabled} onCheckedChange={toggleEnabled} />
       </div>
 
       {/* 默认调度策略 */}

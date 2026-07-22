@@ -25,7 +25,7 @@ export const INLINE_FLEX_STYLE: React.CSSProperties = { display: "inline-flex", 
 export const PLATFORM_NAME_STYLE: React.CSSProperties = { fontSize: F.small, color: "var(--text-secondary)" };
 export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
 export const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.small };
-export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent, #007aff)" };
+export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent)" };
 export const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
 export const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
 
@@ -59,7 +59,7 @@ export function CopyButton({ text, title }: { text: string; title?: string }) {
       }}
     >
       {copied ? (
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--color-success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
       ) : (
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
       )}
@@ -73,7 +73,7 @@ export function MetaItem({ label, value, highlight, copyText, t }: { label: stri
       <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 2 }}>{label}</div>
       <div style={{
         fontSize: F.body, fontWeight: 600,
-        color: highlight === "ok" ? "var(--color-success, var(--color-success))" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
+        color: highlight === "ok" ? "var(--color-success)" : highlight === "err" ? "var(--color-danger)" : "var(--text-primary)",
         paddingRight: copyText ? 24 : undefined,
       }}>
         {value}
@@ -108,7 +108,7 @@ export function RequestTabs({
               onClick={() => setActive(key)}
               style={{
                 padding: "10px 20px", fontSize: F.hint, fontWeight: isActive ? 700 : 400,
-                color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                color: isActive ? "var(--primary)" : "var(--text-secondary)",
                 background: "transparent", cursor: "pointer",
                 borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
                 transition: "all 0.15s ease",
@@ -121,7 +121,7 @@ export function RequestTabs({
               {item.statusCode != null && item.statusCode > 0 && (
                 <span style={{
                   fontSize: F.small, fontWeight: 600,
-                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)",
+                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success)" : "var(--color-danger)",
                 }}>
                   {item.statusCode}
                 </span>
@@ -301,7 +301,7 @@ export const LogRow = memo(function LogRow({ log, platformName, groupName, provi
       </TdCell>
       <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
       <TdCell>
-        <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)" }}>
+        <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success)" : "var(--color-danger)" }}>
           {log.status_code === 0
             ? t("logs.statusIncomplete", "未完成")
             : log.status_code === 499
