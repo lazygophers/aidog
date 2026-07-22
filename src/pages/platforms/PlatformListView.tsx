@@ -13,6 +13,9 @@ import { PlatformCard, type PlatformCardActions } from "../../components/platfor
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { getProtocolColorMap, getProtocolLabelMap } from "../../domains/platforms/defaults";
 import type { PlatformsState } from "./usePlatformsState";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   s: PlatformsState;
@@ -61,26 +64,26 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <input
+          <Input
             className="input"
             placeholder={t("platform.searchPlaceholder", "搜索平台...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: 180, fontSize: 13 }}
           />
-          <button className="btn btn-primary" onClick={() => openCreateGroupRef.current?.()}>
+          <Button onClick={() => openCreateGroupRef.current?.()}>
             + {t("group.add", "添加分组")}
-          </button>
-          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+          </Button>
+          <Button onClick={() => { resetForm(); setShowForm(true); }}>
             + {t("platform.add")}
-          </button>
-          <button
-            className="btn btn-ghost"
+          </Button>
+          <Button
+            variant="ghost"
             onClick={handlePurgeDisabled}
             title={t("platform.purgeDisabled", "清理失效平台")}
           >
             {t("platform.purgeDisabled", "清理失效平台")}
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -120,7 +123,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
                   }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: draggedColor, flexShrink: 0 }} />
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{draggedPlat.name}</span>
-                    <span className="badge badge-muted" style={{ fontSize: 10 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
+                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 10 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</Badge>
                   </div>
                 )}
                 {/* 未分组平台 pointer 拖拽加入分组（按住卡片空白区拖到分组）；HTML5 DnD 跨区域在 WKWebView 失效故用 pointer events */}
@@ -168,7 +171,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
               }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
-                <span className="badge badge-muted" style={{ fontSize: 10 }}>{labelMap[dp.platform_type] || dp.platform_type}</span>
+                <Badge variant="secondary" className="badge-muted" style={{ fontSize: 10 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
               </div>
             );
           })()}
