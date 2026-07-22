@@ -12,7 +12,7 @@ import {
 import { F, S } from "../tokens";
 import { Toggle } from "../_shared";
 import { autoColorPreviewHex } from "./preview";
-import { Modal } from "../../../shared/Modal";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,12 +44,15 @@ export function SegmentEditModal({
     : (validHex ? color : null);
 
   return (
-    <Modal open onClose={onClose} className="glass-elevated" zIndex={1000} maxWidth={420} style={{ padding: 24 }}>
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="glass-elevated" style={{ maxWidth: 420, padding: 24 }}>
+        {/* sr-only title 满足 Radix Dialog a11y 要求，不破坏自定义 header 视觉 */}
+        <DialogTitle className="sr-only">{t(`statusline.seg.${def.type}.name`, def.name)}</DialogTitle>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
             {t(`statusline.seg.${def.type}.name`, def.name)}
           </div>
-          <Button variant="ghost" type="button" 
+          <Button variant="ghost" type="button"
             style={{ width: 28, height: 28, fontSize: F.body }}
             onClick={onClose}>×</Button>
         </div>
@@ -192,6 +195,7 @@ export function SegmentEditModal({
             {t("statusline.save")}
           </Button>
         </div>
-    </Modal>
+      </DialogContent>
+    </Dialog>
   );
 }
