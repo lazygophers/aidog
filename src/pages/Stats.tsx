@@ -22,6 +22,15 @@ import {
   FilterDropdown,
   type ColorLevel,
 } from "../components/shared";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 type TimePreset = "today" | "7d" | "30d";
 
@@ -256,29 +265,39 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
         {/* Time preset */}
         <div style={{ display: "flex", gap: 4 }}>
           {(["today", "7d", "30d"] as TimePreset[]).map(p => (
-            <button
+            <Button
               key={p}
-              className={preset === p ? "btn-active" : "btn"}
-              style={{ fontSize: 12, padding: "4px 10px" }}
+              variant={preset === p ? "default" : "ghost"}
+              style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
               onClick={() => changePreset(p)}
             >
               {t(`stats.${p}`, p === "today" ? "今天" : p === "7d" ? "近 7 天" : "近 30 天")}
-            </button>
+            </Button>
           ))}
         </div>
 
         {/* Granularity */}
-        <select className="input" style={{ fontSize: 12, width: 80 }} value={granularity} onChange={e => setGranularity(e.target.value as "daily" | "hourly")}>
-          <option value="daily">{t("stats.daily", "按天")}</option>
-          <option value="hourly">{t("stats.hourly", "按小时")}</option>
-        </select>
+        <Select value={granularity} onValueChange={v => setGranularity(v as "daily" | "hourly")}>
+          <SelectTrigger style={{ fontSize: 12, width: 90, height: 30 }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="daily">{t("stats.daily", "按天")}</SelectItem>
+            <SelectItem value="hourly">{t("stats.hourly", "按小时")}</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Group by */}
-        <select className="input" style={{ fontSize: 12, width: 100 }} value={groupBy} onChange={e => setGroupBy(e.target.value as "platform" | "model" | "group")}>
-          <option value="platform">{t("stats.byPlatform", "按平台")}</option>
-          <option value="model">{t("stats.byModel", "按模型")}</option>
-          <option value="group">{t("stats.byGroup", "按分组")}</option>
-        </select>
+        <Select value={groupBy} onValueChange={v => setGroupBy(v as "platform" | "model" | "group")}>
+          <SelectTrigger style={{ fontSize: 12, width: 110, height: 30 }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="platform">{t("stats.byPlatform", "按平台")}</SelectItem>
+            <SelectItem value="model">{t("stats.byModel", "按模型")}</SelectItem>
+            <SelectItem value="group">{t("stats.byGroup", "按分组")}</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Filter: group（带搜索） */}
         <FilterDropdown
@@ -583,13 +602,13 @@ function OverviewCard({ label, value, unit, level, delta, deltaInverse, t }: Ove
     );
   }
   return (
-    <div className="glass-surface" style={{ flex: "1 1 120px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
+    <Card className="glass-surface" style={{ flex: "1 1 120px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{label}</div>
       <div style={{ fontSize: F.title, fontWeight: 700, color: valueColor }}>
         {value}{unit && <span style={{ fontSize: F.label, fontWeight: 400, marginLeft: 2 }}>{unit}</span>}
       </div>
       {deltaNode}
-    </div>
+    </Card>
   );
 }
 
@@ -696,15 +715,15 @@ interface PagerProps {
 function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.small }}>
-      <button className="btn" style={{ fontSize: 12, padding: "3px 10px" }} disabled={page <= 0} onClick={onPrev}>
+      <Button variant="outline" style={{ fontSize: 12, padding: "3px 10px", height: "auto" }} disabled={page <= 0} onClick={onPrev}>
         {t("stats.prevPage", "上一页")}
-      </button>
+      </Button>
       <span style={{ color: "var(--text-secondary)" }}>
         {t("stats.pageOf", "{{page}} / {{total}}", { page: page + 1, total: pageCount })}
       </span>
-      <button className="btn" style={{ fontSize: 12, padding: "3px 10px" }} disabled={page >= pageCount - 1} onClick={onNext}>
+      <Button variant="outline" style={{ fontSize: 12, padding: "3px 10px", height: "auto" }} disabled={page >= pageCount - 1} onClick={onNext}>
         {t("stats.nextPage", "下一页")}
-      </button>
+      </Button>
     </div>
   );
 }
