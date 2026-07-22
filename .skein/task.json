@@ -2,23 +2,15 @@
   "tasks": [
     {
       "id": "shadcn-infra",
-      "status": "检查中",
+      "status": "已完成",
       "deps": [],
-      "worktree": ".worktrees/skein-shadcn-infra",
+      "worktree": null,
       "parent": "frontend-shadcn-migration",
       "kind": "task"
     },
     {
-      "id": "frontend-shadcn-migration",
-      "status": "待处理",
-      "deps": [],
-      "worktree": null,
-      "parent": null,
-      "kind": "supertask"
-    },
-    {
       "id": "shadcn-pages",
-      "status": "待处理",
+      "status": "已完成",
       "deps": [
         "shadcn-primitives"
       ],
@@ -28,7 +20,7 @@
     },
     {
       "id": "shadcn-primitives",
-      "status": "待处理",
+      "status": "已完成",
       "deps": [
         "shadcn-infra"
       ],

@@ -2,7 +2,7 @@
   "id": "shadcn-primitives",
   "name": "shadcn 核心 primitives 落地",
   "desc": "add 核心 shadcn 组件(button/input/select/textarea/dialog/sheet/dropdown-menu/tabs/tooltip/checkbox/switch/label/badge/card/separator/scroll-area/popover/alert-dialog) + 项目级 wrapper 封装(i18n/变体)",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [
     "shadcn-infra"
   ],
@@ -25,15 +25,21 @@
         "Button 无 isLoading prop",
         "无 space-x/y (用 gap)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696791,
-      "started": null,
-      "finished": null
+      "started": 1784706575,
+      "finished": 1784706996
     },
     {
       "sid": "p2-overlay",
@@ -46,15 +52,20 @@
         "sonner toast() import 可用",
         "无手写 z-index 于 overlay 组件"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696792,
-      "started": null,
-      "finished": null
+      "started": 1784706575,
+      "finished": 1784707200
     },
     {
       "sid": "p3-display",
@@ -67,15 +78,20 @@
         "TabsTrigger 在 TabsList 内 (非裸 Tabs 直接渲染 trigger)",
         "Separator 替代 hr"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696792,
-      "started": null,
-      "finished": null
+      "started": 1784706996,
+      "finished": 1784707200
     },
     {
       "sid": "p4-menu-wrapper",
@@ -89,15 +105,21 @@
         "旧 Modal.tsx 自研 Portal 删除 (shadcn Dialog 替代)",
         "yarn build + yarn test 过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [
         "shadcn"
       ],
       "created": 1784696793,
-      "started": null,
-      "finished": null
+      "started": 1784707226,
+      "finished": 1784707542
     }
   ],
   "repos": [],
@@ -107,8 +129,8 @@
   "parent": "frontend-shadcn-migration",
   "kind": "task",
   "created": 1784696567,
-  "started": null,
+  "started": 1784706575,
   "checked": null,
-  "finished": null,
-  "updated": 1784696841
+  "finished": 1784707860,
+  "updated": 1784707860
 }

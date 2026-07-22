@@ -14,12 +14,12 @@
 - 导航仍 App.tsx 本地 state + utils/navGuard.ts 不引入 react-router (CLAUDE.md 约束)
 - 不删 GET / GET /proxy 健康端点相关 UI (CLAUDE.md 约束, 若涉)
 ## 验收标准
-- [ ] 18 pages + 40 组件全部迁完, 无残留原生 button/input/select/textarea (grep 验证, 例外: 非 UI 用途如 hidden input 标注保留)
-- [ ] 所有 modal/confirm 经 shadcn Dialog/AlertDialog/Sheet (Radix Portal, createPortal 规则满足)
-- [ ] 所有 i18n key 仍工作 (yarn check:i18n 过), 8 语言无缺译
-- [ ] yarn build (tsc + vite) 过 + yarn test 全过 (18 测试文件含组件测试 PlatformCard/BalanceBar/CompactCard/StatChip/CostTrendChart 无回归)
-- [ ] 视觉: 主题切换 (9 style × 4 color × light/dark) 在所有页面生效, Liquid Glass 等形态正确
-- [ ] 无 space-x/y / 无手写 z-index overlay / Button 无 isLoading / cn() 用于条件类 (shadcn 规则全守)
+- [x] 18 pages + 40 组件全部迁完, 无残留原生 button/input/select/textarea (grep 验证, 例外: 非 UI 用途如 hidden input 标注保留)
+- [x] 所有 modal/confirm 经 shadcn Dialog/AlertDialog/Sheet (Radix Portal, createPortal 规则满足)
+- [x] 所有 i18n key 仍工作 (yarn check:i18n 过), 8 语言无缺译
+- [x] yarn build (tsc + vite) 过 + yarn test 全过 (18 测试文件含组件测试 PlatformCard/BalanceBar/CompactCard/StatChip/CostTrendChart 无回归)
+- [x] 视觉: 主题切换 (9 style × 4 color × light/dark) 在所有页面生效, Liquid Glass 等形态正确
+- [x] 无 space-x/y / 无手写 z-index overlay / Button 无 isLoading / cn() 用于条件类 (shadcn 规则全守)
 - [ ] 手动巡检 (yarn tauri dev): 各页面核心操作 (加平台/改设置/看日志/统计图) 功能正常
 ## 索引
 - 详细设计: [design.md](design.md)

@@ -1,54 +1,82 @@
 {
-  "ts": "2026-07-22T15:43:28",
-  "core_chars": 11430,
+  "ts": "2026-07-22T22:31:34",
+  "core_chars": 1929,
   "budget": 1000,
   "problems": [
     {
       "type": "over-budget",
-      "detail": "[超预算] core 11430 > 1000 字符 — 考虑降级: arch/agent-platform-handler-branch(3002), frontend/cpa-drag-import-01(1557), arch/db-handle-ownership-audit-three-forms(1449)",
-      "size": 11430
+      "detail": "[超预算] core 1929 > 1000 字符 — 考虑降级: shadcn/rule-03(985), i18n/rule-04(561), build/shadcn-infra-02(379)",
+      "size": 1929
     },
     {
       "type": "broken-link",
       "files": [
-        "core/arch/agent-platform-handler-branch"
+        "core/build/shadcn-infra-02"
       ],
-      "detail": "[断链] core/arch/agent-platform-handler-branch: [[dashmap-sharding]] ✗ 目标缺失"
-    },
-    {
-      "type": "stale",
-      "files": [
-        "core/arch/cross-db-read-two-phase"
-      ],
-      "detail": "[stale] core/arch/cross-db-read-two-phase (created 12月,367天前, updated -,?, status active)"
+      "detail": "[断链] core/build/shadcn-infra-02: [[css-var-live-resolution-alias]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "core/arch/cross-db-read-two-phase"
+        "core/i18n/rule-04"
       ],
-      "detail": "[断链] core/arch/cross-db-read-two-phase: [[sqlite-cross-db-no-join]] ✗ 目标缺失"
+      "detail": "[断链] core/i18n/rule-04: [[i18n-flat-key-convention]] ✗ 目标缺失"
     },
     {
-      "type": "orphan",
+      "type": "broken-link",
       "files": [
-        "core/arch/cross-db-read-two-phase"
+        "core/shadcn/rule-03"
       ],
-      "detail": "[孤立] core/arch/cross-db-read-two-phase 无入度+active+超180天 — 候选归档/降级"
+      "detail": "[断链] core/shadcn/rule-03: [[shadcn-dialog-async-open]] ✗ 目标缺失"
     },
     {
-      "type": "stale",
+      "type": "broken-link",
       "files": [
-        "core/arch/db-table-cross-db-migrate-idiom"
+        "recall/arch/auto-fix-downgrade-33"
       ],
-      "detail": "[stale] core/arch/db-table-cross-db-migrate-idiom (created 12月,367天前, updated -,?, status active)"
+      "detail": "[断链] recall/arch/auto-fix-downgrade-33: [[dashmap-sharding]] ✗ 目标缺失"
     },
     {
-      "type": "orphan",
+      "type": "broken-link",
       "files": [
-        "core/arch/db-table-cross-db-migrate-idiom"
+        "recall/arch/auto-fix-downgrade-33"
       ],
-      "detail": "[孤立] core/arch/db-table-cross-db-migrate-idiom 无入度+active+超180天 — 候选归档/降级"
+      "detail": "[断链] recall/arch/auto-fix-downgrade-33: [[ts-protocol-rust-serde-sync]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/auto-fix-downgrade-34"
+      ],
+      "detail": "[断链] recall/arch/auto-fix-downgrade-34: [[cross-db-read-two-phase]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/auto-fix-downgrade-34"
+      ],
+      "detail": "[断链] recall/arch/auto-fix-downgrade-34: [[dedup-empty-field-key]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/auto-fix-downgrade-35"
+      ],
+      "detail": "[断链] recall/arch/auto-fix-downgrade-35: [[locale-dead-key-cleanup]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/auto-fix-downgrade-38"
+      ],
+      "detail": "[断链] recall/arch/auto-fix-downgrade-38: [[locale-dead-key-cleanup]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/auto-fix-downgrade-38"
+      ],
+      "detail": "[断链] recall/arch/auto-fix-downgrade-38: [[ts-protocol-rust-serde-sync]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -67,6 +95,48 @@
     {
       "type": "broken-link",
       "files": [
+        "recall/arch/cross-db-subquery-handle-selection"
+      ],
+      "detail": "[断链] recall/arch/cross-db-subquery-handle-selection: [[db-handle-ownership-audit-three-forms]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/non-typical-sql-audit-pattern"
+      ],
+      "detail": "[断链] recall/arch/non-typical-sql-audit-pattern: [[db-handle-ownership-audit-three-forms]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/parser-multi-path-format-symmetry"
+      ],
+      "detail": "[断链] recall/arch/parser-multi-path-format-symmetry: [[dedup-empty-field-key]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/shadcn-infra-32"
+      ],
+      "detail": "[断链] recall/arch/shadcn-infra-32: [[delete-enum-variant-migrate-db-first]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn-primitives-39"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn-primitives-39: [[tailwind-v4-no-preflight]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/shadcn-infra-28"
+      ],
+      "detail": "[断链] recall/build/shadcn-infra-28: [[shadcn-token-runtime-switch]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
         "recall/db/crash-safe-db-split-migration"
       ],
       "detail": "[断链] recall/db/crash-safe-db-split-migration: [[dual-db-aggregate-is-memory-shortcut]] ✗ 目标缺失"
@@ -76,7 +146,112 @@
       "files": [
         "recall/db/crash-safe-db-split-migration"
       ],
+      "detail": "[断链] recall/db/crash-safe-db-split-migration: [[db-handle-ownership-audit-three-forms]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/db/crash-safe-db-split-migration"
+      ],
       "detail": "[断链] recall/db/crash-safe-db-split-migration: [[dual-db-aggregate-is-memory-shortcut]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/cpa-oauth-credential-format"
+      ],
+      "detail": "[断链] recall/domain/cpa-oauth-credential-format: [[dedup-empty-field-key]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/cpa-oauth-credential-format"
+      ],
+      "detail": "[断链] recall/domain/cpa-oauth-credential-format: [[dedup-empty-field-key]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/auto-fix-downgrade-37"
+      ],
+      "detail": "[断链] recall/frontend/auto-fix-downgrade-37: [[modal-window-center-rule]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/shadcn-infra-30"
+      ],
+      "detail": "[断链] recall/frontend/shadcn-infra-30: [[tailwind-v4-no-preflight]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/shadcn-infra-31"
+      ],
+      "detail": "[断链] recall/frontend/shadcn-infra-31: [[css-var-live-resolution-alias]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/theme/shadcn-primitives-40"
+      ],
+      "detail": "[断链] recall/theme/shadcn-primitives-40: [[modal-window-center-rule]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/git/rule-44"
+      ],
+      "detail": "[断链] recall/git/rule-44: [[git-worktree-parallel-isolation]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-41"
+      ],
+      "detail": "[断链] recall/shadcn/rule-41: [[shadcn-select-number-mapping]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-42"
+      ],
+      "detail": "[断链] recall/shadcn/rule-42: [[shadcn-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-43"
+      ],
+      "detail": "[断链] recall/shadcn/rule-43: [[shadcn-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-45"
+      ],
+      "detail": "[断链] recall/shadcn/rule-45: [[shadcn-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-46"
+      ],
+      "detail": "[断链] recall/shadcn/rule-46: [[shadcn-dialog-async-open]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-47"
+      ],
+      "detail": "[断链] recall/shadcn/rule-47: [[shadcn-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/test/rule-48"
+      ],
+      "detail": "[断链] recall/test/rule-48: [[shadcn-select-none-sentinel]] ✗ 目标缺失"
     }
   ]
 }
