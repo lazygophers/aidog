@@ -1,10 +1,12 @@
 // ── StatChip ──
 // 小统计 chip（图标 + 值 + 标签），可选语义色编码。
 // 视觉对齐 Groups.tsx 原 4-chip：glass 底 + 圆角 + 粗体值 + 次级标签。
+// 外壳走 shadcn Badge（variant 由 level 派生），值文字色保持内联（测试依赖）。
 
 import type { ReactNode } from "react";
 import type { ColorLevel } from "./colorScale";
 import { levelColor } from "./colorScale";
+import { Badge } from "@/components/ui/badge";
 
 export interface StatChipProps {
   /** 可选图标（来自 icons.tsx，禁 emoji）。 */
@@ -19,12 +21,24 @@ export interface StatChipProps {
   level?: ColorLevel;
 }
 
+/** ColorLevel → Badge variant 映射（外壳语义），值文字色仍走 levelColor 内联。 */
+function levelToBadgeVariant(level: ColorLevel | undefined) {
+  switch (level) {
+    case "danger": return "destructive" as const;
+    case "success": return "default" as const;
+    case "warning": return "secondary" as const;
+    case "neutral": return "secondary" as const;
+    default: return "outline" as const;
+  }
+}
+
 export function StatChip({ icon, value, label, color, level }: StatChipProps) {
   const valueColor = color ?? (level ? levelColor(level) : "var(--text-primary)");
   return (
-    <div
+    <Badge
+      variant={levelToBadgeVariant(level)}
       style={{
-        display: "flex",
+        display: "inline-flex",
         alignItems: "center",
         gap: 5,
         padding: "4px 10px",
@@ -37,6 +51,6 @@ export function StatChip({ icon, value, label, color, level }: StatChipProps) {
       {icon && <span style={{ fontSize: 13, display: "inline-flex" }}>{icon}</span>}
       <span style={{ fontWeight: 700, color: valueColor }}>{value}</span>
       <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
-    </div>
+    </Badge>
   );
 }

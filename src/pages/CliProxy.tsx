@@ -3,11 +3,10 @@
 // - 列表：name / wire / base_url / status + 操作（测试余额 / 建 platform 行 / 编辑 / 删除）
 // - 编辑/新增：inline form（toggle 显示）
 // - 导入：modal（源路径 + OAuth 凭据目录 + 分组），调 cli_proxy_import 批量入库
-// 删除/导入 modal 均 createPortal(document.body)，脱离 liquid glass 祖先 transform（见 memory
-// modal-window-center-rule）。ponytail: 单文件页，无子组件拆分（YAGNI，s5 范围）。
+// 删除/导入 modal 均用 shadcn Dialog/AlertDialog（Radix Portal，满足 createPortal(document.body) 居中规则，
+// 见 memory modal-window-center-rule）。ponytail: 单文件页，无子组件拆分（YAGNI，s5 范围）。
 
 import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -19,35 +18,36 @@ import {
   type CliProxyImportResult,
   type BatchReport,
 } from "../services/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
-const btnPrimary: React.CSSProperties = {
-  padding: "7px 14px", borderRadius: 8, border: "1px solid var(--accent)",
-  background: "var(--accent)", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer",
-};
-const btnGhost: React.CSSProperties = {
-  padding: "7px 14px", borderRadius: 8, border: "1px solid var(--border)",
-  background: "transparent", color: "var(--text-primary)", fontSize: 13, cursor: "pointer",
-};
-const btnDanger: React.CSSProperties = {
-  ...btnPrimary, border: "1px solid var(--danger)", background: "var(--danger)",
-};
-const inputStyle: React.CSSProperties = {
-  padding: "6px 10px", borderRadius: 8, border: "1px solid var(--border)",
-  background: "var(--bg)", color: "var(--text-primary)", fontSize: 13, outline: "none",
-  width: "100%",
-};
+// radix Select 空值哨兵：`<SelectItem value="">` 会抛，用 __none__ 映射回 ""/null。
+const NONE = "__none__";
+
 const fieldLabel: React.CSSProperties = {
   display: "flex", flexDirection: "column", gap: 4,
   fontSize: 12, color: "var(--text-secondary)",
-};
-const modalOverlay: React.CSSProperties = {
-  position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-  display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000,
-};
-const modalBody: React.CSSProperties = {
-  background: "var(--bg-floating)", border: "1px solid var(--border)", borderRadius: 12,
-  padding: 20, width: "min(520px, 90vw)", maxHeight: "80vh",
-  display: "flex", flexDirection: "column", gap: 12, boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
 };
 
 const EMPTY_FORM: CreateCliProxyProvider = {
@@ -346,23 +346,23 @@ export function CliProxy() {
           {t("cliProxy.subtitle", { count: providers.length })}
         </span>
         <div style={{ flex: 1 }} />
-        <button onClick={openNew} disabled={busyKey !== null} style={btnGhost}>
+        <Button variant="ghost" onClick={openNew} disabled={busyKey !== null}>
           {t("cliProxy.add")}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="default"
           onClick={() => { setImportOpen(true); setMsg(null); }}
           disabled={busyKey !== null}
-          style={btnPrimary}
         >
           {t("cliProxy.import")}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant={selectMode ? "destructive" : "ghost"}
           onClick={selectMode ? exitSelect : enterSelect}
           disabled={busyKey !== null}
-          style={selectMode ? btnDanger : btnGhost}
         >
           {selectMode ? t("cliProxy.exitSelect") : t("cliProxy.selectMode")}
-        </button>
+        </Button>
       </div>
 
       {/* 选择模式工具栏 */}
@@ -373,11 +373,9 @@ export function CliProxy() {
           background: "var(--bg-elevated)",
         }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", color: "var(--text-primary)" }}>
-            <input
-              type="checkbox"
+            <Checkbox
               checked={providers.length > 0 && selectedIds.size === providers.length}
-              onChange={toggleSelectAll}
-              style={{ cursor: "pointer" }}
+              onCheckedChange={toggleSelectAll}
             />
             {t("cliProxy.selectAll")}
           </label>
@@ -385,27 +383,30 @@ export function CliProxy() {
             {t("cliProxy.selectedCount", { count: selectedIds.size })}
           </span>
           <div style={{ flex: 1 }} />
-          <button
+          <Button
+            variant="destructive"
             onClick={() => setBatchDeleteOpen(true)}
             disabled={selectedIds.size === 0 || busyKey !== null}
-            style={{ ...btnDanger, opacity: selectedIds.size === 0 ? 0.4 : 1 }}
+            style={{ opacity: selectedIds.size === 0 ? 0.4 : 1 }}
           >
             {t("cliProxy.batchDelete")}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => { setBatchModelsText(""); setBatchModelsOpen(true); }}
             disabled={selectedIds.size === 0 || busyKey !== null}
-            style={{ ...btnGhost, opacity: selectedIds.size === 0 ? 0.4 : 1 }}
+            style={{ opacity: selectedIds.size === 0 ? 0.4 : 1 }}
           >
             {t("cliProxy.batchOverrideModels")}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
             onClick={() => { setBatchQuotaType("none"); setBatchQuotaOpen(true); }}
             disabled={selectedIds.size === 0 || busyKey !== null}
-            style={{ ...btnGhost, opacity: selectedIds.size === 0 ? 0.4 : 1 }}
+            style={{ opacity: selectedIds.size === 0 ? 0.4 : 1 }}
           >
             {t("cliProxy.batchSetQuota")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -435,8 +436,7 @@ export function CliProxy() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <label style={fieldLabel}>
               {t("cliProxy.name")}
-              <input
-                style={inputStyle}
+              <Input
                 value={form.name}
                 onChange={e => setForm({ ...form, name: e.target.value })}
                 placeholder="claude-official"
@@ -444,20 +444,23 @@ export function CliProxy() {
             </label>
             <label style={fieldLabel}>
               {t("cliProxy.wireProtocol")}
-              <select
-                style={inputStyle}
+              <Select
                 value={form.wire_protocol}
-                onChange={e => setForm({ ...form, wire_protocol: e.target.value })}
+                onValueChange={v => setForm({ ...form, wire_protocol: v })}
               >
-                {["anthropic", "openai", "openai_responses", "openai_completions", "gemini", "glm_coding"].map(v => (
-                  <option key={v} value={v}>{v}</option>
-                ))}
-              </select>
+                <SelectTrigger style={{ width: "100%" }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["anthropic", "openai", "openai_responses", "openai_completions", "gemini", "glm_coding"].map(v => (
+                    <SelectItem key={v} value={v}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label style={{ ...fieldLabel, gridColumn: "1 / -1" }}>
               {t("cliProxy.baseUrl")}
-              <input
-                style={inputStyle}
+              <Input
                 value={form.base_url}
                 onChange={e => setForm({ ...form, base_url: e.target.value })}
                 placeholder="https://api.anthropic.com/v1"
@@ -465,8 +468,7 @@ export function CliProxy() {
             </label>
             <label style={{ ...fieldLabel, gridColumn: "1 / -1" }}>
               {t("cliProxy.apiKey")}
-              <input
-                style={inputStyle}
+              <Input
                 type="password"
                 value={form.api_key ?? ""}
                 onChange={e => setForm({ ...form, api_key: e.target.value })}
@@ -475,8 +477,8 @@ export function CliProxy() {
             </label>
             <label style={{ ...fieldLabel, gridColumn: "1 / -1" }}>
               {t("cliProxy.models")}
-              <textarea
-                style={{ ...inputStyle, minHeight: 80, resize: "vertical" }}
+              <Textarea
+                style={{ minHeight: 80, resize: "vertical" }}
                 value={modelsText}
                 onChange={e => setModelsText(e.target.value)}
                 placeholder={t("cliProxy.modelsHint")}
@@ -484,32 +486,39 @@ export function CliProxy() {
             </label>
             <label style={fieldLabel}>
               {t("cliProxy.status")}
-              <select
-                style={inputStyle}
+              <Select
                 value={form.status ?? "active"}
-                onChange={e => setForm({ ...form, status: e.target.value })}
+                onValueChange={v => setForm({ ...form, status: v })}
               >
-                <option value="active">{t("cliProxy.statusActive")}</option>
-                <option value="disabled">{t("cliProxy.statusDisabled")}</option>
-              </select>
+                <SelectTrigger style={{ width: "100%" }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">{t("cliProxy.statusActive")}</SelectItem>
+                  <SelectItem value="disabled">{t("cliProxy.statusDisabled")}</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
             <label style={fieldLabel}>
               {t("cliProxy.groupId")}
-              <select
-                style={inputStyle}
-                value={form.group_id ?? ""}
-                onChange={e => setForm({ ...form, group_id: e.target.value === "" ? null : Number(e.target.value) })}
+              <Select
+                value={form.group_id == null ? NONE : String(form.group_id)}
+                onValueChange={v => setForm({ ...form, group_id: v === NONE ? null : Number(v) })}
               >
-                <option value="">—</option>
-                {groups.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
-                ))}
-              </select>
+                <SelectTrigger style={{ width: "100%" }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>—</SelectItem>
+                  {groups.map(g => (
+                    <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <label style={{ ...fieldLabel, gridColumn: "1 / -1" }}>
               {t("cliProxy.extra")}
-              <input
-                style={inputStyle}
+              <Input
                 value={form.extra ?? ""}
                 onChange={e => setForm({ ...form, extra: e.target.value })}
                 placeholder="{}"
@@ -517,23 +526,27 @@ export function CliProxy() {
             </label>
             <label style={fieldLabel}>
               {t("cliProxy.quotaType")}
-              <select
-                style={inputStyle}
+              <Select
                 value={quotaTypeOf(form.quota)}
-                onChange={e => setForm({ ...form, quota: JSON.stringify({ type: e.target.value }) })}
+                onValueChange={v => setForm({ ...form, quota: JSON.stringify({ type: v }) })}
               >
-                <option value="none">{t("cliProxy.quotaTypeNone")}</option>
-                <option value="newapi">{t("cliProxy.quotaTypeNewapi")}</option>
-              </select>
+                <SelectTrigger style={{ width: "100%" }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">{t("cliProxy.quotaTypeNone")}</SelectItem>
+                  <SelectItem value="newapi">{t("cliProxy.quotaTypeNewapi")}</SelectItem>
+                </SelectContent>
+              </Select>
             </label>
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button onClick={cancelForm} disabled={busyKey !== null} style={btnGhost}>
+            <Button variant="ghost" onClick={cancelForm} disabled={busyKey !== null}>
               {t("cliProxy.cancel")}
-            </button>
-            <button onClick={handleSave} disabled={busyKey !== null} style={btnPrimary}>
+            </Button>
+            <Button variant="default" onClick={handleSave} disabled={busyKey !== null}>
               {t("cliProxy.save")}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -562,11 +575,10 @@ export function CliProxy() {
               }}
             >
               {selectMode && (
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={selectedIds.has(p.id)}
-                  onChange={() => toggleSelect(p.id)}
-                  style={{ cursor: "pointer", flexShrink: 0 }}
+                  onCheckedChange={() => toggleSelect(p.id)}
+                  style={{ flexShrink: 0 }}
                 />
               )}
               <div style={{ minWidth: 160 }}>
@@ -592,221 +604,230 @@ export function CliProxy() {
                 </span>
               )}
               <div style={{ display: "flex", gap: 6 }}>
-                <button
+                <Button
+                  variant="ghost"
                   onClick={() => void handleTest(p)}
                   disabled={busyKey !== null}
-                  style={btnGhost}
                   title={t("cliProxy.test")}
+                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
                 >
                   {t("cliProxy.test")}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => void handleCreatePlatform(p)}
                   disabled={busyKey !== null}
-                  style={btnGhost}
                   title={t("cliProxy.createPlatform")}
+                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
                 >
                   {t("cliProxy.createPlatform")}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => openEdit(p)}
                   disabled={busyKey !== null}
-                  style={btnGhost}
+                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
                 >
                   {t("cliProxy.edit")}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="destructive"
                   onClick={() => setDeleteTarget(p)}
                   disabled={busyKey !== null}
-                  style={btnDanger}
+                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
                 >
                   {t("cliProxy.delete")}
-                </button>
+                </Button>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* 删除确认 modal */}
-      {deleteTarget && createPortal(
-        <div style={modalOverlay} onClick={() => setDeleteTarget(null)}>
-          <div style={modalBody} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+      {/* 删除确认 AlertDialog */}
+      <AlertDialog open={deleteTarget !== null} onOpenChange={o => { if (!o) setDeleteTarget(null); }}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: 20 }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontSize: 15, fontWeight: 600 }}>
               {t("cliProxy.confirmDelete")}
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-              {deleteTarget.name} ({deleteTarget.wire_protocol})
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setDeleteTarget(null)} disabled={busyKey !== null} style={btnGhost}>
-                {t("cliProxy.cancel")}
-              </button>
-              <button onClick={handleDelete} disabled={busyKey !== null} style={btnDanger}>
-                {t("cliProxy.delete")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+              {deleteTarget?.name} ({deleteTarget?.wire_protocol})
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyKey !== null}>{t("cliProxy.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={busyKey !== null}
+              style={{ background: "var(--danger)" }}
+            >
+              {t("cliProxy.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* 批量删除确认 modal */}
-      {batchDeleteOpen && createPortal(
-        <div style={modalOverlay} onClick={() => setBatchDeleteOpen(false)}>
-          <div style={modalBody} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+      {/* 批量删除确认 AlertDialog */}
+      <AlertDialog open={batchDeleteOpen} onOpenChange={setBatchDeleteOpen}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: 20 }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontSize: 15, fontWeight: 600 }}>
               {t("cliProxy.batchDeleteTitle")}
-            </div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: 13, color: "var(--text-secondary)" }}>
               {selectedIds.size <= 5
                 ? providers
                     .filter(p => selectedIds.has(p.id))
                     .map(p => `${p.name} (${p.wire_protocol})`)
                     .join("、")
                 : t("cliProxy.batchDeleteConfirm", { count: selectedIds.size })}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-              {t("cliProxy.batchDeleteConfirm", { count: selectedIds.size })}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setBatchDeleteOpen(false)} disabled={busyKey !== null} style={btnGhost}>
-                {t("cliProxy.cancel")}
-              </button>
-              <button onClick={handleBatchDelete} disabled={busyKey !== null} style={btnDanger}>
-                {t("cliProxy.batchDelete")}
-              </button>
-            </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            {t("cliProxy.batchDeleteConfirm", { count: selectedIds.size })}
           </div>
-        </div>,
-        document.body,
-      )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={busyKey !== null}>{t("cliProxy.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBatchDelete}
+              disabled={busyKey !== null}
+              style={{ background: "var(--danger)" }}
+            >
+              {t("cliProxy.batchDelete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
-      {/* 批量覆盖 models modal */}
-      {batchModelsOpen && createPortal(
-        <div style={modalOverlay} onClick={() => setBatchModelsOpen(false)}>
-          <div style={modalBody} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+      {/* 批量覆盖 models Dialog */}
+      <Dialog open={batchModelsOpen} onOpenChange={setBatchModelsOpen}>
+        <DialogContent className="glass-elevated" style={{ maxWidth: 520, padding: 20 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>
               {t("cliProxy.batchModelsTitle")}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
               {t("cliProxy.selectedCount", { count: selectedIds.size })}
-            </div>
-            <label style={fieldLabel}>
-              <textarea
-                style={{ ...inputStyle, minHeight: 120, resize: "vertical" }}
-                value={batchModelsText}
-                onChange={e => setBatchModelsText(e.target.value)}
-                placeholder={t("cliProxy.batchModelsPlaceholder")}
-              />
-            </label>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setBatchModelsOpen(false)} disabled={busyKey !== null} style={btnGhost}>
-                {t("cliProxy.cancel")}
-              </button>
-              <button onClick={handleBatchOverrideModels} disabled={busyKey !== null} style={btnPrimary}>
-                {t("cliProxy.save")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <label style={fieldLabel}>
+            <Textarea
+              style={{ minHeight: 120, resize: "vertical" }}
+              value={batchModelsText}
+              onChange={e => setBatchModelsText(e.target.value)}
+              placeholder={t("cliProxy.batchModelsPlaceholder")}
+            />
+          </label>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBatchModelsOpen(false)} disabled={busyKey !== null}>
+              {t("cliProxy.cancel")}
+            </Button>
+            <Button variant="default" onClick={handleBatchOverrideModels} disabled={busyKey !== null}>
+              {t("cliProxy.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* 批量设置 quota modal */}
-      {batchQuotaOpen && createPortal(
-        <div style={modalOverlay} onClick={() => setBatchQuotaOpen(false)}>
-          <div style={modalBody} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+      {/* 批量设置 quota Dialog */}
+      <Dialog open={batchQuotaOpen} onOpenChange={setBatchQuotaOpen}>
+        <DialogContent className="glass-elevated" style={{ maxWidth: 420, padding: 20 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>
               {t("cliProxy.batchQuotaTitle")}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
               {t("cliProxy.selectedCount", { count: selectedIds.size })}
-            </div>
-            <label style={fieldLabel}>
-              {t("cliProxy.quotaType")}
-              <select
-                style={inputStyle}
-                value={batchQuotaType}
-                onChange={e => setBatchQuotaType(e.target.value as "none" | "newapi")}
-              >
-                <option value="none">{t("cliProxy.quotaTypeNone")}</option>
-                <option value="newapi">{t("cliProxy.quotaTypeNewapi")}</option>
-              </select>
-            </label>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setBatchQuotaOpen(false)} disabled={busyKey !== null} style={btnGhost}>
-                {t("cliProxy.cancel")}
-              </button>
-              <button onClick={handleBatchSetQuota} disabled={busyKey !== null} style={btnPrimary}>
-                {t("cliProxy.save")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+            </DialogDescription>
+          </DialogHeader>
+          <label style={fieldLabel}>
+            {t("cliProxy.quotaType")}
+            <Select
+              value={batchQuotaType}
+              onValueChange={v => setBatchQuotaType(v as "none" | "newapi")}
+            >
+              <SelectTrigger style={{ width: "100%" }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t("cliProxy.quotaTypeNone")}</SelectItem>
+                <SelectItem value="newapi">{t("cliProxy.quotaTypeNewapi")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setBatchQuotaOpen(false)} disabled={busyKey !== null}>
+              {t("cliProxy.cancel")}
+            </Button>
+            <Button variant="default" onClick={handleBatchSetQuota} disabled={busyKey !== null}>
+              {t("cliProxy.save")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* 导入 modal */}
-      {importOpen && createPortal(
-        <div style={modalOverlay} onClick={() => setImportOpen(false)}>
-          <div style={modalBody} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
+      {/* 导入 Dialog */}
+      <Dialog open={importOpen} onOpenChange={setImportOpen}>
+        <DialogContent className="glass-elevated" style={{ maxWidth: 520, padding: 20 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>
               {t("cliProxy.import")}
+            </DialogTitle>
+          </DialogHeader>
+          <label style={fieldLabel}>
+            {t("cliProxy.importSource")}
+            <div style={{ display: "flex", gap: 8 }}>
+              <Input
+                value={importSource}
+                onChange={e => setImportSource(e.target.value)}
+                placeholder="config.yaml / .zip / .tgz / dir"
+              />
+              <Button variant="ghost" onClick={() => void pickFile(setImportSource)} style={{ flexShrink: 0 }}>
+                {t("cliProxy.importPickFile")}
+              </Button>
             </div>
-            <label style={fieldLabel}>
-              {t("cliProxy.importSource")}
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  style={inputStyle}
-                  value={importSource}
-                  onChange={e => setImportSource(e.target.value)}
-                  placeholder="config.yaml / .zip / .tgz / dir"
-                />
-                <button onClick={() => void pickFile(setImportSource)} style={btnGhost}>
-                  {t("cliProxy.importPickFile")}
-                </button>
-              </div>
-            </label>
-            <label style={fieldLabel}>
-              {t("cliProxy.importAuthDir")}
-              <div style={{ display: "flex", gap: 8 }}>
-                <input
-                  style={inputStyle}
-                  value={importAuthDir}
-                  onChange={e => setImportAuthDir(e.target.value)}
-                  placeholder="~/.claude/auth.json dir (optional)"
-                />
-                <button onClick={() => void pickDir(setImportAuthDir)} style={btnGhost}>
-                  {t("cliProxy.importPickDir")}
-                </button>
-              </div>
-            </label>
-            <label style={fieldLabel}>
-              {t("cliProxy.groupId")}
-              <select
-                style={inputStyle}
-                value={importGroupId}
-                onChange={e => setImportGroupId(e.target.value === "" ? "" : Number(e.target.value))}
-              >
-                <option value="">—</option>
+          </label>
+          <label style={fieldLabel}>
+            {t("cliProxy.importAuthDir")}
+            <div style={{ display: "flex", gap: 8 }}>
+              <Input
+                value={importAuthDir}
+                onChange={e => setImportAuthDir(e.target.value)}
+                placeholder="~/.claude/auth.json dir (optional)"
+              />
+              <Button variant="ghost" onClick={() => void pickDir(setImportAuthDir)} style={{ flexShrink: 0 }}>
+                {t("cliProxy.importPickDir")}
+              </Button>
+            </div>
+          </label>
+          <label style={fieldLabel}>
+            {t("cliProxy.groupId")}
+            <Select
+              value={importGroupId === "" ? NONE : String(importGroupId)}
+              onValueChange={v => setImportGroupId(v === NONE ? "" : Number(v))}
+            >
+              <SelectTrigger style={{ width: "100%" }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NONE}>—</SelectItem>
                 {groups.map(g => (
-                  <option key={g.id} value={g.id}>{g.name}</option>
+                  <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
                 ))}
-              </select>
-            </label>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button onClick={() => setImportOpen(false)} disabled={busyKey !== null} style={btnGhost}>
-                {t("cliProxy.cancel")}
-              </button>
-              <button onClick={handleImport} disabled={busyKey !== null} style={btnPrimary}>
-                {t("cliProxy.import")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
+              </SelectContent>
+            </Select>
+          </label>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setImportOpen(false)} disabled={busyKey !== null}>
+              {t("cliProxy.cancel")}
+            </Button>
+            <Button variant="default" onClick={handleImport} disabled={busyKey !== null}>
+              {t("cliProxy.import")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

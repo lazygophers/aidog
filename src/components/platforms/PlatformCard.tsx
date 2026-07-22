@@ -15,6 +15,9 @@ import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
 import { parseDisableDuringPeak, parsePlatformPeakHours } from "../../services/api";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 
 // ── Props types ──
 
@@ -407,9 +410,9 @@ export const PlatformCard = memo(function PlatformCard({
                 {platformMembership && platformMembership.length > 0 && (
                   <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {platformMembership.map(gName => (
-                      <span key={gName} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px" }}>
+                      <Badge key={gName} variant="secondary" style={{ fontSize: 10, padding: "1px 6px" }}>
                         {gName}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 )}
@@ -679,10 +682,10 @@ function EndpointsSection({
           <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {endpoints.map((ep, ei) => (
-              <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
+              <Badge key={ei} variant="secondary" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
                 {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
                 {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
-              </span>
+              </Badge>
             ))}
           </div>
         </div>
@@ -692,7 +695,7 @@ function EndpointsSection({
           <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {configuredModels.map((m, mi) => (
-              <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</span>
+              <Badge key={mi} variant="secondary" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</Badge>
             ))}
           </div>
         </div>
@@ -773,9 +776,10 @@ function PlatformActionButtons({
   return (
     <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
       {canRefresh && (
-        <button
-          className="btn btn-ghost btn-icon"
-          style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}
+        <Button
+          variant="ghost"
+          size="icon"
+          style={{ padding: 4, height: "auto", minWidth: "auto" }}
           disabled={refreshing}
           title={t("platform.quotaRefresh", "刷新额度")}
           onClick={(e) => { e.stopPropagation(); actions.onRefreshQuota(platform); }}
@@ -786,7 +790,7 @@ function PlatformActionButtons({
             <path d="M21 12a9 9 0 1 1-2.64-6.36" />
             <polyline points="21 3 21 9 15 9" />
           </svg>
-        </button>
+        </Button>
       )}
       <div
         className={`toggle ${platform.status === "enabled" ? "active" : ""}`}
@@ -799,9 +803,9 @@ function PlatformActionButtons({
             : t("platform.enable", "启用")}
       />
       <div style={{ display: "inline-flex", fontSize: 11 }}>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
+        <Button
+          variant="ghost"
+          style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
           disabled={testing}
           onClick={(e) => { e.stopPropagation(); actions.onQuickTest(platform); }}
           title={t("platform.quickTest", "快速测试默认模型")}
@@ -809,48 +813,48 @@ function PlatformActionButtons({
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
             <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
           </svg>
-        </button>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
+        </Button>
+        <Button
+          variant="ghost"
+          style={{ fontSize: 11, padding: "3px 6px", height: "auto", borderRadius: "0 6px 6px 0" }}
           onClick={(e) => { e.stopPropagation(); actions.onCustomTest(platform); }}
           title={t("platform.customTest", "自定义测试")}
         >
           <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 5l4 4 4-4" />
           </svg>
-        </button>
+        </Button>
       </div>
-      <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 2h10v10H2z" />
           <path d="M4 5h6M4 7h4M4 9h5" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(platform); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); actions.onEdit(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 2l2 2-7 7H3v-2l7-7z" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon" title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(platform); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="3" r="1.6" />
           <circle cx="3" cy="7" r="1.6" />
           <circle cx="11" cy="11" r="1.6" />
           <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon" title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(platform); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="4" width="8" height="8" rx="1.2" />
           <path d="M9 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" />
         </svg>
-      </button>
-      <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); actions.onDelete(platform.id); }}>
+      </Button>
+      <Button variant="ghost" size="icon" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); actions.onDelete(platform.id); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
         </svg>
-      </button>
+      </Button>
     </div>
   );
 }
@@ -915,16 +919,17 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
         {t("group.levelPriority", "优先级")}
       </span>
       <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          size="icon"
           style={btnStyle}
           disabled={value <= 1}
           title={t("group.levelPriorityDown", "降低优先级")}
           onClick={e => { e.stopPropagation(); set(value - 1); }}
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7h8" /></svg>
-        </button>
-        <input
+        </Button>
+        <Input
           type="number"
           min={1}
           max={10}
@@ -935,21 +940,22 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           onBlur={commit}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
           style={{
-            width: 38, textAlign: "center", fontSize: 12, fontWeight: 700,
+            width: 38, height: "auto", textAlign: "center", fontSize: 12, fontWeight: 700,
             padding: "2px 4px", borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)", border: "1px solid var(--border)",
             color: "var(--text-primary)",
           }}
         />
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          size="icon"
           style={btnStyle}
           disabled={value >= 10}
           title={t("group.levelPriorityUp", "提高优先级")}
           onClick={e => { e.stopPropagation(); set(value + 1); }}
         >
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3v8M3 7h8" /></svg>
-        </button>
+        </Button>
       </div>
       <span className="text-tertiary" style={{ fontSize: 9, opacity: 0.7 }}>
         {t("group.levelPriorityMax", "10=最高优先")}
@@ -968,8 +974,9 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
   const hasBody = result.response_body.trim().length > 0;
   return (
     <div style={{ marginTop: 3, maxWidth: "100%" }}>
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={hasBody ? () => setOpen(o => !o) : undefined}
         style={{
           display: "inline-flex", alignItems: "center", gap: 4,
@@ -977,6 +984,7 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           background: `color-mix(in srgb, ${color} 12%, transparent)`,
           border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
           borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",
+          height: "auto",
           cursor: hasBody ? "pointer" : "default",
         }}
         title={ok
@@ -993,7 +1001,7 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
           <span style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{errorText}</span>
         )}
         {hasBody && <span style={{ opacity: 0.7 }}>{open ? "▾" : "▸"}</span>}
-      </button>
+      </Button>
       {open && hasBody && (
         <div className="glass-surface" style={{ marginTop: 4, padding: "6px 8px", borderRadius: 6, maxWidth: "100%" }}>
           <TestResultBody body={result.response_body} />

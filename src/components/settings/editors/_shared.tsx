@@ -8,6 +8,9 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { type SettingField } from "../../../services/claude-settings-schema";
 import { F, S } from "./tokens";
 import { SectionIcon } from "./icons";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 /** Toggle switch */
 export function Toggle({
@@ -130,7 +133,7 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
         <Highlighted text={translated} query={highlight} />
         {nonDefault && onReset && (
-          <button
+          <Button variant="outline"
             type="button"
             onClick={(e) => { e.preventDefault(); onReset(); }}
             title={t("settings.resetToDefault")}
@@ -144,7 +147,7 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
           >
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />
             {t("settings.reset")}
-          </button>
+          </Button>
         )}
       </span>
       <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
@@ -195,8 +198,8 @@ export function JsonEditor({
 
   return (
     <div>
-      <textarea
-        className="input"
+      <Textarea
+        
         style={{
           fontFamily: '"SF Mono", "Fira Code", monospace',
           fontSize: F.body,
@@ -247,21 +250,21 @@ export function KvEditor({
     <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
       {entries.map(([k, v]) => (
         <div key={k} style={{ display: "flex", gap: 6 }}>
-          <input
-            className="input"
+          <Input
+            
             style={{ flex: 2, fontSize: F.body, padding: S.inputPad }}
             value={k}
             readOnly
           />
-          <input
-            className="input"
+          <Input
+            
             style={{ flex: 3, fontSize: F.body, padding: S.inputPad }}
             value={v}
             onChange={(e) => onChange({ ...items, [k]: e.target.value })}
           />
-          <button
+          <Button variant="ghost"
             type="button"
-            className="btn btn-ghost btn-icon"
+            
             style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
             onClick={() => {
               const next = { ...items };
@@ -270,27 +273,27 @@ export function KvEditor({
             }}
           >
             ×
-          </button>
+          </Button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 6 }}>
-        <input
-          className="input"
+        <Input
+          
           style={{ flex: 2, fontSize: F.body, padding: S.inputPad }}
           placeholder="KEY"
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}
         />
-        <input
-          className="input"
+        <Input
+          
           style={{ flex: 3, fontSize: F.body, padding: S.inputPad }}
           placeholder="VALUE"
           value={newVal}
           onChange={(e) => setNewVal(e.target.value)}
         />
-        <button
+        <Button variant="ghost"
           type="button"
-          className="btn btn-ghost"
+          
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => {
             if (newKey.trim()) {
@@ -301,7 +304,7 @@ export function KvEditor({
           }}
         >
           +
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -323,8 +326,8 @@ export function StringListEditor({
     <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
       {items.map((item, i) => (
         <div key={i} style={{ display: "flex", gap: 6 }}>
-          <input
-            className="input"
+          <Input
+            
             style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
             value={item}
             onChange={(e) => {
@@ -333,19 +336,19 @@ export function StringListEditor({
               onChange(next);
             }}
           />
-          <button
+          <Button variant="ghost"
             type="button"
-            className="btn btn-ghost btn-icon"
+            
             style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
             onClick={() => onChange(items.filter((_, j) => j !== i))}
           >
             ×
-          </button>
+          </Button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 6 }}>
-        <input
-          className="input"
+        <Input
+          
           style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
           placeholder={addLabel}
           value={draft}
@@ -357,9 +360,9 @@ export function StringListEditor({
             }
           }}
         />
-        <button
+        <Button variant="ghost"
           type="button"
-          className="btn btn-ghost"
+          
           style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => {
             if (draft.trim()) {
@@ -369,7 +372,7 @@ export function StringListEditor({
           }}
         >
           +
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -504,8 +507,8 @@ export function PathInput({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
       <div style={{ display: "flex", gap: 6 }}>
-        <input
-          className="input"
+        <Input
+          
           style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
           placeholder={placeholder ?? (pathType === "directory" ? t("settings.editor.dirOrInputPh", "选择目录或直接输入路径…") : t("settings.editor.fileOrInputPh", "选择文件或直接输入路径…"))}
           value={value ?? ""}
@@ -539,15 +542,15 @@ export function PathInput({
             }
           }}
         />
-        <button
+        <Button variant="ghost"
           type="button"
-          className="btn btn-ghost"
+          
           style={{ fontSize: F.body, padding: S.inputPad, flexShrink: 0 }}
           onClick={pick}
           title={pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件")}
         >
           <SectionIcon name="folder" size={15} />
-        </button>
+        </Button>
       </div>
 
       {/* Autocomplete dropdown */}
@@ -568,10 +571,10 @@ export function PathInput({
           }}
         >
           {suggestions.map((s, i) => (
-            <button
+            <Button variant="ghost"
               key={s.full_path}
               type="button"
-              className="btn btn-ghost"
+              
               style={{
                 width: "100%",
                 justifyContent: "space-between",
@@ -599,7 +602,7 @@ export function PathInput({
               <span style={{ fontSize: 12, color: "var(--text-tertiary)", flexShrink: 0 }}>
                 {formatTime(s.modified)}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
       )}

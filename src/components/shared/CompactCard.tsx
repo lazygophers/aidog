@@ -9,6 +9,8 @@
 // children 为空时不渲染展开触发器（无二级内容则纯 header 卡片）。
 
 import { useState, type ReactNode } from "react";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 export interface CompactCardProps {
   /** 常显关键指标区（名称 / 状态 / 余额 / 核心统计 / 快操作）。 */
@@ -48,7 +50,7 @@ export function CompactCard({
   };
 
   return (
-    <div
+    <Card
       className="glass-surface"
       style={{
         display: "flex",
@@ -61,9 +63,11 @@ export function CompactCard({
       <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
         <div style={{ flex: 1, minWidth: 0 }}>{header}</div>
         {hasChildren && (
-          <button
+          <Button
             type="button"
-            className="btn btn-ghost btn-icon"
+            variant="ghost"
+            size="icon"
+            style={{ height: "auto" }}
             aria-label={toggleLabel}
             aria-expanded={open}
             onClick={(e) => {
@@ -87,12 +91,12 @@ export function CompactCard({
             >
               <path d="M6 9l6 6 6-6" />
             </svg>
-          </button>
+          </Button>
         )}
       </div>
       {hasChildren && open && (
         <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>{children}</div>
       )}
-    </div>
+    </Card>
   );
 }

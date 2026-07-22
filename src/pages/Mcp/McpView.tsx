@@ -1,6 +1,6 @@
 import type { McpData } from "./useMcpData";
 import { McpRow } from "./primitives";
-import { btnGhost, btnPrimary } from "./styles";
+import { Button } from "@/components/ui/button";
 
 /**
  * 主列表视图（自原 Mcp.tsx L446-536 外迁）。
@@ -10,7 +10,6 @@ export function McpView({ d }: { d: McpData }) {
   const {
     t, servers, loading, busyKey, message,
     openAdd, openScan, handleResync, setPasteOpen, setPasteText, setMessage,
-    handleToggle, openEdit, setDeleteTarget, handleShare,
   } = d;
 
   return (
@@ -24,35 +23,34 @@ export function McpView({ d }: { d: McpData }) {
           {t("mcp.subtitle", { count: servers.length, defaultValue: `${servers.length}` })}
         </span>
         <div style={{ flex: 1 }} />
-        <button
+        <Button
+          variant="outline"
           onClick={openAdd}
           disabled={busyKey !== null}
-          style={btnGhost}
         >
           {t("mcp.add", "添加 MCP")}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={() => { setPasteText(""); setMessage(null); setPasteOpen(true); }}
           disabled={busyKey !== null}
-          style={btnGhost}
         >
           {t("mcp.pasteImport", "粘贴导入")}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="outline"
           onClick={handleResync}
           disabled={busyKey !== null}
-          style={btnGhost}
           title={t("mcp.resyncHint", "从 aidog 数据库重写所有已启用 agent 的配置文件，修复被外部工具污染的条目")}
         >
           {t("mcp.resync", "重新同步")}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={openScan}
           disabled={busyKey !== null}
-          style={btnPrimary}
         >
           {t("mcp.scanImport", "扫描导入")}
-        </button>
+        </Button>
       </div>
 
       {/* 消息条 */}
@@ -96,10 +94,10 @@ export function McpView({ d }: { d: McpData }) {
               key={srv.name}
               srv={srv}
               busyKey={busyKey}
-              onToggle={handleToggle}
-              onEdit={() => openEdit(srv)}
-              onDelete={() => setDeleteTarget(srv)}
-              onShare={() => void handleShare(srv)}
+              onToggle={d.handleToggle}
+              onEdit={() => d.openEdit(srv)}
+              onDelete={() => d.setDeleteTarget(srv)}
+              onShare={() => void d.handleShare(srv)}
             />
           ))}
         </div>

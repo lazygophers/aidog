@@ -5,6 +5,8 @@ import { useTranslation } from "react-i18next";
 import { type SettingField } from "../../../services/claude-settings-schema";
 import { F, S } from "./tokens";
 import { Toggle, FieldLabel, JsonEditor, KvEditor, StringListEditor, PathInput } from "./_shared";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 // ─── Field Renderer ────────────────────────────────────────
 
@@ -73,19 +75,23 @@ export function FieldRenderer({
       return (
         <div style={rowStyle}>
           {label()}
-          <select
-            className="input"
-            style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 0 }}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value || undefined)}
+          <Select
+
+
+
+            value={!value ? "__none__" : value}
+            onValueChange={(v) => onChange(v === "__none__" ? undefined : v)}
           >
-            <option value="">—</option>
+<SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 0 }}><SelectValue/></SelectTrigger>
+<SelectContent>
+            <SelectItem value="__none__">—</SelectItem>
             {field.options?.map((opt) => (
-              <option key={opt} value={opt}>
+              <SelectItem key={opt} value={opt}>
                 {opt}
-              </option>
+              </SelectItem>
             ))}
-          </select>
+          </SelectContent>
+</Select>
         </div>
       );
 
@@ -148,8 +154,8 @@ export function FieldRenderer({
         <div style={rowStyle}>
           {label()}
           <div style={{ flex: 1, minWidth: 0 }}>
-            <input
-              className="input"
+            <Input
+              
               style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}
               placeholder={field.placeholder}
               value={value ?? ""}

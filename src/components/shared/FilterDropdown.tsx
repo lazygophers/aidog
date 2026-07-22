@@ -4,6 +4,8 @@
 // 数据源由各调用方传入（Stats: 有数据平台派生；Logs: 全平台 / 全分组 / 全模型）。
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export interface FilterDropdownProps {
   width: number;
@@ -41,14 +43,14 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
 
   return (
     <div ref={ref} style={{ position: "relative", width }}>
-      <button
-        className="input"
+      <Button
+        variant="outline"
         // ponytail: lineHeight/height 显式锁, 防 .input transition:all + 继承链抖动致 trigger 文字错位
-        style={{ fontSize: 14, lineHeight: 1.5, height: 36, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        style={{ fontSize: 14, lineHeight: 1.5, height: 36, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "flex-start" }}
         onClick={() => setOpen(o => !o)}
       >
         {current ? current.label : allLabel}
-      </button>
+      </Button>
       {open && (
         <div
           className="glass-elevated"
@@ -67,8 +69,7 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
             maxHeight: 320,
           }}
         >
-          <input
-            className="input"
+          <Input
             autoFocus
             style={{ fontSize: 14 }}
             placeholder={searchPlaceholder}
@@ -98,13 +99,15 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
 
 function FilterOption({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
+    <Button
+      variant="ghost"
       onClick={onClick}
       style={{
         display: "block",
         width: "100%",
+        height: "auto",
         textAlign: "left",
-        border: "none",
+        justifyContent: "flex-start",
         background: active ? "var(--bg-glass)" : "transparent",
         color: active ? "var(--accent)" : "var(--text-primary)",
         fontWeight: active ? 600 : 400,
@@ -120,6 +123,6 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
       }}
     >
       {label}
-    </button>
+    </Button>
   );
 }

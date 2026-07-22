@@ -22,6 +22,10 @@ import { mapPlatformToProtocol, sub2apiAccountToPlatformJson } from "../../utils
 import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
 import { StatChip } from "../shared/StatChip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** 脱敏 api_key：保留前 4 + 后 4，中间打码。 */
 function maskKey(key?: string): string {
@@ -161,15 +165,15 @@ export function Sub2ApiImportSection({
       {/* 双入口：选文件 + 粘贴 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <button
+          <Button variant="default"
             onClick={handlePickFile}
             disabled={parsing || importing}
-            className="btn btn-primary"
+            
             style={{ padding: "7px 16px", fontSize: 13 }}
           >
             {t("importExport.sub2api.pickFile", "选择 JSON 文件")}
-          </button>
-          <button
+          </Button>
+          <Button variant="outline"
             onClick={() => handleParseText(pasteText)}
             disabled={parsing || importing}
             style={{
@@ -181,10 +185,10 @@ export function Sub2ApiImportSection({
             {parsing
               ? t("importExport.sub2api.parsing", "解析中…")
               : t("importExport.sub2api.parsePaste", "解析粘贴内容")}
-          </button>
+          </Button>
         </div>
-        <textarea
-          className="input"
+        <Textarea
+          
           value={pasteText}
           onChange={(e) => setPasteText(e.target.value)}
           placeholder={t("importExport.sub2api.pastePlaceholder", "粘贴 sub2api 导出的 JSON 文本…")}
@@ -200,18 +204,18 @@ export function Sub2ApiImportSection({
               {t("importExport.sub2api.accountList", "账号列表")}
             </strong>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <button
+              <Button variant="outline"
                 onClick={() => setSelected(new Set(accounts.map((_, i) => i)))}
                 style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
               >
                 {t("importExport.selectAll", "全选")}
-              </button>
-              <button
+              </Button>
+              <Button variant="outline"
                 onClick={() => setSelected(new Set())}
                 style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0 }}
               >
                 {t("importExport.deselectAll", "反选")}
-              </button>
+              </Button>
               <StatChip value={`${selectedCount}/${accounts.length}`} label={t("importExport.selectedLabel", "已选")} level={selectedCount > 0 ? "success" : "neutral"} />
             </div>
           </div>
@@ -248,16 +252,19 @@ export function Sub2ApiImportSection({
                   </span>
                   <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{acc.name}</span>
                   {/* Protocol 下拉手改 */}
-                  <select
-                    className="input"
+                  <Select
+                    
                     value={protocol}
-                    onChange={(e) => setOverride(i, e.target.value as Protocol)}
-                    style={{ fontSize: 12, padding: "4px 8px", width: "auto", minWidth: 140 }}
+                    onValueChange={(v) => setOverride(i, v as Protocol)}
+                    
                   >
+<SelectTrigger style={{ fontSize: 12, padding: "4px 8px", width: "auto", minWidth: 140 }}><SelectValue/></SelectTrigger>
+<SelectContent>
                     {protocols.filter((p) => !p.codingPlan).map((p) => (
-                      <option key={`${p.value}-${p.label}`} value={p.value}>{labelMap[p.value] || p.label}</option>
+                      <SelectItem key={`${p.value}-${p.label}`} value={p.value}>{labelMap[p.value] || p.label}</SelectItem>
                     ))}
-                  </select>
+                  </SelectContent>
+</Select>
                   {!map.recognized && !overrides.has(i) && (
                     <StatChip value={t("importExport.sub2api.unrecognized", "未识别·已兜底 OpenAI")} label="" level="warning" />
                   )}
@@ -278,23 +285,23 @@ export function Sub2ApiImportSection({
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
             <span style={{ fontSize: 13 }}>{t("importExport.sub2api.autoGroup", "导入后自动加入「sub2api」分组")}</span>
             <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-              <input type="checkbox" checked={autoGroup} onChange={(e) => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
+              <Input type="checkbox" checked={autoGroup} onChange={(e) => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
               <span className={`toggle ${autoGroup ? "active" : ""}`} />
             </label>
           </div>
 
           {/* 导入按钮 */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-            <button
+            <Button variant="default"
               onClick={handleImport}
               disabled={importing || selectedCount === 0}
-              className="btn btn-primary"
+              
               style={{ padding: "7px 16px", fontSize: 13 }}
             >
               {importing
                 ? t("importExport.applying", "导入中…")
                 : t("importExport.sub2api.importBtn", "导入 {{n}} 项", { n: selectedCount })}
-            </button>
+            </Button>
           </div>
         </>
       )}

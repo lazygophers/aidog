@@ -11,6 +11,8 @@ import {
   type RoutingMode,
 } from "../../services/api";
 import { ROUTING_MODES, routingModeLabel } from "../../domains/groups/routing";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   default_routing_mode: "health_aware",
@@ -96,16 +98,19 @@ export function SchedulingSettingsTab() {
             {t("scheduling.defaultRoutingModeDesc", "Group 未单独指定时使用的全局默认策略")}
           </div>
         </div>
-        <select
-          className="input"
-          style={{ maxWidth: 240 }}
+        <Select
+          
+          
           value={settings.default_routing_mode}
-          onChange={e => persist({ ...settings, default_routing_mode: e.target.value as RoutingMode })}
+          onValueChange={v => persist({ ...settings, default_routing_mode: v as RoutingMode })}
         >
+<SelectTrigger style={{ maxWidth: 240 }}><SelectValue/></SelectTrigger>
+<SelectContent>
           {ROUTING_MODES.map(m => (
-            <option key={m} value={m}>{routingModeLabel(t, m)}</option>
+            <SelectItem key={m} value={m}>{routingModeLabel(t, m)}</SelectItem>
           ))}
-        </select>
+        </SelectContent>
+</Select>
       </div>
 
       {/* 全局熔断默认阈值 */}
@@ -118,20 +123,20 @@ export function SchedulingSettingsTab() {
         </div>
         <div style={rowStyle}>
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
-          <input
-            className="input" type="number" min={0} style={{ width: 140 }}
+          <Input
+             type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_failure_threshold}
             onChange={e => setNum("breaker_failure_threshold", e.target.value)}
           />
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerOpenSecs", "熔断时长(秒)")}</span>
-          <input
-            className="input" type="number" min={0} style={{ width: 140 }}
+          <Input
+             type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_open_secs}
             onChange={e => setNum("breaker_open_secs", e.target.value)}
           />
           <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
-          <input
-            className="input" type="number" min={0} style={{ width: 140 }}
+          <Input
+             type="number" min={0} style={{ width: 140 }}
             value={settings.breaker_half_open_max}
             onChange={e => setNum("breaker_half_open_max", e.target.value)}
           />

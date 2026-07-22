@@ -6,7 +6,6 @@
 // 共用 helpers（FormSection / ApiKeyField / toDatetimeLocal）也在此导出，供 PlatformEditForm 主组件消费。
 //   EndpointsSection 已移到 formSectionsEndpoints.tsx（体积大），通过末尾 re-export 暴露。
 import React, { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import type { TFunction } from "i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
@@ -19,6 +18,15 @@ import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelL
 import { isCurrentlyPeak } from "../../utils/peakHours";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
  *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
@@ -74,7 +82,7 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
 }) {
   return (
     <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-      <input
+      <Input
         className="input"
         type={show ? "text" : "password"}
         placeholder={placeholder}
@@ -82,9 +90,9 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
         onChange={(e) => onChange(e.target.value)}
         style={{ flex: 1 }}
       />
-      <button
-        type="button"
-        className="btn btn-ghost btn-icon"
+      <Button
+        variant="ghost"
+        size="icon"
         title={show ? "Hide key" : "Show key"}
         onClick={onToggleShow}
       >
@@ -103,11 +111,11 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
             </>
           )}
         </svg>
-      </button>
+      </Button>
       {editing && value && (
-        <button
-          type="button"
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          size="icon"
           title="Copy key"
           onClick={() => void writeText(value)}
         >
@@ -115,7 +123,7 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
             <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
             <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
           </svg>
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -135,7 +143,7 @@ export function NewApiBalanceConfigSection({ config, onChange, t }: {
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.newapiBalanceUrl", "余额查询地址")}
         </div>
-        <input
+        <Input
           className="input"
           placeholder={t("platform.newapiBalanceUrlPlaceholder", "https://your-newapi-instance.com")}
           value={config.balance_base_url}
@@ -146,7 +154,7 @@ export function NewApiBalanceConfigSection({ config, onChange, t }: {
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.newapiBalanceKey", "余额查询 Token")}
         </div>
-        <input
+        <Input
           className="input"
           type="text"
           placeholder={t("platform.newapiBalanceKeyPlaceholder", "sess-xxxx 或 access token")}
@@ -158,7 +166,7 @@ export function NewApiBalanceConfigSection({ config, onChange, t }: {
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.newapiUserId", "用户 ID")}
         </div>
-        <input
+        <Input
           className="input"
           placeholder={t("platform.newapiUserIdPlaceholder", "数字 ID（可选）")}
           value={config.user_id}
@@ -184,7 +192,7 @@ export function DevinConfigSection({ config, onChange, t }: {
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.devinOrgId", "组织 ID")}
         </div>
-        <input
+        <Input
           className="input"
           placeholder={t("platform.devinOrgIdPlaceholder", "org-xxxxxxxx")}
           value={config.org_id}
@@ -195,7 +203,7 @@ export function DevinConfigSection({ config, onChange, t }: {
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.devinTimeout", "Session 超时（秒，可选）")}
         </div>
-        <input
+        <Input
           className="input"
           type="number"
           min={0}
@@ -208,16 +216,21 @@ export function DevinConfigSection({ config, onChange, t }: {
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.devinMode", "默认模式（可选）")}
         </div>
-        <select
-          className="input"
-          value={config.devin_mode}
-          onChange={(e) => onChange(prev => ({ ...prev, devin_mode: e.target.value }))}
+        {/* radix Select 禁 value="" → __none__ 哨兵映射回空串 */}
+        <Select
+          value={config.devin_mode || "__none__"}
+          onValueChange={(v) => onChange(prev => ({ ...prev, devin_mode: v === "__none__" ? "" : v }))}
         >
-          <option value="">{t("platform.devinModeAuto", "按模型自动映射")}</option>
-          {devinModes.map(m => (
-            <option key={m} value={m}>{m}</option>
-          ))}
-        </select>
+          <SelectTrigger className="input">
+            <SelectValue placeholder={t("platform.devinModeAuto", "按模型自动映射")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__none__">{t("platform.devinModeAuto", "按模型自动映射")}</SelectItem>
+            {devinModes.map(m => (
+              <SelectItem key={m} value={m}>{m}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
     </FormSection>
   );
@@ -236,7 +249,7 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
           {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
         </div>
-        <input
+        <Input
           className="input"
           placeholder="https://api.anthropic.com"
           value={endpoints[0]?.base_url ?? ""}
@@ -275,14 +288,14 @@ export function ManualBudgetsSection({ budgets, setBudgets, t }: {
       title={t("platform.manualBudgetTitle", "手动预算")}
       desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。")}
       action={(
-        <button
-          type="button"
-          className="btn btn-ghost"
+        <Button
+          variant="ghost"
+          size="sm"
           style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
           onClick={() => setBudgets([...budgets, newManualBudget()])}
         >
           {t("platform.manualBudgetAdd", "添加限额")}
-        </button>
+        </Button>
       )}
     >
       {budgets.length === 0 && (
@@ -305,27 +318,33 @@ export function ManualBudgetsSection({ budgets, setBudgets, t }: {
         };
         return (
           <div key={b.id} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-            <select
-              className="input"
-              style={{ width: 110, flexShrink: 0 }}
+            <Select
               value={b.kind}
-              onChange={e => onKindChange(e.target.value as ManualBudgetKind)}
+              onValueChange={(v) => onKindChange(v as ManualBudgetKind)}
             >
-              <option value="total">{t("platform.manualBudgetKindTotal", "总额")}</option>
-              <option value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</option>
-              <option value="fixed">{t("platform.manualBudgetKindFixed", "固定窗口")}</option>
-              <option value="daily">{t("platform.manualBudgetKindDaily", "每日")}</option>
-            </select>
-            <select
-              className="input"
-              style={{ width: 90, flexShrink: 0 }}
+              <SelectTrigger className="input" style={{ width: 110, flexShrink: 0 }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="total">{t("platform.manualBudgetKindTotal", "总额")}</SelectItem>
+                <SelectItem value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</SelectItem>
+                <SelectItem value="fixed">{t("platform.manualBudgetKindFixed", "固定窗口")}</SelectItem>
+                <SelectItem value="daily">{t("platform.manualBudgetKindDaily", "每日")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
               value={b.unit}
-              onChange={e => update({ unit: e.target.value as ManualBudgetUnit })}
+              onValueChange={(v) => update({ unit: v as ManualBudgetUnit })}
             >
-              <option value="usd">$ USD</option>
-              <option value="token">{t("platform.manualBudgetUnitToken", "Token")}</option>
-            </select>
-            <input
+              <SelectTrigger className="input" style={{ width: 90, flexShrink: 0 }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="usd">$ USD</SelectItem>
+                <SelectItem value="token">{t("platform.manualBudgetUnitToken", "Token")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
               className="input"
               type="number"
               min={0}
@@ -337,7 +356,7 @@ export function ManualBudgetsSection({ budgets, setBudgets, t }: {
             />
             {needsWindow && (
               <>
-                <input
+                <Input
                   className="input"
                   type="number"
                   min={0}
@@ -347,39 +366,43 @@ export function ManualBudgetsSection({ budgets, setBudgets, t }: {
                   value={b.window_hours ?? ""}
                   onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
                 />
-                <select
-                  className="input"
-                  style={{ width: 90, flexShrink: 0 }}
+                <Select
                   value={b.window_unit ?? "hour"}
-                  onChange={e => update({ window_unit: e.target.value as WindowUnit })}
+                  onValueChange={(v) => update({ window_unit: v as WindowUnit })}
                 >
-                  <option value="minute">{t("platform.windowUnitMinute", "分钟")}</option>
-                  <option value="hour">{t("platform.windowUnitHour", "小时")}</option>
-                  <option value="day">{t("platform.windowUnitDay", "天")}</option>
-                  <option value="week">{t("platform.windowUnitWeek", "周")}</option>
-                  <option value="month">{t("platform.windowUnitMonth", "月")}</option>
-                </select>
+                  <SelectTrigger className="input" style={{ width: 90, flexShrink: 0 }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="minute">{t("platform.windowUnitMinute", "分钟")}</SelectItem>
+                    <SelectItem value="hour">{t("platform.windowUnitHour", "小时")}</SelectItem>
+                    <SelectItem value="day">{t("platform.windowUnitDay", "天")}</SelectItem>
+                    <SelectItem value="week">{t("platform.windowUnitWeek", "周")}</SelectItem>
+                    <SelectItem value="month">{t("platform.windowUnitMonth", "月")}</SelectItem>
+                  </SelectContent>
+                </Select>
               </>
             )}
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-              <input
+              <Input
                 type="checkbox"
                 checked={b.enabled}
                 onChange={e => update({ enabled: e.target.checked })}
               />
               {t("platform.manualBudgetEnabled", "启用")}
             </label>
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon btn-danger"
-              style={{ flexShrink: 0 }}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="btn-danger"
+              style={{ flexShrink: 0, color: "var(--color-danger)" }}
               title={t("action.delete", "删除")}
               onClick={() => setBudgets(budgets.filter((_, i) => i !== idx))}
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
               </svg>
-            </button>
+            </Button>
           </div>
         );
       })}
@@ -401,21 +424,21 @@ export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpe
     >
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: "10px 12px" }}>
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
-        <input
+        <Input
           className="input" type="number" min={0} style={{ width: 140 }}
           placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_failure_threshold)) : t("platform.breakerInheritGeneric", "继承默认")}
           value={failure}
           onChange={e => setFailure(e.target.value)}
         />
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerOpenSecs", "熔断时长(秒)")}</span>
-        <input
+        <Input
           className="input" type="number" min={0} style={{ width: 140 }}
           placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_open_secs)) : t("platform.breakerInheritGeneric", "继承默认")}
           value={openSecs}
           onChange={e => setOpenSecs(e.target.value)}
         />
         <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
-        <input
+        <Input
           className="input" type="number" min={0} style={{ width: 140 }}
           placeholder={defaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(defaults.breaker_half_open_max)) : t("platform.breakerInheritGeneric", "继承默认")}
           value={halfOpenMax}
@@ -573,34 +596,35 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
             {(["local", "utc"] as const).map(m => (
-              <button
+              <Button
                 key={m}
-                type="button"
-                className={`btn btn-ghost ${tzMode === m ? "btn-primary" : ""}`}
-                style={{ padding: "2px 8px", fontSize: 11 }}
+                variant="ghost"
+                size="sm"
+                className={tzMode === m ? "btn-primary" : ""}
+                style={{ padding: "2px 8px", fontSize: 11, height: "auto" }}
                 onClick={() => setTzMode(m)}
               >
                 {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
-              </button>
+              </Button>
             ))}
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost"
-            style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap" }}
+          <Button
+            variant="ghost"
+            size="sm"
+            style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap", height: "auto" }}
             disabled={!defaultCache || defaultCache.length === 0}
             title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_hours_no_default", "该平台无默认高峰配置") : ""}
             onClick={() => setModalOpen(true)}
           >
             {t("platform.peak_hours_import_default", "导入默认配置")}
-          </button>
+          </Button>
         </div>
       }
     >
       {/* 高峰禁用开关：启用后该平台在 peak window 命中时从路由候选排除（不改 status，临时闸门）。 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
-          <input
+          <Input
             type="checkbox"
             checked={disableDuringPeak}
             onChange={e => setDisableDuringPeak(e.target.checked)}
@@ -641,7 +665,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
               {t("platform.start_hour", "起")}
-              <input
+              <Input
                 className="input" type="number" min={0} max={23} style={{ width: 60 }}
                 value={utcToDisplay(w.start_hour, tzMode)}
                 onChange={e => update(idx, { start_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
@@ -649,7 +673,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
               {t("platform.end_hour", "止")}
-              <input
+              <Input
                 className="input" type="number" min={0} max={23} style={{ width: 60 }}
                 value={utcToDisplay(w.end_hour, tzMode)}
                 onChange={e => update(idx, { end_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
@@ -657,7 +681,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
               {t("platform.multiplier", "倍率")}
-              <input
+              <Input
                 className="input" type="number" step={0.1} min={0} style={{ width: 70 }}
                 value={w.multiplier}
                 onChange={e => update(idx, { multiplier: Number(e.target.value) || 1 })}
@@ -667,9 +691,10 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
               {WEEKDAY_LABELS.map((lbl, di) => {
                 const active = (w.days_of_week ?? []).includes(di);
                 return (
-                  <button
+                  <Button
                     key={di}
-                    type="button"
+                    variant="ghost"
+                    size="icon"
                     title={t("platform.days_of_week", "星期（0=周日…6=周六，缺省=每天）")}
                     onClick={() => toggleDay(idx, di)}
                     style={{
@@ -681,19 +706,19 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                     }}
                   >
                     {lbl}
-                  </button>
+                  </Button>
                 );
               })}
             </div>
-            <button
-              type="button"
-              className="btn btn-ghost btn-icon"
+            <Button
+              variant="ghost"
+              size="icon"
               title={t("platform.remove_window", "删除窗口")}
               onClick={() => remove(idx)}
               style={{ marginLeft: "auto" }}
             >
               ✕
-            </button>
+            </Button>
           </div>
           {/* 窗口预览行：可读时段（半开区间 [start, end) → end-1:59:59） */}
           <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
@@ -718,20 +743,22 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                   style={{ fontSize: 10, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
                   {m}
-                  <button
-                    type="button"
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={() => removeModel(idx, mi)}
                     style={{
+                      width: "auto", height: "auto", minWidth: "auto",
                       border: "none", background: "transparent", color: "var(--text-tertiary)",
                       cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 12,
                     }}
                     title={t("platform.remove_window", "删除窗口")}
                   >
                     ✕
-                  </button>
+                  </Button>
                 </span>
               ))}
-              <input
+              <Input
                 className="input"
                 style={{ width: 160, fontSize: 11, padding: "2px 6px" }}
                 list={`peak-models-${idx}`}
@@ -763,7 +790,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
               {t("platform.peak_hours_start_at", "生效起始")}
-              <input
+              <Input
                 className="input"
                 type="datetime-local"
                 style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
@@ -776,7 +803,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
               {t("platform.peak_hours_end_at", "生效截止")}
-              <input
+              <Input
                 className="input"
                 type="datetime-local"
                 style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
@@ -790,45 +817,34 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
           </div>
         </div>
       ))}
-      <button type="button" className="btn btn-ghost" onClick={add}>
+      <Button variant="ghost" size="sm" onClick={add}>
         + {t("platform.add_window", "添加窗口")}
-      </button>
-      {modalOpen && createPortal(
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.4)", zIndex: 1000,
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <div style={{
-            background: "var(--bg-glass)", padding: 20, borderRadius: "var(--radius-md)",
-            border: "1px solid var(--border)", maxWidth: 400, width: "90%",
-          }}>
-            <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600 }}>
+      </Button>
+      <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) setModalOpen(false); }}>
+        <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 14 }}>
               {t("platform.peak_hours_overwrite_confirm_title", "覆盖高峰配置？")}
-            </h3>
-            <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-secondary)" }}>
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12 }}>
               {t("platform.peak_hours_overwrite_confirm_body", "当前高峰配置将被默认值替换（{{count}} 个窗口），此操作不可撤销。").replace("{{count}}", String(defaultCache?.length ?? 0))}
-            </p>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setModalOpen(false)}
-              >
-                {t("platform.peak_hours_overwrite_cancel_button", "取消")}
-              </button>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={handleImportDefault}
-              >
-                {t("platform.peak_hours_overwrite_confirm_button", "确认")}
-              </button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Button
+              variant="ghost"
+              onClick={() => setModalOpen(false)}
+            >
+              {t("platform.peak_hours_overwrite_cancel_button", "取消")}
+            </Button>
+            <Button
+              onClick={handleImportDefault}
+            >
+              {t("platform.peak_hours_overwrite_confirm_button", "确认")}
+            </Button>
           </div>
-        </div>,
-        document.body
-      )}
+        </DialogContent>
+      </Dialog>
     </FormSection>
   );
 }
@@ -860,7 +876,7 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
           <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
           <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-            <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
+            <Input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
             <span className={`toggle ${autoGroup ? "active" : ""}`} />
           </label>
         </div>
@@ -877,14 +893,15 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
               .map(gd => {
                 const checked = joinGroupIds.includes(gd.group.id);
                 return (
-                  <button
+                  <Button
                     key={gd.group.id}
-                    type="button"
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setJoinGroupIds(prev => checked
                       ? prev.filter(id => id !== gd.group.id)
                       : [...prev, gd.group.id])}
                     style={{
-                      display: "inline-flex", alignItems: "center",
+                      display: "inline-flex", alignItems: "center", height: "auto",
                       padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
                       cursor: "pointer",
                       border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
@@ -894,7 +911,7 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
                     }}
                   >
                     {gd.group.name}
-                  </button>
+                  </Button>
                 );
               })}
           </div>
@@ -925,7 +942,7 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: expiryEnabled ? 8 : 0 }}>
         <span style={{ fontSize: 13 }}>{t("platform.expiresAtEnable", "启用过期")}</span>
         <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-          <input
+          <Input
             type="checkbox"
             checked={expiryEnabled}
             onChange={e => {
@@ -941,7 +958,7 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
       </div>
       {expiryEnabled && (
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <input
+          <Input
             className="input"
             type="datetime-local"
             // colorScheme 控 WKWebView 原生日历弹出层明暗；input 本体 color/bg/border 走 .input 的 CSS 变量。
@@ -957,14 +974,14 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
             }}
           />
           {expiresAt > 0 && (
-            <button
-              type="button"
-              className="btn btn-ghost"
+            <Button
+              variant="ghost"
+              size="sm"
               style={{ fontSize: 12, padding: "4px 10px" }}
               onClick={() => setExpiresAt(0)}
             >
               {t("platform.expiresAtClear", "清空")}
-            </button>
+            </Button>
           )}
           {expiresAt > 0 && (
             <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
@@ -995,9 +1012,9 @@ export function ClaudeConfigSection({ show, setShow, json, setJson, globalConfig
 }) {
   return (
     <FormSection title={t("settings.claudeCodeConfig")}>
-      <button
-        type="button"
-        className="btn btn-ghost"
+      <Button
+        variant="ghost"
+        size="sm"
         style={{
           width: "100%",
           justifyContent: "space-between",
@@ -1009,10 +1026,10 @@ export function ClaudeConfigSection({ show, setShow, json, setJson, globalConfig
       >
         <span style={{ fontWeight: 600 }}>{t("settings.claudeConfigToggle", "Config Override")}</span>
         <span style={{ opacity: 0.5 }}>{show ? "▾" : "▸"}</span>
-      </button>
+      </Button>
       {show && (
         <div className="animate-fade-in" style={{ marginTop: 6 }}>
-          <textarea
+          <Textarea
             className="input"
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',

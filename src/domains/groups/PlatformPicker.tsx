@@ -2,6 +2,8 @@ import type { TFunction } from "i18next";
 import type { Platform } from "../../services/api";
 import { SortableList } from "../../components/SortableList";
 import { IconClose } from "../../components/icons";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /** Row model for the sortable selected-platforms list (stable string id for @dnd-kit). */
 export interface SortablePlatform {
@@ -67,7 +69,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
                   {p.platform_type.slice(0, 2).toUpperCase()}
                 </span>
                 <span style={{ flex: 1, fontSize: PICKER_F.body, fontWeight: 500 }}>{p.name}</span>
-                <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                <Button type="button" variant="ghost" size="icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
                   disabled={i === 0}
                   onClick={() => {
                     const ids = [...platformIds];
@@ -77,8 +79,8 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                     <path d="M5 2v6M2 5l3-3 3 3" />
                   </svg>
-                </button>
-                <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                </Button>
+                <Button type="button" variant="ghost" size="icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
                   disabled={i === platformIds.length - 1}
                   onClick={() => {
                     const ids = [...platformIds];
@@ -88,11 +90,11 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                     <path d="M5 8V2M2 5l3 3 3-3" />
                   </svg>
-                </button>
-                <button type="button" onClick={() => onChange(platformIds.filter(id => id !== pid))} style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "var(--text-tertiary)", fontSize: PICKER_F.small, padding: 4, lineHeight: 1,
-                }}><IconClose size={12} /></button>
+                </Button>
+                <Button type="button" variant="ghost" size="icon" onClick={() => onChange(platformIds.filter(id => id !== pid))} style={{
+                  width: 24, height: 24, minWidth: 24, padding: 0,
+                  color: "var(--text-tertiary)", fontSize: PICKER_F.small, lineHeight: 1,
+                }}><IconClose size={12} /></Button>
               </div>
             );
           }}
@@ -100,19 +102,25 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
       </div>
       {platformIds.length < options.length && (
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <select className="input" style={{ fontSize: PICKER_F.hint, padding: "6px 10px", flex: 1 }}
-            onChange={e => {
-              const pid = Number(e.target.value);
-              if (e.target.value && !platformIds.includes(pid)) {
+          {/* radix Select 禁 value="" → __none__ 哨兵映射回 0（= 未选/占位）；选完归位 */}
+          <Select
+            value="__none__"
+            onValueChange={(v) => {
+              if (v === "__none__") return;
+              const pid = Number(v);
+              if (!platformIds.includes(pid)) {
                 onChange([...platformIds, pid]);
               }
-              e.target.value = "";
             }}>
-            <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
-            {options
-              .filter(p => !platformIds.includes(p.id))
-              .map(p => <option key={p.id} value={p.id}>{p.name} ({labelMap?.[p.platform_type] || p.platform_type})</option>)}
-          </select>
+            <SelectTrigger className="input" style={{ fontSize: PICKER_F.hint, padding: "6px 10px", flex: 1 }}>
+              <SelectValue>{t("group.addPlatform", "+ 添加平台")}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {options
+                .filter(p => !platformIds.includes(p.id))
+                .map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name} ({labelMap?.[p.platform_type] || p.platform_type})</SelectItem>)}
+            </SelectContent>
+          </Select>
         </div>
       )}
     </>

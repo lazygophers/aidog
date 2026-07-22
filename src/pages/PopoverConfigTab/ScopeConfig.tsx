@@ -8,6 +8,7 @@ import type {
   Platform,
 } from "../../services/api";
 import { GROUP_TYPES, TREND_WINDOWS } from "./constants";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type TFn = (k: string, d: string, o?: Record<string, unknown>) => string;
 
@@ -23,12 +24,10 @@ export function ScopeConfig({
   if (item.item_type === "cost_trend") {
     return (
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-        <select
-          className="input"
-          style={{ fontSize: 12, width: "auto", minWidth: 90 }}
+        <Select
           value={item.scope ?? "overall"}
-          onChange={(e) => {
-            const scope = e.target.value as PopoverTrendScope;
+          onValueChange={(v) => {
+            const scope = v as PopoverTrendScope;
             onUpdate({
               scope,
               scope_ref: scope === "overall" ? null
@@ -37,10 +36,15 @@ export function ScopeConfig({
             });
           }}
         >
-          <option value="overall">{t("popover.trendScopeOverall", "整体")}</option>
-          <option value="group">{t("popover.trendScopeGroup", "分组")}</option>
-          <option value="platform">{t("popover.trendScopePlatform", "平台")}</option>
-        </select>
+          <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 100, height: 26 }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="overall">{t("popover.trendScopeOverall", "整体")}</SelectItem>
+            <SelectItem value="group">{t("popover.trendScopeGroup", "分组")}</SelectItem>
+            <SelectItem value="platform">{t("popover.trendScopePlatform", "平台")}</SelectItem>
+          </SelectContent>
+        </Select>
         {item.scope === "group" && (
           <GroupSelect item={item} groups={groups} t={t} onUpdate={onUpdate} />
         )}
@@ -72,49 +76,58 @@ export function ScopeConfig({
 
 function GroupSelect({ item, groups, t, onUpdate }: { item: PopoverItem; groups: Group[]; t: (k: string, d: string) => string; onUpdate: (p: Partial<PopoverItem>) => void }) {
   return (
-    <select
-      className="input"
-      style={{ fontSize: 12, width: "auto", minWidth: 110 }}
-      value={item.scope_ref ?? ""}
-      onChange={(e) => onUpdate({ scope_ref: e.target.value || null })}
+    <Select
+      value={item.scope_ref ?? "__none__"}
+      onValueChange={(v) => onUpdate({ scope_ref: v === "__none__" ? null : v })}
     >
-      {groups.length === 0 && <option value="">{t("popover.trendNoGroup", "无分组")}</option>}
-      {groups.map((g) => (
-        <option key={g.group_key} value={g.group_key}>{g.name}</option>
-      ))}
-    </select>
+      <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 120, height: 26 }}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {groups.length === 0 && <SelectItem value="__none__">{t("popover.trendNoGroup", "无分组")}</SelectItem>}
+        {groups.map((g) => (
+          <SelectItem key={g.group_key} value={g.group_key}>{g.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
 function PlatformSelect({ item, platforms, t, onUpdate }: { item: PopoverItem; platforms: Platform[]; t: (k: string, d: string) => string; onUpdate: (p: Partial<PopoverItem>) => void }) {
   return (
-    <select
-      className="input"
-      style={{ fontSize: 12, width: "auto", minWidth: 110 }}
-      value={item.scope_ref ?? ""}
-      onChange={(e) => onUpdate({ scope_ref: e.target.value || null })}
+    <Select
+      value={item.scope_ref ?? "__none__"}
+      onValueChange={(v) => onUpdate({ scope_ref: v === "__none__" ? null : v })}
     >
-      {platforms.length === 0 && <option value="">{t("popover.trendNoPlatform", "无平台")}</option>}
-      {platforms.map((p) => (
-        <option key={p.id} value={String(p.id)}>{p.name}</option>
-      ))}
-    </select>
+      <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 120, height: 26 }}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {platforms.length === 0 && <SelectItem value="__none__">{t("popover.trendNoPlatform", "无平台")}</SelectItem>}
+        {platforms.map((p) => (
+          <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }
 
 function WindowSelect({ item, t, onUpdate, def }: { item: PopoverItem; t: (k: string, d: string) => string; onUpdate: (p: Partial<PopoverItem>) => void; def: PopoverTrendWindow }) {
   return (
-    <select
-      className="input"
-      style={{ fontSize: 12, width: "auto", minWidth: 90 }}
+    <Select
       value={item.time_window ?? def}
-      onChange={(e) => onUpdate({ time_window: e.target.value as PopoverTrendWindow })}
+      onValueChange={(v) => onUpdate({ time_window: v as PopoverTrendWindow })}
     >
-      {TREND_WINDOWS.map((w) => (
-        <option key={w} value={w}>
-          {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
-        </option>
-      ))}
-    </select>
+      <SelectTrigger style={{ fontSize: 12, width: "auto", minWidth: 100, height: 26 }}>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {TREND_WINDOWS.map((w) => (
+          <SelectItem key={w} value={w}>
+            {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

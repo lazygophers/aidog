@@ -51,6 +51,7 @@ import { ItemSelector } from "./ItemSelector";
 import { ConflictRow } from "./ConflictRow";
 import { ReportView } from "./ReportView";
 import { ScheduledBackupSection } from "./ScheduledBackupSection";
+import { Button } from "@/components/ui/button";
 
 export function ImportExportTab() {
   const { t } = useTranslation();
@@ -452,10 +453,10 @@ export function ImportExportTab() {
           </div>
         )}
 
-        <button
+        <Button variant="default"
           onClick={handleExport}
           disabled={exporting || previewing || selectedCount === 0 || (exportPreview !== null && exportSelCount === 0) || (exportPreview === null && scopes.size > 0)}
-          className="btn btn-primary"
+          
           style={{ alignSelf: "flex-end" }}
         >
           {exporting
@@ -465,7 +466,7 @@ export function ImportExportTab() {
               : exportPreview
                 ? t("importExport.exportN", "导出 {{n}} 项", { n: exportSelCount })
                 : t("importExport.exportBtn", "导出")}
-        </button>
+        </Button>
 
         {exportMsg && <SuccessPathCard message={exportMsg} />}
       </section>
@@ -544,16 +545,16 @@ export function ImportExportTab() {
               </div>
             )}
 
-            <button
+            <Button variant="default"
               onClick={handleApply}
               disabled={importing || selectedItems.size === 0}
-              className="btn btn-primary"
+              
               style={{ alignSelf: "flex-end" }}
             >
               {importing
                 ? t("importExport.applying", "导入中…")
                 : t("importExport.applyN", "应用导入（{{n}} 项）", { n: selectedItems.size })}
-            </button>
+            </Button>
           </div>
         )}
 

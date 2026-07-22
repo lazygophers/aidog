@@ -12,6 +12,7 @@ import { Hint } from "./_shared";
 import { FieldRenderer } from "./FieldRenderer";
 import { type SettingField } from "../../../services/claude-settings-schema";
 import { StatusLinePanel } from "./StatusLineSection/StatusLinePanel";
+import { Button } from "@/components/ui/button";
 
 /** Combined section for status tab */
 export function StatusLineSection({
@@ -74,12 +75,12 @@ export function StatusLineSection({
       <div style={{
         padding: 16, border: "1px solid var(--border)", borderRadius: "var(--radius-md)",
       }}>
-        <button type="button" className="btn btn-ghost"
+        <Button variant="ghost" type="button" 
           style={{ fontSize: F.body, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, width: "100%", justifyContent: "flex-start" }}
           onClick={() => setShowDataRef(!showDataRef)}>
           <span style={{ transform: showDataRef ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms", display: "inline-block" }}>▶</span>
           {t("statusline.dataFieldsRef", "可用数据字段参考")}
-        </button>
+        </Button>
         {showDataRef && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
             <Hint>{t("statusline.dataFieldsHint", "Claude Code 通过 stdin 注入以下 JSON 字段，可在脚本中用 jq 提取")}</Hint>

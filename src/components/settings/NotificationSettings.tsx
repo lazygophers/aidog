@@ -5,7 +5,6 @@
 // 「按类型配置」已移除（仅保留逐 Hook 事件触发）；单 group 注入按钮已删（API 仍保留: injectHooks/removeHooks）。
 
 import { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -16,6 +15,10 @@ import {
   type TtsBackend,
 } from "../../services/api";
 import { NotificationEventList } from "./NotificationEventList";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 // 与 api.ts 契约对齐（禁裸 string）。
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
@@ -271,13 +274,13 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               {t("notif.permGuideDesc", "可能需在系统设置中允许 aidog 发送通知。")}
             </div>
           </div>
-          <button
-            className="btn btn-ghost"
+          <Button variant="ghost"
+            
             style={{ fontSize: 12, padding: "6px 12px", whiteSpace: "nowrap" }}
             onClick={handleOpenNotifSettings}
           >
             {t("notif.permGuideButton", "打开系统通知设置")}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -303,16 +306,19 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
               {t("notif.ttsBackendLabel", "播报后端")}
             </label>
-            <select
-              className="input"
-              style={{ maxWidth: 220, padding: "4px 8px", fontSize: 12 }}
+            <Select
+              
+              
               value={settings.tts_backend}
-              onChange={(e) => persist(prev => ({ ...prev, tts_backend: e.target.value as TtsBackend }))}
+              onValueChange={(v) => persist(prev => ({ ...prev, tts_backend: v as TtsBackend }))}
             >
+<SelectTrigger style={{ maxWidth: 220, padding: "4px 8px", fontSize: 12 }}><SelectValue/></SelectTrigger>
+<SelectContent>
               {TTS_BACKENDS.map((b) => (
-                <option key={b} value={b}>{ttsBackendLabel(t, b)}</option>
+                <SelectItem key={b} value={b}>{ttsBackendLabel(t, b)}</SelectItem>
               ))}
-            </select>
+            </SelectContent>
+</Select>
           </div>
         )}
       </div>
@@ -323,41 +329,41 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         style={{ padding: "12px 20px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", opacity: settings.enabled ? 1 : 0.55 }}
       >
         <span style={{ fontSize: 12, fontWeight: 600 }}>{t("notif.testChannels", "通道测试")}</span>
-        <button
-          className="btn btn-ghost"
+        <Button variant="ghost"
+          
           style={{ fontSize: 12, padding: "4px 10px" }}
           onClick={handleTestTts}
           disabled={!settings.enabled}
           title={t("notif.testTtsTip", "仅测语音播报")}
         >
           🔊 {t("notif.testTtsLabel", "语音")}
-        </button>
-        <button
-          className="btn btn-ghost"
+        </Button>
+        <Button variant="ghost"
+          
           style={{ fontSize: 12, padding: "4px 10px" }}
           onClick={handleTestPopup}
           disabled={!settings.enabled}
           title={t("notif.testPopupTip", "仅测系统弹窗")}
         >
           🪟 {t("notif.testPopupLabel", "弹窗")}
-        </button>
-        <button
-          className="btn btn-ghost"
+        </Button>
+        <Button variant="ghost"
+          
           style={{ fontSize: 12, padding: "4px 10px" }}
           onClick={handleTestBeep}
           disabled={!settings.enabled}
           title={t("notif.testBeepTip", "仅测系统提示音")}
         >
           🔔 {t("notif.testBeepLabel", "提示音")}
-        </button>
-        <button
-          className="btn btn-ghost"
+        </Button>
+        <Button variant="ghost"
+          
           style={{ fontSize: 12, padding: "4px 10px" }}
           onClick={handleTest}
           disabled={!settings.enabled}
         >
           {t("notif.test", "测试")}
-        </button>
+        </Button>
       </div>
 
 
@@ -389,9 +395,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                 <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                   {t("notif.retentionDaysLabel", "保留天数")}
                 </label>
-                <input
+                <Input
                   type="number"
-                  className="input"
+                  
                   min={1}
                   max={3650}
                   style={{ maxWidth: 120, padding: "4px 8px", fontSize: 12 }}
@@ -448,52 +454,40 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       )}
 
       {/* uv 询问 modal：通知 hook 脚本为 Python，uv 缺失时让用户选自动安装或回退 python3。
-          portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。 */}
-      {uvModal && createPortal(
-        <div
-          style={{
-            position: "fixed", inset: 0, zIndex: 1000,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "rgba(0,0,0,0.45)",
-          }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="glass-elevated" style={{ maxWidth: 420, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
-            <div style={{ fontSize: 15, fontWeight: 600 }}>{t("notif.uvModalTitle", "未检测到 uv")}</div>
-            <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.5 }}>
+          shadcn Dialog (Radix Portal) 满足 createPortal(document.body) 居中规则。 */}
+      <Dialog open={uvModal !== null} onOpenChange={(o) => { if (!o) handleUvCancel(); }}>
+        <DialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 24px" }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>{t("notif.uvModalTitle", "未检测到 uv")}</DialogTitle>
+            <DialogDescription className="text-secondary" style={{ fontSize: 13, lineHeight: 1.5 }}>
               {t("notif.uvModalDesc", "通知 hook 脚本为 Python（PEP723），推荐用 uv 运行以隔离依赖。是否自动安装 uv？否则将使用系统 python3。")}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: 12, padding: "6px 12px" }}
-                onClick={handleUvCancel}
-                disabled={uvInstalling}
-              >
-                {t("notif.uvModalCancel", "取消")}
-              </button>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: 12, padding: "6px 12px" }}
-                onClick={handleUvUsePython}
-                disabled={uvInstalling}
-              >
-                {t("notif.uvModalUsePython", "用 python3")}
-              </button>
-              <button
-                className="btn btn-primary"
-                style={{ fontSize: 12, padding: "6px 12px" }}
-                onClick={handleUvInstall}
-                disabled={uvInstalling}
-              >
-                {uvInstalling ? t("notif.uvModalInstalling", "安装中…") : t("notif.uvModalInstall", "自动安装 uv")}
-              </button>
-            </div>
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <Button variant="ghost"
+              style={{ fontSize: 12, padding: "6px 12px" }}
+              onClick={handleUvCancel}
+              disabled={uvInstalling}
+            >
+              {t("notif.uvModalCancel", "取消")}
+            </Button>
+            <Button variant="ghost"
+              style={{ fontSize: 12, padding: "6px 12px" }}
+              onClick={handleUvUsePython}
+              disabled={uvInstalling}
+            >
+              {t("notif.uvModalUsePython", "用 python3")}
+            </Button>
+            <Button variant="default"
+              style={{ fontSize: 12, padding: "6px 12px" }}
+              onClick={handleUvInstall}
+              disabled={uvInstalling}
+            >
+              {uvInstalling ? t("notif.uvModalInstalling", "安装中…") : t("notif.uvModalInstall", "自动安装 uv")}
+            </Button>
           </div>
-        </div>,
-        document.body
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

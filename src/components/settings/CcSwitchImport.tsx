@@ -30,6 +30,8 @@ import { IconCheck } from "../icons";
 import { StatChip } from "../shared/StatChip";
 import type { ColorLevel } from "../shared/colorScale";
 import { SectionHeader, TextButton } from "./ImportExport/primitives";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 function protocolColor(matchedBy: string): ColorLevel {
   switch (matchedBy) {
@@ -231,17 +233,17 @@ export function CcSwitchImportSection({
 
       {/* 检测 + 手动选目录 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <button
+        <Button variant="default"
           onClick={() => handleDetect()}
           disabled={detecting || reading}
-          className="btn btn-primary"
+          
           style={{ padding: "7px 16px", fontSize: 13 }}
         >
           {detecting
             ? t("importExport.ccswitch.detecting", "检测中…")
             : t("importExport.ccswitch.detectBtn", "检测 cc-switch")}
-        </button>
-        <button
+        </Button>
+        <Button variant="outline"
           onClick={handlePickDir}
           disabled={detecting || reading}
           style={{
@@ -251,7 +253,7 @@ export function CcSwitchImportSection({
           }}
         >
           {t("importExport.ccswitch.selectDir", "手动选择目录")}
-        </button>
+        </Button>
         {detection && detection.found && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <StatChip
@@ -346,7 +348,7 @@ export function CcSwitchImportSection({
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: 13 }}>{t("importExport.ccswitch.autoGroup", "导入后自动加入「cc-switch」分组")}</span>
               <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-                <input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} style={{ display: "none" }} />
+                <Input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} style={{ display: "none" }} />
                 <span className={`toggle ${batchAutoGroup ? "active" : ""}`} />
               </label>
             </div>
@@ -355,7 +357,7 @@ export function CcSwitchImportSection({
                 {groupDetails.map(gd => {
                   const checked = batchJoinGroupIds.includes(gd.group.id);
                   return (
-                    <button
+                    <Button variant="outline"
                       key={gd.group.id}
                       type="button"
                       onClick={() => setBatchJoinGroupIds(prev => checked
@@ -372,7 +374,7 @@ export function CcSwitchImportSection({
                       }}
                     >
                       {gd.group.name}
-                    </button>
+                    </Button>
                   );
                 })}
               </div>
@@ -381,7 +383,7 @@ export function CcSwitchImportSection({
 
           {/* 预览 + 导入按钮 */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
-            <button
+            <Button variant="outline"
               onClick={handlePreview}
               disabled={selectedCount === 0}
               style={{
@@ -392,17 +394,17 @@ export function CcSwitchImportSection({
               }}
             >
               {t("importExport.ccswitch.preview", "预览冲突")}
-            </button>
-            <button
+            </Button>
+            <Button variant="default"
               onClick={handleImport}
               disabled={importing || selectedCount === 0}
-              className="btn btn-primary"
+              
               style={{ padding: "7px 16px", fontSize: 13 }}
             >
               {importing
                 ? t("importExport.applying", "导入中…")
                 : t("importExport.ccswitch.importBtn", "导入 {{n}} 项", { n: selectedCount })}
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -462,7 +464,7 @@ function DimCheckbox({
 }) {
   return (
     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.7 : 1 }}>
-      <input
+      <Input
         type="checkbox"
         checked={checked}
         disabled={disabled}
@@ -588,7 +590,7 @@ function ConflictRowSimple({
           const labelKey = kind === "overwrite" ? "importExport.overwrite" : kind === "skip" ? "importExport.skip" : "importExport.rename";
           const defaultLabel = kind === "overwrite" ? "覆盖" : kind === "skip" ? "跳过" : "重命名";
           return (
-            <button
+            <Button variant="outline"
               key={kind}
               onClick={() => {
                 if (kind === "rename") onChange({ kind: "rename", new_key: item.key + "-imported" });
@@ -603,12 +605,12 @@ function ConflictRowSimple({
               }}
             >
               {t(labelKey, defaultLabel)}
-            </button>
+            </Button>
           );
         })}
         {isRename && (
-          <input
-            className="input"
+          <Input
+            
             type="text"
             value={(current as { kind: "rename"; new_key: string }).new_key}
             onChange={(e) => onChange({ kind: "rename", new_key: e.target.value })}

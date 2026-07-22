@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import type { TFunction } from "i18next";
 import type { GroupDetail } from "../../services/api";
 import { IconClose } from "../../components/icons";
+import { Button } from "@/components/ui/button";
 
 /** 分组一键测试并发上限：同时最多 N 个平台在测，完一个补下一个。 */
 export const BATCH_TEST_CONCURRENCY = 3;
@@ -63,9 +64,9 @@ export function GroupTestPanel({ groupName, rows, running, onClose, t }: {
           <div style={{ fontSize: 15, fontWeight: 700 }}>
             {t("group.testAllTitle", "测试分组平台")}：{groupName}
           </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} title={t("action.dismiss", "关闭")}>
+          <Button variant="ghost" size="icon" onClick={onClose} title={t("action.dismiss", "关闭")}>
             <IconClose size={16} />
-          </button>
+          </Button>
         </div>
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {running

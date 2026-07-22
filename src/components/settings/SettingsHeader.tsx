@@ -4,6 +4,8 @@
 
 import { useTranslation } from "react-i18next";
 import { F, S, SectionIcon, SvgIcon } from "./editors";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export interface SettingsHeaderProps {
   mode: "json" | "gui";
@@ -54,20 +56,20 @@ export function SettingsHeader({
       }}
     >
       {/* Mode switch */}
-      <button
+      <Button variant="outline"
         className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
         style={{ fontSize: F.body, padding: S.btnPad }}
         onClick={() => onModeChange("gui")}
       >
         {t("settings.guiMode")}
-      </button>
-      <button
+      </Button>
+      <Button variant="outline"
         className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
         style={{ fontSize: F.body, padding: S.btnPad }}
         onClick={() => onModeChange("json")}
       >
         {t("settings.jsonMode")}
-      </button>
+      </Button>
 
       {/* Global search (placeholder for D1) */}
       <div style={{ position: "relative", flex: 1, minWidth: 180, maxWidth: 360 }}>
@@ -76,15 +78,15 @@ export function SettingsHeader({
           size={14}
           style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)" }}
         />
-        <input
-          className="input"
+        <Input
+          
           style={{ fontSize: F.hint, padding: "6px 10px 6px 30px", width: "100%" }}
           placeholder={t("settings.search", "搜索设置…")}
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
         />
         {search && (
-          <button
+          <Button variant="outline"
             type="button"
             style={{
               position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
@@ -93,26 +95,26 @@ export function SettingsHeader({
             onClick={() => onSearchChange("")}
           >
             ×
-          </button>
+          </Button>
         )}
       </div>
 
       <div style={{ width: 1, height: 20, background: "var(--border)", margin: "0 4px" }} />
 
-      <button
-        className="btn btn-ghost"
+      <Button variant="ghost"
+        
         style={{ fontSize: F.hint, padding: "6px 14px" }}
         onClick={onLoadRecommended}
       >
         <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended")}
-      </button>
-      <button
-        className="btn btn-ghost"
+      </Button>
+      <Button variant="ghost"
+        
         style={{ fontSize: F.hint, padding: "6px 14px" }}
         onClick={onImport}
       >
         <SectionIcon name="folder" size={14} /> {t("settings.importFromClaudeCode", "从 Claude Code 导入")}
-      </button>
+      </Button>
 
       {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
 
@@ -143,14 +145,14 @@ export function SettingsHeader({
         </span>
       )}
 
-      <button
+      <Button variant="outline"
         className={`btn ${dirty ? "btn-primary" : "btn-ghost"}`}
         style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
         onClick={onSave}
         disabled={saving || !dirty}
       >
         {saving ? t("status.loading") : t("action.save")}
-      </button>
+      </Button>
     </div>
   );
 }

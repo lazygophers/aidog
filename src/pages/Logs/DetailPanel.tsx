@@ -4,15 +4,74 @@ import { CopyButton, MetaItem, RequestTabs } from "./primitives";
 import { safeParseJson } from "./types";
 import type { LogsData } from "./useLogsData";
 import { formatDateTime } from "../../utils/formatters";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 
 /**
  * 日志详情视图（自原 Logs.tsx L265-453 外迁）。
- * 接 hook 提供的 detail/copy/openDetail 及 platform/group 映射，零 UI 变更。
+ * 以 shadcn Sheet（Radix Portal 侧抽屉）叠加在列表之上；open = detail 非空。
+ * 接 hook 提供的 detail/copy/openDetail 及 platform/group 映射，业务逻辑零改。
  */
 export function DetailPanel({ d }: { d: LogsData }) {
-  const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName } = d;
-  if (!detail) return null;
+  const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail } = d;
 
+  return (
+    <Sheet open={detail !== null} onOpenChange={(o) => { if (!o) setDetail(null); }}>
+      <SheetContent
+        side="right"
+        className="glass-elevated"
+        // ponytail: 详情面板内容多（meta grid + attempts + 请求 tabs），需超宽 + 内部纵向滚动；
+        // 覆盖 shadcn 默认 sm:max-w-sm 与 p-6。
+        style={{
+          width: "min(900px, 90vw)",
+          maxWidth: "min(900px, 90vw)",
+          padding: 20,
+          gap: 16,
+          overflowY: "auto",
+          display: "flex",
+          flexDirection: "column",
+        }}
+      >
+        <SheetHeader>
+          <SheetTitle className="sr-only">{t("logs.detail", "请求详情")}</SheetTitle>
+          <SheetDescription className="sr-only">{detail?.id ?? ""}</SheetDescription>
+        </SheetHeader>
+
+        {!detail ? null : <DetailBody
+          detail={detail}
+          t={t}
+          copied={copied}
+          copiedId={copiedId}
+          setCopiedId={setCopiedId}
+          openDetail={openDetail}
+          copyDetail={copyDetail}
+          platformMap={platformMap}
+          groupName={groupName}
+        />}
+      </SheetContent>
+    </Sheet>
+  );
+}
+
+interface DetailBodyProps {
+  detail: NonNullable<LogsData["detail"]>;
+  t: LogsData["t"];
+  copied: boolean;
+  copiedId: boolean;
+  setCopiedId: (v: boolean) => void;
+  openDetail: (id: string) => void;
+  copyDetail: (d: NonNullable<LogsData["detail"]>) => void;
+  platformMap: LogsData["platformMap"];
+  groupName: (k: string) => string;
+}
+
+function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName }: DetailBodyProps) {
   const reqHeaders = safeParseJson(detail.request_headers);
   const reqBody = safeParseJson(detail.request_body);
   const upstreamHeaders = safeParseJson(detail.upstream_request_headers);
@@ -32,24 +91,19 @@ export function DetailPanel({ d }: { d: LogsData }) {
       : t("logs.streamResponse", "(流式响应，内容未记录)");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* Header */}
+    <>
+      {/* Header（自定义工具栏：刷新/复制；返回由 Sheet 右上角 X 关闭承担） */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-        <button className="btn btn-ghost btn-icon" onClick={() => d.setDetail(null)}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <button className="btn btn-ghost btn-icon" onClick={() => openDetail(detail.id)} title={t("logs.refresh", "刷新")}>
+        <Button variant="ghost" className="btn-icon" onClick={() => openDetail(detail.id)} title={t("logs.refresh", "刷新")}>
           <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
-        </button>
-        <button className="btn btn-ghost btn-icon" onClick={() => copyDetail(detail)} title={t("logs.copyAll", "复制完整信息")}>
+        </Button>
+        <Button variant="ghost" className="btn-icon" onClick={() => copyDetail(detail)} title={t("logs.copyAll", "复制完整信息")}>
           {copied ? (
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
           ) : (
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
           )}
-        </button>
+        </Button>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("logs.detail", "请求详情")}</div>
         </div>
@@ -59,8 +113,9 @@ export function DetailPanel({ d }: { d: LogsData }) {
       <div className="glass-surface" style={{ padding: "12px 20", display: "flex", alignItems: "center", gap: 10 }}>
         <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 600 }}>{t("logs.requestId", "请求 ID")}</span>
         <span style={{ fontSize: F.hint, fontFamily: "monospace", color: "var(--text-primary)" }}>{detail.id}</span>
-        <button
-          className="btn btn-ghost btn-icon"
+        <Button
+          variant="ghost"
+          className="btn-icon"
           style={{ marginLeft: "auto" }}
           onClick={async () => {
             await writeText(`request_id=${detail.id}`);
@@ -74,7 +129,7 @@ export function DetailPanel({ d }: { d: LogsData }) {
           ) : (
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
           )}
-        </button>
+        </Button>
       </div>
 
       {/* Meta grid */}
@@ -197,6 +252,6 @@ export function DetailPanel({ d }: { d: LogsData }) {
         }}
         t={t}
       />
-    </div>
+    </>
   );
 }

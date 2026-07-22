@@ -2,11 +2,12 @@
 // Extracted verbatim from editors.tsx (arch-redesign phase 3).
 
 import { useState, useMemo } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { getManagedPaths } from "../../../services/api";
 import { F, S } from "./tokens";
 import { Toggle } from "./_shared";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /**
  * One node in the import diff tree. `path` is a dot-path (`env.FOO`, `permissions.allow`).
@@ -322,38 +323,29 @@ export function ImportDiffModal({
     );
   };
 
-  // portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。
-  return createPortal(
-    <div style={{
-      position: "fixed", inset: 0, zIndex: 1000,
-      display: "flex", alignItems: "center", justifyContent: "center",
-      background: "rgba(0,0,0,0.5)", animation: "fadeIn 150ms ease both",
-    }} onClick={onClose}>
-      <div className="glass-elevated"
+  // shadcn Dialog (Radix Portal) 满足 createPortal(document.body) 居中规则。
+  return (
+    <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
+      <DialogContent className="glass-elevated"
         style={{
-          width: 680, maxHeight: "85vh", display: "flex", flexDirection: "column",
-          padding: 0, borderRadius: "var(--radius-lg)",
-          animation: "fadeIn 200ms ease both",
-        }}
-        onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div style={{
-          padding: "16px 20px", borderBottom: "1px solid var(--border)",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
+          width: 680, maxWidth: 680, maxHeight: "85vh", display: "flex", flexDirection: "column",
+          padding: 0, borderRadius: "var(--radius-lg)", gap: 0,
         }}>
-          <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
+        {/* Header */}
+        <DialogHeader style={{
+          padding: "16px 20px", borderBottom: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
+        }}>
+          <DialogTitle style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
             {t("settings.editor.importTitle", "从 Claude Code 导入配置")}
-          </div>
+          </DialogTitle>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button className="btn btn-ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
+            <Button variant="ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
               onClick={toggleAll}>
               {selected.size === allLeafPaths.length ? t("settings.editor.deselectAll", "取消全选") : t("settings.editor.selectAll", "全选")}
-            </button>
-            <button type="button" className="btn btn-ghost btn-icon"
-              style={{ width: 28, height: 28, fontSize: F.body }}
-              onClick={onClose}>×</button>
+            </Button>
           </div>
-        </div>
+        </DialogHeader>
 
         {/* Diff list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
@@ -408,17 +400,16 @@ export function ImportDiffModal({
             {t("settings.editor.selectedPrefix", "已选")} {selected.size}/{allLeafPaths.length} {t("settings.editor.selectedSuffix", "项")}
           </span>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={onClose}>{t("action.cancel", "取消")}</button>
-            <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
+            <Button variant="ghost" style={{ fontSize: F.body, padding: S.btnPad }}
+              onClick={onClose}>{t("action.cancel", "取消")}</Button>
+            <Button variant="default" style={{ fontSize: F.body, padding: S.btnPad }}
               disabled={selected.size === 0}
               onClick={() => onApply(selected)}>
               {t("settings.editor.importSelected", "导入选中")} ({selected.size})
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
-    </div>,
-    document.body
+      </DialogContent>
+    </Dialog>
   );
 }

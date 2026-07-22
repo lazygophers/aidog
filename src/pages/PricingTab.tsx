@@ -13,6 +13,20 @@ import { IconClose } from "../components/icons";
 // ponytail: 统一 token (title 15→20, body 14→15), 视觉差异可忽略
 import { F } from "../domains/shared/tokens";
 import { formatDateTime } from "../utils/formatters";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+// radix Select 的 SelectItem value="" 会抛错 → 用 __none__ 哨兵映射回空值（= 不筛选）
+const NONE = "__none__";
+
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 export function PricingTab() {
@@ -147,7 +161,7 @@ export function PricingTab() {
               {t("pricing.syncDesc", "从 GitHub 同步模型价格 + max_tokens（含各平台价格）")}
             </div>
           </div>
-          <button className="btn" onClick={handleSync} disabled={syncing} style={{ fontSize: F.hint }}>
+          <Button onClick={handleSync} disabled={syncing} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               {syncing ? t("pricing.syncing", "同步中...") : t("pricing.syncNow", "立即同步")}
               {syncing && (
@@ -156,7 +170,7 @@ export function PricingTab() {
                 </svg>
               )}
             </span>
-          </button>
+          </Button>
         </div>
 
         {/* Sync settings row */}
@@ -176,18 +190,21 @@ export function PricingTab() {
               <label style={{ fontSize: F.small, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
                 {t("pricing.interval", "间隔")}
               </label>
-              <select
-                className="input"
-                value={syncSettings.sync_interval_secs}
-                onChange={(e) => updateSettings({ sync_interval_secs: Number(e.target.value) })}
-                style={{ padding: "3px 6px", fontSize: F.small, width: 100 }}
+              <Select
+                value={String(syncSettings.sync_interval_secs)}
+                onValueChange={(v) => updateSettings({ sync_interval_secs: Number(v) })}
               >
-                <option value={3600}>1h</option>
-                <option value={21600}>6h</option>
-                <option value={43200}>12h</option>
-                <option value={86400}>24h</option>
-                <option value={604800}>7d</option>
-              </select>
+                <SelectTrigger style={{ padding: "3px 6px", fontSize: F.small, width: 100, height: 30 }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3600">1h</SelectItem>
+                  <SelectItem value="21600">6h</SelectItem>
+                  <SelectItem value="43200">12h</SelectItem>
+                  <SelectItem value="86400">24h</SelectItem>
+                  <SelectItem value="604800">7d</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           )}
           <span style={{ fontSize: F.small, color: "var(--text-tertiary)", marginLeft: "auto" }}>
@@ -200,20 +217,20 @@ export function PricingTab() {
           <span style={{ fontSize: F.small, fontWeight: 600 }}>{t("pricing.fallback", "兜底价格 $/M tokens")}</span>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <label style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("pricing.input", "输入")}</label>
-            <input
-              className="input" type="number" min={0} step={0.1}
+            <Input
+              type="number" min={0} step={0.1}
               value={syncSettings.fallback_input_price}
               onChange={(e) => updateSettings({ fallback_input_price: Math.max(0, Number(e.target.value)) })}
-              style={{ width: 70, padding: "3px 6px", fontSize: F.small }}
+              style={{ width: 70, padding: "3px 6px", fontSize: F.small, height: 30 }}
             />
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <label style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("pricing.output", "输出")}</label>
-            <input
-              className="input" type="number" min={0} step={0.1}
+            <Input
+              type="number" min={0} step={0.1}
               value={syncSettings.fallback_output_price}
               onChange={(e) => updateSettings({ fallback_output_price: Math.max(0, Number(e.target.value)) })}
-              style={{ width: 70, padding: "3px 6px", fontSize: F.small }}
+              style={{ width: 70, padding: "3px 6px", fontSize: F.small, height: 30 }}
             />
           </div>
         </div>
@@ -221,27 +238,29 @@ export function PricingTab() {
 
       {/* Filter bar */}
       <div className="glass-surface" style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
-        <input
-          className="input"
+        <Input
           placeholder={t("pricing.searchPlaceholder", "搜索模型名称...")}
           value={filterQuery}
           onChange={(e) => setFilterQuery(e.target.value)}
-          style={{ flex: "1 1 160px", fontSize: F.small, padding: "6px 10px" }}
+          style={{ flex: "1 1 160px", fontSize: F.small, padding: "6px 10px", height: 32 }}
         />
-        <select
-          className="input"
-          value={filterSource}
-          onChange={(e) => setFilterSource(e.target.value)}
-          style={{ fontSize: F.small, padding: "6px 8px", width: 100 }}
+        <Select
+          value={filterSource || NONE}
+          onValueChange={(v) => setFilterSource(v === NONE ? "" : v)}
         >
-          <option value="">{t("pricing.allSources", "全部来源")}</option>
-          <option value="github">GitHub</option>
-          <option value="manual">{t("pricing.manual", "手动")}</option>
-        </select>
+          <SelectTrigger style={{ fontSize: F.small, padding: "6px 8px", width: 110, height: 32 }}>
+            <SelectValue placeholder={t("pricing.allSources", "全部来源")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>{t("pricing.allSources", "全部来源")}</SelectItem>
+            <SelectItem value="github">GitHub</SelectItem>
+            <SelectItem value="manual">{t("pricing.manual", "手动")}</SelectItem>
+          </SelectContent>
+        </Select>
         {hasFilter && (
-          <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "4px 8px", color: "var(--text-tertiary)" }}>
+          <Button variant="ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "4px 8px", height: "auto", color: "var(--text-tertiary)" }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={11} /> {t("pricing.clearFilter", "清除")}</span>
-          </button>
+          </Button>
         )}
       </div>
 
@@ -275,14 +294,15 @@ export function PricingTab() {
                   <tr key={p.id} style={{ borderBottom: "1px solid var(--border)" }}>
                     <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{p.model_name}</span></TdCell>
                     <TdCell>
-                      <span className="badge" style={{
+                      <Badge variant="secondary" style={{
                         fontSize: 10,
                         padding: "1px 6px",
                         background: p.source === "manual" ? "var(--accent-subtle)" : "var(--bg-secondary)",
                         color: p.source === "manual" ? "var(--accent)" : "var(--text-secondary)",
+                        border: "none",
                       }}>
                         {p.source}
-                      </span>
+                      </Badge>
                     </TdCell>
                     <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{p.default_platform || "-"}</span></TdCell>
                     <TdCell>{formatPrice(p.input_price)}</TdCell>
@@ -360,43 +380,45 @@ function Pagination({
         <span className="text-tertiary" style={{ fontSize: 12 }}>
           {rangeStart}–{rangeEnd} / {total}
         </span>
-        <select
-          className="input"
-          value={pageSize}
-          onChange={e => onPageSizeChange(Number(e.target.value))}
-          style={{ fontSize: 12, padding: "2px 6px", width: 70 }}
+        <Select
+          value={String(pageSize)}
+          onValueChange={v => onPageSizeChange(Number(v))}
         >
-          {pageSizeOptions.map(s => <option key={s} value={s}>{s}/page</option>)}
-        </select>
+          <SelectTrigger style={{ fontSize: 12, padding: "2px 6px", width: 80, height: 28 }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {pageSizeOptions.map(s => <SelectItem key={s} value={String(s)}>{s}/page</SelectItem>)}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Right: page nav + jump */}
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
-          onClick={() => onPageChange(1)} title="First">⟪</button>
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
-          onClick={() => onPageChange(currentPage - 1)}>←</button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(1)} title="First">⟪</Button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}>←</Button>
         {pages.map((p, i) =>
           p === "ellipsis" ? (
             <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
           ) : (
-            <button key={p} className={`btn ${p === currentPage ? "" : "btn-ghost"}`}
+            <Button key={p} variant={p === currentPage ? "default" : "ghost"}
               style={{
                 ...btnStyle,
                 ...(p === currentPage ? { fontWeight: 700, color: "var(--accent)" } : {}),
               }}
-              onClick={() => onPageChange(p)}>{p}</button>
+              onClick={() => onPageChange(p)}>{p}</Button>
           ),
         )}
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
-          onClick={() => onPageChange(currentPage + 1)}>→</button>
-        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
-          onClick={() => onPageChange(totalPages)} title="Last">⟫</button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}>→</Button>
+        <Button variant="ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(totalPages)} title="Last">⟫</Button>
 
         {/* Jump to page */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
-          <input
-            className="input"
+          <Input
             type="number"
             min={1}
             max={totalPages}
@@ -404,11 +426,11 @@ function Pagination({
             onChange={e => onJumpPageChange(e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") onJump(); }}
             placeholder="#"
-            style={{ width: 50, fontSize: 12, padding: "3px 6px", textAlign: "center" }}
+            style={{ width: 50, fontSize: 12, padding: "3px 6px", textAlign: "center", height: 28 }}
           />
-          <button className="btn btn-ghost" style={btnStyle} onClick={onJump}>
+          <Button variant="ghost" style={btnStyle} onClick={onJump}>
             Go
-          </button>
+          </Button>
         </div>
       </div>
     </div>
