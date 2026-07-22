@@ -12,6 +12,11 @@ import {
   buildClientTypesFromPresets,
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 export function EndpointsSection({ endpoints, setEndpoints, t }: {
   endpoints: PlatformEndpoint[];
@@ -36,9 +41,9 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
       title={t("platform.endpoints", "Protocol Endpoints")}
       desc={t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
       action={(
-        <button
-          type="button"
-          className="btn btn-ghost"
+        <Button
+          variant="ghost"
+          size="sm"
           style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
           onClick={() => {
             // defaultClientForProtocol async 化后取默认客户端类型（仅一处调用，不阻塞渲染）
@@ -48,7 +53,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
           }}
         >
           + {t("platform.addEndpoint", "Add Endpoint")}
-        </button>
+        </Button>
       )}
     >
       {endpoints.length === 0 && (
@@ -58,27 +63,29 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
       )}
       {endpoints.map((ep, idx) => (
         <div key={idx} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <select
-            className="input"
-            style={{ width: 120, flexShrink: 0 }}
+          <Select
             value={ep.protocol}
-            onChange={(e) => {
-              const newProto = e.target.value as Protocol;
+            onValueChange={(newProto) => {
               // defaultClientForProtocol async 化后异步取默认客户端类型，更新该 endpoint。
-              defaultClientForProtocol(newProto).then((ct) => {
+              defaultClientForProtocol(newProto as Protocol).then((ct) => {
                 setEndpoints((prev) => {
                   const next = [...prev];
-                  next[idx] = { ...next[idx], protocol: newProto, client_type: ct };
+                  next[idx] = { ...next[idx], protocol: newProto as Protocol, client_type: ct };
                   return next;
                 });
               });
             }}
           >
-            {ENDPOINT_PROTOCOLS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-          <input
+            <SelectTrigger className="input" style={{ width: 120, flexShrink: 0 }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {ENDPOINT_PROTOCOLS.map((p) => (
+                <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Input
             className="input"
             style={{ flex: 1 }}
             placeholder="Endpoint Base URL"
@@ -89,45 +96,48 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
               setEndpoints(next);
             }}
           />
-          <select
-            className="input"
-            style={{ width: 140, flexShrink: 0 }}
+          <Select
             value={ep.client_type || "default"}
-            onChange={(e) => {
+            onValueChange={(v) => {
               const next = [...endpoints];
-              next[idx] = { ...next[idx], client_type: e.target.value as ClientType };
+              next[idx] = { ...next[idx], client_type: v as ClientType };
               setEndpoints(next);
             }}
-            title={t("platform.clientType", "客户端模拟")}
           >
-            {/* 默认条目（group === ""）：单独置顶，沿用 platform.mockDefault i18n 文案 */}
-            {clientTypeOptions
-              .filter((c) => c.group === "")
-              .map((c) => (
-                <option key={c.value} value={c.value}>
-                  {t("platform.mockDefault", c.label)}
-                </option>
-              ))}
-            {/* 分组条目：按 group optgroup 聚合（Claude Code / Codex / IDE） */}
-            {Object.entries(
-              clientTypeOptions
-                .filter((c) => c.group !== "")
-                .reduce<Record<string, typeof clientTypeOptions>>((acc, c) => {
-                  (acc[c.group] ||= []).push(c);
-                  return acc;
-                }, {}),
-            ).map(([group, items]) => (
-              <optgroup key={group} label={group}>
-                {items.map((c) => (
-                  <option key={c.value} value={c.value}>{c.label}</option>
+            <SelectTrigger className="input" style={{ width: 140, flexShrink: 0 }} title={t("platform.clientType", "客户端模拟")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {/* 默认条目（group === ""）：单独置顶，沿用 platform.mockDefault i18n 文案 */}
+              {clientTypeOptions
+                .filter((c) => c.group === "")
+                .map((c) => (
+                  <SelectItem key={c.value} value={c.value}>
+                    {t("platform.mockDefault", c.label)}
+                  </SelectItem>
                 ))}
-              </optgroup>
-            ))}
-          </select>
+              {/* 分组条目：按 group SelectGroup 聚合（Claude Code / Codex / IDE） */}
+              {Object.entries(
+                clientTypeOptions
+                  .filter((c) => c.group !== "")
+                  .reduce<Record<string, typeof clientTypeOptions>>((acc, c) => {
+                    (acc[c.group] ||= []).push(c);
+                    return acc;
+                  }, {}),
+              ).map(([group, items]) => (
+                <SelectGroup key={group}>
+                  <SelectLabel>{group}</SelectLabel>
+                  {items.map((c) => (
+                    <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
           {/* Coding Plan 开关 */}
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
+          <Button
+            variant="ghost"
+            size="icon"
             style={{
               flexShrink: 0,
               width: 28, height: 28, minWidth: 28,
@@ -146,17 +156,18 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
             }}
           >
             C
-          </button>
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon btn-danger"
-            style={{ flexShrink: 0 }}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="btn-danger"
+            style={{ flexShrink: 0, color: "var(--color-danger)" }}
             onClick={() => setEndpoints(endpoints.filter((_, i) => i !== idx))}
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
             </svg>
-          </button>
+          </Button>
         </div>
       ))}
     </FormSection>
