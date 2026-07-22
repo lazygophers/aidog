@@ -32,6 +32,8 @@ import type { ColorLevel } from "../shared/colorScale";
 import { SectionHeader, TextButton } from "./ImportExport/primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 
 function protocolColor(matchedBy: string): ColorLevel {
   switch (matchedBy) {
@@ -248,7 +250,7 @@ export function CcSwitchImportSection({
           disabled={detecting || reading}
           style={{
             padding: "7px 14px", fontSize: 12, cursor: "pointer",
-            borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+            borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
             background: "transparent", color: "var(--text-secondary)",
           }}
         >
@@ -347,10 +349,7 @@ export function CcSwitchImportSection({
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <span style={{ fontSize: 13 }}>{t("importExport.ccswitch.autoGroup", "导入后自动加入「cc-switch」分组")}</span>
-              <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-                <Input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} style={{ display: "none" }} />
-                <span className={`toggle ${batchAutoGroup ? "active" : ""}`} />
-              </label>
+              <Switch checked={batchAutoGroup} onCheckedChange={setBatchAutoGroup} />
             </div>
             {groupDetails.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
@@ -367,9 +366,9 @@ export function CcSwitchImportSection({
                         display: "inline-flex", alignItems: "center",
                         padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
                         cursor: "pointer",
-                        border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                        border: `1px solid ${checked ? "var(--primary)" : "var(--border)"}`,
                         background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
-                        color: checked ? "var(--accent)" : "var(--text-secondary)",
+                        color: checked ? "var(--primary)" : "var(--text-secondary)",
                         transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
                       }}
                     >
@@ -388,7 +387,7 @@ export function CcSwitchImportSection({
               disabled={selectedCount === 0}
               style={{
                 padding: "7px 14px", fontSize: 13, cursor: "pointer",
-                borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
                 background: "transparent", color: "var(--text-primary)",
                 opacity: selectedCount === 0 ? 0.5 : 1,
               }}
@@ -464,23 +463,11 @@ function DimCheckbox({
 }) {
   return (
     <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.7 : 1 }}>
-      <Input
-        type="checkbox"
+      <Checkbox
         checked={checked}
         disabled={disabled}
-        onChange={(e) => onChange(e.target.checked)}
-        style={{ display: "none" }}
+        onCheckedChange={(v) => onChange(v === true)}
       />
-      <span
-        style={{
-          width: 16, height: 16, borderRadius: 4,
-          border: `1px solid ${checked ? "var(--accent)" : "var(--border-default)"}`,
-          background: checked ? "var(--accent)" : "transparent",
-          display: "inline-flex", alignItems: "center", justifyContent: "center",
-        }}
-      >
-        {checked && <IconCheck size={11} color="#fff" strokeWidth={2.5} />}
-      </span>
       <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500 }}>{label}</span>
       {hint && <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>}
     </label>
@@ -523,7 +510,7 @@ function ProviderRow({
       }}
       style={{
         padding: 12, borderRadius: "var(--radius-md)", cursor: "pointer",
-        border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+        border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
         background: selected ? "var(--accent-subtle)" : "transparent",
         display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
       }}
@@ -532,12 +519,12 @@ function ProviderRow({
         style={{
           width: 18, height: 18, borderRadius: "50%",
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
-          background: selected ? "var(--accent)" : "transparent",
+          border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+          background: selected ? "var(--primary)" : "transparent",
           flexShrink: 0,
         }}
       >
-        {selected && <IconCheck size={12} color="#fff" strokeWidth={2.5} />}
+        {selected && <IconCheck size={12} color="var(--primary-foreground)" strokeWidth={2.5} />}
       </span>
       <span style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase" }}>
         {provider.appType}
@@ -601,7 +588,7 @@ function ConflictRowSimple({
                 border: "none",
                 borderLeft: i > 0 ? "1px solid var(--border)" : "none",
                 background: active ? "var(--accent-subtle)" : "transparent",
-                color: active ? "var(--accent)" : "var(--text-secondary)",
+                color: active ? "var(--primary)" : "var(--text-secondary)",
               }}
             >
               {t(labelKey, defaultLabel)}

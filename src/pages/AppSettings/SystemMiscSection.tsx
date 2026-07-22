@@ -10,6 +10,7 @@ import { formatDateTime } from "../../utils/formatters";
 import type { SystemSettings } from "./useSystemSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * Timeout + DB Maintenance + Aggregate Stats + App version + toast（原 L519-560 + L680-755 + L820-837）。
@@ -177,13 +178,7 @@ export function VersionToastSection({ s }: { s: SystemSettings }) {
             {t("settings.autoUpdateHint")}
           </div>
         </div>
-        <div
-          className={`toggle ${autoUpdateEnabled ? "active" : ""}`}
-          onClick={() => handleAutoUpdateChange(!autoUpdateEnabled)}
-          role="switch"
-          aria-checked={autoUpdateEnabled}
-          tabIndex={0}
-        />
+        <Switch checked={autoUpdateEnabled} onCheckedChange={handleAutoUpdateChange} />
       </div>
 
       {/* App version — 只读展示, 单一事实源 = tauri.conf.json (经 getVersion API) */}

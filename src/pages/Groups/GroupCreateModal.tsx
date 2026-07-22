@@ -62,7 +62,7 @@ export function GroupCreateModal({
         {/* Name */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
-          <Input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+          <Input style={{ fontSize: F.body, padding: S.inputPad }}
             placeholder={t("group.name", "分组名称")} value={cName}
             onChange={(e) => onCName(e.target.value)} />
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
@@ -73,7 +73,7 @@ export function GroupCreateModal({
         {/* Group key */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "密钥")}</span>
-          <Input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+          <Input style={{ fontSize: F.body, padding: S.inputPad }}
             placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
             onChange={(e) => onCGroupKey(e.target.value.replace(/[^\w-]/g, ""))} />
           <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
@@ -85,7 +85,7 @@ export function GroupCreateModal({
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
           <Select value={cMode} onValueChange={(v) => onCMode(v as RoutingMode)}>
-            <SelectTrigger className="input" style={{ fontSize: F.body, padding: S.inputPad }}>
+            <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad }}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

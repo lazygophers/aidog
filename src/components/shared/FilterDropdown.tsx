@@ -87,7 +87,7 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         textAlign: "left",
         justifyContent: "flex-start",
         background: active ? "var(--bg-glass)" : "transparent",
-        color: active ? "var(--accent)" : "var(--text-primary)",
+        color: active ? "var(--primary)" : "var(--text-primary)",
         fontWeight: active ? 600 : 400,
         padding: "20px 14px",
         borderRadius: "var(--radius-sm)",

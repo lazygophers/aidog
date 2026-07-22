@@ -11,6 +11,7 @@
 import { useTranslation } from "react-i18next";
 import type { EventSetting } from "../../services/api";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * Claude Code 官方 hook 事件全量目录（约 30 个）。
@@ -174,51 +175,40 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
             >
               {/* 第一行：启用开关 + 事件名 + TTS / 弹窗 开关 */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                <div
-                  className={`toggle ${es.enabled ? "active" : ""}`}
-                  onClick={() => { if (!disabled) update(event, { enabled: !es.enabled }); }}
-                  role="switch"
-                  aria-checked={es.enabled}
+                <Switch
+                  checked={es.enabled}
+                  disabled={disabled}
+                  onCheckedChange={(v) => update(event, { enabled: v })}
                   aria-label={event}
-                  tabIndex={disabled ? -1 : 0}
                 />
                 {/* 事件名英文原样（CC 官方名，不翻译） */}
                 <code style={{ fontSize: 12, fontWeight: 600, minWidth: 150 }}>{event}</code>
 
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldTts", "语音")}</span>
-                  <div
-                    className={`toggle ${es.tts ? "active" : ""}`}
-                    onClick={() => { if (!disabled && es.enabled) update(event, { tts: !es.tts }); }}
-                    role="switch"
-                    aria-checked={es.tts}
+                  <Switch
+                    checked={es.tts}
+                    disabled={disabled || !es.enabled}
+                    onCheckedChange={(v) => update(event, { tts: v })}
                     aria-label={`${event} ${t("notif.fieldTts", "语音")}`}
-                    style={es.enabled ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
-                    tabIndex={disabled || !es.enabled ? -1 : 0}
                   />
                 </div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldPopup", "弹窗")}</span>
-                  <div
-                    className={`toggle ${es.popup ? "active" : ""}`}
-                    onClick={() => { if (!disabled && es.enabled) update(event, { popup: !es.popup }); }}
-                    role="switch"
-                    aria-checked={es.popup}
+                  <Switch
+                    checked={es.popup}
+                    disabled={disabled || !es.enabled}
+                    onCheckedChange={(v) => update(event, { popup: v })}
                     aria-label={`${event} ${t("notif.fieldPopup", "弹窗")}`}
-                    style={es.enabled ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
-                    tabIndex={disabled || !es.enabled ? -1 : 0}
                   />
                 </div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                   <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldSound", "提示音")}</span>
-                  <div
-                    className={`toggle ${es.sound !== false ? "active" : ""}`}
-                    onClick={() => { if (!disabled && es.enabled) update(event, { sound: es.sound === false }); }}
-                    role="switch"
-                    aria-checked={es.sound !== false}
+                  <Switch
+                    checked={es.sound !== false}
+                    disabled={disabled || !es.enabled}
+                    onCheckedChange={(v) => update(event, { sound: v })}
                     aria-label={`${event} ${t("notif.fieldSound", "提示音")}`}
-                    style={es.enabled ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
-                    tabIndex={disabled || !es.enabled ? -1 : 0}
                   />
                 </div>
               </div>

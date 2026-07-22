@@ -279,7 +279,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                 return (
                   <label
                     key={b.url}
-                    style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
+                    style={{ ...optRow, borderColor: checked ? "var(--primary)" : "var(--border)" }}
                   >
                     <Checkbox
                       checked={checked}
@@ -322,7 +322,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                   return (
                     <label
                       key={k}
-                      style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
+                      style={{ ...optRow, borderColor: checked ? "var(--primary)" : "var(--border)" }}
                     >
                       <Checkbox
                         checked={checked}
@@ -343,7 +343,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                     return (
                       <label
                         key={k}
-                        style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
+                        style={{ ...optRow, borderColor: checked ? "var(--primary)" : "var(--border)" }}
                       >
                         <RadioGroupItem value={k} id={`paste-key-${k}`} />
                         <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono, monospace)" }}>{k}</span>

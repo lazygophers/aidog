@@ -231,7 +231,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             }}>
               <span style={{
                 display: "inline-block", padding: "2px 8px", borderRadius: "var(--radius-sm)",
-                background: `${colorMap[protocol] || "var(--accent)"}20`,
+                background: `color-mix(in srgb, ${colorMap[protocol] || "var(--accent)"} 12%, transparent)`,
                 color: colorMap[protocol] || "var(--accent)",
                 fontSize: 11, fontWeight: 700,
               }}>

@@ -236,9 +236,9 @@ export function BatchOverrideModelsModal({
                     }}>
                       {cur || t("group.batchOverrideEmpty", "（空）")}
                     </span>
-                    <span style={{ color: changed ? "var(--accent)" : "var(--text-tertiary)" }}>→</span>
+                    <span style={{ color: changed ? "var(--primary)" : "var(--text-tertiary)" }}>→</span>
                     <span style={{
-                      color: next ? (changed ? "var(--accent)" : "var(--text-secondary)") : "var(--text-tertiary)",
+                      color: next ? (changed ? "var(--primary)" : "var(--text-secondary)") : "var(--text-tertiary)",
                       fontStyle: next ? "normal" : "italic",
                       fontWeight: changed ? 600 : 400,
                       overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",

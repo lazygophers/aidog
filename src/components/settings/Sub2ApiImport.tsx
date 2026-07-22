@@ -23,9 +23,9 @@ import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
 import { StatChip } from "../shared/StatChip";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 
 /** 脱敏 api_key：保留前 4 + 后 4，中间打码。 */
 function maskKey(key?: string): string {
@@ -178,7 +178,7 @@ export function Sub2ApiImportSection({
             disabled={parsing || importing}
             style={{
               padding: "7px 14px", fontSize: 12, cursor: "pointer",
-              borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+              borderRadius: "var(--radius-md)", border: "1px solid var(--border)",
               background: "transparent", color: "var(--text-primary)",
             }}
           >
@@ -231,7 +231,7 @@ export function Sub2ApiImportSection({
                   className="glass-surface"
                   style={{
                     padding: 12, borderRadius: "var(--radius-md)",
-                    border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
+                    border: `1px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
                     background: isSelected ? "var(--accent-subtle)" : "transparent",
                     display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
                   }}
@@ -244,11 +244,11 @@ export function Sub2ApiImportSection({
                     style={{
                       width: 18, height: 18, borderRadius: "50%", cursor: "pointer",
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      border: `1px solid ${isSelected ? "var(--accent)" : "var(--border)"}`,
-                      background: isSelected ? "var(--accent)" : "transparent", flexShrink: 0,
+                      border: `1px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                      background: isSelected ? "var(--primary)" : "transparent", flexShrink: 0,
                     }}
                   >
-                    {isSelected && <IconCheck size={12} color="#fff" strokeWidth={2.5} />}
+                    {isSelected && <IconCheck size={12} color="var(--primary-foreground)" strokeWidth={2.5} />}
                   </span>
                   <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{acc.name}</span>
                   {/* Protocol 下拉手改 */}
@@ -284,10 +284,7 @@ export function Sub2ApiImportSection({
           {/* 加入分组 toggle */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
             <span style={{ fontSize: 13 }}>{t("importExport.sub2api.autoGroup", "导入后自动加入「sub2api」分组")}</span>
-            <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-              <Input type="checkbox" checked={autoGroup} onChange={(e) => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
-              <span className={`toggle ${autoGroup ? "active" : ""}`} />
-            </label>
+            <Switch checked={autoGroup} onCheckedChange={setAutoGroup} />
           </div>
 
           {/* 导入按钮 */}

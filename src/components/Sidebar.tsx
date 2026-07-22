@@ -204,7 +204,7 @@ function DropdownItem({
         padding: "8px 10px",
         fontSize: 13,
         fontWeight: active ? 600 : 400,
-        color: active ? "var(--accent)" : "var(--text-primary)",
+        color: active ? "var(--primary)" : "var(--text-primary)",
         background: active ? "var(--accent-subtle)" : "transparent",
         borderRadius: "var(--radius-sm)",
         height: "auto",
@@ -332,7 +332,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   padding: "10px 12px",
                   fontWeight: isActive ? 600 : 400,
                   color: isActive
-                    ? "var(--accent)"
+                    ? "var(--primary)"
                     : "var(--text-secondary)",
                   background: isActive ? "var(--accent-subtle)" : "transparent",
                   borderRadius: "var(--radius-sm)",
@@ -422,7 +422,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 padding: "7px 10px 7px 26px",
                                 fontWeight: childActive ? 600 : 400,
                                 fontSize: 12.5,
-                                color: childActive ? "var(--accent)" : "var(--text-secondary)",
+                                color: childActive ? "var(--primary)" : "var(--text-secondary)",
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
                                 borderLeft: childActive ? "2px solid var(--accent)" : "2px solid transparent",

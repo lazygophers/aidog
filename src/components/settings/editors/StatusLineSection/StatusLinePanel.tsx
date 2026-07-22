@@ -69,9 +69,9 @@ export function StatusLinePanel({
                 <Button variant="outline" key={m} type="button"
                   style={{
                     flex: 1, padding: "8px 12px", fontSize: F.body, fontWeight: active ? 600 : 400,
-                    color: active ? "var(--accent)" : "var(--text-secondary)",
+                    color: active ? "var(--primary)" : "var(--text-secondary)",
                     background: active ? "var(--accent-subtle, rgba(0,122,255,0.1))" : "transparent",
-                    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                    border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
                     borderRadius: "var(--radius-sm)", cursor: "pointer",
                   }}
                   onClick={() => switchMode(m)}>
@@ -208,7 +208,7 @@ export function StatusLinePanel({
                       <Button variant="ghost" type="button" 
                         style={{
                           width: 24, height: 24, minWidth: 24, fontSize: F.hint,
-                          color: seg.newline ? "var(--accent)" : "var(--text-tertiary)",
+                          color: seg.newline ? "var(--primary)" : "var(--text-tertiary)",
                         }}
                         title={t("statusline.toggleNewline")}
                         onClick={() => updateSegments(segments.map(s => s.id === seg.id ? { ...s, newline: !s.newline } : s))}>↵</Button>
