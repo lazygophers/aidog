@@ -75,8 +75,8 @@ pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2
         },
         "custom" => {
             let hex = color.value.trim().trim_start_matches('#');
-            if hex.len() == 6 {
-                if let (Ok(r), Ok(g), Ok(b)) = (
+            if hex.len() == 6
+                && let (Ok(r), Ok(g), Ok(b)) = (
                     u8::from_str_radix(&hex[0..2], 16),
                     u8::from_str_radix(&hex[2..4], 16),
                     u8::from_str_radix(&hex[4..6], 16),
@@ -88,7 +88,6 @@ pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2
                         1.0,
                     );
                 }
-            }
             NSColor::labelColor()
         }
         // "follow" 及未知 → labelColor

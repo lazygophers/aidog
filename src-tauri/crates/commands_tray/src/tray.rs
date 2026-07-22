@@ -129,11 +129,10 @@ pub async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
 pub(crate) async fn tray_separator(app: &tauri::AppHandle) -> String {
-    if let Some(db) = app.try_state::<Db>() {
-        if let Ok(Some(config)) = db::get_tray_config(&db).await {
+    if let Some(db) = app.try_state::<Db>()
+        && let Ok(Some(config)) = db::get_tray_config(&db).await {
             return config.separator;
         }
-    }
     default_separator_str()
 }
 

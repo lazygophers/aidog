@@ -44,12 +44,11 @@ impl ClientCache {
         if self.map.contains_key(&key) {
             return;
         }
-        if self.map.len() >= self.capacity {
-            if let Some(old_key) = self.order.first() {
+        if self.map.len() >= self.capacity
+            && let Some(old_key) = self.order.first() {
                 self.map.remove(old_key);
                 self.order.remove(0);
             }
-        }
         self.map.insert(key, client);
         self.order.push(key);
     }

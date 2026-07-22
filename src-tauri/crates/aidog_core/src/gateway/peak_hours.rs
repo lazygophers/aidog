@@ -92,16 +92,14 @@ pub fn utc_time(epoch_ms: i64) -> (i32, i32, i32, i32) {
 ///   - 退化 (end_min == start_min)：全天命中（兼容旧 hour 精度 start==end 语义）
 /// - days_of_week / days_of_month 同时 Some → AND（UI 保证互斥，此为兜底）
 pub(crate) fn hit(w: &PeakWindow, hour: i32, minute: i32, weekday: i32, day_of_month: i32) -> bool {
-    if let Some(days) = &w.days_of_week {
-        if !days.contains(&weekday) {
+    if let Some(days) = &w.days_of_week
+        && !days.contains(&weekday) {
             return false;
         }
-    }
-    if let Some(days) = &w.days_of_month {
-        if !days.contains(&day_of_month) {
+    if let Some(days) = &w.days_of_month
+        && !days.contains(&day_of_month) {
             return false;
         }
-    }
     let t_min = hour * 60 + minute;
     let start_min = w.start_hour * 60 + w.start_minute.unwrap_or(0).clamp(0, 59);
     let end_min = w.end_hour * 60 + w.end_minute.unwrap_or(0).clamp(0, 59);
@@ -166,16 +164,14 @@ pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64, request_model: &
 ///
 /// 判定顺序：生效期 → 时间 → model（见 design §1.2，生效期优先级最高）。
 fn period_active(w: &PeakWindow, epoch_sec: i64) -> bool {
-    if let Some(s) = w.start_at {
-        if epoch_sec < s {
+    if let Some(s) = w.start_at
+        && epoch_sec < s {
             return false;
         }
-    }
-    if let Some(e) = w.end_at {
-        if epoch_sec >= e {
+    if let Some(e) = w.end_at
+        && epoch_sec >= e {
             return false;
         }
-    }
     true
 }
 

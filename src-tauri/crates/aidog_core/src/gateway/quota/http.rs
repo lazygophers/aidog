@@ -219,11 +219,10 @@ fn make_quota_log(
 
 /// 落库 quota 日志 (仅 db 可写时; 测试传 None 跳过)。
 async fn persist_quota_log(db: Option<&Arc<Db>>, log: crate::gateway::models::ProxyLog) {
-    if let Some(d) = db {
-        if let Err(e) = crate::gateway::db::upsert_proxy_log(d, log).await {
+    if let Some(d) = db
+        && let Err(e) = crate::gateway::db::upsert_proxy_log(d, log).await {
             tracing::warn!(error = %e, "persist quota log failed");
         }
-    }
 }
 
 #[cfg(test)]

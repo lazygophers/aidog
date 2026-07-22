@@ -46,11 +46,10 @@ impl ExtraCache {
 /// ponytail: 简化版，只处理常见情况；完整逻辑应参考 gateway/models/platform.rs
 fn infer_protocol_from_extra(extra: &str) -> String {
     // 尝试从 extra 中提取 platform_type 字段
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(extra) {
-        if let Some(pt) = v.get("platform_type").and_then(|t| t.as_str()) {
+    if let Ok(v) = serde_json::from_str::<serde_json::Value>(extra)
+        && let Some(pt) = v.get("platform_type").and_then(|t| t.as_str()) {
             return pt.to_string();
         }
-    }
     // 默认返回空字符串，peak_hours_for 会回落到 bundled preset
     String::new()
 }
@@ -394,8 +393,8 @@ fn filter_candidates<'a>(
         }
 
         // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定
-        if let Some(c) = ctx {
-            if breaker_enabled {
+        if let Some(c) = ctx
+            && breaker_enabled {
                 let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
                 let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
                 match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
@@ -406,7 +405,6 @@ fn filter_candidates<'a>(
                     Admission::Probe | Admission::Allow => {}
                 }
             }
-        }
 
         match auto_state {
             Some(false) => active.push(gp),
@@ -482,12 +480,11 @@ fn merge_and_promote_mapping<'a>(
     ordered.extend(probe);
 
     // 显式映射目标平台提到最前（若它本身在候选集中）
-    if let Some(target_id) = mapped_platform_id {
-        if let Some(pos) = ordered.iter().position(|gp| gp.platform.id == target_id) {
+    if let Some(target_id) = mapped_platform_id
+        && let Some(pos) = ordered.iter().position(|gp| gp.platform.id == target_id) {
             let gp = ordered.remove(pos);
             ordered.insert(0, gp);
         }
-    }
 
     ordered
 }

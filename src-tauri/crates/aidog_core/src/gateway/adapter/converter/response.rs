@@ -76,11 +76,10 @@ pub fn convert_response(
 /// 渲染归一响应为 Anthropic Messages 非流式响应体。
 fn render_anthropic_response(r: &NonStreamResponse) -> Value {
     let mut content: Vec<Value> = Vec::new();
-    if let Some(text) = &r.text {
-        if !text.is_empty() {
+    if let Some(text) = &r.text
+        && !text.is_empty() {
             content.push(serde_json::json!({ "type": "text", "text": text }));
         }
-    }
     for (id, name, input) in &r.tool_uses {
         content.push(serde_json::json!({
             "type": "tool_use",

@@ -40,19 +40,17 @@ pub async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result
         .map_err(|e| { tracing::error!(command = "platform_create", error = %e, "create platform failed"); e })?;
 
     // ① 创建默认分组（用户勾选；默认勾 = 旧行为）。
-    if auto_group {
-        if let Err(e) = create_auto_group_for(&db, &platform, default_level_priority).await {
+    if auto_group
+        && let Err(e) = create_auto_group_for(&db, &platform, default_level_priority).await {
             tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed");
             return Err(e);
         }
-    }
 
     // ② 加入用户指定的已有分组（plain membership；sync 跳过 auto 组，对新平台即纯追加）。
-    if !join_group_ids.is_empty() {
-        if let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &join_group_ids).await {
+    if !join_group_ids.is_empty()
+        && let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &join_group_ids).await {
             tracing::warn!(command = "platform_create", platform_id = platform.id, error = %e, "join groups failed");
         }
-    }
 
     Ok(platform)
 }
@@ -166,11 +164,10 @@ pub async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result
     // 自动建默认分组是「创建时一次性判断」（见 platform_create），编辑平台不再触发建组/拆组对账。
 
     // join_group_ids：全量同步手动组成员关系（auto 组不动；None=不改）。
-    if let Some(ids) = join_group_ids {
-        if let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &ids).await {
+    if let Some(ids) = join_group_ids
+        && let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &ids).await {
             tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "sync manual groups failed");
         }
-    }
 
     Ok(platform)
 }

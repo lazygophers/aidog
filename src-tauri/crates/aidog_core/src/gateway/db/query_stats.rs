@@ -472,7 +472,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     let mut ov_dur = 0i64;
     let mut ov_cost = 0.0f64;
     for r in &rows {
-        if let Some(w) = want_pid { if r.eff_pid != w { continue; } }
+        if let Some(w) = want_pid && r.eff_pid != w { continue; }
         ov_total += 1;
         if is_2xx(r.status_code) { ov_success += 1; }
         ov_input += r.input;
@@ -498,7 +498,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     struct Bkt { req: i64, succ: i64, err: i64, input: i64, output: i64, cache: i64, dur: i64, cost: f64 }
     let mut bmap: std::collections::HashMap<String, Bkt> = std::collections::HashMap::new();
     for r in &rows {
-        if let Some(w) = want_pid { if r.eff_pid != w { continue; } }
+        if let Some(w) = want_pid && r.eff_pid != w { continue; }
         let key = utc_ms_to_local_minute_key(r.created_at, five_min);
         let b = bmap.entry(key).or_default();
         b.req += 1;
@@ -538,7 +538,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
         let mut smap: std::collections::HashMap<String, Dim> = std::collections::HashMap::new();
         let is_platform = gb == "platform";
         for r in &rows {
-            if let Some(w) = want_pid { if r.eff_pid != w { continue; } }
+            if let Some(w) = want_pid && r.eff_pid != w { continue; }
             let d = if is_platform {
                 dmap.entry(r.eff_pid).or_default()
             } else {
@@ -622,7 +622,7 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
         .map_err(|e| format!("available_models: {e}"))?
         .filter_map(|r| r.ok())
         .for_each(|(eff_pid, m)| {
-            if let Some(w) = want_pid { if eff_pid != w { return; } }
+            if let Some(w) = want_pid && eff_pid != w { return; }
             model_set.insert(m);
         });
     let available_models: Vec<String> = model_set.into_iter().collect();

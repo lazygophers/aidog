@@ -265,11 +265,10 @@ fn parse_find_output(raw: &str) -> Vec<CatalogEntry> {
             let id = caps[1].to_string();
             let installs = caps[2].trim().to_string();
             pending = Some((id, installs));
-        } else if pending.is_some() {
-            if let Some(m) = url_re.find(line) {
+        } else if pending.is_some()
+            && let Some(m) = url_re.find(line) {
                 flush(&mut pending, Some(m.as_str()), &mut out);
             }
-        }
     }
     // 收尾：最后一条若无 URL 行也提交。
     flush(&mut pending, None, &mut out);

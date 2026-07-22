@@ -26,8 +26,8 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
             .and_then(|v| v.as_str())
             .or(gkey)
             .unwrap_or("");
-        if let Some(k) = gkey {
-            if existing_group_keys.contains(k) {
+        if let Some(k) = gkey
+            && existing_group_keys.contains(k) {
                 out.push(ConflictItem {
                     scope: super::super::SCOPE_GROUP.to_string(),
                     key: k.to_string(),
@@ -35,7 +35,6 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
                     incoming_summary: format!("导入将覆盖分组「{gname}」配置"),
                 });
             }
-        }
     }
 
     let existing_setting_keys: std::collections::BTreeSet<String> =
@@ -57,9 +56,9 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
     }
 
     // 文件类冲突：codex_global / claude_code_global / 各 profile
-    if let Some(text) = &payload.codex_global {
-        if let Ok(path) = crate::gateway::codex::codex_home_public() {
-            if path.join("config.toml").exists() {
+    if let Some(text) = &payload.codex_global
+        && let Ok(path) = crate::gateway::codex::codex_home_public()
+            && path.join("config.toml").exists() {
                 out.push(ConflictItem {
                     scope: super::super::SCOPE_CODEX.to_string(),
                     key: "codex_global".to_string(),
@@ -67,11 +66,9 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
                     incoming_summary: format!("导入将覆盖（备份原文件）, {} 字节", text.len()),
                 });
             }
-        }
-    }
     for nt in &payload.codex_profiles {
-        if let Ok(path) = crate::gateway::codex::profile_path_public(&nt.name) {
-            if path.exists() {
+        if let Ok(path) = crate::gateway::codex::profile_path_public(&nt.name)
+            && path.exists() {
                 out.push(ConflictItem {
                     scope: super::super::SCOPE_CODEX.to_string(),
                     key: format!("codex_profile:{}", nt.name),
@@ -79,11 +76,10 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
                     incoming_summary: format!("覆盖（备份原文件），{} 字节", nt.text.len()),
                 });
             }
-        }
     }
-    if payload.claude_code_global.is_some() {
-        if let Some(home) = dirs::home_dir() {
-            if home.join(".claude").join("settings.json").exists() {
+    if payload.claude_code_global.is_some()
+        && let Some(home) = dirs::home_dir()
+            && home.join(".claude").join("settings.json").exists() {
                 out.push(ConflictItem {
                     scope: super::super::SCOPE_CLAUDE_CODE.to_string(),
                     key: "claude_code_global".to_string(),
@@ -91,8 +87,6 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
                     incoming_summary: "导入将覆盖（备份原文件）".to_string(),
                 });
             }
-        }
-    }
     for nt in &payload.claude_code_group_settings {
         if let Some(home) = dirs::home_dir() {
             let p = home

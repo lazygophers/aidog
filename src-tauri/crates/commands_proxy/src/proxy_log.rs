@@ -144,11 +144,10 @@ pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup upstream_request fields failed");
     }
     // Delete entire log rows older than overall retention (hard delete → physical row removal)
-    if settings.retention_days > 0 {
-        if let Err(e) = gateway::db::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit).await {
+    if settings.retention_days > 0
+        && let Err(e) = gateway::db::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit).await {
             tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
         }
-    }
     // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
     // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
     if let Err(e) = gateway::db::purge_deleted_proxy_logs(db).await {

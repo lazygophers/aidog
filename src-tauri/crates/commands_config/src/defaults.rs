@@ -132,13 +132,11 @@ pub async fn sync_client_types_json() -> Result<aidog_core::gateway::client_type
 pub fn get_protocol_logo_path(protocol: String) -> Result<String, String> {
     let dir = aidog_data_dir()?;
     let path = aidog_core::gateway::logo_sync::logo_cache_path(&dir, &protocol);
-    if path.exists() {
-        if let Ok(meta) = std::fs::metadata(&path) {
-            if meta.len() > 0 {
+    if path.exists()
+        && let Ok(meta) = std::fs::metadata(&path)
+            && meta.len() > 0 {
                 return Ok(path.to_string_lossy().into_owned());
             }
-        }
-    }
     Ok(String::new())
 }
 

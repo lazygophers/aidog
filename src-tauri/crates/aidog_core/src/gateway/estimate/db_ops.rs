@@ -242,11 +242,10 @@ pub async fn estimate_after_request(
     }
 
     // 2. 校准判定（短读，锁外 await）
-    if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await {
-        if should_calibrate(now(), last_real, count) {
+    if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await
+        && should_calibrate(now(), last_real, count) {
             run_calibration(db, platform_id, platform_type, base_url, api_key, extra, is_coding_plan).await;
         }
-    }
 }
 
 #[cfg(test)]

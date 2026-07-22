@@ -79,30 +79,27 @@ where
     fn on_new_span(&self, attrs: &tracing::span::Attributes<'_>, id: &tracing::span::Id, ctx: Context<'_, S>) {
         let mut visitor = TraceIdVisitor::default();
         attrs.record(&mut visitor);
-        if let Some(tid) = visitor.id {
-            if let Some(span) = ctx.span(id) {
+        if let Some(tid) = visitor.id
+            && let Some(span) = ctx.span(id) {
                 span.extensions_mut().insert(SpanTraceId(tid));
             }
-        }
     }
 
     fn on_enter(&self, id: &tracing::span::Id, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(id) {
-            if let Some(SpanTraceId(tid)) = span.extensions().get::<SpanTraceId>() {
+        if let Some(span) = ctx.span(id)
+            && let Some(SpanTraceId(tid)) = span.extensions().get::<SpanTraceId>() {
                 let tid = tid.clone();
                 TRACE_ID_STACK.with(|s| s.borrow_mut().push(tid));
             }
-        }
     }
 
     fn on_exit(&self, id: &tracing::span::Id, ctx: Context<'_, S>) {
-        if let Some(span) = ctx.span(id) {
-            if span.extensions().get::<SpanTraceId>().is_some() {
+        if let Some(span) = ctx.span(id)
+            && span.extensions().get::<SpanTraceId>().is_some() {
                 TRACE_ID_STACK.with(|s| {
                     s.borrow_mut().pop();
                 });
             }
-        }
     }
 }
 
@@ -511,15 +508,12 @@ pub fn cleanup_old_logs(data_dir: &std::path::Path, retention_hours: u32) {
     if let Ok(entries) = std::fs::read_dir(&log_dir) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.extension().and_then(|e| e.to_str()) == Some("log") {
-                if let Ok(metadata) = entry.metadata() {
-                    if let Ok(modified) = metadata.modified() {
-                        if modified < cutoff {
+            if path.extension().and_then(|e| e.to_str()) == Some("log")
+                && let Ok(metadata) = entry.metadata()
+                    && let Ok(modified) = metadata.modified()
+                        && modified < cutoff {
                             let _ = std::fs::remove_file(&path);
                         }
-                    }
-                }
-            }
         }
     }
 }
