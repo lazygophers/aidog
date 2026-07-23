@@ -790,9 +790,9 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   --color-sidebar-ring: var(--sidebar-ring);
 }
 
-/* ─── 金色主题 · 主按钮金属金 sheen + glow（金闪闪） ───
+/* ─── 金蓝主题 · 主按钮金属 sheen + glow（蓝 light / 金 dark，随 --primary 自适应） ───
    unlayered 规则 → 覆盖 tailwind utilities 层 .bg-primary 的平色 background-color。
-   background-image 渐变(顶亮→底暗)模拟金属反光；柔金 box-shadow 做外发光「闪」。 */
+   background-image 渐变(顶亮→底暗)模拟金属反光；柔色 box-shadow 做外发光「闪」。 */
 .bg-primary {
   background-image: linear-gradient(
     180deg,
@@ -808,4 +808,52 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58),
     0 2px 10px color-mix(in srgb, var(--primary) 55%, transparent),
     0 0 22px color-mix(in srgb, var(--primary) 45%, transparent);
+}
+
+/* ─── 蓝金流光描边（hover · 微光流沙签名效） ───
+   卡片 hover 时沿边框转一圈 蓝→金→蓝 conic 渐变。@property 让角度可动画；
+   padding + mask-composite:exclude 只留 1px 边环（中心镂空不遮内容）。
+   pointer-events:none + 默认 opacity:0，仅 hover 显形并旋转。unlayered 保证生效。 */
+@property --flow-ang {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes flowBorder {
+  to { --flow-ang: 360deg; }
+}
+
+.glass,
+.glass-surface {
+  position: relative;
+}
+
+.glass::after,
+.glass-surface::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--flow-ang),
+    #3ba0ff,
+    #ffd98a 40%,
+    #b1e3ff 65%,
+    #3ba0ff
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 250ms ease;
+  pointer-events: none;
+}
+
+.glass:hover::after,
+.glass-surface:hover::after {
+  opacity: 0.9;
+  animation: flowBorder 3s linear infinite;
 }
