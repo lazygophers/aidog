@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
+import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
 import type { Group, GroupDetail } from "./services/api";
 import { groupApi, groupDetailApi, statsApi, onProxyLogUpdated } from "./services/api";
@@ -64,6 +65,8 @@ function Popover() {
   // tray 下方居中锚点（首次测得后恒定）；当前应用的窗口尺寸（去抖比较用）。
   const centerXRef = React.useRef<number | null>(null);
   const appliedRef = React.useRef<{ w: number; h: number } | null>(null);
+  // 窗口复用后 scaleFactor 恒定，首测缓存复用，省去每次 resize 的 IPC 往返。
+  const scaleRef = React.useRef<number | null>(null);
 
   // 重拉 popover_data + 统计批量 + 分组列表。mount 首拉 + proxy-log-updated 事件触发复用。
   // cancel 守卫防慢后端晚到 resolve 覆盖 newer 状态（参考 [[mount-fetch-late-resolve-overwrites-optimistic]]）。
@@ -104,10 +107,17 @@ function Popover() {
       ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
     }
     const cancel = reloadData();
-    // popover = 独立 Tauri webview window（WebviewWindowBuilder label="popover"，app_setup.rs:209）；
-    // 后端 log.rs:153 app.emit 广播所有 webview，可达 → 事件订阅。1000ms debounce 避免高频 re-render。
+    // popover = 复用型 Tauri webview window（setup 预建隐藏，show/hide toggle）；
+    // 后端 log.rs app.emit 广播所有 webview，可达 → 事件订阅。1000ms debounce 避免高频 re-render。
     const unlisten = onProxyLogUpdated(() => { reloadData(); }, 1000);
-    return () => { cancel(); unlisten(); };
+    // 窗口复用：Rust show() 后 emit "popover-shown" → 隐藏期累积变化的确定性刷新。
+    // 同时清 centerX，让下次 applySize 从 Rust 定位后的当前几何重新推导居中锚点
+    // （tray 位置若变化亦能对齐）。
+    const shownPromise = listen("popover-shown", () => {
+      centerXRef.current = null;
+      reloadData();
+    });
+    return () => { cancel(); unlisten(); shownPromise.then((f) => f()); };
   }, [reloadData]);
 
   // 失焦自动关闭由 Rust 端处理（startup.rs on_window_event Focused(false)），
@@ -127,10 +137,13 @@ function Popover() {
       const prev = appliedRef.current;
       if (prev && Math.abs(prev.w - w) <= DELTA && Math.abs(prev.h - h) <= DELTA) return;
       try {
-        // 首次：以当前窗口几何推导居中锚点 center_x（logical），全程恒定。
+        // scaleFactor 恒定：首测缓存，后续 resize 复用（省 IPC 往返）。
+        if (scaleRef.current === null) scaleRef.current = await win.scaleFactor();
+        if (cancelled) return;
+        const scale = scaleRef.current;
+        // 首次（或 show 后重置）：以当前窗口几何推导居中锚点 center_x（logical）。
         if (centerXRef.current === null) {
           const pos = await win.outerPosition(); // Physical
-          const scale = await win.scaleFactor();
           if (cancelled) return;
           const curW = prev?.w ?? w;
           centerXRef.current = pos.x / scale + curW / 2;
@@ -140,12 +153,11 @@ function Popover() {
         if (cancelled) return;
         // resize 后按恒定 center_x 重算 x，顶部 y 不变。
         const pos = await win.outerPosition();
-        const scale = await win.scaleFactor();
         if (cancelled) return;
         const yLogical = pos.y / scale;
         const newX = (centerXRef.current as number) - w / 2;
         await win.setPosition(new LogicalPosition(Math.round(newX), Math.round(yLogical)));
-      } catch { /* 窗口可能已销毁 */ }
+      } catch { /* 窗口可能已隐藏/不可用 */ }
     };
 
     void applySize();
