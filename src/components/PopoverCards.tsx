@@ -52,9 +52,9 @@ type TFn = (k: string, d: string, opts?: Record<string, unknown>) => string;
 export function resolveColor(color: PopoverTrayColor): string {
   if (color.mode === "preset") {
     const map: Record<string, string> = {
-      red: "var(--status-error, #ff3b30)",
+      red: "var(--status-error, var(--color-danger))",
       green: "var(--status-success, var(--color-success))",
-      orange: "var(--status-warning, #ff9500)",
+      orange: "var(--status-warning, var(--color-warning))",
     };
     return map[color.value] || "var(--text-primary)";
   }

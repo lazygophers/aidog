@@ -170,7 +170,7 @@ export function StatusLinePanel({
                       borderRadius: "var(--radius-md)",
                       opacity: seg.enabled ? 1 : 0.45,
                       border: handle.isDragging ? "1px solid var(--accent)" : "1px solid var(--border)",
-                      boxShadow: handle.isDragging ? "0 6px 20px rgba(0,0,0,0.18)" : "none",
+                      boxShadow: handle.isDragging ? "0 6px 20px rgba(var(--shadow-rgb), 0.18)" : "none",
                       transition: "opacity 150ms, border-color 150ms",
                     }}>
                       {/* Drag handle (only this element starts the drag) */}
@@ -251,7 +251,7 @@ export function StatusLinePanel({
                     background: "var(--bg-surface)", border: "1px solid var(--border)",
                     borderRadius: "var(--radius-md)", padding: 4,
                     maxHeight: 360, overflow: "auto", minWidth: 280,
-                    boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                    boxShadow: "0 8px 32px rgba(var(--shadow-rgb), 0.2)",
                   }}>
                     {SEGMENT_CATEGORIES.map(cat => (
                       <div key={cat.id}>

@@ -130,7 +130,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
               display: "flex",
               alignItems: "center",
               gap: 12,
-              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+              boxShadow: "0 8px 24px rgba(var(--shadow-rgb), 0.18)",
             }}
           >
             <span style={{ flex: 1 }}>{message}</span>
