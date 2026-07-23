@@ -206,7 +206,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           padding: "6px 12px", borderRadius: 8,
           background: "var(--primary)", color: "var(--primary-foreground)",
           fontSize: 12, fontWeight: 600,
-          boxShadow: "0 4px 12px rgba(0,0,0,0.35)", opacity: 0.92,
+          boxShadow: "0 4px 12px rgba(var(--shadow-rgb), 0.35)", opacity: 0.92,
         }}>
           {groupDrag.pname}
         </div>,
@@ -228,7 +228,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           padding: "10px 20px", borderRadius: 10,
           background: toast.ok ? "var(--color-success)" : "var(--color-danger)",
           color: "var(--primary-foreground)", fontSize: 13, fontWeight: 600,
-          boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+          boxShadow: "0 4px 20px rgba(var(--shadow-rgb), 0.25)",
           opacity: 0.95,
           transition: "opacity 0.3s",
         }}>
