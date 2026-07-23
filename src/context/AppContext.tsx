@@ -9,7 +9,14 @@ import {
 } from "react";
 import { useTranslation } from "react-i18next";
 import type { Locale } from "../locales";
-import { isRTL, ensureLocaleLoaded } from "../locales";
+import { isRTL, ensureLocaleLoaded, ALL_LOCALES } from "../locales";
+
+// legacy 持久化(如 "zh-CN")或脏值归一化到有效 locale, 防 t(`lang.${locale}`) 落空显裸 key
+function normalizeLocale(l: unknown): Locale {
+  return typeof l === "string" && (ALL_LOCALES as string[]).includes(l)
+    ? (l as Locale)
+    : "zh-Hans";
+}
 import {
   type ThemeMode,
   type ThemeStyle,
@@ -105,7 +112,7 @@ function loadSettingsFromStorage(): Settings {
     // ignore
   }
 
-  const locale: Locale = raw.locale ?? "zh-Hans";
+  const locale: Locale = normalizeLocale(raw.locale);
   const themeMode: ThemeMode = raw.themeMode ?? DEFAULT_MODE;
 
   // 已是新结构
@@ -150,7 +157,7 @@ async function loadSettingsFromDB(): Promise<Partial<Settings>> {
       partial.themeMode = themeRow.mode as ThemeMode;
     }
     if (localeRow && typeof localeRow.locale === "string") {
-      partial.locale = localeRow.locale as Locale;
+      partial.locale = normalizeLocale(localeRow.locale);
     }
     return partial;
   } catch {
