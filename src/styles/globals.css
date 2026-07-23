@@ -105,8 +105,32 @@ body,
 }
 
 body {
-  background: var(--app-bg-overlay, none), var(--bg-base);
+  background: var(--bg-base);
   transition: background 400ms ease, color 400ms ease;
+}
+
+/* 微光流沙：金蓝光晕层置于 body::before，缓慢漂移+明灭呈流动微光。
+   inset 负值防 scale/translate 露边；pointer-events:none + z-index:-1 纯装饰。 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -6%;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--app-bg-overlay, none);
+  background-repeat: no-repeat;
+  will-change: transform, opacity;
+  animation: bgShimmer 32s ease-in-out infinite alternate;
+}
+
+@keyframes bgShimmer {
+  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.82; }
+  50% { transform: translate3d(-1.6%, 1.2%, 0) scale(1.05); opacity: 1; }
+  100% { transform: translate3d(1.4%, -1%, 0) scale(1.03); opacity: 0.9; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
 }
 
 /* ── Keyframe Animations ── */
