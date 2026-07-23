@@ -2025,6 +2025,7 @@
   "testBody.model": "Model",
   "testBody.outputTokens": "Output tokens",
   "theme.color.catppuccin": "Catppuccin Soft",
+  "theme.color.indigo": "Indigo Slate",
   "theme.color.dracula": "Dracula Dark",
   "theme.color.gruvbox": "Retro Warm",
   "theme.color.nord": "Nordic Cool",
