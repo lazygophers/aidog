@@ -8,6 +8,7 @@ import { terminal } from "./styles/terminal";
 import { bento } from "./styles/bento";
 import { sketchy } from "./styles/sketchy";
 
+import { indigo } from "./palettes/indigo";
 import { gruvbox } from "./palettes/gruvbox";
 import { nord } from "./palettes/nord";
 import { dracula } from "./palettes/dracula";
@@ -49,6 +50,7 @@ const styleMap: Record<ThemeStyle, StyleDefinition> = {
  * Palette 注册表（色彩轴）。4 个业界知名命名色板。
  */
 const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
+  indigo,
   gruvbox,
   nord,
   dracula,
@@ -57,7 +59,7 @@ const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
 
 /** 默认轴值（迁移失败 / 未注册时回退）。 */
 export const DEFAULT_STYLE: ThemeStyle = "aurora";
-export const DEFAULT_COLOR: ThemeColor = "gruvbox";
+export const DEFAULT_COLOR: ThemeColor = "indigo";
 export const DEFAULT_MODE: ThemeMode = "dark";
 
 /** 获取所有可用 style（结构轴）。 */
