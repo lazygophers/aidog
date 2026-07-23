@@ -20,9 +20,9 @@ export const mono: ThemeDefinition = {
     "--glass-blur": "24px",
     "--glass-saturate": "1.8",
     "--glass-border": "1px solid var(--glass-edge)",
-    "--shadow-sm": "0 1px 3px rgba(var(--shadow-rgb), 0.06), 0 1px 2px rgba(var(--shadow-rgb), 0.03)",
-    "--shadow-md": "0 4px 16px rgba(var(--shadow-rgb), 0.08), 0 1px 4px rgba(var(--shadow-rgb), 0.04)",
-    "--shadow-lg": "0 12px 40px rgba(var(--shadow-rgb), 0.10), 0 4px 12px rgba(var(--shadow-rgb), 0.05)",
+    "--shadow-sm": "0 1px 2px rgba(var(--shadow-rgb), 0.03)",
+    "--shadow-md": "0 2px 8px rgba(var(--shadow-rgb), 0.04), 0 1px 3px rgba(var(--shadow-rgb), 0.02)",
+    "--shadow-lg": "0 6px 20px rgba(var(--shadow-rgb), 0.05), 0 2px 6px rgba(var(--shadow-rgb), 0.03)",
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
     // 晨曦：蓝主光晕(顶) + 暖金侧光晕(右上)，落于薰衣草蓝底
     "--app-bg-overlay":
@@ -60,9 +60,9 @@ export const mono: ThemeDefinition = {
     "--glass-blur": "24px",
     "--glass-saturate": "1.5",
     "--glass-border": "1px solid var(--glass-edge)",
-    "--shadow-sm": "0 1px 3px rgba(var(--shadow-rgb), 0.3), 0 1px 2px rgba(var(--shadow-rgb), 0.2)",
-    "--shadow-md": "0 4px 16px rgba(var(--shadow-rgb), 0.4), 0 1px 4px rgba(var(--shadow-rgb), 0.3)",
-    "--shadow-lg": "0 12px 40px rgba(var(--shadow-rgb), 0.5), 0 4px 12px rgba(var(--shadow-rgb), 0.3)",
+    "--shadow-sm": "0 1px 2px rgba(var(--shadow-rgb), 0.16)",
+    "--shadow-md": "0 2px 8px rgba(var(--shadow-rgb), 0.22), 0 1px 3px rgba(var(--shadow-rgb), 0.14)",
+    "--shadow-lg": "0 6px 20px rgba(var(--shadow-rgb), 0.28), 0 2px 6px rgba(var(--shadow-rgb), 0.16)",
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
     // 夜空金沙：金主光晕(顶) + 蓝侧光晕(左) + 金星点(多 radial 微点)
     "--app-bg-overlay":
