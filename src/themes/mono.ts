@@ -26,11 +26,11 @@ export const mono: ThemeDefinition = {
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
     // 晨曦：蓝主光晕(顶) + 暖金侧光晕(右上)，落于薰衣草蓝底
     "--app-bg-overlay":
-      "radial-gradient(70% 50% at 50% -10%, rgba(0, 135, 235, 0.10), transparent 60%), " +
-      "radial-gradient(50% 42% at 88% 8%, rgba(255, 217, 138, 0.16), transparent 58%), " +
-      "radial-gradient(55% 45% at 8% 100%, rgba(59, 160, 255, 0.08), transparent 60%)",
+      "radial-gradient(72% 52% at 50% -10%, rgba(0, 135, 235, 0.18), transparent 62%), " +
+      "radial-gradient(52% 44% at 88% 8%, rgba(255, 217, 138, 0.28), transparent 60%), " +
+      "radial-gradient(58% 48% at 8% 100%, rgba(59, 160, 255, 0.16), transparent 62%)",
     // ── 色（晨曦 · 蓝主金辅） ──
-    "--background": "#eef1fb",
+    "--background": "#e4ebfc",
     "--foreground": "#111827",
     "--card": "#ffffff",
     "--card-foreground": "#111827",
@@ -49,7 +49,7 @@ export const mono: ThemeDefinition = {
     "--border": "rgba(0, 135, 235, 0.18)",
     "--input": "rgba(17, 24, 39, 0.12)",
     "--ring": "rgba(0, 135, 235, 0.40)",
-    "--shadow-color": "17, 24, 39",
+    "--shadow-color": "176, 184, 198",
   },
   dark: {
     // ── 结构 ──
@@ -66,14 +66,14 @@ export const mono: ThemeDefinition = {
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
     // 夜空金沙：金主光晕(顶) + 蓝侧光晕(左) + 金星点(多 radial 微点)
     "--app-bg-overlay":
-      "radial-gradient(80% 50% at 50% -10%, rgba(255, 217, 138, 0.12), transparent 60%), " +
-      "radial-gradient(55% 42% at 12% 22%, rgba(59, 160, 255, 0.10), transparent 55%), " +
-      "radial-gradient(1.5px 1.5px at 18% 28%, rgba(255, 217, 138, 0.55), transparent), " +
-      "radial-gradient(1.5px 1.5px at 72% 18%, rgba(255, 217, 138, 0.45), transparent), " +
-      "radial-gradient(1px 1px at 42% 62%, rgba(255, 217, 138, 0.40), transparent), " +
-      "radial-gradient(1.5px 1.5px at 88% 48%, rgba(255, 217, 138, 0.42), transparent), " +
-      "radial-gradient(1px 1px at 28% 82%, rgba(178, 227, 255, 0.40), transparent), " +
-      "radial-gradient(1px 1px at 62% 88%, rgba(255, 217, 138, 0.35), transparent)",
+      "radial-gradient(82% 52% at 50% -10%, rgba(255, 217, 138, 0.20), transparent 62%), " +
+      "radial-gradient(58% 44% at 12% 22%, rgba(59, 160, 255, 0.18), transparent 58%), " +
+      "radial-gradient(1.5px 1.5px at 18% 28%, rgba(255, 217, 138, 0.65), transparent), " +
+      "radial-gradient(1.5px 1.5px at 72% 18%, rgba(255, 217, 138, 0.55), transparent), " +
+      "radial-gradient(1px 1px at 42% 62%, rgba(255, 217, 138, 0.50), transparent), " +
+      "radial-gradient(1.5px 1.5px at 88% 48%, rgba(255, 217, 138, 0.52), transparent), " +
+      "radial-gradient(1px 1px at 28% 82%, rgba(178, 227, 255, 0.50), transparent), " +
+      "radial-gradient(1px 1px at 62% 88%, rgba(255, 217, 138, 0.45), transparent)",
     // ── 色（夜空金沙 · 金主蓝辅） ──
     "--background": "#0b1220",
     "--foreground": "#e8edf7",
@@ -94,6 +94,6 @@ export const mono: ThemeDefinition = {
     "--border": "rgba(255, 217, 138, 0.16)",
     "--input": "rgba(232, 237, 247, 0.12)",
     "--ring": "rgba(255, 217, 138, 0.45)",
-    "--shadow-color": "0, 0, 0",
+    "--shadow-color": "176, 184, 198",
   },
 };
