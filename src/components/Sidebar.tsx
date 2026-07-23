@@ -268,7 +268,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             width: 28,
             height: 28,
             flexShrink: 0,
-            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
+            filter: "drop-shadow(0 2px 4px rgba(var(--shadow-rgb), 0.1))",
           }}
         />
         <span>{t("app.title")}</span>
@@ -374,7 +374,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                       padding: "0 5px",
                       borderRadius: 999,
                       background: "var(--accent)",
-                      color: "#fff",
+                      color: "var(--accent-foreground)",
                       display: "inline-flex",
                       alignItems: "center",
                       justifyContent: "center",
