@@ -13,7 +13,7 @@ export type ThemeStyle =
   | "sketchy";
 
 /** 调色板轴：color 决定全部色彩变量 + shadow-color。4 个业界知名命名色板。 */
-export type ThemeColor = "gruvbox" | "nord" | "dracula" | "catppuccin";
+export type ThemeColor = "indigo" | "gruvbox" | "nord" | "dracula" | "catppuccin";
 
 /** Style 定义：仅结构变量（radius/blur/saturate/glass-border/shadow/transition）。 */
 export interface StyleDefinition {
