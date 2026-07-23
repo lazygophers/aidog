@@ -23,9 +23,10 @@ export const aurora: StyleDefinition = {
     "--shadow-lg": "0 8px 32px rgba(var(--shadow-rgb), 0.10)",
     "--transition": "300ms cubic-bezier(0.4, 0, 0.2, 1)",
     "--app-bg-overlay":
-      "radial-gradient(60% 50% at 20% 0%, color-mix(in srgb, var(--accent-1) 22%, transparent), transparent), " +
-      "radial-gradient(50% 40% at 90% 10%, color-mix(in srgb, var(--accent-3) 18%, transparent), transparent), " +
-      "linear-gradient(160deg, color-mix(in srgb, var(--accent-2) 10%, transparent), transparent)",
+      "radial-gradient(70% 60% at 15% 0%, color-mix(in srgb, var(--accent-1) 38%, transparent), transparent), " +
+      "radial-gradient(60% 55% at 95% 12%, color-mix(in srgb, var(--accent-3) 32%, transparent), transparent), " +
+      "radial-gradient(55% 50% at 60% 90%, color-mix(in srgb, var(--accent-2) 24%, transparent), transparent), " +
+      "linear-gradient(160deg, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent)",
   },
   dark: {
     "--radius-sm": "12px",
@@ -40,8 +41,9 @@ export const aurora: StyleDefinition = {
     "--shadow-lg": "0 8px 32px rgba(var(--shadow-rgb), 0.45)",
     "--transition": "300ms cubic-bezier(0.4, 0, 0.2, 1)",
     "--app-bg-overlay":
-      "radial-gradient(60% 50% at 20% 0%, color-mix(in srgb, var(--accent-1) 16%, transparent), transparent), " +
-      "radial-gradient(50% 40% at 90% 10%, color-mix(in srgb, var(--accent-3) 13%, transparent), transparent), " +
-      "linear-gradient(160deg, color-mix(in srgb, var(--accent-2) 8%, transparent), transparent)",
+      "radial-gradient(70% 60% at 15% 0%, color-mix(in srgb, var(--accent-1) 32%, transparent), transparent), " +
+      "radial-gradient(60% 55% at 95% 12%, color-mix(in srgb, var(--accent-3) 26%, transparent), transparent), " +
+      "radial-gradient(55% 50% at 60% 90%, color-mix(in srgb, var(--accent-2) 20%, transparent), transparent), " +
+      "linear-gradient(160deg, color-mix(in srgb, var(--accent-2) 12%, transparent), transparent)",
   },
 };
