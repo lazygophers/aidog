@@ -49,4 +49,4 @@ db.call_traced(.., |conn| {
 
 - ❌ `db.call_traced(|conn| { aggregate(conn) /* 读 proxy_log */ })` — 主库闭包读 log.db 表 → 运行期 no such table
 - ❌ grep `call_*_proxy_log_traced` in stats_agg.rs 见命中就改 — 可能误改合法两阶段第①步
-- ❌ 用 ATTACH 在运行期连接跨库 JOIN — 拆库禁 JOIN（[[sqlite-cross-db-no-join]]）
+- ❌ 用 ATTACH 在运行期连接跨库 JOIN — 拆库禁 JOIN（sqlite-cross-db-no-join）

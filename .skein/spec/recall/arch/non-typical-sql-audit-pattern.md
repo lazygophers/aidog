@@ -42,4 +42,4 @@ grep -rn "FROM cli_proxy_provider" src-tauri/crates/aidog_core/src
 
 ## Cross-ref
 
-- [[db-handle-ownership-audit-three-forms]]（访问点审计总则，本文是其子形式之一）
+- [[auto-fix-downgrade-34]]（访问点审计总则，本文是其子形式之一）

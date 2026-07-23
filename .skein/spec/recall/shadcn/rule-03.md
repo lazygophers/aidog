@@ -1,6 +1,6 @@
 ---
 title: Radix Dialog 必须含 DialogTitle
-layer: core
+layer: recall
 category: shadcn
 keywords: [Radix,Dialog,DialogTitle,a11y,sr-only,无障碍]
 source: -
@@ -46,7 +46,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 - 需要完全自定义 header 视觉的场景
 
 ## 关联
-[[shadcn-dialog-async-open]]
+[[rule-43]]
 
 ## 案例
 - `src/components/settings/editors/StatusLineSection/SegmentEditModal.tsx:49-50` sr-only title + 自定义 header

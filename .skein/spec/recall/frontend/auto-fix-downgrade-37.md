@@ -51,4 +51,4 @@ useEffect(() => {
 Tauri 文件拖拽导入、跨平台拖拽
 
 ## 关联
-[[modal-window-center-rule]] (Tauri UI 约束)
+[[modal-state-architecture]] (Tauri UI 约束)

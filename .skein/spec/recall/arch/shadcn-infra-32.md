@@ -37,4 +37,4 @@ updated: 1784706760
 locale 清理、主题删除、功能下架、enum 变体删除
 
 ## 关联
-[[delete-enum-variant-migrate-db-first]] (同任务 enum 删约定)
+[[auto-fix-downgrade-38]] (同任务 enum 删约定)

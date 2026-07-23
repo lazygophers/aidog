@@ -1,13 +1,8 @@
 {
-  "ts": "2026-07-22T22:31:34",
-  "core_chars": 1929,
+  "ts": "2026-07-23T19:22:34",
+  "core_chars": 942,
   "budget": 1000,
   "problems": [
-    {
-      "type": "over-budget",
-      "detail": "[超预算] core 1929 > 1000 字符 — 考虑降级: shadcn/rule-03(985), i18n/rule-04(561), build/shadcn-infra-02(379)",
-      "size": 1929
-    },
     {
       "type": "broken-link",
       "files": [
@@ -21,13 +16,6 @@
         "core/i18n/rule-04"
       ],
       "detail": "[断链] core/i18n/rule-04: [[i18n-flat-key-convention]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/shadcn/rule-03"
-      ],
-      "detail": "[断链] core/shadcn/rule-03: [[shadcn-dialog-async-open]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -203,6 +191,13 @@
         "recall/git/rule-44"
       ],
       "detail": "[断链] recall/git/rule-44: [[git-worktree-parallel-isolation]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/rule-03"
+      ],
+      "detail": "[断链] recall/shadcn/rule-03: [[shadcn-dialog-async-open]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",

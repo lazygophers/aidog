@@ -28,4 +28,4 @@ shadcn Sonner 组件导入 next-themes 的 `useTheme`，与本项目自有主题
 shadcn 组件集成 + 主题体系迁移
 
 ## 关联
-[[modal-window-center-rule]] (同 task Modal 保留策略)
+[[modal-state-architecture]] (同 task Modal 保留策略)

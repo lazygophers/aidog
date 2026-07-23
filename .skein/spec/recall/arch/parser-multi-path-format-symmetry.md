@@ -40,5 +40,5 @@ aidog CPA parser 实证(cpa-parse-no-provider):
 ## Cross-ref
 
 - `src-tauri/crates/aidog_core/src/gateway/cpa_import/parser.rs:532-565` 抽取示例(cpa-parse-no-provider s1)
-- 关联 [[dedup-empty-field-key]](本 task 同源: 多路径 OAuth 识别修好后, dedup 空字段 bug 暴露)
+- 关联 [[auto-fix-downgrade-35]](本 task 同源: 多路径 OAuth 识别修好后, dedup 空字段 bug 暴露)
 - 关联 [[cpa-oauth-credential-format]](识别的格式定义)

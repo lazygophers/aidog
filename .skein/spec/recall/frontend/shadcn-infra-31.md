@@ -38,5 +38,5 @@ shadcn 主题 token 在运行时动态切换时，用 `applyTheme` + `setPropert
 shadcn 主题运行时切换、动态主题系统、CSS var 运行时更新
 
 ## 关联
-[[css-var-live-resolution-alias]] (同任务 CSS 技巧)
+[[shadcn-infra-30]] (同任务 CSS 技巧)
 [[shadcn-infra-28]] (shadcn 依赖)

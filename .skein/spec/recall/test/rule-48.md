@@ -33,7 +33,7 @@ await waitFor(() => expect(onSave).toHaveBeenCalled());
 - shadcn 迁移导致 className/结构变化的场景
 
 ## 关联
-[[shadcn-select-none-sentinel]]
+[[rule-41]]
 
 ## 案例
 - shadcn-pages task：PlatformCard.test.tsx snapshot → 行为断言（删除 2096 行快照）

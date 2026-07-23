@@ -31,7 +31,7 @@ grep -c "<button\|<input\|<select\|<textarea" src/pages/PopoverConfigTab/*.tsx
 - planning 阶段 shadcn 迁移范围判定
 
 ## 关联
-[[shadcn-select-none-sentinel]]
+[[rule-41]]
 
 ## 案例
 - shadcn-pages task：PopoverConfigTab 经 grep 命中 0，确认无需迁移
