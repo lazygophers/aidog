@@ -57,15 +57,15 @@ export function CostTrendChart({ buckets }: CostTrendChartProps) {
       >
         <defs>
           <linearGradient id="popoverTrendArea" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
-            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
           </linearGradient>
         </defs>
         <path d={areaPath} fill="url(#popoverTrendArea)" />
         <path
           d={linePath}
           fill="none"
-          stroke="var(--accent)"
+          stroke="var(--primary)"
           strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
@@ -87,7 +87,7 @@ export function CostTrendChart({ buckets }: CostTrendChartProps) {
           cx={pts[shownIdx].x.toFixed(1)}
           cy={pts[shownIdx].y.toFixed(1)}
           r={3.5}
-          fill="var(--accent)"
+          fill="var(--primary)"
           vectorEffect="non-scaling-stroke"
         />
       </svg>

@@ -447,15 +447,15 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                       <svg viewBox={`0 0 ${W} ${Hsvg}`} preserveAspectRatio="none" style={{ width: "100%", height: 120, display: "block", overflow: "visible" }}>
                         <defs>
                           <linearGradient id="statsTrendArea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
-                            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+                            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
+                            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
                           </linearGradient>
                         </defs>
                         <path d={areaPath} fill="url(#statsTrendArea)" />
                         <path
                           d={linePath}
                           fill="none"
-                          stroke="var(--accent)"
+                          stroke="var(--primary)"
                           strokeWidth={2}
                           strokeLinejoin="round"
                           strokeLinecap="round"
@@ -475,11 +475,11 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         ))}
                         {/* hover 高亮点 */}
                         {hoverIdx !== null && pts[hoverIdx] && (
-                          <circle cx={pts[hoverIdx].x.toFixed(1)} cy={pts[hoverIdx].y.toFixed(1)} r={3.5} fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+                          <circle cx={pts[hoverIdx].x.toFixed(1)} cy={pts[hoverIdx].y.toFixed(1)} r={3.5} fill="var(--primary)" vectorEffect="non-scaling-stroke" />
                         )}
                         {/* 峰值点高亮（克制，单点） */}
                         {maxReq > 1 && hoverIdx === null && (
-                          <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+                          <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--primary)" vectorEffect="non-scaling-stroke" />
                         )}
                       </svg>
                       {/* hover tooltip（绝对定位 glass-elevated） */}
@@ -706,7 +706,7 @@ function SortableTh({ label, col, align = "right", sortKey, sortDir, onSort }: S
     >
       <span style={{ display: "inline-flex", alignItems: "center", gap: 3, flexDirection: align === "left" ? "row" : "row-reverse" }}>
         {label}
-        {active && (sortDir === "asc" ? <ArrowUp color="var(--accent)" /> : <ArrowDown color="var(--accent)" />)}
+        {active && (sortDir === "asc" ? <ArrowUp color="var(--primary)" /> : <ArrowDown color="var(--primary)" />)}
       </span>
     </TableHead>
   );
