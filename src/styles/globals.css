@@ -166,49 +166,60 @@ body {
 /* ── Glass Layers ── */
 
 .glass {
-  background: var(--bg-glass);
+  background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.05),
+      transparent
+    ),
+    color-mix(in srgb, var(--bg-surface) 72%, transparent);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
   -webkit-backdrop-filter: blur(var(--glass-blur))
     saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass:hover {
-  background: var(--bg-glass-hover);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.07),
+      transparent
+    ),
+    color-mix(in srgb, var(--bg-surface) 78%, transparent);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.12);
 }
 
-/* 亮面磨砂 (frosted pane)：白色磨砂 veil + 提亮 + 白边高光 + 内发光，
-   每卡独立成板，不依赖背景是否有光。dark 下白 veil 提亮，light 下退化为顶部微光。 */
+/* 亮面磨砂 (frosted pane)：中性白 veil + 提亮 + 白边高光 + 柔内发光。
+   单色主题无品牌色相, veil 用中性白 (dark 下即磨砂霜面, light 下极淡),
+   底色派生 --bg-surface, 顶边白高光是玻璃 sheen。 */
 .glass-surface {
   background: linear-gradient(
       180deg,
-      color-mix(in srgb, #fff 12%, transparent),
-      color-mix(in srgb, #fff 3%, transparent)
+      rgba(255, 255, 255, 0.08),
+      rgba(255, 255, 255, 0.02)
     ),
-    color-mix(in srgb, var(--bg-surface) 55%, transparent);
+    color-mix(in srgb, var(--bg-surface) 68%, transparent);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius-md);
   -webkit-backdrop-filter: blur(var(--glass-blur))
     saturate(var(--glass-saturate));
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
   box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 24px rgba(255, 255, 255, 0.05);
+    inset 0 0 24px rgba(255, 255, 255, 0.03);
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-surface:hover {
   background: linear-gradient(
       180deg,
-      color-mix(in srgb, #fff 16%, transparent),
-      color-mix(in srgb, #fff 5%, transparent)
+      rgba(255, 255, 255, 0.11),
+      rgba(255, 255, 255, 0.03)
     ),
-    color-mix(in srgb, var(--bg-surface) 62%, transparent);
+    color-mix(in srgb, var(--bg-surface) 74%, transparent);
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 0 28px rgba(255, 255, 255, 0.07);
+    inset 0 0 28px rgba(255, 255, 255, 0.05);
 }
 
 .glass-elevated {

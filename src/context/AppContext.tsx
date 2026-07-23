@@ -19,13 +19,7 @@ function normalizeLocale(l: unknown): Locale {
 }
 import {
   type ThemeMode,
-  type ThemeStyle,
-  type ThemeColor,
   applyTheme,
-  getAvailableStyles,
-  getAvailableColors,
-  DEFAULT_STYLE,
-  DEFAULT_COLOR,
   DEFAULT_MODE,
 } from "../themes";
 import { settingsApi } from "../services/api";
@@ -34,21 +28,15 @@ import { buildProtocolsFromPresets, buildClientTypesFromPresets } from "../domai
 
 interface Settings {
   locale: Locale;
-  themeStyle: ThemeStyle;
-  themeColor: ThemeColor;
   themeMode: ThemeMode;
 }
 
 interface AppContextValue extends Settings {
   setLocale: (locale: Locale) => void;
-  setThemeStyle: (style: ThemeStyle) => void;
-  setThemeColor: (color: ThemeColor) => void;
   setThemeMode: (mode: ThemeMode) => void;
   toggleMode: () => void;
   /** 从 DB 重读主题/语言偏好（导入 .aidogx 应用后刷新用）。 */
   reloadFromDB: () => Promise<void>;
-  availableStyles: ReturnType<typeof getAvailableStyles>;
-  availableColors: ReturnType<typeof getAvailableColors>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -58,50 +46,14 @@ const SETTING_SCOPE = "app";
 const THEME_KEY = "theme";
 const LOCALE_KEY = "locale";
 
-/** 旧 themeName → 新 {style,color} 迁移映射。
- *  已删 palette (appleBlue/solarized) 回退 gruvbox (DEFAULT_COLOR)；s5 细化检测逻辑。 */
-const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }> = {
-  liquidGlass: { style: "liquidGlass", color: "gruvbox" },
-  nord: { style: "flat", color: "nord" },
-  dracula: { style: "flat", color: "dracula" },
-  catppuccin: { style: "flat", color: "catppuccin" },
-  solarized: { style: "flat", color: "gruvbox" },
-};
-
-/** 废弃 palette id → 替换 palette id 迁移映射。
- *  s1 删 8 palette (appleBlue/solarized/rosePine/tokyoNight/oneDark/material/github/nightOwl)
- *  + 更早 morandi/monet/wafu/guofeng → 统一回退 gruvbox (DEFAULT_COLOR)。 */
-const DEPRECATED_PALETTE_MIGRATION: Record<string, ThemeColor> = {
-  appleBlue: "gruvbox",
-  solarized: "gruvbox",
-  rosePine: "gruvbox",
-  tokyoNight: "gruvbox",
-  oneDark: "gruvbox",
-  material: "gruvbox",
-  github: "gruvbox",
-  nightOwl: "gruvbox",
-  morandi: "gruvbox",
-  monet: "gruvbox",
-  wafu: "gruvbox",
-  guofeng: "gruvbox",
-};
-
-/** 迁移废弃 palette id 到当前有效 id；非废弃原样返回。 */
-function migratePaletteColor(color: string): ThemeColor {
-  return (DEPRECATED_PALETTE_MIGRATION[color] ?? color) as ThemeColor;
-}
-
 interface RawSettings {
   locale?: Locale;
-  themeStyle?: ThemeStyle;
-  themeColor?: ThemeColor;
   themeMode?: ThemeMode;
-  /** 旧字段，迁移用。 */
-  themeName?: string;
 }
 
 /**
- * localStorage 同步读取 + 旧 themeName 迁移（首渲染 fallback，防白屏/闪烁）。
+ * localStorage 同步读取（首渲染 fallback，防白屏/闪烁）。
+ * 主题收敛为单一 mono 主题 + mode，旧 themeStyle/themeColor 字段忽略。
  */
 function loadSettingsFromStorage(): Settings {
   let raw: RawSettings = {};
@@ -111,33 +63,15 @@ function loadSettingsFromStorage(): Settings {
   } catch {
     // ignore
   }
-
-  const locale: Locale = normalizeLocale(raw.locale);
-  const themeMode: ThemeMode = raw.themeMode ?? DEFAULT_MODE;
-
-  // 已是新结构
-  if (raw.themeStyle && raw.themeColor) {
-    return {
-      locale,
-      themeStyle: raw.themeStyle,
-      themeColor: migratePaletteColor(raw.themeColor),
-      themeMode,
-    };
-  }
-
-  // 旧结构迁移
-  const migrated = raw.themeName ? LEGACY_THEME_MAP[raw.themeName] : undefined;
   return {
-    locale,
-    themeStyle: migrated?.style ?? DEFAULT_STYLE,
-    themeColor: migrated?.color ?? DEFAULT_COLOR,
-    themeMode,
+    locale: normalizeLocale(raw.locale),
+    themeMode: raw.themeMode ?? DEFAULT_MODE,
   };
 }
 
 /**
  * DB 读取（权威源）。DB 缺字段不覆盖（partial），调用方与 fallback 合并。
- * 失败回退空对象（不阻断 UI）。
+ * 失败回退空对象（不阻断 UI）。旧 theme 行的 style/color 字段忽略，只取 mode。
  */
 async function loadSettingsFromDB(): Promise<Partial<Settings>> {
   try {
@@ -146,14 +80,7 @@ async function loadSettingsFromDB(): Promise<Partial<Settings>> {
       settingsApi.get(SETTING_SCOPE, LOCALE_KEY),
     ]);
     const partial: Partial<Settings> = {};
-    if (
-      themeRow &&
-      typeof themeRow.style === "string" &&
-      typeof themeRow.color === "string" &&
-      typeof themeRow.mode === "string"
-    ) {
-      partial.themeStyle = themeRow.style as ThemeStyle;
-      partial.themeColor = migratePaletteColor(themeRow.color);
+    if (themeRow && typeof themeRow.mode === "string") {
       partial.themeMode = themeRow.mode as ThemeMode;
     }
     if (localeRow && typeof localeRow.locale === "string") {
@@ -176,26 +103,20 @@ function persistSettings(s: Settings) {
     // ignore
   }
   settingsApi
-    .set(SETTING_SCOPE, THEME_KEY, {
-      style: s.themeStyle,
-      color: s.themeColor,
-      mode: s.themeMode,
-    })
+    .set(SETTING_SCOPE, THEME_KEY, { mode: s.themeMode })
     .catch(() => {
       // DB 写失败不阻断 UI
     });
 }
 
-/** DB theme 行是否完整（三字段齐全）。 */
-function dbThemeComplete(p: Partial<Settings>): p is Partial<Settings> & Pick<Settings, "themeStyle" | "themeColor" | "themeMode"> {
-  return Boolean(p.themeStyle && p.themeColor && p.themeMode);
+/** DB theme 行是否完整（mode 存在）。 */
+function dbThemeComplete(p: Partial<Settings>): p is Partial<Settings> & Pick<Settings, "themeMode"> {
+  return Boolean(p.themeMode);
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(loadSettingsFromStorage);
   const { i18n } = useTranslation();
-  const availableStyles = useMemo(() => getAvailableStyles(), []);
-  const availableColors = useMemo(() => getAvailableColors(), []);
 
   // 启动：DB 权威覆盖 + 首启迁移（DB 无 theme → localStorage/默认物化到 DB，一次性）
   useEffect(() => {
@@ -210,14 +131,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
       setSettings((prev) => {
         const next: Settings = { ...prev, ...dbPartial } as Settings;
-        // DB 无完整 theme → 迁移物化（旧 localStorage 用户首启写入 DB）
+        // DB 无 theme → 迁移物化（旧 localStorage 用户首启写入 DB）
         if (!dbThemeComplete(dbPartial)) {
           settingsApi
-            .set(SETTING_SCOPE, THEME_KEY, {
-              style: next.themeStyle,
-              color: next.themeColor,
-              mode: next.themeMode,
-            })
+            .set(SETTING_SCOPE, THEME_KEY, { mode: next.themeMode })
             .catch(() => {});
         }
         // 同步 localStorage（过渡双写）
@@ -249,10 +166,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     };
   }, [settings.locale, i18n]);
 
-  // 同步主题（3 轴）
+  // 同步主题（mono × mode）
   useEffect(() => {
-    applyTheme(settings.themeStyle, settings.themeColor, settings.themeMode);
-  }, [settings.themeStyle, settings.themeColor, settings.themeMode]);
+    applyTheme(settings.themeMode);
+  }, [settings.themeMode]);
 
   const update = useCallback(
     (patch: Partial<Settings>) => {
@@ -289,14 +206,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setLocale = useCallback((locale: Locale) => update({ locale }), [update]);
-  const setThemeStyle = useCallback(
-    (themeStyle: ThemeStyle) => update({ themeStyle }),
-    [update],
-  );
-  const setThemeColor = useCallback(
-    (themeColor: ThemeColor) => update({ themeColor }),
-    [update],
-  );
   const setThemeMode = useCallback(
     (themeMode: ThemeMode) => update({ themeMode }),
     [update],
@@ -306,15 +215,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       ...settings,
       setLocale,
-      setThemeStyle,
-      setThemeColor,
       setThemeMode,
       toggleMode,
       reloadFromDB,
-      availableStyles,
-      availableColors,
     }),
-    [settings, setLocale, setThemeStyle, setThemeColor, setThemeMode, toggleMode, reloadFromDB, availableStyles, availableColors],
+    [settings, setLocale, setThemeMode, toggleMode, reloadFromDB],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
