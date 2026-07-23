@@ -41,5 +41,5 @@ updated: 1784706792
 agent-as-LLM 平台接入（Mock/ClaudeCode/Devin/Factory）
 
 ## 关联
-[[dashmap-sharding]] (session 映射)
-[[ts-protocol-rust-serde-sync]] (enum 变体同步)
+dashmap-sharding (session 映射)
+[[trellis-04]] (enum 变体同步)

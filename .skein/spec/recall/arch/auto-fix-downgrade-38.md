@@ -34,5 +34,5 @@ updated: 1784706967
 serde enum 变体删除、DB schema enum 迁移、前后端 enum 同步
 
 ## 关联
-[[locale-dead-key-cleanup]] (locale 清理)
-[[ts-protocol-rust-serde-sync]] (TS ↔ Rust enum 同步)
+[[shadcn-infra-32]] (locale 清理)
+[[trellis-04]] (TS ↔ Rust enum 同步)

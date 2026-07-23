@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(12), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(5), reuse(1), shadcn(7), skein(1), style(1), test(1), theme(1)
+类目: arch(12), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(5), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -49,6 +49,7 @@
 | proxy/trellis-15.md | proxy | 诊断 header 注入契约 | proxy,header,diagnostic,trace,blind_relay,debug | active | # Proxy 诊断响应 Header (debug build)  何时被读: 改 `src-tauri/src/ga… |
 | reuse/auto-fix-downgrade-36.md | reuse | 写代码前查复用 (grep 已有实现) | grep,reuse,复用,组件,utility,抽象,dry | active | # 写代码前查复用 (grep 已有实现)  ## 触发场景 写新函数 / 新组件 / 新 utility 前。  ##… |
 | build/shadcn/shadcn-primitives-39.md | shadcn | shadcn add 依赖验证需补装检查 | shadcn,add,dependencies,yarn,tailwind,verification | active | # shadcn add 依赖验证需补装检查  ## 问题 shadcn add 在 yarn4+tailwind4 下… |
+| shadcn/rule-03.md | shadcn | Radix Dialog 必须含 DialogTitle | Radix,Dialog,DialogTitle,a11y,sr-only,无障碍 | active | ## 触发场景 使用 Radix Dialog 组件时，必须满足无障碍（a11y）要求。  ## MUST 硬约束 Ra… |
 | shadcn/rule-41.md | shadcn | radix Select 空值哨兵模式 | radix,Select,空值,哨兵,__none__ | active | ## 触发场景 使用 radix Select 组件时，value 属性需要处理空值/undefined 状态。  ##… |
 | shadcn/rule-42.md | shadcn | radix Select number 双向映射 | radix,Select,number,String,Number,双向映射 | active | ## 触发场景 radix Select 的 value 属性只接受 string 类型，需要处理 number 类型数… |
 | shadcn/rule-43.md | shadcn | Dialog.open 需显式 null 判断 | Dialog,open,null,Promise,resolve,bool | active | ## 触发场景 Dialog.open 属性需要 bool 类型，但实际控制常来自 Promise resolve 型 … |

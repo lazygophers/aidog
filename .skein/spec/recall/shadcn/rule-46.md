@@ -31,7 +31,7 @@ variants: {
 - nav icon 等小图标场景（接受 16px 默认）
 
 ## 关联
-[[shadcn-dialog-async-open]]
+[[rule-43]]
 
 ## 案例
 - shadcn-pages task：Sidebar nav icon 迁移至 Button，接受 16px 默认

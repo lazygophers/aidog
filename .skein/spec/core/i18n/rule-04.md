@@ -36,7 +36,7 @@ cp src/locales/zh-Hans.json src/locales/en-US.json
 - alert() → toast() 迁移（如 shadcn-pages task）
 
 ## 关联
-[[i18n-flat-key-convention]]
+i18n-flat-key-convention
 
 ## 案例
 - shadcn-pages m-checkfix：新增 3 key 同步补 8 locale（1db931fe）

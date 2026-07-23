@@ -40,7 +40,7 @@ const NONE = "__none__";
 - 需要空值占位符的下拉选择场景
 
 ## 关联
-[[shadcn-select-number-mapping]]
+[[rule-42]]
 
 ## 案例
 - `src/pages/Logs/primitives.tsx:12-13` 定义 NONE 常量 + 注释说明

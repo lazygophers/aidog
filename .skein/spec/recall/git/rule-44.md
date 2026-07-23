@@ -34,7 +34,7 @@ git restore --staged <误入文件> # 从 staged 区移除
 - 多 agent 同时改同一文件的不同区域
 
 ## 关联
-[[git-worktree-parallel-isolation]]
+git-worktree-parallel-isolation
 
 ## 案例
 - shadcn-pages task 并行 m-groups/m-logs/m-stats 等子任务，需 commit 前核验 staged 文件归属

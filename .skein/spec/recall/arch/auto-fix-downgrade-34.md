@@ -44,5 +44,5 @@ grep -rn 'FROM "group"\|FROM platform\|FROM group_platform\|FROM cli_proxy_provi
 DB 拆库迁移、表访问点归属审计
 
 ## 关联
-[[cross-db-read-two-phase]] (跨库读两阶段)
-[[dedup-empty-field-key]] (空字段作 key)
+[[cross-db-subquery-handle-selection]] (跨库读两阶段)
+[[auto-fix-downgrade-35]] (空字段作 key)

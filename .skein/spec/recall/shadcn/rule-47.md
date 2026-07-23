@@ -39,7 +39,7 @@ const style = transform ? { transform: CSS.Transform.toString(transform) } : und
 - 保留拖拽逻辑仅换视觉的场景
 
 ## 关联
-[[shadcn-select-none-sentinel]]
+[[rule-41]]
 
 ## 案例
 - shadcn-pages task：Groups/GroupListItem SortableList 迁移，保留拖拽仅换 Button

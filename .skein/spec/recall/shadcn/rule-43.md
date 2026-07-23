@@ -34,7 +34,7 @@ const [modalState, setModalState] = useState<{resolve: (v: any) => void} | null>
 - Radix Dialog open 属性需要 bool 的场景
 
 ## 关联
-[[shadcn-select-none-sentinel]]
+[[rule-41]]
 
 ## 案例
 - 通用模式：shadcn-pages 迁移中所有 Dialog 均用 `open={state !== null}`

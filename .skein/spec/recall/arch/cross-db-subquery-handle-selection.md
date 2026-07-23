@@ -45,7 +45,7 @@ let names = platform_handle.call_read_traced(|c| {
     c.query("SELECT id, name FROM cli_proxy_provider WHERE id IN rarray(?)", [&cpp_ids])
 })?;
 
-// Rust 内存 map 合并（跨库禁 JOIN，见 [[sqlite-cross-db-no-join]]）
+// Rust 内存 map 合并（跨库禁 JOIN，见 sqlite-cross-db-no-join）
 ```
 
 关键：**主查闭包与补查闭包分离，各自用所属库 handle**；合并走 Rust 内存 map。
@@ -59,5 +59,5 @@ grep -rn 'FROM "proxy_log"' src-tauri/crates/aidog_core/src | grep -E "cli_proxy
 
 ## Cross-ref
 
-- [[sqlite-cross-db-no-join]]（跨库禁 JOIN，强制拆闭包 + Rust 合并）
-- [[db-handle-ownership-audit-three-forms]]（访问点审计总则）
+- sqlite-cross-db-no-join（跨库禁 JOIN，强制拆闭包 + Rust 合并）
+- [[auto-fix-downgrade-34]]（访问点审计总则）
