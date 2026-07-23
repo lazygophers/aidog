@@ -455,7 +455,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         <path
                           d={linePath}
                           fill="none"
-                          stroke="var(--primary)"
+                          stroke="color-mix(in srgb, var(--primary) 82%, #000)"
                           strokeWidth={2}
                           strokeLinejoin="round"
                           strokeLinecap="round"
