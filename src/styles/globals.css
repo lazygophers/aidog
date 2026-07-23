@@ -189,77 +189,44 @@ body::before {
 
 /* ── Glass Layers ── */
 
-/* 冰块玻璃 (ice)：底 ~10% 清透 + 无 frost blur（去磨砂，仅 saturate/brightness 微折射）
-   + 对角高光 sheen + 亮白顶边 + 底部薄内影（冰厚感）。透明度靠高光/亮边读作冰块。 */
+/* 扁平卡面 (2026-07 重设计)：去冰块对角白渐变 sheen + 重白 inset（脏灰团根因）。
+   纯色填充 var(--bg-surface) + 细边 + 单柔阴影 + 极淡顶发丝。发光边框走 flow-border(hover)。 */
 .glass {
-  background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.22),
-      rgba(255, 255, 255, 0.05) 42%,
-      transparent 68%
-    ),
-    color-mix(in srgb, var(--bg-surface) 10%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 28%, var(--glass-edge));
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius-lg);
-  -webkit-backdrop-filter: saturate(1.2) brightness(1.04);
-  backdrop-filter: saturate(1.2) brightness(1.04);
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -8px 16px -8px rgba(255, 255, 255, 0.1);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass:hover {
-  background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.3),
-      rgba(255, 255, 255, 0.07) 42%,
-      transparent 68%
-    ),
-    color-mix(in srgb, var(--bg-surface) 16%, transparent);
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.68),
-    inset 0 -8px 18px -8px rgba(255, 255, 255, 0.14);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
-/* 冰块亮面 (ice pane)：同 .glass 冰块质感，底 ~10% 清透，去 frost blur。
-   对角高光 + 亮白顶边 + 内发光呈冰块光泽；底色派生 --bg-surface。 */
+/* 扁平亮面：同 .glass 扁平处理，radius 略小。 */
 .glass-surface {
-  background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.24),
-      rgba(255, 255, 255, 0.05) 42%,
-      transparent 68%
-    ),
-    color-mix(in srgb, var(--bg-surface) 10%, transparent);
-  border: 1px solid color-mix(in srgb, #fff 30%, var(--glass-edge));
+  background: var(--bg-surface);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius-md);
-  -webkit-backdrop-filter: saturate(1.2) brightness(1.04);
-  backdrop-filter: saturate(1.2) brightness(1.04);
-  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6),
-    inset 0 0 24px rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-surface:hover {
-  background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.32),
-      rgba(255, 255, 255, 0.07) 42%,
-      transparent 68%
-    ),
-    color-mix(in srgb, var(--bg-surface) 16%, transparent);
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.72),
-    inset 0 0 28px rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.07);
 }
 
 .glass-elevated {
   background: var(--bg-floating);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--glass-edge);
   border-radius: var(--radius-xl);
   -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 10px))
     saturate(var(--glass-saturate));
   backdrop-filter: blur(calc(var(--glass-blur) + 10px))
     saturate(var(--glass-saturate));
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 /* ── Glass Highlight (refraction edge) ── */
