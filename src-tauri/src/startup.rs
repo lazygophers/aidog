@@ -24,16 +24,17 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         // P3 MITM：装假 CA 到系统信任库。shell scope 在 capabilities/mitm-ca.json 限定仅装/卸 CA 命令。
         .plugin(tauri_plugin_shell::init())
-        // popover 失焦即关 (v1 handler)。tao macOS windowDidResignKey → Rust 此回调
+        // popover 失焦即隐 (v1 handler)。tao macOS windowDidResignKey → Rust 此回调
         // (同步派发, 先于 webview IPC); 旧实现走 popover.tsx onFocusChanged (依赖 webview
         // 就绪 + JS→Rust IPC), 实测 macOS 偶发不触发.
         // 此 handler 仅覆盖「点主窗口」场景 (主窗接 key 触发 popover resignKey);
         // 其余 3 失活场景 (点桌面 / silent_launch 主窗 hide 后点别处 / 点 Dock 菜单栏空白)
         // 由 app_setup.rs 的 NSWindow.setHidesOnDeactivate:YES 覆盖 (app 失活即隐藏).
+        // 窗口复用：hide 而非 destroy，保留 webview + NSWindow 指针，下次 show 秒显。
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(false) = event
                 && window.label() == "popover" {
-                    let _ = window.destroy();
+                    let _ = window.hide();
                 }
         })
         .setup(|app| crate::app_setup::setup(app))
