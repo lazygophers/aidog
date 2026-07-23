@@ -302,6 +302,10 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 }
             }
 
+            // 预建隐藏 popover 窗口（窗口复用核心）：webview 提前 boot + React 提前 mount，
+            // 首次 tray click 直接 show，消除冷启 webview 的「点击卡顿、没及时展示」。
+            prebuild_popover(app.handle());
+
             // 系统托盘
             let menu = tauri::async_runtime::block_on(build_tray_menu(app.handle()))?;
             TrayIconBuilder::with_id("main")
@@ -314,11 +318,18 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     if let tauri::tray::TrayIconEvent::Click { button, button_state, rect, .. } = event {
                         // 只响应 Down，忽略 Up（否则 Down 创建 → Up 立刻销毁）
                         if button != MouseButton::Left || button_state != MouseButtonState::Down { return; }
+                        use tauri::Emitter;
                         let app = tray.app_handle().clone();
                         tracing::info!(button = ?button, "tray click → toggle popover");
-                        // 切换：已打开则关闭
-                        if let Some(w) = app.get_webview_window("popover") {
-                            let _ = w.destroy();
+                        // 窗口复用：setup 已预建隐藏 popover 窗口，这里只 toggle show/hide，
+                        // 不再 destroy + rebuild（消除冷启 webview + 4 路 IPC 瀑布导致的「点击卡顿」）。
+                        let Some(w) = app.get_webview_window("popover") else {
+                            tracing::warn!("popover window missing on tray click (pre-build failed?)");
+                            return;
+                        };
+                        // 已显示 → 隐藏（不 destroy，NSWindow 指针存活可复用）。
+                        if w.is_visible().unwrap_or(false) {
+                            let _ = w.hide();
                             return;
                         }
                         // 定位：居中于 tray 图标正下方
@@ -335,60 +346,15 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                             tauri::Size::Logical(s) => (s.width, s.height),
                         };
                         let pw = 300.0;
-                        let ph = 420.0;
                         let x = rx + rw / 2.0 - pw / 2.0;
                         let y = ry + rh;
-                        tracing::info!(x, y, pw, ph, scale, "popover position");
-                        match tauri::webview::WebviewWindowBuilder::new(
-                            &app, "popover",
-                            tauri::WebviewUrl::App("popover.html".into()),
-                        )
-                        .inner_size(pw, ph)
-                        .position(x, y)
-                        .decorations(false)
-                        .transparent(true)
-                        .always_on_top(true)
-                        .skip_taskbar(true)
-                        .focused(true)
-                        .build() {
-                            Ok(w) => {
-                                #[cfg(target_os = "macos")]
-                                {
-                                    // C1: NSWindow.hidesOnDeactivate —— app 失活自动隐藏 popover,
-                                    // 覆盖 3 失活场景 (点桌面 / silent_launch 主窗 hide 后点别处 / 点
-                                    // Dock 菜单栏空白). tao Focused(false) 只在 windowDidResignKey
-                                    // 触发, floating popover 在 inactive app 不 resignKey → v1 handler
-                                    // 单独不够. Apple docs:
-                                    // https://developer.apple.com/documentation/appkit/nswindow/hidesondeactivate
-                                    use objc2_app_kit::NSWindow;
-                                    use objc2::rc::Retained;
-                                    match w.ns_window() {
-                                        Ok(ptr) => {
-                                            // SAFETY: ns_window() 返回指向主线程上当前 autoreleased
-                                            // NSWindow 的指针；retain_autoreleased 在进行类型转换前获
-                                            // 得所有权。NSWindow 类通过 objc2-app-kit NSWindow feature
-                                            // 绑定（继承自 NSResponder）暴露了 setHidesOnDeactivate。
-                                            let ns_window = unsafe {
-                                                Retained::<NSWindow>::retain_autoreleased(ptr.cast())
-                                            };
-                                            if let Some(ns_window) = ns_window {
-                                                ns_window.setHidesOnDeactivate(true);
-                                                tracing::info!("popover setHidesOnDeactivate:YES applied");
-                                            } else {
-                                                tracing::warn!("popover ns_window pointer was nil");
-                                            }
-                                        }
-                                        Err(e) => {
-                                            tracing::warn!(error = %e, "popover ns_window() unavailable");
-                                        }
-                                    }
-                                }
-                                tracing::info!("popover window created successfully");
-                            }
-                            Err(e) => {
-                                tracing::error!(error = %e, "create popover failed");
-                            }
-                        }
+                        tracing::info!(x, y, scale, "popover show position");
+                        let _ = w.set_position(tauri::LogicalPosition::new(x, y));
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                        // 通知前端窗口已展示 → reloadData()：隐藏期间累积变化的确定性刷新
+                        // （背景 1000ms debounce 之外的一次即时拉新）。
+                        let _ = w.emit("popover-shown", ());
                     }
                 })
                 .on_menu_event(|app, event| match event.id().as_ref() {
@@ -521,4 +487,58 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             crate::deep_link::setup(app.handle());
 
             Ok(())
+}
+
+/// 预建隐藏 popover 窗口（create-once）：webview 提前 boot + React 提前 mount，
+/// 首次 tray click 直接 show（不再冷启建窗）。setHidesOnDeactivate 一次性设定，
+/// 指针在 hide（非 destroy）生命周期全程有效。
+fn prebuild_popover(app: &tauri::AppHandle) {
+    if app.get_webview_window("popover").is_some() {
+        return;
+    }
+    match tauri::webview::WebviewWindowBuilder::new(
+        app,
+        "popover",
+        tauri::WebviewUrl::App("popover.html".into()),
+    )
+    .inner_size(300.0, 420.0)
+    .decorations(false)
+    .transparent(true)
+    .always_on_top(true)
+    .skip_taskbar(true)
+    .visible(false)
+    .build()
+    {
+        Ok(_w) => {
+            #[cfg(target_os = "macos")]
+            apply_popover_hides_on_deactivate(&_w);
+            tracing::info!("popover window pre-built (hidden)");
+        }
+        Err(e) => tracing::error!(error = %e, "pre-build popover failed"),
+    }
+}
+
+/// C1: NSWindow.hidesOnDeactivate —— app 失活自动隐藏 popover，覆盖 tao Focused(false)
+/// 不触发的失活场景（点桌面 / silent_launch 主窗 hide 后点别处 / 点 Dock 菜单栏空白）。
+/// Apple docs: https://developer.apple.com/documentation/appkit/nswindow/hidesondeactivate
+/// 窗口复用后仅在预建时设一次（指针全程有效，hide 不失效）。
+#[cfg(target_os = "macos")]
+fn apply_popover_hides_on_deactivate(w: &tauri::WebviewWindow) {
+    use objc2::rc::Retained;
+    use objc2_app_kit::NSWindow;
+    match w.ns_window() {
+        Ok(ptr) => {
+            // SAFETY: ns_window() 返回指向主线程当前 autoreleased NSWindow 的指针；
+            // retain_autoreleased 在类型转换前获得所有权。NSWindow 通过 objc2-app-kit
+            // NSWindow feature 绑定（继承自 NSResponder）暴露 setHidesOnDeactivate。
+            let ns_window = unsafe { Retained::<NSWindow>::retain_autoreleased(ptr.cast()) };
+            if let Some(ns_window) = ns_window {
+                ns_window.setHidesOnDeactivate(true);
+                tracing::info!("popover setHidesOnDeactivate:YES applied");
+            } else {
+                tracing::warn!("popover ns_window pointer was nil");
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "popover ns_window() unavailable"),
+    }
 }
