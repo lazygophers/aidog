@@ -65,7 +65,7 @@ export function CostTrendChart({ buckets }: CostTrendChartProps) {
         <path
           d={linePath}
           fill="none"
-          stroke="var(--primary)"
+          stroke="color-mix(in srgb, var(--primary) 82%, #000)"
           strokeWidth={2}
           strokeLinejoin="round"
           strokeLinecap="round"
