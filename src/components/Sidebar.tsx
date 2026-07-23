@@ -2,8 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../context/AppContext";
 import { ALL_LOCALES } from "../locales";
-import type { ThemeStyle, ThemeColor } from "../themes";
-import { IconPalette, IconGlobe } from "./icons";
+import { IconGlobe } from "./icons";
 import { Button } from "@/components/ui/button";
 
 // ── SVG Icons ──
@@ -222,13 +221,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   const { t } = useTranslation();
   const {
     locale, setLocale,
-    themeStyle, setThemeStyle,
-    themeColor, setThemeColor,
     themeMode, toggleMode,
-    availableStyles, availableColors,
   } = useApp();
-  const [styleOpen, setStyleOpen] = useState(false);
-  const [colorOpen, setColorOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   // 折叠子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开。
   const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
@@ -455,91 +449,33 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         paddingTop: 12,
         borderTop: "1px solid var(--border)",
       }}>
-        {/* Style row: structure picker fills row, dark/light toggle inline */}
-        <div style={{ position: "relative", width: "100%" }}>
-          <Dropdown
-            open={styleOpen}
-            onToggle={() => setStyleOpen((v) => !v)}
-            trigger={
-              <Button variant="ghost" style={{
-                width: "100%",
-                justifyContent: "space-between",
-                fontSize: 12,
-                padding: "7px 10px",
-                color: "var(--text-secondary)",
-                height: "auto",
-              }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconPalette size={14} /> {t(`theme.style.${themeStyle}`)}</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  {/* Dark/Light toggle inline */}
-                  <span
-                    onClick={(e) => { e.stopPropagation(); toggleMode(); }}
-                    style={{ display: "inline-flex", cursor: "pointer", padding: "0 2px" }}
-                    title={themeMode === "light" ? t("theme.dark") : t("theme.light")}
-                  >
-                    {themeMode === "light" ? icons.moon : icons.sun}
-                  </span>
-                  <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
-                </span>
-              </Button>
-            }
-          >
-            {availableStyles.map((st) => (
-              <DropdownItem
-                key={st.id}
-                active={st.id === themeStyle}
-                onClick={() => {
-                  setThemeStyle(st.id as ThemeStyle);
-                  setStyleOpen(false);
-                }}
-              >
-                {t(st.label)}
-              </DropdownItem>
-            ))}
-          </Dropdown>
-        </div>
-
-        {/* Color (palette) picker */}
-        <Dropdown
-          open={colorOpen}
-          onToggle={() => setColorOpen((v) => !v)}
-          trigger={
-            <Button variant="ghost" style={{
-              width: "100%",
-              justifyContent: "space-between",
-              fontSize: 12,
-              padding: "7px 10px",
-              color: "var(--text-secondary)",
-              height: "auto",
-            }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                <span style={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: "50%",
-                  background: "var(--accent)",
-                  flexShrink: 0,
-                  boxShadow: "0 0 0 1px var(--border)",
-                }} />
-                {t(`theme.color.${themeColor}`)}
-              </span>
-              <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
-            </Button>
-          }
+        {/* Theme: 黑/白 (dark/light) toggle —— 单一 mono 主题, 配色轴收敛为 mode */}
+        <Button
+          variant="ghost"
+          onClick={toggleMode}
+          style={{
+            width: "100%",
+            justifyContent: "space-between",
+            fontSize: 12,
+            padding: "7px 10px",
+            color: "var(--text-secondary)",
+            height: "auto",
+          }}
+          title={themeMode === "light" ? t("theme.dark") : t("theme.light")}
         >
-          {availableColors.map((c) => (
-            <DropdownItem
-              key={c.id}
-              active={c.id === themeColor}
-              onClick={() => {
-                setThemeColor(c.id as ThemeColor);
-                setColorOpen(false);
-              }}
-            >
-              {t(c.label)}
-            </DropdownItem>
-          ))}
-        </Dropdown>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            {themeMode === "light" ? icons.sun : icons.moon}
+            {themeMode === "light" ? t("theme.light") : t("theme.dark")}
+          </span>
+          <span style={{
+            width: 12,
+            height: 12,
+            borderRadius: "50%",
+            background: themeMode === "light" ? "#ffffff" : "#0a0a0b",
+            flexShrink: 0,
+            boxShadow: "0 0 0 1px var(--border)",
+          }} />
+        </Button>
 
         {/* Language Picker */}
         <Dropdown
