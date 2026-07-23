@@ -328,7 +328,12 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   color: isActive
                     ? "var(--primary)"
                     : "var(--text-secondary)",
-                  background: isActive ? "var(--accent-subtle)" : "transparent",
+                  background: isActive
+                    ? "color-mix(in srgb, var(--primary) 16%, transparent)"
+                    : "transparent",
+                  boxShadow: isActive
+                    ? "inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent)"
+                    : "none",
                   borderRadius: "var(--radius-sm)",
                   fontSize: 13,
                   height: "auto",
@@ -419,7 +424,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 color: childActive ? "var(--primary)" : "var(--text-secondary)",
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
-                                borderLeft: childActive ? "2px solid var(--accent)" : "2px solid transparent",
+                                borderLeft: childActive ? "2px solid var(--primary)" : "2px solid transparent",
                                 height: "auto",
                               }}
                               onClick={() => onNavigate(c.id)}
