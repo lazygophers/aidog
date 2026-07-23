@@ -274,7 +274,7 @@ export function EnvEditor({ env, onChange, t }: {
                   background: "var(--bg-surface)", border: "1px solid var(--border)",
                   borderRadius: "var(--radius-md)", padding: 4,
                   maxHeight: 360, overflow: "auto", minWidth: 340,
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+                  boxShadow: "0 8px 32px rgba(var(--shadow-rgb), 0.2)",
                 }}>
                   {ENV_VAR_GROUP_ORDER.map(g => {
                     const defs = addableDefs.filter(d => d.group === g);
