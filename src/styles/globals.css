@@ -165,61 +165,66 @@ body {
 
 /* ── Glass Layers ── */
 
+/* 冰块玻璃 (ice)：底 ~10% 清透 + 无 frost blur（去磨砂，仅 saturate/brightness 微折射）
+   + 对角高光 sheen + 亮白顶边 + 底部薄内影（冰厚感）。透明度靠高光/亮边读作冰块。 */
 .glass {
   background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.05),
-      transparent
+      135deg,
+      rgba(255, 255, 255, 0.22),
+      rgba(255, 255, 255, 0.05) 42%,
+      transparent 68%
     ),
-    color-mix(in srgb, var(--bg-surface) 72%, transparent);
-  border: var(--glass-border);
+    color-mix(in srgb, var(--bg-surface) 10%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 28%, var(--glass-edge));
   border-radius: var(--radius-lg);
-  -webkit-backdrop-filter: blur(var(--glass-blur))
-    saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  -webkit-backdrop-filter: saturate(1.2) brightness(1.04);
+  backdrop-filter: saturate(1.2) brightness(1.04);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -8px 16px -8px rgba(255, 255, 255, 0.1);
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass:hover {
   background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.07),
-      transparent
+      135deg,
+      rgba(255, 255, 255, 0.3),
+      rgba(255, 255, 255, 0.07) 42%,
+      transparent 68%
     ),
-    color-mix(in srgb, var(--bg-surface) 78%, transparent);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    color-mix(in srgb, var(--bg-surface) 16%, transparent);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    inset 0 -8px 18px -8px rgba(255, 255, 255, 0.14);
 }
 
-/* 亮面磨砂 (frosted pane)：中性白 veil + 提亮 + 白边高光 + 柔内发光。
-   单色主题无品牌色相, veil 用中性白 (dark 下即磨砂霜面, light 下极淡),
-   底色派生 --bg-surface, 顶边白高光是玻璃 sheen。 */
+/* 冰块亮面 (ice pane)：同 .glass 冰块质感，底 ~10% 清透，去 frost blur。
+   对角高光 + 亮白顶边 + 内发光呈冰块光泽；底色派生 --bg-surface。 */
 .glass-surface {
   background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.08),
-      rgba(255, 255, 255, 0.02)
+      135deg,
+      rgba(255, 255, 255, 0.24),
+      rgba(255, 255, 255, 0.05) 42%,
+      transparent 68%
     ),
-    color-mix(in srgb, var(--bg-surface) 68%, transparent);
-  border: 1px solid var(--glass-edge);
+    color-mix(in srgb, var(--bg-surface) 10%, transparent);
+  border: 1px solid color-mix(in srgb, #fff 30%, var(--glass-edge));
   border-radius: var(--radius-md);
-  -webkit-backdrop-filter: blur(var(--glass-blur))
-    saturate(var(--glass-saturate));
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    inset 0 0 24px rgba(255, 255, 255, 0.03);
+  -webkit-backdrop-filter: saturate(1.2) brightness(1.04);
+  backdrop-filter: saturate(1.2) brightness(1.04);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 0 24px rgba(255, 255, 255, 0.05);
   transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass-surface:hover {
   background: linear-gradient(
-      180deg,
-      rgba(255, 255, 255, 0.11),
-      rgba(255, 255, 255, 0.03)
+      135deg,
+      rgba(255, 255, 255, 0.32),
+      rgba(255, 255, 255, 0.07) 42%,
+      transparent 68%
     ),
-    color-mix(in srgb, var(--bg-surface) 74%, transparent);
-  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 0 28px rgba(255, 255, 255, 0.05);
+    color-mix(in srgb, var(--bg-surface) 16%, transparent);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.72),
+    inset 0 0 28px rgba(255, 255, 255, 0.08);
 }
 
 .glass-elevated {
