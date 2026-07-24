@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { useTranslation } from "react-i18next";
-import type { Group, GroupDetail } from "./services/api";
+import type { Group, GroupDetail, PopoverConfig, StatsResult } from "./services/api";
 import { groupApi, groupDetailApi, statsApi, onProxyLogUpdated } from "./services/api";
 import { clamp } from "./utils/formatters";
 import { applyTheme, DEFAULT_MODE } from "./themes";
@@ -29,6 +29,21 @@ interface Settings {
 interface RawSettings {
   locale?: Locale;
   themeMode?: ThemeMode;
+}
+
+// 上次成功拉到的浮窗 config 本地缓存：下次弹出时立即据此并行发起 stats_query_batch，
+// 不必等 popover_data resolve 才知道要查哪些卡（消两跳串行为并行）。
+const CONFIG_CACHE_KEY = "aidog-popover-config-cache";
+
+function loadCachedConfig(): PopoverConfig | null {
+  try {
+    const s = localStorage.getItem(CONFIG_CACHE_KEY);
+    return s ? (JSON.parse(s) as PopoverConfig) : null;
+  } catch { return null; }
+}
+
+function saveCachedConfig(config: PopoverConfig) {
+  try { localStorage.setItem(CONFIG_CACHE_KEY, JSON.stringify(config)); } catch { /* ignore */ }
 }
 
 function loadSettings(): Settings {
@@ -62,8 +77,9 @@ function Popover() {
   const [statsMap, setStatsMap] = useState<PopoverStatsMap>(new Map());
   const [statsLoaded, setStatsLoaded] = useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
-  // tray 下方居中锚点（首次测得后恒定）；当前应用的窗口尺寸（去抖比较用）。
+  // tray 下方居中锚点 + 顶部 y（首次测得后恒定，resize 不改变 y）；当前应用的窗口尺寸（去抖比较用）。
   const centerXRef = React.useRef<number | null>(null);
+  const yLogicalRef = React.useRef<number | null>(null);
   const appliedRef = React.useRef<{ w: number; h: number } | null>(null);
   // 窗口复用后 scaleFactor 恒定，首测缓存复用，省去每次 resize 的 IPC 往返。
   const scaleRef = React.useRef<number | null>(null);
@@ -72,21 +88,48 @@ function Popover() {
   // cancel 守卫防慢后端晚到 resolve 覆盖 newer 状态（参考 [[mount-fetch-late-resolve-overwrites-optimistic]]）。
   const reloadData = React.useCallback(() => {
     let cancelled = false;
+
+    // 用上次缓存的 config 立即并行发起 batch，不等 popover_data resolve（两跳串行→并行）。
+    const cachedConfig = loadCachedConfig();
+    const cached = cachedConfig ? collectStatsQueries(cachedConfig) : null;
+    const cachedBatch: Promise<PopoverStatsMap> | null = cached && cached.queries.length > 0
+      ? statsApi.queryBatch(cached.queries)
+        .then((results) => {
+          const m: PopoverStatsMap = new Map();
+          results.forEach((r, i) => m.set(cached.itemIds[i], r));
+          return m;
+        })
+        .catch(() => new Map<string, StatsResult>())
+      : null;
+
     invoke<PopoverData>("popover_data")
-      .then((d) => {
+      .then(async (d) => {
         if (cancelled) return;
         setData(d);
-        // config 到手后一次性批量拉所有统计卡数据（cost_trend / platform_metric / group_*）。
+        saveCachedConfig(d.config);
         const { itemIds, queries } = collectStatsQueries(d.config);
         if (queries.length === 0) {
           setStatsLoaded(true);
           return;
         }
+        // config 与缓存一致（items 顺序/内容未变）：直接复用并行发起的 batch 结果。
+        const sameAsCached = cached !== null && itemIds.length === cached.itemIds.length
+          && itemIds.every((id, i) => id === cached.itemIds[i]);
+        if (sameAsCached && cachedBatch) {
+          const m = await cachedBatch;
+          if (cancelled) return;
+          setStatsMap(m);
+          setStatsLoaded(true);
+          return;
+        }
+        // config 已变（items 增删/换）：以缓存结果打底，补查兜底拿真实 config 对应的全量数据。
+        const baseMap = cachedBatch ? await cachedBatch : new Map<string, StatsResult>();
+        if (cancelled) return;
         statsApi
           .queryBatch(queries)
           .then((results) => {
             if (cancelled) return;
-            const m: PopoverStatsMap = new Map();
+            const m: PopoverStatsMap = new Map(baseMap);
             results.forEach((r, i) => m.set(itemIds[i], r));
             setStatsMap(m);
             setStatsLoaded(true);
@@ -115,6 +158,7 @@ function Popover() {
     // （tray 位置若变化亦能对齐）。
     const shownPromise = listen("popover-shown", () => {
       centerXRef.current = null;
+      yLogicalRef.current = null;
       reloadData();
     });
     return () => { cancel(); unlisten(); shownPromise.then((f) => f()); };
@@ -141,40 +185,60 @@ function Popover() {
         if (scaleRef.current === null) scaleRef.current = await win.scaleFactor();
         if (cancelled) return;
         const scale = scaleRef.current;
-        // 首次（或 show 后重置）：以当前窗口几何推导居中锚点 center_x（logical）。
-        if (centerXRef.current === null) {
+        // 首次（或 show 后重置）：一次 outerPosition 同时推导居中锚点 center_x 与恒定顶部 y
+        // （resize 后 y 不变，二次查询系冗余，合一省一趟 IPC）。
+        if (centerXRef.current === null || yLogicalRef.current === null) {
           const pos = await win.outerPosition(); // Physical
           if (cancelled) return;
           const curW = prev?.w ?? w;
           centerXRef.current = pos.x / scale + curW / 2;
+          yLogicalRef.current = pos.y / scale;
         }
         appliedRef.current = { w, h };
+        const newX = (centerXRef.current as number) - w / 2;
+        const yLogical = yLogicalRef.current as number;
         await win.setSize(new LogicalSize(w, h));
         if (cancelled) return;
-        // resize 后按恒定 center_x 重算 x，顶部 y 不变。
-        const pos = await win.outerPosition();
-        if (cancelled) return;
-        const yLogical = pos.y / scale;
-        const newX = (centerXRef.current as number) - w / 2;
         await win.setPosition(new LogicalPosition(Math.round(newX), Math.round(yLogical)));
       } catch { /* 窗口可能已隐藏/不可用 */ }
     };
 
-    void applySize();
-    const ro = new ResizeObserver(() => { void applySize(); });
+    // rAF 合并 ResizeObserver 多次触发（同帧内多次布局变化只 applySize 一次），消 resize thrash 连跳。
+    let rafId: number | null = null;
+    const scheduleApplySize = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => { rafId = null; void applySize(); });
+    };
+
+    scheduleApplySize();
+    const ro = new ResizeObserver(() => { scheduleApplySize(); });
     ro.observe(el);
-    return () => { cancelled = true; ro.disconnect(); };
+    return () => {
+      cancelled = true;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      ro.disconnect();
+    };
     // 依赖 data：渲染稳定后首测；后续内容异步加载由 ResizeObserver 兜。
   }, [data]);
+
+  // statsCtx/grid 用 useMemo 稳定引用：statsMap/statsLoaded 未变时（如仅 hover 等无关 state 变化）
+  // 不重算 renderGrid（renderGrid 内含卡片 JSX 构建，卡片多时非平凡开销）。
+  const statsCtx: PopoverStatsCtx = React.useMemo(
+    () => ({ map: statsMap, loaded: statsLoaded }),
+    [statsMap, statsLoaded],
+  );
+  const grid = React.useMemo(() => {
+    if (!data) return null;
+    return renderGrid(data.config, data, groups, groupDetails, t, statsCtx);
+  }, [data, groups, groupDetails, t, statsCtx]);
 
   if (!data) {
     return <div ref={rootRef} className="popover-root popover-loading">{t("common.loading", "加载中...")}</div>;
   }
 
-  const statsCtx: PopoverStatsCtx = { map: statsMap, loaded: statsLoaded };
   return (
     <div ref={rootRef} className="popover-root">
-      {renderGrid(data.config, data, groups, groupDetails, t, statsCtx)}
+      {grid}
     </div>
   );
 }
