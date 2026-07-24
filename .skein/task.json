@@ -17,7 +17,23 @@
       "kind": "task"
     },
     {
+      "id": "btn-width-fit",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "clippy-collapsible-if",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "copybtn-dark",
       "status": "已完成",
       "deps": [],
       "worktree": null,
@@ -121,6 +137,14 @@
       "kind": "task"
     },
     {
+      "id": "log-async-write",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "popover-dark-opaque",
       "status": "已完成",
       "deps": [],
@@ -146,6 +170,14 @@
     },
     {
       "id": "popover-perf",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "popover-render-perf",
       "status": "已完成",
       "deps": [],
       "worktree": null,

@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(13), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(5), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
+类目: arch(13), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -43,6 +43,7 @@
 | git/rule-44.md | git | 并行 subtask commit 竞态防护 | git,并行,subtask,commit,竞态,staged,worktree | active | ## 触发场景 同一 worktree 并行跑多个 subtask 时，不同 agent 可能对同一文件产生变更，导致 … |
 | i18n/trellis-19.md | i18n | locale 标签跨层一致性 | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | active | # Locale 标签跨层一致性 (zh-Hans BCP47 script)  何时被读: 改 i18n locale… |
 | ops/trellis-17.md | ops | 远端 defaults JSON 同步链 | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | # 远端 defaults JSON 同步链范式  何时被读: 新增 `src-tauri/defaults/*.jso… |
+| proxy/rule-50.md | proxy | 异步日志队列（背压+串行化） — proxy_log 方案 B | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | ## 触发场景 高频热路径中需要异步写入数据库（如 proxy_log upsert），不能阻塞请求处理；需要保证最终结… |
 | proxy/trellis-11.md | proxy | HTTP CONNECT 隧道契约 | proxy,connect,tunnel,axum,hyper,TcpStream | active | # Proxy CONNECT 隧道 (HTTP Relay)  何时被读: 改 `src-tauri/src/gate… |
 | proxy/trellis-12.md | proxy | handler fallback 路由判定 | proxy,fallback,host,route,mitm,path | active | # Proxy Fallback Host Routing  何时被读: 改 `src-tauri/src/gatewa… |
 | proxy/trellis-13.md | proxy | forward proxy absolute-form | proxy,forward,absolute,scheme,relay,host | active | # Forward Proxy Absolute-Form HTTP 转发  何时被读: 改 `src-tauri/sr… |

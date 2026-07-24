@@ -38,6 +38,9 @@
 - recall/frontend/shadcn-infra-31
 - recall/reuse/auto-fix-downgrade-36
 
+## trellis-00
+- recall/proxy/rule-50
+
 ## cpa-oauth-credential-format
 - recall/arch/parser-multi-path-format-symmetry
 
@@ -54,6 +57,9 @@
 
 ## trellis-18
 - recall/arch/rule-49
+
+## trellis-11
+- recall/proxy/rule-50
 
 ## rule-41
 - recall/shadcn/rule-42

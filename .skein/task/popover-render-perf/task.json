@@ -1,0 +1,49 @@
+{
+  "id": "popover-render-perf",
+  "name": "浮窗渲染性能优化",
+  "desc": "首帧延迟(后端串行+N+1)+resize thrash+无 memo; 后端并发化+rAF 合并+config 缓存并行+memo 全5项",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "后端并发化+消N+1",
+      "desc": "popover.rs:37-52 tokio::join! 5 await; tray_layout(tray.rs:64) 复用 today_stats+批量 platform 查询消 N+1(优先内部复用不改签名); cargo build+clippy 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784870518,
+      "started": 1784871510,
+      "finished": 1784874963
+    },
+    {
+      "sid": "s2",
+      "name": "前端 config缓存+rAF+memo",
+      "desc": "popover.tsx config localStorage 缓存并行 queryBatch; applySize rAF 合并; renderGrid+CostTrendChart useMemo; yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784870518,
+      "started": 1784874965,
+      "finished": 1784876264
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/popover-render-perf",
+  "parent": null,
+  "kind": "task",
+  "created": 1784870190,
+  "started": 1784871483,
+  "checked": null,
+  "finished": 1784879063,
+  "updated": 1784879063
+}
