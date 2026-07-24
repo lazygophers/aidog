@@ -1,5 +1,5 @@
 use aidog_core::shared::*;
-use crate::tray::tray_layout;
+use crate::tray::tray_layout_with_stats;
 use aidog_core::gateway::{self, db::{self, Db}};
 use gateway::models::*;
 use tauri::{State, Manager};
@@ -34,22 +34,29 @@ pub struct PopoverData {
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<PopoverData, String> {
     tracing::debug!(command = "popover_data", "command invoked");
-    let config = db::get_popover_config(&db).await?;
-    let layout = tray_layout(&app).await;
+    // today_stats 先取（tray_layout 若含 today_usage item 复用同一份，消重复聚合），
+    // 其余 4 个无依赖 await 并发（config / layout / platform_today / proxy settings）。
+    let today_stats = db::today_stats(&db).await?;
+    let (config, layout, platform_today, settings) = tokio::join!(
+        db::get_popover_config(&db),
+        tray_layout_with_stats(&app, Some(&today_stats)),
+        db::today_platform_stats(&db),
+        load_proxy_settings(&app),
+    );
+    let config = config?;
+    let platform_today = platform_today?;
+    let settings = settings.unwrap_or(ProxySettings {
+        port: 9876, autostart: false, silent_launch: false, bind_lan: true,
+    });
     let entries: Vec<PopoverEntry> = layout.columns.into_iter().map(|c| PopoverEntry {
         name: c.name,
         value: c.value,
         color: c.color,
     }).collect();
-    let today_stats = db::today_stats(&db).await?;
-    let platform_today = db::today_platform_stats(&db).await?;
     let proxy_running = {
         let handle = app.try_state::<ProxyHandle>();
         handle.map(|h| h.0.lock().map(|g| g.is_some()).unwrap_or(false)).unwrap_or(false)
     };
-    let settings = load_proxy_settings(&app).await.unwrap_or(ProxySettings {
-        port: 9876, autostart: false, silent_launch: false, bind_lan: true,
-    });
     Ok(PopoverData {
         config,
         entries,

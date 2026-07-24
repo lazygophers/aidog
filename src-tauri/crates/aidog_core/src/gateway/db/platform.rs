@@ -173,6 +173,19 @@ pub fn list_platforms(db: &Db) -> impl std::future::Future<Output = Result<Vec<P
     }
 }
 
+/// 按 id 批量取未软删平台（跨 crate 公开版，包一层 `load_platforms_by_ids`）。
+/// 供 tray_layout 等需按一批 platform_id 渲染的场景消 N+1 单查（IN 批量替代逐 id get_platform）。
+#[track_caller]
+pub fn get_platforms_by_ids<'a>(db: &'a Db, ids: &[i64]) -> impl std::future::Future<Output = Result<std::collections::HashMap<i64, Platform>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let ids = ids.to_vec();
+    async move {
+        db.call_read_platform_traced(None, __db_caller, move |conn| Ok(load_platforms_by_ids(conn, &ids)?))
+            .await
+            .map_err(|e| e.to_string())
+    }
+}
+
 #[track_caller]
 pub fn get_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Result<Option<Platform>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
