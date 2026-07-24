@@ -43,7 +43,7 @@ export const mono: ThemeDefinition = {
     "--secondary-foreground": "#111827",
     "--muted": "#e4ecfb",
     "--muted-foreground": "#5a6478",
-    "--accent": "#fbefd3",
+    "--accent": "#fac76c",
     "--accent-foreground": "#8a6a1e",
     "--destructive": "#e0644a",
     "--destructive-foreground": "#ffffff",
