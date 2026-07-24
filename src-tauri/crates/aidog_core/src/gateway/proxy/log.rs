@@ -10,10 +10,100 @@ pub(crate) async fn get_log_settings(db: &Db) -> ProxyLogSettings {
         .unwrap_or_default()
 }
 
-/// Upsert a proxy log entry; silently ignore errors.
-/// Respects ProxyLogSettings: if logging disabled, does nothing;
-/// if user/upstream recording disabled, clears those fields before writing.
+/// 单 writer 有界队列消息（s1 异步日志）。热路径只构造 + 入队，落库逻辑全在 writer 侧
+/// （见 `spawn_log_writer`），snapshot 读-改-写/remove 串行化于同一 consumer，消除竞态。
+pub(crate) enum LogMsg {
+    /// 渐进式/终态 upsert（原 upsert_log 全部落库逻辑，见 `process_upsert`）。
+    Upsert(Box<ProxyLog>, ProxyLogSettings),
+    /// CONNECT 隧道一次性终态 INSERT（原 upsert_connect_log，见 `process_connect_log`）。
+    Connect {
+        id: String,
+        group_key: String,
+        platform_id: u64,
+        request_url: String,
+        status_code: i32,
+        duration_ms: i32,
+    },
+    /// 测试用同步屏障：writer 处理到此消息即 ack，供测试在断言前等待此前所有入队消息落库
+    /// 完成（FIFO 单 consumer 保证屏障之前的消息必已处理）。生产路径不发送。
+    #[cfg(test)]
+    Barrier(tokio::sync::oneshot::Sender<()>),
+}
+
+/// 终态判定（与 `process_upsert` 内 is_terminal 同判定）：决定背压分支——中间态队满即丢，
+/// 终态队满则阻塞等待腾位，保证最终结果 / 统计 / cost / emit 不丢。
+fn is_terminal_log(log: &ProxyLog) -> bool {
+    log.status_code != 0 && log.response_body != "[stream]"
+}
+
+/// 热路径入口：把日志投递进 `ProxyState.log_tx` 有界 mpsc 队列，构造 + 入队后立即返回，
+/// 不 `.await` 任何 DB 操作（DB 写全部移入 `spawn_log_writer` 单 writer 串行处理）。
+///
+/// 背压（硬约束，s1 设计）：中间态（status==0 / response_body=="[stream]" 占位）队满即用
+/// `try_send` 静默丢弃——不影响最终数据，终态 upsert 会覆盖写全部列；终态（真实 HTTP 结果）
+/// 队满则退化为阻塞 `send().await` 等待 writer 腾位，保证不丢失最终结果 / 统计 / cost / emit。
 pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
+    let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
+    if is_terminal_log(log) {
+        if state.log_tx.send(msg).await.is_err() {
+            tracing::warn!(id = %log.id, "log writer channel closed, terminal log dropped");
+        }
+    } else if let Err(e) = state.log_tx.try_send(msg) {
+        match e {
+            tokio::sync::mpsc::error::TrySendError::Full(_) => {
+                tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure)");
+            }
+            tokio::sync::mpsc::error::TrySendError::Closed(_) => {
+                tracing::debug!(id = %log.id, "log writer channel closed, non-terminal log dropped");
+            }
+        }
+    }
+}
+
+/// 单 writer 后台任务：串行消费 `rx`，逐条落库。保序（单 consumer FIFO）替代原「caller 串行
+/// `.await`」；snapshot 读-改-写 + 终态 remove 全在本任务的处理函数内完成，消除多请求并发
+/// diff 同一 id 快照的竞态。`start_proxy` 启动时 spawn，与 `ProxyState` 同生命周期。
+///
+/// ponytail: 关机 drain 走「等 rx 自然排空」这条设计允许的简化路径——writer 持有自己的
+/// `Arc<ProxyState>` 克隆，`proxy_stop` abort 的只是 axum serve 任务，本 writer 不受影响，
+/// 继续消费所有已入队消息直至队列见底再空闲等待；仅在整进程被杀（非 graceful）时会连同
+/// buffer 中未处理的终态一起丢失（与旧同步实现下"写到一半被杀"的既有风险同级，未劣化）。
+/// 如未来需要严格保证 graceful proxy_stop 也不丢日志，可加 oneshot shutdown 信号 + `rx.close()`
+/// 显式 drain-then-join，再由 commands_proxy::proxy_stop 触发。
+pub(crate) fn spawn_log_writer(
+    state: Arc<ProxyState>,
+    mut rx: tokio::sync::mpsc::Receiver<LogMsg>,
+) -> tokio::task::JoinHandle<()> {
+    crate::logging::spawn_traced("log_writer", async move {
+        while let Some(msg) = rx.recv().await {
+            match msg {
+                LogMsg::Upsert(log, settings) => process_upsert(&state, &log, &settings).await,
+                LogMsg::Connect { id, group_key, platform_id, request_url, status_code, duration_ms } => {
+                    process_connect_log(&state, id, group_key, platform_id, request_url, status_code, duration_ms).await;
+                }
+                #[cfg(test)]
+                LogMsg::Barrier(ack) => {
+                    let _ = ack.send(());
+                }
+            }
+        }
+        tracing::info!("log writer: channel closed (all senders dropped), exiting");
+    })
+}
+
+/// 测试专用：等待此前所有已入队消息被 writer 处理完（FIFO 屏障），供断言前同步。
+#[cfg(test)]
+pub(crate) async fn flush_log_queue(state: &Arc<ProxyState>) {
+    let (ack_tx, ack_rx) = tokio::sync::oneshot::channel();
+    if state.log_tx.send(LogMsg::Barrier(ack_tx)).await.is_ok() {
+        let _ = ack_rx.await;
+    }
+}
+
+/// upsert 落库主逻辑（原 upsert_log 函数体，现只在 `spawn_log_writer` 内单 writer 串行调用）。
+/// 语义不变：Respects ProxyLogSettings: if logging disabled, does nothing;
+/// if user/upstream recording disabled, clears those fields before writing.
+pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
     // ── 聚合统计写入（解耦于日志开关）──
     // 必须在 `!settings.enabled` 早退之前：关日志时统计仍需写。仅终态请求计入
     // （status!=0 且非流式占位 "[stream]"，与下方 is_terminal 同判定，避免占位/中间节点重复计）。
@@ -275,13 +365,32 @@ pub(crate) fn spawn_estimate(
 /// 本函数直接构造 `ProxyLogColumns`（全空 body / 0 token / 0 cost）→ insert_proxy_log_columns
 /// 落一行。日志开关（settings.enabled）由调用方判断：disabled 时不调本函数。
 ///
+/// 热路径入口：一次性终态入队（同 upsert_log 终态分支——队满阻塞等待腾位，不丢），不 `.await`
+/// 落库；实际 INSERT 移入 `process_connect_log`（`spawn_log_writer` 单 writer 串行执行）。
+pub(crate) async fn upsert_connect_log(
+    state: &Arc<ProxyState>,
+    id: String,
+    group_key: String,
+    platform_id: u64,
+    request_url: String,
+    status_code: i32,
+    duration_ms: i32,
+) {
+    let msg = LogMsg::Connect { id: id.clone(), group_key, platform_id, request_url, status_code, duration_ms };
+    if state.log_tx.send(msg).await.is_err() {
+        tracing::warn!(id = %id, "log writer channel closed, connect log dropped");
+    }
+}
+
+/// connect log 落库主逻辑（原 upsert_connect_log 函数体，现只在 writer 内单 writer 串行调用）。
+///
 /// 字段语义（PRD 锁）:
 /// - `source_protocol`/`target_protocol` = `"http-connect"`（Logs 页区分隧道请求）
 /// - `platform_id` = host 命中平台 else 0
 /// - `request_url` = CONNECT target（`host:port`）
 /// - `status_code` = 200（隧道建立成功）/ 502（上游连不上）/ 499（客户端断）
 /// - tokens/cost = 0（P1 不解析 body）
-pub(crate) async fn upsert_connect_log(
+async fn process_connect_log(
     state: &Arc<ProxyState>,
     id: String,
     group_key: String,
