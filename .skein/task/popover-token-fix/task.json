@@ -1,0 +1,35 @@
+{
+  "id": "popover-token-fix",
+  "name": "浮窗补 token 别名根治透明",
+  "desc": "popover 缺 globals 别名 --bg-floating/--text-* 全 undefined 致背景透明; popover.css 补别名块映射 applyTheme 基础 var + dark fallback",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "alias-block",
+      "name": "popover.css 补别名块",
+      "desc": "src/styles/popover.css 顶部加 :root 别名块映射 --bg-floating/--text-primary/--text-secondary/--text-tertiary/--glass-edge 到 applyTheme 基础 var + dark fallback; yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "运行中",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784864116,
+      "started": 1784864146,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/popover-token-fix",
+  "parent": null,
+  "kind": "task",
+  "created": 1784863978,
+  "started": 1784864134,
+  "checked": null,
+  "finished": 1784864382,
+  "updated": 1784864382
+}
