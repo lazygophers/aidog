@@ -1,0 +1,35 @@
+{
+  "id": "deepen-chart-stroke",
+  "name": "曲线描边加深",
+  "desc": "两图表 line stroke primary 混 18% 黑加深; 渐变/端点保持 primary",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "stroke 加深",
+      "desc": "Stats.tsx + CostTrendChart.tsx line path stroke var(--primary)→color-mix(in srgb,var(--primary) 82%,#000); build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784808370,
+      "started": null,
+      "finished": 1784808424
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/deepen-chart-stroke",
+  "parent": null,
+  "kind": "task",
+  "created": 1784808370,
+  "started": 1784808372,
+  "checked": null,
+  "finished": 1784808426,
+  "updated": 1784808426
+}

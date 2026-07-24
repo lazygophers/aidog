@@ -1,0 +1,35 @@
+{
+  "id": "popover-perf",
+  "name": "浮窗性能优化",
+  "desc": "窗口复用(create-once hide/show)+数据保温+精简resize+backdrop-filter复核，消除冷启卡顿",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "reuse",
+      "name": "浮窗窗口复用+数据保温+resize精简+css复核",
+      "desc": "见 design.md 全量方案：Rust 预建隐藏窗+toggle show/hide+失焦hide；前端数据保温+show刷新+resize精简；backdrop-filter复核",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784808951,
+      "started": 1784808975,
+      "finished": 1784809465
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/popover-perf",
+  "parent": null,
+  "kind": "task",
+  "created": 1784808816,
+  "started": 1784808960,
+  "checked": null,
+  "finished": 1784810011,
+  "updated": 1784810011
+}

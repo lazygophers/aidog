@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(12), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(5), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
+类目: arch(13), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(5), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -12,6 +12,7 @@
 | arch/cross-db-subquery-handle-selection.md | arch | 跨库补查闭包 handle 按补查表归属 | db,sqlite,跨库,补查,handle,闭包,cpp,平台名,N+1 | active | # 跨库补查闭包 handle 按补查表归属  何时被读: 跨库查询（主表查 A 库 + 补查 B 库表，如 proxy… |
 | arch/non-typical-sql-audit-pattern.md | arch | 非典型 SQL 形态易漏审计 | db,sqlite,sql,审计,helper,裸sql,grep,易漏,访问点 | active | # 非典型 SQL 形态易漏审计  何时被读: 拆库审计某表访问点时 谁读: trellis-implement sub… |
 | arch/parser-multi-path-format-symmetry.md | arch | parser 多路径格式识别必须对称 | parser,多路径,symmetry,对称,格式识别,抽函数,复用,入口分裂,oauth | active | # parser 多路径格式识别必须对称  何时被读: 写 / 改 parser 有多个入口识别同一格式时(如「单文件导… |
+| arch/rule-49.md | arch | Tauri 托盘浮窗性能优化（窗口复用模式） | tauri,window,popover,performance,复用,hide/show,NSWindow | active | ## 触发场景 实现 Tauri 桌面应用的浮窗（如托盘 popover）时，需要避免每次点击都冷启 webview，导… |
 | arch/shadcn-infra-32.md | arch | locale 死键清理归属 | locale,dead-key,cleanup,responsibility,theme | active | # locale 死键清理归属  ## 流程约定 **删除主题/功能导致的 locale 死键，由删该主题/功能的 ta… |
 | arch/trellis-03.md | arch | Workspace crate 边界契约 | crate,boundary,边界,commands,aidog_core,event,依赖 | active | # Workspace Crate 边界契约  何时被读: commands_* crate 内改源码 / 迁移 com… |
 | arch/trellis-04.md | arch | Protocol 枚举变体扩展范式 | protocol,enum,变体,grep,serde,match,union | active | # Protocol 枚举变体扩展范式  何时被读: 新增 `Protocol` 枚举变体时（新协议 / 新 cp 变体… |

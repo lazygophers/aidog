@@ -1,0 +1,35 @@
+{
+  "id": "glass-flatten",
+  "name": "扁平化玻璃卡面",
+  "desc": "去 .glass/.glass-surface 冰块对角白渐变 sheen + 重白 inset, 改纯色填充+细边+单柔阴影, 保留 flow-border 发光边框",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "重做 glass 层",
+      "desc": "globals.css .glass/.glass-surface/.glass-elevated 去 sheen 改扁平",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784804919,
+      "started": null,
+      "finished": 1784805569
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/glass-flatten",
+  "parent": null,
+  "kind": "task",
+  "created": 1784804918,
+  "started": 1784804953,
+  "checked": null,
+  "finished": 1784805570,
+  "updated": 1784805570
+}

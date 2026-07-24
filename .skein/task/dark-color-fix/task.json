@@ -1,0 +1,35 @@
+{
+  "id": "dark-color-fix",
+  "name": "组件暗色适配缺陷修复",
+  "desc": "Sidebar badge #fff→--accent-foreground(HIGH) + PopoverCards status token 对齐 + 6处硬编码黑阴影→shadow token",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "组件暗色缺陷修复",
+      "desc": "Sidebar badge fg + PopoverCards status token + 6处黑阴影→token",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784794227,
+      "started": null,
+      "finished": 1784794512
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/dark-color-fix",
+  "parent": null,
+  "kind": "task",
+  "created": 1784794194,
+  "started": 1784794227,
+  "checked": null,
+  "finished": 1784794513,
+  "updated": 1784794513
+}

@@ -1,0 +1,35 @@
+{
+  "id": "ui-redesign",
+  "name": "全量 UI/UX + 配色重设计",
+  "desc": "金蓝微光流沙玻璃现状打磨/重构: 阴影降噪 + 主按钮去3D + 组件暗色适配 + 工具栏/开关/tooltip 重做. 先出3方向预览选定再落地 token 系统",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "3方向预览",
+      "desc": "6组件×3方向×light/dark 对比 HTML + 截图, AskUserQuestion 选定",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784799515,
+      "started": null,
+      "finished": 1784801306
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/ui-redesign",
+  "parent": null,
+  "kind": "task",
+  "created": 1784799515,
+  "started": 1784801066,
+  "checked": null,
+  "finished": 1784801338,
+  "updated": 1784801338
+}

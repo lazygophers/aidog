@@ -1,0 +1,35 @@
+{
+  "id": "fix-btn-border",
+  "name": "修侧栏暗色 UA 按钮边框",
+  "desc": "preflight 禁用致 native button 边框全 variant 露, 暗色成浅灰框; button.tsx base 加 border-0, outline variant 自带 border 覆盖",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "button.tsx base 加 border-0",
+      "desc": "buttonVariants base cva 字符串加 border-0 reset native UA 边框; outline variant 自带 border 覆盖回来; yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784806524,
+      "started": null,
+      "finished": 1784806581
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/fix-btn-border",
+  "parent": null,
+  "kind": "task",
+  "created": 1784806511,
+  "started": 1784806531,
+  "checked": null,
+  "finished": 1784806582,
+  "updated": 1784806582
+}

@@ -1,0 +1,35 @@
+{
+  "id": "bg-stronger",
+  "name": "背景色更明显",
+  "desc": "mono.ts app-bg-overlay 金蓝光晕 alpha 上调 + light 底色略加蓝, 背景更明显",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "背景光晕加强+微光流沙动效",
+      "desc": "mono.ts overlay alpha上调+light底加蓝 + globals body::before shimmer动画",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784791910,
+      "started": null,
+      "finished": 1784792251
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/bg-stronger",
+  "parent": null,
+  "kind": "task",
+  "created": 1784791845,
+  "started": 1784791911,
+  "checked": null,
+  "finished": 1784792252,
+  "updated": 1784792252
+}

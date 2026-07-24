@@ -1,0 +1,35 @@
+{
+  "id": "popover-dark-opaque",
+  "name": "浮窗强制深色+全不透明",
+  "desc": "popover 固定 dark 不跟主题; 背景 100% 不透明; 置顶+失焦关已在",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "impl",
+      "name": "浮窗深色+全不透明",
+      "desc": "popover.tsx applyTheme(dark) + popover.css 100% 不透明去 backdrop-filter",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784861178,
+      "started": 1784861190,
+      "finished": 1784861316
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/popover-dark-opaque",
+  "parent": null,
+  "kind": "task",
+  "created": 1784861144,
+  "started": 1784861179,
+  "checked": null,
+  "finished": 1784861321,
+  "updated": 1784861321
+}

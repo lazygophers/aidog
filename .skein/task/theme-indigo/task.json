@@ -1,0 +1,47 @@
+{
+  "id": "theme-indigo",
+  "name": "靛蓝冷石板主题配色",
+  "desc": "gruvbox 暖褐默认色板审美陈旧, 新增 indigo(靛蓝·冷石板) 色板并设为默认: 冷靛蓝主色+冷灰中性阶, 专业信任调",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "build",
+      "name": "建 indigo 色板并注册设默认",
+      "desc": "新建 indigo.ts + 注册 + DEFAULT_COLOR + ThemeColor 类型 + 8 locale key",
+      "depends_on": [],
+      "验收": [
+        "indigo.ts light+dark 各21 token",
+        "ThemeColor 含 indigo",
+        "DEFAULT_COLOR=indigo",
+        "8 locale 有 theme.color.indigo",
+        "yarn build/test/check-i18n 通过"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784774133,
+      "started": 1784774177,
+      "finished": 1784774618
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/theme-indigo",
+  "parent": null,
+  "kind": "task",
+  "created": 1784774046,
+  "started": 1784774162,
+  "checked": 1784774635,
+  "finished": 1784774648,
+  "updated": 1784774648
+}

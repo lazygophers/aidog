@@ -1,0 +1,43 @@
+{
+  "id": "glass-restore",
+  "name": "恢复卡片玻璃质感",
+  "desc": "shadcn 迁移后 .glass-surface 变不透明且无 backdrop-filter, 卡片完全无玻璃质感. 补半透明 bg + backdrop blur(含 -webkit- 前缀, Tauri WKWebView 必需)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "fix",
+      "name": "glass-surface 补玻璃",
+      "desc": "globals.css .glass-surface 半透明+backdrop-filter",
+      "depends_on": [],
+      "验收": [
+        "半透明 bg(color-mix)",
+        "backdrop-filter blur+saturate 含-webkit",
+        "浏览器实测卡片玻璃质感"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784775632,
+      "started": 1784776998,
+      "finished": 1784776998
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/glass-restore",
+  "parent": null,
+  "kind": "task",
+  "created": 1784775632,
+  "started": 1784775861,
+  "checked": 1784776998,
+  "finished": 1784777007,
+  "updated": 1784777007
+}

@@ -1,0 +1,49 @@
+{
+  "id": "gold-blue",
+  "name": "金蓝双色主题 (gold+blue glass)",
+  "desc": "参考 ccplugin skein-glass-prototype: mono 主题换金+蓝双色。light=晨曦(蓝 primary + 金光晕 + 薰衣草蓝底), dark=夜空金沙(金 primary + 蓝 active + 深navy底 + 金星点 + 金辉描边)。globals 加分层金蓝 app-bg + 蓝白/金蓝顶边 sheen + hover 蓝金流光描边。glass 磨砂底 + a11y 语义色保留",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "mono 金蓝 token 重映射",
+      "desc": "改 src/themes/mono.ts light/dark 全色 token: light 蓝 primary(#0087EB)+金 accent+薰衣草蓝 bg; dark 金 primary(#FFD98A)+蓝 active+深navy bg(#0B1220)+金辉 border",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784783679,
+      "started": null,
+      "finished": 1784784133
+    },
+    {
+      "sid": "s2",
+      "name": "globals 金蓝氛围 + 流光描边",
+      "desc": "src/styles/globals.css: app-bg-overlay 分层金蓝 radial(light 晨曦/dark 金星点+蓝光晕); glass 顶边 sheen 蓝白(light)/金蓝(dark); hover 蓝金 conic 流光描边; .bg-primary 金属渐变随 --primary(蓝/金)自适应",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784783679,
+      "started": null,
+      "finished": 1784784133
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/gold-blue",
+  "parent": null,
+  "kind": "task",
+  "created": 1784783657,
+  "started": 1784783857,
+  "checked": null,
+  "finished": 1784784140,
+  "updated": 1784784140
+}

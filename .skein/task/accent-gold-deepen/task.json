@@ -1,0 +1,35 @@
+{
+  "id": "accent-gold-deepen",
+  "name": "accent 金色加深",
+  "desc": "light --accent #fbefd3 太浅, 改 #fac76c 加深",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "deepen",
+      "name": "改 accent 色值",
+      "desc": "src/themes/mono.ts light --accent #fbefd3→#fac76c",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784859983,
+      "started": 1784860040,
+      "finished": 1784860206
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/accent-gold-deepen",
+  "parent": null,
+  "kind": "task",
+  "created": 1784859962,
+  "started": 1784860040,
+  "checked": null,
+  "finished": 1784860209,
+  "updated": 1784860209
+}

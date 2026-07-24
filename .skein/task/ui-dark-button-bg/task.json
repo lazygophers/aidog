@@ -1,0 +1,39 @@
+{
+  "id": "ui-dark-button-bg",
+  "name": "dark 按钮白底修复",
+  "desc": "修 dark 模式 ghost/link 按钮白底(preflight禁用致UA ButtonFace透出) + lang locale key 漏译",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "ghost/link bg-transparent + lang key 修复",
+      "desc": "button.tsx ghost/link 补 bg-transparent; Sidebar lang picker key 对齐 locale id",
+      "depends_on": [],
+      "验收": [
+        "yarn build && yarn test"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784770994,
+      "started": 1784771253,
+      "finished": 1784771387
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/ui-dark-button-bg",
+  "parent": null,
+  "kind": "task",
+  "created": 1784770968,
+  "started": 1784771239,
+  "checked": 1784771387,
+  "finished": 1784771426,
+  "updated": 1784771426
+}

@@ -1,0 +1,35 @@
+{
+  "id": "glass-sidebar",
+  "name": "侧栏玻璃质感",
+  "desc": ".glass(侧栏)bg 不透明致无玻璃, 改磨砂半透与 .glass-surface 一致",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "glass-tint",
+      "name": "玻璃染色板色",
+      "desc": "globals.css: .glass-surface(+hover) veil→--primary+surface68%; .glass(+hover) 侧栏染色板色; yarn build + 浏览器实测切色板卡片变色",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "运行中",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784779564,
+      "started": 1784779593,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/glass-sidebar",
+  "parent": null,
+  "kind": "task",
+  "created": 1784778213,
+  "started": 1784779565,
+  "checked": null,
+  "finished": 1784781197,
+  "updated": 1784781197
+}
