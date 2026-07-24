@@ -1,0 +1,35 @@
+{
+  "id": "dependabot-npm-bump",
+  "name": "修 dependabot npm 漏洞",
+  "desc": "yarn.lock+docs/yarn.lock 升 tar>=7.5.19(critical) + docs js-yaml>=3.15.0(high); glib(rust) 受 tauri/gtk 0.18 pin 不可修单列决策",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "npm-bump",
+      "name": "yarn up tar+js-yaml",
+      "desc": "root yarn up -R tar; docs yarn up -R tar js-yaml; 验 lockfile 版本 + 双 build",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "运行中",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784865049,
+      "started": 1784865051,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/dependabot-npm-bump",
+  "parent": null,
+  "kind": "task",
+  "created": 1784865021,
+  "started": 1784865050,
+  "checked": null,
+  "finished": 1784865227,
+  "updated": 1784865227
+}
