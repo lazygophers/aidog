@@ -62,11 +62,33 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
 /// separator items 不生成列，而是作为相邻数据列之间的间隙。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。
 pub async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
+    tray_layout_with_stats(app, None).await
+}
+
+/// `tray_layout` 内部实现，`precomputed_today_stats` 可选预取值：
+/// popover_data 已单独查过 today_stats 时传入复用，消内部重复聚合；
+/// 独立 tray 菜单路径（无预取）传 None，内部按需现查（`tray_layout` 公开入口即此语义）。
+pub(crate) async fn tray_layout_with_stats(
+    app: &tauri::AppHandle,
+    precomputed_today_stats: Option<&db::TodayStats>,
+) -> TrayLayout {
     let empty = TrayLayout { columns: Vec::new(), gaps: Vec::new() };
     let Some(db) = app.try_state::<Db>() else { return empty; };
     let Ok(Some(config)) = db::get_tray_config(&db).await else { return empty; };
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
+
+    // 批量预取所涉 platform（消 per-item 单查 N+1；IN 批量单次查询替代逐 item get_platform）。
+    let platform_ids: Vec<i64> = items.iter()
+        .filter(|i| i.item_type == "platform")
+        .filter_map(|i| i.platform_id)
+        .map(|id| id as i64)
+        .collect();
+    let platforms = if platform_ids.is_empty() {
+        std::collections::HashMap::new()
+    } else {
+        db::get_platforms_by_ids(&db, &platform_ids).await.unwrap_or_default()
+    };
 
     let mut columns: Vec<TrayColumn> = Vec::new();
     let mut gaps: Vec<Option<String>> = Vec::new();
@@ -87,14 +109,21 @@ pub async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
         let (name, value) = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else { continue };
-                let Ok(Some(platform)) = db::get_platform(&db, pid).await else { continue };
-                platform_item_parts(&platform, &item.display)
+                let Some(platform) = platforms.get(&(pid as i64)) else { continue };
+                platform_item_parts(platform, &item.display)
             }
             "today_usage" => {
-                let stats = db::today_stats(&db).await.unwrap_or(db::TodayStats {
-                    tokens: 0, input_tokens: 0, output_tokens: 0, cache_tokens: 0,
-                    cache_rate: 0.0, cost: 0.0, total_requests: 0,
-                });
+                let owned_stats;
+                let stats = match precomputed_today_stats {
+                    Some(s) => s,
+                    None => {
+                        owned_stats = db::today_stats(&db).await.unwrap_or(db::TodayStats {
+                            tokens: 0, input_tokens: 0, output_tokens: 0, cache_tokens: 0,
+                            cache_rate: 0.0, cost: 0.0, total_requests: 0,
+                        });
+                        &owned_stats
+                    }
+                };
                 let metric = item.metric.as_deref().unwrap_or("tokens");
                 let (label, val) = match metric {
                     "cache_rate" => ("Cache".to_string(), format!("{:.0}%", stats.cache_rate)),
