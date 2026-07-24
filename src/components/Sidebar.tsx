@@ -210,7 +210,9 @@ function DropdownItem({
       }}
       onClick={onClick}
     >
-      {children}
+      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {children}
+      </span>
     </Button>
   );
 }
@@ -302,7 +304,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   }}
                   onClick={() => setCollapsedSection((s) => ({ ...s, [sec.key]: !collapsed }))}
                 >
-                  <span>{t(sec.key)}</span>
+                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(sec.key)}</span>
                   <span style={{
                     opacity: 0.5,
                     transform: collapsed ? "rotate(-90deg)" : "none",
@@ -360,7 +362,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 }}>
                   {(icons as Record<string, React.ReactNode>)[item.icon]}
                 </span>
-                <span style={{ flex: 1, textAlign: "start" }}>{t(item.labelKey)}</span>
+                <span style={{ flex: 1, minWidth: 0, textAlign: "start", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(item.labelKey)}</span>
                 {hasChildren && (
                   <span style={{
                     opacity: 0.4,
