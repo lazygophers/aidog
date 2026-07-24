@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "aidog"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aes-gcm",
  "aidog_core",
@@ -145,7 +145,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_core"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aes-gcm",
  "axum",
@@ -196,7 +196,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_test_util"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "tauri",
@@ -1007,7 +1007,7 @@ dependencies = [
 
 [[package]]
 name = "commands_ai_tools"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1022,7 +1022,7 @@ dependencies = [
 
 [[package]]
 name = "commands_cli_env"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1037,7 +1037,7 @@ dependencies = [
 
 [[package]]
 name = "commands_cli_proxy"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1052,7 +1052,7 @@ dependencies = [
 
 [[package]]
 name = "commands_config"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1066,7 +1066,7 @@ dependencies = [
 
 [[package]]
 name = "commands_platform"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1082,7 +1082,7 @@ dependencies = [
 
 [[package]]
 name = "commands_proxy"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1097,7 +1097,7 @@ dependencies = [
 
 [[package]]
 name = "commands_system"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
@@ -1113,7 +1113,7 @@ dependencies = [
 
 [[package]]
 name = "commands_tray"
-version = "0.1.6"
+version = "0.1.9"
 dependencies = [
  "aidog_core",
  "aidog_test_util",
