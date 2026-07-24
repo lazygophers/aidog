@@ -13,7 +13,24 @@ permissions:
   contents: write
 
 jobs:
+  # 手动 dispatch 时清旧 tag+release，让 tauri-action 干净重建（撞 tag 根因：v<版本> 已存在时 tauri-action 失败）。
+  # push 触发(.version 变更)本就是新版本无碰撞 → 跳过；`|| true` 幂等，删不存在的 tag 不报错。
+  cleanup:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Delete existing release + tag (手动重发)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=$(tr -d '[:space:]' < .version)
+          gh release delete "v$V" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
+
   release:
+    # cleanup 在 push 事件被 skip：always() && result != failure 让 push 路径照跑（skipped != failure）。
+    needs: cleanup
+    if: always() && needs.cleanup.result != 'failure'
     strategy:
       fail-fast: false
       matrix:
