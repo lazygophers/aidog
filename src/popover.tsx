@@ -102,7 +102,7 @@ function Popover() {
 
   useEffect(() => {
     const s = loadSettings();
-    applyTheme(s.themeMode);
+    applyTheme("dark"); // 浮窗固定深色，不跟随主窗 themeMode
     if (s.locale) {
       ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
     }
