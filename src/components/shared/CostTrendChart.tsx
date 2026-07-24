@@ -3,7 +3,7 @@
 // 适配浮窗窄宽：viewBox 固定坐标系 + preserveAspectRatio=none 横向拉满，纵向固定高。
 // 金额格式化统一走 formatters.ts，勿自定义。
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { smoothPath } from "../../utils/chart";
 import { formatCostUsd } from "../../utils/formatters";
 import type { StatsBucket } from "../../services/api";
@@ -12,28 +12,33 @@ export interface CostTrendChartProps {
   buckets: StatsBucket[];
 }
 
+const W = 1000;
+const Hsvg = 100;
+const PAD_T = 10;
+
 /** 消费趋势曲线：按 total_cost(=SUM est_cost) 绘平滑曲线 + 末点/hover 金额。 */
 export function CostTrendChart({ buckets }: CostTrendChartProps) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
+  // pts/path 只依赖 buckets；hover 引起的 re-render（setHoverIdx）不应重算曲线几何。
+  const { n, pts, linePath, areaPath } = useMemo(() => {
+    const plotH = Hsvg - PAD_T;
+    const bn = buckets.length;
+    const maxCost = Math.max(...buckets.map((b) => b.total_cost), 1e-12);
+    const xAt = (i: number) => (bn > 1 ? (i / (bn - 1)) * W : W / 2);
+    const yAt = (v: number) => PAD_T + (1 - v / maxCost) * plotH;
+    const bpts = buckets.map((b, i) => ({ x: xAt(i), y: yAt(b.total_cost) }));
+    const bLinePath = smoothPath(bpts, PAD_T, Hsvg);
+    const bAreaPath =
+      bn > 0
+        ? `${bLinePath} L ${bpts[bn - 1].x.toFixed(1)},${Hsvg} L ${bpts[0].x.toFixed(1)},${Hsvg} Z`
+        : "";
+    return { n: bn, pts: bpts, linePath: bLinePath, areaPath: bAreaPath };
+  }, [buckets]);
+
   if (buckets.length === 0) {
     return null;
   }
-
-  const W = 1000;
-  const Hsvg = 100;
-  const PAD_T = 10;
-  const n = buckets.length;
-  const plotH = Hsvg - PAD_T;
-  const maxCost = Math.max(...buckets.map((b) => b.total_cost), 1e-12);
-  const xAt = (i: number) => (n > 1 ? (i / (n - 1)) * W : W / 2);
-  const yAt = (v: number) => PAD_T + (1 - v / maxCost) * plotH;
-  const pts = buckets.map((b, i) => ({ x: xAt(i), y: yAt(b.total_cost) }));
-  const linePath = smoothPath(pts, PAD_T, Hsvg);
-  const areaPath =
-    n > 0
-      ? `${linePath} L ${pts[n - 1].x.toFixed(1)},${Hsvg} L ${pts[0].x.toFixed(1)},${Hsvg} Z`
-      : "";
 
   const lastIdx = n - 1;
   const shownIdx = hoverIdx ?? lastIdx;
