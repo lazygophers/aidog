@@ -1,0 +1,35 @@
+{
+  "id": "copybtn-dark",
+  "name": "复制按钮深色适配",
+  "desc": "CopyButton 成功对勾 stroke 用背景 token var(--accent), dark 翻近黑不可见; 换 var(--color-success)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "改 CopyButton 对勾色",
+      "desc": "src/components/shared/CopyButton.tsx:112 stroke var(--accent)->var(--color-success); yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784870518,
+      "started": 1784871510,
+      "finished": 1784871665
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/copybtn-dark",
+  "parent": null,
+  "kind": "task",
+  "created": 1784870182,
+  "started": 1784871483,
+  "checked": null,
+  "finished": 1784872139,
+  "updated": 1784872139
+}
