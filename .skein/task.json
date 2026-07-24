@@ -145,6 +145,14 @@
       "kind": "task"
     },
     {
+      "id": "popover-token-fix",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "shadcn-infra",
       "status": "已完成",
       "deps": [],
