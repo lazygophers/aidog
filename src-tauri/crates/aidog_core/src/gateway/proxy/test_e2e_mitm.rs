@@ -45,6 +45,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
     let db = test_db().await;
     let ca = create_and_store_root_ca(&db).await.expect("create root CA in test db");
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -58,7 +59,9 @@ async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
         )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     });
+    spawn_log_writer(state.clone(), log_rx);
     (state, ca)
 }
 
@@ -207,6 +210,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
     //    request_id 由 handle_proxy_core 内部生成（serve_plaintext 内 uuid::new_v4），
     //    测试拿不到具体 id；查最近 10 行找 source_protocol=anthropic 的行（test_db 空库，
     //    仅本测试写入）。
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 10, 0)
         .await
         .expect("list proxy_logs");
@@ -356,6 +360,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
 
     // 6. proxy_log 落虚拟「未匹配」桶（forward 路径已执行 + 落库）。
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 10, 0)
         .await
         .expect("list proxy_logs");

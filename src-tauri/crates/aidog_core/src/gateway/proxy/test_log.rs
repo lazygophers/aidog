@@ -51,7 +51,8 @@ use super::*;
     }
 
     fn flush_test_state(db: Arc<super::super::db::Db>) -> Arc<ProxyState> {
-        Arc::new(ProxyState {
+        let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
+        let state = Arc::new(ProxyState {
             db,
             app: None,
             middleware: Arc::new(MiddlewareEngine::new()),
@@ -61,7 +62,10 @@ use super::*;
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
             listen_addr: std::sync::OnceLock::new(),
             settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
-        })
+            log_tx,
+        });
+        spawn_log_writer(state.clone(), log_rx);
+        state
     }
 
     fn terminal_log(id: &str) -> ProxyLog {
@@ -106,6 +110,7 @@ use super::*;
         for _ in 0..8 {
             upsert_log(&state, &log, &settings).await;
         }
+        flush_log_queue(&state).await;
         let req = agg_request_count(&state.db, "gk_test").await;
         assert_eq!(req, 1, "8 次终态 upsert_log，agg 只应计 1 次（修复前为 8）");
 
@@ -125,6 +130,7 @@ use super::*;
         for _ in 0..8 {
             upsert_log(&state, &log, &settings).await;
         }
+        flush_log_queue(&state).await;
         let req = agg_request_count(&state.db, "gk_test").await;
         assert_eq!(req, 1, "关日志时 8 次终态 upsert_log，agg 仍只应计 1 次");
         // 去重缓存登记了该 id（FIFO 容量上限自动兜内存，不按请求清理）。
@@ -147,6 +153,7 @@ use super::*;
         let placeholder = placeholder_stream_log(id); // response_body = "[stream]"
         upsert_log(&state, &placeholder, &settings).await;
 
+        flush_log_queue(&state).await;
         let req = agg_request_count(&state.db, "gk_test").await;
         assert_eq!(req, 0, "非终态请求不应计入 agg");
         assert!(state.agg_done.lock().unwrap().1.is_empty(), "非终态不应登记 agg 去重缓存");
