@@ -161,6 +161,14 @@
       "kind": "task"
     },
     {
+      "id": "release-manual-cleanup",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "shadcn-infra",
       "status": "已完成",
       "deps": [],

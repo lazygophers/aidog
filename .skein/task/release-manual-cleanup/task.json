@@ -1,0 +1,35 @@
+{
+  "id": "release-manual-cleanup",
+  "name": "release 手动重发支持",
+  "desc": "release CICD workflow_dispatch 重发撞 tag 修复: 加 cleanup 前置 job 删旧 tag+release, 版本仍读 .version",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "改 release.yml 加 cleanup job",
+      "desc": "见 prd 范围内",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784867939,
+      "started": 1784867948,
+      "finished": 1784868930
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/release-manual-cleanup",
+  "parent": null,
+  "kind": "task",
+  "created": 1784867897,
+  "started": 1784867940,
+  "checked": null,
+  "finished": 1784869055,
+  "updated": 1784869055
+}
