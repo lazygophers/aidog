@@ -1,0 +1,35 @@
+{
+  "id": "fix-nav-active",
+  "name": "修侧栏激活态不可见",
+  "desc": "border-0 去 UA 边框后激活项只剩13%淡底无轮廓看不出; 子项 borderLeft 误用 --accent(隐形). 激活项加 primary ring+强底, 子项 borderLeft→--primary",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "激活态描边+子项 borderLeft",
+      "desc": "Sidebar.tsx: 顶级 active 加 inset primary ring boxShadow + accent-subtle 底; 子项 active borderLeft var(--accent)→var(--primary); yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784807413,
+      "started": null,
+      "finished": 1784807521
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/fix-nav-active",
+  "parent": null,
+  "kind": "task",
+  "created": 1784807413,
+  "started": 1784807415,
+  "checked": null,
+  "finished": 1784807522,
+  "updated": 1784807522
+}

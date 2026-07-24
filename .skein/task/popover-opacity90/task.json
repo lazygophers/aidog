@@ -1,0 +1,35 @@
+{
+  "id": "popover-opacity90",
+  "name": "浮窗不透明度90%",
+  "desc": "popover.css .popover-root background color-mix 60%→90%",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "bump",
+      "name": "不透明度90%",
+      "desc": "popover.css .popover-root background 60%→90%",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784858423,
+      "started": 1784858440,
+      "finished": 1784858612
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/popover-opacity90",
+  "parent": null,
+  "kind": "task",
+  "created": 1784858415,
+  "started": 1784858424,
+  "checked": null,
+  "finished": 1784858626,
+  "updated": 1784858626
+}

@@ -1,0 +1,35 @@
+{
+  "id": "fix-chart-contrast",
+  "name": "修曲线图 accent 隐形",
+  "desc": "图表描边/填充误用 --accent(微妙bg色 奶白/近黑灰) 致曲线隐形; 改 --primary(品牌蓝/金)高对比; Stats.tsx + CostTrendChart.tsx",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "accent→primary",
+      "desc": "两图表文件 var(--accent) 全替 var(--primary); 含描边/渐变填充/hover点/峰值点/排序箭头; yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784807021,
+      "started": null,
+      "finished": 1784807072
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/fix-chart-contrast",
+  "parent": null,
+  "kind": "task",
+  "created": 1784807021,
+  "started": 1784807028,
+  "checked": null,
+  "finished": 1784807072,
+  "updated": 1784807072
+}

@@ -3,3 +3,7 @@ task.md
 task.html
 board/
 .lock
+*.png
+*.jpg
+*.html
+*.css

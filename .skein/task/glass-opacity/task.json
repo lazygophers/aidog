@@ -1,0 +1,35 @@
+{
+  "id": "glass-opacity",
+  "name": "玻璃卡片底不透明度10%",
+  "desc": "glass/glass-surface 磨砂底 color-mix 降到 10% (hover 16%), 卡片更透",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "冰块玻璃+去磨砂+收敛阴影",
+      "desc": "globals.css glass 底10%去blur加冰光泽 + mono.ts shadow减半",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784788397,
+      "started": null,
+      "finished": 1784788550
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/glass-opacity",
+  "parent": null,
+  "kind": "task",
+  "created": 1784787330,
+  "started": 1784788398,
+  "checked": null,
+  "finished": 1784788552,
+  "updated": 1784788552
+}

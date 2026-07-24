@@ -1,0 +1,35 @@
+{
+  "id": "popover-opacity",
+  "name": "浮窗不透明度 60%",
+  "desc": "popover-root background bg-floating→60% alpha + backdrop blur 玻璃感",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "60% alpha+blur",
+      "desc": "popover.css .popover-root background color-mix 60% transparent + backdrop-filter blur(glass-blur+10) saturate; build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784808479,
+      "started": null,
+      "finished": 1784808519
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/popover-opacity",
+  "parent": null,
+  "kind": "task",
+  "created": 1784808479,
+  "started": 1784808480,
+  "checked": null,
+  "finished": 1784808520,
+  "updated": 1784808520
+}

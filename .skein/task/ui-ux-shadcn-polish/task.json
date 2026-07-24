@@ -1,0 +1,169 @@
+{
+  "id": "ui-ux-shadcn-polish",
+  "name": "UI/UX shadcn 全量适配",
+  "desc": "修 shadcn 迁移残留 + 暗色主题不一致 + 响应式布局，按页族 5 分片并行",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "ui-A",
+      "name": "ui-A Home/Stats/About/shared",
+      "desc": "Home/Stats/About + shared 组件 UI/UX 适配",
+      "depends_on": [],
+      "验收": [
+        "Home.tsx danger var 修正",
+        "Stats 裸 table 改 ui/table",
+        "FilterDropdown/CopyButton 迁 shadcn",
+        "hex 兜底清零",
+        "yarn build 过",
+        "yarn test 绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784736201,
+      "started": 1784736219,
+      "finished": 1784737043
+    },
+    {
+      "sid": "ui-B",
+      "name": "ui-B platforms/*",
+      "desc": "platforms 页族 UI/UX 适配",
+      "depends_on": [],
+      "验收": [
+        "formSectionsEndpoints/PlatformEditForm 非法 alpha 修",
+        "formSections toggle/checkbox 迁 shadcn",
+        "ModelsMatrix popover 迁",
+        "MultiKeyPreview overflow-x",
+        "hex 兜底清零",
+        "yarn build 过",
+        "yarn test 绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784736201,
+      "started": 1784736219,
+      "finished": 1784736871
+    },
+    {
+      "sid": "ui-C",
+      "name": "ui-C Groups+settings",
+      "desc": "Groups + components/settings 页族适配(含共享 Toggle 底层迁 shadcn Switch)",
+      "depends_on": [],
+      "验收": [
+        "editors/_shared Toggle 改包 shadcn Switch",
+        "raw .toggle div 全迁",
+        "SettingsHeader/GroupCreateModal legacy class 清",
+        "hex 兜底清零",
+        "yarn build 过",
+        "yarn test 绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784736202,
+      "started": 1784736871,
+      "finished": 1784738338
+    },
+    {
+      "sid": "ui-D",
+      "name": "ui-D Logs/AppSettings/ModelTest/Codex/Cli",
+      "desc": "Logs/CliProxy/AppSettings/ModelTestPanel/CodexSettings 页族适配",
+      "depends_on": [],
+      "验收": [
+        "Logs padding 缺 px 修",
+        "AppSettings toggle 迁 Switch(键盘 a11y)",
+        "ModelTestPanel modal 迁 Dialog",
+        "CodexSettings legacy class 清",
+        "CliProxy grid 响应式",
+        "yarn build 过",
+        "yarn test 绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784736202,
+      "started": 1784737043,
+      "finished": 1784737857
+    },
+    {
+      "sid": "ui-E",
+      "name": "ui-E Skills/Tray/Popover/Pricing",
+      "desc": "Skills/Tray/Popover/Pricing 页族适配",
+      "depends_on": [],
+      "验收": [
+        "TrayConfigTab popup 迁 shadcn Popover(createPortal)",
+        "toggle 迁 Switch",
+        "color:#fff 换 accent-foreground",
+        "SkillsView header flex-wrap",
+        "PricingTab 裸 table 改 ui/table",
+        "macOS 模拟色保留",
+        "yarn build 过",
+        "yarn test 绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784736202,
+      "started": 1784737858,
+      "finished": 1784739859
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/ui-ux-shadcn-polish",
+  "parent": null,
+  "kind": "task",
+  "created": 1784735892,
+  "started": 1784736208,
+  "checked": 1784741105,
+  "finished": 1784741119,
+  "updated": 1784741119
+}

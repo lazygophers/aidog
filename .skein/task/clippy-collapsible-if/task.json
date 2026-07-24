@@ -1,0 +1,37 @@
+{
+  "id": "clippy-collapsible-if",
+  "name": "clippy collapsible_if 批量修",
+  "desc": "Rust 1.97 新 lint collapsible_if 命中 22 文件 45 站, 批量 collapse + 清 unused import, make lint 复绿",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "仅 collapse if 语句 (let-chain 合并) + 删 unused import SkipReason, 禁改业务逻辑/禁改签名"
+  ],
+  "subtasks": [
+    {
+      "sid": "fix-all",
+      "name": "批量 collapse collapsible_if + 清 unused import",
+      "desc": "22 文件 45 站 collapsible_if 用 let-chain 合并 (edition 2024 rust 1.97 支持); 删 commands_platform/src/batch.rs:11 unused SkipReason; 跑 cargo clippy -- -D warnings 复绿",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784732035,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/clippy-collapsible-if",
+  "parent": null,
+  "kind": "task",
+  "created": 1784732022,
+  "started": 1784732043,
+  "checked": 1784733754,
+  "finished": 1784733808,
+  "updated": 1784733808
+}
