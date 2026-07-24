@@ -25,10 +25,8 @@ html, body {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-size: 13px;
   color: var(--text-primary);
-  /* 浮层本体 90% 不透明 + backdrop blur 玻璃感 (窗口 transparent, 透出桌面) */
-  background: color-mix(in srgb, var(--bg-floating) 90%, transparent);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(var(--glass-saturate));
-  backdrop-filter: blur(calc(var(--glass-blur) + 10px)) saturate(var(--glass-saturate));
+  /* 浮层本体固定深色实心背景 (窗口 transparent, 圆角外透明) */
+  background: var(--bg-floating);
   border: var(--glass-border);
   border-radius: var(--radius-lg, 20px);
   box-shadow: var(--shadow-lg);
