@@ -1,5 +1,14 @@
 /* Popover 专用样式 — 透明窗口 + 不透明圆角本体（圆角外透明，无白底） */
 
+/* popover 独立 bundle 不含 globals 别名, 在此补齐映射到 applyTheme 写的基础 var; fallback 防首帧闪透 */
+:root {
+  --bg-floating: var(--popover, #1c1c20);
+  --text-primary: var(--foreground, #ededf0);
+  --text-secondary: var(--muted-foreground, #9a9aa3);
+  --text-tertiary: var(--muted-foreground, #9a9aa3);
+  --glass-border: var(--border, rgba(255, 255, 255, 0.08));
+}
+
 html, body {
   margin: 0;
   padding: 0;
