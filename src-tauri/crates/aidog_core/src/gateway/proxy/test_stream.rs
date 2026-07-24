@@ -191,7 +191,8 @@ use super::*;
     }
 
     fn flush_test_state(db: Arc<super::super::db::Db>) -> Arc<ProxyState> {
-        Arc::new(ProxyState {
+        let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
+        let state = Arc::new(ProxyState {
             db,
             app: None,
             middleware: Arc::new(MiddlewareEngine::new()),
@@ -201,7 +202,10 @@ use super::*;
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
             listen_addr: std::sync::OnceLock::new(),
             settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
-        })
+            log_tx,
+        });
+        spawn_log_writer(state.clone(), log_rx);
+        state
     }
 
     fn placeholder_stream_log(id: &str) -> ProxyLog {

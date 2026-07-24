@@ -218,10 +218,11 @@ impl StreamLogGuard {
         let upsert_settings = self.settings.clone();
         let span = self.req_span.clone();
         let task = async move {
-            let id = final_log.id.clone();
+            // upsert_log 现为异步队列 enqueue（终态阻塞 send 保证不丢），实际落库 + 快照移除
+            // 已移入 writer 串行序列内部（process_upsert 终态分支），此处禁再显式
+            // remove_log_snapshot：enqueue 几乎瞬时返回，会抢在真正落库前执行，
+            // 导致下次 upsert 误判 prev=None 走 INSERT，主键冲突（见 log.rs 需求 5）。
             upsert_log(&upsert_state, &final_log, &upsert_settings).await;
-            // 流式终态：移除 in-flight 列快照，防 map 无限增长。
-            remove_log_snapshot(&upsert_state, &id);
         }
         .instrument(span);
         // 经显式 runtime handle 落库：Drop（含客户端 abort / 连接 teardown）路径下

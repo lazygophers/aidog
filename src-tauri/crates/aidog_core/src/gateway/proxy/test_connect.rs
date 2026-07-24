@@ -12,7 +12,8 @@ use tokio::io::{AsyncReadExt, AsyncWriteExt};
 /// 测试用 ProxyState（内存 DB）构造器。
 async fn make_state() -> Arc<ProxyState> {
     let db = test_support::test_db().await;
-    Arc::new(ProxyState {
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
+    let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
@@ -25,7 +26,10 @@ async fn make_state() -> Arc<ProxyState> {
         )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
-    })
+        log_tx,
+    });
+    spawn_log_writer(state.clone(), log_rx);
+    state
 }
 
 /// match_platform_by_host：主 base_url host 命中 → 返回 platform_id；未命中 → None。
@@ -61,6 +65,7 @@ async fn match_platform_by_host_hits_main_base_url() {
 #[tokio::test]
 async fn upsert_connect_log_writes_http_connect_row() {
     let db = test_support::test_db().await;
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -71,12 +76,15 @@ async fn upsert_connect_log_writes_http_connect_row() {
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     });
+    spawn_log_writer(state.clone(), log_rx);
 
     log::upsert_connect_log(
         &state, "conn-log-1".into(), String::new(), 0,
         "api.example.com:443".into(), 200, 42,
     ).await;
+    flush_log_queue(&state).await;
 
     let row = crate::gateway::db::get_proxy_log(&state.db, "conn-log-1").await
         .expect("query proxy_log").expect("row must exist");
@@ -430,6 +438,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
 
     // 2. ProxyState + group + Anthropic 平台（base_url=stub）。
     let db = test_db().await;
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -443,7 +452,9 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
         )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     });
+    spawn_log_writer(state.clone(), log_rx);
     let plat = crate::gateway::db::create_platform(&state.db, CreatePlatform {
         name: "mitm-stub".into(),
         platform_type: Protocol::Anthropic,
@@ -485,6 +496,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
     // 6. 断言 proxy_log 落 AI 行（非 http-connect 盲转行）。
     //    关键：source_protocol=anthropic（detect_source_protocol("/v1/messages")），
     //    非 http-connect（盲转专用）。这证明明文 Request 走了完整 AI 请求链。
+    flush_log_queue(&state).await;
     let row = crate::gateway::db::get_proxy_log(&state.db, &request_id).await
         .expect("query proxy_log").expect("proxy_log row must exist");
     assert_eq!(
@@ -505,6 +517,7 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
     use crate::gateway::db::test_support::test_db;
 
     let db = test_db().await;
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -518,7 +531,9 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
         )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     });
+    spawn_log_writer(state.clone(), log_rx);
 
     // 明文 Request 无 Authorization（模拟客户端未带 apikey 的官方协议请求）。
     let plaintext_req = HttpRequest::builder()
@@ -539,6 +554,7 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
     );
 
     // proxy_log 行存在 + status=404（AI 路径全量记账，盲转不落 AI 行）。
+    flush_log_queue(&state).await;
     let row = crate::gateway::db::get_proxy_log(&state.db, &request_id).await
         .expect("query proxy_log").expect("proxy_log row must exist");
     assert_eq!(row.status_code, 404, "AI 路径 404 必须落 proxy_log");
@@ -665,6 +681,7 @@ async fn connect_failure_records_breaker_fail_count() {
         models: None, available_models: None, endpoints: None, manual_budgets: None,
         auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
     }).await.unwrap();
+    let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -675,6 +692,7 @@ async fn connect_failure_records_breaker_fail_count() {
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     });
 
     // 触发失败：127.0.0.1 关闭端口（立即 RST = connection refused，秒级失败）。
@@ -723,6 +741,7 @@ async fn connect_failure_sets_platform_last_error() {
         models: None, available_models: None, endpoints: None, manual_budgets: None,
         auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
     }).await.unwrap();
+    let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -733,6 +752,7 @@ async fn connect_failure_sets_platform_last_error() {
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     });
 
     let th = BreakerThresholds { failure_threshold: 5, open_secs: 60, half_open_max: 2 };

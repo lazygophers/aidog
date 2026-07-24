@@ -7,6 +7,7 @@ use axum::http::HeaderMap;
 use std::sync::Arc;
 
 async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
+    let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
@@ -20,6 +21,7 @@ async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
         )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
     })
 }
 

@@ -95,10 +95,15 @@ pub(crate) use headers::{
 #[allow(unused_imports)]
 pub(crate) use headers::is_official_anthropic_host;
 pub(crate) use health::handle_root;
+// remove_log_snapshot/spawn_log_writer/LogMsg 仅测试文件 unqualified 消费（本 mod.rs 走 log:: 全限定路径）；
+// 非 test cfg 下重导出未被引用，同 is_official_anthropic_host 先例 allow。
+#[allow(unused_imports)]
 pub(crate) use log::{
-    block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, upsert_connect_log,
-    upsert_log,
+    block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, spawn_log_writer,
+    upsert_connect_log, upsert_log, LogMsg,
 };
+#[cfg(test)]
+pub(crate) use log::flush_log_queue;
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
@@ -167,7 +172,13 @@ pub struct ProxyState {
     /// start_proxy 初始化；settings_set 写 DB 后 refresh_proxy_settings_cache 重建。
     /// 详见 settings_cache.rs。请求路径 read().await 一借即得 typed struct，零 serde 反序列化。
     pub(crate) settings_cache: Arc<tokio::sync::RwLock<ProxySettingsCache>>,
+    /// 日志异步写入队列发送端。热路径 upsert_log/upsert_connect_log 入队即返回，
+    /// 单后台 writer task（spawn_log_writer）串行消费落库，见 log.rs。
+    pub(crate) log_tx: tokio::sync::mpsc::Sender<log::LogMsg>,
 }
+
+/// 日志写入队列容量。终态消息用阻塞 send 保证不丢；非终态消息队满即丢（不影响最终数据）。
+pub(crate) const LOG_QUEUE_CAP: usize = 4096;
 
 /// agg 去重缓存容量上限。远大于任一时刻 in-flight + 近期完成请求数，保证同一请求的全部
 /// 重复终态调用窗口内 id 不被淘汰；超限按 FIFO 淘汰最旧，内存有界。
@@ -198,6 +209,7 @@ pub async fn start_proxy(
     middleware: Arc<MiddlewareEngine>,
     bind_lan: bool,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel::<log::LogMsg>(LOG_QUEUE_CAP);
     let state = Arc::new({
         // 初始化设置缓存：从 DB 读一次填入 typed struct，注册到全局 weak 槽供 settings_set 重建。
         let settings_cache = Arc::new(tokio::sync::RwLock::new(
@@ -214,8 +226,10 @@ pub async fn start_proxy(
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
             listen_addr: std::sync::OnceLock::new(),
             settings_cache,
+            log_tx,
         }
     });
+    log::spawn_log_writer(state.clone(), log_rx);
 
     // Try binding from port upward; if occupied, try port+1..port+100
     let mut actual_port = port;
