@@ -1,7 +1,8 @@
 use super::*;
+use serde_json::json;
 
-// ── 非流式 openai→anthropic 响应转换：content + tool_calls 并存(finish_reason=tool_calls) ──
-// 复现 request 1ef25294 场景：上游 message 同时含 content / reasoning_content / tool_calls。
+// ── 非流式 openai→anthropic 响应转换：reasoning + content + tool_calls 并存(finish_reason=tool_calls) ──
+// 复现 request 1ef25294 场景：上游 message 同时含 reasoning_content / content / tool_calls。
 #[test]
 fn convert_response_openai_to_anthropic_content_and_tools() {
     let upstream = serde_json::json!({
@@ -29,16 +30,22 @@ fn convert_response_openai_to_anthropic_content_and_tools() {
         .expect("openai→anthropic should convert");
     assert_eq!(out["type"], "message");
     assert_eq!(out["role"], "assistant");
-    assert_eq!(out["model"], "claude-opus-4", "model 回填为客户端请求模型");
+    assert_eq!(out["model"], "glm-4.6", "model 使用上游响应的模型（未覆盖时）");
     assert_eq!(out["stop_reason"], "tool_use", "tool_calls→tool_use");
     let content = out["content"].as_array().unwrap();
-    // 第一块 text，第二块 tool_use（顺序：text 在前）
+    // 三块：reasoning 排首位，然后 text，最后 tool_use（顺序：reasoning → text → tool_use）
+    assert_eq!(content.len(), 3, "reasoning + text + tool_use 三块");
+    // 第一块 reasoning（text 块）
     assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "Trellis SessionStart...");
-    assert_eq!(content[1]["type"], "tool_use");
-    assert_eq!(content[1]["id"], "call_-7518760127650854872");
-    assert_eq!(content[1]["name"], "read_file");
-    assert_eq!(content[1]["input"]["path"], "/a", "arguments JSON 解析为 input 对象");
+    assert_eq!(content[0]["text"], "用户触发...(GLM思维链)", "reasoning_content 排首位");
+    // 第二块 text
+    assert_eq!(content[1]["type"], "text");
+    assert_eq!(content[1]["text"], "Trellis SessionStart...");
+    // 第三块 tool_use
+    assert_eq!(content[2]["type"], "tool_use");
+    assert_eq!(content[2]["id"], "call_-7518760127650854872");
+    assert_eq!(content[2]["name"], "read_file");
+    assert_eq!(content[2]["input"]["path"], "/a", "arguments JSON 解析为 input 对象");
     // usage 映射
     assert_eq!(out["usage"]["input_tokens"], 100);
     assert_eq!(out["usage"]["output_tokens"], 1002);
@@ -94,7 +101,7 @@ fn convert_response_length_maps_max_tokens() {
     assert_eq!(out["stop_reason"], "max_tokens");
 }
 
-// ── reasoning_content 存在不致崩 / 不产空（已隐含在上面，单测显式确认无 content+无 tool 时兜底空 text） ──
+// ── reasoning_content 存在时排在 content 首位 ──
 #[test]
 fn convert_response_empty_message_yields_nonempty_content() {
     let upstream = serde_json::json!({
@@ -104,9 +111,9 @@ fn convert_response_empty_message_yields_nonempty_content() {
     });
     let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
     let content = out["content"].as_array().unwrap();
-    assert_eq!(content.len(), 1, "兜底空 text 块保证 content 非空");
+    assert_eq!(content.len(), 1, "reasoning 非空时排首位，content 含一个 text 块");
     assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "");
+    assert_eq!(content[0]["text"], "只有思维链", "reasoning_content 排在 content 首位");
 }
 
 // ── 同协议（client=openai, wire=openai）→ None（透传，不转换） ──
@@ -235,4 +242,187 @@ fn to_client_sse_gemini_protocol() {
     // gemini protocol — may or may not produce SSE depending on implementation
     // just ensure it doesn't panic
     let _ = to_client_sse(&event, "gemini", "gemini-pro");
+}
+
+// ── render_anthropic_response 测试（方案 B：reasoning 排 text 块首位） ──
+#[test]
+fn render_anthropic_with_reasoning_first() {
+    use super::*;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "claude-3".to_string(),
+        text: Some("Answer".to_string()),
+        tool_uses: vec![],
+        stop_reason: "end_turn".to_string(),
+        input_tokens: 20,
+        output_tokens: 10,
+        cache_read_tokens: 0,
+        reasoning: Some("Thinking...".to_string()),
+    };
+
+    let out = render_anthropic_response(&r);
+    let content = out["content"].as_array().unwrap();
+
+    // 方案 B：reasoning 排 text 块首位（禁 thinking 块）
+    assert_eq!(content.len(), 2);
+    assert_eq!(content[0]["type"], "text");
+    assert_eq!(content[0]["text"], "Thinking..."); // reasoning 排首位
+    assert_eq!(content[1]["type"], "text");
+    assert_eq!(content[1]["text"], "Answer");
+}
+
+#[test]
+fn render_anthropic_reasoning_with_tools() {
+    use super::*;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "claude-3".to_string(),
+        text: Some("Calling function".to_string()),
+        tool_uses: vec![
+            ("tool-1".to_string(), "read".to_string(), json!({"path": "/tmp"})),
+        ],
+        stop_reason: "tool_use".to_string(),
+        input_tokens: 25,
+        output_tokens: 12,
+        cache_read_tokens: 0,
+        reasoning: Some("Analyzing...".to_string()),
+    };
+
+    let out = render_anthropic_response(&r);
+    let content = out["content"].as_array().unwrap();
+
+    // reasoning + text + tool_use
+    assert_eq!(content.len(), 3);
+    assert_eq!(content[0]["type"], "text");
+    assert_eq!(content[0]["text"], "Analyzing...");
+    assert_eq!(content[1]["type"], "text");
+    assert_eq!(content[1]["text"], "Calling function");
+    assert_eq!(content[2]["type"], "tool_use");
+}
+
+// ── N×N 矩阵测试：anthropic→openai ──
+#[test]
+fn convert_response_anthropic_to_openai_with_reasoning() {
+    let upstream = serde_json::json!({
+        "id": "msg-1",
+        "type": "message",
+        "role": "assistant",
+        "model": "claude-3",
+        "content": [
+            {"type": "thinking", "thinking": "Analyzing step by step..."},
+            {"type": "text", "text": "Final answer"}
+        ],
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "usage": {
+            "input_tokens": 20,
+            "output_tokens": 10,
+            "cache_read_tokens": 0
+        }
+    });
+    let out = convert_response(&upstream, &Protocol::Anthropic, "openai", "gpt-4")
+        .expect("anthropic→openai should convert");
+    let message = &out["choices"][0]["message"];
+    // anthropic 的 thinking 块视为 reasoning，放入 reasoning_content
+    assert_eq!(message["reasoning_content"], "Analyzing step by step...");
+    // text 块放入 content
+    assert_eq!(message["content"], "Final answer");
+    assert_eq!(out["choices"][0]["finish_reason"], "stop", "end_turn→stop");
+    assert_eq!(out["usage"]["prompt_tokens"], 20);
+    assert_eq!(out["usage"]["completion_tokens"], 10);
+}
+
+// ── N×N 矩阵测试：gemini→anthropic ──
+#[test]
+fn convert_response_gemini_to_anthropic() {
+    let upstream = serde_json::json!({
+        "candidates": [{
+            "index": 0,
+            "finishReason": "STOP",
+            "content": {
+                "role": "model",
+                "parts": [{"text": "Hello from Gemini"}]
+            }
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 5,
+            "candidatesTokenCount": 3,
+            "totalTokenCount": 8
+        }
+    });
+    let out = convert_response(&upstream, &Protocol::Gemini, "anthropic", "claude")
+        .expect("gemini→anthropic should convert");
+    assert_eq!(out["type"], "message");
+    assert_eq!(out["role"], "assistant");
+    let content = out["content"].as_array().unwrap();
+    assert_eq!(content.len(), 1);
+    assert_eq!(content[0]["type"], "text");
+    assert_eq!(content[0]["text"], "Hello from Gemini");
+    assert_eq!(out["stop_reason"], "end_turn", "STOP→end_turn");
+    assert_eq!(out["usage"]["input_tokens"], 5);
+    assert_eq!(out["usage"]["output_tokens"], 3);
+}
+
+// ── N×N 矩阵测试：openai→gemini ──
+#[test]
+fn convert_response_openai_to_gemini() {
+    let upstream = serde_json::json!({
+        "id": "c1",
+        "model": "gpt-4",
+        "choices": [{
+            "index": 0,
+            "finish_reason": "stop",
+            "message": {
+                "role": "assistant",
+                "content": "Response from OpenAI"
+            }
+        }],
+        "usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 5
+        }
+    });
+    let out = convert_response(&upstream, &Protocol::OpenAI, "gemini", "gemini-pro")
+        .expect("openai→gemini should convert");
+    let candidates = out["candidates"].as_array().unwrap();
+    assert_eq!(candidates.len(), 1);
+    assert_eq!(candidates[0]["finishReason"], "STOP", "stop→STOP");
+    assert_eq!(candidates[0]["content"]["role"], "model");
+    assert_eq!(candidates[0]["content"]["parts"][0]["text"], "Response from OpenAI");
+    assert_eq!(out["usageMetadata"]["promptTokenCount"], 10);
+    assert_eq!(out["usageMetadata"]["completionTokenCount"], 5);
+}
+
+// ── 本案重放：request cd7ff24d 场景 ──
+// openai 上游含 reasoning_content + 空 content, client=anthropic → reasoning 排 content 首位
+#[test]
+fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
+    let upstream = serde_json::json!({
+        "id": "chatcmpl-cd7ff24d",
+        "model": "glm-4.6",
+        "choices": [{
+            "index": 0,
+            "finish_reason": "stop",
+            "message": {
+                "role": "assistant",
+                "content": null,
+                "reasoning_content": "Let me analyze this step by step..."
+            }
+        }],
+        "usage": {
+            "prompt_tokens": 50,
+            "completion_tokens": 30
+        }
+    });
+    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude-3-opus")
+        .expect("case cd7ff24d: openai reasoning_content → anthropic content with reasoning");
+    let content = out["content"].as_array().unwrap();
+    assert_eq!(content.len(), 1, "仅有 reasoning 块");
+    assert_eq!(content[0]["type"], "text");
+    assert_eq!(content[0]["text"], "Let me analyze this step by step...", "reasoning_content 排首位");
+    assert_eq!(out["stop_reason"], "end_turn", "stop→end_turn");
+    assert_eq!(out["usage"]["input_tokens"], 50);
+    assert_eq!(out["usage"]["output_tokens"], 30);
 }

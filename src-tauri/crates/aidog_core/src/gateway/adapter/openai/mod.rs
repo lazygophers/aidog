@@ -7,7 +7,7 @@ mod sse;
 
 pub use parse::from_openai;
 pub use request::to_openai;
-pub use response::parse_openai_response;
+pub use response::{parse_openai_response, render_openai_response};
 pub use sse::{parse_openai_sse, to_openai_sse};
 
 /// OpenAI Chat Completions 请求格式（GLM/Kimi 也兼容）

@@ -159,6 +159,170 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
     }
 }
 
+/// 解析 Gemini API 非流式响应为归一 NonStreamResponse
+pub fn parse_gemini_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+    let candidates = body.get("candidates")?.as_array()?;
+    let candidate = candidates.first()?;
+
+    let id = body.get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let model = body.get("model")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback_model)
+        .to_string();
+
+    let content = candidate.get("content")?;
+    let parts = content.get("parts")?.as_array()?;
+
+    let mut text_parts: Vec<String> = Vec::new();
+    let mut reasoning_parts: Vec<String> = Vec::new();
+    let mut tool_uses: Vec<(String, String, Value)> = Vec::new();
+
+    for part in parts {
+        // 提取 text（非 thought 标记的普通文本）
+        if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
+            // 检查是否有 thought 标记，有则归入 reasoning
+            if part.get("thought").and_then(|v| v.as_bool()).unwrap_or(false) {
+                reasoning_parts.push(text.to_string());
+            } else {
+                text_parts.push(text.to_string());
+            }
+        }
+
+        // 提取 function_call（tool_use）
+        if let Some(fc) = part.get("functionCall") {
+            let name = fc.get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let args = fc.get("args").cloned().unwrap_or_else(|| Value::Object(Default::default()));
+            let id = format!("tool_{}", tool_uses.len()); // Gemini 无 id，生成一个
+            tool_uses.push((id, name, args));
+        }
+    }
+
+    let text = if text_parts.is_empty() {
+        None
+    } else {
+        Some(text_parts.join(""))
+    };
+
+    let reasoning = if reasoning_parts.is_empty() {
+        None
+    } else {
+        Some(reasoning_parts.join("\n\n"))
+    };
+
+    // finishReason 映射
+    let finish_reason = candidate.get("finishReason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("STOP");
+    let stop_reason = match finish_reason {
+        "STOP" => "end_turn",
+        "MAX_TOKENS" => "max_tokens",
+        "SAFETY" | "RECITATION" | "OTHER" => "end_turn",
+        _ => "end_turn",
+    }.to_string();
+
+    // usageMetadata
+    let usage = body.get("usageMetadata");
+    let input_tokens = usage
+        .and_then(|u| u.get("promptTokenCount"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let output_tokens = usage
+        .and_then(|u| u.get("candidatesTokenCount"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let cache_read_tokens = usage
+        .and_then(|u| u.get("cachedContentTokenCount"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+
+    Some(super::converter::NonStreamResponse {
+        id,
+        model,
+        text,
+        tool_uses,
+        stop_reason,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        reasoning,
+    })
+}
+
+/// 渲染归一响应为 Gemini API 非流式响应体。
+///
+/// 映射规则：
+/// - candidates[0].content.parts[]: {text} + {thought:true,text:reasoning} + {functionCall}
+/// - usageMetadata: promptTokenCount/completionTokenTotal/totalTokenCount
+pub fn render_gemini_response(r: &super::converter::NonStreamResponse) -> Option<Value> {
+    let mut parts = Vec::new();
+
+    // 添加文本 part
+    if let Some(text) = &r.text
+        && !text.is_empty() {
+            parts.push(serde_json::json!({
+                "text": text,
+            }));
+        }
+
+    // 添加 reasoning part（thought 格式）
+    if let Some(reasoning) = &r.reasoning
+        && !reasoning.is_empty() {
+            parts.push(serde_json::json!({
+                "thought": true,
+                "text": reasoning,
+            }));
+        }
+
+    // 添加 functionCall parts
+    for (_id, name, input) in &r.tool_uses {
+        parts.push(serde_json::json!({
+            "functionCall": {
+                "name": name,
+                "args": input,
+            },
+        }));
+    }
+
+    // 兜底：既无 text 也无 tool_use（异常上游）→ 空 text part，保证 parts 非空
+    if parts.is_empty() {
+        parts.push(serde_json::json!({
+            "text": "",
+        }));
+    }
+
+    // 映射 finishReason
+    let finish_reason = match r.stop_reason.as_str() {
+        "tool_use" => "STOP",
+        "max_tokens" => "MAX_TOKENS",
+        "end_turn" | "stop_sequence" => "STOP",
+        _ => "STOP",
+    };
+
+    Some(serde_json::json!({
+        "candidates": [{
+            "content": {
+                "parts": parts,
+                "role": "model",
+            },
+            "finishReason": finish_reason,
+            "index": 0,
+        }],
+        "usageMetadata": {
+            "promptTokenCount": r.input_tokens,
+            "completionTokenCount": r.output_tokens,
+            "totalTokenCount": r.input_tokens + r.output_tokens,
+        },
+        "modelVersion": r.model,
+    }))
+}
+
 /// 从 Gemini API 请求格式解析为内部 ChatRequest
 pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
     let contents = body.get("contents")?.as_array()?;
@@ -224,9 +388,16 @@ pub fn parse_gemini_sse(data: &Value) -> Option<ChatStreamEvent> {
     let parts = content.get("parts")?.as_array()?;
     let part = parts.first()?;
 
-    // 文本 delta
+    // 文本 delta（含 thought 标记检查）
     if let Some(text) = part.get("text").and_then(|v| v.as_str()) {
-        return Some(ChatStreamEvent::Delta { text: text.to_string() });
+        // 检查是否有 thought 标记，有则归入 reasoning
+        if part.get("thought").and_then(|v| v.as_bool()).unwrap_or(false) {
+            return Some(ChatStreamEvent::ReasoningDelta {
+                text: text.to_string(),
+            });
+        } else {
+            return Some(ChatStreamEvent::Delta { text: text.to_string() });
+        }
     }
 
     // function call
@@ -262,6 +433,15 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
             "candidates": [{
                 "content": {
                     "parts": [{ "text": text }],
+                    "role": "model"
+                }
+            }],
+            "modelVersion": model,
+        }).to_string()),
+        ChatStreamEvent::ReasoningDelta { text } => Some(serde_json::json!({
+            "candidates": [{
+                "content": {
+                    "parts": [{ "thought": true, "text": text }],
                     "role": "model"
                 }
             }],
