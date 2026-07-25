@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(13), build(3), cross-layer(1), db(3), domain(12), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
+类目: arch(13), build(6), cross-layer(1), db(3), domain(12), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -17,6 +17,9 @@
 | arch/trellis-03.md | arch | Workspace crate 边界契约 | crate,boundary,边界,commands,aidog_core,event,依赖 | active | # Workspace Crate 边界契约  何时被读: commands_* crate 内改源码 / 迁移 com… |
 | arch/trellis-04.md | arch | Protocol 枚举变体扩展范式 | protocol,enum,变体,grep,serde,match,union | active | # Protocol 枚举变体扩展范式  何时被读: 新增 `Protocol` 枚举变体时（新协议 / 新 cp 变体… |
 | arch/trellis-05.md | arch | 前端常量派生自后端 JSON 真值源 | derived,constants,docpromise,defaults,派生,presets,async | active | # 前端派生层（常量 → 后端 JSON 派生）  何时被读: 前端硬编码常量（协议列表 / label 映射 / 颜色… |
+| build/rule-05.md | build | 新增 wire protocol 必须同步白名单 | - | active | # 新增 wire protocol 必须同步白名单  ## MUST 硬约束  新增 wire protocol 时必… |
+| build/rule-06.md | build | converter 5×5 与 endpoint 选择解耦 | - | active | # converter 5×5 与 endpoint 选择解耦  ## MUST 硬约束  converter 双向转（… |
+| build/rule-07.md | build | is_valid_wire_protocol gate 是 fail-fast 非修复点 | - | active | # is_valid_wire_protocol gate 是 fail-fast 非修复点  ## MUST 硬约束 … |
 | build/shadcn-infra-28.md | build | shadcn add 漏装 cva 依赖 | shadcn,cva,yarn,dependency,class-variance-authority | active | # shadcn add 漏装 cva 依赖  ## 触发场景 运行 `npx shadcn add` 批量添加组件后，… |
 | build/shadcn-infra-29.md | build | vite @ alias 手动配置 | vite,alias,resolve,shadcn,tsconfig | active | # vite @ alias 手动配置  ## 触发场景 使用 shadcn/ui 或其他假设存在 `@` 别名的库时，… |
 | build/trellis-02.md | build | Cargo workspace 重构门禁 | cargo,workspace,crate,build.rs,重构,门禁,下沉 | active | # Cargo Workspace 重构门禁  何时被读: 单 crate → cargo workspace 多 cr… |

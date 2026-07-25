@@ -1,26 +1,49 @@
 {
-  "ts": "2026-07-26T00:04:06",
-  "core_chars": 1730,
+  "ts": "2026-07-26T00:19:55",
+  "core_chars": 924,
   "budget": 1000,
   "problems": [
     {
-      "type": "over-budget",
-      "detail": "[超预算] core 1730 > 1000 字符 — 考虑降级: build/rule-05(804), i18n/rule-04(557), build/shadcn-infra-02(365)",
-      "size": 1730
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-05"
+      ],
+      "detail": "[断链] recall/build/rule-05: [[5-协议定义锚点]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "core/build/rule-05"
+        "recall/build/rule-05"
       ],
-      "detail": "[断链] core/build/rule-05: [[5-协议定义锚点]] ✗ 目标缺失"
+      "detail": "[断链] recall/build/rule-05: [[N×N-互转-路A-vs-路B]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "core/build/rule-05"
+        "recall/build/rule-06"
       ],
-      "detail": "[断链] core/build/rule-05: [[N×N-互转-路A-vs-路B]] ✗ 目标缺失"
+      "detail": "[断链] recall/build/rule-06: [[endpoint-跨协议回退分层]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-06"
+      ],
+      "detail": "[断链] recall/build/rule-06: [[is-valid-wire-protocol-gate-是-fail-fast-非修复点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-07"
+      ],
+      "detail": "[断链] recall/build/rule-07: [[新增-wire-protocol-必须同步白名单]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-07"
+      ],
+      "detail": "[断链] recall/build/rule-07: [[bug1-真相]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -77,6 +100,20 @@
         "recall/domain/rule-54"
       ],
       "detail": "[断链] recall/domain/rule-54: [[新增-wire-protocol-必须同步白名单]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-55"
+      ],
+      "detail": "[断链] recall/domain/rule-55: [[converter-5×5-与-endpoint-选择解耦]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-55"
+      ],
+      "detail": "[断链] recall/domain/rule-55: [[is-valid-wire-protocol-gate-是-fail-fast-非修复点]] ✗ 目标缺失"
     }
   ]
 }

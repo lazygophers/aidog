@@ -1,0 +1,1072 @@
+<!DOCTYPE html>
+<html lang="en" data-mode="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AiDog Design Specimen · Mono 金蓝流沙玻璃</title>
+  <style>
+    /* === Mono Theme Variables === */
+    :root {
+      /* Semantic colors (theme-independent) */
+      --color-success: #2faa55;
+      --color-success-bg: rgba(52, 199, 89, 0.14);
+      --color-warning: #d98a13;
+      --color-warning-bg: rgba(255, 159, 10, 0.16);
+      --color-danger: #e0322b;
+      --color-danger-bg: rgba(255, 59, 48, 0.14);
+      --color-neutral: var(--text-secondary);
+      --color-neutral-bg: var(--bg-glass);
+
+      /* Token aliases */
+      --text-primary: var(--foreground);
+      --text-secondary: var(--muted-foreground);
+      --text-tertiary: var(--muted-foreground);
+      --text-on-accent: var(--primary-foreground);
+      --bg-base: var(--background);
+      --bg-elevated: var(--card);
+      --bg-floating: var(--popover);
+      --bg-surface: var(--card);
+      --bg-glass: var(--card);
+      --bg-glass-hover: var(--accent);
+      --shadow-rgb: var(--shadow-color, 0, 0, 0);
+      --glass-edge: var(--border);
+      --accent-hover: var(--primary);
+      --accent-subtle: color-mix(in srgb, var(--primary) 13%, transparent);
+      --border-focus: var(--ring);
+    }
+
+    :root[data-mode="light"] {
+      /* Structure */
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+      --glass-blur: 24px;
+      --glass-saturate: 1.8;
+      --shadow-sm: 0 1px 2px rgba(var(--shadow-rgb), 0.05);
+      --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 4px 12px rgba(var(--shadow-rgb), 0.09), 0 1px 3px rgba(var(--shadow-rgb), 0.05);
+      --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 8px 24px rgba(var(--shadow-rgb), 0.11), 0 2px 6px rgba(var(--shadow-rgb), 0.06);
+      --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      --app-bg-overlay: radial-gradient(72% 52% at 50% -10%, rgba(0, 135, 235, 0.12), transparent 62%), radial-gradient(52% 44% at 90% 6%, rgba(255, 217, 138, 0.14), transparent 60%), radial-gradient(60% 50% at 6% 100%, rgba(120, 140, 220, 0.14), transparent 64%);
+
+      /* Colors */
+      --background: #eef1fb;
+      --foreground: #111827;
+      --card: #f8faff;
+      --card-foreground: #111827;
+      --popover: #ffffff;
+      --popover-foreground: #111827;
+      --primary: #0087eb;
+      --primary-foreground: #ffffff;
+      --secondary: #e4ecfb;
+      --secondary-foreground: #111827;
+      --muted: #e4ecfb;
+      --muted-foreground: #5a6478;
+      --accent: #fac76c;
+      --accent-foreground: #8a6a1e;
+      --destructive: #e0644a;
+      --destructive-foreground: #ffffff;
+      --border: rgba(80, 100, 160, 0.16);
+      --input: rgba(17, 24, 39, 0.12);
+      --ring: rgba(0, 135, 235, 0.40);
+      --shadow-color: 80, 100, 160;
+    }
+
+    :root[data-mode="dark"] {
+      /* Structure */
+      --radius-sm: 10px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-xl: 28px;
+      --glass-blur: 24px;
+      --glass-saturate: 1.5;
+      --shadow-sm: 0 1px 2px rgba(var(--shadow-rgb), 0.30);
+      --shadow-md: 0 4px 12px rgba(var(--shadow-rgb), 0.36), 0 1px 3px rgba(var(--shadow-rgb), 0.24);
+      --shadow-lg: 0 8px 24px rgba(var(--shadow-rgb), 0.44), 0 2px 6px rgba(var(--shadow-rgb), 0.28);
+      --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      --app-bg-overlay: radial-gradient(80% 50% at 50% -12%, rgba(255, 217, 138, 0.10), transparent 60%), radial-gradient(56% 42% at 10% 20%, rgba(59, 160, 255, 0.08), transparent 58%);
+
+      /* Colors */
+      --background: #0a0a0c;
+      --foreground: #ededf0;
+      --card: #161619;
+      --card-foreground: #ededf0;
+      --popover: #1c1c20;
+      --popover-foreground: #ededf0;
+      --primary: #ffd98a;
+      --primary-foreground: #1a1206;
+      --secondary: #1c1c20;
+      --secondary-foreground: #ededf0;
+      --muted: #1c1c20;
+      --muted-foreground: #9a9aa3;
+      --accent: #20242c;
+      --accent-foreground: #7cc0ff;
+      --destructive: #e0644a;
+      --destructive-foreground: #ffffff;
+      --border: rgba(255, 255, 255, 0.08);
+      --input: rgba(255, 255, 255, 0.10);
+      --ring: rgba(255, 217, 138, 0.45);
+      --shadow-color: 0, 0, 0;
+    }
+
+    /* === Base === */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      background: var(--bg-base);
+      transition: background 400ms ease, color 400ms ease;
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: -6%;
+      z-index: -1;
+      pointer-events: none;
+      background: var(--app-bg-overlay);
+      background-repeat: no-repeat;
+      animation: bgShimmer 32s ease-in-out infinite alternate;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body::before { animation: none; }
+    }
+
+    /* === Keyframes === */
+    @keyframes bgShimmer {
+      0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.82; }
+      50% { transform: translate3d(-1.6%, 1.2%, 0) scale(1.05); opacity: 1; }
+      100% { transform: translate3d(1.4%, -1%, 0) scale(1.03); opacity: 0.9; }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    @keyframes slideInLeft {
+      from { opacity: 0; transform: translateX(-12px); }
+      to { opacity: 1; transform: none; }
+    }
+
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 8px var(--accent-subtle), var(--shadow-md); }
+      50% { box-shadow: 0 0 20px var(--accent-subtle), var(--shadow-lg); }
+    }
+
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+
+    @keyframes statusPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes flowBorder {
+      to { --flow-ang: 360deg; }
+    }
+
+    /* === Layout === */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 24px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+      padding: 20px 24px;
+      background: var(--bg-floating);
+      border: 1px solid var(--glass-edge);
+      border-radius: var(--radius-xl);
+      backdrop-filter: blur(20px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .spec-section {
+      margin-bottom: 32px;
+      padding: 24px;
+      background: var(--bg-surface);
+      border: 1px solid var(--glass-edge);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+      transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+
+    .spec-section:hover {
+      border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
+      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    }
+
+    .spec-section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text-primary);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 12px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
+    .grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+
+    /* === Flow Border (Blue-Gold Shimmer) === */
+    @property --flow-ang {
+      syntax: "<angle>";
+      inherits: false;
+      initial-value: 0deg;
+    }
+
+    .spec-section::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      background: conic-gradient(from var(--flow-ang), #3ba0ff, #ffd98a 40%, #b1e3ff 65%, #3ba0ff);
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      mask-composite: exclude;
+      opacity: 0;
+      transition: opacity 250ms ease;
+      pointer-events: none;
+    }
+
+    .spec-section:hover::after {
+      opacity: 0.9;
+      animation: flowBorder 3s linear infinite;
+    }
+
+    /* === Color Swatches === */
+    .swatch {
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-size: 11px;
+      font-family: monospace;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .swatch-preview {
+      height: 40px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+
+    .swatch-name {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .swatch-value {
+      color: var(--text-secondary);
+      font-size: 10px;
+    }
+
+    /* === Typography === */
+    .spec-section h1, .spec-section h3, .spec-section h4 {
+      margin-bottom: 8px;
+    }
+    .spec-section h1 { font-size: 32px; }
+    .spec-section h3 { font-size: 20px; }
+    .spec-section h4 { font-size: 16px; }
+    .spec-section p { margin-bottom: 12px; }
+    .spec-section .muted { color: var(--text-secondary); }
+    .spec-section .caption { font-size: 12px; color: var(--text-tertiary); }
+    .spec-section code {
+      background: var(--accent-subtle);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "SF Mono", monospace;
+      font-size: 12px;
+    }
+    .spec-section pre {
+      background: var(--bg-base);
+      padding: 14px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      overflow-x: auto;
+      font-family: "SF Mono", monospace;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    /* === Buttons === */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-glass);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+      white-space: nowrap;
+    }
+
+    .btn:hover {
+      background: var(--bg-glass-hover);
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+
+    .btn:active { transform: translateY(0) scale(0.97); }
+
+    .btn-primary {
+      background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 92%, #fff), var(--primary));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      color: #fff;
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    .btn-primary:hover {
+      background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 84%, #fff), color-mix(in srgb, var(--primary) 96%, #fff));
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+    }
+
+    .btn-danger {
+      color: var(--color-danger);
+      border-color: color-mix(in srgb, var(--color-danger) 25%, transparent);
+    }
+
+    .btn-danger:hover {
+      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+      border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border-color: transparent;
+    }
+
+    .btn-ghost:hover { background: var(--accent-subtle); }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* === Forms === */
+    .input {
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-glass);
+      color: var(--text-primary);
+      font-size: 13px;
+      outline: none;
+      transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+      width: 100%;
+    }
+
+    .input:focus {
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px var(--accent-subtle);
+      background: var(--bg-surface);
+    }
+
+    .input::placeholder { color: var(--text-tertiary); }
+
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      border-radius: 11px;
+      background: var(--bg-glass);
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .toggle.active {
+      background: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .toggle::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+      box-shadow: 0 1px 3px rgba(var(--shadow-rgb), 0.35);
+    }
+
+    .toggle.active::after { transform: translateX(18px); }
+
+    /* === Status Indicators === */
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot-active {
+      background: var(--color-success);
+      box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
+      animation: statusPulse 2s ease-in-out infinite;
+    }
+
+    .status-dot-inactive { background: var(--text-tertiary); }
+
+    /* === Skeleton === */
+    .skeleton {
+      display: inline-block;
+      border-radius: var(--radius-sm);
+      background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-glass-hover) 37%, var(--bg-glass) 63%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s ease-in-out infinite;
+    }
+
+    /* === Badge === */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .badge-accent { background: var(--accent-subtle); color: var(--accent); }
+    .badge-muted { background: var(--bg-glass); color: var(--text-secondary); }
+    .badge-success { background: var(--color-success-bg); color: var(--color-success); }
+    .badge-warning { background: var(--color-warning-bg); color: var(--color-warning); }
+    .badge-danger { background: var(--color-danger-bg); color: var(--color-danger); }
+
+    /* === Alert === */
+    .alert {
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .alert-success { background: var(--color-success-bg); border-color: var(--color-success); }
+    .alert-warning { background: var(--color-warning-bg); border-color: var(--color-warning); }
+    .alert-danger { background: var(--color-danger-bg); border-color: var(--color-danger); }
+
+    /* === Toast === */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .toast {
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      border: 1px solid var(--border);
+      background: var(--bg-floating);
+      box-shadow: var(--shadow-lg);
+      animation: fadeIn 300ms ease both;
+    }
+
+    /* === Tables === */
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .table th, .table td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .table th {
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .table tbody tr:hover {
+      background: var(--accent-subtle);
+    }
+
+    /* === Accordion === */
+    .accordion-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      margin-bottom: 8px;
+      overflow: hidden;
+    }
+
+    .accordion-header {
+      padding: 10px 14px;
+      background: var(--bg-surface);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 500;
+    }
+
+    .accordion-header:hover { background: var(--accent-subtle); }
+
+    .accordion-content {
+      padding: 0 14px;
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 200ms ease, padding 200ms ease;
+    }
+
+    .accordion-item.open .accordion-content {
+      padding: 10px 14px;
+      max-height: 200px;
+    }
+
+    /* === Tabs === */
+    .tabs {
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .tab {
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      color: var(--text-secondary);
+      transition: all 200ms ease;
+    }
+
+    .tab:hover { color: var(--text-primary); }
+    .tab.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+    }
+
+    /* === Charts === */
+    .chart-container {
+      width: 100%;
+      height: 160px;
+      position: relative;
+    }
+
+    .chart-svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Spinner */
+    .spinner {
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .spinner-sm { width: 12px; height: 12px; }
+    .spinner-lg { width: 24px; height: 24px; }
+
+    /* Progress */
+    .progress-bar {
+      height: 8px;
+      background: var(--bg-base);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 4px;
+      transition: width 300ms ease;
+    }
+
+    /* Animation classes */
+    .animate-fade-in { animation: fadeIn 350ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+    .animate-slide-in { animation: slideInLeft 300ms cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+    /* Color scale */
+    .color-scale {
+      height: 20px;
+      border-radius: 4px;
+      display: flex;
+    }
+
+    .color-scale-segment { flex: 1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>AiDog Design Specimen</h1>
+        <div class="subtitle">Mono 金蓝流沙玻璃 · Light/Dark 双模切换</div>
+      </div>
+      <button id="modeToggle" class="btn btn-primary">🌙 Light Mode</button>
+    </header>
+
+    <!-- 1. Color Palette -->
+    <section class="spec-section">
+      <h2>1. 色板</h2>
+      <div class="grid">
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--primary); color: var(--primary-foreground);">Primary</div>
+          <div class="swatch-name">primary</div>
+          <div class="swatch-value">light:#0087eb / dark:#ffd98a</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--accent); color: var(--accent-foreground);">Accent</div>
+          <div class="swatch-name">accent</div>
+          <div class="swatch-value">light:#fac76c / dark:#20242c</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--secondary); color: var(--secondary-foreground);">Secondary</div>
+          <div class="swatch-name">secondary</div>
+          <div class="swatch-value">light:#e4ecfb / dark:#1c1c20</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--muted); color: var(--muted-foreground);">Muted</div>
+          <div class="swatch-name">muted</div>
+          <div class="swatch-value">light:#e4ecfb / dark:#1c1c20</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--destructive); color: var(--destructive-foreground);">Destructive</div>
+          <div class="swatch-name">destructive</div>
+          <div class="swatch-value">#e0644a</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--color-success);">Success</div>
+          <div class="swatch-name">success</div>
+          <div class="swatch-value">#2faa55</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--color-warning);">Warning</div>
+          <div class="swatch-name">warning</div>
+          <div class="swatch-value">#d98a13</div>
+        </div>
+        <div class="swatch">
+          <div class="swatch-preview" style="background: var(--color-danger);">Danger</div>
+          <div class="swatch-name">danger</div>
+          <div class="swatch-value">#e0322b</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Typography -->
+    <section class="spec-section">
+      <h2>2. 排版</h2>
+      <h1>Heading 1</h1>
+      <h3>Heading 3</h3>
+      <h4>Heading 4</h4>
+      <p>正文文本：The quick brown fox jumps over the lazy dog. 理想情况下，设计系统应该提供一致的视觉语言。</p>
+      <p class="muted">次要文本：Muted text color for less emphasis.</p>
+      <p class="caption">说明文字：Caption text for metadata and timestamps.</p>
+      <p><code>inline code</code> 示例</p>
+      <pre>pre {
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  padding: 14px;
+  border-radius: var(--radius-sm);
+}</pre>
+    </section>
+
+    <!-- 3. Buttons -->
+    <section class="spec-section">
+      <h2>3. 按钮</h2>
+      <div class="row">
+        <button class="btn">Default</button>
+        <button class="btn btn-primary">Primary</button>
+        <button class="btn btn-danger">Danger</button>
+        <button class="btn btn-ghost">Ghost</button>
+        <button class="btn" disabled>Disabled</button>
+        <button class="btn">
+          <div class="spinner spinner-sm"></div>
+          Loading
+        </button>
+      </div>
+    </section>
+
+    <!-- 4. Forms -->
+    <section class="spec-section">
+      <h2>4. 表单</h2>
+      <div class="grid-2">
+        <div>
+          <label style="display:block;margin-bottom:6px;font-size:13px;">输入框</label>
+          <input type="text" class="input" placeholder="输入内容...">
+          <p class="caption" style="margin-top:4px;">Focus 时显示 ring 光晕</p>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:6px;font-size:13px;">选择框</label>
+          <select class="input">
+            <option>选项 1</option>
+            <option>选项 2</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:6px;font-size:13px;">复选框</label>
+          <div class="row">
+            <label class="row"><input type="checkbox"> 选项 A</label>
+            <label class="row"><input type="checkbox" checked> 选项 B</label>
+          </div>
+        </div>
+        <div>
+          <label style="display:block;margin-bottom:6px;font-size:13px;">开关</label>
+          <div class="row">
+            <div class="toggle" onclick="this.classList.toggle('active')"></div>
+            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+          </div>
+        </div>
+        <div style="grid-column: span 2;">
+          <label style="display:block;margin-bottom:6px;font-size:13px;">滑块</label>
+          <input type="range" style="width:100%;accent-color:var(--accent);">
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. Feedback -->
+    <section class="spec-section">
+      <h2>5. 反馈</h2>
+      <div class="grid-2">
+        <div>
+          <h4>Alerts</h4>
+          <div class="alert alert-success" style="margin-bottom:8px;">✓ Success message</div>
+          <div class="alert alert-warning" style="margin-bottom:8px;">⚠ Warning message</div>
+          <div class="alert alert-danger">✖ Error message</div>
+        </div>
+        <div>
+          <h4>Spinners</h4>
+          <div class="row">
+            <div class="spinner spinner-sm"></div>
+            <div class="spinner"></div>
+            <div class="spinner spinner-lg"></div>
+          </div>
+          <h4 style="margin-top:12px;">Skeleton</h4>
+          <div class="skeleton" style="width:120px;height:16px;"></div>
+          <div class="skeleton" style="width:200px;height:16px;margin-top:4px;"></div>
+        </div>
+      </div>
+      <div style="margin-top:16px;">
+        <h4>Progress</h4>
+        <div class="progress-bar" style="margin-bottom:8px;">
+          <div class="progress-fill" style="width:35%;"></div>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" style="width:75%;"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Navigation -->
+    <section class="spec-section">
+      <h2>6. 导航</h2>
+      <div class="tabs">
+        <div class="tab active" onclick="switchTab(this)">Tab 1</div>
+        <div class="tab" onclick="switchTab(this)">Tab 2</div>
+        <div class="tab" onclick="switchTab(this)">Tab 3</div>
+      </div>
+      <p class="caption">面包屑：Home / Settings / Groups</p>
+    </section>
+
+    <!-- 7. Data -->
+    <section class="spec-section">
+      <h2>7. 数据展示</h2>
+      <div class="row" style="margin-bottom:16px;">
+        <span class="badge badge-accent">Accent</span>
+        <span class="badge badge-muted">Muted</span>
+        <span class="badge badge-success">Success</span>
+        <span class="badge badge-warning">Warning</span>
+        <span class="badge badge-danger">Danger</span>
+      </div>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>平台</th>
+            <th>状态</th>
+            <th>用量</th>
+            <th>余额</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Anthropic</td>
+            <td><span class="status-dot status-dot-active"></span> 在线</td>
+            <td>$12.34</td>
+            <td>$87.66</td>
+          </tr>
+          <tr>
+            <td>OpenAI</td>
+            <td><span class="status-dot status-dot-active"></span> 在线</td>
+            <td>$45.67</td>
+            <td>$54.33</td>
+          </tr>
+          <tr>
+            <td>GLM</td>
+            <td><span class="status-dot status-dot-inactive"></span> 离线</td>
+            <td>$0.00</td>
+            <td>$100.00</td>
+          </tr>
+        </tbody>
+      </table>
+      <div style="margin-top:16px;">
+        <div class="accordion-item">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>折叠项 1</span>
+            <span>▼</span>
+          </div>
+          <div class="accordion-content">
+            <p>折叠内容区域，点击头部展开/收起。</p>
+          </div>
+        </div>
+        <div class="accordion-item">
+          <div class="accordion-header" onclick="toggleAccordion(this)">
+            <span>折叠项 2</span>
+            <span>▼</span>
+          </div>
+          <div class="accordion-content">
+            <p>第二个折叠项的内容。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 8. Animations -->
+    <section class="spec-section">
+      <h2>8. 动效</h2>
+      <div class="row">
+        <button class="btn" onclick="triggerAnimation(this, 'animate-fade-in')">Fade In</button>
+        <button class="btn" onclick="triggerAnimation(this, 'animate-slide-in')">Slide In</button>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <div>
+          <p class="caption">脉冲光晕</p>
+          <div class="status-dot status-dot-active" style="width:20px;height:20px;"></div>
+        </div>
+        <div>
+          <p class="caption">Spinner 旋转</p>
+          <div class="spinner"></div>
+        </div>
+        <div>
+          <p class="caption">Shimmer 骨架</p>
+          <div class="skeleton" style="width:80px;height:20px;"></div>
+        </div>
+      </div>
+      <p class="caption" style="margin-top:12px;">背景流光动画(bgShimmer)在 body::before 层持续运行</p>
+    </section>
+
+    <!-- 9. Charts -->
+    <section class="spec-section">
+      <h2>9. 图表</h2>
+      <div class="grid-3">
+        <div>
+          <h4>趋势折线</h4>
+          <div class="chart-container" id="lineChart"></div>
+        </div>
+        <div>
+          <h4>环形进度</h4>
+          <div class="chart-container" id="ringChart"></div>
+        </div>
+        <div>
+          <h4>色阶条</h4>
+          <div style="margin-top:8px;">
+            <div class="color-scale">
+              <div class="color-scale-segment" style="background:var(--color-success);"></div>
+              <div class="color-scale-segment" style="background:var(--color-warning);"></div>
+              <div class="color-scale-segment" style="background:var(--color-danger);"></div>
+              <div class="color-scale-segment" style="background:var(--text-secondary);"></div>
+            </div>
+            <p class="caption">Success / Warning / Danger / Neutral</p>
+          </div>
+          <h4 style="margin-top:16px;">用量速率条</h4>
+          <div style="height:12px;border-radius:6px;background:linear-gradient(90deg,#2faa55 0%,#d98a13 60%,#e0322b 100%);"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script>
+    // === Mode Toggle ===
+    const modeToggle = document.getElementById('modeToggle');
+    const html = document.documentElement;
+
+    // Load saved mode
+    const savedMode = localStorage.getItem('aidog-theme-mode') || 'dark';
+    html.dataset.mode = savedMode;
+    updateModeButton();
+
+    modeToggle.addEventListener('click', () => {
+      const current = html.dataset.mode;
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.dataset.mode = next;
+      localStorage.setItem('aidog-theme-mode', next);
+      updateModeButton();
+      showToast(`Switched to ${next === 'dark' ? '🌙 Dark' : '☀️ Light'} Mode`);
+    });
+
+    function updateModeButton() {
+      const isDark = html.dataset.mode === 'dark';
+      modeToggle.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
+    }
+
+    // === Tabs ===
+    function switchTab(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    }
+
+    // === Accordion ===
+    function toggleAccordion(header) {
+      const item = header.parentElement;
+      item.classList.toggle('open');
+      const arrow = header.querySelector('span:last-child');
+      arrow.textContent = item.classList.contains('open') ? '▲' : '▼';
+    }
+
+    // === Animation Trigger ===
+    function triggerAnimation(btn, animClass) {
+      btn.classList.remove(animClass);
+      void btn.offsetWidth; // Reflow
+      btn.classList.add(animClass);
+    }
+
+    // === Toast ===
+    function showToast(message) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => toast.remove(), 3000);
+    }
+
+    // === Chart Generation (smoothPath from utils/chart.ts) ===
+    function smoothPath(points, clampMin, clampMax) {
+      if (points.length < 3) {
+        return points.map((p, i) =>
+          `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`
+        ).join(' ');
+      }
+      const clampY = (v) => Math.min(clampMax, Math.max(clampMin, v));
+      let d = `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
+      for (let i = 0; i < points.length - 1; i++) {
+        const p0 = points[i === 0 ? 0 : i - 1];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[i + 2 < points.length ? i + 2 : points.length - 1];
+        const c1x = p1.x + (p2.x - p0.x) / 6;
+        const c1y = clampY(p1.y + (p2.y - p0.y) / 6);
+        const c2x = p2.x - (p3.x - p1.x) / 6;
+        const c2y = clampY(p2.y - (p3.y - p1.y) / 6);
+        d += ` C ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+      }
+      return d;
+    }
+
+    // === Line Chart ===
+    const linePoints = [
+      {x: 0, y: 120}, {x: 40, y: 80}, {x: 80, y: 100},
+      {x: 120, y: 40}, {x: 160, y: 60}, {x: 200, y: 20},
+      {x: 240, y: 50}, {x: 280, y: 90}
+    ];
+    const linePath = smoothPath(linePoints, 0, 140);
+    document.getElementById('lineChart').innerHTML = `
+      <svg class="chart-svg" viewBox="0 0 300 160">
+        <defs>
+          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:var(--primary);stop-opacity:0.3"/>
+            <stop offset="100%" style="stop-color:var(--primary);stop-opacity:0"/>
+          </linearGradient>
+        </defs>
+        <path d="${linePath} L 280,160 L 0,160 Z" fill="url(#lineGrad)" stroke="none"/>
+        <path d="${linePath}" fill="none" stroke="var(--primary)" stroke-width="2"/>
+        ${linePoints.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--primary)"/>`).join('')}
+      </svg>
+    `;
+
+    // === Ring Chart ===
+    const ringProgress = 72;
+    const radius = 50;
+    const circumference = 2 * Math.PI * radius;
+    const offset = circumference * (1 - ringProgress / 100);
+    document.getElementById('ringChart').innerHTML = `
+      <svg class="chart-svg" viewBox="0 0 120 120">
+        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="var(--bg-base)" stroke-width="8"/>
+        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="var(--primary)" stroke-width="8"
+          stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
+          transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 500ms ease"/>
+        <text x="60" y="65" text-anchor="middle" font-size="24" font-weight="600" fill="var(--text-primary)">${ringProgress}%</text>
+      </svg>
+    `;
+
+    // === Initial Toast ===
+    setTimeout(() => showToast('Welcome to AiDog Design Specimen'), 500);
+  </script>
+</body>
+</html>
