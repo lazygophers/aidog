@@ -4,7 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Design System · 萤火虫配色规范</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="css/tokens.css">
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/motion.css">
 </head>
 <body>
   <div class="container">
@@ -360,12 +363,29 @@
       </div>
 
       <div class="section">
-        <div class="section-title">DatePicker · 日期选择（color-scheme 适配双主题）</div>
-        <div class="card"><div class="row" style="margin-bottom:0">
-          <input type="date" class="input">
-          <input type="datetime-local" class="input">
-          <input type="month" class="input">
-          <input type="time" class="input">
+        <div class="section-title">DatePicker · 日期选择（纯 JS 自定义日历 · 全主题可控）</div>
+        <div class="card"><div class="row" style="align-items:flex-start">
+          <div class="datepicker" data-datepicker>
+            <div class="datepicker-input placeholder" onclick="toggleDatepicker(this.parentElement)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              <span class="datepicker-value">选择日期</span>
+            </div>
+            <div class="datepicker-panel"></div>
+          </div>
+          <div class="datepicker" data-datepicker data-with-time>
+            <div class="datepicker-input placeholder" onclick="toggleDatepicker(this.parentElement)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              <span class="datepicker-value">日期 + 时间</span>
+            </div>
+            <div class="datepicker-panel"></div>
+          </div>
+          <div class="datepicker" data-datepicker data-month-only>
+            <div class="datepicker-input placeholder" onclick="toggleDatepicker(this.parentElement)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+              <span class="datepicker-value">选择月份</span>
+            </div>
+            <div class="datepicker-panel"></div>
+          </div>
         </div></div>
       </div>
 
@@ -727,24 +747,10 @@
     <button class="btn btn-primary btn-block" onclick="closeDrawer('demoDrawer')">提交</button>
   </div>
 
-  <script src="app.js"></script>
-  <script>
-    // 热力图渲染（7×14 网格，随机透明度 accent）
-    (function renderHeatmap() {
-      const g = document.getElementById('heatmap-cells');
-      if (!g) return;
-      const cols = 14, rows = 7, cell = 18, gap = 2;
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        const v = Math.random();
-        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rect.setAttribute('x', c * (cell + gap));
-        rect.setAttribute('y', r * (cell + gap));
-        rect.setAttribute('width', cell); rect.setAttribute('height', cell); rect.setAttribute('rx', 3);
-        rect.setAttribute('fill', 'var(--accent)');
-        rect.setAttribute('opacity', v * 0.9 + 0.05);
-        g.appendChild(rect);
-      }
-    })();
-  </script>
+  <script src="js/theme.js"></script>
+  <script src="js/tabs.js"></script>
+  <script src="js/components.js"></script>
+  <script src="js/datepicker.js"></script>
+  <script src="js/motion.js"></script>
 </body>
 </html>
