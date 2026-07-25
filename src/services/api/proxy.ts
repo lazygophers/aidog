@@ -50,8 +50,8 @@ export const proxyLogApi = {
     invoke<void>("proxy_log_settings_set", { settings }),
 };
 
-// ─── Request Log API (cli-proxy test/quota/fetch-models page) ───────────
-// request_log_list 后端默认 sources=[test,quota,fetch-models]（db 层兜底；filter.sources=None 时）。
+// ─── Request Log API (cli-proxy test/quota page) ───────────
+// request_log_list 后端默认 sources=[test,quota]（db 层兜底；filter.sources=None 时）。
 // filter 显式传 sources（含空 Vec）则尊重前端值。返回 RequestLogSummary（含 provider 归属）。
 
 export const requestLogApi = {
