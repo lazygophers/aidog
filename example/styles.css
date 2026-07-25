@@ -3,6 +3,7 @@
 
 /* ===== Light Mode: 奶油纸白 + 萤火虫暖光 ===== */
 :root[data-theme="light"] {
+  color-scheme: light;
   --bg: #ffffff;
   --bg-elevated: #faf8f5;
   --bg-hover: #f5f2ed;
@@ -36,6 +37,7 @@
 
 /* ===== Dark Mode: 纯黑 + 萤火虫微光 ===== */
 :root[data-theme="dark"] {
+  color-scheme: dark;
   --bg: #000000;
   --bg-elevated: #0c0c0c;
   --bg-hover: #1a1a1a;
@@ -200,6 +202,13 @@ body {
 }
 .input:focus, .textarea:focus, .select:focus { border-color: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-subtle); }
 .input::placeholder, .textarea::placeholder { color: var(--text-tertiary); }
+/* date/time 控件的日历图标跟随主题（dark 下反色） */
+:root[data-theme="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator,
+:root[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.85); }
+/* select 多选 / date 输入框 dark 下 option 由 color-scheme 处理；输入框本身已用 CSS 变量 */
+.select option, input[type="date"], input[type="datetime-local"], input[type="month"] { background: var(--bg-elevated); color: var(--text); }
 .textarea { min-height: 80px; resize: vertical; min-width: 280px; }
 .select { appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; }
 .input-group { display: inline-flex; align-items: stretch; }
@@ -435,7 +444,56 @@ body {
 @keyframes animScale { from{opacity:0;transform:scale(0.88)} to{opacity:1;transform:scale(1)} }
 @keyframes animBounce { 0%{opacity:0;transform:scale(0.75)} 55%{transform:scale(1.06)} 100%{opacity:1;transform:scale(1)} }
 
-/* ===== 图表 ===== */
+/* ===== 进阶动效 ===== */
+.anim-rotate { animation: animRotate 1.4s linear infinite; }
+@keyframes animRotate { to { transform: rotate(360deg); } }
+.anim-pulse { animation: animPulse 1.6s ease-in-out infinite; }
+@keyframes animPulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.08);opacity:0.7} }
+.anim-blink { animation: animBlink 1.2s steps(2,start) infinite; }
+@keyframes animBlink { 50%{opacity:0.2} }
+.anim-float { animation: animFloat 2.8s ease-in-out infinite; }
+@keyframes animFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-10px)} }
+.anim-shake { animation: animShake 0.5s var(--ease-standard); }
+@keyframes animShake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }
+.anim-glow { animation: animGlow 2s ease-in-out infinite; }
+@keyframes animGlow { 0%,100%{box-shadow:0 0 6px var(--accent-glow)} 50%{box-shadow:0 0 22px var(--accent-glow),0 0 4px var(--accent)} }
+.anim-flip { animation: animFlip 700ms var(--ease-out); transform-style:preserve-3d; }
+@keyframes animFlip { from{transform:perspective(400px) rotateY(90deg);opacity:0} to{transform:perspective(400px) rotateY(0);opacity:1} }
+.anim-typewriter { display:inline-block; overflow:hidden; white-space:nowrap; border-right:2px solid var(--accent); animation: typing 2.4s steps(20,end) both, blinkCaret 0.7s step-end infinite; }
+@keyframes typing { from{width:0} to{width:100%} }
+@keyframes blinkCaret { 50%{border-color:transparent} }
+.anim-barber { background: repeating-linear-gradient(45deg, var(--accent) 0, var(--accent) 10px, var(--accent-soft) 10px, var(--accent-soft) 20px); background-size: 200% 100%; animation: barberMove 1s linear infinite; }
+@keyframes barberMove { from{background-position:0 0} to{background-position:28px 0} }
+.anim-skeleton-wave { background: linear-gradient(90deg, var(--bg-hover) 25%, var(--border-strong) 37%, var(--bg-hover) 63%); background-size: 400% 100%; animation: skeletonWave 1.4s ease infinite; }
+@keyframes skeletonWave { 0%{background-position:100% 50%} 100%{background-position:0 50%} }
+
+/* 数字滚动 */
+.counter { font-variant-numeric: tabular-nums; }
+
+/* Ripple 按钮 */
+.ripple { position: relative; overflow: hidden; }
+.ripple-wave { position: absolute; border-radius: 50%; background: rgba(255,255,255,0.4); transform: scale(0); animation: rippleOut 600ms var(--ease-out); pointer-events: none; }
+:root[data-theme="dark"] .ripple-wave { background: rgba(255,255,255,0.18); }
+@keyframes rippleOut { to { transform: scale(4); opacity: 0; } }
+
+/* Hover 卡片浮起 */
+.hover-lift { transition: transform var(--t-normal) var(--ease-out), box-shadow var(--t-normal) var(--ease-out); }
+.hover-lift:hover { transform: translateY(-4px); box-shadow: var(--shadow-lg); }
+
+/* 滚动揭示 */
+.reveal { opacity: 0; transform: translateY(20px); transition: opacity 600ms var(--ease-out), transform 600ms var(--ease-out); }
+.reveal.in { opacity: 1; transform: none; }
+
+/* 渐变边框流动（霓虹） */
+.neon-border { position: relative; background: var(--bg-elevated); border-radius: var(--radius-md); }
+.neon-border::before { content:""; position:absolute; inset:-2px; border-radius:inherit; background: conic-gradient(from 0deg, var(--accent), var(--chart-2), var(--chart-4), var(--accent)); z-index:-1; animation: neonSpin 3s linear infinite; }
+@keyframes neonSpin { to { transform: rotate(360deg); } }
+
+/* 进度条流光（可选，加 .striped 类启用） */
+.progress-fill.striped { background-image: linear-gradient(45deg, rgba(255,255,255,0.25) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.25) 50%, rgba(255,255,255,0.25) 75%, transparent 75%) !important; background-size: 20px 20px; animation: progressStripes 0.6s linear infinite; }
+@keyframes progressStripes { from{background-position:0 0} to{background-position:20px 0} }
+
+/* 图表 ===== */
 .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
 .chart-card { background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; }
 .chart-card h4 { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 18px; text-transform: uppercase; letter-spacing: 0.06em; }

@@ -100,3 +100,48 @@ document.addEventListener('click', (e) => {
 
 // Tag removable
 function removeTag(el) { el.remove(); }
+
+// Ripple — 按钮点击涟漪
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.ripple');
+  if (!btn) return;
+  const r = btn.getBoundingClientRect();
+  const wave = document.createElement('span');
+  wave.className = 'ripple-wave';
+  const size = Math.max(r.width, r.height);
+  wave.style.width = wave.style.height = size + 'px';
+  wave.style.left = (e.clientX - r.left - size / 2) + 'px';
+  wave.style.top = (e.clientY - r.top - size / 2) + 'px';
+  btn.appendChild(wave);
+  setTimeout(() => wave.remove(), 600);
+});
+
+// Counter — 数字滚动（IntersectionObserver 触发一次）
+function animateCounter(el) {
+  const target = parseFloat(el.dataset.target);
+  const decimals = parseInt(el.dataset.decimals || '0', 10);
+  const dur = 1200;
+  const start = performance.now();
+  function tick(now) {
+    const p = Math.min((now - start) / dur, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    const val = target * eased;
+    el.textContent = decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString();
+    if (p < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+document.addEventListener('DOMContentLoaded', () => {
+  const counterObs = new IntersectionObserver((entries) => {
+    entries.forEach((en) => { if (en.isIntersecting) { animateCounter(en.target); counterObs.unobserve(en.target); } });
+  }, { threshold: 0.3 });
+  document.querySelectorAll('.counter[data-target]').forEach((el) => counterObs.observe(el));
+
+  // Reveal — 滚动揭示
+  const revealObs = new IntersectionObserver((entries) => {
+    entries.forEach((en, i) => {
+      if (en.isIntersecting) { setTimeout(() => en.target.classList.add('in'), i * 120); revealObs.unobserve(en.target); }
+    });
+  }, { threshold: 0.15 });
+  document.querySelectorAll('.reveal').forEach((el) => revealObs.observe(el));
+});

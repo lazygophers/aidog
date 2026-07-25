@@ -470,15 +470,88 @@
           <div class="motion-item" onclick="triggerAnim(this,'anim-slide')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>slide 滑入</p></div>
           <div class="motion-item" onclick="triggerAnim(this,'anim-scale')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>scale 缩放</p></div>
           <div class="motion-item" onclick="triggerAnim(this,'anim-bounce')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>bounce 弹跳</p></div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-flip')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>flip 翻转</p></div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-shake')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--chart-2)"></div></div><p>shake 抖动</p></div>
         </div>
       </div>
+
       <div class="section">
-        <div class="section-title">状态脉冲</div>
-        <div class="card"><div class="row" style="margin-bottom:0">
-          <div style="display:flex;align-items:center;gap:10px"><span class="status status-active" style="width:12px;height:12px"></span><span style="font-size:14px">运行中</span></div>
-          <div style="display:flex;align-items:center;gap:10px"><span class="status status-warning" style="width:12px;height:12px"></span><span style="font-size:14px">限流中</span></div>
-          <div style="display:flex;align-items:center;gap:10px"><span class="status status-inactive" style="width:12px;height:12px"></span><span style="font-size:14px;color:var(--text-secondary)">已停止</span></div>
-        </div></div>
+        <div class="section-title">持续动效（自动循环）</div>
+        <div class="motion-grid">
+          <div class="motion-item"><div class="motion-stage"><div style="width:40px;height:40px;border-radius:50%;background:var(--accent)" class="anim-pulse"></div></div><p>pulse 心跳</p></div>
+          <div class="motion-item"><div class="motion-stage"><div style="width:40px;height:40px;border-radius:8px;background:var(--chart-3)" class="anim-float"></div></div><p>float 漂浮</p></div>
+          <div class="motion-item"><div class="motion-stage"><div style="width:40px;height:40px;border-radius:8px;background:var(--chart-4)" class="anim-rotate"></div></div><p>rotate 旋转</p></div>
+          <div class="motion-item"><div class="motion-stage"><div style="width:40px;height:40px;border-radius:50%;background:var(--danger)" class="anim-blink"></div></div><p>blink 闪烁</p></div>
+          <div class="motion-item"><div class="motion-stage"><div style="width:48px;height:40px;border-radius:8px;background:var(--accent)" class="anim-glow"></div></div><p>glow 辉光</p></div>
+          <div class="motion-item"><div class="motion-stage"><div style="width:60px;height:20px;border-radius:4px" class="anim-barber"></div></div><p>barber 理发灯</p></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">文字打字机 + 涟漪按钮</div>
+        <div class="card">
+          <div class="anim-typewriter" style="margin-bottom:18px;font-size:15px;font-weight:500">萤火虫配色 · 设计系统 · 柔和莫兰迪</div>
+          <div class="row" style="margin-bottom:0">
+            <button class="btn btn-primary ripple">点击涟漪</button>
+            <button class="btn ripple">Default 涟漪</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">数字滚动 + 流光进度</div>
+        <div class="card">
+          <div class="row" style="margin-bottom:18px">
+            <div class="statistic"><span class="statistic-title">请求总数</span><span class="statistic-value counter" data-target="1248">0</span></div>
+            <div class="statistic"><span class="statistic-title">成功率</span><span class="statistic-value success counter" data-target="98.7" data-decimals="1">0</span><span class="statistic-suffix">%</span></div>
+            <div class="statistic"><span class="statistic-title">余额</span><span class="statistic-value accent"><span class="statistic-prefix">$</span><span class="counter" data-target="1024">0</span></span></div>
+          </div>
+          <div class="progress-line-label"><span>处理中（流光）</span><span>64%</span></div>
+          <div class="progress" style="margin-bottom:14px"><div class="progress-fill striped" style="width:64%"></div></div>
+          <div class="progress-line-label"><span>成功</span><span>100%</span></div>
+          <div class="progress"><div class="progress-fill success striped" style="width:100%"></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">霓虹边框 + Hover 浮起</div>
+        <div class="card">
+          <div class="row" style="margin-bottom:18px">
+            <div class="neon-border" style="padding:18px 24px;border-radius:var(--radius-md)"><div style="font-weight:600;font-size:14px">霓虹流光边框</div><div style="font-size:12px;color:var(--text-secondary);margin-top:4px">conic-gradient 旋转</div></div>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <div class="hover-lift" style="padding:16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg);min-width:140px;text-align:center"><div style="font-weight:600;font-size:13px">悬停浮起</div><div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">hover me</div></div>
+            <div class="hover-lift" style="padding:16px;border:1px solid var(--border);border-radius:var(--radius-md);background:var(--bg);min-width:140px;text-align:center"><div style="font-weight:600;font-size:13px">悬停浮起</div><div style="font-size:11px;color:var(--text-tertiary);margin-top:4px">hover me</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">滚动揭示（向下滚可见）</div>
+        <div class="card">
+          <div class="reveal" style="padding:14px;border-left:3px solid var(--accent);margin-bottom:10px">第一行 — 滚到此处淡入上移</div>
+          <div class="reveal" style="padding:14px;border-left:3px solid var(--chart-2);margin-bottom:10px">第二行 — 错峰入场</div>
+          <div class="reveal" style="padding:14px;border-left:3px solid var(--chart-3)">第三行 — 触发即播</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">骨架屏波浪 + 状态脉冲</div>
+        <div class="card">
+          <div style="display:flex;gap:16px;margin-bottom:18px">
+            <div class="anim-skeleton-wave" style="width:56px;height:56px;border-radius:50%;flex-shrink:0"></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+              <div class="anim-skeleton-wave" style="width:50%;height:16px;border-radius:4px"></div>
+              <div class="anim-skeleton-wave" style="width:100%;height:12px;border-radius:4px"></div>
+              <div class="anim-skeleton-wave" style="width:75%;height:12px;border-radius:4px"></div>
+            </div>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <div style="display:flex;align-items:center;gap:10px"><span class="status status-active" style="width:12px;height:12px"></span><span style="font-size:14px">运行中</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="status status-warning" style="width:12px;height:12px"></span><span style="font-size:14px">限流中</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="status status-inactive" style="width:12px;height:12px"></span><span style="font-size:14px;color:var(--text-secondary)">已停止</span></div>
+          </div>
+        </div>
       </div>
     </div>
 
