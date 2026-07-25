@@ -2,7 +2,7 @@
   "id": "endpoint-cross-protocol-fallback",
   "name": "endpoint 跨协议回退: 无同协议端点时回退 openai 经 converter 转换",
   "desc": "anthropic/gemini/openai_completions 入站 + 普通平台无同协议 endpoint 时, 回退 openai endpoint, converter 双向转; coding 平台排除(401 风险)",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "普通平台(无 coding 端点) source 无同协议 endpoint 时 MUST 回退 openai endpoint(若无 openai 取 endpoints 首个非 source 可用), converter 双向转(source→wire 请求 + wire→source 响应)",
@@ -41,6 +41,6 @@
   "created": 1784994866,
   "started": 1784994968,
   "checked": null,
-  "finished": null,
-  "updated": 1784994968
+  "finished": 1784995498,
+  "updated": 1784995498
 }
