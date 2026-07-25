@@ -65,7 +65,7 @@ deps: ## Install frontend dependencies
 .PHONY: install
 install: ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))…$(RESET)\n"
-	yarn tauri build
+	yarn tauri build --bundles app
 	@test -d "$(APP_BUNDLE)" || { printf "$(BOLD)❌ build 产物缺失: $(APP_BUNDLE)$(RESET)\n"; exit 1; }
 	@printf "$(GREEN)▶ 安装 → $(INSTALLED)$(RESET)\n"
 	@rm -rf "$(INSTALLED)"
