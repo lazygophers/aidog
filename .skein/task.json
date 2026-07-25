@@ -1,14 +1,6 @@
 {
   "tasks": [
     {
-      "id": "endpoint-cross-protocol-fallback",
-      "status": "进行中",
-      "deps": [],
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "accent-gold-deepen",
       "status": "已完成",
       "deps": [],
@@ -74,6 +66,14 @@
     },
     {
       "id": "dependabot-npm-bump",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "endpoint-cross-protocol-fallback",
       "status": "已完成",
       "deps": [],
       "worktree": null,
