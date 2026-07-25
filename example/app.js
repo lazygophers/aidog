@@ -101,6 +101,24 @@ document.addEventListener('click', (e) => {
 // Tag removable
 function removeTag(el) { el.remove(); }
 
+// Dropdown — 自定义 Select
+function toggleDropdown(dd) {
+  const wasOpen = dd.classList.contains('open');
+  document.querySelectorAll('.dropdown.open').forEach((d) => d.classList.remove('open'));
+  if (!wasOpen) dd.classList.add('open');
+}
+function pickDropdown(opt, label) {
+  const dd = opt.closest('.dropdown');
+  dd.querySelector('.dropdown-value').textContent = label;
+  dd.querySelectorAll('.dropdown-option').forEach((o) => o.classList.remove('selected'));
+  opt.classList.add('selected');
+  dd.classList.remove('open');
+}
+// 点外部关 dropdown
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.dropdown')) document.querySelectorAll('.dropdown.open').forEach((d) => d.classList.remove('open'));
+});
+
 // Ripple — 按钮点击涟漪
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.ripple');

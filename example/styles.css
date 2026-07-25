@@ -207,8 +207,53 @@ body {
 :root[data-theme="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
 :root[data-theme="dark"] input[type="month"]::-webkit-calendar-picker-indicator,
 :root[data-theme="dark"] input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.85); }
-/* select 多选 / date 输入框 dark 下 option 由 color-scheme 处理；输入框本身已用 CSS 变量 */
-.select option, input[type="date"], input[type="datetime-local"], input[type="month"] { background: var(--bg-elevated); color: var(--text); }
+/* date/time 输入框本身强制主题色（color-scheme 兜底 + 显式覆盖双保险） */
+input[type="date"], input[type="datetime-local"], input[type="month"], input[type="time"], input[type="week"] {
+  background: var(--bg-elevated); color: var(--text); color-scheme: light dark;
+}
+:root[data-theme="dark"] input[type="date"],
+:root[data-theme="dark"] input[type="datetime-local"],
+:root[data-theme="dark"] input[type="month"],
+:root[data-theme="dark"] input[type="time"],
+:root[data-theme="dark"] input[type="week"] { color-scheme: dark; }
+input[type="date"]::placeholder, input[type="datetime-local"]::placeholder { color: var(--text-tertiary); }
+
+/* ===== Checkbox / Radio 兜底（accent-color；appearance:none 为主） ===== */
+.checkbox, .radio { accent-color: var(--accent); }
+
+/* ===== Select — 纯 JS 自定义 dropdown（主题完全可控） ===== */
+.dropdown { position: relative; display: inline-block; min-width: 180px; }
+.dropdown-trigger {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 9px 14px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg-elevated); color: var(--text); font-size: 14px; cursor: pointer;
+  transition: all var(--t-fast) var(--ease-standard); min-width: 100%;
+}
+.dropdown-trigger:hover { border-color: var(--border-strong); background: var(--bg-hover); }
+.dropdown.open .dropdown-trigger { border-color: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-subtle); }
+.dropdown-arrow { transition: transform var(--t-normal); color: var(--text-tertiary); font-size: 12px; }
+.dropdown.open .dropdown-arrow { transform: rotate(180deg); }
+.dropdown-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; min-width: 100%;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md); padding: 4px; z-index: 50; max-height: 220px; overflow-y: auto;
+  opacity: 0; transform: translateY(-6px); pointer-events: none; transition: all var(--t-fast) var(--ease-out);
+}
+.dropdown.open .dropdown-menu { opacity: 1; transform: none; pointer-events: auto; }
+.dropdown-option {
+  padding: 8px 12px; border-radius: var(--radius-sm); font-size: 14px; cursor: pointer;
+  color: var(--text); transition: background var(--t-fast); display: flex; align-items: center; gap: 8px;
+}
+.dropdown-option:hover { background: var(--bg-hover); }
+.dropdown-option.selected { background: var(--accent-subtle); color: var(--accent); font-weight: 500; }
+.dropdown-option-check { opacity: 0; margin-left: auto; }
+.dropdown-option.selected .dropdown-option-check { opacity: 1; }
+.dropdown-placeholder { color: var(--text-tertiary); }
+
+/* Select 多选 → checkbox 列表（主题可控，替代原生 select multiple） */
+.check-list { display: flex; flex-direction: column; gap: 4px; padding: 8px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-elevated); min-width: 180px; }
+.check-list-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); cursor: pointer; font-size: 14px; transition: background var(--t-fast); }
+.check-list-item:hover { background: var(--bg-hover); }
 .textarea { min-height: 80px; resize: vertical; min-width: 280px; }
 .select { appearance: none; padding-right: 32px; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2378716c' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>"); background-repeat: no-repeat; background-position: right 12px center; }
 .input-group { display: inline-flex; align-items: stretch; }

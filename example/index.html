@@ -306,10 +306,22 @@
       </div>
 
       <div class="section">
-        <div class="section-title">Select · 下拉选择</div>
-        <div class="card"><div class="row">
-          <select class="select"><option>选项一</option><option>选项二</option><option>选项三</option></select>
-          <select class="select" multiple style="min-height:90px;min-width:180px"><option selected>已选 A</option><option selected>已选 B</option><option>未选 C</option></select>
+        <div class="section-title">Select · 下拉选择（自定义 dropdown · 全主题可控）</div>
+        <div class="card"><div class="row" style="align-items:flex-start">
+          <div class="dropdown" data-dropdown>
+            <div class="dropdown-trigger" onclick="toggleDropdown(this.parentElement)"><span class="dropdown-value">选项一</span><span class="dropdown-arrow">▼</span></div>
+            <div class="dropdown-menu">
+              <div class="dropdown-option selected" onclick="pickDropdown(this,'选项一')">选项一<span class="dropdown-option-check">✓</span></div>
+              <div class="dropdown-option" onclick="pickDropdown(this,'选项二')">选项二<span class="dropdown-option-check">✓</span></div>
+              <div class="dropdown-option" onclick="pickDropdown(this,'选项三')">选项三<span class="dropdown-option-check">✓</span></div>
+              <div class="dropdown-option" onclick="pickDropdown(this,'选项四')">选项四<span class="dropdown-option-check">✓</span></div>
+            </div>
+          </div>
+          <div class="check-list">
+            <label class="check-list-item"><input type="checkbox" class="checkbox" checked> 已选 A</label>
+            <label class="check-list-item"><input type="checkbox" class="checkbox" checked> 已选 B</label>
+            <label class="check-list-item"><input type="checkbox" class="checkbox"> 未选 C</label>
+          </div>
         </div></div>
       </div>
 
@@ -348,11 +360,12 @@
       </div>
 
       <div class="section">
-        <div class="section-title">DatePicker · 日期选择（原生）</div>
+        <div class="section-title">DatePicker · 日期选择（color-scheme 适配双主题）</div>
         <div class="card"><div class="row" style="margin-bottom:0">
           <input type="date" class="input">
           <input type="datetime-local" class="input">
           <input type="month" class="input">
+          <input type="time" class="input">
         </div></div>
       </div>
 
