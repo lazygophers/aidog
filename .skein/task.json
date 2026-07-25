@@ -81,6 +81,14 @@
       "kind": "task"
     },
     {
+      "id": "example-design-specimen",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "fix-btn-border",
       "status": "已完成",
       "deps": [],
