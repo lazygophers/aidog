@@ -1,1072 +1,533 @@
 <!DOCTYPE html>
-<html lang="en" data-mode="dark">
+<html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AiDog Design Specimen · Mono 金蓝流沙玻璃</title>
+  <title>Design System · 交互规范标本</title>
   <style>
-    /* === Mono Theme Variables === */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
     :root {
-      /* Semantic colors (theme-independent) */
-      --color-success: #2faa55;
-      --color-success-bg: rgba(52, 199, 89, 0.14);
-      --color-warning: #d98a13;
-      --color-warning-bg: rgba(255, 159, 10, 0.16);
-      --color-danger: #e0322b;
-      --color-danger-bg: rgba(255, 59, 48, 0.14);
-      --color-neutral: var(--text-secondary);
-      --color-neutral-bg: var(--bg-glass);
-
-      /* Token aliases */
-      --text-primary: var(--foreground);
-      --text-secondary: var(--muted-foreground);
-      --text-tertiary: var(--muted-foreground);
-      --text-on-accent: var(--primary-foreground);
-      --bg-base: var(--background);
-      --bg-elevated: var(--card);
-      --bg-floating: var(--popover);
-      --bg-surface: var(--card);
-      --bg-glass: var(--card);
-      --bg-glass-hover: var(--accent);
-      --shadow-rgb: var(--shadow-color, 0, 0, 0);
-      --glass-edge: var(--border);
-      --accent-hover: var(--primary);
-      --accent-subtle: color-mix(in srgb, var(--primary) 13%, transparent);
-      --border-focus: var(--ring);
+      --bg: #ffffff;
+      --bg-elevated: #f5f5f7;
+      --text: #111111;
+      --text-secondary: #6b6b6b;
+      --text-tertiary: #9a9a9a;
+      --border: #e4e4e7;
+      --border-strong: #d1d1d6;
+      --accent: #2563eb;
+      --accent-subtle: rgba(37,99,235,0.08);
+      --danger: #dc2626;
+      --danger-subtle: rgba(220,38,38,0.08);
+      --success: #16a34a;
+      --success-subtle: rgba(22,163,74,0.08);
+      --warning: #d97706;
+      --warning-subtle: rgba(217,119,6,0.08);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 12px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.02);
+      --shadow-md: 0 4px 12px rgba(0,0,0,0.06);
+      --t-fast: 150ms;
+      --t-normal: 250ms;
+      --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+      --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    :root[data-mode="light"] {
-      /* Structure */
-      --radius-sm: 10px;
-      --radius-md: 14px;
-      --radius-lg: 20px;
-      --radius-xl: 28px;
-      --glass-blur: 24px;
-      --glass-saturate: 1.8;
-      --shadow-sm: 0 1px 2px rgba(var(--shadow-rgb), 0.05);
-      --shadow-md: 0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 4px 12px rgba(var(--shadow-rgb), 0.09), 0 1px 3px rgba(var(--shadow-rgb), 0.05);
-      --shadow-lg: 0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 8px 24px rgba(var(--shadow-rgb), 0.11), 0 2px 6px rgba(var(--shadow-rgb), 0.06);
-      --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-      --app-bg-overlay: radial-gradient(72% 52% at 50% -10%, rgba(0, 135, 235, 0.12), transparent 62%), radial-gradient(52% 44% at 90% 6%, rgba(255, 217, 138, 0.14), transparent 60%), radial-gradient(60% 50% at 6% 100%, rgba(120, 140, 220, 0.14), transparent 64%);
-
-      /* Colors */
-      --background: #eef1fb;
-      --foreground: #111827;
-      --card: #f8faff;
-      --card-foreground: #111827;
-      --popover: #ffffff;
-      --popover-foreground: #111827;
-      --primary: #0087eb;
-      --primary-foreground: #ffffff;
-      --secondary: #e4ecfb;
-      --secondary-foreground: #111827;
-      --muted: #e4ecfb;
-      --muted-foreground: #5a6478;
-      --accent: #fac76c;
-      --accent-foreground: #8a6a1e;
-      --destructive: #e0644a;
-      --destructive-foreground: #ffffff;
-      --border: rgba(80, 100, 160, 0.16);
-      --input: rgba(17, 24, 39, 0.12);
-      --ring: rgba(0, 135, 235, 0.40);
-      --shadow-color: 80, 100, 160;
-    }
-
-    :root[data-mode="dark"] {
-      /* Structure */
-      --radius-sm: 10px;
-      --radius-md: 14px;
-      --radius-lg: 20px;
-      --radius-xl: 28px;
-      --glass-blur: 24px;
-      --glass-saturate: 1.5;
-      --shadow-sm: 0 1px 2px rgba(var(--shadow-rgb), 0.30);
-      --shadow-md: 0 4px 12px rgba(var(--shadow-rgb), 0.36), 0 1px 3px rgba(var(--shadow-rgb), 0.24);
-      --shadow-lg: 0 8px 24px rgba(var(--shadow-rgb), 0.44), 0 2px 6px rgba(var(--shadow-rgb), 0.28);
-      --transition: 250ms cubic-bezier(0.4, 0, 0.2, 1);
-      --app-bg-overlay: radial-gradient(80% 50% at 50% -12%, rgba(255, 217, 138, 0.10), transparent 60%), radial-gradient(56% 42% at 10% 20%, rgba(59, 160, 255, 0.08), transparent 58%);
-
-      /* Colors */
-      --background: #0a0a0c;
-      --foreground: #ededf0;
-      --card: #161619;
-      --card-foreground: #ededf0;
-      --popover: #1c1c20;
-      --popover-foreground: #ededf0;
-      --primary: #ffd98a;
-      --primary-foreground: #1a1206;
-      --secondary: #1c1c20;
-      --secondary-foreground: #ededf0;
-      --muted: #1c1c20;
-      --muted-foreground: #9a9aa3;
-      --accent: #20242c;
-      --accent-foreground: #7cc0ff;
-      --destructive: #e0644a;
-      --destructive-foreground: #ffffff;
-      --border: rgba(255, 255, 255, 0.08);
-      --input: rgba(255, 255, 255, 0.10);
-      --ring: rgba(255, 217, 138, 0.45);
-      --shadow-color: 0, 0, 0;
-    }
-
-    /* === Base === */
-    *, *::before, *::after {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a;
+        --bg-elevated: #161618;
+        --text: #f0f0f0;
+        --text-secondary: #8a8a8a;
+        --text-tertiary: #5a5a5a;
+        --border: #232325;
+        --border-strong: #2e2e30;
+        --accent: #3b82f6;
+        --accent-subtle: rgba(59,130,246,0.12);
+        --danger: #ef4444;
+        --danger-subtle: rgba(239,68,68,0.12);
+        --success: #22c55e;
+        --success-subtle: rgba(34,197,94,0.12);
+        --warning: #f59e0b;
+        --warning-subtle: rgba(245,158,11,0.12);
+        --shadow: 0 1px 3px rgba(0,0,0,0.3);
+        --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
+      }
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-      font-size: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      font-size: 16px;
       line-height: 1.5;
-      color: var(--text-primary);
-      background: var(--bg-base);
-      transition: background 400ms ease, color 400ms ease;
+      color: var(--text);
+      background: var(--bg);
       min-height: 100vh;
-    }
-
-    body::before {
-      content: "";
-      position: fixed;
-      inset: -6%;
-      z-index: -1;
-      pointer-events: none;
-      background: var(--app-bg-overlay);
-      background-repeat: no-repeat;
-      animation: bgShimmer 32s ease-in-out infinite alternate;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      body::before { animation: none; }
-    }
-
-    /* === Keyframes === */
-    @keyframes bgShimmer {
-      0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.82; }
-      50% { transform: translate3d(-1.6%, 1.2%, 0) scale(1.05); opacity: 1; }
-      100% { transform: translate3d(1.4%, -1%, 0) scale(1.03); opacity: 0.9; }
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
-      to { opacity: 1; transform: none; }
-    }
-
-    @keyframes slideInLeft {
-      from { opacity: 0; transform: translateX(-12px); }
-      to { opacity: 1; transform: none; }
-    }
-
-    @keyframes pulseGlow {
-      0%, 100% { box-shadow: 0 0 8px var(--accent-subtle), var(--shadow-md); }
-      50% { box-shadow: 0 0 20px var(--accent-subtle), var(--shadow-lg); }
-    }
-
-    @keyframes shimmer {
-      0% { background-position: -200% 0; }
-      100% { background-position: 200% 0; }
-    }
-
-    @keyframes statusPulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    @keyframes flowBorder {
-      to { --flow-ang: 360deg; }
-    }
-
-    /* === Layout === */
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 40px 24px;
-    }
-
-    header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 40px;
-      padding: 20px 24px;
-      background: var(--bg-floating);
-      border: 1px solid var(--glass-edge);
-      border-radius: var(--radius-xl);
-      backdrop-filter: blur(20px);
-      box-shadow: var(--shadow-lg);
-    }
-
-    h1 {
-      font-size: 24px;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-    }
-
-    .subtitle {
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-top: 4px;
-    }
-
-    .spec-section {
-      margin-bottom: 32px;
       padding: 24px;
-      background: var(--bg-surface);
-      border: 1px solid var(--glass-edge);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-      transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
-      position: relative;
     }
 
-    .spec-section:hover {
-      border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
-      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.07);
-    }
+    .container { max-width: 960px; margin: 0 auto; }
 
-    .spec-section h2 {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 16px;
-      color: var(--text-primary);
-    }
+    /* Header */
+    .header { margin-bottom: 32px; }
+    .header h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+    .header p { font-size: 14px; color: var(--text-secondary); }
 
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-      gap: 12px;
-    }
-
-    .grid-2 { grid-template-columns: repeat(2, 1fr); }
-    .grid-3 { grid-template-columns: repeat(3, 1fr); }
-    .grid-4 { grid-template-columns: repeat(4, 1fr); }
-
-    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
-
-    /* === Flow Border (Blue-Gold Shimmer) === */
-    @property --flow-ang {
-      syntax: "<angle>";
-      inherits: false;
-      initial-value: 0deg;
-    }
-
-    .spec-section::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      border-radius: inherit;
-      padding: 1px;
-      background: conic-gradient(from var(--flow-ang), #3ba0ff, #ffd98a 40%, #b1e3ff 65%, #3ba0ff);
-      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      -webkit-mask-composite: xor;
-      mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-      mask-composite: exclude;
-      opacity: 0;
-      transition: opacity 250ms ease;
-      pointer-events: none;
-    }
-
-    .spec-section:hover::after {
-      opacity: 0.9;
-      animation: flowBorder 3s linear infinite;
-    }
-
-    /* === Color Swatches === */
-    .swatch {
-      padding: 12px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      font-size: 11px;
-      font-family: monospace;
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .swatch-preview {
-      height: 40px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-    }
-
-    .swatch-name {
-      font-weight: 600;
-      color: var(--text-primary);
-    }
-
-    .swatch-value {
-      color: var(--text-secondary);
-      font-size: 10px;
-    }
-
-    /* === Typography === */
-    .spec-section h1, .spec-section h3, .spec-section h4 {
-      margin-bottom: 8px;
-    }
-    .spec-section h1 { font-size: 32px; }
-    .spec-section h3 { font-size: 20px; }
-    .spec-section h4 { font-size: 16px; }
-    .spec-section p { margin-bottom: 12px; }
-    .spec-section .muted { color: var(--text-secondary); }
-    .spec-section .caption { font-size: 12px; color: var(--text-tertiary); }
-    .spec-section code {
-      background: var(--accent-subtle);
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-family: "SF Mono", monospace;
-      font-size: 12px;
-    }
-    .spec-section pre {
-      background: var(--bg-base);
-      padding: 14px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      overflow-x: auto;
-      font-family: "SF Mono", monospace;
-      font-size: 12px;
-      line-height: 1.6;
-    }
-
-    /* === Buttons === */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 8px 16px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg-glass);
-      color: var(--text-primary);
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-      outline: none;
-      white-space: nowrap;
-    }
-
-    .btn:hover {
-      background: var(--bg-glass-hover);
-      box-shadow: var(--shadow-md);
-      transform: translateY(-1px);
-    }
-
-    .btn:active { transform: translateY(0) scale(0.97); }
-
-    .btn-primary {
-      background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 92%, #fff), var(--primary));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
-      color: #fff;
-      border-color: transparent;
-      font-weight: 600;
-    }
-
-    .btn-primary:hover {
-      background-image: linear-gradient(180deg, color-mix(in srgb, var(--primary) 84%, #fff), color-mix(in srgb, var(--primary) 96%, #fff));
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-    }
-
-    .btn-danger {
-      color: var(--color-danger);
-      border-color: color-mix(in srgb, var(--color-danger) 25%, transparent);
-    }
-
-    .btn-danger:hover {
-      background: color-mix(in srgb, var(--color-danger) 12%, transparent);
-      border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
-    }
-
-    .btn-ghost {
-      background: transparent;
-      border-color: transparent;
-    }
-
-    .btn-ghost:hover { background: var(--accent-subtle); }
-
-    .btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    /* === Forms === */
-    .input {
-      padding: 8px 12px;
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      background: var(--bg-glass);
-      color: var(--text-primary);
-      font-size: 13px;
-      outline: none;
-      transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
-      width: 100%;
-    }
-
-    .input:focus {
-      border-color: var(--border-focus);
-      box-shadow: 0 0 0 3px var(--accent-subtle);
-      background: var(--bg-surface);
-    }
-
-    .input::placeholder { color: var(--text-tertiary); }
-
-    .toggle {
-      position: relative;
-      width: 40px;
-      height: 22px;
-      border-radius: 11px;
-      background: var(--bg-glass);
-      border: 1px solid var(--border);
-      cursor: pointer;
-      transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .toggle.active {
-      background: var(--accent);
-      border-color: var(--accent);
-    }
-
-    .toggle::after {
-      content: "";
-      position: absolute;
-      top: 2px;
-      left: 2px;
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      background: #fff;
-      transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
-      box-shadow: 0 1px 3px rgba(var(--shadow-rgb), 0.35);
-    }
-
-    .toggle.active::after { transform: translateX(18px); }
-
-    /* === Status Indicators === */
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      display: inline-block;
-    }
-
-    .status-dot-active {
-      background: var(--color-success);
-      box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
-      animation: statusPulse 2s ease-in-out infinite;
-    }
-
-    .status-dot-inactive { background: var(--text-tertiary); }
-
-    /* === Skeleton === */
-    .skeleton {
-      display: inline-block;
-      border-radius: var(--radius-sm);
-      background: linear-gradient(90deg, var(--bg-glass) 25%, var(--bg-glass-hover) 37%, var(--bg-glass) 63%);
-      background-size: 200% 100%;
-      animation: shimmer 1.4s ease-in-out infinite;
-    }
-
-    /* === Badge === */
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      padding: 2px 8px;
-      border-radius: 6px;
-      font-size: 11px;
-      font-weight: 600;
-    }
-
-    .badge-accent { background: var(--accent-subtle); color: var(--accent); }
-    .badge-muted { background: var(--bg-glass); color: var(--text-secondary); }
-    .badge-success { background: var(--color-success-bg); color: var(--color-success); }
-    .badge-warning { background: var(--color-warning-bg); color: var(--color-warning); }
-    .badge-danger { background: var(--color-danger-bg); color: var(--color-danger); }
-
-    /* === Alert === */
-    .alert {
-      padding: 12px 16px;
-      border-radius: var(--radius-sm);
-      border: 1px solid var(--border);
-      font-size: 13px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .alert-success { background: var(--color-success-bg); border-color: var(--color-success); }
-    .alert-warning { background: var(--color-warning-bg); border-color: var(--color-warning); }
-    .alert-danger { background: var(--color-danger-bg); border-color: var(--color-danger); }
-
-    /* === Toast === */
-    .toast-container {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      z-index: 1000;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .toast {
-      padding: 12px 16px;
-      border-radius: var(--radius-md);
-      font-size: 13px;
-      border: 1px solid var(--border);
-      background: var(--bg-floating);
-      box-shadow: var(--shadow-lg);
-      animation: fadeIn 300ms ease both;
-    }
-
-    /* === Tables === */
-    .table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 13px;
-    }
-
-    .table th, .table td {
-      padding: 10px 12px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-    }
-
-    .table th {
-      font-weight: 600;
-      color: var(--text-secondary);
-    }
-
-    .table tbody tr:hover {
-      background: var(--accent-subtle);
-    }
-
-    /* === Accordion === */
-    .accordion-item {
-      border: 1px solid var(--border);
-      border-radius: var(--radius-sm);
-      margin-bottom: 8px;
-      overflow: hidden;
-    }
-
-    .accordion-header {
-      padding: 10px 14px;
-      background: var(--bg-surface);
-      cursor: pointer;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 13px;
-      font-weight: 500;
-    }
-
-    .accordion-header:hover { background: var(--accent-subtle); }
-
-    .accordion-content {
-      padding: 0 14px;
-      max-height: 0;
-      overflow: hidden;
-      transition: max-height 200ms ease, padding 200ms ease;
-    }
-
-    .accordion-item.open .accordion-content {
-      padding: 10px 14px;
-      max-height: 200px;
-    }
-
-    /* === Tabs === */
+    /* Tabs */
     .tabs {
       display: flex;
       gap: 4px;
       border-bottom: 1px solid var(--border);
-      margin-bottom: 16px;
+      margin-bottom: 24px;
     }
-
     .tab {
-      padding: 8px 16px;
-      font-size: 13px;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
       color: var(--text-secondary);
-      transition: all 200ms ease;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all var(--t-fast) var(--ease-standard);
     }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--text); border-bottom-color: var(--text); }
+    .tab svg { width: 18px; height: 18px; opacity: 0.6; transition: opacity var(--t-fast); }
+    .tab.active svg { opacity: 1; }
 
-    .tab:hover { color: var(--text-primary); }
-    .tab.active {
-      color: var(--primary);
-      border-bottom-color: var(--primary);
+    /* Panels */
+    .panel { display: none; animation: panelIn var(--t-normal) var(--ease-out) both; }
+    .panel.active { display: block; }
+    @keyframes panelIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+    /* Sections */
+    .section { margin-bottom: 24px; }
+    .section-title { font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 10px; text-transform: none; letter-spacing: 0.02em; }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      transition: border-color var(--t-fast), box-shadow var(--t-fast);
     }
+    .card:hover { border-color: var(--border-strong); box-shadow: var(--shadow); }
 
-    /* === Charts === */
-    .chart-container {
-      width: 100%;
-      height: 160px;
-      position: relative;
+    /* Swatches */
+    .swatch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 12px; }
+    .swatch { display: flex; flex-direction: column; gap: 6px; }
+    .swatch-block {
+      height: 52px; border-radius: var(--radius-md); border: 1px solid var(--border);
+      position: relative; overflow: hidden;
     }
-
-    .chart-svg {
-      width: 100%;
-      height: 100%;
+    .swatch-block::after {
+      content: attr(data-label); position: absolute; bottom: 6px; left: 8px;
+      font-size: 11px; font-weight: 600; color: inherit;
+      mix-blend-mode: difference; filter: invert(1) grayscale(1) contrast(9);
     }
+    .swatch-name { font-size: 13px; font-weight: 500; }
+    .swatch-value { font-size: 11px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text-tertiary); }
 
-    /* Spinner */
-    .spinner {
-      width: 16px;
-      height: 16px;
-      border: 2px solid var(--border);
-      border-top-color: var(--primary);
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+    /* Components */
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+    .row:last-child { margin-bottom: 0; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px 16px; font-size: 14px; font-weight: 500; border-radius: var(--radius-md);
+      border: 1px solid var(--border); background: var(--bg-elevated); color: var(--text);
+      cursor: pointer; transition: all var(--t-fast) var(--ease-standard); outline: none;
     }
+    .btn:hover { background: var(--bg); border-color: var(--border-strong); transform: translateY(-1px); box-shadow: var(--shadow); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+    .btn-primary:hover { background: var(--text-secondary); border-color: var(--text-secondary); color: var(--bg); }
+    .btn-danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 25%, var(--border)); background: transparent; }
+    .btn-danger:hover { background: var(--danger-subtle); }
+    .btn-ghost { background: transparent; border-color: transparent; }
+    .btn-ghost:hover { background: var(--accent-subtle); border-color: transparent; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-    .spinner-sm { width: 12px; height: 12px; }
-    .spinner-lg { width: 24px; height: 24px; }
-
-    /* Progress */
-    .progress-bar {
-      height: 8px;
-      background: var(--bg-base);
-      border-radius: 4px;
-      overflow: hidden;
+    .input {
+      padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-md);
+      background: var(--bg-elevated); color: var(--text); font-size: 14px; outline: none;
+      transition: all var(--t-fast) var(--ease-standard); min-width: 200px;
     }
+    .input:focus { border-color: var(--text); box-shadow: 0 0 0 3px var(--accent-subtle); }
+    .input::placeholder { color: var(--text-tertiary); }
 
-    .progress-fill {
-      height: 100%;
-      background: var(--primary);
-      border-radius: 4px;
-      transition: width 300ms ease;
+    .badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: var(--radius-sm); font-size: 12px; font-weight: 600; }
+    .badge-accent { background: var(--accent-subtle); color: var(--accent); }
+    .badge-muted { background: var(--bg-elevated); color: var(--text-secondary); border: 1px solid var(--border); }
+    .badge-success { background: var(--success-subtle); color: var(--success); }
+    .badge-warning { background: var(--warning-subtle); color: var(--warning); }
+    .badge-danger { background: var(--danger-subtle); color: var(--danger); }
+
+    .alert { padding: 12px 16px; border-radius: var(--radius-md); border: 1px solid var(--border); font-size: 14px; display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .alert-success { background: var(--success-subtle); border-color: color-mix(in srgb, var(--success) 30%, var(--border)); }
+    .alert-warning { background: var(--warning-subtle); border-color: color-mix(in srgb, var(--warning) 30%, var(--border)); }
+    .alert-danger { background: var(--danger-subtle); border-color: color-mix(in srgb, var(--danger) 30%, var(--border)); }
+
+    .toggle { position: relative; width: 40px; height: 22px; border-radius: 11px; background: var(--bg-elevated); border: 1px solid var(--border); cursor: pointer; transition: all var(--t-normal) var(--ease-standard); }
+    .toggle.active { background: var(--text); border-color: var(--text); }
+    .toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg); transition: transform var(--t-normal) var(--ease-standard); box-shadow: 0 1px 2px rgba(0,0,0,0.15); }
+    .toggle.active::after { transform: translateX(18px); }
+
+    .progress { height: 6px; background: var(--bg-elevated); border-radius: 3px; overflow: hidden; }
+    .progress-fill { height: 100%; background: var(--text); border-radius: 3px; transition: width 600ms var(--ease-out); }
+
+    .table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    .table th { font-weight: 600; color: var(--text-secondary); font-size: 13px; }
+    .table tbody tr { transition: background var(--t-fast); }
+    .table tbody tr:hover { background: var(--accent-subtle); }
+
+    .status { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .status-active { background: var(--success); box-shadow: 0 0 0 2px var(--success-subtle); animation: statusPulse 2s ease-in-out infinite; }
+    .status-inactive { background: var(--text-tertiary); }
+    @keyframes statusPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    .checkbox { appearance: none; width: 18px; height: 18px; border: 1.5px solid var(--border); border-radius: 4px; background: var(--bg-elevated); cursor: pointer; transition: all var(--t-fast); position: relative; }
+    .checkbox:checked { background: var(--text); border-color: var(--text); }
+    .checkbox:checked::after { content: ""; position: absolute; left: 5px; top: 2px; width: 5px; height: 9px; border: solid var(--bg); border-width: 0 1.5px 1.5px 0; transform: rotate(45deg); }
+
+    /* Motion */
+    .motion-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
+    .motion-item { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; text-align: center; cursor: pointer; transition: all var(--t-fast); user-select: none; }
+    .motion-item:hover { border-color: var(--border-strong); box-shadow: var(--shadow); }
+    .motion-stage { height: 56px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+    .motion-item p { font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+
+    .spinner { width: 20px; height: 20px; border: 2px solid var(--border); border-top-color: var(--text); border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .spinner-sm { width: 14px; height: 14px; border-width: 1.5px; }
+    .spinner-lg { width: 28px; height: 28px; border-width: 2.5px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .skeleton { display: inline-block; border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--bg-elevated) 25%, var(--border) 50%, var(--bg-elevated) 75%); background-size: 200% 100%; animation: shimmer 1.5s ease-in-out infinite; }
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    .anim-fade { animation: animFade 400ms var(--ease-out) both; }
+    .anim-slide { animation: animSlide 400ms var(--ease-out) both; }
+    .anim-scale { animation: animScale 300ms var(--ease-out) both; }
+    .anim-bounce { animation: animBounce 500ms var(--ease-out) both; }
+    @keyframes animFade { from{opacity:0} to{opacity:1} }
+    @keyframes animSlide { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:none} }
+    @keyframes animScale { from{opacity:0;transform:scale(0.9)} to{opacity:1;transform:scale(1)} }
+    @keyframes animBounce { 0%{opacity:0;transform:scale(0.8)} 60%{transform:scale(1.04)} 100%{opacity:1;transform:scale(1)} }
+
+    /* Charts */
+    .chart-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px; }
+    .chart-card { border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
+    .chart-card h4 { font-size: 14px; font-weight: 600; color: var(--text-secondary); margin-bottom: 16px; }
+    .chart-svg { width: 100%; height: 160px; overflow: visible; }
+    .chart-svg text { font-family: inherit; font-size: 11px; fill: var(--text-tertiary); }
+    .color-scale { height: 14px; border-radius: var(--radius-sm); display: flex; overflow: hidden; }
+    .color-scale-seg { flex: 1; }
+
+    @media (max-width: 640px) {
+      body { padding: 16px; }
+      .tabs { overflow-x: auto; }
+      .swatch-grid { grid-template-columns: repeat(2, 1fr); }
+      .chart-grid { grid-template-columns: 1fr; }
     }
-
-    /* Animation classes */
-    .animate-fade-in { animation: fadeIn 350ms cubic-bezier(0.4, 0, 0.2, 1) both; }
-    .animate-slide-in { animation: slideInLeft 300ms cubic-bezier(0.4, 0, 0.2, 1) both; }
-
-    /* Color scale */
-    .color-scale {
-      height: 20px;
-      border-radius: 4px;
-      display: flex;
-    }
-
-    .color-scale-segment { flex: 1; }
   </style>
 </head>
 <body>
   <div class="container">
-    <header>
-      <div>
-        <h1>AiDog Design Specimen</h1>
-        <div class="subtitle">Mono 金蓝流沙玻璃 · Light/Dark 双模切换</div>
-      </div>
-      <button id="modeToggle" class="btn btn-primary">🌙 Light Mode</button>
+    <header class="header">
+      <h1>Design System</h1>
+      <p>配色 · 组件 · 动效 · 图表 — 交互规范标本</p>
     </header>
 
-    <!-- 1. Color Palette -->
-    <section class="spec-section">
-      <h2>1. 色板</h2>
-      <div class="grid">
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--primary); color: var(--primary-foreground);">Primary</div>
-          <div class="swatch-name">primary</div>
-          <div class="swatch-value">light:#0087eb / dark:#ffd98a</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--accent); color: var(--accent-foreground);">Accent</div>
-          <div class="swatch-name">accent</div>
-          <div class="swatch-value">light:#fac76c / dark:#20242c</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--secondary); color: var(--secondary-foreground);">Secondary</div>
-          <div class="swatch-name">secondary</div>
-          <div class="swatch-value">light:#e4ecfb / dark:#1c1c20</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--muted); color: var(--muted-foreground);">Muted</div>
-          <div class="swatch-name">muted</div>
-          <div class="swatch-value">light:#e4ecfb / dark:#1c1c20</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--destructive); color: var(--destructive-foreground);">Destructive</div>
-          <div class="swatch-name">destructive</div>
-          <div class="swatch-value">#e0644a</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--color-success);">Success</div>
-          <div class="swatch-name">success</div>
-          <div class="swatch-value">#2faa55</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--color-warning);">Warning</div>
-          <div class="swatch-name">warning</div>
-          <div class="swatch-value">#d98a13</div>
-        </div>
-        <div class="swatch">
-          <div class="swatch-preview" style="background: var(--color-danger);">Danger</div>
-          <div class="swatch-name">danger</div>
-          <div class="swatch-value">#e0322b</div>
+    <nav class="tabs" id="tabNav">
+      <button class="tab active" data-tab="colors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="18" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/><circle cx="6" cy="12" r="1.5" fill="currentColor"/></svg>
+        <span>色卡</span>
+      </button>
+      <button class="tab" data-tab="components">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>组件</span>
+      </button>
+      <button class="tab" data-tab="motion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-4 4-6 6-6s4 4 6 6-2 6-4 6-4-4-6-6z"/><path d="M12 12c2-4 4-6 6-6s4 4 6 6-2 6-4 6-4-4-6-6z" opacity="0.4"/></svg>
+        <span>动效</span>
+      </button>
+      <button class="tab" data-tab="charts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 5-8"/><circle cx="7" cy="16" r="1.5" fill="currentColor"/><circle cx="11" cy="10" r="1.5" fill="currentColor"/><circle cx="15" cy="13" r="1.5" fill="currentColor"/><circle cx="20" cy="5" r="1.5" fill="currentColor"/></svg>
+        <span>图表</span>
+      </button>
+    </nav>
+
+    <!-- 1. 色卡 -->
+    <div class="panel active" data-panel="colors">
+      <div class="section">
+        <div class="section-title">文本层级</div>
+        <div class="card">
+          <div class="swatch-grid">
+            <div class="swatch"><div class="swatch-block" style="background:var(--text)" data-label="Aa"></div><div class="swatch-name">text primary</div><div class="swatch-value">主要文本</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--text-secondary)" data-label="Aa"></div><div class="swatch-name">text secondary</div><div class="swatch-value">次要文本</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--text-tertiary)" data-label="Aa"></div><div class="swatch-name">text tertiary</div><div class="swatch-value">辅助文本</div></div>
+          </div>
         </div>
       </div>
-    </section>
 
-    <!-- 2. Typography -->
-    <section class="spec-section">
-      <h2>2. 排版</h2>
-      <h1>Heading 1</h1>
-      <h3>Heading 3</h3>
-      <h4>Heading 4</h4>
-      <p>正文文本：The quick brown fox jumps over the lazy dog. 理想情况下，设计系统应该提供一致的视觉语言。</p>
-      <p class="muted">次要文本：Muted text color for less emphasis.</p>
-      <p class="caption">说明文字：Caption text for metadata and timestamps.</p>
-      <p><code>inline code</code> 示例</p>
-      <pre>pre {
-  background: var(--bg-base);
-  border: 1px solid var(--border);
-  padding: 14px;
-  border-radius: var(--radius-sm);
-}</pre>
-    </section>
-
-    <!-- 3. Buttons -->
-    <section class="spec-section">
-      <h2>3. 按钮</h2>
-      <div class="row">
-        <button class="btn">Default</button>
-        <button class="btn btn-primary">Primary</button>
-        <button class="btn btn-danger">Danger</button>
-        <button class="btn btn-ghost">Ghost</button>
-        <button class="btn" disabled>Disabled</button>
-        <button class="btn">
-          <div class="spinner spinner-sm"></div>
-          Loading
-        </button>
+      <div class="section">
+        <div class="section-title">语义状态</div>
+        <div class="card">
+          <div class="swatch-grid">
+            <div class="swatch"><div class="swatch-block" style="background:var(--accent)" data-label="Aa"></div><div class="swatch-name">accent</div><div class="swatch-value">强调 / 交互</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--success)" data-label="Aa"></div><div class="swatch-name">success</div><div class="swatch-value">成功 / 在线</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--warning)" data-label="Aa"></div><div class="swatch-name">warning</div><div class="swatch-value">警告 / 注意</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--danger)" data-label="Aa"></div><div class="swatch-name">danger</div><div class="swatch-value">错误 / 删除</div></div>
+          </div>
+        </div>
       </div>
-    </section>
 
-    <!-- 4. Forms -->
-    <section class="spec-section">
-      <h2>4. 表单</h2>
-      <div class="grid-2">
-        <div>
-          <label style="display:block;margin-bottom:6px;font-size:13px;">输入框</label>
-          <input type="text" class="input" placeholder="输入内容...">
-          <p class="caption" style="margin-top:4px;">Focus 时显示 ring 光晕</p>
+      <div class="section">
+        <div class="section-title">表面与边框</div>
+        <div class="card">
+          <div class="swatch-grid">
+            <div class="swatch"><div class="swatch-block" style="background:var(--bg);border:1px solid var(--border)" data-label="Bg"></div><div class="swatch-name">background</div><div class="swatch-value">页面底色</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--bg-elevated)" data-label="El"></div><div class="swatch-name">elevated</div><div class="swatch-value">抬升表面</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--border)" data-label="Bd"></div><div class="swatch-name">border</div><div class="swatch-value">分隔线</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:var(--border-strong)" data-label="Bs"></div><div class="swatch-name">border strong</div><div class="swatch-value">强调边框</div></div>
+          </div>
         </div>
-        <div>
-          <label style="display:block;margin-bottom:6px;font-size:13px;">选择框</label>
-          <select class="input">
-            <option>选项 1</option>
-            <option>选项 2</option>
-          </select>
+      </div>
+
+      <div class="section">
+        <div class="section-title">图表序列</div>
+        <div class="card">
+          <div class="swatch-grid">
+            <div class="swatch"><div class="swatch-block" style="background:#2563eb" data-label="1"></div><div class="swatch-name">chart 1</div><div class="swatch-value">主序列</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:#dc2626" data-label="2"></div><div class="swatch-name">chart 2</div><div class="swatch-value">对比序列</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:#16a34a" data-label="3"></div><div class="swatch-name">chart 3</div><div class="swatch-value">正向序列</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:#9333ea" data-label="4"></div><div class="swatch-name">chart 4</div><div class="swatch-value">分类序列</div></div>
+            <div class="swatch"><div class="swatch-block" style="background:#6b6b6b" data-label="5"></div><div class="swatch-name">chart 5</div><div class="swatch-value">中性序列</div></div>
+          </div>
         </div>
-        <div>
-          <label style="display:block;margin-bottom:6px;font-size:13px;">复选框</label>
+      </div>
+    </div>
+
+    <!-- 2. 组件 -->
+    <div class="panel" data-panel="components">
+      <div class="section">
+        <div class="section-title">按钮</div>
+        <div class="card">
           <div class="row">
-            <label class="row"><input type="checkbox"> 选项 A</label>
-            <label class="row"><input type="checkbox" checked> 选项 B</label>
+            <button class="btn">Default</button>
+            <button class="btn btn-primary">Primary</button>
+            <button class="btn btn-danger">Danger</button>
+            <button class="btn btn-ghost">Ghost</button>
+            <button class="btn" disabled>Disabled</button>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <button class="btn btn-primary"><div class="spinner spinner-sm"></div>加载中</button>
           </div>
         </div>
-        <div>
-          <label style="display:block;margin-bottom:6px;font-size:13px;">开关</label>
+      </div>
+
+      <div class="section">
+        <div class="section-title">表单</div>
+        <div class="card">
           <div class="row">
-            <div class="toggle" onclick="this.classList.toggle('active')"></div>
-            <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+            <input type="text" class="input" placeholder="请输入内容...">
+            <select class="input" style="min-width:140px"><option>选项一</option><option>选项二</option><option>选项三</option></select>
           </div>
-        </div>
-        <div style="grid-column: span 2;">
-          <label style="display:block;margin-bottom:6px;font-size:13px;">滑块</label>
-          <input type="range" style="width:100%;accent-color:var(--accent);">
-        </div>
-      </div>
-    </section>
-
-    <!-- 5. Feedback -->
-    <section class="spec-section">
-      <h2>5. 反馈</h2>
-      <div class="grid-2">
-        <div>
-          <h4>Alerts</h4>
-          <div class="alert alert-success" style="margin-bottom:8px;">✓ Success message</div>
-          <div class="alert alert-warning" style="margin-bottom:8px;">⚠ Warning message</div>
-          <div class="alert alert-danger">✖ Error message</div>
-        </div>
-        <div>
-          <h4>Spinners</h4>
           <div class="row">
-            <div class="spinner spinner-sm"></div>
-            <div class="spinner"></div>
-            <div class="spinner spinner-lg"></div>
-          </div>
-          <h4 style="margin-top:12px;">Skeleton</h4>
-          <div class="skeleton" style="width:120px;height:16px;"></div>
-          <div class="skeleton" style="width:200px;height:16px;margin-top:4px;"></div>
-        </div>
-      </div>
-      <div style="margin-top:16px;">
-        <h4>Progress</h4>
-        <div class="progress-bar" style="margin-bottom:8px;">
-          <div class="progress-fill" style="width:35%;"></div>
-        </div>
-        <div class="progress-bar">
-          <div class="progress-fill" style="width:75%;"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 6. Navigation -->
-    <section class="spec-section">
-      <h2>6. 导航</h2>
-      <div class="tabs">
-        <div class="tab active" onclick="switchTab(this)">Tab 1</div>
-        <div class="tab" onclick="switchTab(this)">Tab 2</div>
-        <div class="tab" onclick="switchTab(this)">Tab 3</div>
-      </div>
-      <p class="caption">面包屑：Home / Settings / Groups</p>
-    </section>
-
-    <!-- 7. Data -->
-    <section class="spec-section">
-      <h2>7. 数据展示</h2>
-      <div class="row" style="margin-bottom:16px;">
-        <span class="badge badge-accent">Accent</span>
-        <span class="badge badge-muted">Muted</span>
-        <span class="badge badge-success">Success</span>
-        <span class="badge badge-warning">Warning</span>
-        <span class="badge badge-danger">Danger</span>
-      </div>
-      <table class="table">
-        <thead>
-          <tr>
-            <th>平台</th>
-            <th>状态</th>
-            <th>用量</th>
-            <th>余额</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Anthropic</td>
-            <td><span class="status-dot status-dot-active"></span> 在线</td>
-            <td>$12.34</td>
-            <td>$87.66</td>
-          </tr>
-          <tr>
-            <td>OpenAI</td>
-            <td><span class="status-dot status-dot-active"></span> 在线</td>
-            <td>$45.67</td>
-            <td>$54.33</td>
-          </tr>
-          <tr>
-            <td>GLM</td>
-            <td><span class="status-dot status-dot-inactive"></span> 离线</td>
-            <td>$0.00</td>
-            <td>$100.00</td>
-          </tr>
-        </tbody>
-      </table>
-      <div style="margin-top:16px;">
-        <div class="accordion-item">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>折叠项 1</span>
-            <span>▼</span>
-          </div>
-          <div class="accordion-content">
-            <p>折叠内容区域，点击头部展开/收起。</p>
-          </div>
-        </div>
-        <div class="accordion-item">
-          <div class="accordion-header" onclick="toggleAccordion(this)">
-            <span>折叠项 2</span>
-            <span>▼</span>
-          </div>
-          <div class="accordion-content">
-            <p>第二个折叠项的内容。</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 8. Animations -->
-    <section class="spec-section">
-      <h2>8. 动效</h2>
-      <div class="row">
-        <button class="btn" onclick="triggerAnimation(this, 'animate-fade-in')">Fade In</button>
-        <button class="btn" onclick="triggerAnimation(this, 'animate-slide-in')">Slide In</button>
-      </div>
-      <div class="row" style="margin-top:16px;">
-        <div>
-          <p class="caption">脉冲光晕</p>
-          <div class="status-dot status-dot-active" style="width:20px;height:20px;"></div>
-        </div>
-        <div>
-          <p class="caption">Spinner 旋转</p>
-          <div class="spinner"></div>
-        </div>
-        <div>
-          <p class="caption">Shimmer 骨架</p>
-          <div class="skeleton" style="width:80px;height:20px;"></div>
-        </div>
-      </div>
-      <p class="caption" style="margin-top:12px;">背景流光动画(bgShimmer)在 body::before 层持续运行</p>
-    </section>
-
-    <!-- 9. Charts -->
-    <section class="spec-section">
-      <h2>9. 图表</h2>
-      <div class="grid-3">
-        <div>
-          <h4>趋势折线</h4>
-          <div class="chart-container" id="lineChart"></div>
-        </div>
-        <div>
-          <h4>环形进度</h4>
-          <div class="chart-container" id="ringChart"></div>
-        </div>
-        <div>
-          <h4>色阶条</h4>
-          <div style="margin-top:8px;">
-            <div class="color-scale">
-              <div class="color-scale-segment" style="background:var(--color-success);"></div>
-              <div class="color-scale-segment" style="background:var(--color-warning);"></div>
-              <div class="color-scale-segment" style="background:var(--color-danger);"></div>
-              <div class="color-scale-segment" style="background:var(--text-secondary);"></div>
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" class="checkbox" checked> 已选中</label>
+            <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" class="checkbox"> 未选中</label>
+            <div style="display:flex;align-items:center;gap:12px">
+              <div class="toggle active" onclick="this.classList.toggle('active')"></div>
+              <span style="font-size:14px;color:var(--text-secondary)">开关</span>
+              <div class="toggle" onclick="this.classList.toggle('active')"></div>
             </div>
-            <p class="caption">Success / Warning / Danger / Neutral</p>
           </div>
-          <h4 style="margin-top:16px;">用量速率条</h4>
-          <div style="height:12px;border-radius:6px;background:linear-gradient(90deg,#2faa55 0%,#d98a13 60%,#e0322b 100%);"></div>
+          <div class="row" style="margin-bottom:0">
+            <div style="flex:1">
+              <div style="font-size:12px;color:var(--text-secondary);margin-bottom:6px">进度</div>
+              <div class="progress"><div class="progress-fill" style="width:35%"></div></div>
+              <div style="margin-top:8px"></div>
+              <div class="progress"><div class="progress-fill" style="width:72%"></div></div>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
+
+      <div class="section">
+        <div class="section-title">标签</div>
+        <div class="card">
+          <div class="row" style="margin-bottom:0">
+            <span class="badge badge-accent">Accent</span>
+            <span class="badge badge-muted">Muted</span>
+            <span class="badge badge-success">Success</span>
+            <span class="badge badge-warning">Warning</span>
+            <span class="badge badge-danger">Danger</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">警告提示</div>
+        <div class="card" style="padding:16px">
+          <div class="alert alert-success">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--success);flex-shrink:0"><path d="M20 6L9 17l-5-5"/></svg>
+            操作已成功完成
+          </div>
+          <div class="alert alert-warning" style="margin-bottom:0">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--warning);flex-shrink:0"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+            请注意检查配置后再保存
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">数据表格</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="table">
+            <thead><tr><th>服务</th><th>状态</th><th>用量</th><th>余额</th></tr></thead>
+            <tbody>
+              <tr><td>Anthropic</td><td><span class="status status-active"></span>在线</td><td>$12.34</td><td>$87.66</td></tr>
+              <tr><td>OpenAI</td><td><span class="status status-active"></span>在线</td><td>$45.67</td><td>$54.33</td></tr>
+              <tr><td>GLM</td><td><span class="status status-inactive"></span>离线</td><td>$0.00</td><td>$100.00</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. 动效 -->
+    <div class="panel" data-panel="motion">
+      <div class="section">
+        <div class="section-title">微交互（点击触发）</div>
+        <div class="motion-grid">
+          <div class="motion-item" onclick="triggerAnim(this,'anim-fade')">
+            <div class="motion-stage"><div class="target" style="width:40px;height:40px;border-radius:8px;background:var(--text)"></div></div>
+            <p>淡入 fade</p>
+          </div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-slide')">
+            <div class="motion-stage"><div class="target" style="width:40px;height:40px;border-radius:8px;background:var(--text)"></div></div>
+            <p>滑入 slide</p>
+          </div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-scale')">
+            <div class="motion-stage"><div class="target" style="width:40px;height:40px;border-radius:8px;background:var(--text)"></div></div>
+            <p>缩放 scale</p>
+          </div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-bounce')">
+            <div class="motion-stage"><div class="target" style="width:40px;height:40px;border-radius:8px;background:var(--text)"></div></div>
+            <p>弹跳 bounce</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">加载状态</div>
+        <div class="card">
+          <div class="row" style="margin-bottom:0">
+            <div style="text-align:center;min-width:80px"><div class="spinner spinner-sm" style="margin:0 auto 8px"></div><span style="font-size:12px;color:var(--text-secondary)">Small</span></div>
+            <div style="text-align:center;min-width:80px"><div class="spinner" style="margin:0 auto 8px"></div><span style="font-size:12px;color:var(--text-secondary)">Default</span></div>
+            <div style="text-align:center;min-width:80px"><div class="spinner spinner-lg" style="margin:0 auto 8px"></div><span style="font-size:12px;color:var(--text-secondary)">Large</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">骨架屏</div>
+        <div class="card">
+          <div style="display:flex;flex-direction:column;gap:8px;max-width:320px">
+            <div class="skeleton" style="width:60%;height:16px"></div>
+            <div class="skeleton" style="width:100%;height:12px"></div>
+            <div class="skeleton" style="width:80%;height:12px"></div>
+            <div class="skeleton" style="width:40%;height:12px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">状态脉冲</div>
+        <div class="card">
+          <div class="row" style="margin-bottom:0">
+            <div style="display:flex;align-items:center;gap:10px"><span class="status status-active" style="width:12px;height:12px"></span><span style="font-size:14px">运行中</span></div>
+            <div style="display:flex;align-items:center;gap:10px"><span class="status status-inactive" style="width:12px;height:12px"></span><span style="font-size:14px;color:var(--text-secondary)">已停止</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4. 图表 -->
+    <div class="panel" data-panel="charts">
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h4>趋势折线</h4>
+          <svg class="chart-svg" viewBox="0 0 300 160" preserveAspectRatio="none">
+            <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--text)" stop-opacity="0.10"/><stop offset="100%" stop-color="var(--text)" stop-opacity="0"/></linearGradient></defs>
+            <line x1="0" y1="40" x2="300" y2="40" stroke="var(--border)" stroke-width="1"/>
+            <line x1="0" y1="80" x2="300" y2="80" stroke="var(--border)" stroke-width="1"/>
+            <line x1="0" y1="120" x2="300" y2="120" stroke="var(--border)" stroke-width="1"/>
+            <path d="M0,120 C40,100 60,60 100,80 C140,100 160,40 200,50 C240,60 260,20 300,30 L300,160 L0,160 Z" fill="url(#areaGrad)"/>
+            <path d="M0,120 C40,100 60,60 100,80 C140,100 160,40 200,50 C240,60 260,20 300,30" fill="none" stroke="var(--text)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="0" cy="120" r="3" fill="var(--text)"/><circle cx="100" cy="80" r="3" fill="var(--text)"/><circle cx="200" cy="50" r="3" fill="var(--text)"/><circle cx="300" cy="30" r="3" fill="var(--text)"/>
+            <text x="0" y="155">Mon</text><text x="100" y="155">Wed</text><text x="200" y="155">Fri</text><text x="300" y="155" text-anchor="end">Sun</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>环形进度</h4>
+          <svg class="chart-svg" viewBox="0 0 160 160">
+            <circle cx="80" cy="80" r="56" fill="none" stroke="var(--bg-elevated)" stroke-width="10"/>
+            <circle cx="80" cy="80" r="56" fill="none" stroke="var(--text)" stroke-width="10" stroke-linecap="round" stroke-dasharray="351.86" stroke-dashoffset="98.5" transform="rotate(-90 80 80)" style="transition:stroke-dashoffset 800ms var(--ease-out)"/>
+            <text x="80" y="86" text-anchor="middle" font-size="28" font-weight="600" fill="var(--text)">72%</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>柱状对比</h4>
+          <svg class="chart-svg" viewBox="0 0 300 160">
+            <g transform="translate(0,140)">
+              <rect x="20" y="-60" width="24" height="60" rx="4" fill="var(--text)"/><rect x="60" y="-90" width="24" height="90" rx="4" fill="var(--text-secondary)"/>
+              <rect x="100" y="-45" width="24" height="45" rx="4" fill="var(--text)"/><rect x="140" y="-110" width="24" height="110" rx="4" fill="var(--text-secondary)"/>
+              <rect x="180" y="-75" width="24" height="75" rx="4" fill="var(--text)"/><rect x="220" y="-130" width="24" height="130" rx="4" fill="var(--text-secondary)"/>
+              <rect x="260" y="-85" width="24" height="85" rx="4" fill="var(--text)"/>
+            </g>
+            <line x1="0" y1="140" x2="300" y2="140" stroke="var(--border)" stroke-width="1"/>
+            <text x="32" y="155" text-anchor="middle">Q1</text><text x="152" y="155" text-anchor="middle">Q2</text><text x="272" y="155" text-anchor="middle">Q3</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>色阶与速率</h4>
+          <div style="margin-bottom:20px">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">状态分布</div>
+            <div class="color-scale"><div class="color-scale-seg" style="background:var(--success)"></div><div class="color-scale-seg" style="background:var(--warning)"></div><div class="color-scale-seg" style="background:var(--danger)"></div><div class="color-scale-seg" style="background:var(--text-tertiary)"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:11px;color:var(--text-tertiary)"><span>正常</span><span>警告</span><span>危险</span><span>未知</span></div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">用量速率</div>
+            <div style="height:12px;border-radius:6px;background:linear-gradient(90deg,var(--success) 0%,var(--warning) 60%,var(--danger) 100%)"></div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="toast-container" id="toastContainer"></div>
-
   <script>
-    // === Mode Toggle ===
-    const modeToggle = document.getElementById('modeToggle');
-    const html = document.documentElement;
-
-    // Load saved mode
-    const savedMode = localStorage.getItem('aidog-theme-mode') || 'dark';
-    html.dataset.mode = savedMode;
-    updateModeButton();
-
-    modeToggle.addEventListener('click', () => {
-      const current = html.dataset.mode;
-      const next = current === 'dark' ? 'light' : 'dark';
-      html.dataset.mode = next;
-      localStorage.setItem('aidog-theme-mode', next);
-      updateModeButton();
-      showToast(`Switched to ${next === 'dark' ? '🌙 Dark' : '☀️ Light'} Mode`);
-    });
-
-    function updateModeButton() {
-      const isDark = html.dataset.mode === 'dark';
-      modeToggle.textContent = isDark ? '☀️ Light Mode' : '🌙 Dark Mode';
-    }
-
-    // === Tabs ===
-    function switchTab(tab) {
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tabs = document.querySelectorAll('.tab');
+    const panels = document.querySelectorAll('.panel');
+    tabs.forEach(tab => tab.addEventListener('click', () => {
+      const target = tab.dataset.tab;
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
       tab.classList.add('active');
+      document.querySelector(`[data-panel="${target}"]`).classList.add('active');
+    }));
+    function triggerAnim(item, cls) {
+      const el = item.querySelector('.target');
+      el.classList.remove('anim-fade','anim-slide','anim-scale','anim-bounce');
+      void el.offsetWidth;
+      el.classList.add(cls);
     }
-
-    // === Accordion ===
-    function toggleAccordion(header) {
-      const item = header.parentElement;
-      item.classList.toggle('open');
-      const arrow = header.querySelector('span:last-child');
-      arrow.textContent = item.classList.contains('open') ? '▲' : '▼';
-    }
-
-    // === Animation Trigger ===
-    function triggerAnimation(btn, animClass) {
-      btn.classList.remove(animClass);
-      void btn.offsetWidth; // Reflow
-      btn.classList.add(animClass);
-    }
-
-    // === Toast ===
-    function showToast(message) {
-      const container = document.getElementById('toastContainer');
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = message;
-      container.appendChild(toast);
-      setTimeout(() => toast.remove(), 3000);
-    }
-
-    // === Chart Generation (smoothPath from utils/chart.ts) ===
-    function smoothPath(points, clampMin, clampMax) {
-      if (points.length < 3) {
-        return points.map((p, i) =>
-          `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)},${p.y.toFixed(1)}`
-        ).join(' ');
-      }
-      const clampY = (v) => Math.min(clampMax, Math.max(clampMin, v));
-      let d = `M ${points[0].x.toFixed(1)},${points[0].y.toFixed(1)}`;
-      for (let i = 0; i < points.length - 1; i++) {
-        const p0 = points[i === 0 ? 0 : i - 1];
-        const p1 = points[i];
-        const p2 = points[i + 1];
-        const p3 = points[i + 2 < points.length ? i + 2 : points.length - 1];
-        const c1x = p1.x + (p2.x - p0.x) / 6;
-        const c1y = clampY(p1.y + (p2.y - p0.y) / 6);
-        const c2x = p2.x - (p3.x - p1.x) / 6;
-        const c2y = clampY(p2.y - (p3.y - p1.y) / 6);
-        d += ` C ${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
-      }
-      return d;
-    }
-
-    // === Line Chart ===
-    const linePoints = [
-      {x: 0, y: 120}, {x: 40, y: 80}, {x: 80, y: 100},
-      {x: 120, y: 40}, {x: 160, y: 60}, {x: 200, y: 20},
-      {x: 240, y: 50}, {x: 280, y: 90}
-    ];
-    const linePath = smoothPath(linePoints, 0, 140);
-    document.getElementById('lineChart').innerHTML = `
-      <svg class="chart-svg" viewBox="0 0 300 160">
-        <defs>
-          <linearGradient id="lineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" style="stop-color:var(--primary);stop-opacity:0.3"/>
-            <stop offset="100%" style="stop-color:var(--primary);stop-opacity:0"/>
-          </linearGradient>
-        </defs>
-        <path d="${linePath} L 280,160 L 0,160 Z" fill="url(#lineGrad)" stroke="none"/>
-        <path d="${linePath}" fill="none" stroke="var(--primary)" stroke-width="2"/>
-        ${linePoints.map(p => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="var(--primary)"/>`).join('')}
-      </svg>
-    `;
-
-    // === Ring Chart ===
-    const ringProgress = 72;
-    const radius = 50;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference * (1 - ringProgress / 100);
-    document.getElementById('ringChart').innerHTML = `
-      <svg class="chart-svg" viewBox="0 0 120 120">
-        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="var(--bg-base)" stroke-width="8"/>
-        <circle cx="60" cy="60" r="${radius}" fill="none" stroke="var(--primary)" stroke-width="8"
-          stroke-dasharray="${circumference}" stroke-dashoffset="${offset}"
-          transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 500ms ease"/>
-        <text x="60" y="65" text-anchor="middle" font-size="24" font-weight="600" fill="var(--text-primary)">${ringProgress}%</text>
-      </svg>
-    `;
-
-    // === Initial Toast ===
-    setTimeout(() => showToast('Welcome to AiDog Design Specimen'), 500);
   </script>
 </body>
 </html>
