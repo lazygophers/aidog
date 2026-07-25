@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Design System · 萤火虫配色规范</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="container">
+    <header class="header">
+      <div class="header-left">
+        <h1>Design System</h1>
+        <p>萤火虫配色 · 柔和莫兰迪 · 客户端 + 浮窗适配 · antd 组件全集</p>
+      </div>
+      <div class="header-right">
+        <span class="header-badge">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          v3.1 萤火虫
+        </span>
+        <button class="theme-toggle" onclick="toggleTheme()">
+          <span id="themeIcon"></span>
+          <span id="themeText">暗色</span>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tabs" id="tabNav">
+      <button class="tab active" data-tab="colors">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3" fill="currentColor"/><circle cx="12" cy="5" r="1.5" fill="currentColor"/><circle cx="18" cy="12" r="1.5" fill="currentColor"/><circle cx="12" cy="19" r="1.5" fill="currentColor"/><circle cx="6" cy="12" r="1.5" fill="currentColor"/></svg>
+        <span>色卡</span>
+      </button>
+      <button class="tab" data-tab="components">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>组件</span>
+      </button>
+      <button class="tab" data-tab="form">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>
+        <span>表单</span>
+      </button>
+      <button class="tab" data-tab="feedback">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg>
+        <span>反馈</span>
+      </button>
+      <button class="tab" data-tab="motion">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c2-4 4-6 6-6s4 4 6 6-2 6-4 6-4-4-6-6z"/></svg>
+        <span>动效</span>
+      </button>
+      <button class="tab" data-tab="charts">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 16l4-6 4 3 5-8"/></svg>
+        <span>图表</span>
+      </button>
+    </nav>
+
+    <!-- ===== 1. 色卡 ===== -->
+    <div class="panel active" data-panel="colors">
+      <div class="section">
+        <div class="section-title">基础表面</div>
+        <div class="card"><div class="swatch-grid">
+          <div class="swatch"><div class="swatch-block light-label" style="background:var(--bg)" data-label="BG"></div><div class="swatch-name">background</div><div class="swatch-value">#ffffff / #000000</div><div class="swatch-desc">页面底层 — 纯白/纯黑</div></div>
+          <div class="swatch"><div class="swatch-block light-label" style="background:var(--bg-elevated)" data-label="EL"></div><div class="swatch-name">elevated</div><div class="swatch-value">#faf8f5 / #0c0c0c</div><div class="swatch-desc">卡片、面板</div></div>
+          <div class="swatch"><div class="swatch-block light-label" style="background:var(--bg-hover)" data-label="HV"></div><div class="swatch-name">hover</div><div class="swatch-value">#f5f2ed / #1a1a1a</div><div class="swatch-desc">悬停态</div></div>
+        </div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">文本层级</div>
+        <div class="card"><div class="swatch-grid">
+          <div class="swatch"><div class="swatch-block" style="background:var(--text)" data-label="T1"></div><div class="swatch-name">text primary</div><div class="swatch-value">#1c1917 / #f5f5f0</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--text-secondary)" data-label="T2"></div><div class="swatch-name">text secondary</div><div class="swatch-value">#78716c / #8a8580</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--text-tertiary)" data-label="T3"></div><div class="swatch-name">text tertiary</div><div class="swatch-value">#a8a29e / #5a5550</div></div>
+        </div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">萤火虫主色</div>
+        <div class="card"><div class="swatch-grid">
+          <div class="swatch"><div class="swatch-block" style="background:var(--accent)" data-label="AC"></div><div class="swatch-name">accent</div><div class="swatch-value">#c49a3c / #e8c547</div><div class="swatch-desc">主按钮、高亮</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--accent-soft)" data-label="AS"></div><div class="swatch-name">accent soft</div><div class="swatch-value">#d4b87a / #c4a83a</div></div>
+          <div class="swatch"><div class="swatch-block light-label" style="background:var(--accent-subtle)" data-label="ASb"></div><div class="swatch-name">accent subtle</div><div class="swatch-value">10% opacity</div></div>
+        </div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">语义状态 — 柔和莫兰迪</div>
+        <div class="card"><div class="color-row">
+          <div class="color-chip"><div class="color-chip-dot" style="background:var(--success)"></div><div class="color-chip-info"><span class="color-chip-name">success</span><span class="color-chip-hex">#6b9e7a / #5a8a6a</span></div></div>
+          <div class="color-chip"><div class="color-chip-dot" style="background:var(--warning)"></div><div class="color-chip-info"><span class="color-chip-name">warning</span><span class="color-chip-hex">#c9a35c / #b8984a</span></div></div>
+          <div class="color-chip"><div class="color-chip-dot" style="background:var(--danger)"></div><div class="color-chip-info"><span class="color-chip-name">danger</span><span class="color-chip-hex">#c47a7a / #b07070</span></div></div>
+          <div class="color-chip"><div class="color-chip-dot" style="background:var(--info)"></div><div class="color-chip-info"><span class="color-chip-name">info</span><span class="color-chip-hex">#7a9ab8 / #6a8aa8</span></div></div>
+        </div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">图表序列</div>
+        <div class="card"><div class="swatch-grid">
+          <div class="swatch"><div class="swatch-block" style="background:var(--chart-1)" data-label="C1"></div><div class="swatch-name">chart 1</div><div class="swatch-value">#7a9ab8 / #6a8aa8</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--chart-2)" data-label="C2"></div><div class="swatch-name">chart 2</div><div class="swatch-value">#c47a8a / #b07080</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--chart-3)" data-label="C3"></div><div class="swatch-name">chart 3</div><div class="swatch-value">#6b9e7a / #5a8a6a</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--chart-4)" data-label="C4"></div><div class="swatch-name">chart 4</div><div class="swatch-value">#9a8ab8 / #8a7ab0</div></div>
+          <div class="swatch"><div class="swatch-block" style="background:var(--chart-5)" data-label="C5"></div><div class="swatch-name">chart 5</div><div class="swatch-value">#a8a29e / #6a6560</div></div>
+        </div></div>
+      </div>
+      <div class="section">
+        <div class="section-title">系统浮窗适配（玻璃签名）</div>
+        <div class="card" style="padding:0;overflow:hidden"><div class="float-demo"><div class="float-window">
+          <div class="float-title">系统通知</div>
+          <div class="float-desc">这是一条系统浮窗消息，采用 backdrop-blur 玻璃效果，在纯白/纯黑背景上都能保持可读性。</div>
+          <div class="float-actions"><button class="btn btn-ghost">忽略</button><button class="btn btn-primary">查看</button></div>
+        </div></div></div>
+      </div>
+    </div>
+
+    <!-- ===== 2. 组件 ===== -->
+    <div class="panel" data-panel="components">
+      <div class="section">
+        <div class="section-title">Button · 按钮</div>
+        <div class="card">
+          <div class="row"><button class="btn">Default</button><button class="btn btn-primary">Primary</button><button class="btn btn-success">Success</button><button class="btn btn-danger">Danger</button><button class="btn btn-ghost">Ghost</button><button class="btn btn-link">Link</button><button class="btn btn-dashed">Dashed</button><button class="btn" disabled>Disabled</button></div>
+          <div class="row"><button class="btn btn-sm btn-primary">Small</button><button class="btn btn-primary">Default</button><button class="btn btn-lg btn-primary">Large</button></div>
+          <div class="row">
+            <button class="btn btn-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg></button>
+            <button class="btn btn-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
+            <button class="btn btn-primary"><div class="spinner spinner-sm"></div>加载中</button>
+          </div>
+          <div class="row" style="margin-bottom:0"><div class="btn-group"><button class="btn">上一页</button><button class="btn">1</button><button class="btn">2</button><button class="btn">下一页</button></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Typography · 排版</div>
+        <div class="card">
+          <h1 style="font-size:28px;font-weight:600;margin-bottom:8px">H1 标题</h1>
+          <h2 style="font-size:22px;font-weight:600;margin-bottom:8px">H2 标题</h2>
+          <h3 style="font-size:18px;font-weight:600;margin-bottom:8px">H3 标题</h3>
+          <p style="margin-bottom:8px">这是一段正文文本。Typography 组件用于统一管理标题、段落、引用等文本展示。</p>
+          <p style="color:var(--text-secondary);font-size:13px">Secondary 文本 — 灰色描述</p>
+          <p style="color:var(--text-tertiary);font-size:13px">Tertiary 文本 — 更浅</p>
+          <p style="text-decoration:line-through;color:var(--text-tertiary);font-size:13px">已删除文本</p>
+          <p style="color:var(--accent);font-size:13px;margin-top:6px">带主色标记的文本</p>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Avatar · 头像</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div class="avatar avatar-sm">LX</div>
+          <div class="avatar avatar-md">LX</div>
+          <div class="avatar avatar-lg">LX</div>
+          <div class="avatar avatar-md avatar-square">LX</div>
+          <div class="avatar avatar-md" style="background:var(--success-subtle);color:var(--success)">OK</div>
+          <div class="avatar avatar-md" style="background:var(--danger-subtle);color:var(--danger)">NG</div>
+          <div class="avatar-group">
+            <div class="avatar avatar-md">A</div>
+            <div class="avatar avatar-md" style="background:var(--info-subtle);color:var(--info)">B</div>
+            <div class="avatar avatar-md" style="background:var(--success-subtle);color:var(--success)">C</div>
+            <div class="avatar avatar-md" style="background:var(--bg-hover);color:var(--text-secondary)">+3</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Badge · 徽标 + Tag · 标签</div>
+        <div class="card">
+          <div class="row"><span class="badge badge-accent">Accent</span><span class="badge badge-muted">Muted</span><span class="badge badge-success">Success</span><span class="badge badge-warning">Warning</span><span class="badge badge-danger">Danger</span><span class="badge badge-info">Info</span></div>
+          <div class="row"><span class="badge badge-success"><span class="badge-dot"></span>在线</span><span class="badge badge-warning"><span class="badge-dot"></span>限流</span></div>
+          <div class="row">
+            <div class="badge-count"><button class="btn">通知</button><span class="badge-count-num">8</span></div>
+            <div class="badge-count"><button class="btn">消息</button><span class="badge-count-num" style="background:var(--accent)">99+</span></div>
+          </div>
+          <div class="row" style="margin-bottom:0">
+            <span class="tag">Default</span>
+            <span class="tag" style="color:var(--accent);border-color:color-mix(in srgb, var(--accent) 30%, var(--border))">Accent</span>
+            <span class="tag tag-removable">可移除 <span class="tag-close" onclick="removeTag(this.parentElement)">×</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Table · 表格</div>
+        <div class="card" style="padding:0;overflow:hidden">
+          <table class="table">
+            <thead><tr><th>服务</th><th>状态</th><th>用量</th><th>余额</th></tr></thead>
+            <tbody>
+              <tr><td>Anthropic</td><td><span class="status status-active"></span>在线</td><td>$12.34</td><td>$87.66</td></tr>
+              <tr><td>OpenAI</td><td><span class="status status-active"></span>在线</td><td>$45.67</td><td>$54.33</td></tr>
+              <tr><td>GLM</td><td><span class="status status-inactive"></span>离线</td><td>$0.00</td><td>$100.00</td></tr>
+              <tr><td>DeepSeek</td><td><span class="status status-warning"></span>限流</td><td>$8.20</td><td>$41.80</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Collapse · 折叠面板</div>
+        <div class="card">
+          <div class="collapse-item open">
+            <div class="collapse-header" onclick="toggleCollapse(this)"><span>第一项 — 默认展开</span><span class="collapse-arrow">›</span></div>
+            <div class="collapse-body"><div class="collapse-body-inner">这是折叠面板的内容。点击头部可收起或展开。</div></div>
+          </div>
+          <div class="collapse-item">
+            <div class="collapse-header" onclick="toggleCollapse(this)"><span>第二项</span><span class="collapse-arrow">›</span></div>
+            <div class="collapse-body"><div class="collapse-body-inner">第二项的内容。支持任意嵌套。</div></div>
+          </div>
+          <div class="collapse-item">
+            <div class="collapse-header" onclick="toggleCollapse(this)"><span>第三项</span><span class="collapse-arrow">›</span></div>
+            <div class="collapse-body"><div class="collapse-body-inner">第三项的内容。</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Steps · 步骤条</div>
+        <div class="card"><div class="steps">
+          <div class="step finish"><div class="step-dot">✓</div><div class="step-content"><div class="step-title">已完成</div><div class="step-desc">第一步</div></div><div class="step-line"></div></div>
+          <div class="step process"><div class="step-dot">2</div><div class="step-content"><div class="step-title">进行中</div><div class="step-desc">第二步</div></div><div class="step-line"></div></div>
+          <div class="step"><div class="step-dot">3</div><div class="step-content"><div class="step-title">等待中</div><div class="step-desc">第三步</div></div></div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Timeline · 时间线</div>
+        <div class="card"><div class="timeline">
+          <div class="timeline-item"><div class="timeline-dot green"></div><div class="timeline-title">部署成功</div><div class="timeline-desc">2026-07-26 10:30</div></div>
+          <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-title">测试通过</div><div class="timeline-desc">2026-07-26 09:15</div></div>
+          <div class="timeline-item"><div class="timeline-dot"></div><div class="timeline-title">代码构建</div><div class="timeline-desc">2026-07-26 08:00</div></div>
+          <div class="timeline-item"><div class="timeline-dot red"></div><div class="timeline-title">提交代码</div><div class="timeline-desc">2026-07-25 22:30</div></div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Pagination · 分页 + Breadcrumb · 面包屑</div>
+        <div class="card">
+          <div class="breadcrumb" style="margin-bottom:18px">
+            <a href="#">首页</a><span class="breadcrumb-sep">/</span>
+            <a href="#">平台管理</a><span class="breadcrumb-sep">/</span>
+            <span class="current">Anthropic</span>
+          </div>
+          <div class="pagination">
+            <span class="page-item disabled">‹</span>
+            <span class="page-item active">1</span>
+            <span class="page-item">2</span>
+            <span class="page-item">3</span>
+            <span class="page-item">4</span>
+            <span class="page-item">5</span>
+            <span class="page-item">›</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Segmented · 分段控制器</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div class="segmented">
+            <button class="segmented-item active" onclick="pickSegmented(this)">日</button>
+            <button class="segmented-item" onclick="pickSegmented(this)">周</button>
+            <button class="segmented-item" onclick="pickSegmented(this)">月</button>
+            <button class="segmented-item" onclick="pickSegmented(this)">年</button>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Statistic · 统计数值</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div class="statistic"><span class="statistic-title">总请求</span><span class="statistic-value"><span class="statistic-suffix">万</span>12.4</span></div>
+          <div class="statistic"><span class="statistic-title">成功</span><span class="statistic-value success">98.7%</span></div>
+          <div class="statistic"><span class="statistic-title">失败</span><span class="statistic-value danger">1.3%</span></div>
+          <div class="statistic"><span class="statistic-title">余额</span><span class="statistic-value accent"><span class="statistic-prefix">$</span>1,024</span></div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Tooltip + Popover</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div class="tooltip-wrap"><button class="btn">悬停看 Tooltip</button><div class="tooltip">这是一个提示文字</div></div>
+          <div class="popover-wrap"><button class="btn">悬停看 Popover</button><div class="popover"><div class="popover-title">标题</div><div class="popover-content">这是一个带标题和内容的弹出层，可放更丰富的信息。</div></div></div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Modal + Drawer</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <button class="btn btn-primary" onclick="openModal('demoModal')">打开 Modal</button>
+          <button class="btn" onclick="openDrawer('demoDrawer')">打开 Drawer</button>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Image · 图片</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div style="width:120px;height:80px;border-radius:var(--radius-md);background:linear-gradient(135deg,var(--accent),var(--chart-2));display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:600">渐变占位</div>
+          <div style="width:120px;height:80px;border-radius:var(--radius-md);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;color:var(--text-tertiary);font-size:12px">无边框图片</div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== 3. 表单 ===== -->
+    <div class="panel" data-panel="form">
+      <div class="section">
+        <div class="section-title">Input · 输入框</div>
+        <div class="card">
+          <div class="row"><input type="text" class="input" placeholder="基本输入"><input type="text" class="input" placeholder="禁用" disabled></div>
+          <div class="row">
+            <div class="input-group"><input type="text" class="input" placeholder="https://" style="border-radius:var(--radius-md) 0 0 var(--radius-md)"><span class="input-addon">.com</span></div>
+            <div class="input-search"><input type="text" class="input" placeholder="搜索..."><button><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg></button></div>
+          </div>
+          <div class="row"><textarea class="textarea" placeholder="文本域：多行输入..."></textarea></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Select · 下拉选择</div>
+        <div class="card"><div class="row">
+          <select class="select"><option>选项一</option><option>选项二</option><option>选项三</option></select>
+          <select class="select" multiple style="min-height:90px;min-width:180px"><option selected>已选 A</option><option selected>已选 B</option><option>未选 C</option></select>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Checkbox + Radio</div>
+        <div class="card">
+          <div class="row"><label class="check-label"><input type="checkbox" class="checkbox" checked> 选中</label><label class="check-label"><input type="checkbox" class="checkbox"> 未选</label><label class="check-label"><input type="checkbox" class="checkbox" disabled> 禁用</label></div>
+          <div class="row" style="margin-bottom:0">
+            <label class="radio-label"><input type="radio" name="r1" class="radio" checked> 选项 A</label>
+            <label class="radio-label"><input type="radio" name="r1" class="radio"> 选项 B</label>
+            <label class="radio-label"><input type="radio" name="r1" class="radio"> 选项 C</label>
+          </div>
+          <div class="row" style="margin-bottom:0"><div class="radio-group">
+            <button class="radio-btn active" onclick="pickRadio(this)">按钮 A</button>
+            <button class="radio-btn" onclick="pickRadio(this)">按钮 B</button>
+            <button class="radio-btn" onclick="pickRadio(this)">按钮 C</button>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Switch · 开关</div>
+        <div class="card"><div class="switch-row" style="margin-bottom:12px"><div class="switch active" onclick="toggleSwitch(this)"></div><span>自动重试</span></div><div class="switch-row"><div class="switch" onclick="toggleSwitch(this)"></div><span>日志记录</span></div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Slider · 滑动条</div>
+        <div class="card"><input type="range" class="slider" min="0" max="100" value="40" oninput="document.getElementById('sliderVal').textContent=this.value"><div style="margin-top:8px;font-size:13px;color:var(--text-secondary)">当前值：<span id="sliderVal" style="color:var(--accent);font-weight:600">40</span></div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Rate · 评分</div>
+        <div class="card"><div class="rate">
+          <span class="rate-star filled">★</span><span class="rate-star filled">★</span><span class="rate-star filled">★</span><span class="rate-star filled">★</span><span class="rate-star">★</span>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">DatePicker · 日期选择（原生）</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <input type="date" class="input">
+          <input type="datetime-local" class="input">
+          <input type="month" class="input">
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Progress · 进度条</div>
+        <div class="card">
+          <div class="progress-line-label"><span>已完成</span><span>72%</span></div>
+          <div class="progress" style="margin-bottom:14px"><div class="progress-fill" style="width:72%"></div></div>
+          <div class="progress-line-label"><span>成功</span><span>100%</span></div>
+          <div class="progress" style="margin-bottom:14px"><div class="progress-fill success" style="width:100%"></div></div>
+          <div class="progress-line-label"><span>警告</span><span>45%</span></div>
+          <div class="progress" style="margin-bottom:14px"><div class="progress-fill warning" style="width:45%"></div></div>
+          <div class="progress-line-label"><span>危险</span><span>20%</span></div>
+          <div class="progress"><div class="progress-fill danger" style="width:20%"></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Form · 表单校验</div>
+        <div class="card">
+          <div class="form-item">
+            <label class="form-label">用户名</label>
+            <input type="text" class="input" value="luoxin" style="width:100%">
+            <div class="form-hint">请输入用户名（仅小写字母）</div>
+          </div>
+          <div class="form-item error">
+            <label class="form-label">邮箱</label>
+            <input type="text" class="input" value="invalid-email" style="width:100%">
+            <div class="form-error">请输入有效的邮箱地址</div>
+          </div>
+          <div class="form-item" style="margin-bottom:0">
+            <label class="form-label">备注</label>
+            <textarea class="textarea" placeholder="可选..." style="width:100%"></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 4. 反馈 ===== -->
+    <div class="panel" data-panel="feedback">
+      <div class="section">
+        <div class="section-title">Alert · 警告提示（带描述）</div>
+        <div class="card" style="padding:16px">
+          <div class="alert alert-success alert-with-desc"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--success);flex-shrink:0;margin-top:1px"><path d="M20 6L9 17l-5-5"/></svg><div><div class="alert-title">成功</div><div class="alert-desc">数据已成功同步到云端</div></div></div>
+          <div class="alert alert-warning alert-with-desc"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--warning);flex-shrink:0;margin-top:1px"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01"/></svg><div><div class="alert-title">警告</div><div class="alert-desc">配置变更尚未保存，离开页面将丢失修改</div></div></div>
+          <div class="alert alert-danger alert-with-desc" style="margin-bottom:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--danger);flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><div><div class="alert-title">错误</div><div class="alert-desc">连接超时，请检查网络后重试</div></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Result · 结果页</div>
+        <div class="card"><div class="row-stretch" style="gap:16px;align-items:stretch">
+          <div class="result result-success" style="border:1px solid var(--border);border-radius:var(--radius-md);flex:1">
+            <div class="result-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="result-title">提交成功</div><div class="result-desc">操作已完成</div>
+          </div>
+          <div class="result result-warning" style="border:1px solid var(--border);border-radius:var(--radius-md);flex:1">
+            <div class="result-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg></div>
+            <div class="result-title">需要注意</div><div class="result-desc">部分字段为空</div>
+          </div>
+          <div class="result result-error" style="border:1px solid var(--border);border-radius:var(--radius-md);flex:1">
+            <div class="result-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div>
+            <div class="result-title">提交失败</div><div class="result-desc">网络错误</div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Empty · 空状态</div>
+        <div class="card"><div class="empty">
+          <div class="empty-icon"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg></div>
+          <div class="empty-desc">暂无数据</div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Spin · 加载中</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div style="text-align:center;min-width:90px"><div class="spinner spinner-sm" style="margin:0 auto 10px"></div><span style="font-size:12px;color:var(--text-secondary)">Small</span></div>
+          <div style="text-align:center;min-width:90px"><div class="spinner" style="margin:0 auto 10px"></div><span style="font-size:12px;color:var(--text-secondary)">Default</span></div>
+          <div style="text-align:center;min-width:90px"><div class="spinner spinner-lg" style="margin:0 auto 10px"></div><span style="font-size:12px;color:var(--text-secondary)">Large</span></div>
+          <div style="flex:1;border:1px solid var(--border);border-radius:var(--radius-md);min-height:80px;display:flex;align-items:center;justify-content:center;gap:10px;color:var(--text-secondary);font-size:13px"><div class="spinner spinner-sm"></div>加载中...</div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Skeleton · 骨架屏</div>
+        <div class="card"><div style="display:flex;gap:16px;max-width:480px">
+          <div class="skeleton" style="width:56px;height:56px;border-radius:50%;flex-shrink:0"></div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:10px">
+            <div class="skeleton" style="width:50%;height:16px;border-radius:4px"></div>
+            <div class="skeleton" style="width:100%;height:12px;border-radius:4px"></div>
+            <div class="skeleton" style="width:75%;height:12px;border-radius:4px"></div>
+          </div>
+        </div></div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Message · 全局提示（演示样式）</div>
+        <div class="card" style="padding:16px">
+          <div class="alert alert-success" style="margin-bottom:8px;padding:8px 14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--success)"><path d="M20 6L9 17l-5-5"/></svg>这是 Success 消息</div>
+          <div class="alert alert-info" style="margin-bottom:8px;padding:8px 14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--info)"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>这是 Info 消息</div>
+          <div class="alert alert-warning" style="margin-bottom:8px;padding:8px 14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--warning)"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>这是 Warning 消息</div>
+          <div class="alert alert-danger" style="margin-bottom:0;padding:8px 14px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--danger)"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/></svg>这是 Error 消息</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 5. 动效 ===== -->
+    <div class="panel" data-panel="motion">
+      <div class="section">
+        <div class="section-title">入场动画（点击触发）</div>
+        <div class="motion-grid">
+          <div class="motion-item" onclick="triggerAnim(this,'anim-fade')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>fade 淡入</p></div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-slide')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>slide 滑入</p></div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-scale')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>scale 缩放</p></div>
+          <div class="motion-item" onclick="triggerAnim(this,'anim-bounce')"><div class="motion-stage"><div class="target" style="width:44px;height:44px;border-radius:10px;background:var(--accent)"></div></div><p>bounce 弹跳</p></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">状态脉冲</div>
+        <div class="card"><div class="row" style="margin-bottom:0">
+          <div style="display:flex;align-items:center;gap:10px"><span class="status status-active" style="width:12px;height:12px"></span><span style="font-size:14px">运行中</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="status status-warning" style="width:12px;height:12px"></span><span style="font-size:14px">限流中</span></div>
+          <div style="display:flex;align-items:center;gap:10px"><span class="status status-inactive" style="width:12px;height:12px"></span><span style="font-size:14px;color:var(--text-secondary)">已停止</span></div>
+        </div></div>
+      </div>
+    </div>
+
+    <!-- ===== 6. 图表 ===== -->
+    <div class="panel" data-panel="charts">
+      <div class="chart-grid">
+        <div class="chart-card">
+          <h4>趋势面积图</h4>
+          <svg class="chart-svg" viewBox="0 0 300 170" preserveAspectRatio="none">
+            <defs><linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity="0.16"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+            <line x1="0" y1="42.5" x2="300" y2="42.5" stroke="var(--border)"/><line x1="0" y1="85" x2="300" y2="85" stroke="var(--border)"/><line x1="0" y1="127.5" x2="300" y2="127.5" stroke="var(--border)"/>
+            <path d="M0,130 C30,120 50,80 80,95 C110,110 130,50 160,60 C190,70 210,30 240,38 C270,46 290,15 300,22 L300,170 L0,170 Z" fill="url(#areaGrad)"/>
+            <path d="M0,130 C30,120 50,80 80,95 C110,110 130,50 160,60 C190,70 210,30 240,38 C270,46 290,15 300,22" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <circle cx="0" cy="130" r="3.5" fill="var(--accent)"/><circle cx="80" cy="95" r="3.5" fill="var(--accent)"/><circle cx="160" cy="60" r="3.5" fill="var(--accent)"/><circle cx="240" cy="38" r="3.5" fill="var(--accent)"/><circle cx="300" cy="22" r="3.5" fill="var(--accent)"/>
+            <text x="0" y="164">Mon</text><text x="100" y="164">Wed</text><text x="200" y="164">Fri</text><text x="300" y="164" text-anchor="end">Sun</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>环形进度</h4>
+          <svg class="chart-svg" viewBox="0 0 160 170">
+            <circle cx="80" cy="85" r="58" fill="none" stroke="var(--bg-hover)" stroke-width="10"/>
+            <circle cx="80" cy="85" r="58" fill="none" stroke="var(--accent)" stroke-width="10" stroke-linecap="round" stroke-dasharray="364.42" stroke-dashoffset="102" transform="rotate(-90 80 85)" style="transition:stroke-dashoffset 900ms var(--ease-out)"/>
+            <text x="80" y="91" text-anchor="middle" font-size="28" font-weight="600" fill="var(--text)">72%</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>分组柱状图</h4>
+          <svg class="chart-svg" viewBox="0 0 300 170">
+            <g transform="translate(0,150)">
+              <rect x="18" y="-55" width="22" height="55" rx="4" fill="var(--chart-1)"/><rect x="46" y="-82" width="22" height="82" rx="4" fill="var(--chart-2)"/>
+              <rect x="88" y="-42" width="22" height="42" rx="4" fill="var(--chart-1)"/><rect x="116" y="-100" width="22" height="100" rx="4" fill="var(--chart-2)"/>
+              <rect x="158" y="-68" width="22" height="68" rx="4" fill="var(--chart-1)"/><rect x="186" y="-118" width="22" height="118" rx="4" fill="var(--chart-2)"/>
+              <rect x="228" y="-78" width="22" height="78" rx="4" fill="var(--chart-1)"/><rect x="256" y="-95" width="22" height="95" rx="4" fill="var(--chart-2)"/>
+            </g>
+            <line x1="0" y1="150" x2="300" y2="150" stroke="var(--border)"/>
+            <text x="43" y="166" text-anchor="middle">Q1</text><text x="113" y="166" text-anchor="middle">Q2</text><text x="183" y="166" text-anchor="middle">Q3</text><text x="253" y="166" text-anchor="middle">Q4</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>饼图 / 环图</h4>
+          <svg class="chart-svg" viewBox="0 0 200 170">
+            <g transform="translate(100,85)">
+              <path d="M0,0 L0,-58 A58,58 0 0,1 55.06,-18.42 Z" fill="var(--chart-1)"/>
+              <path d="M0,0 L55.06,-18.42 A58,58 0 0,1 34.63,46.51 Z" fill="var(--chart-2)"/>
+              <path d="M0,0 L34.63,46.51 A58,58 0 0,1 -46.51,34.63 Z" fill="var(--chart-3)"/>
+              <path d="M0,0 L-46.51,34.63 A58,58 0 0,1 -46.51,-34.63 Z" fill="var(--chart-4)"/>
+              <path d="M0,0 L-46.51,-34.63 A58,58 0 0,1 0,-58 Z" fill="var(--chart-5)"/>
+              <circle cx="0" cy="0" r="26" fill="var(--bg-elevated)"/>
+              <text x="0" y="3" text-anchor="middle" font-size="13" font-weight="600" fill="var(--text)">100%</text>
+            </g>
+          </svg>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;font-size:11px;color:var(--text-secondary)">
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-1)"></span>A</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-2)"></span>B</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-3)"></span>C</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-4)"></span>D</span>
+            <span style="display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:2px;background:var(--chart-5)"></span>E</span>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h4>雷达图</h4>
+          <svg class="chart-svg" viewBox="0 0 200 170">
+            <g transform="translate(100,85)">
+              <polygon points="0,-50 47.55,-15.45 29.39,40.45 -29.39,40.45 -47.55,-15.45" fill="none" stroke="var(--border)" stroke-width="1"/>
+              <polygon points="0,-37.5 35.66,-11.59 22.04,30.34 -22.04,30.34 -35.66,-11.59" fill="none" stroke="var(--border)" stroke-width="1"/>
+              <polygon points="0,-25 23.78,-7.73 14.7,20.23 -14.7,20.23 -23.78,-7.73" fill="none" stroke="var(--border)" stroke-width="1"/>
+              <line x1="0" y1="0" x2="0" y2="-50" stroke="var(--border)"/><line x1="0" y1="0" x2="47.55" y2="-15.45" stroke="var(--border)"/><line x1="0" y1="0" x2="29.39" y2="40.45" stroke="var(--border)"/><line x1="0" y1="0" x2="-29.39" y2="40.45" stroke="var(--border)"/><line x1="0" y1="0" x2="-47.55" y2="-15.45" stroke="var(--border)"/>
+              <polygon points="0,-40 33.28,-10.81 17.63,24.27 -23.51,32.36 -38.04,-12.36" fill="var(--accent)" fill-opacity="0.15" stroke="var(--accent)" stroke-width="2"/>
+              <text x="0" y="-58" text-anchor="middle">速度</text><text x="56" y="-18">稳定</text><text x="36" y="55">成本</text><text x="-36" y="55" text-anchor="end">质量</text><text x="-56" y="-18" text-anchor="end">体验</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>仪表盘</h4>
+          <svg class="chart-svg" viewBox="0 0 200 170">
+            <path d="M30,130 A70,70 0 0,1 170,130" fill="none" stroke="var(--bg-hover)" stroke-width="12" stroke-linecap="round"/>
+            <path d="M30,130 A70,70 0 0,1 140,71.74" fill="none" stroke="var(--accent)" stroke-width="12" stroke-linecap="round"/>
+            <text x="100" y="120" text-anchor="middle" font-size="32" font-weight="600" fill="var(--text)">75</text>
+            <text x="100" y="142" text-anchor="middle" font-size="11" fill="var(--text-tertiary)">分</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>漏斗图</h4>
+          <svg class="chart-svg" viewBox="0 0 200 170">
+            <g transform="translate(0,10)">
+              <polygon points="20,0 180,0 160,26 40,26" fill="var(--chart-1)"/>
+              <polygon points="40,28 160,28 140,54 60,54" fill="var(--chart-2)"/>
+              <polygon points="60,56 140,56 120,82 80,82" fill="var(--chart-3)"/>
+              <polygon points="80,84 120,84 105,110 95,110" fill="var(--chart-4)"/>
+              <text x="100" y="17" text-anchor="middle" font-size="11" fill="#fff" font-weight="600">浏览 100%</text>
+              <text x="100" y="45" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">加购 72%</text>
+              <text x="100" y="73" text-anchor="middle" font-size="10" fill="#fff" font-weight="600">下单 48%</text>
+              <text x="100" y="101" text-anchor="middle" font-size="9" fill="#fff" font-weight="600">支付 24%</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>散点图</h4>
+          <svg class="chart-svg" viewBox="0 0 300 170">
+            <line x1="0" y1="150" x2="300" y2="150" stroke="var(--border)"/><line x1="0" y1="0" x2="0" y2="150" stroke="var(--border)"/>
+            <circle cx="30" cy="120" r="4" fill="var(--chart-1)" opacity="0.7"/><circle cx="60" cy="95" r="5" fill="var(--chart-1)" opacity="0.7"/>
+            <circle cx="95" cy="110" r="3" fill="var(--chart-2)" opacity="0.7"/><circle cx="130" cy="70" r="6" fill="var(--chart-2)" opacity="0.7"/>
+            <circle cx="160" cy="85" r="4" fill="var(--chart-3)" opacity="0.7"/><circle cx="190" cy="45" r="5" fill="var(--chart-3)" opacity="0.7"/>
+            <circle cx="225" cy="60" r="4" fill="var(--chart-4)" opacity="0.7"/><circle cx="255" cy="30" r="3" fill="var(--chart-4)" opacity="0.7"/>
+            <circle cx="280" cy="50" r="5" fill="var(--chart-1)" opacity="0.7"/>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>热力图</h4>
+          <svg class="chart-svg" viewBox="0 0 300 170">
+            <g transform="translate(20,0)">
+              <g id="heatmap-cells"></g>
+            </g>
+            <text x="0" y="164" font-size="10">少</text><text x="280" y="164" font-size="10" text-anchor="end">多</text>
+          </svg>
+        </div>
+
+        <div class="chart-card">
+          <h4>色阶分布</h4>
+          <div style="margin-bottom:20px">
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">状态占比</div>
+            <div class="color-scale"><div class="color-scale-seg" style="background:var(--success)"></div><div class="color-scale-seg" style="background:var(--warning)"></div><div class="color-scale-seg" style="background:var(--danger)"></div><div class="color-scale-seg" style="background:var(--info)"></div></div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-tertiary)"><span>正常 45%</span><span>警告 25%</span><span>危险 20%</span><span>信息 10%</span></div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text-secondary);margin-bottom:10px">用量速率</div>
+            <div class="gradient-bar" style="background:linear-gradient(90deg,var(--success) 0%,var(--warning) 55%,var(--danger) 100%)"></div>
+            <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-tertiary)"><span>低</span><span>中</span><span>高</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-mask" id="demoModal" onclick="if(event.target===this)closeModal('demoModal')">
+    <div class="modal">
+      <div class="modal-title">确认操作</div>
+      <div class="modal-body">确定要删除该平台配置吗？此操作不可撤销，关联的代理路由将立即失效。</div>
+      <div class="modal-footer"><button class="btn" onclick="closeModal('demoModal')">取消</button><button class="btn btn-danger" onclick="closeModal('demoModal')">删除</button></div>
+    </div>
+  </div>
+
+  <!-- Drawer -->
+  <div class="drawer-mask" id="demoDrawer" onclick="closeDrawer('demoDrawer')"></div>
+  <div class="drawer" id="demoDrawer-real">
+    <span class="drawer-close" onclick="closeDrawer('demoDrawer')">×</span>
+    <div class="drawer-title">抽屉面板</div>
+    <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">这是一个从右侧滑入的抽屉。可放置详情、设置或表单。</p>
+    <div class="form-item"><label class="form-label">名称</label><input class="input" style="width:100%"></div>
+    <div class="form-item"><label class="form-label">描述</label><textarea class="textarea" style="width:100%"></textarea></div>
+    <button class="btn btn-primary btn-block" onclick="closeDrawer('demoDrawer')">提交</button>
+  </div>
+
+  <script src="app.js"></script>
+  <script>
+    // 热力图渲染（7×14 网格，随机透明度 accent）
+    (function renderHeatmap() {
+      const g = document.getElementById('heatmap-cells');
+      if (!g) return;
+      const cols = 14, rows = 7, cell = 18, gap = 2;
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const v = Math.random();
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', c * (cell + gap));
+        rect.setAttribute('y', r * (cell + gap));
+        rect.setAttribute('width', cell); rect.setAttribute('height', cell); rect.setAttribute('rx', 3);
+        rect.setAttribute('fill', 'var(--accent)');
+        rect.setAttribute('opacity', v * 0.9 + 0.05);
+        g.appendChild(rect);
+      }
+    })();
+  </script>
+</body>
+</html>
