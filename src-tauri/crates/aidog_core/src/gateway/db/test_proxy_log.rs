@@ -443,23 +443,26 @@ use rusqlite::params;
         assert_eq!(rows[0].id, "mta-1");
     }
 
-    /// list_request_logs (cli-proxy-request-log s3)：默认 sources=[test,quota]，
+    /// list_request_logs (cli-proxy-request-log s3)：默认 sources=[test,quota,fetch-models]，
     /// 排除纯代理转发行；LEFT JOIN cli_proxy_provider 带 provider name。
     #[tokio::test]
     async fn list_request_logs_filters_test_and_quota() {
         let db = test_db().await;
         let now = now();
 
-        // 三行：1 条 test + 1 条 quota + 1 条 anthropic 代理转发
+        // 四行：1 条 test + 1 条 quota + 1 条 fetch-models + 1 条 anthropic 代理转发
         let mut l_test = sample_log("t1", "g", now);
         l_test.source_protocol = "test".into();
         l_test.cli_proxy_provider_id = Some(7);
         let mut l_quota = sample_log("q1", "g", now - 100);
         l_quota.source_protocol = "quota".into();
+        let mut l_fetch = sample_log("fm1", "g", now - 75);
+        l_fetch.source_protocol = "fetch-models".into();
         let mut l_fwd = sample_log("f1", "g", now - 50);
         l_fwd.source_protocol = "anthropic".into();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_test, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_quota, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fetch, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fwd, false, false)).await.unwrap();
 
         // 插入关联 cli_proxy_provider id=7（list_request_logs LEFT JOIN 应带出 name）。
@@ -474,13 +477,15 @@ use rusqlite::params;
         .await
         .unwrap();
 
-        // 默认 sources 兜底 → 仅返 test + quota 两行（按 created_at DESC：t1, q1）
+        // 默认 sources 兜底 → 返 test + quota + fetch-models 三行（按 created_at DESC：t1, fm1, q1），
+        // 排除 anthropic 代理转发
         let filter_default = crate::gateway::models::ProxyLogFilter::default();
         let rows = list_request_logs(&db, &filter_default, 10, 0).await.unwrap();
-        assert_eq!(rows.len(), 2, "default sources should exclude anthropic forward");
+        assert_eq!(rows.len(), 3, "default sources should exclude anthropic forward");
         assert_eq!(rows[0].base.id, "t1");
-        assert_eq!(rows[1].base.id, "q1");
-        // LEFT JOIN：test 行带 provider_id=7 + name="prov-A"；quota 行均 None
+        assert_eq!(rows[1].base.id, "fm1");
+        assert_eq!(rows[2].base.id, "q1");
+        // LEFT JOIN：test 行带 provider_id=7 + name="prov-A"；quota/fetch-models 行均 None
         assert_eq!(rows[0].cli_proxy_provider_id, Some(7));
         assert_eq!(rows[0].cli_proxy_provider_name.as_deref(), Some("prov-A"));
         assert!(rows[1].cli_proxy_provider_id.is_none());
