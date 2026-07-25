@@ -75,6 +75,7 @@ install: ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运�
 		&& { printf "$(GREEN)✔ 已终止运行中实例，重启以加载新版本…$(RESET)\n"; sleep 1; } \
 		|| printf "$(GREEN)✔ 无运行中实例，跳过$(RESET)\n"
 	@printf "$(GREEN)✔ 已安装: $(INSTALLED)$(RESET)\n"
+	@open "$(INSTALLED)"
 
 .PHONY: uninstall
 uninstall: ## 从 /Applications 移除 AiDog.app
