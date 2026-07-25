@@ -33,6 +33,14 @@
       "kind": "task"
     },
     {
+      "id": "converter-reasoning-content",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "copybtn-dark",
       "status": "已完成",
       "deps": [],

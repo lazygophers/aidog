@@ -453,6 +453,7 @@ mod tests {
         };
         let out = to_responses(&req);
         assert_eq!(out.model, "gpt-5");
+
         assert_eq!(out.max_output_tokens, Some(1024));
         assert_eq!(out.stream, Some(true));
     }
@@ -586,5 +587,185 @@ mod tests {
         assert_eq!(out["output"].as_array().unwrap().len(), 1);
         assert_eq!(out["output"][0]["type"], "text");
         assert_eq!(out["output"][0]["text"], "");
+
+    // --- parse_responses_response 测试 ---
+    #[test]
+    fn parse_responses_response_with_summary() {
+        // Responses API reasoning via summary[]
+        let body = json!({
+            "id": "resp_123",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [
+                {
+                    "type": "summary",
+                    "summary": [
+                        {"text": "Let me analyze this.\n\nStep 1: Understand."},
+                        {"text": "Step 2: Solve."}
+                    ]
+                },
+                {
+                    "type": "text",
+                    "text": "Final answer here."
+                }
+            ],
+            "usage": {
+                "input_tokens": 25,
+                "output_tokens": 35,
+                "total_tokens": 60
+            }
+        });
+
+        let parsed = parse_responses_response(&body, "gpt-5").expect("should parse");
+        assert_eq!(parsed.id, "resp_123");
+        assert_eq!(parsed.model, "gpt-5");
+        assert_eq!(parsed.text.as_deref(), Some("Final answer here."));
+        assert_eq!(parsed.reasoning.as_deref(), Some("Let me analyze this.\n\nStep 1: Understand.\n\nStep 2: Solve."));
+        assert_eq!(parsed.stop_reason, "end_turn");
+        assert_eq!(parsed.input_tokens, 25);
+        assert_eq!(parsed.output_tokens, 35);
+    }
+
+    #[test]
+    fn parse_responses_response_with_function_call() {
+        let body = json!({
+            "id": "resp_456",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [
+                {"type": "text", "text": "I'll call a function."},
+                {
+                    "type": "function_call",
+                    "id": "call_abc",
+                    "name": "search",
+                    "arguments": {"query": "weather"}
+                }
+            ],
+            "usage": {
+                "input_tokens": 15,
+                "output_tokens": 20,
+                "total_tokens": 35
+            }
+        });
+
+        let parsed = parse_responses_response(&body, "gpt-5").expect("should parse");
+        assert_eq!(parsed.text.as_deref(), Some("I'll call a function."));
+        assert_eq!(parsed.tool_uses.len(), 1);
+        assert_eq!(parsed.tool_uses[0].0, "call_abc");
+        assert_eq!(parsed.tool_uses[0].1, "search");
+        assert_eq!(parsed.tool_uses[0].2, serde_json::json!({"query": "weather"}));
+    }
+
+    #[test]
+    fn parse_responses_response_minimal() {
+        // 最简情况：只有文本输出，无 reasoning
+        let body = json!({
+            "id": "resp_789",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [
+                {"type": "text", "text": "Simple response"}
+            ],
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15
+            }
+        });
+
+        let parsed = parse_responses_response(&body, "gpt-5").expect("should parse");
+        assert_eq!(parsed.text.as_deref(), Some("Simple response"));
+        assert!(parsed.reasoning.is_none());
+        assert!(parsed.tool_uses.is_empty());
+    }
+    // ── parse_responses_response 测试 ──
+    #[test]
+    fn parse_responses_response_with_summary() {
+        // Responses API reasoning via summary[]
+        let body = json!({
+            "id": "resp_123",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [
+                {
+                    "type": "summary",
+                    "summary": [
+                        {"text": "Let me analyze this.\n\nStep 1: Understand."},
+                        {"text": "Step 2: Solve."}
+                    ]
+                },
+                {
+                    "type": "text",
+                    "text": "Final answer here."
+                }
+            ],
+            "usage": {
+                "input_tokens": 25,
+                "output_tokens": 35,
+                "total_tokens": 60
+            }
+        });
+
+        let parsed = parse_responses_response(&body, "gpt-5").expect("should parse");
+        assert_eq!(parsed.id, "resp_123");
+        assert_eq!(parsed.model, "gpt-5");
+        assert_eq!(parsed.text.as_deref(), Some("Final answer here."));
+        assert_eq!(parsed.reasoning.as_deref(), Some("Let me analyze this.\n\nStep 1: Understand.\n\nStep 2: Solve."));
+        assert_eq!(parsed.stop_reason, "end_turn");
+        assert_eq!(parsed.input_tokens, 25);
+        assert_eq!(parsed.output_tokens, 35);
+    }
+
+    #[test]
+    fn parse_responses_response_with_function_call() {
+        let body = json!({
+            "id": "resp_456",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [
+                {"type": "text", "text": "I'll call a function."},
+                {
+                    "type": "function_call",
+                    "id": "call_abc",
+                    "name": "search",
+                    "arguments": {"query": "weather"}
+                }
+            ],
+            "usage": {
+                "input_tokens": 15,
+                "output_tokens": 20,
+                "total_tokens": 35
+            }
+        });
+
+        let parsed = parse_responses_response(&body, "gpt-5").expect("should parse");
+        assert_eq!(parsed.text.as_deref(), Some("I'll call a function."));
+        assert_eq!(parsed.tool_uses.len(), 1);
+        assert_eq!(parsed.tool_uses[0].0, "call_abc");
+        assert_eq!(parsed.tool_uses[0].1, "search");
+        assert_eq!(parsed.tool_uses[0].2, serde_json::json!({"query": "weather"}));
+    }
+
+    #[test]
+    fn parse_responses_response_minimal() {
+        // 最简情况：只有文本输出，无 reasoning
+        let body = json!({
+            "id": "resp_789",
+            "status": "completed",
+            "model": "gpt-5",
+            "output": [
+                {"type": "text", "text": "Simple response"}
+            ],
+            "usage": {
+                "input_tokens": 10,
+                "output_tokens": 5,
+                "total_tokens": 15
+            }
+        });
+
+        let parsed = parse_responses_response(&body, "gpt-5").expect("should parse");
+        assert_eq!(parsed.text.as_deref(), Some("Simple response"));
+        assert!(parsed.reasoning.is_none());
+        assert!(parsed.tool_uses.is_empty());
     }
 }

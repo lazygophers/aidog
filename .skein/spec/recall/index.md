@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(13), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
+类目: arch(13), build(3), cross-layer(1), db(3), domain(11), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -26,6 +26,10 @@
 | db/trellis-01.md | db | tokio_rusqlite 连接韧性契约 | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | active | # DB Connection Resilience  何时被读: 改 `Db` 结构 / DB 调用路径（`call_… |
 | domain/coding-plan-utilization-calib-fix-26.md | domain | coding plan 订阅制平台普遍无公开用量查询 API | coding-plan,quota,upstream-api,degrade,custom-quota-script | active | bailian/qianfan/xiaomi/compshare 等 coding plan 订阅制平台上游均无公开程序… |
 | domain/cpa-oauth-credential-format.md | domain | CPA OAuth 凭据格式（CLIProxyAPI） | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | active | # CPA OAuth 凭据格式（CLIProxyAPI）  何时被读: 改 CPA 导入解析器 / 加新 OAuth … |
+| domain/rule-51.md | domain | 5 协议定义锚点 | protocol endpoint converter platform_type | active | # 5 协议定义锚点  ## 触发场景  - endpoint 协议层只 5 种（anthropic/openai/op… |
+| domain/rule-52.md | domain | reasoning_content → anthropic 方案 B | reasoning thinking anthropic signature converter | active | # reasoning_content → anthropic 方案 B 决策  ## 触发场景  - 第三方（deep… |
+| domain/rule-53.md | domain | N×N 互转路 A vs 路 B | converter NonStreamResponse parse render protocol | active | # N×N 互转路 A vs 路 B  ## 触发场景  - N 协议互转设计选择：内部归一（路 A）vs 点对点（路 … |
+| domain/rule-54.md | domain | bug1 真相 | target_protocol platform_type matched_ep preset | active | # bug1 真相：target_protocol 落平台名  ## 触发场景  - proxy_log.target_… |
 | domain/trellis-06.md | domain | mock 平台类型规范 | mock,platform,extra,test,builder,error_mode | active | # Mock Platform Type  何时被读: 改 mock 平台逻辑（adapter/mock.rs / pr… |
 | domain/trellis-07.md | domain | Claude Code 订阅透传平台 | claude,passthrough,透传,subscription,header | active | # Claude Code Passthrough Platform Type  何时被读: 改 Claude Code… |
 | domain/trellis-08.md | domain | 平台失败处理契约 | platform,error,429,auto_disable,熔断,purge,stream,status | active | # Platform Error Handling  何时被读: 改 proxy 失败处理 / 加平台 / 调 auto… |
