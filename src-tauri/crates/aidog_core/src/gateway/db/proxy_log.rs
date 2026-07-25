@@ -411,9 +411,10 @@ pub fn list_request_logs<'a>(
     let __db_caller = std::panic::Location::caller();
     async move {
     let mut filter = filter.clone();
-    // 默认 sources 兜底：None → [test, quota]；Some(_) 尊重调用方（含空 Vec = 全 source）。
+    // 默认 sources 兜底：None → [test, quota, fetch-models]；Some(_) 尊重调用方（含空 Vec = 全 source）。
+    // fetch-models 是用户在平台卡触发的拉模型请求（非代理转发），归请求日志；代理 /v1/models 转发仍走真实协议 source。
     if filter.sources.is_none() {
-        filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
+        filter.sources = Some(vec!["test".to_string(), "quota".to_string(), "fetch-models".to_string()]);
     }
     // ① proxy_log handle 取行（含 cli_proxy_provider_id，但不含 cpp.name —— 跨库禁 JOIN）。
     let mut rows: Vec<(crate::gateway::models::ProxyLogSummary, Option<i64>)> = db
