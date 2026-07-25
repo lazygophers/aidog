@@ -59,6 +59,172 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
     }
 }
 
+/// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
+pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+    let id = body.get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let model = body.get("model")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback_model)
+        .to_string();
+
+    let output = body.get("output")?.as_array()?;
+    let mut text_parts: Vec<String> = Vec::new();
+    let mut reasoning_parts: Vec<String> = Vec::new();
+    let mut tool_uses: Vec<(String, String, Value)> = Vec::new();
+
+    for item in output {
+        // 提取 reasoning：summary 数组或 reasoning 类型的 content
+        if let Some(summary) = item.get("summary").and_then(|v| v.as_array()) {
+            for s in summary {
+                if let Some(text) = s.get("text").and_then(|v| v.as_str()) {
+                    reasoning_parts.push(text.to_string());
+                }
+            }
+        } else if let Some(content) = item.get("content").and_then(|v| v.as_array()) {
+            for c in content {
+                let ctype = c.get("type").and_then(|v| v.as_str()).unwrap_or("");
+                if ctype == "reasoning" {
+                    if let Some(text) = c.get("text").and_then(|v| v.as_str()) {
+                        reasoning_parts.push(text.to_string());
+                    }
+                } else if ctype == "text"
+                    && let Some(text) = c.get("text").and_then(|v| v.as_str()) {
+                        text_parts.push(text.to_string());
+                    }
+            }
+        }
+
+        // 提取 function_call（tool_use）
+        if let Some(fc) = item.get("function_call") {
+            let id = fc.get("id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let name = fc.get("name")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            let args = fc.get("arguments").cloned().unwrap_or_else(|| Value::Object(Default::default()));
+            if !id.is_empty() || !name.is_empty() {
+                tool_uses.push((id, name, args));
+            }
+        }
+
+        // 提取普通文本
+        if let Some(text) = item.get("text").and_then(|v| v.as_str()) {
+            text_parts.push(text.to_string());
+        }
+    }
+
+    let text = if text_parts.is_empty() {
+        None
+    } else {
+        Some(text_parts.join(""))
+    };
+
+    let reasoning = if reasoning_parts.is_empty() {
+        None
+    } else {
+        Some(reasoning_parts.join("\n\n"))
+    };
+
+    // Responses API 的 status 映射到 stop_reason
+    let status = body.get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("completed");
+    let stop_reason = match status {
+        "completed" => "end_turn",
+        "failed" | "incomplete" => "end_turn",
+        _ => "end_turn",
+    }.to_string();
+
+    // usage 信息
+    let usage = body.get("usage");
+    let input_tokens = usage
+        .and_then(|u| u.get("input_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let output_tokens = usage
+        .and_then(|u| u.get("output_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let cache_read_tokens = 0; // Responses API 暂不支持缓存读取
+
+    Some(super::converter::NonStreamResponse {
+        id,
+        model,
+        text,
+        tool_uses,
+        stop_reason,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        reasoning,
+    })
+}
+
+/// 渲染归一响应为 OpenAI Responses API 非流式响应体。
+///
+/// 映射规则：
+/// - output[]: text item（type=text） + reasoning summary item（type=summary） + function_call item
+/// - status: completed
+/// - usage: prompt_tokens/completion_tokens
+pub fn render_responses_response(r: &super::converter::NonStreamResponse) -> Option<Value> {
+    let mut output = Vec::new();
+
+    // 添加文本 item
+    if let Some(text) = &r.text
+        && !text.is_empty() {
+            output.push(serde_json::json!({
+                "type": "text",
+                "text": text,
+            }));
+        }
+
+    // 添加 reasoning summary item
+    if let Some(reasoning) = &r.reasoning
+        && !reasoning.is_empty() {
+            output.push(serde_json::json!({
+                "type": "summary",
+                "text": reasoning,
+            }));
+        }
+
+    // 添加 function_call item（每个 tool_use 一个 item）
+    for (id, name, input) in &r.tool_uses {
+        output.push(serde_json::json!({
+            "type": "function_call",
+            "id": id,
+            "name": name,
+            "arguments": input,
+        }));
+    }
+
+    // 兜底：既无 text 也无 tool_use（异常上游）→ 空 text item，保证 output 非空
+    if output.is_empty() {
+        output.push(serde_json::json!({
+            "type": "text",
+            "text": "",
+        }));
+    }
+
+    Some(serde_json::json!({
+        "id": r.id,
+        "model": r.model,
+        "status": "completed",
+        "output": output,
+        "usage": {
+            "prompt_tokens": r.input_tokens,
+            "completion_tokens": r.output_tokens,
+            "total_tokens": r.input_tokens + r.output_tokens,
+        }
+    }))
+}
+
 /// 从 Responses API 请求解析为内部 ChatRequest。
 ///
 /// 兼容 Codex / OpenAI Responses 的多种 `input` 形态：
@@ -289,5 +455,136 @@ mod tests {
         assert_eq!(out.model, "gpt-5");
         assert_eq!(out.max_output_tokens, Some(1024));
         assert_eq!(out.stream, Some(true));
+    }
+
+    // ── render_responses_response 测试 ──
+    #[test]
+    fn render_responses_text_only() {
+        use super::super::converter::NonStreamResponse;
+        use super::render_responses_response;
+
+        let r = NonStreamResponse {
+            id: "test".to_string(),
+            model: "gpt-5".to_string(),
+            text: Some("Hello world".to_string()),
+            tool_uses: vec![],
+            stop_reason: "end_turn".to_string(),
+            input_tokens: 10,
+            output_tokens: 5,
+            cache_read_tokens: 0,
+            reasoning: None,
+        };
+
+        let out = render_responses_response(&r).unwrap();
+        assert_eq!(out["id"], "test");
+        assert_eq!(out["model"], "gpt-5");
+        assert_eq!(out["status"], "completed");
+        assert_eq!(out["output"].as_array().unwrap().len(), 1);
+        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][0]["text"], "Hello world");
+    }
+
+    #[test]
+    fn render_responses_with_reasoning() {
+        use super::super::converter::NonStreamResponse;
+        use super::render_responses_response;
+
+        let r = NonStreamResponse {
+            id: "test".to_string(),
+            model: "gpt-5".to_string(),
+            text: Some("Answer".to_string()),
+            tool_uses: vec![],
+            stop_reason: "end_turn".to_string(),
+            input_tokens: 20,
+            output_tokens: 10,
+            cache_read_tokens: 0,
+            reasoning: Some("Thinking...".to_string()),
+        };
+
+        let out = render_responses_response(&r).unwrap();
+        assert_eq!(out["output"].as_array().unwrap().len(), 2);
+        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][0]["text"], "Answer");
+        assert_eq!(out["output"][1]["type"], "summary");
+        assert_eq!(out["output"][1]["text"], "Thinking...");
+    }
+
+    #[test]
+    fn render_responses_with_function_call() {
+        use super::super::converter::NonStreamResponse;
+        use super::render_responses_response;
+
+        let r = NonStreamResponse {
+            id: "test".to_string(),
+            model: "gpt-5".to_string(),
+            text: Some("Let me check".to_string()),
+            tool_uses: vec![
+                ("tool-1".to_string(), "read_file".to_string(), json!({"path": "/tmp"})),
+            ],
+            stop_reason: "tool_use".to_string(),
+            input_tokens: 15,
+            output_tokens: 8,
+            cache_read_tokens: 0,
+            reasoning: None,
+        };
+
+        let out = render_responses_response(&r).unwrap();
+        assert_eq!(out["output"].as_array().unwrap().len(), 2);
+        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][1]["type"], "function_call");
+        assert_eq!(out["output"][1]["id"], "tool-1");
+        assert_eq!(out["output"][1]["name"], "read_file");
+        assert_eq!(out["output"][1]["arguments"]["path"], "/tmp");
+    }
+
+    #[test]
+    fn render_responses_with_all() {
+        use super::super::converter::NonStreamResponse;
+        use super::render_responses_response;
+
+        let r = NonStreamResponse {
+            id: "test".to_string(),
+            model: "gpt-5".to_string(),
+            text: Some("Result".to_string()),
+            tool_uses: vec![
+                ("tool-2".to_string(), "write".to_string(), json!({"content": "data"})),
+            ],
+            stop_reason: "tool_use".to_string(),
+            input_tokens: 25,
+            output_tokens: 12,
+            cache_read_tokens: 0,
+            reasoning: Some("Analyzing...".to_string()),
+        };
+
+        let out = render_responses_response(&r).unwrap();
+        // text + summary + function_call
+        assert_eq!(out["output"].as_array().unwrap().len(), 3);
+        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][1]["type"], "summary");
+        assert_eq!(out["output"][2]["type"], "function_call");
+    }
+
+    #[test]
+    fn render_responses_empty_message() {
+        use super::super::converter::NonStreamResponse;
+        use super::render_responses_response;
+
+        let r = NonStreamResponse {
+            id: "empty".to_string(),
+            model: "gpt-5".to_string(),
+            text: None,
+            tool_uses: vec![],
+            stop_reason: "end_turn".to_string(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_tokens: 0,
+            reasoning: None,
+        };
+
+        let out = render_responses_response(&r).unwrap();
+        // 兜底空 text item
+        assert_eq!(out["output"].as_array().unwrap().len(), 1);
+        assert_eq!(out["output"][0]["type"], "text");
+        assert_eq!(out["output"][0]["text"], "");
     }
 }
