@@ -119,17 +119,13 @@ pub(crate) fn select_endpoint_for_protocol<'a>(
             .find(|ep| ep_proto(ep) == source_protocol && key_usable(ep))
             .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep_proto(ep) == "openai"))
     } else {
-        // 普通平台：步骤 3 同协议直发；步骤 4 openai_responses 回退 openai。
+        // 普通平台：步骤 3 同协议直发；步骤 4 跨协议回退（释放 converter 5×5 互转）。
+        // 优先 openai（最稳 converter 路径，平台最常见），若无 openai 取 endpoints 首个非 source 可用 endpoint。
         endpoints
             .iter()
             .find(|ep| ep_proto(ep) == source_protocol)
-            .or_else(|| {
-                if source_protocol == "openai_responses" {
-                    endpoints.iter().find(|ep| ep_proto(ep) == "openai")
-                } else {
-                    None
-                }
-            })
+            .or_else(|| endpoints.iter().find(|ep| ep_proto(ep) == "openai"))
+            .or_else(|| endpoints.iter().find(|ep| ep_proto(ep) != source_protocol))
     }
 }
 
