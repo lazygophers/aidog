@@ -24,13 +24,13 @@ import { TableHeader, TableBody } from "@/components/ui/table";
 // ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (LogRow/Pagination/ThCell/FilterSelect)
 // + Logs/DetailPanel（ProxyLogDetail 经 proxyLogApi.get 取回 — request_log_list 仅摘要行）。
 // 详情现为 Sheet 叠加（DetailPanel 内部以 Radix Portal 渲染），列表恒常可见。
-// 筛选维度: 类型(test/quota/fetch-models) / 平台 / cli-proxy provider / 状态 / 时间 — 独立于 Logs 主页。
-// 后端 request_log_list 默认 sources=[test,quota,fetch-models]（db 兜底），前端 filter.sources 显式覆盖。
+// 筛选维度: 类型(test/quota) / 平台 / cli-proxy provider / 状态 / 时间 — 独立于 Logs 主页。
+// 后端 request_log_list 默认 sources=[test,quota]（db 兜底），前端 filter.sources 显式覆盖。
 
 const DEFAULT_PAGE_SIZE = 20;
 
 /** 类型筛选值 → 映射到后端 sources 字段 */
-type TypeFilter = "all" | "test" | "quota" | "fetch-models";
+type TypeFilter = "all" | "test" | "quota";
 
 function typeToSources(t: TypeFilter): string[] | undefined {
   if (t === "all") return undefined; // 后端默认 [test,quota]
@@ -121,7 +121,7 @@ export function RequestLog() {
       // ponytail: request_log_list 不返 count；复用 proxy_log_count_filtered（同 build_filter_where）
       // 作精确 total。filter 等价（sources/exclude_sources/platform_id/... 同语义）。
       const countFilter: ProxyLogFilter = { ...activeFilter };
-      if (!countFilter.sources) countFilter.sources = ["test", "quota", "fetch-models"];
+      if (!countFilter.sources) countFilter.sources = ["test", "quota"];
       const [items, count] = await Promise.all([
         requestLogApi.list(activeFilter, pageSize, offset),
         proxyLogApi.countFiltered(countFilter),
@@ -220,7 +220,6 @@ export function RequestLog() {
             options={[
               { value: "test", label: t("requestLog.typeTest", "测试") },
               { value: "quota", label: t("requestLog.typeQuota", "余额") },
-              { value: "fetch-models", label: t("requestLog.typeFetch", "拉模型") },
             ]}
             placeholder={t("requestLog.filterType", "类型")}
           />
