@@ -54,6 +54,121 @@ pub fn to_completions(req: &ChatRequest) -> CompletionsRequest {
     }
 }
 
+/// 解析 OpenAI Legacy Completions API 非流式响应为归一 NonStreamResponse
+pub fn parse_completions_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+    // Legacy /v1/completions 格式：choices[0].text
+    // 部分提供商可能复用 chat 格式 choices[0].message.content
+    let choices = body.get("choices")?.as_array()?;
+    let choice = choices.first()?;
+
+    // 优先取 message（chat 格式），回退 text（legacy 格式）
+    let (text, reasoning) = if let Some(message) = choice.get("message") {
+        let t = message.get("content")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        let r = message.get("reasoning_content")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        (t, r)
+    } else {
+        let t = choice.get("text")
+            .and_then(|v| v.as_str())
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string());
+        (t, None)
+    };
+
+    let finish_reason = choice.get("finish_reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("stop");
+    let stop_reason = match finish_reason {
+        "length" => "max_tokens",
+        "stop" => "end_turn",
+        _ => "end_turn",
+    }.to_string();
+
+    let usage = body.get("usage");
+    let input_tokens = usage
+        .and_then(|u| u.get("prompt_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let output_tokens = usage
+        .and_then(|u| u.get("completion_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+    let cache_read_tokens = usage
+        .and_then(|u| u.get("prompt_tokens_details"))
+        .and_then(|d| d.get("cached_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+
+    let id = body.get("id")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let model = body.get("model")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(fallback_model)
+        .to_string();
+
+    Some(super::converter::NonStreamResponse {
+        id,
+        model,
+        text,
+        tool_uses: Vec::new(), // legacy completions 不支持 tool_calls
+        stop_reason,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        reasoning,
+    })
+}
+
+/// 渲染归一响应为 OpenAI Legacy Completions 非流式响应体。
+///
+/// 映射规则（legacy 格式，无 tool_calls）：
+/// - choices[0].text: reasoning + text 拼接（reasoning 排前缀）
+/// - choices[0].finish_reason: 映射 stop_reason
+/// - usage: prompt_tokens/completion_tokens
+pub fn render_completions_response(r: &super::converter::NonStreamResponse) -> Option<Value> {
+    // 拼接 reasoning + text（legacy 格式）
+    let mut combined = String::new();
+    if let Some(reasoning) = &r.reasoning
+        && !reasoning.is_empty() {
+            combined.push_str(reasoning);
+        }
+    if let Some(text) = &r.text
+        && !text.is_empty() {
+            combined.push_str(text);
+        }
+
+    // 映射 finish_reason
+    let finish_reason = match r.stop_reason.as_str() {
+        "tool_use" => "stop",  // legacy 无 tool_calls，按 stop 处理
+        "max_tokens" => "length",
+        "end_turn" | "stop_sequence" => "stop",
+        _ => "stop",
+    };
+
+    Some(serde_json::json!({
+        "id": r.id,
+        "model": r.model,
+        "choices": [{
+            "index": 0,
+            "text": combined,
+            "finish_reason": finish_reason,
+        }],
+        "usage": {
+            "prompt_tokens": r.input_tokens,
+            "completion_tokens": r.output_tokens,
+            "total_tokens": r.input_tokens + r.output_tokens,
+        }
+    }))
+}
+
 /// 从 Completions API 请求解析为内部 ChatRequest
 /// 将 prompt 字符串拆分为单条 User 消息
 pub fn from_completions(body: &Value) -> Option<ChatRequest> {

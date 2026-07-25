@@ -32,6 +32,8 @@ pub struct NonStreamResponse {
     pub input_tokens: i64,
     pub output_tokens: i64,
     pub cache_read_tokens: i64,
+    /// 思维链文本（按 wire 协议语义提取，anthropic thinking 块 / openai reasoning_content 等）
+    pub reasoning: Option<String>,
 }
 
 /// 非流式上游响应 → 客户端协议响应体转换。
@@ -42,40 +44,62 @@ pub struct NonStreamResponse {
 /// 返回 `Some(Value)` 表示已转换为客户端格式；`None` 表示无需 / 无法转换
 /// （调用方应原样透传上游 body，保持既有行为）。
 ///
-/// 当前覆盖 openai(chat completion) → anthropic(messages) 真转换（修复 tool_calls/content
-/// 并存时客户端拿到非 anthropic 结构致 "empty or malformed" 的 bug）；其余跨协议组合暂回退透传。
+/// 转换路径：parse_<wire>(body) → NonStreamResponse → render_<client>(parsed) → Value
+/// wire == client 时透传；缺实现时回退透传（向后兼容）。
 pub fn convert_response(
     body: &Value,
     wire_protocol: &Protocol,
     client_protocol: &str,
     model: &str,
 ) -> Option<Value> {
-    // 同语义协议无需转换：客户端要 openai 且上游也是 openai 系列 → 透传。
+    use crate::gateway::models::Protocol;
+
+    // 同协议透传：wire == client → 跳过 parse/render（避免不必要转换）
     let wire_is_openai = matches!(
         wire_protocol,
-        Protocol::OpenAI | Protocol::OpenAICompletions
-    ) || !matches!(
-        wire_protocol,
-        Protocol::Anthropic | Protocol::Gemini | Protocol::OpenAIResponses
+        Protocol::OpenAI | Protocol::OpenAICompletions | Protocol::OpenAIResponses
     );
-    let client_is_anthropic = !matches!(client_protocol, "openai" | "openai_responses" | "openai_completions" | "gemini");
+    let client_is_openai = matches!(client_protocol, "openai" | "openai_responses" | "openai_completions");
 
-    // 修复目标场景：上游 openai chat completion → 客户端 anthropic messages。
-    if wire_is_openai && client_is_anthropic {
-        let mut parsed = super::super::openai::parse_openai_response(body, model)?;
-        // 客户端响应 model 字段统一回填为客户端请求的模型名（与流式 model_for_response 一致），
-        // 避免暴露上游真实模型名 / 触发 CC 模型校验歧义。
-        parsed.model = model.to_string();
-        return Some(render_anthropic_response(&parsed));
+    // wire == client（同语义协议）→ 透传
+    if (wire_is_openai && client_is_openai)
+        || (matches!(wire_protocol, Protocol::Anthropic) && client_protocol == "anthropic")
+        || (matches!(wire_protocol, Protocol::Gemini) && client_protocol == "gemini")
+    {
+        return None;
     }
 
-    // 其余组合（同协议透传 / 暂未覆盖的跨协议）：返回 None，调用方透传上游原文。
-    None
+    // parse 阶段：wire_protocol → NonStreamResponse
+    let parsed = match wire_protocol {
+        Protocol::Anthropic => super::super::anthropic::parse_anthropic_response(body, model),
+        Protocol::OpenAI => super::super::openai::parse_openai_response(body, model),
+        Protocol::OpenAIResponses => super::super::openai_responses::parse_responses_response(body, model),
+        Protocol::OpenAICompletions => super::super::openai_completions::parse_completions_response(body, model),
+        Protocol::Gemini => super::super::gemini::parse_gemini_response(body, model),
+        _ => None, // 非目标协议回退透传
+    };
+
+    let parsed = parsed?;
+
+    // render 阶段：NonStreamResponse → client_protocol
+    match client_protocol {
+        "anthropic" => Some(render_anthropic_response(&parsed)),
+        "openai" => Some(super::super::openai::render_openai_response(&parsed)?),
+        "openai_responses" => Some(super::super::openai_responses::render_responses_response(&parsed)?),
+        "openai_completions" => Some(super::super::openai_completions::render_completions_response(&parsed)?),
+        "gemini" => Some(super::super::gemini::render_gemini_response(&parsed)?),
+        _ => None, // 未知客户端协议回退透传
+    }
 }
 
 /// 渲染归一响应为 Anthropic Messages 非流式响应体。
-fn render_anthropic_response(r: &NonStreamResponse) -> Value {
+pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
     let mut content: Vec<Value> = Vec::new();
+    // reasoning 排首位（方案 B：禁 thinking 块避 signature 风险）
+    if let Some(reasoning) = &r.reasoning
+        && !reasoning.is_empty() {
+            content.push(serde_json::json!({ "type": "text", "text": reasoning }));
+        }
     if let Some(text) = &r.text
         && !text.is_empty() {
             content.push(serde_json::json!({ "type": "text", "text": text }));
@@ -138,6 +162,17 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
             })
         )),
         ChatStreamEvent::Delta { text } => Some(format!(
+            "event: content_block_delta\ndata: {}\n\n",
+            serde_json::json!({
+                "type": "content_block_delta",
+                "index": 0,
+                "delta": {
+                    "type": "text_delta",
+                    "text": text
+                }
+            })
+        )),
+        ChatStreamEvent::ReasoningDelta { text } => Some(format!(
             "event: content_block_delta\ndata: {}\n\n",
             serde_json::json!({
                 "type": "content_block_delta",

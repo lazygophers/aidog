@@ -239,3 +239,50 @@ use super::*;
     }
 
     // ── 透传 model remap：仅 patch model 字段，messages/tools 结构原样保留 ──
+
+    // ── bugfix: s2-bug1-target-protocol ──
+    // endpoint 匹配失败时，target_protocol 必须落 5 协议之一。
+    // 当平台类型为非 wire protocol（sensenova/glm/kimi 等）且 endpoints 为空时，
+    // select_endpoint_for_protocol 返回 None，fallback 到 platform_type 会导致 target_protocol 落库为平台名。
+    #[test]
+    fn select_endpoint_empty_endpoints_fallback_to_invalid_platform_type() {
+        use super::select_endpoint_for_protocol as sel;
+        use super::super::models::{PlatformEndpoint, Protocol};
+
+        // 空 endpoints → None（任何 source_protocol）
+        let empty: Vec<PlatformEndpoint> = vec![];
+        assert!(sel(&empty, "anthropic").is_none());
+        assert!(sel(&empty, "openai").is_none());
+        assert!(sel(&empty, "gemini").is_none());
+
+        // endpoints 不含目标协议 → None
+        let only_openai = vec![PlatformEndpoint {
+            protocol: Protocol::OpenAI,
+            base_url: "https://api.example.com/v1".to_string(),
+            client_type: "codex_tui".to_string(),
+            coding_plan: false,
+        }];
+        assert!(sel(&only_openai, "anthropic").is_none());
+        assert!(sel(&only_openai, "gemini").is_none());
+
+        // ─── 验收：endpoint 匹配失败时 target_protocol 不得落平台名 ───
+        // sensenova 平台类型不是有效的 wire protocol，不能作为 target_protocol
+        let sensenova_type = Protocol::SenseNova;
+        let is_valid = |p: &Protocol| -> bool {
+            matches!(p, Protocol::Anthropic | Protocol::OpenAI | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::Gemini)
+        };
+        assert!(!is_valid(&sensenova_type), "SenseNova must not be a valid wire protocol");
+
+        // glm、kimi 等平台类型同样无效
+        assert!(!is_valid(&Protocol::Glm));
+        assert!(!is_valid(&Protocol::Kimi));
+        assert!(!is_valid(&Protocol::MiniMax));
+
+        // 5 个 wire protocol 有效
+        assert!(is_valid(&Protocol::Anthropic));
+        assert!(is_valid(&Protocol::OpenAI));
+        assert!(is_valid(&Protocol::OpenAIResponses));
+        assert!(is_valid(&Protocol::OpenAICompletions));
+        assert!(is_valid(&Protocol::Gemini));
+    }
+

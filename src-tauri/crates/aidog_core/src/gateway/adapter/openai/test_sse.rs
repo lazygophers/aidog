@@ -133,3 +133,26 @@ fn to_sse_usage_none() {
     };
     assert!(to_openai_sse(&ev, "m").is_none());
 }
+
+#[test]
+fn parse_reasoning_content_delta() {
+    let d = json!({"choices": [{"index": 0, "delta": {"reasoning_content": "thinking..."}}]});
+    match parse_openai_sse(&d) {
+        Some(ChatStreamEvent::ReasoningDelta { text }) => assert_eq!(text, "thinking..."),
+        _ => panic!("expected reasoning_delta"),
+    }
+}
+
+#[test]
+fn parse_empty_reasoning_content_none() {
+    let d = json!({"choices": [{"index": 0, "delta": {"reasoning_content": ""}}]});
+    assert!(parse_openai_sse(&d).is_none());
+}
+
+#[test]
+fn to_sse_reasoning_delta() {
+    let ev = ChatStreamEvent::ReasoningDelta { text: "reasoning...".into() };
+    let s = to_openai_sse(&ev, "m").expect("reasoning delta");
+    assert!(s.contains("reasoning_content"));
+    assert!(s.contains("reasoning..."));
+}

@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use super::super::super::types::*;
-use super::from_openai;
+use crate::gateway::adapter::openai::from_openai;
 
 #[test]
 fn invalid_body_returns_none() {

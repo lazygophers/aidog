@@ -39,6 +39,14 @@ pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {
         });
     }
 
+    // reasoning_content delta（GLM/deepseek/商汤思维链流式增量）
+    if let Some(reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str())
+        && !reasoning.is_empty() {
+            return Some(ChatStreamEvent::ReasoningDelta {
+                text: reasoning.to_string(),
+            });
+        }
+
     // 结束
     if let Some(reason) = choice.get("finish_reason").and_then(|v| v.as_str())
         && (reason == "stop" || reason == "tool_calls" || reason == "length") {
@@ -68,6 +76,14 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                 "id": "",
                 "object": "chat.completion.chunk",
                 "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": null}]
+            })
+        )),
+        ChatStreamEvent::ReasoningDelta { text } => Some(format!(
+            "data: {}\n\n",
+            serde_json::json!({
+                "id": "",
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"reasoning_content": text}, "finish_reason": null}]
             })
         )),
         ChatStreamEvent::ToolDelta { index, id, name, input } => {
