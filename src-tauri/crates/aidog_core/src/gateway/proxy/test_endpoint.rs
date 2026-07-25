@@ -137,8 +137,9 @@ use super::*;
         let openai_only = vec![ep(Protocol::OpenAI, "https://api.deepseek.com/v1", false)];
         let m = sel(&openai_only, "openai_responses").unwrap();
         assert_eq!(m.base_url, "https://api.deepseek.com/v1");
-        // 无任何匹配且非 openai_responses → None
-        assert!(sel(&openai_only, "gemini").is_none());
+        // 跨协议回退扩展：gemini 入站现在回退到 openai endpoint（而非 None）
+        let m = sel(&openai_only, "gemini").expect("gemini must fallback to openai");
+        assert_eq!(m.base_url, "https://api.deepseek.com/v1");
     }
 
     // ── endpoint_host：scheme/端口/路径/userinfo/大小写 边界 ──
@@ -255,15 +256,17 @@ use super::*;
         assert!(sel(&empty, "openai").is_none());
         assert!(sel(&empty, "gemini").is_none());
 
-        // endpoints 不含目标协议 → None
+        // 跨协议回退扩展：anthropic/gemini 入站 + 仅 openai endpoint → 回退 openai（而非 None）
         let only_openai = vec![PlatformEndpoint {
             protocol: Protocol::OpenAI,
             base_url: "https://api.example.com/v1".to_string(),
             client_type: "codex_tui".to_string(),
             coding_plan: false,
         }];
-        assert!(sel(&only_openai, "anthropic").is_none());
-        assert!(sel(&only_openai, "gemini").is_none());
+        let m = sel(&only_openai, "anthropic").expect("anthropic must fallback to openai");
+        assert_eq!(m.protocol, Protocol::OpenAI);
+        let m = sel(&only_openai, "gemini").expect("gemini must fallback to openai");
+        assert_eq!(m.protocol, Protocol::OpenAI);
 
         // ─── 验收：endpoint 匹配失败时 target_protocol 不得落平台名 ───
         // sensenova 平台类型不是有效的 wire protocol，不能作为 target_protocol
@@ -284,5 +287,62 @@ use super::*;
         assert!(is_valid(&Protocol::OpenAIResponses));
         assert!(is_valid(&Protocol::OpenAICompletions));
         assert!(is_valid(&Protocol::Gemini));
+    }
+
+    // ── 跨协议回退扩展（endpoint-cross-protocol-fallback task s1）──
+    #[test]
+    fn select_endpoint_cross_protocol_fallback() {
+        use super::select_endpoint_for_protocol as sel;
+        use super::super::models::{PlatformEndpoint, Protocol};
+        let ep = |proto: Protocol, url: &str, cp: bool| PlatformEndpoint {
+            protocol: proto,
+            base_url: url.to_string(),
+            client_type: "claude_code".to_string(),
+            coding_plan: cp,
+        };
+
+        // 1. anthropic 入站 + 仅 [openai] endpoint → 回退 openai endpoint（核心新行为）
+        let openai_only = vec![ep(Protocol::OpenAI, "https://api.sensenova.com/v1", false)];
+        let m = sel(&openai_only, "anthropic")
+            .expect("anthropic inbound with only openai endpoint must fallback to openai");
+        assert_eq!(m.protocol, Protocol::OpenAI);
+        assert_eq!(m.base_url, "https://api.sensenova.com/v1");
+
+        // 2. gemini 入站 + 仅 [openai] endpoint → 回退 openai
+        let m = sel(&openai_only, "gemini")
+            .expect("gemini inbound with only openai endpoint must fallback to openai");
+        assert_eq!(m.protocol, Protocol::OpenAI);
+
+        // 3. openai_completions 入站 + 仅 [openai] endpoint → 回退 openai
+        let m = sel(&openai_only, "openai_completions")
+            .expect("openai_completions inbound with only openai endpoint must fallback to openai");
+        assert_eq!(m.protocol, Protocol::OpenAI);
+
+        // 4. coding 平台(has coding_plan=true ep) + anthropic 入站无 anthropic coding ep → 走步骤 2 openai coding, 不落非 coding
+        let kimi_cp = vec![ep(Protocol::OpenAI, "https://api.kimi.com/coding/v1", true)];
+        let m = sel(&kimi_cp, "anthropic")
+            .expect("anthropic inbound on coding platform must fallback to openai coding endpoint");
+        assert_eq!(m.base_url, "https://api.kimi.com/coding/v1");
+        assert!(m.coding_plan, "selected endpoint must be coding (401 protection)");
+
+        // 5. 同协议 endpoint 存在 → 直发不转换（现有行为回归）
+        let multi = vec![
+            ep(Protocol::Anthropic, "https://api.example.com/anthropic", false),
+            ep(Protocol::OpenAI, "https://api.example.com/v1", false),
+        ];
+        let m = sel(&multi, "anthropic").unwrap();
+        assert_eq!(m.protocol, Protocol::Anthropic);
+        assert_eq!(m.base_url, "https://api.example.com/anthropic");
+
+        // 6. openai_responses 入站 + 仅 [openai] endpoint → 回退 openai（现有行为回归, 验泛化未破坏）
+        let m = sel(&openai_only, "openai_responses")
+            .expect("openai_responses inbound with only openai endpoint must fallback to openai");
+        assert_eq!(m.protocol, Protocol::OpenAI);
+
+        // 7. 无任何 endpoint → None（边界）
+        let empty: Vec<PlatformEndpoint> = vec![];
+        assert!(sel(&empty, "anthropic").is_none(), "empty endpoints must return None");
+        assert!(sel(&empty, "openai").is_none());
+        assert!(sel(&empty, "gemini").is_none());
     }
 
