@@ -64,16 +64,16 @@ deps: ## Install frontend dependencies
 
 .PHONY: install
 install: ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
-	@printf "$(CYAN)▶ 检测运行中的 $(APP_NAME)…$(RESET)\n"
-	@pkill -x "$(APP_NAME)" 2>/dev/null \
-		&& { printf "$(GREEN)✔ 已终止运行中实例，等待退出…$(RESET)\n"; sleep 1; } \
-		|| printf "$(GREEN)✔ 无运行中实例，跳过$(RESET)\n"
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))…$(RESET)\n"
 	yarn tauri build
 	@test -d "$(APP_BUNDLE)" || { printf "$(BOLD)❌ build 产物缺失: $(APP_BUNDLE)$(RESET)\n"; exit 1; }
 	@printf "$(GREEN)▶ 安装 → $(INSTALLED)$(RESET)\n"
 	@rm -rf "$(INSTALLED)"
 	@cp -R "$(APP_BUNDLE)" "$(INSTALL_DIR)/"
+	@printf "$(CYAN)▶ 检测运行中的 $(APP_NAME)…$(RESET)\n"
+	@pkill -f "$(APP_NAME).app/Contents/MacOS/" 2>/dev/null \
+		&& { printf "$(GREEN)✔ 已终止运行中实例，重启以加载新版本…$(RESET)\n"; sleep 1; } \
+		|| printf "$(GREEN)✔ 无运行中实例，跳过$(RESET)\n"
 	@printf "$(GREEN)✔ 已安装: $(INSTALLED)$(RESET)\n"
 
 .PHONY: uninstall
