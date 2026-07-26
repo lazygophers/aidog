@@ -20,6 +20,8 @@ import {
   costLevel,
   levelColor,
   FilterDropdown,
+  useReveal,
+  useCounter,
   type ColorLevel,
 } from "../components/shared";
 import { Button } from "@/components/ui/button";
@@ -276,7 +278,18 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             <Button
               key={p}
               variant={preset === p ? "default" : "ghost"}
-              style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
+              style={{
+                fontSize: 12,
+                padding: "4px 10px",
+                height: "auto",
+                ...(preset === p
+                  ? {
+                      background: "var(--accent-subtle)",
+                      color: "var(--primary)",
+                      borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                    }
+                  : {}),
+              }}
               onClick={() => changePreset(p)}
             >
               {t(`stats.${p}`, p === "today" ? "今天" : p === "7d" ? "近 7 天" : "近 30 天")}
@@ -357,6 +370,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             <OverviewCard
               label={t("stats.totalRequests", "总请求")}
               value={formatNumber(overview.total_requests)}
+              numericValue={overview.total_requests}
+              staggerMs={0}
               delta={delta(overview.total_requests, prevOverview?.total_requests ?? 0)}
               t={t}
             />
@@ -365,24 +380,28 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               value={curSuccessRate.toFixed(1)}
               unit="%"
               level={successRateLevel(curSuccessRate, overview.total_requests)}
+              staggerMs={60}
               delta={delta(curSuccessRate, prevOverview?.success_rate ?? 0)}
               t={t}
             />
             <OverviewCard
               label={t("stats.inputTokens", "输入 Token")}
               value={formatNumber(overview.total_input_tokens)}
+              staggerMs={120}
               delta={delta(overview.total_input_tokens, prevOverview?.total_input_tokens ?? 0)}
               t={t}
             />
             <OverviewCard
               label={t("stats.outputTokens", "输出 Token")}
               value={formatNumber(overview.total_output_tokens)}
+              staggerMs={180}
               delta={delta(overview.total_output_tokens, prevOverview?.total_output_tokens ?? 0)}
               t={t}
             />
             <OverviewCard
               label={t("stats.cacheTokens", "缓存 Token")}
               value={formatNumber(overview.total_cache_tokens)}
+              staggerMs={240}
               delta={delta(overview.total_cache_tokens, prevOverview?.total_cache_tokens ?? 0)}
               t={t}
             />
@@ -390,6 +409,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               label={t("stats.cacheRate", "缓存率")}
               value={overview.cache_rate.toFixed(1)}
               unit="%"
+              staggerMs={300}
               delta={delta(overview.cache_rate, prevOverview?.cache_rate ?? 0)}
               t={t}
             />
@@ -397,6 +417,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               label={t("stats.avgLatency", "平均延迟")}
               value={overview.avg_duration_ms.toFixed(0)}
               unit="ms"
+              staggerMs={360}
               delta={delta(overview.avg_duration_ms, prevOverview?.avg_duration_ms ?? 0)}
               deltaInverse
               t={t}
@@ -405,6 +426,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               label={t("stats.totalCost", "预估成本")}
               value={"$" + formatCost(overview.total_cost)}
               level={costLevel(overview.total_cost)}
+              staggerMs={420}
               delta={delta(overview.total_cost, prevOverview?.total_cost ?? 0)}
               deltaInverse
               t={t}
@@ -480,6 +502,17 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         {/* 峰值点高亮（克制，单点） */}
                         {maxReq > 1 && hoverIdx === null && (
                           <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--primary)" vectorEffect="non-scaling-stroke" />
+                        )}
+                        {/* 末点 glow（对齐 CostTrendChart，强调最新数据） */}
+                        {n > 0 && pts[n - 1] && (
+                          <circle
+                            cx={pts[n - 1].x.toFixed(1)}
+                            cy={pts[n - 1].y.toFixed(1)}
+                            r={3.5}
+                            fill="var(--primary)"
+                            vectorEffect="non-scaling-stroke"
+                            style={{ filter: "drop-shadow(0 0 4px var(--primary))" }}
+                          />
                         )}
                       </svg>
                       {/* hover tooltip（绝对定位 glass-elevated） */}
@@ -584,6 +617,10 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
 interface OverviewCardProps {
   label: string;
   value: string;
+  /** 数字原值：提供则启用 useCounter 滚动动效（仅顶部 hero 卡用，列表禁）。 */
+  numericValue?: number;
+  /** reveal stagger 延迟（ms），错峰入场。 */
+  staggerMs?: number;
   unit?: string;
   level?: ColorLevel;
   /** 环比百分比，null 表示无对比基准（隐藏 delta，遵「无数据隐藏」约定）。 */
@@ -593,7 +630,10 @@ interface OverviewCardProps {
   t: TFunction;
 }
 
-function OverviewCard({ label, value, unit, level, delta, deltaInverse, t }: OverviewCardProps) {
+function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, delta, deltaInverse, t }: OverviewCardProps) {
+  const { ref: revealRef, shown } = useReveal<HTMLDivElement>(staggerMs);
+  // numericValue 提供时用 counter 滚动；否则回退到预格式化字符串
+  const { ref: counterRef, display: counterDisplay } = useCounter(numericValue ?? 0, 0, 1200);
   const valueColor = level ? levelColor(level) : "var(--text-primary)";
   let deltaNode = null;
   if (delta !== null && Math.abs(delta) >= 0.05) {
@@ -610,10 +650,15 @@ function OverviewCard({ label, value, unit, level, delta, deltaInverse, t }: Ove
     );
   }
   return (
-    <Card className="glass-surface" style={{ flex: "1 1 120px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
+    <Card
+      ref={revealRef}
+      className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
+      style={{ flex: "1 1 120px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{label}</div>
-      <div style={{ fontSize: F.title, fontWeight: 700, color: valueColor }}>
-        {value}{unit && <span style={{ fontSize: F.label, fontWeight: 400, marginLeft: 2 }}>{unit}</span>}
+      <div className="counter" style={{ fontSize: F.title, fontWeight: 700, color: valueColor }}>
+        <span ref={numericValue !== undefined ? counterRef : undefined}>
+          {numericValue !== undefined ? counterDisplay : value}
+        </span>{unit && <span style={{ fontSize: F.label, fontWeight: 400, marginLeft: 2 }}>{unit}</span>}
       </div>
       {deltaNode}
     </Card>
