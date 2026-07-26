@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { getProtocolLabel } from "../domains/platforms/defaults";
+import { useReveal, makeRipple } from "../components/shared";
 
 interface Props {
   platform: Platform;
@@ -113,6 +114,28 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
 
   const needsModelSelect = mode === "single" || mode === "batch" || mode === "custom";
 
+  // 测试结果卡：抽离以加 reveal stagger（i*60），避免 map 内直挂 hook。
+  const TestResultItem = ({ r, idx }: { r: ModelTestResult; idx: number }) => {
+    const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
+    return (
+      <div ref={ref} className={`glass-surface hover-lift reveal${shown ? " in" : ""}`} style={{
+        padding: "10px 14px",
+        borderLeft: `3px solid ${r.success ? "var(--color-success)" : "var(--color-danger)"}`,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontWeight: 600, fontSize: 12 }}>{r.model}</div>
+          <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--text-secondary)" }}>
+            <span style={{ display: "inline-flex" }}>{r.success ? <IconCheck size={12} color="var(--color-success)" /> : <IconClose size={12} color="var(--color-danger)" />}</span>
+            {r.duration_ms > 0 && <span>{r.duration_ms}ms</span>}
+            {r.output_tokens > 0 && <span>{r.input_tokens + r.output_tokens} tok</span>}
+          </div>
+        </div>
+        {r.error && <div style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 4 }}>{r.error}</div>}
+        {r.response_preview && <TestResultBody body={r.response_preview} />}
+      </div>
+    );
+  };
+
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="glass-elevated" style={{
@@ -130,8 +153,9 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           {modes.map(m => (
             <Button key={m.key}
               variant={mode === m.key ? "default" : "outline"}
+              className="ripple"
               style={{ fontSize: 11, padding: "4px 8px", height: "auto" }}
-              onClick={() => { setMode(m.key); setSelectedModels([]); setResults([]); }}
+              onClick={(e) => { makeRipple(e); setMode(m.key); setSelectedModels([]); setResults([]); }}
             >{m.label}</Button>
           ))}
         </div>
@@ -141,8 +165,9 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
             {allModels.map(m => (
               <Button key={m}
                 variant={selectedModels.includes(m) ? "default" : "outline"}
+                className="ripple"
                 style={{ fontSize: 11, padding: "3px 8px", height: "auto" }}
-                onClick={() => toggleModel(m)}
+                onClick={(e) => { makeRipple(e); toggleModel(m); }}
               >{m}</Button>
             ))}
           </div>
@@ -155,8 +180,9 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         )}
 
         <Button variant="default"
+          className="ripple"
           style={{ fontSize: 13, padding: "8px 16px", height: "auto", alignSelf: "flex-start" }}
-          onClick={runTest}
+          onClick={(e) => { makeRipple(e); runTest(); }}
           disabled={running || (needsModelSelect && selectedModels.length === 0 && mode !== "batch" && allModels.length === 0)}
         >
           {running
@@ -168,21 +194,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{t("test.results", "测试结果")}</div>
             {results.map((r, i) => (
-              <div key={i} className="glass-surface" style={{
-                padding: "10px 14px",
-                borderLeft: `3px solid ${r.success ? "var(--color-success)" : "var(--color-danger)"}`,
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ fontWeight: 600, fontSize: 12 }}>{r.model}</div>
-                  <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--text-secondary)" }}>
-                    <span style={{ display: "inline-flex" }}>{r.success ? <IconCheck size={12} color="var(--color-success)" /> : <IconClose size={12} color="var(--color-danger)" />}</span>
-                    {r.duration_ms > 0 && <span>{r.duration_ms}ms</span>}
-                    {r.output_tokens > 0 && <span>{r.input_tokens + r.output_tokens} tok</span>}
-                  </div>
-                </div>
-                {r.error && <div style={{ fontSize: 11, color: "var(--color-danger)", marginTop: 4 }}>{r.error}</div>}
-                {r.response_preview && <TestResultBody body={r.response_preview} />}
-              </div>
+              <TestResultItem key={i} r={r} idx={i} />
             ))}
           </div>
         )}
