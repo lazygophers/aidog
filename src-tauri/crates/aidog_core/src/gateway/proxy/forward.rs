@@ -111,20 +111,13 @@ pub(crate) async fn forward_attempt(
         }
         // last candidate：返回 502 + 审计落库
         let msg = format!("{}: endpoint selection failed (no valid wire protocol)", i18n::t(lang, ErrorKey::Upstream));
-        log.platform_id = route.platform.id;
-        log.response_body = format!("invalid target protocol: {:?}", target_protocol_enum);
-        log.status_code = 502;
-        log.user_response_body = msg.clone();
-        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-        log.duration_ms = start.elapsed().as_millis() as i32;
-        log.retry_count = (attempts.len() as i32 - 1).max(0);
-        log.attempts = std::mem::take(attempts);
-        upsert_log(state, log, log_settings).await;
-        return AttemptOutcome::Respond({
-            let mut r = (StatusCode::BAD_GATEWAY, msg).into_response();
-            inject_trace_header(&mut r);
-            r
-        });
+        return AttemptOutcome::Respond(
+            finalize_proxy_502(
+                state, log, attempts, route.platform.id,
+                format!("invalid target protocol: {:?}", target_protocol_enum),
+                msg, start, log_settings,
+            ).await,
+        );
     }
 
     // ── base_url 缺失 guard ──
@@ -152,20 +145,12 @@ pub(crate) async fn forward_attempt(
             return AttemptOutcome::Next;
         }
         let msg = format!("{}: base_url 缺失", i18n::t(lang, ErrorKey::Upstream));
-        log.platform_id = route.platform.id;
-        log.response_body = "base_url missing".to_string();
-        log.status_code = 502;
-        log.user_response_body = msg.clone();
-        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-        log.duration_ms = start.elapsed().as_millis() as i32;
-        log.retry_count = (attempts.len() as i32 - 1).max(0);
-        log.attempts = std::mem::take(attempts);
-        upsert_log(state, log, log_settings).await;
-        return AttemptOutcome::Respond({
-            let mut r = (StatusCode::BAD_GATEWAY, msg).into_response();
-            inject_trace_header(&mut r);
-            r
-        });
+        return AttemptOutcome::Respond(
+            finalize_proxy_502(
+                state, log, attempts, route.platform.id,
+                "base_url missing".to_string(), msg, start, log_settings,
+            ).await,
+        );
     }
 
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
@@ -420,20 +405,14 @@ pub(crate) async fn forward_attempt(
             if !is_last_candidate {
                 return AttemptOutcome::Next;
             }
-            log.platform_id = route.platform.id;
-            log.response_body = format!("upstream error: {e}");
-            log.status_code = 502;
-            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
-            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-            log.duration_ms = start.elapsed().as_millis() as i32;
-            log.retry_count = (attempts.len() as i32 - 1).max(0);
-            log.attempts = std::mem::take(attempts);
-            upsert_log(state, log, log_settings).await;
-            return AttemptOutcome::Respond({
-                let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
-                inject_trace_header(&mut r);
-                r
-            });
+            let upstream_err = format!("upstream error: {e}");
+            let msg = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
+            return AttemptOutcome::Respond(
+                finalize_proxy_502(
+                    state, log, attempts, route.platform.id,
+                    upstream_err, msg, start, log_settings,
+                ).await,
+            );
         }
     };
 
@@ -629,6 +608,40 @@ pub(crate) async fn forward_attempt(
         )
         .await,
     )
+}
+
+/// 候选耗尽时统一终态：填 log 502 字段 + upsert 落库 + 构造 502 Response（含 trace 头）。
+///
+/// 抽自 3 处同构 502 终态（invalid protocol / base_url missing / upstream send error），
+/// 共享 8 个 log 字段 + upsert + (StatusCode::BAD_GATEWAY, msg) 响应。
+/// 签名预留 `response_body` 与 `user_response_body` 分离：前者落库审计取证（上游原文/原因），
+/// 后者返回客户端（i18n 友好文案）。`platform_id` 显式传入便于后续 devin/handler/passthrough 复用。
+///
+/// ponytail: 禁动内嵌宏 retry_on_empty_2xx! —— 其 502 分支含额外 upstream_status_code +
+/// truncate_peek_text 取证逻辑，非完全同构；后续若需统一，扩参 `Option<(i32, String)>` 取证元组即可。
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn finalize_proxy_502(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    attempts: &mut Vec<ProxyAttempt>,
+    platform_id: u64,
+    response_body: String,
+    user_response_body: String,
+    start: std::time::Instant,
+    log_settings: &ProxyLogSettings,
+) -> axum::response::Response {
+    log.platform_id = platform_id;
+    log.response_body = response_body;
+    log.status_code = 502;
+    log.user_response_body = user_response_body.clone();
+    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.attempts = std::mem::take(attempts);
+    upsert_log(state, log, log_settings).await;
+    let mut r = (StatusCode::BAD_GATEWAY, user_response_body).into_response();
+    inject_trace_header(&mut r);
+    r
 }
 
 /// 第三方 anthropic 端点不支持字段剔除（仅在已判定为非官方 anthropic 端点时调用）。
