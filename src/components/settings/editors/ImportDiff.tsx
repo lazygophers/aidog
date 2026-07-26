@@ -8,6 +8,7 @@ import { F, S } from "./tokens";
 import { Toggle } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { makeRipple } from "../../shared";
 
 /**
  * One node in the import diff tree. `path` is a dot-path (`env.FOO`, `permissions.allow`).
@@ -402,9 +403,9 @@ export function ImportDiffModal({
           <div style={{ display: "flex", gap: 8 }}>
             <Button variant="ghost" style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={onClose}>{t("action.cancel", "取消")}</Button>
-            <Button variant="default" style={{ fontSize: F.body, padding: S.btnPad }}
+            <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
               disabled={selected.size === 0}
-              onClick={() => onApply(selected)}>
+              onClick={(e) => { makeRipple(e); onApply(selected); }}>
               {t("settings.editor.importSelected", "导入选中")} ({selected.size})
             </Button>
           </div>
