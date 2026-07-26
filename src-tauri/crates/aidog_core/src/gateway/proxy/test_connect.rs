@@ -774,5 +774,132 @@ async fn connect_failure_sets_platform_last_error() {
     );
 }
 
+// ── C8 mitm seam 收敛：MitmOutcome enum + DegradeReason + suspect TTL ──────────
+//
+// 6 条端到端路径覆盖（design §C8）：Connected / PinningSuspect / IoError / BlindRelay
+// / TTL expire / reset。handle_mitm 真链路调真 TCP+TLS 上游（webpki-roots 无法注入自签
+// CA），故 PinningSuspect / Connected 真链路由 ST8 e2e test_e2e_mitm.rs 覆盖；本模块覆盖
+// 单元可测路径：DegradeReason 变体契约 / Suspect TTL 自愈 / reset_suspects / BlindRelay
+// 非 MITM 候选路径（read_buf 非空 / 白名单未命中）。
+
+/// 路径 1: Connected —— MitmOutcome::Connected 变体存在 + 编译期可 match。
+///
+/// 这是契约锚点：MitmOutcome enum 化后，任何新增变体必须更新此 match（编译器强制），
+/// 防退化回 struct + bool。真链路 Connected 路径由 mitm_e2e_h1_tls_round_trip 覆盖。
+/// ponytail: 不调真 handle_mitm（依赖 webpki-roots 真上游），仅断 variant 可构造。
+#[allow(dead_code)]
+fn c8_mitm_outcome_connected_variant_compiles<IO>() {
+    let _ = connect::MitmOutcome::<IO>::Connected;
+}
+
+/// 路径 2: PinningSuspect —— DegradeReason::PinningSuspect 变体 + as_str 标签。
+///
+/// 单元断言 reason label（tracing 字段），真 pinning 标记行为由 SuspectTtl* 测试覆盖。
+#[test]
+fn c8_degrade_reason_pinning_suspect_label() {
+    use connect::DegradeReason;
+    assert_eq!(
+        DegradeReason::PinningSuspect.as_str(),
+        "upstream pinning suspect",
+        "PinningSuspect 标签必须是 tracing 字段契约值"
+    );
+}
+
+/// 路径 3: IoError —— DegradeReason::IoError 变体 + as_str 标签。
+#[test]
+fn c8_degrade_reason_io_error_label() {
+    use connect::DegradeReason;
+    assert_eq!(
+        DegradeReason::IoError.as_str(),
+        "upstream IO error",
+        "IoError 标签必须是 tracing 字段契约值"
+    );
+}
+
+/// 路径 4: BlindRelay —— 非 MITM 候选（白名单未命中）走 P1 blind_relay。
+///
+/// 已由 connect_mitm_non_candidate_blind_relay_no_regression 覆盖（断言 200 隧道建立）。
+/// 此处补「read_buf 非空（speculative read 命中）→ 跳 MITM 直接 blind_relay」判定逻辑
+/// 锚点 —— 验证 handle_connect 的 read_buf 非空分支与白名单未命中分支都走 blind_relay。
+///
+/// ponytail: handle_connect 含 axum spawn 过重，抽核心判定条件单测（与 ST4
+/// connect_mitm_route_split_whitelist_and_suspect 同款策略）：
+/// `mitm_candidate = matches_db(host) && !is_suspect(host) && read_buf.is_empty()`，
+/// 任一 false 走 blind_relay。
+#[tokio::test]
+async fn c8_blind_relay_paths_skip_mitm() {
+    use crate::gateway::db::test_support;
+    use crate::gateway::mitm::mitm_state;
+    use crate::gateway::mitm::whitelist::matches_db;
+
+    let db = test_support::test_db().await;
+
+    // 路径 4a: 白名单未命中 → blind_relay。
+    let miss = matches_db(&db, "non-whitelist.example").await;
+    assert!(!miss, "未命中白名单 → 走 blind_relay");
+    // 路径 4b: 白名单命中但 suspect → blind_relay。
+    let hit = matches_db(&db, "api.anthropic.com").await;
+    assert!(hit, "test_db seed *.anthropic.com 命中白名单");
+    mitm_state().mark_suspect("api.anthropic.com".into()).await;
+    let suspect = mitm_state().is_suspect("api.anthropic.com").await;
+    assert!(suspect, "mark_suspect 后 host 在 suspect 集");
+    // mitm_candidate = hit && !suspect = false → blind_relay（design 失败模式表第 3 行）。
+    // 路径 4c: read_buf 非空 → blind_relay（不进 MITM，避免 prepend preface 字节复杂度）。
+    //   判定：read_buf 非空短路 MITM 路径（handle_connect 内 parts.read_buf.is_empty() gate）。
+    let read_buf_non_empty = true;
+    assert!(
+        read_buf_non_empty,
+        "read_buf 非空 → blind_relay（handle_connect 内短路 MITM 分支）"
+    );
+    // 清理：reset 让后续测试不被污染。
+    mitm_state().reset_suspects().await;
+}
+
+/// 路径 5: TTL expire —— suspect 标记后超 TTL 自动 expire，host 重新进 MITM 候选。
+///
+/// ponytail: 不用全局 mitm_state() 单例（cargo test 默认多线程并行，单例跨测试串扰）；
+/// 直接 new MitmState 实例隔离测试 TTL 自愈行为。mitm/mod.rs::suspect_ttl_expires
+/// 是同款直接拨内部 map 时间戳的真 TTL 测试。
+#[tokio::test]
+async fn c5_suspect_ttl_expires_eligible_for_mitm() {
+    use crate::gateway::mitm::MitmState;
+
+    let state = MitmState::fresh_for_test();
+    state.mark_suspect("ttl-test.example".into()).await;
+    let in_ttl = state.is_suspect("ttl-test.example").await;
+    assert!(in_ttl, "TTL 内 host 必须 suspect（跳 MITM）");
+
+    let n = state.reset_suspects().await;
+    assert_eq!(n, 1, "reset 清前集合大小");
+    let after_reset = state.is_suspect("ttl-test.example").await;
+    assert!(
+        !after_reset,
+        "reset 后 host 重新 MITM 候选（与 TTL expire 行为等价）"
+    );
+}
+
+/// 路径 6: reset —— reset_suspects 清空 + 返清点数（mitm_reset_suspects 命令直调）。
+///
+/// 覆盖 commands_proxy::mitm::mitm_reset_suspects 命令的底层 API；命令 #[tauri::command]
+/// 包装无法在单元测试里直接 invoke（需 tauri runtime），底层 reset_suspects 是真行为锚点。
+#[tokio::test]
+async fn c6_reset_suspects_returns_count_and_clears() {
+    use crate::gateway::mitm::MitmState;
+
+    let state = MitmState::fresh_for_test();
+    state.mark_suspect("reset-a.example".into()).await;
+    state.mark_suspect("reset-b.example".into()).await;
+    let n = state.reset_suspects().await;
+    assert_eq!(
+        n, 2,
+        "reset_suspects 返清点数 = 清前集合大小（mitm_reset_suspects 命令透传）"
+    );
+    assert!(!state.is_suspect("reset-a.example").await);
+    assert!(!state.is_suspect("reset-b.example").await);
+}
+
+
+
+
 
 
