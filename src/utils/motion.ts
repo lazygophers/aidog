@@ -81,8 +81,9 @@ export function useCounter(target: number, decimals = 0, durMs = 1200) {
   return { ref, display };
 }
 
-/** Ripple 涟漪 onClick handler：绑到按钮/卡片，点击生成扩散波。 */
-export function makeRipple(e: React.MouseEvent<HTMLElement>) {
+/** Ripple 涟漪 onClick handler：绑到按钮/卡片，点击生成扩散波。
+ *  泛型默认 HTMLElement (向后兼容); shadcn 控件 onClick 推断 Element, 传 React.MouseEvent<Element> 亦匹配。 */
+export function makeRipple<T extends Element = HTMLElement>(e: React.MouseEvent<T>) {
   const btn = e.currentTarget;
   if (btn.querySelector(".ripple-wave")) return;
   const r = btn.getBoundingClientRect();

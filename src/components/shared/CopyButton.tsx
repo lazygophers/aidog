@@ -11,6 +11,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
+import { makeRipple } from "../../utils/motion";
 
 export interface CopyMenuItem {
   key: string;
@@ -79,6 +80,7 @@ export function CopyButton({
   };
 
   const handleCopy = (e: React.MouseEvent) => {
+    makeRipple(e);
     e.stopPropagation();
     if (isMenu) return; // menu 模式由 DropdownMenuTrigger 掌管开合
     runCopy(text);
@@ -94,6 +96,7 @@ export function CopyButton({
   const triggerBtn = (
     <Button
       variant="ghost"
+      className="ripple"
       size={hasContent ? "default" : "icon"}
       onClick={handleCopy}
       onMouseEnter={isMenu ? () => {
