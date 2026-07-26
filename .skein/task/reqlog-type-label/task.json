@@ -2,10 +2,35 @@
   "id": "reqlog-type-label",
   "name": "请求记录类型显示直观",
   "desc": "RequestLog 类型筛选值 test/quota/protocol 改中文标签",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
-  "subtasks": [],
+  "subtasks": [
+    {
+      "sid": "protocol-label",
+      "name": "protocol显示直观",
+      "desc": "Logs/DetailPanel+RequestLog protocol裸值→getProtocolLabel直观名",
+      "depends_on": [],
+      "验收": [
+        "Logs/RequestLog protocol显示直观名",
+        "tsc0err",
+        "test pass",
+        "无console err"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785071699,
+      "started": 1785071699,
+      "finished": 1785071918
+    }
+  ],
   "repos": [],
   "worktree": null,
   "worktrees": [],
@@ -13,9 +38,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785071481,
-  "started": null,
-  "confirmed": null,
-  "checked": null,
-  "finished": null,
-  "updated": 1785071481
+  "started": 1785071699,
+  "confirmed": 1785071699,
+  "checked": 1785071918,
+  "finished": 1785071918,
+  "updated": 1785071918
 }
