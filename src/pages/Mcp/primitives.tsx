@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { type McpServerInfo, type McpAgentSlug } from "../../services/api";
+import { useReveal } from "../../utils/motion";
 import {
   AGENTS,
   AGENT_ICONS,
@@ -14,8 +15,11 @@ import { Badge } from "@/components/ui/badge";
 
 // ─── 单行 ───
 
+// ponytail: 行级 reveal 包装 — 每实例独立 useReveal (React 规则禁 map 内 hook),
+// stagger idx*60 错峰，hover-lift + glass-surface 萤火虫流光描边走 .glass-surface:hover。
 export function McpRow({
   srv,
+  idx,
   busyKey,
   onToggle,
   onEdit,
@@ -23,6 +27,7 @@ export function McpRow({
   onShare,
 }: {
   srv: McpServerInfo;
+  idx: number;
   busyKey: string | null;
   onToggle: (s: McpServerInfo, a: McpAgentSlug) => void;
   onEdit: () => void;
@@ -30,8 +35,11 @@ export function McpRow({
   onShare: () => void;
 }) {
   const { t } = useTranslation();
+  const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
   return (
     <Card
+      ref={ref}
+      className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
       style={{
         display: "flex",
         alignItems: "center",
@@ -89,6 +97,7 @@ export function McpRow({
               key={agent}
               variant={enabled ? "default" : "outline"}
               size="icon"
+              className="hover-lift"
               title={
                 !supported
                   ? t("mcp.unsupportedTransportTip", {
@@ -122,6 +131,7 @@ export function McpRow({
         <Button
           variant="outline"
           size="icon"
+          className="hover-lift"
           title={t("mcp.share", "分享")}
           onClick={onShare}
           style={{ width: 30, height: 30, color: "var(--text-secondary)" }}
@@ -138,6 +148,7 @@ export function McpRow({
         <Button
           variant="outline"
           size="icon"
+          className="hover-lift"
           title={t("mcp.edit", "编辑")}
           onClick={onEdit}
           disabled={busyKey?.startsWith(`edit::${srv.name}`) ?? false}
@@ -153,6 +164,7 @@ export function McpRow({
         <Button
           variant="outline"
           size="icon"
+          className="hover-lift"
           title={t("common.delete", "删除")}
           onClick={onDelete}
           disabled={busyKey?.startsWith(`del::${srv.name}`) ?? false}
