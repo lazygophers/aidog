@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { notificationApi, type NotifyHooksFragment } from "../../../services/api";
 import { F } from "./tokens";
 import { Button } from "@/components/ui/button";
+import { makeRipple } from "../../shared";
 
 // ─── Hooks Section (friendly editor) ────────────────────────
 
@@ -168,15 +169,15 @@ export function NotifyHookQuickBar(props: {
           </span>
         </div>
         {injected ? (
-          <Button variant="ghost" type="button"  disabled={busy}
+          <Button variant="ghost" type="button" className="ripple" disabled={busy}
             style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
-            onClick={handleRemove}>
+            onClick={(e) => { makeRipple(e); handleRemove(); }}>
             {t("notif.hookRemove", "移除")}
           </Button>
         ) : (
-          <Button variant="default" type="button"  disabled={busy}
+          <Button variant="default" type="button" className="ripple" disabled={busy}
             style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
-            onClick={handleInject}>
+            onClick={(e) => { makeRipple(e); handleInject(); }}>
             {busy ? t("settings.hooksNotifyBusy", "处理中…") : t("settings.hooksNotifyInject", "注入通知 hook")}
           </Button>
         )}
