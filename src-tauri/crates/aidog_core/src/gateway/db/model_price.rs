@@ -411,6 +411,6 @@ pub fn filtered_count_model_prices<'a>(
 }
 
 // ─── MCP server CRUD ───────────────────────────────────────
-// 集中存 MCP server 配置（migration 020）。行结构见 crate::gateway::mcp::McpServerRow。
+// 集中存 MCP server 配置（migration 20260727-11，原 020）。行结构见 crate::gateway::mcp::McpServerRow。
 // env_json/headers_json 含原始敏感值，调用方负责脱敏后再返前端。
 

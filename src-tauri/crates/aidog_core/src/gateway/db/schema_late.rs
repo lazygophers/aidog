@@ -1,18 +1,19 @@
 use super::*;
 use rusqlite::{params, Connection, Result as SqlResult};
 
-/// Migrations 021–036。自 init_tables 拆出（执行顺序不变）。
+/// Migrations 20260727-12..18（原 021–052, 日期戳脱锚）。
+/// 自 init_tables 拆出。编号格式 `YYYYMMDD-NN`：日期戳批次 + 库内序号（main 库独立空间）。
 pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
-                // Migration 021: model_price 加模型信息列（max_tokens / context_window）。
+                // Migration 20260727-12 (原 021): model_price 加模型信息列（max_tokens / context_window）。
                 // 列为索引快速读取（出站裁剪、列表展示）；price_data JSON 仍存完整原始数据。
                 // NULL = 未知/无限制。源自旧 008_model_info_columns（已内联为下方 ALTER）。
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_input_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_output_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN context_window INTEGER", []);
-                // Migration 022–048: platform / "group" / group_platform / cli_proxy_provider
+                // Migration 原编号 022–048 (platform.db 内重编为 20260727-02..16): platform / "group" / group_platform / cli_proxy_provider
                 // 的 ALTER / 数据回填 / 045 建表 / 046 CPA 清理 / 048 quota →
                 // run_migrations_platform_late（落 platform.db）。主库零 platform/group DDL。
-                // Migration 030: 「Claude Code / Codex 联动」重命名为通用「AI 编程工具」。
+                // Migration 20260727-13 (原 030): 「Claude Code / Codex 联动」重命名为通用「AI 编程工具」。
                 // 把旧 settings key cc_codex_settings 迁到 coding_tools_settings，保留老用户两开关状态
                 // （apply_to_claude_plugin / skip_claude_onboarding），避免重命名后开关回到默认关。
                 // 幂等：仅当存在旧 key 时 UPDATE 改名；新库无旧 key 时空操作。
@@ -21,37 +22,37 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                     [],
                 );
 
-                // Migration 031 ①: idx_proxy_log_group_key_stats → run_migrations_proxy_log_late
-                // Migration 031 ②: notification 时间索引 → run_migrations_proxy_log_late（log.db）
-                // Migration 032: stats_agg_hourly 建表 + 回填 → 已迁回本函数 Migration 051（落主库）
-                // Migration 033: proxy_log.is_final DROP → run_migrations_proxy_log_late
-                // Migration 034: proxy_log 索引精简 → run_migrations_proxy_log_late
-                // Migration 035: 删冗余索引（proxy_log/stats_agg 相关 → proxy_log_late；idx_model_price_name 留主库）。
+                // Migration 原编号 031 ① (log.db 内重编为 20260727-12): idx_proxy_log_group_key_stats → run_migrations_proxy_log_late
+                // Migration 原编号 031 ② (log.db 内重编为 20260727-19): notification 时间索引 → run_migrations_proxy_log_late（log.db）
+                // Migration 原编号 032: stats_agg_hourly 建表 + 回填 → 已迁回本函数 Migration 20260727-16（落主库）
+                // Migration 原编号 033 (log.db 内重编为 20260727-14): proxy_log.is_final DROP → run_migrations_proxy_log_late
+                // Migration 原编号 034 (log.db 内重编为 20260727-15): proxy_log 索引精简 → run_migrations_proxy_log_late
+                // Migration 20260727-14 (原 035): 删冗余索引（proxy_log/stats_agg 相关 → proxy_log_late；idx_model_price_name 留主库）。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_model_price_name", []);
-                tracing::info!("migration 035: dropped redundant indexes (proxy_log/stats_agg部分在proxy_log_late)");
+                tracing::info!("migration 20260727-14 (原 035): dropped redundant indexes (proxy_log/stats_agg部分在proxy_log_late)");
 
-                // Migration 040–042 已移除：旧 mitm_ca / mitm_whitelist 两表数据迁 setting（scope=mitm）
+                // Migration 原编号 040–042 已移除：旧 mitm_ca / mitm_whitelist 两表数据迁 setting（scope=mitm）
                 // + DROP 两表。新库不再建两表，MITM 配置复用 setting 的 get_setting/set_setting + 缓存机制。
-                // 详见 migration 043（migrate_mitm_legacy_tables_to_setting）。
+                // 详见 migration 20260727-15（原 043）（migrate_mitm_legacy_tables_to_setting）。
                 // 注意：migrate_mitm_legacy_tables_to_setting 内部 SELECT platform.base_url 提取 host
                 // 入默认白名单 —— config-db-split 后 platform 表在 platform.db（主库无此表），
                 // SELECT 失败被 `if let Ok` 吞，entries 仅含 37 条 Clash 默认规则，无平台 host。
                 // 仅影响首启新装（无 platform 数据可提取）；老库首迁 Phase 1 时主库仍有 platform 表，host 正常。
                 migrate_mitm_legacy_tables_to_setting(conn);
 
-                // Migration 051: stats_agg_hourly DDL 迁回主库（原 Mig 032 落 log.db，
+                // Migration 20260727-16 (原 051): stats_agg_hourly DDL 迁回主库（原落 log.db，
                 // 拆库后 retention/VACUUM 误伤 + backup 归属错位 + 语义归属主库）。
                 // CREATE IF NOT EXISTS 幂等：pre-split 老装用户主库已有 stats_agg_hourly
-                // （Mig 050 不再 DROP 此表）→ 沿用；fresh install 空表。
+                // （原 Mig 050 不再 DROP 此表）→ 沿用；fresh install 空表。
                 //
-                // 回填前置：主库需有 legacy proxy_log（pre-split 升级路径，Mig 050 DROP 之前的
+                // 回填前置：主库需有 legacy proxy_log（pre-split 升级路径，原 Mig 050 DROP 之前的
                 // 存量行）。fresh install 主库从未有 proxy_log（Phase 2 log.db 才建）→ 跳过回填
                 // （无存量可回填，stats_agg 留空正确）。post-split 升级（旧 Mig 050 已 DROP 主库
                 // 两表）：主库空 stats_agg + 无 proxy_log → CREATE 空表 + 跳过；log.db 残留
                 // stats_agg 数据由 s2 跨库搬迁恢复。
                 //
-                // 排序约束：必须先于 Mig 050 执行（050 DROP legacy proxy_log 后回填无源）。
-                // 迁移编号 051 仍为 050 的下一号（源序 vs 编号分离）。
+                // 排序约束：必须先于 DROP legacy proxy_log 的 20260727-18（原 050）执行（050 DROP legacy proxy_log 后回填无源）。
+                // 迁移编号 20260727-16 仍为 20260727-18 的前一序号（日期戳批次内源序 vs 编号分离）。
                 conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
                 let has_legacy_proxy_log = conn
                     .prepare("PRAGMA table_info(proxy_log)")?
@@ -64,12 +65,12 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                     backfill_stats_agg_if_empty(conn, &auto_map)?;
                 }
 
-                // Migration 052: log.db 残留 stats_agg_hourly 跨库搬迁到主库。
-                // post-split 升级路径：旧版 stats_agg_hourly 落 log.db（Mig 032），s1 把 DDL 迁回
-                // 主库 Mig 051 后，log.db 残留存量数据需搬回主库统一查询 / retention / backup。
+                // Migration 20260727-17 (原 052): log.db 残留 stats_agg_hourly 跨库搬迁到主库。
+                // post-split 升级路径：旧版 stats_agg_hourly 落 log.db（原 032），s1 把 DDL 迁回
+                // 主库 20260727-16 后，log.db 残留存量数据需搬回主库统一查询 / retention / backup。
                 //
                 // 幂等三守卫（全满足才执行搬迁）：
-                //  ① 主库 stats_agg_hourly 已有数据 → 已搬过 / Mig 051 已回填，跳过
+                //  ① 主库 stats_agg_hourly 已有数据 → 已搬过 / 20260727-16 已回填，跳过
                 //  ② 内存库（PRAGMA database_list main file 为空 / :memory: / mode=memory）→
                 //    log.db 无独立文件（同内存连接），跳过
                 //  ③ log.db 无 stats_agg_hourly 表 → 新装 / 已迁 / 表已删，跳过
@@ -124,14 +125,14 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                                          SELECT * FROM src_log.stats_agg_hourly;\
                                          COMMIT;",
                                     )?;
-                                    tracing::info!("migration 052: stats_agg_hourly 跨库搬迁 log.db → main 完成");
+                                    tracing::info!("migration 20260727-17 (原 052): stats_agg_hourly 跨库搬迁 log.db → main 完成");
                                 }
                                 let _ = conn.execute("DETACH DATABASE 'src_log'", []);
                                 Ok(())
                             })();
                             if let Err(e) = migrate_result {
                                 tracing::warn!(
-                                    "migration 052: stats_agg 跨库搬迁失败（不阻断启动，可后续 rebuild）: {e}"
+                                    "migration 20260727-17 (原 052): stats_agg 跨库搬迁失败（不阻断启动，可后续 rebuild）: {e}"
                                 );
                                 let _ = conn.execute("DETACH DATABASE 'src_log'", []);
                             }
@@ -139,8 +140,8 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                     }
                 }
 
-                // Migration 050: 清主库拆库遗留孤儿表 proxy_log（stats_agg_hourly 已迁回主库
-                // Migration 051，本处不再 DROP）。
+                // Migration 20260727-18 (原 050): 清主库拆库遗留孤儿表 proxy_log（stats_agg_hourly 已迁回主库
+                // 20260727-16，本处不再 DROP）。
                 // b2ef9811 把 proxy_log DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
                 // 但未 DROP 主库旧表 → 旧装用户主库残留历史日志行（可达数 GB，随 WAL 膨胀）。
                 // proxy_log 是请求日志非业务数据（retention 90d 本就清理），不迁移直接 DROP。
@@ -149,20 +150,20 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
     Ok(())
 }
 
-/// proxy_log 表的 late migrations（021–047 范围内的 proxy_log 部分）。
+/// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
 ///
-/// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为 migration 046 需清理的 CPA 平台 ID
+/// 拆库后这些 DDL 跑在 log.db 写连接。`cpa_pids` 为原 046 需清理的 CPA 平台 ID
 /// 列表（主库预查，跨库不能子查询 JOIN platform）。
 ///
-/// `_auto_map` stats-agg-to-main-db 后已无使用方（原为 Mig 032 stats_agg 回填用，已迁主库
-/// Mig 051）。参数保留避免改签名波及 init_tables 调用点（s3/s4 层合并时一并清理）。
+/// `_auto_map` stats-agg-to-main-db 后已无使用方（原为 032 stats_agg 回填用，已迁主库
+/// 20260727-16）。参数保留避免改签名波及 init_tables 调用点（s3/s4 层合并时一并清理）。
 pub(crate) fn run_migrations_proxy_log_late(
     conn: &Connection,
     _auto_map: &HashMap<String, i64>,
     cpa_pids: &[i64],
     notif_rows: &[(String, String, String, i64)],
 ) -> SqlResult<()> {
-                // Migration 024 (proxy_log): group_name → group_key（幂等：探测列存在性）。
+                // Migration 20260727-10 (原 024, proxy_log): group_name → group_key（幂等：探测列存在性）。
                 let has_log_group_key = conn
                     .prepare("PRAGMA table_info(proxy_log)")?
                     .query_map([], |r| r.get::<_, String>(1))?
@@ -174,7 +175,7 @@ pub(crate) fn run_migrations_proxy_log_late(
                         [],
                     );
                 }
-                // Migration 028: proxy_log 偏索引。
+                // Migration 20260727-11 (原 028): proxy_log 偏索引。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_id \
                      ON proxy_log(platform_id) WHERE deleted_at = 0",
@@ -185,18 +186,18 @@ pub(crate) fn run_migrations_proxy_log_late(
                      ON proxy_log(group_key) WHERE deleted_at = 0",
                     [],
                 );
-                // Migration 031 ①: idx_proxy_log_group_key_stats 覆盖索引。
+                // Migration 20260727-12 (原 031 ①): idx_proxy_log_group_key_stats 覆盖索引。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key_stats \
                      ON proxy_log(group_key, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
                      WHERE deleted_at = 0",
                     [],
                 );
-                // Migration 032: stats_agg_hourly 建表 + 存量回填 → 已迁回主库 run_migrations_late
-                // （Migration 051，落 main DB）。proxy_log 仍留 log.db，跨库数据搬迁由 s2 负责。
-                // Migration 033: 删 proxy_log.is_final 列。
+                // Migration 原编号 032: stats_agg_hourly 建表 + 存量回填 → 已迁回主库 run_migrations_late
+                // （20260727-16，落 main DB）。proxy_log 仍留 log.db，跨库数据搬迁由 s2 负责。
+                // Migration 20260727-13 (原 033): 删 proxy_log.is_final 列。
                 let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
-                // Migration 034: proxy_log 索引精简 + 复合化 + ANALYZE。
+                // Migration 20260727-14 (原 034): proxy_log 索引精简 + 复合化 + ANALYZE。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform", []);
                 let _ = conn.execute(
@@ -218,14 +219,14 @@ pub(crate) fn run_migrations_proxy_log_late(
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform_id", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
                 let _ = conn.execute("ANALYZE proxy_log", []);
-                // Migration 035 (proxy_log/stats_agg 部分): 删冗余索引。
-                // 注：stats-agg-to-main-db s1 后 stats_agg 索引建在主库 Mig 051（idx_stats_agg_time /
+                // Migration 20260727-15 (原 035, proxy_log/stats_agg 部分): 删冗余索引。
+                // 注：stats-agg-to-main-db s1 后 stats_agg 索引建在主库 20260727-16（idx_stats_agg_time /
                 // idx_stats_agg_platform）；此处对 idx_stats_agg_model/group 走 log.db DROP IF EXISTS
                 // 是 cosmetic no-op（log.db 此前若建过则删，无则空转，幂等）。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_model", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_group", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
-                // Migration 046 (proxy_log 部分): CPA 数据清理。cpa_pids 由主库预查传入。
+                // Migration 20260727-16 (原 046, proxy_log 部分): CPA 数据清理。cpa_pids 由主库预查传入。
                 // 注：`DELETE FROM stats_agg_hourly` 在 stats-agg-to-main-db s1 后 log.db 不再有
                 // 此表 → execute 报 no such table，被 `let _ =` 吞掉（cosmetic no-op）。
                 // CPA stats_agg 行清理由 schema.rs Phase 1 `cleanup_cpa_stats_agg` 在主库补做（s5）。
@@ -239,17 +240,17 @@ pub(crate) fn run_migrations_proxy_log_late(
                         params![pid],
                     );
                 }
-                // Migration 047: proxy_log 加 cli_proxy_provider_id。
+                // Migration 20260727-17 (原 047): proxy_log 加 cli_proxy_provider_id。
                 let _ = conn.execute(
                     "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
                     [],
                 );
-                // Migration 031 ②: notification 时间索引（从主库迁入 log.db）。
+                // Migration 20260727-19 (原 031 ②): notification 时间索引（从主库迁入 log.db）。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],
                 );
-                // Migration 049: notification 表归属 log.db —— 接收主库迁出的历史行。
+                // Migration 20260727-20 (原 049): notification 表归属 log.db —— 接收主库迁出的历史行。
                 // 行由 init_tables Phase 1 从主库残留 notification 表读出（同批 DROP 主库表）；
                 // 本处回填 log.db.notification（DDL 由 run_migrations_proxy_log_early 017 建好）。
                 // 幂等：主库表已 DROP 后续启动 notif_rows 空 → for 空转，不重复写入。
@@ -263,18 +264,18 @@ pub(crate) fn run_migrations_proxy_log_late(
     Ok(())
 }
 
-/// platform.db 的 late migrations：原 `run_migrations_late` 内所有操作 platform / "group" /
-/// group_platform / cli_proxy_provider 的迁移（022 auto_group / 023–024 group 重建 / 025 GLM
-/// coding_plan 回填 / 026 breaker backfill + 列裁剪 / 027 is_default / 029 level_priority /
-/// 036 expires_at / 037 last_error / 038 env_vars / 039 last_error 重提 / 044 extra / 045
-/// cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota）。
+/// platform.db 的 late migrations（platform.db 库内序 20260727-01..16，原 `run_migrations_late`
+/// 内所有操作 platform / "group" / group_platform / cli_proxy_provider 的迁移: 原 022 auto_group /
+/// 023–024 group 重建 / 025 GLM coding_plan 回填 / 026 breaker backfill + 列裁剪 / 027 is_default /
+/// 029 level_priority / 036 expires_at / 037 last_error / 038 env_vars / 039 last_error 重提 /
+/// 044 extra / 045 cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota）。
 ///
 /// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内、紧随
 /// `run_migrations_platform_early` 之后调用。fresh install：platform_early 已建现代 schema，
 /// 本函数各 ALTER 因 duplicate column 被 `let _ =` 吞 / 各 PRAGMA 探测分支跳过 → 全幂等空转。
 /// 存量库（经 Phase 3 INSERT OR IGNORE 回填行）：列补齐 + 历史 data 回填逐条重放，幂等。
 pub(crate) fn run_migrations_platform_late(conn: &Connection) -> SqlResult<()> {
-                // Migration 012: Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）。
+                // Migration 20260727-01 (原 012): Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）。
                 // 根因：Platforms.tsx 预设曾把 kimi coding openai endpoint 配为 codex_tui，
                 // 但 Kimi coding 上游拒绝 Codex（只接 Kimi CLI/Claude Code/Roo Code/Kilo Code）。
                 // 扫描已有 kimi 平台 endpoints JSON，修正该 endpoint 身份。幂等：仅改 codex_tui，已 claude_code 不动。
@@ -302,14 +303,14 @@ pub(crate) fn run_migrations_platform_late(conn: &Connection) -> SqlResult<()> {
                                 "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
                                 params![new_json, id],
                             );
-                            tracing::info!(platform_id = id, "migration 012: kimi coding endpoint client_type codex_tui→claude_code");
+                            tracing::info!(platform_id = id, "migration 20260727-01 (原 012): kimi coding endpoint client_type codex_tui→claude_code");
                         }
                     }
                 }
-                // Migration 022: platform auto_group（已在 platform_early 建表时含此列，ALTER 幂等）。
+                // Migration 20260727-02 (原 022): platform auto_group（已在 platform_early 建表时含此列，ALTER 幂等）。
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_group INTEGER NOT NULL DEFAULT 1", []);
 
-                // Migration 023: 移除 group.path（路由纯按 apikey=group_key）+ name 加 UNIQUE。
+                // Migration 20260727-03 (原 023): 移除 group.path（路由纯按 apikey=group_key）+ name 加 UNIQUE。
                 // 门控：仅老库（仍有 path 列）重建。已迁移库无 path 列 → 跳过 → group_key 稳定。
                 let has_group_path = conn
                     .prepare("PRAGMA table_info(\"group\")")?
@@ -348,7 +349,7 @@ ALTER TABLE "group_new" RENAME TO "group";
 "#,
                     )?;
                 }
-                // Migration 024: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
+                // Migration 20260727-04 (原 024): group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
                 let has_group_key = conn
                     .prepare("PRAGMA table_info(\"group\")")?
                     .query_map([], |r| r.get::<_, String>(1))?
@@ -389,7 +390,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                     )?;
                 }
 
-                // Migration 025: GLM Coding Plan anthropic 端点补标 coding_plan=true。
+                // Migration 20260727-05 (原 025): GLM Coding Plan anthropic 端点补标 coding_plan=true。
                 if let Ok(mut stmt) =
                     conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'glm'")
                 {
@@ -419,12 +420,12 @@ ALTER TABLE "group_new" RENAME TO "group";
                                 "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
                                 params![new_json, id],
                             );
-                            tracing::info!(platform_id = id, "migration 025: glm coding-plan anthropic endpoint coding_plan→true");
+                            tracing::info!(platform_id = id, "migration 20260727-05 (原 025): glm coding-plan anthropic endpoint coding_plan→true");
                         }
                     }
                 }
 
-                // Migration 026: platform 表精简 —— 删 auto_group(022) + 3 breaker 列(016)，
+                // Migration 20260727-06 (原 026): platform 表精简 —— 删 auto_group(原 022) + 3 breaker 列(原 016)，
                 // backfill 进 extra JSON 后 DROP 4 列。已迁移库跳过（PRAGMA 探测）。
                 let has_breaker_col = conn
                     .prepare("PRAGMA table_info(platform)")?
@@ -466,22 +467,22 @@ ALTER TABLE "group_new" RENAME TO "group";
                     let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_open_secs", []);
                     let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_half_open_max", []);
                     let _ = conn.execute("ALTER TABLE platform DROP COLUMN auto_group", []);
-                    tracing::info!("migration 026: backfilled breaker into extra + dropped auto_group/breaker_* columns");
+                    tracing::info!("migration 20260727-06 (原 026): backfilled breaker into extra + dropped auto_group/breaker_* columns");
                 }
 
-                // Migration 027: 默认分组标记（已在 platform_early 建表含此列，ALTER 幂等）。
+                // Migration 20260727-07 (原 027): 默认分组标记（已在 platform_early 建表含此列，ALTER 幂等）。
                 let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0", []);
 
-                // Migration 029: group_platform level_priority（已在 platform_early 建表含此列，ALTER 幂等）。
+                // Migration 20260727-08 (原 029): group_platform level_priority（已在 platform_early 建表含此列，ALTER 幂等）。
                 let _ = conn.execute("ALTER TABLE group_platform ADD COLUMN level_priority INTEGER NOT NULL DEFAULT 5", []);
 
-                // Migration 036: platform 过期时间（已在 platform_early 建表含此列，ALTER 幂等）。
+                // Migration 20260727-09 (原 036): platform 过期时间（已在 platform_early 建表含此列，ALTER 幂等）。
                 let _ = conn.execute(
                     "ALTER TABLE platform ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0",
                     [],
                 );
 
-                // Migration 037: 平台最近一次错误信息（已在 platform_early 建表含此列，ALTER 幂等）。
+                // Migration 20260727-10 (原 037): 平台最近一次错误信息（已在 platform_early 建表含此列，ALTER 幂等）。
                 let _ = conn.execute(
                     "ALTER TABLE platform ADD COLUMN last_error TEXT NOT NULL DEFAULT ''",
                     [],
@@ -491,22 +492,22 @@ ALTER TABLE "group_new" RENAME TO "group";
                     [],
                 );
 
-                // Migration 038: group 自定义环境变量（已在 platform_early 建表含此列，ALTER 幂等）。
+                // Migration 20260727-11 (原 038): group 自定义环境变量（已在 platform_early 建表含此列，ALTER 幂等）。
                 let _ = conn.execute(
                     "ALTER TABLE \"group\" ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
                     [],
                 );
 
-                // Migration 039: 重写历史 last_error 残留完整 JSON body 为提取后 message。
+                // Migration 20260727-12 (原 039): 重写历史 last_error 残留完整 JSON body 为提取后 message。
                 reextract_legacy_last_error(conn);
 
-                // Migration 044: group.extra JSON 列（已在 platform_early 建表含此列，ALTER 幂等）。
+                // Migration 20260727-13 (原 044): group.extra JSON 列（已在 platform_early 建表含此列，ALTER 幂等）。
                 let _ = conn.execute(
                     "ALTER TABLE \"group\" ADD COLUMN extra TEXT NOT NULL DEFAULT ''",
                     [],
                 );
 
-                // Migration 045: cli_proxy_provider 表。
+                // Migration 20260727-14 (原 045): cli_proxy_provider 表。
                 conn.execute_batch(
                     "CREATE TABLE IF NOT EXISTS cli_proxy_provider (
                        id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -524,7 +525,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                      CREATE INDEX IF NOT EXISTS idx_cli_proxy_group ON cli_proxy_provider(group_id) WHERE group_id IS NOT NULL;",
                 )?;
 
-                // Migration 046: 清理旧 CPA(CLIProxyAPI) 平台数据 —— platform.db 部分。
+                // Migration 20260727-15 (原 046): 清理旧 CPA(CLIProxyAPI) 平台数据 —— platform.db 部分。
                 // proxy_log 删除归 run_migrations_proxy_log_late（log.db，cpa_pids 预查传入）；
                 // stats_agg_hourly 删除归 schema.rs Phase 1 cleanup_cpa_stats_agg（主库，s5）。
                 // 幂等：无 cpa 行时 DELETE 0 行不报错；每次启动重跑无副作用。
@@ -538,7 +539,7 @@ ALTER TABLE "group_new" RENAME TO "group";
                     [],
                 );
 
-                // Migration 048: cli_proxy_provider 加 quota JSON 列。
+                // Migration 20260727-16 (原 048): cli_proxy_provider 加 quota JSON 列。
                 let _ = conn.execute(
                     "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
                     [],
@@ -546,7 +547,7 @@ ALTER TABLE "group_new" RENAME TO "group";
     Ok(())
 }
 
-/// Migration 039: 把 037 引入但未走 extract_error_message 的历史 last_error 行重提为 message。
+/// Migration 20260727-12 (原 039): 把原 037 引入但未走 extract_error_message 的历史 last_error 行重提为 message。
 fn reextract_legacy_last_error(conn: &Connection) {    // ponytail: SELECT 后逐行 UPDATE，避免 SQLite 无 JSON 函数；行数有限（仅失败过的平台）。
     let Ok(mut stmt) = conn.prepare("SELECT id, last_error FROM platform WHERE last_error != ''") else {
         return;
@@ -574,7 +575,7 @@ fn reextract_legacy_last_error(conn: &Connection) {    // ponytail: SELECT 后�
     }
 }
 
-/// Migration 043: MITM 配置从专属表（mitm_ca / mitm_whitelist）迁到通用 setting 表
+/// Migration 20260727-15 (原 043): MITM 配置从专属表（mitm_ca / mitm_whitelist）迁到通用 setting 表
 ///（scope=mitm，2 key：ca 对象 + whitelist 数组），并 DROP 两旧表。
 ///
 /// 三种库状态全覆盖：
@@ -846,7 +847,7 @@ mod tests {
         assert!(result.is_ok(), "modern schema migration should succeed: {:?}", result);
     }
 
-    /// Migration 044: group.extra 列。两条路径：
+    /// Migration 20260727-13 (原 044): group.extra 列。两条路径：
     /// ① 无 extra 列 → ALTER ADD 成功；② 已有 extra 列 → duplicate column 错误被 `let _` 忽略，幂等。
     #[test]
     fn migrations_late_group_extra_column_044() {
@@ -860,7 +861,7 @@ mod tests {
 
         // ① 首次跑：ALTER ADD extra 列
         let r1 = run_migrations_platform_late(&conn);
-        assert!(r1.is_ok(), "first migration 044 should succeed: {:?}", r1);
+        assert!(r1.is_ok(), "first migration 20260727-13 should succeed: {:?}", r1);
         let has_extra = conn
             .prepare("PRAGMA table_info(\"group\")")
             .unwrap()
@@ -868,7 +869,7 @@ mod tests {
             .unwrap()
             .filter_map(Result::ok)
             .any(|c| c == "extra");
-        assert!(has_extra, "extra column must exist after migration 044");
+        assert!(has_extra, "extra column must exist after migration 20260727-13");
         // 行数据保留 + extra 默认 ''（空串 = "{}" 轻量表示）
         let extra: String = conn
             .query_row("SELECT extra FROM \"group\" WHERE name='g044'", [], |r| r.get(0))
@@ -877,10 +878,10 @@ mod tests {
 
         // ② 再跑：duplicate column 错误被忽略，幂等（不返 Err，extra 列仍存在）
         let r2 = run_migrations_platform_late(&conn);
-        assert!(r2.is_ok(), "re-running migration 044 must be idempotent: {:?}", r2);
+        assert!(r2.is_ok(), "re-running migration 20260727-13 must be idempotent: {:?}", r2);
     }
 
-    /// Migration 026: platform with breaker columns → backfill into extra + drop columns.
+    /// Migration 20260727-06 (原 026): platform with breaker columns → backfill into extra + drop columns.
     /// Uses a platform row with non-zero breaker values to exercise the backfill branch.
     #[test]
     fn migrations_late_breaker_backfill_exercises_026() {
@@ -939,7 +940,7 @@ mod tests {
             .unwrap()
             .filter_map(Result::ok)
             .any(|c| c == "breaker_failure_threshold");
-        assert!(!has_breaker, "breaker_failure_threshold should be dropped after migration 026");
+        assert!(!has_breaker, "breaker_failure_threshold should be dropped after migration 20260727-06");
         // The non-zero platform's extra should now contain breaker data.
         let extra: String = conn
             .query_row("SELECT extra FROM platform WHERE name = 'test-plat'", [], |r| r.get(0))
@@ -948,7 +949,7 @@ mod tests {
             "extra should contain breaker data after backfill, got: {}", extra);
     }
 
-    /// Migration 025: GLM platform with coding openai endpoint + anthropic endpoint not tagged coding_plan
+    /// Migration 20260727-05 (原 025): GLM platform with coding openai endpoint + anthropic endpoint not tagged coding_plan
     /// → should set anthropic endpoint's coding_plan=true.
     #[test]
     fn migrations_late_glm_coding_plan_backfill_025() {
@@ -1006,7 +1007,7 @@ mod tests {
         assert_eq!(
             anthropic_ep.get("coding_plan").and_then(|v| v.as_bool()),
             Some(true),
-            "anthropic endpoint should have coding_plan=true after migration 025"
+            "anthropic endpoint should have coding_plan=true after migration 20260727-05"
         );
     }
 
@@ -1052,7 +1053,7 @@ mod tests {
         assert!(has_gk, "group_key should exist after migration");
     }
 
-    /// Migration 039: 历史 last_error 残留完整 JSON body → 重提为 message。幂等。
+    /// Migration 20260727-12 (原 039): 历史 last_error 残留完整 JSON body → 重提为 message。幂等。
     #[test]
     fn migrations_late_reextract_last_error_039() {
         let conn = Connection::open_in_memory().unwrap();
@@ -1112,7 +1113,7 @@ mod tests {
         assert_eq!(get_last_error("plain"), "HTTP 429: Too many requests");
     }
 
-    /// Migration 040–043: MITM 两表迁 setting + 默认白名单 seed。
+    /// Migration 20260727-15 (原 040–043): MITM 两表迁 setting + 默认白名单 seed。
     /// 验证（新库路径）：① 两表不建；② setting (mitm, whitelist) 含 37 条默认 + 平台 host；
     /// ③ setting (mitm, ca) 无行（首次启用时 ensure_root_ca 写入）；④ 幂等。
     #[test]
@@ -1209,7 +1210,7 @@ mod tests {
         }
     }
 
-    /// Migration 043 验收（旧库迁移路径）：旧 mitm_ca + mitm_whitelist 行 →
+    /// Migration 20260727-15 (原 043) 验收（旧库迁移路径）：旧 mitm_ca + mitm_whitelist 行 →
     /// setting JSON + 两表 DROP。数据不丢，旧 schema 退出。
     #[test]
     fn migrations_late_043_legacy_tables_to_setting() {

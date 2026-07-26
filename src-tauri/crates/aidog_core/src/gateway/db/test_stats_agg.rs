@@ -39,7 +39,8 @@ use super::test_support::*;
 
 
 
-    /// 回填幂等：migration 011 已在 init 回填；再跑回填（带空表守卫）不应翻倍。
+    /// 回填幂等：migration 20260727-16（历史 011 file / 032 inline / 051 inline）已在 init 回填；
+    /// 再跑回填（带空表守卫）不应翻倍。
     /// 去 JOIN/子查询重构后回填改 Rust `backfill_stats_agg_if_empty`（空表守卫在 Rust 内判），
     /// 替代旧 NOT EXISTS SQL；表非空时它应直接返回不插，保持幂等。
     #[tokio::test]
@@ -66,7 +67,7 @@ use super::test_support::*;
     /// 必须按 SELECT 输出别名（actual_model 优先）聚合成一行。否则 `GROUP BY model` 会绑到
     /// proxy_log 真实列 model → 聚成两行但 SELECT/UNIQUE 复合键相同 → INSERT 撞
     /// `UNIQUE(time_hour,model,group_key,platform_id)` panic（真实启动 init_tables 必崩）。
-    /// 修法 = migration 011 回填 与 agg_rebuild_insert_sql 都用 `GROUP BY 1,2,3,4` 位置引用消歧。
+    /// 修法 = migration 20260727-16（原 011）回填 与 agg_rebuild_insert_sql 都用 `GROUP BY 1,2,3,4` 位置引用消歧。
     #[tokio::test]
     async fn agg_rebuild_dedups_raw_models_to_same_actual_model() {
         let db = test_db().await;

@@ -4,7 +4,7 @@
 //! 后端业务解析（peak_hours_for / parse_disable_during_peak / parse_breaker 等）用
 //! serde_json 读己键天然忽略未知键，故 _ui_* 与业务键共存无副作用。
 //!
-//! 白名单：`platform` / `group`（两表均有 extra 列，schema_late migration 044 起 group 也带）。
+//! 白名单：`platform` / `group`（两表均有 extra 列，schema_late migration 20260727-13（原 044）起 group 也带）。
 use super::*;
 use rusqlite::params;
 

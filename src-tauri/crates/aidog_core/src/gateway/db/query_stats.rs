@@ -16,7 +16,7 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
     // 跨库预查（stats-agg-to-main-db s5）：stats_agg_hourly 在主库，proxy_log 在 log.db，
     // `"group"` / `platform` 表在 platform.db → 预查 auto_map + platform_names 移入读闭包。
     // 按粒度路由 handle：agg（hourly/daily/None）走主库读池（stats_agg_hourly 主库 s1），
-    // minute/5min 走 log.db 读池（proxy_log 主库已 Mig 050 DROP）。
+    // minute/5min 走 log.db 读池（proxy_log 主库已 20260727-18 DROP）。
     let needs_auto_map = matches!(query.granularity.as_deref(), Some("minute") | Some("5min"));
     let auto_map = if needs_auto_map {
         db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))

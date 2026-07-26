@@ -1,7 +1,7 @@
 use super::*;
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
-/// 主库迁出的 notification 行（migration 049）。由 init_tables 在主库闭包内读出 + DROP 主库
+/// 主库迁出的 notification 行（migration 20260727-20, 原 049）。由 init_tables 在主库闭包内读出 + DROP 主库
 /// 残留表后，传入 proxy_log_late 写入 log.db.notification。空 Vec = 主库表已不存在（已迁移过）。
 type NotifRow = (String, String, String, i64);
 
@@ -10,7 +10,7 @@ type NotifRow = (String, String, String, i64);
 /// 避免对 4 表 80+ 列各自建 tuple 类型（列漂移时自动跟随 SELECT *）。
 type TableRows = (Vec<String>, Vec<Vec<rusqlite::types::Value>>);
 
-/// Migration 049: `notification` 表归属 log.db。主库残留表读出全部行（**不 DROP**，由 Phase 1
+/// Migration 20260727-20 (原 049): `notification` 表归属 log.db。主库残留表读出全部行（**不 DROP**，由 Phase 1
 /// 主库闭包独立 DROP，避免 notification 049 的 read+DROP→INSERT 顺序在 crash 时丢数据）。
 /// 幂等：表已不存在 → SELECT 报错吞空 Vec。
 fn migrate_main_notification_out(conn: &rusqlite::Connection) -> Vec<NotifRow> {
@@ -29,7 +29,7 @@ fn migrate_main_notification_out(conn: &rusqlite::Connection) -> Vec<NotifRow> {
         .unwrap_or_default()
 }
 
-/// 查主库 platform 表中 CPA 平台 ID（migration 046 清理用）。跨库不能子查询，由 init_tables
+/// 查主库 platform 表中 CPA 平台 ID（原 migration 046 清理用）。跨库不能子查询，由 init_tables
 /// 在主库闭包内预查后传入 proxy_log_late。无 CPA 行返空 Vec（proxy_log_late for-loop 空转）。
 /// 保留在 Phase 1 主库闭包：首次迁移主库仍有 platform 存量数据；二次启动主库已 DROP → 返空 Vec
 /// （此时 CPA proxy_log 清理已无意义，046 DELETE 幂等空转）。
@@ -42,9 +42,9 @@ fn fetch_cpa_platform_ids(conn: &rusqlite::Connection) -> Vec<i64> {
         .unwrap_or_default()
 }
 
-/// CPA（CLIProxyAPI）平台聚合行清理 —— stats-agg-to-main-db s5 补 Mig 046 在主库的缺失。
+/// CPA（CLIProxyAPI）平台聚合行清理 —— stats-agg-to-main-db s5 补原 046 在主库的缺失。
 ///
-/// 背景：Mig 046 的 CPA 清理在 `run_migrations_proxy_log_late`（log.db 写连接）内跑，含
+/// 背景：原 046 的 CPA 清理在 `run_migrations_proxy_log_late`（log.db 写连接）内跑，含
 /// `DELETE FROM stats_agg_hourly`。s1 把 stats_agg_hourly DDL 迁回主库后，log.db 不再有此表，
 /// 那条 DELETE 报 no such table 被 `let _ =` 吞 → CPA stats_agg 残留行不再清理。
 ///
@@ -141,7 +141,7 @@ impl Db {
                     run_migrations_late(conn)?;
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
-                    // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（Mig 046 在 log.db 上的
+                    // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（原 Mig 046 在 log.db 上的
                     // `DELETE FROM stats_agg_hourly` 因表已迁主库而 no-op，被 `let _ =` 吞）。
                     // 此处主库补做：每次启动幂等 DELETE CPA 残留聚合行（platform_type='"cpa-%'）。
                     // ponytail: 不改 run_migrations_late 签名透传 cpa_pids，避免波及 s1/s2 已锁的
@@ -153,7 +153,7 @@ impl Db {
                     let grp_rows = read_platform_tables_out(conn, "\"group\"");
                     let gp_rows = read_platform_tables_out(conn, "group_platform");
                     let cpa_rows = read_platform_tables_out(conn, "cli_proxy_provider");
-                    // 主库残留 notification 表 DROP（migration 049：notif_rows 已读出待 Phase 2 落 log.db）。
+                    // 主库残留 notification 表 DROP（20260727-20，原 049：notif_rows 已读出待 Phase 2 落 log.db）。
                     let _ = conn.execute("DROP TABLE IF EXISTS notification", []);
                     if !plat_rows.1.is_empty() || !grp_rows.1.is_empty() {
                         tracing::info!(
@@ -170,7 +170,7 @@ impl Db {
                 .map_err(|e| e.to_string())?;
 
             // Phase 2: log.db migration（proxy_log + notification 建表/索引/回填）。
-            // stats-agg-to-main-db：stats_agg_hourly 已迁主库（Phase 1 run_migrations_late Mig 051）。
+            // stats-agg-to-main-db：stats_agg_hourly 已迁主库（Phase 1 run_migrations_late 20260727-16）。
             // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
             self.call_proxy_log_traced(None, __db_caller, move |conn| {
                 run_migrations_proxy_log_early(conn)?;
@@ -364,18 +364,18 @@ pub(crate) fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
 /// 已存在跳过——不重新插入也不重新启用（尊重用户对内置规则的禁用状态，内置规则可禁不可硬删）。
 /// 在 [`Db::init_tables`] migration 末尾、同一 connection 闭包内同步调用。
 ///
-/// 薄 wrapper：调 [`seed_builtin_middleware_rules_counted`] 忽略计数，保 migration 015 调用点签名不破。
+/// 薄 wrapper：调 [`seed_builtin_middleware_rules_counted`] 忽略计数，保 migration 20260727-07（原 015）调用点签名不破。
 pub(crate) fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
     let (inserted, _skipped) = seed_builtin_middleware_rules_counted(conn)?;
     if inserted > 0 {
-        tracing::info!(inserted, "migration 015: seeded builtin middleware rules");
+        tracing::info!(inserted, "migration 20260727-07 (原 015): seeded builtin middleware rules");
     }
     Ok(())
 }
 
 /// 内置规则 seed 核心：返回 (inserted, skipped) 计数。
 ///
-/// 抽出为独立 pub 入口，供 migration 015（经 [`seed_builtin_middleware_rules`] wrapper）
+/// 抽出为独立 pub 入口，供 migration 20260727-07（原 015，经 [`seed_builtin_middleware_rules`] wrapper）
 /// 与 `middleware_import_default_rules` command 共用——禁抄第二份 builtin_rule_specs。
 ///
 /// 语义：按 (name, is_builtin=1) 幂等判定，已存在 → skip（不 update enabled，

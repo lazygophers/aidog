@@ -16,7 +16,7 @@ const AGG_TOTAL_COLS: &str = "COALESCE(SUM(request_count), 0), \
 /// 过滤须与 stats_agg_hourly 的 eff_pid 归属一致（对齐改造前 where_clause 回溯语义）：
 /// 直挂日志 `platform_id = ?1`；自动分组日志 `platform_id = 0` 经 group.auto_from_platform
 /// （十进制字符串）回溯，按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；
-/// 见 migration 024 / group-name-group-key-split）。
+/// 见 migration 20260727-04（原 024）/ group-name-group-key-split）。
 ///
 /// proxy-log-db-split s3：`"group"` 表在主库，`proxy_log` 在 log.db。`auto_keys` 由调用方
 /// 在主库闭包内预查后传入（跨库禁在一个连接内同时查两库）。
