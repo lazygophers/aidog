@@ -2,7 +2,7 @@
   "id": "firefly-b1-core",
   "name": "批1 高频核心页萤火虫迁移",
   "desc": "Home/Groups/Platforms/Stats 4页组件级重构(KpiCell counter/reveal,CompactCard/StatChip/BalanceBar 复用,图表萤火虫色)",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -19,13 +19,20 @@
         "tsc0err",
         "test pass"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785031360,
-      "started": null,
-      "finished": null
+      "started": 1785032197,
+      "finished": 1785032347
     },
     {
       "sid": "groups",
@@ -39,13 +46,19 @@
         "tsc0err",
         "test pass"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785031360,
       "started": null,
-      "finished": null
+      "finished": 1785032183
     },
     {
       "sid": "stats",
@@ -59,13 +72,19 @@
         "tsc0err",
         "test pass"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785031360,
-      "started": null,
-      "finished": null
+      "started": 1785032212,
+      "finished": 1785032459
     },
     {
       "sid": "platforms",
@@ -79,13 +98,19 @@
         "tsc0err",
         "test pass"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785031360,
-      "started": null,
-      "finished": null
+      "started": 1785032348,
+      "finished": 1785032703
     }
   ],
   "repos": [],
@@ -95,8 +120,8 @@
   "parent": "firefly-ui-migration",
   "kind": "task",
   "created": 1785031266,
-  "started": null,
-  "checked": null,
-  "finished": null,
-  "updated": 1785031360
+  "started": 1785032766,
+  "checked": 1785032767,
+  "finished": 1785032780,
+  "updated": 1785032780
 }

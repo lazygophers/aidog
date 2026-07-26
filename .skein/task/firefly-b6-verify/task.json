@@ -2,12 +2,59 @@
   "id": "firefly-b6-verify",
   "name": "批6 100%覆盖验收",
   "desc": "全量页面覆盖核对(每页至少1次 reveal/counter/glow 命中)+ 全量测试 + build + i18n 8语言 check-i18n + 启动 dev 视觉抽检",
-  "status": "待处理",
+  "status": "已完成",
   "deps": [
     "firefly-b5-misc"
   ],
   "contracts": [],
-  "subtasks": [],
+  "subtasks": [
+    {
+      "sid": "coverage-audit",
+      "name": "覆盖审计+裸色排查",
+      "desc": "脚本化 grep 核对每页至少1个 reveal/counter/hover-lift/流光命中; 全 src 扫裸 #fff/#000 硬编码色清单",
+      "depends_on": [],
+      "验收": [
+        "产出覆盖矩阵(每页命中标记)+裸色清单",
+        "遗漏页/裸色文件列出"
+      ],
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785039070,
+      "started": 1785039077,
+      "finished": 1785039388
+    },
+    {
+      "sid": "gap-fix",
+      "name": "遗漏补迁",
+      "desc": "按 coverage-audit 清单补迁遗漏页 + 替换裸 #fff/#000 为 var(--*)",
+      "depends_on": [
+        "coverage-audit"
+      ],
+      "验收": [
+        "遗漏页全补",
+        "裸色全替换或标注例外",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785039070,
+      "started": null,
+      "finished": 1785039388
+    }
+  ],
   "repos": [],
   "worktree": null,
   "worktrees": [],
@@ -15,8 +62,8 @@
   "parent": "firefly-ui-migration",
   "kind": "task",
   "created": 1785031267,
-  "started": null,
-  "checked": null,
-  "finished": null,
-  "updated": 1785031267
+  "started": 1785039077,
+  "checked": 1785039389,
+  "finished": 1785039952,
+  "updated": 1785039952
 }
