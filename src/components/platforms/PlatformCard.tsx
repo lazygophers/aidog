@@ -226,6 +226,7 @@ export const PlatformCard = memo(function PlatformCard({
         expanded={hasDetail ? expanded : undefined}
         onToggle={hasDetail ? (next) => actions.onToggleExpanded(p.id, next) : undefined}
         toggleLabel={t("platform.toggleDetail", "展开/收起明细")}
+        revealDelay={i * 60}
         header={(
           <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
             {/* ── 行 1：身份 + 快操作 ── */}
