@@ -23,41 +23,42 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   const groupsReloadRef = useRef<(() => void) | null>(null);
 
   const s = usePlatformsState({ onNavigate, initialFilter, groupsReloadRef });
+  const { list, drag, form } = s;
 
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效。
   // ponytail: 原代码每个回调显式包一层 actionsRef.current.X，迁移后保持完全等价的稳定引用语义。
   const actionsRef = useRef({
-    s_handlePlatPointerDown: s.handlePlatPointerDown,
-    s_handlePlatPointerMove: s.handlePlatPointerMove,
-    s_handlePlatPointerUp: s.handlePlatPointerUp,
-    s_toggleExpanded: s.toggleExpanded,
+    s_handlePlatPointerDown: drag.handlePlatPointerDown,
+    s_handlePlatPointerMove: drag.handlePlatPointerMove,
+    s_handlePlatPointerUp: drag.handlePlatPointerUp,
+    s_toggleExpanded: list.toggleExpanded,
     refreshQuota: s.quota.refreshQuota,
-    s_handleToggle: s.handleToggle,
-    s_handleEdit: s.handleEdit,
-    s_handleShare: s.handleShare,
-    s_handleDuplicate: s.handleDuplicate,
-    s_handleDelete: s.handleDelete,
-    s_handleViewLogs: s.handleViewLogs,
-    s_handleQuickTest: s.handleQuickTest,
-    s_setTestingPlatform: s.setTestingPlatform,
-    s_setFaviconFailed: s.setFaviconFailed,
+    s_handleToggle: list.handleToggle,
+    s_handleEdit: form.handleEdit,
+    s_handleShare: list.handleShare,
+    s_handleDuplicate: form.handleDuplicate,
+    s_handleDelete: list.handleDelete,
+    s_handleViewLogs: form.handleViewLogs,
+    s_handleQuickTest: list.handleQuickTest,
+    s_setTestingPlatform: form.setTestingPlatform,
+    s_setFaviconFailed: list.setFaviconFailed,
   });
   // 每次渲染把最新闭包刷入 ref（hook 返回的 handler 闭包随 state 更新，故每次都重写）。
   actionsRef.current = {
-    s_handlePlatPointerDown: s.handlePlatPointerDown,
-    s_handlePlatPointerMove: s.handlePlatPointerMove,
-    s_handlePlatPointerUp: s.handlePlatPointerUp,
-    s_toggleExpanded: s.toggleExpanded,
+    s_handlePlatPointerDown: drag.handlePlatPointerDown,
+    s_handlePlatPointerMove: drag.handlePlatPointerMove,
+    s_handlePlatPointerUp: drag.handlePlatPointerUp,
+    s_toggleExpanded: list.toggleExpanded,
     refreshQuota: s.quota.refreshQuota,
-    s_handleToggle: s.handleToggle,
-    s_handleEdit: s.handleEdit,
-    s_handleShare: s.handleShare,
-    s_handleDuplicate: s.handleDuplicate,
-    s_handleDelete: s.handleDelete,
-    s_handleViewLogs: s.handleViewLogs,
-    s_handleQuickTest: s.handleQuickTest,
-    s_setTestingPlatform: s.setTestingPlatform,
-    s_setFaviconFailed: s.setFaviconFailed,
+    s_handleToggle: list.handleToggle,
+    s_handleEdit: form.handleEdit,
+    s_handleShare: list.handleShare,
+    s_handleDuplicate: form.handleDuplicate,
+    s_handleDelete: list.handleDelete,
+    s_handleViewLogs: form.handleViewLogs,
+    s_handleQuickTest: list.handleQuickTest,
+    s_setTestingPlatform: form.setTestingPlatform,
+    s_setFaviconFailed: list.setFaviconFailed,
   };
   const cardActions = useMemo<PlatformCardActions>(() => ({
     onPointerDown: (e, index) => actionsRef.current.s_handlePlatPointerDown(e, index),
@@ -77,7 +78,7 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   }), []);
 
   // ── Edit / Add form (full page, no list) ──
-  if (s.showForm) {
+  if (form.showForm) {
     return <PlatformEditForm s={s} />;
   }
 

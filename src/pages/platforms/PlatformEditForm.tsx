@@ -38,6 +38,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码 → key。
   // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  // ponytail: slice 化后 form 字段全部从 s.form 读，list/quota slice 本视图不直接消费。
   const {
     editing, showPaste, pasteInitialText, setShowPaste, setPasteInitialText,
     name, setName, protocol, codingPlan, handleProtocolChange,
@@ -57,14 +58,17 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
-    groupDetails, levelPriority, setLevelPriority,
+    levelPriority, setLevelPriority,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     uniqueGroupInfo,
     showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
     globalClaudeConfig,
     saveError,
-    handleSave, resetForm, applyPaste, getPrimaryBaseUrl, createCliProxyPlatform,
-  } = s;
+    handleSave, resetForm, applyPaste, createCliProxyPlatform,
+  } = s.form;
+  // groupDetails 在 list slice（list 态字段，经 listDeps 注入 form hook 但 owner 是 list）。
+  const { groupDetails } = s.list;
+  const { getPrimaryBaseUrl } = s;
 
   // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码（5 请求格式协议）→ key。
   // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。

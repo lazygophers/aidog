@@ -114,28 +114,28 @@ beforeEach(() => {
 describe("usePlatformsState — refreshPlatforms (R1, confirmDeletePlatform 路径)", () => {
   it("refreshPlatforms 全量 refetch setPlatforms + ++epoch", async () => {
     const { result } = await mount();
-    await waitFor(() => expect(result.current.platforms).toHaveLength(3));
-    const epochBefore = result.current.platformsEpochRef.current;
+    await waitFor(() => expect(result.current.list.platforms).toHaveLength(3));
+    const epochBefore = result.current.list.platformsEpochRef.current;
 
     // 模拟删后后端返回：被删 id=2 不在列表
     platformApiMock.list.mockResolvedValueOnce([mkPlatform(1, "a"), mkPlatform(3, "c")]);
 
-    await act(async () => { await result.current.refreshPlatforms(); });
+    await act(async () => { await result.current.list.refreshPlatforms(); });
 
     expect(platformApiMock.list).toHaveBeenCalled();
-    expect(result.current.platforms.map(p => p.id)).toEqual([1, 3]);
-    expect(result.current.platformsEpochRef.current).toBe(epochBefore + 1);
+    expect(result.current.list.platforms.map(p => p.id)).toEqual([1, 3]);
+    expect(result.current.list.platformsEpochRef.current).toBe(epochBefore + 1);
   });
 
   it("refreshPlatforms 后 standalonePlatforms 派生不含被删 id（R4）", async () => {
     const { result } = await mount();
-    await waitFor(() => expect(result.current.standalonePlatforms.map(p => p.id)).toEqual([1, 2, 3]));
+    await waitFor(() => expect(result.current.list.standalonePlatforms.map(p => p.id)).toEqual([1, 2, 3]));
 
     platformApiMock.list.mockResolvedValueOnce([mkPlatform(1, "a"), mkPlatform(3, "c")]);
-    await act(async () => { await result.current.refreshPlatforms(); });
+    await act(async () => { await result.current.list.refreshPlatforms(); });
 
-    await waitFor(() => expect(result.current.standalonePlatforms.map(p => p.id)).toEqual([1, 3]));
-    expect(result.current.standalonePlatforms.find(p => p.id === 2)).toBeUndefined();
+    await waitFor(() => expect(result.current.list.standalonePlatforms.map(p => p.id)).toEqual([1, 3]));
+    expect(result.current.list.standalonePlatforms.find(p => p.id === 2)).toBeUndefined();
   });
 
   it("confirmDeletePlatform 信号链：onPlatformDeleted 绑 refreshPlatforms 后被删平台从 standalone 消失", async () => {
@@ -143,9 +143,9 @@ describe("usePlatformsState — refreshPlatforms (R1, confirmDeletePlatform 路�
     // Groups.confirmDeletePlatform 成功后会调 onPlatformDeleted?.()
     // 这里直接验证 refreshPlatforms 作为 onPlatformDeleted 触发后的效果
     const { result } = await mount();
-    await waitFor(() => expect(result.current.standalonePlatforms.map(p => p.id)).toEqual([1, 2, 3]));
+    await waitFor(() => expect(result.current.list.standalonePlatforms.map(p => p.id)).toEqual([1, 2, 3]));
 
-    const refreshPlatforms = result.current.refreshPlatforms;
+    const refreshPlatforms = result.current.list.refreshPlatforms;
     expect(typeof refreshPlatforms).toBe("function");
 
     // 用户在 Groups 删 id=2：后端真删后 refreshPlatforms 拉回删后集
@@ -153,31 +153,31 @@ describe("usePlatformsState — refreshPlatforms (R1, confirmDeletePlatform 路�
     await act(async () => { await refreshPlatforms(); });
 
     await waitFor(() => {
-      expect(result.current.standalonePlatforms.map(p => p.id)).toEqual([1, 3]);
+      expect(result.current.list.standalonePlatforms.map(p => p.id)).toEqual([1, 3]);
     });
     // 关键：被删平台不再以「未分组」残留
-    expect(result.current.standalonePlatforms.some(p => p.id === 2)).toBe(false);
+    expect(result.current.list.standalonePlatforms.some(p => p.id === 2)).toBe(false);
   });
 });
 
 describe("usePlatformsState — handleDelete (R3 Platforms 页路径复验)", () => {
   it("乐观 setPlatforms(filter) + ++epoch + platformApi.delete + groupDetails refetch", async () => {
     const { result } = await mount();
-    await waitFor(() => expect(result.current.platforms).toHaveLength(3));
-    const epochBefore = result.current.platformsEpochRef.current;
+    await waitFor(() => expect(result.current.list.platforms).toHaveLength(3));
+    const epochBefore = result.current.list.platformsEpochRef.current;
 
-    await act(async () => { await result.current.handleDelete(2); });
+    await act(async () => { await result.current.list.handleDelete(2); });
 
     // 1. platformApi.delete 被调（R3 入口）
     expect(platformApiMock.delete).toHaveBeenCalledWith(2);
     // 2. 乐观更新：platforms state 立即不含被删 id
-    expect(result.current.platforms.map(p => p.id)).toEqual([1, 3]);
+    expect(result.current.list.platforms.map(p => p.id)).toEqual([1, 3]);
     // 3. epoch 自增（派生层重算触发）
-    expect(result.current.platformsEpochRef.current).toBe(epochBefore + 1);
+    expect(result.current.list.platformsEpochRef.current).toBe(epochBefore + 1);
     // 4. groupDetails refetch（handleGroupsChanged → groupDetailApi.list）
     expect(groupDetailApiMock.list).toHaveBeenCalled();
     // 5. standalonePlatforms 派生正确（被删 id 不含）
-    expect(result.current.standalonePlatforms.map(p => p.id)).toEqual([1, 3]);
+    expect(result.current.list.standalonePlatforms.map(p => p.id)).toEqual([1, 3]);
   });
 
   it("handleDelete 失败时 platformApi.delete 仍被调（错误处理路径不阻塞入口契约）", async () => {
@@ -185,15 +185,15 @@ describe("usePlatformsState — handleDelete (R3 Platforms 页路径复验)", ()
     // 该模式依赖 React 在 await 前同步执行 updater，jsdom + act 时序下不稳定。
     // 本测试只断言入口契约（platformApi.delete 被调 + epoch ++），回滚机制属 pre-existing 行为不在本 task scope。
     const { result } = await mount();
-    await waitFor(() => expect(result.current.platforms).toHaveLength(3));
-    const epochBefore = result.current.platformsEpochRef.current;
+    await waitFor(() => expect(result.current.list.platforms).toHaveLength(3));
+    const epochBefore = result.current.list.platformsEpochRef.current;
 
     platformApiMock.delete.mockRejectedValueOnce(new Error("boom"));
     await act(async () => {
-      try { await result.current.handleDelete(2); } catch { /* expected */ }
+      try { await result.current.list.handleDelete(2); } catch { /* expected */ }
     });
 
     expect(platformApiMock.delete).toHaveBeenCalledWith(2);
-    expect(result.current.platformsEpochRef.current).toBe(epochBefore + 1);
+    expect(result.current.list.platformsEpochRef.current).toBe(epochBefore + 1);
   });
 });
