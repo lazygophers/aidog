@@ -30,15 +30,11 @@ import {
   onProxyLogUpdated,
   type Platform, type PlatformStatus, type Protocol, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult,
-  type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
-  type ModelSlot, type MockConfig, type NewApiConfig, type DevinConfig, type ManualBudget,
-  type TimeModelRule, type CliProxyProvider,
+  type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { pinyinMatch } from "../../utils/pinyin";
-import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import { usePlatformQuota, getPrimaryBaseUrl } from "./usePlatformQuota";
-import { usePlatformForm } from "./usePlatformForm";
-import { type PeakWindow } from "../../domains/platforms";
+import { usePlatformForm, type PlatformFormState } from "./usePlatformForm";
 import { setUiExtra } from "../../services/api/ui_extra";
 
 // ponytail: 读 platform.extra JSON 内 _ui_expand_plat bool（缺/解析失败→false）。跨会话展开态持久化。
@@ -54,8 +50,18 @@ export interface PlatformsStateParams {
   groupsReloadRef: React.MutableRefObject<(() => void) | null>;
 }
 
-export interface PlatformsState extends PlatformsStateParams {
-  t: TFunction;
+// ════════════ STATE SLICES (arch-deepen/c7-god-surface reducer 化) ════════════
+// ponytail: 60 字段 god interface 归一为 4 子系统 slice + params echo。
+//   - list slice: list state (platforms/usage/test/loading/derived/membership) + list handlers
+//     (load/refresh/delete/toggle/test/share/purge/groups/refresh/remove/toggleExpand)
+//   - drag slice: 拖拽 reorder + 跨区域 group drag (pointer events + refs)，imperative 路径保留 hook 形态
+//   - form slice: 来自 usePlatformForm 的全表单 state (~30 字段，整包透传)
+//   - quota slice: 来自 usePlatformQuota 的余额调度子系统 (整包透传)
+// 内部 useState 集群不强制 useReducer（多数 setter 经 usePlatformForm listDeps 注入，reader 反增 dispatch
+//   桥接成本）；本归一仅 reshape 接口 surface，state model 与所有调用链保持原语义（测试零回归）。
+
+/** list 子系统 slice：列表 state + 派生 + list 侧 handlers。 */
+export interface PlatformsListSlice {
   // ── list state ──
   platforms: Platform[];
   setPlatforms: React.Dispatch<React.SetStateAction<Platform[]>>;
@@ -77,19 +83,6 @@ export interface PlatformsState extends PlatformsStateParams {
   setFaviconFailed: React.Dispatch<React.SetStateAction<Set<number>>>;
   expandedIds: Set<number>;
   toggleExpanded: (id: number, next: boolean) => void;
-  // ── drag reorder state ──
-  platDrag: { from: number; to: number } | null;
-  platListRef: React.RefObject<HTMLDivElement | null>;
-  handlePlatPointerDown: (e: React.PointerEvent, index: number) => void;
-  handlePlatPointerMove: (e: React.PointerEvent) => void;
-  handlePlatPointerUp: () => void;
-  // ── group drag state ──
-  groupDrag: { pid: number; pname: string; x: number; y: number } | null;
-  onStandaloneGroupPointerDown: (e: React.PointerEvent, p: Platform) => void;
-  onStandaloneGroupPointerMove: (e: React.PointerEvent) => void;
-  onStandaloneGroupPointerUp: (e: React.PointerEvent) => void;
-  // ── quota subsystem ──
-  quota: ReturnType<typeof usePlatformQuota>;
   // ── membership / groups ──
   platformMembership: Map<number, string[]>;
   groupDetails: GroupDetail[];
@@ -111,95 +104,46 @@ export interface PlatformsState extends PlatformsStateParams {
   enabledCount: number;
   headerActive: number;
   headerTotal: number;
-  // ── form state ──
-  editing: Platform | null;
-  setEditing: React.Dispatch<React.SetStateAction<Platform | null>>;
-  showForm: boolean;
-  setShowForm: React.Dispatch<React.SetStateAction<boolean>>;
-  showPaste: boolean;
-  setShowPaste: React.Dispatch<React.SetStateAction<boolean>>;
-  pasteInitialText: string | undefined;
-  setPasteInitialText: React.Dispatch<React.SetStateAction<string | undefined>>;
-  shareData: { share: SharePlatform; name: string } | null;
-  setShareData: React.Dispatch<React.SetStateAction<{ share: SharePlatform; name: string } | null>>;
+  // ── toast (list 态 + form 态共用) ──
   toast: { text: string; ok: boolean } | null;
   setToast: React.Dispatch<React.SetStateAction<{ text: string; ok: boolean } | null>>;
-  testingPlatform: Platform | null;
-  setTestingPlatform: React.Dispatch<React.SetStateAction<Platform | null>>;
-  groupFullscreen: boolean;
-  setGroupFullscreen: React.Dispatch<React.SetStateAction<boolean>>;
-  showKey: boolean;
-  setShowKey: React.Dispatch<React.SetStateAction<boolean>>;
-  name: string; setName: React.Dispatch<React.SetStateAction<string>>;
-  protocol: Protocol; setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
-  codingPlan: boolean; setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
-  apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
-  batchPreviewKeys: string[] | null;
-  setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
-  handleApiKeyChange: (v: string) => void;
-  confirmBatchCreate: () => Promise<void>;
-  cancelBatchPreview: () => void;
-  previewNames: string[];
-  models: Record<ModelSlot, string>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string>>>;
-  availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
-  endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
-  activeDropdown: ModelSlot | null; setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
-  showClaudeConfig: boolean; setShowClaudeConfig: React.Dispatch<React.SetStateAction<boolean>>;
-  claudeConfigJson: string; setClaudeConfigJson: React.Dispatch<React.SetStateAction<string>>;
-  globalClaudeConfig: Record<string, any>; setGlobalClaudeConfig: React.Dispatch<React.SetStateAction<Record<string, any>>>;
-  extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
-  mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
-  newApiConfig: NewApiConfig; setNewApiConfig: React.Dispatch<React.SetStateAction<NewApiConfig>>;
-  devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
-  manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
-  breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
-  breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
-  breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
-  breakerDefaults: SchedulingBreakerSettings | null;
-  peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
-  peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
-  disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
-  timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
-  autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
-  joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
-  levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;
-  expiresAt: number; setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
-  expiryEnabled: boolean; setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  lockedGroupId: number | null; setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
-  fetching: boolean; setFetching: React.Dispatch<React.SetStateAction<boolean>>;
-  fetchError: string; setFetchError: React.Dispatch<React.SetStateAction<string>>;
-  saveError: string; setSaveError: React.Dispatch<React.SetStateAction<string>>;
-  // ── derived form flags ──
-  isMock: boolean;
-  isPassthrough: boolean;
-  keyOptional: boolean;
-  apiKeyMissing: boolean;
-  uniqueGroupInfo: { show: boolean; groupId: number | null; isAuto: boolean };
-  // ── handlers ──
+  // ── list handlers ──
   load: () => Promise<void>;
   refreshStats: () => Promise<void>;
-  resetForm: () => void;
-  openCreatePlatform: (presetGroupIds?: number[], lockGid?: number) => void;
-  handleEdit: (p: Platform) => Promise<void>;
-  handleDuplicate: (p: Platform) => Promise<void>;
-  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void | Promise<void>;
-  handleModelChange: (slot: ModelSlot, value: string) => void;
-  handleModelSelect: (slot: ModelSlot, value: string) => void;
-  handleFetchModels: () => Promise<void>;
-  handleFillAll: () => void;
-  buildModelsPayload: () => Record<string, string | undefined> | undefined;
-  handleSave: () => Promise<void>;
   handleDelete: (id: number) => Promise<void>;
   handleToggle: (p: Platform) => Promise<void>;
   handleQuickTest: (p: Platform) => Promise<void>;
   handleShare: (p: Platform) => Promise<void>;
-  handleViewLogs: (p: Platform) => void;
-  applyPaste: (r: SmartPasteApplyResult) => Promise<void>;
   handlePurgeDisabled: () => Promise<void>;
-  runBatchCreateFromPaste: (keys: string[], baseName?: string, effectiveEndpoints?: PlatformEndpoint[], effectiveProtocol?: Protocol) => Promise<void>;
-  /** 从 cli-proxy provider 建平台（cpa-standalone-module s6）。 */
-  createCliProxyPlatform: (provider: CliProxyProvider) => Promise<void>;
-  /** 主 URL 推导 helper（form header desc + fetch models 回退链共用） */
+}
+
+/** drag 子系统 slice：列表内 reorder + 跨区域拖入分组 (pointer events + refs)。
+ *  ponytail: 拖拽是高频 imperative 路径（pointermove 每帧 setState + ref 读写），reducer 反增复杂度
+ *    （dispatch 桥接 + ref 透传），故保留 hook 形态整包透传，仅 reshape 接口 surface。 */
+export interface PlatformsDragSlice {
+  // ── drag reorder state ──
+  platDrag: { from: number; to: number } | null;
+  platListRef: React.RefObject<HTMLDivElement | null>;
+  handlePlatPointerDown: (e: React.PointerEvent, index: number) => void;
+  handlePlatPointerMove: (e: React.PointerEvent) => void;
+  handlePlatPointerUp: () => void;
+  // ── group drag state ──
+  groupDrag: { pid: number; pname: string; x: number; y: number } | null;
+  onStandaloneGroupPointerDown: (e: React.PointerEvent, p: Platform) => void;
+  onStandaloneGroupPointerMove: (e: React.PointerEvent) => void;
+  onStandaloneGroupPointerUp: (e: React.PointerEvent) => void;
+}
+
+export interface PlatformsState extends PlatformsStateParams {
+  t: TFunction;
+  // ── 四子系统 slice (取代 60 字段 god interface) ──
+  list: PlatformsListSlice;
+  drag: PlatformsDragSlice;
+  /** 来自 usePlatformForm 的全表单 state + handlers（~30 字段整包透传，原 `...form` 展开改为 slice 命名访问）。 */
+  form: PlatformFormState;
+  /** 来自 usePlatformQuota 的余额/配额调度子系统（整包透传）。 */
+  quota: ReturnType<typeof usePlatformQuota>;
+  /** 主 URL 推导 helper（form header desc + fetch models 回退链共用；非 slice 内聚，留顶层）。 */
   getPrimaryBaseUrl: (proto: Protocol, eps: PlatformEndpoint[]) => string;
 }
 
@@ -777,27 +721,37 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     return () => window.removeEventListener("aidog-platform-test-completed", handler);
   }, [refreshLastTest]);
 
-  return {
-    t, onNavigate, initialFilter, groupsReloadRef,
+  // ════════════ SLICE AGGREGATION (arch-deepen/c7-god-surface) ════════════
+  // ponytail: 60 字段 god interface → 4 子系统 slice + params echo (顶层 8 字段)。
+  //   内部 state/handler 实现零改，仅 reshape 返回 surface；所有 setter 经 listDeps/form 注入路径保留。
+  const listSlice: PlatformsListSlice = {
     platforms, setPlatforms, platformsEpochRef,
     usageMap, setUsageMap, usageLoading,
     testResults, setTestResults, lastTestMap, setLastTestMap,
     testingId, setTestingId, loading,
     progressiveCount, setProgressiveCount,
     faviconFailed, setFaviconFailed, expandedIds, toggleExpanded,
-    platDrag, platListRef, handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    groupDrag, onStandaloneGroupPointerDown, onStandaloneGroupPointerMove, onStandaloneGroupPointerUp,
-    quota,
-    platformMembership, groupDetails, setGroupDetails, handleGroupsChanged, refreshPlatforms, removePlatformsByIds,
+    platformMembership, groupDetails, setGroupDetails,
+    handleGroupsChanged, refreshPlatforms, removePlatformsByIds,
     standalonePlatforms, searchQuery, setSearchQuery,
     enabledCount, headerActive, headerTotal,
     toast, setToast,
-    // ── form 子系统（state + handlers 全部来自 usePlatformForm，含 breakerDefaults）──
-    ...form,
-    // ── list 侧 handlers ──
     load, refreshStats,
-    handleDelete, handleToggle, handleQuickTest, handleShare,
-    handlePurgeDisabled,
+    handleDelete, handleToggle, handleQuickTest, handleShare, handlePurgeDisabled,
+  };
+  const dragSlice: PlatformsDragSlice = {
+    platDrag, platListRef,
+    handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
+    groupDrag,
+    onStandaloneGroupPointerDown, onStandaloneGroupPointerMove, onStandaloneGroupPointerUp,
+  };
+
+  return {
+    t, onNavigate, initialFilter, groupsReloadRef,
+    list: listSlice,
+    drag: dragSlice,
+    form,
+    quota,
     getPrimaryBaseUrl,
   };
 }

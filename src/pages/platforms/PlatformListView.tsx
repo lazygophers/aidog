@@ -37,24 +37,33 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
     });
     return () => { cancelled = true; };
   }, [i18n.language]);
+  // ponytail: slice 化后字段拆在 list / form / drag / quota 四片，按消费就近解构。
   const {
     platforms, loading, headerActive, headerTotal,
     searchQuery, setSearchQuery,
-    handleGroupsChanged, openCreatePlatform, handleEdit, handleDuplicate,
-    setGroupFullscreen, setProgressiveCount,
-    groupFullscreen,
-    platDrag, platListRef,
+    handleGroupsChanged, removePlatformsByIds,
     standalonePlatforms,
-    onStandaloneGroupPointerDown, onStandaloneGroupPointerMove, onStandaloneGroupPointerUp,
-    groupDrag,
-    quota, usageLoading, usageMap, expandedIds, testResults, testingId, faviconFailed, platformMembership, lastTestMap,
-    resetForm, setShowForm,
-    handlePurgeDisabled,
-    testingPlatform, setTestingPlatform, setTestResults,
-    shareData, setShareData,
+    faviconFailed, expandedIds, testResults, testingId,
+    lastTestMap, platformMembership, usageMap, usageLoading,
+    setProgressiveCount,
     toast, setToast,
-    onNavigate,
-  } = s;
+    handlePurgeDisabled,
+  } = s.list;
+  const {
+    openCreatePlatform, handleEdit, handleDuplicate,
+    resetForm, setShowForm,
+    setGroupFullscreen, groupFullscreen,
+    testingPlatform, setTestingPlatform,
+    shareData, setShareData,
+  } = s.form;
+  const {
+    platDrag, platListRef, groupDrag,
+    onStandaloneGroupPointerDown, onStandaloneGroupPointerMove, onStandaloneGroupPointerUp,
+  } = s.drag;
+  const { quota, onNavigate } = s;
+  // ponytail: ModelTestPanel onResult 写 list.testResults（form 经 listDeps 注入拿到同源 setter），
+  //   本视图直接读 list.testResults 渲染，二者闭环；为可读性别名 setTestResults = list.setTestResults。
+  const { setTestResults } = s.list;
   // ponytail: purge 确认在 AlertDialog Action 触发（busy 期间禁按钮防双击）
   const onPurgeConfirm = async () => {
     setPurging(true);
@@ -97,7 +106,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => s.removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>
