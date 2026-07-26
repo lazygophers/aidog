@@ -281,6 +281,8 @@ pub fn run() {
             commands_proxy::mitm::mitm_whitelist_import_defaults,
             commands_proxy::mitm::mitm_whitelist_clear,
             commands_proxy::mitm::mitm_whitelist_test_url,
+            // C8 mitm seam 收敛：手动清空 pinning_suspect 集合（TTL 内强制重试 MITM）
+            commands_proxy::mitm::mitm_reset_suspects,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

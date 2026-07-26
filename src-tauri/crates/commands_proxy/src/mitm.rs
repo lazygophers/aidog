@@ -132,6 +132,24 @@ pub async fn mitm_disable(db: State<'_, Db>) -> Result<(), String> {
     Ok(())
 }
 
+// ─── suspect 重置（C8 收敛）────────────────────────────────────
+
+/// 一键清空 pinning_suspect 集合（C8 收敛：原集合只增不减 → 用户手动重试 MITM 的逃生口）。
+///
+/// 返清点数（前端 toast 反馈用）。无 DB 依赖（suspects 是进程内 Mutex<HashMap>）。
+///
+/// 使用场景：用户上游证书暂时错误被标 suspect（如上游临时证书错 / 客户端漏装中间证书），
+/// TTL 内 (`SUSPECT_TTL_SECS`=600s) 该 host 跳过 MITM；用户装好证书 / 上游修复后点「重置」
+/// 立即恢复 MITM 候选，不必等 TTL 自然 expire 或重启进程。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+pub async fn mitm_reset_suspects() -> Result<usize, String> {
+    tracing::debug!(command = "mitm_reset_suspects", "command invoked");
+    let n = aidog_core::gateway::mitm::mitm_state().reset_suspects().await;
+    tracing::info!(cleared = n, "mitm: pinning_suspects cleared by user");
+    Ok(n)
+}
+
 // ─── CA 安装 ─────────────────────────────────────────────────
 
 /// 准备装信任库：写 CA PEM 到数据目录 + 返命名命令 spec。

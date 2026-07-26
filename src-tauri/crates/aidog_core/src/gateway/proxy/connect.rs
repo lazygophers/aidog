@@ -228,17 +228,24 @@ async fn handle_connect_inner(
         // 行为保守正确（blind_relay 把预读字节 flush 到 upstream 非 client）。
         let client_for_blind: Option<_> = if parts.read_buf.is_empty() {
             tracing::info!(target = %target, request_id = %request_id, "→ handle_mitm (read_buf empty)");
-            let outcome = handle_mitm(
+            match handle_mitm(
                 &st, mitm_state, client, &target, &host_only,
                 request_id.clone(), platform_id, start, log_enabled,
-            ).await;
-            if outcome.handled {
-                tracing::info!(target = %target, request_id = %request_id, "← handle_mitm handled=true (MITM 隧道建/终态已写)");
-                return; // MITM 成功建隧道或终态日志已写
+            ).await {
+                MitmOutcome::Connected => {
+                    tracing::info!(target = %target, request_id = %request_id, "← handle_mitm Connected (MITM 隧道建/终态已写)");
+                    return; // MITM 成功建隧道或终态日志已写
+                }
+                MitmOutcome::Degraded(reason, client_back) => {
+                    // MITM 降级（CA 未启用 / pinning / IO error）→ 拿回 client 走 blind_relay
+                    tracing::info!(
+                        target = %target, request_id = %request_id,
+                        reason = reason.as_str(),
+                        "mitm degraded to blind relay"
+                    );
+                    Some(client_back)
+                }
             }
-            // MITM 降级（CA 未启用 / pinning / IO error）→ 拿回 client 走 blind_relay
-            tracing::info!(target = %target, request_id = %request_id, reason = outcome.fallback_reason, "mitm degraded to blind relay");
-            outcome.client_return
         } else {
             tracing::info!(target = %target, request_id = %request_id, read_buf_len = parts.read_buf.len(), "→ blind_relay (read_buf non-empty, skip MITM)");
             Some(client)
@@ -448,14 +455,49 @@ async fn record_connect_failure(
 
 // ── ST4 MITM 路径 ──────────────────────────────────────────────────────────────
 
-/// MITM 路径处理结果。`handled=true` 表示 MITM 已接管（成功或终态日志已写）；
-/// `handled=false` 表示降级 blind_relay，`client_return` 携带未被消费的客户端流。
-struct MitmOutcome<IO> {
-    handled: bool,
-    /// 降级时的原因（handled=false 时填，tracing 用）。
-    fallback_reason: &'static str,
-    /// 降级时还给调用方的客户端流（handled=true 时为 None —— 已被 MITM 消费或 drop）。
-    client_return: Option<IO>,
+/// MITM 路径处理结果（C8 收敛：扁平 struct → enum，按 design §C8 分支显式化）。
+///
+/// - **Connected**: MITM 隧道建链成功 / 客户端 TLS 已消费走终态 502 —— 调用方 return，
+///   不再 blind_relay。
+/// - **Degraded**: 上游失败但 client 未被 TLS accept 消费，归还 client 让调用方降级
+///   blind_relay。`DegradeReason` 区分 pinning / IO / signer，tracing + 测试可断言。
+///
+/// ponytail: 两变体 enum + 独立 DegradeReason 子 enum（比 4 变体扁平 enum 更内聚 ——
+/// Connected 路径无 client 归还字段，Degraded 路径统一 (reason, client) 结构）。原扁平
+/// struct 的 `handled: bool + client_return: Option<IO>` 是 enum 的退化形式，编译期无法
+/// 强制 client_return 在 handled=true 时为 None（运行时约定），enum 化消除该类不变量。
+// ponytail: pub(crate) 仅为 test_connect.rs C8 测试 match 变体用（编译期契约锚点）；
+// 生产调用方仍只有 handle_connect（本文件内）。
+pub(crate) enum MitmOutcome<IO> {
+    /// MITM 隧道建立或终态日志已写，调用方 return（不再 blind_relay）。
+    Connected,
+    /// 降级 blind_relay：归还未被消费的 client 流 + 原因（tracing + 测试断言用）。
+    Degraded(DegradeReason, IO),
+}
+
+/// MITM 降级原因（`MitmOutcome::Degraded` 子 enum，C8 收敛）。
+///
+/// 调用方按 reason 写 tracing 日志（仅诊断用，行为相同 —— 都走 blind_relay）。
+/// `as_str` 返静态标签供 tracing `reason = ...` 字段，与原 `&'static str` fallback_reason
+/// 字段保持日志可读性。
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum DegradeReason {
+    /// 上游 TLS 握手含证书错（疑似 cert pinning）→ 标 suspect 后续跳 MITM。
+    PinningSuspect,
+    /// 上游 TCP / TLS 非 pinning 类 IO 错（断连 / 超时）→ 不标 suspect。
+    IoError,
+    /// DB 无 mitm_ca 行 / signer init 失败（用户未启用 MITM 或 CA 数据损坏）。
+    SignerInit,
+}
+
+impl DegradeReason {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            DegradeReason::PinningSuspect => "upstream pinning suspect",
+            DegradeReason::IoError => "upstream IO error",
+            DegradeReason::SignerInit => "CA not enabled / signer init failed",
+        }
+    }
 }
 
 /// ST4 MITM 路径：上游 TLS 预检（pinning 探测）→ accept 客户端 → 双向桥接两段 TLS 流。
@@ -491,19 +533,11 @@ where
     let signer = match mitm_state.signer_or_init(&st.db).await {
         Ok(Some(s)) => s,
         Ok(None) => {
-            return MitmOutcome {
-                handled: false,
-                fallback_reason: "CA not enabled (no mitm_ca row)",
-                client_return: Some(client),
-            };
+            return MitmOutcome::Degraded(DegradeReason::SignerInit, client);
         }
         Err(e) => {
             tracing::warn!(error = %e, host = host_only, "mitm: load signer failed, degrading");
-            return MitmOutcome {
-                handled: false,
-                fallback_reason: "signer init error",
-                client_return: Some(client),
-            };
+            return MitmOutcome::Degraded(DegradeReason::SignerInit, client);
         }
     };
 
@@ -514,16 +548,16 @@ where
             tracing::warn!(error = %e, target, "mitm: upstream TCP failed, terminal 502");
             log_connect_502(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
             // TCP 失败非 pinning，不标 suspect；client 不再有用（上游连不上 blind_relay 也连不上）。
-            // handled=true 避免调用方 blind_relay 重试已确定连不上的 target。
+            // Connected 表示「MITM 已处理」（此处：写了终态 502），调用方 return 不 blind_relay。
             drop(client);
-            return MitmOutcome { handled: true, fallback_reason: "", client_return: None };
+            return MitmOutcome::Connected;
         }
     };
     match super::super::mitm::tls::connect_upstream(host_only, upstream_tcp).await {
         super::super::mitm::tls::UpstreamTlsOutcome::Connected(upstream_tls) => {
             // 3. accept 客户端 TLS（假 CA 签 leaf，SNI fallback = CONNECT target host）。
             //    失败（client 不信任 CA / 网络断）→ client 已被 accept 消费，无法降级 blind_relay。
-            //    写终态 502 + handled=true（客户端 TLS 握手失败隧道断，blind_relay 也救不回）。
+            //    写终态 502 + Connected（客户端 TLS 握手失败隧道断，blind_relay 也救不回）。
             let client_tls = match super::super::mitm::tls::accept_client(
                 signer, client, host_only.to_string(),
             ).await {
@@ -534,7 +568,7 @@ where
                         "mitm: client TLS handshake failed (CA not trusted?), terminal 502"
                     );
                     log_connect_502(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
-                    return MitmOutcome { handled: true, fallback_reason: "", client_return: None };
+                    return MitmOutcome::Connected;
                 }
             };
 
@@ -553,31 +587,31 @@ where
             // ponytail: 预检 upstream_tls 在明文路径被丢弃（forward_attempt 自连），浪费 1 条 TCP+TLS。
             // 保留预检是为 pinning 探测（探针必须先于 accept 确认上游可信，否则 client 已 accept
             // 后发现 pinning fail 无法干净降级）。pinning fail 频率低，浪费可接受。
+            //
+            // C8 seam 评估（design §C8「serve_plaintext 跨模块递归」）：serve_plaintext 调
+            // handle_proxy_core（非 handle_proxy），后者是 ST5 切出的 CONNECT-free 入口 ——
+            // 不分流 CONNECT 故与 handle_connect 无互递归。调用链 acyclic：handle_connect →
+            // handle_mitm → serve_plaintext → handle_proxy_core → forward_attempt（叶）。
+            // 「递归」仅为假设：若误改 serve_plaintext 调 handle_proxy 则形成
+            // handle_connect → handle_proxy → handle_connect 死循环，本注释 + handle_proxy_core
+            // 的存在即守护此不变量。保留当前结构 + 文档化，不重写（无真实递归可消）。
             drop(upstream_tls);
             serve_plaintext(st.clone(), client_tls, host_only).await;
-            MitmOutcome { handled: true, fallback_reason: "", client_return: None }
+            MitmOutcome::Connected
         }
         super::super::mitm::tls::UpstreamTlsOutcome::PinningSuspect { host, error } => {
-            // pinning fail → 标 suspect（后续 CONNECT 该 host 跳过 MITM 候选）+ 降级 blind_relay。
+            // pinning fail → 标 suspect（带 TTL，mitm/mod.rs 内自动 expire）+ 降级 blind_relay。
             tracing::warn!(
                 host = %host, error = %error,
                 "mitm: upstream TLS handshake failed (pinning suspect), flagging + degrading"
             );
             mitm_state.mark_suspect(host).await;
-            MitmOutcome {
-                handled: false,
-                fallback_reason: "upstream pinning suspect",
-                client_return: Some(client),
-            }
+            MitmOutcome::Degraded(DegradeReason::PinningSuspect, client)
         }
         super::super::mitm::tls::UpstreamTlsOutcome::IoError(e) => {
             // 非 pinning IO 错（TCP 断 / 超时）→ 不标 suspect + 降级 blind_relay（重试一次）。
             tracing::warn!(error = %e, target, "mitm: upstream TLS IO error, degrading");
-            MitmOutcome {
-                handled: false,
-                fallback_reason: "upstream TLS IO error",
-                client_return: Some(client),
-            }
+            MitmOutcome::Degraded(DegradeReason::IoError, client)
         }
     }
 }
