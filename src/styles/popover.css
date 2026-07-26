@@ -67,6 +67,12 @@ html, body {
   flex-shrink: 0;
 }
 
+/* 萤火虫：状态点呼吸（运行中）—— popover.css 独立 bundle 不含 globals.css 动画 */
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .popover-header-text {
   font-size: 12px;
   font-weight: 500;
