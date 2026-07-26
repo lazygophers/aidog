@@ -163,6 +163,9 @@ function App() {
       width: "100%",
       padding: 12,
       gap: 12,
+      // 萤火虫：主壳玻璃衔接 — 侧栏与 main 间一条极淡的 primary 分隔光晕
+      backgroundImage: "linear-gradient(90deg, transparent 200px, color-mix(in srgb, var(--primary) 8%, transparent) 212px, transparent 224px)",
+      backgroundRepeat: "no-repeat",
     }}>
       <Sidebar
         navItems={navItems}
@@ -173,6 +176,8 @@ function App() {
         flex: 1,
         overflow: "auto",
         padding: "24px 32px",
+        // 萤火虫：main 区域玻璃卡面感（轻微 bg-surface 叠层）
+        borderRadius: "var(--radius-lg)",
       }}>
         <div className="animate-fade-in" key={effectiveNav}>
           {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
