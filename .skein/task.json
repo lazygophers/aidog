@@ -1,6 +1,22 @@
 {
   "tasks": [
     {
+      "id": "arch-deepen",
+      "status": "进行中",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "skein-board-rewrite",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "accent-gold-deepen",
       "status": "已完成",
       "deps": [],
