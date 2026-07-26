@@ -8,6 +8,7 @@
 import type { TFunction } from "i18next";
 import type { Protocol } from "../../services/api";
 import { Button } from "@/components/ui/button";
+import { makeRipple } from "../../components/shared";
 
 export interface MultiKeyPreviewProps {
   /** splitApiKeys 拆分后的 key 数组（与 previewNames 等长，用于显示 key 尾4位掩码）。 */
@@ -80,7 +81,7 @@ export function MultiKeyPreview({
 
       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
         <Button variant="outline" onClick={onCancel}>{t("platform.batch.cancel", "取消")}</Button>
-        <Button onClick={onConfirm}>{t("platform.batch.confirm", "确认批量创建")}</Button>
+        <Button className="ripple" onClick={(e) => { makeRipple(e); onConfirm(); }}>{t("platform.batch.confirm", "确认批量创建")}</Button>
       </div>
     </div>
   );

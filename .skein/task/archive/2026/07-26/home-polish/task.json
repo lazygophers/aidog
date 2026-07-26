@@ -1,0 +1,21 @@
+{
+  "id": "home-polish",
+  "name": "首页趋势+请求记录类型+下拉框 UI/UX 打磨",
+  "desc": "3 串行任务: A趋势价格线→B类型显示直观→C下拉框重设计",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/home-polish",
+  "parent": null,
+  "kind": "task",
+  "created": 1785071481,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785071481
+}

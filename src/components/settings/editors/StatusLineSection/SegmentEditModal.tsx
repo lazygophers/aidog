@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { makeRipple } from "../../../shared";
 
 export function SegmentEditModal({
   segment,
@@ -181,8 +182,9 @@ export function SegmentEditModal({
           <Button variant="ghost"  style={{ fontSize: F.body, padding: S.btnPad }} onClick={onClose}>
             {t("statusline.cancel")}
           </Button>
-          <Button variant="default"  style={{ fontSize: F.body, padding: S.btnPad }}
-            onClick={() => {
+          <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
+            onClick={(e) => {
+              makeRipple(e);
               onSave({
                 options: opts,
                 newline,

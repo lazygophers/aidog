@@ -6,7 +6,7 @@
 // 删除/导入 modal 均用 shadcn Dialog/AlertDialog（Radix Portal，满足 createPortal(document.body) 居中规则，
 // 见 memory modal-window-center-rule）。ponytail: 单文件页，无子组件拆分（YAGNI，s5 范围）。
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -18,6 +18,7 @@ import {
   type CliProxyImportResult,
   type BatchReport,
 } from "../services/api";
+import { useReveal, makeRipple } from "@/utils/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -61,6 +62,109 @@ function quotaTypeOf(q: string | undefined): string {
 }
 
 type Msg = { kind: "ok" | "err"; text: string } | null;
+
+// ── ProviderRow: 单行包装（萤火虫化 SectionCard idiom, 见 memory section-card-reveal-wrapper-idiom）
+// 每行独立 useReveal(idx*60) 错峰；glass-surface + hover-lift + reveal；CTA ripple。
+// ponytail: memo + 原始类型 props（boolean/string/回调），父级 state 变更不击穿未变行。
+interface ProviderRowProps {
+  p: CliProxyProvider;
+  idx: number;
+  selectMode: boolean;
+  selected: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  onTest: () => void;
+  onCreatePlatform: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  t: (k: string, o?: any) => string;
+}
+const ProviderRow = memo(function ProviderRow({
+  p, idx, selectMode, selected, busy,
+  onToggle, onTest, onCreatePlatform, onEdit, onDelete, t,
+}: ProviderRowProps) {
+  const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
+      style={{
+        padding: "12px 14px",
+        display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+      }}
+    >
+      {selectMode && (
+        <Checkbox
+          checked={selected}
+          onCheckedChange={onToggle}
+          style={{ flexShrink: 0 }}
+        />
+      )}
+      <div style={{ minWidth: 160 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{p.name}</div>
+        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{p.wire_protocol}</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 200, fontSize: 12, color: "var(--text-secondary)", wordBreak: "break-all" }}>
+        {p.base_url}
+      </div>
+      <span style={{
+        padding: "2px 8px", borderRadius: 6, fontSize: 11,
+        border: `1px solid ${p.status === "active" ? "var(--color-success)" : "var(--text-tertiary)"}`,
+        color: p.status === "active" ? "var(--color-success)" : "var(--text-tertiary)",
+      }}>
+        {p.status === "active" ? t("cliProxy.statusActive") : t("cliProxy.statusDisabled")}
+      </span>
+      {quotaTypeOf(p.quota) === "newapi" && (
+        <span style={{
+          padding: "2px 8px", borderRadius: 6, fontSize: 11,
+          border: "1px solid var(--accent)", color: "var(--accent)",
+        }}>
+          {t("cliProxy.quotaTypeNewapi")}
+        </span>
+      )}
+      <div style={{ display: "flex", gap: 6 }}>
+        <Button
+          variant="ghost"
+          className="ripple"
+          onClick={(e) => { makeRipple(e); onTest(); }}
+          disabled={busy}
+          title={t("cliProxy.test")}
+          style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
+        >
+          {t("cliProxy.test")}
+        </Button>
+        <Button
+          variant="ghost"
+          className="ripple"
+          onClick={(e) => { makeRipple(e); onCreatePlatform(); }}
+          disabled={busy}
+          title={t("cliProxy.createPlatform")}
+          style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
+        >
+          {t("cliProxy.createPlatform")}
+        </Button>
+        <Button
+          variant="ghost"
+          className="ripple"
+          onClick={(e) => { makeRipple(e); onEdit(); }}
+          disabled={busy}
+          style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
+        >
+          {t("cliProxy.edit")}
+        </Button>
+        <Button
+          variant="destructive"
+          className="ripple"
+          onClick={(e) => { makeRipple(e); onDelete(); }}
+          disabled={busy}
+          style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
+        >
+          {t("cliProxy.delete")}
+        </Button>
+      </div>
+    </div>
+  );
+});
 
 export function CliProxy() {
   const { t } = useTranslation();
@@ -338,39 +442,46 @@ export function CliProxy() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* 顶栏 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: "var(--text-primary)" }}>
-          {t("cliProxy.title")}
-        </h1>
-        <span style={{ color: "var(--text-tertiary)", fontSize: 13 }}>
-          {t("cliProxy.subtitle", { count: providers.length })}
-        </span>
-        <div style={{ flex: 1 }} />
-        <Button variant="ghost" onClick={openNew} disabled={busyKey !== null}>
-          {t("cliProxy.add")}
-        </Button>
-        <Button
-          variant="default"
-          onClick={() => { setImportOpen(true); setMsg(null); }}
-          disabled={busyKey !== null}
-        >
-          {t("cliProxy.import")}
-        </Button>
-        <Button
-          variant={selectMode ? "destructive" : "ghost"}
-          onClick={selectMode ? exitSelect : enterSelect}
-          disabled={busyKey !== null}
-        >
-          {selectMode ? t("cliProxy.exitSelect") : t("cliProxy.selectMode")}
-        </Button>
+      <div className="section-header" style={{ justifyContent: "space-between" }}>
+        <div>
+          <div className="section-title">{t("cliProxy.title")}</div>
+          <div className="section-desc">
+            {t("cliProxy.subtitle", { count: providers.length })}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <Button
+            variant="ghost"
+            className="ripple"
+            onClick={(e) => { makeRipple(e); openNew(); }}
+            disabled={busyKey !== null}
+          >
+            {t("cliProxy.add")}
+          </Button>
+          <Button
+            variant="default"
+            className="ripple"
+            onClick={(e) => { makeRipple(e); setImportOpen(true); setMsg(null); }}
+            disabled={busyKey !== null}
+          >
+            {t("cliProxy.import")}
+          </Button>
+          <Button
+            variant={selectMode ? "destructive" : "ghost"}
+            className="ripple"
+            onClick={(e) => { makeRipple(e); selectMode ? exitSelect() : enterSelect(); }}
+            disabled={busyKey !== null}
+          >
+            {selectMode ? t("cliProxy.exitSelect") : t("cliProxy.selectMode")}
+          </Button>
+        </div>
       </div>
 
       {/* 选择模式工具栏 */}
       {selectMode && (
-        <div style={{
+        <div className="glass-surface" style={{
           display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-          padding: "10px 14px", border: "1px solid var(--border)", borderRadius: 10,
-          background: "var(--bg-elevated)",
+          padding: "10px 14px",
         }}>
           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", color: "var(--text-primary)" }}>
             <Checkbox
@@ -385,7 +496,8 @@ export function CliProxy() {
           <div style={{ flex: 1 }} />
           <Button
             variant="destructive"
-            onClick={() => setBatchDeleteOpen(true)}
+            className="ripple"
+            onClick={(e) => { makeRipple(e); setBatchDeleteOpen(true); }}
             disabled={selectedIds.size === 0 || busyKey !== null}
             style={{ opacity: selectedIds.size === 0 ? 0.4 : 1 }}
           >
@@ -393,7 +505,8 @@ export function CliProxy() {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => { setBatchModelsText(""); setBatchModelsOpen(true); }}
+            className="ripple"
+            onClick={(e) => { makeRipple(e); setBatchModelsText(""); setBatchModelsOpen(true); }}
             disabled={selectedIds.size === 0 || busyKey !== null}
             style={{ opacity: selectedIds.size === 0 ? 0.4 : 1 }}
           >
@@ -401,7 +514,8 @@ export function CliProxy() {
           </Button>
           <Button
             variant="ghost"
-            onClick={() => { setBatchQuotaType("none"); setBatchQuotaOpen(true); }}
+            className="ripple"
+            onClick={(e) => { makeRipple(e); setBatchQuotaType("none"); setBatchQuotaOpen(true); }}
             disabled={selectedIds.size === 0 || busyKey !== null}
             style={{ opacity: selectedIds.size === 0 ? 0.4 : 1 }}
           >
@@ -412,10 +526,9 @@ export function CliProxy() {
 
       {/* 消息条 */}
       {msg && (
-        <div style={{
-          padding: "8px 12px", borderRadius: 8,
+        <div className="glass-surface" style={{
+          padding: "8px 12px",
           border: `1px solid ${msg.kind === "ok" ? "var(--color-success)" : "var(--color-danger)"}`,
-          background: "var(--bg-elevated)",
           color: msg.kind === "ok" ? "var(--color-success)" : "var(--color-danger)",
           fontSize: 13,
         }}>
@@ -425,9 +538,8 @@ export function CliProxy() {
 
       {/* 编辑/新增 inline form */}
       {editingId !== null && (
-        <div style={{
-          padding: 16, border: "1px solid var(--border)", borderRadius: 12,
-          background: "var(--bg-elevated)",
+        <div className="glass-surface" style={{
+          padding: 16,
           display: "flex", flexDirection: "column", gap: 12,
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -541,10 +653,20 @@ export function CliProxy() {
             </label>
           </div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <Button variant="ghost" onClick={cancelForm} disabled={busyKey !== null}>
+            <Button
+              variant="ghost"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); cancelForm(); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.cancel")}
             </Button>
-            <Button variant="default" onClick={handleSave} disabled={busyKey !== null}>
+            <Button
+              variant="default"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleSave(); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.save")}
             </Button>
           </div>
@@ -557,89 +679,28 @@ export function CliProxy() {
           {t("common.loading")}
         </div>
       ) : providers.length === 0 ? (
-        <div style={{
+        <div className="glass-surface" style={{
           padding: 32, textAlign: "center", color: "var(--text-tertiary)", fontSize: 14,
-          border: "1px dashed var(--border)", borderRadius: 12,
         }}>
           {t("cliProxy.empty")}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {providers.map(p => (
-            <div
+          {providers.map((p, idx) => (
+            <ProviderRow
               key={p.id}
-              style={{
-                padding: "12px 14px", borderRadius: 10,
-                border: "1px solid var(--border)", background: "var(--bg-elevated)",
-                display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-              }}
-            >
-              {selectMode && (
-                <Checkbox
-                  checked={selectedIds.has(p.id)}
-                  onCheckedChange={() => toggleSelect(p.id)}
-                  style={{ flexShrink: 0 }}
-                />
-              )}
-              <div style={{ minWidth: 160 }}>
-                <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{p.wire_protocol}</div>
-              </div>
-              <div style={{ flex: 1, minWidth: 200, fontSize: 12, color: "var(--text-secondary)", wordBreak: "break-all" }}>
-                {p.base_url}
-              </div>
-              <span style={{
-                padding: "2px 8px", borderRadius: 6, fontSize: 11,
-                border: `1px solid ${p.status === "active" ? "var(--color-success)" : "var(--text-tertiary)"}`,
-                color: p.status === "active" ? "var(--color-success)" : "var(--text-tertiary)",
-              }}>
-                {p.status === "active" ? t("cliProxy.statusActive") : t("cliProxy.statusDisabled")}
-              </span>
-              {quotaTypeOf(p.quota) === "newapi" && (
-                <span style={{
-                  padding: "2px 8px", borderRadius: 6, fontSize: 11,
-                  border: "1px solid var(--accent)", color: "var(--accent)",
-                }}>
-                  {t("cliProxy.quotaTypeNewapi")}
-                </span>
-              )}
-              <div style={{ display: "flex", gap: 6 }}>
-                <Button
-                  variant="ghost"
-                  onClick={() => void handleTest(p)}
-                  disabled={busyKey !== null}
-                  title={t("cliProxy.test")}
-                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
-                >
-                  {t("cliProxy.test")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => void handleCreatePlatform(p)}
-                  disabled={busyKey !== null}
-                  title={t("cliProxy.createPlatform")}
-                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
-                >
-                  {t("cliProxy.createPlatform")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => openEdit(p)}
-                  disabled={busyKey !== null}
-                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
-                >
-                  {t("cliProxy.edit")}
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setDeleteTarget(p)}
-                  disabled={busyKey !== null}
-                  style={{ height: "auto", padding: "4px 10px", fontSize: 12 }}
-                >
-                  {t("cliProxy.delete")}
-                </Button>
-              </div>
-            </div>
+              p={p}
+              idx={idx}
+              selectMode={selectMode}
+              selected={selectedIds.has(p.id)}
+              busy={busyKey !== null}
+              onToggle={() => toggleSelect(p.id)}
+              onTest={() => void handleTest(p)}
+              onCreatePlatform={() => void handleCreatePlatform(p)}
+              onEdit={() => openEdit(p)}
+              onDelete={() => setDeleteTarget(p)}
+              t={t}
+            />
           ))}
         </div>
       )}
@@ -658,7 +719,8 @@ export function CliProxy() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busyKey !== null}>{t("cliProxy.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleDelete(); }}
               disabled={busyKey !== null}
               style={{ background: "var(--color-danger)" }}
             >
@@ -690,7 +752,8 @@ export function CliProxy() {
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busyKey !== null}>{t("cliProxy.cancel")}</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleBatchDelete}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleBatchDelete(); }}
               disabled={busyKey !== null}
               style={{ background: "var(--color-danger)" }}
             >
@@ -720,10 +783,20 @@ export function CliProxy() {
             />
           </label>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setBatchModelsOpen(false)} disabled={busyKey !== null}>
+            <Button
+              variant="ghost"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); setBatchModelsOpen(false); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.cancel")}
             </Button>
-            <Button variant="default" onClick={handleBatchOverrideModels} disabled={busyKey !== null}>
+            <Button
+              variant="default"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleBatchOverrideModels(); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.save")}
             </Button>
           </DialogFooter>
@@ -757,10 +830,20 @@ export function CliProxy() {
             </Select>
           </label>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setBatchQuotaOpen(false)} disabled={busyKey !== null}>
+            <Button
+              variant="ghost"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); setBatchQuotaOpen(false); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.cancel")}
             </Button>
-            <Button variant="default" onClick={handleBatchSetQuota} disabled={busyKey !== null}>
+            <Button
+              variant="default"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleBatchSetQuota(); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.save")}
             </Button>
           </DialogFooter>
@@ -783,7 +866,12 @@ export function CliProxy() {
                 onChange={e => setImportSource(e.target.value)}
                 placeholder="config.yaml / .zip / .tgz / dir"
               />
-              <Button variant="ghost" onClick={() => void pickFile(setImportSource)} style={{ flexShrink: 0 }}>
+              <Button
+                variant="ghost"
+                className="ripple"
+                onClick={(e) => { makeRipple(e); void pickFile(setImportSource); }}
+                style={{ flexShrink: 0 }}
+              >
                 {t("cliProxy.importPickFile")}
               </Button>
             </div>
@@ -796,7 +884,12 @@ export function CliProxy() {
                 onChange={e => setImportAuthDir(e.target.value)}
                 placeholder="~/.claude/auth.json dir (optional)"
               />
-              <Button variant="ghost" onClick={() => void pickDir(setImportAuthDir)} style={{ flexShrink: 0 }}>
+              <Button
+                variant="ghost"
+                className="ripple"
+                onClick={(e) => { makeRipple(e); void pickDir(setImportAuthDir); }}
+                style={{ flexShrink: 0 }}
+              >
                 {t("cliProxy.importPickDir")}
               </Button>
             </div>
@@ -819,10 +912,20 @@ export function CliProxy() {
             </Select>
           </label>
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setImportOpen(false)} disabled={busyKey !== null}>
+            <Button
+              variant="ghost"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); setImportOpen(false); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.cancel")}
             </Button>
-            <Button variant="default" onClick={handleImport} disabled={busyKey !== null}>
+            <Button
+              variant="default"
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleImport(); }}
+              disabled={busyKey !== null}
+            >
               {t("cliProxy.import")}
             </Button>
           </DialogFooter>

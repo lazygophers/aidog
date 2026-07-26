@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(13), build(3), cross-layer(1), db(3), domain(7), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(5), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
+类目: arch(13), build(6), cross-layer(1), db(3), domain(12), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -17,6 +17,9 @@
 | arch/trellis-03.md | arch | Workspace crate 边界契约 | crate,boundary,边界,commands,aidog_core,event,依赖 | active | # Workspace Crate 边界契约  何时被读: commands_* crate 内改源码 / 迁移 com… |
 | arch/trellis-04.md | arch | Protocol 枚举变体扩展范式 | protocol,enum,变体,grep,serde,match,union | active | # Protocol 枚举变体扩展范式  何时被读: 新增 `Protocol` 枚举变体时（新协议 / 新 cp 变体… |
 | arch/trellis-05.md | arch | 前端常量派生自后端 JSON 真值源 | derived,constants,docpromise,defaults,派生,presets,async | active | # 前端派生层（常量 → 后端 JSON 派生）  何时被读: 前端硬编码常量（协议列表 / label 映射 / 颜色… |
+| build/rule-05.md | build | 新增 wire protocol 必须同步白名单 | - | active | # 新增 wire protocol 必须同步白名单  ## MUST 硬约束  新增 wire protocol 时必… |
+| build/rule-06.md | build | converter 5×5 与 endpoint 选择解耦 | - | active | # converter 5×5 与 endpoint 选择解耦  ## MUST 硬约束  converter 双向转（… |
+| build/rule-07.md | build | is_valid_wire_protocol gate 是 fail-fast 非修复点 | - | active | # is_valid_wire_protocol gate 是 fail-fast 非修复点  ## MUST 硬约束 … |
 | build/shadcn-infra-28.md | build | shadcn add 漏装 cva 依赖 | shadcn,cva,yarn,dependency,class-variance-authority | active | # shadcn add 漏装 cva 依赖  ## 触发场景 运行 `npx shadcn add` 批量添加组件后，… |
 | build/shadcn-infra-29.md | build | vite @ alias 手动配置 | vite,alias,resolve,shadcn,tsconfig | active | # vite @ alias 手动配置  ## 触发场景 使用 shadcn/ui 或其他假设存在 `@` 别名的库时，… |
 | build/trellis-02.md | build | Cargo workspace 重构门禁 | cargo,workspace,crate,build.rs,重构,门禁,下沉 | active | # Cargo Workspace 重构门禁  何时被读: 单 crate → cargo workspace 多 cr… |
@@ -26,6 +29,11 @@
 | db/trellis-01.md | db | tokio_rusqlite 连接韧性契约 | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | active | # DB Connection Resilience  何时被读: 改 `Db` 结构 / DB 调用路径（`call_… |
 | domain/coding-plan-utilization-calib-fix-26.md | domain | coding plan 订阅制平台普遍无公开用量查询 API | coding-plan,quota,upstream-api,degrade,custom-quota-script | active | bailian/qianfan/xiaomi/compshare 等 coding plan 订阅制平台上游均无公开程序… |
 | domain/cpa-oauth-credential-format.md | domain | CPA OAuth 凭据格式（CLIProxyAPI） | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | active | # CPA OAuth 凭据格式（CLIProxyAPI）  何时被读: 改 CPA 导入解析器 / 加新 OAuth … |
+| domain/rule-51.md | domain | 5 协议定义锚点 | protocol endpoint converter platform_type | active | # 5 协议定义锚点  ## 触发场景  - endpoint 协议层只 5 种（anthropic/openai/op… |
+| domain/rule-52.md | domain | reasoning_content → anthropic 方案 B | reasoning thinking anthropic signature converter | active | # reasoning_content → anthropic 方案 B 决策  ## 触发场景  - 第三方（deep… |
+| domain/rule-53.md | domain | N×N 互转路 A vs 路 B | converter NonStreamResponse parse render protocol | active | # N×N 互转路 A vs 路 B  ## 触发场景  - N 协议互转设计选择：内部归一（路 A）vs 点对点（路 … |
+| domain/rule-54.md | domain | bug1 真相 | target_protocol platform_type matched_ep preset | active | # bug1 真相：target_protocol 落平台名  ## 触发场景  - proxy_log.target_… |
+| domain/rule-55.md | domain | endpoint 跨协议回退分层 | - | active | # endpoint 跨协议回退分层  ## 触发场景  - 普通平台 endpoint 选择时协议不匹配（如 anth… |
 | domain/trellis-06.md | domain | mock 平台类型规范 | mock,platform,extra,test,builder,error_mode | active | # Mock Platform Type  何时被读: 改 mock 平台逻辑（adapter/mock.rs / pr… |
 | domain/trellis-07.md | domain | Claude Code 订阅透传平台 | claude,passthrough,透传,subscription,header | active | # Claude Code Passthrough Platform Type  何时被读: 改 Claude Code… |
 | domain/trellis-08.md | domain | 平台失败处理契约 | platform,error,429,auto_disable,熔断,purge,stream,status | active | # Platform Error Handling  何时被读: 改 proxy 失败处理 / 加平台 / 调 auto… |
@@ -43,6 +51,7 @@
 | git/rule-44.md | git | 并行 subtask commit 竞态防护 | git,并行,subtask,commit,竞态,staged,worktree | active | ## 触发场景 同一 worktree 并行跑多个 subtask 时，不同 agent 可能对同一文件产生变更，导致 … |
 | i18n/trellis-19.md | i18n | locale 标签跨层一致性 | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | active | # Locale 标签跨层一致性 (zh-Hans BCP47 script)  何时被读: 改 i18n locale… |
 | ops/trellis-17.md | ops | 远端 defaults JSON 同步链 | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | # 远端 defaults JSON 同步链范式  何时被读: 新增 `src-tauri/defaults/*.jso… |
+| proxy/rule-50.md | proxy | 异步日志队列（背压+串行化） — proxy_log 方案 B | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | ## 触发场景 高频热路径中需要异步写入数据库（如 proxy_log upsert），不能阻塞请求处理；需要保证最终结… |
 | proxy/trellis-11.md | proxy | HTTP CONNECT 隧道契约 | proxy,connect,tunnel,axum,hyper,TcpStream | active | # Proxy CONNECT 隧道 (HTTP Relay)  何时被读: 改 `src-tauri/src/gate… |
 | proxy/trellis-12.md | proxy | handler fallback 路由判定 | proxy,fallback,host,route,mitm,path | active | # Proxy Fallback Host Routing  何时被读: 改 `src-tauri/src/gatewa… |
 | proxy/trellis-13.md | proxy | forward proxy absolute-form | proxy,forward,absolute,scheme,relay,host | active | # Forward Proxy Absolute-Form HTTP 转发  何时被读: 改 `src-tauri/sr… |

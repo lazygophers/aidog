@@ -17,6 +17,30 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { useReveal, makeRipple } from "../components/shared";
+
+// ponytail: 卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function TraySectionCard({
+  staggerMs,
+  style,
+  children,
+}: {
+  staggerMs: number;
+  style?: React.CSSProperties;
+  children: React.ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
@@ -311,7 +335,7 @@ export function TrayConfigTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* ── Preview Bar ── */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <TraySectionCard staggerMs={0} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tray.preview", "实时预览")}</div>
           <div style={{
@@ -512,12 +536,12 @@ export function TrayConfigTab() {
             );
           })()}
         </Popover>
-      </div>
+      </TraySectionCard>
 
       {/* ── Items List ── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      <TraySectionCard staggerMs={60} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
         {config.items.length === 0 && (
-          <div className="glass-surface" style={{ padding: "24px 20px", textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+          <div style={{ padding: "24px 20px", textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
             {t("tray.noItems", "暂无展示项，点击下方按钮添加")}
           </div>
         )}
@@ -709,11 +733,11 @@ export function TrayConfigTab() {
           );
         }}
         />
-      </div>
+      </TraySectionCard>
 
       {/* ── Add Item ── */}
       <div style={{ position: "relative" }}>
-        <Button variant="default"  onClick={() => setShowAddMenu(!showAddMenu)} style={{ fontSize: 12, gap: 6 }}>
+        <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); setShowAddMenu(!showAddMenu); }} style={{ fontSize: 12, gap: 6 }}>
           <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
           {t("tray.addItem", "添加展示项")}
         </Button>

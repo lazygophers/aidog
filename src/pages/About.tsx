@@ -12,6 +12,7 @@ import { UpdatePromptModal } from "../components/UpdatePromptModal";
 import { IconGlobe } from "../components/icons";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "../utils/formatters";
+import { useReveal, makeRipple } from "../components/shared";
 
 type UpdateState = "idle" | "checking" | "uptodate" | "error";
 
@@ -37,6 +38,12 @@ export function About() {
   const [cliMsg, setCliMsg] = useState("");
   const [cliErr, setCliErr] = useState("");
   const [cliPendingTool, setCliPendingTool] = useState<"claude" | "codex" | null>(null);
+
+  // 萤火虫动效：4 区块 reveal 错峰（0/80/160/240ms）。
+  const revealVersion = useReveal<HTMLDivElement>(0);
+  const revealUpdate = useReveal<HTMLDivElement>(80);
+  const revealGithub = useReveal<HTMLDivElement>(160);
+  const revealCli = useReveal<HTMLDivElement>(240);
 
   useEffect(() => {
     aboutApi.info().then(setInfo).catch(() => setInfo(null));
@@ -220,7 +227,7 @@ export function About() {
       </div>
 
       {/* 版本信息 */}
-      <div className="glass-surface" style={{ padding: "8px 20px" }}>
+      <div ref={revealVersion.ref} className={`glass-surface hover-lift reveal${revealVersion.shown ? " in" : ""}`} style={{ padding: "8px 20px" }}>
         {rows.length === 0 ? (
           <div style={{ padding: "16px 0", fontSize: 13, color: "var(--text-secondary)" }}>
             {t("status.loading", "加载中…")}
@@ -261,7 +268,7 @@ export function About() {
       </div>
 
       {/* 检查更新 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div ref={revealUpdate.ref} className={`glass-surface hover-lift reveal${revealUpdate.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
             {t("about.updateTitle", "软件更新")}
@@ -274,15 +281,16 @@ export function About() {
         </div>
         <Button
           variant="default"
+          className="ripple"
           disabled={updBusy}
-          onClick={handleCheckUpdate}
+          onClick={(e) => { makeRipple(e); handleCheckUpdate(); }}
         >
           {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
         </Button>
       </div>
 
       {/* GitHub 链接 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div ref={revealGithub.ref} className={`glass-surface hover-lift reveal${revealGithub.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
           {t("about.githubTitle", "GitHub")}
         </div>
@@ -290,9 +298,10 @@ export function About() {
           {linkBtns.map((b) => (
             <Button
               variant="default"
+              className="ripple"
               key={b.key}
               style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }}
-              onClick={() => openUrl(GITHUB_LINKS[b.key])}
+              onClick={(e) => { makeRipple(e); openUrl(GITHUB_LINKS[b.key]); }}
             >
               <IconGlobe size={14} />
               {b.label}
@@ -305,7 +314,7 @@ export function About() {
       </div>
 
       {/* 本地环境：Claude Code / Codex CLI */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div ref={revealCli.ref} className={`glass-surface hover-lift reveal${revealCli.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
@@ -318,17 +327,19 @@ export function About() {
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <Button
               variant="default"
+              className="ripple"
               style={{ fontSize: 13, padding: "6px 12px", height: "auto" }}
               disabled={cliBusy !== ""}
-              onClick={handleCliCheck}
+              onClick={(e) => { makeRipple(e); handleCliCheck(); }}
             >
               {cliBusy === "check" ? t("about.localEnv.checking", "检查中…") : t("about.localEnv.check", "检查版本")}
             </Button>
             <Button
               variant="default"
+              className="ripple"
               style={{ fontSize: 13, padding: "6px 12px", height: "auto" }}
               disabled={cliBusy !== ""}
-              onClick={handleCliDiagnose}
+              onClick={(e) => { makeRipple(e); handleCliDiagnose(); }}
             >
               {cliBusy === "diagnose" ? t("about.localEnv.diagnosing", "诊断中…") : t("about.localEnv.diagnose", "诊断冲突")}
             </Button>
@@ -374,9 +385,10 @@ export function About() {
                   {!s.installed && (
                     <Button
                       variant="default"
+                      className="ripple"
                       style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
-                      onClick={() => handleCliInstall(s.name as "claude" | "codex")}
+                      onClick={(e) => { makeRipple(e); handleCliInstall(s.name as "claude" | "codex"); }}
                     >
                       {cliBusy === "install" && isPending
                         ? t("about.localEnv.installing", "安装中…")
@@ -386,9 +398,10 @@ export function About() {
                   {s.installed && !s.broken && s.has_update === true && (
                     <Button
                       variant="default"
+                      className="ripple"
                       style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
-                      onClick={() => handleCliUpgrade(s.name as "claude" | "codex")}
+                      onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as "claude" | "codex"); }}
                     >
                       {cliBusy === "upgrade" && isPending
                         ? t("about.localEnv.upgrading", "升级中…")
@@ -398,9 +411,10 @@ export function About() {
                   {s.broken && (
                     <Button
                       variant="default"
+                      className="ripple"
                       style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
-                      onClick={() => handleCliUpgrade(s.name as "claude" | "codex")}
+                      onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as "claude" | "codex"); }}
                       title={t("about.localEnv.brokenHint", "已损坏，尝试重新安装以修复")}
                     >
                       {cliBusy === "upgrade" && isPending

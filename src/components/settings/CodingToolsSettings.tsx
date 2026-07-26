@@ -15,6 +15,7 @@
 // dirtyRef 防 React 19 StrictMode 双 mount 下慢 get() resolve 覆盖用户已操作值（见 runCommit）。
 
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   codingToolsSettingsApi,
@@ -29,6 +30,30 @@ import { LANGUAGE_GROUPS } from "../../services/claude-settings-schema";
 import { Toggle } from "./editors";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from "@/components/ui/select";
+import { useReveal } from "../../components/shared";
+
+// ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function CodingSectionCard({
+  staggerMs,
+  style,
+  children,
+}: {
+  staggerMs: number;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift reveal${shown ? " in" : ""}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 // 内置·日期格式改写防检测 规则名（与 schema.rs builtin_rule_specs 一致）。
 // 该开关镜像 middleware_rule.enabled，不写 coding_tools_settings。
@@ -66,8 +91,10 @@ function parseCompactInput(s: string): string | null {
 }
 
 // 3 个同构开关卡片：标题 + 描述 + 落点 hint + Toggle。抽出消除 JSX 复制。
+// ponytail: 每实例独立 useReveal (React 规则禁 map 内条件 hook) +
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
 function ToggleCard({
-  titleKey, descKey, hint, active, disabled, onToggle,
+  titleKey, descKey, hint, active, disabled, onToggle, staggerMs,
 }: {
   titleKey: string;
   descKey: string;
@@ -75,10 +102,12 @@ function ToggleCard({
   active: boolean;
   disabled?: boolean;
   onToggle: (next: boolean) => void;
+  staggerMs: number;
 }) {
   const { t } = useTranslation();
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
   return (
-    <div className="glass-surface" style={{
+    <div ref={ref} className={`glass-surface glass-highlight hover-lift reveal${shown ? " in" : ""}`} style={{
       padding: "16px 20px",
       display: "flex",
       justifyContent: "space-between",
@@ -366,12 +395,12 @@ export function CodingToolsSettingsTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* 说明卡片 */}
-      <div className="glass-surface" style={{ padding: "16px 20px" }}>
+      <CodingSectionCard staggerMs={0} style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.cliIntegrationTitle", "CLI 集成")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
           {t("codingTools.introDesc", "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。")}
         </div>
-      </div>
+      </CodingSectionCard>
 
       <ToggleCard
         titleKey="codingTools.applyPlugin.title"
@@ -380,6 +409,7 @@ export function CodingToolsSettingsTab() {
         active={settings.apply_to_claude_plugin}
         disabled={busy}
         onToggle={(next) => handleToggle("apply_to_claude_plugin", next)}
+        staggerMs={60}
       />
 
       <ToggleCard
@@ -389,6 +419,7 @@ export function CodingToolsSettingsTab() {
         active={settings.skip_claude_onboarding}
         disabled={busy}
         onToggle={(next) => handleToggle("skip_claude_onboarding", next)}
+        staggerMs={120}
       />
 
       <ToggleCard
@@ -398,10 +429,11 @@ export function CodingToolsSettingsTab() {
         active={dateRewriteEnabled ?? false}
         disabled={busy || dateRewriteEnabled == null}
         onToggle={(next) => dateRewriteRuleId != null && handleDateRewriteToggle(next)}
+        staggerMs={180}
       />
 
       {/* 语言选择：写 ~/.claude/settings.json 的 language key */}
-      <div className="glass-surface" style={{
+      <CodingSectionCard staggerMs={240} style={{
         padding: "16px 20px",
         display: "flex",
         justifyContent: "space-between",
@@ -415,8 +447,8 @@ export function CodingToolsSettingsTab() {
           </div>
         </div>
         <Select
-          
-          
+
+
           value={language}
           onValueChange={(v) => handleLanguageChange(v === "__none__" ? "" : v)}
           disabled={busy}
@@ -433,10 +465,10 @@ export function CodingToolsSettingsTab() {
           ))}
         </SelectContent>
 </Select>
-      </div>
+      </CodingSectionCard>
 
       {/* 努力级别：claude 顶层 effortLevel + codex model_reasoning_effort 双写 */}
-      <div className="glass-surface" style={{
+      <CodingSectionCard staggerMs={300} style={{
         padding: "16px 20px",
         display: "flex",
         justifyContent: "space-between",
@@ -453,8 +485,8 @@ export function CodingToolsSettingsTab() {
           </div>
         </div>
         <Select
-          
-          
+
+
           value={effort}
           onValueChange={(v) => handleEffortChange(v === "__none__" ? "" : v)}
           disabled={busy}
@@ -467,10 +499,10 @@ export function CodingToolsSettingsTab() {
           ))}
         </SelectContent>
 </Select>
-      </div>
+      </CodingSectionCard>
 
       {/* 自动压缩窗口：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + codex model_auto_compact_token_limit */}
-      <div className="glass-surface" style={{
+      <CodingSectionCard staggerMs={360} style={{
         padding: "16px 20px",
         display: "flex",
         justifyContent: "space-between",
@@ -493,7 +525,7 @@ export function CodingToolsSettingsTab() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <Input
-            
+
             type="number"
             min={0}
             step="0.1"
@@ -513,11 +545,11 @@ export function CodingToolsSettingsTab() {
           />
           <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>K</span>
         </div>
-      </div>
+      </CodingSectionCard>
 
       {/* 代理设置：URL 写 HTTP/HTTPS/ALL 三键同值 + NO_PROXY 单独（onBlur 批量提交）。
           Codex 无 config 级 proxy 字段，由「复制启动命令」注入 env（另见 Groups 启动命令复制点）。 */}
-      <div className="glass-surface" style={{ padding: "16px 20px" }}>
+      <CodingSectionCard staggerMs={420} style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.proxy.title")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
           {t("codingTools.proxy.desc")}
@@ -531,7 +563,7 @@ export function CodingToolsSettingsTab() {
               {t("codingTools.proxy.title")}
             </label>
             <Input
-              
+
               type="text"
               list="coding-proxy-url-presets"
               style={{ fontSize: 13, padding: "4px 8px" }}
@@ -555,7 +587,7 @@ export function CodingToolsSettingsTab() {
               NO_PROXY
             </label>
             <Input
-              
+
               type="text"
               style={{ fontSize: 13, padding: "4px 8px" }}
               value={proxyDraft.no}
@@ -569,7 +601,7 @@ export function CodingToolsSettingsTab() {
             />
           </div>
         </div>
-      </div>
+      </CodingSectionCard>
 
       {/* 常驻错误态：写外部文件失败时不可错过，红色 inline、不自动消失。
           与 Sub2ApiImport/CcSwitchImport 约定对齐（var(--color-danger-bg) + 1px danger border）。 */}

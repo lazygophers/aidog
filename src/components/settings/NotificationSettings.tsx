@@ -5,6 +5,7 @@
 // 「按类型配置」已移除（仅保留逐 Hook 事件触发）；单 group 注入按钮已删（API 仍保留: injectHooks/removeHooks）。
 
 import { useState, useEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -20,6 +21,30 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { useReveal, makeRipple } from "../../components/shared";
+
+// ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// 替代直接调 hook。hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function NotifSectionCard({
+  staggerMs,
+  style,
+  children,
+}: {
+  staggerMs: number;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift reveal${shown ? " in" : ""}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 // 与 api.ts 契约对齐（禁裸 string）。
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
@@ -244,8 +269,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* 总开关 */}
-      <div
-        className="glass-surface"
+      <NotifSectionCard
+        staggerMs={0}
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
@@ -258,12 +283,12 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           checked={settings.enabled}
           onCheckedChange={() => persist(prev => ({ ...prev, enabled: !prev.enabled }))}
         />
-      </div>
+      </NotifSectionCard>
 
       {/* macOS 授权引导：通知静默不出现时，一键打开系统通知设置允许 aidog。仅 macOS 显示。 */}
       {IS_MACOS && (
-        <div
-          className="glass-surface"
+        <NotifSectionCard
+          staggerMs={60}
           style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
         >
           <div>
@@ -273,17 +298,20 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
             </div>
           </div>
           <Button variant="ghost"
-            
+            className="ripple"
             style={{ fontSize: 12, padding: "6px 12px", whiteSpace: "nowrap" }}
-            onClick={handleOpenNotifSettings}
+            onClick={(e) => { makeRipple(e); handleOpenNotifSettings(); }}
           >
             {t("notif.permGuideButton", "打开系统通知设置")}
           </Button>
-        </div>
+        </NotifSectionCard>
       )}
 
       {/* TTS 总开关 + 后端 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}>
+      <NotifSectionCard
+        staggerMs={120}
+        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
+      >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.ttsToggle", "语音播报")}</div>
@@ -316,50 +344,50 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
 </Select>
           </div>
         )}
-      </div>
+      </NotifSectionCard>
 
       {/* 通道独立测试：绕过 dispatch 直接触发某通道，便于诊断（语音后端 / 弹窗权限 / 系统提示音 / 端到端） */}
-      <div
-        className="glass-surface"
+      <NotifSectionCard
+        staggerMs={180}
         style={{ padding: "12px 20px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", opacity: settings.enabled ? 1 : 0.55 }}
       >
         <span style={{ fontSize: 12, fontWeight: 600 }}>{t("notif.testChannels", "通道测试")}</span>
         <Button variant="ghost"
-          
+          className="ripple"
           style={{ fontSize: 12, padding: "4px 10px" }}
-          onClick={handleTestTts}
+          onClick={(e) => { makeRipple(e); handleTestTts(); }}
           disabled={!settings.enabled}
           title={t("notif.testTtsTip", "仅测语音播报")}
         >
           🔊 {t("notif.testTtsLabel", "语音")}
         </Button>
         <Button variant="ghost"
-          
+          className="ripple"
           style={{ fontSize: 12, padding: "4px 10px" }}
-          onClick={handleTestPopup}
+          onClick={(e) => { makeRipple(e); handleTestPopup(); }}
           disabled={!settings.enabled}
           title={t("notif.testPopupTip", "仅测系统弹窗")}
         >
           🪟 {t("notif.testPopupLabel", "弹窗")}
         </Button>
         <Button variant="ghost"
-          
+          className="ripple"
           style={{ fontSize: 12, padding: "4px 10px" }}
-          onClick={handleTestBeep}
+          onClick={(e) => { makeRipple(e); handleTestBeep(); }}
           disabled={!settings.enabled}
           title={t("notif.testBeepTip", "仅测系统提示音")}
         >
           🔔 {t("notif.testBeepLabel", "提示音")}
         </Button>
         <Button variant="ghost"
-          
+          className="ripple"
           style={{ fontSize: 12, padding: "4px 10px" }}
-          onClick={handleTest}
+          onClick={(e) => { makeRipple(e); handleTest(); }}
           disabled={!settings.enabled}
         >
           {t("notif.test", "测试")}
         </Button>
-      </div>
+      </NotifSectionCard>
 
 
       {/* 收件箱历史自动清理：开关（不清理↔保留 N 天）+ 天数输入。后端硬删过期行。 */}
@@ -367,7 +395,10 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         const retention = settings.inbox_retention_days ?? 7;
         const cleanupOn = retention > 0;
         return (
-          <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <NotifSectionCard
+            staggerMs={240}
+            style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
+          >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.retentionTitle", "通知历史自动清理")}</div>
@@ -389,7 +420,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                 </label>
                 <Input
                   type="number"
-                  
+
                   min={1}
                   max={3650}
                   style={{ maxWidth: 120, padding: "4px 8px", fontSize: 12 }}
@@ -403,13 +434,13 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                 <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.retentionDaysUnit", "天")}</span>
               </div>
             )}
-          </div>
+          </NotifSectionCard>
         );
       })()}
 
       {/* 默认注入总开关：控制基线 _aidog_hooks.enabled，全分组生效 */}
-      <div
-        className="glass-surface"
+      <NotifSectionCard
+        staggerMs={300}
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
@@ -425,7 +456,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           onCheckedChange={() => handleToggleDefaultHooks()}
           aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
         />
-      </div>
+      </NotifSectionCard>
 
       {/* N2：逐 hook 事件触发配置（仅 claude_code；通知总开关关时禁用整区） */}
       <NotificationEventList
@@ -453,22 +484,25 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
             <Button variant="ghost"
+              className="ripple"
               style={{ fontSize: 12, padding: "6px 12px" }}
-              onClick={handleUvCancel}
+              onClick={(e) => { makeRipple(e); handleUvCancel(); }}
               disabled={uvInstalling}
             >
               {t("notif.uvModalCancel", "取消")}
             </Button>
             <Button variant="ghost"
+              className="ripple"
               style={{ fontSize: 12, padding: "6px 12px" }}
-              onClick={handleUvUsePython}
+              onClick={(e) => { makeRipple(e); handleUvUsePython(); }}
               disabled={uvInstalling}
             >
               {t("notif.uvModalUsePython", "用 python3")}
             </Button>
             <Button variant="default"
+              className="ripple"
               style={{ fontSize: 12, padding: "6px 12px" }}
-              onClick={handleUvInstall}
+              onClick={(e) => { makeRipple(e); handleUvInstall(); }}
               disabled={uvInstalling}
             >
               {uvInstalling ? t("notif.uvModalInstalling", "安装中…") : t("notif.uvModalInstall", "自动安装 uv")}

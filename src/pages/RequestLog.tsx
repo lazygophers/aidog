@@ -18,6 +18,7 @@ import { LogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
 import { DetailPanel } from "./Logs/DetailPanel";
 import { timePresetToRange, type TimePreset } from "./Logs/types";
 import { formatDateTime } from "../utils/formatters";
+import { makeRipple } from "@/utils/motion";
 import { Button } from "@/components/ui/button";
 import { TableHeader, TableBody } from "@/components/ui/table";
 
@@ -205,7 +206,7 @@ export function RequestLog() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <Button variant="default" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
+            <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); load(); }} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
             </Button>
           </div>
@@ -261,7 +262,7 @@ export function RequestLog() {
             placeholder={t("logs.filterTime", "时间")}
           />
           {hasFilter && (
-            <Button variant="ghost" type="button" onClick={clearFilter} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>
+            <Button variant="ghost" type="button" className="ripple" onClick={(e) => { makeRipple(e); clearFilter(); }} style={{ fontSize: F.small, height: "auto", padding: "2px 8px", color: "var(--text-tertiary)" }}>
               {t("logs.clearFilter", "清除")}
             </Button>
           )}
@@ -292,10 +293,11 @@ export function RequestLog() {
                   <ThCell sticky>{""}</ThCell>
                 </TableHeader>
                 <TableBody>
-                  {logs.map((log) => (
+                  {logs.map((log, idx) => (
                     <LogRow
                       key={log.id}
                       log={log}
+                      idx={idx}
                       platformName={platformMap.get(log.platform_id) || "-"}
                       groupName={groupName(log.group_key)}
                       providerName={log.cli_proxy_provider_name ?? null}

@@ -16,6 +16,7 @@ import { SegmentEditModal } from "./SegmentEditModal";
 import { useStatusLinePanel, type ScriptType } from "./useStatusLinePanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { makeRipple } from "../../../shared";
 
 export function StatusLinePanel({
   config,
@@ -107,8 +108,8 @@ export function StatusLinePanel({
             <Hint>{t("statusline.customCommandDesc", "支持绝对路径、~ 路径或内联命令")}</Hint>
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button variant="default"  style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={handleApplyCustom}>
+            <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
+              onClick={(e) => { makeRipple(e); handleApplyCustom(); }}>
               {t("statusline.applyCustom", "应用自定义脚本")}
             </Button>
           </div>
@@ -315,8 +316,8 @@ export function StatusLinePanel({
 
           {/* Apply button */}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button variant="default"  style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={handleSave} disabled={saving}>
+            <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
+              onClick={(e) => { makeRipple(e); handleSave(); }} disabled={saving}>
               {saving ? t("statusline.generating", "生成中…") : t("statusline.applyGenerate", "应用并生成脚本")}
             </Button>
           </div>

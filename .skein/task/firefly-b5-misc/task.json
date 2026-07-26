@@ -1,0 +1,149 @@
+{
+  "id": "firefly-b5-misc",
+  "name": "批5 次级页+shared+框架迁移",
+  "desc": "次级页(About/CliProxy/Notifications/ModelTestPanel/RequestLog/SkillDetailView/SkillInstallView) + 次级shared(FilterDropdown/CopyButton/TestResultBody/loading-button) + 框架(Sidebar/PopoverCards/SortableList/UpdatePromptModal/App.tsx)萤火虫化",
+  "status": "已完成",
+  "deps": [
+    "firefly-b4-config"
+  ],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "frame",
+      "name": "框架组件萤火虫化",
+      "desc": "Sidebar(激活流光+hover-lift)/App.tsx(主壳背景层)/PopoverCards/UpdatePromptModal/SidebarIndex",
+      "depends_on": [],
+      "验收": [
+        "Sidebar激活项萤火虫流光描边+hover-lift",
+        "App.tsx主壳背景侧栏衔接视觉",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785037256,
+      "started": 1785037271,
+      "finished": 1785037682
+    },
+    {
+      "sid": "misc-pages",
+      "name": "次级页批量迁移",
+      "desc": "About(版本/更新日志卡片)/Notifications/ModelTestPanel",
+      "depends_on": [
+        "frame"
+      ],
+      "验收": [
+        "3页glass-surface统一+reveal",
+        "卡片hover-lift",
+        "CTA ripple",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785037256,
+      "started": 1785037682,
+      "finished": 1785038169
+    },
+    {
+      "sid": "proxy-log",
+      "name": "代理+日志页迁移",
+      "desc": "CliProxy(833行代理配置表单)/RequestLog(328行)",
+      "depends_on": [
+        "frame"
+      ],
+      "验收": [
+        "2页glass-surface统一+reveal",
+        "CTA ripple",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785037257,
+      "started": 1785037682,
+      "finished": 1785038182
+    },
+    {
+      "sid": "skill-pages",
+      "name": "技能页迁移",
+      "desc": "SkillDetailView(330)/SkillInstallView(346)",
+      "depends_on": [
+        "frame"
+      ],
+      "验收": [
+        "2页glass-surface统一+reveal",
+        "CTA ripple",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785037258,
+      "started": 1785038170,
+      "finished": 1785038582
+    },
+    {
+      "sid": "shared-extras",
+      "name": "次级shared组件迁移",
+      "desc": "FilterDropdown/CopyButton/TestResultBody/loading-button 4组件",
+      "depends_on": [],
+      "验收": [
+        "4组件萤火虫化(玻璃+hover/reveal/ripple按场景)",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785037258,
+      "started": 1785037271,
+      "finished": 1785037623
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b5-misc",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031267,
+  "started": 1785037265,
+  "checked": 1785038583,
+  "finished": 1785039053,
+  "updated": 1785039053
+}

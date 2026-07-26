@@ -22,6 +22,13 @@ pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<super
         .filter(|s| !s.is_empty())
         .map(|s| s.to_string());
 
+    // 提取 reasoning_content（GLM/deepseek/商汤思维链等非标准字段）
+    let reasoning = message
+        .get("reasoning_content")
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+        .map(|s| s.to_string());
+
     let mut tool_uses: Vec<(String, String, Value)> = Vec::new();
     if let Some(tcs) = message.get("tool_calls").and_then(|v| v.as_array()) {
         for tc in tcs {
@@ -94,5 +101,82 @@ pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<super
         input_tokens,
         output_tokens,
         cache_read_tokens,
+        reasoning,
     })
 }
+
+/// 渲染归一响应为 OpenAI Chat Completions 非流式响应体。
+///
+/// 映射规则：
+/// - message.content: 文本内容（reasoning 放入 reasoning_content 字段，不拼 content）
+/// - message.tool_calls: 工具调用数组（id/name/arguments）
+/// - message.reasoning_content: 思维链字段（独立字段，与 content 并列）
+/// - finish_reason: tool_use→tool_calls / max_tokens→length / end_turn→stop
+/// - usage: input_tokens→prompt_tokens / output_tokens→completion_tokens
+pub fn render_openai_response(r: &super::super::converter::NonStreamResponse) -> Option<Value> {
+    // 构建 message 对象
+    let mut message = serde_json::json!({
+        "role": "assistant",
+    });
+
+    // 添加 content（仅文本，不含 reasoning）
+    if let Some(text) = &r.text
+        && !text.is_empty() {
+            message["content"] = serde_json::json!(text);
+        }
+
+    // 添加 reasoning_content（独立字段）
+    if let Some(reasoning) = &r.reasoning
+        && !reasoning.is_empty() {
+            message["reasoning_content"] = serde_json::json!(reasoning);
+        }
+
+    // 添加 tool_calls
+    if !r.tool_uses.is_empty() {
+        let tool_calls: Vec<Value> = r.tool_uses.iter().map(|(id, name, input)| {
+            serde_json::json!({
+                "id": id,
+                "type": "function",
+                "function": {
+                    "name": name,
+                    "arguments": serde_json::to_string(input).unwrap_or_else(|_| "{}".to_string()),
+                }
+            })
+        }).collect();
+        message["tool_calls"] = serde_json::json!(tool_calls);
+    }
+
+    // 映射 finish_reason
+    let finish_reason = match r.stop_reason.as_str() {
+        "tool_use" => "tool_calls",
+        "max_tokens" => "length",
+        "end_turn" | "stop_sequence" => "stop",
+        _ => "stop",
+    };
+
+    Some(serde_json::json!({
+        "id": r.id,
+        "model": r.model,
+        "choices": [{
+            "index": 0,
+            "message": message,
+            "finish_reason": finish_reason,
+        }],
+        "usage": {
+            "prompt_tokens": r.input_tokens,
+            "completion_tokens": r.output_tokens,
+            "total_tokens": r.input_tokens + r.output_tokens,
+            "prompt_tokens_details": {
+                "cached_tokens": r.cache_read_tokens,
+            }
+        }
+    }))
+}
+
+#[cfg(test)]
+#[path = "test_parse.rs"]
+mod test_parse;
+
+#[cfg(test)]
+#[path = "test_response.rs"]
+mod test_response;

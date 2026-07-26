@@ -109,6 +109,21 @@ fn parse_sse_unknown_delta_type_none() {
 }
 
 #[test]
+fn parse_sse_thinking_delta() {
+    let d = json!({"type": "content_block_delta", "delta": {"type": "thinking_delta", "thinking": "thinking..."}});
+    match parse_anthropic_sse(&d) {
+        Some(ChatStreamEvent::ReasoningDelta { text }) => assert_eq!(text, "thinking..."),
+        _ => panic!("expected reasoning_delta"),
+    }
+}
+
+#[test]
+fn parse_sse_empty_thinking_delta_none() {
+    let d = json!({"type": "content_block_delta", "delta": {"type": "thinking_delta", "thinking": ""}});
+    assert!(parse_anthropic_sse(&d).is_none());
+}
+
+#[test]
 fn parse_sse_content_block_start_tool_use() {
     let d = json!({"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "c", "name": "f"}});
     match parse_anthropic_sse(&d) {
@@ -142,4 +157,102 @@ fn parse_sse_message_delta_and_stop() {
 fn parse_sse_unknown_type_none() {
     assert!(parse_anthropic_sse(&json!({"type": "ping"})).is_none());
     assert!(parse_anthropic_sse(&json!({})).is_none());
+}
+
+#[test]
+fn parse_anthropic_response_with_thinking() {
+    use super::super::anthropic::parse_anthropic_response;
+
+    let body = json!({
+        "id": "msg_123",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+            {
+                "type": "thinking",
+                "thinking": "Let me analyze this step by step.\n\nFirst, I need to understand the requirements."
+            },
+            {
+                "type": "text",
+                "text": "Based on my analysis, here's the solution."
+            }
+        ],
+        "stop_reason": "end_turn",
+        "model": "claude-3-5-sonnet-20241022",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 50
+        }
+    });
+
+    let parsed = parse_anthropic_response(&body, "claude").expect("should parse");
+    assert_eq!(parsed.id, "msg_123");
+    assert_eq!(parsed.model, "claude-3-5-sonnet-20241022");
+    assert_eq!(parsed.text.as_deref(), Some("Based on my analysis, here's the solution."));
+    assert_eq!(parsed.reasoning.as_deref(), Some("Let me analyze this step by step.\n\nFirst, I need to understand the requirements."));
+    assert_eq!(parsed.stop_reason, "end_turn");
+    assert_eq!(parsed.input_tokens, 100);
+    assert_eq!(parsed.output_tokens, 50);
+    assert!(parsed.tool_uses.is_empty());
+}
+
+#[test]
+fn parse_anthropic_response_with_tool_use() {
+    use super::super::anthropic::parse_anthropic_response;
+
+    let body = json!({
+        "id": "msg_456",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+            {"type": "text", "text": "I'll help you with that."},
+            {
+                "type": "tool_use",
+                "id": "toolu_abc123",
+                "name": "calculator",
+                "input": {"operation": "add", "a": 1, "b": 2}
+            }
+        ],
+        "stop_reason": "tool_use",
+        "model": "claude-3-opus-20240229",
+        "usage": {
+            "input_tokens": 200,
+            "output_tokens": 80,
+            "cache_read_tokens": 50
+        }
+    });
+
+    let parsed = parse_anthropic_response(&body, "claude").expect("should parse");
+    assert_eq!(parsed.text.as_deref(), Some("I'll help you with that."));
+    assert_eq!(parsed.tool_uses.len(), 1);
+    assert_eq!(parsed.tool_uses[0].0, "toolu_abc123");
+    assert_eq!(parsed.tool_uses[0].1, "calculator");
+    assert_eq!(parsed.stop_reason, "tool_use");
+    assert_eq!(parsed.cache_read_tokens, 50);
+}
+
+#[test]
+fn parse_anthropic_response_minimal() {
+    use super::super::anthropic::parse_anthropic_response;
+
+    // 测试最简情况：只有 text 块，无 thinking
+    let body = json!({
+        "id": "msg_789",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+            {"type": "text", "text": "Simple response"}
+        ],
+        "stop_reason": "end_turn",
+        "model": "claude-3-haiku-20240307",
+        "usage": {
+            "input_tokens": 10,
+            "output_tokens": 5
+        }
+    });
+
+    let parsed = parse_anthropic_response(&body, "claude").expect("should parse");
+    assert_eq!(parsed.text.as_deref(), Some("Simple response"));
+    assert!(parsed.reasoning.is_none());
+    assert!(parsed.tool_uses.is_empty());
 }

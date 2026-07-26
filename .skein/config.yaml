@@ -1,6 +1,6 @@
 max_active: 2
 auto_commit: true
-use_worktree: true
+use_worktree: false
 worktree_root: .worktrees
 retain_days: 7
 web_serve: true

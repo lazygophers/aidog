@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useReveal, makeRipple } from "../../shared";
 
 /** Toggle switch — shadcn Switch under the hood, legacy `active`/`onChange` props kept for callers */
 export function Toggle({
@@ -44,9 +45,12 @@ export function Section({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // ponytail: reveal 一次 — Section 挂载即触发，进入视口淡入上移（萤火虫入场签名）。
+  const { ref: revealRef, shown: revealShown } = useReveal<HTMLDivElement>(0);
   return (
     <div
-      className="glass-surface"
+      ref={revealRef}
+      className={`glass-surface hover-lift${revealShown ? " reveal in" : " reveal"}`}
       style={{
         padding: S.pad,
         borderRadius: "var(--radius-lg)",
@@ -139,7 +143,8 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
         {nonDefault && onReset && (
           <Button variant="outline"
             type="button"
-            onClick={(e) => { e.preventDefault(); onReset(); }}
+            className="ripple"
+            onClick={(e) => { e.preventDefault(); makeRipple(e); onReset(); }}
             title={t("settings.resetToDefault")}
             aria-label={t("settings.resetToDefault")}
             style={{

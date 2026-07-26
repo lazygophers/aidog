@@ -17,7 +17,31 @@
       "kind": "task"
     },
     {
+      "id": "btn-width-fit",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "clippy-collapsible-if",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "converter-reasoning-content",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "copybtn-dark",
       "status": "已完成",
       "deps": [],
       "worktree": null,
@@ -46,6 +70,88 @@
       "deps": [],
       "worktree": null,
       "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "dropdown-redesign",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "endpoint-cross-protocol-fallback",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "example-design-specimen",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b1-core",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b2-settings",
+      "status": "已完成",
+      "deps": [
+        "firefly-b1-core"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b3-tools",
+      "status": "已完成",
+      "deps": [
+        "firefly-b1-core"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b4-config",
+      "status": "已完成",
+      "deps": [
+        "firefly-b2-settings"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b5-misc",
+      "status": "已完成",
+      "deps": [
+        "firefly-b4-config"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b6-verify",
+      "status": "已完成",
+      "deps": [
+        "firefly-b5-misc"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
       "kind": "task"
     },
     {
@@ -121,6 +227,22 @@
       "kind": "task"
     },
     {
+      "id": "home-trend-cost",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "log-async-write",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "popover-dark-opaque",
       "status": "已完成",
       "deps": [],
@@ -153,6 +275,14 @@
       "kind": "task"
     },
     {
+      "id": "popover-render-perf",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "popover-token-fix",
       "status": "已完成",
       "deps": [],
@@ -162,6 +292,14 @@
     },
     {
       "id": "release-manual-cleanup",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "reqlog-type-label",
       "status": "已完成",
       "deps": [],
       "worktree": null,

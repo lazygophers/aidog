@@ -29,6 +29,7 @@ import {
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
+import { makeRipple } from "../../components/shared";
 
 export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const { t, i18n } = useTranslation();
@@ -154,7 +155,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             </>
           )}
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
-          <Button onClick={handleSave}
+          <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
             disabled={!name
               || (!!batchPreviewKeys && batchPreviewKeys.length > 1)
               || (isCliProxyEditing

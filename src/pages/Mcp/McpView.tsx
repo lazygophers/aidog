@@ -1,6 +1,7 @@
 import type { McpData } from "./useMcpData";
 import { McpRow } from "./primitives";
 import { Button } from "@/components/ui/button";
+import { makeRipple } from "@/utils/motion";
 
 /**
  * 主列表视图（自原 Mcp.tsx L446-536 外迁）。
@@ -25,28 +26,32 @@ export function McpView({ d }: { d: McpData }) {
         <div style={{ flex: 1 }} />
         <Button
           variant="outline"
-          onClick={openAdd}
+          className="ripple"
+          onClick={(e) => { makeRipple(e); openAdd(); }}
           disabled={busyKey !== null}
         >
           {t("mcp.add", "添加 MCP")}
         </Button>
         <Button
           variant="outline"
-          onClick={() => { setPasteText(""); setMessage(null); setPasteOpen(true); }}
+          className="ripple"
+          onClick={(e) => { makeRipple(e); setPasteText(""); setMessage(null); setPasteOpen(true); }}
           disabled={busyKey !== null}
         >
           {t("mcp.pasteImport", "粘贴导入")}
         </Button>
         <Button
           variant="outline"
-          onClick={handleResync}
+          className="ripple"
+          onClick={(e) => { makeRipple(e); void handleResync(); }}
           disabled={busyKey !== null}
           title={t("mcp.resyncHint", "从 aidog 数据库重写所有已启用 agent 的配置文件，修复被外部工具污染的条目")}
         >
           {t("mcp.resync", "重新同步")}
         </Button>
         <Button
-          onClick={openScan}
+          className="ripple"
+          onClick={(e) => { makeRipple(e); void openScan(); }}
           disabled={busyKey !== null}
         >
           {t("mcp.scanImport", "扫描导入")}
@@ -89,10 +94,11 @@ export function McpView({ d }: { d: McpData }) {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {servers.map((srv) => (
+          {servers.map((srv, idx) => (
             <McpRow
               key={srv.name}
               srv={srv}
+              idx={idx}
               busyKey={busyKey}
               onToggle={d.handleToggle}
               onEdit={() => d.openEdit(srv)}

@@ -154,12 +154,21 @@ export function SearchableProtocolSelect({
   return (
     <div style={{ position: "relative" }} ref={listRef}>
       {/* 触发器：点击展开下拉，展示当前选中值 */}
+      {/* ponytail: 对齐 select.tsx trigger — bg-card/80 + backdrop-blur-md 液态玻璃;
+          open 时 border-ring + 3px accent-subtle 光环 (覆盖默认 .input bg-glass) */}
       <div
         className="input"
+        data-state={open ? "open" : "closed"}
         tabIndex={0}
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           cursor: "pointer", userSelect: "none",
+          background: "color-mix(in srgb, var(--card) 80%, transparent)",
+          backdropFilter: "blur(12px)",
+          WebkitBackdropFilter: "blur(12px)",
+          borderColor: open ? "var(--ring)" : "var(--border)",
+          boxShadow: open ? "0 0 0 3px var(--accent-subtle)" : "none",
+          transition: "border-color 150ms ease, box-shadow 150ms ease",
         }}
         onClick={() => {
           if (!open) { openDropdown(); }
@@ -171,20 +180,24 @@ export function SearchableProtocolSelect({
           <ProtocolLogo protocol={value} size={20} />
           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedLabel}</span>
         </span>
+        {/* 萤火虫箭头 (对齐 select.tsx group-data-[state=open]:rotate-180) */}
         <span style={{
           fontSize: 10, color: "var(--text-tertiary)",
-          transition: "transform 150ms ease",
+          transition: "transform 200ms ease",
           transform: open ? "rotate(180deg)" : "rotate(0deg)",
         }}>▼</span>
       </div>
 
       {/* 下拉面板 */}
+      {/* ponytail: 对齐 select.tsx content — bg-popover/80 + backdrop-blur-md 玻璃浮层 (覆盖 glass-elevated 默认 bg-floating 实色);
+          slide/fade 动画走 fadeIn keyframe (已存在, 与 select content 同源) */}
       {open && (
         <div
           className="glass-elevated"
           style={{
             position: "absolute", top: "100%", left: 0, right: 0,
             marginTop: 4, zIndex: 100, padding: 4,
+            background: "color-mix(in srgb, var(--popover) 80%, transparent)",
             animation: "fadeIn 150ms ease both",
           }}
         >
@@ -215,16 +228,21 @@ export function SearchableProtocolSelect({
                   key={`${p.value}-${p.codingPlan ? 1 : 0}`}
                   type="button"
                   variant="ghost"
+                  // ponytail: 对齐 select.tsx SelectItem — selected 用 accent-subtle 底 + primary 文 + font-medium;
+                  // hover (isHighlighted && !isActive) 用 bg-accent (Button ghost variant 内置 hover:bg-accent);
+                  // outline 仅键盘高亮 (无障碍标识), 默认态无 outline 与 select item 同源
                   style={{
                     display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left",
                     padding: "7px 12px", fontSize: 13, height: "auto",
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? "var(--accent)" : "var(--text-primary)",
-                    background: isHighlighted
+                    // 萤火虫选中态: accent-subtle 底 + primary 文 + font-medium (memory firefly-active-state-idiom)
+                    fontWeight: isActive ? 500 : 400,
+                    color: isActive ? "var(--primary)" : "var(--text-primary)",
+                    background: isActive
                       ? "var(--accent-subtle)"
-                      : isActive ? "var(--accent-subtle)" : "transparent",
+                      : isHighlighted ? "var(--accent)" : "transparent",
                     borderRadius: "var(--radius-sm)",
-                    outline: isHighlighted && !isActive ? "1px solid var(--accent)" : "none",
+                    outline: "none",
+                    transition: "background-color 150ms ease, color 150ms ease",
                   }}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -241,7 +259,7 @@ export function SearchableProtocolSelect({
                   {p.codingPlan && (
                     <span style={{
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
-                      background: "var(--color-success, var(--color-success))20",
+                      background: "color-mix(in srgb, var(--color-success) 20%, transparent)",
                       color: "var(--color-success, var(--color-success))",
                       fontSize: 10, fontWeight: 600,
                     }}>

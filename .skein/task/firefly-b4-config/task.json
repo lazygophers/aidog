@@ -1,0 +1,127 @@
+{
+  "id": "firefly-b4-config",
+  "name": "批4 配置页迁移",
+  "desc": "PricingTab/CodexSettings/TrayConfigTab/PopoverConfigTab + 子目录萤火虫化,表单控件(Select/Checkbox/Radio/DatePicker 原生组件适配主题)",
+  "status": "已完成",
+  "deps": [
+    "firefly-b2-settings"
+  ],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "pricing",
+      "name": "PricingTab 价格表",
+      "desc": "PricingTab.tsx(463行)价格表萤火虫色阶 + 卡片 hover-lift+reveal + 主 CTA ripple",
+      "depends_on": [],
+      "验收": [
+        "价格表萤火虫色阶",
+        "卡片 hover-lift+reveal",
+        "CTA ripple",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785036305,
+      "started": 1785036310,
+      "finished": 1785036539
+    },
+    {
+      "sid": "tray",
+      "name": "TrayConfigTab 托盘配置",
+      "desc": "TrayConfigTab.tsx(763行)配置项卡片 hover-lift+reveal + 表单控件萤火虫 + CTA ripple",
+      "depends_on": [],
+      "验收": [
+        "配置卡 hover-lift+reveal",
+        "表单控件萤火虫",
+        "CTA ripple",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785036305,
+      "started": 1785036310,
+      "finished": 1785036662
+    },
+    {
+      "sid": "popover",
+      "name": "PopoverConfigTab 浮窗布局",
+      "desc": "PopoverConfigTab/(8文件)拖拽布局卡片 hover-lift + reveal + 拖拽态萤火虫 + CTA ripple; 拖拽逻辑不动",
+      "depends_on": [],
+      "验收": [
+        "布局卡 hover-lift+reveal",
+        "拖拽态萤火虫视觉",
+        "CTA ripple",
+        "拖拽逻辑零改",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785036306,
+      "started": 1785036539,
+      "finished": 1785036977
+    },
+    {
+      "sid": "native-form",
+      "name": "原生表单控件主题适配",
+      "desc": "全 app 原生 input[type=date/checkbox/radio] + select 主题适配: accent-color var(--primary) + color-scheme 兜底; grep 全 app 命中点补 style",
+      "depends_on": [],
+      "验收": [
+        "原生 date/checkbox/radio/select 明暗双模可读",
+        "accent-color 萤火虫",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785036306,
+      "started": 1785036692,
+      "finished": 1785036771
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b4-config",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031267,
+  "started": 1785036307,
+  "checked": 1785036982,
+  "finished": 1785037229,
+  "updated": 1785037229
+}

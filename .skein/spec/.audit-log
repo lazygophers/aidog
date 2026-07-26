@@ -1,1 +1,4 @@
 2026-07-23T19:21:49|degrade|core/shadcn/rule-03.md|core/shadcn/rule-03.md->(recall/shadcn/rule-03.md)|core超预算(1929>1000)
+2026-07-26T00:19:40|degrade|core/build/rule-05.md|core/build/rule-05.md->(recall/build/rule-05.md)|core超预算(3153>1000)
+2026-07-26T00:19:40|degrade|core/build/rule-07.md|core/build/rule-07.md->(recall/build/rule-07.md)|core超预算(2347>1000)
+2026-07-26T00:19:40|degrade|core/build/rule-06.md|core/build/rule-06.md->(recall/build/rule-06.md)|core超预算(1611>1000)

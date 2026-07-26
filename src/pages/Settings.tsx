@@ -27,6 +27,7 @@ import { materializeStatusline } from "../components/settings/statusline-gen";
 import { SettingsHeader } from "../components/settings/SettingsHeader";
 import { SectionAnchorNav } from "../components/settings/SectionAnchorNav";
 import { stableStringify } from "../components/shared";
+import { useReveal } from "../utils/motion";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -96,6 +97,38 @@ async function materializeStatuslineFields(
 }
 
 // ─── Main Settings Page ────────────────────────────────────
+
+// ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// 替代在 visibleSections.map 里直接调 hook。保留 data-section-id + ref 回调
+// (scroll-spy 依赖), 加 hover-lift + reveal 萤火虫入场 (stagger index*60)。
+function SettingsSectionCard({
+  sectionId,
+  scrollMarginTop,
+  staggerMs,
+  sectionRef,
+  children,
+}: {
+  sectionId: string;
+  scrollMarginTop: number;
+  staggerMs: number;
+  sectionRef: (el: HTMLDivElement | null) => void;
+  children: React.ReactNode;
+}) {
+  const { ref: revealRef, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      data-section-id={sectionId}
+      ref={(el) => {
+        revealRef.current = el;
+        sectionRef(el);
+      }}
+      className={`glass-surface glass-highlight hover-lift settings-section-card reveal${shown ? " in" : ""}`}
+      style={{ padding: S.pad, borderRadius: "var(--radius-lg)", scrollMarginTop }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function Settings() {
   const { t } = useTranslation();
@@ -604,13 +637,13 @@ export function Settings() {
                 {t("settings.searchNoMatch")}
               </div>
             )}
-            {visibleSections.map((section) => (
-              <div
+            {visibleSections.map((section, idx) => (
+              <SettingsSectionCard
                 key={section.id}
-                data-section-id={section.id}
-                ref={(el) => { sectionRefs.current[section.id] = el; }}
-                className="glass-surface glass-highlight settings-section-card"
-                style={{ padding: S.pad, borderRadius: "var(--radius-lg)", scrollMarginTop: headerH + navH + 12 }}
+                sectionId={section.id}
+                scrollMarginTop={headerH + navH + 12}
+                staggerMs={idx * 60}
+                sectionRef={(el) => { sectionRefs.current[section.id] = el; }}
               >
                 <div style={{ marginBottom: S.gap + 4 }}>
                   <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
@@ -619,7 +652,7 @@ export function Settings() {
                   </div>
                 </div>
                 {renderSectionContent(section)}
-              </div>
+              </SettingsSectionCard>
             ))}
           </div>
         </div>

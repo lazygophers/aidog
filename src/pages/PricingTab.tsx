@@ -9,6 +9,8 @@ import {
   type ModelPriceFilter,
 } from "../services/api";
 import { IconClose } from "../components/icons";
+// 萤火虫动效 + 色阶（按规范接入）
+import { useReveal, makeRipple, levelColor, costLevel } from "../components/shared";
 
 // ponytail: 统一 token (title 15→20, body 14→15), 视觉差异可忽略
 import { F } from "../domains/shared/tokens";
@@ -59,6 +61,11 @@ export function PricingTab() {
   // ── Filter state ──
   const [filterQuery, setFilterQuery] = useState("");
   const [filterSource, setFilterSource] = useState("");
+
+  // 萤火虫 reveal：3 张主卡片错峰入场（0 / 80 / 160ms）
+  const syncCard = useReveal<HTMLDivElement>(0);
+  const filterCard = useReveal<HTMLDivElement>(80);
+  const tableCard = useReveal<HTMLDivElement>(160);
 
   const activeFilter = useMemo<ModelPriceFilter>(() => {
     const f: ModelPriceFilter = {};
@@ -162,7 +169,7 @@ export function PricingTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Sync controls */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div ref={syncCard.ref} className={`glass-surface hover-lift reveal${syncCard.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <div style={{ fontSize: F.body, fontWeight: 600 }}>{t("pricing.syncTitle", "价格同步")}</div>
@@ -170,7 +177,12 @@ export function PricingTab() {
               {t("pricing.syncDesc", "从 GitHub 同步模型价格 + max_tokens（含各平台价格）")}
             </div>
           </div>
-          <Button onClick={handleSync} disabled={syncing} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
+          <Button
+            className="ripple"
+            onClick={(e) => { makeRipple(e); handleSync(); }}
+            disabled={syncing}
+            style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}
+          >
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
               {syncing ? t("pricing.syncing", "同步中...") : t("pricing.syncNow", "立即同步")}
               {syncing && (
@@ -243,7 +255,7 @@ export function PricingTab() {
       </div>
 
       {/* Filter bar */}
-      <div className="glass-surface" style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+      <div ref={filterCard.ref} className={`glass-surface hover-lift reveal${filterCard.shown ? " in" : ""}`} style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         <Input
           placeholder={t("pricing.searchPlaceholder", "搜索模型名称...")}
           value={filterQuery}
@@ -281,7 +293,7 @@ export function PricingTab() {
         </div>
       ) : (
         <>
-          <div className="glass-surface" style={{ overflow: "auto" }}>
+          <div ref={tableCard.ref} className={`glass-surface reveal${tableCard.shown ? " in" : ""}`} style={{ overflow: "auto" }}>
             <Table style={{ fontSize: F.hint }}>
               <TableHeader>
                 <TableRow>
@@ -296,27 +308,8 @@ export function PricingTab() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {prices.map((p) => (
-                  <TableRow key={p.id}>
-                    <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{p.model_name}</span></TdCell>
-                    <TdCell>
-                      <Badge variant="secondary" style={{
-                        fontSize: 10,
-                        padding: "1px 6px",
-                        background: p.source === "manual" ? "var(--accent-subtle)" : "var(--bg-secondary)",
-                        color: p.source === "manual" ? "var(--primary)" : "var(--text-secondary)",
-                        border: "none",
-                      }}>
-                        {p.source}
-                      </Badge>
-                    </TdCell>
-                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{p.default_platform || "-"}</span></TdCell>
-                    <TdCell>{formatPrice(p.input_price)}</TdCell>
-                    <TdCell>{formatPrice(p.output_price)}</TdCell>
-                    <TdCell>{formatPrice(p.cache_read_price)}</TdCell>
-                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.context_window)}</span></TdCell>
-                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.max_output_tokens)}</span></TdCell>
-                  </TableRow>
+                {prices.map((p, i) => (
+                  <PriceRow key={p.id} p={p} idx={i} formatPrice={formatPrice} formatTokens={formatTokens} />
                 ))}
               </TableBody>
             </Table>
@@ -440,6 +433,44 @@ function Pagination({
         </div>
       </div>
     </div>
+  );
+}
+
+/** 价格表行：hover-lift + reveal 错峰（tr 禁 glass-surface，仅 reveal/hover-lift）。 */
+function PriceRow({
+  p, idx, formatPrice, formatTokens,
+}: {
+  p: ModelPriceSummary;
+  idx: number;
+  formatPrice: (v: number | null) => string;
+  formatTokens: (v: number | null | undefined) => string;
+}) {
+  const { ref, shown } = useReveal<HTMLTableRowElement>(idx * 60);
+  // 萤火虫色阶：costLevel 默认 <1 success / <10 warning / >=10 danger；null 走 neutral
+  const inputColor = p.input_price != null ? levelColor(costLevel(p.input_price)) : "var(--text-secondary)";
+  const outputColor = p.output_price != null ? levelColor(costLevel(p.output_price)) : "var(--text-secondary)";
+  const cacheColor = p.cache_read_price != null ? levelColor(costLevel(p.cache_read_price)) : "var(--text-secondary)";
+  return (
+    <TableRow ref={ref} className={`hover-lift reveal${shown ? " in" : ""}`}>
+      <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{p.model_name}</span></TdCell>
+      <TdCell>
+        <Badge variant="secondary" style={{
+          fontSize: 10,
+          padding: "1px 6px",
+          background: p.source === "manual" ? "var(--accent-subtle)" : "var(--bg-secondary)",
+          color: p.source === "manual" ? "var(--primary)" : "var(--text-secondary)",
+          border: "none",
+        }}>
+          {p.source}
+        </Badge>
+      </TdCell>
+      <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{p.default_platform || "-"}</span></TdCell>
+      <TdCell><span style={{ color: inputColor }}>{formatPrice(p.input_price)}</span></TdCell>
+      <TdCell><span style={{ color: outputColor }}>{formatPrice(p.output_price)}</span></TdCell>
+      <TdCell><span style={{ color: cacheColor }}>{formatPrice(p.cache_read_price)}</span></TdCell>
+      <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.context_window)}</span></TdCell>
+      <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.max_output_tokens)}</span></TdCell>
+    </TableRow>
   );
 }
 

@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
+import { useReveal, makeRipple } from "../../components/shared";
 
 function protocolColor(matchedBy: string): ColorLevel {
   switch (matchedBy) {
@@ -63,6 +64,8 @@ export function CcSwitchImportSection({
   onReport: (r: ImportReport) => void;
 }) {
   const { t } = useTranslation();
+  // ponytail: 外层 section 单 useReveal, 列表项内部 glass-surface 仍各持 hover 边光。
+  const sectionReveal = useReveal<HTMLElement>(0);
   const [detection, setDetection] = useState<CcswitchDetection | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [providers, setProviders] = useState<CcProvider[]>([]);
@@ -223,7 +226,11 @@ export function CcSwitchImportSection({
   const conflictCount = conflicts.length;
 
   return (
-    <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+    <section
+      ref={sectionReveal.ref}
+      className={`glass glass-highlight hover-lift reveal${sectionReveal.shown ? " in" : ""}`}
+      style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}
+    >
       <SectionHeader
         icon="download"
         title={t("importExport.ccswitch.title", "从 cc-switch 导入")}
@@ -395,9 +402,10 @@ export function CcSwitchImportSection({
               {t("importExport.ccswitch.preview", "预览冲突")}
             </Button>
             <Button variant="default"
-              onClick={handleImport}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); handleImport(); }}
               disabled={importing || selectedCount === 0}
-              
+
               style={{ padding: "7px 16px", fontSize: 13 }}
             >
               {importing

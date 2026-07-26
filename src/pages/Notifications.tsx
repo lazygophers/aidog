@@ -10,9 +10,57 @@ import {
 } from "../services/api";
 import { formatDateTime } from "../utils/formatters";
 import { Button } from "@/components/ui/button";
+import { useReveal, makeRipple } from "../components/shared";
 
 function notifTypeLabel(type: string, t: (k: string, f: string) => string): string {
   return t(`notif.type.${type}`, type);
+}
+
+// 单条通知卡：抽离以加 reveal stagger（idx*60），避免 map 内直挂 hook。
+function NotificationItem({ item, idx, t }: { item: Notification; idx: number; t: (k: string, f: string, opt?: Record<string, unknown>) => string }) {
+  const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
+      style={{
+        padding: "12px 16px",
+        display: "flex",
+        gap: 12,
+        alignItems: "flex-start",
+        borderInlineStart: "2px solid var(--accent)",
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>
+            {item.title
+              ? `${item.title} · ${notifTypeLabel(item.notif_type, t)}`
+              : notifTypeLabel(item.notif_type, t)}
+          </span>
+          <span
+            style={{
+              fontSize: 10,
+              padding: "1px 6px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--accent-subtle)",
+              color: "var(--accent)",
+            }}
+          >
+            {notifTypeLabel(item.notif_type, t)}
+          </span>
+        </div>
+        {item.body && (
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+            {item.body}
+          </div>
+        )}
+        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+          {formatDateTime(item.created_at) || "-"}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function Notifications({ onNavigate }: { onNavigate?: (id: string) => void }) {
@@ -54,17 +102,19 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
           {onNavigate && (
             <Button
               variant="ghost"
+              className="ripple"
               style={{ fontSize: 12, height: "auto", padding: "4px 10px" }}
-              onClick={() => onNavigate("settings/notifications")}
+              onClick={(e) => { makeRipple(e); onNavigate("settings/notifications"); }}
             >
               {t("notifications.goSettings", "通知设置")}
             </Button>
           )}
           <Button
             variant="ghost"
+            className="ripple"
             style={{ fontSize: 12, height: "auto", padding: "4px 10px" }}
             disabled={items.length === 0}
-            onClick={handleClear}
+            onClick={(e) => { makeRipple(e); handleClear(); }}
           >
             {t("notif.clear", "清空")}
           </Button>
@@ -79,47 +129,8 @@ export function Notifications({ onNavigate }: { onNavigate?: (id: string) => voi
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="glass-surface"
-              style={{
-                padding: "12px 16px",
-                display: "flex",
-                gap: 12,
-                alignItems: "flex-start",
-                borderInlineStart: "2px solid var(--accent)",
-              }}
-            >
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>
-                    {item.title
-                      ? `${item.title} · ${notifTypeLabel(item.notif_type, t)}`
-                      : notifTypeLabel(item.notif_type, t)}
-                  </span>
-                  <span
-                    style={{
-                      fontSize: 10,
-                      padding: "1px 6px",
-                      borderRadius: "var(--radius-sm)",
-                      background: "var(--accent-subtle)",
-                      color: "var(--accent)",
-                    }}
-                  >
-                    {notifTypeLabel(item.notif_type, t)}
-                  </span>
-                </div>
-                {item.body && (
-                  <div style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                    {item.body}
-                  </div>
-                )}
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-                  {formatDateTime(item.created_at) || "-"}
-                </div>
-              </div>
-            </div>
+          {items.map((item, idx) => (
+            <NotificationItem key={item.id} item={item} idx={idx} t={t} />
           ))}
         </div>
       )}
