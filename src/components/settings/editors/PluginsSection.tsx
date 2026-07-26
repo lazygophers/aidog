@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { IconClose } from "../../icons";
 import { F, S } from "./tokens";
 import { SvgIcon, ICON_PATHS } from "./icons";
-import { Section, Toggle, Hint, SubHeading } from "./_shared";
+import { Toggle, Hint, SubHeading } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -349,23 +349,6 @@ function PluginsEditor({
         </div>
       </div>
     </div>
-  );
-}
-
-/** Plugins with Section wrapper — for card-based layout */
-export function PluginsSection({
-  config,
-  updateField,
-  t,
-}: {
-  config: Record<string, any>;
-  updateField: (field: string, value: any) => void;
-  t: ReturnType<typeof useTranslation>["t"];
-}) {
-  return (
-    <Section title={t("settings.sectionPlugins")} defaultOpen>
-      <PluginsEditor config={config} updateField={updateField} />
-    </Section>
   );
 }
 

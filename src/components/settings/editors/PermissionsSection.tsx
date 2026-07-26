@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { IconClose, IconCheck } from "../../icons";
 import { F, S } from "./tokens";
 import { SectionIcon } from "./icons";
-import { Section, FieldRow, JsonEditor, Toggle } from "./_shared";
+import { FieldRow, JsonEditor, Toggle } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -427,24 +427,6 @@ function PermissionsEditor({ perms, updateField, t }: {
         </div>
       )}
     </>
-  );
-}
-
-export function PermissionsSection({
-  perms,
-  updateField,
-  t,
-}: {
-  perms: Record<string, any>;
-  updateField: (field: string, value: any) => void;
-  t: ReturnType<typeof useTranslation>["t"];
-}) {
-  return (
-    <Section title={t("settings.sectionPermissions")} defaultOpen>
-      <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
-        <PermissionsEditor perms={perms} updateField={updateField} t={t} />
-      </div>
-    </Section>
   );
 }
 

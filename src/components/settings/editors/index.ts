@@ -16,8 +16,8 @@ export {
   type PathSuggestion,
 } from "./_shared";
 export { EnvEditor } from "./EnvEditor";
-export { PermissionsSection, PermissionsSectionInline } from "./PermissionsSection";
-export { SandboxSection, SandboxSectionInline } from "./SandboxSection";
+export { PermissionsSectionInline } from "./PermissionsSection";
+export { SandboxSectionInline } from "./SandboxSection";
 export { StatusLineSection } from "./StatusLineSection";
 export {
   type DiffNode,
@@ -26,7 +26,7 @@ export {
   buildImportDiffTree,
   ImportDiffModal,
 } from "./ImportDiff";
-export { PluginsSection, PluginsSectionInline } from "./PluginsSection";
+export { PluginsSectionInline } from "./PluginsSection";
 export {
   type HooksConfig,
   type HookHandler,
@@ -37,6 +37,5 @@ export {
   HANDLER_LABELS,
   NotifyHookQuickBar,
 } from "./hooks-types";
-export { HooksSection } from "./HooksSection";
 export { HooksSectionInline } from "./HooksSectionInline";
 export { FieldRenderer } from "./FieldRenderer";
