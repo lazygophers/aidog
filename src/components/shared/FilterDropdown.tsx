@@ -1,6 +1,6 @@
 // ── FilterDropdown ──
 // 带搜索的筛选下拉，统一 Stats / Logs 的【平台/模型/分组】3 维筛选 UI。
-// 从 Stats 本地 SearchableFilter 提炼而来，保留 glass-elevated + zIndex 1000 + search。
+// 视觉对齐 select.tsx 萤火虫玻璃规范（trigger 玻璃底 + open 流光光环 / popup 玻璃浮层 + slide / option accent-subtle 选中）。
 // 数据源由各调用方传入（Stats: 有数据平台派生；Logs: 全平台 / 全分组 / 全模型）。
 
 import { useState, useMemo } from "react";
@@ -38,19 +38,39 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className="ripple"
+          // ponytail: 对齐 select.tsx trigger — bg-card/80 + backdrop-blur-md 液态玻璃 (覆盖 outline 默认 bg-background);
+          // data-[state=open]:border-ring + shadow-[0_0_0_3px_var(--accent-subtle)] 流光光环 (与 SelectTrigger 同源)
+          className="ripple group bg-card/80 backdrop-blur-md border-input hover:border-ring/50 hover:bg-accent/40 data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] transition-colors duration-150"
           onClick={makeRipple}
-          // ponytail: lineHeight/height 显式锁, 防 .input transition:all + 继承链抖动致 trigger 文字错位
-          style={{ fontSize: 14, lineHeight: 1.5, height: 36, width, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "flex-start" }}
+          style={{ fontSize: 14, lineHeight: 1.5, height: 36, width, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "space-between" }}
+          data-state={open ? "open" : "closed"}
         >
-          {current ? current.label : allLabel}
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1, minWidth: 0 }}>
+            {current ? current.label : allLabel}
+          </span>
+          {/* 萤火虫箭头 (对齐 select.tsx rotate 180) — 用 CSS triangle 避免 lucide 依赖 */}
+          <span
+            aria-hidden
+            style={{
+              display: "inline-block",
+              width: 0, height: 0,
+              borderLeft: "4px solid transparent",
+              borderRight: "4px solid transparent",
+              borderTop: "5px solid var(--text-tertiary)",
+              marginLeft: 8,
+              flexShrink: 0,
+              transition: "transform 200ms ease",
+              transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            }}
+          />
         </Button>
       </PopoverTrigger>
       <PopoverContent
         align="start"
         // Popover 走 Radix Portal → 脱离 Stats canvas 层叠上下文, 无需自研 zIndex:1000
-        // glass-surface: 萤火虫签名 (扁平玻璃底 + hover 金色流光描边)
-        className="glass-surface"
+        // ponytail: 对齐 select.tsx content — bg-popover/80 + backdrop-blur-md 玻璃浮层 (覆盖默认 bg-popover);
+        // slide/fade/zoom 动画 PopoverContent 内置; glass-surface 加流光描边 hover 签名
+        className="glass-surface bg-popover/80 backdrop-blur-md"
         style={{ width: Math.max(width, 320), padding: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320 }}
       >
         <Input
@@ -81,6 +101,8 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
 }
 
 function FilterOption({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+  // ponytail: 对齐 select.tsx SelectItem — selected 用 accent-subtle 底 + primary 文 + font-medium;
+  // hover 走 Button ghost variant 的 hover:bg-accent (无障碍键盘 focus 同源)
   return (
     <Button
       variant="ghost"
@@ -91,18 +113,20 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         height: "auto",
         textAlign: "left",
         justifyContent: "flex-start",
-        background: active ? "var(--bg-glass)" : "transparent",
+        // 萤火虫选中态: accent-subtle 底 + primary 文 + font-medium (memory firefly-active-state-idiom)
+        background: active ? "var(--accent-subtle)" : "transparent",
         color: active ? "var(--primary)" : "var(--text-primary)",
-        fontWeight: active ? 600 : 400,
-        padding: "20px 14px",
+        fontWeight: active ? 500 : 400,
+        padding: "6px 10px",
         borderRadius: "var(--radius-sm)",
         cursor: "pointer",
         fontFamily: "inherit",
-        fontSize: 15,
+        fontSize: 14,
         lineHeight: 1.5,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",
+        transition: "background-color 150ms ease, color 150ms ease",
       }}
     >
       {label}
