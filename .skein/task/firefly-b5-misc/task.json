@@ -1,0 +1,22 @@
+{
+  "id": "firefly-b5-misc",
+  "name": "批5 次级页+shared+框架迁移",
+  "desc": "次级页(About/CliProxy/Notifications/ModelTestPanel/RequestLog/SkillDetailView/SkillInstallView) + 次级shared(FilterDropdown/CopyButton/TestResultBody/loading-button) + 框架(Sidebar/PopoverCards/SortableList/UpdatePromptModal/App.tsx)萤火虫化",
+  "status": "待处理",
+  "deps": [
+    "firefly-b4-config"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b5-misc",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031267,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031267
+}

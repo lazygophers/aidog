@@ -1,0 +1,22 @@
+{
+  "id": "firefly-b2-settings",
+  "name": "批2 settings 编排+子件迁移",
+  "desc": "Settings/AppSettings 编排容器 + 12 settings 子件(editors/Header/AnchorNav/UnsavedModal/Scheduling/Notification/CodingTools/Mitm/Middleware/CcSwitchImport/Sub2ApiImport/NotificationEventList)组件级萤火虫化",
+  "status": "待处理",
+  "deps": [
+    "firefly-b1-core"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b2-settings",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031266,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031266
+}

@@ -1,0 +1,22 @@
+{
+  "id": "firefly-b4-config",
+  "name": "批4 配置页迁移",
+  "desc": "PricingTab/CodexSettings/TrayConfigTab/PopoverConfigTab + 子目录萤火虫化,表单控件(Select/Checkbox/Radio/DatePicker 原生组件适配主题)",
+  "status": "待处理",
+  "deps": [
+    "firefly-b2-settings"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b4-config",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031267,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031267
+}

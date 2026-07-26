@@ -1,0 +1,102 @@
+{
+  "id": "firefly-b1-core",
+  "name": "批1 高频核心页萤火虫迁移",
+  "desc": "Home/Groups/Platforms/Stats 4页组件级重构(KpiCell counter/reveal,CompactCard/StatChip/BalanceBar 复用,图表萤火虫色)",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "home",
+      "name": "Home 萤火虫化",
+      "desc": "KpiCell 改 numeric+useCounter; 趋势末点 glow; 快捷操作 ripple; 区块 reveal stagger",
+      "depends_on": [],
+      "验收": [
+        "KpiCell 4指标 counter 动画",
+        "趋势末点 drop-shadow",
+        "按钮 ripple",
+        "reveal 入场",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785031360,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "groups",
+      "name": "Groups 萤火虫化",
+      "desc": "GroupListItem reveal stagger; Modal/Panel padding 统一; shared 已自动获益核查",
+      "depends_on": [],
+      "验收": [
+        "GroupListItem revealDelay 递增",
+        "StatChip pill 可见",
+        "BalanceBar glow 可见",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785031360,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "stats",
+      "name": "Stats 萤火虫化",
+      "desc": "4 统计卡 hover-lift+reveal; 时间筛选萤火虫激活; 图表末点 glow",
+      "depends_on": [],
+      "验收": [
+        "统计卡 hover-lift",
+        "reveal 入场",
+        "segmented 激活态萤火虫",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785031360,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "platforms",
+      "name": "Platforms 萤火虫化",
+      "desc": "PlatformCard hover-lift+reveal+状态徽标语义色; 批量弹窗 createPortal 核查; pages/platforms 12文件 reveal",
+      "depends_on": [],
+      "验收": [
+        "PlatformCard hover-lift+reveal",
+        "状态徽标萤火虫色",
+        "批量弹窗 createPortal(document.body)",
+        "tsc0err",
+        "test pass"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785031360,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b1-core",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031266,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031360
+}
