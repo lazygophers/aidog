@@ -2,7 +2,7 @@ use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc};
 use tokio_rusqlite::Connection as AsyncConnection;
 
 use crate::gateway::models::*;
@@ -61,84 +61,6 @@ CREATE INDEX IF NOT EXISTS idx_stats_agg_time     ON stats_agg_hourly(time_hour)
 -- 旧库由 migration 035 DROP。详见 SQL/索引审计任务。
 CREATE INDEX IF NOT EXISTS idx_stats_agg_platform ON stats_agg_hourly(platform_id);
 "#;
-
-/// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
-/// 共享同一套 `Hash`/`Eq` 语义，从而命中路径用借用键查 map，零 String 分配。
-///
-/// 标准 `HashMap<(String,String), _>::get` 要求 `Q: Borrow<(String,String)>`，
-/// 而 `(String,String)` 并不 `Borrow<(&str,&str)>`，无法直接借用查找；stable Rust
-/// 也没有 `raw_entry`。用 trait 对象作为 `Borrow` 目标是该场景的惯用解：owned key 与
-/// borrowed key 都实现本 trait，`HashMap<(String,String)>` 借用为 `dyn KeyPair`，
-/// `Hash`/`Eq` 委托到 `(scope, key)` 二元组，二者必然一致。
-trait KeyPair {
-    fn scope(&self) -> &str;
-    fn key(&self) -> &str;
-}
-
-impl KeyPair for (String, String) {
-    fn scope(&self) -> &str {
-        &self.0
-    }
-    fn key(&self) -> &str {
-        &self.1
-    }
-}
-
-impl KeyPair for (&str, &str) {
-    fn scope(&self) -> &str {
-        self.0
-    }
-    fn key(&self) -> &str {
-        self.1
-    }
-}
-
-impl std::hash::Hash for dyn KeyPair + '_ {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // 必须与 `(String, String)` 的派生 Hash 字节序一致：依次 hash 两个 str。
-        self.scope().hash(state);
-        self.key().hash(state);
-    }
-}
-
-impl PartialEq for dyn KeyPair + '_ {
-    fn eq(&self, other: &Self) -> bool {
-        self.scope() == other.scope() && self.key() == other.key()
-    }
-}
-
-impl Eq for dyn KeyPair + '_ {}
-
-impl<'a> std::borrow::Borrow<dyn KeyPair + 'a> for (String, String) {
-    fn borrow(&self) -> &(dyn KeyPair + 'a) {
-        self
-    }
-}
-
-/// 进程内热路径缓存（随 Db 实例生命周期，clone 共享同一份）。
-///
-/// 为什么挂在 `Db` 内而非全局 static：cargo test 单进程多线程跑，每个 test 各开一个
-/// `:memory:` Db；全局缓存会跨 test 串味（test A 写 proxy/logging，test B 读到脏值）。
-/// 内嵌 `Arc<RwLock<..>>` 保证「每个 Db 实例独立缓存 + clone 共享」两个性质同时成立。
-#[derive(Default)]
-struct DbCache {
-    /// setting 表 (scope,key)→JSON 值缓存。`None` 槽位表示「已查过且不存在」，
-    /// 用 `Option<Option<Value>>`：外层 = 是否缓存，内层 = 行是否存在。
-    settings: RwLock<HashMap<(String, String), Option<serde_json::Value>>>,
-    /// list_groups() 结果缓存（resolve_group 热路径用），写 group 表时整体失效。
-    groups: RwLock<Option<Vec<Group>>>,
-    /// list_group_details() 结果缓存（Groups 页一次拉全量用）。
-    ///
-    /// 内嵌完整 GroupDetail（含 platform 易变字段：est_balance_remaining / status /
-    /// auto_disabled_until / last_real_query_at 等），故须**写时全失效**：任何 group /
-    /// group_platform 结构写、platform create/update/delete、以及 estimate/breaker 对
-    /// platform 易变列的写都失效（宁全勿漏，见 invalidate_group_details_cache 调用点）。
-    ///
-    /// 关键：list_group_details **不在代理 resolve 热路径**（proxy/router 走
-    /// get_group_platforms 直查单组），故 estimate.rs 每请求级写带来的频繁失效只代价
-    /// 「下次 Groups 页打开重建一次」，不影响代理吞吐。
-    group_details: RwLock<Option<Vec<GroupDetail>>>,
-}
 
 /// 只读连接池句柄：一组只读 `AsyncConnection` + 轮询游标，`Clone` 廉价（仅 Arc 引用计数）。
 ///
@@ -273,54 +195,6 @@ pub(crate) fn resolve_eff_pid(
     } else {
         map.get(group_key).copied().unwrap_or(0)
     }
-}
-
-/// 从 JSON 字符串反序列化 models
-fn parse_models(json: &str) -> PlatformModels {
-    serde_json::from_str(json).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "parse platform models failed, using default (stored JSON corrupt?)");
-        PlatformModels::default()
-    })
-}
-
-/// 将 models 序列化为 JSON 字符串
-fn serialize_models(models: &PlatformModels) -> String {
-    serde_json::to_string(models).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "serialize platform models failed, persisting empty object");
-        "{}".to_string()
-    })
-}
-
-/// 从 JSON 字符串反序列化可用模型列表
-fn parse_available_models(json: &str) -> Vec<String> {
-    serde_json::from_str(json).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "parse available_models failed, using empty list (stored JSON corrupt?)");
-        Vec::new()
-    })
-}
-
-/// 将可用模型列表序列化为 JSON 字符串
-fn serialize_available_models(models: &[String]) -> String {
-    serde_json::to_string(models).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "serialize available_models failed, persisting empty array");
-        "[]".to_string()
-    })
-}
-
-/// 从 JSON 字符串反序列化协议端点列表
-fn parse_endpoints(json: &str) -> Vec<PlatformEndpoint> {
-    serde_json::from_str(json).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "parse platform endpoints failed, using empty list (stored JSON corrupt?)");
-        Vec::new()
-    })
-}
-
-/// 将协议端点列表序列化为 JSON 字符串
-fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
-    serde_json::to_string(endpoints).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "serialize platform endpoints failed, persisting empty array");
-        "[]".to_string()
-    })
 }
 
 impl Db {
@@ -1157,6 +1031,7 @@ pub(crate) fn retention_cutoff_secs(secs: u64) -> Option<i64> {
 }
 
 // ─── 领域子模块（按 concern 拆分，纯结构搬移，行为零变更）───
+mod cache;
 mod trace;
 mod schema;
 mod schema_early;
@@ -1183,6 +1058,7 @@ mod test_ui_extra;
 // 对外 re-export：保持 `gateway::db::X` 调用路径不变（外部代码无需改）。
 // pub use 按各项自身可见性导出（pub → pub，pub(crate) → pub(crate)），
 // 故跨子模块 `use super::*` 也能拿到 pub(crate) 共享 helper。
+pub(crate) use cache::*;
 pub(crate) use trace::*;
 pub use schema::*;
 pub(crate) use schema_early::*;
