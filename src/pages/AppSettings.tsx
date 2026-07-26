@@ -9,6 +9,7 @@ import { NotificationSettingsTab } from "../components/settings/NotificationSett
 import { ImportExportTab } from "../components/settings/ImportExport/ImportExportTab";
 import { CodingToolsSettingsTab } from "../components/settings/CodingToolsSettings";
 import { MitmConfigTab } from "../components/settings/MitmConfig";
+import { useReveal } from "../utils/motion";
 import { useSystemSettings } from "./AppSettings/useSystemSettings";
 import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxyStatusSection";
 import { StartupSection } from "./AppSettings/StartupSection";
@@ -32,6 +33,17 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
   return <Settings />;
 }
 
+// ponytail: reveal 包装 — 每区块独立 useReveal (stagger 0/80/160)。
+// 区块内部数据流 / 视觉顺序零变更, 仅加萤火虫入场动效。
+function RevealedSection({ staggerMs, children }: { staggerMs: number; children: React.ReactNode }) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div ref={ref} className={`reveal${shown ? " in" : ""}`}>
+      {children}
+    </div>
+  );
+}
+
 /**
  * system tab 编排：useSystemSettings 收 state/actions, section 子组件按原视觉顺序渲染。
  * 顺序与拆前 L258-837 完全一致（零 UI 变更）。
@@ -40,15 +52,15 @@ function SystemTab({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: 
   const s = useSystemSettings(onLogSettingsChanged);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      <ProxyStatusSection s={s} />
-      <StartupSection s={s} />
-      <UpstreamProxySection s={s} />
-      <SystemMiscSection s={s} />
-      <LogSettingsSection s={s} />
-      <DbStatsSection s={s} />
-      <DefaultsSyncSection />
-      <ClientTypesSyncSection />
-      <VersionToastSection s={s} />
+      <RevealedSection staggerMs={0}><ProxyStatusSection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={80}><StartupSection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={80}><UpstreamProxySection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={160}><SystemMiscSection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={160}><LogSettingsSection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={160}><DbStatsSection s={s} /></RevealedSection>
+      <RevealedSection staggerMs={160}><DefaultsSyncSection /></RevealedSection>
+      <RevealedSection staggerMs={160}><ClientTypesSyncSection /></RevealedSection>
+      <RevealedSection staggerMs={160}><VersionToastSection s={s} /></RevealedSection>
     </div>
   );
 }
