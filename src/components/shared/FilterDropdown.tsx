@@ -7,6 +7,7 @@ import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { makeRipple } from "../../utils/motion";
 
 export interface FilterDropdownProps {
   width: number;
@@ -37,6 +38,8 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
       <PopoverTrigger asChild>
         <Button
           variant="outline"
+          className="ripple"
+          onClick={makeRipple}
           // ponytail: lineHeight/height 显式锁, 防 .input transition:all + 继承链抖动致 trigger 文字错位
           style={{ fontSize: 14, lineHeight: 1.5, height: 36, width, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "flex-start" }}
         >
@@ -46,6 +49,8 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
       <PopoverContent
         align="start"
         // Popover 走 Radix Portal → 脱离 Stats canvas 层叠上下文, 无需自研 zIndex:1000
+        // glass-surface: 萤火虫签名 (扁平玻璃底 + hover 金色流光描边)
+        className="glass-surface"
         style={{ width: Math.max(width, 320), padding: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320 }}
       >
         <Input
