@@ -1,0 +1,22 @@
+{
+  "id": "firefly-b3-tools",
+  "name": "批3 工具页迁移",
+  "desc": "Logs/Mcp/Skills + 子目录(ListView/DetailPanel/McpView/SkillsView 等)萤火虫化,弹窗 createPortal 核查",
+  "status": "待处理",
+  "deps": [
+    "firefly-b1-core"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b3-tools",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031267,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031267
+}

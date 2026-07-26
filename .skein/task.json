@@ -1,6 +1,72 @@
 {
   "tasks": [
     {
+      "id": "firefly-b1-core",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b2-settings",
+      "status": "待处理",
+      "deps": [
+        "firefly-b1-core"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b3-tools",
+      "status": "待处理",
+      "deps": [
+        "firefly-b1-core"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b4-config",
+      "status": "待处理",
+      "deps": [
+        "firefly-b2-settings"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b5-misc",
+      "status": "待处理",
+      "deps": [
+        "firefly-b4-config"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-b6-verify",
+      "status": "待处理",
+      "deps": [
+        "firefly-b5-misc"
+      ],
+      "worktree": null,
+      "parent": "firefly-ui-migration",
+      "kind": "task"
+    },
+    {
+      "id": "firefly-ui-migration",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "supertask"
+    },
+    {
       "id": "accent-gold-deepen",
       "status": "已完成",
       "deps": [],

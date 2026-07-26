@@ -1,0 +1,22 @@
+{
+  "id": "firefly-b6-verify",
+  "name": "批6 100%覆盖验收",
+  "desc": "全量页面覆盖核对(每页至少1次 reveal/counter/glow 命中)+ 全量测试 + build + i18n 8语言 check-i18n + 启动 dev 视觉抽检",
+  "status": "待处理",
+  "deps": [
+    "firefly-b5-misc"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-b6-verify",
+  "parent": "firefly-ui-migration",
+  "kind": "task",
+  "created": 1785031267,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031267
+}
