@@ -1,6 +1,30 @@
 {
   "tasks": [
     {
+      "id": "dropdown-redesign",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "home-polish",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "reqlog-type-label",
+      "status": "待处理",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "accent-gold-deepen",
       "status": "已完成",
       "deps": [],
@@ -212,6 +236,14 @@
     },
     {
       "id": "gold-blue",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "home-trend-cost",
       "status": "已完成",
       "deps": [],
       "worktree": null,

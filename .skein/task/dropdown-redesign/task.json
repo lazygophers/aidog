@@ -1,0 +1,21 @@
+{
+  "id": "dropdown-redesign",
+  "name": "下拉框 UI/UX 重设计",
+  "desc": "按 example 纯JS dropdown 重做交互+视觉, 全 app Select 适配",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/dropdown-redesign",
+  "parent": null,
+  "kind": "task",
+  "created": 1785071481,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785071481
+}

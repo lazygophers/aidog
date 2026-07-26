@@ -1,5 +1,5 @@
 // ─── 首页 · 指挥中心 (Command Center) ──────────────────────────────────
-// 一屏掌控：顶部代理状态条 → 大 KPI 数字带（今日花费/Token/请求/缓存）→ 放大趋势主图（24h 双曲线）
+// 一屏掌控：顶部代理状态条 → 大 KPI 数字带（今日花费/Token/请求/缓存）→ 放大趋势主图（24h 三曲线）
 // → 底部双栏（分组平台速览·总余额 | 今日平台 Top5）→ 快捷操作。
 // 从现有设计系统长出（Liquid Glass + CSS 变量 + 共享组件 / formatters / usageColor），
 // 真实数据 only，无数据留诚实空态；深度分析留 Stats，本页只做概览与跳转入口。
@@ -256,7 +256,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         )}
       </div>
 
-      {/* 3. 放大趋势主图 · 今日（hourly 双曲线：请求数 + tokens 总数） */}
+      {/* 3. 放大趋势主图 · 今日（hourly 三曲线：请求数 + tokens 总数 + 花费） */}
       <div
         ref={revealTrend.ref}
         className={`glass-surface reveal${revealTrend.shown ? " in" : ""}`}
@@ -276,6 +276,10 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                   <span style={{ width: 10, height: 3, background: "var(--color-info)", borderRadius: 2 }} />
                   <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTokens", "Tokens")}</span>
                 </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 10, height: 3, background: "var(--color-warning)", borderRadius: 2 }} />
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendCost", "花费")}</span>
+                </span>
               </div>
               <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendPeak", "峰值")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendPeak)}</span></span>
               <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTotal", "总请求")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendTotal)}</span></span>
@@ -284,7 +288,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
         {hasTrend ? (
           (() => {
-            // SVG 双曲线图：请求数（accent）+ tokens 总数（info）。指挥中心 → 高度放大到 150。
+            // SVG 三曲线图：请求数（accent）+ tokens 总数（info）+ 花费（warning）。指挥中心 → 高度放大到 150。
             const W = 1000;            // viewBox 宽
             const H = 150;             // viewBox 高（放大主图）
             const PAD_T = 10;          // 顶部留白
@@ -302,15 +306,21 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
             }, 0);
             const yAtTokens = (v: number) => PAD_T + (tokensPeak > 0 ? (1 - v / tokensPeak) : 1) * plotH;
 
+            // 花费归一化（独立标尺）
+            const costPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_cost), 0);
+            const yAtCost = (v: number) => PAD_T + (costPeak > 0 ? (1 - v / costPeak) : 1) * plotH;
+
             const ptsRequests = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtRequests(b.total_requests), b }));
             const ptsTokens = trendBuckets.map((b, i) => ({
               x: xAt(i),
               y: yAtTokens(b.input_tokens + b.output_tokens + b.cache_tokens),
               b
             }));
+            const ptsCost = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtCost(b.total_cost), b }));
 
             const requestsPath = smoothPath(ptsRequests, PAD_T, H);
             const tokensPath = smoothPath(ptsTokens, PAD_T, H);
+            const costPath = smoothPath(ptsCost, PAD_T, H);
 
             // 峰值索引
             const peakIdxRequests = ptsRequests.reduce((mi, p, i) => p.b.total_requests > ptsRequests[mi].b.total_requests ? i : mi, 0);
@@ -344,6 +354,17 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                     d={tokensPath}
                     fill="none"
                     stroke="var(--color-info)"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                    opacity={0.85}
+                  />
+                  {/* 花费曲线（warning，无填充，与 tokens 同模式避免三色面积打架） */}
+                  <path
+                    d={costPath}
+                    fill="none"
+                    stroke="var(--color-warning)"
                     strokeWidth={2}
                     strokeLinejoin="round"
                     strokeLinecap="round"
@@ -435,6 +456,28 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                               return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
                             }
                             const pct = ((diff / prevTokens) * 100).toFixed(0);
+                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
+                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
+                          })()}
+                        </span>
+                      )}
+                    </div>
+                    {/* 花费 + 变化 */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendCost", "花费")}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-warning)" }}>
+                        {formatCostUsd(trendBuckets[hoveredBucket].total_cost)}
+                      </span>
+                      {hoveredBucket > 0 && (
+                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                          {(() => {
+                            const prevCost = trendBuckets[hoveredBucket - 1].total_cost;
+                            const currCost = trendBuckets[hoveredBucket].total_cost;
+                            const diff = currCost - prevCost;
+                            if (prevCost === 0) {
+                              return <span style={{ color: "var(--color-success)" }}> (+{formatCostUsd(diff)} new)</span>;
+                            }
+                            const pct = ((diff / prevCost) * 100).toFixed(0);
                             const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
                             return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
                           })()}
