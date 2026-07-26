@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useReveal, makeRipple } from "@/utils/motion";
 
 interface Props {
   skill: SkillInfo;
@@ -172,8 +173,9 @@ export function SkillDetailView({ skill, onClose }: Props) {
           </div>
           <Button
             variant="ghost"
+            className="ripple"
             style={{ fontSize: 12, flexShrink: 0 }}
-            onClick={onClose}
+            onClick={(e) => { makeRipple(e); onClose(); }}
             aria-label="close"
           >
             ✕
@@ -213,44 +215,24 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 {t("skills.detail.empty", { defaultValue: "空" })}
               </div>
             )}
-            {files.map((f) => {
-              const on = selected === f.rel_path;
-              return (
-                <Button
-                  key={f.rel_path}
-                  variant="ghost"
-                  className="hover-lift"
-                  onClick={() => setSelected(f.rel_path)}
-                  title={`${f.rel_path} (${formatSize(f.size)})`}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    padding: "5px 14px",
-                    fontSize: 12,
-                    height: "auto",
-                    justifyContent: "flex-start",
-                    background: on ? "var(--accent-subtle)" : "transparent",
-                    borderLeft: on ? "2px solid var(--accent)" : "2px solid transparent",
-                    color: on ? "var(--primary)" : "var(--text)",
-                    fontFamily: "var(--font-mono, monospace)",
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    borderRadius: 0,
-                  }}
-                >
-                  {!f.is_text && "📄 "}
-                  {f.rel_path}
-                </Button>
-              );
-            })}
+            {files.map((f, idx) => (
+              <FileRow
+                key={f.rel_path}
+                f={f}
+                idx={idx}
+                on={selected === f.rel_path}
+                onSelect={setSelected}
+              />
+            ))}
           </div>
 
           {/* 右：内容 */}
           <div style={{ flex: 1, overflow: "auto", padding: "16px 20px", minWidth: 0 }}>
             {error && (
-              <div style={{ fontSize: 13, color: "var(--color-danger)" }}>
+              <div
+                className="glass-surface"
+                style={{ fontSize: 13, color: "var(--color-danger)", padding: "10px 14px" }}
+              >
                 {t("skills.detail.readFailed", { defaultValue: "读取失败" })}: {error}
               </div>
             )}
@@ -327,5 +309,47 @@ export function SkillDetailView({ skill, onClose }: Props) {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// ─── 单行文件树（行级 reveal 包装：每实例独立 useReveal，禁 map 内 hook；idx*60 错峰）───
+// ponytail: section-card-reveal-wrapper-idiom — map 列表抽单行子组件承载 useReveal(idx*60)。
+interface FileRowProps {
+  f: SkillFile;
+  idx: number;
+  on: boolean;
+  onSelect: (rel: string) => void;
+}
+
+function FileRow({ f, idx, on, onSelect }: FileRowProps) {
+  const { ref, shown } = useReveal<HTMLButtonElement>(idx * 60);
+  return (
+    <Button
+      ref={ref}
+      variant="ghost"
+      className={`hover-lift ripple reveal${shown ? " in" : ""}`}
+      onClick={(e) => { makeRipple(e); onSelect(f.rel_path); }}
+      title={`${f.rel_path} (${formatSize(f.size)})`}
+      style={{
+        display: "block",
+        width: "100%",
+        textAlign: "left",
+        padding: "5px 14px",
+        fontSize: 12,
+        height: "auto",
+        justifyContent: "flex-start",
+        background: on ? "var(--accent-subtle)" : "transparent",
+        borderLeft: on ? "2px solid var(--accent)" : "2px solid transparent",
+        color: on ? "var(--primary)" : "var(--text)",
+        fontFamily: "var(--font-mono, monospace)",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+        borderRadius: 0,
+      }}
+    >
+      {!f.is_text && "📄 "}
+      {f.rel_path}
+    </Button>
   );
 }
