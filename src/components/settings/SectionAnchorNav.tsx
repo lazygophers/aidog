@@ -50,13 +50,14 @@ export function SectionAnchorNav({ activeId, onJump, top, rootRef }: SectionAnch
               padding: "5px 12px",
               fontSize: F.hint,
               fontWeight: active ? 600 : 400,
-              color: active ? "var(--primary-foreground)" : "var(--text-secondary)",
-              background: active ? "var(--primary)" : "var(--bg-glass)",
+              color: active ? "var(--primary)" : "var(--text-secondary)",
+              background: active ? "var(--accent-subtle)" : "var(--bg-glass)",
               border: `1px solid ${active ? "var(--primary)" : "var(--border)"}`,
               borderRadius: 999,
               cursor: "pointer",
               whiteSpace: "nowrap",
-              transition: "all 120ms ease",
+              transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+              boxShadow: active ? "0 0 6px var(--accent-subtle)" : "none",
             }}
           >
             <SectionIcon name={section.id} size={14} />
