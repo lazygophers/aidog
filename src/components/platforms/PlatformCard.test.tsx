@@ -10,28 +10,49 @@ vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
 }));
 
-// Mock 异步 domains 函数
+// Mock 异步 domains 函数（仍由 health.ts / 其他模块 import 间接触发）
 vi.mock("../../domains/platforms", async () => {
   const actual = await vi.importActual("../../domains/platforms");
   return {
     ...actual,
-    getDefaultModels: vi.fn().mockResolvedValue({ "claude-3-5-sonnet": "claude-3-5-sonnet" }),
-    getDefaultPeakHours: vi.fn().mockResolvedValue([]),
-    getProtocolHomepage: vi.fn().mockResolvedValue(""),
-    isCodingPlanProtocol: vi.fn().mockResolvedValue(false),
   };
 });
 
 vi.mock("../../domains/platforms/defaults", () => ({
+  getDefaultModels: vi.fn().mockResolvedValue({ "claude-3-5-sonnet": "claude-3-5-sonnet" }),
+  getDefaultPeakHours: vi.fn().mockResolvedValue([]),
+  getProtocolHomepage: vi.fn().mockResolvedValue(""),
+  isCodingPlanProtocol: vi.fn().mockResolvedValue(false),
   getProtocolLabel: vi.fn().mockResolvedValue("Anthropic"),
   getProtocolLabelMap: vi.fn().mockResolvedValue({}),
   getProtocolColorMap: vi.fn().mockResolvedValue({}),
-  getDefaultPeakHours: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("../../domains/platforms/useProtocolLogo", () => ({
   useProtocolLogo: vi.fn().mockReturnValue({ logoSrc: null }),
 }));
+
+// useProtocolMeta 聚合 5 派生：单 hook 调用替代 5 effect，mock 直返同步值
+vi.mock("../../domains/platforms/useProtocolMeta", () => ({
+  useProtocolMeta: vi.fn().mockReturnValue({
+    color: "var(--accent)",
+    isCpProtocol: false,
+    defaultModels: [],
+    homepage: "",
+    protocolLabel: "Anthropic",
+    labelMap: {},
+  }),
+}));
+
+// getPrimaryBaseUrl 从 usePlatformQuota 导入；mock 避免依赖真实 Platform 结构
+vi.mock("../../pages/platforms/usePlatformQuota", async () => {
+  const actual = await vi.importActual("../../pages/platforms/usePlatformQuota").catch(() => ({}));
+  return {
+    ...actual,
+    getPrimaryBaseUrl: vi.fn((proto: string, eps: { base_url?: string }[] | undefined) =>
+      eps?.[0]?.base_url ?? ""),
+  };
+});
 
 // 固定 Date.now 避免时间相关断言波动
 const FIXED_NOW = 1_740_000_000_000;

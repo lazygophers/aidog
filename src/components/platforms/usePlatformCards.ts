@@ -7,6 +7,7 @@ import {
   computeQuotaDisplay,
   computeManualBudgetDisplay,
 } from "../../domains/platforms";
+import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 
 // ── Types ──
 
@@ -55,13 +56,7 @@ interface UsePlatformCardsReturn {
   setShareData: React.Dispatch<React.SetStateAction<{ share: SharePlatform; name: string } | null>>;
 }
 
-// Helper: 从 endpoints 中推导主 base_url
-function getPrimaryBaseUrl(proto: Platform["platform_type"], eps: Platform["endpoints"]): string {
-  const endpoints = eps ?? [];
-  const primary = endpoints.find(ep => ep.protocol === proto);
-  if (primary) return primary.base_url;
-  return endpoints[0]?.base_url || "";
-}
+// Helper: getPrimaryBaseUrl 从 usePlatformQuota 导入（单一真值源，禁抄第二份）。
 
 // ── Hook ──
 
