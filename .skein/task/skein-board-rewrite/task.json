@@ -1,0 +1,21 @@
+{
+  "id": "skein-board-rewrite",
+  "name": "skein 前端按 example 萤火虫系统完全重写 (board+webapp)",
+  "desc": "plugin cache assets/board (单页) + assets/webapp (工程化) 全套 example 设计系统重写, 数据绑定保留",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/skein-board-rewrite",
+  "parent": null,
+  "kind": "task",
+  "created": 1785074099,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785074099
+}
