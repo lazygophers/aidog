@@ -6,4 +6,5 @@
 //! commands_cli_proxy::import 与 cpa_import::mapper）。
 
 pub mod parser;
+mod archive;
 pub use parser::{parse_cpa_config, CpaOAuthType, CpaProvider, CpaSourceSegment, ParseResult, SkipReason};
