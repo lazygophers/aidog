@@ -15,6 +15,7 @@ import {
 } from "../services/api";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
+import { useReveal, makeRipple } from "@/utils/motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -148,8 +149,9 @@ export function SkillInstallView({
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Button
             variant="ghost"
+            className="ripple"
             style={{ fontSize: 12 }}
-            onClick={onBack}
+            onClick={(e) => { makeRipple(e); onBack(); }}
             disabled={busyId !== null}
             title={t("skills.install.back", { defaultValue: "返回" })}
           >
@@ -226,121 +228,151 @@ export function SkillInstallView({
       {/* 结果列表（loading 时隐藏旧数据，避免与新"搜索中"提示并列误导） */}
       {!loading && effectiveResults.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {effectiveResults.map((entry) => {
-            const agents = selected.get(entry.id) ?? new Set<SkillAgent>();
-            const already = installedNames.has(entry.name);
-            const noAgent = agents.size === 0;
-            const installing = busyId === entry.id;
-            // 并发锁：另一条正在安装时本条按钮禁用，防止 setBusyId 覆盖丢失前一条"安装中"状态。
-            const otherBusy = busyId !== null && !installing;
-            const disabled =
-              installing || otherBusy || !writeReady || already || noAgent;
-            return (
-              <Card
-                key={entry.id}
-                className="glass-elevated"
-                style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 14, fontWeight: 600 }}>{entry.name}</span>
-                      {already && (
-                        <span
-                          style={{
-                            fontSize: 11,
-                            padding: "1px 6px",
-                            borderRadius: 4,
-                            background: "var(--accent-subtle)",
-                            color: "var(--text-secondary)",
-                          }}
-                        >
-                          {t("skills.install.installed", { defaultValue: "已装" })}
-                        </span>
-                      )}
-                    </div>
-                    <span
-                      style={{
-                        fontSize: 11,
-                        color: "var(--text-secondary)",
-                        fontFamily: "var(--font-mono, monospace)",
-                        wordBreak: "break-all",
-                      }}
-                    >
-                      {entry.id}
-                    </span>
-                    {entry.description && (
-                      <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                        {entry.description}
-                      </span>
-                    )}
-                    {entry.repo_url && (
-                      <a
-                        href={entry.repo_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ fontSize: 11, color: "var(--accent)" }}
-                      >
-                        {entry.repo_url}
-                      </a>
-                    )}
-                  </div>
-                  <Button
-                    style={{ fontSize: 12, flexShrink: 0 }}
-                    disabled={disabled}
-                    onClick={() => handleInstall(entry)}
-                    title={
-                      otherBusy
-                        ? t("skills.install.busyOther", {
-                            defaultValue: "等待当前安装完成",
-                          })
-                        : undefined
-                    }
-                  >
-                    {installing
-                      ? t("skills.install.installing", { defaultValue: "安装中…" })
-                      : already
-                        ? t("skills.install.installed", { defaultValue: "已装" })
-                        : t("skills.install.install", { defaultValue: "安装" })}
-                  </Button>
-                </div>
-                {/* agent 选择 */}
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                    {t("skills.install.selectAgent", { defaultValue: "安装到" })}:
-                  </span>
-                  {AGENTS.map((a) => {
-                    const on = agents.has(a);
-                    return (
-                      <Button
-                        key={a}
-                        variant={on ? "default" : "outline"}
-                        style={{
-                          padding: "4px 8px",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                          opacity: on ? 1 : 0.4,
-                          fontSize: 11,
-                        }}
-                        onClick={() => toggleAgent(entry.id, a)}
-                        title={t(`skills.agent.${a}`, a)}
-                      >
-                        <img
-                          src={AGENT_ICONS[a]}
-                          alt={a}
-                          style={{ width: 16, height: 16, filter: on ? "none" : "grayscale(1)" }}
-                        />
-                        {t(`skills.agent.${a}`, a)}
-                      </Button>
-                    );
-                  })}
-                </div>
-              </Card>
-            );
-          })}
+          {effectiveResults.map((entry, idx) => (
+            <CatalogRow
+              key={entry.id}
+              entry={entry}
+              idx={idx}
+              agents={selected.get(entry.id) ?? new Set<SkillAgent>()}
+              already={installedNames.has(entry.name)}
+              busyId={busyId}
+              writeReady={writeReady}
+              onToggle={toggleAgent}
+              onInstall={handleInstall}
+            />
+          ))}
         </div>
       )}
     </div>
+  );
+}
+
+// ─── 单行 Catalog ───
+
+// ponytail: 行级 reveal 包装 — 每实例独立 useReveal (React 规则禁 map 内 hook),
+// stagger idx*60 错峰，hover-lift + glass-elevated 萤火虫流光描边。
+interface CatalogRowProps {
+  entry: CatalogEntry;
+  idx: number;
+  agents: Set<SkillAgent>;
+  already: boolean;
+  busyId: string | null;
+  writeReady: boolean;
+  onToggle: (id: string, agent: SkillAgent) => void;
+  onInstall: (entry: CatalogEntry) => void;
+}
+
+function CatalogRow({ entry, idx, agents, already, busyId, writeReady, onToggle, onInstall }: CatalogRowProps) {
+  const { t } = useTranslation();
+  const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
+  const noAgent = agents.size === 0;
+  const installing = busyId === entry.id;
+  const otherBusy = busyId !== null && !installing;
+  const disabled = installing || otherBusy || !writeReady || already || noAgent;
+  return (
+    <Card
+      ref={ref}
+      className={`glass-elevated hover-lift reveal${shown ? " in" : ""}`}
+      style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 14, fontWeight: 600 }}>{entry.name}</span>
+            {already && (
+              <span
+                style={{
+                  fontSize: 11,
+                  padding: "1px 6px",
+                  borderRadius: 4,
+                  background: "var(--accent-subtle)",
+                  color: "var(--text-secondary)",
+                }}
+              >
+                {t("skills.install.installed", { defaultValue: "已装" })}
+              </span>
+            )}
+          </div>
+          <span
+            style={{
+              fontSize: 11,
+              color: "var(--text-secondary)",
+              fontFamily: "var(--font-mono, monospace)",
+              wordBreak: "break-all",
+            }}
+          >
+            {entry.id}
+          </span>
+          {entry.description && (
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {entry.description}
+            </span>
+          )}
+          {entry.repo_url && (
+            <a
+              href={entry.repo_url}
+              target="_blank"
+              rel="noreferrer"
+              style={{ fontSize: 11, color: "var(--accent)" }}
+            >
+              {entry.repo_url}
+            </a>
+          )}
+        </div>
+        <Button
+          className="ripple"
+          style={{ fontSize: 12, flexShrink: 0 }}
+          disabled={disabled}
+          onClick={(e) => { makeRipple(e); onInstall(entry); }}
+          title={
+            otherBusy
+              ? t("skills.install.busyOther", {
+                  defaultValue: "等待当前安装完成",
+                })
+              : undefined
+          }
+        >
+          {installing
+            ? t("skills.install.installing", { defaultValue: "安装中…" })
+            : already
+              ? t("skills.install.installed", { defaultValue: "已装" })
+              : t("skills.install.install", { defaultValue: "安装" })}
+        </Button>
+      </div>
+      {/* agent 选择 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+          {t("skills.install.selectAgent", { defaultValue: "安装到" })}:
+        </span>
+        {AGENTS.map((a) => {
+          const on = agents.has(a);
+          return (
+            <Button
+              key={a}
+              variant={on ? "default" : "outline"}
+              className="ripple"
+              style={{
+                padding: "4px 8px",
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                opacity: on ? 1 : 0.4,
+                fontSize: 11,
+              }}
+              onClick={(e) => { makeRipple(e); onToggle(entry.id, a); }}
+              title={t(`skills.agent.${a}`, a)}
+            >
+              <img
+                src={AGENT_ICONS[a]}
+                alt={a}
+                className="hover-lift"
+                style={{ width: 16, height: 16, filter: on ? "none" : "grayscale(1)" }}
+              />
+              {t(`skills.agent.${a}`, a)}
+            </Button>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

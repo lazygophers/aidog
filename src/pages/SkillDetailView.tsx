@@ -219,6 +219,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 <Button
                   key={f.rel_path}
                   variant="ghost"
+                  className="hover-lift"
                   onClick={() => setSelected(f.rel_path)}
                   title={`${f.rel_path} (${formatSize(f.size)})`}
                   style={{
