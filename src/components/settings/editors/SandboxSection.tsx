@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { IconClose } from "../../icons";
 import { F, S } from "./tokens";
 import { SvgIcon } from "./icons";
-import { Toggle, Section, FieldRow, PathInput, Hint, SubHeading } from "./_shared";
+import { Toggle, FieldRow, PathInput, Hint, SubHeading } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -384,23 +384,6 @@ function SandboxEditor({
         </>
       )}
     </div>
-  );
-}
-
-/** Sandbox with Section wrapper — for card-based layout */
-export function SandboxSection({
-  sandboxValue,
-  updateField,
-  t,
-}: {
-  sandboxValue: Record<string, any> | undefined;
-  updateField: (field: string, value: any) => void;
-  t: ReturnType<typeof useTranslation>["t"];
-}) {
-  return (
-    <Section title={t("settings.sectionSandbox")} defaultOpen>
-      <SandboxEditor sandboxValue={sandboxValue} updateField={updateField} />
-    </Section>
   );
 }
 
