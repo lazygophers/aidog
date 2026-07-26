@@ -13,6 +13,45 @@ export function healthStatus(recentTotal: number, recentFailures: number): Healt
   return "healthy";                                          // 有任一成功即绿
 }
 
+/** 判定平台是否处于「key 失效」状态：auto_disabled 且 last_error 为 HTTP 401/403。
+ *  收口 401/403 知识，避免前端 (PlatformCard) / 后端 auto_disable / usePlatformQuota
+ *  三处各自维护一份 keyInvalid 派生。*/
+export function keyInvalidFromStatus(
+  status: Platform["status"],
+  lastError: string | undefined,
+): boolean {
+  return status === "auto_disabled"
+    && (!!lastError?.startsWith("HTTP 401") || !!lastError?.startsWith("HTTP 403"));
+}
+
+/** 综合健康态派生：R4 纯前端规则（不加后端字段）——
+ *  红 = key 失效（auto_disabled 且 401/403）；
+ *  黄 = 有 last_error 但可恢复（402/429/5xx/连接失败等）；
+ *  绿 = enabled 且无 last_error。其余（手动 disabled 无 error、mock）回退 manual/成功率派生。
+ *
+ *  入参：
+ *  - status / last_error / manual / usage.recent_total / usage.recent_failures
+ *
+ *  调用方：PlatformCard（替代 L158-172 内联硬编码）；后端 auto_disable / usePlatformQuota
+ *  复用 keyInvalidFromStatus 共享 401/403 真值（cross-layer 一致）。 */
+export function deriveHealth(args: {
+  status: Platform["status"];
+  lastError: string | undefined;
+  manual: "ok" | "fail" | undefined;
+  recentTotal?: number;
+  recentFailures?: number;
+}): HealthStatus {
+  const { status, lastError, manual, recentTotal, recentFailures } = args;
+  if (keyInvalidFromStatus(status, lastError)) return "error";
+  if (lastError) return "warning";
+  if (status === "enabled") return "healthy";
+  if (manual) return manual === "ok" ? "healthy" : "error";
+  if (recentTotal != null && recentFailures != null) {
+    return healthStatus(recentTotal, recentFailures);
+  }
+  return "unknown";
+}
+
 /** 从 PlatformModels 中提取所有非空值（去重） */
 export function allModelValues(models: Platform["models"]): string[] {
   const seen = new Set<string>();

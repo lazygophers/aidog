@@ -1,17 +1,18 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
+import type { Platform, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
 import { clamp, formatNumber, formatPercent, formatCostUsd, formatDateTime } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, HEALTH_COLORS,
-  getDefaultModels, getProtocolHomepage, isCodingPlanProtocol, computeManualBudgetDisplay, computeQuotaDisplay,
-  allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
+  computeManualBudgetDisplay, computeQuotaDisplay,
+  allModelValues, tierLabel, formatResetCountdown, formatResetClock, deriveHealth,
 } from "../../domains/platforms";
-import { getProtocolLabel, getProtocolLabelMap, getProtocolColorMap, getDefaultPeakHours } from "../../domains/platforms/defaults";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
+import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
+import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
 import { parseDisableDuringPeak, parsePlatformPeakHours } from "../../services/api";
@@ -105,42 +106,12 @@ export const PlatformCard = memo(function PlatformCard({
     () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal),
     [p, quotaRaw, quotaPreferReal],
   );
-  const [color, setColor] = useState<string>("var(--accent)");
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolColorMap().then(m => {
-      if (!cancelled && m[p.platform_type]) setColor(m[p.platform_type]!);
-    });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.platform_type]);
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
-  // 协议层 coding plan 套餐标记（数据驱动，读 preset.is_coding_plan 真值源；非硬编码协议键名）。
-  const [isCpProtocol, setIsCpProtocol] = useState(false);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const flag = await isCodingPlanProtocol(p.platform_type);
-      if (!cancelled) setIsCpProtocol(flag);
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.platform_type]);
-  // 默认模型异步从 defaults.json 取（4 函数 async 化后），首次渲染为 []，加载完触发更新。
-  // PRD 07-11：高峰期切 models.peak 分支。isPeak 判定 = 用户 extra.peak_hours ?? preset peak_hours。
-  const [defaultModels, setDefaultModels] = useState<ReturnType<typeof allModelValues>>([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const userPh = parsePlatformPeakHours(p.extra ?? "");
-      const phWindows = userPh.length > 0 ? userPh : await getDefaultPeakHours(p.platform_type);
-      const isPeak = isCurrentlyPeak(phWindows, Date.now());
-      const m = await getDefaultModels(p.platform_type, hasCodingEndpoint, isPeak);
-      if (!cancelled) setDefaultModels(allModelValues(m));
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [p.platform_type, hasCodingEndpoint, p.extra]);
+  // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
+  //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
+  //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
+  const { color, isCpProtocol, defaultModels, homepage, protocolLabel, labelMap } =
+    useProtocolMeta(p.platform_type, hasCodingEndpoint, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
     const explicit = allModelValues(p.models);
     if (explicit.length > 0) return explicit;
@@ -155,21 +126,15 @@ export const PlatformCard = memo(function PlatformCard({
   const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
   const hasDetail = !!u || usagePending || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
-  // 健康点派生（R4，纯前端，不加后端字段）：优先按 status + last_error 综合最近健康——
-  //   红 = key 失效（auto_disabled 且 last_error 为 401/403）；
-  //   黄 = 有 last_error 但可恢复（402/429/5xx/连接失败等）；
-  //   绿 = enabled 且无 last_error。其余（手动 disabled 无 error、mock）回退 manual/成功率派生。
-  const keyInvalid = p.status === "auto_disabled"
-    && (p.last_error?.startsWith("HTTP 401") || p.last_error?.startsWith("HTTP 403"));
-  const health: HealthStatus = keyInvalid
-    ? "error"
-    : p.last_error
-      ? "warning"
-      : p.status === "enabled"
-        ? "healthy"
-        : manual
-          ? (manual === "ok" ? "healthy" : "error")
-          : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
+  // 健康点派生（health.ts::deriveHealth）：401/403 / last_error / status / manual / 成功率
+  //   五维综合，与 usePlatformQuota.platformWantsQuota / 后端 auto_disable 共享 keyInvalidFromStatus 真值源。
+  const health: HealthStatus = deriveHealth({
+    status: p.status,
+    lastError: p.last_error,
+    manual,
+    recentTotal: u?.recent_total,
+    recentFailures: u?.recent_failures,
+  });
   const logoSvg = getPlatformLogo(p.platform_type);
   const favicon = !logoSvg && !faviconHasFailed ? getFaviconUrl(p) : null;
   // 缓存 logo（~/.aidog/logos/<protocol>.png，logo_sync 同步）— Layer 0，优先级最高
@@ -177,40 +142,6 @@ export const PlatformCard = memo(function PlatformCard({
   const { logoSrc: cachedLogo } = useProtocolLogo(p.platform_type);
   const [cachedLogoFailed, setCachedLogoFailed] = useState(false);
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
-  // 平台详情外链（protocol homepage；未配置则不渲染）
-  const [homepage, setHomepage] = useState<string>("");
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const hp = await getProtocolHomepage(p.platform_type);
-      if (!cancelled) setHomepage(hp);
-    })();
-    return () => { cancelled = true; };
-  }, [p.platform_type]);
-  // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
-  const [protocolLabel, setProtocolLabel] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const label = await getProtocolLabel(p.platform_type, i18n.language);
-      if (!cancelled) setProtocolLabel(label);
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language, p.platform_type]);
-  // 批量协议 labelMap（endpoint badge 覆盖所有 ep.protocol，单 protocol state 不够）
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language]);
-  const getBaseUrl = (proto: Protocol, eps: Platform["endpoints"]): string => {
-    const primary = eps?.find(ep => ep.protocol === proto);
-    if (primary) return primary.base_url;
-    return eps?.[0]?.base_url || "";
-  };
 
   return (
     <div
@@ -302,7 +233,7 @@ export const PlatformCard = memo(function PlatformCard({
                   </div>
                 )}
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {protocolLabel || p.platform_type} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
+                  {protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
                 {p.status === "auto_disabled" && (
                   <div
