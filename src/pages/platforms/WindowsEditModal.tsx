@@ -4,6 +4,7 @@ import type { PeakWindow } from "../../domains/platforms/defaults";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { makeRipple } from "../../components/shared";
 import {
   Dialog,
   DialogContent,
@@ -252,7 +253,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
           <Button variant="ghost" onClick={onClose}>
             {t("action.cancel", "取消")}
           </Button>
-          <Button onClick={handleSave}>
+          <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}>
             {t("action.confirm", "确认")}
           </Button>
         </div>
