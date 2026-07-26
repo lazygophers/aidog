@@ -331,6 +331,7 @@ export async function runBatchCreateFromPaste(
     }
   }
   // 末尾汇总：成功 X / 失败 Y + 失败 key 列表（失败不静默吞）。
+  // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：批量创建后整体刷 membership。
   handleGroupsChanged();
   groupsReloadRef.current?.();
   window.dispatchEvent(new Event("aidog-groups-changed"));

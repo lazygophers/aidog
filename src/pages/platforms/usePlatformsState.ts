@@ -358,8 +358,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     groupDetailApi.movePlatform(pid, 0, found.gid)
       .then(() => {
         setToast({ text: "已加入分组", ok: true });
-        // 拖到分组只改归属：平台行本身不变，仅刷 groupDetails 重建 membership（卡片即移到目标组），
-        // 无需整页 load()。保留事件广播供 GroupsEmbedded 等跨组件同步。
+        // 拖到分组特例（见顶部「一致性规则」— 故意漏 reloadRef）：平台行本身不变，仅刷 groupDetails
+        //   重建 membership（卡片即移到目标组）+ 事件广播供 GroupsEmbedded 等跨组件同步，无需整页 load()。
         handleGroupsChanged();
         window.dispatchEvent(new Event("aidog-groups-changed"));
       })
@@ -384,7 +384,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     }
     return m;
   }
-  /** 分组变更：refetch groupDetails，effect 自动重建 membership */
+  /** 分组变更：refetch groupDetails，effect 自动重建 membership。
+   *  本函数是 platform mutation 三连之一（见顶部「一致性规则」）；各 mutation 点调用方负责按序补齐
+   *  groupsReloadRef.current?.() + window.dispatchEvent(aidog-groups-changed)。 */
   const handleGroupsChanged = async () => {
     try {
       setGroupDetails(await groupDetailApi.list());
@@ -534,9 +536,10 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     });
     try {
       await platformApi.delete(id);
-      // 三连：对齐 handleSave / createCliProxyPlatform / runBatchCreateFromPaste / handlePurgeDisabled。
-      // 删平台会 cascade 清 group_platform 关联，GroupsEmbedded 分组卡内的该平台行必须由专用 reload 移除，
-      // 仅靠父级 setPlatforms(filter) 无法触达（GroupsEmbedded 渲染门控在其自身 platforms state）。
+      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave / createCliProxyPlatform /
+      //   runBatchCreateFromPaste / handlePurgeDisabled。删平台会 cascade 清 group_platform 关联，
+      //   GroupsEmbedded 分组卡内的该平台行必须由专用 reload 移除，仅靠父级 setPlatforms(filter) 无法触达
+      //   （GroupsEmbedded 渲染门控在其自身 platforms state）。
       handleGroupsChanged();
       groupsReloadRef.current?.();
       window.dispatchEvent(new Event("aidog-groups-changed"));
@@ -561,7 +564,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     // 三态切换：enabled → disabled；disabled / auto_disabled → enabled（恢复并清退避）。
     const nextStatus: PlatformStatus = p.status === "enabled" ? "disabled" : "enabled";
     // 乐观更新：立即本地置换该平台 status，UI 即时响应、不调 load() 全量重拉（避免整页 loading 闪烁）。
-    // status 切换不改分组归属（membership 由 groupDetails 决定），故无需广播 aidog-groups-changed。
+    // status 切换不改分组归属（membership 由 groupDetails 决定），故豁免 platform mutation 三连
+    //   （见顶部「一致性规则」— 不发 aidog-groups-changed / 不调 groupsReloadRef / 不调 handleGroupsChanged）。
     setPlatforms(prev => prev.map(x =>
       x.id === p.id ? { ...x, status: nextStatus, enabled: nextStatus === "enabled" } : x));
     try {
@@ -641,8 +645,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
         platformsEpochRef.current++;
         setPlatforms(prev => prev.filter(x => !del.has(x.id)));
       }
-      // 三连：对齐 handleSave / createCliProxyPlatform / runBatchCreateFromPaste / handleDelete。
-      // purge 会移除分组关联（unassignedIds）+ 永久删除部分平台（deletedIds），跨组件需感知成员变更。
+      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave / createCliProxyPlatform /
+      //   runBatchCreateFromPaste / handleDelete。purge 会移除分组关联（unassignedIds）+ 永久删除部分平台
+      //   （deletedIds），跨组件需感知成员变更。
       handleGroupsChanged();
       groupsReloadRef.current?.();
       window.dispatchEvent(new Event("aidog-groups-changed"));
