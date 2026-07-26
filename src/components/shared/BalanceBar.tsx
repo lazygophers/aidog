@@ -1,5 +1,6 @@
 // ── BalanceBar ──
 // 余额 / 配额进度条：remaining 占 total 的百分比条 + 数值。
+// 萤火虫签名：进度条带 glow + striped 流光动效（危险档自动启用）。
 // 遵「无数据隐藏整行」约定：remaining 缺值（null/undefined/NaN）时不渲染（返回 null）。
 // 全走 CSS 变量，明暗双模式对比度由 globals.css 语义色保证。
 
@@ -36,11 +37,13 @@ export function BalanceBar({ remaining, total, currency = "$", level, showTotal 
   const pct = hasTotal ? Math.max(0, Math.min(100, (remaining / total!) * 100)) : null;
   const barLevel = level ?? (pct != null ? remainingLevel(pct) : "neutral");
   const color = levelColor(barLevel);
+  // danger/warning 档启用 striped 流光（视觉警示），success/neutral 静态。
+  const striped = barLevel === "danger" || barLevel === "warning";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4, fontSize: 12 }}>
-        <span style={{ fontWeight: 700, color }}>
+        <span className="counter" style={{ fontWeight: 700, color }}>
           {currency}
           {formatCost(remaining)}
         </span>
@@ -54,19 +57,22 @@ export function BalanceBar({ remaining, total, currency = "$", level, showTotal 
       {pct != null && (
         <div
           style={{
-            height: 4,
+            height: 6,
             borderRadius: "var(--radius-sm)",
             background: "var(--bg-glass)",
             overflow: "hidden",
+            boxShadow: "inset 0 1px 2px rgba(0,0,0,0.08)",
           }}
         >
           <div
+            className={`progress-fill${striped ? " striped" : ""}`}
             style={{
               width: `${pct}%`,
               height: "100%",
               background: color,
               borderRadius: "var(--radius-sm)",
-              transition: "width 0.3s ease",
+              transition: "width 0.4s cubic-bezier(0.4,0,0.2,1)",
+              boxShadow: `0 0 8px ${color}`,
             }}
           />
         </div>

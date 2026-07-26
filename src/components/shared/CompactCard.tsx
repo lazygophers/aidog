@@ -1,7 +1,7 @@
 // ── CompactCard ──
 // 可折叠卡片壳：header（常显关键指标区）+ 可展开二级明细（expandable children）。
 // 默认只显 header；点击展开区切换二级内容。供 Platforms / Groups 列表卡片复用。
-// 外观走 Liquid Glass（glass-surface），全 CSS 变量。
+// 外观：萤火虫玻璃签名（.glass-surface 扁平卡面 + hover 萤火虫流光描边）+ reveal 入场 + hover-lift。
 //
 // 受控 / 非受控双模式：
 // - 传 `expanded` + `onToggle` → 受控（父管理展开态，适合「全展开/全折叠」批量控制）。
@@ -11,6 +11,7 @@
 import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useReveal, makeRipple } from "../../utils/motion";
 
 export interface CompactCardProps {
   /** 常显关键指标区（名称 / 状态 / 余额 / 核心统计 / 快操作）。 */
@@ -27,6 +28,10 @@ export interface CompactCardProps {
   toggleLabel?: string;
   /** 额外外层样式（如拖拽时的 transform / opacity）。 */
   style?: React.CSSProperties;
+  /** reveal 入场错峰延迟（ms），列表 stagger 用。默认 0。 */
+  revealDelay?: number;
+  /** 禁用 reveal 入场（如静态已渲染的列表项重排）。 */
+  noReveal?: boolean;
 }
 
 export function CompactCard({
@@ -37,11 +42,15 @@ export function CompactCard({
   defaultExpanded = false,
   toggleLabel,
   style,
+  revealDelay = 0,
+  noReveal = false,
 }: CompactCardProps) {
   const [internal, setInternal] = useState(defaultExpanded);
   const isControlled = expanded !== undefined;
   const open = isControlled ? expanded! : internal;
   const hasChildren = children != null && children !== false;
+  const { ref, shown } = useReveal<HTMLDivElement>(revealDelay);
+  const revealOn = noReveal || shown;
 
   const toggle = () => {
     const next = !open;
@@ -51,12 +60,15 @@ export function CompactCard({
 
   return (
     <Card
-      className="glass-surface"
+      ref={ref}
+      className={`glass-surface hover-lift${revealOn ? " reveal in" : " reveal"}`}
       style={{
         display: "flex",
         flexDirection: "column",
-        padding: 16,
+        padding: 20,
         borderRadius: "var(--radius-md)",
+        position: "relative",
+        overflow: "hidden",
         ...style,
       }}
     >
@@ -67,11 +79,13 @@ export function CompactCard({
             type="button"
             variant="ghost"
             size="icon"
+            className="ripple"
             style={{ height: "auto" }}
             aria-label={toggleLabel}
             aria-expanded={open}
             onClick={(e) => {
               e.stopPropagation();
+              makeRipple(e);
               toggle();
             }}
           >
@@ -85,7 +99,7 @@ export function CompactCard({
               strokeLinecap="round"
               strokeLinejoin="round"
               style={{
-                transition: "transform 0.2s ease",
+                transition: "transform 0.25s cubic-bezier(0.4,0,0.2,1)",
                 transform: open ? "rotate(180deg)" : "rotate(0deg)",
               }}
             >
@@ -95,7 +109,16 @@ export function CompactCard({
         )}
       </div>
       {hasChildren && open && (
-        <div style={{ marginTop: 10, borderTop: "1px solid var(--border)", paddingTop: 10 }}>{children}</div>
+        <div
+          className="animate-fade-in"
+          style={{
+            marginTop: 12,
+            borderTop: "1px solid var(--border)",
+            paddingTop: 12,
+          }}
+        >
+          {children}
+        </div>
       )}
     </Card>
   );
