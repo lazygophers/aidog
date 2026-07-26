@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useReveal, makeRipple } from "../../components/shared";
 
 /** 脱敏 api_key：保留前 4 + 后 4，中间打码。 */
 function maskKey(key?: string): string {
@@ -40,6 +41,8 @@ export function Sub2ApiImportSection({
   onReport: (r: ImportReport) => void;
 }) {
   const { t, i18n } = useTranslation();
+  // ponytail: 外层 section 单 useReveal, 账号行内部 glass-surface 各持 hover 边光。
+  const sectionReveal = useReveal<HTMLElement>(0);
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
   useEffect(() => {
@@ -146,7 +149,11 @@ export function Sub2ApiImportSection({
   const selectedCount = selected.size;
 
   return (
-    <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+    <section
+      ref={sectionReveal.ref}
+      className={`glass glass-highlight hover-lift reveal${sectionReveal.shown ? " in" : ""}`}
+      style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}
+    >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <SectionIcon name="download" size={18} style={{ color: "var(--accent)" }} />
@@ -290,9 +297,10 @@ export function Sub2ApiImportSection({
           {/* 导入按钮 */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
             <Button variant="default"
-              onClick={handleImport}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); handleImport(); }}
               disabled={importing || selectedCount === 0}
-              
+
               style={{ padding: "7px 16px", fontSize: 13 }}
             >
               {importing

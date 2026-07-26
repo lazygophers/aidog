@@ -6,6 +6,30 @@ import { useTranslation } from "react-i18next";
 import { F, S, SectionIcon, SvgIcon } from "./editors";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { makeRipple } from "../../components/shared";
+
+// ponytail: 萤火虫 tab — 激活态 accent-subtle bg + primary color + 底部 2px 流光边;
+//           非激活 hover bg-glass-hover 柔和。底层 variant 仍走 shadcn ring。
+function ModeTab({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <Button
+      variant={active ? "default" : "ghost"}
+      className="ripple"
+      style={{
+        fontSize: F.body,
+        padding: S.btnPad,
+        position: "relative",
+        background: active ? "var(--accent-subtle)" : "transparent",
+        color: active ? "var(--primary)" : "var(--text-secondary)",
+        boxShadow: active ? "inset 0 -2px 0 0 var(--primary), 0 0 6px var(--accent-subtle)" : "none",
+        transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+      }}
+      onClick={(e) => { makeRipple(e); onClick(); }}
+    >
+      {children}
+    </Button>
+  );
+}
 
 export interface SettingsHeaderProps {
   mode: "json" | "gui";
@@ -55,19 +79,13 @@ export function SettingsHeader({
         WebkitBackdropFilter: "blur(20px)",
       }}
     >
-      {/* Mode switch */}
-      <Button variant={mode === "gui" ? "default" : "ghost"}
-        style={{ fontSize: F.body, padding: S.btnPad }}
-        onClick={() => onModeChange("gui")}
-      >
+      {/* Mode switch — GUI/JSON 萤火虫 tab */}
+      <ModeTab active={mode === "gui"} onClick={() => onModeChange("gui")}>
         {t("settings.guiMode")}
-      </Button>
-      <Button variant={mode === "json" ? "default" : "ghost"}
-        style={{ fontSize: F.body, padding: S.btnPad }}
-        onClick={() => onModeChange("json")}
-      >
+      </ModeTab>
+      <ModeTab active={mode === "json"} onClick={() => onModeChange("json")}>
         {t("settings.jsonMode")}
-      </Button>
+      </ModeTab>
 
       {/* Global search (placeholder for D1) */}
       <div style={{ position: "relative", flex: 1, minWidth: 180, maxWidth: 360 }}>
@@ -144,8 +162,9 @@ export function SettingsHeader({
       )}
 
       <Button variant={dirty ? "default" : "ghost"}
+        className="ripple"
         style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
-        onClick={onSave}
+        onClick={(e) => { makeRipple(e); onSave(); }}
         disabled={saving || !dirty}
       >
         {saving ? t("status.loading") : t("action.save")}

@@ -4,6 +4,7 @@
 // 消费 C1 冻结的 services/api.ts 契约，只读不改。
 
 import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -23,6 +24,30 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useReveal, makeRipple } from "../../components/shared";
+
+// ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function MwSectionCard({
+  staggerMs,
+  style,
+  children,
+}: {
+  staggerMs: number;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift reveal${shown ? " in" : ""}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 // ── 静态枚举常量（与 api.ts 契约对齐，禁裸 string）──
 
@@ -171,8 +196,8 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
   const configHint = configHintFor(t, ruleType);
 
   return (
-    <div
-      className="glass-surface animate-fade-in"
+    <MwSectionCard
+      staggerMs={0}
       style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}
     >
       <div style={{ fontSize: F.label, fontWeight: 600 }}>
@@ -338,15 +363,15 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
           {t("action.cancel", "取消")}
         </Button>
         <Button variant="default"
-          
+          className="ripple"
           style={{ fontSize: F.hint }}
-          onClick={handleSave}
+          onClick={(e) => { makeRipple(e); handleSave(); }}
           disabled={saving || !name || !!configError}
         >
           {t("action.save", "保存")}
         </Button>
       </div>
-    </div>
+    </MwSectionCard>
   );
 }
 
@@ -721,8 +746,8 @@ export function MiddlewareSettingsTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* 总开关（默认 ON） */}
-      <div
-        className="glass-surface"
+      <MwSectionCard
+        staggerMs={0}
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
@@ -732,10 +757,13 @@ export function MiddlewareSettingsTab() {
           </div>
         </div>
         <Switch checked={settings.enabled} onCheckedChange={toggleMaster} />
-      </div>
+      </MwSectionCard>
 
       {/* rule_type 子开关 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}>
+      <MwSectionCard
+        staggerMs={60}
+        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
+      >
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.typeToggles", "规则类型开关")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: -4 }}>
           {t("middleware.typeTogglesDesc", "按规则类型单独启用 / 禁用")}
@@ -748,13 +776,16 @@ export function MiddlewareSettingsTab() {
             </div>
           ))}
         </div>
-      </div>
+      </MwSectionCard>
 
       {/* 全局规则 CRUD */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}>
+      <MwSectionCard
+        staggerMs={120}
+        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
+      >
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.globalRules", "全局规则")}</div>
         <MiddlewareRulesPanel scope="global" />
-      </div>
+      </MwSectionCard>
 
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>

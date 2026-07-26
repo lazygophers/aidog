@@ -11,6 +11,7 @@
 // 消费 services/api.ts mitmApi 契约（ST7 冻结），只读不改。
 
 import { useState, useEffect, useCallback } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Command } from "@tauri-apps/plugin-shell";
 import {
@@ -25,6 +26,30 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { useReveal, makeRipple } from "../../components/shared";
+
+// ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function MitmSectionCard({
+  staggerMs,
+  style,
+  children,
+}: {
+  staggerMs: number;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift reveal${shown ? " in" : ""}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 /// CA 安装失败分类后端化（阶段 B）：分类逻辑真源在后端 `classify_trust_error`（Rust 纯函数 +
 /// 单测矩阵），前端 invoke `mitm_classify_trust_error` 取 TrustErrorKind，消除前后端双源。
@@ -232,8 +257,8 @@ export function MitmConfigTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* 主开关 */}
-      <div
-        className="glass-surface"
+      <MitmSectionCard
+        staggerMs={0}
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
@@ -243,12 +268,12 @@ export function MitmConfigTab() {
           </div>
         </div>
         <Switch checked={enabled} disabled={busy} onCheckedChange={() => handleToggle()} />
-      </div>
+      </MitmSectionCard>
 
       {/* 风险提示（启用后展示）*/}
       {enabled && (
-        <div
-          className="glass-surface"
+        <MitmSectionCard
+          staggerMs={60}
           style={{
             padding: "14px 16px",
             borderLeft: "3px solid var(--color-warning)",
@@ -260,12 +285,15 @@ export function MitmConfigTab() {
             {t("mitm.riskTitle", "安全提示")}
           </div>
           {t("mitm.riskDesc", "假 CA 私钥明文存于本机数据库；私钥泄露 = 白名单内 HTTPS 可被解密。仅启用必要 host。")}
-        </div>
+        </MitmSectionCard>
       )}
 
       {/* CA 安装状态 / 操作 */}
       {enabled && (
-        <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <MitmSectionCard
+          staggerMs={120}
+          style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
+        >
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{t("mitm.caCard", "假根证书 CA")}</div>
             <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
@@ -296,8 +324,8 @@ export function MitmConfigTab() {
 
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Button variant="default"
-              
-              onClick={handleInstallCa}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); handleInstallCa(); }}
               disabled={busy || !caPresent}
               style={{ padding: "7px 16px", fontSize: 13, opacity: busy || !caPresent ? 0.6 : 1 }}
             >
@@ -352,12 +380,15 @@ export function MitmConfigTab() {
               </div>
             </div>
           )}
-        </div>
+        </MitmSectionCard>
       )}
 
       {/* 白名单（启用后展示）*/}
       {enabled && (
-        <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <MitmSectionCard
+          staggerMs={180}
+          style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
+        >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
             <div>
               <div style={{ fontSize: 13, fontWeight: 600 }}>{t("mitm.whitelistTitle", "解密白名单")}</div>
@@ -565,7 +596,7 @@ export function MitmConfigTab() {
               </div>
             ))}
           </div>
-        </div>
+        </MitmSectionCard>
       )}
 
       {error && (
@@ -594,7 +625,8 @@ export function MitmConfigTab() {
               {t("mitm.cancel", "取消")}
             </Button>
             <Button variant="destructive"
-              onClick={handleClearConfirm}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); handleClearConfirm(); }}
               disabled={busy}
               style={{
                 padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1,
