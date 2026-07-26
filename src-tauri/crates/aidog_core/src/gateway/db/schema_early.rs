@@ -1,15 +1,16 @@
 use super::*;
 use rusqlite::{Connection, Result as SqlResult};
 
-/// Migrations 001–020（基础 schema / 索引 / 列补全 / 中间件基座 + seed / 通知 / MCP 表）。
-/// 自 init_tables 拆出（纯结构搬移，执行顺序不变）。
+/// Migrations 20260727-01..11（原 001–020）。日期戳批次 + 库内序号,
+/// 三个库 (main/proxy_log/platform) 各自独立编号空间。自 init_tables 拆出（纯结构搬移）。
 pub(crate) fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
-                // Migration 001: 基础 schema（platform / group / group_platform / setting）。
-                // proxy_log 建表已移至 run_migrations_proxy_log_early（落 log.db）。
+                // Migration 20260727-01 (原 001): 基础 schema（setting）。
+                // platform / "group" / group_platform CREATE 迁出 → run_migrations_platform_early（落 platform.db）。
+                // proxy_log 建表迁出 → run_migrations_proxy_log_early（落 log.db）。
                 conn.execute_batch(
                     r#"-- AiDog Schema (v2 — singular table names, uint64 PKs, ms timestamps, soft delete, no NULL)
 -- config-db-split: platform / "group" / group_platform CREATE 迁出 → run_migrations_platform_early（落 platform.db）。
--- 主库仅留 setting（+ model_price 003 / middleware_rule 013 / mcp_server 020，见后续 migration）。
+-- 主库仅留 setting（+ model_price 20260727-03 / middleware_rule 20260727-05 / mcp_server 20260727-11，见后续 migration）。
 
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -26,8 +27,8 @@ CREATE TABLE IF NOT EXISTS setting (
 );
 "#,
                 )?;
-                // Migration 002: proxy_log 索引已移至 run_migrations_proxy_log_early（落 log.db）。
-                // Migration 003: 模型价格表 model_price。
+                // Migration 20260727-02 (原 002): proxy_log 索引已迁至 run_migrations_proxy_log_early（落 log.db）。
+                // Migration 20260727-03 (原 003): 模型价格表 model_price。
                 conn.execute_batch(
                     r#"-- Model price table: stores per-model pricing data synced from LiteLLM or entered manually
 
@@ -43,12 +44,12 @@ CREATE TABLE IF NOT EXISTS model_price (
 );
 
 -- idx_model_price_name 已删：UNIQUE(model_name, source) 自带的隐式索引前导列即 model_name，
--- 已覆盖按 model_name 的等值/前缀查找，单列偏索引纯重复。旧库由 migration 035 DROP。
+-- 已覆盖按 model_name 的等值/前缀查找，单列偏索引纯重复。旧库由 migration 20260727-14（原 035）DROP。
 "#,
                 )?;
-                // Migration 004–012: platform / "group" 的 ALTER 与 012 kimi endpoint 修正
+                // Migration 20260727-04 (原 004–012): platform / "group" 的 ALTER 与 012 kimi endpoint 修正
                 // → run_migrations_platform_early / run_migrations_platform_late（落 platform.db）。
-                // Migration 013: 中间件规则引擎基座（C1）。单表 middleware_rule，
+                // Migration 20260727-05 (原 013): 中间件规则引擎基座（C1）。单表 middleware_rule，
                 // 8 类规则 + 三级作用域就近覆盖；schema 严格按 design.md。
                 conn.execute_batch(
                     "CREATE TABLE IF NOT EXISTS middleware_rule (
@@ -70,14 +71,14 @@ CREATE TABLE IF NOT EXISTS model_price (
                      );
                      CREATE INDEX IF NOT EXISTS idx_mw_rule_lookup ON middleware_rule(enabled, rule_type, scope);",
                 )?;
-                // Migration 014: proxy_log blocked_by/blocked_reason → run_migrations_proxy_log_early
-                // Migration 015: 内置预设中间件规则 seed（C4）。
+                // Migration 20260727-06 (原 014): proxy_log blocked_by/blocked_reason → run_migrations_proxy_log_early
+                // Migration 20260727-07 (原 015): 内置预设中间件规则 seed（C4）。
                 // is_builtin=1 默认 enabled；幂等——按 (name, is_builtin=1) 唯一判定，已存在跳过（尊重用户禁用状态，不重新启用）。
                 seed_builtin_middleware_rules(conn)?;
-                // Migration 016: Platform 级熔断配置列 → run_migrations_platform_late（platform 表已迁 platform.db）
-                // Migration 017/018: notification 表 → run_migrations_proxy_log_early（落 log.db）
-                // Migration 019: idx_proxy_log_stats → run_migrations_proxy_log_early
-                // Migration 020: MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
+                // Migration 20260727-08 (原 016): Platform 级熔断配置列 → run_migrations_platform_late（platform 表已迁 platform.db）
+                // Migration 20260727-09 (原 017/018): notification 表 → run_migrations_proxy_log_early（落 log.db）
+                // Migration 20260727-10 (原 019): idx_proxy_log_stats → run_migrations_proxy_log_early
+                // Migration 20260727-11 (原 020): MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
                 // enabled_agents = 逗号分隔 agent slug（claude-code/codex）。
                 // env_json/headers_json 含敏感值（token/key/secret），前端展示经 mcp.rs::mask_env 脱敏。
                 conn.execute_batch(
@@ -98,16 +99,16 @@ CREATE TABLE IF NOT EXISTS model_price (
     Ok(())
 }
 
-/// proxy_log 表的 early migrations（001–020 范围内的 proxy_log 部分）。
+/// proxy_log 表的 early migrations（log.db 内序 20260727-01..09，原 001/002/008/010/011/014/017-019）。
 ///
 /// 拆库后这些 DDL 跑在 log.db 写连接（`call_proxy_log_traced`），主库不再建 proxy_log 表。
 /// migration 内容与原 run_migrations_early 中的 proxy_log 语句一一对应，幂等 idiom 不变
 /// （CREATE IF NOT EXISTS / `let _ =` 吞 dup）。
 ///
-/// 注：stats_agg_hourly 原 Mig 032（log.db late）已迁回主库 Mig 051（stats-agg-to-main-db），
+/// 注：stats_agg_hourly 原落 log.db（已迁回主库 run_migrations_late 20260727-16），
 /// log.db 现仅承载 proxy_log + notification。
 pub(crate) fn run_migrations_proxy_log_early(conn: &Connection) -> SqlResult<()> {
-                // Migration 001 (proxy_log): 建表。
+                // Migration 20260727-01 (原 001): proxy_log 建表。
                 conn.execute_batch(
                     r#"-- proxy_log PK 用无连字符 uuid（请求 ID），R7 uint64 主键规则的明示例外（R8）
 CREATE TABLE IF NOT EXISTS proxy_log (
@@ -140,7 +141,7 @@ CREATE TABLE IF NOT EXISTS proxy_log (
 );
 "#,
                 )?;
-                // Migration 002: proxy_log model 索引。
+                // Migration 20260727-02 (原 002): proxy_log model 索引。
                 conn.execute_batch(
                     r#"CREATE INDEX IF NOT EXISTS idx_proxy_log_model
     ON proxy_log(model) WHERE deleted_at = 0;
@@ -149,24 +150,24 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
     ON proxy_log(actual_model) WHERE deleted_at = 0;
 "#,
                 )?;
-                // Migration 008: proxy_log 预估花费列。
+                // Migration 20260727-03 (原 008): proxy_log 预估花费列。
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
-                // Migration 010: proxy_log 流式标记列。
+                // Migration 20260727-04 (原 010): proxy_log 流式标记列。
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_stream INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 011 (proxy_log): 每次尝试快照 + 重试次数。
+                // Migration 20260727-05 (原 011): proxy_log 每次尝试快照 + 重试次数。
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN attempts TEXT NOT NULL DEFAULT '[]'", []);
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 014: proxy_log 中间件拦截审计列。
+                // Migration 20260727-06 (原 014): proxy_log 中间件拦截审计列。
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_by TEXT NOT NULL DEFAULT ''", []);
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_reason TEXT NOT NULL DEFAULT ''", []);
-                // Migration 019: usage stats 覆盖索引。
+                // Migration 20260727-07 (原 019): usage stats 覆盖索引。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_proxy_log_stats \
                      ON proxy_log(created_at, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
                      WHERE deleted_at = 0",
                     [],
                 );
-                // Migration 017: notification 表（从主库迁入 log.db）。
+                // Migration 20260727-08 (原 017): notification 表（从主库迁入 log.db）。
                 // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/clear 消费。
                 // 设置（NotificationSettings）走 settings KV scope=notification（主库），不在此表。
                 conn.execute_batch(
@@ -178,20 +179,20 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
                        created_at  INTEGER NOT NULL
                      );",
                 )?;
-                // Migration 018: 去 read 列 + idx_notif_read 索引（通知完成即结束，无已读未读）。
+                // Migration 20260727-09 (原 018): 去 read 列 + idx_notif_read 索引（通知完成即结束，无已读未读）。
                 // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
                 let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
     Ok(())
 }
 
-/// platform.db 的 early migrations：建 platform / "group" / group_platform 三表。
+/// platform.db 的 early migrations：建 platform / "group" / group_platform 三表（platform.db 库内序 20260727-00，建库 baseline）。
 ///
 /// config-db-split：从原 `run_migrations_early` 抽出（CREATE 语句原样搬移，幂等 idiom 不变）。
 /// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内调用。内存库 fallback 下
 /// platform handle = 主内存连接 clone，三表落在同一物理库，行为与拆库前一致。
 ///
-/// 三表 schema 与原 `run_migrations_early` Migration 001 完全一致（含 enabled / sort_order /
+/// 三表 schema 与原 `run_migrations_early` Migration 20260727-01（原 001）完全一致（含 enabled / sort_order /
 /// status / max_retries / manual_budgets 等列 —— 对齐旧库经 004–016 ALTER 后的终态，省去
 /// platform_late 的 30+ 条 `let _ = ALTER` 幂等重试）。
 pub(crate) fn run_migrations_platform_early(conn: &Connection) -> SqlResult<()> {

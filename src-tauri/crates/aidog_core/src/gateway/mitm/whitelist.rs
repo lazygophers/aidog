@@ -28,7 +28,7 @@ const MITM_SCOPE: &str = "mitm";
 /// 元组 `(rule_type, pattern)`：rule_type ∈ {domain, suffix, keyword, ipcidr}，
 /// pattern 存规则值（host 域名 / CIDR 串）。
 ///
-/// 单源（schema migration 041 seed + 本模块 import_defaults command + 测试 共用此常量）。
+/// 单源（schema migration 20260727-15（原 041/043）seed + 本模块 import_defaults command + 测试 共用此常量）。
 /// 舍弃：IP-ASN 20473（不支持）；GeoIP/DNS 解析（不要）。
 pub const DEFAULT_RULES: &[(&str, &str)] = &[
     // ── Claude（3 条）─────────────────────────────────────────

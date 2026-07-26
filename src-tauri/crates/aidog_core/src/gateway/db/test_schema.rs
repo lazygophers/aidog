@@ -208,7 +208,7 @@ use super::test_support::*;
 
 
 
-    /// Migration 012: kimi 平台 codex_tui → claude_code 修正。
+    /// Migration 20260727-01 (原 012): kimi 平台 codex_tui → claude_code 修正。
     /// 构造一个 legacy 连接（已有 platform 表 + kimi 平台 codex_tui endpoint），
     /// 再运行 run_migrations_early，验证 endpoint client_type 被改为 claude_code。
     #[test]
@@ -255,7 +255,7 @@ use super::test_support::*;
              VALUES ('other', 'anthropic', '[{\"protocol\":\"openai\",\"base_url\":\"\",\"client_type\":\"codex_tui\",\"coding_plan\":true}]', 0, 0, 0)",
             [],
         ).unwrap();
-        // 运行 platform migrations（012 已搬至 run_migrations_platform_late；platform_early 建
+        // 运行 platform migrations（原 012 已搬至 run_migrations_platform_late，重编 20260727-01；platform_early 建
         // "group" / group_platform 兜底 012 不踩「group 表缺」坑，CREATE IF NOT EXISTS 幂等）。
         run_migrations_platform_early(&conn).expect("run_migrations_platform_early should succeed");
         run_migrations_platform_late(&conn).expect("run_migrations_platform_late should succeed");
@@ -270,7 +270,7 @@ use super::test_support::*;
         assert_eq!(
             openai_ep.get("client_type").and_then(|v| v.as_str()),
             Some("claude_code"),
-            "migration 012 should fix codex_tui→claude_code for kimi openai coding endpoint"
+            "migration 20260727-01 (原 012) should fix codex_tui→claude_code for kimi openai coding endpoint"
         );
         // anthropic endpoint 不受影响
         let anthropic_ep = eps.iter().find(|e| e.get("protocol").and_then(|v| v.as_str()) == Some("anthropic")).unwrap();

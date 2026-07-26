@@ -11,17 +11,17 @@ use crate::gateway::models::*;
 /// 让 UI 读查询不再排在代理密集写日志之后。动态扩容（空闲回收 / 加锁扩容）本轮不做。
 const READ_POOL_SIZE: usize = 8;
 
-/// Migration 032（旧 011 文件，曾落 log.db）→ 现 Migration 051（落主库）: 小时级聚合统计表
+/// Migration 20260727-16 (原 032/051, 跨库归属变迁): 小时级聚合统计表
 /// stats_agg_hourly（建表 + 索引）。统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。
 ///
 /// 历史上本 DDL 串还内联了一次性回填 `INSERT ... SELECT`（含 eff_pid 标量子查询 + NOT EXISTS
 /// 空表守卫）。去 JOIN/子查询重构后，回填改由 Rust `backfill_stats_agg_if_empty` 在内存算
-/// eff_pid + 批量 UPSERT（schema_late.rs Mig 051 紧随本 DDL 调用），DDL 串只保留纯建表 + 建索引。
+/// eff_pid + 批量 UPSERT（schema_late.rs 20260727-16 紧随本 DDL 调用），DDL 串只保留纯建表 + 建索引。
 ///
-/// 归属变迁：proxy-log-db-split 把 stats_agg_hourly 搬到 log.db（Mig 032）；stats-agg-to-main-db
-/// 任务把它迁回主库（Mig 051，落 run_migrations_late）——retention/VACUUM 误伤 + backup 归属
+/// 归属变迁：proxy-log-db-split 把 stats_agg_hourly 搬到 log.db（原 032）；stats-agg-to-main-db
+/// 任务把它迁回主库（20260727-16，落 run_migrations_late）——retention/VACUUM 误伤 + backup 归属
 /// 错位 + 语义主库。proxy_log 仍留 log.db。
-const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 011 (file) / 032 (inline, log.db) / 051 (inline, main db): 小时级聚合统计表 stats_agg_hourly。
+const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 20260727-16 (历史编号 011 file / 032 inline log.db / 051 inline main db): 小时级聚合统计表 stats_agg_hourly。
 --
 -- 目的：统计读取（today_stats / today_platform_stats / group usage / Stats hourly+daily）
 -- 从逐请求扫 proxy_log 改为查预聚合表，且【不受 ProxyLogSettings.enabled 日志开关影响】
@@ -58,7 +58,7 @@ CREATE TABLE IF NOT EXISTS stats_agg_hourly (
 CREATE INDEX IF NOT EXISTS idx_stats_agg_time     ON stats_agg_hourly(time_hour);
 -- idx_stats_agg_model / idx_stats_agg_group 已删（未被任何查询用：model/group_key 等值
 -- 过滤总伴随 time_hour 范围谓词，规划器走 idx_stats_agg_time；纯单列索引仅增写放大）。
--- 旧库由 migration 035 DROP。详见 SQL/索引审计任务。
+-- 旧库由 migration 20260727-14（原 035）DROP。详见 SQL/索引审计任务。
 CREATE INDEX IF NOT EXISTS idx_stats_agg_platform ON stats_agg_hourly(platform_id);
 "#;
 

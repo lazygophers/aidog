@@ -92,7 +92,7 @@ pub async fn middleware_settings_set(
 
 /// 一键导入默认（内置）中间件规则。
 ///
-/// 用户删除内置规则后无法恢复（migration 015 seed 仅首启跑一次）。本命令复用
+/// 用户删除内置规则后无法恢复（migration 20260727-07（原 015）seed 仅首启跑一次）。本命令复用
 /// [`gateway::db::seed_builtin_middleware_rules_counted`] 幂等逻辑：按 (name, is_builtin=1)
 /// 判定，已存在跳过（不重新启用用户禁用的内置规则），缺失则补入。
 ///

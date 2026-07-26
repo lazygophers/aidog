@@ -8,7 +8,7 @@
 //! 子模块:
 //! - `ca`: rcgen 生成 Root CA + DB 持久化（明文 + DB 文件权限 0600，D4/D5）
 //!   + 装信任库（macOS/Windows/Linux 经 tauri-plugin-shell + sudo，D1/D8）+ 清理（ST9）
-//! - `whitelist`: 全局 host suffix 匹配（D6），默认 AI host + 已配平台 host（migration 041 填）
+//! - `whitelist`: 全局 host suffix 匹配（D6），默认 AI host + 已配平台 host（migration 20260727-15，原 041/043 填）
 //! - `cert_signer`: 按 SNI 动态签 host 证书（复用 ca.rs Root CA），缓存 CertifiedKey
 //! - `tls`: tokio-rustls accept（假证书）+ connect 上游（真证书验证）+ pinning 降级标记
 //!

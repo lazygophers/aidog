@@ -60,7 +60,7 @@ use crate::gateway::db::update_extra_key;
         assert!(err.contains("unsupported table"), "got: {err}");
     }
 
-    /// group.extra 读改写 round-trip：写 _ui_* → 读 Group.extra 应含该键（schema_late migration 044 起 group 带 extra 列）。
+    /// group.extra 读改写 round-trip：写 _ui_* → 读 Group.extra 应含该键（schema_late migration 20260727-13（原 044）起 group 带 extra 列）。
     #[tokio::test]
     async fn ui_extra_group_round_trip() {
         let db = test_db().await;

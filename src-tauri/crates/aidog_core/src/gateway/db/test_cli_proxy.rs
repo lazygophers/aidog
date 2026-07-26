@@ -74,7 +74,7 @@ async fn cli_proxy_provider_crud_roundtrip() {
 #[tokio::test]
 async fn migration_045_idempotent() {
     let db = test_db().await;
-    // 再跑一次 init —— 内部走完整 migration 流（含 045），不报错
+    // 再跑一次 init —— 内部走完整 migration 流（含 20260727-14，原 045），不报错
     db.init_tables().await.expect("re-init must be idempotent");
     // 表仍可用
     create_cli_proxy_provider(&db, input("after-reinit"))
