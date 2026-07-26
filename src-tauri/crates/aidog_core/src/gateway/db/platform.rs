@@ -1,6 +1,54 @@
 use super::*;
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
+/// 从 JSON 字符串反序列化 models
+pub(crate) fn parse_models(json: &str) -> PlatformModels {
+    serde_json::from_str(json).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "parse platform models failed, using default (stored JSON corrupt?)");
+        PlatformModels::default()
+    })
+}
+
+/// 将 models 序列化为 JSON 字符串
+pub(crate) fn serialize_models(models: &PlatformModels) -> String {
+    serde_json::to_string(models).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "serialize platform models failed, persisting empty object");
+        "{}".to_string()
+    })
+}
+
+/// 从 JSON 字符串反序列化可用模型列表
+pub(crate) fn parse_available_models(json: &str) -> Vec<String> {
+    serde_json::from_str(json).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "parse available_models failed, using empty list (stored JSON corrupt?)");
+        Vec::new()
+    })
+}
+
+/// 将可用模型列表序列化为 JSON 字符串
+pub(crate) fn serialize_available_models(models: &[String]) -> String {
+    serde_json::to_string(models).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "serialize available_models failed, persisting empty array");
+        "[]".to_string()
+    })
+}
+
+/// 从 JSON 字符串反序列化协议端点列表
+pub(crate) fn parse_endpoints(json: &str) -> Vec<PlatformEndpoint> {
+    serde_json::from_str(json).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "parse platform endpoints failed, using empty list (stored JSON corrupt?)");
+        Vec::new()
+    })
+}
+
+/// 将协议端点列表序列化为 JSON 字符串
+pub(crate) fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
+    serde_json::to_string(endpoints).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "serialize platform endpoints failed, persisting empty array");
+        "[]".to_string()
+    })
+}
+
 /// SELECT 列序
 pub(crate) const PLATFORM_COLUMNS: &str =
     "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at";
