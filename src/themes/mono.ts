@@ -1,95 +1,95 @@
 import type { ThemeDefinition } from "./types";
 
 /**
- * Mono · 金蓝流沙玻璃（唯一主题）。2026-07 重设计：light=柔感微光 / dark=静谧玻璃(中性近黑底)。
- * light「柔光」：蓝为主 primary (#0087EB) + 暖金 accent + 淡紫蓝渐变底 (#eef1fb)，偏蓝柔阴影 + tinted 近白卡面。
- * dark「静谧」：金为主 primary (#FFD98A) + 蓝 accent/active + 中性近黑底 (#0a0a0c) + 中性深灰卡面 (#161619/#1c1c20)，近黑 fg。
- * primary/accent 双模互换签名色；边框 light 随蓝 primary / dark 中性白描边。
- * 蓝金流光描边由 globals.css .glass:hover conic flow-border 呈现（发光边框签名，保留）。
- * 主按钮已扁平化（.bg-primary 去金属多段渐变+外发光，改单柔渐变）。
- * 语义色（success/warning/danger）在 globals.css 固定，可访问性需要故不单色化。
+ * Mono · 萤火虫玻璃（2026-07-26 重设计，照搬 example 萤火虫配色规范）。
+ * light「奶油纸白 + 萤火虫暖光」：纯白底 + 暖琥珀 primary (#c49a3c) + 奶油白卡面 + 莫兰迪语义色。
+ * dark「纯黑 + 萤火虫微光」：纯黑底 + 亮萤火虫 primary (#e8c547) + 深岩卡面 + 莫兰迪语义色。
+ * 签名色 = 萤火虫暖琥珀，dark 下更亮；语义色全部去饱和柔和化（莫兰迪）。
+ * 蓝金流光描边由 globals.css .glass:hover conic flow-border 呈现，已改萤火虫暖光序列。
+ * ponytail: 莫兰迪去饱和语义色对比度低于原饱和色，可访问性退化（用户明确选完全照搬萤火虫）；
+ *   若后续需 WCAG AA 兜底，success/warning/danger 可朝 example soft 系列提饱和 10-15%。
  * 单文件同时持结构变量(radius/blur/shadow) + shadcn 语义色 token。
  */
 export const mono: ThemeDefinition = {
   light: {
     // ── 结构 ──
-    "--radius-sm": "10px",
-    "--radius-md": "14px",
-    "--radius-lg": "20px",
-    "--radius-xl": "28px",
-    "--glass-blur": "24px",
-    "--glass-saturate": "1.8",
+    "--radius-sm": "8px",
+    "--radius-md": "12px",
+    "--radius-lg": "16px",
+    "--radius-xl": "24px",
+    "--glass-blur": "20px",
+    "--glass-saturate": "1.4",
     "--glass-border": "1px solid var(--glass-edge)",
-    // 柔感微光：双层柔阴影，偏蓝低饱和（--shadow-color 偏蓝），整体轻
-    "--shadow-sm": "0 1px 2px rgba(var(--shadow-rgb), 0.05)",
-    "--shadow-md": "0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 4px 12px rgba(var(--shadow-rgb), 0.09), 0 1px 3px rgba(var(--shadow-rgb), 0.05)",
-    "--shadow-lg": "0 1px 0 rgba(255, 255, 255, 0.85) inset, 0 8px 24px rgba(var(--shadow-rgb), 0.11), 0 2px 6px rgba(var(--shadow-rgb), 0.06)",
+    // 奶油纸白：柔阴影，低饱和暖灰
+    "--shadow-sm": "0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02)",
+    "--shadow-md": "0 4px 20px rgba(28, 25, 23, 0.06)",
+    "--shadow-lg": "0 8px 32px rgba(28, 25, 23, 0.08)",
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
-    // 柔光：淡紫蓝渐变底，蓝主光晕(顶) + 极淡暖金侧光晕(右上)
+    // 萤火虫暖光：纯白底 + 暖琥珀顶光晕 + 极淡暖金侧光
     "--app-bg-overlay":
-      "radial-gradient(72% 52% at 50% -10%, rgba(0, 135, 235, 0.12), transparent 62%), " +
-      "radial-gradient(52% 44% at 90% 6%, rgba(255, 217, 138, 0.14), transparent 60%), " +
-      "radial-gradient(60% 50% at 6% 100%, rgba(120, 140, 220, 0.14), transparent 64%)",
-    // ── 色（柔光 · 蓝主金辅） ──
-    "--background": "#eef1fb",
-    "--foreground": "#111827",
-    "--card": "#f8faff",
-    "--card-foreground": "#111827",
+      "radial-gradient(72% 52% at 50% -10%, rgba(196, 154, 60, 0.10), transparent 62%), " +
+      "radial-gradient(52% 44% at 92% 8%, rgba(212, 184, 122, 0.12), transparent 60%), " +
+      "radial-gradient(60% 50% at 6% 100%, rgba(196, 154, 60, 0.06), transparent 64%)",
+    // ── 色（萤火虫 · 暖琥珀） ──
+    "--background": "#ffffff",
+    "--foreground": "#1c1917",
+    "--card": "#faf8f5",
+    "--card-foreground": "#1c1917",
     "--popover": "#ffffff",
-    "--popover-foreground": "#111827",
-    "--primary": "#0087eb",
+    "--popover-foreground": "#1c1917",
+    "--primary": "#c49a3c",
     "--primary-foreground": "#ffffff",
-    "--secondary": "#e4ecfb",
-    "--secondary-foreground": "#111827",
-    "--muted": "#e4ecfb",
-    "--muted-foreground": "#5a6478",
-    "--accent": "#fac76c",
-    "--accent-foreground": "#8a6a1e",
-    "--destructive": "#e0644a",
+    "--secondary": "#f5f2ed",
+    "--secondary-foreground": "#1c1917",
+    "--muted": "#f5f2ed",
+    "--muted-foreground": "#78716c",
+    "--accent": "#d4b87a",
+    "--accent-foreground": "#5a4a1e",
+    "--destructive": "#c47a7a",
     "--destructive-foreground": "#ffffff",
-    "--border": "rgba(80, 100, 160, 0.16)",
-    "--input": "rgba(17, 24, 39, 0.12)",
-    "--ring": "rgba(0, 135, 235, 0.40)",
-    "--shadow-color": "80, 100, 160",
+    "--border": "rgba(28, 25, 23, 0.09)",
+    "--input": "rgba(28, 25, 23, 0.09)",
+    "--ring": "rgba(196, 154, 60, 0.40)",
+    "--shadow-color": "28, 25, 23",
   },
   dark: {
     // ── 结构 ──
-    "--radius-sm": "10px",
-    "--radius-md": "14px",
-    "--radius-lg": "20px",
-    "--radius-xl": "28px",
-    "--glass-blur": "24px",
-    "--glass-saturate": "1.5",
+    "--radius-sm": "8px",
+    "--radius-md": "12px",
+    "--radius-lg": "16px",
+    "--radius-xl": "24px",
+    "--glass-blur": "20px",
+    "--glass-saturate": "1.4",
     "--glass-border": "1px solid var(--glass-edge)",
-    // 静谧：柔和暗阴影，纯黑派生（近黑底上读作轻微下沉），整体轻
-    "--shadow-sm": "0 1px 2px rgba(var(--shadow-rgb), 0.30)",
-    "--shadow-md": "0 4px 12px rgba(var(--shadow-rgb), 0.36), 0 1px 3px rgba(var(--shadow-rgb), 0.24)",
-    "--shadow-lg": "0 8px 24px rgba(var(--shadow-rgb), 0.44), 0 2px 6px rgba(var(--shadow-rgb), 0.28)",
+    // 纯黑：深阴影
+    "--shadow-sm": "0 1px 3px rgba(0, 0, 0, 0.4)",
+    "--shadow-md": "0 4px 20px rgba(0, 0, 0, 0.5)",
+    "--shadow-lg": "0 8px 32px rgba(0, 0, 0, 0.6)",
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
-    // 静谧：中性近黑底上极淡金主光晕(顶) + 极淡蓝侧光晕(左)，去金星点(C 极简)
+    // 萤火虫微光：纯黑底 + 亮萤火虫顶光晕 + 极淡暖金侧光
     "--app-bg-overlay":
-      "radial-gradient(80% 50% at 50% -12%, rgba(255, 217, 138, 0.10), transparent 60%), " +
-      "radial-gradient(56% 42% at 10% 20%, rgba(59, 160, 255, 0.08), transparent 58%)",
-    // ── 色（静谧 · 中性近黑底 + 金主蓝辅） ──
-    "--background": "#0a0a0c",
-    "--foreground": "#ededf0",
-    "--card": "#161619",
-    "--card-foreground": "#ededf0",
-    "--popover": "#1c1c20",
-    "--popover-foreground": "#ededf0",
-    "--primary": "#ffd98a",
+      "radial-gradient(80% 50% at 50% -12%, rgba(232, 197, 71, 0.10), transparent 60%), " +
+      "radial-gradient(56% 42% at 10% 20%, rgba(232, 197, 71, 0.06), transparent 58%)",
+    // ── 色（萤火虫 · 暗夜更亮） ──
+    "--background": "#000000",
+    "--foreground": "#f5f5f0",
+    "--card": "#0c0c0c",
+    "--card-foreground": "#f5f5f0",
+    "--popover": "#0c0c0c",
+    "--popover-foreground": "#f5f5f0",
+    "--primary": "#e8c547",
     "--primary-foreground": "#1a1206",
-    "--secondary": "#1c1c20",
-    "--secondary-foreground": "#ededf0",
-    "--muted": "#1c1c20",
-    "--muted-foreground": "#9a9aa3",
-    "--accent": "#20242c",
-    "--accent-foreground": "#7cc0ff",
-    "--destructive": "#e0644a",
+    "--secondary": "#1a1a1a",
+    "--secondary-foreground": "#f5f5f0",
+    "--muted": "#1a1a1a",
+    "--muted-foreground": "#8a8580",
+    "--accent": "#c4a83a",
+    "--accent-foreground": "#f5f5f0",
+    "--destructive": "#b07070",
     "--destructive-foreground": "#ffffff",
     "--border": "rgba(255, 255, 255, 0.08)",
     "--input": "rgba(255, 255, 255, 0.10)",
-    "--ring": "rgba(255, 217, 138, 0.45)",
+    "--ring": "rgba(232, 197, 71, 0.45)",
     "--shadow-color": "0, 0, 0",
   },
 };
