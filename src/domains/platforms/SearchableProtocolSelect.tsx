@@ -259,7 +259,7 @@ export function SearchableProtocolSelect({
                   {p.codingPlan && (
                     <span style={{
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
-                      background: "var(--color-success, var(--color-success))20",
+                      background: "color-mix(in srgb, var(--color-success) 20%, transparent)",
                       color: "var(--color-success, var(--color-success))",
                       fontSize: 10, fontWeight: 600,
                     }}>
