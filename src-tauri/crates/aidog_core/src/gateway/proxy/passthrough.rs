@@ -1,5 +1,24 @@
 use super::*;
 
+/// 透传分支差异项（两 caller 各自设置后调 relay_passthrough 共享骨架）。
+/// ponytail: 抽公共 relay 骨架消除 ~150 行双写漂移；StreamLogGuard 配置在此类型下游
+/// relay_passthrough 内单点设，禁 caller 重复设 guard.record_*（曾致 flush 跳过 user_response_body 回写 bug）。
+pub(crate) struct PassthroughOpts {
+    /// 写入 log.source_protocol / log.target_protocol。
+    /// - handle_passthrough: "claude_code"
+    /// - forward_passthrough_to_orig_host: "passthrough_unmatched"
+    pub protocol_tag: &'static str,
+    /// 是否提取 usage（非流式 extract_usage / 流式 feed_sse_usage）。
+    /// handle=true（claude_code 订阅需 token 落库）；forward=false（普通浏览流量 cost=0，token 无意义）。
+    pub extract_usage: bool,
+    /// 是否剥 Proxy-* headers（Proxy-Authorization / Proxy-Connection / Proxy-Authenticate）。
+    /// handle=false（CC 订阅客户端不发代理协商头）；forward=true（MITM 解密灌入可能携带代理协商头）。
+    pub strip_proxy_headers: bool,
+    /// 流式上游 chunk error 时合成 anthropic `message_stop` 干净收尾。
+    /// handle=true（wire=anthropic，避免 CC "error decoding response body"）；forward=false（普通流量空收尾）。
+    pub stream_error_msg_stop: bool,
+}
+
 /// Claude Code 订阅平台纯透传：把客户端原始请求 1:1 relay 到 base_url，原样返回响应，记 proxy_log。
 /// 不做任何协议 / header / 认证转换；客户端自带订阅 OAuth header。
 #[allow(clippy::too_many_arguments)]
@@ -15,12 +34,45 @@ pub(crate) async fn handle_passthrough(
     start: std::time::Instant,
     lang: Lang,
 ) -> Response {
-    // 透传不转换协议，source/target 都标 claude_code
-    log.source_protocol = "claude_code".to_string();
-    log.target_protocol = "claude_code".to_string();
-
     // 目标 URL = base_url(host 根) + 客户端原始 path(+query)
     let url = build_passthrough_url(base_url, &orig_uri);
+    let opts = PassthroughOpts {
+        protocol_tag: "claude_code",
+        extract_usage: true,
+        strip_proxy_headers: false,
+        stream_error_msg_stop: true,
+    };
+    relay_passthrough(
+        state, log, log_settings,
+        url,
+        orig_method, orig_headers, bytes,
+        start, lang,
+        &opts,
+    ).await
+}
+
+/// 透传共享骨架：URL → http client → headers → send → resp headers → 非流式 relay / 流式 StreamLogGuard。
+///
+/// ponytail: 抽自 handle_passthrough / forward_passthrough_to_orig_host 的高重合度（~95%）骨架，
+/// 差异项由 opts 携带；StreamLogGuard.record_upstream_body / record_client_body 单点设于此处
+/// （消除两 caller 各写一遍的双写漂移 —— 曾因 forward 误设 false 致 user_response_body 永空 bug，memory symmetric-body-cap）。
+///
+/// caller 在调本骨架前已完成：URL 构造（base+path 或 Host header 重构）/ 虚拟桶标记（forward）/ 缺 Host 400 兜底（forward）。
+#[allow(clippy::too_many_arguments)]
+async fn relay_passthrough(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    url: String,
+    orig_method: axum::http::Method,
+    orig_headers: axum::http::HeaderMap,
+    bytes: axum::body::Bytes,
+    start: std::time::Instant,
+    lang: Lang,
+    opts: &PassthroughOpts,
+) -> Response {
+    log.source_protocol = opts.protocol_tag.to_string();
+    log.target_protocol = opts.protocol_tag.to_string();
     log.upstream_request_url = url.clone();
 
     // 解析超时（系统级；透传无 group/model mapping 覆盖）—— system_timeout + proxy_client 一次缓存借齐
@@ -39,8 +91,14 @@ pub(crate) async fn handle_passthrough(
         None, None,
     ).await;
 
-    // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）
-    let fwd_headers = passthrough_headers(&orig_headers);
+    // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）；
+    // forward 分支额外剥 Proxy-* 协商头（避免上游收到代理协商头）。
+    let mut fwd_headers = passthrough_headers(&orig_headers);
+    if opts.strip_proxy_headers {
+        for name in &["proxy-authorization", "proxy-connection", "proxy-authenticate"] {
+            fwd_headers.remove(*name);
+        }
+    }
     // 记录上游请求头（透传 redact authorization）
     log.upstream_request_headers = {
         let mut h = serde_json::Map::new();
@@ -55,12 +113,12 @@ pub(crate) async fn handle_passthrough(
         Value::Object(h).to_string()
     };
     log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
-    tracing::info!(method = %orig_method, url = %url, "passthrough upstream request");
+    tracing::info!(method = %orig_method, url = %url, tag = %opts.protocol_tag, "passthrough upstream request");
     tracing::debug!(method = %orig_method, url = %url, body = %super::log_util::log_body_preview(&log.upstream_request_body), "passthrough upstream request body");
 
     let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
         Ok(m) => m,
-        Err(_) => reqwest::Method::POST,
+        Err(_) => if opts.protocol_tag == "claude_code" { reqwest::Method::POST } else { reqwest::Method::GET },
     };
     let mut req_builder = client.request(method, &url).body(bytes.to_vec());
     req_builder = req_builder.headers(fwd_headers);
@@ -68,7 +126,7 @@ pub(crate) async fn handle_passthrough(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
-            tracing::error!(url = %url, error = %e, duration_ms = start.elapsed().as_millis() as i64, "passthrough upstream request failed (502)");
+            tracing::error!(url = %url, error = %e, duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
@@ -83,7 +141,7 @@ pub(crate) async fn handle_passthrough(
 
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
-    tracing::info!(url = %url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, "passthrough upstream responded");
+    tracing::info!(url = %url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream responded");
 
     // 捕获上游响应头（原样照搬给客户端）
     let mut resp_header_map = axum::http::HeaderMap::new();
@@ -130,20 +188,21 @@ pub(crate) async fn handle_passthrough(
     // ── 非流式：原样 relay bytes ──
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
-        // usage 借用：lossy 不经 to_string 中转
-        let (input_tokens, output_tokens, cache_tokens) =
-            extract_usage(String::from_utf8_lossy(&body).as_ref());
-
-        // ── record gate（与流式分支 :160/:168 对称）：上游/客户端 body 各自受对应开关控制，
-        //   开启时走 cap_nonstream_body 截断 + 落库（对齐 STREAM_BODY_MAX_BYTES 16MB）。──
+        // record gate（与流式分支 guard 对称）：上游/客户端 body 各自受对应开关控制，
+        // 开启时走 cap_nonstream_body 截断 + 落库（对齐 NONSTREAM_BODY_MAX_BYTES 16MB）。
         let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
         let record_client_body = log_settings.enabled && log_settings.log_user_request;
         log.status_code = status.as_u16() as i32;
         log.duration_ms = start.elapsed().as_millis() as i32;
-        log.input_tokens = input_tokens;
-        log.output_tokens = output_tokens;
-        log.cache_tokens = cache_tokens;
-        // 透传：upstream body == client body（无协议转换），但仍按侧 gate 落库
+        if opts.extract_usage {
+            // usage 借用：lossy 不经 to_string 中转
+            let (input_tokens, output_tokens, cache_tokens) =
+                extract_usage(String::from_utf8_lossy(&body).as_ref());
+            log.input_tokens = input_tokens;
+            log.output_tokens = output_tokens;
+            log.cache_tokens = cache_tokens;
+        }
+        // 透传：upstream body == client body（无协议转换），仍按侧 gate 落库
         log.response_body = if record_upstream_body { cap_nonstream_body(&body) } else { String::new() };
         log.user_response_body = if record_client_body { cap_nonstream_body(&body) } else { String::new() };
         log.user_response_headers = log.upstream_response_headers.clone();
@@ -163,18 +222,16 @@ pub(crate) async fn handle_passthrough(
     let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let req_span = tracing::Span::current();
 
+    // ── StreamLogGuard 配置单点：record_upstream_body / record_client_body 在此一处设（双写漂移
+    //   曾致 forward 误设 false，flush 跳过 user_response_body 回写 bug；memory symmetric-body-cap）。──
     // 透传原样 relay：response_body == user_response_body == 上游 SSE 原文。
-    // OOM 止血：response_body(上游) 改受 log_upstream_request 同侧控制（与 finish.rs 一致）。
+    // OOM 止血：response_body(上游) 受 log_upstream_request 同侧控制（与 finish.rs 一致）；
     // user_response_body 受 log_user_request 控制。
     let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
     let record_client_body = log_settings.enabled && log_settings.log_user_request;
-
     // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
-    // 透传 user_response_body == upstream 原文：当 log_user_request 开启时（record_client_body=true）
     // 闭包把上游 chunk 同步 push 进 client_body，flush 即从 client_body 写 user_response_body。
-    // 故 guard.record_client_body 必须 == record_client_body（曾误设 false，导致 flush 跳过
-    // user_response_body 回写，透传日志的 user_response_body 永不落内容）。
-    let passthrough_user_body = record_client_body;
+    // 故 guard.record_client_body 必须 == record_client_body（禁写 false，否则 flush 跳过 user_response_body）。
     let guard = StreamLogGuard {
         agg: agg.clone(),
         est_fired: est_fired.clone(),
@@ -183,40 +240,52 @@ pub(crate) async fn handle_passthrough(
         settings: log_settings.clone(),
         start,
         record_upstream_body,
-        record_client_body: passthrough_user_body,
+        record_client_body,
         req_span: req_span.clone(),
         // 透传分支历史上不做请求驱动预估，保持现状
         est: None,
     };
 
+    // 提前 copy 到局部，避免 opts 引用逃逸进 'static stream 闭包（E0521）。
+    let stream_error_msg_stop = opts.stream_error_msg_stop;
+    let extract_usage = opts.extract_usage;
+    let proto_tag = opts.protocol_tag;
+    // stream_error_msg_stop：handle (wire=anthropic) 合成 message_stop 干净收尾，避免 CC
+    //   "error decoding response body"；forward (普通浏览流量) 空 chunk 收尾。
     // guard 被 move 进闭包；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
-                // 上游流中途断裂：不向客户端报错（避免 CC "error decoding response body"），
-                // 仅记日志 + 合成 anthropic message_stop 干净收尾（claude_code relay wire = anthropic）。
-                tracing::warn!(error = %e, "passthrough upstream stream chunk error; closing stream gracefully");
-                return Ok::<_, std::io::Error>(Bytes::from(
-                    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
-                ));
+                if stream_error_msg_stop {
+                    tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing gracefully with message_stop");
+                    return Ok::<_, std::io::Error>(Bytes::from(
+                        "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+                    ));
+                } else {
+                    tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing");
+                    return Ok::<_, std::io::Error>(Bytes::new());
+                }
             }
         };
-        // 旁路累积上游 SSE 原文（受 master 开关控制）
+        // 旁路累积上游 SSE 原文（受对应侧开关控制）
         if record_upstream_body
             && let Ok(mut up) = guard.agg.upstream_body.lock() {
                 up.push(chunk.clone());
             }
         // 透传 user_response_body == upstream 原文：受 log_user_request 控制时同步聚合到 client_body
-        if passthrough_user_body
+        if record_client_body
             && let Ok(mut cl) = guard.agg.client_body.lock() {
                 cl.push(chunk.clone());
             }
-        // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段，含 message.usage 兜底），不改写 chunk。
-        // 跨 chunk 行重组：data: 行被切到两个 chunk 时逐 chunk .lines() 会丢 usage。
-        let text = String::from_utf8_lossy(&chunk);
-        guard.agg.feed_sse_usage(&text);
-        guard.flush_if_done(&text);
+        // 尽力从 SSE data 累计 usage（仅 extract_usage 分支需 token 入库；forward 跳过节省开销，
+        // cost=0 无需 token，且普通浏览流量 SSE 极少 feed_sse_usage 走通）。
+        if extract_usage {
+            // 跨 chunk 行重组：data: 行被切到两个 chunk 时逐 chunk .lines() 会丢 usage。
+            let text = String::from_utf8_lossy(&chunk);
+            guard.agg.feed_sse_usage(&text);
+            guard.flush_if_done(&text);
+        }
         Ok::<_, std::io::Error>(chunk)
     });
 
@@ -384,8 +453,8 @@ pub(crate) const UNMATCHED_GROUP_KEY: &str = "未匹配";
 /// - proxy_log 落虚拟桶：`group_key="未匹配"` + `platform_id=0` + `cost=0`（不计费），保留 url/status/duration/model 元数据。
 /// - 上游错误（TLS / 超时）→ 返 502 + 落 proxy_log 终态。
 ///
-/// ponytail: 复用 handle_passthrough 的响应转发骨架（非流式 bytes relay + 流式 bytes_stream），
-/// 不复用其 source/target_protocol 语义（claude_code）—— 此处是非 AI 普通浏览流量，标 "passthrough_unmatched"。
+/// ponytail: 复用 relay_passthrough 共享骨架（与 handle_passthrough 同源，~95% 同构），仅设差异 opts；
+/// 此处保留虚拟桶标记 + Host header URL 重构 + 缺 Host 400 兜底（forward 独有，不入共享骨架）。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn forward_passthrough_to_orig_host(
     state: &Arc<ProxyState>,
@@ -400,8 +469,6 @@ pub(crate) async fn forward_passthrough_to_orig_host(
 ) -> Response {
     // 虚拟桶标记：group_key/platform_id/cost 全部归零位（cost=0 不计费由 est_cost 默认 0.0 保证）。
     log.group_key = UNMATCHED_GROUP_KEY.to_string();
-    log.source_protocol = "passthrough_unmatched".to_string();
-    log.target_protocol = "passthrough_unmatched".to_string();
 
     // 目标 URL = {scheme}://{Host header}{path}?{query}，复用 build_url_from_host helper（与
     // handler.rs request_url 重构同源）。scheme 自适应：absolute-form 保留原 scheme 透传，
@@ -416,170 +483,20 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         inject_trace_header(&mut r);
         return r;
     };
-    log.upstream_request_url = url.clone();
 
-    // 超时：连接期保护，body 不设总超时（与 handle_passthrough 同款，避免砍长响应）。
-    let (system_timeout, proxy_client) = {
-        let c = state.settings_cache.read().await;
-        (c.system_timeout.clone(), c.proxy_client.clone())
+    let opts = PassthroughOpts {
+        protocol_tag: "passthrough_unmatched",
+        extract_usage: false,         // 普通浏览流量 cost=0，token 无意义
+        strip_proxy_headers: true,    // MITM 解密灌入可能携带代理协商头
+        stream_error_msg_stop: false, // 非 anthropic wire，空收尾即可
     };
-    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let client = super::http_client::build_http_client(
-        &proxy_client, 0u64, conn_timeout, None, None,
-    ).await;
-
-    // 剥 proxy-only headers（hop-by-hop 由 passthrough_headers 已剔 host/content-length；
-    // 此处补 Proxy-* 系列，避免上游收到代理协商头）。
-    let mut fwd_headers = passthrough_headers(&orig_headers);
-    for name in &["proxy-authorization", "proxy-connection", "proxy-authenticate"] {
-        fwd_headers.remove(*name);
-    }
-    log.upstream_request_headers = {
-        let mut h = serde_json::Map::new();
-        for (k, v) in &fwd_headers {
-            let name = k.as_str();
-            if is_sensitive_auth_header(name) {
-                h.insert(name.to_string(), Value::String("[REDACTED]".into()));
-            } else if let Ok(s) = v.to_str() {
-                h.insert(name.to_string(), Value::String(s.to_string()));
-            }
-        }
-        Value::Object(h).to_string()
-    };
-    log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
-    tracing::info!(method = %orig_method, url = %url, "passthrough unmatched → orig host");
-
-    let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
-        Ok(m) => m,
-        Err(_) => reqwest::Method::GET,
-    };
-    let mut req_builder = client.request(method, &url).body(bytes.to_vec());
-    req_builder = req_builder.headers(fwd_headers);
-
-    let resp = match req_builder.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::warn!(url = %url, error = %e, "passthrough unmatched upstream failed (502)");
-            log.response_body = format!("upstream error: {e}");
-            log.status_code = 502;
-            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
-            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
-            log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(state, log, log_settings).await;
-            let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
-            inject_trace_header(&mut r);
-            return r;
-        }
-    };
-
-    let status = resp.status();
-    log.upstream_status_code = status.as_u16() as i32;
-
-    // 响应头原样照搬（剔 hop-by-hop / 长度类）。
-    let mut resp_header_map = axum::http::HeaderMap::new();
-    {
-        let mut h = serde_json::Map::new();
-        for (k, v) in resp.headers() {
-            if let Ok(s) = v.to_str() {
-                h.insert(k.to_string(), Value::String(s.to_string()));
-            }
-            let name = k.as_str();
-            if name.eq_ignore_ascii_case("content-length")
-                || name.eq_ignore_ascii_case("transfer-encoding")
-                || name.eq_ignore_ascii_case("connection")
-            {
-                continue;
-            }
-            if let (Ok(hn), Ok(hv)) = (
-                axum::http::HeaderName::from_bytes(k.as_str().as_bytes()),
-                axum::http::HeaderValue::from_bytes(v.as_bytes()),
-            ) {
-                resp_header_map.insert(hn, hv);
-            }
-        }
-        log.upstream_response_headers = Value::Object(h).to_string();
-    }
-
-    let content_type = resp
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let is_stream = content_type.contains("text/event-stream")
-        || resp
-            .headers()
-            .get(reqwest::header::TRANSFER_ENCODING)
-            .and_then(|v| v.to_str().ok())
-            .map(|s| s.contains("chunked"))
-            .unwrap_or(false);
-
-    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-
-    if !is_stream {
-        let body = resp.bytes().await.unwrap_or_default();
-        let resp_str = String::from_utf8_lossy(&body).to_string();
-        log.response_body = resp_str.clone();
-        log.status_code = status.as_u16() as i32;
-        log.duration_ms = start.elapsed().as_millis() as i32;
-        log.user_response_body = resp_str;
-        log.user_response_headers = log.upstream_response_headers.clone();
-        // cost 保持 0（不计费）；model 保持原始（普通浏览流量通常无 model）。
-        upsert_log(state, log, log_settings).await;
-        let mut response = (resp_status, body.to_vec()).into_response();
-        *response.headers_mut() = resp_header_map;
-        inject_trace_header(&mut response);
-        return response;
-    }
-
-    // 流式：原样透传 bytes，不解析（普通浏览流量极少 SSE，仍兜底支持）。
-    log.is_stream = true;
-    log.status_code = status.as_u16() as i32;
-    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-    let record_client_body = log_settings.enabled && log_settings.log_user_request;
-    let agg = Arc::new(StreamAggregator::new());
-    let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let req_span = tracing::Span::current();
-    let guard = StreamLogGuard {
-        agg: agg.clone(),
-        est_fired: est_fired.clone(),
-        log: log.clone(),
-        state: state.clone(),
-        settings: log_settings.clone(),
-        start,
-        record_upstream_body,
-        record_client_body,
-        req_span: req_span.clone(),
-        est: None,
-    };
-    let stream = resp.bytes_stream().map(move |chunk_result| {
-        let chunk = match chunk_result {
-            Ok(c) => c,
-            Err(e) => {
-                tracing::warn!(error = %e, "passthrough unmatched stream chunk error; closing");
-                return Ok::<_, std::io::Error>(Bytes::new());
-            }
-        };
-        if record_upstream_body
-            && let Ok(mut up) = guard.agg.upstream_body.lock() {
-                up.push(chunk.clone());
-            }
-        if record_client_body
-            && let Ok(mut cl) = guard.agg.client_body.lock() {
-                cl.push(chunk.clone());
-            }
-        Ok::<_, std::io::Error>(chunk)
-    });
-    let body = Body::from_stream(stream);
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.response_body = "[stream]".to_string();
-    log.user_response_body = "[stream]".to_string();
-    log.user_response_headers = log.upstream_response_headers.clone();
-    upsert_log(state, log, log_settings).await;
-    let mut response = (resp_status, body).into_response();
-    *response.headers_mut() = resp_header_map;
-    inject_trace_header(&mut response);
-    response
+    relay_passthrough(
+        state, log, log_settings,
+        url,
+        orig_method, orig_headers, bytes,
+        start, lang,
+        &opts,
+    ).await
 }
 
 /// 判定请求 path（已含 group/proxy 前缀）是否为模型列表端点。
