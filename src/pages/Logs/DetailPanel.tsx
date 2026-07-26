@@ -1,3 +1,5 @@
+import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { F } from "../../domains/shared/tokens";
 import { CopyButton, MetaItem, RequestTabs } from "./primitives";
@@ -5,6 +7,8 @@ import { safeParseJson } from "./types";
 import type { LogsData } from "./useLogsData";
 import { formatDateTime } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
+import { getProtocolLabel } from "../../domains/platforms/defaults";
+import type { Protocol } from "../../services/api";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -91,6 +95,24 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
       ? safeParseJson(detail.response_body)
       : t("logs.streamResponse", "(流式响应，内容未记录)");
 
+  // 协议直观名 (复用 getProtocolLabel, fallback locale→en→key; copyText 仍保裸值供审计)
+  // ponytail: docPromise 单次 RPC 缓存, 双 await 实为内存查, 无 N+1
+  const { i18n } = useTranslation();
+  const [sourceLabel, setSourceLabel] = useState("");
+  const [targetLabel, setTargetLabel] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const sp = detail.source_protocol as Protocol | undefined;
+      const tp = detail.target_protocol as Protocol | undefined;
+      const s = sp ? await getProtocolLabel(sp, i18n.language) : "";
+      const tgt = tp ? await getProtocolLabel(tp, i18n.language) : "";
+      if (!cancelled) { setSourceLabel(s); setTargetLabel(tgt); }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language, detail.source_protocol, detail.target_protocol]);
+
   return (
     <>
       {/* Header（自定义工具栏：刷新/复制；返回由 Sheet 右上角 X 关闭承担） */}
@@ -139,8 +161,8 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} copyText={platformMap.get(detail.platform_id)} t={t} />
         <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
         <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} copyText={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : undefined} t={t} />
-        <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} copyText={detail.source_protocol} t={t} />
-        <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} copyText={detail.target_protocol} t={t} />
+        <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={sourceLabel || detail.source_protocol || "-"} copyText={detail.source_protocol} t={t} />
+        <MetaItem label={t("logs.targetProtocol", "请求格式")} value={targetLabel || detail.target_protocol || "-"} copyText={detail.target_protocol} t={t} />
         <MetaItem
           label={t("logs.status", "状态")}
           value={
