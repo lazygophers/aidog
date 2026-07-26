@@ -12,6 +12,7 @@ import { useTranslation } from "react-i18next";
 import type { EventSetting } from "../../services/api";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { useReveal } from "../../components/shared";
 
 /**
  * Claude Code 官方 hook 事件全量目录（约 30 个）。
@@ -118,6 +119,34 @@ function effectiveSetting(perEvent: Record<string, EventSetting>, event: string)
   };
 }
 
+// ponytail: 单行包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// reveal 萤火虫错峰入场 (stagger index*60)。
+function EventRow({
+  index,
+  children,
+}: {
+  index: number;
+  children: React.ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(index * 60);
+  return (
+    <div
+      ref={ref}
+      className={`reveal${shown ? " in" : ""}`}
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 8,
+        padding: "10px 12px",
+        borderRadius: 8,
+        background: "var(--bg-subtle, rgba(127,127,127,0.06))",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
 interface Props {
   /** 当前 per_event（undefined → 空对象，按默认目录展示）。 */
   perEvent: Record<string, EventSetting> | undefined;
@@ -147,8 +176,15 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
     onUpdate(event, { ...cur, ...partial });
   };
 
+  // 外层卡片本体 reveal。
+  const { ref: cardRef, shown: cardShown } = useReveal<HTMLDivElement>(0);
+
   return (
-    <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+    <div
+      ref={cardRef}
+      className={`glass-surface glass-highlight hover-lift reveal${cardShown ? " in" : ""}`}
+      style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10 }}
+    >
       <div>
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.eventListTitle", "逐 Hook 事件触发")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
@@ -158,21 +194,11 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, opacity: disabled ? 0.5 : 1, pointerEvents: disabled ? "none" : undefined }}>
-        {ordered.map((event) => {
+        {ordered.map((event, idx) => {
           const es = effectiveSetting(pe, event);
           const vars = eventVars(event);
           return (
-            <div
-              key={event}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 8,
-                padding: "10px 12px",
-                borderRadius: 8,
-                background: "var(--bg-subtle, rgba(127,127,127,0.06))",
-              }}
-            >
+            <EventRow key={event} index={idx}>
               {/* 第一行：启用开关 + 事件名 + TTS / 弹窗 开关 */}
               <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                 <Switch
@@ -215,7 +241,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
 
               {/* 第二行：模板 textarea（placeholder = 该事件专属默认模板） */}
               <Textarea
-                
+
                 style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 40, resize: "vertical", width: "100%", boxSizing: "border-box" }}
                 value={es.template}
                 disabled={!es.enabled}
@@ -242,7 +268,7 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                   </code>
                 ))}
               </div>
-            </div>
+            </EventRow>
           );
         })}
       </div>
