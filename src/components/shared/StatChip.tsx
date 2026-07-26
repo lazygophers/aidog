@@ -1,11 +1,11 @@
 // ── StatChip ──
 // 小统计 chip（图标 + 值 + 标签），可选语义色编码。
-// 视觉对齐 Groups.tsx 原 4-chip：glass 底 + 圆角 + 粗体值 + 次级标签。
+// 萤火虫玻璃签名：glass 底 + 柔和语义背景（--color-*-bg）+ pill 圆角 + 粗体值。
 // 外壳走 shadcn Badge（variant 由 level 派生），值文字色保持内联（测试依赖）。
 
 import type { ReactNode } from "react";
 import type { ColorLevel } from "./colorScale";
-import { levelColor } from "./colorScale";
+import { levelColor, levelBg } from "./colorScale";
 import { Badge } from "@/components/ui/badge";
 
 export interface StatChipProps {
@@ -17,7 +17,7 @@ export interface StatChipProps {
   label: string;
   /** 直接指定值文字颜色（CSS 变量或 var()）；优先级高于 level。 */
   color?: string;
-  /** 语义级别 → 自动取 var(--color-*) 作为值文字颜色。 */
+  /** 语义级别 → 自动取 var(--color-*) 作为值文字颜色 + 柔和背景。 */
   level?: ColorLevel;
 }
 
@@ -40,16 +40,20 @@ export function StatChip({ icon, value, label, color, level }: StatChipProps) {
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 5,
-        padding: "4px 10px",
-        borderRadius: "var(--radius-sm)",
-        background: "var(--bg-glass)",
+        gap: 6,
+        padding: "5px 12px",
+        borderRadius: "999px",
+        background: level ? levelBg(level) : "var(--bg-glass)",
         border: "1px solid var(--border)",
         fontSize: 12,
+        fontWeight: 500,
+        transition: "transform 200ms cubic-bezier(0.4,0,0.2,1), box-shadow 200ms cubic-bezier(0.4,0,0.2,1)",
       }}
     >
-      {icon && <span style={{ fontSize: 13, display: "inline-flex" }}>{icon}</span>}
-      <span style={{ fontWeight: 700, color: valueColor }}>{value}</span>
+      {icon && (
+        <span style={{ fontSize: 13, display: "inline-flex", color: valueColor }}>{icon}</span>
+      )}
+      <span className="counter" style={{ fontWeight: 700, color: valueColor }}>{value}</span>
       <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
     </Badge>
   );

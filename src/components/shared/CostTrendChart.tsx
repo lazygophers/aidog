@@ -94,6 +94,7 @@ export function CostTrendChart({ buckets }: CostTrendChartProps) {
           r={3.5}
           fill="var(--primary)"
           vectorEffect="non-scaling-stroke"
+          style={{ filter: "drop-shadow(0 0 4px var(--primary))", transition: "cx 0.2s ease, cy 0.2s ease" }}
         />
       </svg>
     </div>
