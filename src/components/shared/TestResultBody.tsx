@@ -6,6 +6,7 @@
 
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { useReveal } from "../../utils/motion";
 
 /** 解析结果判别：known = 命中已知结构（渲染结构化）；raw = 回退原文。 */
 export type ParsedTestBody =
@@ -126,11 +127,16 @@ export interface TestResultBodyProps {
 export function TestResultBody({ body }: TestResultBodyProps) {
   const { t } = useTranslation();
   const parsed = parseTestBody(body, t);
+  // 萤火虫 reveal: 测试结果详情入场淡入上移 (一次, 进入视口触发)
+  // ponytail: 不加 glass-surface — PlatformCard 调用方已用 glass-surface 包裹 (line 1007), 嵌套玻璃是噪音
+  const { ref, shown } = useReveal<HTMLDivElement>(0);
 
   if (parsed.kind === "raw") {
     if (!parsed.text) return null;
     return (
       <div
+        ref={ref}
+        className={`reveal${shown ? " in" : ""}`}
         style={{
           fontSize: 11,
           color: "var(--text-secondary)",
@@ -146,7 +152,11 @@ export function TestResultBody({ body }: TestResultBodyProps) {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}>
+    <div
+      ref={ref}
+      className={`reveal${shown ? " in" : ""}`}
+      style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 4 }}
+    >
       {parsed.rows.map((r, i) => (
         <div key={i} style={{ display: "flex", gap: 6, fontSize: 11, lineHeight: 1.45 }}>
           <span style={{ color: "var(--text-tertiary)", fontWeight: 600, flexShrink: 0 }}>{r.label}</span>

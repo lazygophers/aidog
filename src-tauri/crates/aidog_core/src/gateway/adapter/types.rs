@@ -235,6 +235,9 @@ pub enum ChatStreamEvent {
     /// 文本增量
     #[serde(rename = "delta")]
     Delta { text: String },
+    /// 推理内容增量（思维链）
+    #[serde(rename = "reasoning_delta")]
+    ReasoningDelta { text: String },
     /// 工具调用增量
     #[serde(rename = "tool_delta")]
     ToolDelta {

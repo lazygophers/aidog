@@ -23,6 +23,7 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { makeRipple } from "../../components/shared";
 
 // 单元格 key：默认列 = `d:<slot>`；时段档列 = `r<idx>:<slot>`。整矩阵单开（activeCell 唯一）。
 type CellKey = string;
@@ -451,7 +452,8 @@ export function ModelsMatrixSection({
               {t("action.cancel", "取消")}
             </Button>
             <Button
-              onClick={importFromPeakHours}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); importFromPeakHours(); }}
             >
               {t("platform.time_models_import_confirm_button", "确认")}
             </Button>

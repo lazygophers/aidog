@@ -4,7 +4,7 @@ import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
 import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
-import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel } from "../../components/shared";
+import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple } from "../../components/shared";
 import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
 import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
 import type { DragHandleProps } from "../../components/SortableList";
@@ -216,16 +216,16 @@ export const GroupListItem = memo(function GroupListItem({
             { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
           ]}
         />
-        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
+        <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
           <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
           </svg>
         </Button>
-        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onTestGroup(group, gps); }} disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning} title={t("group.testAll", "一键测试本组全部平台")}>
+        <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onTestGroup(group, gps); }} disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning} title={t("group.testAll", "一键测试本组全部平台")}>
           <IconBolt size={14} />
         </Button>
         {onCreatePlatform && (
-          <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>
+          <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M7 2v10M2 7h10" />
             </svg>
@@ -234,7 +234,8 @@ export const GroupListItem = memo(function GroupListItem({
         {/* 清理本分组失效（auto_disabled）平台：独占的永久删，共享的仅移除本分组关联 */}
         <Button
           variant="ghost"
-          onClick={(e) => { e.stopPropagation(); setPurgeConfirmOpen(true); }}
+          className="ripple"
+          onClick={(e) => { e.stopPropagation(); makeRipple(e); setPurgeConfirmOpen(true); }}
           title={t("group.purgeDisabled", "清理失效")}
           style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
         >
@@ -244,7 +245,8 @@ export const GroupListItem = memo(function GroupListItem({
         {gps.length > 0 && (
           <Button
             variant="ghost"
-            onClick={(e) => { e.stopPropagation(); setMode("select"); setSelectedIds(new Set()); }}
+            className="ripple"
+            onClick={(e) => { e.stopPropagation(); makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}
             title={t("group.batchOps", "多选")}
             style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
           >
@@ -254,11 +256,12 @@ export const GroupListItem = memo(function GroupListItem({
         {/* 设为默认分组（单选） */}
         <Button
           variant="ghost"
+          className="ripple"
           aria-pressed={group.is_default}
           aria-label={group.is_default
             ? t("group.unsetDefault", "取消默认分组")
             : t("group.setAsDefault", "设为默认分组")}
-          onClick={e => { e.stopPropagation(); onToggleDefault(group); }}
+          onClick={e => { e.stopPropagation(); makeRipple(e); onToggleDefault(group); }}
           title={group.is_default
             ? t("group.isDefaultTitle", "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml")
             : t("group.setAsDefault", "设为默认分组")}
@@ -280,14 +283,14 @@ export const GroupListItem = memo(function GroupListItem({
             ? t("group.defaultConfigWritten", "默认配置已写入")
             : t("group.setAsDefault", "设为默认")}
         </Button>
-        <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); onEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
+        <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
           </svg>
         </Button>
         {(!group.auto_from_platform || gps.length === 0) && (
-          <Button variant="ghost" size="icon" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); onDelete(group.id); }}>
+          <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); makeRipple(e); onDelete(group.id); }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
             </svg>
@@ -333,6 +336,7 @@ export const GroupListItem = memo(function GroupListItem({
     >
       <CompactCard
         header={header}
+        revealDelay={index * 60}
         expanded={forceExpanded || isExpanded || mode === "select"}
         onToggle={(next) => {
           if (mode === "select") return; // 多选模式禁折叠

@@ -32,3 +32,4 @@ export {
   balanceColorLevel,
 } from "./usageColor";
 export { stableStringify } from "./stableStringify";
+export { useReveal, useCounter, makeRipple } from "../../utils/motion";

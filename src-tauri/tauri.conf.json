@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "AiDog",
-  "version": "0.1.9",
-  "identifier": "com.aidog.app",
+  "version": "0.1.10",
+  "identifier": "com.aidog.desktop",
   "build": {
     "beforeDevCommand": "npx vite",
     "devUrl": "http://localhost:1420",

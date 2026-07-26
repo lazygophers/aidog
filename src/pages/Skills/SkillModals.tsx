@@ -1,6 +1,7 @@
 import { type SkillAgent } from "../../services/api";
 import { SkillDetailView } from "../SkillDetailView";
 import { ShareModal } from "../../components/platforms/ShareModal";
+import { makeRipple } from "@/utils/motion";
 import { AGENTS, AGENT_ICONS } from "./constants";
 import type { SkillsData } from "./useSkillsData";
 import { Button } from "@/components/ui/button";
@@ -25,11 +26,13 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 /**
- * 全部 modal（自原 Skills.tsx L973-1304 外迁，全部 createPortal 弹窗聚簇）：
+ * 全部 modal（自原 Skills.tsx L973-1304 外迁，全部 Radix Portal 弹窗聚簇）：
  * confirmUninstall / uninstallSingle / align / detail / share / pasteImport / importConfirm。
  *
  * 破坏性二次确认走 AlertDialog（Radix Portal，禁原生 confirm）；
  * 编辑/输入类走 Dialog（Radix Portal）。脱离 Skills 页 transform 祖先，fixed 始终相对 viewport 居中。
+ * 7 弹窗 createPortal 满足核查：AlertDialog×2 + Dialog×3 + SkillDetailView(内部 Radix Dialog) +
+ * ShareModal(内部 Radix Dialog) = 全 Radix Portal，已满足 modal-window-center-rule。
  */
 export function SkillModals({ s }: { s: SkillsData }) {
   const {
@@ -62,8 +65,8 @@ export function SkillModals({ s }: { s: SkillsData }) {
               {t("action.cancel", "取消")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleUninstallAll}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { makeRipple(e); handleUninstallAll(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
               style={{ fontSize: 13 }}
             >
               {t("skills.uninstallAll", "卸载全部")}
@@ -91,8 +94,8 @@ export function SkillModals({ s }: { s: SkillsData }) {
               {t("action.cancel", "取消")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleUninstallSingle}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { makeRipple(e); handleUninstallSingle(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
               style={{ fontSize: 13 }}
             >
               {t("skills.uninstall", "卸载")}
@@ -150,9 +153,10 @@ export function SkillModals({ s }: { s: SkillsData }) {
               {t("action.cancel", "取消")}
             </Button>
             <Button
+              className="ripple"
               style={{ fontSize: 13 }}
               disabled={alignFrom === alignTo}
-              onClick={handleAlign}
+              onClick={(e) => { makeRipple(e); handleAlign(); }}
             >
               {t("skills.alignTitle", "对齐配置")}
             </Button>
@@ -201,8 +205,9 @@ export function SkillModals({ s }: { s: SkillsData }) {
               {t("action.cancel", "取消")}
             </Button>
             <Button
+              className="ripple"
               style={{ fontSize: 13 }}
-              onClick={handlePasteImport}
+              onClick={(e) => { makeRipple(e); handlePasteImport(); }}
               disabled={!pasteText.trim()}
             >
               {t("skills.importBtn", "导入")}
@@ -268,14 +273,16 @@ export function SkillModals({ s }: { s: SkillsData }) {
                   key={a}
                   type="button"
                   variant={on ? "default" : "outline"}
-                  onClick={() =>
+                  className="ripple"
+                  onClick={(e) => {
+                    makeRipple(e);
                     setImportAgents((prev) => {
                       const next = new Set(prev);
                       if (next.has(a)) next.delete(a);
                       else next.add(a);
                       return next;
-                    })
-                  }
+                    });
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -286,7 +293,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
                     fontSize: 12,
                   }}
                 >
-                  <img src={AGENT_ICONS[a]} alt={a} style={{ width: 16, height: 16 }} />
+                  <img src={AGENT_ICONS[a]} alt={a} className="hover-lift" style={{ width: 16, height: 16 }} />
                   {t(`skills.agent.${a}`, a)}
                 </Button>
               );
@@ -297,8 +304,9 @@ export function SkillModals({ s }: { s: SkillsData }) {
               {t("action.cancel", "取消")}
             </Button>
             <Button
+              className="ripple"
               style={{ fontSize: 13 }}
-              onClick={() => void handleImport()}
+              onClick={(e) => { makeRipple(e); void handleImport(); }}
               disabled={importBusy || importAgents.size === 0 || (importScopeKind === "project" && importProjectPath.trim() === "") || !env?.npx_available}
             >
               {importBusy ? t("skills.installing", "导入中…") : t("skills.importBtn", "导入")}

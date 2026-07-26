@@ -1,9 +1,12 @@
 import { createPortal } from "react-dom";
+import { useTranslation } from "react-i18next";
 import { SkillInstallView } from "../SkillInstallView";
 import { formatDateTime, formatRelativeTime } from "../../utils/formatters";
+import { useReveal, makeRipple } from "@/utils/motion";
 import { AGENTS, AGENT_ICONS } from "./constants";
 import { skillCatalogId } from "./share";
 import type { SkillsData } from "./useSkillsData";
+import type { SkillInfo, SkillAgent } from "../../services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -37,52 +40,58 @@ export function SkillsView({ s }: { s: SkillsData }) {
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
           <Button
+            className="ripple"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}
-            onClick={() => setSubView("install")}
+            onClick={(e) => { makeRipple(e); setSubView("install"); }}
             title={t("skills.install.addBtn", "添加 Skills")}
           >
             {t("skills.install.addBtn", "+ 添加")}
           </Button>
           <Button
             variant="outline"
+            className="ripple"
             style={{ fontSize: 12 }}
             disabled={busyKey !== null}
-            onClick={() => { setPasteText(""); setMessage(null); setPasteOpen(true); }}
+            onClick={(e) => { makeRipple(e); setPasteText(""); setMessage(null); setPasteOpen(true); }}
             title={t("skills.importFromShare", "从分享导入")}
           >
             {t("skills.importFromShare", "从分享导入")}
           </Button>
           <Button
             variant="outline"
+            className="ripple"
             style={{ fontSize: 12 }}
             disabled={scopeInvalid || busyKey !== null || refreshing}
-            onClick={refreshInstalled}
+            onClick={(e) => { makeRipple(e); refreshInstalled(); }}
             title={t("skills.refresh", "刷新")}
           >
             {refreshing ? t("skills.refreshing", "刷新中…") : t("skills.refresh", "刷新")}
           </Button>
           <Button
             variant="outline"
+            className="ripple"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null}
-            onClick={handleUpdate}
+            onClick={(e) => { makeRipple(e); handleUpdate(); }}
           >
             {busyKey === "__update__" ? t("skills.updating", "更新中…") : t("skills.updateAll", "更新全部")}
           </Button>
           <Button
             variant="destructive"
+            className="ripple"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
-            onClick={() => setConfirmUninstall(true)}
+            onClick={(e) => { makeRipple(e); setConfirmUninstall(true); }}
           >
             {busyKey === "__uninstall__" ? t("skills.uninstalling", "卸载中…") : t("skills.uninstallAll", "卸载全部")}
           </Button>
           <Button
             variant="outline"
+            className="ripple"
             style={{ fontSize: 12 }}
             disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
-            onClick={() => setAlignOpen(true)}
+            onClick={(e) => { makeRipple(e); setAlignOpen(true); }}
           >
             {busyKey === "__align__" ? t("skills.aligning", "对齐中…") : t("skills.alignTitle", "对齐配置")}
           </Button>
@@ -180,7 +189,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
           <div style={{ display: "flex", gap: 20 }}>
             {AGENTS.map((a) => (
               <div key={a} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <img src={AGENT_ICONS[a]} alt={t(`skills.agent.${a}`, a)} style={{ width: 22, height: 22 }} />
+                <img src={AGENT_ICONS[a]} alt={t(`skills.agent.${a}`, a)} className="hover-lift" style={{ width: 22, height: 22 }} />
                 <div style={{ display: "flex", flexDirection: "column" }}>
                   <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{agentCounts[a]}</span>
                   <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
@@ -189,9 +198,10 @@ export function SkillsView({ s }: { s: SkillsData }) {
                 </div>
                 <Button
                   variant="outline"
+                  className="ripple"
                   style={{ fontSize: 11, padding: "3px 8px" }}
                   disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0 || agentCounts[a] === installed.length}
-                  onClick={() => handleEnableAll(a)}
+                  onClick={(e) => { makeRipple(e); handleEnableAll(a); }}
                   title={t("skills.enableAll", "全部启用")}
                 >
                   {busyKey === `__enableall_${a}__` ? t("skills.enabling", "启用中…") : t("skills.enableAll", "全部启用")}
@@ -255,175 +265,18 @@ export function SkillsView({ s }: { s: SkillsData }) {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {filteredInstalled.map((skill) => (
-              <Card
+            {filteredInstalled.map((skill, idx) => (
+              <SkillRow
                 key={skill.name}
-                className="glass-surface"
-                style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      title={t("skills.detail.view", "查看详情")}
-                      style={{ fontSize: 13, fontWeight: 600, padding: 0, height: "auto" }}
-                      onClick={() => setDetailTarget(skill)}
-                    >
-                      {skill.name}
-                    </Button>
-                    {/* 锁文件元数据标签：source / sourceType / plugin / updatedAt 相对时间 */}
-                    {skill.source && (
-                      <a
-                        href={skill.source_url ?? `https://github.com/${skill.source}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={(e) => {
-                          // Tauri 外链走 opener 由系统处理（普通 a target=_blank 也工作，这里防误关页面）。
-                          e.preventDefault();
-                          window.open(skill.source_url ?? `https://github.com/${skill.source}`, "_blank");
-                        }}
-                        title={skill.source_url ?? skill.source}
-                        style={{
-                          fontSize: 11,
-                          padding: "2px 8px",
-                          borderRadius: 6,
-                          background: "var(--accent-subtle)",
-                          color: "var(--accent)",
-                          textDecoration: "none",
-                          cursor: "pointer",
-                          border: "1px solid var(--border)",
-                        }}
-                      >
-                        {skill.source}
-                      </a>
-                    )}
-                    {skill.source_type && (
-                      <Badge
-                        variant="outline"
-                        title={t("skills.sourceType", "来源类型")}
-                        style={{
-                          fontSize: 10,
-                          padding: "2px 6px",
-                          background: "var(--bg-floating)",
-                          color: "var(--text-secondary)",
-                          textTransform: "uppercase",
-                          letterSpacing: 0.3,
-                        }}
-                      >
-                        {skill.source_type}
-                      </Badge>
-                    )}
-                    {skill.plugin_name && (
-                      <Badge
-                        variant="outline"
-                        title={t("skills.pluginName", "plugin 来源")}
-                        style={{
-                          fontSize: 10,
-                          padding: "2px 6px",
-                          background: "var(--bg-floating)",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        plugin: {skill.plugin_name}
-                      </Badge>
-                    )}
-                    {skill.updated_at && (
-                      <span
-                        title={`${t("skills.updatedAt", "更新时间")}: ${formatDateTime(skill.updated_at) ?? skill.updated_at}`}
-                        style={{
-                          fontSize: 11,
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        {formatRelativeTime(skill.updated_at)}
-                      </span>
-                    )}
-                  </div>
-                  {skill.description?.trim() && (
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
-                  )}
-                  {/* 安装时间次要行（紧凑） */}
-                  {skill.installed_at && (
-                    <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
-                      <span>{t("skills.installedAt", "安装于")}: </span>
-                      <span title={skill.installed_at}>{formatDateTime(skill.installed_at)}</span>
-                      {skill.skill_folder_hash && (
-                        <>
-                          <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>
-                          <span title={t("skills.hash", "内容 hash")} style={{ fontFamily: "monospace" }}>
-                            {skill.skill_folder_hash.slice(0, 7)}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-                {/* 右侧 agent 启用切换 */}
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                  {AGENTS.map((a) => {
-                    const enabled = skill.enabled_agents.includes(a);
-                    const busy = busyKey === `${skill.name}::${a}`;
-                    const label = t(`skills.agent.${a}`, a);
-                    const aria = enabled
-                      ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
-                      : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
-                    return (
-                      <Button
-                        key={a}
-                        type="button"
-                        variant={enabled ? "default" : "outline"}
-                        title={aria}
-                        aria-label={aria}
-                        aria-pressed={enabled}
-                        disabled={!writeReady || busyKey !== null}
-                        onClick={() => handleToggle(skill, a)}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 6,
-                          padding: "5px 10px",
-                          height: "auto",
-                          opacity: enabled ? 1 : 0.45,
-                          transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                        }}
-                      >
-                        <img
-                          src={AGENT_ICONS[a]}
-                          alt={label}
-                          style={{ width: 18, height: 18, filter: enabled ? "none" : "grayscale(1)" }}
-                        />
-                        <span style={{ fontSize: 11, fontWeight: 600 }}>
-                          {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
-                        </span>
-                      </Button>
-                    );
-                  })}
-                </div>
-                {/* 分享（仅 catalog 来源可分享：source 缺失的手动 symlink skill 隐藏按钮） */}
-                {skillCatalogId(skill) && (
-                  <Button
-                    variant="outline"
-                    style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
-                    onClick={() => handleShare(skill)}
-                    title={t("skills.share", "分享")}
-                  >
-                    {t("skills.share", "分享")}
-                  </Button>
-                )}
-                {/* 单条卸载（破坏性，二次确认） */}
-                <Button
-                  variant="destructive"
-                  style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
-                  disabled={!writeReady || busyKey !== null}
-                  onClick={() => setUninstallTarget(skill)}
-                  title={t("skills.uninstall", "卸载")}
-                >
-                  {busyKey === `__uninstall_single_${skill.name}__`
-                    ? t("skills.uninstalling", "卸载中…")
-                    : t("skills.uninstall", "卸载")}
-                </Button>
-              </Card>
+                skill={skill}
+                idx={idx}
+                busyKey={busyKey}
+                writeReady={writeReady}
+                onToggle={handleToggle}
+                onDetail={setDetailTarget}
+                onShare={handleShare}
+                onUninstall={setUninstallTarget}
+              />
             ))}
           </div>
         )}
@@ -442,5 +295,199 @@ export function SkillsView({ s }: { s: SkillsData }) {
         />
       )}
     </>
+  );
+}
+
+// ─── 单行 Skill ───
+
+// ponytail: 行级 reveal 包装 — 每实例独立 useReveal (React 规则禁 map 内 hook),
+// stagger idx*60 错峰，hover-lift + glass-surface 萤火虫流光描边走 .glass-surface:hover。
+interface SkillRowProps {
+  skill: SkillInfo;
+  idx: number;
+  busyKey: string | null;
+  writeReady: boolean;
+  onToggle: (skill: SkillInfo, agent: SkillAgent) => void;
+  onDetail: (skill: SkillInfo) => void;
+  onShare: (skill: SkillInfo) => void;
+  onUninstall: (skill: SkillInfo) => void;
+}
+
+function SkillRow({ skill, idx, busyKey, writeReady, onToggle, onDetail, onShare, onUninstall }: SkillRowProps) {
+  const { t } = useTranslation();
+  const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
+  return (
+    <Card
+      ref={ref}
+      className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
+      style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <Button
+            type="button"
+            variant="ghost"
+            title={t("skills.detail.view", "查看详情")}
+            style={{ fontSize: 13, fontWeight: 600, padding: 0, height: "auto" }}
+            onClick={() => onDetail(skill)}
+          >
+            {skill.name}
+          </Button>
+          {/* 锁文件元数据标签：source / sourceType / plugin / updatedAt 相对时间 */}
+          {skill.source && (
+            <a
+              href={skill.source_url ?? `https://github.com/${skill.source}`}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => {
+                // Tauri 外链走 opener 由系统处理（普通 a target=_blank 也工作，这里防误关页面）。
+                e.preventDefault();
+                window.open(skill.source_url ?? `https://github.com/${skill.source}`, "_blank");
+              }}
+              title={skill.source_url ?? skill.source}
+              style={{
+                fontSize: 11,
+                padding: "2px 8px",
+                borderRadius: 6,
+                background: "var(--accent-subtle)",
+                color: "var(--accent)",
+                textDecoration: "none",
+                cursor: "pointer",
+                border: "1px solid var(--border)",
+              }}
+            >
+              {skill.source}
+            </a>
+          )}
+          {skill.source_type && (
+            <Badge
+              variant="outline"
+              title={t("skills.sourceType", "来源类型")}
+              style={{
+                fontSize: 10,
+                padding: "2px 6px",
+                background: "var(--bg-floating)",
+                color: "var(--text-secondary)",
+                textTransform: "uppercase",
+                letterSpacing: 0.3,
+              }}
+            >
+              {skill.source_type}
+            </Badge>
+          )}
+          {skill.plugin_name && (
+            <Badge
+              variant="outline"
+              title={t("skills.pluginName", "plugin 来源")}
+              style={{
+                fontSize: 10,
+                padding: "2px 6px",
+                background: "var(--bg-floating)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              plugin: {skill.plugin_name}
+            </Badge>
+          )}
+          {skill.updated_at && (
+            <span
+              title={`${t("skills.updatedAt", "更新时间")}: ${formatDateTime(skill.updated_at) ?? skill.updated_at}`}
+              style={{
+                fontSize: 11,
+                color: "var(--text-secondary)",
+              }}
+            >
+              {formatRelativeTime(skill.updated_at)}
+            </span>
+          )}
+        </div>
+        {skill.description?.trim() && (
+          <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
+        )}
+        {/* 安装时间次要行（紧凑） */}
+        {skill.installed_at && (
+          <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
+            <span>{t("skills.installedAt", "安装于")}: </span>
+            <span title={skill.installed_at}>{formatDateTime(skill.installed_at)}</span>
+            {skill.skill_folder_hash && (
+              <>
+                <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>
+                <span title={t("skills.hash", "内容 hash")} style={{ fontFamily: "monospace" }}>
+                  {skill.skill_folder_hash.slice(0, 7)}
+                </span>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {/* 右侧 agent 启用切换 */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+        {AGENTS.map((a) => {
+          const enabled = skill.enabled_agents.includes(a);
+          const busy = busyKey === `${skill.name}::${a}`;
+          const label = t(`skills.agent.${a}`, a);
+          const aria = enabled
+            ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
+            : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
+          return (
+            <Button
+              key={a}
+              type="button"
+              variant={enabled ? "default" : "outline"}
+              className="ripple"
+              title={aria}
+              aria-label={aria}
+              aria-pressed={enabled}
+              disabled={!writeReady || busyKey !== null}
+              onClick={(e) => { makeRipple(e); onToggle(skill, a); }}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                padding: "5px 10px",
+                height: "auto",
+                opacity: enabled ? 1 : 0.45,
+                transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
+              }}
+            >
+              <img
+                src={AGENT_ICONS[a]}
+                alt={label}
+                className="hover-lift"
+                style={{ width: 18, height: 18, filter: enabled ? "none" : "grayscale(1)" }}
+              />
+              <span style={{ fontSize: 11, fontWeight: 600 }}>
+                {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
+              </span>
+            </Button>
+          );
+        })}
+      </div>
+      {/* 分享（仅 catalog 来源可分享：source 缺失的手动 symlink skill 隐藏按钮） */}
+      {skillCatalogId(skill) && (
+        <Button
+          variant="outline"
+          className="ripple"
+          style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+          onClick={(e) => { makeRipple(e); onShare(skill); }}
+          title={t("skills.share", "分享")}
+        >
+          {t("skills.share", "分享")}
+        </Button>
+      )}
+      {/* 单条卸载（破坏性，二次确认） */}
+      <Button
+        variant="destructive"
+        className="ripple"
+        style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+        disabled={!writeReady || busyKey !== null}
+        onClick={(e) => { makeRipple(e); onUninstall(skill); }}
+        title={t("skills.uninstall", "卸载")}
+      >
+        {busyKey === `__uninstall_single_${skill.name}__`
+          ? t("skills.uninstalling", "卸载中…")
+          : t("skills.uninstall", "卸载")}
+      </Button>
+    </Card>
   );
 }

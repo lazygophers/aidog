@@ -1,5 +1,5 @@
 import { IconClose } from "../../components/icons";
-import { FilterDropdown } from "../../components/shared";
+import { FilterDropdown, makeRipple } from "../../components/shared";
 import { F } from "../../domains/shared/tokens";
 import { LogRow, Pagination, FilterSelect, ThCell } from "./primitives";
 import { NO_GROUP_SENTINEL, type TimePreset } from "./types";
@@ -51,15 +51,15 @@ export function ListView({ d }: { d: LogsData }) {
           {cleanupMessage && (
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{cleanupMessage}</span>
           )}
-          <Button variant="default" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
+          <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); load(); }} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
           </Button>
           {total > 0 && (
             <>
-              <Button variant="default" onClick={handleCleanupExpired} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
+              <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); handleCleanupExpired(); }} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
                 {t("logs.cleanupExpired", "清理过期")}
               </Button>
-              <Button variant="destructive" onClick={() => setShowClearConfirm(true)} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
+              <Button variant="destructive" className="ripple" onClick={(e) => { makeRipple(e); setShowClearConfirm(true); }} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
                 {t("logs.clear", "清除全部")}
               </Button>
             </>
@@ -186,10 +186,11 @@ export function ListView({ d }: { d: LogsData }) {
                 <ThCell sticky>{""}</ThCell>
               </TableHeader>
               <TableBody>
-                {logs.map((log) => (
+                {logs.map((log, idx) => (
                   <LogRow
                     key={log.id}
                     log={log}
+                    idx={idx}
                     platformName={platformMap.get(log.platform_id) || "-"}
                     groupName={groupName(log.group_key)}
                     onOpen={openDetail}
@@ -233,7 +234,8 @@ export function ListView({ d }: { d: LogsData }) {
               {t("logs.cancel", "取消")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleClear}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); handleClear(); }}
               style={{ padding: "6px 14px", fontSize: 12, background: "var(--color-danger)" }}
             >
               {t("logs.clear", "清除全部")}

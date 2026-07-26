@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { makeRipple } from "@/utils/motion";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,7 +61,9 @@ export function McpModals({ d }: { d: McpData }) {
             <div style={{ flex: 1 }} />
             <Button
               variant="outline"
-              onClick={() => {
+              className="ripple"
+              onClick={(e) => {
+                makeRipple(e);
                 const all =
                   selected.size === scanItems.filter((i) => !i.alreadyImported).length;
                 setSelected(
@@ -150,7 +153,8 @@ export function McpModals({ d }: { d: McpData }) {
               {t("common.cancel", "取消")}
             </Button>
             <Button
-              onClick={handleImport}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleImport(); }}
               disabled={importing || selected.size === 0}
             >
               {importing
@@ -186,7 +190,8 @@ export function McpModals({ d }: { d: McpData }) {
               {t("common.cancel", "取消")}
             </Button>
             <Button
-              onClick={handlePasteImport}
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handlePasteImport(); }}
               disabled={pasteBusy || !pasteText.trim()}
             >
               {pasteBusy ? t("mcp.importing", "导入中…") : t("mcp.import", "导入")}
@@ -217,8 +222,8 @@ export function McpModals({ d }: { d: McpData }) {
               {t("common.cancel", "取消")}
             </AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { makeRipple(e); void handleDelete(); }}
+              className="ripple bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {t("common.delete", "删除")}
             </AlertDialogAction>
@@ -309,7 +314,11 @@ export function McpModals({ d }: { d: McpData }) {
             <Button variant="outline" onClick={() => { setEditTarget(null); setEditOpen(false); }} disabled={busyKey !== null}>
               {t("common.cancel", "取消")}
             </Button>
-            <Button onClick={handleEditSave} disabled={busyKey !== null}>
+            <Button
+              className="ripple"
+              onClick={(e) => { makeRipple(e); void handleEditSave(); }}
+              disabled={busyKey !== null}
+            >
               {busyKey !== null ? t("mcp.saving", "保存中…") : t("mcp.save", "保存")}
             </Button>
           </div>

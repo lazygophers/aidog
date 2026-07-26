@@ -21,9 +21,15 @@ export function SortableCard({ item, children }: { item: PopoverItem; children: 
     opacity: isDragging ? 0.4 : item.visible ? 1 : 0.5,
     zIndex: isDragging ? 10 : undefined,
     position: "relative",
+    // ponytail: 拖拽态萤火虫视觉强化 — accent-subtle 流光底 + 增强阴影; 不动 dnd 逻辑
+    ...(isDragging ? {
+      background: "var(--accent-subtle)",
+      boxShadow: "0 0 0 1px var(--accent-subtle), var(--shadow-lg)",
+      borderRadius: 8,
+    } : {}),
   };
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} className={isDragging ? "hover-lift" : undefined}>
       {children}
       <span
         ref={setActivatorNodeRef}

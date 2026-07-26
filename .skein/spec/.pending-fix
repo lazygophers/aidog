@@ -1,0 +1,119 @@
+{
+  "ts": "2026-07-26T21:29:27",
+  "core_chars": 924,
+  "budget": 1000,
+  "problems": [
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-05"
+      ],
+      "detail": "[断链] recall/build/rule-05: [[5-协议定义锚点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-05"
+      ],
+      "detail": "[断链] recall/build/rule-05: [[N×N-互转-路A-vs-路B]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-06"
+      ],
+      "detail": "[断链] recall/build/rule-06: [[endpoint-跨协议回退分层]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-06"
+      ],
+      "detail": "[断链] recall/build/rule-06: [[is-valid-wire-protocol-gate-是-fail-fast-非修复点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-07"
+      ],
+      "detail": "[断链] recall/build/rule-07: [[新增-wire-protocol-必须同步白名单]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-07"
+      ],
+      "detail": "[断链] recall/build/rule-07: [[bug1-真相]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-51"
+      ],
+      "detail": "[断链] recall/domain/rule-51: [[新增-wire-protocol-必须同步白名单]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-51"
+      ],
+      "detail": "[断链] recall/domain/rule-51: [[N×N-互转-路A-vs-路B]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-52"
+      ],
+      "detail": "[断链] recall/domain/rule-52: [[5-协议定义锚点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-52"
+      ],
+      "detail": "[断链] recall/domain/rule-52: [[N×N-互转-路A-vs-路B]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-53"
+      ],
+      "detail": "[断链] recall/domain/rule-53: [[5-协议定义锚点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-53"
+      ],
+      "detail": "[断链] recall/domain/rule-53: [[reasoning-content-anthropic-方案-B]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-54"
+      ],
+      "detail": "[断链] recall/domain/rule-54: [[5-协议定义锚点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-54"
+      ],
+      "detail": "[断链] recall/domain/rule-54: [[新增-wire-protocol-必须同步白名单]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-55"
+      ],
+      "detail": "[断链] recall/domain/rule-55: [[converter-5×5-与-endpoint-选择解耦]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-55"
+      ],
+      "detail": "[断链] recall/domain/rule-55: [[is-valid-wire-protocol-gate-是-fail-fast-非修复点]] ✗ 目标缺失"
+    }
+  ]
+}

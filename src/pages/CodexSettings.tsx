@@ -13,12 +13,34 @@ import {
 } from "../services/codex-settings-schema";
 import { deepMerge } from "../utils/deepMerge";
 import { stableStringify } from "../components/shared";
+import { useReveal } from "../utils/motion";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 type CodexConfig = Record<string, unknown>;
 
 // ─── Codex Global Settings Page ────────────────────────────
+
+// ponytail: 卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function CodexSectionCard({
+  staggerMs,
+  children,
+}: {
+  staggerMs: number;
+  children: React.ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift settings-section-card reveal${shown ? " in" : ""}`}
+      style={{ padding: S.pad, borderRadius: "var(--radius-lg)" }}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function CodexSettings() {
   const { t } = useTranslation();
@@ -235,12 +257,8 @@ export function CodexSettings() {
       ) : (
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           <div style={{ display: "flex", flexDirection: "column", gap: S.sectionGap, padding: "20px 4px 80px" }}>
-            {CODEX_SECTIONS.map((section) => (
-              <div
-                key={section.id}
-                className="glass-surface glass-highlight settings-section-card"
-                style={{ padding: S.pad, borderRadius: "var(--radius-lg)" }}
-              >
+            {CODEX_SECTIONS.map((section, idx) => (
+              <CodexSectionCard key={section.id} staggerMs={idx * 60}>
                 <div style={{ marginBottom: S.gap + 4 }}>
                   <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
                     <SectionIcon name={section.id} size={20} />
@@ -248,7 +266,7 @@ export function CodexSettings() {
                   </div>
                 </div>
                 {renderSection(section)}
-              </div>
+              </CodexSectionCard>
             ))}
             {saveError && (
               <div style={{ fontSize: F.body, color: "var(--color-danger)", wordBreak: "break-all", padding: "0 4px" }}>

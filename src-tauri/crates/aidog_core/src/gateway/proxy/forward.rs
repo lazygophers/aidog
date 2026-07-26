@@ -76,6 +76,57 @@ pub(crate) async fn forward_attempt(
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
         .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), "default".to_string(), false));
 
+    // ── target_protocol 合法性 guard（bugfix: s2-bug1-target-protocol）──
+    // matched_ep=None 时 fallback 到 platform_type，但 platform_type 可能是平台别名(sensenova/glm等)
+    // 而非 5 个有效协议之一(anthropic/openai/openai_responses/openai_completions/gemini)。
+    // 这种情况下 target_protocol 会落库为平台名，导致后续统计/审计出错。
+    //
+    // 验收：endpoint 匹配失败时 target_protocol 必须落 5 协议之一；否则 route fail。
+    // ponytail: 仅检测 5 协议，未来扩展协议需同步更新此列表。
+    let is_valid_wire_protocol = |p: &Protocol| -> bool {
+        matches!(p, Protocol::Anthropic | Protocol::OpenAI | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::Gemini)
+    };
+    if !is_valid_wire_protocol(target_protocol_enum) {
+        tracing::error!(
+            platform = %route.platform.name, platform_id = route.platform.id,
+            source_protocol = %source_protocol, target_protocol = ?target_protocol_enum,
+            endpoints_len = route.platform.endpoints.len(),
+            "target_protocol is not a valid wire protocol, endpoint selection failed"
+        );
+        // endpoint 选择失败且无有效兜底 → 记录 error 并 route fail
+        if !is_last_candidate {
+            // 非 last candidate：记录 attempt 并换下一个候选
+            attempts.push(ProxyAttempt {
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                status_code: 0,
+                error: format!("invalid target protocol: {:?}", target_protocol_enum),
+                duration_ms: attempt_start.elapsed().as_millis() as i64,
+                ts: attempt_ts,
+            });
+            let _ = super::db::set_platform_last_error(
+                &state.db, route.platform.id, Some(format!("invalid target protocol: {:?}", target_protocol_enum)),
+            ).await;
+            return AttemptOutcome::Next;
+        }
+        // last candidate：返回 502 + 审计落库
+        let msg = format!("{}: endpoint selection failed (no valid wire protocol)", i18n::t(lang, ErrorKey::Upstream));
+        log.platform_id = route.platform.id;
+        log.response_body = format!("invalid target protocol: {:?}", target_protocol_enum);
+        log.status_code = 502;
+        log.user_response_body = msg.clone();
+        log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.retry_count = (attempts.len() as i32 - 1).max(0);
+        log.attempts = std::mem::take(attempts);
+        upsert_log(state, log, log_settings).await;
+        return AttemptOutcome::Respond({
+            let mut r = (StatusCode::BAD_GATEWAY, msg).into_response();
+            inject_trace_header(&mut r);
+            r
+        });
+    }
+
     // ── base_url 缺失 guard ──
     // endpoints/base_url 均空（OAuth 未回填 / 用户手建平台漏配）→ 友好错误替代 reqwest builder error。
     // 空 base_url 拼 api_path 得无 host 相对 URL，reqwest builder 直接 error → 502「upstream error」无诊断价值。

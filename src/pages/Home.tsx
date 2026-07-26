@@ -1,5 +1,5 @@
 // ─── 首页 · 指挥中心 (Command Center) ──────────────────────────────────
-// 一屏掌控：顶部代理状态条 → 大 KPI 数字带（今日花费/Token/请求/缓存）→ 放大趋势主图（24h 双曲线）
+// 一屏掌控：顶部代理状态条 → 大 KPI 数字带（今日花费/Token/请求/缓存）→ 放大趋势主图（24h 三曲线）
 // → 底部双栏（分组平台速览·总余额 | 今日平台 Top5）→ 快捷操作。
 // 从现有设计系统长出（Liquid Glass + CSS 变量 + 共享组件 / formatters / usageColor），
 // 真实数据 only，无数据留诚实空态；深度分析留 Stats，本页只做概览与跳转入口。
@@ -22,7 +22,7 @@ import {
 } from "../services/api";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
-import { BalanceBar, costLevel, levelColor, CopyButton } from "../components/shared";
+import { BalanceBar, costLevel, levelColor, CopyButton, useReveal, useCounter, makeRipple } from "../components/shared";
 import { Button } from "@/components/ui/button";
 import { F } from "../domains/shared/tokens";
 import {
@@ -40,12 +40,51 @@ const TOP_PLATFORMS = 5;
 
 // CopyButton 抽至 components/shared（消重 D6）
 
-/** 大 KPI 单元：放大数字 + 可选副文本（如缩写量级）+ 小图标标签。今日概览的视觉主角之一。 */
-function KpiCell({ icon, value, sub, label, color }: { icon: React.ReactNode; value: string; sub?: string; label: string; color?: string }) {
+/**
+ * 大 KPI 单元：放大数字 + 可选副文本（如缩写量级）+ 小图标标签。今日概览的视觉主角之一。
+ * 向后兼容两种模式：
+ * - 传 `numeric` → useCounter raf 滚动到目标值，`format` 决定展示形态（默认 toLocaleString）。
+ * - 不传 `numeric`（或 undefined）→ 直接渲染 `value` 字符串（原行为，保护既有调用方）。
+ * `decimals` 仅 numeric 模式生效（useCounter 第二参，控小数位）。
+ */
+type KpiCellProps = {
+  icon: React.ReactNode;
+  value?: string;
+  numeric?: number;
+  format?: (n: number) => string;
+  decimals?: number;
+  sub?: string;
+  label: string;
+  color?: string;
+};
+function KpiCell({ icon, value, numeric, format, decimals, sub, label, color }: KpiCellProps) {
+  const useCounterMode = typeof numeric === "number" && Number.isFinite(numeric);
+  const { ref: counterRef, display } = useCounter(
+    useCounterMode ? (numeric as number) : 0,
+    decimals ?? 0,
+  );
+  // ponytail: useCounter 进入视口才滚动；display 已含 toFixed/localeString 格式化。
+  // format 模式（成本/百分比/大数缩写）从 display 反解析数字再走 format, 得到滚动中的目标格式串。
+  // fallback 分支（非 numeric 模式）直接显 value, 保持向后兼容。
+  let renderValue: string;
+  if (useCounterMode) {
+    if (format) {
+      const n = parseFloat(display.replace(/[^\d.-]/g, ""));
+      renderValue = format(Number.isFinite(n) ? n : (numeric as number));
+    } else {
+      renderValue = display;
+    }
+  } else {
+    renderValue = value ?? "";
+  }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
-      <span style={{ fontSize: F.kpi, fontWeight: 700, lineHeight: 1.05, color: color ?? "var(--text-primary)", letterSpacing: "-0.01em" }}>
-        {value}
+      <span
+        ref={useCounterMode ? counterRef : undefined}
+        className={useCounterMode ? "counter" : undefined}
+        style={{ fontSize: F.kpi, fontWeight: 700, lineHeight: 1.05, color: color ?? "var(--text-primary)", letterSpacing: "-0.01em" }}
+      >
+        {renderValue}
       </span>
       {sub && (
         <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 500, lineHeight: 1, marginTop: -1 }}>
@@ -122,6 +161,12 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
     ? t("home.statusUnknown", "未知")
     : running ? t("home.statusRunning", "运行中") : t("home.statusStopped", "已停止");
 
+  // 萤火虫动效：4 区块 reveal 入场错峰（0/80/160/240ms）。
+  const revealStatusBar = useReveal<HTMLDivElement>(0);
+  const revealKpi = useReveal<HTMLDivElement>(80);
+  const revealTrend = useReveal<HTMLDivElement>(160);
+  const revealBottom = useReveal<HTMLDivElement>(240);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       {/* Header */}
@@ -131,7 +176,11 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       </div>
 
       {/* 1. 状态条：代理运行状态 + 端口 + 复制 base_url */}
-      <div className="glass-surface" style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+      <div
+        ref={revealStatusBar.ref}
+        className={`glass-surface reveal${revealStatusBar.shown ? " in" : ""}`}
+        style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
+      >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ width: 9, height: 9, borderRadius: "50%", background: statusColor, flexShrink: 0, boxShadow: running ? "0 0 0 4px color-mix(in srgb, var(--color-success) 18%, transparent)" : "none" }} />
           <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("home.proxyStatus", "代理服务")}</span>
@@ -148,19 +197,43 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       </div>
 
       {/* 2. 大 KPI 数字带：今日花费 / Token / 请求 / 缓存率（视觉主角 · 无数据诚实空态） */}
-      <div className="glass-surface" style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+      <div
+        ref={revealKpi.ref}
+        className={`glass-surface reveal${revealKpi.shown ? " in" : ""}`}
+        style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}
+      >
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.todayTitle", "今日概览")}</div>
         {hasTodayData ? (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 18, columnGap: 28 }}>
             <KpiCell
               icon={<IconCost size={13} />}
-              value={formatCostUsd(today!.cost)}
+              numeric={today!.cost}
+              format={formatCostUsd}
+              decimals={2}
               label={t("home.cost", "费用")}
               color={levelColor(costLevel(today!.cost))}
             />
-            <KpiCell icon={<IconBolt size={13} />} value={today!.tokens.toLocaleString("en-US")} sub={formatNumber(today!.tokens)} label={t("home.tokens", "Token")} />
-            <KpiCell icon={<IconLogs size={13} />} value={today!.total_requests.toLocaleString("en-US")} sub={formatNumber(today!.total_requests)} label={t("home.requests", "请求")} />
-            <KpiCell icon={<IconPackage size={13} />} value={formatPercent(today!.cache_rate)} label={t("home.cacheRate", "缓存率")} />
+            <KpiCell
+              icon={<IconBolt size={13} />}
+              numeric={today!.tokens}
+              format={formatNumber}
+              sub={formatNumber(today!.tokens)}
+              label={t("home.tokens", "Token")}
+            />
+            <KpiCell
+              icon={<IconLogs size={13} />}
+              numeric={today!.total_requests}
+              format={formatNumber}
+              sub={formatNumber(today!.total_requests)}
+              label={t("home.requests", "请求")}
+            />
+            <KpiCell
+              icon={<IconPackage size={13} />}
+              numeric={today!.cache_rate}
+              format={(n) => formatPercent(n)}
+              decimals={1}
+              label={t("home.cacheRate", "缓存率")}
+            />
           </div>
         ) : (
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "8px 0" }}>
@@ -183,8 +256,12 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         )}
       </div>
 
-      {/* 3. 放大趋势主图 · 今日（hourly 双曲线：请求数 + tokens 总数） */}
-      <div className="glass-surface" style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* 3. 放大趋势主图 · 今日（hourly 三曲线：请求数 + tokens 总数 + 花费） */}
+      <div
+        ref={revealTrend.ref}
+        className={`glass-surface reveal${revealTrend.shown ? " in" : ""}`}
+        style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}
+      >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.trendTitle", "请求趋势 · 今日")}</div>
           {hasTrend && (
@@ -199,6 +276,10 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                   <span style={{ width: 10, height: 3, background: "var(--color-info)", borderRadius: 2 }} />
                   <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTokens", "Tokens")}</span>
                 </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 10, height: 3, background: "var(--color-warning)", borderRadius: 2 }} />
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendCost", "花费")}</span>
+                </span>
               </div>
               <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendPeak", "峰值")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendPeak)}</span></span>
               <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTotal", "总请求")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendTotal)}</span></span>
@@ -207,7 +288,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
         {hasTrend ? (
           (() => {
-            // SVG 双曲线图：请求数（accent）+ tokens 总数（info）。指挥中心 → 高度放大到 150。
+            // SVG 三曲线图：请求数（accent）+ tokens 总数（info）+ 花费（warning）。指挥中心 → 高度放大到 150。
             const W = 1000;            // viewBox 宽
             const H = 150;             // viewBox 高（放大主图）
             const PAD_T = 10;          // 顶部留白
@@ -225,15 +306,21 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
             }, 0);
             const yAtTokens = (v: number) => PAD_T + (tokensPeak > 0 ? (1 - v / tokensPeak) : 1) * plotH;
 
+            // 花费归一化（独立标尺）
+            const costPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_cost), 0);
+            const yAtCost = (v: number) => PAD_T + (costPeak > 0 ? (1 - v / costPeak) : 1) * plotH;
+
             const ptsRequests = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtRequests(b.total_requests), b }));
             const ptsTokens = trendBuckets.map((b, i) => ({
               x: xAt(i),
               y: yAtTokens(b.input_tokens + b.output_tokens + b.cache_tokens),
               b
             }));
+            const ptsCost = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtCost(b.total_cost), b }));
 
             const requestsPath = smoothPath(ptsRequests, PAD_T, H);
             const tokensPath = smoothPath(ptsTokens, PAD_T, H);
+            const costPath = smoothPath(ptsCost, PAD_T, H);
 
             // 峰值索引
             const peakIdxRequests = ptsRequests.reduce((mi, p, i) => p.b.total_requests > ptsRequests[mi].b.total_requests ? i : mi, 0);
@@ -273,6 +360,17 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                     vectorEffect="non-scaling-stroke"
                     opacity={0.85}
                   />
+                  {/* 花费曲线（warning，无填充，与 tokens 同模式避免三色面积打架） */}
+                  <path
+                    d={costPath}
+                    fill="none"
+                    stroke="var(--color-warning)"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                    opacity={0.85}
+                  />
                   {/* hover 命中区（每桶一竖条，透明） */}
                   {ptsRequests.map((p, i) => (
                     <rect
@@ -286,7 +384,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                       onMouseLeave={() => setHoveredBucket(null)}
                     />
                   ))}
-                  {/* 请求数峰值点高亮 */}
+                  {/* 请求数峰值点高亮（drop-shadow glow 萤火虫签名，对齐 CostTrendChart） */}
                   {trendPeak > 0 && (
                     <circle
                       cx={ptsRequests[peakIdxRequests].x.toFixed(1)}
@@ -294,6 +392,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                       r={3.5}
                       fill="var(--accent)"
                       vectorEffect="non-scaling-stroke"
+                      style={{ filter: "drop-shadow(0 0 4px var(--accent))", transition: "cx .2s ease, cy .2s ease" }}
                     />
                   )}
                 </svg>
@@ -363,6 +462,28 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                         </span>
                       )}
                     </div>
+                    {/* 花费 + 变化 */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendCost", "花费")}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-warning)" }}>
+                        {formatCostUsd(trendBuckets[hoveredBucket].total_cost)}
+                      </span>
+                      {hoveredBucket > 0 && (
+                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                          {(() => {
+                            const prevCost = trendBuckets[hoveredBucket - 1].total_cost;
+                            const currCost = trendBuckets[hoveredBucket].total_cost;
+                            const diff = currCost - prevCost;
+                            if (prevCost === 0) {
+                              return <span style={{ color: "var(--color-success)" }}> (+{formatCostUsd(diff)} new)</span>;
+                            }
+                            const pct = ((diff / prevCost) * 100).toFixed(0);
+                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
+                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
+                          })()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 )}
                 {/* x 轴整点小时标注：每 4 桶 */}
@@ -396,7 +517,11 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       </div>
 
       {/* 4. 底部双栏：左=分组/平台速览·总余额  右=今日平台用量 Top5 */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "stretch" }}>
+      <div
+        ref={revealBottom.ref}
+        className={`reveal${revealBottom.shown ? " in" : ""}`}
+        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "stretch" }}
+      >
         {/* 左：分组/平台速览 + 总余额 */}
         <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.overviewTitle", "分组 / 平台速览")}</div>
@@ -434,7 +559,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           {topPlatforms.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               {topPlatforms.map(p => (
-                <div key={p.platform_id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                <div key={p.platform_id} className="hover-lift" style={{ display: "flex", flexDirection: "column", gap: 3, padding: "4px 6px", borderRadius: "var(--radius-sm)" }}>
                   <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                     <span style={{ fontSize: F.hint, fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.platform_name}</span>
                     <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{formatNumber(p.requests)} · {formatNumber(p.tokens)}</span>
@@ -456,13 +581,13 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.quickActions", "快捷操作")}</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Button variant="default" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={() => onNavigate("platforms")}>
+          <Button variant="default" className="ripple" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={(e) => { makeRipple(e); onNavigate("platforms"); }}>
             <IconPlatforms size={15} /> {t("home.addPlatform", "添加平台")}
           </Button>
-          <Button variant="default" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={() => onNavigate("stats")}>
+          <Button variant="default" className="ripple" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={(e) => { makeRipple(e); onNavigate("stats"); }}>
             <IconStats size={15} /> {t("home.viewStats", "查看统计")}
           </Button>
-          <Button variant="default" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={() => onNavigate("logs")}>
+          <Button variant="default" className="ripple" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={(e) => { makeRipple(e); onNavigate("logs"); }}>
             <IconLogs size={15} /> {t("home.viewLogs", "查看日志")}
           </Button>
           <CopyButton text={proxyBaseUrl} label={t("home.copyBaseUrl", "复制代理地址")} title={t("home.copyBaseUrlTitle", "复制代理 base_url")} />

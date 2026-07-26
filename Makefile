@@ -1,5 +1,9 @@
 PRODUCT_NAME := aidog
+APP_NAME     := AiDog
 TAURI_DIR    := src-tauri
+INSTALL_DIR  := /Applications
+APP_BUNDLE   := $(TAURI_DIR)/target/release/bundle/macos/$(APP_NAME).app
+INSTALLED    := $(INSTALL_DIR)/$(APP_NAME).app
 
 BOLD  := \033[1m
 CYAN  := \033[36m
@@ -54,9 +58,30 @@ clean: ## Remove build artifacts
 	rm -rf dist
 	cd $(TAURI_DIR) && cargo clean
 
-.PHONY: install
-install: ## Install frontend dependencies
+.PHONY: deps
+deps: ## Install frontend dependencies
 	yarn install
+
+.PHONY: install
+install: ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
+	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))…$(RESET)\n"
+	yarn tauri build --bundles app --config '{"bundle":{"createUpdaterArtifacts":false}}'
+	@test -d "$(APP_BUNDLE)" || { printf "$(BOLD)❌ build 产物缺失: $(APP_BUNDLE)$(RESET)\n"; exit 1; }
+	@printf "$(GREEN)▶ 安装 → $(INSTALLED)$(RESET)\n"
+	@rm -rf "$(INSTALLED)"
+	@cp -R "$(APP_BUNDLE)" "$(INSTALL_DIR)/"
+	@printf "$(CYAN)▶ 检测运行中的 $(APP_NAME)…$(RESET)\n"
+	@pkill -f "$(APP_NAME).app/Contents/MacOS/" 2>/dev/null \
+		&& { printf "$(GREEN)✔ 已终止运行中实例，重启以加载新版本…$(RESET)\n"; sleep 1; } \
+		|| printf "$(GREEN)✔ 无运行中实例，跳过$(RESET)\n"
+	@printf "$(GREEN)✔ 已安装: $(INSTALLED)$(RESET)\n"
+	@open "$(INSTALLED)"
+
+.PHONY: uninstall
+uninstall: ## 从 /Applications 移除 AiDog.app
+	@test -e "$(INSTALLED)" || { printf "$(GREEN)ℹ️  未安装: $(INSTALLED)$(RESET)\n"; exit 0; }
+	@rm -rf "$(INSTALLED)"
+	@printf "$(GREEN)🗑  已移除: $(INSTALLED)$(RESET)\n"
 
 ##@ Docs
 

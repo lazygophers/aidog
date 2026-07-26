@@ -4,6 +4,7 @@
 // 消费 GA 冻结的 services/api.ts 契约（schedulingApi / SchedulingBreakerSettings），只读不改。
 
 import { useState, useEffect } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   schedulingApi,
@@ -14,6 +15,30 @@ import { ROUTING_MODES, routingModeLabel } from "../../domains/groups/routing";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { useReveal } from "../../components/shared";
+
+// ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function SchedSectionCard({
+  staggerMs,
+  style,
+  children,
+}: {
+  staggerMs: number;
+  style?: React.CSSProperties;
+  children: ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift reveal${shown ? " in" : ""}`}
+      style={style}
+    >
+      {children}
+    </div>
+  );
+}
 
 const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   default_routing_mode: "health_aware",
@@ -72,8 +97,8 @@ export function SchedulingSettingsTab() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       {/* 熔断总开关 */}
-      <div
-        className="glass-surface"
+      <SchedSectionCard
+        staggerMs={0}
         style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         <div>
@@ -83,10 +108,13 @@ export function SchedulingSettingsTab() {
           </div>
         </div>
         <Switch checked={settings.enabled} onCheckedChange={toggleEnabled} />
-      </div>
+      </SchedSectionCard>
 
       {/* 默认调度策略 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      <SchedSectionCard
+        staggerMs={60}
+        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}
+      >
         <div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.defaultRoutingMode", "默认调度策略")}</div>
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
@@ -94,8 +122,8 @@ export function SchedulingSettingsTab() {
           </div>
         </div>
         <Select
-          
-          
+
+
           value={settings.default_routing_mode}
           onValueChange={v => persist({ ...settings, default_routing_mode: v as RoutingMode })}
         >
@@ -106,10 +134,13 @@ export function SchedulingSettingsTab() {
           ))}
         </SelectContent>
 </Select>
-      </div>
+      </SchedSectionCard>
 
       {/* 全局熔断默认阈值 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}>
+      <SchedSectionCard
+        staggerMs={120}
+        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
+      >
         <div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("scheduling.breakerDefaults", "全局熔断默认")}</div>
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
@@ -136,7 +167,7 @@ export function SchedulingSettingsTab() {
             onChange={e => setNum("breaker_half_open_max", e.target.value)}
           />
         </div>
-      </div>
+      </SchedSectionCard>
 
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>

@@ -44,7 +44,8 @@ async fn spawn_reset_upstream() -> String {
 }
 
 async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
-    Arc::new(ProxyState {
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
+    let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
@@ -57,7 +58,10 @@ async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
         )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
-    })
+        log_tx,
+    });
+    spawn_log_writer(state.clone(), log_rx);
+    state
 }
 
 /// 注册一个 Anthropic 平台（base_url=stub）+ 一个 group（group_key=gk）并关联。
@@ -158,6 +162,7 @@ async fn x_api_key_resolves_group_and_forwards() {
         .unwrap();
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
@@ -178,6 +183,7 @@ async fn successful_forward_to_stub_upstream() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // 落库：应有一条成功 proxy_log
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
@@ -226,6 +232,7 @@ async fn upstream_401_auto_disables_platform() {
     let _ = handle_proxy(AxumState(state.clone()), req).await;
 
     // 平台应被 auto_disabled（auto_disabled_until > 0）
+    flush_log_queue(&state).await;
     let plats = crate::gateway::db::list_platforms(&state.db).await.unwrap();
     assert!(
         plats.iter().any(|p| p.auto_disabled_until > 0),
@@ -396,6 +403,7 @@ async fn mock_platform_intercepts_nonstream() {
     assert_eq!(resp.status(), StatusCode::OK);
     let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
     // 落库一条 mock 请求日志（假 token 生效）
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
@@ -495,6 +503,7 @@ async fn same_protocol_passthrough_skips_conversion() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
@@ -610,6 +619,7 @@ async fn responses_subendpoint_get_relays_upstream() {
     assert_eq!(v.get("id").and_then(|x| x.as_str()), Some("resp_1"));
 
     // 落库：source/target_protocol = openai_responses
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkresp"
         && l.source_protocol == "openai_responses"
@@ -633,6 +643,7 @@ async fn responses_subendpoint_post_cancel_forwards_body() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
 
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     let summary = logs.iter().find(|l| l.group_key == "gkrc").unwrap();
     let log = crate::gateway::db::get_proxy_log(&state.db, &summary.id)
@@ -667,6 +678,7 @@ async fn responses_subendpoint_fallback_first_enabled_platform() {
     let req = responses_get("gkrfb", "/v1/responses/resp_fb");
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkrfb" && l.source_protocol == "openai_responses"));
 }
@@ -874,6 +886,7 @@ async fn fallback_passthrough_mitm_unmatched_logs_virtual_bucket() {
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
 
     // 虚拟桶落库：group_key="未匹配"，platform_id=0，cost=0。
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     assert!(bucket.is_some(), "虚拟桶 proxy_log 应落库 (group_key=未匹配), logs: {:?}", logs.iter().map(|l| &l.group_key).collect::<Vec<_>>());
@@ -901,6 +914,7 @@ async fn api_path_wrong_token_still_404_no_bypass() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     // 不落虚拟桶
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(!logs.iter().any(|l| l.group_key == "未匹配"), "API path 未匹配不应进虚拟桶");
 }
@@ -960,6 +974,7 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
     );
 
     // proxy_log 落虚拟桶 + 完整 url（host + path + query）。
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配")
         .expect("虚拟桶 proxy_log 应落库");
@@ -1055,6 +1070,7 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
     );
 
     // proxy_log 落虚拟桶（group_key=未匹配 / cost=0 / source_protocol=passthrough_unmatched）。
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     assert!(bucket.is_some(), "absolute-form forward 必须落虚拟桶 proxy_log");
@@ -1096,6 +1112,7 @@ async fn path_only_uri_still_hits_health_endpoint_no_regression() {
     );
 
     // 健康端点不落 proxy_log（跳过日志）。
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     assert!(logs.is_empty(), "健康端点不落 proxy_log，实际: {logs:?}");
 }
@@ -1138,6 +1155,7 @@ Connection: close\r\n\
     );
 
     // proxy_log upstream_request_url 必须以 https:// 开头（scheme 自适应生效）。
+    flush_log_queue(&state).await;
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     let b = bucket.expect("absolute-form HTTPS 必须落虚拟桶 proxy_log");

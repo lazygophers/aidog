@@ -103,6 +103,77 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
     }
 }
 
+/// 解析 Anthropic Messages API 非流式响应为归一 NonStreamResponse
+pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+    let id = body.get("id")?.as_str()?.to_string();
+    let model = body.get("model")?.as_str().unwrap_or(fallback_model).to_string();
+
+    let content = body.get("content")?.as_array()?;
+    let mut text_parts: Vec<String> = Vec::new();
+    let mut reasoning_parts: Vec<String> = Vec::new();
+    let mut tool_uses: Vec<(String, String, Value)> = Vec::new();
+
+    for block in content {
+        let block_type = block.get("type")?.as_str()?;
+        match block_type {
+            "text" => {
+                if let Some(t) = block.get("text").and_then(|v| v.as_str()) {
+                    text_parts.push(t.to_string());
+                }
+            }
+            "thinking" => {
+                // 提取 thinking 文本，剥离 signature（只保留思维链内容）
+                if let Some(t) = block.get("thinking").and_then(|v| v.as_str()) {
+                    reasoning_parts.push(t.to_string());
+                }
+            }
+            "tool_use" => {
+                let id = block.get("id")?.as_str()?.to_string();
+                let name = block.get("name")?.as_str()?.to_string();
+                let input = block.get("input").cloned().unwrap_or_else(|| Value::Object(Default::default()));
+                tool_uses.push((id, name, input));
+            }
+            _ => {} // 跳过未知类型（如 redacted_thinking 等）
+        }
+    }
+
+    let stop_reason = body.get("stop_reason")
+        .and_then(|v| v.as_str())
+        .unwrap_or("end_turn")
+        .to_string();
+
+    let usage = body.get("usage")?;
+    let input_tokens = usage.get("input_tokens")?.as_i64()?;
+    let output_tokens = usage.get("output_tokens")?.as_i64()?;
+    let cache_read_tokens = usage.get("cache_read_tokens")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
+
+    let text = if text_parts.is_empty() {
+        None
+    } else {
+        Some(text_parts.join(""))
+    };
+
+    let reasoning = if reasoning_parts.is_empty() {
+        None
+    } else {
+        Some(reasoning_parts.join("\n\n"))
+    };
+
+    Some(super::converter::NonStreamResponse {
+        id,
+        model,
+        text,
+        tool_uses,
+        stop_reason,
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        reasoning,
+    })
+}
+
 /// 从 Anthropic 响应格式转回内部格式（解析 Anthropic SSE event data）
 pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
     let event_type = data.get("type")?.as_str()?;
@@ -121,6 +192,12 @@ pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
                 "text_delta" => Some(ChatStreamEvent::Delta {
                     text: delta.get("text")?.as_str()?.to_string(),
                 }),
+                "thinking_delta" => {
+                    // Anth Claude thinking 流式增量（reasoning_content）
+                    delta.get("thinking").and_then(|v| v.as_str()).filter(|t| !t.is_empty()).map(|thinking| ChatStreamEvent::ReasoningDelta {
+                        text: thinking.to_string(),
+                    })
+                }
                 "input_json_delta" => Some(ChatStreamEvent::ToolDelta {
                     index: data.get("index")?.as_u64()? as u32,
                     id: None,

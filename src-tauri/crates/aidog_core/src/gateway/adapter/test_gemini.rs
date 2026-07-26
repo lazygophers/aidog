@@ -147,6 +147,22 @@ fn parse_gemini_sse_none() {
 }
 
 #[test]
+fn parse_gemini_sse_thought_part() {
+    let d = json!({"candidates": [{"content": {"parts": [{"thought": true, "text": "thinking..."}]}}]});
+    match parse_gemini_sse(&d) {
+        Some(ChatStreamEvent::ReasoningDelta { text }) => assert_eq!(text, "thinking..."),
+        _ => panic!("expected reasoning_delta"),
+    }
+}
+
+#[test]
+fn to_gemini_sse_reasoning_delta() {
+    let s = to_gemini_sse(&ChatStreamEvent::ReasoningDelta { text: "thought".into() }, "m").unwrap();
+    assert!(s.contains("\"thought\":true"));
+    assert!(s.contains("thought"));
+}
+
+#[test]
 fn to_gemini_sse_variants() {
     assert!(to_gemini_sse(&ChatStreamEvent::Start { id: "i".into(), model: "m".into() }, "m").is_none());
     assert!(to_gemini_sse(&ChatStreamEvent::Delta { text: "x".into() }, "m").unwrap().contains("x"));
@@ -162,4 +178,290 @@ fn to_gemini_sse_variants() {
     // bad input → defaults to {}
     let td2 = ChatStreamEvent::ToolDelta { index: 0, id: None, name: Some("f".into()), input: Some("bad".into()) };
     assert!(to_gemini_sse(&td2, "m").unwrap().contains("functionCall"));
+}
+
+// ── parse_gemini_response 测试 ──
+#[test]
+fn parse_gemini_response_with_thinking() {
+    use super::super::gemini::parse_gemini_response;
+
+    let body = json!({
+        "id": "gemini_123",
+        "model": "gemini-2.5-flash",
+        "candidates": [{
+            "content": {
+                "parts": [
+                    {
+                        "thought": true,
+                        "text": "Let me think about this...\n\nAnalysis complete."
+                    },
+                    {
+                        "text": "Here is my answer."
+                    }
+                ],
+                "role": "model"
+            },
+            "finishReason": "STOP",
+            "index": 0
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 20,
+            "candidatesTokenCount": 30,
+            "totalTokenCount": 50
+        }
+    });
+
+    let parsed = parse_gemini_response(&body, "gemini-2.5-flash").expect("should parse");
+    assert_eq!(parsed.id, "gemini_123");
+    assert_eq!(parsed.model, "gemini-2.5-flash");
+    assert_eq!(parsed.text.as_deref(), Some("Here is my answer."));
+    assert_eq!(parsed.reasoning.as_deref(), Some("Let me think about this...\n\nAnalysis complete."));
+    assert_eq!(parsed.stop_reason, "end_turn");
+    assert_eq!(parsed.input_tokens, 20);
+    assert_eq!(parsed.output_tokens, 30);
+    assert!(parsed.tool_uses.is_empty());
+}
+
+#[test]
+fn parse_gemini_response_with_function_call() {
+    use super::super::gemini::parse_gemini_response;
+
+    let body = json!({
+        "id": "gemini_456",
+        "model": "gemini-2.0-flash",
+        "candidates": [{
+            "content": {
+                "parts": [
+                    {"text": "I'll call a function."},
+                    {
+                        "functionCall": {
+                            "name": "calculator",
+                            "args": {"operation": "add", "x": 1, "y": 2}
+                        }
+                    }
+                ],
+                "role": "model"
+            },
+            "finishReason": "STOP",
+            "index": 0
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 15,
+            "candidatesTokenCount": 25,
+            "totalTokenCount": 40,
+            "cachedContentTokenCount": 5
+        }
+    });
+
+    let parsed = parse_gemini_response(&body, "gemini-2.0-flash").expect("should parse");
+    assert_eq!(parsed.text.as_deref(), Some("I'll call a function."));
+    assert_eq!(parsed.tool_uses.len(), 1);
+    assert_eq!(parsed.tool_uses[0].1, "calculator");
+    assert_eq!(parsed.tool_uses[0].2, serde_json::json!({"operation": "add", "x": 1, "y": 2}));
+    assert_eq!(parsed.stop_reason, "end_turn");
+    assert_eq!(parsed.cache_read_tokens, 5);
+}
+
+#[test]
+fn parse_gemini_response_max_tokens() {
+    use super::super::gemini::parse_gemini_response;
+
+    let body = json!({
+        "id": "gemini_789",
+        "model": "gemini-1.5-pro",
+        "candidates": [{
+            "content": {
+                "parts": [{"text": "Response cut off"}],
+                "role": "model"
+            },
+            "finishReason": "MAX_TOKENS",
+            "index": 0
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 100,
+            "candidatesTokenCount": 150,
+            "totalTokenCount": 250
+        }
+    });
+
+    let parsed = parse_gemini_response(&body, "gemini-1.5-pro").expect("should parse");
+    assert_eq!(parsed.stop_reason, "max_tokens"); // MAX_TOKENS → max_tokens
+    assert_eq!(parsed.text.as_deref(), Some("Response cut off"));
+}
+
+#[test]
+fn parse_gemini_response_minimal() {
+    use super::super::gemini::parse_gemini_response;
+
+    // 最简情况：只有普通 text，无 thinking
+    let body = json!({
+        "candidates": [{
+            "content": {
+                "parts": [{"text": "Simple response"}],
+                "role": "model"
+            },
+            "finishReason": "STOP"
+        }],
+        "usageMetadata": {
+            "promptTokenCount": 10,
+            "candidatesTokenCount": 5,
+            "totalTokenCount": 15
+        }
+    });
+
+    let parsed = parse_gemini_response(&body, "gemini-pro").expect("should parse");
+    assert_eq!(parsed.text.as_deref(), Some("Simple response"));
+    assert!(parsed.reasoning.is_none());
+    assert!(parsed.tool_uses.is_empty());
+}
+
+// ── render_gemini_response 测试 ──
+#[test]
+fn render_gemini_text_only() {
+    use super::super::converter::NonStreamResponse;
+    use super::render_gemini_response;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "gemini-pro".to_string(),
+        text: Some("Hello world".to_string()),
+        tool_uses: vec![],
+        stop_reason: "end_turn".to_string(),
+        input_tokens: 10,
+        output_tokens: 5,
+        cache_read_tokens: 0,
+        reasoning: None,
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    assert_eq!(out["candidates"][0]["content"]["role"], "model");
+    assert_eq!(out["candidates"][0]["finishReason"], "STOP"); // end_turn → STOP
+    assert_eq!(out["candidates"][0]["content"]["parts"].as_array().unwrap().len(), 1);
+    assert_eq!(out["candidates"][0]["content"]["parts"][0]["text"], "Hello world");
+    assert_eq!(out["modelVersion"], "gemini-pro");
+}
+
+#[test]
+fn render_gemini_with_reasoning() {
+    use super::super::converter::NonStreamResponse;
+    use super::render_gemini_response;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "gemini-pro".to_string(),
+        text: Some("Answer".to_string()),
+        tool_uses: vec![],
+        stop_reason: "end_turn".to_string(),
+        input_tokens: 20,
+        output_tokens: 10,
+        cache_read_tokens: 0,
+        reasoning: Some("Let me think...".to_string()),
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    let parts = out["candidates"][0]["content"]["parts"].as_array().unwrap();
+    assert_eq!(parts.len(), 2);
+    assert_eq!(parts[0]["text"], "Answer");
+    assert_eq!(parts[1]["thought"], true);
+    assert_eq!(parts[1]["text"], "Let me think...");
+}
+
+#[test]
+fn render_gemini_with_function_call() {
+    use super::super::converter::NonStreamResponse;
+    use super::render_gemini_response;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "gemini-pro".to_string(),
+        text: Some("Calling function".to_string()),
+        tool_uses: vec![
+            ("tool_0".to_string(), "read_file".to_string(), json!({"path": "/tmp"})),
+        ],
+        stop_reason: "tool_use".to_string(),
+        input_tokens: 15,
+        output_tokens: 8,
+        cache_read_tokens: 0,
+        reasoning: None,
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    let parts = out["candidates"][0]["content"]["parts"].as_array().unwrap();
+    assert_eq!(parts.len(), 2);
+    assert_eq!(parts[0]["text"], "Calling function");
+    assert_eq!(parts[1]["functionCall"]["name"], "read_file");
+    assert_eq!(parts[1]["functionCall"]["args"]["path"], "/tmp");
+}
+
+#[test]
+fn render_gemini_max_tokens_maps_max_tokens() {
+    use super::super::converter::NonStreamResponse;
+    use super::render_gemini_response;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "gemini-pro".to_string(),
+        text: Some("Truncated".to_string()),
+        tool_uses: vec![],
+        stop_reason: "max_tokens".to_string(),
+        input_tokens: 5,
+        output_tokens: 3,
+        cache_read_tokens: 0,
+        reasoning: None,
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    assert_eq!(out["candidates"][0]["finishReason"], "MAX_TOKENS"); // max_tokens → MAX_TOKENS
+}
+
+#[test]
+fn render_gemini_with_all() {
+    use super::super::converter::NonStreamResponse;
+    use super::render_gemini_response;
+
+    let r = NonStreamResponse {
+        id: "test".to_string(),
+        model: "gemini-pro".to_string(),
+        text: Some("Result".to_string()),
+        tool_uses: vec![
+            ("tool_0".to_string(), "write".to_string(), json!({"content": "data"})),
+        ],
+        stop_reason: "tool_use".to_string(),
+        input_tokens: 25,
+        output_tokens: 12,
+        cache_read_tokens: 0,
+        reasoning: Some("Analyzing...".to_string()),
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    let parts = out["candidates"][0]["content"]["parts"].as_array().unwrap();
+    // text + thought + functionCall
+    assert_eq!(parts.len(), 3);
+    assert_eq!(parts[0]["text"], "Result");
+    assert_eq!(parts[1]["thought"], true);
+    assert_eq!(parts[1]["text"], "Analyzing...");
+    assert_eq!(parts[2]["functionCall"]["name"], "write");
+}
+
+#[test]
+fn render_gemini_empty_message() {
+    use super::super::converter::NonStreamResponse;
+    use super::render_gemini_response;
+
+    let r = NonStreamResponse {
+        id: "empty".to_string(),
+        model: "gemini-pro".to_string(),
+        text: None,
+        tool_uses: vec![],
+        stop_reason: "end_turn".to_string(),
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        reasoning: None,
+    };
+
+    let out = render_gemini_response(&r).unwrap();
+    // 兜底空 text part
+    assert_eq!(out["candidates"][0]["content"]["parts"].as_array().unwrap().len(), 1);
+    assert_eq!(out["candidates"][0]["content"]["parts"][0]["text"], "");
 }

@@ -1,0 +1,35 @@
+{
+  "id": "btn-width-fit",
+  "name": "按钮宽度自适应审计",
+  "desc": "审所有按钮确保宽度适配文字，无文字超出/截断/换行(尤其 i18n 长文案如德语/俄语)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "Sidebar label span 加 min-w-0+ellipsis",
+      "desc": "Sidebar.tsx 三处 label span(nav item/section header/DropdownItem) 加 minWidth:0+overflow hidden+textOverflow ellipsis, 长 i18n 文案 200px 内截断不溢出; yarn build 过",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784872356,
+      "started": 1784879104,
+      "finished": 1784879443
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/btn-width-fit",
+  "parent": null,
+  "kind": "task",
+  "created": 1784871910,
+  "started": 1784879104,
+  "checked": null,
+  "finished": 1784879991,
+  "updated": 1784879991
+}

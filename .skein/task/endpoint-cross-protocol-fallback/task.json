@@ -1,0 +1,46 @@
+{
+  "id": "endpoint-cross-protocol-fallback",
+  "name": "endpoint 跨协议回退: 无同协议端点时回退 openai 经 converter 转换",
+  "desc": "anthropic/gemini/openai_completions 入站 + 普通平台无同协议 endpoint 时, 回退 openai endpoint, converter 双向转; coding 平台排除(401 风险)",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [
+    "普通平台(无 coding 端点) source 无同协议 endpoint 时 MUST 回退 openai endpoint(若无 openai 取 endpoints 首个非 source 可用), converter 双向转(source→wire 请求 + wire→source 响应)",
+    "coding 平台(has_coding_ep=true) 禁落非 coding 端点, 步骤 1/2 逻辑不变(401 防护)",
+    "回退后 target_protocol MUST 落 5 wire 协议之一, is_valid_wire_protocol gate 不再触发(回退保证 endpoint.protocol 合法)",
+    "UA 透传分支保留(forward.rs:48-68), 回退是更后置的兜底, 两者不冲突"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "endpoint.rs 步骤4 跨协议回退 + 测试",
+      "desc": "select_endpoint_for_protocol 普通平台步骤4 扩展: 同协议直发 > openai > 任意非 source endpoint. coding 平台不动. 加测试: anthropic/gemini/openai_completions 入站 + 仅 openai endpoint 回退; coding 平台回归; 同协议直发回归; openai_responses 回归",
+      "depends_on": [],
+      "验收": [
+        "cargo test aidog_core gateway::proxy 全绿",
+        "clippy 0 本项目 warning",
+        "anthropic+仅openai endpoint 回退 openai",
+        "coding 平台不落非 coding",
+        "同协议直发不变"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1784994961,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/endpoint-cross-protocol-fallback",
+  "parent": null,
+  "kind": "task",
+  "created": 1784994866,
+  "started": 1784994968,
+  "checked": null,
+  "finished": 1784995498,
+  "updated": 1784995498
+}

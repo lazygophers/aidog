@@ -1,0 +1,20 @@
+{
+  "id": "firefly-ui-migration",
+  "name": "app 全量萤火虫 UI/UX 组件级迁移",
+  "desc": "按 example 萤火虫规范 100% 覆盖迁移 app 20 页面 + settings 子件 + platforms + 框架组件,从组件结构层(非仅 CSS)重构",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/firefly-ui-migration",
+  "parent": null,
+  "kind": "supertask",
+  "created": 1785031252,
+  "started": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785031252
+}

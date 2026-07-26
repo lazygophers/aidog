@@ -4,6 +4,7 @@ import { useApp } from "../context/AppContext";
 import { ALL_LOCALES } from "../locales";
 import { IconGlobe } from "./icons";
 import { Button } from "@/components/ui/button";
+import { makeRipple } from "../utils/motion";
 
 // ── SVG Icons ──
 
@@ -196,6 +197,7 @@ function DropdownItem({
   return (
     <Button
       variant="ghost"
+      className={active ? "ripple" : "ripple hover-lift"}
       style={{
         width: "100%",
         justifyContent: "flex-start",
@@ -207,10 +209,13 @@ function DropdownItem({
         background: active ? "var(--accent-subtle)" : "transparent",
         borderRadius: "var(--radius-sm)",
         height: "auto",
+        boxShadow: active ? "inset 2px 0 0 var(--primary), 0 0 8px color-mix(in srgb, var(--primary) 22%, transparent)" : "none",
       }}
-      onClick={onClick}
+      onClick={(e) => { makeRipple(e); onClick(); }}
     >
-      {children}
+      <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {children}
+      </span>
     </Button>
   );
 }
@@ -302,7 +307,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   }}
                   onClick={() => setCollapsedSection((s) => ({ ...s, [sec.key]: !collapsed }))}
                 >
-                  <span>{t(sec.key)}</span>
+                  <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(sec.key)}</span>
                   <span style={{
                     opacity: 0.5,
                     transform: collapsed ? "rotate(-90deg)" : "none",
@@ -320,6 +325,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Button
                 variant="ghost"
+                className={isActive ? "ripple" : "ripple hover-lift"}
                 style={{
                   justifyContent: "flex-start",
                   gap: 10,
@@ -329,16 +335,19 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     ? "var(--primary)"
                     : "var(--text-secondary)",
                   background: isActive
-                    ? "color-mix(in srgb, var(--primary) 16%, transparent)"
+                    ? "var(--accent-subtle)"
                     : "transparent",
+                  // 萤火虫激活态：左侧流光条 + 描边 glow
                   boxShadow: isActive
-                    ? "inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent)"
+                    ? "inset 2px 0 0 var(--primary), inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent), 0 0 12px color-mix(in srgb, var(--primary) 28%, transparent)"
                     : "none",
                   borderRadius: "var(--radius-sm)",
                   fontSize: 13,
                   height: "auto",
+                  position: "relative",
                 }}
-                onClick={() => {
+                onClick={(e) => {
+                  makeRipple(e);
                   if (hasChildren) {
                     // header 点击始终 toggle 展开；仅「展开 + 未在组内」时跳首个 child。
                     // 修复：group 已展开但 activeId 不在组内时，点击应收起而非重新展开+跳转。
@@ -360,7 +369,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 }}>
                   {(icons as Record<string, React.ReactNode>)[item.icon]}
                 </span>
-                <span style={{ flex: 1, textAlign: "start" }}>{t(item.labelKey)}</span>
+                <span style={{ flex: 1, minWidth: 0, textAlign: "start", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(item.labelKey)}</span>
                 {hasChildren && (
                   <span style={{
                     opacity: 0.4,
@@ -416,6 +425,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                             <Button
                               variant="ghost"
                               key={c.id}
+                              className={childActive ? "ripple" : "ripple hover-lift"}
                               style={{
                                 justifyContent: "flex-start",
                                 padding: "7px 10px 7px 26px",
@@ -425,9 +435,10 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
                                 borderLeft: childActive ? "2px solid var(--primary)" : "2px solid transparent",
+                                boxShadow: childActive ? "0 0 8px color-mix(in srgb, var(--primary) 22%, transparent)" : "none",
                                 height: "auto",
                               }}
-                              onClick={() => onNavigate(c.id)}
+                              onClick={(e) => { makeRipple(e); onNavigate(c.id); }}
                             >
                               {t(c.labelKey)}
                             </Button>
@@ -457,7 +468,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         {/* Theme: 黑/白 (dark/light) toggle —— 单一 mono 主题, 配色轴收敛为 mode */}
         <Button
           variant="ghost"
-          onClick={toggleMode}
+          className="ripple hover-lift"
+          onClick={(e) => { makeRipple(e); toggleMode(); }}
           style={{
             width: "100%",
             justifyContent: "space-between",
@@ -487,14 +499,16 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           open={langOpen}
           onToggle={() => setLangOpen((v) => !v)}
           trigger={
-            <Button variant="ghost" style={{
+            <Button variant="ghost" className="ripple hover-lift" style={{
               width: "100%",
               justifyContent: "space-between",
               fontSize: 12,
               padding: "7px 10px",
               color: "var(--text-secondary)",
               height: "auto",
-            }}>
+            }}
+            onClick={makeRipple}
+            >
               <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconGlobe size={14} /> {t(`lang.${locale}`)}</span>
               <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
             </Button>

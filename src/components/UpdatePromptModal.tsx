@@ -14,6 +14,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { makeRipple } from "../utils/motion";
 
 export interface UpdatePromptModalProps {
   /** check() 返回的可用更新。 */
@@ -79,16 +80,24 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
           <Button
             variant="ghost"
+            className="ripple hover-lift"
             style={{ fontSize: 13, padding: "6px 14px" }}
-            onClick={onClose}
+            onClick={(e) => { makeRipple(e); onClose(); }}
             disabled={busy}
           >
             {t("updater.later", "稍后")}
           </Button>
           <Button
             variant="default"
-            style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
-            onClick={handleUpdate}
+            className="ripple hover-lift"
+            style={{
+              fontSize: 13,
+              padding: "6px 14px",
+              minWidth: 96,
+              // 萤火虫：主 CTA 流光描边 + 呼吸 glow
+              boxShadow: "0 0 12px color-mix(in srgb, var(--primary) 28%, transparent)",
+            }}
+            onClick={(e) => { makeRipple(e); handleUpdate(); }}
             disabled={busy}
           >
             {busy
