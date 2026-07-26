@@ -4,6 +4,24 @@
 //   （经 listDeps 注入 list 侧依赖保持闭包共享）。本 hook 负责 list 态 + 派生 + effects + return 组装。
 //
 // 子组件消费：PlatformEditForm（编辑态）+ PlatformListView（列表态）通过 props 拿本 hook 返回值。
+//
+// ── platform mutation 一致性规则（arch-deepen/c6-event-bus） ──────────────────────────
+// 影响分组归属且改平台行的写路径必须三连：handleGroupsChanged() + groupsReloadRef.current?.()
+//   + window.dispatchEvent(new Event("aidog-groups-changed"))。
+//   - handleGroupsChanged: 刷新本 hook 的 groupDetails/membership（chips + 已分组/未分组派生）
+//   - groupsReloadRef: 命令式触发 GroupsEmbedded 重建（其 platforms state 独立，父级 setPlatforms 触达不到）
+//   - aidog-groups-changed 事件: 跨组件广播（其他监听者按需响应）
+// 对齐位置：handleDelete / handlePurgeDisabled（本文件）+ handleSave / createCliProxyPlatform
+//   （usePlatformForm.ts）+ runBatchCreateFromPaste（platformPasteApply.ts）。
+//
+// 故意漏 reloadRef 的特例：拖入分组（onStandaloneGroupPointerUp）—平台行不变，仅 setGroupDetails
+//   + 事件广播即足够，跳过 reloadRef（见 :343-344 注释）。
+//
+// 不发 groups-changed 的路径：handleToggle（status 切换不改归属）/ handleQuickTest（仅测试信号）。
+//
+// 正交信号（不混入三连）: aidog-platform-test-completed（单卡测试完成）/ aidog:platform（deep-link
+//   导入）—各自有独立 lifecycle 与监听者，不与 membership mutation 混。
+// ────────────────────────────────────────────────────────────────────────────────────
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -516,7 +534,11 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     });
     try {
       await platformApi.delete(id);
+      // 三连：对齐 handleSave / createCliProxyPlatform / runBatchCreateFromPaste / handlePurgeDisabled。
+      // 删平台会 cascade 清 group_platform 关联，GroupsEmbedded 分组卡内的该平台行必须由专用 reload 移除，
+      // 仅靠父级 setPlatforms(filter) 无法触达（GroupsEmbedded 渲染门控在其自身 platforms state）。
       handleGroupsChanged();
+      groupsReloadRef.current?.();
       window.dispatchEvent(new Event("aidog-groups-changed"));
     } catch (e) {
       console.error(e);
@@ -619,8 +641,11 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
         platformsEpochRef.current++;
         setPlatforms(prev => prev.filter(x => !del.has(x.id)));
       }
+      // 三连：对齐 handleSave / createCliProxyPlatform / runBatchCreateFromPaste / handleDelete。
+      // purge 会移除分组关联（unassignedIds）+ 永久删除部分平台（deletedIds），跨组件需感知成员变更。
       handleGroupsChanged();
       groupsReloadRef.current?.();
+      window.dispatchEvent(new Event("aidog-groups-changed"));
     } catch (err) {
       setToast({ text: `${t("platform.purgeDisabled", "清理失效平台")}: ${err}`, ok: false });
       setTimeout(() => setToast(null), 3000);

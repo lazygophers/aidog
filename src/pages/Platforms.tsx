@@ -16,6 +16,10 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // GroupsEmbedded「添加分组」弹窗触发 ref（按钮上移到本页页头）。
   const openCreateGroupRef = useRef<(() => void) | null>(null);
   // GroupsEmbedded 跨组件刷新入口（全局 purge 删平台后，触发分组卡内重建）。
+  // ponytail: 该 ref 是 platform mutation 三连之一（见 usePlatformsState.ts 顶部「一致性规则」注释）。
+  //   membership 写路径（handleDelete / handlePurgeDisabled / handleSave / createCliProxyPlatform /
+  //   runBatchCreateFromPaste）均须三连：handleGroupsChanged() + groupsReloadRef.current?.()
+  //   + dispatch aidog-groups-changed。拖入分组特例跳过本 ref。
   const groupsReloadRef = useRef<(() => void) | null>(null);
 
   const s = usePlatformsState({ onNavigate, initialFilter, groupsReloadRef });
