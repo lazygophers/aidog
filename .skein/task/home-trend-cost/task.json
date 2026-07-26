@@ -1,0 +1,50 @@
+{
+  "id": "home-trend-cost",
+  "name": "首页趋势加价格曲线",
+  "desc": "Home.tsx 趋势图加第3条 cost 曲线 + tooltip cost 行 + 8语言i18n",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "trend-cost",
+      "name": "趋势加价格曲线",
+      "desc": "Home.tsx SVG 第3条 cost 曲线 + tooltip + 图例 + 8语言i18n",
+      "depends_on": [],
+      "验收": [
+        "第3曲线可见",
+        "tooltip cost行",
+        "图例3项",
+        "tsc0err",
+        "test pass",
+        "check-i18n 0缺译"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785071493,
+      "started": 1785071501,
+      "finished": 1785071674
+    }
+  ],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/home-trend-cost",
+  "parent": null,
+  "kind": "task",
+  "created": 1785071481,
+  "started": 1785071501,
+  "confirmed": 1785071501,
+  "checked": 1785071674,
+  "finished": 1785071681,
+  "updated": 1785071681
+}

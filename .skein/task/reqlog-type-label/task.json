@@ -1,0 +1,21 @@
+{
+  "id": "reqlog-type-label",
+  "name": "请求记录类型显示直观",
+  "desc": "RequestLog 类型筛选值 test/quota/protocol 改中文标签",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/reqlog-type-label",
+  "parent": null,
+  "kind": "task",
+  "created": 1785071481,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785071481
+}
