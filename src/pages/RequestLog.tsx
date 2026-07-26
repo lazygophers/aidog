@@ -293,10 +293,11 @@ export function RequestLog() {
                   <ThCell sticky>{""}</ThCell>
                 </TableHeader>
                 <TableBody>
-                  {logs.map((log) => (
+                  {logs.map((log, idx) => (
                     <LogRow
                       key={log.id}
                       log={log}
+                      idx={idx}
                       platformName={platformMap.get(log.platform_id) || "-"}
                       groupName={groupName(log.group_key)}
                       providerName={log.cli_proxy_provider_name ?? null}
