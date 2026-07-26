@@ -1,22 +1,6 @@
 {
   "tasks": [
     {
-      "id": "dropdown-redesign",
-      "status": "待处理",
-      "deps": [],
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
-      "id": "home-polish",
-      "status": "待处理",
-      "deps": [],
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "accent-gold-deepen",
       "status": "已完成",
       "deps": [],
@@ -82,6 +66,14 @@
     },
     {
       "id": "dependabot-npm-bump",
+      "status": "已完成",
+      "deps": [],
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "dropdown-redesign",
       "status": "已完成",
       "deps": [],
       "worktree": null,
