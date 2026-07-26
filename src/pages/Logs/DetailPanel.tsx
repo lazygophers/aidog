@@ -4,6 +4,7 @@ import { CopyButton, MetaItem, RequestTabs } from "./primitives";
 import { safeParseJson } from "./types";
 import type { LogsData } from "./useLogsData";
 import { formatDateTime } from "../../utils/formatters";
+import { makeRipple } from "../../components/shared";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -97,7 +98,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <Button variant="ghost" className="btn-icon" onClick={() => openDetail(detail.id)} title={t("logs.refresh", "刷新")}>
           <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
         </Button>
-        <Button variant="ghost" className="btn-icon" onClick={() => copyDetail(detail)} title={t("logs.copyAll", "复制完整信息")}>
+        <Button variant="ghost" className="btn-icon ripple" onClick={(e) => { makeRipple(e); copyDetail(detail); }} title={t("logs.copyAll", "复制完整信息")}>
           {copied ? (
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
           ) : (
@@ -133,7 +134,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
       </div>
 
       {/* Meta grid */}
-      <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+      <div className="glass-surface hover-lift" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
         <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} copyText={detail.group_key} t={t} />
         <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} copyText={platformMap.get(detail.platform_id)} t={t} />
         <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
@@ -182,7 +183,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
 
       {/* ── 平台尝试时序（多平台重试时展示每次尝试：平台/状态码/耗时/错误）── */}
       {detail.attempts && detail.attempts.length >= 1 && (
-        <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+        <div className="glass-surface hover-lift" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.attempts", "尝试记录")}</span>
             <span className="badge" style={{ fontSize: 10, padding: "1px 6px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}>
