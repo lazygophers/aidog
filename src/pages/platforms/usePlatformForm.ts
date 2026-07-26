@@ -763,6 +763,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       }
       // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
       // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
+      // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：本 handleSave 与
+      //   handleDelete / handlePurgeDisabled / createCliProxyPlatform / runBatchCreateFromPaste 对齐。
       handleGroupsChanged();
       // 已分组平台（join_group_ids / auto_group）只在 <GroupsEmbedded> 的分组卡内渲染，而该组件渲染门控在
       // 其**自身** platforms state（Groups.tsx 分组卡 platforms.find），父级乐观 setPlatforms 不会注入。
@@ -792,6 +794,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       platformApi.usageStats(saved.id)
         .then(u => setUsageMap(prev => ({ ...prev, [saved.id]: u })))
         .catch(() => {});
+      // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：对齐 handleSave /
+      //   handleDelete / handlePurgeDisabled / runBatchCreateFromPaste。
       handleGroupsChanged();
       groupsReloadRef.current?.();
       window.dispatchEvent(new Event("aidog-groups-changed"));
