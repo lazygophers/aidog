@@ -7,10 +7,13 @@
 // 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
 // middleware/mitm/proxy/proxy_log/proxy_timeout 下沉 commands_proxy crate（C4）；
 // startup.rs generate_handler 直接用 `commands_proxy::*` 路径调用。
-// settings/defaults 下沉 commands_config crate（C5）；
-// hooks/sync_settings 源已 C2 下沉 aidog_core，test_hooks 随 commands_config crate 走
-// （依赖 aidog_test_util::mock_app_with_db）。
-// startup.rs generate_handler 直接用 `commands_config::*` 路径调用。
+// settings/defaults 原下沉 commands_config crate（C5），C3 c3-commands 第 2 批再迁入
+// aidog_core，commands_config crate 删除。startup.rs generate_handler 直接用
+// `aidog_core::settings::*` / `aidog_core::defaults::*` 路径调用。
+// cli_env 原下沉 commands_cli_env crate（C9），同批迁入 aidog_core，crate 删除，
+// startup.rs 用 `aidog_core::cli_env::*`。
+// cli_proxy provider/platform/import/batch 原下沉 commands_cli_proxy crate，同批迁入
+// aidog_core::cli_proxy_cmd，crate 删除，startup.rs 用 `aidog_core::cli_proxy_cmd::*`。
 // about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete 下沉 commands_system crate（C6）；
 // startup.rs generate_handler 直接用 `commands_system::*` 路径调用。
 // coding_tools/mcp/skills/script_executor/model_test 下沉 commands_ai_tools crate（C7）；

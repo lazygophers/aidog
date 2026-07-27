@@ -1,11 +1,11 @@
 //! CLI 代理 provider 批量导入命令（cpa-standalone-module s3）。
 //!
-//! 迁旧 `cpa_import::parse_cpa_config`（s3 已搬至 `aidog_core::gateway::cli_proxy_parser`），
+//! 迁旧 `cpa_import::parse_cpa_config`（s3 已搬至 `gateway::cli_proxy_parser`），
 //! 段 → wire_protocol 直映（去旧 cpa-* 协议中转），产 `CreateCliProxyProvider` 批量入库。
 //! 与旧 `commands_platform::cpa_import` 解耦：旧 mapper 输出 MappedPlatform（建 platform 表行），
 //! 新 mapper 输出 CreateCliProxyProvider（建 cli_proxy_provider 表行）。
 
-use aidog_core::gateway::{
+use crate::gateway::{
     cli_proxy_parser::{
         parse_cpa_config, CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason,
     },
@@ -18,7 +18,7 @@ use tauri::State;
 /// 批量导入结果（非原子：成功入库，失败收集原因）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliProxyImportResult {
-    pub created: Vec<aidog_core::gateway::models::CliProxyProvider>,
+    pub created: Vec<crate::gateway::models::CliProxyProvider>,
     pub failed: Vec<CliProxyImportFailure>,
     pub skipped: Vec<SkipReason>,
     pub source_files: Vec<String>,
@@ -30,55 +30,55 @@ pub struct CliProxyImportFailure {
     pub error: String,
 }
 
-/// 解析 CPA 配置 → 批量创建 cli_proxy_provider（非原子尽力）。
-///
-/// - `path`: config.yaml/json/zip/tgz/dir
-/// - `auth_dir`: 可选 OAuth 凭据目录
-/// - `group_id`: 可选归属分组（写入每个新建 provider.group_id）
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
-pub async fn cli_proxy_import(
-    path: String,
-    auth_dir: Option<String>,
-    group_id: Option<i64>,
-    db: State<'_, Db>,
-) -> Result<CliProxyImportResult, String> {
-    tracing::debug!(command = "cli_proxy_import", path = %path, "command invoked");
-    let parsed = parse_cpa_config(&path, auth_dir.as_deref())?;
-    tracing::info!(
-        providers = parsed.providers.len(),
-        skipped = parsed.skipped.len(),
-        "cli_proxy_import parsed"
-    );
+crate::tauri_command! {
+    /// 解析 CPA 配置 → 批量创建 cli_proxy_provider（非原子尽力）。
+    ///
+    /// - `path`: config.yaml/json/zip/tgz/dir
+    /// - `auth_dir`: 可选 OAuth 凭据目录
+    /// - `group_id`: 可选归属分组（写入每个新建 provider.group_id）
+    pub async fn cli_proxy_import(
+        path: String,
+        auth_dir: Option<String>,
+        group_id: Option<i64>,
+        db: State<'_, Db>,
+    ) -> Result<CliProxyImportResult, String> {
+        tracing::debug!(command = "cli_proxy_import", path = %path, "command invoked");
+        let parsed = parse_cpa_config(&path, auth_dir.as_deref())?;
+        tracing::info!(
+            providers = parsed.providers.len(),
+            skipped = parsed.skipped.len(),
+            "cli_proxy_import parsed"
+        );
 
-    let mut created = Vec::new();
-    let mut failed = Vec::new();
-    for p in parsed.providers {
-        let name = resolve_name(&p);
-        let input = map_to_create_input(p, group_id);
-        match db::create_cli_proxy_provider(&db, input).await {
-            Ok(provider) => {
-                tracing::info!(provider_id = provider.id, name = %provider.name, "cli_proxy_import created");
-                created.push(provider);
-            }
-            Err(e) => {
-                tracing::warn!(name = %name, error = %e, "cli_proxy_import create failed");
-                failed.push(CliProxyImportFailure { name, error: e });
+        let mut created = Vec::new();
+        let mut failed = Vec::new();
+        for p in parsed.providers {
+            let name = resolve_name(&p);
+            let input = map_to_create_input(p, group_id);
+            match db::create_cli_proxy_provider(&db, input).await {
+                Ok(provider) => {
+                    tracing::info!(provider_id = provider.id, name = %provider.name, "cli_proxy_import created");
+                    created.push(provider);
+                }
+                Err(e) => {
+                    tracing::warn!(name = %name, error = %e, "cli_proxy_import create failed");
+                    failed.push(CliProxyImportFailure { name, error: e });
+                }
             }
         }
-    }
 
-    tracing::info!(
-        created = created.len(),
-        failed = failed.len(),
-        "cli_proxy_import done"
-    );
-    Ok(CliProxyImportResult {
-        created,
-        failed,
-        skipped: parsed.skipped,
-        source_files: parsed.source_files,
-    })
+        tracing::info!(
+            created = created.len(),
+            failed = failed.len(),
+            "cli_proxy_import done"
+        );
+        Ok(CliProxyImportResult {
+            created,
+            failed,
+            skipped: parsed.skipped,
+            source_files: parsed.source_files,
+        })
+    }
 }
 
 // ─── 段 → wire_protocol 映射（去 cpa-* 中转）──────────────────────────
