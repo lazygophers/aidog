@@ -161,7 +161,7 @@ use rusqlite::params;
         let db = test_db().await;
         let now_ms = chrono::Utc::now().timestamp_millis();
         let old = now_ms - 4 * 24 * 3600 * 1000_i64; // 4d before now → 超过 3d 阈值
-        let recent = now_ms - 1 * 24 * 3600 * 1000_i64; // 1d before now → 未超阈值
+        let recent = now_ms - 24 * 3600 * 1000_i64; // 1d before now → 未超阈值
 
         // platform: 1 旧软删 + 1 未软删
         let p_old = create_platform(&db, sample_platform("purge-old-platform")).await.unwrap();

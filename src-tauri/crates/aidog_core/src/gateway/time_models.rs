@@ -203,7 +203,7 @@ mod tests {
         });
         // 2024-01-01T23:00:00Z（周一 23 点）→ 应命中
         let ms = (1704067200 + 23 * 3600) * 1000;
-        let result = resolve_time_models(&[rule.clone()], &default, ms);
+        let result = resolve_time_models(std::slice::from_ref(&rule), &default, ms);
         assert_eq!(result.default, Some("overnight-model".into()));
 
         // 2024-01-01T15:00:00Z（周一 15 点）→ 不命中
@@ -225,7 +225,7 @@ mod tests {
         });
         // 2024-01-07T02:50:00Z（周日）→ 应命中
         let ms = 1704595800 * 1000;
-        let result = resolve_time_models(&[rule.clone()], &default, ms);
+        let result = resolve_time_models(std::slice::from_ref(&rule), &default, ms);
         assert_eq!(result.default, Some("weekend-model".into()));
 
         // 2024-01-01T08:00:00Z（周一）→ 不命中

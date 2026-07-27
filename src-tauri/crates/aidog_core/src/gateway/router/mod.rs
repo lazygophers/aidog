@@ -4,7 +4,6 @@
 //! - [`candidates`]：分组路由规则 → 有序候选平台列表（`select_candidates*`）。
 //! - [`ordering`]：候选排序策略（负载均衡 / 最小延迟 / 粘性）。
 //! - [`model_mapping`]：按平台模型配置自动匹配请求模型（`resolve_model`）。
-//! - [`selection`]：旧版单平台选择路径（已 deprecated，保留兼容）。
 //!
 //! 对外路径保持 `gateway::router::X` 不变（经下方 `pub use` 重导出）。
 
@@ -13,12 +12,9 @@ use super::models::*;
 mod candidates;
 mod model_mapping;
 mod ordering;
-mod selection;
 
 #[allow(unused_imports)]
 pub use candidates::{select_candidates, select_candidates_ctx, CandidateSet, ScheduleCtx};
-#[allow(unused_imports)]
-pub use selection::select_platform;
 
 /// 出站 max_tokens 裁剪（convert_request 前调用）。
 ///

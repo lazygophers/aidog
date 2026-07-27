@@ -209,14 +209,9 @@ mod tests {
         let connect_count = Arc::new(AtomicUsize::new(0));
         let cc = connect_count.clone();
         tokio::spawn(async move {
-            loop {
-                match proxy_listener.accept().await {
-                    Ok((stream, _)) => {
-                        cc.fetch_add(1, Ordering::SeqCst);
-                        drop(stream);
-                    }
-                    Err(_) => break,
-                }
+            while let Ok((stream, _)) = proxy_listener.accept().await {
+                cc.fetch_add(1, Ordering::SeqCst);
+                drop(stream);
             }
         });
 
