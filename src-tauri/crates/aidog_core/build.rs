@@ -2,8 +2,7 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 fn main() {
-    // about_info env! 需 AIDOG_GIT_COMMIT / AIDOG_BUILD_TIME 编译期注入。
-    // 与 root build.rs 同口径（C6 about.rs 迁入本 crate，env! 跨 crate 不传递，需本 crate 独立注入）。
+    // git 短 commit（失败回退 "unknown"）—— about.rs 用，同 root build.rs 逻辑（C3 迁入后本 crate 自持）。
     let commit = Command::new("git")
         .args(["rev-parse", "--short", "HEAD"])
         .output()
@@ -14,12 +13,14 @@ fn main() {
         .unwrap_or_else(|| "unknown".into());
     println!("cargo:rustc-env=AIDOG_GIT_COMMIT={commit}");
 
+    // 构建时间（epoch 秒，前端格式化；std 无新依赖）
     let build_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
     println!("cargo:rustc-env=AIDOG_BUILD_TIME={build_secs}");
 
+    // commit 变化时重跑（HEAD 移动触发重新注入）
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=../../../.git/HEAD");
 }

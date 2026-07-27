@@ -1,4 +1,4 @@
-use aidog_core::gateway::{self, db::{self, Db}, adapter, models::Protocol};
+use crate::gateway::{self, db::{self, Db}, adapter, models::Protocol};
 use gateway::models::*;
 use tauri::State;
 use serde_json::Value;
@@ -261,125 +261,125 @@ fn handle_success_response(
     }
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
-pub async fn model_test(
-    db: State<'_, Db>,
-    req: ModelTestRequest,
-) -> Result<ModelTestResult, String> {
-    tracing::debug!(command = "model_test", platform_id = req.platform_id, "command invoked");
+crate::tauri_command! {
+    pub async fn model_test(
+        db: State<'_, Db>,
+        req: ModelTestRequest,
+    ) -> Result<ModelTestResult, String> {
+        tracing::debug!(command = "model_test", platform_id = req.platform_id, "command invoked");
 
-    // 阶段1：准备测试上下文
-    let ctx = prepare_test_context(&db, &req).await?;
+        // 阶段1：准备测试上下文
+        let ctx = prepare_test_context(&db, &req).await?;
 
-    // 阶段2：准备 HTTP 请求
-    let http_ctx = prepare_http_request(&ctx)?;
+        // 阶段2：准备 HTTP 请求
+        let http_ctx = prepare_http_request(&ctx)?;
 
-    // 阶段4：Mock 处理
-    if let Some(result) = handle_mock_test(&ctx, &http_ctx) {
-        let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
-        let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
-        if cfg.delay_ms > 0 {
-            tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
-        }
-        if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
-            &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
-            "", 200, 200, r#"{"content-type":"application/json"}"#, "",
-            result.input_tokens, result.output_tokens,
-        )).await {
-            tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
-        }
-        return Ok(result);
-    }
-
-    // 构建 HTTP 客户端（复用 proxy.rs 逻辑；非请求路径，现读 DB settings）
-    let db_arc = std::sync::Arc::new(db.inner().clone());
-    let proxy_client_settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
-    let client = gateway::http_client::build_http_client(
-        &proxy_client_settings, 30, 10, Some(&ctx.platform.extra), None,
-    ).await;
-
-    tracing::info!(method = "POST", url = %http_ctx.url, "model test request");
-    tracing::debug!(method = "POST", url = %http_ctx.url, body = %gateway::log_util::log_body_preview(&http_ctx.req_body_str), "model test request body");
-
-    let req_builder = client
-        .post(&http_ctx.url)
-        .header("Content-Type", "application/json")
-        .body(http_ctx.req_body_str.clone());
-    let req_builder = gateway::proxy::apply_client_headers(req_builder, &http_ctx.client_type, &http_ctx.target_protocol, &http_ctx.eff_api_key);
-
-    let resp = match req_builder.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            let result = ModelTestResult {
-                success: false,
-                model: ctx.model.clone(),
-                prompt_preview: truncate_str(&ctx.prompt, 100),
-                response_preview: String::new(),
-                duration_ms: http_ctx.start.elapsed().as_millis() as i32,
-                input_tokens: 0,
-                output_tokens: 0,
-                error: format!("request failed: {e}"),
-            };
-            tracing::warn!(command = "model_test", platform_id = ctx.platform.id, error = %e, "model test request failed");
+        // 阶段4：Mock 处理
+        if let Some(result) = handle_mock_test(&ctx, &http_ctx) {
+            let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
+            let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
+            if cfg.delay_ms > 0 {
+                tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
+            }
             if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
                 &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
-                &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
+                "", 200, 200, r#"{"content-type":"application/json"}"#, "",
+                result.input_tokens, result.output_tokens,
             )).await {
                 tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
             }
             return Ok(result);
         }
-    };
 
-    let upstream_status_code = resp.status().as_u16() as i32;
-    let status = resp.status();
+        // 构建 HTTP 客户端（复用 proxy.rs 逻辑；非请求路径，现读 DB settings）
+        let db_arc = std::sync::Arc::new(db.inner().clone());
+        let proxy_client_settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
+        let client = gateway::http_client::build_http_client(
+            &proxy_client_settings, 30, 10, Some(&ctx.platform.extra), None,
+        ).await;
 
-    let upstream_resp_headers = {
-        let mut h = serde_json::Map::new();
-        for (k, v) in resp.headers() {
-            if let Ok(s) = v.to_str() {
-                h.insert(k.as_str().to_string(), serde_json::Value::String(s.to_string()));
+        tracing::info!(method = "POST", url = %http_ctx.url, "model test request");
+        tracing::debug!(method = "POST", url = %http_ctx.url, body = %gateway::log_util::log_body_preview(&http_ctx.req_body_str), "model test request body");
+
+        let req_builder = client
+            .post(&http_ctx.url)
+            .header("Content-Type", "application/json")
+            .body(http_ctx.req_body_str.clone());
+        let req_builder = gateway::proxy::apply_client_headers(req_builder, &http_ctx.client_type, &http_ctx.target_protocol, &http_ctx.eff_api_key);
+
+        let resp = match req_builder.send().await {
+            Ok(r) => r,
+            Err(e) => {
+                let result = ModelTestResult {
+                    success: false,
+                    model: ctx.model.clone(),
+                    prompt_preview: truncate_str(&ctx.prompt, 100),
+                    response_preview: String::new(),
+                    duration_ms: http_ctx.start.elapsed().as_millis() as i32,
+                    input_tokens: 0,
+                    output_tokens: 0,
+                    error: format!("request failed: {e}"),
+                };
+                tracing::warn!(command = "model_test", platform_id = ctx.platform.id, error = %e, "model test request failed");
+                if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
+                    &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
+                    &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
+                )).await {
+                    tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
+                }
+                return Ok(result);
             }
-        }
-        serde_json::Value::Object(h).to_string()
-    };
-
-    let body = resp.text().await.unwrap_or_default();
-
-    if !status.is_success() {
-        let result = ModelTestResult {
-            success: false,
-            model: ctx.model.clone(),
-            prompt_preview: truncate_str(&ctx.prompt, 100),
-            response_preview: truncate_str(&body, 200),
-            duration_ms: http_ctx.start.elapsed().as_millis() as i32,
-            input_tokens: 0,
-            output_tokens: 0,
-            error: format!("HTTP {}", status),
         };
-        tracing::warn!(command = "model_test", platform_id = ctx.platform.id, %status, "model test non-success upstream status");
+
+        let upstream_status_code = resp.status().as_u16() as i32;
+        let status = resp.status();
+
+        let upstream_resp_headers = {
+            let mut h = serde_json::Map::new();
+            for (k, v) in resp.headers() {
+                if let Ok(s) = v.to_str() {
+                    h.insert(k.as_str().to_string(), serde_json::Value::String(s.to_string()));
+                }
+            }
+            serde_json::Value::Object(h).to_string()
+        };
+
+        let body = resp.text().await.unwrap_or_default();
+
+        if !status.is_success() {
+            let result = ModelTestResult {
+                success: false,
+                model: ctx.model.clone(),
+                prompt_preview: truncate_str(&ctx.prompt, 100),
+                response_preview: truncate_str(&body, 200),
+                duration_ms: http_ctx.start.elapsed().as_millis() as i32,
+                input_tokens: 0,
+                output_tokens: 0,
+                error: format!("HTTP {}", status),
+            };
+            tracing::warn!(command = "model_test", platform_id = ctx.platform.id, %status, "model test non-success upstream status");
+            if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
+                &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
+                &body, upstream_status_code, upstream_status_code,
+                &upstream_resp_headers, &body, 0, 0,
+            )).await {
+                tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
+            }
+            return Ok(result);
+        }
+
+        let result = handle_success_response(&ctx, &http_ctx, &body, &http_ctx.target_protocol);
+
         if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
             &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
-            &body, upstream_status_code, upstream_status_code,
-            &upstream_resp_headers, &body, 0, 0,
+            &body, upstream_status_code, if result.success { 200 } else { 422 },
+            &upstream_resp_headers, &body, result.input_tokens, result.output_tokens,
         )).await {
             tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
         }
-        return Ok(result);
+
+        Ok(result)
     }
-
-    let result = handle_success_response(&ctx, &http_ctx, &body, &http_ctx.target_protocol);
-
-    if let Err(le) = db::upsert_proxy_log(&db, build_test_proxy_log(
-        &http_ctx, ctx.platform.id, &http_ctx.target_protocol,
-        &body, upstream_status_code, if result.success { 200 } else { 422 },
-        &upstream_resp_headers, &body, result.input_tokens, result.output_tokens,
-    )).await {
-        tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
-    }
-
-    Ok(result)
 }
 
 #[allow(dead_code)]
@@ -422,7 +422,7 @@ pub(crate) fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
 #[cfg(test)]
 mod test_prepare_http_request {
     use super::*;
-    use aidog_core::gateway::adapter::{ChatRequest, Message, MessageContent, Role};
+    use crate::gateway::adapter::{ChatRequest, Message, MessageContent, Role};
 
     fn make_ctx(base_url: &str, endpoints: Vec<gateway::models::PlatformEndpoint>) -> TestContext {
         let platform = serde_json::from_value(serde_json::json!({

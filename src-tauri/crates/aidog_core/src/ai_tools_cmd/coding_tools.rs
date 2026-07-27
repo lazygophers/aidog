@@ -1,4 +1,4 @@
-use aidog_core::gateway::{self, db::{self, Db}};
+use crate::gateway::{self, db::{self, Db}};
 use gateway::models::*;
 use tauri::State;
 
@@ -79,76 +79,76 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
     Ok(())
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
-pub async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsSettings, String> {
-    tracing::debug!(command = "coding_tools_settings_get", "command invoked");
-    let current = load_coding_tools_settings(&db).await;
-    Ok(current)
+crate::tauri_command! {
+    pub async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsSettings, String> {
+        tracing::debug!(command = "coding_tools_settings_get", "command invoked");
+        let current = load_coding_tools_settings(&db).await;
+        Ok(current)
+    }
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
-pub async fn coding_tools_settings_set(
-    apply_to_claude_plugin: Option<bool>,
-    skip_claude_onboarding: Option<bool>,
-    db: State<'_, Db>,
-) -> Result<CodingToolsSettings, String> {
-    tracing::debug!(command = "coding_tools_settings_set", "command invoked");
-    let mut current = load_coding_tools_settings(&db).await;
+crate::tauri_command! {
+    pub async fn coding_tools_settings_set(
+        apply_to_claude_plugin: Option<bool>,
+        skip_claude_onboarding: Option<bool>,
+        db: State<'_, Db>,
+    ) -> Result<CodingToolsSettings, String> {
+        tracing::debug!(command = "coding_tools_settings_set", "command invoked");
+        let mut current = load_coding_tools_settings(&db).await;
 
-    // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
-    // 不再静默 warn+返原值（旧实现致前端乐观翻转后被 setSettings(原值) 回滚 = 「开关点击无反应」）。
-    if let Some(v) = apply_to_claude_plugin
-        && v != current.apply_to_claude_plugin {
-            let res = if v {
-                gateway::claude_integration::write_plugin_primary_key()
-            } else {
-                gateway::claude_integration::clear_plugin_primary_key()
-            };
-            match res {
-                Ok(_changed) => current.apply_to_claude_plugin = v,
-                Err(e) => {
-                    tracing::warn!(
-                        command = "coding_tools_settings_set",
-                        field = "apply_to_claude_plugin",
-                        error = %e,
-                        "write ~/.claude/config.json failed; field not persisted"
-                    );
-                    return Err(format!("write ~/.claude/config.json: {e}"));
+        // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
+        // 不再静默 warn+返原值（旧实现致前端乐观翻转后被 setSettings(原值) 回滚 = 「开关点击无反应」）。
+        if let Some(v) = apply_to_claude_plugin
+            && v != current.apply_to_claude_plugin {
+                let res = if v {
+                    gateway::claude_integration::write_plugin_primary_key()
+                } else {
+                    gateway::claude_integration::clear_plugin_primary_key()
+                };
+                match res {
+                    Ok(_changed) => current.apply_to_claude_plugin = v,
+                    Err(e) => {
+                        tracing::warn!(
+                            command = "coding_tools_settings_set",
+                            field = "apply_to_claude_plugin",
+                            error = %e,
+                            "write ~/.claude/config.json failed; field not persisted"
+                        );
+                        return Err(format!("write ~/.claude/config.json: {e}"));
+                    }
                 }
             }
-        }
 
-    if let Some(v) = skip_claude_onboarding
-        && v != current.skip_claude_onboarding {
-            let res = if v {
-                gateway::claude_integration::set_has_completed_onboarding()
-            } else {
-                gateway::claude_integration::clear_has_completed_onboarding()
-            };
-            match res {
-                Ok(_changed) => current.skip_claude_onboarding = v,
-                Err(e) => {
-                    tracing::warn!(
-                        command = "coding_tools_settings_set",
-                        field = "skip_claude_onboarding",
-                        error = %e,
-                        "write ~/.claude.json failed; field not persisted"
-                    );
-                    return Err(format!("write ~/.claude.json: {e}"));
+        if let Some(v) = skip_claude_onboarding
+            && v != current.skip_claude_onboarding {
+                let res = if v {
+                    gateway::claude_integration::set_has_completed_onboarding()
+                } else {
+                    gateway::claude_integration::clear_has_completed_onboarding()
+                };
+                match res {
+                    Ok(_changed) => current.skip_claude_onboarding = v,
+                    Err(e) => {
+                        tracing::warn!(
+                            command = "coding_tools_settings_set",
+                            field = "skip_claude_onboarding",
+                            error = %e,
+                            "write ~/.claude.json failed; field not persisted"
+                        );
+                        return Err(format!("write ~/.claude.json: {e}"));
+                    }
                 }
             }
-        }
 
-    // 写回 DB。
-    let value = serde_json::to_value(&current).map_err(|e| e.to_string())?;
-    db::set_setting(&db, SetSettingInput {
-        scope: "global".to_string(),
-        key: "coding_tools_settings".to_string(),
-        value,
-    }).await?;
-    Ok(current)
+        // 写回 DB。
+        let value = serde_json::to_value(&current).map_err(|e| e.to_string())?;
+        db::set_setting(&db, SetSettingInput {
+            scope: "global".to_string(),
+            key: "coding_tools_settings".to_string(),
+            value,
+        }).await?;
+        Ok(current)
+    }
 }
 
 #[cfg(test)]

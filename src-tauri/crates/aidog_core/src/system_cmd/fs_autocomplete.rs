@@ -22,7 +22,7 @@ pub(crate) fn expand_path(input: &str) -> std::path::PathBuf {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
     tracing::debug!(command = "fs_autocomplete", "command invoked");
     let path = expand_path(input.trim());
