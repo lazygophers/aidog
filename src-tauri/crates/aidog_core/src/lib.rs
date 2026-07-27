@@ -13,6 +13,9 @@ pub mod logging;
 pub mod sync_settings;
 pub mod hooks;
 pub mod tray_render;
+mod command_macro;
+// C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
+pub mod popover;
 
 // 顶层 re-export：commands 域 / root package / 测试常用类型直引 `aidog_core::<X>`。
 pub use gateway::models::*;

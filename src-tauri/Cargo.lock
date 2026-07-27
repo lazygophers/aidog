@@ -92,7 +92,6 @@ dependencies = [
  "commands_platform",
  "commands_proxy",
  "commands_system",
- "commands_tray",
  "dirs 6.0.0",
  "flate2",
  "futures",
@@ -1108,19 +1107,6 @@ dependencies = [
  "serde_json",
  "tauri",
  "tempfile",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "commands_tray"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "serde",
- "serde_json",
- "tauri",
  "tokio",
  "tracing",
 ]
