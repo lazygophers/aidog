@@ -205,6 +205,8 @@ export interface Platform {
   show_in_tray: boolean;
   /** 托盘展示内容："balance" | "coding" */
   tray_display: string;
+  /** 排序权重（越小越靠前），0 = 按 created_at 排序 */
+  sort_order: number;
   /** 手动预算限额列表（无上游 quota 平台；请求驱动扣减 + 耗尽阻断）。 */
   manual_budgets: ManualBudget[];
   /** 余额使用速率配色级别（后端 platform_list 按动态窗口日速率算 days_remaining 填充，只读）。
@@ -254,6 +256,8 @@ export interface Group {
   request_timeout_secs: number;
   connect_timeout_secs: number;
   source_protocol: string;
+  /** 排序权重（越小越靠前），0 = 按 created_at 排序 */
+  sort_order: number;
   /** 分组级最大重试次数：失败后最多再换几个候选平台（0 = 不重试，只试 1 次） */
   max_retries: number;
   /** 内联模型映射数组 */
@@ -308,6 +312,9 @@ export interface GroupPlatform {
   weight: number;
   /** per-group 平台优先级（1~10，默认 5，10=最高优先；数大优先高） */
   level_priority: number;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number;
 }
 
 
