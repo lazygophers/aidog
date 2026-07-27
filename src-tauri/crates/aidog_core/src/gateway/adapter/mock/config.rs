@@ -45,9 +45,8 @@ impl Default for MockConfig {
 /// 每字段独立覆盖（缺省回退下层）。
 pub fn resolve_mock_config(extra: &str, chat_req: &ChatRequest, body_json: &Value) -> MockConfig {
     // 第三层（兜底）：platform.extra 的 .mock
-    let mut cfg: MockConfig = serde_json::from_str::<Value>(extra)
-        .ok()
-        .and_then(|v| v.get("mock").cloned())
+    let mut cfg: MockConfig = crate::gateway::models::PlatformExtra::parse(extra)
+        .mock
         .and_then(|m| serde_json::from_value(m).ok())
         .unwrap_or_default();
 

@@ -127,10 +127,16 @@ pub(crate) async fn handle_devin(
     // org_id 必填（path 段 + Bearer realm），api_key = Devin cog_ key。
     // s9: nested `extra.devin.org_id`（对齐前端 serializeDevinConfig + quota/devin.rs::parse_devin_extra
     // + s6 read_dev_timeout_secs 同层级）。禁 flat extra.org_id（s2/s3 旧代码 bug，前端从未写此形态）。
-    // ponytail: 复用 quota::parse_devin_extra 作单一真值源，避免 proxy/quota 两份解析逻辑漂移。
-    let extra_v: Value = serde_json::from_str(&platform.extra).unwrap_or_else(|_| Value::Object(Default::default()));
-    let org_id = match crate::gateway::quota::parse_devin_extra(&platform.extra) {
-        Some(id) => id,
+    // c2-platformextra: platform.extra 只解析一次（经 PlatformExtra），org_id / dev_timeout
+    // 均从同一份 `devin_extra` 取，禁再各自 serde_json::from_str 重复解析原始字符串。
+    let devin_extra = crate::gateway::models::PlatformExtra::parse(&platform.extra).devin;
+    let org_id = match devin_extra
+        .as_ref()
+        .and_then(|d| d.org_id.as_deref())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        Some(id) => id.to_string(),
         None => {
             return devin_error(
                 &state, &mut log, &log_settings, lang, start,
@@ -148,7 +154,10 @@ pub(crate) async fn handle_devin(
         ).await;
     }
     // s6: devin 轮询超时（extra.devin.dev_timeout 秒，缺省 300）。nested 读取，禁 flat。
-    let dev_timeout_secs = read_dev_timeout_secs(&extra_v);
+    // read_dev_timeout_secs 吃 &Value（沿用其既有测试形态），由已解析的 devin_extra 序列化而来，
+    // 禁再对 platform.extra 原始字符串重复 serde_json::from_str。
+    let devin_extra_v = serde_json::to_value(&devin_extra).unwrap_or(Value::Null);
+    let dev_timeout_secs = read_dev_timeout_secs(&serde_json::json!({ "devin": devin_extra_v }));
     // base = base_url（platform.base_url 已含 /v3/organizations/{org_id}；缺失则用官方 host 拼）。
     // ponytail: base_url 真值源单一——preset / 用户已含完整 path，仅空兜底官方 host。
     let base_url = if platform.base_url.trim().is_empty() {

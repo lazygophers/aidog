@@ -144,7 +144,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
             .await
             .ok()
             .flatten()
-            .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
+            .map(|p| p.platform_type.wire_str())
             .unwrap_or_default();
         Some(super::db::calc_est_cost(
             &state.db,
@@ -328,11 +328,7 @@ pub(crate) fn spawn_estimate(
     if input_tokens <= 0 && output_tokens <= 0 && cache_tokens <= 0 {
         return;
     }
-    // serde rename 裸名（去掉 to_string 的引号），与 pricing JSON key 一致
-    let ptype = serde_json::to_string(platform_type)
-        .unwrap_or_default()
-        .trim_matches('"')
-        .to_string();
+    let ptype = platform_type.wire_str();
     let db = state.db.clone();
     let app = state.app.clone();
     tokio::spawn(async move {
