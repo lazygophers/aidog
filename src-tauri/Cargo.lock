@@ -86,9 +86,6 @@ dependencies = [
  "axum",
  "chrono",
  "commands_ai_tools",
- "commands_cli_env",
- "commands_cli_proxy",
- "commands_config",
  "commands_platform",
  "commands_proxy",
  "commands_system",
@@ -167,6 +164,7 @@ dependencies = [
  "rusqlite",
  "rustls",
  "rustls-pemfile",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -1018,50 +1016,6 @@ dependencies = [
  "tokio",
  "tracing",
  "uuid",
-]
-
-[[package]]
-name = "commands_cli_env"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "reqwest 0.12.28",
- "semver",
- "serde",
- "serde_json",
- "tauri",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "commands_cli_proxy"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "rusqlite",
- "serde",
- "serde_json",
- "tauri",
- "tempfile",
- "tokio",
- "tracing",
-]
-
-[[package]]
-name = "commands_config"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "dirs 6.0.0",
- "serde",
- "serde_json",
- "tauri",
- "tokio",
- "tracing",
 ]
 
 [[package]]
