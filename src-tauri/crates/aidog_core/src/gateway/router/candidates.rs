@@ -34,24 +34,12 @@ struct ExtraCache {
 }
 
 impl ExtraCache {
-    fn new(extra: &str) -> Self {
+    /// `platform_type` 直接取自 `Platform` 顶层字段（非 extra 内字段，caller 传入）。
+    fn new(extra: &str, platform_type: &Protocol) -> Self {
         let time_models = time_models::parse_platform_time_models(extra);
-        let ptype = infer_protocol_from_extra(extra);
-        let peak_windows = peak_hours::peak_hours_for(extra, &ptype);
+        let peak_windows = peak_hours::peak_hours_for(extra, &platform_type.wire_str());
         Self { time_models, peak_windows }
     }
-}
-
-/// 从 extra 字符串推断协议类型（用于 peak_hours 解析）
-/// ponytail: 简化版，只处理常见情况；完整逻辑应参考 gateway/models/platform.rs
-fn infer_protocol_from_extra(extra: &str) -> String {
-    // 尝试从 extra 中提取 platform_type 字段
-    if let Ok(v) = serde_json::from_str::<serde_json::Value>(extra)
-        && let Some(pt) = v.get("platform_type").and_then(|t| t.as_str()) {
-            return pt.to_string();
-        }
-    // 默认返回空字符串，peak_hours_for 会回落到 bundled preset
-    String::new()
 }
 
 /// 候选平台的 extra 解析缓存（key: platform_id）
@@ -62,12 +50,7 @@ type ExtraCacheMap = HashMap<u64, ExtraCache>;
 /// 从 `platform.extra` JSON 读 `cli_proxy_provider_id`（u64）。
 /// 与 parse_disable_during_peak / parse_breaker 同 idiom：extra 是 JSON blob。
 fn read_cli_proxy_provider_id(extra: &str) -> Option<u64> {
-    if extra.trim().is_empty() {
-        return None;
-    }
-    serde_json::from_str::<serde_json::Value>(extra)
-        .ok()
-        .and_then(|v| v.get("cli_proxy_provider_id").and_then(|x| x.as_u64()))
+    PlatformExtra::parse(extra).cli_proxy_provider_id
 }
 
 /// 用 provider 配置覆写 platform 的 wire 字段（endpoints/base_url/api_key）。
@@ -153,7 +136,7 @@ pub async fn select_candidates_ctx(
     // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
     // ponytail: 在入口处统一解析 time_models 和 peak_hours，缓存传递给 helper 函数
     let extra_cache: ExtraCacheMap = group_platforms.iter()
-        .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra)))
+        .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra, &gp.platform.platform_type)))
         .collect();
 
     // ── 阶段 -1b: cli-proxy 平台预解析（cpa-standalone-module s2）──
@@ -562,10 +545,7 @@ fn resolve_effective_models_cached(
     // PRD 07-11：time_models 未自定义时查 preset.models.peak 分支
     if time_rules.is_empty() {
         // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
-        let ptype = serde_json::to_string(&platform.platform_type)
-            .unwrap_or_default()
-            .trim_matches('"')
-            .to_string();
+        let ptype = platform.platform_type.wire_str();
         if let Some(peak_models) = super::super::peak_hours::default_peak_models(&ptype) {
             let windows = super::super::peak_hours::peak_hours_for(&platform.extra, &ptype);
             if super::super::peak_hours::is_in_peak_window(&windows, now_ms, source_model) {
@@ -603,10 +583,7 @@ fn resolve_effective_models(
     // PRD 07-11：time_models 未自定义时查 preset.models.peak 分支
     if time_rules.is_empty() {
         // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
-        let ptype = serde_json::to_string(&platform.platform_type)
-            .unwrap_or_default()
-            .trim_matches('"')
-            .to_string();
+        let ptype = platform.platform_type.wire_str();
         if let Some(peak_models) = super::super::peak_hours::default_peak_models(&ptype) {
             let windows = super::super::peak_hours::peak_hours_for(&platform.extra, &ptype);
             if super::super::peak_hours::is_in_peak_window(&windows, now_ms, source_model) {

@@ -79,11 +79,7 @@ pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64, request_model: 
     if !super::peak_hours::parse_disable_during_peak(&platform.extra) {
         return false;
     }
-    // serde rename 裸名（如 "anthropic"），同 spawn_estimate / calc_est_cost 取名模式
-    let ptype = serde_json::to_string(&platform.platform_type)
-        .unwrap_or_default()
-        .trim_matches('"')
-        .to_string();
+    let ptype = platform.platform_type.wire_str();
     let windows = super::peak_hours::peak_hours_for(&platform.extra, &ptype);
     super::peak_hours::is_in_peak_window(&windows, now_ms, request_model)
 }
