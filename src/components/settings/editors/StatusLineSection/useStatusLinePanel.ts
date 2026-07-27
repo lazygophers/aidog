@@ -8,8 +8,7 @@ import {
   type SegmentType,
   DEFAULT_SEGMENTS,
   DEFAULT_SUBAGENT_SEGMENTS,
-  generateStatusLineScript,
-  generateSubagentStatusLineScript,
+  materializeStatusline,
   normalizeSegments,
   SEGMENT_DEF_MAP,
 } from "../../statusline-gen";
@@ -31,11 +30,10 @@ export function useStatusLinePanel({
   const fieldName = isMain ? "statusLine" : "subagentStatusLine";
 
   const stored = (config[aidogKey] ?? {}) as Record<string, any>;
-  const enabled = !!stored.enabled;
-  // Generation mode: "builtin" → aidog structured segments; "custom" → user-supplied
-  // native statusLine command (no aidog script generated). Back-compat: default builtin.
-  const mode: "builtin" | "custom" = stored.mode === "custom" ? "custom" : "builtin";
-  const customCommand: string = typeof stored.customCommand === "string" ? stored.customCommand : "";
+  // Single source of truth for enabled/mode/customCommand/scriptContent derivation —
+  // mirrors the on-save materializer exactly (see statusline-gen.ts::materializeStatusline).
+  const materialized = materializeStatusline(stored, scriptType);
+  const { enabled, mode, customCommand } = materialized;
 
   // Segments — main and subagent share the same editor; only the first-run /
   // reset default layout differs.
@@ -88,11 +86,11 @@ export function useStatusLinePanel({
     updateSegments(segments.filter(s => !ids.has(s.id)));
   };
 
-  // Generate script — 必须按 scriptType 分流, 否则 subagent 文件会被写入主脚本内容
-  // (Claude Code 期望 subagent 输出每任务一行 JSONL, 写错→输出乱→CC 回退默认 `◯ <type> <desc> <dur>`)
-  const scriptPreview = scriptType === "subagent"
-    ? generateSubagentStatusLineScript(segments)
-    : generateStatusLineScript(segments);
+  // Script preview — sourced from the same materializeStatusline() call above, so
+  // the preview panel is byte-for-byte the same script the save path would write.
+  // scriptContent is only non-null when enabled && mode==="builtin", which is the
+  // exact condition StatusLinePanel gates the preview render on.
+  const scriptPreview = materialized.scriptContent ?? "";
 
 
   const handleSave = async () => {
