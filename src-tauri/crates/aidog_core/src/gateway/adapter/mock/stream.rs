@@ -3,10 +3,11 @@
 use super::config::MockConfig;
 use crate::gateway::adapter::converter;
 use crate::gateway::adapter::types::*;
+use crate::gateway::models::Protocol;
 
 /// 生成 mock 流式 SSE 字符串序列：Start → N×Delta → Stop。
 /// 复用 `to_client_sse` 按 source_protocol 转格式。
-pub fn build_sse_chunks(cfg: &MockConfig, source_protocol: &str, model: &str) -> Vec<String> {
+pub fn build_sse_chunks(cfg: &MockConfig, source_protocol: &Protocol, model: &str) -> Vec<String> {
     let id = format!("mock-{}", uuid::Uuid::new_v4().simple());
     let mut events: Vec<ChatStreamEvent> = Vec::new();
     events.push(ChatStreamEvent::Start {

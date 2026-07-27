@@ -22,7 +22,7 @@ pub(crate) async fn forward_attempt(
     group: &Group,
     chat_req: &mut ChatRequest,
     req_value: &Value,
-    source_protocol: &str,
+    source_protocol: &Protocol,
     requested_model: &str,
     is_stream: bool,
     orig_headers: &axum::http::HeaderMap,
@@ -37,7 +37,6 @@ pub(crate) async fn forward_attempt(
     // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点。
     // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
     // （普通 chat/completions 平台），出站经 to_openai 转换。
-    let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
     let matched_ep = select_endpoint_for_protocol(&route.platform.endpoints, source_protocol);
 
     // ── UA 透传分支（[protocol-same-proto-passthrough] 扩展，PRD §5 级别 1）──
@@ -53,11 +52,11 @@ pub(crate) async fn forward_attempt(
             .and_then(|v| v.to_str().ok())
             .and_then(infer_passthrough_protocol_from_ua);
         match ua_proto {
-            Some(p) => match route.platform.endpoints.iter().find(|ep| ep_proto(ep) == p) {
+            Some(p) => match route.platform.endpoints.iter().find(|ep| ep.protocol == p) {
                 Some(ep) => {
                     tracing::info!(
                         platform = %route.platform.name, platform_id = route.platform.id,
-                        source_protocol = %source_protocol, ua_protocol = %p,
+                        source_protocol = ?source_protocol, ua_protocol = ?p,
                         "ua-passthrough: path protocol unsupported by platform, routing to UA-inferred endpoint"
                     );
                     (Some(ep), Some(p))
@@ -89,7 +88,7 @@ pub(crate) async fn forward_attempt(
     if !is_valid_wire_protocol(target_protocol_enum) {
         tracing::error!(
             platform = %route.platform.name, platform_id = route.platform.id,
-            source_protocol = %source_protocol, target_protocol = ?target_protocol_enum,
+            source_protocol = ?source_protocol, target_protocol = ?target_protocol_enum,
             endpoints_len = route.platform.endpoints.len(),
             "target_protocol is not a valid wire protocol, endpoint selection failed"
         );
@@ -153,7 +152,7 @@ pub(crate) async fn forward_attempt(
         );
     }
 
-    let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
+    let target_protocol = target_protocol_enum.wire_str();
     let needs_model_remap = actual_model != requested_model;
 
     // ── 同协议透传判定 ──
@@ -167,8 +166,8 @@ pub(crate) async fn forward_attempt(
     // - 级别 1（UA 透传）：passthrough_proto == Some(p) 且端点协议等于 UA 推断协议 p
     //   → 端点协议 == source_protocol 不成立（否则 matched_ep 在级别 0 已命中），故单独判定。
     let same_protocol_passthrough = match passthrough_proto {
-        Some(p) => matched_ep.map(|ep| ep_proto(ep) == p).unwrap_or(false),
-        None => matched_ep.map(|ep| ep_proto(ep) == source_protocol).unwrap_or(false),
+        Some(p) => matched_ep.map(|ep| ep.protocol == p).unwrap_or(false),
+        None => matched_ep.map(|ep| ep.protocol == *source_protocol).unwrap_or(false),
     };
 
     // Upsert #3: route resolved
@@ -178,7 +177,7 @@ pub(crate) async fn forward_attempt(
     tracing::info!(
         platform = %route.platform.name, platform_id = route.platform.id,
         requested_model = %requested_model, actual_model = %actual_model,
-        source_protocol = %source_protocol, target_protocol = %target_protocol,
+        source_protocol = ?source_protocol, target_protocol = %target_protocol,
         coding_plan, stream = is_stream, remap = needs_model_remap,
         "request routed to upstream"
     );
@@ -536,6 +535,19 @@ pub(crate) async fn forward_attempt(
         }};
     }
 
+    // forward_attempt 本次路由决策的协议/模型元数据，finish_nonstream / finish_stream 共用（见 finish.rs::AttemptCtx）。
+    let attempt_ctx = AttemptCtx {
+        source_protocol: source_protocol.clone(),
+        target_protocol: target_protocol_enum.clone(),
+        same_protocol_passthrough,
+        needs_model_remap,
+        coding_plan,
+        requested_model: requested_model.to_string(),
+        actual_model: actual_model.clone(),
+        eff_api_key: eff_api_key.clone(),
+        quota_base_url: target_base_url.clone(),
+    };
+
     // 非流式：直接透传 JSON
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
@@ -551,9 +563,7 @@ pub(crate) async fn forward_attempt(
 
         return AttemptOutcome::Respond(
             finish_nonstream(
-                state, log, log_settings, group, &route, source_protocol, requested_model,
-                &actual_model, &eff_api_key, target_protocol_enum, same_protocol_passthrough,
-                needs_model_remap, coding_plan, target_base_url.clone(), &upstream_resp_headers, start, body,
+                state, log, log_settings, group, &route, &attempt_ctx, &upstream_resp_headers, start, body,
             )
             .await,
         );
@@ -604,11 +614,14 @@ pub(crate) async fn forward_attempt(
     // Meaningful：确认上游真实产出 → 提交成功记账（在构建 guard 前，使 guard 的 log 快照含正确 attempts）。
     commit_2xx_success!();
 
+    // 决策 B：把 peek 阶段已缓冲的首批 chunk 原样 prepend 回流（不能吞首块），再接上游剩余流；
+    // finish_stream 内对缓冲块与后续块一视同仁（token 聚合 / 转换 / finalize 不受影响）。
+    let buffered_head = futures::stream::iter(peek_buf.into_iter().map(Ok::<Bytes, reqwest::Error>));
+    let full_stream = buffered_head.chain(upstream_stream);
+
     AttemptOutcome::Respond(
         finish_stream(
-            upstream_stream, peek_buf, state, log, log_settings, group, &route, source_protocol,
-            requested_model, &actual_model, &eff_api_key, target_protocol_enum,
-            same_protocol_passthrough, needs_model_remap, coding_plan, target_base_url.clone(), &upstream_resp_headers, start,
+            full_stream, state, log, log_settings, group, &route, &attempt_ctx, &upstream_resp_headers, start,
         )
         .await,
     )

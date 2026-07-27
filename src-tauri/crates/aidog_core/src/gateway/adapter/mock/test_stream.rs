@@ -10,7 +10,7 @@ fn sse_anthropic_start_delta_stop_sequence() {
         finish_reason: "end_turn".to_string(),
         ..MockConfig::default()
     };
-    let chunks = build_sse_chunks(&cfg, "anthropic", "claude-x");
+    let chunks = build_sse_chunks(&cfg, &Protocol::Anthropic, "claude-x");
     // 1 Start + 3 Delta + 1 Stop = 5
     assert_eq!(chunks.len(), 5);
     assert!(chunks[0].contains("message_start"));
@@ -31,7 +31,7 @@ fn sse_openai_sequence_has_done() {
         chunk_count: 2,
         ..MockConfig::default()
     };
-    let chunks = build_sse_chunks(&cfg, "openai", "gpt-x");
+    let chunks = build_sse_chunks(&cfg, &Protocol::OpenAI, "gpt-x");
     // Start + 2 Delta + Stop
     assert_eq!(chunks.len(), 4);
     assert!(chunks[0].contains("chat.completion.chunk"));
@@ -46,7 +46,7 @@ fn sse_chunk_count_capped_to_text_len() {
         chunk_count: 10,
         ..MockConfig::default()
     };
-    let chunks = build_sse_chunks(&cfg, "anthropic", "m");
+    let chunks = build_sse_chunks(&cfg, &Protocol::Anthropic, "m");
     // 2 字符 → 最多 2 Delta：Start + 2 Delta + Stop = 4
     assert_eq!(chunks.len(), 4);
 }
@@ -58,7 +58,7 @@ fn sse_empty_text_yields_single_delta() {
         chunk_count: 5,
         ..MockConfig::default()
     };
-    let chunks = build_sse_chunks(&cfg, "anthropic", "m");
+    let chunks = build_sse_chunks(&cfg, &Protocol::Anthropic, "m");
     // 空文本 → split_text 返单块 → Start + 1 Delta + Stop = 3
     assert_eq!(chunks.len(), 3);
 }

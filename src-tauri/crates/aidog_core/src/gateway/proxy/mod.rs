@@ -83,7 +83,7 @@ pub(crate) use endpoint::{
     match_platform_by_host, resolve_group, select_endpoint_for_protocol,
     should_fallback_passthrough,
 };
-pub(crate) use finish::{finish_nonstream, finish_stream};
+pub(crate) use finish::{finish_nonstream, finish_stream, AttemptCtx};
 pub(crate) use forward::{forward_attempt, AttemptOutcome};
 pub(crate) use non_success::handle_non_success;
 pub(crate) use group_info::handle_group_info;

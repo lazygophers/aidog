@@ -69,13 +69,13 @@ pub fn passthrough_api_path(wire_protocol: &Protocol, model: &str, platform_prot
 /// 将入站请求按源协议解析为内部 ChatRequest（支持所有 AI 请求协议）。
 ///
 /// 返回 `Err(String)` 携带解析失败原因(serde 错误细节等)，供上层记录到日志便于诊断。
-pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Result<ChatRequest, String> {
+pub fn parse_incoming_request(source_protocol: &Protocol, body: &Value) -> Result<ChatRequest, String> {
     match source_protocol {
-        "openai" => super::super::openai::from_openai(body).ok_or_else(|| "openai from_openai returned None".to_string()),
-        "openai_responses" => super::super::openai_responses::from_responses(body).ok_or_else(|| "openai_responses from_responses returned None".to_string()),
-        "openai_completions" => super::super::openai_completions::from_completions(body).ok_or_else(|| "openai_completions from_completions returned None".to_string()),
-        "gemini" => super::super::gemini::from_gemini(body).ok_or_else(|| "gemini from_gemini returned None".to_string()),
-        // Anthropic / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化;
+        Protocol::OpenAI => super::super::openai::from_openai(body).ok_or_else(|| "openai from_openai returned None".to_string()),
+        Protocol::OpenAIResponses => super::super::openai_responses::from_responses(body).ok_or_else(|| "openai_responses from_responses returned None".to_string()),
+        Protocol::OpenAICompletions => super::super::openai_completions::from_completions(body).ok_or_else(|| "openai_completions from_completions returned None".to_string()),
+        Protocol::Gemini => super::super::gemini::from_gemini(body).ok_or_else(|| "gemini from_gemini returned None".to_string()),
+        // Anthropic / 其余非 wire 平台变体: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化;
         // ContentBlock 已对未知类型(thinking/image/…)降级 Unknown, 失败时返回 serde 错误细节供诊断。
         _ => serde_json::from_value(body.clone()).map_err(|e| e.to_string()),
     }

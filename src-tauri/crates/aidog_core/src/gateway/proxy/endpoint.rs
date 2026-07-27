@@ -6,22 +6,22 @@ use super::*;
 /// - /v1/chat/completions, /v1/completions, /models, /images, /audio → openai
 /// - /v1beta/models/... → gemini
 ///   回退到 anthropic
-pub(crate) fn detect_source_protocol(path: &str) -> String {
+pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
     // 定位到 /v1/ 起始（跳过代理根前缀如 /proxy）；分组路由已纯按 apikey，无 group path 前缀
     let api_path = if let Some(idx) = path.find("/v1/") {
         &path[idx..]
     } else if path.contains("/v1beta/") {
-        return "gemini".to_string();
+        return Protocol::Gemini;
     } else {
-        return "anthropic".to_string();
+        return Protocol::Anthropic;
     };
 
     if api_path.starts_with("/v1/messages") {
-        "anthropic".to_string()
+        Protocol::Anthropic
     } else if api_path.starts_with("/v1/responses") {
         // OpenAI Responses API（Codex 等）用 `input` 而非 `messages`，
         // 必须单独派发到 openai_responses 入站解析，不能与 chat/completions 同组。
-        "openai_responses".to_string()
+        Protocol::OpenAIResponses
     } else if api_path.starts_with("/v1/chat/completions")
         || api_path.starts_with("/v1/completions")
         || api_path.starts_with("/v1/embeddings")
@@ -29,11 +29,11 @@ pub(crate) fn detect_source_protocol(path: &str) -> String {
         || api_path.starts_with("/v1/audio")
         || api_path.starts_with("/v1/models")
     {
-        "openai".to_string()
+        Protocol::OpenAI
     } else if path.contains("/v1beta/") {
-        "gemini".to_string()
+        Protocol::Gemini
     } else {
-        "anthropic".to_string()
+        Protocol::Anthropic
     }
 }
 
@@ -94,9 +94,8 @@ pub(crate) fn endpoint_host(base_url: &str) -> Option<String> {
 
 pub(crate) fn select_endpoint_for_protocol<'a>(
     endpoints: &'a [super::models::PlatformEndpoint],
-    source_protocol: &str,
+    source_protocol: &Protocol,
 ) -> Option<&'a super::models::PlatformEndpoint> {
-    let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
     let has_coding_ep = endpoints.iter().any(|ep| ep.coding_plan);
     if has_coding_ep {
         // 步骤 1（加固）：同协议端点直发原协议。采纳条件放宽为 `coding_plan ||
@@ -116,25 +115,25 @@ pub(crate) fn select_endpoint_for_protocol<'a>(
         };
         endpoints
             .iter()
-            .find(|ep| ep_proto(ep) == source_protocol && key_usable(ep))
-            .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep_proto(ep) == "openai"))
+            .find(|ep| ep.protocol == *source_protocol && key_usable(ep))
+            .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI))
     } else {
         // 普通平台：步骤 3 同协议直发；步骤 4 跨协议回退（释放 converter 5×5 互转）。
         // 优先 openai（最稳 converter 路径，平台最常见），若无 openai 取 endpoints 首个非 source 可用 endpoint。
         endpoints
             .iter()
-            .find(|ep| ep_proto(ep) == source_protocol)
-            .or_else(|| endpoints.iter().find(|ep| ep_proto(ep) == "openai"))
-            .or_else(|| endpoints.iter().find(|ep| ep_proto(ep) != source_protocol))
+            .find(|ep| ep.protocol == *source_protocol)
+            .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAI))
+            .or_else(|| endpoints.iter().find(|ep| ep.protocol != *source_protocol))
     }
 }
 
-pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<&'static str> {
+pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {
     let lower = ua.to_lowercase();
     if lower.contains("claude-cli") {
-        Some("anthropic")
+        Some(Protocol::Anthropic)
     } else if lower.contains("codex") {
-        Some("openai_responses")
+        Some(Protocol::OpenAIResponses)
     } else {
         None
     }

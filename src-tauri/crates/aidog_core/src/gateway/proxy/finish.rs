@@ -1,5 +1,23 @@
 use super::*;
 
+/// forward_attempt 里一次路由决策产出的协议/模型元数据，供 finish_nonstream / finish_stream 共用。
+/// 收拢原先散落的 5 个协议相关参数（source_protocol / target_protocol_enum /
+/// same_protocol_passthrough / needs_model_remap / coding_plan）+ 模型对 + api_key/base_url，
+/// 把 finish_* 参数个数从 16/18 压到 ≤9（含 state/log/log_settings/group/route/upstream_resp_headers/start）。
+pub(crate) struct AttemptCtx {
+    pub source_protocol: Protocol,
+    pub target_protocol: Protocol,
+    pub same_protocol_passthrough: bool,
+    pub needs_model_remap: bool,
+    pub coding_plan: bool,
+    pub requested_model: String,
+    pub actual_model: String,
+    pub eff_api_key: String,
+    // 校准/预估链路用的 base_url：endpoint 真 base_url（coding plan 平台级 base_url 恒空，
+    // 用它 dispatch query_quota 子串匹配才命中）。空则回退平台级，见 finish_nonstream/finish_stream 开头。
+    pub quota_base_url: String,
+}
+
 /// 非流式 2xx 成功响应处理：usage 提取 + 跨协议转换 + 模型回填 + 出站中间件 + 响应头透传。
 /// commit_2xx_success! 已在调用方执行（log.attempts 已填充）。返回最终客户端响应。
 #[allow(clippy::too_many_arguments)]
@@ -9,25 +27,23 @@ pub(crate) async fn finish_nonstream(
     log_settings: &ProxyLogSettings,
     group: &Group,
     route: &RouteResult,
-    source_protocol: &str,
-    requested_model: &str,
-    actual_model: &str,
-    eff_api_key: &str,
-    target_protocol_enum: &Protocol,
-    same_protocol_passthrough: bool,
-    needs_model_remap: bool,
-    coding_plan: bool,
-    // 校准/预估链路用的 base_url：endpoint 真 base_url（coding plan 平台级 base_url 恒空，
-    // 用它 dispatch query_quota 子串匹配才命中）。空则回退平台级（等价现状）。
-    quota_base_url: String,
+    ctx: &AttemptCtx,
     upstream_resp_headers: &reqwest::header::HeaderMap,
     start: std::time::Instant,
     body: Bytes,
 ) -> Response {
-    let quota_base_url = if quota_base_url.trim().is_empty() {
+    let source_protocol = &ctx.source_protocol;
+    let target_protocol_enum = &ctx.target_protocol;
+    let same_protocol_passthrough = ctx.same_protocol_passthrough;
+    let needs_model_remap = ctx.needs_model_remap;
+    let coding_plan = ctx.coding_plan;
+    let requested_model = ctx.requested_model.as_str();
+    let actual_model = ctx.actual_model.as_str();
+    let eff_api_key = ctx.eff_api_key.as_str();
+    let quota_base_url = if ctx.quota_base_url.trim().is_empty() {
         route.platform.base_url.clone()
     } else {
-        quota_base_url
+        ctx.quota_base_url.clone()
     };
     // usage 借用：lossy 不经 to_string 中转
         let (input_tokens, output_tokens, cache_tokens) =
@@ -148,45 +164,42 @@ pub(crate) async fn finish_nonstream(
 }
 
 /// 流式 2xx 成功响应处理：peek 已确认有内容，此处构建 StreamLogGuard + SSE relay/转换闭包。
-/// commit_2xx_success! 已在调用方执行（log.attempts 已填充）。upstream_stream 为 peek 后剩余流，
-/// peek_buf 为已缓冲首批 chunk（prepend 回流）。返回 SSE 流式响应。
+/// commit_2xx_success! 已在调用方执行（log.attempts 已填充）。stream 为调用方已把 peek 阶段
+/// 缓冲的首批 chunk prepend 回上游剩余流后的完整流（见 forward.rs 调用点）。返回 SSE 流式响应。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn finish_stream<S>(
-    upstream_stream: S,
-    peek_buf: Vec<Bytes>,
+    stream: S,
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
     group: &Group,
     route: &RouteResult,
-    source_protocol: &str,
-    requested_model: &str,
-    actual_model: &str,
-    eff_api_key: &str,
-    target_protocol_enum: &Protocol,
-    same_protocol_passthrough: bool,
-    needs_model_remap: bool,
-    coding_plan: bool,
-    // 校准/预估链路用的 base_url：endpoint 真 base_url（见 finish_nonstream 注）。空则回退平台级。
-    quota_base_url: String,
+    ctx: &AttemptCtx,
     upstream_resp_headers: &reqwest::header::HeaderMap,
     start: std::time::Instant,
 ) -> Response
 where
     S: futures::Stream<Item = reqwest::Result<Bytes>> + Unpin + Send + 'static,
 {
-
-    let quota_base_url = if quota_base_url.trim().is_empty() {
+    let source_protocol = &ctx.source_protocol;
+    let requested_model = ctx.requested_model.as_str();
+    let actual_model = ctx.actual_model.as_str();
+    let eff_api_key = ctx.eff_api_key.as_str();
+    let target_protocol_enum = &ctx.target_protocol;
+    let same_protocol_passthrough = ctx.same_protocol_passthrough;
+    let needs_model_remap = ctx.needs_model_remap;
+    let coding_plan = ctx.coding_plan;
+    let quota_base_url = if ctx.quota_base_url.trim().is_empty() {
         route.platform.base_url.clone()
     } else {
-        quota_base_url
+        ctx.quota_base_url.clone()
     };
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
     // 同协议透传时（passthrough_response），下方闭包内原样 relay 上游 SSE，仅提取 usage。
     let passthrough_response = same_protocol_passthrough;
     let protocol = target_protocol_enum.clone();
-    let client_protocol = source_protocol.to_string();
+    let client_protocol = source_protocol.clone();
     let model_for_sse = requested_model.to_string();
     let model_for_response = if needs_model_remap {
         requested_model.to_string()
@@ -241,13 +254,8 @@ where
     };
 
     // guard 被 move 进闭包，随 stream 生命周期存活；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
-    // 决策 B：把 peek 阶段已缓冲的首批 chunk 原样 prepend 回流（不能吞首块），再接上游剩余流；
-    // 下游闭包对缓冲块与后续块一视同仁（token 聚合 / 转换 / finalize 不受影响）。
-    let buffered_head = futures::stream::iter(
-        peek_buf.into_iter().map(Ok::<Bytes, reqwest::Error>),
-    );
-    let upstream_rest = buffered_head.chain(upstream_stream);
-    let stream = upstream_rest.map(move |chunk_result| {
+    // 决策 B（peek 阶段已缓冲的首批 chunk prepend 回流）已在调用方 forward.rs 完成，此处直接消费完整流。
+    let stream = stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {

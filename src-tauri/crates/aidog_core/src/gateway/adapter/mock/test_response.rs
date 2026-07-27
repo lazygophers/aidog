@@ -15,7 +15,7 @@ fn cfg_with_tokens() -> MockConfig {
 
 #[test]
 fn build_response_anthropic_shape() {
-    let v = build_response(&cfg_with_tokens(), "anthropic", "claude-x");
+    let v = build_response(&cfg_with_tokens(), &Protocol::Anthropic, "claude-x");
     assert_eq!(v["type"], "message");
     assert_eq!(v["role"], "assistant");
     assert_eq!(v["model"], "claude-x");
@@ -29,7 +29,7 @@ fn build_response_anthropic_shape() {
 
 #[test]
 fn build_response_openai_shape() {
-    let v = build_response(&cfg_with_tokens(), "openai", "gpt-x");
+    let v = build_response(&cfg_with_tokens(), &Protocol::OpenAI, "gpt-x");
     assert_eq!(v["object"], "chat.completion");
     assert_eq!(v["model"], "gpt-x");
     assert_eq!(v["choices"][0]["message"]["role"], "assistant");
@@ -44,7 +44,7 @@ fn build_response_openai_shape() {
 
 #[test]
 fn build_response_openai_completions_shape() {
-    let v = build_response(&cfg_with_tokens(), "openai_completions", "gpt-x");
+    let v = build_response(&cfg_with_tokens(), &Protocol::OpenAICompletions, "gpt-x");
     assert_eq!(v["object"], "text_completion");
     assert_eq!(v["choices"][0]["text"], "hello-mock");
     assert_eq!(v["choices"][0]["index"], 0);
@@ -56,7 +56,7 @@ fn build_response_openai_completions_shape() {
 
 #[test]
 fn build_response_openai_responses_shape() {
-    let v = build_response(&cfg_with_tokens(), "openai_responses", "gpt-x");
+    let v = build_response(&cfg_with_tokens(), &Protocol::OpenAIResponses, "gpt-x");
     assert_eq!(v["object"], "response");
     assert_eq!(v["status"], "completed");
     assert_eq!(v["output"][0]["type"], "message");
@@ -69,7 +69,7 @@ fn build_response_openai_responses_shape() {
 
 #[test]
 fn build_response_gemini_shape() {
-    let v = build_response(&cfg_with_tokens(), "gemini", "gemini-x");
+    let v = build_response(&cfg_with_tokens(), &Protocol::Gemini, "gemini-x");
     assert_eq!(v["candidates"][0]["content"]["parts"][0]["text"], "hello-mock");
     assert_eq!(v["candidates"][0]["content"]["role"], "model");
     assert_eq!(v["candidates"][0]["finishReason"], "STOP");
@@ -81,7 +81,7 @@ fn build_response_gemini_shape() {
 
 #[test]
 fn build_response_unknown_protocol_falls_back_anthropic() {
-    let v = build_response(&cfg_with_tokens(), "weird-proto", "m");
+    let v = build_response(&cfg_with_tokens(), &Protocol::ClaudeCode, "m");
     assert_eq!(v["type"], "message");
     assert_eq!(v["content"][0]["text"], "hello-mock");
 }
@@ -90,7 +90,7 @@ fn build_response_unknown_protocol_falls_back_anthropic() {
 
 #[test]
 fn error_body_anthropic_shape() {
-    let v = build_error_body("anthropic", 500, "boom");
+    let v = build_error_body(&Protocol::Anthropic, 500, "boom");
     assert_eq!(v["type"], "error");
     assert_eq!(v["error"]["type"], "mock_error");
     assert_eq!(v["error"]["message"], "boom");
@@ -98,17 +98,17 @@ fn error_body_anthropic_shape() {
 
 #[test]
 fn error_body_openai_shape() {
-    for proto in ["openai", "openai_responses", "openai_completions"] {
+    for proto in [&Protocol::OpenAI, &Protocol::OpenAIResponses, &Protocol::OpenAICompletions] {
         let v = build_error_body(proto, 429, "rate limited");
-        assert_eq!(v["error"]["message"], "rate limited", "proto {proto}");
-        assert_eq!(v["error"]["type"], "mock_error", "proto {proto}");
-        assert_eq!(v["error"]["code"], 429, "proto {proto}");
+        assert_eq!(v["error"]["message"], "rate limited", "proto {proto:?}");
+        assert_eq!(v["error"]["type"], "mock_error", "proto {proto:?}");
+        assert_eq!(v["error"]["code"], 429, "proto {proto:?}");
     }
 }
 
 #[test]
 fn error_body_gemini_shape() {
-    let v = build_error_body("gemini", 503, "unavailable");
+    let v = build_error_body(&Protocol::Gemini, 503, "unavailable");
     assert_eq!(v["error"]["code"], 503);
     assert_eq!(v["error"]["message"], "unavailable");
     assert_eq!(v["error"]["status"], "MOCK_ERROR");

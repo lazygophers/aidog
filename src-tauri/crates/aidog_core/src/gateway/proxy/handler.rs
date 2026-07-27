@@ -286,8 +286,8 @@ pub(crate) async fn handle_proxy_core(
     log.group_key = group.group_key.clone();
     // Auto-detect source_protocol from request path (group no longer restricts inbound protocol)
     let source_protocol = detect_source_protocol(&path);
-    log.source_protocol = source_protocol.clone();
-    tracing::info!(group = %group.name, source_protocol = %source_protocol, model = %log.model, "group resolved");
+    log.source_protocol = source_protocol.wire_str();
+    tracing::info!(group = %group.name, source_protocol = %log.source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
 
     // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
@@ -326,7 +326,7 @@ pub(crate) async fn handle_proxy_core(
             return r;
         }
     };
-    let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&log.source_protocol, &req_value) {
+    let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&source_protocol, &req_value) {
         Ok(r) => r,
         Err(e) => {
             log.response_body = format!("failed to parse request for protocol ({}): {e}", log.source_protocol);

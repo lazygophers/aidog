@@ -70,23 +70,11 @@ pub struct NonStreamResponse {
 pub fn convert_response(
     body: &Value,
     wire_protocol: &Protocol,
-    client_protocol: &str,
+    client_protocol: &Protocol,
     model: &str,
 ) -> Option<Value> {
-    use crate::gateway::models::Protocol;
-
-    // 同协议透传：wire == client → 跳过 parse/render（避免不必要转换）
-    let wire_is_openai = matches!(
-        wire_protocol,
-        Protocol::OpenAI | Protocol::OpenAICompletions | Protocol::OpenAIResponses
-    );
-    let client_is_openai = matches!(client_protocol, "openai" | "openai_responses" | "openai_completions");
-
-    // wire == client（同语义协议）→ 透传
-    if (wire_is_openai && client_is_openai)
-        || (matches!(wire_protocol, Protocol::Anthropic) && client_protocol == "anthropic")
-        || (matches!(wire_protocol, Protocol::Gemini) && client_protocol == "gemini")
-    {
+    // 同 wire family（wire == client 语义协议）→ 跳过 parse/render（避免不必要转换）
+    if wire_protocol.same_wire_family(client_protocol) {
         return None;
     }
 
@@ -104,11 +92,11 @@ pub fn convert_response(
 
     // render 阶段：NonStreamResponse → client_protocol
     match client_protocol {
-        "anthropic" => Some(render_anthropic_response(&parsed)),
-        "openai" => Some(super::super::openai::render_openai_response(&parsed)?),
-        "openai_responses" => Some(super::super::openai_responses::render_responses_response(&parsed)?),
-        "openai_completions" => Some(super::super::openai_completions::render_completions_response(&parsed)?),
-        "gemini" => Some(super::super::gemini::render_gemini_response(&parsed)?),
+        Protocol::Anthropic => Some(render_anthropic_response(&parsed)),
+        Protocol::OpenAI => Some(super::super::openai::render_openai_response(&parsed)?),
+        Protocol::OpenAIResponses => Some(super::super::openai_responses::render_responses_response(&parsed)?),
+        Protocol::OpenAICompletions => Some(super::super::openai_completions::render_completions_response(&parsed)?),
+        Protocol::Gemini => Some(super::super::gemini::render_gemini_response(&parsed)?),
         _ => None, // 未知客户端协议回退透传
     }
 }
@@ -153,13 +141,81 @@ pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
     })
 }
 
-/// 将统一的 ChatStreamEvent 按客户端协议格式化为 SSE
-pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &str, model: &str) -> Option<String> {
+/// 将统一的 ChatStreamEvent 按客户端协议格式化为 SSE。
+///
+/// 穷尽 match（无 `_ =>` 兜底）：非 wire 协议的平台变体在此仍统一走 Anthropic 格式
+/// （历史行为不变，见旧版 `_ =>` 分支），但显式列出而非通配，Protocol 新增 wire 变体时
+/// 编译器强制在此补处理，不会静默落入错误分支。
+pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model: &str) -> Option<String> {
+    use Protocol::*;
     match source_protocol {
-        "openai" | "openai_responses" | "openai_completions" => super::super::openai::to_openai_sse(event, model),
-        "gemini" => super::super::gemini::to_gemini_sse(event, model),
-        // 默认 Anthropic 格式
-        _ => to_anthropic_sse(event),
+        OpenAI | OpenAIResponses | OpenAICompletions => super::super::openai::to_openai_sse(event, model),
+        Gemini => super::super::gemini::to_gemini_sse(event, model),
+        Anthropic
+        | Mock
+        | ClaudeCode
+        | Glm
+        | GlmCoding
+        | GlmEn
+        | Kimi
+        | KimiCoding
+        | MiniMax
+        | MiniMaxEn
+        | Codex
+        | Bailian
+        | BailianCoding
+        | DeepSeek
+        | StepFun
+        | StepFunEn
+        | Doubao
+        | BytePlus
+        | QianFan
+        | QianfanCoding
+        | XiaomiMimo
+        | XiaomiMimoCoding
+        | BaiLing
+        | Longcat
+        | SenseNova
+        | OpenRouter
+        | SiliconFlow
+        | SiliconFlowEn
+        | AiHubMix
+        | DmxApi
+        | ModelScope
+        | ShengSuanYun
+        | AtlasCloud
+        | Novita
+        | TheRouter
+        | CherryIn
+        | PackyCode
+        | Cubence
+        | AiGoCode
+        | RightCode
+        | AiCodeMirror
+        | Nvidia
+        | Pateway
+        | CcSub
+        | ApiKeyFun
+        | ApiNebula
+        | SudoCode
+        | ClaudeApi
+        | ClaudeCN
+        | RunApi
+        | RelaxyCode
+        | CrazyRouter
+        | SssAiCode
+        | Compshare
+        | CompshareCoding
+        | Micu
+        | CTok
+        | EFlowCode
+        | LemonData
+        | PipeLlm
+        | OpenCode
+        | OpenCodeZen
+        | NewApi
+        | CliProxy
+        | Devin => to_anthropic_sse(event),
     }
 }
 

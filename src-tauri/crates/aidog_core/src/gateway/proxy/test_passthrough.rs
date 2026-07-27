@@ -220,7 +220,7 @@ use super::*;
     // ── 静态模型列表：openai 格式 = {object:list, data:[{id,object,created,owned_by}]} ──
     #[test]
     fn static_models_openai_format() {
-        let v = build_static_models_json("openai");
+        let v = build_static_models_json(&Protocol::OpenAI);
         assert_eq!(v.get("object").and_then(|o| o.as_str()), Some("list"));
         let data = v.get("data").and_then(|d| d.as_array()).expect("data array");
         assert_eq!(data.len(), super::STATIC_MODEL_IDS.len());
@@ -244,7 +244,7 @@ use super::*;
     #[test]
     fn static_models_anthropic_format() {
         // 裸路径回退 anthropic
-        let v = build_static_models_json("anthropic");
+        let v = build_static_models_json(&Protocol::Anthropic);
         let data = v.get("data").and_then(|d| d.as_array()).expect("data array");
         assert_eq!(data.len(), super::STATIC_MODEL_IDS.len());
         let first = &data[0];
