@@ -92,7 +92,7 @@ export function usePlatformDrag(api: PlatformDragApi): PlatformDragResult {
         if (plat) {
           setDetails(prev => prev.map(d => {
             if (d.group.id !== gid) return d;
-            const newGp: GroupPlatformDetail = { platform: plat, priority: d.platforms.length + 1, weight: 1 };
+            const newGp: GroupPlatformDetail = { platform: plat, priority: d.platforms.length + 1, weight: 1, level_priority: 5 };
             const gps = [...d.platforms];
             gps.splice(Math.min(idx, gps.length), 0, newGp);
             return { ...d, platforms: gps };

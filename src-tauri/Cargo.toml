@@ -61,6 +61,8 @@ dirs = "6"
 regex = "1"
 semver = "1"
 ipnet = "2"
+# Rust→TS 类型 codegen（c1b：单一真值 Rust struct，禁手写 TS 与之漂移）
+ts-rs = "10"
 # TTS / 加密 / 杂项
 tts = "0.26"
 aes-gcm = "0.11"

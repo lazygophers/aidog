@@ -7,13 +7,15 @@
 
 use super::default_true;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[cfg(test)]
 #[path = "test_middleware.rs"]
 mod test_middleware;
 
 /// 规则类型（8 类中间件能力）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum RuleType {
     /// 请求字段过滤（model 白/黑名单等）
@@ -66,7 +68,8 @@ impl RuleType {
 }
 
 /// 规则作用域（三级，就近覆盖语义）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum RuleScope {
     /// 全局：所有请求
@@ -97,7 +100,8 @@ impl RuleScope {
 }
 
 /// 匹配方式。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum MatchType {
     /// 正则（regex crate，无回溯抗 ReDoS）
@@ -128,7 +132,8 @@ impl MatchType {
 }
 
 /// 命中动作。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum RuleAction {
     /// 脱敏遮罩
@@ -174,8 +179,10 @@ impl RuleAction {
 ///
 /// `config` 是 type-specific JSON 字符串（设计文档列出每类形状），
 /// 引擎层不强解析，由各执行器（C2/C3）按需 `serde_json::from_str`。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct MiddlewareRule {
+    #[ts(type = "number")]
     pub id: i64,
     pub name: String,
     #[serde(default)]
@@ -196,14 +203,17 @@ pub struct MiddlewareRule {
     #[serde(default = "default_config_json")]
     pub config: String,
     #[serde(default)]
+    #[ts(type = "number")]
     pub priority: i64,
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default)]
     pub is_builtin: bool,
     #[serde(default)]
+    #[ts(type = "number")]
     pub created_at: i64,
     #[serde(default)]
+    #[ts(type = "number")]
     pub updated_at: i64,
 }
 
@@ -213,7 +223,8 @@ fn default_rule_action() -> RuleAction { RuleAction::Warn }
 fn default_config_json() -> String { "{}".to_string() }
 
 /// 创建规则入参（前端不传 id/时间戳）。
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct CreateMiddlewareRule {
     pub name: String,
     #[serde(default)]
@@ -232,6 +243,7 @@ pub struct CreateMiddlewareRule {
     #[serde(default = "default_config_json")]
     pub config: String,
     #[serde(default)]
+    #[ts(type = "number")]
     pub priority: i64,
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -240,8 +252,10 @@ pub struct CreateMiddlewareRule {
 }
 
 /// 更新规则入参（全量覆盖，id 必填）。
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct UpdateMiddlewareRule {
+    #[ts(type = "number")]
     pub id: i64,
     pub name: String,
     #[serde(default)]
@@ -260,6 +274,7 @@ pub struct UpdateMiddlewareRule {
     #[serde(default = "default_config_json")]
     pub config: String,
     #[serde(default)]
+    #[ts(type = "number")]
     pub priority: i64,
     #[serde(default = "default_true")]
     pub enabled: bool,
@@ -272,7 +287,8 @@ pub struct UpdateMiddlewareRule {
 /// `enabled` 为总开关（OFF = 全旁路）；`type_toggles` 按 rule_type 子开关
 /// （缺省视为 true，即默认所有类型启用）。
 /// 注：熔断器已移出中间件层，归 group 功能块独立 task 实现，本结构不含 breaker。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct MiddlewareSettings {
     #[serde(default = "default_true")]
     pub enabled: bool,

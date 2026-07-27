@@ -2,10 +2,13 @@
 
 use super::{ManualBudget, PlatformStatus, Protocol};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// proxy_log.attempts JSON 数组元素：每次平台尝试的快照。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyAttempt {
+    #[ts(type = "number")]
     pub platform_id: u64,
     pub platform_name: String,
     /// 上游返回的 HTTP 状态码；连接失败 / 超时为 0
@@ -13,8 +16,10 @@ pub struct ProxyAttempt {
     /// 错误描述（连接失败 / 超时 / 上游错误体摘要）；成功为空串
     #[serde(default)]
     pub error: String,
+    #[ts(type = "number")]
     pub duration_ms: i64,
     /// 本次尝试发起时间（毫秒 unix 时间戳）
+    #[ts(type = "number")]
     pub ts: i64,
 }
 
@@ -31,17 +36,23 @@ pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
 // ─── Platform Models ───────────────────────────────────────
 
 /// 平台模型配置：5 个固定槽位
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformModels {
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub default: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub sonnet: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub opus: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub haiku: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
     pub gpt: Option<String>,
 }
 
@@ -100,8 +111,12 @@ where
 }
 
 /// 平台协议端点：同一平台可支持多种协议，每种协议对应不同的 base_url
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformEndpoint {
+    /// Protocol 定义于锁定文件 protocol.rs（c4-protocol 并行任务），本轮不加 TS derive；
+    /// 手写 union 落 `types/manual.ts`，此处指向之，禁二次定义漂移源。
+    #[ts(type = "import(\"../manual\").Protocol")]
     pub protocol: Protocol,
     pub base_url: String,
     /// 模拟的客户端类型（用于通过上游客户端校验）。
@@ -124,10 +139,14 @@ fn default_client_type() -> ClientType {
 
 // ─── Platform ──────────────────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct Platform {
+    #[ts(type = "number")]
     pub id: u64,
     pub name: String,
+    /// 见 [`PlatformEndpoint::protocol`] 注释：手写落 `manual.ts`。
+    #[ts(type = "import(\"../manual\").Protocol")]
     pub platform_type: Protocol,
     pub base_url: String,
     pub api_key: String,
@@ -146,22 +165,29 @@ pub struct Platform {
     /// 旧 .aidogx 全字段含 enabled 仍可覆盖。
     #[serde(default)]
     pub enabled: bool,
-    /// 三态状态：enabled / disabled(用户手动) / auto_disabled(401/403 自动)
+    /// 三态状态：enabled / disabled(用户手动) / auto_disabled(401/403 自动)。手写落 `manual.ts`。
     #[serde(default)]
+    #[ts(type = "import(\"../manual\").PlatformStatus")]
     pub status: PlatformStatus,
     /// auto_disabled 下次试探时间（毫秒 unix 时间戳）；退避用，0 = 立即可试探
     #[serde(default)]
+    #[ts(type = "number")]
     pub auto_disabled_until: i64,
     /// 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零
     #[serde(default)]
+    #[ts(type = "number")]
     pub auto_disable_strikes: i64,
     /// 过期时间（毫秒 unix 时间戳，0 = 永不过期）。>0 且 now>=expires_at 时路由 `candidate_state`
     /// 排除（等效自动禁用，但独立于 status 三态枚举；用户改值清空/延后即恢复，无需退避试探）。
     #[serde(default)]
+    #[ts(type = "number")]
     pub expires_at: i64,
+    #[ts(type = "number")]
     pub created_at: i64,
+    #[ts(type = "number")]
     pub updated_at: i64,
     #[serde(default)]
+    #[ts(type = "number")]
     pub deleted_at: i64,
     /// 预估剩余余额（按量计费平台，请求驱动增量自减；系统维护，前端只读）
     #[serde(default)]
@@ -171,9 +197,11 @@ pub struct Platform {
     pub est_coding_plan: String,
     /// 上次真实 quota 查询毫秒戳（校准基准；系统维护，前端只读）
     #[serde(default)]
+    #[ts(type = "number")]
     pub last_real_query_at: i64,
     /// 自上次真查以来的预估次数（校准计数；系统维护，前端只读）
     #[serde(default)]
+    #[ts(type = "number")]
     pub estimate_count: i64,
     /// 是否在 tray 中展示此平台
     #[serde(default)]
@@ -183,6 +211,7 @@ pub struct Platform {
     pub tray_display: String,
     /// 排序权重（越小越靠前），0 = 按 created_at 排序
     #[serde(default)]
+    #[ts(type = "number")]
     pub sort_order: i64,
     /// 手动预算限额列表（仅无上游 quota 自动支持平台；请求驱动扣减 + 耗尽阻断）
     #[serde(default)]
@@ -198,16 +227,19 @@ pub struct Platform {
     pub last_error: String,
     /// 最近一次错误的毫秒 unix 时间戳（DB 列；0 = 无）。
     #[serde(default)]
+    #[ts(type = "number")]
     pub last_error_at: i64,
 }
 
 /// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
 /// 每字段 0/缺省 = 继承全局 `SchedulingBreakerSettings` 默认（语义同旧顶层列）。
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformBreaker {
     #[serde(default)]
     pub failure_threshold: u32,
     #[serde(default)]
+    #[ts(type = "number")]
     pub open_secs: u64,
     #[serde(default)]
     pub half_open_max: u32,
@@ -215,14 +247,76 @@ pub struct PlatformBreaker {
 
 /// 从 `extra` JSON 字符串解析 `breaker` 嵌套对象；空/非法/缺键 → 全 0（继承全局默认）。
 pub fn parse_breaker(extra: &str) -> PlatformBreaker {
-    if extra.trim().is_empty() {
-        return PlatformBreaker::default();
+    PlatformExtra::parse(extra).breaker
+}
+
+// ─── PlatformExtra（`platform.extra` JSON 收敛 struct）──────────
+
+/// `platform.extra.devin` 嵌套对象：Devin（Cognition）平台专属配置。
+/// nested 读取（禁 flat `extra.org_id`/`extra.dev_timeout`），对齐前端 serializeDevinConfig。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DevinExtra {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dev_timeout: Option<u64>,
+}
+
+/// `platform.extra.newapi` 嵌套对象：New API 中转平台余额查询配置。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct NewapiExtra {
+    #[serde(default)]
+    pub balance_base_url: String,
+    #[serde(default)]
+    pub balance_api_key: String,
+}
+
+/// `platform.extra` JSON 收敛 struct：已知业务键落具名字段，未知键（含前端 `_ui_*` 私有态）
+/// 经 `#[serde(flatten)] rest` 无损往返。**只读解析入口**——写回仍走 `extra` 原始字符串
+/// （`merge_breaker_into_extra` 等按需 patch 单键，不整体覆写，避免序列化裁掉 `rest` 之外的
+/// 未建模字段顺序 / 精度）。
+///
+/// 各字段对应旧 ad-hoc 解析点（见 file:line 清单，均已改走本 struct）：
+/// - `breaker` ← `parse_breaker`
+/// - `disable_during_peak` ← `parse_disable_during_peak`
+/// - `peak_hours` ← `parse_platform_peak_hours`
+/// - `time_models` ← `parse_platform_time_models`
+/// - `cli_proxy_provider_id` ← `router::candidates::read_cli_proxy_provider_id`
+/// - `devin` ← `quota::devin::parse_devin_extra`
+/// - `newapi` ← `quota::newapi::parse_newapi_extra`
+/// - `mock` ← `adapter::mock::config::resolve_mock_config`
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlatformExtra {
+    #[serde(default)]
+    pub breaker: PlatformBreaker,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disable_during_peak: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peak_hours: Vec<crate::gateway::peak_hours::PeakWindow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub time_models: Vec<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cli_proxy_provider_id: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devin: Option<DevinExtra>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub newapi: Option<NewapiExtra>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mock: Option<serde_json::Value>,
+    /// 未建模键（`_ui_*` 前端私有态 + 尚未收敛的业务键）往返保留，禁丢。
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
+}
+
+impl PlatformExtra {
+    /// 解析 `platform.extra` JSON 字符串；空串/非法 JSON → 全默认（等价旧各 `parse_*` 的
+    /// 缺省兜底行为，不 panic 不报错）。
+    pub fn parse(extra: &str) -> Self {
+        if extra.trim().is_empty() {
+            return Self::default();
+        }
+        serde_json::from_str(extra).unwrap_or_default()
     }
-    serde_json::from_str::<serde_json::Value>(extra)
-        .ok()
-        .and_then(|v| v.get("breaker").cloned())
-        .and_then(|b| serde_json::from_value(b).ok())
-        .unwrap_or_default()
 }
 
 /// 把 breaker 阈值合并进 `extra` JSON 的 `breaker` 键（保留 extra 其余字段）。

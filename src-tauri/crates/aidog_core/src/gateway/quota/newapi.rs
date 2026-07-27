@@ -28,13 +28,11 @@ fn newapi_instance_root(base_url: &str) -> String {
 /// 从 platform.extra JSON 解析 New API 余额配置
 /// Returns (balance_base_url, balance_api_key)
 pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
-    if extra.trim().is_empty() { return None; }
-    let obj: serde_json::Value = serde_json::from_str(extra).ok()?;
-    let newapi = obj.get("newapi")?;
-    let base_url = newapi.get("balance_base_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let key = newapi.get("balance_api_key").and_then(|v| v.as_str())?.to_string();
-    if key.is_empty() { return None; }
-    Some((base_url, key))
+    let n = crate::gateway::models::PlatformExtra::parse(extra).newapi?;
+    if n.balance_api_key.is_empty() {
+        return None;
+    }
+    Some((n.balance_base_url, n.balance_api_key))
 }
 
 /// Step 1: 用 api_key 查询 token 使用情况

@@ -2,13 +2,15 @@
 
 use super::default_true;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[cfg(test)]
 #[path = "test_notification.rs"]
 mod test_notification;
 
 /// 通知类型枚举（serde snake_case）。3 类型：task_complete / waiting_input / error。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum NotifType {
     TaskComplete,
@@ -50,7 +52,8 @@ impl NotifType {
 }
 
 /// 呈现形态：完整播报 / 仅弹窗 / 仅收件箱 / 仅提示音。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum NotifForm {
     PopupOnly,
@@ -61,7 +64,8 @@ pub enum NotifForm {
 }
 
 /// TTS 后端：跨平台 tts crate（默认）/ macOS `say` 命令 / 前端 WebSpeech。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
 pub enum TtsBackend {
     #[default]
@@ -71,7 +75,8 @@ pub enum TtsBackend {
 }
 
 /// 单类型通知配置（per_type 值）。template 含变量占位（{project}/{status}/...）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct TypeSetting {
     /// 本类型是否 TTS 播报（与全局 tts_enabled 取与）。
     #[serde(default = "default_true")]
@@ -107,7 +112,8 @@ impl Default for TypeSetting {
 /// 再回退类型 default_template 防空）。全字段 serde default → 向后兼容：
 /// 旧 DB per_event 含 `notif_type`（serde 无 deny_unknown → 反序列化忽略多余字段）；
 /// 旧缺 `tts`/`popup` → serde default true（用户启用事件时两通道默认都开）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct EventSetting {
     /// 是否启用该事件（注入 hook + 触发通知）。
     #[serde(default)]
@@ -228,7 +234,8 @@ pub fn default_template_for_event(event: &str) -> &'static str {
 }
 
 /// 通知设置（settings KV scope=`notification`, key=`settings`）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct NotificationSettings {
     /// 总开关（OFF 时全部分发旁路）。default true。
     #[serde(default = "default_true")]
@@ -285,11 +292,14 @@ impl NotificationSettings {
 }
 
 /// 收件箱通知项（notification 表行）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct Notification {
+    #[ts(type = "number")]
     pub id: i64,
     pub notif_type: String,
     pub title: String,
     pub body: String,
+    #[ts(type = "number")]
     pub created_at: i64,
 }

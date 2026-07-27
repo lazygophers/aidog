@@ -8,24 +8,12 @@ use crate::gateway::models::PlatformModels;
 
 /// 从 `platform.extra` JSON 字符串解析 `time_models` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_time_models(extra: &str) -> Vec<serde_json::Value> {
-    if extra.trim().is_empty() {
-        return Vec::new();
-    }
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(extra) else {
-        return Vec::new();
-    };
-    let Some(arr) = v.get("time_models") else {
-        return Vec::new();
-    };
-    if let Some(a) = arr.as_array() {
-        // 验证每个元素都有 windows 和 models 字段
-        a.iter()
-            .filter(|item| item.is_object() && item.get("windows").is_some() && item.get("models").is_some())
-            .cloned()
-            .collect()
-    } else {
-        Vec::new()
-    }
+    // 验证每个元素都有 windows 和 models 字段（PlatformExtra.time_models 未内嵌此校验）
+    crate::gateway::models::PlatformExtra::parse(extra)
+        .time_models
+        .into_iter()
+        .filter(|item| item.is_object() && item.get("windows").is_some() && item.get("models").is_some())
+        .collect()
 }
 
 /// 按当前时段（epoch_ms UTC）first-match 命中 time_models，返回对应 models；

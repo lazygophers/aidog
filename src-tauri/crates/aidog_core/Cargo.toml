@@ -56,6 +56,7 @@ dashmap = { workspace = true }
 # count_tokens 本地估算升级：tiktoken-rs (OpenAI BPE) + tokenizers (HF, 加载 tokenizer.json)
 tiktoken-rs = { workspace = true }
 tokenizers = { workspace = true }
+ts-rs = { workspace = true }
 
 # macOS 托盘小字：refresh_tray_menu → set_tray_attributed_title 直连 NSStatusItem button。
 # 与 root package 同版本（workspace.dependencies 集中声明）。

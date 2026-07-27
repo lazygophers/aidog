@@ -107,7 +107,7 @@ function eventVars(event: string): string[] {
 }
 
 /** 取某事件的有效展示态：per_event 命中用存储值，否则按默认目录兜底（精选集 on + tts/popup 默认开）。 */
-function effectiveSetting(perEvent: Record<string, EventSetting>, event: string): EventSetting {
+function effectiveSetting(perEvent: Record<string, EventSetting | undefined>, event: string): EventSetting {
   const stored = perEvent[event];
   if (stored) return stored;
   return {
@@ -149,7 +149,7 @@ function EventRow({
 
 interface Props {
   /** 当前 per_event（undefined → 空对象，按默认目录展示）。 */
-  perEvent: Record<string, EventSetting> | undefined;
+  perEvent: Record<string, EventSetting | undefined> | undefined;
   /** 通知总开关关闭时禁用整区（事件配置依赖通知开启）。 */
   disabled: boolean;
   /** 更新某事件配置（父组件经 persist 落 settings.per_event）。 */

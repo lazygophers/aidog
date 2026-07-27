@@ -491,7 +491,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
         return {
           ...d,
           platforms: d.platforms.map(gp =>
-            gp.platform.id === pid ? { ...gp, level_priority: prevValue } : gp),
+            gp.platform.id === pid ? { ...gp, level_priority: prevValue ?? 5 } : gp),
         };
       }));
     });

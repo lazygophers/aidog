@@ -258,7 +258,7 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
           onChange={(e) => {
             const next = [...endpoints];
             if (next.length === 0) {
-              next.push({ protocol: "anthropic" as Protocol, base_url: e.target.value, client_type: "default" });
+              next.push({ protocol: "anthropic" as Protocol, base_url: e.target.value, client_type: "default", coding_plan: false });
             } else {
               next[0] = { ...next[0], base_url: e.target.value };
             }

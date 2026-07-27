@@ -126,6 +126,7 @@ function buildFallback(
       // 后端无对应 simulation 真值源（client-types.json 真值源由 Rust 内部消费，前端不感知）。
       // 改 default 值需同步此字面量。
       client_type: "codex_tui",
+      coding_plan: false,
     };
     return {
       protocol: "openai",
@@ -149,6 +150,7 @@ function buildClaudeFallback(baseUrl: string): CcMatchResult {
     protocol: "anthropic",
     base_url: baseUrl,
     client_type: "claude_code",
+    coding_plan: false,
   };
   return {
     protocol: "anthropic",

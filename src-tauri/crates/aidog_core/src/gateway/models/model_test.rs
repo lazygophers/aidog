@@ -1,20 +1,27 @@
 //! 模型测试模型：请求/结果 + 随机可校验题库与响应校验逻辑。
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[cfg(test)]
 #[path = "test_model_test.rs"]
 mod test_model_test;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ModelTestRequest {
+    #[ts(type = "number")]
     pub platform_id: u64,
+    #[ts(optional)]
     pub model: Option<String>,
+    #[ts(optional)]
     pub prompt: Option<String>,
+    #[ts(optional)]
     pub max_tokens: Option<u32>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ModelTestResult {
     pub success: bool,
     pub model: String,

@@ -2,6 +2,7 @@
 
 use super::{default_true, ProxyAttempt};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLog {
@@ -79,23 +80,32 @@ pub struct ProxyLog {
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformUsageStats {
+    #[ts(type = "number")]
     pub total_requests: i64,
+    #[ts(type = "number")]
     pub success_count: i64,
+    #[ts(type = "number")]
     pub total_input_tokens: i64,
+    #[ts(type = "number")]
     pub total_output_tokens: i64,
+    #[ts(type = "number")]
     pub total_cache_tokens: i64,
     pub cache_rate: f64,
     /// 最近 N 次请求中失败的次数（用于可用性判断）
+    #[ts(type = "number")]
     pub recent_failures: i64,
     /// 最近 N 次请求的总数
+    #[ts(type = "number")]
     pub recent_total: i64,
     /// 累计预估花费（$），基于 est_cost 聚合
     #[serde(default)]
     pub total_cost: f64,
     /// 今日（本地 00:00 起）token 总量（input + output），按 eff_pid 聚合
     #[serde(default)]
+    #[ts(type = "number")]
     pub today_tokens: i64,
     /// 今日（本地 00:00 起）预估花费（$），基于 est_cost 聚合
     #[serde(default)]
@@ -104,13 +114,15 @@ pub struct PlatformUsageStats {
 
 /// 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
 /// 供 PlatformCard 常驻徽章消费：ok/fail + 耗时 + 时间。
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct LastTestResult {
     /// status_code ∈ [200, 300) → true
     pub success: bool,
     pub status_code: i32,
     pub duration_ms: i32,
     /// proxy_log.created_at（毫秒 epoch）
+    #[ts(type = "number")]
     pub created_at: i64,
     /// 失败时取 response_body 截断 ~200 字符；成功为空串（徽章 title 短摘要用）
     pub error: String,
@@ -135,7 +147,8 @@ pub struct RequestLogSummary {
 }
 
 /// Summary row for list view (excludes large body fields)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyLogSummary {
     pub id: String,
     pub group_key: String,
@@ -143,6 +156,7 @@ pub struct ProxyLogSummary {
     pub actual_model: String,
     pub source_protocol: String,
     pub target_protocol: String,
+    #[ts(type = "number")]
     pub platform_id: u64,
     pub status_code: i32,
     pub duration_ms: i32,
@@ -155,39 +169,53 @@ pub struct ProxyLogSummary {
     /// 重试次数（retry_count>0 时列表显示重试徽标）
     #[serde(default)]
     pub retry_count: i32,
+    #[ts(type = "number")]
     pub created_at: i64,
 }
 
 /// 日志列表筛选条件
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyLogFilter {
+    #[ts(optional, type = "number | null")]
     pub platform_id: Option<u64>,
+    #[ts(optional)]
     pub group_key: Option<String>,
     /// None=全部; Some(200)=仅成功; Some(-1)=仅失败
+    #[ts(optional)]
     pub status: Option<i32>,
+    #[ts(optional, type = "number | null")]
     pub time_start: Option<i64>,
+    #[ts(optional, type = "number | null")]
     pub time_end: Option<i64>,
+    #[ts(optional)]
     pub model: Option<String>,
     /// "original" = 按 model 列; "actual" = 按 actual_model 列
+    #[ts(optional)]
     pub model_type: Option<String>,
     /// 路径片段：对 request_url 做 LIKE %v% 模糊匹配
     #[serde(default)]
+    #[ts(optional)]
     pub path: Option<String>,
     /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["test","quota"]）
     #[serde(default)]
+    #[ts(optional)]
     pub sources: Option<Vec<String>>,
     /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选。
     /// Logs 主页传 ["test","quota"] → 仅留纯代理转发，test/quota 仅请求日志页可见。
     /// NULL 行（理论不存在，source_protocol 各路径均硬赋值）视为「不属于排除集」保留。
     #[serde(default)]
+    #[ts(optional)]
     pub exclude_sources: Option<Vec<String>>,
     /// CLI 代理 provider id 筛选（cli_proxy_provider_id = ?）。请求日志页按 provider 归属过滤。
     #[serde(default)]
+    #[ts(optional, type = "number | null")]
     pub cli_proxy_provider_id: Option<i64>,
 }
 
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyLogSettings {
     /// Master switch: whether to log proxy requests at all
     #[serde(default = "default_true")]
@@ -228,7 +256,8 @@ pub struct ProxyLogSettings {
 }
 
 /// 保留期单位。serde lowercase（hour/day/week），Default = Day（老配置兼容）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "lowercase")]
 pub enum RetentionUnit {
     Hour,
