@@ -197,25 +197,26 @@ fn handle_mock_test(
 
     let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
     let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
-    let source_proto_str = "test";
+    // mock 响应形态须match target_protocol（下游 handle_success_response 用同一 target_protocol 解析），而非字面量占位符。
+    let target_protocol = &http_ctx.target_protocol;
     let (success, status_code, _resp_body, err_msg, in_tok, out_tok, preview): (bool, u16, String, String, i32, i32, String) = match cfg.error_mode.as_str() {
         "http_error" => {
-            let body = adapter::mock::build_error_body(source_proto_str, cfg.status_code, "mock http_error");
+            let body = adapter::mock::build_error_body(target_protocol, cfg.status_code, "mock http_error");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             (false, cfg.status_code, body_str, format!("mock http_error (status {})", cfg.status_code), 0, 0, String::new())
         }
         "rate_limit_429" => {
-            let body = adapter::mock::build_error_body(source_proto_str, 429, "mock rate limit");
+            let body = adapter::mock::build_error_body(target_protocol, 429, "mock rate limit");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             (false, 429, body_str, "mock rate_limit_429".to_string(), 0, 0, String::new())
         }
         "timeout" => {
-            let body = adapter::mock::build_error_body(source_proto_str, 504, "mock timeout");
+            let body = adapter::mock::build_error_body(target_protocol, 504, "mock timeout");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             (false, 504, body_str, "mock timeout".to_string(), 0, 0, String::new())
         }
         _ => {
-            let body = adapter::mock::build_response(&cfg, source_proto_str, &ctx.model);
+            let body = adapter::mock::build_response(&cfg, target_protocol, &ctx.model);
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             (true, 200, body_str, String::new(), cfg.input_tokens, cfg.output_tokens, cfg.response_text.clone())
         }
