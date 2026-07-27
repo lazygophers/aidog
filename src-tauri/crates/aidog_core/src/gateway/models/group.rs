@@ -2,32 +2,44 @@
 
 use super::{Platform, RoutingMode};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct Group {
+    #[ts(type = "number")]
     pub id: u64,
     pub name: String,
     /// 分组密钥：Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
     /// UNIQUE。创建时若未提供则自动生成 `gk_<32hex>`；创建后锁定不可改。
     #[serde(default)]
     pub group_key: String,
+    /// RoutingMode 定义于锁定文件 protocol.rs（c4-protocol 并行任务），本轮不加 TS derive；
+    /// 手写 union 落 `types/manual.ts`。
+    #[ts(type = "import(\"../manual\").RoutingMode")]
     pub routing_mode: RoutingMode,
     /// 如果由平台自动创建，记录关联平台 ID（十进制字符串；空串表示非自动）
     pub auto_from_platform: String,
+    #[ts(type = "number")]
     pub created_at: i64,
+    #[ts(type = "number")]
     pub updated_at: i64,
     #[serde(default)]
+    #[ts(type = "number")]
     pub deleted_at: i64,
     /// 超时设置（秒），0 = 继承系统设置
     #[serde(default)]
+    #[ts(type = "number")]
     pub request_timeout_secs: u64,
     #[serde(default)]
+    #[ts(type = "number")]
     pub connect_timeout_secs: u64,
     /// 入站协议（默认 anthropic）
     #[serde(default = "default_source_protocol")]
     pub source_protocol: String,
     /// 排序权重（越小越靠前），0 = 按 created_at 排序
     #[serde(default)]
+    #[ts(type = "number")]
     pub sort_order: i64,
     /// 分组级最大重试次数：失败后最多再换几个候选平台（0 = 不重试，只试 1 次）
     #[serde(default = "default_max_retries")]
@@ -106,11 +118,15 @@ pub struct UpdateGroup {
 
 // ─── GroupPlatform (关联) ──────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[allow(dead_code)]
 pub struct GroupPlatform {
+    #[ts(type = "number")]
     pub id: u64,
+    #[ts(type = "number")]
     pub group_id: u64,
+    #[ts(type = "number")]
     pub platform_id: u64,
     /// 故障转移优先级（越小越优先）
     pub priority: i32,
@@ -119,9 +135,12 @@ pub struct GroupPlatform {
     /// per-group 平台优先级（1~10，默认 5，10=最高优先；数大优先高）
     #[serde(default = "default_level_priority")]
     pub level_priority: i32,
+    #[ts(type = "number")]
     pub created_at: i64,
+    #[ts(type = "number")]
     pub updated_at: i64,
     #[serde(default)]
+    #[ts(type = "number")]
     pub deleted_at: i64,
 }
 
@@ -155,22 +174,27 @@ pub struct GroupPlatformInput {
 // ─── ModelMapping ──────────────────────────────────────────
 
 /// 内联于 group.model_mappings JSON 数组的元素
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ModelMapping {
     /// 对外模型名，如 "claude-sonnet-4-6"
     pub source_model: String,
+    #[ts(type = "number")]
     pub target_platform_id: u64,
     /// 实际模型名，如 "glm-4-plus"
     pub target_model: String,
     /// 超时设置（秒），0 = 继承分组设置
     #[serde(default)]
+    #[ts(type = "number")]
     pub request_timeout_secs: u64,
     #[serde(default)]
+    #[ts(type = "number")]
     pub connect_timeout_secs: u64,
 }
 
 /// 内联于 group.env_vars JSON 数组的元素（用户自定义环境变量）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct EnvVar {
     pub key: String,
     pub value: String,
@@ -208,19 +232,21 @@ mod tests {
 
 // ─── 辅助：带平台详情的分组 ────────────────────────────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct GroupDetail {
     pub group: Group,
     pub platforms: Vec<GroupPlatformDetail>,
     pub model_mappings: Vec<ModelMapping>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct GroupPlatformDetail {
     pub platform: Platform,
     pub priority: i32,
     pub weight: i32,
-    /// per-group 平台优先级（1~10，默认 5，10=最高优先）
+    /// per-group 平台优先级（1~10，默认 5，10=最高优先）。
     #[serde(default = "default_level_priority")]
     pub level_priority: i32,
 }

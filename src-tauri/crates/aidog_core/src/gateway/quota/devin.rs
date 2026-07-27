@@ -38,14 +38,9 @@ const DEVIN_API_ROOT: &str = "https://api.devin.ai";
 /// 从 platform.extra JSON 解析 Devin org_id。
 /// 形态：`{"devin":{"org_id":"<id>"}}`（org_id 非空才返）。
 pub fn parse_devin_extra(extra: &str) -> Option<String> {
-    if extra.trim().is_empty() {
-        return None;
-    }
-    let obj: serde_json::Value = serde_json::from_str(extra).ok()?;
-    let org_id = obj
-        .get("devin")?
-        .get("org_id")?
-        .as_str()?
+    let org_id = crate::gateway::models::PlatformExtra::parse(extra)
+        .devin?
+        .org_id?
         .trim()
         .to_string();
     if org_id.is_empty() {

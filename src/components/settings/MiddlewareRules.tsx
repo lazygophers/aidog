@@ -182,6 +182,7 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
         action,
         config: cfg,
         priority,
+        is_builtin: false,
         enabled,
       };
       await onSave(draft);

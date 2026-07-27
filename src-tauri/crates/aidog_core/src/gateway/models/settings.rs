@@ -2,6 +2,7 @@
 
 use super::{default_true, Platform, RoutingMode};
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[cfg(test)]
 #[path = "test_settings.rs"]
@@ -32,7 +33,8 @@ pub struct SetSettingInput {
 // ─── Stats Settings ─────────────────────────────────────────
 
 /// 统计聚合表设置（settings 表 scope="stats" key="settings"）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct StatsSettings {
     /// stats_agg_hourly 聚合行保留天数；0 = 永久保留。默认 365。
     #[serde(default = "default_stats_retention_days")]
@@ -50,13 +52,16 @@ impl Default for StatsSettings {
 // ─── Proxy Timeout Settings ─────────────────────────────────
 
 /// Upstream request timeout configuration (stored in settings table)
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyTimeoutSettings {
     /// Total request timeout in seconds (0 = no limit)
     #[serde(default)]
+    #[ts(type = "number")]
     pub request_timeout_secs: u64,
     /// TCP connection timeout in seconds (0 = no limit)
     #[serde(default)]
+    #[ts(type = "number")]
     pub connect_timeout_secs: u64,
 }
 
@@ -71,7 +76,8 @@ impl Default for ProxyTimeoutSettings {
 
 // ─── Proxy Client Settings (upstream HTTP proxy) ──────────
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyClientSettings {
     #[serde(default)]
     pub enabled: bool,
@@ -135,7 +141,8 @@ impl ProxyClientSettings {
 /// 全局调度 + 熔断默认设置（settings KV scope=`scheduling`, key=`settings`）。
 /// Platform 的 `extra.breaker` 覆盖值为 0/缺省时继承本结构对应默认值。
 /// `enabled=false` 时熔断总开关旁路（候选过滤不踢任何 Open 平台）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct SchedulingBreakerSettings {
     /// 全局默认调度策略字面量（与 RoutingMode serde rename 对齐）；Group routing_mode 覆盖之。
     #[serde(default = "default_routing_mode_str")]
@@ -145,6 +152,7 @@ pub struct SchedulingBreakerSettings {
     pub breaker_failure_threshold: u32,
     /// 全局默认 Open 持续秒数。
     #[serde(default = "default_breaker_open_secs")]
+    #[ts(type = "number")]
     pub breaker_open_secs: u64,
     /// 全局默认 HalfOpen 最大探测数。
     #[serde(default = "default_breaker_half_open_max")]

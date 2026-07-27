@@ -5,14 +5,15 @@
 //! → 1.0 的混合源拿窗口，再 first-match 命中算 multiplier。
 
 use chrono::{DateTime, Utc};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::sync::OnceLock;
 
 /// 单个时段窗口（UTC+0 基准）。serde 字段名直接对齐 JSON / TS `PeakWindow`。
 ///
 /// 向后兼容：旧数据无 `start_minute` / `end_minute` / `days_of_month` → None
 /// （`start_minute`/`end_minute` None=0，`days_of_month` None=不过滤）。
-#[derive(Debug, Clone, Deserialize, PartialEq)]
+/// `Serialize` 供 `PlatformExtra`（gateway/models/platform.rs）整体往返测试用。
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PeakWindow {
     pub start_hour: i32,
     pub end_hour: i32,
@@ -210,15 +211,8 @@ pub fn peak_hours_for(extra: &str, protocol: &str) -> Vec<PeakWindow> {
 }
 
 /// 从 `platform.extra` JSON 解析 `disable_during_peak` 字段；缺失/非法/非 bool → false（默认）。
-/// 与 `parse_platform_peak_hours` / `parse_breaker` 同模式：extra 是 JSON 字符串 blob，禁加 Rust struct 字段。
 pub fn parse_disable_during_peak(extra: &str) -> bool {
-    if extra.trim().is_empty() {
-        return false;
-    }
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(extra) else {
-        return false;
-    };
-    v.get("disable_during_peak").and_then(|x| x.as_bool()).unwrap_or(false)
+    crate::gateway::models::PlatformExtra::parse(extra).disable_during_peak
 }
 
 /// 按 protocol 名（serde rename 裸名，如 "deepseek"）查 bundled preset 默认窗口。
@@ -253,16 +247,7 @@ pub fn default_peak_models(protocol: &str) -> Option<crate::gateway::models::Pla
 
 /// 从 `platform.extra` JSON 字符串解析 `peak_hours` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_peak_hours(extra: &str) -> Vec<PeakWindow> {
-    if extra.trim().is_empty() {
-        return Vec::new();
-    }
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(extra) else {
-        return Vec::new();
-    };
-    let Some(arr) = v.get("peak_hours") else {
-        return Vec::new();
-    };
-    serde_json::from_value(arr.clone()).unwrap_or_default()
+    crate::gateway::models::PlatformExtra::parse(extra).peak_hours
 }
 
 #[cfg(test)]

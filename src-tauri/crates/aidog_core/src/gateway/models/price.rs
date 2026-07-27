@@ -1,6 +1,7 @@
 //! 模型价格模型：价格记录 / 摘要 / 解析结果 / 同步设置与结果。
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// 模型价格记录
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -27,8 +28,10 @@ pub struct ModelPrice {
 }
 
 /// 模型价格摘要（列表展示用，解析了关键字段）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ModelPriceSummary {
+    #[ts(type = "number")]
     pub id: u64,
     pub model_name: String,
     pub source: String,
@@ -40,16 +43,21 @@ pub struct ModelPriceSummary {
     /// $/M cache read tokens
     pub cache_read_price: Option<f64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(type = "number | null")]
     pub max_input_tokens: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(type = "number | null")]
     pub max_output_tokens: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(type = "number | null")]
     pub context_window: Option<i64>,
+    #[ts(type = "number")]
     pub updated_at: i64,
 }
 
 /// 价格解析结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ResolvedPrice {
     pub input_cost_per_token: f64,
     pub output_cost_per_token: f64,
@@ -58,15 +66,18 @@ pub struct ResolvedPrice {
 }
 
 /// 模型价格同步设置
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PriceSyncSettings {
     #[serde(default)]
     pub auto_sync_enabled: bool,
     /// 同步间隔（秒），默认 86400 = 24h
     #[serde(default = "default_sync_interval")]
+    #[ts(type = "number")]
     pub sync_interval_secs: u64,
     /// 上次同步时间（ms timestamp）
     #[serde(default)]
+    #[ts(type = "number")]
     pub last_sync_at: i64,
     /// 兜底默认价格 $/M tokens
     #[serde(default = "default_fallback_price")]
@@ -91,7 +102,8 @@ impl Default for PriceSyncSettings {
 }
 
 /// 同步结果
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PriceSyncResult {
     pub added: u32,
     pub updated: u32,

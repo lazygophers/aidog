@@ -5,10 +5,13 @@
 //! extra 为原始 JSON 串（仿 platform.extra）。
 
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 /// CLI 代理 provider 主行。对应 `cli_proxy_provider` 表。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct CliProxyProvider {
+    #[ts(type = "number")]
     pub id: u64,
     pub name: String,
     /// 入站协议标识（anthropic/openai/glm_coding 等）
@@ -25,13 +28,17 @@ pub struct CliProxyProvider {
     pub status: String,
     /// 归属分组 id；NULL = 未分配（s2 路由层消费）
     #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(type = "number | null")]
     pub group_id: Option<i64>,
+    #[ts(type = "number")]
     pub created_at: i64,
+    #[ts(type = "number")]
     pub updated_at: i64,
 }
 
 /// 创建入参。id / created_at / updated_at 由 create_provider 写入时填。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct CreateCliProxyProvider {
     pub name: String,
     pub wire_protocol: String,
@@ -48,6 +55,7 @@ pub struct CreateCliProxyProvider {
     #[serde(default = "default_active_status")]
     pub status: String,
     #[serde(default)]
+    #[ts(type = "number | null")]
     pub group_id: Option<i64>,
 }
 

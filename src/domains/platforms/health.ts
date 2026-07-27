@@ -217,8 +217,8 @@ export function computeManualBudgetDisplay(budgets: ManualBudget[] | undefined):
     hasData: true,
     remaining: rem,
     amount: tightest.amount,
-    unit: tightest.unit,
-    kind: tightest.kind,
+    unit: tightest.unit as ManualBudgetUnit,
+    kind: tightest.kind as ManualBudgetKind,
     ratio: Math.max(0, Math.min(1, minRatio === Infinity ? 0 : minRatio)),
     depleted: rem <= 0,
   };

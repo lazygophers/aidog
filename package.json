@@ -14,7 +14,7 @@
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "check:i18n": "node scripts/check-i18n.mjs",
-    "check:types": "node scripts/check-types.mjs",
+    "gen:types": "cd src-tauri && cargo test -p aidog_core export_bindings",
     "check:statusline-runtime": "node scripts/build-statusline-runtime.mjs --check",
     "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
     "version:sync": "node scripts/sync-version.mjs",

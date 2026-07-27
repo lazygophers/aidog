@@ -172,7 +172,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
           const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
           const idx = eps.findIndex((e) => e.protocol === epProto);
           if (idx >= 0) eps[idx] = { ...eps[idx], base_url: b.url };
-          else eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto) });
+          else eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto), coding_plan: false });
         }
       }
       return eps;
@@ -185,7 +185,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
       if (idx >= 0) {
         eps[idx] = { ...eps[idx], base_url: b.url };
       } else {
-        eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto) });
+        eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto), coding_plan: false });
       }
     }
     return eps;

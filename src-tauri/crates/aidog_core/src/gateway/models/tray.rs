@@ -2,6 +2,7 @@
 
 use super::default_true;
 use serde::{Deserialize, Serialize};
+use ts_rs::TS;
 
 #[cfg(test)]
 #[path = "test_tray.rs"]
@@ -13,7 +14,8 @@ mod test_tray;
 /// - mode="follow": 跟随系统（labelColor，自适应明暗）
 /// - mode="preset": value ∈ {"red","green","orange"} → systemRed/Green/Orange（自适应明暗）
 /// - mode="custom": value = hex（如 "#RRGGBB"），固定色，可能在某主题下可读性差
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct TrayColor {
     #[serde(default = "default_color_mode")]
     pub mode: String,
@@ -33,11 +35,13 @@ impl Default for TrayColor {
 /// - item_type="platform": platform_id 指定平台，display ∈ {"balance","coding"}
 /// - item_type="today_usage": metric ∈ {"tokens","cache_rate","cost","requests"}，display/platform_id 忽略
 /// - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct TrayItem {
     #[serde(default = "default_item_type")]
     pub item_type: String,
     #[serde(default)]
+    #[ts(type = "number | null")]
     pub platform_id: Option<u64>,
     #[serde(default = "default_display")]
     pub display: String,
@@ -78,7 +82,8 @@ fn default_align() -> String { "left".to_string() }
 
 /// 托盘整体配置（存 settings: scope="tray", key="config"）。
 /// 行模式（单/两行）改为每 item 各自 `line_mode`，全局仅保留 separator（多 item 间分隔）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct TrayConfig {
     /// 多 item 横排时各项之间的分隔符
     #[serde(default = "default_separator")]
@@ -111,7 +116,10 @@ impl Default for TrayConfig {
 /// - "cost_trend"       消费趋势曲线（按 scope / time_window 维度）
 ///
 /// 预定义指标集内自由组合增删 / 排序 / 显隐；不接受用户输入任意数据源。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+// 注：故意不 #[ts(export)] —— item_type/scope/time_window/size 字段 Rust 侧为 String（自由存储 +
+// serde default 兼容旧配置），TS 侧用手写字面量联合窄化（见 manual.ts PopoverItem），
+// PopoverConfig.items 字段用 #[ts(type=...)] 显式指回手写版，避免生成版(string)与手写版类型冲突。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct PopoverItem {
     /// 稳定 id（前端生成，便于拖拽 key），后端仅透传持久化。
     #[serde(default)]
@@ -150,7 +158,8 @@ fn default_popover_size() -> String { "m".to_string() }
 fn default_popover_item_type() -> String { "today_cost".to_string() }
 
 /// Popover 单行布局元信息（按 row 索引）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct RowMeta {
     /// 该行列数 1 | 2 | 3。缺省视为 1。
     #[serde(default = "default_cols")]
@@ -160,9 +169,11 @@ pub struct RowMeta {
 fn default_cols() -> i32 { 1 }
 
 /// Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PopoverConfig {
     #[serde(default)]
+    #[ts(type = "import(\"../manual\").PopoverItem[]")]
     pub items: Vec<PopoverItem>,
     /// 各行布局元信息（按 row 索引）；缺省项 / 越界视为 cols=1。
     #[serde(default)]
