@@ -26,7 +26,7 @@ fn convert_response_openai_to_anthropic_content_and_tools() {
         "usage": { "prompt_tokens": 100, "completion_tokens": 1002,
                    "prompt_tokens_details": { "cached_tokens": 40 } }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude-opus-4")
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-opus-4")
         .expect("openai→anthropic should convert");
     assert_eq!(out["type"], "message");
     assert_eq!(out["role"], "assistant");
@@ -64,7 +64,7 @@ fn convert_response_openai_to_anthropic_tool_only() {
         }}],
         "usage": { "prompt_tokens": 5, "completion_tokens": 7 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1, "无 text 时只含 tool_use");
     assert_eq!(content[0]["type"], "tool_use");
@@ -81,7 +81,7 @@ fn convert_response_openai_to_anthropic_text_only() {
             "role": "assistant", "content": "hello world" } }],
         "usage": { "prompt_tokens": 3, "completion_tokens": 2 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1);
     assert_eq!(content[0]["type"], "text");
@@ -97,7 +97,7 @@ fn convert_response_length_maps_max_tokens() {
         "choices": [{ "index": 0, "finish_reason": "length", "message": {
             "role": "assistant", "content": "truncated" } }]
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     assert_eq!(out["stop_reason"], "max_tokens");
 }
 
@@ -109,7 +109,7 @@ fn convert_response_empty_message_yields_nonempty_content() {
         "choices": [{ "index": 0, "finish_reason": "stop", "message": {
             "role": "assistant", "reasoning_content": "只有思维链" } }]
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1, "reasoning 非空时排首位，content 含一个 text 块");
     assert_eq!(content[0]["type"], "text");
@@ -120,7 +120,7 @@ fn convert_response_empty_message_yields_nonempty_content() {
 #[test]
 fn convert_response_same_proto_returns_none() {
     let upstream = serde_json::json!({ "choices": [] });
-    assert!(convert_response(&upstream, &Protocol::OpenAI, "openai", "m").is_none());
+    assert!(convert_response(&upstream, &Protocol::OpenAI, &Protocol::OpenAI, "m").is_none());
 }
 
 // ── to_anthropic_sse: Start event ──
@@ -221,7 +221,7 @@ fn to_anthropic_sse_usage_returns_none() {
 #[test]
 fn to_client_sse_anthropic_protocol() {
     let event = ChatStreamEvent::Delta { text: "hi".to_string() };
-    let sse = to_client_sse(&event, "anthropic", "m");
+    let sse = to_client_sse(&event, &Protocol::Anthropic, "m");
     assert!(sse.is_some(), "anthropic protocol should produce SSE");
     assert!(sse.unwrap().contains("content_block_delta"));
 }
@@ -230,7 +230,7 @@ fn to_client_sse_anthropic_protocol() {
 #[test]
 fn to_client_sse_openai_protocol() {
     let event = ChatStreamEvent::Delta { text: "hi".to_string() };
-    let sse = to_client_sse(&event, "openai", "gpt-4");
+    let sse = to_client_sse(&event, &Protocol::OpenAI, "gpt-4");
     // openai SSE should contain "data:" prefix
     assert!(sse.is_some(), "openai protocol should produce SSE");
 }
@@ -241,7 +241,7 @@ fn to_client_sse_gemini_protocol() {
     let event = ChatStreamEvent::Delta { text: "hello".to_string() };
     // gemini protocol — may or may not produce SSE depending on implementation
     // just ensure it doesn't panic
-    let _ = to_client_sse(&event, "gemini", "gemini-pro");
+    let _ = to_client_sse(&event, &Protocol::Gemini, "gemini-pro");
 }
 
 // ── render_anthropic_response 测试（方案 B：reasoning 排 text 块首位） ──
@@ -322,7 +322,7 @@ fn convert_response_anthropic_to_openai_with_reasoning() {
             "cache_read_tokens": 0
         }
     });
-    let out = convert_response(&upstream, &Protocol::Anthropic, "openai", "gpt-4")
+    let out = convert_response(&upstream, &Protocol::Anthropic, &Protocol::OpenAI, "gpt-4")
         .expect("anthropic→openai should convert");
     let message = &out["choices"][0]["message"];
     // anthropic 的 thinking 块视为 reasoning，放入 reasoning_content
@@ -352,7 +352,7 @@ fn convert_response_gemini_to_anthropic() {
             "totalTokenCount": 8
         }
     });
-    let out = convert_response(&upstream, &Protocol::Gemini, "anthropic", "claude")
+    let out = convert_response(&upstream, &Protocol::Gemini, &Protocol::Anthropic, "claude")
         .expect("gemini→anthropic should convert");
     assert_eq!(out["type"], "message");
     assert_eq!(out["role"], "assistant");
@@ -384,7 +384,7 @@ fn convert_response_openai_to_gemini() {
             "completion_tokens": 5
         }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "gemini", "gemini-pro")
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Gemini, "gemini-pro")
         .expect("openai→gemini should convert");
     let candidates = out["candidates"].as_array().unwrap();
     assert_eq!(candidates.len(), 1);
@@ -416,7 +416,7 @@ fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
             "completion_tokens": 30
         }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude-3-opus")
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-3-opus")
         .expect("case cd7ff24d: openai reasoning_content → anthropic content with reasoning");
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1, "仅有 reasoning 块");
@@ -445,7 +445,7 @@ fn gemini_upstream_to_anthropic_client_stream_e2e() {
 
     let mut out = String::new();
     for event in &events {
-        if let Some(sse) = to_client_sse(event, "anthropic", "claude-3-opus") {
+        if let Some(sse) = to_client_sse(event, &Protocol::Anthropic, "claude-3-opus") {
             out.push_str(&sse);
         }
     }
@@ -461,7 +461,7 @@ fn gemini_upstream_to_openai_client_stream_e2e() {
 
     let mut out = String::new();
     for event in &events {
-        if let Some(sse) = to_client_sse(event, "openai", "gpt-4o") {
+        if let Some(sse) = to_client_sse(event, &Protocol::OpenAI, "gpt-4o") {
             out.push_str(&sse);
         }
     }

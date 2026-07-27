@@ -9,7 +9,7 @@ pub(crate) async fn handle_mock(
     extra: &str,
     chat_req: &ChatRequest,
     req_value: &Value,
-    source_protocol: &str,
+    source_protocol: &Protocol,
     requested_model: &str,
     is_stream: bool,
     start: std::time::Instant,

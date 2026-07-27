@@ -50,7 +50,7 @@ fn anthropic_parse_tolerates_unknown_blocks() {
             ]
         }]
     });
-    let req = parse_incoming_request("anthropic", &body).expect("anthropic parse should succeed");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("anthropic parse should succeed");
     assert_eq!(req.model, "claude-opus-4-8");
     let blocks = match &req.messages[0].content {
         MessageContent::Blocks(b) => b,
@@ -74,7 +74,7 @@ fn anthropic_parse_tool_result_array_content() {
             ]
         }]
     });
-    let req = parse_incoming_request("anthropic", &body).expect("tool_result array content parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("tool_result array content parse");
     match &req.messages[0].content {
         MessageContent::Blocks(b) => match &b[0] {
             ContentBlock::ToolResult { tool_use_id, content } => {
@@ -94,7 +94,7 @@ fn anthropic_parse_plain_text_unchanged() {
         "model": "claude-opus-4-8",
         "messages": [{ "role": "user", "content": "hello" }]
     });
-    let req = parse_incoming_request("anthropic", &body).expect("plain parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("plain parse");
     assert_eq!(req.model, "claude-opus-4-8");
     assert!(matches!(req.messages[0].content, MessageContent::Text(_)));
 }
@@ -107,7 +107,7 @@ fn anthropic_parse_tool_missing_input_schema() {
         "messages": [{ "role": "user", "content": "search it" }],
         "tools": [{ "name": "web_search" }]
     });
-    let req = parse_incoming_request("anthropic", &body)
+    let req = parse_incoming_request(&Protocol::Anthropic, &body)
         .expect("tool missing input_schema should still parse");
     let tools = req.tools.as_ref().expect("tools present");
     assert_eq!(tools.len(), 1);
@@ -124,7 +124,7 @@ fn openai_parse_incoming_request() {
             { "role": "user", "content": "hello", "index": 0 }
         ]
     });
-    let req = parse_incoming_request("openai", &body).expect("openai parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("openai parse");
     assert_eq!(req.model, "gpt-4o");
 }
 
@@ -137,7 +137,7 @@ fn openai_responses_parse_incoming_request() {
             { "role": "user", "content": "hello" }
         ]
     });
-    let req = parse_incoming_request("openai_responses", &body).expect("openai_responses parse");
+    let req = parse_incoming_request(&Protocol::OpenAIResponses, &body).expect("openai_responses parse");
     assert_eq!(req.model, "gpt-4o");
 }
 
@@ -148,7 +148,7 @@ fn openai_completions_parse_incoming_request() {
         "model": "gpt-3.5-turbo-instruct",
         "prompt": "Hello world"
     });
-    let req = parse_incoming_request("openai_completions", &body).expect("openai_completions parse");
+    let req = parse_incoming_request(&Protocol::OpenAICompletions, &body).expect("openai_completions parse");
     assert_eq!(req.model, "gpt-3.5-turbo-instruct");
 }
 
@@ -160,7 +160,7 @@ fn gemini_parse_incoming_request() {
         "contents": [{ "role": "user", "parts": [{"text": "hi"}] }]
     });
     // May return None for incomplete format — just ensure no panic
-    let _ = parse_incoming_request("gemini", &body);
+    let _ = parse_incoming_request(&Protocol::Gemini, &body);
 }
 
 // ── 无效 anthropic 请求返回 Err ──
@@ -168,7 +168,7 @@ fn gemini_parse_incoming_request() {
 fn anthropic_parse_invalid_returns_err() {
     let body = serde_json::json!({"invalid": true});
     // Should error (missing required 'model' field)
-    let result = parse_incoming_request("anthropic", &body);
+    let result = parse_incoming_request(&Protocol::Anthropic, &body);
     assert!(result.is_err(), "invalid anthropic body should return Err");
 }
 

@@ -167,6 +167,29 @@ pub enum Protocol {
     Devin,
 }
 
+impl Protocol {
+    /// wire 协议名（= serde rename 值），用于 DB `source_protocol`/`target_protocol` 字符串字段
+    /// 和 tracing 日志。复用 serde 而非另建映射表，避免与 `#[serde(rename)]` 定义漂移。
+    pub fn wire_str(&self) -> String {
+        serde_json::to_value(self)
+            .ok()
+            .and_then(|v| v.as_str().map(|s| s.to_string()))
+            .unwrap_or_default()
+    }
+
+    /// 判定两个协议是否属于同一「wire family」（可互相跳过响应转换 / 共用错误体与 SSE 渲染）。
+    /// openai / openai_completions / openai_responses 三者共享同一渲染族；其余协议仅与自身同族。
+    ///
+    /// 注意：这与「端点透传精确匹配」是两回事——透传要求 body 结构完全一致
+    /// （openai_responses 与 openai 的请求/响应结构不同），forward.rs 的
+    /// `same_protocol_passthrough` 判定必须用精确 `==`，不可用本方法替代。
+    pub fn same_wire_family(&self, other: &Protocol) -> bool {
+        use Protocol::*;
+        let is_openai_family = |p: &Protocol| matches!(p, OpenAI | OpenAICompletions | OpenAIResponses);
+        (is_openai_family(self) && is_openai_family(other)) || self == other
+    }
+}
+
 /// 路由模式
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum RoutingMode {

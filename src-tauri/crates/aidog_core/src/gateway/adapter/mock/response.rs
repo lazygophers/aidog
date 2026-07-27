@@ -2,11 +2,13 @@
 
 use serde_json::{json, Value};
 
+use crate::gateway::models::Protocol;
+
 use super::config::MockConfig;
 
 /// 按 source_protocol 构造非流式假响应 JSON body。
 /// 假 token 注入各协议各自的 usage 字段。
-pub fn build_response(cfg: &MockConfig, source_protocol: &str, model: &str) -> Value {
+pub fn build_response(cfg: &MockConfig, source_protocol: &Protocol, model: &str) -> Value {
     let id = format!("mock-{}", uuid::Uuid::new_v4().simple());
     let text = cfg.response_text.clone();
     let input = cfg.input_tokens;
@@ -14,7 +16,7 @@ pub fn build_response(cfg: &MockConfig, source_protocol: &str, model: &str) -> V
     let cache = cfg.cache_tokens;
 
     match source_protocol {
-        "openai" => json!({
+        Protocol::OpenAI => json!({
             "id": id,
             "object": "chat.completion",
             "model": model,
@@ -30,7 +32,7 @@ pub fn build_response(cfg: &MockConfig, source_protocol: &str, model: &str) -> V
                 "prompt_tokens_details": { "cached_tokens": cache }
             }
         }),
-        "openai_completions" => json!({
+        Protocol::OpenAICompletions => json!({
             "id": id,
             "object": "text_completion",
             "model": model,
@@ -46,7 +48,7 @@ pub fn build_response(cfg: &MockConfig, source_protocol: &str, model: &str) -> V
                 "total_tokens": input + output
             }
         }),
-        "openai_responses" => json!({
+        Protocol::OpenAIResponses => json!({
             "id": id,
             "object": "response",
             "model": model,
@@ -62,7 +64,7 @@ pub fn build_response(cfg: &MockConfig, source_protocol: &str, model: &str) -> V
                 "total_tokens": input + output
             }
         }),
-        "gemini" => json!({
+        Protocol::Gemini => json!({
             "candidates": [{
                 "content": {
                     "parts": [{ "text": text }],
@@ -98,19 +100,21 @@ pub fn build_response(cfg: &MockConfig, source_protocol: &str, model: &str) -> V
 }
 
 /// 构造 mock 错误响应 body（按协议错误格式）。
-pub fn build_error_body(source_protocol: &str, status_code: u16, message: &str) -> Value {
-    match source_protocol {
-        "gemini" => json!({
+pub fn build_error_body(source_protocol: &Protocol, status_code: u16, message: &str) -> Value {
+    if source_protocol == &Protocol::Gemini {
+        json!({
             "error": { "code": status_code, "message": message, "status": "MOCK_ERROR" }
-        }),
-        "openai" | "openai_responses" | "openai_completions" => json!({
+        })
+    } else if source_protocol.same_wire_family(&Protocol::OpenAI) {
+        json!({
             "error": { "message": message, "type": "mock_error", "code": status_code }
-        }),
-        // anthropic
-        _ => json!({
+        })
+    } else {
+        // anthropic（及其余平台变体默认走 anthropic 错误格式）
+        json!({
             "type": "error",
             "error": { "type": "mock_error", "message": message }
-        }),
+        })
     }
 }
 

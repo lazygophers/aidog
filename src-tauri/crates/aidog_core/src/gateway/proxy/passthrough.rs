@@ -342,8 +342,8 @@ const STATIC_MODEL_IDS: &[&str] = &[
 /// - openai（`/v1/models` 等含 `/v1/`）→ `{"object":"list","data":[{"id","object","created","owned_by"}]}`
 /// - 其余（含 `/proxy/models` 裸路径回退 anthropic）→
 ///   `{"data":[{"type","id","display_name","created_at"}],"has_more":false,"first_id","last_id"}`
-pub(crate) fn build_static_models_json(proto: &str) -> Value {
-    if proto == "openai" {
+pub(crate) fn build_static_models_json(proto: &Protocol) -> Value {
+    if *proto == Protocol::OpenAI {
         let data: Vec<Value> = STATIC_MODEL_IDS
             .iter()
             .map(|id| serde_json::json!({
@@ -390,7 +390,7 @@ pub(crate) async fn handle_models_static(
     let body = build_static_models_json(&proto);
     let body_str = body.to_string();
 
-    log.source_protocol = proto;
+    log.source_protocol = proto.wire_str();
     log.status_code = 200;
     log.response_body = body_str.clone();
     log.user_response_body = body_str.clone();

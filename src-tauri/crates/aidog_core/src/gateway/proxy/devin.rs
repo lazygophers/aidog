@@ -113,7 +113,7 @@ pub(crate) async fn handle_devin(
     platform: &models::Platform,
     chat_req: &ChatRequest,
     _req_value: &Value,
-    source_protocol: &str,
+    source_protocol: &Protocol,
     requested_model: &str,
     is_stream: bool,
     start: std::time::Instant,
@@ -557,14 +557,14 @@ pub(crate) fn suspended_human_message(detail: &str) -> String {
 ///
 /// usage tokens 全 0（Devin 按 ACU 计费非 token，详见契约 9），acus_consumed 落 est_cost 不落 usage。
 pub(crate) fn format_chat_response(
-    source_protocol: &str,
+    source_protocol: &Protocol,
     session_id: &str,
     requested_model: &str,
     content: &str,
     _acus_consumed: f64,
 ) -> Value {
     match source_protocol {
-        "anthropic" => serde_json::json!({
+        Protocol::Anthropic => serde_json::json!({
             "id": format!("msg_{session_id}"),
             "type": "message",
             "role": "assistant",
@@ -635,9 +635,9 @@ pub(crate) enum PollError {
 }
 
 /// 按入站 source_protocol 格式化错误 body（error / suspended 终态用）。
-pub(crate) fn format_chat_error_body(source_protocol: &str, session_id: &str, msg: &str) -> String {
+pub(crate) fn format_chat_error_body(source_protocol: &Protocol, session_id: &str, msg: &str) -> String {
     match source_protocol {
-        "anthropic" => serde_json::json!({
+        Protocol::Anthropic => serde_json::json!({
             "type": "error",
             "error": { "type": "api_error", "message": msg, "session_id": session_id }
         }).to_string(),
@@ -848,7 +848,7 @@ async fn stream_terminal_response(
     state: Arc<ProxyState>,
     mut log: ProxyLog,
     log_settings: ProxyLogSettings,
-    source_protocol: &str,
+    source_protocol: &Protocol,
     requested_model: &str,
     session_id: &str,
     content: &str,
@@ -922,7 +922,7 @@ async fn stream_terminal_response(
 /// 把 content 切块发 SSE delta：Start → N×Delta(text) → Stop(finish_reason)。
 /// 复用 `to_client_sse` 按 source_protocol 转 openai/anthropic 格式（含 gemini 兜底）。
 pub(crate) fn build_devin_sse_seq(
-    source_protocol: &str,
+    source_protocol: &Protocol,
     sse_id: &str,
     model: &str,
     messages: &[String],
@@ -955,9 +955,9 @@ pub(crate) fn build_devin_sse_seq(
 
 /// 错误 SSE chunk：openai → `data: {"error":{...}}\n\n`；anthropic → `event: error\ndata: {...}\n\n`。
 /// 后接 [DONE]/message_stop 让客户端 clean close（openai 的 [DONE] 由 Stop 提供，这里仅 error）。
-pub(crate) fn sse_error_chunk(source_protocol: &str, msg: &str) -> String {
+pub(crate) fn sse_error_chunk(source_protocol: &Protocol, msg: &str) -> String {
     match source_protocol {
-        "anthropic" => format!(
+        Protocol::Anthropic => format!(
             "event: error\ndata: {}\n\n",
             serde_json::json!({ "type": "error", "error": { "type": "api_error", "message": msg } })
         ),
@@ -1109,7 +1109,7 @@ mod tests {
 
     #[test]
     fn chat_response_openai_shape() {
-        let v = format_chat_response("openai", "devin-1", "devin-normal", "hi", 1.5);
+        let v = format_chat_response(&Protocol::OpenAI, "devin-1", "devin-normal", "hi", 1.5);
         assert_eq!(v["object"], "chat.completion");
         assert_eq!(v["id"], "chatcmpl-devin-1");
         assert_eq!(v["choices"][0]["message"]["content"], "hi");
@@ -1122,7 +1122,7 @@ mod tests {
 
     #[test]
     fn chat_response_anthropic_shape() {
-        let v = format_chat_response("anthropic", "devin-2", "devin-fast", "hello", 2.0);
+        let v = format_chat_response(&Protocol::Anthropic, "devin-2", "devin-fast", "hello", 2.0);
         assert_eq!(v["type"], "message");
         assert_eq!(v["role"], "assistant");
         assert_eq!(v["id"], "msg_devin-2");
@@ -1136,17 +1136,17 @@ mod tests {
 
     #[test]
     fn chat_response_unknown_protocol_falls_back_openai() {
-        let v = format_chat_response("gemini", "devin-3", "devin-lite", "hi", 0.5);
+        let v = format_chat_response(&Protocol::Gemini, "devin-3", "devin-lite", "hi", 0.5);
         assert_eq!(v["object"], "chat.completion");
     }
 
     #[test]
     fn chat_error_body_openai_and_anthropic() {
-        let o = format_chat_error_body("openai", "devin-x", "err");
+        let o = format_chat_error_body(&Protocol::OpenAI, "devin-x", "err");
         let ov: Value = serde_json::from_str(&o).unwrap();
         assert_eq!(ov["error"]["message"], "err");
         assert_eq!(ov["error"]["session_id"], "devin-x");
-        let a = format_chat_error_body("anthropic", "devin-y", "err");
+        let a = format_chat_error_body(&Protocol::Anthropic, "devin-y", "err");
         let av: Value = serde_json::from_str(&a).unwrap();
         assert_eq!(av["type"], "error");
         assert_eq!(av["error"]["message"], "err");
@@ -1156,7 +1156,7 @@ mod tests {
 
     #[test]
     fn sse_seq_openai_has_delta_and_done() {
-        let chunks = build_devin_sse_seq("openai", "chatcmpl-s1", "devin-normal", &["hello".into()], "stop");
+        let chunks = build_devin_sse_seq(&Protocol::OpenAI, "chatcmpl-s1", "devin-normal", &["hello".into()], "stop");
         // Start + Delta + Stop = 3 chunks
         assert_eq!(chunks.len(), 3, "openai seq: {:?}", chunks);
         // Start: data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"...}}]}
@@ -1172,7 +1172,7 @@ mod tests {
 
     #[test]
     fn sse_seq_anthropic_has_message_start_stop() {
-        let chunks = build_devin_sse_seq("anthropic", "msg_s2", "devin-fast", &["world".into()], "end_turn");
+        let chunks = build_devin_sse_seq(&Protocol::Anthropic, "msg_s2", "devin-fast", &["world".into()], "end_turn");
         assert_eq!(chunks.len(), 3, "anthropic seq: {:?}", chunks);
         // Start: event: message_start
         assert!(chunks[0].contains("event: message_start"), "anthropic start: {}", chunks[0]);
@@ -1189,7 +1189,7 @@ mod tests {
 
     #[test]
     fn sse_seq_skips_empty_messages() {
-        let chunks = build_devin_sse_seq("openai", "c", "m", &["".into(), "real".into(), "".into()], "stop");
+        let chunks = build_devin_sse_seq(&Protocol::OpenAI, "c", "m", &["".into(), "real".into(), "".into()], "stop");
         // Start + 1 Delta（空跳过）+ Stop
         assert_eq!(chunks.len(), 3);
         assert!(chunks[1].contains("real"));
@@ -1198,7 +1198,7 @@ mod tests {
     #[test]
     fn sse_seq_gemini_falls_back_openai_like() {
         // gemini: Start→None（跳过），Delta + Stop = 2 chunks（gemini sse 无 data:/event: 前缀，纯 JSON 行）
-        let chunks = build_devin_sse_seq("gemini", "c", "m", &["x".into()], "stop");
+        let chunks = build_devin_sse_seq(&Protocol::Gemini, "c", "m", &["x".into()], "stop");
         assert_eq!(chunks.len(), 2, "gemini seq: {:?}", chunks);
         assert!(chunks[0].contains("\"text\":\"x\""), "gemini delta: {}", chunks[0]);
         // 末块是 Stop（finishReason=STOP）
@@ -1209,11 +1209,11 @@ mod tests {
 
     #[test]
     fn sse_error_chunk_openai_and_anthropic() {
-        let o = sse_error_chunk("openai", "boom");
+        let o = sse_error_chunk(&Protocol::OpenAI, "boom");
         assert!(o.starts_with("data: "));
         let ov: Value = serde_json::from_str(o.trim_start_matches("data: ").trim()).unwrap();
         assert_eq!(ov["error"]["message"], "boom");
-        let a = sse_error_chunk("anthropic", "kaboom");
+        let a = sse_error_chunk(&Protocol::Anthropic, "kaboom");
         assert!(a.starts_with("event: error\ndata: "));
         let av: Value = serde_json::from_str(a.split("data: ").nth(1).unwrap().trim()).unwrap();
         assert_eq!(av["error"]["message"], "kaboom");
