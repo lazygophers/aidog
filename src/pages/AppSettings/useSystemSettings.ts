@@ -230,7 +230,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     setReqTimeout(req);
     setConnTimeout(conn);
     try {
-      await proxyTimeoutApi.set({ request_timeout_secs: req, connect_timeout_secs: conn, source_protocol: "anthropic" });
+      await proxyTimeoutApi.set({ request_timeout_secs: req, connect_timeout_secs: conn });
     } catch (e: any) { setMessage(e.toString()); }
   };
 

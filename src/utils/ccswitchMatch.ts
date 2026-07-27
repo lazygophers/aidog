@@ -266,6 +266,6 @@ export function ccProviderToPlatformJson(
     show_in_tray: false,
     tray_display: "",
     sort_order: 0,
-    manual_budgets: "",
+    manual_budgets: [],
   };
 }

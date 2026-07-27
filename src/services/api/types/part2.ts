@@ -91,7 +91,6 @@ export interface ProxyLogSettings {
 export interface ProxyTimeoutSettings {
   request_timeout_secs: number;
   connect_timeout_secs: number;
-  source_protocol: string;
 }
 
 
