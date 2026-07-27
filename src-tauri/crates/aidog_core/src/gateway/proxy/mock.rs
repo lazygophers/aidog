@@ -99,7 +99,7 @@ pub(crate) async fn handle_mock(
         // mock 无 platform.extra / 无 preset 默认 → peak_hours multiplier 恒 1.0；
         // 传 0 / 0 跳过 peak_hours 查询（calc_est_cost 早退）。
         let now_ms = super::db::now();
-        let est = super::db::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens, 0, now_ms).await;
+        let est = crate::gateway::billing::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens, 0, now_ms).await;
         let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, now_ms).await;
     }
 

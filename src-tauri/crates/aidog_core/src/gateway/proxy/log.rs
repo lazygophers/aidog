@@ -146,7 +146,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
             .flatten()
             .map(|p| p.platform_type.wire_str())
             .unwrap_or_default();
-        Some(super::db::calc_est_cost(
+        Some(crate::gateway::billing::calc_est_cost(
             &state.db,
             &model_name,
             &platform_type,
