@@ -59,3 +59,6 @@ __pycache__/
 # presets-view generated HTML (make presets-view)
 .aidoc/
 vite.config.js
+
+# 全局 gitignore 的 logs/ 在大小写不敏感 FS 上会吞掉 src/pages/Logs/
+!/src/pages/Logs/
