@@ -23,16 +23,7 @@ import {
 } from "@/services/api";
 import { makeRipple } from "@/utils/motion";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,7 +37,7 @@ import {
 import { useCliProxySelection } from "./useCliProxySelection";
 import { ProviderRow } from "./ProviderRow";
 import { ProviderFormPanel } from "./ProviderFormPanel";
-import { NONE, fieldLabel } from "./constants";
+import { ImportDialog } from "./ImportDialog";
 import { BatchDeleteDialog } from "./BatchDeleteDialog";
 import { BatchModelsDialog } from "./BatchModelsDialog";
 import { BatchQuotaDialog } from "./BatchQuotaDialog";
@@ -398,7 +389,6 @@ export function CliProxy() {
       )}
 
       {/* 编辑/新增 inline form */}
-      {/* 编辑/新增 inline form */}
       {editingId !== null && (
         <ProviderFormPanel
           editingId={editingId}
@@ -499,86 +489,21 @@ export function CliProxy() {
       />
 
       {/* 导入 Dialog */}
-      <Dialog open={importOpen} onOpenChange={setImportOpen}>
-        <DialogContent className="glass-elevated" style={{ maxWidth: 520, padding: 20 }}>
-          <DialogHeader>
-            <DialogTitle style={{ fontSize: 15, fontWeight: 600 }}>
-              {t("cliProxy.import")}
-            </DialogTitle>
-          </DialogHeader>
-          <label style={fieldLabel}>
-            {t("cliProxy.importSource")}
-            <div style={{ display: "flex", gap: 8 }}>
-              <Input
-                value={importSource}
-                onChange={e => setImportSource(e.target.value)}
-                placeholder="config.yaml / .zip / .tgz / dir"
-              />
-              <Button
-                variant="ghost"
-                className="ripple"
-                onClick={(e) => { makeRipple(e); void pickFile(setImportSource); }}
-                style={{ flexShrink: 0 }}
-              >
-                {t("cliProxy.importPickFile")}
-              </Button>
-            </div>
-          </label>
-          <label style={fieldLabel}>
-            {t("cliProxy.importAuthDir")}
-            <div style={{ display: "flex", gap: 8 }}>
-              <Input
-                value={importAuthDir}
-                onChange={e => setImportAuthDir(e.target.value)}
-                placeholder="~/.claude/auth.json dir (optional)"
-              />
-              <Button
-                variant="ghost"
-                className="ripple"
-                onClick={(e) => { makeRipple(e); void pickDir(setImportAuthDir); }}
-                style={{ flexShrink: 0 }}
-              >
-                {t("cliProxy.importPickDir")}
-              </Button>
-            </div>
-          </label>
-          <label style={fieldLabel}>
-            {t("cliProxy.groupId")}
-            <Select
-              value={importGroupId === "" ? NONE : String(importGroupId)}
-              onValueChange={v => setImportGroupId(v === NONE ? "" : Number(v))}
-            >
-              <SelectTrigger style={{ width: "100%" }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>—</SelectItem>
-                {groups.map(g => (
-                  <SelectItem key={g.id} value={String(g.id)}>{g.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <DialogFooter>
-            <Button
-              variant="ghost"
-              className="ripple"
-              onClick={(e) => { makeRipple(e); setImportOpen(false); }}
-              disabled={busyKey !== null}
-            >
-              {t("cliProxy.cancel")}
-            </Button>
-            <Button
-              variant="default"
-              className="ripple"
-              onClick={(e) => { makeRipple(e); void handleImport(); }}
-              disabled={busyKey !== null}
-            >
-              {t("cliProxy.import")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        source={importSource}
+        setSource={setImportSource}
+        authDir={importAuthDir}
+        setAuthDir={setImportAuthDir}
+        groupId={importGroupId}
+        setGroupId={setImportGroupId}
+        groups={groups}
+        busy={busyKey !== null}
+        onPickFile={() => void pickFile(setImportSource)}
+        onPickDir={() => void pickDir(setImportAuthDir)}
+        onImport={() => void handleImport()}
+      />
     </div>
   );
 }
