@@ -3,7 +3,8 @@ import { FilterDropdown, makeRipple } from "../../components/shared";
 import { F } from "../../domains/shared/tokens";
 import { LogRow, Pagination, FilterSelect, ThCell } from "./primitives";
 import { NO_GROUP_SENTINEL, type TimePreset } from "./types";
-import type { LogsData } from "./useLogsData";
+import type { LogsFiltersData } from "./useLogsFilters";
+import type { LogsListData } from "./useLogsList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TableHeader, TableBody } from "@/components/ui/table";
@@ -22,17 +23,23 @@ import {
  * 日志列表视图（自原 Logs.tsx L455-637 外迁）。
  * header + 筛选条 + 表格 + 分页；详情由 Logs.tsx 以 Sheet 叠加（本组件恒常渲染）。
  */
-export function ListView({ d }: { d: LogsData }) {
+export function ListView({ filters, list, openDetail, copyRow }: {
+  filters: LogsFiltersData;
+  list: LogsListData;
+  openDetail: (id: string) => void;
+  copyRow: (id: string) => void;
+}) {
   const {
-    t, logs, total, offset, pageSize, loading, load, setOffset, setPageSize,
-    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
+    t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
     filterModelType, filterModelText, filterPath,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
     setFilterModelType, setFilterModelText, setFilterPath,
-    modelOptions, hasFilter, clearFilter, handleClear, handleCleanupExpired,
-    showClearConfirm, setShowClearConfirm, cleanupMessage,
-    openDetail, copyRow, platformMap, groupName,
-  } = d;
+    modelOptions, hasFilter, clearFilter, platformMap, groupName,
+  } = filters;
+  const {
+    logs, total, offset, pageSize, loading, load, setOffset, setPageSize,
+    handleClear, handleCleanupExpired, showClearConfirm, setShowClearConfirm, cleanupMessage,
+  } = list;
 
   const totalPages = Math.ceil(total / pageSize);
   const currentPage = Math.floor(offset / pageSize) + 1;

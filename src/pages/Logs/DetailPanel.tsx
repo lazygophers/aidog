@@ -4,7 +4,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { F } from "../../domains/shared/tokens";
 import { CopyButton, MetaItem, RequestTabs } from "./primitives";
 import { safeParseJson } from "./types";
-import type { LogsData } from "./useLogsData";
+import type { LogsDetailData } from "./useLogsDetail";
 import { formatDateTime } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
 import { getProtocolLabel } from "../../domains/platforms/defaults";
@@ -23,7 +23,13 @@ import {
  * 以 shadcn Sheet（Radix Portal 侧抽屉）叠加在列表之上；open = detail 非空。
  * 接 hook 提供的 detail/copy/openDetail 及 platform/group 映射，业务逻辑零改。
  */
-export function DetailPanel({ d }: { d: LogsData }) {
+/** DetailPanel 消费的字段：detail 段 + platformMap/groupName（list/detail 共用，来自 filters 段）。 */
+export type DetailPanelData = LogsDetailData & {
+  platformMap: Map<number, string>;
+  groupName: (k: string) => string;
+};
+
+export function DetailPanel({ d }: { d: DetailPanelData }) {
   const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail } = d;
 
   return (
@@ -65,14 +71,14 @@ export function DetailPanel({ d }: { d: LogsData }) {
 }
 
 interface DetailBodyProps {
-  detail: NonNullable<LogsData["detail"]>;
-  t: LogsData["t"];
+  detail: NonNullable<DetailPanelData["detail"]>;
+  t: DetailPanelData["t"];
   copied: boolean;
   copiedId: boolean;
   setCopiedId: (v: boolean) => void;
   openDetail: (id: string) => void;
-  copyDetail: (d: NonNullable<LogsData["detail"]>) => void;
-  platformMap: LogsData["platformMap"];
+  copyDetail: (d: NonNullable<DetailPanelData["detail"]>) => void;
+  platformMap: DetailPanelData["platformMap"];
   groupName: (k: string) => string;
 }
 

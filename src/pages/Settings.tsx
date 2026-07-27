@@ -19,10 +19,10 @@ import {
   ImportDiffModal,
   buildImportDiffTree,
   readManagedPaths,
-  isPlainObject,
   type DiffNode,
   type HooksConfig,
 } from "../components/settings/editors";
+import { applySelectedPaths } from "../components/settings/applySelectedPaths";
 import { materializeStatusline } from "../components/settings/statusline-gen";
 import { SettingsHeader } from "../components/settings/SettingsHeader";
 import { SectionAnchorNav } from "../components/settings/SectionAnchorNav";
@@ -270,39 +270,7 @@ export function Settings() {
 
   const applyImport = (selectedPaths: Set<string>) => {
     if (!importDiff) return;
-    // Deep-merge selected dot-paths from source into a clone of current config.
-    // Unselected sub-keys keep their current value (object keys are cloned before merge).
-    const next: Record<string, any> = JSON.parse(JSON.stringify(config));
-    const { source } = importDiff;
-    for (const path of selectedPaths) {
-      const segs = path.split(".");
-      // Resolve incoming value by walking source along the path.
-      let incoming: any = source;
-      let found = true;
-      for (const s of segs) {
-        if (incoming != null && typeof incoming === "object" && s in incoming) {
-          incoming = incoming[s];
-        } else {
-          incoming = undefined;
-          found = false;
-          break;
-        }
-      }
-      // Write into next at the path, creating intermediate objects as needed.
-      let cursor = next;
-      for (let i = 0; i < segs.length - 1; i++) {
-        const s = segs[i];
-        if (!isPlainObject(cursor[s])) cursor[s] = {};
-        cursor = cursor[s];
-      }
-      const leaf = segs[segs.length - 1];
-      if (found) {
-        cursor[leaf] = incoming;
-      } else {
-        // Source lacks this key (a "removed" diff) → drop it.
-        delete cursor[leaf];
-      }
-    }
+    const next = applySelectedPaths(config, importDiff.source, selectedPaths);
     setConfig(next);
     setEditJson(JSON.stringify(next, null, 2));
     setImportDiff(null);
