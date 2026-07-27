@@ -53,3 +53,9 @@ workaround（本批 `popover.rs::test_popover` 已验证）：改测底层 `db::
 - `cargo clippy --workspace --all-targets`：0 warning（同上，仅既存 ts-rs/block 提示，无 clippy lint）
 - `cargo test -p aidog_core`：1518 passed / 1 failed / 4 ignored（基线 1517 passed/1 failed；唯一失败 `gateway::quota::http::test_http::quota_get_json_network_error` 是环境依赖的已知基线失败，非本批引入，未劣化，反而净增 1 pass 即 `popover::test_popover::config_roundtrip_and_today`）
 - 4 个 invoke 名逐字未变：`src/services/api/tray.ts` 的 `popover_config_get`/`popover_config_set`/`popover_platform_today`，`src/popover.tsx:105` 的 `popover_data`（直调非走 api 封装层）均确认字符串未改。
+
+## 批 3（commands_system + commands_ai_tools，新增坑，3 个）
+
+- **迁移后已用 `aidog_core::` 全限定路径的测试文件必须改 `crate::`**：部分源 crate 测试（如 `test_coding_tools.rs`/`test_fs_autocomplete.rs`）本就绕开 `mock_app_with_db`、直接写 `aidog_core::gateway::db::...`/`aidog_core::Db`（因为原先是外部 crate 引 `aidog_core`）。搬进 `aidog_core` 内部后这些路径变成自引用，编译不过，须机械替换成 `crate::`。判断标准：搬入后 `grep -rn "aidog_core::"` 该文件，非空则需替换（lib.rs 顶层 re-export 的 `crate::Db`/`crate::SetSettingInput` 等已覆盖大多数场景，无需额外加 re-export）。
+- **`env!("AIDOG_XXX")` 编译期常量随命令搬迁会失效**：`about.rs` 用 `env!("AIDOG_GIT_COMMIT")`/`env!("AIDOG_BUILD_TIME")`，这两个变量原来由根包 `src-tauri/build.rs` 的 `cargo:rustc-env=` 注入，只对根包 crate 生效。搬进 `aidog_core` 后该 crate 没有对应 build script，编译直接报「environment variable not defined at compile time」。修法：给 `aidog_core` 也加一份等价 `build.rs`（同逻辑：git rev-parse 短 commit + epoch 秒 build time），无需改根包 build.rs（根包仍需要给 `tauri_build::build()` 用）。后续批次搬命令前先 grep 目标 crate 有无 `env!(`，有则一并检查是否踩此坑。
+- **`tauri_command!` 宏不支持 `mut` 形参**：宏模式 `$($arg:ident : $ty:ty),*` 只匹配裸 `ident: Type`，原命令若写 `mut settings: T`（本批 `backup_settings_set`）会报「no rules expected `mut`」。修法：签名去掉 `mut`，函数体首行补 `let mut settings = settings;` 重绑定，行为等价，diff 最小。后续批次搬命令前 grep 目标文件 `mut [a-z_]*:.*State\|mut [a-z_]*:` 形参提前排雷。
