@@ -426,3 +426,46 @@ fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
     assert_eq!(out["usage"]["input_tokens"], 50);
     assert_eq!(out["usage"]["output_tokens"], 30);
 }
+
+// ── Gemini 流式端到端：parse_upstream_sse（上游 wire 分帧）→ to_client_sse（客户端协议渲染）──
+// 实测 Gemini `streamGenerateContent?alt=sse` wire 格式：每帧 `data: {json}\n\n`，无 [DONE] 终止哨兵，
+// 流结束由末帧 candidates[0].finishReason 承载（见 gemini.rs::to_gemini_sse 注释 + 调研依据）。
+
+const GEMINI_UPSTREAM_SSE: &str = concat!(
+    "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"Hello\"}],\"role\":\"model\"}}],\"modelVersion\":\"gemini-2.0-flash\"}\n\n",
+    "data: {\"candidates\":[{\"finishReason\":\"STOP\",\"content\":{\"parts\":[{}],\"role\":\"model\"}}]}\n\n",
+);
+
+#[test]
+fn gemini_upstream_to_anthropic_client_stream_e2e() {
+    let events = parse_upstream_sse(GEMINI_UPSTREAM_SSE, &Protocol::Gemini);
+    assert_eq!(events.len(), 2, "delta + stop 两帧，无 [DONE] 哨兵也应正确落幕");
+    assert!(matches!(events[0], ChatStreamEvent::Delta { .. }));
+    assert!(matches!(events[1], ChatStreamEvent::Stop { .. }));
+
+    let mut out = String::new();
+    for event in &events {
+        if let Some(sse) = to_client_sse(event, "anthropic", "claude-3-opus") {
+            out.push_str(&sse);
+        }
+    }
+    assert!(out.contains("event: content_block_delta"), "delta 渲染为 anthropic content_block_delta");
+    assert!(out.contains("\"text\":\"Hello\""));
+    assert!(out.contains("event: message_stop"), "stop 渲染为 anthropic message_stop");
+}
+
+#[test]
+fn gemini_upstream_to_openai_client_stream_e2e() {
+    let events = parse_upstream_sse(GEMINI_UPSTREAM_SSE, &Protocol::Gemini);
+    assert_eq!(events.len(), 2);
+
+    let mut out = String::new();
+    for event in &events {
+        if let Some(sse) = to_client_sse(event, "openai", "gpt-4o") {
+            out.push_str(&sse);
+        }
+    }
+    assert!(out.starts_with("data: "), "openai SSE 帧须带 data: 前缀");
+    assert!(out.contains("\"content\":\"Hello\""), "delta 渲染为 openai chat.completion.chunk delta");
+    assert!(out.contains("\"finish_reason\""), "stop 渲染为 openai finish_reason 帧");
+}

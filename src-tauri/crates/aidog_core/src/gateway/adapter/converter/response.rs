@@ -16,6 +16,27 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEve
     }
 }
 
+/// 从上游原始响应文本块中按 wire 协议分帧提取 ChatStreamEvent（上游帧格式知识收敛于此，
+/// 不下沉到 proxy 层）。三协议共用同一 SSE 分帧规则：`data: ` 前缀 + 空行分隔（实测确认，
+/// 见 gemini.rs::to_gemini_sse 注释）。协议差异仅在有无显式终止哨兵：OpenAI 系发送
+/// `data: [DONE]`；Anthropic / Gemini 无哨兵，流关闭即结束——`[DONE]` 字面量对它们不会出现，
+/// 故检测不必按协议门控，统一映射为 Stop 事件即可（无害 no-op）。
+pub fn parse_upstream_sse(text: &str, wire_protocol: &Protocol) -> Vec<ChatStreamEvent> {
+    let mut events = Vec::new();
+    for line in text.lines() {
+        let Some(data) = line.strip_prefix("data: ") else { continue };
+        if data.trim() == "[DONE]" {
+            events.push(ChatStreamEvent::Stop { finish_reason: Some("end_turn".to_string()) });
+            continue;
+        }
+        if let Ok(json) = serde_json::from_str::<Value>(data)
+            && let Some(event) = parse_sse(&json, wire_protocol) {
+                events.push(event);
+            }
+    }
+    events
+}
+
 /// 非流式响应内部归一表示（基于 Anthropic 语义：text + tool_use 块 + stop_reason + usage）。
 ///
 /// 上游响应（openai chat completion / anthropic messages / …）先 parse 为本结构，

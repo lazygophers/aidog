@@ -306,7 +306,11 @@ pub(crate) async fn forward_attempt(
 
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
-    let url = format!("{}{}", base_url, api_path);
+    let mut url = format!("{}{}", base_url, api_path);
+    // Gemini streamGenerateContent 不带 alt=sse 时上游返回单个 JSON 数组（非 SSE），流式解析全部落空。
+    if matches!(target_protocol_enum, Protocol::Gemini) && is_stream {
+        url.push_str("?alt=sse");
+    }
     log.upstream_request_url = url.clone();
 
     // ── 第三方 anthropic 端点不支持字段剔除 / 非标结构规整 ──

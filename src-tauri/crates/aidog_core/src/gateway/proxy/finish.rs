@@ -282,32 +282,22 @@ where
             // 协议转换仍逐 chunk 处理（输出格式转换路径，行为不变）。
             guard.agg.feed_sse_usage(&text);
             let mut output = String::new();
-            for line in text.lines() {
-                if let Some(data) = line.strip_prefix("data: ") {
-                    if data.trim() == "[DONE]" {
-                        output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
-                            finish_reason: Some("end_turn".to_string()),
-                        }, &client_protocol, &model_for_sse).unwrap_or_default());
-                        continue;
+            // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
+            // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
+            for event in adapter::parse_upstream_sse(&text, &protocol) {
+                let event = if !model_for_response.is_empty() {
+                    match event {
+                        ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
+                            id,
+                            model: model_for_response.clone(),
+                        },
+                        other => other,
                     }
-
-                    if let Ok(json) = serde_json::from_str::<Value>(data)
-                        && let Some(event) = adapter::parse_sse(&json, &protocol) {
-                            let event = if !model_for_response.is_empty() {
-                                match event {
-                                    ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
-                                        id,
-                                        model: model_for_response.clone(),
-                                    },
-                                    other => other,
-                                }
-                            } else {
-                                event
-                            };
-                            if let Some(sse) = adapter::to_client_sse(&event, &client_protocol, &model_for_sse) {
-                                output.push_str(&sse);
-                            }
-                        }
+                } else {
+                    event
+                };
+                if let Some(sse) = adapter::to_client_sse(&event, &client_protocol, &model_for_sse) {
+                    output.push_str(&sse);
                 }
             }
             Bytes::from(output)
