@@ -462,10 +462,10 @@ mod tests {
 
     #[test]
     fn should_sync_due_when_no_file() {
-        assert_eq!(should_sync_due_internal(None), true);
-        assert_eq!(should_sync_due_internal(Some(0)), true);
-        assert_eq!(should_sync_due_internal(Some(now_secs())), false);
-        assert_eq!(should_sync_due_internal(Some(now_secs() - THROTTLE_SECS - 1)), true);
+        assert!(should_sync_due_internal(None));
+        assert!(should_sync_due_internal(Some(0)));
+        assert!(!(should_sync_due_internal(Some(now_secs()))));
+        assert!(should_sync_due_internal(Some(now_secs() - THROTTLE_SECS - 1)));
     }
 
     /// 单测辅助：把 should_sync_due 的判定逻辑抽出来，避免依赖真实文件系统。
@@ -605,14 +605,14 @@ mod tests {
         let hash = sha256_hex(body);
 
         // hash 匹配 → 未修改
-        assert_eq!(is_user_modified_internal(body, Some(&hash)), false);
+        assert!(!(is_user_modified_internal(body, Some(&hash))));
         // hash 不匹配 → 已修改
-        assert_eq!(is_user_modified_internal(body, Some("deadbeef")), true);
+        assert!(is_user_modified_internal(body, Some("deadbeef")));
         // 无快照文件（首次 / 旧版升级）→ 未修改（不阻塞，建基线）
-        assert_eq!(is_user_modified_internal(body, None), false);
+        assert!(!(is_user_modified_internal(body, None)));
         // 不同 body → hash 不同 → 修改
         let body2 = b"goodbye world";
-        assert_eq!(is_user_modified_internal(body2, Some(&hash)), true);
+        assert!(is_user_modified_internal(body2, Some(&hash)));
     }
 
     /// user_modified 单测辅助：抽 `is_user_modified` 的判定核心，脱离真实 fs。

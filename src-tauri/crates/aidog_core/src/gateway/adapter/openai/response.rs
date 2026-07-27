@@ -174,9 +174,5 @@ pub fn render_openai_response(r: &super::super::converter::NonStreamResponse) ->
 }
 
 #[cfg(test)]
-#[path = "test_parse.rs"]
-mod test_parse;
-
-#[cfg(test)]
 #[path = "test_response.rs"]
 mod test_response;

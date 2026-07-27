@@ -65,14 +65,6 @@ fn from_completions_missing_prompt_defaults_empty() {
     assert!(r.is_none());
 }
 
-#[test]
-fn sse_passthrough_helpers() {
-    let d = json!({"choices": [{"index": 0, "delta": {"content": "x"}}]});
-    assert!(parse_completions_sse(&d).is_some());
-    let ev = ChatStreamEvent::Delta { text: "y".into() };
-    assert!(to_completions_sse(&ev, "m").is_some());
-}
-
 // ── render_completions_response 测试 ──
 #[test]
 fn render_completions_text_only() {

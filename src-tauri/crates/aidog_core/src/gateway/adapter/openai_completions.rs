@@ -192,18 +192,6 @@ pub fn from_completions(body: &Value) -> Option<ChatRequest> {
     })
 }
 
-/// Completions SSE 解析（与 Chat Completions 兼容）
-#[allow(dead_code)]
-pub fn parse_completions_sse(data: &Value) -> Option<ChatStreamEvent> {
-    super::openai::parse_openai_sse(data)
-}
-
-/// 将 ChatStreamEvent 转为 Completions SSE 格式
-#[allow(dead_code)]
-pub fn to_completions_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
-    super::openai::to_openai_sse(event, model)
-}
-
 #[cfg(test)]
 #[path = "test_openai_completions.rs"]
 mod test_openai_completions;

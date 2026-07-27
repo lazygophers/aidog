@@ -510,10 +510,10 @@ mod tests {
 
     #[test]
     fn should_sync_due_when_no_file() {
-        assert_eq!(should_sync_due_internal(None), true);
-        assert_eq!(should_sync_due_internal(Some(0)), true);
-        assert_eq!(should_sync_due_internal(Some(now_secs())), false);
-        assert_eq!(should_sync_due_internal(Some(now_secs() - THROTTLE_SECS - 1)), true);
+        assert!(should_sync_due_internal(None));
+        assert!(should_sync_due_internal(Some(0)));
+        assert!(!(should_sync_due_internal(Some(now_secs()))));
+        assert!(should_sync_due_internal(Some(now_secs() - THROTTLE_SECS - 1)));
     }
 
     fn should_sync_due_internal(last: Option<i64>) -> bool {
@@ -690,11 +690,11 @@ mod tests {
         let body = b"hello world";
         let hash = sha256_hex(body);
 
-        assert_eq!(is_user_modified_internal(body, Some(&hash)), false);
-        assert_eq!(is_user_modified_internal(body, Some("deadbeef")), true);
-        assert_eq!(is_user_modified_internal(body, None), false);
+        assert!(!(is_user_modified_internal(body, Some(&hash))));
+        assert!(is_user_modified_internal(body, Some("deadbeef")));
+        assert!(!(is_user_modified_internal(body, None)));
         let body2 = b"goodbye world";
-        assert_eq!(is_user_modified_internal(body2, Some(&hash)), true);
+        assert!(is_user_modified_internal(body2, Some(&hash)));
     }
 
     fn is_user_modified_internal(app_bytes: &[u8], stored: Option<&str>) -> bool {
