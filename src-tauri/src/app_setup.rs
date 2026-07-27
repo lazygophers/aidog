@@ -10,8 +10,7 @@ use commands_system::app_log::{load_app_log_settings_from_db, migrate_log_settin
 use aidog_core::sync_settings::try_sync_settings;
 use commands_ai_tools::coding_tools::ensure_default_coding_tools_settings;
 use commands_proxy::proxy::{proxy_start, proxy_stop};
-use commands_tray::tray::build_tray_menu;
-use aidog_core::tray_render::refresh_tray_menu;
+use aidog_core::tray_render::{build_tray_menu, refresh_tray_menu, TrayMenuBuildImpl};
 use commands_platform::quota::cold_start_init_tray_estimates;
 use tauri::tray::TrayIconBuilder;
 
@@ -411,7 +410,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         // 单请求生命周期内终态 emit 通常 1-2 次，200ms trailing 合并多请求 burst。
                         let new_task = tauri::async_runtime::spawn(async move {
                             tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                            let _ = refresh_tray_menu(&handle, &commands_tray::tray::TrayMenuBuildImpl).await;
+                            let _ = refresh_tray_menu(&handle, &TrayMenuBuildImpl).await;
                         });
                         *pending.lock().unwrap() = Some(new_task);
                     });
@@ -447,7 +446,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                             "tray_refresh_tick",
                             trace_id = %logging::new_trace_id()
                         );
-                        let _ = refresh_tray_menu(&handle, &commands_tray::tray::TrayMenuBuildImpl).instrument(cycle_span).await;
+                        let _ = refresh_tray_menu(&handle, &TrayMenuBuildImpl).instrument(cycle_span).await;
                     }
                 });
             }

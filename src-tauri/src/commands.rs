@@ -15,6 +15,6 @@
 // startup.rs generate_handler 直接用 `commands_system::*` 路径调用。
 // coding_tools/mcp/skills/script_executor/model_test 下沉 commands_ai_tools crate（C7）；
 // startup.rs generate_handler 直接用 `commands_ai_tools::*` 路径调用。
-// tray/popover 下沉 commands_tray crate（C8）；
-// startup.rs generate_handler 直接用 `commands_tray::*` 路径调用。
+// tray/popover 下沉 commands_tray crate（C8）；C3 c3-commands 第 1 批再迁入 aidog_core，
+// commands_tray crate 删除。startup.rs generate_handler 直接用 `aidog_core::popover::*` 路径调用。
 // test_harness 删除（C8）：mock_app_with_db 已下沉 aidog_test_util，root 测试已迁完。
