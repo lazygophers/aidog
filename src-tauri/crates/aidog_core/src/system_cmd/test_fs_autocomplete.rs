@@ -1,6 +1,6 @@
 #![cfg(test)]
 use super::*;
-use aidog_core::gateway::db::test_support::HomeGuard;
+use crate::gateway::db::test_support::HomeGuard;
 
 #[test]
 fn expand_path_tilde_and_plain() {

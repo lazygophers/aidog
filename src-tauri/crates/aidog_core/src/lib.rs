@@ -21,6 +21,9 @@ pub mod cli_env;
 pub mod settings;
 pub mod defaults;
 pub mod cli_proxy_cmd;
+// C3 c3-commands 第 3 批：commands_system / commands_ai_tools 下沉。
+pub mod system_cmd;
+pub mod ai_tools_cmd;
 
 // 顶层 re-export：commands 域 / root package / 测试常用类型直引 `aidog_core::<X>`。
 pub use gateway::models::*;

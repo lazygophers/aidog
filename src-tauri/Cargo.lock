@@ -85,10 +85,8 @@ dependencies = [
  "aidog_core",
  "axum",
  "chrono",
- "commands_ai_tools",
  "commands_platform",
  "commands_proxy",
- "commands_system",
  "dirs 6.0.0",
  "flate2",
  "futures",
@@ -1004,21 +1002,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "commands_ai_tools"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "axum",
- "serde",
- "serde_json",
- "tauri",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
 name = "commands_platform"
 version = "0.1.10"
 dependencies = [
@@ -1047,22 +1030,6 @@ dependencies = [
  "tokio",
  "tracing",
  "url",
-]
-
-[[package]]
-name = "commands_system"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "chrono",
- "dirs 6.0.0",
- "serde",
- "serde_json",
- "tauri",
- "tempfile",
- "tokio",
- "tracing",
 ]
 
 [[package]]
