@@ -163,6 +163,14 @@ fn to_gemini_sse_reasoning_delta() {
 }
 
 #[test]
+fn to_gemini_sse_wire_frame_has_data_prefix_and_terminator() {
+    // 与 to_openai_sse / to_anthropic_sse 同一约定：返回完整 wire 帧（`data: ` 前缀 + `\n\n` 终止）。
+    let s = to_gemini_sse(&ChatStreamEvent::Delta { text: "x".into() }, "m").unwrap();
+    assert!(s.starts_with("data: "), "gemini SSE 帧须带 data: 前缀");
+    assert!(s.ends_with("\n\n"), "gemini SSE 帧须以空行终止");
+}
+
+#[test]
 fn to_gemini_sse_variants() {
     assert!(to_gemini_sse(&ChatStreamEvent::Start { id: "i".into(), model: "m".into() }, "m").is_none());
     assert!(to_gemini_sse(&ChatStreamEvent::Delta { text: "x".into() }, "m").unwrap().contains("x"));

@@ -425,11 +425,15 @@ pub fn parse_gemini_sse(data: &Value) -> Option<ChatStreamEvent> {
     None
 }
 
-/// 将统一的 ChatStreamEvent 转为 Gemini SSE 格式（用于返回给 Gemini 客户端）
+/// 将统一的 ChatStreamEvent 转为 Gemini SSE wire 帧（用于返回给 Gemini 客户端）。
+///
+/// 实测 Gemini `streamGenerateContent?alt=sse` 真实 wire 格式：每帧 `data: {json}\n\n`，
+/// 无 `[DONE]` 终止帧（流结束由 finishReason 承载，见上方 `parse_gemini_sse`）。
+/// 与 `to_openai_sse` / `to_anthropic_sse` 同一约定：`to_*_sse` 一律返回完整 wire 帧。
 pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
-    match event {
-        ChatStreamEvent::Start { .. } => None,
-        ChatStreamEvent::Delta { text } => Some(serde_json::json!({
+    let json = match event {
+        ChatStreamEvent::Start { .. } => return None,
+        ChatStreamEvent::Delta { text } => serde_json::json!({
             "candidates": [{
                 "content": {
                     "parts": [{ "text": text }],
@@ -437,8 +441,8 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                 }
             }],
             "modelVersion": model,
-        }).to_string()),
-        ChatStreamEvent::ReasoningDelta { text } => Some(serde_json::json!({
+        }),
+        ChatStreamEvent::ReasoningDelta { text } => serde_json::json!({
             "candidates": [{
                 "content": {
                     "parts": [{ "thought": true, "text": text }],
@@ -446,26 +450,26 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                 }
             }],
             "modelVersion": model,
-        }).to_string()),
+        }),
         ChatStreamEvent::Stop { finish_reason } => {
             let reason = match finish_reason.as_deref() {
                 Some("end_turn") | Some("stop") => "STOP",
                 Some("max_tokens") => "MAX_TOKENS",
                 _ => "STOP",
             };
-            Some(serde_json::json!({
+            serde_json::json!({
                 "candidates": [{
                     "finishReason": reason,
                     "content": { "parts": [], "role": "model" }
                 }]
-            }).to_string())
+            })
         }
-        ChatStreamEvent::Usage { .. } => None,
+        ChatStreamEvent::Usage { .. } => return None,
         ChatStreamEvent::ToolDelta { name, input, .. } => {
             let args: Value = input.as_ref()
                 .and_then(|s| serde_json::from_str(s).ok())
                 .unwrap_or(serde_json::json!({}));
-            Some(serde_json::json!({
+            serde_json::json!({
                 "candidates": [{
                     "content": {
                         "parts": [{
@@ -474,9 +478,10 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                         "role": "model"
                     }
                 }]
-            }).to_string())
+            })
         }
-    }
+    };
+    Some(format!("data: {}\n\n", json))
 }
 
 #[cfg(test)]
