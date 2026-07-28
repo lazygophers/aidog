@@ -1,0 +1,21 @@
+# 内存分解 @ devA-small-window
+PID      PROC           FOOTPRINT_MB
+27413    aidog(main)          59.0
+27464    GPU                  14.0
+27465    Networking           20.0
+27466    WebContent          175.0
+27566    WebContent           46.0
+----
+TOTAL                        314.0
+
+## 各进程 top-5 分类（≥1MB）
+### 27413 aidog(main)
+  30 MB        0 B          0 B         28    MALLOC_SMALL
+### 27464 GPU
+### 27465 Networking
+  12 MB        0 B          0 B        331    Owned physical footprint (unmapped)
+### 27466 WebContent
+ 100 MB        0 B          0 B         12    WebKit malloc
+  52 MB        0 B          0 B         56    Owned physical footprint (unmapped) (graphics)
+### 27566 WebContent
+  34 MB        0 B          0 B          7    WebKit malloc

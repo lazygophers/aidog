@@ -43,10 +43,13 @@ Label: `wayfinder:map`
 
 - [02 WKWebView 常驻内存下限] — WebView 实例 = 2（main + 预建 popover，`app_setup.rs:487-514`），托盘走原生 NSStatusItem 不算。**不可压地板 ≈149MB**（Rust 44 + WebKit malloc 76 + GPU malloc 22 + Networking 6.7），离 200MB 还剩 ~51MB 合成面预算，当前用了 423MB。Tauri 层无 WebView 内存调优面、macOS 无 suspend API、关窗也不还内存（[tauri #5397]）。**合并 popover 只省 22–39MB，不值 —— 排除**。结论：200MB **不是架构不可达，是 Liquid Glass 实现方式不可达**。
 
+- [03 200MB 目标可达性裁定] — **目标维持 200MB 不变**（用户拍板）。新实验推翻了「层数」归因：`mask` 挪进 hover 对 graphics 字节零影响（231→230MB），且 region 数在同 CSS 下 157/211/218 乱跳是噪声；**决定性证据是 `graphics ≈ 7.35e-5 × 面积(px) + 16.7`** —— 合成面是窗口面积的物理函数，代码优化不了。因非合成面 176.7MB 已占预算 88%，必须两头压：非合成面 ≤129MB + 合成面 ≤71MB → **反推出新的产品级约束「可用窗口 ≈1150×750」**。预算表见票内。CPU 目标定 **空闲前台 <0.5%**（参照隐藏窗口 0.2%），要求**消灭**软件光栅化与逐帧 style 重算，非降频。流光边框**改实现保视觉**：`@property` 动画角度 → `transform: rotate` 静态 conic 层。
+
 ## Not yet specified
 
-- **合成层 / IOSurface 数量治理** —— [01] 指认这是内存的**支配性杠杆**（423/619MB），不是 Rust 侧。需要弄清：227 个 graphics region 分别对应哪些元素（`backdrop-filter` / `will-change` / `transform` / `opacity` 动画 / `mask` 都会强制提层），砍掉多少层能省多少 MB，砍层是否踩「UI 流畅度不得下降」红线。这张票在 [02] 回来后与它一起决定 200MB 是否可达。
-- **liquid glass 的性能重构口径** —— 根因已定位到 `@property` 动画 + conic-gradient + mask 三件套。但「怎么改」是决策不是实现：删流光边框 / 换静态渐变 / 只在 hover 时用非注册属性 / 限制 `.glass-surface` 施用面 —— 各自的视觉代价不同，需要用户对「视觉 vs 性能」拍板。等 [07] 补齐场景 C 后成票。
+- **窗口尺寸约束怎么落地** —— [03] 反推出「可用窗口 ≈1150×750」这条产品级硬约束，但没定实现方式：限死 `tauri.conf.json` 的 `maxWidth/maxHeight`？还是不限制、只承诺默认尺寸下达标并在文档写明大窗超预算？**「用户手动拉大窗口就会超 200MB」是物理事实，代码规避不了**，spec 必须正面写。这是本图剩下唯一的产品级取舍。
+- **常驻动画全量清点** —— CPU <0.5% 的目标下**任何常驻动画都不能留**，不止流光边框一处：`body::before` 的 `bgShimmer 32s`（本机因 `reduceMotion=1` 未跑，默认用户会跑）、CSS 内 13 处 `animation:` / tsx 内 9 处。需逐个判「删 / 改 compositor-only / 保留」。等 [07] 补齐逐页数据后成票。
+- **transform-rotate 版流光边框的视觉等价性** —— [03] 定了方向但留了风险：当前 1px 边环靠 `mask-composite: exclude` 做，旋转带 mask 的层会破坏与 `border-radius` 的贴合，可能要拆成「外层固定 mask + 内层旋转渐变」。需先做视觉比对再落实现，红线 3 卡着。
 - **log.db 体积治理** —— 实测 `~/.aidog/log.db` 7084.9MB + WAL 4446.8MB，checkpoint 实质未跑。不占进程内存，故不影响 200MB 目标，但属独立严重问题（磁盘 + 查询延迟 + 可能拖慢 UI 列表）。是否纳入本图待定；本仓 memory `sqlite-retention-vacuum` 已有相关结论。
 - **SQLite 侧占用与调参** —— page_cache / mmap_size / 连接池大小 / WAL 体积对常驻内存的贡献。待 [01 量测基线与内存归因] 分解出 DB 占比后才能问准。
 - **前端具体改法** —— React 重渲染、大列表虚拟化、bundle 拆分、liquid glass 的 `backdrop-filter` 合成成本。待 [07 UI 驻留态 CPU 归因] 指出热点后才能落成票。

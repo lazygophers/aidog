@@ -1,0 +1,44 @@
+======================================================================
+com.apple.WebKit.WebContent [27466]: 64-bit    Footprint: 354 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+ 231 MB        0 B          0 B        157    Owned physical footprint (unmapped) (graphics)
+ 101 MB        0 B          0 B         12    WebKit malloc
+5504 KB        0 B          0 B        452    MALLOC_SMALL
+5232 KB        0 B          0 B          1    untagged (VM_ALLOCATE) (graphics)
+4560 KB        0 B          0 B          3    JS JIT generated code
+2272 KB        0 B          0 B        293    untagged (VM_ALLOCATE)
+1424 KB        0 B          0 B        545    JS VM Gigacage
+1271 KB        0 B          0 B        540    __DATA_DIRTY
+ 785 KB        0 B          0 B        580    __DATA
+ 689 KB        0 B          0 B          1    page table
+ 368 KB        0 B          0 B          9    MALLOC metadata
+ 240 KB        0 B          0 B          1    MALLOC_TINY
+ 202 KB        0 B          0 B       1565    unused dyld shared cache area
+ 176 KB        0 B          0 B          4    stack
+  80 KB        0 B          0 B          4    app-specific tag 2
+  78 KB        0 B          0 B        340    __AUTH
+  48 KB        0 B          0 B          2    __TPRO_CONST
+  32 KB        0 B          0 B          2    ColorSync
+  16 KB        0 B          0 B          1    CoreServices
+  16 KB        0 B          0 B          1    os_alloc_once
+  16 KB        0 B          0 B        630    __DATA_CONST
+    0 B        0 B        16 KB          2    ImageIO
+    0 B    1584 KB          0 B         47    mapped file
+    0 B        0 B          0 B          3    app-specific tag 1
+    0 B        0 B          0 B          3    __LINKEDIT
+    0 B        0 B          0 B          1    __FONT_DATA
+    0 B        0 B          0 B          1    dyld private memory
+    0 B        0 B          0 B          1    __CTF
+    0 B        0 B          0 B        648    __TEXT
+    0 B        0 B          0 B        205    guard
+    0 B        0 B          0 B        626    __AUTH_CONST
+    ---        ---          ---        ---    ---
+ 354 MB    1584 KB        16 KB       6682    TOTAL
+
+Auxiliary data:
+    phys_footprint: 354 MB
+    phys_footprint_peak: 924 MB
+
