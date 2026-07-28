@@ -182,8 +182,32 @@ pub fn apply_one(budget: &mut ManualBudget, est_cost: f64, total_tokens: f64, no
     budget.consumed += delta;
 }
 
+/// 零配额只读预检：走 platform 只读池（N=8 并发，不与写连接串行）查 manual_budgets 是否为空。
+/// 空 → 上层直接短路，不进写连接、不失效缓存。非空 → 上层仍需进写连接临界区做原子扣减
+/// （此处结果仅用于短路判断，不作为扣减依据，避免 TOCTOU 影响计费准确性）。
+#[track_caller]
+fn has_any_budget(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_platform_traced(None, __db_caller, move |conn| {
+            let json: String = conn.query_row(
+                "SELECT manual_budgets FROM platform WHERE id = ?1",
+                params![platform_id as i64],
+                |r| r.get(0),
+            )?;
+            Ok(!parse_manual_budgets(&json).is_empty())
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// DB 集成：同一持锁临界区 SELECT manual_budgets → 各 enabled 限额扣减 → UPDATE 回写。
 /// 禁持锁跨 .await（本函数全同步）。无限额 → 跳过不写。
+///
+/// 零配额短路：绝大多数请求无手动预算配置，进写连接前先走只读池判空——空则直接返回，
+/// 不占用单线程写连接、不失效 group_details 缓存。有配额时仍完整走下方写连接临界区，
+/// 扣减逻辑与失效时机逐字不变（读预检结果只决定要不要进写连接，不参与扣减）。
 pub async fn apply_manual_budgets(
     db: &Db,
     platform_id: u64,
@@ -191,6 +215,9 @@ pub async fn apply_manual_budgets(
     total_tokens: f64,
     now_ms: i64,
 ) -> Result<(), String> {
+    if !has_any_budget(db, platform_id).await? {
+        return Ok(());
+    }
     db.platform_write_conn()
         .call(move |conn| {
             let json: String = conn.query_row(
@@ -394,6 +421,76 @@ mod tests {
         assert!((b.consumed - 9.0).abs() < 1e-9);
         apply_one(&mut b, 2.0, 0.0, t0 + 7 * 86_400_000); // 7 天后到期 → 重置
         assert!((b.consumed - 2.0).abs() < 1e-9, "7 天后应重置, got {}", b.consumed);
+    }
+
+    // ── 零配额短路：platform 写连接被占满时，空 manual_budgets 请求仍秒回（未排队等写锁）。
+    // 证明 apply_manual_budgets 对零配额请求走只读池而非 platform_write_conn。
+    // 用文件库（非 :memory:）——内存库下 platform 读池 fallback 复用主写连接（同一把锁），
+    // 无法体现读写池解耦；文件库才有独立 platform.db 读/写连接（见 db/mod.rs Db::new）。
+    #[tokio::test]
+    async fn zero_budget_shortcircuits_write_conn() {
+        use crate::gateway::db::test_support::sample_platform;
+        use crate::gateway::db::{create_platform, Db};
+
+        let dir = tempfile::tempdir().unwrap();
+        let db_path = dir.path().join("aidog.db").to_string_lossy().into_owned();
+        let db = Db::new(&db_path).await.expect("open file db");
+        db.init_tables().await.expect("init tables");
+        let p = create_platform(&db, sample_platform("no-budget")).await.unwrap();
+        assert!(p.manual_budgets.is_empty(), "sample_platform 无预算配置");
+
+        // 长时间占住唯一的 platform 写连接（tokio-rusqlite 写连接单线程串行）。
+        let db_for_hold = db.clone();
+        let holder = tokio::spawn(async move {
+            db_for_hold
+                .platform_write_conn()
+                .call(|conn| {
+                    std::thread::sleep(std::time::Duration::from_secs(3));
+                    Ok(conn.query_row("SELECT 1", [], |_r| Ok(()))?)
+                })
+                .await
+                .unwrap();
+        });
+        // 确保 holder 已抢到写连接
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+
+        let start = std::time::Instant::now();
+        apply_manual_budgets(&db, p.id, 1.0, 100.0, 1_700_000_000_000)
+            .await
+            .expect("零配额应直接放行");
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_secs(1),
+            "零配额请求应走只读池秒回，不应排队等写连接（实际耗时 {elapsed:?}）"
+        );
+        holder.await.unwrap();
+    }
+
+    // ── 有配额时：短路判定不改变扣减结果（红线 2 对照）。
+    #[tokio::test]
+    async fn nonzero_budget_deduction_unchanged() {
+        use crate::gateway::db::test_support::{sample_platform, test_db};
+        use crate::gateway::db::{create_platform, get_platform};
+
+        let db = test_db().await;
+        let mut cp = sample_platform("with-budget");
+        cp.manual_budgets = Some(vec![ManualBudget {
+            id: "b1".into(),
+            kind: "total".into(),
+            unit: "usd".into(),
+            amount: 10.0,
+            window_hours: None,
+            window_unit: WindowUnit::Hour,
+            consumed: 0.0,
+            window_start_at: None,
+            enabled: true,
+        }]);
+        let p = create_platform(&db, cp).await.unwrap();
+
+        apply_manual_budgets(&db, p.id, 4.0, 1000.0, 1_700_000_000_000).await.unwrap();
+        let reloaded = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(reloaded.manual_budgets.len(), 1);
+        assert!((reloaded.manual_budgets[0].consumed - 4.0).abs() < 1e-9, "usd 单位扣 est_cost=4.0，与改动前逐字一致");
     }
 
     // ── rolling 以「分钟」为单位：90 分钟窗口 ──
