@@ -23,6 +23,16 @@ Task: `frontend-compositing-purge` / subtask `s1-measure-protocol`
    本轮 run3 又反证——同进程内窗口焦点状态漂移会让同一份 CSS 测出 0%~58% 的 CPU）。
 6. **等满稳态 ≥10 分钟**：启动后立即采样不可信（内存有冷启动 50MB@25s → 稳态
    ~150MB@22min 的爬升曲线，见 `results/main-growth-curve.txt`）。
+7. **量测设施全局单例，同一时刻只允许一个 subtask 持有**（2026-07-29 s3/s5 互踩后加）：
+   `/Applications/AiDog.app`（单实例）、`assets/measure.sh`、`assets/.pids` 三者共享，
+   且 `pkill -x aidog` 是全局动作 —— 两个 subtask 并发跑各自的「前后对比」，会互相
+   pkill/relaunch 导致 pid 无预警更迭，两组数据同时作废且**事后难以判定谁污染了谁**
+   （实测：s3 与 s5 的采样 pid 完全重合 55942/13817）。
+   **持有规则**：进量测周期前先向 coordinator 报备取得独占窗口，窗口内其他 subtask
+   禁 `cargo` / `yarn build` / `yarn tauri` / `pkill` / 碰 `.app` 与 `.pids`（编译争
+   target 锁 + 打满 CPU 同样污染 idle 读数）。窗口交还前不得开始下一个。
+   **采样必带三项自证**：① 采样时间戳 ② before/after 两端 pid 是否同一实例
+   ③ `/Applications/AiDog.app` 的 mtime 是否落在 before 采样之前。三项缺一 = 该组作废。
 
 ## 本轮新增发现：窗口焦点/可见性是未受控变量，必须显式核验
 
