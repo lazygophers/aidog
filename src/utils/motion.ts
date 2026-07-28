@@ -3,7 +3,24 @@
 // useCounter: raf 缓动数字滚动（cubic ease-out，进入视口触发一次）
 // ponytail: 纯 React hook + stdlib，无新依赖。SSR-safe（Tauri webview 恒 client）。
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
+
+/** 持续视口可见态（非一次性 reveal，进出双向切换）：骨架屏/进度条等常驻动画按可见性挂载用。
+ *  复用外部已有 ref（如卡片壳的 useReveal ref），不新建 DOM 观察点。默认 true 避免首帧尚未 observe 时动画消失。 */
+export function useInView<T extends HTMLElement>(ref: RefObject<T | null>) {
+  const [visible, setVisible] = useState(true);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const obs = new IntersectionObserver(
+      (entries) => setVisible(entries.some((e) => e.isIntersecting)),
+      { threshold: 0 },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [ref]);
+  return visible;
+}
 
 /** 进入视口一次后置 in。staggerMs > 0 时延迟激活（逐项错峰）。 */
 export function useReveal<T extends HTMLElement = HTMLDivElement>(staggerMs = 0) {

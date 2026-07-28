@@ -11,7 +11,7 @@
 import { useState, type ReactNode } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useReveal, makeRipple } from "../../utils/motion";
+import { useReveal, useInView, makeRipple } from "../../utils/motion";
 
 export interface CompactCardProps {
   /** 常显关键指标区（名称 / 状态 / 余额 / 核心统计 / 快操作）。 */
@@ -51,6 +51,8 @@ export function CompactCard({
   const hasChildren = children != null && children !== false;
   const { ref, shown } = useReveal<HTMLDivElement>(revealDelay);
   const revealOn = noReveal || shown;
+  // 卡片进出视口双向可见态：门控内部骨架屏/进度条常驻动画（.skeleton / .progress-fill.striped），见 globals.css。
+  const inView = useInView(ref);
 
   const toggle = () => {
     const next = !open;
@@ -61,6 +63,7 @@ export function CompactCard({
   return (
     <Card
       ref={ref}
+      data-inview={inView}
       className={`glass-surface hover-lift${revealOn ? " reveal in" : " reveal"}`}
       style={{
         display: "flex",

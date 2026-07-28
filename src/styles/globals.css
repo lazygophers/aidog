@@ -920,6 +920,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   to { background-position: 14px 0; }
 }
 
+/* 骨架屏/进度条流光按卡片可见性挂载：CompactCard 卡片壳滚出视口时 data-inview="false"，暂停内部常驻动画 tick（视觉一致，仅省不可见时的合成开销）。 */
+[data-inview="false"] .skeleton,
+[data-inview="false"] .progress-fill.striped {
+  animation-play-state: paused;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   .ripple-wave, .progress-fill.striped { animation: none; }
