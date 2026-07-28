@@ -1,11 +1,6 @@
 pub mod anthropic;
-pub mod bailian;
-pub mod codex;
 pub mod converter;
 pub mod gemini;
-pub mod glm;
-pub mod kimi;
-pub mod minimax;
 pub mod mock;
 pub mod openai;
 pub mod openai_completions;
