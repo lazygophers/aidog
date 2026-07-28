@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引
 
-类目: arch(13), build(6), cross-layer(1), db(3), domain(12), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(1), theme(1)
+类目: arch(20), build(8), cross-layer(1), db(3), domain(12), encoding(1), frontend(8), git(1), i18n(1), ops(1), proxy(6), reuse(1), shadcn(8), skein(1), style(1), test(2), theme(1)
 
 | file | category | title | keywords | status | summary |
 |---|---|---|---|---|---|
@@ -13,6 +13,13 @@
 | arch/non-typical-sql-audit-pattern.md | arch | 非典型 SQL 形态易漏审计 | db,sqlite,sql,审计,helper,裸sql,grep,易漏,访问点 | active | # 非典型 SQL 形态易漏审计  何时被读: 拆库审计某表访问点时 谁读: trellis-implement sub… |
 | arch/parser-multi-path-format-symmetry.md | arch | parser 多路径格式识别必须对称 | parser,多路径,symmetry,对称,格式识别,抽函数,复用,入口分裂,oauth | active | # parser 多路径格式识别必须对称  何时被读: 写 / 改 parser 有多个入口识别同一格式时(如「单文件导… |
 | arch/rule-49.md | arch | Tauri 托盘浮窗性能优化（窗口复用模式） | tauri,window,popover,performance,复用,hide/show,NSWindow | active | ## 触发场景 实现 Tauri 桌面应用的浮窗（如托盘 popover）时，需要避免每次点击都冷启 webview，导… |
+| arch/rule-56.md | arch | Gemini SSE 需 ?alt=sse 参数 | gemini,sse,streaming,adapter,parameter | active | ## 触发场景 改 gemini adapter 或调试 Gemini streaming 响应时。  ## 陷阱 不带… |
+| arch/rule-57.md | arch | Protocol 协议名统一 wire_str() 编码 | protocol,serde,wire,codegen,enum | active | ## 触发场景 在 proxy/forward 层需要获取协议名或序列化 Protocol enum 时。  ## 陷阱… |
+| arch/rule-58.md | arch | adapter 死代码判定唯一权威 = is_valid_wire_protocol 白名单 | adapter,dead_code,whitelist,protocol,authority | active | ## 触发场景 删除 vendor adapter 文件或判定某 adapter 是否属于死代码时。  ## 陷阱 用文… |
+| arch/rule-59.md | arch | 抽组件必须 grep 确认所有调用点已切换 | refactor,component,extraction,grep,dead-code | active | ## 触发场景 从大文件抽出独立组件或把函数迁移到新位置时。  ## 陷阱 只 import 不渲染 = 死代码副本。原… |
+| arch/rule-60.md | arch | command 名集合零差集自检法（搬迁类） | command,tauri,handler,migration,invoke,symmetry | active | ## 触发场景 command 跨 crate 搬迁后（新增、删除、拆分 command）。  ## 陷阱 改了 Rus… |
+| arch/rule-62.md | arch | 搬迁类重构的 i18n 核对法（comm -23 key 集合） | i18n,migration,locale,key,coverage,comm | active | ## 触发场景 command/组件迁 crate 或改名时，若涉及 i18n key（如 UI 文案）。  ## 陷阱… |
+| arch/rule-64.md | arch | tauri_command! 宏不支持 mut 形参 | tauri,command,macro,parameter,mut | active | ## 触发场景 Tauri command 函数形参中使用 `mut` 修饰时。  ## 陷阱 `tauri_comma… |
 | arch/shadcn-infra-32.md | arch | locale 死键清理归属 | locale,dead-key,cleanup,responsibility,theme | active | # locale 死键清理归属  ## 流程约定 **删除主题/功能导致的 locale 死键，由删该主题/功能的 ta… |
 | arch/trellis-03.md | arch | Workspace crate 边界契约 | crate,boundary,边界,commands,aidog_core,event,依赖 | active | # Workspace Crate 边界契约  何时被读: commands_* crate 内改源码 / 迁移 com… |
 | arch/trellis-04.md | arch | Protocol 枚举变体扩展范式 | protocol,enum,变体,grep,serde,match,union | active | # Protocol 枚举变体扩展范式  何时被读: 新增 `Protocol` 枚举变体时（新协议 / 新 cp 变体… |
@@ -20,6 +27,8 @@
 | build/rule-05.md | build | 新增 wire protocol 必须同步白名单 | - | active | # 新增 wire protocol 必须同步白名单  ## MUST 硬约束  新增 wire protocol 时必… |
 | build/rule-06.md | build | converter 5×5 与 endpoint 选择解耦 | - | active | # converter 5×5 与 endpoint 选择解耦  ## MUST 硬约束  converter 双向转（… |
 | build/rule-07.md | build | is_valid_wire_protocol gate 是 fail-fast 非修复点 | - | active | # is_valid_wire_protocol gate 是 fail-fast 非修复点  ## MUST 硬约束 … |
+| build/rule-61.md | build | cargo clippy 缓存命中不重报 warning | cargo,clippy,cache,warning,touch,rebuild | active | ## 触发场景 修改后再跑 `cargo clippy` 判断 warning 数时。  ## 陷阱 同命令第二次跑输出… |
+| build/rule-63.md | build | env!("XXX") 编译期常量随跨 crate 搬迁失效 | env,compile-time,build.rs,cargo:rustc-env,scope | active | ## 触发场景 用 `env!("XXX")` 的代码从一个 crate 迁移到另一个 crate 时。  ## 陷阱 … |
 | build/shadcn-infra-28.md | build | shadcn add 漏装 cva 依赖 | shadcn,cva,yarn,dependency,class-variance-authority | active | # shadcn add 漏装 cva 依赖  ## 触发场景 运行 `npx shadcn add` 批量添加组件后，… |
 | build/shadcn-infra-29.md | build | vite @ alias 手动配置 | vite,alias,resolve,shadcn,tsconfig | active | # vite @ alias 手动配置  ## 触发场景 使用 shadcn/ui 或其他假设存在 `@` 别名的库时，… |
 | build/trellis-02.md | build | Cargo workspace 重构门禁 | cargo,workspace,crate,build.rs,重构,门禁,下沉 | active | # Cargo Workspace 重构门禁  何时被读: 单 crate → cargo workspace 多 cr… |
@@ -69,4 +78,5 @@
 | skein/coding-plan-utilization-calib-fix-27.md | skein | task 查重: 同模块非重复, 先看 PRD 边界互引 | skein,dedup,task-boundary,prd | active | dedup/查重判定重叠维度前, MUST 先看两 task 的 PRD 边界条款是否已显式互相引用切割 (如双向标注对… |
 | style/trellis-16.md | style | 日志格式 + traceid 契约 | log,trace,traceid,ansi,format,spawn_traced,span | active | # 日志格式 + traceid 取值链  何时被读: 改 `src-tauri/src/logging.rs` 的格式… |
 | test/rule-48.md | test | shadcn 迁移测试改行为断言 | shadcn,测试,snapshot,行为断言,className | active | ## 触发场景 shadcn 迁移导致组件 className/结构变化，现有 snapshot 测试会因视觉差异失败。… |
+| test/rule-65.md | test | 迁入 aidog_core 的测试文件须改 aidog_core:: → crate:: | test,migration,module,internal,path | active | ## 触发场景 测试代码从外部 crate 迁移进 aidog_core 内部时。  ## 陷阱 保持原外部 crate… |
 | frontend/theme/shadcn-primitives-40.md | theme | next-themes 与自有主题体系冲突 | next-themes,theme,conflict,shadcn,sonner | active | # next-themes 与自有主题体系冲突  ## 问题 shadcn Sonner 组件导入 next-theme… |

@@ -2,7 +2,7 @@
   "id": "arch-deepen-2",
   "name": "架构深化第二轮: 10 组摩擦点全量修复",
   "desc": "4 路 Explore 审查出的 22 个摩擦点归并 10 组, 含 4 个真 bug; 形态已锁 (类型契约双做/PlatformExtra struct/删 commands 转发层/Protocol enum 统一/SSE 分帧收 adapter)",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -18,13 +18,19 @@
         "tsc 0 err",
         "cargo test 全过"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139927,
       "started": 1785139971,
-      "finished": null
+      "finished": 1785141878
     },
     {
       "sid": "c9-statusline",
@@ -37,13 +43,18 @@
         "yarn test 全过",
         "tsc 0 err"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139928,
-      "started": null,
-      "finished": null
+      "started": 1785141886,
+      "finished": 1785142238
     },
     {
       "sid": "c1b-tsrs",
@@ -60,13 +71,20 @@
         "yarn test 全过",
         "check-types.mjs 与其 npm script 一并删除"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139928,
-      "started": null,
-      "finished": null
+      "started": 1785142238,
+      "finished": 1785146613
     },
     {
       "sid": "c8-fehooks",
@@ -81,13 +99,20 @@
         "tsc 0 err",
         "yarn test 全过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139928,
-      "started": null,
-      "finished": null
+      "started": 1785146613,
+      "finished": 1785148161
     },
     {
       "sid": "c5-sse",
@@ -104,13 +129,22 @@
         "cargo test 全过",
         "cargo clippy 0 warning"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139928,
       "started": 1785139971,
-      "finished": null
+      "finished": 1785142143
     },
     {
       "sid": "c10-cliproxy",
@@ -125,13 +159,20 @@
         "tsc 0 err",
         "yarn test 全过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139928,
-      "started": null,
-      "finished": null
+      "started": 1785147702,
+      "finished": 1785149844
     },
     {
       "sid": "c7-deadcode",
@@ -148,13 +189,20 @@
         "cargo test 全过",
         "cargo clippy 0 warning"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139954,
-      "started": null,
-      "finished": null
+      "started": 1785148161,
+      "finished": 1785150838
     },
     {
       "sid": "c4-protocol",
@@ -172,13 +220,21 @@
         "cargo test 全过",
         "cargo clippy 0 warning"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139954,
-      "started": null,
-      "finished": null
+      "started": 1785142147,
+      "finished": 1785145577
     },
     {
       "sid": "c2-extra",
@@ -197,13 +253,22 @@
         "cargo test 全过",
         "cargo clippy 0 warning"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139954,
-      "started": null,
-      "finished": null
+      "started": 1785145577,
+      "finished": 1785147701
     },
     {
       "sid": "c6-estcost",
@@ -220,13 +285,20 @@
         "cargo test 全过",
         "cargo clippy 0 warning"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139954,
-      "started": null,
-      "finished": null
+      "started": 1785149844,
+      "finished": 1785151451
     },
     {
       "sid": "c3-commands",
@@ -253,13 +325,55 @@
         "cargo clippy 0 warning",
         "yarn tauri dev 可启动"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785139954,
-      "started": null,
-      "finished": null
+      "started": 1785151451,
+      "finished": 1785224837
+    },
+    {
+      "sid": "c4b-fix-modeltest",
+      "name": "修 c4 遗漏的跨 crate 调用点",
+      "desc": "commands_ai_tools/src/model_test.rs:203/208/213/218 四处 build_error_body/build_response 仍传 &str，c4 改签名为 &Protocol 后 workspace 编译失败 E0308",
+      "depends_on": [],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785150828,
+      "started": 1785150838,
+      "finished": 1785151041
+    },
+    {
+      "sid": "c11-adapterdead",
+      "name": "删 5 个不可达 vendor adapter (406 行)",
+      "desc": "adapter/{codex,minimax,glm,bailian,kimi}.rs 全数删除 + adapter/mod.rs 对应 pub mod 行。已由 adapter-deadcheck 实证为架构不可达而非漏接线: forward.rs:85 的 is_valid_wire_protocol 白名单只放行 5 wire 协议(Anthropic/OpenAI/OpenAIResponses/OpenAICompletions/Gemini), preset 里这 5 个 vendor 的 endpoints[].protocol 全落白名单内, 且 provider_api_path 忽略入参恒返 /chat/completions。生产代码仅约 60 行且全是对 to_openai/parse_openai_sse 的透传, 带走的 12 个 test 在 adapter/openai/ 已有 50 个 test 覆盖同一逻辑。glm.rs 的 GlmRequest 唯一增量字段 web_search 硬编码 None 且 skip_serializing_if, 序列化与 OpenAIRequest 逐字节相同。",
+      "depends_on": [
+        "c3-commands"
+      ],
+      "验收": [],
+      "验收done": [],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785156999,
+      "started": 1785224842,
+      "finished": 1785225121
     }
   ],
   "repos": [],
@@ -271,7 +385,7 @@
   "created": 1785139383,
   "started": 1785139968,
   "confirmed": 1785139968,
-  "checked": null,
-  "finished": null,
-  "updated": 1785139971
+  "checked": 1785225128,
+  "finished": 1785230461,
+  "updated": 1785230461
 }
