@@ -75,8 +75,7 @@ export function SettingsHeader({
         flexWrap: "wrap",
         padding: "12px 4px",
         background: "var(--bg-glass)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        // ponytail: backdrop-filter 已删，理由同 SectionAnchorNav.tsx（var(--bg-glass) 全不透明）
       }}
     >
       {/* Mode switch — GUI/JSON 萤火虫 tab */}

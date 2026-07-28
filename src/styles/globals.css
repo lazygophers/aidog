@@ -289,7 +289,9 @@ body {
   font-weight: 500;
   font-family: inherit;
   cursor: pointer;
-  backdrop-filter: blur(12px);
+  /* ponytail: backdrop-filter 已删 —— background 是 var(--bg-glass)=var(--card) 全不透明色
+     (globals.css:89, oklch 无 alpha)，blur 无可见对象，纯合成层开销无视觉收益。见
+     .skein/task/frontend-compositing-purge/research/backdrop-audit.md */
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
   outline: none;
@@ -365,7 +367,7 @@ input[type="checkbox"] {
   font-size: 13px;
   font-family: inherit;
   outline: none;
-  backdrop-filter: blur(12px);
+  /* ponytail: backdrop-filter 已删，理由同 .btn（见上，globals.css:292 注释） */
   transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   width: 100%;
 }

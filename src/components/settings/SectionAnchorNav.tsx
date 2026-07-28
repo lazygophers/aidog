@@ -32,8 +32,7 @@ export function SectionAnchorNav({ activeId, onJump, top, rootRef }: SectionAnch
         padding: "10px 4px",
         overflowX: "auto",
         background: "var(--bg-glass)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
+        // ponytail: backdrop-filter 已删 —— var(--bg-glass)=var(--card) 全不透明, blur 无可见对象
       }}
     >
       {SECTIONS.map((section) => {
