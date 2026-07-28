@@ -946,7 +946,9 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .status-dot-active,
   .spin,
   .glass:hover::after,
-  .glass-surface:hover::after {
+  .glass-surface:hover::after,
+  .toast,
+  .card-item {
     animation: none;
   }
   .proxy-status-glow { animation: none; opacity: 0.6; }
