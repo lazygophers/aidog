@@ -2,7 +2,7 @@
   "id": "mock-loadgen-capability",
   "name": "mock 压测能力补全",
   "desc": "补 mock 平台压测必需能力: manual_budget 写连接短路 + TTFT/inter-chunk 拆旋钮 + error_rate 概率注入, 同步前端 MockConfigEditor",
-  "status": "进行中",
+  "status": "检查中",
   "deps": [],
   "contracts": [
     "manual_budget 短路只在「零配额」分支生效, 有配额时扣减逻辑与失效时机逐字不变。这是计费路径, 压红线 2",
@@ -119,13 +119,20 @@
         "check-i18n 全绿",
         "临时文件已清理"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250490,
       "started": 1785252892,
-      "finished": null
+      "finished": 1785254744
     }
   ],
   "priority": 5,
@@ -139,7 +146,7 @@
   "created": 1785250220,
   "started": 1785251219,
   "confirmed": 1785250582,
-  "checked": null,
+  "checked": 1785254744,
   "finished": null,
-  "updated": 1785252892
+  "updated": 1785254744
 }
