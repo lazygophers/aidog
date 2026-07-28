@@ -33,17 +33,20 @@ src/                    # React 前端
     *.ts                # 各模块 API（groups/platforms/proxy/stats/settings/skills/mcp 等）
   themes/               # 每主题 light/dark CSS 变量
   utils/                # pinyin(拼音搜索) / formatters(统一数值格式化) / navGuard(无路由离页拦截)
-src-tauri/              # Rust workspace（多 crate 架构）
+src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crate）
   crates/
-    aidog_core/         # 核心库（gateway/models/db/estimate/price_sync/proxy/quota/router/usage_color/peak_hours 等）
-    commands_system/    # 系统命令（31 个：about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete）
-    commands_platform/  # 平台命令（48 个：group/platform/quota/stats/price/model_fetch 等）
-    commands_proxy/     # 代理命令（47 个：proxy/middleware/mitm/proxy_log/proxy_timeout 等）
-    commands_ai_tools/  # AI 工具命令（32 个：coding_tools/mcp/model_test/script_executor/skills/test_* 等）
-    commands_cli_env/   # CLI 环境命令（5 个：cli_env）
-    commands_config/    # 配置命令（13 个：defaults/settings/hooks）
-    commands_tray/      # 托盘命令（4 个：tray/popover）
+    aidog_core/         # 核心库 + 全部 194 个 #[tauri::command]
+      gateway/          # models/db/estimate/price_sync/proxy/quota/router/billing/usage_color/peak_hours 等
+      system_cmd/       # 系统命令（about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete）
+      platform_cmd/     # 平台命令（group/platform/quota/stats/price/model_fetch 等）
+      proxy_cmd/        # 代理命令（proxy/middleware/mitm/proxy_log/proxy_timeout 等）
+      ai_tools_cmd/     # AI 工具命令（coding_tools/mcp/model_test/script_executor/skills 等）
+      cli_proxy_cmd/    # CLI 代理命令（batch/import/platform/provider）
+      cli_env.rs / settings.rs / defaults.rs / popover.rs / tray_render.rs   # 单文件命令族
+      command_macro.rs  # tauri_command! 宏（自动挂 #[tauri::command] + tracing instrument/error）
+    aidog_test_util/    # 测试工具（依赖 aidog_core，故 aidog_core 不可反向 dev-dep）
 ```
+> command 注册表在 `src-tauri/src/startup.rs` 的 `tauri::generate_handler![...]`，**它是前端 invoke 名的唯一真值源**（invoke 名取 `#[tauri::command]` 函数名，与模块路径无关）。搬迁命令后用该集合零差集自比对即可证明 invoke 名未变。
 
 ## 关键约束
 
