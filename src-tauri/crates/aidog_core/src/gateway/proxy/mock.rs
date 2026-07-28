@@ -18,9 +18,10 @@ pub(crate) async fn handle_mock(
 
     let cfg = mock::resolve_mock_config(extra, chat_req, req_value);
 
-    // 真延迟
-    if cfg.delay_ms > 0 {
-        tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
+    // 真延迟（首包 TTFT，缺省回落 delay_ms）
+    let ttft_ms = cfg.ttft_ms.unwrap_or(cfg.delay_ms);
+    if ttft_ms > 0 {
+        tokio::time::sleep(std::time::Duration::from_millis(ttft_ms)).await;
     }
 
     // 填假 token（最终生效值）
@@ -108,11 +109,11 @@ pub(crate) async fn handle_mock(
 
     if stream {
         let chunks = mock::build_sse_chunks(&cfg, source_protocol, requested_model);
-        let delay_ms = cfg.delay_ms;
+        let inter_chunk_ms = cfg.inter_chunk_ms.unwrap_or(cfg.delay_ms);
         let body_stream = futures::stream::iter(chunks.into_iter().map(Ok::<_, std::io::Error>))
             .then(move |item| async move {
-                if delay_ms > 0 {
-                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                if inter_chunk_ms > 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(inter_chunk_ms)).await;
                 }
                 item
             });

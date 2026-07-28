@@ -444,6 +444,96 @@ async fn mock_platform_stream_override() {
     let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
 }
 
+/// Mock 平台 ttft_ms/inter_chunk_ms 独立生效：首包时延 ≈ ttft_ms，chunk 间隔 ≈ inter_chunk_ms
+/// （而非旧的 delay_ms 一值两用）。±50% 容差防 CI 抖动误报。
+#[tokio::test]
+async fn mock_platform_ttft_and_inter_chunk_split() {
+    let state = make_state(test_db().await).await;
+    setup_mock_group(
+        &state,
+        "gkttft",
+        r#"{"mock":{"stream_override":true,"ttft_ms":80,"inter_chunk_ms":20,"chunk_count":3}}"#,
+    )
+    .await;
+
+    let req = messages_request(
+        "gkttft",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let t0 = std::time::Instant::now();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let mut stream = resp.into_body().into_data_stream();
+    let mut prev = t0;
+    let mut ttft = None;
+    let mut inter_chunk_gaps = vec![];
+    while let Some(chunk) = stream.next().await {
+        chunk.unwrap();
+        let now = std::time::Instant::now();
+        if ttft.is_none() {
+            ttft = Some(now.duration_since(t0));
+        } else {
+            inter_chunk_gaps.push(now.duration_since(prev));
+        }
+        prev = now;
+    }
+
+    let ttft = ttft.unwrap();
+    assert!(
+        ttft.as_millis() >= 40 && ttft.as_millis() <= 160,
+        "ttft={ttft:?} 应 ≈80ms±50%"
+    );
+    assert!(!inter_chunk_gaps.is_empty(), "应有 >1 个 chunk 才能测间隔");
+    for gap in &inter_chunk_gaps {
+        assert!(
+            gap.as_millis() <= 60,
+            "inter_chunk gap={gap:?} 应 ≈20ms（容差上限 60ms），不应回退到旧 delay_ms=0"
+        );
+    }
+}
+
+/// 只设 delay_ms（不设 ttft_ms/inter_chunk_ms）时行为与改动前一致：
+/// 两者各自回落 delay_ms，首包与逐 chunk 间隔均 ≈ delay_ms。
+#[tokio::test]
+async fn mock_platform_delay_ms_only_backward_compat() {
+    let state = make_state(test_db().await).await;
+    setup_mock_group(
+        &state,
+        "gkdelay",
+        r#"{"mock":{"stream_override":true,"delay_ms":30,"chunk_count":2}}"#,
+    )
+    .await;
+
+    let req = messages_request(
+        "gkdelay",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let t0 = std::time::Instant::now();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let mut stream = resp.into_body().into_data_stream();
+    let mut prev = t0;
+    let mut ttft = None;
+    let mut gaps = vec![];
+    while let Some(chunk) = stream.next().await {
+        chunk.unwrap();
+        let now = std::time::Instant::now();
+        if ttft.is_none() {
+            ttft = Some(now.duration_since(t0));
+        } else {
+            gaps.push(now.duration_since(prev));
+        }
+        prev = now;
+    }
+    // 首包 = delay_ms（顶层 sleep）+ delay_ms（stream 首 chunk 前 sleep）≈ 60ms
+    assert!(ttft.unwrap().as_millis() >= 40, "delay_ms-only 首包应含双重 30ms sleep");
+    for gap in &gaps {
+        assert!(gap.as_millis() >= 15 && gap.as_millis() <= 90, "gap={gap:?} 应 ≈30ms±");
+    }
+}
+
 /// 注册 Anthropic 平台并显式声明 Anthropic endpoint（同协议透传判定命中）。
 async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
     use crate::gateway::models::PlatformEndpoint;

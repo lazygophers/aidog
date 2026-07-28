@@ -11,6 +11,10 @@ use crate::gateway::adapter::types::*;
 pub struct MockConfig {
     pub status_code: u16,
     pub delay_ms: u64,
+    /// 首包时延（TTFT）。None=回落 delay_ms（向后兼容）
+    pub ttft_ms: Option<u64>,
+    /// 流式 chunk 间隔。None=回落 delay_ms（向后兼容）
+    pub inter_chunk_ms: Option<u64>,
     /// null=跟随请求 stream；Some(true/false)=强制
     pub stream_override: Option<bool>,
     pub response_text: String,
@@ -29,6 +33,8 @@ impl Default for MockConfig {
         MockConfig {
             status_code: 200,
             delay_ms: 0,
+            ttft_ms: None,
+            inter_chunk_ms: None,
             stream_override: None,
             response_text: "Hello from mock".to_string(),
             finish_reason: "end_turn".to_string(),
@@ -86,6 +92,12 @@ pub fn resolve_mock_config(extra: &str, chat_req: &ChatRequest, body_json: &Valu
         }
         if let Some(v) = mock_obj.get("delay_ms").and_then(|v| v.as_u64()) {
             cfg.delay_ms = v;
+        }
+        if let Some(v) = mock_obj.get("ttft_ms").and_then(|v| v.as_u64()) {
+            cfg.ttft_ms = Some(v);
+        }
+        if let Some(v) = mock_obj.get("inter_chunk_ms").and_then(|v| v.as_u64()) {
+            cfg.inter_chunk_ms = Some(v);
         }
         if let Some(v) = mock_obj.get("stream_override").and_then(|v| v.as_bool()) {
             cfg.stream_override = Some(v);
