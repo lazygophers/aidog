@@ -1,8 +1,92 @@
 {
-  "ts": "2026-07-26T23:05:31",
+  "ts": "2026-07-28T17:20:33",
   "core_chars": 924,
   "budget": 1000,
   "problems": [
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-56"
+      ],
+      "detail": "[断链] recall/arch/rule-56: [[Protocol-wirename-codegen]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-56"
+      ],
+      "detail": "[断链] recall/arch/rule-56: [[adapter-dead-code-authority]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-57"
+      ],
+      "detail": "[断链] recall/arch/rule-57: [[Protocol-枚举变体扩展范式]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-57"
+      ],
+      "detail": "[断链] recall/arch/rule-57: [[新增-wire-protocol-必须同步白名单]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-58"
+      ],
+      "detail": "[断链] recall/arch/rule-58: [[是_valid_wire_protocol_gate_是_fail-fast_非修复点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-58"
+      ],
+      "detail": "[断链] recall/arch/rule-58: [[Protocol-枚举变体扩展范式]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-59"
+      ],
+      "detail": "[断链] recall/arch/rule-59: [[写代码前查复用_grep_已有实现]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-60"
+      ],
+      "detail": "[断链] recall/arch/rule-60: [[前端派生层_常量→后端_JSON派生]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-60"
+      ],
+      "detail": "[断链] recall/arch/rule-60: [[Tauri_Rust_command_需重启_dev]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-62"
+      ],
+      "detail": "[断链] recall/arch/rule-62: [[新增_i18n_key_必须同步_8语言]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-62"
+      ],
+      "detail": "[断链] recall/arch/rule-62: [[locale_扁平_key_约定]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/rule-64"
+      ],
+      "detail": "[断链] recall/arch/rule-64: [[Tauri_Rust_command_需重启_dev]] ✗ 目标缺失"
+    },
     {
       "type": "broken-link",
       "files": [
@@ -44,6 +128,27 @@
         "recall/build/rule-07"
       ],
       "detail": "[断链] recall/build/rule-07: [[bug1-真相]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-61"
+      ],
+      "detail": "[断链] recall/build/rule-61: [[env_编译期常量随跨_crate_搬迁失效]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-63"
+      ],
+      "detail": "[断链] recall/build/rule-63: [[Cargo_workspace_重构门禁]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/rule-63"
+      ],
+      "detail": "[断链] recall/build/rule-63: [[cargo_clippy_缓存命中不重报_warning]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -114,6 +219,20 @@
         "recall/domain/rule-55"
       ],
       "detail": "[断链] recall/domain/rule-55: [[is-valid-wire-protocol-gate-是-fail-fast-非修复点]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/test/rule-65"
+      ],
+      "detail": "[断链] recall/test/rule-65: [[Cargo_workspace_重构门禁]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/test/rule-65"
+      ],
+      "detail": "[断链] recall/test/rule-65: [[command_名集合零差集自检法]] ✗ 目标缺失"
     }
   ]
 }

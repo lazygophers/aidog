@@ -1,9 +1,10 @@
 {
   "tasks": [
     {
-      "id": "arch-deepen",
-      "status": "进行中",
+      "id": "core-tauri-optional",
+      "status": "待处理",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -12,6 +13,7 @@
       "id": "skein-board-rewrite",
       "status": "待处理",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -20,6 +22,25 @@
       "id": "accent-gold-deepen",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "arch-deepen",
+      "status": "已完成",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "arch-deepen-2",
+      "status": "已完成",
+      "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -28,6 +49,7 @@
       "id": "bg-stronger",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -36,6 +58,7 @@
       "id": "btn-width-fit",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -44,6 +67,7 @@
       "id": "clippy-collapsible-if",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -52,6 +76,7 @@
       "id": "converter-reasoning-content",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -60,6 +85,7 @@
       "id": "copybtn-dark",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -68,6 +94,7 @@
       "id": "dark-color-fix",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -76,6 +103,7 @@
       "id": "deepen-chart-stroke",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -84,6 +112,7 @@
       "id": "dependabot-npm-bump",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -92,6 +121,7 @@
       "id": "dropdown-redesign",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -100,6 +130,7 @@
       "id": "endpoint-cross-protocol-fallback",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -108,6 +139,7 @@
       "id": "example-design-specimen",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -116,6 +148,7 @@
       "id": "firefly-b1-core",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": "firefly-ui-migration",
       "kind": "task"
@@ -126,6 +159,7 @@
       "deps": [
         "firefly-b1-core"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "firefly-ui-migration",
       "kind": "task"
@@ -136,6 +170,7 @@
       "deps": [
         "firefly-b1-core"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "firefly-ui-migration",
       "kind": "task"
@@ -146,6 +181,7 @@
       "deps": [
         "firefly-b2-settings"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "firefly-ui-migration",
       "kind": "task"
@@ -156,6 +192,7 @@
       "deps": [
         "firefly-b4-config"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "firefly-ui-migration",
       "kind": "task"
@@ -166,6 +203,7 @@
       "deps": [
         "firefly-b5-misc"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "firefly-ui-migration",
       "kind": "task"
@@ -174,6 +212,7 @@
       "id": "fix-btn-border",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -182,6 +221,7 @@
       "id": "fix-chart-contrast",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -190,6 +230,7 @@
       "id": "fix-nav-active",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -198,6 +239,7 @@
       "id": "glass-flatten",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -206,6 +248,7 @@
       "id": "glass-opacity",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -214,6 +257,7 @@
       "id": "glass-restore",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -222,6 +266,7 @@
       "id": "glass-sidebar",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -230,6 +275,7 @@
       "id": "gold-accent",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -238,6 +284,7 @@
       "id": "gold-blue",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -246,6 +293,7 @@
       "id": "home-trend-cost",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -254,6 +302,7 @@
       "id": "log-async-write",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -262,6 +311,7 @@
       "id": "popover-dark-opaque",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -270,6 +320,7 @@
       "id": "popover-opacity",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -278,6 +329,7 @@
       "id": "popover-opacity90",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -286,6 +338,7 @@
       "id": "popover-perf",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -294,6 +347,7 @@
       "id": "popover-render-perf",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -302,6 +356,7 @@
       "id": "popover-token-fix",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -310,6 +365,7 @@
       "id": "release-manual-cleanup",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -318,6 +374,7 @@
       "id": "reqlog-type-label",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -326,6 +383,7 @@
       "id": "shadcn-infra",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": "frontend-shadcn-migration",
       "kind": "task"
@@ -336,6 +394,7 @@
       "deps": [
         "shadcn-primitives"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "frontend-shadcn-migration",
       "kind": "task"
@@ -346,6 +405,7 @@
       "deps": [
         "shadcn-infra"
       ],
+      "priority": 5,
       "worktree": null,
       "parent": "frontend-shadcn-migration",
       "kind": "task"
@@ -354,6 +414,7 @@
       "id": "theme-indigo",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -362,6 +423,7 @@
       "id": "ui-dark-button-bg",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -370,6 +432,7 @@
       "id": "ui-redesign",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
@@ -378,6 +441,7 @@
       "id": "ui-ux-shadcn-polish",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
       "worktree": null,
       "parent": null,
       "kind": "task"
