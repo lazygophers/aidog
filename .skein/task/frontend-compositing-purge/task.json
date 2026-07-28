@@ -2,7 +2,7 @@
   "id": "frontend-compositing-purge",
   "name": "前端常驻合成层与动画清除",
   "desc": "116 个 .glass::after 离屏 buffer + ~120 backdrop-filter 实例 + 全部常驻动画，压 WebKit malloc 82MB 并把空闲 CPU 从 50.2% 降到 <0.5%",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [],
   "contracts": [
     "用户已拍板三项视觉改动全部执行: ① 删 bgShimmer 32s 背景微动 ② .glass::after 光晕收进 hover(非悬停元素零离屏 buffer) ③ .input(47处)+.btn(12处) 去掉 backdrop-filter。这三项改变视觉是已批准的, 禁以「保视觉」为由跳过",
@@ -20,34 +20,43 @@
         "基线四项数值已落盘",
         "两次连跑偏差 <10%"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
-      "started": null,
-      "finished": null
+      "started": 1785251223,
+      "finished": 1785254192
     },
     {
       "sid": "s2-flow-border",
-      "name": "流光边框改 transform:rotate",
-      "desc": "@property --flow-ang 动画改静态 conic 层 + transform:rotate; 处理 mask 与 border-radius 贴合",
+      "name": "流光边框排查（原方案证伪）",
+      "desc": "实测排查: @property 动画仅 :hover 挂载, 空闲态零开销, 非空闲 CPU 成因; transform:rotate 方案撞 CSS 规范硬限(mask 与 transform 同元素必然共转) 不可行。用户裁定重构走独立 task glass-flow-border-component",
       "depends_on": [
         "s1-measure-protocol"
       ],
       "验收": [
-        "不再有 @property 驱动的逐帧 style 重算",
-        "1px 边环与圆角贴合正常",
-        "改前改后同页同尺寸截图视觉比对通过(红线3)",
-        "GPU 采样不再落在 DrawConicGradient"
+        "全仓 @property 使用点已清点完毕并给出 file:line（实测唯一点 globals.css:828）",
+        "证明 @property 动画的挂载条件与空闲态开销（hover-only, 空闲零开销）",
+        "transform:rotate 方案的不可行性有 CSS 规范级论证, 且视觉退化风险已具体化",
+        "重构路径已登记为独立 task glass-flow-border-component"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
-      "started": null,
-      "finished": null
+      "started": 1785254193,
+      "finished": 1785254659
     },
     {
       "sid": "s3-ambient-anim",
@@ -63,11 +72,11 @@
         "bgShimmer 处置结论已记(删或留, 有理由)"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
-      "started": null,
+      "started": 1785254659,
       "finished": null
     },
     {
@@ -168,9 +177,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785248700,
-  "started": null,
+  "started": 1785251219,
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785250583
+  "updated": 1785254659
 }
