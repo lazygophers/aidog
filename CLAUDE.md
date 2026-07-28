@@ -91,3 +91,17 @@ src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crat
 - 无 react-router：导航是 `App.tsx`(侧栏) + `AppSettings.tsx`(tab) 的本地 state；离页拦截走 `utils/navGuard.ts` 注册表，禁原生 confirm / beforeunload（破坏 Tauri）
 - modal/confirm 必须 `createPortal(document.body)`：祖先含 `transform`/`backdrop-filter`（liquid glass 主题）会让 `position:fixed` 退化为相对祖先，弹窗只在 page 内居中。详见 memory `modal-window-center-rule`。
 - 数值格式化统一走 `utils/formatters.ts`，禁页内重复定义 formatNumber 等
+
+## Agent skills
+
+### Issue tracker
+
+票以 markdown 文件存 `.scratch/<feature>/`（不用 GitHub Issues，避免与 `.skein/` 形成双任务系统对不上账）。见 `docs/agents/issue-tracker.md`。
+
+### Triage labels
+
+五个默认角色标签（needs-triage / needs-info / ready-for-agent / ready-for-human / wontfix），未改名。见 `docs/agents/triage-labels.md`。
+
+### Domain docs
+
+single-context：根 `CONTEXT.md` + `docs/adr/`（按需惰性创建，缺失不报错）。见 `docs/agents/domain.md`。
