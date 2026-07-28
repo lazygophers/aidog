@@ -43,9 +43,8 @@ updated: 1784995459
 
 ## 关联
 
-- [[converter-5×5-与-endpoint-选择解耦]] — converter 已就绪，endpoint 开回退即释放
-- [[is-valid-wire-protocol-gate-是-fail-fast-非修复点]] — gate 触发说明 endpoint 选择失败
 
 ## 案例
 
 - endpoint-cross-protocol-fallback task：普通平台步骤 4 泛化（同协议 > openai > 任意非 source），coding 平台不动
+[[rule-06]] [[rule-07]]

@@ -46,5 +46,4 @@ endpoint 协议 = converter 模块支持的格式（convert_request + parse_sse�
 
 ## 关联
 
-- [[新增-wire-protocol-必须同步白名单]] — endpoint 协议白名单
-- [[N×N-互转-路A-vs-路B]] — converter 设计决策
+[[rule-05]] [[rule-53]]

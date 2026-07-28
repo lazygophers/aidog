@@ -35,4 +35,4 @@ updated: 1785226181
 - 编码规范卡关：为什么要删这个文件
 
 ## 关联
-[[是_valid_wire_protocol_gate_是_fail-fast_非修复点]] [[Protocol-枚举变体扩展范式]]
+[[rule-07]]

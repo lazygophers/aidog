@@ -39,4 +39,3 @@ comm -23 keys_before.txt keys_after.txt
 - 删减功能前验证
 
 ## 关联
-[[新增_i18n_key_必须同步_8语言]] [[locale_扁平_key_约定]]

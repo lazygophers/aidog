@@ -40,4 +40,4 @@ grep -r "ProviderFormPanel" --include="*.tsx" src/
 - 任何多处定义的重复
 
 ## 关联
-[[写代码前查复用_grep_已有实现]]
+[[auto-fix-downgrade-36]]

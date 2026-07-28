@@ -51,5 +51,4 @@ matched_ep=None 的合法情况：preset 未加载（DB endpoints 空），非�
 
 ## 关联
 
-- [[5-协议定义锚点]] — 5 协议真值源
-- [[新增-wire-protocol-必须同步白名单]] — 白名单硬约束
+[[rule-05]]
