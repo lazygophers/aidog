@@ -62,3 +62,6 @@ vite.config.js
 
 # 全局 gitignore 的 logs/ 在大小写不敏感 FS 上会吞掉 src/pages/Logs/
 !/src/pages/Logs/
+
+# 全局 gitignore 的 build/ 会吞掉 spec 的 build 分类目录
+!/.skein/spec/recall/build/
