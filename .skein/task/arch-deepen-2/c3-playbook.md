@@ -59,3 +59,17 @@ workaround（本批 `popover.rs::test_popover` 已验证）：改测底层 `db::
 - **迁移后已用 `aidog_core::` 全限定路径的测试文件必须改 `crate::`**：部分源 crate 测试（如 `test_coding_tools.rs`/`test_fs_autocomplete.rs`）本就绕开 `mock_app_with_db`、直接写 `aidog_core::gateway::db::...`/`aidog_core::Db`（因为原先是外部 crate 引 `aidog_core`）。搬进 `aidog_core` 内部后这些路径变成自引用，编译不过，须机械替换成 `crate::`。判断标准：搬入后 `grep -rn "aidog_core::"` 该文件，非空则需替换（lib.rs 顶层 re-export 的 `crate::Db`/`crate::SetSettingInput` 等已覆盖大多数场景，无需额外加 re-export）。
 - **`env!("AIDOG_XXX")` 编译期常量随命令搬迁会失效**：`about.rs` 用 `env!("AIDOG_GIT_COMMIT")`/`env!("AIDOG_BUILD_TIME")`，这两个变量原来由根包 `src-tauri/build.rs` 的 `cargo:rustc-env=` 注入，只对根包 crate 生效。搬进 `aidog_core` 后该 crate 没有对应 build script，编译直接报「environment variable not defined at compile time」。修法：给 `aidog_core` 也加一份等价 `build.rs`（同逻辑：git rev-parse 短 commit + epoch 秒 build time），无需改根包 build.rs（根包仍需要给 `tauri_build::build()` 用）。后续批次搬命令前先 grep 目标 crate 有无 `env!(`，有则一并检查是否踩此坑。
 - **`tauri_command!` 宏不支持 `mut` 形参**：宏模式 `$($arg:ident : $ty:ty),*` 只匹配裸 `ident: Type`，原命令若写 `mut settings: T`（本批 `backup_settings_set`）会报「no rules expected `mut`」。修法：签名去掉 `mut`，函数体首行补 `let mut settings = settings;` 重绑定，行为等价，diff 最小。后续批次搬命令前 grep 目标文件 `mut [a-z_]*:.*State\|mut [a-z_]*:` 形参提前排雷。
+
+## 批 4（commands_platform + commands_proxy，收官批）— 无新坑
+
+commands_platform（48 cmd）+ commands_proxy（47 cmd）迁入 `aidog_core::platform_cmd/` `aidog_core::proxy_cmd/`，`commands_*` 层至此**全部清零**（8 个 crate → 0，194 command 全数上移 `aidog_core`）。本批完全复用批 1-3 已沉淀的模式（落地位置规则 / `tauri_command!` 宏 / Cargo.toml 编辑步骤 / 循环测试依赖 workaround / `crate::` 路径替换 / `mut` 形参处理），**无新踩坑**。
+
+验收结果：
+- `cargo check --workspace --all-targets`：0 error（23 warning，同既存 ts-rs/block 提示，与本批无关）
+- `cargo clippy --workspace --all-targets`：0 warning
+- `cargo test -p aidog_core`：1616 passed / 0 failed / 4 ignored（基线 1579 passed/1 failed；本次唯一已知基线失败 `quota_get_json_network_error` 未触发，非本批引入的行为变化，属网络依赖测试的环境波动）
+- command 名集合零差集（`startup.rs` 迁移前后各 221 条，`comm -3` 空输出）
+
+## 已知项：版本号双份真值（`tauri.conf.json` 未统一，不在本次 c3-commands 范围）
+
+批 3 把 `about.rs` 迁入 `aidog_core` 后，`env!("CARGO_PKG_VERSION")` 取值源从根包 `aidog` 变成 `aidog_core`（各自 `Cargo.toml` 的 `[package].version`）。批 4 已将根包 `src-tauri/Cargo.toml` 的 `[package].version` 改为 `{ workspace = true }`，与 `aidog_core` 同源 `[workspace.package].version = "0.1.10"`，消除了根包↔`aidog_core` 这一份真值分裂。但 **`src-tauri/tauri.conf.json` 的 `version` 字段是独立第三份真值**（Tauri 打包读取），未纳入 workspace 同步机制，仍需手工保持一致。跨语言/跨 manifest 统一属独立议题，不在 c3-commands 任务范围内。

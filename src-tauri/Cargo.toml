@@ -114,7 +114,7 @@ strip = true
 # =============================================================================
 [package]
 name = "aidog"
-version = "0.1.10"
+version = { workspace = true }
 description = "AiDog Desktop App"
 authors = ["落心"]
 license = "AGPL-3.0-or-later"
@@ -140,14 +140,8 @@ tauri = { version = "2", features = ["test"] }
 
 [dependencies]
 # C2 core-extract：gateway/shared/sync/hooks/tray_render/logging 全部下沉 aidog_core。
-# 过渡期 root package 仍引（commands 域 C3+ 才迁）。
+# C3 c3-commands 4 批全下沉完毕：commands_* crate 层已清零，全部命令域均在 aidog_core 内。
 aidog_core = { path = "crates/aidog_core" }
-# C3 commands-platform：platform/group/model_fetch/stats/price/quota 6 域迁此 crate。
-# 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
-commands_platform = { path = "crates/commands_platform" }
-# C4 commands-proxy：proxy/proxy_log/proxy_timeout/middleware/mitm 5 域迁此 crate。
-# 过渡期 root package startup.rs generate_handler 跨 crate 引（C10 才挪 app crate）。
-commands_proxy = { path = "crates/commands_proxy" }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"

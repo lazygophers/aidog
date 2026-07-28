@@ -1,12 +1,11 @@
-use aidog_core::gateway::{self, db::{self, Db}};
+use crate::gateway::{self, db::{self, Db}};
 use tauri::{State, Manager};
 use std::sync::Arc;
 
 
 use gateway::quota::PlatformQuota;
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>, db: State<'_, Db>,
@@ -19,10 +18,10 @@ pub async fn platform_query_quota(
     }
     Ok(q)
 }
+}
 
+crate::tauri_command! {
 /// New API 专用余额查询（两步：先查 token quota 类型，再按需查用户余额）
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>, db: State<'_, Db>,
@@ -35,11 +34,11 @@ pub async fn platform_query_quota_newapi(
     }
     Ok(q)
 }
+}
 
+crate::tauri_command! {
 /// Devin 用量查询（ACU 数，est_cost 记 ACU 不折 $）。
 /// extra 需含 `{"devin":{"org_id":"<id>"}}`，缺 org_id → 失败 PlatformQuota。
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn platform_query_quota_devin(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>, db: State<'_, Db>,
@@ -51,6 +50,7 @@ pub async fn platform_query_quota_devin(
         persist_quota_to_db(&db, platform_id, &q).await;
     }
     Ok(q)
+}
 }
 
 /// 将 quota 真查结果写回 platform 表，并作为一次「校准」严格对齐 est = 真实。

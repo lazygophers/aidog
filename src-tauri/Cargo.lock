@@ -85,8 +85,6 @@ dependencies = [
  "aidog_core",
  "axum",
  "chrono",
- "commands_platform",
- "commands_proxy",
  "dirs 6.0.0",
  "flate2",
  "futures",
@@ -166,10 +164,12 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "serde_yml",
  "sha1",
  "sha2 0.11.0",
  "tar",
  "tauri",
+ "tauri-plugin-autostart",
  "tauri-plugin-notification",
  "tempfile",
  "tiktoken-rs",
@@ -999,37 +999,6 @@ checksum = "ba5a308b75df32fe02788e748662718f03fde005016435c444eea572398219fd"
 dependencies = [
  "bytes",
  "memchr",
-]
-
-[[package]]
-name = "commands_platform"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "rusqlite",
- "serde",
- "serde_json",
- "serde_yml",
- "tauri",
- "tokio",
- "tracing",
- "uuid",
-]
-
-[[package]]
-name = "commands_proxy"
-version = "0.1.10"
-dependencies = [
- "aidog_core",
- "aidog_test_util",
- "serde",
- "serde_json",
- "tauri",
- "tauri-plugin-autostart",
- "tokio",
- "tracing",
- "url",
 ]
 
 [[package]]

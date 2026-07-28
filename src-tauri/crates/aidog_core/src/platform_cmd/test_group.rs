@@ -1,7 +1,11 @@
 #![cfg(test)]
 use super::*;
-use aidog_test_util::mock_app_with_db;
-use tauri::Manager;
+use crate::gateway::db::test_support::test_db;
+
+// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
+// 故不经 tauri::State/AppHandle 走 command 包装层，直测 command 转发的 db:: 函数
+// （command 本身只是薄转发 + try_sync_settings，逻辑等价；underlying db:: 函数已在
+// gateway/db/test_group.rs 充分覆盖）。
 
 fn sample_group_input(name: &str) -> CreateGroup {
     CreateGroup {
@@ -18,22 +22,20 @@ fn sample_group_input(name: &str) -> CreateGroup {
 
 #[tokio::test]
 async fn list_get_detail_empty_db() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<Db>();
-    assert!(group_list(db.clone()).await.unwrap().is_empty());
-    assert!(group_get(1, db.clone()).await.unwrap().is_none());
-    assert!(group_get_platforms(1, db.clone()).await.unwrap().is_empty());
-    assert!(group_detail(1, db.clone()).await.unwrap().is_none());
-    assert!(group_detail_list(db.clone()).await.unwrap().is_empty());
+    let db = test_db().await;
+    assert!(db::list_groups(&db).await.unwrap().is_empty());
+    assert!(db::get_group(&db, 1).await.unwrap().is_none());
+    assert!(db::get_group_platforms(&db, 1).await.unwrap().is_empty());
+    assert!(db::get_group_detail(&db, 1).await.unwrap().is_none());
+    assert!(db::list_group_details(&db).await.unwrap().is_empty());
 }
 
 #[tokio::test]
 async fn list_after_seeding_via_db() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<Db>();
+    let db = test_db().await;
     db::create_group(&db, sample_group_input("g")).await.unwrap();
-    assert_eq!(group_list(db.clone()).await.unwrap().len(), 1);
-    assert_eq!(group_detail_list(db.clone()).await.unwrap().len(), 1);
+    assert_eq!(db::list_groups(&db).await.unwrap().len(), 1);
+    assert_eq!(db::list_group_details(&db).await.unwrap().len(), 1);
 }
 
 /// Tests for group commands that don't require tauri::AppHandle (AppHandle commands
@@ -41,25 +43,24 @@ async fn list_after_seeding_via_db() {
 /// The underlying DB functions are well-tested in gateway/db/test_group.rs.
 #[tokio::test]
 async fn group_create_via_db_and_read_commands() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<Db>();
+    let db = test_db().await;
 
     // Test group_key validation by going through the db layer directly and checking commands
     let g = db::create_group(&db, sample_group_input("valid-key")).await.unwrap();
-    assert!(group_get(g.id, db.clone()).await.unwrap().is_some());
-    assert_eq!(group_get_platforms(g.id, db.clone()).await.unwrap().len(), 0);
-    assert!(group_detail(g.id, db.clone()).await.unwrap().is_some());
+    assert!(db::get_group(&db, g.id).await.unwrap().is_some());
+    assert_eq!(db::get_group_platforms(&db, g.id).await.unwrap().len(), 0);
+    assert!(db::get_group_detail(&db, g.id).await.unwrap().is_some());
 
     // Add a second group and test group_detail_list count
     let g2 = db::create_group(&db, sample_group_input("g2")).await.unwrap();
-    let details = group_detail_list(db.clone()).await.unwrap();
+    let details = db::list_group_details(&db).await.unwrap();
     assert_eq!(details.len(), 2);
     assert!(details.iter().any(|d| d.group.id == g.id));
     assert!(details.iter().any(|d| d.group.id == g2.id));
 
     // group_get for non-existent
-    assert!(group_get(999999, db.clone()).await.unwrap().is_none());
-    assert!(group_detail(999999, db.clone()).await.unwrap().is_none());
+    assert!(db::get_group(&db, 999999).await.unwrap().is_none());
+    assert!(db::get_group_detail(&db, 999999).await.unwrap().is_none());
 }
 
 /// Test group_create group_key validation (pure logic, no AppHandle needed).

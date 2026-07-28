@@ -9,9 +9,9 @@ use aidog_core::gateway::middleware::MiddlewareEngine;
 use aidog_core::system_cmd::app_log::{load_app_log_settings_from_db, migrate_log_settings_file_to_db};
 use aidog_core::sync_settings::try_sync_settings;
 use aidog_core::ai_tools_cmd::coding_tools::ensure_default_coding_tools_settings;
-use commands_proxy::proxy::{proxy_start, proxy_stop};
+use aidog_core::proxy_cmd::proxy::{proxy_start, proxy_stop};
 use aidog_core::tray_render::{build_tray_menu, refresh_tray_menu, TrayMenuBuildImpl};
-use commands_platform::quota::cold_start_init_tray_estimates;
+use aidog_core::platform_cmd::quota::cold_start_init_tray_estimates;
 use tauri::tray::TrayIconBuilder;
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
@@ -250,7 +250,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                                 // 小块 free pages；大块回收由阈值 VACUUM 兜底。
                                 let log_settings: gateway::models::ProxyLogSettings = gateway::db::get_setting(&db, "proxy", "logging").await
                                     .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-                                commands_proxy::proxy_log::run_retention_cleanup(&db, &log_settings).await;
+                                aidog_core::proxy_cmd::proxy_log::run_retention_cleanup(&db, &log_settings).await;
                                 // 阈值触发全量 VACUUM：胀库（>100MB）时整库重建回收大块 free pages。
                                 // 失败仅 warn（锁冲突 / 磁盘满等），不阻塞后续周期。
                                 match gateway::db::db_file_size(&db).await {
