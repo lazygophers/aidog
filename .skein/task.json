@@ -1,9 +1,98 @@
 {
   "tasks": [
     {
-      "id": "sqlite-page-cache-residency",
+      "id": "cold-start-unblock",
+      "status": "就绪",
+      "deps": [
+        "frontend-compositing-purge"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "frontend-compositing-purge",
       "status": "就绪",
       "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "logs-query-ipc-slimming",
+      "status": "就绪",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "mock-loadgen-capability",
+      "status": "就绪",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "perf-final-verification",
+      "status": "就绪",
+      "deps": [
+        "mock-loadgen-capability",
+        "logs-query-ipc-slimming",
+        "sqlite-page-cache-residency",
+        "proxy-hotpath-buffers",
+        "tokenizer-residency-trim",
+        "frontend-compositing-purge",
+        "cold-start-unblock",
+        "window-default-size"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "proxy-hotpath-buffers",
+      "status": "就绪",
+      "deps": [
+        "mock-loadgen-capability"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "sqlite-page-cache-residency",
+      "status": "就绪",
+      "deps": [
+        "logs-query-ipc-slimming"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "tokenizer-residency-trim",
+      "status": "就绪",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "window-default-size",
+      "status": "就绪",
+      "deps": [
+        "frontend-compositing-purge"
+      ],
       "priority": 5,
       "worktree": null,
       "parent": null,
