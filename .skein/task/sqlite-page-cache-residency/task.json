@@ -1,0 +1,142 @@
+{
+  "id": "sqlite-page-cache-residency",
+  "name": "SQLite page cache 常驻治理",
+  "desc": "27 条连接 x 2MB 默认 cache_size 致主进程常驻 ~54MB，压降至预算 30MB 内且不伤 UI 流畅度",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [
+    "测试与压测只允许用 mock 协议的平台与分组，禁止使用真实平台",
+    "如需扩充 mock 能力以适配测试场景，必须同步完善对应的前端展示，禁后端能力前端看不到",
+    "内存判据只用 footprint 的 phys_footprint 与 heap 的 5KB 块数，禁用 ps rss / vmmap（二者均漏算 graphics）",
+    "红线3：后端关键查询耗时 p95 相对基线不得上升超过 10%",
+    "本 task 不改 READ_POOL_SIZE，不碰 log.db 体积治理（retention/VACUUM），二者另开 task",
+    "验收内存口径为增量：稳态 phys_footprint 减冷启动 phys_footprint ≤ 10MB",
+    "归因判决实验是硬门：harness 跑通后先单跑一档极小读 cache，若 heap 5KB 块数不随之显著下降，立即停手回 08 票重新归因，禁继续 baseline/sweep",
+    "p95 口径定死为三条固定查询（Logs 列表分页 / Stats 聚合 / 平台余额聚合），每条 >=30 次取 p95 分列记录不合并；另单列基线最慢 SQL 作重点跟踪项",
+    "每次采样必须记录 log.db 与 WAL 实际体积；大库组要求 log.db >= 5GB；另须跑一组 <100MB 小库对照，验证降 cache 对小库场景无害",
+    "写连接 cache 档维持 SQLite 默认不动（只读池仅服务 UI 热读路径，db/mod.rs:124/131/136 注释为证；写连接服务转发热路径，动它会压红线 1）；不引入写档环境变量",
+    "量测产生的临时文件与中间产物（临时脚本、逐次原始采样、小库环境副本、探针输出）在各 subtask 结束时即清，results/ 只留最终曲线表与基线三元组；禁把中间态留在仓库或 /tmp 过夜"
+  ],
+  "subtasks": [
+    {
+      "sid": "probe",
+      "name": "归因判决实验（硬门 · fail-fast）",
+      "desc": "契约 7 的硬门。用 harness 脚本单跑一档极小读 cache（AIDOG_SQLITE_READ_CACHE_KB=64），与默认档对比 heap 5KB 块数。判据：块数应从约 12000 量级显著下降（预期降到 <1500）。若块数基本不变 → 归因『5KB 块 = SQLite page cache』被证伪，立即停手、回写 .scratch/perf-200mb/issues/08 票重新归因，禁继续 baseline/sweep。若下降 → 归因坐实，放行下游。探针原始输出用完即清，只留一行结论。",
+      "depends_on": [
+        "harness"
+      ],
+      "验收": [
+        "极小档与默认档的 5KB 块数对比数据已产出；给出明确二值结论（归因坐实 / 归因证伪）；证伪时已停手并回写 08 票；坐实时结论一行落 results/；探针中间文件已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785246113,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "harness",
+      "name": "参数化读档 cache_size + 量测脚本（契约/tracer bullet）",
+      "desc": "① db/mod.rs 的 build_read_pool 只读连接 execute_batch 追加 PRAGMA cache_size，数值读环境变量 AIDOG_SQLITE_READ_CACHE_KB，缺省回落 SQLite 默认（行为零变化）；加 ponytail: 注释标明是 debug 旋钮。写连接不动、不加写档 env（契约 10）。② 量测脚本落 .scratch/perf-200mb/assets/，一条命令跑完整链路：open --env AIDOG_SQLITE_READ_CACHE_KB=<档> -a AiDog 干净起（GUI app 不继承 shell env，必须走 open --env，man open 已验）→ loadgen.sh 灌 mock 分组 → t=25s 采冷启动 phys_footprint → 驱动三条固定查询（Logs 列表分页 / Stats 聚合 / 平台余额聚合）各 >=30 次 → 采稳态 phys_footprint + heap 5KB 块数 + 三条查询各自 p95（分列不合并）+ 记录 log.db/WAL 实际体积。③ 默认档跑通一次证明链路端到端可用。内存判据只用 footprint 与 heap，禁 ps rss / vmmap。",
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 零 warning；cargo test 全绿；不设 env 时 cache_size 等于 SQLite 默认且行为零变化；脚本一条命令跑出完整指标集且两次连跑偏差 <10%；三条查询 p95 分列输出不合并；输出含 log.db 与 WAL 体积；全程只打 mock 分组；未引入写档 env；跑通后临时中间文件已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785246154,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "baseline",
+      "name": "采基线指标集（SQLite 默认档）",
+      "desc": "归因坐实后，用 harness 脚本在不设 env（SQLite 默认 2MB/连接）下采一组完整基线并落盘：冷启动 phys_footprint / 稳态 phys_footprint / 内存增量 / heap 5KB 块数 / 三条固定查询各自 p95 / log.db 与 WAL 体积。另从 sql_profile 挑出基线最慢的那条 SQL，单列为重点跟踪项（契约 8）。必须干净重启单独采，禁与扫档同进程混采。原始逐次采样清掉，只留汇总。",
+      "depends_on": [
+        "probe"
+      ],
+      "验收": [
+        "基线指标集已落 .scratch/perf-200mb/results/，含冷启动与稳态两点；5KB 块数量级对得上已有观测（约 12000）；三条查询 p95 分列；基线最慢 SQL 已识别并单列；log.db 体积 >=5GB 已记录；原始逐次采样已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785246154,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "smalldb-control",
+      "name": "小库对照组（<100MB）",
+      "desc": "契约 9 后半。另造一份 <100MB 的 log.db 环境（mock 灌少量数据即可，禁动用户真实库），跑与 sweep 同一套档位，验证降 cache 对小库场景既无害也不必要。重点看：小库下默认档的 5KB 块数是否本来就低（cache 填不满）、降档后 p95 是否恶化。结论一句话：定值对小库用户是否安全。对照环境副本用完即删。",
+      "depends_on": [
+        "sweep"
+      ],
+      "验收": [
+        "小库组曲线表已产出，档位与 sweep 一致；给出『定值对小库安全 / 不安全』的明确结论；小库环境副本已删除；全程只打 mock 分组，未触碰用户真实 log.db"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785246154,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "lockin",
+      "name": "定值固化 + 复验 + 清场",
+      "desc": "从大库曲线表 + 小库对照结论选定值：在『三条查询 p95 相对基线上升均 <=10%』前提下取内存增量最小的读档，且该值对小库场景安全。把该值固化为 db/mod.rs 源码默认（env 保留为 debug 覆盖入口，ponytail: 注释标明）。固化后干净重启复验一次，确认稳态减冷启动 phys_footprint <=10MB、heap 5KB 块数 <2500、三条查询 p95 上升 <=10%。写档维持默认不动。同步回写 .scratch/perf-200mb/issues/08 票修复方向段与 map.md 的 Decisions 条目。最后清场：删所有临时脚本与逐次原始采样，results/ 只留基线指标集 + 大库曲线表 + 小库对照表三份最终产物。",
+      "depends_on": [
+        "sweep",
+        "smalldb-control"
+      ],
+      "验收": [
+        "选值有大库曲线表 + 小库对照双重依据，非拍脑袋；稳态 phys_footprint 减冷启动 <=10MB；heap 5KB 块数 <2500；三条查询 p95 相对基线上升均 <=10%；写档确认未改；cargo clippy 零 warning、cargo test 全绿；08 票与 map.md 已同步结论；results/ 只剩三份最终产物，临时脚本与原始采样已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785246168,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "sweep",
+      "name": "大库二分扫档产出曲线表（≥4 档）",
+      "desc": "以基线为对比基准，在 7GB 大库上逐档跑量测：至少 默认(-2000) / -1024 / -256 / -64 四档，每档独立干净重启 app（共享环境，必须串行，禁并发跑）。产出『读档 → 三条查询各自 p95 → 内存增量 → heap 5KB 块数 → log.db/WAL 体积』曲线表落 .scratch/perf-200mb/results/，并标出每档 p95 相对基线的上升百分比、基线最慢 SQL 的单独走势。逐次原始采样汇总后即清。",
+      "depends_on": [
+        "baseline"
+      ],
+      "验收": [
+        "曲线表 >=4 档，每档含三条查询 p95（分列）+ 内存增量 + 5KB 块数 + 库体积；每档独立重启采集，记录中可核验非同进程混采；每档标注 p95 相对基线上升百分比；基线最慢 SQL 单列走势已给出；全程只打 mock 分组；逐次原始采样已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785246183,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/sqlite-page-cache-residency",
+  "parent": null,
+  "kind": "task",
+  "created": 1785244678,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785246183
+}
