@@ -1,6 +1,6 @@
 ---
 title: optional-config-backward-compat
-layer: core
+layer: recall
 category: ts-rust-boundary
 keywords: [ts-rust-boundary,option,backward-compat,unwrap_or,config-migration]
 status: active
