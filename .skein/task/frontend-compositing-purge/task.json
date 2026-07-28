@@ -1,0 +1,176 @@
+{
+  "id": "frontend-compositing-purge",
+  "name": "前端常驻合成层与动画清除",
+  "desc": "116 个 .glass::after 离屏 buffer + ~120 backdrop-filter 实例 + 全部常驻动画，压 WebKit malloc 82MB 并把空闲 CPU 从 50.2% 降到 <0.5%",
+  "status": "就绪",
+  "deps": [],
+  "contracts": [
+    "用户已拍板三项视觉改动全部执行: ① 删 bgShimmer 32s 背景微动 ② .glass::after 光晕收进 hover(非悬停元素零离屏 buffer) ③ .input(47处)+.btn(12处) 去掉 backdrop-filter。这三项改变视觉是已批准的, 禁以「保视觉」为由跳过",
+    "用户已拍板: 空闲前台 CPU <0.5% 若清理后仍达不到, 继续深挖直到达标, 禁下调目标值。深挖若超本 task 边界则登记新 task, 禁标 done 蒙混",
+    "prefers-reduced-motion 只覆盖显式列出的选择器, 内联 style 的 animation 一律漏网(ProxyStatusSection.tsx:27 已知)。清点必须覆盖内联 style"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-measure-protocol",
+      "name": "量测协议与前端基线",
+      "desc": "定死独立重启+等满稳态的量测协议, 采空闲前台 CPU% / phys_footprint / graphics / WebKit malloc 基线",
+      "depends_on": [],
+      "验收": [
+        "协议文档写明: 每档独立重启 / 等满稳态 / 只认 footprint 与 heap / 禁 ps rss 与 vmmap / 禁同进程内改 CSS 做 A-B",
+        "基线四项数值已落盘",
+        "两次连跑偏差 <10%"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249451,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-flow-border",
+      "name": "流光边框改 transform:rotate",
+      "desc": "@property --flow-ang 动画改静态 conic 层 + transform:rotate; 处理 mask 与 border-radius 贴合",
+      "depends_on": [
+        "s1-measure-protocol"
+      ],
+      "验收": [
+        "不再有 @property 驱动的逐帧 style 重算",
+        "1px 边环与圆角贴合正常",
+        "改前改后同页同尺寸截图视觉比对通过(红线3)",
+        "GPU 采样不再落在 DrawConicGradient"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249451,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3-ambient-anim",
+      "name": "常驻动画清除与 reduced-motion 补全",
+      "desc": "bgShimmer/pulseGlow 处置; ProxyStatusSection.tsx:27 内联 animation 迁出 CSS; 两块 reduced-motion 合并补全",
+      "depends_on": [
+        "s1-measure-protocol"
+      ],
+      "验收": [
+        "内联 style 的 animation 全仓为 0(grep 证明)",
+        "pulseGlow 不再动 box-shadow",
+        "reduced-motion 块覆盖全部动画选择器",
+        "bgShimmer 处置结论已记(删或留, 有理由)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249451,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4-skeleton-progress",
+      "name": "skeleton 与进度条动画按可见性挂载",
+      "desc": "globals.css:182 skeleton shimmer 与 :916 progressStripes 确保不可见时不 tick",
+      "depends_on": [
+        "s1-measure-protocol"
+      ],
+      "验收": [
+        "骨架屏/进度条不可见时无动画 tick(可证)",
+        "可见时视觉与改前一致"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249451,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5-glass-buffer",
+      "name": ".glass::after 离屏 buffer 收敛",
+      "desc": "mask+conic-gradient 收进 :hover, 补量 WebKit malloc 维度([03] 只量了 graphics)",
+      "depends_on": [
+        "s1-measure-protocol"
+      ],
+      "验收": [
+        "WebKit malloc 改前改后数值已分别落盘",
+        "每档独立重启采集",
+        "hover 态视觉与改前一致",
+        "若 malloc 无改善则显式记结论不硬改"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249451,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6-backdrop-audit",
+      "name": "backdrop-filter 用量收敛",
+      "desc": ".input(47处)/.btn(12处)的 12px blur 是否必要, 逐类判去留",
+      "depends_on": [
+        "s1-measure-protocol"
+      ],
+      "验收": [
+        "每类去留有视觉比对依据",
+        "保留项已说明理由",
+        "改动后 WebKit malloc 有量测数据"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249451,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s7-verify",
+      "name": "前端合成与 CPU 验收",
+      "desc": "复采四项指标, 逐页视觉比对, 前端门禁",
+      "depends_on": [
+        "s2-flow-border",
+        "s3-ambient-anim",
+        "s4-skeleton-progress",
+        "s5-glass-buffer",
+        "s6-backdrop-audit"
+      ],
+      "验收": [
+        "空闲前台 CPU < 0.5%",
+        "WebContent WebKit malloc <= 32MB",
+        "逐页视觉比对无降级(红线3)",
+        "yarn build 通过",
+        "yarn test 全绿",
+        "全程只用 mock 平台与分组",
+        "临时脚本与中间采样已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249452,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 14.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/frontend-compositing-purge",
+  "parent": null,
+  "kind": "task",
+  "created": 1785248700,
+  "started": null,
+  "confirmed": 1785250583,
+  "checked": null,
+  "finished": null,
+  "updated": 1785250583
+}

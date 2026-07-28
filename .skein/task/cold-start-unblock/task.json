@@ -1,0 +1,182 @@
+{
+  "id": "cold-start-unblock",
+  "name": "冷启动阻塞消除与 bundle 拆分",
+  "desc": "setup 首行 $SHELL -ilc 探测实测阻塞 0.71-1.54s + 4 处启动期 block_on 串行 + 1.6M main bundle 零页面分割",
+  "status": "就绪",
+  "deps": [
+    "frontend-compositing-purge"
+  ],
+  "contracts": [
+    "gateway/skills/env.rs 的 OnceLock 幂等语义保留不变, 本 task 只挪调用点不改 env.rs 实现",
+    "tracing_appender::non_blocking 的 guard 必须保活(存 app state 或 OnceLock), 否则进程退出时日志丢失",
+    "禁引入 react-router(项目明确无路由, CLAUDE.md), 拆包只用 React.lazy + Suspense + vite manualChunks"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-startup-protocol",
+      "name": "冷启动计时协议与基线",
+      "desc": "定死 release + 每次干净重启的计时协议, 采『进程启动→首屏可交互』基线(多次取中位) 与 bundle 体积基线",
+      "depends_on": [],
+      "验收": [
+        "协议写明 release 构建 / 每次独立重启 / 多次取中位",
+        "启动耗时基线已落盘",
+        "main chunk 与 window chunk 字节基线已落盘",
+        "两次连跑偏差 <10%"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-path-async",
+      "name": "PATH 探测异步化",
+      "desc": "app_setup.rs:21 调用挪出启动同步路径, 抄同文件 :49/:66/:84 spawn idiom",
+      "depends_on": [
+        "s1-startup-protocol"
+      ],
+      "验收": [
+        "skills/env.rs 的 OnceLock 幂等语义未改(只挪调用点)",
+        "首个 PATH 消费者在探测未完成时正确等待而非拿到空值",
+        "启动耗时下降有前后数据",
+        "未引入磁盘缓存"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3-block-on-audit",
+      "name": "启动期 block_on 逐个判",
+      "desc": "app_setup.rs:100-140 的 4 处 block_on + cleanup_old_logs 逐个判去留, 可后台的 spawn",
+      "depends_on": [
+        "s1-startup-protocol"
+      ],
+      "验收": [
+        "4 处逐个有去留结论与理由",
+        "保留项说明为何必须启动期完成",
+        "spawn 项复用同文件既有 idiom",
+        "cleanup_old_logs 已后台化"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249514,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4-log-nonblocking",
+      "name": "日志写入非阻塞化",
+      "desc": "logging.rs:191-245 的 RollingFileAppender 包 non_blocking, guard 保活; sharded_slab 高水位先量再判",
+      "depends_on": [
+        "s1-startup-protocol"
+      ],
+      "验收": [
+        "non_blocking guard 已保活(进程退出日志不丢, 有验证)",
+        "日志内容与改前一致",
+        "sharded_slab 高水位有量测数据, 量级不足则显式记『已查, 无阻断项』"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249514,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5-bundle-split",
+      "name": "页面 code splitting",
+      "desc": "App.tsx:1-24 的 14 页静态 import 改 React.lazy + Suspense; vite.config.ts 补 manualChunks",
+      "depends_on": [
+        "s1-startup-protocol"
+      ],
+      "验收": [
+        "main chunk 字节显著下降(前后数据)",
+        "首屏只加载当前页 chunk",
+        "切页时 Suspense fallback 不造成可见闪烁(红线3)",
+        "未引入 react-router"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249514,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6-nav-key-audit",
+      "name": "key=effectiveNav 整树重建判定",
+      "desc": "先读代码判 key 是故意还是顺手, 若可去则去掉并逐页比对跨页状态",
+      "depends_on": [
+        "s1-startup-protocol"
+      ],
+      "验收": [
+        "key 的意图判定有代码依据",
+        "去掉则逐页人工比对无跨页状态残留",
+        "保留则说明理由",
+        "切页流畅度无下降(红线3)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249514,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s7-verify",
+      "name": "冷启动与 bundle 验收",
+      "desc": "复采启动耗时与体积, 逐页回归, 门禁",
+      "depends_on": [
+        "s2-path-async",
+        "s3-block-on-audit",
+        "s4-log-nonblocking",
+        "s5-bundle-split",
+        "s6-nav-key-audit"
+      ],
+      "验收": [
+        "冷启动耗时不慢于基线(红线4, 有数据)",
+        "main chunk 字节较基线下降",
+        "逐页切换无功能与视觉回归",
+        "yarn build 通过",
+        "yarn test 全绿",
+        "cargo clippy --workspace 零 warning",
+        "全程只用 mock 平台与分组",
+        "临时脚本与中间采样已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249514,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 12.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/cold-start-unblock",
+  "parent": null,
+  "kind": "task",
+  "created": 1785248707,
+  "started": null,
+  "confirmed": 1785250583,
+  "checked": null,
+  "finished": null,
+  "updated": 1785250583
+}

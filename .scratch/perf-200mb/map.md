@@ -47,7 +47,38 @@ Label: `wayfinder:map`
 
 - [08 SQLite page cache 常驻] — **主进程 44MB(冷启动) vs 150MB(稳态) 的矛盾解除：两个数都对，[01] 测的是曲线冷端。** 根因 = `db/mod.rs:12` `READ_POOL_SIZE=8` × 3 池 = 24 只读 + 3 写 = **27 条连接，全仓无 `cache_size` 设置**，走 SQLite 默认 2MB/连接 ≈ **54MB page cache**。证据：`heap` 显示 5KB 块数 1051(5.6min) → 12436(22min)，单一尺寸档解释全部 58MB 增长，且 12436 ≈ 24×500 pages（误差 3.6%）。log.db 7GB 保证 cache 必被填满，是稳态非偶发。排除泄漏（`leaks` 仅 5.7MB，全是 macOS `CryptKit` TLS 框架泄漏，非本仓）。**性质关键：这 54MB 是可配置项，不是物理成本**，与合成面完全不同。修法 `PRAGMA cache_size=-256` 可省 ~42MB，**但压红线 3（查询变慢）**，数值须实测定。
 
+## 图已收敛 → 已转 9 个 skein task（2026-07-28）
+
+雾区已推开，本图不再产出新决策。全部落地工作转 `.skein/task/`，DAG 如下（`skein list` 为真值源）：
+
+| task | deps | subtask | 对应本图哪些 fog |
+|---|---|---|---|
+| `mock-loadgen-capability` | — | 5 | 压测台前提（下方「mock 能力边界」） |
+| `logs-query-ipc-slimming` | — | 7 | 前端具体改法 / 异步化边界（Logs+Stats 侧） |
+| `proxy-hotpath-buffers` | mock | 7 | 异步化边界 / est_cost 计算成本 |
+| `tokenizer-residency-trim` | — | 6 | 起点线索里的 tokenizer 四单例 |
+| `frontend-compositing-purge` | — | 7 | 常驻动画全量清点 + transform-rotate 视觉等价性 |
+| `sqlite-page-cache-residency` | logs | 6 | SQLite 侧占用与调参（[08]） |
+| `cold-start-unblock` | frontend | 7 | 红线 4 相关 + bundle 拆分 |
+| `window-default-size` | frontend | 6 | 窗口尺寸具体数字 + 怎么落地 |
+| `perf-final-verification` | 全部 8 个 | 6 | 总收口：200MB 到底达没达 |
+
+### 本轮 grill 补上的四条用户裁决
+
+1. **Logs 分页** — 去掉精确 `COUNT(*)`，改 `LIMIT+1` 探测。UI 退化为「有更多」是**已接受**的可见变化。
+2. **前端视觉** — 三项改动**全部执行**：删 `bgShimmer 32s`、`.glass::after` 光晕收进 hover、`.input`(47处)+`.btn`(12处) 去 `backdrop-filter`。
+3. **窗口** — 删 `maximized: true` 改默认 `1026×759`，**不加** `maxWidth`/`maxHeight`。达标口径 = 默认尺寸下 ≤200MB。「拉大就超」正面写进 spec。
+4. **CPU** — 空闲前台 <0.5% 若清理后仍达不到，**继续深挖直到达标**，禁下调目标值。
+
+### 本轮新发现（补进图，非新 fog）
+
+- `tauri.conf.json` 的 `maximized: true` **让 width/height 形同虚设** —— 应用永远最大化启动，这是合成面被推到最大的直接原因。上面「窗口尺寸具体数字」这条 fog 的一半答案。
+- `mock` 能力边界已勘察（`proxy/mock.rs:5-158`，forward 层短路不起 server）。**阻断项**：`mock.rs:96-104` 每请求进 `apply_manual_budgets` 的 platform 写连接（tokio-rusqlite 单后台线程串行），50 路并发下污染全部量测数据。故 `mock-loadgen-capability` 排在最前。
+- `delay_ms` 语义重载（`mock.rs:22` 首包 + `:113-118` chunk 间隔共用同值），无独立 TTFT 旋钮；`error_mode` 确定性单值，做不到比例注入。
+
 ## Not yet specified
+
+> 下列条目多数已被上表的 task 承接，保留原文供追溯；未被承接的只剩 `log.db 体积治理`。
 
 - **窗口尺寸约束的具体数字** —— 约束**存在性**已定（合成面 ∝ 窗口面积，dev 干净实验证实），但**数字未定**。[03] 补做的 release 复验推翻了用 dev 拟合式反推：release 两点拟合常数项 67.3MB（dev 只有 16.7MB），单常数项就吃掉整个 71MB 合成面预算，1150×750 达不到。且那轮 release 量测本身不干净（同进程内主进程 116→150MB、GPU 28→64MB，缩窗后反升），两点不同稳态，系数不可信。**需要一次干净的 release 长稳态窗口-内存曲线量测**（每尺寸独立重启 + 等满 10min 增长期）才能定数。
 - **窗口尺寸约束怎么落地** —— 限死 `tauri.conf.json` 的 `maxWidth/maxHeight`？还是不限制、只承诺默认尺寸下达标并在文档写明大窗超预算？**「用户手动拉大窗口就会超 200MB」是物理事实，代码规避不了**，spec 必须正面写。这是本图剩下唯一的产品级取舍。

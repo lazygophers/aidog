@@ -71,6 +71,19 @@ log.db 实测 7084MB，远大于 cache → page cache **必然被填满并长期
 
 故在 baseline 之前插一步最便宜的判决实验：**单跑 `AIDOG_SQLITE_READ_CACHE_KB=64` 一档，只看 5KB 块数是否跟着掉**。掉了归因坐实；不掉立即停手回 08 票重新归因，不浪费下游三个 subtask。成本约 10 分钟。
 
+### ⚠️ baseline 前提已变更（用户拍板：先修 COUNT，本 task 重采 baseline）
+
+原设计的 baseline 采于**未优化的查询路径**上，该前提**已作废**。理由：
+
+- `gateway/db/proxy_log.rs:383` 的 `SELECT COUNT(*)` 在 7GB log.db 上每次分页全表扫
+- `proxy_log.rs:557-570` 的 `exclude_sources` 恒发 `NOT IN`，非 sargable，索引失效
+
+这两条**既是灌满 page cache 的源头，也是「基线最慢 SQL」本身**。在其上采的 baseline 是病态基线，据此定的 cache_size 档位不可用 —— 优化后工作集会显著缩小，最优档位随之改变。
+
+故本 task `deps = [logs-query-ipc-slimming]`（用户拍板），**全部 baseline 与曲线量测必须在 logs-query-ipc-slimming 完成并合入之后重新采集**。三条固定查询的 p95 口径不变，但数值全部作废重取。
+
+同理，`.scratch/perf-200mb/issues/08-sqlite-page-cache-residency.md:26-30` 记录的 50MB / 107MB / 149MB 三点采样，是**归因证据**（证明 5KB 块 = page cache），**不是本 task 的 baseline** —— 归因结论仍成立（与查询是否优化无关），baseline 需重采。
+
 ### 库体积是结论的前提，不是背景
 
 7GB 的 log.db 是「cache 必被填满」的**充分条件**。库小则 cache 本来就填不满，本优化对新用户零收益。故：

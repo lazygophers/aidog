@@ -1,0 +1,177 @@
+{
+  "id": "proxy-hotpath-buffers",
+  "name": "转发热路径缓冲与拷贝治理",
+  "desc": "stream body in-flight 无 cap + upsert_log 分支前 clone + body 三次深拷贝 + from_utf8_lossy 跨 chunk 破字符，砍峰值内存并修红线 2 正确性缺陷",
+  "status": "就绪",
+  "deps": [
+    "mock-loadgen-capability"
+  ],
+  "contracts": [
+    "cap 必须前移到 push 点(finish.rs:275,333 / passthrough.rs:273,278), 累积期无 cap 落库期才截断等价于无界",
+    "from_utf8_lossy 修法是跨 chunk 保留不完整字节序列拼接, 禁改成 from_utf8 报错(损坏内容变转发失败比 U+FFFD 更糟)",
+    "log.rs 只改 clone 时机(挪进 is_terminal_log 分支), 禁改队列语义(中间态队满即丢/终态阻塞 send 是既有设计)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-utf8-repro",
+      "name": "跨 chunk 多字节 UTF-8 复现用例",
+      "desc": "建一条就红的用例: 流式 chunk 在多字节字符中间切断时 finish.rs:279 的 from_utf8_lossy 产出 U+FFFD",
+      "depends_on": [],
+      "验收": [
+        "用例当前 red(改动前就失败)",
+        "断言明确指向 U+FFFD 替换",
+        "用例仅用 mock 构造, 不打真实上游",
+        "用例可一条命令重跑"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-utf8-fix",
+      "name": "跨 chunk UTF-8 拼接修复",
+      "desc": "finish.rs:274-318 保留不完整字节序列到下一 chunk 拼接, 替代每 chunk 独立 lossy 解码",
+      "depends_on": [
+        "s1-utf8-repro"
+      ],
+      "验收": [
+        "s1 用例转 green",
+        "passthrough 分支中继的原始 chunk 未被改动",
+        "未改为 from_utf8 报错式(不得把损坏变成转发失败)",
+        "中文与 emoji 场景各有覆盖"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "aidog-bug-hunt",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3-push-cap",
+      "name": "in-flight body cap 前移到 push 点",
+      "desc": "stream.rs:54-55 累积期加 cap(finish.rs:275/333, passthrough.rs:273/278 四个 push 点), sse_line_buf 同步加界",
+      "depends_on": [
+        "s1-utf8-repro"
+      ],
+      "验收": [
+        "四个 push 点均在超阈值时停止累积并标记截断",
+        "STREAM_BODY_MAX_BYTES 语义保持",
+        "sse_line_buf remainder 有上界",
+        "流式与非流式两侧防护对称(对照 cap_nonstream_body)",
+        "单流超大响应不再无界增长(有用例)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4-log-clone-emit",
+      "name": "日志拷贝时机与 CONNECT emit 节流",
+      "desc": "log.rs:45-61 clone 挪进 is_terminal_log 分支内; :437-443 CONNECT 路径复用 :246-258 的 gate+节流; LOG_QUEUE_CAP 定值",
+      "depends_on": [],
+      "验收": [
+        "中间态日志路径不再全量深拷贝",
+        "未改任何函数签名(高频路径最小 diff)",
+        "CONNECT emit 频次受节流约束",
+        "托盘重建频次下降有数据",
+        "LOG_QUEUE_CAP 新值有单条平均字节依据"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5-group-platform-cache",
+      "name": "group_platforms 复用现有缓存",
+      "desc": "db/group_platform.rs:188 抄同文件 :339-359 缓存 idiom, 失效复用 db/mod.rs:911-925 现有钩子",
+      "depends_on": [],
+      "验收": [
+        "转发热路径 candidates.rs:128 不再每请求打 SQL",
+        "复用现有失效钩子未新建机制",
+        "平台增删改后缓存正确失效(有用例)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6-body-clone-profile",
+      "name": "报文深拷贝先量再改",
+      "desc": "request.rs:80 与 forward.rs:288 两处 clone 是否热点, 先 profile 再决定改不改",
+      "depends_on": [],
+      "验收": [
+        "两处均有 profile 数据",
+        "判定为热点的已改并有前后对比",
+        "判定为非热点的显式记『已查, 无阻断项』而非硬改"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s7-verify",
+      "name": "转发热路径验收",
+      "desc": "50 路并发 mock 流峰值内存, token/cost 逐条一致, TTFT 无回归, 门禁",
+      "depends_on": [
+        "s2-utf8-fix",
+        "s3-push-cap",
+        "s4-log-clone-emit",
+        "s5-group-platform-cache",
+        "s6-body-clone-profile"
+      ],
+      "验收": [
+        "50 路并发 mock 流下峰值 phys_footprint 已采并落盘",
+        "同一组 mock 请求改前改后 token 数与 est_cost 逐条一致",
+        "首 token 时延无回归(红线1, 有数据)",
+        "s1 复现用例仍 green",
+        "cargo clippy --workspace 零 warning",
+        "cargo test --workspace 全绿",
+        "全程只用 mock 平台与分组",
+        "临时脚本与中间采样已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249476,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 14.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/proxy-hotpath-buffers",
+  "parent": null,
+  "kind": "task",
+  "created": 1785248700,
+  "started": null,
+  "confirmed": 1785250582,
+  "checked": null,
+  "finished": null,
+  "updated": 1785250582
+}

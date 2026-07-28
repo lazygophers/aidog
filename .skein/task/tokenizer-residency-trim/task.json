@@ -1,0 +1,146 @@
+{
+  "id": "tokenizer-residency-trim",
+  "name": "tokenizer 峰值与零散常驻清扫",
+  "desc": "count_tokens 无条件本地 BPE 致 HF tokenizer 常驻 40-120MB，另清 presets 三重解析/死代码/MITM 无界表/AGG_CAP",
+  "status": "就绪",
+  "deps": [],
+  "contracts": [
+    "count_tokens 惰性化只改「何时算」, 不改「算什么」与「怎么算」。token 计数与费用精度不得下降(红线2)",
+    "删 coding_plan.rs 死代码前必须 grep 全 workspace 确认零调用点, cargo 门禁跑 --workspace 非 -p aidog_core(memory cargo-workspace-gate-not-single-crate)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-count-tokens-lazy",
+      "name": "count_tokens 本地估算惰性化",
+      "desc": "count_tokens.rs:74 从无条件先算, 改为仅上游失败 fallback 分支才算",
+      "depends_on": [],
+      "验收": [
+        "上游成功路径不再触发本地 BPE 估算(可证)",
+        "上游失败 fallback 的 token 数与改动前逐条一致",
+        "未改 tokenizer.rs 的 pick_encoding 选型与四个单例",
+        "glm/qwen 上游成功场景下 phys_footprint 无 HF tokenizer 初始化跃升"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-presets-single-parse",
+      "name": "platform-presets 单次解析",
+      "desc": "peak_hours.rs:51 与 defaults_sync.rs:36 两份独立 OnceLock 合并为一份",
+      "depends_on": [],
+      "验收": [
+        "进程内 platform-presets.json 只解析一份(计数或 trace 证明)",
+        "两处消费方行为不变",
+        "peak_hours 与 defaults_sync 相关测试全绿"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3-dead-code-delete",
+      "name": "coding_plan 死代码整删",
+      "desc": "删 gateway/coding_plan.rs:15/:23 的 allow(dead_code) 代码",
+      "depends_on": [],
+      "验收": [
+        "删前已 grep 全 workspace 确认零调用点",
+        "cargo build --workspace 通过",
+        "未误删仍在用的 coding_plan 端点路由逻辑"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4-mitm-bounds",
+      "name": "MITM 证书缓存与 suspects 加界",
+      "desc": "cert_signer.rs:66/:82-97 证书缓存加上界; mitm/mod.rs:57 suspects 补 sweep; 抄 proxy/devin.rs:50 的 len>N retain idiom",
+      "depends_on": [],
+      "验收": [
+        "两处均有明确上界与达界行为定义",
+        "复用 devin.rs:50 idiom 未新造机制",
+        "cert evict 后仅影响该 host 新连接, 已建立连接不受影响",
+        "SUSPECT_TTL_SECS=600 语义保持"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5-agg-dedup-cap",
+      "name": "AGG_DEDUP_CAP 定值",
+      "desc": "proxy/mod.rs:167 的 8192 先量单条字节与实际去重窗口需求, 再降到合理值",
+      "depends_on": [],
+      "验收": [
+        "新值有量测依据(单条字节 + 实际窗口需求)",
+        "FIFO 淘汰逻辑(:187)未改",
+        "重复终态去重仍正确(有用例覆盖)"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6-verify",
+      "name": "tokenizer 与零散常驻验收",
+      "desc": "两条路径用例 + 内存采样 + 门禁",
+      "depends_on": [
+        "s1-count-tokens-lazy",
+        "s2-presets-single-parse",
+        "s3-dead-code-delete",
+        "s4-mitm-bounds",
+        "s5-agg-dedup-cap"
+      ],
+      "验收": [
+        "上游成功与失败两条路径用例均 green",
+        "fallback token 数与改动前逐条一致",
+        "cargo clippy --workspace 零 warning",
+        "cargo test --workspace 全绿",
+        "全程只用 mock 平台与分组",
+        "临时脚本与中间产物已清"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785249513,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 8.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/tokenizer-residency-trim",
+  "parent": null,
+  "kind": "task",
+  "created": 1785248700,
+  "started": null,
+  "confirmed": 1785250583,
+  "checked": null,
+  "finished": null,
+  "updated": 1785250583
+}
