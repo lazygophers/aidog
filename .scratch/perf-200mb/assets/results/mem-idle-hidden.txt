@@ -1,0 +1,12 @@
+# 内存分解 @ idle-hidden
+PID      PROC           FOOTPRINT_MB
+62071    aidog(main)          44.0
+62123    GPU                  23.0
+62124    Networking            6.7
+62125    WebContent          310.0
+62273    WebContent           22.0
+----
+TOTAL                        405.7
+
+## 各进程 top-5 分类（≥1MB）
+### 62071 aidog(main)

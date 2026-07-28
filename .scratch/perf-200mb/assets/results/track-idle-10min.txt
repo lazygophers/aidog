@@ -1,0 +1,11 @@
+t=0s  aidog(main)=44.0  GPU=96.0  Networking=6.7  WebContent=348.0  WebContent=22.0  TOTAL=516.7
+t=60s  aidog(main)=44.0  GPU=91.0  Networking=6.7  WebContent=456.0  WebContent=22.0  TOTAL=619.7
+t=120s  aidog(main)=44.0  GPU=92.0  Networking=6.7  WebContent=429.0  WebContent=22.0  TOTAL=593.7
+t=180s  aidog(main)=44.0  GPU=89.0  Networking=6.7  WebContent=456.0  WebContent=22.0  TOTAL=617.7
+t=240s  aidog(main)=44.0  GPU=92.0  Networking=6.7  WebContent=406.0  WebContent=22.0  TOTAL=570.7
+t=300s  aidog(main)=44.0  GPU=92.0  Networking=6.7  WebContent=456.0  WebContent=22.0  TOTAL=620.7
+t=360s  aidog(main)=44.0  GPU=91.0  Networking=6.7  WebContent=456.0  WebContent=22.0  TOTAL=619.7
+t=420s  aidog(main)=44.0  GPU=91.0  Networking=6.7  WebContent=456.0  WebContent=22.0  TOTAL=619.7
+t=480s  aidog(main)=44.0  GPU=92.0  Networking=6.7  WebContent=456.0  WebContent=22.0  TOTAL=620.7
+t=540s  aidog(main)=44.0  GPU=93.0  Networking=6.7  WebContent=453.0  WebContent=22.0  TOTAL=618.7
+t=600s  aidog(main)=44.0  GPU=90.0  Networking=6.7  WebContent=453.0  WebContent=22.0  TOTAL=615.7

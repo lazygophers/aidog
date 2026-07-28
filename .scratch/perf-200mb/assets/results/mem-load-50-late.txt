@@ -1,0 +1,21 @@
+# 内存分解 @ load-50-late
+PID      PROC           FOOTPRINT_MB
+62071    aidog(main)          51.0
+62123    GPU                  81.0
+62124    Networking            6.8
+62125    WebContent          442.0
+62273    WebContent           39.0
+----
+TOTAL                        619.8
+
+## 各进程 top-5 分类（≥1MB）
+### 62071 aidog(main)
+  34 MB        0 B          0 B         41    MALLOC_SMALL
+### 62123 GPU
+  54 MB        0 B          0 B         48    Owned physical footprint (unmapped) (graphics)
+### 62124 Networking
+### 62125 WebContent
+ 369 MB        0 B        92 MB        227    Owned physical footprint (unmapped) (graphics)
+  53 MB        0 B       848 KB          9    WebKit malloc
+### 62273 WebContent
+  28 MB        0 B      2288 KB          6    WebKit malloc

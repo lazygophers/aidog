@@ -1,0 +1,23 @@
+# 内存分解 @ idle-10min
+PID      PROC           FOOTPRINT_MB
+62071    aidog(main)          44.0
+62123    GPU                  92.0
+62124    Networking            6.7
+62125    WebContent          453.0
+62273    WebContent           22.0
+----
+TOTAL                        617.7
+
+## 各进程 top-5 分类（≥1MB）
+### 62071 aidog(main)
+  27 MB        0 B          0 B         22    MALLOC_SMALL
+### 62123 GPU
+  57 MB        0 B          0 B         52    Owned physical footprint (unmapped) (graphics)
+  12 MB        0 B        96 KB        724    MALLOC_SMALL
+  10 MB        0 B          0 B        244    IOAccelerator (graphics)
+### 62124 Networking
+### 62125 WebContent
+ 384 MB        0 B          0 B        246    Owned physical footprint (unmapped) (graphics)
+  49 MB        0 B          0 B          9    WebKit malloc
+### 62273 WebContent
+  12 MB        0 B          0 B          6    WebKit malloc
