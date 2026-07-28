@@ -2,7 +2,7 @@
   "id": "mock-loadgen-capability",
   "name": "mock 压测能力补全",
   "desc": "补 mock 平台压测必需能力: manual_budget 写连接短路 + TTFT/inter-chunk 拆旋钮 + error_rate 概率注入, 同步前端 MockConfigEditor",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [],
   "contracts": [
     "manual_budget 短路只在「零配额」分支生效, 有配额时扣减逻辑与失效时机逐字不变。这是计费路径, 压红线 2",
@@ -21,13 +21,18 @@
         "cargo clippy --workspace 零 warning",
         "cargo test --workspace 全绿"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250489,
-      "started": null,
-      "finished": null
+      "started": 1785252069,
+      "finished": 1785252615
     },
     {
       "sid": "s2-ttft-split",
@@ -39,13 +44,17 @@
         "只设 delay_ms 时行为与改动前逐条一致",
         "cargo clippy --workspace 零 warning"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250490,
-      "started": null,
-      "finished": null
+      "started": 1785251223,
+      "finished": 1785251678
     },
     {
       "sid": "s3-error-rate",
@@ -57,13 +66,17 @@
         "error_rate 未设时行为与改动前一致",
         "cargo clippy --workspace 零 warning"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250490,
-      "started": null,
-      "finished": null
+      "started": 1785251678,
+      "finished": 1785252069
     },
     {
       "sid": "s4-frontend-fields",
@@ -78,13 +91,17 @@
         "scripts/check-i18n.mjs 全绿",
         "yarn build 通过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250490,
-      "started": null,
-      "finished": null
+      "started": 1785252615,
+      "finished": 1785252892
     },
     {
       "sid": "s5-verify",
@@ -103,11 +120,11 @@
         "临时文件已清理"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250490,
-      "started": null,
+      "started": 1785252892,
       "finished": null
     }
   ],
@@ -120,9 +137,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785250220,
-  "started": null,
+  "started": 1785251219,
   "confirmed": 1785250582,
   "checked": null,
   "finished": null,
-  "updated": 1785250582
+  "updated": 1785252892
 }

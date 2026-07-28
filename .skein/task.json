@@ -1,6 +1,24 @@
 {
   "tasks": [
     {
+      "id": "frontend-compositing-purge",
+      "status": "进行中",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "mock-loadgen-capability",
+      "status": "进行中",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "cold-start-unblock",
       "status": "就绪",
       "deps": [
@@ -12,25 +30,7 @@
       "kind": "task"
     },
     {
-      "id": "frontend-compositing-purge",
-      "status": "就绪",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "logs-query-ipc-slimming",
-      "status": "就绪",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
-      "id": "mock-loadgen-capability",
       "status": "就绪",
       "deps": [],
       "priority": 5,
@@ -90,6 +90,17 @@
     {
       "id": "window-default-size",
       "status": "就绪",
+      "deps": [
+        "frontend-compositing-purge"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "glass-flow-border-component",
+      "status": "待处理",
       "deps": [
         "frontend-compositing-purge"
       ],

@@ -1,0 +1,25 @@
+{
+  "id": "glass-flow-border-component",
+  "name": "流光边框重构为独立组件",
+  "desc": "两层 DOM(静态裁切壳+旋转渐变层)替代 @property 角度插值, 逐个替换 .glass/.glass-surface 调用点",
+  "status": "待处理",
+  "deps": [
+    "frontend-compositing-purge"
+  ],
+  "contracts": [],
+  "subtasks": [],
+  "priority": 5,
+  "estimate": null,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/glass-flow-border-component",
+  "parent": null,
+  "kind": "task",
+  "created": 1785254638,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785254638
+}
