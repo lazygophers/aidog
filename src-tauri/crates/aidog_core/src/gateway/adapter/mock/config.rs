@@ -24,6 +24,8 @@ pub struct MockConfig {
     pub cache_tokens: i32,
     /// none | http_error | rate_limit_429 | timeout
     pub error_mode: String,
+    /// 触发概率 0.0-1.0，None=不启用（每次请求都按 error_mode 判定，向后兼容）
+    pub error_rate: Option<f64>,
     /// 流式时 response_text 切 N 块
     pub chunk_count: usize,
 }
@@ -42,6 +44,7 @@ impl Default for MockConfig {
             output_tokens: 50,
             cache_tokens: 0,
             error_mode: "none".to_string(),
+            error_rate: None,
             chunk_count: 5,
         }
     }
@@ -119,6 +122,9 @@ pub fn resolve_mock_config(extra: &str, chat_req: &ChatRequest, body_json: &Valu
         }
         if let Some(v) = mock_obj.get("error_mode").and_then(|v| v.as_str()) {
             cfg.error_mode = v.to_string();
+        }
+        if let Some(v) = mock_obj.get("error_rate").and_then(|v| v.as_f64()) {
+            cfg.error_rate = Some(v);
         }
         if let Some(v) = mock_obj.get("chunk_count").and_then(|v| v.as_u64()) {
             cfg.chunk_count = v as usize;
