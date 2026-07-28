@@ -30,6 +30,35 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
     </label>
   );
 
+  // 可选数值字段：留空 = undefined（透传给 Rust Option，None 时回退默认行为，禁塞 0 假装默认）
+  const optionalNumberField = (
+    label: string,
+    key: "ttft_ms" | "inter_chunk_ms" | "error_rate",
+    hint: string,
+    numOpts?: { min?: number; max?: number; step?: number },
+  ) => (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
+      <Input
+        className="input"
+        type="number"
+        min={numOpts?.min}
+        max={numOpts?.max}
+        step={numOpts?.step}
+        value={config[key] ?? ""}
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === "") { setField(key, undefined); return; }
+          let n = Number(raw);
+          if (numOpts?.min !== undefined) n = Math.max(numOpts.min, n);
+          if (numOpts?.max !== undefined) n = Math.min(numOpts.max, n);
+          setField(key, n);
+        }}
+      />
+      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{hint}</span>
+    </label>
+  );
+
   // stream_override: null=跟随请求 / true / false → 用三态下拉
   const streamValue = config.stream_override === null ? "follow" : config.stream_override ? "force_on" : "force_off";
 
@@ -71,6 +100,8 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
         {numberField(`${t("platform.mockOutputTokens")}（output_tokens）`, "output_tokens")}
         {numberField(`${t("platform.mockCacheTokens")}（cache_tokens）`, "cache_tokens")}
         {numberField(`${t("platform.mockChunkCount")}（chunk_count）`, "chunk_count")}
+        {optionalNumberField(`${t("platform.mockTtftMs")}（ttft_ms）`, "ttft_ms", t("platform.mockTtftMsHint"), { min: 0 })}
+        {optionalNumberField(`${t("platform.mockInterChunkMs")}（inter_chunk_ms）`, "inter_chunk_ms", t("platform.mockInterChunkMsHint"), { min: 0 })}
       </div>
 
       {/* error_mode + stream_override */}
@@ -109,6 +140,11 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
             </SelectContent>
           </Select>
         </label>
+      </div>
+
+      {/* error_rate：留空 = 不启用概率注入，每次请求都按 error_mode 判定（向后兼容） */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {optionalNumberField(`${t("platform.mockErrorRate")}（error_rate）`, "error_rate", t("platform.mockErrorRateHint"), { min: 0, max: 1, step: 0.01 })}
       </div>
     </div>
   );
