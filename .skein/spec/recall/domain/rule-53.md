@@ -51,5 +51,4 @@ updated: 1784985323
 
 ## 关联
 
-- [[5-协议定义锚点]] — 5 协议真值源
-- [[reasoning-content-anthropic-方案-B]] — reasoning_content 处理
+[[rule-52]] [[rule-54]]

@@ -29,4 +29,4 @@ updated: 1785226166
 - 其他 SSE 适配器的对称性检查（防止他协议有类似参数需求遗漏）
 
 ## 关联
-[[Protocol-wirename-codegen]] [[adapter-dead-code-authority]]
+[[rule-57]] [[rule-58]]

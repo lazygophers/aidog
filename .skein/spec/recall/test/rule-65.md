@@ -42,4 +42,4 @@ fn test_foo() {
 - 测试代码路径清理
 
 ## 关联
-[[Cargo_workspace_重构门禁]] [[command_名集合零差集自检法]]
+[[rule-60]]

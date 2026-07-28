@@ -21,6 +21,15 @@
 ## parser-multi-path-format-symmetry
 - recall/domain/cpa-oauth-credential-format
 
+## rule-57
+- recall/arch/rule-56
+
+## rule-58
+- recall/arch/rule-56
+
+## rule-60
+- recall/test/rule-65
+
 ## shadcn-infra-32
 - recall/arch/auto-fix-downgrade-35
 - recall/arch/auto-fix-downgrade-38
@@ -31,6 +40,26 @@
 ## trellis-04
 - recall/arch/auto-fix-downgrade-33
 - recall/arch/auto-fix-downgrade-38
+
+## rule-05
+- recall/arch/rule-57
+- recall/build/rule-07
+- recall/domain/rule-51
+- recall/domain/rule-54
+
+## rule-06
+- recall/domain/rule-55
+
+## rule-07
+- recall/arch/rule-58
+- recall/build/rule-06
+- recall/domain/rule-55
+
+## rule-61
+- recall/build/rule-63
+
+## rule-63
+- recall/build/rule-61
 
 ## shadcn-infra-28
 - core/build/shadcn-infra-02
@@ -43,6 +72,23 @@
 
 ## cpa-oauth-credential-format
 - recall/arch/parser-multi-path-format-symmetry
+
+## rule-52
+- recall/build/rule-05
+- recall/domain/rule-52
+- recall/domain/rule-53
+
+## rule-53
+- recall/build/rule-05
+- recall/domain/rule-51
+- recall/domain/rule-52
+
+## rule-54
+- recall/build/rule-07
+- recall/domain/rule-53
+
+## rule-55
+- recall/build/rule-06
 
 ## modal-state-architecture
 - recall/frontend/auto-fix-downgrade-37
@@ -60,6 +106,9 @@
 
 ## trellis-11
 - recall/proxy/rule-50
+
+## auto-fix-downgrade-36
+- recall/arch/rule-59
 
 ## rule-41
 - recall/shadcn/rule-42

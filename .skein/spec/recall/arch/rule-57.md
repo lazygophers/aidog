@@ -29,4 +29,4 @@ updated: 1785226172
 - adapter 分发时协议名判定
 
 ## 关联
-[[Protocol-枚举变体扩展范式]] [[新增-wire-protocol-必须同步白名单]]
+[[rule-05]]
