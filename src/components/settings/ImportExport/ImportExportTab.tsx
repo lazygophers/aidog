@@ -420,13 +420,13 @@ export function ImportExportTab() {
         {previewing && (
           <div style={{ fontSize: 13, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 8 }}>
             <span
+              className="spin"
               style={{
                 width: 12,
                 height: 12,
                 borderRadius: "50%",
                 border: "2px solid var(--border)",
                 borderTopColor: "var(--accent)",
-                animation: "spin 0.9s linear infinite",
                 display: "inline-block",
               }}
             />

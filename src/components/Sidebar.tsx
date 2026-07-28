@@ -165,7 +165,7 @@ function Dropdown({
             onClick={onToggle}
           />
           <div
-            className="glass-elevated"
+            className="glass-elevated animate-fade-in-200"
             style={{
               position: "absolute",
               bottom: "100%",
@@ -174,7 +174,6 @@ function Dropdown({
               minWidth: 180,
               padding: 6,
               zIndex: 100,
-              animation: "fadeIn 200ms ease both",
             }}
           >
             {children}
