@@ -1,6 +1,6 @@
 ---
 title: deterministic-pseudorandom-loadgen
-layer: core
+layer: recall
 category: testing
 keywords: [testing,loadgen,deterministic,pseudorandom,splitmix64,atomic,error_rate]
 status: active

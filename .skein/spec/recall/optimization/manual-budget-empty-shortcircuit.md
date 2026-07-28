@@ -1,6 +1,6 @@
 ---
 title: manual-budget-empty-shortcircuit
-layer: core
+layer: recall
 category: optimization
 keywords: [manual-budget,optimization,db-write,shortcircuit,loadgen]
 status: active

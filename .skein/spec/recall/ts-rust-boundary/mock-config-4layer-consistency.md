@@ -1,6 +1,6 @@
 ---
 title: mock-config-4layer-consistency
-layer: core
+layer: recall
 category: ts-rust-boundary
 keywords: [ts-rust-boundary,mock-config,consistency,serde,json-boundary]
 status: active
