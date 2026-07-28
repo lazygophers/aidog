@@ -14,15 +14,15 @@
 - 禁动 adapter/mock/response.rs 与 stream.rs 的协议格式化逻辑（5 种 source_protocol 的响应形状）。
 - 不做「无并发级观测埋点」「timeout 600s 可配」「chunk 字节大小控制」三项 —— 内存/CPU 压测用不上，YAGNI。
 ## 验收标准
-- [ ] budgets 为空的 mock 请求不再触及 platform 写连接（trace 或计数器证明，非推断）。
-- [ ] 配额存在时，manual_budget 扣减结果与改动前逐条一致。
-- [ ] ttft_ms=800 / inter_chunk_ms=30 配置下，实测首包与 chunk 间隔符合设定（±20%）。
-- [ ] delay_ms 单独设置时行为与改动前一致（向后兼容）。
-- [ ] error_rate=0.05 跑 200 次请求，429 比例落在 5%±3%。
-- [ ] MockConfigEditor 三个新字段可编辑、可保存、重开表单回显正确。
-- [ ] scripts/check-i18n.mjs 全绿（8 语言新 key 齐）。
-- [ ] cargo clippy --workspace 零 warning + cargo test --workspace 全绿 + yarn build 通过。
-- [ ] 50 路并发 mock 流跑 5 分钟无 panic、无请求失败（除 error_rate 注入的）。
+- [x] budgets 为空的 mock 请求不再触及 platform 写连接（trace 或计数器证明，非推断）。
+- [x] 配额存在时，manual_budget 扣减结果与改动前逐条一致。
+- [x] ttft_ms=800 / inter_chunk_ms=30 配置下，实测首包与 chunk 间隔符合设定（±20%）。
+- [x] delay_ms 单独设置时行为与改动前一致（向后兼容）。
+- [x] error_rate=0.05 跑 200 次请求，429 比例落在 5%±3%。
+- [x] MockConfigEditor 三个新字段可编辑、可保存、重开表单回显正确。
+- [x] scripts/check-i18n.mjs 全绿（8 语言新 key 齐）。
+- [x] cargo clippy --workspace 零 warning + cargo test --workspace 全绿 + yarn build 通过。
+- [x] 50 路并发 mock 流跑 5 分钟无 panic、无请求失败（除 error_rate 注入的）。
 ## 索引
 - 详细设计: [design.md](design.md)
 - 调研收敛: [findings.md](findings.md) (仅真调研时生)
