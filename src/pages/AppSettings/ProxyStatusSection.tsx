@@ -24,9 +24,10 @@ export function ProxyStatusSection({ s }: { s: SystemSettings }) {
         display: "flex",
         alignItems: "center",
         gap: 20,
-        ...(running ? { animation: running ? "pulseGlow 3s ease-in-out infinite" : undefined } : {}),
       }}
     >
+      {/* 运行中外发光：独立叠层动 opacity，不动宿主 .glass 的 box-shadow */}
+      {running && <div className="proxy-status-glow" />}
       <div style={{
         width: 44, height: 44, borderRadius: 22,
         flexShrink: 0,

@@ -73,6 +73,14 @@ html, body {
   50% { opacity: 0.5; }
 }
 
+.popover-status-dot--pulse {
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popover-status-dot--pulse { animation: none; }
+}
+
 .popover-header-text {
   font-size: 12px;
   font-weight: 500;

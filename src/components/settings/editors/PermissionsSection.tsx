@@ -340,11 +340,11 @@ function PermissionsEditor({ perms, updateField, t }: {
           {showTemplates && (
             <>
               <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowTemplates(false)} />
-              <div className="glass-elevated"
+              <div className="glass-elevated animate-fade-in-150"
                 style={{
                   position: "absolute", top: "100%", left: 0, right: 0,
                   marginTop: 4, maxHeight: 300, overflowY: "auto",
-                  zIndex: 100, padding: 10, animation: "fadeIn 150ms ease both",
+                  zIndex: 100, padding: 10,
                 }}
               >
                 {TOOL_GROUPS.map(g => (

@@ -193,12 +193,11 @@ export function SearchableProtocolSelect({
           slide/fade 动画走 fadeIn keyframe (已存在, 与 select content 同源) */}
       {open && (
         <div
-          className="glass-elevated"
+          className="glass-elevated animate-fade-in-150"
           style={{
             position: "absolute", top: "100%", left: 0, right: 0,
             marginTop: 4, zIndex: 100, padding: 4,
             background: "color-mix(in srgb, var(--popover) 80%, transparent)",
-            animation: "fadeIn 150ms ease both",
           }}
         >
           {/* 搜索输入 */}

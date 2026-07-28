@@ -85,11 +85,9 @@ function ProxyStatus({ data }: { data: PopoverData }) {
   return (
     <div className="popover-header">
       <span
-        className={`popover-status-dot${data.proxy_running ? "" : ""}`}
+        className={`popover-status-dot${data.proxy_running ? " popover-status-dot--pulse" : ""}`}
         style={{
           background: data.proxy_running ? "var(--status-success, var(--color-success))" : "var(--text-tertiary)",
-          // 萤火虫：运行中状态点呼吸发光（animation 名字对齐 globals.css / popover.css 都有的 statusPulse）
-          animation: data.proxy_running ? "statusPulse 2s ease-in-out infinite" : undefined,
           boxShadow: data.proxy_running ? "0 0 8px color-mix(in srgb, var(--status-success, var(--color-success)) 50%, transparent)" : undefined,
         }}
       />

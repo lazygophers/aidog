@@ -112,29 +112,9 @@ body {
   transition: background 400ms ease, color 400ms ease;
 }
 
-/* 微光流沙：金蓝光晕层置于 body::before，缓慢漂移+明灭呈流动微光。
-   inset 负值防 scale/translate 露边；pointer-events:none + z-index:-1 纯装饰。 */
-body::before {
-  content: "";
-  position: fixed;
-  inset: -6%;
-  z-index: -1;
-  pointer-events: none;
-  background: var(--app-bg-overlay, none);
-  background-repeat: no-repeat;
-  will-change: transform, opacity;
-  animation: bgShimmer 32s ease-in-out infinite alternate;
-}
-
-@keyframes bgShimmer {
-  0% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.82; }
-  50% { transform: translate3d(-1.6%, 1.2%, 0) scale(1.05); opacity: 1; }
-  100% { transform: translate3d(1.4%, -1%, 0) scale(1.03); opacity: 0.9; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  body::before { animation: none; }
-}
+/* ponytail: bgShimmer 32s 背景微动层(body::before)已删——空闲态无条件常驻动画，
+   实测是 idle CPU 头号嫌疑(见 .scratch/perf-200mb)。静态底色由 :root 的
+   --app-bg-overlay(line 24)保留，视觉基底不变，只去动效。 */
 
 /* ── Keyframe Animations ── */
 
@@ -148,9 +128,11 @@ body::before {
   to { opacity: 1; transform: none; }
 }
 
+/* ponytail: pulseGlow 原动 box-shadow(每帧重绘，禁走合成器)。改为独立叠层
+   ::after 动 opacity(合成器专属属性)，box-shadow 值本身保持静态不变。 */
 @keyframes pulseGlow {
-  0%, 100% { box-shadow: 0 0 8px var(--accent-subtle), var(--shadow-md); }
-  50% { box-shadow: 0 0 20px var(--accent-subtle), var(--shadow-lg); }
+  0%, 100% { opacity: 0; }
+  50% { opacity: 1; }
 }
 
 @keyframes shimmer {
@@ -188,6 +170,27 @@ body::before {
 
 .animate-slide-in {
   animation: slideInLeft 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* 一次性入场 fadeIn，时长按原内联 style 取值归类，供替换内联 animation 用 */
+.animate-fade-in-fast { animation: fadeIn 120ms ease both; }
+.animate-fade-in-150 { animation: fadeIn 150ms ease both; }
+.animate-fade-in-200 { animation: fadeIn 200ms ease both; }
+
+/* 加载态旋转 spinner（原多处内联 animation: spin ...） */
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+
+/* proxy 运行中卡片外发光：独立叠层动 opacity(合成器), 不动宿主的 box-shadow */
+.proxy-status-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: 0 0 20px var(--accent-subtle), var(--shadow-lg);
+  opacity: 0;
+  pointer-events: none;
+  animation: pulseGlow 3s ease-in-out infinite;
 }
 
 /* ── Glass Layers ── */
@@ -855,17 +858,20 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     #c49a3c 75%,
     #e8c547
   );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
   opacity: 0;
   transition: opacity 250ms ease;
   pointer-events: none;
 }
 
+/* mask/mask-composite 只在 hover 态才加：这两个属性会强制 WebKit 为伪元素
+   建独立离屏合成 buffer，挪出空闲态规则可让非 hover 时不产生该 buffer
+   （s5-glass-buffer，见 .scratch/perf-200mb/results/s5-glass-buffer.md） */
 .glass:hover::after,
 .glass-surface:hover::after {
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
   opacity: 0.9;
   animation: flowBorder 3s linear infinite;
 }
@@ -928,6 +934,21 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
-  .ripple-wave, .progress-fill.striped { animation: none; }
+  .ripple-wave,
+  .progress-fill.striped,
+  .skeleton,
+  .animate-fade-in,
+  .animate-slide-in,
+  .animate-fade-in-fast,
+  .animate-fade-in-150,
+  .animate-fade-in-200,
+  .insertion-line,
+  .status-dot-active,
+  .spin,
+  .glass:hover::after,
+  .glass-surface:hover::after {
+    animation: none;
+  }
+  .proxy-status-glow { animation: none; opacity: 0.6; }
   .hover-lift:hover { transform: none; }
 }

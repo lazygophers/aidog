@@ -565,7 +565,7 @@ export function PathInput({
       {/* Autocomplete dropdown */}
       {showSugg && suggestions.length > 0 && (
         <div
-          className="glass-elevated"
+          className="glass-elevated animate-fade-in-fast"
           style={{
             position: "absolute",
             top: "100%",
@@ -576,7 +576,6 @@ export function PathInput({
             overflowY: "auto",
             zIndex: 200,
             padding: 4,
-            animation: "fadeIn 120ms ease both",
           }}
         >
           {suggestions.map((s, i) => (

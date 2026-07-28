@@ -119,6 +119,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
       {/* 操作结果消息（portal 到 document.body：脱离 Skills 页 transform 祖先，fixed 始终相对 viewport 顶部居中；4s 自动消失） */}
       {message && createPortal(
         <div
+          className="animate-fade-in-150"
           style={{
             position: "fixed",
             top: 16,
@@ -126,7 +127,6 @@ export function SkillsView({ s }: { s: SkillsData }) {
             transform: "translateX(-50%)",
             zIndex: 300,
             maxWidth: "calc(100vw - 32px)",
-            animation: "fadeIn 150ms ease both",
           }}
         >
           <div
