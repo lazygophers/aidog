@@ -2,7 +2,7 @@
   "id": "sqlite-page-cache-residency",
   "name": "SQLite page cache 常驻治理",
   "desc": "27 条连接 x 2MB 默认 cache_size 致主进程常驻 ~54MB，压降至预算 30MB 内且不伤 UI 流畅度",
-  "status": "待处理",
+  "status": "就绪",
   "deps": [],
   "contracts": [
     "测试与压测只允许用 mock 协议的平台与分组，禁止使用真实平台",
@@ -135,8 +135,8 @@
   "kind": "task",
   "created": 1785244678,
   "started": null,
-  "confirmed": null,
+  "confirmed": 1785246424,
   "checked": null,
   "finished": null,
-  "updated": 1785246183
+  "updated": 1785246424
 }
