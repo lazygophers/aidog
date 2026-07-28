@@ -1,0 +1,13 @@
+# 内存分解 @ rel-P1-large
+PID      PROC           FOOTPRINT_MB
+33993    aidog(main)         116.0
+34038    GPU                  28.0
+34039    Networking            7.9
+34040    WebContent          385.0
+34076    WebContent           31.0
+----
+TOTAL                        567.9
+
+## 各进程 top-5 分类（≥1MB）
+### 33993 aidog(main)
+  99 MB        0 B      9648 KB        110    MALLOC_SMALL

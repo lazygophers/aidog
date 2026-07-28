@@ -1,0 +1,50 @@
+======================================================================
+aidog [33993]: 64-bit    Footprint: 150 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+ 122 MB        0 B          0 B        136    MALLOC_SMALL
+  11 MB        0 B          0 B          3    MALLOC_LARGE
+3376 KB        0 B       576 KB          6    WebKit malloc
+2212 KB        0 B          0 B        881    __DATA_DIRTY
+1952 KB        0 B          0 B         89    stack
+1648 KB        0 B          0 B         14    MALLOC metadata
+1408 KB        0 B          0 B       1033    __DATA_CONST
+1382 KB        0 B          0 B        977    __DATA
+1152 KB        0 B        16 KB         67    CoreAnimation
+ 897 KB        0 B          0 B          1    page table
+ 624 KB        0 B          0 B          2    CoreServices
+ 608 KB        0 B          0 B        112    untagged (VM_ALLOCATE)
+ 528 KB        0 B          0 B          4    CoreUI image data
+ 422 KB        0 B          0 B        636    __AUTH
+ 336 KB        0 B          0 B       2539    unused dyld shared cache area
+ 336 KB        0 B          0 B          1    MALLOC_TINY
+ 128 KB        0 B       154 MB         86    IOSurface
+ 128 KB        0 B          0 B          1    Accelerate image backing stores
+ 112 KB        0 B          0 B       1025    __AUTH_CONST
+ 112 KB        0 B          0 B          2    __TPRO_CONST
+  96 KB        0 B          0 B          3    MALLOC_NANO
+  64 KB        0 B          0 B          2    IOAccelerator
+  64 KB        0 B          0 B          4    CoreGraphics
+  48 KB        0 B          0 B          1    Activity Tracing
+  48 KB        0 B          0 B          8    IOKit
+  48 KB        0 B          0 B          3    ColorSync
+  16 KB        0 B          0 B          2    IOAccelerator (graphics)
+  16 KB        0 B          0 B          1    tag 22
+  16 KB        0 B          0 B          1    Foundation
+  16 KB        0 B          0 B          1    os_alloc_once
+    0 B      12 MB          0 B       1055    __TEXT
+    0 B     848 KB          0 B         58    mapped file
+    0 B        0 B          0 B          1    __GLSLBUILTINS
+    0 B        0 B          0 B          6    __LINKEDIT
+    0 B        0 B          0 B          1    __FONT_DATA
+    0 B        0 B          0 B         32    JS VM Gigacage
+    0 B        0 B          0 B          1    __CTF
+    ---        ---          ---        ---    ---
+ 150 MB      13 MB       154 MB       8797    TOTAL
+
+Auxiliary data:
+    phys_footprint: 150 MB
+    phys_footprint_peak: 180 MB
+
