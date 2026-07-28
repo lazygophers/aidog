@@ -1,0 +1,12 @@
+# 内存分解 @ rel-P2-1150x750
+PID      PROC           FOOTPRINT_MB
+33993    aidog(main)         150.0
+34038    GPU                  64.0
+34039    Networking            7.9
+34040    WebContent          245.0
+34076    WebContent           44.0
+----
+TOTAL                        510.9
+
+## 各进程 top-5 分类（≥1MB）
+### 33993 aidog(main)
