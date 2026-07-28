@@ -1,0 +1,40 @@
+======================================================================
+com.apple.WebKit.Networking [27465]: 64-bit    Footprint: 20 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+  12 MB        0 B          0 B        331    Owned physical footprint (unmapped)
+2832 KB        0 B          0 B        655    MALLOC_SMALL
+2784 KB        0 B          0 B          6    WebKit malloc
+1047 KB        0 B          0 B        540    __DATA_DIRTY
+ 456 KB        0 B          0 B        577    __DATA
+ 448 KB        0 B          0 B          9    MALLOC metadata
+ 417 KB        0 B          0 B          1    page table
+ 224 KB        0 B          0 B          1    MALLOC_TINY
+ 194 KB        0 B          0 B       1529    unused dyld shared cache area
+ 158 KB        0 B          0 B        336    __AUTH
+ 144 KB        0 B          0 B          6    stack
+ 112 KB        0 B          0 B          9    untagged (VM_ALLOCATE)
+  48 KB        0 B          0 B          1    Activity Tracing
+  48 KB        0 B          0 B          2    __TPRO_CONST
+  16 KB        0 B          0 B          5    SQLite page cache
+  16 KB        0 B          0 B        630    __DATA_CONST
+  16 KB        0 B          0 B          1    os_alloc_once
+    0 B     528 KB          0 B         15    mapped file
+    0 B        0 B          0 B          1    __CTF
+    0 B        0 B          0 B          1    dyld private memory
+    0 B        0 B          0 B        625    __AUTH_CONST
+    0 B        0 B          0 B          2    app-specific tag 1
+    0 B        0 B          0 B          1    __FONT_DATA
+    0 B        0 B          0 B         32    JS VM Gigacage
+    0 B        0 B          0 B        648    __TEXT
+    0 B        0 B          0 B         29    guard
+    0 B        0 B          0 B          3    __LINKEDIT
+    ---        ---          ---        ---    ---
+  20 MB     528 KB          0 B       5998    TOTAL
+
+Auxiliary data:
+    phys_footprint: 20 MB
+    phys_footprint_peak: 35 MB
+
