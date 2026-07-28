@@ -467,6 +467,10 @@ export type MockErrorMode = "none" | "http_error" | "rate_limit_429" | "timeout"
 export interface MockConfig {
   status_code: number;
   delay_ms: number;
+  /** 首包时延（TTFT，毫秒）。undefined = 回落 delay_ms（向后兼容） */
+  ttft_ms?: number;
+  /** 流式 chunk 间隔（毫秒）。undefined = 回落 delay_ms（向后兼容） */
+  inter_chunk_ms?: number;
   /** null = 跟随请求的 stream；true/false = 强制流式/非流式 */
   stream_override: boolean | null;
   response_text: string;
@@ -475,6 +479,8 @@ export interface MockConfig {
   output_tokens: number;
   cache_tokens: number;
   error_mode: MockErrorMode;
+  /** 触发概率 0.0-1.0。undefined = 不启用（向后兼容） */
+  error_rate?: number;
   chunk_count: number;
 }
 
