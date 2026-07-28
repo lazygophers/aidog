@@ -1,4 +1,19 @@
 use super::*;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+/// mock error_rate 命中判定：进程级请求计数器 + 乘法哈希打散，确定性伪随机（压测场景需可复现，故不引 rand crate）。
+/// ponytail: 全局原子计数器 + 乘法哈希（splitmix64 常数）取模，分布均匀性弱于真随机数生成器，
+/// 但避免了"每 SCALE 个请求里前 N 个连续命中"的突发簇集（纯取模无打散时会这样）；
+/// 若未来需要跨进程可复现的独立种子控制，换 rand::SeedableRng 显式播种。
+static MOCK_ERROR_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+fn mock_error_hit(error_rate: f64) -> bool {
+    const SCALE: u64 = 10_000;
+    let threshold = (error_rate.clamp(0.0, 1.0) * SCALE as f64) as u64;
+    let n = MOCK_ERROR_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let scrambled = n.wrapping_mul(0x9E3779B97F4A7C15); // splitmix64 常数，打散连续计数器
+    (scrambled % SCALE) < threshold
+}
 
 /// Mock 平台请求处理：本地生成可控假响应（非流式 JSON / 流式 SSE），填假 token 进 log。
 #[allow(clippy::too_many_arguments)]
@@ -30,7 +45,12 @@ pub(crate) async fn handle_mock(
     log.cache_tokens = cfg.cache_tokens;
 
     // ── 错误 / 超时模拟 ──
-    match cfg.error_mode.as_str() {
+    // error_rate 设置时先判概率命中，未命中本轮按 "none" 走成功路径；未设置 error_rate 时行为不变（每次都判 error_mode）。
+    let effective_error_mode: &str = match cfg.error_rate {
+        Some(rate) if !mock_error_hit(rate) => "none",
+        _ => cfg.error_mode.as_str(),
+    };
+    match effective_error_mode {
         "http_error" => {
             tracing::warn!(platform_id = log.platform_id, status = cfg.status_code, "mock error_mode=http_error");
             let body = mock::build_error_body(source_protocol, cfg.status_code, "mock http_error");
@@ -156,4 +176,27 @@ pub(crate) async fn handle_mock(
     let mut r = (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
     inject_trace_header(&mut r);
     r
+}
+
+#[cfg(test)]
+mod test_error_rate {
+    use super::mock_error_hit;
+
+    /// error_rate=0.05 跑 2000 次，命中比例应落在 5%±3%（2%~8%）内。
+    #[test]
+    fn error_rate_hit_ratio_within_tolerance() {
+        let hits = (0..2000).filter(|_| mock_error_hit(0.05)).count();
+        let ratio = hits as f64 / 2000.0;
+        assert!((0.02..=0.08).contains(&ratio), "hit ratio {ratio} out of [0.02, 0.08]");
+    }
+
+    #[test]
+    fn error_rate_zero_never_hits() {
+        assert!((0..500).all(|_| !mock_error_hit(0.0)));
+    }
+
+    #[test]
+    fn error_rate_one_always_hits() {
+        assert!((0..500).all(|_| mock_error_hit(1.0)));
+    }
 }

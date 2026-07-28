@@ -429,6 +429,34 @@ async fn mock_platform_error_mode() {
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
+/// Mock 平台 error_rate=0.05 + error_mode=rate_limit_429 → 200 次真实请求中 429 比例落 5%±3%。
+#[tokio::test]
+async fn mock_platform_error_rate_ratio() {
+    let state = make_state(test_db().await).await;
+    setup_mock_group(
+        &state,
+        "gkmockrate",
+        r#"{"mock":{"error_mode":"rate_limit_429","error_rate":0.05}}"#,
+    )
+    .await;
+
+    let mut hits_429 = 0;
+    for _ in 0..200 {
+        let req = messages_request(
+            "gkmockrate",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        );
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        if resp.status() == StatusCode::TOO_MANY_REQUESTS {
+            hits_429 += 1;
+        } else {
+            assert_eq!(resp.status(), StatusCode::OK);
+        }
+    }
+    let ratio = hits_429 as f64 / 200.0;
+    assert!((0.02..=0.08).contains(&ratio), "429 ratio {ratio} ({hits_429}/200) out of [0.02, 0.08]");
+}
+
 /// Mock 平台 stream_override=true → 本地生成 SSE 流。
 #[tokio::test]
 async fn mock_platform_stream_override() {

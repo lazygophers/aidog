@@ -197,3 +197,24 @@ fn parsed_message_role_layer_for_standard_roles() {
     assert_eq!(cfg.status_code, def.status_code);
     assert_eq!(cfg.response_text, def.response_text);
 }
+
+// ─── error_rate ──────────────────────────────────────
+
+#[test]
+fn error_rate_defaults_to_none() {
+    let cfg = resolve_mock_config("", &empty_req(), &json!({}));
+    assert_eq!(cfg.error_rate, None);
+}
+
+#[test]
+fn error_rate_from_body_mock_top_layer() {
+    let cfg = resolve_mock_config("", &empty_req(), &json!({"mock": {"error_rate": 0.05}}));
+    assert_eq!(cfg.error_rate, Some(0.05));
+}
+
+#[test]
+fn error_rate_from_extra_layer() {
+    let extra = r#"{"mock":{"error_rate":0.2}}"#;
+    let cfg = resolve_mock_config(extra, &empty_req(), &json!({}));
+    assert_eq!(cfg.error_rate, Some(0.2));
+}
