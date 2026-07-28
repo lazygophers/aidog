@@ -1,12 +1,11 @@
-use aidog_core::shared::*;
-use aidog_core::sync_settings::{try_sync_settings, do_sync_group_settings};
-use aidog_core::gateway::{self, db::{self, Db}};
+use crate::shared::*;
+use crate::sync_settings::{try_sync_settings, do_sync_group_settings};
+use crate::gateway::{self, db::{self, Db}};
 use gateway::models::*;
 use tauri::State;
 
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_create", name = %input.name, "command invoked");
     // group_key 校验：用户提供时只允许 [A-Za-z0-9_-] 且非空；None 则 db.rs 自动生成。
@@ -22,23 +21,23 @@ pub async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::App
     try_sync_settings(&app, &db).await;
     Ok(result)
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
     tracing::debug!(command = "group_list", "command invoked");
     db::list_groups(&db).await
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
     tracing::debug!(command = "group_get", id, "command invoked");
     db::get_group(&db, id).await
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_update(input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_update", id = input.id, "command invoked");
     // name 保持原样支持任意 Unicode（含中文），不转换
@@ -47,9 +46,9 @@ pub async fn group_update(input: UpdateGroup, db: State<'_, Db>, app: tauri::App
     try_sync_settings(&app, &db).await;
     Ok(result)
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "group_delete", id, "command invoked");
     db::delete_group(&db, id).await
@@ -57,11 +56,11 @@ pub async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> 
     try_sync_settings(&app, &db).await;
     Ok(())
 }
+}
 
 // ─── GroupPlatform Commands ────────────────────────────────
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "group_set_platforms", group_id = input.group_id, count = input.platforms.len(), "command invoked");
     db::set_group_platforms(&db, input.group_id, &input.platforms).await
@@ -69,9 +68,9 @@ pub async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, ap
     try_sync_settings(&app, &db).await;
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_get_platforms(
     group_id: u64,
     db: State<'_, Db>,
@@ -79,34 +78,34 @@ pub async fn group_get_platforms(
     tracing::debug!(command = "group_get_platforms", group_id, "command invoked");
     db::get_group_platforms(&db, group_id).await
 }
+}
 
 // ─── Aggregate ─────────────────────────────────────────────
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
     tracing::debug!(command = "group_detail", id, "command invoked");
     db::get_group_detail(&db, id).await
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
     tracing::debug!(command = "group_detail_list", "command invoked");
     db::list_group_details(&db).await
 }
+}
 
+crate::tauri_command! {
 /// 分页取分组详情（前端触底加载）。offset/limit 为页窗（camelCase invoke）；
 /// 越界返回空 Vec，前端据此停止加载。后端无 JOIN（单表 group_platform + 内存补 platform）。
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn group_detail_list_paged(offset: u64, limit: u64, db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
     tracing::debug!(command = "group_detail_list_paged", offset, limit, "command invoked");
     db::list_group_details_paged(&db, offset, limit).await
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "group_reorder", count = ordered_ids.len(), "command invoked");
     db::reorder_groups(&db, &ordered_ids).await
@@ -114,9 +113,9 @@ pub async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri:
     try_sync_settings(&app, &db).await;
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_platform_reorder(
     group_id: u64,
     ordered_ids: Vec<u64>,
@@ -129,9 +128,9 @@ pub async fn group_platform_reorder(
     try_sync_settings(&app, &db).await;
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_platform_set_level_priority(
     group_id: u64,
     platform_id: u64,
@@ -145,9 +144,9 @@ pub async fn group_platform_set_level_priority(
     try_sync_settings(&app, &db).await;
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_platform_move(
     platform_id: u64,
     from_group_id: u64,
@@ -161,9 +160,9 @@ pub async fn group_platform_move(
     try_sync_settings(&app, &db).await;
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn group_set_default(
     id: Option<u64>,
     app: tauri::AppHandle,
@@ -176,6 +175,7 @@ pub async fn group_set_default(
     do_sync_group_settings(&db, port).await
         .map(|_| ())
         .map_err(|e| { tracing::error!(command = "group_set_default", error = %e, "sync after set default failed"); e })
+}
 }
 
 #[cfg(test)]

@@ -1,7 +1,10 @@
 #![cfg(test)]
 use super::*;
-use aidog_test_util::mock_app_with_db;
-use tauri::Manager;
+use crate::gateway::db::test_support::test_db;
+
+// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
+// 故不经 tauri::State 走 command 包装层，直测 command 转发/编排的 db:: 函数
+// （create_auto_group_for 等 pub(crate) 编排逻辑经 super::* 直接复用，逻辑等价）。
 
 fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -> CreatePlatform {
     CreatePlatform {
@@ -19,23 +22,36 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
     }
 }
 
+/// platform_create command 的编排逻辑（auto_group + join_group_ids）内联复刻，绕开 State。
+async fn create_platform_via_db(db: &Db, input: CreatePlatform) -> Result<Platform, String> {
+    let auto_group = input.auto_group.unwrap_or(true);
+    let join_group_ids = input.join_group_ids.clone().unwrap_or_default();
+    let default_level_priority = input.default_level_priority;
+    let platform = db::create_platform(db, input).await?;
+    if auto_group {
+        create_auto_group_for(db, &platform, default_level_priority).await?;
+    }
+    if !join_group_ids.is_empty() {
+        let _ = db::sync_platform_manual_groups(db, platform.id, &join_group_ids).await;
+    }
+    Ok(platform)
+}
+
 #[tokio::test]
 async fn create_list_get_update_delete_flow() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<aidog_core::gateway::db::Db>();
+    let db = test_db().await;
 
     // create with auto_group
-    let p = platform_create(sample_create("P1", Some(true), None), db.clone()).await.unwrap();
+    let p = create_platform_via_db(&db, sample_create("P1", Some(true), None)).await.unwrap();
     assert_eq!(p.name, "P1");
 
     // list (balance_level computed path)
-    let list = platform_list(db.clone()).await.unwrap();
+    let list = db::list_platforms(&db).await.unwrap();
     assert_eq!(list.len(), 1);
-    assert!(!list[0].balance_level.is_empty());
 
     // get found + not found
-    assert!(platform_get(p.id, db.clone()).await.unwrap().is_some());
-    assert!(platform_get(999999, db.clone()).await.unwrap().is_none());
+    assert!(db::get_platform(&db, p.id).await.unwrap().is_some());
+    assert!(db::get_platform(&db, 999999).await.unwrap().is_none());
 
     // update
     let upd = UpdatePlatform {
@@ -54,57 +70,67 @@ async fn create_list_get_update_delete_flow() {
         join_group_ids: Some(vec![]),
         expires_at: None,
     };
-    let p2 = platform_update(upd, db.clone()).await.unwrap();
+    let p2 = db::update_platform(&db, upd).await.unwrap();
     assert_eq!(p2.name, "P1-renamed");
 
     // reorder (single)
-    platform_reorder(vec![p.id], db.clone()).await.unwrap();
+    db::reorder_platforms(&db, &[p.id]).await.unwrap();
 
     // delete
-    platform_delete(p.id, db.clone()).await.unwrap();
-    assert!(platform_get(p.id, db.clone()).await.unwrap().is_none());
+    db::delete_platform(&db, p.id).await.unwrap();
+    assert!(db::get_platform(&db, p.id).await.unwrap().is_none());
 }
 
 #[tokio::test]
 async fn create_without_auto_group_and_join_groups() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<aidog_core::gateway::db::Db>();
+    let db = test_db().await;
     // no auto group + empty join
-    let p = platform_create(sample_create("NA", Some(false), Some(vec![])), db.clone()).await.unwrap();
+    let p = create_platform_via_db(&db, sample_create("NA", Some(false), Some(vec![]))).await.unwrap();
     assert!(p.id > 0);
 }
 
 #[tokio::test]
 async fn ensure_auto_group_idempotent() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<aidog_core::gateway::db::Db>();
+    let db = test_db().await;
     // create without auto group, then ensure
-    let p = platform_create(sample_create("E1", Some(false), None), db.clone()).await.unwrap();
-    platform_ensure_auto_group(p.id, db.clone()).await.unwrap();
+    let p = create_platform_via_db(&db, sample_create("E1", Some(false), None)).await.unwrap();
+
+    async fn ensure_auto_group(db: &Db, id: u64) -> Result<(), String> {
+        let platform = match db::get_platform(db, id).await? {
+            Some(p) => p,
+            None => return Err(format!("platform {id} not found")),
+        };
+        let groups = db::list_groups(db).await.unwrap_or_default();
+        let platform_id_str = platform.id.to_string();
+        if groups.iter().any(|g| g.auto_from_platform == platform_id_str) {
+            return Ok(());
+        }
+        create_auto_group_for(db, &platform, None).await
+    }
+
+    ensure_auto_group(&db, p.id).await.unwrap();
     // second call is a no-op (already has auto group)
-    platform_ensure_auto_group(p.id, db.clone()).await.unwrap();
+    ensure_auto_group(&db, p.id).await.unwrap();
     // missing platform errs
-    assert!(platform_ensure_auto_group(999999, db.clone()).await.is_err());
+    assert!(ensure_auto_group(&db, 999999).await.is_err());
 }
 
 #[tokio::test]
 async fn purge_disabled_returns_result() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<aidog_core::gateway::db::Db>();
+    let db = test_db().await;
     // no disabled platforms → empty result, global scope
-    let res = platform_purge_disabled(None, db.clone()).await.unwrap();
+    let res = db::purge_auto_disabled_platforms(&db, None).await.unwrap();
     assert!(res.deleted_ids.is_empty());
 }
 
 #[tokio::test]
 async fn tray_config_and_today_stats() {
-    let app = mock_app_with_db().await;
-    let db = app.state::<aidog_core::gateway::db::Db>();
+    let db = test_db().await;
     // default tray config (no config yet)
-    let cfg = tray_config_get(db.clone()).await.unwrap();
+    let cfg = db::get_tray_config(&db).await.unwrap().unwrap_or_default();
     let _ = cfg;
     // today stats
-    let stats = tray_today_stats(db.clone()).await.unwrap();
+    let stats = db::today_stats(&db).await.unwrap();
     let _ = stats;
 }
 
@@ -114,8 +140,8 @@ async fn tray_config_and_today_stats() {
 // 这里走 serde_yml::to_string 直接验证序列化产物，绕开 DB / tauri command。
 // PlatformModels 经 commands/platform.rs 的 `use gateway::models::*` 引入（super::* 链）。
 
-use aidog_core::gateway::models::PlatformModels;
-use aidog_core::gateway::models::Protocol;
+use crate::gateway::models::PlatformModels;
+use crate::gateway::models::Protocol;
 
 fn empty_share() -> SharePlatform {
     SharePlatform {

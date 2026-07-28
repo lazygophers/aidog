@@ -5,8 +5,9 @@
 // hooks / sync_settings / tray_render 下沉 aidog_core（C2 core-extract）；
 // startup.rs generate_handler 直接用 `aidog_core::hooks::*` / `aidog_core::sync_settings::*`
 // 路径调用，不再走 `crate::commands::*` 别名（C3+ 拆 commands-config crate 时再统一）。
-// middleware/mitm/proxy/proxy_log/proxy_timeout 下沉 commands_proxy crate（C4）；
-// startup.rs generate_handler 直接用 `commands_proxy::*` 路径调用。
+// middleware/mitm/proxy/proxy_log/proxy_timeout 原下沉 commands_proxy crate（C4），C3
+// c3-commands 第 4 批（收官）再迁入 aidog_core::proxy_cmd，crate 删除。startup.rs
+// generate_handler 直接用 `aidog_core::proxy_cmd::*` 路径调用。
 // settings/defaults 原下沉 commands_config crate（C5），C3 c3-commands 第 2 批再迁入
 // aidog_core，commands_config crate 删除。startup.rs generate_handler 直接用
 // `aidog_core::settings::*` / `aidog_core::defaults::*` 路径调用。
@@ -23,3 +24,8 @@
 // tray/popover 下沉 commands_tray crate（C8）；C3 c3-commands 第 1 批再迁入 aidog_core，
 // commands_tray crate 删除。startup.rs generate_handler 直接用 `aidog_core::popover::*` 路径调用。
 // test_harness 删除（C8）：mock_app_with_db 已下沉 aidog_test_util，root 测试已迁完。
+// platform（platform/group/model_fetch/stats/price/quota/batch/ui_extra）原下沉 commands_platform
+// crate（C3），C3 c3-commands 第 4 批（收官）再迁入 aidog_core::platform_cmd，crate 删除。
+// startup.rs generate_handler 直接用 `aidog_core::platform_cmd::*` 路径调用。
+// C3 c3-commands 4 批全部完成：src-tauri/crates/ 下仅剩 aidog_core + aidog_test_util，
+// commands_* crate 层彻底清零（52 platform + 49 proxy 命令收官迁入）。

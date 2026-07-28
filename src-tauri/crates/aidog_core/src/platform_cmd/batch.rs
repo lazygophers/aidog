@@ -6,18 +6,17 @@
 //! - batch_set_status: 改平台 status（仅 enabled/disabled）
 //! - batch_move_group: 移组/加组（操作 group_platform 关联）
 
-use aidog_core::gateway::{
+use crate::gateway::{
     db::{self, now, Db},
     models::{BatchReport, PlatformModels, PlatformStatus, UpdatePlatform},
 };
 use rusqlite::params;
 use tauri::State;
 
+crate::tauri_command! {
 /// 批量删除平台（物理删 = 软删 platform + 清所有 group_platform 关联）
 ///
 /// 原子事务：任一失败 → 全部 rollback
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn batch_delete_platforms(db: State<'_, Db>, ids: Vec<u64>) -> Result<BatchReport, String> {
     tracing::debug!(command = "batch_delete_platforms", count = ids.len(), "command invoked");
     if ids.is_empty() {
@@ -31,13 +30,13 @@ pub async fn batch_delete_platforms(db: State<'_, Db>, ids: Vec<u64>) -> Result<
 
     Ok(BatchReport { applied: n, skipped: vec![] })
 }
+}
 
+crate::tauri_command! {
 /// 批量覆盖平台 models
 ///
 /// 原子事务：任一失败 → 全部 rollback
 /// 注意：当前实现将 models 视为 PlatformModels，前端需传递完整结构
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn batch_override_models(
     db: State<'_, Db>,
     ids: Vec<u64>,
@@ -71,12 +70,12 @@ pub async fn batch_override_models(
 
     Ok(BatchReport { applied: n, skipped: vec![] })
 }
+}
 
+crate::tauri_command! {
 /// 批量设置平台 status
 ///
 /// 只接受 "enabled" 或 "disabled"，拒绝 "auto_disabled"（系统熔断态不允许手动设置）
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn batch_set_status(
     db: State<'_, Db>,
     ids: Vec<u64>,
@@ -121,7 +120,9 @@ pub async fn batch_set_status(
 
     Ok(BatchReport { applied: n, skipped: vec![] })
 }
+}
 
+crate::tauri_command! {
 /// 批量移动/加入平台到目标组
 ///
 /// - mode="move": 从所有现组移除 + 加目标组
@@ -131,8 +132,6 @@ pub async fn batch_set_status(
 /// 或扩展签名加入 current_group_id 参数。
 ///
 /// 原子事务：任一失败 → 全部 rollback
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn batch_move_group(
     db: State<'_, Db>,
     ids: Vec<u64>,
@@ -219,4 +218,5 @@ pub async fn batch_move_group(
     // 刷新分组缓存（公共方法）
     db.invalidate_hot_caches();
     Ok(BatchReport { applied: n, skipped: vec![] })
+}
 }

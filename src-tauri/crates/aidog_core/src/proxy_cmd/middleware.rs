@@ -1,4 +1,4 @@
-use aidog_core::gateway::{self, db::Db};
+use crate::gateway::{self, db::Db};
 use gateway::models::*;
 use tauri::State;
 use std::sync::Arc;
@@ -10,17 +10,16 @@ use gateway::models::{
 };
 
 // 复用 mitm 模块的 ImportDefaultsResult（{imported, skipped} 计数，serde camelCase → 前端对象契约）。
-use crate::mitm::ImportDefaultsResult;
+use super::mitm::ImportDefaultsResult;
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn middleware_list_rules(db: State<'_, Db>) -> Result<Vec<MiddlewareRule>, String> {
     tracing::debug!(command = "middleware_list_rules", "command invoked");
     gateway::db::list_middleware_rules(&db).await
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn middleware_create_rule(
     input: CreateMiddlewareRule,
     db: State<'_, Db>,
@@ -33,9 +32,9 @@ pub async fn middleware_create_rule(
     }
     Ok(rule)
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn middleware_update_rule(
     input: UpdateMiddlewareRule,
     db: State<'_, Db>,
@@ -48,9 +47,9 @@ pub async fn middleware_update_rule(
     }
     Ok(rule)
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn middleware_delete_rule(
     id: i64,
     db: State<'_, Db>,
@@ -63,9 +62,9 @@ pub async fn middleware_delete_rule(
     }
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn middleware_settings_get(db: State<'_, Db>) -> Result<MiddlewareSettings, String> {
     tracing::debug!(command = "middleware_settings_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "middleware", "settings").await
@@ -74,9 +73,9 @@ pub async fn middleware_settings_get(db: State<'_, Db>) -> Result<MiddlewareSett
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn middleware_settings_set(
     db: State<'_, Db>,
     settings: MiddlewareSettings,
@@ -89,7 +88,9 @@ pub async fn middleware_settings_set(
     }).await
         .map_err(|e| { tracing::error!(command = "middleware_settings_set", error = %e, "persist middleware settings failed"); e })
 }
+}
 
+crate::tauri_command! {
 /// 一键导入默认（内置）中间件规则。
 ///
 /// 用户删除内置规则后无法恢复（migration 20260727-07（原 015）seed 仅首启跑一次）。本命令复用
@@ -98,8 +99,6 @@ pub async fn middleware_settings_set(
 ///
 /// 返 [`ImportDefaultsResult`] `{ imported, skipped }`：前端 toast 反馈计数。
 /// 写库后 reload 引擎缓存（与 create/update/delete 同模式）。
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
 pub async fn middleware_import_default_rules(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,
@@ -121,6 +120,7 @@ pub async fn middleware_import_default_rules(
         tracing::warn!(command = "middleware_import_default_rules", error = %e, "engine reload failed");
     }
     Ok(res)
+}
 }
 
 #[cfg(test)]

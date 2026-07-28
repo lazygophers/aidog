@@ -1,4 +1,4 @@
-use aidog_core::gateway::{self, db::{self, Db}};
+use crate::gateway::{self, db::{self, Db}};
 use gateway::models::*;
 use tauri::State;
 use serde::Serialize;
@@ -33,7 +33,7 @@ impl FetchModelsError {
 }
 
 #[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
