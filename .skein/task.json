@@ -11,7 +11,7 @@
     },
     {
       "id": "mock-loadgen-capability",
-      "status": "进行中",
+      "status": "检查中",
       "deps": [],
       "priority": 5,
       "worktree": null,
@@ -104,6 +104,15 @@
       "deps": [
         "frontend-compositing-purge"
       ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "logdb-size-governance",
+      "status": "待处理",
+      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,

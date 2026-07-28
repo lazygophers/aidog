@@ -91,11 +91,11 @@
         "可见时视觉与改前一致"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
-      "started": null,
+      "started": 1785254744,
       "finished": null
     },
     {
@@ -181,5 +181,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785254659
+  "updated": 1785254744
 }

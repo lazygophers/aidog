@@ -1,0 +1,23 @@
+{
+  "id": "logdb-size-governance",
+  "name": "log.db 体积治理",
+  "desc": "实测 8.2GB / proxy_log 仅 17338 行, 体积集中在 body/headers 大列; 查 retention 与 VACUUM 是否真跑, 定治理方案",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "priority": 5,
+  "estimate": null,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/logdb-size-governance",
+  "parent": null,
+  "kind": "task",
+  "created": 1785254819,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785254819
+}
