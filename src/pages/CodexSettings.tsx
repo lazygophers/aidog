@@ -160,8 +160,7 @@ export function CodexSettings() {
           flexWrap: "wrap",
           padding: "12px 4px",
           background: "var(--bg-glass)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
+          // ponytail: backdrop-filter 已删，理由同 SectionAnchorNav.tsx（var(--bg-glass) 全不透明）
         }}
       >
         <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
