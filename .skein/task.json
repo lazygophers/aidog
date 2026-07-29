@@ -21,7 +21,18 @@
       "kind": "task"
     },
     {
-      "id": "logs-query-ipc-slimming",
+      "id": "glass-flow-border-component",
+      "status": "就绪",
+      "deps": [
+        "frontend-compositing-purge"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "logdb-size-governance",
       "status": "就绪",
       "deps": [],
       "priority": 5,
@@ -90,19 +101,8 @@
       "kind": "task"
     },
     {
-      "id": "glass-flow-border-component",
-      "status": "待处理",
-      "deps": [
-        "frontend-compositing-purge"
-      ],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
-      "id": "logdb-size-governance",
-      "status": "待处理",
+      "id": "logs-query-ipc-slimming",
+      "status": "已完成",
       "deps": [],
       "priority": 5,
       "worktree": null,

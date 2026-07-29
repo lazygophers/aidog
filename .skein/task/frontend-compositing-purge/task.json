@@ -178,11 +178,11 @@
         "临时脚本与中间采样已清"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249452,
-      "started": null,
+      "started": 1785299023,
       "finished": null
     },
     {
@@ -198,13 +198,18 @@
         "全仓再无同判据下的死代码 backdrop-filter 残留(grep 证明)",
         "yarn build 通过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785293292,
-      "started": null,
-      "finished": null
+      "started": 1785293325,
+      "finished": 1785293705
     }
   ],
   "priority": 5,
@@ -220,5 +225,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785293292
+  "updated": 1785299023
 }
