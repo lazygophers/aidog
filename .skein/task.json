@@ -1,15 +1,6 @@
 {
   "tasks": [
     {
-      "id": "tokenizer-residency-trim",
-      "status": "进行中",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "cold-start-unblock",
       "status": "就绪",
       "deps": [
@@ -109,6 +100,15 @@
     },
     {
       "id": "mock-loadgen-capability",
+      "status": "已完成",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "tokenizer-residency-trim",
       "status": "已完成",
       "deps": [],
       "priority": 5,
