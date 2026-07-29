@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(57), cross-layer(12), db(23), domain(89), encoding(4), frontend(93), git(6), i18n(9), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(62), cross-layer(12), db(23), domain(93), encoding(4), frontend(93), git(6), i18n(16), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | status/出链 | summary |
 |---|---|---|---|---|---|
@@ -148,6 +148,11 @@
 | build/rule-63.md#触发场景 | build | 触发场景 | env,compile-time,build.rs,cargo:rustc-env,scope | active | 用 `env!("XXX")` 的代码从一个 crate 迁移到另一个 crate 时。 |
 | build/rule-63.md#适用 | build | 适用 | env,compile-time,build.rs,cargo:rustc-env,scope | active | - 任何用 env!() 的代码跨 crate 迁移 - workspace 多 crate 场景 - build.rs… |
 | build/rule-63.md#陷阱 | build | 陷阱 | env,compile-time,build.rs,cargo:rustc-env,scope | active | `cargo:rustc-env=` 在 build.rs 中定义的环境变量**只对定义它的 crate 生效**，跨 … |
+| build/shadcn-infra-02.md#MUST 迁移方式 | build | MUST 迁移方式 | tailwind,v4,preflight,migration,css | active | 1. 仅 import theme/utilities（跳过 preflight/base） 2. 或单行总导入：@im… |
+| build/shadcn-infra-02.md#关联 | build | 关联 | tailwind,v4,preflight,migration,css | active / →shadcn-infra-28,shadcn-infra-30 | [[shadcn-infra-30]] [[shadcn-infra-28]] |
+| build/shadcn-infra-02.md#硬约束 | build | 硬约束 | tailwind,v4,preflight,migration,css | active | Tailwind v4 迁移过程中**禁使用旧 v3 的三行导入方式**，必须用 v4 的 @import 方式。 |
+| build/shadcn-infra-02.md#禁用的旧方式 | build | 禁用的旧方式 | tailwind,v4,preflight,migration,css | active | ❌ @tailwind base;  /* v3 方式，v4 崩盘 */ ❌ @tailwind components;… |
+| build/shadcn-infra-02.md#适用 | build | 适用 | tailwind,v4,preflight,migration,css | active | Tailwind v3 → v4 迁移、新项目用 v4 |
 | build/shadcn-infra-28.md#关联 | build | 关联 | shadcn,cva,yarn,dependency,class-variance-authority | active / →shadcn-infra-31 | [[shadcn-infra-31]] (同任务产出的前端规则) |
 | build/shadcn-infra-28.md#反例 | build | 反例 | shadcn,cva,yarn,dependency,class-variance-authority | active | ❌ 只加 UI 组件不验证 cva → 运行时崩 ❌ 改 package.json 后不 yarn install → … |
 | build/shadcn-infra-28.md#案例 | build | 案例 | shadcn,cva,yarn,dependency,class-variance-authority | active | - shadcn-infra task: 首次 `shadcn add` 后运行时崩，发现 cva 缺失 - 根因: y… |
@@ -261,6 +266,10 @@
 | domain/rule-55.md#触发场景 | domain | 触发场景 | - | active | - 普通平台 endpoint 选择时协议不匹配（如 anthropic 入站 + 仅 openai endpoint）… |
 | domain/rule-55.md#适用 | domain | 适用 | - | active | - endpoint.rs select_endpoint_for_protocol 修改 - 跨协议回退逻辑扩展 - … |
 | domain/rule-55.md#陷阱-正解 | domain | 陷阱-正解 | - | active | **陷阱**: 误以为跨协议回退可应用于所有平台类型，或回退优先级混乱。  **正解**: 普通平台步骤 4 泛化为三级… |
+| domain/rule-66.md#关联 | domain | 关联 | - | active / →bundled-models-fallback,time-tiers-apply-idiom | [[time-tiers-apply-idiom]] [[bundled-models-fallback]] |
+| domain/rule-66.md#案例 | domain | 案例 | - | active | 原错 (billing.rs 未传参) → 日志字段时刻定价与当前时刻定价混杂 → 审计重放价格错 修后 → creat… |
+| domain/rule-66.md#硬约束 | domain | 硬约束 | - | active | `resolve_price` 新增末位参数 `now_ms: i64`，调用点按用途选传值：  / 调用点 / 传值 … |
+| domain/rule-66.md#禁用 | domain | 禁用 | - | active | ❌ 所有调用点统一传 0（会导致时段定价形同虚设） ❌ 测试传 `now()`（会让既有基准价断言失败） ❌ 签名改动后… |
 | domain/time-tiers-apply-idiom.md#关联 | domain | 关联 | time_tiers, 定价分档, 嵌套价表, 时间维度 | active / →bundled-models-fallback,rule-66,rule-67 | [[rule-66]] [[rule-67]] [[bundled-models-fallback]] |
 | domain/time-tiers-apply-idiom.md#反例 | domain | 反例 | time_tiers, 定价分档, 嵌套价表, 时间维度 | active | ```rust // ❌ 顺序首命中 + 扁平相加 let tier = tiers.iter().find(/t/ t… |
 | domain/time-tiers-apply-idiom.md#案例 | domain | 案例 | time_tiers, 定价分档, 嵌套价表, 时间维度 | active | **glm-5-turbo 时段+长文档**： - base: 32k 档 = 2e-6 $/token（普通价） - … |
@@ -404,6 +413,13 @@
 | git/rule-44.md#触发场景 | git | 触发场景 | git,并行,subtask,commit,竞态,staged,worktree | active | 同一 worktree 并行跑多个 subtask 时，不同 agent 可能对同一文件产生变更，导致 git inde… |
 | git/rule-44.md#适用 | git | 适用 | git,并行,subtask,commit,竞态,staged,worktree | active | - 同 worktree 并行 subtask（skein parallel 模式） - 多 agent 同时改同一文件… |
 | git/rule-44.md#陷阱-正解 | git | 陷阱-正解 | git,并行,subtask,commit,竞态,staged,worktree | active | ❌ **陷阱**：多个并行 subtask 各自 commit，兄弟 staged 文件可能被误入彼此的 commit（… |
+| i18n/rule-04.md#MUST 硬约束 | i18n | MUST 硬约束 | i18n,locale,翻译,check-i18n,8语言,同步 | active | 新增 i18n key 必须同时补齐 8 个语言文件（zh-Hans/en-US/ar-SA/fr-FR/de-DE/r… |
+| i18n/rule-04.md#关联 | i18n | 关联 | i18n,locale,翻译,check-i18n,8语言,同步 | active | i18n-flat-key-convention |
+| i18n/rule-04.md#处理流程 | i18n | 处理流程 | i18n,locale,翻译,check-i18n,8语言,同步 | active | ```bash # 新增 key 后检查 yarn check-i18n  # 自动补齐（示例：从 zh-Hans 复制… |
+| i18n/rule-04.md#案例 | i18n | 案例 | i18n,locale,翻译,check-i18n,8语言,同步 | active | - shadcn-pages m-checkfix：新增 3 key 同步补 8 locale（1db931fe） |
+| i18n/rule-04.md#检查机制 | i18n | 检查机制 | i18n,locale,翻译,check-i18n,8语言,同步 | active | - `check-i18n` 守门：跑 `yarn check-i18n` 检测 key 同步 - 缺失语言会导致对应语… |
+| i18n/rule-04.md#触发场景 | i18n | 触发场景 | i18n,locale,翻译,check-i18n,8语言,同步 | active | alert() 迁移到 toast() 等新 i18n 机制时，新增翻译 key 必须同步到所有 locale。 |
+| i18n/rule-04.md#适用 | i18n | 适用 | i18n,locale,翻译,check-i18n,8语言,同步 | active | - 所有 i18n key 新增/修改 - alert() → toast() 迁移（如 shadcn-pages ta… |
 | i18n/trellis-19.md#RTL | i18n | RTL | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | active | `ar-SA` 是唯一 RTL locale (`RTL_LOCALES`, `index.ts:28`); `isRT… |
 | i18n/trellis-19.md#三层一致 (MUST) | i18n | 三层一致 (MUST) | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | active | 应用 i18n locale 标签跨三层必须**字面同一集合**:  1. **i18next** (`src/loca… |
 | i18n/trellis-19.md#关联 | i18n | 关联 | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | active | - [backend/index.md](../backend/index.md) — presets JSON (后端… |

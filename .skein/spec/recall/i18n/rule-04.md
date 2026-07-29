@@ -1,6 +1,6 @@
 ---
 title: 新增 i18n key 必须同步 8 语言
-layer: core
+layer: recall
 category: i18n
 keywords: [i18n,locale,翻译,check-i18n,8语言,同步]
 source: -
