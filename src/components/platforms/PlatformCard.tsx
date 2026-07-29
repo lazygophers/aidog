@@ -142,6 +142,11 @@ export const PlatformCard = memo(function PlatformCard({
   const { logoSrc: cachedLogo } = useProtocolLogo(p.platform_type);
   const [cachedLogoFailed, setCachedLogoFailed] = useState(false);
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
+  // p.extra 单次解析（原 parseDisableDuringPeak/parsePlatformPeakHours 各在渲染体内被调 2 次，
+  //   均内含独立 JSON.parse(extra)）。两函数已各自做好容错（非法/缺失 JSON → false / []），此处
+  //   仅去重调用次数，不改其内部解析逻辑。
+  const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
+  const peakWindows = parsePlatformPeakHours(p.extra ?? "");
 
   return (
     <div
@@ -255,7 +260,7 @@ export const PlatformCard = memo(function PlatformCard({
                   </div>
                 )}
                 {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
-                {parseDisableDuringPeak(p.extra ?? "") && isCurrentlyPeak(parsePlatformPeakHours(p.extra ?? ""), Date.now()) && (
+                {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now()) && (
                   <div
                     style={{
                       marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
@@ -272,8 +277,8 @@ export const PlatformCard = memo(function PlatformCard({
                 {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak_hours && 当前命中 → 显示。
                     model scope 限定时徽标显「高峰·N模型」+ tooltip 列模型；非限定显「高峰」。
                     disable_during_peak 已有「高峰禁用中」徽标时跳过（避免重复）。 */}
-                {!parseDisableDuringPeak(p.extra ?? "") && (() => {
-                  const phWindows = parsePlatformPeakHours(p.extra ?? "");
+                {!disableDuringPeak && (() => {
+                  const phWindows = peakWindows;
                   if (phWindows.length === 0) return null;
                   const nowMs = Date.now();
                   if (!isCurrentlyPeak(phWindows, nowMs)) return null;
