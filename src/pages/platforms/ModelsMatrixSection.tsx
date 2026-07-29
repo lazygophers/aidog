@@ -33,7 +33,9 @@ type CellKey = string;
 //   时间格式：minute 缺省 → `H-H`（hour 精度）；任一带 minute → `HH:MM-HH:MM`；
 //   days_of_week → `(周一,周三)`；days_of_month → `(每月1日)`；跨天 end<start 不特殊标记（描述用区间）；
 //   全天 0-24 无 minute 无 day → `全天`。
-const WEEKDAY_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+function weekdayShort(t: TFunction, day: number): string {
+  return t(`platform.weekday_short.${day}`);
+}
 
 function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
   const isFullDay = w.start_hour === 0 && w.end_hour === 24
@@ -41,7 +43,7 @@ function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
     && !w.days_of_week && !w.days_of_month;
   if (isFullDay) {
     // 全天 + 无 day 过滤（原始 UTC 值判定，全天不受时区换算影响）
-    return "全天";
+    return t("platform.window_all_day");
   }
   // 存储恒 UTC+0，展示按 tzMode 换算（同 WindowsEditModal 输入换算口径）
   const start = utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
@@ -52,7 +54,7 @@ function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
     : `${pad(start.hour)}:${pad(start.minute)}-${pad(end.hour)}:${pad(end.minute)}`;
   let dayPart = "";
   if (w.days_of_week && w.days_of_week.length > 0) {
-    dayPart = `(${w.days_of_week.map((d) => WEEKDAY_ZH[d] ?? String(d)).join(",")})`;
+    dayPart = `(${w.days_of_week.map((d) => weekdayShort(t, d)).join(",")})`;
   } else if (w.days_of_month && w.days_of_month.length > 0) {
     dayPart = `(每月${w.days_of_month.join(",")}日)`;
   }
@@ -63,7 +65,7 @@ function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
 }
 
 export function describeWindows(windows: PeakWindow[], tzMode: TzMode, t: TFunction): string {
-  if (!windows || windows.length === 0) return "永不命中";
+  if (!windows || windows.length === 0) return t("platform.window_never");
   const first = describeWindow(windows[0], tzMode, t);
   if (windows.length === 1) return first;
   return `${first}+${windows.length - 1}`;
