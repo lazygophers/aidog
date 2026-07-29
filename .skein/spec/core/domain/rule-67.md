@@ -20,7 +20,7 @@ estimate 流程中**任一分支加 peak 倍率，对边必补**（既存 bug �
 
 ## 关联
 
-[[resolve-price-now-ms-convention]] [[time-tiers-apply-idiom]]
+[[rule-66]] [[time-tiers-apply-idiom]]
 
 ## 案例
 

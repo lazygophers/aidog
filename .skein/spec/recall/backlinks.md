@@ -466,6 +466,32 @@
 ## db/trellis-00.md#Verification
 - ← recall/proxy/rule-50.md#关联
 
+## domain/bundled-models-fallback.md#触发场景
+- ← core/domain/rule-66.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/bundled-models-fallback.md#陷阱 ❌ vs 正解 ✅
+- ← core/domain/rule-66.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/bundled-models-fallback.md#反例
+- ← core/domain/rule-66.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/bundled-models-fallback.md#路径计算
+- ← core/domain/rule-66.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/bundled-models-fallback.md#适用
+- ← core/domain/rule-66.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/bundled-models-fallback.md#关联
+- ← core/domain/rule-66.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+- → [[rule-66]]
+- → [[time-tiers-apply-idiom]]
+
 ## domain/cpa-oauth-credential-format.md#格式结构
 - ← recall/arch/parser-multi-path-format-symmetry.md#Cross-ref
 
@@ -623,8 +649,108 @@
 - → [[rule-06]]
 - → [[rule-07]]
 
+## domain/time-tiers-apply-idiom.md#触发场景
+- ← core/domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+
+## domain/time-tiers-apply-idiom.md#陷阱 ❌ vs 正解 ✅
+- ← core/domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+
+## domain/time-tiers-apply-idiom.md#反例
+- ← core/domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+
+## domain/time-tiers-apply-idiom.md#案例
+- ← core/domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+
+## domain/time-tiers-apply-idiom.md#适用
+- ← core/domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+
+## domain/time-tiers-apply-idiom.md#关联
+- ← core/domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- → [[bundled-models-fallback]]
+- → [[rule-66]]
+- → [[rule-67]]
+
 ## frontend/auto-fix-downgrade-37.md#关联
 - → [[modal-state-architecture]]
+
+## frontend/dirty-float-hour-normalization.md#触发场景
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#陷阱：后端 migration 改 serde 类型成本高，数据污染持久
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#正解：前端读取路径归一（关键）
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#反例 / 常见错误
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#落地 checklist
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#验证场景
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#适用
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+- → [[module-load-time-constant-test-rule]]
+- → [[time-zone-minute-arithmetic]]
+
+## frontend/dirty-float-hour-normalization.md#案例
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#触发场景
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#陷阱：各组件独立 state 导致口径漂移
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#正解：表单级单一 state 透传（硬约束，关键）
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#反例 / 常见错误
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#落地 checklist
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#验证场景
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#适用
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+- → [[rule-04]]
+- → [[time-zone-minute-arithmetic]]
+
+## frontend/form-level-tz-state-sharing.md#案例
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
 
 ## frontend/modal-state-architecture.md#两类 Modal 区分
 - ← recall/frontend/auto-fix-downgrade-37.md#关联
@@ -729,6 +855,53 @@
 
 ## frontend/theme-dark-class-dead-code.md#关联
 - → [[shadcn-infra-31]]
+
+## frontend/time-zone-minute-arithmetic.md#触发场景
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#陷阱：按整小时换算产生非整数 hour（旧错误）
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#正解：绝对分钟 modulo 1440（硬约束，关键）
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#反例 / 常见错误
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#落地 checklist
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#验证场景
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#适用
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+- → [[dirty-float-hour-normalization]]
+- → [[rule-04]]
+
+## frontend/time-zone-minute-arithmetic.md#案例
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
 
 ## frontend/trellis-18.md#Directory Structure (MUST)
 - ← recall/arch/rule-49.md#关联
@@ -925,6 +1098,10 @@
 ## shadcn/rule-47.md#关联
 - → [[rule-41]]
 
+## skein/parallel-subtask-prop-contract.md#关联
+- → [[dirty-float-hour-normalization]]
+- → [[form-level-tz-state-sharing]]
+
 ## style/css-reset-layer.md#关联
 - → [[shadcn-infra-02]]
 - → [[shadcn-infra-30]]
@@ -935,3 +1112,28 @@
 
 ## test/rule-65.md#关联
 - → [[rule-60]]
+
+## testing/module-load-time-constant-test-rule.md#触发场景
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+
+## testing/module-load-time-constant-test-rule.md#陷阱：vi.spyOn(Date.prototype, "getTimezoneOffset") 对模块常数无效
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+
+## testing/module-load-time-constant-test-rule.md#正解：纯函数内核参数化（硬约束，关键）
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+
+## testing/module-load-time-constant-test-rule.md#反例 / 常见错误
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+
+## testing/module-load-time-constant-test-rule.md#落地 checklist
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+
+## testing/module-load-time-constant-test-rule.md#适用
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+
+## testing/module-load-time-constant-test-rule.md#关联
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- → [[time-zone-minute-arithmetic]]
+
+## testing/module-load-time-constant-test-rule.md#案例
+- ← recall/frontend/dirty-float-hour-normalization.md#关联

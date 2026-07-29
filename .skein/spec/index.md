@@ -1,34 +1,9 @@
-# SKEIN 规则库总览
+# SKEIN 规则库总索引
 
-**两层架构**:
-- **Core** (4 条): 硬约束，SessionStart hook 常驻
-- **Recall** (99 条): 长尾经验，planning 按需召回
+三层: **core** 常驻注入 (SessionStart) · **recall** 按需召回 (planning `recall <query>`) · **external** 外部参考 (纯手动 CLI 检索, 不入 hook)。
 
-## 类目分布
-
-- **arch**: 21 条
-- **build**: 10 条
-- **cross-layer**: 2 条
-- **db**: 6 条
-- **domain**: 15 条
-- **encoding**: 1 条
-- **frontend**: 11 条
-- **git**: 1 条
-- **i18n**: 2 条
-- **ops**: 1 条
-- **optimization**: 7 条
-- **proxy**: 7 条
-- **reuse**: 1 条
-- **shadcn**: 7 条
-- **skein**: 4 条
-- **style**: 2 条
-- **test**: 2 条
-- **testing**: 1 条
-- **ts-rust-boundary**: 2 条
-
-## 索引
-
-- [Core 规则](core/index.md) — 硬约束
-- [Recall 规则](recall/index.md) — 长尾经验
-
-**最后更新**: 2026-07-29T21:30:08.257616
+| layer | 条数 | 类目分布 | 索引 |
+|---|---|---|---|
+| core | 20 | build(5), domain(8), i18n(7) | [core/index.md](core/index.md) |
+| recall | 628 | arch(116), build(57), cross-layer(12), db(23), domain(89), encoding(4), frontend(93), git(6), i18n(9), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) | [recall/index.md](recall/index.md) |
+| external | 0 | - | [external/index.md](external/index.md) |
