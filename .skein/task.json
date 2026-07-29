@@ -117,6 +117,15 @@
       "kind": "task"
     },
     {
+      "id": "model-price-time-tiers",
+      "status": "已完成",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "single-enabled-platform-shortcut",
       "status": "已完成",
       "deps": [],
