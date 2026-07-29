@@ -28,3 +28,67 @@
 - ← recall/style/css-reset-layer.md#关联
 - → [[shadcn-infra-28]]
 - → [[shadcn-infra-30]]
+
+## domain/rule-66.md#硬约束
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-66.md#禁用
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+- → [[bundled-models-fallback]]
+- → [[time-tiers-apply-idiom]]
+
+## domain/rule-66.md#案例
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-67.md#硬约束
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-67.md#禁用
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-67.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+- → [[rule-66]]
+- → [[time-tiers-apply-idiom]]
+
+## domain/rule-67.md#案例
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## i18n/rule-04.md#触发场景
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#MUST 硬约束
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#检查机制
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#处理流程
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#适用
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#案例
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
