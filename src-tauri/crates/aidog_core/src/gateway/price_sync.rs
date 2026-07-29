@@ -168,7 +168,6 @@ pub async fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSett
 
 /// Check if auto sync is due and run it if needed.
 /// Called periodically from the proxy loop or on startup.
-#[allow(dead_code)]
 pub async fn maybe_auto_sync(db: &Db) -> Result<Option<PriceSyncResult>, String> {
     let settings = get_sync_settings(db).await;
     if !settings.auto_sync_enabled {
