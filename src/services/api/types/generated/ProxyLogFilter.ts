@@ -23,7 +23,9 @@ sources?: Array<string>,
 /**
  * None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选。
  * Logs 主页传 ["test","quota"] → 仅留纯代理转发，test/quota 仅请求日志页可见。
- * NULL 行（理论不存在，source_protocol 各路径均硬赋值）视为「不属于排除集」保留。
+ * 该谓词非恒真：test/quota 行真实写入 proxy_log（model_test.rs / quota/http.rs），不可跳过。
+ * source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），故 SQL 侧无需
+ * `OR source_protocol IS NULL` 防御（logs-query-ipc-slimming s3 已删该死分支）。
  */
 exclude_sources?: Array<string>, 
 /**
