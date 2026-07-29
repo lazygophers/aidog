@@ -264,11 +264,11 @@ pub(crate) fn run_migrations_proxy_log_late(
     Ok(())
 }
 
-/// platform.db 的 late migrations（platform.db 库内序 20260727-01..16，原 `run_migrations_late`
+/// platform.db 的 late migrations（platform.db 库内序 20260727-01..16 + 20260729-01，原 `run_migrations_late`
 /// 内所有操作 platform / "group" / group_platform / cli_proxy_provider 的迁移: 原 022 auto_group /
 /// 023–024 group 重建 / 025 GLM coding_plan 回填 / 026 breaker backfill + 列裁剪 / 027 is_default /
 /// 029 level_priority / 036 expires_at / 037 last_error / 038 env_vars / 039 last_error 重提 /
-/// 044 extra / 045 cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota）。
+/// 044 extra / 045 cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota / 20260729-01 清 W2 peak_hours 副本）。
 ///
 /// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内、紧随
 /// `run_migrations_platform_early` 之后调用。fresh install：platform_early 已建现代 schema，
@@ -544,7 +544,67 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
                     [],
                 );
+
+                // Migration 20260729-01: 清 platform.extra.peak_hours 里「导入默认配置」历史遗留的
+                // W2 副本（preset 已改 bundled 值，用户点过导入按钮复制进 extra 的旧窗口删不掉，
+                // model-price-time-tiers design.md §7）。幂等：命中窗口已删/无 peak_hours 键 → 空转。
+                strip_w2_peak_hours_copies(conn);
     Ok(())
+}
+
+/// W2 峰值窗口指纹：`start_at==1790784000 && multiplier==2.0 && start_hour==0 && end_hour==24`
+/// 三条件全中才判定为历史遗留副本（宁漏勿误删用户自建窗口）。
+fn is_w2_peak_window(w: &serde_json::Value) -> bool {
+    w.get("start_at").and_then(|v| v.as_i64()) == Some(1790784000)
+        && w.get("multiplier").and_then(|v| v.as_f64()) == Some(2.0)
+        && w.get("start_hour").and_then(|v| v.as_i64()) == Some(0)
+        && w.get("end_hour").and_then(|v| v.as_i64()) == Some(24)
+}
+
+/// Migration 20260729-01 实体：遍历 `platform.extra` JSON，命中 [`is_w2_peak_window`] 的窗口
+/// 从 `peak_hours` 数组移除；数组清空则整个删掉 `peak_hours` 键。其余字段原样保留。
+fn strip_w2_peak_hours_copies(conn: &Connection) {
+    let rows: Vec<(i64, String)> = match conn
+        .prepare("SELECT id, extra FROM platform WHERE extra LIKE '%peak_hours%'")
+    {
+        Ok(mut stmt) => stmt
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+            .ok()
+            .map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default(),
+        Err(_) => return,
+    };
+    let mut cleaned = 0u64;
+    for (id, extra) in rows {
+        let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
+            continue;
+        };
+        let Some(obj) = root.as_object_mut() else {
+            continue;
+        };
+        let Some(arr) = obj.get("peak_hours").and_then(|v| v.as_array()) else {
+            continue;
+        };
+        if !arr.iter().any(is_w2_peak_window) {
+            continue;
+        }
+        let kept: Vec<serde_json::Value> =
+            arr.iter().filter(|w| !is_w2_peak_window(w)).cloned().collect();
+        if kept.is_empty() {
+            obj.remove("peak_hours");
+        } else {
+            obj.insert("peak_hours".to_string(), serde_json::Value::Array(kept));
+        }
+        let new_extra = serde_json::to_string(&root).unwrap_or(extra);
+        let _ = conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            params![new_extra, id],
+        );
+        cleaned += 1;
+    }
+    if cleaned > 0 {
+        tracing::info!(cleaned, "migration 20260729-01: 清理 platform.extra 里的 W2 peak_hours 历史副本");
+    }
 }
 
 /// Migration 20260727-12 (原 039): 把原 037 引入但未走 extract_error_message 的历史 last_error 行重提为 message。
