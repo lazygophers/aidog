@@ -58,12 +58,10 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   useEffect(() => {
     (async () => {
       try {
-        // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型
-        const { items } = await proxyLogApi.listFiltered({ exclude_sources: ["test", "quota"] }, 200, 0);
-        const col = filterModelType === "actual" ? "actual_model" : "model";
-        const set = new Set<string>();
-        (items || []).forEach(l => { if ((l as any)[col]) set.add((l as any)[col]); });
-        setModelOptions(Array.from(set).sort());
+        // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型。
+        // 后端 DISTINCT 直出选项（logs-query-ipc-slimming s4），不再拉 200 行完整日志前端去重。
+        const items = await proxyLogApi.distinctModels({ exclude_sources: ["test", "quota"] }, filterModelType === "actual", 200);
+        setModelOptions(items);
       } catch { /* ignore */ }
     })();
   }, [filterModelType]);

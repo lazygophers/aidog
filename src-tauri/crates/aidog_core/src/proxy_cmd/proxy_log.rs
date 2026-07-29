@@ -24,6 +24,21 @@ pub async fn proxy_log_list_filtered(
 }
 
 crate::tauri_command! {
+/// Logs 页 model 下拉选项（logs-query-ipc-slimming s4）：`SELECT DISTINCT` 直出选项列表，
+/// 替代旧的「拉 200 行完整日志再前端去重」。`actual=true` 取 actual_model 列，否则取 model 列
+/// （对应前端 filterModelType 状态）；`filter` 通常仅带 exclude_sources，与主列表筛选一致。
+pub async fn proxy_log_distinct_models(
+    db: State<'_, Db>,
+    filter: ProxyLogFilter,
+    actual: bool,
+    limit: u32,
+) -> Result<Vec<String>, String> {
+    tracing::debug!(command = "proxy_log_distinct_models", actual, limit, "command invoked");
+    gateway::db::distinct_models_proxy_log(&db, &filter, actual, limit).await
+}
+}
+
+crate::tauri_command! {
 pub async fn proxy_log_count_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
