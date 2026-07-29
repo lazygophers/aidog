@@ -2,7 +2,7 @@
   "id": "glass-flow-border-component",
   "name": "流光边框重构为独立组件",
   "desc": "两层 DOM(静态裁切壳+旋转渐变层)替代 @property 角度插值, 逐个替换 .glass/.glass-surface 调用点",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [
     "frontend-compositing-purge"
   ],
@@ -31,13 +31,22 @@
         "yarn test 全绿",
         "node scripts/check-i18n.mjs 零缺失"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785295770,
-      "started": null,
-      "finished": null
+      "started": 1785305595,
+      "finished": 1785305867
     },
     {
       "sid": "s2-visual-verify",
@@ -53,11 +62,11 @@
         "无临时文件残留"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785295770,
-      "started": null,
+      "started": 1785305867,
       "finished": null
     }
   ],
@@ -70,9 +79,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785254638,
-  "started": null,
+  "started": 1785305591,
   "confirmed": 1785296235,
   "checked": null,
   "finished": null,
-  "updated": 1785296235
+  "updated": 1785305867
 }

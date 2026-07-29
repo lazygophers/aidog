@@ -44,13 +44,18 @@
         "出 release 口径关系式",
         "1026x759 一档的全进程总和已明确"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249538,
       "started": 1785305917,
-      "finished": null
+      "finished": 1785316748
     },
     {
       "sid": "s3-config-change",
@@ -154,5 +159,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785305917
+  "updated": 1785316748
 }
