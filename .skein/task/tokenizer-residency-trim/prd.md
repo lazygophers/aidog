@@ -15,16 +15,16 @@
 - MITM 证书缓存加 evict 后重签只影响该 host 首次连接，不得影响已建立连接
 - 一切验证只用 mock 平台与分组
 ## 验收标准
-- [ ] 存在用例证明：上游 count_tokens 成功时不再触发本地 BPE 估算；上游失败时 fallback 仍给出与改动前一致的 token 数
-- [ ] 对 glm / qwen 模型走 count_tokens 且上游成功的场景，进程 phys_footprint 不出现 HF tokenizer 初始化对应的跃升
-- [ ] 上游失败 fallback 路径的 token 计数结果与改动前逐条一致
-- [ ] platform-presets.json 在进程内只解析一份，用计数或 trace 证明
-- [ ] coding_plan.rs 的死代码已删且全 workspace 编译通过
-- [ ] cert_signer 缓存有明确上界，达界时 evict 行为已定义；suspects 表有 sweep 机制
-- [ ] AGG_DEDUP_CAP 调整后，重复终态去重仍正确（有用例覆盖）
-- [ ] cargo clippy --workspace 零 warning、cargo test --workspace 全绿
-- [ ] 全程只用 mock 平台与分组
-- [ ] 清场完成
+- [x] 存在用例证明：上游 count_tokens 成功时不再触发本地 BPE 估算；上游失败时 fallback 仍给出与改动前一致的 token 数
+- [x] 对 glm / qwen 模型走 count_tokens 且上游成功的场景，进程 phys_footprint 不出现 HF tokenizer 初始化对应的跃升
+- [x] 上游失败 fallback 路径的 token 计数结果与改动前逐条一致
+- [x] platform-presets.json 在进程内只解析一份，用计数或 trace 证明
+- [x] coding_plan.rs 的死代码已删且全 workspace 编译通过
+- [x] cert_signer 缓存有明确上界，达界时 evict 行为已定义；suspects 表有 sweep 机制
+- [x] AGG_DEDUP_CAP 调整后，重复终态去重仍正确（有用例覆盖）
+- [x] cargo clippy --workspace 零 warning、cargo test --workspace 全绿
+- [x] 全程只用 mock 平台与分组
+- [x] 清场完成
 ## 索引
 - 详细设计: [design.md](design.md)
 - 调研收敛: [findings.md](findings.md) (仅真调研时生)

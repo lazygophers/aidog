@@ -2,7 +2,7 @@
   "id": "tokenizer-residency-trim",
   "name": "tokenizer 峰值与零散常驻清扫",
   "desc": "count_tokens 无条件本地 BPE 致 HF tokenizer 常驻 40-120MB，另清 presets 三重解析/死代码/MITM 无界表/AGG_CAP",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "count_tokens 惰性化只改「何时算」, 不改「算什么」与「怎么算」。token 计数与费用精度不得下降(红线2)",
@@ -43,13 +43,17 @@
         "两处消费方行为不变",
         "peak_hours 与 defaults_sync 相关测试全绿"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
       "started": 1785317368,
-      "finished": null
+      "finished": 1785318127
     },
     {
       "sid": "s3-dead-code-delete",
@@ -61,13 +65,17 @@
         "cargo build --workspace 通过",
         "未误删仍在用的 coding_plan 端点路由逻辑"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
       "started": 1785317368,
-      "finished": null
+      "finished": 1785318475
     },
     {
       "sid": "s4-mitm-bounds",
@@ -80,13 +88,18 @@
         "cert evict 后仅影响该 host 新连接, 已建立连接不受影响",
         "SUSPECT_TTL_SECS=600 语义保持"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
-      "finished": null
+      "started": 1785318502,
+      "finished": 1785319152
     },
     {
       "sid": "s5-agg-dedup-cap",
@@ -98,13 +111,17 @@
         "FIFO 淘汰逻辑(:187)未改",
         "重复终态去重仍正确(有用例覆盖)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
-      "finished": null
+      "started": 1785318502,
+      "finished": 1785319290
     },
     {
       "sid": "s6-verify",
@@ -125,13 +142,20 @@
         "全程只用 mock 平台与分组",
         "临时脚本与中间产物已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
-      "finished": null
+      "started": 1785319311,
+      "finished": 1785319594
     }
   ],
   "priority": 5,
@@ -145,7 +169,7 @@
   "created": 1785248700,
   "started": 1785316779,
   "confirmed": 1785250583,
-  "checked": null,
-  "finished": null,
-  "updated": 1785317368
+  "checked": 1785319643,
+  "finished": 1785320569,
+  "updated": 1785320569
 }
