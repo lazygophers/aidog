@@ -393,38 +393,65 @@
 ## shadcn/shadcn-primitives-39.md#关联
 - → [[shadcn-infra-02]]
 
+## build/shadcn-infra-02.md#硬约束
+- ← recall/frontend/shadcn-infra-30.md#关联
+- ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
+
+## build/shadcn-infra-02.md#MUST 迁移方式
+- ← recall/frontend/shadcn-infra-30.md#关联
+- ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
+
+## build/shadcn-infra-02.md#禁用的旧方式
+- ← recall/frontend/shadcn-infra-30.md#关联
+- ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
+
+## build/shadcn-infra-02.md#适用
+- ← recall/frontend/shadcn-infra-30.md#关联
+- ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
+
+## build/shadcn-infra-02.md#关联
+- ← recall/frontend/shadcn-infra-30.md#关联
+- ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
+- → [[shadcn-infra-28]]
+- → [[shadcn-infra-30]]
+
 ## build/shadcn-infra-28.md#触发场景
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/build/shadcn-infra-29.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/reuse/auto-fix-downgrade-36.md#关联
 
 ## build/shadcn-infra-28.md#陷阱-正解
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/build/shadcn-infra-29.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/reuse/auto-fix-downgrade-36.md#关联
 
 ## build/shadcn-infra-28.md#反例
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/build/shadcn-infra-29.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/reuse/auto-fix-downgrade-36.md#关联
 
 ## build/shadcn-infra-28.md#案例
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/build/shadcn-infra-29.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/reuse/auto-fix-downgrade-36.md#关联
 
 ## build/shadcn-infra-28.md#适用
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/build/shadcn-infra-29.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/reuse/auto-fix-downgrade-36.md#关联
 
 ## build/shadcn-infra-28.md#关联
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/build/shadcn-infra-29.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/reuse/auto-fix-downgrade-36.md#关联
@@ -467,27 +494,27 @@
 - ← recall/proxy/rule-50.md#关联
 
 ## domain/bundled-models-fallback.md#触发场景
-- ← core/domain/rule-66.md#关联
+- ← recall/domain/rule-66.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
 ## domain/bundled-models-fallback.md#陷阱 ❌ vs 正解 ✅
-- ← core/domain/rule-66.md#关联
+- ← recall/domain/rule-66.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
 ## domain/bundled-models-fallback.md#反例
-- ← core/domain/rule-66.md#关联
+- ← recall/domain/rule-66.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
 ## domain/bundled-models-fallback.md#路径计算
-- ← core/domain/rule-66.md#关联
+- ← recall/domain/rule-66.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
 ## domain/bundled-models-fallback.md#适用
-- ← core/domain/rule-66.md#关联
+- ← recall/domain/rule-66.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
 ## domain/bundled-models-fallback.md#关联
-- ← core/domain/rule-66.md#关联
+- ← recall/domain/rule-66.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 - → [[rule-66]]
 - → [[time-tiers-apply-idiom]]
@@ -649,35 +676,57 @@
 - → [[rule-06]]
 - → [[rule-07]]
 
-## domain/time-tiers-apply-idiom.md#触发场景
-- ← core/domain/rule-66.md#关联
+## domain/rule-66.md#硬约束
 - ← core/domain/rule-67.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-66.md#禁用
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/rule-66.md#关联
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+- → [[bundled-models-fallback]]
+- → [[time-tiers-apply-idiom]]
+
+## domain/rule-66.md#案例
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/time-tiers-apply-idiom.md#触发场景
+- ← core/domain/rule-67.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/rule-66.md#关联
 
 ## domain/time-tiers-apply-idiom.md#陷阱 ❌ vs 正解 ✅
-- ← core/domain/rule-66.md#关联
 - ← core/domain/rule-67.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/rule-66.md#关联
 
 ## domain/time-tiers-apply-idiom.md#反例
-- ← core/domain/rule-66.md#关联
 - ← core/domain/rule-67.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/rule-66.md#关联
 
 ## domain/time-tiers-apply-idiom.md#案例
-- ← core/domain/rule-66.md#关联
 - ← core/domain/rule-67.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/rule-66.md#关联
 
 ## domain/time-tiers-apply-idiom.md#适用
-- ← core/domain/rule-66.md#关联
 - ← core/domain/rule-67.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/rule-66.md#关联
 
 ## domain/time-tiers-apply-idiom.md#关联
-- ← core/domain/rule-66.md#关联
 - ← core/domain/rule-67.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/rule-66.md#关联
 - → [[bundled-models-fallback]]
 - → [[rule-66]]
 - → [[rule-67]]
@@ -769,32 +818,32 @@
 - ← recall/theme/shadcn-primitives-40.md#关联
 
 ## frontend/shadcn-infra-30.md#技巧
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/style/css-reset-layer.md#关联
 
 ## frontend/shadcn-infra-30.md#正解
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/style/css-reset-layer.md#关联
 
 ## frontend/shadcn-infra-30.md#对比
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/style/css-reset-layer.md#关联
 
 ## frontend/shadcn-infra-30.md#案例
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/style/css-reset-layer.md#关联
 
 ## frontend/shadcn-infra-30.md#适用
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/style/css-reset-layer.md#关联
 
 ## frontend/shadcn-infra-30.md#关联
-- ← core/build/shadcn-infra-02.md#关联
+- ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
 - ← recall/style/css-reset-layer.md#关联
 - → [[shadcn-infra-02]]
@@ -932,6 +981,34 @@
 
 ## frontend/trellis-18.md#Large File Split — facade 模式 (MUST)
 - ← recall/arch/rule-49.md#关联
+
+## i18n/rule-04.md#触发场景
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#MUST 硬约束
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#检查机制
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#处理流程
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#适用
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+
+## i18n/rule-04.md#案例
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
 
 ## proxy/rule-50.md#关联
 - → [[trellis-00]]

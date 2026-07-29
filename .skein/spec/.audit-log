@@ -6,3 +6,6 @@
 2026-07-29T01:06:24|degrade|core/ts-rust-boundary/mock-config-4layer-consistency.md|core/ts-rust-boundary/mock-config-4layer-consistency.md->(recall/ts-rust-boundary/mock-config-4layer-consistency.md)|core超预算(4161>1000)
 2026-07-29T01:06:24|degrade|core/testing/deterministic-pseudorandom-loadgen.md|core/testing/deterministic-pseudorandom-loadgen.md->(recall/testing/deterministic-pseudorandom-loadgen.md)|core超预算(2821>1000)
 2026-07-29T01:06:24|degrade|core/optimization/manual-budget-empty-shortcircuit.md|core/optimization/manual-budget-empty-shortcircuit.md->(recall/optimization/manual-budget-empty-shortcircuit.md)|core超预算(1663>1000)
+2026-07-29T21:41:02|degrade|core/domain/rule-66.md|core/domain/rule-66.md->(recall/domain/rule-66.md)|手动降级
+2026-07-29T21:42:09|degrade|core/i18n/rule-04.md|core/i18n/rule-04.md->(recall/i18n/rule-04.md)|手动降级
+2026-07-29T21:42:09|degrade|core/build/shadcn-infra-02.md|core/build/shadcn-infra-02.md->(recall/build/shadcn-infra-02.md)|手动降级
