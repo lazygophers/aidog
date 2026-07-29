@@ -16,14 +16,14 @@
 - 每次内存量测独立重启 app + 等满稳态，禁同进程内改 CSS 做 A/B（[03] 已证不可靠）
 ## 验收标准
 - [ ] 空闲前台 CPU < 0.5%（release 构建，窗口可见、无 UI 操作、代理运行中，采样 ≥60s）
-- [ ] GPU 进程采样中不再出现 CA::CG::DrawConicGradient 类软件光栅化热点
-- [ ] WebContent 不再出现由 @property 注册属性驱动的逐帧 Document::resolveStyle
-- [ ] WebContent 的 WebKit malloc 相对基线 82MB 下降，且给出下降归因（伪元素层 / backdrop-filter / 其他）
-- [ ] 全仓 animation 常驻项清单逐条有判定（删 / 改 compositor-only / 保留），无遗漏项
-- [ ] prefers-reduced-motion 下无任何 animation 仍在跑，含内联 style 声明
-- [ ] 流光边框、glass / glass-elevated 质感、激活态 idiom、按钮 ripple 的视觉与改动前比对通过（截图或人工确认）
-- [ ] 一次性入场动画（fadeIn / slideIn / reveal / ripple）保留且行为不变
-- [ ] yarn build 通过、yarn test 全绿、check-i18n 通过
+- [x] GPU 进程采样中不再出现 CA::CG::DrawConicGradient 类软件光栅化热点
+- [x] WebContent 不再出现由 @property 注册属性驱动的逐帧 Document::resolveStyle
+- [x] WebContent 的 WebKit malloc 相对基线 82MB 下降，且给出下降归因（伪元素层 / backdrop-filter / 其他）
+- [x] 全仓 animation 常驻项清单逐条有判定（删 / 改 compositor-only / 保留），无遗漏项
+- [x] prefers-reduced-motion 下无任何 animation 仍在跑，含内联 style 声明
+- [x] 流光边框、glass / glass-elevated 质感、激活态 idiom、按钮 ripple 的视觉与改动前比对通过（截图或人工确认）
+- [x] 一次性入场动画（fadeIn / slideIn / reveal / ripple）保留且行为不变
+- [x] yarn build 通过、yarn test 全绿、check-i18n 通过
 - [ ] 清场完成：实验分支的临时 CSS、量测脚本与逐次采样已删
 ## 索引
 - 详细设计: [design.md](design.md)

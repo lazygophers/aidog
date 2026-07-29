@@ -2,7 +2,7 @@
   "id": "frontend-compositing-purge",
   "name": "前端常驻合成层与动画清除",
   "desc": "116 个 .glass::after 离屏 buffer + ~120 backdrop-filter 实例 + 全部常驻动画，压 WebKit malloc 82MB 并把空闲 CPU 从 50.2% 降到 <0.5%",
-  "status": "进行中",
+  "status": "检查中",
   "deps": [],
   "contracts": [
     "用户已拍板三项视觉改动全部执行: ① 删 bgShimmer 32s 背景微动 ② .glass::after 光晕收进 hover(非悬停元素零离屏 buffer) ③ .input(47处)+.btn(12处) 去掉 backdrop-filter。这三项改变视觉是已批准的, 禁以「保视觉」为由跳过",
@@ -178,17 +178,20 @@
         "临时脚本与中间采样已清"
       ],
       "验收done": [
+        1,
+        2,
+        3,
         4,
         5,
         6,
         7
       ],
-      "status": "运行中",
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249452,
       "started": 1785299023,
-      "finished": null
+      "finished": 1785301392
     },
     {
       "sid": "s8-elevated-toast",
@@ -228,7 +231,7 @@
   "created": 1785248700,
   "started": 1785251219,
   "confirmed": 1785250583,
-  "checked": null,
+  "checked": 1785301392,
   "finished": null,
-  "updated": 1785301314
+  "updated": 1785301392
 }

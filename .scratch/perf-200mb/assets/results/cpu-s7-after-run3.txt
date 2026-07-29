@@ -1,0 +1,9 @@
+# CPU @ s7-after-run3 — 60s 区间内 CPU 时间差值 / 墙钟
+PID      PROC            PCT_CPU
+96948    aidog(main)         4.7
+96956    GPU                 0.8
+96957    Networking          0.1
+96958    WebContent          2.0
+97151    WebContent          0.6
+----
+TOTAL                        8.2
