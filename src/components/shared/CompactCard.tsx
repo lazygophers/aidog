@@ -64,7 +64,7 @@ export function CompactCard({
     <Card
       ref={ref}
       data-inview={inView}
-      className={`glass-surface hover-lift${revealOn ? " reveal in" : " reveal"}`}
+      className={`glass-surface flow-border hover-lift${revealOn ? " reveal in" : " reveal"}`}
       style={{
         display: "flex",
         flexDirection: "column",

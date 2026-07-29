@@ -871,8 +871,14 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   position: relative;
 }
 
-.glass::after,
-.glass-surface::after {
+/* flow-border: opt-in 流光描边（原全局挂在 .glass/.glass-surface::after，
+   247 处常驻 ::after 伪元素收窄为按需点位，见
+   .skein/task/glass-flow-border-component/design.md） */
+.flow-border {
+  position: relative;
+}
+
+.flow-border::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -894,8 +900,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 /* mask/mask-composite 只在 hover 态才加：这两个属性会强制 WebKit 为伪元素
    建独立离屏合成 buffer，挪出空闲态规则可让非 hover 时不产生该 buffer
    （s5-glass-buffer，见 .scratch/perf-200mb/results/s5-glass-buffer.md） */
-.glass:hover::after,
-.glass-surface:hover::after {
+.flow-border:hover::after {
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
@@ -973,8 +978,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .insertion-line,
   .status-dot-active,
   .spin,
-  .glass:hover::after,
-  .glass-surface:hover::after,
+  .flow-border:hover::after,
   .toast,
   .card-item {
     animation: none;

@@ -178,7 +178,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       {/* 1. 状态条：代理运行状态 + 端口 + 复制 base_url */}
       <div
         ref={revealStatusBar.ref}
-        className={`glass-surface reveal${revealStatusBar.shown ? " in" : ""}`}
+        className={`glass-surface flow-border reveal${revealStatusBar.shown ? " in" : ""}`}
         style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -199,7 +199,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       {/* 2. 大 KPI 数字带：今日花费 / Token / 请求 / 缓存率（视觉主角 · 无数据诚实空态） */}
       <div
         ref={revealKpi.ref}
-        className={`glass-surface reveal${revealKpi.shown ? " in" : ""}`}
+        className={`glass-surface flow-border reveal${revealKpi.shown ? " in" : ""}`}
         style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}
       >
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.todayTitle", "今日概览")}</div>
@@ -259,7 +259,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       {/* 3. 放大趋势主图 · 今日（hourly 三曲线：请求数 + tokens 总数 + 花费） */}
       <div
         ref={revealTrend.ref}
-        className={`glass-surface reveal${revealTrend.shown ? " in" : ""}`}
+        className={`glass-surface flow-border reveal${revealTrend.shown ? " in" : ""}`}
         style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}
       >
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -523,7 +523,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "stretch" }}
       >
         {/* 左：分组/平台速览 + 总余额 */}
-        <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="glass-surface flow-border" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.overviewTitle", "分组 / 平台速览")}</div>
           <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -554,7 +554,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
 
         {/* 右：今日平台用量 Top5 */}
-        <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="glass-surface flow-border" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
           <span style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.topPlatforms", "今日平台用量")}</span>
           {topPlatforms.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
