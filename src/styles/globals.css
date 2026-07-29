@@ -15,6 +15,17 @@
   padding: 0;
 }
 
+/* preflight 禁用(line 3)后 UA 样式表的 `color: buttontext` 仍作用于表单元素——它是显式
+   声明，不参与继承，:root 的 color 管不到，dark 下退化成黑字。无 text-* 类的
+   shadcn variant(ghost/outline)因此「深底黑字」不可见。补 preflight 缺的这一条。
+   只补 color 不补 font：字号目前依赖 UA 默认，改 font 会全站变版。 */
+button,
+input,
+select,
+textarea {
+  color: inherit;
+}
+
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
     "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
