@@ -71,9 +71,6 @@ pub(crate) async fn handle_count_tokens(
         .to_string();
     log.model = requested_model.clone();
 
-    // 本地估算值（透传失败时回客户端；提前算好，避免分支重复）
-    let est_tokens = estimate_input_tokens(&raw_body, &requested_model);
-    let est_body = serde_json::json!({ "input_tokens": est_tokens }).to_string();
     // 兜底响应：返回本地估算 `{"input_tokens":N}` 200，并把回客户端正文记入 log.user_response_body
     // （与 handle_responses_subendpoint 成功路径一致：客户端实际收到的正文落库）。
     let est_response = |body: &str| -> Response {
@@ -86,13 +83,18 @@ pub(crate) async fn handle_count_tokens(
         inject_trace_header(&mut r);
         r
     };
+    // ponytail: 惰性估算 — 本地 BPE 估算(触发 tokenizer 初始化)只在真正走到兜底分支时才算,
+    // 上游成功路径(透传)全程不碰 estimate_input_tokens。宏在各调用点内联展开, 各分支独立计算一次。
     // 在各兜底分支统一回写 log 的客户端响应正文/头（est_response 闭包不可借 &mut log，故在调用点写 log）。
-    macro_rules! fallback_log {
+    macro_rules! fallback_response {
         () => {{
+            let est_tokens = estimate_input_tokens(&raw_body, &requested_model);
+            let est_body = serde_json::json!({ "input_tokens": est_tokens }).to_string();
             log.input_tokens = est_tokens as i32;
             log.user_response_body = est_body.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
+            est_body
         }};
     }
 
@@ -112,7 +114,7 @@ pub(crate) async fn handle_count_tokens(
                 tracing::warn!(group = %group.name, model = %requested_model, error = %e, "count_tokens: route failed, falling back to local estimate");
                 log.status_code = 200;
                 log.response_body = format!("route error (local estimate fallback): {e}");
-                fallback_log!();
+                let est_body = fallback_response!();
                 upsert_log(state, log, log_settings).await;
                 return est_response(&est_body);
             }
@@ -123,7 +125,7 @@ pub(crate) async fn handle_count_tokens(
             tracing::warn!(group = %group.name, "count_tokens: no candidate platform, local estimate fallback");
             log.status_code = 200;
             log.response_body = "no candidate platform (local estimate fallback)".to_string();
-            fallback_log!();
+            let est_body = fallback_response!();
             upsert_log(state, log, log_settings).await;
             return est_response(&est_body);
         }
@@ -190,7 +192,7 @@ pub(crate) async fn handle_count_tokens(
             log.upstream_status_code = 0;
             log.status_code = 200;
             log.response_body = format!("upstream error (local estimate fallback): {e}");
-            fallback_log!();
+            let est_body = fallback_response!();
             upsert_log(state, log, log_settings).await;
             return est_response(&est_body);
         }
@@ -227,7 +229,7 @@ pub(crate) async fn handle_count_tokens(
     tracing::warn!(url = %url, upstream_status = status.as_u16(), "count_tokens upstream unsupported, local estimate fallback");
     log.status_code = 200;
     log.response_body = format!("upstream {} (local estimate fallback): {}", status.as_u16(), body_str);
-    fallback_log!();
+    let est_body = fallback_response!();
     upsert_log(state, log, log_settings).await;
     est_response(&est_body)
 }
