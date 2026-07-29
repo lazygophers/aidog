@@ -10,6 +10,7 @@ import {
   type Protocol, type ModelSlot, type TimeModelRule,
 } from "../../services/api";
 import type { PeakWindow } from "../../domains/platforms/defaults";
+import { type TzMode, utcToDisplay } from "../../utils/peakHours";
 import { pinyinMatch } from "../../utils/pinyin";
 import { pad } from "../../utils/formatters";
 import {
@@ -34,31 +35,36 @@ type CellKey = string;
 //   全天 0-24 无 minute 无 day → `全天`。
 const WEEKDAY_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
 
-function describeWindow(w: PeakWindow): string {
-  const sMin = w.start_minute ?? 0;
-  const eMin = w.end_minute ?? 0;
-  const hourOnly = sMin === 0 && eMin === 0;
-  const timePart = hourOnly
-    ? `${w.start_hour}-${w.end_hour}`
-    : `${pad(w.start_hour)}:${pad(sMin)}-${pad(w.end_hour)}:${pad(eMin)}`;
-  const isFullDay = w.start_hour === 0 && w.end_hour === 24 && hourOnly
+function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
+  const isFullDay = w.start_hour === 0 && w.end_hour === 24
+    && (w.start_minute ?? 0) === 0 && (w.end_minute ?? 0) === 0
     && !w.days_of_week && !w.days_of_month;
   if (isFullDay) {
-    // 全天 + 无 day 过滤
+    // 全天 + 无 day 过滤（原始 UTC 值判定，全天不受时区换算影响）
     return "全天";
   }
+  // 存储恒 UTC+0，展示按 tzMode 换算（同 WindowsEditModal 输入换算口径）
+  const start = utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
+  const end = utcToDisplay(w.end_hour, w.end_minute ?? 0, tzMode);
+  const hourOnly = start.minute === 0 && end.minute === 0;
+  const timePart = hourOnly
+    ? `${start.hour}-${end.hour}`
+    : `${pad(start.hour)}:${pad(start.minute)}-${pad(end.hour)}:${pad(end.minute)}`;
   let dayPart = "";
   if (w.days_of_week && w.days_of_week.length > 0) {
     dayPart = `(${w.days_of_week.map((d) => WEEKDAY_ZH[d] ?? String(d)).join(",")})`;
   } else if (w.days_of_month && w.days_of_month.length > 0) {
     dayPart = `(每月${w.days_of_month.join(",")}日)`;
   }
-  return `${timePart}${dayPart}`;
+  const tzLabel = tzMode === "local"
+    ? t("platform.timezone_local", "本地")
+    : t("platform.timezone_utc", "UTC+0");
+  return `${timePart}${dayPart}（${tzLabel}）`;
 }
 
-export function describeWindows(windows: PeakWindow[]): string {
+export function describeWindows(windows: PeakWindow[], tzMode: TzMode, t: TFunction): string {
   if (!windows || windows.length === 0) return "永不命中";
-  const first = describeWindow(windows[0]);
+  const first = describeWindow(windows[0], tzMode, t);
   if (windows.length === 1) return first;
   return `${first}+${windows.length - 1}`;
 }
@@ -74,6 +80,8 @@ export function ModelsMatrixSection({
   onFillAll, onFetchModels, apiKeyMissing, endpointsCount,
   // 时段档列 props
   rules, setRules, peakHours,
+  // tz 展示模式：表单级共用一份（design.md §3.5 契约），与 PeakHoursSection 的 tzMode/setTzMode 签名逐字一致
+  tzMode, setTzMode,
   t,
 }: {
   models: Record<ModelSlot, string>;
@@ -93,6 +101,8 @@ export function ModelsMatrixSection({
   rules: TimeModelRule[];
   setRules: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   peakHours: PeakWindow[];
+  tzMode: TzMode;
+  setTzMode: React.Dispatch<React.SetStateAction<TzMode>>;
   t: TFunction;
 }) {
   // 矩阵内部 UI 临时态
@@ -341,7 +351,7 @@ export function ModelsMatrixSection({
                   title={t("platform.time_models_edit_windows", "点击编辑时段窗口")}
                   onClick={() => setEditingIdx(idx)}
                 >
-                  {describeWindows(rule.windows)}
+                  {describeWindows(rule.windows, tzMode, t)}
                 </Button>
                 <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
                   <Button
@@ -430,6 +440,8 @@ export function ModelsMatrixSection({
           setEditingIdx(null);
         }}
         onClose={() => setEditingIdx(null)}
+        tzMode={tzMode}
+        setTzMode={setTzMode}
         t={t}
       />
 
