@@ -21,6 +21,15 @@ async fn list_count_get_clear_flow() {
 }
 
 #[tokio::test]
+async fn distinct_models_empty() {
+    let db = test_db().await;
+
+    let filter = ProxyLogFilter { exclude_sources: Some(vec!["test".into(), "quota".into()]), ..Default::default() };
+    assert!(gateway::db::distinct_models_proxy_log(&db, &filter, false, 200).await.unwrap().is_empty());
+    assert!(gateway::db::distinct_models_proxy_log(&db, &filter, true, 200).await.unwrap().is_empty());
+}
+
+#[tokio::test]
 async fn usage_stats_endpoints() {
     let db = test_db().await;
 

@@ -106,6 +106,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::proxy_log_list,
             aidog_core::proxy_cmd::proxy_log::proxy_log_list_filtered,
             aidog_core::proxy_cmd::proxy_log::proxy_log_count_filtered,
+            aidog_core::proxy_cmd::proxy_log::proxy_log_distinct_models,
             aidog_core::proxy_cmd::proxy_log::proxy_log_get,
             aidog_core::proxy_cmd::proxy_log::proxy_log_clear,
             aidog_core::proxy_cmd::proxy_log::proxy_log_count,

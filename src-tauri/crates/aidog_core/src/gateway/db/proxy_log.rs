@@ -595,6 +595,45 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
     (where_sql, p)
 }
 
+/// logs-query-ipc-slimming s4：Logs 页 model 下拉选项。原实现拉 `filtered_list_proxy_logs`
+/// 200 行**完整摘要行**（含 group_key/status/tokens 等无关列）到前端再 `Set` 去重，改为
+/// 后端直接 `SELECT DISTINCT` 出选项列表，payload 从「200 行摘要」缩到「去重后的 model 名数组」。
+///
+/// 严格保持与旧实现等价的「有界近似」语义：子查询先按 `filter` 筛出最近 `limit` 行（旧实现的
+/// `filtered_list_proxy_logs(..., 200, 0)`），外层再 DISTINCT ——而非全库 DISTINCT（那会把
+/// 早已滚出主列表的历史 model 也列出，是行为变化）。`actual` 选列（true→actual_model，
+/// false→model），与前端 `filterModelType === "actual"` 语义对齐（useLogsFilters.ts 旧逻辑）。
+/// 复用 `build_filter_where`（filter.model 通常为空，不会出现"用 model 过滤 model 下拉"的循环）。
+#[track_caller]
+pub fn distinct_models_proxy_log<'a>(
+    db: &'a Db,
+    filter: &'a crate::gateway::models::ProxyLogFilter,
+    actual: bool,
+    limit: u32,
+) -> impl std::future::Future<Output = Result<Vec<String>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    let filter = filter.clone();
+    let col = if actual { "actual_model" } else { "model" };
+    db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(limit));
+            let sql = format!(
+                "SELECT DISTINCT {col} FROM (\
+                   SELECT {col} FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ?\
+                 ) WHERE {col} != '' ORDER BY {col}"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let rows = stmt.query_map(refs.as_slice(), |row| row.get::<_, String>(0))?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 #[track_caller]
 pub fn get_proxy_log<'a>(db: &'a Db, id: &'a str) -> impl std::future::Future<Output = Result<Option<crate::gateway::models::ProxyLog>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();

@@ -563,3 +563,34 @@ use rusqlite::params;
         assert_eq!(rows.len(), 1, "only anthropic forward should remain");
         assert_eq!(rows[0].id, "f1");
     }
+
+    /// logs-query-ipc-slimming s4：distinct_models_proxy_log 去重 + exclude_sources 生效 +
+    /// actual 参数选列正确。
+    #[tokio::test]
+    async fn distinct_models_dedup_and_excludes_sources() {
+        let db = test_db().await;
+        let now = now();
+        // 两条 model 相同、actual_model 不同的转发行，一条 test 源（应被排除）。
+        let mut l1 = sample_log("d1", "g", now);
+        l1.model = "claude-sonnet-4".into();
+        l1.actual_model = "glm-4-plus".into();
+        let mut l2 = sample_log("d2", "g", now - 10);
+        l2.model = "claude-sonnet-4".into();
+        l2.actual_model = "deepseek-chat".into();
+        let mut l3 = sample_log("d3", "g", now - 20);
+        l3.source_protocol = "test".into();
+        l3.model = "should-not-appear".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l1, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l2, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l3, false, false)).await.unwrap();
+
+        let filter = crate::gateway::models::ProxyLogFilter {
+            exclude_sources: Some(vec!["test".into(), "quota".into()]),
+            ..Default::default()
+        };
+        let models = distinct_models_proxy_log(&db, &filter, false, 200).await.unwrap();
+        assert_eq!(models, vec!["claude-sonnet-4".to_string()], "dedup on model col, test source excluded");
+
+        let actual_models = distinct_models_proxy_log(&db, &filter, true, 200).await.unwrap();
+        assert_eq!(actual_models, vec!["deepseek-chat".to_string(), "glm-4-plus".to_string()]);
+    }
