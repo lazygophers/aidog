@@ -37,11 +37,10 @@ export function ListView({ filters, list, openDetail, copyRow }: {
     modelOptions, hasFilter, clearFilter, platformMap, groupName,
   } = filters;
   const {
-    logs, total, offset, pageSize, loading, load, setOffset, setPageSize,
+    logs, hasMore, offset, pageSize, loading, load, setOffset, setPageSize,
     handleClear, handleCleanupExpired, showClearConfirm, setShowClearConfirm, cleanupMessage,
   } = list;
 
-  const totalPages = Math.ceil(total / pageSize);
   const currentPage = Math.floor(offset / pageSize) + 1;
 
   return (
@@ -51,7 +50,8 @@ export function ListView({ filters, list, openDetail, copyRow }: {
         <div>
           <div className="section-title">{t("page.logs", "请求日志")}</div>
           <div className="section-desc">
-            {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("logs.empty", "暂无日志")}
+            {/* logs-query-ipc-slimming s2：不再精确 COUNT(*)，仅按当前页有无数据判空 */}
+            {logs.length > 0 ? t("logs.totalUnknown", "日志列表") : t("logs.empty", "暂无日志")}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -61,7 +61,7 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); load(); }} disabled={loading} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
           </Button>
-          {total > 0 && (
+          {logs.length > 0 && (
             <>
               <Button variant="default" className="ripple" onClick={(e) => { makeRipple(e); handleCleanupExpired(); }} style={{ fontSize: F.hint, height: "auto", padding: "4px 10px" }}>
                 {t("logs.cleanupExpired", "清理过期")}
@@ -210,11 +210,11 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           </div>
 
           {/* Pagination */}
-          {total > 0 && (
+          {logs.length > 0 && (
             <Pagination
               currentPage={currentPage}
-              totalPages={totalPages}
-              total={total}
+              hasMore={hasMore}
+              resultCount={logs.length}
               pageSize={pageSize}
               onPageChange={page => setOffset((page - 1) * pageSize)}
               onPageSizeChange={setPageSize}

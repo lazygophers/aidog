@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ProxySettings, ProxyClientSettings, ProxyLogSummary, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary } from "./types";
+import type { ProxySettings, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary } from "./types";
 
 
 // ─── Proxy API ─────────────────────────────────────────────
@@ -35,8 +35,9 @@ export const proxyApi = {
 export const proxyLogApi = {
   list: (limit = 50, offset = 0) =>
     invoke<ProxyLogSummary[]>("proxy_log_list", { limit, offset }),
+  // logs-query-ipc-slimming s2：不再返精确总数，改 has_more 探测（LIMIT limit+1 由 Rust 侧截断）。
   listFiltered: (filter: ProxyLogFilter, limit = 50, offset = 0) =>
-    invoke<ProxyLogSummary[]>("proxy_log_list_filtered", { filter, limit, offset }),
+    invoke<ProxyLogPage>("proxy_log_list_filtered", { filter, limit, offset }),
   get: (id: string) =>
     invoke<ProxyLogDetail | null>("proxy_log_get", { id }),
   clear: () => invoke<void>("proxy_log_clear"),

@@ -173,6 +173,16 @@ pub struct ProxyLogSummary {
     pub created_at: i64,
 }
 
+/// 分页探测结果（logs-query-ipc-slimming s2）：`items` 恒为 `limit` 行，`has_more` 由
+/// `LIMIT limit+1` 探测出的第 limit+1 行是否存在决定（该行本身不下发，仅用于置位）。
+/// 替代精确 `COUNT(*)` 全表扫，前端分页 UI 退化为「有更多/没有更多」，不再展示精确总数/总页数。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ProxyLogPage {
+    pub items: Vec<ProxyLogSummary>,
+    pub has_more: bool,
+}
+
 /// 日志列表筛选条件
 #[derive(Debug, Clone, Default, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]

@@ -258,7 +258,7 @@ use rusqlite::params;
             group_key: Some("group_a".to_string()),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "fg1");
 
@@ -282,7 +282,7 @@ use rusqlite::params;
             status: Some(200),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter_ok, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter_ok, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "ok");
 
@@ -290,7 +290,7 @@ use rusqlite::params;
             status: Some(-1),
             ..Default::default()
         };
-        let rows2 = filtered_list_proxy_logs(&db, &filter_fail, 10, 0).await.unwrap();
+        let rows2 = filtered_list_proxy_logs(&db, &filter_fail, 10, 0).await.unwrap().items;
         assert_eq!(rows2.len(), 1);
         assert_eq!(rows2[0].id, "fail");
     }
@@ -311,7 +311,7 @@ use rusqlite::params;
             model_type: Some("actual".to_string()),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter_actual, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter_actual, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1, "actual model match should work");
 
         // original model filter
@@ -320,8 +320,30 @@ use rusqlite::params;
             model_type: Some("original".to_string()),
             ..Default::default()
         };
-        let rows2 = filtered_list_proxy_logs(&db, &filter_orig, 10, 0).await.unwrap();
+        let rows2 = filtered_list_proxy_logs(&db, &filter_orig, 10, 0).await.unwrap().items;
         assert_eq!(rows2.len(), 1, "original model match should work");
+    }
+
+    /// filtered_list：has_more 边界（logs-query-ipc-slimming s2，替代精确 COUNT）。
+    /// 恰好 limit 行 → has_more=false；limit+1 行 → 只截断返回 limit 行 + has_more=true。
+    #[tokio::test]
+    async fn filtered_list_has_more_boundary() {
+        let db = test_db().await;
+        let now = now();
+        for i in 0..3 {
+            insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log(&format!("hm{i}"), "g", now - i), false, false)).await.unwrap();
+        }
+        let filter = crate::gateway::models::ProxyLogFilter::default();
+
+        // 恰好 3 行、limit=3 → 无下一页
+        let exact = filtered_list_proxy_logs(&db, &filter, 3, 0).await.unwrap();
+        assert_eq!(exact.items.len(), 3);
+        assert!(!exact.has_more, "exact page should not report has_more");
+
+        // limit=2 → 探测到第 3 行，截断为 2 行 + has_more=true
+        let short = filtered_list_proxy_logs(&db, &filter, 2, 0).await.unwrap();
+        assert_eq!(short.items.len(), 2, "probe row must not leak into items");
+        assert!(short.has_more);
     }
 
     /// clear_proxy_logs 软删全部日志（设 deleted_at != 0）。
@@ -336,7 +358,7 @@ use rusqlite::params;
         clear_proxy_logs(&db).await.unwrap();
         // 软删后 filtered_list（WHERE deleted_at=0）应为空
         let filter = crate::gateway::models::ProxyLogFilter::default();
-        let rows = filtered_list_proxy_logs(&db, &filter, 100, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 100, 0).await.unwrap().items;
         assert_eq!(rows.len(), 0, "cleared logs should be soft-deleted (hidden from list)");
     }
 
@@ -355,7 +377,7 @@ use rusqlite::params;
             time_end: Some(now + 10_000),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "recent");
 
@@ -392,7 +414,7 @@ use rusqlite::params;
             path: Some("chat".into()),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
         // Both sample logs have same url, both should match "chat" if it's in the url
         // (sample_log sets request_url = "test://api/v1/chat/completions" or similar)
         let count = filtered_count_proxy_logs(&db, &filter).await.unwrap();
@@ -414,7 +436,7 @@ use rusqlite::params;
             status: Some(429),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "s429");
     }
@@ -438,7 +460,7 @@ use rusqlite::params;
             model_type: Some("actual".into()),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "mta-1");
     }
@@ -537,7 +559,7 @@ use rusqlite::params;
             exclude_sources: Some(vec!["test".into(), "quota".into()]),
             ..Default::default()
         };
-        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items;
         assert_eq!(rows.len(), 1, "only anthropic forward should remain");
         assert_eq!(rows[0].id, "f1");
     }

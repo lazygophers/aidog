@@ -340,20 +340,24 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<crate::gateway::mo
     })
 }
 
+/// logs-query-ipc-slimming s2：取 `limit+1` 行探测「是否有下一页」，替代精确 `COUNT(*)`
+/// 全表扫（转发期前端每 500ms 轮询一次，COUNT 在 1.8w+ 行库上是纯浪费）。多取的第 limit+1
+/// 行只用于置位 `has_more`，Rust 侧截断，绝不下发给前端。
 #[track_caller]
 pub fn filtered_list_proxy_logs<'a>(
     db: &'a Db,
     filter: &'a crate::gateway::models::ProxyLogFilter,
     limit: u32,
     offset: u32,
-) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ProxyLogSummary>, String>> + 'a {
+) -> impl std::future::Future<Output = Result<crate::gateway::models::ProxyLogPage, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let filter = filter.clone();
+    let probe_limit = limit + 1;
     db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
-            p.push(Box::new(limit));
+            p.push(Box::new(probe_limit));
             p.push(Box::new(offset));
             let sql = format!(
                 "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at \
@@ -361,8 +365,11 @@ pub fn filtered_list_proxy_logs<'a>(
             );
             let mut stmt = conn.prepare(&sql)?;
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-            let rows = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            let mut items = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?
+                .collect::<SqlResult<Vec<_>>>()?;
+            let has_more = items.len() > limit as usize;
+            items.truncate(limit as usize);
+            Ok(crate::gateway::models::ProxyLogPage { items, has_more })
         })
         .await
         .map_err(|e| e.to_string())

@@ -11,7 +11,7 @@ const DEFAULT_PAGE_SIZE = 20;
 export function useLogsList(activeFilter: ProxyLogFilter, hasFilter: boolean) {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
-  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [offset, setOffset] = useState(0);
   const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
@@ -22,12 +22,11 @@ export function useLogsList(activeFilter: ProxyLogFilter, hasFilter: boolean) {
     if (!silent) setLoading(true);
     try {
       // 始终走 filtered 路径：activeFilter 默认带 exclude_sources=["test","quota"]
-      const [items, count] = await Promise.all([
-        proxyLogApi.listFiltered(activeFilter, pageSize, offset),
-        proxyLogApi.countFiltered(activeFilter),
-      ]);
-      setLogs(items || []);
-      setTotal(count);
+      // logs-query-ipc-slimming s2：不再跟精确 COUNT（转发期 500ms 轮询下是全表扫浪费），
+      // 改 has_more 探测「有没有下一页」，分页 UI 相应退化（见 primitives.tsx Pagination）。
+      const page = await proxyLogApi.listFiltered(activeFilter, pageSize, offset);
+      setLogs(page.items || []);
+      setHasMore(page.has_more);
     } catch (e) { console.error(e); }
     if (!silent) setLoading(false);
   }, [offset, pageSize, activeFilter]);
@@ -58,7 +57,7 @@ export function useLogsList(activeFilter: ProxyLogFilter, hasFilter: boolean) {
   };
 
   return {
-    logs, total, offset, pageSize, loading, setOffset, setPageSize, load,
+    logs, hasMore, offset, pageSize, loading, setOffset, setPageSize, load,
     handleClear, handleCleanupExpired, showClearConfirm, setShowClearConfirm, cleanupMessage,
   };
 }

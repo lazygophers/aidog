@@ -35,6 +35,7 @@ export * from "./PriceSyncSettings";
 export * from "./ProxyAttempt";
 export * from "./ProxyClientSettings";
 export * from "./ProxyLogFilter";
+export * from "./ProxyLogPage";
 export * from "./ProxyLogSettings";
 export * from "./ProxyLogSummary";
 export * from "./ProxyTimeoutSettings";

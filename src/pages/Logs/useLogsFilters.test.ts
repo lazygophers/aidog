@@ -8,7 +8,7 @@ import { NO_GROUP_SENTINEL } from "./types";
 const { platformApiMock, groupDetailApiMock, proxyLogApiMock } = vi.hoisted(() => ({
   platformApiMock: { list: vi.fn<() => Promise<any[]>>() },
   groupDetailApiMock: { list: vi.fn<() => Promise<any[]>>() },
-  proxyLogApiMock: { listFiltered: vi.fn<() => Promise<any[]>>() },
+  proxyLogApiMock: { listFiltered: vi.fn<() => Promise<{ items: any[]; has_more: boolean }>>() },
 }));
 
 vi.mock("../../services/api", () => ({
@@ -24,7 +24,7 @@ describe("useLogsFilters", () => {
     vi.clearAllMocks();
     platformApiMock.list.mockResolvedValue([{ id: 1, name: "P1" }]);
     groupDetailApiMock.list.mockResolvedValue([{ group: { group_key: "g1", name: "G1" } }]);
-    proxyLogApiMock.listFiltered.mockResolvedValue([]);
+    proxyLogApiMock.listFiltered.mockResolvedValue({ items: [], has_more: false });
   });
 
   it("初始 activeFilter 只带 exclude_sources 默认值", async () => {

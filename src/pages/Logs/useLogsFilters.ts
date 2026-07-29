@@ -59,7 +59,7 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     (async () => {
       try {
         // 模型下拉同样排除 test/quota，避免列出主列表不存在的模型
-        const items = await proxyLogApi.listFiltered({ exclude_sources: ["test", "quota"] }, 200, 0);
+        const { items } = await proxyLogApi.listFiltered({ exclude_sources: ["test", "quota"] }, 200, 0);
         const col = filterModelType === "actual" ? "actual_model" : "model";
         const set = new Set<string>();
         (items || []).forEach(l => { if ((l as any)[col]) set.add((l as any)[col]); });
