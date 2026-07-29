@@ -1,0 +1,124 @@
+{
+  "id": "time-models-timezone",
+  "name": "分时段模型时区支持",
+  "desc": "time_models 时段编辑器补时区换算(共用 tzMode) + 半时区按分钟换算修正 + 脏数据归一 + 3 处硬编码中文走 i18n",
+  "status": "进行中",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1",
+      "name": "时区换算工具层 + 脏数据归一",
+      "desc": "src/utils/peakHours.ts 新增时区换算导出 + normalizeWindow, 新建单测, platforms.ts 两处 parse 接入归一",
+      "estimate": 1.5,
+      "depends_on": [],
+      "验收": [
+        "shiftClock/utcToDisplay/displayToUtc/normalizeWindow 已按 design.md §1 骨架实现于 src/utils/peakHours.ts",
+        "新建 src/utils/peakHours.test.ts 覆盖 offset=0/+330/-300/跨零点/23:59 边界 + normalizeWindow(8.5→8:30 / 8.0 不变 / 叠加已有 start_minute 进位)",
+        "parsePlatformPeakHours 与 parsePlatformTimeModels 出口均 map(normalizeWindow)",
+        "yarn test 全绿",
+        "npx tsc --noEmit 零错误",
+        "未改动任何 src/pages/ 文件"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785326362,
+      "started": 1785326376,
+      "finished": 1785326542
+    },
+    {
+      "sid": "s2",
+      "name": "peak_hours 侧切换新换算 + tzMode 改名透传",
+      "desc": "formSections.tsx 删本地换算改 import, minute 输入接入换算, desc 文案改; peakHoursTz→windowsTz 5 处引用点; PlatformEditForm 给 ModelsMatrixSection 传 tz props",
+      "estimate": 1.5,
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "formSections.tsx:453-473 的 LOCAL_OFFSET_HOURS/tzOffset/utcToDisplay/displayToUtc 已删, 改 import src/utils/peakHours",
+        "start/end 的 hour 与 minute 四个输入框全部按 tzMode 双向换算",
+        "formatWindowPreview 用新签名且删除已被证伪的『minute 不受时区影响』注释",
+        "peak_hours_desc 文案不再写死『按 UTC+0』(仅改 zh-Hans, 其余 7 语言归 s4)",
+        "peakHoursTz 全量改名 windowsTz (usePlatformForm.ts:120/216/834 + PlatformEditForm.tsx:57/389)",
+        "PlatformEditForm 给 ModelsMatrixSection 传 tzMode={windowsTz} setTzMode={setWindowsTz} (design.md §3.5 契约)",
+        "整时区(UTC+8)下 peak_hours 编辑器显示值与改动前逐位一致",
+        "npx tsc --noEmit 零错误"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785326362,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3",
+      "name": "time_models 侧时区换算接入",
+      "desc": "WindowsEditModal 输入换算 + tz 切换按钮 + 次日提示; ModelsMatrixSection describeWindows 换算 + tz 标签",
+      "estimate": 2.0,
+      "depends_on": [
+        "s1"
+      ],
+      "验收": [
+        "WindowsEditModal.tsx:140-160 的 start/end hour+minute 四输入按 tzMode 双向换算(调 src/utils/peakHours 的 utcToDisplay/displayToUtc, 禁自抄换算)",
+        "WindowsEditModal 顶部有 tz 切换按钮(照抄 formSections.tsx:597-611 样式)与跨天『次日』提示",
+        "ModelsMatrixSection.tsx:37-64 的 describeWindow/describeWindows 收 tzMode 参数并换算输出 + 带 tz 标签",
+        "ModelsMatrixSection 按 design.md §3.5 契约声明 tzMode/setTzMode props",
+        "未改动 PlatformEditForm.tsx 与 usePlatformForm.ts(归 s2)",
+        "npx tsc --noEmit 零错误"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785326362,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4",
+      "name": "i18n 硬编码中文清除 + 8 语言补齐",
+      "desc": "4 处硬编码中文走新 key, 8 语言齐平, peak_hours_desc 7 语言同步",
+      "estimate": 1.0,
+      "depends_on": [
+        "s2",
+        "s3"
+      ],
+      "验收": [
+        "新建 platform.weekday_short.0..6 / platform.window_all_day / platform.window_never 共 9 个 key, 8 语言齐平",
+        "ModelsMatrixSection.tsx:35 WEEKDAY_ZH 与 :48 全天 与 :60 永不命中 与 WindowsEditModal.tsx:209 weekday title 数组全部改走 t()",
+        "peak_hours_desc 其余 7 语言同步去掉写死的 UTC+0 表述",
+        "node scripts/check-i18n.mjs 零缺失",
+        "locale 新 key 走顶层扁平 dotted key 且注入保序(未全排序)",
+        "npx tsc --noEmit 零错误"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785326362,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 6.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/time-models-timezone",
+  "parent": null,
+  "kind": "task",
+  "created": 1785326087,
+  "started": 1785326367,
+  "confirmed": 1785326366,
+  "checked": null,
+  "finished": null,
+  "updated": 1785326542
+}
