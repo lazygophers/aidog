@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(51), cross-layer(10), db(23), domain(77), encoding(4), frontend(46), git(6), i18n(9), ops(5), optimization(6), proxy(39), reuse(6), shadcn(49), skein(2), style(11), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(51), cross-layer(10), db(23), domain(77), encoding(4), frontend(66), git(6), i18n(9), ops(5), optimization(13), proxy(39), reuse(6), shadcn(49), skein(2), style(11), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | status/出链 | summary |
 |---|---|---|---|---|---|
@@ -308,6 +308,12 @@
 | frontend/modal-state-architecture.md#后续新 Modal 决策树 | frontend | 后续新 Modal 决策树 | modal, state, architecture, PlatformEditForm, usePlatformForm, PlatformPasteCtx, CpaImportModal, SmartPasteModal | active | ``` 新 Modal (如 Sub2Api) ├─ onApply 直接填表单字段？ │  └─ 是 → SmartP… |
 | frontend/modal-state-architecture.md#架构原则 | frontend | 架构原则 | modal, state, architecture, PlatformEditForm, usePlatformForm, PlatformPasteCtx, CpaImportModal, SmartPasteModal | active | 1. **Modal 直接操作表单字段 → state 放 hook，通过 PlatformPasteCtx 传 set… |
 | frontend/modal-state-architecture.md#验收 | frontend | 验收 | modal, state, architecture, PlatformEditForm, usePlatformForm, PlatformPasteCtx, CpaImportModal, SmartPasteModal | active | - [ ] grep `showCpaImport` / `showPaste` 在 PlatformEditForm … |
+| frontend/semantic-token-foreground-pairing.md#判据 | frontend | 判据 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | 任何语义色 `bg-X` token 都必须配达标对比度的 `--X-foreground`。frontend-comp… |
+| frontend/semantic-token-foreground-pairing.md#案例 | frontend | 案例 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | frontend-compositing-purge task 对比度审计：dark `--accent-foregro… |
+| frontend/semantic-token-foreground-pairing.md#正解 | frontend | 正解 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | 修对比度缺陷时**禁改 `--accent` 等语义色 token 的值本身**，只能改配对的 `-foreground… |
+| frontend/semantic-token-foreground-pairing.md#语义色 token 必须成对达标, --accent 本值禁改 | frontend | 语义色 token 必须成对达标, --accent 本值禁改 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | - |
+| frontend/semantic-token-foreground-pairing.md#适用 | frontend | 适用 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active / →token-foreground-pairing | 本项目（aidog）任何涉及语义色 token 新增/审计对比度时；同族已有跨项目 memory [[token-for… |
+| frontend/semantic-token-foreground-pairing.md#陷阱 | frontend | 陷阱 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | 本项目 `--accent` 语义**不等于** shadcn 惯例（shadcn 里 accent 通常是低调 hov… |
 | frontend/shadcn-infra-30.md#关联 | frontend | 关联 | css,var,alias,live-resolution,migration | active / →shadcn-infra-02 | [[shadcn-infra-02]] (同任务 Tailwind 约束) |
 | frontend/shadcn-infra-30.md#对比 | frontend | 对比 | css,var,alias,live-resolution,migration | active | / 方式 / 改动量 / 误伤风险 / 回滚 / /------/--------/---------/------/ … |
 | frontend/shadcn-infra-30.md#技巧 | frontend | 技巧 | css,var,alias,live-resolution,migration | active | CSS 变量改名时，用 :root 定义别名层实现 live resolution，替代批量 sed 替换（零误伤、可回… |
@@ -321,6 +327,20 @@
 | frontend/shadcn-infra-31.md#正解 | frontend | 正解 | shadcn,theme,token,runtime,css,var | active | 1. applyTheme 函数直接设置 CSS var：    ```ts    document.documentE… |
 | frontend/shadcn-infra-31.md#适用 | frontend | 适用 | shadcn,theme,token,runtime,css,var | active | shadcn 主题运行时切换、动态主题系统、CSS var 运行时更新 |
 | frontend/shadcn-infra-31.md#陷阱 | frontend | 陷阱 | shadcn,theme,token,runtime,css,var | active | - **陷阱**: 用 !important 强制覆盖 → 级联爆炸、难以维护 - **陷阱**: 依赖 @import… |
+| frontend/tailwind-cascade-layer-unlayered.md#CSS cascade layer: 裸写规则反压 layer 内 utility | frontend | CSS cascade layer: 裸写规则反压 layer 内 utility | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | - |
+| frontend/tailwind-cascade-layer-unlayered.md#判据 | frontend | 判据 | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | Tailwind v4 项目里若 `globals.css` 顶部声明了 `@layer theme, base, co… |
+| frontend/tailwind-cascade-layer-unlayered.md#案例 | frontend | 案例 | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | frontend-compositing-purge task：commit c3f9515e 裸写 UA reset … |
+| frontend/tailwind-cascade-layer-unlayered.md#检查 | frontend | 检查 | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | globals.css 顶部若见 `@layer <names>;` 声明 + `@import ... layer(.… |
+| frontend/tailwind-cascade-layer-unlayered.md#正解 | frontend | 正解 | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | 补 UA reset 规则必须包进 `@layer base { }`，与 globals.css 顶部声明的 laye… |
+| frontend/tailwind-cascade-layer-unlayered.md#适用 | frontend | 适用 | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | Tailwind v4 + cascade layer 项目，补 preflight/UA reset 规则、新增全局元… |
+| frontend/tailwind-cascade-layer-unlayered.md#陷阱 | frontend | 陷阱 | tailwind,cascade-layer,unlayered,layer,preflight,cascade,css | active | 补 preflight 缺失的 UA reset（如 `button,input,select,textarea { c… |
+| frontend/theme-dark-class-dead-code.md#关联 | frontend | 关联 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active / →shadcn-infra-31 | [[shadcn-infra-31]]（同类 shadcn 主题运行时切换技巧，本条补充"本项目未用 classList… |
+| frontend/theme-dark-class-dead-code.md#判据 | frontend | 判据 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active | 本项目主题机制：`src/themes/index.ts::applyTheme` 只做两件事——`applyTheme… |
+| frontend/theme-dark-class-dead-code.md#本项目主题机制: data-mode 属性驱动, dark: utility 死代码 | frontend | 本项目主题机制: data-mode 属性驱动, dark: utility 死代码 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active | - |
+| frontend/theme-dark-class-dead-code.md#案例 | frontend | 案例 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active | frontend-compositing-purge task 审计发现 `field.tsx:120`、`alert.… |
+| frontend/theme-dark-class-dead-code.md#正解 | frontend | 正解 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active | 判本项目深色态必须看 `mono.ts` 的 `dark` 块或 `:root[data-mode="dark"]` 选… |
+| frontend/theme-dark-class-dead-code.md#适用 | frontend | 适用 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active | 本项目（aidog）任何涉及深色态样式判断/新增组件暗色适配时；planning 阶段先查 `src/themes/in… |
+| frontend/theme-dark-class-dead-code.md#陷阱 | frontend | 陷阱 | theme,dark,applyTheme,data-mode,classList,tailwind,dark-mode,color-scheme | active | 故 globals.css 里 `@custom-variant dark (&:is(.dark *))` 与 `.d… |
 | frontend/trellis-18.md#API Layer (MUST) | frontend | API Layer (MUST) | frontend,react,component,hook,state,crud,刷新链,modal,invoke | active | > 违反代价: invoke 散落各文件 / 静默丢错 → 后端 command 改名时编译期不报、运行时静默失败难排查… |
 | frontend/trellis-18.md#CRUD 刷新链契约 (MUST) | frontend | CRUD 刷新链契约 (MUST) | frontend,react,component,hook,state,crud,刷新链,modal,invoke | active | > 违反代价: 后端真删/真改的 CRUD 入口（如 `platformApi.delete`）仅刷关联 state（g… |
 | frontend/trellis-18.md#Component Patterns (MUST) | frontend | Component Patterns (MUST) | frontend,react,component,hook,state,crud,刷新链,modal,invoke | active | > 违反代价: 引入 CSS Modules / CSS-in-JS → 样式系统割裂、主题切换失效；index 作 k… |
@@ -357,6 +377,13 @@
 | optimization/manual-budget-empty-shortcircuit.md#方案 | optimization | 方案 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | **分两阶段：**  1. **只读池预检**（`has_any_budget`，line:189-203）：用只读池（… |
 | optimization/manual-budget-empty-shortcircuit.md#用途 | optimization | 用途 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | 高频转发路径的每请求冷路径优化，减少单线程 DB 写锁争。适用于： - mock/真实平台混用的压测 - 用户未配额时的… |
 | optimization/manual-budget-empty-shortcircuit.md#问题 | optimization | 问题 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | `apply_manual_budgets`（`manual_budget.rs:211-246`）处理用户手动配额时，… |
+| optimization/measure-window-multi-probe.md#关联 | optimization | 关联 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active / →measure-window-exclusive-env | [[measure-window-exclusive-env]]（跨项目 memory：同族约束——采样期间禁并发 bu… |
+| optimization/measure-window-multi-probe.md#判据 | optimization | 判据 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | CPU/内存稳态采样，只在采样前打一次前台确证（如 `lsappinfo front`）不够——采样窗口内应用可能中途失… |
+| optimization/measure-window-multi-probe.md#案例 | optimization | 案例 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | `.scratch/perf-200mb/assets/results/cpu-s7-after-run3.txt`（8… |
+| optimization/measure-window-multi-probe.md#正解 | optimization | 正解 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | 稳态采样窗口内必须**多点探针**（如每 15s 一次），全程确证前台/目标态未漂移，而非仅窗口前一次性确证。另需注意 … |
+| optimization/measure-window-multi-probe.md#适用 | optimization | 适用 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | CPU/内存稳态性能采样，尤其涉及应用前台/背景态切换、GUI 应用量测场景。 |
+| optimization/measure-window-multi-probe.md#量测 regime 自证必须窗口内多点探针 | optimization | 量测 regime 自证必须窗口内多点探针 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | - |
+| optimization/measure-window-multi-probe.md#陷阱 | optimization | 陷阱 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | 实测：run3 采样前确证前台，但 60s 窗口末端已漂回终端，读数被稀释成 8.2%（前台+背景混合值）。同实例钉死前… |
 | proxy/rule-50.md#关联 | proxy | 关联 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active / →trellis-00,trellis-11 | [[trellis-11]] （proxy 统计不污染） · [[trellis-00]] （DB 表设计） |
 | proxy/rule-50.md#反例 / 常见错误 | proxy | 反例 / 常见错误 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | / 错误                          / 为什么错                        … |
 | proxy/rule-50.md#案例 | proxy | 案例 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | - log-async-write task (commit 529e571b) — proxy_log 改为单 wri… |
