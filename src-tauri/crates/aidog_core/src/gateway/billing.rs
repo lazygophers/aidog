@@ -44,6 +44,7 @@ pub async fn calc_est_cost(
         settings.fallback_input_price,
         settings.fallback_output_price,
         input_tokens as i64,
+        created_at_ms,
     )
     .await
     .unwrap_or_else(|_| crate::gateway::models::ResolvedPrice {

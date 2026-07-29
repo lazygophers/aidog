@@ -176,6 +176,7 @@ pub async fn get_model_max_output_tokens(db: &Db, model_name: &str) -> Result<Op
 
 /// 解析价格：model_name + platform_type → ResolvedPrice
 /// 优先级: pricing[platform_type] > top_level > default_platform pricing > fallback settings
+/// `now_ms <= 0` = 无时间上下文，跳过 time_tiers（同 `est_cost_from:98` 约定）。
 pub async fn resolve_price(
     db: &Db,
     model_name: &str,
@@ -183,11 +184,14 @@ pub async fn resolve_price(
     fallback_input: f64,
     fallback_output: f64,
     input_tokens: i64,
+    now_ms: i64,
 ) -> Result<crate::gateway::models::ResolvedPrice, String> {
     let mp = get_model_price(db, model_name).await?;
     let pd: serde_json::Value = match &mp {
         Some(m) => serde_json::from_str(&m.price_data).unwrap_or_default(),
-        None => serde_json::Value::Null,
+        None => crate::gateway::price_sync::bundled_model_entry(model_name)
+            .cloned()
+            .unwrap_or(serde_json::Value::Null),
     };
 
     // 1. Try pricing[platform_type]
@@ -196,15 +200,17 @@ pub async fn resolve_price(
         let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
         if input > 0.0 || output > 0.0 {
-            return Ok(apply_context_tier(
+            return Ok(apply_tiers(
                 crate::gateway::models::ResolvedPrice {
                     input_cost_per_token: input,
                     output_cost_per_token: output,
                     cache_read_input_token_cost: cache,
                     source: "platform_override".to_string(),
                 },
+                pricing_node,
                 &pd,
                 input_tokens,
+                now_ms,
             ));
         }
     }
@@ -214,7 +220,7 @@ pub async fn resolve_price(
     let top_output = pd.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
     let top_cache = pd.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
     if top_input > 0.0 || top_output > 0.0 {
-        return Ok(apply_context_tier(
+        return Ok(apply_tiers(
             crate::gateway::models::ResolvedPrice {
                 input_cost_per_token: top_input,
                 output_cost_per_token: top_output,
@@ -222,7 +228,9 @@ pub async fn resolve_price(
                 source: "top_level".to_string(),
             },
             &pd,
+            &pd,
             input_tokens,
+            now_ms,
         ));
     }
 
@@ -233,15 +241,17 @@ pub async fn resolve_price(
             let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
             if input > 0.0 || output > 0.0 {
-                return Ok(apply_context_tier(
+                return Ok(apply_tiers(
                     crate::gateway::models::ResolvedPrice {
                         input_cost_per_token: input,
                         output_cost_per_token: output,
                         cache_read_input_token_cost: cache,
                         source: "default_platform".to_string(),
                     },
+                    pricing_node,
                     &pd,
                     input_tokens,
+                    now_ms,
                 ));
             }
         }
@@ -253,6 +263,19 @@ pub async fn resolve_price(
         cache_read_input_token_cost: 0.0,
         source: "fallback".to_string(),
     })
+}
+
+/// 三价字段非 null 覆盖 base（null 字段继承 base）。`apply_context_tier` / `apply_tiers` 共用。
+fn overlay_prices(base: &mut crate::gateway::models::ResolvedPrice, tier: &serde_json::Value) {
+    if let Some(v) = tier.get("input_cost_per_token").and_then(|v| v.as_f64()) {
+        base.input_cost_per_token = v;
+    }
+    if let Some(v) = tier.get("output_cost_per_token").and_then(|v| v.as_f64()) {
+        base.output_cost_per_token = v;
+    }
+    if let Some(v) = tier.get("cache_read_input_token_cost").and_then(|v| v.as_f64()) {
+        base.cache_read_input_token_cost = v;
+    }
 }
 
 /// 上下文阶梯选档：取 `context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
@@ -277,17 +300,48 @@ pub(crate) fn apply_context_tier(
     let Some((_, tier)) = best else {
         return base;
     };
-    if let Some(v) = tier.get("input_cost_per_token").and_then(|v| v.as_f64()) {
-        base.input_cost_per_token = v;
-    }
-    if let Some(v) = tier.get("output_cost_per_token").and_then(|v| v.as_f64()) {
-        base.output_cost_per_token = v;
-    }
-    if let Some(v) = tier.get("cache_read_input_token_cost").and_then(|v| v.as_f64()) {
-        base.cache_read_input_token_cost = v;
-    }
+    overlay_prices(&mut base, tier);
     base.source.push_str("+tier");
     base
+}
+
+/// 时间阶梯选档：取 `time_tiers` 中 `start_at * 1000 <= now_ms` 的最大档。
+/// time_tiers 先查当前价档节点 `scope`（= pricing[platform_type]，平台级时段价），
+/// 缺失回落 `pd` 顶层（模型级时段价）。命中后该条目整体作为价表
+/// （base 三价覆盖 + 其内嵌 context_tiers 替代顶层），再跑 context 分档 ——
+/// 顺序 time→context，因为涨价后的长文档价只能表达在 time 条目内部。
+/// `now_ms <= 0` = 无时间上下文，跳过（同 `est_cost_from:98` 约定）。
+pub(crate) fn apply_tiers(
+    mut base: crate::gateway::models::ResolvedPrice,
+    scope: &serde_json::Value,
+    pd: &serde_json::Value,
+    input_tokens: i64,
+    now_ms: i64,
+) -> crate::gateway::models::ResolvedPrice {
+    let hit = (now_ms > 0)
+        .then(|| {
+            scope.get("time_tiers")
+                .or_else(|| pd.get("time_tiers"))
+                .and_then(|v| v.as_array())
+        })
+        .flatten()
+        .and_then(|tiers| {
+            tiers.iter()
+                .filter_map(|t| {
+                    let at = t.get("start_at").and_then(|v| v.as_i64())?;
+                    (at.saturating_mul(1000) <= now_ms).then_some((at, t))
+                })
+                .max_by_key(|(at, _)| *at)
+        });
+    let ctx_src = match hit {
+        Some((_, tier)) => {
+            overlay_prices(&mut base, tier);
+            base.source.push_str("+time");
+            tier
+        }
+        None => pd,
+    };
+    apply_context_tier(base, ctx_src, input_tokens)
 }
 
 /// 搜索模型价格
