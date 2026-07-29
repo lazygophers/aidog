@@ -564,10 +564,19 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
     if let Some(ref srcs) = filter.exclude_sources
         && !srcs.is_empty() {
             let placeholders: Vec<String> = (0..srcs.len()).map(|i| format!("?{}", idx + i as u32)).collect();
-            // `OR source_protocol IS NULL`：理论 source_protocol 各路径均硬赋值无 NULL，
-            // 但 NULL NOT IN (...) 返 NULL（被 WHERE 视作 false 而 filter 掉），加 OR 保 NULL 行不丢。
+            // logs-query-ipc-slimming s3：不再加 `OR source_protocol IS NULL` 防御分支。
+            // schema_early.rs:119 `source_protocol TEXT NOT NULL DEFAULT ''` 是 DB 级约束，
+            // 该列在 log.db 实表上不可能为 NULL（`NULL NOT IN (...)` 恒返 NULL 会被 WHERE
+            // 过滤的场景在此表上恒不触发），OR 分支是永假的死代码，删之不改变任何结果集。
+            //
+            // ⚠️ 本段谓词本身（`source_protocol NOT IN (...)`）**非恒真/非死代码**：Logs 主页
+            // 默认 exclude_sources=["test","quota"]（useLogsFilters.ts:39/:62），而这两类值
+            // 会被真实写入 proxy_log（ai_tools_cmd/model_test.rs:157 `source_protocol: "test"`、
+            // gateway/quota/http.rs:187 `source_protocol: "quota"`）。跳过此谓词会让
+            // 测试/quota 探测请求泄漏进主 Logs 列表，是行为回归，故**不跳过**（详见
+            // research/s3-predicate.md 的恒真判定）。
             parts.push(format!(
-                "AND (source_protocol NOT IN ({}) OR source_protocol IS NULL)",
+                "AND source_protocol NOT IN ({})",
                 placeholders.join(", ")
             ));
             for s in srcs {
@@ -780,6 +789,22 @@ mod test_filter_where {
         assert_binds_ok(&ProxyLogFilter {
             sources: Some(vec![]),
             exclude_sources: Some(vec![]),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn empty_exclude_sources_then_cli_proxy_provider_id_binds_ok() {
+        // logs-query-ipc-slimming s3 回归：exclude_sources 跳过分支（空 Vec，不拼 NOT IN，
+        // idx 不递增）之后紧跟 cli_proxy_provider_id 分支（?1）——若跳过分支误递增/漏递增
+        // idx，此处会与占位符编号错位。model/path 一并夹在中间，穷举跳过分支两侧都有
+        // 参数化分支的组合。
+        assert_binds_ok(&ProxyLogFilter {
+            model: Some("m".into()),
+            path: Some("p".into()),
+            sources: Some(vec![]),
+            exclude_sources: Some(vec![]),
+            cli_proxy_provider_id: Some(42),
             ..Default::default()
         });
     }
