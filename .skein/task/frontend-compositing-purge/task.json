@@ -71,13 +71,18 @@
         "reduced-motion 块覆盖全部动画选择器",
         "bgShimmer 处置结论已记(删或留, 有理由)"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
       "started": 1785254659,
-      "finished": null
+      "finished": 1785257519
     },
     {
       "sid": "s4-skeleton-progress",
@@ -90,13 +95,16 @@
         "骨架屏/进度条不可见时无动画 tick(可证)",
         "可见时视觉与改前一致"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
       "started": 1785254744,
-      "finished": null
+      "finished": 1785255206
     },
     {
       "sid": "s5-glass-buffer",
@@ -111,13 +119,18 @@
         "hover 态视觉与改前一致",
         "若 malloc 无改善则显式记结论不硬改"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
-      "started": null,
-      "finished": null
+      "started": 1785255213,
+      "finished": 1785291189
     },
     {
       "sid": "s6-backdrop-audit",
@@ -131,13 +144,17 @@
         "保留项已说明理由",
         "改动后 WebKit malloc 有量测数据"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249451,
-      "started": null,
-      "finished": null
+      "started": 1785258102,
+      "finished": 1785291025
     },
     {
       "sid": "s7-verify",
@@ -148,7 +165,8 @@
         "s3-ambient-anim",
         "s4-skeleton-progress",
         "s5-glass-buffer",
-        "s6-backdrop-audit"
+        "s6-backdrop-audit",
+        "s8-elevated-toast"
       ],
       "验收": [
         "空闲前台 CPU < 0.5%",
@@ -166,6 +184,27 @@
       "created": 1785249452,
       "started": null,
       "finished": null
+    },
+    {
+      "sid": "s8-elevated-toast",
+      "name": "glass-elevated / toast 死代码 backdrop-filter 清除",
+      "desc": "按 s6 定出的不透明背景判据，删掉 .glass-elevated 与 .toast 上零视觉输出的 backdrop-filter",
+      "depends_on": [
+        "s6-backdrop-audit"
+      ],
+      "验收": [
+        "globals.css 内 .glass-elevated 与 .toast 的 backdrop-filter 与 -webkit-backdrop-filter 已删",
+        "已核实 --bg-floating 在 light 与 dark 两组变量下解析值均无 alpha 通道(给出 file:line)",
+        "全仓再无同判据下的死代码 backdrop-filter 残留(grep 证明)",
+        "yarn build 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785293292,
+      "started": null,
+      "finished": null
     }
   ],
   "priority": 5,
@@ -181,5 +220,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785254744
+  "updated": 1785293292
 }
