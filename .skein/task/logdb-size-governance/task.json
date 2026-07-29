@@ -2,12 +2,59 @@
   "id": "logdb-size-governance",
   "name": "log.db 体积治理",
   "desc": "实测 8.2GB / proxy_log 仅 17338 行, 体积集中在 body/headers 大列; 查 retention 与 VACUUM 是否真跑, 定治理方案",
-  "status": "待处理",
+  "status": "就绪",
   "deps": [],
-  "contracts": [],
-  "subtasks": [],
+  "contracts": [
+    "禁改 aidog 源码：本 task 无代码交付物，用户拍板只做手动清理",
+    "禁调 retention 默认阈值（7d/7d/90d）—— 实测证明未失效，调它是错误归因下的动作",
+    "清库前必须 pkill -x aidog（VACUUM 需独占），清完必须恢复应用运行",
+    "清理策略若中途变更（清列→删行等），必须向用户显式说明代价，禁默默替换"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-attribute",
+      "name": "log.db 体积归因勘察",
+      "desc": "只读连接查明 8.7GB 的构成与 retention 是否失效",
+      "depends_on": [],
+      "验收": [
+        "用 mode=ro 只读连接，未写用户库",
+        "给出 retention 四步链各自阈值与本库最老数据的距离",
+        "给出 body 类列占表比例",
+        "明确推翻或证实「retention 疑失效」假设"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785291583,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-manual-clean",
+      "name": "手动清库执行与记录",
+      "desc": "按用户拍板做一次性手动清理并落盘前后对比",
+      "depends_on": [
+        "s1-attribute"
+      ],
+      "验收": [
+        "主库降到 1GB 以下",
+        "WAL 归零且 journal_mode 仍为 wal",
+        "前后对比数据已落盘 findings.md",
+        "临时脚本已删",
+        "aidog 已恢复运行"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785291583,
+      "started": null,
+      "finished": null
+    }
+  ],
   "priority": 5,
-  "estimate": null,
+  "estimate": 1.0,
   "repos": [],
   "worktree": null,
   "worktrees": [],
@@ -16,8 +63,8 @@
   "kind": "task",
   "created": 1785254819,
   "started": null,
-  "confirmed": null,
+  "confirmed": 1785291587,
   "checked": null,
   "finished": null,
-  "updated": 1785254819
+  "updated": 1785291587
 }

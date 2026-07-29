@@ -2,7 +2,7 @@
   "id": "logs-query-ipc-slimming",
   "name": "Logs/Stats 查询与 IPC 瘦身",
   "desc": "COUNT 全扫 7GB 表 2Hz + Stats 全量重拉 + model 下拉拉 200 行 + CONNECT emit 无节流，消灭空闲期 DB/IPC 抖动",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "用户已拍板: Logs 分页去掉精确 COUNT(*), 改 LIMIT pageSize+1 探测有无下一页。UI 从「共 N 页」退化为「上一页/下一页 + 有更多」是已接受的用户可见变化, 禁在实现中偷偷保留 COUNT 兜底",
@@ -97,13 +97,17 @@
         "后端 DISTINCT 查询有 EXPLAIN 依据",
         "下拉选项内容与改前一致"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249429,
       "started": 1785293705,
-      "finished": null
+      "finished": 1785296279
     },
     {
       "sid": "s5-stats-throttle",
@@ -141,13 +145,17 @@
         "未引入 memo hook",
         "卡片展示内容与改前一致"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249429,
-      "started": null,
-      "finished": null
+      "started": 1785294374,
+      "finished": 1785296279
     },
     {
       "sid": "s7-verify",
@@ -169,13 +177,21 @@
         "全程只用 mock 平台与分组",
         "临时脚本与中间产物已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249429,
-      "started": null,
-      "finished": null
+      "started": 1785296286,
+      "finished": 1785296799
     }
   ],
   "priority": 5,
@@ -189,7 +205,7 @@
   "created": 1785248700,
   "started": 1785256422,
   "confirmed": 1785250582,
-  "checked": null,
-  "finished": null,
-  "updated": 1785294371
+  "checked": 1785296799,
+  "finished": 1785298982,
+  "updated": 1785298982
 }

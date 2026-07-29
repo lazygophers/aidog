@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(51), cross-layer(10), db(20), domain(77), encoding(4), frontend(46), git(6), i18n(9), ops(5), optimization(5), proxy(39), reuse(6), shadcn(49), skein(1), style(11), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(51), cross-layer(10), db(23), domain(77), encoding(4), frontend(46), git(6), i18n(9), ops(5), optimization(6), proxy(39), reuse(6), shadcn(49), skein(2), style(11), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | status/出链 | summary |
 |---|---|---|---|---|---|
@@ -187,6 +187,9 @@
 | db/crash-safe-db-split-migration.md#保 id（MUST） | db | 保 id（MUST） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | active | `INSERT INTO platform SELECT *` / 显式列含 id 保原 id。log.db.proxy… |
 | db/crash-safe-db-split-migration.md#实例 | db | 实例 | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | active | task config-db-split（s2）：platform / group / group_platform /… |
 | db/crash-safe-db-split-migration.md#禁用模式（❌） | db | 禁用模式（❌） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | active | `read → DROP 源表 → INSERT 目标库`（notification migration 049 原模式… |
+| db/filter-semantics.md#排斥列默认过滤需明确确认为产品设计意图 | db | 排斥列默认过滤需明确确认为产品设计意图 | filter,exclude,semantics,product-design,default-behavior | active | 当 task 涉及「默认排斥某类请求」的过滤逻辑时（如 Logs 主页默认隐藏 test/quota 请求），确认这是*… |
+| db/pagination-offset.md#LIMIT+1 探测分页无精确总数 | db | LIMIT+1 探测分页无精确总数 | pagination,limit,offset,has_more,count,full-table-scan | active | 当分页 UI 仅需「有无下一页」而不需精确总数时，改用 LIMIT offset+pageSize+1 探测有下一页，而… |
+| db/sqlite-partial-index.md#参数化查询无法触发 partial index（字面量盲区） | db | 参数化查询无法触发 partial index（字面量盲区） | sqlite,partial-index,query-plan,parameter-binding,sargable | active | SQLite 查询规划器对 partial index 的匹配仅识别 SQL 文本中的**字面量常量**谓词，不识别**… |
 | db/trellis-00.md#Column Naming (MUST) | db | Column Naming (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | active | - 平台主类型列名为 `platform_type`（禁 `protocol`）；其值用 `serde_json::to… |
 | db/trellis-00.md#Migration (MUST) | db | Migration (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | active | - schema 破坏式变更必须提供独立一次性迁移脚本（`scripts/`，非 app 运行时代码），迁移完成后删除 … |
 | db/trellis-00.md#No NULL (MUST) | db | No NULL (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | active | - 所有 `TEXT` 列 `NOT NULL DEFAULT ''`；所有 `INTEGER` 列 `NOT NULL… |
@@ -348,6 +351,7 @@
 | ops/trellis-17.md#数据流架构 (MUST，禁前端直读 github) | ops | 数据流架构 (MUST，禁前端直读 github) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | ``` github (master) ──rust sync (<x>_sync.rs)──▶ ~/.aidog/<f… |
 | ops/trellis-17.md#范式 (MUST，照抄先例 `gateway/defaults_sync.rs`) | ops | 范式 (MUST，照抄先例 `gateway/defaults_sync.rs`) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | `defaults/*.json` 远端同步**MUST** 实现完整 7 件套，缺一致命。先例 `crates/aid… |
 | ops/trellis-17.md#验收断言（可复用） | ops | 验收断言（可复用） | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | ```bash # 7 件套齐全（双源 / last_updated / 24h / 三路触发 / schema gat… |
+| optimization/api-payload-optimization.md#后端 DISTINCT 替代前端集合去重降低 IPC payload | optimization | 后端 DISTINCT 替代前端集合去重降低 IPC payload | api,payload,ipc,distinct,set-deduplication,query-optimization | active | 后端改为返回去重后的单列（如 DISTINCT model），而非拉全字段摘要行数组到前端，再用集合去重。  **收益*… |
 | optimization/manual-budget-empty-shortcircuit.md#manual_budget 零配额短路：进写连接前预检 | optimization | manual_budget 零配额短路：进写连接前预检 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | - |
 | optimization/manual-budget-empty-shortcircuit.md#关键点 | optimization | 关键点 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | - **硬约束**：配额存在时行为不变，短路仅对「零配额」分支生效 - **非 mock 专属**：真实转发路径共用同一… |
 | optimization/manual-budget-empty-shortcircuit.md#方案 | optimization | 方案 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | **分两阶段：**  1. **只读池预检**（`has_any_budget`，line:189-203）：用只读池（… |
@@ -448,6 +452,7 @@
 | shadcn/rule-47.md#适用 | shadcn | 适用 | dnd-kit,SortableList,拖拽,迁移,shadcn,Button | active | - dnd-kit SortableList 迁移至 shadcn - 保留拖拽逻辑仅换视觉的场景 |
 | shadcn/rule-47.md#陷阱-正解 | shadcn | 陷阱-正解 | dnd-kit,SortableList,拖拽,迁移,shadcn,Button | active | ❌ **陷阱**：重写整个拖拽逻辑，破坏已有行为。 ✅ **正解**：保留 dnd-kit 的 useSortable/… |
 | skein/coding-plan-utilization-calib-fix-27.md#task 查重: 同模块非重复, 先看 PRD 边界互引 | skein | task 查重: 同模块非重复, 先看 PRD 边界互引 | skein,dedup,task-boundary,prd | active | dedup/查重判定重叠维度前, MUST 先看两 task 的 PRD 边界条款是否已显式互相引用切割 (如双向标注对… |
+| skein/decision-documentation.md#实测推翻设计假设时的处理范式（留痕+不硬凑） | skein | 实测推翻设计假设时的处理范式（留痕+不硬凑） | planning,execution,hypothesis-testing,decision-logging,design-vs-reality | active | 当 task 执行过程中发现「planning 写的验收文本与 exec 实测结果矛盾」时，按以下范式处理：  **模式… |
 | style/trellis-16.md#ANSI 着色 (MUST) | style | ANSI 着色 (MUST) | log,trace,traceid,ansi,format,spawn_traced,span | active | - **console MUST ANSI on** (`AidogFormat { ansi: true }`), f… |
 | style/trellis-16.md#id 双轨映射 (MUST) | style | id 双轨映射 (MUST) | log,trace,traceid,ansi,format,spawn_traced,span | active | > 违反代价: proxy 请求 header id 不能反查 proxy_log 行; 或全局统一随机失去诊断关联。 … |
 | style/trellis-16.md#id 格式规范 (MUST) | style | id 格式规范 (MUST) | log,trace,traceid,ansi,format,spawn_traced,span | active | - **每级 id MUST 6 位 `[0-9a-z]`** (36^6 ≈ 2.2B 空间) - **多级 MUST… |

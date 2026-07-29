@@ -14,18 +14,18 @@
 - Logs / Stats / Platforms 三页的功能、筛选语义、默认 exclude_sources 行为对用户零变化
 - 一切量测与压测只用 mock 平台与分组，禁触真实平台；禁写用户真实 log.db（EXPLAIN QUERY PLAN 可 mode=ro 只读跑）
 ## 验收标准
-- [ ] EXPLAIN QUERY PLAN 证明 Logs 列表查询不再对 proxy_log 全表扫描
-- [ ] 转发期（50 路 mock 并发）Logs 页驻留时，proxy_log 上的 COUNT 类全扫查询次数为 0
-- [ ] Logs 列表首屏加载 p95 相对基线不上升（改分页探测后应下降）
-- [ ] Stats 页在 proxy-log-updated 事件到达时不再调用 groupDetailApi.list 与 platformApi.list
-- [ ] Logs model 下拉不再拉 200 行全字段，改为后端 distinct 两列返回
-- [ ] CONNECT 隧道路径的 proxy-log-updated / tray-refresh emit 具备与普通路径相同的 terminal gate 与节流
-- [ ] PlatformCard 单次渲染内 JSON.parse(extra) 调用次数为 1
-- [ ] Logs / Stats 页在相同数据下的展示结果与改动前逐项一致（含分页总数语义变化已在 UI 上正确体现）
-- [ ] cargo clippy 零 warning、cargo test 全绿
-- [ ] yarn build 通过、yarn test 全绿、check-i18n 通过
-- [ ] 全程只用 mock 平台与分组，记录中可核验无真实平台调用、未写入用户真实 log.db
-- [ ] 清场完成：临时脚本与逐次原始采样已删，只留最终指标对比表
+- [x] EXPLAIN QUERY PLAN 证明 Logs 列表查询不再对 proxy_log 全表扫描
+- [x] 转发期（50 路 mock 并发）Logs 页驻留时，proxy_log 上的 COUNT 类全扫查询次数为 0
+- [x] Logs 列表首屏加载 p95 相对基线不上升（改分页探测后应下降）
+- [x] Stats 页在 proxy-log-updated 事件到达时不再调用 groupDetailApi.list 与 platformApi.list
+- [x] Logs model 下拉不再拉 200 行全字段，改为后端 distinct 两列返回
+- [x] CONNECT 隧道路径的 proxy-log-updated / tray-refresh emit 具备与普通路径相同的 terminal gate 与节流
+- [x] PlatformCard 单次渲染内 JSON.parse(extra) 调用次数为 1
+- [x] Logs / Stats 页在相同数据下的展示结果与改动前逐项一致（含分页总数语义变化已在 UI 上正确体现）
+- [x] cargo clippy 零 warning、cargo test 全绿
+- [x] yarn build 通过、yarn test 全绿、check-i18n 通过
+- [x] 全程只用 mock 平台与分组，记录中可核验无真实平台调用、未写入用户真实 log.db
+- [x] 清场完成：临时脚本与逐次原始采样已删，只留最终指标对比表
 ## 索引
 - 详细设计: [design.md](design.md)
 - 调研收敛: [findings.md](findings.md) (仅真调研时生)
