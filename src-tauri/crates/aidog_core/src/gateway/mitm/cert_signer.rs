@@ -3,15 +3,17 @@
 //! 职责：
 //!  - 包装 ST1 `ca::sign_host_cert`，按 host（SNI / CONNECT target host）签 leaf 证书
 //!  - 把 rcgen PEM 产物转为 rustls `CertifiedKey`（DER + ECDSA P256 signer）
-//!  - 缓存已签证书（`Mutex<HashMap<host, Arc<CertifiedKey>>>`），同 host 二次命中复用
+//!  - 缓存已签证书（`Mutex<HashMap<host, CachedCert>>`），同 host 二次命中复用
 //!
 //! 设计依据：design.md §3（TLS MITM 层）。
 //!
-//! ponytail: 缓存无 TTL / 无容量上限 —— leaf 证书 SAN 与 host 1:1，host 集合受白名单
-//! 限制（默认 AI host + 用户自定义，n < 20）。若未来用户频繁切 host 导致膨胀，
-//! 加 LRU + TTL；当前 YAGNI。
+//! ponytail: 缓存加容量上限 + TTL 惰性 sweep（抄 `proxy/devin.rs:50` `len>N` retain idiom，
+//! 见 `CERT_CACHE_MAX` 注释推导）。原设计假设白名单 host 集合 n<20 故免加界；改为兜底防
+//! 用户自定义平台增长 / host 抖动导致无界堆积。evict 只影响该 host **下一次**签名（走
+//! `sign_host_cert` 重签），已建立的 TLS 连接持有自己的 `CertifiedKey` 副本不受影响。
 
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
@@ -55,6 +57,24 @@ impl From<super::ca::SignError> for CertSignError {
     }
 }
 
+/// 缓存条目上限 —— 超过即触发惰性 sweep（抄 `proxy/devin.rs:50` `len>N` retain idiom）。
+///
+/// 依据（单条字节 × 合理并发量）：单条 `CachedCert` ≈ leaf 证书 DER（ECDSA P256，约
+/// 1.2KB）+ ECDSA signer（约 0.5KB）+ HashMap host key（域名均长约 30B + String 开销）
+/// ≈ 2KB/条。设计注释原假设白名单 host 集合 n<20；256 条 ≈ 512KB 留 12x 冗余覆盖用户
+/// 自定义平台增长，同时封顶防止 host 抖动等异常场景无界堆积。
+const CERT_CACHE_MAX: usize = 256;
+
+/// 缓存条目 TTL（供 sweep 判定过期，非签名有效期）—— 超过 `CERT_CACHE_MAX` 时只清过期项。
+const CERT_CACHE_ENTRY_TTL_SECS: u64 = 3600;
+
+/// 缓存值：CertifiedKey + 签发时刻（sweep 判过期用）。
+#[derive(Clone, Debug)]
+struct CachedCert {
+    key: Arc<CertifiedKey>,
+    signed_at: Instant,
+}
+
 /// host → rustls CertifiedKey 缓存（线程安全，签一次复用）。
 ///
 /// ponytail: 全局 Mutex 而非 per-host 锁 —— 签证书是冷启动 + 偶发操作（首次见 host
@@ -63,7 +83,7 @@ impl From<super::ca::SignError> for CertSignError {
 #[derive(Debug)]
 pub struct CertSigner {
     ca: RootCa,
-    cache: Mutex<std::collections::HashMap<String, Arc<CertifiedKey>>>,
+    cache: Mutex<std::collections::HashMap<String, CachedCert>>,
 }
 
 impl CertSigner {
@@ -78,19 +98,33 @@ impl CertSigner {
     /// 按 host 签 / 取缓存的 CertifiedKey。
     ///
     /// 二次同 host 命中缓存（不重签，不重算 ECDSA signer）。首次签失败返 `CertSignError`，
-    /// 不写入缓存（下次调用会重试）。
+    /// 不写入缓存（下次调用会重试）。缓存满 `CERT_CACHE_MAX` 时惰性清过期项（不影响已建立
+    /// 的 TLS 连接 —— 它们持有自己的 `CertifiedKey` 副本，evict 只影响该 host 下次签名）。
     pub fn certified_key_for(&self, host: &str) -> Result<Arc<CertifiedKey>, CertSignError> {
         // ponytail: 双检 —— 先锁读，未命中再签 + 锁写。锁内签名（cold path，可接受）；
         // 若签名耗时 >100ms 影响首字节延迟，改 `entry().or_try_insert_with` 异步签。
-        if let Some(ck) = self.cache.lock().unwrap().get(host).cloned() {
-            return Ok(ck);
+        if let Some(cached) = self.cache.lock().unwrap().get(host).cloned() {
+            return Ok(cached.key);
         }
         let signed = sign_host_cert(&self.ca, host)?;
         let ck = Arc::new(build_certified_key(signed.cert_pem, signed.private_key_pem)?);
-        self.cache
-            .lock()
-            .unwrap()
-            .insert(host.to_string(), ck.clone());
+        let now = Instant::now();
+        {
+            let mut guard = self.cache.lock().unwrap();
+            // 抄 devin.rs:50 idiom：超阈值才清一次过期项，避免长跑无界堆积。
+            if guard.len() > CERT_CACHE_MAX {
+                guard.retain(|_, v| {
+                    now.duration_since(v.signed_at).as_secs() <= CERT_CACHE_ENTRY_TTL_SECS
+                });
+            }
+            guard.insert(
+                host.to_string(),
+                CachedCert {
+                    key: ck.clone(),
+                    signed_at: now,
+                },
+            );
+        }
         Ok(ck)
     }
 

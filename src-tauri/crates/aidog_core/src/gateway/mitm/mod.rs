@@ -44,6 +44,16 @@ use self::cert_signer::CertSigner;
 /// TTL 到期再 mark_suspect 即可（无重试上限 YAGNI）。值常量化，未来按平台调参再提 env。
 const SUSPECT_TTL_SECS: u64 = 600;
 
+/// suspects 集合条目上限 —— 超过即触发惰性 sweep（抄 `proxy/devin.rs:50` `len>N` retain
+/// idiom；`is_suspect` 的按 key 过期只清被查询到的 host，`mark_suspect` 侧补批量 sweep
+/// 兜底从未被复查的 host）。
+///
+/// 依据（单条字节 × 合理并发量）：单条 `HashMap<String, u64>` entry ≈ host 域名（均长约
+/// 30B）+ String 开销（约 24B）+ u64 时间戳（8B）≈ 60B/条。suspect host 集合与
+/// `CERT_CACHE_MAX`（cert_signer.rs）同源（均为 MITM 白名单 host 全集），沿用同一 256
+/// 量级：256 条 ≈ 15KB，可忽略；封顶目的是防泄漏而非省内存。
+const SUSPECT_CACHE_MAX: usize = 256;
+
 /// 进程级 MITM 状态（OnceLock 单例，首次 `mitm_state()` 调用惰性初始化）。
 ///
 /// ponytail: 用 `std::sync::OnceLock` 而非 once_cell / lazy_static 依赖（std 1.70+ 自带）。
@@ -103,7 +113,13 @@ impl MitmState {
     /// 标记 host 为 pinning_suspect（上游握手 fail 后调）。覆盖原时间戳（重置 TTL 计时）。
     pub async fn mark_suspect(&self, host: String) {
         let now = now_secs();
-        self.suspects.lock().await.insert(host, now);
+        let mut guard = self.suspects.lock().await;
+        // 抄 devin.rs:50 idiom：超阈值才清一次过期项（`is_suspect` 只按查询到的 key 剔除，
+        // 这里补批量 sweep 兜底从未被复查的 host，防无界堆积）。
+        if guard.len() > SUSPECT_CACHE_MAX {
+            guard.retain(|_, ts| *ts + SUSPECT_TTL_SECS > now);
+        }
+        guard.insert(host, now);
     }
 
     /// 一键清空 pinning_suspect 集合（C8 收敛：用户手动重试 MITM / 调试用）。
