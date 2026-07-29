@@ -1,0 +1,23 @@
+{
+  "id": "rust-main-idle-cpu",
+  "name": "Rust 主进程空闲 CPU 归零",
+  "desc": "空闲前台态 aidog 主进程常驻 1.8% CPU，查定时器/tray 重绘/DB maintenance tick/proxy keepalive 来源并压到全进程 <0.5%",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "priority": 5,
+  "estimate": null,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/rust-main-idle-cpu",
+  "parent": null,
+  "kind": "task",
+  "created": 1785305092,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785305092
+}
