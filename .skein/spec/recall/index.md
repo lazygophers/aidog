@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(57), cross-layer(10), db(23), domain(77), encoding(4), frontend(66), git(6), i18n(9), ops(5), optimization(36), proxy(39), reuse(6), shadcn(49), skein(14), style(18), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(57), cross-layer(12), db(23), domain(77), encoding(4), frontend(66), git(6), i18n(9), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(14), style(18), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | status/出链 | summary |
 |---|---|---|---|---|---|
@@ -187,6 +187,8 @@
 | cross-layer/trellis-20.md#Verification | cross-layer | Verification | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | active | ```bash # 所有 invoke 集中在 api.ts grep -rn 'invoke(' src/ / gre… |
 | cross-layer/trellis-20.md#反模式 (禁) | cross-layer | 反模式 (禁) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | active | / 反模式 / 正确做法 / 触发后果 / / --- / --- / --- / / `invoke(` 散落在组件 … |
 | cross-layer/trellis-20.md#持久化路径换、公共契约零改 (MUST) | cross-layer | 持久化路径换、公共契约零改 (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | active | 换持久化路径（专属表 → `setting` / JSON / 他处）时，跨 Rust↔TS **公共契约层禁改** —… |
+| cross-layer/ts-rust-symmetry.md#单启用平台判定对称性 (Rust ↔ TS) | cross-layer | 单启用平台判定对称性 (Rust ↔ TS) | cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称 | active | - |
+| cross-layer/ts-rust-symmetry.md#跨层对称硬规 (Rust ↔ TS) | cross-layer | 跨层对称硬规 (Rust ↔ TS) | cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称 | active | ### 约束  **同一判定逻辑在 Rust 与 TS 各有一份实现，改一处必改另一处。**  口径须与互指注释锁定对称… |
 | db/crash-safe-db-split-migration.md#Cross-ref | db | Cross-ref | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | active / →auto-fix-downgrade-34 | - [[auto-fix-downgrade-34]]（访问点审计） - dual-db-aggregate-is-me… |
 | db/crash-safe-db-split-migration.md#MUST 四阶段模式（✅） | db | MUST 四阶段模式（✅） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | active | ``` Phase 1: read-without-drop（源库读全行入 Vec，不 DROP） Phase 2: 目… |
 | db/crash-safe-db-split-migration.md#crash 恢复矩阵 | db | crash 恢复矩阵 | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | active | / crash 点 / 重启行为 / /---/---/ / Phase 1 前/中 / 源表在，重读 / / Phas… |
@@ -413,6 +415,8 @@
 | optimization/webkit-xpc-helper-process-bounds.md#进程编制核验硬闸替代动态反查 | optimization | 进程编制核验硬闸替代动态反查 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | - |
 | optimization/webkit-xpc-helper-process-bounds.md#适用 | optimization | 适用 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | - Tauri / Electron 等嵌入 WebKit 的桌面应用性能量测 - 多窗口场景排查进程组织 - 交叉应用… |
 | optimization/webkit-xpc-helper-process-bounds.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | ❌ **陷阱**：用 ppid / ps args / procinfo 反查进程归属  ```bash # ppid … |
+| proxy/router.md#判定口径契约 | proxy | 判定口径契约 | router,platform,sole_platform,单启用平台,短路,路由优化 | active | ### 定义  **单启用平台分组** (`sole_platform`) 判定唯一真值源位于 `src-tauri/c… |
+| proxy/router.md#单启用平台分组判定 (sole_platform) | proxy | 单启用平台分组判定 (sole_platform) | router,platform,sole_platform,单启用平台,短路,路由优化 | active | - |
 | proxy/rule-50.md#关联 | proxy | 关联 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active / →trellis-00,trellis-11 | [[trellis-11]] （proxy 统计不污染） · [[trellis-00]] （DB 表设计） |
 | proxy/rule-50.md#反例 / 常见错误 | proxy | 反例 / 常见错误 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | / 错误                          / 为什么错                        … |
 | proxy/rule-50.md#案例 | proxy | 案例 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | - log-async-write task (commit 529e571b) — proxy_log 改为单 wri… |
