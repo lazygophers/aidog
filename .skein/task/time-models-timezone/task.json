@@ -2,7 +2,7 @@
   "id": "time-models-timezone",
   "name": "分时段模型时区支持",
   "desc": "time_models 时段编辑器补时区换算(共用 tzMode) + 半时区按分钟换算修正 + 脏数据归一 + 3 处硬编码中文走 i18n",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -141,7 +141,7 @@
   "created": 1785326087,
   "started": 1785326367,
   "confirmed": 1785326366,
-  "checked": null,
-  "finished": null,
-  "updated": 1785328040
+  "checked": 1785331661,
+  "finished": 1785331722,
+  "updated": 1785331722
 }
