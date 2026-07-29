@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { shiftClock, normalizeWindow } from "./peakHours";
+import { shiftClock, normalizeWindow, isCurrentlyPeak } from "./peakHours";
 import type { PeakWindow } from "../domains/platforms/defaults";
 
 describe("shiftClock", () => {
@@ -70,5 +70,20 @@ describe("normalizeWindow", () => {
     expect(result.start_minute).toBe(30);
     expect(result.end_hour).toBe(20);
     expect(result.end_minute).toBe(15);
+  });
+});
+
+describe("isCurrentlyPeak — start_at 生效期护栏", () => {
+  // 全天窗口（start_hour=0/end_hour=24）令时段判定恒真，命中与否只受 start_at 门控。
+  const w = { start_hour: 0, end_hour: 24, multiplier: 2.0, start_at: 1790784000 } as PeakWindow;
+
+  it("nowMs 未越过 start_at → 不命中", () => {
+    const beforeMs = (1790784000 - 1) * 1000;
+    expect(isCurrentlyPeak([w], beforeMs)).toBe(false);
+  });
+
+  it("nowMs 越过 start_at → 命中", () => {
+    const afterMs = (1790784000 + 1) * 1000;
+    expect(isCurrentlyPeak([w], afterMs)).toBe(true);
   });
 });

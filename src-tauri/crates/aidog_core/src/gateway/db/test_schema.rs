@@ -288,6 +288,99 @@ use super::test_support::*;
         assert!(other_eps.contains("codex_tui"), "non-kimi platform endpoint should not be changed");
     }
 
+    /// Migration 20260729-01: platform.extra.peak_hours 中命中 W2 三条件指纹
+    /// （start_at==1790784000 && multiplier==2.0 && start_hour==0 && end_hour==24）的窗口应被删除。
+    #[test]
+    fn migration_20260729_01_strips_w2_peak_window() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS platform (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                name             TEXT NOT NULL DEFAULT '',
+                platform_type    TEXT NOT NULL DEFAULT '',
+                base_url         TEXT NOT NULL DEFAULT '',
+                api_key          TEXT NOT NULL DEFAULT '',
+                extra            TEXT NOT NULL DEFAULT '',
+                models           TEXT NOT NULL DEFAULT '{}',
+                available_models TEXT NOT NULL DEFAULT '[]',
+                endpoints        TEXT NOT NULL DEFAULT '[]',
+                enabled          INTEGER NOT NULL DEFAULT 1,
+                est_balance_remaining REAL NOT NULL DEFAULT 0,
+                est_coding_plan       TEXT NOT NULL DEFAULT '',
+                last_real_query_at    INTEGER NOT NULL DEFAULT 0,
+                estimate_count        INTEGER NOT NULL DEFAULT 0,
+                show_in_tray          INTEGER NOT NULL DEFAULT 0,
+                tray_display          TEXT NOT NULL DEFAULT 'balance',
+                created_at       INTEGER NOT NULL DEFAULT 0,
+                updated_at       INTEGER NOT NULL DEFAULT 0,
+                deleted_at       INTEGER NOT NULL DEFAULT 0
+            );",
+        ).unwrap();
+        let extra = r#"{"_ui_collapsed":true,"peak_hours":[{"start_at":1790784000,"multiplier":2.0,"start_hour":0,"end_hour":24}]}"#;
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, extra, created_at, updated_at, deleted_at)
+             VALUES ('glm-coding-test', 'glm_coding', ?1, 0, 0, 0)",
+            rusqlite::params![extra],
+        ).unwrap();
+        run_migrations_platform_early(&conn).expect("run_migrations_platform_early should succeed");
+        run_migrations_platform_late(&conn).expect("run_migrations_platform_late should succeed");
+        let new_extra: String = conn.query_row(
+            "SELECT extra FROM platform WHERE name = 'glm-coding-test'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&new_extra).unwrap();
+        assert!(v.get("peak_hours").is_none(), "W2 窗口是数组唯一元素, 删空后应整个删掉 peak_hours 键, got {new_extra}");
+        assert_eq!(v.get("_ui_collapsed").and_then(|b| b.as_bool()), Some(true), "其余字段应原样保留");
+    }
+
+    /// Migration 20260729-01: 只中部分条件（用户自建窗口, 如不同 multiplier）应被保留, 不误删。
+    #[test]
+    fn migration_20260729_01_keeps_user_defined_peak_window() {
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS platform (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                name             TEXT NOT NULL DEFAULT '',
+                platform_type    TEXT NOT NULL DEFAULT '',
+                base_url         TEXT NOT NULL DEFAULT '',
+                api_key          TEXT NOT NULL DEFAULT '',
+                extra            TEXT NOT NULL DEFAULT '',
+                models           TEXT NOT NULL DEFAULT '{}',
+                available_models TEXT NOT NULL DEFAULT '[]',
+                endpoints        TEXT NOT NULL DEFAULT '[]',
+                enabled          INTEGER NOT NULL DEFAULT 1,
+                est_balance_remaining REAL NOT NULL DEFAULT 0,
+                est_coding_plan       TEXT NOT NULL DEFAULT '',
+                last_real_query_at    INTEGER NOT NULL DEFAULT 0,
+                estimate_count        INTEGER NOT NULL DEFAULT 0,
+                show_in_tray          INTEGER NOT NULL DEFAULT 0,
+                tray_display          TEXT NOT NULL DEFAULT 'balance',
+                created_at       INTEGER NOT NULL DEFAULT 0,
+                updated_at       INTEGER NOT NULL DEFAULT 0,
+                deleted_at       INTEGER NOT NULL DEFAULT 0
+            );",
+        ).unwrap();
+        // start_at 相同魔数但 multiplier 不同（用户手配撞上起点巧合）—— 三条件未全中, 应保留
+        let extra = r#"{"peak_hours":[{"start_at":1790784000,"multiplier":1.5,"start_hour":0,"end_hour":24}]}"#;
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, extra, created_at, updated_at, deleted_at)
+             VALUES ('user-custom', 'glm_coding', ?1, 0, 0, 0)",
+            rusqlite::params![extra],
+        ).unwrap();
+        run_migrations_platform_early(&conn).expect("run_migrations_platform_early should succeed");
+        run_migrations_platform_late(&conn).expect("run_migrations_platform_late should succeed");
+        let new_extra: String = conn.query_row(
+            "SELECT extra FROM platform WHERE name = 'user-custom'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&new_extra).unwrap();
+        let arr = v.get("peak_hours").and_then(|a| a.as_array()).expect("peak_hours 应保留");
+        assert_eq!(arr.len(), 1, "只部分中条件的用户自建窗口不应被删");
+        assert_eq!(arr[0].get("multiplier").and_then(|m| m.as_f64()), Some(1.5));
+    }
+
     /// seed 幂等：重复调用（模拟重启）不重复插入。
     #[tokio::test]
     async fn c4_seed_is_idempotent_on_restart() {
