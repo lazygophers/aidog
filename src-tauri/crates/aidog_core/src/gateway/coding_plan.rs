@@ -8,24 +8,13 @@
 //! 与 TS `defaults.ts::isCodingPlanProtocol` 对称（跨层一致，见 cross-layer-rules.md）。
 
 use serde_json::Value;
-use std::sync::OnceLock;
-
-/// bundled preset 缓存：首次访问解析一次 `platform-presets.json`，后续直接索引。
-/// 解析失败（不应发生，JSON 已校验）回退空 Object → `default_is_coding_plan` 返 false。
-static PRESETS: OnceLock<Value> = OnceLock::new();
-
-const BUNDLED: &str = include_str!("../../../../defaults/platform-presets.json");
 
 // 跨层对称：与 TS `isCodingPlanProtocol` 同义。当前无 Rust 路由消费（路由层仍用 endpoint
 // 级 `coding_plan` flag，语义不同），保留供未来 protocol 级判定 + 编译期 JSON schema 自检。
+// bundled preset 唯一解析入口：`super::presets_cache::presets()`（单 OnceLock 跨消费方共享）。
 #[allow(dead_code)]
 fn presets() -> &'static Value {
-    PRESETS.get_or_init(|| {
-        serde_json::from_str(BUNDLED).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "platform-presets.json parse failed in coding_plan; flag defaults to false");
-            Value::Object(serde_json::Map::new())
-        })
-    })
+    super::presets_cache::presets()
 }
 
 /// 按 protocol 名（serde rename 裸名，如 "glm_coding"）查 bundled preset 是否标记为

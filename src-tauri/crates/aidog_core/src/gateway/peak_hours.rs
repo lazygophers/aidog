@@ -6,7 +6,6 @@
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use std::sync::OnceLock;
 
 /// 单个时段窗口（UTC+0 基准）。serde 字段名直接对齐 JSON / TS `PeakWindow`。
 ///
@@ -46,20 +45,10 @@ pub struct PeakWindow {
     pub end_at: Option<i64>,
 }
 
-/// bundled preset 缓存：首次访问解析一次 `platform-presets.json`，后续直接索引。
+/// bundled preset 唯一解析入口，见 `super::presets_cache`（单 OnceLock，跨 peak_hours /
+/// defaults_sync / coding_plan 共享一份解析结果，避免 N 份 `serde_json::Value` 常驻）。
 /// 解析失败（不应发生，JSON 已校验）回退空 Map → `default_peak_hours` 返空 → caller 退 1.0。
-static PRESETS: OnceLock<serde_json::Value> = OnceLock::new();
-
-const BUNDLED: &str = include_str!("../../../../defaults/platform-presets.json");
-
-fn presets() -> &'static serde_json::Value {
-    PRESETS.get_or_init(|| {
-        serde_json::from_str(BUNDLED).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "platform-presets.json parse failed in peak_hours; preset defaults disabled");
-            serde_json::Value::Object(serde_json::Map::new())
-        })
-    })
-}
+use super::presets_cache::presets;
 
 /// t 的 UTC 小时 (0-23) 与 weekday (0=Sun…6=Sat)。
 ///

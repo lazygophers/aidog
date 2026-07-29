@@ -11,7 +11,7 @@
 //! `../../../defaults/...` 相对 commands_config/src/，落到 aidog_core/src/ 后同深度，路径不变）。
 use crate::shared::aidog_data_dir;
 
-const BUNDLED: &str = include_str!("../../../defaults/platform-presets.json");
+const BUNDLED: &str = crate::gateway::presets_cache::bundled_str();
 
 const CLIENT_TYPES_BUNDLED: &str = include_str!("../../../defaults/client-types.json");
 
@@ -32,17 +32,11 @@ crate::tauri_command! {
                             Ok(app_value) => {
                                 // deep merge：app data 优先，bundled 补 app data 缺的 protocol key
                                 // （用户 app data 旧缺 glm_coding 等 → bundled 补全，派生层不依赖同步）
-                                let merged = match serde_json::from_str::<serde_json::Value>(BUNDLED) {
-                                    Ok(bundled_value) => crate::gateway::defaults_sync::merge_with_bundled(
-                                        &app_value,
-                                        &bundled_value,
-                                    ),
-                                    Err(e) => {
-                                        // bundled 解析失败（不可能发生，编译期 JSON 已固定）→ 退 app data 原值
-                                        tracing::error!(error = %e, "platform-presets.json bundled parse failed (should never happen), serving app data");
-                                        app_value
-                                    }
-                                };
+                                // 复用 presets_cache 单例（已解析缓存），避免每次请求重新 parse。
+                                let merged = crate::gateway::defaults_sync::merge_with_bundled(
+                                    &app_value,
+                                    crate::gateway::presets_cache::presets(),
+                                );
                                 match serde_json::to_string(&merged) {
                                     Ok(s) => {
                                         tracing::debug!(source = "app_data+merged", "platform-presets.json served from app data (deep merged with bundled)");

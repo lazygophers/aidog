@@ -180,8 +180,8 @@ fn read_local_presets_json() -> Result<String, String> {
                     return Ok(content);
                 }
     }
-    // 回退 bundled（commands/defaults.rs::BUNDLED 同源；避免循环引用此处独立 include_str!）
-    Ok(std::include_str!("../../../../defaults/platform-presets.json").to_string())
+    // 回退 bundled（同源 super::presets_cache，禁再自建 include_str!）
+    Ok(super::presets_cache::bundled_str().to_string())
 }
 
 /// 解析 presets → `Vec<(protocol_id, logo_slug, homepage)>`。
