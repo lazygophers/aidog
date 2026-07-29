@@ -130,3 +130,45 @@ async fn two_platforms_not_applicable() {
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], false);
 }
+
+/// 单启用平台分组短路（single-enabled-platform-shortcut）：3 平台仅 1 enabled，其余 disabled → applicable == true。
+#[tokio::test]
+async fn multi_platform_sole_enabled_applicable() {
+    let state = make_state(test_db().await).await;
+    let p1 = crate::gateway::db::create_platform(&state.db, sample_platform("only-enabled"))
+        .await
+        .unwrap();
+    let p2 = crate::gateway::db::create_platform(&state.db, sample_platform("disabled-2"))
+        .await
+        .unwrap();
+    let p3 = crate::gateway::db::create_platform(&state.db, sample_platform("disabled-3"))
+        .await
+        .unwrap();
+    for pid in [p2.id, p3.id] {
+        crate::gateway::db::update_platform(&state.db, crate::gateway::models::UpdatePlatform {
+            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: None, models: None, available_models: None, endpoints: None,
+            enabled: None, status: Some(crate::gateway::models::PlatformStatus::Disabled),
+            manual_budgets: None, join_group_ids: None, expires_at: None,
+        }).await.unwrap();
+    }
+    let g = crate::gateway::db::create_group(&state.db, sample_group("g3", vec![]))
+        .await
+        .unwrap();
+    crate::gateway::db::set_group_platforms(
+        &state.db,
+        g.id,
+        &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(0) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(1), level_priority: Some(0) },
+            GroupPlatformInput { platform_id: p3.id, priority: Some(2), weight: Some(1), level_priority: Some(0) },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let resp = handle_group_info(AxumState(state), bearer("g3")).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let v = body_json(resp).await;
+    assert_eq!(v["applicable"], true);
+}

@@ -215,7 +215,7 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     type: "group-balance",
     name: "分组余额",
     icon: "bolt",
-    desc: "当前分组单平台预估剩余余额（动态色：<1天红 / <3天黄 / 否则绿）",
+    desc: "当前分组单启用平台预估剩余余额（动态色：<1天红 / <3天黄 / 否则绿）",
     defaultOptions: { prefix: "余额 ", dynamicColor: false },
     toPreview: (o) => `${o.prefix ?? "余额 "}48.20`,
     fields: [
@@ -227,7 +227,7 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     type: "group-spent",
     name: "分组花费",
     icon: "bolt",
-    desc: "当前分组累计预估花费（仅单平台分组）",
+    desc: "当前分组累计预估花费（仅单启用平台分组）",
     defaultOptions: { prefix: "$" },
     toPreview: (o) => `${o.prefix ?? "$"}1.23`,
     fields: [
@@ -249,7 +249,7 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     type: "group-requests",
     name: "请求·成功率",
     icon: "status",
-    desc: "当前分组请求数 · 成功率（仅单平台分组）",
+    desc: "当前分组请求数 · 成功率（仅单启用平台分组）",
     defaultOptions: {},
     toPreview: () => "128·99%",
     fields: [],
@@ -258,7 +258,7 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     type: "group-cache",
     name: "缓存率",
     icon: "status",
-    desc: "当前分组缓存命中率（仅单平台分组）",
+    desc: "当前分组缓存命中率（仅单启用平台分组）",
     defaultOptions: { prefix: "缓存 " },
     toPreview: (o) => `${o.prefix ?? "缓存 "}37%`,
     fields: [
@@ -269,7 +269,7 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     type: "group-tokens",
     name: "总 Tokens",
     icon: "core",
-    desc: "当前分组已使用总 tokens（仅单平台分组）",
+    desc: "当前分组已使用总 tokens（仅单启用平台分组）",
     defaultOptions: { prefix: "" },
     toPreview: (o) => `${o.prefix ?? ""}1.2M`,
     fields: [

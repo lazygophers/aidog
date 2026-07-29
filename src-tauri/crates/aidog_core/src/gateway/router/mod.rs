@@ -86,5 +86,25 @@ pub(crate) fn effective_weight(gp: &GroupPlatformDetail) -> i32 {
     gp.weight.max(0) * super::models::clamp_level_priority(gp.level_priority)
 }
 
+/// 分组内「唯一可选平台」判定 —— 单平台分组短路的唯一真值源。
+///
+/// 两个分支：
+/// 1. 组内平台总数 == 1 —— 物理单平台，无论 status 为何都短路（保「唯一平台 auto_disabled
+///    仍必请求」的既有契约，见 test_candidates.rs）。
+/// 2. 组内 `status == Enabled` 的平台恰好 1 个 —— 用户只启用了一个，等效单平台分组。
+///
+/// 与 status 正交的临时闸门（expires_at 过期 / disable_during_peak）**不参与本判定**，
+/// 由各自路径处理（短路后 handle_single_platform 仍会做高峰禁用硬停）。
+pub(crate) fn sole_platform(gps: &[GroupPlatformDetail]) -> Option<&GroupPlatformDetail> {
+    if gps.len() == 1 {
+        return Some(&gps[0]);
+    }
+    let mut it = gps.iter().filter(|gp| gp.platform.status == PlatformStatus::Enabled);
+    match (it.next(), it.next()) {
+        (Some(only), None) => Some(only),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod test_mod;

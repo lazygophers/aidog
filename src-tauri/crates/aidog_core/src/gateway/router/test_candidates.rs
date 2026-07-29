@@ -947,3 +947,76 @@ async fn cli_proxy_mixed_with_normal_platform() {
     assert!(normal.platform.endpoints.is_empty(), "normal platform endpoints untouched");
 }
 
+
+// ── sole_platform: 单启用平台分组短路（single-enabled-platform-shortcut）──
+
+/// ① 3 平台仅 1 enabled（其余手动 disabled）→ 走单平台短路路径，唯一 enabled 平台必被选中。
+#[tokio::test]
+async fn sole_enabled_platform_among_three_shortcuts() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "only-enabled").await;
+    let p2 = mk_db_platform(&db, "disabled-2").await;
+    let p3 = mk_db_platform(&db, "disabled-3").await;
+    for pid in [p2.id, p3.id] {
+        db::update_platform(&db, UpdatePlatform {
+            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: None, models: None, available_models: None, endpoints: None,
+            enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
+            join_group_ids: None, expires_at: None,
+        }).await.expect("disable");
+    }
+    let g = mk_db_group(&db, "sole-enabled", &[p1.id, p2.id, p3.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+        .expect("sole enabled platform must force request via single-platform shortcut");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, p1.id);
+}
+
+/// ② 2 enabled + 1 auto_disabled（未到期）→ 不走短路，走正常多平台路径（仅 2 个 enabled 候选）。
+#[tokio::test]
+async fn two_enabled_one_auto_disabled_no_shortcut() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "enabled-1").await;
+    let p2 = mk_db_platform(&db, "enabled-2").await;
+    let p3 = mk_db_platform(&db, "auto-disabled-3").await;
+    db::set_platform_auto_disabled(&db, p3.id).await.expect("set auto_disabled");
+    let g = mk_db_group(&db, "two-enabled", &[p1.id, p2.id, p3.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+        .expect("two enabled platforms: normal multi-platform routing");
+    let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert!(ids.contains(&p1.id) && ids.contains(&p2.id), "both enabled platforms present: {ids:?}");
+    assert!(!ids.contains(&p3.id), "auto_disabled (not yet due) platform excluded: {ids:?}");
+}
+
+/// ③ 0 enabled 且总数 >1（均 auto_disabled 未到期）→ 不走短路（sole_platform 返 None），
+/// 全部候选被过滤 → Err（与短路「无视状态必请求」行为相反，验证未误短路）。
+#[tokio::test]
+async fn zero_enabled_multi_platform_no_shortcut() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "auto-disabled-1").await;
+    let p2 = mk_db_platform(&db, "auto-disabled-2").await;
+    for pid in [p1.id, p2.id] {
+        db::set_platform_auto_disabled(&db, pid).await.expect("set auto_disabled");
+    }
+    let g = mk_db_group(&db, "zero-enabled", &[p1.id, p2.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    assert!(res.is_err(), "zero enabled, no shortcut: all auto_disabled-not-due must Err, not force request");
+}

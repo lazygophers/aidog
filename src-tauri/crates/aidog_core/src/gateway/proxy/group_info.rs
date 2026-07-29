@@ -115,10 +115,10 @@ async fn handle_group_info_inner(
             ok_empty!();
         }
     };
-    if platforms.len() != 1 {
+    let Some(gp) = crate::gateway::router::sole_platform(&platforms) else {
         ok_empty!();
-    }
-    let platform = &platforms[0].platform;
+    };
+    let platform = &gp.platform;
 
     // usage 统计（复用现有 db 查询，只读）
     let stats = super::db::get_group_usage_stats(&state.db, &group.group_key).await.unwrap_or(
