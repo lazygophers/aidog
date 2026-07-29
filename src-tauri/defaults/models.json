@@ -557,6 +557,19 @@
           "input_cost_per_token": 1.1111111111111112e-6,
           "output_cost_per_token": 3.888888888888889e-6,
           "cache_read_input_token_cost": 2.777777777777778e-7
+        },
+        "glm_coding": {
+          "input_cost_per_token": 1.1111111111111112e-6,
+          "output_cost_per_token": 3.888888888888889e-6,
+          "cache_read_input_token_cost": 2.777777777777778e-7,
+          "time_tiers": [
+            {
+              "start_at": 1790784000,
+              "input_cost_per_token": 2.2222222222222225e-6,
+              "output_cost_per_token": 7.777777777777777e-6,
+              "cache_read_input_token_cost": 5.555555555555556e-7
+            }
+          ]
         }
       }
     },
@@ -690,6 +703,27 @@
           "input_cost_per_token": 6.944444444444444e-7,
           "output_cost_per_token": 3.055555555555555e-6,
           "cache_read_input_token_cost": 1.6666666666666665e-7
+        },
+        "glm_coding": {
+          "input_cost_per_token": 6.944444444444444e-7,
+          "output_cost_per_token": 3.055555555555555e-6,
+          "cache_read_input_token_cost": 1.6666666666666665e-7,
+          "time_tiers": [
+            {
+              "start_at": 1790784000,
+              "input_cost_per_token": 1.3888888888888888e-6,
+              "output_cost_per_token": 6.111111111111111e-6,
+              "cache_read_input_token_cost": 3.333333333333333e-7,
+              "context_tiers": [
+                {
+                  "min_tokens": 32768,
+                  "input_cost_per_token": 1.9444444444444444e-6,
+                  "output_cost_per_token": 7.222222222222222e-6,
+                  "cache_read_input_token_cost": 5.0e-7
+                }
+              ]
+            }
+          ]
         }
       }
     },

@@ -391,6 +391,7 @@ pub(crate) async fn handle_devin(
             log.user_response_body = body.clone();
             log.input_tokens = 0;
             log.output_tokens = 0;
+            // ponytail: ACU 是厂商实际计量, 不叠 peak 倍率(叠加=重复计价)
             log.est_cost = acus_consumed;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
@@ -433,6 +434,7 @@ pub(crate) async fn handle_devin(
     log.status_code = 200;
     log.input_tokens = 0;
     log.output_tokens = 0;
+    // ponytail: ACU 是厂商实际计量, 不叠 peak 倍率(叠加=重复计价)
     log.est_cost = acus_consumed;
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.response_body = body_str.clone();
@@ -904,6 +906,7 @@ async fn stream_terminal_response(
     log.status_code = http_status.as_u16() as i32;
     log.input_tokens = 0;
     log.output_tokens = 0;
+    // ponytail: ACU 是厂商实际计量, 不叠 peak 倍率(叠加=重复计价)
     log.est_cost = acus_consumed;
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.response_body = body_marker.clone();
