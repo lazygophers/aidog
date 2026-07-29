@@ -7,12 +7,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/* 🔴 必须写在 `@layer base` 内，理由同下方 button/input color 块：unlayered 声明压过任何
+   layered 声明。裸写时 `padding: 0` 会反压 utilities 层，让 shadcn 组件的 px-4/py-2、
+   px-3/py-1 全部失效——按钮与输入框文字紧贴边框。旧 .btn/.input 因特异性 0-1-0 > 通配符
+   0-0-0 不受影响，故症状只出现在已迁 shadcn 的组件上。 */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 /* preflight 禁用(line 3)后 UA 样式表的 `color: buttontext` 仍作用于表单元素——它是显式
