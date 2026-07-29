@@ -160,14 +160,14 @@ use super::*;
             "pricing": {"openai": {"input_cost_per_token": 1e-6, "output_cost_per_token": 2e-6, "cache_read_input_token_cost": 1e-7}}
         }).to_string();
         upsert_model_price(&db, "p1", "github", &pd_platform, None, None, None).await.unwrap();
-        let r = resolve_price(&db, "p1", "openai", 99.0, 99.0, 0).await.unwrap();
+        let r = resolve_price(&db, "p1", "openai", 99.0, 99.0, 0, 0).await.unwrap();
         assert_eq!(r.source, "platform_override");
         assert_eq!(r.input_cost_per_token, 1e-6);
 
         // top_level path
         let pd_top = serde_json::json!({"input_cost_per_token": 5e-6, "output_cost_per_token": 6e-6}).to_string();
         upsert_model_price(&db, "p2", "github", &pd_top, None, None, None).await.unwrap();
-        let r2 = resolve_price(&db, "p2", "anthropic", 99.0, 99.0, 0).await.unwrap();
+        let r2 = resolve_price(&db, "p2", "anthropic", 99.0, 99.0, 0, 0).await.unwrap();
         assert_eq!(r2.source, "top_level");
 
         // default_platform path
@@ -176,11 +176,11 @@ use super::*;
             "pricing": {"glm": {"input_cost_per_token": 7e-6, "output_cost_per_token": 8e-6}}
         }).to_string();
         upsert_model_price(&db, "p3", "github", &pd_dp, None, None, None).await.unwrap();
-        let r3 = resolve_price(&db, "p3", "no-match", 99.0, 99.0, 0).await.unwrap();
+        let r3 = resolve_price(&db, "p3", "no-match", 99.0, 99.0, 0, 0).await.unwrap();
         assert_eq!(r3.source, "default_platform");
 
         // fallback path (no record)
-        let r4 = resolve_price(&db, "unknown", "openai", 3.0, 6.0, 0).await.unwrap();
+        let r4 = resolve_price(&db, "unknown", "openai", 3.0, 6.0, 0, 0).await.unwrap();
         assert_eq!(r4.source, "fallback");
         assert!((r4.input_cost_per_token - 3.0 / 1_000_000.0).abs() < 1e-12);
     }
@@ -208,4 +208,100 @@ use super::*;
         let empty = filtered_list_model_prices(&db, Some(""), Some(""), 10, 0).await.unwrap();
         assert_eq!(empty.len(), 3);
         assert_eq!(filtered_count_model_prices(&db, Some(""), Some("")).await.unwrap(), 3);
+    }
+
+    fn glm_coding_pd() -> serde_json::Value {
+        serde_json::json!({
+            "pricing": {
+                "glm_coding": {
+                    "input_cost_per_token": 6.944444444444444e-07,
+                    "output_cost_per_token": 3.055555555555555e-06,
+                    "cache_read_input_token_cost": 1.6666666666666665e-07,
+                    "time_tiers": [{
+                        "start_at": 1790784000,
+                        "input_cost_per_token": 1.3888888888888888e-06,
+                        "output_cost_per_token": 6.111111111111111e-06,
+                        "cache_read_input_token_cost": 3.333333333333333e-07,
+                        "context_tiers": [{
+                            "min_tokens": 32768,
+                            "input_cost_per_token": 1.9444444444444444e-06,
+                            "output_cost_per_token": 7.222222222222222e-06,
+                            "cache_read_input_token_cost": 5.0e-07
+                        }]
+                    }]
+                }
+            }
+        })
+    }
+
+    #[test]
+    fn apply_tiers_selects_time_tier_when_hit() {
+        let pd = glm_coding_pd();
+        let scope = pd.get("pricing").unwrap().get("glm_coding").unwrap();
+        let base = crate::gateway::models::ResolvedPrice {
+            input_cost_per_token: 6.944444444444444e-07,
+            output_cost_per_token: 3.055555555555555e-06,
+            cache_read_input_token_cost: 1.6666666666666665e-07,
+            source: "platform_override".to_string(),
+        };
+        // now_ms 越过 start_at*1000 → 命中 time 档，base 三价翻倍 + source+time
+        let hit = apply_tiers(base.clone(), scope, &pd, 100, 1790784000_i64 * 1000 + 1);
+        assert_eq!(hit.input_cost_per_token, 1.3888888888888888e-06);
+        assert_eq!(hit.output_cost_per_token, 6.111111111111111e-06);
+        assert_eq!(hit.cache_read_input_token_cost, 3.333333333333333e-07);
+        assert_eq!(hit.source, "platform_override+time");
+    }
+
+    #[test]
+    fn apply_tiers_no_hit_passes_through_unchanged() {
+        let pd = glm_coding_pd();
+        let scope = pd.get("pricing").unwrap().get("glm_coding").unwrap();
+        let base = crate::gateway::models::ResolvedPrice {
+            input_cost_per_token: 6.944444444444444e-07,
+            output_cost_per_token: 3.055555555555555e-06,
+            cache_read_input_token_cost: 1.6666666666666665e-07,
+            source: "platform_override".to_string(),
+        };
+        // now_ms 未越过 start_at*1000 → 未命中，逐字等价现状
+        let before = apply_tiers(base.clone(), scope, &pd, 100, 1790784000_i64 * 1000 - 1);
+        assert_eq!(before.input_cost_per_token, 6.944444444444444e-07);
+        assert_eq!(before.source, "platform_override");
+        // now_ms <= 0 → 跳过 time_tiers
+        let skipped = apply_tiers(base.clone(), scope, &pd, 100, 0);
+        assert_eq!(skipped.input_cost_per_token, 6.944444444444444e-07);
+        assert_eq!(skipped.source, "platform_override");
+    }
+
+    #[test]
+    fn apply_tiers_time_hit_then_context_tier_from_time_entry() {
+        let pd = glm_coding_pd();
+        let scope = pd.get("pricing").unwrap().get("glm_coding").unwrap();
+        let base = crate::gateway::models::ResolvedPrice {
+            input_cost_per_token: 6.944444444444444e-07,
+            output_cost_per_token: 3.055555555555555e-06,
+            cache_read_input_token_cost: 1.6666666666666665e-07,
+            source: "platform_override".to_string(),
+        };
+        // time 命中后, context 分档改从 time 条目内嵌 context_tiers 读 (长文档命中 32768 档)
+        let long = apply_tiers(base, scope, &pd, 40_000, 1790784000_i64 * 1000 + 1);
+        assert_eq!(long.input_cost_per_token, 1.9444444444444444e-06);
+        assert_eq!(long.output_cost_per_token, 7.222222222222222e-06);
+        assert_eq!(long.cache_read_input_token_cost, 5.0e-07);
+        assert_eq!(long.source, "platform_override+time+tier");
+    }
+
+    #[test]
+    fn bundled_model_entry_finds_glm_5_2() {
+        // 断言真拿到值而非只断言不 panic —— unwrap_or_default() 会静默吞 JSON 解析错误
+        let entry = crate::gateway::price_sync::bundled_model_entry("glm-5.2");
+        assert!(entry.is_some(), "bundled models.json 应含 glm-5.2 条目");
+    }
+
+    #[tokio::test]
+    async fn resolve_price_falls_back_to_bundled_when_db_empty() {
+        let db = test_db().await;
+        // DB 无 glm-5.2 行 → resolve_price 应读 bundled models.json 兜底，而非直接掉进档 4 fallback
+        let r = resolve_price(&db, "glm-5.2", "glm", 3.0, 3.0, 0, 0).await.unwrap();
+        assert_ne!(r.source, "fallback", "DB 未同步时应命中 bundled 兜底而非 settings fallback");
+        assert!(r.input_cost_per_token > 0.0);
     }

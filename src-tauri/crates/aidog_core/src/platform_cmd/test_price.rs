@@ -22,9 +22,9 @@ async fn price_crud_and_resolve() {
     assert_eq!(gateway::db::filtered_count_model_prices(&db, Some("cl"), None).await.unwrap(), 1);
 
     let settings = gateway::price_sync::get_sync_settings(&db).await;
-    let r = gateway::db::resolve_price(&db, "claude", "anthropic", settings.fallback_input_price, settings.fallback_output_price, 0).await.unwrap();
+    let r = gateway::db::resolve_price(&db, "claude", "anthropic", settings.fallback_input_price, settings.fallback_output_price, 0, 0).await.unwrap();
     assert_eq!(r.source, "top_level");
-    let r2 = gateway::db::resolve_price(&db, "claude", "anthropic", settings.fallback_input_price, settings.fallback_output_price, 0).await.unwrap();
+    let r2 = gateway::db::resolve_price(&db, "claude", "anthropic", settings.fallback_input_price, settings.fallback_output_price, 0, 0).await.unwrap();
     assert!(r2.input_cost_per_token > 0.0);
 }
 

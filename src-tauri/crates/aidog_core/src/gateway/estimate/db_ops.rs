@@ -193,7 +193,7 @@ pub async fn estimate_after_request(
     // resolve_price 单次解析，余额扣减（balance delta）与手动预算 est_cost 复用同一 ResolvedPrice
     // （同一 (model, platform_type, input_tokens)，结果等价），避免对余额平台重复解析两次。
     let resolved_price =
-        crate::gateway::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens)
+        crate::gateway::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens, now())
             .await
             .ok();
 
