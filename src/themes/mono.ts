@@ -38,11 +38,14 @@ export const mono: ThemeDefinition = {
     "--popover": "#ffffff",
     "--popover-foreground": "#1c1917",
     "--primary": "#c49a3c",
-    "--primary-foreground": "#ffffff",
+    // 金底(#c49a3c)配白字仅 2.62:1（叠 .bg-primary 提亮渐变后更差），与 dark 侧
+    // --accent-foreground 同族缺陷。改深字 → 约 8.5:1。波及 Button default /
+    // Badge default / Tooltip / .btn-primary，是 light 侧金底 idiom 的统一修正。
+    "--primary-foreground": "#2b210a",
     "--secondary": "#f5f2ed",
     "--secondary-foreground": "#1c1917",
     "--muted": "#f5f2ed",
-    "--muted-foreground": "#78716c",
+    "--muted-foreground": "#6f6862",
     "--accent": "#d4b87a",
     "--accent-foreground": "#5a4a1e",
     "--destructive": "#c47a7a",
@@ -84,7 +87,11 @@ export const mono: ThemeDefinition = {
     "--muted": "#1a1a1a",
     "--muted-foreground": "#8a8580",
     "--accent": "#c4a83a",
-    "--accent-foreground": "#f5f5f0",
+    // 金底(#c4a83a L≈68%)必须配深字：原 #f5f5f0 浅白对比度仅 1.8:1，
+    // shadcn 全家 hover 态(ghost/outline/DropdownMenuItem/SelectItem…)都走
+    // `hover:bg-accent hover:text-accent-foreground`，dark 下 hover 一律不可读。
+    // 与 light 侧 #5a4a1e、以及同为金底的 --primary-foreground 取同一 idiom。
+    "--accent-foreground": "#1a1206",
     "--destructive": "#b07070",
     "--destructive-foreground": "#ffffff",
     "--border": "rgba(255, 255, 255, 0.08)",

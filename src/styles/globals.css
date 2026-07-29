@@ -18,12 +18,19 @@
 /* preflight 禁用(line 3)后 UA 样式表的 `color: buttontext` 仍作用于表单元素——它是显式
    声明，不参与继承，:root 的 color 管不到，dark 下退化成黑字。无 text-* 类的
    shadcn variant(ghost/outline)因此「深底黑字」不可见。补 preflight 缺的这一条。
-   只补 color 不补 font：字号目前依赖 UA 默认，改 font 会全站变版。 */
-button,
-input,
-select,
-textarea {
-  color: inherit;
+   只补 color 不补 font：字号目前依赖 UA 默认，改 font 会全站变版。
+
+   🔴 必须写在 `@layer base` 内：unlayered 声明优先级高于任何 layered 声明（与特异性无关），
+   裸写会反压 utilities 层，让 <button> 上的 text-primary-foreground / text-accent-foreground
+   等全部 utility 失效（金底浅白字 1.68:1）。base 排在 utilities 前 → UA 样式仍被压住，
+   utility 重新胜出。 */
+@layer base {
+  button,
+  input,
+  select,
+  textarea {
+    color: inherit;
+  }
 }
 
 :root {
@@ -36,6 +43,10 @@ textarea {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+  /* UA 渲染的弹层(<datalist> 下拉、滚动条、autofill 底)按此定明暗。
+     主题由 applyTheme 写 data-mode，不跟系统 → 不能用 `light dark` 自动配对，
+     必须显式随 data-mode 覆盖（见下方 :root[data-mode="dark"]）。 */
+  color-scheme: light;
 
   /* ── Semantic status colors (萤火虫莫兰迪 · 柔和去饱和) ──
      2026-07-26 照搬 example 萤火虫配色：莫兰迪去饱和语义色。
@@ -324,7 +335,9 @@ body {
 
 .btn-primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color: #fff;
+  /* 金渐变底禁写死 #fff（dark 1.68:1 / light 1.92:1 均不可读）。
+     --primary-foreground 与同为金系的 --primary/--accent 成对，两 mode 都达标。 */
+  color: var(--primary-foreground);
   border-color: transparent;
   font-weight: 600;
 }
@@ -407,15 +420,17 @@ select.input {
 
 /* ── datetime-local / date / time / month 原生控件跟主题 ──
    .input className 已覆盖 color/bg/border，但 Tauri WKWebView 原生日期控件：
-   (1) 不响应 web color-scheme → 须显式 color-scheme: light dark 兜底弹层明暗；
+   (1) 不响应 web color-scheme → 须显式声明兜底弹层明暗；
    (2) ::-webkit-calendar-picker-indicator 默认黑图标在暗主题下不可见 → 按 data-mode 反色。
-   Platforms.tsx 内联 style={{ colorScheme: themeMode }} 控弹层明暗；此处作为全局兜底 + 染色 indicator。 */
+   Platforms.tsx 内联 style={{ colorScheme: themeMode }} 控弹层明暗；此处作为全局兜底 + 染色 indicator。
+   ⚠ 用 inherit 不用 `light dark`：后者让弹层跟**系统**主题，而 app 主题由 applyTheme 写
+   data-mode，两者可相反；inherit 继承 :root 的 color-scheme = 跟 app 主题。 */
 input[type="datetime-local"],
 input[type="date"],
 input[type="time"],
 input[type="month"],
 input[type="week"] {
-  color-scheme: light dark;
+  color-scheme: inherit;
 }
 
 input[type="datetime-local"]::-webkit-calendar-picker-indicator,
@@ -764,6 +779,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
 /* 萤火虫 dark 模式语义色（莫兰迪去饱和，暗夜更深）—— 覆盖 :root 默认 light 值 */
 :root[data-mode="dark"] {
+  color-scheme: dark;
   --color-success: #5a8a6a;
   --color-success-bg: rgba(90, 138, 106, 0.12);
   --color-warning: #b8984a;
