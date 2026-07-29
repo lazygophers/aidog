@@ -22,11 +22,11 @@ UTC 14:00 = 北京 22:00。而同结构的 `peak_hours` 编辑器早有本地/UT
 
 ### 用户 2026-07-29 拍板（契约锁定）
 
-- [ ] **tzMode 共用一个**：整个平台编辑表单单一时区开关，`peak_hours` 与 `time_models` 同步切换。
+- [x] **tzMode 共用一个**：整个平台编辑表单单一时区开关，`peak_hours` 与 `time_models` 同步切换。
       复用 `usePlatformForm.ts:216` 现有 state（改名 `windowsTz`），非各自独立。
-- [ ] **换算单位改为绝对分钟**：`(hour*60 + minute ± offsetMinutes) mod 1440`，两侧同批修正。
+- [x] **换算单位改为绝对分钟**：`(hour*60 + minute ± offsetMinutes) mod 1440`，两侧同批修正。
       半时区不再产生非整数 hour。
-- [ ] **存量脏数据前端载入归一**：`parsePlatformPeakHours` / `parsePlatformTimeModels` 读取时把非整数
+- [x] **存量脏数据前端载入归一**：`parsePlatformPeakHours` / `parsePlatformTimeModels` 读取时把非整数
       hour 拆为 hour + minute（8.5 → hour 8, minute 30）。**无 DB migration、无 Rust 改动**，
       用户下次保存自然写回整数。
 
@@ -41,39 +41,39 @@ UTC 14:00 = 北京 22:00。而同结构的 `peak_hours` 编辑器早有本地/UT
 
 ### 范围外
 
-- [ ] 不做 tzMode 持久化（保持运行时态，默认 `local` —— 用户明确未勾）
-- [ ] 不改 Rust 任何代码（存储语义 UTC+0 不变，判定逻辑不变）
-- [ ] 不改 DB schema / 不写 migration
-- [ ] 不改 `manual_budget.rs` 用 `chrono::Local` 的既存不一致（与时段判定无关）
-- [ ] 不加 DST 跨时刻重算（沿用现有模块级 `getTimezoneOffset()` 取值时机）
+- [x] 不做 tzMode 持久化（保持运行时态，默认 `local` —— 用户明确未勾）
+- [x] 不改 Rust 任何代码（存储语义 UTC+0 不变，判定逻辑不变）
+- [x] 不改 DB schema / 不写 migration
+- [x] 不改 `manual_budget.rs` 用 `chrono::Local` 的既存不一致（与时段判定无关）
+- [x] 不加 DST 跨时刻重算（沿用现有模块级 `getTimezoneOffset()` 取值时机）
 
 ### 已知约束
 
-- [ ] 换算函数**唯一真值源**，两个编辑器共用，禁抄第二份（口径漂移 = 两处显示不同基准）
-- [ ] `peak_hours` 侧现有行为必须零回归：`formSections.tsx:670-679` 切到新函数后，整时区用户
+- [x] 换算函数**唯一真值源**，两个编辑器共用，禁抄第二份（口径漂移 = 两处显示不同基准）
+- [x] `peak_hours` 侧现有行为必须零回归：`formSections.tsx:670-679` 切到新函数后，整时区用户
       看到的数字必须与改前完全一致
-- [ ] `formSections.tsx:595` 的 `peak_hours_desc` 文案写死「按 UTC+0 设置时段倍率」，与可切换矛盾，同批改
-- [ ] i18n 新 key 走顶层扁平 dotted key，注入保序（memory `locale-flat-key-convention`），
+- [x] `formSections.tsx:595` 的 `peak_hours_desc` 文案写死「按 UTC+0 设置时段倍率」，与可切换矛盾，同批改
+- [x] i18n 新 key 走顶层扁平 dotted key，注入保序（memory `locale-flat-key-convention`），
       8 语言齐平，必跑 `node scripts/check-i18n.mjs`
 
 ## 验收标准
 
-- [ ] `src/utils/peakHours.ts` 导出 `TzMode` / `localOffsetMinutes` / `utcToDisplay` / `displayToUtc`，
+- [x] `src/utils/peakHours.ts` 导出 `TzMode` / `localOffsetMinutes` / `utcToDisplay` / `displayToUtc`，
       按绝对分钟换算，带单测覆盖：整时区往返、半时区（+5:30）往返、跨零点 mod 1440、负偏移
-- [ ] `formSections.tsx` 删除本地 `LOCAL_OFFSET_HOURS`/`tzOffset`/`utcToDisplay`/`displayToUtc`，
+- [x] `formSections.tsx` 删除本地 `LOCAL_OFFSET_HOURS`/`tzOffset`/`utcToDisplay`/`displayToUtc`，
       改 import 新模块；start/end 的 **minute 输入框也参与换算**
-- [ ] 整时区下 `peak_hours` 编辑器显示值与改动前逐位一致（零回归）
-- [ ] `WindowsEditModal` start/end 的 hour+minute 按 tzMode 双向换算，含 tz 切换按钮与「次日」提示
-- [ ] `describeWindows` 输出按 tzMode 换算并带 tz 标签，与弹窗内显示一致
-- [ ] `usePlatformForm.ts:216` state 改名 `windowsTz`，经 `PlatformEditForm.tsx` 同时透传给
+- [x] 整时区下 `peak_hours` 编辑器显示值与改动前逐位一致（零回归）
+- [x] `WindowsEditModal` start/end 的 hour+minute 按 tzMode 双向换算，含 tz 切换按钮与「次日」提示
+- [x] `describeWindows` 输出按 tzMode 换算并带 tz 标签，与弹窗内显示一致
+- [x] `usePlatformForm.ts:216` state 改名 `windowsTz`，经 `PlatformEditForm.tsx` 同时透传给
       `PeakHoursSection` 与 `ModelsMatrixSection`，切换一处两处同步变
-- [ ] `parsePlatformPeakHours` / `parsePlatformTimeModels` 归一非整数 hour（8.5 → 8 点 30 分），
+- [x] `parsePlatformPeakHours` / `parsePlatformTimeModels` 归一非整数 hour（8.5 → 8 点 30 分），
       带单测；整数值原样不动
-- [ ] 4 处硬编码中文全部走 i18n key，8 语言齐平，`node scripts/check-i18n.mjs` 零缺失
-- [ ] `peak_hours_desc` 文案不再写死「按 UTC+0」，8 语言同步
-- [ ] 门禁全绿：`npx tsc --noEmit` / `yarn test` / `cargo test --workspace`（应零影响，作回归证据）
+- [x] 4 处硬编码中文全部走 i18n key，8 语言齐平，`node scripts/check-i18n.mjs` 零缺失
+- [x] `peak_hours_desc` 文案不再写死「按 UTC+0」，8 语言同步
+- [x] 门禁全绿：`npx tsc --noEmit` / `yarn test` / `cargo test --workspace`（应零影响，作回归证据）
 
 ## 索引
 
-- [ ] 详细设计: [design.md](design.md)
-- [ ] 任务/子任务/调度: task.json (`skein subtask list time-models-timezone`)
+- [x] 详细设计: [design.md](design.md)
+- [x] 任务/子任务/调度: task.json (`skein subtask list time-models-timezone`)
