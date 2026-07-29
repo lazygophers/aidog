@@ -48,10 +48,25 @@ subtask: `frontend-compositing-purge/s6-backdrop-audit`
 
 无需补偿手段（不透明度提升 / 静态渐变等）—— 因为改动前后视觉输出本就相同，不存在「补」的必要。
 
-## 5. 量测数据（阶段 B，待办）
+## 5. 量测数据
 
-**当前仍在阶段 A**，尚未申请到量测窗口，本节留空。已完成清单：
+**阶段 B 已取消**（main 2026-07-29 拍板，`measure-protocol.md` 判据改判：只认背景态可比读数，fe-s3/fe-s5 共 8 轮实测同撞「无 Screen Recording 权限 + `System Events` frontmost 不可靠」的环境墙，非手法问题）。合成层类改动（backdrop-filter 省的是 graphics 层内存）在背景态基本测不出——窗口失焦后该内存已随之释放，逐 subtask 量测无意义。归因移交 `perf-final-verification`（s7-verify）做加总对比，本项按「已说明理由」收口，不按「有实测数字」收口。
+
+### 理论收益估算（非实测，供 s7 加总对比参照）
+
+`backdrop-filter` 在 WebKit 的合成模型下，每个应用了该属性的元素会被提升为独立合成层（RenderLayer 带 backdrop root），需要一块离屏 buffer 保存「取样+模糊」结果，尺寸 = 元素 border-box 的像素面积（乘以设备像素比）。删除的 4 类共 62 个使用点：
+
+| 类 | 实例数 | 典型尺寸量级 | 说明 |
+|---|---|---|---|
+| `.input` | 47 | 小（约 200×32px 常见输入框） | 表单/搜索框，多数不同屏共存但也有多输入框并存页面（如 Platforms 批量编辑） |
+| `.btn` | 12 | 小（约 80×32px 常见按钮） | 全仓仅 12 处直接用裸 `.btn` 类（`.btn-primary`/`.btn-danger` 等变体继承自 `.btn`，未单独计） |
+| 3 处 sticky-bar | 3 | 大（视口宽 × ~50px，sticky 常驻可见区） | 每页同时只 1 个可见，但常驻整个设置页生命周期 |
+| 合计 | 62 | — | 62 层离屏 buffer 全部消除，且原本 100% 不透明背景下这些 buffer 从未在屏幕上贡献过任何像素——是纯浪费，删除后 GPU/WebKit 合成开销只降不升 |
+
+量级判断：sticky-bar 3 处虽实例少，但尺寸是视口宽度级、且是页面停留期间的常驻可见层，单层字节开销可能高于多数 `.input`/`.btn` 实例；`.input`/`.btn` 胜在数量多（59 处）。两者对 WebKit malloc 的净贡献需要 s7 实测切分，本报告不做无依据的字节数猜测。
+
+已完成清单：
 - [x] 全量清点（8 处声明，逐条判背景透明度）
 - [x] 分类与去留判断
-- [x] 执行 `.btn`/`.input`/3 处内联 sticky-bar 共 5 处 CSS/TSX 改动（详见 git diff）
-- [ ] WebKit malloc 量测数据 + 三项自证（等 main 放行量测窗口后补）
+- [x] 执行 `.btn`/`.input`/3 处内联 sticky-bar 共 5 处 CSS/TSX 改动（详见 commit）
+- [x] 量测数据：阶段 B 取消，理论收益估算已给出，实测归因移交 s7-verify
