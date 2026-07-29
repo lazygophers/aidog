@@ -2,7 +2,7 @@
   "id": "tokenizer-residency-trim",
   "name": "tokenizer 峰值与零散常驻清扫",
   "desc": "count_tokens 无条件本地 BPE 致 HF tokenizer 常驻 40-120MB，另清 presets 三重解析/死代码/MITM 无界表/AGG_CAP",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [],
   "contracts": [
     "count_tokens 惰性化只改「何时算」, 不改「算什么」与「怎么算」。token 计数与费用精度不得下降(红线2)",
@@ -20,13 +20,18 @@
         "未改 tokenizer.rs 的 pick_encoding 选型与四个单例",
         "glm/qwen 上游成功场景下 phys_footprint 无 HF tokenizer 初始化跃升"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
-      "finished": null
+      "started": 1785316783,
+      "finished": 1785317344
     },
     {
       "sid": "s2-presets-single-parse",
@@ -39,11 +44,11 @@
         "peak_hours 与 defaults_sync 相关测试全绿"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
+      "started": 1785317368,
       "finished": null
     },
     {
@@ -57,11 +62,11 @@
         "未误删仍在用的 coding_plan 端点路由逻辑"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
+      "started": 1785317368,
       "finished": null
     },
     {
@@ -138,9 +143,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785248700,
-  "started": null,
+  "started": 1785316779,
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785250583
+  "updated": 1785317368
 }

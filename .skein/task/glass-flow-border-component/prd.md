@@ -10,11 +10,11 @@
 - 不动 .glass / .glass-surface 的其余样式（背景 / 边框 / 圆角 / 阴影）
 - opt-in 点位需逐个人工指定，不做全量自动迁移
 ## 验收标准
-- [ ] 流光描边不再由 .glass / .glass-surface 全局挂载：globals.css 中 .glass::after / .glass-surface::after 的 conic-gradient + opacity 规则已移除，改由独立 opt-in 类（如 .flow-border）承载
-- [ ] opt-in 点位限于「页面顶层主卡片」：PlatformCard / GroupCard / 首页统计卡等页面主体卡片，逐个显式加类；设置页表单块、弹窗、导入导出面板、内嵌小容器一律不加
-- [ ] 流光视觉表现零变化：保留 opt-in 元素的 conic 色值、3s 周期、hover 触发时机、mask/mask-composite 收在 :hover 内的既有优化，与改前逐帧一致
-- [ ] .glass / .glass-surface 的其余样式（背景、边框、圆角、阴影、position: relative）不受影响，非 opt-in 元素外观除「无流光」外无其他变化
-- [ ] yarn build / yarn test / node scripts/check-i18n.mjs 全绿
+- [x] 流光描边不再由 .glass / .glass-surface 全局挂载：globals.css 中 .glass::after / .glass-surface::after 的 conic-gradient + opacity 规则已移除，改由独立 opt-in 类（如 .flow-border）承载
+- [x] opt-in 点位限于「页面顶层主卡片」：PlatformCard / GroupCard / 首页统计卡等页面主体卡片，逐个显式加类；设置页表单块、弹窗、导入导出面板、内嵌小容器一律不加
+- [x] 流光视觉表现零变化：保留 opt-in 元素的 conic 色值、3s 周期、hover 触发时机、mask/mask-composite 收在 :hover 内的既有优化，与改前逐帧一致
+- [x] .glass / .glass-surface 的其余样式（背景、边框、圆角、阴影、position: relative）不受影响，非 opt-in 元素外观除「无流光」外无其他变化
+- [x] yarn build / yarn test / node scripts/check-i18n.mjs 全绿
 ## 索引
 - 详细设计: [design.md](design.md)
 - 调研收敛: [findings.md](findings.md) (仅真调研时生)
