@@ -1,0 +1,21 @@
+{
+  "ts": "2026-07-29T16:31:57",
+  "core_chars": 924,
+  "budget": 1000,
+  "problems": [
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/semantic-token-foreground-pairing"
+      ],
+      "detail": "[断链] recall/frontend/semantic-token-foreground-pairing: [[token-foreground-pairing]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/optimization/measure-window-multi-probe"
+      ],
+      "detail": "[断链] recall/optimization/measure-window-multi-probe: [[measure-window-exclusive-env]] ✗ 目标缺失"
+    }
+  ]
+}

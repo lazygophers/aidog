@@ -49,3 +49,12 @@ graphics 合计只有 43.7MB（占 TOTAL 11.5%）。**200MB 目标必须靠堆�
 
 「删 `maximized: true` 回默认 1026×759」这个改动**不再有性能依据**，只剩 UX 依据
 （首次启动占满全屏不合理）。s3–s6 是否继续，见 task 决策记录。
+
+## 决策记录（2026-07-29 用户拍板）
+
+**task 归档，s3–s6 全部砍掉。** 性能依据已被 run3 实测证伪，`maximized: true` 保持现状不动。
+省下的机时转投堆侧三个 task，下一个开工 `tokenizer-residency-trim`（main 进程
+MALLOC_SMALL 115MB 的头号嫌疑）。
+
+本 task 的保留价值 = 上方四条结论 + `.scratch/perf-200mb/window-size-measure-protocol.md`
+的量测协议（编制核验硬闸、纯背景态口径、`--bundles app` 三条教训对后续 task 仍适用）。

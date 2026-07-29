@@ -1,8 +1,8 @@
 {
   "tasks": [
     {
-      "id": "cold-start-unblock",
-      "status": "就绪",
+      "id": "glass-flow-border-component",
+      "status": "进行中",
       "deps": [
         "frontend-compositing-purge"
       ],
@@ -12,7 +12,7 @@
       "kind": "task"
     },
     {
-      "id": "glass-flow-border-component",
+      "id": "cold-start-unblock",
       "status": "就绪",
       "deps": [
         "frontend-compositing-purge"
@@ -75,17 +75,6 @@
       "id": "tokenizer-residency-trim",
       "status": "就绪",
       "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
-      "id": "window-default-size",
-      "status": "就绪",
-      "deps": [
-        "frontend-compositing-purge"
-      ],
       "priority": 5,
       "worktree": null,
       "parent": null,
