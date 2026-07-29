@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import type { PeakWindow } from "../../domains/platforms/defaults";
+import { type TzMode, utcToDisplay, displayToUtc } from "../../utils/peakHours";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -37,11 +38,13 @@ function clampInt(v: number, min: number, max: number, fallback: number): number
 /** WindowsEditModal — 列头点击弹窗编辑时段档 windows。
  *  内部持 localCopy state（windows 副本），编辑不直接改 props；确认 → onSave(localCopy) + onClose。
  *  Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。 */
-export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
+export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTzMode, t }: {
   open: boolean;
   windows: PeakWindow[];
   onSave: (w: PeakWindow[]) => void;
   onClose: () => void;
+  tzMode: TzMode;
+  setTzMode: Dispatch<SetStateAction<TzMode>>;
   t: TFunction;
 }) {
   const [local, setLocal] = useState<PeakWindow[]>(windows);
@@ -109,8 +112,24 @@ export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
       <DialogContent style={{ maxWidth: 500, padding: 16 }}>
         <DialogHeader>
-          <DialogTitle style={{ margin: "0 0 12px", fontSize: 14 }}>
-            {t("platform.windows_edit_title", "编辑时段窗口")}
+          <DialogTitle style={{ margin: "0 0 12px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <span>{t("platform.windows_edit_title", "编辑时段窗口")}</span>
+            {/* tz 切换：与 formSections.tsx PeakHoursSection 同款样式，windows 存储恒 UTC+0，仅展示/输入换算 */}
+            <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+              {(["local", "utc"] as const).map(m => (
+                <Button
+                  key={m}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className={tzMode === m ? "btn-primary" : ""}
+                  style={{ padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                  onClick={() => setTzMode(m)}
+                >
+                  {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
+                </Button>
+              ))}
+            </div>
           </DialogTitle>
         </DialogHeader>
 
@@ -133,42 +152,71 @@ export function WindowsEditModal({ open, windows, onSave, onClose, t }: {
                   display: "flex", flexDirection: "column", gap: 8,
                 }}
               >
-                {/* 起 / 止 hour:minute */}
-                <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                    <span>{t("platform.start_hour", "起")}</span>
-                    <Input className="input" type="number" min={0} max={23} style={{ width: 48, height: "auto" }}
-                      value={w.start_hour}
-                      onChange={e => updateWindow(widx, { start_hour: clampInt(Number(e.target.value), 0, 23, 0) })}
-                    />
-                    <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                    <Input className="input" type="number" min={0} max={59} style={{ width: 48, height: "auto" }}
-                      value={w.start_minute ?? 0}
-                      onChange={e => updateWindow(widx, { start_minute: clampInt(Number(e.target.value), 0, 59, 0) })}
-                    />
-                  </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                    <span>{t("platform.end_hour", "止")}</span>
-                    <Input className="input" type="number" min={0} max={24} style={{ width: 48, height: "auto" }}
-                      value={w.end_hour}
-                      onChange={e => updateWindow(widx, { end_hour: clampInt(Number(e.target.value), 0, 24, 0) })}
-                    />
-                    <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                    <Input className="input" type="number" min={0} max={59} style={{ width: 48, height: "auto" }}
-                      value={w.end_minute ?? 0}
-                      onChange={e => updateWindow(widx, { end_minute: clampInt(Number(e.target.value), 0, 59, 0) })}
-                    />
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    style={{ padding: "2px 6px", fontSize: 10, marginLeft: "auto", color: "var(--color-danger)" }}
-                    onClick={() => removeWindow(widx)}
-                    title={t("action.delete", "删除")}
-                  >
-                    ×
-                  </Button>
-                </div>
+                {/* 起 / 止 hour:minute —— 存储恒 UTC+0，输入/展示按 tzMode 双向换算 */}
+                {(() => {
+                  const startDisp = utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
+                  const endDisp = utcToDisplay(w.end_hour, w.end_minute ?? 0, tzMode);
+                  // 跨天判定用原始 UTC 值比较（与 formSections.tsx formatWindowPreview 同口径），不在 display 层比较
+                  const isNextDay = w.end_hour < w.start_hour;
+                  return (
+                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                        <span>{t("platform.start_hour", "起")}</span>
+                        <Input className="input" type="number" min={0} max={23} style={{ width: 48, height: "auto" }}
+                          value={startDisp.hour}
+                          onChange={e => {
+                            const h = clampInt(Number(e.target.value), 0, 23, 0);
+                            const utc = displayToUtc(h, startDisp.minute, tzMode);
+                            updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
+                          }}
+                        />
+                        <span style={{ color: "var(--text-tertiary)" }}>:</span>
+                        <Input className="input" type="number" min={0} max={59} style={{ width: 48, height: "auto" }}
+                          value={startDisp.minute}
+                          onChange={e => {
+                            const m = clampInt(Number(e.target.value), 0, 59, 0);
+                            const utc = displayToUtc(startDisp.hour, m, tzMode);
+                            updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
+                          }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                        <span>{t("platform.end_hour", "止")}</span>
+                        <Input className="input" type="number" min={0} max={24} style={{ width: 48, height: "auto" }}
+                          value={endDisp.hour}
+                          onChange={e => {
+                            const h = clampInt(Number(e.target.value), 0, 24, 0);
+                            const utc = displayToUtc(h, endDisp.minute, tzMode);
+                            updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
+                          }}
+                        />
+                        <span style={{ color: "var(--text-tertiary)" }}>:</span>
+                        <Input className="input" type="number" min={0} max={59} style={{ width: 48, height: "auto" }}
+                          value={endDisp.minute}
+                          onChange={e => {
+                            const m = clampInt(Number(e.target.value), 0, 59, 0);
+                            const utc = displayToUtc(endDisp.hour, m, tzMode);
+                            updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
+                          }}
+                        />
+                      </div>
+                      {isNextDay && (
+                        <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+                          （{t("platform.peak_hours_next_day", "次日")}）
+                        </span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        style={{ padding: "2px 6px", fontSize: 10, marginLeft: "auto", color: "var(--color-danger)" }}
+                        onClick={() => removeWindow(widx)}
+                        title={t("action.delete", "删除")}
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  );
+                })()}
 
                 {/* 维度 radio：无 / 周几 / 每月几日（互斥） */}
                 <RadioGroup
