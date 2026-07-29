@@ -2,7 +2,7 @@
   "id": "window-default-size",
   "name": "窗口默认尺寸与合成面定数",
   "desc": "删 tauri.conf.json 的 maximized:true 改默认 1026x759，并做一次干净 release 长稳态窗口-内存曲线量测定死合成面预算",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [
     "frontend-compositing-purge"
   ],
@@ -20,13 +20,16 @@
         "协议写明: release 构建 / 每尺寸独立重启 / 等满 >=10min / 只认 footprint 的 phys_footprint 与 graphics 字节 / 禁 ps rss 与 vmmap / region 数不作判据(噪声)",
         "明确禁同进程内 osascript 改窗口连采([03] 栽点)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249537,
-      "started": null,
-      "finished": null
+      "started": 1785305595,
+      "finished": 1785305917
     },
     {
       "sid": "s2-curve-measure",
@@ -42,11 +45,11 @@
         "1026x759 一档的全进程总和已明确"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249538,
-      "started": null,
+      "started": 1785305917,
       "finished": null
     },
     {
@@ -147,9 +150,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785248707,
-  "started": null,
+  "started": 1785305591,
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785250583
+  "updated": 1785305917
 }
