@@ -65,7 +65,3 @@ grep 找到 5 个定时器，工作量推算应占 CPU 1-1.5%。但实测 3.0% �
 - 稳态 CPU 3% 以上但代码检索无法解释的场景
 - 长时间后台进程 CPU 诊断
 - 定时任务链效应分析（A 定时器→B 回调→C 事件→D GC）
-
-## 关联
-
-[[measure-window-exclusive-env]] [[timer-audit-grepping]] [[instrumentation-time-profiler]]

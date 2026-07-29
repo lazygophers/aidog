@@ -54,7 +54,3 @@ cat footprint-${label}-${run_pid}-*.txt | awk '
 
 - `measure.sh` 同 label 重复运行（对比 baseline 常见）
 - 任何大块临时数据依赖文件名去重的场景
-
-## 关联
-
-[[measure-window-exclusive-env]] [[size-curve-raw-format]] [[footprint-parsing-idiom]]

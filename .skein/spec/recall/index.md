@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(58), cross-layer(10), db(23), domain(77), encoding(4), frontend(66), git(6), i18n(9), ops(5), optimization(41), proxy(39), reuse(6), shadcn(49), skein(16), style(18), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(57), cross-layer(10), db(23), domain(77), encoding(4), frontend(66), git(6), i18n(9), ops(5), optimization(36), proxy(39), reuse(6), shadcn(49), skein(14), style(18), test(12), testing(5), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | status/出链 | summary |
 |---|---|---|---|---|---|
@@ -161,7 +161,6 @@
 | build/shadcn-infra-29.md#适用 | build | 适用 | vite,alias,resolve,shadcn,tsconfig | active | shadcn/ui 迁移、Vite 从零配置、路径别名标准化 |
 | build/shadcn-infra-29.md#陷阱-正解 | build | 陷阱-正解 | vite,alias,resolve,shadcn,tsconfig | active | - **陷阱**: shadcn 假设 vite 已有 `@` 别名（标准 scaffolding 如 Vite 默认模… |
 | build/tauri-build-bundle.md#yarn tauri build --no-bundle 不产 .app | build | yarn tauri build --no-bundle 不产 .app | tauri,build,bundle,macos,app-package,binary | active | - |
-| build/tauri-build-bundle.md#关联 | build | 关联 | tauri,build,bundle,macos,app-package,binary | active / →app-bundle-structure,ci-macos-build,tauri-build-flags | [[tauri-build-flags]] [[app-bundle-structure]] [[ci-macos-bu… |
 | build/tauri-build-bundle.md#反例（错误模式） | build | 反例（错误模式） | tauri,build,bundle,macos,app-package,binary | active | / ❌ 错 / ✅ 改为 / /---/---/ / `yarn tauri build --no-bundle` / … |
 | build/tauri-build-bundle.md#案例 | build | 案例 | tauri,build,bundle,macos,app-package,binary | active | 性能测试中需要获取原始二进制做行为测试。尝试 `yarn tauri build --no-bundle` 后发现 `b… |
 | build/tauri-build-bundle.md#触发场景 | build | 触发场景 | tauri,build,bundle,macos,app-package,binary | active | Tauri macOS 构建时使用 `yarn tauri build --no-bundle` 时，只产生裸二进制 `… |
@@ -319,7 +318,7 @@
 | frontend/semantic-token-foreground-pairing.md#案例 | frontend | 案例 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | frontend-compositing-purge task 对比度审计：dark `--accent-foregro… |
 | frontend/semantic-token-foreground-pairing.md#正解 | frontend | 正解 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | 修对比度缺陷时**禁改 `--accent` 等语义色 token 的值本身**，只能改配对的 `-foreground… |
 | frontend/semantic-token-foreground-pairing.md#语义色 token 必须成对达标, --accent 本值禁改 | frontend | 语义色 token 必须成对达标, --accent 本值禁改 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | - |
-| frontend/semantic-token-foreground-pairing.md#适用 | frontend | 适用 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active / →token-foreground-pairing | 本项目（aidog）任何涉及语义色 token 新增/审计对比度时；同族已有跨项目 memory [[token-for… |
+| frontend/semantic-token-foreground-pairing.md#适用 | frontend | 适用 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | 本项目（aidog）任何涉及语义色 token 新增/审计对比度时；同族已有跨项目规则（通用禁写死 #fff/#000 … |
 | frontend/semantic-token-foreground-pairing.md#陷阱 | frontend | 陷阱 | 语义色,token,foreground,对比度,contrast,accent,wcag,配对 | active | 本项目 `--accent` 语义**不等于** shadcn 惯例（shadcn 里 accent 通常是低调 hov… |
 | frontend/shadcn-infra-30.md#关联 | frontend | 关联 | css,var,alias,live-resolution,migration | active / →shadcn-infra-02 | [[shadcn-infra-02]] (同任务 Tailwind 约束) |
 | frontend/shadcn-infra-30.md#对比 | frontend | 对比 | css,var,alias,live-resolution,migration | active | / 方式 / 改动量 / 误伤风险 / 回滚 / /------/--------/---------/------/ … |
@@ -379,7 +378,6 @@
 | ops/trellis-17.md#范式 (MUST，照抄先例 `gateway/defaults_sync.rs`) | ops | 范式 (MUST，照抄先例 `gateway/defaults_sync.rs`) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | `defaults/*.json` 远端同步**MUST** 实现完整 7 件套，缺一致命。先例 `crates/aid… |
 | ops/trellis-17.md#验收断言（可复用） | ops | 验收断言（可复用） | sync,defaults,json,jsdelivr,remote,validate,presets,hash | active | ```bash # 7 件套齐全（双源 / last_updated / 24h / 三路触发 / schema gat… |
 | optimization/api-payload-optimization.md#后端 DISTINCT 替代前端集合去重降低 IPC payload | optimization | 后端 DISTINCT 替代前端集合去重降低 IPC payload | api,payload,ipc,distinct,set-deduplication,query-optimization | active | 后端改为返回去重后的单列（如 DISTINCT model），而非拉全字段摘要行数组到前端，再用集合去重。  **收益*… |
-| optimization/idle-cpu-stack-sampling.md#关联 | optimization | 关联 | cpu,profiling,sample,timer,instruments,time-profiler | active / →instrumentation-time-profiler,measure-window-exclusive-env,timer-audit-grepping | [[measure-window-exclusive-env]] [[timer-audit-grepping]] [[… |
 | optimization/idle-cpu-stack-sampling.md#反例（错误模式） | optimization | 反例（错误模式） | cpu,profiling,sample,timer,instruments,time-profiler | active | / ❌ 错 / ✅ 改为 / /---/---/ / 仅 grep 定时器列表 / grep 列表 + `sample`… |
 | optimization/idle-cpu-stack-sampling.md#案例 | optimization | 案例 | cpu,profiling,sample,timer,instruments,time-profiler | active | grep 找到 5 个定时器，工作量推算应占 CPU 1-1.5%。但实测 3.0% 稳态，缺口 1.5% 无法追溯。用… |
 | optimization/idle-cpu-stack-sampling.md#空闲 CPU 归因必须靠栈采样 | optimization | 空闲 CPU 归因必须靠栈采样 | cpu,profiling,sample,timer,instruments,time-profiler | active | - |
@@ -392,33 +390,29 @@
 | optimization/manual-budget-empty-shortcircuit.md#用途 | optimization | 用途 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | 高频转发路径的每请求冷路径优化，减少单线程 DB 写锁争。适用于： - mock/真实平台混用的压测 - 用户未配额时的… |
 | optimization/manual-budget-empty-shortcircuit.md#问题 | optimization | 问题 | manual-budget,optimization,db-write,shortcircuit,loadgen | active | `apply_manual_budgets`（`manual_budget.rs:211-246`）处理用户手动配额时，… |
 | optimization/measure-footprint-pid-matching.md#measure.sh 同 label 跨 run 文件混淆 | optimization | measure.sh 同 label 跨 run 文件混淆 | measure,footprint,pid,glob,data-corruption,baseline | active | - |
-| optimization/measure-footprint-pid-matching.md#关联 | optimization | 关联 | measure,footprint,pid,glob,data-corruption,baseline | active / →footprint-parsing-idiom,measure-window-exclusive-env,size-curve-raw-format | [[measure-window-exclusive-env]] [[size-curve-raw-format]] [… |
 | optimization/measure-footprint-pid-matching.md#反例（错误模式） | optimization | 反例（错误模式） | measure,footprint,pid,glob,data-corruption,baseline | active | / ❌ 错 / ✅ 改为 / /---/---/ / `glob footprint-${label}-*-*.txt`… |
 | optimization/measure-footprint-pid-matching.md#案例 | optimization | 案例 | measure,footprint,pid,glob,data-corruption,baseline | active | 实测显示某指标（graphics 等）跳到物理上限 2 倍，对比 size-curve-raw.txt 确认该档 TOT… |
 | optimization/measure-footprint-pid-matching.md#触发场景 | optimization | 触发场景 | measure,footprint,pid,glob,data-corruption,baseline | active | 性能量测脚本 `measure.sh` 按 label 重复运行（如多轮对比测试）时，旧 run 的 footprint… |
 | optimization/measure-footprint-pid-matching.md#适用 | optimization | 适用 | measure,footprint,pid,glob,data-corruption,baseline | active | - `measure.sh` 同 label 重复运行（对比 baseline 常见） - 任何大块临时数据依赖文件名去… |
 | optimization/measure-footprint-pid-matching.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | measure,footprint,pid,glob,data-corruption,baseline | active | ❌ **陷阱**：glob 匹配所有同 label 的 footprint 文件，不区分 run  ```bash # … |
-| optimization/measure-window-multi-probe.md#关联 | optimization | 关联 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active / →measure-window-exclusive-env | [[measure-window-exclusive-env]]（跨项目 memory：同族约束——采样期间禁并发 bu… |
 | optimization/measure-window-multi-probe.md#判据 | optimization | 判据 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | CPU/内存稳态采样，只在采样前打一次前台确证（如 `lsappinfo front`）不够——采样窗口内应用可能中途失… |
 | optimization/measure-window-multi-probe.md#案例 | optimization | 案例 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | `.scratch/perf-200mb/assets/results/cpu-s7-after-run3.txt`（8… |
 | optimization/measure-window-multi-probe.md#正解 | optimization | 正解 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | 稳态采样窗口内必须**多点探针**（如每 15s 一次），全程确证前台/目标态未漂移，而非仅窗口前一次性确证。另需注意 … |
 | optimization/measure-window-multi-probe.md#适用 | optimization | 适用 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | CPU/内存稳态性能采样，尤其涉及应用前台/背景态切换、GUI 应用量测场景。 |
 | optimization/measure-window-multi-probe.md#量测 regime 自证必须窗口内多点探针 | optimization | 量测 regime 自证必须窗口内多点探针 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | - |
 | optimization/measure-window-multi-probe.md#陷阱 | optimization | 陷阱 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | active | 实测：run3 采样前确证前台，但 60s 窗口末端已漂回终端，读数被稀释成 8.2%（前台+背景混合值）。同实例钉死前… |
-| optimization/memory-measure-background.md#关联 | optimization | 关联 | memory,measure,background,activate,settle,foreground | active / →background-process-memory-stability,cpu-measure-foreground-settle,measure-window-exclusive-env | [[measure-window-exclusive-env]] [[cpu-measure-foreground-se… |
 | optimization/memory-measure-background.md#内存量测走纯背景态口径 | optimization | 内存量测走纯背景态口径 | memory,measure,background,activate,settle,foreground | active | - |
 | optimization/memory-measure-background.md#反例（错误模式） | optimization | 反例（错误模式） | memory,measure,background,activate,settle,foreground | active | / ❌ 错 / ✅ 改为 / /---/---/ / 内存+CPU 都用 activate + settle / 内存用… |
 | optimization/memory-measure-background.md#案例 | optimization | 案例 | memory,measure,background,activate,settle,foreground | active | run1/run2 内存量测全 4 档失效，对比日志发现 activate 后应用被 Finder 抢走。改为背景态启动… |
 | optimization/memory-measure-background.md#触发场景 | optimization | 触发场景 | memory,measure,background,activate,settle,foreground | active | 内存占用量测时，采用 CPU 量测的 `activate + settle` 两段试图通过前台激活 + 等待稳定来排除用… |
 | optimization/memory-measure-background.md#适用 | optimization | 适用 | memory,measure,background,activate,settle,foreground | active | - Tauri / Electron 应用内存占用基准量测 - 长时间后台内存监控（避免前台抢占） - 交叉对比前台/后… |
 | optimization/memory-measure-background.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | memory,measure,background,activate,settle,foreground | active | ❌ **陷阱**：内存量测复用 CPU 量测的 activate + settle 口径  ```bash # CPU … |
-| optimization/webkit-xpc-helper-process-bounds.md#关联 | optimization | 关联 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active / →measure-window-exclusive-env,process-tree-audit,webkit-xpc-helper-naming | [[measure-window-exclusive-env]] [[process-tree-audit]] [[we… |
 | optimization/webkit-xpc-helper-process-bounds.md#反例（错误模式） | optimization | 反例（错误模式） | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | / ❌ 错 / ✅ 改为 / /---/---/ / 用 ppid 反查归属 / 编制硬闸：期望 WebContent×… |
 | optimization/webkit-xpc-helper-process-bounds.md#案例 | optimization | 案例 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | 多轮量测发现某档进程数突增（期望 4，实际 6-8），发现混入了飞书/Safari 的 WebKit helper。改用… |
 | optimization/webkit-xpc-helper-process-bounds.md#触发场景 | optimization | 触发场景 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | WebKit 内嵌浏览器在 Tauri 应用中运行时，`ppid`（父进程 ID）恒为 1（launchd），`ps -… |
 | optimization/webkit-xpc-helper-process-bounds.md#进程编制核验硬闸替代动态反查 | optimization | 进程编制核验硬闸替代动态反查 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | - |
 | optimization/webkit-xpc-helper-process-bounds.md#适用 | optimization | 适用 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | - Tauri / Electron 等嵌入 WebKit 的桌面应用性能量测 - 多窗口场景排查进程组织 - 交叉应用… |
-| optimization/webkit-xpc-helper-process-bounds.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active / →$actual_count -ne $expected_count | ❌ **陷阱**：用 ppid / ps args / procinfo 反查进程归属  ```bash # ppid … |
+| optimization/webkit-xpc-helper-process-bounds.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | active | ❌ **陷阱**：用 ppid / ps args / procinfo 反查进程归属  ```bash # ppid … |
 | proxy/rule-50.md#关联 | proxy | 关联 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active / →trellis-00,trellis-11 | [[trellis-11]] （proxy 统计不污染） · [[trellis-00]] （DB 表设计） |
 | proxy/rule-50.md#反例 / 常见错误 | proxy | 反例 / 常见错误 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | / 错误                          / 为什么错                        … |
 | proxy/rule-50.md#案例 | proxy | 案例 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | active | - log-async-write task (commit 529e571b) — proxy_log 改为单 wri… |
@@ -516,21 +510,19 @@
 | skein/coding-plan-utilization-calib-fix-27.md#task 查重: 同模块非重复, 先看 PRD 边界互引 | skein | task 查重: 同模块非重复, 先看 PRD 边界互引 | skein,dedup,task-boundary,prd | active | dedup/查重判定重叠维度前, MUST 先看两 task 的 PRD 边界条款是否已显式互相引用切割 (如双向标注对… |
 | skein/decision-documentation.md#实测推翻设计假设时的处理范式（留痕+不硬凑） | skein | 实测推翻设计假设时的处理范式（留痕+不硬凑） | planning,execution,hypothesis-testing,decision-logging,design-vs-reality | active | 当 task 执行过程中发现「planning 写的验收文本与 exec 实测结果矛盾」时，按以下范式处理：  **模式… |
 | skein/subagent-hook-scope.md#subagent hook 禁写主仓报告文件 | skein | subagent hook 禁写主仓报告文件 | subagent,hook,scope,worktree,output-format,repo-pollution | active | - |
-| skein/subagent-hook-scope.md#关联 | skein | 关联 | subagent,hook,scope,worktree,output-format,repo-pollution | active / →output-format-json-over-files,subagent-fire-and-forget,worktree-scope-boundary | [[subagent-fire-and-forget]] [[worktree-scope-boundary]] [[o… |
 | skein/subagent-hook-scope.md#反例（错误模式） | skein | 反例（错误模式） | subagent,hook,scope,worktree,output-format,repo-pollution | active | / ❌ 错 / ✅ 改为 / /---/---/ / 派时未限制产物路径 / 明确 `工作目录: research/`，… |
 | skein/subagent-hook-scope.md#案例 | skein | 案例 | subagent,hook,scope,worktree,output-format,repo-pollution | active | 派 researcher 调研某模块时，它直接在主仓根目录产生 `findings.md` 和 `recommendat… |
 | skein/subagent-hook-scope.md#触发场景 | skein | 触发场景 | subagent,hook,scope,worktree,output-format,repo-pollution | active | 派 researcher / workflow subagent 时，如果在 hook（如 subagent 中断返回）… |
 | skein/subagent-hook-scope.md#适用 | skein | 适用 | subagent,hook,scope,worktree,output-format,repo-pollution | active | - 派遣 researcher / workflow / skill 等 data-producing subagent… |
 | skein/subagent-hook-scope.md#陷阱 & 正解 | skein | 陷阱 & 正解 | subagent,hook,scope,worktree,output-format,repo-pollution | active | ❌ **陷阱**：派 researcher 时不限制产物路径，允许 hook 中写报告文件  ```python # 派… |
 | skein/subagent-sendmessage.md#agent 零回传真因 = 未调 SendMessage | skein | agent 零回传真因 = 未调 SendMessage | subagent,sendmessage,return-value,coordinator,message-passing | active | - |
-| skein/subagent-sendmessage.md#关联 | skein | 关联 | subagent,sendmessage,return-value,coordinator,message-passing | active / →coordinator-message-passing,skein-checker-no-return,subagent-fire-and-forget | [[skein-checker-no-return]] [[subagent-fire-and-forget]] [[c… |
 | skein/subagent-sendmessage.md#反例（错误模式） | skein | 反例（错误模式） | subagent,sendmessage,return-value,coordinator,message-passing | active | / ❌ 错 / ✅ 改为 / /---/---/ / 仅 print/echo 文本输出 / print 文本 + 调 … |
-| skein/subagent-sendmessage.md#案例 | skein | 案例 | subagent,sendmessage,return-value,coordinator,message-passing | active | 既有 memory `skein-checker-no-return` 记录 3 个实例（general-purpose… |
+| skein/subagent-sendmessage.md#案例 | skein | 案例 | subagent,sendmessage,return-value,coordinator,message-passing | active | 既有约定记录 3 个实例系统性不回传。根因是这些 subagent 仅写 stdout，未调 SendMessage。修… |
 | skein/subagent-sendmessage.md#触发场景 | skein | 触发场景 | subagent,sendmessage,return-value,coordinator,message-passing | active | 派 subagent（如 researcher / checker 等）时，应答端只写 stdout 文本输出，未调用 … |
 | skein/subagent-sendmessage.md#适用 | skein | 适用 | subagent,sendmessage,return-value,coordinator,message-passing | active | - 所有派 subagent 的场景（researcher / checker / workflow / skill） … |
 | skein/subagent-sendmessage.md#陷阱 & 正解 | skein | 陷阱 & 正解 | subagent,sendmessage,return-value,coordinator,message-passing | active | ❌ **陷阱**：仅写文本输出，不调 SendMessage 工具  ```python # subagent 应答端 … |
 | style/css-reset-layer.md#CSS reset 必须写进 @layer base | style | CSS reset 必须写进 @layer base | tailwind,v4,reset,layer,css-precedence,shadcn | active | - |
-| style/css-reset-layer.md#关联 | style | 关联 | tailwind,v4,reset,layer,css-precedence,shadcn | active / →shadcn-infra-30,tailwind-v4-import-rule,utility-class-precedence | [[shadcn-infra-30]] [[tailwind-v4-import-rule]] [[utility-cl… |
+| style/css-reset-layer.md#关联 | style | 关联 | tailwind,v4,reset,layer,css-precedence,shadcn | active / →shadcn-infra-02,shadcn-infra-30,tailwind-cascade-layer-unlayered | [[shadcn-infra-30]] [[shadcn-infra-02]] [[tailwind-cascade-l… |
 | style/css-reset-layer.md#反例（错误模式） | style | 反例（错误模式） | tailwind,v4,reset,layer,css-precedence,shadcn | active | / ❌ 错 / ✅ 改为 / /---/---/ / `* { padding: 0; }` unlayered / `… |
 | style/css-reset-layer.md#案例 | style | 案例 | tailwind,v4,reset,layer,css-precedence,shadcn | active | commit `2b14131e`：git diff 展示 `src/styles/globals.css` 把旧 `*… |
 | style/css-reset-layer.md#触发场景 | style | 触发场景 | tailwind,v4,reset,layer,css-precedence,shadcn | active | Tailwind v4 迁移到新组件库（如 shadcn）后，CSS reset 声明失效，导致按钮/输入框文字贴边。症… |

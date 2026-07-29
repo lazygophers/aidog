@@ -71,7 +71,3 @@ subagent 只在 `research/` 子目录写原始数据（日志、分析表等）�
 - 派遣 researcher / workflow / skill 等 data-producing subagent
 - 避免主仓污染的一般原则
 - worktree 隔离的最佳实践
-
-## 关联
-
-[[subagent-fire-and-forget]] [[worktree-scope-boundary]] [[output-format-json-over-files]]

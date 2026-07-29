@@ -5,21 +5,26 @@
 ## build/shadcn-infra-02.md#硬约束
 - ← recall/frontend/shadcn-infra-30.md#关联
 - ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
 
 ## build/shadcn-infra-02.md#MUST 迁移方式
 - ← recall/frontend/shadcn-infra-30.md#关联
 - ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
 
 ## build/shadcn-infra-02.md#禁用的旧方式
 - ← recall/frontend/shadcn-infra-30.md#关联
 - ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
 
 ## build/shadcn-infra-02.md#适用
 - ← recall/frontend/shadcn-infra-30.md#关联
 - ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
 
 ## build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-30.md#关联
 - ← recall/shadcn/shadcn-primitives-39.md#关联
+- ← recall/style/css-reset-layer.md#关联
 - → [[shadcn-infra-28]]
 - → [[shadcn-infra-30]]

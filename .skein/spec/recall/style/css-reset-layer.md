@@ -58,4 +58,4 @@ commit `2b14131e`：git diff 展示 `src/styles/globals.css` 把旧 `* { padding
 
 ## 关联
 
-[[shadcn-infra-30]] [[tailwind-v4-import-rule]] [[utility-class-precedence]]
+[[shadcn-infra-30]] [[shadcn-infra-02]] [[tailwind-cascade-layer-unlayered]]

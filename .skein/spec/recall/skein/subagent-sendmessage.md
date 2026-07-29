@@ -62,14 +62,10 @@ SendMessage(
 
 ## 案例
 
-既有 memory `skein-checker-no-return` 记录 3 个实例（general-purpose checker 等）系统性不回传。根因是这些 subagent 仅写 stdout，未调 SendMessage。修复后 check 类 agent 改为同步调 SendMessage，主 agent 获得结构化回传，记忆沉淀 / 下游任务调度恢复正常。
+既有约定记录 3 个实例系统性不回传。根因是这些 subagent 仅写 stdout，未调 SendMessage。修复后 check 类 agent 改为同步调 SendMessage，主 agent 获得结构化回传，记忆沉淀 / 下游任务调度恢复正常。
 
 ## 适用
 
 - 所有派 subagent 的场景（researcher / checker / workflow / skill）
 - 需要结构化回传给 coordinator 的任务
 - 日志审阅 + 自动化流程需要并存的场景
-
-## 关联
-
-[[skein-checker-no-return]] [[subagent-fire-and-forget]] [[coordinator-message-passing]]
