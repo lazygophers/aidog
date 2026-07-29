@@ -3,6 +3,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule } from "./types";
 import type { PeakWindow } from "../../domains/platforms/defaults";
+import { normalizeWindow } from "../../utils/peakHours";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
   status_code: 200,
@@ -209,7 +210,7 @@ export function parsePlatformPeakHours(extra: string): PeakWindow[] {
     const parsed: unknown = JSON.parse(extra);
     if (parsed && typeof parsed === "object" && "peak_hours" in parsed) {
       const arr = (parsed as { peak_hours: unknown }).peak_hours;
-      if (Array.isArray(arr)) return arr as PeakWindow[];
+      if (Array.isArray(arr)) return (arr as PeakWindow[]).map(normalizeWindow);
     }
   } catch { /* ignore */ }
   return [];
@@ -275,7 +276,9 @@ export function parsePlatformTimeModels(extra: string): TimeModelRule[] {
     const parsed: unknown = JSON.parse(extra);
     if (parsed && typeof parsed === "object" && "time_models" in parsed) {
       const arr = (parsed as { time_models: unknown }).time_models;
-      if (Array.isArray(arr)) return arr as TimeModelRule[];
+      if (Array.isArray(arr)) {
+        return (arr as TimeModelRule[]).map((rule) => ({ ...rule, windows: rule.windows.map(normalizeWindow) }));
+      }
     }
   } catch { /* ignore */ }
   return [];

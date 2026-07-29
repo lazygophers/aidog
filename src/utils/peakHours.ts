@@ -4,6 +4,55 @@
  *  for: 平台列表徽标 + 编辑表单预览 + Groups 指示（D7/D8/D9 共用此 helper）。 */
 import type { PeakWindow } from "../domains/platforms/defaults";
 
+/** 时区展示模式：本地 or UTC+0。存储永远 UTC+0，仅展示/输入层换算。 */
+export type TzMode = "local" | "utc";
+
+/** 本地时区相对 UTC 的分钟偏移（东区为正）。模块加载时取值，沿用既有时机（不做 DST 跨时刻重算）。 */
+export const LOCAL_OFFSET_MINUTES = -new Date().getTimezoneOffset();
+
+/** 选中时区模式对应的分钟偏移（UTC = 0 / 本地 = LOCAL_OFFSET_MINUTES）。 */
+export function tzOffsetMinutes(mode: TzMode): number {
+  return mode === "local" ? LOCAL_OFFSET_MINUTES : 0;
+}
+
+/** 时钟平移的纯函数内核 —— offset 显式入参，可被单测覆盖任意时区（含 +5:30 / 负偏移）。
+ *  ⚠️ 单测必须打这一层：LOCAL_OFFSET_MINUTES 在模块加载时求值，
+ *  vi.spyOn(Date.prototype, "getTimezoneOffset") 对它无效。 */
+export function shiftClock(hour: number, minute: number, offsetMinutes: number): { hour: number; minute: number } {
+  const m = (((hour * 60 + minute + offsetMinutes) % 1440) + 1440) % 1440;
+  return { hour: Math.floor(m / 60), minute: m % 60 };
+}
+
+/** UTC 存值 → 选中时区显示值。按绝对分钟换算，半时区（+5:30）精确到分钟。 */
+export function utcToDisplay(hour: number, minute: number, mode: TzMode): { hour: number; minute: number } {
+  return shiftClock(hour, minute, tzOffsetMinutes(mode));
+}
+
+/** 选中时区输入值 → UTC 存值。 */
+export function displayToUtc(hour: number, minute: number, mode: TzMode): { hour: number; minute: number } {
+  return shiftClock(hour, minute, -tzOffsetMinutes(mode));
+}
+
+/** 存量非整数 start_hour/end_hour（半时区旧逻辑产物，如 8.5）拆为 hour+minute。整数值原样不动。 */
+export function normalizeWindow(w: PeakWindow): PeakWindow {
+  let result = w;
+  if (!Number.isInteger(w.start_hour)) {
+    const { hour, minute } = splitFraction(w.start_hour, w.start_minute);
+    result = { ...result, start_hour: hour, start_minute: minute };
+  }
+  if (!Number.isInteger(w.end_hour)) {
+    const { hour, minute } = splitFraction(w.end_hour, w.end_minute);
+    result = { ...result, end_hour: hour, end_minute: minute };
+  }
+  return result;
+}
+
+function splitFraction(h: number, existingMinute: number | undefined): { hour: number; minute: number } {
+  const hour = Math.floor(h);
+  const extraMinutes = Math.round((h - hour) * 60);
+  return shiftClock(hour, (existingMinute ?? 0) + extraMinutes, 0);
+}
+
 /** 当前 UTC 时刻命中窗口？
  *  与 Rust `peak_hours::hit` + `window_models_hit` + `period_active` 逐行对称：
  *   - 生效期判定（PRD 07-09 D2，优先级最高）：start_at Some 且 epoch_sec < start_at → 未启用跳过；
