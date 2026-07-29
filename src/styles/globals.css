@@ -228,10 +228,9 @@ body {
   background: var(--bg-floating);
   border: 1px solid var(--glass-edge);
   border-radius: var(--radius-xl);
-  -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 10px))
-    saturate(var(--glass-saturate));
-  backdrop-filter: blur(calc(var(--glass-blur) + 10px))
-    saturate(var(--glass-saturate));
+  /* ponytail: backdrop-filter 已删 —— background 是 var(--bg-floating)=var(--popover) 全不透明色
+     (globals.css:47/724, oklch 无 alpha)，blur 无可见对象，纯合成层开销无视觉收益。见
+     .skein/task/frontend-compositing-purge/research/backdrop-audit.md */
   box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
@@ -518,7 +517,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   font-size: 13px;
   border: 1px solid var(--border);
   background: var(--bg-floating);
-  backdrop-filter: blur(20px);
+  /* ponytail: backdrop-filter 已删，理由同 .glass-elevated（见上，globals.css:231 注释） */
   box-shadow: var(--shadow-lg);
   animation: fadeIn 300ms ease both;
 }
