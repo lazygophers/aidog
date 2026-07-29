@@ -286,6 +286,38 @@ async fn estimate_after_request_balance_path_no_calibration() {
     assert!(p.estimate_count >= 1);
 }
 
+// ── peak 倍率接入 estimate 链：命中窗口时扣减额 = 基准 x multiplier ──
+#[tokio::test]
+async fn estimate_after_request_applies_peak_multiplier() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    db::upsert_model_price(
+        &db,
+        "test-model",
+        "manual",
+        r#"{"input_cost_per_token":0.001,"output_cost_per_token":0.002,"cache_read_input_token_cost":0.0}"#,
+        None,
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    // 全天永久窗口（无 days_of_week/start_at 限制），x2 倍率，用户覆盖优先于 bundled preset。
+    let extra = r#"{"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
+
+    estimate_after_request(
+        &db, id, "deepseek", "https://example.com", "sk", "test-model", extra, 1000, 500, 0, false,
+    )
+    .await;
+
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    // 基准 cost = 1000*0.001 + 500*0.002 = 2.0；命中 x2 倍率 → 实扣 4.0
+    let base_cost = balance_cost(1000, 500, 0, 0.001, 0.002, 0.0);
+    assert!((base_cost - 2.0).abs() < 1e-9, "base_cost = {base_cost}");
+    assert!((p.est_balance_remaining - (100.0 - 2.0 * base_cost)).abs() < 1e-9, "got {}", p.est_balance_remaining);
+}
+
 #[tokio::test]
 async fn estimate_after_request_coding_path_no_calibration() {
     let db = mem_db().await;

@@ -196,6 +196,12 @@ pub async fn estimate_after_request(
         crate::gateway::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens, now())
             .await
             .ok();
+    // peak 倍率：与 calc_est_cost（proxy/log.rs → billing.rs）口径对齐，估算链此前漏乘（既存 bug）。
+    let peak_mult = crate::gateway::peak_hours::resolve_multiplier(
+        &crate::gateway::peak_hours::peak_hours_for(extra, platform_type),
+        now(),
+        model,
+    );
 
     // 1. 增量预估
     if is_coding_plan {
@@ -210,7 +216,7 @@ pub async fn estimate_after_request(
             price.input_cost_per_token,
             price.output_cost_per_token,
             price.cache_read_input_token_cost,
-        );
+        ) * peak_mult;
         let _ = apply_balance_delta(db, platform_id, cost).await;
     }
 
@@ -228,7 +234,7 @@ pub async fn estimate_after_request(
                     price.input_cost_per_token,
                     price.output_cost_per_token,
                     price.cache_read_input_token_cost,
-                )
+                ) * peak_mult
             })
             .unwrap_or(0.0);
         let _ = crate::gateway::manual_budget::apply_manual_budgets(
