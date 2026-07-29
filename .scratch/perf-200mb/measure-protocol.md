@@ -72,6 +72,28 @@ Task: `frontend-compositing-purge` / subtask `s1-measure-protocol`
   显示会话的人工在采样窗口内保持 AiDog 窗口聚焦，或在有 Screen Recording
   权限的环境下跑本协议。
 
+## 🔴 判据改判（2026-07-29，用户拍板）：只认背景态可比读数
+
+上面「落背景态即作废重采」的规则**已废止**。实际执行里 fe-s3 与 fe-s5 各自跑到
+第 2 轮 / 第 6 轮仍无法稳定落进前台态 —— 根因是环境墙（无 Screen Recording 权限
++ `System Events` frontmost 不可靠），不是采样手法问题，重采再多轮也是撞同一堵墙。
+
+**新判据**：
+
+1. **统一在背景态下做 before/after 对比**，不再追求前台态。前台态读数可遇不可求，
+   不作为验收依据。
+2. **两端 regime 必须同深度才可比** —— 这是新判据下唯一的有效性门槛。
+   反面教材：s5 的 `before`（WebContent footprint 362MB）与 `after-clean`（111MB）
+   虽都低于 350MB 门槛，但深度差 3 倍，-66% 的总量降幅主要来自 graphics
+   随失焦释放，**不能归因给 CSS 改动**。可比性判据：两端 WebContent footprint
+   同一数量级（差值 <30%），否则该组作废。
+3. **原始目标口径的代价（用户已知悉并接受）** —— 「实际使用中 ≤200MB / CPU <0.5%」
+   这个目标在背景态下无法直接验证，背景态读数天然低于真实使用态。本轮验收
+   是**相对口径**（改动前后的降幅），不是绝对口径。
+4. **合成层类改动（backdrop-filter / 动画 / glass buffer）在背景态基本测不出** ——
+   graphics 内存已随失焦释放，省的正是这块。这类 subtask 不再逐个量测，
+   统一移交 `perf-final-verification` 做一次加总对比。
+
 ## 复现步骤（可直接照抄）
 
 ```bash
