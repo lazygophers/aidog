@@ -52,12 +52,21 @@
         "整时区(UTC+8)下 peak_hours 编辑器显示值与改动前逐位一致",
         "npx tsc --noEmit 零错误"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785326362,
-      "started": null,
-      "finished": null
+      "started": 1785326891,
+      "finished": 1785327745
     },
     {
       "sid": "s3",
@@ -75,12 +84,19 @@
         "未改动 PlatformEditForm.tsx 与 usePlatformForm.ts(归 s2)",
         "npx tsc --noEmit 零错误"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785326362,
-      "started": null,
-      "finished": null
+      "started": 1785326891,
+      "finished": 1785327281
     },
     {
       "sid": "s4",
@@ -99,12 +115,19 @@
         "locale 新 key 走顶层扁平 dotted key 且注入保序(未全排序)",
         "npx tsc --noEmit 零错误"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785326362,
-      "started": null,
-      "finished": null
+      "started": 1785327772,
+      "finished": 1785328040
     }
   ],
   "priority": 5,
@@ -120,5 +143,5 @@
   "confirmed": 1785326366,
   "checked": null,
   "finished": null,
-  "updated": 1785326542
+  "updated": 1785328040
 }
