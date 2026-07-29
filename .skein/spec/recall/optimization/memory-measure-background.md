@@ -61,7 +61,3 @@ run1/run2 内存量测全 4 档失效，对比日志发现 activate 后应用被
 - Tauri / Electron 应用内存占用基准量测
 - 长时间后台内存监控（避免前台抢占）
 - 交叉对比前台/后台内存差异时需分别采样
-
-## 关联
-
-[[measure-window-exclusive-env]] [[cpu-measure-foreground-settle]] [[background-process-memory-stability]]

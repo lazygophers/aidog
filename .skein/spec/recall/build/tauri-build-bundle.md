@@ -47,7 +47,3 @@ yarn tauri build --bundles app   # 产生完整 .app 应用包
 - Tauri macOS 应用打包
 - CI/CD 中需确保 .app 生成
 - 区分二进制构建 vs app bundle 打包
-
-## 关联
-
-[[tauri-build-flags]] [[app-bundle-structure]] [[ci-macos-build]]

@@ -433,11 +433,6 @@
 ## build/shadcn-infra-29.md#关联
 - → [[shadcn-infra-28]]
 
-## build/tauri-build-bundle.md#关联
-- → [[app-bundle-structure]]
-- → [[ci-macos-build]]
-- → [[tauri-build-flags]]
-
 ## db/crash-safe-db-split-migration.md#Cross-ref
 - → [[auto-fix-downgrade-34]]
 
@@ -647,9 +642,6 @@
 - ← recall/frontend/auto-fix-downgrade-37.md#关联
 - ← recall/theme/shadcn-primitives-40.md#关联
 
-## frontend/semantic-token-foreground-pairing.md#适用
-- → [[token-foreground-pairing]]
-
 ## frontend/shadcn-infra-30.md#技巧
 - ← core/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
@@ -711,6 +703,27 @@
 - → [[shadcn-infra-28]]
 - → [[shadcn-infra-30]]
 
+## frontend/tailwind-cascade-layer-unlayered.md#CSS cascade layer: 裸写规则反压 layer 内 utility
+- ← recall/style/css-reset-layer.md#关联
+
+## frontend/tailwind-cascade-layer-unlayered.md#判据
+- ← recall/style/css-reset-layer.md#关联
+
+## frontend/tailwind-cascade-layer-unlayered.md#陷阱
+- ← recall/style/css-reset-layer.md#关联
+
+## frontend/tailwind-cascade-layer-unlayered.md#正解
+- ← recall/style/css-reset-layer.md#关联
+
+## frontend/tailwind-cascade-layer-unlayered.md#检查
+- ← recall/style/css-reset-layer.md#关联
+
+## frontend/tailwind-cascade-layer-unlayered.md#案例
+- ← recall/style/css-reset-layer.md#关联
+
+## frontend/tailwind-cascade-layer-unlayered.md#适用
+- ← recall/style/css-reset-layer.md#关联
+
 ## theme/shadcn-primitives-40.md#关联
 - → [[modal-state-architecture]]
 
@@ -746,32 +759,6 @@
 
 ## frontend/trellis-18.md#Large File Split — facade 模式 (MUST)
 - ← recall/arch/rule-49.md#关联
-
-## optimization/idle-cpu-stack-sampling.md#关联
-- → [[instrumentation-time-profiler]]
-- → [[measure-window-exclusive-env]]
-- → [[timer-audit-grepping]]
-
-## optimization/measure-footprint-pid-matching.md#关联
-- → [[footprint-parsing-idiom]]
-- → [[measure-window-exclusive-env]]
-- → [[size-curve-raw-format]]
-
-## optimization/measure-window-multi-probe.md#关联
-- → [[measure-window-exclusive-env]]
-
-## optimization/memory-measure-background.md#关联
-- → [[background-process-memory-stability]]
-- → [[cpu-measure-foreground-settle]]
-- → [[measure-window-exclusive-env]]
-
-## optimization/webkit-xpc-helper-process-bounds.md#陷阱 & 正解
-- → [[$actual_count -ne $expected_count]]
-
-## optimization/webkit-xpc-helper-process-bounds.md#关联
-- → [[measure-window-exclusive-env]]
-- → [[process-tree-audit]]
-- → [[webkit-xpc-helper-naming]]
 
 ## proxy/rule-50.md#关联
 - → [[trellis-00]]
@@ -938,20 +925,10 @@
 ## shadcn/rule-47.md#关联
 - → [[rule-41]]
 
-## skein/subagent-hook-scope.md#关联
-- → [[output-format-json-over-files]]
-- → [[subagent-fire-and-forget]]
-- → [[worktree-scope-boundary]]
-
-## skein/subagent-sendmessage.md#关联
-- → [[coordinator-message-passing]]
-- → [[skein-checker-no-return]]
-- → [[subagent-fire-and-forget]]
-
 ## style/css-reset-layer.md#关联
+- → [[shadcn-infra-02]]
 - → [[shadcn-infra-30]]
-- → [[tailwind-v4-import-rule]]
-- → [[utility-class-precedence]]
+- → [[tailwind-cascade-layer-unlayered]]
 
 ## test/rule-48.md#关联
 - → [[rule-41]]

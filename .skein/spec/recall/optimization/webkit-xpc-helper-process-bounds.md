@@ -37,7 +37,7 @@ local expected_count=4
 
 # 采样后统计实际子进程数，不符则该档重取
 actual_count=$(pgrep -P <main_pid> | wc -l)
-if [[ $actual_count -ne $expected_count ]]; then
+if [ $actual_count -ne $expected_count ]; then
   echo "warn: 编制异常（期望 $expected_count，实际 $actual_count），重取"
   continue  # 该档数据不纳入汇总
 fi
@@ -55,14 +55,10 @@ fi
 
 ## 案例
 
-多轮量测发现某档进程数突增（期望 4，实际 6-8），发现混入了飞书/Safari 的 WebKit helper。改用编制硬闸后，异常编制的档被标记 skip，数据回归稳定。监控脚本每档采样后校验 `pgrep -P <pid> | wc -l == 4`，不符则该档废弃、重新启动新窗口。
+多轮量测发现某档进程数突增（期望 4，实际 6-8），发现混入了飞书/Safari 的 WebKit helper。改用编制硬闸后，异常编制的档被标记 skip，数据回归稳定。监控脚本每档采样后校验进程数是否等于 4，不符则该档废弃、重新启动新窗口。
 
 ## 适用
 
 - Tauri / Electron 等嵌入 WebKit 的桌面应用性能量测
 - 多窗口场景排查进程组织
 - 交叉应用场景的进程隔离验证
-
-## 关联
-
-[[measure-window-exclusive-env]] [[process-tree-audit]] [[webkit-xpc-helper-naming]]
