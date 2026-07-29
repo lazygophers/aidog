@@ -1,11 +1,9 @@
 {
   "tasks": [
     {
-      "id": "glass-flow-border-component",
+      "id": "tokenizer-residency-trim",
       "status": "进行中",
-      "deps": [
-        "frontend-compositing-purge"
-      ],
+      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,
@@ -72,15 +70,6 @@
       "kind": "task"
     },
     {
-      "id": "tokenizer-residency-trim",
-      "status": "就绪",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "rust-main-idle-cpu",
       "status": "待处理",
       "deps": [],
@@ -93,6 +82,17 @@
       "id": "frontend-compositing-purge",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "glass-flow-border-component",
+      "status": "已完成",
+      "deps": [
+        "frontend-compositing-purge"
+      ],
       "priority": 5,
       "worktree": null,
       "parent": null,
