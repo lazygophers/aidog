@@ -58,6 +58,8 @@ mod test_group_info;
 mod test_connect;
 #[cfg(test)]
 mod test_e2e_mitm;
+#[cfg(test)]
+mod test_agg_dedup;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
@@ -161,8 +163,9 @@ pub struct ProxyState {
     /// 根本不存在；(2) snapshot 在终态后被 remove_log_snapshot 立即移除，而终态 upsert_log 会被
     /// 反复调用（remove 后下次又见 prev=None），无法据此防止重复 agg。
     /// 用**有界 FIFO 去重缓存**（非按请求生命周期清理）：插入返回是否首次出现，首次才聚合；
-    /// 容量上限 AGG_DEDUP_CAP，超限按 FIFO 淘汰最旧 id（in-flight + 已完成请求量远小于此上限，
-    /// 同一请求的多次终态调用集中在极短窗口，淘汰不会误判）。HashSet 判存 + VecDeque 记顺序。
+    /// 容量上限 AGG_DEDUP_CAP，超限按 FIFO 淘汰最旧 id（同一请求的多次终态调用集中在极短窗口，
+    /// 只要窗口覆盖住实际并发量，淘汰不会误判）。HashSet 判存 + VecDeque 记顺序。
+    /// 容量取值依据见 AGG_DEDUP_CAP 定义处注释。
     pub agg_done: std::sync::Mutex<(std::collections::VecDeque<String>, std::collections::HashSet<String>)>,
     /// 代理实际监听地址（bind_ip, actual_port）。start_proxy 绑定成功后填入，
     /// 供 fallback 直通判定识别「代理自身 host 直连」vs「MITM 解密灌入」（Host ≠ 自身）。
@@ -180,9 +183,23 @@ pub struct ProxyState {
 /// 日志写入队列容量。终态消息用阻塞 send 保证不丢；非终态消息队满即丢（不影响最终数据）。
 pub(crate) const LOG_QUEUE_CAP: usize = 4096;
 
-/// agg 去重缓存容量上限。远大于任一时刻 in-flight + 近期完成请求数，保证同一请求的全部
-/// 重复终态调用窗口内 id 不被淘汰；超限按 FIFO 淘汰最旧，内存有界。
-pub(crate) const AGG_DEDUP_CAP: usize = 8192;
+/// agg 去重缓存容量上限。
+///
+/// 单条记录字节成本（id 为 `Uuid::new_v4().simple()`，固定 32 hex 字符，见
+/// `handler.rs:10`/`connect.rs:735`）：id 同时存进 `order: VecDeque<String>` 和
+/// `seen: HashSet<String>` 两份，各一次堆分配 32B（macOS malloc small class 对齐，无浪费）
+/// = 64B 字符串堆数据/条；外加容器骨架分摊——HashSet(hashbrown) 满载 7/8 load factor 下
+/// 桶数取 cap/0.875 后上取整到 2 的幂，每桶 24B(String) + 1B 控制字节；VecDeque 背后数组
+/// 按 cap 容量分摊，每槽 24B(String)。旧 cap=8192 时总占用 ≈ 8192×64B(串) + 16384×25B(哈希表)
+/// + 8192×24B(双端队列) ≈ 1.08MB。
+///
+/// 实际窗口需求：本值只需覆盖「同一请求的全部重复终态调用」跨越的并发窗口（注释见上），
+/// 不是历史总量。代码内无并发上限（scheduling.rs 的 per-platform inflight 计数器无 cap，
+/// 全仓 grep 无 Semaphore/max_concurrent），按本地/小团队场景的现实并发上界估算：
+/// 单机同时开的 CLI agent 会话数 ≈ 数十量级，取 200 作宽裕上界，再加 10x 安全余量 =2000，
+/// 按 2 的幂取整 = 2048（hashbrown 友好）。cap=2048 时占用 ≈ 2048×64B + 4096×25B(哈希表按
+/// 2048/0.875≈2341 上取整到 4096) + 2048×24B ≈ 372KB，较旧值省约 700KB 常驻。
+pub(crate) const AGG_DEDUP_CAP: usize = 2048;
 
 /// 向 agg 去重缓存登记 id；返回 true=首次（应聚合），false=已存在（应跳过）。超容量按 FIFO 淘汰。
 pub(crate) fn agg_mark_first(state: &Arc<ProxyState>, id: &str) -> bool {
