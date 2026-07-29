@@ -54,7 +54,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
-    peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
+    peakHours, setPeakHours, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
@@ -361,6 +361,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
           rules={timeModels} setRules={setTimeModels} peakHours={peakHours}
+          tzMode={windowsTz} setTzMode={setWindowsTz}
           t={t}
         />
         </>
@@ -386,7 +387,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {editing && !isPassthrough && (
           <PeakHoursSection
             windows={peakHours} setWindows={setPeakHours}
-            tzMode={peakHoursTz} setTzMode={setPeakHoursTz}
+            tzMode={windowsTz} setTzMode={setWindowsTz}
             disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
             protocol={protocol}
             themeMode={themeMode}

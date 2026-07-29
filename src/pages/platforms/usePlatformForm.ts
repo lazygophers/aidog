@@ -117,7 +117,7 @@ export interface PlatformFormState {
   breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   breakerDefaults: SchedulingBreakerSettings | null;
   peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
-  peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
+  windowsTz: "local" | "utc"; setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   /** disable_during_peak 开关（用户覆盖，存 platform.extra.disable_during_peak；默认 false）。 */
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   /** time_models：时段模型规则列表（按时段切换主力模型档） */
@@ -213,7 +213,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
   // peak_hours（用户覆盖，存 platform.extra.peak_hours；时区仅前端态，默认本地）
   const [peakHours, setPeakHours] = useState<PeakWindow[]>([]);
-  const [peakHoursTz, setPeakHoursTz] = useState<"local" | "utc">("local");
+  const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
   // time_models（时段模型规则，存 platform.extra.time_models；默认空数组）
@@ -307,7 +307,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setPeakHours([]); setPeakHoursTz("local"); setDisableDuringPeak(false);
+    setPeakHours([]); setWindowsTz("local"); setDisableDuringPeak(false);
     setTimeModels([]);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
@@ -831,7 +831,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerOpenSecs, setBreakerOpenSecs,
     breakerHalfOpenMax, setBreakerHalfOpenMax,
     breakerDefaults,
-    peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
+    peakHours, setPeakHours, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
