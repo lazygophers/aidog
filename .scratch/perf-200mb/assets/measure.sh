@@ -56,6 +56,24 @@ launch)
   { echo "$main"; echo "$ours"; } | grep -v '^$' > "$PIDFILE"
   echo "main=$main  webkit=$(echo "$ours" | grep -cv '^$') 个"
   cat "$PIDFILE" | while read -r p; do echo "  $p $(proc_label "$p")"; done
+
+  # 编制核验：AiDog 恒为 GPU×1 + Networking×1 + WebContent×2（主窗口 + 预建 popover）。
+  # 差集口径的固有缺陷：窗口期内其他 WKWebView 宿主（飞书/微信/Safari）新起的 helper
+  # 会被误纳（run2 档3 多出 pid 54276 WebContent 106MB，档2/档4 GPU 虚高到 109/95MB）。
+  # ppid 恒为 1、launchctl procinfo 需 root，无法归属反查 → 改用编制上限做硬闸。
+  nweb=0; ngpu=0; nnet=0
+  for p in $ours; do
+    case "$(proc_label "$p")" in
+      WebContent) nweb=$((nweb+1)) ;;
+      GPU)        ngpu=$((ngpu+1)) ;;
+      Networking) nnet=$((nnet+1)) ;;
+    esac
+  done
+  if [ "$nweb" -ne 2 ] || [ "$ngpu" -ne 1 ] || [ "$nnet" -ne 1 ]; then
+    echo "LAUNCH-FAIL 超编: WebContent=$nweb(期望2) GPU=$ngpu(期望1) Networking=$nnet(期望1) — 有外部 app 的 WebKit helper 混入，本档须重取"
+    exit 2
+  fi
+  echo "编制核验 PASS: WebContent=2 GPU=1 Networking=1"
   ;;
 
 mem)
