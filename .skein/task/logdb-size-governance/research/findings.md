@@ -57,3 +57,39 @@ task 登记时（commit `40534848`）记的是「log.db 8.2GB/17338 行，retent
 
 - `sqlite-page-cache-residency`：8.7GB 库 × `cache_size=-2000`（2MB/连接）的命中率假设需要复核 —— 该 task 的 design 是按小库估的。
 - `perf-final-verification`：量测前应确认 log.db 状态，8.7GB 库的查询开销会混进 CPU 读数。
+
+## 处置记录（2026-07-29，用户拍板「手动清理」）
+
+用户对四个治理方向**一个都没选**，走 Other 自定义输入答「你可以手动清理一下」——
+即**本 task 无代码交付物**，只做一次性手动清库。
+
+### 执行过程
+
+第一版方案（逐列 `UPDATE proxy_log SET <col>=''` 置空 8 个 body/headers 列、保留行与
+元数据）**因效率被放弃**：每列一条 UPDATE = 一次全表重写 8.7GB，8 列 = 8 次；实跑几分钟
+只完成第一列 `request_headers`，WAL 从 0 涨到 8729MB，库总占用 17.5GB。
+
+第二版落地方案：`DELETE FROM proxy_log WHERE id NOT IN (SELECT id FROM proxy_log
+ORDER BY created_at DESC LIMIT 500)` → `wal_checkpoint(TRUNCATE)` → `VACUUM`。
+理由：DELETE 只标记页空闲，比 UPDATE blob 快得多；VACUUM 重建整库一次性回收。
+前置条件：`pkill -x aidog`（VACUUM 需独占）、磁盘余量 41Gi（VACUUM 需 ~9GB 临时空间）。
+注：`proxy_log.id` 是 TEXT PRIMARY KEY，不能用 rowid 范围删。
+
+### 前后对比
+
+| 项 | 清理前 | 清理后 |
+|---|---|---|
+| 主库 | 8791.0 MB | **230.7 MB** |
+| WAL | 8729 MB（峰值） | 0 B |
+| 行数 | 18218 | 501 |
+| `PRAGMA journal_mode` | wal | wal（未被 VACUUM 改动） |
+
+**代价（与第一版方案的差异，已向用户说明）**：删行而非清列，17718 行的历史统计元数据
+（token / cost / status / model）一并丢失，Logs 页与 Stats 页少掉这部分历史。
+被删的是压测产生的噪声数据，对后续量测无影响。
+
+### 遗留
+
+根因（单行 body 平均 400KB 全文入库、入库前无体积上限）**未修**，用户选择不做代码治理。
+后续若再跑大规模压测，log.db 仍会按约 2GB/天 的速度增长。
+治标手段：压测期临时关 `log_upstream_request`（零代码改动，见上「治理方向」第 3 条）。

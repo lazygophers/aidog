@@ -94,6 +94,26 @@ Task: `frontend-compositing-purge` / subtask `s1-measure-protocol`
    graphics 内存已随失焦释放，省的正是这块。这类 subtask 不再逐个量测，
    统一移交 `perf-final-verification` 做一次加总对比。
 
+### regime 自证：用 `lsappinfo front`，不用 `System Events frontmost`
+
+```bash
+lsappinfo front        # 返回真实前台 app 的 ASN；锁屏时返回 loginwindow
+```
+
+`osascript -e 'tell application "System Events" to name of first process whose frontmost is true'`
+在本环境**持续返回宿主终端进程名**，不可用作 regime 判据。`lsappinfo front` 无需
+Screen Recording 权限即可给出真实前台，且**能识别锁屏态**（返回 `loginwindow`）——
+fe-s5 正是靠它查出自己 6 轮采样全落背景态的主因是**屏幕已自动锁屏**，
+而非上面规则 7 归因的「s3/s5 互踩」。
+
+**两层 confound 并存，规则 7 的归因需补一条**：
+- 第一层（已记）：两个量测 subtask 并发 → 互相 pkill/relaunch → pid 无预警更迭。
+- 第二层（本条补）：**macOS 自动锁屏** → 应用进入深度背景态，WebContent graphics
+  大量释放、CPU 归零。这一层 agent 完全不可控，且与「窗口失焦」是连续谱但成因不同。
+
+**每次采样必须同时记录 `lsappinfo front` 的输出**，作为 regime 自证的第四项
+（原三项：时间戳 / pid 同实例 / `.app` mtime）。
+
 ## 复现步骤（可直接照抄）
 
 ```bash
