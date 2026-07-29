@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1785326728,
+  "last_updated": 1785330099,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -100,7 +100,7 @@
       "logo_url": "",
       "keywords": ["智谱编程", "codegeex", "glm code", "glm coding"],
       "color": "#3B5FEC",
-      "peak_hours": [{"start_hour": 6, "end_hour": 10, "multiplier": 3.0, "days_of_week": [1, 2, 3, 4, 5], "models": ["glm-5.2", "glm-5-turbo"]}, {"start_hour": 0, "end_hour": 24, "multiplier": 2.0, "models": ["glm-5.2", "glm-5-turbo"], "start_at": 1790784000}]
+      "peak_hours": [{"start_hour": 6, "end_hour": 10, "multiplier": 3.0, "days_of_week": [1, 2, 3, 4, 5], "models": ["glm-5.2", "glm-5-turbo"]}]
     },
     "glm_en": {
       "client_type": "default",
