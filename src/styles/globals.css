@@ -36,6 +36,21 @@
   select,
   textarea {
     color: inherit;
+    /* preflight 的 `font: inherit` 缺的另一半。旧 .btn(:317)/.input(:397) 各自显式写了
+       font-family: inherit，唯独 shadcn <Button> 的 cva 只给 text-sm font-medium，字体族
+       仍走 UA 默认 —— WKWebView 下 button 的 UA 中文 fallback 比 -apple-system 宽，配
+       whitespace-nowrap 就横向冒出边框（Chromium 度量接近，浏览器里复现不了）。
+       ponytail: 只继承 font-family 不继承 font-size —— 后者会让无显式字号的 button 从
+       UA 13.333px 跳到 :root 15px，全站变版，非本 bug 所需。 */
+    font-family: inherit;
+  }
+
+  /* preflight 的 `appearance: button` reset。禁用 preflight 后 WKWebView 对无背景的
+     variant(ghost/link)保留 macOS 原生按钮渲染，按控件自身度量画盒并裁剪内容。
+     只对 button 生效，不碰 input —— input[type=checkbox](:383) 依赖原生渲染 + accent-color。 */
+  button {
+    -webkit-appearance: none;
+    appearance: none;
   }
 }
 
