@@ -44,8 +44,12 @@
 
 ### A. 消灭常驻 animation tick（CPU 主线）
 
-1. **流光边框改实现**（[03] 已拍板方向）：`@property --flow-ang` + `@keyframes` → 静态 conic 层 + `transform: rotate()`。transform 走合成器，渐变只光栅化一次。
-   - **已知风险**：1px 边环靠 `mask-composite: exclude` 做，旋转带 mask 的方形层会破坏与 `border-radius` 的贴合。可能需拆「外层固定 mask + 内层旋转渐变」两层。**实施前先做视觉比对**（红线 3）。
+1. ~~**流光边框改实现**（[03] 已拍板方向）：`@property --flow-ang` + `@keyframes` → 静态 conic 层 + `transform: rotate()`~~
+   **🔴 已被 s2-flow-border 证伪（2026-07-29），不实施。** 前提「@property 逐帧动画是全局 ~50% CPU 底噪」不成立 ——
+   `globals.css` 的 `animation: flowBorder` 只挂在 `.glass:hover::after` / `.glass-surface:hover::after`
+   规则内，空闲态 `opacity: 0` 且无 animation 声明，**零 tick**；同一时刻至多一个元素处于 hover。
+   两层 DOM 方案省不出任何东西反而增 DOM。原「重构为独立组件」的 task `glass-flow-border-component`
+   已按用户拍板改目标为**纯视觉重构**（流光从全局 `.glass` 改 opt-in 类），不再以性能为由。
 2. **`bgShimmer 32s`**：32s 周期的背景微动，视觉收益近零、CPU 常驻。判 **删**（待 grill 与用户确认视觉取舍）。
 3. **`pulseGlow` 动 `box-shadow`** → 改 `opacity` 或 `transform` 的 compositor-only 等价实现；`ProxyStatusSection.tsx:27` 的内联 animation 挪进 CSS 类（顺带纳入 reduced-motion 网）。
 4. **skeleton / progressStripes**：仅在骨架/进度条**可见时**才应该 tick。判「保留但确保不可见时不挂载」，非删。
@@ -56,6 +60,19 @@
 `.glass::after` 的 116+ 离屏 buffer 是最大嫌疑（成本在**伪元素本身**，不在 animation）。手段按顺序：
 1. 把 `.glass::after` 的 `mask` + `conic-gradient` 收进 `:hover`（[03] 已试，graphics 字节不变，但**当时未量 WebKit malloc**——本 task 补量这一维）
 2. 收敛 `backdrop-filter` 用量：`.input`（47 处）与 `.btn`（12 处）是否真需要 blur —— 小控件上 12px blur 视觉收益低、每个都强制独立层
+
+**🔴 判据升级（2026-07-29，s6-backdrop-audit 发现 + 用户拍板回改 design）**
+
+s6 定出一条比「视觉收益低不低」更硬的判据：**`backdrop-filter` 只对半透明背景生效**。
+若同元素的 `background` 解析为**无 alpha 通道的不透明色**，blur 结果被背景 100% 遮盖，
+视觉输出为零 —— 是纯死代码，删它**不存在视觉取舍**（不触红线 3）。
+
+按此判据，原表里被框为「保留项」的 `.glass-elevated` 与 `.toast` **同属死代码**：
+两者 `background: var(--bg-floating)` → `var(--popover)` → `oklch(1 0 0)`（light）/
+`oklch(0.205 0 0)`（dark），`oklch()` 无 alpha 通道 = 完全不透明。
+且 `.glass-elevated` 的 blur 半径是 `--glass-blur + 10px`（30px），**比已删的 .btn/.input(12px) 更贵**。
+
+→ 补 subtask `s8-elevated-toast` 一并删除。原「保留项」框定作废。
 
 **量测口径硬约束**：只认 `footprint` 的 `phys_footprint` 与 `heap` 块数；**禁同进程内改 CSS 做 A/B**（[03] 已证不可靠：首轮就因 GPU 进程未吃满而作废）。每档独立重启 + 等满稳态。
 
