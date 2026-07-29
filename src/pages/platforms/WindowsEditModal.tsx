@@ -254,7 +254,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           size="sm"
                           style={{ padding: "1px 5px", fontSize: 10, minWidth: 22, height: "auto" }}
                           onClick={() => toggleWeekday(widx, di)}
-                          title={["周日", "周一", "周二", "周三", "周四", "周五", "周六"][di]}
+                          title={t(`platform.weekday_short.${di}`)}
                         >
                           {d}
                         </Button>
