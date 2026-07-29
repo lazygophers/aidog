@@ -16,7 +16,6 @@
 
 use crate::shared::aidog_data_dir;
 use serde::Serialize;
-use std::sync::OnceLock;
 
 /// 主源：jsDelivr CDN（master 分支）。
 const DEFAULTS_JSON_PRIMARY_URL: &str =
@@ -28,12 +27,13 @@ const DEFAULTS_JSON_FALLBACK_URL: &str =
 
 const THROTTLE_SECS: i64 = 24 * 3600;
 
-/// 编译期编入的本地真值（与 `commands/defaults.rs::BUNDLED` 同源同文件，各自 include_str!，
-/// 编译期同值无重复维护负担）。`validate_structure` 据此判定远端协议集合是否 ⊇ 本地。
-const BUNDLED: &str = include_str!("../../../../defaults/platform-presets.json");
-
-/// bundled 解析缓存：首次访问解析一次，后续直接索引（参考 peak_hours.rs `PRESETS` 模式）。
-static BUNDLED_VALUE: OnceLock<serde_json::Value> = OnceLock::new();
+/// 编译期编入的本地真值，取自 `super::presets_cache`（单一 `include_str!` 入口，
+/// 与 peak_hours / coding_plan / `commands::defaults::BUNDLED` 同源同文件）。
+/// `validate_structure` 据此判定远端协议集合是否 ⊇ 本地。
+/// 非 test 构建下无生产 caller（生产路径全走 `bundled_value()` → presets_cache）；
+/// 仅 `#[cfg(test)]` 用，标 `#[allow(dead_code)]` 免非 test 构建 warning。
+#[allow(dead_code)]
+const BUNDLED: &str = super::presets_cache::bundled_str();
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -208,14 +208,10 @@ fn parse_last_updated(body: &str) -> Result<i64, String> {
         .ok_or_else(|| "missing/invalid last_updated".into())
 }
 
-/// bundled JSON 解析缓存（OnceLock，参考 peak_hours.rs `PRESETS` 模式）。
+/// bundled JSON 解析缓存：委托 `super::presets_cache::presets()`（单一 OnceLock，
+/// 跨消费方共享同一份解析结果，禁自建第二份）。
 fn bundled_value() -> &'static serde_json::Value {
-    BUNDLED_VALUE.get_or_init(|| {
-        serde_json::from_str(BUNDLED).unwrap_or_else(|e| {
-            tracing::warn!(error = %e, "platform-presets.json bundled parse failed (should never happen)");
-            serde_json::Value::Object(serde_json::Map::new())
-        })
-    })
+    super::presets_cache::presets()
 }
 
 /// **R1 结构一致性校验**：写盘前对远端 body 做 schema gate。

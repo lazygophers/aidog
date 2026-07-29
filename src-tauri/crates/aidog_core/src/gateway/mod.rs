@@ -18,6 +18,7 @@ pub mod mitm;
 pub mod models;
 pub mod notification;
 pub mod peak_hours;
+pub(crate) mod presets_cache;
 pub mod price_sync;
 pub mod proxy;
 pub mod quota;
