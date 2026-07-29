@@ -1,0 +1,58 @@
+{
+  "id": "single-enabled-platform-shortcut",
+  "name": "单启用平台组短路",
+  "desc": "把「组内平台总数==1」的单平台短路判定改为「组内 status==Enabled 平台数==1」，覆盖路由短路、group-info 端点、前端 GroupIcon、statusline 文案 + 8 语言 locale",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1-rust-sole-platform",
+      "name": "Rust 侧 sole_platform helper 与两调用点",
+      "desc": "新增 router/mod.rs::sole_platform, 改 candidates.rs 阶段0 短路与 group_info.rs applicable 判定, 补测试",
+      "estimate": 1.5,
+      "depends_on": [],
+      "验收": [
+        "cargo test --workspace 全绿, cargo clippy --workspace 无新增 warning"
+      ],
+      "验收done": [],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785322834,
+      "started": 1785322859,
+      "finished": 1785323328
+    },
+    {
+      "sid": "s2-frontend-icon-copy",
+      "name": "前端 GroupIcon 口径与 statusline 文案 8 语言",
+      "desc": "GroupIcon.tsx 按同口径取 single, statusline-segments.ts 5 处文案 + locales 8 语言 6 条 desc 同步",
+      "estimate": 1.0,
+      "depends_on": [],
+      "验收": [
+        "npx tsc --noEmit 零错误, yarn test 全绿"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785322841,
+      "started": 1785322859,
+      "finished": 1785323010
+    }
+  ],
+  "priority": 5,
+  "estimate": 2.5,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/single-enabled-platform-shortcut",
+  "parent": null,
+  "kind": "task",
+  "created": 1785322508,
+  "started": 1785322850,
+  "confirmed": 1785322847,
+  "checked": 1785323425,
+  "finished": 1785323697,
+  "updated": 1785323697
+}

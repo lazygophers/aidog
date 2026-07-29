@@ -7,7 +7,7 @@ use super::super::time_models;
 use super::super::peak_hours;
 use super::model_mapping::resolve_model;
 use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
-use super::{candidate_state, RouteResult};
+use super::{candidate_state, sole_platform, RouteResult};
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
@@ -182,10 +182,10 @@ pub async fn select_candidates_ctx(
         }
     }
 
-    // ── 阶段 0: 单平台分组短路 ──
-    if group_platforms.len() == 1 {
+    // ── 阶段 0: 单启用平台分组短路 ──
+    if let Some(only) = sole_platform(&group_platforms) {
         return handle_single_platform(
-            db, group, &group_platforms[0], source_model, ctx,
+            db, group, only, source_model, ctx,
             &mapped_target_model, mapping, now_ms, &extra_cache, &cli_cache
         ).await;
     }
