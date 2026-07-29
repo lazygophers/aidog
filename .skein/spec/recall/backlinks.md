@@ -642,6 +642,9 @@
 - ← recall/frontend/auto-fix-downgrade-37.md#关联
 - ← recall/theme/shadcn-primitives-40.md#关联
 
+## frontend/semantic-token-foreground-pairing.md#适用
+- → [[token-foreground-pairing]]
+
 ## frontend/shadcn-infra-30.md#技巧
 - ← core/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
@@ -669,29 +672,39 @@
 
 ## frontend/shadcn-infra-31.md#技巧
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 
 ## frontend/shadcn-infra-31.md#正解
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 
 ## frontend/shadcn-infra-31.md#陷阱
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 
 ## frontend/shadcn-infra-31.md#反例
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 
 ## frontend/shadcn-infra-31.md#案例
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 
 ## frontend/shadcn-infra-31.md#适用
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 
 ## frontend/shadcn-infra-31.md#关联
 - ← recall/build/shadcn-infra-28.md#关联
+- ← recall/frontend/theme-dark-class-dead-code.md#关联
 - → [[shadcn-infra-28]]
 - → [[shadcn-infra-30]]
 
 ## theme/shadcn-primitives-40.md#关联
 - → [[modal-state-architecture]]
+
+## frontend/theme-dark-class-dead-code.md#关联
+- → [[shadcn-infra-31]]
 
 ## frontend/trellis-18.md#Directory Structure (MUST)
 - ← recall/arch/rule-49.md#关联
@@ -722,6 +735,9 @@
 
 ## frontend/trellis-18.md#Large File Split — facade 模式 (MUST)
 - ← recall/arch/rule-49.md#关联
+
+## optimization/measure-window-multi-probe.md#关联
+- → [[measure-window-exclusive-env]]
 
 ## proxy/rule-50.md#关联
 - → [[trellis-00]]
