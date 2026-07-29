@@ -14,7 +14,7 @@ async fn list_count_get_clear_flow() {
     assert!(gateway::db::get_proxy_log(&db, "none").await.unwrap().is_none());
 
     let filter = ProxyLogFilter::default();
-    assert!(gateway::db::filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().is_empty());
+    assert!(gateway::db::filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items.is_empty());
     assert_eq!(gateway::db::filtered_count_proxy_logs(&db, &filter).await.unwrap(), 0);
 
     gateway::db::clear_proxy_logs(&db).await.unwrap();

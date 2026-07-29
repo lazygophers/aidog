@@ -336,33 +336,24 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
   );
 });
 
-/** 分页导航：首页/上一页/页码按钮/下一页/末页 + 总数 */
+/**
+ * 分页导航：首页/上一页/下一页 + 「有更多/没有更多」状态。
+ * logs-query-ipc-slimming s2：不再精确 COUNT(*)，无 total/totalPages，退化为 hasMore 探测；
+ * 页码按钮与末页跳转随之去掉（无法在不知总数下定位）。
+ */
 export function Pagination({
-  currentPage, totalPages, total, pageSize, onPageChange, onPageSizeChange, t,
+  currentPage, hasMore, resultCount, pageSize, onPageChange, onPageSizeChange, t,
 }: {
   currentPage: number;
-  totalPages: number;
-  total: number;
+  hasMore: boolean;
+  resultCount: number;
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (size: number) => void;
   t: TFunc;
 }) {
   const rangeStart = (currentPage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(currentPage * pageSize, total);
-
-  const pages: (number | "ellipsis")[] = [];
-  if (totalPages <= 7) {
-    for (let i = 1; i <= totalPages; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (currentPage > 3) pages.push("ellipsis");
-    const start = Math.max(2, currentPage - 1);
-    const end = Math.min(totalPages - 1, currentPage + 1);
-    for (let i = start; i <= end; i++) pages.push(i);
-    if (currentPage < totalPages - 2) pages.push("ellipsis");
-    pages.push(totalPages);
-  }
+  const rangeEnd = rangeStart + resultCount - 1;
 
   const btnStyle: React.CSSProperties = {
     fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center", height: "auto",
@@ -372,7 +363,8 @@ export function Pagination({
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <span className="text-tertiary" style={{ fontSize: 12 }}>
-          {rangeStart}–{rangeEnd} / {total}
+          {resultCount > 0 ? `${rangeStart}–${rangeEnd}` : rangeStart}
+          {!hasMore && currentPage <= 1 ? "" : ` · ${t(hasMore ? "logs.hasMore" : "logs.noMore", hasMore ? "还有更多" : "已到底")}`}
         </span>
         <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
           <span className="text-tertiary" style={{ fontSize: 12 }}>{t("logs.pageSize", "每页")}</span>
@@ -399,22 +391,8 @@ export function Pagination({
           onClick={() => onPageChange(1)} title="First">⟪</Button>
         <Button variant="ghost" style={btnStyle} disabled={currentPage <= 1}
           onClick={() => onPageChange(currentPage - 1)}>←</Button>
-        {pages.map((p, i) =>
-          p === "ellipsis" ? (
-            <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
-          ) : (
-            <Button key={p} variant={p === currentPage ? "default" : "ghost"}
-              style={{
-                ...btnStyle,
-                ...(p === currentPage ? { fontWeight: 700, color: "var(--accent)" } : {}),
-              }}
-              onClick={() => onPageChange(p)}>{p}</Button>
-          ),
-        )}
-        <Button variant="ghost" style={btnStyle} disabled={currentPage >= totalPages}
+        <Button variant="ghost" style={btnStyle} disabled={!hasMore}
           onClick={() => onPageChange(currentPage + 1)}>→</Button>
-        <Button variant="ghost" style={btnStyle} disabled={currentPage >= totalPages}
-          onClick={() => onPageChange(totalPages)} title="Last">⟫</Button>
       </div>
     </div>
   );

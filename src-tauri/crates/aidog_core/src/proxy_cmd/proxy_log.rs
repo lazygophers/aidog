@@ -2,7 +2,7 @@ use crate::gateway::{self, db::Db};
 use tauri::State;
 
 
-use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilter, RequestLogSummary};
+use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogPage, ProxyLogSettings, ProxyLogFilter, RequestLogSummary};
 
 crate::tauri_command! {
 pub async fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
@@ -17,7 +17,7 @@ pub async fn proxy_log_list_filtered(
     filter: ProxyLogFilter,
     limit: u32,
     offset: u32,
-) -> Result<Vec<ProxyLogSummary>, String> {
+) -> Result<ProxyLogPage, String> {
     tracing::debug!(command = "proxy_log_list_filtered", limit, offset, "command invoked");
     gateway::db::filtered_list_proxy_logs(&db, &filter, limit, offset).await
 }

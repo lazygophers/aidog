@@ -310,10 +310,12 @@ export function RequestLog() {
               </table>
             </div>
             {total > 0 && (
+              // ponytail: 本页仍用精确 total/totalPages（countFiltered 未改，出 s2 范围），
+              // 只是 Pagination 组件 props 收窄为共享的 hasMore/resultCount 形状，这里换算传入。
               <Pagination
                 currentPage={currentPage}
-                totalPages={totalPages}
-                total={total}
+                hasMore={currentPage < totalPages}
+                resultCount={logs.length}
                 pageSize={pageSize}
                 onPageChange={page => setOffset((page - 1) * pageSize)}
                 onPageSizeChange={setPageSize}
