@@ -1,9 +1,9 @@
 ---
 name: aidog-request-inspect
-description: 按 request id 从 ~/.aidog/aidog.db 的 proxy_log 表读取单条 Aidog 代理请求的完整链路（入站请求→协议转换→上游请求→上游响应→回客户端），含状态码、token、est_cost、重试链；headers 自动脱敏，body 可 pretty-print。也支持列最近 N 条 / 按 group / 状态码筛选。触发词：request id、请求 id、日志 id、查请求、这次请求、上游发了什么、proxy_log、最近请求、失败请求、400/500 排查。
+description: 按 request id 从 ~/.aidog/log.db 的 proxy_log 表读取单条 Aidog 代理请求的完整链路（入站请求→协议转换→上游请求→上游响应→回客户端），含状态码、token、est_cost、重试链；headers 自动脱敏，body 可 pretty-print。也支持列最近 N 条 / 按 group / 状态码筛选。触发词：request id、请求 id、日志 id、查请求、这次请求、上游发了什么、proxy_log、最近请求、失败请求、400/500 排查。
 when_to_use: 用户给出 request id/日志 id（hex32）查请求详情；排查某次代理请求（请求/响应 body、上游 URL、协议转换、状态码、token、重试、耗时）；列最近或失败请求时
 argument-hint: <request_id> [--full|--raw] | --recent [N] [--group <g>] [--status <code>]
-arguments: 透传给 inspect.py 的参数。首参为 request id（hex32）查单条；或 --recent [N] 列最近，配 --group/--status 筛选；--full 不截断 body，--raw 输出原始 JSON。
+arguments: 透传给 req_inspect.py 的参数。首参为 request id（hex32）查单条；或 --recent [N] 列最近，配 --group/--status 筛选；--full 不截断 body，--raw 输出原始 JSON。
 ---
 
 # aidog-request-inspect
@@ -18,35 +18,35 @@ arguments: 透传给 inspect.py 的参数。首参为 request id（hex32）查�
 
 ## 数据源
 
-- 库：`~/.aidog/aidog.db`（SQLite，运行时开启 WAL）。
+- 库：`~/.aidog/log.db`（SQLite，运行时开启 WAL；config-db-split 后 proxy_log 从 aidog.db 移入 log.db）。
 - 表：`proxy_log`，主键 `id` 即 request id；一次请求一行；`deleted_at=0` 为有效行。
 - 脚本以**只读**连接（`mode=ro`），不锁库、不干扰运行中的 aidog。
 
 ## 用法
 
-脚本在本 skill 目录下：`.claude/skills/aidog-request-inspect/inspect.py`
+脚本在本 skill 目录下：`.claude/skills/aidog-request-inspect/req_inspect.py`
 
 ```bash
 # 查单条详情（摘要 + 各 body，body 默认截断 4000 字符，headers 脱敏）
-python3 .claude/skills/aidog-request-inspect/inspect.py <request_id>
+python3 .claude/skills/aidog-request-inspect/req_inspect.py <request_id>
 
 # 不截断 body（看完整请求/响应体）
-python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --full
+python3 .claude/skills/aidog-request-inspect/req_inspect.py <request_id> --full
 
 # 原始 JSON（机读，不格式化不脱敏 —— 谨慎，含明文密钥）
 # 🔴 CHECKPOINT：--raw 输出含明文 Authorization / api-key / cookie。执行前必须确认：
 #   仅本地排查、不外传、不贴入任何对外汇报或第三方。默认改用脱敏模式（去掉 --raw）。
-python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --raw
+python3 .claude/skills/aidog-request-inspect/req_inspect.py <request_id> --raw
 
 # 列最近 N 条（默认 10）
-python3 .claude/skills/aidog-request-inspect/inspect.py --recent 20
+python3 .claude/skills/aidog-request-inspect/req_inspect.py --recent 20
 
 # 筛失败请求 / 按 group
-python3 .claude/skills/aidog-request-inspect/inspect.py --recent 20 --status 400
-python3 .claude/skills/aidog-request-inspect/inspect.py --recent 20 --group glm-coding-plan-auto
+python3 .claude/skills/aidog-request-inspect/req_inspect.py --recent 20 --status 400
+python3 .claude/skills/aidog-request-inspect/req_inspect.py --recent 20 --group glm-coding-plan-auto
 
 # 覆盖库路径（非默认位置）
-python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --db /path/to/aidog.db
+python3 .claude/skills/aidog-request-inspect/req_inspect.py <request_id> --db /path/to/log.db
 ```
 
 ## 输出包含
@@ -77,7 +77,7 @@ python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --db /path/
 
 | 类 | 列 |
 |---|---|
-| 标识 | `id`(=request id), `group_name`, `model`, `actual_model`, `platform_id` |
+| 标识 | `id`(=request id), `group_key`, `model`, `actual_model`, `platform_id` |
 | 协议 | `source_protocol`, `target_protocol` |
 | 入站 | `request_headers`, `request_body`, `request_url` |
 | 上游请求 | `upstream_request_headers`, `upstream_request_body`, `upstream_request_url` |

@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""Aidog request inspector — 按 request id 从 ~/.aidog/aidog.db 读取一条 proxy_log 并格式化输出。
+"""Aidog request inspector — 按 request id 从 ~/.aidog/log.db 读取一条 proxy_log 并格式化输出。
 
 用法:
-  python3 inspect.py <request_id>              # 查单条(摘要 + 各 body, body 默认截断)
-  python3 inspect.py <request_id> --full       # 不截断 body
-  python3 inspect.py <request_id> --raw        # 输出原始 JSON(机读, 不脱敏格式化)
-  python3 inspect.py --recent [N]              # 最近 N 条摘要(默认 10)
-  python3 inspect.py --recent 20 --group glm-coding-plan-auto   # 过滤 group
-  python3 inspect.py --recent 20 --status 400  # 过滤状态码 (定位失败请求)
-  python3 inspect.py --db /path/to/aidog.db ...# 覆盖默认库路径
+  python3 req_inspect.py <request_id>              # 查单条(摘要 + 各 body, body 默认截断)
+  python3 req_inspect.py <request_id> --full       # 不截断 body
+  python3 req_inspect.py <request_id> --raw        # 输出原始 JSON(机读, 不脱敏格式化)
+  python3 req_inspect.py --recent [N]              # 最近 N 条摘要(默认 10)
+  python3 req_inspect.py --recent 20 --group glm-coding-plan-auto   # 过滤 group
+  python3 req_inspect.py --recent 20 --status 400  # 过滤状态码 (定位失败请求)
+  python3 req_inspect.py --db /path/to/log.db ...# 覆盖默认库路径
 
 约定:
-  - 默认库路径 ~/.aidog/aidog.db, 只读连接(WAL 模式可读未 checkpoint 的最新行)。
+  - 默认库路径 ~/.aidog/log.db, 只读连接(WAL 模式可读未 checkpoint 的最新行)。
   - headers 里的鉴权字段(authorization/x-api-key/x-goog-api-key/api-key/cookie)自动脱敏。
   - body 若是 JSON 则 pretty-print; 默认截断 4000 字符, --full 关闭截断。
 """
 import sys, os, json, sqlite3, argparse
 
-DEFAULT_DB = os.path.expanduser("~/.aidog/aidog.db")
+DEFAULT_DB = os.path.expanduser("~/.aidog/log.db")
 TRUNC = 4000
 SENSITIVE_KEYS = {"authorization", "x-api-key", "x-goog-api-key", "api-key",
                   "apikey", "cookie", "set-cookie", "x-goog-api-client"}
@@ -156,7 +156,7 @@ def print_recent(con, n, group, status):
         ok = "200" if r["status_code"] == 200 else f"!{r['status_code']}"
         print(f"{r['id']:32}  {fmt_ts(r['created_at']):19}  {ok:6}  {r['duration_ms']:>6}  "
               f"{r['output_tokens']:>5}  {r['group_key']} / {r['actual_model'] or r['model']}")
-    print("\n用 python3 inspect.py <id> 看单条详情")
+    print("\n用 python3 req_inspect.py <id> 看单条详情")
 
 
 def main():
