@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(62), cross-layer(12), db(25), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(9), optimization(41), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(62), cross-layer(12), db(25), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(24), optimization(41), proxy(47), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -446,6 +446,21 @@
 | i18n/trellis-19.md#测试 fixture / 文档 URL (合法残留, 非命名空间) | i18n | 测试 fixture / 文档 URL (合法残留, 非命名空间) | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | - 测试用 `zh-CN` fixture (`test_sync_settings.rs` / `test_apply… |
 | i18n/trellis-19.md#验收基准 (可复用) | i18n | 验收基准 (可复用) | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | - [ ] `ALL_LOCALES` 集合 == presets JSON 任一 protocol 的 `name` … |
 | i18n/trellis-19.md#验证命令 | i18n | 验证命令 | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | ```bash # zh-CN 残留审计 (合法点见上 "测试 fixture / 文档 URL" + 4 命名空间表;… |
+| ops/buf-residue-observability.md#关联 | ops | 关联 | - | auto | - | active / →sse-chunk-stateless-defect,stream-buf-unified-cap | [[sse-chunk-stateless-defect]] 阐述缓冲架构，[[stream-buf-unified-c… |
+| ops/buf-residue-observability.md#关联 | ops | 关联 | - | auto | - | active / →sse-chunk-stateless-defect,stream-buf-unified-cap | [[sse-chunk-stateless-defect]] （缓冲架构） · [[stream-buf-unified… |
+| ops/buf-residue-observability.md#原则：不静默丢 | ops | 原则：不静默丢 | - | auto | - | active | ### MUST  - **在 Drop trait 或流末清理处记 WARN log** —— 任何缓冲残留 drop… |
+| ops/buf-residue-observability.md#原则：不静默丢 | ops | 原则：不静默丢 | - | auto | - | active | ### MUST  - **在 Drop trait 或流末清理处记 WARN log** —— 任何缓冲残留 drop… |
+| ops/buf-residue-observability.md#日志等级选择 | ops | 日志等级选择 | - | auto | - | active | / 场景 / 等级 / 理由 / /---/---/---/ / 正常流末有残行（客户端断连/超时） / WARN / … |
+| ops/buf-residue-observability.md#日志等级选择 | ops | 日志等级选择 | - | auto | - | active | / 场景 / 等级 / 理由 / /---/---/---/ / 正常流末有残行（客户端断连/超时） / WARN / … |
+| ops/buf-residue-observability.md#缓冲残留处置·禁静默丢原则 | ops | 缓冲残留处置·禁静默丢原则 | - | auto | - | active | - |
+| ops/buf-residue-observability.md#缓冲残留处置·禁静默丢原则 | ops | 缓冲残留处置·禁静默丢原则 | - | auto | - | active | - |
+| ops/buf-residue-observability.md#缺陷根因分析 | ops | 缺陷根因分析 | - | auto | - | active | SSE 流处理中，缓冲残留（流末有不完整帧）本身不是 bug —— 半帧因定义就不合法，丢弃是对的。**但静默丢弃正是这… |
+| ops/buf-residue-observability.md#缺陷根因分析 | ops | 缺陷根因分析 | - | auto | - | active | SSE 流处理中，缓冲残留（流末有不完整帧）本身不是 bug —— 半帧因定义就不合法，丢弃是对的。**但静默丢弃正是这… |
+| ops/buf-residue-observability.md#适用 | ops | 适用 | - | auto | - | active | - 任何有状态缓冲的流式处理 - 特别是帧边界缓冲（SSE / WebSocket 等） - 异步处理中 drop 可能… |
+| ops/buf-residue-observability.md#适用 | ops | 适用 | - | auto | - | active | - 任何有状态缓冲的流式处理 - 特别是帧边界缓冲（SSE / WebSocket 等） - 异步处理中 drop 可能… |
+| ops/buf-residue-observability.md#验收 | ops | 验收 | - | auto | - | active | - [ ] Drop impl 存在（或流末清理函数有相关 log） - [ ] warn 日志含残留长度和必要上下文 … |
+| ops/buf-residue-observability.md#验收 | ops | 验收 | - | auto | - | active | - [ ] Drop impl 存在（或流末清理函数有相关 log） - [ ] warn 日志含残留长度和必要上下文 … |
+| ops/buffer-residue-no-silent-drop.md#缓冲残留处置·禁静默丢 | ops | 缓冲残留处置·禁静默丢 | - | auto | - | active | - |
 | ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单 | ops | 空闲期唤醒源 6 分类清单 | wakeup,timers,scheduler,sources,profiling,static-analysis,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env | 空闲期 CPU 唤醒源分 6 类，静态 rg 检索无遗漏（src-tauri + src）。  / 分类 / 频率 / … |
 | ops/stack-attribution-profiling-methodology.md#栈归因用法 | ops | 栈归因用法 | profiling,stack-trace,attribution,instruments,xctrace,methodology,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env,webkit-jit-warmup-trap | **定理**：静态检索定时器只能估出量级（因周期、触发条件、执行成本都是猜），无法判断是否真在稳态 CPU 占比中命中。… |
 | ops/test-data-isolation-constraint.md#性能测试数据隔离约束 | ops | 性能测试数据隔离约束 | testing,data,isolation,database,measurement,real-data | auto | - | active | - |
@@ -507,6 +522,12 @@
 | proxy/rule-50.md#适用 | proxy | 适用 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | auto | - | active | - proxy_log 异步写入（已实现 s1） - 其他高频日志 / 统计 / 聚合表的异步更新（future 可参考… |
 | proxy/rule-50.md#陷阱：同步写会阻塞热路径 + 异步不保证持久性 | proxy | 陷阱：同步写会阻塞热路径 + 异步不保证持久性 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | auto | - | active | > proxy_log 原先热路径内同步调 `upsert_log(db).await` → 所有请求必须等 DB 写入… |
 | proxy/rule-50.md#验证 | proxy | 验证 | proxy,async,queue,mpsc,背压,背压策略,writer,snapshot,upsert,流式,中间态,终态 | auto | - | active | ```bash # 背压分级（中间态 try_send vs 终态 send） cd src-tauri && grep… |
+| proxy/sse-chunk-stateless-defect.md#关联 | proxy | 关联 | SSE,stream,chunk,stateless,silent-data-loss,line-reassembler | auto | - | active / →hot-path-buffers,rule-50,stream-buf-unified-cap | [[stream-buf-unified-cap]] （上界单一真值源） · [[hot-path-buffers]] … |
+| proxy/sse-chunk-stateless-defect.md#正解：尾行缓冲 + 无状态解析分离 | proxy | 正解：尾行缓冲 + 无状态解析分离 | SSE,stream,chunk,stateless,silent-data-loss,line-reassembler | auto | - | active / →stream-buf-unified-cap | ### MUST 架构  - **尾行缓冲层**：在无状态解析函数外层加一个有状态的行重组器（如 `SseLineRea… |
+| proxy/sse-chunk-stateless-defect.md#缺陷：逐 chunk 无状态解析导致完整行静默丢失 | proxy | 缺陷：逐 chunk 无状态解析导致完整行静默丢失 | SSE,stream,chunk,stateless,silent-data-loss,line-reassembler | auto | - | active | > 协议转换分支的 chunk 循环逐 chunk 独立调用 `parse_upstream_sse(&text, ..… |
+| proxy/sse-chunk-stateless-defect.md#触发场景 | proxy | 触发场景 | SSE,stream,chunk,stateless,silent-data-loss,line-reassembler | auto | - | active | 流式转发（协议转换分支）中逐 chunk 调用无状态的 SSE 解析函数（如 `adapter::parse_upstr… |
+| proxy/sse-chunk-stateless-defect.md#适用场景 | proxy | 适用场景 | SSE,stream,chunk,stateless,silent-data-loss,line-reassembler | auto | - | active | - SSE/Server-Sent-Events 协议转换 - 逐 chunk 处理的流式数据（WebSocket up… |
+| proxy/sse-chunk-stateless-defect.md#验收基准 | proxy | 验收基准 | SSE,stream,chunk,stateless,silent-data-loss,line-reassembler | auto | - | active | - [ ] 缓冲层与无状态解析完全分离 - [ ] 完整行立即下发，有用例证明（喂「完整行 + 残行」，断言完整行立刻出… |
 | proxy/trellis-11.md#CONNECT target 多源解析 (MUST) | proxy | CONNECT target 多源解析 (MUST) | proxy,connect,tunnel,axum,hyper,TcpStream | auto | - | active | > 违反代价: `req.uri().path()` 对 authority-form URI 返空 → `target… |
 | proxy/trellis-11.md#CONNECT 路由契约 (MUST) | proxy | CONNECT 路由契约 (MUST) | proxy,connect,tunnel,axum,hyper,TcpStream | auto | - | active | > 违反代价: `.route()` 注册 CONNECT → authority-form URI `host:por… |
 | proxy/trellis-11.md#MITM CA 信任库安装 (MUST — 三 OS 原生提权) | proxy | MITM CA 信任库安装 (MUST — 三 OS 原生提权) | proxy,connect,tunnel,axum,hyper,TcpStream | auto | - | active | > 违反代价: 假 CA 装不进系统信任库 → 客户端不信任 AirDog 签的 host 证书 → MITM 解密全挂… |
