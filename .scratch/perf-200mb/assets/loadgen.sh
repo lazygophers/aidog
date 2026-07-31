@@ -10,7 +10,8 @@ set -u
 
 N="${1:-50}"
 SECS="${2:-300}"
-BASE="http://127.0.0.1:9890/proxy"
+# 端口默认 9890；bind 冲突时 app 会自动 +1，调用方可传 LOADGEN_PORT 覆盖（不改默认行为）。
+BASE="http://127.0.0.1:${LOADGEN_PORT:-9890}/proxy"
 TOKEN="mock"   # 分组名即 token（Authorization Bearer <group_name>）
 
 # 单次请求约 200 chunk × 50ms ≈ 10s 一条流

@@ -79,6 +79,31 @@ async fn file_db_read_pool_sees_committed_writes() {
     }
 }
 
+/// `AIDOG_SQLITE_READ_CACHE_KB` 缺省 / 非法值 → 回落固化默认档（-64KB，二分实验定值，见
+/// `mod.rs::READ_CACHE_DEFAULT_KB` 注释）；合法值 → 转成 SQLite 原生 `cache_size=-<kb>` 语义
+/// （负数 = KiB）。纯函数单测，不碰真实 env（并行测试环境变量互踩）。
+#[test]
+fn read_cache_pragma_unset_or_invalid_falls_back_to_default() {
+    assert_eq!(Db::read_cache_pragma(None), " PRAGMA cache_size=-64;");
+    assert_eq!(
+        Db::read_cache_pragma(Some("not-a-number".to_string())),
+        " PRAGMA cache_size=-64;"
+    );
+    assert_eq!(Db::read_cache_pragma(Some("".to_string())), " PRAGMA cache_size=-64;");
+}
+
+#[test]
+fn read_cache_pragma_valid_kb_maps_to_negative_cache_size() {
+    assert_eq!(
+        Db::read_cache_pragma(Some("1024".to_string())),
+        " PRAGMA cache_size=-1024;"
+    );
+    assert_eq!(
+        Db::read_cache_pragma(Some("64".to_string())),
+        " PRAGMA cache_size=-64;"
+    );
+}
+
 /// 真实文件库并发：写流持续灌入的同时大量并发读，全部完成且不死锁。
 ///
 /// 单写连接 + N 只读连接（WAL）下，读经独立连接走自身后台线程，不排在写连接队列后。

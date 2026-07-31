@@ -2,7 +2,7 @@
   "id": "sqlite-page-cache-residency",
   "name": "SQLite page cache 常驻治理",
   "desc": "27 条连接 x 2MB 默认 cache_size 致主进程常驻 ~54MB，压降至预算 30MB 内且不伤 UI 流畅度",
-  "status": "就绪",
+  "status": "已完成",
   "deps": [
     "logs-query-ipc-slimming"
   ],
@@ -70,13 +70,15 @@
       "验收": [
         "基线指标集已落 .scratch/perf-200mb/results/，含冷启动与稳态两点；5KB 块数量级对得上 probe 实测（default 档约 9000，736MB 库）；三条查询 p95 分列；基线最慢 SQL 已识别并单列；log.db 体积 >=500MB 且实际体积已记录；原始逐次采样已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785246154,
-      "started": null,
-      "finished": null
+      "started": 1785494605,
+      "finished": 1785494841
     },
     {
       "sid": "smalldb-control",
@@ -88,13 +90,15 @@
       "验收": [
         "小库组曲线表已产出，档位与 sweep 一致；给出『定值对小库安全 / 不安全』的明确结论；小库环境副本已删除；全程只打 mock 分组，未触碰用户真实 log.db"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785246154,
-      "started": null,
-      "finished": null
+      "started": 1785495883,
+      "finished": 1785496444
     },
     {
       "sid": "lockin",
@@ -107,13 +111,15 @@
       "验收": [
         "选值有大库曲线表 + 小库对照双重依据，非拍脑袋；稳态 phys_footprint 减冷启动 <=10MB；heap 5KB 块数 <2500；三条查询 p95 相对基线上升均 <=10%；写档确认未改；cargo clippy 零 warning、cargo test 全绿；08 票与 map.md 已同步结论；results/ 只剩三份最终产物，临时脚本与原始采样已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785246168,
-      "started": null,
-      "finished": null
+      "started": 1785496485,
+      "finished": 1785497750
     },
     {
       "sid": "sweep",
@@ -125,13 +131,15 @@
       "验收": [
         "曲线表 >=4 档，每档含三条查询 p95（分列）+ 内存增量 + 5KB 块数 + 库体积；每档独立重启采集，记录中可核验非同进程混采；每档标注 p95 相对基线上升百分比；基线最慢 SQL 单列走势已给出；全程只打 mock 分组；逐次原始采样已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785246183,
-      "started": null,
-      "finished": null
+      "started": 1785495259,
+      "finished": 1785495702
     }
   ],
   "priority": 5,
@@ -142,9 +150,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785244678,
-  "started": null,
+  "started": 1785497797,
   "confirmed": 1785246424,
-  "checked": null,
-  "finished": null,
-  "updated": 1785493350
+  "checked": 1785497844,
+  "finished": 1785498471,
+  "updated": 1785498471
 }

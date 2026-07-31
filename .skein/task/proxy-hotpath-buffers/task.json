@@ -23,13 +23,18 @@
         "用例仅用 mock 构造, 不打真实上游",
         "用例可一条命令重跑"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1785249476,
-      "started": null,
-      "finished": null
+      "started": 1785493368,
+      "finished": 1785494567
     },
     {
       "sid": "s2-utf8-fix",
@@ -87,11 +92,11 @@
         "LOG_QUEUE_CAP 新值有单条平均字节依据"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249476,
-      "started": null,
+      "started": 1785493368,
       "finished": null
     },
     {
@@ -173,5 +178,5 @@
   "confirmed": 1785250582,
   "checked": null,
   "finished": null,
-  "updated": 1785250582
+  "updated": 1785494567
 }
