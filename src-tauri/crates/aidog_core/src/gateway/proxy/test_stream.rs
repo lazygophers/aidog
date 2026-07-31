@@ -430,3 +430,88 @@ use super::*;
         let _ = std::fs::remove_file(path);
         panic!("空流 response_body 仍停在 [stream] 占位（finalize 未执行）");
     }
+
+    // ── 回归复现（红，待 s2 修复）：finish.rs:279 `String::from_utf8_lossy(&chunk)` 对
+    // 原始网络 chunk 独立解码 —— 多字节字符（中文/emoji）跨 chunk 边界被切断时，
+    // 各自产生 U+FFFD 替换字符，原始内容不可逆丢失（压红线 2：token 计数 feed_sse_usage
+    // 与转换分支下发客户端的字节，finish.rs:279/:295，均读自这份 lossy 文本）。
+    // 修法（design.md）：跨 chunk 保留不完整字节序列，拼接后再解码一次，而非每 chunk 独立 lossy。
+    //
+    // 复现手法：精确复刻 finish.rs:279 的表达式（同一 `String::from_utf8_lossy` 调用），把一整条
+    // 合法 SSE data 行的原始字节在某个多字节字符中间切成两个网络 chunk，各自独立 lossy 解码
+    // （生产代码现状），再喂给生产函数 `adapter::parse_upstream_sse`（finish.rs:295 同一调用）。
+    // 断言直接锁定「不应出现 U+FFFD 且内容应等于原文」——今天必红（真实产生 U+FFFD），
+    // s2 把跨 chunk 字节拼接后再解码一次即可转绿。
+    //
+    // 已知范围边界（记录，非本用例断言项）：上述复现刻意让被切字符所在整行仍在两个 chunk
+    // 内各自重组为语法合法的 JSON（不影响 parse_upstream_sse 的可解析性），因此断言能精确落在
+    // 「内容被 U+FFFD 替换」而非「事件被整体丢弃」。若网络 chunk 边界恰好把 SSE `data:` 行本身
+    // 切成两段（而非仅切多字节字符），`parse_upstream_sse` 当前逐 chunk 调用、不做跨 chunk 行
+    // 重组，会整体丢弃该行——这是另一个更严重的独立问题（内容整段消失，不止于替换字符），
+    // 超出本 task 范围（design.md 仅界定 UTF-8 字节边界），已记入 needs 供 main 判断是否补建 task。
+    fn split_mid_multibyte_char(line: &str, byte_offset_in_char: usize, ch: char) -> (Bytes, Bytes) {
+        let bytes = line.as_bytes();
+        let char_start = line.find(ch).expect("目标字符必须出现在待切分行中");
+        let split_at = char_start + byte_offset_in_char;
+        (
+            Bytes::copy_from_slice(&bytes[..split_at]),
+            Bytes::copy_from_slice(&bytes[split_at..]),
+        )
+    }
+
+    /// 中文场景：三字节字符「好」（E5 A5 BD）在第 2 字节处被切成两个网络 chunk。
+    #[test]
+    fn utf8_char_split_across_network_chunk_corrupts_chinese_content() {
+        let line = r#"data: {"choices":[{"index":0,"delta":{"content":"你好，世界"}}]}"#;
+        let (chunk1, chunk2) = split_mid_multibyte_char(line, 2, '好');
+
+        // finish.rs:279 的确切操作：逐网络 chunk 独立 lossy 解码。
+        let text1 = String::from_utf8_lossy(&chunk1);
+        let text2 = String::from_utf8_lossy(&chunk2);
+        // finish.rs:295 同一路径继续消费：拼接两段 lossy 文本恢复出语法合法的 JSON 行
+        // （feed_sse_usage 已有的跨 chunk 行重组同 idiom），但内容字段已被 U+FFFD 污染。
+        let reassembled = format!("{text1}{text2}");
+        let events = adapter::parse_upstream_sse(&reassembled, &Protocol::OpenAI);
+        let delta_text = events.iter().find_map(|e| match e {
+            ChatStreamEvent::Delta { text } => Some(text.clone()),
+            _ => None,
+        });
+
+        // 期望（修复后应满足，今天必红）：跨 chunk 切断多字节字符不应产生 U+FFFD 替换字符，
+        // 解析出的内容应与原始未损坏文本一致。
+        assert!(
+            !delta_text.as_deref().unwrap_or("").contains('\u{FFFD}'),
+            "跨 chunk 切断「好」不应在解析出的内容中留下 U+FFFD 替换字符，实际: {delta_text:?}"
+        );
+        assert_eq!(
+            delta_text.as_deref(),
+            Some("你好，世界"),
+            "解析出的内容应与原始未损坏文本一致"
+        );
+    }
+
+    /// emoji 场景：四字节字符「😀」（F0 9F 98 80）在第 2 字节处被切成两个网络 chunk。
+    #[test]
+    fn utf8_char_split_across_network_chunk_corrupts_emoji_content() {
+        let line = r#"data: {"choices":[{"index":0,"delta":{"content":"hi 😀 there"}}]}"#;
+        let (chunk1, chunk2) = split_mid_multibyte_char(line, 2, '😀');
+
+        let text1 = String::from_utf8_lossy(&chunk1);
+        let text2 = String::from_utf8_lossy(&chunk2);
+        let reassembled = format!("{text1}{text2}");
+        let events = adapter::parse_upstream_sse(&reassembled, &Protocol::OpenAI);
+        let delta_text = events.iter().find_map(|e| match e {
+            ChatStreamEvent::Delta { text } => Some(text.clone()),
+            _ => None,
+        });
+
+        assert!(
+            !delta_text.as_deref().unwrap_or("").contains('\u{FFFD}'),
+            "跨 chunk 切断 emoji 不应在解析出的内容中留下 U+FFFD 替换字符，实际: {delta_text:?}"
+        );
+        assert_eq!(
+            delta_text.as_deref(),
+            Some("hi 😀 there"),
+            "解析出的内容应与原始未损坏文本一致"
+        );
+    }
