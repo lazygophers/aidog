@@ -1,6 +1,6 @@
 # SKEIN core 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(5), cross-layer(5), db(7), domain(5), frontend(3), i18n(4), perf(1), proxy(8) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(5), cross-layer(5), db(7), domain(5), frontend(3), i18n(4), proxy(4) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -33,12 +33,7 @@
 | i18n/i18n-key-sync-8lang.md#硬约则 | i18n | 硬约则 | i18n,locale,zh-Hans,en-US,ar-SA,fr-FR,de-DE,ru-RU,ja-JP,es-ES | auto | - | active | `src/locales/` 8 个 locale 文件 MUST 保持 key 集合等值：  - **语言**：zh-… |
 | i18n/i18n-key-sync-8lang.md#禁用 | i18n | 禁用 | i18n,locale,zh-Hans,en-US,ar-SA,fr-FR,de-DE,ru-RU,ja-JP,es-ES | auto | - | active | ❌ 漏某语言 → 用户切该语言见裸 key   ❌ 模板变量未展开 → 动态内容显示变量本身 |
 | i18n/i18n-key-sync-8lang.md#验收 | i18n | 验收 | i18n,locale,zh-Hans,en-US,ar-SA,fr-FR,de-DE,ru-RU,ja-JP,es-ES | auto | - | active | ```bash yarn check:i18n  # 4 类检查 + 清单输出 # 期望 exit 0 ``` |
-| perf/stream-buf-no-batching.md#关联 | perf | 关联 | stream,buffer,sse,batching,latency | auto | - | active / →stream-buf-unified-cap | [[stream-buf-unified-cap]] |
 | proxy/auto-disable-401-403-402.md#关联 | proxy | 关联 | auto-disable,401,403,402,stateless,throttle | auto | - | active / →http-client-no-env-proxy,mock-platform-short-circuit | [[mock-platform-short-circuit]] [[http-client-no-env-proxy]] |
 | proxy/auto-disable-401-403-402.md#硬约则 | proxy | 硬约则 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 平台自动禁用（auto_disabled）仅由三个 HTTP 状态码触发：**401 / 403 / 402**，**禁… |
 | proxy/auto-disable-401-403-402.md#禁用 | proxy | 禁用 | auto-disable,401,403,402,stateless,throttle | auto | - | active | ❌ 429 触发 auto_disabled → 永久禁用平台，虽然是临时故障   ❌ 其他 4xx（如 400）触发 … |
 | proxy/auto-disable-401-403-402.md#触发条件 | proxy | 触发条件 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 见 `crates/aidog_core/src/gateway/proxy/non_success.rs:68`：  … |
-| proxy/crash-safe-db-split.md#crash safe db split | proxy | crash safe db split | stub | auto | - | active | [Stub - to be completed from archive] |
-| proxy/host-check-before-path.md#host check before path | proxy | host check before path | stub | auto | - | active | [Stub - to be completed from archive] |
-| proxy/mock-platform-short-circuit.md#mock platform short circuit | proxy | mock platform short circuit | stub | auto | - | active | [Stub - to be completed from archive] |
-| proxy/wire-protocol-sync-three.md#wire protocol sync three | proxy | wire protocol sync three | stub | auto | - | active | [Stub - to be completed from archive] |
