@@ -571,3 +571,120 @@ use super::*;
             "解析出的内容应与原始未损坏文本一致"
         );
     }
+
+    // ── 红：内容路径逐 chunk 独立调用 parse_upstream_sse，无跨 chunk 行重组（design.md 定性）──
+    // 根因：finish.rs 转换分支 utf8_buf.feed(&chunk) 只补 UTF-8 字节层（s2-utf8-fix 已修），
+    // 拿到的文本仍逐 chunk 独立喂给 `adapter::parse_upstream_sse`（无状态、按行分帧）。
+    // 一条 SSE `data:` 事件行若被网络 chunk 边界切成两半：前半没有结束换行、后半没有 `data:`
+    // 前缀，两边都不构成合法帧——**整行内容被双双丢弃**，客户端静默少内容，无任何错误信号。
+    // usage 侧早有同型重组（`feed_sse_usage` + `sse_line_buf`），本 task 要把这套 idiom
+    // 补给内容路径；本 subtask 只写复现用例、不修（修在 s2-reassemble）。
+    //
+    // 复现手法照抄 `feed_sse_usage_reassembles_split_chunk_boundary`：取一条真实 SSE 行，
+    // 按字节位切两半分别喂给生产函数链，断言指向具体内容缺失（切分后解析 None vs 不切分解析
+    // Some(text)，逐字节对照），而非笼统 assert_ne。
+
+    /// 复刻 finish.rs 转换分支现状：逐 chunk 先过 `Utf8ChunkReassembler`（字节层）、再过
+    /// `SseLineReassembler`（行层，s2-reassemble 生产代码），再对重组出的完整行文本调用
+    /// `adapter::parse_upstream_sse`——与 finish.rs 实际调用链完全一致（同一批生产函数，
+    /// 非重新实现一遍逻辑）。s1 时代（无行层重组）此函数必红，s2 接上行层重组后转绿。
+    fn naive_per_chunk_parse(chunks: &[&[u8]], wire: &Protocol) -> Vec<ChatStreamEvent> {
+        let mut utf8_buf = Utf8ChunkReassembler::new();
+        let mut line_buf = SseLineReassembler::new();
+        let mut events = Vec::new();
+        for chunk in chunks {
+            let text = utf8_buf.feed(chunk);
+            let line_ready = line_buf.feed(&text);
+            events.extend(adapter::parse_upstream_sse(&line_ready, wire));
+        }
+        events
+    }
+
+    fn delta_text_of(events: &[ChatStreamEvent]) -> Option<String> {
+        events.iter().find_map(|e| match e {
+            ChatStreamEvent::Delta { text } => Some(text.clone()),
+            _ => None,
+        })
+    }
+
+    /// 切法一：切在 `data: ` 前缀中间（"da" | "ta: {...}"）。
+    #[test]
+    fn content_lost_when_sse_line_split_mid_data_prefix() {
+        let line = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello world\"}}]}\n\n";
+        let split_at = 2; // 落在 "data: " 前缀（6 字节）中间，非边界
+        let (chunk1, chunk2) = line.as_bytes().split_at(split_at);
+
+        let reference = adapter::parse_upstream_sse(line, &Protocol::OpenAI);
+        let reference_text = delta_text_of(&reference);
+        assert_eq!(
+            reference_text.as_deref(),
+            Some("hello world"),
+            "参照（不切分）解析必须先拿到完整内容，否则用例构造有误"
+        );
+
+        let naive = naive_per_chunk_parse(&[chunk1, chunk2], &Protocol::OpenAI);
+        let naive_text = delta_text_of(&naive);
+        // 期望（修复后应满足，今天必红）：跨 chunk 切断 data: 前缀不应丢内容，逐 chunk 解析结果
+        // 应与不切分的参照解析逐字节一致。今天的实现（无行层重组）两半都不成帧、整行丢失，
+        // naive_text 会是 None，与 reference_text=Some("hello world") 不等，断言失败（红）。
+        assert_eq!(
+            naive_text, reference_text,
+            "切在 data: 前缀中间：内容不应丢失，应与不切分参照逐字节一致；实际 {naive_text:?}，\
+             今天必红（前半无结束换行、后半无 data: 前缀，双双不成帧被静默丢弃）"
+        );
+    }
+
+    /// 切法二：切在 JSON body 中间（`"content":"hel` | `lo world"}}]}`）。
+    #[test]
+    fn content_lost_when_sse_line_split_mid_json_body() {
+        let line = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello world\"}}]}\n\n";
+        let split_at = line.find("hel").expect("待切分行必须包含目标子串") + 3;
+        let (chunk1, chunk2) = line.as_bytes().split_at(split_at);
+
+        let reference = adapter::parse_upstream_sse(line, &Protocol::OpenAI);
+        let reference_text = delta_text_of(&reference);
+        assert_eq!(
+            reference_text.as_deref(),
+            Some("hello world"),
+            "参照（不切分）解析必须先拿到完整内容，否则用例构造有误"
+        );
+
+        let naive = naive_per_chunk_parse(&[chunk1, chunk2], &Protocol::OpenAI);
+        let naive_text = delta_text_of(&naive);
+        // 期望（修复后应满足，今天必红）：跨 chunk 切断 JSON body 不应丢内容，逐 chunk 解析结果
+        // 应与不切分的参照解析逐字节一致。今天的实现两半各自解析失败被静默丢弃，naive_text 会是
+        // None，与 reference_text=Some("hello world") 不等，断言失败（红）。
+        assert_eq!(
+            naive_text, reference_text,
+            "切在 JSON body 中间：内容不应丢失，应与不切分参照逐字节一致；实际 {naive_text:?}，\
+             今天必红（半截 JSON 各自解析失败被静默丢弃）"
+        );
+    }
+
+    // ── 红线 1 钉子：完整行必须随本次 feed 立即下发，禁攒批 ──
+    // 只留尾巴（残行）不完整才等下一个 chunk；已完整的行不能因为同一 chunk 里还带着残行
+    // 就被一并压住不吐——那等于把行重组做成了「攒够再吐」，首 token 时延随缓冲深度退化。
+    #[test]
+    fn sse_line_reassembler_delivers_complete_line_immediately_without_batching() {
+        let complete_line =
+            "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hello world\"}}]}\n";
+        let partial_next_line = "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"par"; // 无结束换行，故意残
+        let chunk = format!("{complete_line}{partial_next_line}");
+
+        let mut line_buf = SseLineReassembler::new();
+        let ready = line_buf.feed(&chunk);
+
+        // 完整行必须已经在本次 feed 的返回值里，可直接解析出内容——不依赖下一次 feed。
+        let events = adapter::parse_upstream_sse(&ready, &Protocol::OpenAI);
+        let delta_text = delta_text_of(&events);
+        assert_eq!(
+            delta_text.as_deref(),
+            Some("hello world"),
+            "完整行应随本次 feed 立即可下发，不应攒批等待残行凑齐"
+        );
+        // 残行不应混入本次可下发文本——否则等于把不完整帧提前下发。
+        assert!(
+            !ready.contains("par"),
+            "残行不应被提前下发，应留在内部 buf 里等下次 feed 拼接: {ready:?}"
+        );
+    }

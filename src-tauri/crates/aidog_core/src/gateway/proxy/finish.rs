@@ -257,6 +257,10 @@ where
     // 决策 B（peek 阶段已缓冲的首批 chunk prepend 回流）已在调用方 forward.rs 完成，此处直接消费完整流。
     // utf8_buf：跨 chunk 字节重组器（红线 2 修复），逐 chunk 顺序 poll、closure 内独占可变捕获，无需加锁。
     let mut utf8_buf = Utf8ChunkReassembler::new();
+    // sse_line_buf：内容路径跨 chunk 行重组（design.md sse-chunk-line-reassembly，与
+    // guard.agg.feed_sse_usage 的 sse_line_buf 同型 idiom）。只在转换分支（!passthrough_response）
+    // 使用；passthrough 分支原样 relay 字节，无需按行解析，零改动。
+    let mut sse_line_buf = SseLineReassembler::new();
     let stream = stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -291,12 +295,14 @@ where
             chunk.clone()
         } else {
             // token 累计走跨 chunk 行重组（逐 chunk .lines() 会因 data: 行被切断丢 usage）。
-            // 协议转换仍逐 chunk 处理（输出格式转换路径，行为不变）。
             guard.agg.feed_sse_usage(&text);
+            // 内容路径同型跨 chunk 行重组：完整行立即随本 chunk 下发（不攒批，避免首 token
+            // 时延退化），不完整尾行留 sse_line_buf 等下个 chunk 拼接（design.md 修法）。
+            let line_ready_text = sse_line_buf.feed(&text);
             let mut output = String::new();
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
-            for event in adapter::parse_upstream_sse(&text, &protocol) {
+            for event in adapter::parse_upstream_sse(&line_ready_text, &protocol) {
                 let event = if !model_for_response.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
