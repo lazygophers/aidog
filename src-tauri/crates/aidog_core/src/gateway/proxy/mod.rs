@@ -183,7 +183,18 @@ pub struct ProxyState {
 }
 
 /// 日志写入队列容量。终态消息用阻塞 send 保证不丢；非终态消息队满即丢（不影响最终数据）。
-pub(crate) const LOG_QUEUE_CAP: usize = 4096;
+///
+/// 定值依据（s4 proxy-hotpath-buffers，实测非估算）：只读采样真实 `~/.aidog/log.db`
+/// （`proxy_log` 表，2071 行，未改动/未移动原库）算单条 `ProxyLog` 深拷贝字节量——对 8 个
+/// 大 String 列 + `attempts` JSON 求 `length()` 之和：均值 576,775 B、中位数 310,677 B、
+/// p90 1,396,402 B、p99 3,587,012 B、max 3,691,023 B（编码 agent 场景常见长上下文对话体）。
+/// 旧值 4096 条在均值下等价 ≈ 4096×576KB ≈ 2.3GB 无界风险（`log_snapshots`/日志队列同源
+/// 结构体，字节维度远超合理常驻上限）。
+/// 新值按均值反推：目标常驻上限 ~300MB / 576KB ≈ 512 条。取 512（2 的幂，与 `AGG_DEDUP_CAP`
+/// 同款「留够并发窗口 + 安全余量」idiom）——终态消息只在单请求生命周期尾部各发 1 次、由单
+/// writer 串行快速消费，真实同时在途深度远低于历史「单机数十路并发会话」量级，512 留足冗余；
+/// 中间态本就允许队满即丢（本 task 另把该分支的深拷贝挪到队满判定之后，见 `log.rs::upsert_log`）。
+pub(crate) const LOG_QUEUE_CAP: usize = 512;
 
 /// agg 去重缓存容量上限。
 ///

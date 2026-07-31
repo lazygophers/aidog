@@ -42,13 +42,28 @@ fn is_terminal_log(log: &ProxyLog) -> bool {
 /// 背压（硬约束，s1 设计）：中间态（status==0 / response_body=="[stream]" 占位）队满即用
 /// `try_send` 静默丢弃——不影响最终数据，终态 upsert 会覆盖写全部列；终态（真实 HTTP 结果）
 /// 队满则退化为阻塞 `send().await` 等待 writer 腾位，保证不丢失最终结果 / 统计 / cost / emit。
+///
+/// clone 时机（s4 proxy-hotpath-buffers）：`is_terminal_log` 判定先行，`Box::new(log.clone())`
+/// 挪进各分支内部构造——中间态在队满（`capacity()==0`）时提前 return，不再付出 `ProxyLog`
+/// 全量深拷贝（8 个大 String 字段 + `Vec<ProxyAttempt>`）只为立刻被丢弃的浪费。非满队路径与
+/// 终态路径行为不变（仍构造 + 发送，语义零变化，见验收: 中间态深拷贝仅在"确定要丢"时跳过）。
 pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
-    let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
     if is_terminal_log(log) {
+        let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
         if state.log_tx.send(msg).await.is_err() {
             tracing::warn!(id = %log.id, "log writer channel closed, terminal log dropped");
         }
-    } else if let Err(e) = state.log_tx.try_send(msg) {
+        return;
+    }
+    // 队满：中间态本就要被 try_send 丢弃（既有背压语义不变），提前 return 省去
+    // 深拷贝——channel 关闭的极罕见 shutdown 窗口不特判，仍走下方 try_send 由既有
+    // match 給出准确日志文案（Closed vs Full），代价可忽略。
+    if state.log_tx.capacity() == 0 {
+        tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure, pre-clone skip)");
+        return;
+    }
+    let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
+    if let Err(e) = state.log_tx.try_send(msg) {
         match e {
             tokio::sync::mpsc::error::TrySendError::Full(_) => {
                 tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure)");
@@ -247,10 +262,24 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
     // 流式中间 chunk）静默写库。upsert_log 单请求生命周期被调用 40+ 次（见 mod.rs 注释），
     // emit 从 40+ 次/请求 降到 1-2 次/请求（终态后少数重复调用）。前端 listener 各自 debounce
     // 兜底，丢失中间态刷新对 UI 无感（用户关心的是请求结束后的累计值）。
-    if write_ok
-        && is_terminal
-        && let Some(app) = &state.app
-    {
+    if write_ok && is_terminal {
+        emit_log_events(state, platform_id);
+    }
+}
+
+/// 终态写入成功后统一触发前端 + 托盘刷新事件（`process_upsert` 终态分支与
+/// `process_connect_log` CONNECT 一次性终态共用同一 idiom——CONNECT 本身就是单次终态写入，
+/// 天然满足与上方相同的 gate 语义；消费侧 `app_setup.rs` 对 `"tray-refresh"` 事件统一做
+/// 200ms trailing debounce，对所有来源一视同仁，此处不重复造节流机制，只负责发出事件）。
+///
+/// 实测数据（s4 proxy-hotpath-buffers，一次性临时计数埋点跑 mock 流后已移除，非估算）：
+/// 模拟单请求生命周期 40 次 `upsert_log`（1 insert + 38 流式中间 chunk + 1 终态）+ 5 次
+/// CONNECT 隧道完成，共 45 次落库路径调用，仅本函数被触发 6 次（1 终态 upsert + 5 connect）
+/// ——emit/托盘重建频次降至请求量的 6/45 ≈ 13.3%（降幅 86.7%）。`is_terminal_log` 的 gate
+/// 语义见下方 `emit_gate_pass_rate_across_request_lifecycle` 测试（用真实 `is_terminal_log`
+/// 判定逐条计数，避免跨测试共享 static 计数器在默认并行 `cargo test` 下的 flaky 风险）。
+fn emit_log_events(state: &Arc<ProxyState>, platform_id: u64) {
+    if let Some(app) = &state.app {
         use tauri::Emitter;
         let _ = app.emit("proxy-log-updated", platform_id);
         let _ = app.emit("tray-refresh", ());
@@ -435,12 +464,9 @@ async fn process_connect_log(
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");
         return;
     }
-    // 通知前端 Platforms/Stats 刷新（platform_id 可能为 0，前端按需处理）。
-    if let Some(app) = &state.app {
-        use tauri::Emitter;
-        let _ = app.emit("proxy-log-updated", platform_id);
-        let _ = app.emit("tray-refresh", ());
-    }
+    // 通知前端 Platforms/Stats 刷新（platform_id 可能为 0，前端按需处理）。CONNECT 一次性终态
+    // 写入，复用与 `process_upsert` 终态分支相同的 emit idiom（s4 proxy-hotpath-buffers）。
+    emit_log_events(state, platform_id);
 }
 
 #[cfg(test)]
