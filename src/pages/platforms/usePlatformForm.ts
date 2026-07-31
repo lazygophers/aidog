@@ -8,7 +8,7 @@
 import { useState, useMemo, useEffect } from "react";
 import type { TFunction } from "i18next";
 import {
-  platformApi, settingsApi, groupDetailApi, cliProxyApi,
+  platformApi, settingsApi, groupDetailApi,
   parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig,
   parseDevinConfig, serializeDevinConfig,
   parsePlatformBreaker, serializePlatformBreaker,
@@ -20,7 +20,6 @@ import {
   type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig, type DevinConfig,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError, type TimeModelRule,
-  type CliProxyProvider,
 } from "../../services/api";
 import { splitApiKeys } from "../../utils/platformPaste";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
@@ -147,8 +146,6 @@ export interface PlatformFormState {
   handleViewLogs: (p: Platform) => void;
   applyPaste: (r: SmartPasteApplyResult) => Promise<void>;
   runBatchCreateFromPaste: (keys: string[], baseName?: string, effectiveEndpoints?: PlatformEndpoint[], effectiveProtocol?: Protocol) => Promise<void>;
-  /** 从 cli-proxy provider 建平台（cpa-standalone-module s6）。 */
-  createCliProxyPlatform: (provider: CliProxyProvider) => Promise<void>;
 }
 
 export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormState {
@@ -764,7 +761,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
       // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
       // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：本 handleSave 与
-      //   handleDelete / handlePurgeDisabled / createCliProxyPlatform / runBatchCreateFromPaste 对齐。
+      //   handleDelete / handlePurgeDisabled / runBatchCreateFromPaste 对齐。
       handleGroupsChanged();
       // 已分组平台（join_group_ids / auto_group）只在 <GroupsEmbedded> 的分组卡内渲染，而该组件渲染门控在
       // 其**自身** platforms state（Groups.tsx 分组卡 platforms.find），父级乐观 setPlatforms 不会注入。
@@ -776,35 +773,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       console.error(msg);
       setSaveError(msg);
       // saveError 渲染在长表单底部易被滚出视口（用户感知「无反应」）；额外用全局 toast 即时反馈，禁静默失败。
-      setToast({ text: `${t("platform.saveFail", "保存失败")}: ${msg}`, ok: false });
-      setTimeout(() => setToast(null), 4000);
-    }
-  };
-
-  /** 从 cli-proxy provider 建平台（cpa-standalone-module s6）。
-   *  name 默认取 provider.name；group_id 取当前表单态（locked 或首个 join），未选传 null。 */
-  const createCliProxyPlatform = async (provider: CliProxyProvider): Promise<void> => {
-    try {
-      const groupId = lockedGroupId ?? (joinGroupIds.length > 0 ? joinGroupIds[0] : null);
-      const saved = await cliProxyApi.createPlatform(provider.id, provider.name, groupId);
-      resetForm();
-      platformsEpochRef.current++;
-      setPlatforms(prev => prev.some(x => x.id === saved.id) ? prev : [...prev, saved]);
-      quota.scheduleQuotaFor(saved);
-      platformApi.usageStats(saved.id)
-        .then(u => setUsageMap(prev => ({ ...prev, [saved.id]: u })))
-        .catch(() => {});
-      // platform mutation 三连（见 usePlatformsState.ts 顶部「一致性规则」）：对齐 handleSave /
-      //   handleDelete / handlePurgeDisabled / runBatchCreateFromPaste。
-      handleGroupsChanged();
-      groupsReloadRef.current?.();
-      window.dispatchEvent(new Event("aidog-groups-changed"));
-      setToast({ text: t("platform.cliProxy.created", "已创建 cli-proxy 平台"), ok: true });
-      setTimeout(() => setToast(null), 2500);
-    } catch (e: any) {
-      const msg = e?.toString() || "Unknown error";
-      console.error(msg);
-      setSaveError(msg);
       setToast({ text: `${t("platform.saveFail", "保存失败")}: ${msg}`, ok: false });
       setTimeout(() => setToast(null), 4000);
     }
@@ -841,8 +809,5 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelChange, handleModelSelect, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,
-    /** 建 cli-proxy 平台（cpa-standalone-module s6）：platform_type=cli-proxy, extra=cli_proxy_provider_id。
-     *  从 PlatformEditForm 新建态「从 cli-proxy 添加」入口调用，后端建行后局部刷新 + 关表单（同 handleSave aftercare）。 */
-    createCliProxyPlatform,
   };
 }
