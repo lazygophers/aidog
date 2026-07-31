@@ -5,5 +5,5 @@
 | layer | 条数 | 类目分布 | 索引 |
 |---|---|---|---|
 | core | 4 | domain(4) | [core/index.md](core/index.md) |
-| recall | 644 | arch(116), build(62), cross-layer(12), db(23), domain(93), encoding(4), frontend(93), git(6), i18n(16), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) | [recall/index.md](recall/index.md) |
 | external | 0 | - | [external/index.md](external/index.md) |
+| recall | 659 | arch(116), build(62), cross-layer(12), db(23), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) | [recall/index.md](recall/index.md) |
