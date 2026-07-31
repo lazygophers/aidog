@@ -122,7 +122,7 @@ pub(crate) use retry::{
 };
 pub(crate) use stream::{
     cap_nonstream_body, extract_usage, replace_model_in_json, resolve_is_stream,
-    StreamAggregator, StreamEstCtx, StreamLogGuard, Utf8ChunkReassembler,
+    StreamAggregator, StreamEstCtx, StreamLogGuard, SseLineReassembler, Utf8ChunkReassembler,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 pub(crate) use settings_cache::{register as register_settings_cache, ProxySettingsCache};

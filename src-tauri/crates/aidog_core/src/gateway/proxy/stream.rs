@@ -121,6 +121,60 @@ impl Utf8ChunkReassembler {
     }
 }
 
+/// 内容路径的跨 chunk SSE 行重组器（task `sse-chunk-line-reassembly`）。`parse_upstream_sse`
+/// 按 `data:` 分帧、对单个 chunk 无状态：一条 SSE 行若被网络 chunk 边界切成两半，前半无结束
+/// 换行、后半无 `data:` 前缀，两边都不构成合法帧，**整行被双双静默丢弃**——同一循环里
+/// `StreamAggregator::feed_sse_usage` 的 `sse_line_buf` 早已用「尾行缓冲」修过这个问题（见其
+/// 文档注释），本结构把同一 idiom 接给内容路径，而非另起炉灶（design.md 否决表）。
+/// 完整行立即返回供本 chunk 内下发，不攒批——攒批会让首 token 时延随缓冲深度退化。
+/// 上界复用 `SSE_LINE_BUF_MAX_BYTES`（唯一真值源，与 `feed_sse_usage` remainder 同口径）：
+/// 持续无换行增长到上限视为异常/恶意上游，丢弃整段残留并 warn（不静默丢——静默丢正是本 bug
+/// 长期难被发现的根因，design.md 现状节）。
+pub(crate) struct SseLineReassembler {
+    buf: String,
+}
+
+impl SseLineReassembler {
+    pub(crate) fn new() -> Self {
+        Self { buf: String::new() }
+    }
+
+    /// 喂入一个 chunk 已重组好字节层的文本，返回本次可立即下发解析的完整行文本
+    /// （直接可喂 `adapter::parse_upstream_sse`）；不完整的尾行留在内部 buf 里等下次 feed 拼接。
+    pub(crate) fn feed(&mut self, text: &str) -> String {
+        self.buf.push_str(text);
+        let split_pos = if self.buf.ends_with('\n') {
+            self.buf.len()
+        } else {
+            self.buf.rfind('\n').map(|p| p + 1).unwrap_or(0)
+        };
+        let remainder = self.buf.split_off(split_pos);
+        let ready = std::mem::replace(&mut self.buf, remainder);
+        if self.buf.len() > SSE_LINE_BUF_MAX_BYTES {
+            tracing::warn!(
+                len = self.buf.len(),
+                "sse content line buf remainder exceeded cap, dropping (malformed/oversized SSE line)"
+            );
+            self.buf.clear();
+        }
+        ready
+    }
+}
+
+impl Drop for SseLineReassembler {
+    /// 流末（上游断流 / 客户端断连）时 buf 仍有半行残留：半行本就不是合法帧，解析它只会
+    /// 失败。选择「记 warn 再丢」而非静默丢弃——静默丢正是这个 bug 长期难被发现的根因
+    /// （design.md）。不 panic：流中途结束是正常时序，不是程序错误。
+    fn drop(&mut self) {
+        if !self.buf.is_empty() {
+            tracing::warn!(
+                len = self.buf.len(),
+                "SSE stream ended with incomplete trailing line in content path, discarding (not a valid frame)"
+            );
+        }
+    }
+}
+
 /// 流式日志聚合状态：旁路累积 token + 上游响应原文 + 转换后下发客户端的 SSE。
 /// 闭包内对其加锁是同步短临界区（push），**禁持锁跨 await**。
 pub(crate) struct StreamAggregator {
