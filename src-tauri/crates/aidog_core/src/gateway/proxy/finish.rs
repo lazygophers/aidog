@@ -255,6 +255,8 @@ where
 
     // guard 被 move 进闭包，随 stream 生命周期存活；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
     // 决策 B（peek 阶段已缓冲的首批 chunk prepend 回流）已在调用方 forward.rs 完成，此处直接消费完整流。
+    // utf8_buf：跨 chunk 字节重组器（红线 2 修复），逐 chunk 顺序 poll、closure 内独占可变捕获，无需加锁。
+    let mut utf8_buf = Utf8ChunkReassembler::new();
     let stream = stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -276,7 +278,9 @@ where
                 up.push(chunk.clone());
             }
 
-        let text = String::from_utf8_lossy(&chunk);
+        // 跨 chunk 字节层重组：被 chunk 边界切断的多字节字符尾部留到下次拼接后再解码一次，
+        // 避免逐 chunk 独立 lossy 解码把半个字符替换为 U+FFFD（原 `String::from_utf8_lossy(&chunk)`）。
+        let text = utf8_buf.feed(&chunk);
 
         // ── 同协议透传：跳过 parse_sse→to_client_sse 格式转换，原样 relay 上游 SSE 字节。
         // usage 提取仍保留（accumulate_sse_usage），est_cost / 统计不丢。

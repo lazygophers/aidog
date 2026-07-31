@@ -437,11 +437,11 @@ use super::*;
     // 与转换分支下发客户端的字节，finish.rs:279/:295，均读自这份 lossy 文本）。
     // 修法（design.md）：跨 chunk 保留不完整字节序列，拼接后再解码一次，而非每 chunk 独立 lossy。
     //
-    // 复现手法：精确复刻 finish.rs:279 的表达式（同一 `String::from_utf8_lossy` 调用），把一整条
-    // 合法 SSE data 行的原始字节在某个多字节字符中间切成两个网络 chunk，各自独立 lossy 解码
-    // （生产代码现状），再喂给生产函数 `adapter::parse_upstream_sse`（finish.rs:295 同一调用）。
-    // 断言直接锁定「不应出现 U+FFFD 且内容应等于原文」——今天必红（真实产生 U+FFFD），
-    // s2 把跨 chunk 字节拼接后再解码一次即可转绿。
+    // 复现手法：把一整条合法 SSE data 行的原始字节在某个多字节字符中间切成两个网络 chunk，
+    // 喂给生产函数 `Utf8ChunkReassembler::feed`（finish.rs:279 现用的同一重组器），
+    // 拼接后的文本再喂给生产函数 `adapter::parse_upstream_sse`（finish.rs:295 同一调用）。
+    // 断言直接锁定「不应出现 U+FFFD 且内容应等于原文」——s1 时代逐 chunk 独立 lossy 解码必红，
+    // s2 把跨 chunk 字节拼接后再解码一次已转绿。
     //
     // 已知范围边界（记录，非本用例断言项）：上述复现刻意让被切字符所在整行仍在两个 chunk
     // 内各自重组为语法合法的 JSON（不影响 parse_upstream_sse 的可解析性），因此断言能精确落在
@@ -465,11 +465,10 @@ use super::*;
         let line = r#"data: {"choices":[{"index":0,"delta":{"content":"你好，世界"}}]}"#;
         let (chunk1, chunk2) = split_mid_multibyte_char(line, 2, '好');
 
-        // finish.rs:279 的确切操作：逐网络 chunk 独立 lossy 解码。
-        let text1 = String::from_utf8_lossy(&chunk1);
-        let text2 = String::from_utf8_lossy(&chunk2);
-        // finish.rs:295 同一路径继续消费：拼接两段 lossy 文本恢复出语法合法的 JSON 行
-        // （feed_sse_usage 已有的跨 chunk 行重组同 idiom），但内容字段已被 U+FFFD 污染。
+        // finish.rs:279 现用的确切操作：跨 chunk 字节层重组器，逐 chunk feed。
+        let mut utf8_buf = Utf8ChunkReassembler::new();
+        let text1 = utf8_buf.feed(&chunk1);
+        let text2 = utf8_buf.feed(&chunk2);
         let reassembled = format!("{text1}{text2}");
         let events = adapter::parse_upstream_sse(&reassembled, &Protocol::OpenAI);
         let delta_text = events.iter().find_map(|e| match e {
@@ -496,8 +495,9 @@ use super::*;
         let line = r#"data: {"choices":[{"index":0,"delta":{"content":"hi 😀 there"}}]}"#;
         let (chunk1, chunk2) = split_mid_multibyte_char(line, 2, '😀');
 
-        let text1 = String::from_utf8_lossy(&chunk1);
-        let text2 = String::from_utf8_lossy(&chunk2);
+        let mut utf8_buf = Utf8ChunkReassembler::new();
+        let text1 = utf8_buf.feed(&chunk1);
+        let text2 = utf8_buf.feed(&chunk2);
         let reassembled = format!("{text1}{text2}");
         let events = adapter::parse_upstream_sse(&reassembled, &Protocol::OpenAI);
         let delta_text = events.iter().find_map(|e| match e {

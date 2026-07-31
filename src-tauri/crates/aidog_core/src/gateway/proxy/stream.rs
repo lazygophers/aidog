@@ -48,6 +48,60 @@ fn join_stream_body(chunks: &[Bytes]) -> String {
     }
 }
 
+/// 跨网络 chunk 的 UTF-8 字节重组器：网络 chunk 边界可能切断一个多字节字符，逐 chunk 独立
+/// `from_utf8_lossy` 会把被切断的半个字符替换为 U+FFFD（finish.rs:279 历史缺陷，红线 2）。
+/// 本重组器把上一 chunk 末尾不完整的字节序列留到下一次 `feed` 再拼接解码一次，
+/// 只影响 finish 路径的解析/累积文本，不碰 passthrough 分支原样 relay 的 chunk 字节。
+/// 真正非法字节（并非跨边界切断，而是本身损坏）仍走 lossy 兜底——损坏不升级为断流（不用 `from_utf8` 报错式）。
+pub(crate) struct Utf8ChunkReassembler {
+    pending: Vec<u8>,
+}
+
+impl Utf8ChunkReassembler {
+    pub(crate) fn new() -> Self {
+        Self { pending: Vec::new() }
+    }
+
+    /// 喂入一个网络 chunk，返回本次可解码出的文本（已按需拼接上次残留字节）。
+    pub(crate) fn feed(&mut self, chunk: &[u8]) -> String {
+        // 无残留字节的常态路径：直接借 chunk 尝试整体解码，避免每 chunk 都拷贝一次
+        // （转发热路径最小 diff，符合 memory `high-freq-path-min-diff`）。
+        if self.pending.is_empty() {
+            match std::str::from_utf8(chunk) {
+                Ok(s) => return s.to_string(),
+                Err(e) if e.error_len().is_none() => {
+                    // 尾部是不完整多字节序列（被 chunk 边界切断）：留到下次 feed 拼接。
+                    let valid_up_to = e.valid_up_to();
+                    self.pending.extend_from_slice(&chunk[valid_up_to..]);
+                    return String::from_utf8_lossy(&chunk[..valid_up_to]).into_owned();
+                }
+                Err(_) => return String::from_utf8_lossy(chunk).into_owned(),
+            }
+        }
+
+        self.pending.extend_from_slice(chunk);
+        match std::str::from_utf8(&self.pending) {
+            Ok(s) => {
+                let out = s.to_string();
+                self.pending.clear();
+                out
+            }
+            Err(e) if e.error_len().is_none() => {
+                let valid_up_to = e.valid_up_to();
+                let out = String::from_utf8_lossy(&self.pending[..valid_up_to]).into_owned();
+                self.pending.drain(..valid_up_to);
+                out
+            }
+            Err(_) => {
+                // 非跨边界的真正非法字节：lossy 兜底，不阻断转发。
+                let out = String::from_utf8_lossy(&self.pending).into_owned();
+                self.pending.clear();
+                out
+            }
+        }
+    }
+}
+
 /// 流式日志聚合状态：旁路累积 token + 上游响应原文 + 转换后下发客户端的 SSE。
 /// 闭包内对其加锁是同步短临界区（push），**禁持锁跨 await**。
 pub(crate) struct StreamAggregator {
