@@ -1,28 +1,19 @@
 {
-  "ts": "2026-07-31T23:44:53",
-  "core_chars": 277,
+  "ts": "2026-07-31T23:49:53",
+  "core_chars": 8714,
   "budget": 8000,
   "problems": [
     {
-      "type": "broken-link",
-      "files": [
-        "core/arch/stream-buf-unified-cap"
-      ],
-      "detail": "[断链] core/arch/stream-buf-unified-cap: [[stream-buf-no-batching]] ✗ 目标缺失"
+      "type": "over-budget",
+      "detail": "[超预算] always 8714 > 8000 字符 — 考虑降级: db/db-table-conventions(4041), db/sqlite-connection-resilience(1752), cross-layer/sole-platform-symmetry(1533)",
+      "size": 8714
     },
     {
       "type": "broken-link",
       "files": [
-        "core/arch/stream-buf-unified-cap"
+        "core/arch/protocol-wire-str"
       ],
-      "detail": "[断链] core/arch/stream-buf-unified-cap: [[hot-path-buffers]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/cross-layer/tauri-ts-boundary-contract"
-      ],
-      "detail": "[断链] core/cross-layer/tauri-ts-boundary-contract: [[sole-platform-symmetry]] ✗ 目标缺失"
+      "detail": "[断链] core/arch/protocol-wire-str: [[rule-05]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -30,13 +21,6 @@
         "core/domain/peak-multiplier-symmetry"
       ],
       "detail": "[断链] core/domain/peak-multiplier-symmetry: [[rule-66]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/domain/peak-multiplier-symmetry"
-      ],
-      "detail": "[断链] core/domain/peak-multiplier-symmetry: [[time-tiers-apply-idiom]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -55,58 +39,149 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/auto-fix-downgrade-33"
+        "recall/arch/agent-platform-handler-branch"
       ],
-      "detail": "[断链] recall/arch/auto-fix-downgrade-33: [[trellis-04]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/agent-platform-handler-branch: [[trellis-04]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/auto-fix-downgrade-34"
+        "recall/arch/component-extraction-grep-callsites"
       ],
-      "detail": "[断链] recall/arch/auto-fix-downgrade-34: [[cross-db-subquery-handle-selection]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/component-extraction-grep-callsites: [[auto-fix-downgrade-36]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/auto-fix-downgrade-35"
+        "recall/arch/db-split-access-point-audit"
       ],
-      "detail": "[断链] recall/arch/auto-fix-downgrade-35: [[shadcn-infra-32]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/db-split-access-point-audit: [[cross-db-subquery-handle-selection]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/auto-fix-downgrade-38"
+        "recall/arch/db-split-access-point-audit"
       ],
-      "detail": "[断链] recall/arch/auto-fix-downgrade-38: [[shadcn-infra-32]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/db-split-access-point-audit: [[auto-fix-downgrade-35]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/auto-fix-downgrade-38"
+        "recall/arch/dedup-key-must-be-nonempty"
       ],
-      "detail": "[断链] recall/arch/auto-fix-downgrade-38: [[trellis-04]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/dedup-key-must-be-nonempty: [[shadcn-infra-32]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/build/rule-07"
+        "recall/arch/enum-variant-delete-needs-migration"
       ],
-      "detail": "[断链] recall/build/rule-07: [[rule-05]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/enum-variant-delete-needs-migration: [[shadcn-infra-32]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/build/rule-07"
+        "recall/arch/enum-variant-delete-needs-migration"
       ],
-      "detail": "[断链] recall/build/rule-07: [[rule-54]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/enum-variant-delete-needs-migration: [[trellis-04]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/domain/bundled-models-fallback"
+        "recall/arch/gemini-sse-alt-param"
       ],
-      "detail": "[断链] recall/domain/bundled-models-fallback: [[time-tiers-apply-idiom]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/gemini-sse-alt-param: [[rule-57]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/gemini-sse-alt-param"
+      ],
+      "detail": "[断链] recall/arch/gemini-sse-alt-param: [[rule-58]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/locale-deadkey-cleanup-ownership"
+      ],
+      "detail": "[断链] recall/arch/locale-deadkey-cleanup-ownership: [[auto-fix-downgrade-38]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/tauri-popover-window-reuse"
+      ],
+      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[rule-45]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/tauri-popover-window-reuse"
+      ],
+      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[trellis-03]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/arch/tauri-popover-window-reuse"
+      ],
+      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[trellis-18]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/build-rs-env-is-crate-scoped"
+      ],
+      "detail": "[断链] recall/build/build-rs-env-is-crate-scoped: [[rule-61]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/clippy-touch-before-recheck"
+      ],
+      "detail": "[断链] recall/build/clippy-touch-before-recheck: [[rule-63]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/converter-endpoint-decoupled"
+      ],
+      "detail": "[断链] recall/build/converter-endpoint-decoupled: [[rule-07]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/tailwind-v4-import-form"
+      ],
+      "detail": "[断链] recall/build/tailwind-v4-import-form: [[shadcn-infra-30]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/tailwind-v4-import-form"
+      ],
+      "detail": "[断链] recall/build/tailwind-v4-import-form: [[shadcn-infra-28]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/wire-protocol-gate-is-failfast"
+      ],
+      "detail": "[断链] recall/build/wire-protocol-gate-is-failfast: [[rule-05]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/wire-protocol-gate-is-failfast"
+      ],
+      "detail": "[断链] recall/build/wire-protocol-gate-is-failfast: [[rule-54]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/db/crash-safe-db-split-migration"
+      ],
+      "detail": "[断链] recall/db/crash-safe-db-split-migration: [[auto-fix-downgrade-34]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -114,13 +189,6 @@
         "recall/domain/bundled-models-fallback"
       ],
       "detail": "[断链] recall/domain/bundled-models-fallback: [[rule-66]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/prd-acceptance-consistency-check"
-      ],
-      "detail": "[断链] recall/domain/prd-acceptance-consistency-check: [[mock-platform-bypasses-forward-pipeline]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -139,9 +207,30 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/ops/logging-queue-capacity-tuning"
+        "recall/domain/rule-55"
       ],
-      "detail": "[断链] recall/ops/logging-queue-capacity-tuning: [[hot-path-buffers]] ✗ 目标缺失"
+      "detail": "[断链] recall/domain/rule-55: [[rule-06]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/rule-55"
+      ],
+      "detail": "[断链] recall/domain/rule-55: [[rule-07]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/time-tiers-apply-idiom"
+      ],
+      "detail": "[断链] recall/domain/time-tiers-apply-idiom: [[rule-66]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/time-tiers-apply-idiom"
+      ],
+      "detail": "[断链] recall/domain/time-tiers-apply-idiom: [[rule-67]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
