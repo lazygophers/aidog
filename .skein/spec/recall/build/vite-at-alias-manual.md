@@ -39,7 +39,7 @@ inclusion: auto
 shadcn/ui 迁移、Vite 从零配置、路径别名标准化
 
 ## 关联
-[[shadcn-infra-28]] (同任务 cva 依赖)
+[[shadcn-add-verify-deps]] (同任务 cva 依赖)
 
 ---
 

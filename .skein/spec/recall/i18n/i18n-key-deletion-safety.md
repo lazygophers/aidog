@@ -1,10 +1,14 @@
 ---
-title: i18n
-category: i18n
-keywords: [i18n,key删除,grep,check-i18n.mjs,引用清零,locale,翻译,check-i18n,8语言,同步]
-status: active
+title: i18n-key-deletion-safety
+name: i18n-key-deletion-safety
+description: i18n key 删除的安全规矩
+layer: recall
+keywords: [i18n,key删除,grep,引用清零]
+created: 1785516136
 inclusion: auto
 ---
+
+## i18n-key-deletion-safety
 
 ## i18n key 删除的安全规矩
 
@@ -42,36 +46,3 @@ inclusion: auto
 ## 关联
 
 [[platform-creation-entry-consolidation]]（同批 task remove-cliproxy-add-entry 的成果）
-
-## 8 个语言 i18n key 同步硬约束
-
-新增 i18n key 时必须同步到所有 8 个语言文件，避免某些语言用户看到 key 原文或空白。
-
-## MUST 硬约束
-
-新增 i18n key 必须同时补齐 8 个语言文件（zh-Hans/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP/es-ES）。
-
-## 检查机制
-
-- `check-i18n` 守门：跑 `yarn check-i18n` 检测 key 同步
-- 缺失语言会导致对应语言用户看到 key 原文或空白
-
-## 处理流程
-
-```bash
-# 新增 key 后检查
-yarn check-i18n
-
-# 自动补齐（示例：从 zh-Hans 复制到其他 7 语言）
-cp src/locales/zh-Hans.json src/locales/en-US.json
-# 手工翻译其他语言...
-```
-
-## 适用
-
-- 所有 i18n key 新增/修改
-- alert() → toast() 迁移（如 shadcn-pages task）
-
-## 关联
-
-[[i18n-key-deletion-safety]]

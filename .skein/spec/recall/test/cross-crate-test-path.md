@@ -42,4 +42,4 @@ fn test_foo() {
 - 测试代码路径清理
 
 ## 关联
-[[rule-60]]
+[[invoke-name-source-of-truth]]

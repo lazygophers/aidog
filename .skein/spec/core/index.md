@@ -1,6 +1,6 @@
 # SKEIN core 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(13), cross-layer(12), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(14) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(13), cross-layer(12), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(18) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -75,6 +75,10 @@
 | proxy/auto-disable-401-403-402.md#硬约则 | proxy | 硬约则 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 平台自动禁用（auto_disabled）仅由三个 HTTP 状态码触发：**401 / 403 / 402**，**禁… |
 | proxy/auto-disable-401-403-402.md#禁用 | proxy | 禁用 | auto-disable,401,403,402,stateless,throttle | auto | - | active | ❌ 429 触发 auto_disabled → 永久禁用平台，虽然是临时故障   ❌ 其他 4xx（如 400）触发 … |
 | proxy/auto-disable-401-403-402.md#触发条件 | proxy | 触发条件 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 见 `crates/aidog_core/src/gateway/proxy/non_success.rs:68`：  … |
+| proxy/connect-tunnel-contract.md#关联 | proxy | 关联 | CONNECT, absolute-form, authority-form, axum, path-matcher, 隧道 | auto | - | active / →host-check-before-path,http-client-no-env-proxy | [[http-client-no-env-proxy]] · [[host-check-before-path]] |
+| proxy/connect-tunnel-contract.md#非标准 URI 形态禁走 axum path matcher | proxy | 非标准 URI 形态禁走 axum path matcher | CONNECT, absolute-form, authority-form, axum, path-matcher, 隧道 | auto | - | active | axum 的路由匹配**只看 `req.uri().path()`**。HTTP 的两种非 origin-form 请求… |
+| proxy/host-check-before-path.md#host 判定必须前置于 path 判定 | proxy | host 判定必须前置于 path 判定 | should_fallback_passthrough, is_api_endpoint, MITM, 直通, host, 判定顺序 | auto | - | active | ### 铁律  - **`should_fallback_passthrough`（`gateway/proxy/end… |
+| proxy/host-check-before-path.md#关联 | proxy | 关联 | should_fallback_passthrough, is_api_endpoint, MITM, 直通, host, 判定顺序 | auto | - | active / →connect-tunnel-contract,http-client-no-env-proxy | [[connect-tunnel-contract]] · [[http-client-no-env-proxy]] |
 | proxy/http-client-no-env-proxy.md#MUST 硬约束 | proxy | MUST 硬约束 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active | - **`build_http_client` 的 `use_proxy=false` 分支必须显式 `.no_prox… |
 | proxy/http-client-no-env-proxy.md#关联 | proxy | 关联 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active / →auto-disable-401-403-402 | [[auto-disable-401-403-402]] |
 | proxy/http-client-no-env-proxy.md#反例 | proxy | 反例 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active | ❌ **缺 `.no_proxy()` 导致递归**： ```rust if use_proxy {     build… |
