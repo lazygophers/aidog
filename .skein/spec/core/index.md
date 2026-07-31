@@ -29,7 +29,7 @@
 | cross-layer/tauri-ts-boundary-contract.md#Verification | cross-layer | Verification | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | ```bash # 所有 invoke 集中在 api.ts grep -rn 'invoke(' src/ / gre… |
 | cross-layer/tauri-ts-boundary-contract.md#反模式 (禁) | cross-layer | 反模式 (禁) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | / 反模式 / 正确做法 / 触发后果 / / --- / --- / --- / / `invoke(` 散落在组件 … |
 | cross-layer/tauri-ts-boundary-contract.md#持久化路径换、公共契约零改 (MUST) | cross-layer | 持久化路径换、公共契约零改 (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | 换持久化路径（专属表 → `setting` / JSON / 他处）时，跨 Rust↔TS **公共契约层禁改** —… |
-| db/crash-safe-db-split.md#Cross-ref | db | Cross-ref | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active / →auto-fix-downgrade-34 | - [[auto-fix-downgrade-34]]（访问点审计） - dual-db-aggregate-is-me… |
+| db/crash-safe-db-split.md#Cross-ref | db | Cross-ref | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active / →db-split-access-point-audit | - [[db-split-access-point-audit]]（访问点审计） - dual-db-aggregate… |
 | db/crash-safe-db-split.md#MUST 四阶段模式（✅） | db | MUST 四阶段模式（✅） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | ``` Phase 1: read-without-drop（源库读全行入 Vec，不 DROP） Phase 2: 目… |
 | db/crash-safe-db-split.md#crash 恢复矩阵 | db | crash 恢复矩阵 | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | / crash 点 / 重启行为 / /---/---/ / Phase 1 前/中 / 源表在，重读 / / Phas… |
 | db/crash-safe-db-split.md#保 id（MUST） | db | 保 id（MUST） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | `INSERT INTO platform SELECT *` / 显式列含 id 保原 id。log.db.proxy… |
@@ -71,7 +71,7 @@
 | perf/hot-path-buffers.md#热点判定维度：调用频次优先于字节量 | perf | 热点判定维度：调用频次优先于字节量 | mpsc,capacity,try_send,背压,深拷贝,热路径,TOCTOU,hotspot,frequency,profiling,clone | auto | src-tauri/crates/aidog_core/src/gateway/proxy/log.rs | active | ### 核心决策  **热点判定的决定变量是调用频次（每请求 N 次），不是单次操作的字节量。**深拷贝值不值得优化，取… |
 | perf/hot-path-buffers.md#热点判定维度：调用频次优先于字节量 | perf | 热点判定维度：调用频次优先于字节量 | mpsc,capacity,try_send,背压,深拷贝,热路径,TOCTOU,hotspot,frequency,profiling,clone | auto | src-tauri/crates/aidog_core/src/gateway/proxy/log.rs | active | - |
 | perf/stream-buf-no-batching.md# | perf | - | - | auto | - | active | --- |
-| proxy/auto-disable-401-403-402.md#关联 | proxy | 关联 | auto-disable,401,403,402,stateless,throttle | auto | - | active / →http-client-no-env-proxy,mock-platform-short-circuit | [[mock-platform-short-circuit]] [[http-client-no-env-proxy]] |
+| proxy/auto-disable-401-403-402.md#关联 | proxy | 关联 | auto-disable,401,403,402,stateless,throttle | auto | - | active / →http-client-no-env-proxy,mock-platform-bypasses-forward-pipeline | [[core/arch/mock-platform-bypasses-forward-pipeline]] [[http… |
 | proxy/auto-disable-401-403-402.md#硬约则 | proxy | 硬约则 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 平台自动禁用（auto_disabled）仅由三个 HTTP 状态码触发：**401 / 403 / 402**，**禁… |
 | proxy/auto-disable-401-403-402.md#禁用 | proxy | 禁用 | auto-disable,401,403,402,stateless,throttle | auto | - | active | ❌ 429 触发 auto_disabled → 永久禁用平台，虽然是临时故障   ❌ 其他 4xx（如 400）触发 … |
 | proxy/auto-disable-401-403-402.md#触发条件 | proxy | 触发条件 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 见 `crates/aidog_core/src/gateway/proxy/non_success.rs:68`：  … |
