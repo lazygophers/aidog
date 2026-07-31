@@ -35,4 +35,4 @@ serde enum 变体删除、DB schema enum 迁移、前后端 enum 同步
 
 ## 关联
 [[shadcn-infra-32]] (locale 清理)
-[[trellis-04]] (TS ↔ Rust enum 同步)
+[[protocol-variant-extension]] (TS ↔ Rust enum 同步)

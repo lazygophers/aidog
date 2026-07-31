@@ -61,7 +61,7 @@ grep -rn 'FROM "proxy_log"' src-tauri/crates/aidog_core/src | grep -E "cli_proxy
 ## Cross-ref
 
 - sqlite-cross-db-no-join（跨库禁 JOIN，强制拆闭包 + Rust 合并）
-- [[auto-fix-downgrade-34]]（访问点审计总则）
+- [[db-split-access-point-audit]]（访问点审计总则）
 
 ---
 

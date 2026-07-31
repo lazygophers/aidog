@@ -70,7 +70,26 @@
 - → [[rule-57]]
 - → [[rule-58]]
 
+## arch/locale-deadkey-cleanup-ownership.md#流程约定
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## arch/locale-deadkey-cleanup-ownership.md#正解
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## arch/locale-deadkey-cleanup-ownership.md#陷阱
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## arch/locale-deadkey-cleanup-ownership.md#反例
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## arch/locale-deadkey-cleanup-ownership.md#案例
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## arch/locale-deadkey-cleanup-ownership.md#适用
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
 ## arch/locale-deadkey-cleanup-ownership.md#关联
+- ← core/i18n/zh-hans-literal-sync.md#关联
 - → [[auto-fix-downgrade-38]]
 
 ## arch/tauri-popover-window-reuse.md#关联

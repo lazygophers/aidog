@@ -60,5 +60,5 @@ task config-db-split（s2）：platform / group / group_platform / cli_proxy_pro
 
 ## Cross-ref
 
-- [[auto-fix-downgrade-34]]（访问点审计）
+- [[db-split-access-point-audit]]（访问点审计）
 - dual-db-aggregate-is-memory-shortcut（内存库短路）
