@@ -1,0 +1,36 @@
+{
+  "label": "smalldb-64-b",
+  "AIDOG_SQLITE_READ_CACHE_KB": "64",
+  "cold_start_phys_footprint_mb": 53.0,
+  "steady_phys_footprint_mb": 58.0,
+  "steady_minus_cold_mb": 5.0,
+  "heap_5kb_block_count": 1906,
+  "queries_p95_ms": [
+    {
+      "which": "logs_list_page",
+      "n": 100,
+      "p95_ms": 4.347542000000001,
+      "max_ms": 51.793666
+    },
+    {
+      "which": "stats_agg",
+      "n": 100,
+      "p95_ms": 1.138541,
+      "max_ms": 6.415792
+    },
+    {
+      "which": "platform_balance_agg",
+      "n": 100,
+      "p95_ms": 1.691542,
+      "max_ms": 5.0428749999999996
+    }
+  ],
+  "slowest_query": {
+    "which": "logs_list_page",
+    "n": 100,
+    "p95_ms": 4.347542000000001,
+    "max_ms": 51.793666
+  },
+  "log_db_mb": 37,
+  "log_db_wal_mb": 6
+}
