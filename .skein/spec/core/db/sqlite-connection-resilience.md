@@ -1,4 +1,6 @@
 ---
+inclusion: auto
+name: sqlite-connection-resilience
 title: sqlite-connection-resilience
 layer: core
 category: db

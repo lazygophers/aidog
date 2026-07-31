@@ -1,7 +1,10 @@
 ---
+layer: core
+name: mock-platform-bypasses-forward-pipeline
 title: mock-platform-bypasses-forward-pipeline
 category: arch
 keywords: [mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint]
+created: 1725080438
 status: active
 inclusion: auto
 anchors: src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs
