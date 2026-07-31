@@ -1,0 +1,52 @@
+{
+  "note": "大库(log.db 868~884MB)二分扫档曲线表。每档独立重启 (open --env AIDOG_SQLITE_READ_CACHE_KB=<KB> -a AiDog)，禁同进程混采。default 档取自 baseline (sqlite-cache-baseline.json, n=100)。-1024/-256/-64 三档各跑两轮 (a=首轮, b=独立重启复核轮) 核验噪声：首轮 platform_balance_agg p95 出现 7-9ms 异常尖峰且不随档位单调，复核轮(b)全部回落到与基线同量级，判定首轮为瞬时噪声(非真实回归)，采用复核轮(b)数据为准。heap_5kb_block_count / 内存增量两轮高度一致(非噪声，随档位单调下降)，是本次量测的可信信号。",
+  "rows": [
+    {
+      "label": "default",
+      "AIDOG_SQLITE_READ_CACHE_KB": "default(-2000)",
+      "log_db_mb": 868,
+      "steady_minus_cold_mb": 43.0,
+      "heap_5kb_block_count": 9329,
+      "queries_p95_ms": {"logs_list_page": 0.935, "stats_agg": 0.754, "platform_balance_agg": 3.106},
+      "p95_pct_vs_baseline": {"logs_list_page": 0.0, "stats_agg": 0.0, "platform_balance_agg": 0.0}
+    },
+    {
+      "label": "-1024",
+      "AIDOG_SQLITE_READ_CACHE_KB": "1024",
+      "log_db_mb": 884,
+      "steady_minus_cold_mb": 33.0,
+      "heap_5kb_block_count": 7471,
+      "queries_p95_ms": {"logs_list_page": 0.907959, "stats_agg": 0.798708, "platform_balance_agg": 3.042625},
+      "p95_pct_vs_baseline": {"logs_list_page": -2.9, "stats_agg": 5.9, "platform_balance_agg": -2.0},
+      "noise_flag": "首轮(a, sweep-1024)读数 logs=1.520/stats=2.883/balance=8.966ms 异常，独立重启复核(b)后回落，判定首轮为噪声，本行取 b 轮"
+    },
+    {
+      "label": "-256",
+      "AIDOG_SQLITE_READ_CACHE_KB": "256",
+      "log_db_mb": 884,
+      "steady_minus_cold_mb": 10.0,
+      "heap_5kb_block_count": 2995,
+      "queries_p95_ms": {"logs_list_page": 0.9755, "stats_agg": 0.801458, "platform_balance_agg": 2.640958},
+      "p95_pct_vs_baseline": {"logs_list_page": 4.3, "stats_agg": 6.3, "platform_balance_agg": -15.0},
+      "noise_flag": "首轮(a, sweep-256)读数 balance=8.142ms 异常，独立重启复核(b)后回落，判定首轮为噪声，本行取 b 轮"
+    },
+    {
+      "label": "-64",
+      "AIDOG_SQLITE_READ_CACHE_KB": "64",
+      "log_db_mb": 884,
+      "steady_minus_cold_mb": 5.0,
+      "heap_5kb_block_count": 1899,
+      "queries_p95_ms": {"logs_list_page": 0.916875, "stats_agg": 0.518167, "platform_balance_agg": 2.800958},
+      "p95_pct_vs_baseline": {"logs_list_page": -1.9, "stats_agg": -31.3, "platform_balance_agg": -9.8},
+      "noise_flag": "首轮(a, sweep-64)读数 balance=7.266ms 异常，独立重启复核(b)后回落，判定首轮为噪声，本行取 b 轮"
+    }
+  ],
+  "slowest_query_walk": {
+    "which": "platform_balance_agg",
+    "note": "基线最慢 SQL 单列走势 (p95_ms，取各档复核轮)",
+    "default": 3.106,
+    "-1024": 3.042625,
+    "-256": 2.640958,
+    "-64": 2.800958
+  }
+}

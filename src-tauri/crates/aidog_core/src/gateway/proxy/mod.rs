@@ -28,6 +28,7 @@ pub(crate) use super::models::{
 };
 pub(crate) use super::router::{select_candidates_ctx, RouteResult, ScheduleCtx};
 
+mod bench;
 mod count_tokens;
 mod connect;
 mod devin;
@@ -88,6 +89,7 @@ pub(crate) use endpoint::{
 pub(crate) use finish::{finish_nonstream, finish_stream, AttemptCtx};
 pub(crate) use forward::{forward_attempt, AttemptOutcome};
 pub(crate) use non_success::handle_non_success;
+pub(crate) use bench::handle_bench_query;
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     format_pretty_json, inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
@@ -299,6 +301,10 @@ fn build_router(state: Arc<ProxyState>) -> Router {
     Router::new()
         .route("/api/group-info", post(handle_group_info))
         .route("/api/notify", post(handle_notify))
+        // ponytail: 量测专用调试端点，驱动固定查询走真实读连接池以复现 page cache 常驻
+        // （见 sqlite-page-cache-residency/design.md「数据流」），无鉴权但 localhost-only
+        // 绑定 + 只读查询零副作用，与 /api/group-info 同信任边界。
+        .route("/api/debug/bench-query", post(handle_bench_query))
         // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
         // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
         // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。

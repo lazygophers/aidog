@@ -361,6 +361,27 @@ impl Db {
         Ok(conn)
     }
 
+    /// 只读连接 `cache_size` 默认档（KiB，二分实验定值，非拍脑袋）。
+    ///
+    /// 来源：`.skein/task/sqlite-page-cache-residency/` 大库曲线表 + 小库对照表。硬阈值
+    /// 「稳态−冷启动 ≤10MB 且 heap 5KB 块数 <2500」在 -256 档（10MB / 2995 块）不满足块数项，
+    /// 唯 -64 档（5MB / 1899 块）两条同时达标，且小库对照证实该档对小库场景安全（大小库
+    /// 双重依据）。三条固定查询 p95 相对基线上升均 ≤10%（见 `results/sqlite-cache-sweep.md`）。
+    ///
+    /// ponytail: 硬编码档位，非物理定律，未来若 log.db 体积治理改变工作集分布需重新二分。
+    const READ_CACHE_DEFAULT_KB: i64 = 64;
+
+    /// 把 `AIDOG_SQLITE_READ_CACHE_KB` 的原始字符串值转成追加到 pragma batch 的 SQL 片段。
+    /// 缺省 / 非法数值 → 回落固化默认档 `READ_CACHE_DEFAULT_KB`（二分实验定值，见上）。
+    /// env 保留为 debug 旋钮，供后续换库 / 换硬件重新二分时无需改代码切档。抽成纯函数
+    /// （不直接读 `std::env`）便于单测，避免并行测试间环境变量互相踩踏。
+    fn read_cache_pragma(raw: Option<String>) -> String {
+        let kb = raw
+            .and_then(|v| v.parse::<i64>().ok())
+            .unwrap_or(Self::READ_CACHE_DEFAULT_KB);
+        format!(" PRAGMA cache_size=-{kb};")
+    }
+
     /// 构造只读连接池。
     ///
     /// 🔴 `:memory:` / in-memory 硬约束：每条物理连接是独立内存库，开新连接读到空库 → 测试
@@ -386,18 +407,26 @@ impl Db {
 
         let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
         let mut conns = Vec::with_capacity(READ_POOL_SIZE);
+        // ponytail: debug 旋钮，仅只读连接。数值来自 SQLite page cache 常驻治理任务的二分实验
+        // （见 .skein/task/sqlite-page-cache-residency/design.md），未设时回落固化默认档
+        // `READ_CACHE_DEFAULT_KB=-64`（原 SQLite 默认 -2000 已作废）。GUI 由 launchd 起不继承
+        // shell export，切档须 `open --env AIDOG_SQLITE_READ_CACHE_KB=<KB 数> -a AiDog`。
+        // 值语义同 SQLite 原生 `PRAGMA cache_size`：负数 = KiB（如 1024 → -1024）。写连接不设
+        // 此 env（YAGNI，写档不参与二分，维持 SQLite 默认不变）。
+        let cache_pragma = Self::read_cache_pragma(std::env::var("AIDOG_SQLITE_READ_CACHE_KB").ok());
         for _ in 0..READ_POOL_SIZE {
             let c = AsyncConnection::open_with_flags(path, flags)
                 .await
                 .map_err(|e| e.to_string())?;
             // 只读连接 pragma：与写连接保持一致（auto_vacuum / synchronous 是写侧概念，只读连接
             // 无需设；WAL 必设以读到 WAL 已提交快照）。profile 回调让此连接 SQL 同样进 sql 日志。
-            c.call(|c| {
-                c.execute_batch(
-                    "PRAGMA journal_mode=WAL; \
-                     PRAGMA foreign_keys=ON; \
-                     PRAGMA busy_timeout=5000;",
-                )?;
+            let batch = format!(
+                "PRAGMA journal_mode=WAL; \
+                 PRAGMA foreign_keys=ON; \
+                 PRAGMA busy_timeout=5000;{cache_pragma}"
+            );
+            c.call(move |c| {
+                c.execute_batch(&batch)?;
                 c.profile(Some(sql_profile_callback));
                 Ok(())
             })

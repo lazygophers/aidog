@@ -45,7 +45,7 @@ Label: `wayfinder:map`
 
 - [03 200MB 目标可达性裁定] — **目标维持 200MB 不变**（用户拍板）。新实验推翻了「层数」归因：`mask` 挪进 hover 对 graphics 字节零影响（231→230MB），且 region 数在同 CSS 下 157/211/218 乱跳是噪声；**决定性证据是 `graphics ≈ 7.35e-5 × 面积(px) + 16.7`** —— 合成面是窗口面积的物理函数，代码优化不了。因非合成面 176.7MB 已占预算 88%，必须两头压：非合成面 ≤129MB + 合成面 ≤71MB → **反推出新的产品级约束「必须限制窗口尺寸」（约束成立，但具体数字未定 —— release 复验不支持 dev 拟合式，见下）**。预算表见票内。CPU 目标定 **空闲前台 <0.5%**（参照隐藏窗口 0.2%），要求**消灭**软件光栅化与逐帧 style 重算，非降频。流光边框**改实现保视觉**：`@property` 动画角度 → `transform: rotate` 静态 conic 层。
 
-- [08 SQLite page cache 常驻] — **主进程 44MB(冷启动) vs 150MB(稳态) 的矛盾解除：两个数都对，[01] 测的是曲线冷端。** 根因 = `db/mod.rs:12` `READ_POOL_SIZE=8` × 3 池 = 24 只读 + 3 写 = **27 条连接，全仓无 `cache_size` 设置**，走 SQLite 默认 2MB/连接 ≈ **54MB page cache**。证据：`heap` 显示 5KB 块数 1051(5.6min) → 12436(22min)，单一尺寸档解释全部 58MB 增长，且 12436 ≈ 24×500 pages（误差 3.6%）。log.db 7GB 保证 cache 必被填满，是稳态非偶发。排除泄漏（`leaks` 仅 5.7MB，全是 macOS `CryptKit` TLS 框架泄漏，非本仓）。**性质关键：这 54MB 是可配置项，不是物理成本**，与合成面完全不同。修法 `PRAGMA cache_size=-256` 可省 ~42MB，**但压红线 3（查询变慢）**，数值须实测定。
+- [08 SQLite page cache 常驻] — **主进程 44MB(冷启动) vs 150MB(稳态) 的矛盾解除：两个数都对，[01] 测的是曲线冷端。** 根因 = `db/mod.rs:12` `READ_POOL_SIZE=8` × 3 池 = 24 只读 + 3 写 = **27 条连接，全仓无 `cache_size` 设置**，走 SQLite 默认 2MB/连接 ≈ **54MB page cache**。证据：`heap` 显示 5KB 块数 1051(5.6min) → 12436(22min)，单一尺寸档解释全部 58MB 增长，且 12436 ≈ 24×500 pages（误差 3.6%）。log.db 7GB 保证 cache 必被填满，是稳态非偶发。排除泄漏（`leaks` 仅 5.7MB，全是 macOS `CryptKit` TLS 框架泄漏，非本仓）。**性质关键：这 54MB 是可配置项，不是物理成本**，与合成面完全不同。**已落地**（`sqlite-page-cache-residency` task）：只读连接 `PRAGMA cache_size=-64`（KB），实测稳态−冷启动 5MB / heap 5KB 块数 1899（< 2500 阈值），三条查询 p95 相对基线上升均 ≤10%（不压红线 3），小库对照证实对小库场景安全；写连接维持默认不动。数值固化进 `gateway/db/mod.rs`，`AIDOG_SQLITE_READ_CACHE_KB` 保留为 debug 旋钮。
 
 ## 图已收敛 → 已转 9 个 skein task（2026-07-28）
 

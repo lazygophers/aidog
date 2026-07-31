@@ -54,4 +54,5 @@ round a 的 `logs_list_page` p95 表面呈单调上升 (0.52→2.10→3.54→4.6
 
 小库对照环境为现造 mock 库，本 subtask 结束时已删除（`~/.aidog/log.db*`），用户真实 `log.db`
 （883MB）已从临时备份原样移回 `~/.aidog/`。逐次原始采样文件（`assets/results/sqlite-cache-smalldb-*.json`
-共 8 份）保留在 assets 供溯源，最终结论仅以本表（json + md）为准。
+共 8 份）与本任务专用量测脚本（`assets/sqlite-cache-harness.sh`）已在 `lockin` 收尾清场时删除，
+最终结论仅以本表（json + md）为准。
