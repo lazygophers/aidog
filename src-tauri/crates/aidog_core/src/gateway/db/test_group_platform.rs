@@ -76,6 +76,33 @@ use super::test_support::*;
 
 
 
+    /// get_group_platforms(group_id) 缓存写时失效（s5-group-platform-cache）：转发热路径
+    /// candidates.rs:128 每请求调用，命中缓存后仍须在平台增删改后见新值，不得转发到已删平台。
+    #[tokio::test]
+    async fn get_group_platforms_cache_invalidation() {
+        let db = test_db().await;
+        let p1 = create_platform(&db, sample_platform("gp1")).await.unwrap();
+        let p2 = create_platform(&db, sample_platform("gp2")).await.unwrap();
+        let g = create_group(&db, sample_group("gpc", vec![])).await.unwrap();
+
+        // 初次读（无成员）→ 建立缓存槽。
+        assert_eq!(get_group_platforms(&db, g.id).await.unwrap().len(), 0);
+
+        // 加成员 → 缓存须失效，读到新成员（否则转发路由用陈旧空列表）。
+        set_group_platforms(&db, g.id, &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
+        ]).await.unwrap();
+        let cached_after_set = get_group_platforms(&db, g.id).await.unwrap();
+        assert_eq!(cached_after_set.len(), 2, "set_group_platforms 后缓存仍旧 → 失效漏");
+
+        // 删除 p1（平台删除）→ 缓存须见成员减少，不得仍转发到已删平台。
+        delete_platform(&db, p1.id).await.unwrap();
+        let cached_after_delete = get_group_platforms(&db, g.id).await.unwrap();
+        assert_eq!(cached_after_delete.len(), 1, "delete_platform 后缓存仍含已删平台 → 会转发到已删平台");
+        assert_eq!(cached_after_delete[0].platform.id, p2.id);
+    }
+
     // ── R4 model_mappings 来自 group 字段（get_group_detail）──
     #[tokio::test]
     async fn r4_group_detail_mappings_from_group_field() {

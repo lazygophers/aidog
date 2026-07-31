@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use crate::gateway::models::{Group, GroupDetail};
+use crate::gateway::models::{Group, GroupDetail, GroupPlatformDetail};
 
 /// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
 /// 共享同一套 `Hash`/`Eq` 语义，从而命中路径用借用键查 map，零 String 分配。
@@ -79,4 +79,8 @@ pub(crate) struct DbCache {
     /// get_group_platforms 直查单组），故 estimate.rs 每请求级写带来的频繁失效只代价
     /// 「下次 Groups 页打开重建一次」，不影响代理吞吐。
     pub(crate) group_details: RwLock<Option<Vec<GroupDetail>>>,
+    /// get_group_platforms(group_id) 结果缓存（代理转发热路径 candidates.rs 每请求查一次）。
+    /// 按 group_id 分槽，None 视为「未缓存」；失效走 invalidate_group_details_cache 同一钩子
+    /// （宁全勿漏——与 group_details 同源同失效时机，见该字段文档）。
+    pub(crate) group_platforms: RwLock<HashMap<u64, Vec<GroupPlatformDetail>>>,
 }

@@ -943,6 +943,11 @@ impl Db {
         if let Ok(mut g) = self.1.group_details.write() {
             *g = None;
         }
+        // group_platforms（get_group_platforms 单组缓存，代理热路径）同源同失效时机，
+        // 宁全清勿漏（粗粒度清全表，group_platform/platform 写不频繁，代价可忽略）。
+        if let Ok(mut g) = self.1.group_platforms.write() {
+            g.clear();
+        }
     }
 
     /// 同时失效 setting + group 两类热路径缓存。
