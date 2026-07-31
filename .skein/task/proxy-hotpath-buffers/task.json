@@ -2,7 +2,7 @@
   "id": "proxy-hotpath-buffers",
   "name": "转发热路径缓冲与拷贝治理",
   "desc": "stream body in-flight 无 cap + upsert_log 分支前 clone + body 三次深拷贝 + from_utf8_lossy 跨 chunk 破字符，砍峰值内存并修红线 2 正确性缺陷",
-  "status": "检查中",
+  "status": "已完成",
   "deps": [
     "mock-loadgen-capability"
   ],
@@ -249,6 +249,6 @@
   "started": 1785505155,
   "confirmed": 1785250582,
   "checked": 1785505228,
-  "finished": null,
-  "updated": 1785509205
+  "finished": 1785510338,
+  "updated": 1785510338
 }
