@@ -463,6 +463,11 @@
 ## db/crash-safe-db-split-migration.md#Cross-ref
 - → [[auto-fix-downgrade-34]]
 
+## db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
+- → [[measure-window-exclusive-env]]
+- → [[sqlite-cache-measurement-traps]]
+- → [[sqlite-read-cache-config]]
+
 ## db/trellis-00.md#Table Naming (MUST)
 - ← recall/proxy/rule-50.md#关联
 
@@ -1077,11 +1082,18 @@
 - → [[webkit-jit-warmup-trap]]
 
 ## optimization/measure-window-exclusive-env.md#环境互斥约束
+- ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 - ← recall/ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/ops/stack-attribution-profiling-methodology.md#栈归因用法
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - → [[idle-cpu-baseline-xctrace]]
 - → [[webkit-jit-warmup-trap]]
+
+## optimization/sqlite-cache-measurement-traps.md#SQLite 页缓存量测陷阱
+- ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
+
+## optimization/sqlite-cache-measurement-traps.md#SQLite 页缓存量测三大陷阱
+- ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 
 ## optimization/webkit-jit-warmup-trap.md#WebContent JSC JIT 热身陷阱
 - ← recall/ops/stack-attribution-profiling-methodology.md#栈归因用法

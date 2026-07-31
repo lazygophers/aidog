@@ -49,13 +49,18 @@
         "未改为 from_utf8 报错式(不得把损坏变成转发失败)",
         "中文与 emoji 场景各有覆盖"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "aidog-bug-hunt",
       "skills": [],
       "created": 1785249476,
-      "started": null,
-      "finished": null
+      "started": 1785498621,
+      "finished": 1785499023
     },
     {
       "sid": "s3-push-cap",
@@ -71,13 +76,19 @@
         "流式与非流式两侧防护对称(对照 cap_nonstream_body)",
         "单流超大响应不再无界增长(有用例)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249476,
-      "started": null,
-      "finished": null
+      "started": 1785499065,
+      "finished": 1785499589
     },
     {
       "sid": "s4-log-clone-emit",
@@ -91,13 +102,19 @@
         "托盘重建频次下降有数据",
         "LOG_QUEUE_CAP 新值有单条平均字节依据"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249476,
       "started": 1785493368,
-      "finished": null
+      "finished": 1785500125
     },
     {
       "sid": "s5-group-platform-cache",
@@ -109,13 +126,17 @@
         "复用现有失效钩子未新建机制",
         "平台增删改后缓存正确失效(有用例)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249476,
-      "started": null,
-      "finished": null
+      "started": 1785499616,
+      "finished": 1785500131
     },
     {
       "sid": "s6-body-clone-profile",
@@ -178,5 +199,5 @@
   "confirmed": 1785250582,
   "checked": null,
   "finished": null,
-  "updated": 1785494567
+  "updated": 1785500131
 }

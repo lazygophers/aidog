@@ -27,16 +27,16 @@
 5. As a 开发者, I want 完整行立即下发, so that 加了缓冲不把流式变成攒批、首 token 时延不退化
 
 ## 验收标准
-- [ ] 存在一条就红的用例证明：SSE 事件行被 chunk 边界切断时，转换分支下发给客户端的内容缺失该行
-- [ ] 修复后该用例转绿，且内容与不切分时逐字节一致
-- [ ] 切在 `data:` 前缀中间、切在 JSON 中间两种切法各有覆盖
-- [ ] 完整行不被缓冲延迟下发（有用例证明，非压测）
-- [ ] 流结束时 buffer 残留有明确处置且不 panic
-- [ ] 缓冲有上界，触发上界时行为已定义（与 proxy-hotpath-buffers 的 sse_line_buf 上界处置保持一致口径）
-- [ ] passthrough 分支未被改动（有 diff 佐证）
-- [ ] 同一组 mock 请求改动前后 token 数与 est_cost 逐条一致
-- [ ] cargo clippy --workspace 零 warning、cargo test --workspace 全绿
-- [ ] 全程只用 mock 平台与分组，记录中可核验无真实上游调用
+- [x] 存在一条就红的用例证明：SSE 事件行被 chunk 边界切断时，转换分支下发给客户端的内容缺失该行
+- [x] 修复后该用例转绿，且内容与不切分时逐字节一致
+- [x] 切在 `data:` 前缀中间、切在 JSON 中间两种切法各有覆盖
+- [x] 完整行不被缓冲延迟下发（有用例证明，非压测）
+- [x] 流结束时 buffer 残留有明确处置且不 panic
+- [x] 缓冲有上界，触发上界时行为已定义（与 proxy-hotpath-buffers 的 sse_line_buf 上界处置保持一致口径）
+- [x] passthrough 分支未被改动（有 diff 佐证）
+- [x] 同一组 mock 请求改动前后 token 数与 est_cost 逐条一致
+- [x] cargo clippy --workspace 零 warning、cargo test --workspace 全绿
+- [x] 全程只用 mock 平台与分组，记录中可核验无真实上游调用
 
 ## Testing Decisions
 什么算好测试 (只测外部行为不测实现细节) / 测哪些模块 / codebase 内的同类测试先例:

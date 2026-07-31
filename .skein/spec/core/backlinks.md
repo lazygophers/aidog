@@ -2,6 +2,12 @@
 
 章节粒度: 规则 id = `<类目>/<主题>.md#<规则标题>`; `←` 入链 (谁引用本条) / `→` 出链 (本条引用谁)。无条目 = 孤立候选。
 
+## db/sqlite-read-cache-config.md#SQLite 只读缓存配置硬约束
+- ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
+
+## db/sqlite-read-cache-config.md#SQLite 只读缓存定值
+- ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
+
 ## domain/rule-67.md#硬约束
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
