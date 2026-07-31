@@ -188,7 +188,13 @@ fn recompose_group_details(
 pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<Output = Result<Vec<GroupPlatformDetail>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
+    // 缓存命中：转发热路径 candidates.rs 每请求调用一次，命中即返 clone 免打 SQL
+    // （同 list_group_details :339-359 idiom，失效走 invalidate_group_details_cache 同一钩子）。
+    if let Ok(g) = db.1.group_platforms.read()
+        && let Some(cached) = g.get(&group_id) {
+            return Ok(cached.clone());
+        }
+    let result = db
         .call_read_platform_traced(None, __db_caller, move |conn| {
             // 去 JOIN：① 取本组 group_platform 行（保 ORDER BY priority）；② 按 platform_id 批量取
             // platform；③ 内存按 priority 重组（软删平台不在 map 自然剔除）。
@@ -214,7 +220,11 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<O
             Ok(recompose_group_details(gp_rows, &platforms))
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    if let Ok(mut g) = db.1.group_platforms.write() {
+        g.insert(group_id, result.clone());
+    }
+    Ok(result)
     }
 }
 
