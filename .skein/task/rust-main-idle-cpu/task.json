@@ -2,7 +2,7 @@
   "id": "rust-main-idle-cpu",
   "name": "Rust 主进程空闲 CPU 归零",
   "desc": "空闲前台态 aidog 主进程常驻 1.8% CPU，查定时器/tray 重绘/DB maintenance tick/proxy keepalive 来源并压到全进程 <0.5%",
-  "status": "就绪",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -15,12 +15,14 @@
       "验收": [
         "三进程各一份 .trace 已录并 export；归因报告落 research/idle-attribution.md，按调用栈给出占比分解；明确区分本项目代码 vs 框架底噪 vs 第三方 crate；对 S2/S3/S4 三个优化点各给出「值得改/无效」判定"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472085,
-      "started": null,
-      "finished": null
+      "started": 1785483867,
+      "finished": 1785484571
     },
     {
       "sid": "S2",
@@ -34,12 +36,15 @@
         "空闲期(enabled=false 或未到 interval)不再有 60s 周期唤醒；设置变更后新 interval 即时生效(保留 scheduler.rs:79 语义)；有单测或手工验证记录；cargo clippy 零 warning + cargo test 通过",
         "或 S1 归因判定该点占比<0.05%无优化价值，以「不改+记录归因依据」结项则上述条目豁免"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472085,
-      "started": null,
-      "finished": null
+      "started": 1785484611,
+      "finished": 1785484681
     },
     {
       "sid": "S3",
@@ -53,12 +58,15 @@
         "coarse 周期已放宽到 30min；跨本地 00:00 时托盘统计仍正确刷新(手工或逻辑验证)；cargo clippy 零 warning",
         "或 S1 归因判定该点占比<0.05%无优化价值，以「不改+记录归因依据」结项则上述条目豁免"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472085,
-      "started": null,
-      "finished": null
+      "started": 1785484611,
+      "finished": 1785484754
     },
     {
       "sid": "S4",
@@ -72,12 +80,15 @@
         "popover 隐藏时 statusPulse 等动画不再运行(animation-play-state 或可见性 gate)；popover 显示时动画正常恢复；globals.css spin/statusPulse 按 S1 归因结论处置(纳入或明确记录不纳入原因)；yarn build 通过",
         "或 S1 归因判定该点占比<0.05%无优化价值，以「不改+记录归因依据」结项则上述条目豁免"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472085,
-      "started": null,
-      "finished": null
+      "started": 1785484772,
+      "finished": 1785484822
     },
     {
       "sid": "S5",
@@ -92,12 +103,14 @@
       "验收": [
         "采样 ≥60s 取稳态均值，记录三进程各自与总和 CPU；总和 <0.5% 或给出底噪证据说明剩余不可控；结论落 findings.md"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472085,
-      "started": null,
-      "finished": null
+      "started": 1785484852,
+      "finished": 1785485252
     }
   ],
   "priority": 5,
@@ -109,10 +122,10 @@
   "parent": null,
   "kind": "task",
   "created": 1785305092,
-  "started": null,
+  "started": 1785485289,
   "confirmed": 1785473899,
-  "checked": null,
-  "finished": null,
-  "updated": 1785473899,
+  "checked": 1785485415,
+  "finished": 1785485745,
+  "updated": 1785485745,
   "confirmed_by": "user"
 }
