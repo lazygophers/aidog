@@ -1,0 +1,77 @@
+{
+  "id": "purge-preview-dialog",
+  "name": "清理失效平台弹窗展示待清理清单与原因",
+  "desc": "两处清理入口(平台页全局/分组内)的确认弹窗只有一句泛化文案，看不到会删哪些平台、为什么删；新增后端 preview command 出清单+原因码，前端弹窗列表化渲染",
+  "status": "就绪",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "S1",
+      "name": "筛选条件提取共用 + preview command",
+      "desc": "platform_lifecycle.rs 把 purge 的筛选查询提取为返回 PurgeCandidate 的共用函数，purge 复用之；新增 platform_purge_disabled_preview command 并注册",
+      "estimate": 3.0,
+      "depends_on": [],
+      "验收": [
+        "共用函数已提取，purge_auto_disabled_platforms 改为复用它，无第二份筛选 SQL；PurgeCandidate 含 id/name/reason(auth_failed|expired)/action(delete|unassign)，reason/action 为枚举码非文案；分组模式活跃成员数计数带 deleted_at=0 过滤；command 已注册进 startup.rs generate_handler!；test_platform_lifecycle.rs 新增 seam 测试证明 preview id 集合 == purge 实际处理集合且 action 一致；cargo clippy 零 warning + cargo test 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785472613,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "S2",
+      "name": "TS api 封装 + i18n key",
+      "desc": "services/api/platforms.ts 加 purgeDisabledPreview 封装与类型；8 个 locale 补全清单/原因/动作/空态文案 key",
+      "estimate": 1.0,
+      "depends_on": [
+        "S1"
+      ],
+      "验收": [
+        "purgeDisabledPreview 封装的 invoke 名与参数名与 Rust command 签名一致；TS 返回类型与 PurgeCandidate serde camelCase 后字段逐一对齐；8 个 locale 文件新增 key 齐全无遗漏；scripts/check-i18n.mjs 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785472613,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "S3",
+      "name": "两处弹窗清单 UI",
+      "desc": "PlatformListView.tsx 全局弹窗与 GroupListItem.tsx 分组弹窗改为渲染 preview 清单，含原因徽标、分组级动作分段、空态与加载态",
+      "estimate": 2.0,
+      "depends_on": [
+        "S2"
+      ],
+      "验收": [
+        "两处弹窗打开时拉一次 preview(非常驻轮询)，列出平台名 + i18n 原因文案；分组入口按 action 分「永久删除」「移出本分组」两段，全局入口单段；清单为空显示空态文案且确认键 disabled；加载中确认键 disabled；列表超长有 max-height + overflow 滚动；弹窗仍走 AlertDialog(portal to body)，无原生 confirm；yarn build 通过 + yarn test 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785472613,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 6.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/purge-preview-dialog",
+  "parent": null,
+  "kind": "task",
+  "created": 1785472539,
+  "started": null,
+  "confirmed": 1785472975,
+  "checked": null,
+  "finished": null,
+  "updated": 1785472975,
+  "confirmed_by": "user"
+}

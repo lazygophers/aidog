@@ -2,7 +2,7 @@
   "id": "remove-cliproxy-add-entry",
   "name": "移除添加平台表单里的「从 cli-proxy 添加」入口",
   "desc": "PlatformEditForm 新建态的「从 cli-proxy 添加」按钮与 provider picker 弹窗移除，保留 cli-proxy 平台的编辑态只读展示与 CliProxy 页自身的建平台行入口",
-  "status": "检查中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -57,7 +57,7 @@
   "started": 1785473369,
   "confirmed": 1785473369,
   "checked": 1785473698,
-  "finished": null,
-  "updated": 1785473698,
+  "finished": 1785474178,
+  "updated": 1785474178,
   "confirmed_by": "user"
 }

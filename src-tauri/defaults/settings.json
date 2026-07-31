@@ -146,7 +146,6 @@
     "code-modernization@claude-plugins-official": true,
     "code-review@claude-plugins-official": true,
     "code-simplifier@claude-plugins-official": true,
-    "supabase@claude-plugins-official": true,
     "warp@claude-code-warp": true,
     "skein@ccplugin-market": true,
     "git@ccplugin-market": true
