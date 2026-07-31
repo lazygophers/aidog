@@ -4,6 +4,7 @@ layer: recall
 category: optimization
 keywords: [memory,measure,background,activate,settle,foreground]
 status: active
+protected: true
 ---
 
 ## 内存量测走纯背景态口径

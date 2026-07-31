@@ -5,6 +5,7 @@ category: optimization
 keywords: [baseline,measurement,xctrace,process,webkit,profiling,cpu]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## 空闲 CPU 基线数据

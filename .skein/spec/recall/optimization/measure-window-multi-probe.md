@@ -4,6 +4,7 @@ layer: recall
 category: optimization
 keywords: [量测,采样,cpu,前台,探针,regime,steady-state,foreground]
 status: active
+protected: true
 ---
 
 ## 量测 regime 自证必须窗口内多点探针

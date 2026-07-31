@@ -5,6 +5,7 @@ category: ops
 keywords: [wakeup,timers,scheduler,sources,profiling,static-analysis,cpu]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## 空闲期唤醒源 6 分类清单

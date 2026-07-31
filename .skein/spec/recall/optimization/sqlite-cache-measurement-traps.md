@@ -4,6 +4,7 @@ category: optimization
 keywords: [sqlite,measurement,profiling,memory,phys_footprint,noise]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## SQLite 页缓存量测陷阱

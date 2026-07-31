@@ -542,6 +542,9 @@
 - → [[auto-fix-downgrade-35]]
 - → [[parser-multi-path-format-symmetry]]
 
+## domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
+- → [[mock-platform-bypasses-forward-pipeline]]
+
 ## domain/rule-51.md#关联
 - → [[rule-05]]
 - → [[rule-53]]
@@ -1075,10 +1078,17 @@
 - → [[idle-cpu-baseline-xctrace]]
 - → [[measure-window-exclusive-env]]
 
+## ops/logging-queue-capacity-tuning.md#日志队列 capacity 定值方法：从采样均值反推
+- → [[hot-path-buffers]]
+
 ## ops/stack-attribution-profiling-methodology.md#栈归因用法
 - → [[idle-cpu-baseline-xctrace]]
 - → [[measure-window-exclusive-env]]
 - → [[webkit-jit-warmup-trap]]
+
+## ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束
+- → [["$HOME" == "$HOME_REAL"]]
+- → [[tmp]]
 
 ## optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - ← recall/ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单

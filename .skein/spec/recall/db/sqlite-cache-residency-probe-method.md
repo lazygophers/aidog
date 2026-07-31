@@ -4,6 +4,7 @@ category: db
 keywords: [sqlite,page-cache,measurement,heap,malloc,probe]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## SQLite 页缓存常驻量的直接探针方法

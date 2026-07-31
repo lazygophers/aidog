@@ -4,6 +4,7 @@ layer: recall
 category: skein
 keywords: [subagent,hook,scope,worktree,output-format,repo-pollution]
 status: active
+protected: true
 ---
 
 ## subagent hook 禁写主仓报告文件

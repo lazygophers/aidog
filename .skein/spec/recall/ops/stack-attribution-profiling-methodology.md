@@ -5,6 +5,7 @@ category: ops
 keywords: [profiling,stack-trace,attribution,instruments,xctrace,methodology,cpu]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## 栈归因用法

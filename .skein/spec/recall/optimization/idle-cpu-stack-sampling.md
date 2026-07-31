@@ -4,6 +4,7 @@ layer: recall
 category: optimization
 keywords: [cpu,profiling,sample,timer,instruments,time-profiler]
 status: active
+protected: true
 ---
 
 ## 空闲 CPU 归因必须靠栈采样
