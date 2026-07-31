@@ -22,13 +22,13 @@
 1. As a <actor>, I want <feature>, so that <benefit>
 
 ## 验收标准
-- [ ] 新增 command platform_purge_disabled_preview 已注册进 startup.rs generate_handler!，接受 group_id: Option<u64>，返回每项含 id / name / reason code / action
-- [ ] preview 与 purge 的筛选条件同源 (提取共用 SQL 或共用查询函数)，有测试证明两者返回的平台 id 集合一致
-- [ ] 全局入口弹窗列出待删平台名 + 原因文案；分组入口额外区分「永久删除」与「仅移出本分组」两类
-- [ ] 清理原因至少覆盖 HTTP 401/403 认证失效 与 已过期 两类，后端返 code 前端 i18n 映射，无硬编码中文出后端
-- [ ] 清单为空时弹窗显示空态文案且确认键 disabled
-- [ ] 8 个 locale 文件新增 key 全部齐全，scripts/check-i18n.mjs 通过
-- [ ] cargo clippy 零 warning、cargo test 通过、yarn build 通过、yarn test 通过
+- [x] 新增 command platform_purge_disabled_preview 已注册进 startup.rs generate_handler!，接受 group_id: Option<u64>，返回每项含 id / name / reason code / action
+- [x] preview 与 purge 的筛选条件同源 (提取共用 SQL 或共用查询函数)，有测试证明两者返回的平台 id 集合一致
+- [x] 全局入口弹窗列出待删平台名 + 原因文案；分组入口额外区分「永久删除」与「仅移出本分组」两类
+- [x] 清理原因至少覆盖 HTTP 401/403 认证失效 与 已过期 两类，后端返 code 前端 i18n 映射，无硬编码中文出后端
+- [x] 清单为空时弹窗显示空态文案且确认键 disabled
+- [x] 8 个 locale 文件新增 key 全部齐全，scripts/check-i18n.mjs 通过
+- [x] cargo clippy 零 warning、cargo test 通过、yarn build 通过、yarn test 通过
 ## Testing Decisions
 什么算好测试 (只测外部行为不测实现细节) / 测哪些模块 / codebase 内的同类测试先例:
 - [ ] 唯一新增接缝：`src-tauri/crates/aidog_core/src/gateway/db/test_platform_lifecycle.rs` 加一条「preview 与 purge 同源」测试 —— 同一 DB 状态下 preview 返回的 id 集合 == purge 实际处理集合 (deletedIds ∪ unassignedIds)，且每项 action 与它实际落到哪个集合一致。这一条同时覆盖「筛选条件不漂移」与「分组独占/共享分流正确」两个最关键风险
