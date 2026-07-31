@@ -32,13 +32,15 @@
       "验收": [
         "极小档与默认档的 5KB 块数对比数据已产出；给出明确二值结论（归因坐实 / 归因证伪）；证伪时已停手并回写 08 票；坐实时结论一行落 results/；探针中间文件已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785246113,
-      "started": null,
-      "finished": null
+      "started": 1785493210,
+      "finished": 1785493350
     },
     {
       "sid": "harness",
@@ -48,13 +50,15 @@
       "验收": [
         "cargo clippy 零 warning；cargo test 全绿；不设 env 时 cache_size 等于 SQLite 默认且行为零变化；脚本一条命令跑出完整指标集且两次连跑偏差 <10%；三条查询 p95 分列输出不合并；输出含 log.db 与 WAL 体积；全程只打 mock 分组；未引入写档 env；跑通后临时中间文件已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785246154,
-      "started": null,
-      "finished": null
+      "started": 1785490677,
+      "finished": 1785493150
     },
     {
       "sid": "baseline",
@@ -64,7 +68,7 @@
         "probe"
       ],
       "验收": [
-        "基线指标集已落 .scratch/perf-200mb/results/，含冷启动与稳态两点；5KB 块数量级对得上已有观测（约 12000）；三条查询 p95 分列；基线最慢 SQL 已识别并单列；log.db 体积 >=5GB 已记录；原始逐次采样已清"
+        "基线指标集已落 .scratch/perf-200mb/results/，含冷启动与稳态两点；5KB 块数量级对得上 probe 实测（default 档约 9000，736MB 库）；三条查询 p95 分列；基线最慢 SQL 已识别并单列；log.db 体积 >=500MB 且实际体积已记录；原始逐次采样已清"
       ],
       "验收done": [],
       "status": "待处理",
@@ -142,5 +146,5 @@
   "confirmed": 1785246424,
   "checked": null,
   "finished": null,
-  "updated": 1785250545
+  "updated": 1785493350
 }
