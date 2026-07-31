@@ -2,10 +2,10 @@
 name: bundled-models-fallback
 description: 编译期 include_str! + OnceLock 懒加载配置，DB 恒优先的只读兜底策略
 type: recall
-category: arch
+category: domain
 keywords: bundled, include_str, OnceLock, 兜底, 冷启动
 ---
-
+---
 ## 触发场景
 
 只读配置数据（models.json 价格表、platform-presets.json）需在 DB 为空或未同步时兜底，
