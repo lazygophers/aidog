@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(62), cross-layer(12), db(23), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(5), optimization(36), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(62), cross-layer(12), db(23), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(7), optimization(39), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -444,12 +444,15 @@
 | i18n/trellis-19.md#测试 fixture / 文档 URL (合法残留, 非命名空间) | i18n | 测试 fixture / 文档 URL (合法残留, 非命名空间) | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | - 测试用 `zh-CN` fixture (`test_sync_settings.rs` / `test_apply… |
 | i18n/trellis-19.md#验收基准 (可复用) | i18n | 验收基准 (可复用) | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | - [ ] `ALL_LOCALES` 集合 == presets JSON 任一 protocol 的 `name` … |
 | i18n/trellis-19.md#验证命令 | i18n | 验证命令 | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | ```bash # zh-CN 残留审计 (合法点见上 "测试 fixture / 文档 URL" + 4 命名空间表;… |
+| ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单 | ops | 空闲期唤醒源 6 分类清单 | wakeup,timers,scheduler,sources,profiling,static-analysis,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env | 空闲期 CPU 唤醒源分 6 类，静态 rg 检索无遗漏（src-tauri + src）。  / 分类 / 频率 / … |
+| ops/stack-attribution-profiling-methodology.md#栈归因用法 | ops | 栈归因用法 | profiling,stack-trace,attribution,instruments,xctrace,methodology,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env,webkit-jit-warmup-trap | **定理**：静态检索定时器只能估出量级（因周期、触发条件、执行成本都是猜），无法判断是否真在稳态 CPU 占比中命中。… |
 | ops/trellis-17.md#Cross-reference | ops | Cross-reference | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | - 先例代码: `crates/aidog_core/src/gateway/defaults_sync.rs`（pla… |
 | ops/trellis-17.md#实例 | ops | 实例 | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | - task 07-09-*（platform-presets 同步首次落地，`defaults_sync.rs` 先例… |
 | ops/trellis-17.md#数据流架构 (MUST，禁前端直读 github) | ops | 数据流架构 (MUST，禁前端直读 github) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | ``` github (master) ──rust sync (<x>_sync.rs)──▶ ~/.aidog/<f… |
 | ops/trellis-17.md#范式 (MUST，照抄先例 `gateway/defaults_sync.rs`) | ops | 范式 (MUST，照抄先例 `gateway/defaults_sync.rs`) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | `defaults/*.json` 远端同步**MUST** 实现完整 7 件套，缺一致命。先例 `crates/aid… |
 | ops/trellis-17.md#验收断言（可复用） | ops | 验收断言（可复用） | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | ```bash # 7 件套齐全（双源 / last_updated / 24h / 三路触发 / schema gat… |
 | optimization/api-payload-optimization.md#后端 DISTINCT 替代前端集合去重降低 IPC payload | optimization | 后端 DISTINCT 替代前端集合去重降低 IPC payload | api,payload,ipc,distinct,set-deduplication,query-optimization | auto | - | active | 后端改为返回去重后的单列（如 DISTINCT model），而非拉全字段摘要行数组到前端，再用集合去重。  **收益*… |
+| optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据 | optimization | 空闲 CPU 基线数据 | baseline,measurement,xctrace,process,webkit,profiling,cpu | auto | - | active / →idle-wakeup-sources-inventory,measure-window-exclusive-env,webkit-jit-warmup-trap | 基于 xctrace Time Profiler 实测（2026-07-31，30s 采样窗口）。四进程占比： - **… |
 | optimization/idle-cpu-stack-sampling.md#反例（错误模式） | optimization | 反例（错误模式） | cpu,profiling,sample,timer,instruments,time-profiler | auto | - | active | / ❌ 错 / ✅ 改为 / /---/---/ / 仅 grep 定时器列表 / grep 列表 + `sample`… |
 | optimization/idle-cpu-stack-sampling.md#案例 | optimization | 案例 | cpu,profiling,sample,timer,instruments,time-profiler | auto | - | active | grep 找到 5 个定时器，工作量推算应占 CPU 1-1.5%。但实测 3.0% 稳态，缺口 1.5% 无法追溯。用… |
 | optimization/idle-cpu-stack-sampling.md#空闲 CPU 归因必须靠栈采样 | optimization | 空闲 CPU 归因必须靠栈采样 | cpu,profiling,sample,timer,instruments,time-profiler | auto | - | active | - |
@@ -467,6 +470,7 @@
 | optimization/measure-footprint-pid-matching.md#触发场景 | optimization | 触发场景 | measure,footprint,pid,glob,data-corruption,baseline | auto | - | active | 性能量测脚本 `measure.sh` 按 label 重复运行（如多轮对比测试）时，旧 run 的 footprint… |
 | optimization/measure-footprint-pid-matching.md#适用 | optimization | 适用 | measure,footprint,pid,glob,data-corruption,baseline | auto | - | active | - `measure.sh` 同 label 重复运行（对比 baseline 常见） - 任何大块临时数据依赖文件名去… |
 | optimization/measure-footprint-pid-matching.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | measure,footprint,pid,glob,data-corruption,baseline | auto | - | active | ❌ **陷阱**：glob 匹配所有同 label 的 footprint 文件，不区分 run  ```bash # … |
+| optimization/measure-window-exclusive-env.md#环境互斥约束 | optimization | 环境互斥约束 | profiling,performance,measurement,environment,cargo,yarn,exclusive | auto | - | active / →idle-cpu-baseline-xctrace,webkit-jit-warmup-trap | Profiling（采样、trace 录制）与后台编译（cargo/yarn build）占用机器资源竞争。同步触发导致… |
 | optimization/measure-window-multi-probe.md#判据 | optimization | 判据 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | auto | - | active | CPU/内存稳态采样，只在采样前打一次前台确证（如 `lsappinfo front`）不够——采样窗口内应用可能中途失… |
 | optimization/measure-window-multi-probe.md#案例 | optimization | 案例 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | auto | - | active | `.scratch/perf-200mb/assets/results/cpu-s7-after-run3.txt`（8… |
 | optimization/measure-window-multi-probe.md#正解 | optimization | 正解 | 量测,采样,cpu,前台,探针,regime,steady-state,foreground | auto | - | active | 稳态采样窗口内必须**多点探针**（如每 15s 一次），全程确证前台/目标态未漂移，而非仅窗口前一次性确证。另需注意 … |
@@ -479,6 +483,7 @@
 | optimization/memory-measure-background.md#触发场景 | optimization | 触发场景 | memory,measure,background,activate,settle,foreground | auto | - | active | 内存占用量测时，采用 CPU 量测的 `activate + settle` 两段试图通过前台激活 + 等待稳定来排除用… |
 | optimization/memory-measure-background.md#适用 | optimization | 适用 | memory,measure,background,activate,settle,foreground | auto | - | active | - Tauri / Electron 应用内存占用基准量测 - 长时间后台内存监控（避免前台抢占） - 交叉对比前台/后… |
 | optimization/memory-measure-background.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | memory,measure,background,activate,settle,foreground | auto | - | active | ❌ **陷阱**：内存量测复用 CPU 量测的 activate + settle 口径  ```bash # CPU … |
+| optimization/webkit-jit-warmup-trap.md#WebContent JSC JIT 热身陷阱 | optimization | WebContent JSC JIT 热身陷阱 | webkit,jsc,jit,warmup,profiling,sampling,trap,cpu | auto | - | active / →idle-cpu-baseline-xctrace | WebContent 进程中 JSC JIT 热身阶段（启动后数分钟）vs 稳定态（运行 45+ 分钟）的 CPU 占比… |
 | optimization/webkit-xpc-helper-process-bounds.md#反例（错误模式） | optimization | 反例（错误模式） | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | / ❌ 错 / ✅ 改为 / /---/---/ / 用 ppid 反查归属 / 编制硬闸：期望 WebContent×… |
 | optimization/webkit-xpc-helper-process-bounds.md#案例 | optimization | 案例 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | 多轮量测发现某档进程数突增（期望 4，实际 6-8），发现混入了飞书/Safari 的 WebKit helper。改用… |
 | optimization/webkit-xpc-helper-process-bounds.md#触发场景 | optimization | 触发场景 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | WebKit 内嵌浏览器在 Tauri 应用中运行时，`ppid`（父进程 ID）恒为 1（launchd），`ps -… |
