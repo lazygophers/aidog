@@ -23,11 +23,11 @@
         "明确推翻或证实「retention 疑失效」假设"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785291583,
-      "started": null,
+      "started": 1785473987,
       "finished": null
     },
     {
@@ -66,5 +66,5 @@
   "confirmed": 1785291587,
   "checked": null,
   "finished": null,
-  "updated": 1785291587
+  "updated": 1785473987
 }

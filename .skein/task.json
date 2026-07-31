@@ -50,11 +50,9 @@
       "kind": "task"
     },
     {
-      "id": "sqlite-page-cache-residency",
+      "id": "purge-preview-dialog",
       "status": "就绪",
-      "deps": [
-        "logs-query-ipc-slimming"
-      ],
+      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,
@@ -62,8 +60,19 @@
     },
     {
       "id": "rust-main-idle-cpu",
-      "status": "待处理",
+      "status": "就绪",
       "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "sqlite-page-cache-residency",
+      "status": "就绪",
+      "deps": [
+        "logs-query-ipc-slimming"
+      ],
       "priority": 5,
       "worktree": null,
       "parent": null,
@@ -109,6 +118,15 @@
     },
     {
       "id": "model-price-time-tiers",
+      "status": "已完成",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "remove-cliproxy-add-entry",
       "status": "已完成",
       "deps": [],
       "priority": 5,
