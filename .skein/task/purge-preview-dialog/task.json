@@ -2,7 +2,7 @@
   "id": "purge-preview-dialog",
   "name": "清理失效平台弹窗展示待清理清单与原因",
   "desc": "两处清理入口(平台页全局/分组内)的确认弹窗只有一句泛化文案，看不到会删哪些平台、为什么删；新增后端 preview command 出清单+原因码，前端弹窗列表化渲染",
-  "status": "就绪",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -15,12 +15,14 @@
       "验收": [
         "共用函数已提取，purge_auto_disabled_platforms 改为复用它，无第二份筛选 SQL；PurgeCandidate 含 id/name/reason(auth_failed|expired)/action(delete|unassign)，reason/action 为枚举码非文案；分组模式活跃成员数计数带 deleted_at=0 过滤；command 已注册进 startup.rs generate_handler!；test_platform_lifecycle.rs 新增 seam 测试证明 preview id 集合 == purge 实际处理集合且 action 一致；cargo clippy 零 warning + cargo test 通过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472613,
-      "started": null,
-      "finished": null
+      "started": 1785481253,
+      "finished": 1785482565
     },
     {
       "sid": "S2",
@@ -33,12 +35,14 @@
       "验收": [
         "purgeDisabledPreview 封装的 invoke 名与参数名与 Rust command 签名一致；TS 返回类型与 PurgeCandidate serde camelCase 后字段逐一对齐；8 个 locale 文件新增 key 齐全无遗漏；scripts/check-i18n.mjs 通过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472613,
-      "started": null,
-      "finished": null
+      "started": 1785482591,
+      "finished": 1785482894
     },
     {
       "sid": "S3",
@@ -51,12 +55,14 @@
       "验收": [
         "两处弹窗打开时拉一次 preview(非常驻轮询)，列出平台名 + i18n 原因文案；分组入口按 action 分「永久删除」「移出本分组」两段，全局入口单段；清单为空显示空态文案且确认键 disabled；加载中确认键 disabled；列表超长有 max-height + overflow 滚动；弹窗仍走 AlertDialog(portal to body)，无原生 confirm；yarn build 通过 + yarn test 通过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785472613,
-      "started": null,
-      "finished": null
+      "started": 1785482920,
+      "finished": 1785483134
     }
   ],
   "priority": 5,
@@ -68,10 +74,10 @@
   "parent": null,
   "kind": "task",
   "created": 1785472539,
-  "started": null,
+  "started": 1785483186,
   "confirmed": 1785472975,
-  "checked": null,
-  "finished": null,
-  "updated": 1785472975,
+  "checked": 1785483214,
+  "finished": 1785483792,
+  "updated": 1785483792,
   "confirmed_by": "user"
 }
