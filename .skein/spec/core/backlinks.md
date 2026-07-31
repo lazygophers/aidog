@@ -5,17 +5,7 @@
 ## arch/mock-platform-short-circuit.md#Mock 平台绕开转发流水线短路
 - ← core/proxy/auto-disable-401-403-402.md#关联
 
-## arch/stream-buf-unified-cap.md#硬约则
-- ← core/perf/stream-buf-no-batching.md#关联
-
-## arch/stream-buf-unified-cap.md#案例
-- ← core/perf/stream-buf-no-batching.md#关联
-
-## arch/stream-buf-unified-cap.md#适用
-- ← core/perf/stream-buf-no-batching.md#关联
-
 ## arch/stream-buf-unified-cap.md#关联
-- ← core/perf/stream-buf-no-batching.md#关联
 - → [[hot-path-buffers]]
 - → [[stream-buf-no-batching]]
 
@@ -45,16 +35,6 @@
 ## i18n/i18n-key-sync-8lang.md#关联
 - → [[zh-hans-literal-sync]]
 
-## perf/stream-buf-no-batching.md#关联
-- ← core/arch/stream-buf-unified-cap.md#关联
-- → [[stream-buf-unified-cap]]
-
 ## proxy/auto-disable-401-403-402.md#关联
 - → [[http-client-no-env-proxy]]
 - → [[mock-platform-short-circuit]]
-
-## proxy/crash-safe-db-split.md#crash safe db split
-- ← core/db/connectionclosed-retry.md#关联
-
-## proxy/mock-platform-short-circuit.md#mock platform short circuit
-- ← core/proxy/auto-disable-401-403-402.md#关联
