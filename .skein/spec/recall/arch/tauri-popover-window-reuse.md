@@ -7,7 +7,7 @@ source: -
 authored-by: skein-spec
 created: 1784810159
 status: active
-related: [rule-45,trellis-03,trellis-18]
+related: [planning-scope-pregrep,frontend-conventions]
 updated: 1784810159
 ---
 ---
@@ -58,7 +58,7 @@ if w.is_visible().unwrap_or(false) {
 - 需要快速响应的小窗口（性能关键路径）
 
 ## 关联
-[[rule-45]] (popover 域划分) / [[trellis-18]] (前端约定)
+[[planning-scope-pregrep]] (popover 域划分) / [[frontend-conventions]] (前端约定)
 
 ## 案例
 - popover-perf task (commit 14ec141d)：预建隐藏窗 + toggle hide/show，去掉销毁流程
