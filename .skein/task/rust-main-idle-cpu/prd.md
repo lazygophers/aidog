@@ -16,11 +16,11 @@
 - 约束：跑 profiling 与 cargo/yarn build 互斥占机，采样期间禁并发构建 (memory measure-window-exclusive-env)
 - 约束：托盘 tick 唯一职责是跨日重算，改周期不得导致跨 00:00 统计不刷新
 ## 验收标准
-- [ ] xctrace Time Profiler 已对 aidog(main)/WebContent/GPU 三进程各录一轮 30s，归因报告落 research/ 并给出 1.8% 的调用栈分解
-- [ ] backup scheduler：空闲期(enabled=false 或未到 interval)不再每 60s 唤醒读 DB 且设置变更仍即时生效；或 S1 归因判定其占比 <0.05% 无优化价值并记录依据后不改
-- [ ] 托盘 coarse tick 周期已从 300s 放宽且跨本地 00:00 统计仍正确刷新；或 S1 归因判定无价值并记录依据后不改
-- [ ] 预建 popover 隐藏时不再持续跑 CSS 动画、显示时正常恢复；或 S1 归因判定无价值并记录依据后不改
-- [ ] 复测：空闲前台态 aidog 三进程 CPU 总和 <0.5% (采样 ≥60s 取稳态均值)；若归因证明剩余占比全为框架底噪，则记录实测值 + 底噪证据，本条按「可控项全清零」判定
+- [x] xctrace Time Profiler 已对 aidog(main)/WebContent/GPU 三进程各录一轮 30s，归因报告落 research/ 并给出 1.8% 的调用栈分解
+- [x] backup scheduler：空闲期(enabled=false 或未到 interval)不再每 60s 唤醒读 DB 且设置变更仍即时生效；或 S1 归因判定其占比 <0.05% 无优化价值并记录依据后不改
+- [x] 托盘 coarse tick 周期已从 300s 放宽且跨本地 00:00 统计仍正确刷新；或 S1 归因判定无价值并记录依据后不改
+- [x] 预建 popover 隐藏时不再持续跑 CSS 动画、显示时正常恢复；或 S1 归因判定无价值并记录依据后不改
+- [x] 复测：空闲前台态 aidog 三进程 CPU 总和 <0.5% (采样 ≥60s 取稳态均值)；若归因证明剩余占比全为框架底噪，则记录实测值 + 底噪证据，本条按「可控项全清零」判定
 - [ ] 有代码改动时：cargo clippy 零 warning、cargo test 通过、yarn build 通过
 ## 索引
 - 详细设计: [design.md](design.md)
