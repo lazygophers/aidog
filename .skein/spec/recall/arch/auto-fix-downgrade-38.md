@@ -1,5 +1,5 @@
 ---
-title: 删 enum 变体前先 migration DB
+title: auto-fix-downgrade-38
 layer: recall
 category: arch
 keywords: [enum,serde,db,migration,rust,panic]
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784706967
 ---
-
+---
 # 删 enum 变体前先 migration DB
 
 ## 触发场景

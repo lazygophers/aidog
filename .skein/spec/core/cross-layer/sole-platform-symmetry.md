@@ -1,11 +1,13 @@
 ---
-title: ts-rust-symmetry
-layer: recall
+title: sole-platform-symmetry
+layer: core
 category: cross-layer
 keywords: [cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称]
 status: active
 ---
-
+created: 1725080438
+---
+---
 ## 单启用平台判定对称性 (Rust ↔ TS)
 
 ## 跨层对称硬规 (Rust ↔ TS)

@@ -1,5 +1,5 @@
 ---
-title: converter 5×5 与 endpoint 选择解耦
+title: rule-06
 layer: recall
 category: build
 keywords: []
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784995466
 ---
-
+---
 # converter 5×5 与 endpoint 选择解耦
 
 ## MUST 硬约束

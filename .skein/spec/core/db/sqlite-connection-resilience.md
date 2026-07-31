@@ -1,13 +1,13 @@
 ---
-title: tokio_rusqlite 连接韧性契约
-layer: recall
+title: sqlite-connection-resilience
+layer: core
 category: db
 keywords: [db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite]
 source: trellis
 authored-by: skein-memory
 created: 1783832113
 ---
-
+---
 # DB Connection Resilience
 
 何时被读: 改 `Db` 结构 / DB 调用路径（`call_traced` / `call_read_traced`）/ 任何 `tokio_rusqlite::Connection` 句柄持有者

@@ -1,5 +1,5 @@
 ---
-title: agent-as-LLM 平台 handler 分支接入范式
+title: auto-fix-downgrade-33
 layer: recall
 category: arch
 keywords: [agent,handler,branch,platform,wire,sse]
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784706792
 ---
-
+---
 # agent-as-LLM 平台 handler 分支接入范式
 
 ## 触发场景
