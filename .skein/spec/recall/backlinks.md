@@ -1057,6 +1057,38 @@
 - ← recall/frontend/form-level-tz-state-sharing.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 
+## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
+- ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
+- → [[idle-cpu-baseline-xctrace]]
+- → [[measure-window-exclusive-env]]
+
+## ops/stack-attribution-profiling-methodology.md#栈归因用法
+- → [[idle-cpu-baseline-xctrace]]
+- → [[measure-window-exclusive-env]]
+- → [[webkit-jit-warmup-trap]]
+
+## optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
+- ← recall/ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
+- ← recall/ops/stack-attribution-profiling-methodology.md#栈归因用法
+- ← recall/optimization/measure-window-exclusive-env.md#环境互斥约束
+- ← recall/optimization/webkit-jit-warmup-trap.md#WebContent JSC JIT 热身陷阱
+- → [[idle-wakeup-sources-inventory]]
+- → [[measure-window-exclusive-env]]
+- → [[webkit-jit-warmup-trap]]
+
+## optimization/measure-window-exclusive-env.md#环境互斥约束
+- ← recall/ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
+- ← recall/ops/stack-attribution-profiling-methodology.md#栈归因用法
+- ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
+- → [[idle-cpu-baseline-xctrace]]
+- → [[webkit-jit-warmup-trap]]
+
+## optimization/webkit-jit-warmup-trap.md#WebContent JSC JIT 热身陷阱
+- ← recall/ops/stack-attribution-profiling-methodology.md#栈归因用法
+- ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
+- ← recall/optimization/measure-window-exclusive-env.md#环境互斥约束
+- → [[idle-cpu-baseline-xctrace]]
+
 ## proxy/rule-50.md#关联
 - → [[trellis-00]]
 - → [[trellis-11]]
