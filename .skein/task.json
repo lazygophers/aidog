@@ -1,6 +1,17 @@
 {
   "tasks": [
     {
+      "id": "proxy-hotpath-buffers",
+      "status": "检查中",
+      "deps": [
+        "mock-loadgen-capability"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "cold-start-unblock",
       "status": "就绪",
       "deps": [
@@ -23,17 +34,6 @@
         "frontend-compositing-purge",
         "cold-start-unblock",
         "window-default-size"
-      ],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
-      "id": "proxy-hotpath-buffers",
-      "status": "就绪",
-      "deps": [
-        "mock-loadgen-capability"
       ],
       "priority": 5,
       "worktree": null,

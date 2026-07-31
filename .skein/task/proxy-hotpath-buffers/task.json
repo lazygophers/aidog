@@ -2,7 +2,7 @@
   "id": "proxy-hotpath-buffers",
   "name": "转发热路径缓冲与拷贝治理",
   "desc": "stream body in-flight 无 cap + upsert_log 分支前 clone + body 三次深拷贝 + from_utf8_lossy 跨 chunk 破字符，砍峰值内存并修红线 2 正确性缺陷",
-  "status": "就绪",
+  "status": "检查中",
   "deps": [
     "mock-loadgen-capability"
   ],
@@ -148,13 +148,17 @@
         "判定为热点的已改并有前后对比",
         "判定为非热点的显式记『已查, 无阻断项』而非硬改"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249476,
-      "started": null,
-      "finished": null
+      "started": 1785502277,
+      "finished": 1785503447
     },
     {
       "sid": "s7-verify",
@@ -177,13 +181,60 @@
         "全程只用 mock 平台与分组",
         "临时脚本与中间采样已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249476,
-      "started": null,
-      "finished": null
+      "started": 1785503487,
+      "finished": 1785505109
+    },
+    {
+      "sid": "s8-tracing-nonblocking",
+      "name": "tracing 文件写移出 tokio worker",
+      "desc": "给 RollingFileAppender 套 tracing_appender::non_blocking，转发热路径的 tokio worker 不再同步写文件",
+      "estimate": 2.0,
+      "depends_on": [],
+      "验收": [
+        "RollingFileAppender 已套 non_blocking；WorkerGuard 生命周期覆盖进程全程(退出前不丢日志，有依据)；转发热路径 tokio worker 线程上不再有同步文件写(有证据，非推理)；日志内容与格式不变；cargo clippy --workspace 零 warning、cargo test --workspace 全绿"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785506554,
+      "started": 1785506564,
+      "finished": 1785507056
+    },
+    {
+      "sid": "s9-bigbody-footprint",
+      "name": "大响应体压测复采 footprint",
+      "desc": "loadgen 造接近/超过 16MB 单流响应，让 push cap 真正生效，复采 phys_footprint 峰值并给出下降归因",
+      "estimate": 2.5,
+      "depends_on": [
+        "s8-tracing-nonblocking"
+      ],
+      "验收": [
+        "单流响应体接近/超过 STREAM_BODY_MAX_BYTES(16MB)，cap 确实被触发(有证据)；50 路并发下 baseline 与 current 各独立重启多轮采 phys_footprint 峰值；给出下降幅度与归因，或如实判定该量级下仍不可观测并说明原因；只认 footprint/heap 5KB 块，禁 ps rss/vmmap；只用 mock 平台与分组；临时脚本与逐次采样跑完即清"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785506554,
+      "started": 1785507109,
+      "finished": 1785509205
     }
   ],
   "priority": 5,
@@ -195,9 +246,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785248700,
-  "started": null,
+  "started": 1785505155,
   "confirmed": 1785250582,
-  "checked": null,
+  "checked": 1785505228,
   "finished": null,
-  "updated": 1785500131
+  "updated": 1785509205
 }
