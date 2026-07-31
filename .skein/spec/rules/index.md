@@ -1,9 +1,12 @@
 # SKEIN rules 规则索引 (章节粒度: 一行一条规则)
 
-类目: perf(14) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(3), perf(14) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
+| arch/mock-platform-bypasses-forward-pipeline.md#mock 平台绕开真实转发流水线，无法验证 finish.rs 挂载的 cap/累积逻辑 | arch | mock 平台绕开真实转发流水线，无法验证 finish.rs 挂载的 cap/累积逻辑 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | - |
+| arch/mock-platform-bypasses-forward-pipeline.md#关联 | arch | 关联 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | proxy-hotpath-buffers s9-bigbody-footprint（`.scratch/perf-20… |
+| arch/mock-platform-bypasses-forward-pipeline.md#硬约束 | arch | 硬约束 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | `platform_type=mock`（`gateway/proxy/mock.rs::handle_mock`）在 … |
 | perf/hot-path-buffers.md#mpsc 热路径丢弃分支先查 capacity 再决定是否深拷贝 | perf | mpsc 热路径丢弃分支先查 capacity 再决定是否深拷贝 | mpsc,capacity,try_send,背压,深拷贝,热路径,TOCTOU | auto | src-tauri/crates/aidog_core/src/gateway/proxy/log.rs | active | mpsc 队列热路径丢弃分支：先 `Sender::capacity() == 0` 判队满再 return，避免为「确… |
 | perf/stream-buf-no-batching.md#代码形态 | perf | 代码形态 | - | auto | - | active | ### 正例：完整行立即下发  ```rust pub(crate) fn feed(&mut self, text: … |
 | perf/stream-buf-no-batching.md#代码形态 | perf | 代码形态 | - | auto | - | active | ### 正例：完整行立即下发  ```rust pub(crate) fn feed(&mut self, text: … |

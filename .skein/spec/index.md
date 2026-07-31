@@ -7,4 +7,4 @@
 | core | 17 | arch(11), db(2), domain(4) | [core/index.md](core/index.md) |
 | external | 0 | - | [external/index.md](external/index.md) |
 | recall | 691 | arch(116), build(62), cross-layer(12), db(25), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(24), optimization(41), proxy(47), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) | [recall/index.md](recall/index.md) |
-| rules | 14 | perf(14) | [rules/index.md](rules/index.md) |
+| rules | 17 | arch(3), perf(14) | [rules/index.md](rules/index.md) |
