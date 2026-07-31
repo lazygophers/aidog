@@ -23,7 +23,7 @@
 - [x] upsert_log 的 clone 只发生在 terminal 分支或队列有容量时
 - [x] 请求 body 深拷贝次数从最多 3 次降到 1 次以内，用计数或 trace 证明
 - [x] get_group_platforms 命中缓存时不产生 SQL 查询，且现有失效触发点覆盖所有写入路径
-- [ ] tracing 文件写不再发生在 tokio worker 线程上
+- [x] tracing 文件写不再发生在 tokio worker 线程上
 - [x] sse_line_buf 有明确上界，触发上界时行为已定义且不 panic
 - [x] 转发延迟 p95 与首 token 时延 p95 相对基线不上升（50 路 mock 并发）
 - [x] token 计数与 est_cost 在改动前后对同一组 mock 请求逐条一致
