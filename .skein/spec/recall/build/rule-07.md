@@ -1,5 +1,5 @@
 ---
-title: is_valid_wire_protocol gate 是 fail-fast 非修复点
+title: rule-07
 layer: recall
 category: build
 keywords: []
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784995469
 ---
-
+---
 # is_valid_wire_protocol gate 是 fail-fast 非修复点
 
 ## MUST 硬约束

@@ -1,5 +1,5 @@
 ---
-title: cargo clippy 缓存命中不重报 warning
+title: rule-61
 layer: recall
 category: build
 keywords: [cargo,clippy,cache,warning,touch,rebuild]
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1785226206
 ---
-
+---
 ## 触发场景
 修改后再跑 `cargo clippy` 判断 warning 数时。
 

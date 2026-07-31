@@ -1,5 +1,5 @@
 ---
-title: DB 拆库访问点归属审计三形式
+title: auto-fix-downgrade-34
 layer: recall
 category: arch
 keywords: [db,sqlite,拆库,handle,审计,call_traced,write_conn,read_conn]
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784706845
 ---
-
+---
 # DB 拆库访问点归属审计三形式
 
 ## 触发场景

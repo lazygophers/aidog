@@ -1,7 +1,7 @@
 ---
-title: 新增 wire protocol 必须同步白名单
-layer: recall
-category: build
+title: wire-protocol-whitelist-sync
+layer: core
+category: proxy
 keywords: []
 source: -
 authored-by: skein-spec
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784985303
 ---
-
+---
 # 新增 wire protocol 必须同步白名单
 
 ## MUST 硬约束

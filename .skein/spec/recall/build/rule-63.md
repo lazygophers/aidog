@@ -1,5 +1,5 @@
 ---
-title: env!("XXX") 编译期常量随跨 crate 搬迁失效
+title: rule-63
 layer: recall
 category: build
 keywords: [env,compile-time,build.rs,cargo:rustc-env,scope]
@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1785226225
 ---
-
+---
 ## 触发场景
 用 `env!("XXX")` 的代码从一个 crate 迁移到另一个 crate 时。
 

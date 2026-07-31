@@ -1,13 +1,13 @@
 ---
-title: DB 表设计强制规范
-layer: recall
+title: db-table-conventions
+layer: core
 category: db
 keywords: [db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud]
 source: trellis
 authored-by: skein-memory
 created: 1783832113
 ---
-
+---
 # DB Conventions
 
 何时被读: 新增 / 修改任何数据库表、字段、模型、CRUD、迁移时
