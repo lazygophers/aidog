@@ -103,7 +103,12 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 migrate_log_settings_file_to_db(&db_state).await;
                 (load_app_log_settings_from_db(&db_state).await,)
             });
-            logging::init_logging(&data_dir, &log_settings);
+            // WorkerGuard 生命周期契约: non-blocking 文件写后台线程随 guard drop 而停。
+            // `app.manage` 存进 Tauri 状态表, 与 App/AppHandle 同生共死, 覆盖到进程退出前
+            // 最后一刻 —— 不绑局部变量 (那样 setup() 一返回 guard 就没了, 见 init_logging 文档)。
+            if let Some(guard) = logging::init_logging(&data_dir, &log_settings) {
+                app.manage(guard);
+            }
             logging::cleanup_old_logs(&data_dir, log_settings.retention_hours);
 
             // 启动时同步所有 settings 文件（检查不一致并更新）
