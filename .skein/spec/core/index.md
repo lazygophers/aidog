@@ -1,13 +1,12 @@
 # SKEIN core 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(14), cross-layer(7), db(21), domain(5), frontend(3), i18n(4), perf(4), proxy(9) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(13), cross-layer(12), db(22), domain(5), frontend(3), i18n(4), perf(4), proxy(9) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
 | arch/mock-platform-bypasses-forward-pipeline.md#mock 平台绕开真实转发流水线，无法验证 finish.rs 挂载的 cap/累积逻辑 | arch | mock 平台绕开真实转发流水线，无法验证 finish.rs 挂载的 cap/累积逻辑 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | - |
 | arch/mock-platform-bypasses-forward-pipeline.md#关联 | arch | 关联 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | proxy-hotpath-buffers s9-bigbody-footprint（`.scratch/perf-20… |
 | arch/mock-platform-bypasses-forward-pipeline.md#硬约束 | arch | 硬约束 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | `platform_type=mock`（`gateway/proxy/mock.rs::handle_mock`）在 … |
-| arch/mock-platform-short-circuit.md#Mock 平台绕开转发流水线短路 | arch | Mock 平台绕开转发流水线短路 | mock,platform,short-circuit,proxy | auto | - | active | Mock 平台在转发流水线早期短路，不走真实上游请求逻辑。  - `handler.rs:412` `matches!(… |
 | arch/protocol-wire-str.md#关联 | arch | 关联 | protocol,serde,wire,codegen,enum | always | - | active / →rule-05 | [[rule-05]] |
 | arch/protocol-wire-str.md#案例 | arch | 案例 | protocol,serde,wire,codegen,enum | always | - | active | - gateway/models/protocol.rs:173 定义 wire_str() - arch-deepen… |
 | arch/protocol-wire-str.md#正解 | arch | 正解 | protocol,serde,wire,codegen,enum | always | - | active | 统一用 `Protocol::wire_str()` 方法序列化协议名。 |
@@ -20,16 +19,22 @@
 | arch/stream-buf-unified-cap.md#适用 | arch | 适用 | buffer,cap,single-source-of-truth,stream,stateful,SSE | auto | - | active | - 任何多路径并发处理同一数据流的缓冲 - 多个解析器共用一个上界（如 SSE / WebSocket 等流协议） - … |
 | cross-layer/sole-platform-symmetry.md#单启用平台判定对称性 (Rust ↔ TS) | cross-layer | 单启用平台判定对称性 (Rust ↔ TS) | cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称 | always | - | active | - |
 | cross-layer/sole-platform-symmetry.md#跨层对称硬规 (Rust ↔ TS) | cross-layer | 跨层对称硬规 (Rust ↔ TS) | cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称 | always | - | active | ### 约束  **同一判定逻辑在 Rust 与 TS 各有一份实现，改一处必改另一处。**  口径须与互指注释锁定对称… |
-| cross-layer/tauri-ts-boundary-contract.md#三层契约 | cross-layer | 三层契约 | tauri,rust,typescript,invoke,snake_case,serde | auto | - | active | 1. **Rust struct 字段** → 2. **#[tauri::command] 签名** → 3. **前… |
-| cross-layer/tauri-ts-boundary-contract.md#关联 | cross-layer | 关联 | tauri,rust,typescript,invoke,snake_case,serde | auto | - | active / →sole-platform-symmetry | [[sole-platform-symmetry]] |
-| cross-layer/tauri-ts-boundary-contract.md#硬约则 | cross-layer | 硬约则 | tauri,rust,typescript,invoke,snake_case,serde | auto | - | active | - 新增 Tauri command 必须同时补前端 `src/services/api/<domain>.ts` in… |
-| cross-layer/tauri-ts-boundary-contract.md#禁用 | cross-layer | 禁用 | tauri,rust,typescript,invoke,snake_case,serde | auto | - | active | ❌ 仅后端加 command，前端漏 invoke 包装 → 形同死代码   ❌ 字段非 snake_case → se… |
-| cross-layer/tauri-ts-boundary-contract.md#验证（file:line） | cross-layer | 验证（file:line） | tauri,rust,typescript,invoke,snake_case,serde | auto | - | active | - `src-tauri/src/startup.rs:41+`：generate_handler! 注册表（invok… |
-| db/connectionclosed-retry.md#关联 | db | 关联 | db,connection,call_traced,reconnect,pool,rusqlite | auto | - | active / →crash-safe-db-split,sqlite-read-cache-config | [[crash-safe-db-split]] [[sqlite-read-cache-config]] |
-| db/connectionclosed-retry.md#根因 | db | 根因 | db,connection,call_traced,reconnect,pool,rusqlite | auto | - | active | `tokio_rusqlite` 0.6.0 特性：`Connection` 后台 event_loop 线程 pani… |
-| db/connectionclosed-retry.md#硬约则 | db | 硬约则 | db,connection,call_traced,reconnect,pool,rusqlite | auto | - | active | - `call_traced`/`call_read_traced` 检测 `ConnectionClosed` MUS… |
-| db/connectionclosed-retry.md#验证（file:line） | db | 验证（file:line） | db,connection,call_traced,reconnect,pool,rusqlite | auto | - | active | - `crates/aidog_core/src/gateway/db/mod.rs:526,1031`：重连入口 - … |
-| db/crash-safe-db-split.md#拆库迁移四阶段 Crash-Safe 范式 | db | 拆库迁移四阶段 Crash-Safe 范式 | migration,crash-safe,multi-db,state-machine | auto | - | active | 多库分离迁移必须走四阶段状态机，确保任一阶段 crash 可恢复：  1. 新库建表 + 读旧库，写旧库 2. 后台增量… |
+| cross-layer/tauri-ts-boundary-contract.md#CRUD Pattern (MUST) | cross-layer | CRUD Pattern (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | - 每个 resource 必须在 `api.ts` 提供 `{ create, list, get, update, … |
+| cross-layer/tauri-ts-boundary-contract.md#Data Flow (MUST) | cross-layer | Data Flow (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | - 数据流必须单向: Rust command → `invoke` → React `useState` → JSX … |
+| cross-layer/tauri-ts-boundary-contract.md#Format Contracts (MUST) | cross-layer | Format Contracts (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | - 后端返回 timestamp 必须为 ISO 8601 string (`chrono::DateTime<Utc>… |
+| cross-layer/tauri-ts-boundary-contract.md#Rust enum → type alias arbitrary 全 JSON 驱动 (MUST) | cross-layer | Rust enum → type alias arbitrary 全 JSON 驱动 (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | Rust enum 当变体集合属「后端 JSON 真值源派生」类（值集合由 `src-tauri/defaults/*.… |
+| cross-layer/tauri-ts-boundary-contract.md#Rust 执行层 match 臂 → JSON 真值源配置驱动引擎 (MUST) | cross-layer | Rust 执行层 match 臂 → JSON 真值源配置驱动引擎 (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | Rust 执行层（如 proxy headers 注入）写死 per-variant dispatch (`match … |
+| cross-layer/tauri-ts-boundary-contract.md#Tauri 窗口生命周期事件 (MUST) | cross-layer | Tauri 窗口生命周期事件 (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | - 窗口生命周期事件 (失焦 `Focused` / 关闭 `CloseRequested` / 缩放 `Resized… |
+| cross-layer/tauri-ts-boundary-contract.md#Tauri↔React Boundary (MUST) | cross-layer | Tauri↔React Boundary (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | - 后端新增 Tauri command 必须在前端 `api.ts` 添加对应 invoke 包装函数 - invok… |
+| cross-layer/tauri-ts-boundary-contract.md#Verification | cross-layer | Verification | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | ```bash # 所有 invoke 集中在 api.ts grep -rn 'invoke(' src/ / gre… |
+| cross-layer/tauri-ts-boundary-contract.md#反模式 (禁) | cross-layer | 反模式 (禁) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | / 反模式 / 正确做法 / 触发后果 / / --- / --- / --- / / `invoke(` 散落在组件 … |
+| cross-layer/tauri-ts-boundary-contract.md#持久化路径换、公共契约零改 (MUST) | cross-layer | 持久化路径换、公共契约零改 (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | 换持久化路径（专属表 → `setting` / JSON / 他处）时，跨 Rust↔TS **公共契约层禁改** —… |
+| db/crash-safe-db-split.md#Cross-ref | db | Cross-ref | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active / →auto-fix-downgrade-34 | - [[auto-fix-downgrade-34]]（访问点审计） - dual-db-aggregate-is-me… |
+| db/crash-safe-db-split.md#MUST 四阶段模式（✅） | db | MUST 四阶段模式（✅） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | ``` Phase 1: read-without-drop（源库读全行入 Vec，不 DROP） Phase 2: 目… |
+| db/crash-safe-db-split.md#crash 恢复矩阵 | db | crash 恢复矩阵 | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | / crash 点 / 重启行为 / /---/---/ / Phase 1 前/中 / 源表在，重读 / / Phas… |
+| db/crash-safe-db-split.md#保 id（MUST） | db | 保 id（MUST） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | `INSERT INTO platform SELECT *` / 显式列含 id 保原 id。log.db.proxy… |
+| db/crash-safe-db-split.md#实例 | db | 实例 | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | task config-db-split（s2）：platform / group / group_platform /… |
+| db/crash-safe-db-split.md#禁用模式（❌） | db | 禁用模式（❌） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | `read → DROP 源表 → INSERT 目标库`（notification migration 049 原模式… |
 | db/db-table-conventions.md#Column Naming (MUST) | db | Column Naming (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | always | - | active | - 平台主类型列名为 `platform_type`（禁 `protocol`）；其值用 `serde_json::to… |
 | db/db-table-conventions.md#Migration (MUST) | db | Migration (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | always | - | active | - schema 破坏式变更必须提供独立一次性迁移脚本（`scripts/`，非 app 运行时代码），迁移完成后删除 … |
 | db/db-table-conventions.md#No NULL (MUST) | db | No NULL (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | always | - | active | - 所有 `TEXT` 列 `NOT NULL DEFAULT ''`；所有 `INTEGER` 列 `NOT NULL… |
@@ -40,10 +45,10 @@
 | db/db-table-conventions.md#Time Fields (MUST) | db | Time Fields (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | always | - | active | - 每个表必须含 `created_at` / `updated_at` / `deleted_at`，类型 `INTE… |
 | db/db-table-conventions.md#Verification | db | Verification | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | always | - | active | ```bash # 复数表名残留 sqlite3 ~/.aidog/aidog.db ".tables" / grep … |
 | db/db-table-conventions.md#专属表 → setting 迁移模式 (MUST) | db | 专属表 → setting 迁移模式 (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | always | - | active | 域数据从专属表迁通用 `setting` 表时（`scope=<域>, key=<实体>` JSON），走 app 内置… |
-| db/sqlite-connection-resilience.md#反例（禁） | db | 反例（禁） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | always | - | active | - 禁在 handler 层才重试 route（只覆盖 route 路径，写连接死亡无法兜底；Db 层统一兜底全覆盖）。… |
-| db/sqlite-connection-resilience.md#契约（MUST） | db | 契约（MUST） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | always | - | active | - `call_traced` / `call_read_traced` 检测 `Error::ConnectionCl… |
-| db/sqlite-connection-resilience.md#根因（tokio_rusqlite 0.6.0 已知行为，库层不可改） | db | 根因（tokio_rusqlite 0.6.0 已知行为，库层不可改） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | always | - | active | - `Connection` 内部 `event_loop`（`tokio-rusqlite-0.6.0/src/lib… |
-| db/sqlite-connection-resilience.md#验证（可 grep / 可 test） | db | 验证（可 grep / 可 test） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | always | - | active | - `grep -n "ConnectionClosed\/reopen_write_conn\/pool.pick" … |
+| db/sqlite-connection-resilience.md#反例（禁） | db | 反例（禁） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | auto | - | active | - 禁在 handler 层才重试 route（只覆盖 route 路径，写连接死亡无法兜底；Db 层统一兜底全覆盖）。… |
+| db/sqlite-connection-resilience.md#契约（MUST） | db | 契约（MUST） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | auto | - | active | - `call_traced` / `call_read_traced` 检测 `Error::ConnectionCl… |
+| db/sqlite-connection-resilience.md#根因（tokio_rusqlite 0.6.0 已知行为，库层不可改） | db | 根因（tokio_rusqlite 0.6.0 已知行为，库层不可改） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | auto | - | active | - `Connection` 内部 `event_loop`（`tokio-rusqlite-0.6.0/src/lib… |
+| db/sqlite-connection-resilience.md#验证（可 grep / 可 test） | db | 验证（可 grep / 可 test） | db,connection,call_traced,reconnect,pool,ConnectionClosed,rusqlite | auto | - | active | - `grep -n "ConnectionClosed\/reopen_write_conn\/pool.pick" … |
 | db/sqlite-read-cache-config.md#SQLite 只读缓存定值 | db | SQLite 只读缓存定值 | sqlite,cache,readonly,memory,hardcoded | auto | - | active | 通过 `PRAGMA cache_size = -64` 限制每条只读连接的页缓存驻留，实测指标达标。  ### 硬约束… |
 | db/sqlite-read-cache-config.md#关联 | db | 关联 | sqlite,cache,readonly,memory,hardcoded | auto | - | active / →sqlite-cache-residency-probe-method | [[sqlite-cache-residency-probe-method]] |
 | domain/delete-platform-no-cascade.md#delete_platform 软删禁连带删组 | domain | delete_platform 软删禁连带删组 | cascade,lifecycle,platform,group | auto | - | active | `delete_platform` 仅软删平台，禁物理删，且禁连带删关联组。  - `db/platform_lifec… |

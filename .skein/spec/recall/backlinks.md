@@ -2,11 +2,30 @@
 
 章节粒度: 规则 id = `<类目>/<主题>.md#<规则标题>`; `←` 入链 (谁引用本条) / `→` 出链 (本条引用谁)。无条目 = 孤立候选。
 
+## arch/adapter-deadcode-whitelist-authority.md#关联
+- → [[rule-07]]
+
 ## arch/agent-platform-handler-branch.md#关联
 - → [[trellis-04]]
 
 ## arch/component-extraction-grep-callsites.md#关联
 - → [[auto-fix-downgrade-36]]
+
+## arch/cross-db-subquery-handle-selection.md#MUST 规则
+- ← recall/arch/db-split-access-point-audit.md#关联
+
+## arch/cross-db-subquery-handle-selection.md#错误样本（❌）
+- ← recall/arch/db-split-access-point-audit.md#关联
+
+## arch/cross-db-subquery-handle-selection.md#正确写法（✅）
+- ← recall/arch/db-split-access-point-audit.md#关联
+
+## arch/cross-db-subquery-handle-selection.md#验收
+- ← recall/arch/db-split-access-point-audit.md#关联
+
+## arch/cross-db-subquery-handle-selection.md#Cross-ref
+- ← recall/arch/db-split-access-point-audit.md#关联
+- → [[auto-fix-downgrade-34]]
 
 ## arch/db-split-access-point-audit.md#关联
 - → [[auto-fix-downgrade-35]]
@@ -26,6 +45,9 @@
 ## arch/locale-deadkey-cleanup-ownership.md#关联
 - → [[auto-fix-downgrade-38]]
 
+## arch/protocol-wire-str.md#关联
+- → [[rule-05]]
+
 ## arch/tauri-popover-window-reuse.md#关联
 - → [[rule-45]]
 - → [[trellis-03]]
@@ -41,16 +63,19 @@
 - → [[rule-07]]
 - → [[rule-55]]
 
+## build/shadcn-add-verify-deps.md#关联
+- → [[shadcn-infra-31]]
+
 ## build/tailwind-v4-import-form.md#关联
 - → [[shadcn-infra-28]]
 - → [[shadcn-infra-30]]
 
+## build/vite-at-alias-manual.md#关联
+- → [[shadcn-infra-28]]
+
 ## build/wire-protocol-gate-is-failfast.md#案例
 - → [[rule-05]]
 - → [[rule-54]]
-
-## db/crash-safe-db-split-migration.md#Cross-ref
-- → [[auto-fix-downgrade-34]]
 
 ## db/sqlite-cache-residency-probe-method.md#SQLite 页缓存常驻量的直接探针方法
 - ← core/db/sqlite-read-cache-config.md#关联
@@ -81,114 +106,31 @@
 - → [[rule-66]]
 - → [[time-tiers-apply-idiom]]
 
-## domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
-- → [[mock-platform-bypasses-forward-pipeline]]
-
-## domain/rule-51.md#关联
-- → [[rule-05]]
-- → [[rule-53]]
-
-## domain/rule-52.md#触发场景
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-
-## domain/rule-52.md#陷阱-正解
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-
-## domain/rule-52.md#决策背景
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-
-## domain/rule-52.md#实现
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-
-## domain/rule-52.md#反例
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-
-## domain/rule-52.md#适用
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-
-## domain/rule-52.md#关联
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-52.md#关联
-- ← recall/domain/rule-53.md#关联
-- → [[rule-52]]
-- → [[rule-53]]
-
-## domain/rule-53.md#触发场景
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#陷阱-正解
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#设计决策
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#覆盖范围
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#反例
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#适用
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#案例
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
-
-## domain/rule-53.md#关联
-- ← core/proxy/wire-protocol-whitelist-sync.md#关联
-- ← recall/domain/rule-51.md#关联
-- ← recall/domain/rule-52.md#关联
+## domain/converter-normalized-intermediate.md#关联
 - → [[rule-52]]
 - → [[rule-54]]
 
-## domain/rule-55.md#触发场景
-- ← recall/build/converter-endpoint-decoupled.md#案例
+## domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
+- → [[auto-fix-downgrade-35]]
 
-## domain/rule-55.md#陷阱-正解
-- ← recall/build/converter-endpoint-decoupled.md#案例
+## domain/cpa-oauth-credential-format.md#Cross-ref
+- → [[auto-fix-downgrade-35]]
+- → [[parser-multi-path-format-symmetry]]
 
-## domain/rule-55.md#分层不变量
-- ← recall/build/converter-endpoint-decoupled.md#案例
-
-## domain/rule-55.md#反例
-- ← recall/build/converter-endpoint-decoupled.md#案例
-
-## domain/rule-55.md#适用
-- ← recall/build/converter-endpoint-decoupled.md#案例
-
-## domain/rule-55.md#关联
-- ← recall/build/converter-endpoint-decoupled.md#案例
-
-## domain/rule-55.md#案例
-- ← recall/build/converter-endpoint-decoupled.md#案例
+## domain/endpoint-cross-protocol-fallback.md#案例
 - → [[rule-06]]
 - → [[rule-07]]
+
+## domain/five-wire-protocols-anchor.md#关联
+- → [[rule-05]]
+- → [[rule-53]]
+
+## domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
+- → [[mock-platform-bypasses-forward-pipeline]]
+
+## domain/reasoning-content-as-text-block.md#关联
+- → [[rule-52]]
+- → [[rule-53]]
 
 ## domain/time-tiers-apply-idiom.md#触发场景
 - ← core/domain/peak-multiplier-symmetry.md#关联
