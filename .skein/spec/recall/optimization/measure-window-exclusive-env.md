@@ -5,6 +5,7 @@ category: optimization
 keywords: [profiling,performance,measurement,environment,cargo,yarn,exclusive]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## 环境互斥约束

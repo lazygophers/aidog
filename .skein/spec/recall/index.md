@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(62), cross-layer(12), db(25), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(24), optimization(41), proxy(47), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(62), cross-layer(12), db(25), domain(97), encoding(4), frontend(100), git(6), i18n(24), ops(30), optimization(41), proxy(47), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -231,6 +231,8 @@
 | domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI） | domain | 多账号语义（CLIProxyAPI） | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | auto | - | active / →auto-fix-downgrade-35 | - 同一 OAuth 类型(如 xai)可有多个凭据(各 email 不同)→ **各自独立平台**(负载均衡) - d… |
 | domain/cpa-oauth-credential-format.md#格式结构 | domain | 格式结构 | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | auto | - | active | CLIProxyAPI OAuth 凭据 JSON(auth-dir 文件 / 导出 zip 内): ```json {… |
 | domain/cpa-oauth-credential-format.md#识别逻辑 | domain | 识别逻辑 | cpa,oauth,credential,cliproxyapi,access_token,model_aliases,xai,multi-account,凭据,导入 | auto | - | active | - `parse_oauth_json(content) -> Option<Vec<CpaProvider>>`(pa… |
+| domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查 | domain | PRD 验收标准与约束互容性检查 | PRD,acceptance,constraint,compatibility,plan | auto | - | active | - |
+| domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查 | domain | PRD 验收标准与约束互容性检查 | PRD,acceptance,constraint,compatibility,plan | auto | - | active / →mock-platform-bypasses-forward-pipeline | ### 触发场景  task plan 阶段定下验收标准（如「phys_footprint 下降」）和技术约束（如「仅用… |
 | domain/rule-51.md#关联 | domain | 关联 | protocol endpoint converter platform_type | auto | - | active / →rule-05,rule-53 | [[rule-05]] [[rule-53]] |
 | domain/rule-51.md#关键不变量 | domain | 关键不变量 | protocol endpoint converter platform_type | auto | - | active | endpoint 协议 = converter 模块支持的格式（convert_request + parse_sse） |
 | domain/rule-51.md#反例 | domain | 反例 | protocol endpoint converter platform_type | auto | - | active | - 把 glm/kimi/sensenova 当作 endpoint 协议 → 转换时 panic/未实现 - 误以为有… |
@@ -272,6 +274,8 @@
 | domain/rule-66.md#案例 | domain | 案例 | - | auto | - | active | 原错 (billing.rs 未传参) → 日志字段时刻定价与当前时刻定价混杂 → 审计重放价格错 修后 → creat… |
 | domain/rule-66.md#硬约束 | domain | 硬约束 | - | auto | - | active | `resolve_price` 新增末位参数 `now_ms: i64`，调用点按用途选传值：  / 调用点 / 传值 … |
 | domain/rule-66.md#禁用 | domain | 禁用 | - | auto | - | active | ❌ 所有调用点统一传 0（会导致时段定价形同虚设） ❌ 测试传 `now()`（会让既有基准价断言失败） ❌ 签名改动后… |
+| domain/task-decomposition-coverage-check.md#task 分解 → subtask DAG 覆盖检查 | domain | task 分解 → subtask DAG 覆盖检查 | subtask,PRD,coverage,decomposition,plan | auto | - | active | ### 触发场景  task 分解拆 subtask DAG 时。某次 task 有 7 个明确的目标（PRD），但原拆… |
+| domain/task-decomposition-coverage-check.md#task 分解 → subtask DAG 覆盖检查 | domain | task 分解 → subtask DAG 覆盖检查 | subtask,PRD,coverage,decomposition,plan | auto | - | active | - |
 | domain/time-tiers-apply-idiom.md#关联 | domain | 关联 | time_tiers, 定价分档, 嵌套价表, 时间维度 | auto | - | active / →bundled-models-fallback,rule-66,rule-67 | [[rule-66]] [[rule-67]] [[bundled-models-fallback]] |
 | domain/time-tiers-apply-idiom.md#反例 | domain | 反例 | time_tiers, 定价分档, 嵌套价表, 时间维度 | auto | - | active | ```rust // ❌ 顺序首命中 + 扁平相加 let tier = tiers.iter().find(/t/ t… |
 | domain/time-tiers-apply-idiom.md#案例 | domain | 案例 | time_tiers, 定价分档, 嵌套价表, 时间维度 | auto | - | active | **glm-5-turbo 时段+长文档**： - base: 32k 档 = 2e-6 $/token（普通价） - … |
@@ -462,9 +466,15 @@
 | ops/buf-residue-observability.md#验收 | ops | 验收 | - | auto | - | active | - [ ] Drop impl 存在（或流末清理函数有相关 log） - [ ] warn 日志含残留长度和必要上下文 … |
 | ops/buffer-residue-no-silent-drop.md#缓冲残留处置·禁静默丢 | ops | 缓冲残留处置·禁静默丢 | - | auto | - | active | - |
 | ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单 | ops | 空闲期唤醒源 6 分类清单 | wakeup,timers,scheduler,sources,profiling,static-analysis,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env | 空闲期 CPU 唤醒源分 6 类，静态 rg 检索无遗漏（src-tauri + src）。  / 分类 / 频率 / … |
+| ops/logging-queue-capacity-tuning.md#日志队列 capacity 定值方法：从采样均值反推 | ops | 日志队列 capacity 定值方法：从采样均值反推 | logging,queue,capacity,tuning,p99 | auto | - | active | - |
+| ops/logging-queue-capacity-tuning.md#日志队列 capacity 定值方法：从采样均值反推 | ops | 日志队列 capacity 定值方法：从采样均值反推 | logging,queue,capacity,tuning,p99 | auto | - | active / →hot-path-buffers | ### 触发场景  应用日志流量稳定后需定值日志队列 capacity（mpsc channel），既要不丢日志（缓冲充… |
 | ops/stack-attribution-profiling-methodology.md#栈归因用法 | ops | 栈归因用法 | profiling,stack-trace,attribution,instruments,xctrace,methodology,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env,webkit-jit-warmup-trap | **定理**：静态检索定时器只能估出量级（因周期、触发条件、执行成本都是猜），无法判断是否真在稳态 CPU 占比中命中。… |
-| ops/test-data-isolation-constraint.md#性能测试数据隔离约束 | ops | 性能测试数据隔离约束 | testing,data,isolation,database,measurement,real-data | auto | - | active | - |
-| ops/test-data-isolation-constraint.md#测试数据隔离硬约束 | ops | 测试数据隔离硬约束 | testing,data,isolation,database,measurement,real-data | auto | - | active | 性能量测或功能验证时需要用特定数据库（如缩小库、污染库等）。  ### 硬约束  - **禁移动/重命名用户的真实库文件… |
+| ops/tauri-logging-guard-lifecycle.md#Tauri `tracing_appender::non_blocking` WorkerGuard 生命周期陷阱 | ops | Tauri `tracing_appender::non_blocking` WorkerGuard 生命周期陷阱 | Tauri,tracing,WorkerGuard,logging,lifecycle | auto | - | active | ### 触发场景  在 Tauri 应用中使用 `tracing_appender::non_blocking` 创建后… |
+| ops/tauri-logging-guard-lifecycle.md#Tauri tracing_appender::non_blocking WorkerGuard 生命周期陷阱 | ops | Tauri tracing_appender::non_blocking WorkerGuard 生命周期陷阱 | Tauri,tracing,WorkerGuard,logging,lifecycle | auto | - | active | - |
+| ops/test-data-isolation-constraint.md#性能测试数据隔离约束 | ops | 性能测试数据隔离约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | - |
+| ops/test-data-isolation-constraint.md#测试数据隔离硬约束 | ops | 测试数据隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | 性能量测或功能验证时需要用特定数据库（如缩小库、污染库等）。  ### 硬约束  - **禁移动/重命名用户的真实库文件… |
+| ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束 | ops | 量测脚本 HOME 环境隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | - |
+| ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束 | ops | 量测脚本 HOME 环境隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active / →"$HOME" == "$HOME_REAL",tmp | ### 扩展约束：禁污染用户真实数据目录  前置约束禁止移动用户真实库文件，但仍需隔离 **整个数据目录**（不仅是单个… |
 | ops/trellis-17.md#Cross-reference | ops | Cross-reference | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | - 先例代码: `crates/aidog_core/src/gateway/defaults_sync.rs`（pla… |
 | ops/trellis-17.md#实例 | ops | 实例 | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | - task 07-09-*（platform-presets 同步首次落地，`defaults_sync.rs` 先例… |
 | ops/trellis-17.md#数据流架构 (MUST，禁前端直读 github) | ops | 数据流架构 (MUST，禁前端直读 github) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | ``` github (master) ──rust sync (<x>_sync.rs)──▶ ~/.aidog/<f… |

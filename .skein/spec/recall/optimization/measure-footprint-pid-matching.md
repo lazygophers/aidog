@@ -4,6 +4,7 @@ layer: recall
 category: optimization
 keywords: [measure,footprint,pid,glob,data-corruption,baseline]
 status: active
+protected: true
 ---
 
 ## measure.sh 同 label 跨 run 文件混淆

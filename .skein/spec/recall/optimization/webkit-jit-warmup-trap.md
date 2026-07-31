@@ -5,6 +5,7 @@ category: optimization
 keywords: [webkit,jsc,jit,warmup,profiling,sampling,trap,cpu]
 status: active
 inclusion: auto
+protected: true
 ---
 
 ## WebContent JSC JIT 热身陷阱

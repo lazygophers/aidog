@@ -4,6 +4,7 @@ layer: recall
 category: skein
 keywords: [subagent,sendmessage,return-value,coordinator,message-passing]
 status: active
+protected: true
 ---
 
 ## agent 零回传真因 = 未调 SendMessage

@@ -4,6 +4,7 @@ layer: recall
 category: optimization
 keywords: [webkit,xpc,helper,process-tree,ppid,measurement-isolation]
 status: active
+protected: true
 ---
 
 ## 进程编制核验硬闸替代动态反查

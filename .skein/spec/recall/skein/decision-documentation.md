@@ -4,6 +4,7 @@ layer: recall
 category: skein
 keywords: [planning,execution,hypothesis-testing,decision-logging,design-vs-reality]
 status: active
+protected: true
 ---
 
 ## 实测推翻设计假设时的处理范式（留痕+不硬凑）
