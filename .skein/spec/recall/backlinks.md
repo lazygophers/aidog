@@ -1062,6 +1062,14 @@
 - ← recall/frontend/form-level-tz-state-sharing.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 
+## ops/buf-residue-observability.md#关联
+- → [[sse-chunk-stateless-defect]]
+- → [[stream-buf-unified-cap]]
+
+## ops/buf-residue-observability.md#关联
+- → [[sse-chunk-stateless-defect]]
+- → [[stream-buf-unified-cap]]
+
 ## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - → [[idle-cpu-baseline-xctrace]]
@@ -1101,9 +1109,68 @@
 - ← recall/optimization/measure-window-exclusive-env.md#环境互斥约束
 - → [[idle-cpu-baseline-xctrace]]
 
+## proxy/rule-50.md#触发场景
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/rule-50.md#陷阱：同步写会阻塞热路径 + 异步不保证持久性
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/rule-50.md#正解：方案 B（单 writer + 有界 queue + 分级背压 + 串行快照）
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/rule-50.md#反例 / 常见错误
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/rule-50.md#落库路径升级 checklist
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/rule-50.md#验证
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/rule-50.md#适用
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
 ## proxy/rule-50.md#关联
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
 - → [[trellis-00]]
 - → [[trellis-11]]
+
+## proxy/rule-50.md#案例
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#触发场景
+- ← core/arch/stream-buf-unified-cap.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- ← rules/perf/stream-buf-no-batching.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#缺陷：逐 chunk 无状态解析导致完整行静默丢失
+- ← core/arch/stream-buf-unified-cap.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- ← rules/perf/stream-buf-no-batching.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#正解：尾行缓冲 + 无状态解析分离
+- ← core/arch/stream-buf-unified-cap.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- ← rules/perf/stream-buf-no-batching.md#关联
+- → [[stream-buf-unified-cap]]
+
+## proxy/sse-chunk-stateless-defect.md#验收基准
+- ← core/arch/stream-buf-unified-cap.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- ← rules/perf/stream-buf-no-batching.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#适用场景
+- ← core/arch/stream-buf-unified-cap.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- ← rules/perf/stream-buf-no-batching.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#关联
+- ← core/arch/stream-buf-unified-cap.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- ← rules/perf/stream-buf-no-batching.md#关联
+- → [[hot-path-buffers]]
+- → [[rule-50]]
+- → [[stream-buf-unified-cap]]
 
 ## proxy/trellis-11.md#CONNECT 路由契约 (MUST)
 - ← recall/proxy/rule-50.md#关联
