@@ -184,18 +184,18 @@
 - ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/tauri-popover-window-reuse.md#关联
-- → [[rule-45]]
-- → [[trellis-18]]
+- → [[frontend-conventions]]
+- → [[planning-scope-pregrep]]
 
 ## build/converter-endpoint-decoupled.md#案例
 - → [[wire-protocol-gate-is-failfast]]
 
 ## build/shadcn-add-verify-deps.md#关联
-- → [[shadcn-infra-31]]
+- → [[theme-token-runtime-switch]]
 
 ## build/tailwind-v4-import-form.md#关联
+- → [[css-var-alias-layer]]
 - → [[shadcn-infra-28]]
-- → [[shadcn-infra-30]]
 
 ## build/vite-at-alias-manual.md#关联
 - → [[shadcn-infra-28]]
@@ -381,6 +381,35 @@
 
 ## frontend/frontend.md#关联
 - → [[form-level-tz-state-sharing]]
+- → [[tauri-drag-drop-api]]
+
+## frontend/frontend.md#关联
+- → [[dirty-float-hour-normalization]]
+- → [[time-zone-minute-arithmetic]]
+
+## frontend/frontend.md#关联
+- → [[i18n-key-deletion-safety]]
+- → [[modal-state-architecture]]
+
+## frontend/frontend.md#关联
+- → [[tailwind-cascade-layer-unlayered]]
+
+## frontend/frontend.md#关联
+- → [[dirty-float-hour-normalization]]
+- → [[form-level-tz-state-sharing]]
+
+## frontend/frontend.md#关联
+- → [[semantic-token-foreground-pairing]]
+
+## frontend/frontend.md#关联
+- → [[theme-token-runtime-switch]]
+
+## frontend/frontend.md#关联
+- → [[css-var-alias-layer]]
+
+## frontend/frontend.md#关联
+- → [[i18n-key-eight-locales]]
+- → [[modal-state-architecture]]
 - → [[tauri-drag-drop-api]]
 
 ## i18n/i18n.md#关联

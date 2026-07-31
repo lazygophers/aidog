@@ -35,7 +35,7 @@ inclusion: auto
 yarn 4+ / pnp 环境，shadcn 批量 add 场景
 
 ## 关联
-[[shadcn-infra-31]] (同任务产出的前端规则)
+[[theme-token-runtime-switch]] (同任务产出的前端规则)
 
 ---
 
