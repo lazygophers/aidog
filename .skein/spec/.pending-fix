@@ -1,0 +1,84 @@
+{
+  "ts": "2026-07-31T23:39:22",
+  "core_chars": 277,
+  "budget": 8000,
+  "problems": [
+    {
+      "type": "broken-link",
+      "files": [
+        "core/arch/stream-buf-unified-cap"
+      ],
+      "detail": "[断链] core/arch/stream-buf-unified-cap: [[stream-buf-no-batching]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "core/arch/stream-buf-unified-cap"
+      ],
+      "detail": "[断链] core/arch/stream-buf-unified-cap: [[hot-path-buffers]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "core/domain/peak-multiplier-symmetry"
+      ],
+      "detail": "[断链] core/domain/peak-multiplier-symmetry: [[rule-66]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "core/domain/peak-multiplier-symmetry"
+      ],
+      "detail": "[断链] core/domain/peak-multiplier-symmetry: [[time-tiers-apply-idiom]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/domain/prd-acceptance-consistency-check"
+      ],
+      "detail": "[断链] recall/domain/prd-acceptance-consistency-check: [[mock-platform-bypasses-forward-pipeline]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/ops/logging-queue-capacity-tuning"
+      ],
+      "detail": "[断链] recall/ops/logging-queue-capacity-tuning: [[hot-path-buffers]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/ops/test-data-isolation-constraint"
+      ],
+      "detail": "[断链] recall/ops/test-data-isolation-constraint: [[\"$HOME\" == \"$HOME_REAL\"]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/ops/test-data-isolation-constraint"
+      ],
+      "detail": "[断链] recall/ops/test-data-isolation-constraint: [[! \"$HOME\" =~ ^/tmp]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/ops/test-data-isolation-constraint"
+      ],
+      "detail": "[断链] recall/ops/test-data-isolation-constraint: [[\"$HOME\" =~ ^/tmp]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/skein/parallel-subtask-prop-contract"
+      ],
+      "detail": "[断链] recall/skein/parallel-subtask-prop-contract: [[dirty-float-hour-normalization]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/skein/parallel-subtask-prop-contract"
+      ],
+      "detail": "[断链] recall/skein/parallel-subtask-prop-contract: [[form-level-tz-state-sharing]] ✗ 目标缺失"
+    }
+  ]
+}
