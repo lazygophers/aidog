@@ -268,16 +268,15 @@ async fn relay_passthrough(
                 }
             }
         };
-        // 旁路累积上游 SSE 原文（受对应侧开关控制）
-        if record_upstream_body
-            && let Ok(mut up) = guard.agg.upstream_body.lock() {
-                up.push(chunk.clone());
-            }
+        // 旁路累积上游 SSE 原文（受对应侧开关控制；push_upstream 内部 O(1) 判断是否已达
+        // STREAM_BODY_MAX_BYTES 上限，达上限后跳过不再增长）
+        if record_upstream_body {
+            guard.agg.push_upstream(&chunk);
+        }
         // 透传 user_response_body == upstream 原文：受 log_user_request 控制时同步聚合到 client_body
-        if record_client_body
-            && let Ok(mut cl) = guard.agg.client_body.lock() {
-                cl.push(chunk.clone());
-            }
+        if record_client_body {
+            guard.agg.push_client(&chunk);
+        }
         // 尽力从 SSE data 累计 usage（仅 extract_usage 分支需 token 入库；forward 跳过节省开销，
         // cost=0 无需 token，且普通浏览流量 SSE 极少 feed_sse_usage 走通）。
         if extract_usage {

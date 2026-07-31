@@ -489,6 +489,62 @@ use super::*;
         );
     }
 
+    // ── s3-push-cap 回归：push_upstream/push_client 达 STREAM_BODY_MAX_BYTES 后停止累积 ──
+    // 根因：旧实现直接 `up.push(chunk.clone())` 无上界，单流超大响应下 Vec<Bytes> 无界增长
+    // （OOM 风险）。修复后达上限即跳过 push，vec 总字节数不再继续增长。
+    #[test]
+    fn push_upstream_stops_growing_past_cap() {
+        let agg = StreamAggregator::new();
+        // 单 chunk 4MB，喂 8 次（共 32MB）远超 16MB 上限。
+        let chunk = Bytes::from(vec![b'x'; 4 * 1024 * 1024]);
+        for _ in 0..8 {
+            agg.push_upstream(&chunk);
+        }
+        let total: usize = agg.upstream_body.lock().unwrap().iter().map(|c| c.len()).sum();
+        assert!(
+            total <= 16 * 1024 * 1024 + 4 * 1024 * 1024,
+            "累积应在上限附近停止增长（至多一个 chunk 的越界余量），实际 total={total}"
+        );
+        // 继续喂更多 chunk，total 不应再增长（已封顶）。
+        let total_before = total;
+        for _ in 0..8 {
+            agg.push_upstream(&chunk);
+        }
+        let total_after: usize = agg.upstream_body.lock().unwrap().iter().map(|c| c.len()).sum();
+        assert_eq!(total_after, total_before, "达上限后再 push 不应继续增长");
+    }
+
+    #[test]
+    fn push_client_stops_growing_past_cap() {
+        let agg = StreamAggregator::new();
+        let chunk = Bytes::from(vec![b'y'; 4 * 1024 * 1024]);
+        for _ in 0..10 {
+            agg.push_client(&chunk);
+        }
+        let total: usize = agg.client_body.lock().unwrap().iter().map(|c| c.len()).sum();
+        assert!(
+            total <= 16 * 1024 * 1024 + 4 * 1024 * 1024,
+            "client_body 累积也应在上限附近封顶，实际 total={total}"
+        );
+    }
+
+    // ── s3-push-cap 回归：sse_line_buf remainder 超 SSE_LINE_BUF_MAX_BYTES 应丢弃而非无界增长 ──
+    #[test]
+    fn feed_sse_usage_remainder_capped_when_no_newline_ever_arrives() {
+        let agg = StreamAggregator::new();
+        // 持续喂无换行文本，模拟恶意/异常上游永不发完整行。
+        let junk = "x".repeat(64 * 1024); // 64KB / 次
+        for _ in 0..20 {
+            // 20*64KB = 1.25MB > 1MB 上限
+            agg.feed_sse_usage(&junk);
+        }
+        let remainder_len = agg.sse_line_buf.lock().unwrap().len();
+        assert!(
+            remainder_len < 1024 * 1024,
+            "remainder 超上限后应被丢弃重置，不应无界增长，实际 len={remainder_len}"
+        );
+    }
+
     /// emoji 场景：四字节字符「😀」（F0 9F 98 80）在第 2 字节处被切成两个网络 chunk。
     #[test]
     fn utf8_char_split_across_network_chunk_corrupts_emoji_content() {

@@ -272,11 +272,11 @@ where
             }
         };
 
-        // 旁路累积上游响应原文（受 master 开关控制；锁为同步短临界区）
-        if record_upstream_body
-            && let Ok(mut up) = guard.agg.upstream_body.lock() {
-                up.push(chunk.clone());
-            }
+        // 旁路累积上游响应原文（受 master 开关控制；push_upstream 内部 O(1) 判断是否已达
+        // STREAM_BODY_MAX_BYTES 上限，达上限后跳过不再增长，累积期本身有界）
+        if record_upstream_body {
+            guard.agg.push_upstream(&chunk);
+        }
 
         // 跨 chunk 字节层重组：被 chunk 边界切断的多字节字符尾部留到下次拼接后再解码一次，
         // 避免逐 chunk 独立 lossy 解码把半个字符替换为 U+FFFD（原 `String::from_utf8_lossy(&chunk)`）。
@@ -332,11 +332,10 @@ where
             out_bytes
         };
 
-        // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制）
-        if record_client_body && !out_bytes.is_empty()
-            && let Ok(mut cl) = guard.agg.client_body.lock() {
-                cl.push(out_bytes.clone());
-            }
+        // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制；push_client 同 O(1) 上限判断）
+        if record_client_body && !out_bytes.is_empty() {
+            guard.agg.push_client(&out_bytes);
+        }
         // 正常结束：本 chunk 含 [DONE] 即触发 flush（token 已累加完整）；否则由断连 Drop 兜底。
         // flush 幂等（est_fired 守卫），[DONE] 与 Drop 二者只生效一次。flush 内仅 tokio::spawn，不阻塞转发。
         guard.flush_if_done(&text);

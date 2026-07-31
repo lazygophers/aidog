@@ -2,7 +2,18 @@ use super::*;
 
 /// 聚合 SSE body 的上限（字节）。OOM 止血：512MB → 16MB（N 并发 × 上限 = 物理内存预算）。
 /// 超限截断 + 标记，禁 panic / OOM。完整上游响应正文落库不依赖此上限（DB schema 列仍在）。
+/// 同时也是 push 点（累积期）的上界：`StreamAggregator::push_upstream`/`push_client` 一旦累计
+/// 达此值即停止继续 push（O(1) 原子计数器判断，禁每 chunk 全量扫 vec —— 红线 1），
+/// 使流式累积期本身有界，而非仅在 flush 时事后截断。
 const STREAM_BODY_MAX_BYTES: usize = 16 * 1024 * 1024;
+
+/// SSE 单行重组缓冲 / UTF-8 字节重组 pending 的上界（字节）。**唯一真值源** —— 独立 task
+/// `sse-chunk-line-reassembly` 的内容侧行重组缓冲引用此口径，禁另立一份常量。
+/// 正常 SSE `data:` 行远小于此值（几十字节到几 KB）；remainder 持续无换行增长到 1MB 视为
+/// 异常/恶意上游（永不发完整行），行为：**丢弃整段 remainder**（不截断保留半截，半截 JSON
+/// 也解析不出 usage，保留无意义）并 warn，下条数据从空 buf 重新开始拼接——仅影响 usage 提取，
+/// 不影响 relay 给客户端的原始字节。
+const SSE_LINE_BUF_MAX_BYTES: usize = 1024 * 1024;
 
 /// 非流式响应 body 落库上限（对齐 STREAM_BODY_MAX_BYTES）。仅落库 String 经此截断 + 标记；
 /// 转发客户端的原文不受影响（与流式「转发全量、聚合上限」语义对称）。
@@ -80,6 +91,14 @@ impl Utf8ChunkReassembler {
         }
 
         self.pending.extend_from_slice(chunk);
+        // 防御性上界（同 SSE_LINE_BUF_MAX_BYTES 口径）：正常增量 pending 至多 3 字节（一个被
+        // 切断的多字节字符尾部，UTF-8 规范上限）；此分支理论不可达，仅防未来重构回归或恶意
+        // 上游异常输入导致 pending 无界增长——命中即当作损坏数据 lossy 兜底并清空，不再等待。
+        if self.pending.len() > SSE_LINE_BUF_MAX_BYTES {
+            let out = String::from_utf8_lossy(&self.pending).into_owned();
+            self.pending.clear();
+            return out;
+        }
         match std::str::from_utf8(&self.pending) {
             Ok(s) => {
                 let out = s.to_string();
@@ -107,6 +126,10 @@ impl Utf8ChunkReassembler {
 pub(crate) struct StreamAggregator {
     pub(crate) upstream_body: std::sync::Mutex<Vec<Bytes>>,
     pub(crate) client_body: std::sync::Mutex<Vec<Bytes>>,
+    // push 点累积字节计数（红线 1：O(1) 原子读判断是否已达 STREAM_BODY_MAX_BYTES，
+    // 达上限后 push_upstream/push_client 跳过 push，禁每 chunk 扫 vec 求 len）。
+    upstream_body_bytes: std::sync::atomic::AtomicUsize,
+    client_body_bytes: std::sync::atomic::AtomicUsize,
     tokens_in: std::sync::atomic::AtomicI32,
     tokens_out: std::sync::atomic::AtomicI32,
     tokens_cache: std::sync::atomic::AtomicI32,
@@ -122,11 +145,41 @@ impl StreamAggregator {
         Self {
             upstream_body: std::sync::Mutex::new(Vec::new()),
             client_body: std::sync::Mutex::new(Vec::new()),
+            upstream_body_bytes: std::sync::atomic::AtomicUsize::new(0),
+            client_body_bytes: std::sync::atomic::AtomicUsize::new(0),
             tokens_in: std::sync::atomic::AtomicI32::new(0),
             tokens_out: std::sync::atomic::AtomicI32::new(0),
             tokens_cache: std::sync::atomic::AtomicI32::new(0),
             sse_line_buf: std::sync::Mutex::new(String::new()),
         }
+    }
+
+    /// 有界 push 内部实现：O(1) 原子读判断是否已达上限，未达才加锁 push + 累加计数
+    /// （红线 1：禁每 chunk 全量扫 vec 求 len）。达上限后静默跳过，vec 不再增长
+    /// ——累积期本身有界，而非仅 flush 时事后截断（对照 cap_nonstream_body 语义对称）。
+    fn push_capped(
+        mutex: &std::sync::Mutex<Vec<Bytes>>,
+        counter: &std::sync::atomic::AtomicUsize,
+        chunk: &Bytes,
+    ) {
+        use std::sync::atomic::Ordering::Relaxed;
+        if counter.load(Relaxed) >= STREAM_BODY_MAX_BYTES {
+            return;
+        }
+        if let Ok(mut v) = mutex.lock() {
+            v.push(chunk.clone());
+        }
+        counter.fetch_add(chunk.len(), Relaxed);
+    }
+
+    /// 四个 push 点之二：上游响应原文旁路累积（finish.rs/passthrough.rs 共用）。
+    pub(crate) fn push_upstream(&self, chunk: &Bytes) {
+        Self::push_capped(&self.upstream_body, &self.upstream_body_bytes, chunk);
+    }
+
+    /// 四个 push 点之二：下发客户端的 SSE 旁路累积（finish.rs/passthrough.rs 共用）。
+    pub(crate) fn push_client(&self, chunk: &Bytes) {
+        Self::push_capped(&self.client_body, &self.client_body_bytes, chunk);
     }
 
     /// 从一个网络 chunk 的文本累计 SSE usage，跨 chunk 边界重组 `data:` 行。
@@ -160,7 +213,17 @@ impl StreamAggregator {
                 }
             }
         }
-        *buf = remainder;
+        // remainder 上界（SSE_LINE_BUF_MAX_BYTES 唯一真值源，见常量注释）：持续无换行增长到
+        // 上限视为异常/恶意上游，丢弃整段 remainder 而非无界累积——半截数据本就解析不出 usage。
+        if remainder.len() > SSE_LINE_BUF_MAX_BYTES {
+            tracing::warn!(
+                len = remainder.len(),
+                "sse_line_buf remainder exceeded cap, dropping (malformed/oversized SSE line)"
+            );
+            *buf = String::new();
+        } else {
+            *buf = remainder;
+        }
     }
 }
 
