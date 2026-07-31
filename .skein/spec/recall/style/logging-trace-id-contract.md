@@ -1,10 +1,14 @@
 ---
-title: style
-category: style
-keywords: [log,trace,traceid,ansi,format,spawn_traced,logging.rs,gateway]
-status: active
+title: logging-trace-id-contract
+name: logging-trace-id-contract
+description: 日志格式与 traceid 取值链契约
+layer: recall
+keywords: [log,trace,traceid,ansi]
+created: 1785516136
 inclusion: auto
 ---
+
+## logging-trace-id-contract
 
 ## 日志格式与 traceid 取值链契约
 
@@ -54,4 +58,4 @@ inclusion: auto
 
 ## 关联
 
-[[platform-auto-disable-codes]]、[[remote-defaults-sync-chain]]（同类 span instrumentation 链路）
+[[auto-disable-401-403-402]]、[[remote-defaults-sync-chain]]（同类 span instrumentation 链路）

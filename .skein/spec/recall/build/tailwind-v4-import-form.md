@@ -29,4 +29,4 @@ Tailwind v4 迁移过程中**禁使用旧 v3 的三行导入方式**，必须用
 Tailwind v3 → v4 迁移、新项目用 v4
 
 ## 关联
-[[css-var-alias-layer]] [[shadcn-infra-28]]
+[[css-var-alias-layer]] [[shadcn-add-verify-deps]]

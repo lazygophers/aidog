@@ -1,4 +1,5 @@
 ---
+title: time-tiers-apply-idiom
 name: time-tiers-apply-idiom
 description: 时段价表多档选策略，按 start_at 最大档命中后整体替换价表再嵌套 context 分档
 type: recall

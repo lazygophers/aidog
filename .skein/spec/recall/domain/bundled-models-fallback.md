@@ -1,4 +1,5 @@
 ---
+title: bundled-models-fallback
 name: bundled-models-fallback
 description: 编译期 include_str! + OnceLock 懒加载配置，DB 恒优先的只读兜底策略
 type: recall

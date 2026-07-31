@@ -44,7 +44,7 @@
 
 ## arch/component-extraction-grep-callsites.md#关联
 - ← recall/reuse/grep-before-write.md#关联
-- → [[auto-fix-downgrade-36]]
+- → [[grep-before-write]]
 
 ## arch/cross-db-subquery-handle-selection.md#MUST 规则
 - ← recall/arch/db-split-access-point-audit.md#关联
@@ -107,7 +107,7 @@
 - → [[db-split-access-point-audit]]
 
 ## arch/dedup-key-must-be-nonempty.md#关联
-- → [[shadcn-infra-32]]
+- → [[locale-deadkey-cleanup-ownership]]
 
 ## arch/enum-variant-delete-needs-migration.md#触发场景
 - ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
@@ -126,33 +126,65 @@
 
 ## arch/enum-variant-delete-needs-migration.md#关联
 - ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+- → [[locale-deadkey-cleanup-ownership]]
 - → [[protocol-variant-extension]]
-- → [[shadcn-infra-32]]
 
 ## arch/gemini-sse-alt-param.md#关联
 - → [[adapter-deadcode-whitelist-authority]]
 - → [[protocol-wire-str]]
 
+## arch/invoke-name-source-of-truth.md#触发场景
+- ← recall/test/cross-crate-test-path.md#关联
+
+## arch/invoke-name-source-of-truth.md#陷阱
+- ← recall/test/cross-crate-test-path.md#关联
+
+## arch/invoke-name-source-of-truth.md#正解
+- ← recall/test/cross-crate-test-path.md#关联
+
+## arch/invoke-name-source-of-truth.md#案例
+- ← recall/test/cross-crate-test-path.md#关联
+
+## arch/invoke-name-source-of-truth.md#适用
+- ← recall/test/cross-crate-test-path.md#关联
+
+## arch/invoke-name-source-of-truth.md#关联
+- ← recall/test/cross-crate-test-path.md#关联
+
 ## arch/locale-deadkey-cleanup-ownership.md#流程约定
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/locale-deadkey-cleanup-ownership.md#正解
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/locale-deadkey-cleanup-ownership.md#陷阱
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/locale-deadkey-cleanup-ownership.md#反例
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/locale-deadkey-cleanup-ownership.md#案例
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/locale-deadkey-cleanup-ownership.md#适用
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/locale-deadkey-cleanup-ownership.md#关联
 - ← core/i18n/zh-hans-literal-sync.md#关联
+- ← recall/arch/dedup-key-must-be-nonempty.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 - → [[enum-variant-delete-needs-migration]]
 
 ## arch/protocol-variant-extension.md#新增变体 MUST 先 grep 同构变体命中点 (MUST)
@@ -190,15 +222,37 @@
 ## build/converter-endpoint-decoupled.md#案例
 - → [[wire-protocol-gate-is-failfast]]
 
+## build/shadcn-add-verify-deps.md#触发场景
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/build/vite-at-alias-manual.md#关联
+
+## build/shadcn-add-verify-deps.md#陷阱-正解
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/build/vite-at-alias-manual.md#关联
+
+## build/shadcn-add-verify-deps.md#反例
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/build/vite-at-alias-manual.md#关联
+
+## build/shadcn-add-verify-deps.md#案例
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/build/vite-at-alias-manual.md#关联
+
+## build/shadcn-add-verify-deps.md#适用
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/build/vite-at-alias-manual.md#关联
+
 ## build/shadcn-add-verify-deps.md#关联
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/build/vite-at-alias-manual.md#关联
 - → [[theme-token-runtime-switch]]
 
 ## build/tailwind-v4-import-form.md#关联
 - → [[css-var-alias-layer]]
-- → [[shadcn-infra-28]]
+- → [[shadcn-add-verify-deps]]
 
 ## build/vite-at-alias-manual.md#关联
-- → [[shadcn-infra-28]]
+- → [[shadcn-add-verify-deps]]
 
 ## build/wire-protocol-gate-is-failfast.md#MUST 硬约束
 - ← recall/arch/adapter-deadcode-whitelist-authority.md#关联
@@ -372,50 +426,414 @@
 - → [[peak-multiplier-symmetry]]
 - → [[resolve-price-now-ms]]
 
-## frontend/frontend.md#关联
-- → [[modal-state-architecture]]
-- → [[time-zone-minute-arithmetic]]
+## frontend/css-var-alias-layer.md#css-var-alias-layer
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
-- → [[modal-state-architecture]]
+## frontend/css-var-alias-layer.md#Tailwind cascade layer: 裸写规则反压 layer 内 utility
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
-- → [[form-level-tz-state-sharing]]
-- → [[tauri-drag-drop-api]]
+## frontend/css-var-alias-layer.md#陷阱
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
-- → [[dirty-float-hour-normalization]]
-- → [[time-zone-minute-arithmetic]]
+## frontend/css-var-alias-layer.md#正解
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
-- → [[i18n-key-deletion-safety]]
-- → [[modal-state-architecture]]
+## frontend/css-var-alias-layer.md#检查
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
-- → [[tailwind-cascade-layer-unlayered]]
+## frontend/css-var-alias-layer.md#案例
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
-- → [[dirty-float-hour-normalization]]
-- → [[form-level-tz-state-sharing]]
+## frontend/css-var-alias-layer.md#适用
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 
-## frontend/frontend.md#关联
+## frontend/css-var-alias-layer.md#关联
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 - → [[semantic-token-foreground-pairing]]
 
-## frontend/frontend.md#关联
+## frontend/css-var-alias-layer.md#CSS var live resolution 别名层
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
+
+## frontend/css-var-alias-layer.md#正解
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
+
+## frontend/css-var-alias-layer.md#对比
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
+
+## frontend/css-var-alias-layer.md#案例
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
+
+## frontend/css-var-alias-layer.md#适用
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
+
+## frontend/css-var-alias-layer.md#关联
+- ← recall/build/tailwind-v4-import-form.md#关联
+- ← recall/frontend/theme-token-runtime-switch.md#关联
 - → [[theme-token-runtime-switch]]
 
-## frontend/frontend.md#关联
-- → [[css-var-alias-layer]]
+## frontend/dirty-float-hour-normalization.md#dirty-float-hour-normalization
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
 
-## frontend/frontend.md#关联
+## frontend/dirty-float-hour-normalization.md#脏数据入库时归一 — 浮点 hour 拆分为整数 hour+minute
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#陷阱：后端 migration 改 serde 类型成本高，数据污染持久
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#前端读取路径归一（关键）
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#单测覆盖（脏数据拆分规则）
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#反例 / 常见错误
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#适用
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+- → [[modal-state-architecture]]
+- → [[time-zone-minute-arithmetic]]
+
+## frontend/form-level-tz-state-sharing.md#form-level-tz-state-sharing
+- ← recall/frontend/modal-state-architecture.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#表单级时区状态共用 — 单一 state 透传避免口径漂移
+- ← recall/frontend/modal-state-architecture.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#陷阱：各组件独立 state 导致口径漂移
+- ← recall/frontend/modal-state-architecture.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#MUST 单一真值源（表单级 state）
+- ← recall/frontend/modal-state-architecture.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#适用
+- ← recall/frontend/modal-state-architecture.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+
+## frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+- ← recall/frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/skein/parallel-subtask-prop-contract.md#关联
+- → [[dirty-float-hour-normalization]]
+- → [[time-zone-minute-arithmetic]]
+
+## frontend/frontend-conventions.md#frontend-conventions
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#前端 conventions 强制规则
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#Directory Structure (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#Component Patterns (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#State Management (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#CRUD 刷新链契约 (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#API Layer (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#i18n (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#Large File Split — facade 模式 (MUST)
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## frontend/frontend-conventions.md#关联
+- ← recall/arch/tauri-popover-window-reuse.md#关联
 - → [[i18n-key-eight-locales]]
 - → [[modal-state-architecture]]
 - → [[tauri-drag-drop-api]]
 
-## i18n/i18n.md#关联
+## frontend/modal-state-architecture.md#modal-state-architecture
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+
+## frontend/modal-state-architecture.md#PlatformEditForm Modal 架构模式
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+
+## frontend/modal-state-architecture.md#两类 Modal 区分
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+
+## frontend/modal-state-architecture.md#架构原则
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+
+## frontend/modal-state-architecture.md#后续新 Modal 决策树
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+
+## frontend/modal-state-architecture.md#验收
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+
+## frontend/modal-state-architecture.md#关联
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/frontend/tauri-drag-drop-api.md#关联
+- → [[form-level-tz-state-sharing]]
+- → [[tauri-drag-drop-api]]
+
+## frontend/platform-creation-entry-consolidation.md#platform-creation-entry-consolidation
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#cli-proxy 平台创建入口唯一性
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#约束
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#正解
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#反例
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#适用
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- → [[i18n-key-deletion-safety]]
+- → [[modal-state-architecture]]
+
+## frontend/semantic-token-foreground-pairing.md#semantic-token-foreground-pairing
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/semantic-token-foreground-pairing.md#语义色 token 必须成对达标对比度
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/semantic-token-foreground-pairing.md#MUST 约束
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/semantic-token-foreground-pairing.md#陷阱
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/semantic-token-foreground-pairing.md#正解
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/semantic-token-foreground-pairing.md#案例
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/semantic-token-foreground-pairing.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+- → [[tailwind-cascade-layer-base]]
+
+## frontend/tauri-drag-drop-api.md#Tauri 拖拽事件 API（macOS WKWebView 限制）
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+
+## frontend/tauri-drag-drop-api.md#MUST 用 Tauri onDragDropEvent，禁 HTML5 onDrop
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+
+## frontend/tauri-drag-drop-api.md#范本
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+
+## frontend/tauri-drag-drop-api.md#event.payload.type
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+
+## frontend/tauri-drag-drop-api.md#约束
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+
+## frontend/tauri-drag-drop-api.md#适用
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+
+## frontend/tauri-drag-drop-api.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
+- ← recall/frontend/modal-state-architecture.md#关联
+- → [[modal-state-architecture]]
+
+## frontend/theme-token-runtime-switch.md#theme-token-runtime-switch
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#shadcn token 运行时切换
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#正解
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#陷阱
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#反例
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#案例
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#适用
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+
+## frontend/theme-token-runtime-switch.md#关联
+- ← recall/build/shadcn-add-verify-deps.md#关联
+- ← recall/frontend/css-var-alias-layer.md#关联
+- → [[css-var-alias-layer]]
+
+## frontend/time-zone-minute-arithmetic.md#time-zone-minute-arithmetic
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#时区换算硬约束 — 绝对分钟精度
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#MUST 换算公式（单位：分钟）
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#陷阱：按整小时换算产生非整数
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#适用
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+
+## frontend/time-zone-minute-arithmetic.md#关联
+- ← recall/frontend/dirty-float-hour-normalization.md#关联
+- ← recall/frontend/form-level-tz-state-sharing.md#关联
+- ← recall/testing/module-load-time-constant-test-rule.md#关联
+- → [[dirty-float-hour-normalization]]
+- → [[form-level-tz-state-sharing]]
+
+## i18n/i18n-key-deletion-safety.md#i18n-key-deletion-safety
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#i18n key 删除的安全规矩
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#约束
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#正解
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#反例
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#分类注意
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#适用
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
+
+## i18n/i18n-key-deletion-safety.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-eight-locales.md#关联
 - → [[platform-creation-entry-consolidation]]
 
-## i18n/i18n.md#关联
+## i18n/i18n-key-eight-locales.md#i18n-key-eight-locales
+- ← recall/frontend/frontend-conventions.md#关联
+
+## i18n/i18n-key-eight-locales.md#8 个语言 i18n key 同步硬约束
+- ← recall/frontend/frontend-conventions.md#关联
+
+## i18n/i18n-key-eight-locales.md#MUST 硬约束
+- ← recall/frontend/frontend-conventions.md#关联
+
+## i18n/i18n-key-eight-locales.md#检查机制
+- ← recall/frontend/frontend-conventions.md#关联
+
+## i18n/i18n-key-eight-locales.md#处理流程
+- ← recall/frontend/frontend-conventions.md#关联
+
+## i18n/i18n-key-eight-locales.md#适用
+- ← recall/frontend/frontend-conventions.md#关联
+
+## i18n/i18n-key-eight-locales.md#关联
+- ← recall/frontend/frontend-conventions.md#关联
 - → [[i18n-key-deletion-safety]]
 
 ## ops/buf-residue-observability.md#关联
@@ -431,22 +849,22 @@
 - → [[hot-path-buffers]]
 
 ## ops/remote-defaults-sync-chain.md#平台预设同步链路
-- ← recall/style/style.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## ops/remote-defaults-sync-chain.md#范式 (MUST，照抄先例 `gateway/defaults_sync.rs`)
-- ← recall/style/style.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## ops/remote-defaults-sync-chain.md#数据流架构 (MUST，禁前端直读 github)
-- ← recall/style/style.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## ops/remote-defaults-sync-chain.md#验收断言（可复用）
-- ← recall/style/style.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## ops/remote-defaults-sync-chain.md#实例
-- ← recall/style/style.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## ops/remote-defaults-sync-chain.md#Cross-reference
-- ← recall/style/style.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## ops/stack-attribution-profiling-methodology.md#栈归因用法
 - → [[idle-cpu-baseline-xctrace]]
@@ -512,8 +930,8 @@
 
 ## proxy/async-log-queue-backpressure.md#关联
 - ← recall/proxy/sse-chunk-stateless-defect.md#关联
-- → [[trellis-00]]
-- → [[trellis-11]]
+- → [[connect-tunnel-contract]]
+- → [[db-table-conventions]]
 
 ## proxy/async-log-queue-backpressure.md#案例
 - ← recall/proxy/sse-chunk-stateless-defect.md#关联
@@ -543,44 +961,179 @@
 - → [[hot-path-buffers]]
 - → [[stream-buf-unified-cap]]
 
+## reuse/grep-before-write.md#修改前搜索验收清单
+- ← recall/arch/component-extraction-grep-callsites.md#关联
+
+## reuse/grep-before-write.md#修改前搜索验收清单
+- ← recall/arch/component-extraction-grep-callsites.md#关联
+
+## reuse/grep-before-write.md#验收
+- ← recall/arch/component-extraction-grep-callsites.md#关联
+
+## reuse/grep-before-write.md#适用
+- ← recall/arch/component-extraction-grep-callsites.md#关联
+
 ## reuse/grep-before-write.md#关联
+- ← recall/arch/component-extraction-grep-callsites.md#关联
 - → [[component-extraction-grep-callsites]]
 
-## shadcn/shadcn.md#关联
-- → [[radix-select-number-mapping]]
+## shadcn/dialog-open-explicit-null.md#dialog-open-explicit-null
+- ← recall/shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/shadcn-button-svg-16px.md#关联
 
-## shadcn/shadcn.md#关联
+## shadcn/dialog-open-explicit-null.md#Dialog.open 需显式 null 判断
+- ← recall/shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/shadcn-button-svg-16px.md#关联
+
+## shadcn/dialog-open-explicit-null.md#陷阱-正解
+- ← recall/shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/shadcn-button-svg-16px.md#关联
+
+## shadcn/dialog-open-explicit-null.md#模式模板
+- ← recall/shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/shadcn-button-svg-16px.md#关联
+
+## shadcn/dialog-open-explicit-null.md#适用
+- ← recall/shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/shadcn-button-svg-16px.md#关联
+
+## shadcn/dialog-open-explicit-null.md#关联
+- ← recall/shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/shadcn-button-svg-16px.md#关联
+- → [[radix-dialog-requires-title]]
+
+## shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- → [[radix-select-none-sentinel]]
+
+## shadcn/planning-scope-pregrep.md#planning-scope-pregrep
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## shadcn/planning-scope-pregrep.md#planning 范围预筛纪律（grep）
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## shadcn/planning-scope-pregrep.md#陷阱-正解
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## shadcn/planning-scope-pregrep.md#预筛命令模板
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## shadcn/planning-scope-pregrep.md#例子
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## shadcn/planning-scope-pregrep.md#适用
+- ← recall/arch/tauri-popover-window-reuse.md#关联
+
+## shadcn/planning-scope-pregrep.md#关联
+- ← recall/arch/tauri-popover-window-reuse.md#关联
 - → [[platform-creation-entry-consolidation]]
 - → [[radix-select-none-sentinel]]
 
-## shadcn/shadcn.md#关联
+## shadcn/radix-dialog-requires-title.md#radix-dialog-requires-title
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#Radix Dialog 必须含 DialogTitle
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#MUST 硬约束
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#实现模式
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#模式模板
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#适用
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#案例
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
+
+## shadcn/radix-dialog-requires-title.md#关联
+- ← recall/shadcn/dialog-open-explicit-null.md#关联
 - → [[dialog-open-explicit-null]]
 
-## shadcn/shadcn.md#关联
+## shadcn/radix-select-none-sentinel.md#radix-select-none-sentinel
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+
+## shadcn/radix-select-none-sentinel.md#radix Select 空值哨兵模式
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+
+## shadcn/radix-select-none-sentinel.md#陷阱-正解
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+
+## shadcn/radix-select-none-sentinel.md#模式模板
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+
+## shadcn/radix-select-none-sentinel.md#适用
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+
+## shadcn/radix-select-none-sentinel.md#案例
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+
+## shadcn/radix-select-none-sentinel.md#关联
+- ← recall/shadcn/dnd-kit-sortable-preserve-logic.md#关联
+- ← recall/shadcn/planning-scope-pregrep.md#关联
+- ← recall/shadcn/radix-select-number-mapping.md#关联
+- ← recall/test/shadcn-test-behavior-assert.md#关联
+- → [[radix-select-number-mapping]]
+
+## shadcn/radix-select-number-mapping.md#radix-select-number-mapping
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
+
+## shadcn/radix-select-number-mapping.md#radix Select number 双向映射
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
+
+## shadcn/radix-select-number-mapping.md#陷阱-正解
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
+
+## shadcn/radix-select-number-mapping.md#模式模板
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
+
+## shadcn/radix-select-number-mapping.md#适用
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
+
+## shadcn/radix-select-number-mapping.md#案例
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
+
+## shadcn/radix-select-number-mapping.md#关联
+- ← recall/shadcn/radix-select-none-sentinel.md#关联
 - → [[radix-select-none-sentinel]]
 
-## shadcn/shadcn.md#关联
-- → [[radix-dialog-requires-title]]
-
-## shadcn/shadcn.md#关联
+## shadcn/shadcn-button-svg-16px.md#关联
 - → [[dialog-open-explicit-null]]
-
-## shadcn/shadcn.md#关联
-- → [[radix-select-none-sentinel]]
 
 ## skein/parallel-subtask-prop-contract.md#关联
 - → [[dirty-float-hour-normalization]]
 - → [[form-level-tz-state-sharing]]
 
-## style/style.md#关联
-- → [[platform-auto-disable-codes]]
+## style/logging-trace-id-contract.md#关联
+- → [[auto-disable-401-403-402]]
 - → [[remote-defaults-sync-chain]]
 
 ## test/cross-crate-test-path.md#关联
-- → [[rule-60]]
+- → [[invoke-name-source-of-truth]]
 
 ## test/shadcn-test-behavior-assert.md#关联
-- → [[rule-41]]
+- → [[radix-select-none-sentinel]]
 
 ## testing/module-load-time-constant-test-rule.md#关联
 - → [[time-zone-minute-arithmetic]]

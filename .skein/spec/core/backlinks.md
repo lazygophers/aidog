@@ -76,6 +76,36 @@
 ## db/crash-safe-db-split.md#Cross-ref
 - → [[db-split-access-point-audit]]
 
+## db/db-table-conventions.md#Table Naming (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Primary Key (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Time Fields (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Soft Delete (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#No NULL (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Column Naming (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Relations & Mappings (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Migration (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#专属表 → setting 迁移模式 (MUST)
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## db/db-table-conventions.md#Verification
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
 ## db/sqlite-read-cache-config.md#SQLite 只读缓存定值
 - ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 
@@ -98,6 +128,15 @@
 - ← core/domain/peak-multiplier-symmetry.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## frontend/tailwind-cascade-layer-base.md#硬约则
+- ← recall/frontend/semantic-token-foreground-pairing.md#关联
+
+## frontend/tailwind-cascade-layer-base.md#验收
+- ← recall/frontend/semantic-token-foreground-pairing.md#关联
+
+## frontend/tailwind-cascade-layer-base.md#禁用
+- ← recall/frontend/semantic-token-foreground-pairing.md#关联
 
 ## i18n/i18n-key-sync-8lang.md#硬约则
 - ← core/i18n/zh-hans-literal-sync.md#关联
@@ -146,32 +185,64 @@
 
 ## proxy/auto-disable-401-403-402.md#硬约则
 - ← core/proxy/http-client-no-env-proxy.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## proxy/auto-disable-401-403-402.md#触发条件
 - ← core/proxy/http-client-no-env-proxy.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## proxy/auto-disable-401-403-402.md#禁用
 - ← core/proxy/http-client-no-env-proxy.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 
 ## proxy/auto-disable-401-403-402.md#关联
 - ← core/proxy/http-client-no-env-proxy.md#关联
+- ← recall/style/logging-trace-id-contract.md#关联
 - → [[http-client-no-env-proxy]]
 - → [[mock-platform-bypasses-forward-pipeline]]
 
+## proxy/connect-tunnel-contract.md#非标准 URI 形态禁走 axum path matcher
+- ← core/proxy/host-check-before-path.md#关联
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+
+## proxy/connect-tunnel-contract.md#关联
+- ← core/proxy/host-check-before-path.md#关联
+- ← recall/proxy/async-log-queue-backpressure.md#关联
+- → [[host-check-before-path]]
+- → [[http-client-no-env-proxy]]
+
+## proxy/host-check-before-path.md#host 判定必须前置于 path 判定
+- ← core/proxy/connect-tunnel-contract.md#关联
+
+## proxy/host-check-before-path.md#关联
+- ← core/proxy/connect-tunnel-contract.md#关联
+- → [[connect-tunnel-contract]]
+- → [[http-client-no-env-proxy]]
+
 ## proxy/http-client-no-env-proxy.md#MUST 硬约束
 - ← core/proxy/auto-disable-401-403-402.md#关联
+- ← core/proxy/connect-tunnel-contract.md#关联
+- ← core/proxy/host-check-before-path.md#关联
 
 ## proxy/http-client-no-env-proxy.md#反例
 - ← core/proxy/auto-disable-401-403-402.md#关联
+- ← core/proxy/connect-tunnel-contract.md#关联
+- ← core/proxy/host-check-before-path.md#关联
 
 ## proxy/http-client-no-env-proxy.md#症状差异（为何 502 路径不触发）
 - ← core/proxy/auto-disable-401-403-402.md#关联
+- ← core/proxy/connect-tunnel-contract.md#关联
+- ← core/proxy/host-check-before-path.md#关联
 
 ## proxy/http-client-no-env-proxy.md#验证
 - ← core/proxy/auto-disable-401-403-402.md#关联
+- ← core/proxy/connect-tunnel-contract.md#关联
+- ← core/proxy/host-check-before-path.md#关联
 
 ## proxy/http-client-no-env-proxy.md#关联
 - ← core/proxy/auto-disable-401-403-402.md#关联
+- ← core/proxy/connect-tunnel-contract.md#关联
+- ← core/proxy/host-check-before-path.md#关联
 - → [[auto-disable-401-403-402]]
 
 ## proxy/wire-protocol-whitelist-sync.md#MUST 硬约束

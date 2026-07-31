@@ -152,7 +152,7 @@ cd src-tauri && grep -n "INSERT\|UPDATE\|DELETE" src/gateway/proxy/log.rs | grep
 
 ## 关联
 
-[[trellis-11]] （proxy 统计不污染） · [[trellis-00]] （DB 表设计）
+[[connect-tunnel-contract]] （proxy 统计不污染） · [[db-table-conventions]] （DB 表设计）
 
 ## 案例
 

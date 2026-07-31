@@ -1,5 +1,5 @@
 {
-  "ts": "2026-08-01T00:14:21",
+  "ts": "2026-08-01T00:30:53",
   "core_chars": 7026,
   "budget": 8000,
   "problems": [
@@ -29,28 +29,28 @@
       "files": [
         "recall/arch/tauri-popover-window-reuse"
       ],
-      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[rule-45]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[planning-scope-pregrep]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
         "recall/arch/tauri-popover-window-reuse"
       ],
-      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[trellis-18]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[frontend-conventions]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
         "recall/build/shadcn-add-verify-deps"
       ],
-      "detail": "[断链] recall/build/shadcn-add-verify-deps: [[shadcn-infra-31]] ✗ 目标缺失"
+      "detail": "[断链] recall/build/shadcn-add-verify-deps: [[theme-token-runtime-switch]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
         "recall/build/tailwind-v4-import-form"
       ],
-      "detail": "[断链] recall/build/tailwind-v4-import-form: [[shadcn-infra-30]] ✗ 目标缺失"
+      "detail": "[断链] recall/build/tailwind-v4-import-form: [[css-var-alias-layer]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -65,6 +65,146 @@
         "recall/build/vite-at-alias-manual"
       ],
       "detail": "[断链] recall/build/vite-at-alias-manual: [[shadcn-infra-28]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[time-zone-minute-arithmetic]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[modal-state-architecture]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[modal-state-architecture]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[tauri-drag-drop-api]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[form-level-tz-state-sharing]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[time-zone-minute-arithmetic]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[dirty-float-hour-normalization]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[i18n-key-deletion-safety]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[modal-state-architecture]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[tailwind-cascade-layer-unlayered]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[dirty-float-hour-normalization]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[form-level-tz-state-sharing]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[semantic-token-foreground-pairing]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[theme-token-runtime-switch]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[css-var-alias-layer]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[tauri-drag-drop-api]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[modal-state-architecture]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/frontend/frontend"
+      ],
+      "detail": "[断链] recall/frontend/frontend: [[i18n-key-eight-locales]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/i18n/i18n"
+      ],
+      "detail": "[断链] recall/i18n/i18n: [[platform-creation-entry-consolidation]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/i18n/i18n"
+      ],
+      "detail": "[断链] recall/i18n/i18n: [[i18n-key-deletion-safety]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -90,6 +230,76 @@
     {
       "type": "broken-link",
       "files": [
+        "recall/proxy/async-log-queue-backpressure"
+      ],
+      "detail": "[断链] recall/proxy/async-log-queue-backpressure: [[trellis-11]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/proxy/async-log-queue-backpressure"
+      ],
+      "detail": "[断链] recall/proxy/async-log-queue-backpressure: [[trellis-00]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[radix-select-number-mapping]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[radix-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[platform-creation-entry-consolidation]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[dialog-open-explicit-null]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[radix-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[radix-dialog-requires-title]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[dialog-open-explicit-null]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/shadcn/shadcn"
+      ],
+      "detail": "[断链] recall/shadcn/shadcn: [[radix-select-none-sentinel]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
         "recall/skein/parallel-subtask-prop-contract"
       ],
       "detail": "[断链] recall/skein/parallel-subtask-prop-contract: [[dirty-float-hour-normalization]] ✗ 目标缺失"
@@ -100,6 +310,34 @@
         "recall/skein/parallel-subtask-prop-contract"
       ],
       "detail": "[断链] recall/skein/parallel-subtask-prop-contract: [[form-level-tz-state-sharing]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/style/style"
+      ],
+      "detail": "[断链] recall/style/style: [[platform-auto-disable-codes]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/test/cross-crate-test-path"
+      ],
+      "detail": "[断链] recall/test/cross-crate-test-path: [[rule-60]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/test/shadcn-test-behavior-assert"
+      ],
+      "detail": "[断链] recall/test/shadcn-test-behavior-assert: [[rule-41]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/testing/module-load-time-constant-test-rule"
+      ],
+      "detail": "[断链] recall/testing/module-load-time-constant-test-rule: [[time-zone-minute-arithmetic]] ✗ 目标缺失"
     }
   ]
 }
