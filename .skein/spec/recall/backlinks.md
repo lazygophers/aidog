@@ -2,13 +2,48 @@
 
 章节粒度: 规则 id = `<类目>/<主题>.md#<规则标题>`; `←` 入链 (谁引用本条) / `→` 出链 (本条引用谁)。无条目 = 孤立候选。
 
+## arch/adapter-deadcode-whitelist-authority.md#触发场景
+- ← recall/arch/gemini-sse-alt-param.md#关联
+
+## arch/adapter-deadcode-whitelist-authority.md#陷阱
+- ← recall/arch/gemini-sse-alt-param.md#关联
+
+## arch/adapter-deadcode-whitelist-authority.md#正解
+- ← recall/arch/gemini-sse-alt-param.md#关联
+
+## arch/adapter-deadcode-whitelist-authority.md#案例
+- ← recall/arch/gemini-sse-alt-param.md#关联
+
+## arch/adapter-deadcode-whitelist-authority.md#适用
+- ← recall/arch/gemini-sse-alt-param.md#关联
+
 ## arch/adapter-deadcode-whitelist-authority.md#关联
+- ← recall/arch/gemini-sse-alt-param.md#关联
 - → [[wire-protocol-gate-is-failfast]]
 
 ## arch/agent-platform-handler-branch.md#关联
-- → [[trellis-04]]
+- → [[protocol-variant-extension]]
+
+## arch/component-extraction-grep-callsites.md#触发场景
+- ← recall/reuse/grep-before-write.md#关联
+
+## arch/component-extraction-grep-callsites.md#陷阱
+- ← recall/reuse/grep-before-write.md#关联
+
+## arch/component-extraction-grep-callsites.md#正解
+- ← recall/reuse/grep-before-write.md#关联
+
+## arch/component-extraction-grep-callsites.md#检查清单
+- ← recall/reuse/grep-before-write.md#关联
+
+## arch/component-extraction-grep-callsites.md#案例
+- ← recall/reuse/grep-before-write.md#关联
+
+## arch/component-extraction-grep-callsites.md#适用
+- ← recall/reuse/grep-before-write.md#关联
 
 ## arch/component-extraction-grep-callsites.md#关联
+- ← recall/reuse/grep-before-write.md#关联
 - → [[auto-fix-downgrade-36]]
 
 ## arch/cross-db-subquery-handle-selection.md#MUST 规则
@@ -25,34 +60,46 @@
 
 ## arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
-- → [[auto-fix-downgrade-34]]
+- → [[db-split-access-point-audit]]
 
 ## arch/db-split-access-point-audit.md#触发场景
+- ← core/db/crash-safe-db-split.md#Cross-ref
+- ← recall/arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
 - ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
 - ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
 
 ## arch/db-split-access-point-audit.md#陷阱-正解
+- ← core/db/crash-safe-db-split.md#Cross-ref
+- ← recall/arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
 - ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
 - ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
 
 ## arch/db-split-access-point-audit.md#验收命令
+- ← core/db/crash-safe-db-split.md#Cross-ref
+- ← recall/arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
 - ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
 - ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
 
 ## arch/db-split-access-point-audit.md#反例
+- ← core/db/crash-safe-db-split.md#Cross-ref
+- ← recall/arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
 - ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
 - ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
 
 ## arch/db-split-access-point-audit.md#适用
+- ← core/db/crash-safe-db-split.md#Cross-ref
+- ← recall/arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
 - ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
 - ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
 
 ## arch/db-split-access-point-audit.md#关联
+- ← core/db/crash-safe-db-split.md#Cross-ref
+- ← recall/arch/cross-db-subquery-handle-selection.md#Cross-ref
 - ← recall/arch/db-split-access-point-audit.md#关联
 - ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
 - ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
@@ -62,13 +109,29 @@
 ## arch/dedup-key-must-be-nonempty.md#关联
 - → [[shadcn-infra-32]]
 
+## arch/enum-variant-delete-needs-migration.md#触发场景
+- ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+
+## arch/enum-variant-delete-needs-migration.md#硬约束
+- ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+
+## arch/enum-variant-delete-needs-migration.md#MUST 流程
+- ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+
+## arch/enum-variant-delete-needs-migration.md#反例
+- ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+
+## arch/enum-variant-delete-needs-migration.md#适用
+- ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+
 ## arch/enum-variant-delete-needs-migration.md#关联
+- ← recall/arch/locale-deadkey-cleanup-ownership.md#关联
+- → [[protocol-variant-extension]]
 - → [[shadcn-infra-32]]
-- → [[trellis-04]]
 
 ## arch/gemini-sse-alt-param.md#关联
-- → [[rule-57]]
-- → [[rule-58]]
+- → [[adapter-deadcode-whitelist-authority]]
+- → [[protocol-wire-str]]
 
 ## arch/locale-deadkey-cleanup-ownership.md#流程约定
 - ← core/i18n/zh-hans-literal-sync.md#关联
@@ -90,11 +153,38 @@
 
 ## arch/locale-deadkey-cleanup-ownership.md#关联
 - ← core/i18n/zh-hans-literal-sync.md#关联
-- → [[auto-fix-downgrade-38]]
+- → [[enum-variant-delete-needs-migration]]
+
+## arch/protocol-variant-extension.md#新增变体 MUST 先 grep 同构变体命中点 (MUST)
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
+
+## arch/protocol-variant-extension.md#命中点 3 类分类（据实判定改动面）
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
+
+## arch/protocol-variant-extension.md#零专属 match 臂 → 加枚举即覆盖 (MUST)
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
+
+## arch/protocol-variant-extension.md#serde round-trip + JSON key 对齐 (MUST)
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
+
+## arch/protocol-variant-extension.md#验收断言（可复用）
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
+
+## arch/protocol-variant-extension.md#实例
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
+
+## arch/protocol-variant-extension.md#Cross-reference
+- ← recall/arch/agent-platform-handler-branch.md#关联
+- ← recall/arch/enum-variant-delete-needs-migration.md#关联
 
 ## arch/tauri-popover-window-reuse.md#关联
 - → [[rule-45]]
-- → [[trellis-03]]
 - → [[trellis-18]]
 
 ## build/converter-endpoint-decoupled.md#案例
@@ -282,6 +372,27 @@
 - → [[peak-multiplier-symmetry]]
 - → [[resolve-price-now-ms]]
 
+## frontend/frontend.md#关联
+- → [[modal-state-architecture]]
+- → [[time-zone-minute-arithmetic]]
+
+## frontend/frontend.md#关联
+- → [[modal-state-architecture]]
+
+## frontend/frontend.md#关联
+- → [[form-level-tz-state-sharing]]
+- → [[tauri-drag-drop-api]]
+
+## i18n/i18n.md#关联
+- → [[platform-creation-entry-consolidation]]
+
+## i18n/i18n.md#关联
+- → [[i18n-key-deletion-safety]]
+
+## ops/buf-residue-observability.md#关联
+- → [[sse-chunk-stateless-defect]]
+- → [[stream-buf-unified-cap]]
+
 ## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - → [[idle-cpu-baseline-xctrace]]
@@ -289,6 +400,24 @@
 
 ## ops/logging-queue-capacity-tuning.md#日志队列 capacity 定值方法：从采样均值反推
 - → [[hot-path-buffers]]
+
+## ops/remote-defaults-sync-chain.md#平台预设同步链路
+- ← recall/style/style.md#关联
+
+## ops/remote-defaults-sync-chain.md#范式 (MUST，照抄先例 `gateway/defaults_sync.rs`)
+- ← recall/style/style.md#关联
+
+## ops/remote-defaults-sync-chain.md#数据流架构 (MUST，禁前端直读 github)
+- ← recall/style/style.md#关联
+
+## ops/remote-defaults-sync-chain.md#验收断言（可复用）
+- ← recall/style/style.md#关联
+
+## ops/remote-defaults-sync-chain.md#实例
+- ← recall/style/style.md#关联
+
+## ops/remote-defaults-sync-chain.md#Cross-reference
+- ← recall/style/style.md#关联
 
 ## ops/stack-attribution-profiling-methodology.md#栈归因用法
 - → [[idle-cpu-baseline-xctrace]]
@@ -328,6 +457,101 @@
 - ← recall/optimization/measure-window-exclusive-env.md#环境互斥约束
 - → [[idle-cpu-baseline-xctrace]]
 
+## proxy/async-log-queue-backpressure.md#异步日志队列反压
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#触发场景
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#陷阱：同步写会阻塞热路径 + 异步不保证持久性
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#正解：方案 B（单 writer + 有界 queue + 分级背压 + 串行快照）
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#反例 / 常见错误
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#落库路径升级 checklist
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#验证
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#适用
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/async-log-queue-backpressure.md#关联
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+- → [[trellis-00]]
+- → [[trellis-11]]
+
+## proxy/async-log-queue-backpressure.md#案例
+- ← recall/proxy/sse-chunk-stateless-defect.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#SSE 流式处理无状态缺陷
+- ← recall/ops/buf-residue-observability.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#触发场景
+- ← recall/ops/buf-residue-observability.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#缺陷：逐 chunk 无状态解析导致完整行静默丢失
+- ← recall/ops/buf-residue-observability.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#正解：尾行缓冲 + 无状态解析分离
+- ← recall/ops/buf-residue-observability.md#关联
+- → [[stream-buf-unified-cap]]
+
+## proxy/sse-chunk-stateless-defect.md#验收基准
+- ← recall/ops/buf-residue-observability.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#适用场景
+- ← recall/ops/buf-residue-observability.md#关联
+
+## proxy/sse-chunk-stateless-defect.md#关联
+- ← recall/ops/buf-residue-observability.md#关联
+- → [[async-log-queue-backpressure]]
+- → [[hot-path-buffers]]
+- → [[stream-buf-unified-cap]]
+
+## reuse/grep-before-write.md#关联
+- → [[component-extraction-grep-callsites]]
+
+## shadcn/shadcn.md#关联
+- → [[radix-select-number-mapping]]
+
+## shadcn/shadcn.md#关联
+- → [[platform-creation-entry-consolidation]]
+- → [[radix-select-none-sentinel]]
+
+## shadcn/shadcn.md#关联
+- → [[dialog-open-explicit-null]]
+
+## shadcn/shadcn.md#关联
+- → [[radix-select-none-sentinel]]
+
+## shadcn/shadcn.md#关联
+- → [[radix-dialog-requires-title]]
+
+## shadcn/shadcn.md#关联
+- → [[dialog-open-explicit-null]]
+
+## shadcn/shadcn.md#关联
+- → [[radix-select-none-sentinel]]
+
 ## skein/parallel-subtask-prop-contract.md#关联
 - → [[dirty-float-hour-normalization]]
 - → [[form-level-tz-state-sharing]]
+
+## style/style.md#关联
+- → [[platform-auto-disable-codes]]
+- → [[remote-defaults-sync-chain]]
+
+## test/cross-crate-test-path.md#关联
+- → [[rule-60]]
+
+## test/shadcn-test-behavior-assert.md#关联
+- → [[rule-41]]
+
+## testing/module-load-time-constant-test-rule.md#关联
+- → [[time-zone-minute-arithmetic]]

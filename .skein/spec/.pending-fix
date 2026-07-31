@@ -1,56 +1,14 @@
 {
-  "ts": "2026-08-01T00:05:14",
+  "ts": "2026-08-01T00:14:21",
   "core_chars": 7026,
   "budget": 8000,
   "problems": [
     {
       "type": "broken-link",
       "files": [
-        "core/db/crash-safe-db-split"
-      ],
-      "detail": "[断链] core/db/crash-safe-db-split: [[auto-fix-downgrade-34]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/i18n/i18n-key-sync-8lang"
-      ],
-      "detail": "[断链] core/i18n/i18n-key-sync-8lang: [[zh-hans-literal-sync]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/proxy/auto-disable-401-403-402"
-      ],
-      "detail": "[断链] core/proxy/auto-disable-401-403-402: [[mock-platform-short-circuit]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/proxy/auto-disable-401-403-402"
-      ],
-      "detail": "[断链] core/proxy/auto-disable-401-403-402: [[http-client-no-env-proxy]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/agent-platform-handler-branch"
-      ],
-      "detail": "[断链] recall/arch/agent-platform-handler-branch: [[trellis-04]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
         "recall/arch/component-extraction-grep-callsites"
       ],
       "detail": "[断链] recall/arch/component-extraction-grep-callsites: [[auto-fix-downgrade-36]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/cross-db-subquery-handle-selection"
-      ],
-      "detail": "[断链] recall/arch/cross-db-subquery-handle-selection: [[auto-fix-downgrade-34]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -69,44 +27,9 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/enum-variant-delete-needs-migration"
-      ],
-      "detail": "[断链] recall/arch/enum-variant-delete-needs-migration: [[trellis-04]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/gemini-sse-alt-param"
-      ],
-      "detail": "[断链] recall/arch/gemini-sse-alt-param: [[rule-57]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/gemini-sse-alt-param"
-      ],
-      "detail": "[断链] recall/arch/gemini-sse-alt-param: [[rule-58]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/locale-deadkey-cleanup-ownership"
-      ],
-      "detail": "[断链] recall/arch/locale-deadkey-cleanup-ownership: [[auto-fix-downgrade-38]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
         "recall/arch/tauri-popover-window-reuse"
       ],
       "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[rule-45]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/tauri-popover-window-reuse"
-      ],
-      "detail": "[断链] recall/arch/tauri-popover-window-reuse: [[trellis-03]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
