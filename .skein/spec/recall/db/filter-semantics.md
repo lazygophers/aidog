@@ -3,7 +3,7 @@ name: filter-semantics
 title: filter-semantics
 layer: recall
 category: db
-keywords: [db,rule,spec]
+keywords: [filter, semantics, sql, WHERE, query, db]
 created: 1725080438
 inclusion: auto
 ---

@@ -11,8 +11,36 @@
 ## arch/mock-platform-bypasses-forward-pipeline.md#关联
 - ← recall/domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
 
+## arch/protocol-wire-str.md#触发场景
+- ← core/arch/protocol-wire-str.md#关联
+- ← recall/build/wire-protocol-gate-is-failfast.md#案例
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+
+## arch/protocol-wire-str.md#陷阱
+- ← core/arch/protocol-wire-str.md#关联
+- ← recall/build/wire-protocol-gate-is-failfast.md#案例
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+
+## arch/protocol-wire-str.md#正解
+- ← core/arch/protocol-wire-str.md#关联
+- ← recall/build/wire-protocol-gate-is-failfast.md#案例
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+
+## arch/protocol-wire-str.md#案例
+- ← core/arch/protocol-wire-str.md#关联
+- ← recall/build/wire-protocol-gate-is-failfast.md#案例
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+
+## arch/protocol-wire-str.md#适用
+- ← core/arch/protocol-wire-str.md#关联
+- ← recall/build/wire-protocol-gate-is-failfast.md#案例
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+
 ## arch/protocol-wire-str.md#关联
-- → [[rule-05]]
+- ← core/arch/protocol-wire-str.md#关联
+- ← recall/build/wire-protocol-gate-is-failfast.md#案例
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- → [[protocol-wire-str]]
 
 ## arch/stream-buf-unified-cap.md#关联
 - → [[hot-path-buffers]]
@@ -28,9 +56,21 @@
 - ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 - → [[sqlite-cache-residency-probe-method]]
 
+## domain/peak-multiplier-symmetry.md#硬约则
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
+## domain/peak-multiplier-symmetry.md#禁用
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+
 ## domain/peak-multiplier-symmetry.md#关联
-- → [[rule-66]]
+- ← recall/domain/time-tiers-apply-idiom.md#关联
+- → [[resolve-price-now-ms]]
 - → [[time-tiers-apply-idiom]]
+
+## domain/resolve-price-now-ms.md#resolve_price 末位 now_ms 传值约定
+- ← core/domain/peak-multiplier-symmetry.md#关联
+- ← recall/domain/bundled-models-fallback.md#关联
+- ← recall/domain/time-tiers-apply-idiom.md#关联
 
 ## i18n/i18n-key-sync-8lang.md#关联
 - → [[zh-hans-literal-sync]]
@@ -54,6 +94,19 @@
 - → [[http-client-no-env-proxy]]
 - → [[mock-platform-short-circuit]]
 
+## proxy/wire-protocol-whitelist-sync.md#MUST 硬约束
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
+## proxy/wire-protocol-whitelist-sync.md#反例
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
+## proxy/wire-protocol-whitelist-sync.md#触发场景
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
+## proxy/wire-protocol-whitelist-sync.md#适用
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
 ## proxy/wire-protocol-whitelist-sync.md#关联
-- → [[rule-52]]
-- → [[rule-53]]
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+- → [[five-wire-protocols-anchor]]
+- → [[reasoning-content-as-text-block]]

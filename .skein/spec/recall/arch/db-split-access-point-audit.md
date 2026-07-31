@@ -45,4 +45,4 @@ DB 拆库迁移、表访问点归属审计
 
 ## 关联
 [[cross-db-subquery-handle-selection]] (跨库读两阶段)
-[[auto-fix-downgrade-35]] (空字段作 key)
+[[db-split-access-point-audit]] (空字段作 key)

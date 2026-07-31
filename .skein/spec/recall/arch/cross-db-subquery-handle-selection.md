@@ -3,7 +3,7 @@ name: cross-db-subquery-handle-selection
 title: cross-db-subquery-handle-selection
 layer: recall
 category: arch
-keywords: [arch,rule,spec]
+keywords: [subquery, cross-db, SelectionStrategy, 查询, db]
 created: 1725080438
 inclusion: auto
 ---

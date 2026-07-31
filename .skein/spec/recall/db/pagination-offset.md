@@ -3,7 +3,7 @@ name: pagination-offset
 title: pagination-offset
 layer: recall
 category: db
-keywords: [db,rule,spec]
+keywords: [pagination, offset, limit, sqlite, 分页]
 created: 1725080438
 inclusion: auto
 ---

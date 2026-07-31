@@ -38,5 +38,5 @@ converter 双向转（source→wire 请求 + wire→source 响应）与 endpoint
 
 - endpoint-cross-protocol-fallback task：converter 5×5 已就绪，endpoint 层开回退即释放全链路
 - 新增协议只需加 converter parse/render + endpoint 自动回降级（无需 endpoint 层改动）
-[[rule-55]]
-[[rule-07]]
+
+[[wire-protocol-gate-is-failfast]]

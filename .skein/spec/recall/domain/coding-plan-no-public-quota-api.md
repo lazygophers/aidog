@@ -3,7 +3,7 @@ name: coding-plan-no-public-quota-api
 title: coding-plan-no-public-quota-api
 layer: recall
 category: domain
-keywords: [domain,rule,spec]
+keywords: [coding-plan, quota, public, 端点, glm_coding]
 created: 1725080438
 inclusion: auto
 ---

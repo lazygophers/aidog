@@ -37,4 +37,4 @@ updated: 1784985303
 
 ## 关联
 
-[[rule-52]] [[rule-53]]
+[[five-wire-protocols-anchor]] [[reasoning-content-as-text-block]]

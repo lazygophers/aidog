@@ -3,7 +3,7 @@ name: mock-platform-contract
 title: mock-platform-contract
 layer: recall
 category: domain
-keywords: [domain,rule,spec]
+keywords: [mock, platform, contract, 测试, placeholder]
 created: 1725080438
 inclusion: auto
 ---

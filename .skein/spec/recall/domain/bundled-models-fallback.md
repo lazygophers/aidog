@@ -68,4 +68,4 @@ fn bundled_model_entry(name: &str) -> Option<&'static Value> {
 
 ## 关联
 
-[[time-tiers-apply-idiom]] [[rule-66]]
+[[time-tiers-apply-idiom]] [[resolve-price-now-ms]]

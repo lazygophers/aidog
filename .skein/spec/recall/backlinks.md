@@ -3,7 +3,7 @@
 章节粒度: 规则 id = `<类目>/<主题>.md#<规则标题>`; `←` 入链 (谁引用本条) / `→` 出链 (本条引用谁)。无条目 = 孤立候选。
 
 ## arch/adapter-deadcode-whitelist-authority.md#关联
-- → [[rule-07]]
+- → [[wire-protocol-gate-is-failfast]]
 
 ## arch/agent-platform-handler-branch.md#关联
 - → [[trellis-04]]
@@ -27,9 +27,37 @@
 - ← recall/arch/db-split-access-point-audit.md#关联
 - → [[auto-fix-downgrade-34]]
 
+## arch/db-split-access-point-audit.md#触发场景
+- ← recall/arch/db-split-access-point-audit.md#关联
+- ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
+- ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
+
+## arch/db-split-access-point-audit.md#陷阱-正解
+- ← recall/arch/db-split-access-point-audit.md#关联
+- ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
+- ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
+
+## arch/db-split-access-point-audit.md#验收命令
+- ← recall/arch/db-split-access-point-audit.md#关联
+- ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
+- ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
+
+## arch/db-split-access-point-audit.md#反例
+- ← recall/arch/db-split-access-point-audit.md#关联
+- ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
+- ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
+
+## arch/db-split-access-point-audit.md#适用
+- ← recall/arch/db-split-access-point-audit.md#关联
+- ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
+- ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
+
 ## arch/db-split-access-point-audit.md#关联
-- → [[auto-fix-downgrade-35]]
+- ← recall/arch/db-split-access-point-audit.md#关联
+- ← recall/domain/cpa-oauth-credential-format.md#Cross-ref
+- ← recall/domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
 - → [[cross-db-subquery-handle-selection]]
+- → [[db-split-access-point-audit]]
 
 ## arch/dedup-key-must-be-nonempty.md#关联
 - → [[shadcn-infra-32]]
@@ -45,23 +73,13 @@
 ## arch/locale-deadkey-cleanup-ownership.md#关联
 - → [[auto-fix-downgrade-38]]
 
-## arch/protocol-wire-str.md#关联
-- → [[rule-05]]
-
 ## arch/tauri-popover-window-reuse.md#关联
 - → [[rule-45]]
 - → [[trellis-03]]
 - → [[trellis-18]]
 
-## build/build-rs-env-is-crate-scoped.md#关联
-- → [[rule-61]]
-
-## build/clippy-touch-before-recheck.md#关联
-- → [[rule-63]]
-
 ## build/converter-endpoint-decoupled.md#案例
-- → [[rule-07]]
-- → [[rule-55]]
+- → [[wire-protocol-gate-is-failfast]]
 
 ## build/shadcn-add-verify-deps.md#关联
 - → [[shadcn-infra-31]]
@@ -73,9 +91,31 @@
 ## build/vite-at-alias-manual.md#关联
 - → [[shadcn-infra-28]]
 
+## build/wire-protocol-gate-is-failfast.md#MUST 硬约束
+- ← recall/arch/adapter-deadcode-whitelist-authority.md#关联
+- ← recall/build/converter-endpoint-decoupled.md#案例
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
+## build/wire-protocol-gate-is-failfast.md#反例
+- ← recall/arch/adapter-deadcode-whitelist-authority.md#关联
+- ← recall/build/converter-endpoint-decoupled.md#案例
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
+## build/wire-protocol-gate-is-failfast.md#适用
+- ← recall/arch/adapter-deadcode-whitelist-authority.md#关联
+- ← recall/build/converter-endpoint-decoupled.md#案例
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
+## build/wire-protocol-gate-is-failfast.md#关联
+- ← recall/arch/adapter-deadcode-whitelist-authority.md#关联
+- ← recall/build/converter-endpoint-decoupled.md#案例
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+
 ## build/wire-protocol-gate-is-failfast.md#案例
-- → [[rule-05]]
-- → [[rule-54]]
+- ← recall/arch/adapter-deadcode-whitelist-authority.md#关联
+- ← recall/build/converter-endpoint-decoupled.md#案例
+- ← recall/domain/endpoint-cross-protocol-fallback.md#案例
+- → [[protocol-wire-str]]
 
 ## db/sqlite-cache-residency-probe-method.md#SQLite 页缓存常驻量的直接探针方法
 - ← core/db/sqlite-read-cache-config.md#关联
@@ -103,34 +143,98 @@
 
 ## domain/bundled-models-fallback.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
-- → [[rule-66]]
+- → [[resolve-price-now-ms]]
 - → [[time-tiers-apply-idiom]]
 
 ## domain/converter-normalized-intermediate.md#关联
-- → [[rule-52]]
-- → [[rule-54]]
+- → [[five-wire-protocols-anchor]]
 
 ## domain/cpa-oauth-credential-format.md#多账号语义（CLIProxyAPI）
-- → [[auto-fix-downgrade-35]]
+- → [[db-split-access-point-audit]]
 
 ## domain/cpa-oauth-credential-format.md#Cross-ref
-- → [[auto-fix-downgrade-35]]
-- → [[parser-multi-path-format-symmetry]]
+- → [[db-split-access-point-audit]]
 
 ## domain/endpoint-cross-protocol-fallback.md#案例
-- → [[rule-06]]
-- → [[rule-07]]
+- → [[wire-protocol-gate-is-failfast]]
+- → [[wire-protocol-whitelist-sync]]
+
+## domain/five-wire-protocols-anchor.md#触发场景
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/five-wire-protocols-anchor.md#陷阱-正解
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/five-wire-protocols-anchor.md#反例
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/five-wire-protocols-anchor.md#关键不变量
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/five-wire-protocols-anchor.md#适用
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/five-wire-protocols-anchor.md#案例
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
 
 ## domain/five-wire-protocols-anchor.md#关联
-- → [[rule-05]]
-- → [[rule-53]]
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/converter-normalized-intermediate.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+- → [[protocol-wire-str]]
+- → [[reasoning-content-as-text-block]]
 
 ## domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
 - → [[mock-platform-bypasses-forward-pipeline]]
 
+## domain/reasoning-content-as-text-block.md#触发场景
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/reasoning-content-as-text-block.md#陷阱-正解
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/reasoning-content-as-text-block.md#决策背景
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/reasoning-content-as-text-block.md#实现
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/reasoning-content-as-text-block.md#反例
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
+## domain/reasoning-content-as-text-block.md#适用
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+
 ## domain/reasoning-content-as-text-block.md#关联
-- → [[rule-52]]
-- → [[rule-53]]
+- ← core/proxy/wire-protocol-whitelist-sync.md#关联
+- ← recall/domain/five-wire-protocols-anchor.md#关联
+- ← recall/domain/reasoning-content-as-text-block.md#关联
+- → [[five-wire-protocols-anchor]]
+- → [[reasoning-content-as-text-block]]
 
 ## domain/time-tiers-apply-idiom.md#触发场景
 - ← core/domain/peak-multiplier-symmetry.md#关联
@@ -156,8 +260,8 @@
 - ← core/domain/peak-multiplier-symmetry.md#关联
 - ← recall/domain/bundled-models-fallback.md#关联
 - → [[bundled-models-fallback]]
-- → [[rule-66]]
-- → [[rule-67]]
+- → [[peak-multiplier-symmetry]]
+- → [[resolve-price-now-ms]]
 
 ## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据

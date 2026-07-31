@@ -3,7 +3,7 @@ name: sqlite-partial-index
 title: sqlite-partial-index
 layer: recall
 category: db
-keywords: [db,rule,spec]
+keywords: [sqlite, partial, index, WHERE, 约束]
 created: 1725080438
 inclusion: auto
 ---
