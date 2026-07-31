@@ -48,6 +48,7 @@ pub fn run() {
             aidog_core::platform_cmd::platform::platform_update,
             aidog_core::platform_cmd::platform::platform_delete,
             aidog_core::platform_cmd::platform::platform_purge_disabled,
+            aidog_core::platform_cmd::platform::platform_purge_disabled_preview,
             aidog_core::platform_cmd::platform::platform_ensure_auto_group,
             aidog_core::platform_cmd::platform::platform_set_tray,
             aidog_core::platform_cmd::model_fetch::platform_fetch_models,

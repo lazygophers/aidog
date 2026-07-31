@@ -198,6 +198,22 @@ pub async fn platform_purge_disabled(
 }
 
 crate::tauri_command! {
+/// 只读预览「一键清理失效平台」将处理的候选清单，供确认弹窗展示（不执行任何写操作）。
+/// 候选集与 `platform_purge_disabled` 共用同一筛选条件（`db::find_purge_candidates`），
+/// 保证弹窗展示与实际删除一致，杜绝「弹窗列 3 个实际删 5 个」。
+pub async fn platform_purge_disabled_preview(
+    group_id: Option<u64>,
+    db: State<'_, Db>,
+) -> Result<Vec<db::PurgeCandidate>, String> {
+    tracing::debug!(command = "platform_purge_disabled_preview", ?group_id, "command invoked");
+    db::find_purge_candidates(&db, group_id).await.map_err(|e| {
+        tracing::error!(command = "platform_purge_disabled_preview", ?group_id, error = %e, "preview purge candidates failed");
+        e
+    })
+}
+}
+
+crate::tauri_command! {
 /// 为平台补建默认 auto 分组（已存在则跳过）。供批量导入（cc-switch / .aidogx）回挂复用：
 /// 这些路径直接 INSERT 平台行、不走 platform_create 的建组副作用，故需显式补建。
 pub async fn platform_ensure_auto_group(id: u64, db: State<'_, Db>) -> Result<(), String> {

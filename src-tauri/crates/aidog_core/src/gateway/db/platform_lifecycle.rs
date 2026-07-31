@@ -60,61 +60,84 @@ pub struct PurgeResult {
     pub unassigned_ids: Vec<u64>,
 }
 
-/// 一键清理 auto_disabled 平台。
+/// 一键清理候选行：`purge_auto_disabled_platforms` 与只读预览 command 共用的单一真值源。
+/// `reason` / `action` 是稳定枚举码（非文案），前端按 code 走 i18n 映射。
+/// - `reason`: "auth_failed"（401/403 key 失效）| "expired"（已过期）。同时满足两类条件时取 `auth_failed`（更能说明根因）。
+/// - `action`: "delete"（永久删除）| "unassign"（仅移出本分组，platform 行保留）。全局模式恒为 "delete"。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeCandidate {
+    pub id: u64,
+    pub name: String,
+    pub reason: &'static str,
+    pub action: &'static str,
+}
+
+/// 找出待清理（auto_disabled 401/403 或已过期）的候选平台，附带 reason/action。
+/// **单一真值源**：`purge_auto_disabled_platforms`（实际删除/移关联）与
+/// `platform_purge_disabled_preview` command（只读预览）都调用本函数取候选集，
+/// 筛选条件禁止在别处再抄一份，否则 preview 与实际删除会漂移。
 ///
-/// - `group_id = None`（全局）：删除全库所有 `status='auto_disabled'` 且未软删的平台，
-///   逐个复用 [`delete_platform`]（软删 platform + 清所有关联，保留所有分组）。
-/// - `group_id = Some(gid)`（分组级）：仅处理本分组内的 auto_disabled 平台。
-///   - 仅属本分组（活跃成员数 == 1）→ 永久删除（复用 `delete_platform`）。
-///   - 属多分组（共享，活跃成员数 > 1）→ 仅删本分组的 `group_platform` 关联（platform 行保留）。
-///
-/// 共享判定的活跃成员数计数必须 `deleted_at=0` 过滤，否则把已软删关联算进来会误判独占。
+/// - `group_id = None`（全局）：全库 auto_disabled(401/403) 或已过期平台，`action` 恒 "delete"。
+/// - `group_id = Some(gid)`（分组级）：本分组活跃成员中满足条件的平台；按该平台跨全库的
+///   活跃分组成员数（`deleted_at=0` 过滤，避免软删残留误判独占）分流：
+///   `<= 1` → "delete"，`> 1`（共享）→ "unassign"。
 #[track_caller]
-pub fn purge_auto_disabled_platforms(
+pub fn find_purge_candidates(
     db: &Db,
     group_id: Option<u64>,
-) -> impl std::future::Future<Output = Result<PurgeResult, String>> + '_ {
+) -> impl std::future::Future<Output = Result<Vec<PurgeCandidate>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    match group_id {
-        // ── 全局：删全库 auto_disabled 平台 + 已过期平台 ──
-        None => {
-            let now_ms = now();
-            let ids: Vec<i64> = db
+    // last_error 是否命中 401/403（key 失效需重建才恢复；402/429-配额等可自愈的 auto_disabled 不算）。
+    fn reason_of(status: &str, last_error: &str, expires_at: i64, now_ms: i64) -> Option<&'static str> {
+        let auth_failed = status == "auto_disabled"
+            && (last_error.starts_with("HTTP 401") || last_error.starts_with("HTTP 403"));
+        if auth_failed {
+            return Some("auth_failed");
+        }
+        if expires_at > 0 && expires_at < now_ms {
+            return Some("expired");
+        }
+        None
+    }
 
+    let now_ms = now();
+    match group_id {
+        // ── 全局：全库 auto_disabled(401/403) 或已过期平台 ──
+        None => {
+            let rows: Vec<(i64, String, &'static str)> = db
                 .call_platform_traced(None, __db_caller, move |conn| {
-                    // auto_disabled 仅删 401/403（key 失效，重建才恢复）；402/429-配额等可恢复
-                    //   auto_disabled（充值后自愈）保留，不被一键清理误删。过期平台照删。
                     let mut stmt = conn.prepare(
-                        "SELECT id FROM platform \
+                        "SELECT id, name, status, COALESCE(last_error, ''), expires_at FROM platform \
                          WHERE deleted_at = 0 \
                          AND ((status = 'auto_disabled' AND (last_error LIKE 'HTTP 401%' OR last_error LIKE 'HTTP 403%')) \
                               OR (expires_at > 0 AND expires_at < ?1))",
                     )?;
-                    let rows = stmt.query_map(params![now_ms], |r| r.get::<_, i64>(0))?;
-                    Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
+                    let rows = stmt.query_map(params![now_ms], |r| {
+                        let id: i64 = r.get(0)?;
+                        let name: String = r.get(1)?;
+                        let status: String = r.get(2)?;
+                        let last_error: String = r.get(3)?;
+                        let expires_at: i64 = r.get(4)?;
+                        let reason = reason_of(&status, &last_error, expires_at, now_ms)
+                            .unwrap_or("expired");
+                        Ok((id, name, reason))
+                    })?;
+                    Ok(rows.collect::<SqlResult<Vec<_>>>()?)
                 })
                 .await
                 .map_err(|e| e.to_string())?;
 
-            let mut deleted_ids = Vec::with_capacity(ids.len());
-            for id in ids {
-                let pid = id as u64;
-                delete_platform(db, pid).await?;
-                deleted_ids.push(pid);
-            }
-            Ok(PurgeResult {
-                deleted_ids,
-                unassigned_ids: Vec::new(),
-            })
+            Ok(rows
+                .into_iter()
+                .map(|(id, name, reason)| PurgeCandidate { id: id as u64, name, reason, action: "delete" })
+                .collect())
         }
         // ── 分组级：本分组内 auto_disabled 或已过期平台，独占删 / 共享移关联 ──
         Some(gid) => {
             let gid_i = gid as i64;
-            let now_ms = now();
-            // 本分组内 auto_disabled 或已过期平台 id（活跃关联 + 平台未软删）。
-            let ids: Vec<i64> = db
-
+            let rows: Vec<(i64, String, &'static str)> = db
                 .call_platform_traced(None, __db_caller, move |conn| {
                     // 去 JOIN：① 取本组活跃关联的 platform_id；② 在这些 id 中筛 auto_disabled 或已过期且未软删。
                     let mut gp_stmt = conn.prepare(
@@ -130,9 +153,9 @@ pub fn purge_auto_disabled_platforms(
                         (1..=pids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
                     // now_ms 占 ?{N+1}（N = pids.len()）：动态编号随 pids 长度 +1。
                     let now_param_idx = pids.len() + 1;
-                    // 同全局：auto_disabled 仅删 401/403；402/429-配额等可恢复保留。过期照删。
                     let mut stmt = conn.prepare(&format!(
-                        "SELECT id FROM platform WHERE id IN ({placeholders}) \
+                        "SELECT id, name, status, COALESCE(last_error, ''), expires_at FROM platform \
+                         WHERE id IN ({placeholders}) \
                          AND deleted_at = 0 \
                          AND ((status = 'auto_disabled' AND (last_error LIKE 'HTTP 401%' OR last_error LIKE 'HTTP 403%')) \
                               OR (expires_at > 0 AND expires_at < ?{now_param_idx}))"
@@ -140,57 +163,98 @@ pub fn purge_auto_disabled_platforms(
                     let mut binds: Vec<&dyn rusqlite::ToSql> =
                         pids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
                     binds.push(&now_ms);
-                    let rows = stmt.query_map(rusqlite::params_from_iter(binds), |r| r.get::<_, i64>(0))?;
-                    Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
+                    let rows = stmt.query_map(rusqlite::params_from_iter(binds), |r| {
+                        let id: i64 = r.get(0)?;
+                        let name: String = r.get(1)?;
+                        let status: String = r.get(2)?;
+                        let last_error: String = r.get(3)?;
+                        let expires_at: i64 = r.get(4)?;
+                        let reason = reason_of(&status, &last_error, expires_at, now_ms)
+                            .unwrap_or("expired");
+                        Ok((id, name, reason))
+                    })?;
+                    Ok(rows.collect::<SqlResult<Vec<_>>>()?)
                 })
                 .await
                 .map_err(|e| e.to_string())?;
 
-            let mut deleted_ids = Vec::new();
-            let mut unassigned_ids = Vec::new();
-            for id in ids {
-                let pid = id;
+            let mut candidates = Vec::with_capacity(rows.len());
+            for (id, name, reason) in rows {
                 // 该平台跨全库的活跃分组成员数（deleted_at=0 过滤，避免软删残留误判独占）。
                 let member_count: i64 = db
-                    
                     .call_platform_traced(None, __db_caller, move |conn| {
                         Ok(conn.query_row(
                             "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
-                            params![pid],
+                            params![id],
                             |r| r.get::<_, i64>(0),
                         )?)
                     })
                     .await
                     .map_err(|e| e.to_string())?;
-
-                if member_count <= 1 {
-                    // 独占本分组 → 永久删除（复用 delete_platform：软删 platform + 清所有关联，保留分组）。
-                    delete_platform(db, id as u64).await?;
-                    deleted_ids.push(id as u64);
-                } else {
-                    // 共享（属多分组）→ 仅删本分组关联，platform 行保留。
-                    // 对齐 move_group_platform 既有模式（db.rs:1622）：物理 DELETE + deleted_at=0 过滤当前活跃行。
-                    db
-                        .call_platform_traced(None, __db_caller, move |conn| {
-                            conn.execute(
-                                "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
-                                params![gid_i, pid],
-                            )?;
-                            Ok(())
-                        })
-                        .await
-                        .map_err(|e| format!("remove group_platform on purge: {e}"))?;
-                    unassigned_ids.push(id as u64);
-                }
+                let action = if member_count <= 1 { "delete" } else { "unassign" };
+                candidates.push(PurgeCandidate { id: id as u64, name, reason, action });
             }
-            // 关联表已变更，刷新分组缓存（delete_platform 内部已刷，纯移关联场景这里兜底）。
-            db.invalidate_groups_cache();
-            Ok(PurgeResult {
-                deleted_ids,
-                unassigned_ids,
-            })
+            Ok(candidates)
         }
     }
+    }
+}
+
+/// 一键清理 auto_disabled 平台。
+///
+/// - `group_id = None`（全局）：删除全库所有 `status='auto_disabled'` 且未软删的平台，
+///   逐个复用 [`delete_platform`]（软删 platform + 清所有关联，保留所有分组）。
+/// - `group_id = Some(gid)`（分组级）：仅处理本分组内的 auto_disabled 平台。
+///   - 仅属本分组（活跃成员数 == 1）→ 永久删除（复用 `delete_platform`）。
+///   - 属多分组（共享，活跃成员数 > 1）→ 仅删本分组的 `group_platform` 关联（platform 行保留）。
+///
+/// 候选集与 action 分流均来自 [`find_purge_candidates`]（与只读预览 command 单一真值源），
+/// 本函数只负责按 action 执行删除/移关联的写操作。
+#[track_caller]
+pub fn purge_auto_disabled_platforms(
+    db: &Db,
+    group_id: Option<u64>,
+) -> impl std::future::Future<Output = Result<PurgeResult, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    let candidates = find_purge_candidates(db, group_id).await?;
+    let gid_i = group_id.map(|g| g as i64);
+
+    let mut deleted_ids = Vec::new();
+    let mut unassigned_ids = Vec::new();
+    for c in candidates {
+        match c.action {
+            "unassign" => {
+                let gid_i = gid_i.expect("unassign action only occurs in group mode");
+                let pid = c.id as i64;
+                db
+                    .call_platform_traced(None, __db_caller, move |conn| {
+                        // 对齐 move_group_platform 既有模式（db.rs:1622）：物理 DELETE + deleted_at=0 过滤当前活跃行。
+                        conn.execute(
+                            "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
+                            params![gid_i, pid],
+                        )?;
+                        Ok(())
+                    })
+                    .await
+                    .map_err(|e| format!("remove group_platform on purge: {e}"))?;
+                unassigned_ids.push(c.id);
+            }
+            _ => {
+                // 独占（或全局模式）→ 永久删除（软删 platform + 清所有关联，保留分组）。
+                delete_platform(db, c.id).await?;
+                deleted_ids.push(c.id);
+            }
+        }
+    }
+    if group_id.is_some() && !unassigned_ids.is_empty() {
+        // 关联表已变更，刷新分组缓存（delete_platform 内部已刷，纯移关联场景这里兜底）。
+        db.invalidate_groups_cache();
+    }
+    Ok(PurgeResult {
+        deleted_ids,
+        unassigned_ids,
+    })
     }
 }
 

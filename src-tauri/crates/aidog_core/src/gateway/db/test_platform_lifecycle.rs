@@ -532,3 +532,81 @@ decimals: None,
         assert!(get_platform(&db, p_402.id).await.unwrap().is_some(), "402 可恢复平台应保留");
         assert!(get_platform(&db, p_429q.id).await.unwrap().is_some(), "429-配额可恢复平台应保留");
     }
+
+    /// seam：同一 DB 状态下 find_purge_candidates（preview）返回的 id 集合必须与
+    /// purge_auto_disabled_platforms 实际处理的集合（deletedIds ∪ unassignedIds）一致，
+    /// 且每项 action 与它实际落到哪个集合一致。分别覆盖全局与分组（独占删/共享移关联）两种模式，
+    /// 证明「筛选条件不漂移」与「分组独占/共享分流正确」。
+    #[tokio::test]
+    async fn preview_candidates_match_purge_result_global_and_group() {
+        // ── 全局模式 ──
+        {
+            let db = test_db().await;
+            let p_dead1 = create_platform(&db, sample_platform("dead1")).await.unwrap();
+            let p_dead2 = create_platform(&db, sample_platform("dead2")).await.unwrap();
+            let p_alive = create_platform(&db, sample_platform("alive")).await.unwrap();
+            set_platform_auto_disabled(&db, p_dead1.id).await.unwrap();
+            set_platform_auto_disabled(&db, p_dead2.id).await.unwrap();
+            set_platform_last_error(&db, p_dead1.id, Some("HTTP 401: unauthorized".into())).await.unwrap();
+            set_platform_last_error(&db, p_dead2.id, Some("HTTP 403: forbidden".into())).await.unwrap();
+            let _ = p_alive;
+
+            let candidates = find_purge_candidates(&db, None).await.unwrap();
+            let candidate_ids: std::collections::HashSet<u64> = candidates.iter().map(|c| c.id).collect();
+            assert!(candidates.iter().all(|c| c.action == "delete"), "全局模式 action 恒为 delete");
+
+            let r = purge_auto_disabled_platforms(&db, None).await.unwrap();
+            let actual_ids: std::collections::HashSet<u64> = r
+                .deleted_ids
+                .iter()
+                .chain(r.unassigned_ids.iter())
+                .copied()
+                .collect();
+            assert_eq!(candidate_ids, actual_ids, "全局：preview id 集合应等于 purge 实际处理集合");
+            assert!(r.unassigned_ids.is_empty());
+        }
+
+        // ── 分组模式（独占删 + 共享移关联）──
+        {
+            let db = test_db().await;
+            let p_a = create_platform(&db, sample_platform("a-exclusive")).await.unwrap();
+            let p_b = create_platform(&db, sample_platform("b-shared")).await.unwrap();
+            set_platform_auto_disabled(&db, p_a.id).await.unwrap();
+            set_platform_auto_disabled(&db, p_b.id).await.unwrap();
+            set_platform_last_error(&db, p_a.id, Some("HTTP 401: bad key".into())).await.unwrap();
+            set_platform_last_error(&db, p_b.id, Some("HTTP 403: forbidden".into())).await.unwrap();
+
+            let g1 = create_group(&db, sample_group("g1", vec![])).await.unwrap();
+            let g2 = create_group(&db, sample_group("g2", vec![])).await.unwrap();
+            set_group_platforms(&db, g1.id, &[
+                GroupPlatformInput { platform_id: p_a.id, priority: Some(0), weight: Some(1), level_priority: None },
+                GroupPlatformInput { platform_id: p_b.id, priority: Some(1), weight: Some(1), level_priority: None },
+            ]).await.unwrap();
+            set_group_platforms(&db, g2.id, &[
+                GroupPlatformInput { platform_id: p_b.id, priority: Some(0), weight: Some(1), level_priority: None },
+            ]).await.unwrap();
+
+            let candidates = find_purge_candidates(&db, Some(g1.id)).await.unwrap();
+            let candidate_ids: std::collections::HashSet<u64> = candidates.iter().map(|c| c.id).collect();
+            let candidate_action_of = |id: u64| candidates.iter().find(|c| c.id == id).map(|c| c.action);
+            assert_eq!(candidate_action_of(p_a.id as u64), Some("delete"), "独占的 A 应标 delete");
+            assert_eq!(candidate_action_of(p_b.id as u64), Some("unassign"), "共享的 B 应标 unassign");
+
+            let r = purge_auto_disabled_platforms(&db, Some(g1.id)).await.unwrap();
+            let actual_ids: std::collections::HashSet<u64> = r
+                .deleted_ids
+                .iter()
+                .chain(r.unassigned_ids.iter())
+                .copied()
+                .collect();
+            assert_eq!(candidate_ids, actual_ids, "分组：preview id 集合应等于 purge 实际处理集合");
+
+            // 每项 action 与它实际落到哪个集合一致。
+            for id in &r.deleted_ids {
+                assert_eq!(candidate_action_of(*id), Some("delete"), "落入 deleted_ids 的项 preview action 应为 delete");
+            }
+            for id in &r.unassigned_ids {
+                assert_eq!(candidate_action_of(*id), Some("unassign"), "落入 unassigned_ids 的项 preview action 应为 unassign");
+            }
+        }
+    }
