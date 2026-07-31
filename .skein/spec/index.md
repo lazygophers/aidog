@@ -6,5 +6,5 @@
 |---|---|---|---|
 | core | 38 | arch(5), cross-layer(5), db(7), domain(5), frontend(3), i18n(4), perf(1), proxy(8) | [core/index.md](core/index.md) |
 | external | 0 | - | [external/index.md](external/index.md) |
-| recall | 73 | db(2), domain(4), ops(8), optimization(35), skein(24) | [recall/index.md](recall/index.md) |
+| recall | 156 | arch(25), build(23), db(2), domain(39), ops(8), optimization(35), skein(24) | [recall/index.md](recall/index.md) |
 | rules | 0 | - | [rules/index.md](rules/index.md) |
