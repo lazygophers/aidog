@@ -3,7 +3,7 @@ name: adapter-deadcode-whitelist-authority
 title: adapter-deadcode-whitelist-authority
 layer: recall
 category: arch
-keywords: [arch,rule,spec]
+keywords: [adapter, 死代码, 白名单, wire_protocol, converter]
 created: 1725080438
 inclusion: auto
 ---
@@ -33,7 +33,7 @@ inclusion: auto
 - 编码规范卡关：为什么要删这个文件
 
 ## 关联
-[[rule-07]]
+[[wire-protocol-gate-is-failfast]]
 
 ---
 

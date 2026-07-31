@@ -3,7 +3,7 @@ name: claude-code-passthrough-platform
 title: claude-code-passthrough-platform
 layer: recall
 category: domain
-keywords: [domain,rule,spec]
+keywords: [claude, passthrough, platform, 代理, Protocol]
 created: 1725080438
 inclusion: auto
 ---

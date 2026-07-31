@@ -3,7 +3,7 @@ name: protocol-logo-fallback-chain
 title: protocol-logo-fallback-chain
 layer: recall
 category: domain
-keywords: [domain,rule,spec]
+keywords: [protocol, logo, fallback, icon, 协议]
 created: 1725080438
 inclusion: auto
 ---

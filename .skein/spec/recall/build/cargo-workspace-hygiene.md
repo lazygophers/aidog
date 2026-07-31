@@ -3,7 +3,7 @@ name: cargo-workspace-hygiene
 title: cargo-workspace-hygiene
 layer: recall
 category: build
-keywords: [build,rule,spec]
+keywords: [cargo, workspace, workspaces, lint, members]
 created: 1725080438
 inclusion: auto
 ---

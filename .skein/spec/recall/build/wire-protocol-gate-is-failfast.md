@@ -38,4 +38,4 @@ is_valid_wire_protocol gate 触发（502）说明 endpoint 选择失败（matche
 
 - converter-reasoning-content bug1：preset 未加载致 matched_ep=None，gate 502
 - endpoint-cross-protocol-fallback task：endpoint 层跨协议回退修 select，非降级 gate
-[[rule-05]] [[rule-54]]
+[[protocol-wire-str]] 

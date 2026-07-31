@@ -3,7 +3,7 @@ name: vite-at-alias-manual
 title: vite-at-alias-manual
 layer: recall
 category: build
-keywords: [build,rule,spec]
+keywords: [vite, alias, @, resolveAlias, paths, tsconfig]
 created: 1725080438
 inclusion: auto
 ---

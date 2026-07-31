@@ -47,4 +47,4 @@ updated: 1784995459
 ## 案例
 
 - endpoint-cross-protocol-fallback task：普通平台步骤 4 泛化（同协议 > openai > 任意非 source），coding 平台不动
-[[rule-06]] [[rule-07]]
+[[wire-protocol-whitelist-sync]] [[wire-protocol-gate-is-failfast]]

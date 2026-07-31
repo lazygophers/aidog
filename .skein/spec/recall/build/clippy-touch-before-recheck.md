@@ -33,4 +33,4 @@ cargo clippy --workspace 2>&1 | grep warning | wc -l
 - 持续集成前检查
 
 ## 关联
-[[rule-63]]
+

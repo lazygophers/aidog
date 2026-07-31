@@ -23,4 +23,4 @@ estimate 流程中**任意处加 peak 倍率，对边必补同倍率**（既存 
 
 ## 关联
 
-[[rule-66]] [[time-tiers-apply-idiom]]
+[[resolve-price-now-ms]] [[time-tiers-apply-idiom]]

@@ -3,7 +3,7 @@ name: cpa-oauth-credential-format
 title: cpa-oauth-credential-format
 layer: recall
 category: domain
-keywords: [domain,rule,spec]
+keywords: [cpa, oauth, credential, format, token]
 created: 1725080438
 inclusion: auto
 ---
@@ -42,7 +42,7 @@ CLIProxyAPI OAuth 凭据 JSON(auth-dir 文件 / 导出 zip 内):
 ## 多账号语义（CLIProxyAPI）
 
 - 同一 OAuth 类型(如 xai)可有多个凭据(各 email 不同)→ **各自独立平台**(负载均衡)
-- dedup key 用 `(source_segment, name/email)`, **禁用** base_url(全空会撞, 见 [[auto-fix-downgrade-35]])
+- dedup key 用 `(source_segment, name/email)`, **禁用** base_url(全空会撞, 见 [[db-split-access-point-audit]])
 - mapper.rs 用 `name`(=email)做平台名, `oauth_type` 路由协议(xai→CpaGrok / claude→Anthropic / codex→Codex / kimi→Kimi / vertex→CpaVertex / aistudio→CpaAistudio / antigravity→CpaAntigravity)
 
 ## OAuth 类型枚举（CpaOAuthType）
@@ -54,8 +54,8 @@ codex / claude / kimi / xai / vertex / aistudio / antigravity(parser.rs::CpaOAut
 - `src-tauri/crates/aidog_core/src/gateway/cpa_import/parser.rs:496-522` OAuthCredential 结构
 - `src-tauri/crates/aidog_core/src/gateway/cpa_import/parser.rs:532-565` parse_oauth_json
 - `src-tauri/crates/aidog_core/src/gateway/cpa_import/mapper.rs:86-95` OAuth 协议路由
-- 关联 [[parser-multi-path-format-symmetry]](两路径识别对称)
-- 关联 [[auto-fix-downgrade-35]](多凭据 dedup key)
+- 关联 (两路径识别对称)
+- 关联 [[db-split-access-point-audit]](多凭据 dedup key)
 
 ---
 

@@ -59,4 +59,4 @@ let price = tier["input_cost"] + tier["context_tiers"][i]["input_cost"];  // tim
 
 ## 关联
 
-[[rule-66]] [[rule-67]] [[bundled-models-fallback]]
+[[resolve-price-now-ms]] [[peak-multiplier-symmetry]] [[bundled-models-fallback]]

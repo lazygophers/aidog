@@ -29,4 +29,4 @@ updated: 1785226172
 - adapter 分发时协议名判定
 
 ## 关联
-[[rule-05]]
+[[protocol-wire-str]]

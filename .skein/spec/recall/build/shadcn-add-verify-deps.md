@@ -3,7 +3,7 @@ name: shadcn-add-verify-deps
 title: shadcn-add-verify-deps
 layer: recall
 category: build
-keywords: [build,rule,spec]
+keywords: [shadcn-ui, add, verify, dependencies, package.json]
 created: 1725080438
 inclusion: auto
 ---

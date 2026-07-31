@@ -3,7 +3,7 @@ name: tauri-build-bundle
 title: tauri-build-bundle
 layer: recall
 category: build
-keywords: [build,rule,spec]
+keywords: [tauri, bundle, dmg, 构建产物, resources, app]
 created: 1725080438
 inclusion: auto
 ---

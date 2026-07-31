@@ -46,4 +46,4 @@ endpoint 协议 = converter 模块支持的格式（convert_request + parse_sse�
 
 ## 关联
 
-[[rule-05]] [[rule-53]]
+[[protocol-wire-str]] [[reasoning-content-as-text-block]]

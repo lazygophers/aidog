@@ -1,26 +1,14 @@
 {
-  "ts": "2026-07-31T23:49:53",
-  "core_chars": 8714,
+  "ts": "2026-08-01T00:01:11",
+  "core_chars": 7026,
   "budget": 8000,
   "problems": [
     {
-      "type": "over-budget",
-      "detail": "[超预算] always 8714 > 8000 字符 — 考虑降级: db/db-table-conventions(4041), db/sqlite-connection-resilience(1752), cross-layer/sole-platform-symmetry(1533)",
-      "size": 8714
-    },
-    {
       "type": "broken-link",
       "files": [
-        "core/arch/protocol-wire-str"
+        "core/db/crash-safe-db-split"
       ],
-      "detail": "[断链] core/arch/protocol-wire-str: [[rule-05]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "core/domain/peak-multiplier-symmetry"
-      ],
-      "detail": "[断链] core/domain/peak-multiplier-symmetry: [[rule-66]] ✗ 目标缺失"
+      "detail": "[断链] core/db/crash-safe-db-split: [[auto-fix-downgrade-34]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -28,6 +16,13 @@
         "core/i18n/i18n-key-sync-8lang"
       ],
       "detail": "[断链] core/i18n/i18n-key-sync-8lang: [[zh-hans-literal-sync]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "core/proxy/auto-disable-401-403-402"
+      ],
+      "detail": "[断链] core/proxy/auto-disable-401-403-402: [[mock-platform-short-circuit]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -53,16 +48,9 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/arch/db-split-access-point-audit"
+        "recall/arch/cross-db-subquery-handle-selection"
       ],
-      "detail": "[断链] recall/arch/db-split-access-point-audit: [[cross-db-subquery-handle-selection]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/arch/db-split-access-point-audit"
-      ],
-      "detail": "[断链] recall/arch/db-split-access-point-audit: [[auto-fix-downgrade-35]] ✗ 目标缺失"
+      "detail": "[断链] recall/arch/cross-db-subquery-handle-selection: [[auto-fix-downgrade-34]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -146,7 +134,14 @@
       "files": [
         "recall/build/converter-endpoint-decoupled"
       ],
-      "detail": "[断链] recall/build/converter-endpoint-decoupled: [[rule-07]] ✗ 目标缺失"
+      "detail": "[断链] recall/build/converter-endpoint-decoupled: [[rule-55]] ✗ 目标缺失"
+    },
+    {
+      "type": "broken-link",
+      "files": [
+        "recall/build/shadcn-add-verify-deps"
+      ],
+      "detail": "[断链] recall/build/shadcn-add-verify-deps: [[shadcn-infra-31]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -165,9 +160,9 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/build/wire-protocol-gate-is-failfast"
+        "recall/build/vite-at-alias-manual"
       ],
-      "detail": "[断链] recall/build/wire-protocol-gate-is-failfast: [[rule-05]] ✗ 目标缺失"
+      "detail": "[断链] recall/build/vite-at-alias-manual: [[shadcn-infra-28]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
@@ -179,58 +174,16 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/db/crash-safe-db-split-migration"
+        "recall/domain/converter-normalized-intermediate"
       ],
-      "detail": "[断链] recall/db/crash-safe-db-split-migration: [[auto-fix-downgrade-34]] ✗ 目标缺失"
+      "detail": "[断链] recall/domain/converter-normalized-intermediate: [[rule-54]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
       "files": [
-        "recall/domain/bundled-models-fallback"
+        "recall/domain/cpa-oauth-credential-format"
       ],
-      "detail": "[断链] recall/domain/bundled-models-fallback: [[rule-66]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/rule-51"
-      ],
-      "detail": "[断链] recall/domain/rule-51: [[rule-05]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/rule-53"
-      ],
-      "detail": "[断链] recall/domain/rule-53: [[rule-54]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/rule-55"
-      ],
-      "detail": "[断链] recall/domain/rule-55: [[rule-06]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/rule-55"
-      ],
-      "detail": "[断链] recall/domain/rule-55: [[rule-07]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/time-tiers-apply-idiom"
-      ],
-      "detail": "[断链] recall/domain/time-tiers-apply-idiom: [[rule-66]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/time-tiers-apply-idiom"
-      ],
-      "detail": "[断链] recall/domain/time-tiers-apply-idiom: [[rule-67]] ✗ 目标缺失"
+      "detail": "[断链] recall/domain/cpa-oauth-credential-format: [[parser-multi-path-format-symmetry]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",
