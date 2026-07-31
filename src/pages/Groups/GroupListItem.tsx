@@ -2,7 +2,8 @@ import { Fragment, memo, useState, useEffect, useRef } from "react";
 import type { TFunction } from "i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
-import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
+import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult, PurgeCandidate } from "../../services/api";
+import { platformApi } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple } from "../../components/shared";
 import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
@@ -84,7 +85,7 @@ export interface GroupListItemProps {
   onSetMTargetModel: (v: string) => void;
   onAddMapping: () => void;
   onSetLevelPriority: (gid: number, pid: number, v: number) => void;
-  onPurgeDisabled: (gid: number) => void;
+  onPurgeDisabled: (gid: number) => void | Promise<void>;
   /** 批量删除：收 selectedIds + gid → 开 BatchDeleteModal（父级渲染 modal）。 */
   onBatchDelete: (ids: number[], gid: number) => void;
   /** 批量覆盖模型：收 selectedIds + gid → 开 BatchOverrideModelsModal（父级渲染 modal）。 */
@@ -136,6 +137,20 @@ export const GroupListItem = memo(function GroupListItem({
 
   // ponytail: purge 确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规），open 态本地管理。
   const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
+  const [purging, setPurging] = useState(false);
+  // ponytail: 弹窗打开时拉一次 preview（非常驻轮询），按 action 分「永久删除」「移出本分组」两段。
+  const [previewList, setPreviewList] = useState<PurgeCandidate[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  useEffect(() => {
+    if (!purgeConfirmOpen) { setPreviewList(null); return; }
+    let cancelled = false;
+    setPreviewLoading(true);
+    platformApi.purgeDisabledPreview(group.id).then((r) => { if (!cancelled) setPreviewList(r); })
+      .catch(() => { if (!cancelled) setPreviewList([]); })
+      .finally(() => { if (!cancelled) setPreviewLoading(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [purgeConfirmOpen, group.id]);
 
   // 批量删除成功后：selectedIds 内平台从 gps 全消失 → 自动退出多选模式（load 刷新后 gps 变化触发）。
   useEffect(() => {
@@ -539,7 +554,7 @@ export const GroupListItem = memo(function GroupListItem({
       </CompactCard>
 
       {/* 清理失效确认 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）。 */}
-      <AlertDialog open={purgeConfirmOpen} onOpenChange={setPurgeConfirmOpen}>
+      <AlertDialog open={purgeConfirmOpen} onOpenChange={(next) => { if (!next && !purging) setPurgeConfirmOpen(false); }}>
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("group.purgeDisabled", "清理失效")}</AlertDialogTitle>
@@ -547,10 +562,43 @@ export const GroupListItem = memo(function GroupListItem({
               {t("group.purgeDisabledConfirm", "将清理本分组失效平台（独占的永久删除，共享的仅从本分组移除），确定？")}
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div style={{ maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 10, margin: "4px 0" }}>
+            {previewLoading ? (
+              <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
+            ) : !previewList || previewList.length === 0 ? (
+              <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
+            ) : (
+              (["delete", "unassign"] as const).map((action) => {
+                const items = previewList.filter(c => c.action === action);
+                if (items.length === 0) return null;
+                return (
+                  <div key={action} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div className="text-tertiary" style={{ fontSize: 11, fontWeight: 600 }}>
+                      {action === "delete" ? t("platform.purgeDisabledActionDelete", "将永久删除") : t("platform.purgeDisabledActionUnassign", "将移出本分组")}
+                    </div>
+                    {items.map((c) => (
+                      <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                        <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                        <Badge variant="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
+                          {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })
+            )}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { onPurgeDisabled(group.id); }}>
-              {t("action.confirm", "确认")}
+            <AlertDialogCancel disabled={purging}>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={purging || previewLoading || !previewList || previewList.length === 0}
+              onClick={async () => {
+                setPurging(true);
+                try { await onPurgeDisabled(group.id); } finally { setPurging(false); setPurgeConfirmOpen(false); }
+              }}
+            >
+              {purging ? t("status.loading", "处理中…") : t("action.confirm", "确认")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

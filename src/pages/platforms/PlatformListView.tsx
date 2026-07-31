@@ -6,7 +6,7 @@ import React, { useEffect, useState } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { type Platform } from "../../services/api";
+import { platformApi, type Platform, type PurgeCandidate } from "../../services/api";
 import { IconClose, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
@@ -27,6 +27,18 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   // ponytail: 清理失效平台确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）
   const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
   const [purging, setPurging] = useState(false);
+  // ponytail: 弹窗打开时拉一次 preview（非常驻轮询），列清单代替泛化确认文案。
+  const [previewList, setPreviewList] = useState<PurgeCandidate[] | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  useEffect(() => {
+    if (!purgeConfirmOpen) { setPreviewList(null); return; }
+    let cancelled = false;
+    setPreviewLoading(true);
+    platformApi.purgeDisabledPreview().then((r) => { if (!cancelled) setPreviewList(r); })
+      .catch(() => { if (!cancelled) setPreviewList([]); })
+      .finally(() => { if (!cancelled) setPreviewLoading(false); });
+    return () => { cancelled = true; };
+  }, [purgeConfirmOpen]);
   // colorMap / labelMap：async 派生自 platform-presets.json；首帧空 map（fallback platform_type key）。
   const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
@@ -255,9 +267,28 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
                 {t("platform.purgeDisabledConfirm", "将永久删除所有自动禁用态平台，此操作不可撤销。")}
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <div style={{ maxHeight: 240, overflow: "auto", display: "flex", flexDirection: "column", gap: 6, margin: "4px 0" }}>
+              {previewLoading ? (
+                <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("status.loading", "处理中…")}</div>
+              ) : !previewList || previewList.length === 0 ? (
+                <div className="text-secondary" style={{ fontSize: 12, padding: "8px 0" }}>{t("platform.purgeDisabledNone", "暂无失效平台")}</div>
+              ) : (
+                <>
+                  <div className="text-tertiary" style={{ fontSize: 11, fontWeight: 600 }}>{t("platform.purgeDisabledListTitle", "待清理平台清单")}</div>
+                  {previewList.map((c) => (
+                    <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+                      <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
+                      <Badge variant="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
+                        {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
+                      </Badge>
+                    </div>
+                  ))}
+                </>
+              )}
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel disabled={purging}>{t("action.cancel", "取消")}</AlertDialogCancel>
-              <AlertDialogAction disabled={purging} onClick={onPurgeConfirm}>
+              <AlertDialogAction disabled={purging || previewLoading || !previewList || previewList.length === 0} onClick={onPurgeConfirm}>
                 {purging ? t("status.loading", "处理中…") : t("action.confirm", "确认")}
               </AlertDialogAction>
             </AlertDialogFooter>
