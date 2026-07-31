@@ -152,22 +152,27 @@ fn default_filter(level: &str) -> EnvFilter {
     f
 }
 
-/// 构造文件层 appender (RollingFileAppender, HOURLY, prefix `aidog`, suffix `log`)。
+/// 构造文件层 appender (RollingFileAppender, HOURLY, prefix `aidog`, suffix `log`),
+/// 套 `tracing_appender::non_blocking` 把实际文件写移到专用后台线程 (热路径 tokio worker
+/// 只需把格式化好的行推进内存 channel, 不再同步阻塞 write(2))。
 ///
-/// 返回 `(appender, log_dir)`。目录创建失败时返回 `None` 并记 warn, 上层退化为 console-only。
-/// **不**包含 `file_enabled` 判定 (上层分支判断), 也**不**构造 filter layer
-/// (保留具体类型避免 `Box<dyn Layer>` 与 `set_global_default` 的 trait bound 冲突)。
+/// 返回 `(non_blocking_writer, guard, log_dir)`。目录创建失败时返回 `None` 并记 warn,
+/// 上层退化为 console-only。**不**包含 `file_enabled` 判定 (上层分支判断), 也**不**构造
+/// filter layer (保留具体类型避免 `Box<dyn Layer>` 与 `set_global_default` 的 trait bound 冲突)。
+///
+/// `WorkerGuard` 归属契约: 调用方必须把返回的 guard 转交进程级存活对象 (见 `init_logging`
+/// 文档), 一旦 drop 后台写线程停 → channel 里未落盘的日志丢失。
 fn build_file_appender(
     data_dir: &std::path::Path,
     settings: &AppLogSettings,
-) -> Option<(RollingFileAppender, std::path::PathBuf)> {
+) -> Option<(tracing_appender::non_blocking::NonBlocking, tracing_appender::non_blocking::WorkerGuard, std::path::PathBuf)> {
     let log_dir = data_dir.join("logs");
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
         tracing::warn!(error = %e, dir = %log_dir.display(), "failed to create log dir; falling back to console-only");
         return None;
     }
 
-    let appender = RollingFileAppender::builder()
+    let appender: RollingFileAppender = RollingFileAppender::builder()
         .rotation(tracing_appender::rolling::Rotation::HOURLY)
         .filename_prefix("aidog")
         .filename_suffix("log")
@@ -175,7 +180,8 @@ fn build_file_appender(
         .build(&log_dir)
         .expect("failed to create log file appender");
 
-    Some((appender, log_dir))
+    let (non_blocking, guard) = tracing_appender::non_blocking(appender);
+    Some((non_blocking, guard, log_dir))
 }
 
 /// 文件层 filter: 始终遵循用户 `settings.level` (RUST_LOG 覆盖优先, 与 console 独立)。
@@ -188,7 +194,17 @@ fn file_filter(settings: &AppLogSettings) -> EnvFilter {
 /// - Dev (debug build): console 强制 debug 级; `file_enabled=true` 时也挂文件层 (遵循 settings.level)。
 /// - Release: console 遵循 settings.level; 按 `file_enabled` 决定是否挂文件层。
 /// - `RUST_LOG` 覆盖所有层级 (优先级最高)。
-pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
+///
+/// 返回 `Option<WorkerGuard>`（文件层启用时 `Some`，console-only 时 `None`）。
+///
+/// **调用方硬约束**: 返回的 guard 持有 non-blocking 后台写线程的句柄, drop 即 flush+停线程
+/// (未落盘的缓冲日志随之丢失)。**必须**转交一个生命周期覆盖进程全程的存活位置 —— 生产路径
+/// 唯一调用点 `app_setup::setup` 用 `app.manage(guard)` 存进 Tauri `AppHandle` 状态表: 该表
+/// 与 `tauri::App`/`AppHandle` 同生共死, 只在进程退出、`App` 本体被 drop 时才释放, 覆盖到
+/// main() 返回前的最后一刻, 严格早于 guard drop 的窗口只有「进程已在退出」, 不存在「函数返回
+/// 后日志还没写完但 guard 已没」的中间态。**禁止**把返回值绑到 `init_logging` 内部局部变量
+/// (那样函数一返回 guard 就 drop, 后台线程立刻停)。
+pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) -> Option<tracing_appender::non_blocking::WorkerGuard> {
     // Dev: console 强制 debug (RUST_LOG 可覆盖); Release: 遵循 settings.level。
     let console_filter = if cfg!(debug_assertions) {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter("debug"))
@@ -212,10 +228,10 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
     // trait bound 冲突, 而两层 fmt layer 组装逻辑只 ~5 行, 重复 < 错误抽象。
     if file_on {
         match build_file_appender(data_dir, settings) {
-            Some((appender, _log_dir)) => {
+            Some((non_blocking, guard, _log_dir)) => {
                 let file_layer = tracing_subscriber::fmt::layer()
                     .with_ansi(false)
-                    .with_writer(appender)
+                    .with_writer(non_blocking)
                     .event_format(AidogFormat { ansi: false })
                     .with_filter(file_filter(settings));
 
@@ -227,20 +243,23 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
                 tracing::info!(
                     mode = mode,
                     retention_hours = settings.retention_hours,
-                    "logging initialized (console + file)"
+                    "logging initialized (console + file, non-blocking writer)"
                 );
+                Some(guard)
             }
             None => {
                 // 目录创建失败: 退化为 console-only。
                 let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
                 let _ = tracing::subscriber::set_global_default(subscriber);
                 tracing::warn!(mode = mode, "logging initialized (console only; log dir creation failed)");
+                None
             }
         }
     } else {
         let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
         let _ = tracing::subscriber::set_global_default(subscriber);
         tracing::info!(mode = mode, "logging initialized (console only, file disabled)");
+        None
     }
 }
 
@@ -530,12 +549,13 @@ mod tests {
             level: "info".into(),
             retention_hours: 3,
         };
-        let (appender, log_dir) = build_file_appender(tmp.path(), &settings)
+        let (non_blocking, guard, log_dir) = build_file_appender(tmp.path(), &settings)
             .expect("appender should build when dir is writable");
         // <data_dir>/logs must have been created.
         assert!(log_dir.exists() && log_dir.is_dir());
-        // Appender is constructed (sanity: type is usable).
-        let _ = appender;
+        // Writer + guard are constructed (sanity: types are usable).
+        let _ = non_blocking;
+        let _ = guard;
     }
 
     #[test]
