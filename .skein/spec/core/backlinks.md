@@ -11,9 +11,6 @@
 ## arch/mock-platform-bypasses-forward-pipeline.md#关联
 - ← recall/domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
 
-## arch/mock-platform-short-circuit.md#Mock 平台绕开转发流水线短路
-- ← core/proxy/auto-disable-401-403-402.md#关联
-
 ## arch/protocol-wire-str.md#关联
 - → [[rule-05]]
 
@@ -21,28 +18,13 @@
 - → [[hot-path-buffers]]
 - → [[stream-buf-no-batching]]
 
-## cross-layer/sole-platform-symmetry.md#单启用平台判定对称性 (Rust ↔ TS)
-- ← core/cross-layer/tauri-ts-boundary-contract.md#关联
-
-## cross-layer/sole-platform-symmetry.md#跨层对称硬规 (Rust ↔ TS)
-- ← core/cross-layer/tauri-ts-boundary-contract.md#关联
-
-## cross-layer/tauri-ts-boundary-contract.md#关联
-- → [[sole-platform-symmetry]]
-
-## db/connectionclosed-retry.md#关联
-- → [[crash-safe-db-split]]
-- → [[sqlite-read-cache-config]]
-
-## db/crash-safe-db-split.md#拆库迁移四阶段 Crash-Safe 范式
-- ← core/db/connectionclosed-retry.md#关联
+## db/crash-safe-db-split.md#Cross-ref
+- → [[auto-fix-downgrade-34]]
 
 ## db/sqlite-read-cache-config.md#SQLite 只读缓存定值
-- ← core/db/connectionclosed-retry.md#关联
 - ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 
 ## db/sqlite-read-cache-config.md#关联
-- ← core/db/connectionclosed-retry.md#关联
 - ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 - → [[sqlite-cache-residency-probe-method]]
 
