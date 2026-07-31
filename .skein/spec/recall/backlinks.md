@@ -817,6 +817,28 @@
 - ← recall/frontend/auto-fix-downgrade-37.md#关联
 - ← recall/theme/shadcn-primitives-40.md#关联
 
+## frontend/platform-creation-entry-consolidation.md#cli-proxy 平台创建入口唯一性
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#触发场景
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#约束
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#正解
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#反例
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#适用
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+
+## frontend/platform-creation-entry-consolidation.md#关联
+- ← recall/i18n/i18n-key-deletion-safety.md#关联
+- → [[i18n-key-deletion-safety]]
+
 ## frontend/shadcn-infra-30.md#技巧
 - ← recall/build/shadcn-infra-02.md#关联
 - ← recall/frontend/shadcn-infra-31.md#关联
@@ -981,6 +1003,31 @@
 
 ## frontend/trellis-18.md#Large File Split — facade 模式 (MUST)
 - ← recall/arch/rule-49.md#关联
+
+## i18n/i18n-key-deletion-safety.md#i18n key 删除的安全规矩
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#触发场景
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#约束
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#正解
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#反例
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#分类注意
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#适用
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+
+## i18n/i18n-key-deletion-safety.md#关联
+- ← recall/frontend/platform-creation-entry-consolidation.md#关联
+- → [[platform-creation-entry-consolidation]]
 
 ## i18n/rule-04.md#触发场景
 - ← recall/frontend/form-level-tz-state-sharing.md#关联

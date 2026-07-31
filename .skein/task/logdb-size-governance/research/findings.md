@@ -93,3 +93,57 @@ ORDER BY created_at DESC LIMIT 500)` → `wal_checkpoint(TRUNCATE)` → `VACUUM`
 根因（单行 body 平均 400KB 全文入库、入库前无体积上限）**未修**，用户选择不做代码治理。
 后续若再跑大规模压测，log.db 仍会按约 2GB/天 的速度增长。
 治标手段：压测期临时关 `log_upstream_request`（零代码改动，见上「治理方向」第 3 条）。
+
+## s1-attribute 重跑追加实测（2026-07-31，只读连接 `mode=ro`，未写库）
+
+上次手动清库（230.7MB/501 行）之后应用继续运行，库已再次涨大，且比清库前的速度更快
+（1.58 天涨到 6.5GB 主库，前一轮 2GB/天 现变 ~4GB/天）。本次只读复核，**结论不变**：
+
+| 项 | 值 | 命令 |
+|---|---|---|
+| 主库文件 | 6504.7 MB | `ls -lh ~/.aidog/log.db` |
+| WAL 文件 | 4732.7 MB（未 checkpoint） | `ls -lh ~/.aidog/log.db-wal` |
+| `proxy_log` 表体积 | 6199.0 MB | `SELECT sum(pgsize) FROM dbstat WHERE name='proxy_log'` |
+| 总行数 | 5294 | `SELECT count(*) FROM proxy_log` |
+| 8 个 body/headers 类列合计 | 5549.3 MB（**占表 89.5%**） | `sum(length(request_body)+response_body+upstream_request_body+upstream_request_headers+upstream_response_headers+request_headers+user_response_headers+user_response_body)` |
+| 最老一行 `created_at` | 2026-07-29 23:08:14 | `SELECT min(created_at) FROM proxy_log`（毫秒时间戳） |
+| 最老数据据今 | **1.58 天** | 距 7 天字段清理阈值差 5.4 天，距 90 天整行删除阈值差 88.4 天 |
+
+retention 四步链阈值（7d/7d/90d，同上）仍全部未到——**再次证实「retention 疑失效」不成立，
+是新一轮压测/流量把 body 又写满了**，非清理逻辑失效。WAL 4.7GB 未 checkpoint 说明应用
+仍在写，本次勘察全程只用 `mode=ro` 只读 URI 连接，未对该库做任何写/VACUUM/DELETE。
+
+**对 s2-manual-clean 的提示**：这一轮体积已比上次清理前（8.7GB）逼近（主库+WAL 合计
+~11.2GB），且增速更快，说明根因（body 无上限）一日不修，手动清库只是治标，需向用户
+说明「本次清完大概率几天内再次涨回」。
+
+## s2-manual-clean 第二轮手动清库执行记录（2026-07-31，用户已明确授权）
+
+同 s1 上一轮方案：`pkill` 停应用（仅杀持锁的 `target/debug/aidog` 二进制，`lsof` 确认
+只有它持 `log.db` 锁；tauri dev 前端/vite 监视进程未杀，便于原样恢复）→ 保留最近 500
+行 `DELETE ... WHERE id NOT IN (... ORDER BY created_at DESC LIMIT 500)` → `PRAGMA
+wal_checkpoint(TRUNCATE)` → `VACUUM` → 复核 `journal_mode`。全程未新建任何临时脚本
+文件（heredoc 内联执行），无需清理。
+
+### 前后对比
+
+| 项 | 清理前 | 清理后 |
+|---|---|---|
+| 主库 | 6504.7 MB (6.1G) | **323 MB** |
+| WAL | 4732.7 MB（未 checkpoint） | 0 B |
+| 行数 | 5335 | 500 |
+| `PRAGMA journal_mode` | wal | **wal**（VACUUM 后复核确认未被改回 delete） |
+
+VACUUM 耗时 2.04s（本机 SSD，323MB 结果库体量小，未触及"~9GB 临时空间"量级的场景）。
+
+### 代价说明（已如实记录，未默默换策略）
+
+删除的 4835 行连同其 token/cost/status/model 等元数据一并丢失，Logs 页 / Stats 页对应
+时间段的历史统计会减少。被删数据为 2026-07-29 23:08 至清理前的常规运行流量（非专门标注
+的压测噪声），此点与上一轮（清的是压测数据）不同，向用户如实说明。
+
+### 遗留（与上一轮一致，未新增）
+
+根因（单行 body 全文入库、入库前无体积上限）仍未修，用户本轮仍只拍板手动清库、未选代码
+治理方向。参考上一轮实测的增速（~4GB/天），**本次清完大概率几天内再次涨回**，需再次
+人工介入或后续另立 task 走代码治理。

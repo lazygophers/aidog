@@ -2,7 +2,7 @@
   "id": "logdb-size-governance",
   "name": "log.db 体积治理",
   "desc": "实测 8.2GB / proxy_log 仅 17338 行, 体积集中在 body/headers 大列; 查 retention 与 VACUUM 是否真跑, 定治理方案",
-  "status": "就绪",
+  "status": "已完成",
   "deps": [],
   "contracts": [
     "禁改 aidog 源码：本 task 无代码交付物，用户拍板只做手动清理",
@@ -22,13 +22,18 @@
         "给出 body 类列占表比例",
         "明确推翻或证实「retention 疑失效」假设"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785291583,
       "started": 1785473987,
-      "finished": null
+      "finished": 1785474298
     },
     {
       "sid": "s2-manual-clean",
@@ -44,13 +49,19 @@
         "临时脚本已删",
         "aidog 已恢复运行"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785291583,
-      "started": null,
-      "finished": null
+      "started": 1785474448,
+      "finished": 1785474772
     }
   ],
   "priority": 5,
@@ -62,9 +73,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785254819,
-  "started": null,
+  "started": 1785474857,
   "confirmed": 1785291587,
-  "checked": null,
-  "finished": null,
-  "updated": 1785473987
+  "checked": 1785474863,
+  "finished": 1785475213,
+  "updated": 1785475213
 }
