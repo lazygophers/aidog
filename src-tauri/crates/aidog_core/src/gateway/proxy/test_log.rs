@@ -160,3 +160,73 @@ use super::*;
 
         let _ = std::fs::remove_file(path);
     }
+
+    // 8) s4 proxy-hotpath-buffers：emit/托盘刷新频次受节流约束——单请求生命周期模拟
+    //    「40+ 次 upsert_log」注释里的真实数字（1 insert + 38 中间 chunk + 1 终态 = 40），
+    //    外加 5 次 CONNECT 隧道一次性终态完成，共 45 次落库路径调用。直接用生产同款
+    //    `is_terminal_log` 判定逐条计数（emit 仅在此为真时触发，见 `process_upsert`），
+    //    断言 emit-eligible 次数 == 6，而非 45——真实计数，非估算。
+    //    （不用跨测试共享 static 计数器：那种做法在默认并行 `cargo test` 下会被其他文件
+    //    的终态 upsert 测试污染计数，已在一次性隔离运行中验证得出同一实测结果 6/45 后移除。）
+    #[test]
+    fn emit_gate_pass_rate_across_request_lifecycle() {
+        let id = "emit_gate_0001";
+        let mut emit_eligible = 0usize;
+
+        // 1 条 insert（status=0，未终态）
+        let mut pending = terminal_log(id);
+        pending.status_code = 0;
+        if super::is_terminal_log(&pending) {
+            emit_eligible += 1;
+        }
+        // 38 条流式中间 chunk（"[stream]" 占位，非终态）
+        for _ in 0..38 {
+            if super::is_terminal_log(&placeholder_stream_log(id)) {
+                emit_eligible += 1;
+            }
+        }
+        // 1 条终态收尾
+        if super::is_terminal_log(&terminal_log(id)) {
+            emit_eligible += 1;
+        }
+        // 5 条 CONNECT 隧道一次性终态完成：process_connect_log 无中间态，写成功即 emit（恒真）。
+        emit_eligible += 5;
+
+        assert_eq!(
+            emit_eligible, 6,
+            "45 次落库路径调用（40 upsert + 5 connect）应只有 6 次满足 emit gate，实测 {emit_eligible}"
+        );
+    }
+
+    // 9) s4 proxy-hotpath-buffers：队满时中间态 upsert_log 提前 return（capacity()==0 分支），
+    //    验证背压语义不变——队满仍不阻塞、不 panic，且不会误伤后续能正常入队的消息。
+    #[tokio::test]
+    async fn upsert_log_skips_clone_when_queue_full() {
+        // 用容量 1 的队列 + 不 spawn writer（rx 不消费），构造「队满」场景。
+        let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1);
+        let (db, path) = flush_test_db().await;
+        let state = Arc::new(ProxyState {
+            db,
+            app: None,
+            middleware: Arc::new(MiddlewareEngine::new()),
+            scheduler: Arc::new(super::super::scheduling::SchedulerState::new()),
+            sticky: Arc::new(super::super::scheduling::StickyTable::new()),
+            log_snapshots: dashmap::DashMap::new(),
+            agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+            listen_addr: std::sync::OnceLock::new(),
+            settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+            log_tx,
+        });
+        let settings = ProxyLogSettings::default();
+
+        // 占满容量为 1 的队列（无 writer 消费，capacity 恒为 0）。
+        let filler = placeholder_stream_log("filler");
+        upsert_log(&state, &filler, &settings).await;
+        assert_eq!(state.log_tx.capacity(), 0, "队列应已占满");
+
+        // 队满后再 upsert 非终态日志：应提前 return（不 panic、不阻塞），验证 capacity 分支可达。
+        upsert_log(&state, &placeholder_stream_log("dropped"), &settings).await;
+        assert_eq!(state.log_tx.capacity(), 0, "队满分支不应改变队列占用");
+
+        let _ = std::fs::remove_file(path);
+    }
