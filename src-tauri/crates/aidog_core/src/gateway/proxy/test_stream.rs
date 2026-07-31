@@ -661,6 +661,26 @@ use super::*;
         );
     }
 
+    // ── s3-bound：内容路径 SseLineReassembler 自身上界（与 usage 侧 feed_sse_usage 同 SSE_LINE_BUF_MAX_BYTES 口径）──
+    // 持续无换行喂入，模拟异常/恶意上游永不发完整行：buf 不应无界增长，应在超上限后丢弃重置（不 panic）。
+    #[test]
+    fn sse_line_reassembler_buf_capped_when_no_newline_ever_arrives() {
+        let mut line_buf = SseLineReassembler::new();
+        let junk = "x".repeat(64 * 1024); // 64KB / 次
+        for _ in 0..20 {
+            // 20*64KB = 1.25MB > 1MB 上限（SSE_LINE_BUF_MAX_BYTES），全程不应 panic。
+            let ready = line_buf.feed(&junk);
+            assert!(ready.is_empty(), "无换行时不应有完整行可下发");
+        }
+        // test_stream 是 stream.rs 的子模块（#[path] 内嵌），可直接访问私有字段 buf，
+        // 直接断言内部状态有界（不应无界增长到 20*64KB=1.25MB）。
+        assert!(
+            line_buf.buf.len() < 1024 * 1024,
+            "buf 超上限后应被丢弃重置，不应无界增长，实际 len={}",
+            line_buf.buf.len()
+        );
+    }
+
     // ── 红线 1 钉子：完整行必须随本次 feed 立即下发，禁攒批 ──
     // 只留尾巴（残行）不完整才等下一个 chunk；已完整的行不能因为同一 chunk 里还带着残行
     // 就被一并压住不吐——那等于把行重组做成了「攒够再吐」，首 token 时延随缓冲深度退化。
