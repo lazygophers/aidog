@@ -10,7 +10,7 @@ status: active
 related: []
 updated: 1784985323
 ---
-
+---
 # reasoning_content → anthropic 方案 B 决策
 
 ## 触发场景
