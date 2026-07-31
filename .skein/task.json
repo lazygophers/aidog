@@ -41,15 +41,6 @@
       "kind": "task"
     },
     {
-      "id": "sse-chunk-line-reassembly",
-      "status": "就绪",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "frontend-compositing-purge",
       "status": "已完成",
       "deps": [],
@@ -147,6 +138,15 @@
       "deps": [
         "logs-query-ipc-slimming"
       ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "sse-chunk-line-reassembly",
+      "status": "已完成",
+      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,

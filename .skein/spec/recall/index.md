@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(116), build(62), cross-layer(12), db(23), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(7), optimization(39), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(116), build(62), cross-layer(12), db(25), domain(93), encoding(4), frontend(100), git(6), i18n(24), ops(9), optimization(41), proxy(41), reuse(6), shadcn(49), skein(24), style(18), test(12), testing(13), theme(5), ts-rust-boundary(10) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -202,6 +202,8 @@
 | db/crash-safe-db-split-migration.md#禁用模式（❌） | db | 禁用模式（❌） | db,sqlite,拆库,迁移,crash-safe,INSERT OR IGNORE,DROP,保id,幂等 | auto | - | active | `read → DROP 源表 → INSERT 目标库`（notification migration 049 原模式… |
 | db/filter-semantics.md#排斥列默认过滤需明确确认为产品设计意图 | db | 排斥列默认过滤需明确确认为产品设计意图 | filter,exclude,semantics,product-design,default-behavior | auto | - | active | 当 task 涉及「默认排斥某类请求」的过滤逻辑时（如 Logs 主页默认隐藏 test/quota 请求），确认这是*… |
 | db/pagination-offset.md#LIMIT+1 探测分页无精确总数 | db | LIMIT+1 探测分页无精确总数 | pagination,limit,offset,has_more,count,full-table-scan | auto | - | active | 当分页 UI 仅需「有无下一页」而不需精确总数时，改用 LIMIT offset+pageSize+1 探测有下一页，而… |
+| db/sqlite-cache-residency-probe-method.md#SQLite 页缓存常驻量的直接探针方法 | db | SQLite 页缓存常驻量的直接探针方法 | sqlite,page-cache,measurement,heap,malloc,probe | auto | - | active | - |
+| db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针 | db | 页缓存常驻量探针 | sqlite,page-cache,measurement,heap,malloc,probe | auto | - | active / →measure-window-exclusive-env,sqlite-cache-measurement-traps,sqlite-read-cache-config | ### 方法  用 `heap --addresses 'malloc[5k]'` 的 5KB 块数作为 SQLite … |
 | db/sqlite-partial-index.md#参数化查询无法触发 partial index（字面量盲区） | db | 参数化查询无法触发 partial index（字面量盲区） | sqlite,partial-index,query-plan,parameter-binding,sargable | auto | - | active | SQLite 查询规划器对 partial index 的匹配仅识别 SQL 文本中的**字面量常量**谓词，不识别**… |
 | db/trellis-00.md#Column Naming (MUST) | db | Column Naming (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | auto | - | active | - 平台主类型列名为 `platform_type`（禁 `protocol`）；其值用 `serde_json::to… |
 | db/trellis-00.md#Migration (MUST) | db | Migration (MUST) | db,sqlite,schema,表,主键,命名,软删除,setting,迁移,crud | auto | - | active | - schema 破坏式变更必须提供独立一次性迁移脚本（`scripts/`，非 app 运行时代码），迁移完成后删除 … |
@@ -446,6 +448,8 @@
 | i18n/trellis-19.md#验证命令 | i18n | 验证命令 | locale,i18n,zh-hans,bcp47,i18next,presets,rtl | auto | - | active | ```bash # zh-CN 残留审计 (合法点见上 "测试 fixture / 文档 URL" + 4 命名空间表;… |
 | ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单 | ops | 空闲期唤醒源 6 分类清单 | wakeup,timers,scheduler,sources,profiling,static-analysis,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env | 空闲期 CPU 唤醒源分 6 类，静态 rg 检索无遗漏（src-tauri + src）。  / 分类 / 频率 / … |
 | ops/stack-attribution-profiling-methodology.md#栈归因用法 | ops | 栈归因用法 | profiling,stack-trace,attribution,instruments,xctrace,methodology,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env,webkit-jit-warmup-trap | **定理**：静态检索定时器只能估出量级（因周期、触发条件、执行成本都是猜），无法判断是否真在稳态 CPU 占比中命中。… |
+| ops/test-data-isolation-constraint.md#性能测试数据隔离约束 | ops | 性能测试数据隔离约束 | testing,data,isolation,database,measurement,real-data | auto | - | active | - |
+| ops/test-data-isolation-constraint.md#测试数据隔离硬约束 | ops | 测试数据隔离硬约束 | testing,data,isolation,database,measurement,real-data | auto | - | active | 性能量测或功能验证时需要用特定数据库（如缩小库、污染库等）。  ### 硬约束  - **禁移动/重命名用户的真实库文件… |
 | ops/trellis-17.md#Cross-reference | ops | Cross-reference | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | - 先例代码: `crates/aidog_core/src/gateway/defaults_sync.rs`（pla… |
 | ops/trellis-17.md#实例 | ops | 实例 | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | - task 07-09-*（platform-presets 同步首次落地，`defaults_sync.rs` 先例… |
 | ops/trellis-17.md#数据流架构 (MUST，禁前端直读 github) | ops | 数据流架构 (MUST，禁前端直读 github) | sync,defaults,json,jsdelivr,remote,validate,presets,hash | auto | - | active | ``` github (master) ──rust sync (<x>_sync.rs)──▶ ~/.aidog/<f… |
@@ -483,6 +487,8 @@
 | optimization/memory-measure-background.md#触发场景 | optimization | 触发场景 | memory,measure,background,activate,settle,foreground | auto | - | active | 内存占用量测时，采用 CPU 量测的 `activate + settle` 两段试图通过前台激活 + 等待稳定来排除用… |
 | optimization/memory-measure-background.md#适用 | optimization | 适用 | memory,measure,background,activate,settle,foreground | auto | - | active | - Tauri / Electron 应用内存占用基准量测 - 长时间后台内存监控（避免前台抢占） - 交叉对比前台/后… |
 | optimization/memory-measure-background.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | memory,measure,background,activate,settle,foreground | auto | - | active | ❌ **陷阱**：内存量测复用 CPU 量测的 activate + settle 口径  ```bash # CPU … |
+| optimization/sqlite-cache-measurement-traps.md#SQLite 页缓存量测三大陷阱 | optimization | SQLite 页缓存量测三大陷阱 | sqlite,measurement,profiling,memory,phys_footprint,noise | auto | - | active | 实测 SQLite 默认 cache_size 与各档位定值方案时踩过的坑。  ### 陷阱一：内存计量工具选错  **… |
+| optimization/sqlite-cache-measurement-traps.md#SQLite 页缓存量测陷阱 | optimization | SQLite 页缓存量测陷阱 | sqlite,measurement,profiling,memory,phys_footprint,noise | auto | - | active | - |
 | optimization/webkit-jit-warmup-trap.md#WebContent JSC JIT 热身陷阱 | optimization | WebContent JSC JIT 热身陷阱 | webkit,jsc,jit,warmup,profiling,sampling,trap,cpu | auto | - | active / →idle-cpu-baseline-xctrace | WebContent 进程中 JSC JIT 热身阶段（启动后数分钟）vs 稳定态（运行 45+ 分钟）的 CPU 占比… |
 | optimization/webkit-xpc-helper-process-bounds.md#反例（错误模式） | optimization | 反例（错误模式） | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | / ❌ 错 / ✅ 改为 / /---/---/ / 用 ppid 反查归属 / 编制硬闸：期望 WebContent×… |
 | optimization/webkit-xpc-helper-process-bounds.md#案例 | optimization | 案例 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | 多轮量测发现某档进程数突增（期望 4，实际 6-8），发现混入了飞书/Safari 的 WebKit helper。改用… |
