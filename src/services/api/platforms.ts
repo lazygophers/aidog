@@ -363,6 +363,14 @@ export const platformApi = {
       { groupId: groupId ?? null },
     ),
 
+  /** 只读预览「一键清理失效平台」将处理的候选清单，与 purgeDisabled 共用同一筛选条件。
+   *  reason: "auth_failed"（401/403 认证失效）| "expired"（已过期）
+   *  action: "delete"（永久删除）| "unassign"（仅移出本分组，仅分组模式可能出现） */
+  purgeDisabledPreview: (groupId?: number) =>
+    invoke<PurgeCandidate[]>("platform_purge_disabled_preview", {
+      groupId: groupId ?? null,
+    }),
+
   /** 为平台补建默认 auto 分组（若已存在则跳过）。供批量导入回挂复用（cc-switch / 导入）。 */
   ensureAutoGroup: (id: number) => invoke<void>("platform_ensure_auto_group", { id }),
 
@@ -417,6 +425,14 @@ export const platformApi = {
 export interface BatchReport {
   applied: number;
   skipped: { id: number; reason: string }[];
+}
+
+/** 一键清理候选行（对应 Rust PurgeCandidate，serde rename_all = "camelCase"）。 */
+export interface PurgeCandidate {
+  id: number;
+  name: string;
+  reason: "auth_failed" | "expired";
+  action: "delete" | "unassign";
 }
 
 /** 系统托盘 quota 展示（互斥单平台） */
