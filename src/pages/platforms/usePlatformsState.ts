@@ -11,7 +11,7 @@
 //   - handleGroupsChanged: 刷新本 hook 的 groupDetails/membership（chips + 已分组/未分组派生）
 //   - groupsReloadRef: 命令式触发 GroupsEmbedded 重建（其 platforms state 独立，父级 setPlatforms 触达不到）
 //   - aidog-groups-changed 事件: 跨组件广播（其他监听者按需响应）
-// 对齐位置：handleDelete / handlePurgeDisabled（本文件）+ handleSave / createCliProxyPlatform
+// 对齐位置：handleDelete / handlePurgeDisabled（本文件）+ handleSave
 //   （usePlatformForm.ts）+ runBatchCreateFromPaste（platformPasteApply.ts）。
 //
 // 故意漏 reloadRef 的特例：拖入分组（onStandaloneGroupPointerUp）—平台行不变，仅 setGroupDetails
@@ -480,7 +480,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     });
     try {
       await platformApi.delete(id);
-      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave / createCliProxyPlatform /
+      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave /
       //   runBatchCreateFromPaste / handlePurgeDisabled。删平台会 cascade 清 group_platform 关联，
       //   GroupsEmbedded 分组卡内的该平台行必须由专用 reload 移除，仅靠父级 setPlatforms(filter) 无法触达
       //   （GroupsEmbedded 渲染门控在其自身 platforms state）。
@@ -589,7 +589,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
         platformsEpochRef.current++;
         setPlatforms(prev => prev.filter(x => !del.has(x.id)));
       }
-      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave / createCliProxyPlatform /
+      // platform mutation 三连（见顶部「一致性规则」）：对齐 handleSave /
       //   runBatchCreateFromPaste / handleDelete。purge 会移除分组关联（unassignedIds）+ 永久删除部分平台
       //   （deletedIds），跨组件需感知成员变更。
       handleGroupsChanged();

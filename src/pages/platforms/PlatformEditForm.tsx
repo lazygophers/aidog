@@ -16,9 +16,6 @@ import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
 // 表单分区组件（9 个 section + FormSection / ApiKeyField / toDatetimeLocal）从此导入。
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
@@ -64,7 +61,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
     globalClaudeConfig,
     saveError,
-    handleSave, resetForm, applyPaste, createCliProxyPlatform,
+    handleSave, resetForm, applyPaste,
   } = s.form;
   // groupDetails 在 list slice（list 态字段，经 listDeps 注入 form hook 但 owner 是 list）。
   const { groupDetails } = s.list;
@@ -99,23 +96,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
-  // 「从 cli-proxy 添加」picker 开关（cpa-standalone-module s6）：新建态入口，
-  // 选定 provider 后调 createCliProxyPlatform → 后端建 cli-proxy 平台 → 刷新列表 + 关表单。
-  const [showCliProxyPicker, setShowCliProxyPicker] = useState(false);
-  const [cliProxyProviders, setCliProxyProviders] = useState<CliProxyProvider[]>([]);
   // 编辑 cli-proxy 平台时反查 provider（models/base_url/api_key 只读自 provider）。
   const [cliProxyProvider, setCliProxyProvider] = useState<CliProxyProvider | null>(null);
   const isCliProxyEditing = !!editing && editing.platform_type === "cli-proxy";
-
-  // picker 打开时拉 provider 列表（单次 RPC，关窗不重拉；cpa-standalone-module s6）。
-  useEffect(() => {
-    if (!showCliProxyPicker) return;
-    let cancelled = false;
-    cliProxyApi.list()
-      .then(list => { if (!cancelled) setCliProxyProviders(list); })
-      .catch(() => { if (!cancelled) setCliProxyProviders([]); });
-    return () => { cancelled = true; };
-  }, [showCliProxyPicker]);
 
   // 编辑 cli-proxy 平台时按 extra.cli_proxy_provider_id 拉 provider（只读展示 models/base_url/api_key 来源）。
   useEffect(() => {
@@ -149,14 +132,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {!editing && (
-            <>
-              <Button variant="outline" onClick={() => setShowPaste(true)}>
-                {t("platform.paste.title", "智能识别")}
-              </Button>
-              <Button variant="outline" onClick={() => setShowCliProxyPicker(true)}>
-                {t("platform.cliProxy.addFromProvider", "从 cli-proxy 添加")}
-              </Button>
-            </>
+            <Button variant="outline" onClick={() => setShowPaste(true)}>
+              {t("platform.paste.title", "智能识别")}
+            </Button>
           )}
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
           <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
@@ -178,49 +156,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           onClose={() => { setShowPaste(false); setPasteInitialText(undefined); }}
         />
       )}
-
-      <Dialog open={showCliProxyPicker} onOpenChange={(v) => { if (!v) setShowCliProxyPicker(false); }}>
-        <DialogContent
-          className="glass-elevated"
-          style={{ minWidth: 420, maxWidth: 560, maxHeight: "70vh", overflowY: "auto" }}
-        >
-          <DialogHeader>
-            <DialogTitle style={{ fontSize: 16 }}>
-              {t("platform.cliProxy.pickerTitle", "选择 cli-proxy provider")}
-            </DialogTitle>
-            <DialogDescription style={{ fontSize: 12 }}>
-              {t("platform.cliProxy.pickerHint", "选定后将立即创建 cli-proxy 平台并加入当前分组")}
-            </DialogDescription>
-          </DialogHeader>
-          {cliProxyProviders.length === 0 ? (
-            <div style={{ fontSize: 13, color: "var(--text-tertiary)", padding: "20px 0", textAlign: "center" }}>
-              {t("platform.cliProxy.pickerEmpty", "暂无 cli-proxy provider，请先在 cli-proxy 页导入")}
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {cliProxyProviders.map(p => (
-                <Button key={p.id} variant="ghost" style={{
-                  justifyContent: "flex-start", textAlign: "left", padding: "10px 12px", height: "auto",
-                  border: "1px solid var(--border)",
-                }} onClick={async () => {
-                  setShowCliProxyPicker(false);
-                  await createCliProxyPlatform(p);
-                }}>
-                  <div style={{ fontWeight: 600, fontSize: 13 }}>{p.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                    {p.wire_protocol} · {p.base_url} · {p.models.length} models
-                  </div>
-                </Button>
-              ))}
-            </div>
-          )}
-          <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
-            <Button variant="ghost" onClick={() => setShowCliProxyPicker(false)}>
-              {t("action.cancel", "取消")}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         {/* 基础信息：名称 + 协议 */}
