@@ -31,4 +31,4 @@ if code == 401 || code == 403 || code == 402
 
 ## 关联
 
-[[mock-platform-short-circuit]] [[http-client-no-env-proxy]]
+[[core/arch/mock-platform-bypasses-forward-pipeline]] [[http-client-no-env-proxy]]

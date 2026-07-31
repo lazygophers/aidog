@@ -72,8 +72,32 @@
 - ← recall/domain/bundled-models-fallback.md#关联
 - ← recall/domain/time-tiers-apply-idiom.md#关联
 
+## i18n/i18n-key-sync-8lang.md#硬约则
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## i18n/i18n-key-sync-8lang.md#验收
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
+## i18n/i18n-key-sync-8lang.md#禁用
+- ← core/i18n/zh-hans-literal-sync.md#关联
+
 ## i18n/i18n-key-sync-8lang.md#关联
+- ← core/i18n/zh-hans-literal-sync.md#关联
 - → [[zh-hans-literal-sync]]
+
+## i18n/zh-hans-literal-sync.md#MUST 硬约束
+- ← core/i18n/i18n-key-sync-8lang.md#关联
+
+## i18n/zh-hans-literal-sync.md#禁（多 locale 命名空间统一）
+- ← core/i18n/i18n-key-sync-8lang.md#关联
+
+## i18n/zh-hans-literal-sync.md#验收
+- ← core/i18n/i18n-key-sync-8lang.md#关联
+
+## i18n/zh-hans-literal-sync.md#关联
+- ← core/i18n/i18n-key-sync-8lang.md#关联
+- → [[i18n-key-sync-8lang]]
+- → [[locale-deadkey-cleanup-ownership]]
 
 ## perf/hot-path-buffers.md#mpsc 热路径丢弃分支先查 capacity 再决定是否深拷贝
 - ← core/arch/stream-buf-unified-cap.md#关联
@@ -90,9 +114,35 @@
 ## perf/stream-buf-no-batching.md#
 - ← core/arch/stream-buf-unified-cap.md#关联
 
+## proxy/auto-disable-401-403-402.md#硬约则
+- ← core/proxy/http-client-no-env-proxy.md#关联
+
+## proxy/auto-disable-401-403-402.md#触发条件
+- ← core/proxy/http-client-no-env-proxy.md#关联
+
+## proxy/auto-disable-401-403-402.md#禁用
+- ← core/proxy/http-client-no-env-proxy.md#关联
+
 ## proxy/auto-disable-401-403-402.md#关联
+- ← core/proxy/http-client-no-env-proxy.md#关联
 - → [[http-client-no-env-proxy]]
 - → [[mock-platform-short-circuit]]
+
+## proxy/http-client-no-env-proxy.md#MUST 硬约束
+- ← core/proxy/auto-disable-401-403-402.md#关联
+
+## proxy/http-client-no-env-proxy.md#反例
+- ← core/proxy/auto-disable-401-403-402.md#关联
+
+## proxy/http-client-no-env-proxy.md#症状差异（为何 502 路径不触发）
+- ← core/proxy/auto-disable-401-403-402.md#关联
+
+## proxy/http-client-no-env-proxy.md#验证
+- ← core/proxy/auto-disable-401-403-402.md#关联
+
+## proxy/http-client-no-env-proxy.md#关联
+- ← core/proxy/auto-disable-401-403-402.md#关联
+- → [[auto-disable-401-403-402]]
 
 ## proxy/wire-protocol-whitelist-sync.md#MUST 硬约束
 - ← recall/domain/endpoint-cross-protocol-fallback.md#案例

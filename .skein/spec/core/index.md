@@ -1,6 +1,6 @@
 # SKEIN core 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(13), cross-layer(12), db(22), domain(5), frontend(3), i18n(4), perf(4), proxy(9) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(13), cross-layer(12), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(14) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -63,6 +63,10 @@
 | i18n/i18n-key-sync-8lang.md#硬约则 | i18n | 硬约则 | i18n,locale,zh-Hans,en-US,ar-SA,fr-FR,de-DE,ru-RU,ja-JP,es-ES | auto | - | active | `src/locales/` 8 个 locale 文件 MUST 保持 key 集合等值：  - **语言**：zh-… |
 | i18n/i18n-key-sync-8lang.md#禁用 | i18n | 禁用 | i18n,locale,zh-Hans,en-US,ar-SA,fr-FR,de-DE,ru-RU,ja-JP,es-ES | auto | - | active | ❌ 漏某语言 → 用户切该语言见裸 key   ❌ 模板变量未展开 → 动态内容显示变量本身 |
 | i18n/i18n-key-sync-8lang.md#验收 | i18n | 验收 | i18n,locale,zh-Hans,en-US,ar-SA,fr-FR,de-DE,ru-RU,ja-JP,es-ES | auto | - | active | ```bash yarn check:i18n  # 4 类检查 + 清单输出 # 期望 exit 0 ``` |
+| i18n/zh-hans-literal-sync.md#MUST 硬约束 | i18n | MUST 硬约束 | locale,i18n,zh-Hans,BCP47,script,preset,sync | auto | - | active | - **应用 i18n 使用 BCP47 script 子标签 `zh-Hans`（非 region 子标签 `zh-C… |
+| i18n/zh-hans-literal-sync.md#关联 | i18n | 关联 | locale,i18n,zh-Hans,BCP47,script,preset,sync | auto | - | active / →i18n-key-sync-8lang,locale-deadkey-cleanup-ownership | [[i18n-key-sync-8lang]] [[locale-deadkey-cleanup-ownership]] |
+| i18n/zh-hans-literal-sync.md#禁（多 locale 命名空间统一） | i18n | 禁（多 locale 命名空间统一） | locale,i18n,zh-Hans,BCP47,script,preset,sync | auto | - | active | ❌ **禁强行统一 4 套独立 locale 命名空间，各有约定**：  / 命名空间 / 标签 / 位置 / 消费者 … |
+| i18n/zh-hans-literal-sync.md#验收 | i18n | 验收 | locale,i18n,zh-Hans,BCP47,script,preset,sync | auto | - | active | - [ ] `ALL_LOCALES` 集合 == presets JSON 任一 protocol 的 `name` … |
 | perf/hot-path-buffers.md#mpsc 热路径丢弃分支先查 capacity 再决定是否深拷贝 | perf | mpsc 热路径丢弃分支先查 capacity 再决定是否深拷贝 | mpsc,capacity,try_send,背压,深拷贝,热路径,TOCTOU,hotspot,frequency,profiling,clone | auto | src-tauri/crates/aidog_core/src/gateway/proxy/log.rs | active | mpsc 队列热路径丢弃分支：先 `Sender::capacity() == 0` 判队满再 return，避免为「确… |
 | perf/hot-path-buffers.md#热点判定维度：调用频次优先于字节量 | perf | 热点判定维度：调用频次优先于字节量 | mpsc,capacity,try_send,背压,深拷贝,热路径,TOCTOU,hotspot,frequency,profiling,clone | auto | src-tauri/crates/aidog_core/src/gateway/proxy/log.rs | active | ### 核心决策  **热点判定的决定变量是调用频次（每请求 N 次），不是单次操作的字节量。**深拷贝值不值得优化，取… |
 | perf/hot-path-buffers.md#热点判定维度：调用频次优先于字节量 | perf | 热点判定维度：调用频次优先于字节量 | mpsc,capacity,try_send,背压,深拷贝,热路径,TOCTOU,hotspot,frequency,profiling,clone | auto | src-tauri/crates/aidog_core/src/gateway/proxy/log.rs | active | - |
@@ -71,6 +75,11 @@
 | proxy/auto-disable-401-403-402.md#硬约则 | proxy | 硬约则 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 平台自动禁用（auto_disabled）仅由三个 HTTP 状态码触发：**401 / 403 / 402**，**禁… |
 | proxy/auto-disable-401-403-402.md#禁用 | proxy | 禁用 | auto-disable,401,403,402,stateless,throttle | auto | - | active | ❌ 429 触发 auto_disabled → 永久禁用平台，虽然是临时故障   ❌ 其他 4xx（如 400）触发 … |
 | proxy/auto-disable-401-403-402.md#触发条件 | proxy | 触发条件 | auto-disable,401,403,402,stateless,throttle | auto | - | active | 见 `crates/aidog_core/src/gateway/proxy/non_success.rs:68`：  … |
+| proxy/http-client-no-env-proxy.md#MUST 硬约束 | proxy | MUST 硬约束 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active | - **`build_http_client` 的 `use_proxy=false` 分支必须显式 `.no_prox… |
+| proxy/http-client-no-env-proxy.md#关联 | proxy | 关联 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active / →auto-disable-401-403-402 | [[auto-disable-401-403-402]] |
+| proxy/http-client-no-env-proxy.md#反例 | proxy | 反例 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active | ❌ **缺 `.no_proxy()` 导致递归**： ```rust if use_proxy {     build… |
+| proxy/http-client-no-env-proxy.md#症状差异（为何 502 路径不触发） | proxy | 症状差异（为何 502 路径不触发） | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active | - **502 路径**（上游不可达）：reqwest 走 env proxy 回 AiDog → CONNECT 不可… |
+| proxy/http-client-no-env-proxy.md#验证 | proxy | 验证 | reqwest,no_proxy,http_client,forward,env,递归,CONNECT | auto | - | active | ```bash # use_proxy=false 分支必有 .no_proxy() grep -A5 "use_pro… |
 | proxy/wire-protocol-whitelist-sync.md#MUST 硬约束 | proxy | MUST 硬约束 | - | always | - | active | 新增 wire protocol 时必须同步更新以下白名单，否则新协议会导致 route fail： - forward… |
 | proxy/wire-protocol-whitelist-sync.md#关联 | proxy | 关联 | - | always | - | active / →five-wire-protocols-anchor,reasoning-content-as-text-block | [[five-wire-protocols-anchor]] [[reasoning-content-as-text-b… |
 | proxy/wire-protocol-whitelist-sync.md#反例 | proxy | 反例 | - | always | - | active | - 新增 protocol X 但未加入白名单 → matched_ep=None 时 fallback 到 platf… |

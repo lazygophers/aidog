@@ -1,5 +1,5 @@
 {
-  "ts": "2026-08-01T00:01:11",
+  "ts": "2026-08-01T00:05:14",
   "core_chars": 7026,
   "budget": 8000,
   "problems": [
@@ -118,27 +118,6 @@
     {
       "type": "broken-link",
       "files": [
-        "recall/build/build-rs-env-is-crate-scoped"
-      ],
-      "detail": "[断链] recall/build/build-rs-env-is-crate-scoped: [[rule-61]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/build/clippy-touch-before-recheck"
-      ],
-      "detail": "[断链] recall/build/clippy-touch-before-recheck: [[rule-63]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/build/converter-endpoint-decoupled"
-      ],
-      "detail": "[断链] recall/build/converter-endpoint-decoupled: [[rule-55]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
         "recall/build/shadcn-add-verify-deps"
       ],
       "detail": "[断链] recall/build/shadcn-add-verify-deps: [[shadcn-infra-31]] ✗ 目标缺失"
@@ -163,27 +142,6 @@
         "recall/build/vite-at-alias-manual"
       ],
       "detail": "[断链] recall/build/vite-at-alias-manual: [[shadcn-infra-28]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/build/wire-protocol-gate-is-failfast"
-      ],
-      "detail": "[断链] recall/build/wire-protocol-gate-is-failfast: [[rule-54]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/converter-normalized-intermediate"
-      ],
-      "detail": "[断链] recall/domain/converter-normalized-intermediate: [[rule-54]] ✗ 目标缺失"
-    },
-    {
-      "type": "broken-link",
-      "files": [
-        "recall/domain/cpa-oauth-credential-format"
-      ],
-      "detail": "[断链] recall/domain/cpa-oauth-credential-format: [[parser-multi-path-format-symmetry]] ✗ 目标缺失"
     },
     {
       "type": "broken-link",

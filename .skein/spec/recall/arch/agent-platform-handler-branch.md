@@ -42,4 +42,4 @@ agent-as-LLM 平台接入（Mock/ClaudeCode/Devin/Factory）
 
 ## 关联
 dashmap-sharding (session 映射)
-[[trellis-04]] (enum 变体同步)
+[[protocol-variant-extension]] (enum 变体同步)
