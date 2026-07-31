@@ -2,6 +2,119 @@
 
 章节粒度: 规则 id = `<类目>/<主题>.md#<规则标题>`; `←` 入链 (谁引用本条) / `→` 出链 (本条引用谁)。无条目 = 孤立候选。
 
+## arch/auto-fix-downgrade-33.md#关联
+- → [[trellis-04]]
+
+## arch/auto-fix-downgrade-34.md#关联
+- → [[auto-fix-downgrade-35]]
+- → [[cross-db-subquery-handle-selection]]
+
+## arch/auto-fix-downgrade-35.md#触发场景
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+
+## arch/auto-fix-downgrade-35.md#陷阱
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+
+## arch/auto-fix-downgrade-35.md#正解
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+
+## arch/auto-fix-downgrade-35.md#反例
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+
+## arch/auto-fix-downgrade-35.md#测试
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+
+## arch/auto-fix-downgrade-35.md#适用
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+
+## arch/auto-fix-downgrade-35.md#关联
+- ← recall/arch/auto-fix-downgrade-34.md#关联
+- → [[shadcn-infra-32]]
+
+## arch/auto-fix-downgrade-38.md#关联
+- → [[shadcn-infra-32]]
+- → [[trellis-04]]
+
+## build/rule-06.md#MUST 硬约束
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-06.md#反例
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-06.md#适用
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-06.md#关联
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-06.md#案例
+- ← recall/domain/rule-55.md#案例
+- → [[rule-07]]
+- → [[rule-55]]
+
+## build/rule-07.md#MUST 硬约束
+- ← recall/build/rule-06.md#案例
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-07.md#反例
+- ← recall/build/rule-06.md#案例
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-07.md#适用
+- ← recall/build/rule-06.md#案例
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-07.md#关联
+- ← recall/build/rule-06.md#案例
+- ← recall/domain/rule-55.md#案例
+
+## build/rule-07.md#案例
+- ← recall/build/rule-06.md#案例
+- ← recall/domain/rule-55.md#案例
+- → [[rule-05]]
+- → [[rule-54]]
+
+## build/rule-61.md#触发场景
+- ← recall/build/rule-63.md#关联
+
+## build/rule-61.md#陷阱
+- ← recall/build/rule-63.md#关联
+
+## build/rule-61.md#正解
+- ← recall/build/rule-63.md#关联
+
+## build/rule-61.md#案例
+- ← recall/build/rule-63.md#关联
+
+## build/rule-61.md#适用
+- ← recall/build/rule-63.md#关联
+
+## build/rule-61.md#关联
+- ← recall/build/rule-63.md#关联
+- → [[rule-63]]
+
+## build/rule-63.md#触发场景
+- ← recall/build/rule-61.md#关联
+
+## build/rule-63.md#陷阱
+- ← recall/build/rule-61.md#关联
+
+## build/rule-63.md#正解
+- ← recall/build/rule-61.md#关联
+
+## build/rule-63.md#案例
+- ← recall/build/rule-61.md#关联
+
+## build/rule-63.md#检查
+- ← recall/build/rule-61.md#关联
+
+## build/rule-63.md#适用
+- ← recall/build/rule-61.md#关联
+
+## build/rule-63.md#关联
+- ← recall/build/rule-61.md#关联
+- → [[rule-61]]
+
 ## db/sqlite-cache-residency-probe-method.md#SQLite 页缓存常驻量的直接探针方法
 - ← core/db/sqlite-read-cache-config.md#关联
 
@@ -11,8 +124,103 @@
 - → [[sqlite-cache-measurement-traps]]
 - → [[sqlite-read-cache-config]]
 
+## domain/bundled-models-fallback.md#关联
+- → [[rule-66]]
+- → [[time-tiers-apply-idiom]]
+
 ## domain/prd-acceptance-consistency-check.md#PRD 验收标准与约束互容性检查
 - → [[mock-platform-bypasses-forward-pipeline]]
+
+## domain/rule-51.md#关联
+- → [[rule-05]]
+- → [[rule-53]]
+
+## domain/rule-52.md#触发场景
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+
+## domain/rule-52.md#陷阱-正解
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+
+## domain/rule-52.md#决策背景
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+
+## domain/rule-52.md#实现
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+
+## domain/rule-52.md#反例
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+
+## domain/rule-52.md#适用
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+
+## domain/rule-52.md#关联
+- ← recall/domain/rule-52.md#关联
+- ← recall/domain/rule-53.md#关联
+- → [[rule-52]]
+- → [[rule-53]]
+
+## domain/rule-53.md#触发场景
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#陷阱-正解
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#设计决策
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#覆盖范围
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#反例
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#适用
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#案例
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+
+## domain/rule-53.md#关联
+- ← recall/domain/rule-51.md#关联
+- ← recall/domain/rule-52.md#关联
+- → [[rule-52]]
+- → [[rule-54]]
+
+## domain/rule-55.md#触发场景
+- ← recall/build/rule-06.md#案例
+
+## domain/rule-55.md#陷阱-正解
+- ← recall/build/rule-06.md#案例
+
+## domain/rule-55.md#分层不变量
+- ← recall/build/rule-06.md#案例
+
+## domain/rule-55.md#反例
+- ← recall/build/rule-06.md#案例
+
+## domain/rule-55.md#适用
+- ← recall/build/rule-06.md#案例
+
+## domain/rule-55.md#关联
+- ← recall/build/rule-06.md#案例
+
+## domain/rule-55.md#案例
+- ← recall/build/rule-06.md#案例
+- → [[rule-06]]
+- → [[rule-07]]
 
 ## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
