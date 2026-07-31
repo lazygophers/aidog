@@ -149,10 +149,12 @@ function App() {
     return true;
   });
 
-  const effectiveNav =
+  // 保留子页后缀（如 "settings/claude"），Sidebar 靠它高亮二级菜单项。
+  const resolvedNav =
     activeNav === "logs" && !logEnabled ? "platforms"
     : activeNav === "notifications" && !notifEnabled ? "platforms"
-    : activeNav.split("/")[0];
+    : activeNav;
+  const effectiveNav = resolvedNav.split("/")[0];
   // settings 子页：activeNav 形如 "settings/system"；裸 "settings" 回退 system。
   const settingsTab: Tab = activeNav.startsWith("settings/") ? (activeNav.slice(9) as Tab) : "system";
 
@@ -169,7 +171,7 @@ function App() {
     }}>
       <Sidebar
         navItems={navItems}
-        activeId={effectiveNav}
+        activeId={resolvedNav}
         onNavigate={handleNavigate}
       />
       <main style={{
