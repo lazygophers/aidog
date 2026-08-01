@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(97), build(58), db(5), domain(74), frontend(80), git(7), i18n(15), ops(23), optimization(43), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(15), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(111), build(58), db(5), domain(74), frontend(88), git(7), i18n(15), ops(23), optimization(43), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(23), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -87,6 +87,20 @@
 | arch/protocol-variant-extension.md#新增变体 MUST 先 grep 同构变体命中点 (MUST) | arch | 新增变体 MUST 先 grep 同构变体命中点 (MUST) | protocol,enum,变体,grep,serde,match,union | auto | - | active | 新增 `Protocol` 变体前，**MUST** grep 现有同构变体全链命中点，据实际命中分类决定改动面，禁预设… |
 | arch/protocol-variant-extension.md#零专属 match 臂 → 加枚举即覆盖 (MUST) | arch | 零专属 match 臂 → 加枚举即覆盖 (MUST) | protocol,enum,变体,grep,serde,match,union | auto | - | active | **反直觉发现**：`router.rs` / `adapter/converter.rs` / `quota.rs` … |
 | arch/protocol-variant-extension.md#验收断言（可复用） | arch | 验收断言（可复用） | protocol,enum,变体,grep,serde,match,union | auto | - | active | ```bash # 新变体字面量全链命中点清单（据分类决定改动面） grep -rn '<NewVariant>\/<n… |
+| arch/startup-blockon-backgrounding-criteria.md#副作用 | arch | 副作用 | startup,performance,async,initialization,block_on | auto | - | active | - 错误上报时间延后（日志系统晚启 500ms-1s） - 异步任务内早期异常需额外 tracing 日志（启动窗口短暂… |
+| arch/startup-blockon-backgrounding-criteria.md#案例 | arch | 案例 | startup,performance,async,initialization,block_on | auto | - | active | commit 150374ec（perf(startup): 启动期 block_on 后台化）： - 行 30：DB … |
+| arch/startup-blockon-backgrounding-criteria.md#检查清单 | arch | 检查清单 | startup,performance,async,initialization,block_on | auto | - | active | ```bash # 改动后验证 grep -n "block_on" src-tauri/src/app_setup.r… |
+| arch/startup-blockon-backgrounding-criteria.md#正解 | arch | 正解 | startup,performance,async,initialization,block_on | auto | - | active | 判断标准矩阵：  / block_on 产物 / 被后续代码读取？ / 初始态会改语义？ / 决定 / 案例 / /--… |
+| arch/startup-blockon-backgrounding-criteria.md#触发场景 | arch | 触发场景 | startup,performance,async,initialization,block_on | auto | - | active | 冷启动优化时决定某个 `block_on` 是否能挪到后台 spawn 时。 |
+| arch/startup-blockon-backgrounding-criteria.md#适用 | arch | 适用 | startup,performance,async,initialization,block_on | auto | - | active | - 冷启动 > 3 秒时优化关键路径 - 启动 span 里新增 block_on 需审视是否真必须同步 - 后台 sp… |
+| arch/startup-blockon-backgrounding-criteria.md#陷阱 | arch | 陷阱 | startup,performance,async,initialization,block_on | auto | - | active | 检查 block_on 结果是否被**同一 setup 内**后续代码读取/依赖。 - **若初始态（空/默认值）会改变… |
+| arch/tauri-command-log-plain-vs-macro.md#不违反此规则会导致 | arch | 不违反此规则会导致 | logging,tauri,macro,instrumentation,command | auto | - | active | - plain 函数无日志 → 请求链路不可观测 - 无法判断 command 是否被调用 - 性能问题排查时缺关键上下… |
+| arch/tauri-command-log-plain-vs-macro.md#案例 | arch | 案例 | logging,tauri,macro,instrumentation,command | auto | - | active | 提交 22e18046（chore: 删与 tauri_command! 宏重复的日志 87 处）： - 删了 87 处… |
+| arch/tauri-command-log-plain-vs-macro.md#检查清单 | arch | 检查清单 | logging,tauri,macro,instrumentation,command | auto | - | active | - grep 该函数名，确认在 startup.rs 的 generate_handler! 中 - 在 command… |
+| arch/tauri-command-log-plain-vs-macro.md#正解 | arch | 正解 | logging,tauri,macro,instrumentation,command | auto | - | active | 删手写 debug! 前必须先确认该函数**真的被 `tauri_command!` 宏包裹**：  ```rust /… |
+| arch/tauri-command-log-plain-vs-macro.md#触发场景 | arch | 触发场景 | logging,tauri,macro,instrumentation,command | auto | - | active | 删除 `#[tauri::command]` 函数内的手写 `tracing::debug!("command invo… |
+| arch/tauri-command-log-plain-vs-macro.md#适用 | arch | 适用 | logging,tauri,macro,instrumentation,command | auto | - | active | - 新增 command 后续删冗余日志 - 代码审查监控日志重复 |
+| arch/tauri-command-log-plain-vs-macro.md#陷阱 | arch | 陷阱 | logging,tauri,macro,instrumentation,command | auto | - | active | `tauri_command!` 宏自动生成 debug 日志，但 **plain `#[tauri::command]… |
 | arch/tauri-command-macro-no-mut.md#关联 | arch | 关联 | tauri,command,macro,parameter,mut | auto | - | active | - |
 | arch/tauri-command-macro-no-mut.md#案例 | arch | 案例 | tauri,command,macro,parameter,mut | auto | - | active | - arch-deepen-2：迁 command 时遇此限制 |
 | arch/tauri-command-macro-no-mut.md#正解 | arch | 正解 | tauri,command,macro,parameter,mut | auto | - | active | 去掉函数签名中的 `mut`，在函数体首行用 `let mut x = x;` 重绑定： ```rust // 错误 #… |
@@ -290,6 +304,14 @@
 | frontend/platform-creation-entry-consolidation.md#正解 | frontend | 正解 | cli-proxy,平台创建,入口,CliProxy | auto | - | active | - 添加平台表单（PlatformEditForm）只用于编辑现有平台 - 创建新 cli-proxy 平台必须走 Cl… |
 | frontend/platform-creation-entry-consolidation.md#约束 | frontend | 约束 | cli-proxy,平台创建,入口,CliProxy | auto | - | active | cli-proxy 平台的唯一创建入口是 **CliProxy 页 src/pages/CliProxy/index.t… |
 | frontend/platform-creation-entry-consolidation.md#适用 | frontend | 适用 | cli-proxy,平台创建,入口,CliProxy | auto | - | active | - CLI Proxy 平台管理流程设计 - 添加平台表单重构 |
+| frontend/react-conditional-render-key-scope.md#副作用 | frontend | 副作用 | react,performance,key,mount,lifecycle,animation | auto | - | active | - 删错 key 不会省开销（内部组件 re-mount 开销不变） - 删 key 会失去动画效果（用户察觉页面切换更… |
+| frontend/react-conditional-render-key-scope.md#案例 | frontend | 案例 | react,performance,key,mount,lifecycle,animation | auto | - | active | `src/App.tsx:198` 的 `key={effectiveNav}`： ```tsx <Suspense f… |
+| frontend/react-conditional-render-key-scope.md#检查清单 | frontend | 检查清单 | react,performance,key,mount,lifecycle,animation | auto | - | active | ```typescript // 问诊流程： // 1. 容器的 key 是否随条件变化？ <div key={effe… |
+| frontend/react-conditional-render-key-scope.md#正解 | frontend | 正解 | react,performance,key,mount,lifecycle,animation | auto | - | active | 判断 key 目的：  / key 的实际用途 / 是否能删 / 原因 / /---/---/---/ / 驱动 CSS… |
+| frontend/react-conditional-render-key-scope.md#触发场景 | frontend | 触发场景 | react,performance,key,mount,lifecycle,animation | auto | - | active | 互斥条件渲染多个不同组件类型（`{cond && <ComponentA/>}`）时，发现容器设置了 key。 |
+| frontend/react-conditional-render-key-scope.md#适用 | frontend | 适用 | react,performance,key,mount,lifecycle,animation | auto | - | active | - 路由导航场景（页面切换动画） - modal/popup 显隐（进入/离开 animation） - 多 tab 页… |
+| frontend/react-conditional-render-key-scope.md#陷阱 | frontend | 陷阱 | react,performance,key,mount,lifecycle,animation | auto | - | active | 误认为删除容器 key 会省去内部组件重新取数（re-fetch）。实际上： - React 在互斥分支渲染**不同类型… |
+| frontend/react-conditional-render-key-scope.md#非适用 | frontend | 非适用 | react,performance,key,mount,lifecycle,animation | auto | - | active | - 某个 tab 内数据需重新取 → 改用 useEffect dependency - 列表条目顺序变化 → 保持 `… |
 | frontend/semantic-token-foreground-pairing.md#MUST 约束 | frontend | MUST 约束 | 语义色,token,foreground,对比度 | auto | - | active | 修对比度缺陷时**禁改 `--accent` 等语义色 token 的值本身**，只能改配对的 `-foreground… |
 | frontend/semantic-token-foreground-pairing.md#semantic-token-foreground-pairing | frontend | semantic-token-foreground-pairing | 语义色,token,foreground,对比度 | auto | - | active | - |
 | frontend/semantic-token-foreground-pairing.md#关联 | frontend | 关联 | 语义色,token,foreground,对比度 | auto | - | active / →tailwind-cascade-layer-base | [[tailwind-cascade-layer-base]] |
@@ -361,8 +383,8 @@
 | ops/tauri-logging-guard-lifecycle.md#Tauri tracing_appender::non_blocking WorkerGuard 生命周期陷阱 | ops | Tauri tracing_appender::non_blocking WorkerGuard 生命周期陷阱 | Tauri,tracing,WorkerGuard,logging,lifecycle,guard-management | auto | - | active | - |
 | ops/test-data-isolation-constraint.md#性能测试数据隔离约束 | ops | 性能测试数据隔离约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | - |
 | ops/test-data-isolation-constraint.md#测试数据隔离硬约束 | ops | 测试数据隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | 性能量测或功能验证时需要用特定数据库（如缩小库、污染库等）。  ### 硬约束  - **禁移动/重命名用户的真实库文件… |
+| ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束 | ops | 量测脚本 HOME 环境隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | ### 扩展约束：禁污染用户真实数据目录  前置约束禁止移动用户真实库文件，但仍需隔离 **整个数据目录**（不仅是单个… |
 | ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束 | ops | 量测脚本 HOME 环境隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active | - |
-| ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束 | ops | 量测脚本 HOME 环境隔离硬约束 | testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp | auto | - | active / →"$HOME" == "$HOME_REAL",tmp | ### 扩展约束：禁污染用户真实数据目录  前置约束禁止移动用户真实库文件，但仍需隔离 **整个数据目录**（不仅是单个… |
 | optimization/api-payload-optimization.md#API 负载最小化 | optimization | API 负载最小化 | payload,optimization,request-size,bandwidth,compression | auto | - | active | - |
 | optimization/api-payload-optimization.md#后端 DISTINCT 替代前端集合去重降低 IPC payload | optimization | 后端 DISTINCT 替代前端集合去重降低 IPC payload | payload,optimization,request-size,bandwidth,compression | auto | - | active | 后端改为返回去重后的单列（如 DISTINCT model），而非拉全字段摘要行数组到前端，再用集合去重。  **收益*… |
 | optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据 | optimization | 空闲 CPU 基线数据 | baseline,measurement,xctrace,process,webkit,profiling,cpu | auto | - | active / →idle-wakeup-sources-inventory,measure-window-exclusive-env,webkit-jit-warmup-trap | 基于 xctrace Time Profiler 实测（2026-07-31，30s 采样窗口）。四进程占比： - **… |
@@ -538,6 +560,14 @@
 | testing/deterministic-pseudorandom-loadgen.md#用途 | testing | 用途 | deterministic,pseudorandom,loadgen,testing,reproducibility | auto | - | active | - mock 平台的 error_rate 注入 - 压测场景的确定性故障模拟 - 内存/CPU 基准测试（需要重复压测… |
 | testing/deterministic-pseudorandom-loadgen.md#确定性伪随机负载生成 | testing | 确定性伪随机负载生成 | deterministic,pseudorandom,loadgen,testing,reproducibility | auto | - | active | - |
 | testing/deterministic-pseudorandom-loadgen.md#问题 | testing | 问题 | deterministic,pseudorandom,loadgen,testing,reproducibility | auto | - | active | 压测场景（尤其是性能/内存压测）需要可复现的伪随机行为，用于注入 `error_rate=0.05`（5% 请求返回 4… |
+| testing/guard-drop-assertion-pattern.md#不适用 | testing | 不适用 | testing,resources,lifecycle,guard,tracing | auto | - | active | - 纯同步操作（已通过编译器验证生命周期） - 业务逻辑单测（应独立测，不涉及资源保活） |
+| testing/guard-drop-assertion-pattern.md#副作用 | testing | 副作用 | testing,resources,lifecycle,guard,tracing | auto | - | active | - 测试代码本身复杂（需模拟退出 + 磁盘 I/O） - 需要 tempdir / 临时资源创建，测试时间略长 |
+| testing/guard-drop-assertion-pattern.md#案例 | testing | 案例 | testing,resources,lifecycle,guard,tracing | auto | - | active | `logging.rs` 的 `worker_guard_drop_flushes_pending_writes` (l… |
+| testing/guard-drop-assertion-pattern.md#检查清单 | testing | 检查清单 | testing,resources,lifecycle,guard,tracing | auto | - | active | - [ ] 测试创建隔离环境（tempdir / 独立 test db 等） - [ ] 异步行为前后都有明确行为（写 … |
+| testing/guard-drop-assertion-pattern.md#正解 | testing | 正解 | testing,resources,lifecycle,guard,tracing | auto | - | active | 写一个自包含的测试，模拟「退出」场景，验证清理行为：  ```rust #[test] fn worker_guard_… |
+| testing/guard-drop-assertion-pattern.md#触发场景 | testing | 触发场景 | testing,resources,lifecycle,guard,tracing | auto | - | active | 异步化迁移中，从 sync 改为 async 操作，需验证资源保活和清理行为时。 |
+| testing/guard-drop-assertion-pattern.md#适用 | testing | 适用 | testing,resources,lifecycle,guard,tracing | auto | - | active | - 任何 drop-on-exit 的资源（guard、subscription、lock） - 后台线程与主线程数据交… |
+| testing/guard-drop-assertion-pattern.md#陷阱 | testing | 陷阱 | testing,resources,lifecycle,guard,tracing | auto | - | active | 空谈「应该不会丢」，无法实际验证。常见问题： - WorkerGuard drop 时后台线程没及时 flush cha… |
 | testing/module-load-time-constant-test-rule.md#关联 | testing | 关联 | module-load,performance,constant,testing,startup | auto | - | active / →time-zone-minute-arithmetic | [[time-zone-minute-arithmetic]] (时区换算硬约束) |
 | testing/module-load-time-constant-test-rule.md#反例 / 常见错误 | testing | 反例 / 常见错误 | module-load,performance,constant,testing,startup | auto | - | active | / 错误                          / 为什么错                        … |
 | testing/module-load-time-constant-test-rule.md#案例 | testing | 案例 | module-load,performance,constant,testing,startup | auto | - | active | - time-models-timezone task (commit d5b00753) — peakHours.ts… |

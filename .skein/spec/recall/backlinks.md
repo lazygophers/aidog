@@ -871,10 +871,6 @@
 - → [[measure-window-exclusive-env]]
 - → [[webkit-jit-warmup-trap]]
 
-## ops/test-data-isolation-constraint.md#量测脚本 HOME 环境隔离硬约束
-- → [["$HOME" == "$HOME_REAL"]]
-- → [[tmp]]
-
 ## optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - ← recall/ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/ops/stack-attribution-profiling-methodology.md#栈归因用法
