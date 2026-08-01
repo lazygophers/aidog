@@ -15,10 +15,12 @@ use aidog_core::platform_cmd::quota::cold_start_init_tray_estimates;
 use tauri::tray::TrayIconBuilder;
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
-            // 最先修运行时 PATH：GUI(launchd/Finder) env 极简，brew/nvm/pyenv 装的
-            // node/npx/python/uv 不在 PATH → skills 检测/安装/导入「环境缺失」。并入登录
-            // shell PATH（幂等、静默、失败不阻断），覆盖后续全部子进程。须在任何子进程 spawn 前。
-            gateway::skills::ensure_runtime_path();
+            // 运行时 PATH 修复（GUI launchd/Finder env 极简，brew/nvm/pyenv 装的
+            // node/npx/python/uv 不在 PATH）已下沉到各真正 spawn 子进程的入口自调
+            // `gateway::skills::runtime_path()` 拿合并 PATH 后 per-Command `.env("PATH", p)`
+            // 注入（skills 检测/安装、cli_env、script_executor、skills_sync；不改进程全局
+            // env，OnceLock 幂等缓存首次探测结果，避免与其他线程 `getenv` 数据竞争，也不再在
+            // 冷启动关键路径同步跑一次登录 shell）。
 
             let data_dir = aidog_data_dir().expect("failed to resolve data dir");
 

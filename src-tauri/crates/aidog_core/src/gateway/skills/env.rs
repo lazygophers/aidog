@@ -7,10 +7,10 @@ use std::sync::OnceLock;
 /// 进程内 env 探测缓存：node/npx 可用性一会话不变，仅首次真探测。
 static ENV_CACHE: OnceLock<SkillsEnv> = OnceLock::new();
 
-/// `ensure_runtime_path` 幂等守卫：仅首次真合并 PATH。
-static PATH_FIXED: OnceLock<()> = OnceLock::new();
+/// 登录 shell 合并 PATH 缓存：一会话不变，仅首次真探测（幂等）。
+static PATH_CACHE: OnceLock<Option<String>> = OnceLock::new();
 
-/// 把登录 shell 的交互式 PATH 并入当前进程 PATH（幂等，启动时调一次即可）。
+/// 登录 shell 的交互式 PATH 与当前进程 PATH 的合并结果（幂等惰性探测，不改进程全局 env）。
 ///
 /// **真因**: GUI 经 launchd / Finder 启动，env 极简（PATH 仅 `/usr/bin:/bin:...`）。
 /// 用户用 brew(`/opt/homebrew/bin`)/nvm/pyenv/asdf 装的 node/npx/python/uv 不在此 PATH →
@@ -18,16 +18,13 @@ static PATH_FIXED: OnceLock<()> = OnceLock::new();
 /// 这是 skills 安装 / 导入「环境缺失」的最常见真因：**已装但找不到**，非真没装。
 ///
 /// **修复**: spawn 登录 shell 读其交互式 PATH（会 source 用户 rc，含 nvm/pyenv shim 注入），
-/// 合并进进程 PATH（登录 PATH 在前优先），覆盖全部后续子进程（检测 / npx / uv / 导入）。
-/// 静默自动修：失败仅 warn，不打断任何流程。Windows GUI 继承用户 PATH，无此问题 → 跳过。
-pub fn ensure_runtime_path() {
-    PATH_FIXED.get_or_init(|| {
-        if let Some(merged) = probe_login_path() {
-            // edition 2024：set_var 为 unsafe fn（env mutation 可致数据竞争），启动早期单线程调用无并发竞争。
-            unsafe { std::env::set_var("PATH", &merged); }
-            tracing::info!("runtime PATH 已并入登录 shell PATH（修 GUI 极简 PATH 致 node/npx/python 找不到）");
-        }
-    });
+/// 与当前 PATH 合并（登录 PATH 在前优先）。调用方需在每个 spawn 子进程的 `Command` 上
+/// `.env("PATH", p)` 显式注入（`None` 即无需修，子进程直接继承父 env）——
+/// 禁改进程全局 `std::env::set_var`：注入延后到惰性首用时机，此时代理线程 / tokio worker
+/// 均已启动，`set_var` 与其他线程 `getenv` 并发会构成数据竞争。
+/// Windows GUI 继承用户 PATH，无此问题 → 跳过。
+pub fn runtime_path() -> Option<&'static str> {
+    PATH_CACHE.get_or_init(probe_login_path).as_deref()
 }
 
 /// 探测登录 shell 的交互式 PATH 并与当前 PATH 合并（登录在前、去重、保序）。
@@ -77,8 +74,13 @@ pub fn check_env() -> SkillsEnv {
 
 /// 真探测 npx / node 可用性（spawn 子进程）。任一探测失败均不 panic，对应字段降级。
 fn probe_env() -> SkillsEnv {
-    let node_version = Command::new("node")
-        .arg("--version")
+    let path = runtime_path();
+    let mut node_cmd = Command::new("node");
+    node_cmd.arg("--version");
+    if let Some(p) = path {
+        node_cmd.env("PATH", p);
+    }
+    let node_version = node_cmd
         .output()
         .ok()
         .filter(|o| o.status.success())
@@ -86,8 +88,12 @@ fn probe_env() -> SkillsEnv {
         .filter(|s| !s.is_empty());
 
     // npx 仅探测可执行性（--version 在所有平台稳定）。
-    let npx_available = Command::new("npx")
-        .arg("--version")
+    let mut npx_cmd = Command::new("npx");
+    npx_cmd.arg("--version");
+    if let Some(p) = path {
+        npx_cmd.env("PATH", p);
+    }
+    let npx_available = npx_cmd
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false);

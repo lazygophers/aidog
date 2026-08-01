@@ -42,9 +42,12 @@ crate::tauri_command! {
 
         #[cfg(unix)]
         {
-            let output = std::process::Command::new("sh")
-                .arg("-c")
-                .arg("curl -LsSf https://astral.sh/uv/install.sh | sh")
+            let mut cmd = std::process::Command::new("sh");
+            cmd.arg("-c").arg("curl -LsSf https://astral.sh/uv/install.sh | sh");
+            if let Some(p) = gateway::skills::runtime_path() {
+                cmd.env("PATH", p);
+            }
+            let output = cmd
                 .output()
                 .map_err(|e| { tracing::error!(command = "install_uv", error = %e, "spawn uv installer failed"); format!("spawn uv installer: {e}") })?;
             if !output.status.success() {

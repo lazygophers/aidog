@@ -23,13 +23,18 @@
         "main chunk 与 window chunk 字节基线已落盘",
         "两次连跑偏差 <10%"
       ],
-      "验收done": [],
-      "status": "失败",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
       "started": 1785545805,
-      "finished": 1785545842,
+      "finished": 1785552166,
       "note": "让路: 该 subtask 需独占机器做冷启动计时, 与 backend-observability-cleanup 的 cargo 构建互斥。未开工即释放槽位, 待 backend task 收尾后重新 claim。"
     },
     {
@@ -46,11 +51,11 @@
         "未引入磁盘缓存"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
+      "started": 1785552171,
       "finished": null
     },
     {
@@ -67,11 +72,11 @@
         "cleanup_old_logs 已后台化"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249514,
-      "started": null,
+      "started": 1785552171,
       "finished": null
     },
     {
@@ -179,5 +184,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785545842
+  "updated": 1785552171
 }

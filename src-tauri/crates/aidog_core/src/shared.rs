@@ -143,11 +143,12 @@ pub fn cleanup_legacy_scripts_dir_file(scripts_dir: &std::path::Path, filename: 
 }
 
 pub fn detect_uv() -> bool {
-    std::process::Command::new("uv")
-        .arg("--version")
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    let mut cmd = std::process::Command::new("uv");
+    cmd.arg("--version");
+    if let Some(p) = gateway::skills::runtime_path() {
+        cmd.env("PATH", p);
+    }
+    cmd.output().map(|o| o.status.success()).unwrap_or(false)
 }
 
 /// 解析当前应使用的脚本执行器。
