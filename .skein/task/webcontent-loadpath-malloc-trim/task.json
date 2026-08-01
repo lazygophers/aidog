@@ -1,0 +1,23 @@
+{
+  "id": "webcontent-loadpath-malloc-trim",
+  "name": "WebContent#1 负载态非合成面内存超支排查",
+  "desc": "[余量优化, 非阻塞]perf-final-verification 内存判决已 PASS, 本票不是紧急 bug。\n对应超预算项: WebContent#1 非graphics部分 29.0->36.9MB(S1->S3) vs 32MB 上限, 超 +4.9MB(s3-budget-reconcile.md 第2条)。\n判为可优化理由: 超支只在负载态(50路并发)出现且集中在 WebKit malloc 类目, 指向\"每连接内存构成\"未验证, 呼应遗留 issue `.scratch/perf-200mb/issues/05-per-connection-cost.md`(open, 未产出结论)。\n预估收益: 约 5MB(收窄至 idle 态 29MB 水平)。\n入口证据: .scratch/perf-200mb/s3-budget-reconcile.md 第45-49行",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "priority": 5,
+  "estimate": null,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/webcontent-loadpath-malloc-trim",
+  "parent": null,
+  "kind": "task",
+  "created": 1785573682,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785573682
+}

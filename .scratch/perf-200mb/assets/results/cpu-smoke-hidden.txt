@@ -1,9 +1,0 @@
-# CPU @ smoke-hidden — 15s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-19328    aidog(main)         2.5
-19335    GPU                 1.0
-19336    Networking          0.3
-19337    WebContent          2.0
-19340    WebContent          0.9
-----
-TOTAL                        6.7

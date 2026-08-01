@@ -28,6 +28,33 @@
       "kind": "task"
     },
     {
+      "id": "gpu-hidden-compositing-buffer",
+      "status": "待处理",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "rust-main-heap-baseline-trim",
+      "status": "待处理",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "webcontent-loadpath-malloc-trim",
+      "status": "待处理",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
       "id": "cold-start-unblock",
       "status": "已完成",
       "deps": [

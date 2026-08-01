@@ -132,13 +132,17 @@
         "量测协议与流形参数可复现",
         "CPU 归因明确"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250517,
       "started": null,
-      "finished": null
+      "finished": 1785573345
     },
     {
       "sid": "s6-followup-and-cleanup",
@@ -152,13 +156,17 @@
         "临时脚本与原始采样已删",
         "results/ 仅剩最终指标集与 spec"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250518,
-      "started": null,
-      "finished": null
+      "started": 1785573350,
+      "finished": 1785573783
     }
   ],
   "priority": 5,
@@ -174,5 +182,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785572981
+  "updated": 1785573783
 }
