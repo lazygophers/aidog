@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(111), build(58), db(5), domain(74), frontend(88), git(7), i18n(15), ops(23), optimization(50), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(23), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(111), build(58), db(5), domain(74), frontend(96), git(7), i18n(15), ops(33), optimization(50), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(31), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -266,6 +266,14 @@
 | frontend/css-var-alias-layer.md#适用 | frontend | 适用 | CSS,变量,Tailwind,layer,cascade | auto | - | active | CSS 变量迁移、主题重构、大型 CSS 重构中间状态 |
 | frontend/css-var-alias-layer.md#适用 | frontend | 适用 | CSS,变量,Tailwind,layer,cascade | auto | - | active | Tailwind v4 + cascade layer 项目，补 preflight/UA reset 规则时。 |
 | frontend/css-var-alias-layer.md#陷阱 | frontend | 陷阱 | CSS,变量,Tailwind,layer,cascade | auto | - | active | 补 preflight 缺失的 UA reset（如 button/input/select 色继承）时若裸写在 glo… |
+| frontend/derived-state-transient-mode.md#MUST 在 modal/form 内维护 UI-only 的显式态 | frontend | MUST 在 modal/form 内维护 UI-only 的显式态 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | ✅ **弹窗内单独维护 per-item 的维度选中态，渲染时优先取它**  ```tsx // 弹窗打开时初始化 co… |
+| frontend/derived-state-transient-mode.md#derived-state-transient-mode | frontend | derived-state-transient-mode | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | - |
+| frontend/derived-state-transient-mode.md#关联 | frontend | 关联 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active / →form-level-tz-state-sharing,modal-state-architecture,window-default-size task → peak-window-dimension-fix | [[modal-state-architecture]]、[[form-level-tz-state-sharing]]… |
+| frontend/derived-state-transient-mode.md#坑点：按索引存的结构在删除中间项时会错位 | frontend | 坑点：按索引存的结构在删除中间项时会错位 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | 若按 `uiDim[idx]` 存，删除中间窗口时必须同步搬移后续索引：  ```tsx // ❌ 删除后 uiDim … |
+| frontend/derived-state-transient-mode.md#派生态无法表现「空但已进入」中间态 — UI-only state 取代数据侧哨兵值 | frontend | 派生态无法表现「空但已进入」中间态 — UI-only state 取代数据侧哨兵值 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | 当 UI 需要表现「已进入某模式但内容为空」的中间态时，从数据反推的派生态会失效（因为「空但已进入」与「未进入」在数据层… |
+| frontend/derived-state-transient-mode.md#适用 | frontend | 适用 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | - Modal/form 内的选中态管理（非 URL 或持久化状态） - 任何「空但已进入」的中间态（如选中分类但无具体… |
+| frontend/derived-state-transient-mode.md#陷阱：派生态自我抵消 | frontend | 陷阱：派生态自我抵消 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | 时段编辑 modal（`WindowsEditModal.tsx`）维度选择场景：  - 用户点「周几」，互斥逻辑清空月… |
+| frontend/derived-state-transient-mode.md#验收 | frontend | 验收 | 派生态,中间态,UI-state,modal,选中态 | auto | - | active | - [ ] 中间态 state 在弹窗/表单组件内维护，不外泄到落盘数据 - [ ] 渲染表达式走 `uiState ?… |
 | frontend/dirty-float-hour-normalization.md#dirty-float-hour-normalization | frontend | dirty-float-hour-normalization | Number.isInteger,浮点,hour,minute,splitFraction | auto | - | active | - |
 | frontend/dirty-float-hour-normalization.md#关联 | frontend | 关联 | Number.isInteger,浮点,hour,minute,splitFraction | auto | - | active / →modal-state-architecture,time-zone-minute-arithmetic | [[time-zone-minute-arithmetic]]、[[modal-state-architecture]] |
 | frontend/dirty-float-hour-normalization.md#前端读取路径归一（关键） | frontend | 前端读取路径归一（关键） | Number.isInteger,浮点,hour,minute,splitFraction | auto | - | active | ### MUST 单点归一（parse 层）  ```ts /** 存量非整数 start_hour/end_hour（… |
@@ -369,6 +377,16 @@
 | ops/buf-residue-observability.md#缺陷根因分析 | ops | 缺陷根因分析 | observability,buffer-residue,logging,stderr,stream,SSE,debuggability | auto | - | active | SSE 流处理中，缓冲残留（流末有不完整帧）本身不是 bug —— 半帧因定义就不合法，丢弃是对的。**但静默丢弃正是这… |
 | ops/buf-residue-observability.md#适用 | ops | 适用 | observability,buffer-residue,logging,stderr,stream,SSE,debuggability | auto | - | active | - 任何有状态缓冲的流式处理 - 特别是帧边界缓冲（SSE / WebSocket 等） - 异步处理中 drop 可能… |
 | ops/buf-residue-observability.md#验收 | ops | 验收 | observability,buffer-residue,logging,stderr,stream,SSE,debuggability | auto | - | active | - [ ] Drop impl 存在（或流末清理函数有相关 log） - [ ] warn 日志含残留长度和必要上下文 … |
+| ops/cross-task-artifact-retention.md#MUST 砍 subtask 前检查下游 deps | ops | MUST 砍 subtask 前检查下游 deps | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | ```bash # 1. 查出下游 task（在 .skein/task.json 中有 deps 或 blocks 关… |
+| ops/cross-task-artifact-retention.md#cross-task-artifact-retention | ops | cross-task-artifact-retention | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | - |
+| ops/cross-task-artifact-retention.md#关联 | ops | 关联 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active / →perf-final-verification s1-preflight 依赖,window-default-size task 清场交接 | [[window-default-size task 清场交接]] / [[perf-final-verificatio… |
+| ops/cross-task-artifact-retention.md#反例（错误做法） | ops | 反例（错误做法） | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | / 错做法 / 后果 / 正做法 / /---/---/---/ / 砍 subtask 后不记录清场交接 / 下游 t… |
+| ops/cross-task-artifact-retention.md#正解：明确移交清场时点与责任 | ops | 正解：明确移交清场时点与责任 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | 当主动砍掉可能影响下游的 subtask 时，在当前 task 的验收记录中标明：  ```markdown |
+| ops/cross-task-artifact-retention.md#清场/交接记录 | ops | 清场/交接记录 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | / 产物 / 涉及文件 / 处置 / 移交时点 / /---/---/---/---/ / 采样数据 / `.scrat… |
+| ops/cross-task-artifact-retention.md#砍 subtask 前先 grep 下游 task 依赖 — 临时产物清场须通过引用链检查 | ops | 砍 subtask 前先 grep 下游 task 依赖 — 临时产物清场须通过引用链检查 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | 当对 task 内部 subtask 进行删除或变更（如基于新的实测发现改变原 task 范围）时，必须检查下游 tas… |
+| ops/cross-task-artifact-retention.md#适用 | ops | 适用 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | - 任何主动砍掉 subtask 或改变 task scope 的情况 - 跨 task 依赖存在的场景（尤其是长流程的… |
+| ops/cross-task-artifact-retention.md#陷阱：假设已证伪后主动砍 subtask，但下游 task 口径写死依赖它的产出 | ops | 陷阱：假设已证伪后主动砍 subtask，但下游 task 口径写死依赖它的产出 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | window-default-size task 场景：  **旧假设**："窗口面积与内存线性相关，删 maximiz… |
+| ops/cross-task-artifact-retention.md#验收 | ops | 验收 | task,依赖,清场,artifact,subtask,可行性 | auto | - | active | - [ ] 所有被砍 subtask 的产出在 task 清场记录中逐条列举 - [ ] 产出标记为「移交」时，明确提及… |
 | ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单 | ops | 空闲期唤醒源 6 分类清单 | wakeup,timers,scheduler,sources,profiling,static-analysis,cpu | auto | - | active / →idle-cpu-baseline-xctrace,measure-window-exclusive-env | 空闲期 CPU 唤醒源分 6 类，静态 rg 检索无遗漏（src-tauri + src）。  / 分类 / 频率 / … |
 | ops/logging-queue-capacity-tuning.md#日志队列 capacity 定值方法：从采样均值反推 | ops | 日志队列 capacity 定值方法：从采样均值反推 | logging,queue,capacity,tuning,p99 | auto | - | active | - |
 | ops/logging-queue-capacity-tuning.md#日志队列 capacity 定值方法：从采样均值反推 | ops | 日志队列 capacity 定值方法：从采样均值反推 | logging,queue,capacity,tuning,p99 | auto | - | active / →hot-path-buffers | ### 触发场景  应用日志流量稳定后需定值日志队列 capacity（mpsc channel），既要不丢日志（缓冲充… |
@@ -561,6 +579,14 @@
 | test/shadcn-test-behavior-assert.md#触发场景 | test | 触发场景 | shadcn,testing,behavior,assertion,radix | auto | - | active | shadcn 迁移导致组件 className/结构变化，现有 snapshot 测试会因视觉差异失败。 |
 | test/shadcn-test-behavior-assert.md#迁移模式 | test | 迁移模式 | shadcn,testing,behavior,assertion,radix | auto | - | active | ```tsx // ❌ 旧：测试 className（脆弱） expect(screen.getByTestId("ca… |
 | test/shadcn-test-behavior-assert.md#适用 | test | 适用 | shadcn,testing,behavior,assertion,radix | auto | - | active | - PlatformCard/BalanceBar 等组件测试 - shadcn 迁移导致 className/结构变化… |
+| testing/component-test-structure-assert.md#MUST 按元素属性或回调入参结构断言 | testing | MUST 按元素属性或回调入参结构断言 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | ✅ **结构断言方式**（React Testing Library）  ```tsx // 按 id / data-*… |
+| testing/component-test-structure-assert.md#component-test-structure-assert | testing | component-test-structure-assert | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | - |
+| testing/component-test-structure-assert.md#关联 | testing | 关联 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active / →i18n-concurrent-change-isolation,window-default-size task 文案改动 | [[i18n-concurrent-change-isolation]] / [[window-default-size… |
+| testing/component-test-structure-assert.md#断言接缝分类 | testing | 断言接缝分类 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | / 接缝 / 风险等级 / 说明 / /---/---/---/ / `getByText()` / `getByRol… |
+| testing/component-test-structure-assert.md#组件测试按结构断言而非文案 — 并发改动时文案断言必然破碎 | testing | 组件测试按结构断言而非文案 — 并发改动时文案断言必然破碎 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | 组件测试禁止按文案文字选择元素或断言输出内容（如 `getByText("周几")`），改为按元素结构（id / dat… |
+| testing/component-test-structure-assert.md#适用 | testing | 适用 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | - React 组件单元测试（React Testing Library / Vitest） - 任何涉及 i18n 的… |
+| testing/component-test-structure-assert.md#陷阱：getByText 在文案改动时脆弱 | testing | 陷阱：getByText 在文案改动时脆弱 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | WindowsEditModal 组件测试（6 个用例）：测试按文案选择和断言：  ```tsx // ❌ 反例：按文案… |
+| testing/component-test-structure-assert.md#验收 | testing | 验收 | test,组件,文案,结构,断言,i18n,并发改动 | auto | - | active | - [ ] 全部 getByText() 替换为 getByTestId() 或 getByRole() + 结构匹配 … |
 | testing/deterministic-pseudorandom-loadgen.md#关键点 | testing | 关键点 | deterministic,pseudorandom,loadgen,testing,reproducibility | auto | - | active | - **确定性**：给定 error_rate 的序列完全由进程启动顺序决定，重复压测结果稳定 - **分布均匀**：s… |
 | testing/deterministic-pseudorandom-loadgen.md#压测可复现的确定性伪随机（原子计数器+哈希） | testing | 压测可复现的确定性伪随机（原子计数器+哈希） | deterministic,pseudorandom,loadgen,testing,reproducibility | auto | - | active | - |
 | testing/deterministic-pseudorandom-loadgen.md#方案 | testing | 方案 | deterministic,pseudorandom,loadgen,testing,reproducibility | auto | - | active | **进程级原子计数器 + 乘法哈希** (`proxy/mock.rs:2-16`)：  ```rust static … |

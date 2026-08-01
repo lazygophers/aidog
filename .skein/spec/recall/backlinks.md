@@ -484,6 +484,11 @@
 - ← recall/frontend/theme-token-runtime-switch.md#关联
 - → [[theme-token-runtime-switch]]
 
+## frontend/derived-state-transient-mode.md#关联
+- → [[form-level-tz-state-sharing]]
+- → [[modal-state-architecture]]
+- → [[window-default-size task → peak-window-dimension-fix]]
+
 ## frontend/dirty-float-hour-normalization.md#dirty-float-hour-normalization
 - ← recall/frontend/form-level-tz-state-sharing.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
@@ -527,31 +532,37 @@
 - → [[time-zone-minute-arithmetic]]
 
 ## frontend/form-level-tz-state-sharing.md#form-level-tz-state-sharing
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/modal-state-architecture.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 - ← recall/skein/parallel-subtask-prop-contract.md#关联
 
 ## frontend/form-level-tz-state-sharing.md#表单级时区状态共用 — 单一 state 透传避免口径漂移
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/modal-state-architecture.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 - ← recall/skein/parallel-subtask-prop-contract.md#关联
 
 ## frontend/form-level-tz-state-sharing.md#陷阱：各组件独立 state 导致口径漂移
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/modal-state-architecture.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 - ← recall/skein/parallel-subtask-prop-contract.md#关联
 
 ## frontend/form-level-tz-state-sharing.md#MUST 单一真值源（表单级 state）
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/modal-state-architecture.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 - ← recall/skein/parallel-subtask-prop-contract.md#关联
 
 ## frontend/form-level-tz-state-sharing.md#适用
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/modal-state-architecture.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 - ← recall/skein/parallel-subtask-prop-contract.md#关联
 
 ## frontend/form-level-tz-state-sharing.md#关联
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/modal-state-architecture.md#关联
 - ← recall/frontend/time-zone-minute-arithmetic.md#关联
 - ← recall/skein/parallel-subtask-prop-contract.md#关联
@@ -592,42 +603,49 @@
 - → [[tauri-drag-drop-api]]
 
 ## frontend/modal-state-architecture.md#modal-state-architecture
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
 - ← recall/frontend/tauri-drag-drop-api.md#关联
 
 ## frontend/modal-state-architecture.md#PlatformEditForm Modal 架构模式
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
 - ← recall/frontend/tauri-drag-drop-api.md#关联
 
 ## frontend/modal-state-architecture.md#两类 Modal 区分
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
 - ← recall/frontend/tauri-drag-drop-api.md#关联
 
 ## frontend/modal-state-architecture.md#架构原则
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
 - ← recall/frontend/tauri-drag-drop-api.md#关联
 
 ## frontend/modal-state-architecture.md#后续新 Modal 决策树
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
 - ← recall/frontend/tauri-drag-drop-api.md#关联
 
 ## frontend/modal-state-architecture.md#验收
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
 - ← recall/frontend/tauri-drag-drop-api.md#关联
 
 ## frontend/modal-state-architecture.md#关联
+- ← recall/frontend/derived-state-transient-mode.md#关联
 - ← recall/frontend/dirty-float-hour-normalization.md#关联
 - ← recall/frontend/frontend-conventions.md#关联
 - ← recall/frontend/platform-creation-entry-consolidation.md#关联
@@ -839,6 +857,10 @@
 ## ops/buf-residue-observability.md#关联
 - → [[sse-chunk-stateless-defect]]
 - → [[stream-buf-unified-cap]]
+
+## ops/cross-task-artifact-retention.md#关联
+- → [[perf-final-verification s1-preflight 依赖]]
+- → [[window-default-size task 清场交接]]
 
 ## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
@@ -1151,6 +1173,10 @@
 
 ## test/shadcn-test-behavior-assert.md#关联
 - → [[radix-select-none-sentinel]]
+
+## testing/component-test-structure-assert.md#关联
+- → [[i18n-concurrent-change-isolation]]
+- → [[window-default-size task 文案改动]]
 
 ## testing/module-load-time-constant-test-rule.md#关联
 - → [[time-zone-minute-arithmetic]]
