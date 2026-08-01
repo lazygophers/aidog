@@ -1,14 +1,4 @@
-import { Settings } from "./Settings";
-import { CodexSettings } from "./CodexSettings";
-import { PricingTab } from "./PricingTab";
-import { TrayConfigTab } from "./TrayConfigTab";
-import { PopoverConfigTab } from "./PopoverConfigTab";
-import { MiddlewareSettingsTab } from "../components/settings/MiddlewareRules";
-import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings";
-import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
-import { ImportExportTab } from "../components/settings/ImportExport/ImportExportTab";
-import { CodingToolsSettingsTab } from "../components/settings/CodingToolsSettings";
-import { MitmConfigTab } from "../components/settings/MitmConfig";
+import { lazy, Suspense } from "react";
 import { useReveal } from "../utils/motion";
 import { useSystemSettings } from "./AppSettings/useSystemSettings";
 import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxyStatusSection";
@@ -18,7 +8,31 @@ import { SystemMiscSection, DbStatsSection, VersionToastSection, DefaultsSyncSec
 
 export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
 
+// ponytail: 每个 settings 子 tab 单独 chunk。AppSettings 本身已由 App.tsx 懒加载，
+// 这里再拆一层子 tab —— 进 system tab 时不该把 pricing/tray/codex 等其余 tab 的代码一并拖下来。
+// 外层 Suspense fallback=null：settings 内部 tab 切换同样经 App.tsx handleNavigate 的
+// startTransition（Sidebar 二级菜单走同一 handleNavigate），旧 tab 树留屏不闪烁。
+const Settings = lazy(() => import("./Settings").then(m => ({ default: m.Settings })));
+const CodexSettings = lazy(() => import("./CodexSettings").then(m => ({ default: m.CodexSettings })));
+const PricingTab = lazy(() => import("./PricingTab").then(m => ({ default: m.PricingTab })));
+const TrayConfigTab = lazy(() => import("./TrayConfigTab").then(m => ({ default: m.TrayConfigTab })));
+const PopoverConfigTab = lazy(() => import("./PopoverConfigTab").then(m => ({ default: m.PopoverConfigTab })));
+const MiddlewareSettingsTab = lazy(() => import("../components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
+const SchedulingSettingsTab = lazy(() => import("../components/settings/SchedulingSettings").then(m => ({ default: m.SchedulingSettingsTab })));
+const NotificationSettingsTab = lazy(() => import("../components/settings/NotificationSettings").then(m => ({ default: m.NotificationSettingsTab })));
+const ImportExportTab = lazy(() => import("../components/settings/ImportExport/ImportExportTab").then(m => ({ default: m.ImportExportTab })));
+const CodingToolsSettingsTab = lazy(() => import("../components/settings/CodingToolsSettings").then(m => ({ default: m.CodingToolsSettingsTab })));
+const MitmConfigTab = lazy(() => import("../components/settings/MitmConfig").then(m => ({ default: m.MitmConfigTab })));
+
 export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
+  return (
+    <Suspense fallback={null}>
+      <AppSettingsTabContent tab={tab} onLogSettingsChanged={onLogSettingsChanged} onNotifSettingsChanged={onNotifSettingsChanged} />
+    </Suspense>
+  );
+}
+
+function AppSettingsTabContent({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   if (tab === "pricing") return <PricingTab />;
   if (tab === "tray") return <TrayConfigTab />;
   if (tab === "popover") return <PopoverConfigTab />;
