@@ -1,0 +1,20 @@
+# 内存分解 @ s2-maximized
+PID      PROC           FOOTPRINT_MB
+75417    aidog(main)          44.0
+75441    GPU                  16.0
+75442    Networking            6.7
+75443    WebContent          206.0
+75470    WebContent           24.0
+----
+TOTAL                        296.7
+
+## 各进程 top-5 分类（≥1MB）
+### 75417 aidog(main)
+  24 MB        0 B          0 B         16    MALLOC_SMALL
+### 75441 GPU
+### 75442 Networking
+### 75443 WebContent
+ 147 MB        0 B          0 B        100    Owned physical footprint (unmapped) (graphics)
+  39 MB        0 B          0 B          8    WebKit malloc
+### 75470 WebContent
+  13 MB        0 B          0 B          6    WebKit malloc
