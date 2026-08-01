@@ -1,8 +1,17 @@
 {
   "tasks": [
     {
-      "id": "window-default-size",
+      "id": "peak-window-dimension-fix",
       "status": "进行中",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "window-default-size",
+      "status": "检查中",
       "deps": [
         "frontend-compositing-purge"
       ],
@@ -24,15 +33,6 @@
         "cold-start-unblock",
         "window-default-size"
       ],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
-      "id": "peak-window-dimension-fix",
-      "status": "待处理",
-      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,
