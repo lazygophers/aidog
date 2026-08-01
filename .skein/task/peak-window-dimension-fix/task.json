@@ -75,12 +75,16 @@
         "只断言界面与 onSave 入参, 未断言内部 state 结构",
         "yarn test 通过"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785562250,
       "started": 1785563032,
-      "finished": null
+      "finished": 1785563346
     }
   ],
   "priority": 5,
@@ -96,6 +100,6 @@
   "confirmed": 1785562923,
   "checked": null,
   "finished": null,
-  "updated": 1785563259,
+  "updated": 1785563346,
   "confirmed_by": "user"
 }
