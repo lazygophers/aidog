@@ -558,6 +558,39 @@ mod tests {
         let _ = guard;
     }
 
+    /// **Guard 保活验证**: `WorkerGuard` 是 `non_blocking` 写入不丢的唯一保障
+    /// （drop 时同步 flush channel 里还没落盘的行，见 `tracing_appender` 契约）。
+    /// 本测试模拟「进程退出」——写完立即 drop guard（不等后台线程自然消化 channel），
+    /// 断言文件里仍能读到全部写入行，从而证明 `init_logging` 返回值不能绑局部变量
+    /// （drop 太早）而必须转交 `app_setup.rs` 里存活到进程退出的位置（`handle.manage`）。
+    /// 若把 guard 提前 drop（模拟旧 bug），本测试会因文件行数不足而失败。
+    #[test]
+    fn worker_guard_drop_flushes_pending_writes() {
+        use std::io::Write as _;
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let settings = AppLogSettings { file_enabled: true, level: "info".into(), retention_hours: 3 };
+        let (mut non_blocking, guard, log_dir) =
+            build_file_appender(tmp.path(), &settings).expect("appender should build");
+
+        const N: usize = 500;
+        for i in 0..N {
+            writeln!(non_blocking, "line {i}").expect("write to non_blocking channel");
+        }
+        // 模拟进程退出的最后一刻：guard 一 drop，后台写线程应把 channel 剩余内容 flush
+        // 完再停（而不是直接丢弃），这正是「进程退出日志不丢」的机制本身。
+        drop(guard);
+
+        let mut lines_total = 0usize;
+        for entry in std::fs::read_dir(&log_dir).expect("read log dir").flatten() {
+            let content = std::fs::read_to_string(entry.path()).unwrap_or_default();
+            lines_total += content.lines().filter(|l| l.starts_with("line ")).count();
+        }
+        assert_eq!(
+            lines_total, N,
+            "all {N} lines must be flushed to disk after guard drop (non_blocking channel must not lose data on drop)"
+        );
+    }
+
     #[test]
     fn file_filter_respects_settings_level() {
         // Valid level must not panic.

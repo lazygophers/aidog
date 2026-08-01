@@ -99,38 +99,90 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             }
             app.manage(db);
 
-            // 初始化日志（DB 已开，读 DB 设置；迁移遗留文件）
-            let (log_settings, ) = tauri::async_runtime::block_on(async {
-                let db_state = app.state::<Db>();
-                migrate_log_settings_file_to_db(&db_state).await;
-                (load_app_log_settings_from_db(&db_state).await,)
-            });
-            // WorkerGuard 生命周期契约: non-blocking 文件写后台线程随 guard drop 而停。
-            // `app.manage` 存进 Tauri 状态表, 与 App/AppHandle 同生共死, 覆盖到进程退出前
-            // 最后一刻 —— 不绑局部变量 (那样 setup() 一返回 guard 就没了, 见 init_logging 文档)。
-            if let Some(guard) = logging::init_logging(&data_dir, &log_settings) {
-                app.manage(guard);
-            }
-            logging::cleanup_old_logs(&data_dir, log_settings.retention_hours);
-
-            // 启动时同步所有 settings 文件（检查不一致并更新）
+            // 初始化日志（DB 已开，读 DB 设置；迁移遗留文件）+ 清理过期日志文件：
+            // 挪到窗口显示之后台 spawn —— 纯观测性副作用（写日志文件/清旧日志），
+            // 无其它启动逻辑读 log_settings 或依赖 logging 提前就绪；未初始化前 tracing
+            // 宏落空 subscriber（no-op），不 panic、不丢功能，只是这段窗口内的早期日志
+            // 不落盘。WorkerGuard 经 handle.manage 存状态表，AppHandle 与 App 同生共死，
+            // 时序上仍覆盖到进程退出前最后一刻（同原 app.manage(guard) 契约）。
             {
-                let handle = app.handle();
-                let db_state = app.state::<Db>();
-                tauri::async_runtime::block_on(try_sync_settings(handle, &db_state));
+                let handle = app.handle().clone();
+                let dir = data_dir.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("log_init_startup", trace_id = %logging::new_trace_id());
+                    async {
+                        let Some(db_state) = handle.try_state::<Db>() else {
+                            tracing::warn!("log_init_startup: Db state missing, skip");
+                            return;
+                        };
+                        migrate_log_settings_file_to_db(&db_state).await;
+                        let log_settings = load_app_log_settings_from_db(&db_state).await;
+                        if let Some(guard) = logging::init_logging(&dir, &log_settings) {
+                            handle.manage(guard);
+                        }
+                        logging::cleanup_old_logs(&dir, log_settings.retention_hours);
+                    }
+                    .instrument(span)
+                    .await
+                });
+            }
+
+            // 启动时同步所有 settings 文件（检查不一致并更新）：挪到窗口显示之后台 spawn。
+            // 无其它启动逻辑读取其结果（fire-and-forget，失败仅 warn），与 s2 同类
+            // 「advisory 文件同步」非关键路径。
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("sync_settings_startup", trace_id = %logging::new_trace_id());
+                    async {
+                        let Some(db_state) = handle.try_state::<Db>() else {
+                            tracing::warn!("sync_settings_startup: Db state missing, skip");
+                            return;
+                        };
+                        try_sync_settings(&handle, &db_state).await;
+                    }
+                    .instrument(span)
+                    .await
+                });
             }
 
             // 启动初始化 CC/Codex 联动开关：DB 无记录时视为默认开（写 ~/.claude/config.json
             // 与 ~/.claude.json），并落 DB true。开箱即生效，无需进设置页。
-            // 失败仅 warn 不阻塞启动。
+            // 失败仅 warn 不阻塞启动。挪到窗口显示之后台 spawn：写的是外部工具配置文件，
+            // 无 setup() 内其它逻辑依赖其完成，用户手动打开对应工具前该窗口早已跑完。
             {
-                let db_state = app.state::<Db>();
-                if let Err(e) = tauri::async_runtime::block_on(ensure_default_coding_tools_settings(&db_state)) {
-                    tracing::warn!(error = %e, "ensure_default_coding_tools_settings failed");
-                }
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("coding_tools_defaults_startup", trace_id = %logging::new_trace_id());
+                    async {
+                        let Some(db_state) = handle.try_state::<Db>() else {
+                            tracing::warn!("coding_tools_defaults_startup: Db state missing, skip");
+                            return;
+                        };
+                        if let Err(e) = ensure_default_coding_tools_settings(&db_state).await {
+                            tracing::warn!(error = %e, "ensure_default_coding_tools_settings failed");
+                        }
+                    }
+                    .instrument(span)
+                    .await
+                });
             }
 
             // 中间件规则引擎单例（C1）：启动时从 DB 加载规则建缓存；CRUD command 写后 reload。
+            //
+            // 保留同步 block_on（不挪后台 spawn）：`MiddlewareEngine::new()` 起手是空桶，
+            // `resolve_rules` 对空桶 fail-open——即命中不到任何规则时视同「无规则」放行，
+            // 不是拒绝。若把 reload 挪到 app.manage(engine) 之后台异步执行，会有一段窗口
+            // engine 已挂进状态表但桶是空的；此时若代理已在接受请求（autostart 的
+            // proxy_start 就在本函数下方 spawn），该窗口内的请求会**静默绕过**中间件规则
+            // （屏蔽/改写/限流等业务规则失效，而非报错），这是行为变更，违反本任务
+            // 「只动时序不改业务逻辑」边界，且量级达秒级（DB 查询+重建桶），不是可忽略的
+            // 理论竞态。经排查 try_sync_settings/ensure_default_coding_tools_settings/
+            // log 初始化三处均无此类「初始为空即改变业务语义」的风险（详见上方各自注释），
+            // 唯独 engine reload 属于「必须启动期同步完成」，故维持 block_on。
             {
                 let engine = Arc::new(MiddlewareEngine::new());
                 let db_state = app.state::<Db>();
