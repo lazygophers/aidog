@@ -10,7 +10,7 @@ const t = ((key: string, fallback?: string) => fallback ?? key) as unknown as Pa
 
 // Dialog 走 Radix Portal，内容渲染进 document.body，不在 RTL container 内 → 断言一律走 document.body。
 function renderModal(windows: PeakWindow[], onSave = vi.fn(), onClose = vi.fn()) {
-  render(
+  const { rerender } = render(
     <WindowsEditModal
       open
       windows={windows}
@@ -21,7 +21,7 @@ function renderModal(windows: PeakWindow[], onSave = vi.fn(), onClose = vi.fn())
       t={t}
     />
   );
-  return { container: document.body, onSave, onClose };
+  return { container: document.body, onSave, onClose, rerender };
 }
 
 /** 数字网格（每月几日 1-31）按钮：纯数字文本、无 title（周几按钮有 title，用于互斥区分）。 */
@@ -87,5 +87,54 @@ describe("WindowsEditModal", () => {
     expect(container.querySelector("#dim-1-week")).toHaveAttribute("data-state", "unchecked");
     // 只有 window 0 露出了周几选择器（7 个），不是 14 个（两个窗口都露出）
     expect(weekdayButtons(container)).toHaveLength(7);
+  });
+
+  it("关闭再重开: uiDim 按 windows 数据重算, 周/月/都无三种形态选中态都对", () => {
+    const windows: PeakWindow[] = [
+      { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [1, 2] },
+      { start_hour: 0, end_hour: 24, multiplier: 1, days_of_month: [5] },
+      { start_hour: 0, end_hour: 24, multiplier: 1 },
+    ];
+    const onSave = vi.fn();
+    const onClose = vi.fn();
+    const { container, rerender } = renderModal(windows, onSave, onClose);
+
+    // 关闭
+    rerender(
+      <WindowsEditModal open={false} windows={windows} onSave={onSave} onClose={onClose}
+        tzMode="utc" setTzMode={vi.fn()} t={t} />
+    );
+    // 重开：同一批 windows 数据不变，uiDim 应从数据重算出对应三态
+    rerender(
+      <WindowsEditModal open windows={windows} onSave={onSave} onClose={onClose}
+        tzMode="utc" setTzMode={vi.fn()} t={t} />
+    );
+
+    expect(container.querySelector("#dim-0-week")).toHaveAttribute("data-state", "checked");
+    expect(container.querySelector("#dim-1-month")).toHaveAttribute("data-state", "checked");
+    expect(container.querySelector("#dim-2-none")).toHaveAttribute("data-state", "checked");
+  });
+
+  it("删中间窗口: 剩余窗口的选中态各自不变（不因数组前移而错位）", () => {
+    const windows: PeakWindow[] = [
+      { start_hour: 0, end_hour: 24, multiplier: 1 },                    // widx0: none
+      { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [3] }, // widx1: week
+      { start_hour: 0, end_hour: 24, multiplier: 1, days_of_month: [9] }, // widx2: month
+    ];
+    const { container } = renderModal(windows);
+
+    // 删除 idx=1（原 week 窗口）—— 删除按钮以符号 "×" 标识（非文案，跨语言不变），结构上按序对应各窗口
+    const removeButtons = Array.from(container.querySelectorAll("button")).filter(
+      (b) => b.textContent === "×"
+    );
+    fireEvent.click(removeButtons[1]);
+
+    // 剩余两窗口：原 widx0(none) 现仍是 dim-0-none，原 widx2(month) 现变成 dim-1-month
+    expect(container.querySelector("#dim-0-none")).toHaveAttribute("data-state", "checked");
+    expect(container.querySelector("#dim-1-month")).toHaveAttribute("data-state", "checked");
+    // 不应错位成 dim-1-none 被选中（那是删除前 widx2 的位置套了 widx1 的选中态）
+    expect(container.querySelector("#dim-1-none")).toHaveAttribute("data-state", "unchecked");
+    expect(monthButtons(container)).toHaveLength(31);
+    expect(weekdayButtons(container)).toHaveLength(0);
   });
 });

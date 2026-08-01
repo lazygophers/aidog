@@ -2,7 +2,7 @@
   "id": "peak-window-dimension-fix",
   "name": "编辑时段窗口维度 radio 修复与文案",
   "desc": "维度 radio 点击无反应(派生态自我抵消)修复 + label 改「生效日」8 语言同步",
-  "status": "进行中",
+  "status": "检查中",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -85,6 +85,32 @@
       "created": 1785562250,
       "started": 1785563032,
       "finished": 1785563346
+    },
+    {
+      "sid": "s4-gap-tests",
+      "name": "补两处测试缺口",
+      "desc": "关弹窗再打开选中态一致 + 删中间窗口选中态不错位",
+      "estimate": 0.3,
+      "depends_on": [
+        "s3-component-test"
+      ],
+      "验收": [
+        "关弹窗再打开: 有周数据显示周几/有月数据显示每月几日/都没有显示每天",
+        "删中间窗口后剩余窗口选中态不错位(初始3窗删idx=1)",
+        "仍按结构断言不耦合文案",
+        "yarn test 全绿"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785563857,
+      "started": 1785563861,
+      "finished": 1785563973
     }
   ],
   "priority": 5,
@@ -98,8 +124,8 @@
   "created": 1785562094,
   "started": 1785562926,
   "confirmed": 1785562923,
-  "checked": null,
+  "checked": 1785563803,
   "finished": null,
-  "updated": 1785563346,
+  "updated": 1785563973,
   "confirmed_by": "user"
 }

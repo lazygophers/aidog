@@ -2,7 +2,7 @@
   "tasks": [
     {
       "id": "peak-window-dimension-fix",
-      "status": "进行中",
+      "status": "检查中",
       "deps": [],
       "priority": 5,
       "worktree": null,
