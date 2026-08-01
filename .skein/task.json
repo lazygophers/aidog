@@ -2,7 +2,7 @@
   "tasks": [
     {
       "id": "cold-start-unblock",
-      "status": "就绪",
+      "status": "进行中",
       "deps": [
         "frontend-compositing-purge"
       ],
@@ -24,6 +24,15 @@
         "cold-start-unblock",
         "window-default-size"
       ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "backend-observability-cleanup",
+      "status": "已完成",
+      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,
