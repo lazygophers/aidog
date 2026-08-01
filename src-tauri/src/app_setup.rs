@@ -436,9 +436,16 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                             bind_lan: true,
                         });
                         let port = settings.port;
-                        tauri::async_runtime::block_on(async {
-                            if let Err(e) = proxy_start(port, app.clone()).await {
+                        let app_handle = app.clone();
+                        tauri::async_runtime::block_on(async move {
+                            if let Err(e) = proxy_start(port, app_handle.clone()).await {
                                 tracing::error!(port, error = %e, "tray: proxy start failed");
+                                // 无前端窗口路径（托盘点启动同自启动，proxy-port-no-drift s3）：
+                                // emit 结构化错误供 App.tsx 监听转系统通知（i18n 在前端做，
+                                // Rust 侧不硬编码文案）+ 复用既有 tray-refresh 事件确认未启动态。
+                                use tauri::Emitter;
+                                let _ = app_handle.emit("proxy-start-failed", &e);
+                                let _ = app_handle.emit("tray-refresh", ());
                             }
                         });
                     }
@@ -528,8 +535,13 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 let port = settings.port;
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    if let Err(e) = proxy_start(port, handle).await {
+                    if let Err(e) = proxy_start(port, handle.clone()).await {
                         tracing::error!(port, error = %e, "autostart: proxy start failed");
+                        // 无前端窗口路径：emit 结构化错误供 App.tsx 监听转系统通知
+                        // （proxy-port-no-drift s3，与托盘点启动分支同处理，见上）。
+                        use tauri::Emitter;
+                        let _ = handle.emit("proxy-start-failed", &e);
+                        let _ = handle.emit("tray-refresh", ());
                     }
                 });
             }

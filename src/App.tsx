@@ -1,8 +1,10 @@
 import { useState, useEffect, useTransition, lazy, Suspense } from "react";
 import { listen } from "@tauri-apps/api/event";
+import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
 import type { Tab } from "./pages/AppSettings";
 import { UpdatePromptModal } from "./components/UpdatePromptModal";
+import i18n from "./locales";
 
 // ponytail: 每个侧栏页单独 chunk（React.lazy + 具名导出适配）。
 // 首屏只加载 effectiveNav 对应的一个 chunk；切页由 startTransition
@@ -130,6 +132,30 @@ function App() {
         if (entity === "platform") setActiveNav("platforms");
         if (entity === "mcp") setActiveNav("mcp");
         if (entity === "skill") setActiveNav("skills");
+      },
+    );
+    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
+  }, []);
+
+  // 无前端窗口路径启动失败（自启动 / 托盘点启动，proxy-port-no-drift s3）：
+  // Rust 侧 app_setup.rs 两处 emit "proxy-start-failed"（kind/port，与手动启动错误条
+  // 同 ProxyStartError 形状），这里转系统通知。文案走 i18n（同 ProxyStatusSection 用的
+  // proxy.startFailedPortInUse / proxy.startFailedOther key），Rust 侧不硬编码文案。
+  useEffect(() => {
+    const unlistenPromise = listen<{ kind: "addr_in_use" | "other"; port: number }>(
+      "proxy-start-failed",
+      async (e) => {
+        const { kind, port } = e.payload;
+        const body = kind === "addr_in_use"
+          ? i18n.t("proxy.startFailedPortInUse", { port })
+          : i18n.t("proxy.startFailedOther", { port });
+        try {
+          let granted = await isPermissionGranted();
+          if (!granted) granted = (await requestPermission()) === "granted";
+          if (granted) sendNotification({ title: i18n.t("app.title"), body });
+        } catch (err) {
+          console.error("system notification failed", err);
+        }
       },
     );
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
