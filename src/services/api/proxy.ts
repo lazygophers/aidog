@@ -2,8 +2,13 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ProxySettings, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary } from "./types";
+import type { ProxySettings, ProxyStartError, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary } from "./types";
 
+// proxy_start 失败时 invoke() 以 ProxyStartError 结构体（非纯字符串）reject（Rust 侧
+// serde 序列化的 struct，Tauri 原样传回 JS）。类型守卫供调用方判别 kind，别用字符串匹配。
+export function isProxyStartError(e: unknown): e is ProxyStartError {
+  return typeof e === "object" && e !== null && "kind" in e && "port" in e;
+}
 
 // ─── Proxy API ─────────────────────────────────────────────
 

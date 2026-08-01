@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type RetentionUnit } from "../../services/api";
+import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
@@ -30,6 +30,9 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   const [logLevel, setLogLevel] = useState("info");
   const [logRetHours, setLogRetHours] = useState(3);
   const [message, setMessage] = useState("");
+  // 手动启动失败的持久错误条（proxy-port-no-drift s2）：与 message（一闪而过的 toast）
+  // 分开的独立 state，成功启动或重试成功前一直挂着，不随其他 toast 消失，也不会堆叠出第二条。
+  const [proxyStartError, setProxyStartError] = useState<ProxyStartError | null>(null);
   const [appVersion, setAppVersion] = useState("");
   const [dbCompacting, setDbCompacting] = useState(false);
   const [statsRetention, setStatsRetention] = useState(365);
@@ -109,7 +112,14 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
       const msg = await proxyApi.start(proxyPort);
       setRunning(true);
       setMessage(msg);
-    } catch (e: any) { setMessage(e.toString()); }
+      setProxyStartError(null); // 重试成功：错误条消失
+    } catch (e: unknown) {
+      if (isProxyStartError(e)) {
+        setProxyStartError(e); // 持久错误条，不走 message（会一闪而过）
+      } else {
+        setMessage(String(e));
+      }
+    }
   };
 
   const handleProxyStop = async () => {
@@ -258,7 +268,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     userReqRetention, userReqRetentionUnit,
     upstreamReqRetention, upstreamReqRetentionUnit,
     reqTimeout, connTimeout,
-    logFileEnabled, logLevel, logRetHours, message, appVersion,
+    logFileEnabled, logLevel, logRetHours, message, proxyStartError, appVersion,
     dbCompacting, statsRetention, statsRebuilding, proxyClient,
     autoUpdateEnabled,
     // state setters needed directly in JSX (inline onChange)
