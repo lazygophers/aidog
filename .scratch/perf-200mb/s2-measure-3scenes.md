@@ -76,27 +76,33 @@ CPU（20s 窗口，负载持续期间采样）：
 
 原始文件：`results/mem-s2-scenario3-load.txt`、`results/cpu-s2-scenario3-load.txt`
 
-## 最大化对照组 —— **阻塞，未采得数据**
+## 最大化对照组
 
-尝试独立重启 + `osascript` 最大化窗口（`set zoomed of window 1 to true`），持续报错：
+team-lead 复核指出 Accessibility 权限本身正常（同 shell 里 `count processes`/多进程窗口枚举可用），首次失败推测的「claude CLI 缺 Accessibility 授权」根因**不成立，已撤回**；真根因是**时序**——launch 后未 `activate` 直接 `count windows` 时窗口还未注册进 AX 树（`frontmost=false` 时该 app 的窗口对 System Events 不可见），补一次 `tell application "AiDog" to activate` 后 `count windows` 立即从 0 变 1。另确认 AX 树里进程真名是 `aidog`（小写，与我原用名一致），`unix id` 反查验证过。`zoomed` 属性本身在这个 Tauri/wry 窗口上不受支持（`set zoomed of window 1 to true` 报 -10006 "can't set zoomed to any"），改用 `run-size-curve.sh` 同款手法——直接 `set position`/`set size` 设到全屏尺寸，成功且无报错。
 
-```
-tell application "System Events" to tell process "aidog" to count windows  → 0
-tell application "System Events" to get frontmost of process "aidog"      → false（set frontmost to true 后仍为 false）
-tell application "System Events" to get UI elements enabled               → true（全局 Accessibility API 已开）
-```
+**独立重启**（ISO_HOME=`/tmp/aidog-pfv-s2-maxctrl-75230`，已清理）：
 
-已尝试 ≥4 种手法（`zoomed` 属性 / 进程名大小写 `AiDog`/`aidog` 两种 / `unix id` 直接引用 process / `frontmost` 属性 / Cmd+Ctrl+F 全屏快捷键 keystroke），均无报错但也无效果，`count windows` 恒为 0。
+- launch: `2026-08-01T15:19:27`；探针确认 AX 进程名 `aidog`、`activate` 后 `count windows`=1
+- `set position of window 1 to {0, 0}` + `set size of window 1 to {2304, 1296}` → 实际生效 `{2304, 1265}`（clamp 掉菜单栏 31px，与 `run-size-curve.sh` 历史最大档 `2304×1265` 完全一致，验证为真最大化非任意大尺寸）
+- 推到背景（`tell application "Finder" to activate`，与 `run-size-curve.sh` 背景态口径一致）：`2026-08-01T15:21:27`
+- 采样时刻：`2026-08-01T15:31:40`（背景态等待 613s，满足 ≥600s；采样前复查窗口尺寸仍为 `2304, 1265`，未被系统或用户操作改动）
 
-**根因推测**：本会话控制 osascript 的调用方是 CLI 进程 `claude`（非 Terminal.app/普通签名 GUI app），macOS 的「个体 App 级」Accessibility/Automation 授权（System Settings → Privacy & Security → Accessibility/Automation）大概率未对该进程授予，故 System Events 能列出进程名（进程级枚举无需该授权）但拿不到窗口 UI 元素（需要该授权）。这与 `pkill`/直接二进制 launch（进程级操作，不经 Accessibility）一直正常形成对照，指向权限缺失而非脚本逻辑问题。
+| PID | 进程角色 | phys_footprint MB |
+|---|---|---|
+| 75417 | aidog(main) | 44.0 |
+| 75441 | GPU | 16.0 |
+| 75442 | Networking | 6.7 |
+| 75443 | WebContent(主窗口) | 206.0 |
+| 75470 | WebContent(popover预建) | 24.0 |
+| **TOTAL** | | **296.7** |
 
-已按「连试 ≥3 次跑不通 → 停手回传，禁改参数凑通」执行：**停手，未产出最大化对照组数据**，已清理该轮 ISO_HOME（`/tmp/aidog-pfv-s2-maximized-61895`，已 `pkill -x aidog` + `rm -rf`，`pgrep -x aidog` 复核为空）。
+原始文件：`results/mem-s2-maximized.txt`
 
-`需要:` 若要补做最大化对照组，需先在 System Settings 里给运行 `claude` CLI 的进程授予 Accessibility/Automation 权限（人工 GUI 操作，agent 无法自行完成），授权后可复用本文档的重启+采样流程直接补测。
+**印证结论**：主窗口 WebContent 从默认尺寸（1026×759）场景1/2/3 的 55~84MB 暴涨到最大化（2304×1265）的 206MB，其中「Owned physical footprint (unmapped) (graphics)」一项单独占 147MB（对照默认尺寸场景该项通常 20~50MB 量级），直接印证「合成面（compositing surface）是窗口面积的函数」——面积扩大约 5.4 倍（1026×759=778,734 → 2304×1265=2,914,560 px²），WebContent 内存增幅与面积增幅方向一致，量级吻合已沉淀的物理事实（不重复举证具体系数计算，归属 `window-size-memory-relation.md` 既有曲线）。
 
 ## 验收自查
 
 - 三场景各自的全进程分解表：**已落盘**（本文档 + `results/mem-s2-scenario{1,2,3}-*.txt`）
 - 每场景稳态时长 ≥10min 有记录：**已记录**（场景1 611s / 场景2 606s / 场景3 617s，均 ≥600s）
 - CPU% 三场景齐：**已齐**（场景1 0.0% / 场景2 0.0% / 场景3 76.0%，均注明 20s 采样窗口）
-- 最大化对照组已采：**未完成，阻塞**（见上节，环境 Accessibility 权限缺失，非脚本/参数问题）
+- 最大化对照组已采：**已完成**（独立重启，背景态 613s 稳态，TOTAL 296.7MB，见上节）
