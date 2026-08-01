@@ -2,7 +2,7 @@
   "id": "cold-start-unblock",
   "name": "冷启动阻塞消除与 bundle 拆分",
   "desc": "setup 首行 $SHELL -ilc 探测实测阻塞 0.71-1.54s + 4 处启动期 block_on 串行 + 1.6M main bundle 零页面分割",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [
     "frontend-compositing-purge"
   ],
@@ -24,12 +24,13 @@
         "两次连跑偏差 <10%"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "失败",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
-      "started": null,
-      "finished": null
+      "started": 1785545805,
+      "finished": 1785545842,
+      "note": "让路: 该 subtask 需独占机器做冷启动计时, 与 backend-observability-cleanup 的 cargo 构建互斥。未开工即释放槽位, 待 backend task 收尾后重新 claim。"
     },
     {
       "sid": "s2-path-async",
@@ -174,9 +175,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785248707,
-  "started": null,
+  "started": 1785545805,
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785250583
+  "updated": 1785545842
 }
