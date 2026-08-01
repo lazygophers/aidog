@@ -15,7 +15,7 @@ const ALL_KEYS: [ErrorKey; 12] = [
     ErrorKey::MiddlewareBlocked,
 ];
 
-const ALL_LANGS: [Lang; 7] = [
+const ALL_LANGS: [Lang; 8] = [
     Lang::ZhCn,
     Lang::EnUs,
     Lang::JaJp,
@@ -23,6 +23,7 @@ const ALL_LANGS: [Lang; 7] = [
     Lang::DeDe,
     Lang::RuRu,
     Lang::ArSa,
+    Lang::EsEs,
 ];
 
 #[test]
@@ -37,6 +38,9 @@ fn from_locale_all_variants() {
     assert_eq!(Lang::from_locale("de"), Lang::DeDe);
     assert_eq!(Lang::from_locale("ru"), Lang::RuRu);
     assert_eq!(Lang::from_locale("ar"), Lang::ArSa);
+    assert_eq!(Lang::from_locale("es-ES"), Lang::EsEs);
+    assert_eq!(Lang::from_locale("es_es"), Lang::EsEs);
+    assert_eq!(Lang::from_locale("es"), Lang::EsEs);
     assert_eq!(Lang::from_locale("en-US"), Lang::EnUs);
     assert_eq!(Lang::from_locale("xx"), Lang::EnUs); // fallback
     assert_eq!(Lang::default(), Lang::EnUs);

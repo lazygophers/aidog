@@ -11,6 +11,7 @@ pub enum Lang {
     DeDe,
     RuRu,
     ArSa,
+    EsEs,
 }
 
 impl Lang {
@@ -23,6 +24,7 @@ impl Lang {
             "de-de" | "de_de" | "de" => Self::DeDe,
             "ru-ru" | "ru_ru" | "ru" => Self::RuRu,
             "ar-sa" | "ar_sa" | "ar" => Self::ArSa,
+            "es-es" | "es_es" | "es" => Self::EsEs,
             _ => Self::EnUs,
         }
     }
@@ -68,6 +70,7 @@ pub fn t(lang: Lang, key: ErrorKey) -> &'static str {
         Lang::DeDe => t_de(key),
         Lang::RuRu => t_ru(key),
         Lang::ArSa => t_ar(key),
+        Lang::EsEs => t_es(key),
     }
 }
 
@@ -187,6 +190,23 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetTotal => "تم استنفاد الميزانية الإجمالية؛ قم بزيادة الحد أو إعادة تعيينه.",
         ErrorKey::Upstream => "المنبع",
         ErrorKey::MiddlewareBlocked => "تم حظر الطلب بواسطة قاعدة الوسيط",
+    }
+}
+
+fn t_es(key: ErrorKey) -> &'static str {
+    match key {
+        ErrorKey::ReadBody => "lectura del cuerpo de la solicitud",
+        ErrorKey::NoMatchingGroup => "ningún grupo coincidente",
+        ErrorKey::ParseJson => "error al analizar JSON",
+        ErrorKey::ParseRequest => "error al analizar la solicitud",
+        ErrorKey::Route => "enrutamiento",
+        ErrorKey::BudgetExhausted => "Presupuesto manual agotado",
+        ErrorKey::BudgetResetDaily => "El presupuesto se restablecerá a medianoche local.",
+        ErrorKey::BudgetResetRolling => "El presupuesto se restablecerá tras finalizar la ventana móvil.",
+        ErrorKey::BudgetResetFixed => "El presupuesto se restablecerá en el próximo límite de ventana fija.",
+        ErrorKey::BudgetResetTotal => "Presupuesto total agotado; aumente o restablezca el límite para continuar.",
+        ErrorKey::Upstream => "origen",
+        ErrorKey::MiddlewareBlocked => "Solicitud bloqueada por una regla de middleware",
     }
 }
 
