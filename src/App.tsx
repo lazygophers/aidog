@@ -1,18 +1,24 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition, lazy, Suspense } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
-import { Home } from "./pages/Home";
-import { Platforms } from "./pages/Platforms";
-import { AppSettings, type Tab } from "./pages/AppSettings";
-import { Logs } from "./pages/Logs";
-import { Stats } from "./pages/Stats";
-import { Notifications } from "./pages/Notifications";
-import { Skills } from "./pages/Skills";
-import { Mcp } from "./pages/Mcp";
-import { CliProxy } from "./pages/CliProxy";
-import { RequestLog } from "./pages/RequestLog";
-import { About } from "./pages/About";
+import type { Tab } from "./pages/AppSettings";
 import { UpdatePromptModal } from "./components/UpdatePromptModal";
+
+// ponytail: 每个侧栏页单独 chunk（React.lazy + 具名导出适配）。
+// 首屏只加载 effectiveNav 对应的一个 chunk；切页由 startTransition
+// 包裹 setActiveNav 驱动 —— Suspense 边界（<main> 内）跨 key 切换保留,
+// 挂起时 React 保留旧树在屏上直到新 chunk resolve, 不掉进 fallback, 无闪烁。
+const Home = lazy(() => import("./pages/Home").then(m => ({ default: m.Home })));
+const Platforms = lazy(() => import("./pages/Platforms").then(m => ({ default: m.Platforms })));
+const AppSettings = lazy(() => import("./pages/AppSettings").then(m => ({ default: m.AppSettings })));
+const Logs = lazy(() => import("./pages/Logs").then(m => ({ default: m.Logs })));
+const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats })));
+const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ default: m.Notifications })));
+const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
+const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
+const CliProxy = lazy(() => import("./pages/CliProxy").then(m => ({ default: m.CliProxy })));
+const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
+const About = lazy(() => import("./pages/About").then(m => ({ default: m.About })));
 import {
   proxyLogApi,
   notificationApi,
@@ -62,6 +68,7 @@ function App() {
   const [logEnabled, setLogEnabled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
+  const [, startTransition] = useTransition();
 
   useEffect(() => {
     proxyLogApi.getSettings()
@@ -132,8 +139,12 @@ function App() {
     if (id === activeNav && !context) return;
     // A dirty page (e.g. Claude Code Settings) may intercept the switch.
     requestNavigation(() => {
-      setActiveNav(id);
-      setNavContext(context ?? {});
+      // startTransition: 目标页 chunk 未加载完时, React 保留当前已提交的树
+      // 在屏上, 不掉入 Suspense fallback —— 避免懒加载切页闪烁（红线 3）。
+      startTransition(() => {
+        setActiveNav(id);
+        setNavContext(context ?? {});
+      });
       if (id === "logs") {
         proxyLogApi.getSettings()
           .then(s => setLogEnabled(s.enabled))
@@ -181,19 +192,23 @@ function App() {
         // 萤火虫：main 区域玻璃卡面感（轻微 bg-surface 叠层）
         borderRadius: "var(--radius-lg)",
       }}>
-        <div className="animate-fade-in" key={effectiveNav}>
-          {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
-          {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
-          {effectiveNav === "cli-proxy" && <CliProxy />}
-          {effectiveNav === "request-log" && <RequestLog />}
-          {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
-          {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
-          {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
-          {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
-          {effectiveNav === "skills" && <Skills />}
-        {effectiveNav === "mcp" && <Mcp />}
-          {effectiveNav === "about" && <About />}
-        </div>
+        {/* fallback=null：startTransition 已保证挂起时旧树留屏, fallback 正常路径不会被看到；
+            仅冷启动首帧（无旧树可留）时短暂命中，此时页面本就空白，null 与骨架视觉等价。 */}
+        <Suspense fallback={null}>
+          <div className="animate-fade-in" key={effectiveNav}>
+            {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
+            {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
+            {effectiveNav === "cli-proxy" && <CliProxy />}
+            {effectiveNav === "request-log" && <RequestLog />}
+            {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
+            {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
+            {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
+            {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
+            {effectiveNav === "skills" && <Skills />}
+            {effectiveNav === "mcp" && <Mcp />}
+            {effectiveNav === "about" && <About />}
+          </div>
+        </Suspense>
       </main>
       {pendingUpdate && (
         <UpdatePromptModal
