@@ -1,0 +1,97 @@
+{
+  "id": "backend-observability-cleanup",
+  "name": "后端可观测性与 i18n 三处不一致清理",
+  "desc": "清 200 处重复 command invoked debug 日志、补 Lang::EsEs、提升 spawn_traced 覆盖",
+  "status": "已完成",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1-dedupe-command-logs",
+      "name": "删除 command 体内与宏重复的 invoked 日志行",
+      "desc": "宏已自动发 command invoked debug 行, 命令体内手写了同一行共约 200 处。逐处删除手写行, 只删该行不动其他语句。若某处手写行携带宏没有的额外字段则保留并单列理由。",
+      "estimate": 1.5,
+      "depends_on": [],
+      "验收": [
+        "cargo clippy 零 warning"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785518588,
+      "started": 1785545805,
+      "finished": 1785546988
+    },
+    {
+      "sid": "s2-lang-es",
+      "name": "补后端错误消息西班牙语变体",
+      "desc": "语言枚举补西语变体, 解析函数补 es-ES/es_ES/es 三种写法归一, 补齐该语言全部错误消息文案, 扩展既有解析单测。禁碰前端 locale 命名空间。",
+      "estimate": 1.5,
+      "depends_on": [],
+      "验收": [
+        "每个 key 有西语文案, 无空串/占位符/照抄英文"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785518588,
+      "started": 1785545842,
+      "finished": 1785547044
+    },
+    {
+      "sid": "s3-spawn-traced",
+      "name": "提升异步任务 tracing 覆盖并产出分类清单",
+      "desc": "盘点全部裸 tokio::spawn, 逐处判定替换为带 tracing 的封装或有意保留。等价替换, 禁改并发语义。产出每处标注已替换/保留+理由的清单。",
+      "estimate": 1.0,
+      "depends_on": [],
+      "验收": [
+        "cargo test --workspace 全绿"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785518588,
+      "started": 1785547058,
+      "finished": 1785547439
+    },
+    {
+      "sid": "s3b-spawn-traced-redo",
+      "name": "裸 spawn 分类清单 + 等价替换 (s3 补做)",
+      "desc": "s3 标 done 但零产出: 33 处裸 tokio::spawn 一处未动、无分类清单。补做: 逐处判定替换为 crate::logging::spawn_traced 或有意保留, 产出清单落盘 spawn-audit.md。等价替换, 禁改并发语义。",
+      "estimate": 1.5,
+      "depends_on": [],
+      "验收": [
+        "cargo test --workspace 全绿"
+      ],
+      "验收done": [
+        1
+      ],
+      "status": "已完成",
+      "skills": [],
+      "created": 1785547582,
+      "started": 1785547588,
+      "finished": 1785547788
+    }
+  ],
+  "priority": 5,
+  "estimate": 4.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/backend-observability-cleanup",
+  "parent": null,
+  "kind": "task",
+  "created": 1785518509,
+  "started": 1785545805,
+  "confirmed": 1785545773,
+  "checked": null,
+  "finished": 1785548718,
+  "updated": 1785548718,
+  "confirmed_by": "user"
+}
