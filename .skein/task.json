@@ -30,15 +30,6 @@
       "kind": "task"
     },
     {
-      "id": "backend-observability-cleanup",
-      "status": "已完成",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "frontend-compositing-purge",
       "status": "已完成",
       "deps": [],
