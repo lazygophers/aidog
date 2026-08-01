@@ -2,7 +2,7 @@
   "id": "window-default-size",
   "name": "窗口默认尺寸与合成面定数",
   "desc": "删 tauri.conf.json 的 maximized:true 改默认 1026x759，并做一次干净 release 长稳态窗口-内存曲线量测定死合成面预算",
-  "status": "检查中",
+  "status": "已完成",
   "deps": [
     "frontend-compositing-purge"
   ],
@@ -181,6 +181,6 @@
   "started": 1785305591,
   "confirmed": 1785250583,
   "checked": 1785563136,
-  "finished": null,
-  "updated": 1785563136
+  "finished": 1785563982,
+  "updated": 1785563982
 }

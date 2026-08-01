@@ -10,17 +10,6 @@
       "kind": "task"
     },
     {
-      "id": "window-default-size",
-      "status": "检查中",
-      "deps": [
-        "frontend-compositing-purge"
-      ],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "perf-final-verification",
       "status": "就绪",
       "deps": [
@@ -113,6 +102,17 @@
       "id": "tokenizer-residency-trim",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "window-default-size",
+      "status": "已完成",
+      "deps": [
+        "frontend-compositing-purge"
+      ],
       "priority": 5,
       "worktree": null,
       "parent": null,
