@@ -61,6 +61,8 @@ mod test_connect;
 mod test_e2e_mitm;
 #[cfg(test)]
 mod test_agg_dedup;
+#[cfg(test)]
+mod test_bind;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
@@ -169,7 +171,7 @@ pub struct ProxyState {
     /// 只要窗口覆盖住实际并发量，淘汰不会误判）。HashSet 判存 + VecDeque 记顺序。
     /// 容量取值依据见 AGG_DEDUP_CAP 定义处注释。
     pub agg_done: std::sync::Mutex<(std::collections::VecDeque<String>, std::collections::HashSet<String>)>,
-    /// 代理实际监听地址（bind_ip, actual_port）。start_proxy 绑定成功后填入，
+    /// 代理实际监听地址（bind_ip, port）。start_proxy 绑定成功后填入，
     /// 供 fallback 直通判定识别「代理自身 host 直连」vs「MITM 解密灌入」（Host ≠ 自身）。
     /// None = 未启动 / 测试构造的 state；fallback 走保守分支（不直通，保留 404）。
     pub listen_addr: std::sync::OnceLock<(std::net::IpAddr, u16)>,
@@ -231,14 +233,48 @@ pub(crate) fn agg_mark_first(state: &Arc<ProxyState>, id: &str) -> bool {
     true
 }
 
-/// 启动代理服务器，返回 shutdown handle
+/// 代理绑定失败原因。区分「端口被占用」与其他绑定失败（权限不足 / 地址非法等），
+/// 供上层（前端错误条 / 系统通知，见 s2/s3）据此选不同文案 —— 禁靠字符串前缀匹配，
+/// 一律用本 enum 判别，文案本身归 i18n（见 design.md「提醒层」）。
+#[derive(Debug)]
+pub enum ProxyBindError {
+    /// 地址已被占用（`AddrInUse`）。携带用户设定的端口号。
+    AddrInUse(u16),
+    /// 其他绑定失败（权限不足 / 地址非法等）。携带端口号 + 原始错误描述（英文，非用户可读文案）。
+    Other(u16, String),
+}
+
+impl ProxyBindError {
+    /// 触发绑定的端口号（无论哪种失败原因，上层展示错误都需要它）。
+    pub fn port(&self) -> u16 {
+        match self {
+            Self::AddrInUse(port) => *port,
+            Self::Other(port, _) => *port,
+        }
+    }
+}
+
+impl std::fmt::Display for ProxyBindError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::AddrInUse(port) => write!(f, "port {port} already in use"),
+            Self::Other(port, msg) => write!(f, "bind failed on port {port}: {msg}"),
+        }
+    }
+}
+
+/// 启动代理服务器，返回 shutdown handle。
+///
+/// 端口是用户设定值，不是程序可协商的输出：绑定失败（含地址被占用）一律直接返回
+/// `Err`，不再递增重试换端口（旧行为见 git history，会导致「设置里的端口」与「实际监听
+/// 端口」漂移且单向不可逆，根因见 proxy-port-no-drift/design.md）。
 pub async fn start_proxy(
     db: Arc<Db>,
     port: u16,
     app: Option<tauri::AppHandle>,
     middleware: Arc<MiddlewareEngine>,
     bind_lan: bool,
-) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
+) -> Result<tokio::task::JoinHandle<()>, ProxyBindError> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel::<log::LogMsg>(LOG_QUEUE_CAP);
     let state = Arc::new({
         // 初始化设置缓存：从 DB 读一次填入 typed struct，注册到全局 weak 槽供 settings_set 重建。
@@ -261,38 +297,29 @@ pub async fn start_proxy(
     });
     log::spawn_log_writer(state.clone(), log_rx);
 
-    // Try binding from port upward; if occupied, try port+1..port+100
-    let mut actual_port = port;
     // bind_lan=true → 0.0.0.0（局域网其他设备可连，靠 group_key Bearer 鉴权兜底）
     // bind_lan=false → 127.0.0.1（仅本机）
     let bind_ip: [u8; 4] = if bind_lan { [0, 0, 0, 0] } else { [127, 0, 0, 1] };
-    let listener = loop {
-        let addr = std::net::SocketAddr::from((bind_ip, actual_port));
-        match tokio::net::TcpListener::bind(addr).await {
-            Ok(l) => break l,
-            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
-                tracing::warn!(port = actual_port, "proxy bind port in use, trying next");
-                actual_port += 1;
-                if actual_port > port + 100 {
-                    tracing::error!(start = port, end = port + 101, "proxy bind failed: no available port in range");
-                    return Err(format!("no available port in range {}..{}", port, port + 101));
-                }
-                continue;
-            }
-            Err(e) => {
-                tracing::error!(port = actual_port, error = %e, "proxy bind failed");
-                return Err(format!("bind failed: {e}"));
-            }
+    let addr = std::net::SocketAddr::from((bind_ip, port));
+    let listener = match tokio::net::TcpListener::bind(addr).await {
+        Ok(l) => l,
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            tracing::warn!(port, "proxy bind port in use");
+            return Err(ProxyBindError::AddrInUse(port));
+        }
+        Err(e) => {
+            tracing::error!(port, error = %e, "proxy bind failed");
+            return Err(ProxyBindError::Other(port, e.to_string()));
         }
     };
 
-    tracing::info!(port = actual_port, "proxy server bound, starting");
+    tracing::info!(port, "proxy server bound, starting");
 
     // 记录实际监听地址供 fallback 直通判定（识别代理自身 host vs MITM 解密灌入）。
     // OnceLock：bind 成功后地址不变，忽略 set 失败（state 被复用场景理论不存在）。
     let _ = state.listen_addr.set((
         std::net::IpAddr::V4(std::net::Ipv4Addr::new(bind_ip[0], bind_ip[1], bind_ip[2], bind_ip[3])),
-        actual_port,
+        port,
     ));
 
     let app = build_router(state);
@@ -301,7 +328,7 @@ pub async fn start_proxy(
         axum::serve(listener, app).await.ok();
     });
 
-    Ok((handle, actual_port))
+    Ok(handle)
 }
 
 /// 构建代理 Router：absolute-form forward middleware 包外层，识别 `-x` forward 客户端的

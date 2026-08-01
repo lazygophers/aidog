@@ -38,33 +38,27 @@ pub async fn proxy_start(
 
     // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
     let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();
-    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware, saved.bind_lan).await
-        .map_err(|e| { tracing::error!(command = "proxy_start", port, error = %e, "start_proxy failed"); e })?;
+    let proxy_handle = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware, saved.bind_lan).await
+        .map_err(|e| { tracing::error!(command = "proxy_start", port, error = %e, "start_proxy failed"); e.to_string() })?;
 
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
         *h = Some(proxy_handle);
     }
 
-    // 保存实际使用的端口到设置
-    save_proxy_settings(&app, actual_port, true, saved.silent_launch, saved.bind_lan).await?;
+    // 端口是用户设定值，不是启动流程的输出 —— 不回写设置（proxy-port-no-drift 根因 2）。
 
-    // 同步所有分组的 settings 文件（端口可能变了）
+    // 同步所有分组的 settings 文件
     if let Some(db) = app.try_state::<Db>()
-        && let Err(e) = do_sync_group_settings(&db, actual_port).await {
-            tracing::warn!(command = "proxy_start", port = actual_port, error = %e, "sync group settings after start failed");
+        && let Err(e) = do_sync_group_settings(&db, port).await {
+            tracing::warn!(command = "proxy_start", port, error = %e, "sync group settings after start failed");
         }
 
     // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
     let _ = app.emit("tray-refresh", ());
 
-    let msg = if actual_port != port {
-        format!("proxy started on port {} ({} was occupied)", actual_port, port)
-    } else {
-        format!("proxy started on port {}", actual_port)
-    };
-    tracing::info!(command = "proxy_start", port = actual_port, "proxy started");
-    Ok(msg)
+    tracing::info!(command = "proxy_start", port, "proxy started");
+    Ok(format!("proxy started on port {port}"))
 }
 }
 
