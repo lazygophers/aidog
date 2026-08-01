@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(111), build(58), db(5), domain(74), frontend(96), git(7), i18n(15), ops(33), optimization(67), platform-macos(7), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(31), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(111), build(58), db(5), domain(74), frontend(96), git(7), i18n(15), ops(33), optimization(67), platform-macos(7), proxy(33), reuse(5), shadcn(48), skein(24), style(9), test(22), testing(31), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -496,6 +496,13 @@
 | proxy/diagnostic-header-helper.md#跨协议注入选址参考 | proxy | 跨协议注入选址参考 | diagnostic-headers,request-tracing,debugging,headers | auto | - | active | `07-05-proxy-trace-id-header` 实施时枚举的 47 调用点分布: - `handler.rs… |
 | proxy/diagnostic-header-helper.md#验收基准 (可复用) | proxy | 验收基准 (可复用) | diagnostic-headers,request-tracing,debugging,headers | auto | - | active | - [ ] debug build: 所有 AirDog **直构**响应含诊断 header (grep `injec… |
 | proxy/diagnostic-header-helper.md#验证命令 | proxy | 验证命令 | diagnostic-headers,request-tracing,debugging,headers | auto | - | active | ```bash # helper 调用计数 (debug 注入点) grep -rn "inject_trace_hea… |
+| proxy/proxy-startup-error-emit-reuse.md#关联 | proxy | 关联 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | （参考 core/cross-layer/tauri-ts-boundary-contract，Tauri 事件模式） |
+| proxy/proxy-startup-error-emit-reuse.md#无前端窗口路径的启动失败可见性 | proxy | 无前端窗口路径的启动失败可见性 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | - |
+| proxy/proxy-startup-error-emit-reuse.md#案例 | proxy | 案例 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | **正例**（proxy-port-no-drift 实现）： ```rust // Rust 侧返回错误分类，不含文案… |
+| proxy/proxy-startup-error-emit-reuse.md#正解 | proxy | 正解 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | 复用既有能力： 1. **事件机制**：`app.emit("proxy-start-failed", {error, … |
+| proxy/proxy-startup-error-emit-reuse.md#触发场景 | proxy | 触发场景 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | 代理启动失败且无前端窗口可显示（自启动、后台启动）时，需要让用户能看到失败信息（系统通知 / 托盘菜单状态）。 |
+| proxy/proxy-startup-error-emit-reuse.md#适用 | proxy | 适用 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | - 任何后台启动失败的可见性需求 - 跨 Rust↔TS 错误通知 - 与既有事件系统的交互 |
+| proxy/proxy-startup-error-emit-reuse.md#陷阱 | proxy | 陷阱 | proxy,startup,error,event,emit,notification,autostart | auto | - | active | 新建独立通知链路（新 command、新事件、新事件监听），导致： - 跨 Rust↔TS 新增接线点、测试覆盖缺口 -… |
 | proxy/sse-chunk-stateless-defect.md#SSE 流式处理无状态缺陷 | proxy | SSE 流式处理无状态缺陷 | SSE,streaming,stateless,chunk,frame-boundary,protocol | auto | - | active | - |
 | proxy/sse-chunk-stateless-defect.md#关联 | proxy | 关联 | SSE,streaming,stateless,chunk,frame-boundary,protocol | auto | - | active / →async-log-queue-backpressure,hot-path-buffers,stream-buf-unified-cap | [[stream-buf-unified-cap]] （上界单一真值源） · [[hot-path-buffers]] … |
 | proxy/sse-chunk-stateless-defect.md#正解：尾行缓冲 + 无状态解析分离 | proxy | 正解：尾行缓冲 + 无状态解析分离 | SSE,streaming,stateless,chunk,frame-boundary,protocol | auto | - | active / →stream-buf-unified-cap | ### MUST 架构  - **尾行缓冲层**：在无状态解析函数外层加一个有状态的行重组器（如 `SseLineRea… |
@@ -596,6 +603,14 @@
 | test/cross-crate-test-path.md#跨 Crate 测试路径 | test | 跨 Crate 测试路径 | cross-crate,testing,integration,workspace,test-utils | auto | - | active | - |
 | test/cross-crate-test-path.md#适用 | test | 适用 | cross-crate,testing,integration,workspace,test-utils | auto | - | active | - 跨 crate 迁移测试文件 - 模块合并时 - 测试代码路径清理 |
 | test/cross-crate-test-path.md#陷阱 | test | 陷阱 | cross-crate,testing,integration,workspace,test-utils | auto | - | active | 保持原外部 crate 的全限定路径 `aidog_core::xxx::yyy`，但新位置是 aidog_core 内… |
+| test/error-type-seam-not-string-match.md#关联 | test | 关联 | testing,error,assertion,seam,regression,string-match | auto | - | active | （本规则体现「回归防线」与「接缝选择」通用原则） |
+| test/error-type-seam-not-string-match.md#案例 | test | 案例 | testing,error,assertion,seam,regression,string-match | auto | - | active | **proxy-port-no-drift 回归防线**（`gateway/proxy/test_bind.rs`）： … |
+| test/error-type-seam-not-string-match.md#正解 | test | 正解 | testing,error,assertion,seam,regression,string-match | auto | - | active | 断言错误的**可判别特征**（类型 / 枚举 / 前缀 / 是否含字段）而非整句文案： ```rust // ✅ 稳健：… |
+| test/error-type-seam-not-string-match.md#测试接缝选择 | test | 测试接缝选择 | testing,error,assertion,seam,regression,string-match | auto | - | active | 三层规则： 1. **优先复用现有接缝**，不新建测试基建 2. **取最高接缝**（越靠外部行为越好），如 HTTP … |
+| test/error-type-seam-not-string-match.md#触发场景 | test | 触发场景 | testing,error,assertion,seam,regression,string-match | auto | - | active | 根因可能复现的 bug（如配置污染、状态漂移），需要写一条回归防线测试钉住该根因的行为。 |
+| test/error-type-seam-not-string-match.md#适用 | test | 适用 | testing,error,assertion,seam,regression,string-match | auto | - | active | - 所有根因可复现的 bug 修复 - 需要区分不同失败模式的测试 - 跨 crate / 跨 i18n 的行为测试 |
+| test/error-type-seam-not-string-match.md#错误类型判别而非字符串匹配（回归防线） | test | 错误类型判别而非字符串匹配（回归防线） | testing,error,assertion,seam,regression,string-match | auto | - | active | - |
+| test/error-type-seam-not-string-match.md#陷阱 | test | 陷阱 | testing,error,assertion,seam,regression,string-match | auto | - | active | 断言错误信息的**整句文案**： ```rust // ❌ 脆断：文案一改就要改测试 assert!(err.to_st… |
 | test/shadcn-test-behavior-assert.md#MUST 硬约束 | test | MUST 硬约束 | shadcn,testing,behavior,assertion,radix | auto | - | active | 测试改测行为而非 className；shadcn 迁移后 snapshot 应改为行为断言。 |
 | test/shadcn-test-behavior-assert.md#Shadcn 组件行为断言测试 | test | Shadcn 组件行为断言测试 | shadcn,testing,behavior,assertion,radix | auto | - | active | - |
 | test/shadcn-test-behavior-assert.md#关联 | test | 关联 | shadcn,testing,behavior,assertion,radix | auto | - | active / →radix-select-none-sentinel | [[radix-select-none-sentinel]] |

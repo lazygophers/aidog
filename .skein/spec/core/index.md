@@ -1,6 +1,6 @@
 # SKEIN core 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(19), cross-layer(12), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(18) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(19), cross-layer(18), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(18) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -23,6 +23,12 @@
 | arch/stream-buf-unified-cap.md#案例 | arch | 案例 | buffer,cap,single-source-of-truth,stream,stateful,SSE | auto | - | active | **正例** —— usage 侧定义 `SSE_LINE_BUF_MAX_BYTES = 1MB`，内容侧转换分支引用… |
 | arch/stream-buf-unified-cap.md#硬约则 | arch | 硬约则 | buffer,cap,single-source-of-truth,stream,stateful,SSE | auto | - | active | 同一隐患在代码库内多条执行路径出现时，上界值**禁止多处定义**。一处常量定义，其余路径引用 → 防止行为割裂。  ##… |
 | arch/stream-buf-unified-cap.md#适用 | arch | 适用 | buffer,cap,single-source-of-truth,stream,stateful,SSE | auto | - | active | - 任何多路径并发处理同一数据流的缓冲 - 多个解析器共用一个上界（如 SSE / WebSocket 等流协议） - … |
+| cross-layer/config-immutability-on-startup.md#关联 | cross-layer | 关联 | startup,config,immutability,user-input,settings,mutation | auto | - | active | （无相关已沉淀规则） |
+| cross-layer/config-immutability-on-startup.md#案例 | cross-layer | 案例 | startup,config,immutability,user-input,settings,mutation | auto | - | active | **反例**（proxy-port-no-drift 根因）： - 用户在设置里设 `port=9890` - 启动绑定… |
+| cross-layer/config-immutability-on-startup.md#正解 | cross-layer | 正解 | startup,config,immutability,user-input,settings,mutation | auto | - | active | 启动流程遵循 **单向数据流**： 1. **读**：读用户设置的值（用户的输入） 2. **执行**：用读到的值初始化… |
+| cross-layer/config-immutability-on-startup.md#触发场景 | cross-layer | 触发场景 | startup,config,immutability,user-input,settings,mutation | auto | - | active | 启动流程（手动 / 自启动）中需要读取用户持久化设置值并用于初始化系统状态时。 |
+| cross-layer/config-immutability-on-startup.md#适用 | cross-layer | 适用 | startup,config,immutability,user-input,settings,mutation | auto | - | active | - 代理端口 / 绑定地址等启动参数 - 需区分「用户配置」与「运行时实际值」的所有场景 - 跨 Rust 启动层 ↔ … |
+| cross-layer/config-immutability-on-startup.md#陷阱 | cross-layer | 陷阱 | startup,config,immutability,user-input,settings,mutation | auto | - | active | 启动失败后或运行中需要调整的状态（如实际绑定端口、实际运行参数）被直接回写进持久化设置，把**程序运行时的暂态**与**… |
 | cross-layer/sole-platform-symmetry.md#单启用平台判定对称性 (Rust ↔ TS) | cross-layer | 单启用平台判定对称性 (Rust ↔ TS) | cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称 | always | - | active | - |
 | cross-layer/sole-platform-symmetry.md#跨层对称硬规 (Rust ↔ TS) | cross-layer | 跨层对称硬规 (Rust ↔ TS) | cross-layer,symmetry,sole_platform,Rust,TypeScript,判定对称 | always | - | active | ### 约束  **同一判定逻辑在 Rust 与 TS 各有一份实现，改一处必改另一处。**  口径须与互指注释锁定对称… |
 | cross-layer/tauri-ts-boundary-contract.md#CRUD Pattern (MUST) | cross-layer | CRUD Pattern (MUST) | cross-layer,边界,字段名,类型,rust,typescript,契约,invoke | auto | - | active | - 每个 resource 必须在 `api.ts` 提供 `{ create, list, get, update, … |
