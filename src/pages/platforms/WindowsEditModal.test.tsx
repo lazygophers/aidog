@@ -8,8 +8,9 @@ import type { PeakWindow } from "../../domains/platforms/defaults";
 // t 用简单 stub：有 fallback 返 fallback，无 fallback 返 key 本身（与 test/render.tsx 的空 resources 回退同构）。
 const t = ((key: string, fallback?: string) => fallback ?? key) as unknown as Parameters<typeof WindowsEditModal>[0]["t"];
 
+// Dialog 走 Radix Portal，内容渲染进 document.body，不在 RTL container 内 → 断言一律走 document.body。
 function renderModal(windows: PeakWindow[], onSave = vi.fn(), onClose = vi.fn()) {
-  const utils = render(
+  render(
     <WindowsEditModal
       open
       windows={windows}
@@ -20,7 +21,7 @@ function renderModal(windows: PeakWindow[], onSave = vi.fn(), onClose = vi.fn())
       t={t}
     />
   );
-  return { ...utils, onSave, onClose };
+  return { container: document.body, onSave, onClose };
 }
 
 /** 数字网格（每月几日 1-31）按钮：纯数字文本、无 title（周几按钮有 title，用于互斥区分）。 */
