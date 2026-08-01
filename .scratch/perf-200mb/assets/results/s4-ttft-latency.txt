@@ -1,0 +1,55 @@
+perf-final-verification s4-redline-regression 红线1 TTFT/总延迟原始采样
+方法: 50 路并发 loadgen.sh 起 90s 负载窗口, 起负载 15s 后（进入稳态）另开 10 次独立 curl 探针打
+同一 mock 分组, 记录 curl -w 的 time_starttransfer(TTFT) 与 time_total(总延迟)。
+请求体与 loadgen.sh 一致: chunk_count:200, delay_ms:50, input_tokens:4000, output_tokens:2000,
+stream:true, model claude-sonnet-4-20250514, Authorization Bearer mock。
+
+## baseline (commit ba6b7b22, worktree /tmp/aidog-pfv-s4-baseline, cargo build --release --bin aidog,
+   HOME=/tmp/aidog-pfv-s4-baseline-home, port 9876)
+
+run1  ttft=0.058009 total=0.936405
+run2  ttft=0.061889 total=0.941672
+run3  ttft=0.059263 total=0.939363
+run4  ttft=0.057812 total=0.983883
+run5  ttft=0.083357 total=1.158691
+run6  ttft=0.123981 total=0.992706
+run7  ttft=0.057835 total=0.934749
+run8  ttft=0.057295 total=0.967032
+run9  ttft=0.059311 total=0.942326
+run10 ttft=0.060318 total=0.936899
+
+TTFT 排序: 0.057295 0.057812 0.057835 0.058009 0.059263 0.059311 0.060318 0.061889 0.083357 0.123981
+TTFT 中位数(第5/6均值): (0.059263+0.059311)/2 = 0.059287 s
+total 排序: 0.934749 0.936405 0.936899 0.939363 0.941672 0.942326 0.967032 0.983883 0.992706 1.158691
+total 中位数: (0.941672+0.942326)/2 = 0.941999 s
+
+## current (全部8个前置task, /Applications/AiDog.app, HOME=/tmp/aidog-pfv-s4-current-45935, port 9870)
+
+run1  ttft=0.058862 total=0.979677
+run2  ttft=0.061035 total=0.937212
+run3  ttft=0.056463 total=0.941043
+run4  ttft=0.057077 total=0.944604
+run5  ttft=0.061683 total=0.931784
+run6  ttft=0.056871 total=0.927741
+run7  ttft=0.055831 total=0.933451
+run8  ttft=0.057235 total=0.932365
+run9  ttft=0.057971 total=0.940928
+run10 ttft=0.057871 total=0.934697
+
+TTFT 排序: 0.055831 0.056463 0.056871 0.057077 0.057235 0.057871 0.057971 0.058862 0.061035 0.061683
+TTFT 中位数: (0.057235+0.057871)/2 = 0.057553 s
+total 排序: 0.927741 0.931784 0.932365 0.933451 0.934697 0.937212 0.940928 0.941043 0.944604 0.979677
+total 中位数: (0.934697+0.937212)/2 = 0.935955 s
+
+## 对比
+
+| | baseline | current | 差 |
+|---|---|---|---|
+| TTFT 中位数 | 0.059287 s | 0.057553 s | -2.9%（current 略快, 无回归） |
+| 总延迟中位数 | 0.941999 s | 0.935955 s | -0.6%（current 略快, 无回归） |
+
+附注: 单次请求实测总延迟(~0.93~0.98s)远小于 loadgen.sh 注释里"单次流约10s"的预期(200 chunk × 50ms
+delay_ms)。已用同一份 curl 请求分别在 baseline 与 current 上验证(无负载时同样 ~0.94~0.98s), 排除是
+本轮 8 个性能优化任务引入的行为变化——baseline(优化前真实起点)就已是这个量级, 两侧一致, 说明只是
+loadgen.sh 脚本注释里的预估耗时与实际 mock delay_ms 语义有出入(不属于本次红线范围的回归, 未改脚本,
+如实记录该发现供后续参考)。

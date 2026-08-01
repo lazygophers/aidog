@@ -1,0 +1,39 @@
+perf-final-verification s4-redline-regression 红线4 冷启动原始采样
+二进制: /Applications/AiDog.app/Contents/MacOS/aidog (79398448 字节, mtime Aug 1 14:22, 与
+target/release 那份 79398448 字节完全相同, 见 s4-redline-regression.md 口径声明段)
+脚本: .skein/task/cold-start-unblock/scripts/measure_startup.sh 5 (未改动)
+HOME 隔离: export HOME=/tmp/aidog-pfv-s4-coldstart-95007 (跑完已 rm -rf)
+
+批次 A (5 trials):
+trial 1: 1.076296000 s
+trial 2: .538858000 s
+trial 3: .864095000 s
+trial 4: .539766000 s
+trial 5: .480882000 s
+中位数: 0.539766 s
+
+批次 B (5 trials):
+trial 1: .742582000 s
+trial 2: .819705000 s
+trial 3: .576561000 s
+trial 4: 1.003280000 s
+trial 5: 1.297873000 s
+中位数: 0.819705 s
+
+批次 C (5 trials):
+trial 1: 2.854487000 s（本批含一次高值, 与 baseline.md 记录的「首次冷启动 Gatekeeper 扫描」模式一致或系统背景负载, 未剔除, 如实保留)
+trial 2: 1.113784000 s
+trial 3: 1.044226000 s
+trial 4: 2.075009000 s
+trial 5: 1.522163000 s
+中位数: 1.522163 s
+
+15 值合并排序:
+0.480882, 0.538858, 0.539766, 0.576561, 0.742582, 0.819705, 0.864095, 1.003280,
+1.044226, 1.076296, 1.113784, 1.297873, 1.522163, 2.075009, 2.854487
+合并中位数(第8个/共15个): 1.003280 s
+
+对照基线: .skein/task/cold-start-unblock/baseline.md 记录的优化前基线两批中位均值 2.844068 s
+(批次A中位2.923974s / 批次B中位2.764162s)
+
+结论: 1.003280 / 2.844068 ≈ 35.3%，降幅 64.7%，红线4 PASS（不慢于优化前）。
