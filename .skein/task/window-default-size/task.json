@@ -71,13 +71,19 @@
         "resizable:true 保持",
         "用户仍可手动最大化"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249538,
-      "started": null,
-      "finished": null
+      "started": 1785560892,
+      "finished": 1785561009
     },
     {
       "sid": "s4-layout-regression",
@@ -94,11 +100,11 @@
         "弹窗仍居中(createPortal 规则未破)"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249538,
-      "started": null,
+      "started": 1785561123,
       "finished": null
     },
     {
@@ -113,13 +119,17 @@
         "写明合成面随窗口面积的 release 口径关系式",
         "正面写明『用户拉大窗口会超 200MB 是 WKWebView 合成面的物理成本, 非缺陷』"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249538,
-      "started": null,
-      "finished": null
+      "started": 1785560892,
+      "finished": 1785561151
     },
     {
       "sid": "s6-verify",
@@ -159,5 +169,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785316748
+  "updated": 1785561151
 }
