@@ -888,6 +888,24 @@
 - → [[idle-cpu-baseline-xctrace]]
 - → [[webkit-jit-warmup-trap]]
 
+## optimization/memory-measure-background.md#内存量测走纯背景态口径
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/memory-measure-background.md#触发场景
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/memory-measure-background.md#陷阱 & 正解
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/memory-measure-background.md#反例（错误模式）
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/memory-measure-background.md#案例
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/memory-measure-background.md#适用
+- ← recall/optimization/window-size-memory-relation.md#关联
+
 ## optimization/sqlite-cache-measurement-traps.md#SQLite 页缓存量测陷阱
 - ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 
@@ -899,6 +917,9 @@
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - ← recall/optimization/measure-window-exclusive-env.md#环境互斥约束
 - → [[idle-cpu-baseline-xctrace]]
+
+## optimization/window-size-memory-relation.md#关联
+- → [[memory-measure-background]]
 
 ## proxy/async-log-queue-backpressure.md#异步日志队列反压
 - ← recall/proxy/sse-chunk-stateless-defect.md#关联

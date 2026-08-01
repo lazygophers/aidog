@@ -97,6 +97,15 @@
       "worktree": null,
       "parent": null,
       "kind": "task"
+    },
+    {
+      "id": "window-default-size",
+      "status": "进行中",
+      "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
     }
   ]
 }

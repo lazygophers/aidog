@@ -1,6 +1,6 @@
 # SKEIN recall 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(111), build(58), db(5), domain(74), frontend(88), git(7), i18n(15), ops(23), optimization(43), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(23), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(111), build(58), db(5), domain(74), frontend(88), git(7), i18n(15), ops(23), optimization(50), proxy(26), reuse(5), shadcn(48), skein(24), style(9), test(14), testing(23), ts-rust-boundary(12) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
@@ -428,6 +428,13 @@
 | optimization/webkit-xpc-helper-process-bounds.md#进程编制核验硬闸替代动态反查 | optimization | 进程编制核验硬闸替代动态反查 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | - |
 | optimization/webkit-xpc-helper-process-bounds.md#适用 | optimization | 适用 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | - Tauri / Electron 等嵌入 WebKit 的桌面应用性能量测 - 多窗口场景排查进程组织 - 交叉应用… |
 | optimization/webkit-xpc-helper-process-bounds.md#陷阱 & 正解 | optimization | 陷阱 & 正解 | webkit,xpc,helper,process-tree,ppid,measurement-isolation | auto | - | active | ❌ **陷阱**：用 ppid / ps args / procinfo 反查进程归属  ```bash # ppid … |
+| optimization/window-size-memory-relation.md#关联 | optimization | 关联 | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active / →memory-measure-background | [[memory-measure-background]] 采样口径 / 附：完整量测协议见 `.scratch/per… |
+| optimization/window-size-memory-relation.md#反例（错误模式） | optimization | 反例（错误模式） | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active | / 错误做法 / 正解 / /---/---/ / 拿 dev 口径拟合式预测 release 内存 / 两口径不互通，… |
+| optimization/window-size-memory-relation.md#实测数据（2026-07-29，release 构建，纯背景态口径，4 档） | optimization | 实测数据（2026-07-29，release 构建，纯背景态口径，4 档） | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active | / 档 / 面积(px²) / TOTAL(MB) / graphics(MB) / /---/---/---/---/… |
+| optimization/window-size-memory-relation.md#正解：窗口面积不是内存杠杆，别在这个维度找优化空间 | optimization | 正解：窗口面积不是内存杠杆，别在这个维度找优化空间 | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active | 内存大头在堆而非窗口合成面：档 1 分解显示 `aidog(main)` MALLOC_SMALL 115MB + MA… |
+| optimization/window-size-memory-relation.md#用户拉大窗口可能超 200MB：物理成本，非缺陷 | optimization | 用户拉大窗口可能超 200MB：物理成本，非缺陷 | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active | WKWebView 合成面随窗口尺寸增大而分配更大绘制缓冲/纹理是 WebKit 的正常行为，用户主动拉大窗口后内存上涨… |
+| optimization/window-size-memory-relation.md#窗口面积与内存无可信拟合关系（release 口径实测） | optimization | 窗口面积与内存无可信拟合关系（release 口径实测） | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active | - |
+| optimization/window-size-memory-relation.md#结论：无可信拟合式，禁外推 | optimization | 结论：无可信拟合式，禁外推 | memory,window-size,area,fitting,release,webkit,footprint | auto | .skein/task/window-default-size/curve-result.md,.scratch/perf-200mb/window-size-measure-protocol.md | active | **TOTAL 与面积呈负相关**——面积涨 3.7 倍（0.78M → 2.91M px²），TOTAL 反从 378… |
 | proxy/async-log-queue-backpressure.md#关联 | proxy | 关联 | async,logging,queue,backpressure,throughput,buffer | auto | - | active / →connect-tunnel-contract,db-table-conventions | [[connect-tunnel-contract]] （proxy 统计不污染） · [[db-table-conve… |
 | proxy/async-log-queue-backpressure.md#反例 / 常见错误 | proxy | 反例 / 常见错误 | async,logging,queue,backpressure,throughput,buffer | auto | - | active | / 错误                          / 为什么错                        … |
 | proxy/async-log-queue-backpressure.md#异步日志队列反压 | proxy | 异步日志队列反压 | async,logging,queue,backpressure,throughput,buffer | auto | - | active | - |
