@@ -202,7 +202,7 @@ input_tokens:4000, output_tokens:2000, stream:true`，模型 `claude-sonnet-4-20
 | 红线 | 判定 | 摘要 |
 |---|---|---|
 | 1. TTFT/总延迟 | PASS | TTFT 中位数 -2.9%、总延迟中位数 -0.6%（均略快，无回归） |
-| 2. token/est_cost 逐条一致 | **token PASS（6/6）；est_cost 4/6 不一致** | token 数完全一致无精度损失；est_cost 不一致已定位为独立定价功能 `model-price-time-tiers`（commit `0059f4e8` 引入的 `time_tiers` 价格分级）导致，与本轮 8 个性能优化 task 无重合，非性能回归。按「无性能回归」实质口径判 PASS，字面「逐条一致」不通过，两种口径的出入已显式区分，不藏进一个勾里 |
+| 2. token/est_cost 逐条一致 | **token PASS（6/6）；est_cost 4/6 不一致** | token 数完全一致无精度损失；est_cost 不一致已定位为独立定价功能 `model-price-time-tiers`（源码由 commit `8ccccb41` 引入 `time_tiers` 价格分级，只动 `gateway/db/model_price.rs` / `price_sync.rs` / `billing.rs` / `platform_cmd/price.rs` 等定价文件；`0059f4e8` 是同 task 的纯 skein 文档提交，不含源码）导致，与本轮 8 个性能优化 task 无重合，非性能回归。按「无性能回归」实质口径判 PASS，字面「逐条一致」不通过，两种口径的出入已显式区分，不藏进一个勾里 |
 | 3. 18 页实渲染走查 | PASS | 用户实机走查整体口头确认无问题，缺陷清单为空。口径：非逐页独立书面签字，是用户整体口头确认——诚实区分证据链强度 |
 | 4. 冷启动到首屏可交互 | PASS | 15 次独立冷启动合并中位数 1.003s vs 优化前基线 2.844s，降 64.7%（最保守批次口径降 46.5%），无回归 |
 
