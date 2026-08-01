@@ -1,6 +1,6 @@
 ---
 title: tauri-command-log-plain-vs-macro
-layer: core
+layer: recall
 category: arch
 keywords: [logging,tauri,macro,instrumentation,command]
 source: command_macro.rs + commit 22e18046

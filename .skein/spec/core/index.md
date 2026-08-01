@@ -1,9 +1,15 @@
 # SKEIN core 规则索引 (章节粒度: 一行一条规则)
 
-类目: arch(13), cross-layer(12), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(18) · 关联见 [backlinks.md](backlinks.md)
+类目: arch(19), cross-layer(12), db(22), domain(5), frontend(3), i18n(8), perf(4), proxy(18) · 关联见 [backlinks.md](backlinks.md)
 
 | rule (topic.md#标题) | category | title | keywords | inclusion | anchors | status/出链 | summary |
 |---|---|---|---|---|---|---|---|
+| arch/env-broadcast-race-forbidden.md#不违反此规则会导致 | arch | 不违反此规则会导致 | concurrency,env,race,onetask,process | always | - | active | - 启动窗口 GUI env 极简，代理线程已跑，set_var 无效或竞态 - 下游子进程找不到 brew/nvm/p… |
+| arch/env-broadcast-race-forbidden.md#案例 | arch | 案例 | concurrency,env,race,onetask,process | always | - | active | `gateway/skills/env.rs:13-28` 的 `runtime_path()` 实现： - 行 11：… |
+| arch/env-broadcast-race-forbidden.md#正解 | arch | 正解 | concurrency,env,race,onetask,process | always | - | active | 1. **缓存合并结果**：用 `OnceLock<Option<String>>` 存探测值（一会话仅触发一次） 2.… |
+| arch/env-broadcast-race-forbidden.md#触发场景 | arch | 触发场景 | concurrency,env,race,onetask,process | always | - | active | 探测到一个值（如登录 shell 的 PATH）后，想让所有子进程用上时。 |
+| arch/env-broadcast-race-forbidden.md#适用 | arch | 适用 | concurrency,env,race,onetask,process | always | - | active | - skills 环境探测（node/npx/python 可用性） - CLI proxy 子进程启动 - scrip… |
+| arch/env-broadcast-race-forbidden.md#陷阱 | arch | 陷阱 | concurrency,env,race,onetask,process | always | - | active | 禁用 `unsafe std::env::set_var` 全局广播。若该探测是惰性触发，触发时刻代理线程/tokio … |
 | arch/mock-platform-bypasses-forward-pipeline.md#mock 平台绕开真实转发流水线，无法验证 finish.rs 挂载的 cap/累积逻辑 | arch | mock 平台绕开真实转发流水线，无法验证 finish.rs 挂载的 cap/累积逻辑 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | - |
 | arch/mock-platform-bypasses-forward-pipeline.md#关联 | arch | 关联 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | proxy-hotpath-buffers s9-bigbody-footprint（`.scratch/perf-20… |
 | arch/mock-platform-bypasses-forward-pipeline.md#硬约束 | arch | 硬约束 | mock,StreamAggregator,STREAM_BODY_MAX_BYTES,finish.rs,loadgen,footprint | auto | src-tauri/crates/aidog_core/src/gateway/proxy/handler.rs,src-tauri/crates/aidog_core/src/gateway/proxy/mock.rs,src-tauri/crates/aidog_core/src/gateway/proxy/stream.rs | active | `platform_type=mock`（`gateway/proxy/mock.rs::handle_mock`）在 … |

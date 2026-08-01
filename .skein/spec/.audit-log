@@ -9,3 +9,4 @@
 2026-07-29T21:41:02|degrade|core/domain/rule-66.md|core/domain/rule-66.md->(recall/domain/rule-66.md)|手动降级
 2026-07-29T21:42:09|degrade|core/i18n/rule-04.md|core/i18n/rule-04.md->(recall/i18n/rule-04.md)|手动降级
 2026-07-29T21:42:09|degrade|core/build/shadcn-infra-02.md|core/build/shadcn-infra-02.md->(recall/build/shadcn-infra-02.md)|手动降级
+2026-08-01T04:59:07|degrade|core/arch/tauri-command-log-plain-vs-macro.md|core/arch/tauri-command-log-plain-vs-macro.md->(recall/arch/tauri-command-log-plain-vs-macro.md)|core超预算(8891>8000)

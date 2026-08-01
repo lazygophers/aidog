@@ -3,8 +3,10 @@ title: test-data-isolation-constraint
 category: ops
 keywords: [testing,data,isolation,database,measurement,real-data,HOME,environment,loadgen,pollution,tmp]
 status: active
+layer: recall
 inclusion: auto
 protected: true
+created: 1785560294
 ---
 
 ## 性能测试数据隔离约束
@@ -45,10 +47,11 @@ protected: true
   - 历史教训：本仓某轮压测未隔离 `HOME`，导致 26614 行测试日志（占全库 98%）写入用户真实 `~/.aidog/log.db`，清理时需完整备份后删除
 - **脚本起始处硬校验 `HOME` 隔离**：
   ```bash
-  if [[ "$HOME" == "$HOME_REAL" ]] || [[ ! "$HOME" =~ ^/tmp ]]; then
-    echo "Error: HOME not redirected or not in /tmp — refusing to run" >&2
-    exit 1
-  fi
+  case "$HOME" in
+    "$HOME_REAL"|/tmp) echo "Error: HOME not redirected — refusing to run" >&2; exit 1;;
+    /tmp/*) ;;
+    *) echo "Error: HOME not in /tmp — refusing to run" >&2; exit 1;;
+  esac
   ```
   禁靠「人工检查参数」，用代码强制校验
 
@@ -60,7 +63,7 @@ export HOME="/tmp/aidog-test-$$"
 mkdir -p "$HOME/.aidog"
 
 # 硬校验
-if [[ "$HOME" =~ ^/tmp ]]; then echo "✓ HOME isolated"; else echo "✗ FAIL"; exit 1; fi
+case "$HOME" in /tmp/*) echo "✓ HOME isolated";; *) echo "✗ FAIL"; exit 1;; esac
 
 # 量测脚本
 # ... loadgen 命令 ...
