@@ -2,7 +2,7 @@
   "tasks": [
     {
       "id": "perf-final-verification",
-      "status": "就绪",
+      "status": "进行中",
       "deps": [
         "mock-loadgen-capability",
         "logs-query-ipc-slimming",

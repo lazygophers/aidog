@@ -1,0 +1,49 @@
+======================================================================
+com.apple.WebKit.GPU [13447]: 64-bit    Footprint: 20 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+9616 KB        0 B          0 B        655    MALLOC_SMALL
+1968 KB        0 B          0 B          6    WebKit malloc
+1856 KB        0 B          0 B         22    IOAccelerator (graphics)
+1728 KB        0 B          0 B         22    Owned physical footprint (unmapped) (graphics)
+1127 KB        0 B          0 B        476    __DATA_DIRTY
+ 961 KB        0 B          0 B          1    page table
+ 582 KB        0 B          0 B        513    __DATA
+ 464 KB        0 B          0 B         14    stack
+ 432 KB        0 B          0 B         10    MALLOC metadata
+ 320 KB        0 B          0 B          1    MALLOC_TINY
+ 224 KB        0 B          0 B         19    untagged (VM_ALLOCATE)
+ 213 KB        0 B          0 B       1455    unused dyld shared cache area
+ 208 KB        0 B          0 B         12    CoreAnimation
+ 128 KB        0 B          0 B          1    Accelerate image backing stores
+ 112 KB        0 B          0 B          4    IOAccelerator
+ 112 KB        0 B          0 B        562    __AUTH_CONST
+  80 KB        0 B          0 B          4    app-specific tag 2
+  78 KB        0 B          0 B        291    __AUTH
+  64 KB        0 B          0 B        564    __DATA_CONST
+  64 KB        0 B          0 B          9    IOKit
+  64 KB        0 B          0 B          2    __TPRO_CONST
+  48 KB        0 B          0 B          3    ColorSync
+  32 KB        0 B          0 B          1    Activity Tracing
+  16 KB        0 B          0 B          1    CoreServices
+  16 KB        0 B          0 B          1    os_alloc_once
+    0 B        0 B       262 MB         77    IOSurface
+    0 B      15 MB          0 B         18    mapped file
+    0 B    2576 KB          0 B        582    __TEXT
+    0 B      48 KB          0 B          4    __LINKEDIT
+    0 B        0 B          0 B          2    app-specific tag 1
+    0 B        0 B          0 B          1    __FONT_DATA
+    0 B        0 B          0 B          1    dyld private memory
+    0 B        0 B          0 B         32    JS VM Gigacage
+    0 B        0 B          0 B          1    __CTF
+    0 B        0 B          0 B        161    guard
+    0 B        0 B          0 B         22    Owned physical footprint (unmapped)
+    ---        ---          ---        ---    ---
+  20 MB      18 MB       262 MB       5552    TOTAL
+
+Auxiliary data:
+    phys_footprint: 20 MB
+    phys_footprint_peak: 175 MB
+

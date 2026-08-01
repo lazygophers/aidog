@@ -1,0 +1,20 @@
+# 内存分解 @ scenario3-load
+PID      PROC           FOOTPRINT_MB
+30166    aidog(main)          50.0
+30179    GPU                  20.0
+30180    Networking            7.3
+30181    WebContent          124.0
+30199    WebContent           27.0
+----
+TOTAL                        228.3
+
+## 各进程 top-5 分类（≥1MB）
+### 30166 aidog(main)
+  30 MB        0 B          0 B         16    MALLOC_SMALL
+### 30179 GPU
+### 30180 Networking
+### 30181 WebContent
+  76 MB        0 B          0 B         75    Owned physical footprint (unmapped) (graphics)
+  29 MB        0 B      8528 KB          6    WebKit malloc
+### 30199 WebContent
+  16 MB        0 B      6400 KB          5    WebKit malloc

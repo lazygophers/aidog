@@ -1,0 +1,44 @@
+======================================================================
+com.apple.WebKit.WebContent [13449]: 64-bit    Footprint: 88 MB (16384 bytes per page)
+======================================================================
+
+  Dirty      Clean  Reclaimable    Regions    Category
+    ---        ---          ---        ---    ---
+  38 MB        0 B          0 B         72    Owned physical footprint (unmapped) (graphics)
+  31 MB        0 B          0 B          7    WebKit malloc
+5232 KB        0 B          0 B          1    untagged (VM_ALLOCATE) (graphics)
+4992 KB        0 B          0 B        460    MALLOC_SMALL
+2144 KB        0 B          0 B          3    JS JIT generated code
+2000 KB        0 B          0 B          8    untagged (VM_ALLOCATE)
+1271 KB        0 B          0 B        540    __DATA_DIRTY
+ 785 KB        0 B          0 B        580    __DATA
+ 593 KB        0 B          0 B          1    page table
+ 448 KB        0 B          0 B        545    JS VM Gigacage
+ 368 KB        0 B          0 B          9    MALLOC metadata
+ 240 KB        0 B          0 B          1    MALLOC_TINY
+ 224 KB        0 B          0 B          6    stack
+ 202 KB        0 B          0 B       1565    unused dyld shared cache area
+  80 KB        0 B          0 B          4    app-specific tag 2
+  78 KB        0 B          0 B        340    __AUTH
+  48 KB        0 B          0 B          2    __TPRO_CONST
+  32 KB        0 B          0 B          2    ColorSync
+  16 KB        0 B          0 B          1    CoreServices
+  16 KB        0 B          0 B          1    os_alloc_once
+  16 KB        0 B          0 B        630    __DATA_CONST
+    0 B        0 B        16 KB          2    ImageIO
+    0 B    5584 KB          0 B         26    mapped file
+    0 B      16 KB          0 B        648    __TEXT
+    0 B        0 B          0 B          3    app-specific tag 1
+    0 B        0 B          0 B          3    __LINKEDIT
+    0 B        0 B          0 B          1    __FONT_DATA
+    0 B        0 B          0 B          1    dyld private memory
+    0 B        0 B          0 B          1    __CTF
+    0 B        0 B          0 B         48    guard
+    0 B        0 B          0 B        626    __AUTH_CONST
+    ---        ---          ---        ---    ---
+  88 MB    5600 KB        16 KB       6139    TOTAL
+
+Auxiliary data:
+    phys_footprint: 88 MB
+    phys_footprint_peak: 336 MB
+

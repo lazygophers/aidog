@@ -1,0 +1,20 @@
+# 内存分解 @ smoke-idle-fg-release
+PID      PROC           FOOTPRINT_MB
+19328    aidog(main)          44.0
+19335    GPU                  20.0
+19336    Networking            6.9
+19337    WebContent           65.0
+19340    WebContent           25.0
+----
+TOTAL                        160.9
+
+## 各进程 top-5 分类（≥1MB）
+### 19328 aidog(main)
+  23 MB        0 B          0 B         16    MALLOC_SMALL
+### 19335 GPU
+### 19336 Networking
+### 19337 WebContent
+  26 MB        0 B          0 B         59    Owned physical footprint (unmapped) (graphics)
+  23 MB        0 B       352 KB          7    WebKit malloc
+### 19340 WebContent
+  15 MB        0 B          0 B          6    WebKit malloc
