@@ -209,7 +209,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 读取「默认为所有分组注入通知 hook」总开关状态（基线 `claude_code._aidog_hooks.enabled`）。
     pub async fn get_default_hooks_enabled(db: State<'_, Db>) -> Result<bool, String> {
-        tracing::debug!(command = "get_default_hooks_enabled", "command invoked");
         Ok(default_hooks_enabled_from_db(&db).await)
     }
 }
@@ -253,7 +252,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 构造通知 hook 片段供前端 Hooks 编辑器并入草稿（只读式），薄转发 `&Db` 版本。
     pub async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json::Value, String> {
-        tracing::debug!(command = "build_notify_hooks_fragment", "command invoked");
         build_notify_hooks_fragment_from_db(&db).await
     }
 }

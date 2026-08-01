@@ -14,7 +14,6 @@ pub(crate) async fn load_auto_update_enabled(db: &Db) -> bool {
 
 crate::tauri_command! {
     pub async fn get_auto_update_enabled(db: State<'_, Db>) -> Result<bool, String> {
-        tracing::debug!(command = "get_auto_update_enabled", "command invoked");
         Ok(load_auto_update_enabled(&db).await)
     }
 }

@@ -43,14 +43,12 @@ pub async fn migrate_log_settings_file_to_db(db: &Db) {
 
 crate::tauri_command! {
     pub async fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
-        tracing::debug!(command = "app_log_settings_get", "command invoked");
         Ok(load_app_log_settings_from_db(&db).await)
     }
 }
 
 crate::tauri_command! {
     pub async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
-        tracing::debug!(command = "app_log_settings_set", "command invoked");
         let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
         db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await
             .map_err(|e| { tracing::error!(command = "app_log_settings_set", error = %e, "persist log settings failed"); e })?;

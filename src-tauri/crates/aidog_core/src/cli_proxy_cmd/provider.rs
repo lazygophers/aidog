@@ -9,7 +9,6 @@ use tauri::State;
 crate::tauri_command! {
     /// 列出全部 cli_proxy_provider。
     pub async fn cli_proxy_list(db: State<'_, Db>) -> Result<Vec<CliProxyProvider>, String> {
-        tracing::debug!(command = "cli_proxy_list", "command invoked");
         db::list_cli_proxy_providers(&db).await
     }
 }

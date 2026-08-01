@@ -91,7 +91,6 @@ pub struct CaUninstallSpec {
 
 crate::tauri_command! {
 pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
-    tracing::debug!(command = "mitm_status", "command invoked");
     let ca = load_root_ca(&db).await?;
     let whitelist = list_whitelist(&db).await?.into_iter().map(Into::into).collect();
     // 修问题 2：ca_present 时调 sync_ca_installed_from_system 双向校验 keychain 实状
@@ -115,7 +114,6 @@ pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
 crate::tauri_command! {
 /// 启用 MITM（D7：首次启用时 ensure_root_ca 生成假 CA）。
 pub async fn mitm_enable(db: State<'_, Db>) -> Result<(), String> {
-    tracing::debug!(command = "mitm_enable", "command invoked");
     // ensure 先建 CA（若 DB 无），再设 enabled=true。两步都需成功。
     let _ca = ensure_root_ca(&db).await?;
     set_enabled(&db, true).await?;
@@ -126,7 +124,6 @@ pub async fn mitm_enable(db: State<'_, Db>) -> Result<(), String> {
 crate::tauri_command! {
 /// 禁用 MITM（CA 保留，仅置 enabled=false；后续 ST9 提供「移除 CA + 卸信任库」清理）。
 pub async fn mitm_disable(db: State<'_, Db>) -> Result<(), String> {
-    tracing::debug!(command = "mitm_disable", "command invoked");
     set_enabled(&db, false).await?;
     Ok(())
 }
@@ -143,7 +140,6 @@ crate::tauri_command! {
 /// TTL 内 (`SUSPECT_TTL_SECS`=600s) 该 host 跳过 MITM；用户装好证书 / 上游修复后点「重置」
 /// 立即恢复 MITM 候选，不必等 TTL 自然 expire 或重启进程。
 pub async fn mitm_reset_suspects() -> Result<usize, String> {
-    tracing::debug!(command = "mitm_reset_suspects", "command invoked");
     let n = crate::gateway::mitm::mitm_state().reset_suspects().await;
     tracing::info!(cleared = n, "mitm: pinning_suspects cleared by user");
     Ok(n)
@@ -159,7 +155,6 @@ crate::tauri_command! {
 ///   - exit code 0 → 调 `mitm_set_ca_installed(true)`
 ///   - 非 0 / reject → 调 `mitm_set_ca_installed(false)` + UI 弹窗给 spec + ca_pem_path 引导手动装（D8 兜底）
 pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec, String> {
-    tracing::debug!(command = "mitm_install_ca_prepare", "command invoked");
     let ca = ensure_root_ca(&db).await?;
     let dir = aidog_data_dir()?;
     let ca_pem_path = dir.join(CA_PEM_FILENAME);
@@ -179,7 +174,6 @@ pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec,
 crate::tauri_command! {
 /// 准备卸载信任库（ST9 实装 reverse 命令；当前提供 spec 供 UI 展示）。
 pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallSpec, String> {
-    tracing::debug!(command = "mitm_uninstall_ca_prepare", "command invoked");
     let ca = load_root_ca(&db)
         .await?
         .ok_or_else(|| "CA not generated".to_string())?;
@@ -334,7 +328,6 @@ crate::tauri_command! {
 pub async fn mitm_whitelist_import_defaults(
     db: State<'_, Db>,
 ) -> Result<ImportDefaultsResult, String> {
-    tracing::debug!(command = "mitm_whitelist_import_defaults", "command invoked");
     let mut entries = load_whitelist_array(&db).await?;
     let mut imported = 0usize;
     let mut skipped = 0usize;
@@ -375,7 +368,6 @@ crate::tauri_command! {
 ///
 /// 安全：不可撤销，前端必走 confirm 弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
 pub async fn mitm_whitelist_clear(db: State<'_, Db>) -> Result<usize, String> {
-    tracing::debug!(command = "mitm_whitelist_clear", "command invoked");
     let entries = load_whitelist_array(&db).await?;
     let n = entries.len();
     save_whitelist_array(&db, Vec::new()).await?;

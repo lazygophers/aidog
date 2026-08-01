@@ -8,7 +8,6 @@ pub async fn stats_query(
     db: State<'_, Db>,
     query: StatsQuery,
 ) -> Result<StatsResult, String> {
-    tracing::debug!(command = "stats_query", "command invoked");
     db::query_stats(&db, &query).await
 }
 }
@@ -29,7 +28,6 @@ use gateway::models::StatsSettings;
 
 crate::tauri_command! {
 pub async fn stats_settings_get(db: State<'_, Db>) -> Result<StatsSettings, String> {
-    tracing::debug!(command = "stats_settings_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "stats", "settings").await
         .ok()
         .flatten()
@@ -40,7 +38,6 @@ pub async fn stats_settings_get(db: State<'_, Db>) -> Result<StatsSettings, Stri
 
 crate::tauri_command! {
 pub async fn stats_settings_set(db: State<'_, Db>, settings: StatsSettings) -> Result<(), String> {
-    tracing::debug!(command = "stats_settings_set", "command invoked");
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize stats settings: {e}"))?;
     gateway::db::set_setting(&db, gateway::models::SetSettingInput {
@@ -60,7 +57,6 @@ pub async fn stats_settings_set(db: State<'_, Db>, settings: StatsSettings) -> R
 crate::tauri_command! {
 /// 清空 stats_agg_hourly 后从 proxy_log 全量重建（用户启用日志后修复历史聚合用）。
 pub async fn stats_rebuild_from_logs(db: State<'_, Db>) -> Result<(), String> {
-    tracing::debug!(command = "stats_rebuild_from_logs", "command invoked");
     gateway::db::rebuild_stats_agg_from_logs(&db).await
 }
 }

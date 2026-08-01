@@ -17,7 +17,6 @@ const CLIENT_TYPES_BUNDLED: &str = include_str!("../../../defaults/client-types.
 
 crate::tauri_command! {
     pub async fn get_defaults_json() -> Result<String, String> {
-        tracing::debug!(command = "get_defaults_json", "command invoked");
         // app data 优先（运行时同步链写入）
         if let Ok(dir) = aidog_data_dir() {
             let path = dir.join("platform-presets.json");
@@ -64,7 +63,6 @@ crate::tauri_command! {
     /// 编译内 bundled（按 value 去重补 app data 缺的 client_type）→ 缺失/损坏回退 bundled。
     /// 同 get_defaults_json 模式（deep merge + schema gate 失败 / 损坏 → bundled）。
     pub async fn get_client_types_json() -> Result<String, String> {
-        tracing::debug!(command = "get_client_types_json", "command invoked");
         if let Ok(dir) = aidog_data_dir() {
             let path = dir.join("client-types.json");
             if path.exists() {
@@ -110,7 +108,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// platform-presets.json 同步（jsDelivr 主 + raw fallback）。无视节流——前端手动按钮专用。
     pub async fn sync_defaults_json() -> Result<crate::gateway::defaults_sync::DefaultsSyncResult, String> {
-        tracing::debug!(command = "sync_defaults_json", "command invoked");
         Ok(crate::gateway::defaults_sync::sync_defaults_json().await)
     }
 }
@@ -118,7 +115,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// client-types.json 同步（jsDelivr 主 + raw fallback）。无视节流——前端手动按钮专用。
     pub async fn sync_client_types_json() -> Result<crate::gateway::client_types_sync::ClientTypesSyncResult, String> {
-        tracing::debug!(command = "sync_client_types_json", "command invoked");
         Ok(crate::gateway::client_types_sync::sync_client_types_json().await)
     }
 }

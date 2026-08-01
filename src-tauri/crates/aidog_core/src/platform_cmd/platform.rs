@@ -57,7 +57,6 @@ pub async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result
 
 crate::tauri_command! {
 pub async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
-    tracing::debug!(command = "platform_list", "command invoked");
     let mut platforms = db::list_platforms(&db).await?;
     // 列表页余额按使用速率配色：per-platform 动态窗口日速率 → days_remaining → balance_level。
     // 阈值走 usage_color::balance_level（唯一源，不漂移）；无用量数据 → neutral（前端退中性）。
@@ -142,7 +141,6 @@ crate::tauri_command! {
 /// 校验顶层 `aidog_platform_share` 标识存在（>0）；不含则返错，
 /// 接收端据此 fallback 到原杂乱文本解析（无回归）。本地操作，不落 proxy_log。
 pub async fn platform_share_parse(text: String) -> Result<SharePlatform, String> {
-    tracing::debug!(command = "platform_share_parse", "command invoked");
     let parsed: SharePlatform = serde_yml::from_str(&text)
         .map_err(|e| format!("not a valid aidog platform share: {e}"))?;
     if parsed.aidog_platform_share == 0 {
@@ -261,7 +259,6 @@ pub async fn platform_set_tray(
 crate::tauri_command! {
 /// 读取托盘配置。无配置时（首次/升级）从旧 show_in_tray 平台迁移生成默认。
 pub async fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
-    tracing::debug!(command = "tray_config_get", "command invoked");
     Ok(db::get_tray_config(&db).await?.unwrap_or_default())
 }
 }
@@ -273,7 +270,6 @@ pub async fn tray_config_set(
     db: State<'_, Db>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    tracing::debug!(command = "tray_config_set", "command invoked");
     db::set_tray_config(&db, &config).await
         .map_err(|e| { tracing::error!(command = "tray_config_set", error = %e, "set_tray_config failed"); e })?;
     // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
@@ -286,7 +282,6 @@ pub async fn tray_config_set(
 crate::tauri_command! {
 /// 获取今日统计摘要（供前端预览使用）
 pub async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
-    tracing::debug!(command = "tray_today_stats", "command invoked");
     db::today_stats(&db).await
 }
 }
