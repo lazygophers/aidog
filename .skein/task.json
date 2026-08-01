@@ -1,15 +1,6 @@
 {
   "tasks": [
     {
-      "id": "proxy-port-no-drift",
-      "status": "进行中",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "gpu-hidden-compositing-buffer",
       "status": "待处理",
       "deps": [],
@@ -118,6 +109,15 @@
       "deps": [
         "mock-loadgen-capability"
       ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "proxy-port-no-drift",
+      "status": "已完成",
+      "deps": [],
       "priority": 5,
       "worktree": null,
       "parent": null,
