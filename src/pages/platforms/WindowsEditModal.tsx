@@ -162,7 +162,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
                         <span>{t("platform.start_hour", "起")}</span>
-                        <Input className="input" type="number" min={0} max={23} style={{ width: 48, height: "auto" }}
+                        <Input className="input" type="number" min={0} max={23} style={{ width: 64, height: "auto" }}
                           value={startDisp.hour}
                           onChange={e => {
                             const h = clampInt(Number(e.target.value), 0, 23, 0);
@@ -171,7 +171,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           }}
                         />
                         <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                        <Input className="input" type="number" min={0} max={59} style={{ width: 48, height: "auto" }}
+                        <Input className="input" type="number" min={0} max={59} style={{ width: 64, height: "auto" }}
                           value={startDisp.minute}
                           onChange={e => {
                             const m = clampInt(Number(e.target.value), 0, 59, 0);
@@ -182,7 +182,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
                         <span>{t("platform.end_hour", "止")}</span>
-                        <Input className="input" type="number" min={0} max={24} style={{ width: 48, height: "auto" }}
+                        <Input className="input" type="number" min={0} max={24} style={{ width: 64, height: "auto" }}
                           value={endDisp.hour}
                           onChange={e => {
                             const h = clampInt(Number(e.target.value), 0, 24, 0);
@@ -191,7 +191,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           }}
                         />
                         <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                        <Input className="input" type="number" min={0} max={59} style={{ width: 48, height: "auto" }}
+                        <Input className="input" type="number" min={0} max={59} style={{ width: 64, height: "auto" }}
                           value={endDisp.minute}
                           onChange={e => {
                             const m = clampInt(Number(e.target.value), 0, 59, 0);

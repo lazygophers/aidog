@@ -658,7 +658,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                   <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
                     {t("platform.start_hour", "起")}
                     <Input
-                      className="input" type="number" min={0} max={23} style={{ width: 50 }}
+                      className="input" type="number" min={0} max={23} style={{ width: 64 }}
                       value={startDisp.hour}
                       onChange={e => {
                         const utc = displayToUtc(clampInt(e.target.value, 0, 23), startDisp.minute, tzMode);
@@ -667,7 +667,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                     />
                     :
                     <Input
-                      className="input" type="number" min={0} max={59} style={{ width: 50 }}
+                      className="input" type="number" min={0} max={59} style={{ width: 64 }}
                       value={startDisp.minute}
                       onChange={e => {
                         const utc = displayToUtc(startDisp.hour, clampInt(e.target.value, 0, 59), tzMode);
@@ -678,7 +678,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                   <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
                     {t("platform.end_hour", "止")}
                     <Input
-                      className="input" type="number" min={0} max={24} style={{ width: 50 }}
+                      className="input" type="number" min={0} max={24} style={{ width: 64 }}
                       value={endDisp.hour}
                       onChange={e => {
                         const utc = displayToUtc(clampInt(e.target.value, 0, 24), endDisp.minute, tzMode);
@@ -687,7 +687,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                     />
                     :
                     <Input
-                      className="input" type="number" min={0} max={59} style={{ width: 50 }}
+                      className="input" type="number" min={0} max={59} style={{ width: 64 }}
                       value={endDisp.minute}
                       onChange={e => {
                         const utc = displayToUtc(endDisp.hour, clampInt(e.target.value, 0, 59), tzMode);
@@ -701,7 +701,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
               {t("platform.multiplier", "倍率")}
               <Input
-                className="input" type="number" step={0.1} min={0} style={{ width: 70 }}
+                className="input" type="number" step={0.1} min={0} style={{ width: 84 }}
                 value={w.multiplier}
                 onChange={e => update(idx, { multiplier: Number(e.target.value) || 1 })}
               />
