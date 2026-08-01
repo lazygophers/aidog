@@ -49,3 +49,5 @@ WKWebView 合成面随窗口尺寸增大而分配更大绘制缓冲/纹理是 We
 ## 关联
 
 [[memory-measure-background]] 采样口径 / 附：完整量测协议见 `.scratch/perf-200mb/window-size-measure-protocol.md`（编制核验硬闸、纯背景态口径、`--bundles app` 三条教训对后续量测任务仍适用）
+
+[[perf-200mb-final-verification]]：`perf-final-verification` s2 最大化对照组（release 口径、`2304×1265`、独立重启+背景态+≥600s 稳态，WebContent graphics 单项 147MB）把本文档「合成面是窗口面积函数」这条定性结论从拟合外推坐实为实测证据（不改变「无可信拟合式」这条否定性结论，仅证据强度升级）。
