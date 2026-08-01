@@ -2,7 +2,7 @@
   "id": "peak-window-dimension-fix",
   "name": "编辑时段窗口维度 radio 修复与文案",
   "desc": "维度 radio 点击无反应(派生态自我抵消)修复 + label 改「生效日」8 语言同步",
-  "status": "检查中",
+  "status": "已完成",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -125,7 +125,7 @@
   "started": 1785562926,
   "confirmed": 1785562923,
   "checked": 1785563803,
-  "finished": null,
-  "updated": 1785563973,
+  "finished": 1785564123,
+  "updated": 1785564123,
   "confirmed_by": "user"
 }
