@@ -487,7 +487,6 @@
 ## frontend/derived-state-transient-mode.md#关联
 - → [[form-level-tz-state-sharing]]
 - → [[modal-state-architecture]]
-- → [[window-default-size task → peak-window-dimension-fix]]
 
 ## frontend/dirty-float-hour-normalization.md#dirty-float-hour-normalization
 - ← recall/frontend/form-level-tz-state-sharing.md#关联
@@ -858,10 +857,6 @@
 - → [[sse-chunk-stateless-defect]]
 - → [[stream-buf-unified-cap]]
 
-## ops/cross-task-artifact-retention.md#关联
-- → [[perf-final-verification s1-preflight 依赖]]
-- → [[window-default-size task 清场交接]]
-
 ## ops/idle-wakeup-sources-inventory.md#空闲期唤醒源 6 分类清单
 - ← recall/optimization/idle-cpu-baseline-xctrace.md#空闲 CPU 基线数据
 - → [[idle-cpu-baseline-xctrace]]
@@ -928,6 +923,35 @@
 ## optimization/memory-measure-background.md#适用
 - ← recall/optimization/window-size-memory-relation.md#关联
 
+## optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+- ← recall/optimization/window-size-memory-relation.md#关联
+- → [[window-size-memory-relation]]
+
+## optimization/perf-200mb-final-verification.md#一、达标判决
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#二、未达标归因（4 条超预算项逐条）
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#三、窗口物理事实（与 [[window-size-memory-relation]] 交叉引用，不重复造真值）
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#四、量测协议与流形参数（可复现）
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#五、CPU 归因
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#六、红线 1-4 回归结论（摘录，全文见 `s4-redline-regression.md`）
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#七、历史基线可比性（07-29 378.7MB → 本轮 196.5MB）
+- ← recall/optimization/window-size-memory-relation.md#关联
+
+## optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/window-size-memory-relation.md#关联
+- → [[window-size-memory-relation]]
+
 ## optimization/sqlite-cache-measurement-traps.md#SQLite 页缓存量测陷阱
 - ← recall/db/sqlite-cache-residency-probe-method.md#页缓存常驻量探针
 
@@ -940,8 +964,35 @@
 - ← recall/optimization/measure-window-exclusive-env.md#环境互斥约束
 - → [[idle-cpu-baseline-xctrace]]
 
+## optimization/window-size-memory-relation.md#窗口面积与内存无可信拟合关系（release 口径实测）
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+
+## optimization/window-size-memory-relation.md#实测数据（2026-07-29，release 构建，纯背景态口径，4 档）
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+
+## optimization/window-size-memory-relation.md#结论：无可信拟合式，禁外推
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+
+## optimization/window-size-memory-relation.md#正解：窗口面积不是内存杠杆，别在这个维度找优化空间
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+
+## optimization/window-size-memory-relation.md#用户拉大窗口可能超 200MB：物理成本，非缺陷
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+
+## optimization/window-size-memory-relation.md#反例（错误模式）
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
+
 ## optimization/window-size-memory-relation.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#关联
+- ← recall/optimization/perf-200mb-final-verification.md#深度性能优化 `perf-final-verification` 最终判决（8 个前置 task 合计效果）
 - → [[memory-measure-background]]
+- → [[perf-200mb-final-verification]]
 
 ## proxy/async-log-queue-backpressure.md#异步日志队列反压
 - ← recall/proxy/sse-chunk-stateless-defect.md#关联
@@ -1173,10 +1224,6 @@
 
 ## test/shadcn-test-behavior-assert.md#关联
 - → [[radix-select-none-sentinel]]
-
-## testing/component-test-structure-assert.md#关联
-- → [[i18n-concurrent-change-isolation]]
-- → [[window-default-size task 文案改动]]
 
 ## testing/module-load-time-constant-test-rule.md#关联
 - → [[time-zone-minute-arithmetic]]

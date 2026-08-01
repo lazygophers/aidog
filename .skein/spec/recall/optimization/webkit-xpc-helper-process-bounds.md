@@ -2,9 +2,10 @@
 title: webkit-xpc-helper-process-bounds
 layer: recall
 category: optimization
-keywords: [webkit,xpc,helper,process-tree,ppid,measurement-isolation]
+keywords: [webkit,xpc,helper,process-tree,ppid,measurement-isolation,home-env]
 status: active
 protected: true
+created: 1785573130
 ---
 
 ## 进程编制核验硬闸替代动态反查
@@ -58,8 +59,55 @@ fi
 
 多轮量测发现某档进程数突增（期望 4，实际 6-8），发现混入了飞书/Safari 的 WebKit helper。改用编制硬闸后，异常编制的档被标记 skip，数据回归稳定。监控脚本每档采样后校验进程数是否等于 4，不符则该档废弃、重新启动新窗口。
 
+## 补充规则：HOME 环境变量判串台逻辑
+
+WebKit XPC helper 进程（GPU / Networking / WebContent）由 `xpcproxy` 拉起，**读不到 HOME 环境变量（空值）是正常的**。性能量测中量测脚本可能用 HOME 来判定进程是否「串台」（属于其他应用），但直接做「HOME 读不到」 = 「非 AiDog 进程」的映射是**错误的**。
+
+### 陷阱
+
+❌ 将「HOME 读不到」误认为「进程非属 AiDog」
+
+```bash
+for helper in $(pgrep -P <main_pid>); do
+    home=$(ps -o env= -p $helper | tr ' ' '\n' | grep ^HOME | cut -d= -f2)
+    if [ -z "$home" ]; then
+        echo "skip $helper (no HOME, not AiDog)"  # 错误：所有 XPC helper 都无 HOME
+        continue
+    fi
+done
+```
+
+**后果**：把 GPU / Networking / WebContent 等全部 WebKit 官方 XPC helper 都跳过，只留主进程，TOTAL 内存从 162.8MB 掉到 37.0MB（低报 75%）。
+
+### 正解
+
+✅ **只在读得到 HOME 且内容不匹配时才判串台**；HOME 空值放行
+
+```bash
+for helper in $(pgrep -P <main_pid>); do
+    home=$(ps -o env= -p $helper | tr ' ' '\n' | grep ^HOME | cut -d= -f2)
+    
+    # 规则 1：HOME 为空，是 XPC helper 正常状态，放行纳入 AiDog 编制
+    if [ -z "$home" ]; then
+        echo "✓ $helper HOME empty (XPC helper, included)"
+        continue
+    fi
+    
+    # 规则 2：HOME 读得到但与预期（测试环境 HOME）不匹配，才判串台
+    if [ "$home" != "$EXPECTED_HOME" ]; then
+        echo "✗ $helper HOME mismatch ($home vs $EXPECTED_HOME, cross-pollination)"
+        continue
+    fi
+done
+```
+
+### 案例
+
+性能量测（s2-measure-3scenes）初期发现 TOTAL 异常低（37.0MB vs 预期 200MB+），排查发现脚本过度滤出了 XPC helper。改为「仅读得到且不匹配时才跳」后，TOTAL 回归正常 196.5MB。
+
 ## 适用
 
 - Tauri / Electron 等嵌入 WebKit 的桌面应用性能量测
 - 多窗口场景排查进程组织
 - 交叉应用场景的进程隔离验证
+- 量测脚本中用 HOME 判串台时的正确做法
