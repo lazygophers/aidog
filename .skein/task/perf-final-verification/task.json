@@ -106,13 +106,18 @@
         "红线3 18 页走查记录齐, 缺陷清单(可为空)",
         "红线4 冷启动中位数不慢于优化前"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250517,
       "started": 1785566248,
-      "finished": null
+      "finished": 1785572981
     },
     {
       "sid": "s5-spec-writeup",
@@ -169,5 +174,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785570111
+  "updated": 1785572981
 }
