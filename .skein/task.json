@@ -1,17 +1,6 @@
 {
   "tasks": [
     {
-      "id": "cold-start-unblock",
-      "status": "进行中",
-      "deps": [
-        "frontend-compositing-purge"
-      ],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "perf-final-verification",
       "status": "就绪",
       "deps": [
@@ -23,6 +12,17 @@
         "frontend-compositing-purge",
         "cold-start-unblock",
         "window-default-size"
+      ],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "cold-start-unblock",
+      "status": "已完成",
+      "deps": [
+        "frontend-compositing-purge"
       ],
       "priority": 5,
       "worktree": null,

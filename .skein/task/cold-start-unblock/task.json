@@ -2,7 +2,7 @@
   "id": "cold-start-unblock",
   "name": "冷启动阻塞消除与 bundle 拆分",
   "desc": "setup 首行 $SHELL -ilc 探测实测阻塞 0.71-1.54s + 4 处启动期 block_on 串行 + 1.6M main bundle 零页面分割",
-  "status": "进行中",
+  "status": "已完成",
   "deps": [
     "frontend-compositing-purge"
   ],
@@ -216,6 +216,6 @@
   "started": 1785545805,
   "confirmed": 1785250583,
   "checked": null,
-  "finished": null,
-  "updated": 1785558564
+  "finished": 1785559777,
+  "updated": 1785559777
 }
