@@ -50,13 +50,18 @@
         "启动耗时下降有前后数据",
         "未引入磁盘缓存"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249513,
       "started": 1785552171,
-      "finished": null
+      "finished": 1785553989
     },
     {
       "sid": "s3-block-on-audit",
@@ -71,13 +76,18 @@
         "spawn 项复用同文件既有 idiom",
         "cleanup_old_logs 已后台化"
       ],
-      "验收done": [],
-      "status": "运行中",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249514,
       "started": 1785552171,
-      "finished": null
+      "finished": 1785555366
     },
     {
       "sid": "s4-log-nonblocking",
@@ -91,13 +101,17 @@
         "日志内容与改前一致",
         "sharded_slab 高水位有量测数据, 量级不足则显式记『已查, 无阻断项』"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249514,
-      "started": null,
-      "finished": null
+      "started": 1785555376,
+      "finished": 1785555912
     },
     {
       "sid": "s5-bundle-split",
@@ -112,13 +126,18 @@
         "切页时 Suspense fallback 不造成可见闪烁(红线3)",
         "未引入 react-router"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249514,
-      "started": null,
-      "finished": null
+      "started": 1785555376,
+      "finished": 1785555973
     },
     {
       "sid": "s6-nav-key-audit",
@@ -133,13 +152,18 @@
         "保留则说明理由",
         "切页流畅度无下降(红线3)"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249514,
-      "started": null,
-      "finished": null
+      "started": 1785555918,
+      "finished": 1785556223
     },
     {
       "sid": "s7-verify",
@@ -163,11 +187,11 @@
         "临时脚本与中间采样已清"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249514,
-      "started": null,
+      "started": 1785556223,
       "finished": null
     }
   ],
@@ -184,5 +208,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785552171
+  "updated": 1785556223
 }

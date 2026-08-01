@@ -114,25 +114,6 @@ yarn tauri build 2>&1  915.09s user 139.50s system 172% cpu 10:10.68 total
 `gateway::skills::runtime_path()` 拿合并后 PATH，再对各自 `Command` 显式 `.env("PATH", p)`
 注入。冷启动关键路径不再同步跑一次登录 shell 探测。
 
-注：本节实测计时基于本轮 `yarn tauri build` 产物，其时点上 `runtime_path()` 尚为
-`ensure_runtime_path()`（`PATH_FIXED: OnceLock<()>` + 全局 `unsafe set_var`）实现；同任务
-`s3-block-on-audit` 并行审出「跨线程 `set_var`/`getenv` 数据竞争」问题后，已将其重构为当前盘上
-版本（见下方「等待而非空值」一节）——两版均为「惰性首用 + 幂等」，仅注入方式从全局 env 突变改为
-per-`Command().env()` 显式传参，不改变「首次 spawn 前才探测、此前不产生额外同步开销」的时序特征，
-故本节数据仍可代表改动后的启动路径耗时；如需对当前盘上代码精确复核，可重新构建后重跑
-`measure_startup.sh`。
-
-- `yarn tauri build` 出 release 产物，跑 `scripts/measure_startup.sh 5`：
-  ```
-  trial 1: 4.617288 s（首次冷启动异常值，同批次 A 模式，剔除法与基线一致）
-  trial 2: 2.149020 s
-  trial 3: 2.132671 s
-  trial 4: 2.079356 s
-  trial 5: 1.996323 s
-  ```
-- 5 次中位数（含异常值，与基线口径一致）：**2.132671 s**
-- 基线中位（批次 A/B）：2.76–2.92 s
-- **改善：中位数从 ~2.76–2.92 s 降至 ~2.13 s，降幅约 23–27%。**
 - 「等待而非空值」代码依据（当前盘上版本，`gateway/skills/env.rs:11-31`）：
   `runtime_path()` 用 `PATH_CACHE: OnceLock<Option<String>>`，`PATH_CACHE.get_or_init(probe_login_path)`
   ——非 `get()`+`set()` 组合。`std::sync::OnceLock::get_or_init` 语义：若尚未初始化，调用线程
@@ -145,7 +126,215 @@ per-`Command().env()` 显式传参，不改变「首次 spawn 前才探测、此
 - 磁盘缓存：**未引入**。`PATH_CACHE`/`ENV_CACHE` 均为进程内 `OnceLock`，随进程退出丢失，下次
   启动重新探测，无落盘。
 
+
+### 实测 (基于当前盘上 per-Command 版本重新构建)
+
+改动: `setup()` 首行的同步 `$SHELL -ilc echo $PATH` 已删; 登录 shell PATH 探测改为惰性 `OnceLock<Option<String>>` 缓存
+(`gateway/skills/env.rs::runtime_path`), 由 23 个真 spawn 子进程的 `Command` 各自 `.env("PATH", p)` 注入,
+不再改进程全局 env (原 `unsafe std::env::set_var` 已删)。
+
+同协议同脚本 (`scripts/measure_startup.sh 5`, release 构建, 每次独立重启, 取中位), 两批各 5 次:
+
+### 批次 C (改后第一批)
+
+| trial | 耗时 (s) |
+|---|---|
+| 1 | 2.587351 |
+| 2 | 2.069489 |
+| 3 | 1.868393 |
+| 4 | 1.939100 |
+| 5 | 2.243715 |
+
+中位数: **2.069489 s**
+
+### 批次 D (改后第二批, 连跑)
+
+| trial | 耗时 (s) |
+|---|---|
+| 1 | 2.493121 |
+| 2 | 1.994563 |
+| 3 | 1.866220 |
+| 4 | 1.860715 |
+| 5 | 2.030218 |
+
+中位数: **1.994563 s**
+
+- 两批偏差: `|2.069489 - 1.994563| / 2.032026 ≈ 3.69%` (<10%, 稳定)
+
+### 对比结论
+
+| | 基线 (批 A / B) | 改后 (批 C / D) |
+|---|---|---|
+| 各批中位 | 2.923974 / 2.764162 | 2.069489 / 1.994563 |
+| 两批中位均值 | **2.844068 s** | **2.032026 s** |
+
+**下降 0.812 s (-28.6%)**。与调研阶段实测的 `$SHELL -ilc` 单点耗时 (0.71 / 0.74 / 1.54 s) 量级吻合。
+
+注: 两批改后样本各自的 trial 1 都偏高 (2.59 / 2.49), 与基线批次同样呈「每批首次略高」的形态,
+属重启后文件缓存未热, 非本次改动引入; 中位数口径已规避。
+
+
+## §6 s3 block_on 去留 (`src-tauri/src/app_setup.rs`)
+
+前置结论：Tauri v2 `App::setup()`（内部函数，非本文件的 `app_setup::setup`）先按 `tauri.conf.json` 建好 config 声明的窗口（`WebviewWindowBuilder::from_config(...).build()`，`tauri-2.11.5/src/app.rs:2524-2526`）再调用用户 `setup` 闭包（同文件 :2530-2532）——即主窗口对象在我们的 `setup()` 跑之前就已创建；但 winit/tao 需要事件循环转一圈才能真正把窗口贴到 WindowServer 上屏（AppleScript `count windows of process` 探测到的时刻）。我们的 `setup()` 是在事件循环恢复前同步执行的回调，其中任何 `block_on` 都会顶住事件循环、直接推迟窗口上屏——这正是 baseline §5（PATH 探测异步化）实测降幅的机制，也是本节判定的依据。
+
+| file:line | 去留 | 理由 |
+|---|---|---|
+| `app_setup.rs:103`（原 log_settings 迁移+加载，现已后台化 `log_init_startup` spawn，:102-129） | 挪后台 | 结果只喂 `logging::init_logging`（tracing 落盘 guard）与 `cleanup_old_logs`；`setup()` 内无任何后续逻辑读取 `log_settings` 本身或依赖 logging 提前就绪。未初始化前 tracing 宏落空 subscriber（no-op，不 panic），代价仅是这段窗口内的早期日志不落盘，纯观测性副作用，非功能正确性问题 |
+| `app_setup.rs:120`（原 try_sync_settings，现已后台化 `sync_settings_startup` spawn，:131-149） | 挪后台 | 写的是外部 `settings.{group}.json` / `~/.claude` 配置文件；同一逻辑本就以 `sync_group_settings` tauri command 形式暴露给前端随时手动触发（`sync_settings.rs:397-404`），设计上已容忍"稍后才同步"。`setup()` 内无后续逻辑依赖其完成 |
+| `app_setup.rs:128`（原 ensure_default_coding_tools_settings，现已后台化 `coding_tools_defaults_startup` spawn，:151-172） | 挪后台 | 写 `~/.claude/config.json` / `~/.claude.json` 联动开关默认值，`setup()` 内无后续逻辑消费其结果；用户不可能在冷启动的毫秒级窗口内就手动打开 CC/Codex 触碰这些文件 |
+| `app_setup.rs:137`（`engine.reload`，:174-193，**维持 `block_on`，未挪**） | 保留 | `MiddlewareEngine::new()` 起手是空规则桶；若把 reload 挪成后台 spawn，会出现一段窗口——`engine` 已经 `app.manage` 挂进状态表，但桶还是空的。`setup()` 下方 `settings.autostart` 分支会 `spawn` 拉起 `proxy_start`（:474 一带，超出本次范围未动），一旦代理开始接请求，这段窗口内的请求会**静默绕过**中间件规则（屏蔽/改写/限流等业务规则失效而非报错）——这是行为变更，违反本任务「只动时序不改业务逻辑」的边界，且 DB 查询+建桶量级是同步可感知的（非纳秒级理论竞态）。三处已挪后台的项都不存在这种「初始空值 = 改变业务语义」的性质，唯独此处是「必须启动期同步完成」，故维持原 `block_on`，不后台化 |
+
+保留项说明（为何必须启动期同步完成）：
+- `engine.reload` 结果被同一进程内后续「代理是否已在接受请求」这件事直接依赖，而不仅仅是「日后某个用户操作才会读到」的旁路文件；一旦破坏该顺序保证，中间件规则会在真实流量窗口内失效，且没有其它兜底（`resolve_rules` 对空桶 fail-open，等同于全放行），影响面是安全/合规类业务规则，不是可接受的观测性降级。
+
+竞态排除依据（3 处已挪项）：
+1. 三处的输出均不被 `setup()` 内任何后续代码路径读取或等待（grep 确认 `log_settings` / `try_sync_settings` 返回值 / `ensure_default_coding_tools_settings` 返回值均无后续消费者），只有副作用（写文件/DB 行/tracing guard），不存在"读到脏值导致错误分支"的竞态形态。
+2. 三者互相之间也无共享可变状态竞争：各自读写不同的 DB scope/key 与不同的磁盘文件（`log_settings.json`→DB / `settings.{group}.json` / `~/.claude/config.json`），并发执行安全。
+3. spawn 写法复用本文件既有 idiom（`tauri::async_runtime::spawn(async move { use tracing::Instrument; let span = tracing::info_span!(...); async { ... }.instrument(span).await })`，与 :49-99 三处 DB 一次性迁移 spawn 同构），`handle.try_state::<Db>()` 兜底 `Db` 尚未 `manage` 的极端情况（本任务时序下不会发生，纯防御）。
+
+### 门禁
+
+- `cargo clippy --workspace --all-targets`：`touch app_setup.rs` 后重跑，仅剩 ts-rs 宏解析 serde 属性的既有 warning（与本次改动无关，`grep -A5 app_setup.rs` 命中 0 行），`app_setup.rs` 自身零 lint。
+- `cargo test --workspace`：1639 passed / 1 failed（`quota::http::test_http::quota_get_json_network_error`，命中已知 flaky 清单，非本次改动引入），`proxy::test_integration::mock_platform_ttft_and_inter_chunk_split` 本轮未见失败。无新增红。
+
+### 改前/改后启动中位数（`measure_startup.sh 5`，release 构建，2026-08-01）
+
+改前（s2 完成态，即上方 §5 批次 C/D）两批中位均值：**2.032026 s**。
+
+本次（s3：3 处 block_on 挪后台 + `cleanup_old_logs` 随 log 初始化一并后台化）两批各 5 次：
+
+#### 批次 G（main 侧复测，机器静默：无并发构建）
+
+| trial | 耗时 (s) |
+|---|---|
+| 1 | 3.115632（首次冷启动异常值，同批 A/C/E 模式） |
+| 2 | 0.991867 |
+| 3 | 1.133431 |
+| 4 | 0.929764 |
+| 5 | 1.092225 |
+
+中位数: **1.092225 s**
+
+#### 批次 H（紧接 G 连跑）
+
+| trial | 耗时 (s) |
+|---|---|
+| 1 | 1.104435 |
+| 2 | 1.379016 |
+| 3 | 0.995383 |
+| 4 | 1.087905 |
+| 5 | 1.093860 |
+
+中位数: **1.093860 s**
+
+- 两批偏差: `|1.092225 - 1.093860| / 1.093043 ≈ 0.15%`（<10%，极稳）
+- 两批中位均值：**1.093043 s**
+
+> 作废的批次 E/F：executor 侧曾采过一组（中位均值 1.361 s），但采样窗口与 main 侧的
+> `yarn tauri build` 重叠，CPU 被编译占用，且所用二进制归属存疑（两个构建并发写同一
+> target 目录）。已改用上方 G/H —— 构建完全结束、机器静默后复测，故以 G/H 为准。
+
+### 对比结论（累计三阶段）
+
+| | 基线（s0，批 A/B） | s2 后（批 C/D） | s3 后（批 G/H） |
+|---|---|---|---|
+| 两批中位均值 | 2.844068 s | 2.032026 s | **1.093043 s** |
+| 相对 s2 降幅 | — | — | -46.2% |
+| 相对基线累计降幅 | — | -28.6% | **-61.6%** |
+
+结论：3 处 block_on 挪后台 + log 初始化/`cleanup_old_logs` 后台化，冷启动中位数在 s2 基础上再降 46.2%，累计较原始基线下降 61.6%。`engine.reload` 保留同步执行（理由见上方去留表），其耗时（单次 DB 查询 + 内存建桶）在当前中位数中占比小，不是本轮瓶颈来源。
+
+
 ## 附：产物清单
 
 - 采样脚本：`.skein/task/cold-start-unblock/scripts/measure_startup.sh`
 - 本文档：`.skein/task/cold-start-unblock/baseline.md`
+
+
+## §7 s5 bundle 拆分
+
+### 改动清单
+
+- `src/App.tsx`：11 个侧栏页（Home/Platforms/AppSettings/Logs/Stats/Notifications/Skills/Mcp/CliProxy/RequestLog/About）由静态 import 改 `React.lazy()`（具名导出适配为 default）；`handleNavigate` 内 `setActiveNav`/`setNavContext` 包进 `useTransition` 的 `startTransition`；渲染处用 `<Suspense fallback={null}>` 包住原来的 `<div key={effectiveNav}>` 页面切换块。
+- `src/pages/AppSettings.tsx`：11 个 settings 子 tab（Settings/CodexSettings/PricingTab/TrayConfigTab/PopoverConfigTab/MiddlewareSettingsTab/SchedulingSettingsTab/NotificationSettingsTab/ImportExportTab/CodingToolsSettingsTab/MitmConfigTab）同样改 `React.lazy()`，`AppSettings` 组件拆出 `AppSettingsTabContent` 内层组件，外包一层 `<Suspense fallback={null}>`（settings tab 切换同样经 App.tsx 的 `handleNavigate` → `startTransition`，故复用同一无闪烁机制，未单独加 transition）。
+- 未改 `vite.config.ts`（rollup 对每个动态 `import()` 自动切 chunk，未手工 `manualChunks`，无此必要）。
+- 未引入 react-router（`grep -rn react-router src/ package.json` 只命中 navGuard.ts 里说明"无 react-router"的注释）。
+
+### `yarn build` 输出（改后）
+
+```
+dist/assets/main-CE1mNgF0.js                  191.80 kB │ gzip:  59.94 kB
+dist/assets/Skills-DsJV3adY.js                195.51 kB │ gzip:  59.23 kB
+dist/assets/Platforms-BNAiFHO3.js             270.40 kB │ gzip:  77.70 kB
+dist/assets/AppSettings-DdG2xfaq.js            31.54 kB │ gzip:   7.39 kB
+dist/assets/Settings-DHfZeZAh.js              129.92 kB │ gzip:  36.43 kB
+dist/assets/PricingTab-DQsmbSnp.js             11.77 kB │ gzip:   3.91 kB
+dist/assets/TrayConfigTab-DnPNCnbB.js          22.76 kB │ gzip:   6.20 kB
+dist/assets/PopoverConfigTab-CAIt7X7L.js       19.60 kB │ gzip:   6.85 kB
+dist/assets/MiddlewareRules-SHv1Ae69.js        14.05 kB │ gzip:   4.36 kB
+dist/assets/SchedulingSettings-Becka9sy.js      3.88 kB │ gzip:   1.52 kB
+dist/assets/NotificationSettings-BD1t_idC.js   17.66 kB │ gzip:   5.36 kB
+dist/assets/ImportExportTab-wN3sh5qK.js        56.61 kB │ gzip:  15.10 kB
+dist/assets/CodingToolsSettings-CHz_kBsB.js    11.34 kB │ gzip:   3.88 kB
+dist/assets/MitmConfig-BcemGgjE.js             16.88 kB │ gzip:   5.17 kB
+dist/assets/CodexSettings-D-bCfutc.js           9.53 kB │ gzip:   3.79 kB
+dist/assets/Home-Da6OFGXM.js                   17.21 kB │ gzip:   4.65 kB
+dist/assets/Mcp-tvHVSLaZ.js                    21.21 kB │ gzip:   6.58 kB
+dist/assets/RequestLog-CkHDxJct.js              7.01 kB │ gzip:   2.78 kB
+dist/assets/Logs-BpF1_KWy.js                   11.58 kB │ gzip:   4.10 kB
+dist/assets/Stats-CulOpaHS.js                  16.85 kB │ gzip:   5.80 kB
+dist/assets/Notifications-CKKIazZt.js           2.70 kB │ gzip:   1.20 kB
+dist/assets/About-NnmHbHnh.js                  11.86 kB │ gzip:   3.40 kB
+dist/assets/cliProxy-DGyJDJ1P.js                 0.68 kB │ gzip:   0.32 kB
+```
+（其余 vendor/共享 chunk 如 proxy-*.js 468 kB、pinyin-*.js 302.72 kB、8 语言 locale chunk 119~159 kB 不变——本次不动范围。）
+
+main chunk：改前 **1,634,950 B**（基线 §3）→ 改后 **191,800 B**（`ls -la` 实测 191,560 B gzip 前，见下一次 rebuild 191,800，两次构建 hash 不同但数量级一致）—— 降幅约 **88.3%**。
+
+### 验证
+
+- `yarn build`：通过（两轮，含 App.tsx 拆分 + AppSettings 子 tab 拆分各一轮）
+- `yarn test`：26 files / 332 tests 全绿（两轮均验证）
+- `node scripts/check-i18n.mjs`：✅ 零缺失
+- `yarn tsc`（`yarn build` 内含 `tsc && vite build`，`tsc` 无报错即通过）：通过
+- 未引入 react-router：`grep -rn react-router src/ package.json` 仅命中 `navGuard.ts` 注释原文
+- navGuard 离页拦截：`registerNavGuard`/`requestNavigation` 是模块级单例（`src/utils/navGuard.ts`），与组件是静态导入还是 `React.lazy()` 动态导入无关——`Settings.tsx:390` 在 `useEffect` 里 `registerNavGuard`，卸载时反注册，生命周期钩子在懒加载场景下行为不变，逻辑代码依据见该行。
+
+### 首屏加载判定
+
+冷启动首帧 `effectiveNav === "home"`，App.tsx 里只有 `Home` 分支条件为真 → 触发的动态 `import()` 只有 `./pages/Home` 一个 chunk；其余 10 个页面 chunk（Platforms/AppSettings及其11子tab/Logs/Stats/...）在对应分支未命中前不会被浏览器请求。判定依据：Vite/Rollup 对 `lazy(() => import(...))` 各自产出独立 chunk（见上方 build 输出各文件名各异），且原生 ESM 动态 `import()` 只在实际执行到该表达式时才发请求，未渲染到的 JSX 分支不会执行到对应的 `import()` 调用。
+
+### 切页不闪烁（红线 3）机制
+
+- `handleNavigate` 里 `setActiveNav`/`setNavContext` 包进 `startTransition`（React 18+ 语义）：当这次状态更新导致子树挂起（等待新页面 chunk `import()` resolve）时，React **不会**把已挂载的 Suspense 边界打回 fallback，而是保留当前已提交的旧树在屏幕上，直到新 chunk 加载完成再一次性替换——这是 React 官方给"路由/tab 切换避免加载态闪烁"场景设计的机制（对应 `useTransition`/`isPending` API），比"先展示 loading 骨架再替换"更不闪。
+- `<Suspense fallback={null}>` 包裹整个 `key={effectiveNav}` 的页面块——这层 fallback 理论上只在**没有旧树可留**时才会被渲染到屏幕（即应用冷启动第一帧），此时页面本就是空白，`null` 与任何骨架视觉等价，不构成"闪烁"（闪烁定义是"内容切内容之间出现可见的空白/loading 插入"，冷启动首帧不适用这个定义）。
+- 本次改动未新增 `isPending` 型骨架 UI（YAGNI）——现有 `animate-fade-in` 类沿用原有淡入动效，视觉过渡与拆分前一致。
+
+## §8 s6 nav key 判定
+
+### `key={effectiveNav}` 意图判定（代码依据，非推测）
+
+- 溯源：`git log -p -S'key={' -- src/App.tsx` 定位到该 key 首次引入于 commit `967c0622`（`feat(ui): Liquid Glass full redesign`，2026-06-09），diff 原文：外层 `<main>` 从无包裹容器改为 `<div className="animate-fade-in" key={activeNav}>`，提交信息只字未提"防止状态串页"或"强制刷新数据"，明确写的是 UI 重设计（fadeIn keyframe 动画）。
+- 机制验证：`.animate-fade-in` 定义在 `src/styles/globals.css:210-211`，`animation: fadeIn 350ms ... both`。CSS animation 只在元素**新插入 DOM**（或 class 重新赋值）时重放；若外层 `div` 不因 key 变化而重新 mount，浏览器不会重放这段 keyframe（同一 DOM 节点、同一 className，动画只播一次）。
+- 关键反例：本 subtask 逐行读 `App.tsx:198-210` 确认，页面级组件（Home/Platforms/.../About）本来就是**互斥条件渲染**（`{effectiveNav === "x" && <X/>}`，同一时刻只有一个分支为真），从 "home" 切到 "platforms" 时，React reconciliation 因为子元素 **type 不同**（`<Home>` vs `<Platforms>`），本来就会完整卸载旧组件、创建新组件——这一步**与外层 div 的 key 完全无关**，去掉 key 不会改变子页面的 mount/unmount 行为。
+- 因此 `key={effectiveNav}` 唯一的**实际效果**是让外层 `<div className="animate-fade-in">` 本身在切页时重新插入 DOM，从而重放 fadeIn 动画；它并不控制、也从未控制过页面组件的重新取数或状态清空（那部分本就由互斥条件渲染保证）。s6 任务描述里"强制整树重挂载，每次切页全量重新取数"这个前提对**跨页切换**场景不成立——重新取数的成本本就存在（组件确实会重新 mount 并触发内部 `useEffect` 取数），无论 key 在不在。
+
+### 去留结论：**保留**
+
+理由：
+1. 去掉 key 对"全量重挂载/重新取数"这个 PRD 想省的成本**没有实质省钱**——子页面切换的 mount/unmount 开销由互斥条件渲染决定，跟外层 div 的 key 无关；唯一变化是外层 div 从"重建节点"变成"复用节点+替换子节点"，差值是一个空 div 节点的创建/销毁，量级可忽略（远小于子页面组件树本身的 mount 成本）。
+2. 去掉 key 会实质丢失 `animate-fade-in` 的动画重放（机制见上），是可感知的视觉倒退，踩红线 3（"切页体验不得退化"）。
+3. 无跨页状态串页风险可言（保留结论下这条不适用，因为没有去掉）：即便去掉，也不会引入"新的"串页风险——因为子组件的挂载/卸载边界不由这个 key 决定，key 只影响外层壳。换言之，这个 key 不是"数据隔离阀门"，动它不影响数据正确性，只影响动画。
+
+### 逐页比对
+
+不适用（决策为保留原状，未改动任何页面渲染逻辑，无需逐页状态残留比对）。
+
+### 切页流畅度判定依据
+
+未改动 `src/App.tsx`，`key={effectiveNav}` 与 `startTransition`/`Suspense fallback={null}` 机制（§7 已验证）均原样保留，流畅度与 s5 验证结果一致，无下降。
+
+### 门禁结果
+
+`yarn build` 通过（`main-CE1mNgF0.js` 191.80 kB，与 §7 记录量级一致）；`yarn test` 26 files / 332 tests 全绿；`node scripts/check-i18n.mjs` ✅ 零缺失。

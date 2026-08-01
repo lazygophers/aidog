@@ -1,0 +1,92 @@
+{
+  "id": "glass-flow-border-component",
+  "name": "流光边框重构为独立组件",
+  "desc": "两层 DOM(静态裁切壳+旋转渐变层)替代 @property 角度插值, 逐个替换 .glass/.glass-surface 调用点",
+  "status": "已完成",
+  "deps": [
+    "frontend-compositing-purge"
+  ],
+  "contracts": [
+    ".glass / .glass-surface 的 position: relative 声明必须保留原地，只摘 ::after 相关规则；整条删会破坏依赖它的绝对定位子元素与层叠上下文",
+    ".flow-border::after 与 .flow-border:hover::after 的规则体必须与原 .glass::after / .glass:hover::after 逐字一致：conic 色值、3s linear infinite、opacity 0→0.9、transition 250ms、mask/mask-composite 收在 :hover 内的既有优化，一处不改",
+    "opt-in 点位严格限于 7 处：CompactCard.tsx:67 + Home.tsx 的 181/202/262/526/557/581；禁扩到 components/settings/**、ImportExport/**、Dialog/Modal、PlatformCard.tsx:943 等卡内小容器与浮层",
+    "@property --flow-ang 与 @keyframes flowBorder 保留不删（本身零 tick，仍被 .flow-border 使用）",
+    "本 task 是纯视觉重构，禁以性能为由做任何额外改动（原性能前提已被 frontend-compositing-purge s2 证伪）",
+    "globals.css:949-950 的 prefers-reduced-motion 块内 .glass:hover::after / .glass-surface:hover::after 必须同步改名为 .flow-border:hover::after，漏改则 reduced-motion 用户流光不停 = 无障碍回归",
+    "【修正契约 3，2026-07-29 用户拍板】opt-in 点位由 7 处收窄为 6 处：CompactCard.tsx:67 + Home.tsx 的 181/202/262/526/557。Home.tsx:581「快捷操作」是按钮面板非内容卡，按「独立内容卡」判据剔除，禁加 .flow-border"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-flow-border-optin",
+      "name": "流光描边迁出为 .flow-border opt-in 类",
+      "desc": "globals.css 把 .glass/.glass-surface 的 ::after 两组规则改挂 .flow-border（规则体逐字照搬，position:relative 留原地），并在 7 个顶层主卡片点位加 .flow-border 类",
+      "depends_on": [],
+      "验收": [
+        "globals.css 中 .glass::after / .glass-surface::after / :hover::after 规则已全部移到 .flow-border",
+        ".glass 与 .glass-surface 的 position:relative 仍在原处",
+        ".flow-border 规则体与原规则逐字一致(conic色值/3s/opacity/transition/mask位置)",
+        "7 个点位(CompactCard.tsx:67 + Home.tsx 181,202,262,526,557,581)已加类且无第 8 处",
+        "@property --flow-ang 与 @keyframes flowBorder 未删",
+        "yarn build 通过",
+        "yarn test 全绿",
+        "node scripts/check-i18n.mjs 零缺失"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785295770,
+      "started": 1785305595,
+      "finished": 1785305867
+    },
+    {
+      "sid": "s2-visual-verify",
+      "name": "视觉回归核验",
+      "desc": "核验 opt-in 元素流光与改前一致、非 opt-in 元素除无流光外无其他变化（重点查 position:relative 未被误删导致的布局塌陷）",
+      "depends_on": [
+        "s1-flow-border-optin"
+      ],
+      "验收": [
+        "全仓 grep 确认无遗漏的顶层主卡片未加类",
+        "全仓 grep 确认 .glass/.glass-surface 已无 ::after 流光规则残留",
+        "设置页/弹窗/导入导出面板的绝对定位子元素未因 position 变更塌陷(静态核查 CSS 未删 position:relative 即可)",
+        "无临时文件残留"
+      ],
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785295770,
+      "started": 1785305867,
+      "finished": 1785317015
+    }
+  ],
+  "priority": 5,
+  "estimate": 1.5,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/glass-flow-border-component",
+  "parent": null,
+  "kind": "task",
+  "created": 1785254638,
+  "started": 1785305591,
+  "confirmed": 1785296235,
+  "checked": 1785317071,
+  "finished": 1785317384,
+  "updated": 1785317384
+}
