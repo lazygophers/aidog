@@ -73,9 +73,13 @@ output_tokens, cache_tokens, est_cost)`。
 性能优化 task 无关**：
 
 - `resolve_price()` / `apply_tiers()`（`gateway/db/model_price.rs:180,314`）在 `now_ms > 0` 时会叠加
-  `time_tiers`（按 `start_at` 生效的价格分级，`0059f4e8 skein(model-price-time-tiers): 模型单价
-  时间维度化`引入）。
-- 该 commit 是 `ba6b7b22..HEAD` 之间**独立的定价功能改动**（`git log --oneline ba6b7b22..HEAD --
+  `time_tiers`（按 `start_at` 生效的价格分级）。**源码引入 commit = `8ccccb41 feat(pricing):
+  resolve_price 加 now_ms 支持 time_tiers + bundled 兜底`**（`git log -S time_tiers -- src-tauri/crates`
+  唯一命中）；同 task 的 `0059f4e8 skein(model-price-time-tiers)` 是**纯 skein 文档提交, 不含任何源码**，
+  引用时勿以它作为机制引入的依据。
+- `8ccccb41` 改动面只有 `gateway/billing.rs` / `gateway/db/model_price.rs`(+test) / `gateway/estimate/db_ops.rs` /
+  `gateway/price_sync.rs` / `platform_cmd/price.rs`(+test) 七个定价相关文件，
+  是 `ba6b7b22..HEAD` 之间**独立的定价功能改动**（`git log --oneline ba6b7b22..HEAD --
   '*price*'` 命中 `0059f4e8`/`8ccccb41`/`b9d7c4cd`），与 `perf-final-verification` 依赖的 8 个前置
   性能 task（proxy-hotpath-buffers / sqlite-page-cache-residency / tokenizer-residency-trim /
   logs-query-ipc-slimming / frontend-compositing-purge / mock-loadgen-capability / cold-start-unblock /
@@ -207,7 +211,7 @@ measure_startup.sh`（未改动），信号 = 进程 fork → AppleScript 首次
 - [x] 红线1 TTFT 与总延迟数据齐且无退化
 - [x] 红线2 token 逐条一致（PASS）；est_cost 4/6 数值不一致，**按字面「逐条一致」判不通过，但按
   「无性能回归」的实质口径判 PASS**——已定位不一致根因是独立定价功能 `model-price-time-tiers`
-  （commit `0059f4e8`），与 8 个前置性能 task 无重合，非本次任务引入的回归。判定与字面验收项的
+  （源码 commit `8ccccb41`，非同 task 的纯文档提交 `0059f4e8`），与 8 个前置性能 task 无重合，非本次任务引入的回归。判定与字面验收项的
   出入已在此显式写出，不藏在一个勾里，交 s3/s5 裁决是否需要下游同价格基准重测。
 - [x] 红线3 18 页走查记录齐，缺陷清单为空（用户实机走查整体口头确认，非逐页书面签字，口径已声明）
 - [x] 红线4 冷启动中位数不慢于优化前
