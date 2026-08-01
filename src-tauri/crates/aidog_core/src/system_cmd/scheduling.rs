@@ -7,7 +7,6 @@ use tauri::State;
 
 crate::tauri_command! {
     pub async fn scheduling_settings_get(db: State<'_, Db>) -> Result<SchedulingBreakerSettings, String> {
-        tracing::debug!(command = "scheduling_settings_get", "command invoked");
         Ok(gateway::db::get_scheduling_settings(&db).await)
     }
 }
@@ -17,7 +16,6 @@ crate::tauri_command! {
         db: State<'_, Db>,
         settings: SchedulingBreakerSettings,
     ) -> Result<(), String> {
-        tracing::debug!(command = "scheduling_settings_set", "command invoked");
         gateway::db::set_setting(&db, SetSettingInput {
             scope: "scheduling".to_string(),
             key: "settings".to_string(),

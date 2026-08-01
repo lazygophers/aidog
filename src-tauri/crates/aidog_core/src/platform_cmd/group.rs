@@ -25,7 +25,6 @@ pub async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::App
 
 crate::tauri_command! {
 pub async fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
-    tracing::debug!(command = "group_list", "command invoked");
     db::list_groups(&db).await
 }
 }
@@ -91,7 +90,6 @@ pub async fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDeta
 
 crate::tauri_command! {
 pub async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
-    tracing::debug!(command = "group_detail_list", "command invoked");
     db::list_group_details(&db).await
 }
 }

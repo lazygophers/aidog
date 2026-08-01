@@ -5,7 +5,6 @@ use tauri::State;
 crate::tauri_command! {
     /// 列出 DB 中所有 MCP server（env/headers 已脱敏）。
     pub async fn mcp_list(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpServerInfo>, String> {
-        tracing::debug!(command = "mcp_list", "command invoked");
         let rows = gateway::db::list_mcp_servers(&db).await?;
         Ok(rows.into_iter().map(gateway::mcp::McpServerInfo::from).collect())
     }
@@ -14,7 +13,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 扫描 Claude Code + Codex 配置的所有 MCP，去重合并（env/headers 已脱敏）。
     pub async fn mcp_scan(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpScanItem>, String> {
-        tracing::debug!(command = "mcp_scan", "command invoked");
         gateway::mcp::scan_all(&db).await
     }
 }
@@ -36,7 +34,6 @@ crate::tauri_command! {
         db: State<'_, Db>,
         json: String,
     ) -> Result<gateway::mcp::ImportReport, String> {
-        tracing::debug!(command = "mcp_import_json", "command invoked");
         gateway::mcp::import_pasted(&db, &json).await
     }
 }
@@ -91,7 +88,6 @@ crate::tauri_command! {
     /// 重新同步全部：从 DB 全量重写所有 enabled agent 的 MCP 配置文件，
     /// 修复外部污染（如 env:null 致 Claude Code 跳过 server）。返回重写条数。
     pub async fn mcp_resync(db: State<'_, Db>) -> Result<usize, String> {
-        tracing::debug!(command = "mcp_resync", "command invoked");
         gateway::mcp::resync_all(&db).await
     }
 }

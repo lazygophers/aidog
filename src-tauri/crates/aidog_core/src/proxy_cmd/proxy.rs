@@ -70,7 +70,6 @@ pub async fn proxy_start(
 
 crate::tauri_command! {
 pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
-    tracing::debug!(command = "proxy_stop", "command invoked");
     let handle = app.state::<ProxyHandle>();
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
@@ -103,7 +102,6 @@ pub fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
 
 crate::tauri_command! {
 pub async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
-    tracing::debug!(command = "proxy_get_settings", "command invoked");
     load_proxy_settings(&app).await
 }
 }
@@ -170,7 +168,6 @@ pub async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Resu
 
 crate::tauri_command! {
 pub async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
-    tracing::debug!(command = "proxy_client_get_settings", "command invoked");
     let db = app.try_state::<Db>()
         .map(|s| s.inner().clone())
         .ok_or_else(|| { tracing::error!(command = "proxy_client_get_settings", "db not initialized"); "db not initialized".to_string() })?;
@@ -181,7 +178,6 @@ pub async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway:
 
 crate::tauri_command! {
 pub async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
-    tracing::debug!(command = "proxy_client_set_settings", "command invoked");
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
         .ok_or_else(|| { tracing::error!(command = "proxy_client_set_settings", "db not initialized"); "db not initialized".to_string() })?;

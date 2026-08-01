@@ -11,7 +11,6 @@ pub async fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Res
 
 crate::tauri_command! {
 pub async fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
-    tracing::debug!(command = "model_price_count", "command invoked");
     gateway::db::count_model_prices(&db).await
 }
 }
@@ -42,7 +41,6 @@ pub async fn model_price_count_filtered(
     query: Option<String>,
     source: Option<String>,
 ) -> Result<u32, String> {
-    tracing::debug!(command = "model_price_count_filtered", "command invoked");
     gateway::db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref()).await
 }
 }
@@ -63,7 +61,6 @@ pub async fn model_price_resolve(
 
 crate::tauri_command! {
 pub async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
-    tracing::debug!(command = "model_price_sync", "command invoked");
     gateway::price_sync::sync_github_prices(&db).await
         .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "model price sync failed"); e })
 }
@@ -71,14 +68,12 @@ pub async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::Pric
 
 crate::tauri_command! {
 pub async fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
-    tracing::debug!(command = "price_sync_settings_get", "command invoked");
     Ok(gateway::price_sync::get_sync_settings(&db).await)
 }
 }
 
 crate::tauri_command! {
 pub async fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
-    tracing::debug!(command = "price_sync_settings_set", "command invoked");
     gateway::price_sync::save_sync_settings(&db, &settings).await;
     Ok(())
 }

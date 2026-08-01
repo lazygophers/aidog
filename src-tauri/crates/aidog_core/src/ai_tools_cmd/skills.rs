@@ -10,7 +10,6 @@ use gateway::skills::{
 crate::tauri_command! {
     /// 探测 npx / node 环境（写操作前置）。
     pub async fn skills_check_env() -> Result<SkillsEnv, String> {
-        tracing::debug!(command = "skills_check_env", "command invoked");
         Ok(gateway::skills::check_env())
     }
 }
@@ -26,7 +25,6 @@ pub(crate) async fn skills_proxy_url(db: &State<'_, Db>) -> Option<String> {
 crate::tauri_command! {
     /// 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。尊重上游代理。
     pub async fn skills_browse_catalog(db: State<'_, Db>) -> Result<Vec<CatalogEntry>, String> {
-        tracing::debug!(command = "skills_browse_catalog", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         Ok(gateway::skills::browse_catalog(proxy.as_deref()).await)
     }
@@ -46,7 +44,6 @@ crate::tauri_command! {
     /// 冷启动（无缓存）返回空 + `stale=true`，前端据此显加载态并触发 `skills_list_refresh`。
     /// SWR 的 "stale" 半：不跑 npx，开页瞬间渲染。
     pub async fn skills_list_installed(scope: SkillScope) -> Result<CachedSkills, String> {
-        tracing::debug!(command = "skills_list_installed", "command invoked");
         Ok(gateway::skills::list_cached(&scope))
     }
 }
@@ -55,7 +52,6 @@ crate::tauri_command! {
     /// 强制跑 `npx skills list --json`、更新内存+磁盘缓存、返回 fresh（`stale=false`）。尊重上游代理。
     /// SWR 的 "revalidate" 半：前端后台调用，完成后更新列表。
     pub async fn skills_list_refresh(db: State<'_, Db>, scope: SkillScope) -> Result<CachedSkills, String> {
-        tracing::debug!(command = "skills_list_refresh", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         Ok(gateway::skills::list_refresh(&scope, proxy.as_deref()))
     }
@@ -141,7 +137,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 更新已装 skills（shell out `npx skills update`）。尊重上游代理（拉取更新）。
     pub async fn skills_update(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
-        tracing::debug!(command = "skills_update", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         let res = gateway::skills::update(&scope, proxy.as_deref());
         if res.success {
@@ -154,7 +149,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 一键卸载当前 scope 下所有平台所有 skills（破坏性，前端二次确认）。
     pub async fn skills_uninstall_all(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
-        tracing::debug!(command = "skills_uninstall_all", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         let res = gateway::skills::uninstall_all(&scope, proxy.as_deref());
         if res.success {
@@ -171,7 +165,6 @@ crate::tauri_command! {
         name: String,
         scope: SkillScope,
     ) -> Result<SkillsOpResult, String> {
-        tracing::debug!(command = "skills_uninstall", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         let result = gateway::skills::uninstall(&name, &scope, proxy.as_deref());
         tracing::debug!(
@@ -198,7 +191,6 @@ crate::tauri_command! {
         to: SkillAgent,
         scope: SkillScope,
     ) -> Result<SkillsOpResult, String> {
-        tracing::debug!(command = "skills_align_agents", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         let res = gateway::skills::align_agents(from, to, &scope, proxy.as_deref());
         if res.success {
@@ -215,7 +207,6 @@ crate::tauri_command! {
         agent: SkillAgent,
         scope: SkillScope,
     ) -> Result<SkillsOpResult, String> {
-        tracing::debug!(command = "skills_enable_all", "command invoked");
         let proxy = skills_proxy_url(&db).await;
         let res = gateway::skills::enable_all(agent, &scope, proxy.as_deref());
         if res.success {

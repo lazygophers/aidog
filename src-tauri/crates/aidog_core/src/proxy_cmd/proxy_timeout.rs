@@ -7,7 +7,6 @@ use gateway::models::ProxyTimeoutSettings;
 
 crate::tauri_command! {
 pub async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
-    tracing::debug!(command = "proxy_timeout_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "proxy", "timeout").await
         .ok()
         .flatten()
@@ -18,7 +17,6 @@ pub async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings
 
 crate::tauri_command! {
 pub async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
-    tracing::debug!(command = "proxy_timeout_set", "command invoked");
     gateway::db::set_setting(&db, SetSettingInput {
         scope: "proxy".to_string(),
         key: "timeout".to_string(),

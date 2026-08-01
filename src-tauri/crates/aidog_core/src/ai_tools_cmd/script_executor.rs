@@ -30,7 +30,6 @@ crate::tauri_command! {
     /// 走官方安装脚本 `curl -LsSf https://astral.sh/uv/install.sh | sh`（Unix）。
     /// 成功后持久化选择为 "uv"。Windows 暂不支持自动安装（返回错误，由前端引导手动）。
     pub async fn install_uv(db: State<'_, Db>) -> Result<bool, String> {
-        tracing::debug!(command = "install_uv", "command invoked");
         if detect_uv() {
             // 已安装 → 直接记录选择。
             db::set_setting(&db, SetSettingInput {

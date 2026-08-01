@@ -5,7 +5,6 @@ use tauri::State;
 
 crate::tauri_command! {
     pub async fn notification_settings_get(db: State<'_, Db>) -> Result<NotificationSettings, String> {
-        tracing::debug!(command = "notification_settings_get", "command invoked");
         Ok(gateway::db::get_notification_settings(&db).await)
     }
 }
@@ -15,7 +14,6 @@ crate::tauri_command! {
         db: State<'_, Db>,
         settings: NotificationSettings,
     ) -> Result<(), String> {
-        tracing::debug!(command = "notification_settings_set", "command invoked");
         let retention_days = settings.inbox_retention_days;
         gateway::db::set_setting(&db, SetSettingInput {
             scope: "notification".to_string(),
@@ -33,14 +31,12 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     pub async fn notification_inbox_list(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Notification>, String> {
-        tracing::debug!(command = "notification_inbox_list", "command invoked");
         gateway::db::list_notifications(&db, limit.unwrap_or(100)).await
     }
 }
 
 crate::tauri_command! {
     pub async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
-        tracing::debug!(command = "notification_clear", "command invoked");
         gateway::db::clear_notifications(&db).await
     }
 }
@@ -73,7 +69,6 @@ crate::tauri_command! {
         app: tauri::AppHandle,
         text: String,
     ) -> Result<(), String> {
-        tracing::debug!(command = "notification_test_tts", "command invoked");
         let db_arc = std::sync::Arc::new(db.inner().clone());
         let settings = gateway::db::get_notification_settings(&db_arc).await;
         gateway::notification::speak(Some(&app), settings.tts_backend, &text);
@@ -88,7 +83,6 @@ crate::tauri_command! {
         title: String,
         body: String,
     ) -> Result<(), String> {
-        tracing::debug!(command = "notification_test_popup", "command invoked");
         gateway::notification::show_popup(&app, &title, &body);
         Ok(())
     }
@@ -97,7 +91,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 仅测系统提示音通道（跨平台 spawn system beep）。
     pub async fn notification_test_beep() -> Result<(), String> {
-        tracing::debug!(command = "notification_test_beep", "command invoked");
         gateway::notification::play_beep();
         Ok(())
     }

@@ -55,7 +55,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 读取定时备份设置 (缺省/解析失败 → 默认)。
     pub async fn backup_settings_get(db: State<'_, Db>) -> Result<gateway::backup::BackupSettings, String> {
-        tracing::debug!(command = "backup_settings_get", "command invoked");
         Ok(gateway::backup::BackupSettings::load(&db).await.sanitized())
     }
 }
@@ -66,7 +65,6 @@ crate::tauri_command! {
         db: State<'_, Db>,
         settings: gateway::backup::BackupSettings,
     ) -> Result<gateway::backup::BackupSettings, String> {
-        tracing::debug!(command = "backup_settings_set", "command invoked");
         // 宏只匹配 `arg: ty` 形参（无 mut）；body 内补 let mut 重绑定，行为等价。
         let mut settings = settings;
         // 走过此命令 (UI 保存入口) = 用户手动确认, 强制标记为当前版本;
@@ -81,7 +79,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 立即触发一次备份 (忽略 throttle; 失败返回 error, 前端 toast)。
     pub async fn backup_run_now(db: State<'_, Db>) -> Result<gateway::backup::BackupResult, String> {
-        tracing::debug!(command = "backup_run_now", "command invoked");
         let ts = chrono::Utc::now().timestamp_millis();
         match gateway::backup::run_backup(&db).await {
             Ok(path) => Ok(gateway::backup::BackupResult {
@@ -106,7 +103,6 @@ crate::tauri_command! {
     /// 全量 VACUUM 压缩数据库到最小。设置页「立即压缩数据库」按钮入口。
     /// 锁库期间代理写请求排队（busy_timeout 兜底），前端有警示。
     pub async fn db_compact(db: State<'_, Db>) -> Result<gateway::db::CompactResult, String> {
-        tracing::debug!(command = "db_compact", "command invoked");
         gateway::db::compact_database(&db).await
     }
 }
@@ -153,7 +149,6 @@ crate::tauri_command! {
     pub async fn ccswitch_detect(
         override_path: Option<String>,
     ) -> Result<gateway::import_export::CcswitchDetection, String> {
-        tracing::debug!(command = "ccswitch_detect", "command invoked");
         gateway::import_export::ccswitch::detect(override_path).await
     }
 }
@@ -164,7 +159,6 @@ crate::tauri_command! {
         db: State<'_, Db>,
         path: Option<String>,
     ) -> Result<gateway::import_export::CcswitchReadResult, String> {
-        tracing::debug!(command = "ccswitch_read", "command invoked");
         gateway::import_export::ccswitch::read(&db, path).await
     }
 }
@@ -194,7 +188,6 @@ crate::tauri_command! {
     pub async fn sub2api_parse(
         json_text: String,
     ) -> Result<gateway::import_export::Sub2ApiReadResult, String> {
-        tracing::debug!(command = "sub2api_parse", "command invoked");
         gateway::import_export::sub2api::parse(&json_text)
     }
 }

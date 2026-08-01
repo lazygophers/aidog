@@ -81,7 +81,6 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
 
 crate::tauri_command! {
     pub async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsSettings, String> {
-        tracing::debug!(command = "coding_tools_settings_get", "command invoked");
         let current = load_coding_tools_settings(&db).await;
         Ok(current)
     }
@@ -93,7 +92,6 @@ crate::tauri_command! {
         skip_claude_onboarding: Option<bool>,
         db: State<'_, Db>,
     ) -> Result<CodingToolsSettings, String> {
-        tracing::debug!(command = "coding_tools_settings_set", "command invoked");
         let mut current = load_coding_tools_settings(&db).await;
 
         // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），

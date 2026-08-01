@@ -43,7 +43,6 @@ pub async fn proxy_log_count_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
 ) -> Result<u32, String> {
-    tracing::debug!(command = "proxy_log_count_filtered", "command invoked");
     gateway::db::filtered_count_proxy_logs(&db, &filter).await
 }
 }
@@ -72,14 +71,12 @@ pub async fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<Proxy
 
 crate::tauri_command! {
 pub async fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
-    tracing::debug!(command = "proxy_log_clear", "command invoked");
     gateway::db::clear_proxy_logs(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
-    tracing::debug!(command = "proxy_log_count", "command invoked");
     gateway::db::count_proxy_logs(&db).await
 }
 }
@@ -100,14 +97,12 @@ pub async fn group_usage_stats(group_key: String, db: State<'_, Db>) -> Result<g
 
 crate::tauri_command! {
 pub async fn all_group_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<String, gateway::models::PlatformUsageStats>, String> {
-    tracing::debug!(command = "all_group_usage_stats", "command invoked");
     gateway::db::get_all_group_usage_stats(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn all_platform_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<u64, gateway::models::PlatformUsageStats>, String> {
-    tracing::debug!(command = "all_platform_usage_stats", "command invoked");
     gateway::db::platform_usage_stats_all(&db).await
 }
 }
@@ -121,7 +116,6 @@ pub async fn get_last_test_result(platform_id: u64, db: State<'_, Db>) -> Result
 
 crate::tauri_command! {
 pub async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
-    tracing::debug!(command = "proxy_log_settings_get", "command invoked");
     let val = gateway::db::get_setting(&db, "proxy", "logging").await
         .ok()
         .flatten()
@@ -133,7 +127,6 @@ pub async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSetting
 
 crate::tauri_command! {
 pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
-    tracing::debug!(command = "proxy_log_settings_set", "command invoked");
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize log settings: {e}"))?;
     gateway::db::set_setting(&db, gateway::models::SetSettingInput {
@@ -174,7 +167,6 @@ crate::tauri_command! {
 /// 按当前 ProxyLogSettings 的保留天数立即清理过期数据，不修改设置。
 /// 复用 settings_set 的清理链（run_retention_cleanup）。
 pub async fn proxy_log_cleanup_expired(db: State<'_, Db>) -> Result<(), String> {
-    tracing::debug!(command = "proxy_log_cleanup_expired", "command invoked");
     let settings: ProxyLogSettings = gateway::db::get_setting(&db, "proxy", "logging").await
         .ok()
         .flatten()

@@ -14,7 +14,6 @@ use super::mitm::ImportDefaultsResult;
 
 crate::tauri_command! {
 pub async fn middleware_list_rules(db: State<'_, Db>) -> Result<Vec<MiddlewareRule>, String> {
-    tracing::debug!(command = "middleware_list_rules", "command invoked");
     gateway::db::list_middleware_rules(&db).await
 }
 }
@@ -25,7 +24,6 @@ pub async fn middleware_create_rule(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,
 ) -> Result<MiddlewareRule, String> {
-    tracing::debug!(command = "middleware_create_rule", "command invoked");
     let rule = gateway::db::create_middleware_rule(&db, input).await?;
     if let Err(e) = engine.reload(&db).await {
         tracing::warn!(command = "middleware_create_rule", error = %e, "engine reload failed");
@@ -40,7 +38,6 @@ pub async fn middleware_update_rule(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,
 ) -> Result<MiddlewareRule, String> {
-    tracing::debug!(command = "middleware_update_rule", "command invoked");
     let rule = gateway::db::update_middleware_rule(&db, input).await?;
     if let Err(e) = engine.reload(&db).await {
         tracing::warn!(command = "middleware_update_rule", error = %e, "engine reload failed");
@@ -66,7 +63,6 @@ pub async fn middleware_delete_rule(
 
 crate::tauri_command! {
 pub async fn middleware_settings_get(db: State<'_, Db>) -> Result<MiddlewareSettings, String> {
-    tracing::debug!(command = "middleware_settings_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "middleware", "settings").await
         .ok()
         .flatten()
@@ -80,7 +76,6 @@ pub async fn middleware_settings_set(
     db: State<'_, Db>,
     settings: MiddlewareSettings,
 ) -> Result<(), String> {
-    tracing::debug!(command = "middleware_settings_set", "command invoked");
     gateway::db::set_setting(&db, SetSettingInput {
         scope: "middleware".to_string(),
         key: "settings".to_string(),
@@ -103,7 +98,6 @@ pub async fn middleware_import_default_rules(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,
 ) -> Result<ImportDefaultsResult, String> {
-    tracing::debug!(command = "middleware_import_default_rules", "command invoked");
     let res = db
         .write_conn()
         .call(|conn| {

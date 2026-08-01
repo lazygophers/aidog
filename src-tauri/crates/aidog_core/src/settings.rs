@@ -78,7 +78,6 @@ crate::tauri_command! {
     // 原 `pub fn`（同步 I/O）；转 async 以适配 tauri_command! 宏（invoke 端行为不变，
     // Tauri command 无论同步/异步前端均走 Promise）。
     pub async fn read_claude_code_settings() -> Result<serde_json::Value, String> {
-        tracing::debug!(command = "read_claude_code_settings", "command invoked");
         let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
         let path = home.join(".claude").join("settings.json");
         if !path.exists() {
