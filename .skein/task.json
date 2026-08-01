@@ -1,24 +1,6 @@
 {
   "tasks": [
     {
-      "id": "perf-final-verification",
-      "status": "进行中",
-      "deps": [
-        "mock-loadgen-capability",
-        "logs-query-ipc-slimming",
-        "sqlite-page-cache-residency",
-        "proxy-hotpath-buffers",
-        "tokenizer-residency-trim",
-        "frontend-compositing-purge",
-        "cold-start-unblock",
-        "window-default-size"
-      ],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task"
-    },
-    {
       "id": "proxy-port-no-drift",
       "status": "进行中",
       "deps": [],
@@ -107,6 +89,24 @@
       "id": "peak-window-dimension-fix",
       "status": "已完成",
       "deps": [],
+      "priority": 5,
+      "worktree": null,
+      "parent": null,
+      "kind": "task"
+    },
+    {
+      "id": "perf-final-verification",
+      "status": "已完成",
+      "deps": [
+        "mock-loadgen-capability",
+        "logs-query-ipc-slimming",
+        "sqlite-page-cache-residency",
+        "proxy-hotpath-buffers",
+        "tokenizer-residency-trim",
+        "frontend-compositing-purge",
+        "cold-start-unblock",
+        "window-default-size"
+      ],
       "priority": 5,
       "worktree": null,
       "parent": null,
