@@ -1,6 +1,6 @@
 //! `npx skills <args>` 执行封装：scope→cwd 路由、`-g` 追加、子进程 spawn。
 
-use super::env::apply_home_env;
+use super::env::{apply_home_env, runtime_path};
 use super::proxy_env::apply_proxy_env;
 use super::types::{SkillScope, SkillsOpResult};
 use std::process::Command;
@@ -49,6 +49,9 @@ pub(super) fn run_npx(extra_args: &[String], proxy_url: Option<&str>) -> SkillsO
     args.extend(extra_args.iter().cloned());
     let mut cmd = Command::new("npx");
     cmd.args(&args);
+    if let Some(p) = runtime_path() {
+        cmd.env("PATH", p);
+    }
     apply_home_env(&mut cmd);
     apply_proxy_env(&mut cmd, proxy_url);
     match cmd.output() {
@@ -102,6 +105,9 @@ pub(super) fn run_npx_in_scope(
         full.extend(extra_args.iter().cloned());
         let mut cmd = Command::new("npx");
         cmd.args(&full).current_dir(p);
+        if let Some(rp) = runtime_path() {
+            cmd.env("PATH", rp);
+        }
         apply_home_env(&mut cmd);
         apply_proxy_env(&mut cmd, proxy_url);
         return match cmd.output() {

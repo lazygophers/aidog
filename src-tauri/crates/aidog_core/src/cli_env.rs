@@ -1,8 +1,10 @@
 //! CLI 工具环境检测：Claude Code / Codex CLI 版本 / 安装 / 升级 / 冲突诊断。
 //!
 //! 抄 `install_uv` 后端 spawn 模式（不动 capability / tauri-plugin-shell 配置）。
-//! 复用启动期 `gateway::skills::ensure_runtime_path` 已并入登录 shell PATH 的成果，
-//! 子进程直接 spawn 即可命中用户 brew/nvm/native installer 装的 CLI。
+//! 本模块各真 spawn 入口（`probe_version`/`which_first`/`which_all`/`cli_install`/
+//! `cli_upgrade`）自调 `gateway::skills::runtime_path()` 拿登录 shell 合并 PATH（幂等缓存，
+//! 仅首次真跑），逐个 `Command` 上 `.env("PATH", p)` 显式注入（不改进程全局 env），
+//! 子进程即可命中用户 brew/nvm/native installer 装的 CLI。
 //!
 //! 三态检测（参考 cc-switch `ShellProbe`）：
 //! - `installed=true, broken=false`：spawn exit 0 + 解析出版本号
@@ -154,6 +156,9 @@ fn extract_version(text: &str) -> Option<String> {
 fn probe_version(tool: &str) -> (bool, Option<String>, Option<String>) {
     let mut cmd = Command::new(tool);
     cmd.arg("--version");
+    if let Some(p) = crate::gateway::skills::runtime_path() {
+        cmd.env("PATH", p);
+    }
     no_window(&mut cmd);
     let output = match cmd.output() {
         Ok(o) => o,
@@ -184,6 +189,9 @@ fn which_first(tool: &str) -> Option<String> {
         c.arg(tool);
         c
     };
+    if let Some(p) = crate::gateway::skills::runtime_path() {
+        cmd.env("PATH", p);
+    }
     no_window(&mut cmd);
     let out = cmd.output().ok()?;
     if !out.status.success() {
@@ -208,6 +216,9 @@ fn which_all(tool: &str) -> Vec<String> {
         c.arg("-a").arg(tool);
         c
     };
+    if let Some(p) = crate::gateway::skills::runtime_path() {
+        cmd.env("PATH", p);
+    }
     no_window(&mut cmd);
     let Some(out) = cmd.output().ok() else {
         return Vec::new();
@@ -355,6 +366,7 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
     if !TOOLS.contains(&tool.as_str()) {
         return Err(format!("unsupported tool: {tool}"));
     }
+    let runtime_path = crate::gateway::skills::runtime_path();
     match tool.as_str() {
         "claude" => {
             #[cfg(unix)]
@@ -363,6 +375,9 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
                 let script = "tmp=$(mktemp) && curl -fsSL https://claude.ai/install.sh -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status";
                 let mut cmd = TokioCommand::new("bash");
                 cmd.arg("-c").arg(script);
+                if let Some(p) = runtime_path {
+                    cmd.env("PATH", p);
+                }
                 no_window_tokio(&mut cmd).await;
                 match run_and_check_async(cmd, "claude install (native)").await {
                     Ok(()) => return Ok(()),
@@ -374,12 +389,18 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
             // Windows / native 失败回退：npm 全局装
             let mut cmd = TokioCommand::new("npm");
             cmd.args(["i", "-g", "@anthropic-ai/claude-code@latest"]);
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
             no_window_tokio(&mut cmd).await;
             run_and_check_async(cmd, "claude install (npm)").await
         }
         "codex" => {
             let mut cmd = TokioCommand::new("npm");
             cmd.args(["i", "-g", "@openai/codex@latest"]);
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
             no_window_tokio(&mut cmd).await;
             run_and_check_async(cmd, "codex install (npm)").await
         }
@@ -394,11 +415,15 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
     if !TOOLS.contains(&tool.as_str()) {
         return Err(format!("unsupported tool: {tool}"));
     }
+    let runtime_path = crate::gateway::skills::runtime_path();
     match tool.as_str() {
         "claude" => {
             // 优先 `claude update`（native installer 自带子命令）。
             let mut cmd = TokioCommand::new("claude");
             cmd.arg("update");
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
             no_window_tokio(&mut cmd).await;
             if let Ok(o) = cmd.output().await {
                 if o.status.success() {
@@ -410,6 +435,9 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
             // npm 兜底
             let mut cmd = TokioCommand::new("npm");
             cmd.args(["i", "-g", "@anthropic-ai/claude-code@latest"]);
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
             no_window_tokio(&mut cmd).await;
             run_and_check_async(cmd, "claude upgrade (npm)").await
         }
@@ -419,6 +447,9 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
             {
                 let mut cmd = TokioCommand::new("codex");
                 cmd.arg("update");
+                if let Some(p) = runtime_path {
+                    cmd.env("PATH", p);
+                }
                 no_window_tokio(&mut cmd).await;
                 if let Ok(o) = cmd.output().await {
                     if o.status.success() {
@@ -431,10 +462,16 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
             // 自愈：uninstall（容忍失败）+ install
             let mut u = TokioCommand::new("npm");
             u.args(["uninstall", "-g", "@openai/codex"]);
+            if let Some(p) = runtime_path {
+                u.env("PATH", p);
+            }
             no_window_tokio(&mut u).await;
             let _ = u.output().await;
             let mut i = TokioCommand::new("npm");
             i.args(["i", "-g", "@openai/codex@latest"]);
+            if let Some(p) = runtime_path {
+                i.env("PATH", p);
+            }
             no_window_tokio(&mut i).await;
             run_and_check_async(i, "codex upgrade (npm reinstall)").await
         }

@@ -1,5 +1,6 @@
 //! catalog 浏览 / 搜索：`npx skills find` + `npx skills add -l` 解析（含 ANSI 剥离状态机）。
 
+use super::env::runtime_path;
 use super::proxy_env::apply_proxy_env;
 use super::types::CatalogEntry;
 use regex::Regex;
@@ -71,6 +72,9 @@ fn npx_list_source(source: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
     let mut cmd = Command::new("npx");
     cmd.args(["--yes", "skills", "add", source, "-l", "-y"]);
     cmd.stdin(std::process::Stdio::null());
+    if let Some(p) = runtime_path() {
+        cmd.env("PATH", p);
+    }
     apply_proxy_env(&mut cmd, proxy_url);
     let output = match cmd.output() {
         Ok(o) => o,
@@ -221,6 +225,9 @@ fn npx_find(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
     let mut cmd = Command::new("npx");
     cmd.args(["--yes", "skills", "find", kw]);
     cmd.stdin(std::process::Stdio::null());
+    if let Some(p) = runtime_path() {
+        cmd.env("PATH", p);
+    }
     apply_proxy_env(&mut cmd, proxy_url);
     let output = match cmd.output() {
         Ok(o) => o,
