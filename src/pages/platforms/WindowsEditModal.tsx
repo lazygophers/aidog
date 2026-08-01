@@ -48,9 +48,15 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
   t: TFunction;
 }) {
   const [local, setLocal] = useState<PeakWindow[]>(windows);
+  // UI-only 维度选中态（与 local 同索引同步）：数据层「周几-但一天没选」与「每天」同形，
+  // 纯派生态 dimensionOf 推不出中间态，故显式维护，禁落盘（design.md 方案）。
+  const [uiDim, setUiDim] = useState<Dimension[]>([]);
 
   useEffect(() => {
-    if (open) setLocal(windows.map(w => ({ ...w })));
+    if (open) {
+      setLocal(windows.map(w => ({ ...w })));
+      setUiDim(windows.map(dimensionOf));
+    }
   }, [open, windows]);
 
   if (!open) return null;
@@ -61,13 +67,15 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
 
   const removeWindow = (widx: number) => {
     setLocal(cur => cur.filter((_, i) => i !== widx));
+    setUiDim(cur => cur.filter((_, i) => i !== widx));
   };
 
   const addWindow = () => {
     setLocal(cur => [...cur, { start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
+    setUiDim(cur => [...cur, "none"]);
   };
 
-  /** 切换维度 radio：清空另一维度字段（互斥）。 */
+  /** 切换维度 radio：清空另一维度字段（互斥），同步更新 UI-only 选中态。 */
   const switchDimension = (widx: number, dim: Dimension) => {
     setLocal(cur => cur.map((w, i) => {
       if (i !== widx) return w;
@@ -75,6 +83,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
       if (dim === "month")  return { ...w, days_of_month:  w.days_of_month  && w.days_of_month.length  > 0 ? w.days_of_month  : undefined, days_of_week: undefined };
       return { ...w, days_of_week: undefined, days_of_month: undefined };
     }));
+    setUiDim(cur => cur.map((d, i) => i === widx ? dim : d));
   };
 
   const toggleWeekday = (widx: number, day: number) => {
@@ -142,7 +151,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
         {/* Windows 列表 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {local.map((w, widx) => {
-            const dim = dimensionOf(w);
+            const dim = uiDim[widx] ?? dimensionOf(w);
             return (
               <div
                 key={widx}
@@ -225,10 +234,10 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}
                 >
                   <span style={{ color: "var(--text-tertiary)", fontWeight: 600 }}>
-                    {t("platform.windows_dimension", "维度")}
+                    {t("platform.windows_dimension", "生效日")}
                   </span>
                   {([
-                    { key: "none" as const,  label: t("platform.windows_dim_none", "无") },
+                    { key: "none" as const,  label: t("platform.windows_dim_none", "每天") },
                     { key: "week" as const,  label: t("platform.windows_dim_week", "周几") },
                     { key: "month" as const, label: t("platform.windows_dim_month", "每月几日") },
                   ]).map(opt => (

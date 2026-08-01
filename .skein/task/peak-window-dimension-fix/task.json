@@ -2,7 +2,7 @@
   "id": "peak-window-dimension-fix",
   "name": "编辑时段窗口维度 radio 修复与文案",
   "desc": "维度 radio 点击无反应(派生态自我抵消)修复 + label 改「生效日」8 语言同步",
-  "status": "待处理",
+  "status": "进行中",
   "deps": [],
   "contracts": [],
   "subtasks": [
@@ -20,12 +20,19 @@
         "保存路径未往数据塞空数组哨兵",
         "PeakWindow 结构与后端判定逻辑零改动"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785562250,
-      "started": null,
-      "finished": null
+      "started": 1785562926,
+      "finished": 1785563012
     },
     {
       "sid": "s2-copy-i18n",
@@ -42,12 +49,18 @@
         "各语言用母语日常用词非机翻直译",
         "check-i18n.mjs 通过"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "status": "已完成",
       "skills": [],
       "created": 1785562250,
-      "started": null,
-      "finished": null
+      "started": 1785563032,
+      "finished": 1785563259
     },
     {
       "sid": "s3-component-test",
@@ -63,10 +76,10 @@
         "yarn test 通过"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "skills": [],
       "created": 1785562250,
-      "started": null,
+      "started": 1785563032,
       "finished": null
     }
   ],
@@ -79,9 +92,10 @@
   "parent": null,
   "kind": "task",
   "created": 1785562094,
-  "started": null,
-  "confirmed": null,
+  "started": 1785562926,
+  "confirmed": 1785562923,
   "checked": null,
   "finished": null,
-  "updated": 1785562250
+  "updated": 1785563259,
+  "confirmed_by": "user"
 }
