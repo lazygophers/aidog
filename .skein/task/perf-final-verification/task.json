@@ -56,13 +56,18 @@
         "CPU% 三场景齐",
         "最大化对照组已采"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250517,
-      "started": null,
-      "finished": null
+      "started": 1785566248,
+      "finished": 1785569630
     },
     {
       "sid": "s3-budget-reconcile",
@@ -76,13 +81,17 @@
         "超预算项已逐条归因(哪个进程/哪类分配/物理下限还是可优化)",
         "内存达标与否有明确判决"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250517,
-      "started": null,
-      "finished": null
+      "started": 1785569663,
+      "finished": 1785570111
     },
     {
       "sid": "s4-redline-regression",
@@ -98,11 +107,11 @@
         "红线4 冷启动中位数不慢于优化前"
       ],
       "验收done": [],
-      "status": "待处理",
+      "status": "运行中",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250517,
-      "started": null,
+      "started": 1785566248,
       "finished": null
     },
     {
@@ -160,5 +169,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785566167
+  "updated": 1785570111
 }
