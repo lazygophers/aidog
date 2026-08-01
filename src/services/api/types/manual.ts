@@ -514,6 +514,18 @@ export interface ProxySettings {
   bind_lan: boolean;
 }
 
+/**
+ * proxy_start 失败时 invoke() 的 reject 值（Rust `ProxyStartError`，proxy_cmd/proxy.rs）。
+ * `kind` 区分「端口占用」与「其他绑定失败」；`message` 是英文调试信息，禁直接展示给用户
+ * （用户可见文案走 i18n，按 kind + port 拼模板，见 proxy-port-no-drift/design.md）。
+ */
+export type ProxyStartErrorKind = "addr_in_use" | "other";
+export interface ProxyStartError {
+  kind: ProxyStartErrorKind;
+  port: number;
+  message: string;
+}
+
 /** 今日统计摘要 */
 export interface TodayStats {
   tokens: number;

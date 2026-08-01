@@ -10,19 +10,66 @@ use tauri::{Emitter, Manager};
 use std::sync::Arc;
 
 
-crate::tauri_command! {
+/// proxy_start 命令的结构化错误（proxy-port-no-drift s2：区分「端口占用」与「其他绑定失败」，
+/// 供前端错误条 / s3 系统通知据此判别，禁靠字符串前缀匹配）。`message` 是英文调试信息，
+/// **禁前端直接展示给用户** —— 用户可见文案走 i18n，按 `kind` + `port` 拼模板。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct ProxyStartError {
+    pub kind: ProxyStartErrorKind,
+    pub port: u16,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyStartErrorKind {
+    AddrInUse,
+    Other,
+}
+
+impl std::fmt::Display for ProxyStartError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.message)
+    }
+}
+
+impl From<gateway::proxy::ProxyBindError> for ProxyStartError {
+    fn from(e: gateway::proxy::ProxyBindError) -> Self {
+        let port = e.port();
+        let kind = match e {
+            gateway::proxy::ProxyBindError::AddrInUse(_) => ProxyStartErrorKind::AddrInUse,
+            gateway::proxy::ProxyBindError::Other(..) => ProxyStartErrorKind::Other,
+        };
+        Self { kind, port, message: e.to_string() }
+    }
+}
+
+// proxy_set_bind_lan（在 tauri_command! 宏内，错误类型固定 String）内部用 `?` 转调本命令，
+// 需要 ProxyStartError -> String 的转换支撑该 `?`。
+impl From<ProxyStartError> for String {
+    fn from(e: ProxyStartError) -> Self {
+        e.message
+    }
+}
+
+// 结构化错误类型无法套 tauri_command! 宏（宏固定 Result<_, String>），手写等价的
+// instrument + debug 日志。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn proxy_start(
     port: u16,
     app: tauri::AppHandle,
-) -> Result<String, String> {
+) -> Result<String, ProxyStartError> {
     tracing::debug!(command = "proxy_start", port, "command invoked");
+    let other_err = |port: u16, message: String| ProxyStartError { kind: ProxyStartErrorKind::Other, port, message };
+
     // 检查是否已运行
     let handle = app.state::<ProxyHandle>();
     {
-        let h = handle.0.lock().map_err(|e| e.to_string())?;
+        let h = handle.0.lock().map_err(|e| other_err(port, e.to_string()))?;
         if h.is_some() {
             tracing::warn!(command = "proxy_start", "proxy already running");
-            return Err("proxy already running".to_string());
+            return Err(other_err(port, "proxy already running".to_string()));
         }
     }
 
@@ -39,10 +86,10 @@ pub async fn proxy_start(
     // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
     let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();
     let proxy_handle = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware, saved.bind_lan).await
-        .map_err(|e| { tracing::error!(command = "proxy_start", port, error = %e, "start_proxy failed"); e.to_string() })?;
+        .map_err(|e| { let err: ProxyStartError = e.into(); tracing::error!(command = "proxy_start", port, error = %err, "start_proxy failed"); err })?;
 
     {
-        let mut h = handle.0.lock().map_err(|e| e.to_string())?;
+        let mut h = handle.0.lock().map_err(|e| other_err(port, e.to_string()))?;
         *h = Some(proxy_handle);
     }
 
@@ -59,7 +106,6 @@ pub async fn proxy_start(
 
     tracing::info!(command = "proxy_start", port, "proxy started");
     Ok(format!("proxy started on port {port}"))
-}
 }
 
 crate::tauri_command! {
