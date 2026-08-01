@@ -12,12 +12,31 @@
 set -uo pipefail
 
 DIR="$(cd "$(dirname "$0")" && pwd)"
-APP="/Applications/AiDog.app"
-PIDFILE="$DIR/.pids"
+APP="${APP:-/Applications/AiDog.app}"
+# per-run 隔离（2026-08-01 加固）：多个并发量测方（多 agent/多会话）共享这套设施时，
+# 全局单份 .pids/stdout 日志会被互相覆盖，产生"认错进程"的幽灵（本轮实测两个 agent
+# 互相踩过 3 次）。用 ISO_HOME 的 basename 做 run id，缺省仍退化为全局单份（向后兼容
+# 无 ISO_HOME 的老用法），但设了 ISO_HOME 时天然按 run 隔离文件名。
+RUN_ID="${ISO_HOME:+.$(basename "$ISO_HOME")}"
+PIDFILE="$DIR/.pids${RUN_ID}"
 OUT="$DIR/results"
 mkdir -p "$OUT"
+STDOUT_LOG="$OUT/iso-app-stdout${RUN_ID}.log"
 
 webkit_pids() { pgrep -f "WebKit.framework.*XPCServices" | sort -n; }
+
+# 身份断言：pid 的 HOME 是否等于期望值。跨 run 串台的根治判据——不猜"当前唯一的
+# aidog 就是我的", 直接读它的真实 env 核对。
+pid_home() { ps eww -p "$1" 2>/dev/null | tr ' ' '\n' | grep '^HOME=' | cut -d= -f2-; }
+assert_owned() {
+  local p="$1" want="$2"
+  [ -z "$want" ] && return 0   # 未隔离场景不校验
+  kill -0 "$p" 2>/dev/null || { echo "Error: pid $p 已不存在（可能被并发操作顶掉）" >&2; return 1; }
+  local got; got=$(pid_home "$p")
+  [ "$got" = "$want" ] && return 0
+  echo "Error: pid $p 的 HOME='$got' ≠ 期望 '$want' —— 这不是本 run 的进程，疑似并发串台" >&2
+  return 1
+}
 
 # phys_footprint（真实物理占用，非 ps 的 rss —— rss 会漏算压缩内存与 swap）
 fp_mb() {
@@ -44,12 +63,35 @@ proc_label() {
 
 case "${1:-}" in
 launch)
-  pkill -x aidog 2>/dev/null && sleep 3
+  pkill -x aidog 2>/dev/null; sleep 3
+  # 清场验空（加固4）：pkill 后必须确认真清空了，禁止"顶着别人的残留继续跑"。
+  if pgrep -x aidog >/dev/null; then
+    echo "Error: pkill 后 aidog 仍存活（pid: $(pgrep -x aidog | tr '\n' ' ')）—— 可能有其他量测方正在用，拒绝继续" >&2
+    exit 1
+  fi
   before=$(webkit_pids)
-  open -a "$APP"
+  # ISO_HOME 隔离量测（perf-final-verification 起）：`open -a` 走 LaunchServices 拉起，
+  # 不可靠传递调用方 shell 导出的 env（实测：设 HOME 后 open -a 起的进程仍读真实 HOME）。
+  # 直接执行 .app 内二进制才是普通 fork/exec，正常继承调用方 env，`dirs::home_dir()`
+  # 才能读到覆盖值（已用 codex 配置落盘路径实测验证）。
+  if [ -n "${ISO_HOME:-}" ]; then
+    case "$ISO_HOME" in
+      "$HOME"|/tmp) echo "Error: ISO_HOME 未隔离 ($ISO_HOME) — 拒绝执行" >&2; exit 1 ;;
+      /tmp/*) ;;
+      *) echo "Error: ISO_HOME 不在 /tmp 下 ($ISO_HOME) — 拒绝执行" >&2; exit 1 ;;
+    esac
+    mkdir -p "$ISO_HOME/.aidog"
+    echo "✓ ISO_HOME isolated: ${ISO_HOME} (真实 HOME=${HOME} 不受影响)"
+    ( HOME="$ISO_HOME" "$APP/Contents/MacOS/aidog" >"$STDOUT_LOG" 2>&1 & )
+  else
+    open -a "$APP"
+  fi
   for i in $(seq 1 30); do pgrep -x aidog >/dev/null && break; sleep 1; done
   main=$(pgrep -x aidog | head -1)
   [ -z "$main" ] && { echo "aidog 未起来"; exit 1; }
+  # 身份断言（加固2）：launch 后立刻核对拿到的 pid 真是本 run 起的，不是并发方的——
+  # 当场识破串台，不留到 mem/cpu 采样时才发现"数据是别人的"。
+  assert_owned "$main" "${ISO_HOME:-}" || exit 3
   sleep 10   # 等 WebView 全部就位
   after=$(webkit_pids)
   ours=$(comm -13 <(echo "$before") <(echo "$after"))
@@ -84,6 +126,14 @@ mem)
     total=0
     while read -r p; do
       kill -0 "$p" 2>/dev/null || { echo "  (pid $p 已退出)"; continue; }
+      # 采样前复验（加固3）：HOME 不匹配 = 采到别人的数，当场剔除而非静默计入总数。
+      # WebKit XPC helper（GPU/Networking/WebContent）经 xpcproxy 拉起，`ps eww` 读不到
+      # 其 HOME（空值，非"不匹配"）——这类进程的归属由 launch 阶段的 before/after 差集
+      # + 编制核验兜底，本处只在**读得到 HOME 且确实不同**时才判串台，空值不拦截。
+      ph="$(pid_home "$p")"
+      if [ -n "${ISO_HOME:-}" ] && [ -n "$ph" ] && [ "$ph" != "$ISO_HOME" ]; then
+        echo "  (pid $p HOME 不匹配，疑似串台，跳过)"; continue
+      fi
       m=$(fp_mb "$p")
       printf "%-8s %-14s %10s\n" "$p" "$(proc_label "$p")" "$m"
       total=$(awk -v a="$total" -v b="$m" 'BEGIN{printf "%.1f", a+b}')
@@ -135,7 +185,14 @@ cpu)
   { echo "# CPU @ ${label} — ${secs}s 区间内 CPU 时间差值 / 墙钟"
     declare -a t0=()
     idx=0
-    while read -r p; do t0[$idx]=$(cputime_s "$p"); idx=$((idx+1)); done < "$PIDFILE"
+    while read -r p; do
+      # 采样前复验（加固3），同 mem 分支：空 HOME（WebKit XPC）不拦截，只拦截确实不同的。
+      ph="$(pid_home "$p")"
+      if [ -n "${ISO_HOME:-}" ] && [ -n "$ph" ] && [ "$ph" != "$ISO_HOME" ]; then
+        echo "Error: pid $p HOME 不匹配，疑似串台，本轮 cpu 采样中止" >&2; exit 1
+      fi
+      t0[$idx]=$(cputime_s "$p"); idx=$((idx+1))
+    done < "$PIDFILE"
     sleep "$secs"
     total=0; idx=0
     printf "%-8s %-14s %8s\n" PID PROC PCT_CPU
@@ -164,6 +221,31 @@ stacks)
   echo "栈已落 $OUT/stacks-$label-*.txt"
   ;;
 
+# 压测用 mock 平台/分组种子（幂等）。只对 ISO_HOME/.aidog/platform.db 操作，从不碰真实库。
+# 分组名 = token = "mock"（与 loadgen.sh 的 Authorization Bearer mock 对齐）。
+seed-mock)
+  [ -n "${ISO_HOME:-}" ] || { echo "Error: 需要先设 ISO_HOME（未隔离禁播种）" >&2; exit 1; }
+  db="$ISO_HOME/.aidog/platform.db"
+  [ -f "$db" ] || { echo "Error: $db 不存在，先 launch 一次生成 schema" >&2; exit 1; }
+  n=$(sqlite3 "$db" "SELECT COUNT(*) FROM platform WHERE platform_type='\"mock\"' AND deleted_at=0" 2>/dev/null || echo 0)
+  if [ "$n" != "0" ]; then
+    echo "✓ mock 平台/分组已存在 (${db})，跳过播种"
+  else
+    sqlite3 "$db" <<'SQL'
+INSERT INTO platform (name, platform_type, extra, enabled, status)
+VALUES ('Mock', '"mock"', '{"mock":{"status_code":200,"delay_ms":0,"response_text":"Hello from mock","finish_reason":"end_turn","input_tokens":100,"output_tokens":50,"cache_tokens":0,"error_mode":"none","chunk_count":5}}', 1, 'enabled');
+INSERT INTO "group" (name, group_key, routing_mode, auto_from_platform, source_protocol)
+VALUES ('mock', 'mock', '"health_aware"', (SELECT id FROM platform WHERE name='Mock'), 'anthropic');
+INSERT INTO group_platform (group_id, platform_id, priority, weight, level_priority)
+VALUES ((SELECT id FROM "group" WHERE name='mock'), (SELECT id FROM platform WHERE name='Mock'), 1, 1, 5);
+SQL
+    echo "✓ mock 平台/分组已播种到 $db"
+  fi
+  ;;
+
 *)
-  echo "用法: $0 {launch|mem <label>|cpu <label> [secs]|stacks <label> [secs]}"; exit 1 ;;
+  echo "用法: $0 {launch|seed-mock|mem <label>|cpu <label> [secs]|stacks <label> [secs]}"
+  echo "  ISO_HOME=/tmp/aidog-perf-home-XXX \$0 launch     # HOME 隔离启动（禁用 open -a，直接二进制执行）"
+  echo "  ISO_HOME=/tmp/aidog-perf-home-XXX \$0 seed-mock   # 幂等播种 mock 平台/分组（仅隔离库）"
+  exit 1 ;;
 esac

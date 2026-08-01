@@ -1,0 +1,11 @@
+# 内存分解 @ smoke-hidden
+PID      PROC           FOOTPRINT_MB
+  (pid 15880 已退出)
+  (pid 15927 已退出)
+  (pid 15930 已退出)
+  (pid 15931 已退出)
+  (pid 15939 已退出)
+----
+TOTAL                            0
+
+## 各进程 top-5 分类（≥1MB）

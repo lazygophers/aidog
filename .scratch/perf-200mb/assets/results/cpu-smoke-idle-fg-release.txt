@@ -1,0 +1,9 @@
+# CPU @ smoke-idle-fg-release — 10s 区间内 CPU 时间差值 / 墙钟
+PID      PROC            PCT_CPU
+19328    aidog(main)         1.1
+19335    GPU                 0.0
+19336    Networking          0.0
+19337    WebContent          0.0
+19340    WebContent          0.0
+----
+TOTAL                        1.1

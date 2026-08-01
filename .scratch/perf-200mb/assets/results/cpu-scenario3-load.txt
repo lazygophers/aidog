@@ -1,0 +1,9 @@
+# CPU @ scenario3-load — 20s 区间内 CPU 时间差值 / 墙钟
+PID      PROC            PCT_CPU
+30166    aidog(main)        41.9
+30179    GPU                 0.8
+30180    Networking          9.9
+30181    WebContent          3.8
+30199    WebContent         10.2
+----
+TOTAL                       66.6

@@ -2,7 +2,7 @@
   "id": "perf-final-verification",
   "name": "全进程 200MB 总收口验收",
   "desc": "全部性能 task 合入后, 50 路并发 mock 流下测全进程内存总和 + 三场景 CPU, 出最终 spec 判决",
-  "status": "就绪",
+  "status": "进行中",
   "deps": [
     "mock-loadgen-capability",
     "logs-query-ipc-slimming",
@@ -30,13 +30,18 @@
         "压测流形参数已定死并写成脚本",
         "量测脚本三场景各跑通一次冒烟"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785250517,
-      "started": null,
-      "finished": null
+      "started": 1785564635,
+      "finished": 1785566167
     },
     {
       "sid": "s2-measure-3scenes",
@@ -151,9 +156,9 @@
   "parent": null,
   "kind": "task",
   "created": 1785250220,
-  "started": null,
+  "started": 1785564635,
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785250583
+  "updated": 1785566167
 }
