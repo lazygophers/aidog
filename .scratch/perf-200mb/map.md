@@ -80,8 +80,8 @@ Label: `wayfinder:map`
 
 > 下列条目多数已被上表的 task 承接，保留原文供追溯；未被承接的只剩 `log.db 体积治理`。
 
-- **窗口尺寸约束的具体数字** —— 约束**存在性**已定（合成面 ∝ 窗口面积，dev 干净实验证实），但**数字未定**。[03] 补做的 release 复验推翻了用 dev 拟合式反推：release 两点拟合常数项 67.3MB（dev 只有 16.7MB），单常数项就吃掉整个 71MB 合成面预算，1150×750 达不到。且那轮 release 量测本身不干净（同进程内主进程 116→150MB、GPU 28→64MB，缩窗后反升），两点不同稳态，系数不可信。**需要一次干净的 release 长稳态窗口-内存曲线量测**（每尺寸独立重启 + 等满 10min 增长期）才能定数。
-- **窗口尺寸约束怎么落地** —— 限死 `tauri.conf.json` 的 `maxWidth/maxHeight`？还是不限制、只承诺默认尺寸下达标并在文档写明大窗超预算？**「用户手动拉大窗口就会超 200MB」是物理事实，代码规避不了**，spec 必须正面写。这是本图剩下唯一的产品级取舍。
+- ~~**窗口尺寸约束的具体数字**~~ —— **已由 `window-default-size` 关闭，但答案是「不存在可信数字」**。s2 补做了干净的 release 长稳态曲线量测（4 档，每档独立重启 + 等满稳态，`window-default-size/curve-result.md`）：**TOTAL 与面积呈负相关**——面积涨 3.7 倍（0.78M→2.91M px²），TOTAL 反从 378.7MB 降到 283.8MB；档间噪声 ±95MB **远超**任何可能的面积效应。这不是「效应小」，是信号被噪声完全淹没。dev 的 `7.35e-5×面积+16.7` 与 [03] release 两点的 `6.34e-5×面积+67.3` **均不可外推**，禁后续任务拿来做预测。结论落 spec `recall/optimization/window-size-memory-relation`。**推论：窗口面积不是内存杠杆，200MB 得靠堆侧啃**（默认档 378.7MB 中 graphics 仅 43.7MB = 11.5%，大头是 main MALLOC_SMALL 115MB + WebContent WebKit malloc 102MB）。
+- ~~**窗口尺寸约束怎么落地**~~ —— **已由 `window-default-size` 关闭：不限上限**（用户拍板）。s3 只删了 `tauri.conf.json` 的 `maximized: true`（默认回 1026×759），**不加** `maxWidth`/`maxHeight`，用户仍可自由拉大或最大化。「用户手动拉大窗口就会超 200MB 是 WKWebView 合成面的物理成本、非缺陷」已正面写进上述 spec。s4 做了 1026×759 的 18 页布局回归（静态审计，缺陷 0，留 3 条待人工实渲染项）。
 - **常驻动画全量清点** —— CPU <0.5% 的目标下**任何常驻动画都不能留**，不止流光边框一处：`body::before` 的 `bgShimmer 32s`（本机因 `reduceMotion=1` 未跑，默认用户会跑）、CSS 内 13 处 `animation:` / tsx 内 9 处。需逐个判「删 / 改 compositor-only / 保留」。等 [07] 补齐逐页数据后成票。
 - **transform-rotate 版流光边框的视觉等价性** —— [03] 定了方向但留了风险：当前 1px 边环靠 `mask-composite: exclude` 做，旋转带 mask 的层会破坏与 `border-radius` 的贴合，可能要拆成「外层固定 mask + 内层旋转渐变」。需先做视觉比对再落实现，红线 3 卡着。
 - **log.db 体积治理** —— 实测 `~/.aidog/log.db` 7084.9MB + WAL 4446.8MB，checkpoint 实质未跑。不占进程内存，故不影响 200MB 目标，但属独立严重问题（磁盘 + 查询延迟 + 可能拖慢 UI 列表）。是否纳入本图待定；本仓 memory `sqlite-retention-vacuum` 已有相关结论。
