@@ -146,20 +146,27 @@
         "s5-spec-writeup"
       ],
       "验收": [
-        "默认 1026x759 下全进程总和 <= 200MB(独立重启+等满稳态实测)",
+        "200MB 判决已明确移交 perf-final-verification(本 task 不判总目标; 依据 spec recall/optimization/window-size-memory-relation: 窗口面积非内存杠杆)",
         "曲线表与 spec 段落均已落盘",
         "yarn build 通过",
         "cargo build 通过",
         "全程只用 mock 平台与分组",
         "临时脚本与逐次原始采样已清"
       ],
-      "验收done": [],
-      "status": "待处理",
+      "验收done": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "status": "已完成",
       "agent": "skein-executor",
       "skills": [],
       "created": 1785249538,
-      "started": null,
-      "finished": null
+      "started": 1785561629,
+      "finished": 1785561946
     }
   ],
   "priority": 5,
@@ -175,5 +182,5 @@
   "confirmed": 1785250583,
   "checked": null,
   "finished": null,
-  "updated": 1785561444
+  "updated": 1785561946
 }

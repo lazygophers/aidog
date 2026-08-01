@@ -1,0 +1,87 @@
+{
+  "id": "peak-window-dimension-fix",
+  "name": "编辑时段窗口维度 radio 修复与文案",
+  "desc": "维度 radio 点击无反应(派生态自我抵消)修复 + label 改「生效日」8 语言同步",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [
+    {
+      "sid": "s1-radio-state",
+      "name": "维度选中态修复",
+      "desc": "引入 UI-only per-window 维度选中态, 消除派生态自我抵消",
+      "estimate": 0.6,
+      "depends_on": [],
+      "验收": [
+        "点周几后选中态停留在周几且七个星期 toggle 出现",
+        "点每月几日后 1-31 网格出现",
+        "点每天后两选择器收起且周月字段均 undefined",
+        "增删窗口后各窗口选中态不错位",
+        "保存路径未往数据塞空数组哨兵",
+        "PeakWindow 结构与后端判定逻辑零改动"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785562250,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-copy-i18n",
+      "name": "文案改生效日/每天 8 语言",
+      "desc": "windows_dimension 改生效日, windows_dim_none 改每天, 8 locale + 代码 fallback 同步",
+      "estimate": 0.4,
+      "depends_on": [
+        "s1-radio-state"
+      ],
+      "验收": [
+        "8 个 locale 两个 key 值均已更新无遗漏",
+        "key 名未改",
+        "代码内 t() fallback 字面量已同步",
+        "各语言用母语日常用词非机翻直译",
+        "check-i18n.mjs 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785562250,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3-component-test",
+      "name": "弹窗组件测试",
+      "desc": "按 design 测试接缝写弹窗行为测试, 覆盖四类场景",
+      "estimate": 0.5,
+      "depends_on": [
+        "s1-radio-state"
+      ],
+      "验收": [
+        "测试覆盖: 切周几露出选择器/切回每天收起并清空/空选择保存不产生脏数据/多窗口互不串扰",
+        "只断言界面与 onSave 入参, 未断言内部 state 结构",
+        "yarn test 通过"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "skills": [],
+      "created": 1785562250,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 1.5,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/peak-window-dimension-fix",
+  "parent": null,
+  "kind": "task",
+  "created": 1785562094,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785562250
+}
