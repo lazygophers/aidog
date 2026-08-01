@@ -1,0 +1,20 @@
+# 内存分解 @ s2-scenario1-fg
+PID      PROC           FOOTPRINT_MB
+61827    aidog(main)          42.0
+61841    GPU                  12.0
+61842    Networking            6.7
+61843    WebContent           55.0
+61848    WebContent           21.0
+----
+TOTAL                        136.7
+
+## 各进程 top-5 分类（≥1MB）
+### 61827 aidog(main)
+  23 MB        0 B          0 B         15    MALLOC_SMALL
+### 61841 GPU
+### 61842 Networking
+### 61843 WebContent
+  26 MB        0 B          0 B         13    Owned physical footprint (unmapped) (graphics)
+  20 MB        0 B          0 B          6    WebKit malloc
+### 61848 WebContent
+  12 MB        0 B          0 B          5    WebKit malloc
