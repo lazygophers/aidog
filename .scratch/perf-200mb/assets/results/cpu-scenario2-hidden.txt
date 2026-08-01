@@ -1,9 +1,0 @@
-# CPU @ scenario2-hidden — 15s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-30166    aidog(main)         0.3
-30179    GPU                 0.1
-30180    Networking          0.0
-30181    WebContent          0.1
-30199    WebContent          0.0
-----
-TOTAL                        0.5

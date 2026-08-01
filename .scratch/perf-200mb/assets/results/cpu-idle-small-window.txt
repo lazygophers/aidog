@@ -1,9 +1,0 @@
-# CPU @ idle-small-window — 45s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-62071    aidog(main)         5.4
-62123    GPU                16.6
-62124    Networking          0.0
-62125    WebContent         12.1
-62273    WebContent          0.0
-----
-TOTAL                       34.1

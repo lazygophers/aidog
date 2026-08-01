@@ -1,0 +1,23 @@
+{
+  "id": "gpu-hidden-compositing-buffer",
+  "name": "GPU/WebContent 隐藏态合成缓冲未释放排查",
+  "desc": "[余量优化, 非阻塞]perf-final-verification 内存判决已 PASS(判据场景S3), 本票不是紧急 bug, 但 S2(空闲隐藏)是三场景中富余最薄的(仅1.75%), 此项异常若加剧有击穿200MB风险, 值得优先查。\n对应超预算项: GPU 进程 S2(隐藏) 37.9MB vs 18MB 上限(非合成面口径), 超 +19.9MB; 同步 WebContent#1 graphics 类目 S1 26MB->S2 55.1MB(s3-budget-reconcile.md 第3条)。\n判为可优化理由: 推测为 WKWebView/CoreAnimation 隐藏后保留合成快照/离屏缓冲(IOSurface+CoreAnimation+graphics三类目集中暴涨, 通用MALLOC_*持平), 但未做 Instruments Core Animation profiler 抓栈确认触发点、未做多次隐藏/显示循环累积测试、未做更长隐藏时长测试 —— 三项验证深度均未完成, 推测未验证。\n预估收益: 若确认可释放, 约 20~24MB(IOSurface+CoreAnimation增量)。\n入口证据: .scratch/perf-200mb/s3-budget-reconcile.md 第51-59行, .skein/spec/recall/optimization/perf-200mb-final-verification.md 第88-104行",
+  "status": "待处理",
+  "deps": [],
+  "contracts": [],
+  "subtasks": [],
+  "priority": 5,
+  "estimate": null,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/gpu-hidden-compositing-buffer",
+  "parent": null,
+  "kind": "task",
+  "created": 1785573689,
+  "started": null,
+  "confirmed": null,
+  "checked": null,
+  "finished": null,
+  "updated": 1785573689
+}

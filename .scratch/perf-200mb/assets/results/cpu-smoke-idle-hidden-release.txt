@@ -1,9 +1,0 @@
-# CPU @ smoke-idle-hidden-release — 10s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-19328    ?                   0.0
-19335    ?                   0.0
-19336    ?                   0.0
-19337    ?                   0.0
-19340    ?                   0.0
-----
-TOTAL                        0.0

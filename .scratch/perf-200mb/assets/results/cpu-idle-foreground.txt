@@ -1,9 +1,0 @@
-# CPU @ idle-foreground — 60s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-62071    aidog(main)         4.5
-62123    GPU                36.2
-62124    Networking          0.0
-62125    WebContent          9.5
-62273    WebContent          0.0
-----
-TOTAL                       50.2

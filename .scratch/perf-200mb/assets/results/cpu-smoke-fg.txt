@@ -1,9 +1,0 @@
-# CPU @ smoke-fg — 15s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-15880    aidog(main)         0.1
-15927    GPU                 0.0
-15930    Networking          0.0
-15931    WebContent          0.0
-15939    WebContent          0.0
-----
-TOTAL                        0.1
