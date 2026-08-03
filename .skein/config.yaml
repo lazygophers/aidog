@@ -1,14 +1,52 @@
-max_active: 2
 auto_commit: true
-use_worktree: false
-worktree_root: .worktrees
 retain_days: 7
-web_serve: true
-board_open: true
-spec_core_budget: 1000
-spec_always_budget: 8000
-max_parallel: 2
-board_theme: skein
-board_server: false
-board_palette: stone
-board_mode: light
+pools:
+  work: 2
+  gate: 3
+worktree:
+  enabled: false
+  root: .worktrees
+web:
+  serve: true
+  board_open: true
+spec:
+  core_budget: 400
+  always_budget: 517
+hooks:
+  create:
+    before: []
+    after: []
+  confirm:
+    before: []
+    after: []
+  research:
+    before: []
+    after: []
+  plan:
+    before: []
+    after: []
+  exec:
+    before: []
+    after: []
+  check:
+    before: []
+    after: []
+  finishing:
+    before: []
+    after: []
+  finish:
+    before: []
+    after: []
+  archive:
+    before: []
+    after: []
+  subtask.start:
+    before: []
+    after: []
+  subtask.done:
+    before: []
+    after: []
+  subtask.fail:
+    before: []
+    after: []
+  agent: {}

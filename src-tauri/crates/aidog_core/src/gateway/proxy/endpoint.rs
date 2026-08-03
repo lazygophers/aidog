@@ -6,32 +6,46 @@ use super::*;
 /// - /v1/chat/completions, /v1/completions, /models, /images, /audio → openai
 /// - /v1beta/models/... → gemini
 ///   回退到 anthropic
+///
+/// **`/v1` 可省略**：部分 OpenAI 兼容客户端（网关/SDK 把版本段算进 base_url）直发裸端点
+/// `/proxy/chat/completions`，无 `/v1/` 段。此时按端点名后缀同样判 openai，
+/// 否则会误落 anthropic 回退 → `parse_incoming_request` 解析 OpenAI body 失败返 400。
+/// 例外：裸 `/models` 保持 anthropic 回退（`passthrough::handle_models_static` 依赖此语义
+/// 输出 anthropic 列表格式，见 passthrough.rs:342）。
 pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
-    // 定位到 /v1/ 起始（跳过代理根前缀如 /proxy）；分组路由已纯按 apikey，无 group path 前缀
-    let api_path = if let Some(idx) = path.find("/v1/") {
-        &path[idx..]
-    } else if path.contains("/v1beta/") {
+    if path.contains("/v1beta/") {
         return Protocol::Gemini;
-    } else {
-        return Protocol::Anthropic;
+    }
+    // 定位到 /v1/ 起始（跳过代理根前缀如 /proxy）；分组路由已纯按 apikey，无 group path 前缀。
+    // 无 /v1/ 段时退化为整段路径做端点名后缀匹配（裸端点客户端）。
+    let (api_path, versioned) = match path.find("/v1/") {
+        Some(idx) => (&path[idx + 3..], true), // 去掉 "/v1"，留 "/messages" 等
+        None => (path, false),
     };
 
-    if api_path.starts_with("/v1/messages") {
+    // 端点名匹配：versioned 时必须是 api_path 开头（严格）；裸路径时允许任意前缀（/proxy 等）
+    let hit = |ep: &str| {
+        if versioned {
+            api_path.starts_with(ep)
+        } else {
+            api_path.ends_with(ep) || api_path.contains(&format!("{ep}/"))
+        }
+    };
+
+    if hit("/messages") {
         Protocol::Anthropic
-    } else if api_path.starts_with("/v1/responses") {
+    } else if hit("/responses") {
         // OpenAI Responses API（Codex 等）用 `input` 而非 `messages`，
         // 必须单独派发到 openai_responses 入站解析，不能与 chat/completions 同组。
         Protocol::OpenAIResponses
-    } else if api_path.starts_with("/v1/chat/completions")
-        || api_path.starts_with("/v1/completions")
-        || api_path.starts_with("/v1/embeddings")
-        || api_path.starts_with("/v1/images")
-        || api_path.starts_with("/v1/audio")
-        || api_path.starts_with("/v1/models")
+    } else if hit("/chat/completions")
+        || hit("/completions")
+        || hit("/embeddings")
+        || hit("/images")
+        || hit("/audio")
+        || (versioned && api_path.starts_with("/models"))
     {
         Protocol::OpenAI
-    } else if path.contains("/v1beta/") {
-        Protocol::Gemini
     } else {
         Protocol::Anthropic
     }
