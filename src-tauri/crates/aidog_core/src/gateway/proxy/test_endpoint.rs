@@ -346,3 +346,30 @@ use super::*;
         assert!(sel(&empty, &Protocol::Gemini).is_none());
     }
 
+
+    /// 入站协议识别：带 /v1 与裸端点（客户端 base_url 已含版本段）等价。
+    #[test]
+    fn detect_source_protocol_bare_endpoint_without_v1() {
+        use super::detect_source_protocol as d;
+        use super::super::models::Protocol;
+
+        // 带 /v1（既有行为，不回归）
+        assert_eq!(d("/proxy/v1/messages"), Protocol::Anthropic);
+        assert_eq!(d("/proxy/v1/chat/completions"), Protocol::OpenAI);
+        assert_eq!(d("/proxy/v1/responses"), Protocol::OpenAIResponses);
+        assert_eq!(d("/proxy/v1/models"), Protocol::OpenAI);
+        assert_eq!(d("/v1beta/models/gemini-pro:generateContent"), Protocol::Gemini);
+
+        // 裸端点（本次修复：省略 /v1 的 OpenAI 兼容客户端）
+        assert_eq!(d("/proxy/chat/completions"), Protocol::OpenAI);
+        assert_eq!(d("/chat/completions"), Protocol::OpenAI);
+        assert_eq!(d("/proxy/responses"), Protocol::OpenAIResponses);
+        assert_eq!(d("/proxy/embeddings"), Protocol::OpenAI);
+        assert_eq!(d("/proxy/messages"), Protocol::Anthropic);
+
+        // 例外：裸 /models 保持 anthropic（handle_models_static 依赖）
+        assert_eq!(d("/proxy/models"), Protocol::Anthropic);
+
+        // 未知路径仍回退 anthropic
+        assert_eq!(d("/proxy/foo/bar"), Protocol::Anthropic);
+    }
