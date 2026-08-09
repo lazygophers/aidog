@@ -309,6 +309,8 @@ fn run_verify_command() -> VerifyOutcome {
         match child.try_wait() {
             Ok(Some(status)) => {
                 #[cfg(target_os = "windows")]
+                let _ = status;
+                #[cfg(target_os = "windows")]
                 {
                     // Windows: exit 0 不保证 CN 匹配（certutil -store Root 命令本身 exit 0），
                     // 需扫 stdout 文本含 CN。

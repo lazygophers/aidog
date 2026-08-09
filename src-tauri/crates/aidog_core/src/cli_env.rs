@@ -99,7 +99,7 @@ fn no_window(_cmd: &mut Command) {}
 /// tokio::process::Command 版本的 no_window。
 #[cfg(windows)]
 async fn no_window_tokio(cmd: &mut TokioCommand) {
-    use tokio::process::CommandExt;
+    use std::os::windows::process::CommandExt;
     const CREATE_NO_WINDOW: u32 = 0x08000000;
     cmd.creation_flags(CREATE_NO_WINDOW);
 }

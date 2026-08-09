@@ -65,22 +65,29 @@ pub fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
 /// 故在本地线程内构造并立即 speak，不跨线程传递实例。speak 触发后线程退出，
 /// 各平台 backend（AVFoundation/WinRT/SpeechDispatcher）自行异步播完。
 fn speak_cross_platform(text: &str) {
-    let text = text.to_string();
-    std::thread::spawn(move || match tts::Tts::default() {
-        Ok(mut t) => {
-            if let Err(e) = t.speak(&text, false) {
-                tracing::warn!(error = %e, "notify: tts speak failed");
-                fallback_say(&text);
-            } else {
-                // 给平台 backend 时间起播（speak 非阻塞；过早 drop 可能中断短句）。
-                std::thread::sleep(std::time::Duration::from_millis(200));
+    #[cfg(target_os = "macos")]
+    {
+        fallback_say(text);
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let text = text.to_string();
+        std::thread::spawn(move || match tts::Tts::default() {
+            Ok(mut t) => {
+                if let Err(e) = t.speak(&text, false) {
+                    tracing::warn!(error = %e, "notify: tts speak failed");
+                    fallback_say(&text);
+                } else {
+                    // 给平台 backend 时间起播（speak 非阻塞；过早 drop 可能中断短句）。
+                    std::thread::sleep(std::time::Duration::from_millis(200));
+                }
             }
-        }
-        Err(e) => {
-            tracing::warn!(error = %e, "notify: tts backend init failed, falling back to `say`");
-            fallback_say(&text);
-        }
-    });
+            Err(e) => {
+                tracing::warn!(error = %e, "notify: tts backend init failed, falling back to `say`");
+                fallback_say(&text);
+            }
+        });
+    }
 }
 
 /// tts crate 失败兜底：macOS 调系统 `say` 命令；其他平台无 say，no-op。

@@ -62,9 +62,10 @@ regex = "1"
 semver = "1"
 ipnet = "2"
 # Rust→TS 类型 codegen（c1b：单一真值 Rust struct，禁手写 TS 与之漂移）
-ts-rs = "10"
-# TTS / 加密 / 杂项
+ts-rs = { version = "10", features = ["no-serde-warnings"] }
+# 仅非 macOS 构建使用；macOS 直接走系统 `say`，避开 tts 的废弃 cocoa/block 依赖。
 tts = "0.26"
+# TTS / 加密 / 杂项
 aes-gcm = "0.11"
 sha2 = "0.11"
 sha1 = "0.10"
@@ -182,9 +183,6 @@ tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
 tracing-appender = "0.2"
 # 中间件规则引擎正则匹配。regex crate 编译期 size_limit/dfa_size_limit 抗 ReDoS（无回溯引擎）。
 regex = "1"
-# 跨平台 TTS 语音播报（CrossPlatform 后端）。macOS=AVSpeechSynthesizer / Windows=WinRT+SAPI / Linux=Speech Dispatcher。
-# MacSay 后端走 std::process `say`，WebSpeech 后端走前端 webview，故 tts crate 仅服务 CrossPlatform。
-tts = "0.26"
 # 导入导出子系统加密容器：AES-256-GCM + SHA256/HMAC + 安全随机。
 aes-gcm = "0.11"
 sha2 = "0.11"

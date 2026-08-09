@@ -129,7 +129,6 @@ dependencies = [
  "tracing",
  "tracing-appender",
  "tracing-subscriber",
- "tts",
  "url",
  "uuid",
  "webpki-roots 0.26.11",
