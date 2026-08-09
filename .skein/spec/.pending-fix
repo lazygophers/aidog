@@ -1,0 +1,13 @@
+{
+  "ts": "2026-08-04T00:17:59",
+  "core_chars": 7807,
+  "core_tokens": 4529,
+  "budget_tokens": 300,
+  "problems": [
+    {
+      "type": "over-budget",
+      "detail": "[超预算] always 约 4529 token > 300 token — 考虑降级: db/db-table-conventions(4041), cross-layer/sole-platform-symmetry(1533), proxy/wire-protocol-whitelist-sync(813)",
+      "size": 4529
+    }
+  ]
+}
