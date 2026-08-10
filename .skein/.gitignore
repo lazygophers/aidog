@@ -7,3 +7,22 @@ board/
 *.jpg
 *.html
 *.css
+
+# skein 衍生/临时文件 (自动补缺)
+vision.md
+*.lock
+spec/.archive/
+spec/.pending-fix
+spec/.audit-log
+spec/.recall.db
+trash/
+spec/index.md
+spec/*/index.md
+spec/*/backlinks.md
+.edit-tally
+.edit-tally.warned
+.dispatch.warned
+index.html
+.priority-migration-backup/
+.ready-migration-backup/
+serve.log
