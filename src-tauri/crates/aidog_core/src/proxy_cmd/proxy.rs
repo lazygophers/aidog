@@ -118,12 +118,6 @@ pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
         }
     }
 
-    // 更新设置
-    if let Ok(settings) = load_proxy_settings(&app).await {
-        save_proxy_settings(&app, settings.port, false, settings.silent_launch, settings.bind_lan).await
-            .map_err(|e| { tracing::error!(command = "proxy_stop", error = %e, "persist proxy settings failed"); e })?;
-    }
-
     // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
     let _ = app.emit("tray-refresh", ());
     tracing::info!(command = "proxy_stop", "proxy stopped");
