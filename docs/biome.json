@@ -12,6 +12,9 @@
     "clientKind": "git",
     "useIgnoreFile": true
   },
+  "files": {
+    "includes": ["**", "!graphify-out"]
+  },
   "formatter": {
     "indentStyle": "space"
   },

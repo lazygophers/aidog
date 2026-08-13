@@ -4,7 +4,12 @@ on:
   push:
     branches: [master]
     paths:
-      - ".version"
+      - "docs/**"
+      - "scripts/gen-command-docs.mjs"
+      - "src/services/api/**"
+      - "src-tauri/**"
+      - "package.json"
+      - "yarn.lock"
       - ".github/workflows/deploy-docs.yml"
   workflow_dispatch:
 
@@ -31,12 +36,10 @@ jobs:
         run: corepack enable
 
       - name: Install dependencies
-        working-directory: docs
         run: yarn install --immutable
 
-      - name: Build
-        working-directory: docs
-        run: yarn build
+      - name: Check docs
+        run: yarn check:docs
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

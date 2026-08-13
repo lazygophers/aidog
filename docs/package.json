@@ -1,11 +1,12 @@
 {
-  "name": "rspress-doc-template",
+  "name": "aidog-docs",
   "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "rspress build",
     "check": "biome check --write",
+    "check:docs": "eslint . && biome check rspress.config.ts biome.json theme/index.css theme/components/ProductDemo.css && rspress build",
     "dev": "rspress dev",
     "format": "biome format --write",
     "lint": "eslint .",

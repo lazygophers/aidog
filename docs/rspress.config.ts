@@ -3,34 +3,40 @@ import { defineConfig } from '@rspress/core';
 
 export default defineConfig({
   root: path.join(__dirname, 'docs'),
-  title: 'My Site',
-  description: 'A multilingual Rspress documentation site.',
-  lang: 'en',
-  icon: '/rspress-icon.png',
-  logo: {
-    light: '/rspress-light-logo.png',
-    dark: '/rspress-dark-logo.png',
+  title: 'aidog',
+  description: 'aidog AI API 聚合、路由与用量管理文档。',
+  lang: 'zh',
+  icon: '/aidog-logo.svg',
+  logo: '/aidog-logo.svg',
+  logoText: 'aidog',
+  search: {
+    mode: 'local',
+    codeBlocks: true,
   },
+  llms: true,
   locales: [
-    {
-      lang: 'en',
-      label: 'English',
-      title: 'My Site',
-      description: 'A multilingual Rspress documentation site.',
-    },
     {
       lang: 'zh',
       label: '简体中文',
-      title: '我的站点',
-      description: '一个多语言 Rspress 文档站点。',
+      title: 'aidog',
+      description: 'aidog AI API 聚合、路由与用量管理文档。',
+    },
+    {
+      lang: 'en',
+      label: 'English',
+      title: 'aidog',
+      description:
+        'Documentation for aidog AI API aggregation, routing, and usage management.',
     },
   ],
   themeConfig: {
+    search: true,
+    llmsUI: true,
     socialLinks: [
       {
         icon: 'github',
         mode: 'link',
-        content: 'https://github.com/web-infra-dev/rspress',
+        content: 'https://github.com/lazygophers/aidog',
       },
     ],
   },
