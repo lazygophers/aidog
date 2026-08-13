@@ -19,6 +19,7 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "gen:types": "cd src-tauri && cargo test -p aidog_core export_bindings",
     "check:statusline-runtime": "node scripts/build-statusline-runtime.mjs --check",
+    "check:docs": "node scripts/gen-command-docs.mjs --check && yarn workspace aidog-docs check:docs",
     "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
     "version:sync": "node scripts/sync-version.mjs",
     "version:check": "node scripts/sync-version.mjs --check"
