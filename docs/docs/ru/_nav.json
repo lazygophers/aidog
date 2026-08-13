@@ -1,7 +1,0 @@
-[
-  { "text": "Быстрый старт", "link": "/ru/getting-started/quick-start", "activeMatch": "/ru/getting-started" },
-  { "text": "Платформы", "link": "/ru/platforms/add-platform", "activeMatch": "/ru/platforms" },
-  { "text": "Группы", "link": "/ru/groups/manage-groups", "activeMatch": "/ru/groups" },
-  { "text": "Статистика", "link": "/ru/stats/usage-stats", "activeMatch": "/ru/stats" },
-  { "text": "Справочник API", "link": "/ru/api/api-reference", "activeMatch": "/ru/api" }
-]
