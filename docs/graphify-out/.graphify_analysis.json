@@ -1,0 +1,327 @@
+{
+  "communities": {
+    "0": [
+      "biomejs_biome",
+      "eslint",
+      "eslint_js",
+      "eslint_plugin_react_hooks",
+      "eslint_plugin_react_refresh",
+      "globals",
+      "package_devdependencies",
+      "package_devdependencies_biomejs_biome",
+      "package_devdependencies_eslint",
+      "package_devdependencies_eslint_js",
+      "package_devdependencies_eslint_plugin_react_hooks",
+      "package_devdependencies_eslint_plugin_react_refresh",
+      "package_devdependencies_globals",
+      "package_devdependencies_prettier",
+      "package_devdependencies_react",
+      "package_devdependencies_react_dom",
+      "package_devdependencies_rslint_core",
+      "package_devdependencies_types_node",
+      "package_devdependencies_types_react",
+      "package_devdependencies_types_react_dom",
+      "package_devdependencies_typescript",
+      "package_devdependencies_typescript_eslint",
+      "prettier",
+      "react",
+      "react_dom",
+      "rslint_core",
+      "types_node",
+      "types_react",
+      "types_react_dom",
+      "typescript",
+      "typescript_eslint"
+    ],
+    "1": [
+      "biome",
+      "biome_actions_source",
+      "biome_assist",
+      "biome_assist_actions",
+      "biome_css",
+      "biome_css_parser",
+      "biome_formatter",
+      "biome_formatter_indentstyle",
+      "biome_formatter_quotestyle",
+      "biome_javascript",
+      "biome_javascript_formatter",
+      "biome_linter",
+      "biome_linter_enabled",
+      "biome_linter_rules",
+      "biome_parser_cssmodules",
+      "biome_rules_recommended",
+      "biome_schema",
+      "biome_source_organizeimports",
+      "biome_vcs",
+      "biome_vcs_clientkind",
+      "biome_vcs_enabled",
+      "biome_vcs_useignorefile"
+    ],
+    "2": [
+      "ref_dom",
+      "ref_es2023",
+      "tsconfig_compileroptions",
+      "tsconfig_compileroptions_allowimportingtsextensions",
+      "tsconfig_compileroptions_isolatedmodules",
+      "tsconfig_compileroptions_jsx",
+      "tsconfig_compileroptions_lib",
+      "tsconfig_compileroptions_module",
+      "tsconfig_compileroptions_moduledetection",
+      "tsconfig_compileroptions_moduleresolution",
+      "tsconfig_compileroptions_noemit",
+      "tsconfig_compileroptions_nounusedlocals",
+      "tsconfig_compileroptions_nounusedparameters",
+      "tsconfig_compileroptions_resolvejsonmodule",
+      "tsconfig_compileroptions_skiplibcheck",
+      "tsconfig_compileroptions_strict",
+      "tsconfig_compileroptions_target",
+      "tsconfig_compileroptions_usedefineforclassfields",
+      "tsconfig_compileroptions_verbatimmodulesyntax"
+    ],
+    "3": [
+      "docs_en_guide_start_introduction_document",
+      "docs_en_guide_start_introduction_react",
+      "docs_en_guide_start_introduction_rsbuild",
+      "docs_en_guide_start_introduction_rspress",
+      "docs_en_guide_start_introduction_ssg_md",
+      "docs_en_guide_use_mdx_components_document",
+      "docs_en_guide_use_mdx_components_mdx",
+      "docs_en_guide_use_mdx_components_rspress_core_theme",
+      "docs_en_index_document",
+      "docs_public_rspress_icon",
+      "docs_zh_guide_start_getting_started_document",
+      "docs_zh_guide_start_introduction_document",
+      "docs_zh_guide_use_mdx_code_blocks_index_document",
+      "docs_zh_guide_use_mdx_components_document",
+      "docs_zh_guide_use_mdx_container_document",
+      "docs_zh_index_document"
+    ],
+    "4": [
+      "package",
+      "package_dependencies",
+      "package_dependencies_rspress_core",
+      "package_name",
+      "package_private",
+      "package_scripts",
+      "package_scripts_build",
+      "package_scripts_check",
+      "package_scripts_dev",
+      "package_scripts_format",
+      "package_scripts_lint",
+      "package_scripts_preview",
+      "package_type",
+      "package_version",
+      "rspress_core"
+    ],
+    "5": [
+      "docs_en_api_commands_build",
+      "docs_en_api_commands_dev",
+      "docs_en_api_commands_preview",
+      "docs_en_guide_start_getting_started_create_rspress",
+      "docs_en_guide_start_getting_started_doc_build",
+      "docs_en_guide_start_getting_started_document",
+      "docs_en_guide_use_mdx_code_blocks_index_document",
+      "docs_en_guide_use_mdx_code_blocks_index_shiki",
+      "docs_en_guide_use_mdx_container_document",
+      "readme_document"
+    ],
+    "6": [
+      "ref_docs",
+      "ref_rspress_config_ts",
+      "ref_theme",
+      "tsconfig",
+      "tsconfig_include",
+      "tsconfig_mdx",
+      "tsconfig_mdx_checkmdx"
+    ],
+    "7": [
+      "theme_env_d",
+      "theme_env_d_css",
+      "theme_env_d_importmeta",
+      "theme_env_d_importmetaenv"
+    ],
+    "8": [
+      "agents_document"
+    ],
+    "9": [
+      "docs_en_api_commands_document"
+    ],
+    "10": [
+      "docs_en_api_index_document"
+    ],
+    "11": [
+      "docs_en_guide_use_mdx_code_blocks_meta_document"
+    ],
+    "12": [
+      "docs_en_guide_use_mdx_code_blocks_title_document"
+    ],
+    "13": [
+      "docs_public_rspress_dark_logo"
+    ],
+    "14": [
+      "docs_public_rspress_light_logo"
+    ],
+    "15": [
+      "docs_zh_api_commands_document"
+    ],
+    "16": [
+      "docs_zh_api_index_document"
+    ],
+    "17": [
+      "docs_zh_guide_use_mdx_code_blocks_meta_document"
+    ],
+    "18": [
+      "docs_zh_guide_use_mdx_code_blocks_title_document"
+    ],
+    "19": [
+      "eslint_config"
+    ],
+    "20": [
+      "rslint_config"
+    ],
+    "21": [
+      "rspress_config"
+    ],
+    "22": [
+      "theme_index"
+    ]
+  },
+  "cohesion": {
+    "0": 0.06451612903225806,
+    "1": 0.09090909090909091,
+    "2": 0.10526315789473684,
+    "3": 0.19166666666666668,
+    "4": 0.13333333333333333,
+    "5": 0.24444444444444444,
+    "6": 0.2857142857142857,
+    "7": 0.5,
+    "8": 1.0,
+    "9": 1.0,
+    "10": 1.0,
+    "11": 1.0,
+    "12": 1.0,
+    "13": 1.0,
+    "14": 1.0,
+    "15": 1.0,
+    "16": 1.0,
+    "17": 1.0,
+    "18": 1.0,
+    "19": 1.0,
+    "20": 1.0,
+    "21": 1.0,
+    "22": 1.0
+  },
+  "gods": [
+    {
+      "id": "tsconfig_compileroptions",
+      "label": "compilerOptions",
+      "degree": 17
+    },
+    {
+      "id": "docs_en_guide_start_getting_started_document",
+      "label": "English Getting Started",
+      "degree": 12
+    },
+    {
+      "id": "docs_en_guide_start_introduction_document",
+      "label": "English Introduction",
+      "degree": 8
+    },
+    {
+      "id": "package_scripts",
+      "label": "scripts",
+      "degree": 7
+    },
+    {
+      "id": "docs_en_guide_use_mdx_components_document",
+      "label": "English MDX and React Components",
+      "degree": 6
+    },
+    {
+      "id": "docs_zh_guide_start_getting_started_document",
+      "label": "Chinese Getting Started",
+      "degree": 6
+    },
+    {
+      "id": "docs_en_index_document",
+      "label": "English Homepage",
+      "degree": 5
+    },
+    {
+      "id": "docs_zh_index_document",
+      "label": "Chinese Homepage",
+      "degree": 5
+    },
+    {
+      "id": "biome_vcs",
+      "label": "vcs",
+      "degree": 4
+    },
+    {
+      "id": "tsconfig_include",
+      "label": "include",
+      "degree": 4
+    }
+  ],
+  "surprises": [
+    {
+      "source": "English Getting Started",
+      "target": "rspress.config.ts",
+      "source_files": [
+        "docs/en/guide/start/getting-started.md",
+        "tsconfig.json"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "crosses file types (code \u2194 doc); connects across different repos/directories; bridges separate communities; peripheral node `rspress.config.ts` unexpectedly reaches hub `English Getting Started`"
+    },
+    {
+      "source": "English Homepage",
+      "target": "Rspress Icon",
+      "source_files": [
+        "docs/en/index.md",
+        "docs/public/rspress-icon.png"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "crosses file types (doc \u2194 image); peripheral node `Rspress Icon` unexpectedly reaches hub `English Homepage`"
+    },
+    {
+      "source": "English Getting Started",
+      "target": "Chinese Getting Started",
+      "source_files": [
+        "docs/en/guide/start/getting-started.md",
+        "docs/zh/guide/start/getting-started.md"
+      ],
+      "confidence": "INFERRED",
+      "relation": "semantically_similar_to",
+      "why": "inferred connection - not explicitly stated in source; bridges separate communities; semantically similar concepts with no structural link"
+    },
+    {
+      "source": "Chinese Homepage",
+      "target": "Rspress Icon",
+      "source_files": [
+        "docs/zh/index.md",
+        "docs/public/rspress-icon.png"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "crosses file types (doc \u2194 image); peripheral node `Rspress Icon` unexpectedly reaches hub `Chinese Homepage`"
+    },
+    {
+      "source": "README",
+      "target": "build Command",
+      "source_files": [
+        "README.md",
+        "docs/en/api/commands.mdx"
+      ],
+      "confidence": "EXTRACTED",
+      "relation": "references",
+      "why": "connects across different repos/directories"
+    }
+  ],
+  "tokens": {
+    "input": 12397,
+    "output": 5761
+  }
+}
