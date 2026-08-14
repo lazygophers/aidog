@@ -1,6 +1,6 @@
 ---
 title: 代理日志与请求日志
-description: 按状态、分组、平台和模型查询代理与原始请求信息。
+description: 查询代理请求、原始请求侧和上游请求侧的记录。
 ---
 
 # 代理日志与请求日志
@@ -9,8 +9,14 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="logs" state="normal" />
 
-## 主要任务
+## 当前实现
 
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+侧栏的 `logs` 入口挂载 `src/pages/Logs.tsx`；`request-log` 入口挂载 `src/pages/RequestLog.tsx`。这两个入口都在 `src/App.tsx` 的 `BASE_NAV` 中注册。
 
-在桌面应用中使用左侧导航进入“代理日志与请求日志”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+前端 wrapper 在 `src/services/api/proxy.ts`：代理日志使用 `proxy_log_list_filtered`、`proxy_log_get`、`proxy_log_settings_get`、`proxy_log_settings_set`、`proxy_log_cleanup_expired` 等命令；请求日志使用 `request_log_list`。
+
+日志有三层开关：总开关、用户原始请求、上游请求。关闭某侧时，该侧 headers 和 body 不入库；Authorization 等敏感头在记录前脱敏。保留期清理按侧清空原始字段，整行保留期到期才删除。
+
+## 文档演示边界
+
+上方演示是固定 fixture，不读取真实请求。实际筛选字段、分页和详情结构以 `src/pages/Logs.tsx`、`src/pages/RequestLog.tsx`、`src/services/api/types/` 和 Rust `proxy_log` 模块为准。

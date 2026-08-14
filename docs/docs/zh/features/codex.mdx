@@ -1,6 +1,6 @@
 ---
 title: Codex
-description: 编辑 Codex provider、模型与 Responses API 接入配置。
+description: 通过 aidog 同步 Codex provider，并从分组复制启动命令。
 ---
 
 # Codex
@@ -9,8 +9,14 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="codex" state="normal" />
 
-## 主要任务
+## 当前实现
 
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+Codex 集成入口在设置页 `settings/codex` 和 AI 平台/分组的复制启动命令流程。主流程不是手写环境变量。
 
-在桌面应用中使用左侧导航进入“Codex”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+推荐配置由 `src/services/codex-settings-schema.ts` 生成：`model_provider = "aidog"`，`base_url = "http://127.0.0.1:9890/proxy"`，`wire_api = "responses"`，`env_key = "AIDOG_KEY"`。`AIDOG_KEY` 保存分组 token。
+
+Rust command `codex_config_read`、`codex_config_write`、`codex_config_path` 在 `src-tauri/src/startup.rs` 注册，前端通过设置页和 `src/services/api/` wrapper 调用。
+
+## 文档演示边界
+
+上方演示是固定 fixture，不读取用户的 `~/.codex/config.toml`。
