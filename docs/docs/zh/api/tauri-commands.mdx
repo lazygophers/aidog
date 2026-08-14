@@ -1,0 +1,16 @@
+---
+title: Tauri Command 使用方式
+description: 了解桌面前端如何通过 invoke 调用 Rust Command 及其类型边界。
+---
+
+# Tauri Command 使用方式
+
+前端通过 Tauri `invoke` 调用注册的 Rust command。调用名取 `#[tauri::command]` 函数名，与 Rust 模块路径无关；`src-tauri/src/startup.rs` 的注册集合是唯一真值源。
+
+```ts
+import { invoke } from '@tauri-apps/api/core';
+
+const value = await invoke<ReturnType>('command_name', { argumentName: value });
+```
+
+应用代码应优先复用 `src/services/api/` 中已有 wrapper，不在页面重复拼 command 名。参数采用 Tauri 序列化后的字段名，错误通过 rejected Promise 进入调用方。

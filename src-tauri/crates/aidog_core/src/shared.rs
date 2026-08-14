@@ -78,7 +78,7 @@ pub async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings
             }
 
     // 默认值
-    Ok(ProxySettings { port: 9876, autostart: true, silent_launch: false, bind_lan: true })
+    Ok(ProxySettings { port: 9890, autostart: true, silent_launch: false, bind_lan: true })
 }
 
 pub async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {

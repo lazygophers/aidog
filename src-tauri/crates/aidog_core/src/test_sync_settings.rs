@@ -83,7 +83,7 @@ use serde_json::json;
         std::fs::write(&path, r#"{"permissions":{"allow":["Read(*)"]},"model":"opus"}"#).unwrap();
 
         let config = json!({
-            "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:9876/proxy", "ANTHROPIC_AUTH_TOKEN": "gk_x" }
+            "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:9890/proxy", "ANTHROPIC_AUTH_TOKEN": "gk_x" }
         });
         super::write_default_claude_settings(&db, &config).await.unwrap();
 

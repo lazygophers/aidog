@@ -3806,6 +3806,29 @@ __metadata:
   languageName: node
   linkType: hard
 
+"aidog-docs@workspace:docs":
+  version: 0.0.0-use.local
+  resolution: "aidog-docs@workspace:docs"
+  dependencies:
+    "@biomejs/biome": "npm:2.4.15"
+    "@eslint/js": "npm:^10.0.1"
+    "@rslint/core": "npm:^0.5.3"
+    "@rspress/core": "npm:^2.0.18"
+    "@types/node": "npm:^22.8.1"
+    "@types/react": "npm:^19.2.17"
+    "@types/react-dom": "npm:^19.2.3"
+    eslint: "npm:^10.4.0"
+    eslint-plugin-react-hooks: "npm:^7.1.1"
+    eslint-plugin-react-refresh: "npm:^0.5.2"
+    globals: "npm:^17.6.0"
+    prettier: "npm:^3.8.3"
+    react: "npm:^19.2.8"
+    react-dom: "npm:^19.2.8"
+    typescript: "npm:^6.0.3"
+    typescript-eslint: "npm:^8.59.4"
+  languageName: unknown
+  linkType: soft
+
 "aidog@workspace:.":
   version: 0.0.0-use.local
   resolution: "aidog@workspace:."
@@ -7345,29 +7368,6 @@ __metadata:
   checksum: 10c0/6f35736125f3c28c5d8ce1c89c9653b282833b93f60fe29fcc20169bac46579b4d4bcfcb2bfb7e36dcfd4a7bbd6d84e4adf58c2bf9e6dbb4a3c1ed5c932ba8c6
   languageName: node
   linkType: hard
-
-"rspress-doc-template@workspace:docs":
-  version: 0.0.0-use.local
-  resolution: "rspress-doc-template@workspace:docs"
-  dependencies:
-    "@biomejs/biome": "npm:2.4.15"
-    "@eslint/js": "npm:^10.0.1"
-    "@rslint/core": "npm:^0.5.3"
-    "@rspress/core": "npm:^2.0.18"
-    "@types/node": "npm:^22.8.1"
-    "@types/react": "npm:^19.2.17"
-    "@types/react-dom": "npm:^19.2.3"
-    eslint: "npm:^10.4.0"
-    eslint-plugin-react-hooks: "npm:^7.1.1"
-    eslint-plugin-react-refresh: "npm:^0.5.2"
-    globals: "npm:^17.6.0"
-    prettier: "npm:^3.8.3"
-    react: "npm:^19.2.8"
-    react-dom: "npm:^19.2.8"
-    typescript: "npm:^6.0.3"
-    typescript-eslint: "npm:^8.59.4"
-  languageName: unknown
-  linkType: soft
 
 "saxes@npm:^6.0.0":
   version: 6.0.0

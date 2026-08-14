@@ -1,0 +1,32 @@
+[
+  {
+    "type": "file",
+    "name": "platforms-protocols",
+    "label": "平台与协议"
+  },
+  {
+    "type": "file",
+    "name": "groups-routing",
+    "label": "分组与路由"
+  },
+  {
+    "type": "file",
+    "name": "model-mapping",
+    "label": "模型映射"
+  },
+  {
+    "type": "file",
+    "name": "failover-circuit-breaker",
+    "label": "故障转移与熔断"
+  },
+  {
+    "type": "file",
+    "name": "usage-pricing",
+    "label": "用量与费用"
+  },
+  {
+    "type": "file",
+    "name": "data-privacy",
+    "label": "数据与隐私"
+  }
+]

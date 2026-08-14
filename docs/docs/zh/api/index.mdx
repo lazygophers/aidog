@@ -1,7 +1,15 @@
 ---
 title: API 概览
-description: Rspress 入门模板 API 区域和可用参考页面的概览。
-overview: true
+description: 了解 aidog 的 Local API、Tauri Command、调用契约和完整命令字典。
 ---
 
-这是一个 API 概览页面，用于列出所有可用 API。
+# API 概览
+
+aidog 有两类接口：本机脚本通过 HTTP Local API 调用，桌面前端通过 Tauri IPC 调用 Command。
+
+- [Local API](/zh/api/local-api)
+- [Tauri Command 使用方式](/zh/api/tauri-commands)
+- [完整 Command 字典](/zh/api/commands.generated)
+- [契约规则与错误](/zh/api/contracts)
+
+Local API 不是公网管理接口，Tauri Command 也不是远程 HTTP API。

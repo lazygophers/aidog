@@ -1,0 +1,15 @@
+---
+title: Command 字典生成
+description: 生成并校验 startup、Rust 与 TypeScript 三方一致的 Command 字典。
+---
+
+# Command 字典生成
+
+根目录 `scripts/gen-command-docs.mjs` 扫描 startup 注册表、Rust command 签名和 TypeScript invoke wrapper，生成 `docs/docs/zh/api/commands.generated.mdx`。
+
+```bash
+node scripts/gen-command-docs.mjs
+node scripts/gen-command-docs.mjs --check
+```
+
+生成文件需要提交。无 TypeScript wrapper 的注册命令标记为 `internal`；解析失败或三方契约不一致必须报错，不能猜测。

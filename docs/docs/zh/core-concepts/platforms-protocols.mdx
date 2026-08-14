@@ -1,0 +1,10 @@
+---
+title: 平台与协议
+description: 理解平台、端点、入站协议与出站协议之间的关系。
+---
+
+# 平台与协议
+
+平台保存上游 Base URL、API Key、模型映射、状态、配额和规则；协议描述 OpenAI Chat、Responses、Anthropic 或 Gemini 等 wire format。
+
+路由根据端点和请求能力选择出站协议。同协议优先透传，跨协议时执行转换。Base URL 包含版本前缀，最终业务路径由协议适配器追加。`glm_coding` 是独立协议与预设，不是普通 GLM 的显示分支。

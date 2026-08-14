@@ -6,7 +6,22 @@
   },
   {
     "type": "file",
-    "name": "commands",
-    "label": "命令"
+    "name": "local-api",
+    "label": "Local API"
+  },
+  {
+    "type": "file",
+    "name": "tauri-commands",
+    "label": "Tauri Command 使用方式"
+  },
+  {
+    "type": "file",
+    "name": "commands.generated",
+    "label": "完整 Command 字典"
+  },
+  {
+    "type": "file",
+    "name": "contracts",
+    "label": "契约规则与错误"
   }
 ]

@@ -1,0 +1,22 @@
+---
+title: 接入 Codex
+description: 在 aidog 中复制 Codex 启动命令，用分组名通过本地代理路由请求。
+---
+
+# 接入 Codex
+
+进入 aidog 的“AI 平台”或分组列表，找到要使用的分组，点击“复制启动命令”并选择“Codex 启动命令”。把复制出的命令粘贴到终端执行，它会带上 aidog 生成的 `AIDOG_KEY`，并使用 Codex profile 中的 aidog provider。
+
+Codex provider 由 aidog 写入 `~/.codex/config.toml` 或分组 profile，核心字段为：
+
+```toml
+model_provider = "aidog"
+
+[model_providers.aidog]
+name = "aidog proxy"
+base_url = "http://127.0.0.1:9890/proxy"
+wire_api = "responses"
+env_key = "AIDOG_KEY"
+```
+
+`AIDOG_KEY` 的值是 aidog 分组名。不要把旧的 `AIDOG_GROUP` 或手写固定端口当作主流程；以应用内复制出的启动命令和当前代理端口为准。

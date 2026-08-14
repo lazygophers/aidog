@@ -1,0 +1,32 @@
+[
+  {
+    "type": "file",
+    "name": "doc-structure",
+    "label": "文档结构"
+  },
+  {
+    "type": "file",
+    "name": "mdx-components",
+    "label": "MDX 组件"
+  },
+  {
+    "type": "file",
+    "name": "command-gen",
+    "label": "Command 字典生成"
+  },
+  {
+    "type": "file",
+    "name": "contributing",
+    "label": "贡献流程"
+  },
+  {
+    "type": "file",
+    "name": "internal-debug",
+    "label": "内部与 Debug 能力"
+  },
+  {
+    "type": "file",
+    "name": "testing",
+    "label": "测试工具与 Fixture"
+  }
+]
