@@ -73,17 +73,31 @@ export function FormSection({ title, desc, action, children }: { title: string; 
   );
 }
 
-/** API Key 显隐 + 复制按钮（透传配置区 / 认证区共用）。 */
-export function ApiKeyField({ value, onChange, show, onToggleShow, editing, placeholder = "API Key" }: {
+/** Token 显隐 + 复制按钮（透传配置区 / 认证区共用）。
+ *  multiline=true（创建态认证区）：textarea 多行输入，每行一个 token，多行触发批量创建预览
+ *  （拆分/批量链路见 splitApiKeys + runBatchCreateFromPaste）；无密码遮蔽（textarea 不支持 password）。 */
+export function ApiKeyField({ value, onChange, show, onToggleShow, editing, placeholder = "Token", multiline = false }: {
   value: string;
   onChange: (v: string) => void;
   show: boolean;
   onToggleShow: () => void;
   editing?: boolean;
   placeholder?: string;
+  multiline?: boolean;
 }) {
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: multiline ? "flex-start" : "center" }}>
+      {multiline ? (
+        <textarea
+          className="input"
+          placeholder={placeholder}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          spellCheck={false}
+          rows={Math.min(6, Math.max(2, value.split("\n").length))}
+          style={{ flex: 1, resize: "vertical", minHeight: 58, fontFamily: "var(--font-mono, monospace)", fontSize: 12, lineHeight: 1.6 }}
+        />
+      ) : (
       <Input
         className="input"
         type={show ? "text" : "password"}
@@ -92,10 +106,12 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
         onChange={(e) => onChange(e.target.value)}
         style={{ flex: 1 }}
       />
+      )}
+      {!multiline && (
       <Button
         variant="ghost"
         size="icon"
-        title={show ? "Hide key" : "Show key"}
+        title={show ? "Hide token" : "Show token"}
         onClick={onToggleShow}
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -114,11 +130,12 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
           )}
         </svg>
       </Button>
+      )}
       {editing && value && (
         <Button
           variant="ghost"
           size="icon"
-          title="Copy key"
+          title="Copy token"
           onClick={() => void writeText(value)}
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -271,10 +288,10 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
       </div>
       <ApiKeyField
         value={apiKey} onChange={setApiKey} show={showKey} onToggleShow={() => setShowKey(!showKey)}
-        placeholder={t("platform.apiKeyOptional", "API Key（可选，透传可留空）")}
+        placeholder={t("platform.apiKeyOptional", "Token（可选，透传可留空）")}
       />
       <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-        {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 API Key 可留空。")}
+        {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 Token 可留空。")}
       </div>
     </FormSection>
   );
