@@ -1,6 +1,21 @@
 {
   "tasks": [
     {
+      "id": "doc-truth-repair",
+      "status": "check",
+      "deps": [],
+      "priority": "urgent",
+      "worktree": null,
+      "parent": null,
+      "kind": "task",
+      "created": 1786671038,
+      "confirmed": 1786671333,
+      "started": 1786671333,
+      "checked": 1786673864,
+      "checked_end": null,
+      "finished": null
+    },
+    {
       "id": "rebuild-aidog-zh-docs",
       "status": "done",
       "deps": [],
