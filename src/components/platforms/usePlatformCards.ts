@@ -100,7 +100,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   // Refresh quota
   const refreshQuota = useCallback(async (p: Platform) => {
     if (!p.api_key) {
-      setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 API Key")}`, ok: false });
+      setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 Token")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
       return;
     }
