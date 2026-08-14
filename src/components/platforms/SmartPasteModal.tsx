@@ -308,7 +308,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
           {parsed.apiKeys.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>{t("platform.paste.apiKey", "API Key")}</span>
+                <span>{t("platform.paste.apiKey", "Token")}</span>
                 {parsed.apiKeys.length > 1 && (
                   <span style={{ fontSize: 10.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
                     {t("platform.paste.apiKeyMultiHint", "已选 {{n}}/{{total}}，将批量创建", { n: selKeys.length, total: parsed.apiKeys.length })}

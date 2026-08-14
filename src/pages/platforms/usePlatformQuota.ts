@@ -121,7 +121,7 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
 
   const refreshQuota = useCallback(async (p: Platform, opts?: { onNewapiUserId?: (uid: string) => void; onError?: (msg: string) => void }) => {
     if (!p.api_key) {
-      opts?.onError?.(`${p.name}: ${t("platform.quotaNoKey", "缺少 API Key")}`);
+      opts?.onError?.(`${p.name}: ${t("platform.quotaNoKey", "缺少 Token")}`);
       return;
     }
     // 手动刷新接管该平台 quota：清初始 pending（避免与 refreshing 旋转图标骨架重叠），显式调度去重也标记。
