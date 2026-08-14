@@ -1,5 +1,5 @@
 [tools]
-node = "latest"
+node = "22"
 yarn = "latest"
 rust = "latest"
 python = "latest"

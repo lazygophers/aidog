@@ -1,49 +1,19 @@
 {
   "tasks": [
     {
-      "id": "gpu-hidden-compositing-buffer",
-      "status": "待处理",
+      "id": "rebuild-aidog-zh-docs",
+      "status": "done",
       "deps": [],
-      "priority": 5,
+      "priority": "high",
       "worktree": null,
       "parent": null,
       "kind": "task",
-      "created": 1785573689,
-      "confirmed": null,
-      "started": null,
-      "checked": null,
-      "checked_end": null,
-      "finished": null
-    },
-    {
-      "id": "rust-main-heap-baseline-trim",
-      "status": "待处理",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task",
-      "created": 1785573678,
-      "confirmed": null,
-      "started": null,
-      "checked": null,
-      "checked_end": null,
-      "finished": null
-    },
-    {
-      "id": "webcontent-loadpath-malloc-trim",
-      "status": "待处理",
-      "deps": [],
-      "priority": 5,
-      "worktree": null,
-      "parent": null,
-      "kind": "task",
-      "created": 1785573682,
-      "confirmed": null,
-      "started": null,
-      "checked": null,
-      "checked_end": null,
-      "finished": null
+      "created": 1786633810,
+      "confirmed": 1786634848,
+      "started": 1786634848,
+      "checked": 1786662927,
+      "checked_end": 1786669507,
+      "finished": 1786669705
     }
   ]
 }

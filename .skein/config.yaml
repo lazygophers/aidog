@@ -12,6 +12,8 @@ web:
 spec:
   core_budget: 400
   always_budget: 517
+confirm:
+  unattended: false
 hooks:
   create:
     before: []
@@ -35,9 +37,6 @@ hooks:
     before: []
     after: []
   finish:
-    before: []
-    after: []
-  archive:
     before: []
     after: []
   subtask.start:
