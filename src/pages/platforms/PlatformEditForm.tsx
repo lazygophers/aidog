@@ -268,9 +268,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <>
         <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} t={t} />
 
-        {/* API Key */}
+        {/* Token（创建态多行 = 每行一个，批量创建；编辑态单行单平台） */}
         <FormSection title={t("platform.sectionAuth", "认证")}>
-          <ApiKeyField value={apiKey} onChange={handleApiKeyChange} show={showKey} onToggleShow={() => setShowKey(!showKey)} editing={!!editing} />
+          <ApiKeyField
+            value={apiKey} onChange={handleApiKeyChange} show={showKey} onToggleShow={() => setShowKey(!showKey)}
+            editing={!!editing} multiline={!editing}
+            placeholder={editing
+              ? t("platform.tokenPlaceholderEdit", "Token")
+              : t("platform.tokenPlaceholder", "Token（每行一个，多行将批量创建平台）")}
+          />
         </FormSection>
 
         {/* 多 key 批量创建实时预览（创建态 + 非 keyOptional + 多 key 时触发，D1/D2/D3）。
