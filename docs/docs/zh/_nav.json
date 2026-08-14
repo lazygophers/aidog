@@ -1,8 +1,18 @@
 [
   {
-    "text": "指南",
-    "link": "/guide/start/introduction",
-    "activeMatch": "/guide/"
+    "text": "开始使用",
+    "link": "/getting-started/introduction",
+    "activeMatch": "/getting-started/"
+  },
+  {
+    "text": "核心概念",
+    "link": "/core-concepts/platforms-protocols",
+    "activeMatch": "/core-concepts/"
+  },
+  {
+    "text": "功能模块",
+    "link": "/features/overview",
+    "activeMatch": "/features/"
   },
   {
     "text": "API",
@@ -10,7 +20,8 @@
     "activeMatch": "/api/"
   },
   {
-    "text": "文档",
-    "link": "https://rspress.rs/"
+    "text": "维护文档",
+    "link": "/maintenance/doc-structure",
+    "activeMatch": "/maintenance/"
   }
 ]

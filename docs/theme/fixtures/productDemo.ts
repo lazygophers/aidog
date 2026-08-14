@@ -1,3 +1,4 @@
+/** 固定脱敏 fixture，来源版本：aidog 0.1.11 文档演示基线。 */
 export const demoModules = [
   'home',
   'platforms',

@@ -10,7 +10,7 @@ import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, appLogApi, d
 export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => void) {
   const { t } = useTranslation();
   const [running, setRunning] = useState(false);
-  const [proxyPort, setProxyPort] = useState(9876);
+  const [proxyPort, setProxyPort] = useState(9890);
   const [autostart, setAutostart] = useState(false);
   const [bindLan, setBindLan] = useState(true);
   const [autolaunch, setAutolaunch] = useState(false);

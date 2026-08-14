@@ -81,7 +81,7 @@ pub async fn proxy_start(
     );
 
     // 读取绑定模式（0.0.0.0 LAN / 127.0.0.1 本机）；地址只在 bind 时读取一次。
-    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false, bind_lan: true });
+    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9890, autostart: true, silent_launch: false, bind_lan: true });
 
     // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
     let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();

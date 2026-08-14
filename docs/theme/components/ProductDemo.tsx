@@ -64,7 +64,10 @@ export function ProductDemo({ module, state: initialState = 'normal' }: Props) {
       ) : (
         <div className="product-demo__rows">
           {fixture.rows.map((row) => (
-            <div className="product-demo__row" key={row.name}>
+            <div
+              className="product-demo__row"
+              key={`${row.name}-${row.detail}`}
+            >
               <span className="product-demo__dot" />
               <div>
                 <strong>{row.name}</strong>

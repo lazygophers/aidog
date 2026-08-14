@@ -430,7 +430,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "proxy_start" => {
                         let settings = tauri::async_runtime::block_on(load_proxy_settings(app)).unwrap_or(ProxySettings {
-                            port: 9876,
+                            port: 9890,
                             autostart: true,
                             silent_launch: false,
                             bind_lan: true,

@@ -9,7 +9,7 @@
 import type { SettingField, SettingSection } from "./claude-settings-schema";
 
 /** aidog 本地代理默认端口（与 load_proxy_settings 内置默认一致）。 */
-export const AIDOG_DEFAULT_PORT = 9876;
+export const AIDOG_DEFAULT_PORT = 9890;
 
 // ── Sections ──
 
@@ -52,7 +52,7 @@ export const CODEX_SECTIONS: SettingSection[] = [
     id: "providers",
     labelKey: "codex.sectionProviders",
     fields: [
-      { key: "openai_base_url", label: "OpenAI Base URL Override", type: "string", placeholder: "http://127.0.0.1:9876/proxy", description: "轻量方案：直接覆盖内置 openai provider base URL" },
+      { key: "openai_base_url", label: "OpenAI Base URL Override", type: "string", placeholder: "http://127.0.0.1:9890/proxy", description: "轻量方案：直接覆盖内置 openai provider base URL" },
       { key: "chatgpt_base_url", label: "ChatGPT Base URL", type: "string" },
       { key: "model_providers", label: "Model Providers", type: "json", description: "[model_providers.<id>] 自定义 provider（含 aidog 代理）。每项 { name, base_url, wire_api, env_key, ... }" },
     ],
@@ -113,10 +113,10 @@ export const ALL_CODEX_KEYS: string[] = CODEX_SECTIONS.flatMap((s) => s.fields.m
 // ── Recommended config（对照 RECOMMENDED_CONFIG）──────────────────
 // 基于 codex-config.md §6 推荐默认 + codex-aidog-spike.md provider 接入结论。
 // [model_providers.aidog]：base_url 指向 aidog 本地代理 /proxy，wire_api=responses，
-// env_key 指向持「分组名作 token」的环境变量。port 用内置默认 9876（可在 UI 改）。
+// env_key 指向持「分组名作 token」的环境变量。port 用内置默认 9890（可在 UI 改）。
 
 /**
- * 生成推荐 Codex 配置。`port` 为 aidog 代理端口（默认 9876）。
+ * 生成推荐 Codex 配置。`port` 为 aidog 代理端口（默认 9890）。
  * Codex 发请求 = base_url + `/v1/responses`，aidog 剥 `/proxy` 前缀后按 auth token=分组名路由。
  */
 export function buildCodexRecommendedConfig(port: number = AIDOG_DEFAULT_PORT): Record<string, unknown> {
@@ -150,7 +150,7 @@ export function buildCodexRecommendedConfig(port: number = AIDOG_DEFAULT_PORT): 
   };
 }
 
-/** 静态默认（端口 9876）— 供页面初始填充与 reset 默认值。 */
+/** 静态默认（端口 9890）— 供页面初始填充与 reset 默认值。 */
 export const CODEX_RECOMMENDED_CONFIG: Record<string, unknown> = buildCodexRecommendedConfig();
 
 // 复用 Claude Code schema 的字段/分区接口类型。

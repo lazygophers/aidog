@@ -1,0 +1,12 @@
+---
+title: 内部与 Debug 能力
+description: 记录 aidog 的内部诊断接口、测试命令和不稳定能力边界。
+---
+
+# 内部与 Debug 能力
+
+:::danger 非公开接口
+本页内容仅用于开发和诊断，可能随实现变化，禁止生产依赖，也不得通过端口转发暴露。
+:::
+
+`POST /api/debug/bench-query` 用于本机查询基准诊断。完整 Tauri 字典中标记为 `internal` 的命令没有稳定 TypeScript wrapper，不能视为公共扩展 API。调试日志和导出数据可能包含用户元数据，分享前必须脱敏。
