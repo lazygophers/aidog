@@ -9,8 +9,12 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="skills" state="normal" />
 
-## 主要任务
+## 当前实现
 
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+侧栏的 `skills` 入口挂载 `src/pages/Skills.tsx`。技能相关能力来自 `src/services/api/skills.ts` 和 `src-tauri/src/startup.rs` 注册的技能命令。
 
-在桌面应用中使用左侧导航进入“Skills”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+当前页面支持的事实只有：浏览目录、搜索、已安装列表、刷新、启用、安装、详情、读取文件、禁用、更新、全部卸载、单个卸载、对齐 agents、全部启用。更细字段和平台差异以源码为准。
+
+## 文档演示边界
+
+上方演示是固定 fixture，不连接真实 skill 目录。

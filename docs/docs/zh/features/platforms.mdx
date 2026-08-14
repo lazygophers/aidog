@@ -1,6 +1,6 @@
 ---
 title: AI 平台
-description: 添加和维护上游平台、端点、密钥、模型与配额。
+description: 管理上游平台、协议、模型、配额和平台级规则。
 ---
 
 # AI 平台
@@ -9,8 +9,14 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="platforms" state="normal" />
 
-## 主要任务
+## 当前实现
 
-此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+桌面侧栏的 `platforms` 入口挂载 `src/pages/Platforms.tsx`。该页由 `usePlatformsState` 编排，列表态使用 `PlatformListView`，新建和编辑态使用 `PlatformEditForm`。
 
-在桌面应用中使用左侧导航进入“AI 平台”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+平台 API wrapper 在 `src/services/api/platforms.ts`，覆盖平台创建、列表、更新、删除、分享解析、模型拉取、用量统计、余额和规则相关调用。Rust command 注册表在 `src-tauri/src/startup.rs`，`platform_create`、`platform_list`、`platform_update`、`platform_delete` 等命令必须在那里注册后才可被前端调用。
+
+平台配置保存上游 Base URL、API Key、协议、模型、状态、extra JSON 和配额相关字段。`extra` 中当前有 mock、New API、Devin、breaker、peak_hours、disable_during_peak、time_models 等结构化子项，前端解析函数集中在 `src/services/api/platforms.ts`。
+
+## 文档演示边界
+
+上方演示来自 `docs/theme/fixtures/productDemo.ts` 的固定脱敏数据，不读取本机数据库、Tauri IPC 或 Local API。真实字段、按钮和错误处理以 `src/pages/platforms/` 与 `src/components/platforms/` 当前源码为准。

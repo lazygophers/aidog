@@ -1,12 +1,16 @@
 ---
 title: 接入 Claude Code
-description: 在 aidog 中复制 Claude Code 启动命令，用分组名通过本地代理路由请求。
+description: 在 aidog 中复制 Claude Code 启动命令并复用分组配置。
 ---
 
 # 接入 Claude Code
 
-进入 aidog 的“AI 平台”或分组列表，找到要使用的分组，点击“复制启动命令”并选择“Claude 启动命令”。把复制出的命令粘贴到终端执行，它会带上 aidog 生成的 `ANTHROPIC_BASE_URL` 与 `ANTHROPIC_AUTH_TOKEN`。
+进入 aidog 的“AI 平台”或分组列表，找到要使用的分组，点击“复制启动命令”并选择“Claude Code 启动命令”。
 
-`ANTHROPIC_AUTH_TOKEN` 的值是 aidog 分组名，不是上游 API Key。不要手写固定 `export` 作为主流程；以应用内复制出的启动命令为准，因为它会使用当前分组和当前代理端口。
+生成器在 `src/domains/groups/commands.ts`。当前命令形态是：
 
-完成后[验证首个请求](/zh/getting-started/first-request)。
+```bash
+claude --brief --dangerously-skip-permissions --settings ~/.aidog/settings.<group>.json
+```
+
+aidog 会先把该分组的 Claude Code 配置写入对应 `settings.<group>.json`，命令本身只负责指向这份配置文件。不要手写 `export` 作为主流程。
