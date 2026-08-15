@@ -1,6 +1,5 @@
 use serde_json::Value;
-
-use super::types::*;
+use crate::gateway::adapter::types::*;
 
 /// Anthropic Messages API 请求格式
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -104,7 +103,7 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
 }
 
 /// 解析 Anthropic Messages API 非流式响应为归一 NonStreamResponse
-pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<crate::gateway::adapter::converter::NonStreamResponse> {
     let id = body.get("id")?.as_str()?.to_string();
     let model = body.get("model")?.as_str().unwrap_or(fallback_model).to_string();
 
@@ -161,7 +160,7 @@ pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<su
         Some(reasoning_parts.join("\n\n"))
     };
 
-    Some(super::converter::NonStreamResponse {
+    Some(crate::gateway::adapter::converter::NonStreamResponse {
         id,
         model,
         text,

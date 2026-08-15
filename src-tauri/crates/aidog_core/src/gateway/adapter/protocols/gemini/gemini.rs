@@ -1,9 +1,8 @@
 use serde_json::Value;
-
-use super::types::*;
+use crate::gateway::adapter::types::*;
 
 /// Gemini API 请求格式
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiRequest {
     pub contents: Vec<GeminiContent>,
@@ -15,13 +14,13 @@ pub struct GeminiRequest {
     pub tools: Option<Vec<GeminiToolDecl>>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GeminiContent {
     pub role: String,
     pub parts: Vec<GeminiPart>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiPart {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -32,19 +31,19 @@ pub struct GeminiPart {
     pub function_response: Option<GeminiFunctionResponse>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GeminiFunctionCall {
     pub name: String,
     pub args: Value,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GeminiFunctionResponse {
     pub name: String,
     pub response: Value,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiGenerationConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -55,12 +54,12 @@ pub struct GeminiGenerationConfig {
     pub top_p: Option<f32>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GeminiToolDecl {
     pub function_declarations: Vec<GeminiFunctionDecl>,
 }
 
-#[derive(Debug, Clone, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiFunctionDecl {
     pub name: String,
@@ -160,7 +159,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
 }
 
 /// 解析 Gemini API 非流式响应为归一 NonStreamResponse
-pub fn parse_gemini_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+pub fn parse_gemini_response(body: &Value, fallback_model: &str) -> Option<crate::gateway::adapter::converter::NonStreamResponse> {
     let candidates = body.get("candidates")?.as_array()?;
     let candidate = candidates.first()?;
 
@@ -242,7 +241,7 @@ pub fn parse_gemini_response(body: &Value, fallback_model: &str) -> Option<super
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
 
-    Some(super::converter::NonStreamResponse {
+    Some(crate::gateway::adapter::converter::NonStreamResponse {
         id,
         model,
         text,
@@ -260,7 +259,7 @@ pub fn parse_gemini_response(body: &Value, fallback_model: &str) -> Option<super
 /// 映射规则：
 /// - candidates[0].content.parts[]: {text} + {thought:true,text:reasoning} + {functionCall}
 /// - usageMetadata: promptTokenCount/completionTokenTotal/totalTokenCount
-pub fn render_gemini_response(r: &super::converter::NonStreamResponse) -> Option<Value> {
+pub fn render_gemini_response(r: &crate::gateway::adapter::converter::NonStreamResponse) -> Option<Value> {
     let mut parts = Vec::new();
 
     // 添加文本 part

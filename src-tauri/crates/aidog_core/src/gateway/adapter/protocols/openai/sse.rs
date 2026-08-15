@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::super::types::*;
+use crate::gateway::adapter::types::*;
 
 /// 解析 OpenAI SSE 格式的流式事件
 pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {

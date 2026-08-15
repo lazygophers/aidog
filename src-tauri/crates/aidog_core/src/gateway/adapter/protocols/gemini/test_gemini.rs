@@ -326,7 +326,7 @@ fn parse_gemini_response_minimal() {
 // ── render_gemini_response 测试 ──
 #[test]
 fn render_gemini_text_only() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_gemini_response;
 
     let r = NonStreamResponse {
@@ -351,7 +351,7 @@ fn render_gemini_text_only() {
 
 #[test]
 fn render_gemini_with_reasoning() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_gemini_response;
 
     let r = NonStreamResponse {
@@ -376,7 +376,7 @@ fn render_gemini_with_reasoning() {
 
 #[test]
 fn render_gemini_with_function_call() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_gemini_response;
 
     let r = NonStreamResponse {
@@ -403,7 +403,7 @@ fn render_gemini_with_function_call() {
 
 #[test]
 fn render_gemini_max_tokens_maps_max_tokens() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_gemini_response;
 
     let r = NonStreamResponse {
@@ -424,7 +424,7 @@ fn render_gemini_max_tokens_maps_max_tokens() {
 
 #[test]
 fn render_gemini_with_all() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_gemini_response;
 
     let r = NonStreamResponse {
@@ -453,7 +453,7 @@ fn render_gemini_with_all() {
 
 #[test]
 fn render_gemini_empty_message() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_gemini_response;
 
     let r = NonStreamResponse {

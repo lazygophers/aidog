@@ -68,7 +68,7 @@ fn from_completions_missing_prompt_defaults_empty() {
 // ── render_completions_response 测试 ──
 #[test]
 fn render_completions_text_only() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_completions_response;
 
     let r = NonStreamResponse {
@@ -92,7 +92,7 @@ fn render_completions_text_only() {
 
 #[test]
 fn render_completions_with_reasoning() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_completions_response;
 
     let r = NonStreamResponse {
@@ -114,7 +114,7 @@ fn render_completions_with_reasoning() {
 
 #[test]
 fn render_completions_max_tokens_maps_length() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_completions_response;
 
     let r = NonStreamResponse {
@@ -135,7 +135,7 @@ fn render_completions_max_tokens_maps_length() {
 
 #[test]
 fn render_completions_empty_message() {
-    use super::super::converter::NonStreamResponse;
+    use crate::gateway::adapter::converter::NonStreamResponse;
     use super::render_completions_response;
 
     let r = NonStreamResponse {

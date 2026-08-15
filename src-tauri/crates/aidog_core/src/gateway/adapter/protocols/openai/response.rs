@@ -11,7 +11,7 @@ use serde_json::Value;
 ///   / prompt_tokens_details.cached_tokens→cache_read
 ///
 /// `reasoning_content`(GLM 思维链等非标准字段)被忽略，不影响 content/tool_use 产出。
-pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<super::super::converter::NonStreamResponse> {
+pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<crate::gateway::adapter::converter::NonStreamResponse> {
     let choices = body.get("choices")?.as_array()?;
     let choice = choices.first()?;
     let message = choice.get("message")?;
@@ -92,7 +92,7 @@ pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<super
         .unwrap_or(fallback_model)
         .to_string();
 
-    Some(super::super::converter::NonStreamResponse {
+    Some(crate::gateway::adapter::converter::NonStreamResponse {
         id,
         model,
         text,
@@ -113,7 +113,7 @@ pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<super
 /// - message.reasoning_content: 思维链字段（独立字段，与 content 并列）
 /// - finish_reason: tool_use→tool_calls / max_tokens→length / end_turn→stop
 /// - usage: input_tokens→prompt_tokens / output_tokens→completion_tokens
-pub fn render_openai_response(r: &super::super::converter::NonStreamResponse) -> Option<Value> {
+pub fn render_openai_response(r: &crate::gateway::adapter::converter::NonStreamResponse) -> Option<Value> {
     // 构建 message 对象
     let mut message = serde_json::json!({
         "role": "assistant",
