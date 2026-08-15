@@ -1,0 +1,16 @@
+---
+title: 接入 Claude Code
+description: 使用环境变量或 aidog 设置把 Claude Code 接入本地代理和指定分组。
+---
+
+# 接入 Claude Code
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
+export ANTHROPIC_AUTH_TOKEN="<group_name>"
+claude
+```
+
+`ANTHROPIC_AUTH_TOKEN` 填 aidog 中存在的分组名，不是上游 API Key。也可在“系统设置 → Claude Code”管理配置、Hooks、StatusLine 与分组配置同步。
+
+完成后[验证首个请求](/zh/getting-started/first-request)。

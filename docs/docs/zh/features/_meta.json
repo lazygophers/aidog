@@ -1,0 +1,62 @@
+[
+  {
+    "type": "file",
+    "name": "overview",
+    "label": "首页概览"
+  },
+  {
+    "type": "file",
+    "name": "platforms",
+    "label": "AI 平台"
+  },
+  {
+    "type": "file",
+    "name": "groups",
+    "label": "分组路由"
+  },
+  {
+    "type": "file",
+    "name": "proxy",
+    "label": "代理服务"
+  },
+  {
+    "type": "file",
+    "name": "logs",
+    "label": "代理日志与请求日志"
+  },
+  {
+    "type": "file",
+    "name": "stats",
+    "label": "统计"
+  },
+  {
+    "type": "file",
+    "name": "notifications",
+    "label": "通知中心"
+  },
+  {
+    "type": "file",
+    "name": "mcp",
+    "label": "MCP"
+  },
+  {
+    "type": "file",
+    "name": "skills",
+    "label": "Skills"
+  },
+  {
+    "type": "file",
+    "name": "claude-code",
+    "label": "Claude Code"
+  },
+  {
+    "type": "file",
+    "name": "codex",
+    "label": "Codex"
+  },
+  {
+    "type": "file",
+    "name": "settings",
+    "label": "系统设置"
+  }
+]

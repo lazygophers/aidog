@@ -1,0 +1,12 @@
+---
+title: 契约规则与错误
+description: 理解 startup 注册、Rust 签名、TypeScript wrapper、权限与错误之间的契约。
+---
+
+# 契约规则与错误
+
+一个公开 Tauri 调用必须同时满足：command 已在 startup 注册、Rust 签名可序列化、TypeScript wrapper 的名称与参数一致。任一侧变化都必须同步其余两侧和生成字典。
+
+错误和权限说明只记录源码能证明的 `Result`、localhost gate、权限判断或显式注释；“未声明”不代表调用不会失败。Local API 还必须遵守 localhost、HTTP 方法和 Bearer 分组鉴权边界。
+
+完整逐项信息见[生成字典](/zh/api/commands.generated)。
