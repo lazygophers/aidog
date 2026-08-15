@@ -708,3 +708,26 @@ use super::*;
             "残行不应被提前下发，应留在内部 buf 里等下次 feed 拼接: {ready:?}"
         );
     }
+
+/// 下发 model 对齐钉子：SSE 透传行内 model 改写 + JSON 已对齐早退。
+#[test]
+fn replace_model_aligns_to_requested() {
+    // SSE：完整行（含跨帧重复出现）内 model 值全部改写为客户端请求名
+    let sse = concat!(
+        "event: message_start\n",
+        "data: {\"type\":\"message_start\",\"message\":{\"model\":\"glm-5\",\"role\":\"assistant\"}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"delta\":{\"type\":\"text_delta\"}}\n\n",
+    );
+    let out = replace_model_in_sse_text(sse, "claude-sonnet-4-5");
+    assert_eq!(out.matches("\"model\":\"claude-sonnet-4-5\"").count(), 1);
+    assert!(!out.contains("glm-5"));
+    // 无 model 字段的行原样保留
+    assert!(out.contains("text_delta"));
+
+    // JSON：model 不一致时改写；一致时原字节返回（免重序列化）
+    let bytes = br#"{"id":"x","model":"upstream-name","content":[]}"#;
+    let out = replace_model_in_json(bytes, "requested-name");
+    assert!(String::from_utf8(out).unwrap().contains("\"model\":\"requested-name\""));
+    let aligned = br#"{"id":"x","model":"requested-name"}"#;
+    assert_eq!(replace_model_in_json(aligned, "requested-name"), aligned.to_vec());
+}

@@ -521,16 +521,29 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32) {
     (input, output, cache)
 }
 
-/// Replace "model" field in a JSON response body back to the original model name
+/// Replace "model" field in a JSON response body back to the original model name.
+/// 已对齐时直接返回原字节（免重序列化导致的 key 重排 / 大 body 拷贝开销）。
 pub(crate) fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
     let mut v: Value = match serde_json::from_slice(bytes) {
         Ok(v) => v,
         Err(_) => return bytes.to_vec(),
     };
     if let Some(obj) = v.as_object_mut() {
+        if obj.get("model").and_then(|m| m.as_str()) == Some(original_model) {
+            return bytes.to_vec();
+        }
         obj.insert("model".to_string(), Value::String(original_model.to_string()));
     }
     serde_json::to_vec(&v).unwrap_or_else(|_| bytes.to_vec())
+}
+
+/// 同协议透传流式路径：把 SSE 完整行文本内 `"model":"..."` 值改写为客户端请求的模型名，
+/// 保证下发 model 与用户请求对齐（而非上游实际请求模型 / 上游自报名）。
+/// 模型 id 不含引号与转义，`[^"]*` 匹配安全；无 "model" 字段的行由调用方 contains 预筛。
+static SSE_MODEL_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+pub(crate) fn replace_model_in_sse_text(text: &str, model: &str) -> String {
+    let re = SSE_MODEL_RE.get_or_init(|| regex::Regex::new(r#""model"\s*:\s*"[^"]*""#).unwrap());
+    re.replace_all(text, format!(r#""model":"{model}""#)).into_owned()
 }
 
 #[cfg(test)]

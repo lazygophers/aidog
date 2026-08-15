@@ -26,3 +26,7 @@ index.html
 .priority-migration-backup/
 .ready-migration-backup/
 serve.log
+
+# skein 衍生/临时文件 (自动补缺)
+.cache/
+.cache/*.json

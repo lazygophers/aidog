@@ -123,8 +123,9 @@ pub(crate) use retry::{
     truncate_peek_text, StreamPeek,
 };
 pub(crate) use stream::{
-    cap_nonstream_body, extract_usage, replace_model_in_json, resolve_is_stream,
-    StreamAggregator, StreamEstCtx, StreamLogGuard, SseLineReassembler, Utf8ChunkReassembler,
+    cap_nonstream_body, extract_usage, replace_model_in_json, replace_model_in_sse_text,
+    resolve_is_stream, StreamAggregator, StreamEstCtx, StreamLogGuard, SseLineReassembler,
+    Utf8ChunkReassembler,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 pub(crate) use settings_cache::{register as register_settings_cache, ProxySettingsCache};
