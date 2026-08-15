@@ -540,7 +540,6 @@ pub(crate) async fn forward_attempt(
         source_protocol: source_protocol.clone(),
         target_protocol: target_protocol_enum.clone(),
         same_protocol_passthrough,
-        needs_model_remap,
         coding_plan,
         requested_model: requested_model.to_string(),
         actual_model: actual_model.clone(),

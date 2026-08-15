@@ -8,7 +8,6 @@ pub(crate) struct AttemptCtx {
     pub source_protocol: Protocol,
     pub target_protocol: Protocol,
     pub same_protocol_passthrough: bool,
-    pub needs_model_remap: bool,
     pub coding_plan: bool,
     pub requested_model: String,
     pub actual_model: String,
@@ -35,7 +34,6 @@ pub(crate) async fn finish_nonstream(
     let source_protocol = &ctx.source_protocol;
     let target_protocol_enum = &ctx.target_protocol;
     let same_protocol_passthrough = ctx.same_protocol_passthrough;
-    let needs_model_remap = ctx.needs_model_remap;
     let coding_plan = ctx.coding_plan;
     let requested_model = ctx.requested_model.as_str();
     let actual_model = ctx.actual_model.as_str();
@@ -86,8 +84,8 @@ pub(crate) async fn finish_nonstream(
         };
         let body = Bytes::from(body);
 
-        // Replace model in response back to original if remapped
-        let body = if needs_model_remap {
+        // 下发 model 始终回填客户端请求的模型名（含未 remap 但上游自报名不符的场景）
+        let body = if !requested_model.is_empty() {
             replace_model_in_json(&body, requested_model)
         } else {
             body.to_vec()
@@ -187,7 +185,6 @@ where
     let eff_api_key = ctx.eff_api_key.as_str();
     let target_protocol_enum = &ctx.target_protocol;
     let same_protocol_passthrough = ctx.same_protocol_passthrough;
-    let needs_model_remap = ctx.needs_model_remap;
     let coding_plan = ctx.coding_plan;
     let quota_base_url = if ctx.quota_base_url.trim().is_empty() {
         route.platform.base_url.clone()
@@ -201,11 +198,6 @@ where
     let protocol = target_protocol_enum.clone();
     let client_protocol = source_protocol.clone();
     let model_for_sse = requested_model.to_string();
-    let model_for_response = if needs_model_remap {
-        requested_model.to_string()
-    } else {
-        String::new()
-    };
 
     // ── 中间件出站流式逐块改写上下文：在构建 stream 闭包前读取 settings（闭包在 req span 外轮询，
     //   不可再 await DB）。引擎 Arc clone 进闭包，每 chunk 文本应用 mask/override/sensitive。
@@ -286,13 +278,19 @@ where
         // 避免逐 chunk 独立 lossy 解码把半个字符替换为 U+FFFD（原 `String::from_utf8_lossy(&chunk)`）。
         let text = utf8_buf.feed(&chunk);
 
-        // ── 同协议透传：跳过 parse_sse→to_client_sse 格式转换，原样 relay 上游 SSE 字节。
+        // ── 同协议透传：跳过 parse_sse→to_client_sse 格式转换，relay 上游 SSE 字节。
         // usage 提取仍保留（accumulate_sse_usage），est_cost / 统计不丢。
-        // 注意：透传下不改写响应 model 字段（保持上游原文，与请求体 model=actual_model 一致）。──
+        // 下发 model 与客户端请求对齐：完整行内改写 model 字段（跨 chunk 切断的行经
+        // sse_line_buf 拼接后完整，同转换分支 idiom；字节内容除 model 外原样 relay）。──
         let out_bytes = if passthrough_response {
             // 跨 chunk 行重组后累计 usage（逐 chunk .lines() 会因 data: 行被切断而丢 usage）。
             guard.agg.feed_sse_usage(&text);
-            chunk.clone()
+            let line_ready_text = sse_line_buf.feed(&text);
+            if line_ready_text.contains("\"model\"") {
+                Bytes::from(replace_model_in_sse_text(&line_ready_text, &model_for_sse))
+            } else {
+                Bytes::from(line_ready_text)
+            }
         } else {
             // token 累计走跨 chunk 行重组（逐 chunk .lines() 会因 data: 行被切断丢 usage）。
             guard.agg.feed_sse_usage(&text);
@@ -303,11 +301,11 @@ where
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
             for event in adapter::parse_upstream_sse(&line_ready_text, &protocol) {
-                let event = if !model_for_response.is_empty() {
+                let event = if !model_for_sse.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
                             id,
-                            model: model_for_response.clone(),
+                            model: model_for_sse.clone(),
                         },
                         other => other,
                     }
