@@ -1,0 +1,21 @@
+---
+title: 接入 Codex
+description: 配置 Codex 的本地 provider，并通过分组名使用 aidog 路由。
+---
+
+# 接入 Codex
+
+在“系统设置 → Codex”编辑配置，或在 `~/.codex/config.toml` 配置 provider：
+
+```toml
+model = "gpt-5"
+model_provider = "aidog"
+
+[model_providers.aidog]
+name = "aidog"
+base_url = "http://127.0.0.1:9876/proxy/v1"
+env_key = "AIDOG_GROUP"
+wire_api = "responses"
+```
+
+启动前执行 `export AIDOG_GROUP="<group_name>"`。aidog 会识别 Responses API 并选择兼容端点。

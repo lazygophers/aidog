@@ -1,80 +1,21 @@
 ---
+title: aidog
+description: aidog 是本地运行的桌面端 AI API 网关，统一管理平台、路由、模型、用量与编程助手配置。
 pageType: home
-
-hero:
-  name: AiDog
-  text: 统一管理你的 AI API 网关
-  tagline: 多平台聚合 · 智能路由 · 用量统计 —— 一个跨平台桌面应用，管好所有 AI 平台的 Key、请求与花费
-  actions:
-    - theme: brand
-      text: 快速开始
-      link: /zh/getting-started/quick-start
-    - theme: alt
-      text: GitHub
-      link: https://github.com/lazygophers/aidog
-
-features:
-  - title: 多平台聚合
-    details: 统一管理 OpenAI、Anthropic、Gemini、DeepSeek、通义千问 等 50+ 平台的 API Key 与端点。
-    icon: 🧩
-    link: /zh/platforms/add-platform
-  - title: 智能路由
-    details: 按分组与模型映射规则，自动把每个请求转发到最优平台。
-    icon: 🧭
-    link: /zh/groups/routing-rules
-  - title: 用量统计
-    details: 实时追踪 Token 用量、估算调用费用、查询各平台余额。
-    icon: 📊
-    link: /zh/stats/usage-stats
-  - title: 多协议转换
-    details: OpenAI Chat / Completions / Responses、Anthropic、Gemini 原生协议互转。
-    icon: 🔌
-    link: /zh/platforms/protocols
-  - title: Codex 集成
-    details: 原生支持 OpenAI Codex、Claude Code 等编程助手，一键接入。
-    icon: ⚡
-    link: /zh/proxy/codex-integration
-  - title: 日志系统
-    details: 三级记录粒度、可配置保留策略，请求链路一目了然。
-    icon: 📑
-    link: /zh/logs/viewing
-  - title: 主题定制
-    details: Liquid Glass、Nord、Dracula 等多种主题，亮暗双模式。
-    icon: 🎨
-    link: /zh/settings/themes
-  - title: 系统托盘
-    details: 常驻系统托盘，实时显示余额与代理状态。
-    icon: 🖥️
-    link: /zh/settings/tray
 ---
-<div align="center">
 
-[![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
-[![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
-[![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
+## 从首个请求开始
 
-</div>
+1. 从 Releases 安装 aidog。
+2. 添加至少一个 AI 平台并填写 API Key。
+3. 创建分组，把客户端指向本地代理。
+4. 发送测试请求，在日志页确认路由结果。
 
-## 三步上手
+[完成首次配置](/zh/getting-started/first-config) · [验证首个请求](/zh/getting-started/first-request)
 
-1. **添加平台** —— 填入某个 AI 平台的 API Key 与端点
-2. **设置代理地址** —— 把你的客户端指向 AiDog 本地代理
-3. **开始使用** —— 请求自动路由、计量、记录
+## 按任务查找
 
-→ [安装指南](/zh/getting-started/installation) · [快速开始](/zh/getting-started/quick-start)
-
-## 技术栈
-
-| 层 | 技术 |
-|---|---|
-| 桌面框架 | Tauri 2.0 |
-| 前端 | React 19 + TypeScript |
-| 后端 | Rust + Axum |
-| 数据库 | SQLite |
-| 构建 | Vite + Yarn |
-
-## 致谢
-
-[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
-
-感谢 [LINUX DO](https://linux.do) 社区。
+- [配置上游平台](/zh/features/platforms)
+- [隔离客户端并设置路由](/zh/core-concepts/groups-routing)
+- [接入 Claude Code](/zh/getting-started/connect-claude-code)或[接入 Codex](/zh/getting-started/connect-codex)
+- [排查请求失败](/zh/features/logs)

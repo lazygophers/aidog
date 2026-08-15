@@ -1,27 +1,27 @@
 [
   {
-    "text": "快速开始",
-    "link": "/zh/getting-started/quick-start",
-    "activeMatch": "/zh/getting-started"
+    "text": "开始使用",
+    "link": "/getting-started/introduction",
+    "activeMatch": "/getting-started/"
   },
   {
-    "text": "平台管理",
-    "link": "/zh/platforms/add-platform",
-    "activeMatch": "/zh/platforms"
+    "text": "核心概念",
+    "link": "/core-concepts/platforms-protocols",
+    "activeMatch": "/core-concepts/"
   },
   {
-    "text": "分组管理",
-    "link": "/zh/groups/manage-groups",
-    "activeMatch": "/zh/groups"
+    "text": "功能模块",
+    "link": "/features/overview",
+    "activeMatch": "/features/"
   },
   {
-    "text": "统计",
-    "link": "/zh/stats/usage-stats",
-    "activeMatch": "/zh/stats"
+    "text": "API",
+    "link": "/api/",
+    "activeMatch": "/api/"
   },
   {
-    "text": "API 接口",
-    "link": "/zh/api/api-reference",
-    "activeMatch": "/zh/api"
+    "text": "维护文档",
+    "link": "/maintenance/doc-structure",
+    "activeMatch": "/maintenance/"
   }
 ]

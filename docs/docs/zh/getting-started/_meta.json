@@ -1,1 +1,32 @@
-["installation", "quick-start"]
+[
+  {
+    "type": "file",
+    "name": "introduction",
+    "label": "产品介绍"
+  },
+  {
+    "type": "file",
+    "name": "installation",
+    "label": "安装指南"
+  },
+  {
+    "type": "file",
+    "name": "first-config",
+    "label": "首次配置"
+  },
+  {
+    "type": "file",
+    "name": "connect-claude-code",
+    "label": "接入 Claude Code"
+  },
+  {
+    "type": "file",
+    "name": "connect-codex",
+    "label": "接入 Codex"
+  },
+  {
+    "type": "file",
+    "name": "first-request",
+    "label": "验证首个请求"
+  }
+]

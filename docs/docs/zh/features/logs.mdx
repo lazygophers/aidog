@@ -1,0 +1,16 @@
+---
+title: 代理日志与请求日志
+description: 按状态、分组、平台和模型查询代理与原始请求信息。
+---
+
+# 代理日志与请求日志
+
+import { ProductDemo } from '../../../theme/components/ProductDemo';
+
+<ProductDemo module="logs" state="normal" />
+
+## 主要任务
+
+此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+
+在桌面应用中使用左侧导航进入“代理日志与请求日志”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
