@@ -261,14 +261,12 @@ pub fn run() {
             aidog_core::cli_env::cli_upgrade,
             aidog_core::cli_env::cli_diagnose_conflicts,
             aidog_core::cli_env::cli_check_updates,
-            // Platform defaults JSON
+            // Platform defaults JSON（内置 const，无远端同步）
             aidog_core::defaults::get_defaults_json,
-            aidog_core::defaults::sync_defaults_json,
             aidog_core::defaults::get_protocol_logo_path,
             aidog_core::defaults::sync_protocol_logo,
-            // Client types JSON (13 client_type entries, sync 链同 defaults_sync)
+            // Client types JSON（内置 const）
             aidog_core::defaults::get_client_types_json,
-            aidog_core::defaults::sync_client_types_json,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             aidog_core::proxy_cmd::mitm::mitm_status,
             aidog_core::proxy_cmd::mitm::mitm_enable,

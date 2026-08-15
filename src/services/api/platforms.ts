@@ -475,49 +475,16 @@ export const modelPriceApi = {
     invoke<PriceSyncResult>("model_price_sync"),
 };
 
-/** 平台默认配置（endpoints / models / model_list / client_type），来自 bundled
- *  `defaults/platform-presets.json`，运行时可被 `~/.aidog/platform-presets.json` 覆盖（同步链写入）。
- *  返回原始 JSON 字符串，前端解析缓存。 */
+/** 平台默认配置（endpoints / models / model_list / client_type），内置 const
+ *  （Rust `presets_const.rs`，原外部 JSON 已内置化）。返回原始 JSON 字符串，前端解析缓存。 */
 export function getDefaultsJson(): Promise<string> {
   return invoke<string>("get_defaults_json");
 }
 
-export type DefaultsSyncResult = {
-  updated: boolean;
-  lastUpdated: number;
-  source: "jsdelivr" | "raw" | "local";
-  error?: string;
-  /** 启动 hook 检测到用户手工修改 app data 后跳过同步时为 true；
-   *  手动按钮路径恒 false。R3.5 / R4.1，Rust serde camelCase 对齐。
-   *  可选：旧后端响应无此字段 → undefined（向后兼容）。 */
-  userModified?: boolean;
-};
-
-/** 手动触发 platform-presets.json 同步（无视节流，jsDelivr 主 + raw fallback）。
- *  返回 {updated, lastUpdated, source, error} — Rust side serde camelCase 已对齐。 */
-export function syncDefaultsJson(): Promise<DefaultsSyncResult> {
-  return invoke<DefaultsSyncResult>("sync_defaults_json");
-}
-
-/** 客户端类型字典（13 entry，name/desc 多 locale），来自 bundled
- *  `defaults/client-types.json`，运行时可被 `~/.aidog/client-types.json` 覆盖（同步链写入）。
- *  返回原始 JSON 字符串，前端解析缓存（禁直读 github / 文件系统，一律 invoke）。 */
+/** 客户端类型字典（13 entry，name/desc 多 locale），内置 const
+ *  （Rust `client_types_const.rs`）。返回原始 JSON 字符串，前端解析缓存（禁直读文件系统，一律 invoke）。 */
 export function getClientTypesJson(): Promise<string> {
   return invoke<string>("get_client_types_json");
-}
-
-export type ClientTypesSyncResult = {
-  updated: boolean;
-  lastUpdated: number;
-  source: "jsdelivr" | "raw" | "local";
-  error?: string;
-  /** 启动 hook 检测到用户手工修改 app data 后跳过同步时为 true；手动按钮路径恒 false。 */
-  userModified?: boolean;
-};
-
-/** 手动触发 client-types.json 同步（无视节流）。 */
-export function syncClientTypesJson(): Promise<ClientTypesSyncResult> {
-  return invoke<ClientTypesSyncResult>("sync_client_types_json");
 }
 
 /** 返回 protocol logo 缓存文件绝对路径（前端 `convertFileSrc` 用）。

@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::super::super::types::*;
+use crate::gateway::adapter::types::*;
 use super::to_openai;
 
 fn user_blocks(blocks: Vec<ContentBlock>) -> Message {

@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::super::openai_completions::*;
+use crate::gateway::adapter::protocols::openai_completions::convert::*;
 
 #[test]
 fn to_completions_joins_messages() {
