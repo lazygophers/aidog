@@ -28,6 +28,25 @@ pub(crate) const fn bundled_str() -> &'static str {
     BUNDLED
 }
 
+/// 按 protocol 名（serde rename 裸名）查 bundled preset 默认端点。
+/// 厂商直连平台（`Protocol::endpoints_locked()`）保存时强制用此值，忽略用户传入。
+/// protocol 缺失 / 无 endpoints 字段 / 解析失败 → 空 Vec。
+pub(crate) fn default_endpoints(protocol: &str) -> Vec<crate::gateway::models::PlatformEndpoint> {
+    let doc = presets();
+    let Some(arr) = doc
+        .get("protocols")
+        .and_then(|p| p.get(protocol))
+        .and_then(|e| e.get("endpoints"))
+        .and_then(|e| e.get("default"))
+    else {
+        return Vec::new();
+    };
+    serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, protocol, "preset endpoints parse failed; empty");
+        Vec::new()
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

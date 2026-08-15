@@ -1053,6 +1053,7 @@
   "platform.end_hour": "Конец",
   "platform.endpoints": "Конечные точки протокола",
   "platform.endpointsHint": "Дополнительные протоколы, поддерживаемые этой платформой с другими базовыми URL",
+  "platform.endpointsLockedHint": "Эндпоинты платформ вендоров встроены и не могут быть изменены",
   "platform.expired": "Истёк",
   "platform.expiredHint": "Истёк: {{time}}, автоматически исключён из маршрутизации",
   "platform.expiresAt": "Истекает",

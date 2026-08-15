@@ -188,6 +188,23 @@ impl Protocol {
         let is_openai_family = |p: &Protocol| matches!(p, OpenAI | OpenAICompletions | OpenAIResponses);
         (is_openai_family(self) && is_openai_family(other)) || self == other
     }
+
+    /// 厂商直连平台（glm / kimi / minimax / deepseek 等官方端点固定）端点锁死：
+    /// 禁止用户填写 / 修改协议端点，保存时强制重置为内置 preset 端点（db/platform.rs）。
+    /// 前端镜像集合：`src/domains/platforms/constants.ts::ENDPOINTS_LOCKED_PROTOCOLS`（跨层对称，禁单侧改）。
+    /// 通用平台（5 wire 协议 + 聚合 / 第三方 / 中转段 + cli_proxy）不受限。
+    pub fn endpoints_locked(&self) -> bool {
+        use Protocol::*;
+        matches!(
+            self,
+            Mock | ClaudeCode
+                | Glm | GlmCoding | GlmEn | Kimi | KimiCoding
+                | MiniMax | MiniMaxEn | Codex | Bailian | BailianCoding
+                | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
+                | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding
+                | BaiLing | Longcat | SenseNova | Devin
+        )
+    }
 }
 
 /// 路由模式
@@ -219,6 +236,38 @@ impl RoutingMode {
             "least_latency" => RoutingMode::LeastLatency,
             "sticky" => RoutingMode::Sticky,
             _ => RoutingMode::LoadBalance,
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_endpoints_locked {
+    use super::*;
+
+    /// 跨层对称锚点：locked 集合与前端 `ENDPOINTS_LOCKED_PROTOCOLS`（constants.ts）必须同集。
+    /// 通用段（wire 协议 / 聚合 / 第三方 / 中转 / cli_proxy）抽查不锁，厂商段抽查锁死。
+    #[test]
+    fn endpoints_locked_set() {
+        let locked: &[(&str, bool)] = &[
+            ("glm", true), ("glm_coding", true), ("kimi", true), ("minimax", true),
+            ("deepseek", true), ("qianfan_coding", true), ("xiaomi_mimo", true),
+            ("mock", true), ("claude_code", true), ("devin", true),
+            ("anthropic", false), ("openai", false), ("gemini", false),
+            ("newapi", false), ("openrouter", false), ("packycode", false),
+            ("siliconflow", false), ("cli-proxy", false), ("opencode_zen", false),
+        ];
+        for (key, expect) in locked {
+            let p: Protocol = serde_json::from_str(&format!("\"{key}\"")).unwrap();
+            assert_eq!(p.endpoints_locked(), *expect, "{key} locked mismatch");
+        }
+    }
+
+    /// 锁死平台的 preset 必须可解析出端点（devin 例外：preset 端点为空，走 handler 特殊分支）。
+    #[test]
+    fn locked_platforms_have_preset_endpoints() {
+        for p in [Protocol::Glm, Protocol::GlmCoding, Protocol::Kimi, Protocol::DeepSeek] {
+            let eps = crate::gateway::presets_cache::default_endpoints(&p.wire_str());
+            assert!(!eps.is_empty(), "{} preset endpoints empty", p.wire_str());
         }
     }
 }

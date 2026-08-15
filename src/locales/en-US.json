@@ -1031,6 +1031,7 @@
   "platform.end_hour": "End",
   "platform.endpoints": "Protocol Endpoints",
   "platform.endpointsHint": "Additional protocols this platform supports with different base URLs",
+  "platform.endpointsLockedHint": "Vendor platform endpoints are built-in and cannot be modified",
   "platform.expired": "Expired",
   "platform.expiredHint": "Expired: {{time}}, automatically excluded from routing",
   "platform.expiresAt": "Expires at",
