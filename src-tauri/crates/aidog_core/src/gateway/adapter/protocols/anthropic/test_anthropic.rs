@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::super::anthropic::*;
+use crate::gateway::adapter::protocols::anthropic::convert::*;
 
 fn req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
@@ -161,7 +161,7 @@ fn parse_sse_unknown_type_none() {
 
 #[test]
 fn parse_anthropic_response_with_thinking() {
-    use super::super::anthropic::parse_anthropic_response;
+    use crate::gateway::adapter::protocols::anthropic::convert::parse_anthropic_response;
 
     let body = json!({
         "id": "msg_123",
@@ -198,7 +198,7 @@ fn parse_anthropic_response_with_thinking() {
 
 #[test]
 fn parse_anthropic_response_with_tool_use() {
-    use super::super::anthropic::parse_anthropic_response;
+    use crate::gateway::adapter::protocols::anthropic::convert::parse_anthropic_response;
 
     let body = json!({
         "id": "msg_456",
@@ -233,7 +233,7 @@ fn parse_anthropic_response_with_tool_use() {
 
 #[test]
 fn parse_anthropic_response_minimal() {
-    use super::super::anthropic::parse_anthropic_response;
+    use crate::gateway::adapter::protocols::anthropic::convert::parse_anthropic_response;
 
     // 测试最简情况：只有 text 块，无 thinking
     let body = json!({

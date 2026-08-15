@@ -1,7 +1,7 @@
 //! Anthropic 协议转换器
 
-pub mod anthropic;
-pub use anthropic::*;
+pub mod convert;
+pub use convert::*;
 
 use crate::gateway::adapter::converter::traits::ProtocolConverter;
 use crate::gateway::adapter::converter::NonStreamResponse;

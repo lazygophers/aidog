@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::super::gemini::*;
+use crate::gateway::adapter::protocols::gemini::convert::*;
 
 fn req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
@@ -191,7 +191,7 @@ fn to_gemini_sse_variants() {
 // ── parse_gemini_response 测试 ──
 #[test]
 fn parse_gemini_response_with_thinking() {
-    use super::super::gemini::parse_gemini_response;
+    use crate::gateway::adapter::protocols::gemini::convert::parse_gemini_response;
 
     let body = json!({
         "id": "gemini_123",
@@ -232,7 +232,7 @@ fn parse_gemini_response_with_thinking() {
 
 #[test]
 fn parse_gemini_response_with_function_call() {
-    use super::super::gemini::parse_gemini_response;
+    use crate::gateway::adapter::protocols::gemini::convert::parse_gemini_response;
 
     let body = json!({
         "id": "gemini_456",
@@ -272,7 +272,7 @@ fn parse_gemini_response_with_function_call() {
 
 #[test]
 fn parse_gemini_response_max_tokens() {
-    use super::super::gemini::parse_gemini_response;
+    use crate::gateway::adapter::protocols::gemini::convert::parse_gemini_response;
 
     let body = json!({
         "id": "gemini_789",
@@ -299,7 +299,7 @@ fn parse_gemini_response_max_tokens() {
 
 #[test]
 fn parse_gemini_response_minimal() {
-    use super::super::gemini::parse_gemini_response;
+    use crate::gateway::adapter::protocols::gemini::convert::parse_gemini_response;
 
     // 最简情况：只有普通 text，无 thinking
     let body = json!({

@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::super::super::types::*;
+use crate::gateway::adapter::types::*;
 use crate::gateway::adapter::openai::from_openai;
 
 #[test]

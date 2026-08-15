@@ -1,4 +1,7 @@
-{
+//! client-types 内置常量（原 defaults/client-types.json，2026-08-16 内置化）。
+//! 手维护：改这里，禁再落回外部 JSON 文件。
+
+pub const BUNDLED: &str = r##"{
   "last_updated": 1783677800,
   "client_types": [
     {
@@ -569,4 +572,4 @@
       }
     }
   ]
-}
+}"##;

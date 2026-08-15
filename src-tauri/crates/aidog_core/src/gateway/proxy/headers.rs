@@ -148,8 +148,8 @@ pub(crate) fn passthrough_convert_headers(
 // 远端同步链见 `client_types_sync.rs`（7 件套），schema gate 已扩 simulation 校验。
 // 数据流硬规：simulation 由 Rust 内部消费，前端不感知（仅消费 label/group/name 展示层）。
 
-/// 编译期编入的本地真值（与 `commands/defaults.rs::CLIENT_TYPES_BUNDLED` 同源，各自 include_str!）。
-const BUNDLED_CLIENT_TYPES: &str = include_str!("../../../../../defaults/client-types.json");
+/// 内置真值（client_types_const.rs，原外部 JSON 已内置化）。
+const BUNDLED_CLIENT_TYPES: &str = crate::gateway::client_types_const::BUNDLED;
 
 /// 单条 simulation header 定义（name + value 模板，value 含占位符由引擎替换）。
 #[derive(Debug, Clone, serde::Deserialize)]

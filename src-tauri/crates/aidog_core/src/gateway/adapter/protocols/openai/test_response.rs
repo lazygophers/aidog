@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::crate::gateway::adapter::converter::NonStreamResponse;
+use crate::gateway::adapter::converter::NonStreamResponse;
 use super::render_openai_response;
 
 fn make_non_stream() -> NonStreamResponse {
