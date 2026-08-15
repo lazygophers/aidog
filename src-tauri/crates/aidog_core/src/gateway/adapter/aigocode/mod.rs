@@ -1,4 +1,4 @@
-//! glm 平台转换器
+//! aigocode 平台转换器
 
 pub mod openai_chat;
 pub mod openai_responses;
