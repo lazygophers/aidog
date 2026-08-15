@@ -36,6 +36,19 @@ export const PROTOCOL_LABELS: Partial<Record<Protocol, string>> = {
   gemini: "Gemini",
 };
 
+/** 厂商直连平台（官方端点固定）端点锁死集合：禁改协议端点，编辑表单只读展示，
+ *  保存时后端强制重置为内置 preset 端点。
+ *  跨层对称：Rust `Protocol::endpoints_locked()`（gateway/models/protocol.rs）为唯一真值，
+ *  本集合必须与其 matches! 分支一致，禁单侧改。 */
+export const ENDPOINTS_LOCKED_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
+  "mock", "claude_code",
+  "glm", "glm_coding", "glm_en", "kimi", "kimi_coding",
+  "minimax", "minimax_en", "codex", "bailian", "bailian_coding",
+  "deepseek", "stepfun", "stepfun_en", "doubao", "byteplus",
+  "qianfan", "qianfan_coding", "xiaomi_mimo", "xiaomi_mimo_coding",
+  "bailing", "longcat", "sensenova", "devin",
+]);
+
 /** 默认平台名集合（用于 handleProtocolChange 判断「name 仍是协议默认名 → 切协议时自动覆盖」）。
  *  派生自 JSON name（运行时 getProtocolLabelMap 返回的 value 集合）；此处仅 5 请求格式协议兜底，
  *  完整集合由 usePlatformForm 运行时拉取 getProtocolLabelMap 后并入。 */

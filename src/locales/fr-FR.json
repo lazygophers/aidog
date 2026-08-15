@@ -1053,6 +1053,7 @@
   "platform.end_hour": "Fin",
   "platform.endpoints": "Endpoints de protocole",
   "platform.endpointsHint": "Protocoles supplémentaires pris en charge par cette plateforme avec des URLs de base différentes",
+  "platform.endpointsLockedHint": "Les endpoints des plateformes fournisseurs sont intégrés et non modifiables",
   "platform.expired": "Expiré",
   "platform.expiredHint": "Expiré : {{time}}, automatiquement exclu du routage",
   "platform.expiresAt": "Expire le",

@@ -266,7 +266,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* Protocol Endpoints（mock / 透传 / cli-proxy 平台隐藏，无可编辑上游） */}
         {!isMock && !isPassthrough && !isCliProxyEditing && (
         <>
-        <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} t={t} />
+        <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} />
 
         {/* Token（创建态多行 = 每行一个，批量创建；编辑态单行单平台） */}
         <FormSection title={t("platform.sectionAuth", "认证")}>

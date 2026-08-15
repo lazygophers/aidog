@@ -1031,6 +1031,7 @@
   "platform.end_hour": "Fin",
   "platform.endpoints": "Endpoints de protocolo",
   "platform.endpointsHint": "Protocolos adicionales que admite esta plataforma con URLs base distintas",
+  "platform.endpointsLockedHint": "Los endpoints de plataformas de proveedores son integrados y no se pueden modificar",
   "platform.expired": "Expirado",
   "platform.expiredHint": "Expirado: {{time}}, excluido automáticamente del enrutamiento",
   "platform.expiresAt": "Expira el",

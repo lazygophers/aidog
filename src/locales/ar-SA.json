@@ -1053,6 +1053,7 @@
   "platform.end_hour": "النهاية",
   "platform.endpoints": "نقاط نهاية البروتوكول",
   "platform.endpointsHint": "بروتوكولات إضافية تدعمها هذه المنصة بعناوين URL أساسية مختلفة",
+  "platform.endpointsLockedHint": "نقاط نهاية منصات الموردين مدمجة ولا يمكن تعديلها",
   "platform.expired": "منتهي الصلاحية",
   "platform.expiredHint": "منتهي الصلاحية: {{time}}، مستبعد تلقائيًا من التوجيه",
   "platform.expiresAt": "تاريخ الانتهاء",

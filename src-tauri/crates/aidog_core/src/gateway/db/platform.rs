@@ -146,7 +146,12 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
     let models_str = serialize_models(&models);
     let available_models = input.available_models.unwrap_or_default();
     let available_str = serialize_available_models(&available_models);
-    let endpoints = input.endpoints.unwrap_or_default();
+    // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
+    let endpoints = if input.platform_type.endpoints_locked() {
+        crate::gateway::presets_cache::default_endpoints(&input.platform_type.wire_str())
+    } else {
+        input.endpoints.unwrap_or_default()
+    };
     let endpoints_str = serialize_endpoints(&endpoints);
     let manual_budgets = input.manual_budgets.unwrap_or_default();
     let manual_budgets_str = crate::gateway::models::serialize_manual_budgets(&manual_budgets);
@@ -312,15 +317,23 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
         auto_disable_strikes = 0;
     }
 
+    let platform_type = input.platform_type.unwrap_or(existing.platform_type);
+    // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
+    let endpoints = if platform_type.endpoints_locked() {
+        crate::gateway::presets_cache::default_endpoints(&platform_type.wire_str())
+    } else {
+        input.endpoints.unwrap_or(existing.endpoints)
+    };
+
     let updated = Platform {
         name: input.name.unwrap_or(existing.name),
-        platform_type: input.platform_type.unwrap_or(existing.platform_type),
+        platform_type,
         base_url: input.base_url.unwrap_or(existing.base_url),
         api_key: input.api_key.unwrap_or(existing.api_key),
         extra: input.extra.unwrap_or(existing.extra),
         models: input.models.unwrap_or(existing.models),
         available_models: input.available_models.unwrap_or(existing.available_models),
-        endpoints: input.endpoints.unwrap_or(existing.endpoints),
+        endpoints,
         // enabled 列从 status 同步（向后兼容）：仅 Enabled → true
         enabled: new_status == PlatformStatus::Enabled,
         status: new_status,

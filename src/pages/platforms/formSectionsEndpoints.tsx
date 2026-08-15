@@ -8,6 +8,7 @@ import {
 } from "../../services/api";
 import {
   ENDPOINT_PROTOCOLS,
+  ENDPOINTS_LOCKED_PROTOCOLS,
   defaultClientForProtocol,
   buildClientTypesFromPresets,
 } from "../../domains/platforms";
@@ -18,12 +19,15 @@ import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 
-export function EndpointsSection({ endpoints, setEndpoints, t }: {
+export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
   endpoints: PlatformEndpoint[];
   setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
+  /** 平台主协议：厂商直连平台（ENDPOINTS_LOCKED_PROTOCOLS）端点锁死只读 */
+  protocol: Protocol;
   t: TFunction;
 }) {
   const { i18n } = useTranslation();
+  const locked = ENDPOINTS_LOCKED_PROTOCOLS.has(protocol);
   // CLIENT_TYPES 删除（JSON 派生）：仿 C3 buildProtocolsFromPresets 范式 — useState 空初始
   // + useEffect + cancelled flag + locale key [i18n.language]，确保切语言时重拉派生层。
   // 禁前端直读 github / 文件系统，一律 invoke get_client_types_json（封装在 buildClientTypesFromPresets 内）。
@@ -39,8 +43,10 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
   return (
     <FormSection
       title={t("platform.endpoints", "Protocol Endpoints")}
-      desc={t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
-      action={(
+      desc={locked
+        ? t("platform.endpointsLockedHint", "厂商平台端点为内置配置，不可修改")
+        : t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
+      action={locked ? undefined : (
         <Button
           variant="ghost"
           size="sm"
@@ -76,7 +82,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
               });
             }}
           >
-            <SelectTrigger className="input" style={{ width: 120, flexShrink: 0 }}>
+            <SelectTrigger className="input" style={{ width: 120, flexShrink: 0 }} disabled={locked}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -90,6 +96,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
             style={{ flex: 1 }}
             placeholder="Endpoint Base URL"
             value={ep.base_url}
+            disabled={locked}
             onChange={(e) => {
               const next = [...endpoints];
               next[idx] = { ...next[idx], base_url: e.target.value };
@@ -104,7 +111,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
               setEndpoints(next);
             }}
           >
-            <SelectTrigger className="input" style={{ width: 140, flexShrink: 0 }} title={t("platform.clientType", "客户端模拟")}>
+            <SelectTrigger className="input" style={{ width: 140, flexShrink: 0 }} title={t("platform.clientType", "客户端模拟")} disabled={locked}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -138,6 +145,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
           <Button
             variant="ghost"
             size="icon"
+            disabled={locked}
             style={{
               flexShrink: 0,
               width: 28, height: 28, minWidth: 28,
@@ -157,6 +165,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
           >
             C
           </Button>
+          {!locked && (
           <Button
             variant="ghost"
             size="icon"
@@ -168,6 +177,7 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
               <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
             </svg>
           </Button>
+          )}
         </div>
       ))}
     </FormSection>

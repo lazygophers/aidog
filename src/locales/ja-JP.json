@@ -1053,6 +1053,7 @@
   "platform.end_hour": "終了",
   "platform.endpoints": "プロトコルエンドポイント",
   "platform.endpointsHint": "このプラットフォームが異なるベースURLでサポートする追加プロトコル",
+  "platform.endpointsLockedHint": "ベンダープラットフォームのエンドポイントは内蔵設定のため変更できません",
   "platform.expired": "期限切れ",
   "platform.expiredHint": "期限切れ：{{time}}、ルーティングから自動除外",
   "platform.expiresAt": "有効期限",

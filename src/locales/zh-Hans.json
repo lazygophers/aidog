@@ -1031,6 +1031,7 @@
   "platform.end_hour": "止",
   "platform.endpoints": "协议端点",
   "platform.endpointsHint": "此平台以不同 base URL 支持的附加协议",
+  "platform.endpointsLockedHint": "厂商平台端点为内置配置，不可修改",
   "platform.expired": "已过期",
   "platform.expiredHint": "已过期：{{time}}，路由自动排除",
   "platform.expiresAt": "过期时间",
