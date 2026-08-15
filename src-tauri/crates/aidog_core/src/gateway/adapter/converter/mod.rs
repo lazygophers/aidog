@@ -4,6 +4,8 @@
 
 mod request;
 mod response;
+pub mod traits;
 
 pub use request::{convert_request, parse_incoming_request, passthrough_api_path};
 pub use response::{convert_response, parse_sse, parse_upstream_sse, to_client_sse, NonStreamResponse};
+pub use traits::*;

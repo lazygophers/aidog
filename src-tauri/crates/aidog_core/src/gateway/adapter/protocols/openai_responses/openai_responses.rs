@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::types::*;
+use crate::gateway::adapter::types::*;
 
 /// OpenAI Responses API (`/v1/responses`) 请求格式
 /// 使用 `input` 而非 `messages`
@@ -60,7 +60,7 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
 }
 
 /// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
-pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<crate::gateway::adapter::converter::NonStreamResponse> {
     let id = body.get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
@@ -169,7 +169,7 @@ pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<su
         .unwrap_or(0);
     let cache_read_tokens = 0; // Responses API 暂不支持缓存读取
 
-    Some(super::converter::NonStreamResponse {
+    Some(crate::gateway::adapter::converter::NonStreamResponse {
         id,
         model,
         text,
@@ -188,7 +188,7 @@ pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<su
 /// - output[]: text item（type=text） + reasoning summary item（type=summary） + function_call item
 /// - status: completed
 /// - usage: prompt_tokens/completion_tokens
-pub fn render_responses_response(r: &super::converter::NonStreamResponse) -> Option<Value> {
+pub fn render_responses_response(r: &crate::gateway::adapter::converter::NonStreamResponse) -> Option<Value> {
     let mut output = Vec::new();
 
     // 添加文本 item
@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn to_responses_basic() {
-        use super::super::types::{MessageContent, Role};
+        use crate::gateway::adapter::types::{MessageContent, Role};
         let req = ChatRequest {
             model: "gpt-5".into(),
             messages: vec![
@@ -463,7 +463,7 @@ mod tests {
     // ── render_responses_response 测试 ──
     #[test]
     fn render_responses_text_only() {
-        use super::super::converter::NonStreamResponse;
+        use crate::gateway::adapter::converter::NonStreamResponse;
         use super::render_responses_response;
 
         let r = NonStreamResponse {
@@ -489,7 +489,7 @@ mod tests {
 
     #[test]
     fn render_responses_with_reasoning() {
-        use super::super::converter::NonStreamResponse;
+        use crate::gateway::adapter::converter::NonStreamResponse;
         use super::render_responses_response;
 
         let r = NonStreamResponse {
@@ -514,7 +514,7 @@ mod tests {
 
     #[test]
     fn render_responses_with_function_call() {
-        use super::super::converter::NonStreamResponse;
+        use crate::gateway::adapter::converter::NonStreamResponse;
         use super::render_responses_response;
 
         let r = NonStreamResponse {
@@ -542,7 +542,7 @@ mod tests {
 
     #[test]
     fn render_responses_with_all() {
-        use super::super::converter::NonStreamResponse;
+        use crate::gateway::adapter::converter::NonStreamResponse;
         use super::render_responses_response;
 
         let r = NonStreamResponse {
@@ -569,7 +569,7 @@ mod tests {
 
     #[test]
     fn render_responses_empty_message() {
-        use super::super::converter::NonStreamResponse;
+        use crate::gateway::adapter::converter::NonStreamResponse;
         use super::render_responses_response;
 
         let r = NonStreamResponse {

@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::super::types::*;
+use crate::gateway::adapter::types::*;
 use super::OpenAIRequest;
 
 /// 从 OpenAI 格式请求解析为内部 ChatRequest

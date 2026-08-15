@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::types::*;
+use crate::gateway::adapter::types::*;
 
 /// OpenAI Legacy Completions API (`/v1/completions`) 请求格式
 /// 使用 `prompt` 字段而非 `messages`
@@ -55,7 +55,7 @@ pub fn to_completions(req: &ChatRequest) -> CompletionsRequest {
 }
 
 /// 解析 OpenAI Legacy Completions API 非流式响应为归一 NonStreamResponse
-pub fn parse_completions_response(body: &Value, fallback_model: &str) -> Option<super::converter::NonStreamResponse> {
+pub fn parse_completions_response(body: &Value, fallback_model: &str) -> Option<crate::gateway::adapter::converter::NonStreamResponse> {
     // Legacy /v1/completions 格式：choices[0].text
     // 部分提供商可能复用 chat 格式 choices[0].message.content
     let choices = body.get("choices")?.as_array()?;
@@ -114,7 +114,7 @@ pub fn parse_completions_response(body: &Value, fallback_model: &str) -> Option<
         .unwrap_or(fallback_model)
         .to_string();
 
-    Some(super::converter::NonStreamResponse {
+    Some(crate::gateway::adapter::converter::NonStreamResponse {
         id,
         model,
         text,
@@ -133,7 +133,7 @@ pub fn parse_completions_response(body: &Value, fallback_model: &str) -> Option<
 /// - choices[0].text: reasoning + text 拼接（reasoning 排前缀）
 /// - choices[0].finish_reason: 映射 stop_reason
 /// - usage: prompt_tokens/completion_tokens
-pub fn render_completions_response(r: &super::converter::NonStreamResponse) -> Option<Value> {
+pub fn render_completions_response(r: &crate::gateway::adapter::converter::NonStreamResponse) -> Option<Value> {
     // 拼接 reasoning + text（legacy 格式）
     let mut combined = String::new();
     if let Some(reasoning) = &r.reasoning
