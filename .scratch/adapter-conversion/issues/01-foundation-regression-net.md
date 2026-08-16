@@ -4,9 +4,9 @@
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done (2026-08-16)
 
-- [ ] `Content` helper（blocks() / push_block() / as_text()）就位，纯文本路径行为不变
-- [ ] `ChatStreamEvent` 新变体已定义，编译通过且现有流式路径不受影响
-- [ ] fixture 成对 json 落盘，OpenAI↔Anthropic↔Gemini 纯文本各方向 round-trip 测试绿
-- [ ] cargo test / make lint 全绿
+- [x] `Content` helper（blocks() / push_block() / as_text()）就位，纯文本路径行为不变
+- [x] `ChatStreamEvent` 新变体已定义，编译通过且现有流式路径不受影响
+- [x] fixture 成对 json 落盘，OpenAI↔Anthropic↔Gemini 纯文本各方向 round-trip 测试绿
+- [x] cargo test / make lint 全绿
