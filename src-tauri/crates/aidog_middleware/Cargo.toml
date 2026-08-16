@@ -1,0 +1,20 @@
+[package]
+name = "aidog_middleware"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_middleware：中间件规则引擎（引擎 + inbound/outbound apply，拆自
+# aidog_core::gateway::middleware，2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+aidog_adapter = { path = "../aidog_adapter" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+regex = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+aidog_stats = { path = "../aidog_stats" }

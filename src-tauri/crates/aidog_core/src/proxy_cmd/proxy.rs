@@ -1,6 +1,6 @@
 use crate::shared::*;
 use crate::sync_settings::do_sync_group_settings;
-use crate::gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 // 托盘刷新经 Tauri event 解耦：emit "tray-refresh"，app crate setup() 内已有 listener
 // (app_setup.rs:395) 调 refresh_tray_menu + TrayMenuBuildImpl。复用现有事件 +
 // listener（同 proxy/log.rs:164 同域 precedent），避 commands_proxy → commands_platform

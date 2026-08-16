@@ -1,7 +1,7 @@
 //! group_info 端点覆盖：鉴权 / 未知 group / 多平台 not-applicable / 单平台 applicable。
 use super::*;
 use aidog_db::test_support::{sample_group, sample_platform, test_db};
-use crate::gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 use crate::gateway::models::GroupPlatformInput;
 use axum::http::HeaderMap;
 use std::sync::Arc;

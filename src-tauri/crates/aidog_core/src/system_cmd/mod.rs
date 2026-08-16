@@ -3,7 +3,6 @@
 pub mod about;
 pub mod app_log;
 pub mod auto_update;
-pub mod backup;
 pub mod fs_autocomplete;
 pub mod notification;
 pub mod scheduling;

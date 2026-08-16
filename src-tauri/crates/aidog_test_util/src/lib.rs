@@ -25,7 +25,7 @@ pub async fn mock_app_with_db() -> App<MockRuntime> {
 
 /// 同 [`mock_app_with_db`]，额外 manage 一个 MiddlewareEngine（供 middleware 命令测试）。
 pub async fn mock_app_with_db_and_engine() -> App<MockRuntime> {
-    use aidog_core::gateway::middleware::MiddlewareEngine;
+    use aidog_middleware::MiddlewareEngine;
     use std::sync::Arc;
     let db = Db::new(":memory:").await.expect("open memory db");
     db.init_tables().await.expect("init tables");

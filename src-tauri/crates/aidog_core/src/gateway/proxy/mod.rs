@@ -15,14 +15,14 @@ pub(crate) use tracing::Instrument;
 // gateway 子模块整体 re-export：保证子模块内 `aidog_db::X` / `super::estimate::Y` 等
 // 完整路径解析（原 proxy.rs 的 super=gateway，拆分后子模块 super=proxy，靠此 re-export 等价）。
 pub(crate) use super::{
-    adapter, estimate, http_client, log_util, manual_budget, models, router,
+    estimate, http_client, log_util, manual_budget, models, router,
     scheduling, usage_color,
 };
 
-pub(crate) use super::adapter::{ChatRequest, ChatStreamEvent};
+pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
 pub(crate) use super::i18n::{self, ErrorKey, Lang};
-pub(crate) use super::middleware::{InboundOutcome, MiddlewareEngine};
+pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
 pub(crate) use super::models::{
     ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings,
 };

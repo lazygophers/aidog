@@ -1,0 +1,18 @@
+[package]
+name = "aidog_adapter"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_adapter：协议转换域（types/protocols/converter + 64 平台转换器，拆自
+# aidog_core::gateway::adapter，2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }

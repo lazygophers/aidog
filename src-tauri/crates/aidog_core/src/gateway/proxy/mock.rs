@@ -29,7 +29,7 @@ pub(crate) async fn handle_mock(
     is_stream: bool,
     start: std::time::Instant,
 ) -> Response {
-    use super::adapter::mock;
+    use aidog_adapter::mock;
 
     let cfg = mock::resolve_mock_config(extra, chat_req, req_value);
 

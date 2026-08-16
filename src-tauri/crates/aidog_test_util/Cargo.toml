@@ -11,4 +11,5 @@ license = { workspace = true }
 aidog_core = { path = "../aidog_core" }
 aidog_db = { path = "../aidog_db" }
 aidog_stats = { path = "../aidog_stats" }
+aidog_middleware = { path = "../aidog_middleware" }
 tauri = { workspace = true, features = ["test"] }

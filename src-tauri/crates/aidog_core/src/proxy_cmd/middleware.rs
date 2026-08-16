@@ -5,7 +5,7 @@ use tauri::State;
 use std::sync::Arc;
 
 
-use gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 use gateway::models::{
     CreateMiddlewareRule, MiddlewareRule, MiddlewareSettings, UpdateMiddlewareRule,
 };
