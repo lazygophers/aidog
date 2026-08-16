@@ -85,7 +85,7 @@ async fn handle_notify_inner(
         chrono::Local::now().format("%H:%M:%S").to_string()
     });
 
-    let result = super::notification::dispatch(
+    let result = aidog_notification::dispatch(
         &state.db,
         state.app.as_ref(),
         req.event.as_deref(),

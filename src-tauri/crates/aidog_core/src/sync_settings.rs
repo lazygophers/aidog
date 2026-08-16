@@ -226,7 +226,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // 默认通知 hook 物化（镜像 statusLine）：marker `_aidog_hooks.enabled` 为 true 时，
     // 为每个分组 config 注入 hooks.Stop/Notification（strip marker 之前），并对 Codex
     // 全局 config.toml 一次性注入/移除 notify。脚本只生成一次（循环外）。
-    let hooks_enabled = gateway::hooks::hooks_marker_enabled(&base_config);
+    let hooks_enabled = aidog_hooks::hooks_marker_enabled(&base_config);
     let hook_scripts = if hooks_enabled {
         let invoker = resolve_script_invoker(db).await;
         match generate_hook_scripts(invoker) {
@@ -293,14 +293,14 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         // 默认通知 hook 物化：marker 开启时为本组 config 注入 CC hooks（strip marker 之前）。
         // N2：遍历 inject_events（enabled 事件）注入，每个指向通用脚本 command。
         if let Some(scripts) = &hook_scripts {
-            gateway::hooks::inject_claude_code_hooks(&mut config, scripts, &inject_events);
+            aidog_hooks::inject_claude_code_hooks(&mut config, scripts, &inject_events);
         }
 
         // Strip internal aidog UI state — not real Claude Code fields.
         if let Some(obj) = config.as_object_mut() {
             obj.remove("_aidog_statusline");
             obj.remove("_aidog_subagent_statusline");
-            obj.remove(gateway::hooks::MARKER_HOOKS);
+            obj.remove(aidog_hooks::MARKER_HOOKS);
         }
 
         let file_path = aidog_dir.join(format!("settings.{}.json", group_key));
@@ -361,10 +361,10 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         Ok(mut config) => {
             match (&hook_scripts, hooks_enabled) {
                 (Some(scripts), true) => {
-                    gateway::hooks::inject_codex_notify(&mut config, &scripts.complete);
+                    aidog_hooks::inject_codex_notify(&mut config, &scripts.complete);
                 }
                 _ => {
-                    gateway::hooks::remove_codex_notify(&mut config);
+                    aidog_hooks::remove_codex_notify(&mut config);
                 }
             }
             if let Err(e) = gateway::codex::codex_config_write(config) {

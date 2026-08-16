@@ -1,0 +1,30 @@
+[package]
+name = "aidog_mitm"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_mitm：MITM TLS 域（ca/cert_signer/tls/whitelist，拆自 aidog_core::gateway::mitm，
+# 2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rcgen = { workspace = true }
+tokio-rustls = { workspace = true }
+tokio = { workspace = true }
+sha1 = { workspace = true }
+sha2 = { workspace = true }
+webpki-roots = { workspace = true }
+ipnet = { workspace = true }
+regex = { workspace = true }
+dirs = { workspace = true }
+futures = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

@@ -312,8 +312,8 @@ async fn connect_tunnel_flushes_prefetch_to_upstream() {
 #[tokio::test]
 async fn connect_mitm_route_split_whitelist_and_suspect() {
     use aidog_db::test_support;
-    use crate::gateway::mitm::mitm_state;
-    use crate::gateway::mitm::whitelist::matches_db;
+    use aidog_mitm::mitm_state;
+    use aidog_mitm::whitelist::matches_db;
 
     let db = test_support::test_db().await;
 
@@ -829,8 +829,8 @@ fn c8_degrade_reason_io_error_label() {
 #[tokio::test]
 async fn c8_blind_relay_paths_skip_mitm() {
     use aidog_db::test_support;
-    use crate::gateway::mitm::mitm_state;
-    use crate::gateway::mitm::whitelist::matches_db;
+    use aidog_mitm::mitm_state;
+    use aidog_mitm::whitelist::matches_db;
 
     let db = test_support::test_db().await;
 
@@ -862,7 +862,7 @@ async fn c8_blind_relay_paths_skip_mitm() {
 /// 是同款直接拨内部 map 时间戳的真 TTL 测试。
 #[tokio::test]
 async fn c5_suspect_ttl_expires_eligible_for_mitm() {
-    use crate::gateway::mitm::MitmState;
+    use aidog_mitm::MitmState;
 
     let state = MitmState::fresh_for_test();
     state.mark_suspect("ttl-test.example".into()).await;
@@ -884,7 +884,7 @@ async fn c5_suspect_ttl_expires_eligible_for_mitm() {
 /// 包装无法在单元测试里直接 invoke（需 tauri runtime），底层 reset_suspects 是真行为锚点。
 #[tokio::test]
 async fn c6_reset_suspects_returns_count_and_clears() {
-    use crate::gateway::mitm::MitmState;
+    use aidog_mitm::MitmState;
 
     let state = MitmState::fresh_for_test();
     state.mark_suspect("reset-a.example".into()).await;

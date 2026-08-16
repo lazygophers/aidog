@@ -19,7 +19,7 @@ use rcgen::{
 use serde::{Deserialize, Serialize};
 
 use aidog_db::{get_setting, set_setting, Db};
-use crate::gateway::models::SetSettingInput;
+use aidog_db::models::SetSettingInput;
 
 /// MITM 配置在 setting 表的 scope（与 app/global/middleware 同级）。
 const MITM_SCOPE: &str = "mitm";

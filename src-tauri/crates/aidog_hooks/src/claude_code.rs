@@ -77,7 +77,7 @@ pub fn remove_claude_code_hooks(config: &mut Value) {
     let Some(obj) = config.as_object_mut() else { return };
     obj.remove(MARKER_HOOKS);
     let Some(hooks) = obj.get_mut("hooks").and_then(|v| v.as_object_mut()) else { return };
-    for event in crate::gateway::models::CC_HOOK_EVENTS {
+    for event in aidog_db::models::CC_HOOK_EVENTS {
         remove_event_hook(hooks, event);
     }
     if hooks.is_empty() {

@@ -98,7 +98,7 @@ pub fn spawn_scheduler(app: tauri::AppHandle) {
 async fn notify_failure(db: &Db, error: &str) {
     let vars = std::collections::HashMap::new();
     let db_arc = std::sync::Arc::new(db.clone());
-    let _ = crate::gateway::notification::dispatch(
+    let _ = aidog_notification::dispatch(
         &db_arc,
         None,
         None,

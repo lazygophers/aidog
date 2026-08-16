@@ -30,9 +30,9 @@
 
 use super::*;
 use aidog_db::test_support::{sample_group, test_db};
-use crate::gateway::mitm::ca::{create_and_store_root_ca, RootCa};
-use crate::gateway::mitm::cert_signer::CertSigner;
-use crate::gateway::mitm::tls::accept_client;
+use aidog_mitm::ca::{create_and_store_root_ca, RootCa};
+use aidog_mitm::cert_signer::CertSigner;
+use aidog_mitm::tls::accept_client;
 use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
 use crate::gateway::{middleware::MiddlewareEngine, scheduling};
 use axum::body::Body;

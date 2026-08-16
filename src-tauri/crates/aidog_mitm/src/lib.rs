@@ -77,8 +77,7 @@ impl MitmState {
     /// 测试专用：构造隔离实例（避全局 OnceLock 单例在并行 cargo test 间串扰）。
     ///
     /// ponytail: 生产代码禁用 —— 只走 `mitm_state()` 单例。cfg(test) 限定防误用。
-    #[cfg(test)]
-    pub(crate) fn fresh_for_test() -> Self {
+    pub fn fresh_for_test() -> Self {
         MitmState {
             suspects: Mutex::new(std::collections::HashMap::new()),
             signer: Mutex::new(None),

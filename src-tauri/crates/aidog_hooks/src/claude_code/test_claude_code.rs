@@ -1,7 +1,7 @@
 //! `claude_code.rs` 单测（1:1）：CC hook 注入/移除、per_event、marker 解析。
 
 use super::*;
-use crate::gateway::hooks::scripts::ScriptPaths;
+use crate::scripts::ScriptPaths;
 use serde_json::json;
 
 /// 测试辅助：构造 ScriptPaths（含 event_notify）。

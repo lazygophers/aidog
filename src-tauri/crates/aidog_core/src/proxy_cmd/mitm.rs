@@ -10,15 +10,13 @@
 //!   前端用 `@tauri-apps/plugin-shell` `Command.create(name, args).execute()` 触发 sudo 弹窗（D8）。
 //!   执行结果（exit code）由前端回传 `mitm_set_ca_installed(bool)` 落账。
 
-use crate::gateway::{self, mitm::{
-        ca::{
-            classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
-            sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
-        },
-        whitelist::{evaluate_host, list_whitelist, WhitelistEntry},
-    }};
-use aidog_db::{{get_setting, set_setting, Db}};
-use crate::gateway::models::SetSettingInput;
+use aidog_mitm::ca::{
+    classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
+    sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
+};
+use aidog_mitm::whitelist::{evaluate_host, list_whitelist, WhitelistEntry};
+use aidog_db::{get_setting, set_setting, Db};
+use aidog_db::models::SetSettingInput;
 use crate::shared::aidog_data_dir;
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -137,7 +135,7 @@ crate::tauri_command! {
 /// TTL 内 (`SUSPECT_TTL_SECS`=600s) 该 host 跳过 MITM；用户装好证书 / 上游修复后点「重置」
 /// 立即恢复 MITM 候选，不必等 TTL 自然 expire 或重启进程。
 pub async fn mitm_reset_suspects() -> Result<usize, String> {
-    let n = crate::gateway::mitm::mitm_state().reset_suspects().await;
+    let n = aidog_mitm::mitm_state().reset_suspects().await;
     tracing::info!(cleared = n, "mitm: pinning_suspects cleared by user");
     Ok(n)
 }
@@ -328,7 +326,7 @@ pub async fn mitm_whitelist_import_defaults(
     let mut entries = load_whitelist_array(&db).await?;
     let mut imported = 0usize;
     let mut skipped = 0usize;
-    for (rule_type, pattern) in gateway::mitm::whitelist::DEFAULT_RULES {
+    for (rule_type, pattern) in aidog_mitm::whitelist::DEFAULT_RULES {
         if entries.iter().any(|e| e.host_pattern == *pattern) {
             skipped += 1;
         } else {

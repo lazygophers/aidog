@@ -204,7 +204,7 @@ fn parse_private_key_pem(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::mitm::ca::{generate_root_ca, RootCa};
+    use crate::ca::{generate_root_ca, RootCa};
 
     /// 测试用 RootCa：从 rcgen 产物直接构造（ca.rs 的 `RootCa::new` 是私有关联函数，
     /// 跨模块不可达；这里用公开字段构造等价结构）。
