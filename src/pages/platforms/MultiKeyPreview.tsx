@@ -3,12 +3,11 @@
 //   确认/取消回调交父组件处理（confirmBatchCreate / cancelBatchPreview）。无内部 state。
 //
 // 触发：创建态表单 apikey input 粘/输多 key（splitApiKeys.length>1）→ usePlatformForm.setBatchPreviewKeys(keys)。
-// 渲染：表单下方「将创建 N 个平台」标题 + 列表（序号 + name 预览 + 协议 + base_url + key 尾4位掩码）
-//   + 「确认批量创建 / 取消」按钮。只读（D2：不支持改 name / 跳过 key）。
+// 渲染：表单下方「将创建 N 个平台」标题 + 列表（序号 + name 预览 + 协议 + base_url + key 尾4位掩码）。
+//   只读（D2：不支持改 name / 跳过 key）；确认走表单右上角「批量创建」按钮（与单 key 同一入口），
+//   各平台除 token 外配置与表单完全一致（buildSharedCreateFields 共享 payload）。
 import type { TFunction } from "i18next";
 import type { Protocol } from "../../services/api";
-import { Button } from "@/components/ui/button";
-import { makeRipple } from "../../components/shared";
 
 export interface MultiKeyPreviewProps {
   /** splitApiKeys 拆分后的 key 数组（与 previewNames 等长，用于显示 key 尾4位掩码）。 */
@@ -17,12 +16,8 @@ export interface MultiKeyPreviewProps {
   previewNames: string[];
   /** 当前表单协议（显示用，label 取 PROTOCOL_LABELS）。 */
   protocol: Protocol;
-  /** 当前表单主 base_url（显示用，确认创建实际用 form state）。 */
+  /** 当前表单主 base_url（显示用，创建实际用 form state）。 */
   baseUrl: string;
-  /** 确认按钮 → 父调 runBatchCreateFromPaste → resetForm + 关表单。 */
-  onConfirm: () => void;
-  /** 取消按钮 → 父清 batchPreviewKeys + apiKey 回单值。 */
-  onCancel: () => void;
   t: TFunction;
 }
 
@@ -33,7 +28,7 @@ function maskTail(k: string): string {
 }
 
 export function MultiKeyPreview({
-  keys, previewNames, protocol, baseUrl, onConfirm, onCancel, t,
+  keys, previewNames, protocol, baseUrl, t,
 }: MultiKeyPreviewProps) {
   if (keys.length === 0) return null;
   return (
@@ -50,7 +45,7 @@ export function MultiKeyPreview({
           {t("platform.batch.previewTitle", "将创建 {{count}} 个平台", { count: keys.length })}
         </div>
         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          {t("platform.batch.previewHint", "确认后将批量创建，name 自动生成 {{base}}-key尾4位，撞名追号", { base: "{base}" })}
+          {t("platform.batch.previewHint", "点击右上角「批量创建」提交，name 自动生成 {{base}}-key尾4位，撞名追号；除 Token 外全部配置与表单一致", { base: "{base}" })}
         </div>
       </div>
 
@@ -79,10 +74,6 @@ export function MultiKeyPreview({
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-        <Button variant="outline" onClick={onCancel}>{t("platform.batch.cancel", "取消")}</Button>
-        <Button className="ripple" onClick={(e) => { makeRipple(e); onConfirm(); }}>{t("platform.batch.confirm", "确认批量创建")}</Button>
-      </div>
     </div>
   );
 }

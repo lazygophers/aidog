@@ -93,9 +93,7 @@ export interface PlatformFormState {
   /** apiKey input onChange 包装：创建态多 key → setBatchPreviewKeys 触发实时预览（D1）。 */
   handleApiKeyChange: (v: string) => void;
   /** 确认批量创建（MultiKeyPreview 确认按钮）：调 runBatchCreateFromPaste → 成功后 resetForm + 关表单。 */
-  confirmBatchCreate: () => Promise<void>;
   /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值（用户可重新输入）。 */
-  cancelBatchPreview: () => void;
   /** 预览 name 列表（batchPreviewKeys 派生，供 MultiKeyPreview 渲染；null 时空数组）。 */
   previewNames: string[];
   models: Record<ModelSlot, string>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string>>>;
@@ -575,6 +573,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
    *  ponytail: 字段虽多但全是直传，无逻辑；保持与抽前闭包语义一致。 */
   const buildPasteCtx = (): PlatformPasteCtx => ({
     t,
+    buildSharedCreateFields,
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
     setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig, setDevinConfig,
@@ -608,6 +607,48 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     return previewBatchNames(batchPreviewKeys, name, used);
   }, [batchPreviewKeys, name, platforms]);
 
+  /** 构建创建 payload 的共享字段（除 name/api_key 外全部）：单平台保存与多 key 批量创建共用，
+   *  保证批量创建的每个平台与表单配置完全一致（仅 token 不同），而非各用默认配置。
+   *  update 路径也复用（api_key 由 caller 覆盖；auto_group/default_level_priority 仅 create 语义）。 */
+  const buildSharedCreateFields = () => {
+    const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
+    const availablePayload = availableModels.length > 0 ? availableModels : undefined;
+    const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
+    // mock 平台：把配置写回 extra；newapi 平台写回 newapi 配置；其余原样保留
+    let extraPayload = extra;
+    if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
+    if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
+    if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
+    // 熔断覆盖现写入 extra.breaker：空 = 继承（写 0 → 移除 breaker 键）；负值钳为 0。
+    const toBreakerNum = (v: string) => Math.max(0, Math.floor(Number(v) || 0));
+    extraPayload = serializePlatformBreaker(extraPayload, {
+      failure_threshold: toBreakerNum(breakerFailureThreshold),
+      open_secs: toBreakerNum(breakerOpenSecs),
+      half_open_max: toBreakerNum(breakerHalfOpenMax),
+    });
+    // peak_hours：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
+    extraPayload = serializePlatformPeakHours(extraPayload, peakHours);
+    // disable_during_peak：false → 移除键（默认行为）；true → 写入。
+    extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
+    // time_models：空数组 → 移除键（无规则 → 用 default）；非空写入。
+    extraPayload = serializePlatformTimeModels(extraPayload, timeModels);
+    const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
+    return {
+      platform_type: protocol,
+      base_url: baseUrl,
+      extra: extraPayload ? extraPayload : undefined,
+      models: modelsPayload,
+      available_models: availablePayload,
+      endpoints: endpoints.length > 0 ? endpoints : undefined,
+      manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
+      auto_group: autoGroup,
+      join_group_ids: joinGroupIds,
+      // 唯一分组为默认组(autoGroup)时, 后端建组直接用此值, 免前端回查。
+      default_level_priority: uniqueGroupInfo.isAuto ? levelPriority : undefined,
+      expires_at: expiresAt,
+    };
+  };
+
   /** 确认批量创建（MultiKeyPreview 确认按钮）：复用 runBatchCreateFromPaste → 成功后 resetForm + 关表单。
    *  cancel 由 runBatchCreateFromPaste 内部 toast 反馈；本函数仅负责派发，不重复 toast。 */
   const confirmBatchCreate = async () => {
@@ -615,16 +656,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     const keys = batchPreviewKeys;
     setBatchPreviewKeys(null);
     await runBatchCreateFromPaste(keys);
-  };
-
-  /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值首 key（用户可重新输入或继续单 key 保存）。 */
-  const cancelBatchPreview = () => {
-    setBatchPreviewKeys(null);
-    // 留首 key 作单值，方便用户转单平台保存（与原智能粘贴单 key 行为对齐）。
-    if (apiKey) {
-      const first = splitApiKeys(apiKey)[0];
-      if (first) setApiKey(first);
-    }
   };
 
   /** 智能识别弹窗确认后，将解析结果填入添加表单。
@@ -649,64 +680,27 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const handleSave = async () => {
     setSaveError("");
-    // 多 key 预览态：保存按钮不直接批量创建，引导用户点 MultiKeyPreview 的「确认批量创建」。
-    // ponytail: 预览态时禁用保存按钮（PlatformEditForm 渲染判定），此处兜底防回车/快捷键触发。
+    // 多 key 预览态：右上角创建按钮直接批量创建（预览卡只读展示，无独立确认按钮）。
     if (batchPreviewKeys && batchPreviewKeys.length > 1) {
-      setToast({ text: t("platform.batch.previewFirst", "请先确认下方的批量创建预览"), ok: false });
-      setTimeout(() => setToast(null), 3000);
+      await confirmBatchCreate();
       return;
     }
     try {
-      const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
-      const availablePayload = availableModels.length > 0 ? availableModels : undefined;
-      const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
-      // mock 平台：把配置写回 extra；newapi 平台写回 newapi 配置；其余原样保留
-      let extraPayload = extra;
-      if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
-      if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
-      if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
-      // 熔断覆盖现写入 extra.breaker：空 = 继承（写 0 → 移除 breaker 键）；负值钳为 0。
-      const toBreakerNum = (s: string) => Math.max(0, Math.floor(Number(s) || 0));
-      extraPayload = serializePlatformBreaker(extraPayload, {
-        failure_threshold: toBreakerNum(breakerFailureThreshold),
-        open_secs: toBreakerNum(breakerOpenSecs),
-        half_open_max: toBreakerNum(breakerHalfOpenMax),
-      });
-      // peak_hours：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
-      extraPayload = serializePlatformPeakHours(extraPayload, peakHours);
-      // disable_during_peak：false → 移除键（默认行为）；true → 写入。
-      extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
-      // time_models：空数组 → 移除键（无规则 → 用 default）；非空写入。
-      extraPayload = serializePlatformTimeModels(extraPayload, timeModels);
-      const extraArg = extraPayload ? extraPayload : undefined;
-      // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
-      const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
+      const shared = buildSharedCreateFields();
       let savedId: number | undefined;
       let saved: Platform | undefined;
       const wasEditing = !!editing;
+      const { auto_group: _auto, default_level_priority: _dlp, manual_budgets: _mb, ...sharedCore } = shared;
       if (editing) {
         saved = await platformApi.update({
-          id: editing.id, name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
-          extra: extraArg,
-          models: modelsPayload, available_models: availablePayload,
-          endpoints: endpoints.length > 0 ? endpoints : undefined,
-          manual_budgets: manualBudgetsPayload,
-          join_group_ids: joinGroupIds,
-          expires_at: expiresAt,
+          id: editing.id, name, api_key: apiKey, ...sharedCore,
+          // update 语义：手动预算空也全量清空；auto_group/default_level_priority 属 create 专属
+          manual_budgets: shared.manual_budgets ?? [],
         });
         savedId = editing.id;
       } else {
         saved = await platformApi.create({
-          name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
-          extra: extraArg,
-          models: modelsPayload, available_models: availablePayload,
-          endpoints: endpoints.length > 0 ? endpoints : undefined,
-          manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
-          auto_group: autoGroup,
-          join_group_ids: joinGroupIds,
-          // 唯一分组为默认组(autoGroup)时, 后端建组直接用此值, 免前端回查。
-          default_level_priority: uniqueGroupInfo.isAuto ? levelPriority : undefined,
-          expires_at: expiresAt,
+          name, ...shared, api_key: apiKey,
         });
         savedId = saved.id;
       }
@@ -787,7 +781,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     name, setName, protocol, setProtocol, codingPlan, setCodingPlan,
     apiKey, setApiKey,
     batchPreviewKeys, setBatchPreviewKeys,
-    handleApiKeyChange, confirmBatchCreate, cancelBatchPreview, previewNames,
+    handleApiKeyChange, previewNames,
     models, setModels, availableModels, setAvailableModels,
     endpoints, setEndpoints, activeDropdown, setActiveDropdown,
     showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
