@@ -10,17 +10,14 @@
 //!   前端用 `@tauri-apps/plugin-shell` `Command.create(name, args).execute()` 触发 sudo 弹窗（D8）。
 //!   执行结果（exit code）由前端回传 `mitm_set_ca_installed(bool)` 落账。
 
-use crate::gateway::{
-    self,
-    db::{get_setting, set_setting, Db},
-    mitm::{
+use crate::gateway::{self, mitm::{
         ca::{
             classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
             sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
         },
         whitelist::{evaluate_host, list_whitelist, WhitelistEntry},
-    },
-};
+    }};
+use aidog_db::{{get_setting, set_setting, Db}};
 use crate::gateway::models::SetSettingInput;
 use crate::shared::aidog_data_dir;
 use serde::{Deserialize, Serialize};

@@ -4,7 +4,7 @@
 //! 纯函数 `est_cost_from` 不碰 DB，供单测直接验证计费规则；`calc_est_cost` 是薄壳，
 //! 只负责取数据（价格 / peak_hours 窗口）再调纯函数。
 
-use super::db::Db;
+use aidog_db::Db;
 
 /// 根据 model_price 定价计算单次请求预估花费（$），含 peak_hours 倍率调整。
 ///
@@ -37,7 +37,7 @@ pub async fn calc_est_cost(
     created_at_ms: i64,
 ) -> f64 {
     let settings = crate::gateway::price_sync::get_sync_settings(db).await;
-    let rp = super::db::resolve_price(
+    let rp = aidog_db::resolve_price(
         db,
         model_name,
         platform_type,
@@ -57,7 +57,7 @@ pub async fn calc_est_cost(
 
     // peak_hours 窗口：仅当有真实平台 + 时间戳才查（mock / 隧道 / 缺失上下文 → 空 → multiplier=1.0）。
     let windows = if platform_id > 0 && created_at_ms > 0 {
-        match super::db::get_platform(db, platform_id as u64).await {
+        match aidog_db::get_platform(db, platform_id as u64).await {
             Ok(Some(p)) => super::peak_hours::peak_hours_for(&p.extra, platform_type),
             _ => super::peak_hours::default_peak_hours(platform_type),
         }

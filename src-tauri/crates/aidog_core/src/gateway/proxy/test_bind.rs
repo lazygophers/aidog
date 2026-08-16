@@ -1,7 +1,8 @@
 //! proxy-port-no-drift s1 回归门：绑定层占用即失败 + 停止回写端口设置。
 //! 接缝 = `start_proxy` 返回值 + 启动前后设置里的端口值（design.md「测试接缝」）。
+use aidog_db as db;
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 use crate::gateway::middleware::MiddlewareEngine;
 
 /// 端口被占用时 `start_proxy` 必须直接返回 Err（不再 +1 递增重试），且错误可判别为

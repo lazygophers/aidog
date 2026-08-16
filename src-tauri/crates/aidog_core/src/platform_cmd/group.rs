@@ -1,6 +1,7 @@
 use crate::shared::*;
 use crate::sync_settings::{try_sync_settings, do_sync_group_settings};
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;
 

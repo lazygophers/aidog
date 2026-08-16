@@ -2,7 +2,8 @@
 
 use crate::shared::*;
 use crate::tray_render::tray_layout_with_stats;
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::Db;
 use gateway::models::*;
 use tauri::{State, Manager};
 
@@ -24,9 +25,9 @@ pub struct PopoverData {
     /// 平台余额 / coding 列（来自 tray 配置，对应 item type "platform_balance"）。
     entries: Vec<PopoverEntry>,
     /// 今日全局统计（金额 / 缓存率 / token / 请求数）。
-    today_stats: db::TodayStats,
+    today_stats: aidog_stats::TodayStats,
     /// 各平台当日使用（只含已用），对应 item type "platform_today"。
-    platform_today: Vec<db::TodayPlatformStat>,
+    platform_today: Vec<aidog_stats::TodayPlatformStat>,
     proxy_running: bool,
     proxy_port: u16,
 }
@@ -35,11 +36,11 @@ crate::tauri_command! {
     pub async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<PopoverData, String> {
         // today_stats 先取（tray_layout 若含 today_usage item 复用同一份，消重复聚合），
         // 其余 4 个无依赖 await 并发（config / layout / platform_today / proxy settings）。
-        let today_stats = db::today_stats(&db).await?;
+        let today_stats = aidog_stats::today_stats(&db).await?;
         let (config, layout, platform_today, settings) = tokio::join!(
-            db::get_popover_config(&db),
+            aidog_stats::get_popover_config(&db),
             tray_layout_with_stats(&app, Some(&today_stats)),
-            db::today_platform_stats(&db),
+            aidog_stats::today_platform_stats(&db),
             load_proxy_settings(&app),
         );
         let config = config?;
@@ -70,7 +71,7 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 读取 PopoverConfig（无配置 → 默认配置）。
     pub async fn popover_config_get(db: State<'_, Db>) -> Result<gateway::models::PopoverConfig, String> {
-        db::get_popover_config(&db).await
+        aidog_stats::get_popover_config(&db).await
     }
 }
 
@@ -80,21 +81,21 @@ crate::tauri_command! {
         config: gateway::models::PopoverConfig,
         db: State<'_, Db>,
     ) -> Result<(), String> {
-        db::set_popover_config(&db, &config).await
+        aidog_stats::set_popover_config(&db, &config).await
     }
 }
 
 crate::tauri_command! {
     /// 各平台当日使用（供设置页预览）。
-    pub async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<db::TodayPlatformStat>, String> {
-        db::today_platform_stats(&db).await
+    pub async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<aidog_stats::TodayPlatformStat>, String> {
+        aidog_stats::today_platform_stats(&db).await
     }
 }
 
 #[cfg(test)]
 mod test_popover {
-    use super::*;
-    use crate::gateway::db::test_support::test_db;
+    
+    use aidog_db::test_support::test_db;
 
     /// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
     /// 故不经 tauri::State/AppHandle 走 command 包装层，直测 command 转发的 db:: 函数
@@ -102,8 +103,8 @@ mod test_popover {
     #[tokio::test]
     async fn config_roundtrip_and_today() {
         let db = test_db().await;
-        let cfg = db::get_popover_config(&db).await.unwrap();
-        db::set_popover_config(&db, &cfg).await.unwrap();
-        let _ = db::today_platform_stats(&db).await.unwrap();
+        let cfg = aidog_stats::get_popover_config(&db).await.unwrap();
+        aidog_stats::set_popover_config(&db, &cfg).await.unwrap();
+        let _ = aidog_stats::today_platform_stats(&db).await.unwrap();
     }
 }

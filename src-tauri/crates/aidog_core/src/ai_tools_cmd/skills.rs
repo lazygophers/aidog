@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use tauri::State;
 use std::sync::Arc;
 

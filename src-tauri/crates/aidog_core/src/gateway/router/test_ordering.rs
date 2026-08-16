@@ -33,7 +33,7 @@ fn sticky_binds_then_falls_back() {
     let sched = SchedulerState::new();
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let now = super::super::super::db::now();
+    let now = aidog_db::now();
     let ctx = ScheduleCtx {
         scheduler: &sched, sticky: &sticky, settings: &settings,
         sticky_key: Some("grpA|client1".to_string()),
@@ -403,7 +403,7 @@ fn sticky_inherits_load_balance_expiry_tiebreak() {
     let sched = SchedulerState::new();
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let now = super::super::super::db::now();
+    let now = aidog_db::now();
     let ctx = ScheduleCtx {
         scheduler: &sched, sticky: &sticky, settings: &settings,
         sticky_key: Some("grpB|client1".to_string()),

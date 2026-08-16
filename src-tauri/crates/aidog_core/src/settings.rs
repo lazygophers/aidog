@@ -4,7 +4,8 @@
 
 use crate::shared::*;
 use crate::sync_settings::try_sync_settings;
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::{self as db, Db};
 use tauri::State;
 
 use gateway::models::SetSettingInput;
@@ -91,7 +92,7 @@ crate::tauri_command! {
 #[cfg(test)]
 mod test_settings {
     use super::*;
-    use crate::gateway::db::test_support::test_db;
+    use aidog_db::test_support::test_db;
 
     /// aidog_core 不能 dev-dep aidog_test_util（循环依赖），故不经 tauri::State/AppHandle
     /// 走 command 包装层，直测 command 转发的 db:: 函数（command 本身只是薄转发 + tracing）。

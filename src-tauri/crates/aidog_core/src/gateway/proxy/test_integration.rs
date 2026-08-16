@@ -3,7 +3,7 @@
 //! 覆盖成功转发 / 非 2xx failover / 早退分支（无 group 404 / bad body 400 / 健康端点）。
 
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 use crate::gateway::middleware::MiddlewareEngine;
 use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
 use axum::body::Body;
@@ -43,7 +43,7 @@ async fn spawn_reset_upstream() -> String {
     format!("http://{addr}")
 }
 
-async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
+async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
@@ -66,7 +66,7 @@ async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
 
 /// 注册一个 Anthropic 平台（base_url=stub）+ 一个 group（group_key=gk）并关联。
 async fn setup_group_with_upstream(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
-    let plat = crate::gateway::db::create_platform(
+    let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "stub".into(),
@@ -85,14 +85,14 @@ async fn setup_group_with_upstream(state: &Arc<ProxyState>, gk: &str, base_url: 
     .await
     .unwrap();
 
-    let group = crate::gateway::db::create_group(
+    let group = aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group(gk, vec![]),
+        aidog_db::test_support::sample_group(gk, vec![]),
     )
     .await
     .unwrap();
 
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[GroupPlatformInput {
@@ -163,7 +163,7 @@ async fn x_api_key_resolves_group_and_forwards() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
     assert!(logs.iter().any(|l| l.status_code == 200 && l.group_key == "gkxapi"));
@@ -184,7 +184,7 @@ async fn successful_forward_to_stub_upstream() {
 
     // 落库：应有一条成功 proxy_log
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
     assert!(logs.iter().any(|l| l.status_code == 200 && l.group_key == "gk1"));
@@ -233,7 +233,7 @@ async fn upstream_401_auto_disables_platform() {
 
     // 平台应被 auto_disabled（auto_disabled_until > 0）
     flush_log_queue(&state).await;
-    let plats = crate::gateway::db::list_platforms(&state.db).await.unwrap();
+    let plats = aidog_db::list_platforms(&state.db).await.unwrap();
     assert!(
         plats.iter().any(|p| p.auto_disabled_until > 0),
         "401 应触发 auto_disable"
@@ -346,7 +346,7 @@ async fn count_tokens_upstream_fail_local_estimate() {
 
 /// 注册 Mock 平台（无需上游）+ group，关联。extra 为 mock 配置 JSON（空=默认）。
 async fn setup_mock_group(state: &Arc<ProxyState>, gk: &str, extra: &str) {
-    let plat = crate::gateway::db::create_platform(
+    let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "mockp".into(),
@@ -364,13 +364,13 @@ async fn setup_mock_group(state: &Arc<ProxyState>, gk: &str, extra: &str) {
     )
     .await
     .unwrap();
-    let group = crate::gateway::db::create_group(
+    let group = aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group(gk, vec![]),
+        aidog_db::test_support::sample_group(gk, vec![]),
     )
     .await
     .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[GroupPlatformInput {
@@ -404,7 +404,7 @@ async fn mock_platform_intercepts_nonstream() {
     let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
     // 落库一条 mock 请求日志（假 token 生效）
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkmock" && l.status_code == 200));
@@ -565,7 +565,7 @@ async fn mock_platform_delay_ms_only_backward_compat() {
 /// 注册 Anthropic 平台并显式声明 Anthropic endpoint（同协议透传判定命中）。
 async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
     use crate::gateway::models::PlatformEndpoint;
-    let plat = crate::gateway::db::create_platform(
+    let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "ptthru".into(),
@@ -588,13 +588,13 @@ async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &s
     )
     .await
     .unwrap();
-    let group = crate::gateway::db::create_group(
+    let group = aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group(gk, vec![]),
+        aidog_db::test_support::sample_group(gk, vec![]),
     )
     .await
     .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[GroupPlatformInput {
@@ -622,7 +622,7 @@ async fn same_protocol_passthrough_skips_conversion() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkpt" && l.status_code == 200));
@@ -670,7 +670,7 @@ async fn streaming_request_passes_through() {
 /// 注册一个 OpenAI 平台 + 显式声明 OpenAIResponses endpoint(base_url=stub) + group 关联。
 async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
     use crate::gateway::models::PlatformEndpoint;
-    let plat = crate::gateway::db::create_platform(
+    let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "respp".into(),
@@ -693,13 +693,13 @@ async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str
     )
     .await
     .unwrap();
-    let group = crate::gateway::db::create_group(
+    let group = aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group(gk, vec![]),
+        aidog_db::test_support::sample_group(gk, vec![]),
     )
     .await
     .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         group.id,
         &[GroupPlatformInput {
@@ -738,7 +738,7 @@ async fn responses_subendpoint_get_relays_upstream() {
 
     // 落库：source/target_protocol = openai_responses
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkresp"
         && l.source_protocol == "openai_responses"
         && l.status_code == 200));
@@ -762,9 +762,9 @@ async fn responses_subendpoint_post_cancel_forwards_body() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     let summary = logs.iter().find(|l| l.group_key == "gkrc").unwrap();
-    let log = crate::gateway::db::get_proxy_log(&state.db, &summary.id)
+    let log = aidog_logs::get_proxy_log(&state.db, &summary.id)
         .await
         .unwrap()
         .unwrap();
@@ -797,7 +797,7 @@ async fn responses_subendpoint_fallback_first_enabled_platform() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkrfb" && l.source_protocol == "openai_responses"));
 }
 
@@ -805,9 +805,9 @@ async fn responses_subendpoint_fallback_first_enabled_platform() {
 #[tokio::test]
 async fn responses_subendpoint_no_platform_503() {
     let state = make_state(test_db().await).await;
-    crate::gateway::db::create_group(
+    aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group("gkrempty", vec![]),
+        aidog_db::test_support::sample_group("gkrempty", vec![]),
     )
     .await
     .unwrap();
@@ -876,9 +876,9 @@ async fn notify_unknown_group_returns_401() {
 #[tokio::test]
 async fn notify_bad_body_returns_400() {
     let state = make_state(test_db().await).await;
-    crate::gateway::db::create_group(
+    aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group("gkn1", vec![]),
+        aidog_db::test_support::sample_group("gkn1", vec![]),
     )
     .await
     .unwrap();
@@ -895,9 +895,9 @@ async fn notify_bad_body_returns_400() {
 #[tokio::test]
 async fn notify_success_dispatches_and_returns_result() {
     let state = make_state(test_db().await).await;
-    crate::gateway::db::create_group(
+    aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group("gkn2", vec![]),
+        aidog_db::test_support::sample_group("gkn2", vec![]),
     )
     .await
     .unwrap();
@@ -917,9 +917,9 @@ async fn notify_success_dispatches_and_returns_result() {
 #[tokio::test]
 async fn notify_event_path_injects_builtin_vars() {
     let state = make_state(test_db().await).await;
-    crate::gateway::db::create_group(
+    aidog_db::create_group(
         &state.db,
-        crate::gateway::db::test_support::sample_group("gkn3", vec![]),
+        aidog_db::test_support::sample_group("gkn3", vec![]),
     )
     .await
     .unwrap();
@@ -1005,7 +1005,7 @@ async fn fallback_passthrough_mitm_unmatched_logs_virtual_bucket() {
 
     // 虚拟桶落库：group_key="未匹配"，platform_id=0，cost=0。
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     assert!(bucket.is_some(), "虚拟桶 proxy_log 应落库 (group_key=未匹配), logs: {:?}", logs.iter().map(|l| &l.group_key).collect::<Vec<_>>());
     let b = bucket.unwrap();
@@ -1033,7 +1033,7 @@ async fn api_path_wrong_token_still_404_no_bypass() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     // 不落虚拟桶
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(!logs.iter().any(|l| l.group_key == "未匹配"), "API path 未匹配不应进虚拟桶");
 }
 
@@ -1093,14 +1093,14 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
 
     // proxy_log 落虚拟桶 + 完整 url（host + path + query）。
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配")
         .expect("虚拟桶 proxy_log 应落库");
     assert_eq!(bucket.platform_id, 0);
     assert_eq!(bucket.status_code, 200);
 
     // Bug A：request_url 含 scheme://host/path?query 完整 url（不再是 origin-form path-only）。
-    let full = crate::gateway::db::get_proxy_log(&state.db, &bucket.id).await.unwrap().unwrap();
+    let full = aidog_logs::get_proxy_log(&state.db, &bucket.id).await.unwrap().unwrap();
     let stub_authority = stub_url.strip_prefix("http://").unwrap_or(&stub_url);
     assert!(
         full.request_url.contains(stub_authority),
@@ -1189,7 +1189,7 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
 
     // proxy_log 落虚拟桶（group_key=未匹配 / cost=0 / source_protocol=passthrough_unmatched）。
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     assert!(bucket.is_some(), "absolute-form forward 必须落虚拟桶 proxy_log");
     let b = bucket.unwrap();
@@ -1197,7 +1197,7 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
     assert_eq!(b.status_code, 200, "上游 stub 返 200 → 终态 200");
     assert_eq!(b.source_protocol, "passthrough_unmatched");
     // 取完整行查 upstream_request_url（summary 不含此字段）。
-    let full = crate::gateway::db::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
+    let full = aidog_logs::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
     assert_eq!(full.est_cost, 0.0, "虚拟桶不计费");
     assert!(
         full.upstream_request_url.contains("127.0.0.1"),
@@ -1231,7 +1231,7 @@ async fn path_only_uri_still_hits_health_endpoint_no_regression() {
 
     // 健康端点不落 proxy_log（跳过日志）。
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     assert!(logs.is_empty(), "健康端点不落 proxy_log，实际: {logs:?}");
 }
 
@@ -1274,10 +1274,10 @@ Connection: close\r\n\
 
     // proxy_log upstream_request_url 必须以 https:// 开头（scheme 自适应生效）。
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     let b = bucket.expect("absolute-form HTTPS 必须落虚拟桶 proxy_log");
-    let full = crate::gateway::db::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
+    let full = aidog_logs::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
     assert!(
         full.upstream_request_url.starts_with("https://"),
         "HTTPS absolute-form scheme 自适应 → upstream URL 用 https://，实际: {}",

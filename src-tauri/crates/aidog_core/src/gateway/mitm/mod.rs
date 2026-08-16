@@ -34,7 +34,7 @@ use std::sync::{Arc, OnceLock};
 
 use tokio::sync::Mutex;
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 use self::cert_signer::CertSigner;
 

@@ -1,24 +1,25 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use tauri::State;
 
 
 crate::tauri_command! {
 pub async fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_list", limit, offset, "command invoked");
-    gateway::db::list_model_prices(&db, limit, offset).await
+    aidog_db::list_model_prices(&db, limit, offset).await
 }
 }
 
 crate::tauri_command! {
 pub async fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
-    gateway::db::count_model_prices(&db).await
+    aidog_db::count_model_prices(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_search", query = %query, limit, "command invoked");
-    gateway::db::search_model_prices(&db, &query, limit).await
+    aidog_db::search_model_prices(&db, &query, limit).await
 }
 }
 
@@ -31,7 +32,7 @@ pub async fn model_price_list_filtered(
     offset: u32,
 ) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_list_filtered", limit, offset, "command invoked");
-    gateway::db::filtered_list_model_prices(&db, query.as_deref(), source.as_deref(), limit, offset).await
+    aidog_db::filtered_list_model_prices(&db, query.as_deref(), source.as_deref(), limit, offset).await
 }
 }
 
@@ -41,7 +42,7 @@ pub async fn model_price_count_filtered(
     query: Option<String>,
     source: Option<String>,
 ) -> Result<u32, String> {
-    gateway::db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref()).await
+    aidog_db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref()).await
 }
 }
 
@@ -55,7 +56,7 @@ pub async fn model_price_resolve(
     let input_tokens = input_tokens.unwrap_or(0);
     tracing::debug!(command = "model_price_resolve", model_name = %model_name, platform_type = %platform_type, input_tokens, "command invoked");
     let settings = gateway::price_sync::get_sync_settings(&db).await;
-    gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price, input_tokens, gateway::db::now()).await
+    aidog_db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price, input_tokens, aidog_db::now()).await
 }
 }
 

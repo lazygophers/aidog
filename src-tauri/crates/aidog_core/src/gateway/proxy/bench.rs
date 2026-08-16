@@ -32,7 +32,7 @@ pub(crate) async fn handle_bench_query(
     for _ in 0..req.n {
         let t0 = std::time::Instant::now();
         let ok = match req.which.as_str() {
-            "logs" => super::db::list_proxy_logs(&state.db, 50, 0).await.is_ok(),
+            "logs" => aidog_logs::list_proxy_logs(&state.db, 50, 0).await.is_ok(),
             "stats" => {
                 let q = super::models::StatsQuery {
                     start: None,
@@ -43,9 +43,9 @@ pub(crate) async fn handle_bench_query(
                     filter_model: None,
                     filter_platform: None,
                 };
-                super::db::query_stats(&state.db, &q).await.is_ok()
+                aidog_stats::query_stats(&state.db, &q).await.is_ok()
             }
-            "balance" => super::db::platform_usage_stats_all(&state.db).await.is_ok(),
+            "balance" => aidog_stats::platform_usage_stats_all(&state.db).await.is_ok(),
             _ => {
                 let mut r = (StatusCode::BAD_REQUEST, "which must be logs|stats|balance")
                     .into_response();

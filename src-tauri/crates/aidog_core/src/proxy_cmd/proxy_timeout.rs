@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
@@ -7,7 +8,7 @@ use gateway::models::ProxyTimeoutSettings;
 
 crate::tauri_command! {
 pub async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
-    Ok(gateway::db::get_setting(&db, "proxy", "timeout").await
+    Ok(aidog_db::get_setting(&db, "proxy", "timeout").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -17,7 +18,7 @@ pub async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings
 
 crate::tauri_command! {
 pub async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
-    gateway::db::set_setting(&db, SetSettingInput {
+    aidog_db::set_setting(&db, SetSettingInput {
         scope: "proxy".to_string(),
         key: "timeout".to_string(),
         value: serde_json::to_value(&settings).map_err(|e| format!("serialize: {e}"))?,

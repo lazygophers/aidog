@@ -3,7 +3,7 @@
 use super::json_helpers::{
     json_bool, json_f64, json_i64, json_raw, json_str, json_u32, json_u64, now_ts,
 };
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 // ── db 行级 upsert（按 group_key 查重；name 作显示名可重命名；group_key 锁定不改） ──
 

@@ -448,9 +448,9 @@ async fn record_connect_failure(
         return;
     }
     if let Some(th) = breaker_th {
-        st.scheduler.record_failure(platform_id, th, super::db::now());
+        st.scheduler.record_failure(platform_id, th, aidog_db::now());
     }
-    let _ = super::db::set_platform_last_error(&st.db, platform_id, Some(err_msg)).await;
+    let _ = aidog_db::set_platform_last_error(&st.db, platform_id, Some(err_msg)).await;
 }
 
 // ── ST4 MITM 路径 ──────────────────────────────────────────────────────────────

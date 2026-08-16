@@ -1,11 +1,12 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
 
 crate::tauri_command! {
     pub async fn notification_settings_get(db: State<'_, Db>) -> Result<NotificationSettings, String> {
-        Ok(gateway::db::get_notification_settings(&db).await)
+        Ok(aidog_db::get_notification_settings(&db).await)
     }
 }
 
@@ -15,14 +16,14 @@ crate::tauri_command! {
         settings: NotificationSettings,
     ) -> Result<(), String> {
         let retention_days = settings.inbox_retention_days;
-        gateway::db::set_setting(&db, SetSettingInput {
+        aidog_db::set_setting(&db, SetSettingInput {
             scope: "notification".to_string(),
             key: "settings".to_string(),
             value: serde_json::to_value(&settings).map_err(|e| format!("serialize notification settings: {e}"))?,
         }).await
             .map_err(|e| { tracing::error!(command = "notification_settings_set", error = %e, "persist notification settings failed"); e })?;
         // 改保留天数即时清理一次过期收件箱（非关键路径，失败仅 warn 不阻塞保存）。
-        if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
+        if let Err(e) = aidog_db::cleanup_notifications(&db, retention_days).await {
             tracing::warn!(command = "notification_settings_set", error = %e, "cleanup notifications failed");
         }
         Ok(())
@@ -31,13 +32,13 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     pub async fn notification_inbox_list(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Notification>, String> {
-        gateway::db::list_notifications(&db, limit.unwrap_or(100)).await
+        aidog_db::list_notifications(&db, limit.unwrap_or(100)).await
     }
 }
 
 crate::tauri_command! {
     pub async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
-        gateway::db::clear_notifications(&db).await
+        aidog_db::clear_notifications(&db).await
     }
 }
 
@@ -70,7 +71,7 @@ crate::tauri_command! {
         text: String,
     ) -> Result<(), String> {
         let db_arc = std::sync::Arc::new(db.inner().clone());
-        let settings = gateway::db::get_notification_settings(&db_arc).await;
+        let settings = aidog_db::get_notification_settings(&db_arc).await;
         gateway::notification::speak(Some(&app), settings.tts_backend, &text);
         Ok(())
     }

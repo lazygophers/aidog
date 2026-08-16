@@ -5,10 +5,8 @@
 //! - batch_override_cli_proxy_models:   覆盖 models JSON
 //! - batch_set_cli_proxy_quota:         覆盖 quota JSON
 
-use crate::gateway::{
-    db::{now, Db},
-    models::{serialize_cli_proxy_models, BatchReport},
-};
+use crate::gateway::{models::{serialize_cli_proxy_models, BatchReport}};
+use aidog_db::{{now, Db}};
 use rusqlite::{params_from_iter, ToSql};
 use tauri::State;
 

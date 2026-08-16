@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use tauri::State;
 
 
@@ -102,8 +103,8 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 全量 VACUUM 压缩数据库到最小。设置页「立即压缩数据库」按钮入口。
     /// 锁库期间代理写请求排队（busy_timeout 兜底），前端有警示。
-    pub async fn db_compact(db: State<'_, Db>) -> Result<gateway::db::CompactResult, String> {
-        gateway::db::compact_database(&db).await
+    pub async fn db_compact(db: State<'_, Db>) -> Result<aidog_db::CompactResult, String> {
+        aidog_db::compact_database(&db).await
     }
 }
 

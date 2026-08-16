@@ -11,7 +11,7 @@
 //!
 //! 复用 build_http_client（禁 env proxy 防 forward 递归环，见 http_client.rs 注释）。
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 use crate::shared::aidog_data_dir;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;

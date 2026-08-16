@@ -29,6 +29,6 @@ pub mod proxy_cmd;
 
 // 顶层 re-export：commands 域 / root package / 测试常用类型直引 `aidog_core::<X>`。
 pub use gateway::models::*;
-pub use gateway::db::Db;
+pub use aidog_db::Db;
 pub use gateway::models::SetSettingInput;
 pub use tray_render::{refresh_tray_menu, TrayMenuBuild, TrayLayout, TrayColumn};

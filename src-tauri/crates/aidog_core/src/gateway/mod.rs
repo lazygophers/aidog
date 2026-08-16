@@ -3,7 +3,6 @@ pub mod backup;
 pub mod billing;
 pub mod cli_proxy_parser;
 pub mod codex;
-pub mod db;
 pub mod estimate;
 pub mod hooks;
 pub mod http_client;

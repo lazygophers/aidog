@@ -4,10 +4,8 @@
 //! 路由层（candidates.rs::read_cli_proxy_provider_id）按此 key 拉 provider 注入 wire 字段。
 //! 对齐 test_candidates.rs::mk_cli_proxy_platform idiom。
 
-use crate::gateway::{
-    db::{self, Db},
-    models::{CreatePlatform, Platform, Protocol},
-};
+use crate::gateway::{models::{CreatePlatform, Platform, Protocol}};
+use aidog_db::{self as db, Db};
 use tauri::State;
 
 crate::tauri_command! {

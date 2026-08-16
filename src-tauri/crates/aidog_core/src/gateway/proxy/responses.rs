@@ -35,7 +35,7 @@ pub(crate) async fn handle_responses_subendpoint(
     log.target_protocol = "openai_responses".to_string();
 
     // 分组平台列表
-    let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
+    let group_platforms = match aidog_db::get_group_platforms(&state.db, group.id).await {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(group = %group.name, error = %e, "responses subendpoint: get_group_platforms failed");

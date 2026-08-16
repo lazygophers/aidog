@@ -5,13 +5,10 @@
 //! 与旧 `commands_platform::cpa_import` 解耦：旧 mapper 输出 MappedPlatform（建 platform 表行），
 //! 新 mapper 输出 CreateCliProxyProvider（建 cli_proxy_provider 表行）。
 
-use crate::gateway::{
-    cli_proxy_parser::{
+use crate::gateway::{cli_proxy_parser::{
         parse_cpa_config, CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason,
-    },
-    db::{self, Db},
-    models::{CreateCliProxyProvider, Protocol},
-};
+    }, models::{CreateCliProxyProvider, Protocol}};
+use aidog_db::{self as db, Db};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 

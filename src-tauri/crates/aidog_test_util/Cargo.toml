@@ -9,4 +9,6 @@ license = { workspace = true }
 # mock_app_with_db 构造 MockRuntime App + manage(Db)，依赖 tauri test feature。
 [dependencies]
 aidog_core = { path = "../aidog_core" }
+aidog_db = { path = "../aidog_db" }
+aidog_stats = { path = "../aidog_stats" }
 tauri = { workspace = true, features = ["test"] }

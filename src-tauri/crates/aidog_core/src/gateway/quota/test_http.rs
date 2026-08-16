@@ -1,7 +1,7 @@
 //! quota 出站 HTTP 核心 + 工具函数覆盖。本地 stub server 驱动 quota_get_json 四路（成功 /
 //! 非 2xx / parse 失败 / network 失败），含 db=Some 落库分支（make_quota_log + persist_quota_log）。
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 
 async fn spawn_stub(status: u16, body: &'static str) -> String {
     use axum::routing::any;
@@ -56,7 +56,7 @@ async fn quota_get_json_success_persists_with_db() {
     let v = quota_get_json(Some(&db), &url, &[]).await.unwrap();
     assert_eq!(v.get("ok").unwrap(), &serde_json::json!(1));
     // 落库一条 quota 日志（source_protocol=quota，group_key=[quota]）
-    let logs = crate::gateway::db::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
     assert!(logs.iter().any(|l| l.source_protocol == "quota"));
 }
 

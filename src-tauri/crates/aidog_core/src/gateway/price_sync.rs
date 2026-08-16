@@ -3,7 +3,7 @@
 //! 数据源 = jsDelivr master（cdn.jsdelivr.net）主，raw.githubusercontent fallback。
 //! schema 见 src-tauri/defaults/models.json（人工维护，顶层 models 对象，每项含 input/output/cache_read pricing + max_tokens/context_window）。
 
-use super::db::Db;
+use aidog_db::Db;
 use super::models::PriceSyncResult;
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ const MODELS_JSON_FALLBACK_URL: &str =
 
 /// bundled models.json（同一份人工维护信源，编译期内嵌）。DB 未同步时的只读兜底，
 /// 与 `platform-presets.json` 同法（`presets_cache.rs:10-12`），非 Tauri resources。
-pub use crate::gateway::db::bundled_model_entry;
+pub use aidog_db::bundled_model_entry;
 
 /// Fetch + parse src-tauri/defaults/models.json，upsert 全部模型（source="github"）。
 ///
@@ -68,10 +68,10 @@ pub async fn sync_github_prices(db: &Db) -> Result<PriceSyncResult, String> {
         let max_out = entry.get("max_output_tokens").and_then(|v| v.as_i64());
         let ctx = entry.get("context_window").and_then(|v| v.as_i64());
 
-        let existing = super::db::get_model_price(db, model_name).await.ok().flatten();
+        let existing = aidog_db::get_model_price(db, model_name).await.ok().flatten();
         let is_new = existing.is_none() || existing.as_ref().map(|e| e.source.as_str()) != Some("github");
 
-        match super::db::upsert_model_price(db, model_name, "github", &price_json, max_in, max_out, ctx).await {
+        match aidog_db::upsert_model_price(db, model_name, "github", &price_json, max_in, max_out, ctx).await {
             Ok(()) => {
                 if is_new { added += 1; } else { updated += 1; }
             }
@@ -85,7 +85,7 @@ pub async fn sync_github_prices(db: &Db) -> Result<PriceSyncResult, String> {
     // Update last_sync_at in settings
     let sync_settings = get_sync_settings(db).await;
     let updated_settings = super::models::PriceSyncSettings {
-        last_sync_at: super::db::now(),
+        last_sync_at: aidog_db::now(),
         ..sync_settings
     };
     save_sync_settings(db, &updated_settings).await;
@@ -128,7 +128,7 @@ async fn fetch_one(client: &reqwest::Client, url: &str, source: &str) -> Result<
 
 /// Read sync settings from DB
 pub async fn get_sync_settings(db: &Db) -> super::models::PriceSyncSettings {
-    super::db::get_setting(db, "pricing", "sync")
+    aidog_db::get_setting(db, "pricing", "sync")
         .await
         .ok()
         .flatten()
@@ -145,7 +145,7 @@ pub async fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSett
             return;
         }
     };
-    if let Err(e) = super::db::set_setting(db, super::models::SetSettingInput {
+    if let Err(e) = aidog_db::set_setting(db, super::models::SetSettingInput {
         scope: "pricing".into(),
         key: "sync".into(),
         value,
@@ -163,7 +163,7 @@ pub async fn maybe_auto_sync(db: &Db) -> Result<Option<PriceSyncResult>, String>
     if !settings.auto_sync_enabled {
         return Ok(None);
     }
-    let now = super::db::now();
+    let now = aidog_db::now();
     let interval_ms = (settings.sync_interval_secs as i64) * 1000;
     if settings.last_sync_at > 0 && (now - settings.last_sync_at) < interval_ms {
         return Ok(None);
@@ -175,7 +175,7 @@ pub async fn maybe_auto_sync(db: &Db) -> Result<Option<PriceSyncResult>, String>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::db::test_support::test_db;
+    use aidog_db::test_support::test_db;
     use crate::gateway::models::PriceSyncSettings;
 
     #[tokio::test]
@@ -217,7 +217,7 @@ mod tests {
     async fn maybe_auto_sync_returns_none_when_not_due() {
         let db = test_db().await;
         // enable auto_sync but set last_sync_at to recent time → not due
-        let now = crate::gateway::db::now();
+        let now = aidog_db::now();
         let settings = PriceSyncSettings {
             auto_sync_enabled: true,
             sync_interval_secs: 86400, // 24h

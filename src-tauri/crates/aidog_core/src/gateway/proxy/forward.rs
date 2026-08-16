@@ -103,7 +103,7 @@ pub(crate) async fn forward_attempt(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
             });
-            let _ = super::db::set_platform_last_error(
+            let _ = aidog_db::set_platform_last_error(
                 &state.db, route.platform.id, Some(format!("invalid target protocol: {:?}", target_protocol_enum)),
             ).await;
             return AttemptOutcome::Next;
@@ -137,7 +137,7 @@ pub(crate) async fn forward_attempt(
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
         });
-        let _ = super::db::set_platform_last_error(
+        let _ = aidog_db::set_platform_last_error(
             &state.db, route.platform.id, Some("base_url missing".to_string()),
         ).await;
         if !is_last_candidate {
@@ -191,7 +191,7 @@ pub(crate) async fn forward_attempt(
     // 仅作用于 convert_request（读 chat_req）；同协议透传分支用原始 req_value 不受影响
     // （客户端原生协议，上游自纠；已知限制见 report）。
     {
-        let model_max = super::db::get_model_max_output_tokens(&state.db, &actual_model)
+        let model_max = aidog_db::get_model_max_output_tokens(&state.db, &actual_model)
             .await
             .ok()
             .flatten();
@@ -225,7 +225,7 @@ pub(crate) async fn forward_attempt(
     // ── 手动预算耗尽阻断（mock / 上游平台均适用，转发前惰性只读判定，不写库）──
     // 任一 enabled 限额剩余 ≤ 0（含窗口惰性重置后）→ 不发上游/不出 mock，返回 402。
     // 平台保持启用，窗口/次日恢复后自动放行。无 manual_budgets（含透传）→ 跳过。
-    if let Some(info) = super::manual_budget::evaluate_depletion(&route.platform.manual_budgets, super::db::now()) {
+    if let Some(info) = super::manual_budget::evaluate_depletion(&route.platform.manual_budgets, aidog_db::now()) {
         let recover_hint = match info.kind.as_str() {
             "daily" => i18n::t(lang, ErrorKey::BudgetResetDaily),
             "rolling" => i18n::t(lang, ErrorKey::BudgetResetRolling),
@@ -392,7 +392,7 @@ pub(crate) async fn forward_attempt(
         Err(e) => {
             // 连接失败 / 超时 → 可重试，换下个候选；候选耗尽则返回 502。
             // 熔断：连接失败 / 超时计一次失败（in-flight -1 + breaker fail 计数）。
-            state.scheduler.record_failure(route.platform.id, &breaker_th, super::db::now());
+            state.scheduler.record_failure(route.platform.id, &breaker_th, aidog_db::now());
             tracing::error!(url = %url, platform = %route.platform.name, error = %e, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
             attempts.push(ProxyAttempt {
                 platform_id: route.platform.id,
@@ -402,7 +402,7 @@ pub(crate) async fn forward_attempt(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
             });
-            let _ = super::db::set_platform_last_error(
+            let _ = aidog_db::set_platform_last_error(
                 &state.db, route.platform.id, Some(format!("upstream error: {e}")),
             ).await;
             if !is_last_candidate {
@@ -462,7 +462,7 @@ pub(crate) async fn forward_attempt(
     // 与连接错误/超时同语义：熔断计一次失败（record_failure），但不 auto_disable（非鉴权/死端点信号）。
     macro_rules! retry_on_empty_2xx {
         ($reason:expr, $upstream_text:expr) => {{
-            state.scheduler.record_failure(route.platform.id, &breaker_th, super::db::now());
+            state.scheduler.record_failure(route.platform.id, &breaker_th, aidog_db::now());
             tracing::warn!(
                 platform = %route.platform.name, platform_id = route.platform.id,
                 reason = $reason, "decision-B: upstream 200 but empty/invalid response, failover next platform"
@@ -475,7 +475,7 @@ pub(crate) async fn forward_attempt(
                 duration_ms: attempt_latency_ms,
                 ts: attempt_ts,
             });
-            let _ = super::db::set_platform_last_error(
+            let _ = aidog_db::set_platform_last_error(
                 &state.db, route.platform.id, Some(format!("HTTP 200: {}", $reason)),
             ).await;
             if !is_last_candidate {
@@ -512,7 +512,7 @@ pub(crate) async fn forward_attempt(
             state.scheduler.record_success(route.platform.id, attempt_latency_ms);
             // 最近一次成功 → 清本平台 last_error。仅在原有 last_error 非空时写，避免成功热路径空写。
             if !route.platform.last_error.is_empty() {
-                let _ = super::db::set_platform_last_error(&state.db, route.platform.id, None).await;
+                let _ = aidog_db::set_platform_last_error(&state.db, route.platform.id, None).await;
             }
             attempts.push(ProxyAttempt {
                 platform_id: route.platform.id,
@@ -523,7 +523,7 @@ pub(crate) async fn forward_attempt(
                 ts: attempt_ts,
             });
             if route.platform.status == super::models::PlatformStatus::AutoDisabled {
-                if let Err(e) = super::db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
+                if let Err(e) = aidog_db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
                     tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
                 } else {
                     tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");

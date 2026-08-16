@@ -71,7 +71,7 @@ pub(super) fn mk_gp_cp(id: u64, weight: i32, priority: i32) -> GroupPlatformDeta
 fn breaker_union_autodisabled_admission() {
     // 验证熔断 ∪ auto_disabled 取并集：分别独立判定。
     let sched = SchedulerState::new();
-    let now = super::super::db::now();
+    let now = aidog_db::now();
     let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
     // p1 熔断 Open
     sched.inc_inflight(1);
@@ -91,7 +91,7 @@ fn breaker_union_autodisabled_admission() {
 fn breaker_does_not_overwrite_autodisabled() {
     // 熔断与 auto_disabled 状态互不覆盖：record_failure 只动内存 breaker，不动 platform.status。
     let sched = SchedulerState::new();
-    let now = super::super::db::now();
+    let now = aidog_db::now();
     let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
     sched.inc_inflight(1);
     sched.record_failure(1, &th, now);

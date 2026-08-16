@@ -1,6 +1,6 @@
 #![cfg(test)]
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 
 /// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
 /// 故不经 tauri::State/AppHandle 走 command 包装层，直测 command 转发的 db:: / gateway:: 函数
@@ -8,12 +8,12 @@ use crate::gateway::db::test_support::test_db;
 #[tokio::test]
 async fn settings_roundtrip() {
     let db = test_db().await;
-    let s = gateway::db::get_scheduling_settings(&db).await;
-    gateway::db::set_setting(&db, SetSettingInput {
+    let s = aidog_db::get_scheduling_settings(&db).await;
+    aidog_db::set_setting(&db, SetSettingInput {
         scope: "scheduling".to_string(),
         key: "settings".to_string(),
         value: serde_json::to_value(&s).unwrap(),
     }).await.unwrap();
-    let s2 = gateway::db::get_scheduling_settings(&db).await;
+    let s2 = aidog_db::get_scheduling_settings(&db).await;
     let _ = s2;
 }

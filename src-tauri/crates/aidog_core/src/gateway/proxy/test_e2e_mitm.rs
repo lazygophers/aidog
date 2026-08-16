@@ -29,7 +29,7 @@
 //! 真实 TCP 更稳）。
 
 use super::*;
-use crate::gateway::db::test_support::{sample_group, test_db};
+use aidog_db::test_support::{sample_group, test_db};
 use crate::gateway::mitm::ca::{create_and_store_root_ca, RootCa};
 use crate::gateway::mitm::cert_signer::CertSigner;
 use crate::gateway::mitm::tls::accept_client;
@@ -133,7 +133,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
 
     // 2. ProxyState + CA（DB 存）+ group + Anthropic 平台（base_url=stub）。
     let (state, ca) = make_state_with_ca().await;
-    let plat = crate::gateway::db::create_platform(&state.db, CreatePlatform {
+    let plat = aidog_db::create_platform(&state.db, CreatePlatform {
         name: "mitm-e2e-stub".into(),
         platform_type: Protocol::Anthropic,
         base_url: upstream_url.clone(),
@@ -142,10 +142,10 @@ async fn mitm_e2e_h1_tls_round_trip() {
         models: None, available_models: None, endpoints: None, manual_budgets: None,
         auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
     }).await.expect("create platform");
-    let group = crate::gateway::db::create_group(
+    let group = aidog_db::create_group(
         &state.db, sample_group("mitm-e2e-gk", vec![]),
     ).await.expect("create group");
-    crate::gateway::db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
+    aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
         platform_id: plat.id, priority: Some(0), weight: Some(1), level_priority: Some(0),
     }]).await.expect("set group platforms");
 
@@ -211,7 +211,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
     //    测试拿不到具体 id；查最近 10 行找 source_protocol=anthropic 的行（test_db 空库，
     //    仅本测试写入）。
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 10, 0)
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
         .await
         .expect("list proxy_logs");
     // ProxyLogSummary 含 source_protocol/group_key/platform_id/input_tokens/status_code（无 est_cost）。
@@ -229,7 +229,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
     assert_eq!(row.input_tokens, 7, "input_tokens 必须从上游 usage 提取（采集生效）");
 
     // est_cost 在 ProxyLogSummary 不返回，查完整行验 cost 记账（盲转恒 0，AI 路径非 0）。
-    let full = crate::gateway::db::get_proxy_log(&state.db, &row.id)
+    let full = aidog_logs::get_proxy_log(&state.db, &row.id)
         .await
         .expect("query full proxy_log")
         .expect("full proxy_log row must exist");
@@ -361,7 +361,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
     // 6. proxy_log 落虚拟「未匹配」桶（forward 路径已执行 + 落库）。
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     flush_log_queue(&state).await;
-    let logs = crate::gateway::db::list_proxy_logs(&state.db, 10, 0)
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
         .await
         .expect("list proxy_logs");
     let row = logs

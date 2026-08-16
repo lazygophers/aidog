@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use std::time::Duration;
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 // 当前 quota 查询归属的平台 ID。
 // query_quota / query_quota_newapi 进入时 scope 设定；quota_get_json 单点落库时读取，
@@ -135,7 +135,7 @@ pub(crate) async fn quota_get_json(
     tracing::info!(method = "GET", url = %url, "quota outbound request");
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let created_at = crate::gateway::db::now();
+    let created_at = aidog_db::now();
 
     let mut rb = http_client(db).await.get(url);
     for (k, v) in headers {
@@ -220,7 +220,7 @@ fn make_quota_log(
 /// 落库 quota 日志 (仅 db 可写时; 测试传 None 跳过)。
 async fn persist_quota_log(db: Option<&Arc<Db>>, log: crate::gateway::models::ProxyLog) {
     if let Some(d) = db
-        && let Err(e) = crate::gateway::db::upsert_proxy_log(d, log).await {
+        && let Err(e) = aidog_logs::upsert_proxy_log(d, log).await {
             tracing::warn!(error = %e, "persist quota log failed");
         }
 }

@@ -1,8 +1,8 @@
 //! conflicts.rs 测试：detect_conflicts 不为 platform scope 报冲突。
 
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::detect_conflicts;
-use crate::gateway::db::Db;
+use aidog_db::Db;
 use crate::gateway::import_export::{Manifest, Payload};
 use serde_json::json;
 
@@ -96,7 +96,7 @@ async fn detect_conflicts_no_platform_conflict() {
 /// 同名 group_key 报冲突。
 #[tokio::test]
 async fn detect_conflicts_group_key_conflict() {
-    use crate::gateway::db::create_group;
+    use aidog_db::create_group;
     use crate::gateway::models::{CreateGroup, RoutingMode};
 
     let db = test_db().await;
@@ -130,7 +130,7 @@ async fn detect_conflicts_group_key_conflict() {
 /// 同 scope+key 的 setting 报冲突。
 #[tokio::test]
 async fn detect_conflicts_setting_conflict() {
-    use crate::gateway::db::set_setting;
+    use aidog_db::set_setting;
     use crate::gateway::models::SetSettingInput;
 
     let db = test_db().await;
@@ -159,7 +159,7 @@ async fn detect_conflicts_empty_payload_no_conflicts() {
 /// group 无 group_key 字段时（老格式），回退到 name 作 key 匹配。
 #[tokio::test]
 async fn detect_conflicts_group_fallback_to_name_when_no_group_key() {
-    use crate::gateway::db::create_group;
+    use aidog_db::create_group;
     use crate::gateway::models::{CreateGroup, RoutingMode};
 
     let db = test_db().await;

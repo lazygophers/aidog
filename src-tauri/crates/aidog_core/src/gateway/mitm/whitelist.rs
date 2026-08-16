@@ -14,7 +14,7 @@
 //!
 //! 设计依据：design.md §2、spec `.trellis/spec/backend/proxy-connect-relay.md`。
 
-use crate::gateway::db::{get_setting, Db};
+use aidog_db::{get_setting, Db};
 use serde::{Deserialize, Serialize};
 
 /// MITM 白名单在 setting 表的 key（scope=mitm，value = WhitelistEntry JSON 数组）。

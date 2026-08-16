@@ -18,7 +18,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 /// sub2api 源 JSON 顶层结构（字段名 = sub2api json tag）。
 /// 只解析 `type`（校验）+ `accounts`，其余（version/exported_at/proxies）丢弃。

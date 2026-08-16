@@ -22,7 +22,7 @@ impl ProxySettingsCache {
         Self {
             log_settings: get_log_settings(db).await,
             lang: get_lang(db).await,
-            middleware_settings: super::db::get_middleware_settings(db).await,
+            middleware_settings: aidog_db::get_middleware_settings(db).await,
             system_timeout: get_system_timeout(db).await,
             proxy_client: super::http_client::load_proxy_client_settings(db).await,
         }

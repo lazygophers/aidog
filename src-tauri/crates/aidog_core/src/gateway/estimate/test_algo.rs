@@ -1,5 +1,5 @@
 use super::*;
-use crate::gateway::db::now;
+use aidog_db::now;
 
 // ── Kimi 精确增量：每 token % = 100/limit ──
 #[test]

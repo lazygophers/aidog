@@ -92,7 +92,7 @@ async fn handle_group_info_inner(
     }
 
     // 定位分组
-    let groups = match super::db::list_groups(&state.db).await {
+    let groups = match aidog_db::list_groups(&state.db).await {
         Ok(g) => g,
         Err(e) => {
             tracing::warn!(error = %e, "group-info: list_groups failed, returning not-applicable");
@@ -108,7 +108,7 @@ async fn handle_group_info_inner(
     };
 
     // 关联平台 —— 恰好 1 个才适用
-    let platforms = match super::db::get_group_platforms(&state.db, group.id).await {
+    let platforms = match aidog_db::get_group_platforms(&state.db, group.id).await {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(group = %group_key, error = %e, "group-info: get_group_platforms failed, not-applicable");
@@ -121,7 +121,7 @@ async fn handle_group_info_inner(
     let platform = &gp.platform;
 
     // usage 统计（复用现有 db 查询，只读）
-    let stats = super::db::get_group_usage_stats(&state.db, &group.group_key).await.unwrap_or(
+    let stats = aidog_stats::get_group_usage_stats(&state.db, &group.group_key).await.unwrap_or(
         super::models::PlatformUsageStats {
             total_requests: 0,
             success_count: 0,
@@ -148,7 +148,7 @@ async fn handle_group_info_inner(
     // coding plan tiers（补 pace + level + reset_at）
     // level 走 usage_color（按 window_start + cycle 推算剩余可用时间%）；
     // reset_at = window_start + cycle（预估侧推算的本周期重置点，无 window_start 时 None）。
-    let now_ms = super::db::now();
+    let now_ms = aidog_db::now();
     let mut coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
         .tiers
         .into_iter()
@@ -228,7 +228,7 @@ async fn handle_group_info_inner(
     // 余额可用天数：动态窗口日速率（rate_per_hour，prd B）→ days = (balance / rate_per_hour) / 24。
     // 无用量数据 / 无余额 → null（配色中性，不报警）。
     let balance_days_remaining = {
-        let rate_per_hour = super::db::get_group_hourly_rate(&state.db, &group.group_key).await.unwrap_or(None);
+        let rate_per_hour = aidog_stats::get_group_hourly_rate(&state.db, &group.group_key).await.unwrap_or(None);
         match rate_per_hour {
             Some(rate) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
             _ => None,

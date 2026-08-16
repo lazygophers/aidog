@@ -1,5 +1,5 @@
-use crate::gateway::db::DbInitTables;
-use super::super::super::db;
+use aidog_stats::DbInitTables;
+use aidog_db as db;
 use super::super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::ordering::{apply_coding_plan_priority, is_coding_plan};
 use super::super::test_mod::{mk_gp, mk_gp_cp};

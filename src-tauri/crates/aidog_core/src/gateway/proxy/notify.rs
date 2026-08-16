@@ -50,7 +50,7 @@ async fn handle_notify_inner(
         }
     };
     // 校验分组存在（防任意 token 触发；不存在则拒绝）；同时取显示名供脚本 {group} 渲染。
-    let group_name = match super::db::list_groups(&state.db).await {
+    let group_name = match aidog_db::list_groups(&state.db).await {
         Ok(groups) => match groups.iter().find(|g| g.group_key == group_key) {
             Some(g) => g.name.clone(),
             None => {

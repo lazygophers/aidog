@@ -1,6 +1,6 @@
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::*;
-use super::super::db::Db;
+use aidog_db::Db;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -22,7 +22,7 @@ async fn set_form(db: &Arc<Db>, type_str: &str, form: &str, enabled: bool) {
         "tts_backend": "cross_platform",
         "per_type": { type_str: { "tts": true, "popup": true, "form": form, "template": "" } }
     });
-    super::super::db::set_setting(db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(db, super::super::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: json,
@@ -40,7 +40,7 @@ async fn dispatch_full_form_falls_to_inbox_without_app() {
     assert_eq!(r.body, "done aidog");
     assert!(r.inbox_id.is_some());
     // 落库一行
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].notif_type, "task_complete");
 }
@@ -51,7 +51,7 @@ async fn dispatch_inbox_only() {
     set_form(&db, "error", "inbox_only", true).await;
     let r = dispatch(&db, None, None, "error", Some("oops"), &HashMap::new()).await;
     assert!(r.dispatched && r.inbox && !r.popup && !r.sound);
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     assert_eq!(list.len(), 1);
 }
 
@@ -62,7 +62,7 @@ async fn dispatch_sound_only_no_inbox() {
     let r = dispatch(&db, None, None, "waiting_input", Some("?"), &HashMap::new()).await;
     assert!(r.dispatched && r.sound && !r.inbox && !r.popup);
     // 不落库
-    assert!(super::super::db::list_notifications(&db, 10).await.unwrap().is_empty());
+    assert!(aidog_db::list_notifications(&db, 10).await.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -71,7 +71,7 @@ async fn dispatch_master_switch_off_bypasses() {
     set_form(&db, "task_complete", "full", false).await; // enabled=false
     let r = dispatch(&db, None, None, "task_complete", Some("x"), &HashMap::new()).await;
     assert!(!r.dispatched);
-    assert!(super::super::db::list_notifications(&db, 10).await.unwrap().is_empty());
+    assert!(aidog_db::list_notifications(&db, 10).await.unwrap().is_empty());
 }
 
 #[tokio::test]
@@ -80,7 +80,7 @@ async fn dispatch_unknown_type_as_task_complete() {
     // 不配 per_type → 默认 Full + 全 true
     let r = dispatch(&db, None, None, "my_custom_type", Some("hi"), &HashMap::new()).await;
     assert!(r.dispatched && r.inbox);
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     // 未知 type 兜底到 task_complete（通知不丢）
     assert_eq!(list[0].notif_type, "task_complete");
 }
@@ -96,7 +96,7 @@ async fn dispatch_injects_nonempty_unique_action_key() {
     let db = mem_db().await;
     set_form(&db, "task_complete", "full", true).await;
     // 模板引用 {request_id} → body 即为注入的 key（无 span 时走 new_trace_id 兜底）。
-    super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -113,7 +113,7 @@ async fn dispatch_injects_nonempty_unique_action_key() {
 #[tokio::test]
 async fn dispatch_different_triggers_get_different_keys() {
     let db = mem_db().await;
-    super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -130,7 +130,7 @@ async fn dispatch_different_triggers_get_different_keys() {
 #[tokio::test]
 async fn dispatch_prefers_caller_request_id_in_vars() {
     let db = mem_db().await;
-    super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -153,7 +153,7 @@ async fn dispatch_captures_env_span_trace_id() {
     let _guard = tracing::subscriber::set_default(subscriber);
 
     let db = mem_db().await;
-    super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -175,7 +175,7 @@ async fn dispatch_captures_env_span_trace_id() {
 
 // ── N2 hook 事件解析（per_event）──
 async fn set_notif_settings(db: &Arc<Db>, value: serde_json::Value) {
-    super::super::db::set_setting(db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(db, super::super::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value,
@@ -200,7 +200,7 @@ async fn dispatch_event_uses_custom_template_and_direct_channels() {
     // 通道直接取 EventSetting：tts/popup/sound 都关 → 仅 inbox（恒落库）。
     assert!(r.inbox && !r.popup && !r.sound && !r.tts);
     assert_eq!(r.body, "aidog 子代理 reviewer 结束");
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     // inbox 列用事件名（来源标识）。
     assert_eq!(list[0].notif_type, "SubagentStop");
 }
@@ -302,7 +302,7 @@ async fn dispatch_event_not_enabled_falls_to_type_path() {
     // 事件未启用 → 走 type_str 类型路径（task_complete），向后兼容/Codex 不破坏。
     let r = dispatch(&db, None, Some("Stop"), "task_complete", None, &v).await;
     assert_eq!(r.body, "aidog 完成");
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     assert_eq!(list[0].notif_type, "task_complete");
 }
 
@@ -320,7 +320,7 @@ async fn dispatch_no_event_uses_type_path_codex_regression() {
     let r = dispatch(&db, None, None, "task_complete", None, &v).await;
     assert!(r.dispatched);
     assert_eq!(r.body, "aidog 完成");
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     assert_eq!(list[0].notif_type, "task_complete");
 }
 
@@ -338,7 +338,7 @@ async fn dispatch_event_present_empty_type_unenabled_suppressed() {
     let r = dispatch(&db, None, Some("SubagentStop"), "", None, &v).await;
     assert!(!r.dispatched, "未启用事件不应派发");
     assert!(!r.inbox, "未启用事件不应入库");
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     assert_eq!(list.len(), 0, "不应有任何入库记录");
 }
 
@@ -355,6 +355,6 @@ async fn dispatch_event_explicit_disabled_empty_type_suppressed() {
     let r = dispatch(&db, None, Some("SubagentStop"), "", None, &v).await;
     assert!(!r.dispatched, "显式禁用事件不应派发");
     assert!(!r.inbox, "显式禁用事件不应入库");
-    let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
     assert_eq!(list.len(), 0, "不应有任何入库记录");
 }

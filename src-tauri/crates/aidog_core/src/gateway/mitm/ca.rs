@@ -18,7 +18,7 @@ use rcgen::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::gateway::db::{get_setting, set_setting, Db};
+use aidog_db::{get_setting, set_setting, Db};
 use crate::gateway::models::SetSettingInput;
 
 /// MITM 配置在 setting 表的 scope（与 app/global/middleware 同级）。
@@ -51,7 +51,7 @@ impl RootCa {
             private_key_pem: key_pair.serialize_pem(),
             cert_pem,
             fingerprint,
-            created_at: crate::gateway::db::now(),
+            created_at: aidog_db::now(),
             enabled: true,
             ca_installed: false, // 新生成 CA 默认未装信任库
         }
