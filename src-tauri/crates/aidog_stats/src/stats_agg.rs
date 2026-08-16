@@ -1,4 +1,8 @@
-use super::*;
+use aidog_db::settings::{get_setting, set_setting};
+use std::collections::HashMap;
+use aidog_db::{incremental_vacuum_conn, Db, retention_cutoff, load_auto_from_map, resolve_eff_pid};
+use crate::utc_ms_to_local_hour_key;
+use aidog_db::models::*;
 use rusqlite::{params, Connection, OptionalExtension};
 
 /// 聚合复合键：(本地小时桶, actual_model 优先, group_key, eff_pid)。与 stats_agg_hourly
@@ -123,10 +127,7 @@ fn upsert_aggregated(conn: &Connection, agg: &HashMap<AggKey, AggBucket>, now: i
     Ok(())
 }
 
-/// 存量一次性回填（schema migration 内调用，紧随 stats_agg_hourly 建表 DDL）。
-/// 空表守卫在 Rust 内判（`SELECT 1 FROM stats_agg_hourly LIMIT 1`），替代旧 DDL 串内 `NOT EXISTS`。
-/// 表非空（已回填/已有增量写入）则跳过，避免重复执行翻倍。
-pub(crate) fn backfill_stats_agg_if_empty(
+pub fn backfill_stats_agg_if_empty(
     conn: &Connection,
     auto_map: &HashMap<String, i64>,
 ) -> rusqlite::Result<()> {

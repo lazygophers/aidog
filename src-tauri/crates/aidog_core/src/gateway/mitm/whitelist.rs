@@ -22,58 +22,6 @@ const MITM_WHITELIST_KEY: &str = "whitelist";
 /// MITM 配置在 setting 表的 scope（与 ca.rs 共用）。
 const MITM_SCOPE: &str = "mitm";
 
-/// 默认白名单规则集（37 条：Claude 3 + OpenAI 34）。
-///
-/// 来源：blackmatrix7/ios_rule_script OpenAI/Claude 规则集（Clash DOMAIN/SUFFIX/KEYWORD/IPCIDR）。
-/// 元组 `(rule_type, pattern)`：rule_type ∈ {domain, suffix, keyword, ipcidr}，
-/// pattern 存规则值（host 域名 / CIDR 串）。
-///
-/// 单源（schema migration 20260727-15（原 041/043）seed + 本模块 import_defaults command + 测试 共用此常量）。
-/// 舍弃：IP-ASN 20473（不支持）；GeoIP/DNS 解析（不要）。
-pub const DEFAULT_RULES: &[(&str, &str)] = &[
-    // ── Claude（3 条）─────────────────────────────────────────
-    ("domain", "cdn.usefathom.com"),
-    ("suffix", "anthropic.com"),
-    ("suffix", "claude.ai"),
-    // ── OpenAI domain（7 条）──────────────────────────────────
-    ("domain", "browser-intake-datadoghq.com"),
-    ("domain", "chat.openai.com.cdn.cloudflare.net"),
-    ("domain", "openai-api.arkoselabs.com"),
-    ("domain", "openaicom-api-bdcpf8c6d2e9atf6.z01.azurefd.net"),
-    ("domain", "openaicomproductionae4b.blob.core.windows.net"),
-    ("domain", "production-openaicom-storage.azureedge.net"),
-    ("domain", "static.cloudflareinsights.com"),
-    // ── OpenAI suffix（24 条）─────────────────────────────────
-    ("suffix", "ai.com"),
-    ("suffix", "algolia.net"),
-    ("suffix", "api.statsig.com"),
-    ("suffix", "auth0.com"),
-    ("suffix", "chatgpt.com"),
-    ("suffix", "chatgpt.livekit.cloud"),
-    ("suffix", "client-api.arkoselabs.com"),
-    ("suffix", "events.statsigapi.net"),
-    ("suffix", "featuregates.org"),
-    ("suffix", "host.livekit.cloud"),
-    ("suffix", "identrust.com"),
-    ("suffix", "intercom.io"),
-    ("suffix", "intercomcdn.com"),
-    ("suffix", "launchdarkly.com"),
-    ("suffix", "oaistatic.com"),
-    ("suffix", "oaiusercontent.com"),
-    ("suffix", "observeit.net"),
-    ("suffix", "openai.com"),
-    ("suffix", "openaiapi-site.azureedge.net"),
-    ("suffix", "openaicom.imgix.net"),
-    ("suffix", "segment.io"),
-    ("suffix", "sentry.io"),
-    ("suffix", "stripe.com"),
-    ("suffix", "turn.livekit.cloud"),
-    // ── OpenAI keyword（1 条）──────────────────────────────────
-    ("keyword", "openai"),
-    // ── OpenAI ipcidr（2 条，仅匹配 IP 字面 CONNECT 目标）──────
-    ("ipcidr", "24.199.123.28/32"),
-    ("ipcidr", "64.23.132.171/32"),
-];
 
 /// 白名单行（setting 表 mitm:whitelist JSON 数组元素）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -546,3 +494,5 @@ mod tests {
         assert!(evaluate_host(&entries, "openai.com").is_empty());
     }
 }
+
+pub use aidog_db::DEFAULT_RULES;

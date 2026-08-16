@@ -1,5 +1,6 @@
 //! 测试共享 helper（自原 db.rs 单一 tests 模块拆出，pub 供各 tests_* 子模块复用）。
-use super::*;
+use crate::models::*;
+use crate::Db;
 use rusqlite::{params};
 
 /// HOME / CODEX_HOME 是进程全局，所有触 FS（写 ~/.aidog、~/.claude、~/.codex）的测试必须
@@ -67,7 +68,7 @@ impl Drop for HomeGuard {
     /// 创建一个初始化好的内存库
     pub async fn test_db() -> Db {
         let db = Db::new(":memory:").await.expect("open memory db");
-        db.init_tables().await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_conn, _map| Ok(()))).await.expect("init tables");
         db
     }
 
@@ -143,6 +144,38 @@ impl Drop for HomeGuard {
         }
     }
 
+
+    /// 插入一行最小 platform（platform.db），返回 id。跨 crate 测试用：
+    /// aidog_stats 等不能反向 dev-dep aidog_core（成环），替代 create_platform 场景。
+    pub async fn insert_test_platform(db: &Db, name: &str) -> u64 {
+        let name = name.to_string();
+        db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at) VALUES (?1, '\"anthropic\"', 'https://example.com', 'sk-test', '{}', '{}', '{}', '[]', 1, 0, 0, '', 0)",
+                params![name],
+            )?;
+            Ok(conn.last_insert_rowid() as u64)
+        })
+        .await
+        .expect("insert test platform")
+    }
+
+    /// 插入一行最小 group（platform.db，其余列走 DDL 默认值），返回 group_key。
+    /// 同 insert_test_platform：跨 crate 测试替代 create_group（auto 分组归属场景只需行本身）。
+    pub async fn insert_test_group(db: &Db, name: &str, group_key: Option<&str>, auto_from_platform: &str) -> String {
+        let key = group_key.unwrap_or(name).to_string();
+        let (name, auto, key_clone) = (name.to_string(), auto_from_platform.to_string(), key.clone());
+        db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO \"group\" (name, group_key, auto_from_platform) VALUES (?1, ?2, ?3)",
+                params![name, key_clone, auto],
+            )?;
+            Ok(())
+        })
+        .await
+        .expect("insert test group");
+        key
+    }
 
     // ─── DB Vacuum/Hard-delete (Tier 1 + Tier 2) ───────────────
 

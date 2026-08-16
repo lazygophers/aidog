@@ -1,6 +1,9 @@
 #![cfg(test)]
-use super::*;
-use super::test_support::*;
+use aidog_db::now;
+use aidog_db::models::*;
+use aidog_db::test_support::*;
+use aidog_logs::*;
+use crate::*;
 
     /// cache_rate 必须 ≤100%：cache_tokens=9900（命中缓存）+ input_tokens=100（新输入），
     /// 旧公式 cache/input=9900% 错误；新公式 cache/(input+cache)≈99%。
@@ -39,28 +42,26 @@ use super::test_support::*;
         let now_ms = now();
 
         // 平台 1（源平台），平台 2（无用量，不应出现）。
-        let p1 = create_platform(&db, sample_platform("p-one")).await.unwrap();
-        let _p2 = create_platform(&db, sample_platform("p-two")).await.unwrap();
+        let p1 = insert_test_platform(&db, "p-one").await;
+        let _p2 = insert_test_platform(&db, "p-two").await;
 
-        // 自动分组：auto_from_platform = p1.id 的十进制字符串。
-        let mut g = sample_group("autog", vec![]);
-        g.auto_from_platform = p1.id.to_string();
-        let group = create_group(&db, g).await.unwrap();
+        // 自动分组：auto_from_platform = p1 的十进制字符串。
+        let group_key = insert_test_group(&db, "autog", None, &p1.to_string()).await;
 
-        // 直连 p1 的日志（platform_id = p1.id），10+20 = 30 tok。
+        // 直连 p1 的日志（platform_id = p1），10+20 = 30 tok。
         let mut direct = sample_log("d1", "autog", now_ms);
-        direct.platform_id = p1.id;
+        direct.platform_id = p1;
         upsert_proxy_log(&db, direct).await.unwrap();
 
         // 自动分组日志（platform_id=0），回溯到 p1。10+20 = 30 tok。
-        let mut auto = sample_log("a1", &group.name, now_ms);
+        let mut auto = sample_log("a1", &group_key, now_ms);
         auto.platform_id = 0;
         upsert_proxy_log(&db, auto).await.unwrap();
 
         // 昨日日志：不计入。
         let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
         let mut old = sample_log("o1", "autog", yesterday_ms);
-        old.platform_id = p1.id;
+        old.platform_id = p1;
         upsert_proxy_log(&db, old).await.unwrap();
 
         // today_platform_stats 读聚合表；测试经 upsert_proxy_log 直插，须先重建聚合。
@@ -69,7 +70,7 @@ use super::test_support::*;
         // 只 p1 有今日用量（direct + auto 归并），p2 无用量不出现。
         assert_eq!(stats.len(), 1, "仅有用量的平台出现");
         let s = &stats[0];
-        assert_eq!(s.platform_id, p1.id);
+        assert_eq!(s.platform_id, p1);
         assert_eq!(s.platform_name, "p-one");
         assert_eq!(s.tokens, 60, "direct(30) + auto retrace(30) 归并");
         assert_eq!(s.requests, 2);

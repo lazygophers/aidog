@@ -1,5 +1,6 @@
 //! apply 白名单（Selection）过滤测试：仅勾选条目被写入，未勾选条目不落库。
 
+use crate::gateway::db::DbInitTables;
 use super::apply;
 use crate::gateway::db::{list_all_settings_raw, Db};
 use crate::gateway::import_export::{

@@ -4,46 +4,9 @@
 //! `calc_est_cost` 按 `platform.extra.peak_hours`（用户覆盖）→ bundled preset default
 //! → 1.0 的混合源拿窗口，再 first-match 命中算 multiplier。
 
+pub use aidog_db::models::PeakWindow;
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
-/// 单个时段窗口（UTC+0 基准）。serde 字段名直接对齐 JSON / TS `PeakWindow`。
-///
-/// 向后兼容：旧数据无 `start_minute` / `end_minute` / `days_of_month` → None
-/// （`start_minute`/`end_minute` None=0，`days_of_month` None=不过滤）。
-/// `Serialize` 供 `PlatformExtra`（gateway/models/platform.rs）整体往返测试用。
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PeakWindow {
-    pub start_hour: i32,
-    pub end_hour: i32,
-    pub multiplier: f64,
-    #[serde(default)]
-    pub days_of_week: Option<Vec<i32>>,
-    /// 分钟精度起点（0-59）；缺省 = 0（仅 hour 精度，向后兼容）。
-    #[serde(default)]
-    pub start_minute: Option<i32>,
-    /// 分钟精度终点（0-59）；缺省 = 0（仅 hour 精度，向后兼容）。
-    #[serde(default)]
-    pub end_minute: Option<i32>,
-    /// 月内日过滤（1-31）；缺省 = 不过滤；与 `days_of_week` 在 UI 层互斥（hit 层同时 Some 时取 AND 兜底）。
-    #[serde(default)]
-    pub days_of_month: Option<Vec<i32>>,
-    /// model scope（model 维度过滤，PRD 07-09 D2）；缺省 / None = 全平台模型生效（向后兼容）。
-    /// 元素支持 `"glm-5.2*"` 后缀通配（覆盖 `glm-5.2` / `glm-5.2-turbo`），exact-first。
-    /// 与 TS `PeakWindow.models?: string[]` 对称（跨层一致，见 cross-layer-rules.md）。
-    #[serde(default)]
-    pub models: Option<Vec<String>>,
-    /// 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / None = 立即可用。
-    /// `epoch_sec < start_at` → 窗口尚未启用，跳过（first-match 继续后续窗口）。
-    /// 与 TS `PeakWindow.start_at?: number` 对称。
-    #[serde(default)]
-    pub start_at: Option<i64>,
-    /// 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / None = 永久。
-    /// `epoch_sec >= end_at` → 窗口已失效，跳过。
-    /// 与 TS `PeakWindow.end_at?: number` 对称。
-    #[serde(default)]
-    pub end_at: Option<i64>,
-}
 
 /// bundled preset 唯一解析入口，见 `super::presets_cache`（单 OnceLock，跨 peak_hours /
 /// defaults_sync / coding_plan 共享一份解析结果，避免 N 份 `serde_json::Value` 常驻）。

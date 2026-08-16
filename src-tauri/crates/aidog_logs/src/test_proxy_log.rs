@@ -1,6 +1,8 @@
 #![cfg(test)]
-use super::*;
-use super::test_support::*;
+use aidog_db::now;
+use aidog_db::models::*;
+use aidog_db::test_support::*;
+use crate::*;
 use rusqlite::params;
 
     /// 字段完整性红线：渐进式「首节点 INSERT + 后续节点部分列 UPDATE」累积写入后，
@@ -32,7 +34,7 @@ use rusqlite::params;
         final_log.cache_tokens = 33;
         final_log.est_cost = 0.0042;
         final_log.is_stream = true;
-        final_log.attempts = vec![crate::gateway::models::ProxyAttempt {
+        final_log.attempts = vec![aidog_db::models::ProxyAttempt {
             platform_id: 1, platform_name: "p1".into(), status_code: 200,
             error: String::new(), duration_ms: 99, ts: now_ms,
         }];
@@ -149,11 +151,11 @@ use rusqlite::params;
         let db = test_db().await;
         let mut log = sample_log("attlog", "g", now());
         log.attempts = vec![
-            crate::gateway::models::ProxyAttempt {
+            aidog_db::models::ProxyAttempt {
                 platform_id: 1, platform_name: "p1".into(), status_code: 503,
                 error: "boom".into(), duration_ms: 12, ts: now(),
             },
-            crate::gateway::models::ProxyAttempt {
+            aidog_db::models::ProxyAttempt {
                 platform_id: 2, platform_name: "p2".into(), status_code: 200,
                 error: String::new(), duration_ms: 34, ts: now(),
             },
@@ -254,7 +256,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_g1, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_g2, false, false)).await.unwrap();
 
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             group_key: Some("group_a".to_string()),
             ..Default::default()
         };
@@ -278,7 +280,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&ok, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&fail, false, false)).await.unwrap();
 
-        let filter_ok = crate::gateway::models::ProxyLogFilter {
+        let filter_ok = aidog_db::models::ProxyLogFilter {
             status: Some(200),
             ..Default::default()
         };
@@ -286,7 +288,7 @@ use rusqlite::params;
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].id, "ok");
 
-        let filter_fail = crate::gateway::models::ProxyLogFilter {
+        let filter_fail = aidog_db::models::ProxyLogFilter {
             status: Some(-1),
             ..Default::default()
         };
@@ -306,7 +308,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false)).await.unwrap();
 
         // actual model filter
-        let filter_actual = crate::gateway::models::ProxyLogFilter {
+        let filter_actual = aidog_db::models::ProxyLogFilter {
             model: Some("glm-4-plus".to_string()),
             model_type: Some("actual".to_string()),
             ..Default::default()
@@ -315,7 +317,7 @@ use rusqlite::params;
         assert_eq!(rows.len(), 1, "actual model match should work");
 
         // original model filter
-        let filter_orig = crate::gateway::models::ProxyLogFilter {
+        let filter_orig = aidog_db::models::ProxyLogFilter {
             model: Some("claude-sonnet-4".to_string()),
             model_type: Some("original".to_string()),
             ..Default::default()
@@ -333,7 +335,7 @@ use rusqlite::params;
         for i in 0..3 {
             insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log(&format!("hm{i}"), "g", now - i), false, false)).await.unwrap();
         }
-        let filter = crate::gateway::models::ProxyLogFilter::default();
+        let filter = aidog_db::models::ProxyLogFilter::default();
 
         // 恰好 3 行、limit=3 → 无下一页
         let exact = filtered_list_proxy_logs(&db, &filter, 3, 0).await.unwrap();
@@ -357,7 +359,7 @@ use rusqlite::params;
         assert_eq!(count_all_proxy_logs(&db).await, 2);
         clear_proxy_logs(&db).await.unwrap();
         // 软删后 filtered_list（WHERE deleted_at=0）应为空
-        let filter = crate::gateway::models::ProxyLogFilter::default();
+        let filter = aidog_db::models::ProxyLogFilter::default();
         let rows = filtered_list_proxy_logs(&db, &filter, 100, 0).await.unwrap().items;
         assert_eq!(rows.len(), 0, "cleared logs should be soft-deleted (hidden from list)");
     }
@@ -372,7 +374,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&old, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&recent, false, false)).await.unwrap();
 
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             time_start: Some(now - 10_000),
             time_end: Some(now + 10_000),
             ..Default::default()
@@ -410,7 +412,7 @@ use rusqlite::params;
         let log2 = sample_log("path-b", "g", ts + 1);
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log1, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log2, false, false)).await.unwrap();
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             path: Some("chat".into()),
             ..Default::default()
         };
@@ -432,7 +434,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_429, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_ok, false, false)).await.unwrap();
 
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             status: Some(429),
             ..Default::default()
         };
@@ -455,7 +457,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_a, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_b, false, false)).await.unwrap();
 
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             model: Some("claude-3-5-sonnet".into()),
             model_type: Some("actual".into()),
             ..Default::default()
@@ -497,7 +499,7 @@ use rusqlite::params;
         .unwrap();
 
         // 默认 sources 兜底 → 仅返 test + quota 两行（按 created_at DESC：t1, q1）
-        let filter_default = crate::gateway::models::ProxyLogFilter::default();
+        let filter_default = aidog_db::models::ProxyLogFilter::default();
         let rows = list_request_logs(&db, &filter_default, 10, 0).await.unwrap();
         assert_eq!(rows.len(), 2, "default sources should exclude anthropic forward");
         assert_eq!(rows[0].base.id, "t1");
@@ -509,7 +511,7 @@ use rusqlite::params;
         assert!(rows[1].cli_proxy_provider_name.is_none());
 
         // 显式 sources 覆盖：传 [anthropic] → 仅返代理转发行
-        let filter_override = crate::gateway::models::ProxyLogFilter {
+        let filter_override = aidog_db::models::ProxyLogFilter {
             sources: Some(vec!["anthropic".into()]),
             ..Default::default()
         };
@@ -518,7 +520,7 @@ use rusqlite::params;
         assert_eq!(rows2[0].base.id, "f1");
 
         // cli_proxy_provider_id 筛选 → 仅返 provider_id=7 的 test 行
-        let filter_by_pid = crate::gateway::models::ProxyLogFilter {
+        let filter_by_pid = aidog_db::models::ProxyLogFilter {
             cli_proxy_provider_id: Some(7),
             ..Default::default()
         };
@@ -555,7 +557,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_quota, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_fwd, false, false)).await.unwrap();
 
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             exclude_sources: Some(vec!["test".into(), "quota".into()]),
             ..Default::default()
         };
@@ -584,7 +586,7 @@ use rusqlite::params;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l2, false, false)).await.unwrap();
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l3, false, false)).await.unwrap();
 
-        let filter = crate::gateway::models::ProxyLogFilter {
+        let filter = aidog_db::models::ProxyLogFilter {
             exclude_sources: Some(vec!["test".into(), "quota".into()]),
             ..Default::default()
         };

@@ -1,4 +1,5 @@
 //! coding_tools 设置单元测试（随源文件 coding_tools.rs 1:1）。
+use crate::gateway::db::DbInitTables;
 use serde_json::json;
 
     /// CodingToolsSettings 默认 = 两开关 false（UI 显示关，功能与开关解耦）。

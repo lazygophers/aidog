@@ -1,4 +1,5 @@
-use super::*;
+use aidog_db::{incremental_vacuum_conn, Db, now, retention_cutoff_secs};
+use aidog_db::models::*;
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
@@ -6,8 +7,8 @@ const PROXY_LOG_COLUMNS: &str =
     "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, cli_proxy_provider_id";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
-fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::ProxyLog> {
-    Ok(crate::gateway::models::ProxyLog {
+fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
+    Ok(aidog_db::models::ProxyLog {
         id: row.get(0)?,
         group_key: row.get(1)?,
         model: row.get(2)?,
@@ -33,7 +34,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::Pr
         cache_tokens: row.get(22)?,
         est_cost: row.get(23)?,
         is_stream: row.get::<_, i64>(24)? == 1,
-        attempts: crate::gateway::models::parse_attempts(&row.get::<_, String>(25)?),
+        attempts: aidog_db::models::parse_attempts(&row.get::<_, String>(25)?),
         retry_count: row.get(26)?,
         blocked_by: row.get(27)?,
         blocked_reason: row.get(28)?,
@@ -48,12 +49,12 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::Pr
 /// 取 owned `ProxyLog`：调用方（upsert_log）已为脱敏 clone 一份，此处接管所有权
 /// 直接 move 进后台线程闭包，消除原先「调用方 clone + 本函数再 clone」的双重全量复制。
 #[track_caller]
-pub fn upsert_proxy_log(db: &Db, log: crate::gateway::models::ProxyLog) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn upsert_proxy_log(db: &Db, log: aidog_db::models::ProxyLog) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
-            let attempts_str = crate::gateway::models::serialize_attempts(&log.attempts);
+            let attempts_str = aidog_db::models::serialize_attempts(&log.attempts);
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
@@ -126,7 +127,7 @@ impl ProxyLogColumns {
     /// 例外：流式占位 `"[stream]"` 是控制标记（非敏感内容），strip 时保留，避免破坏 upsert_log
     /// 的终态判定（`cols.response_body != "[stream]"`）—— 真实正文 / 空串由 stream.rs flush 改写后再经本函数 strip。
     /// attempts 在此序列化一次。仅克隆 String 字段（入库本就需 owned 值），不克隆整 ProxyLog 结构。
-    pub fn from_log(log: &crate::gateway::models::ProxyLog, strip_user: bool, strip_upstream: bool) -> Self {
+    pub fn from_log(log: &aidog_db::models::ProxyLog, strip_user: bool, strip_upstream: bool) -> Self {
         let empty = String::new;
         // 占位保留：strip 上游响应正文时，若仍是流式占位则不清空（控制标记，终态判定依赖）。
         let strip_resp_body = |v: &str| -> String {
@@ -158,7 +159,7 @@ impl ProxyLogColumns {
             cache_tokens: log.cache_tokens,
             est_cost: log.est_cost,
             is_stream: log.is_stream as i64,
-            attempts: crate::gateway::models::serialize_attempts(&log.attempts),
+            attempts: aidog_db::models::serialize_attempts(&log.attempts),
             retry_count: log.retry_count,
             blocked_by: log.blocked_by.clone(),
             blocked_reason: log.blocked_reason.clone(),
@@ -302,7 +303,7 @@ pub fn update_proxy_log_columns<'a>(db: &'a Db, new: ProxyLogColumns, prev: &'a 
 }
 
 #[track_caller]
-pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ProxyLogSummary>, String>> + '_ {
+pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::ProxyLogSummary>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
@@ -320,8 +321,8 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> impl std::future::Fu
 }
 
 /// Summary row mapper (column order must match SELECT)
-fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::ProxyLogSummary> {
-    Ok(crate::gateway::models::ProxyLogSummary {
+fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLogSummary> {
+    Ok(aidog_db::models::ProxyLogSummary {
         id: row.get(0)?,
         group_key: row.get(1)?,
         model: row.get(2)?,
@@ -346,10 +347,10 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<crate::gateway::mo
 #[track_caller]
 pub fn filtered_list_proxy_logs<'a>(
     db: &'a Db,
-    filter: &'a crate::gateway::models::ProxyLogFilter,
+    filter: &'a aidog_db::models::ProxyLogFilter,
     limit: u32,
     offset: u32,
-) -> impl std::future::Future<Output = Result<crate::gateway::models::ProxyLogPage, String>> + 'a {
+) -> impl std::future::Future<Output = Result<aidog_db::models::ProxyLogPage, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let filter = filter.clone();
@@ -369,7 +370,7 @@ pub fn filtered_list_proxy_logs<'a>(
                 .collect::<SqlResult<Vec<_>>>()?;
             let has_more = items.len() > limit as usize;
             items.truncate(limit as usize);
-            Ok(crate::gateway::models::ProxyLogPage { items, has_more })
+            Ok(aidog_db::models::ProxyLogPage { items, has_more })
         })
         .await
         .map_err(|e| e.to_string())
@@ -379,7 +380,7 @@ pub fn filtered_list_proxy_logs<'a>(
 #[track_caller]
 pub fn filtered_count_proxy_logs<'a>(
     db: &'a Db,
-    filter: &'a crate::gateway::models::ProxyLogFilter,
+    filter: &'a aidog_db::models::ProxyLogFilter,
 ) -> impl std::future::Future<Output = Result<u32, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
@@ -411,10 +412,10 @@ pub fn filtered_count_proxy_logs<'a>(
 #[track_caller]
 pub fn list_request_logs<'a>(
     db: &'a Db,
-    filter: &'a crate::gateway::models::ProxyLogFilter,
+    filter: &'a aidog_db::models::ProxyLogFilter,
     limit: u32,
     offset: u32,
-) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::RequestLogSummary>, String>> + 'a {
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::RequestLogSummary>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let mut filter = filter.clone();
@@ -423,7 +424,7 @@ pub fn list_request_logs<'a>(
         filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
     }
     // ① proxy_log handle 取行（含 cli_proxy_provider_id，但不含 cpp.name —— 跨库禁 JOIN）。
-    let mut rows: Vec<(crate::gateway::models::ProxyLogSummary, Option<i64>)> = db
+    let mut rows: Vec<(aidog_db::models::ProxyLogSummary, Option<i64>)> = db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
             p.push(Box::new(limit));
@@ -485,7 +486,7 @@ pub fn list_request_logs<'a>(
     }
     let out = rows
         .drain(..)
-        .map(|(base, cpp_id)| crate::gateway::models::RequestLogSummary {
+        .map(|(base, cpp_id)| aidog_db::models::RequestLogSummary {
             cli_proxy_provider_name: cpp_id.and_then(|id| cpp_map.get(&id).cloned()),
             base,
             cli_proxy_provider_id: cpp_id,
@@ -497,7 +498,7 @@ pub fn list_request_logs<'a>(
 
 /// Build WHERE clause extensions + params from filter.
 /// Returns (" AND ...", params). Empty filter → ("", []).
-fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (String, Vec<Box<dyn rusqlite::types::ToSql>>) {
+fn build_filter_where(filter: &aidog_db::models::ProxyLogFilter) -> (String, Vec<Box<dyn rusqlite::types::ToSql>>) {
     let mut parts: Vec<String> = Vec::new();
     let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
     let mut idx = 1u32;
@@ -607,7 +608,7 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
 #[track_caller]
 pub fn distinct_models_proxy_log<'a>(
     db: &'a Db,
-    filter: &'a crate::gateway::models::ProxyLogFilter,
+    filter: &'a aidog_db::models::ProxyLogFilter,
     actual: bool,
     limit: u32,
 ) -> impl std::future::Future<Output = Result<Vec<String>, String>> + 'a {
@@ -635,7 +636,7 @@ pub fn distinct_models_proxy_log<'a>(
 }
 
 #[track_caller]
-pub fn get_proxy_log<'a>(db: &'a Db, id: &'a str) -> impl std::future::Future<Output = Result<Option<crate::gateway::models::ProxyLog>, String>> + 'a {
+pub fn get_proxy_log<'a>(db: &'a Db, id: &'a str) -> impl std::future::Future<Output = Result<Option<aidog_db::models::ProxyLog>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let id = id.to_string();
@@ -744,7 +745,7 @@ pub fn purge_deleted_proxy_logs(db: &Db) -> impl std::future::Future<Output = Re
 mod tests {
 mod test_filter_where {
     use super::super::build_filter_where;
-    use crate::gateway::models::ProxyLogFilter;
+    use aidog_db::models::ProxyLogFilter;
     use rusqlite::Connection;
 
     /// 在真实 sqlite 上跑 build_filter_where 产物，验证占位符 ?N 与 bind 参数一一对齐。
@@ -868,11 +869,13 @@ mod test_filter_where {
 
 mod test_finalize_incomplete {
     use super::super::finalize_incomplete_proxy_log;
-    use crate::gateway::db::Db;
+    use aidog_db::Db;
 
     async fn test_db() -> Db {
         let db = Db::new(":memory:").await.expect("open memory db");
-        db.init_tables().await.expect("init tables");
+        aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .expect("init tables");
         db
     }
 

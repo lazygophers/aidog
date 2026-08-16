@@ -1,5 +1,6 @@
 //! db_rows.rs 测试：breaker 迁入 extra + ensure_group_and_attach 幂等。
 
+use crate::gateway::db::DbInitTables;
 use super::{effective_extra_with_breaker, ensure_group_and_attach, snapshot_platform_ids};
 use crate::gateway::db::Db;
 

@@ -262,14 +262,6 @@ mod test_endpoints_locked {
         }
     }
 
-    /// 锁死平台的 preset 必须可解析出端点（devin 例外：preset 端点为空，走 handler 特殊分支）。
-    #[test]
-    fn locked_platforms_have_preset_endpoints() {
-        for p in [Protocol::Glm, Protocol::GlmCoding, Protocol::Kimi, Protocol::DeepSeek] {
-            let eps = crate::gateway::presets_cache::default_endpoints(&p.wire_str());
-            assert!(!eps.is_empty(), "{} preset endpoints empty", p.wire_str());
-        }
-    }
 }
 
 #[cfg(test)]

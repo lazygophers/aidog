@@ -1,4 +1,6 @@
-use super::*;
+use std::collections::HashMap;
+use aidog_db::{platform_id_name_map, Db, load_auto_from_map, resolve_eff_pid};
+use aidog_db::models::*;
 use rusqlite::{Connection};
 
 /// minute/5min 路径的过滤参数（hourly/daily 走聚合表另算，不用本结构）。
@@ -133,7 +135,7 @@ pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future:
 }
 
 /// UTC ms → 本地小时桶文本键 "YYYY-MM-DD HH:00:00"，用于与 stats_agg_hourly.time_hour 字典序比较。
-pub(crate) fn utc_ms_to_local_hour_key(ms: i64) -> String {
+pub fn utc_ms_to_local_hour_key(ms: i64) -> String {
     use chrono::{Local, TimeZone};
     Local
         .timestamp_millis_opt(ms)

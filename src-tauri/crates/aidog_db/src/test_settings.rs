@@ -1,5 +1,5 @@
 #![cfg(test)]
-use super::*;
+use crate::{Db, now};
 use super::test_support::*;
 
     // ── setting 软删除 + upsert ──

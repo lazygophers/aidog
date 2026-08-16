@@ -1,0 +1,22 @@
+[package]
+name = "aidog_stats"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_stats：统计读 写（query_stats / stats_agg / stats_today / usage_stats，
+# 拆自 aidog_core::gateway::db，2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+aidog_logs = { path = "../aidog_logs" }
+tempfile = { workspace = true }

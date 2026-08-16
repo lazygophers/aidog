@@ -265,7 +265,6 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) -> Op
 
 /// 测试专用：构造一个可装进作用域 subscriber 的 `TraceIdLayer` 实例，
 /// 用于验证 `current_trace_id` 的环境捕获行为（生产路径经 `init_logging` 装载）。
-#[cfg(test)]
 pub fn trace_id_layer_for_test<S>() -> impl Layer<S>
 where
     S: tracing::Subscriber + for<'a> LookupSpan<'a>,

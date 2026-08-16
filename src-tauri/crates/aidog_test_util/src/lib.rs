@@ -3,6 +3,7 @@
 //! C3+ 各 commands crate dev-deps 引此 crate；root aidog crate 测试也保留 pub(crate)
 //! 版本（过渡期 C10 才统一）。本 crate 不依赖任何 commands_* crate（禁循环）。
 
+use aidog_core::gateway::db::DbInitTables;
 use aidog_core::gateway::db::Db;
 use tauri::test::{mock_builder, mock_context, noop_assets};
 use tauri::{App, Manager};

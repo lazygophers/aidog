@@ -5,6 +5,7 @@
 //! 1. 🔴 `:memory:` fallback：读池复用写连接，写入后经 `call_read_traced`（读路径）立即可见，
 //!    否则读到独立空内存库 → 全测试链一致性崩。
 //! 2. 真实文件库：读池为独立只读连接，WAL 模式下写连接提交后读连接看到最新快照。
+use crate::gateway::db::DbInitTables;
 use super::*;
 use rusqlite::params;
 

@@ -1,3 +1,4 @@
+use crate::gateway::db::DbInitTables;
 use super::super::super::db;
 use super::super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::ordering::{apply_coding_plan_priority, is_coding_plan};

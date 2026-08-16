@@ -1,3 +1,4 @@
+use crate::gateway::db::DbInitTables;
 use super::*;
 
     fn placeholder_stream_log(id: &str) -> ProxyLog {

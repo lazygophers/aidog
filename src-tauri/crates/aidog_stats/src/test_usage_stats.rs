@@ -1,26 +1,25 @@
 #![cfg(test)]
-use super::*;
-use super::test_support::*;
+use aidog_db::now;
+use aidog_db::test_support::*;
+use aidog_logs::*;
+use crate::*;
 
     /// 批量 `platform_usage_stats_all` 结果必须逐平台等于单平台 `get_platform_usage_stats`，
     /// 含 platform_id=0 自动分组日志按 group_key → auto_from_platform 回溯归属源平台。
     #[tokio::test]
     async fn platform_usage_stats_all_matches_per_platform() {
         let db = test_db().await;
-        let p1 = create_platform(&db, sample_platform("P1")).await.unwrap();
-        let p2 = create_platform(&db, sample_platform("P2")).await.unwrap();
+        let p1 = insert_test_platform(&db, "P1").await;
+        let p2 = insert_test_platform(&db, "P2").await;
         // 自动分组：显示名 name=auto_p1，路由/归属键 group_key=gk_auto_p1（刻意 ≠ name，
-        // 复刻真实 gk_<hex> 场景，防回归 join 误用 g.name），auto_from_platform=p1.id（十进制字符串）。
-        let mut g = sample_group("auto_p1", vec![]);
-        g.group_key = Some("gk_auto_p1".to_string());
-        g.auto_from_platform = p1.id.to_string();
-        create_group(&db, g).await.unwrap();
+        // 复刻真实 gk_<hex> 场景，防回归 join 误用 g.name），auto_from_platform=p1（十进制字符串）。
+        insert_test_group(&db, "auto_p1", Some("gk_auto_p1"), &p1.to_string()).await;
 
         let now = chrono::Utc::now().timestamp_millis();
 
         // P1 直挂日志（platform_id=p1）：2 条，1 成功 1 失败。
         let mut a1 = sample_log("a1", "g1", now);
-        a1.platform_id = p1.id;
+        a1.platform_id = p1;
         a1.status_code = 200;
         a1.input_tokens = 10;
         a1.output_tokens = 20;
@@ -28,7 +27,7 @@ use super::test_support::*;
         a1.est_cost = 0.01;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a1, false, false)).await.unwrap();
         let mut a2 = sample_log("a2", "g1", now);
-        a2.platform_id = p1.id;
+        a2.platform_id = p1;
         a2.status_code = 500;
         a2.input_tokens = 7;
         a2.output_tokens = 0;
@@ -47,7 +46,7 @@ use super::test_support::*;
 
         // P2 直挂日志：1 条成功。
         let mut b1 = sample_log("b1", "g2", now);
-        b1.platform_id = p2.id;
+        b1.platform_id = p2;
         b1.status_code = 200;
         b1.input_tokens = 3;
         b1.output_tokens = 4;
@@ -67,7 +66,7 @@ use super::test_support::*;
 
         let batch = platform_usage_stats_all(&db).await.expect("batch");
 
-        for pid in [p1.id, p2.id] {
+        for pid in [p1, p2] {
             let single = get_platform_usage_stats(&db, pid).await.expect("single");
             let b = batch.get(&pid).unwrap_or_else(|| panic!("missing pid {pid} in batch"));
             assert_eq!(b.total_requests, single.total_requests, "pid {pid} total_requests");
@@ -83,7 +82,7 @@ use super::test_support::*;
         }
 
         // p1 含回溯日志：total=3（a1+a2+a0），success=2，input=117。
-        let p1b = batch.get(&p1.id).unwrap();
+        let p1b = batch.get(&p1).unwrap();
         assert_eq!(p1b.total_requests, 3, "p1 含 platform_id=0 回溯归属");
         assert_eq!(p1b.success_count, 2);
         assert_eq!(p1b.total_input_tokens, 117);

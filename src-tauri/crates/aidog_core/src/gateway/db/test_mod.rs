@@ -1,4 +1,5 @@
 #![cfg(test)]
+use crate::gateway::db::DbInitTables;
 use super::*;
 use super::test_support::*;
 

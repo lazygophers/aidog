@@ -1,5 +1,6 @@
 #![cfg(test)]
-use super::*;
+use crate::{Db, now, load_auto_from_map, resolve_eff_pid, STATS_AGG_HOURLY_SQL, incremental_vacuum_conn};
+use crate::models::*;
 use super::test_support::*;
 
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──

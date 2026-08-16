@@ -4,7 +4,7 @@
 //! 该后台线程的「当前操作上下文」（request_id + 业务调用位置），由 `Db::call_traced`
 //! 在进入闭包时设置、退出时清空，供 `sql_profile_callback` 读出拼进 SQL 日志。
 
-use crate::gateway::log_util::truncate_sql_literals;
+use crate::log_util::truncate_sql_literals;
 
 /// 单条 DB 操作（一个 `.call` 闭包）的「当前上下文」，由 chokepoint `call_traced`
 /// 在 **DB 后台线程** 进入闭包时设置、退出时清空。
@@ -15,24 +15,24 @@ use crate::gateway::log_util::truncate_sql_literals;
 /// 线程只跑一个闭包 → thread-local 不会串味。`profile` 回调（同样在 DB 线程触发）
 /// 读取本上下文，把 request_id + 调用位置拼进 SQL 日志。
 #[derive(Default, Clone)]
-pub(crate) struct DbCallCtx {
+pub struct DbCallCtx {
     /// 发起该操作的真实唯一链路 id：代理请求路径 = request_id；命令 / 后台 / 启动路径 =
     /// 当前 span（command span 的 trace_id / 后台轮询 span / init span）的 id；环境无任何
     /// 带 id 的 span 时由 `call_traced` 当场 `new_trace_id()` 兜底生成。**永不为固定常量**。
-    pub(crate) req: Option<String>,
+    pub req: Option<String>,
     /// 发起该 `.call` 的 **业务调用位置**（file:line）。由各 Db 公开方法 `#[track_caller]`
     /// 在入口 `Location::caller()` 捕获后显式传给 `call_traced`，故指向 proxy.rs / lib.rs /
     /// router.rs 等业务代码，而非 db.rs 内部 helper 行。
-    pub(crate) caller: Option<&'static std::panic::Location<'static>>,
+    pub caller: Option<&'static std::panic::Location<'static>>,
 }
 
 thread_local! {
     /// 当前 DB 操作上下文（仅在 DB 后台线程有意义）。
-    pub(crate) static CURRENT_DB_CTX: std::cell::RefCell<DbCallCtx> = const { std::cell::RefCell::new(DbCallCtx { req: None, caller: None }) };
+    pub static CURRENT_DB_CTX: std::cell::RefCell<DbCallCtx> = const { std::cell::RefCell::new(DbCallCtx { req: None, caller: None }) };
 }
 
 /// 把 `&Location` 渲染成简短 `文件名:行` 形式（去掉冗长的绝对/相对目录前缀）。
-pub(crate) fn fmt_caller(loc: &std::panic::Location<'_>) -> String {
+pub fn fmt_caller(loc: &std::panic::Location<'_>) -> String {
     let file = loc.file();
     // 取最后一段路径（如 src/gateway/db.rs → db.rs），日志更紧凑。
     let short = file.rsplit(['/', '\\']).next().unwrap_or(file);

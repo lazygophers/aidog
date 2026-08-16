@@ -66,22 +66,6 @@ pub(crate) fn resp_headers_to_log_json(headers: &[(axum::http::HeaderName, axum:
     Value::Object(h).to_string()
 }
 
-/// 从上游错误体提取人类可读 message，优先嵌套 `error.message`，回退顶层 `message`。
-/// 非 JSON / 无字段 / 空白 → None（调用方回退 truncate_attempt_error）。
-pub(crate) fn extract_error_message(body: &str) -> Option<String> {
-    let v: Value = serde_json::from_str(body).ok()?;
-    let msg = v
-        .get("error")
-        .and_then(|e| e.get("message"))
-        .and_then(|m| m.as_str())
-        .or_else(|| v.get("message").and_then(|m| m.as_str()))?;
-    let msg = msg.trim();
-    if msg.is_empty() {
-        None
-    } else {
-        Some(msg.to_string())
-    }
-}
 
 /// 区分 429：配额耗尽（true）vs 限流 transient（false）。仅用于熔断分类（C3）：
 /// 配额耗尽不计熔断（record_ignored），限流计熔断（record_failure）。
@@ -254,3 +238,5 @@ pub(crate) fn is_nonstream_body_valid(body: &str) -> bool {
 #[cfg(test)]
 #[path = "test_retry.rs"]
 mod test_retry;
+
+pub(crate) use aidog_db::extract_error_message;
