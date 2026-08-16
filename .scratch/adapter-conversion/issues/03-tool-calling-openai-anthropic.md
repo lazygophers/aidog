@@ -4,10 +4,10 @@
 
 **Blocked by:** 01 — 地基与回归网。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：OpenAI 带工具请求 → Anthropic 出站（tools/tool_use/tool_result 逐字段映射断言）
-- [ ] fixture：Anthropic 带工具请求 → OpenAI 出站（arguments 序列化为 JSON 字符串）
-- [ ] 多工具并发调用（多 tool_use block / 多 tool_calls）round-trip 不乱 id
-- [ ] 无工具请求行为不变（守卫式，回归网证明）
-- [ ] cargo test / make lint 全绿
+- [x] fixture：OpenAI 带工具请求 → Anthropic 出站（tools/tool_use/tool_result 逐字段映射断言）
+- [x] fixture：Anthropic 带工具请求 → OpenAI 出站（arguments 序列化为 JSON 字符串）
+- [x] 多工具并发调用（多 tool_use block / 多 tool_calls）round-trip 不乱 id
+- [x] 无工具请求行为不变（守卫式，回归网证明）
+- [x] cargo test / make lint 全绿

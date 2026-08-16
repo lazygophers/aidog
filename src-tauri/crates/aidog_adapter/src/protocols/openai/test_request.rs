@@ -64,7 +64,7 @@ fn thinking_plus_tool_use_keeps_tool_calls() {
 #[test]
 fn tool_result_plus_text_preserves_text() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "file content".into() },
+        ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "file content".into(), name: None },
         ContentBlock::Text { text: "now do X".into() },
     ])]);
     let out = to_openai(&req);
@@ -80,8 +80,8 @@ fn tool_result_plus_text_preserves_text() {
 #[test]
 fn multiple_tool_results_each_become_tool_message() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::ToolResult { tool_use_id: "c1".into(), content: "r1".into() },
-        ContentBlock::ToolResult { tool_use_id: "c2".into(), content: "r2".into() },
+        ContentBlock::ToolResult { tool_use_id: "c1".into(), content: "r1".into(), name: None },
+        ContentBlock::ToolResult { tool_use_id: "c2".into(), content: "r2".into(), name: None },
     ])]);
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 2);

@@ -27,6 +27,7 @@ fn to_anthropic_skips_system_role_maps_tool_to_user() {
             content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                 tool_use_id: "c".into(),
                 content: "r".into(),
+                name: None,
             }]),
         },
         Message { role: Role::Assistant, content: MessageContent::Text("a".into()) },
@@ -60,7 +61,7 @@ fn to_anthropic_tools_and_tool_choice() {
     for (tc, has) in [
         (ToolChoice::Auto, true),
         (ToolChoice::Any, true),
-        (ToolChoice::None, false),
+        (ToolChoice::None, true),
         (ToolChoice::Named { name: "f".into() }, true),
     ] {
         let mut r = req(vec![]);

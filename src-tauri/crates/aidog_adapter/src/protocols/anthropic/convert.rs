@@ -91,12 +91,12 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
         top_p: req.top_p,
         stream: req.stream,
         tools,
-        tool_choice: req.tool_choice.as_ref().and_then(|tc| {
+        tool_choice: req.tool_choice.as_ref().map(|tc| {
             match tc {
-                ToolChoice::Auto => Some(serde_json::json!({"type": "auto"})),
-                ToolChoice::Any => Some(serde_json::json!({"type": "any"})),
-                ToolChoice::None => None,
-                ToolChoice::Named { name } => Some(serde_json::json!({"type": "tool", "name": name})),
+                ToolChoice::Auto => serde_json::json!({"type": "auto"}),
+                ToolChoice::Any => serde_json::json!({"type": "any"}),
+                ToolChoice::None => serde_json::json!({"type": "none"}),
+                ToolChoice::Named { name } => serde_json::json!({"type": "tool", "name": name}),
             }
         }),
     }

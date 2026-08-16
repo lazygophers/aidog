@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 — 地基与回归网。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：带参数的 Anthropic/Gemini 入站请求 → 转换后中立模型字段断言
-- [ ] Gemini 出站 max_tokens → generationConfig.maxOutputTokens 映射生效（回归用例证明此前丢失、此后保留）
-- [ ] 缺参数时不强加默认值（守卫式：有才写）
-- [ ] cargo test / make lint 全绿
+- [x] fixture：带参数的 Anthropic/Gemini 入站请求 → 转换后中立模型字段断言
+- [x] Gemini 出站 max_tokens → generationConfig.maxOutputTokens 映射生效（回归用例证明此前丢失、此后保留）
+- [x] 缺参数时不强加默认值（守卫式：有才写）
+- [x] cargo test / make lint 全绿

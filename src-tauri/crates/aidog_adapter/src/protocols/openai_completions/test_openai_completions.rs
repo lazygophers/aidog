@@ -21,6 +21,7 @@ fn to_completions_joins_messages() {
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: "i".into(),
                     content: "r".into(),
+                    name: None,
                 }]),
             },
         ],

@@ -44,7 +44,7 @@ fn to_gemini_roles_and_blocks() {
         Message {
             role: Role::Tool,
             content: MessageContent::Blocks(vec![
-                ContentBlock::ToolResult { tool_use_id: "f".into(), content: "res".into() },
+                ContentBlock::ToolResult { tool_use_id: "f".into(), content: "res".into(), name: None },
                 ContentBlock::Unknown(json!({"type": "thinking", "text": "th"})),
             ]),
         },

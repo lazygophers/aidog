@@ -4,9 +4,9 @@
 
 **Blocked by:** 03 — 中立工具格式敲定。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：中立（含 OpenAI 格式工具）→ Gemini functionDeclarations/functionCall/functionResponse 映射断言
-- [ ] Gemini 入站 → 中立：无 id 工具调用自生成 id，多工具按序配对
-- [ ] Gemini args(对象) ↔ 中立 arguments 转换正确
-- [ ] cargo test / make lint 全绿
+- [x] fixture：中立（含 OpenAI 格式工具）→ Gemini functionDeclarations/functionCall/functionResponse 映射断言
+- [x] Gemini 入站 → 中立：无 id 工具调用自生成 id，多工具按序配对
+- [x] Gemini args(对象) ↔ 中立 arguments 转换正确
+- [x] cargo test / make lint 全绿
