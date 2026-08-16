@@ -537,6 +537,15 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
 pub fn parse_gemini_sse(data: &Value) -> Option<ChatStreamEvent> {
     let candidates = data.get("candidates")?.as_array()?;
     let candidate = candidates.first()?;
+
+    // 结束（finishReason 帧可能无 content/parts，须先判）
+    if let Some(reason) = candidate.get("finishReason").and_then(|v| v.as_str())
+        && (reason == "STOP" || reason == "MAX_TOKENS") {
+            return Some(ChatStreamEvent::Stop {
+                finish_reason: Some(reason.to_lowercase()),
+            });
+        }
+
     let content = candidate.get("content")?;
     let parts = content.get("parts")?.as_array()?;
     let part = parts.first()?;
