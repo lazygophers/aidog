@@ -84,7 +84,7 @@ pub use passthrough::{apply_models_auth, build_models_url};
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
-    detect_source_protocol, endpoint_host, infer_passthrough_protocol_from_ua,
+    detect_source_protocol, infer_passthrough_protocol_from_ua,
     match_platform_by_host, resolve_group, select_endpoint_for_protocol,
     should_fallback_passthrough,
 };

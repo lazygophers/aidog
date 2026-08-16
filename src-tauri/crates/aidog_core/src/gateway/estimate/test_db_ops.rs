@@ -1,3 +1,4 @@
+use crate::gateway::db::DbInitTables;
 use super::*;
 use crate::gateway::db::{self, now, Db};
 use crate::gateway::estimate::{EstCodingPlan, EstTier};

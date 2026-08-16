@@ -1,0 +1,20 @@
+[package]
+name = "aidog_logs"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_logs：proxy_log 表读写（拆自 aidog_core::gateway::db::proxy_log，2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }

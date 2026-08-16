@@ -1,4 +1,7 @@
-use super::*;
+use rusqlite::Connection;
+use crate::schema_early::*;
+use crate::schema_late::*;
+use crate::{Db, now, load_auto_from_map};
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// 主库迁出的 notification 行（migration 20260727-20, 原 049）。由 init_tables 在主库闭包内读出 + DROP 主库
@@ -127,18 +130,26 @@ fn insert_platform_table_rows(
     Ok(())
 }
 
-impl Db {
-    #[track_caller]
-    pub fn init_tables(&self) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+/// 建表/迁移编排（backfill 由 caller 注入：aidog_core 传 aidog_stats::backfill_stats_agg_if_empty，
+/// 避免 aidog_db → aidog_stats 循环依赖）。
+pub type BackfillFn = std::sync::Arc<dyn Fn(&Connection, &std::collections::HashMap<String, i64>) -> rusqlite::Result<()> + Send + Sync>;
+
+#[track_caller]
+pub fn init_tables_raw(
+    db: &Db,
+    backfill: BackfillFn,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
         let __db_caller = std::panic::Location::caller();
         async move {
             // Phase 1: 主库 migration（不含 4 表 DDL）+ 读 4 表全部行 + 读 proxy_log 阶段所需预数据。
             // crash-safe：仅读不 DROP。auto_map 读主库 "group" 表（首次迁移仍在；二次启动空表 →
             // backfill_stats_agg_if_empty 跳过，无回归）。cpa_pids / notif_rows 同 Phase 2 消费。
-            let (auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows) = self
-                .call_traced(None, __db_caller, |conn| {
+            let (auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows) = db
+                .call_traced(None, __db_caller, {
+                    let backfill = backfill.clone();
+                    move |conn| {
                     run_migrations_early(conn)?;
-                    run_migrations_late(conn)?;
+                    run_migrations_late(conn, backfill.clone())?;
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
                     // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（原 Mig 046 在 log.db 上的
@@ -165,6 +176,7 @@ impl Db {
                         );
                     }
                     Ok((auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows))
+                    }
                 })
                 .await
                 .map_err(|e| e.to_string())?;
@@ -172,7 +184,7 @@ impl Db {
             // Phase 2: log.db migration（proxy_log + notification 建表/索引/回填）。
             // stats-agg-to-main-db：stats_agg_hourly 已迁主库（Phase 1 run_migrations_late 20260727-16）。
             // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
-            self.call_proxy_log_traced(None, __db_caller, move |conn| {
+            db.call_proxy_log_traced(None, __db_caller, move |conn| {
                 run_migrations_proxy_log_early(conn)?;
                 run_migrations_proxy_log_late(conn, &auto_map, &cpa_pids, &notif_rows)?;
                 Ok(())
@@ -183,7 +195,7 @@ impl Db {
             // Phase 3: platform.db migration（建 4 表 DDL + 历史 ALTER + INSERT OR IGNORE 保 id 回填）。
             // crash-safe：INSERT OR IGNORE 可任意重放。内存库 fallback 下 platform handle = 主内存连接
             // clone，与 Phase 1 同物理库，4 表数据仍在（Phase 1 未 DROP），INSERT OR IGNORE 全部 id 冲突跳过。
-            self.call_platform_traced(None, __db_caller, move |conn| {
+            db.call_platform_traced(None, __db_caller, move |conn| {
                 run_migrations_platform_early(conn)?;
                 run_migrations_platform_late(conn)?;
                 insert_platform_table_rows(conn, "platform", &plat_rows.0, &plat_rows.1)?;
@@ -200,8 +212,8 @@ impl Db {
             // 内存库 fallback：platform handle = 主内存 conn clone，DROP 会清掉共享物理连接上的 4 表
             // 致后续 call_platform_traced 访问失败 → 内存库跳过 Phase 4（main 与 platform 同 conn，
             // DROP main 等于 DROP platform；文件库才有「main 残留待清 + platform 独立存在」语义）。
-            if !self.is_memory() {
-                self.call_traced(None, __db_caller, |conn| {
+            if !db.is_memory() {
+                db.call_traced(None, __db_caller, |conn| {
                     let _ = conn.execute("DROP TABLE IF EXISTS platform", []);
                     let _ = conn.execute("DROP TABLE IF EXISTS \"group\"", []);
                     let _ = conn.execute("DROP TABLE IF EXISTS group_platform", []);
@@ -214,7 +226,6 @@ impl Db {
 
             Ok(())
         }
-    }
 }
 
 /// 内置预设手机号正则（中国大陆 11 位 + 通用国际 E.164 形式）。

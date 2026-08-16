@@ -1,3 +1,4 @@
+use crate::gateway::db::DbInitTables;
 use super::*;
 use super::super::db::Db;
 use std::collections::HashMap;

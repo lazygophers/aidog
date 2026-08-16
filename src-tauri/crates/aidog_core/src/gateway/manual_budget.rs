@@ -430,7 +430,7 @@ mod tests {
     #[tokio::test]
     async fn zero_budget_shortcircuits_write_conn() {
         use crate::gateway::db::test_support::sample_platform;
-        use crate::gateway::db::{create_platform, Db};
+        use crate::gateway::db::{create_platform, Db, DbInitTables};
 
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("aidog.db").to_string_lossy().into_owned();

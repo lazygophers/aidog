@@ -1,4 +1,5 @@
 //! App setup（启动初始化逻辑）下沉自 lib.rs 的 run() setup 闭包，零行为变更。
+use aidog_core::gateway::db::DbInitTables;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use tauri::Manager;

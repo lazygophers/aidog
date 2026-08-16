@@ -1,9 +1,15 @@
-use super::*;
+use std::collections::HashMap;
+use crate::helpers::*;
+use crate::{now, load_auto_from_map, STATS_AGG_HOURLY_SQL};
+use crate::models::*;
 use rusqlite::{params, Connection, Result as SqlResult};
 
 /// Migrations 20260727-12..18（原 021–052, 日期戳脱锚）。
 /// 自 init_tables 拆出。编号格式 `YYYYMMDD-NN`：日期戳批次 + 库内序号（main 库独立空间）。
-pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
+pub(crate) fn run_migrations_late(
+    conn: &Connection,
+    backfill: crate::schema::BackfillFn,
+) -> SqlResult<()> {
                 // Migration 20260727-12 (原 021): model_price 加模型信息列（max_tokens / context_window）。
                 // 列为索引快速读取（出站裁剪、列表展示）；price_data JSON 仍存完整原始数据。
                 // NULL = 未知/无限制。源自旧 008_model_info_columns（已内联为下方 ALTER）。
@@ -62,7 +68,7 @@ pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                     .is_some();
                 if has_legacy_proxy_log {
                     let auto_map = load_auto_from_map(conn)?;
-                    backfill_stats_agg_if_empty(conn, &auto_map)?;
+                    backfill(conn, &auto_map)?;
                 }
 
                 // Migration 20260727-17 (原 052): log.db 残留 stats_agg_hourly 跨库搬迁到主库。
@@ -452,12 +458,12 @@ ALTER TABLE "group_new" RENAME TO "group";
                         if ft == 0 && os == 0 && hom == 0 {
                             continue;
                         }
-                        let breaker = crate::gateway::models::PlatformBreaker {
+                        let breaker = crate::models::PlatformBreaker {
                             failure_threshold: ft.max(0) as u32,
                             open_secs: os.max(0) as u64,
                             half_open_max: hom.max(0) as u32,
                         };
-                        let new_extra = crate::gateway::models::merge_breaker_into_extra(&extra, &breaker);
+                        let new_extra = crate::models::merge_breaker_into_extra(&extra, &breaker);
                         conn.execute(
                             "UPDATE platform SET extra = ?1 WHERE id = ?2",
                             params![new_extra, id],
@@ -622,7 +628,7 @@ fn reextract_legacy_last_error(conn: &Connection) {    // ponytail: SELECT 后�
         let Some((prefix, body)) = stored.split_once(": ") else {
             continue; // 无 `: ` 分隔 → 非标准格式（如纯 "HTTP 429"），不动
         };
-        let Some(msg) = crate::gateway::proxy::extract_error_message(body) else {
+        let Some(msg) = crate::extract_error_message(body) else {
             continue; // body 非 JSON / 无 error.message → 保留原值（纯文本限流/连接错）
         };
         let new_val = format!("{prefix}: {msg}");
@@ -741,7 +747,7 @@ fn migrate_mitm_legacy_tables_to_setting(conn: &Connection) {
 
     let mut entries: Vec<serde_json::Value> = Vec::new();
     // Clash 规则集 37 条（Claude 3 + OpenAI 34）— 单源常量在 whitelist.rs。
-    for (rule_type, pattern) in super::super::mitm::whitelist::DEFAULT_RULES {
+    for (rule_type, pattern) in crate::DEFAULT_RULES {
         entries.push(serde_json::json!({
             "host_pattern": pattern,
             "rule_type": rule_type,
@@ -759,7 +765,7 @@ fn migrate_mitm_legacy_tables_to_setting(conn: &Connection) {
             .map(|rows| rows.filter_map(Result::ok).collect())
             .unwrap_or_default();
         for base_url in hosts {
-            if let Some(host) = crate::gateway::proxy::endpoint_host(&base_url) {
+            if let Some(host) = crate::endpoint_host(&base_url) {
                 // 去重：不与 DEFAULT_RULES / 已加平台 host 重复。
                 let dup = entries.iter().any(|e| {
                     e.get("host_pattern").and_then(|v| v.as_str()) == Some(host.as_str())
@@ -799,6 +805,10 @@ fn table_exists(conn: &Connection, table: &str) -> bool {
 mod tests {
     use super::*;
     use rusqlite::Connection;
+
+    fn no_op_backfill() -> crate::schema::BackfillFn {
+        std::sync::Arc::new(|_c: &Connection, _m: &std::collections::HashMap<String, i64>| Ok(()))
+    }
 
     /// Helper: creates a minimal in-memory schema matching what run_migrations_late expects.
     /// Includes the tables referenced in the migration but with old/legacy schema
@@ -903,7 +913,7 @@ mod tests {
     #[test]
     fn migrations_late_modern_schema_idempotent() {
         let conn = make_modern_conn();
-        let result = run_migrations_late(&conn);
+        let result = run_migrations_late(&conn, no_op_backfill());
         assert!(result.is_ok(), "modern schema migration should succeed: {:?}", result);
     }
 
@@ -1206,7 +1216,7 @@ mod tests {
             CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
         "#).unwrap();
 
-        let result = run_migrations_late(&conn);
+        let result = run_migrations_late(&conn, no_op_backfill());
         assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
 
         // ① 两表不再建（DROP / 新库从不建）
@@ -1244,7 +1254,7 @@ mod tests {
         assert_eq!(ca_count, 0, "mitm:ca should not exist until ensure_root_ca");
 
         // ④ 幂等：再跑一次，whitelist 行数不变
-        let _ = run_migrations_late(&conn);
+        let _ = run_migrations_late(&conn, no_op_backfill());
         let whitelist_json2: String = conn
             .query_row(
                 "SELECT value FROM setting WHERE scope='mitm' AND key='whitelist' AND deleted_at=0",
@@ -1326,7 +1336,7 @@ mod tests {
                 ('my-custom.example.com', 'suffix', 0, 'user', 102);
         "#).unwrap();
 
-        let result = run_migrations_late(&conn);
+        let result = run_migrations_late(&conn, no_op_backfill());
         assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
 
         // ① 两表已 DROP
@@ -1370,7 +1380,7 @@ mod tests {
         assert_eq!(arr[2].get("source").and_then(|v| v.as_str()), Some("user"));
 
         // ④ 幂等：再跑一次，两表仍不存在，setting 数据不变
-        let _ = run_migrations_late(&conn);
+        let _ = run_migrations_late(&conn, no_op_backfill());
         let ca_count2: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM setting WHERE scope='mitm' AND key='ca' AND deleted_at=0",

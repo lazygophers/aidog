@@ -143,18 +143,7 @@ pub fn purge_all_soft_deleted(
     }
 }
 
-/// 在给定连接上跑 `PRAGMA incremental_vacuum(N)`，回收至多 N 页 free pages。
-///
-/// auto_vacuum != INCREMENTAL 时为 no-op（SQLite 不报错）；失败仅 warn 不上抛，
-/// 因为回收失败不影响数据正确性，下次 retention/手动压缩仍可重试。
-pub(crate) fn incremental_vacuum_conn(conn: &Connection, max_pages: i64) {
-    // PRAGMA incremental_vacuum 接受一个参数（要回收的最大页数）。rusqlite 用 query
-    // 执行（pragma 返回行集），errors_here 仅 warn。
-    let sql = format!("PRAGMA incremental_vacuum({max_pages})");
-    if let Err(e) = conn.execute_batch(&sql) {
-        tracing::warn!(error = %e, "incremental_vacuum failed (auto_vacuum != INCREMENTAL or busy), will retry later");
-    }
-}
+pub(crate) use aidog_db::incremental_vacuum_conn;
 
 /// 老库 auto_vacuum 迁移：探测当前 auto_vacuum（0=NONE/1=FULL/2=INCREMENTAL），
 /// 非 INCREMENTAL(2) 则 `PRAGMA auto_vacuum=INCREMENTAL` + `VACUUM`（VACUUM 重建库切换模式），

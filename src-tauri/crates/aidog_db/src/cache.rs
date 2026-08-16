@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use crate::gateway::models::{Group, GroupDetail, GroupPlatformDetail};
+use crate::models::{Group, GroupDetail, GroupPlatformDetail};
 
 /// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
 /// 共享同一套 `Hash`/`Eq` 语义，从而命中路径用借用键查 map，零 String 分配。
@@ -11,7 +11,7 @@ use crate::gateway::models::{Group, GroupDetail, GroupPlatformDetail};
 /// 也没有 `raw_entry`。用 trait 对象作为 `Borrow` 目标是该场景的惯用解：owned key 与
 /// borrowed key 都实现本 trait，`HashMap<(String,String)>` 借用为 `dyn KeyPair`，
 /// `Hash`/`Eq` 委托到 `(scope, key)` 二元组，二者必然一致。
-pub(crate) trait KeyPair {
+pub trait KeyPair {
     fn scope(&self) -> &str;
     fn key(&self) -> &str;
 }
@@ -62,12 +62,12 @@ impl<'a> std::borrow::Borrow<dyn KeyPair + 'a> for (String, String) {
 /// `:memory:` Db；全局缓存会跨 test 串味（test A 写 proxy/logging，test B 读到脏值）。
 /// 内嵌 `Arc<RwLock<..>>` 保证「每个 Db 实例独立缓存 + clone 共享」两个性质同时成立。
 #[derive(Default)]
-pub(crate) struct DbCache {
+pub struct DbCache {
     /// setting 表 (scope,key)→JSON 值缓存。`None` 槽位表示「已查过且不存在」，
     /// 用 `Option<Option<Value>>`：外层 = 是否缓存，内层 = 行是否存在。
-    pub(crate) settings: RwLock<HashMap<(String, String), Option<serde_json::Value>>>,
+    pub settings: RwLock<HashMap<(String, String), Option<serde_json::Value>>>,
     /// list_groups() 结果缓存（resolve_group 热路径用），写 group 表时整体失效。
-    pub(crate) groups: RwLock<Option<Vec<Group>>>,
+    pub groups: RwLock<Option<Vec<Group>>>,
     /// list_group_details() 结果缓存（Groups 页一次拉全量用）。
     ///
     /// 内嵌完整 GroupDetail（含 platform 易变字段：est_balance_remaining / status /
@@ -78,9 +78,9 @@ pub(crate) struct DbCache {
     /// 关键：list_group_details **不在代理 resolve 热路径**（proxy/router 走
     /// get_group_platforms 直查单组），故 estimate.rs 每请求级写带来的频繁失效只代价
     /// 「下次 Groups 页打开重建一次」，不影响代理吞吐。
-    pub(crate) group_details: RwLock<Option<Vec<GroupDetail>>>,
+    pub group_details: RwLock<Option<Vec<GroupDetail>>>,
     /// get_group_platforms(group_id) 结果缓存（代理转发热路径 candidates.rs 每请求查一次）。
     /// 按 group_id 分槽，None 视为「未缓存」；失效走 invalidate_group_details_cache 同一钩子
     /// （宁全勿漏——与 group_details 同源同失效时机，见该字段文档）。
-    pub(crate) group_platforms: RwLock<HashMap<u64, Vec<GroupPlatformDetail>>>,
+    pub group_platforms: RwLock<HashMap<u64, Vec<GroupPlatformDetail>>>,
 }

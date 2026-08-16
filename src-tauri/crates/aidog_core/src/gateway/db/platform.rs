@@ -1,53 +1,11 @@
 use super::*;
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
-/// 从 JSON 字符串反序列化 models
-pub(crate) fn parse_models(json: &str) -> PlatformModels {
-    serde_json::from_str(json).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "parse platform models failed, using default (stored JSON corrupt?)");
-        PlatformModels::default()
-    })
-}
 
-/// 将 models 序列化为 JSON 字符串
-pub(crate) fn serialize_models(models: &PlatformModels) -> String {
-    serde_json::to_string(models).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "serialize platform models failed, persisting empty object");
-        "{}".to_string()
-    })
-}
 
-/// 从 JSON 字符串反序列化可用模型列表
-pub(crate) fn parse_available_models(json: &str) -> Vec<String> {
-    serde_json::from_str(json).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "parse available_models failed, using empty list (stored JSON corrupt?)");
-        Vec::new()
-    })
-}
 
-/// 将可用模型列表序列化为 JSON 字符串
-pub(crate) fn serialize_available_models(models: &[String]) -> String {
-    serde_json::to_string(models).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "serialize available_models failed, persisting empty array");
-        "[]".to_string()
-    })
-}
 
-/// 从 JSON 字符串反序列化协议端点列表
-pub(crate) fn parse_endpoints(json: &str) -> Vec<PlatformEndpoint> {
-    serde_json::from_str(json).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "parse platform endpoints failed, using empty list (stored JSON corrupt?)");
-        Vec::new()
-    })
-}
 
-/// 将协议端点列表序列化为 JSON 字符串
-pub(crate) fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
-    serde_json::to_string(endpoints).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "serialize platform endpoints failed, persisting empty array");
-        "[]".to_string()
-    })
-}
 
 /// SELECT 列序
 pub(crate) const PLATFORM_COLUMNS: &str =
@@ -91,19 +49,6 @@ pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     })
 }
 
-/// 平台 id → name 内存映射（含软删平台，名仍可显示）。供统计维度按 platform_id GROUP BY
-/// 后内存回填平台名用，替代旧 `LEFT JOIN platform` 取名（today_platform_stats J6 同模式）。
-pub(crate) fn platform_id_name_map(
-    conn: &rusqlite::Connection,
-) -> SqlResult<std::collections::HashMap<i64, String>> {
-    let mut stmt = conn.prepare_cached("SELECT id, name FROM platform")?;
-    let map = stmt
-        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
-        .collect::<SqlResult<Vec<_>>>()?
-        .into_iter()
-        .collect();
-    Ok(map)
-}
 
 /// 按 id 批量取未软删平台 → id→Platform 映射（动态 IN 占位）。供去 JOIN 后关联表行
 /// 与 platform 内存重组用（get_group_platforms J2 等）。软删平台不返回（等价旧 `p.deleted_at=0`）。
@@ -493,3 +438,4 @@ pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> R
         .map(|_| ())
 }
 
+pub(crate) use aidog_db::{parse_models, serialize_models, parse_available_models, serialize_available_models, parse_endpoints, serialize_endpoints};

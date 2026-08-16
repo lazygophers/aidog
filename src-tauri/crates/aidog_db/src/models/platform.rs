@@ -292,7 +292,7 @@ pub struct PlatformExtra {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disable_during_peak: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub peak_hours: Vec<crate::gateway::peak_hours::PeakWindow>,
+    pub peak_hours: Vec<crate::models::stats::PeakWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub time_models: Vec<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

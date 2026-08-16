@@ -1,0 +1,26 @@
+[package]
+name = "aidog_db"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_db：数据库底层（Db 连接池 + models + logging + log_util）。
+# 从 aidog_core 拆出（2026-08-16 logs-stats-crates），被 aidog_core / aidog_logs / aidog_stats 依赖。
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+dashmap = { workspace = true }
+ts-rs = { workspace = true }
+rand = { workspace = true }
+regex = { workspace = true }
+reqwest = { workspace = true }
+tempfile = { workspace = true }

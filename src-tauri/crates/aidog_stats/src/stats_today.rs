@@ -1,4 +1,7 @@
-use super::*;
+use aidog_db::settings::{get_setting, set_setting};
+use aidog_db::Db;
+use serde::{Deserialize, Serialize};
+use aidog_db::models::*;
 use rusqlite::{params, Result as SqlResult};
 
 /// 今日统计摘要（供托盘预览使用）
@@ -22,7 +25,7 @@ pub struct TodayStats {
 
 /// 本地「今日 00:00」对应的小时桶文本键 "YYYY-MM-DD 00:00:00"，用于与 stats_agg_hourly.time_hour 做
 /// 字典序 >= 比较（time_hour 已是本地时区桶，文本可比）。
-pub(crate) fn local_today_hour_key() -> String {
+pub fn local_today_hour_key() -> String {
     use chrono::Local;
     Local::now().format("%Y-%m-%d 00:00:00").to_string()
 }
@@ -156,21 +159,21 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
 // ─── Popover Config (settings: scope="popover", key="config") ─
 
 /// 读取 PopoverConfig。无配置 / 损坏 → 默认配置（不持久化，按需懒生成）。
-pub async fn get_popover_config(db: &Db) -> Result<crate::gateway::models::PopoverConfig, String> {
+pub async fn get_popover_config(db: &Db) -> Result<aidog_db::models::PopoverConfig, String> {
     if let Some(v) = get_setting(db, "popover", "config").await?
         && !v.is_null() {
-            let cfg: crate::gateway::models::PopoverConfig =
+            let cfg: aidog_db::models::PopoverConfig =
                 serde_json::from_value(v).unwrap_or_else(|e| {
                     tracing::warn!(error = %e, "popover config JSON is corrupt, falling back to default");
-                    crate::gateway::models::PopoverConfig::default()
+                    aidog_db::models::PopoverConfig::default()
                 });
             return Ok(cfg);
         }
-    Ok(crate::gateway::models::PopoverConfig::default())
+    Ok(aidog_db::models::PopoverConfig::default())
 }
 
 /// 写入 PopoverConfig 到 settings。
-pub async fn set_popover_config(db: &Db, cfg: &crate::gateway::models::PopoverConfig) -> Result<(), String> {
+pub async fn set_popover_config(db: &Db, cfg: &aidog_db::models::PopoverConfig) -> Result<(), String> {
     let value = serde_json::to_value(cfg).map_err(|e| format!("serialize popover config: {e}"))?;
     set_setting(db, SetSettingInput {
         scope: "popover".to_string(),

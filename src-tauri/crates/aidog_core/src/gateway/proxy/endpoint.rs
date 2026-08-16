@@ -51,60 +51,6 @@ pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
     }
 }
 
-/// 按入站 User-Agent 推断客户端"原生" wire 协议（仅用于 UA 透传分支，见 [protocol-same-proto-passthrough] 扩展）。
-///
-/// 复用现有出站合成 UA 的子串特征规则（现由 client-types.json `simulation.user_agent` 配置驱动，
-/// 详见 `headers.rs::simulation_map`）应用到入站匹配：
-/// - 含 `claude-cli`（Claude Code CLI/VSCode/SDK/GhAction 全家族）→ `"anthropic"`
-/// - 含 `codex`（codex_cli_rs / Codex/ / codex desktop / codex-vscode 全家族）→ `"openai_responses"`
-/// - 其它（Cursor / Windsurf / gemini-cli / 未知 / 缺失）→ None（回退现有处理）
-///
-/// 大小写不敏感（Codex TUI UA 为 `Codex/...`，需匹配 `codex`）。返回的字面量与
-/// `detect_source_protocol` / `ep_proto` 产出的协议名一致，便于直接比对 endpoint。
-/// 按入站协议(`source_protocol`)从平台端点中选目标 endpoint。
-///
-/// 通用原则：**尽可能用原协议直发，避免有损转换**（[protocol-same-proto-passthrough]）。
-/// 优先级链（从最优到兜底）：
-///   1. coding_plan 端点中按入站协议精确匹配（同协议 coding，直发不转换）
-///      —— 平台同时含多个 coding 端点（如 GLM/千帆/小米：openai coding + anthropic coding）时，
-///      anthropic 入站选 anthropic coding 端点、openai 入站选 openai coding 端点，各走原协议。
-///   2. coding_plan 端点中回退 openai coding（入站无对应同协议 coding 端点时，转换出站）
-///      —— Kimi coding 仅有 openai coding 端点，anthropic 入站经此回退，`convert_request` 转 openai。
-///   3. 非 coding 端点按入站协议精确匹配（普通双协议平台，同协议直发）。
-///   4. `openai_responses` 源(Codex)无 Responses 端点时回退到 openai 端点（出站经 to_openai 转换）。
-///
-/// ── coding-plan 端点排他（防 401，务必保留）──
-/// coding-plan 平台的 api_key **仅对 coding endpoint(`coding_plan:true`)有效**；其非 coding endpoint
-/// (如 kimi 的 `api.moonshot.cn/anthropic`，指向常规 API host)需另一把常规 key，被 coding key 打成 401
-/// → 连累整个平台 auto_disabled。故**平台含任一 coding 端点时，绝不落到非 coding 端点**：优先级链 1→2
-/// 全部限定 `coding_plan==true`，仅当无任何 coding 端点(普通平台)才进入 3/4。
-/// 这同时满足通用原则：coding 平台的同协议 coding 端点（步骤 1）优先于跨协议转换（步骤 2）。
-/// 从 endpoint 的 `base_url` 提取 host（authority 主机名，小写、不含端口/路径）。
-///
-/// 规则：剥离 `scheme://` 前缀后，取到首个 `/`、`?`、`#` 或 `:`（端口分隔）之前的部分，
-/// 并去掉可能的 `user@` 凭证段，最后小写化。解析失败（空 host）返回 None——
-/// 调用方据此**保守处理**：host 解析不出 → 不视为同 host（宁可走转换也不误用 coding key）。
-pub(crate) fn endpoint_host(base_url: &str) -> Option<String> {
-    let after_scheme = base_url
-        .split_once("://")
-        .map(|(_, rest)| rest)
-        .unwrap_or(base_url);
-    // authority 段：截到首个路径/查询/锚点分隔符之前
-    let authority = after_scheme
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or(after_scheme);
-    // 去掉 userinfo（user:pass@host）
-    let host_port = authority.rsplit_once('@').map(|(_, h)| h).unwrap_or(authority);
-    // 去掉端口（注意 IPv6 字面量含 ':'，但 base_url 平台预设均为域名，简单截端口即可）
-    let host = host_port.split(':').next().unwrap_or(host_port);
-    let host = host.trim().to_lowercase();
-    if host.is_empty() {
-        None
-    } else {
-        Some(host)
-    }
-}
 
 pub(crate) fn select_endpoint_for_protocol<'a>(
     endpoints: &'a [super::models::PlatformEndpoint],
@@ -304,3 +250,5 @@ pub(crate) fn should_fallback_passthrough(host: &str, listen_addr: Option<(std::
 #[cfg(test)]
 #[path = "test_endpoint.rs"]
 mod test_endpoint;
+
+pub(crate) use aidog_db::endpoint_host;

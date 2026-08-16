@@ -1,6 +1,8 @@
 #![cfg(test)]
-use super::*;
-use super::test_support::*;
+use aidog_db::load_auto_from_map;
+use aidog_db::test_support::*;
+use aidog_logs::*;
+use crate::*;
 
     /// upsert_stats_agg：同 (hour,model,group,pid) 累加；2xx→success，非2xx→error。
     #[tokio::test]

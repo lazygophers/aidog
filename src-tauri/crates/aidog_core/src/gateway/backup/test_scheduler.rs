@@ -1,3 +1,4 @@
+use crate::gateway::db::DbInitTables;
 use super::*;
 use crate::gateway::backup::CURRENT_DEFAULTS_VERSION;
 

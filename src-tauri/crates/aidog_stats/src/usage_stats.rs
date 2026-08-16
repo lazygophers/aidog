@@ -1,4 +1,5 @@
-use super::*;
+use aidog_db::{Db, load_auto_from_map, resolve_eff_pid};
+use crate::{utc_ms_to_local_hour_key, local_today_hour_key};
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 
 /// stats_agg_hourly 累计聚合列块（列序固定，row.get 依赖此序）：
@@ -50,7 +51,7 @@ fn recent_health_single(conn: &Connection, platform_id: u64, auto_keys: &[String
 }
 
 #[track_caller]
-pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<crate::gateway::models::PlatformUsageStats, String>> + '_ {
+pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
@@ -89,7 +90,7 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
                 let cost: f64 = row.get(5)?;
                 let today_tokens: i64 = row.get(6)?;
                 let today_cost: f64 = row.get(7)?;
-                Ok(crate::gateway::models::PlatformUsageStats {
+                Ok(aidog_db::models::PlatformUsageStats {
                     total_requests: total,
                     success_count: success,
                     total_input_tokens: inp,
@@ -126,7 +127,7 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
 pub fn get_last_test_result(
     db: &Db,
     platform_id: u64,
-) -> impl std::future::Future<Output = Result<Option<crate::gateway::models::LastTestResult>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<Option<aidog_db::models::LastTestResult>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
@@ -156,7 +157,7 @@ pub fn get_last_test_result(
                     };
                     // 正文截断 ~4000 字符，供前端 JSON 解析结构化展示（成功/失败均带）。
                     let body_full: String = response_body.chars().take(4000).collect();
-                    Ok(Some(crate::gateway::models::LastTestResult {
+                    Ok(Some(aidog_db::models::LastTestResult {
                         success,
                         status_code,
                         duration_ms,
@@ -174,7 +175,7 @@ pub fn get_last_test_result(
 }
 
 #[track_caller]
-pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::future::Future<Output = Result<crate::gateway::models::PlatformUsageStats, String>> + 'a {
+pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let group_key = group_key.to_string();
@@ -201,7 +202,7 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
                     let cost: f64 = row.get(5)?;
                     let today_tokens: i64 = row.get(6)?;
                     let today_cost: f64 = row.get(7)?;
-                    Ok(crate::gateway::models::PlatformUsageStats {
+                    Ok(aidog_db::models::PlatformUsageStats {
                         total_requests: total,
                         success_count: success,
                         total_input_tokens: inp,
@@ -231,7 +232,7 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
 #[track_caller]
 pub fn get_all_group_usage_stats(
     db: &Db,
-) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, crate::gateway::models::PlatformUsageStats>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, aidog_db::models::PlatformUsageStats>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
@@ -252,7 +253,7 @@ pub fn get_all_group_usage_stats(
                 let cost: f64 = row.get(6).unwrap_or(0.0);
                 Ok((
                     group_key,
-                    crate::gateway::models::PlatformUsageStats {
+                    aidog_db::models::PlatformUsageStats {
                         total_requests: total,
                         success_count: success,
                         total_input_tokens: inp,
@@ -294,7 +295,7 @@ pub fn get_all_group_usage_stats(
 #[track_caller]
 pub fn platform_usage_stats_all(
     db: &Db,
-) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, crate::gateway::models::PlatformUsageStats>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, aidog_db::models::PlatformUsageStats>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     let today_key = local_today_hour_key();
@@ -306,7 +307,7 @@ pub fn platform_usage_stats_all(
         .map_err(|e| format!("all platform usage stats load auto_map: {e}"))?;
     // ① 主库读池：全量聚合（每 platform_id 的 total/success/tokens/cost + 今日 tokens/cost），
     // 直接从 stats_agg_hourly GROUP BY platform_id（已是 eff_pid，无需回溯）。
-    let mut map: std::collections::HashMap<u64, crate::gateway::models::PlatformUsageStats> = db
+    let mut map: std::collections::HashMap<u64, aidog_db::models::PlatformUsageStats> = db
         .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
                 &format!("SELECT platform_id, {AGG_TOTAL_COLS}, \
@@ -327,7 +328,7 @@ pub fn platform_usage_stats_all(
                 let today_cost: f64 = row.get(8).unwrap_or(0.0);
                 Ok((
                     eff_pid,
-                    crate::gateway::models::PlatformUsageStats {
+                    aidog_db::models::PlatformUsageStats {
                         total_requests: total,
                         success_count: success,
                         total_input_tokens: inp,

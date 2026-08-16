@@ -1,5 +1,6 @@
 //! conflicts.rs 测试：detect_conflicts 不为 platform scope 报冲突。
 
+use crate::gateway::db::DbInitTables;
 use super::detect_conflicts;
 use crate::gateway::db::Db;
 use crate::gateway::import_export::{Manifest, Payload};

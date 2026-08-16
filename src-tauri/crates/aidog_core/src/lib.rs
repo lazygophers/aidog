@@ -9,7 +9,7 @@
 
 pub mod gateway;
 pub mod shared;
-pub mod logging;
+pub mod logging { pub use aidog_db::logging::*; }
 pub mod sync_settings;
 pub mod hooks;
 pub mod tray_render;

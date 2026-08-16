@@ -1,3 +1,4 @@
+use crate::gateway::db::DbInitTables;
 use super::*;
 
 #[test]

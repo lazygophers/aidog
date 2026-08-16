@@ -1,4 +1,4 @@
-use super::*;
+use crate::schema::*;
 use rusqlite::{Connection, Result as SqlResult};
 
 /// Migrations 20260727-01..11（原 001–020）。日期戳批次 + 库内序号,

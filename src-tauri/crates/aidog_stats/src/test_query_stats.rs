@@ -1,20 +1,22 @@
 #![cfg(test)]
-use super::*;
-use super::test_support::*;
+use aidog_db::models::*;
+use aidog_db::test_support::*;
+use aidog_logs::*;
+use crate::*;
 
     #[tokio::test]
     async fn query_stats_platform_dim_and_filter() {
         let db = test_db().await;
-        let p = create_platform(&db, sample_platform("P1")).await.unwrap();
+        let p = insert_test_platform(&db, "P1").await;
         let now = chrono::Utc::now().timestamp_millis();
         let mut lg = sample_log("l1", "g1", now);
-        lg.platform_id = p.id;
+        lg.platform_id = p;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
         let q = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: None };
         let r = query_stats(&db, &q).await;
         println!("NO-FILTER platform dim: {:?}", r.as_ref().err());
         assert!(r.is_ok(), "no-filter platform dim failed: {:?}", r.err());
-        let q2 = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: Some(p.id.to_string()) };
+        let q2 = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: Some(p.to_string()) };
         let r2 = query_stats(&db, &q2).await;
         println!("PLATFORM-FILTER: {:?}", r2.as_ref().err());
         assert!(r2.is_ok(), "platform filter failed: {:?}", r2.err());
@@ -30,12 +32,12 @@ use super::test_support::*;
     #[tokio::test]
     async fn query_stats_batch_matches_per_query() {
         let db = test_db().await;
-        let p = create_platform(&db, sample_platform("P1")).await.unwrap();
+        let p = insert_test_platform(&db, "P1").await;
         let now = chrono::Utc::now().timestamp_millis();
 
         // 两条日志：一条挂 P1/g1，一条挂 g2，覆盖 group/platform 过滤分支。
         let mut a = sample_log("a", "g1", now);
-        a.platform_id = p.id;
+        a.platform_id = p;
         a.status_code = 200;
         a.input_tokens = 10;
         a.output_tokens = 20;
@@ -43,7 +45,7 @@ use super::test_support::*;
         a.est_cost = 0.01;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
         let mut b = sample_log("b", "g2", now);
-        b.platform_id = p.id;
+        b.platform_id = p;
         b.status_code = 500;
         b.input_tokens = 3;
         b.output_tokens = 0;
@@ -57,7 +59,7 @@ use super::test_support::*;
             // overall today hourly
             StatsQuery { start: Some(now - day), end: Some(now), granularity: Some("hourly".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None },
             // platform 7d daily
-            StatsQuery { start: Some(now - 7 * day), end: Some(now), granularity: Some("daily".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: Some(p.id.to_string()) },
+            StatsQuery { start: Some(now - 7 * day), end: Some(now), granularity: Some("daily".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: Some(p.to_string()) },
             // group today hourly
             StatsQuery { start: Some(now - day), end: Some(now), granularity: Some("hourly".into()), group_by: None, filter_group: Some("g1".into()), filter_model: None, filter_platform: None },
         ];
@@ -320,14 +322,14 @@ use super::test_support::*;
     #[tokio::test]
     async fn stats_minute_filter_group_and_platform() {
         let db = test_db().await;
-        let p = create_platform(&db, sample_platform("FP")).await.unwrap();
+        let p = insert_test_platform(&db, "FP").await;
         let now = chrono::Utc::now().timestamp_millis();
         let mut a = sample_log("fgp1", "grpFP", now);
-        a.platform_id = p.id;
+        a.platform_id = p;
         a.status_code = 200;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
         let mut b = sample_log("fgp2", "grpOther", now);
-        b.platform_id = p.id;
+        b.platform_id = p;
         b.status_code = 200;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
 
@@ -337,7 +339,7 @@ use super::test_support::*;
             group_by: None,
             filter_group: Some("grpFP".into()),
             filter_model: None,
-            filter_platform: Some(p.id.to_string()),
+            filter_platform: Some(p.to_string()),
         };
         let res = query_stats(&db, &q).await.unwrap();
         assert_eq!(res.overview.total_requests, 1, "filter group+platform should return 1");
@@ -347,10 +349,10 @@ use super::test_support::*;
     #[tokio::test]
     async fn stats_group_by_platform_dimension() {
         let db = test_db().await;
-        let p = create_platform(&db, sample_platform("DimP")).await.unwrap();
+        let p = insert_test_platform(&db, "DimP").await;
         let now = chrono::Utc::now().timestamp_millis();
         let mut a = sample_log("dp1", "g1", now);
-        a.platform_id = p.id;
+        a.platform_id = p;
         a.status_code = 200;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
         rebuild_stats_agg_from_logs(&db).await.unwrap();
