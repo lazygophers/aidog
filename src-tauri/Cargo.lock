@@ -82,6 +82,7 @@ name = "aidog"
 version = "0.1.11"
 dependencies = [
  "aes-gcm",
+ "aidog_cli_proxy",
  "aidog_core",
  "aidog_db",
  "aidog_logs",
@@ -136,6 +137,25 @@ dependencies = [
  "url",
  "uuid",
  "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "aidog_cli_proxy"
+version = "0.1.11"
+dependencies = [
+ "aidog_core",
+ "aidog_db",
+ "flate2",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tar",
+ "tauri",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "zip 2.4.2",
 ]
 
 [[package]]

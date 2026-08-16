@@ -4,11 +4,11 @@
 //! 路由层（candidates.rs::read_cli_proxy_provider_id）按此 key 拉 provider 注入 wire 字段。
 //! 对齐 test_candidates.rs::mk_cli_proxy_platform idiom。
 
-use crate::gateway::{models::{CreatePlatform, Platform, Protocol}};
+use aidog_core::gateway::models::{{CreatePlatform, Platform, Protocol}};
 use aidog_db::{self as db, Db};
 use tauri::State;
 
-crate::tauri_command! {
+aidog_core::tauri_command! {
     /// 建 cli-proxy platform 行。extra 存 cli_proxy_provider_id 指向 provider 表。
     /// base_url/api_key 留空（由路由层从 provider 注入）。
     pub async fn create_cli_proxy_platform(

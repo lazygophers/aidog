@@ -5,12 +5,12 @@
 //! - batch_override_cli_proxy_models:   覆盖 models JSON
 //! - batch_set_cli_proxy_quota:         覆盖 quota JSON
 
-use crate::gateway::{models::{serialize_cli_proxy_models, BatchReport}};
+use aidog_core::gateway::models::{{serialize_cli_proxy_models, BatchReport}};
 use aidog_db::{{now, Db}};
 use rusqlite::{params_from_iter, ToSql};
 use tauri::State;
 
-crate::tauri_command! {
+aidog_core::tauri_command! {
     /// 批量删除 cli_proxy_provider（物理删，无级联）
     pub async fn batch_delete_cli_proxy_providers(
         db: State<'_, Db>,
@@ -37,7 +37,7 @@ crate::tauri_command! {
     }
 }
 
-crate::tauri_command! {
+aidog_core::tauri_command! {
     /// 批量覆盖 cli_proxy_provider models（完全覆盖，非追加）
     pub async fn batch_override_cli_proxy_models(
         db: State<'_, Db>,
@@ -74,7 +74,7 @@ crate::tauri_command! {
     }
 }
 
-crate::tauri_command! {
+aidog_core::tauri_command! {
     /// 批量设置 cli_proxy_provider quota（覆盖整 quota JSON）
     pub async fn batch_set_cli_proxy_quota(
         db: State<'_, Db>,
