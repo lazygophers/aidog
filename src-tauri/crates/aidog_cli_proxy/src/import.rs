@@ -5,9 +5,10 @@
 //! 与旧 `commands_platform::cpa_import` 解耦：旧 mapper 输出 MappedPlatform（建 platform 表行），
 //! 新 mapper 输出 CreateCliProxyProvider（建 cli_proxy_provider 表行）。
 
-use crate::gateway::{cli_proxy_parser::{
-        parse_cpa_config, CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason,
-    }, models::{CreateCliProxyProvider, Protocol}};
+use crate::parser::{
+    parse_cpa_config, CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason,
+};
+use aidog_core::gateway::models::{CreateCliProxyProvider, Protocol};
 use aidog_db::{self as db, Db};
 use serde::{Deserialize, Serialize};
 use tauri::State;
@@ -15,7 +16,7 @@ use tauri::State;
 /// 批量导入结果（非原子：成功入库，失败收集原因）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CliProxyImportResult {
-    pub created: Vec<crate::gateway::models::CliProxyProvider>,
+    pub created: Vec<aidog_core::gateway::models::CliProxyProvider>,
     pub failed: Vec<CliProxyImportFailure>,
     pub skipped: Vec<SkipReason>,
     pub source_files: Vec<String>,
@@ -27,7 +28,7 @@ pub struct CliProxyImportFailure {
     pub error: String,
 }
 
-crate::tauri_command! {
+aidog_core::tauri_command! {
     /// 解析 CPA 配置 → 批量创建 cli_proxy_provider（非原子尽力）。
     ///
     /// - `path`: config.yaml/json/zip/tgz/dir

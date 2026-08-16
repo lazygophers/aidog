@@ -20,7 +20,6 @@ pub mod popover;
 pub mod cli_env;
 pub mod settings;
 pub mod defaults;
-pub mod cli_proxy_cmd;
 // C3 c3-commands 第 3 批：commands_system / commands_ai_tools 下沉。
 pub mod system_cmd;
 pub mod ai_tools_cmd;

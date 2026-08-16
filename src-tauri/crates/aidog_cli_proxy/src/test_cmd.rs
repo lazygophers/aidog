@@ -8,11 +8,12 @@
 
 use std::sync::Arc;
 
-use crate::gateway::{models::parse_quota_type, quota::{with_cli_proxy_provider_id, PlatformQuota}};
+use aidog_core::gateway::models::parse_quota_type;
+use aidog_core::gateway::quota::{with_cli_proxy_provider_id, PlatformQuota};
 use aidog_db::{self as db, Db};
 use tauri::State;
 
-crate::tauri_command! {
+aidog_core::tauri_command! {
     /// 临时用 provider 配置查余额，不落库（preview）。
     /// 按 provider.quota JSON 的 type 字段分流查询入口（cli-proxy-quota-type s1）。
     pub async fn cli_proxy_test(db: State<'_, Db>, id: u64) -> Result<PlatformQuota, String> {
@@ -35,7 +36,7 @@ crate::tauri_command! {
             "newapi" => {
                 with_cli_proxy_provider_id(
                     provider.id as i64,
-                    crate::gateway::quota::query_quota_newapi(
+                    aidog_core::gateway::quota::query_quota_newapi(
                         Some(&db_arc),
                         &provider.base_url,
                         &provider.api_key,
@@ -48,7 +49,7 @@ crate::tauri_command! {
             _ => {
                 with_cli_proxy_provider_id(
                     provider.id as i64,
-                    crate::gateway::quota::query_quota(
+                    aidog_core::gateway::quota::query_quota(
                         Some(&db_arc),
                         &provider.base_url,
                         &provider.api_key,

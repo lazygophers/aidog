@@ -1,7 +1,6 @@
 pub mod adapter;
 pub mod backup;
 pub mod billing;
-pub mod cli_proxy_parser;
 pub mod codex;
 pub mod estimate;
 pub mod http_client;

@@ -1,0 +1,26 @@
+[package]
+name = "aidog_cli_proxy"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_cli_proxy：CLIProxyAPI 域（拆自 aidog_core::gateway::cli_proxy_parser + cli_proxy_cmd，
+# 2026-08-16）。tauri commands 依赖 aidog_core 的 tauri_command! 宏与 quota/models。
+[dependencies]
+tempfile = { workspace = true }
+aidog_core = { path = "../aidog_core" }
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+rusqlite = { workspace = true }
+tracing = { workspace = true }
+tauri = { workspace = true }
+zip = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }
