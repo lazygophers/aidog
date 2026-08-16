@@ -3,7 +3,7 @@
 
 pub const BUNDLED: &str = r##"{
   "version": "1",
-  "last_updated": 1786870456,
+  "last_updated": 1786872534,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -253,6 +253,7 @@ pub const BUNDLED: &str = r##"{
       },
       "model_list": {
         "default": [
+          "glm-5.3",
           "glm-5.2",
           "glm-5.1",
           "glm-5",
@@ -310,10 +311,10 @@ pub const BUNDLED: &str = r##"{
       },
       "models": {
         "default": {
-          "default": "glm-5.2",
-          "opus": "glm-5.2",
+          "default": "glm-5.3",
+          "opus": "glm-5.3",
           "sonnet": "glm-4.7",
-          "gpt": "glm-5.2",
+          "gpt": "glm-5.3",
           "haiku": "glm-4.5"
         },
         "peak": {
