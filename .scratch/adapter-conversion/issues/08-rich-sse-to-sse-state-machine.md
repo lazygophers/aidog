@@ -4,9 +4,9 @@
 
 **Blocked by:** 07 — parse 侧事件变体。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：中立事件流（含 ToolCallStart/ArgsDelta 分片）→ Anthropic SSE 与 OpenAI SSE 输出逐 chunk 断言
-- [ ] 同一工具多个 ArgsDelta 分片聚合后 arguments 为合法 JSON
-- [ ] 多工具交错增量不串 index/id
-- [ ] 纯文本流不回归；cargo test / make lint 全绿
+- [x] fixture：中立事件流（含 ToolCallStart/ArgsDelta 分片）→ Anthropic SSE 与 OpenAI SSE 输出逐 chunk 断言
+- [x] 同一工具多个 ArgsDelta 分片聚合后 arguments 为合法 JSON
+- [x] 多工具交错增量不串 index/id
+- [x] 纯文本流不回归；cargo test / make lint 全绿

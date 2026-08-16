@@ -146,6 +146,23 @@ pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
 /// 穷尽 match（无 `_ =>` 兜底）：非 wire 协议的平台变体在此仍统一走 Anthropic 格式
 /// （历史行为不变，见旧版 `_ =>` 分支），但显式列出而非通配，Protocol 新增 wire 变体时
 /// 编译器强制在此补处理，不会静默落入错误分支。
+/// 带状态的客户端 SSE 渲染：Anthropic 系客户端走 [`AnthropicSseState`] 状态机
+/// （block index 分配 / content_block_start·stop / thinking block 完整序列），
+/// OpenAI / Gemini 出站无状态，与 [`to_client_sse`] 一致。
+pub fn to_client_sse_stateful(
+    event: &ChatStreamEvent,
+    state: &mut AnthropicSseState,
+    source_protocol: &Protocol,
+    _model: &str,
+) -> Option<String> {
+    use Protocol::*;
+    match source_protocol {
+        OpenAI | OpenAIResponses | OpenAICompletions => super::super::openai::to_openai_sse(event, _model),
+        Gemini => super::super::gemini::to_gemini_sse(event, _model),
+        _ => state.push(event),
+    }
+}
+
 pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model: &str) -> Option<String> {
     use Protocol::*;
     match source_protocol {
@@ -319,3 +336,137 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
 #[cfg(test)]
 #[path = "test_response.rs"]
 mod test_response;
+
+/// Anthropic SSE 出站状态机：跨 chunk 维护 block index 分配与开块表。
+///
+/// 中立事件流的 tool index 是「第几个工具」；Anthropic wire 的 content block index
+/// 是消息内全局序（text/thinking/tool 混排连续编号）。本结构把中立 index 映射到
+/// wire index，并在首个块事件时发 content_block_start、Stop 前统一补 content_block_stop。
+#[derive(Default)]
+pub struct AnthropicSseState {
+    /// 下一个可用 wire block index
+    next_index: u32,
+    /// text 块是否已开
+    text_open: bool,
+    /// thinking 块是否已开 + 其 wire index
+    thinking_index: Option<u32>,
+    /// thinking 首帧标记（首个 thinking_delta 前须发 content_block_start）
+    thinking_just_opened: Option<bool>,
+    /// 中立 tool index → wire block index（已开块）
+    tool_wire: std::collections::HashMap<u32, u32>,
+}
+
+impl AnthropicSseState {
+    /// 处理一个中立事件，产出 0..n 个 wire 帧（拼好的 SSE 文本，含 event: 行）。
+    pub fn push(&mut self, event: &ChatStreamEvent) -> Option<String> {
+        match event {
+            ChatStreamEvent::Start { id, model } => Some(format!(
+                "event: message_start\ndata: {}\n\n",
+                serde_json::json!({
+                    "type": "message_start",
+                    "message": {
+                        "id": id, "type": "message", "role": "assistant", "model": model,
+                        "content": [], "stop_reason": null, "stop_sequence": null,
+                        "usage": { "input_tokens": 0, "output_tokens": 0 }
+                    }
+                })
+            )),
+            ChatStreamEvent::Delta { text } => {
+                let mut parts = Vec::new();
+                if !self.text_open {
+                    self.text_open = true;
+                    parts.push(format!(
+                        "event: content_block_start\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_start", "index": 0, "content_block": { "type": "text", "text": "" } })
+                    ));
+                }
+                parts.push(format!(
+                    "event: content_block_delta\ndata: {}\n\n",
+                    serde_json::json!({ "type": "content_block_delta", "index": 0, "delta": { "type": "text_delta", "text": text } })
+                ));
+                Some(parts.join(""))
+            }
+            ChatStreamEvent::ReasoningDelta { text } => {
+                let idx = match self.thinking_index {
+                    Some(i) => i,
+                    None => {
+                        let i = self.alloc_block();
+                        self.thinking_index = Some(i);
+                        self.thinking_just_opened = Some(true);
+                        i
+                    }
+                };
+                let mut parts = Vec::new();
+                if self.thinking_just_opened.take().is_some() {
+                    parts.push(format!(
+                        "event: content_block_start\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_start", "index": idx, "content_block": { "type": "thinking", "thinking": "" } })
+                    ));
+                }
+                parts.push(format!(
+                    "event: content_block_delta\ndata: {}\n\n",
+                    serde_json::json!({ "type": "content_block_delta", "index": idx, "delta": { "type": "thinking_delta", "thinking": text } })
+                ));
+                Some(parts.join(""))
+            }
+            ChatStreamEvent::ToolDelta { index, id, name, input } => {
+                let mut parts = Vec::new();
+                // 首帧（带 id/name）→ wire index 分配 + content_block_start
+                if !self.tool_wire.contains_key(index)
+                    && let (Some(id), Some(name)) = (id, name) {
+                        // text 块后续不再有；开 tool 块前不必关 text（Anthropic 允许交错块？
+                        // 实际须按序——文本块先 close。简化：首个 tool 块出现时 close text 块。）
+                        let wire = self.alloc_block();
+                        self.tool_wire.insert(*index, wire);
+                        parts.push(format!(
+                            "event: content_block_start\ndata: {}\n\n",
+                            serde_json::json!({ "type": "content_block_start", "index": wire, "content_block": { "type": "tool_use", "id": id, "name": name, "input": {} } })
+                        ));
+                    }
+                if let Some(input) = input {
+                    let wire = self.tool_wire.get(index).copied().unwrap_or(*index);
+                    parts.push(format!(
+                        "event: content_block_delta\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_delta", "index": wire, "delta": { "type": "input_json_delta", "partial_json": input } })
+                    ));
+                }
+                if parts.is_empty() { None } else { Some(parts.join("")) }
+            }
+            ChatStreamEvent::Stop { finish_reason } => {
+                let mut parts = Vec::new();
+                // 关全部开块（text / thinking / tool × n），wire index 升序
+                let mut closes: Vec<u32> = Vec::new();
+                if self.text_open { closes.push(0); }
+                if let Some(i) = self.thinking_index { closes.push(i); }
+                closes.extend(self.tool_wire.values().copied());
+                closes.sort();
+                for c in closes {
+                    parts.push(format!(
+                        "event: content_block_stop\ndata: {}\n\n",
+                        serde_json::json!({ "type": "content_block_stop", "index": c })
+                    ));
+                }
+                parts.push(format!(
+                    "event: message_delta\ndata: {}\n\nevent: message_stop\ndata: {{\"type\":\"message_stop\"}}\n\n",
+                    serde_json::json!({
+                        "type": "message_delta",
+                        "delta": { "stop_reason": finish_reason.as_deref().unwrap_or("end_turn"), "stop_sequence": null },
+                        "usage": { "output_tokens": 0 }
+                    })
+                ));
+                Some(parts.join(""))
+            }
+            ChatStreamEvent::Usage { .. } => None,
+        }
+    }
+
+    fn alloc_block(&mut self) -> u32 {
+        // text 块恒占 wire 0；已开 text 时后续块从 1 起编
+        if self.text_open && self.next_index == 0 {
+            self.next_index = 1;
+        }
+        let i = self.next_index;
+        self.next_index += 1;
+        i
+    }
+}
