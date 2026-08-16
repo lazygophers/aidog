@@ -1,10 +1,18 @@
 ---
 title: 安装指南
-description: 下载并安装 aidog 桌面应用。
+description: 在 macOS、Windows 或 Linux 下载并安装 aidog，并处理常见系统安全提示。
 ---
 
 # 安装指南
 
 从 [GitHub Releases](https://github.com/lazygophers/aidog/releases/latest) 下载当前系统对应的最新版安装包。
+
+| 系统 | 安装包 | 最低要求 |
+| --- | --- | --- |
+| macOS | `.dmg` | macOS 12，Intel 或 Apple Silicon |
+| Windows | `.msi` | Windows 10 x64 |
+| Linux | `.deb` 或 `.AppImage` | 需 WebKit2GTK |
+
+macOS 若提示无法验证开发者，右键应用选择“打开”；Windows 若被 SmartScreen 拦截，确认来源后选择“仍要运行”。Linux AppImage 需先执行 `chmod +x`。
 
 启动后 aidog 默认在 `127.0.0.1:9890` 提供代理。继续[首次配置](/zh/getting-started/first-config)。

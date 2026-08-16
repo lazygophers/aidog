@@ -1,21 +1,16 @@
 ---
 title: 产品介绍
-description: 了解 aidog 的定位、请求流向和首个可运行路径。
+description: 了解 aidog 的定位、工作方式、适用场景和完成首个请求的最短路径。
 ---
 
 # 产品介绍
 
-aidog 是运行在本机的桌面端 AI API 网关。入口、路由、代理、日志和设置都在本地应用内完成；远端请求仍会被转发到你配置的上游平台。
+aidog 是运行在本机的桌面端 AI API 网关。它把多个上游平台统一成一个代理入口，并负责协议转换、模型映射、路由、故障转移、计量和日志记录。
 
 ## 请求如何流动
 
 `客户端 → aidog 本地代理 → 分组匹配 → 候选平台 → 协议适配 → 上游模型`
 
-当前侧栏由 `src/App.tsx` 管理，平台和分组入口挂在 `src/pages/Platforms.tsx` 与其内嵌分组视图，代理和日志由 `src/services/api/proxy.ts`、`src/services/api/groups.ts`、`src/services/api/platforms.ts` 这组 wrapper 连接到 Rust command。
+客户端只需使用本地代理地址和分组名。平台 API Key 保存在 aidog 中，不必分发给每个工具。所有配置与 SQLite 数据默认保存在本机，但上游仍会收到被转发的请求内容。
 
-## 最短路径
-
-1. 安装应用。
-2. 在“AI 平台”添加至少一个上游平台。
-3. 在平台页内创建分组。
-4. 用 `127.0.0.1:9890` 和分组 token 发首个请求。
+继续[安装 aidog](/zh/getting-started/installation)。

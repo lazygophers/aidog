@@ -1,10 +1,15 @@
 ---
 title: 接入 Claude Code
+<<<<<<< HEAD
 description: 在 aidog 中复制 Claude Code 启动命令并复用分组配置。
+=======
+description: 使用环境变量或 aidog 设置把 Claude Code 接入本地代理和指定分组。
+>>>>>>> 9fb0c490
 ---
 
 # 接入 Claude Code
 
+<<<<<<< HEAD
 进入 aidog 的“AI 平台”或分组列表，找到要使用的分组，点击“复制启动命令”并选择“Claude Code 启动命令”。
 
 生成器在 `src/domains/groups/commands.ts`。当前命令形态是：
@@ -14,3 +19,14 @@ claude --brief --dangerously-skip-permissions --settings ~/.aidog/settings.<grou
 ```
 
 aidog 会先把该分组的 Claude Code 配置写入对应 `settings.<group>.json`，命令本身只负责指向这份配置文件。不要手写 `export` 作为主流程。
+=======
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:9890"
+export ANTHROPIC_AUTH_TOKEN="<group_name>"
+claude
+```
+
+`ANTHROPIC_AUTH_TOKEN` 填 aidog 中存在的分组名，不是上游 API Key。也可在“系统设置 → Claude Code”管理配置、Hooks、StatusLine 与分组配置同步。
+
+完成后[验证首个请求](/zh/getting-started/first-request)。
+>>>>>>> 9fb0c490
