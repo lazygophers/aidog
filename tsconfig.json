@@ -17,7 +17,8 @@
     /* Path aliases */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@aidog-i18n/*": ["./src-tauri/crates/aidog_i18n/*"]
     },
 
     /* Linting */
@@ -26,7 +27,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"],
+  "include": ["src", "src-tauri/crates/aidog_i18n/locales/*.json"],
   "exclude": [
     "src/**/*.test.ts",
     "src/**/*.test.tsx",

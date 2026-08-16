@@ -1,7 +1,7 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import zhHans from "./zh-Hans.json";
-import enUS from "./en-US.json";
+import zhHans from "@aidog-i18n/locales/zh-Hans.json";
+import enUS from "@aidog-i18n/locales/en-US.json";
 
 export type Locale =
   | "zh-Hans"
@@ -34,12 +34,12 @@ export function isRTL(locale: Locale): boolean {
 // 默认语言 (zh-Hans) + fallback (en-US) 同步打包，保证首屏 t() 立即可用；
 // 其余 5 语言按需 dynamic import，由 Vite 拆为独立 chunk，减小主包体积。
 const lazyLoaders: Partial<Record<Locale, () => Promise<{ default: Record<string, unknown> }>>> = {
-  "ar-SA": () => import("./ar-SA.json"),
-  "fr-FR": () => import("./fr-FR.json"),
-  "de-DE": () => import("./de-DE.json"),
-  "ru-RU": () => import("./ru-RU.json"),
-  "ja-JP": () => import("./ja-JP.json"),
-  "es-ES": () => import("./es-ES.json"),
+  "ar-SA": () => import("@aidog-i18n/locales/ar-SA.json"),
+  "fr-FR": () => import("@aidog-i18n/locales/fr-FR.json"),
+  "de-DE": () => import("@aidog-i18n/locales/de-DE.json"),
+  "ru-RU": () => import("@aidog-i18n/locales/ru-RU.json"),
+  "ja-JP": () => import("@aidog-i18n/locales/ja-JP.json"),
+  "es-ES": () => import("@aidog-i18n/locales/es-ES.json"),
 };
 
 i18n.use(initReactI18next).init({

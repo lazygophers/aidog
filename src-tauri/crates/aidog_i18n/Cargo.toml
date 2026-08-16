@@ -1,0 +1,11 @@
+[package]
+name = "aidog_i18n"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_i18n：多语言资源域（Rust 侧 proxy 错误消息 Lang/t + 前端 8 语言 locale JSON 真值源）。
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }

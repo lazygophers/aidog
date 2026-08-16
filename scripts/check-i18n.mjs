@@ -24,7 +24,7 @@ const LOCALES = ['zh-Hans', 'en-US', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP'
 const BASE = 'en-US'; // 动态模板覆盖度基准
 
 function loadLocale(l) {
-  const obj = JSON.parse(readFileSync(`src/locales/${l}.json`, 'utf8'));
+  const obj = JSON.parse(readFileSync(`src-tauri/crates/aidog_i18n/locales/${l}.json`, 'utf8'));
   return new Set(Object.keys(obj));
 }
 
@@ -78,7 +78,9 @@ for (const l of LOCALES) {
 // 每 protocol 必须 8 locale 都有非空 name（缺失 → 切语言时协议选择器裸 key）
 // 注：desc 字段 2026-07-10 删除（无 UI 消费），不再校验
 const DEFAULTS_LOCALES = ['en-US', 'zh-Hans', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
-const presetsRaw = JSON.parse(readFileSync('src-tauri/defaults/platform-presets.json', 'utf8'));
+// presets 已内置化 aidog_db::presets_const BUNDLED 原始字符串（r##"..."##），从 .rs 提取
+const presetsRs = readFileSync('src-tauri/crates/aidog_db/src/presets_const.rs', 'utf8');
+const presetsRaw = JSON.parse(presetsRs.match(/r##"([\s\S]*?)"##/)[1]);
 const presetsProtocols = presetsRaw.protocols || {};
 const protocolMissing = []; // {protocol, field, miss}
 for (const [proto, entry] of Object.entries(presetsProtocols)) {

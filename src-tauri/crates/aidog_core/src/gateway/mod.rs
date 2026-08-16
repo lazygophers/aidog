@@ -2,7 +2,7 @@ pub mod billing;
 pub mod codex;
 pub mod estimate;
 pub mod http_client;
-pub mod i18n;
+pub mod i18n { pub use aidog_i18n::*; }
 pub mod log_util { pub use aidog_db::log_util::*; }
 pub mod logo_sync;
 pub mod manual_budget;
