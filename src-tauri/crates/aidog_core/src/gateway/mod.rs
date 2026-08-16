@@ -25,9 +25,15 @@ pub mod quota;
 pub mod router;
 pub mod scheduling;
 pub mod scripts;
-pub mod skills;
+pub mod skills {
+    //! 拆分 shim：实现在独立 crate aidog_skills，此处保持 `gateway::skills::X` 旧路径。
+    pub use aidog_skills::*;
+}
 pub mod time_models;
 pub mod usage_color;
 pub mod import_export;
-pub mod mcp;
+pub mod mcp {
+    //! 拆分 shim：实现在独立 crate aidog_mcp，此处保持 `gateway::mcp::X` 旧路径。
+    pub use aidog_mcp::*;
+}
 pub mod claude_integration;

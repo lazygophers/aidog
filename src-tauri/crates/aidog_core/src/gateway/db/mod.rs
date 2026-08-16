@@ -12,6 +12,7 @@ pub use aidog_logs::*;
 pub use aidog_stats::*;
 pub use aidog_stats::DbInitTables;
 pub use aidog_db::{CURRENT_DB_CTX, DbCallCtx, fmt_caller, READ_POOL_SIZE};
+pub use aidog_mcp::store::{list_mcp_servers, get_mcp_server, upsert_mcp_server, delete_mcp_server, set_mcp_server_enabled_agents, list_mcp_server_names};
 pub use aidog_db::test_support;
 
 // ─── 领域子模块（按 concern 拆分，纯结构搬移，行为零变更）───
@@ -22,7 +23,6 @@ mod group_platform;
 mod middleware;
 mod maintenance;
 mod model_price;
-mod mcp;
 mod cli_proxy;
 mod ui_extra;
 #[cfg(test)]
@@ -38,7 +38,6 @@ pub use group_platform::*;
 pub use middleware::*;
 pub use maintenance::*;
 pub use model_price::*;
-pub use mcp::*;
 pub use cli_proxy::*;
 pub use ui_extra::*;
 
@@ -70,7 +69,6 @@ mod test_middleware;
 mod test_maintenance;
 #[cfg(test)]
 #[cfg(test)]
-mod test_mcp;
 #[cfg(test)]
 mod test_cli_proxy;
 #[cfg(test)]

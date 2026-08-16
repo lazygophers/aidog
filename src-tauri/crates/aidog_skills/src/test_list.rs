@@ -1,6 +1,6 @@
 use super::*;
-use crate::gateway::db::test_support::HomeGuard;
-use crate::gateway::skills::types::{SkillAgent, SkillScope};
+use aidog_db::test_support::HomeGuard;
+use crate::types::{SkillAgent, SkillScope};
 use std::fs;
 use std::os::unix::fs::symlink;
 use tempfile::TempDir;

@@ -9,11 +9,12 @@ use super::types::{
     ImportReport, McpAgent, McpConfigRaw, McpImportPayload, McpScanItem, McpServerInfo,
     McpServerRow, McpTransport, McpUpdatePayload,
 };
-use crate::gateway::db::{self, Db};
+use aidog_db::{Db, now};
+use crate::store;
 
 /// 扫描所有 agent 配置，去重合并（同名取首次出现的配置）。
 pub async fn scan_all(db: &Db) -> Result<Vec<McpScanItem>, String> {
-    let existing: std::collections::HashSet<String> = db::list_mcp_server_names(db)
+    let existing: std::collections::HashSet<String> = store::list_mcp_server_names(db)
         .await
         .unwrap_or_default()
         .into_iter()
@@ -96,7 +97,7 @@ pub async fn import_items(db: &Db, items: Vec<McpImportPayload>) -> Result<Impor
                 headers: item.headers,
             },
         };
-        let now = db::now();
+        let now = now();
         let row = McpServerRow {
             id: 0,
             name: item.name.clone(),
@@ -110,7 +111,7 @@ pub async fn import_items(db: &Db, items: Vec<McpImportPayload>) -> Result<Impor
             created_at: now,
             updated_at: now,
         };
-        match db::upsert_mcp_server(db, &row).await {
+        match store::upsert_mcp_server(db, &row).await {
             Ok(_) => imported.push(item.name),
             Err(e) => {
                 tracing::warn!(error = %e, "mcp import: upsert failed");
@@ -150,11 +151,11 @@ pub async fn import_pasted(db: &Db, json: &str) -> Result<ImportReport, String> 
     let mut imported = vec![];
     let mut skipped = vec![];
     for (name, cfg) in parsed {
-        if db::get_mcp_server(db, &name).await?.is_some() {
+        if store::get_mcp_server(db, &name).await?.is_some() {
             skipped.push(name); // 已存在不覆盖
             continue;
         }
-        let now = db::now();
+        let now = now();
         let row = McpServerRow {
             id: 0,
             name: name.clone(),
@@ -168,7 +169,7 @@ pub async fn import_pasted(db: &Db, json: &str) -> Result<ImportReport, String> 
             created_at: now,
             updated_at: now,
         };
-        match db::upsert_mcp_server(db, &row).await {
+        match store::upsert_mcp_server(db, &row).await {
             Ok(_) => imported.push(name),
             Err(e) => {
                 tracing::warn!(error = %e, "mcp import_pasted: upsert failed");
@@ -182,7 +183,7 @@ pub async fn import_pasted(db: &Db, json: &str) -> Result<ImportReport, String> 
 /// 导出单 MCP 可分享对象：`{mcpServers: {name: entry}}`（claude.json 协议，明文含 env/headers）。
 /// 接收端走 import_pasted（mcp_import_json），格式自洽。本地操作，不落 proxy_log。
 pub async fn share_server(db: &Db, name: &str) -> Result<serde_json::Value, String> {
-    let row = db::get_mcp_server(db, name)
+    let row = store::get_mcp_server(db, name)
         .await?
         .ok_or_else(|| format!("mcp server not found: {name}"))?;
     let cfg = row.to_raw_cfg();
@@ -199,7 +200,7 @@ pub async fn set_agent_enabled(
     agent: McpAgent,
     enabled: bool,
 ) -> Result<(), String> {
-    let row = db::get_mcp_server(db, name)
+    let row = store::get_mcp_server(db, name)
         .await?
         .ok_or_else(|| format!("mcp server not found: {name}"))?;
 
@@ -226,7 +227,7 @@ pub async fn set_agent_enabled(
         .map(|a| a.slug())
         .collect::<Vec<_>>()
         .join(",");
-    db::set_mcp_server_enabled_agents(db, name, &csv).await?;
+    store::set_mcp_server_enabled_agents(db, name, &csv).await?;
 
     // 同步 agent 配置文件。
     let be = backend_for(agent);
@@ -246,7 +247,7 @@ pub async fn add_server(db: &Db, payload: McpUpdatePayload) -> Result<McpServerI
     if name.is_empty() {
         return Err("name is required".into());
     }
-    if db::get_mcp_server(db, &name).await?.is_some() {
+    if store::get_mcp_server(db, &name).await?.is_some() {
         return Err(format!("mcp server already exists: {name}"));
     }
     let transport = McpTransport::parse(&payload.transport);
@@ -258,7 +259,7 @@ pub async fn add_server(db: &Db, payload: McpUpdatePayload) -> Result<McpServerI
         url: payload.url,
         headers: payload.headers,
     };
-    let now = db::now();
+    let now = now();
     let row = McpServerRow {
         id: 0,
         name: name.clone(),
@@ -272,8 +273,8 @@ pub async fn add_server(db: &Db, payload: McpUpdatePayload) -> Result<McpServerI
         created_at: now,
         updated_at: now,
     };
-    db::upsert_mcp_server(db, &row).await?;
-    db::get_mcp_server(db, &name)
+    store::upsert_mcp_server(db, &row).await?;
+    store::get_mcp_server(db, &name)
         .await?
         .map(McpServerInfo::from)
         .ok_or_else(|| format!("mcp server not found after insert: {name}"))
@@ -281,7 +282,7 @@ pub async fn add_server(db: &Db, payload: McpUpdatePayload) -> Result<McpServerI
 
 /// 删除：从所有 enabled agent 配置移除 + DB 删行。
 pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
-    let row = db::get_mcp_server(db, name).await?;
+    let row = store::get_mcp_server(db, name).await?;
     if let Some(row) = &row {
         for agent in row.enabled_set() {
             let be = backend_for(agent);
@@ -294,7 +295,7 @@ pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
             }
         }
     }
-    db::delete_mcp_server(db, name).await?;
+    store::delete_mcp_server(db, name).await?;
     Ok(())
 }
 
@@ -303,7 +304,7 @@ pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
 /// aidog 的 write 恒为全量 replace（build_claude_entry 重建 entry），所以重写 = 用 DB 干净值覆盖文件。
 /// 返回成功重写的 (agent, name) 数量；单条失败记 warn 不中断（best-effort）。
 pub async fn resync_all(db: &Db) -> Result<usize, String> {
-    let rows = db::list_mcp_servers(db).await?;
+    let rows = store::list_mcp_servers(db).await?;
     let mut count = 0usize;
     for row in rows {
         for agent in row.enabled_set() {
@@ -333,7 +334,7 @@ pub async fn update_server(
     old_name: &str,
     payload: McpUpdatePayload,
 ) -> Result<McpServerInfo, String> {
-    let old = db::get_mcp_server(db, old_name)
+    let old = store::get_mcp_server(db, old_name)
         .await?
         .ok_or_else(|| format!("mcp server not found: {old_name}"))?;
 
@@ -390,14 +391,14 @@ pub async fn update_server(
 
     // DB：改名删旧 + upsert 新。
     if payload.name != old.name {
-        db::delete_mcp_server(db, old_name).await?;
+        store::delete_mcp_server(db, old_name).await?;
     }
     let enabled_csv = kept
         .iter()
         .map(|a| a.slug())
         .collect::<Vec<_>>()
         .join(",");
-    let now = db::now();
+    let now = now();
     let row = McpServerRow {
         id: old.id,
         name: payload.name,
@@ -411,9 +412,9 @@ pub async fn update_server(
         created_at: old.created_at,
         updated_at: now,
     };
-    db::upsert_mcp_server(db, &row).await?;
+    store::upsert_mcp_server(db, &row).await?;
 
-    db::get_mcp_server(db, &row.name)
+    store::get_mcp_server(db, &row.name)
         .await?
         .map(McpServerInfo::from)
         .ok_or_else(|| format!("mcp update: row vanished after upsert: {}", row.name))

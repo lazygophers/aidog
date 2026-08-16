@@ -1,6 +1,6 @@
 //! 代理设置 → npm/npx 代理 URL 构造 + 子进程代理 env 注入。
 
-use crate::gateway::models::ProxyClientSettings;
+use aidog_db::models::ProxyClientSettings;
 use std::process::Command;
 
 /// 由上游代理设置构造 npm/npx 用的代理 URL。

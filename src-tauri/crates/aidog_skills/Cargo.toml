@@ -1,0 +1,21 @@
+[package]
+name = "aidog_skills"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_skills：Skills 管理域（catalog/list/ops/env 等，拆自 aidog_core::gateway::skills，
+# 2026-08-16）。aidog_core 经 `gateway::skills` re-export 保持旧路径。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+regex = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }

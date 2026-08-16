@@ -1,8 +1,8 @@
-use super::*;
+use aidog_db::{Db, now};
 use rusqlite::{params};
 
 #[track_caller]
-pub fn list_mcp_servers(db: &Db) -> impl std::future::Future<Output = Result<Vec<crate::gateway::mcp::McpServerRow>, String>> + '_ {
+pub fn list_mcp_servers(db: &Db) -> impl std::future::Future<Output = Result<Vec<crate::McpServerRow>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db.call_read_traced(None, __db_caller, move |conn| {
@@ -11,7 +11,7 @@ pub fn list_mcp_servers(db: &Db) -> impl std::future::Future<Output = Result<Vec
              enabled_agents, created_at, updated_at FROM mcp_server ORDER BY name",
         )?;
         let rows = stmt.query_map([], |r| {
-            Ok(crate::gateway::mcp::McpServerRow {
+            Ok(crate::McpServerRow {
                 id: r.get(0)?,
                 name: r.get(1)?,
                 transport: r.get(2)?,
@@ -40,7 +40,7 @@ pub fn list_mcp_servers(db: &Db) -> impl std::future::Future<Output = Result<Vec
 pub fn get_mcp_server<'a>(
     db: &'a Db,
     name: &'a str,
-) -> impl std::future::Future<Output = Result<Option<crate::gateway::mcp::McpServerRow>, String>> + 'a {
+) -> impl std::future::Future<Output = Result<Option<crate::McpServerRow>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let name = name.to_string();
@@ -50,7 +50,7 @@ pub fn get_mcp_server<'a>(
              enabled_agents, created_at, updated_at FROM mcp_server WHERE name = ?1",
         )?;
         let mut rows = stmt.query_map(params![name], |r| {
-            Ok(crate::gateway::mcp::McpServerRow {
+            Ok(crate::McpServerRow {
                 id: r.get(0)?,
                 name: r.get(1)?,
                 transport: r.get(2)?,
@@ -76,7 +76,7 @@ pub fn get_mcp_server<'a>(
 
 /// INSERT 或 UPDATE（按 name 唯一冲突）。created_at 仅首次写入生效（UPDATE 不覆盖）。
 #[track_caller]
-pub fn upsert_mcp_server<'a>(db: &'a Db, row: &'a crate::gateway::mcp::McpServerRow) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+pub fn upsert_mcp_server<'a>(db: &'a Db, row: &'a crate::McpServerRow) -> impl std::future::Future<Output = Result<(), String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let row = row.clone();

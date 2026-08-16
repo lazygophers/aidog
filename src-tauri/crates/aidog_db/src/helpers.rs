@@ -206,3 +206,14 @@ pub fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
         "[]".to_string()
     })
 }
+
+/// Codex home 目录（`CODEX_HOME` env 覆盖 → `~/.codex` 兜底）。
+/// 原 aidog_core::gateway::codex::codex_home 逻辑下沉：aidog_mcp 跨 crate 复用同一真值。
+pub fn codex_home() -> Result<std::path::PathBuf, String> {
+    if let Ok(custom) = std::env::var("CODEX_HOME")
+        && !custom.trim().is_empty() {
+            return Ok(std::path::PathBuf::from(custom));
+        }
+    let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
+    Ok(home.join(".codex"))
+}

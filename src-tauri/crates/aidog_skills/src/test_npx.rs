@@ -1,5 +1,5 @@
 use super::*;
-use crate::gateway::skills::types::SkillScope;
+use crate::types::SkillScope;
 
 #[test]
 fn apply_scope_global_adds_g() {

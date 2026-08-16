@@ -1,5 +1,5 @@
 use super::*;
-use crate::gateway::skills::types::SkillAgent;
+use crate::types::SkillAgent;
 use tempfile::tempdir;
 
 #[test]

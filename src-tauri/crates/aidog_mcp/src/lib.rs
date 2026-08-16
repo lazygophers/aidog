@@ -20,6 +20,7 @@
 //! - `domain`: scan / import / set_agent / add / delete / resync / update
 
 mod backend_claude;
+pub mod store;
 mod backend_codex;
 mod domain;
 mod mask;

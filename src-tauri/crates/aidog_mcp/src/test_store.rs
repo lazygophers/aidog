@@ -1,7 +1,7 @@
 #![cfg(test)]
-use super::test_support::test_db;
+use aidog_db::test_support::test_db;
 use super::*;
-use crate::gateway::mcp::McpServerRow;
+use crate::McpServerRow;
 
 fn row(name: &str) -> McpServerRow {
     McpServerRow {
