@@ -9,10 +9,16 @@ license = { workspace = true }
 # aidog_core::gateway::adapter，2026-08-16）。
 [dependencies]
 aidog_db = { path = "../aidog_db" }
+aidog_logs = { path = "../aidog_logs" }
+boa_engine = "0.21.1"
+reqwest = { version = "0.12", features = ["json", "gzip", "socks"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
+chrono = { workspace = true }
+tokio = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+axum = { version = "0.8", features = ["json"] }
 tokio = { workspace = true }

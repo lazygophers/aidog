@@ -26,6 +26,15 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 
             let data_dir = aidog_data_dir().expect("failed to resolve data dir");
 
+            // aidog_adapter::quota 出站 client 构建器注入（读 DB 代理设置 + 全局缓存；
+            // 未注入时 adapter 侧回落直连）。adapter 不依赖 core，经回调单向提供。
+            aidog_adapter::quota::http::set_client_builder(std::sync::Arc::new(|db| {
+                let db = db.clone();
+                Box::pin(async move {
+                    aidog_core::gateway::http_client::build_http_client_system(&db, 10, 5).await
+                })
+            }));
+
             // 先开 DB 再初始化日志：app log 设置单一事实源 = DB settings 表（禁独立文件）。
             // 历史 ~/.aidog/log_settings.json 在此一次性迁移进 DB 后删除。
             let db_path = data_dir.join("aidog.db");

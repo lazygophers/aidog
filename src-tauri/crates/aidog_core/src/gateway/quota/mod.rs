@@ -1,98 +1,13 @@
-//! 平台余额 & Coding Plan 配额查询服务
-//!
-//! 移植自 cc-switch，支持:
-//!   - 余额查询: DeepSeek, StepFun, SiliconFlow, OpenRouter, Novita
-//!   - Coding Plan: Kimi, GLM (智谱), MiniMax
-//!   - New API (中转平台): 两步余额查询
-//!   - Devin: ACU 用量查询（est_cost 记 ACU 数，禁 $ 折算，见 devin.rs）
-//!
-//! 对于无法实时获取的平台，前端可通过 proxy_logs 估算用量。
+//! 平台余额 & Coding Plan 配额查询服务 —— facade。
+//! 实现已下沉 aidog_adapter::quota（按平台目录组织，三函数模式：
+//! quota_config 能力配置 / query_quota 完整结果 / run_custom_query JS 脚本自定义查询），
+//! 本模块仅 re-export 保持 `gateway::quota::*` 调用路径不变。
 
-mod balance;
-mod coding_plan;
-mod devin;
-mod http;
-mod newapi;
-
-#[cfg(test)]
-#[path = "test_dispatch.rs"]
-mod test_dispatch;
-
-use std::sync::Arc;
-
-use aidog_db::Db;
-
-// 对外路径保持不变: gateway::quota::{PlatformQuota, BalanceInfo, CodingPlanInfo, QuotaTier,
-// query_quota, query_quota_newapi, query_quota_devin, parse_newapi_extra}。
-// allow(unused_imports): cdylib/staticlib crate 下 facade re-export 的部分项仅被 #[cfg(test)]
-// 消费 (estimate.rs 测试) 或保留为对外 API, 非 test 构建视作未用 → 误报。
-#[allow(unused_imports)]
-pub use http::{with_cli_proxy_provider_id, BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
-#[allow(unused_imports)]
-pub use newapi::{parse_newapi_extra, query_quota_newapi};
-#[allow(unused_imports)]
-pub use devin::{parse_devin_extra, query_quota_devin};
-
-use balance::{
-    query_deepseek_balance, query_novita_balance, query_openrouter_balance,
-    query_siliconflow_balance, query_stepfun_balance,
+pub use aidog_adapter::quota::http::with_cli_proxy_provider_id;
+pub use aidog_adapter::quota::{
+    query_quota, query_quota_for, quota_config_for, BalanceInfo, CodingPlanInfo, PlatformQuota,
+    QuotaCapability, QuotaTier,
 };
-use coding_plan::{query_kimi_coding_plan, query_minimax_coding_plan, query_zhipu_coding_plan};
-use http::{err_quota, QUOTA_PLATFORM_ID};
 
-// ── 公开入口 ──────────────────────────────────────────────
-
-/// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额。
-/// platform_id 透传给落库日志（task_local scope），让 Logs 页能显示归属平台。
-pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, platform_id: i64) -> PlatformQuota {
-    QUOTA_PLATFORM_ID.scope(platform_id, query_quota_inner(db, base_url, api_key)).await
-}
-
-async fn query_quota_inner(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> PlatformQuota {
-    if api_key.trim().is_empty() {
-        return err_quota("API key is empty");
-    }
-    let url = base_url.to_lowercase();
-
-    // Coding Plan 查询 (优先检测，这些平台通常同时有 Coding Plan)
-    if url.contains("api.kimi.com/coding") {
-        return query_kimi_coding_plan(db, api_key).await;
-    }
-    if url.contains("open.bigmodel.cn") || url.contains("bigmodel.cn") {
-        // GLM 可能同时返回 coding plan
-        let quota = query_zhipu_coding_plan(db, base_url, api_key).await;
-        return quota;
-    }
-    if url.contains("api.z.ai") {
-        return query_zhipu_coding_plan(db, base_url, api_key).await;
-    }
-    if url.contains("api.minimaxi.com") {
-        return query_minimax_coding_plan(db, api_key, true).await;
-    }
-    if url.contains("api.minimax.io") {
-        return query_minimax_coding_plan(db, api_key, false).await;
-    }
-
-    // 余额查询
-    if url.contains("api.deepseek.com") {
-        return query_deepseek_balance(db, api_key).await;
-    }
-    if url.contains("api.stepfun.com") || url.contains("api.stepfun.ai") {
-        return query_stepfun_balance(db, api_key).await;
-    }
-    if url.contains("api.siliconflow.cn") {
-        return query_siliconflow_balance(db, api_key, true).await;
-    }
-    if url.contains("api.siliconflow.com") {
-        return query_siliconflow_balance(db, api_key, false).await;
-    }
-    if url.contains("openrouter.ai") {
-        return query_openrouter_balance(db, api_key).await;
-    }
-    if url.contains("api.novita.ai") {
-        return query_novita_balance(db, api_key).await;
-    }
-
-    // 不支持的平台
-    err_quota("Unsupported platform for quota query")
-}
+pub use aidog_adapter::newapi::quota::{parse_newapi_extra, query_quota_newapi};
+pub use aidog_adapter::devin::quota::{parse_devin_extra, query_quota_devin};

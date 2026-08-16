@@ -8,7 +8,7 @@ use std::sync::Arc;
 
 use aidog_db::Db;
 
-use super::http::{
+use crate::quota::http::{
     err_quota, err_quota_platform, now_millis, parse_f64_field, quota_get_json, BalanceInfo,
     PlatformQuota, QUOTA_PLATFORM_ID,
 };
@@ -28,7 +28,7 @@ fn newapi_instance_root(base_url: &str) -> String {
 /// 从 platform.extra JSON 解析 New API 余额配置
 /// Returns (balance_base_url, balance_api_key)
 pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
-    let n = crate::gateway::models::PlatformExtra::parse(extra).newapi?;
+    let n = aidog_db::models::PlatformExtra::parse(extra).newapi?;
     if n.balance_api_key.is_empty() {
         return None;
     }
@@ -72,7 +72,7 @@ async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str,
 }
 
 /// 解析 /api/user/self 响应 → PlatformQuota（纯函数，不触网）。
-pub(crate) fn parse_newapi_user_balance(body: &serde_json::Value) -> PlatformQuota {
+pub fn parse_newapi_user_balance(body: &serde_json::Value) -> PlatformQuota {
     if body.get("success").and_then(|v| v.as_bool()) != Some(true) {
         let msg = body.get("message").and_then(|v| v.as_str()).unwrap_or("Query failed");
         return err_quota_platform("newapi", msg);
@@ -108,7 +108,7 @@ pub(crate) fn parse_newapi_user_balance(body: &serde_json::Value) -> PlatformQuo
 }
 
 /// 有限额 token → 直接用 token 配额构造余额（纯函数）。
-pub(crate) fn limited_token_quota(total_granted: f64, total_used: f64, total_available: f64) -> PlatformQuota {
+pub fn limited_token_quota(total_granted: f64, total_used: f64, total_available: f64) -> PlatformQuota {
     let remaining = total_available / 500000.0;
     let used = total_used / 500000.0;
     let total = total_granted / 500000.0;
@@ -163,5 +163,5 @@ async fn query_quota_newapi_inner(db: Option<&Arc<Db>>, base_url: &str, api_key:
 }
 
 #[cfg(test)]
-#[path = "test_newapi.rs"]
-mod test_newapi;
+#[path = "test_quota.rs"]
+mod test_quota;

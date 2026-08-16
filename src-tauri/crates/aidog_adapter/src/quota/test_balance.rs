@@ -1,6 +1,11 @@
 //! 纯解析覆盖：每平台 JSON body → PlatformQuota。
 use super::*;
 use serde_json::json;
+use crate::deepseek::quota::parse_deepseek_balance;
+use crate::novita::quota::parse_novita_balance;
+use crate::openrouter::quota::parse_openrouter_balance;
+use crate::siliconflow::quota::parse_siliconflow_balance;
+use crate::stepfun::quota::parse_stepfun_balance;
 
 #[test]
 fn deepseek_sums_balance_infos() {
