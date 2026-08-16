@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * i18n 一次性补全脚本 (配合 check-i18n.mjs)。
- * 内嵌各 locale 缺失 key 的真实本地化翻译，merge 写回 src/locales/<locale>.json。
+ * 内嵌各 locale 缺失 key 的真实本地化翻译，merge 写回 src-tauri/crates/aidog_i18n/locales/<locale>.json。
  * 补全后跑 `node scripts/check-i18n.mjs` 应 exit 0。
  *
  * 翻译约定 (对齐 spec frontend/conventions.md i18n 章节):
@@ -1127,7 +1127,7 @@ const TRANSLATIONS = {
 // ── merge + 排序写回 ───────────────────────────────────
 let total = 0;
 for (const [locale, patch] of Object.entries(TRANSLATIONS)) {
-  const path = `src/locales/${locale}.json`;
+  const path = `src-tauri/crates/aidog_i18n/locales/${locale}.json`;
   const obj = JSON.parse(readFileSync(path, 'utf8'));
   let added = 0;
   for (const [k, v] of Object.entries(patch)) {

@@ -204,6 +204,7 @@ dependencies = [
  "aidog_adapter",
  "aidog_db",
  "aidog_hooks",
+ "aidog_i18n",
  "aidog_logs",
  "aidog_mcp",
  "aidog_middleware",
@@ -292,6 +293,14 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "aidog_i18n"
+version = "0.1.11"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

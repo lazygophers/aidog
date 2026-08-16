@@ -240,7 +240,7 @@ TRANS = {
 def main():
     added = 0
     for loc in LOCALES:
-        path = Path(f"src/locales/{loc}.json")
+        path = Path(f"src-tauri/crates/aidog_i18n/locales/{loc}.json")
         # Preserve insertion order (existing files are NOT globally sorted).
         # Read raw text, parse to find positions, splice new keys into the
         # alphabetically correct slot within their top-level prefix group

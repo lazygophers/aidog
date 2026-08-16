@@ -15,6 +15,8 @@ export default defineConfig(async () => ({
     // ponytail: @ alias 供 shadcn 组件 (@/components/ui, @/lib/utils) 解析, 与 tsconfig paths 同步
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // aidog_i18n crate：前端 locale JSON 真值源（Rust/前端共享，禁抄第二份）
+      "@aidog-i18n": path.resolve(__dirname, "./src-tauri/crates/aidog_i18n"),
     },
   },
 
