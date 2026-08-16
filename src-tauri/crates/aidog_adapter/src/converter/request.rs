@@ -84,3 +84,6 @@ pub fn parse_incoming_request(source_protocol: &Protocol, body: &Value) -> Resul
 #[cfg(test)]
 #[path = "test_request.rs"]
 mod test_request;
+#[cfg(test)]
+#[path = "test_roundtrip.rs"]
+mod test_roundtrip;
