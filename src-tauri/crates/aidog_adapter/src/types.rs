@@ -55,6 +55,42 @@ pub enum MessageContent {
     Blocks(Vec<ContentBlock>),
 }
 
+impl MessageContent {
+    /// 纯文本视图：Text 原样；Blocks 拼接全部 Text block（其他类型跳过）。
+    /// adapter 各协议序列化的「取文本」统一出口。
+    pub fn as_text(&self) -> String {
+        match self {
+            MessageContent::Text(s) => s.clone(),
+            MessageContent::Blocks(blocks) => blocks
+                .iter()
+                .filter_map(|b| match b {
+                    ContentBlock::Text { text } => Some(text.as_str()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(""),
+        }
+    }
+
+    /// block 列表视图：Text 折叠为单 Text block。
+    pub fn blocks(&self) -> Vec<ContentBlock> {
+        match self {
+            MessageContent::Text(s) => vec![ContentBlock::Text { text: s.clone() }],
+            MessageContent::Blocks(blocks) => blocks.clone(),
+        }
+    }
+
+    /// 追加 block：Text 自动升级为 Blocks。adapter 组装多 block 消息的统一入口。
+    pub fn push_block(&mut self, block: ContentBlock) {
+        match self {
+            MessageContent::Text(s) => {
+                *self = MessageContent::Blocks(vec![ContentBlock::Text { text: std::mem::take(s) }, block]);
+            }
+            MessageContent::Blocks(blocks) => blocks.push(block),
+        }
+    }
+}
+
 /// 消息内容块。
 ///
 /// 已知类型(text/tool_use/tool_result)走强类型；未覆盖类型(thinking/image/…)
@@ -258,6 +294,62 @@ pub enum ChatStreamEvent {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // ── MessageContent helper ──
+
+    #[test]
+    fn message_content_as_text_from_blocks() {
+        let mc = MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "a".into() },
+            ContentBlock::ToolUse { id: "x".into(), name: "n".into(), input: json!({}) },
+            ContentBlock::Text { text: "b".into() },
+        ]);
+        assert_eq!(mc.as_text(), "ab");
+        assert_eq!(MessageContent::Text("solo".into()).as_text(), "solo");
+    }
+
+    #[test]
+    fn message_content_blocks_text_folds_single_block() {
+        let mc = MessageContent::Text("hi".into());
+        assert!(matches!(mc.blocks()[..], [ContentBlock::Text { ref text }] if text == "hi"));
+    }
+
+    #[test]
+    fn message_content_push_block_upgrades_text_to_blocks() {
+        let mut mc = MessageContent::Text("t".into());
+        mc.push_block(ContentBlock::ToolResult { tool_use_id: "t1".into(), content: "ok".into() });
+        match mc {
+            MessageContent::Blocks(blocks) => {
+                assert_eq!(blocks.len(), 2);
+                assert!(matches!(blocks[0], ContentBlock::Text { .. }));
+                assert!(matches!(blocks[1], ContentBlock::ToolResult { .. }));
+            }
+            _ => panic!("expected Blocks after push_block"),
+        }
+    }
+
+    // ── ChatStreamEvent 工具/思考变体 serde 锁形 ──
+
+    #[test]
+    fn chat_stream_event_tool_and_reasoning_variants_serde() {
+        let e = ChatStreamEvent::ToolDelta { index: 1, id: Some("c1".into()), name: Some("f".into()), input: Some("{\"x\"".into()) };
+        let v = serde_json::to_value(&e).unwrap();
+        assert_eq!(v["type"], "tool_delta");
+        assert_eq!(v["index"], 1);
+        let e2: ChatStreamEvent = serde_json::from_value(v).unwrap();
+        assert!(matches!(e2, ChatStreamEvent::ToolDelta { index: 1, .. }));
+
+        let r = ChatStreamEvent::ReasoningDelta { text: "think".into() };
+        let v = serde_json::to_value(&r).unwrap();
+        assert_eq!(v["type"], "reasoning_delta");
+        let r2: ChatStreamEvent = serde_json::from_value(v).unwrap();
+        assert!(matches!(r2, ChatStreamEvent::ReasoningDelta { ref text } if text == "think"));
+
+        let st = ChatStreamEvent::Stop { finish_reason: Some("tool_use".into()) };
+        let v = serde_json::to_value(&st).unwrap();
+        assert_eq!(v["type"], "stop");
+        assert_eq!(v["finish_reason"], "tool_use");
+    }
 
     // ── ContentBlock Deserialize ──
 
