@@ -19,6 +19,9 @@ import { getPrimaryBaseUrl } from "./usePlatformQuota";
  *  字段引用 usePlatformForm 调用时刻闭包值（与抽前一致）。 */
 export interface PlatformPasteCtx {
   t: TFunction;
+  /** 除 name/api_key 外的全部创建字段（usePlatformForm.buildSharedCreateFields）：
+   *  批量创建的每个平台与表单配置完全一致，仅 token 不同。 */
+  buildSharedCreateFields: () => Record<string, unknown>;
   // form state（读 + 写）
   name: string;
   protocol: Protocol;
@@ -282,7 +285,7 @@ export async function runBatchCreateFromPaste(
   effectiveProtocol?: Protocol,
 ): Promise<void> {
   const {
-    t, name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
+    t, name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup,
     setPlatforms, platformsEpochRef, quota, handleGroupsChanged, groupsReloadRef,
     resetForm, setToast,
   } = ctx;
@@ -310,13 +313,15 @@ export async function runBatchCreateFromPaste(
     // name 计算复用 previewBatchNames 的单元素版本（保持预览 = 实际创建名一致）。
     const pname = previewBatchNames([k], prefix, usedNames)[0];
     try {
+      // 共享表单配置（extra/models/预算/熔断/时段等全字段）+ 每 key 仅换 name/token；
+      // 智能粘贴 lockedGroupId 场景 override 分组归属。
       const saved = await platformApi.create({
-        name: pname, platform_type: proto, base_url: baseUrl, api_key: k,
+        ...ctx.buildSharedCreateFields(),
+        name: pname, api_key: k,
         endpoints: eps.length > 0 ? eps : undefined,
         auto_group: auto,
         join_group_ids: joinIds,
-        expires_at: expiresAt,
-      });
+      } as Parameters<typeof platformApi.create>[0]);
       usedNames.add(pname);
       okCount++;
       // 局部刷新：append 单项（epoch guard 防晚到 resolve 覆盖）。

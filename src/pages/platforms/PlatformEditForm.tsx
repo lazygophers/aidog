@@ -42,7 +42,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     isMock, isPassthrough, keyOptional, apiKeyMissing,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
-    batchPreviewKeys, handleApiKeyChange, confirmBatchCreate, cancelBatchPreview, previewNames,
+    batchPreviewKeys, handleApiKeyChange, previewNames,
     newApiConfig, setNewApiConfig,
     devinConfig, setDevinConfig,
     endpoints, setEndpoints,
@@ -139,11 +139,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
           <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
             disabled={!name
-              || (!!batchPreviewKeys && batchPreviewKeys.length > 1)
               || (isCliProxyEditing
                   ? false
                   : (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey))))}>
-            {editing ? t("action.save") : t("action.create")}
+            {editing
+              ? t("action.save")
+              : batchPreviewKeys && batchPreviewKeys.length > 1
+                ? t("platform.batch.createN", "批量创建（{{n}}）", { n: batchPreviewKeys.length })
+                : t("action.create")}
           </Button>
         </div>
       </div>
@@ -287,8 +290,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             previewNames={previewNames}
             protocol={protocol}
             baseUrl={getPrimaryBaseUrl(protocol, endpoints)}
-            onConfirm={confirmBatchCreate}
-            onCancel={cancelBatchPreview}
             t={t}
           />
         )}

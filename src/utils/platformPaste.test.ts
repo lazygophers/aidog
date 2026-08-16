@@ -9,7 +9,13 @@ import {
   type PastePresetRef,
 } from "./platformPaste";
 // 真值源（platform-presets.json，68 协议）——数据驱动回归矩阵用。
-import presetsJson from "../../src-tauri/defaults/platform-presets.json";
+// presets 真值源已内置化 aidog_db::presets_const BUNDLED 原始字符串（r##"..."##），
+// JSON 文件不再存在 → 读 .rs 提取（与 scripts/check-i18n.mjs 同 idiom）。
+import { readFileSync } from "node:fs";
+const presetsJson: unknown = JSON.parse(
+  readFileSync(new URL("../../src-tauri/crates/aidog_db/src/presets_const.rs", import.meta.url), "utf8")
+    .match(/r##"([\s\S]*?)"##/)![1],
+);
 
 const PRESETS: PastePresetRef[] = [
   // anthropic + openai 真值 fixture（对齐 platform-presets.json:18/34）——
