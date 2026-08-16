@@ -890,3 +890,104 @@ fn ticket07_text_only_sse_no_regression() {
         }
     }
 }
+
+// ─── ticket 08: 富流式 SSE to_sse 状态机 ───
+
+use crate::converter::response::AnthropicSseState;
+
+/// 中立事件流（文本+思考+工具分片）→ Anthropic SSE 逐 chunk 断言：
+/// block index 连续分配、thinking block、tool content_block_start/stop、input_json_delta 分片
+#[test]
+fn ticket08_anthropic_sse_state_machine() {
+    let mut st = AnthropicSseState::default();
+    let events = [
+        ChatStreamEvent::Start { id: "m1".into(), model: "claude-x".into() },
+        ChatStreamEvent::Delta { text: "你好".into() },
+        ChatStreamEvent::ReasoningDelta { text: "想".into() },
+        ChatStreamEvent::ToolDelta { index: 0, id: Some("tu_1".into()), name: Some("get_weather".into()), input: None },
+        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("{\"city\":".into()) },
+        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("\"BJ\"}".into()) },
+        ChatStreamEvent::Stop { finish_reason: Some("tool_use".into()) },
+    ];
+    let frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
+    let wire = frames.join("");
+
+    // thinking 走独立 block + thinking_delta（非 text_delta）
+    assert!(wire.contains("\"type\":\"thinking_delta\""), "思考须走 thinking_delta");
+    // text block 与 thinking/tool 的 wire index 均从 0 起连续：text=0, thinking=1, tool=2
+    assert!(wire.contains("\"type\":\"tool_use\"") && wire.contains("\"index\":2"), "tool block wire index 须接续分配");
+    // 两段 partial_json 分片原样下发
+    assert!(wire.contains("\"partial_json\":\"{\\\"city\\\":\""));
+    assert!(wire.contains("\"partial_json\":\"\\\"BJ\\\"}\""));
+    // Stop 前须关全部 block：content_block_stop × 3
+    assert_eq!(wire.matches("event: content_block_stop").count(), 3, "text/thinking/tool 三块都要 close");
+    // 聚合后 arguments 合法 JSON
+    let mut args = String::new();
+    for line in wire.lines() {
+        if let Some(d) = line.strip_prefix("data: ")
+            && let Ok(v) = serde_json::from_str::<Value>(d)
+            && v["type"] == "content_block_delta" && v["delta"]["type"] == "input_json_delta" {
+                args.push_str(v["delta"]["partial_json"].as_str().unwrap());
+            }
+    }
+    assert_eq!(serde_json::from_str::<Value>(&args).unwrap()["city"], "BJ");
+    // stop_reason 透传
+    assert!(wire.contains("\"stop_reason\":\"tool_use\""));
+}
+
+/// 多工具交错增量不串 index/id（OpenAI 出站 tool_calls[].index / Anthropic wire index）
+#[test]
+fn ticket08_multi_tool_interleaved() {
+    // Anthropic：两个中立 index 交错 → 各自 wire index / stop
+    let mut st = AnthropicSseState::default();
+    let events = [
+        ChatStreamEvent::ToolDelta { index: 0, id: Some("a".into()), name: Some("f1".into()), input: None },
+        ChatStreamEvent::ToolDelta { index: 1, id: Some("b".into()), name: Some("f2".into()), input: None },
+        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("{\"x\":".into()) },
+        ChatStreamEvent::ToolDelta { index: 1, id: None, name: None, input: Some("{}".into()) },
+        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("1}".into()) },
+        ChatStreamEvent::Stop { finish_reason: Some("tool_use".into()) },
+    ];
+    let frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
+    let wire = frames.join("");
+    assert!(wire.contains("\"id\":\"a\""));
+    assert!(wire.contains("\"id\":\"b\""));
+    // 中立 0 → wire 0，中立 1 → wire 1，分片 delta 的 wire index 不串
+    for line in wire.lines() {
+        if let Some(d) = line.strip_prefix("data: ")
+            && let Ok(v) = serde_json::from_str::<Value>(d)
+            && v["type"] == "content_block_delta" && v["delta"]["type"] == "input_json_delta" {
+                let idx = v["index"].as_u64().unwrap();
+                let pj = v["delta"]["partial_json"].as_str().unwrap();
+                match pj {
+                    "{\"x\":" | "1}" => assert_eq!(idx, 0, "中立 index 0 分片须落 wire 0: {pj}"),
+                    "{}" => assert_eq!(idx, 1, "中立 index 1 分片须落 wire 1"),
+                    _ => {}
+                }
+            }
+    }
+    assert_eq!(wire.matches("event: content_block_stop").count(), 2);
+
+    // OpenAI：出站 tool_calls[].index 用中立 index，无状态即可
+    let openai_frames: Vec<String> = events.iter().filter_map(|e| crate::converter::response::to_client_sse(e, &Protocol::OpenAI, "m")).collect();
+    let o = openai_frames.join("");
+    assert!(o.contains("\"id\":\"a\"") && o.contains("\"id\":\"b\""));
+    assert!(o.contains("\"arguments\":\"{\\\"x\\\":\""));
+}
+
+/// 纯文本流不回归（状态机路径）
+#[test]
+fn ticket08_text_only_state_machine_no_regression() {
+    let mut st = AnthropicSseState::default();
+    let events = [
+        ChatStreamEvent::Start { id: "m".into(), model: "c".into() },
+        ChatStreamEvent::Delta { text: "h".into() },
+        ChatStreamEvent::Delta { text: "i".into() },
+        ChatStreamEvent::Stop { finish_reason: None },
+    ];
+    let wire: String = events.iter().filter_map(|e| st.push(e)).collect();
+    assert!(wire.contains("message_start"));
+    assert!(wire.contains("\"text\":\"h\"") && wire.contains("\"text\":\"i\""));
+    assert!(wire.contains("message_stop"));
+    assert_eq!(wire.matches("event: content_block_stop").count(), 1, "单 text 块 close 一次");
+}

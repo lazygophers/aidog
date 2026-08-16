@@ -253,6 +253,9 @@ where
     // guard.agg.feed_sse_usage 的 sse_line_buf 同型 idiom）。只在转换分支（!passthrough_response）
     // 使用；passthrough 分支原样 relay 字节，无需按行解析，零改动。
     let mut sse_line_buf = SseLineReassembler::new();
+    // Anthropic 系客户端流式渲染状态机：跨 chunk 维护 content block index 分配与开块表
+    // （tool/thinking 块完整 content_block_start·stop 序列；ticket 08）。
+    let mut client_sse_state = adapter::AnthropicSseState::default();
     let stream = stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -312,7 +315,7 @@ where
                 } else {
                     event
                 };
-                if let Some(sse) = adapter::to_client_sse(&event, &client_protocol, &model_for_sse) {
+                if let Some(sse) = adapter::to_client_sse_stateful(&event, &mut client_sse_state, &client_protocol, &model_for_sse) {
                     output.push_str(&sse);
                 }
             }
