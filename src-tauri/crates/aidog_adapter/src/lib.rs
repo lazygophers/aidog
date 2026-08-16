@@ -1,6 +1,7 @@
 //! 协议适配器模块
 
 pub mod converter;
+pub mod quota;
 pub mod protocols;
 pub mod types;
 

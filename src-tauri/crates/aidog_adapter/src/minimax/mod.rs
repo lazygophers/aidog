@@ -1,6 +1,7 @@
 //! minimax 平台转换器
 
 pub mod openai_chat;
+pub mod quota;
 pub mod openai_responses;
 pub mod openai_completions;
 

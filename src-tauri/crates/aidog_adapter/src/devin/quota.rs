@@ -27,7 +27,8 @@ use std::sync::Arc;
 
 use aidog_db::Db;
 
-use super::http::{
+use crate::quota::capability::QuotaCapability;
+use crate::quota::http::{
     err_quota, err_quota_platform, now_millis, parse_f64_field, quota_get_json, BalanceInfo,
     PlatformQuota, QUOTA_PLATFORM_ID,
 };
@@ -38,7 +39,7 @@ const DEVIN_API_ROOT: &str = "https://api.devin.ai";
 /// 从 platform.extra JSON 解析 Devin org_id。
 /// 形态：`{"devin":{"org_id":"<id>"}}`（org_id 非空才返）。
 pub fn parse_devin_extra(extra: &str) -> Option<String> {
-    let org_id = crate::gateway::models::PlatformExtra::parse(extra)
+    let org_id = aidog_db::models::PlatformExtra::parse(extra)
         .devin?
         .org_id?
         .trim()
@@ -56,7 +57,7 @@ pub fn parse_devin_extra(extra: &str) -> Option<String> {
 ///   - `acus_by_product`：按 product 分项，可选
 ///
 /// 字段名存疑时按上述解析；缺失 `total_acus` → 失败。
-pub(crate) fn parse_devin_quota(body: &serde_json::Value) -> PlatformQuota {
+pub fn parse_devin_quota(body: &serde_json::Value) -> PlatformQuota {
     let total_acus = match parse_f64_field(body, "total_acus") {
         Some(v) => v,
         None => return err_quota_platform("devin", "Missing total_acus field"),
@@ -121,6 +122,15 @@ async fn query_quota_devin_inner(
     parse_devin_quota(&body)
 }
 
+/// 平台 quota 能力配置（三函数模式之一）
+pub fn quota_config() -> QuotaCapability {
+    QuotaCapability {
+        supports_balance: true,
+        tier_names: vec![],
+        ..Default::default()
+    }.with_custom()
+}
+
 #[cfg(test)]
-#[path = "test_devin.rs"]
-mod test_devin;
+#[path = "test_quota.rs"]
+mod test_quota;

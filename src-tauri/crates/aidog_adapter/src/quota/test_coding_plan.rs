@@ -1,6 +1,9 @@
 //! Coding Plan 纯解析覆盖。
 use super::*;
 use serde_json::json;
+use crate::glm::quota::parse_zhipu_coding_plan;
+use crate::kimi::quota::parse_kimi_coding_plan;
+use crate::minimax::quota::parse_minimax_coding_plan;
 
 fn tier<'a>(q: &'a PlatformQuota, name: &str) -> &'a QuotaTier {
     q.coding_plan
