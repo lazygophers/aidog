@@ -9,7 +9,7 @@ use super::McpAgentBackend;
 pub(super) struct CodexBackend;
 
 fn codex_config_path() -> Result<PathBuf, String> {
-    Ok(crate::gateway::codex::codex_home_public()?.join("config.toml"))
+    Ok(aidog_db::codex_home()?.join("config.toml"))
 }
 
 fn read_codex_toml(path: &PathBuf) -> Result<toml::Value, String> {

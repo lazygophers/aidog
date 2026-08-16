@@ -1,5 +1,5 @@
 use super::*;
-use crate::gateway::db::test_support::HomeGuard;
+use aidog_db::test_support::HomeGuard;
 use std::process::Command;
 
 fn env_of<'a>(cmd: &'a Command, key: &str) -> Option<&'a std::ffi::OsStr> {

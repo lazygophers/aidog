@@ -8,6 +8,7 @@ license = { workspace = true }
 # aidog_db：数据库底层（Db 连接池 + models + logging + log_util）。
 # 从 aidog_core 拆出（2026-08-16 logs-stats-crates），被 aidog_core / aidog_logs / aidog_stats 依赖。
 [dependencies]
+dirs = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 rusqlite = { workspace = true }

@@ -4,7 +4,7 @@
 // 提前 drop 会让并行测试线程交叉改 HOME → 串话。故有意保留 std Mutex 守卫跨 await。
 #![allow(clippy::await_holding_lock)]
 use super::*;
-use crate::gateway::db::test_support::{test_db, HomeGuard};
+use aidog_db::test_support::{test_db, HomeGuard};
 use std::collections::BTreeMap;
 
 fn payload(name: &str) -> McpUpdatePayload {
@@ -102,7 +102,7 @@ async fn delete_removes_from_agents_and_db() {
     let claude_json = home.dir.path().join(".claude.json");
     let content = std::fs::read_to_string(&claude_json).unwrap();
     assert!(!content.contains("\"srv\""));
-    assert!(db::get_mcp_server(&db, "srv").await.unwrap().is_none());
+    assert!(store::get_mcp_server(&db, "srv").await.unwrap().is_none());
 }
 
 #[tokio::test]
@@ -155,7 +155,7 @@ async fn import_takes_source_real_values() {
     .await
     .unwrap();
     assert_eq!(report.imported, vec!["imp".to_string()]);
-    let row = db::get_mcp_server(&db, "imp").await.unwrap().unwrap();
+    let row = store::get_mcp_server(&db, "imp").await.unwrap().unwrap();
     assert!(row.env_json.contains("secret123")); // 真实值，非 ***
 
     // 未知 source agent → skipped
@@ -221,8 +221,8 @@ async fn update_rename_and_masked_merge() {
     assert_eq!(info.name, "new");
 
     // 旧名 DB 删除，旧名 agent 配置移除，新名写入
-    assert!(db::get_mcp_server(&db, "old").await.unwrap().is_none());
-    let row = db::get_mcp_server(&db, "new").await.unwrap().unwrap();
+    assert!(store::get_mcp_server(&db, "old").await.unwrap().is_none());
+    let row = store::get_mcp_server(&db, "new").await.unwrap().unwrap();
     assert!(row.env_json.contains("secret123")); // *** merge 回旧明文
 
     let claude_json = home.dir.path().join(".claude.json");
@@ -252,7 +252,7 @@ async fn update_transport_switch_drops_unsupported_agent() {
         headers: Default::default(),
     };
     update_server(&db, "srv", p).await.unwrap();
-    let row = db::get_mcp_server(&db, "srv").await.unwrap().unwrap();
+    let row = store::get_mcp_server(&db, "srv").await.unwrap().unwrap();
     assert!(!row.enabled_agents.contains("codex"));
 
     // codex config 应已移除

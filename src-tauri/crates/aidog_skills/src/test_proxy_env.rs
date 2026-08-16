@@ -1,5 +1,5 @@
 use super::*;
-use crate::gateway::models::ProxyClientSettings;
+use aidog_db::models::ProxyClientSettings;
 use std::process::Command;
 
 fn proxy_settings(
