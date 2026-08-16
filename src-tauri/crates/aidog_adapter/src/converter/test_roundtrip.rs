@@ -834,7 +834,7 @@ fn ticket07_openai_sse_mixed_events() {
     assert!(kinds.contains(&"reasoning"), "须有 reasoning 事件: {kinds:?}");
     assert!(kinds.contains(&"delta"));
     assert_eq!(kinds.iter().filter(|k| **k == "tool").count(), 2);
-    assert!(kinds.iter().any(|k| *k == "stop"), "[DONE] → stop");
+    assert!(kinds.contains(&"stop"), "[DONE] → stop");
 
     let tools: Vec<_> = evs.iter().filter_map(|e| if let ChatStreamEvent::ToolDelta { id, name, input, .. } = e {
         Some((id.clone(), name.clone(), input.clone()))
