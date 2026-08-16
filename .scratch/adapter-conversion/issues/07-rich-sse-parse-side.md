@@ -4,8 +4,8 @@
 
 **Blocked by:** 03 — 工具事件语义；06 — 思考事件语义。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：三家真实 SSE chunk 序列 → parse 后中立事件序列断言（工具/思考/文本混合）
-- [ ] 纯文本 SSE 现有行为不变（回归网证明）
-- [ ] cargo test / make lint 全绿
+- [x] fixture：三家真实 SSE chunk 序列 → parse 后中立事件序列断言（工具/思考/文本混合）
+- [x] 纯文本 SSE 现有行为不变（回归网证明）
+- [x] cargo test / make lint 全绿

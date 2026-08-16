@@ -769,3 +769,124 @@ fn ticket09_text_only_no_regression() {
     assert_eq!(o["messages"][0]["content"], "hi", "纯文本数组折叠回字符串");
 }
 
+
+// ─── ticket 07: 富流式 SSE parse 侧 ───
+
+use crate::converter::response::parse_upstream_sse;
+
+/// Anthropic 真实 SSE chunk 序列 → 中立事件序列（文本+thinking+工具混合）
+#[test]
+fn ticket07_anthropic_sse_mixed_events() {
+    let raw = concat!(
+        "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"model\":\"claude-x\"}}\n\n",
+        "data: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"你好\"}}\n\n",
+        "data: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"琢磨\"}}\n\n",
+        "data: {\"type\":\"content_block_start\",\"index\":2,\"content_block\":{\"type\":\"tool_use\",\"id\":\"tu_1\",\"name\":\"get_weather\"}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"{\\\"city\\\":\"}}\n\n",
+        "data: {\"type\":\"content_block_delta\",\"index\":2,\"delta\":{\"type\":\"input_json_delta\",\"partial_json\":\"\\\"BJ\\\"}\"}}\n\n",
+        "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"}}\n\n",
+    );
+    let evs = parse_upstream_sse(raw, &Protocol::Anthropic);
+    let kinds: Vec<&str> = evs.iter().map(|e| match e {
+        ChatStreamEvent::Start { .. } => "start",
+        ChatStreamEvent::Delta { .. } => "delta",
+        ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
+        ChatStreamEvent::ToolDelta { .. } => "tool",
+        ChatStreamEvent::Stop { .. } => "stop",
+        ChatStreamEvent::Usage { .. } => "usage",
+    }).collect();
+    assert_eq!(kinds, vec!["start", "delta", "reasoning", "tool", "tool", "tool", "stop"]);
+
+    // ToolDelta 三段语义：start 带 id/name；两段 partial_json 分片
+    let tools: Vec<_> = evs.iter().filter_map(|e| if let ChatStreamEvent::ToolDelta { index, id, name, input } = e {
+        Some((*index, id.clone(), name.clone(), input.clone()))
+    } else { None }).collect();
+    assert_eq!(tools[0], (2, Some("tu_1".into()), Some("get_weather".into()), None));
+    assert_eq!(tools[1].3.as_deref(), Some("{\"city\":"));
+    assert_eq!(tools[2].3.as_deref(), Some("\"BJ\"}"));
+    // 分片聚合后合法 JSON
+    let joined: String = tools[1..].iter().filter_map(|t| t.3.clone()).collect();
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&joined).unwrap()["city"], "BJ");
+}
+
+/// OpenAI 真实 SSE chunk 序列 → 中立事件序列（reasoning_content + tool_calls 分片）
+#[test]
+fn ticket07_openai_sse_mixed_events() {
+    let raw = concat!(
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n",
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"想\"}}]}\n\n",
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"答\"}}]}\n\n",
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"id\":\"call_1\",\"function\":{\"name\":\"f\",\"arguments\":\"\"}}]}}]}\n\n",
+        "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"arguments\":\"{\\\"a\\\":1}\"}}]}}]}\n\n",
+        "data: [DONE]\n\n",
+    );
+    let evs = parse_upstream_sse(raw, &Protocol::OpenAI);
+    // 首 chunk role-only delta → 无事件（无 content/tool）也 OK；断言语义序列
+    let kinds: Vec<&str> = evs.iter().map(|e| match e {
+        ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
+        ChatStreamEvent::Delta { .. } => "delta",
+        ChatStreamEvent::ToolDelta { .. } => "tool",
+        ChatStreamEvent::Stop { .. } => "stop",
+        _ => "other",
+    }).collect();
+    assert!(kinds.contains(&"reasoning"), "须有 reasoning 事件: {kinds:?}");
+    assert!(kinds.contains(&"delta"));
+    assert_eq!(kinds.iter().filter(|k| **k == "tool").count(), 2);
+    assert!(kinds.iter().any(|k| *k == "stop"), "[DONE] → stop");
+
+    let tools: Vec<_> = evs.iter().filter_map(|e| if let ChatStreamEvent::ToolDelta { id, name, input, .. } = e {
+        Some((id.clone(), name.clone(), input.clone()))
+    } else { None }).collect();
+    assert_eq!(tools[0], (Some("call_1".into()), Some("f".into()), Some("".into())));
+    let args: String = tools.iter().filter_map(|t| t.2.clone()).collect();
+    assert_eq!(serde_json::from_str::<serde_json::Value>(&args).unwrap()["a"], 1);
+}
+
+/// Gemini 真实 SSE chunk 序列 → 中立事件序列（text + thought + functionCall）
+#[test]
+fn ticket07_gemini_sse_mixed_events() {
+    let raw = concat!(
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"答\"}],\"role\":\"model\"}}]}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"thought\":true,\"text\":\"想\"}],\"role\":\"model\"}}]}\n\n",
+        "data: {\"candidates\":[{\"content\":{\"parts\":[{\"functionCall\":{\"name\":\"f\",\"args\":{\"a\":1}}}],\"role\":\"model\"}}]}\n\n",
+        "data: {\"candidates\":[{\"finishReason\":\"STOP\"}]}\n\n",
+    );
+    let evs = parse_upstream_sse(raw, &Protocol::Gemini);
+    let kinds: Vec<&str> = evs.iter().map(|e| match e {
+        ChatStreamEvent::Delta { .. } => "delta",
+        ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
+        ChatStreamEvent::ToolDelta { .. } => "tool",
+        ChatStreamEvent::Stop { .. } => "stop",
+        _ => "other",
+    }).collect();
+    assert_eq!(kinds, vec!["delta", "reasoning", "tool", "stop"]);
+
+    let tool = evs.iter().find_map(|e| if let ChatStreamEvent::ToolDelta { name, input, .. } = e { Some((name.clone(), input.clone())) } else { None }).unwrap();
+    assert_eq!(tool.0.as_deref(), Some("f"));
+    let args: serde_json::Value = serde_json::from_str(tool.1.as_deref().unwrap()).unwrap();
+    assert_eq!(args["a"], 1);
+}
+
+/// 纯文本 SSE 三协议不回归（ticket 01 回归网同款断言）
+#[test]
+fn ticket07_text_only_sse_no_regression() {
+    for (proto, raw, expect) in [
+        (Protocol::Anthropic,
+            "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+            "hi"),
+        (Protocol::OpenAI,
+            "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
+            "hi"),
+        (Protocol::Gemini,
+            "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}},\n\n",
+            ""),
+    ] {
+        let evs = parse_upstream_sse(raw, &proto);
+        let text: String = evs.iter().filter_map(|e| if let ChatStreamEvent::Delta { text } = e { Some(text.clone()) } else { None }).collect();
+        if !expect.is_empty() {
+            assert_eq!(text, expect, "{proto:?}");
+        }
+    }
+}
