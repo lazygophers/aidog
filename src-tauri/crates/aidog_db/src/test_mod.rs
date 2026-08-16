@@ -1,5 +1,4 @@
 #![cfg(test)]
-use crate::gateway::db::DbInitTables;
 use super::*;
 use super::test_support::*;
 
@@ -70,8 +69,8 @@ use super::test_support::*;
 
     #[test]
     fn serialize_endpoints_roundtrip() {
-        let eps = vec![crate::gateway::models::PlatformEndpoint {
-            protocol: crate::gateway::models::Protocol::OpenAI,
+        let eps = vec![crate::models::PlatformEndpoint {
+            protocol: crate::models::Protocol::OpenAI,
             base_url: "https://api.openai.com/v1".to_string(),
             client_type: "default".to_string(),
             coding_plan: false,
@@ -234,7 +233,7 @@ use super::test_support::*;
         }
 
         let db = Db::new(&path_str).await.expect("open db");
-        db.init_tables().await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
 
         // 基线：正常查 1。
         let n: i64 = db
@@ -304,7 +303,7 @@ use super::test_support::*;
         }
 
         let db = Db::new(&path_str).await.expect("open file db");
-        db.init_tables().await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
 
         // 基线：读路径正常。
         let n: i64 = db

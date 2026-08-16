@@ -196,7 +196,7 @@ pub fn set_group_platform_level_priority(
 ) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let lp = crate::gateway::models::clamp_level_priority(level_priority);
+    let lp = crate::models::clamp_level_priority(level_priority);
     let gid = group_id as i64;
     let pid = platform_id as i64;
     let ts = now();

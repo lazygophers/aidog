@@ -231,11 +231,11 @@ pub fn init_tables_raw(
 /// 内置预设手机号正则（中国大陆 11 位 + 通用国际 E.164 形式）。
 /// C2 无内置手机检测器，故此规则走显式 regex（content_filter match_type=regex），
 /// 与 C2 的密钥/邮箱内置检测器（content_filter 空 pattern）互补不冲突。
-pub(crate) const BUILTIN_PHONE_PATTERN: &str =
+pub const BUILTIN_PHONE_PATTERN: &str =
     r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}|\+\d{6,15}";
 
 /// 单条内置规则种子定义。INSERT 时按 (name, is_builtin=1) 幂等。
-pub(crate) struct BuiltinRuleSpec {
+pub struct BuiltinRuleSpec {
     pub(crate) name: &'static str,
     pub(crate) description: &'static str,
     pub(crate) rule_type: &'static str,
@@ -250,7 +250,7 @@ pub(crate) struct BuiltinRuleSpec {
 /// 内置预设规则清单（密钥/邮箱/手机脱敏 + 默认 error_rules 分类）。
 /// 密钥/邮箱用 content_filter 空 pattern 复用 C2 内置检测器；手机用显式 regex。
 /// error_rules 覆盖 research category 集，pattern 用 (?i) 不区分大小写匹配上游错误消息。
-pub(crate) fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
+pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
     &[
         // ── 脱敏/内容过滤（content_filter，action=mask，global，就近覆盖语义下作为最底层默认）──
         BuiltinRuleSpec {
@@ -376,7 +376,7 @@ pub(crate) fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
 /// 在 [`Db::init_tables`] migration 末尾、同一 connection 闭包内同步调用。
 ///
 /// 薄 wrapper：调 [`seed_builtin_middleware_rules_counted`] 忽略计数，保 migration 20260727-07（原 015）调用点签名不破。
-pub(crate) fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
+pub fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
     let (inserted, _skipped) = seed_builtin_middleware_rules_counted(conn)?;
     if inserted > 0 {
         tracing::info!(inserted, "migration 20260727-07 (原 015): seeded builtin middleware rules");

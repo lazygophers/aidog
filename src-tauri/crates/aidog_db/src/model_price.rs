@@ -4,8 +4,8 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 const MODEL_PRICE_COLUMNS: &str =
     "id, model_name, source, price_data, max_input_tokens, max_output_tokens, context_window, created_at, updated_at, deleted_at";
 
-fn row_to_model_price(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::ModelPrice> {
-    Ok(crate::gateway::models::ModelPrice {
+fn row_to_model_price(row: &rusqlite::Row) -> SqlResult<crate::models::ModelPrice> {
+    Ok(crate::models::ModelPrice {
         id: row.get::<_, i64>(0)? as u64,
         model_name: row.get(1)?,
         source: row.get(2)?,
@@ -20,14 +20,14 @@ fn row_to_model_price(row: &rusqlite::Row) -> SqlResult<crate::gateway::models::
 }
 
 /// 提取关键字段构建摘要
-fn price_data_to_summary(mp: &crate::gateway::models::ModelPrice) -> crate::gateway::models::ModelPriceSummary {
+fn price_data_to_summary(mp: &crate::models::ModelPrice) -> crate::models::ModelPriceSummary {
     let pd: serde_json::Value = serde_json::from_str(&mp.price_data).unwrap_or_default();
     let input = pd.get("input_cost_per_token").and_then(|v| v.as_f64());
     let output = pd.get("output_cost_per_token").and_then(|v| v.as_f64());
     let cache_read = pd.get("cache_read_input_token_cost").and_then(|v| v.as_f64());
     let default_platform = pd.get("default_platform").and_then(|v| v.as_str()).map(String::from);
 
-    crate::gateway::models::ModelPriceSummary {
+    crate::models::ModelPriceSummary {
         id: mp.id,
         model_name: mp.model_name.clone(),
         source: mp.source.clone(),
@@ -44,7 +44,7 @@ fn price_data_to_summary(mp: &crate::gateway::models::ModelPrice) -> crate::gate
 }
 
 #[track_caller]
-pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ModelPriceSummary>, String>> + '_ {
+pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> impl std::future::Future<Output = Result<Vec<crate::models::ModelPriceSummary>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
@@ -66,7 +66,7 @@ pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> impl std::future::
 
 /// 列出全部模型价格完整行（含 price_data 全量；导出用，无分页）。
 #[track_caller]
-pub fn list_all_model_prices(db: &Db) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ModelPrice>, String>> + '_ {
+pub fn list_all_model_prices(db: &Db) -> impl std::future::Future<Output = Result<Vec<crate::models::ModelPrice>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
@@ -97,7 +97,7 @@ pub fn count_model_prices(db: &Db) -> impl std::future::Future<Output = Result<u
 
 /// 获取指定模型的最新价格记录（优先 manual > github）
 #[track_caller]
-pub fn get_model_price<'a>(db: &'a Db, model_name: &'a str) -> impl std::future::Future<Output = Result<Option<crate::gateway::models::ModelPrice>, String>> + 'a {
+pub fn get_model_price<'a>(db: &'a Db, model_name: &'a str) -> impl std::future::Future<Output = Result<Option<crate::models::ModelPrice>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let model_name = model_name.to_string();
@@ -185,11 +185,11 @@ pub async fn resolve_price(
     fallback_output: f64,
     input_tokens: i64,
     now_ms: i64,
-) -> Result<crate::gateway::models::ResolvedPrice, String> {
+) -> Result<crate::models::ResolvedPrice, String> {
     let mp = get_model_price(db, model_name).await?;
     let pd: serde_json::Value = match &mp {
         Some(m) => serde_json::from_str(&m.price_data).unwrap_or_default(),
-        None => crate::gateway::price_sync::bundled_model_entry(model_name)
+        None => bundled_model_entry(model_name)
             .cloned()
             .unwrap_or(serde_json::Value::Null),
     };
@@ -201,7 +201,7 @@ pub async fn resolve_price(
         let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
         if input > 0.0 || output > 0.0 {
             return Ok(apply_tiers(
-                crate::gateway::models::ResolvedPrice {
+                crate::models::ResolvedPrice {
                     input_cost_per_token: input,
                     output_cost_per_token: output,
                     cache_read_input_token_cost: cache,
@@ -221,7 +221,7 @@ pub async fn resolve_price(
     let top_cache = pd.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
     if top_input > 0.0 || top_output > 0.0 {
         return Ok(apply_tiers(
-            crate::gateway::models::ResolvedPrice {
+            crate::models::ResolvedPrice {
                 input_cost_per_token: top_input,
                 output_cost_per_token: top_output,
                 cache_read_input_token_cost: top_cache,
@@ -242,7 +242,7 @@ pub async fn resolve_price(
             let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
             if input > 0.0 || output > 0.0 {
                 return Ok(apply_tiers(
-                    crate::gateway::models::ResolvedPrice {
+                    crate::models::ResolvedPrice {
                         input_cost_per_token: input,
                         output_cost_per_token: output,
                         cache_read_input_token_cost: cache,
@@ -257,7 +257,7 @@ pub async fn resolve_price(
         }
 
     // 4. Fallback
-    Ok(crate::gateway::models::ResolvedPrice {
+    Ok(crate::models::ResolvedPrice {
         input_cost_per_token: fallback_input / 1_000_000.0,
         output_cost_per_token: fallback_output / 1_000_000.0,
         cache_read_input_token_cost: 0.0,
@@ -266,7 +266,7 @@ pub async fn resolve_price(
 }
 
 /// 三价字段非 null 覆盖 base（null 字段继承 base）。`apply_context_tier` / `apply_tiers` 共用。
-fn overlay_prices(base: &mut crate::gateway::models::ResolvedPrice, tier: &serde_json::Value) {
+fn overlay_prices(base: &mut crate::models::ResolvedPrice, tier: &serde_json::Value) {
     if let Some(v) = tier.get("input_cost_per_token").and_then(|v| v.as_f64()) {
         base.input_cost_per_token = v;
     }
@@ -281,11 +281,11 @@ fn overlay_prices(base: &mut crate::gateway::models::ResolvedPrice, tier: &serde
 /// 上下文阶梯选档：取 `context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
 /// 非 null 字段覆盖 base 价（null 字段继承 base，如某些模型长档无 cache 价）。
 /// `context_tiers` 缺失/非数组/无命中档 → 返回 base 不变（向后兼容旧 price_data）。
-pub(crate) fn apply_context_tier(
-    mut base: crate::gateway::models::ResolvedPrice,
+pub fn apply_context_tier(
+    mut base: crate::models::ResolvedPrice,
     pd: &serde_json::Value,
     input_tokens: i64,
-) -> crate::gateway::models::ResolvedPrice {
+) -> crate::models::ResolvedPrice {
     let Some(tiers) = pd.get("context_tiers").and_then(|v| v.as_array()) else {
         return base;
     };
@@ -311,13 +311,13 @@ pub(crate) fn apply_context_tier(
 /// （base 三价覆盖 + 其内嵌 context_tiers 替代顶层），再跑 context 分档 ——
 /// 顺序 time→context，因为涨价后的长文档价只能表达在 time 条目内部。
 /// `now_ms <= 0` = 无时间上下文，跳过（同 `est_cost_from:98` 约定）。
-pub(crate) fn apply_tiers(
-    mut base: crate::gateway::models::ResolvedPrice,
+pub fn apply_tiers(
+    mut base: crate::models::ResolvedPrice,
     scope: &serde_json::Value,
     pd: &serde_json::Value,
     input_tokens: i64,
     now_ms: i64,
-) -> crate::gateway::models::ResolvedPrice {
+) -> crate::models::ResolvedPrice {
     let hit = (now_ms > 0)
         .then(|| {
             scope.get("time_tiers")
@@ -346,7 +346,7 @@ pub(crate) fn apply_tiers(
 
 /// 搜索模型价格
 #[track_caller]
-pub fn search_model_prices<'a>(db: &'a Db, query: &'a str, limit: u32) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ModelPriceSummary>, String>> + 'a {
+pub fn search_model_prices<'a>(db: &'a Db, query: &'a str, limit: u32) -> impl std::future::Future<Output = Result<Vec<crate::models::ModelPriceSummary>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let pattern = format!("%{query}%");
@@ -375,7 +375,7 @@ pub fn filtered_list_model_prices<'a>(
     source: Option<&'a str>,
     limit: u32,
     offset: u32,
-) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ModelPriceSummary>, String>> + 'a {
+) -> impl std::future::Future<Output = Result<Vec<crate::models::ModelPriceSummary>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
     let query = query.map(|s| s.to_string());
@@ -465,6 +465,18 @@ pub fn filtered_count_model_prices<'a>(
 }
 
 // ─── MCP server CRUD ───────────────────────────────────────
-// 集中存 MCP server 配置（migration 20260727-11，原 020）。行结构见 crate::gateway::mcp::McpServerRow。
+// 集中存 MCP server 配置（migration 20260727-11，原 020）。行结构见 aidog_mcp::McpServerRow。
 // env_json/headers_json 含原始敏感值，调用方负责脱敏后再返前端。
 
+/// bundled models.json 里该模型的 price_data 节点。DB 未同步时的只读兜底
+/// （`resolve_price`：DB 无该模型行才读，DB 恒优先）。
+/// 原 aidog_core::gateway::price_sync 同名实现下沉（2026-08-16 db-crate 拆分）。
+const BUNDLED_MODELS: &str = include_str!("../../../defaults/models.json");
+static BUNDLED: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
+
+pub fn bundled_model_entry(name: &str) -> Option<&'static serde_json::Value> {
+    BUNDLED
+        .get_or_init(|| serde_json::from_str(BUNDLED_MODELS).unwrap_or_default())
+        .get("models")?
+        .get(name)
+}

@@ -39,8 +39,8 @@ pub fn set_group_platforms<'a>(
             )?;
 
             for p in &platforms {
-                let lp = crate::gateway::models::clamp_level_priority(
-                    p.level_priority.unwrap_or_else(crate::gateway::models::default_level_priority),
+                let lp = crate::models::clamp_level_priority(
+                    p.level_priority.unwrap_or_else(crate::models::default_level_priority),
                 );
                 conn.execute(
                     "INSERT INTO group_platform (group_id, platform_id, priority, weight, level_priority, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
@@ -178,7 +178,7 @@ fn recompose_group_details(
                 platform: p.clone(),
                 priority: gp.priority,
                 weight: gp.weight,
-                level_priority: crate::gateway::models::clamp_level_priority(gp.level_priority),
+                level_priority: crate::models::clamp_level_priority(gp.level_priority),
             })
         })
         .collect()
@@ -304,7 +304,7 @@ fn list_group_platforms_for_groups<'a>(
                         platform: p.clone(),
                         priority: gp.priority,
                         weight: gp.weight,
-                        level_priority: crate::gateway::models::clamp_level_priority(gp.level_priority),
+                        level_priority: crate::models::clamp_level_priority(gp.level_priority),
                     });
                 }
             }

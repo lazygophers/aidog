@@ -113,9 +113,9 @@ use rusqlite::params;
         let db = test_db().await;
         // create 时把 breaker 覆盖写进 extra.breaker，读回经 Platform::breaker() 解析一致。
         let mut input = sample_platform("brk");
-        input.extra = crate::gateway::models::merge_breaker_into_extra(
+        input.extra = crate::models::merge_breaker_into_extra(
             "{}",
-            &crate::gateway::models::PlatformBreaker {
+            &crate::models::PlatformBreaker {
                 failure_threshold: 7,
                 open_secs: 120,
                 half_open_max: 3,
@@ -134,7 +134,7 @@ use rusqlite::params;
         assert_eq!((b2.failure_threshold, b2.open_secs, b2.half_open_max), (0, 0, 0));
 
         // update 改 extra → breaker 跟随更新。
-        let cleared = crate::gateway::models::merge_breaker_into_extra(&got.extra, &crate::gateway::models::PlatformBreaker::default());
+        let cleared = crate::models::merge_breaker_into_extra(&got.extra, &crate::models::PlatformBreaker::default());
         update_platform(&db, UpdatePlatform {
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: Some(cleared), models: None, available_models: None, endpoints: None,

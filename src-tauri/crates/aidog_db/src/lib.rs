@@ -21,6 +21,7 @@ pub mod schema_late;
 pub mod settings;
 pub mod test_support;
 pub use helpers::*;
+pub use models::*;
 pub use schema::*;
 pub use settings::*;
 pub use cache::*;
@@ -1084,3 +1085,51 @@ pub fn retention_cutoff_secs(secs: u64) -> Option<i64> {
     Some((chrono::Utc::now() - chrono::Duration::seconds(secs as i64)).timestamp_millis())
 }
 
+// ─── 领域 DB 读写（2026-08-16 自 aidog_core::gateway::db 拆入）───
+mod platform;
+mod platform_lifecycle;
+mod group;
+mod group_platform;
+mod middleware;
+mod maintenance;
+mod model_price;
+mod cli_proxy;
+mod ui_extra;
+pub mod presets_cache;
+pub mod presets_const;
+pub mod client_types_const;
+pub use platform::*;
+pub use platform_lifecycle::*;
+pub use group::*;
+pub use group_platform::*;
+pub use middleware::*;
+pub use maintenance::*;
+pub use model_price::*;
+pub use cli_proxy::*;
+pub use ui_extra::*;
+pub use presets_cache::*;
+
+#[cfg(test)]
+mod test_mod;
+#[cfg(test)]
+mod test_trace;
+#[cfg(test)]
+mod test_rw_pool;
+#[cfg(test)]
+mod test_model_price;
+#[cfg(test)]
+mod test_group;
+#[cfg(test)]
+mod test_group_platform;
+#[cfg(test)]
+mod test_platform;
+#[cfg(test)]
+mod test_platform_lifecycle;
+#[cfg(test)]
+mod test_middleware;
+#[cfg(test)]
+mod test_maintenance;
+#[cfg(test)]
+mod test_cli_proxy;
+#[cfg(test)]
+mod test_ui_extra;

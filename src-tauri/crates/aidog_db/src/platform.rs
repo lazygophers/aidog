@@ -8,11 +8,11 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 
 /// SELECT 列序
-pub(crate) const PLATFORM_COLUMNS: &str =
+pub const PLATFORM_COLUMNS: &str =
     "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at";
 
 /// 从查询行构造 Platform
-pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
+pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     let platform_type_str: String = row.get(2)?;
     let models_str: String = row.get(6)?;
     let available_str: String = row.get(7)?;
@@ -38,8 +38,8 @@ pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         show_in_tray: row.get::<_, i64>(16)? == 1,
         tray_display: row.get(17)?,
         sort_order: row.get::<_, i64>(18)?,
-        manual_budgets: crate::gateway::models::parse_manual_budgets(&row.get::<_, String>(19)?),
-        status: crate::gateway::models::PlatformStatus::from_db_str(&row.get::<_, String>(20)?),
+        manual_budgets: crate::models::parse_manual_budgets(&row.get::<_, String>(19)?),
+        status: crate::models::PlatformStatus::from_db_str(&row.get::<_, String>(20)?),
         auto_disabled_until: row.get::<_, i64>(21)?,
         auto_disable_strikes: row.get::<_, i64>(22)?,
         expires_at: row.get::<_, i64>(23)?,
@@ -52,7 +52,7 @@ pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
 
 /// 按 id 批量取未软删平台 → id→Platform 映射（动态 IN 占位）。供去 JOIN 后关联表行
 /// 与 platform 内存重组用（get_group_platforms J2 等）。软删平台不返回（等价旧 `p.deleted_at=0`）。
-pub(crate) fn load_platforms_by_ids(
+pub fn load_platforms_by_ids(
     conn: &rusqlite::Connection,
     ids: &[i64],
 ) -> SqlResult<std::collections::HashMap<i64, Platform>> {
@@ -93,13 +93,13 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
     let available_str = serialize_available_models(&available_models);
     // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
     let endpoints = if input.platform_type.endpoints_locked() {
-        crate::gateway::presets_cache::default_endpoints(&input.platform_type.wire_str())
+        crate::presets_cache::default_endpoints(&input.platform_type.wire_str())
     } else {
         input.endpoints.unwrap_or_default()
     };
     let endpoints_str = serialize_endpoints(&endpoints);
     let manual_budgets = input.manual_budgets.unwrap_or_default();
-    let manual_budgets_str = crate::gateway::models::serialize_manual_budgets(&manual_budgets);
+    let manual_budgets_str = crate::models::serialize_manual_budgets(&manual_budgets);
     let expires_at = input.expires_at.unwrap_or(0).max(0);
 
     let id = db
@@ -144,7 +144,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
         tray_display: "balance".to_string(),
         sort_order: 0,
         manual_budgets,
-        status: crate::gateway::models::PlatformStatus::Enabled,
+        status: crate::models::PlatformStatus::Enabled,
         auto_disabled_until: 0,
         auto_disable_strikes: 0,
         expires_at,
@@ -225,7 +225,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
     // ── 三态 status 解析（优先级：显式 status > 旧 enabled 兼容入参 > 既有值）──
     // 前端三态切换走 status；旧前端 / 旧调用仍可只传 enabled（true→Enabled, false→Disabled）。
     // 禁止从前端入参置 AutoDisabled（仅系统 401/403 联动 set_platform_auto_disabled 设置）。
-    use crate::gateway::models::PlatformStatus;
+    use crate::models::PlatformStatus;
     let mut new_status = match input.status {
         Some(PlatformStatus::AutoDisabled) => existing.status, // 拒绝外部置自动禁用，保持原状
         Some(s) => s,
@@ -265,7 +265,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
     let platform_type = input.platform_type.unwrap_or(existing.platform_type);
     // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
     let endpoints = if platform_type.endpoints_locked() {
-        crate::gateway::presets_cache::default_endpoints(&platform_type.wire_str())
+        crate::presets_cache::default_endpoints(&platform_type.wire_str())
     } else {
         input.endpoints.unwrap_or(existing.endpoints)
     };
@@ -294,7 +294,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
     let models_str = serialize_models(&updated.models);
     let available_str = serialize_available_models(&updated.available_models);
     let endpoints_str = serialize_endpoints(&updated.endpoints);
-    let manual_budgets_str = crate::gateway::models::serialize_manual_budgets(&updated.manual_budgets);
+    let manual_budgets_str = crate::models::serialize_manual_budgets(&updated.manual_budgets);
     db
         .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
@@ -438,4 +438,21 @@ pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> R
         .map(|_| ())
 }
 
-pub(crate) use aidog_db::{parse_models, serialize_models, parse_available_models, serialize_available_models, parse_endpoints, serialize_endpoints};
+
+/// 平台余额扣减（estimate 热路径）：est_balance_remaining -= cost + estimate_count+1。
+/// est_balance_remaining 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。
+pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result<(), String> {
+    db.platform_write_conn()
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET est_balance_remaining = est_balance_remaining - ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
+                params![cost, platform_id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    // est_balance_remaining 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。
+    db.invalidate_group_details_cache();
+    Ok(())
+}

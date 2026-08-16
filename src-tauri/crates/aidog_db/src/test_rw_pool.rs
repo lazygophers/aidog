@@ -5,7 +5,6 @@
 //! 1. 🔴 `:memory:` fallback：读池复用写连接，写入后经 `call_read_traced`（读路径）立即可见，
 //!    否则读到独立空内存库 → 全测试链一致性崩。
 //! 2. 真实文件库：读池为独立只读连接，WAL 模式下写连接提交后读连接看到最新快照。
-use crate::gateway::db::DbInitTables;
 use super::*;
 use rusqlite::params;
 
@@ -39,7 +38,7 @@ async fn read_count(db: &Db) -> i64 {
 #[tokio::test]
 async fn memory_fallback_read_sees_writes() {
     let db = Db::new(":memory:").await.expect("open memory db");
-    db.init_tables().await.expect("init tables");
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
 
     assert_eq!(read_count(&db).await, 0, "空库读路径应为 0");
     insert_log(&db, "mem-1", 10).await;
@@ -61,7 +60,7 @@ async fn file_db_read_pool_sees_committed_writes() {
 
     {
         let db = Db::new(&path_str).await.expect("open file db");
-        db.init_tables().await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
 
         // 读池是独立只读连接（非写连接 clone），仍须看到写连接提交的数据。
         assert_eq!(read_count(&db).await, 0);
@@ -121,7 +120,7 @@ async fn concurrent_reads_not_blocked_by_writes() {
 
     {
         let db = std::sync::Arc::new(Db::new(&path_str).await.expect("open file db"));
-        db.init_tables().await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
 
         // 写任务：串行灌 50 行（单写连接，WAL 单写约束）。
         let writer = {

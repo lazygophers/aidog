@@ -7,13 +7,13 @@
 use serde_json::Value;
 use std::sync::OnceLock;
 
-const BUNDLED: &str = super::presets_const::BUNDLED;
+const BUNDLED: &str = crate::presets_const::BUNDLED;
 
 static PRESETS: OnceLock<Value> = OnceLock::new();
 
 /// bundled preset 唯一解析入口：首次访问解析一次，后续直接索引。
 /// 解析失败（不应发生，JSON 已校验）回退空 Object → 各 caller 按自身语义退默认值。
-pub(crate) fn presets() -> &'static Value {
+pub fn presets() -> &'static Value {
     PRESETS.get_or_init(|| {
         serde_json::from_str(BUNDLED).unwrap_or_else(|e| {
             tracing::warn!(error = %e, "platform-presets parse failed (presets_cache); defaults disabled");
@@ -24,14 +24,14 @@ pub(crate) fn presets() -> &'static Value {
 
 /// bundled 原始文本（未解析）；供需要字符串本身的 caller 用（如 `defaults.rs` 的
 /// `get_defaults_json` 兜底返回）。
-pub(crate) const fn bundled_str() -> &'static str {
+pub const fn bundled_str() -> &'static str {
     BUNDLED
 }
 
 /// 按 protocol 名（serde rename 裸名）查 bundled preset 默认端点。
 /// 厂商直连平台（`Protocol::endpoints_locked()`）保存时强制用此值，忽略用户传入。
 /// protocol 缺失 / 无 endpoints 字段 / 解析失败 → 空 Vec。
-pub(crate) fn default_endpoints(protocol: &str) -> Vec<crate::gateway::models::PlatformEndpoint> {
+pub fn default_endpoints(protocol: &str) -> Vec<crate::models::PlatformEndpoint> {
     let doc = presets();
     let Some(arr) = doc
         .get("protocols")
@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn single_parse_shared_across_consumers() {
         let a = presets() as *const Value;
-        let _ = crate::gateway::peak_hours::default_peak_hours("anthropic");
+        let _b = presets();
         let c = presets() as *const Value;
         assert_eq!(a, c, "presets() 应恒返回同一静态实例地址");
     }

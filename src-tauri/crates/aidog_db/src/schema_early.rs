@@ -3,7 +3,7 @@ use rusqlite::{Connection, Result as SqlResult};
 
 /// Migrations 20260727-01..11（原 001–020）。日期戳批次 + 库内序号,
 /// 三个库 (main/proxy_log/platform) 各自独立编号空间。自 init_tables 拆出（纯结构搬移）。
-pub(crate) fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
+pub fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
                 // Migration 20260727-01 (原 001): 基础 schema（setting）。
                 // platform / "group" / group_platform CREATE 迁出 → run_migrations_platform_early（落 platform.db）。
                 // proxy_log 建表迁出 → run_migrations_proxy_log_early（落 log.db）。
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS model_price (
 ///
 /// 注：stats_agg_hourly 原落 log.db（已迁回主库 run_migrations_late 20260727-16），
 /// log.db 现仅承载 proxy_log + notification。
-pub(crate) fn run_migrations_proxy_log_early(conn: &Connection) -> SqlResult<()> {
+pub fn run_migrations_proxy_log_early(conn: &Connection) -> SqlResult<()> {
                 // Migration 20260727-01 (原 001): proxy_log 建表。
                 conn.execute_batch(
                     r#"-- proxy_log PK 用无连字符 uuid（请求 ID），R7 uint64 主键规则的明示例外（R8）
@@ -195,7 +195,7 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
 /// 三表 schema 与原 `run_migrations_early` Migration 20260727-01（原 001）完全一致（含 enabled / sort_order /
 /// status / max_retries / manual_budgets 等列 —— 对齐旧库经 004–016 ALTER 后的终态，省去
 /// platform_late 的 30+ 条 `let _ = ALTER` 幂等重试）。
-pub(crate) fn run_migrations_platform_early(conn: &Connection) -> SqlResult<()> {
+pub fn run_migrations_platform_early(conn: &Connection) -> SqlResult<()> {
     conn.execute_batch(
         r#"PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;

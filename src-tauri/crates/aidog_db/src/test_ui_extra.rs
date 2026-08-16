@@ -1,7 +1,7 @@
 #![cfg(test)]
 use super::*;
 use super::test_support::*;
-use crate::gateway::db::update_extra_key;
+use crate::update_extra_key;
 
     /// 空 extra → 写 _ui_collapsed=true → 读回应为合法 JSON 含该键。
     #[tokio::test]

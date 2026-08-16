@@ -22,21 +22,7 @@ pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64)
 }
 
 /// 余额原子自减 + estimate_count+1（单条 SQL，闭包原子，无 read-modify-write 间隙）
-pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result<(), String> {
-    db.platform_write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "UPDATE platform SET est_balance_remaining = est_balance_remaining - ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
-                params![cost, platform_id as i64],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())?;
-    // est_balance_remaining 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。
-    db.invalidate_group_details_cache();
-    Ok(())
-}
+pub use aidog_db::apply_balance_delta;
 
 /// coding plan 预估：一次闭包内 SELECT→修改→UPDATE（read-modify-write 串行，避免并发覆盖）。
 /// 同时 estimate_count+1。
