@@ -3,7 +3,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 use super::codex_config::parse_codex_config;
 use super::detect::{detect, expand_tilde};

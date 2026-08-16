@@ -1,5 +1,5 @@
 /// Shared HTTP client builder with optional upstream proxy support.
-use super::db::Db;
+use aidog_db::Db;
 use super::models::ProxyClientSettings;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -8,7 +8,7 @@ use std::time::Duration;
 /// Load system proxy client settings from DB.
 /// 非请求路径用（model_test / price_sync / logo_sync / quota）。请求路径改读 ProxyState 缓存。
 pub async fn load_proxy_client_settings(db: &Db) -> ProxyClientSettings {
-    super::db::get_setting(db, "proxy", "proxy_client")
+    aidog_db::get_setting(db, "proxy", "proxy_client")
         .await
         .ok()
         .flatten()
@@ -234,7 +234,7 @@ mod tests {
         }
 
         // 4. test_db（proxy_client settings 默认空 → use_proxy=false）。
-        let db = crate::gateway::db::test_support::test_db().await;
+        let db = aidog_db::test_support::test_db().await;
         let settings = load_proxy_client_settings(&db).await;
         let client = build_http_client(&settings, 0, 0, None, None).await;
 

@@ -1,10 +1,10 @@
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::*;
 use crate::gateway::backup::CURRENT_DEFAULTS_VERSION;
 
 #[tokio::test]
 async fn maybe_backup_skips_when_disabled() {
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // 用户已手动确认关闭 (version=CURRENT + enabled=false) → load 不迁移, maybe_backup 跳过。
     let s = BackupSettings {
@@ -34,7 +34,7 @@ async fn maybe_backup_runs_for_fresh_default() {
 
 #[tokio::test]
 async fn maybe_backup_throttles_within_interval() {
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // enabled=true + last_backup_at=now → 距上次 < interval → 跳过。
     // 注: 用 version=CURRENT 避免 load 迁移改值。

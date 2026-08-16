@@ -1,6 +1,6 @@
 //! agg_mark_first 去重 + FIFO 淘汰自检（AGG_DEDUP_CAP 调值不改此逻辑，用例覆盖正确性回归）。
 use super::*;
-use crate::gateway::db::test_support;
+use aidog_db::test_support;
 use crate::gateway::middleware::MiddlewareEngine;
 
 async fn make_state() -> Arc<ProxyState> {

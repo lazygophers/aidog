@@ -2,7 +2,7 @@ use super::*;
 
 /// Read system-level timeout settings from DB
 pub(crate) async fn get_system_timeout(db: &Db) -> ProxyTimeoutSettings {
-    super::db::get_setting(db, "proxy", "timeout")
+    aidog_db::get_setting(db, "proxy", "timeout")
         .await
         .ok()
         .flatten()

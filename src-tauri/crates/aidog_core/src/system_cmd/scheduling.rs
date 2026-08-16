@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
@@ -7,7 +8,7 @@ use tauri::State;
 
 crate::tauri_command! {
     pub async fn scheduling_settings_get(db: State<'_, Db>) -> Result<SchedulingBreakerSettings, String> {
-        Ok(gateway::db::get_scheduling_settings(&db).await)
+        Ok(aidog_db::get_scheduling_settings(&db).await)
     }
 }
 
@@ -16,7 +17,7 @@ crate::tauri_command! {
         db: State<'_, Db>,
         settings: SchedulingBreakerSettings,
     ) -> Result<(), String> {
-        gateway::db::set_setting(&db, SetSettingInput {
+        aidog_db::set_setting(&db, SetSettingInput {
             scope: "scheduling".to_string(),
             key: "settings".to_string(),
             value: serde_json::to_value(&settings).map_err(|e| format!("serialize scheduling settings: {e}"))?,

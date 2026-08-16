@@ -125,7 +125,7 @@ pub fn clear_has_completed_onboarding() -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::db::test_support::HomeGuard;
+    use aidog_db::test_support::HomeGuard;
 
     fn scratch_path(name: &str) -> PathBuf {
         let mut p = std::env::temp_dir();

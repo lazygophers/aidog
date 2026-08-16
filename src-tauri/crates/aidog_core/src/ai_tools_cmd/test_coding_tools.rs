@@ -1,5 +1,5 @@
 //! coding_tools 设置单元测试（随源文件 coding_tools.rs 1:1）。
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use serde_json::json;
 
     /// CodingToolsSettings 默认 = 两开关 false（UI 显示关，功能与开关解耦）。
@@ -26,7 +26,7 @@ use serde_json::json;
     /// 杜绝污染真实 ~/.claude。
     #[tokio::test]
     async fn ensure_default_coding_tools_settings_no_record_no_db_write() {
-        use crate::gateway::db::test_support::HomeGuard;
+        use aidog_db::test_support::HomeGuard;
         let _h = HomeGuard::new();
         let db = crate::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
@@ -35,7 +35,7 @@ use serde_json::json;
         super::ensure_default_coding_tools_settings(&db).await.expect("ensure first run");
 
         // 关键断言：ensure 不落 DB 记录（功能与开关解耦）
-        let rec = crate::gateway::db::get_setting(&db, "global", "coding_tools_settings")
+        let rec = aidog_db::get_setting(&db, "global", "coding_tools_settings")
             .await
             .expect("query setting");
         assert!(rec.is_none(), "ensure must NOT create DB record when none existed");
@@ -55,7 +55,7 @@ use serde_json::json;
             "apply_to_claude_plugin": true,
             "skip_claude_onboarding": true,
         });
-        crate::gateway::db::set_setting(&db, crate::SetSettingInput {
+        aidog_db::set_setting(&db, crate::SetSettingInput {
             scope: "global".to_string(),
             key: "coding_tools_settings".to_string(),
             value: user_value,
@@ -64,7 +64,7 @@ use serde_json::json;
         // 调 ensure：应尊重已有记录
         super::ensure_default_coding_tools_settings(&db).await.expect("ensure with record");
 
-        let rec = crate::gateway::db::get_setting(&db, "global", "coding_tools_settings")
+        let rec = aidog_db::get_setting(&db, "global", "coding_tools_settings")
             .await
             .expect("query setting")
             .expect("record must still exist");
@@ -88,7 +88,7 @@ use serde_json::json;
     async fn load_coding_tools_settings_with_record() {
         let db = crate::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
-        crate::gateway::db::set_setting(&db, crate::SetSettingInput {
+        aidog_db::set_setting(&db, crate::SetSettingInput {
             scope: "global".to_string(),
             key: "coding_tools_settings".to_string(),
             value: serde_json::json!({

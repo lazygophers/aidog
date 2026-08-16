@@ -1,6 +1,7 @@
 #![cfg(test)]
+use aidog_db as db;
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 
 // check_uv_runs 已删除：它 spawn 真实 `uv` 二进制探测，无实质断言（注释「just exercise
 // the path」明示为覆盖率），违反测试隔离。check_uv() 的 bool 逻辑无业务断言价值。

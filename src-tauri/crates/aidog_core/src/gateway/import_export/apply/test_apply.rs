@@ -2,7 +2,7 @@
 //! 覆盖 apply_files / apply_db / db_rows upsert / conflicts 检测 / resolve_name 决策分支。
 //! 本模块经 #[path] 挂在 apply/mod.rs，故 `super` = apply 模块，可直调 preview/apply。
 use super::{apply, preview};
-use crate::gateway::db::test_support::{sample_group, sample_platform, test_db, HomeGuard};
+use aidog_db::test_support::{sample_group, sample_platform, test_db, HomeGuard};
 use crate::gateway::import_export::{
     collect, container, ConflictDecision, Decision, Manifest, NamedText, Payload, SCOPE_CLAUDE_CODE,
     SCOPE_CODEX, SCOPE_GROUP, SCOPE_GROUP_PLATFORM, SCOPE_PLATFORM, SCOPE_SETTING,
@@ -38,14 +38,14 @@ fn empty_payload(scopes: Vec<String>) -> Payload {
     }
 }
 
-async fn seed_source(db: &crate::gateway::db::Db) {
-    let plat = crate::gateway::db::create_platform(db, sample_platform("psrc"))
+async fn seed_source(db: &aidog_db::Db) {
+    let plat = aidog_db::create_platform(db, sample_platform("psrc"))
         .await
         .unwrap();
-    let grp = crate::gateway::db::create_group(db, sample_group("gsrc", vec![]))
+    let grp = aidog_db::create_group(db, sample_group("gsrc", vec![]))
         .await
         .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         db,
         grp.id,
         &[GroupPlatformInput {
@@ -57,7 +57,7 @@ async fn seed_source(db: &crate::gateway::db::Db) {
     )
     .await
     .unwrap();
-    crate::gateway::db::set_setting(
+    aidog_db::set_setting(
         db,
         crate::gateway::models::SetSettingInput {
             scope: "app".into(),
@@ -101,14 +101,14 @@ async fn full_collect_apply_into_fresh_db() {
     assert_eq!(*report.applied.get(SCOPE_GROUP).unwrap(), 1);
 
     assert_eq!(
-        crate::gateway::db::list_platforms(&target)
+        aidog_db::list_platforms(&target)
             .await
             .unwrap()
             .len(),
         1
     );
     assert_eq!(
-        crate::gateway::db::list_groups(&target).await.unwrap().len(),
+        aidog_db::list_groups(&target).await.unwrap().len(),
         1
     );
 }
@@ -159,7 +159,7 @@ async fn apply_with_skip_and_rename_decisions() {
     ];
     let report = apply(payload, &decisions, None, &target).await.unwrap();
     assert_eq!(*report.skipped.get(SCOPE_GROUP).unwrap(), 1);
-    let plats = crate::gateway::db::list_platforms(&target).await.unwrap();
+    let plats = aidog_db::list_platforms(&target).await.unwrap();
     assert!(plats.iter().any(|p| p.name == "prenamed"));
 }
 
@@ -173,7 +173,7 @@ async fn overwrite_existing_group_updates_cols() {
     // 目标库已有同 group_key 的分组 → Overwrite 决策走 update_group_cols 分支
     let target = test_db().await;
     seed_source(&target).await;
-    let before = crate::gateway::db::list_groups(&target).await.unwrap();
+    let before = aidog_db::list_groups(&target).await.unwrap();
     let before_id = before.iter().find(|g| g.group_key == "gsrc").unwrap().id;
 
     let decisions = vec![ConflictDecision {
@@ -185,7 +185,7 @@ async fn overwrite_existing_group_updates_cols() {
     assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
 
     // 同 group_key 行被原地更新（id 不变，未新增分组）
-    let after = crate::gateway::db::list_groups(&target).await.unwrap();
+    let after = aidog_db::list_groups(&target).await.unwrap();
     assert_eq!(after.iter().filter(|g| g.group_key == "gsrc").count(), 1);
     assert!(after.iter().any(|g| g.id == before_id));
 }
@@ -238,11 +238,11 @@ async fn apply_file_scopes_and_setting_skip() {
         .join(".aidog/settings.team.json")
         .exists());
     // setting locale 入库，theme 被跳过
-    let locale = crate::gateway::db::get_setting(&target, "app", "locale")
+    let locale = aidog_db::get_setting(&target, "app", "locale")
         .await
         .unwrap();
     assert!(locale.is_some());
-    let theme = crate::gateway::db::get_setting(&target, "app", "theme")
+    let theme = aidog_db::get_setting(&target, "app", "theme")
         .await
         .unwrap();
     assert!(theme.is_none());
@@ -260,7 +260,7 @@ async fn ensure_group_attach_creates_and_links() {
     assert!(before.is_empty());
 
     // 新建一个平台（在快照之后）→ 进入 new_ids 差集
-    let plat = crate::gateway::db::create_platform(&db, sample_platform("attachp"))
+    let plat = aidog_db::create_platform(&db, sample_platform("attachp"))
         .await
         .unwrap();
 
@@ -269,11 +269,11 @@ async fn ensure_group_attach_creates_and_links() {
         .await
         .unwrap();
 
-    let groups = crate::gateway::db::list_groups(&db).await.unwrap();
+    let groups = aidog_db::list_groups(&db).await.unwrap();
     let g = groups.iter().find(|g| g.name == "autogrp").unwrap();
     assert!(g.group_key.starts_with("gk_"));
     // 关联已建立
-    let detail = crate::gateway::db::get_group_detail(&db, g.id)
+    let detail = aidog_db::get_group_detail(&db, g.id)
         .await
         .unwrap()
         .unwrap();
@@ -287,12 +287,12 @@ async fn ensure_group_attach_reuses_existing_name() {
     let _h = HomeGuard::new();
     let db = test_db().await;
     let before = db_rows::snapshot_platform_ids(&db).await.unwrap();
-    crate::gateway::db::create_platform(&db, sample_platform("p1"))
+    aidog_db::create_platform(&db, sample_platform("p1"))
         .await
         .unwrap();
     db_rows::ensure_group_and_attach(&db, "dup", &before).await.unwrap();
     db_rows::ensure_group_and_attach(&db, "dup", &before).await.unwrap();
-    let groups = crate::gateway::db::list_groups(&db).await.unwrap();
+    let groups = aidog_db::list_groups(&db).await.unwrap();
     assert_eq!(groups.iter().filter(|g| g.name == "dup").count(), 1);
 }
 
@@ -302,15 +302,15 @@ async fn relink_success_and_missing() {
     use super::db_rows;
     let _h = HomeGuard::new();
     let db = test_db().await;
-    let plat = crate::gateway::db::create_platform(&db, sample_platform("rp"))
+    let plat = aidog_db::create_platform(&db, sample_platform("rp"))
         .await
         .unwrap();
-    let grp = crate::gateway::db::create_group(&db, sample_group("rg", vec![]))
+    let grp = aidog_db::create_group(&db, sample_group("rg", vec![]))
         .await
         .unwrap();
     // relink 按 name 查 group（参数名 group_key 实为 name）
     db_rows::relink_group_platform(&db, "rg", "rp").await.unwrap();
-    let detail = crate::gateway::db::get_group_detail(&db, grp.id)
+    let detail = aidog_db::get_group_detail(&db, grp.id)
         .await
         .unwrap()
         .unwrap();

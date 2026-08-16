@@ -8,7 +8,7 @@ use tauri::Manager;
 
 use super::cleanup::{backup_dir, cleanup_expired, now_millis, timestamp_name_fragment};
 use super::{BackupSettings, ALL_SCOPES, BACKUP_EXT};
-use crate::gateway::db::Db;
+use aidog_db::Db;
 use crate::gateway::import_export;
 
 /// 重入防护: 防启动检查与定时器唤醒同帧并发跑两次 backup。

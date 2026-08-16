@@ -2,7 +2,7 @@ use super::*;
 
 /// Read proxy log settings from DB
 pub(crate) async fn get_log_settings(db: &Db) -> ProxyLogSettings {
-    super::db::get_setting(db, "proxy", "logging")
+    aidog_db::get_setting(db, "proxy", "logging")
         .await
         .ok()
         .flatten()
@@ -155,7 +155,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
         } else {
             log.actual_model.clone()
         };
-        let platform_type = super::db::get_platform(&state.db, log.platform_id)
+        let platform_type = aidog_db::get_platform(&state.db, log.platform_id)
             .await
             .ok()
             .flatten()
@@ -178,7 +178,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
 
     if first_agg {
         let cost = est_cost_value.unwrap_or(log.est_cost);
-        let agg_input = super::db::StatsAggInput {
+        let agg_input = aidog_stats::StatsAggInput {
             created_at: log.created_at,
             model: if log.actual_model.is_empty() { log.model.clone() } else { log.actual_model.clone() },
             group_key: log.group_key.clone(),
@@ -190,7 +190,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
             est_cost: cost,
             duration_ms: log.duration_ms as i64,
         };
-        if let Err(e) = super::db::upsert_stats_agg(&state.db, agg_input).await {
+        if let Err(e) = aidog_stats::upsert_stats_agg(&state.db, agg_input).await {
             tracing::warn!(error = %e, "stats_agg upsert failed (non-fatal)");
         }
 
@@ -216,7 +216,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
     // 按 settings 就地脱敏构造入库列快照（仅克隆受影响 String 字段，不再 clone 整 ProxyLog 结构）。
     let strip_user = !settings.log_user_request;
     let strip_upstream = !settings.log_upstream_request;
-    let mut cols = super::db::ProxyLogColumns::from_log(log, strip_user, strip_upstream);
+    let mut cols = aidog_logs::ProxyLogColumns::from_log(log, strip_user, strip_upstream);
 
     // est_cost 复用上方计算结果（避免重复 get_platform + calc_est_cost）。
     if let Some(cost) = est_cost_value {
@@ -236,7 +236,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
     let write_ok = match prev {
         None => {
             // 首节点：建行。成功后存快照供后续 diff。
-            let ok = super::db::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
+            let ok = aidog_logs::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
             if ok {
                 // OOM 止血：快照表只留 meta（清空 body/headers 大字段），N 并发不累积大 String。
                 state.log_snapshots.insert(id.clone(), cols.into_snapshot_meta());
@@ -245,7 +245,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
         }
         Some(prev) => {
             // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
-            let ok = super::db::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
+            let ok = aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
             if ok {
                 state.log_snapshots.insert(id.clone(), cols.into_snapshot_meta());
             }
@@ -424,8 +424,8 @@ async fn process_connect_log(
     status_code: i32,
     duration_ms: i32,
 ) {
-    let now = super::db::now();
-    let cols = super::db::ProxyLogColumns {
+    let now = aidog_db::now();
+    let cols = aidog_logs::ProxyLogColumns {
         id,
         group_key,
         model: String::new(),
@@ -460,7 +460,7 @@ async fn process_connect_log(
         deleted_at: 0,
         cli_proxy_provider_id: None,
     };
-    if let Err(e) = super::db::insert_proxy_log_columns(&state.db, cols).await {
+    if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");
         return;
     }

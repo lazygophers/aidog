@@ -1,6 +1,6 @@
 //! 候选选取：根据分组路由规则选择**有序候选平台列表**，用于失败逐个重试。
 
-use super::super::db;
+use aidog_db as db;
 use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_models;

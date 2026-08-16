@@ -12,15 +12,15 @@ pub(crate) use serde_json::Value;
 pub(crate) use std::sync::Arc;
 pub(crate) use tracing::Instrument;
 
-// gateway 子模块整体 re-export：保证子模块内 `super::db::X` / `super::estimate::Y` 等
+// gateway 子模块整体 re-export：保证子模块内 `aidog_db::X` / `super::estimate::Y` 等
 // 完整路径解析（原 proxy.rs 的 super=gateway，拆分后子模块 super=proxy，靠此 re-export 等价）。
 pub(crate) use super::{
-    adapter, db, estimate, http_client, log_util, manual_budget, models, notification, router,
+    adapter, estimate, http_client, log_util, manual_budget, models, notification, router,
     scheduling, usage_color,
 };
 
 pub(crate) use super::adapter::{ChatRequest, ChatStreamEvent};
-pub(crate) use super::db::Db;
+pub(crate) use aidog_db::Db;
 pub(crate) use super::i18n::{self, ErrorKey, Lang};
 pub(crate) use super::middleware::{InboundOutcome, MiddlewareEngine};
 pub(crate) use super::models::{
@@ -132,7 +132,7 @@ pub(crate) use settings_cache::{register as register_settings_cache, ProxySettin
 
 /// 从 DB 读取 app locale，失败则回退英文
 pub(crate) async fn get_lang(db: &Db) -> Lang {
-    super::db::get_setting(db, "app", "locale")
+    aidog_db::get_setting(db, "app", "locale")
         .await
         .ok()
         .flatten()
@@ -160,7 +160,7 @@ pub struct ProxyState {
     /// 用 DashMap 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
     /// 须与 handler 主链路共享同一 id 的快照才能正确 diff。
     /// DashMap 分片锁替代原 std::sync::Mutex<HashMap> 全局锁，降并发竞争（perf s5）。
-    pub log_snapshots: dashmap::DashMap<String, super::db::ProxyLogColumns>,
+    pub log_snapshots: dashmap::DashMap<String, aidog_logs::ProxyLogColumns>,
     /// 已聚合（写入 stats_agg_hourly）的请求 id 去重缓存，防重复计数。
     /// 背景：upsert_log 在单个请求生命周期内被调用 40+ 次（insert + 多次 update + 流式 flush），
     /// 终态后每次调用仍满足 agg gate → 同一请求被 +1 多次（实测 ~8 倍虚高）。

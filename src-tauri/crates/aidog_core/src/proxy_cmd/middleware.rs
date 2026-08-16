@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 use std::sync::Arc;
@@ -14,7 +15,7 @@ use super::mitm::ImportDefaultsResult;
 
 crate::tauri_command! {
 pub async fn middleware_list_rules(db: State<'_, Db>) -> Result<Vec<MiddlewareRule>, String> {
-    gateway::db::list_middleware_rules(&db).await
+    aidog_db::list_middleware_rules(&db).await
 }
 }
 
@@ -24,7 +25,7 @@ pub async fn middleware_create_rule(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,
 ) -> Result<MiddlewareRule, String> {
-    let rule = gateway::db::create_middleware_rule(&db, input).await?;
+    let rule = aidog_db::create_middleware_rule(&db, input).await?;
     if let Err(e) = engine.reload(&db).await {
         tracing::warn!(command = "middleware_create_rule", error = %e, "engine reload failed");
     }
@@ -38,7 +39,7 @@ pub async fn middleware_update_rule(
     db: State<'_, Db>,
     engine: State<'_, Arc<MiddlewareEngine>>,
 ) -> Result<MiddlewareRule, String> {
-    let rule = gateway::db::update_middleware_rule(&db, input).await?;
+    let rule = aidog_db::update_middleware_rule(&db, input).await?;
     if let Err(e) = engine.reload(&db).await {
         tracing::warn!(command = "middleware_update_rule", error = %e, "engine reload failed");
     }
@@ -53,7 +54,7 @@ pub async fn middleware_delete_rule(
     engine: State<'_, Arc<MiddlewareEngine>>,
 ) -> Result<(), String> {
     tracing::debug!(command = "middleware_delete_rule", id, "command invoked");
-    gateway::db::delete_middleware_rule(&db, id).await?;
+    aidog_db::delete_middleware_rule(&db, id).await?;
     if let Err(e) = engine.reload(&db).await {
         tracing::warn!(command = "middleware_delete_rule", error = %e, "engine reload failed");
     }
@@ -63,7 +64,7 @@ pub async fn middleware_delete_rule(
 
 crate::tauri_command! {
 pub async fn middleware_settings_get(db: State<'_, Db>) -> Result<MiddlewareSettings, String> {
-    Ok(gateway::db::get_setting(&db, "middleware", "settings").await
+    Ok(aidog_db::get_setting(&db, "middleware", "settings").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -76,7 +77,7 @@ pub async fn middleware_settings_set(
     db: State<'_, Db>,
     settings: MiddlewareSettings,
 ) -> Result<(), String> {
-    gateway::db::set_setting(&db, SetSettingInput {
+    aidog_db::set_setting(&db, SetSettingInput {
         scope: "middleware".to_string(),
         key: "settings".to_string(),
         value: serde_json::to_value(&settings).map_err(|e| format!("serialize middleware settings: {e}"))?,
@@ -89,7 +90,7 @@ crate::tauri_command! {
 /// 一键导入默认（内置）中间件规则。
 ///
 /// 用户删除内置规则后无法恢复（migration 20260727-07（原 015）seed 仅首启跑一次）。本命令复用
-/// [`gateway::db::seed_builtin_middleware_rules_counted`] 幂等逻辑：按 (name, is_builtin=1)
+/// [`aidog_db::seed_builtin_middleware_rules_counted`] 幂等逻辑：按 (name, is_builtin=1)
 /// 判定，已存在跳过（不重新启用用户禁用的内置规则），缺失则补入。
 ///
 /// 返 [`ImportDefaultsResult`] `{ imported, skipped }`：前端 toast 反馈计数。
@@ -102,7 +103,7 @@ pub async fn middleware_import_default_rules(
         .write_conn()
         .call(|conn| {
             let (imported, skipped) =
-                gateway::db::seed_builtin_middleware_rules_counted(conn)?;
+                aidog_db::seed_builtin_middleware_rules_counted(conn)?;
             Ok(ImportDefaultsResult {
                 imported: imported as usize,
                 skipped: skipped as usize,

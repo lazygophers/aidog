@@ -1,4 +1,5 @@
-use crate::gateway::db::DbInitTables;
+use aidog_db as db;
+use aidog_stats::DbInitTables;
 use super::*;
 
 #[test]
@@ -48,7 +49,7 @@ fn sanitized_clamps_invalid_values() {
 
 #[tokio::test]
 async fn backup_settings_load_save_roundtrip() {
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // 默认 → save → load 一致 (sanitized 后)。
     let s = BackupSettings {
@@ -69,7 +70,7 @@ async fn backup_settings_load_save_roundtrip() {
 
 #[tokio::test]
 async fn migration_flips_enabled_for_legacy_default_false() {
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // 老数据: 无 version 字段 + enabled=false (旧默认) → load 后翻 true + version=CURRENT。
     let legacy_json = serde_json::json!({
@@ -100,7 +101,7 @@ async fn migration_flips_enabled_for_legacy_default_false() {
 
 #[tokio::test]
 async fn migration_respects_user_disabled_after_confirm() {
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // 用户已手动确认关闭: version=CURRENT + enabled=false → load 不翻。
     let s = BackupSettings {
@@ -119,7 +120,7 @@ async fn migration_respects_user_disabled_after_confirm() {
 
 #[tokio::test]
 async fn migration_idempotent_across_loads() {
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // 写老数据 (无 version)。
     let legacy_json = serde_json::json!({"enabled": false, "interval_hours": 48, "retention_days": 14});

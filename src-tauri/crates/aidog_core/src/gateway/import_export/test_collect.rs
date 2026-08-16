@@ -1,6 +1,6 @@
 //! 导出收集器覆盖：各 scope 从 DB + FS 组装 Payload。HOME 隔离保证 codex/claude_code/skills 读 tempdir。
 use super::*;
-use crate::gateway::db::test_support::{sample_platform, test_db, HomeGuard};
+use aidog_db::test_support::{sample_platform, test_db, HomeGuard};
 
 fn all_scopes() -> Vec<String> {
     [
@@ -32,16 +32,16 @@ async fn collect_empty_scopes_yields_empty_payload() {
 async fn collect_platform_and_group_and_pairs() {
     let _h = HomeGuard::new();
     let db = test_db().await;
-    let plat = crate::gateway::db::create_platform(&db, sample_platform("p"))
+    let plat = aidog_db::create_platform(&db, sample_platform("p"))
         .await
         .unwrap();
-    let grp = crate::gateway::db::create_group(
+    let grp = aidog_db::create_group(
         &db,
-        crate::gateway::db::test_support::sample_group("g", vec![]),
+        aidog_db::test_support::sample_group("g", vec![]),
     )
     .await
     .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &db,
         grp.id,
         &[crate::gateway::models::GroupPlatformInput {
@@ -67,7 +67,7 @@ async fn collect_platform_and_group_and_pairs() {
 async fn collect_settings_scope() {
     let _h = HomeGuard::new();
     let db = test_db().await;
-    crate::gateway::db::set_setting(
+    aidog_db::set_setting(
         &db,
         crate::gateway::models::SetSettingInput {
             scope: "app".into(),
@@ -92,7 +92,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     let db = test_db().await;
 
     // mcp
-    crate::gateway::db::upsert_mcp_server(
+    aidog_mcp::store::upsert_mcp_server(
         &db,
         &McpServerRow {
             id: 0,
@@ -112,7 +112,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     .unwrap();
 
     // middleware
-    crate::gateway::db::create_middleware_rule(
+    aidog_db::create_middleware_rule(
         &db,
         CreateMiddlewareRule {
             name: "blockfoo".into(),
@@ -133,7 +133,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     .unwrap();
 
     // model_price
-    crate::gateway::db::upsert_model_price(
+    aidog_db::upsert_model_price(
         &db,
         "gpt-test",
         "manual",
@@ -207,7 +207,7 @@ async fn collect_claude_code_global_reads_file() {
 
 /// 直插一个含给定 extra 的 platform（绕过 create_platform 默认值清洗），返回 id。
 /// platform_type 在 DB 中存为 JSON 序列化字符串（`serde_json::to_string`），故需带引号框。
-async fn insert_platform_with_extra(db: &crate::gateway::db::Db, name: &str, extra: &str) -> i64 {
+async fn insert_platform_with_extra(db: &aidog_db::Db, name: &str, extra: &str) -> i64 {
     let name = name.to_string();
     let extra = extra.to_string();
     db.write_conn().call(move |conn| {

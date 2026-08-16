@@ -44,7 +44,7 @@ pub(crate) async fn handle_non_success(
         // 记本平台最近一次错误（卡片展示，非请求记录实时取）。本平台失败即覆盖，
         // 其自身下次成功时清空（commit_2xx）。换候选成功不清失败平台的 last_error。
         let last_error_detail = extracted_msg.clone().unwrap_or_else(|| attempt_err.clone());
-        let _ = super::db::set_platform_last_error(
+        let _ = aidog_db::set_platform_last_error(
             &state.db, route.platform.id, Some(format!("HTTP {code}: {last_error_detail}")),
         ).await;
 
@@ -56,7 +56,7 @@ pub(crate) async fn handle_non_success(
         // ── 熔断计数：5xx 或 429-限流 计一次失败；401/403/402/429-配额/其他客户端 4xx 不计熔断（仅 inflight-1）。
         //   熔断与 auto_disabled 解耦：走 auto_disabled 的（401/403/402）不参与熔断。──
         if code >= 500 || (code == 429 && !is_429_quota_exhausted) {
-            state.scheduler.record_failure(route.platform.id, breaker_th, super::db::now());
+            state.scheduler.record_failure(route.platform.id, breaker_th, aidog_db::now());
         } else {
             state.scheduler.record_ignored(route.platform.id);
         }
@@ -66,7 +66,7 @@ pub(crate) async fn handle_non_success(
         //   统一按决策 A 走 failover 换下个候选。熔断仍按 classify_429 区分配额/限流（见上）。
         //   其它状态码（含 404/405/429）不自动禁用，仅按决策 A 走 failover 重试。
         if code == 401 || code == 403 || code == 402 {
-            match super::db::set_platform_auto_disabled(&state.db, route.platform.id).await {
+            match aidog_db::set_platform_auto_disabled(&state.db, route.platform.id).await {
                 Ok(until) if until > 0 => tracing::warn!(
                     platform = %route.platform.name, platform_id = route.platform.id, status = code,
                     auto_disabled_until = until, "platform auto-disabled (auth/balance)"

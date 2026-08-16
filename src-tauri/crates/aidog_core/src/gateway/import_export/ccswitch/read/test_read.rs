@@ -1,4 +1,4 @@
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::*;
 use serde_json::json;
 
@@ -242,7 +242,7 @@ async fn read_async_with_sqlite_file_path() {
     ).unwrap();
     drop(conn);
 
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
 
     let result = read(&db, Some(db_path.to_string_lossy().to_string())).await.unwrap();
@@ -269,7 +269,7 @@ async fn read_async_with_config_json_file_path() {
     });
     std::fs::write(&json_path, config.to_string()).unwrap();
 
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
 
     let result = read(&db, Some(json_path.to_string_lossy().to_string())).await.unwrap();
@@ -284,7 +284,7 @@ async fn read_async_with_config_json_file_path() {
 async fn read_async_nonexistent_path_returns_err() {
     let dir = std::env::temp_dir().join(format!("aidog_read_none_{}", std::process::id()));
     // Don't create dir — no cc-switch.db or config.json
-    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     let result = read(&db, Some(dir.to_string_lossy().to_string())).await;
     assert!(result.is_err(), "missing dir should return Err");

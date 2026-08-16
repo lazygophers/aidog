@@ -57,7 +57,7 @@ impl Drop for RequestLogGuard {
             let span = tracing::info_span!("spawn", name = %"reqlog_guard", trace_id = %child);
             handle.spawn(async move {
                 if let Err(e) =
-                    super::db::finalize_incomplete_proxy_log(&state.db, &id, 499, duration_ms).await
+                    aidog_logs::finalize_incomplete_proxy_log(&state.db, &id, 499, duration_ms).await
                 {
                     tracing::warn!(error = %e, id = %id, "finalize incomplete proxy log failed");
                 }
@@ -105,7 +105,7 @@ pub(crate) async fn handle_proxy_core(
     request_id: String,
 ) -> Response {
     let start = std::time::Instant::now();
-    let created_at = super::db::now();
+    let created_at = aidog_db::now();
 
     // Load log settings once per request（从 ProxyState 缓存借，零 DB / serde 反序列化）
     let log_settings = state.settings_cache.read().await.log_settings.clone();
@@ -358,7 +358,7 @@ pub(crate) async fn handle_proxy_core(
 
     // ── 路由选择有序候选平台列表（失败逐个重试）──
     // 调度上下文：scheduler(熔断+延迟+在途) / sticky(粘性绑定) / scheduling settings。
-    let sched_settings = super::db::get_scheduling_settings(&state.db).await;
+    let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
     // Sticky session 键：aidog 无 session_id 概念（见 design.md），用 group_key + 客户端稳定标识。
     // 稳定标识优先取 x-session-id / session_id header，缺省回退 user-agent；再缺省仅用 group_key。
     let sticky_key = {
@@ -487,7 +487,7 @@ pub(crate) async fn handle_proxy_core(
             break;
         }
         let attempt_start = std::time::Instant::now();
-        let attempt_ts = super::db::now();
+        let attempt_ts = aidog_db::now();
         let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
 
         match forward_attempt(

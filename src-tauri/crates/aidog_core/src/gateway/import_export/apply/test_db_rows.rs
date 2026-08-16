@@ -1,8 +1,8 @@
 //! db_rows.rs 测试：breaker 迁入 extra + ensure_group_and_attach 幂等。
 
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::{effective_extra_with_breaker, ensure_group_and_attach, snapshot_platform_ids};
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 /// 内存库（同 db.rs test 约定）。
 async fn test_db() -> Db {

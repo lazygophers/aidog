@@ -20,7 +20,7 @@ mod test_dispatch;
 
 use std::sync::Arc;
 
-use super::db::Db;
+use aidog_db::Db;
 
 // 对外路径保持不变: gateway::quota::{PlatformQuota, BalanceInfo, CodingPlanInfo, QuotaTier,
 // query_quota, query_quota_newapi, query_quota_devin, parse_newapi_extra}。

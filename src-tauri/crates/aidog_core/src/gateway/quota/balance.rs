@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 use super::http::{
     err_quota_platform, now_millis, parse_f64_field, quota_get_json, BalanceInfo, PlatformQuota,

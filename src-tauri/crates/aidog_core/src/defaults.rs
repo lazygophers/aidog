@@ -42,7 +42,7 @@ crate::tauri_command! {
     ) -> Result<(), String> {
         tracing::debug!(command = "sync_protocol_logo", protocol = %protocol, "command invoked");
         use tauri::Manager;
-        let db = app.try_state::<crate::gateway::db::Db>()
+        let db = app.try_state::<aidog_db::Db>()
             .map(|s| std::sync::Arc::new(s.inner().clone()))
             .ok_or("db not initialized")?;
         let dir = crate::shared::aidog_data_dir()?;

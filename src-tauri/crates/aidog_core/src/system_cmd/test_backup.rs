@@ -1,6 +1,6 @@
 #![cfg(test)]
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 
 /// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
 /// 故不经 tauri::State/AppHandle 走 command 包装层，直测 command 转发的 db:: / gateway:: 函数
@@ -37,7 +37,7 @@ async fn backup_settings_set_and_get_roundtrip() {
 #[tokio::test]
 async fn db_compact_returns_sizes() {
     let db = test_db().await;
-    let result = gateway::db::compact_database(&db).await.unwrap();
+    let result = aidog_db::compact_database(&db).await.unwrap();
     // Memory DB: before_bytes may be 0 or small, but should not error
     let _ = result;
 }

@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::{self as db, Db};
 use crate::shared::*;
 use gateway::models::*;
 use std::future::Future;
@@ -451,7 +452,7 @@ pub async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
 /// 独立 tray 菜单路径（无预取）传 None，内部按需现查（`tray_layout` 公开入口即此语义）。
 pub(crate) async fn tray_layout_with_stats(
     app: &tauri::AppHandle,
-    precomputed_today_stats: Option<&db::TodayStats>,
+    precomputed_today_stats: Option<&aidog_stats::TodayStats>,
 ) -> TrayLayout {
     let empty = TrayLayout { columns: Vec::new(), gaps: Vec::new() };
     let Some(db) = app.try_state::<Db>() else { return empty; };
@@ -498,7 +499,7 @@ pub(crate) async fn tray_layout_with_stats(
                 let stats = match precomputed_today_stats {
                     Some(s) => s,
                     None => {
-                        owned_stats = db::today_stats(&db).await.unwrap_or(db::TodayStats {
+                        owned_stats = aidog_stats::today_stats(&db).await.unwrap_or(aidog_stats::TodayStats {
                             tokens: 0, input_tokens: 0, output_tokens: 0, cache_tokens: 0,
                             cache_rate: 0.0, cost: 0.0, total_requests: 0,
                         });

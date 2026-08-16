@@ -1,12 +1,12 @@
 //! group_info 端点覆盖：鉴权 / 未知 group / 多平台 not-applicable / 单平台 applicable。
 use super::*;
-use crate::gateway::db::test_support::{sample_group, sample_platform, test_db};
+use aidog_db::test_support::{sample_group, sample_platform, test_db};
 use crate::gateway::middleware::MiddlewareEngine;
 use crate::gateway::models::GroupPlatformInput;
 use axum::http::HeaderMap;
 use std::sync::Arc;
 
-async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
+async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     Arc::new(ProxyState {
         db: Arc::new(db),
@@ -55,7 +55,7 @@ async fn unknown_group_returns_not_applicable() {
 #[tokio::test]
 async fn group_no_platform_not_applicable() {
     let state = make_state(test_db().await).await;
-    crate::gateway::db::create_group(&state.db, sample_group("g0", vec![]))
+    aidog_db::create_group(&state.db, sample_group("g0", vec![]))
         .await
         .unwrap();
     let resp = handle_group_info(AxumState(state), bearer("g0")).await;
@@ -66,13 +66,13 @@ async fn group_no_platform_not_applicable() {
 #[tokio::test]
 async fn single_platform_applicable() {
     let state = make_state(test_db().await).await;
-    let p = crate::gateway::db::create_platform(&state.db, sample_platform("p1"))
+    let p = aidog_db::create_platform(&state.db, sample_platform("p1"))
         .await
         .unwrap();
-    let g = crate::gateway::db::create_group(&state.db, sample_group("g1", vec![]))
+    let g = aidog_db::create_group(&state.db, sample_group("g1", vec![]))
         .await
         .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         g.id,
         &[GroupPlatformInput {
@@ -96,16 +96,16 @@ async fn single_platform_applicable() {
 #[tokio::test]
 async fn two_platforms_not_applicable() {
     let state = make_state(test_db().await).await;
-    let p1 = crate::gateway::db::create_platform(&state.db, sample_platform("a"))
+    let p1 = aidog_db::create_platform(&state.db, sample_platform("a"))
         .await
         .unwrap();
-    let p2 = crate::gateway::db::create_platform(&state.db, sample_platform("b"))
+    let p2 = aidog_db::create_platform(&state.db, sample_platform("b"))
         .await
         .unwrap();
-    let g = crate::gateway::db::create_group(&state.db, sample_group("g2", vec![]))
+    let g = aidog_db::create_group(&state.db, sample_group("g2", vec![]))
         .await
         .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         g.id,
         &[
@@ -135,27 +135,27 @@ async fn two_platforms_not_applicable() {
 #[tokio::test]
 async fn multi_platform_sole_enabled_applicable() {
     let state = make_state(test_db().await).await;
-    let p1 = crate::gateway::db::create_platform(&state.db, sample_platform("only-enabled"))
+    let p1 = aidog_db::create_platform(&state.db, sample_platform("only-enabled"))
         .await
         .unwrap();
-    let p2 = crate::gateway::db::create_platform(&state.db, sample_platform("disabled-2"))
+    let p2 = aidog_db::create_platform(&state.db, sample_platform("disabled-2"))
         .await
         .unwrap();
-    let p3 = crate::gateway::db::create_platform(&state.db, sample_platform("disabled-3"))
+    let p3 = aidog_db::create_platform(&state.db, sample_platform("disabled-3"))
         .await
         .unwrap();
     for pid in [p2.id, p3.id] {
-        crate::gateway::db::update_platform(&state.db, crate::gateway::models::UpdatePlatform {
+        aidog_db::update_platform(&state.db, crate::gateway::models::UpdatePlatform {
             id: pid, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(crate::gateway::models::PlatformStatus::Disabled),
             manual_budgets: None, join_group_ids: None, expires_at: None,
         }).await.unwrap();
     }
-    let g = crate::gateway::db::create_group(&state.db, sample_group("g3", vec![]))
+    let g = aidog_db::create_group(&state.db, sample_group("g3", vec![]))
         .await
         .unwrap();
-    crate::gateway::db::set_group_platforms(
+    aidog_db::set_group_platforms(
         &state.db,
         g.id,
         &[

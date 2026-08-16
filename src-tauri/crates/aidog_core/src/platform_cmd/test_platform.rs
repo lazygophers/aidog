@@ -1,6 +1,7 @@
 #![cfg(test)]
+use aidog_db as db;
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use aidog_db::test_support::test_db;
 
 // aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
 // 故不经 tauri::State 走 command 包装层，直测 command 转发/编排的 db:: 函数
@@ -130,7 +131,7 @@ async fn tray_config_and_today_stats() {
     let cfg = db::get_tray_config(&db).await.unwrap().unwrap_or_default();
     let _ = cfg;
     // today stats
-    let stats = db::today_stats(&db).await.unwrap();
+    let stats = aidog_stats::today_stats(&db).await.unwrap();
     let _ = stats;
 }
 

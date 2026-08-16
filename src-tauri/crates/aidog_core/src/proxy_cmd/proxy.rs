@@ -5,7 +5,8 @@ use crate::gateway::middleware::MiddlewareEngine;
 // (app_setup.rs:395) 调 refresh_tray_menu + TrayMenuBuildImpl。复用现有事件 +
 // listener（同 proxy/log.rs:164 同域 precedent），避 commands_proxy → commands_platform
 // 跨 command 依赖 + 零新 wiring 代码。
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::{self as db, Db};
 use tauri::{Emitter, Manager};
 use std::sync::Arc;
 

@@ -1,11 +1,12 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use tauri::State;
 
 
 crate::tauri_command! {
     /// 列出 DB 中所有 MCP server（env/headers 已脱敏）。
     pub async fn mcp_list(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpServerInfo>, String> {
-        let rows = gateway::db::list_mcp_servers(&db).await?;
+        let rows = aidog_mcp::store::list_mcp_servers(&db).await?;
         Ok(rows.into_iter().map(gateway::mcp::McpServerInfo::from).collect())
     }
 }

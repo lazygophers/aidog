@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 use serde::Serialize;
@@ -46,7 +47,7 @@ pub async fn platform_fetch_models(
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let created_at = gateway::db::now();
+    let created_at = aidog_db::now();
     let target_protocol = format!("{:?}", protocol).to_lowercase();
 
     // fetch-models 日志构造器（复用 model_test 标记模式：source_protocol 约定串 + platform_id=0）
@@ -105,7 +106,7 @@ pub async fn platform_fetch_models(
         Ok(r) => r,
         Err(e) => {
             tracing::error!("fetch models request failed: {e}");
-            if let Err(le) = db::upsert_proxy_log(&db, make_log(0, 502, &format!("upstream error: {e}"), &url)).await {
+            if let Err(le) = aidog_logs::upsert_proxy_log(&db, make_log(0, 502, &format!("upstream error: {e}"), &url)).await {
                 tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
             }
             return Err(FetchModelsError::from_status(0, format!("fetch models: {e}")));
@@ -120,7 +121,7 @@ pub async fn platform_fetch_models(
     tracing::debug!(url = %url, body = %gateway::log_util::log_body_preview(&body), "fetch models response body");
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
-    if let Err(le) = db::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url)).await {
+    if let Err(le) = aidog_logs::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url)).await {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
     }
     // 🔴 status code 参与控制流：非 2xx 按 code 映射错误变体（401/403 → Auth, 404 → NotFound, 其余 → Other）。

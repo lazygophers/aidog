@@ -1,8 +1,8 @@
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::*;
 
     fn placeholder_stream_log(id: &str) -> ProxyLog {
-        let ts = super::super::db::now();
+        let ts = aidog_db::now();
         ProxyLog {
             id: id.to_string(),
             group_key: "gk_test".to_string(),
@@ -42,16 +42,16 @@ use super::*;
 
     // 建一个 StreamLogGuard，settings = 默认（enabled=true, log_user_request=false）。
     // upstream_chunks 预先 push 进 agg.upstream_body（模拟流式逐 chunk 累积）。
-    async fn flush_test_db() -> (Arc<super::super::db::Db>, std::path::PathBuf) {
+    async fn flush_test_db() -> (Arc<aidog_db::Db>, std::path::PathBuf) {
         // ponytail: proxy_log 拆库后用 :memory:（主+proxy_log 共享同一物理连接）。
-        let db = super::super::db::Db::new(":memory:")
+        let db = aidog_db::Db::new(":memory:")
             .await
             .expect("open memory db");
         db.init_tables().await.expect("init tables");
         (Arc::new(db), std::path::PathBuf::new())
     }
 
-    fn flush_test_state(db: Arc<super::super::db::Db>) -> Arc<ProxyState> {
+    fn flush_test_state(db: Arc<aidog_db::Db>) -> Arc<ProxyState> {
         let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
         let state = Arc::new(ProxyState {
             db,
@@ -82,7 +82,7 @@ use super::*;
         l
     }
 
-    async fn agg_request_count(db: &super::super::db::Db, id_group: &str) -> i64 {
+    async fn agg_request_count(db: &aidog_db::Db, id_group: &str) -> i64 {
         let g = id_group.to_string();
         db.write_conn()
             .call(move |c| {

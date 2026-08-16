@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use tauri::State;
 
 
@@ -7,7 +8,7 @@ use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogPage, ProxyLogSettings,
 crate::tauri_command! {
 pub async fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
     tracing::debug!(command = "proxy_log_list", limit, offset, "command invoked");
-    gateway::db::list_proxy_logs(&db, limit, offset).await
+    aidog_logs::list_proxy_logs(&db, limit, offset).await
 }
 }
 
@@ -19,7 +20,7 @@ pub async fn proxy_log_list_filtered(
     offset: u32,
 ) -> Result<ProxyLogPage, String> {
     tracing::debug!(command = "proxy_log_list_filtered", limit, offset, "command invoked");
-    gateway::db::filtered_list_proxy_logs(&db, &filter, limit, offset).await
+    aidog_logs::filtered_list_proxy_logs(&db, &filter, limit, offset).await
 }
 }
 
@@ -34,7 +35,7 @@ pub async fn proxy_log_distinct_models(
     limit: u32,
 ) -> Result<Vec<String>, String> {
     tracing::debug!(command = "proxy_log_distinct_models", actual, limit, "command invoked");
-    gateway::db::distinct_models_proxy_log(&db, &filter, actual, limit).await
+    aidog_logs::distinct_models_proxy_log(&db, &filter, actual, limit).await
 }
 }
 
@@ -43,7 +44,7 @@ pub async fn proxy_log_count_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
 ) -> Result<u32, String> {
-    gateway::db::filtered_count_proxy_logs(&db, &filter).await
+    aidog_logs::filtered_count_proxy_logs(&db, &filter).await
 }
 }
 
@@ -58,65 +59,65 @@ pub async fn request_log_list(
     offset: u32,
 ) -> Result<Vec<RequestLogSummary>, String> {
     tracing::debug!(command = "request_log_list", limit, offset, "command invoked");
-    gateway::db::list_request_logs(&db, &filter, limit, offset).await
+    aidog_logs::list_request_logs(&db, &filter, limit, offset).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<ProxyLog>, String> {
     tracing::debug!(command = "proxy_log_get", id = %id, "command invoked");
-    gateway::db::get_proxy_log(&db, &id).await
+    aidog_logs::get_proxy_log(&db, &id).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
-    gateway::db::clear_proxy_logs(&db).await
+    aidog_logs::clear_proxy_logs(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
-    gateway::db::count_proxy_logs(&db).await
+    aidog_db::count_proxy_logs(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
     tracing::debug!(command = "platform_usage_stats", platform_id, "command invoked");
-    gateway::db::get_platform_usage_stats(&db, platform_id).await
+    aidog_stats::get_platform_usage_stats(&db, platform_id).await
 }
 }
 
 crate::tauri_command! {
 pub async fn group_usage_stats(group_key: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
     tracing::debug!(command = "group_usage_stats", group_key = %group_key, "command invoked");
-    gateway::db::get_group_usage_stats(&db, &group_key).await
+    aidog_stats::get_group_usage_stats(&db, &group_key).await
 }
 }
 
 crate::tauri_command! {
 pub async fn all_group_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<String, gateway::models::PlatformUsageStats>, String> {
-    gateway::db::get_all_group_usage_stats(&db).await
+    aidog_stats::get_all_group_usage_stats(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn all_platform_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<u64, gateway::models::PlatformUsageStats>, String> {
-    gateway::db::platform_usage_stats_all(&db).await
+    aidog_stats::platform_usage_stats_all(&db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn get_last_test_result(platform_id: u64, db: State<'_, Db>) -> Result<Option<gateway::models::LastTestResult>, String> {
     tracing::debug!(command = "get_last_test_result", platform_id, "command invoked");
-    gateway::db::get_last_test_result(&db, platform_id).await
+    aidog_stats::get_last_test_result(&db, platform_id).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
-    let val = gateway::db::get_setting(&db, "proxy", "logging").await
+    let val = aidog_db::get_setting(&db, "proxy", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -129,7 +130,7 @@ crate::tauri_command! {
 pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize log settings: {e}"))?;
-    gateway::db::set_setting(&db, gateway::models::SetSettingInput {
+    aidog_db::set_setting(&db, gateway::models::SetSettingInput {
         scope: "proxy".into(),
         key: "logging".into(),
         value,
@@ -145,20 +146,20 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
 /// app_setup 每日调度共用（&Db 入参脱离 State 绑定，便于后台 spawn 调用）。
 pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     // Run field-level cleanup for user/upstream request data
-    if let Err(e) = gateway::db::cleanup_user_request_fields(db, settings.user_request_retention_days, settings.user_request_retention_unit).await {
+    if let Err(e) = aidog_db::cleanup_user_request_fields(db, settings.user_request_retention_days, settings.user_request_retention_unit).await {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup user_request fields failed");
     }
-    if let Err(e) = gateway::db::cleanup_upstream_request_fields(db, settings.upstream_request_retention_days, settings.upstream_request_retention_unit).await {
+    if let Err(e) = aidog_db::cleanup_upstream_request_fields(db, settings.upstream_request_retention_days, settings.upstream_request_retention_unit).await {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup upstream_request fields failed");
     }
     // Delete entire log rows older than overall retention (hard delete → physical row removal)
     if settings.retention_days > 0
-        && let Err(e) = gateway::db::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit).await {
+        && let Err(e) = aidog_logs::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit).await {
             tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
         }
     // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
     // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
-    if let Err(e) = gateway::db::purge_deleted_proxy_logs(db).await {
+    if let Err(e) = aidog_logs::purge_deleted_proxy_logs(db).await {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "purge deleted proxy_logs failed");
     }
 }
@@ -167,7 +168,7 @@ crate::tauri_command! {
 /// 按当前 ProxyLogSettings 的保留天数立即清理过期数据，不修改设置。
 /// 复用 settings_set 的清理链（run_retention_cleanup）。
 pub async fn proxy_log_cleanup_expired(db: State<'_, Db>) -> Result<(), String> {
-    let settings: ProxyLogSettings = gateway::db::get_setting(&db, "proxy", "logging").await
+    let settings: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())

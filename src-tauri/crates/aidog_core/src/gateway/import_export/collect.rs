@@ -3,11 +3,8 @@
 use std::collections::BTreeSet;
 
 use super::{Manifest, NamedText, Payload};
-use crate::gateway::{
-    codex,
-    db::Db,
-    models::{Platform, PlatformModels, PlatformEndpoint, Protocol},
-};
+use crate::gateway::{codex, models::{Platform, PlatformModels, PlatformEndpoint, Protocol}};
+use aidog_db::Db;
 use serde::Serialize;
 
 /// 收集错误（非致命项收集为 payload 缺省值，仅致命错误返回 Err）。
@@ -38,7 +35,7 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     };
 
     if scope_set.contains(super::SCOPE_PLATFORM) {
-        let platforms = crate::gateway::db::list_platforms(db).await?;
+        let platforms = aidog_db::list_platforms(db).await?;
         payload.platform = platforms
             .into_iter()
             .map(|p| serde_json::to_value(to_export(p)))
@@ -47,7 +44,7 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_GROUP) {
-        let groups = crate::gateway::db::list_groups(db).await?;
+        let groups = aidog_db::list_groups(db).await?;
         payload.group = groups
             .into_iter()
             .map(serde_json::to_value)
@@ -56,12 +53,12 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_GROUP_PLATFORM) {
-        let pairs = crate::gateway::db::list_all_group_platform_pairs(db).await?;
+        let pairs = aidog_db::list_all_group_platform_pairs(db).await?;
         payload.group_platform = pairs.into_iter().map(|(g, p)| [g, p]).collect();
     }
 
     if scope_set.contains(super::SCOPE_SETTING) {
-        let rows = crate::gateway::db::list_all_settings_raw(db).await?;
+        let rows = aidog_db::list_all_settings_raw(db).await?;
         payload.setting = rows.into_iter().map(|(s, k, v)| [s, k, v]).collect();
     }
 
@@ -78,7 +75,7 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_MCP) {
-        let rows = crate::gateway::db::list_mcp_servers(db).await?;
+        let rows = aidog_mcp::store::list_mcp_servers(db).await?;
         payload.mcp = rows
             .into_iter()
             .map(serde_json::to_value)
@@ -87,7 +84,7 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_MIDDLEWARE) {
-        let rows = crate::gateway::db::list_middleware_rules(db).await?;
+        let rows = aidog_db::list_middleware_rules(db).await?;
         payload.middleware = rows
             .into_iter()
             .map(serde_json::to_value)
@@ -96,7 +93,7 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_MODEL_PRICE) {
-        let rows = crate::gateway::db::list_all_model_prices(db).await?;
+        let rows = aidog_db::list_all_model_prices(db).await?;
         payload.model_price = rows
             .into_iter()
             .map(serde_json::to_value)

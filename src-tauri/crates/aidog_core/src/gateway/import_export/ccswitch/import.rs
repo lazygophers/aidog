@@ -1,6 +1,6 @@
 //! apply 复用入口：把前端转换好的 platform payload + 决策写入 aidog DB。
 
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 /// 把前端转换好的 platform payload + 决策应用进 aidog DB。
 /// 复用 [`super::super::apply::apply`]，不另造一套写入路径。
@@ -56,7 +56,7 @@ pub async fn import(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::db::DbInitTables;
+    use aidog_stats::DbInitTables;
 
     async fn test_db() -> Db {
         let db = Db::new(":memory:").await.unwrap();
@@ -78,7 +78,7 @@ mod tests {
         let db = test_db().await;
         let _report = import(vec![], &[], true, &db).await.expect("should succeed");
         // cc-switch group should exist
-        let groups = crate::gateway::db::list_groups(&db).await.unwrap();
+        let groups = aidog_db::list_groups(&db).await.unwrap();
         assert!(groups.iter().any(|g| g.name == "cc-switch"), "cc-switch group should be created");
     }
 

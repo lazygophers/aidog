@@ -18,7 +18,7 @@
 use chrono::{Local, TimeZone, Timelike};
 use rusqlite::params;
 
-use super::db::Db;
+use aidog_db::Db;
 use super::models::{parse_manual_budgets, serialize_manual_budgets, ManualBudget, WindowUnit};
 
 /// 窗口数值 + 单位 → 毫秒时长（纯函数，锁安全）。
@@ -429,8 +429,9 @@ mod tests {
     // 无法体现读写池解耦；文件库才有独立 platform.db 读/写连接（见 db/mod.rs Db::new）。
     #[tokio::test]
     async fn zero_budget_shortcircuits_write_conn() {
-        use crate::gateway::db::test_support::sample_platform;
-        use crate::gateway::db::{create_platform, Db, DbInitTables};
+        use aidog_db::test_support::sample_platform;
+        use aidog_db::{create_platform, Db};
+use aidog_stats::{DbInitTables};
 
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("aidog.db").to_string_lossy().into_owned();
@@ -469,8 +470,8 @@ mod tests {
     // ── 有配额时：短路判定不改变扣减结果（红线 2 对照）。
     #[tokio::test]
     async fn nonzero_budget_deduction_unchanged() {
-        use crate::gateway::db::test_support::{sample_platform, test_db};
-        use crate::gateway::db::{create_platform, get_platform};
+        use aidog_db::test_support::{sample_platform, test_db};
+        use aidog_db::{create_platform, get_platform};
 
         let db = test_db().await;
         let mut cp = sample_platform("with-budget");

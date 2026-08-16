@@ -35,7 +35,7 @@ use std::sync::RwLock;
 use regex::Regex;
 use serde::Deserialize;
 
-use super::db::{self, Db};
+use aidog_db::{self as db, Db};
 use super::models::{MatchType, MiddlewareRule, RuleScope, RuleType};
 
 /// 正则编译大小上限（字节）。regex crate 用无回溯 DFA，本身抗 ReDoS；

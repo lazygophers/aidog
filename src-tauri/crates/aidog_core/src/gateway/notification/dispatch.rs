@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::super::db::Db;
+use aidog_db::Db;
 use super::super::models::{default_template_for_event, NotifType};
 use super::render::{channels_for_form, default_title, render, DispatchResult, BRAND_FALLBACK};
 use super::tts::{play_beep, show_popup, speak};
@@ -30,7 +30,7 @@ pub async fn dispatch(
     content: Option<&str>,
     vars: &HashMap<String, String>,
 ) -> DispatchResult {
-    let settings = super::super::db::get_notification_settings(db).await;
+    let settings = aidog_db::get_notification_settings(db).await;
 
     // 应用行为追踪 key：与日志 trace_id / 代理 request_id 同口径，标识「触发本次通知的那次操作」。
     // 来源优先级：① 调用方 vars 已带 request_id（如 /api/notify 脚本透传）> ② 当前活跃 span 的
@@ -109,7 +109,7 @@ pub async fn dispatch(
 
         // inbox 恒落库（历史）。event 路径 inbox 用事件名作 notif_type 列（便于回看来源）。
         let mut inbox_id = None;
-        match super::super::db::insert_notification(db, event_name, &title, &body).await {
+        match aidog_db::insert_notification(db, event_name, &title, &body).await {
             Ok(id) => inbox_id = Some(id),
             Err(e) => tracing::warn!(error = %e, "notify: insert inbox failed"),
         }
@@ -187,7 +187,7 @@ pub async fn dispatch(
     // 收件箱落库
     let mut inbox_id = None;
     if ch.inbox {
-        match super::super::db::insert_notification(db, notif_type.as_str(), &title, &body).await {
+        match aidog_db::insert_notification(db, notif_type.as_str(), &title, &body).await {
             Ok(id) => {
                 inbox_id = Some(id);
             }

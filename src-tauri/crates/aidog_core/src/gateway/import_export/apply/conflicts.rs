@@ -1,7 +1,7 @@
 //! 导入冲突扫描：同名 group、同 scope+key setting、文件已存在。
 
 use super::super::{ConflictItem, Payload};
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 /// 扫描冲突（同名 group、同 scope+key setting、同 model_name price、文件已存在）。
 /// platform 不参与冲突检测：platform.name 非唯一（无 UNIQUE 约束），导入始终建新行
@@ -10,7 +10,7 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
     let mut out = Vec::new();
 
     let existing_group_keys: std::collections::BTreeSet<String> =
-        crate::gateway::db::list_groups(db)
+        aidog_db::list_groups(db)
             .await?
             .into_iter()
             .map(|g| g.group_key)
@@ -38,7 +38,7 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
     }
 
     let existing_setting_keys: std::collections::BTreeSet<String> =
-        crate::gateway::db::list_all_settings_raw(db)
+        aidog_db::list_all_settings_raw(db)
             .await?
             .into_iter()
             .map(|(s, k, _)| format!("{s}:{k}"))

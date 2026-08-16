@@ -1,9 +1,10 @@
 //! App setup（启动初始化逻辑）下沉自 lib.rs 的 run() setup 闭包，零行为变更。
-use aidog_core::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use tauri::Manager;
-use aidog_core::gateway::{self, db::Db};
+use aidog_core::gateway;
+use aidog_db::Db;
 use aidog_core::logging;
 use aidog_core::shared::{aidog_data_dir, load_proxy_settings, ProxyHandle, ProxySettings};
 use aidog_core::gateway::middleware::MiddlewareEngine;
@@ -53,7 +54,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     use tracing::Instrument;
                     let span = tracing::info_span!("db_migrate_auto_vacuum", trace_id = %logging::new_trace_id());
                     async {
-                        match gateway::db::migrate_auto_vacuum(&db_clone).await {
+                        match aidog_db::migrate_auto_vacuum(&db_clone).await {
                             Ok(true) => tracing::info!("db auto_vacuum migration completed on startup"),
                             Ok(false) => tracing::debug!("db auto_vacuum migration skipped (already migrated or INCREMENTAL)"),
                             Err(e) => tracing::warn!(error = %e, "db auto_vacuum migration failed on startup, will retry next launch"),
@@ -70,7 +71,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     use tracing::Instrument;
                     let span = tracing::info_span!("db_rebuild_stats_agg", trace_id = %logging::new_trace_id());
                     async {
-                        match gateway::db::rebuild_stats_agg_once_if_needed(&db_clone).await {
+                        match aidog_stats::rebuild_stats_agg_once_if_needed(&db_clone).await {
                             Ok(true) => tracing::info!("stats_agg rebuilt from proxy_log (one-time dedup correction)"),
                             Ok(false) => tracing::debug!("stats_agg rebuild skipped (already corrected)"),
                             Err(e) => tracing::warn!(error = %e, "stats_agg one-time rebuild failed, will retry next launch"),
@@ -88,7 +89,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     use tracing::Instrument;
                     let span = tracing::info_span!("db_correct_count_tokens_agg", trace_id = %logging::new_trace_id());
                     async {
-                        match gateway::db::correct_count_tokens_agg_once_if_needed(&db_clone).await {
+                        match aidog_stats::correct_count_tokens_agg_once_if_needed(&db_clone).await {
                             Ok(true) => tracing::info!("stats_agg corrected: count_tokens contributions removed (one-time)"),
                             Ok(false) => tracing::debug!("stats_agg count_tokens correction skipped (already done)"),
                             Err(e) => tracing::warn!(error = %e, "stats_agg count_tokens correction failed, will retry next launch"),
@@ -255,7 +256,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         );
                         async {
                             if let Some(db) = handle.try_state::<Db>() {
-                                match gateway::db::purge_all_soft_deleted(&db, older_than_secs).await {
+                                match aidog_db::purge_all_soft_deleted(&db, older_than_secs).await {
                                     Ok(map) if !map.is_empty() && map.values().any(|&n| n > 0) => {
                                         tracing::info!(
                                             purged = ?map,
@@ -271,33 +272,33 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                                     ),
                                 }
                                 // 通知收件箱 retention 硬删（默认 7 天；inbox_retention_days=0 → 永不清理）。
-                                let retention_days = gateway::db::get_notification_settings(&db).await.inbox_retention_days;
-                                if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
+                                let retention_days = aidog_db::get_notification_settings(&db).await.inbox_retention_days;
+                                if let Err(e) = aidog_db::cleanup_notifications(&db, retention_days).await {
                                     tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
                                 }
                                 // 聚合统计表 retention 硬删（默认 365 天；stats retention_days=0 → 永不清理）。
-                                let stats_settings: gateway::models::StatsSettings = gateway::db::get_setting(&db, "stats", "settings").await
+                                let stats_settings: gateway::models::StatsSettings = aidog_db::get_setting(&db, "stats", "settings").await
                                     .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-                                if let Err(e) = gateway::db::cleanup_stats_agg(&db, stats_settings.retention_days).await {
+                                if let Err(e) = aidog_stats::cleanup_stats_agg(&db, stats_settings.retention_days).await {
                                     tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
                                 }
                                 // proxy_log 三级 retention（默认 7d/7d/90d 保留不动）：复用
                                 // settings_set/cleanup_expired 同一清理链，单步失败 warn 容错。
                                 // purge_deleted_proxy_logs 内部已调 incremental_vacuum(100) 回收
                                 // 小块 free pages；大块回收由阈值 VACUUM 兜底。
-                                let log_settings: gateway::models::ProxyLogSettings = gateway::db::get_setting(&db, "proxy", "logging").await
+                                let log_settings: gateway::models::ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
                                     .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
                                 aidog_core::proxy_cmd::proxy_log::run_retention_cleanup(&db, &log_settings).await;
                                 // 阈值触发全量 VACUUM：胀库（>100MB）时整库重建回收大块 free pages。
                                 // 失败仅 warn（锁冲突 / 磁盘满等），不阻塞后续周期。
-                                match gateway::db::db_file_size(&db).await {
+                                match aidog_db::db_file_size(&db).await {
                                     Ok(size) if size > VACUUM_THRESHOLD_BYTES => {
                                         tracing::info!(
                                             size_bytes = size,
                                             threshold = VACUUM_THRESHOLD_BYTES,
                                             "scheduled: db size exceeds threshold, running full VACUUM"
                                         );
-                                        match gateway::db::compact_database(&db).await {
+                                        match aidog_db::compact_database(&db).await {
                                             Ok(r) => tracing::info!(
                                                 before = r.before_bytes,
                                                 after = r.after_bytes,

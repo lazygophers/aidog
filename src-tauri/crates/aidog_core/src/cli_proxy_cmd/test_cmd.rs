@@ -8,11 +8,8 @@
 
 use std::sync::Arc;
 
-use crate::gateway::{
-    db::{self, Db},
-    models::parse_quota_type,
-    quota::{with_cli_proxy_provider_id, PlatformQuota},
-};
+use crate::gateway::{models::parse_quota_type, quota::{with_cli_proxy_provider_id, PlatformQuota}};
+use aidog_db::{self as db, Db};
 use tauri::State;
 
 crate::tauri_command! {

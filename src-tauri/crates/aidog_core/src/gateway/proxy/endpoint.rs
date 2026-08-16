@@ -102,7 +102,7 @@ pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {
 /// 在已取出的分组列表中按 group_key（= Authorization Bearer apikey）精确匹配。
 /// 分组路由纯按 apikey(group_key)，不再支持 URL path 前缀匹配。
 pub(crate) async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group> {
-    let groups = match super::db::list_groups(db).await {
+    let groups = match aidog_db::list_groups(db).await {
         Ok(g) => g,
         Err(e) => {
             tracing::warn!(error = %e, "resolve_group: list_groups failed");
@@ -157,7 +157,7 @@ pub fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
 /// 扫描可接受（CONNECT 每连接一次）。
 pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Option<(u64, super::models::Platform)> {
     let target = connect_host.to_lowercase();
-    let platforms = match super::db::list_platforms(db).await {
+    let platforms = match aidog_db::list_platforms(db).await {
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(error = %e, "match_platform_by_host: list_platforms failed");

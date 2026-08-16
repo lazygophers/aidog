@@ -58,8 +58,8 @@ use serde_json::json;
     }
 
     /// 读 DB `setting` 表里的 managed_paths 快照（test helper：unwrap + 数组化）。
-    async fn read_managed_paths(db: &crate::gateway::db::Db) -> Vec<String> {
-        let v = crate::gateway::db::get_setting(db, MANAGED_SCOPE, MANAGED_KEY)
+    async fn read_managed_paths(db: &aidog_db::Db) -> Vec<String> {
+        let v = aidog_db::get_setting(db, MANAGED_SCOPE, MANAGED_KEY)
             .await
             .unwrap()
             .unwrap_or(json!([]));
@@ -73,7 +73,7 @@ use serde_json::json;
     /// write_default_claude_settings：HOME + DB 隔离下首次写 + deep merge 保留用户字段 + 幂等无写。
     #[tokio::test]
     async fn write_default_claude_settings_merges_and_idempotent() {
-        use crate::gateway::db::test_support::{HomeGuard, test_db};
+        use aidog_db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
         let db = test_db().await;
         // 预置用户配置
@@ -156,7 +156,7 @@ use serde_json::json;
     /// settings.json 不写 marker（已迁 DB）。
     #[tokio::test]
     async fn write_default_claude_settings_records_managed_paths() {
-        use crate::gateway::db::test_support::{HomeGuard, test_db};
+        use aidog_db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
         let db = test_db().await;
         let claude_dir = h.home().join(".claude");
@@ -205,7 +205,7 @@ use serde_json::json;
     /// 再次 sync 后被显式 remove（连旧值清），marker 数据源已迁 DB。
     #[tokio::test]
     async fn write_default_claude_settings_strips_legacy_marker() {
-        use crate::gateway::db::test_support::{HomeGuard, test_db};
+        use aidog_db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
         let db = test_db().await;
         let claude_dir = h.home().join(".claude");
@@ -241,12 +241,12 @@ use serde_json::json;
     /// aidog 强写的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 不被覆盖（保护字段过滤）。
     #[tokio::test]
     async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
-        use crate::gateway::db::test_support::{HomeGuard, test_db};
+        use aidog_db::test_support::{HomeGuard, test_db};
         use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
         let h = HomeGuard::new();
         let db = test_db().await;
 
-        let g = crate::gateway::db::create_group(
+        let g = aidog_db::create_group(
             &db,
             CreateGroup {
                 name: "env-test".to_string(),
@@ -283,5 +283,5 @@ use serde_json::json;
         assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_envtest");
 
         // 清掉这组避免污染其它测试（test_db 用内存库，但 sync 写了真实 HOME 下的文件）
-        crate::gateway::db::delete_group(&db, g.id).await.unwrap();
+        aidog_db::delete_group(&db, g.id).await.unwrap();
     }

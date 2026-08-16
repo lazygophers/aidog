@@ -99,7 +99,7 @@ pub(crate) async fn handle_count_tokens(
     }
 
     // 路由选平台（复用 group→platform 选择，拿模型映射目标）
-    let sched_settings = super::db::get_scheduling_settings(&state.db).await;
+    let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
     let sched_ctx = ScheduleCtx {
         scheduler: &state.scheduler,
         sticky: &state.sticky,

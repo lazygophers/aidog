@@ -1,4 +1,5 @@
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::{self as db, Db};
 use crate::logging;
 use gateway::models::*;
 use tauri::State;

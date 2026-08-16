@@ -1,5 +1,6 @@
 use crate::shared::*;
-use crate::gateway::{self, db::{self, Db}};
+use crate::gateway;
+use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::{State, Emitter};
 
@@ -69,7 +70,7 @@ pub async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
             .map(gateway::manual_budget::remaining)
             .sum();
         let balance = p.est_balance_remaining.max(manual_total_remaining);
-        let days_remaining = match db::get_platform_hourly_rate(&db, p.id).await {
+        let days_remaining = match aidog_stats::get_platform_hourly_rate(&db, p.id).await {
             Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
             _ => None,
         };
@@ -281,8 +282,8 @@ pub async fn tray_config_set(
 
 crate::tauri_command! {
 /// 获取今日统计摘要（供前端预览使用）
-pub async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
-    db::today_stats(&db).await
+pub async fn tray_today_stats(db: State<'_, Db>) -> Result<aidog_stats::TodayStats, String> {
+    aidog_stats::today_stats(&db).await
 }
 }
 

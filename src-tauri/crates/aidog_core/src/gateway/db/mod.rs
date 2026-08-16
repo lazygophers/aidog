@@ -1,7 +1,7 @@
 //! DB 层 shim：全部数据库操作已拆至独立 crate（2026-08-16）——
 //! `aidog_db`（连接/schema/models/领域读写/presets）+ `aidog_logs`（proxy_log）+
 //! `aidog_stats`（统计）+ `aidog_mcp::store`（mcp_server 表）。本模块仅 re-export 保持
-//! `crate::gateway::db::X` 调用路径不变。
+//! `aidog_db::X` 调用路径不变。
 
 pub use aidog_db::*;
 pub use aidog_logs::*;

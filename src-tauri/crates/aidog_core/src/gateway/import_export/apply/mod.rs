@@ -12,7 +12,7 @@
 use std::collections::BTreeMap;
 
 use super::{ConflictDecision, Decision, ImportItem, ImportPreview, ImportReport, Payload, Selection};
-use crate::gateway::db::Db;
+use aidog_db::Db;
 
 mod conflicts;
 mod db_rows;
@@ -476,7 +476,7 @@ async fn apply_db(
             continue;
         }
         match serde_json::from_value::<crate::gateway::mcp::McpServerRow>(m.clone()) {
-            Ok(row) => match crate::gateway::db::upsert_mcp_server(db, &row).await {
+            Ok(row) => match aidog_mcp::store::upsert_mcp_server(db, &row).await {
                 Ok(()) => bump(&mut report.applied, super::SCOPE_MCP),
                 Err(e) => report.errors.push(format!("mcp「{}」: {e}", row.name)),
             },
@@ -509,7 +509,7 @@ async fn apply_db(
         }
         match serde_json::from_value::<crate::gateway::models::ModelPrice>(mp.clone()) {
             Ok(p) => {
-                let res = crate::gateway::db::upsert_model_price(
+                let res = aidog_db::upsert_model_price(
                     db,
                     &p.model_name,
                     &p.source,

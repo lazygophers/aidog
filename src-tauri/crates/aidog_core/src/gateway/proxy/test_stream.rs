@@ -1,4 +1,4 @@
-use crate::gateway::db::DbInitTables;
+use aidog_stats::DbInitTables;
 use super::*;
 
     #[test]
@@ -181,17 +181,17 @@ use super::*;
     use std::sync::atomic::AtomicBool;
 
     /// 构造一个最小可用、初始化好表的临时文件 DB（避免 :memory: 全局缓存跨 test 串味）。
-    async fn flush_test_db() -> (Arc<super::super::db::Db>, std::path::PathBuf) {
+    async fn flush_test_db() -> (Arc<aidog_db::Db>, std::path::PathBuf) {
         // ponytail: proxy_log 拆库后用 :memory:（主+proxy_log 共享同一物理连接，proxy_log 表可见）。
         // 旧实现用文件库，但本测试关注流式 flush 逻辑而非文件 I/O，:memory: 足够。
-        let db = super::super::db::Db::new(":memory:")
+        let db = aidog_db::Db::new(":memory:")
             .await
             .expect("open memory db");
         db.init_tables().await.expect("init tables");
         (Arc::new(db), std::path::PathBuf::new())
     }
 
-    fn flush_test_state(db: Arc<super::super::db::Db>) -> Arc<ProxyState> {
+    fn flush_test_state(db: Arc<aidog_db::Db>) -> Arc<ProxyState> {
         let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
         let state = Arc::new(ProxyState {
             db,
@@ -210,7 +210,7 @@ use super::*;
     }
 
     fn placeholder_stream_log(id: &str) -> ProxyLog {
-        let ts = super::super::db::now();
+        let ts = aidog_db::now();
         ProxyLog {
             id: id.to_string(),
             group_key: "gk_test".to_string(),
@@ -286,8 +286,8 @@ use super::*;
         }
     }
 
-    async fn read_response_body(db: &super::super::db::Db, id: &str) -> String {
-        super::super::db::get_proxy_log(db, id)
+    async fn read_response_body(db: &aidog_db::Db, id: &str) -> String {
+        aidog_logs::get_proxy_log(db, id)
             .await
             .expect("get log")
             .expect("row exists")
@@ -295,7 +295,7 @@ use super::*;
     }
 
     /// 等待 flush 内 tokio::spawn 的落库任务完成（短轮询，最多 ~2s）。
-    async fn await_flush_write(db: &super::super::db::Db, id: &str) -> String {
+    async fn await_flush_write(db: &aidog_db::Db, id: &str) -> String {
         for _ in 0..200 {
             let body = read_response_body(db, id).await;
             if body != "[stream]" {
@@ -313,15 +313,15 @@ use super::*;
         let state = flush_test_state(db.clone());
         let id = "flush_done_0001";
         let log = placeholder_stream_log(id);
-        super::super::db::insert_proxy_log_columns(
+        aidog_logs::insert_proxy_log_columns(
             &state.db,
-            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+            aidog_logs::ProxyLogColumns::from_log(&log, false, false),
         )
         .await
         .unwrap();
         state
             .log_snapshots
-            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+            .insert(id.to_string(), aidog_logs::ProxyLogColumns::from_log(&log, false, false));
 
         let chunks = [
             "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
@@ -345,15 +345,15 @@ use super::*;
         let state = flush_test_state(db.clone());
         let id = "flush_mstop_0001";
         let log = placeholder_stream_log(id);
-        super::super::db::insert_proxy_log_columns(
+        aidog_logs::insert_proxy_log_columns(
             &state.db,
-            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+            aidog_logs::ProxyLogColumns::from_log(&log, false, false),
         )
         .await
         .unwrap();
         state
             .log_snapshots
-            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+            .insert(id.to_string(), aidog_logs::ProxyLogColumns::from_log(&log, false, false));
 
         // 典型 anthropic 透传尾块：message_delta + message_stop，无 [DONE]
         let tail = "event: message_delta\ndata: {\"type\":\"message_delta\"}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
@@ -377,15 +377,15 @@ use super::*;
         let state = flush_test_state(db.clone());
         let id = "flush_drop_0001";
         let log = placeholder_stream_log(id);
-        super::super::db::insert_proxy_log_columns(
+        aidog_logs::insert_proxy_log_columns(
             &state.db,
-            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+            aidog_logs::ProxyLogColumns::from_log(&log, false, false),
         )
         .await
         .unwrap();
         state
             .log_snapshots
-            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+            .insert(id.to_string(), aidog_logs::ProxyLogColumns::from_log(&log, false, false));
 
         // 仅有部分内容，无 [DONE]/message_stop（模拟中途断裂 / 客户端断连）。
         let chunks = ["event: message_start\ndata: {\"type\":\"message_start\"}\n\n", "data: {\"delta\":{\"text\":\"partial\"}}\n\n"];
@@ -406,15 +406,15 @@ use super::*;
         let state = flush_test_state(db.clone());
         let id = "flush_empty_0001";
         let log = placeholder_stream_log(id);
-        super::super::db::insert_proxy_log_columns(
+        aidog_logs::insert_proxy_log_columns(
             &state.db,
-            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+            aidog_logs::ProxyLogColumns::from_log(&log, false, false),
         )
         .await
         .unwrap();
         state
             .log_snapshots
-            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+            .insert(id.to_string(), aidog_logs::ProxyLogColumns::from_log(&log, false, false));
 
         let guard = make_guard(&state, log, &[], 0); // 零 upstream chunk
         drop(guard); // Drop 兜底 flush

@@ -1,6 +1,7 @@
 use crate::shared::*;
 use crate::hooks::{generate_hook_scripts, enabled_hook_events};
-use crate::gateway::{self, db::Db};
+use crate::gateway;
+use aidog_db::Db;
 use tauri::State;
 
 
@@ -140,7 +141,7 @@ pub async fn write_default_claude_settings(
     collect_leaf_paths(&base, "", &mut managed);
 
     // 写托管快照入 DB（KV 复用，单一事实源；前端 invoke 读）。
-    gateway::db::set_setting(
+    aidog_db::set_setting(
         db,
         gateway::models::SetSettingInput {
             scope: MANAGED_SCOPE.to_string(),
@@ -198,7 +199,7 @@ pub fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
-    let groups = gateway::db::list_groups(db).await?;
+    let groups = aidog_db::list_groups(db).await?;
 
     let aidog_dir = dirs::home_dir()
         .ok_or("cannot resolve home directory")?
@@ -210,7 +211,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 
     // Load base claude code config from app settings (scope=global, key=claude_code)
     // Fallback to compiled-in defaults when DB has no config
-    let base_config: serde_json::Value = gateway::db::get_setting(db, "global", "claude_code").await
+    let base_config: serde_json::Value = aidog_db::get_setting(db, "global", "claude_code").await
         .ok()
         .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
@@ -410,7 +411,7 @@ pub async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Re
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn get_managed_paths(db: State<'_, Db>) -> Result<Vec<String>, String> {
     tracing::debug!(command = "get_managed_paths", "command invoked");
-    let v = gateway::db::get_setting(&db, MANAGED_SCOPE, MANAGED_KEY).await?;
+    let v = aidog_db::get_setting(&db, MANAGED_SCOPE, MANAGED_KEY).await?;
     Ok(v.and_then(|val| val.as_array().map(|arr| {
         arr.iter()
             .filter_map(|x| x.as_str().map(|s| s.to_string()))
