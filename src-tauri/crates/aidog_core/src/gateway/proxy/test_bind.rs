@@ -3,7 +3,7 @@
 use aidog_db as db;
 use super::*;
 use aidog_db::test_support::test_db;
-use crate::gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 
 /// 端口被占用时 `start_proxy` 必须直接返回 Err（不再 +1 递增重试），且错误可判别为
 /// 「端口占用」（`ProxyBindError::AddrInUse`，非靠字符串前缀匹配）。

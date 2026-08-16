@@ -1,5 +1,3 @@
-pub mod adapter;
-pub mod backup;
 pub mod billing;
 pub mod codex;
 pub mod estimate;
@@ -8,7 +6,6 @@ pub mod i18n;
 pub mod log_util { pub use aidog_db::log_util::*; }
 pub mod logo_sync;
 pub mod manual_budget;
-pub mod middleware;
 pub mod models { pub use aidog_db::models::*; }
 pub mod peak_hours;
 pub(crate) mod presets_cache {

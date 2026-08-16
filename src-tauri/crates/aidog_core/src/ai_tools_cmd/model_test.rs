@@ -1,4 +1,5 @@
-use crate::gateway::{self, adapter};
+use crate::gateway;
+use aidog_adapter as adapter;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;
@@ -10,7 +11,7 @@ struct TestContext {
     model: String,
     prompt: String,
     expected: Option<String>,
-    chat_req: gateway::adapter::ChatRequest,
+    chat_req: aidog_adapter::ChatRequest,
 }
 
 // ── HTTP 请求上下文：请求准备阶段的聚合 ──
@@ -423,7 +424,7 @@ pub(crate) fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
 #[cfg(test)]
 mod test_prepare_http_request {
     use super::*;
-    use crate::gateway::adapter::{ChatRequest, Message, MessageContent, Role};
+    use aidog_adapter::{ChatRequest, Message, MessageContent, Role};
 
     fn make_ctx(base_url: &str, endpoints: Vec<gateway::models::PlatformEndpoint>) -> TestContext {
         let platform = serde_json::from_value(serde_json::json!({

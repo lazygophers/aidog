@@ -21,6 +21,8 @@ aidog_skills = { path = "../aidog_skills" }
 aidog_mitm = { path = "../aidog_mitm" }
 aidog_notification = { path = "../aidog_notification" }
 aidog_hooks = { path = "../aidog_hooks" }
+aidog_adapter = { path = "../aidog_adapter" }
+aidog_middleware = { path = "../aidog_middleware" }
 aidog_stats = { path = "../aidog_stats" }
 serde_yml = { workspace = true }
 toml = { workspace = true }

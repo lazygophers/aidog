@@ -458,7 +458,7 @@ pub(crate) async fn handle_devin(
 ///   - content 为 array（multi-block）时取 text block 拼接，非 text block 丢弃 + warn
 ///   - 空消息（无任何 text） → Err，调用方返 400
 pub(crate) fn build_prompt(chat_req: &ChatRequest) -> Result<String, String> {
-    use crate::gateway::adapter::types::{Role, SystemContent};
+    use aidog_adapter::types::{Role, SystemContent};
     let mut parts: Vec<String> = Vec::new();
 
     // 顶层 system（Anthropic-style 独立字段）
@@ -506,8 +506,8 @@ pub(crate) fn build_prompt(chat_req: &ChatRequest) -> Result<String, String> {
 }
 
 /// 从 MessageContent 取文本：Text 原样；Blocks 拼 text block，非 text 丢弃 + warn。
-pub(crate) fn extract_message_text(content: &crate::gateway::adapter::types::MessageContent) -> String {
-    use crate::gateway::adapter::types::{ContentBlock, MessageContent};
+pub(crate) fn extract_message_text(content: &aidog_adapter::types::MessageContent) -> String {
+    use aidog_adapter::types::{ContentBlock, MessageContent};
     match content {
         MessageContent::Text(s) => s.clone(),
         MessageContent::Blocks(blocks) => {
@@ -869,7 +869,7 @@ async fn stream_terminal_response(
     start: std::time::Instant,
     client_session_id: &str,
 ) -> Response {
-    use crate::gateway::adapter::converter::to_client_sse;
+    use aidog_adapter::converter::to_client_sse;
 
     let sse_id = format!("chatcmpl-{session_id}");
     // ── 构造 SSE chunk 序列（Start → N×Delta → Stop/Error）──
@@ -940,7 +940,7 @@ pub(crate) fn build_devin_sse_seq(
     messages: &[String],
     finish_reason: &str,
 ) -> Vec<String> {
-    use crate::gateway::adapter::converter::to_client_sse;
+    use aidog_adapter::converter::to_client_sse;
     let mut out: Vec<String> = Vec::new();
     if let Some(s) = to_client_sse(
         &ChatStreamEvent::Start { id: sse_id.to_string(), model: model.to_string() },
@@ -983,7 +983,7 @@ pub(crate) fn sse_error_chunk(source_protocol: &Protocol, msg: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::adapter::types::{
+    use aidog_adapter::types::{
         ChatRequest, ContentBlock, Message, MessageContent, Role, SystemContent,
     };
     use serde_json::json;

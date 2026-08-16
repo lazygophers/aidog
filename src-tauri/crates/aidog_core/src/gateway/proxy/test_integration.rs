@@ -4,7 +4,7 @@
 
 use super::*;
 use aidog_db::test_support::test_db;
-use crate::gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
 use axum::body::Body;
 use axum::http::Request as HttpRequest;

@@ -7,7 +7,7 @@ use aidog_core::gateway;
 use aidog_db::Db;
 use aidog_core::logging;
 use aidog_core::shared::{aidog_data_dir, load_proxy_settings, ProxyHandle, ProxySettings};
-use aidog_core::gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 use aidog_core::system_cmd::app_log::{load_app_log_settings_from_db, migrate_log_settings_file_to_db};
 use aidog_core::sync_settings::try_sync_settings;
 use aidog_core::ai_tools_cmd::coding_tools::ensure_default_coding_tools_settings;
@@ -197,7 +197,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             app.manage(ProxyHandle(StdMutex::new(None)));
 
             // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
-            gateway::backup::spawn_scheduler(app.handle().clone());
+            aidog_backup::spawn_scheduler(app.handle().clone());
 
             // Protocol logo 后台批量同步：启动时预热 `~/.aidog/logos/<protocol>.png`，
             // 三路 fallback（simpleicons → favicon → clearbit），缓存命中跳过，不阻塞启动。

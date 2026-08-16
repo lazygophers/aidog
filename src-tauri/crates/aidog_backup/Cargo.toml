@@ -1,0 +1,26 @@
+[package]
+name = "aidog_backup"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_backup：备份域（调度器 + 加密导出/导入命令，拆自 aidog_core::gateway::backup 与
+# system_cmd::backup，2026-08-16）。collect/encrypt 复用 aidog_core::gateway::import_export。
+[dependencies]
+aidog_core = { path = "../aidog_core" }
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+tauri = { workspace = true }
+tokio = { workspace = true }
+dirs = { workspace = true }
+aidog_notification = { path = "../aidog_notification" }
+
+[dev-dependencies]
+tokio = { workspace = true }
+dirs = { workspace = true }
+tempfile = { workspace = true }
+aidog_stats = { path = "../aidog_stats" }

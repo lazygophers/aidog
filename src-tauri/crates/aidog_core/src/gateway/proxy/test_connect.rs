@@ -3,7 +3,7 @@
 //! + 根因回归门：authority-form URI target 解析（修复前 path() 返空 → 502，修复后 200）。
 use super::*;
 use aidog_db::test_support;
-use crate::gateway::middleware::MiddlewareEngine;
+use aidog_middleware::MiddlewareEngine;
 use crate::gateway::models::{CreatePlatform, Protocol};
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
@@ -69,7 +69,7 @@ async fn upsert_connect_log_writes_http_connect_row() {
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
-        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::default()),
+        middleware: Arc::new(aidog_middleware::MiddlewareEngine::default()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
@@ -442,7 +442,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
-        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
@@ -521,7 +521,7 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
-        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
@@ -685,7 +685,7 @@ async fn connect_failure_records_breaker_fail_count() {
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
-        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
@@ -745,7 +745,7 @@ async fn connect_failure_sets_platform_last_error() {
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
         app: None,
-        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
