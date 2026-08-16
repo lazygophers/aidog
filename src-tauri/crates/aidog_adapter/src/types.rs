@@ -19,6 +19,10 @@ pub struct ChatRequest {
     pub tools: Option<Vec<Tool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<ToolChoice>,
+    /// 思考预算 tokens（Anthropic thinking.budget_tokens / Gemini thinkingBudget /
+    /// OpenAI reasoning_effort 三家的统一映射；None = 未开启思考）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_budget: Option<u32>,
     /// 额外参数（协议特有字段透传）
     #[serde(flatten)]
     pub extra: Option<serde_json::Value>,

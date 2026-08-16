@@ -549,3 +549,134 @@ fn ticket05_gemini_tools_to_openai() {
     let tool_msg = msgs.iter().find(|m| m["role"] == "tool").expect("tool message");
     assert_eq!(tool_msg["tool_call_id"], tc["id"], "tool_call_id 须与自生成 id 一致");
 }
+
+// ─── ticket 06: thinking / reasoning 双向 ───
+
+/// Anthropic thinking 开关 → 中立 → Gemini thinkingBudget / OpenAI reasoning_effort
+#[test]
+fn ticket06_anthropic_thinking_switch_outbound() {
+    let body = json!({
+        "model": "claude-x", "max_tokens": 1024,
+        "thinking": { "type": "enabled", "budget_tokens": 10240 },
+        "messages": [{ "role": "user", "content": "hi" }]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    assert_eq!(req.thinking_budget, Some(10240), "入站解析须提取 budget_tokens");
+
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], 10240);
+
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(o["reasoning_effort"], "high", "10240 > 8192 → high");
+}
+
+/// OpenAI reasoning_effort → 中立 → Anthropic thinking.budget_tokens / Gemini thinkingBudget
+#[test]
+fn ticket06_openai_reasoning_effort_outbound() {
+    let body = json!({
+        "model": "gpt-x", "reasoning_effort": "low",
+        "messages": [{ "role": "user", "content": "hi" }]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).unwrap();
+    assert!(req.thinking_budget.is_some(), "low → budget 映射");
+
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"]["type"], "enabled");
+    assert_eq!(a["thinking"]["budget_tokens"], req.thinking_budget.unwrap());
+
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], req.thinking_budget.unwrap());
+}
+
+/// Gemini thinkingBudget → 中立 → Anthropic thinking.budget_tokens
+#[test]
+fn ticket06_gemini_thinking_budget_outbound() {
+    let body = json!({
+        "contents": [{ "role": "user", "parts": [{ "text": "hi" }] }],
+        "generationConfig": { "thinkingConfig": { "thinkingBudget": 8192 } }
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).unwrap();
+    assert_eq!(req.thinking_budget, Some(8192));
+
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"]["budget_tokens"], 8192);
+}
+
+/// 无 thinking 开关的请求不回归：不出 thinking / thinkingConfig / reasoning_effort 字段
+#[test]
+fn ticket06_no_thinking_no_fields() {
+    let body = json!({
+        "model": "claude-x", "max_tokens": 100,
+        "messages": [{ "role": "user", "content": "hi" }]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    assert_eq!(req.thinking_budget, None);
+
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert!(a.get("thinking").is_none());
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert!(g["generationConfig"].get("thinkingConfig").is_none() || g["generationConfig"]["thinkingConfig"].is_null());
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert!(o.get("reasoning_effort").is_none());
+}
+
+/// thinking 内容 block：Anthropic 带 signature round-trip 不丢；转 Gemini 成 thought part
+#[test]
+fn ticket06_thinking_block_anthropic_roundtrip_and_gemini() {
+    let body = json!({
+        "model": "claude-x", "max_tokens": 1024,
+        "messages": [
+            { "role": "user", "content": "hi" },
+            { "role": "assistant", "content": [
+                { "type": "thinking", "thinking": "pondering", "signature": "sig-123" },
+                { "type": "text", "text": "answer" }
+            ]},
+            { "role": "user", "content": "go on" }
+        ]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+
+    // Anthropic round-trip：thinking block + signature 原样保留
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    let asst = a["messages"].as_array().unwrap().iter().find(|m| m["role"] == "assistant").unwrap();
+    let think_block = a_thinking_block(&asst["content"]);
+    assert_eq!(think_block["thinking"], "pondering");
+    assert_eq!(think_block["signature"], "sig-123", "signature 透传不丢");
+
+    // → Gemini：thought part（signature 丢，Gemini 无此概念）
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let contents = g["contents"].as_array().unwrap();
+    let model_turn = contents.iter().find(|c| c["role"] == "model").unwrap();
+    let thought = model_turn["parts"].as_array().unwrap().iter()
+        .find(|p| p.get("thought").and_then(|v| v.as_bool()).unwrap_or(false)).unwrap();
+    assert_eq!(thought["text"], "pondering");
+}
+
+/// Gemini thought part（请求侧历史 turn）→ 中立 thinking block；
+/// 出站 Anthropic 无 signature 降级不回传、不报错（Anthropic 回传 thinking 需有效签名）
+#[test]
+fn ticket06_gemini_thought_part_to_anthropic() {
+    let body = json!({
+        "contents": [
+            { "role": "user", "parts": [{ "text": "hi" }] },
+            { "role": "model", "parts": [{ "thought": true, "text": "pondering" }] },
+            { "role": "user", "parts": [{ "text": "go" }] }
+        ]
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).unwrap();
+    // 中立层：thought part 保留为 thinking block
+    assert!(req.messages.iter().any(|m| m.content.blocks().iter().any(|b|
+        matches!(b, ContentBlock::Unknown(v) if v["type"] == "thinking" && v["thinking"] == "pondering"))),
+        "thought part 须映射中立 thinking block");
+
+    // 出站 Anthropic：无 signature 降级不回传、不报错
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    let think_any = a["messages"].as_array().unwrap().iter().any(|m| {
+        m["content"].as_array().map(|arr| arr.iter().any(|b| b["type"] == "thinking")).unwrap_or(false)
+    });
+    assert!(!think_any, "无 signature thinking block 降级不回传");
+}
+
+fn a_thinking_block(content: &Value) -> &Value {
+    content.as_array().unwrap().iter().find(|b| b["type"] == "thinking").unwrap()
+}

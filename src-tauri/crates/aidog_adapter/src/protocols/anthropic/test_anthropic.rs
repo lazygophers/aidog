@@ -4,6 +4,7 @@ use crate::protocols::anthropic::convert::*;
 
 fn req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
+            thinking_budget: None,
         model: "claude".into(),
         messages,
         system: None,

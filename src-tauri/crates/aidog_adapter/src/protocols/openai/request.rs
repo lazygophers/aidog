@@ -158,6 +158,12 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         stream: req.stream,
         tools,
         tool_choice,
+        // budget → effort 阈值映射（与 from_openai 反向映射共用档位）
+        reasoning_effort: req.thinking_budget.map(|b| match b {
+            0..=4096 => "low",
+            4097..=8192 => "medium",
+            _ => "high",
+        }.to_string()),
     }
 }
 

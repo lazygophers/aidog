@@ -25,6 +25,9 @@ pub struct GeminiContent {
 pub struct GeminiPart {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
+    /// thought=true 标记 reasoning part（Gemini 思考链）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thought: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub function_call: Option<GeminiFunctionCall>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -52,6 +55,14 @@ pub struct GeminiGenerationConfig {
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking_config: Option<GeminiThinkingConfig>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GeminiThinkingConfig {
+    pub thinking_budget: u32,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -81,7 +92,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         };
         GeminiContent {
             role: "user".to_string(),
-            parts: vec![GeminiPart { text: Some(text), function_call: None, function_response: None }],
+            parts: vec![GeminiPart { text: Some(text), thought: None, function_call: None, function_response: None }],
         }
     });
 
@@ -95,12 +106,13 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
 
         let parts: Vec<GeminiPart> = match &m.content {
             MessageContent::Text(s) => {
-                vec![GeminiPart { text: Some(s.clone()), function_call: None, function_response: None }]
+                vec![GeminiPart { text: Some(s.clone()), thought: None, function_call: None, function_response: None }]
             }
             MessageContent::Blocks(blocks) => {
                 blocks.iter().map(|b| match b {
                     ContentBlock::Text { text } => GeminiPart {
                         text: Some(text.clone()), function_call: None, function_response: None,
+                        thought: None,
                     },
                     ContentBlock::ToolUse { name, input, .. } => GeminiPart {
                         text: None,
@@ -109,6 +121,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                             args: input.clone(),
                         }),
                         function_response: None,
+                        thought: None,
                     },
                     ContentBlock::ToolResult { tool_use_id, content, name } => GeminiPart {
                         text: None,
@@ -118,12 +131,22 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                             name: name.clone().unwrap_or_else(|| tool_use_id.clone()),
                             response: serde_json::json!({ "result": content }),
                         }),
+                        thought: None,
                     },
-                    // 未覆盖 block(thinking/image/…): 尝试取 text，否则空 part(保留消息位)
+                    // thinking block → thought part（signature 丢，Gemini 无此概念）
+                    ContentBlock::Unknown(v)
+                        if v.get("type").and_then(|t| t.as_str()) == Some("thinking") => GeminiPart {
+                        text: v.get("thinking").and_then(|t| t.as_str()).map(|s| s.to_string()),
+                        thought: Some(true),
+                        function_call: None,
+                        function_response: None,
+                    },
+                    // 未覆盖 block(image/…): 尝试取 text，否则空 part(保留消息位)
                     ContentBlock::Unknown(v) => GeminiPart {
                         text: v.get("text").and_then(|t| t.as_str()).map(|s| s.to_string()),
                         function_call: None,
                         function_response: None,
+                        thought: None,
                     },
                 }).collect()
             }
@@ -142,11 +165,13 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         }]
     });
 
-    let generation_config = if req.max_tokens.is_some() || req.temperature.is_some() || req.top_p.is_some() {
+    let generation_config = if req.max_tokens.is_some() || req.temperature.is_some() || req.top_p.is_some()
+        || req.thinking_budget.is_some() {
         Some(GeminiGenerationConfig {
             max_output_tokens: req.max_tokens,
             temperature: req.temperature,
             top_p: req.top_p,
+            thinking_config: req.thinking_budget.map(|b| GeminiThinkingConfig { thinking_budget: b }),
         })
     } else {
         None
@@ -357,9 +382,17 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
 
         let parts = c.get("parts")?.as_array()?;
         let mut text_parts = Vec::new();
+        let mut thinking_blocks: Vec<ContentBlock> = Vec::new();
         for p in parts {
             if let Some(t) = p.get("text").and_then(|v| v.as_str()) {
-                text_parts.push(t.to_string());
+                if p.get("thought").and_then(|v| v.as_bool()).unwrap_or(false) {
+                    // thought part → 中立 thinking block（无 signature；回传 Anthropic 侧降级不回传）
+                    thinking_blocks.push(ContentBlock::Unknown(serde_json::json!({
+                        "type": "thinking", "thinking": t,
+                    })));
+                } else {
+                    text_parts.push(t.to_string());
+                }
             }
         }
         // 工具 part：functionCall(Gemini 无 id，按序自生成并记 name→id) /
@@ -387,10 +420,11 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 });
             }
         }
-        if !tool_blocks.is_empty() {
+        if !tool_blocks.is_empty() || !thinking_blocks.is_empty() {
             let mut blocks: Vec<ContentBlock> = text_parts.into_iter()
                 .map(|t| ContentBlock::Text { text: t })
                 .collect();
+            blocks.extend(thinking_blocks);
             blocks.extend(tool_blocks);
             messages.push(Message { role, content: MessageContent::Blocks(blocks) });
             continue;
@@ -406,6 +440,11 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
     }
 
     let gen_config = body.get("generationConfig");
+    let thinking_budget = gen_config
+        .and_then(|g| g.get("thinkingConfig"))
+        .and_then(|t| t.get("thinkingBudget"))
+        .and_then(|v| v.as_u64())
+        .map(|v| v as u32);
     let max_tokens = gen_config.and_then(|g| g.get("maxOutputTokens")).and_then(|v| v.as_u64()).map(|v| v as u32);
     let temperature = gen_config.and_then(|g| g.get("temperature")).and_then(|v| v.as_f64()).map(|v| v as f32);
     let top_p = gen_config.and_then(|g| g.get("topP")).and_then(|v| v.as_f64()).map(|v| v as f32);
@@ -426,6 +465,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         .filter(|t| !t.is_empty());
     Some(ChatRequest {
         model: String::new(),
+        thinking_budget,
         messages,
         system: system.map(SystemContent::Text),
         max_tokens,

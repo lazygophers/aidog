@@ -5,6 +5,7 @@ use crate::protocols::openai_completions::convert::*;
 #[test]
 fn to_completions_joins_messages() {
     let req = ChatRequest {
+            thinking_budget: None,
         model: "m".into(),
         messages: vec![
             Message { role: Role::System, content: MessageContent::Text("sys".into()) },

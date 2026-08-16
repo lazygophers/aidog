@@ -19,6 +19,8 @@ pub struct AnthropicRequest {
     pub tools: Option<Vec<AnthropicTool>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thinking: Option<Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -59,6 +61,11 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
                             ContentBlock::Text { .. } | ContentBlock::ToolUse { .. } | ContentBlock::ToolResult { .. } => {
                                 Some(serde_json::to_value(b).unwrap())
                             }
+                            // thinking block 带 signature 时原样透传（回传 Anthropic 多轮需有效签名）；
+                            // 无 signature（Gemini thought part 等来源）不回传，降级不报错
+                            ContentBlock::Unknown(v)
+                                if v.get("type").and_then(|t| t.as_str()) == Some("thinking")
+                                    && v.get("signature").is_some() => Some(v.clone()),
                             ContentBlock::Unknown(_) => None,
                         })
                         .collect();
@@ -91,6 +98,9 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
         top_p: req.top_p,
         stream: req.stream,
         tools,
+        thinking: req.thinking_budget.map(|b| {
+            serde_json::json!({ "type": "enabled", "budget_tokens": b })
+        }),
         tool_choice: req.tool_choice.as_ref().map(|tc| {
             match tc {
                 ToolChoice::Auto => serde_json::json!({"type": "auto"}),

@@ -293,6 +293,7 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         .map(|s| SystemContent::Text(s.to_string()));
 
     Some(ChatRequest {
+        thinking_budget: None,
         model,
         messages,
         system,
@@ -437,6 +438,7 @@ mod tests {
     fn to_responses_basic() {
         use crate::types::{MessageContent, Role};
         let req = ChatRequest {
+            thinking_budget: None,
             model: "gpt-5".into(),
             messages: vec![
                 crate::types::Message {

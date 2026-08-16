@@ -4,6 +4,7 @@ use crate::protocols::gemini::convert::*;
 
 fn req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
+            thinking_budget: None,
         model: "gemini".into(),
         messages,
         system: None,
@@ -45,7 +46,7 @@ fn to_gemini_roles_and_blocks() {
             role: Role::Tool,
             content: MessageContent::Blocks(vec![
                 ContentBlock::ToolResult { tool_use_id: "f".into(), content: "res".into(), name: None },
-                ContentBlock::Unknown(json!({"type": "thinking", "text": "th"})),
+                ContentBlock::Unknown(json!({"type": "thinking", "thinking": "th"})),
             ]),
         },
     ]);
@@ -56,6 +57,7 @@ fn to_gemini_roles_and_blocks() {
     assert!(g.contents[1].parts[1].function_call.is_some());
     assert!(g.contents[2].parts[0].function_response.is_some());
     assert_eq!(g.contents[2].parts[1].text.as_deref(), Some("th"));
+    assert_eq!(g.contents[2].parts[1].thought, Some(true), "thinking block → thought part");
 }
 
 #[test]

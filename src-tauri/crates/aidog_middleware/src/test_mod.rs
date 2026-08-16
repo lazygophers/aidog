@@ -46,6 +46,7 @@ pub(crate) fn user_msg(text: &str) -> Message {
 
 pub(crate) fn mk_req(messages: Vec<Message>, system: Option<&str>) -> ChatRequest {
     ChatRequest {
+        thinking_budget: None,
         model: "m".to_string(),
         messages,
         system: system.map(|s| SystemContent::Text(s.to_string())),

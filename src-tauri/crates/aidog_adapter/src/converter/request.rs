@@ -77,7 +77,17 @@ pub fn parse_incoming_request(source_protocol: &Protocol, body: &Value) -> Resul
         Protocol::Gemini => super::super::gemini::from_gemini(body).ok_or_else(|| "gemini from_gemini returned None".to_string()),
         // Anthropic / 其余非 wire 平台变体: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化;
         // ContentBlock 已对未知类型(thinking/image/…)降级 Unknown, 失败时返回 serde 错误细节供诊断。
-        _ => serde_json::from_value(body.clone()).map_err(|e| e.to_string()),
+        // thinking.budget_tokens 落在 serde(flatten) extra 内，反序列化后提取到 thinking_budget。
+        _ => {
+            let mut req: ChatRequest = serde_json::from_value(body.clone()).map_err(|e| e.to_string())?;
+            req.thinking_budget = req.extra
+                .as_ref()
+                .and_then(|e| e.get("thinking"))
+                .and_then(|t| t.get("budget_tokens"))
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+            Ok(req)
+        }
     }
 }
 

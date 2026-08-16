@@ -4,9 +4,9 @@
 
 **Blocked by:** 01 — 地基与回归网。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：三家请求开关映射双向断言
-- [ ] fixture：thinking 内容 block 双向转换断言（非流式）
-- [ ] signature 透传：Anthropic→中立→Anthropic round-trip 带 signature 不丢；无 signature 时不回传 thinking 不报错
-- [ ] cargo test / make lint 全绿
+- [x] fixture：三家请求开关映射双向断言
+- [x] fixture：thinking 内容 block 双向转换断言（非流式）
+- [x] signature 透传：Anthropic→中立→Anthropic round-trip 带 signature 不丢；无 signature 时不回传 thinking 不报错
+- [x] cargo test / make lint 全绿
