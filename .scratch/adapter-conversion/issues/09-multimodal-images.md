@@ -4,8 +4,8 @@
 
 **Blocked by:** 01 — 地基（Content block 承载）。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：三协议带图请求互转，图片 block 逐字段映射断言
-- [ ] data URL ↔ (media_type, base64) 拆解/重组 round-trip
-- [ ] 纯文本请求不回归；cargo test / make lint 全绿
+- [x] fixture：三协议带图请求互转，图片 block 逐字段映射断言
+- [x] data URL ↔ (media_type, base64) 拆解/重组 round-trip
+- [x] 纯文本请求不回归；cargo test / make lint 全绿

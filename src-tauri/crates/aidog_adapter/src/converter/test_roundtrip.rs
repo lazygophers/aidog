@@ -680,3 +680,92 @@ fn ticket06_gemini_thought_part_to_anthropic() {
 fn a_thinking_block(content: &Value) -> &Value {
     content.as_array().unwrap().iter().find(|b| b["type"] == "thinking").unwrap()
 }
+
+// ─── ticket 09: 多模态图片双向 ───
+
+/// OpenAI image_url(data URL / http url) → 中立 → Anthropic image.source / Gemini inlineData
+#[test]
+fn ticket09_openai_image_outbound() {
+    let body = json!({
+        "model": "gpt-x",
+        "messages": [{ "role": "user", "content": [
+            { "type": "text", "text": "看图" },
+            { "type": "image_url", "image_url": { "url": "data:image/png;base64,QUJD" } },
+            { "type": "image_url", "image_url": { "url": "https://example.com/cat.jpg" } }
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).unwrap();
+
+    // → Anthropic：base64 拆解 source + url source
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    let arr = a["messages"][0]["content"].as_array().unwrap();
+    let imgs: Vec<&Value> = arr.iter().filter(|b| b["type"] == "image").collect();
+    assert_eq!(imgs.len(), 2, "两张图都要保留");
+    assert_eq!(imgs[0]["source"]["type"], "base64");
+    assert_eq!(imgs[0]["source"]["media_type"], "image/png");
+    assert_eq!(imgs[0]["source"]["data"], "QUJD");
+    assert_eq!(imgs[1]["source"]["type"], "url");
+    assert_eq!(imgs[1]["source"]["url"], "https://example.com/cat.jpg");
+
+    // → Gemini：inlineData + fileData
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let parts = g["contents"][0]["parts"].as_array().unwrap();
+    assert_eq!(parts[0]["text"], "看图");
+    assert_eq!(parts[1]["inlineData"]["mimeType"], "image/png");
+    assert_eq!(parts[1]["inlineData"]["data"], "QUJD");
+    assert_eq!(parts[2]["fileData"]["fileUri"], "https://example.com/cat.jpg");
+}
+
+/// Anthropic image(base64/url) → 中立 → OpenAI image_url(data URL 重组 / 原 url)
+#[test]
+fn ticket09_anthropic_image_to_openai() {
+    let body = json!({
+        "model": "claude-x", "max_tokens": 100,
+        "messages": [{ "role": "user", "content": [
+            { "type": "text", "text": "look" },
+            { "type": "image", "source": { "type": "base64", "media_type": "image/jpeg", "data": "RGVG" } },
+            { "type": "image", "source": { "type": "url", "url": "https://example.com/dog.png" } }
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    let arr = o["messages"][0]["content"].as_array().expect("带图消息须用数组 content");
+    let imgs: Vec<&Value> = arr.iter().filter(|b| b["type"] == "image_url").collect();
+    assert_eq!(imgs.len(), 2);
+    assert_eq!(imgs[0]["image_url"]["url"], "data:image/jpeg;base64,RGVG", "base64 须重组 data URL");
+    assert_eq!(imgs[1]["image_url"]["url"], "https://example.com/dog.png");
+}
+
+/// Gemini inlineData/fileData → 中立 → Anthropic image source
+#[test]
+fn ticket09_gemini_image_to_anthropic() {
+    let body = json!({
+        "contents": [{ "role": "user", "parts": [
+            { "text": "look" },
+            { "inlineData": { "mimeType": "image/webp", "data": "V0VQ" } },
+            { "fileData": { "mimeType": "image/png", "fileUri": "https://example.com/x.png" } }
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).unwrap();
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    let arr = a["messages"][0]["content"].as_array().unwrap();
+    let imgs: Vec<&Value> = arr.iter().filter(|b| b["type"] == "image").collect();
+    assert_eq!(imgs.len(), 2);
+    assert_eq!(imgs[0]["source"]["media_type"], "image/webp");
+    assert_eq!(imgs[0]["source"]["data"], "V0VQ");
+    assert_eq!(imgs[1]["source"]["url"], "https://example.com/x.png");
+}
+
+/// 纯文本请求不回归（ticket 01 回归网已覆盖，此处补 openai 数组纯文本）
+#[test]
+fn ticket09_text_only_no_regression() {
+    let body = json!({
+        "model": "gpt-x",
+        "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hi" }] }]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).unwrap();
+    assert_eq!(req.messages[0].content.as_text(), "hi");
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(o["messages"][0]["content"], "hi", "纯文本数组折叠回字符串");
+}
+

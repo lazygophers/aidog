@@ -66,6 +66,9 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
                             ContentBlock::Unknown(v)
                                 if v.get("type").and_then(|t| t.as_str()) == Some("thinking")
                                     && v.get("signature").is_some() => Some(v.clone()),
+                            // image block（中立规范 = Anthropic image 结构）原样透传
+                            ContentBlock::Unknown(v)
+                                if v.get("type").and_then(|t| t.as_str()) == Some("image") => Some(v.clone()),
                             ContentBlock::Unknown(_) => None,
                         })
                         .collect();

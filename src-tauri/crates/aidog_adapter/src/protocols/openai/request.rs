@@ -111,6 +111,42 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                     continue;
                 }
 
+                // image block → OpenAI 多模态数组 content（text 段 + image_url 段）
+                let image_parts: Vec<Value> = blocks.iter()
+                    .filter_map(|b| match b {
+                        ContentBlock::Unknown(v) if v.get("type").and_then(|t| t.as_str()) == Some("image") => {
+                            let src = v.get("source")?;
+                            let url = match src.get("type").and_then(|t| t.as_str()) {
+                                // base64 source 重组 data URL
+                                Some("base64") => format!(
+                                    "data:{};base64,{}",
+                                    src.get("media_type").and_then(|m| m.as_str()).unwrap_or("application/octet-stream"),
+                                    src.get("data").and_then(|d| d.as_str()).unwrap_or(""),
+                                ),
+                                Some("url") => src.get("url").and_then(|u| u.as_str())?.to_string(),
+                                _ => return None,
+                            };
+                            Some(serde_json::json!({ "type": "image_url", "image_url": { "url": url } }))
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                if !image_parts.is_empty() {
+                    let mut content_arr: Vec<Value> = Vec::new();
+                    if let Some(tc) = text_content.clone()
+                        && let Value::String(t) = &tc && !t.is_empty() {
+                            content_arr.push(serde_json::json!({ "type": "text", "text": t }));
+                        }
+                    content_arr.extend(image_parts);
+                    messages.push(OpenAIMessage {
+                        role: role.to_string(),
+                        content: Some(Value::Array(content_arr)),
+                        tool_calls: None,
+                        tool_call_id: None,
+                    });
+                    continue;
+                }
+
                 // 普通文本块。若全是 Unknown(thinking 等)致 text_content 为空,
                 // 跳过该消息,避免产出既无 content 又无 tool_calls 的空 message
                 // (OpenAI/Kimi 强校验拒绝空消息 → 400 "Invalid request Error")。
