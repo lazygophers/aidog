@@ -9,6 +9,7 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="settings" state="normal" />
 
+<<<<<<< HEAD
 ## 当前实现
 
 侧栏的 `settings` 入口挂载 `src/pages/AppSettings.tsx`，内含多个 tab。`src/App.tsx` 通过 `settingsTab` 传入当前分区。
@@ -18,3 +19,10 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 ## 文档演示边界
 
 上方演示是固定 fixture，只表示页面状态，不代表真实设置内容。
+=======
+## 主要任务
+
+此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+
+在桌面应用中使用左侧导航进入“系统设置”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+>>>>>>> 9fb0c490

@@ -1,6 +1,10 @@
 ---
 title: Claude Code
+<<<<<<< HEAD
 description: 通过 aidog 同步 Claude Code 配置，并从分组复制启动命令。
+=======
+description: 编辑 Claude Code 配置、Hooks、StatusLine 和分组同步。
+>>>>>>> 9fb0c490
 ---
 
 # Claude Code
@@ -9,6 +13,7 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="claude-code" state="normal" />
 
+<<<<<<< HEAD
 ## 当前实现
 
 Claude Code 集成入口在设置页 `settings/claude` 和 AI 平台/分组的复制启动命令流程，不是要求用户手写 `export`。
@@ -20,3 +25,10 @@ StatusLine、Hooks 和默认联动开关属于当前源码内的 Claude Code 集
 ## 文档演示边界
 
 上方演示是固定 fixture，不读取用户的 `~/.claude` 配置。
+=======
+## 主要任务
+
+此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
+
+在桌面应用中使用左侧导航进入“Claude Code”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
+>>>>>>> 9fb0c490

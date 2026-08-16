@@ -6,6 +6,7 @@ description: 用 curl 发送首个请求，并通过代理日志定位分组、�
 # 验证首个请求
 
 ```bash
+<<<<<<< HEAD
 curl http://127.0.0.1:9890/proxy/v1/chat/completions \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <group_key>' \
@@ -13,3 +14,12 @@ curl http://127.0.0.1:9890/proxy/v1/chat/completions \
 ```
 
 收到响应后，在日志页确认状态码、分组、平台、请求模型、实际模型、Token 和费用。失败时依次核对分组 key、候选平台状态、模型映射和代理服务状态。
+=======
+curl http://127.0.0.1:9890/proxy/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: Bearer <group_name>' \
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"只回复 ok"}]}'
+```
+
+收到响应后，在日志页确认状态码、分组、平台、请求模型、实际模型、Token 和费用。失败时依次核对分组名、候选平台状态、模型映射和代理服务状态。
+>>>>>>> 9fb0c490
