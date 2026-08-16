@@ -45,7 +45,7 @@ pub fn fmt_caller(loc: &std::panic::Location<'_>) -> String {
 ///
 /// 目标格式：`exec sql [fn=<file:line> req=<id或-> dur=<x.xms>] sql=<截断后>`。
 /// 取代旧的 `trace` 回调（执行前触发、拿不到耗时），避免同一 SQL 重复输出。
-pub(crate) fn sql_profile_callback(sql: &str, dur: std::time::Duration) {
+pub fn sql_profile_callback(sql: &str, dur: std::time::Duration) {
     let (req, caller) = CURRENT_DB_CTX.with(|c| {
         let c = c.borrow();
         (

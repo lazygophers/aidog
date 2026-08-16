@@ -6,7 +6,7 @@ use rusqlite::{params, Connection, Result as SqlResult};
 
 /// Migrations 20260727-12..18（原 021–052, 日期戳脱锚）。
 /// 自 init_tables 拆出。编号格式 `YYYYMMDD-NN`：日期戳批次 + 库内序号（main 库独立空间）。
-pub(crate) fn run_migrations_late(
+pub fn run_migrations_late(
     conn: &Connection,
     backfill: crate::schema::BackfillFn,
 ) -> SqlResult<()> {
@@ -163,7 +163,7 @@ pub(crate) fn run_migrations_late(
 ///
 /// `_auto_map` stats-agg-to-main-db 后已无使用方（原为 032 stats_agg 回填用，已迁主库
 /// 20260727-16）。参数保留避免改签名波及 init_tables 调用点（s3/s4 层合并时一并清理）。
-pub(crate) fn run_migrations_proxy_log_late(
+pub fn run_migrations_proxy_log_late(
     conn: &Connection,
     _auto_map: &HashMap<String, i64>,
     cpa_pids: &[i64],
@@ -280,7 +280,7 @@ pub(crate) fn run_migrations_proxy_log_late(
 /// `run_migrations_platform_early` 之后调用。fresh install：platform_early 已建现代 schema，
 /// 本函数各 ALTER 因 duplicate column 被 `let _ =` 吞 / 各 PRAGMA 探测分支跳过 → 全幂等空转。
 /// 存量库（经 Phase 3 INSERT OR IGNORE 回填行）：列补齐 + 历史 data 回填逐条重放，幂等。
-pub(crate) fn run_migrations_platform_late(conn: &Connection) -> SqlResult<()> {
+pub fn run_migrations_platform_late(conn: &Connection) -> SqlResult<()> {
                 // Migration 20260727-01 (原 012): Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）。
                 // 根因：Platforms.tsx 预设曾把 kimi coding openai endpoint 配为 codex_tui，
                 // 但 Kimi coding 上游拒绝 Codex（只接 Kimi CLI/Claude Code/Roo Code/Kilo Code）。

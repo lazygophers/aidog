@@ -388,7 +388,7 @@ use super::test_support::*;
         let db = test_db().await;
         let before = list_middleware_rules(&db).await.unwrap().len();
         // 再次跑一遍 init_tables（含 seed），模拟重启
-        db.init_tables().await.unwrap();
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.unwrap();
         let after = list_middleware_rules(&db).await.unwrap().len();
         assert_eq!(before, after, "重启不应重复 seed");
     }
@@ -423,7 +423,7 @@ use super::test_support::*;
         .await
         .unwrap();
         // 重启
-        db.init_tables().await.unwrap();
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.unwrap();
         let after = list_middleware_rules(&db).await.unwrap();
         let secret_after = after.iter().find(|r| r.name == "内置·密钥脱敏").unwrap();
         assert!(!secret_after.enabled, "用户禁用的内置规则重启后不应被重新启用");

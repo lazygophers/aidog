@@ -52,7 +52,7 @@ use super::test_support::*;
         update_platform_quota(&db, p1.id, 100.0, "").await.unwrap();
         let before = list_group_details(&db).await.unwrap()[0].platforms[0].platform.est_balance_remaining;
         assert!((before - 100.0).abs() < 1e-6, "quota 写后缓存须见 100，实得 {before}");
-        crate::gateway::estimate::apply_balance_delta(&db, p1.id, 30.0).await.unwrap();
+        crate::apply_balance_delta(&db, p1.id, 30.0).await.unwrap();
         let after = list_group_details(&db).await.unwrap()[0].platforms[0].platform.est_balance_remaining;
         assert!((after - 70.0).abs() < 1e-6, "apply_balance_delta 后缓存仍旧值 → 失效漏，实得 {after}");
 

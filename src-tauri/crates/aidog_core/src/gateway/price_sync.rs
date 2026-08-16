@@ -5,7 +5,7 @@
 
 use super::db::Db;
 use super::models::PriceSyncResult;
-use std::sync::{Arc, OnceLock};
+use std::sync::Arc;
 
 /// 主源：jsDelivr CDN（master 分支）。CDN 加速 + 边缘缓存，失败/非 200 回退 raw。
 const MODELS_JSON_PRIMARY_URL: &str =
@@ -17,17 +17,7 @@ const MODELS_JSON_FALLBACK_URL: &str =
 
 /// bundled models.json（同一份人工维护信源，编译期内嵌）。DB 未同步时的只读兜底，
 /// 与 `platform-presets.json` 同法（`presets_cache.rs:10-12`），非 Tauri resources。
-const BUNDLED_MODELS: &str = include_str!("../../../../defaults/models.json");
-static BUNDLED: OnceLock<serde_json::Value> = OnceLock::new();
-
-/// bundled models.json 里该模型的 price_data 节点。DB 未同步时的只读兜底
-/// （`model_price.rs::resolve_price`：DB 无该模型行才读，DB 恒优先）。
-pub(crate) fn bundled_model_entry(name: &str) -> Option<&'static serde_json::Value> {
-    BUNDLED
-        .get_or_init(|| serde_json::from_str(BUNDLED_MODELS).unwrap_or_default())
-        .get("models")?
-        .get(name)
-}
+pub use crate::gateway::db::bundled_model_entry;
 
 /// Fetch + parse src-tauri/defaults/models.json，upsert 全部模型（source="github"）。
 ///

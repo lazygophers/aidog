@@ -1,4 +1,5 @@
 use super::*;
+use serde::Serialize;
 use rusqlite::{params, Connection, Result as SqlResult};
 
 /// 含 `deleted_at` 列、纳入每日统一软删清理的表清单。
@@ -15,7 +16,7 @@ use rusqlite::{params, Connection, Result as SqlResult};
 /// platform / "group" / group_platform 见 `SOFT_DELETE_TABLES_PLATFORM`（platform.db）；
 /// proxy_log 表（落 log.db）见 `SOFT_DELETE_TABLES_PROXY_LOG`。
 /// `purge_all_soft_deleted` 各走对应 handle（`call_traced` / `call_platform_traced` / `call_proxy_log_traced`）。
-pub(crate) const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
+pub const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
     // (SQL 标识符（含引号）, map key / 日志名（去引号）) —— 主库 handle
     ("setting", "setting"),
     ("model_price", "model_price"),
@@ -23,7 +24,7 @@ pub(crate) const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
 
 /// platform.db 下的软删表清单（config-db-split：4 表迁 platform.db 后 purge 走 platform handle）。
 /// `cli_proxy_provider` 无 `deleted_at` 列（硬删语义），不在此清单。
-pub(crate) const SOFT_DELETE_TABLES_PLATFORM: &[(&str, &str)] = &[
+pub const SOFT_DELETE_TABLES_PLATFORM: &[(&str, &str)] = &[
     ("platform", "platform"),
     ("\"group\"", "group"),
     ("group_platform", "group_platform"),
@@ -31,7 +32,7 @@ pub(crate) const SOFT_DELETE_TABLES_PLATFORM: &[(&str, &str)] = &[
 
 /// log.db 下的软删表清单（s5：purge 按归属拆 handle）。
 /// `notification` 表无 `deleted_at` 列（s7 范围，本次不动归属），不在此清单也不在主清单。
-pub(crate) const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
+pub const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
     ("proxy_log", "proxy_log"),
 ];
 
@@ -143,7 +144,6 @@ pub fn purge_all_soft_deleted(
     }
 }
 
-pub(crate) use aidog_db::incremental_vacuum_conn;
 
 /// 老库 auto_vacuum 迁移：探测当前 auto_vacuum（0=NONE/1=FULL/2=INCREMENTAL），
 /// 非 INCREMENTAL(2) 则 `PRAGMA auto_vacuum=INCREMENTAL` + `VACUUM`（VACUUM 重建库切换模式），

@@ -5,7 +5,7 @@
 //! config-db-split：cli_proxy_provider 表落 platform.db，访问走 platform handle。
 
 use super::*;
-use crate::gateway::models::{
+use crate::models::{
     parse_cli_proxy_models, serialize_cli_proxy_models, CliProxyProvider, CreateCliProxyProvider,
 };
 use rusqlite::{params, OptionalExtension};

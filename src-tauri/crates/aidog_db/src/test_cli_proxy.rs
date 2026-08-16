@@ -1,7 +1,7 @@
 #![cfg(test)]
 use super::test_support::test_db;
 use super::*;
-use crate::gateway::models::CreateCliProxyProvider;
+use crate::models::CreateCliProxyProvider;
 
 fn input(name: &str) -> CreateCliProxyProvider {
     CreateCliProxyProvider {
@@ -75,7 +75,7 @@ async fn cli_proxy_provider_crud_roundtrip() {
 async fn migration_045_idempotent() {
     let db = test_db().await;
     // 再跑一次 init —— 内部走完整 migration 流（含 20260727-14，原 045），不报错
-    db.init_tables().await.expect("re-init must be idempotent");
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("re-init must be idempotent");
     // 表仍可用
     create_cli_proxy_provider(&db, input("after-reinit"))
         .await

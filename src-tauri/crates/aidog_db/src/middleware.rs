@@ -1,7 +1,7 @@
 use super::*;
 use rusqlite::{params, Result as SqlResult};
 
-use crate::gateway::models::{
+use crate::models::{
     CreateMiddlewareRule, MatchType, MiddlewareRule, RuleAction, RuleScope, RuleType,
     UpdateMiddlewareRule,
 };
@@ -171,29 +171,29 @@ pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Outp
 
 /// 读取中间件总设置（settings scope="middleware" key="settings"）。
 /// 无记录或解析失败 → Default（总开关 ON，各类型默认启用）。C2/C3 执行层调用。
-pub async fn get_middleware_settings(db: &Db) -> crate::gateway::models::MiddlewareSettings {
+pub async fn get_middleware_settings(db: &Db) -> crate::models::MiddlewareSettings {
     match get_setting(db, "middleware", "settings").await {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
-        _ => crate::gateway::models::MiddlewareSettings::default(),
+        _ => crate::models::MiddlewareSettings::default(),
     }
 }
 
 /// 全局调度 + 熔断默认设置（settings scope=`scheduling`, key=`settings`）。
 /// 缺省 / 解析失败 → 默认值（5/1800/2，enabled=true，load_balance）。
-pub async fn get_scheduling_settings(db: &Db) -> crate::gateway::models::SchedulingBreakerSettings {
+pub async fn get_scheduling_settings(db: &Db) -> crate::models::SchedulingBreakerSettings {
     match get_setting(db, "scheduling", "settings").await {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
-        _ => crate::gateway::models::SchedulingBreakerSettings::default(),
+        _ => crate::models::SchedulingBreakerSettings::default(),
     }
 }
 
 // ─── Notification（N1 — 系统通知模块）──────────────────────
 
 /// 通知设置（settings scope=`notification`, key=`settings`）。缺省 / 解析失败 → 默认（全开 CrossPlatform）。
-pub async fn get_notification_settings(db: &Db) -> crate::gateway::models::NotificationSettings {
+pub async fn get_notification_settings(db: &Db) -> crate::models::NotificationSettings {
     match get_setting(db, "notification", "settings").await {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
-        _ => crate::gateway::models::NotificationSettings::default(),
+        _ => crate::models::NotificationSettings::default(),
     }
 }
 
@@ -229,7 +229,7 @@ pub fn insert_notification<'a>(
 pub fn list_notifications(
     db: &Db,
     limit: i64,
-) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::Notification>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<Vec<crate::models::Notification>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
@@ -238,7 +238,7 @@ pub fn list_notifications(
                 "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
             let rows = stmt.query_map(params![limit], |row| {
-                Ok(crate::gateway::models::Notification {
+                Ok(crate::models::Notification {
                     id: row.get(0)?,
                     notif_type: row.get(1)?,
                     title: row.get(2)?,

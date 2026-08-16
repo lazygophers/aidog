@@ -15,7 +15,7 @@ use super::*;
                 "cache_read_input_token_cost": 1e-6
             }]
         });
-        let base = crate::gateway::models::ResolvedPrice {
+        let base = crate::models::ResolvedPrice {
             input_cost_per_token: 5e-6,
             output_cost_per_token: 3e-5,
             cache_read_input_token_cost: 5e-7,
@@ -43,7 +43,7 @@ use super::*;
     fn apply_context_tier_no_tier_passthrough() {
         // 无 context_tiers 字段 → base 不变 (向后兼容旧 price_data)
         let pd = serde_json::json!({"input_cost_per_token": 2.5e-6});
-        let base = crate::gateway::models::ResolvedPrice {
+        let base = crate::models::ResolvedPrice {
             input_cost_per_token: 2.5e-6,
             output_cost_per_token: 1.5e-5,
             cache_read_input_token_cost: 2.5e-7,
@@ -74,7 +74,7 @@ use super::*;
                 // cache_read_input_token_cost 缺失 → 继承 base
             }]
         });
-        let base = crate::gateway::models::ResolvedPrice {
+        let base = crate::models::ResolvedPrice {
             input_cost_per_token: 3e-5,
             output_cost_per_token: 1.8e-4,
             cache_read_input_token_cost: 0.0,
@@ -238,7 +238,7 @@ use super::*;
     fn apply_tiers_selects_time_tier_when_hit() {
         let pd = glm_coding_pd();
         let scope = pd.get("pricing").unwrap().get("glm_coding").unwrap();
-        let base = crate::gateway::models::ResolvedPrice {
+        let base = crate::models::ResolvedPrice {
             input_cost_per_token: 6.944444444444444e-07,
             output_cost_per_token: 3.055555555555555e-06,
             cache_read_input_token_cost: 1.6666666666666665e-07,
@@ -256,7 +256,7 @@ use super::*;
     fn apply_tiers_no_hit_passes_through_unchanged() {
         let pd = glm_coding_pd();
         let scope = pd.get("pricing").unwrap().get("glm_coding").unwrap();
-        let base = crate::gateway::models::ResolvedPrice {
+        let base = crate::models::ResolvedPrice {
             input_cost_per_token: 6.944444444444444e-07,
             output_cost_per_token: 3.055555555555555e-06,
             cache_read_input_token_cost: 1.6666666666666665e-07,
@@ -276,7 +276,7 @@ use super::*;
     fn apply_tiers_time_hit_then_context_tier_from_time_entry() {
         let pd = glm_coding_pd();
         let scope = pd.get("pricing").unwrap().get("glm_coding").unwrap();
-        let base = crate::gateway::models::ResolvedPrice {
+        let base = crate::models::ResolvedPrice {
             input_cost_per_token: 6.944444444444444e-07,
             output_cost_per_token: 3.055555555555555e-06,
             cache_read_input_token_cost: 1.6666666666666665e-07,
@@ -293,7 +293,7 @@ use super::*;
     #[test]
     fn bundled_model_entry_finds_glm_5_2() {
         // 断言真拿到值而非只断言不 panic —— unwrap_or_default() 会静默吞 JSON 解析错误
-        let entry = crate::gateway::price_sync::bundled_model_entry("glm-5.2");
+        let entry = bundled_model_entry("glm-5.2");
         assert!(entry.is_some(), "bundled models.json 应含 glm-5.2 条目");
     }
 
