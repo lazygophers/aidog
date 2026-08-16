@@ -12,7 +12,6 @@
 //! 复用 build_http_client（禁 env proxy 防 forward 递归环，见 http_client.rs 注释）。
 
 use aidog_db::Db;
-use crate::shared::aidog_data_dir;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -169,18 +168,9 @@ fn extract_domain(homepage: &str) -> Option<String> {
     url::Url::parse(&with_scheme).ok().and_then(|u| u.host_str().map(|s| s.to_string()))
 }
 
-/// 读 `~/.aidog/platform-presets.json`（运行时同步版本）→ 缺失回退 bundled。
-/// 同 commands/defaults.rs::get_defaults_json 的优先级，但返回 String 供本模块解析。
+/// presets 真值源（2026-08-16 内置化后唯一）：代码内 bundled 常量。
+/// `~/.aidog/platform-presets.json` app data 覆盖链已移除——内置即唯一，禁改回。
 fn read_local_presets_json() -> Result<String, String> {
-    if let Ok(dir) = aidog_data_dir() {
-        let path = dir.join("platform-presets.json");
-        if path.exists()
-            && let Ok(content) = std::fs::read_to_string(&path)
-                && !content.trim().is_empty() && serde_json::from_str::<serde_json::Value>(&content).is_ok() {
-                    return Ok(content);
-                }
-    }
-    // 回退 bundled（同源 super::presets_cache，禁再自建 include_str!）
     Ok(super::presets_cache::bundled_str().to_string())
 }
 
