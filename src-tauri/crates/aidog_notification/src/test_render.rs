@@ -1,5 +1,5 @@
 use super::*;
-use crate::gateway::models::{NotifForm, NotifType};
+use aidog_db::models::{NotifForm, NotifType};
 use std::collections::HashMap;
 
 fn vars(pairs: &[(&str, &str)]) -> HashMap<String, String> {

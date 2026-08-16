@@ -1,0 +1,23 @@
+[package]
+name = "aidog_notification"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_notification：通知域（dispatch/render/tts/vars，拆自 aidog_core::gateway::notification，
+# 2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+tauri = { workspace = true }
+tauri-plugin-notification = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+tempfile = { workspace = true }
+aidog_stats = { path = "../aidog_stats" }

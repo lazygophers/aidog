@@ -1,6 +1,6 @@
 //! 输出后端：系统弹窗、TTS 三后端、系统提示音。
 
-use super::super::models::TtsBackend;
+use aidog_db::models::TtsBackend;
 
 /// 前端事件名：WebSpeech 后端播报请求（payload = 文本，前端 webview SpeechSynthesis 朗读）。
 pub const NOTIF_SPEAK: &str = "notif-speak";

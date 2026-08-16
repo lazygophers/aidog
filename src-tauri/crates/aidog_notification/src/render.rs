@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use super::super::models::{NotifForm, NotifType};
+use aidog_db::models::{NotifForm, NotifType};
 use super::vars::substitute_vars;
 
 /// 分发选定通道（按 form 解析；纯函数便于单测）。

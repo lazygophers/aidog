@@ -218,8 +218,8 @@ fn is_cert_validation_error(e: &std::io::Error) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::mitm::ca::{generate_root_ca, RootCa};
-    use crate::gateway::mitm::cert_signer::CertSigner;
+    use crate::ca::{generate_root_ca, RootCa};
+    use crate::cert_signer::CertSigner;
 
     /// 测试用 RootCa（字段直接构造，fingerprint 留空）。
     fn test_ca() -> RootCa {

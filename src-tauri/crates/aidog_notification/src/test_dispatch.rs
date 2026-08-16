@@ -22,7 +22,7 @@ async fn set_form(db: &Arc<Db>, type_str: &str, form: &str, enabled: bool) {
         "tts_backend": "cross_platform",
         "per_type": { type_str: { "tts": true, "popup": true, "form": form, "template": "" } }
     });
-    aidog_db::set_setting(db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(db, aidog_db::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: json,
@@ -96,7 +96,7 @@ async fn dispatch_injects_nonempty_unique_action_key() {
     let db = mem_db().await;
     set_form(&db, "task_complete", "full", true).await;
     // 模板引用 {request_id} → body 即为注入的 key（无 span 时走 new_trace_id 兜底）。
-    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -113,7 +113,7 @@ async fn dispatch_injects_nonempty_unique_action_key() {
 #[tokio::test]
 async fn dispatch_different_triggers_get_different_keys() {
     let db = mem_db().await;
-    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -130,7 +130,7 @@ async fn dispatch_different_triggers_get_different_keys() {
 #[tokio::test]
 async fn dispatch_prefers_caller_request_id_in_vars() {
     let db = mem_db().await;
-    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -149,11 +149,11 @@ async fn dispatch_captures_env_span_trace_id() {
     // 模拟 tauri command #[instrument] / proxy 请求 span：dispatch 在带 trace_id 的活跃 span 内
     // 运行时，应捕获该 span 的 id 作为 action key（与日志同口径），而非另造新 id。
     use tracing_subscriber::layer::SubscriberExt;
-    let subscriber = tracing_subscriber::registry().with(crate::logging::trace_id_layer_for_test());
+    let subscriber = tracing_subscriber::registry().with(aidog_db::logging::trace_id_layer_for_test());
     let _guard = tracing::subscriber::set_default(subscriber);
 
     let db = mem_db().await;
-    aidog_db::set_setting(&db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value: serde_json::json!({
@@ -162,7 +162,7 @@ async fn dispatch_captures_env_span_trace_id() {
         }),
     }).await.unwrap();
 
-    let tid = crate::logging::new_trace_id();
+    let tid = aidog_db::logging::new_trace_id();
     let span = tracing::info_span!("notify", trace_id = %tid);
     let r = {
         use tracing::Instrument;
@@ -175,7 +175,7 @@ async fn dispatch_captures_env_span_trace_id() {
 
 // ── N2 hook 事件解析（per_event）──
 async fn set_notif_settings(db: &Arc<Db>, value: serde_json::Value) {
-    aidog_db::set_setting(db, super::super::models::SetSettingInput {
+    aidog_db::set_setting(db, aidog_db::models::SetSettingInput {
         scope: "notification".into(),
         key: "settings".into(),
         value,
@@ -252,13 +252,13 @@ async fn dispatch_event_sound_independent_of_popup() {
 #[test]
 fn event_setting_sound_backward_compat_defaults_true() {
     // 旧 per_event 配置无 sound 字段 → 反序列化默认 true（向后兼容）。
-    let es: crate::gateway::models::EventSetting =
+    let es: aidog_db::models::EventSetting =
         serde_json::from_value(serde_json::json!({ "enabled": true })).unwrap();
     assert!(es.sound, "旧配置无 sound 应默认 true");
     // roundtrip 保留 sound。
-    let es2 = crate::gateway::models::EventSetting { sound: false, ..es };
+    let es2 = aidog_db::models::EventSetting { sound: false, ..es };
     let json = serde_json::to_string(&es2).unwrap();
-    let back: crate::gateway::models::EventSetting = serde_json::from_str(&json).unwrap();
+    let back: aidog_db::models::EventSetting = serde_json::from_str(&json).unwrap();
     assert!(!back.sound, "roundtrip 应保留 sound=false");
 }
 

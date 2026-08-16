@@ -8,7 +8,7 @@ use tauri::State;
 
 pub fn generate_hook_scripts(
     invoker: gateway::scripts::ScriptInvoker,
-) -> Result<gateway::hooks::ScriptPaths, String> {
+) -> Result<aidog_hooks::ScriptPaths, String> {
     let scripts_dir = aidog_scripts_dir()?;
     let chmod755 = |path: &std::path::Path, filename: &str| -> Result<(), String> {
         #[cfg(unix)]
@@ -27,7 +27,7 @@ pub fn generate_hook_scripts(
     };
     let write_type_script = |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
         let path = scripts_dir.join(filename);
-        let content = gateway::hooks::build_hook_script(notif_type);
+        let content = aidog_hooks::build_hook_script(notif_type);
         std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
         chmod755(&path, filename)?;
         // 迁移清理：删除 ~/.aidog/ 根下旧版 bash 脚本（避免残留）。
@@ -35,19 +35,19 @@ pub fn generate_hook_scripts(
         Ok(invoker.command_for(&path.to_string_lossy()))
     };
     // 通用事件脚本（N2）：读 stdin hook_event_name，无内插 type。
-    let event_path = scripts_dir.join(gateway::hooks::SCRIPT_EVENT_NOTIFY);
-    std::fs::write(&event_path, gateway::hooks::build_event_notify_script())
+    let event_path = scripts_dir.join(aidog_hooks::SCRIPT_EVENT_NOTIFY);
+    std::fs::write(&event_path, aidog_hooks::build_event_notify_script())
         .map_err(|e| format!("write event notify script: {e}"))?;
-    chmod755(&event_path, gateway::hooks::SCRIPT_EVENT_NOTIFY)?;
+    chmod755(&event_path, aidog_hooks::SCRIPT_EVENT_NOTIFY)?;
     let event_notify = invoker.command_for(&event_path.to_string_lossy());
 
     // waiting 脚本已并入通用事件脚本（N2），不再生成；仅清理历史 ~/.aidog/*.sh 残留。
-    cleanup_legacy_root_script(gateway::hooks::LEGACY_SCRIPT_WAITING);
+    cleanup_legacy_root_script(aidog_hooks::LEGACY_SCRIPT_WAITING);
 
-    Ok(gateway::hooks::ScriptPaths {
+    Ok(aidog_hooks::ScriptPaths {
         complete: write_type_script(
-            gateway::hooks::SCRIPT_COMPLETE,
-            gateway::hooks::LEGACY_SCRIPT_COMPLETE,
+            aidog_hooks::SCRIPT_COMPLETE,
+            aidog_hooks::LEGACY_SCRIPT_COMPLETE,
             "task_complete",
         )?,
         event_notify,
@@ -102,7 +102,7 @@ async fn default_hooks_enabled_from_db(db: &Db) -> bool {
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
         .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
             .unwrap_or(serde_json::Value::Object(Default::default())));
-    gateway::hooks::hooks_marker_enabled(&config)
+    aidog_hooks::hooks_marker_enabled(&config)
 }
 
 /// 构造通知 hook 片段供前端 Hooks 编辑器并入草稿（只读式）。
@@ -117,7 +117,7 @@ async fn build_notify_hooks_fragment_from_db(db: &Db) -> Result<serde_json::Valu
     let scripts = generate_hook_scripts(invoker)?;
     let events = enabled_hook_events(db).await;
     let mut config = serde_json::json!({});
-    gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
+    aidog_hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
     Ok(config
         .get("hooks")
         .cloned()
@@ -137,13 +137,13 @@ crate::tauri_command! {
         client: String,
     ) -> Result<(), String> {
         tracing::debug!(command = "inject_hooks", group = %group, client = %client, "command invoked");
-        let hook_client = gateway::hooks::HookClient::from_str(&client)?;
+        let hook_client = aidog_hooks::HookClient::from_str(&client)?;
         let invoker = resolve_script_invoker(&db).await;
         let scripts = generate_hook_scripts(invoker)?;
         seed_default_templates(&db).await?;
 
         match hook_client {
-            gateway::hooks::HookClient::ClaudeCode => {
+            aidog_hooks::HookClient::ClaudeCode => {
                 // 读基线 claude_code 配置（无则用编译内默认）注入 hooks，回写 + re-sync。
                 let mut config = aidog_db::get_setting(&db, "global", "claude_code").await
                     .ok().flatten()
@@ -151,7 +151,7 @@ crate::tauri_command! {
                     .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
                         .unwrap_or(serde_json::Value::Object(Default::default())));
                 let events = enabled_hook_events(&db).await;
-                gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
+                aidog_hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
                 aidog_db::set_setting(&db, SetSettingInput {
                     scope: "global".to_string(),
                     key: "claude_code".to_string(),
@@ -160,9 +160,9 @@ crate::tauri_command! {
                 let port = load_proxy_settings(&app).await?.port;
                 do_sync_group_settings(&db, port).await?;
             }
-            gateway::hooks::HookClient::Codex => {
+            aidog_hooks::HookClient::Codex => {
                 let mut config = gateway::codex::codex_config_read()?;
-                gateway::hooks::inject_codex_notify(&mut config, &scripts.complete);
+                aidog_hooks::inject_codex_notify(&mut config, &scripts.complete);
                 gateway::codex::codex_config_write(config)?;
             }
         }
@@ -179,16 +179,16 @@ crate::tauri_command! {
         client: String,
     ) -> Result<(), String> {
         tracing::debug!(command = "remove_hooks", group = %group, client = %client, "command invoked");
-        let hook_client = gateway::hooks::HookClient::from_str(&client)?;
+        let hook_client = aidog_hooks::HookClient::from_str(&client)?;
         match hook_client {
-            gateway::hooks::HookClient::ClaudeCode => {
+            aidog_hooks::HookClient::ClaudeCode => {
                 let Some(mut config) = aidog_db::get_setting(&db, "global", "claude_code").await
                     .ok().flatten().filter(|v| v.is_object()) else {
                     // 无基线配置 → 无 aidog hook 可清，re-sync 即可（settings 文件 strip 已生效）。
                     let port = load_proxy_settings(&app).await?.port;
                     return do_sync_group_settings(&db, port).await.map(|_| ());
                 };
-                gateway::hooks::remove_claude_code_hooks(&mut config);
+                aidog_hooks::remove_claude_code_hooks(&mut config);
                 aidog_db::set_setting(&db, SetSettingInput {
                     scope: "global".to_string(),
                     key: "claude_code".to_string(),
@@ -197,9 +197,9 @@ crate::tauri_command! {
                 let port = load_proxy_settings(&app).await?.port;
                 do_sync_group_settings(&db, port).await?;
             }
-            gateway::hooks::HookClient::Codex => {
+            aidog_hooks::HookClient::Codex => {
                 let mut config = gateway::codex::codex_config_read()?;
-                gateway::hooks::remove_codex_notify(&mut config);
+                aidog_hooks::remove_codex_notify(&mut config);
                 gateway::codex::codex_config_write(config)?;
             }
         }
@@ -231,7 +231,7 @@ crate::tauri_command! {
                 .unwrap_or(serde_json::Value::Object(Default::default())));
         if let Some(obj) = config.as_object_mut() {
             obj.insert(
-                gateway::hooks::MARKER_HOOKS.to_string(),
+                aidog_hooks::MARKER_HOOKS.to_string(),
                 serde_json::json!({ "enabled": enabled }),
             );
         }
@@ -321,7 +321,7 @@ mod test_hooks {
         let events = enabled_hook_events(&db).await;
         let invoker = gateway::scripts::ScriptInvoker::Python3;
         let scripts = generate_hook_scripts(invoker).unwrap();
-        gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
+        aidog_hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
         aidog_db::set_setting(&db, SetSettingInput {
             scope: "global".to_string(),
             key: "claude_code".to_string(),
@@ -332,7 +332,7 @@ mod test_hooks {
 
         // remove
         let mut config2 = aidog_db::get_setting(&db, "global", "claude_code").await.unwrap().unwrap();
-        gateway::hooks::remove_claude_code_hooks(&mut config2);
+        aidog_hooks::remove_claude_code_hooks(&mut config2);
         aidog_db::set_setting(&db, SetSettingInput {
             scope: "global".to_string(),
             key: "claude_code".to_string(),
@@ -352,7 +352,7 @@ mod test_hooks {
         let mut config: serde_json::Value = serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
         if let Some(obj) = config.as_object_mut() {
             obj.insert(
-                gateway::hooks::MARKER_HOOKS.to_string(),
+                aidog_hooks::MARKER_HOOKS.to_string(),
                 serde_json::json!({ "enabled": !default_val }),
             );
         }
@@ -368,15 +368,15 @@ mod test_hooks {
     #[tokio::test]
     async fn codex_notify_inject_remove() {
         let mut config = serde_json::json!({});
-        gateway::hooks::inject_codex_notify(&mut config, "/path/to/aidog-notify-complete.py");
+        aidog_hooks::inject_codex_notify(&mut config, "/path/to/aidog-notify-complete.py");
         assert!(config.get("notify").is_some());
-        gateway::hooks::remove_codex_notify(&mut config);
+        aidog_hooks::remove_codex_notify(&mut config);
         assert!(config.get("notify").is_none());
     }
 
     #[tokio::test]
     async fn unknown_client_errors() {
-        let result = gateway::hooks::HookClient::from_str("unknown");
+        let result = aidog_hooks::HookClient::from_str("unknown");
         assert!(result.is_err());
     }
 }

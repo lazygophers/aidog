@@ -135,9 +135,9 @@ async fn handle_connect_inner(
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
     // 候选为 true 时跳过 P1 的「spawn 前 TCP 验证」（MITM 路径在 spawn 内自管 TCP 连接 +
     // pinning 预检，失败写终态 502 或降级 blind_relay）；候选为 false 走 P1 完整逻辑。
-    let mitm_candidate = super::super::mitm::whitelist::matches_db(&state.db, &host_only).await
-        && !super::super::mitm::mitm_state().is_suspect(&host_only).await;
-    let mitm_state = super::super::mitm::mitm_state();
+    let mitm_candidate = aidog_mitm::whitelist::matches_db(&state.db, &host_only).await
+        && !aidog_mitm::mitm_state().is_suspect(&host_only).await;
+    let mitm_state = aidog_mitm::mitm_state();
     tracing::info!(
         target = %target, host_only = %host_only, request_id = %request_id,
         mitm_candidate, log_enabled, platform_id,
@@ -517,7 +517,7 @@ impl DegradeReason {
 #[allow(clippy::too_many_arguments)]
 async fn handle_mitm<IO>(
     st: &Arc<ProxyState>,
-    mitm_state: &'static super::super::mitm::MitmState,
+    mitm_state: &'static aidog_mitm::MitmState,
     client: IO,
     target: &str,
     host_only: &str,
@@ -553,12 +553,12 @@ where
             return MitmOutcome::Connected;
         }
     };
-    match super::super::mitm::tls::connect_upstream(host_only, upstream_tcp).await {
-        super::super::mitm::tls::UpstreamTlsOutcome::Connected(upstream_tls) => {
+    match aidog_mitm::tls::connect_upstream(host_only, upstream_tcp).await {
+        aidog_mitm::tls::UpstreamTlsOutcome::Connected(upstream_tls) => {
             // 3. accept 客户端 TLS（假 CA 签 leaf，SNI fallback = CONNECT target host）。
             //    失败（client 不信任 CA / 网络断）→ client 已被 accept 消费，无法降级 blind_relay。
             //    写终态 502 + Connected（客户端 TLS 握手失败隧道断，blind_relay 也救不回）。
-            let client_tls = match super::super::mitm::tls::accept_client(
+            let client_tls = match aidog_mitm::tls::accept_client(
                 signer, client, host_only.to_string(),
             ).await {
                 Ok(s) => s,
@@ -599,7 +599,7 @@ where
             serve_plaintext(st.clone(), client_tls, host_only).await;
             MitmOutcome::Connected
         }
-        super::super::mitm::tls::UpstreamTlsOutcome::PinningSuspect { host, error } => {
+        aidog_mitm::tls::UpstreamTlsOutcome::PinningSuspect { host, error } => {
             // pinning fail → 标 suspect（带 TTL，mitm/mod.rs 内自动 expire）+ 降级 blind_relay。
             tracing::warn!(
                 host = %host, error = %error,
@@ -608,7 +608,7 @@ where
             mitm_state.mark_suspect(host).await;
             MitmOutcome::Degraded(DegradeReason::PinningSuspect, client)
         }
-        super::super::mitm::tls::UpstreamTlsOutcome::IoError(e) => {
+        aidog_mitm::tls::UpstreamTlsOutcome::IoError(e) => {
             // 非 pinning IO 错（TCP 断 / 超时）→ 不标 suspect + 降级 blind_relay（重试一次）。
             tracing::warn!(error = %e, target, "mitm: upstream TLS IO error, degrading");
             MitmOutcome::Degraded(DegradeReason::IoError, client)

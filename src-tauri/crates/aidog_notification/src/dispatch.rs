@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use aidog_db::Db;
-use super::super::models::{default_template_for_event, NotifType};
+use aidog_db::models::{default_template_for_event, NotifType};
 use super::render::{channels_for_form, default_title, render, DispatchResult, BRAND_FALLBACK};
 use super::tts::{play_beep, show_popup, speak};
 use super::vars::substitute_vars_fill_empty;
@@ -41,8 +41,8 @@ pub async fn dispatch(
         .get("request_id")
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
-        .or_else(crate::logging::current_trace_id)
-        .unwrap_or_else(crate::logging::new_trace_id);
+        .or_else(aidog_db::logging::current_trace_id)
+        .unwrap_or_else(aidog_db::logging::new_trace_id);
     let vars_owned: HashMap<String, String> = {
         let mut v = vars.clone();
         v.insert("request_id".to_string(), action_key.clone());

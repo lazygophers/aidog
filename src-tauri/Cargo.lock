@@ -144,8 +144,11 @@ version = "0.1.11"
 dependencies = [
  "aes-gcm",
  "aidog_db",
+ "aidog_hooks",
  "aidog_logs",
  "aidog_mcp",
+ "aidog_mitm",
+ "aidog_notification",
  "aidog_skills",
  "aidog_stats",
  "axum",
@@ -222,6 +225,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "aidog_hooks"
+version = "0.1.11"
+dependencies = [
+ "aidog_db",
+ "serde",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "aidog_logs"
 version = "0.1.11"
 dependencies = [
@@ -251,6 +264,47 @@ dependencies = [
  "tokio-rusqlite",
  "toml 0.8.2",
  "tracing",
+]
+
+[[package]]
+name = "aidog_mitm"
+version = "0.1.11"
+dependencies = [
+ "aidog_db",
+ "chrono",
+ "dirs 6.0.0",
+ "futures",
+ "ipnet",
+ "rcgen",
+ "regex",
+ "rustls",
+ "rustls-pemfile",
+ "serde",
+ "serde_json",
+ "sha1",
+ "sha2 0.11.0",
+ "tempfile",
+ "tokio",
+ "tokio-rustls",
+ "tracing",
+ "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "aidog_notification"
+version = "0.1.11"
+dependencies = [
+ "aidog_db",
+ "aidog_stats",
+ "chrono",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin-notification",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

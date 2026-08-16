@@ -48,7 +48,7 @@ crate::tauri_command! {
         app: tauri::AppHandle,
         notif_type: String,
         content: Option<String>,
-    ) -> Result<gateway::notification::DispatchResult, String> {
+    ) -> Result<aidog_notification::DispatchResult, String> {
         // 应用行为 key 由 dispatch 内部统一解析（取本命令 #[instrument] span 的 trace_id，
         // 与日志同口径），无需在此手动注入；vars 仅提供模板渲染所需的展示字段。
         tracing::debug!(command = "notification_test", notif_type = %notif_type, "command invoked");
@@ -59,7 +59,7 @@ crate::tauri_command! {
         vars.insert("session".to_string(), "test-session".to_string());
         vars.insert("group".to_string(), "test".to_string());
         let db_arc = std::sync::Arc::new(db.inner().clone());
-        Ok(gateway::notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
+        Ok(aidog_notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
     }
 }
 
@@ -72,7 +72,7 @@ crate::tauri_command! {
     ) -> Result<(), String> {
         let db_arc = std::sync::Arc::new(db.inner().clone());
         let settings = aidog_db::get_notification_settings(&db_arc).await;
-        gateway::notification::speak(Some(&app), settings.tts_backend, &text);
+        aidog_notification::speak(Some(&app), settings.tts_backend, &text);
         Ok(())
     }
 }
@@ -84,7 +84,7 @@ crate::tauri_command! {
         title: String,
         body: String,
     ) -> Result<(), String> {
-        gateway::notification::show_popup(&app, &title, &body);
+        aidog_notification::show_popup(&app, &title, &body);
         Ok(())
     }
 }
@@ -92,7 +92,7 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 仅测系统提示音通道（跨平台 spawn system beep）。
     pub async fn notification_test_beep() -> Result<(), String> {
-        gateway::notification::play_beep();
+        aidog_notification::play_beep();
         Ok(())
     }
 }
