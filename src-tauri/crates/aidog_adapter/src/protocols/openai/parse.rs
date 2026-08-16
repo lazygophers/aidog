@@ -74,9 +74,32 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         let content = match &m.content {
             Some(Value::String(s)) => MessageContent::Text(s.clone()),
             Some(Value::Array(parts)) => {
-                let texts: Vec<ContentBlock> = parts.iter()
-                    .filter_map(|p| p.as_str().map(|s| ContentBlock::Text { text: s.to_string() }))
+                let mut texts: Vec<ContentBlock> = parts.iter()
+                    .filter_map(|p| {
+                        // 纯字符串元素 或 {type:"text"} object
+                        if let Some(s) = p.as_str() {
+                            Some(ContentBlock::Text { text: s.to_string() })
+                        } else {
+                            p.get("text").and_then(|t| t.as_str()).map(|s| ContentBlock::Text { text: s.to_string() })
+                        }
+                    })
                     .collect();
+                // image_url → 中立 image block（data URL 拆 media_type + base64）
+                let images: Vec<ContentBlock> = parts.iter()
+                    .filter_map(|p| {
+                        if p.get("type").and_then(|t| t.as_str()) != Some("image_url") { return None; }
+                        let url = p.get("image_url")?.get("url")?.as_str()?;
+                        let source = if let Some(rest) = url.strip_prefix("data:") {
+                            let (media_type, data) = rest.split_once(";base64,")?;
+                            serde_json::json!({ "type": "base64", "media_type": media_type, "data": data })
+                        } else {
+                            serde_json::json!({ "type": "url", "url": url })
+                        };
+                        Some(ContentBlock::Unknown(serde_json::json!({ "type": "image", "source": source })))
+                    })
+                    .collect();
+                texts.extend(images);
+                let texts = texts;
                 if texts.len() == 1 {
                     if let ContentBlock::Text { text } = &texts[0] {
                         MessageContent::Text(text.clone())

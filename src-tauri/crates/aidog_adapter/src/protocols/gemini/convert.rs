@@ -32,6 +32,9 @@ pub struct GeminiPart {
     pub function_call: Option<GeminiFunctionCall>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub function_response: Option<GeminiFunctionResponse>,
+    /// inlineData / fileData 等动态 part 字段（多模态图片）
+    #[serde(flatten, skip_serializing_if = "Option::is_none")]
+    pub extra: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -92,7 +95,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         };
         GeminiContent {
             role: "user".to_string(),
-            parts: vec![GeminiPart { text: Some(text), thought: None, function_call: None, function_response: None }],
+            parts: vec![GeminiPart { text: Some(text), thought: None, function_call: None, function_response: None, extra: None }],
         }
     });
 
@@ -106,13 +109,14 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
 
         let parts: Vec<GeminiPart> = match &m.content {
             MessageContent::Text(s) => {
-                vec![GeminiPart { text: Some(s.clone()), thought: None, function_call: None, function_response: None }]
+                vec![GeminiPart { text: Some(s.clone()), thought: None, function_call: None, function_response: None, extra: None }]
             }
             MessageContent::Blocks(blocks) => {
                 blocks.iter().map(|b| match b {
                     ContentBlock::Text { text } => GeminiPart {
                         text: Some(text.clone()), function_call: None, function_response: None,
                         thought: None,
+                    extra: None,
                     },
                     ContentBlock::ToolUse { name, input, .. } => GeminiPart {
                         text: None,
@@ -122,6 +126,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                         }),
                         function_response: None,
                         thought: None,
+                    extra: None,
                     },
                     ContentBlock::ToolResult { tool_use_id, content, name } => GeminiPart {
                         text: None,
@@ -132,6 +137,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                             response: serde_json::json!({ "result": content }),
                         }),
                         thought: None,
+                    extra: None,
                     },
                     // thinking block → thought part（signature 丢，Gemini 无此概念）
                     ContentBlock::Unknown(v)
@@ -140,13 +146,40 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                         thought: Some(true),
                         function_call: None,
                         function_response: None,
+                    extra: None,
                     },
-                    // 未覆盖 block(image/…): 尝试取 text，否则空 part(保留消息位)
+                    // image block → inlineData(base64) / fileData(url)
+                    ContentBlock::Unknown(v)
+                        if v.get("type").and_then(|t| t.as_str()) == Some("image") => {
+                            let src = v.get("source").cloned().unwrap_or(serde_json::Value::Null);
+                            match src.get("type").and_then(|t| t.as_str()) {
+                                Some("base64") => GeminiPart {
+                                    text: None, thought: None, function_call: None, function_response: None,
+                                    extra: Some(serde_json::json!({
+                                        "inlineData": {
+                                            "mimeType": src.get("media_type").cloned().unwrap_or(serde_json::json!("application/octet-stream")),
+                                            "data": src.get("data").cloned().unwrap_or(serde_json::Value::String(String::new())),
+                                        }
+                                    })),
+                                },
+                                Some("url") => GeminiPart {
+                                    text: None, thought: None, function_call: None, function_response: None,
+                                    extra: Some(serde_json::json!({
+                                        "fileData": {
+                                            "fileUri": src.get("url").cloned().unwrap_or(serde_json::Value::Null),
+                                        }
+                                    })),
+                                },
+                                _ => GeminiPart { text: None, thought: None, function_call: None, function_response: None, extra: None },
+                            }
+                        }
+                    // 未覆盖 block(…): 尝试取 text，否则空 part(保留消息位)
                     ContentBlock::Unknown(v) => GeminiPart {
                         text: v.get("text").and_then(|t| t.as_str()).map(|s| s.to_string()),
                         function_call: None,
                         function_response: None,
                         thought: None,
+                    extra: None,
                     },
                 }).collect()
             }
@@ -383,7 +416,28 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         let parts = c.get("parts")?.as_array()?;
         let mut text_parts = Vec::new();
         let mut thinking_blocks: Vec<ContentBlock> = Vec::new();
+        let mut image_blocks: Vec<ContentBlock> = Vec::new();
         for p in parts {
+            // inlineData / fileData → 中立 image block
+            if let Some(inline) = p.get("inlineData") {
+                image_blocks.push(ContentBlock::Unknown(serde_json::json!({
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": inline.get("mimeType").cloned().unwrap_or(serde_json::json!("application/octet-stream")),
+                        "data": inline.get("data").cloned().unwrap_or(serde_json::Value::String(String::new())),
+                    }
+                })));
+                continue;
+            }
+            if let Some(file) = p.get("fileData")
+                && let Some(uri) = file.get("fileUri").and_then(|v| v.as_str()) {
+                    image_blocks.push(ContentBlock::Unknown(serde_json::json!({
+                        "type": "image",
+                        "source": { "type": "url", "url": uri }
+                    })));
+                    continue;
+                }
             if let Some(t) = p.get("text").and_then(|v| v.as_str()) {
                 if p.get("thought").and_then(|v| v.as_bool()).unwrap_or(false) {
                     // thought part → 中立 thinking block（无 signature；回传 Anthropic 侧降级不回传）
@@ -420,11 +474,12 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 });
             }
         }
-        if !tool_blocks.is_empty() || !thinking_blocks.is_empty() {
+        if !tool_blocks.is_empty() || !thinking_blocks.is_empty() || !image_blocks.is_empty() {
             let mut blocks: Vec<ContentBlock> = text_parts.into_iter()
                 .map(|t| ContentBlock::Text { text: t })
                 .collect();
             blocks.extend(thinking_blocks);
+            blocks.extend(image_blocks);
             blocks.extend(tool_blocks);
             messages.push(Message { role, content: MessageContent::Blocks(blocks) });
             continue;
