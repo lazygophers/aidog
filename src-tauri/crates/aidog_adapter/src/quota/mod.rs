@@ -143,6 +143,3 @@ mod test_coding_plan;
 #[cfg(test)]
 #[path = "test_dispatch.rs"]
 mod test_dispatch;
-#[cfg(test)]
-#[path = "test_http.rs"]
-mod test_http;

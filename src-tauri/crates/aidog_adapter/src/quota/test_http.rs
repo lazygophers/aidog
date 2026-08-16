@@ -1,7 +1,6 @@
 //! quota 出站 HTTP 核心 + 工具函数覆盖。本地 stub server 驱动 quota_get_json 四路（成功 /
 //! 非 2xx / parse 失败 / network 失败），含 db=Some 落库分支（make_quota_log + persist_quota_log）。
 use super::*;
-use crate::quota::http::*;
 use aidog_db::test_support::test_db;
 
 async fn spawn_stub(status: u16, body: &'static str) -> String {
