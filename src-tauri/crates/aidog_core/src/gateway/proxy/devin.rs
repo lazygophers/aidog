@@ -997,6 +997,7 @@ mod tests {
     #[test]
     fn build_prompt_single_user() {
         let req = ChatRequest {
+            thinking_budget: None,
             model: "devin-normal".into(),
             messages: vec![msg(Role::User, "hello")],
             system: None,
@@ -1010,6 +1011,7 @@ mod tests {
     #[test]
     fn build_prompt_multi_role_tagged_and_system_folded() {
         let req = ChatRequest {
+            thinking_budget: None,
             model: "devin-normal".into(),
             messages: vec![
                 msg(Role::User, "hi"),
@@ -1035,6 +1037,7 @@ mod tests {
         let blocks: Vec<ContentBlock> = serde_json::from_value(blocks_json).unwrap();
         // image_url 未覆盖 → Unknown；文本保留
         let req = ChatRequest {
+            thinking_budget: None,
             model: "devin-normal".into(),
             messages: vec![Message {
                 role: Role::User,
@@ -1051,6 +1054,7 @@ mod tests {
     #[test]
     fn build_prompt_empty_returns_err() {
         let req = ChatRequest {
+            thinking_budget: None,
             model: "devin-normal".into(),
             messages: vec![],
             system: None,
@@ -1063,6 +1067,7 @@ mod tests {
     #[test]
     fn build_prompt_skips_empty_messages() {
         let req = ChatRequest {
+            thinking_budget: None,
             model: "devin-normal".into(),
             messages: vec![
                 msg(Role::User, ""),

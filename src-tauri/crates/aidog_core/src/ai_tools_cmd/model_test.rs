@@ -56,6 +56,7 @@ async fn prepare_test_context(
         };
 
         let chat_req = adapter::ChatRequest {
+            thinking_budget: None,
             model: model.clone(),
             messages: vec![adapter::Message {
                 role: adapter::Role::User,
@@ -446,6 +447,7 @@ mod test_prepare_http_request {
             prompt: "hi".to_string(),
             expected: None,
             chat_req: ChatRequest {
+            thinking_budget: None,
                 model: "gpt-4".to_string(),
                 messages: vec![Message {
                     role: Role::User,

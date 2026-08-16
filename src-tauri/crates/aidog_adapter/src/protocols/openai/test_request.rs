@@ -11,6 +11,7 @@ fn assistant_blocks(blocks: Vec<ContentBlock>) -> Message {
 }
 fn base_req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
+            thinking_budget: None,
         model: "kimi-k2".into(),
         messages,
         system: None,

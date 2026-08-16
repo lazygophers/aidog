@@ -103,6 +103,14 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
             .collect()
     });
 
+    // reasoning_effort → 思考预算档位（to_openai 反向映射共用同一组数值）
+    let thinking_budget = openai_req.reasoning_effort.as_deref().and_then(|e| match e {
+        "low" => Some(2048),
+        "medium" => Some(8192),
+        "high" => Some(16384),
+        _ => None,
+    });
+
     let tool_choice = openai_req.tool_choice.and_then(|tc| {
         if tc.is_string() {
             match tc.as_str()? {
@@ -122,6 +130,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
     });
 
     Some(ChatRequest {
+        thinking_budget,
         model: openai_req.model,
         messages,
         system,

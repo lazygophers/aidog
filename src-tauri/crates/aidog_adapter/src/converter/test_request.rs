@@ -12,6 +12,7 @@ fn passthrough_path_matches_convert_request() {
         Protocol::OpenAI,
     ];
     let req = ChatRequest {
+            thinking_budget: None,
         model: "gpt-4o".to_string(),
         messages: vec![],
         system: None,
@@ -176,6 +177,7 @@ fn anthropic_parse_invalid_returns_err() {
 #[test]
 fn convert_request_anthropic_path() {
     let req = ChatRequest {
+            thinking_budget: None,
         model: "claude-opus-4".to_string(),
         messages: vec![],
         system: None, max_tokens: None, temperature: None, top_p: None,
@@ -188,6 +190,7 @@ fn convert_request_anthropic_path() {
 #[test]
 fn convert_request_openai_completions_path() {
     let req = ChatRequest {
+            thinking_budget: None,
         model: "gpt-3.5-turbo-instruct".to_string(),
         messages: vec![],
         system: None, max_tokens: None, temperature: None, top_p: None,
@@ -201,6 +204,7 @@ fn convert_request_openai_completions_path() {
 #[test]
 fn convert_request_openai_responses_path() {
     let req = ChatRequest {
+            thinking_budget: None,
         model: "gpt-4o".to_string(),
         messages: vec![],
         system: None, max_tokens: None, temperature: None, top_p: None,

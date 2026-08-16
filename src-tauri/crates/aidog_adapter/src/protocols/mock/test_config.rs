@@ -4,6 +4,7 @@ use serde_json::json;
 /// 最小 ChatRequest（messages 用 Anthropic 兼容结构，role 仅 User/Assistant/System/Tool）。
 fn chat_req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
+            thinking_budget: None,
         model: "mock-model".to_string(),
         messages,
         system: None,

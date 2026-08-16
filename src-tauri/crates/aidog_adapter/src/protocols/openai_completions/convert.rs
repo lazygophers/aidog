@@ -176,6 +176,7 @@ pub fn from_completions(body: &Value) -> Option<ChatRequest> {
     let prompt = body.get("prompt")?.as_str().unwrap_or("").to_string();
 
     Some(ChatRequest {
+        thinking_budget: None,
         model,
         messages: vec![Message {
             role: Role::User,
