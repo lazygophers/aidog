@@ -4,8 +4,8 @@
 
 **Blocked by:** 03 — 中立工具格式与 OA 双向链路。
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] fixture：四种 tool_choice 形态 OA 双向映射断言
-- [ ] 未指定 tool_choice 时不输出该字段（守卫式）
-- [ ] cargo test / make lint 全绿
+- [x] fixture：四种 tool_choice 形态 OA 双向映射断言
+- [x] 未指定 tool_choice 时不输出该字段（守卫式）
+- [x] cargo test / make lint 全绿

@@ -102,7 +102,7 @@ fn tool_role_to_tool_result() {
     let req = from_openai(&body).expect("parsed");
     match &req.messages[0].content {
         MessageContent::Blocks(b) => match &b[0] {
-            ContentBlock::ToolResult { tool_use_id, content } => {
+            ContentBlock::ToolResult { tool_use_id, content, .. } => {
                 assert_eq!(tool_use_id, "c1");
                 assert_eq!(content, "result text");
             }

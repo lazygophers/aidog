@@ -55,6 +55,7 @@ pub struct GeminiGenerationConfig {
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GeminiToolDecl {
     pub function_declarations: Vec<GeminiFunctionDecl>,
 }
@@ -109,11 +110,12 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                         }),
                         function_response: None,
                     },
-                    ContentBlock::ToolResult { tool_use_id, content } => GeminiPart {
+                    ContentBlock::ToolResult { tool_use_id, content, name } => GeminiPart {
                         text: None,
                         function_call: None,
                         function_response: Some(GeminiFunctionResponse {
-                            name: tool_use_id.clone(),
+                            // Gemini 靠 name 关联 functionResponse ↔ functionCall；中立 name 缺时退 tool_use_id
+                            name: name.clone().unwrap_or_else(|| tool_use_id.clone()),
                             response: serde_json::json!({ "result": content }),
                         }),
                     },
@@ -322,10 +324,20 @@ pub fn render_gemini_response(r: &crate::converter::NonStreamResponse) -> Option
     }))
 }
 
+// Gemini functionCall 无 id：自生成 `gemini-fc-<n>`（functionResponse 按 name 回填同规则 id）。
+// ponytail: 进程内原子自增即可，跨请求重复无害（id 仅在中立模型内部关联用）。
+fn next_fc_id() -> usize {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static SEQ: AtomicUsize = AtomicUsize::new(1);
+    SEQ.fetch_add(1, Ordering::Relaxed)
+}
+
 /// 从 Gemini API 请求格式解析为内部 ChatRequest
 pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
     let contents = body.get("contents")?.as_array()?;
     let mut messages = Vec::new();
+    // name → 最近同名 functionCall 的自生成 id（跨 contents 顺序扫描，functionResponse 配对用）
+    let mut call_ids: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
     // System instruction
     let system = body.get("systemInstruction")
@@ -350,6 +362,39 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 text_parts.push(t.to_string());
             }
         }
+        // 工具 part：functionCall(Gemini 无 id，按序自生成并记 name→id) /
+        // functionResponse(按 name 查最近同名 Call 的生成 id 完成关联)
+        let mut tool_blocks: Vec<ContentBlock> = Vec::new();
+        for p in parts {
+            if let Some(fc) = p.get("functionCall") {
+                let name = fc.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let args = fc.get("args").cloned().unwrap_or(serde_json::json!({}));
+                let id = format!("gemini-fc-{}", next_fc_id());
+                call_ids.insert(name.to_string(), id.clone());
+                tool_blocks.push(ContentBlock::ToolUse {
+                    id,
+                    name: name.to_string(),
+                    input: args,
+                });
+            }
+            if let Some(fr) = p.get("functionResponse") {
+                let name = fr.get("name").and_then(|v| v.as_str()).unwrap_or("");
+                let response = fr.get("response").cloned().unwrap_or(serde_json::json!({}));
+                tool_blocks.push(ContentBlock::ToolResult {
+                    tool_use_id: call_ids.get(name).cloned().unwrap_or_else(|| format!("gemini-fc-{name}")),
+                    content: response.to_string(),
+                    name: Some(name.to_string()),
+                });
+            }
+        }
+        if !tool_blocks.is_empty() {
+            let mut blocks: Vec<ContentBlock> = text_parts.into_iter()
+                .map(|t| ContentBlock::Text { text: t })
+                .collect();
+            blocks.extend(tool_blocks);
+            messages.push(Message { role, content: MessageContent::Blocks(blocks) });
+            continue;
+        }
         let content = if text_parts.len() == 1 {
             MessageContent::Text(text_parts.into_iter().next().unwrap())
         } else if text_parts.is_empty() {
@@ -365,6 +410,20 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
     let temperature = gen_config.and_then(|g| g.get("temperature")).and_then(|v| v.as_f64()).map(|v| v as f32);
     let top_p = gen_config.and_then(|g| g.get("topP")).and_then(|v| v.as_f64()).map(|v| v as f32);
 
+    let tools = body.get("tools")
+        .and_then(|t| t.as_array())
+        .map(|ts| {
+            ts.iter()
+                .filter_map(|t| t.get("functionDeclarations").and_then(|d| d.as_array()))
+                .flatten()
+                .map(|d| Tool {
+                    name: d.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
+                    description: d.get("description").and_then(|v| v.as_str()).map(str::to_string),
+                    input_schema: d.get("parameters").cloned().unwrap_or(serde_json::json!({})),
+                })
+                .collect::<Vec<_>>()
+        })
+        .filter(|t| !t.is_empty());
     Some(ChatRequest {
         model: String::new(),
         messages,
@@ -373,7 +432,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         temperature,
         top_p,
         stream: None,
-        tools: None,
+        tools,
         tool_choice: None,
         extra: None,
     })

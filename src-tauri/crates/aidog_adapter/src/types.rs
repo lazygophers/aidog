@@ -110,6 +110,8 @@ pub enum ContentBlock {
     ToolResult {
         tool_use_id: String,
         content: String,
+        /// 工具名（Gemini functionResponse 靠 name 关联；OpenAI/Anthropic 无此概念，None 不序列化）
+        name: Option<String>,
     },
     /// 未覆盖的 block 类型，原样保留(透传/诊断用)。
     Unknown(serde_json::Value),
@@ -154,6 +156,8 @@ impl<'de> Deserialize<'de> for ContentBlock {
                     tool_use_id: String,
                     #[serde(default)]
                     content: serde_json::Value,
+                    #[serde(default)]
+                    name: Option<String>,
                 }
                 serde_json::from_value::<TR>(v.clone())
                     .map(|tr| {
@@ -171,6 +175,7 @@ impl<'de> Deserialize<'de> for ContentBlock {
                         ContentBlock::ToolResult {
                             tool_use_id: tr.tool_use_id,
                             content,
+                            name: tr.name,
                         }
                     })
                     .map_err(|_| ())
@@ -195,8 +200,12 @@ impl Serialize for ContentBlock {
             ContentBlock::ToolUse { id, name, input } => {
                 serde_json::json!({ "type": "tool_use", "id": id, "name": name, "input": input })
             }
-            ContentBlock::ToolResult { tool_use_id, content } => {
-                serde_json::json!({ "type": "tool_result", "tool_use_id": tool_use_id, "content": content })
+            ContentBlock::ToolResult { tool_use_id, content, name } => {
+                let mut v = serde_json::json!({ "type": "tool_result", "tool_use_id": tool_use_id, "content": content });
+                if let Some(name) = name {
+                    v["name"] = serde_json::json!(name);
+                }
+                v
             }
         };
         v.serialize(serializer)
@@ -317,7 +326,7 @@ mod tests {
     #[test]
     fn message_content_push_block_upgrades_text_to_blocks() {
         let mut mc = MessageContent::Text("t".into());
-        mc.push_block(ContentBlock::ToolResult { tool_use_id: "t1".into(), content: "ok".into() });
+        mc.push_block(ContentBlock::ToolResult { tool_use_id: "t1".into(), content: "ok".into(), name: None });
         match mc {
             MessageContent::Blocks(blocks) => {
                 assert_eq!(blocks.len(), 2);
@@ -379,7 +388,7 @@ mod tests {
         let v = json!({"type": "tool_result", "tool_use_id": "t1", "content": "result-text"});
         let b: ContentBlock = serde_json::from_value(v).unwrap();
         match b {
-            ContentBlock::ToolResult { tool_use_id, content } => {
+            ContentBlock::ToolResult { tool_use_id, content, .. } => {
                 assert_eq!(tool_use_id, "t1");
                 assert_eq!(content, "result-text");
             }
@@ -436,7 +445,7 @@ mod tests {
 
     #[test]
     fn content_block_serialize_tool_result() {
-        let b = ContentBlock::ToolResult { tool_use_id: "tu-1".into(), content: "ok".into() };
+        let b = ContentBlock::ToolResult { tool_use_id: "tu-1".into(), content: "ok".into(), name: None };
         let v = serde_json::to_value(b).unwrap();
         assert_eq!(v["type"], "tool_result");
         assert_eq!(v["tool_use_id"], "tu-1");

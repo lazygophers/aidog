@@ -90,7 +90,7 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let has_tool_result = blocks.iter().any(|b| matches!(b, ContentBlock::ToolResult { .. }));
                 if has_tool_result {
                     for b in blocks {
-                        if let ContentBlock::ToolResult { tool_use_id, content } = b {
+                        if let ContentBlock::ToolResult { tool_use_id, content, .. } = b {
                             messages.push(OpenAIMessage {
                                 role: "tool".to_string(),
                                 content: Some(Value::String(content.clone())),

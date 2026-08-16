@@ -77,7 +77,7 @@ fn anthropic_parse_tool_result_array_content() {
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("tool_result array content parse");
     match &req.messages[0].content {
         MessageContent::Blocks(b) => match &b[0] {
-            ContentBlock::ToolResult { tool_use_id, content } => {
+            ContentBlock::ToolResult { tool_use_id, content, .. } => {
                 assert_eq!(tool_use_id, "t1");
                 assert_eq!(content, "result chunk");
             }

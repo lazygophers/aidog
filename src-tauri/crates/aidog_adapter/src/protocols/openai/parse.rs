@@ -9,6 +9,8 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
 
     let mut messages = Vec::new();
     let mut system = None;
+    // tool_call id → 函数名（tool 消息回填 ToolResult.name 用；Gemini 出站靠 name 关联）
+    let mut call_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
 
     for m in &openai_req.messages {
         let role = match m.role.as_str() {
@@ -38,6 +40,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                     }
             for tc in tool_calls {
                 let input: serde_json::Value = serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Object(Default::default()));
+                call_names.insert(tc.id.clone(), tc.function.name.clone());
                 blocks.push(ContentBlock::ToolUse {
                     id: tc.id.clone(),
                     name: tc.function.name.clone(),
@@ -61,6 +64,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: tool_call_id.clone(),
                     content: content.to_string(),
+                    name: call_names.get(tool_call_id).cloned(),
                 }]),
             });
             continue;
