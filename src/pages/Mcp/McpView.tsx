@@ -2,6 +2,7 @@ import type { McpData } from "./useMcpData";
 import { McpRow } from "./primitives";
 import { Button } from "@/components/ui/button";
 import { makeRipple } from "@/utils/motion";
+import { PiUnsupportedNote } from "@/components/shared";
 
 /**
  * 主列表视图（自原 Mcp.tsx L446-536 外迁）。
@@ -57,6 +58,11 @@ export function McpView({ d }: { d: McpData }) {
           {t("mcp.scanImport", "扫描导入")}
         </Button>
       </div>
+
+      <PiUnsupportedNote
+        reasonKey="pi.unsupportedMcp"
+        reasonFallback="pi 刻意不内置 MCP，能力靠 extension 直接写 TypeScript 提供，没有可写入的 MCP 配置文件。"
+      />
 
       {/* 消息条 */}
       {message && (

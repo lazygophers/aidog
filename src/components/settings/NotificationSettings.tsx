@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
-import { useReveal, makeRipple } from "../../components/shared";
+import { useReveal, makeRipple, PiUnsupportedNote } from "../../components/shared";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // 替代直接调 hook。hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -457,6 +457,11 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
         />
       </NotifSectionCard>
+
+      <PiUnsupportedNote
+        reasonKey="pi.unsupportedHooks"
+        reasonFallback="pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里，aidog 无法代为注入。"
+      />
 
       {/* N2：逐 hook 事件触发配置（仅 claude_code；通知总开关关时禁用整区） */}
       <NotificationEventList

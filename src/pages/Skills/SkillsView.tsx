@@ -4,6 +4,7 @@ import { SkillInstallView } from "../SkillInstallView";
 import { formatDateTime, formatRelativeTime } from "../../utils/formatters";
 import { useReveal, makeRipple } from "@/utils/motion";
 import { AGENTS, AGENT_ICONS } from "./constants";
+import piIcon from "../../assets/platforms/pi.svg";
 import { skillCatalogId } from "./share";
 import type { SkillsData } from "./useSkillsData";
 import type { SkillInfo, SkillAgent } from "../../services/api";
@@ -208,6 +209,16 @@ export function SkillsView({ s }: { s: SkillsData }) {
                 </Button>
               </div>
             ))}
+            {/* pi：无 per-skill 启停，全部常开，故只报总数、不给「全部启用」按钮 */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img src={piIcon} alt="pi" className="hover-lift" style={{ width: 22, height: 22 }} />
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{total}</span>
+                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                  {t("skills.piAlwaysOnDesc", "pi 扫公共 skill 目录，无需逐个启用")}
+                </span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -462,6 +473,24 @@ function SkillRow({ skill, idx, busyKey, writeReady, onToggle, onDetail, onShare
             </Button>
           );
         })}
+        {/* pi 是静态徽标不是开关：pi 原生扫公共 skill 目录，没有 per-skill 启停概念，
+            做成可点开关就是在骗用户。 */}
+        <span
+          title={t("skills.piAlwaysOnHint", "pi 扫公共 skill 目录，无需逐个启用")}
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "5px 10px",
+            borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border-subtle)",
+            background: "var(--bg-subtle)",
+            color: "var(--text-secondary)",
+          }}
+        >
+          <img src={piIcon} alt="pi" style={{ width: 18, height: 18 }} />
+          <span style={{ fontSize: 11, fontWeight: 600 }}>{t("skills.piAlwaysOn", "常开")}</span>
+        </span>
       </div>
       {/* 分享（仅 catalog 来源可分享：source 缺失的手动 symlink skill 隐藏按钮） */}
       {skillCatalogId(skill) && (
