@@ -456,10 +456,10 @@ fn transport_retry_backoff_is_exponential() {
     assert_eq!(transport_retry_backoff(9).as_millis(), 1600);
 }
 
-/// 请求级读超时不重试（已等满 timeout_secs，再来一轮只是让用户等两倍）；
-/// 连接失败 / 连接被掐重试。用真 reqwest 错误构造，不 mock。
+/// 重试判据三分支：连接失败恒重试 / 请求级读超时恒不重试 / 其余 transport 错误按快慢分。
+/// 用真 reqwest 错误构造，不 mock。
 #[tokio::test]
-async fn transport_retryable_skips_request_timeout_keeps_connect_error() {
+async fn transport_retryable_connect_yes_timeout_no() {
     // 连不上的地址（保留段 TEST-NET-1，不可路由）+ 极短 connect_timeout → is_connect 错误。
     let c = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_millis(30))
@@ -468,13 +468,14 @@ async fn transport_retryable_skips_request_timeout_keeps_connect_error() {
         .unwrap();
     let e = c.get("http://192.0.2.1:81/").send().await.unwrap_err();
     assert!(e.is_connect(), "构造前提：必须是 connect 错误，实际 {e}");
-    assert!(is_transport_retryable(&e), "连接失败必须重试");
+    // 连接失败恒重试，慢也重试（耗时被 connect_timeout 夹住）。
+    assert!(is_transport_retryable(&e, std::time::Duration::from_millis(1)));
+    assert!(is_transport_retryable(&e, std::time::Duration::from_secs(60)));
 
     // 读超时：本地 stub 接受连接但永不响应 + 极短 request timeout。
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let hold = tokio::spawn(async move {
-        // 持有连接不回应答，直到测试结束
         let _conn = listener.accept().await;
         tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     });
@@ -485,6 +486,45 @@ async fn transport_retryable_skips_request_timeout_keeps_connect_error() {
         .unwrap();
     let e2 = c2.get(format!("http://{addr}/")).send().await.unwrap_err();
     assert!(e2.is_timeout() && !e2.is_connect(), "构造前提：请求级读超时，实际 {e2}");
-    assert!(!is_transport_retryable(&e2), "请求级读超时不重试");
+    assert!(!is_transport_retryable(&e2, std::time::Duration::from_millis(1)), "读超时恒不重试");
     hold.abort();
+}
+
+/// 连接被上游中途掐断：快失败（<5s）重试，慢失败不重试。
+/// 线上实证 cometapi 挂 15~50s 再掐，重试 0/4 成功却把耗时推到 150s。
+#[tokio::test]
+async fn transport_retryable_body_error_only_when_fast() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // stub：答完响应头 + 半截 chunked body 就断 → 客户端在读 body 时报错（非 connect / 非 timeout）。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf).await;
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n5\r\nhello\r\n")
+                .await;
+            let _ = stream.flush().await;
+            drop(stream);
+        }
+    });
+    let c = reqwest::Client::builder().no_proxy().build().unwrap();
+    let e = c
+        .get(format!("http://{addr}/"))
+        .send()
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap_err();
+    assert!(!e.is_connect() && !e.is_timeout(), "构造前提：body 中断错误，实际 {e}");
+    assert!(
+        is_transport_retryable(&e, std::time::Duration::from_millis(500)),
+        "快失败（<5s）视为瞬时抖动，重试"
+    );
+    assert!(
+        !is_transport_retryable(&e, std::time::Duration::from_secs(46)),
+        "慢失败（≥5s）= 上游收下请求挂很久才掐，重试纯亏，不重试"
+    );
 }

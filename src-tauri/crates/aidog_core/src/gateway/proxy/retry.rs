@@ -142,14 +142,27 @@ pub(crate) fn transport_retry_backoff(attempt: u32) -> std::time::Duration {
     std::time::Duration::from_millis(200u64 << attempt.min(3))
 }
 
-/// transport 层错误是否值得同平台原地重试。
+/// 「快速失败」阈值：本次尝试耗时低于此值才认为是瞬时抖动，值得原地重试。
+pub(crate) const TRANSPORT_FAST_FAIL: std::time::Duration = std::time::Duration::from_secs(5);
+
+/// transport 层错误是否值得同平台原地重试。`elapsed` = 本次尝试已耗时。
 ///
-/// - **重试**：连接建立失败、连接被上游中途掐断、body/decode 中断 —— 上游瞬时抖动，
-///   几百毫秒后大概率恢复（cometapi 类中转站的主要故障形态）。
-/// - **不重试**：请求级读超时（`is_timeout` 且非 connect 超时）—— 已经等满 timeout_secs，
-///   再来一轮只是把用户等待时间翻倍，换平台或直接失败更合理。
-pub(crate) fn is_transport_retryable(e: &reqwest::Error) -> bool {
-    !e.is_timeout() || e.is_connect()
+/// - **连接建立失败**（`is_connect`）：恒重试。耗时被 connect_timeout 夹住（毫秒到数秒级），
+///   重试代价小，且是最典型的瞬时抖动。
+/// - **请求级读超时**（`is_timeout` 且非 connect）：恒不重试。已经等满 timeout_secs，
+///   再来一轮只是把用户等待翻倍。
+/// - **其余 transport 错误**（连接被上游中途掐断 / body 中断）：仅当本次尝试
+///   `< TRANSPORT_FAST_FAIL` 才重试。线上实证：cometapi 的
+///   `SendRequest: connection closed before message completed` 常在收下请求后挂 15~50 秒
+///   才掐，重试 4 次 0 次成功，却把单请求耗时从 46s 推到 150s —— 这类慢失败重试纯亏。
+pub(crate) fn is_transport_retryable(e: &reqwest::Error, elapsed: std::time::Duration) -> bool {
+    if e.is_connect() {
+        return true;
+    }
+    if e.is_timeout() {
+        return false;
+    }
+    elapsed < TRANSPORT_FAST_FAIL
 }
 
 /// 把错误的 `source()` 链展开成 `顶层: 次层: 末层`。

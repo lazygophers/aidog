@@ -694,6 +694,29 @@ pub fn finalize_incomplete_proxy_log<'a>(
     }
 }
 
+/// 启动兜底：把所有仍卡在 status_code=0 的 proxy_log 行补写为 499（中断）。返回补写行数。
+///
+/// `finalize_incomplete_proxy_log` 由请求级 Drop guard 调用，只覆盖「进程活着但请求 future 被
+/// drop」。进程被杀（升级重启 / dev 热重载 / crash）时 guard 根本来不及跑，在途请求的行永久停在
+/// status_code=0，Logs 页显示空白条目。启动时无任何请求在途，故可无条件翻掉全部 0 行。
+/// 幂等：`WHERE status_code = 0` 保证不触碰任何已写入的真实终态。
+#[track_caller]
+pub fn sweep_incomplete_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<usize, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            let n = conn.execute(
+                "UPDATE proxy_log SET status_code = 499, updated_at = ?1 \
+                 WHERE status_code = 0 AND deleted_at = 0",
+                params![now()],
+            )?;
+            Ok(n)
+        })
+        .await
+        .map_err(|e| format!("sweep incomplete proxy logs: {e}"))
+    }
+}
+
 /// Delete logs older than N days. Pass 0 to skip.
 ///
 /// 硬删（`DELETE FROM`），非软删：retention_days 语义 = 过期清除，所有 proxy_log 查询
@@ -868,7 +891,7 @@ mod test_filter_where {
 }
 
 mod test_finalize_incomplete {
-    use super::super::finalize_incomplete_proxy_log;
+    use super::super::{finalize_incomplete_proxy_log, sweep_incomplete_proxy_logs};
     use aidog_db::Db;
 
     async fn test_db() -> Db {
@@ -934,6 +957,25 @@ mod test_finalize_incomplete {
         finalize_incomplete_proxy_log(&db, "x", 408, 200).await.unwrap();
         assert_eq!(status_of(&db, "x").await, 499, "二次 finalize 不应覆盖首次终态");
     }
-}
-}
 
+    /// 启动兜底扫描：进程被杀留下的所有 status_code=0 行一次性翻 499，真实终态一律不动。
+    #[tokio::test]
+    async fn sweep_flips_all_stuck_rows_and_reports_count() {
+        let db = test_db().await;
+        insert_log(&db, "stuck1", 0).await;
+        insert_log(&db, "stuck2", 0).await;
+        insert_log(&db, "ok", 200).await;
+        insert_log(&db, "err", 502).await;
+
+        let n = sweep_incomplete_proxy_logs(&db).await.unwrap();
+        assert_eq!(n, 2, "只翻两条卡死行");
+        assert_eq!(status_of(&db, "stuck1").await, 499);
+        assert_eq!(status_of(&db, "stuck2").await, 499);
+        assert_eq!(status_of(&db, "ok").await, 200, "200 终态不可被覆盖");
+        assert_eq!(status_of(&db, "err").await, 502, "502 终态不可被覆盖");
+
+        // 幂等：再扫一次无行可翻。
+        assert_eq!(sweep_incomplete_proxy_logs(&db).await.unwrap(), 0);
+    }
+}
+}
