@@ -118,9 +118,10 @@ pub(crate) use passthrough::{
 };
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
-    classify_429, classify_stream_first, extract_error_message, filter_upstream_resp_headers,
-    is_nonstream_body_valid, is_status_retryable, resp_headers_to_log_json, truncate_attempt_error,
-    truncate_peek_text, StreamPeek,
+    classify_429, classify_stream_first, err_chain, extract_error_message,
+    filter_upstream_resp_headers, is_nonstream_body_valid, is_status_retryable,
+    is_transport_retryable, resp_headers_to_log_json, transport_retry_backoff,
+    truncate_attempt_error, truncate_peek_text, StreamPeek, TRANSPORT_RETRY_MAX,
 };
 pub(crate) use stream::{
     cap_nonstream_body, extract_usage, replace_model_in_json, replace_model_in_sse_text,

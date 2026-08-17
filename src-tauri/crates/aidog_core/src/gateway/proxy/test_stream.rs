@@ -732,3 +732,35 @@ fn replace_model_aligns_to_requested() {
     let aligned = br#"{"id":"x","model":"requested-name"}"#;
     assert_eq!(replace_model_in_json(aligned, "requested-name"), aligned.to_vec());
 }
+
+// ── 流终态判定：flush 的 status_code 来源（修复前恒 200，断流被谎报成功）──────
+#[test]
+fn end_status_upstream_error_is_502() {
+    let agg = StreamAggregator::new();
+    agg.mark_upstream_err();
+    assert_eq!(agg.end_status_code(), 502);
+}
+
+#[test]
+fn end_status_exhausted_is_200() {
+    // 上游流自然读完但无 [DONE]/message_stop（如 Gemini streamGenerateContent）→ 仍算成功。
+    let agg = StreamAggregator::new();
+    agg.mark_exhausted();
+    assert_eq!(agg.end_status_code(), 200);
+}
+
+#[test]
+fn end_status_neither_is_499() {
+    // 流没读完也没报错就被 Drop = 客户端提前断连。
+    let agg = StreamAggregator::new();
+    assert_eq!(agg.end_status_code(), 499);
+}
+
+#[test]
+fn end_status_upstream_error_wins_over_exhausted() {
+    // 报错后流也会随即耗尽（Err 之后 poll 返 None）；错误优先，禁被 exhausted 覆盖成 200。
+    let agg = StreamAggregator::new();
+    agg.mark_upstream_err();
+    agg.mark_exhausted();
+    assert_eq!(agg.end_status_code(), 502);
+}

@@ -405,3 +405,86 @@ use super::*;
         // 必须仍是合法 UTF-8（从 String 构造即保证，断言标记存在即未 panic）
         assert!(out.starts_with("事件"));
     }
+
+// ── err_chain：reqwest Display 只打顶层，真实原因在 source 链里 ────────────────
+#[test]
+fn err_chain_flattens_nested_sources() {
+    #[derive(Debug)]
+    struct Layer(&'static str, Option<Box<Layer>>);
+    impl std::fmt::Display for Layer {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+    impl std::error::Error for Layer {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.1.as_deref().map(|l| l as &(dyn std::error::Error + 'static))
+        }
+    }
+    let e = Layer(
+        "error sending request for url (https://x/y)",
+        Some(Box::new(Layer(
+            "client error (SendRequest)",
+            Some(Box::new(Layer("connection closed before message completed", None))),
+        ))),
+    );
+    assert_eq!(
+        err_chain(&e),
+        "error sending request for url (https://x/y): client error (SendRequest): connection closed before message completed"
+    );
+}
+
+#[test]
+fn err_chain_single_layer_unchanged() {
+    #[derive(Debug)]
+    struct Solo;
+    impl std::fmt::Display for Solo {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("boom")
+        }
+    }
+    impl std::error::Error for Solo {}
+    assert_eq!(err_chain(&Solo), "boom");
+}
+
+// ── 同平台重试退避：指数增长且有上界 ──────────────────────────────────────
+#[test]
+fn transport_retry_backoff_is_exponential() {
+    assert_eq!(transport_retry_backoff(0).as_millis(), 200);
+    assert_eq!(transport_retry_backoff(1).as_millis(), 400);
+    // 上界（attempt 被 min(3) 夹住）：不会因异常大的 attempt 退避到分钟级。
+    assert_eq!(transport_retry_backoff(9).as_millis(), 1600);
+}
+
+/// 请求级读超时不重试（已等满 timeout_secs，再来一轮只是让用户等两倍）；
+/// 连接失败 / 连接被掐重试。用真 reqwest 错误构造，不 mock。
+#[tokio::test]
+async fn transport_retryable_skips_request_timeout_keeps_connect_error() {
+    // 连不上的地址（保留段 TEST-NET-1，不可路由）+ 极短 connect_timeout → is_connect 错误。
+    let c = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_millis(30))
+        .no_proxy()
+        .build()
+        .unwrap();
+    let e = c.get("http://192.0.2.1:81/").send().await.unwrap_err();
+    assert!(e.is_connect(), "构造前提：必须是 connect 错误，实际 {e}");
+    assert!(is_transport_retryable(&e), "连接失败必须重试");
+
+    // 读超时：本地 stub 接受连接但永不响应 + 极短 request timeout。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let hold = tokio::spawn(async move {
+        // 持有连接不回应答，直到测试结束
+        let _conn = listener.accept().await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    });
+    let c2 = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(80))
+        .no_proxy()
+        .build()
+        .unwrap();
+    let e2 = c2.get(format!("http://{addr}/")).send().await.unwrap_err();
+    assert!(e2.is_timeout() && !e2.is_connect(), "构造前提：请求级读超时，实际 {e2}");
+    assert!(!is_transport_retryable(&e2), "请求级读超时不重试");
+    hold.abort();
+}
