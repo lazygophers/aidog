@@ -20,12 +20,69 @@ use serde_json::{Map, Value};
 /// aidog 生成的 provider id 前缀。清理与「是否 aidog 所有」的判定都以它为准。
 pub const PROVIDER_PREFIX: &str = "aidog-";
 
+/// pi provider 的线路协议（models.json 的 `api` 字段）。
+///
+/// 版本后缀规则在两类协议下**是相反的**，全部以 pi 源码里的内置 provider 常量为准：
+/// - `anthropic-messages`：内置 `anthropic` 的 baseUrl 是裸 host `https://api.anthropic.com`
+///   （`packages/ai/src/providers/anthropic.ts:47`），`/v1/messages` 由 `@anthropic-ai/sdk` 补
+///   → aidog 给**根地址，不带版本后缀**。
+/// - `openai-completions` / `openai-responses`：内置 `openai` 的 baseUrl 是
+///   `https://api.openai.com/v1`（`packages/ai/src/providers/openai.ts:11`）→ 带 `/v1`。
+/// - `google-generative-ai`：内置 `google` 的 baseUrl 是
+///   `https://generativelanguage.googleapis.com/v1beta` → 带 `/v1beta`。
+///
+/// ⚠️ pi 官方文档 `models.md:300-329` 的 Anthropic 代理示例写成带 `/v1`，照抄会打到
+/// `/v1/v1/messages`。**文档是错的，以源码常量为准，勿把这里「修」回去。**
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum PiApi {
+    #[default]
+    AnthropicMessages,
+    OpenaiCompletions,
+    OpenaiResponses,
+    GoogleGenerativeAi,
+}
+
+impl PiApi {
+    /// models.json `api` 字段的线上取值。
+    fn wire(self) -> &'static str {
+        match self {
+            Self::AnthropicMessages => "anthropic-messages",
+            Self::OpenaiCompletions => "openai-completions",
+            Self::OpenaiResponses => "openai-responses",
+            Self::GoogleGenerativeAi => "google-generative-ai",
+        }
+    }
+
+    /// 解析线上取值；未知值返回 `None`。
+    fn from_wire(s: &str) -> Option<Self> {
+        [
+            Self::AnthropicMessages,
+            Self::OpenaiCompletions,
+            Self::OpenaiResponses,
+            Self::GoogleGenerativeAi,
+        ]
+        .into_iter()
+        .find(|a| a.wire() == s)
+    }
+
+    /// 接在代理根地址之后的版本后缀。见类型文档里的反向规则。
+    fn base_url_suffix(self) -> &'static str {
+        match self {
+            Self::AnthropicMessages => "",
+            Self::OpenaiCompletions | Self::OpenaiResponses => "/v1",
+            Self::GoogleGenerativeAi => "/v1beta",
+        }
+    }
+}
+
 /// 一个分组在 pi 侧的投影。与 DB 类型解耦，`build_pi_config` 因此是纯函数。
 #[derive(Debug, Clone)]
 pub struct PiGroup {
     pub group_key: String,
     /// 该分组可路由到的模型 id。
     pub models: Vec<String>,
+    /// 该分组的线路协议。老分组无此配置时为 `AnthropicMessages`。
+    pub api: PiApi,
 }
 
 /// pi 两份配置文件的完整内容。写盘是外面一层薄壳，测试直接断言这里。
@@ -68,17 +125,24 @@ fn escape_pi_literal(raw: &str) -> String {
     }
 }
 
+/// `group.extra` 里存协议选择的键。沿用 platform 的 extra blob 惯例，不加数据库列。
+pub const EXTRA_KEY_API: &str = "pi_api";
+
+/// 从 `group.extra` JSON 解析该组的 pi 线路协议。
+/// 缺失 / 空串 / 非法值一律回落 anthropic-messages（老分组向后兼容）。
+pub fn parse_group_api(extra: &str) -> PiApi {
+    serde_json::from_str::<Value>(extra)
+        .ok()
+        .and_then(|v| v.get(EXTRA_KEY_API)?.as_str().and_then(PiApi::from_wire))
+        .unwrap_or_default()
+}
+
 /// 单个分组的 provider id。
 pub fn provider_id(group_key: &str) -> String {
     format!("{PROVIDER_PREFIX}{group_key}")
 }
 
-/// 构造一个分组的 pi provider 对象。
-///
-/// `baseUrl` 用代理根地址、**不带版本后缀** —— pi 的 anthropic 内置 provider 常量就是
-/// `https://api.anthropic.com`（`packages/ai/src/providers/anthropic.ts:47`），`/v1/messages`
-/// 由 `@anthropic-ai/sdk` 自己补。pi 官方文档 `models.md` 的代理示例写成带 `/v1`，那会打到
-/// `/v1/v1/messages`；以源码常量为准，勿照文档「修正」。
+/// 构造一个分组的 pi provider 对象。`baseUrl` 的版本后缀随协议变化，规则见 [`PiApi`]。
 fn build_provider(group: &PiGroup, port: u16) -> Value {
     let models: Vec<Value> = group
         .models
@@ -87,8 +151,8 @@ fn build_provider(group: &PiGroup, port: u16) -> Value {
         .collect();
 
     serde_json::json!({
-        "baseUrl": format!("http://127.0.0.1:{port}/proxy"),
-        "api": "anthropic-messages",
+        "baseUrl": format!("http://127.0.0.1:{port}/proxy{}", group.api.base_url_suffix()),
+        "api": group.api.wire(),
         "apiKey": escape_pi_literal(&group.group_key),
         "authHeader": true,
         "models": models,

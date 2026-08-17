@@ -5,7 +5,12 @@ fn group(key: &str, models: &[&str]) -> PiGroup {
     PiGroup {
         group_key: key.to_string(),
         models: models.iter().map(|m| m.to_string()).collect(),
+        api: PiApi::AnthropicMessages,
     }
+}
+
+fn group_with_api(key: &str, api: PiApi) -> PiGroup {
+    PiGroup { api, ..group(key, &["m"]) }
 }
 
 fn empty() -> Value {
@@ -49,6 +54,26 @@ fn anthropic_base_url_has_no_version_suffix() {
 
     assert_eq!(p["baseUrl"], "http://127.0.0.1:8787/proxy");
     assert_eq!(p["api"], "anthropic-messages");
+}
+
+#[test]
+fn version_suffix_rule_is_inverted_between_anthropic_and_openai() {
+    // ⚠️ 反直觉且 pi 官方文档写错了：anthropic 线路要**裸根地址**（SDK 自己补
+    // `/v1/messages`，内置常量 `providers/anthropic.ts:47` 就是裸 host），openai 线路要
+    // **带 `/v1`**（内置常量 `providers/openai.ts:11`）。`models.md:300-329` 的 anthropic
+    // 示例带了 `/v1`，照抄会打到 `/v1/v1/messages`。以源码常量为准，勿把本断言「修正」回去。
+    let cases = [
+        (PiApi::AnthropicMessages, "http://127.0.0.1:8787/proxy", "anthropic-messages"),
+        (PiApi::OpenaiCompletions, "http://127.0.0.1:8787/proxy/v1", "openai-completions"),
+        (PiApi::OpenaiResponses, "http://127.0.0.1:8787/proxy/v1", "openai-responses"),
+        (PiApi::GoogleGenerativeAi, "http://127.0.0.1:8787/proxy/v1beta", "google-generative-ai"),
+    ];
+    for (api, want_url, want_api) in cases {
+        let config = build_pi_config(&empty(), &empty(), &[group_with_api("g", api)], 8787);
+        let p = &providers_of(&config)["aidog-g"];
+        assert_eq!(p["baseUrl"], want_url, "baseUrl for {want_api}");
+        assert_eq!(p["api"], want_api);
+    }
 }
 
 #[test]
@@ -117,6 +142,15 @@ fn bang_prefixed_group_key_is_escaped_to_literal() {
     // 开头 `!` 在 pi 里是「执行这条 shell 命令取 stdout」。不转义等于任意命令执行。
     let config = build_pi_config(&empty(), &empty(), &[group("!whoami", &["m"])], 8787);
     assert_eq!(providers_of(&config)["aidog-!whoami"]["apiKey"], "$!whoami");
+}
+
+#[test]
+fn group_extra_carries_the_protocol_choice() {
+    assert_eq!(parse_group_api(r#"{"pi_api":"openai-responses"}"#), PiApi::OpenaiResponses);
+    // 老分组：extra 为空串 / 无该键 / 值非法，一律 anthropic（向后兼容，不报错）。
+    assert_eq!(parse_group_api(""), PiApi::AnthropicMessages);
+    assert_eq!(parse_group_api(r#"{"_ui_collapsed":true}"#), PiApi::AnthropicMessages);
+    assert_eq!(parse_group_api(r#"{"pi_api":"nonsense"}"#), PiApi::AnthropicMessages);
 }
 
 #[test]

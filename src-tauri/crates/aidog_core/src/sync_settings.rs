@@ -412,6 +412,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         .map(|g| gateway::pi::PiGroup {
             group_key: g.group_key.clone(),
             models: dedup_source_models(&g.model_mappings),
+            api: gateway::pi::parse_group_api(&g.extra),
         })
         .collect();
     match gateway::pi::sync_groups(&pi_groups, port) {
