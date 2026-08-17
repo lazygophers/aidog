@@ -26,6 +26,11 @@
   },
   {
     "type": "file",
+    "name": "connect-pi",
+    "label": "接入 pi"
+  },
+  {
+    "type": "file",
     "name": "first-request",
     "label": "验证首个请求"
   }

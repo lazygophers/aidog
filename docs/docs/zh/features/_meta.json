@@ -56,6 +56,11 @@
   },
   {
     "type": "file",
+    "name": "pi",
+    "label": "pi"
+  },
+  {
+    "type": "file",
     "name": "settings",
     "label": "系统设置"
   }

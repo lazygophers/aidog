@@ -1,0 +1,20 @@
+---
+title: pi
+description: 编辑 pi 全局设置，并查看 aidog 写入的 provider 与不支持的功能维度。
+---
+
+# pi
+
+## 当前实现
+
+pi 集成入口在设置页 `settings/pi` 与分组的「复制启动命令」流程。
+
+设置页读写 pi 全局 `~/.pi/agent/settings.json`（可用 `PI_CODING_AGENT_DIR` 改根目录），支持 GUI 与 JSON 两种模式。aidog 不认识的键原样保留，不会被覆盖。
+
+Rust command `pi_models_path`、`pi_settings_read`、`pi_settings_write` 在 `src-tauri/src/startup.rs` 注册，前端通过 `src/services/api/settings.ts` 的 `piApi` 调用。
+
+provider 侧由 `src-tauri/crates/aidog_core/src/gateway/pi.rs` 生成，写进 `~/.pi/agent/models.json`：每个 aidog 分组一个 `aidog-<分组名>` provider，同步时只清扫 `aidog-` 前缀的条目。协议、baseUrl 版本后缀、默认分组与出站代理的规则见[接入 pi](/zh/getting-started/connect-pi)。
+
+## 不支持的维度
+
+MCP、通知 Hooks、statusline、cc-switch 导入四项对 pi 不适用，对应页面会给出一句原因，不是空状态也不是错误态。Skills 对 pi 是常开徽标而非开关：pi 扫公共 skill 目录，没有逐个启用的概念。
