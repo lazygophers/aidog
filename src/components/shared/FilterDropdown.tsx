@@ -38,9 +38,9 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          // ponytail: 对齐 select.tsx trigger — bg-card/80 + backdrop-blur-md 液态玻璃 (覆盖 outline 默认 bg-background);
+          // 对齐 select.tsx trigger — bg-card 实色不透明 (覆盖 outline 默认 bg-background);
           // data-[state=open]:border-ring + shadow-[0_0_0_3px_var(--accent-subtle)] 流光光环 (与 SelectTrigger 同源)
-          className="ripple group bg-card/80 backdrop-blur-md border-input hover:border-ring/50 hover:bg-accent/40 data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] transition-colors duration-150"
+          className="ripple group bg-card border-input hover:border-ring/50 hover:bg-accent data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] transition-colors duration-150"
           onClick={makeRipple}
           style={{ fontSize: 14, lineHeight: 1.5, height: 36, width, textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", justifyContent: "space-between" }}
           data-state={open ? "open" : "closed"}
@@ -68,9 +68,9 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
       <PopoverContent
         align="start"
         // Popover 走 Radix Portal → 脱离 Stats canvas 层叠上下文, 无需自研 zIndex:1000
-        // ponytail: 对齐 select.tsx content — bg-popover/80 + backdrop-blur-md 玻璃浮层 (覆盖默认 bg-popover);
+        // 对齐 select.tsx content — bg-popover 实色不透明 (覆盖 glass-surface 的半透 bg);
         // slide/fade/zoom 动画 PopoverContent 内置; glass-surface 加流光描边 hover 签名
-        className="glass-surface bg-popover/80 backdrop-blur-md"
+        className="glass-surface bg-popover"
         style={{ width: Math.max(width, 320), padding: 8, display: "flex", flexDirection: "column", gap: 6, maxHeight: 320 }}
       >
         <Input
