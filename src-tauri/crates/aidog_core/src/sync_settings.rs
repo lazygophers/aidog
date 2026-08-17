@@ -196,6 +196,19 @@ pub fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
     }
 }
 
+/// 分组模型映射里的对外模型名，按出现顺序去重。pi 的自定义 provider 必须自带
+/// models 才能在 `/model` 里被选到，这里就是那份候选清单。
+fn dedup_source_models(mappings: &[aidog_db::models::ModelMapping]) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    mappings
+        .iter()
+        .map(|m| m.source_model.trim())
+        .filter(|m| !m.is_empty())
+        .filter(|m| seen.insert(m.to_string()))
+        .map(|m| m.to_string())
+        .collect()
+}
+
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
@@ -389,6 +402,21 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // Cleanup: remove Codex profile files for deleted groups（用户级 config.toml 不动）。
     if let Err(e) = gateway::codex::cleanup_group_profiles(&group_keys) {
         tracing::warn!(error = %e, "codex profile cleanup failed");
+    }
+
+    // pi：所有分组共用同一份 `~/.pi/agent/models.json`（pi 只认单一全局文件），因此
+    // 必须在循环外一次性写入全部分组 —— 删除的分组由 aidog- 前缀清扫顺带消失，
+    // 不需要单独一趟 cleanup。pi 未装也不应阻塞，失败仅记录。
+    let pi_groups: Vec<gateway::pi::PiGroup> = groups
+        .iter()
+        .map(|g| gateway::pi::PiGroup {
+            group_key: g.group_key.clone(),
+            models: dedup_source_models(&g.model_mappings),
+        })
+        .collect();
+    match gateway::pi::sync_groups(&pi_groups, port) {
+        Ok(paths) => written.extend(paths),
+        Err(e) => tracing::warn!(error = %e, "pi config sync failed"),
     }
 
     Ok(written)

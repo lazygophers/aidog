@@ -18,6 +18,7 @@ pub struct HomeGuard {
     prev_home: Option<String>,
     prev_codex: Option<String>,
     prev_claude_cfg: Option<String>,
+    prev_pi: Option<String>,
 }
 impl Default for HomeGuard {
     fn default() -> Self {
@@ -32,14 +33,19 @@ impl HomeGuard {
         let prev_home = std::env::var("HOME").ok();
         let prev_codex = std::env::var("CODEX_HOME").ok();
         let prev_claude_cfg = std::env::var("CLAUDE_CONFIG_DIR").ok();
+        // pi 的 agent 目录优先认 PI_CODING_AGENT_DIR，不隔离它则开发机上设了该变量的测试
+        // 会写进真实 ~/.pi/agent。
+        let prev_pi = std::env::var("PI_CODING_AGENT_DIR").ok();
         std::fs::create_dir_all(dir.path().join(".codex")).unwrap();
         std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
+        std::fs::create_dir_all(dir.path().join(".pi").join("agent")).unwrap();
         unsafe {
             std::env::set_var("HOME", dir.path());
             std::env::set_var("CODEX_HOME", dir.path().join(".codex"));
             std::env::set_var("CLAUDE_CONFIG_DIR", dir.path().join(".claude"));
+            std::env::set_var("PI_CODING_AGENT_DIR", dir.path().join(".pi").join("agent"));
         }
-        Self { dir, _lock: lock, prev_home, prev_codex, prev_claude_cfg }
+        Self { dir, _lock: lock, prev_home, prev_codex, prev_claude_cfg, prev_pi }
     }
     pub fn home(&self) -> &std::path::Path {
         self.dir.path()
@@ -59,6 +65,10 @@ impl Drop for HomeGuard {
             match &self.prev_claude_cfg {
                 Some(v) => std::env::set_var("CLAUDE_CONFIG_DIR", v),
                 None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
+            }
+            match &self.prev_pi {
+                Some(v) => std::env::set_var("PI_CODING_AGENT_DIR", v),
+                None => std::env::remove_var("PI_CODING_AGENT_DIR"),
             }
         }
     }

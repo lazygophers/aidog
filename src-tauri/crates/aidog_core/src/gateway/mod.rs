@@ -8,6 +8,7 @@ pub mod logo_sync;
 pub mod manual_budget;
 pub mod models { pub use aidog_db::models::*; }
 pub mod peak_hours;
+pub mod pi;
 pub(crate) mod presets_cache {
     //! 拆分 shim：实现在 aidog_db::presets_cache，此处保持旧路径。
     pub use aidog_db::presets_cache::*;

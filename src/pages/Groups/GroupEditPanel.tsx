@@ -7,7 +7,7 @@ import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
 import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
-import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, PlatformPicker, useProxyEnvVars } from "../../domains/groups";
+import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars } from "../../domains/groups";
 import { CopyButton } from "../../components/shared";
 import { IconClose } from "../../components/icons";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
@@ -57,6 +57,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <CopyButton text={editTarget!.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
         <CopyButton text={buildClaudeCommand(editTarget!.group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
         <CopyButton text={buildCodexCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+        <CopyButton text={buildPiCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} label="pi" title={t("group.copyPiCommand", "复制 pi 命令")} />
         <Button variant="outline" onClick={onCancel}>{t("action.cancel")}</Button>
         <Button onClick={onSave} disabled={!editName}>{t("action.save")}</Button>
       </div>
