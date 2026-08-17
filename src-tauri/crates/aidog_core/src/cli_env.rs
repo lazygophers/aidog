@@ -17,13 +17,14 @@
 use std::process::Command;
 use tokio::process::Command as TokioCommand;
 
-/// MVP 工具范围：仅 claude + codex（research 建议降维护成本）。
-pub const TOOLS: &[&str] = &["claude", "codex"];
+/// 受支持的 CLI 客户端。
+pub const TOOLS: &[&str] = &["claude", "codex", "pi"];
 
 /// npm registry 包名映射（tool -> npm package）。
 const NPM_PACKAGES: &[(&str, &str)] = &[
     ("claude", "@anthropic-ai/claude-code"),
     ("codex", "@openai/codex"),
+    ("pi", "@earendil-works/pi-coding-agent"),
 ];
 
 /// 更新检测缓存（1h TTL）。
@@ -404,6 +405,22 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
             no_window_tokio(&mut cmd).await;
             run_and_check_async(cmd, "codex install (npm)").await
         }
+        "pi" => {
+            // 官方安装命令带 `--ignore-scripts`（quickstart.md：pi 普通 npm 安装不需要
+            // 依赖生命周期脚本）。不加会在部分环境触发无谓的构建步骤。
+            let mut cmd = TokioCommand::new("npm");
+            cmd.args([
+                "i",
+                "-g",
+                "--ignore-scripts",
+                "@earendil-works/pi-coding-agent@latest",
+            ]);
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
+            no_window_tokio(&mut cmd).await;
+            run_and_check_async(cmd, "pi install (npm)").await
+        }
         _ => Err(format!("unsupported tool: {tool}")),
     }
 }
@@ -474,6 +491,35 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
             }
             no_window_tokio(&mut i).await;
             run_and_check_async(i, "codex upgrade (npm reinstall)").await
+        }
+        "pi" => {
+            // `pi update --self` 是官方自升级子命令（packages.md:35），且从不弹项目信任提示
+            // （usage.md:164）。失败回退 npm 重装。
+            let mut cmd = TokioCommand::new("pi");
+            cmd.args(["update", "--self"]);
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
+            no_window_tokio(&mut cmd).await;
+            if let Ok(o) = cmd.output().await {
+                if o.status.success() {
+                    return Ok(());
+                }
+                let err = String::from_utf8_lossy(&o.stderr);
+                tracing::warn!(error = %err, "pi update --self failed, falling back to npm");
+            }
+            let mut cmd = TokioCommand::new("npm");
+            cmd.args([
+                "i",
+                "-g",
+                "--ignore-scripts",
+                "@earendil-works/pi-coding-agent@latest",
+            ]);
+            if let Some(p) = runtime_path {
+                cmd.env("PATH", p);
+            }
+            no_window_tokio(&mut cmd).await;
+            run_and_check_async(cmd, "pi upgrade (npm)").await
         }
         _ => Err(format!("unsupported tool: {tool}")),
     }
@@ -811,8 +857,18 @@ mod test_cli_env {
     }
 
     #[test]
-    fn tools_only_claude_and_codex() {
-        // MVP 范围裁剪：仅 claude + codex
-        assert_eq!(TOOLS, &["claude", "codex"]);
+    fn supported_tools_are_claude_codex_pi() {
+        assert_eq!(TOOLS, &["claude", "codex", "pi"]);
+    }
+
+    #[test]
+    fn every_tool_has_an_npm_package() {
+        // 更新检测走 NPM_PACKAGES 查 registry：漏一条则该工具静默永远「无更新」。
+        for &tool in TOOLS {
+            assert!(
+                NPM_PACKAGES.iter().any(|(t, _)| *t == tool),
+                "tool {tool} missing from NPM_PACKAGES"
+            );
+        }
     }
 }
