@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
+import piIcon from "../../assets/platforms/pi.svg";
 import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
 import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
@@ -63,7 +64,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <CopyButton text={editTarget!.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
         <CopyButton text={buildClaudeCommand(editTarget!.group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
         <CopyButton text={buildCodexCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
-        <CopyButton text={buildPiCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} label="pi" title={t("group.copyPiCommand", "复制 pi 命令")} />
+        <CopyButton text={buildPiCommand(editTarget!.group.group_key, [...editEnvVars, ...proxyVars])} icon={<img src={piIcon} width={14} height={14} alt="pi" />} title={t("group.copyPiCommand", "复制 pi 命令")} />
         <Button variant="outline" onClick={onCancel}>{t("action.cancel")}</Button>
         <Button onClick={onSave} disabled={!editName}>{t("action.save")}</Button>
       </div>

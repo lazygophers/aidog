@@ -245,6 +245,29 @@ fn sync_writes_then_skips_unchanged_then_rewrites_on_port_change() {
 }
 
 #[test]
+fn settings_read_write_round_trip_keeps_keys_the_schema_does_not_cover() {
+    let _g = HomeGuard::new();
+    let original = serde_json::json!({
+        "theme": "dark",
+        "somethingAidogNeverHeardOf": { "nested": [1, 2, 3] }
+    });
+
+    pi_settings_write(original.clone()).unwrap();
+    let read_back = pi_settings_read().unwrap();
+    pi_settings_write(read_back.clone()).unwrap();
+
+    assert_eq!(read_back, original);
+    assert_eq!(pi_settings_read().unwrap(), original);
+}
+
+#[test]
+fn settings_read_returns_empty_object_when_file_is_missing() {
+    // 页面据此填推荐默认，而不是报错。
+    let _g = HomeGuard::new();
+    assert_eq!(pi_settings_read().unwrap(), empty());
+}
+
+#[test]
 fn read_corrupt_models_json_errors_with_filename() {
     let _g = HomeGuard::new();
     let path = models_path().unwrap();
