@@ -191,16 +191,26 @@ fn pi_user_agent() -> String {
     format!("pi ({platform}; {arch})")
 }
 
+/// aidog 要同步进 pi 全局 `settings.json` 的两项。
+#[derive(Debug, Clone, Default)]
+pub struct PiSettings {
+    /// 默认分组的 group_key；None = 无默认组。
+    pub default_group: Option<String>,
+    /// 出站 HTTP 代理 URL；None = aidog 未配代理。
+    pub http_proxy: Option<String>,
+}
+
 /// 生成 pi 的两份配置内容。
 ///
 /// `existing_models` / `existing_settings` 是用户当前文件的解析结果（缺失传空对象）。
 /// aidog 只增删自己前缀的 provider，pi 内置 provider 与用户自建 provider 原样保留；
-/// `settings.json` 本票原样透传（默认分组与代理由后续票接入）。
+/// `settings.json` 只碰 `defaultProvider` / `httpProxy` 两键，其余（含 aidog 不认识的键）原样保留。
 pub fn build_pi_config(
     existing_models: &Value,
     existing_settings: &Value,
     groups: &[PiGroup],
     port: u16,
+    settings: &PiSettings,
 ) -> PiConfig {
     let mut root = existing_models
         .as_object()
@@ -228,8 +238,38 @@ pub fn build_pi_config(
 
     PiConfig {
         models_json: Value::Object(root),
-        settings_json: existing_settings.clone(),
+        settings_json: build_settings(existing_settings, settings),
     }
+}
+
+/// pi 全局 `settings.json`：只碰 `defaultProvider` / `httpProxy`，其余键原样保留。
+fn build_settings(existing: &Value, settings: &PiSettings) -> Value {
+    let mut root = existing.as_object().cloned().unwrap_or_else(Map::new);
+
+    match &settings.default_group {
+        Some(group_key) => {
+            root.insert("defaultProvider".into(), provider_id(group_key).into());
+        }
+        // 取消默认组：只删 aidog 自己写的值。用户手设的 `anthropic` 等留着
+        //（与 codex `remove_default_profile_from_config` 同一守卫）。
+        None => {
+            let ours = root
+                .get("defaultProvider")
+                .and_then(|v| v.as_str())
+                .is_some_and(|v| v.starts_with(PROVIDER_PREFIX));
+            if ours {
+                root.remove("defaultProvider");
+            }
+        }
+    }
+
+    // 代理只在 aidog 配了值时写。aidog 没配就不动这个键 —— 无法区分「用户手设的代理」
+    // 与「aidog 上次写的代理」，贸然删会吞掉用户自己填的值。
+    if let Some(proxy) = &settings.http_proxy {
+        root.insert("httpProxy".into(), proxy.clone().into());
+    }
+
+    Value::Object(root)
 }
 
 /// 读一个 JSON 文件为对象。文件不存在或为空返回空对象；内容损坏返回 Err。
@@ -262,7 +302,11 @@ fn write_if_changed(path: &PathBuf, value: &Value) -> Result<Option<String>, Str
 }
 
 /// 把全部分组同步进 pi 配置。返回实际发生写入的文件路径。
-pub fn sync_groups(groups: &[PiGroup], port: u16) -> Result<Vec<String>, String> {
+pub fn sync_groups(
+    groups: &[PiGroup],
+    port: u16,
+    settings: &PiSettings,
+) -> Result<Vec<String>, String> {
     let models_file = models_path()?;
     let settings_file = settings_path()?;
 
@@ -271,6 +315,7 @@ pub fn sync_groups(groups: &[PiGroup], port: u16) -> Result<Vec<String>, String>
         &read_json_object(&settings_file)?,
         groups,
         port,
+        settings,
     );
 
     let mut written = Vec::new();

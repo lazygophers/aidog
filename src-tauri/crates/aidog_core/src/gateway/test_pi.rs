@@ -26,7 +26,7 @@ fn providers_of(config: &PiConfig) -> &Map<String, Value> {
 #[test]
 fn one_provider_per_group_named_by_prefix() {
     let groups = [group("teamA", &["m1"]), group("teamB", &["m2"])];
-    let config = build_pi_config(&empty(), &empty(), &groups, 8787);
+    let config = build_pi_config(&empty(), &empty(), &groups, 8787, &PiSettings::default());
     let providers = providers_of(&config);
 
     assert_eq!(providers.len(), 2);
@@ -38,7 +38,7 @@ fn one_provider_per_group_named_by_prefix() {
 fn group_key_becomes_bearer_credential() {
     // token 不走 env：apiKey 写字面分组名 + authHeader，pi 因此发 Authorization: Bearer <group>。
     // 这是绕开 auth.json 覆盖 env 的关键（ADR 0001）。
-    let config = build_pi_config(&empty(), &empty(), &[group("teamA", &["m1"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("teamA", &["m1"])], 8787, &PiSettings::default());
     let p = &providers_of(&config)["aidog-teamA"];
 
     assert_eq!(p["apiKey"], "teamA");
@@ -49,7 +49,7 @@ fn group_key_becomes_bearer_credential() {
 fn anthropic_base_url_has_no_version_suffix() {
     // pi 的 anthropic 内置 provider 常量是裸 host，`/v1/messages` 由 SDK 自己补。
     // pi 官方文档的代理示例带 `/v1`，照抄会打到 `/v1/v1/messages`。以源码为准，勿「修正」。
-    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787, &PiSettings::default());
     let p = &providers_of(&config)["aidog-g"];
 
     assert_eq!(p["baseUrl"], "http://127.0.0.1:8787/proxy");
@@ -69,7 +69,7 @@ fn version_suffix_rule_is_inverted_between_anthropic_and_openai() {
         (PiApi::GoogleGenerativeAi, "http://127.0.0.1:8787/proxy/v1beta", "google-generative-ai"),
     ];
     for (api, want_url, want_api) in cases {
-        let config = build_pi_config(&empty(), &empty(), &[group_with_api("g", api)], 8787);
+        let config = build_pi_config(&empty(), &empty(), &[group_with_api("g", api)], 8787, &PiSettings::default());
         let p = &providers_of(&config)["aidog-g"];
         assert_eq!(p["baseUrl"], want_url, "baseUrl for {want_api}");
         assert_eq!(p["api"], want_api);
@@ -79,7 +79,7 @@ fn version_suffix_rule_is_inverted_between_anthropic_and_openai() {
 #[test]
 fn group_models_become_provider_models() {
     // pi 规定非内置 provider 必须自带 models 才能在 /model 里选到。
-    let config = build_pi_config(&empty(), &empty(), &[group("g", &["a", "b"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("g", &["a", "b"])], 8787, &PiSettings::default());
     let models = providers_of(&config)["aidog-g"]["models"]
         .as_array()
         .expect("models array");
@@ -93,7 +93,7 @@ fn group_models_become_provider_models() {
 fn provider_turns_off_pi_only_request_extras() {
     // 关掉后 pi 不发 eager tool input streaming / 长 ttl 缓存 / session affinity 头 ——
     // 上游不认这些字段时会 400。键名出自 pi `docs/models.md` 的 compat 表。
-    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787, &PiSettings::default());
     let compat = &providers_of(&config)["aidog-g"]["compat"];
 
     assert_eq!(compat["supportsEagerToolInputStreaming"], false);
@@ -104,7 +104,7 @@ fn provider_turns_off_pi_only_request_extras() {
 #[test]
 fn provider_identifies_itself_as_pi() {
     // 自定义 provider 下 pi 不设自己的 UA（只有内置 kimi-coding 设），不写就成匿名 SDK 默认值。
-    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787, &PiSettings::default());
     let ua = providers_of(&config)["aidog-g"]["headers"]["User-Agent"]
         .as_str()
         .expect("User-Agent header");
@@ -122,7 +122,7 @@ fn builtin_and_user_providers_survive() {
         },
         "someUnknownTopLevelKey": 42
     });
-    let config = build_pi_config(&existing, &empty(), &[group("g", &["m"])], 8787);
+    let config = build_pi_config(&existing, &empty(), &[group("g", &["m"])], 8787, &PiSettings::default());
     let providers = providers_of(&config);
 
     assert_eq!(providers["anthropic"]["baseUrl"], "https://my-proxy.example.com");
@@ -139,7 +139,7 @@ fn deleted_group_provider_is_swept() {
             "anthropic": { "baseUrl": "https://api.anthropic.com" }
         }
     });
-    let config = build_pi_config(&existing, &empty(), &[group("keep", &["m"])], 8787);
+    let config = build_pi_config(&existing, &empty(), &[group("keep", &["m"])], 8787, &PiSettings::default());
     let providers = providers_of(&config);
 
     assert!(!providers.contains_key("aidog-stale"));
@@ -149,7 +149,7 @@ fn deleted_group_provider_is_swept() {
 
 #[test]
 fn no_groups_and_no_other_providers_leaves_no_empty_table() {
-    let config = build_pi_config(&empty(), &empty(), &[], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[], 8787, &PiSettings::default());
     assert!(config.models_json.get("providers").is_none());
 }
 
@@ -157,14 +157,14 @@ fn no_groups_and_no_other_providers_leaves_no_empty_table() {
 fn dollar_in_group_key_is_escaped_to_literal() {
     // pi 在 apiKey 里做环境变量插值，且插值在长字面量内部也生效。不转义则分组名
     // `$HOME` 会被解析成环境变量值，路由 token 完全错位。
-    let config = build_pi_config(&empty(), &empty(), &[group("a$HOME-b", &["m"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("a$HOME-b", &["m"])], 8787, &PiSettings::default());
     assert_eq!(providers_of(&config)["aidog-a$HOME-b"]["apiKey"], "a$$HOME-b");
 }
 
 #[test]
 fn bang_prefixed_group_key_is_escaped_to_literal() {
     // 开头 `!` 在 pi 里是「执行这条 shell 命令取 stdout」。不转义等于任意命令执行。
-    let config = build_pi_config(&empty(), &empty(), &[group("!whoami", &["m"])], 8787);
+    let config = build_pi_config(&empty(), &empty(), &[group("!whoami", &["m"])], 8787, &PiSettings::default());
     assert_eq!(providers_of(&config)["aidog-!whoami"]["apiKey"], "$!whoami");
 }
 
@@ -177,11 +177,56 @@ fn group_extra_carries_the_protocol_choice() {
     assert_eq!(parse_group_api(r#"{"pi_api":"nonsense"}"#), PiApi::AnthropicMessages);
 }
 
+fn settings_of(existing: &Value, settings: &PiSettings) -> Map<String, Value> {
+    build_pi_config(&empty(), existing, &[group("g", &["m"])], 8787, settings)
+        .settings_json
+        .as_object()
+        .expect("settings object")
+        .clone()
+}
+
 #[test]
-fn settings_json_passes_through_untouched() {
-    let existing = serde_json::json!({ "theme": "dark", "defaultProvider": "anthropic" });
-    let config = build_pi_config(&empty(), &existing, &[group("g", &["m"])], 8787);
-    assert_eq!(config.settings_json, existing);
+fn default_group_becomes_pi_default_provider() {
+    let s = settings_of(
+        &empty(),
+        &PiSettings { default_group: Some("teamA".into()), ..PiSettings::default() },
+    );
+    assert_eq!(s["defaultProvider"], "aidog-teamA");
+}
+
+#[test]
+fn clearing_default_group_removes_only_aidogs_own_value() {
+    let ours = serde_json::json!({ "defaultProvider": "aidog-teamA" });
+    assert!(!settings_of(&ours, &PiSettings::default()).contains_key("defaultProvider"));
+
+    // 用户手设的默认 provider 不是 aidog 写的，取消默认组时必须留着。
+    let theirs = serde_json::json!({ "defaultProvider": "anthropic" });
+    assert_eq!(settings_of(&theirs, &PiSettings::default())["defaultProvider"], "anthropic");
+}
+
+#[test]
+fn outbound_proxy_goes_to_pis_native_setting() {
+    let s = settings_of(
+        &empty(),
+        &PiSettings { http_proxy: Some("http://127.0.0.1:7890".into()), ..PiSettings::default() },
+    );
+    assert_eq!(s["httpProxy"], "http://127.0.0.1:7890");
+
+    // aidog 没配代理就不碰这个键：分不清用户手填的值，删了等于吞掉用户配置。
+    let theirs = serde_json::json!({ "httpProxy": "http://user-proxy:1080" });
+    assert_eq!(settings_of(&theirs, &PiSettings::default())["httpProxy"], "http://user-proxy:1080");
+}
+
+#[test]
+fn unrelated_settings_keys_survive_the_write() {
+    let existing = serde_json::json!({ "theme": "dark", "quietStartup": true, "somethingAidogNeverHeardOf": 42 });
+    let s = settings_of(
+        &existing,
+        &PiSettings { default_group: Some("g".into()), http_proxy: Some("http://p:1".into()) },
+    );
+    assert_eq!(s["theme"], "dark");
+    assert_eq!(s["quietStartup"], true);
+    assert_eq!(s["somethingAidogNeverHeardOf"], 42);
 }
 
 #[test]
@@ -189,13 +234,13 @@ fn sync_writes_then_skips_unchanged_then_rewrites_on_port_change() {
     let _g = HomeGuard::new();
     let groups = [group("grp", &["m"])];
 
-    let first = sync_groups(&groups, 9000).unwrap();
+    let first = sync_groups(&groups, 9000, &PiSettings::default()).unwrap();
     assert!(!first.is_empty(), "first sync must write models.json");
 
-    let again = sync_groups(&groups, 9000).unwrap();
+    let again = sync_groups(&groups, 9000, &PiSettings::default()).unwrap();
     assert!(again.is_empty(), "unchanged content must not rewrite");
 
-    let changed = sync_groups(&groups, 9001).unwrap();
+    let changed = sync_groups(&groups, 9001, &PiSettings::default()).unwrap();
     assert!(!changed.is_empty(), "port change must rewrite");
 }
 
@@ -206,6 +251,6 @@ fn read_corrupt_models_json_errors_with_filename() {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, "{\"providers\": {,}").unwrap();
 
-    let err = sync_groups(&[group("g", &["m"])], 8787).expect_err("corrupt JSON must error");
+    let err = sync_groups(&[group("g", &["m"])], 8787, &PiSettings::default()).expect_err("corrupt JSON must error");
     assert!(err.starts_with("parse "), "err should mark parse stage: {err}");
 }

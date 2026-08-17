@@ -222,6 +222,17 @@ fn pi_model_candidates(
     out
 }
 
+/// 出站代理 URL：取 claude config 的 `env.HTTPS_PROXY`，退 `env.HTTP_PROXY`。
+/// 这两个键就是「Coding 设置」代理卡片写入的位置，pi 有原生 `httpProxy` 设置项承接。
+fn proxy_url_from_config(config: &serde_json::Value) -> Option<String> {
+    let env = config.get("env")?;
+    ["HTTPS_PROXY", "HTTP_PROXY"]
+        .into_iter()
+        .find_map(|k| env.get(k).and_then(|v| v.as_str()))
+        .filter(|v| !v.is_empty())
+        .map(str::to_string)
+}
+
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
@@ -433,7 +444,11 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
             api: gateway::pi::parse_group_api(&d.group.extra),
         })
         .collect();
-    match gateway::pi::sync_groups(&pi_groups, port) {
+    let pi_settings = gateway::pi::PiSettings {
+        default_group: groups.iter().find(|g| g.is_default).map(|g| g.group_key.clone()),
+        http_proxy: proxy_url_from_config(&base_config),
+    };
+    match gateway::pi::sync_groups(&pi_groups, port, &pi_settings) {
         Ok(paths) => written.extend(paths),
         Err(e) => tracing::warn!(error = %e, "pi config sync failed"),
     }
