@@ -1,10 +1,6 @@
 ---
 title: MCP
-<<<<<<< HEAD
 description: 扫描、导入、启用和管理 MCP Server。
-=======
-description: 扫描、导入、启用和集中管理各编程助手的 MCP Server。
->>>>>>> 9fb0c490
 ---
 
 # MCP
@@ -13,7 +9,6 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 <ProductDemo module="mcp" state="normal" />
 
-<<<<<<< HEAD
 ## 当前实现
 
 侧栏的 `mcp` 入口挂载 `src/pages/Mcp.tsx`。Tauri 命令在 `src-tauri/src/startup.rs` 中注册，前端 wrapper 走 `src/services/api/mcp.ts`。
@@ -23,10 +18,9 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 ## 文档演示边界
 
 演示数据是脱敏固定 fixture。它不代表真实 MCP 连接状态，也不连接任何本机或远端 server。
-=======
+
 ## 主要任务
 
 此页面演示正常、空、错误和加载四种固定状态。演示数据已脱敏，不连接本机 aidog、Tauri IPC 或 Local API。
 
 在桌面应用中使用左侧导航进入“MCP”。保存会影响运行状态的设置前，先确认当前分组和平台范围；发生错误时结合[代理日志](/zh/features/logs)定位。
->>>>>>> 9fb0c490
