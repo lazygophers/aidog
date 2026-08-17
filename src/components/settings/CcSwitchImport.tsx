@@ -34,7 +34,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useReveal, makeRipple } from "../../components/shared";
+import { useReveal, makeRipple, PiUnsupportedNote } from "../../components/shared";
 
 function protocolColor(matchedBy: string): ColorLevel {
   switch (matchedBy) {
@@ -238,6 +238,11 @@ export function CcSwitchImportSection({
           "importExport.ccswitch.desc",
           "读取本地 cc-switch 配置（仅 claude + codex provider），按 base_url 自动识别平台类型。选择性导入 + 冲突逐项决策。",
         )}
+      />
+
+      <PiUnsupportedNote
+        reasonKey="pi.unsupportedCcSwitch"
+        reasonFallback="上游 cc-switch 只管 claude 与 codex provider，本身不认识 pi，没有可导入的 pi 数据。"
       />
 
       {/* 检测 + 手动选目录 */}

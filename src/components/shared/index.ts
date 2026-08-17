@@ -32,4 +32,5 @@ export {
   balanceColorLevel,
 } from "./usageColor";
 export { stableStringify } from "./stableStringify";
+export { PiUnsupportedNote } from "./PiUnsupportedNote";
 export { useReveal, useInView, useCounter, makeRipple } from "../../utils/motion";
