@@ -1,0 +1,72 @@
+---
+title: 接入 pi
+description: 安装 pi，把 aidog 分组挂成 pi provider，并用启动命令切换分组。
+---
+
+# 接入 pi
+
+[pi](https://github.com/earendil-works/pi) 是 earendil-works 的编码 agent CLI。aidog 把每个分组同步成一个 pi provider，你用 `--provider` 切分组。
+
+## 1. 安装 pi
+
+在「系统设置 → 编码工具」里安装或升级，等价命令：
+
+```bash
+npm install -g @earendil-works/pi-coding-agent@latest
+```
+
+aidog 注册的 CLI 名是 `pi`，npm 包名 `@earendil-works/pi-coding-agent`（`src-tauri/crates/aidog_core/src/cli_env.rs:27`）。
+
+## 2. 让 aidog 写 provider
+
+分组配置保存时，aidog 会重写 `~/.pi/agent/models.json` 里所有以 `aidog-` 开头的 provider，其余 provider 原样保留。一个分组一个 provider，id 是 `aidog-<分组名>`。
+
+写入的字段：
+
+- `baseUrl`：`http://127.0.0.1:9890/proxy`，按协议追加版本后缀（见下）
+- `api`：分组选的协议
+- `apiKey`：分组 key（不是上游 API Key）
+- `authHeader: true`
+- `models`：分组的有效模型列表；分组没配模型时回落到 aidog 的静态默认列表
+
+pi 的凭据解析里 `auth.json` 优先于环境变量，所以 aidog 直接写字面量 `apiKey`，不依赖 env。
+
+## 3. 选协议
+
+在分组编辑面板选「pi 协议」，四选一：
+
+| 协议 | baseUrl 后缀 |
+| --- | --- |
+| `anthropic-messages` | 无（根地址） |
+| `openai-completions` | `/v1` |
+| `openai-responses` | `/v1` |
+| `google-generative-ai` | `/v1beta` |
+
+后缀由 aidog 按协议自动拼，你不用手写。规则是反直觉的：Anthropic 的 SDK 自己补 `/v1/messages`，所以 baseUrl 必须是**裸根地址**；OpenAI 系反而要带 `/v1`。pi 官方文档的 Anthropic 代理示例把这条写错了，照抄会 404。
+
+## 4. 启动
+
+在分组列表点「复制启动命令 → pi 启动命令」，得到：
+
+```bash
+pi --provider 'aidog-<分组名>'
+```
+
+分组自定义的环境变量会作为 `export ...;` 前缀一并带上。
+
+## 5. 默认分组
+
+aidog 把默认分组写进 pi 全局 `settings.json` 的 `defaultProvider`，直接敲 `pi` 就走该分组。取消默认分组时，aidog 只在该值以 `aidog-` 开头时才清除，不动你手工设的 provider。
+
+分组配了出站代理时，aidog 会同步写 pi 的 `httpProxy`。
+
+## pi 不支持的功能
+
+| 功能 | 原因 |
+| --- | --- |
+| MCP | pi 刻意不内置 MCP，能力靠 extension 直接写 TypeScript，没有可写入的 MCP 配置文件 |
+| 通知 Hooks | pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里 |
+| statusline | pi 没有 statusline 概念 |
+| cc-switch 导入 | 上游 cc-switch 只认 claude 与 codex provider |
+
+Skills 不在此列：`skills` CLI 装进跨工具的公共 skill 目录，pi 原生扫该目录，所有 skill 常开，没有逐个启用的开关。
