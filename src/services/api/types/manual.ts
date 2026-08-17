@@ -243,7 +243,10 @@ export interface CliInstallation {
   is_path_default: boolean;
 }
 
-/** 工具状态（claude / codex）。 */
+/** aidog 管理安装/升级的 CLI 客户端。与 Rust `cli_env::TOOLS` 一一对应。 */
+export type CliTool = "claude" | "codex" | "pi";
+
+/** 工具状态（claude / codex / pi）。 */
 export interface CliToolStatus {
   name: string;
   installed: boolean;

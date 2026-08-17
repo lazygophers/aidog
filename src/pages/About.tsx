@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import type { Update } from "@tauri-apps/plugin-updater";
-import { aboutApi, cliEnvApi, type AboutInfo, type CliToolStatus, type CliConflict } from "../services/api";
+import { aboutApi, cliEnvApi, type AboutInfo, type CliTool, type CliToolStatus, type CliConflict } from "../services/api";
 import { checkForUpdateManual } from "../services/updater";
 import { UpdatePromptModal } from "../components/UpdatePromptModal";
 import { IconGlobe } from "../components/icons";
@@ -15,6 +15,13 @@ import { formatDateTime } from "../utils/formatters";
 import { useReveal, makeRipple } from "../components/shared";
 
 type UpdateState = "idle" | "checking" | "uptodate" | "error";
+
+/** CLI 名 → i18n key + 兜底展示名。后端 `cli_env::TOOLS` 是名字的真值源。 */
+const CLI_TOOL_LABELS: Record<CliTool, { key: string; fallback: string }> = {
+  claude: { key: "about.localEnv.claudeCode", fallback: "Claude Code" },
+  codex: { key: "about.localEnv.codex", fallback: "Codex CLI" },
+  pi: { key: "about.localEnv.pi", fallback: "pi" },
+};
 
 const GITHUB_REPO = "https://github.com/lazygophers/aidog";
 const GITHUB_LINKS = {
@@ -31,13 +38,13 @@ export function About() {
   const [updMsg, setUpdMsg] = useState("");
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
 
-  // ─── 本地环境（Claude Code / Codex CLI）──────────────────────
+  // ─── 本地环境（Claude Code / Codex CLI / pi）─────────────────
   const [cliTools, setCliTools] = useState<CliToolStatus[]>([]);
   const [cliConflicts, setCliConflicts] = useState<CliConflict[]>([]);
   const [cliBusy, setCliBusy] = useState<"" | "check" | "install" | "upgrade" | "diagnose">("");
   const [cliMsg, setCliMsg] = useState("");
   const [cliErr, setCliErr] = useState("");
-  const [cliPendingTool, setCliPendingTool] = useState<"claude" | "codex" | null>(null);
+  const [cliPendingTool, setCliPendingTool] = useState<CliTool | null>(null);
 
   // 萤火虫动效：4 区块 reveal 错峰（0/80/160/240ms）。
   const revealVersion = useReveal<HTMLDivElement>(0);
@@ -116,7 +123,7 @@ export function About() {
     }
   };
 
-  const handleCliInstall = async (tool: "claude" | "codex") => {
+  const handleCliInstall = async (tool: CliTool) => {
     setCliBusy("install");
     setCliPendingTool(tool);
     setCliMsg("");
@@ -133,7 +140,7 @@ export function About() {
     }
   };
 
-  const handleCliUpgrade = async (tool: "claude" | "codex") => {
+  const handleCliUpgrade = async (tool: CliTool) => {
     setCliBusy("upgrade");
     setCliPendingTool(tool);
     setCliMsg("");
@@ -365,9 +372,10 @@ export function About() {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
-                    {s.name === "claude"
-                      ? t("about.localEnv.claudeCode", "Claude Code")
-                      : t("about.localEnv.codex", "Codex CLI")}
+                    {(() => {
+                      const label = CLI_TOOL_LABELS[s.name as CliTool];
+                      return t(label.key, label.fallback);
+                    })()}
                   </span>
                   <span
                     style={{
@@ -388,7 +396,7 @@ export function About() {
                       className="ripple"
                       style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
-                      onClick={(e) => { makeRipple(e); handleCliInstall(s.name as "claude" | "codex"); }}
+                      onClick={(e) => { makeRipple(e); handleCliInstall(s.name as CliTool); }}
                     >
                       {cliBusy === "install" && isPending
                         ? t("about.localEnv.installing", "安装中…")
@@ -401,7 +409,7 @@ export function About() {
                       className="ripple"
                       style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
-                      onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as "claude" | "codex"); }}
+                      onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as CliTool); }}
                     >
                       {cliBusy === "upgrade" && isPending
                         ? t("about.localEnv.upgrading", "升级中…")
@@ -414,7 +422,7 @@ export function About() {
                       className="ripple"
                       style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
                       disabled={cliBusy !== "" || isPending}
-                      onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as "claude" | "codex"); }}
+                      onClick={(e) => { makeRipple(e); handleCliUpgrade(s.name as CliTool); }}
                       title={t("about.localEnv.brokenHint", "已损坏，尝试重新安装以修复")}
                     >
                       {cliBusy === "upgrade" && isPending
