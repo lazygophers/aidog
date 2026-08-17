@@ -41,3 +41,24 @@ export function buildCodexCommand(groupKey: string, envVars?: EnvVar[]): string 
     "never",
   ].join(" ");
 }
+
+/** aidog 为分组生成的 pi provider id 前缀。与 Rust `gateway::pi::PROVIDER_PREFIX` 一致。 */
+export const PI_PROVIDER_PREFIX = "aidog-";
+
+/**
+ * Build the `pi` CLI invocation for a given group.
+ * pi 的 endpoint 只认单一全局 `~/.pi/agent/models.json`，aidog 在其中为每组写一个
+ * provider `aidog-<group>`，用 `--provider` 选组。token 已写进该 provider 的 apiKey，
+ * 因此命令行不带任何路由 env。
+ */
+export function buildPiCommand(groupKey: string, envVars?: EnvVar[]): string {
+  const exports = (envVars ?? [])
+    .filter(ev => ev.key.trim() !== "" && ev.value !== "")
+    .map(ev => `export ${ev.key}=${shellSquote(ev.value)};`);
+  return [
+    ...exports,
+    "pi",
+    "--provider",
+    shellSquote(`${PI_PROVIDER_PREFIX}${groupKey}`),
+  ].join(" ");
+}

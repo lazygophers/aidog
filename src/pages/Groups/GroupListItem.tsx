@@ -9,7 +9,7 @@ import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLe
 import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
 import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
 import type { DragHandleProps } from "../../components/SortableList";
-import { buildClaudeCommand, buildCodexCommand, routingModeLabel, GroupIcon, useProxyEnvVars } from "../../domains/groups";
+import { buildClaudeCommand, buildCodexCommand, buildPiCommand, routingModeLabel, GroupIcon, useProxyEnvVars } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -229,6 +229,7 @@ export const GroupListItem = memo(function GroupListItem({
             { key: "key", label: t("group.menuCopyKey", "API Key"), text: group.group_key },
             { key: "claude", label: t("group.menuCopyClaude", "Claude 启动命令"), text: buildClaudeCommand(group.group_key), icon: <img src={claudeIcon} width={14} height={14} alt="Claude" /> },
             { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
+            { key: "pi", label: t("group.menuCopyPi", "pi 启动命令"), text: buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]) },
           ]}
         />
         <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>

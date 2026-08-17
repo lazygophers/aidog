@@ -216,6 +216,8 @@ pub fn run() {
             aidog_core::gateway::codex::codex_config_read,
             aidog_core::gateway::codex::codex_config_write,
             aidog_core::gateway::codex::codex_config_path,
+            // pi Config
+            aidog_core::gateway::pi::pi_models_path,
             // Statistics
             aidog_core::platform_cmd::stats::stats_query,
             aidog_core::ai_tools_cmd::model_test::model_test,
