@@ -401,9 +401,11 @@ pub(crate) async fn forward_attempt(
         } else {
             None
         };
+        // 本轮尝试自身的耗时（非累计）：慢失败不重试的判据，见 is_transport_retryable。
+        let send_start = std::time::Instant::now();
         match builder.send().await {
             Ok(r) => break r,
-            Err(e) if is_transport_retryable(&e) && next_builder.is_some() => {
+            Err(e) if is_transport_retryable(&e, send_start.elapsed()) && next_builder.is_some() => {
                 let backoff = transport_retry_backoff(transport_retried);
                 tracing::warn!(
                     url = %url, platform = %route.platform.name, error = %err_chain(&e),

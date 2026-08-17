@@ -73,6 +73,25 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     .await
                 });
             }
+            // 启动兜底：把上次进程被杀（升级重启 / dev 热重载 / crash）时留下的 status_code=0
+            // 在途行补写为 499。请求级 Drop guard 只覆盖进程活着的场景，进程被杀时来不及跑，
+            // 那些行会永久停在 0（Logs 页显示空白条目）。启动时无请求在途，翻全部 0 行安全。
+            {
+                let db_clone = db.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("db_sweep_incomplete_logs", trace_id = %logging::new_trace_id());
+                    async {
+                        match aidog_logs::sweep_incomplete_proxy_logs(&db_clone).await {
+                            Ok(0) => tracing::debug!("no incomplete proxy_log rows to sweep"),
+                            Ok(n) => tracing::info!(rows = n, "swept incomplete proxy_log rows to 499 (interrupted by process exit)"),
+                            Err(e) => tracing::warn!(error = %e, "sweep incomplete proxy logs failed"),
+                        }
+                    }
+                    .instrument(span)
+                    .await
+                });
+            }
             // 一次性纠正聚合表虚高（agg 重复计数 bug，版本门控只跑一次）。非阻塞 spawn。
             {
                 let db_clone = db.clone();
