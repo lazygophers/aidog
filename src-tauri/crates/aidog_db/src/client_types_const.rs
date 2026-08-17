@@ -490,6 +490,48 @@ pub const BUNDLED: &str = r##"{
       }
     },
     {
+      "value": "pi_cli",
+      "group": "pi",
+      "name": {
+        "zh-Hans": "pi CLI",
+        "en-US": "pi CLI",
+        "ar-SA": "pi CLI",
+        "fr-FR": "pi CLI",
+        "de-DE": "pi CLI",
+        "ru-RU": "pi CLI",
+        "ja-JP": "pi CLI",
+        "es-ES": "pi CLI"
+      },
+      "desc": {
+        "zh-Hans": "模拟 pi CLI 客户端（pi/<版本> (<平台>; <运行时>; <架构>) User-Agent）",
+        "en-US": "Emulate pi CLI client (pi/<version> (<platform>; <runtime>; <arch>) User-Agent)",
+        "ar-SA": "محاكاة عميل pi CLI (‏User-Agent بصيغة pi/<version> (<platform>; <runtime>; <arch>))",
+        "fr-FR": "Émuler le client pi CLI (User-Agent pi/<version> (<platform>; <runtime>; <arch>))",
+        "de-DE": "pi CLI-Client emulieren (User-Agent pi/<Version> (<Plattform>; <Runtime>; <Arch>))",
+        "ru-RU": "Эмуляция клиента pi CLI (User-Agent pi/<версия> (<платформа>; <среда>; <архитектура>))",
+        "ja-JP": "pi CLI クライアントをエミュレート (User-Agent は pi/<バージョン> (<プラットフォーム>; <ランタイム>; <アーキテクチャ>))",
+        "es-ES": "Emular cliente pi CLI (User-Agent pi/<versión> (<plataforma>; <runtime>; <arquitectura>))"
+      },
+      "simulation": {
+        "user_agent": "pi/0.84.2 (darwin; node/v24.0.0; arm64)",
+        "auth": {
+          "anthropic": [
+            {"name": "x-api-key", "value": "{api_key}"},
+            {"name": "anthropic-version", "value": "2023-06-01"}
+          ],
+          "openai": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ],
+          "gemini": [
+            {"name": "x-goog-api-key", "value": "{api_key}"}
+          ],
+          "default": [
+            {"name": "Authorization", "value": "Bearer {api_key}"}
+          ]
+        }
+      }
+    },
+    {
       "value": "cursor",
       "group": "IDE",
       "name": {

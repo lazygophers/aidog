@@ -285,3 +285,39 @@ use serde_json::json;
         // 清掉这组避免污染其它测试（test_db 用内存库，但 sync 写了真实 HOME 下的文件）
         aidog_db::delete_group(&db, g.id).await.unwrap();
     }
+
+// ── pi 模型候选：分组映射 ∪ 平台有效模型，去重；全空回落静态默认清单 ──
+
+use super::pi_model_candidates;
+use aidog_db::models::{ModelMapping, PlatformModels};
+
+fn mapping(source: &str) -> ModelMapping {
+    ModelMapping {
+        source_model: source.to_string(),
+        target_platform_id: 0,
+        target_model: String::new(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+    }
+}
+
+#[test]
+fn pi_models_union_group_mappings_and_platform_models_deduped() {
+    let models = pi_model_candidates(
+        &[mapping("claude-sonnet-5"), mapping("glm-4-plus")],
+        &[PlatformModels {
+            default: Some("glm-4-plus".into()),
+            sonnet: Some("glm-4-air".into()),
+            ..PlatformModels::default()
+        }],
+    );
+    assert_eq!(models, vec!["claude-sonnet-5", "glm-4-plus", "glm-4-air"]);
+}
+
+#[test]
+fn pi_models_fall_back_to_static_defaults_when_group_has_none() {
+    // 空 models 的 provider 在 pi 的 /model 里一个模型都选不出来，等于废配置。
+    let models = pi_model_candidates(&[], &[PlatformModels::default()]);
+    assert!(!models.is_empty());
+    assert_eq!(models, crate::gateway::proxy::STATIC_MODEL_IDS);
+}

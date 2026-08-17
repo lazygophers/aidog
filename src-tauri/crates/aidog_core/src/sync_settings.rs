@@ -196,17 +196,30 @@ pub fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
     }
 }
 
-/// 分组模型映射里的对外模型名，按出现顺序去重。pi 的自定义 provider 必须自带
-/// models 才能在 `/model` 里被选到，这里就是那份候选清单。
-fn dedup_source_models(mappings: &[aidog_db::models::ModelMapping]) -> Vec<String> {
+/// 一个分组在 pi `/model` 里能选到的模型候选：分组模型映射的对外模型名 ∪ 各关联平台
+/// 的有效模型，按出现顺序去重。pi 的自定义 provider 必须自带 models 才能选模型，
+/// 全空会生成一个选不了模型的废 provider —— 因此回落到 `/models` 那份静态默认清单
+/// （同一份真值源，不另起第二份）。
+fn pi_model_candidates(
+    mappings: &[aidog_db::models::ModelMapping],
+    platform_models: &[aidog_db::models::PlatformModels],
+) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
-    mappings
+    let mut out: Vec<String> = mappings
         .iter()
-        .map(|m| m.source_model.trim())
+        .map(|m| m.source_model.trim().to_string())
+        .chain(platform_models.iter().flat_map(|m| m.all_values()))
         .filter(|m| !m.is_empty())
-        .filter(|m| seen.insert(m.to_string()))
-        .map(|m| m.to_string())
-        .collect()
+        .filter(|m| seen.insert(m.clone()))
+        .collect();
+
+    if out.is_empty() {
+        out = gateway::proxy::STATIC_MODEL_IDS
+            .iter()
+            .map(|m| m.to_string())
+            .collect();
+    }
+    out
 }
 
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
@@ -407,12 +420,17 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // pi：所有分组共用同一份 `~/.pi/agent/models.json`（pi 只认单一全局文件），因此
     // 必须在循环外一次性写入全部分组 —— 删除的分组由 aidog- 前缀清扫顺带消失，
     // 不需要单独一趟 cleanup。pi 未装也不应阻塞，失败仅记录。
-    let pi_groups: Vec<gateway::pi::PiGroup> = groups
+    // 模型候选要平台维度，故取 details（`groups` 只有分组本体）。
+    let pi_groups: Vec<gateway::pi::PiGroup> = aidog_db::list_group_details(db)
+        .await?
         .iter()
-        .map(|g| gateway::pi::PiGroup {
-            group_key: g.group_key.clone(),
-            models: dedup_source_models(&g.model_mappings),
-            api: gateway::pi::parse_group_api(&g.extra),
+        .map(|d| gateway::pi::PiGroup {
+            group_key: d.group.group_key.clone(),
+            models: pi_model_candidates(
+                &d.group.model_mappings,
+                &d.platforms.iter().map(|gp| gp.platform.models.clone()).collect::<Vec<_>>(),
+            ),
+            api: gateway::pi::parse_group_api(&d.group.extra),
         })
         .collect();
     match gateway::pi::sync_groups(&pi_groups, port) {

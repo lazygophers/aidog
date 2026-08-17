@@ -315,7 +315,7 @@ async fn relay_passthrough(
 /// 静态默认模型集（Claude + Codex 官方默认）。不反映上游真实可用模型 —— 仅供
 /// 客户端模型发现 UI 探测用（GET /models 无需 group / token）。月级腐化需手工核对。
 /// 最近核对: 2026-07-08。参照前端 getDefaultModels（Platforms.tsx）。
-const STATIC_MODEL_IDS: &[&str] = &[
+pub(crate) const STATIC_MODEL_IDS: &[&str] = &[
     "claude-fable-5",
     "claude-opus-4-8",
     "claude-sonnet-5",

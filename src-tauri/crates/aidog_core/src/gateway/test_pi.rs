@@ -90,6 +90,30 @@ fn group_models_become_provider_models() {
 }
 
 #[test]
+fn provider_turns_off_pi_only_request_extras() {
+    // 关掉后 pi 不发 eager tool input streaming / 长 ttl 缓存 / session affinity 头 ——
+    // 上游不认这些字段时会 400。键名出自 pi `docs/models.md` 的 compat 表。
+    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787);
+    let compat = &providers_of(&config)["aidog-g"]["compat"];
+
+    assert_eq!(compat["supportsEagerToolInputStreaming"], false);
+    assert_eq!(compat["supportsLongCacheRetention"], false);
+    assert_eq!(compat["sendSessionAffinityHeaders"], false);
+}
+
+#[test]
+fn provider_identifies_itself_as_pi() {
+    // 自定义 provider 下 pi 不设自己的 UA（只有内置 kimi-coding 设），不写就成匿名 SDK 默认值。
+    let config = build_pi_config(&empty(), &empty(), &[group("g", &["m"])], 8787);
+    let ua = providers_of(&config)["aidog-g"]["headers"]["User-Agent"]
+        .as_str()
+        .expect("User-Agent header");
+
+    assert!(ua.starts_with("pi ("), "UA should read as pi: {ua}");
+    assert!(ua.ends_with(')'), "UA should keep pi's parenthesised form: {ua}");
+}
+
+#[test]
 fn builtin_and_user_providers_survive() {
     let existing = serde_json::json!({
         "providers": {

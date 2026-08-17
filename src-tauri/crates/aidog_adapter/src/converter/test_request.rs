@@ -214,3 +214,32 @@ fn convert_request_openai_responses_path() {
     // base_url 约定带 /v1（OpenAI 系），path 只返后缀，禁重复拼（回归：曾出 /v1/v1/responses）。
     assert_eq!(path, "/responses");
 }
+
+// ── pi 特有字段：即便 provider 的 compat 开关没生效（用户手改配置 / pi 升级改行为），
+//    入站解析也不能 400。三样出自 pi `docs/models.md`：每工具 eager_input_streaming、
+//    带 ttl 的 cache_control、adaptive thinking + output_config.effort。
+#[test]
+fn anthropic_parse_tolerates_pi_specific_fields() {
+    let body = serde_json::json!({
+        "model": "claude-opus-4-8",
+        "messages": [{
+            "role": "user",
+            "content": [
+                { "type": "text", "text": "hi", "cache_control": { "type": "ephemeral", "ttl": "1h" } }
+            ]
+        }],
+        "thinking": { "type": "adaptive" },
+        "output_config": { "effort": "high" },
+        "tools": [{
+            "name": "bash",
+            "input_schema": { "type": "object" },
+            "eager_input_streaming": true,
+            "cache_control": { "type": "ephemeral", "ttl": "1h" }
+        }]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("pi request must parse");
+    assert_eq!(req.model, "claude-opus-4-8");
+    assert_eq!(req.tools.as_ref().expect("tools kept").len(), 1);
+    // adaptive thinking 无 budget_tokens → 不误当成 0 预算的显式思考请求。
+    assert_eq!(req.thinking_budget, None);
+}
