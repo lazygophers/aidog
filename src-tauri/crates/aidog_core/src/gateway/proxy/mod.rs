@@ -113,6 +113,7 @@ pub(crate) use log::flush_log_queue;
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
+    STATIC_MODEL_IDS,
     build_url_from_host, forward_passthrough_to_orig_host, handle_models_static,
     handle_passthrough, is_models_endpoint,
 };

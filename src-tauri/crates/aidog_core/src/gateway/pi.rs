@@ -155,8 +155,40 @@ fn build_provider(group: &PiGroup, port: u16) -> Value {
         "api": group.api.wire(),
         "apiKey": escape_pi_literal(&group.group_key),
         "authHeader": true,
+        "headers": { "User-Agent": pi_user_agent() },
+        // pi 默认会发三样上游未必认的东西，这里关掉（`docs/models.md` compat 表）：
+        // 每工具的 `eager_input_streaming`、非官方 baseUrl 下默认带 1h ttl 的
+        // `cache_control`、以及开缓存时的 `x-session-affinity` 头。
+        // 转换层另做容忍，两边都兜（pi 升级改行为也不炸）。
+        "compat": {
+            "supportsEagerToolInputStreaming": false,
+            "supportsLongCacheRetention": false,
+            "sendSessionAffinityHeaders": false,
+        },
         "models": models,
     })
+}
+
+/// 写进 provider `headers` 的 User-Agent。
+///
+/// pi 只在内置 `kimi-coding` 下才设自己的 UA，自定义 provider 会落到匿名 SDK 默认值 ——
+/// 上游日志里就看不出请求来自 pi。形态照 pi 自己的
+/// `getPiUserAgent`（`packages/coding-agent/src/utils/pi-user-agent.ts`：
+/// `pi/<version> (<platform>; <runtime>; <arch>)`），但**去掉 version 与 runtime**：
+/// 那两个值随用户升级 pi / 换 node 而变，aidog 写配置时无从得知，写死只会是假数据。
+fn pi_user_agent() -> String {
+    // 对齐 node 的 `process.platform` / `process.arch` 取值，而非 Rust 的裸常量。
+    let platform = match std::env::consts::OS {
+        "macos" => "darwin",
+        "windows" => "win32",
+        other => other,
+    };
+    let arch = match std::env::consts::ARCH {
+        "aarch64" => "arm64",
+        "x86_64" => "x64",
+        other => other,
+    };
+    format!("pi ({platform}; {arch})")
 }
 
 /// 生成 pi 的两份配置内容。
