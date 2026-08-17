@@ -5,7 +5,6 @@ description: 查询 aidog 本机 Local API 的端点、鉴权、请求方式和�
 
 # Local API
 
-<<<<<<< HEAD
 Local API 绑定本机代理。业务端点以 `/api/` 开头且只接受 POST；健康检查和静态模型探测为例外。Router 定义在 `src-tauri/crates/aidog_core/src/gateway/proxy/mod.rs`。
 
 | 方法与路径 | 鉴权 | 用途 |
@@ -22,7 +21,6 @@ curl -X POST http://127.0.0.1:9890/api/group-info \
 ```
 
 不要把 Local API 反向代理到公网。它的鉴权对象是 aidog 分组 key，不是上游 API Key。
-=======
 Local API 绑定本机代理。业务端点以 `/api/` 开头且只接受 POST；健康检查和静态模型探测为例外。
 
 | 方法与路径 | 鉴权 | 用途 |
@@ -38,4 +36,3 @@ curl -X POST http://127.0.0.1:9890/api/group-info \
 ```
 
 这些端点仅供 localhost 使用，禁止通过反向代理暴露到公网。
->>>>>>> 9fb0c490
