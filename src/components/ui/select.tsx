@@ -19,9 +19,9 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      // ponytail: 玻璃 trigger — bg-card/80 + backdrop-blur 给液态玻璃质感;
+      // trigger 全不透明（bg-card 实色，无 backdrop-blur —— 底下无透明度时 blur 无作用）;
       // open 时 border-ring + 3px accent-subtle 光环 (example 流光规范)
-      "group flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-card/80 backdrop-blur-md px-3 py-2 text-sm shadow-sm ring-offset-background transition-colors duration-150 data-[placeholder]:text-muted-foreground hover:border-ring/50 hover:bg-accent/40 focus:outline-none focus:ring-1 focus:ring-ring data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "group flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm ring-offset-background transition-colors duration-150 data-[placeholder]:text-muted-foreground hover:border-ring/50 hover:bg-accent focus:outline-none focus:ring-1 focus:ring-ring data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
     )}
     {...props}
@@ -77,9 +77,9 @@ const SelectContent = React.forwardRef<
     <SelectPrimitive.Content
       ref={ref}
       className={cn(
-        // ponytail: 萤火虫玻璃浮层 — bg-popover/80 + backdrop-blur 给液态玻璃签名;
+        // 浮层全不透明（bg-popover 实色，无 backdrop-blur）：下拉展开时不透出底层内容;
         // max-h cap 220px 不超视口 (example 规范); slide/fade/zoom 动画保留
-        "relative z-50 max-h-[min(220px,var(--radix-select-content-available-height))] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover/80 backdrop-blur-md text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-select-content-transform-origin]",
+        "relative z-50 max-h-[min(220px,var(--radix-select-content-available-height))] min-w-[8rem] overflow-y-auto overflow-x-hidden rounded-md border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 origin-[--radix-select-content-transform-origin]",
         position === "popper" &&
           "data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1",
         className

@@ -154,7 +154,7 @@ export function SearchableProtocolSelect({
   return (
     <div style={{ position: "relative" }} ref={listRef}>
       {/* 触发器：点击展开下拉，展示当前选中值 */}
-      {/* ponytail: 对齐 select.tsx trigger — bg-card/80 + backdrop-blur-md 液态玻璃;
+      {/* 对齐 select.tsx trigger — var(--card) 实色不透明;
           open 时 border-ring + 3px accent-subtle 光环 (覆盖默认 .input bg-glass) */}
       <div
         className="input"
@@ -163,9 +163,7 @@ export function SearchableProtocolSelect({
         style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           cursor: "pointer", userSelect: "none",
-          background: "color-mix(in srgb, var(--card) 80%, transparent)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
+          background: "var(--card)",
           borderColor: open ? "var(--ring)" : "var(--border)",
           boxShadow: open ? "0 0 0 3px var(--accent-subtle)" : "none",
           transition: "border-color 150ms ease, box-shadow 150ms ease",
@@ -189,7 +187,7 @@ export function SearchableProtocolSelect({
       </div>
 
       {/* 下拉面板 */}
-      {/* ponytail: 对齐 select.tsx content — bg-popover/80 + backdrop-blur-md 玻璃浮层 (覆盖 glass-elevated 默认 bg-floating 实色);
+      {/* 对齐 select.tsx content — var(--popover) 实色不透明 (覆盖 glass-elevated 的半透 bg);
           slide/fade 动画走 fadeIn keyframe (已存在, 与 select content 同源) */}
       {open && (
         <div
@@ -197,7 +195,7 @@ export function SearchableProtocolSelect({
           style={{
             position: "absolute", top: "100%", left: 0, right: 0,
             marginTop: 4, zIndex: 100, padding: 4,
-            background: "color-mix(in srgb, var(--popover) 80%, transparent)",
+            background: "var(--popover)",
           }}
         >
           {/* 搜索输入 */}
