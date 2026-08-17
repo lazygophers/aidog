@@ -132,6 +132,42 @@ pub(crate) fn is_status_retryable(code: u16) -> bool {
     !matches!(code, 400 | 422)
 }
 
+/// 同平台瞬时重试次数上限（transport 错误专用，见 `is_transport_retryable`）。
+/// 换平台 failover 只在多候选组内有效；单平台组遇上游瞬断直接 502。此常量让同一平台原地
+/// 重试若干次，覆盖「上游中途掐连接」这类几百毫秒后即可恢复的抖动。
+pub(crate) const TRANSPORT_RETRY_MAX: u32 = 2;
+
+/// 第 n 次同平台重试前的退避时长（指数：200ms / 400ms）。
+pub(crate) fn transport_retry_backoff(attempt: u32) -> std::time::Duration {
+    std::time::Duration::from_millis(200u64 << attempt.min(3))
+}
+
+/// transport 层错误是否值得同平台原地重试。
+///
+/// - **重试**：连接建立失败、连接被上游中途掐断、body/decode 中断 —— 上游瞬时抖动，
+///   几百毫秒后大概率恢复（cometapi 类中转站的主要故障形态）。
+/// - **不重试**：请求级读超时（`is_timeout` 且非 connect 超时）—— 已经等满 timeout_secs，
+///   再来一轮只是把用户等待时间翻倍，换平台或直接失败更合理。
+pub(crate) fn is_transport_retryable(e: &reqwest::Error) -> bool {
+    !e.is_timeout() || e.is_connect()
+}
+
+/// 把错误的 `source()` 链展开成 `顶层: 次层: 末层`。
+///
+/// reqwest 的 Display 只打顶层，恒为 `error sending request for url (...)`，真实原因
+/// （`connection closed before message completed` / `operation timed out` / TLS 握手失败）
+/// 全在 source 链里。不展开则 proxy_log 里成千上万条 502 是同一句无诊断价值的文本。
+pub(crate) fn err_chain(e: &dyn std::error::Error) -> String {
+    let mut out = e.to_string();
+    let mut src = e.source();
+    while let Some(s) = src {
+        out.push_str(": ");
+        out.push_str(&s.to_string());
+        src = s.source();
+    }
+    out
+}
+
 /// 决策 B：流式 200 首块缓冲判定结果。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StreamPeek {

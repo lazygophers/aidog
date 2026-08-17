@@ -253,10 +253,19 @@ async fn relay_passthrough(
     // stream_error_msg_stop：handle (wire=anthropic) 合成 message_stop 干净收尾，避免 CC
     //   "error decoding response body"；forward (普通浏览流量) 空 chunk 收尾。
     // guard 被 move 进闭包；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
-    let stream = resp.bytes_stream().map(move |chunk_result| {
+    // 上游流自然耗尽哨兵（同 finish.rs::finish_stream）：Stream 返 None 时置 exhausted 位，
+    // 使 Drop 兜底 flush 区分「上游读完」与「客户端断连」。恒返 Ready(None)，不产 item。
+    let agg_end = agg.clone();
+    let upstream_stream = resp.bytes_stream().chain(futures::stream::poll_fn(move |_| {
+        agg_end.mark_exhausted();
+        std::task::Poll::Ready(None)
+    }));
+    let stream = upstream_stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
+                // 终态标记：上游掐断 → flush 回写 502，禁再记 200 成功。
+                guard.agg.mark_upstream_err();
                 if stream_error_msg_stop {
                     tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing gracefully with message_stop");
                     return Ok::<_, std::io::Error>(Bytes::from(

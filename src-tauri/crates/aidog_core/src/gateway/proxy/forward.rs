@@ -387,35 +387,71 @@ pub(crate) async fn forward_attempt(
     };
     state.scheduler.inc_inflight(route.platform.id);
 
-    let resp = match req_builder.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            // 连接失败 / 超时 → 可重试，换下个候选；候选耗尽则返回 502。
-            // 熔断：连接失败 / 超时计一次失败（in-flight -1 + breaker fail 计数）。
-            state.scheduler.record_failure(route.platform.id, &breaker_th, aidog_db::now());
-            tracing::error!(url = %url, platform = %route.platform.name, error = %e, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
-            attempts.push(ProxyAttempt {
-                platform_id: route.platform.id,
-                platform_name: route.platform.name.clone(),
-                status_code: 0,
-                error: format!("upstream error: {e}"),
-                duration_ms: attempt_start.elapsed().as_millis() as i64,
-                ts: attempt_ts,
-            });
-            let _ = aidog_db::set_platform_last_error(
-                &state.db, route.platform.id, Some(format!("upstream error: {e}")),
-            ).await;
-            if !is_last_candidate {
-                return AttemptOutcome::Next;
+    // ── 发上游 + 同平台瞬时重试 ──
+    // transport 错误（上游中途掐连接 / 连不上）先在同一平台原地重试 TRANSPORT_RETRY_MAX 次再
+    // 换候选：单平台组没有 failover 候选，不原地重试则任何瞬断都直接 502 到客户端。
+    // 重试期间不 record_failure（in-flight 仍 +1，本次尝试尚未定终态），仅最终失败时计一次。
+    // try_clone 对本路径恒 Some（body 是 String，非 stream body）；None 时退化为不重试。
+    let mut pending = Some(req_builder);
+    let mut transport_retried = 0u32;
+    let resp = loop {
+        let builder = pending.take().expect("pending builder always set at loop head");
+        let next_builder = if transport_retried < TRANSPORT_RETRY_MAX {
+            builder.try_clone()
+        } else {
+            None
+        };
+        match builder.send().await {
+            Ok(r) => break r,
+            Err(e) if is_transport_retryable(&e) && next_builder.is_some() => {
+                let backoff = transport_retry_backoff(transport_retried);
+                tracing::warn!(
+                    url = %url, platform = %route.platform.name, error = %err_chain(&e),
+                    retry = transport_retried + 1, backoff_ms = backoff.as_millis() as u64,
+                    "upstream transport error, retrying same platform"
+                );
+                attempts.push(ProxyAttempt {
+                    platform_id: route.platform.id,
+                    platform_name: route.platform.name.clone(),
+                    status_code: 0,
+                    error: format!("upstream error (retrying): {}", err_chain(&e)),
+                    duration_ms: attempt_start.elapsed().as_millis() as i64,
+                    ts: attempt_ts,
+                });
+                transport_retried += 1;
+                tokio::time::sleep(backoff).await;
+                pending = next_builder;
+                continue;
             }
-            let upstream_err = format!("upstream error: {e}");
-            let msg = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
-            return AttemptOutcome::Respond(
-                finalize_proxy_502(
-                    state, log, attempts, route.platform.id,
-                    upstream_err, msg, start, log_settings,
-                ).await,
-            );
+            Err(e) => {
+                // 同平台重试已用尽 / 错误不宜重试 → 换下个候选；候选耗尽则返回 502。
+                // 熔断：连接失败 / 超时计一次失败（in-flight -1 + breaker fail 计数）。
+                state.scheduler.record_failure(route.platform.id, &breaker_th, aidog_db::now());
+                let detail = err_chain(&e);
+                tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
+                let upstream_err = format!("upstream error: {detail}");
+                attempts.push(ProxyAttempt {
+                    platform_id: route.platform.id,
+                    platform_name: route.platform.name.clone(),
+                    status_code: 0,
+                    error: upstream_err.clone(),
+                    duration_ms: attempt_start.elapsed().as_millis() as i64,
+                    ts: attempt_ts,
+                });
+                let _ = aidog_db::set_platform_last_error(
+                    &state.db, route.platform.id, Some(upstream_err.clone()),
+                ).await;
+                if !is_last_candidate {
+                    return AttemptOutcome::Next;
+                }
+                let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
+                return AttemptOutcome::Respond(
+                    finalize_proxy_502(
+                        state, log, attempts, route.platform.id,
+                        upstream_err, msg, start, log_settings,
+                    ).await,
+                );
+            }
         }
     };
 

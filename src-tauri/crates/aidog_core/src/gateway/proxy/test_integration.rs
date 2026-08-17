@@ -1289,3 +1289,167 @@ Connection: close\r\n\
         full.upstream_request_url
     );
 }
+
+// ──────────────────────────────────────────────────────────────
+// transport 瞬断：同平台重试 + 流式截断终态
+// ──────────────────────────────────────────────────────────────
+
+/// 起一个「前 `fail_first` 个连接直接掐、之后正常返 200」的上游。
+/// 模拟中转站（如 cometapi）把已建立的连接中途掐断这一主要故障形态。
+async fn spawn_flaky_upstream(fail_first: usize) -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let seen = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let n = seen.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            if n < fail_first {
+                drop(stream);
+                continue;
+            }
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf).await;
+                let resp = format!(
+                    "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{ANTHROPIC_OK}",
+                    ANTHROPIC_OK.len()
+                );
+                let _ = stream.write_all(resp.as_bytes()).await;
+                let _ = stream.flush().await;
+            });
+        }
+    });
+    format!("http://{addr}")
+}
+
+/// 起一个「答半截 SSE 就断连」的上游：手写 chunked 响应，发一个 message_start 事件后
+/// 不发结束 chunk 直接关连接 → reqwest 在 bytes_stream 中途返 Err（上游截断）。
+async fn spawn_truncating_sse_upstream() -> String {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 8192];
+                let _ = stream.read(&mut buf).await;
+                let head = "HTTP/1.1 200 OK\r\ncontent-type: text/event-stream\r\ntransfer-encoding: chunked\r\n\r\n";
+                let _ = stream.write_all(head.as_bytes()).await;
+                let ev = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\",\"model\":\"claude-3\",\"usage\":{\"input_tokens\":7,\"output_tokens\":0}}}\n\n";
+                let _ = stream
+                    .write_all(format!("{:x}\r\n{ev}\r\n", ev.len()).as_bytes())
+                    .await;
+                let _ = stream.flush().await;
+                // 不发 "0\r\n\r\n" 结束 chunk，直接断 → 对端 body 读到一半报错。
+                drop(stream);
+            });
+        }
+    });
+    format!("http://{addr}")
+}
+
+/// 单平台组（无 failover 候选）遇上游掐连接：同平台原地重试后成功，客户端拿 200 而非 502。
+/// 修复前 is_last_candidate=true 直接落 502（DB 实证 2763/2771 条 502 的 retry_count 全为 0）。
+#[tokio::test]
+async fn transport_error_retries_same_platform_then_succeeds() {
+    let upstream = spawn_flaky_upstream(1).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkflaky", &upstream).await;
+
+    let req = messages_request(
+        "gkflaky",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "首连被掐 → 同平台重试应救回 200（单平台组无 failover 候选）"
+    );
+
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let row = logs
+        .iter()
+        .find(|l| l.group_key == "gkflaky")
+        .expect("必须落一条 proxy_log");
+    assert_eq!(row.status_code, 200);
+    assert!(
+        row.retry_count >= 1,
+        "重试次数必须记账（供 UI 看出上游抖动），实际 retry_count={}",
+        row.retry_count
+    );
+}
+
+/// 重试次数用尽仍被掐 → 502，且错误文本带 source 链（不再只有裸
+/// "error sending request for url (...)"，那句在 2771 条 502 里完全一致、零诊断价值）。
+#[tokio::test]
+async fn transport_error_exhausted_logs_error_chain() {
+    let upstream = spawn_flaky_upstream(usize::MAX).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdead", &upstream).await;
+
+    let req = messages_request(
+        "gkdead",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let summary = logs
+        .iter()
+        .find(|l| l.group_key == "gkdead")
+        .expect("必须落一条 proxy_log");
+    let full = aidog_logs::get_proxy_log(&state.db, &summary.id)
+        .await
+        .unwrap()
+        .unwrap();
+    // 断言落在 attempts.error：response_body / user_response_body 受 log_upstream_request /
+    // log_user_request 开关控制（测试默认全关即清空），attempts 是不受开关影响的解析后元数据。
+    // err_chain 展开后至少两层（顶层 "error sending request for url (...)" + hyper/io 层原因）。
+    let last = full.attempts.last().expect("必须记录 attempt");
+    assert!(
+        last.error.matches(": ").count() >= 3,
+        "502 错误必须展开 source 链（\"upstream error: 顶层: 次层\"），实际: {}",
+        last.error
+    );
+}
+
+/// 上游流中途被掐 → 终态 502，不再谎报 200。
+/// 修复前 flush 硬编码 status_code=200（stream.rs），DB 实证 platform 4 的 3370 条流式 200 里
+/// 2231 条 output_tokens=0 且 body 停在半截 JSON —— 全是被掐断却记成成功的流。
+#[tokio::test]
+async fn truncated_stream_logs_502_not_200() {
+    let upstream = spawn_truncating_sse_upstream().await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gktrunc", &upstream).await;
+
+    let req = messages_request(
+        "gktrunc",
+        r#"{"model":"claude-3","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    // 已发出的 SSE 头/内容保留（不向客户端硬报错），终态判定落在日志侧。
+    assert_eq!(resp.status(), StatusCode::OK);
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+
+    // guard.flush 走 tokio::spawn 落库，给写队列一个调度窗口。
+    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let row = logs
+        .iter()
+        .find(|l| l.group_key == "gktrunc")
+        .expect("必须落一条 proxy_log");
+    assert_eq!(
+        row.status_code, 502,
+        "上游截断的流必须记 502（修复前恒 200）"
+    );
+    assert_eq!(
+        row.input_tokens, 7,
+        "截断前已聚合的 token 必须保留（记录不因失败而丢）"
+    );
+}

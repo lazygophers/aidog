@@ -256,6 +256,14 @@ where
     // Anthropic 系客户端流式渲染状态机：跨 chunk 维护 content block index 分配与开块表
     // （tool/thinking 块完整 content_block_start·stop 序列；ticket 08）。
     let mut client_sse_state = adapter::AnthropicSseState::default();
+    // 上游流自然耗尽哨兵：chain 在 map 之前，上游 Stream 返 None 时置 exhausted 位，使 Drop
+    // 兜底 flush 能区分「上游读完（无 [DONE]/message_stop 也算正常收尾，如 Gemini）」与
+    // 「客户端提前断连」。poll_fn 恒返 Ready(None)，不产 item，对下游 map / 客户端字节零影响。
+    let agg_end = agg.clone();
+    let stream = stream.chain(futures::stream::poll_fn(move |_| {
+        agg_end.mark_exhausted();
+        std::task::Poll::Ready(None)
+    }));
     let stream = stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -264,6 +272,8 @@ where
                 // 按客户端协议合成干净的 Stop 终止事件收尾，已输出内容保留。
                 // （不再注入 `event: error`，避免 CC 显示 "API Error: error decoding response body"。）
                 tracing::warn!(error = %e, "SSE upstream stream chunk error; closing stream gracefully");
+                // 终态标记：本次流是被上游掐断的（flush 回写 502，禁再记 200 成功）。
+                guard.agg.mark_upstream_err();
                 let stop = adapter::to_client_sse(&ChatStreamEvent::Stop {
                     finish_reason: Some("end_turn".to_string()),
                 }, &client_protocol, &model_for_sse).unwrap_or_default();

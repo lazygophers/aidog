@@ -192,6 +192,13 @@ pub(crate) struct StreamAggregator {
     // 静默丢弃 usage（尤其 anthropic 尾部 message_delta 携带最终 input/output_tokens 时）。
     // 此缓冲保留每个 chunk 末尾未以换行结束的残行，拼到下个 chunk 头部，保证 usage 解析始终见完整行。
     sse_line_buf: std::sync::Mutex<String>,
+    // ── 流终态判定位：relay 闭包 / 哨兵写，StreamLogGuard::flush 读（agg 是二者唯一共享 Arc）。──
+    // upstream_err：上游 chunk 返 Err（连接被掐 / 解码失败）——上游截断。
+    // exhausted：上游流自然耗尽（Stream 返 None）——即便无 [DONE]/message_stop 终止符也算正常收尾
+    //   （Gemini streamGenerateContent 就不发终止符，不能一律判客户端断连）。
+    // 二者皆假 + guard 被 Drop = 流未读完就没人要了 = 客户端断连。
+    upstream_err: std::sync::atomic::AtomicBool,
+    exhausted: std::sync::atomic::AtomicBool,
 }
 
 impl StreamAggregator {
@@ -205,6 +212,30 @@ impl StreamAggregator {
             tokens_out: std::sync::atomic::AtomicI32::new(0),
             tokens_cache: std::sync::atomic::AtomicI32::new(0),
             sse_line_buf: std::sync::Mutex::new(String::new()),
+            upstream_err: std::sync::atomic::AtomicBool::new(false),
+            exhausted: std::sync::atomic::AtomicBool::new(false),
+        }
+    }
+
+    /// 上游 chunk 报错 → 标记上游截断（relay 闭包 Err 分支唯一调用点）。
+    pub(crate) fn mark_upstream_err(&self) {
+        self.upstream_err.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// 上游流自然耗尽 → 标记正常收尾（chain 哨兵唯一调用点）。
+    pub(crate) fn mark_exhausted(&self) {
+        self.exhausted.store(true, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// 无终止符时的终态状态码：上游报错 502 / 自然耗尽 200 / 都不是则客户端断连 499。
+    fn end_status_code(&self) -> i32 {
+        use std::sync::atomic::Ordering::Relaxed;
+        if self.upstream_err.load(Relaxed) {
+            502
+        } else if self.exhausted.load(Relaxed) {
+            200
+        } else {
+            499
         }
     }
 
@@ -327,28 +358,34 @@ impl StreamLogGuard {
             if let Some(data) = line.strip_prefix("data: ") {
                 let data = data.trim();
                 if data == "[DONE]" {
-                    self.flush();
+                    self.flush_with(200);
                     return;
                 }
                 // Anthropic message_stop 也可能以 data 行携带 type 字段出现
                 if data.contains("\"type\":\"message_stop\"")
                     || data.contains("\"type\": \"message_stop\"")
                 {
-                    self.flush();
+                    self.flush_with(200);
                     return;
                 }
             }
             // SSE event 行形式：`event: message_stop`
             if let Some(ev) = line.strip_prefix("event: ")
                 && ev.trim() == "message_stop" {
-                    self.flush();
+                    self.flush_with(200);
                     return;
                 }
         }
     }
 
-    /// 用聚合结果回写日志 + 触发后台预估。幂等：仅首次调用生效。
+    /// 无终止符路径（Drop 兜底）：按 agg 终态位定状态码后回写。
     pub(crate) fn flush(&self) {
+        self.flush_with(self.agg.end_status_code());
+    }
+
+    /// 用聚合结果回写日志 + 触发后台预估。幂等：仅首次调用生效。
+    /// `status_code`：命中终止符恒 200；Drop 兜底由 `end_status_code()` 判 200/499/502。
+    fn flush_with(&self, status_code: i32) {
         use std::sync::atomic::Ordering::Relaxed;
         if self.est_fired.swap(true, Relaxed) {
             return;
@@ -361,7 +398,7 @@ impl StreamLogGuard {
         final_log.input_tokens = input_tokens;
         final_log.output_tokens = output_tokens;
         final_log.cache_tokens = cache_tokens;
-        final_log.status_code = 200;
+        final_log.status_code = status_code;
         final_log.duration_ms = self.start.elapsed().as_millis() as i32;
         // 聚合真实 SSE 内容写入 body（受 record 开关控制；upsert_log 仍按 settings 二次过滤）。
         // 无论是否记录正文，都把 response_body 从 "[stream]" 占位改写为真实内容 / 空串，
@@ -381,7 +418,7 @@ impl StreamLogGuard {
 
         tracing::info!(
             platform_id = final_log.platform_id, model = %final_log.actual_model,
-            status = 200, stream = true, duration_ms = final_log.duration_ms,
+            status = status_code, stream = true, duration_ms = final_log.duration_ms,
             input_tokens, output_tokens, cache_tokens, "stream request completed (flush)"
         );
 
