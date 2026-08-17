@@ -7,20 +7,22 @@ import { invoke } from "@tauri-apps/api/core";
 /** extra 写入目标表。group 待 s7 schema migration 后开放。 */
 export type UiExtraTarget = "group" | "platform";
 
-/** 现有 UI 态键（bool）。新增键沿用 `_ui_` 前缀并在此 union 扩展。 */
+/** 现有 UI 态键（bool）。新增键沿用 `_ui_` 前缀并在此 union 扩展。
+ *  `pi_api` 是业务键（分组的 pi 线路协议），走同一读改写通道，不加数据库列。 */
 export type UiExtraKey =
   | "_ui_collapsed"
   | "_ui_expand_plat"
-  | "_ui_expand_grp";
+  | "_ui_expand_grp"
+  | "pi_api";
 
-/** 写 UI 态单键到 extra JSON（读改写，保留其余键）。
+/** 写单键到 extra JSON（读改写，保留其余键）。
  *  - target="platform": 现支持；target="group": 待 s7 group 表加 extra 列后开放。
- *  - value 经 serde_json::Value 透传，现键全为 bool。 */
+ *  - value 经 serde_json::Value 透传。 */
 export function setUiExtra(
   target: UiExtraTarget,
   id: number,
   key: UiExtraKey,
-  value: boolean,
+  value: boolean | string,
 ): Promise<void> {
   return invoke<void>("set_ui_extra", { target, id, key, value });
 }

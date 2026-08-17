@@ -7,7 +7,8 @@ import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
 import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
-import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars } from "../../domains/groups";
+import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars,
+  PI_APIS, type PiApi, piApiLabel, parseGroupPiApi, setGroupPiApi } from "../../domains/groups";
 import { CopyButton } from "../../components/shared";
 import { IconClose } from "../../components/icons";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
@@ -36,6 +37,11 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   const proxyVars = useProxyEnvVars();
   // 协议 label 全表（一次 RPC，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  // pi 线路协议存 group.extra，不在 UpdateGroup 字段集里 → 本地态 + 选中即写。
+  const [piApi, setPiApi] = useState<PiApi>(() => parseGroupPiApi(editTarget?.group.extra ?? ""));
+  const editGroupId = editTarget?.group.id;
+  const editGroupExtra = editTarget?.group.extra ?? "";
+  useEffect(() => { setPiApi(parseGroupPiApi(editGroupExtra)); }, [editGroupId, editGroupExtra]);
   useEffect(() => {
     let cancelled = false;
     getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
@@ -99,6 +105,22 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
               </SelectContent>
             </Select>
             <span style={{ fontSize: F.small, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{routingModeDesc(t, editMode)}</span>
+          </div>
+        </div>
+
+        {/* pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集） */}
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "start", gap: 12 }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", paddingTop: 6 }}>{t("group.piApiLabel", "pi 线路协议")}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+            <Select value={piApi} onValueChange={v => { setPiApi(v as PiApi); setGroupPiApi(editTarget!.group.id, v as PiApi); }}>
+              <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PI_APIS.map(a => <SelectItem key={a} value={a}>{piApiLabel(t, a)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span style={{ fontSize: F.small, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{t("group.piApiHint", "决定 pi 用哪种线路调本组，地址由 aidog 自动推导。")}</span>
           </div>
         </div>
 
