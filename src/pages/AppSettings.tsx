@@ -6,7 +6,7 @@ import { StartupSection } from "./AppSettings/StartupSection";
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
 import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
 
-export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
+export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
 
 // ponytail: 每个 settings 子 tab 单独 chunk。AppSettings 本身已由 App.tsx 懒加载，
 // 这里再拆一层子 tab —— 进 system tab 时不该把 pricing/tray/codex 等其余 tab 的代码一并拖下来。
@@ -14,6 +14,7 @@ export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" 
 // startTransition（Sidebar 二级菜单走同一 handleNavigate），旧 tab 树留屏不闪烁。
 const Settings = lazy(() => import("./Settings").then(m => ({ default: m.Settings })));
 const CodexSettings = lazy(() => import("./CodexSettings").then(m => ({ default: m.CodexSettings })));
+const PiSettings = lazy(() => import("./PiSettings").then(m => ({ default: m.PiSettings })));
 const PricingTab = lazy(() => import("./PricingTab").then(m => ({ default: m.PricingTab })));
 const TrayConfigTab = lazy(() => import("./TrayConfigTab").then(m => ({ default: m.TrayConfigTab })));
 const PopoverConfigTab = lazy(() => import("./PopoverConfigTab").then(m => ({ default: m.PopoverConfigTab })));
@@ -41,6 +42,7 @@ function AppSettingsTabContent({ tab, onLogSettingsChanged, onNotifSettingsChang
   if (tab === "notifications") return <NotificationSettingsTab onEnabledChanged={onNotifSettingsChanged} />;
   if (tab === "system") return <SystemTab onLogSettingsChanged={onLogSettingsChanged} />;
   if (tab === "codex") return <CodexSettings />;
+  if (tab === "pi") return <PiSettings />;
   if (tab === "coding_tools") return <CodingToolsSettingsTab />;
   if (tab === "importexport") return <ImportExportTab />;
   if (tab === "mitm") return <MitmConfigTab />;

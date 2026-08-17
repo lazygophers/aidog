@@ -1,0 +1,282 @@
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { piApi } from "../services/api";
+import {
+  F,
+  S,
+  SectionIcon,
+  FieldRenderer,
+} from "../components/settings/editors";
+import {
+  PI_SECTIONS,
+  PI_RECOMMENDED_CONFIG,
+} from "../services/pi-settings-schema";
+import { deepMerge } from "../utils/deepMerge";
+import { stableStringify } from "../components/shared";
+import { useReveal } from "../utils/motion";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+
+type PiConfig = Record<string, unknown>;
+
+// ─── pi Global Settings Page ───────────────────────────────
+// 结构照搬 CodexSettings：整份读 → GUI/JSON 双模式编辑 → 整份写回，
+// 因此 schema 未覆盖的键往返后原样保留。pi 存的是 JSON，比 Codex 少一层 TOML 转换。
+
+// ponytail: 卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
+// hover-lift + reveal 萤火虫入场 (stagger idx*60)。
+function PiSectionCard({
+  staggerMs,
+  children,
+}: {
+  staggerMs: number;
+  children: React.ReactNode;
+}) {
+  const { ref, shown } = useReveal<HTMLDivElement>(staggerMs);
+  return (
+    <div
+      ref={ref}
+      className={`glass-surface glass-highlight hover-lift settings-section-card reveal${shown ? " in" : ""}`}
+      style={{ padding: S.pad, borderRadius: "var(--radius-lg)" }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function PiSettings() {
+  const { t } = useTranslation();
+  const [mode, setMode] = useState<"gui" | "json">("gui");
+  const [config, setConfig] = useState<PiConfig>({});
+  const [editJson, setEditJson] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [toast, setToast] = useState("");
+  const [baseline, setBaseline] = useState("");
+
+  const currentSig = useMemo(() => {
+    if (mode === "json") {
+      try {
+        return stableStringify(JSON.parse(editJson));
+      } catch {
+        return `__invalid__${editJson}`;
+      }
+    }
+    return stableStringify(config);
+  }, [mode, editJson, config]);
+
+  const dirty = baseline !== "" && currentSig !== baseline;
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const stored = await piApi.read();
+        // 从未配置过 → 默认填入推荐配置，便于用户一键起步。
+        const data =
+          stored && Object.keys(stored).length > 0
+            ? stored
+            : { ...PI_RECOMMENDED_CONFIG };
+        setConfig(data);
+        setEditJson(JSON.stringify(data, null, 2));
+        setBaseline(stableStringify(data));
+      } catch (e) {
+        console.error("pi_settings_read:", e);
+      }
+    };
+    load();
+  }, []);
+
+  const updateField = useCallback((field: string, value: unknown) => {
+    setConfig((prev) => {
+      const next: PiConfig = {};
+      for (const [k, v] of Object.entries(prev)) {
+        if (k !== field) next[k] = v;
+      }
+      if (value !== undefined && value !== null && value !== "") {
+        next[field] = value;
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSave = useCallback(async (): Promise<boolean> => {
+    setSaving(true);
+    setSaveError("");
+    try {
+      const value: PiConfig = mode === "json" ? JSON.parse(editJson) : { ...config };
+      await piApi.write(value);
+      setConfig(value);
+      setEditJson(JSON.stringify(value, null, 2));
+      setBaseline(stableStringify(value));
+      setToast(t("settings.saved", "已保存"));
+      setTimeout(() => setToast(""), 2000);
+      setSaving(false);
+      return true;
+    } catch (e) {
+      setSaveError(String(e));
+      setSaving(false);
+      return false;
+    }
+  }, [mode, editJson, config, t]);
+
+  const handleLoadRecommended = () => {
+    const merged = deepMerge(config, PI_RECOMMENDED_CONFIG);
+    setConfig(merged);
+    setEditJson(JSON.stringify(merged, null, 2));
+    setToast(t("settings.loadedRecommended", "已加载推荐配置"));
+    setTimeout(() => setToast(""), 2000);
+  };
+
+  const renderSection = (section: (typeof PI_SECTIONS)[number]) => (
+    <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
+      {section.fields.map((field) => {
+        const hasDefault = Object.prototype.hasOwnProperty.call(PI_RECOMMENDED_CONFIG, field.key);
+        const defaultValue = hasDefault ? PI_RECOMMENDED_CONFIG[field.key] : undefined;
+        return (
+          <FieldRenderer
+            key={field.key}
+            field={field}
+            value={config[field.key]}
+            onChange={(v) => updateField(field.key, v)}
+            t={t}
+            defaultValue={defaultValue}
+            onReset={hasDefault ? () => updateField(field.key, defaultValue) : undefined}
+          />
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 48px)", width: "100%" }}>
+      {/* Sticky header */}
+      <div
+        className="settings-sticky-bar"
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 30,
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          flexWrap: "wrap",
+          padding: "12px 4px",
+          background: "var(--bg-glass)",
+          // ponytail: backdrop-filter 已删，理由同 SectionAnchorNav.tsx（var(--bg-glass) 全不透明）
+        }}
+      >
+        <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 8, marginRight: 8 }}>
+          <SectionIcon name="bolt" size={18} />
+          {t("pi.title", "pi 配置")}
+        </div>
+
+        <Button variant={mode === "gui" ? "default" : "outline"}
+          style={{ fontSize: F.body, padding: S.btnPad }}
+          onClick={() => setMode("gui")}
+        >
+          {t("settings.guiMode", "图形")}
+        </Button>
+        <Button variant={mode === "json" ? "default" : "outline"}
+          style={{ fontSize: F.body, padding: S.btnPad }}
+          onClick={() => {
+            setEditJson(JSON.stringify(config, null, 2));
+            setMode("json");
+          }}
+        >
+          {t("settings.jsonMode", "JSON")}
+        </Button>
+
+        <div style={{ flex: 1 }} />
+
+        <Button variant="ghost"
+          style={{ fontSize: F.hint, padding: "6px 14px" }}
+          onClick={handleLoadRecommended}
+        >
+          <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended", "加载推荐配置")}
+        </Button>
+
+        {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
+        {!toast && (
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: F.hint,
+              color: dirty ? "var(--color-warning)" : "var(--text-tertiary)",
+            }}
+          >
+            <span
+              style={{
+                width: 7,
+                height: 7,
+                borderRadius: "50%",
+                background: dirty ? "var(--color-warning)" : "var(--text-tertiary)",
+                opacity: dirty ? 1 : 0.5,
+                flexShrink: 0,
+              }}
+            />
+            {dirty ? t("settings.unsavedChanges", "未保存更改") : t("settings.allSaved", "已保存")}
+          </span>
+        )}
+
+        <Button variant={dirty ? "default" : "outline"}
+          style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
+          onClick={handleSave}
+          disabled={saving || !dirty}
+        >
+          {saving ? t("status.loading", "保存中…") : t("action.save", "保存")}
+        </Button>
+      </div>
+
+      {mode === "json" ? (
+        <div
+          className="glass-surface"
+          style={{ flex: 1, display: "flex", flexDirection: "column", padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 12 }}
+        >
+          <Textarea
+            style={{
+              fontFamily: '"SF Mono", "Fira Code", monospace',
+              fontSize: F.body,
+              lineHeight: 1.7,
+              flex: 1,
+              resize: "none",
+              whiteSpace: "pre",
+              padding: S.inputPad,
+              minHeight: 0,
+            }}
+            value={editJson}
+            onChange={(e) => setEditJson(e.target.value)}
+            spellCheck={false}
+          />
+          {saveError && (
+            <div style={{ fontSize: F.body, color: "var(--color-danger)", marginTop: 12, wordBreak: "break-all" }}>
+              {saveError}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: S.sectionGap, padding: "20px 4px 80px" }}>
+            {PI_SECTIONS.map((section, idx) => (
+              <PiSectionCard key={section.id} staggerMs={idx * 60}>
+                <div style={{ marginBottom: S.gap + 4 }}>
+                  <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
+                    <SectionIcon name={section.id} size={20} />
+                    {t(section.labelKey)}
+                  </div>
+                </div>
+                {renderSection(section)}
+              </PiSectionCard>
+            ))}
+            {saveError && (
+              <div style={{ fontSize: F.body, color: "var(--color-danger)", wordBreak: "break-all", padding: "0 4px" }}>
+                {saveError}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

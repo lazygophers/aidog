@@ -51,6 +51,7 @@ const BASE_NAV: NavItem[] = [
       { id: "settings/coding_tools", labelKey: "appSettings.cliIntegrationTab", group: "nav.settingsGroup.integration" },
       { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
       { id: "settings/codex", labelKey: "appSettings.codexTab", group: "nav.settingsGroup.integration" },
+      { id: "settings/pi", labelKey: "appSettings.piTab", group: "nav.settingsGroup.integration" },
       { id: "settings/middleware", labelKey: "appSettings.middlewareTab", group: "nav.settingsGroup.rules" },
       { id: "settings/scheduling", labelKey: "appSettings.schedulingTab", group: "nav.settingsGroup.rules" },
       { id: "settings/notifications", labelKey: "appSettings.notificationsTab", group: "nav.settingsGroup.notification" },

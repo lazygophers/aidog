@@ -104,6 +104,18 @@ export const codexApi = {
   path: () => invoke<string>("codex_config_path"),
 };
 
+// ─── pi Config API ────────────────────────────────────────
+
+export const piApi = {
+  /** Read ~/.pi/agent/settings.json. Missing file → {}. */
+  read: () => invoke<Record<string, unknown>>("pi_settings_read"),
+  /** Write the whole ~/.pi/agent/settings.json back (unknown keys survive the round trip). */
+  write: (config: Record<string, unknown>) =>
+    invoke<void>("pi_settings_write", { config }),
+  /** Absolute path of ~/.pi/agent/models.json. */
+  modelsPath: () => invoke<string>("pi_models_path"),
+};
+
 // ─── Claude Code Settings Import ──────────────────────────
 
 
