@@ -207,6 +207,34 @@ fn to_anthropic_sse_stop_no_reason_defaults_end_turn() {
     assert!(sse.contains("end_turn"), "None reason should default to end_turn");
 }
 
+// ── to_anthropic_sse: 上游 finish_reason 必须翻成 Anthropic 语义 ──
+// pi 校验 stop_reason 枚举，收到 OpenAI 的 "stop" 会抛 "Unhandled stop reason: stop"。
+#[test]
+fn to_anthropic_sse_maps_upstream_finish_reason_to_anthropic_vocabulary() {
+    for (upstream, want) in [
+        ("stop", "end_turn"),
+        ("tool_calls", "tool_use"),
+        ("length", "max_tokens"),
+    ] {
+        let event = ChatStreamEvent::Stop { finish_reason: Some(upstream.to_string()) };
+        let sse = to_anthropic_sse(&event).expect("Stop should produce SSE");
+        assert!(
+            sse.contains(&format!("\"stop_reason\":\"{want}\"")),
+            "{upstream} should map to {want}, got: {sse}"
+        );
+    }
+}
+
+// 有状态出站状态机走另一条 Stop 分支，同样要映射。
+#[test]
+fn anthropic_sse_state_maps_upstream_finish_reason_to_anthropic_vocabulary() {
+    let mut state = AnthropicSseState::default();
+    let sse = state
+        .push(&ChatStreamEvent::Stop { finish_reason: Some("stop".to_string()) })
+        .expect("Stop should produce SSE");
+    assert!(sse.contains("\"stop_reason\":\"end_turn\""), "got: {sse}");
+}
+
 // ── to_anthropic_sse: Usage → None ──
 #[test]
 fn to_anthropic_sse_usage_returns_none() {
