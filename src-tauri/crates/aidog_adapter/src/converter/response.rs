@@ -236,6 +236,22 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
     }
 }
 
+/// 上游 finish_reason → Anthropic `stop_reason` 词表。
+///
+/// 中立事件 `ChatStreamEvent::Stop` 携带的是上游原词（openai `stop`/`tool_calls`/`length`，
+/// gemini 小写后的 `stop`/`max_tokens`），Anthropic wire 只认 end_turn / tool_use /
+/// max_tokens / stop_sequence。严格校验该枚举的客户端（pi 会抛
+/// `Unhandled stop reason: stop`）要求出站前翻译。与非流式路径
+/// `protocols/openai/response.rs` 的映射同表。
+fn anthropic_stop_reason(finish_reason: Option<&str>) -> &'static str {
+    match finish_reason {
+        Some("tool_calls") | Some("tool_use") => "tool_use",
+        Some("length") | Some("max_tokens") => "max_tokens",
+        Some("stop_sequence") => "stop_sequence",
+        _ => "end_turn",
+    }
+}
+
 /// 将统一的 ChatStreamEvent 转为 Anthropic SSE 格式（用于返回给 Claude Code 客户端）
 pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
     match event {
@@ -323,7 +339,7 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
             serde_json::json!({
                 "type": "message_delta",
                 "delta": {
-                    "stop_reason": finish_reason.as_deref().unwrap_or("end_turn"),
+                    "stop_reason": anthropic_stop_reason(finish_reason.as_deref()),
                     "stop_sequence": null
                 },
                 "usage": { "output_tokens": 0 }
@@ -450,7 +466,7 @@ impl AnthropicSseState {
                     "event: message_delta\ndata: {}\n\nevent: message_stop\ndata: {{\"type\":\"message_stop\"}}\n\n",
                     serde_json::json!({
                         "type": "message_delta",
-                        "delta": { "stop_reason": finish_reason.as_deref().unwrap_or("end_turn"), "stop_sequence": null },
+                        "delta": { "stop_reason": anthropic_stop_reason(finish_reason.as_deref()), "stop_sequence": null },
                         "usage": { "output_tokens": 0 }
                     })
                 ));
