@@ -102,8 +102,9 @@ export function formatRelativeTime(input: string | number | null | undefined): s
   if (hr < 24) return `${hr} 小时前`;
   const day = Math.floor(hr / 24);
   if (day < 30) return `${day} 天前`;
-  const month = Math.floor(day / 30);
-  if (month < 12) return `${month} 个月前`;
+  // 按天数（而非 month < 12）判断是否进位到「年」：30 天/月与 365 天/年不整除，
+  // 用 month < 12 会让 360–364 天落进 year 分支算出 floor(364/365)=0 → "0 年前"。
+  if (day < 365) return `${Math.floor(day / 30)} 个月前`;
   const year = Math.floor(day / 365);
   return `${year} 年前`;
 }

@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { shiftClock, normalizeWindow, isCurrentlyPeak } from "./peakHours";
+import {
+  shiftClock,
+  normalizeWindow,
+  isCurrentlyPeak,
+  tzOffsetMinutes,
+  utcToDisplay,
+  displayToUtc,
+  LOCAL_OFFSET_MINUTES,
+} from "./peakHours";
 import type { PeakWindow } from "../domains/platforms/defaults";
 
 describe("shiftClock", () => {
@@ -70,6 +78,89 @@ describe("normalizeWindow", () => {
     expect(result.start_minute).toBe(30);
     expect(result.end_hour).toBe(20);
     expect(result.end_minute).toBe(15);
+  });
+});
+
+describe("tzOffsetMinutes / utcToDisplay / displayToUtc", () => {
+  it("utc 模式偏移恒为 0，local 模式取模块加载时的本地偏移", () => {
+    expect(tzOffsetMinutes("utc")).toBe(0);
+    expect(tzOffsetMinutes("local")).toBe(LOCAL_OFFSET_MINUTES);
+  });
+
+  it("utc 模式下换算是恒等的", () => {
+    expect(utcToDisplay(6, 30, "utc")).toEqual({ hour: 6, minute: 30 });
+    expect(displayToUtc(6, 30, "utc")).toEqual({ hour: 6, minute: 30 });
+  });
+
+  it("local 模式下 display→utc→display 往返回到原值", () => {
+    const shown = utcToDisplay(6, 0, "local");
+    expect(displayToUtc(shown.hour, shown.minute, "local")).toEqual({ hour: 6, minute: 0 });
+  });
+});
+
+// hit() 的每个过滤维度独立测。基准时刻 2026-06-26T08:30:00Z = 周五(5)、26 号。
+describe("isCurrentlyPeak — 时段 / 星期 / 日期 / model scope", () => {
+  const NOW = Date.UTC(2026, 5, 26, 8, 30, 0);
+  const win = (extra: Partial<PeakWindow>): PeakWindow =>
+    ({ start_hour: 6, end_hour: 10, multiplier: 2, ...extra }) as PeakWindow;
+
+  it("空 / null / undefined 窗口列表恒不命中", () => {
+    expect(isCurrentlyPeak([], NOW)).toBe(false);
+    expect(isCurrentlyPeak(null, NOW)).toBe(false);
+    expect(isCurrentlyPeak(undefined, NOW)).toBe(false);
+  });
+
+  it("同天窗口是半开区间 [start, end)", () => {
+    expect(isCurrentlyPeak([win({})], NOW)).toBe(true);
+    expect(isCurrentlyPeak([win({ start_hour: 8, start_minute: 30 })], NOW)).toBe(true);
+    expect(isCurrentlyPeak([win({ start_hour: 6, end_hour: 8, end_minute: 30 })], NOW)).toBe(false);
+    expect(isCurrentlyPeak([win({ start_hour: 9, end_hour: 10 })], NOW)).toBe(false);
+  });
+
+  it("跨天窗口 end <= start 时是并集，start==end 退化为全天", () => {
+    expect(isCurrentlyPeak([win({ start_hour: 22, end_hour: 9 })], NOW)).toBe(true);
+    expect(isCurrentlyPeak([win({ start_hour: 22, end_hour: 6 })], NOW)).toBe(false);
+    expect(isCurrentlyPeak([win({ start_hour: 5, end_hour: 5 })], NOW)).toBe(true);
+  });
+
+  it("越界 minute 被夹到 0..59 而非溢出成小时", () => {
+    expect(isCurrentlyPeak([win({ start_hour: 8, start_minute: 99 })], NOW)).toBe(false);
+    expect(isCurrentlyPeak([win({ start_hour: 8, start_minute: -10 })], NOW)).toBe(true);
+  });
+
+  it("days_of_week 用 0=Sun…6=Sat，缺省为每天", () => {
+    expect(isCurrentlyPeak([win({ days_of_week: [5] })], NOW)).toBe(true);
+    expect(isCurrentlyPeak([win({ days_of_week: [0, 6] })], NOW)).toBe(false);
+  });
+
+  it("days_of_month 与 days_of_week 取 AND", () => {
+    expect(isCurrentlyPeak([win({ days_of_month: [26] })], NOW)).toBe(true);
+    expect(isCurrentlyPeak([win({ days_of_month: [1] })], NOW)).toBe(false);
+    expect(isCurrentlyPeak([win({ days_of_week: [5], days_of_month: [1] })], NOW)).toBe(false);
+  });
+
+  it("end_at 到期后窗口失效", () => {
+    const sec = Math.floor(NOW / 1000);
+    expect(isCurrentlyPeak([win({ end_at: sec + 1 })], NOW)).toBe(true);
+    expect(isCurrentlyPeak([win({ end_at: sec })], NOW)).toBe(false);
+  });
+
+  it("model scope：空 requestModel 跳过过滤，通配取前缀", () => {
+    const scoped = [win({ models: ["glm-5.2*", "kimi-k2"] })];
+    expect(isCurrentlyPeak(scoped, NOW)).toBe(true); // 无 model 上下文
+    expect(isCurrentlyPeak(scoped, NOW, "glm-5.2")).toBe(true);
+    expect(isCurrentlyPeak(scoped, NOW, "glm-5.2-turbo")).toBe(true);
+    expect(isCurrentlyPeak(scoped, NOW, "kimi-k2")).toBe(true);
+    expect(isCurrentlyPeak(scoped, NOW, "kimi-k2-thinking")).toBe(false); // 非通配需精确
+    expect(isCurrentlyPeak(scoped, NOW, "gpt-4")).toBe(false);
+    expect(isCurrentlyPeak([win({ models: [] })], NOW, "gpt-4")).toBe(true); // 空列表=不限定
+  });
+
+  it("多窗口取任一命中", () => {
+    expect(isCurrentlyPeak([win({ start_hour: 0, end_hour: 1 }), win({})], NOW)).toBe(true);
+    expect(
+      isCurrentlyPeak([win({ start_hour: 0, end_hour: 1 }), win({ start_hour: 20, end_hour: 22 })], NOW),
+    ).toBe(false);
   });
 });
 
