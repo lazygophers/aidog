@@ -26,6 +26,7 @@ export {
   isPlainObject,
   readManagedPaths,
   buildImportDiffTree,
+  buildRecommendedDiffTree,
   ImportDiffModal,
 } from "./ImportDiff";
 export { PluginsSectionInline } from "./PluginsSection";

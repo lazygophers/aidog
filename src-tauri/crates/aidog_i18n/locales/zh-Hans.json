@@ -2747,5 +2747,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "调试日志级别",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "调试日志的最低级别",
   "env.IS_DEMO": "演示模式",
-  "env.IS_DEMO.desc": "演示模式：隐藏邮箱与组织名"
+  "env.IS_DEMO.desc": "演示模式：隐藏邮箱与组织名",
+  "settings.editor.recommendTitle": "加载推荐配置",
+  "settings.editor.applySelected": "应用选中",
+  "settings.editor.diffRecommended": "推荐值",
+  "settings.noRecommendedDiff": "当前配置已包含全部推荐项"
 }

@@ -2747,5 +2747,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "Nivel de registro de depuración",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "Nivel mínimo de los registros de depuración",
   "env.IS_DEMO": "Modo demostración",
-  "env.IS_DEMO.desc": "Modo demostración: ocultar la dirección de correo y el nombre de la organización"
+  "env.IS_DEMO.desc": "Modo demostración: ocultar la dirección de correo y el nombre de la organización",
+  "settings.editor.recommendTitle": "Cargar la configuración recomendada",
+  "settings.editor.applySelected": "Aplicar lo seleccionado",
+  "settings.editor.diffRecommended": "Valor recomendado",
+  "settings.noRecommendedDiff": "La configuración actual ya incluye todos los elementos recomendados"
 }

@@ -2769,5 +2769,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "مستوى سجل التصحيح",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "الحد الأدنى لمستوى سجلات التصحيح",
   "env.IS_DEMO": "وضع العرض التوضيحي",
-  "env.IS_DEMO.desc": "وضع العرض التوضيحي: إخفاء البريد الإلكتروني واسم المؤسسة"
+  "env.IS_DEMO.desc": "وضع العرض التوضيحي: إخفاء البريد الإلكتروني واسم المؤسسة",
+  "settings.editor.recommendTitle": "تحميل الإعدادات الموصى بها",
+  "settings.editor.applySelected": "تطبيق المحدد",
+  "settings.editor.diffRecommended": "القيمة الموصى بها",
+  "settings.noRecommendedDiff": "الإعدادات الحالية تتضمن بالفعل جميع العناصر الموصى بها"
 }

@@ -189,14 +189,38 @@ export function buildImportDiffTree(
   return nodes;
 }
 
+/**
+ * 推荐配置差异树：与「从 Claude Code 导入」共用同一棵 diff / 同一个选择弹窗，
+ * 区别只有两点 —— 无 aidog managed 过滤（推荐值本就是 aidog 自己的默认），
+ * 且不产生「删除」项（推荐配置是叠加，绝不移除用户已有的键）。
+ */
+export function buildRecommendedDiffTree(
+  current: Record<string, any>,
+  recommended: Record<string, any>,
+): DiffNode[] {
+  const prune = (nodes: DiffNode[]): DiffNode[] =>
+    nodes.flatMap((n) => {
+      if (!n.children) return n.incoming === undefined ? [] : [n];
+      const children = n.children.filter((c) => c.incoming !== undefined);
+      return children.length > 0 ? [{ ...n, children }] : [];
+    });
+  return prune(buildImportDiffTree(current, recommended, new Set()));
+}
+
 export function ImportDiffModal({
   diff,
   onApply,
   onClose,
+  title,
+  applyLabel,
+  incomingLabel,
 }: {
   diff: DiffNode[];
   onApply: (selectedPaths: Set<string>) => void;
   onClose: () => void;
+  title?: string;
+  applyLabel?: string;
+  incomingLabel?: string;
 }) {
   const { t } = useTranslation();
   // All leaf paths (the actual selectable units).
@@ -308,7 +332,7 @@ export function ImportDiffModal({
               }}>{formatValue(d.current)}</pre>
             </div>
             <div>
-              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{t("settings.editor.diffIncoming", "导入")}</div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{incomingLabel ?? t("settings.editor.diffIncoming", "导入")}</div>
               <pre style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
                 fontSize: F.hint, lineHeight: 1.5,
@@ -338,7 +362,7 @@ export function ImportDiffModal({
           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8,
         }}>
           <DialogTitle style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
-            {t("settings.editor.importTitle", "从 Claude Code 导入配置")}
+            {title ?? t("settings.editor.importTitle", "从 Claude Code 导入配置")}
           </DialogTitle>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <Button variant="ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
@@ -406,7 +430,7 @@ export function ImportDiffModal({
             <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
               disabled={selected.size === 0}
               onClick={(e) => { makeRipple(e); onApply(selected); }}>
-              {t("settings.editor.importSelected", "导入选中")} ({selected.size})
+              {applyLabel ?? t("settings.editor.importSelected", "导入选中")} ({selected.size})
             </Button>
           </div>
         </div>

@@ -2747,5 +2747,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "Debug Log Level",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "Minimum level for debug logs",
   "env.IS_DEMO": "Demo Mode",
-  "env.IS_DEMO.desc": "Demo mode: hide the email address and organization name"
+  "env.IS_DEMO.desc": "Demo mode: hide the email address and organization name",
+  "settings.editor.recommendTitle": "Load Recommended Settings",
+  "settings.editor.applySelected": "Apply Selected",
+  "settings.editor.diffRecommended": "Recommended",
+  "settings.noRecommendedDiff": "Current settings already include every recommended item"
 }

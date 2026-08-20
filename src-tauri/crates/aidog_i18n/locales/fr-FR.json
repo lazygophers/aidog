@@ -2769,5 +2769,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "Niveau de journal de débogage",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "Niveau minimal des journaux de débogage",
   "env.IS_DEMO": "Mode démo",
-  "env.IS_DEMO.desc": "Mode démo : masquer l'adresse e-mail et le nom de l'organisation"
+  "env.IS_DEMO.desc": "Mode démo : masquer l'adresse e-mail et le nom de l'organisation",
+  "settings.editor.recommendTitle": "Charger la configuration recommandée",
+  "settings.editor.applySelected": "Appliquer la sélection",
+  "settings.editor.diffRecommended": "Valeur recommandée",
+  "settings.noRecommendedDiff": "La configuration actuelle contient déjà tous les éléments recommandés"
 }
