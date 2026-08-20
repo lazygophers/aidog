@@ -173,6 +173,18 @@ describe("defaults/settings.json 隐私基线", () => {
     }
   });
 
+  // 编译产物：编辑无意义（二进制），下次编译必被覆盖，且读进上下文会烧 token。
+  it("字节码与二进制编译产物禁改", () => {
+    for (const g of [
+      "**/*.pyc", "**/*.pyo", "**/*.pyd", "**/__pycache__/**", "**/*.egg-info/**",
+      "**/*.class", "**/*.jar", "**/*.war", "**/*.ear", "**/*.dex", "**/*.beam",
+      "**/*.o", "**/*.obj", "**/*.a", "**/*.lib", "**/*.so", "**/*.dylib",
+      "**/*.dll", "**/*.exe", "**/*.pdb", "**/*.wasm",
+    ]) {
+      expect(defaults.permissions.deny, g).toContain(`Edit(${g})`);
+    }
+  });
+
   it("疑似自动生成的目录与命名需确认", () => {
     for (const g of [
       "**/generated/**", "**/__generated__/**", "**/gen/**", "**/autogen/**",
