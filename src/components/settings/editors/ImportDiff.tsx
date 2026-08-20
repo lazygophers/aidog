@@ -191,20 +191,14 @@ export function buildImportDiffTree(
 
 /**
  * 推荐配置差异树：与「从 Claude Code 导入」共用同一棵 diff / 同一个选择弹窗，
- * 区别只有两点 —— 无 aidog managed 过滤（推荐值本就是 aidog 自己的默认），
- * 且不产生「删除」项（推荐配置是叠加，绝不移除用户已有的键）。
+ * 唯一区别是不做 aidog managed 过滤（推荐值本就是 aidog 自己的默认）。
+ * 推荐配置里没有、当前配置里有的键照常列为「删除」项，由用户逐项决定。
  */
 export function buildRecommendedDiffTree(
   current: Record<string, any>,
   recommended: Record<string, any>,
 ): DiffNode[] {
-  const prune = (nodes: DiffNode[]): DiffNode[] =>
-    nodes.flatMap((n) => {
-      if (!n.children) return n.incoming === undefined ? [] : [n];
-      const children = n.children.filter((c) => c.incoming !== undefined);
-      return children.length > 0 ? [{ ...n, children }] : [];
-    });
-  return prune(buildImportDiffTree(current, recommended, new Set()));
+  return buildImportDiffTree(current, recommended, new Set());
 }
 
 export function ImportDiffModal({
