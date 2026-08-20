@@ -78,9 +78,15 @@ async fn quota_get_json_parse_error() {
 
 #[tokio::test]
 async fn quota_get_json_network_error() {
+    // reqwest 默认继承系统代理。开发机上若 NO_PROXY 用分号分隔（reqwest 只认逗号），
+    // 本地地址会被误发给代理，拿回 502 而不是连接失败 —— 断言就成了环境的函数。
+    // 这里显式写一份逗号分隔的 NO_PROXY，让请求必定直连未监听端口。
+    unsafe {
+        std::env::set_var("NO_PROXY", "127.0.0.1,localhost,::1");
+    }
     // 指向未监听端口 → Network 错误
     let err = quota_get_json(None, "http://127.0.0.1:1/x", &[])
         .await
         .unwrap_err();
-    assert!(err.starts_with("Network:"));
+    assert!(err.starts_with("Network:"), "实际错误: {err}");
 }

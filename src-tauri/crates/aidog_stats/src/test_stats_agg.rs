@@ -227,3 +227,104 @@ use crate::*;
         assert_eq!(req, 1, "无对应 proxy_log 行的旧聚合行须保留（不再清空整表）");
         assert_eq!(inp, 42, "旧行数值不变");
     }
+
+    /// count_tokens 一次性纠正：① 有 backing 行的桶按不含 count_tokens 的真值覆盖；
+    /// ② 纯 count_tokens 桶（过滤后聚合里已不存在）删除，否则虚高残留。
+    #[tokio::test]
+    async fn correct_count_tokens_removes_orphan_buckets_and_overwrites_backed_ones() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+
+        // 普通对话行：过滤后仍在聚合里 → 该桶被覆盖为真值。
+        let mut chat = sample_log("ct-chat", "g-ct", now);
+        chat.request_url = "/g-ct/v1/messages".into();
+        chat.input_tokens = 10;
+        chat.est_cost = 1.0;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&chat, false, false)).await.unwrap();
+
+        // 该桶先被写成虚高值（模拟历史污染）。
+        upsert_stats_agg(&db, StatsAggInput {
+            created_at: now,
+            model: chat.actual_model.clone(),
+            group_key: "g-ct".into(),
+            platform_id: chat.platform_id as i64,
+            status_code: 200,
+            input_tokens: 9999,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 99.0,
+            duration_ms: 0,
+        }).await.unwrap();
+
+        // 纯 count_tokens 桶：proxy_log 里只有 count_tokens 行 → 过滤后无此桶 → 应删。
+        let mut ct = sample_log("ct-only", "g-ct-only", now);
+        ct.request_url = "/g-ct-only/v1/messages/count_tokens".into();
+        ct.actual_model = "ct-model".into();
+        ct.platform_id = 9;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&ct, false, false)).await.unwrap();
+        upsert_stats_agg(&db, StatsAggInput {
+            created_at: now,
+            model: "ct-model".into(),
+            group_key: "g-ct-only".into(),
+            platform_id: 9,
+            status_code: 200,
+            input_tokens: 5000,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 50.0,
+            duration_ms: 0,
+        }).await.unwrap();
+
+        assert!(correct_count_tokens_agg_once_if_needed(&db).await.unwrap(), "首次应执行");
+
+        let (inp, cost): (i64, f64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT sum_input_tokens, sum_est_cost FROM stats_agg_hourly WHERE group_key='g-ct'",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(inp, 10, "有 backing 行的桶按真值覆盖，不保留 9999 虚高");
+        assert!((cost - 1.0).abs() < 1e-9, "cost 同样覆盖为真值");
+
+        let orphans: i64 = db.call_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM stats_agg_hourly WHERE group_key='g-ct-only'",
+                [], |r| r.get(0),
+            )?)
+        }).await.unwrap();
+        assert_eq!(orphans, 0, "纯 count_tokens 桶应被删除");
+    }
+
+    /// 版本门控：置标记后永不再跑（第二次返回 false）。
+    #[tokio::test]
+    async fn correct_count_tokens_is_gated_to_run_once() {
+        let db = test_db().await;
+        assert!(correct_count_tokens_agg_once_if_needed(&db).await.unwrap());
+        assert!(!correct_count_tokens_agg_once_if_needed(&db).await.unwrap(), "标记已置 → 不再跑");
+    }
+
+    /// retention_days=0 = 永久保留：cleanup 不得删任何行。
+    #[tokio::test]
+    async fn cleanup_stats_agg_keeps_everything_when_retention_is_zero() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        upsert_stats_agg(&db, StatsAggInput {
+            created_at: now,
+            model: "m".into(),
+            group_key: "g".into(),
+            platform_id: 1,
+            status_code: 200,
+            input_tokens: 1,
+            output_tokens: 1,
+            cache_tokens: 0,
+            est_cost: 0.0,
+            duration_ms: 1,
+        }).await.unwrap();
+
+        cleanup_stats_agg(&db, 0).await.unwrap();
+
+        let n: i64 = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(n, 1, "retention_days=0 表示永久保留");
+    }

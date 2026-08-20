@@ -333,16 +333,17 @@ mod tests {
         let yaml_path = dir.path().join("config.yaml");
         std::fs::write(
             &yaml_path,
+            // 键名与 CLIProxyAPI config.example.yaml 一致（kebab-case，不是下划线）
             r#"
-gemini_api_key:
+gemini-api-key:
   - api-key: AIzaSyTEST
     base-url: https://generativelanguage.googleapis.com
     models:
       - name: gemini-1.5-pro
-claude_api_key:
+claude-api-key:
   - api-key: sk-ant-test
     base-url: https://api.anthropic.com
-openai_compatibility:
+openai-compatibility:
   - name: glm-prod
     base-url: https://open.bigmodel.cn/api/paas/v4
     api-key-entries:

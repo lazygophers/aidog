@@ -152,7 +152,12 @@ pub struct ParseResult {
 // ─── YAML/JSON 识别 ───────────────────────────────────────────────────
 
 /// CPA config YAML/JSON 的最小结构（用于识别是否为 CPA 配置）。
+///
+/// 键名必须是 kebab-case：CLIProxyAPI 的 config.yaml 写的是 `gemini-api-key`
+/// 这类连字符键（见其 config.example.yaml）。缺了 rename_all 会让所有真实配置
+/// 反序列化成全 None，进而被判成「不是 CPA 配置文件」——导入功能整体失效。
 #[derive(Deserialize)]
+#[serde(rename_all = "kebab-case")]
 struct CpaConfigStub {
     #[serde(default)]
     gemini_api_key: Option<Value>,
@@ -958,5 +963,229 @@ mod tests {
         let p = &result[0];
         assert_eq!(p.oauth_type, Some(CpaOAuthType::Vertex));
         assert!(p.base_url.is_empty());
+    }
+
+    // ─── provider 数组段解析 ──────────────────────────────────────────
+
+    fn arr(json: &str) -> Value {
+        serde_json::from_str(json).expect("测试数据应是合法 JSON")
+    }
+
+    #[test]
+    fn parse_provider_array_plain_segment_takes_api_key_directly() {
+        let v = arr(r#"[{"base-url":"https://a.com","api-key":"k1","prefix":"p"}]"#);
+        let out = parse_provider_array(&v, CpaSourceSegment::GeminiApiKey, false);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].api_key, "k1");
+        assert_eq!(out[0].base_url, "https://a.com");
+        assert_eq!(out[0].prefix.as_deref(), Some("p"));
+        // 非 openai-compat 段无 name / disabled 概念
+        assert!(out[0].name.is_none());
+        assert!(!out[0].disabled);
+    }
+
+    #[test]
+    fn parse_provider_array_openai_compat_takes_first_entry_and_flags() {
+        let v = arr(
+            r#"[{"name":"n1","disabled":true,"base-url":"https://b.com",
+                 "api-key-entries":[{"api-key":"first"},{"api-key":"second"}]}]"#,
+        );
+        let out = parse_provider_array(&v, CpaSourceSegment::OpenaiCompatibility, true);
+        assert_eq!(out.len(), 1);
+        // 多 key 轮询语义下取首个用于上游鉴权
+        assert_eq!(out[0].api_key, "first");
+        assert_eq!(out[0].name.as_deref(), Some("n1"));
+        assert!(out[0].disabled);
+    }
+
+    #[test]
+    fn parse_provider_array_skips_entries_without_api_key() {
+        // 无 key / 空 key / 非对象 / 非数组：全部跳过而非产出半残 provider
+        let v = arr(r#"[{"base-url":"https://a.com"},{"api-key":""},"not-an-object"]"#);
+        assert!(parse_provider_array(&v, CpaSourceSegment::ClaudeApiKey, false).is_empty());
+        assert!(parse_provider_array(&arr("{}"), CpaSourceSegment::ClaudeApiKey, false).is_empty());
+
+        let empty_entries = arr(r#"[{"name":"n","api-key-entries":[]}]"#);
+        assert!(parse_provider_array(&empty_entries, CpaSourceSegment::OpenaiCompatibility, true).is_empty());
+    }
+
+    #[test]
+    fn parse_headers_keeps_string_values_only() {
+        let v = arr(r#"{"X-A":"1","X-B":2,"X-C":null}"#);
+        let h = parse_headers(Some(&v));
+        assert_eq!(h.get("X-A").map(String::as_str), Some("1"));
+        assert!(!h.contains_key("X-B"));
+        assert!(!h.contains_key("X-C"));
+        assert!(parse_headers(None).is_empty());
+        assert!(parse_headers(Some(&arr("[]"))).is_empty());
+    }
+
+    // ─── 文件与目录扫描 ───────────────────────────────────────────────
+
+    fn write(dir: &Path, name: &str, content: &str) -> PathBuf {
+        let p = dir.join(name);
+        if let Some(parent) = p.parent() {
+            fs::create_dir_all(parent).expect("建目录应成功");
+        }
+        fs::write(&p, content).expect("写文件应成功");
+        p
+    }
+
+    const YAML_CFG: &str = "gemini-api-key:\n  - base-url: https://g.com\n    api-key: gk\n";
+
+    #[test]
+    fn parse_single_file_yaml_and_json_both_parse() {
+        let d = tempfile::tempdir().expect("临时目录");
+        let y = write(d.path(), "cfg.yaml", YAML_CFG);
+        assert_eq!(parse_single_file(&y).expect("YAML 应解析")[0].api_key, "gk");
+
+        let j = write(
+            d.path(),
+            "cfg.json",
+            r#"{"claude-api-key":[{"base-url":"https://c.com","api-key":"ck"}]}"#,
+        );
+        assert_eq!(parse_single_file(&j).expect("JSON 应解析")[0].api_key, "ck");
+    }
+
+    #[test]
+    fn parse_single_file_rejects_unknown_ext_bad_syntax_and_non_cpa() {
+        let d = tempfile::tempdir().expect("临时目录");
+        let txt = write(d.path(), "a.txt", "whatever");
+        assert!(parse_single_file(&txt).unwrap_err().contains("不支持的文件类型"));
+
+        let bad = write(d.path(), "bad.yaml", "\t: [unclosed");
+        assert!(parse_single_file(&bad).unwrap_err().contains("YAML 解析失败"));
+
+        let badj = write(d.path(), "bad.json", "{not json");
+        assert!(parse_single_file(&badj).unwrap_err().contains("JSON 解析失败"));
+
+        // 合法 YAML 但没有任何 CPA provider 段
+        let other = write(d.path(), "other.yaml", "some-other-key: 1\n");
+        assert!(parse_single_file(&other).unwrap_err().contains("不是 CPA 配置文件"));
+
+        assert!(parse_single_file(&d.path().join("missing.yaml")).unwrap_err().contains("读取文件失败"));
+    }
+
+    #[test]
+    fn collect_config_files_recurses_and_filters_by_extension() {
+        let d = tempfile::tempdir().expect("临时目录");
+        write(d.path(), "a.yaml", YAML_CFG);
+        write(d.path(), "sub/b.yml", YAML_CFG);
+        write(d.path(), "sub/deep/c.json", "{}");
+        write(d.path(), "ignore.txt", "x");
+        write(d.path(), "ignore", "x");
+
+        let mut names: Vec<String> = collect_config_files(d.path())
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        assert_eq!(names, vec!["a.yaml", "b.yml", "c.json"]);
+
+        // 不存在的目录返回空而非 panic
+        assert!(collect_config_files(&d.path().join("nope")).is_empty());
+    }
+
+    #[test]
+    fn scan_auth_dir_recurses_and_skips_non_oauth_json() {
+        let d = tempfile::tempdir().expect("临时目录");
+        write(d.path(), "ok.json", r#"{"type":"xai","access_token":"t1","email":"a@x.com"}"#);
+        write(d.path(), "nested/ok2.json", r#"{"type":"vertex","access_token":"t2","email":"b@x.com"}"#);
+        write(d.path(), "no_token.json", r#"{"type":"xai"}"#);
+        write(d.path(), "not_oauth.json", r#"{"type":"whatever"}"#);
+        write(d.path(), "skip.yaml", YAML_CFG);
+
+        let mut emails: Vec<String> = scan_auth_dir(d.path())
+            .into_iter()
+            .filter_map(|p| p.name)
+            .collect();
+        emails.sort();
+        assert_eq!(emails, vec!["a@x.com", "b@x.com"]);
+
+        assert!(scan_auth_dir(&d.path().join("missing")).is_empty());
+    }
+
+    // ─── 端到端 parse_cpa_config ──────────────────────────────────────
+
+    #[test]
+    fn parse_cpa_config_single_file() {
+        let d = tempfile::tempdir().expect("临时目录");
+        let f = write(d.path(), "cfg.yaml", YAML_CFG);
+        let r = parse_cpa_config(f.to_str().unwrap(), None).expect("单文件应解析");
+        assert_eq!(r.providers.len(), 1);
+        assert_eq!(r.source_files.len(), 1);
+        assert!(r.skipped.is_empty());
+    }
+
+    #[test]
+    fn parse_cpa_config_directory_collects_ok_and_skipped() {
+        let d = tempfile::tempdir().expect("临时目录");
+        write(d.path(), "good.yaml", YAML_CFG);
+        write(d.path(), "sub/other.yaml", "unrelated: 1\n");
+        let r = parse_cpa_config(d.path().to_str().unwrap(), None).expect("目录应解析");
+        assert_eq!(r.providers.len(), 1);
+        assert_eq!(r.skipped.len(), 1);
+        assert!(r.skipped[0].reason.contains("不是 CPA 配置文件"));
+    }
+
+    #[test]
+    fn parse_cpa_config_merges_auth_dir_oauth() {
+        let cfg_dir = tempfile::tempdir().expect("临时目录");
+        let auth_dir = tempfile::tempdir().expect("临时目录");
+        let f = write(cfg_dir.path(), "cfg.yaml", YAML_CFG);
+        write(auth_dir.path(), "cred.json", r#"{"type":"xai","access_token":"t","email":"a@x.com"}"#);
+
+        let r = parse_cpa_config(f.to_str().unwrap(), Some(auth_dir.path().to_str().unwrap()))
+            .expect("应解析");
+        assert_eq!(r.providers.len(), 2);
+        assert_eq!(r.source_files.len(), 2); // 配置文件 + auth-dir
+        assert!(r.providers.iter().any(|p| p.source_segment == CpaSourceSegment::OAuth));
+    }
+
+    #[test]
+    fn parse_cpa_config_empty_auth_dir_not_listed_as_source() {
+        let d = tempfile::tempdir().expect("临时目录");
+        let auth = tempfile::tempdir().expect("临时目录");
+        let f = write(d.path(), "cfg.yaml", YAML_CFG);
+        let r = parse_cpa_config(f.to_str().unwrap(), Some(auth.path().to_str().unwrap()))
+            .expect("应解析");
+        assert_eq!(r.source_files.len(), 1);
+    }
+
+    #[test]
+    fn parse_cpa_config_missing_path_errors() {
+        assert!(parse_cpa_config("/definitely/not/here.yaml", None)
+            .unwrap_err()
+            .contains("路径不存在"));
+    }
+
+    #[test]
+    fn parse_cpa_config_unsupported_archive_reports_skip_not_error() {
+        let d = tempfile::tempdir().expect("临时目录");
+        let f = write(d.path(), "bundle.rar", "binary");
+        let r = parse_cpa_config(f.to_str().unwrap(), None).expect("不支持的压缩包应返回 skip 而非 Err");
+        assert!(r.providers.is_empty());
+        assert_eq!(r.skipped.len(), 1);
+        assert!(r.skipped[0].reason.contains("不支持的压缩格式"));
+    }
+
+    #[test]
+    fn parse_cpa_config_dedups_same_segment_and_base_url_across_files() {
+        let d = tempfile::tempdir().expect("临时目录");
+        write(
+            d.path(),
+            "a.yaml",
+            "gemini-api-key:\n  - base-url: https://g.com\n    api-key: k1\n    models:\n      - name: m1\n",
+        );
+        write(
+            d.path(),
+            "b.yaml",
+            "gemini-api-key:\n  - base-url: https://g.com\n    api-key: k2\n    models:\n      - name: m2\n",
+        );
+        let r = parse_cpa_config(d.path().to_str().unwrap(), None).expect("应解析");
+        assert_eq!(r.providers.len(), 1, "同段同 base_url 应合并成一条");
+        let mut models = r.providers[0].models.clone();
+        models.sort();
+        assert_eq!(models, vec!["m1", "m2"], "models 取并集");
     }
 }
