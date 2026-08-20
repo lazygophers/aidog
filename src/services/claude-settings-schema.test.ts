@@ -88,3 +88,51 @@ describe("claude-settings-schema", () => {
     expect(missing).toEqual([]);
   });
 });
+
+// 内置默认的隐私基线：这些键一旦被删，新用户会在无提示的情况下重新暴露凭证或自动联网。
+describe("defaults/settings.json 隐私基线", () => {
+  const defaults = JSON.parse(
+    readFileSync("src-tauri/defaults/settings.json", "utf8"),
+  ) as {
+    permissions: { deny: string[] };
+    env: Record<string, string>;
+    [k: string]: unknown;
+  };
+
+  it("顶层隐私开关已开", () => {
+    expect(defaults.disableClaudeAiConnectors).toBe(true);
+    expect(defaults.isolatePeerMachines).toBe(true);
+  });
+
+  it("env 覆盖凭证隔离与自动联网三项", () => {
+    for (const k of [
+      "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB",
+      "CLAUDE_CODE_MCP_ALLOWLIST_ENV",
+      "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
+      "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+    ]) {
+      expect(defaults.env[k], k).toBe("1");
+    }
+  });
+
+  it("deny 覆盖云厂商与包管理器凭证路径", () => {
+    for (const rule of [
+      "Read(~/.aws/**)",
+      "Read(~/.config/gcloud/**)",
+      "Read(~/.kube/config)",
+      "Read(~/.claude/.credentials.json)",
+      "Read(**/.git-credentials)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)",
+      "Read(**/.pgpass)",
+      "Read(**/*.kdbx)",
+    ]) {
+      expect(defaults.permissions.deny, rule).toContain(rule);
+    }
+  });
+
+  it("env 每个键都在 ENV_VAR_DEFS 内（可视化面板可编辑）", () => {
+    const known = new Set(ENV_VAR_DEFS.map((d) => d.key));
+    expect(Object.keys(defaults.env).filter((k) => !known.has(k))).toEqual([]);
+  });
+});
