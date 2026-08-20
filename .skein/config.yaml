@@ -1,0 +1,51 @@
+auto_commit: true
+retain_days: 7
+pools:
+  work: 2
+  gate: 3
+worktree:
+  enabled: false
+  root: .worktrees
+web:
+  serve: true
+  board_open: true
+spec:
+  core_budget: 400
+  always_budget: 517
+confirm:
+  unattended: false
+hooks:
+  create:
+    before: []
+    after: []
+  confirm:
+    before: []
+    after: []
+  research:
+    before: []
+    after: []
+  plan:
+    before: []
+    after: []
+  exec:
+    before: []
+    after: []
+  check:
+    before: []
+    after: []
+  finishing:
+    before: []
+    after: []
+  finish:
+    before: []
+    after: []
+  subtask.start:
+    before: []
+    after: []
+  subtask.done:
+    before: []
+    after: []
+  subtask.fail:
+    before: []
+    after: []
+  agent: {}
