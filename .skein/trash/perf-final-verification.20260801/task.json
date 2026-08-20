@@ -1,0 +1,159 @@
+{
+  "id": "perf-final-verification",
+  "name": "全进程 200MB 总收口验收",
+  "desc": "全部性能 task 合入后, 50 路并发 mock 流下测全进程内存总和 + 三场景 CPU, 出最终 spec 判决",
+  "status": "就绪",
+  "deps": [
+    "mock-loadgen-capability",
+    "logs-query-ipc-slimming",
+    "sqlite-page-cache-residency",
+    "proxy-hotpath-buffers",
+    "tokenizer-residency-trim",
+    "frontend-compositing-purge",
+    "cold-start-unblock",
+    "window-default-size"
+  ],
+  "contracts": [
+    "本 task 只量测与判决, 禁改任何生产代码。未达标项登记新 task, 不在此修",
+    "达标口径 = 默认窗口尺寸 1026x759 下的全进程总和。判据只认 footprint 的 phys_footprint 与 heap 5KB 块数, 禁 ps rss / vmmap",
+    "三场景各自独立重启进程并等满 >=10min 稳态, 禁同进程内切场景连采([03] 的 release 复验已栽在此)"
+  ],
+  "subtasks": [
+    {
+      "sid": "s1-preflight",
+      "name": "前置确认与量测台搭建",
+      "desc": "确认 8 个前置 task 全部 finish 且合入 master(git log 核实, 非推断)。release 构建。定死 50 路并发 mock 流的具体流形(chunk 数/间隔/正文长度/error_rate)并写成可复现脚本。判据只认 footprint 的 phys_footprint 与 heap 的 5KB 块数, 禁 ps rss / vmmap。",
+      "depends_on": [],
+      "验收": [
+        "8 个前置 task 的 commit 已在 master 上逐个核实",
+        "release 构建成功",
+        "压测流形参数已定死并写成脚本",
+        "量测脚本三场景各跑通一次冒烟"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785250517,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s2-measure-3scenes",
+      "name": "三场景内存与 CPU 量测",
+      "desc": "空闲前台 / 空闲隐藏 / 50 路并发 mock 流三场景。每场景独立重启 release app, 等满 >=10min 稳态, 禁同进程内切场景连采([03] 栽点)。默认窗口 1026x759。采全进程 phys_footprint 分解(主进程/WebContent/GPU/Networking/popover) + heap 5KB 块数 + sample CPU%。另采最大化尺寸一组作对照(不计入判决)。",
+      "depends_on": [
+        "s1-preflight"
+      ],
+      "验收": [
+        "三场景各自的全进程分解表已落盘",
+        "每场景稳态时长 >=10min 有记录",
+        "CPU% 三场景齐",
+        "最大化对照组已采"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785250517,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s3-budget-reconcile",
+      "name": "与 [03] 预算表逐项对账",
+      "desc": "把 s2 实测值填进 [03] 的预算表(主进程30/WebKit malloc32/popover22/GPU18/Networking6.7/零散20/合成面71)。超预算项单列并归因到具体进程与分配类型。禁只看总数不看分解。判定内存目标达标与否。",
+      "depends_on": [
+        "s2-measure-3scenes"
+      ],
+      "验收": [
+        "预算表每一项都有实测值填入",
+        "超预算项已逐条归因(哪个进程/哪类分配/物理下限还是可优化)",
+        "内存达标与否有明确判决"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785250517,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s4-redline-regression",
+      "name": "红线 1-4 逐条回归",
+      "desc": "红线1: 50 路并发 mock 流下 TTFT 与总延迟对比优化前基线。红线2: 同组 mock 请求改前改后逐条比对 token 数与 est_cost 必须完全一致。红线3: 18 个页面逐页人工走查(前端已删动画/收 hover/去 backdrop-filter 三项视觉改动, 必须确认没意外破相)。红线4: 冷启动到首屏可交互耗时多次取中位, 不慢于优化前。",
+      "depends_on": [
+        "s1-preflight"
+      ],
+      "验收": [
+        "红线1 TTFT 与总延迟数据齐且无退化",
+        "红线2 token 与 est_cost 逐条一致",
+        "红线3 18 页走查记录齐, 缺陷清单(可为空)",
+        "红线4 冷启动中位数不慢于优化前"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785250517,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s5-spec-writeup",
+      "name": "最终 spec 文档",
+      "desc": "产出最终 spec: 达标判决(内存/CPU 各自) + 未达标项归因 + 窗口尺寸物理事实说明(默认尺寸达标, 用户拉大会超预算是 WKWebView 合成面的物理成本非缺陷) + 可复现的量测协议与流形参数。CPU 若仍 >=0.5% 只写量准的数与归因, 深挖另开 task(用户已拍板继续深挖直到达标)。",
+      "depends_on": [
+        "s3-budget-reconcile",
+        "s4-redline-regression"
+      ],
+      "验收": [
+        "spec 含达标判决/未达标归因/窗口物理事实三段",
+        "量测协议与流形参数可复现",
+        "CPU 归因明确"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785250517,
+      "started": null,
+      "finished": null
+    },
+    {
+      "sid": "s6-followup-and-cleanup",
+      "name": "未达标项登记 + 清场",
+      "desc": "未达标的可优化项逐条 skein create 登记为新 task, 禁留口头结论。物理下限项写进 spec 已在 s5 完成。清理本 task 全部临时脚本与逐次原始采样, results/ 只留最终指标集与 spec 两份。",
+      "depends_on": [
+        "s5-spec-writeup"
+      ],
+      "验收": [
+        "未达标可优化项已逐条建 task(可为零条, 需显式记录)",
+        "临时脚本与原始采样已删",
+        "results/ 仅剩最终指标集与 spec"
+      ],
+      "验收done": [],
+      "status": "待处理",
+      "agent": "skein-executor",
+      "skills": [],
+      "created": 1785250518,
+      "started": null,
+      "finished": null
+    }
+  ],
+  "priority": 5,
+  "estimate": 10.0,
+  "repos": [],
+  "worktree": null,
+  "worktrees": [],
+  "branch": "skein/perf-final-verification",
+  "parent": null,
+  "kind": "task",
+  "created": 1785250220,
+  "started": null,
+  "confirmed": 1785250583,
+  "checked": null,
+  "finished": null,
+  "updated": 1785250583
+}
