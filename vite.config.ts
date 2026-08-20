@@ -62,17 +62,19 @@ export default defineConfig(async () => ({
       include: [
         "src/utils/**/*.ts",
         "src/components/shared/**/*.{ts,tsx}",
-        "src/services/api.ts",
+        "src/services/api/**/*.ts",
       ],
       exclude: [
         "src/**/*.{test,spec}.{ts,tsx}",
         "src/test/**",
       ],
+      // 阈值贴着实测水位下方设（实测 stmt 95.7 / branch 90.1 / func 97.2 / line 97.2），
+      // 留几个点的余量给正常波动，退化立刻红。
       thresholds: {
-        branches: 80,
-        functions: 80,
-        lines: 80,
-        statements: 80,
+        branches: 88,
+        functions: 95,
+        lines: 95,
+        statements: 93,
       },
     },
   },

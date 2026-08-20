@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   formatNumber,
   formatCost,
@@ -7,6 +7,10 @@ import {
   formatPercent,
   successRate,
   sumTokens,
+  formatDateTime,
+  formatRelativeTime,
+  pad,
+  clamp,
 } from "./formatters";
 
 describe("formatNumber", () => {
@@ -87,5 +91,74 @@ describe("sumTokens", () => {
     expect(sumTokens(1, 2, 3)).toBe(6);
     expect(sumTokens(1, undefined, null, NaN, 4)).toBe(5);
     expect(sumTokens()).toBe(0);
+  });
+});
+
+describe("formatDateTime", () => {
+  it("returns null for empty / nullish / unparsable input", () => {
+    expect(formatDateTime(null)).toBeNull();
+    expect(formatDateTime(undefined)).toBeNull();
+    expect(formatDateTime("")).toBeNull();
+    expect(formatDateTime("not a date")).toBeNull();
+    expect(formatDateTime(NaN)).toBeNull();
+  });
+  it("accepts both ISO strings and millisecond timestamps", () => {
+    const ms = Date.UTC(2026, 5, 26, 12, 0, 0);
+    expect(formatDateTime(ms)).toBe(new Date(ms).toLocaleString());
+    expect(formatDateTime("2026-06-26T12:00:00Z")).toBe(new Date(ms).toLocaleString());
+  });
+});
+
+describe("formatRelativeTime", () => {
+  const NOW = Date.UTC(2026, 5, 26, 12, 0, 0);
+  const ago = (ms: number) => formatRelativeTime(NOW - ms);
+  const SEC = 1000, MIN = 60 * SEC, HR = 60 * MIN, DAY = 24 * HR;
+
+  afterEach(() => vi.useRealTimers());
+
+  it("returns null for empty / nullish / unparsable input", () => {
+    expect(formatRelativeTime(null)).toBeNull();
+    expect(formatRelativeTime(undefined)).toBeNull();
+    expect(formatRelativeTime("")).toBeNull();
+    expect(formatRelativeTime("garbage")).toBeNull();
+  });
+
+  it("picks the largest whole unit at each boundary", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    expect(ago(0)).toBe("刚刚");
+    expect(ago(59 * SEC)).toBe("刚刚");
+    expect(ago(60 * SEC)).toBe("1 分钟前");
+    expect(ago(59 * MIN)).toBe("59 分钟前");
+    expect(ago(60 * MIN)).toBe("1 小时前");
+    expect(ago(23 * HR)).toBe("23 小时前");
+    expect(ago(24 * HR)).toBe("1 天前");
+    expect(ago(29 * DAY)).toBe("29 天前");
+    expect(ago(30 * DAY)).toBe("1 个月前");
+    expect(ago(364 * DAY)).toBe("12 个月前");
+    expect(ago(365 * DAY)).toBe("1 年前");
+  });
+
+  it("clamps future timestamps to 刚刚 instead of counting down", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+    expect(formatRelativeTime(NOW + DAY)).toBe("刚刚");
+  });
+});
+
+describe("pad", () => {
+  it("pads to 2 digits, leaves longer values intact", () => {
+    expect(pad(7)).toBe("07");
+    expect(pad(12)).toBe("12");
+    expect(pad(0)).toBe("00");
+    expect(pad(123)).toBe("123");
+  });
+});
+
+describe("clamp", () => {
+  it("clamps to both bounds and passes through in-range values", () => {
+    expect(clamp(15, 1, 10)).toBe(10);
+    expect(clamp(-5, 0, 100)).toBe(0);
+    expect(clamp(50, 0, 100)).toBe(50);
   });
 });

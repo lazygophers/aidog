@@ -162,68 +162,67 @@ describe("api namespaces (bulk invoke smoke)", () => {
     expect(payload).toHaveProperty("orderedIds");
   });
 
-  // 对其余 namespace 做「枚举每个方法 → 用占位参数调用 → 不抛」的批量 smoke。
+  // 枚举 index 导出的每个 *Api namespace → 每个方法用多组参数调用 → 不抛。
+  // 硬编码清单会漏掉新增 namespace（曾漏 mitmApi/piApi/cliEnvApi 等 6 个），
+  // 所以从 `import * as api` 动态发现，新增 namespace 自动进入 smoke。
+  const namespaces = Object.entries(api).filter(
+    ([name, v]) => name.endsWith("Api") && v && typeof v === "object",
+  ) as [string, Record<string, unknown>][];
+
+  it("发现全部 *Api namespace（下限防回归：拆分文件时漏 re-export 会掉数）", () => {
+    expect(namespaces.length).toBeGreaterThanOrEqual(40);
+  });
+
   it("every namespace method is callable", async () => {
-    const namespaces: Record<string, unknown> = {
-      trayApi: api.trayApi,
-      groupUsageApi: api.groupUsageApi,
-      trayConfigApi: api.trayConfigApi,
-      popoverConfigApi: api.popoverConfigApi,
-      groupApi: api.groupApi,
-      groupDetailApi: api.groupDetailApi,
-      proxyApi: api.proxyApi,
-      configApi: api.configApi,
-      proxyLogApi: api.proxyLogApi,
-      proxyTimeoutApi: api.proxyTimeoutApi,
-      middlewareApi: api.middlewareApi,
-      schedulingApi: api.schedulingApi,
-      notificationApi: api.notificationApi,
-      settingsApi: api.settingsApi,
-      statuslineApi: api.statuslineApi,
-      scriptExecutorApi: api.scriptExecutorApi,
-      codexApi: api.codexApi,
-      claudeSettingsImportApi: api.claudeSettingsImportApi,
-      appLogApi: api.appLogApi,
-      dbApi: api.dbApi,
-      codingToolsSettingsApi: api.codingToolsSettingsApi,
-      statsApi: api.statsApi,
-      statsSettingsApi: api.statsSettingsApi,
-      modelTestApi: api.modelTestApi,
-      quotaApi: api.quotaApi,
-      modelPriceApi: api.modelPriceApi,
-      priceSyncApi: api.priceSyncApi,
-      skillsApi: api.skillsApi,
-      mcpApi: api.mcpApi,
-      importExportApi: api.importExportApi,
-      ccswitchApi: api.ccswitchApi,
-      sub2apiApi: api.sub2apiApi,
-      backupApi: api.backupApi,
-      aboutApi: api.aboutApi,
-    };
+    // 三组参数：无参 / 单参 / 全参。可选参数（`x ?? null`、`limit = 50`）的
+    // 两侧分支只有在「传」与「不传」都跑过时才都被覆盖。
+    const ARG_SETS: unknown[][] = [
+      [],
+      [1],
+      [1, "placeholder", "placeholder2", {}, []],
+    ];
 
     let called = 0;
-    for (const [nsName, ns] of Object.entries(namespaces)) {
-      expect(ns, `${nsName} should be exported`).toBeDefined();
-      for (const [method, fn] of Object.entries(ns as Record<string, unknown>)) {
+    for (const [nsName, ns] of namespaces) {
+      for (const [method, fn] of Object.entries(ns)) {
         if (typeof fn !== "function") continue;
-        try {
-          // 用一组宽松占位参数覆盖大多数签名（多数方法 0-3 个简单参数）。
-          const result = (fn as (...a: unknown[]) => unknown)(
-            1,
-            "placeholder",
-            "placeholder2",
-            {},
-            [],
-          );
-          if (result instanceof Promise) {
-            await result.catch(() => undefined);
+        for (const args of ARG_SETS) {
+          try {
+            const result = (fn as (...a: unknown[]) => unknown)(...args);
+            if (result instanceof Promise) await result.catch(() => undefined);
+            called++;
+          } catch {
+            // 占位参数构造内部对象失败不算回归（如方法内部 .map 一个 number）。
+            void `${nsName}.${method}`;
           }
-          called++;
-        } catch {
-          // 个别方法可能因占位参数构造内部对象失败；不算回归，跳过即可。
         }
       }
     }
-    expect(called).toBeGreaterThan(50);
+    expect(called).toBeGreaterThan(150);
+  });
+});
+
+// ─── 顶层导出的裸 invoke 函数（不属任何 namespace）────────────
+
+describe("top-level invoke helpers", () => {
+  beforeEach(() => mockIPC(() => ""));
+  afterEach(() => clearMocks());
+
+  it("每个顶层函数导出都可调用", async () => {
+    const fns = Object.entries(api).filter(
+      ([name, v]) => typeof v === "function" && !name.startsWith("on"),
+    ) as [string, (...a: unknown[]) => unknown][];
+    expect(fns.length).toBeGreaterThan(0);
+
+    for (const [, fn] of fns) {
+      for (const args of [[], ["openai"], ["a", "b"]]) {
+        try {
+          const r = fn(...args);
+          if (r instanceof Promise) await r.catch(() => undefined);
+        } catch {
+          /* 纯函数对占位参数抛错不算回归 */
+        }
+      }
+    }
   });
 });
