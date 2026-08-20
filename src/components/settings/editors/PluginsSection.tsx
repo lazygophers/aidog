@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { IconClose } from "../../icons";
 import { F, S } from "./tokens";
 import { SvgIcon, ICON_PATHS } from "./icons";
-import { Toggle, Hint, SubHeading } from "./_shared";
+import { Toggle, Hint, SubHeading, JsonEditor, StringListEditor } from "./_shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -345,6 +345,49 @@ function PluginsEditor({
             />
             <Button variant="ghost" type="button"  style={{ fontSize: F.small, padding: "4px 12px" }}
               onClick={addMarketplace}>+</Button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Plugin Configs ── */}
+      <div>
+        <SubHeading>
+          <SvgIcon d={ICON_PATHS.core} size={14} style={{ opacity: 0.6 }} />
+          Plugin Configs
+        </SubHeading>
+        <Hint>{t("settings.plugins.configsHint", "按插件 ID（plugin@marketplace）配置 MCP 服务器与插件选项")}</Hint>
+        <div style={{ marginTop: 8 }}>
+          <JsonEditor
+            value={config.pluginConfigs}
+            onChange={(v) => updateField("pluginConfigs", v)}
+            placeholder="{}"
+          />
+        </div>
+      </div>
+
+      {/* ── Skipped Plugins / Marketplaces ── */}
+      <div>
+        <SubHeading>
+          <SvgIcon d={ICON_PATHS.trash} size={14} style={{ opacity: 0.6 }} />
+          Skipped
+        </SubHeading>
+        <Hint>{t("settings.plugins.skippedHint", "推荐安装时选择跳过的插件与市场，写入后不再提示")}</Hint>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 8 }}>
+          <div>
+            <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>skippedPlugins</div>
+            <StringListEditor
+              items={Array.isArray(config.skippedPlugins) ? config.skippedPlugins : []}
+              onChange={(list) => updateField("skippedPlugins", list.length > 0 ? list : undefined)}
+              addLabel="plugin-name@marketplace"
+            />
+          </div>
+          <div>
+            <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>skippedMarketplaces</div>
+            <StringListEditor
+              items={Array.isArray(config.skippedMarketplaces) ? config.skippedMarketplaces : []}
+              onChange={(list) => updateField("skippedMarketplaces", list.length > 0 ? list : undefined)}
+              addLabel="marketplace-name"
+            />
           </div>
         </div>
       </div>

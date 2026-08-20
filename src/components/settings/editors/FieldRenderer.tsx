@@ -4,7 +4,7 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { type SettingField } from "../../../services/claude-settings-schema";
 import { F, S } from "./tokens";
-import { Toggle, FieldLabel, JsonEditor, KvEditor, StringListEditor, PathInput } from "./_shared";
+import { Toggle, FieldLabel, JsonEditor, KvEditor, KvSelectEditor, ObjectEditor, StringListEditor, PathInput } from "./_shared";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
@@ -113,6 +113,37 @@ export function FieldRenderer({
             <KvEditor
               items={(value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, string> : {}}
               onChange={(kv) => onChange(Object.keys(kv).length > 0 ? kv : undefined)}
+              keyPlaceholder={field.keyPlaceholder}
+            />
+          </div>
+        </div>
+      );
+
+    case "kv-select":
+      return (
+        <div style={rowStyle}>
+          {label()}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <KvSelectEditor
+              items={(value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, string> : {}}
+              onChange={(kv) => onChange(Object.keys(kv).length > 0 ? kv : undefined)}
+              valueOptions={field.valueOptions ?? []}
+              keyPlaceholder={field.keyPlaceholder}
+            />
+          </div>
+        </div>
+      );
+
+    case "object":
+      return (
+        <div style={rowStyle}>
+          {label()}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <ObjectEditor
+              value={(value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, any> : {}}
+              onChange={onChange}
+              fields={field.objectFields ?? []}
+              addLabel={t("settings.addRule")}
             />
           </div>
         </div>
