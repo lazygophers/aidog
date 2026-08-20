@@ -2769,5 +2769,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "Уровень журнала отладки",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "Минимальный уровень отладочных логов",
   "env.IS_DEMO": "Демонстрационный режим",
-  "env.IS_DEMO.desc": "Демо-режим: скрывать адрес электронной почты и название организации"
+  "env.IS_DEMO.desc": "Демо-режим: скрывать адрес электронной почты и название организации",
+  "settings.editor.recommendTitle": "Загрузить рекомендуемую конфигурацию",
+  "settings.editor.applySelected": "Применить выбранное",
+  "settings.editor.diffRecommended": "Рекомендуемое значение",
+  "settings.noRecommendedDiff": "Текущая конфигурация уже содержит все рекомендуемые пункты"
 }

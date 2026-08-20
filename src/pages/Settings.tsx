@@ -18,6 +18,7 @@ import {
   StatusLineSection,
   ImportDiffModal,
   buildImportDiffTree,
+  buildRecommendedDiffTree,
   readManagedPaths,
   type DiffNode,
   type HooksConfig,
@@ -32,6 +33,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
 const CONFIG_KEY = "claude_code";
+
+/** 取出 `_aidog_*` 内部键（diff 树不展示它们，推荐配置仍要带上）。 */
+export function pickAidogKeys(source: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(source).filter(([k]) => k.startsWith("_aidog_")),
+  );
+}
 
 // Header + anchor-nav heights drive sticky offsets & scroll-spy margins.
 const HEADER_H = 58;
@@ -143,6 +151,7 @@ export function Settings() {
   const [importDiff, setImportDiff] = useState<{
     source: Record<string, any>;
     diff: DiffNode[];
+    kind: "claudeCode" | "recommended";
   } | null>(null);
 
   // Last-saved baseline signature for dirty tracking.
@@ -241,12 +250,15 @@ export function Settings() {
     }
   }, [mode, editJson, config, t]);
 
+  // 与「从 Claude Code 导入」同一套逐项选择弹窗：先出 diff，用户勾选后才写入。
   const handleLoadRecommended = () => {
-    const merged = deepMerge(config, RECOMMENDED_CONFIG);
-    setConfig(merged);
-    setEditJson(JSON.stringify(merged, null, 2));
-    setToast(t("settings.loadedRecommended"));
-    setTimeout(() => setToast(""), 2000);
+    const diff = buildRecommendedDiffTree(config, RECOMMENDED_CONFIG);
+    if (diff.length === 0) {
+      setToast(t("settings.noRecommendedDiff", "当前配置已包含全部推荐项"));
+      setTimeout(() => setToast(""), 2000);
+      return;
+    }
+    setImportDiff({ source: RECOMMENDED_CONFIG, diff, kind: "recommended" });
   };
 
   const handleImportFromClaudeCode = async () => {
@@ -261,7 +273,7 @@ export function Settings() {
         setTimeout(() => setToast(""), 2000);
         return;
       }
-      setImportDiff({ source, diff });
+      setImportDiff({ source, diff, kind: "claudeCode" });
     } catch (e: any) {
       setToast(`导入失败：${e?.message ?? e ?? "未知错误"}`);
       setTimeout(() => setToast(""), 5000);
@@ -270,11 +282,17 @@ export function Settings() {
 
   const applyImport = (selectedPaths: Set<string>) => {
     if (!importDiff) return;
-    const next = applySelectedPaths(config, importDiff.source, selectedPaths);
+    const recommended = importDiff.kind === "recommended";
+    // `_aidog_*` 是内部键，diff 树按约定跳过它们，所以推荐配置里的这部分（statusline /
+    // hooks 开关）随勾选结果一起深合并进去，保持旧版「加载推荐配置」的行为。
+    const base = recommended
+      ? deepMerge(config, pickAidogKeys(importDiff.source))
+      : config;
+    const next = applySelectedPaths(base, importDiff.source, selectedPaths);
     setConfig(next);
     setEditJson(JSON.stringify(next, null, 2));
     setImportDiff(null);
-    setToast(t("settings.imported", "已导入"));
+    setToast(recommended ? t("settings.loadedRecommended") : t("settings.imported", "已导入"));
     setTimeout(() => setToast(""), 2000);
   };
 
@@ -632,6 +650,21 @@ export function Settings() {
           diff={importDiff.diff}
           onApply={applyImport}
           onClose={() => setImportDiff(null)}
+          title={
+            importDiff.kind === "recommended"
+              ? t("settings.editor.recommendTitle", "加载推荐配置")
+              : undefined
+          }
+          applyLabel={
+            importDiff.kind === "recommended"
+              ? t("settings.editor.applySelected", "应用选中")
+              : undefined
+          }
+          incomingLabel={
+            importDiff.kind === "recommended"
+              ? t("settings.editor.diffRecommended", "推荐值")
+              : undefined
+          }
         />
       )}
 

@@ -2769,5 +2769,9 @@
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL": "デバッグログレベル",
   "env.CLAUDE_CODE_DEBUG_LOG_LEVEL.desc": "デバッグログの最低レベル",
   "env.IS_DEMO": "デモモード",
-  "env.IS_DEMO.desc": "デモモード: メールアドレスと組織名を隠します"
+  "env.IS_DEMO.desc": "デモモード: メールアドレスと組織名を隠します",
+  "settings.editor.recommendTitle": "推奨設定を読み込む",
+  "settings.editor.applySelected": "選択項目を適用",
+  "settings.editor.diffRecommended": "推奨値",
+  "settings.noRecommendedDiff": "現在の設定にはすべての推奨項目が含まれています"
 }
