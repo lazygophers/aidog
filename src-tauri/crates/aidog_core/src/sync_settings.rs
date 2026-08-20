@@ -47,13 +47,6 @@ pub async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
         }
 }
 
-/// aidog 托管字段 marker 键名（历史遗留：曾写入 `~/.claude/settings.json`，现已迁至
-/// aidog 内部 DB `setting` 表 scope=`claude_default_group`/key=`managed_paths`）。
-/// 保留此常量仅用于 sync 时**清除**用户 settings.json 里残留的旧 marker 值——老用户文件
-/// 可能仍含此 key，sync 时显式 remove 避免污染。CC 原本就忽略此未知 key，但用户文件
-/// 不应塞 aidog 内部元数据。
-pub const MARKER_MANAGED: &str = "_aidog_managed";
-
 /// DB 存储托管叶子快照的 scope/key。复用 KV `setting` 表，不加新表/列。
 /// value = JSON 字符串数组（dot-path 叶子集），前端 invoke `get_managed_paths` 读。
 pub const MANAGED_SCOPE: &str = "claude_default_group";
@@ -88,21 +81,23 @@ fn collect_leaf_paths(value: &serde_json::Value, prefix: &str, out: &mut Vec<Str
     }
 }
 
-/// 默认分组：把默认组 config deep merge 写入 `~/.claude/settings.json`（CC 全局）。
+/// 默认分组：把默认组 config **全量覆盖**写入 `~/.claude/settings.json`（CC 全局）。
 ///
-/// deep merge 规则：aidog 管理字段（env.ANTHROPIC_BASE_URL/AUTH_TOKEN、statusLine、
-/// hooks 等）覆盖同键；用户手写的其它字段（permissions / model 等）保留。
-/// 嵌套 object 递归合并；非 object（标量/数组）直接覆盖。
+/// 设了默认分组 = aidog 接管该文件：写入内容就是默认组 config，用户手写但 aidog 侧
+/// 没有的键（permissions / model / 自装 plugins / mcpServers …）一并消失。旧行为是
+/// deep merge 保留用户字段，语义上「谁是真值源」始终模糊，现改为单一真值源。
+/// 不备份 —— 内容可随时从 aidog 设置页重新生成。
+///
+/// 只在内容真的变化时落盘（`old == new` 早退），所以「设置变更 / 默认分组变更」才会
+/// 触发实际写入，重复同步不动文件。
 ///
 /// 托管快照存 aidog 内部 DB `setting` 表（scope=`claude_default_group`/key=`managed_paths`），
-/// = 本次同步后**整个 settings.json**（merge 完成后）的全部叶子 dot-path——既含 aidog 注入字段
-/// （env/statusLine/hooks/aidog 自身 plugins），也含 merge 后保留下来的用户已有字段
-/// （permissions/model/用户自装 plugins/marketplaces/hooks）。前端「从 Claude Code 导入」的
-/// 字段级 diff 排除该集合 → 仅显示同步**之后**用户新增/改动的字段，同步当下的全部内容（含用户
-/// 自装项）零差异。`collect_leaf_paths` 跳过 `_aidog_` 前缀，故快照不含旧 marker 数组。
+/// = 本次同步后**整个 settings.json** 的全部叶子 dot-path。全量覆盖下这就是 config 自身的
+/// 叶子集。前端「从 Claude Code 导入」的字段级 diff 排除该集合 → 仅显示同步**之后**用户在
+/// CC 侧新增/改动的字段。`collect_leaf_paths` 跳过 `_aidog_` 前缀。
 ///
-/// settings.json 不再写 `_aidog_managed` key（曾写、现已迁 DB）；sync 时显式 remove
-/// 用户文件里残留的旧 marker 值（老用户迁移）。
+/// 旧版曾往 settings.json 写 `_aidog_managed` key（现已迁 DB）；全量覆盖后旧值自然消失，
+/// 无需再显式 remove。
 ///
 /// CC 原生支持 settings.json 的 env 字段 → 用户直接 `claude` 不带任何参数/env 即走该组。
 pub async fn write_default_claude_settings(
@@ -115,28 +110,12 @@ pub async fn write_default_claude_settings(
         .map_err(|e| format!("create ~/.claude dir: {e}"))?;
     let settings_path = claude_dir.join("settings.json");
 
-    // 读现有（不存在→空对象）
-    let existing = std::fs::read_to_string(&settings_path).ok();
-    let mut base: serde_json::Value = match existing.as_deref() {
-        Some(s) if !s.trim().is_empty() => serde_json::from_str(s)
-            .map_err(|e| format!("parse existing ~/.claude/settings.json: {e}"))?,
-        _ => serde_json::Value::Object(serde_json::Map::new()),
-    };
-    if !base.is_object() {
-        base = serde_json::Value::Object(serde_json::Map::new());
-    }
+    // 全量覆盖：写入内容 = 默认组 config，不读旧文件内容参与合并。
+    let base = config.clone();
 
-    // deep merge：config 叠加到 base（不覆盖用户自加的 enabledPlugins/mcpServers 条目）
-    merge_json(&mut base, config);
-
-    // 清除用户 settings.json 里残留的旧 marker（曾写、现已迁 DB）。显式 remove 连旧值清。
-    if let Some(obj) = base.as_object_mut() {
-        obj.remove(MARKER_MANAGED);
-    }
-
-    // 托管集：对 **merge 后的完整 base** 取叶子 dot-path（跳过内部 marker）——含 aidog 注入字段
-    // 与 merge 后保留的用户已有字段。即「上次同步时 settings.json 全部叶子」的快照，导入 diff
-    // 只显示此快照之后的新增/变化。顺序稳定（递归 + serde_json Map 保插入序），便于幂等 diff。
+    // 托管集：对写入内容取叶子 dot-path（跳过内部 marker）。即「上次同步时 settings.json
+    // 全部叶子」的快照，导入 diff 只显示此快照之后的新增/变化。顺序稳定（递归 + serde_json
+    // Map 保插入序），便于幂等 diff。
     let mut managed: Vec<String> = Vec::new();
     collect_leaf_paths(&base, "", &mut managed);
 
@@ -154,15 +133,16 @@ pub async fn write_default_claude_settings(
     .await?;
 
     let new_content = serde_json::to_string_pretty(&base)
-        .map_err(|e| format!("serialize merged ~/.claude/settings.json: {e}"))?;
-    let old_content = existing.unwrap_or_default();
+        .map_err(|e| format!("serialize ~/.claude/settings.json: {e}"))?;
+    // 内容未变则不落盘：同步在启动/改分组/改设置等多处触发，只有真变化才写文件。
+    let old_content = std::fs::read_to_string(&settings_path).unwrap_or_default();
     if old_content == new_content {
         return Ok(());
     }
 
     std::fs::write(&settings_path, &new_content)
         .map_err(|e| format!("write ~/.claude/settings.json: {e}"))?;
-    tracing::info!(path = %settings_path.display(), "default group: merged ~/.claude/settings.json");
+    tracing::info!(path = %settings_path.display(), "default group: overwrote ~/.claude/settings.json");
     Ok(())
 }
 
