@@ -94,7 +94,7 @@ describe("defaults/settings.json 隐私基线", () => {
   const defaults = JSON.parse(
     readFileSync("src-tauri/defaults/settings.json", "utf8"),
   ) as {
-    permissions: { deny: string[] };
+    permissions: { deny: string[]; ask: string[] };
     env: Record<string, string>;
     [k: string]: unknown;
   };
@@ -128,6 +128,42 @@ describe("defaults/settings.json 隐私基线", () => {
       "Read(**/*.kdbx)",
     ]) {
       expect(defaults.permissions.deny, rule).toContain(rule);
+    }
+  });
+
+  it("已安装依赖目录禁写禁改", () => {
+    for (const dir of [
+      "**/node_modules/**", "**/vendor/**", "**/bower_components/**",
+      "**/.yarn/**", "**/.pnpm-store/**", "**/.venv/**",
+      "**/site-packages/**", "**/Pods/**",
+      "~/.cargo/registry/**", "~/go/pkg/mod/**",
+    ]) {
+      expect(defaults.permissions.deny, dir).toContain(`Write(${dir})`);
+      expect(defaults.permissions.deny, dir).toContain(`Edit(${dir})`);
+    }
+  });
+
+  // Edit 与 Write 在权限系统里是两个独立工具，只拦一半等于没拦。
+  it("锁文件禁改、依赖清单需确认，且 Edit / Write 成对", () => {
+    const LOCKFILES = [
+      "go.sum", "yarn.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.lock",
+      "composer.lock", "Podfile.lock", "poetry.lock", "uv.lock", "bun.lockb",
+      "bun.lock", "deno.lock", "flake.lock", "gradle.lockfile",
+      "packages.lock.json", "mix.lock", ".terraform.lock.hcl",
+    ];
+    const MANIFESTS = [
+      "go.mod", "package.json", "Cargo.toml", "Gemfile", "pyproject.toml",
+      "requirements.txt", "Pipfile", "deno.json", "bunfig.toml",
+      "composer.json", "Podfile", "mix.exs",
+    ];
+    for (const [files, list] of [
+      [LOCKFILES, defaults.permissions.deny],
+      [MANIFESTS, defaults.permissions.ask],
+    ] as const) {
+      for (const f of files) {
+        expect(list, f).toContain(`Write(**/${f})`);
+        expect(list, f).toContain(`Edit(**/${f})`);
+      }
     }
   });
 
