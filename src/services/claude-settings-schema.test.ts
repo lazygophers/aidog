@@ -131,20 +131,26 @@ describe("defaults/settings.json 隐私基线", () => {
     }
   });
 
-  it("已安装依赖目录禁写禁改", () => {
+  it("已安装依赖目录禁改", () => {
     for (const dir of [
       "**/node_modules/**", "**/vendor/**", "**/bower_components/**",
       "**/.yarn/**", "**/.pnpm-store/**", "**/.venv/**",
       "**/site-packages/**", "**/Pods/**",
       "~/.cargo/registry/**", "~/go/pkg/mod/**",
     ]) {
-      expect(defaults.permissions.deny, dir).toContain(`Write(${dir})`);
       expect(defaults.permissions.deny, dir).toContain(`Edit(${dir})`);
     }
   });
 
-  // Edit 与 Write 在权限系统里是两个独立工具，只拦一半等于没拦。
-  it("锁文件禁改、依赖清单需确认，且 Edit / Write 成对", () => {
+  // Claude Code 的文件权限检查只匹配 Edit(path)；Write(path) 规则不生效（且 Edit
+  // 规则覆盖包括 Write 在内的全部文件编辑工具）。写成 Write(...) 等于没拦。
+  it("不存在 Write(path) 形式的失效规则", () => {
+    const dead = [...defaults.permissions.deny, ...defaults.permissions.ask]
+      .filter((r) => r.startsWith("Write("));
+    expect(dead).toEqual([]);
+  });
+
+  it("锁文件禁改、依赖清单需确认", () => {
     const LOCKFILES = [
       "go.sum", "yarn.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.lock",
       "composer.lock", "Podfile.lock", "poetry.lock", "uv.lock", "bun.lockb",
@@ -161,7 +167,6 @@ describe("defaults/settings.json 隐私基线", () => {
       [MANIFESTS, defaults.permissions.ask],
     ] as const) {
       for (const f of files) {
-        expect(list, f).toContain(`Write(**/${f})`);
         expect(list, f).toContain(`Edit(**/${f})`);
       }
     }

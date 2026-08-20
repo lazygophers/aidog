@@ -67,11 +67,11 @@ flowchart LR
 
 锁文件要由包管理器生成，不能手改；已安装依赖是构建产物，改了会在下次安装时被覆盖，还会掩盖真正该改的源码。
 
-每条规则都同时写了 `Write(...)` 和 `Edit(...)`：这在权限系统里是两个独立工具，只拦一个等于没拦。
+全部写成 `Edit(...)`：Claude Code 的文件权限检查只匹配 `Edit(path)` 规则，且 `Edit` 规则覆盖包括 `Write` 在内的所有文件编辑工具。写成 `Write(path)` 的规则不会被匹配，等于没拦。
 
 ### ask — 依赖清单需确认
 
-`go.mod`、`package.json`、`Cargo.toml`、`Gemfile`、`pyproject.toml`、`requirements.txt`、`Pipfile`、`deno.json`、`bunfig.toml`、`composer.json`、`Podfile`、`mix.exs` 同样是 `Write` + `Edit` 成对；另有构建与容器清单（`Makefile`、`Dockerfile`、`CMakeLists.txt`、`pom.xml`、`build.gradle`、`Chart.yaml`、`*.csproj`、`turbo.json` 等）只拦 `Write`。
+`go.mod`、`package.json`、`Cargo.toml`、`Gemfile`、`pyproject.toml`、`requirements.txt`、`Pipfile`、`deno.json`、`bunfig.toml`、`composer.json`、`Podfile`、`mix.exs`，以及构建与容器清单（`flake.nix`、`Makefile`、`Dockerfile`、`CMakeLists.txt`、`pom.xml`、`build.gradle`、`Chart.yaml`、`*.csproj`、`turbo.json` 等），同样全部是 `Edit(...)`。
 
 加依赖是合法操作，所以是 `ask` 而非 `deny` —— 需要你点头，不是一律禁止。
 
