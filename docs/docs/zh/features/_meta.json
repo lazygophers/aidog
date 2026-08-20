@@ -63,5 +63,20 @@
     "type": "file",
     "name": "settings",
     "label": "系统设置"
+  },
+  {
+    "type": "file",
+    "name": "recommended-claude-code",
+    "label": "Claude Code 推荐配置"
+  },
+  {
+    "type": "file",
+    "name": "recommended-codex",
+    "label": "Codex 推荐配置"
+  },
+  {
+    "type": "file",
+    "name": "recommended-pi",
+    "label": "pi 推荐配置"
   }
 ]
