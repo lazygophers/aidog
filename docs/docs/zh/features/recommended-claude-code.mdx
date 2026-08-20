@@ -92,10 +92,11 @@ flowchart LR
 | `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC` | `1` | 一次关掉自动更新、反馈、错误报告、遥测 |
 | `CLAUDE_CODE_ENABLE_TELEMETRY` | `0` | 不启用 OpenTelemetry 采集 |
 | `DO_NOT_TRACK` | `1` | 通用退出遥测约定，等价 `DISABLE_TELEMETRY` |
-| `CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` | `1` | 从子进程环境剥离 Anthropic 与云厂商凭证 |
 | `CLAUDE_CODE_MCP_ALLOWLIST_ENV` | `1` | stdio MCP 服务器只继承安全基线环境 + 自身 `env`，不继承你的 shell |
 | `CLAUDE_CODE_HIDE_CWD` | `1` | 启动 logo 不显示工作目录（录屏、截图友好） |
 | `CLAUDE_CODE_ATTRIBUTION_HEADER` | `0` | 系统提示省略归属块，同时改善 prompt 缓存命中 |
+
+`CLAUDE_CODE_SUBPROCESS_ENV_SCRUB` 不在推荐配置里，虽然它能从子进程环境剥离凭证：设为 `1` 时 Claude Code 会强制把权限模式压成 `default`（启动时提示 `Permission mode forced to default — CLAUDE_CODE_SUBPROCESS_ENV_SCRUB is set`），连显式 `--permission-mode bypassPermissions` 都被它覆盖，与下面的 `defaultMode` 直接冲突。要用它就得同时接受逐次确认。
 
 `DISABLE_TELEMETRY` / `DISABLE_ERROR_REPORTING` 不在推荐配置里：`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` 已经覆盖遥测、错误报告、`/feedback`、发布说明与可用性检查。
 

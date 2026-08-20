@@ -106,13 +106,22 @@ describe("defaults/settings.json 隐私基线", () => {
 
   it("env 覆盖凭证隔离与自动联网三项", () => {
     for (const k of [
-      "CLAUDE_CODE_SUBPROCESS_ENV_SCRUB",
       "CLAUDE_CODE_MCP_ALLOWLIST_ENV",
       "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL",
       "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
     ]) {
       expect(defaults.env[k], k).toBe("1");
     }
+  });
+
+  // CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 会让 Claude Code 强制把权限模式压成 default
+  // （"Permission mode forced to default — CLAUDE_CODE_SUBPROCESS_ENV_SCRUB is set"），
+  // 连显式 --permission-mode bypassPermissions 都被它覆盖，与下面的 defaultMode 冲突。
+  it("不设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB，且 defaultMode 为 bypassPermissions", () => {
+    expect(defaults.env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB).toBeUndefined();
+    expect((defaults.permissions as { defaultMode?: string }).defaultMode).toBe(
+      "bypassPermissions",
+    );
   });
 
   it("deny 覆盖云厂商与包管理器凭证路径", () => {
