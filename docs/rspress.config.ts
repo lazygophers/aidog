@@ -14,6 +14,15 @@ export default defineConfig({
     codeBlocks: true,
   },
   llms: true,
+  // @rspress/core 自带的 react-router development 构建里有 `import.meta.hot`，
+  // rspack 解析时每编译一个页面就重复告警一次。上游依赖代码，与本站文档无关。
+  builderConfig: {
+    tools: {
+      rspack: {
+        ignoreWarnings: [/Accessing unknown `import\.meta` property/],
+      },
+    },
+  },
   locales: [
     {
       lang: 'zh',
