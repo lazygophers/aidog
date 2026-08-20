@@ -159,6 +159,37 @@ describe("defaults/settings.json 隐私基线", () => {
     expect(dead).toEqual([]);
   });
 
+  // 生成物改了会在下次 codegen 时被覆盖，且掩盖真正该改的 .proto / schema / 模板。
+  // 明确生成物直接 deny；只是命名/目录像生成物的走 ask，交人判断。
+  it("明确的自动生成文件禁改", () => {
+    for (const g of [
+      "**/*.pb.go", "**/*.pb.gw.go", "**/*.pb.cc", "**/*.pb.h", "**/*.pb.rs",
+      "**/*.pb.swift", "**/*_pb2.py", "**/*_pb2_grpc.py", "**/*_pb.js", "**/*_pb.d.ts",
+      "**/*.gen.go", "**/*_generated.go", "**/zz_generated*.go", "**/wire_gen.go",
+      "**/*.g.dart", "**/*.freezed.dart", "**/*.g.cs", "**/*.designer.cs",
+      "**/*.min.js", "**/*.min.css",
+    ]) {
+      expect(defaults.permissions.deny, g).toContain(`Edit(${g})`);
+    }
+  });
+
+  it("疑似自动生成的目录与命名需确认", () => {
+    for (const g of [
+      "**/generated/**", "**/__generated__/**", "**/gen/**", "**/autogen/**",
+      "**/*.generated.*", "**/dist/**", "**/build/**", "**/out/**", "**/target/**",
+      "**/mocks/**", "**/mock_*.go", "**/*_mock.go", "**/*.mock.ts",
+      "**/migrations/**", "**/*.snap", "**/*.d.ts",
+    ]) {
+      expect(defaults.permissions.ask, g).toContain(`Edit(${g})`);
+    }
+  });
+
+  // 同一 glob 同时进 deny 和 ask 时 deny 赢，ask 那条永远不触发 —— 属于配置错误。
+  it("deny 与 ask 无重叠规则", () => {
+    const ask = new Set(defaults.permissions.ask);
+    expect(defaults.permissions.deny.filter((r) => ask.has(r))).toEqual([]);
+  });
+
   it("锁文件禁改、依赖清单需确认", () => {
     const LOCKFILES = [
       "go.sum", "yarn.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.lock",
