@@ -18,6 +18,14 @@ flowchart LR
 
 未勾选的项保持原值；推荐配置里没有、当前配置里有的键会列为「删除」项，同样由你决定是否应用。
 
+## 默认分组会全量覆盖 ~/.claude/settings.json
+
+设了默认分组之后，aidog 就是 `~/.claude/settings.json` 的唯一真值源：每次同步把该文件**整份重写**成默认组的配置（aidog 设置页内容 + 路由 `env` + hooks），你手写在这个文件里、aidog 侧没有的键会被删掉。**不备份** —— 内容随时能从 aidog 设置页重新生成。
+
+只有内容真的变化时才落盘（`old == new` 早退），所以「改设置 / 换默认分组」才会写文件，重复同步不动它。实现见 `src-tauri/crates/aidog_core/src/sync_settings.rs` 的 `write_default_claude_settings`。
+
+要保留手写内容就别设默认分组 —— 那样 aidog 只生成 `~/.aidog/settings.<分组>.json`，不碰全局文件。
+
 ## 顶层开关
 
 | 键 | 推荐值 | 说明 |

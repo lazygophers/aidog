@@ -1,5 +1,5 @@
 //! merge_json deep-merge 单元测试（随源文件 sync_settings.rs 1:1）。
-use super::{merge_json, MARKER_MANAGED, MANAGED_KEY, MANAGED_SCOPE};
+use super::{merge_json, MANAGED_KEY, MANAGED_SCOPE};
 use serde_json::json;
 
     #[test]
@@ -70,9 +70,9 @@ use serde_json::json;
             .collect()
     }
 
-    /// write_default_claude_settings：HOME + DB 隔离下首次写 + deep merge 保留用户字段 + 幂等无写。
+    /// write_default_claude_settings：HOME + DB 隔离下全量覆盖（用户手写字段被删）+ 幂等无写。
     #[tokio::test]
-    async fn write_default_claude_settings_merges_and_idempotent() {
+    async fn write_default_claude_settings_overwrites_and_idempotent() {
         use aidog_db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
         let db = test_db().await;
@@ -90,10 +90,11 @@ use serde_json::json;
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_x");
-        assert_eq!(written["permissions"]["allow"][0], "Read(*)"); // 用户字段保留
-        assert_eq!(written["model"], "opus");
+        // 全量覆盖：用户手写但 config 里没有的键被删掉
+        assert!(written.get("permissions").is_none());
+        assert!(written.get("model").is_none());
         // settings.json 不再写 marker（已迁 DB）
-        assert!(written.get(MARKER_MANAGED).is_none());
+        assert!(written.get("_aidog_managed").is_none());
 
         // 幂等：再次同 config → 内容不变（命中 old==new 早退）
         let before = std::fs::read_to_string(&path).unwrap();
@@ -150,9 +151,9 @@ use serde_json::json;
         assert!(out.contains(&"extraKnownMarketplaces.ccplugin-market.skipLfs".to_string()));
     }
 
-    /// write_default_claude_settings：托管快照存 DB = merge 后完整 base 的全部叶子。
-    /// 既含 aidog 注入字段，**也含 merge 后保留的用户自装条目**（plugins/marketplaces/hooks）。
-    /// 语义：导入 diff 排除此快照 → 同步当下零差异（含用户自装项），仅显示同步之后的新增/变化。
+    /// write_default_claude_settings：托管快照存 DB = 写入内容（默认组 config）的全部叶子。
+    /// 全量覆盖下用户自装条目已被删除，因此也不进快照。
+    /// 语义：导入 diff 排除此快照 → 同步当下零差异，仅显示同步之后用户在 CC 侧的新增/变化。
     /// settings.json 不写 marker（已迁 DB）。
     #[tokio::test]
     async fn write_default_claude_settings_records_managed_paths() {
@@ -178,33 +179,30 @@ use serde_json::json;
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
 
-        // 用户自装条目保留（union merge）
-        assert_eq!(
-            written["enabledPlugins"]["user-plugin@user-market"],
-            true
-        );
+        // 全量覆盖：用户自装条目被删，只剩 config 里的
+        assert!(written["enabledPlugins"].get("user-plugin@user-market").is_none());
+        assert!(written.get("extraKnownMarketplaces").is_none());
         assert_eq!(written["enabledPlugins"]["aidog-plugin@official"], true);
 
         // settings.json 不再写 marker
-        assert!(written.get(MARKER_MANAGED).is_none());
+        assert!(written.get("_aidog_managed").is_none());
 
         // 托管快照在 DB：= merge 后完整快照，含 aidog 注入条目 + 用户自装条目
         let managed: Vec<String> = read_managed_paths(&db).await;
         assert!(managed.contains(&"env.ANTHROPIC_BASE_URL".to_string()));
         assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
         assert!(managed.contains(&"enabledPlugins.aidog-plugin@official".to_string()));
-        // 新语义：用户自装条目也进托管集 → 导入 diff 当下零差异
-        assert!(managed.contains(&"enabledPlugins.user-plugin@user-market".to_string()));
-        assert!(managed.contains(&"extraKnownMarketplaces.user-market.source.repo".to_string()));
-        assert!(managed.contains(&"extraKnownMarketplaces.user-market.source.source".to_string()));
+        // 全量覆盖：用户自装条目已不在文件里，也不进托管集
+        assert!(!managed.iter().any(|p| p.contains("user-plugin@user-market")));
+        assert!(!managed.iter().any(|p| p.starts_with("extraKnownMarketplaces.")));
         // 快照不含 `_aidog_` 前缀（跳过，不自引用）
         assert!(!managed.iter().any(|p| p.starts_with("_aidog_")));
     }
 
     /// write_default_claude_settings：老用户 settings.json 残留旧 `_aidog_managed` 值 →
-    /// 再次 sync 后被显式 remove（连旧值清），marker 数据源已迁 DB。
+    /// 全量覆盖后自然消失（marker 数据源已迁 DB）。
     #[tokio::test]
-    async fn write_default_claude_settings_strips_legacy_marker() {
+    async fn write_default_claude_settings_drops_legacy_marker() {
         use aidog_db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
         let db = test_db().await;
@@ -226,7 +224,7 @@ use serde_json::json;
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         // 旧 marker 被清
-        assert!(written.get(MARKER_MANAGED).is_none());
+        assert!(written.get("_aidog_managed").is_none());
         // 新字段写入
         assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:9001/proxy");
         assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk2");
