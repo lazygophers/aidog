@@ -5,11 +5,12 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { type SettingField } from "../../../services/claude-settings-schema";
+import { type SettingField, type ObjectSubField } from "../../../services/claude-settings-schema";
 import { F, S } from "./tokens";
 import { SectionIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { useReveal, makeRipple } from "../../shared";
@@ -247,9 +248,11 @@ export function JsonEditor({
 export function KvEditor({
   items,
   onChange,
+  keyPlaceholder = "KEY",
 }: {
   items: Record<string, string>;
   onChange: (items: Record<string, string>) => void;
+  keyPlaceholder?: string;
 }) {
   const [newKey, setNewKey] = useState("");
   const [newVal, setNewVal] = useState("");
@@ -289,7 +292,7 @@ export function KvEditor({
         <Input
           
           style={{ flex: 2, fontSize: F.body, padding: S.inputPad }}
-          placeholder="KEY"
+          placeholder={keyPlaceholder}
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}
         />
@@ -383,6 +386,130 @@ export function StringListEditor({
           +
         </Button>
       </div>
+    </div>
+  );
+}
+
+/** Key → enum-value editor (skillOverrides: skill name → on/off/...) */
+export function KvSelectEditor({
+  items,
+  onChange,
+  valueOptions,
+  keyPlaceholder = "KEY",
+}: {
+  items: Record<string, string>;
+  onChange: (items: Record<string, string>) => void;
+  valueOptions: string[];
+  keyPlaceholder?: string;
+}) {
+  const [newKey, setNewKey] = useState("");
+  const entries = Object.entries(items);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
+      {entries.map(([k, v]) => (
+        <div key={k} style={{ display: "flex", gap: 6 }}>
+          <Input style={{ flex: 2, fontSize: F.body, padding: S.inputPad }} value={k} readOnly />
+          <Select value={v} onValueChange={(nv) => onChange({ ...items, [k]: nv })}>
+            <SelectTrigger style={{ flex: 3, fontSize: F.body, padding: S.inputPad }}><SelectValue /></SelectTrigger>
+            <SelectContent>
+              {valueOptions.map((opt) => (
+                <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button variant="ghost" type="button"
+            style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
+            onClick={() => {
+              const next = { ...items };
+              delete next[k];
+              onChange(next);
+            }}
+          >
+            ×
+          </Button>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 6 }}>
+        <Input
+          style={{ flex: 2, fontSize: F.body, padding: S.inputPad }}
+          placeholder={keyPlaceholder}
+          value={newKey}
+          onChange={(e) => setNewKey(e.target.value)}
+        />
+        <Button variant="ghost" type="button"
+          style={{ fontSize: F.body, padding: S.btnPad }}
+          onClick={() => {
+            if (newKey.trim()) {
+              onChange({ ...items, [newKey.trim()]: valueOptions[0] });
+              setNewKey("");
+            }
+          }}
+        >
+          +
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Fixed-shape object editor — renders declared sub-fields inline (voice, spinnerVerbs, ...) */
+export function ObjectEditor({
+  value,
+  onChange,
+  fields,
+  addLabel,
+}: {
+  value: Record<string, any>;
+  onChange: (v: Record<string, any> | undefined) => void;
+  fields: ObjectSubField[];
+  addLabel: string;
+}) {
+  const setKey = (k: string, v: any) => {
+    const next = { ...value };
+    if (v === undefined || v === "" || (Array.isArray(v) && v.length === 0)) delete next[k];
+    else next[k] = v;
+    onChange(Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: S.row, paddingLeft: 8, borderLeft: "2px solid var(--border)" }}>
+      {fields.map((f) => (
+        <div key={f.key} style={{ display: "flex", gap: 8, alignItems: f.type === "string[]" ? "flex-start" : "center" }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 110, flexShrink: 0, paddingTop: f.type === "string[]" ? 6 : 0 }}>
+            {f.label}
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {f.type === "boolean" && (
+              <Toggle active={!!value[f.key]} onChange={(v) => setKey(f.key, v || undefined)} />
+            )}
+            {f.type === "select" && (
+              <Select value={value[f.key] ?? "__none__"} onValueChange={(v) => setKey(f.key, v === "__none__" ? undefined : v)}>
+                <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">—</SelectItem>
+                  {f.options?.map((opt) => (
+                    <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {f.type === "string" && (
+              <Input style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}
+                placeholder={f.placeholder}
+                value={value[f.key] ?? ""}
+                onChange={(e) => setKey(f.key, e.target.value || undefined)} />
+            )}
+            {f.type === "string[]" && (
+              <StringListEditor
+                items={Array.isArray(value[f.key]) ? value[f.key] : []}
+                onChange={(list) => setKey(f.key, list)}
+                addLabel={addLabel}
+              />
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

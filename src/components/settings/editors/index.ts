@@ -10,6 +10,8 @@ export {
   FieldLabel,
   JsonEditor,
   KvEditor,
+  KvSelectEditor,
+  ObjectEditor,
   StringListEditor,
   FieldRow,
   PathInput,
