@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import {
   SECTIONS,
@@ -72,5 +73,18 @@ describe("claude-settings-schema", () => {
     ]) {
       expect(ENV_VAR_DEFS.map((d) => d.key), k).toContain(k);
     }
+  });
+
+  // 环境变量走 t(`env.${key}`) 动态模板，check-i18n 的动态检查只提示不判红，
+  // 漏译只会在切语言时露出英文/中文回退，所以这里硬校验 8 语言全覆盖。
+  const LOCALES = ["zh-Hans", "en-US", "ar-SA", "fr-FR", "de-DE", "ru-RU", "ja-JP", "es-ES"];
+  it.each(LOCALES)("%s 覆盖所有环境变量的 label 与 desc", (locale) => {
+    const dict = JSON.parse(
+      readFileSync(`src-tauri/crates/aidog_i18n/locales/${locale}.json`, "utf8"),
+    ) as Record<string, string>;
+    const missing = ENV_VAR_DEFS.flatMap((d) =>
+      [`env.${d.key}`, `env.${d.key}.desc`].filter((k) => !dict[k]?.trim()),
+    );
+    expect(missing).toEqual([]);
   });
 });
