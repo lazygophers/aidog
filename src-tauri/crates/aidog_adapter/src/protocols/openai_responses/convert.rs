@@ -313,10 +313,93 @@ fn extract_content_text(content: Option<&Value>) -> String {
     }
 }
 
+/// 解析 OpenAI Responses SSE 事件（`response.*` 事件流）为统一 ChatStreamEvent。
+/// 单事件帧：一个 data JSON 只产出一个事件（与 parse_openai_sse 同粒度）。
+pub fn parse_responses_sse(data: &Value) -> Option<ChatStreamEvent> {
+    let event_type = data.get("type")?.as_str()?;
+    match event_type {
+        "response.output_text.delta" => {
+            let delta = data.get("delta")?.as_str()?;
+            if delta.is_empty() {
+                None
+            } else {
+                Some(ChatStreamEvent::Delta { text: delta.to_string() })
+            }
+        }
+        "response.reasoning_text.delta" | "response.reasoning_summary_text.delta" => {
+            let delta = data.get("delta")?.as_str()?;
+            if delta.is_empty() {
+                None
+            } else {
+                Some(ChatStreamEvent::ReasoningDelta { text: delta.to_string() })
+            }
+        }
+        "response.output_item.added" => {
+            let item = data.get("item")?;
+            if item.get("type").and_then(Value::as_str) != Some("function_call") {
+                return None;
+            }
+            Some(ChatStreamEvent::ToolDelta {
+                index: data.get("output_index").and_then(Value::as_u64)? as u32,
+                id: item.get("id").and_then(Value::as_str).map(str::to_string),
+                name: item.get("name").and_then(Value::as_str).map(str::to_string),
+                input: None,
+            })
+        }
+        "response.function_arguments.delta" => Some(ChatStreamEvent::ToolDelta {
+            index: data.get("output_index").and_then(Value::as_u64)? as u32,
+            id: None,
+            name: None,
+            input: data.get("delta").and_then(Value::as_str).map(str::to_string),
+        }),
+        "response.completed" => Some(ChatStreamEvent::Stop { finish_reason: Some("stop".to_string()) }),
+        "response.incomplete" => Some(ChatStreamEvent::Stop { finish_reason: Some("length".to_string()) }),
+        "response.failed" => Some(ChatStreamEvent::Stop { finish_reason: Some("stop".to_string()) }),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn parse_responses_sse_text_delta() {
+        let ev = parse_responses_sse(&json!({"type":"response.output_text.delta","delta":"你好"}));
+        assert!(matches!(ev, Some(ChatStreamEvent::Delta { ref text }) if text == "你好"));
+    }
+
+    #[test]
+    fn parse_responses_sse_function_call_flow() {
+        let added = parse_responses_sse(&json!({
+            "type":"response.output_item.added","output_index":1,
+            "item":{"type":"function_call","id":"call_1","name":"get_weather"}
+        }));
+        match added {
+            Some(ChatStreamEvent::ToolDelta { index, id, name, input }) => {
+                assert_eq!(index, 1);
+                assert_eq!(id.as_deref(), Some("call_1"));
+                assert_eq!(name.as_deref(), Some("get_weather"));
+                assert!(input.is_none());
+            }
+            other => panic!("expected ToolDelta, got {:?}", other.map(|_| ())),
+        }
+        let args = parse_responses_sse(&json!({
+            "type":"response.function_arguments.delta","output_index":1,"delta":"{\"city\":"
+        }));
+        assert!(matches!(args, Some(ChatStreamEvent::ToolDelta { input: Some(ref s), .. }) if s == "{\"city\":"));
+    }
+
+    #[test]
+    fn parse_responses_sse_terminal_events() {
+        let done = parse_responses_sse(&json!({"type":"response.completed","response":{}}));
+        assert!(matches!(done, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "stop"));
+        let truncated = parse_responses_sse(&json!({"type":"response.incomplete","response":{}}));
+        assert!(matches!(truncated, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "length"));
+        let ignored = parse_responses_sse(&json!({"type":"response.created","response":{}}));
+        assert!(ignored.is_none());
+    }
 
     #[test]
     fn from_responses_string_input() {

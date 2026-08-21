@@ -243,3 +243,18 @@ fn parse_completions_response_max_tokens_maps() {
     assert_eq!(parsed.stop_reason, "max_tokens"); // length → max_tokens
     assert_eq!(parsed.text.as_deref(), Some("Truncated response"));
 }
+
+#[test]
+fn parse_completions_sse_text_and_stop() {
+    use super::parse_completions_sse;
+    use crate::types::ChatStreamEvent;
+
+    let chunk = json!({"id":"cmpl_1","choices":[{"text":"Hi","index":0}]});
+    assert!(matches!(parse_completions_sse(&chunk), Some(ChatStreamEvent::Delta { ref text }) if text == "Hi"));
+
+    let fin = json!({"id":"cmpl_1","choices":[{"text":"","index":0,"finish_reason":"stop"}]});
+    assert!(matches!(parse_completions_sse(&fin), Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "stop"));
+
+    let empty = json!({"id":"cmpl_1","choices":[{"text":"","index":0}]});
+    assert!(parse_completions_sse(&empty).is_none());
+}

@@ -193,6 +193,20 @@ pub fn from_completions(body: &Value) -> Option<ChatRequest> {
     })
 }
 
+/// 解析 legacy Completions SSE chunk（`choices[].text` 增量）为统一 ChatStreamEvent。
+pub fn parse_completions_sse(data: &Value) -> Option<ChatStreamEvent> {
+    let choice = data.get("choices")?.as_array()?.first()?;
+    if let Some(text) = choice.get("text").and_then(Value::as_str)
+        && !text.is_empty() {
+        return Some(ChatStreamEvent::Delta { text: text.to_string() });
+    }
+    if let Some(reason) = choice.get("finish_reason").and_then(Value::as_str)
+        && (reason == "stop" || reason == "length") {
+        return Some(ChatStreamEvent::Stop { finish_reason: Some(reason.to_string()) });
+    }
+    None
+}
+
 #[cfg(test)]
 #[path = "test_openai_completions.rs"]
 mod test_openai_completions;

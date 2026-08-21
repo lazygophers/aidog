@@ -11,7 +11,9 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEve
     match wire_protocol {
         Protocol::Anthropic => super::super::anthropic::parse_anthropic_sse(data),
         Protocol::Gemini => super::super::gemini::parse_gemini_sse(data),
-        // 所有 OpenAI 系列共用 OpenAI SSE 解析
+        Protocol::OpenAIResponses => super::super::openai_responses::parse_responses_sse(data),
+        Protocol::OpenAICompletions => super::super::openai_completions::parse_completions_sse(data),
+        // 剩余 OpenAI 系（chat completions 格式及其平台变体）共用 OpenAI SSE 解析
         _ => super::super::openai::parse_openai_sse(data),
     }
 }
