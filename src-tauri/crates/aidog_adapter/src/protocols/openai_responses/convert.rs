@@ -280,8 +280,41 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         .filter(|s| !s.is_empty())
         .map(|s| SystemContent::Text(s.to_string()));
 
+    // tools: Responses 扁平格式 {type:"function", name, description, parameters} → 内部 Tool
+    let tools = body.get("tools").and_then(Value::as_array).map(|ts| {
+        ts.iter()
+            .filter(|t| t.get("type").and_then(Value::as_str) == Some("function"))
+            .map(|t| crate::types::Tool {
+                name: t.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
+                description: t.get("description").and_then(Value::as_str).map(str::to_string),
+                input_schema: t.get("parameters").cloned().unwrap_or_else(|| serde_json::json!({})),
+            })
+            .collect::<Vec<_>>()
+    });
+    // tool_choice: "auto"/"none"/"required"/{type:"function",name}
+    let tool_choice = body.get("tool_choice").and_then(|v| match v {
+        Value::String(s) => match s.as_str() {
+            "auto" => Some(ToolChoice::Auto),
+            "none" => Some(ToolChoice::None),
+            "required" => Some(ToolChoice::Any),
+            _ => None,
+        },
+        Value::Object(o) => o.get("name").and_then(Value::as_str).map(|name| ToolChoice::Named { name: name.to_string() }),
+        _ => None,
+    });
+    // reasoning.effort → thinking_budget（与 to_openai budget→effort 档位映射互逆）
+    let thinking_budget = body
+        .get("reasoning")
+        .and_then(|r| r.get("effort"))
+        .and_then(Value::as_str)
+        .map(|effort| match effort {
+            "low" => 4096,
+            "medium" => 8192,
+            _ => 10000,
+        });
+
     Some(ChatRequest {
-        thinking_budget: None,
+        thinking_budget,
         model,
         messages,
         system,
@@ -289,9 +322,8 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         temperature: body.get("temperature").and_then(|v| v.as_f64()).map(|v| v as f32),
         top_p: body.get("top_p").and_then(|v| v.as_f64()).map(|v| v as f32),
         stream: body.get("stream").and_then(|v| v.as_bool()),
-        // TODO: Responses tools / tool_choice / reasoning 转换暂未实现（与内部 Tool schema 形态不一致）
-        tools: None,
-        tool_choice: None,
+        tools,
+        tool_choice,
         extra: None,
     })
 }
@@ -399,6 +431,26 @@ mod tests {
         assert!(matches!(truncated, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "length"));
         let ignored = parse_responses_sse(&json!({"type":"response.created","response":{}}));
         assert!(ignored.is_none());
+    }
+
+    #[test]
+    fn from_responses_tools_tool_choice_reasoning() {
+        let body = json!({
+            "model": "gpt-5",
+            "instructions": "sys",
+            "input": "hi",
+            "tools": [
+                {"type":"function","name":"f","description":"do f","parameters":{"type":"object"}},
+                {"type":"web_search"} // 非 function 工具忽略
+            ],
+            "tool_choice": {"type":"function","name":"f"},
+            "reasoning": {"effort":"medium"}
+        });
+        let req = from_responses(&body).expect("parse");
+        assert_eq!(req.tools.as_ref().unwrap().len(), 1);
+        assert_eq!(req.tools.as_ref().unwrap()[0].name, "f");
+        assert!(matches!(req.tool_choice, Some(ToolChoice::Named { ref name }) if name == "f"));
+        assert_eq!(req.thinking_budget, Some(8192));
     }
 
     #[test]
