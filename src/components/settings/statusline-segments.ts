@@ -68,6 +68,7 @@ export type SegmentType =
   | "group-requests" // aidog group: 请求数 · 成功率
   | "group-cache"    // aidog group: 缓存命中率
   | "group-tokens"   // aidog group: 已使用总 tokens
+  | "group-route"    // aidog group: 组名/最近命中平台名（glm/GLM-自用）
   | "custom";        // Custom jq expression
 
 export interface StatusLineSegment {
@@ -104,7 +105,7 @@ export const VALUE_COLORABLE: Set<SegmentType> = new Set([
 /** Segment types that consume the shared aidog group-info endpoint. */
 export const GROUP_SEG_TYPES = new Set<SegmentType>([
   "group-balance", "group-spent", "group-coding",
-  "group-requests", "group-cache", "group-tokens",
+  "group-requests", "group-cache", "group-tokens", "group-route",
 ]);
 
 export const SEGMENT_DEFS: SegmentDef[] = [
@@ -233,6 +234,15 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     fields: [
       { key: "prefix", label: "前缀", type: "string", placeholder: "$" },
     ],
+  },
+  {
+    type: "group-route",
+    name: "分组·平台",
+    icon: "bolt",
+    desc: "当前分组名 / 最近一次成功命中的平台名（多平台组也可用）",
+    defaultOptions: {},
+    toPreview: () => "glm/GLM-自用",
+    fields: [],
   },
   {
     type: "group-coding",
@@ -709,6 +719,8 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
     options: { dynamicColor: true } },
   { id: "d-balance", type: "group-balance", enabled: true, newline: false,
     options: { dynamicColor: true, prefix: "$", affixPre: "·" } },
+  { id: "d-route", type: "group-route", enabled: true, newline: false,
+    options: { affixPre: "·" } },
   { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",
     options: { prefix: "v", affixPre: " · " } },
 ];
