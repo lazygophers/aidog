@@ -521,10 +521,14 @@ async fn transport_retryable_body_error_only_when_fast() {
     assert!(!e.is_connect() && !e.is_timeout(), "构造前提：body 中断错误，实际 {e}");
     assert!(
         is_transport_retryable(&e, std::time::Duration::from_millis(500)),
-        "快失败（<5s）视为瞬时抖动，重试"
+        "快失败（<15s）视为瞬时抖动，重试"
+    );
+    assert!(
+        is_transport_retryable(&e, std::time::Duration::from_secs(12)),
+        "10-12s 断连（2026-08-21 提门槛后）应重试"
     );
     assert!(
         !is_transport_retryable(&e, std::time::Duration::from_secs(46)),
-        "慢失败（≥5s）= 上游收下请求挂很久才掐，重试纯亏，不重试"
+        "慢失败（≥15s）= 上游收下请求挂很久才掐，重试纯亏，不重试"
     );
 }

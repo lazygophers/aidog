@@ -268,16 +268,18 @@ where
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
-                // 上游流中途断裂（如 GLM ~60s 截断）：不向客户端报错，仅记日志 +
-                // 按客户端协议合成干净的 Stop 终止事件收尾，已输出内容保留。
-                // （不再注入 `event: error`，避免 CC 显示 "API Error: error decoding response body"。）
-                tracing::warn!(error = %e, "SSE upstream stream chunk error; closing stream gracefully");
+                // 上游流中途断裂（如 cometapi 10-12s 掐断）：按客户端协议合成 error 帧 +
+                // Stop 终止事件收尾，已输出内容保留。2026-08-21 用户决策恢复 error 帧：
+                // 完整性明确感知优先于 CC 显示 "API Error" 的干扰（静默截断会让客户端
+                // 把半截文本当完整答案，比报错更糟）。
+                tracing::warn!(error = %e, "SSE upstream stream chunk error; sending error frame");
                 // 终态标记：本次流是被上游掐断的（flush 回写 502，禁再记 200 成功）。
                 guard.agg.mark_upstream_err();
-                let stop = adapter::to_client_sse(&ChatStreamEvent::Stop {
+                let mut out = upstream_break_error_frame(&client_protocol);
+                out.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
                     finish_reason: Some("end_turn".to_string()),
-                }, &client_protocol, &model_for_sse).unwrap_or_default();
-                return Ok::<_, std::io::Error>(Bytes::from(stop));
+                }, &client_protocol, &model_for_sse).unwrap_or_default());
+                return Ok::<_, std::io::Error>(Bytes::from(out));
             }
         };
 
@@ -393,4 +395,53 @@ where
     }
     inject_trace_header(&mut response);
     response
+}
+
+/// 上游流中途断裂时按客户端协议合成的 error 帧（纯函数，便于单测）。
+/// - Anthropic 系（含平台变体）→ `event: error`（Messages SSE 规范的终端错误事件）
+/// - OpenAI 系（openai/openai_responses/openai_completions）→ error chunk + `[DONE]`
+/// - Gemini → Gemini generateContent SSE 错误载荷
+pub(crate) fn upstream_break_error_frame(client_protocol: &aidog_db::models::Protocol) -> String {
+    use aidog_db::models::Protocol;
+    match client_protocol {
+        Protocol::OpenAI | Protocol::OpenAIResponses | Protocol::OpenAICompletions => {
+            "data: {\"error\":{\"message\":\"upstream stream interrupted\",\"type\":\"server_error\",\"code\":502}}\n\ndata: [DONE]\n\n".to_string()
+        }
+        Protocol::Gemini => {
+            "data: {\"error\":{\"code\":502,\"message\":\"upstream stream interrupted\",\"status\":\"UNAVAILABLE\"}}\n\n".to_string()
+        }
+        _ => {
+            "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"overloaded_error\",\"message\":\"upstream stream interrupted\"}}\n\n".to_string()
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_break_frame {
+    use super::upstream_break_error_frame;
+    use aidog_db::models::Protocol;
+
+    #[test]
+    fn anthropic_family_gets_error_event() {
+        let f = upstream_break_error_frame(&Protocol::Anthropic);
+        assert!(f.starts_with("event: error\n"));
+        assert!(f.contains("overloaded_error"));
+        // 平台变体同走 anthropic 格式
+        assert!(upstream_break_error_frame(&Protocol::Glm).starts_with("event: error\n"));
+    }
+
+    #[test]
+    fn openai_family_gets_error_chunk_and_done() {
+        for p in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::OpenAICompletions] {
+            let f = upstream_break_error_frame(&p);
+            assert!(f.contains("\"error\""));
+            assert!(f.ends_with("data: [DONE]\n\n"));
+        }
+    }
+
+    #[test]
+    fn gemini_gets_unavailable_payload() {
+        let f = upstream_break_error_frame(&Protocol::Gemini);
+        assert!(f.contains("\"status\":\"UNAVAILABLE\""));
+    }
 }
