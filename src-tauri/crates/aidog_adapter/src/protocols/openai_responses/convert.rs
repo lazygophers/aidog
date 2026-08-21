@@ -236,7 +236,7 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
 ///   - 字符串 → 直接文本
 ///   - 数组（typed parts，如 `input_text` / `output_text` / `text`）→ 拼接各 part 的 `text`
 /// - `instructions` → system（system prompt）
-///   复杂字段（tools / reasoning / tool 调用回合）暂不转换（TODO），保证基本文本对话不 400。
+/// - `tools` / `tool_choice` / `reasoning.effort` 与 tool 调用回合（function_call / function_call_output）均转换。
 pub fn from_responses(body: &Value) -> Option<ChatRequest> {
     let model = body.get("model")?.as_str()?.to_string();
 
@@ -249,25 +249,63 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                 content: MessageContent::Text(s.clone()),
             });
         }
-        // 数组形态：逐 item 解析 role + content
+        // 数组形态：逐 item 解析（typed parts：message / function_call / function_call_output）
         Some(Value::Array(items)) => {
             for item in items {
-                let role_str = item
-                    .get("role")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("user")
-                    .to_lowercase();
-                let role = match role_str.as_str() {
-                    "assistant" => Role::Assistant,
-                    "system" | "developer" => Role::System,
-                    "tool" => Role::Tool,
-                    _ => Role::User,
-                };
-                let content = extract_content_text(item.get("content"));
-                messages.push(Message {
-                    role,
-                    content: MessageContent::Text(content),
-                });
+                let item_type = item.get("type").and_then(Value::as_str);
+                match item_type {
+                    // 工具调用回合：assistant 发起（call_id/name/arguments）
+                    Some("function_call") => {
+                        let input_json = item
+                            .get("arguments")
+                            .and_then(Value::as_str)
+                            .and_then(|s| serde_json::from_str::<Value>(s).ok())
+                            .unwrap_or(Value::Null);
+                        messages.push(Message {
+                            role: Role::Assistant,
+                            content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
+                                id: item.get("call_id").and_then(Value::as_str).unwrap_or_default().to_string(),
+                                name: item.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
+                                input: input_json,
+                            }]),
+                        });
+                    }
+                    // 工具结果回传（call_id/output）
+                    Some("function_call_output") => {
+                        messages.push(Message {
+                            role: Role::Tool,
+                            content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                                tool_use_id: item.get("call_id").and_then(Value::as_str).unwrap_or_default().to_string(),
+                                content: item
+                                    .get("output")
+                                    .map(|o| match o {
+                                        Value::String(s) => s.clone(),
+                                        other => other.to_string(),
+                                    })
+                                    .unwrap_or_default(),
+                                name: None,
+                            }]),
+                        });
+                    }
+                    _ => {
+                        let role_str = item
+                            .get("role")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("user")
+                            .to_lowercase();
+                        let role = match role_str.as_str() {
+                            "assistant" => Role::Assistant,
+                            "system" | "developer" => Role::System,
+                            "tool" => Role::Tool,
+                            _ => Role::User,
+                        };
+                        let content = extract_content_text(item.get("content"));
+                        messages.push(Message {
+                            role,
+                            content: MessageContent::Text(content),
+                        });
+                    }
+                }
             }
         }
         _ => return None,
@@ -451,6 +489,30 @@ mod tests {
         assert_eq!(req.tools.as_ref().unwrap()[0].name, "f");
         assert!(matches!(req.tool_choice, Some(ToolChoice::Named { ref name }) if name == "f"));
         assert_eq!(req.thinking_budget, Some(8192));
+    }
+
+    #[test]
+    fn from_responses_typed_tool_turns_roundtrip() {
+        let body = json!({
+            "model": "gpt-5",
+            "input": [
+                {"type":"message","role":"user","content":[{"type":"input_text","text":"weather?"}]},
+                {"type":"function_call","call_id":"call_1","name":"get_weather","arguments":"{\"city\":\"苏黎世\"}"},
+                {"type":"function_call_output","call_id":"call_1","output":"15C sunny"}
+            ]
+        });
+        let req = from_responses(&body).expect("parse");
+        // 出站方向应还原出同样的 typed items（上下文跨协议接续的关键路径）
+        let out = to_responses(&req);
+        let types: Vec<&str> = out.input.iter().filter_map(|i| i.get("type").and_then(Value::as_str)).collect();
+        assert_eq!(types, vec!["message", "function_call", "function_call_output"]);
+        let fc = &out.input[1];
+        assert_eq!(fc["call_id"], "call_1");
+        assert_eq!(fc["name"], "get_weather");
+        assert_eq!(fc["arguments"], "{\"city\":\"苏黎世\"}");
+        let fco = &out.input[2];
+        assert_eq!(fco["call_id"], "call_1");
+        assert_eq!(fco["output"], "15C sunny");
     }
 
     #[test]
