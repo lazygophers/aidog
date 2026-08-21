@@ -29,6 +29,12 @@ pub fn apply_tier_delta(tier: &mut EstTier, tokens: f64) {
     if tokens <= 0.0 {
         return;
     }
+    // mcp_monthly（GLM）用量单位是 MCP 调用次数，与 LLM token 不同口径：has_base 的
+    // 100/limit 精确增量会把单请求百万级 token 直接推到 100%（线上实测 est=100% vs
+    // 真值 5%）。该 tier 不做 token 增量预估，只靠真查校准刷新。
+    if tier.name == "mcp_monthly" {
+        return;
+    }
     if tier.has_base && tier.limit > 0.0 {
         // Kimi 精确增量
         tier.est_utilization += tokens * (100.0 / tier.limit);
