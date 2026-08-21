@@ -191,3 +191,28 @@ fn calibrate_with_resets_at_iso_and_millis() {
     let cal5 = calibrate_tier(&prev, "weird", 20.0, false, None, Some("2030-01-01T00:00:00Z"), now());
     assert_eq!(cal5.window_start, prev.window_start);
 }
+
+#[test]
+fn mcp_monthly_not_token_estimated() {
+    // 复现线上漂移：GLM mcp_monthly has_base/limit=1000（MCP 月调用次数口径，非 token），
+    // est=5%（真值）。一次普通请求的 token 总量（百万级）按 100/limit 累加会瞬间推到 100%。
+    let mut tier = EstTier {
+        name: "mcp_monthly".into(),
+        est_utilization: 5.0,
+        has_base: true,
+        limit: 1000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 2_000_000.0);
+    assert_eq!(tier.est_utilization, 5.0, "mcp_monthly 用量单位是调用次数，不吃 LLM token 增量，只靠真查校准");
+    // 对照：token 口径 tier 照常累加
+    let mut five_hour = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 10.0,
+        has_base: true,
+        limit: 100_000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut five_hour, 10_000.0);
+    assert_eq!(five_hour.est_utilization, 20.0); // +10_000 × (100/100_000) = +10%
+}
