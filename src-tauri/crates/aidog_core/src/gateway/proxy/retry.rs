@@ -143,7 +143,9 @@ pub(crate) fn transport_retry_backoff(attempt: u32) -> std::time::Duration {
 }
 
 /// 「快速失败」阈值：本次尝试耗时低于此值才认为是瞬时抖动，值得原地重试。
-pub(crate) const TRANSPORT_FAST_FAIL: std::time::Duration = std::time::Duration::from_secs(5);
+/// 2026-08-21 用户决策从 5s 提到 15s：实测 cometapi 断连多在 10-12s 落地，
+/// 5s 门槛把这批全部挡在重试外；接受最坏情况单请求耗时翻倍换取断连自动恢复。
+pub(crate) const TRANSPORT_FAST_FAIL: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// transport 层错误是否值得同平台原地重试。`elapsed` = 本次尝试已耗时。
 ///
@@ -152,9 +154,9 @@ pub(crate) const TRANSPORT_FAST_FAIL: std::time::Duration = std::time::Duration:
 /// - **请求级读超时**（`is_timeout` 且非 connect）：恒不重试。已经等满 timeout_secs，
 ///   再来一轮只是把用户等待翻倍。
 /// - **其余 transport 错误**（连接被上游中途掐断 / body 中断）：仅当本次尝试
-///   `< TRANSPORT_FAST_FAIL` 才重试。线上实证：cometapi 的
-///   `SendRequest: connection closed before message completed` 常在收下请求后挂 15~50 秒
-///   才掐，重试 4 次 0 次成功，却把单请求耗时从 46s 推到 150s —— 这类慢失败重试纯亏。
+///   `< TRANSPORT_FAST_FAIL` 才重试。历史实证（5s 时代）：cometapi 的
+///   `SendRequest: connection closed before message completed` 也有挂 15~50 秒才掐的形态，
+///   超过 15s 的慢失败重试收益低，维持不重试。
 pub(crate) fn is_transport_retryable(e: &reqwest::Error, elapsed: std::time::Duration) -> bool {
     if e.is_connect() {
         return true;
