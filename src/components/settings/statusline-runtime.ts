@@ -306,17 +306,32 @@ def seg_git_worktree(inp, o): return _atom(inp, "workspace", "git_worktree")
 def _basename(p):
     return p.split("/")[-1]
 
+def _home_abbrev(p):
+    # $HOME 前缀缩写为 ~（/Users/x/foo → ~/foo；恰为 $HOME → ~）。
+    home = os.environ.get("HOME", "")
+    if not home:
+        return p
+    if p == home:
+        return "~"
+    if p.startswith(home + "/"):
+        return "~" + p[len(home):]
+    return p
+
 def seg_cwd(inp, o):
     v = get(inp, "workspace", "current_dir")
     if v is None:
         return None
-    return v if o.get("format") == "full" else _basename(v)
+    if o.get("format") == "full":
+        return _home_abbrev(v)
+    return _basename(v)
 
 def seg_project_dir(inp, o):
     v = get(inp, "workspace", "project_dir")
     if v is None:
         return None
-    return v if o.get("format") == "full" else _basename(v)
+    if o.get("format") == "full":
+        return _home_abbrev(v)
+    return _basename(v)
 
 def seg_added_dirs(inp, o):
     arr = get(inp, "workspace", "added_dirs", default=[])
@@ -488,9 +503,23 @@ def _coding_tiers(gi):
     return out
 
 
+def _coding_units(gi):
+    """每 tier 单元：(nm, remain_pct, plain)。plain = \`nm r%\` + 有 reset_at 时追加 \`(倒计时)\`。"""
+    now = _now_epoch()
+    out = []
+    for (nm, r, rs) in _coding_tiers(gi):
+        plain = nm + " " + jts(r) + "%"
+        if rs is not None:
+            d = rs - now
+            if d > 0:
+                plain += "(" + _coding_reset_fmt(d) + ")"
+        out.append((nm, r, plain))
+    return out
+
+
 def _coding_text(gi):
     # 配额剩余%（= 100 - utilization），不带后缀（数字本身即剩余口径）。
-    return "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in _coding_tiers(gi))
+    return "·".join(plain for (_nm, _r, plain) in _coding_units(gi))
 
 
 def _coding_color(remain):
@@ -517,27 +546,31 @@ def _coding_reset_fmt(secs):
 def seg_group_coding(inp, o, gi):
     if not _group_applicable(gi):
         return None
-    tiers = _coding_tiers(gi)
-    if not tiers:
+    units = _coding_units(gi)
+    if not units:
         return None
-    plain = "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in tiers)
+    plain = "·".join(plain for (_nm, _r, plain) in units)
     if not plain:
         return None
     if not o.get("dynamicColor"):
         return plain
     # 每 tier 按自身剩余配额% 独立上色后拼接（不再整行单色，避免某 tier 低把整行染色）。
+    # 各 tier 自带自己的 reset 倒计时（灰色，无 reset_at 的 tier 不显示）。
     parts = []
-    for (nm, r, _rs) in tiers:
-        parts.append(fg(_coding_color(r), nm + " " + jts(r) + "%"))
-    txt = "·".join(parts)
-    # 重置倒计时取最紧 tier（剩余配额% 最低且有 reset_at），灰色显示、无中文前缀。
-    with_reset = [t for t in tiers if t[2] is not None]
-    if with_reset:
-        worst = min(with_reset, key=lambda t: t[1])
-        d = worst[2] - _now_epoch()
-        if d > 0:
-            txt = txt + " " + fg(CAT_SUBTLE, _coding_reset_fmt(d))
-    return ("DYN", txt)
+    for (_nm, _r, plain) in units:
+        parts.append(fg(_coding_color(_r), plain))
+    return ("DYN", "·".join(parts))
+
+def seg_group_route(inp, o, gi):
+    # \`group_name/last_platform_name\`（如 glm/GLM-自用）。多平台组（applicable=false）
+    # 仍返回——group-info 已带两字段；缺任一则整段不显示。
+    if not isinstance(gi, dict):
+        return None
+    g = gi.get("group_name")
+    p = gi.get("last_platform_name")
+    if not g or not p:
+        return None
+    return g + "/" + p
 
 def seg_group_requests(inp, o, gi):
     if not _group_applicable(gi):
@@ -588,10 +621,11 @@ RENDERERS = {
     "group-balance": seg_group_balance, "group-spent": seg_group_spent,
     "group-coding": seg_group_coding, "group-requests": seg_group_requests,
     "group-cache": seg_group_cache, "group-tokens": seg_group_tokens,
+    "group-route": seg_group_route,
 }
 
 GROUP_TYPES = {"group-balance", "group-spent", "group-coding", "group-requests",
-               "group-cache", "group-tokens"}
+               "group-cache", "group-tokens", "group-route"}
 VALUE_COLORABLE = {"context-pct", "context-bar", "cost", "rate-limits", "cost-usd",
                    "context-remaining", "rate-limit-5h", "rate-limit-7d",
                    "session-duration", "api-duration"}
