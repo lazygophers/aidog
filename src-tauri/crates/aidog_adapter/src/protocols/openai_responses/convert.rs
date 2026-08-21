@@ -7,7 +7,9 @@ use crate::types::*;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct ResponsesRequest {
     pub model: String,
-    pub input: Vec<ResponsesInput>,
+    pub input: Vec<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub instructions: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_output_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,35 +30,21 @@ pub struct ResponsesInput {
 
 /// 转为 Responses API 格式
 pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
-    let input: Vec<ResponsesInput> = req.messages.iter().map(|m| {
-        let role_str = match m.role {
-            Role::User => "user",
-            Role::Assistant => "assistant",
-            Role::System => "system",
-            Role::Tool => "tool",
-        };
-        let text = match &m.content {
-            MessageContent::Text(t) => t.clone(),
-            MessageContent::Blocks(blocks) => blocks.iter()
-                .filter_map(|b| match b {
-                    ContentBlock::Text { text } => Some(text.as_str()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-                .join(""),
-        };
-        ResponsesInput { role: role_str.to_string(), content: text }
+    let input: Vec<Value> = req.messages.iter().flat_map(|m| {
+        let role_str = match m.role { Role::User => "user", Role::Assistant => "assistant", Role::System => "developer", Role::Tool => "tool" };
+        m.content.blocks().into_iter().filter_map(move |b| match b {
+            ContentBlock::Text { text } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":"input_text","text":text}]})),
+            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
+            ContentBlock::ToolResult { tool_use_id, content, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":content})),
+            ContentBlock::Unknown(_) => None,
+        })
     }).collect();
-
-    ResponsesRequest {
-        model: req.model.clone(),
-        input,
-        max_output_tokens: req.max_tokens,
-        temperature: req.temperature,
-        top_p: req.top_p,
-        stream: req.stream,
-        tools: None,
-    }
+    let instructions = req.system.as_ref().map(|system| match system {
+        SystemContent::Text(text) => text.clone(),
+        SystemContent::Blocks(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
+    });
+    let tools = req.tools.as_ref().map(|tools| Value::Array(tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect()));
+    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools }
 }
 
 /// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
@@ -570,6 +558,36 @@ mod tests {
     }
 
     #[test]
+    fn to_responses_preserves_system_tools_and_tool_turns() {
+        let req = ChatRequest {
+            thinking_budget: None,
+            model: "gpt-5".into(),
+            messages: vec![
+                Message { role: Role::Assistant, content: MessageContent::Blocks(vec![
+                    ContentBlock::ToolUse { id: "call_1".into(), name: "lookup".into(), input: json!({"q": "x"}) },
+                ]) },
+                Message { role: Role::Tool, content: MessageContent::Blocks(vec![
+                    ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "ok".into(), name: Some("lookup".into()) },
+                ]) },
+            ],
+            system: Some(SystemContent::Text("system prompt".into())),
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: Some(true),
+            tools: Some(vec![Tool { name: "lookup".into(), description: Some("look up".into()), input_schema: json!({"type":"object"}) }]),
+            tool_choice: Some(ToolChoice::Auto),
+            extra: None,
+        };
+
+        let out = to_responses(&req);
+        assert_eq!(out.instructions.as_deref(), Some("system prompt"));
+        assert!(out.tools.is_some());
+        assert!(out.input.iter().any(|item| item["type"] == "function_call"));
+        assert!(out.input.iter().any(|item| item["type"] == "function_call_output"));
+    }
+
+    #[test]
     fn render_responses_empty_message() {
         use crate::converter::NonStreamResponse;
         use super::render_responses_response;
@@ -587,7 +605,6 @@ mod tests {
         };
 
         let out = render_responses_response(&r).unwrap();
-        // 兜底空 text item
         assert_eq!(out["output"].as_array().unwrap().len(), 1);
         assert_eq!(out["output"][0]["type"], "text");
         assert_eq!(out["output"][0]["text"], "");
