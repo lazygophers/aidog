@@ -348,10 +348,22 @@ pub(crate) const STATIC_MODEL_IDS: &[&str] = &[
 
 /// 按入站协议构造静态模型列表 JSON（纯函数，便于单测，免起 HTTP / DB）。
 /// - openai（`/v1/models` 等含 `/v1/`）→ `{"object":"list","data":[{"id","object","created","owned_by"}]}`
+/// - gemini（`/v1beta/models`）→ `{"models":[{"name":"models/<id>","displayName",...}]}`
 /// - 其余（含 `/proxy/models` 裸路径回退 anthropic）→
 ///   `{"data":[{"type","id","display_name","created_at"}],"has_more":false,"first_id","last_id"}`
 pub(crate) fn build_static_models_json(proto: &Protocol) -> Value {
-    if *proto == Protocol::OpenAI {
+    if *proto == Protocol::Gemini {
+        let models: Vec<Value> = STATIC_MODEL_IDS
+            .iter()
+            .map(|id| serde_json::json!({
+                "name": format!("models/{id}"),
+                "version": "1",
+                "displayName": id,
+                "supportedGenerationMethods": ["generateContent", "countTokens"],
+            }))
+            .collect();
+        serde_json::json!({ "models": models })
+    } else if *proto == Protocol::OpenAI {
         let data: Vec<Value> = STATIC_MODEL_IDS
             .iter()
             .map(|id| serde_json::json!({
@@ -508,14 +520,10 @@ pub(crate) async fn forward_passthrough_to_orig_host(
 }
 
 /// 判定请求 path（已含 group/proxy 前缀）是否为模型列表端点。
-/// strip 任意前缀后尾段为 `/v1/models` | `/models`（openai/anthropic 同名）→ true。
-/// gemini `/v1beta/models` 本期不在代理 relay 范围（标 TODO，见 prd 失败处理）。
+/// strip 任意前缀后尾段为 `/v1/models` | `/models` | `/v1beta/models`（gemini）→ true。
+/// gemini 深层路径（`/v1beta/models/<model>:generateContent` 等）不以 `/models` 结尾，不受影响。
 pub(crate) fn is_models_endpoint(path: &str) -> bool {
     let p = path.trim_end_matches('/');
-    // gemini /v1beta/models 本期不在代理 relay 范围（鉴权/响应格式不同），显式排除。
-    if p.contains("/v1beta/") {
-        return false;
-    }
     p.ends_with("/v1/models") || p.ends_with("/models")
 }
 

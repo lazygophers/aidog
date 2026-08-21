@@ -164,8 +164,9 @@ use super::*;
         assert!(!is_models_endpoint("/v1/responses"));
         // 子路径 /v1/models/<id> 不当模型列表（尾段非 models）
         assert!(!is_models_endpoint("/v1/models/gpt-4"));
-        // gemini /v1beta/models 本期不命中（标 TODO）
-        assert!(!is_models_endpoint("/v1beta/models"));
+        // gemini /v1beta/models 命中（静态 gemini 格式列表）；深层路径不命中
+        assert!(is_models_endpoint("/v1beta/models"));
+        assert!(!is_models_endpoint("/v1beta/models/gemini-2.0-flash:generateContent"));
     }
 
     // ── 模型列表 URL 构造（遵 url-construction-rule：base_url 已含前缀，仅 trim + 后缀）──
@@ -257,6 +258,18 @@ use super::*;
         assert_eq!(v.get("last_id").and_then(|i| i.as_str()), Some("gpt-4o-mini"));
         let ids: Vec<&str> = data.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str())).collect();
         assert!(ids.contains(&"claude-fable-5"));
+    }
+
+    // ── 静态模型列表：gemini 格式 = {models:[{name:"models/<id>",displayName,...}]} ──
+    #[test]
+    fn static_models_gemini_format() {
+        let v = build_static_models_json(&Protocol::Gemini);
+        let models = v.get("models").and_then(|m| m.as_array()).expect("models array");
+        assert_eq!(models.len(), super::STATIC_MODEL_IDS.len());
+        let first = &models[0];
+        assert_eq!(first.get("name").and_then(|n| n.as_str()), Some("models/claude-fable-5"));
+        assert!(first.get("displayName").and_then(|d| d.as_str()).is_some());
+        assert!(first.get("supportedGenerationMethods").and_then(|m| m.as_array()).is_some());
     }
 
     // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──
