@@ -979,3 +979,61 @@ mod test_finalize_incomplete {
     }
 }
 }
+
+/// 分组最近一次成功（2xx）请求命中的平台 id。无记录 → None。
+/// statusline group-info「当前命中平台」段用；索引按 group_key + status_code 过滤。
+pub fn last_success_platform_id(
+    db: &Db,
+    group_key: String,
+) -> impl std::future::Future<Output = Result<Option<i64>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT platform_id FROM proxy_log
+                 WHERE deleted_at = 0 AND group_key = ?1 AND status_code >= 200 AND status_code < 300
+                 ORDER BY created_at DESC LIMIT 1",
+            )?;
+            let mut rows = stmt.query_map(params![group_key], |r| r.get::<_, i64>(0))?;
+            Ok(rows.next().transpose()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod test_last_success_platform {
+    use super::super::last_success_platform_id;
+    use aidog_db::Db;
+
+    async fn insert(db: &Db, group: &str, platform_id: i64, status: i32, created_at: i64) {
+        let id = format!("{group}-{platform_id}-{status}-{created_at}");
+        let group = group.to_string();
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO proxy_log (id, platform_id, group_key, status_code, created_at, updated_at, deleted_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, 0, 0)",
+                rusqlite::params![id, platform_id, group, status, created_at],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn returns_latest_2xx_and_ignores_failures_and_other_groups() {
+        let db = Db::new(":memory:").await.unwrap();
+        aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .unwrap();
+        insert(&db, "glm", 38, 502, 100).await; // 失败不选
+        insert(&db, "glm", 38, 200, 200).await; // 早成功
+        insert(&db, "other", 66, 200, 300).await; // 他组不选
+        insert(&db, "glm", 66, 200, 400).await; // 最新成功
+        assert_eq!(last_success_platform_id(&db, "glm".into()).await.unwrap(), Some(66));
+        // 无记录组 → None
+        assert_eq!(last_success_platform_id(&db, "none".into()).await.unwrap(), None);
+    }
+}

@@ -21,6 +21,10 @@ struct GroupInfoResp {
     /// 余额使用速率配色级别（usage_color 唯一阈值源）："red"|"yellow"|"green"|"neutral"。
     /// statusline / 前端只消费此 level 不重算阈值。
     balance_level: String,
+    /// 分组名（Group.name）。组定位成功即返回（含多平台组）。
+    group_name: Option<String>,
+    /// 最近一次成功（2xx）请求命中的平台名；无记录 → null。多平台组下作「当前命中平台」。
+    last_platform_name: Option<String>,
 }
 
 #[derive(serde::Serialize)]
@@ -66,6 +70,8 @@ async fn handle_group_info_inner(
         currency: String::new(),
         balance_days_remaining: None,
         balance_level: super::usage_color::UsageLevel::Neutral.as_str().to_string(),
+        group_name: None,
+        last_platform_name: None,
     };
 
     // 从 Authorization: Bearer <token> 提取 group_key
@@ -116,7 +122,26 @@ async fn handle_group_info_inner(
         }
     };
     let Some(gp) = crate::gateway::router::sole_platform(&platforms) else {
-        ok_empty!();
+        // 多平台组：不适用预估，但组已定位——带上 group_name + 最近命中平台名
+        //（statusline L3 group-route 段消费），再以 applicable=false 返回。
+        let last_platform_name = match aidog_logs::last_success_platform_id(&state.db, group_key.clone()).await {
+            Ok(Some(pid)) => platforms
+                .iter()
+                .find(|gp| gp.platform.id as i64 == pid)
+                .map(|gp| gp.platform.name.clone()),
+            _ => None,
+        };
+        let mut r = (
+            StatusCode::OK,
+            Json(GroupInfoResp {
+                group_name: Some(group.name.clone()),
+                last_platform_name,
+                ..empty()
+            }),
+        )
+            .into_response();
+        inject_trace_header(&mut r);
+        return r;
     };
     let platform = &gp.platform;
 
@@ -248,6 +273,8 @@ async fn handle_group_info_inner(
         currency: String::new(),
         balance_days_remaining,
         balance_level,
+        group_name: Some(group.name.clone()),
+        last_platform_name: Some(platform.name.clone()),
     };
 
     let mut r = (StatusCode::OK, Json(resp)).into_response();
