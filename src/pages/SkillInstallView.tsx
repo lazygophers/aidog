@@ -6,6 +6,7 @@
 //（@skill 已选定子 skill，无需 -s）。
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   skillsApi,
@@ -198,6 +199,27 @@ export function SkillInstallView({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+      {/* 批量安装全页 loading（portal 到 document.body，fixed 全屏遮罩） */}
+      {busyId === "__batch__" && createPortal(
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 400,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0, 0, 0, 0.25)",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div className="glass-elevated" style={{ padding: "24px 32px", fontSize: 14, display: "flex", alignItems: "center", gap: 12 }}>
+            <span style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid var(--border)", borderTopColor: "var(--accent)", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+            {t("skills.install.installing", { defaultValue: "安装中…" })}
+          </div>
+        </div>,
+        document.body,
+      )}
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
