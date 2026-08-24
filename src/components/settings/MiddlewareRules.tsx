@@ -23,7 +23,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useReveal, makeRipple } from "../../components/shared";
+import { treeToDsl, parseDsl } from "../../utils/mwDsl";
+import { platformApi } from "../../services/api/platforms";
+import { groupApi } from "../../services/api/groups";
 
 // ponytail: 单卡片包装 — 每实例独立 useReveal (React 规则禁 map 内条件 hook),
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -46,6 +50,39 @@ function MwSectionCard({
       {children}
     </div>
   );
+}
+
+// ── 编辑器常量 ──
+
+const TARGETS = ["request_body", "request_headers", "response_body", "response_headers", "status", "model"] as const;
+const MATCH_TYPES = ["contains", "regex", "exact"] as const;
+const ACTION_KINDS = ["mask", "block", "warn", "inject", "override", "classify"] as const;
+
+/** target 是否响应侧（与 Rust Target::is_response_side 对称）。 */
+function isResponseTarget(t: string): boolean {
+  return t === "response_body" || t === "response_headers" || t === "status";
+}
+
+/** 混阶段检查：树内所有叶子必须同侧（与 Rust validate_rule_phases 对称，前端提前提示）。 */
+function mixedPhase(node: ConditionNode): string | null {
+  let phase: boolean | null = null;
+  const walk = (n: ConditionNode) => {
+    if (n.kind === "leaf") {
+      const p = isResponseTarget(n.target);
+      if (phase !== null && phase !== p) {
+        throw new Error(`混阶段条件被拒：'${n.target}' 与请求侧条件不能同树`);
+      }
+      phase = p;
+    } else {
+      n.children.forEach(walk);
+    }
+  };
+  try {
+    walk(node);
+    return null;
+  } catch (e) {
+    return String((e as Error).message);
+  }
 }
 
 // ── 摘要渲染（列表行用：条件树 / 动作链一眼可读）──
@@ -95,107 +132,402 @@ interface RuleFormProps {
   onCancel: () => void;
 }
 
-const DEFAULT_CONDITIONS: ConditionNode = {
-  kind: "leaf",
-  target: "request_body",
-  field: "",
-  match_type: "contains",
-  pattern: "",
-};
-const DEFAULT_ACTIONS: ActionStep[] = [{ kind: "mask", params: { replacement: "****" } as ActionStep["params"] }];
+// ── 条件树编辑器（递归组卡片，票 04）──
 
-function JsonField({
-  label,
-  value,
-  onChange,
-  error,
-  hint,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  error: string;
-  hint: string;
-}) {
+interface NodeEditorProps {
+  node: ConditionNode;
+  onChange: (n: ConditionNode) => void;
+  /** 删除本节点（顶层不可删） */
+  onRemove?: () => void;
+  depth: number;
+}
+
+function ConditionLeafEditor({ node, onChange, onRemove }: Omit<NodeEditorProps, "depth"> & { node: Extract<ConditionNode, { kind: "leaf" }> }) {
+  const { t } = useTranslation();
   return (
-    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{label}</span>
-      <Textarea
-        style={{
-          fontFamily: '"SF Mono", "Fira Code", monospace',
-          fontSize: 12,
-          lineHeight: 1.6,
-          minHeight: 80,
-          resize: "vertical",
-          whiteSpace: "pre",
-        }}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        spellCheck={false}
-      />
-      <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>{hint}</div>
-      {error && (
-        <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{error}</div>
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+      <Select value={node.target} onValueChange={(v) => onChange({ ...node, target: v as typeof node.target, field: "" })}>
+        <SelectTrigger style={{ fontSize: F.hint, width: 140 }}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {TARGETS.map((x) => (
+            <SelectItem key={x} value={x}>{conditionsTargetLabel(t, x)}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {(node.target === "request_body" || node.target === "response_body" || node.target === "request_headers" || node.target === "response_headers") && (
+        <Input
+          style={{ fontSize: F.hint, flex: "1 1 100px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
+          placeholder={t("middleware.fieldHint", "字段（空=整体 / JSON path / header 名）")}
+          value={node.field}
+          onChange={(e) => onChange({ ...node, field: e.target.value })}
+        />
       )}
-    </label>
+      <Select value={node.match_type} onValueChange={(v) => onChange({ ...node, match_type: v as typeof node.match_type })}>
+        <SelectTrigger style={{ fontSize: F.hint, width: 100 }}><SelectValue /></SelectTrigger>
+        <SelectContent>
+          {MATCH_TYPES.map((x) => (
+            <SelectItem key={x} value={x}>{x}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        style={{ fontSize: F.hint, flex: "2 1 160px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
+        placeholder={t("middleware.pattern", "匹配模式")}
+        value={node.pattern}
+        onChange={(e) => onChange({ ...node, pattern: e.target.value })}
+      />
+      {onRemove && (
+        <Button variant="ghost" onClick={onRemove} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+          <IconClose size={12} />
+        </Button>
+      )}
+    </div>
   );
 }
 
-function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
+function conditionsTargetLabel(t: TFunction, x: string): string {
+  const map: Record<string, string> = {
+    request_body: t("middleware.target.request_body", "请求 body"),
+    request_headers: t("middleware.target.request_headers", "请求 header"),
+    response_body: t("middleware.target.response_body", "响应 body"),
+    response_headers: t("middleware.target.response_headers", "响应 header"),
+    status: t("middleware.target.status", "状态码"),
+    model: t("middleware.target.model", "模型"),
+  };
+  return map[x] ?? x;
+}
+
+function ConditionNodeEditor({ node, onChange, onRemove, depth }: NodeEditorProps) {
+  const { t } = useTranslation();
+  if (node.kind === "leaf") {
+    return <ConditionLeafEditor node={node} onChange={onChange} onRemove={onRemove} />;
+  }
+  const setChild = (i: number, c: ConditionNode) => onChange({ ...node, children: node.children.map((x, j) => (j === i ? c : x)) });
+  const removeChild = (i: number) => onChange({ ...node, children: node.children.filter((_, j) => j !== i) });
+  const addChild = (leaf: boolean) =>
+    onChange({
+      ...node,
+      children: [
+        ...node.children,
+        leaf
+          ? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }
+          : { kind: "any", children: [{ kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }] },
+      ],
+    });
+  return (
+    <div
+      style={{
+        border: "1px solid var(--border)",
+        borderRadius: "var(--radius-sm)",
+        padding: 8,
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        marginLeft: depth * 12,
+        background: "var(--bg-glass)",
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <Select value={node.kind} onValueChange={(v) => onChange({ ...node, kind: v as "all" | "any" })}>
+          <SelectTrigger style={{ fontSize: F.hint, width: 92 }}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">AND (全部满足)</SelectItem>
+            <SelectItem value="any">OR (任一满足)</SelectItem>
+          </SelectContent>
+        </Select>
+        <div style={{ flex: 1 }} />
+        <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(true)}>
+          + {t("middleware.addLeaf", "条件")}
+        </Button>
+        <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(false)}>
+          + {t("middleware.addGroup", "子组")}
+        </Button>
+        {onRemove && (
+          <Button variant="ghost" onClick={onRemove} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+            <IconClose size={12} />
+          </Button>
+        )}
+      </div>
+      {node.children.map((c, i) => (
+        <ConditionNodeEditor key={i} node={c} onChange={(n) => setChild(i, n)} onRemove={() => removeChild(i)} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
+// ── 动作链编辑器（有序，票 04）──
+
+/** ActionParams 前端默认值（与 Rust serde default 对齐）。 */
+function defaultParams(): ActionStep["params"] {
+  return {
+    replacement: "****",
+    fields: [],
+    inject_mode: "",
+    target: "",
+    value: "",
+    category: "",
+    retryable: true,
+    override_status: null,
+    override_body: null,
+  };
+}
+
+function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (s: ActionStep[]) => void }) {
+  const { t } = useTranslation();
+  const setStep = (i: number, st: ActionStep) => onChange(steps.map((x, j) => (j === i ? st : x)));
+  const remove = (i: number) => onChange(steps.filter((_, j) => j !== i));
+  const move = (i: number, d: -1 | 1) => {
+    const j = i + d;
+    if (j < 0 || j >= steps.length) return;
+    const next = [...steps];
+    [next[i], next[j]] = [next[j], next[i]];
+    onChange(next);
+  };
+  const add = () => onChange([...steps, { kind: "warn", params: defaultParams() }]);
+  const terminal = (k: ActionKind) => k === "block" || k === "classify";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {steps.map((st, i) => (
+        <div key={i} style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: 8, display: "flex", flexDirection: "column", gap: 6, background: "var(--bg-glass)" }}>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)", width: 18 }}>{i + 1}</span>
+            <Select value={st.kind} onValueChange={(v) => setStep(i, { ...st, kind: v as ActionKind })}>
+              <SelectTrigger style={{ fontSize: F.hint, width: 110 }}><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ACTION_KINDS.map((k) => (
+                  <SelectItem key={k} value={k}>{actionLabel(t, k)}{terminal(k) ? " ⏹" : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div style={{ flex: 1 }} />
+            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => move(i, -1)} disabled={i === 0}>↑</Button>
+            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => move(i, 1)} disabled={i === steps.length - 1}>↓</Button>
+            <Button variant="ghost" onClick={() => remove(i)} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+              <IconClose size={12} />
+            </Button>
+          </div>
+          {/* 参数区（按 kind 显示相关字段） */}
+          {(st.kind === "mask" || st.kind === "override") && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <Input
+                style={{ fontSize: F.hint, flex: "1 1 120px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
+                placeholder='replacement（默认 ****，regex 支持 $1）'
+                value={st.params.replacement}
+                onChange={(e) => setStep(i, { ...st, params: { ...st.params, replacement: e.target.value } })}
+              />
+              {st.kind === "mask" && (
+                <Input
+                  style={{ fontSize: F.hint, flex: "1 1 140px" }}
+                  placeholder='fields 逗号分隔（messages,system；空=全部）'
+                  value={st.params.fields.join(",")}
+                  onChange={(e) => setStep(i, { ...st, params: { ...st.params, fields: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) } })}
+                />
+              )}
+            </div>
+          )}
+          {st.kind === "inject" && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <Select value={st.params.inject_mode || "system_append"} onValueChange={(v) => setStep(i, { ...st, params: { ...st.params, inject_mode: v } })}>
+                <SelectTrigger style={{ fontSize: F.hint, width: 150 }}><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="system_append">system_append</SelectItem>
+                  <SelectItem value="body_set">body_set</SelectItem>
+                  <SelectItem value="header_set">header_set</SelectItem>
+                </SelectContent>
+              </Select>
+              {st.params.inject_mode === "body_set" && (
+                <Input
+                  style={{ fontSize: F.hint, flex: "1 1 100px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
+                  placeholder="target JSON key"
+                  value={st.params.target}
+                  onChange={(e) => setStep(i, { ...st, params: { ...st.params, target: e.target.value } })}
+                />
+              )}
+              <Input
+                style={{ fontSize: F.hint, flex: "2 1 160px" }}
+                placeholder="value"
+                value={st.params.value}
+                onChange={(e) => setStep(i, { ...st, params: { ...st.params, value: e.target.value } })}
+              />
+            </div>
+          )}
+          {st.kind === "classify" && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <Input
+                style={{ fontSize: F.hint, flex: "1 1 100px" }}
+                placeholder="category"
+                value={st.params.category}
+                onChange={(e) => setStep(i, { ...st, params: { ...st.params, category: e.target.value } })}
+              />
+              <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
+                <Switch checked={st.params.retryable} onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, retryable: v } })} />
+                retryable
+              </label>
+              <Input
+                style={{ fontSize: F.hint, width: 90 }}
+                type="number"
+                placeholder="override status"
+                value={st.params.override_status ?? ""}
+                onChange={(e) => setStep(i, { ...st, params: { ...st.params, override_status: e.target.value ? Number(e.target.value) : null } })}
+              />
+              <Input
+                style={{ fontSize: F.hint, flex: "1 1 120px" }}
+                placeholder="override body"
+                value={st.params.override_body ?? ""}
+                onChange={(e) => setStep(i, { ...st, params: { ...st.params, override_body: e.target.value || null } })}
+              />
+            </div>
+          )}
+        </div>
+      ))}
+      <Button variant="ghost" style={{ fontSize: F.hint, alignSelf: "flex-start" }} onClick={add}>
+        + {t("middleware.addAction", "动作")}
+      </Button>
+    </div>
+  );
+}
+
+// ── Applies To 编辑器（三维多选，票 04）──
+
+function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: AppliesTo) => void }) {
+  const { t } = useTranslation();
+  const [platforms, setPlatforms] = useState<{ id: number; name: string }[]>([]);
+  const [groups, setGroups] = useState<{ id: number; name: string; group_key: string }[]>([]);
+  useEffect(() => {
+    platformApi
+      .list()
+      .then((ps: { id: number; name: string }[]) => setPlatforms(ps.map((x) => ({ id: x.id, name: x.name }))))
+      .catch(() => {});
+    groupApi.list().then((gs: { id: number; name: string; group_key: string }[]) => setGroups(gs)).catch(() => {});
+  }, []);
+  const toggle = (dim: "platforms" | "groups", v: number | string, on: boolean) => {
+    const cur = value[dim] as (number | string)[];
+    onChange({
+      ...value,
+      [dim]: on ? [...cur, v] : cur.filter((x) => x !== v),
+    } as AppliesTo);
+  };
+  const check = (dim: "platforms" | "groups", v: number | string) => (value[dim] as (number | string)[]).includes(v);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div>
+        <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>
+          {t("middleware.appliesPlatforms", "平台（空 = 全部）")}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {platforms.map((p) => (
+            <label key={p.id} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
+              <input type="checkbox" checked={check("platforms", p.id)} onChange={(e) => toggle("platforms", p.id, e.target.checked)} />
+              {p.name}
+            </label>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>
+          {t("middleware.appliesGroups", "分组（空 = 全部）")}
+        </div>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {groups.map((g) => (
+            <label key={g.id} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
+              <input type="checkbox" checked={check("groups", g.group_key)} onChange={(e) => toggle("groups", g.group_key, e.target.checked)} />
+              {g.name}
+            </label>
+          ))}
+        </div>
+      </div>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
+          {t("middleware.appliesModels", "模型（逗号分隔，空 = 全部）")}
+        </span>
+        <Input
+          style={{ fontSize: F.hint, fontFamily: '"SF Mono", "Fira Code", monospace' }}
+          value={value.models.join(",")}
+          onChange={(e) => onChange({ ...value, models: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })}
+        />
+      </label>
+    </div>
+  );
+}
+
+// ── 规则编辑表单（卡片树 / DSL 双模式，票 04 + 05）──
+
+interface RuleFormProps {
+  rule?: MiddlewareRule;
+  /** 新建时预置的 applies_to（group / platform 内嵌面板） */
+  presetApplies?: AppliesTo;
+  onSave: (draft: CreateMiddlewareRule) => Promise<void>;
+  onCancel: () => void;
+}
+
+export function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");
   const [priority, setPriority] = useState(rule?.priority ?? 0);
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
-  const [conditionsText, setConditionsText] = useState(
-    JSON.stringify(rule?.conditions ?? presetApplies ?? DEFAULT_CONDITIONS, null, 2),
+  const [conditions, setConditions] = useState<ConditionNode>(
+    rule?.conditions ?? presetApplies
+      ? rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }
+      : { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" },
   );
-  const [actionsText, setActionsText] = useState(
-    JSON.stringify(rule?.actions ?? DEFAULT_ACTIONS, null, 2),
+  const [actions, setActions] = useState<ActionStep[]>(
+    rule?.actions?.length ? rule.actions : [{ kind: "mask", params: { ...defaultParams(), replacement: "****" } }],
   );
-  const [appliesText, setAppliesText] = useState(
-    JSON.stringify(rule?.applies_to ?? presetApplies ?? {}, null, 2),
-  );
-  const [jsonErrors, setJsonErrors] = useState<Record<string, string>>({});
+  const [applies, setApplies] = useState<AppliesTo>(rule?.applies_to ?? presetApplies ?? { platforms: [], groups: [], models: [] });
+  const [mode, setMode] = useState<"cards" | "dsl">("cards");
+  const [dslText, setDslText] = useState<string>(() => treeToDsl(rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }));
+  const [dslError, setDslError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const parseJson = (key: string, raw: string): unknown | undefined => {
-    try {
-      const v = JSON.parse(raw);
-      setJsonErrors((e) => ({ ...e, [key]: "" }));
-      return v;
-    } catch (e) {
-      setJsonErrors((errs) => ({ ...errs, [key]: String(e) }));
-      return undefined;
-    }
-  };
+  const phaseError = mixedPhase(conditions);
 
   const handleSave = async () => {
-    const conditions = parseJson("conditions", conditionsText);
-    const actions = parseJson("actions", actionsText);
-    const applies_to = parseJson("applies", appliesText);
-    if (conditions === undefined || actions === undefined || applies_to === undefined) return;
+    if (mode === "dsl") {
+      // DSL 模式下保存前必须解析成功（切回卡片时已同步，此处兜底）。
+      try {
+        setConditions(parseDsl(dslText));
+      } catch (e) {
+        setDslError(String((e as Error).message));
+        return;
+      }
+    }
+    if (mixedPhase(conditions)) return; // 前端已禁用保存按钮，兜底
     setSaving(true);
     try {
       await onSave({
         name,
         description,
-        conditions: conditions as ConditionNode,
-        actions: actions as ActionStep[],
-        applies_to: applies_to as AppliesTo,
+        conditions,
+        actions,
+        applies_to: applies,
         priority,
         is_builtin: false,
         enabled,
       });
     } catch (e) {
       console.error("save middleware rule failed", e);
-      setJsonErrors((errs) => ({ ...errs, save: String(e) }));
+      setSaveError(String(e));
     } finally {
       setSaving(false);
     }
   };
 
-  const hasError = Object.values(jsonErrors).some(Boolean);
+  const switchToDsl = () => {
+    setDslText(treeToDsl(conditions));
+    setDslError("");
+    setMode("dsl");
+  };
+  const switchToCards = () => {
+    try {
+      setConditions(parseDsl(dslText));
+      setDslError("");
+      setMode("cards");
+    } catch (e) {
+      setDslError(String((e as Error).message));
+    }
+  };
 
   return (
     <MwSectionCard
@@ -219,36 +551,70 @@ function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
         onChange={(e) => setDescription(e.target.value)}
       />
 
-      <JsonField
-        label={t("middleware.conditions", "条件树 (JSON)")}
-        value={conditionsText}
-        onChange={(v) => setConditionsText(v)}
-        error={jsonErrors.conditions ?? ""}
-        hint={t(
-          "middleware.conditionsHint",
-          '叶子: {"kind":"leaf","target":"request_body|request_headers|response_body|response_headers|status|model","field":"","match_type":"regex|contains|exact","pattern":"..."}；组: {"kind":"all"|"any","children":[...]}',
+      {/* 条件区：卡片树 / DSL 双模式 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
+          {t("middleware.conditions", "条件")}
+        </span>
+        <div style={{ flex: 1 }} />
+        {mode === "cards" ? (
+          <Button variant="ghost" style={{ fontSize: 11 }} onClick={switchToDsl}>
+            {t("middleware.toDsl", "DSL 源码")}
+          </Button>
+        ) : (
+          <Button variant="ghost" style={{ fontSize: 11 }} onClick={switchToCards} disabled={!!dslError}>
+            {t("middleware.toCards", "卡片模式")}
+          </Button>
         )}
-      />
-      <JsonField
-        label={t("middleware.actions", "动作链 (JSON，有序)")}
-        value={actionsText}
-        onChange={(v) => setActionsText(v)}
-        error={jsonErrors.actions ?? ""}
-        hint={t(
-          "middleware.actionsHint",
-          '[{"kind":"mask|block|warn|inject|override|classify","params":{...}}]；block/classify 终止后续',
-        )}
-      />
-      <JsonField
-        label={t("middleware.appliesTo", "应用范围 (JSON，空 = 全部)")}
-        value={appliesText}
-        onChange={(v) => setAppliesText(v)}
-        error={jsonErrors.applies ?? ""}
-        hint={t(
-          "middleware.appliesHint",
-          '{"platforms":[1,2],"groups":["gk"],"models":["m"]}；三维各自空 = 不限，多值命中任一',
-        )}
-      />
+      </div>
+      {mode === "cards" ? (
+        <ConditionNodeEditor node={conditions} onChange={setConditions} depth={0} />
+      ) : (
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <Textarea
+            style={{
+              fontFamily: '"SF Mono", "Fira Code", monospace',
+              fontSize: 12,
+              lineHeight: 1.6,
+              minHeight: 120,
+              resize: "vertical",
+              whiteSpace: "pre",
+            }}
+            value={dslText}
+            onChange={(e) => {
+              setDslText(e.target.value);
+              try {
+                parseDsl(e.target.value);
+                setDslError("");
+              } catch (err) {
+                setDslError(String((err as Error).message));
+              }
+            }}
+            spellCheck={false}
+          />
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            {t("middleware.dslHint", '语法: ALL(...)/ANY(...)/叶子，叶子 = target[.field] contains|regex|exact "pattern"')}
+          </div>
+          {dslError && (
+            <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{dslError}</div>
+          )}
+        </label>
+      )}
+      {phaseError && (
+        <div style={{ fontSize: 11, color: "var(--color-danger)" }}>{phaseError}</div>
+      )}
+
+      {/* 动作链 */}
+      <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
+        {t("middleware.actions", "动作链（按顺序执行；block/classify 后停止）")}
+      </span>
+      <ActionChainEditor steps={actions} onChange={setActions} />
+
+      {/* applies_to */}
+      <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
+        {t("middleware.appliesTo", "应用范围（各自空 = 不限；多值命中任一）")}
+      </span>
+      <AppliesToEditor value={applies} onChange={setApplies} />
 
       <label style={{ display: "flex", flexDirection: "column", gap: 4, width: 120 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
@@ -269,10 +635,8 @@ function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
         <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
 
-      {jsonErrors.save && (
-        <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>
-          {jsonErrors.save}
-        </div>
+      {saveError && (
+        <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{saveError}</div>
       )}
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
@@ -284,7 +648,7 @@ function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
           className="ripple"
           style={{ fontSize: F.hint }}
           onClick={(e) => { makeRipple(e); handleSave(); }}
-          disabled={saving || !name || hasError}
+          disabled={saving || !name || !!phaseError || (mode === "dsl" && !!dslError)}
         >
           {t("action.save", "保存")}
         </Button>
