@@ -55,7 +55,7 @@ pub use types::{
 #[allow(unused_imports)]
 pub use types::{SkillFile, SkillInfo};
 
-pub use bulk::{align_agents, enable_all};
+pub use bulk::{align_agents, enable_all, install_batch, uninstall_batch};
 pub use cache::{invalidate, list_cached, list_refresh, CachedSkills};
 pub use catalog::{browse_catalog, search};
 pub use detail::{detail, read_file};

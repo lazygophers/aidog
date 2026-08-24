@@ -25,6 +25,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
     searchQuery, setSearchQuery, total, agentCounts, busyKey, message, setMessage,
     handleToggle, handleUpdate, handleEnableAll, setConfirmUninstall, setAlignOpen,
     setUninstallTarget, setPasteOpen, setPasteText, setDetailTarget, handleShare,
+    selectedNames, toggleSelected, setConfirmUninstallBatch,
   } = s;
 
   return (
@@ -86,6 +87,17 @@ export function SkillsView({ s }: { s: SkillsData }) {
             onClick={(e) => { makeRipple(e); setConfirmUninstall(true); }}
           >
             {busyKey === "__uninstall__" ? t("skills.uninstalling", "卸载中…") : t("skills.uninstallAll", "卸载全部")}
+          </Button>
+          <Button
+            variant="destructive"
+            className="ripple"
+            style={{ fontSize: 12 }}
+            disabled={!writeReady || scopeInvalid || busyKey !== null || selectedNames.size === 0}
+            onClick={(e) => { makeRipple(e); setConfirmUninstallBatch(true); }}
+          >
+            {busyKey === "__uninstall_batch__"
+              ? t("skills.uninstalling", "卸载中…")
+              : t("skills.uninstallSelected", "卸载选中 ({{count}})", { count: selectedNames.size })}
           </Button>
           <Button
             variant="outline"
@@ -283,6 +295,8 @@ export function SkillsView({ s }: { s: SkillsData }) {
                 idx={idx}
                 busyKey={busyKey}
                 writeReady={writeReady}
+                selected={selectedNames.has(skill.name)}
+                onSelect={toggleSelected}
                 onToggle={handleToggle}
                 onDetail={setDetailTarget}
                 onShare={handleShare}
@@ -318,13 +332,15 @@ interface SkillRowProps {
   idx: number;
   busyKey: string | null;
   writeReady: boolean;
+  selected: boolean;
+  onSelect: (name: string) => void;
   onToggle: (skill: SkillInfo, agent: SkillAgent) => void;
   onDetail: (skill: SkillInfo) => void;
   onShare: (skill: SkillInfo) => void;
   onUninstall: (skill: SkillInfo) => void;
 }
 
-function SkillRow({ skill, idx, busyKey, writeReady, onToggle, onDetail, onShare, onUninstall }: SkillRowProps) {
+function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggle, onDetail, onShare, onUninstall }: SkillRowProps) {
   const { t } = useTranslation();
   const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
   return (
@@ -333,6 +349,15 @@ function SkillRow({ skill, idx, busyKey, writeReady, onToggle, onDetail, onShare
       className={`glass-surface hover-lift reveal${shown ? " in" : ""}`}
       style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
     >
+      {/* 批量卸载勾选 */}
+      <input
+        type="checkbox"
+        aria-label={t("skills.uninstallSelected", "卸载选中 ({{count}})", { count: 1 })}
+        checked={selected}
+        disabled={busyKey !== null}
+        onChange={() => onSelect(skill.name)}
+        style={{ width: 15, height: 15, flexShrink: 0, cursor: "pointer", accentColor: "var(--accent)" }}
+      />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Button

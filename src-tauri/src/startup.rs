@@ -168,6 +168,8 @@ pub fn run() {
             aidog_core::ai_tools_cmd::skills::skills_update,
             aidog_core::ai_tools_cmd::skills::skills_uninstall_all,
             aidog_core::ai_tools_cmd::skills::skills_uninstall,
+            aidog_core::ai_tools_cmd::skills::skills_install_batch,
+            aidog_core::ai_tools_cmd::skills::skills_uninstall_batch,
             aidog_core::ai_tools_cmd::skills::skills_align_agents,
             aidog_core::ai_tools_cmd::skills::skills_enable_all,
             // MCP 管理

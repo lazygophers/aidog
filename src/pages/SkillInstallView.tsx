@@ -47,6 +47,8 @@ export function SkillInstallView({
   const [error, setError] = useState<string | null>(null);
   // 每条 catalog 的 agent 选择（id → 选中 agents），默认全选。
   const [selected, setSelected] = useState<Map<string, Set<SkillAgent>>>(new Map());
+  // 批量安装勾选集合（catalog id）。
+  const [checked, setChecked] = useState<Set<string>>(new Set());
   // 正在安装的条目 id（非 null 时禁并发）。
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -139,6 +141,58 @@ export function SkillInstallView({
     }
   };
 
+  const toggleChecked = (id: string) => {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  // 批量安装勾选项：按各条 agent 选择分组（同组 agents 相同 → 一次 installBatch，
+  // 后端再把同仓库合并成单次 npx 调用）。结果按组聚合 ok/fail。
+  const handleInstallBatch = async () => {
+    const entries = effectiveResults.filter((e) => checked.has(e.id));
+    if (entries.length === 0) return;
+    setBusyId("__batch__");
+    setMessage(null);
+    const groups = new Map<string, { ids: string[]; agents: SkillAgent[] }>();
+    for (const e of entries) {
+      const agents = Array.from(selected.get(e.id) ?? []);
+      if (agents.length === 0) continue;
+      const key = [...agents].sort().join(",");
+      const g = groups.get(key) ?? { ids: [], agents };
+      g.ids.push(e.id);
+      groups.set(key, g);
+    }
+    let ok = 0;
+    let fail = 0;
+    for (const g of groups.values()) {
+      try {
+        const res = await skillsApi.installBatch(g.ids, g.agents, scope);
+        if (res.success) ok += g.ids.length;
+        else {
+          fail += g.ids.length;
+          setMessage(res.stderr?.trim() || res.stdout?.trim() || t("skills.install.installFailed", { defaultValue: "安装失败" }));
+        }
+      } catch (e: any) {
+        fail += g.ids.length;
+        setMessage(e?.toString?.() ?? String(e));
+      }
+    }
+    setBusyId(null);
+    if (ok > 0 && fail === 0) {
+      setMessage(t("skills.importOk", { defaultValue: "已导入 {{count}} 项", count: ok }));
+    } else if (fail > 0 && ok > 0) {
+      setMessage(t("skills.importPartial", { defaultValue: "成功 {{ok}}，失败 {{fail}}", ok, fail }));
+    }
+    if (ok > 0) {
+      setChecked(new Set());
+      onInstalled();
+    }
+  };
+
   const effectiveResults = results;
   const hasKeyword = keyword.trim() !== "";
 
@@ -166,6 +220,17 @@ export function SkillInstallView({
             </span>
           )}
         </div>
+        {/* 批量安装（勾选 ≥1 时可用） */}
+        <Button
+          className="ripple"
+          style={{ fontSize: 12 }}
+          disabled={busyId !== null || !writeReady || checked.size === 0}
+          onClick={(e) => { makeRipple(e); void handleInstallBatch(); }}
+        >
+          {busyId === "__batch__"
+            ? t("skills.install.installing", { defaultValue: "安装中…" })
+            : t("skills.install.installSelected", { defaultValue: "安装选中 ({{count}})", count: checked.size })}
+        </Button>
       </div>
 
       {/* 搜索框 */}
@@ -235,9 +300,11 @@ export function SkillInstallView({
               idx={idx}
               agents={selected.get(entry.id) ?? new Set<SkillAgent>()}
               already={installedNames.has(entry.name)}
+              checked={checked.has(entry.id)}
               busyId={busyId}
               writeReady={writeReady}
               onToggle={toggleAgent}
+              onCheck={toggleChecked}
               onInstall={handleInstall}
             />
           ))}
@@ -256,13 +323,15 @@ interface CatalogRowProps {
   idx: number;
   agents: Set<SkillAgent>;
   already: boolean;
+  checked: boolean;
   busyId: string | null;
   writeReady: boolean;
   onToggle: (id: string, agent: SkillAgent) => void;
+  onCheck: (id: string) => void;
   onInstall: (entry: CatalogEntry) => void;
 }
 
-function CatalogRow({ entry, idx, agents, already, busyId, writeReady, onToggle, onInstall }: CatalogRowProps) {
+function CatalogRow({ entry, idx, agents, already, checked, busyId, writeReady, onToggle, onCheck, onInstall }: CatalogRowProps) {
   const { t } = useTranslation();
   const { ref, shown } = useReveal<HTMLDivElement>(idx * 60);
   const noAgent = agents.size === 0;
@@ -276,6 +345,15 @@ function CatalogRow({ entry, idx, agents, already, busyId, writeReady, onToggle,
       style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+        {/* 批量安装勾选 */}
+        <input
+          type="checkbox"
+          aria-label={t("skills.install.installSelected", { defaultValue: "安装选中 ({{count}})", count: 1 })}
+          checked={checked}
+          disabled={busyId !== null}
+          onChange={() => onCheck(entry.id)}
+          style={{ width: 15, height: 15, flexShrink: 0, marginTop: 3, cursor: "pointer", accentColor: "var(--accent)" }}
+        />
         <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0, flex: 1 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 14, fontWeight: 600 }}>{entry.name}</span>

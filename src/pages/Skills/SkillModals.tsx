@@ -39,6 +39,7 @@ export function SkillModals({ s }: { s: SkillsData }) {
     t, env, installed,
     confirmUninstall, setConfirmUninstall, handleUninstallAll,
     uninstallTarget, setUninstallTarget, handleUninstallSingle,
+    selectedNames, confirmUninstallBatch, setConfirmUninstallBatch, handleUninstallBatch,
     alignOpen, setAlignOpen, alignFrom, setAlignFrom, alignTo, setAlignTo, handleAlign,
     detailTarget, setDetailTarget,
     shareData, setShareData, setMessage,
@@ -95,6 +96,32 @@ export function SkillModals({ s }: { s: SkillsData }) {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => { makeRipple(e); handleUninstallSingle(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
+              style={{ fontSize: 13 }}
+            >
+              {t("skills.uninstall", "卸载")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* 批量卸载二次确认 AlertDialog（破坏性，禁 native confirm） */}
+      <AlertDialog open={confirmUninstallBatch} onOpenChange={setConfirmUninstallBatch}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 24 }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontSize: 15, fontWeight: 700 }}>
+              {t("skills.uninstallSelected", "卸载选中 ({{count}})", { count: selectedNames.size })}
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("skills.uninstallSelectedConfirm", "将删除选中的 {{count}} 个 skills 及其在所有 agent 的启用配置，不可恢复。确认？", { count: selectedNames.size })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ fontSize: 13 }}>
+              {t("action.cancel", "取消")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { makeRipple(e); handleUninstallBatch(); }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 ripple"
               style={{ fontSize: 13 }}
             >
