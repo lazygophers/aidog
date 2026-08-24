@@ -74,18 +74,23 @@ export function useSkillsData() {
 
   // 已装列表关键词搜索（纯前端 filter，按 name/description/source 拼音匹配）。
   const [searchQuery, setSearchQuery] = useState("");
+  // 启用态筛选：all = 全部（默认）；enabled = 至少 1 个 agent 启用；disabled = 0 个 agent 启用。
+  const [enabledFilter, setEnabledFilter] = useState<"all" | "enabled" | "disabled">("all");
 
-  // 搜索过滤后的已装列表（统计/总数仍用全量 installed，搜索只影响列表展示）。
+  // 搜索 + 启用态筛选后的已装列表（统计/总数仍用全量 installed，筛选只影响列表展示）。
   const filteredInstalled = useMemo(() => {
     const q = searchQuery.trim();
-    if (!q) return installed;
-    return installed.filter(
-      (s) =>
+    return installed.filter((s) => {
+      if (enabledFilter === "enabled" && s.enabled_agents.length === 0) return false;
+      if (enabledFilter === "disabled" && s.enabled_agents.length > 0) return false;
+      if (!q) return true;
+      return (
         pinyinMatch(q, s.name) ||
         pinyinMatch(q, s.description ?? "") ||
-        pinyinMatch(q, s.source ?? ""),
-    );
-  }, [installed, searchQuery]);
+        pinyinMatch(q, s.source ?? "")
+      );
+    });
+  }, [installed, searchQuery, enabledFilter]);
 
   // 环境探测（进页一次）。
   useEffect(() => {
@@ -532,6 +537,8 @@ export function useSkillsData() {
     installed, setInstalled, installedLoading, refreshing, refreshInstalled, filteredInstalled,
     // search
     searchQuery, setSearchQuery,
+    // enabled filter
+    enabledFilter, setEnabledFilter,
     // stats
     total, agentCounts,
     // busy / message

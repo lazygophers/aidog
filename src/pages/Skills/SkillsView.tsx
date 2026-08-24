@@ -22,7 +22,7 @@ export function SkillsView({ s }: { s: SkillsData }) {
   const {
     t, env, scopeKind, setScopeKind, projectPath, setProjectPath, scope, writeReady, scopeInvalid, pickProjectDir,
     subView, setSubView, installed, installedLoading, refreshing, refreshInstalled, filteredInstalled,
-    searchQuery, setSearchQuery, total, agentCounts, busyKey, message, setMessage,
+    searchQuery, setSearchQuery, enabledFilter, setEnabledFilter, total, agentCounts, busyKey, message, setMessage,
     handleToggle, handleUpdate, handleEnableAll, setConfirmUninstall, setAlignOpen,
     setUninstallTarget, setPasteOpen, setPasteText, setDetailTarget, handleShare,
     selectedNames, toggleSelected, setConfirmUninstallBatch,
@@ -286,14 +286,26 @@ export function SkillsView({ s }: { s: SkillsData }) {
         </div>
       </Card>
 
-      {/* 搜索框（仅有已装 skills 时显示，照 Platforms/Groups 搜索框样式） */}
+      {/* 搜索框 + 启用态筛选（仅有已装 skills 时显示，照 Platforms/Groups 搜索框样式） */}
       {!installedLoading && installed.length > 0 && (
-        <Input
-          placeholder={t("skills.searchPlaceholder", "搜索 skills...")}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ fontSize: 13 }}
-        />
+        <div style={{ display: "flex", gap: 8 }}>
+          <Input
+            style={{ flex: 1, fontSize: 13 }}
+            placeholder={t("skills.searchPlaceholder", "搜索 skills...")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          <Select value={enabledFilter} onValueChange={(v) => setEnabledFilter(v as "all" | "enabled" | "disabled")}>
+            <SelectTrigger style={{ width: "auto", fontSize: 13 }}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("skills.filterAll", "全部")}</SelectItem>
+              <SelectItem value="enabled">{t("skills.filterEnabled", "已启用")}</SelectItem>
+              <SelectItem value="disabled">{t("skills.filterDisabled", "未启用")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       )}
 
       {/* 已装列表（统一一条/skill） */}
