@@ -88,3 +88,16 @@ fn validate_rule_phases_rejects_mixed() {
     let err = validate_rule_phases(&mixed).unwrap_err();
     assert!(err.contains("mixed-phase"), "{err}");
 }
+
+#[test]
+fn validate_rule_rejects_empty_pattern() {
+    // 空 pattern = contains 恒命中（旧隐藏兜底复活），一律拒绝。
+    let empty = ConditionNode::Leaf(ConditionLeaf {
+        target: Target::RequestBody,
+        field: String::new(),
+        match_type: MatchType::Contains,
+        pattern: String::new(),
+    });
+    let err = validate_rule_phases(&empty).unwrap_err();
+    assert!(err.contains("empty pattern"), "{err}");
+}

@@ -312,7 +312,9 @@ fn builtin_secret_email_phone_samples() {
     assert!(pat_matches(aidog_db::BUILTIN_EMAIL_PATTERN, "contact bob.smith@example.com now"));
     assert!(!pat_matches(aidog_db::BUILTIN_EMAIL_PATTERN, "no-at-sign"));
     assert!(pat_matches(aidog_db::BUILTIN_PHONE_PATTERN, "call 13812345678 please"));
-    assert!(pat_matches(aidog_db::BUILTIN_PHONE_PATTERN, "+41791234567"));
+    // 宽松国际号段（\+\d{6,15}）按 spec 排除：带 + 的 7-16 位数字不再命中（防订单号/时间戳误伤）。
+    assert!(!pat_matches(aidog_db::BUILTIN_PHONE_PATTERN, "+41791234567"));
+    assert!(!pat_matches(aidog_db::BUILTIN_PHONE_PATTERN, "order +86123456789012x"));
     assert!(!pat_matches(aidog_db::BUILTIN_PHONE_PATTERN, "12345"));
 }
 

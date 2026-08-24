@@ -62,3 +62,33 @@ async fn builtin_rule_cannot_be_deleted() {
     let err = db::delete_middleware_rule(&db, builtin.id).await.unwrap_err();
     assert!(err.contains("cannot be deleted"), "builtin delete refused: {err}");
 }
+
+#[tokio::test]
+async fn builtin_rule_update_only_allows_toggle() {
+    let db = test_db().await;
+    let rules = db::list_middleware_rules(&db).await.unwrap();
+    let builtin = rules.iter().find(|r| r.is_builtin).expect("builtin rules seeded").clone();
+    // 仅翻转 enabled：允许
+    db::update_middleware_rule(&db, UpdateMiddlewareRule {
+        id: builtin.id,
+        name: builtin.name.clone(),
+        description: builtin.description.clone(),
+        conditions: builtin.conditions.clone(),
+        actions: builtin.actions.clone(),
+        applies_to: builtin.applies_to.clone(),
+        priority: builtin.priority,
+        enabled: !builtin.enabled,
+    }).await.unwrap();
+    // 改名：拒绝（内容归 seed 管）
+    let err = db::update_middleware_rule(&db, UpdateMiddlewareRule {
+        id: builtin.id,
+        name: "hijacked".to_string(),
+        description: builtin.description.clone(),
+        conditions: builtin.conditions.clone(),
+        actions: builtin.actions.clone(),
+        applies_to: builtin.applies_to.clone(),
+        priority: builtin.priority,
+        enabled: builtin.enabled,
+    }).await.unwrap_err();
+    assert!(err.contains("only supports enable/disable"), "{err}");
+}

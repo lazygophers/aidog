@@ -261,8 +261,9 @@ fn translate_legacy_middleware_rules(conn: &Connection) -> SqlResult<usize> {
             (Some(_), None) => Some(json!({
                 "kind": "any",
                 "children": [
-                    leaf("request_body", crate::schema::BUILTIN_SECRET_PATTERN),
-                    leaf("request_body", crate::schema::BUILTIN_EMAIL_PATTERN),
+                    // 检测器 pattern 是 regex；强制 match_type=regex，不复用旧行值（防 contains 语义错位）。
+                    json!({ "kind": "leaf", "target": "request_body", "field": "", "match_type": "regex", "pattern": crate::schema::BUILTIN_SECRET_PATTERN }),
+                    json!({ "kind": "leaf", "target": "request_body", "field": "", "match_type": "regex", "pattern": crate::schema::BUILTIN_EMAIL_PATTERN }),
                 ],
             })),
             (None, _) => None,
