@@ -44,6 +44,15 @@ export const skillsApi = {
   /** 一键卸载当前 scope 所有平台所有 skills（破坏性）。 */
   uninstallAll: (scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_uninstall_all", { scope }),
+  /**
+   * 批量安装：ids 按 repo 分组合并单次 npx 调用（同仓库多 skill 多 agent）。
+   * id = `owner/repo@skill`；裸 `owner/repo` 装整仓库。
+   */
+  installBatch: (ids: string[], agents: SkillAgent[], scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_install_batch", { ids, agents, scope }),
+  /** 批量卸载（破坏性）：`remove <names...> [-g] -y` 一次调用。 */
+  uninstallBatch: (names: string[], scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_uninstall_batch", { names, scope }),
   /** 卸载单一 skill（破坏性）：删规范存储 + 所有 agent 启用配置。 */
   uninstall: (name: string, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_uninstall", { name, scope }),

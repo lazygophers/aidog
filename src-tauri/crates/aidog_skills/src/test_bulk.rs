@@ -67,3 +67,69 @@ fn enable_all_does_not_panic() {
     let r = enable_all(SkillAgent::Claude, &scope, None);
     let _ = r;
 }
+
+// ─── install_batch / uninstall_batch（纯 args 断言，不真跑 npx）───
+
+#[test]
+fn group_ids_by_repo_groups_and_keeps_bare_repo() {
+    let groups = group_ids_by_repo(&[
+        "a/b@s1".into(),
+        "a/b@s2".into(),
+        "c/d@s3".into(),
+        "e/f".into(),
+        "  ".into(),
+    ]);
+    assert_eq!(groups.len(), 3);
+    assert_eq!(groups["a/b"], vec!["s1".to_string(), "s2".to_string()]);
+    assert_eq!(groups["c/d"], vec!["s3".to_string()]);
+    assert!(groups["e/f"].is_empty()); // 裸 repo → 装整仓库
+}
+
+#[test]
+fn install_batch_args_merges_skills_and_agents_global() {
+    let args = install_batch_args(
+        "a/b",
+        &["s1".to_string(), "s2".to_string()],
+        &[SkillAgent::Claude, SkillAgent::Codex],
+        &SkillScope::Global,
+    );
+    assert_eq!(
+        args,
+        vec![
+            "add", "a/b", "-a", "claude-code", "codex",
+            "-s", "s1", "s2",
+            "-g", "-y",
+        ]
+    );
+}
+
+#[test]
+fn install_batch_args_bare_repo_no_s_flag() {
+    let args = install_batch_args("e/f", &[], &[SkillAgent::Claude], &SkillScope::Global);
+    assert_eq!(args, vec!["add", "e/f", "-a", "claude-code", "-g", "-y"]);
+}
+
+#[test]
+fn install_batch_empty_inputs_error() {
+    let r = install_batch(&[], &[SkillAgent::Claude], &SkillScope::Global, None);
+    assert!(!r.success);
+    assert_eq!(r.stderr, "no skill ids provided");
+    let r = install_batch(&["a/b@s".into()], &[], &SkillScope::Global, None);
+    assert!(!r.success);
+    assert_eq!(r.stderr, "no agent selected");
+}
+
+#[test]
+fn uninstall_batch_args_names_then_scope() {
+    let args = uninstall_batch_args(&["x".into(), "y".into()], &SkillScope::Project { path: "/tmp/p".into() });
+    assert_eq!(args, vec!["remove", "x", "y", "-y"]);
+    let args = uninstall_batch_args(&["x".into()], &SkillScope::Global);
+    assert_eq!(args, vec!["remove", "x", "-g", "-y"]);
+}
+
+#[test]
+fn uninstall_batch_empty_names_error() {
+    let r = uninstall_batch(&["  ".into()], &SkillScope::Global, None);
+    assert!(!r.success);
+    assert_eq!(r.stderr, "no skill names provided");
+}

@@ -43,6 +43,9 @@ export function useSkillsData() {
   const [confirmUninstall, setConfirmUninstall] = useState(false);
   // 单条卸载目标（破坏性，二次确认）。
   const [uninstallTarget, setUninstallTarget] = useState<SkillInfo | null>(null);
+  // 批量卸载：行勾选集合 + 二次确认开关（破坏性）。
+  const [selectedNames, setSelectedNames] = useState<Set<string>>(new Set());
+  const [confirmUninstallBatch, setConfirmUninstallBatch] = useState(false);
   // 对齐配置 modal：使 to agent 的启用配置与 from 完全一致。
   const [alignOpen, setAlignOpen] = useState(false);
   const [alignFrom, setAlignFrom] = useState<SkillAgent>("claude");
@@ -313,6 +316,35 @@ export function useSkillsData() {
     }
   };
 
+  // 批量卸载勾选切换（按 name）。
+  const toggleSelected = (name: string) => {
+    setSelectedNames((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  // 批量卸载选中 skills（破坏性，二次确认）：一次 npx remove <names...>。
+  const handleUninstallBatch = async () => {
+    setConfirmUninstallBatch(false);
+    const names = Array.from(selectedNames);
+    setSelectedNames(new Set());
+    if (names.length === 0 || !writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey("__uninstall_batch__");
+    setMessage(null);
+    try {
+      const res = await skillsApi.uninstallBatch(names, scope);
+      await applyResult(res, "skills.uninstallDone");
+    } catch (e) {
+      console.error("uninstall batch failed", e);
+      setMessage(String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   // 对齐配置：使 to 的启用配置与 from 完全一致。
   const handleAlign = async () => {
     if (alignFrom === alignTo) return;
@@ -512,6 +544,8 @@ export function useSkillsData() {
     confirmUninstall, setConfirmUninstall,
     // uninstall single
     uninstallTarget, setUninstallTarget,
+    // batch uninstall
+    selectedNames, toggleSelected, confirmUninstallBatch, setConfirmUninstallBatch, handleUninstallBatch,
     // align modal
     alignOpen, setAlignOpen, alignFrom, setAlignFrom, alignTo, setAlignTo,
     // share modal

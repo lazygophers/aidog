@@ -185,6 +185,41 @@ crate::tauri_command! {
 }
 
 crate::tauri_command! {
+    /// 批量安装：ids 按 repo 分组合并单次 npx 调用（同仓库多 skill 多 agent）。
+    pub async fn skills_install_batch(
+        db: State<'_, Db>,
+        ids: Vec<String>,
+        agents: Vec<SkillAgent>,
+        scope: SkillScope,
+    ) -> Result<SkillsOpResult, String> {
+        tracing::debug!(command = "skills_install_batch", count = ids.len(), agents = ?agents, "command invoked");
+        let proxy = skills_proxy_url(&db).await;
+        let res = gateway::skills::install_batch(&ids, &agents, &scope, proxy.as_deref());
+        if res.success {
+            gateway::skills::invalidate(&scope);
+        }
+        Ok(res)
+    }
+}
+
+crate::tauri_command! {
+    /// 批量卸载（破坏性，前端二次确认）：`remove <names...> [-g] -y` 一次调用。
+    pub async fn skills_uninstall_batch(
+        db: State<'_, Db>,
+        names: Vec<String>,
+        scope: SkillScope,
+    ) -> Result<SkillsOpResult, String> {
+        tracing::debug!(command = "skills_uninstall_batch", count = names.len(), "command invoked");
+        let proxy = skills_proxy_url(&db).await;
+        let res = gateway::skills::uninstall_batch(&names, &scope, proxy.as_deref());
+        if res.success {
+            gateway::skills::invalidate(&scope);
+        }
+        Ok(res)
+    }
+}
+
+crate::tauri_command! {
     /// 对齐两 agent 的 skills 启用配置（使 `to` 与 `from` 完全一致）。
     pub async fn skills_align_agents(
         db: State<'_, Db>,
