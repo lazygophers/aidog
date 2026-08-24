@@ -67,7 +67,7 @@ src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crat
 
 ### Proxy 日志
 - ProxyLogSettings 控制 3 级记录：master switch(enabled) / 用户原始请求(log_user_request) / 上游请求(log_upstream_request)
-- 「原始信息」= headers + body + 上游响应正文，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log`，`gateway/models/proxy_log.rs` + `gateway/db/proxy_log.rs`）。关开关后这些列入库即清空，**只留解析后元数据**（token / cost / url / status / model 等）。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。例外：流式占位 `"[stream]"` 是控制标记，strip 时保留（终态判定依赖）。
+- 「原始信息」= headers + body + 上游响应正文，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log`，`gateway/models/proxy_log.rs` + `gateway/db/proxy_log.rs`）。关开关后这些列入库即清空，**只留解析后元数据**（token / cost / url / status / model 等）。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。流式日志终态由显式 `done` 列判定（终态 = status!=0 且 done=1；流式 flush/断连兜底/非流式终态/中断补写置位），`[stream]` 占位哨兵已废（2026-08-24 票 06），body 列不承载控制语义。
 - 3 级 retention：user_request_retention_days(7d) / upstream_request_retention_days(7d) / retention_days(90d)
 - retention 清理对称清空整侧「原始信息」（headers + body，UPDATE SET=''），不删行；retention_days 删整行
 
