@@ -270,16 +270,11 @@ export function CodingToolsSettingsTab() {
           id: r.id,
           name: r.name,
           description: r.description,
-          rule_type: r.rule_type,
-          scope: r.scope,
-          scope_ref: r.scope_ref,
-          match_type: r.match_type,
-          pattern: r.pattern,
-          action: r.action,
-          config: r.config,
+          conditions: r.conditions,
+          actions: r.actions,
+          applies_to: r.applies_to,
           priority: r.priority,
           enabled: next,
-          is_builtin: r.is_builtin,
         });
         setDateRewriteRuleId(updated.id);
         setDateRewriteEnabled(!!updated.enabled);

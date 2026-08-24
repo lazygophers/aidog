@@ -49,27 +49,25 @@ CREATE TABLE IF NOT EXISTS model_price (
                 )?;
                 // Migration 20260727-04 (原 004–012): platform / "group" 的 ALTER 与 012 kimi endpoint 修正
                 // → run_migrations_platform_early / run_migrations_platform_late（落 platform.db）。
-                // Migration 20260727-05 (原 013): 中间件规则引擎基座（C1）。单表 middleware_rule，
-                // 8 类规则 + 三级作用域就近覆盖；schema 严格按 design.md。
+                // Migration 20260727-05 (原 013): 中间件规则表基座。20260824-02（票 01 统一引擎）
+                // 重写为新模型：conditions/actions/applies_to JSON 列 + failed 标记；
+                // 存量旧 8 类列由 run_migrations_late 20260824-02 翻译迁移。
                 conn.execute_batch(
                     "CREATE TABLE IF NOT EXISTS middleware_rule (
                        id           INTEGER PRIMARY KEY AUTOINCREMENT,
                        name         TEXT NOT NULL,
                        description  TEXT NOT NULL DEFAULT '',
-                       rule_type    TEXT NOT NULL,
-                       scope        TEXT NOT NULL DEFAULT 'global',
-                       scope_ref    TEXT NOT NULL DEFAULT '',
-                       match_type   TEXT NOT NULL DEFAULT 'contains',
-                       pattern      TEXT NOT NULL DEFAULT '',
-                       action       TEXT NOT NULL DEFAULT 'warn',
-                       config       TEXT NOT NULL DEFAULT '{}',
+                       conditions   TEXT NOT NULL DEFAULT '',
+                       actions      TEXT NOT NULL DEFAULT '[]',
+                       applies_to   TEXT NOT NULL DEFAULT '{}',
                        priority     INTEGER NOT NULL DEFAULT 0,
                        enabled      INTEGER NOT NULL DEFAULT 1,
                        is_builtin   INTEGER NOT NULL DEFAULT 0,
+                       failed       INTEGER NOT NULL DEFAULT 0,
                        created_at   INTEGER NOT NULL,
                        updated_at   INTEGER NOT NULL
                      );
-                     CREATE INDEX IF NOT EXISTS idx_mw_rule_lookup ON middleware_rule(enabled, rule_type, scope);",
+                     CREATE INDEX IF NOT EXISTS idx_mw_rule_lookup ON middleware_rule(enabled, priority);",
                 )?;
                 // Migration 20260727-06 (原 014): proxy_log blocked_by/blocked_reason → run_migrations_proxy_log_early
                 // Migration 20260727-07 (原 015): 内置预设中间件规则 seed（C4）。

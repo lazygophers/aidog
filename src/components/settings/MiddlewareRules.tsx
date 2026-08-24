@@ -1,7 +1,7 @@
-// ─── Middleware Rule Engine UI ──────────────────────────────
-// 中间件规则引擎前端 UI。复用于 AppSettings 中间件 tab（scope=global）
-// 与 group / platform 编辑页内嵌（scope=group / platform）。
-// 消费 C1 冻结的 services/api.ts 契约，只读不改。
+// ─── Middleware Rule Engine UI（统一引擎，ADR 0003）──────────────
+// 一条规则 = 条件树 + 动作链 + Applies To。本文件为票 02 级 UI：
+// 列表（内置徽标 / Failed 徽标 / 启停 / 删除）+ JSON 级编辑表单。
+// 票 04/05（递归树卡片编辑器 + DSL 源码模式）在此文件上迭代。
 
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
@@ -12,17 +12,16 @@ import {
   type MiddlewareRule,
   type MiddlewareSettings,
   type CreateMiddlewareRule,
-  type RuleType,
-  type RuleScope,
-  type MatchType,
-  type RuleAction,
+  type ConditionNode,
+  type ActionStep,
+  type AppliesTo,
+  type ActionKind,
 } from "../../services/api";
 import { F, S } from "./editors";
 import { IconClose, IconEdit } from "../icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useReveal, makeRipple } from "../../components/shared";
 
@@ -49,69 +48,21 @@ function MwSectionCard({
   );
 }
 
-// ── 静态枚举常量（与 api.ts 契约对齐，禁裸 string）──
+// ── 摘要渲染（列表行用：条件树 / 动作链一眼可读）──
 
-const RULE_TYPES: RuleType[] = [
-  "request_filter",
-  "sensitive_word",
-  "redaction",
-  "content_filter",
-  "dynamic_injection",
-  "response_override",
-  "rectifier",
-  "error_rule",
-];
-
-const MATCH_TYPES: MatchType[] = ["contains", "regex", "exact"];
-
-const RULE_ACTIONS: RuleAction[] = [
-  "mask",
-  "block",
-  "warn",
-  "inject",
-  "override",
-  "classify",
-];
-
-/** 每个 rule_type 默认动作（建表/默认 action 参照 design.md）。 */
-const DEFAULT_ACTION: Record<RuleType, RuleAction> = {
-  request_filter: "block",
-  sensitive_word: "block",
-  redaction: "mask",
-  content_filter: "warn",
-  dynamic_injection: "inject",
-  response_override: "override",
-  rectifier: "override",
-  error_rule: "classify",
-};
-
-// ── 标签翻译 helper（key 缺失时回退默认文案）──
-
-function ruleTypeLabel(t: TFunction, rt: RuleType): string {
-  const map: Record<RuleType, string> = {
-    request_filter: t("middleware.type.request_filter", "请求过滤"),
-    sensitive_word: t("middleware.type.sensitive_word", "敏感词"),
-    redaction: t("middleware.type.redaction", "脱敏"),
-    content_filter: t("middleware.type.content_filter", "内容过滤"),
-    dynamic_injection: t("middleware.type.dynamic_injection", "动态注入"),
-    response_override: t("middleware.type.response_override", "响应改写"),
-    rectifier: t("middleware.type.rectifier", "纠正器"),
-    error_rule: t("middleware.type.error_rule", "错误规则"),
-  };
-  return map[rt];
+/** 条件树摘要：递归渲染为 `a AND (b OR c)` 形式。 */
+function conditionsSummary(node: ConditionNode): string {
+  if (node.kind === "leaf") {
+    const tgt = { request_body: "req.body", request_headers: "req.headers", response_body: "resp.body", response_headers: "resp.headers", status: "status", model: "model" }[node.target] ?? node.target;
+    const field = node.field ? `.${node.field}` : "";
+    return `${tgt}${field} ${node.match_type} /${node.pattern}/`;
+  }
+  const joined = node.children.map(conditionsSummary).join(node.kind === "all" ? " AND " : " OR ");
+  return node.children.length > 1 ? `(${joined})` : joined || "∅";
 }
 
-function matchTypeLabel(t: TFunction, mt: MatchType): string {
-  const map: Record<MatchType, string> = {
-    contains: t("middleware.match.contains", "包含"),
-    regex: t("middleware.match.regex", "正则"),
-    exact: t("middleware.match.exact", "精确"),
-  };
-  return map[mt];
-}
-
-function actionLabel(t: TFunction, a: RuleAction): string {
-  const map: Record<RuleAction, string> = {
+function actionLabel(t: TFunction, a: ActionKind): string {
+  const map: Record<ActionKind, string> = {
     mask: t("middleware.action.mask", "脱敏"),
     block: t("middleware.action.block", "拦截"),
     warn: t("middleware.action.warn", "告警"),
@@ -122,79 +73,129 @@ function actionLabel(t: TFunction, a: RuleAction): string {
   return map[a];
 }
 
-// ── 规则编辑表单 ──
+function actionsSummary(t: TFunction, steps: ActionStep[]): string {
+  return steps.map((s) => actionLabel(t, s.kind)).join(" → ") || "∅";
+}
+
+function appliesSummary(at: AppliesTo): string {
+  const parts: string[] = [];
+  if (at.platforms.length) parts.push(`p:${at.platforms.join(",")}`);
+  if (at.groups.length) parts.push(`g:${at.groups.join(",")}`);
+  if (at.models.length) parts.push(`m:${at.models.join(",")}`);
+  return parts.join(" ");
+}
+
+// ── 规则编辑表单（JSON 级：conditions/actions/applies_to 三块 JSON + 基础字段）──
 
 interface RuleFormProps {
-  /** 已有规则 → 编辑模式；undefined → 新建模式 */
   rule?: MiddlewareRule;
-  /** 固定作用域（group / platform 内嵌时锁定 scope + scope_ref） */
-  fixedScope?: RuleScope;
-  fixedScopeRef?: string;
+  /** 新建时预置的 applies_to（group / platform 内嵌面板） */
+  presetApplies?: AppliesTo;
   onSave: (draft: CreateMiddlewareRule) => Promise<void>;
   onCancel: () => void;
 }
 
-function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFormProps) {
+const DEFAULT_CONDITIONS: ConditionNode = {
+  kind: "leaf",
+  target: "request_body",
+  field: "",
+  match_type: "contains",
+  pattern: "",
+};
+const DEFAULT_ACTIONS: ActionStep[] = [{ kind: "mask", params: { replacement: "****" } as ActionStep["params"] }];
+
+function JsonField({
+  label,
+  value,
+  onChange,
+  error,
+  hint,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  error: string;
+  hint: string;
+}) {
+  return (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{label}</span>
+      <Textarea
+        style={{
+          fontFamily: '"SF Mono", "Fira Code", monospace',
+          fontSize: 12,
+          lineHeight: 1.6,
+          minHeight: 80,
+          resize: "vertical",
+          whiteSpace: "pre",
+        }}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        spellCheck={false}
+      />
+      <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>{hint}</div>
+      {error && (
+        <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{error}</div>
+      )}
+    </label>
+  );
+}
+
+function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");
-  const [ruleType, setRuleType] = useState<RuleType>(rule?.rule_type ?? "sensitive_word");
-  const [matchType, setMatchType] = useState<MatchType>(rule?.match_type ?? "contains");
-  const [pattern, setPattern] = useState(rule?.pattern ?? "");
-  const [action, setAction] = useState<RuleAction>(rule?.action ?? DEFAULT_ACTION["sensitive_word"]);
-  const [config, setConfig] = useState(rule?.config ?? "{}");
   const [priority, setPriority] = useState(rule?.priority ?? 0);
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
-  const [configError, setConfigError] = useState("");
+  const [conditionsText, setConditionsText] = useState(
+    JSON.stringify(rule?.conditions ?? presetApplies ?? DEFAULT_CONDITIONS, null, 2),
+  );
+  const [actionsText, setActionsText] = useState(
+    JSON.stringify(rule?.actions ?? DEFAULT_ACTIONS, null, 2),
+  );
+  const [appliesText, setAppliesText] = useState(
+    JSON.stringify(rule?.applies_to ?? presetApplies ?? {}, null, 2),
+  );
+  const [jsonErrors, setJsonErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
-  // 切换 rule_type 时（新建模式）联动默认 action
-  const handleRuleTypeChange = (rt: RuleType) => {
-    setRuleType(rt);
-    if (!rule) setAction(DEFAULT_ACTION[rt]);
-  };
-
-  const validateConfig = (raw: string): boolean => {
-    if (!raw.trim()) return true;
+  const parseJson = (key: string, raw: string): unknown | undefined => {
     try {
-      JSON.parse(raw);
-      setConfigError("");
-      return true;
+      const v = JSON.parse(raw);
+      setJsonErrors((e) => ({ ...e, [key]: "" }));
+      return v;
     } catch (e) {
-      setConfigError(String(e));
-      return false;
+      setJsonErrors((errs) => ({ ...errs, [key]: String(e) }));
+      return undefined;
     }
   };
 
   const handleSave = async () => {
-    const cfg = config.trim() || "{}";
-    if (!validateConfig(cfg)) return;
+    const conditions = parseJson("conditions", conditionsText);
+    const actions = parseJson("actions", actionsText);
+    const applies_to = parseJson("applies", appliesText);
+    if (conditions === undefined || actions === undefined || applies_to === undefined) return;
     setSaving(true);
     try {
-      const draft: CreateMiddlewareRule = {
+      await onSave({
         name,
         description,
-        rule_type: ruleType,
-        scope: fixedScope ?? "global",
-        scope_ref: fixedScope ? fixedScopeRef ?? "" : "",
-        match_type: matchType,
-        pattern,
-        action,
-        config: cfg,
+        conditions: conditions as ConditionNode,
+        actions: actions as ActionStep[],
+        applies_to: applies_to as AppliesTo,
         priority,
         is_builtin: false,
         enabled,
-      };
-      await onSave(draft);
+      });
     } catch (e) {
       console.error("save middleware rule failed", e);
-      setConfigError(String(e));
+      setJsonErrors((errs) => ({ ...errs, save: String(e) }));
     } finally {
       setSaving(false);
     }
   };
 
-  const configHint = configHintFor(t, ruleType);
+  const hasError = Object.values(jsonErrors).some(Boolean);
 
   return (
     <MwSectionCard
@@ -202,155 +203,65 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
       style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}
     >
       <div style={{ fontSize: F.label, fontWeight: 600 }}>
-        {rule
-          ? t("middleware.editRule", "编辑规则")
-          : t("middleware.addRule", "新增规则")}
+        {rule ? t("middleware.editRule", "编辑规则") : t("middleware.addRule", "新增规则")}
       </div>
 
-      {/* 名称 + 描述 */}
       <Input
-        
         style={{ fontSize: F.body }}
         placeholder={t("middleware.name", "规则名称")}
         value={name}
         onChange={(e) => setName(e.target.value)}
       />
       <Input
-        
         style={{ fontSize: F.hint }}
         placeholder={t("middleware.description", "描述（可选）")}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
 
-      {/* rule_type / match_type / action */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 160px" }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-            {t("middleware.ruleType", "规则类型")}
-          </span>
-          <Select
-            
-            
-            value={ruleType}
-            onValueChange={(v) => handleRuleTypeChange(v as RuleType)}
-          >
-<SelectTrigger style={{ fontSize: F.hint }}><SelectValue/></SelectTrigger>
-<SelectContent>
-            {RULE_TYPES.map((rt) => (
-              <SelectItem key={rt} value={rt}>
-                {ruleTypeLabel(t, rt)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-</Select>
-        </label>
+      <JsonField
+        label={t("middleware.conditions", "条件树 (JSON)")}
+        value={conditionsText}
+        onChange={(v) => setConditionsText(v)}
+        error={jsonErrors.conditions ?? ""}
+        hint={t(
+          "middleware.conditionsHint",
+          '叶子: {"kind":"leaf","target":"request_body|request_headers|response_body|response_headers|status|model","field":"","match_type":"regex|contains|exact","pattern":"..."}；组: {"kind":"all"|"any","children":[...]}',
+        )}
+      />
+      <JsonField
+        label={t("middleware.actions", "动作链 (JSON，有序)")}
+        value={actionsText}
+        onChange={(v) => setActionsText(v)}
+        error={jsonErrors.actions ?? ""}
+        hint={t(
+          "middleware.actionsHint",
+          '[{"kind":"mask|block|warn|inject|override|classify","params":{...}}]；block/classify 终止后续',
+        )}
+      />
+      <JsonField
+        label={t("middleware.appliesTo", "应用范围 (JSON，空 = 全部)")}
+        value={appliesText}
+        onChange={(v) => setAppliesText(v)}
+        error={jsonErrors.applies ?? ""}
+        hint={t(
+          "middleware.appliesHint",
+          '{"platforms":[1,2],"groups":["gk"],"models":["m"]}；三维各自空 = 不限，多值命中任一',
+        )}
+      />
 
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 120px" }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-            {t("middleware.matchType", "匹配方式")}
-          </span>
-          <Select
-            
-            
-            value={matchType}
-            onValueChange={(v) => setMatchType(v as MatchType)}
-          >
-<SelectTrigger style={{ fontSize: F.hint }}><SelectValue/></SelectTrigger>
-<SelectContent>
-            {MATCH_TYPES.map((mt) => (
-              <SelectItem key={mt} value={mt}>
-                {matchTypeLabel(t, mt)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-</Select>
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: "1 1 120px" }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-            {t("middleware.action", "动作")}
-          </span>
-          <Select
-            
-            
-            value={action}
-            onValueChange={(v) => setAction(v as RuleAction)}
-          >
-<SelectTrigger style={{ fontSize: F.hint }}><SelectValue/></SelectTrigger>
-<SelectContent>
-            {RULE_ACTIONS.map((a) => (
-              <SelectItem key={a} value={a}>
-                {actionLabel(t, a)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-</Select>
-        </label>
-
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, width: 90 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-            {t("middleware.priority", "优先级")}
-          </span>
-          <Input
-            
-            type="number"
-            style={{ fontSize: F.hint }}
-            value={priority}
-            onChange={(e) => setPriority(Number(e.target.value) || 0)}
-          />
-        </label>
-      </div>
-
-      {/* pattern */}
-      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4, width: 120 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.pattern", "匹配模式 / 目标")}
+          {t("middleware.priority", "优先级")}
         </span>
         <Input
-          
-          style={{ fontSize: F.hint, fontFamily: '"SF Mono", "Fira Code", monospace' }}
-          placeholder={t("middleware.patternHint", "匹配模式 / 目标 path / header 名")}
-          value={pattern}
-          onChange={(e) => setPattern(e.target.value)}
+          type="number"
+          style={{ fontSize: F.hint }}
+          value={priority}
+          onChange={(e) => setPriority(Number(e.target.value) || 0)}
         />
       </label>
 
-      {/* config JSON */}
-      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
-          {t("middleware.config", "配置 (JSON)")}
-        </span>
-        <Textarea
-          
-          style={{
-            fontFamily: '"SF Mono", "Fira Code", monospace',
-            fontSize: 12,
-            lineHeight: 1.6,
-            minHeight: 90,
-            resize: "vertical",
-            whiteSpace: "pre",
-          }}
-          value={config}
-          onChange={(e) => {
-            setConfig(e.target.value);
-            validateConfig(e.target.value);
-          }}
-          spellCheck={false}
-        />
-        {configHint && (
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-            {configHint}
-          </div>
-        )}
-        {configError && (
-          <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>
-            {configError}
-          </div>
-        )}
-      </label>
-
-      {/* enabled toggle */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.enabled", "启用")}
@@ -358,62 +269,28 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
         <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
 
-      {/* actions */}
+      {jsonErrors.save && (
+        <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>
+          {jsonErrors.save}
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-        <Button variant="outline"  style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
+        <Button variant="outline" style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
           {t("action.cancel", "取消")}
         </Button>
-        <Button variant="default"
+        <Button
+          variant="default"
           className="ripple"
           style={{ fontSize: F.hint }}
           onClick={(e) => { makeRipple(e); handleSave(); }}
-          disabled={saving || !name || !!configError}
+          disabled={saving || !name || hasError}
         >
           {t("action.save", "保存")}
         </Button>
       </div>
     </MwSectionCard>
   );
-}
-
-/** 按 rule_type 给 config JSON 形状提示（参照 design.md）。 */
-function configHintFor(t: TFunction, rt: RuleType): string {
-  switch (rt) {
-    case "redaction":
-    case "content_filter":
-    case "response_override":
-      return t(
-        "middleware.configHint.redaction",
-        '示例: { "replacement": "****", "fields": ["messages","system"] }',
-      );
-    case "dynamic_injection":
-      return t(
-        "middleware.configHint.dynamic_injection",
-        '示例: { "inject_mode": "system_append", "target": "", "value": "..." }',
-      );
-    case "error_rule":
-      return t(
-        "middleware.configHint.error_rule",
-        '示例: { "category": "prompt_limit", "override_status": 400, "retryable": false }',
-      );
-    case "rectifier":
-      return t(
-        "middleware.configHint.rectifier",
-        '示例: { "fix": "sse", "target": "", "default": null }',
-      );
-    case "request_filter":
-      return t(
-        "middleware.configHint.request_filter",
-        '示例: { "field": "model", "op": "reject", "value": "..." }',
-      );
-    case "sensitive_word":
-      return t(
-        "middleware.configHint.sensitive_word",
-        "敏感词规则 config 可留空 {}，pattern 即词。",
-      );
-    default:
-      return "";
-  }
 }
 
 // ── 单条规则行 ──
@@ -436,7 +313,7 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
         padding: "10px 14px",
         borderRadius: "var(--radius-sm)",
         background: "var(--bg-glass)",
-        border: "1px solid var(--border)",
+        border: rule.failed ? "1px solid var(--color-danger)" : "1px solid var(--border)",
         opacity: rule.enabled ? 1 : 0.55,
       }}
     >
@@ -448,14 +325,21 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
               {t("middleware.builtin", "内置")}
             </span>
           )}
+          {rule.failed && (
+            <span className="badge" style={{ fontSize: 10, color: "var(--color-danger)" }}>
+              {t("middleware.failed", "失效")}
+            </span>
+          )}
           <span className="badge" style={{ fontSize: 10 }}>
-            {ruleTypeLabel(t, rule.rule_type)}
+            {actionsSummary(t, rule.actions)}
           </span>
-          <span className="badge" style={{ fontSize: 10 }}>
-            {actionLabel(t, rule.action)}
-          </span>
+          {!!appliesSummary(rule.applies_to) && (
+            <span className="badge" style={{ fontSize: 10 }}>
+              {appliesSummary(rule.applies_to)}
+            </span>
+          )}
         </div>
-        {rule.pattern && (
+        {!rule.failed && (
           <div
             style={{
               fontSize: 11,
@@ -467,29 +351,26 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
               whiteSpace: "nowrap",
             }}
           >
-            {matchTypeLabel(t, rule.match_type)}: {rule.pattern}
+            {conditionsSummary(rule.conditions)}
           </div>
         )}
       </div>
 
-      {/* enable toggle */}
       <Switch
         checked={rule.enabled}
         onCheckedChange={() => onToggle(rule)}
         title={t("middleware.enabled", "启用")}
       />
 
-      {/* 内置规则禁删，仅可禁用（与 C4 约定）；非内置可编辑+删除 */}
-      <Button variant="ghost"
-        
-        onClick={() => onEdit(rule)}
-        title={t("action.edit", "编辑")}
-      >
-        <IconEdit size={14} />
-      </Button>
+      {/* 内置规则禁删禁编辑（只允许启停）；Failed 规则只可删除 */}
+      {!rule.is_builtin && !rule.failed && (
+        <Button variant="ghost" onClick={() => onEdit(rule)} title={t("action.edit", "编辑")}>
+          <IconEdit size={14} />
+        </Button>
+      )}
       {!rule.is_builtin && (
-        <Button variant="ghost"
-          
+        <Button
+          variant="ghost"
           onClick={() => onDelete(rule.id)}
           title={t("action.delete", "删除")}
           style={{ color: "var(--text-tertiary)" }}
@@ -501,30 +382,34 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
   );
 }
 
-// ── 作用域规则面板（可复用：global / group / platform）──
+// ── 规则面板（可复用：global / group / platform 内嵌按 applies_to 过滤）──
 
 export interface MiddlewareRulesPanelProps {
-  /** 作用域：global（中间件 tab）/ group / platform（内嵌编辑页） */
-  scope: RuleScope;
-  /** group_key 或 platform_id 字符串；global 时空 */
-  scopeRef?: string;
-  /** 内嵌（group/platform）时隐藏总开关相关说明，仅展示该作用域规则 */
+  /** group 内嵌：只看 applies_to 含该 group（或未限定 group）的规则 */
+  groupKey?: string;
+  /** platform 内嵌：只看 applies_to 含该 platform（或未限定 platform）的规则 */
+  platformId?: number;
   embedded?: boolean;
 }
 
-export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }: MiddlewareRulesPanelProps) {
+export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }: MiddlewareRulesPanelProps) {
   const { t } = useTranslation();
   const [rules, setRules] = useState<MiddlewareRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<MiddlewareRule | undefined>(undefined);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
-  const [importing, setImporting] = useState(false);
 
   const matchesScope = useCallback(
-    (r: MiddlewareRule) => r.scope === scope && (scope === "global" || r.scope_ref === scopeRef),
-    [scope, scopeRef],
+    (r: MiddlewareRule) => {
+      const g = r.applies_to.groups;
+      const p = r.applies_to.platforms;
+      if (groupKey) return g.length === 0 || g.includes(groupKey);
+      if (platformId !== undefined) return p.length === 0 || p.includes(platformId);
+      // global 视图：展示全部（含限定范围的规则，供总览）
+      return true;
+    },
+    [groupKey, platformId],
   );
 
   const load = useCallback(async () => {
@@ -561,16 +446,11 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
         id: rule.id,
         name: rule.name,
         description: rule.description,
-        rule_type: rule.rule_type,
-        scope: rule.scope,
-        scope_ref: rule.scope_ref,
-        match_type: rule.match_type,
-        pattern: rule.pattern,
-        action: rule.action,
-        config: rule.config,
+        conditions: rule.conditions,
+        actions: rule.actions,
+        applies_to: rule.applies_to,
         priority: rule.priority,
         enabled: !rule.enabled,
-        is_builtin: rule.is_builtin,
       });
       await load();
     } catch (e) {
@@ -599,27 +479,17 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
     setShowForm(true);
   };
 
-  // 一键导入默认（内置）中间件规则——复用 mitm importDefaults 模式。
-  // 仅 global scope 显示（内置规则 scope=global）；INSERT 仅补缺失项，幂等可重复点。
-  const handleImportDefaults = async () => {
-    setImporting(true); setError(""); setMessage("");
-    try {
-      const { imported, skipped } = await middlewareApi.importDefaults();
-      setMessage(t("middleware.importDefaultsDone", "已导入 {{imported}} 条默认规则（{{skipped}} 条已存在跳过）", { imported, skipped }));
-      await load();
-    } catch (e) {
-      console.error("import default middleware rules failed", e);
-      setError(String(e));
-    } finally {
-      setImporting(false);
-    }
-  };
+  const presetApplies: AppliesTo | undefined = groupKey
+    ? { platforms: [], groups: [groupKey], models: [] }
+    : platformId !== undefined
+      ? { platforms: [platformId], groups: [], models: [] }
+      : undefined;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {!embedded && (
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-          {t("middleware.globalRulesHint", "全局规则对所有分组 / 平台生效，可被分组 / 平台级规则就近覆盖")}
+          {t("middleware.globalRulesHint", "规则按优先级堆叠执行；应用范围为空时对所有分组 / 平台生效")}
         </div>
       )}
 
@@ -649,8 +519,7 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
       {showForm ? (
         <RuleForm
           rule={editingRule}
-          fixedScope={scope === "global" ? undefined : scope}
-          fixedScopeRef={scope === "global" ? undefined : scopeRef}
+          presetApplies={presetApplies}
           onSave={handleSave}
           onCancel={() => {
             setShowForm(false);
@@ -659,31 +528,12 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
         />
       ) : (
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <Button variant="ghost"
-            
-            style={{ fontSize: F.hint }}
-            onClick={openCreate}
-          >
+          <Button variant="ghost" style={{ fontSize: F.hint }} onClick={openCreate}>
             + {t("middleware.addRule", "新增规则")}
           </Button>
-          {scope === "global" && (
-            <Button variant="ghost"
-              
-              style={{ fontSize: F.hint, opacity: importing ? 0.6 : 1 }}
-              onClick={handleImportDefaults}
-              disabled={importing}
-            >
-              {t("middleware.importDefaults", "导入默认规则")}
-            </Button>
-          )}
         </div>
       )}
 
-      {message && (
-        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success)" }}>
-          {message}
-        </div>
-      )}
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
           {error}
@@ -693,11 +543,11 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
   );
 }
 
-// ── 中间件设置 tab（总开关 + rule_type 子开关 + 全局规则 CRUD）──
+// ── 中间件设置 tab（总开关 + 全局规则列表）──
 
 export function MiddlewareSettingsTab() {
   const { t } = useTranslation();
-  const [settings, setSettings] = useState<MiddlewareSettings>({ enabled: true, type_toggles: {} });
+  const [settings, setSettings] = useState<MiddlewareSettings>({ enabled: true });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -708,8 +558,7 @@ export function MiddlewareSettingsTab() {
         setSettings(s);
       } catch (e) {
         console.error("get middleware settings failed", e);
-        // 读失败时按默认 enabled=true 处理
-        setSettings({ enabled: true, type_toggles: {} });
+        setSettings({ enabled: true });
       } finally {
         setLoading(false);
       }
@@ -727,14 +576,6 @@ export function MiddlewareSettingsTab() {
   };
 
   const toggleMaster = () => persist({ ...settings, enabled: !settings.enabled });
-
-  // 子开关缺省键视为 true
-  const typeEnabled = (rt: RuleType) => settings.type_toggles[rt] !== false;
-  const toggleType = (rt: RuleType) =>
-    persist({
-      ...settings,
-      type_toggles: { ...settings.type_toggles, [rt]: !typeEnabled(rt) },
-    });
 
   if (loading) {
     return (
@@ -760,32 +601,13 @@ export function MiddlewareSettingsTab() {
         <Switch checked={settings.enabled} onCheckedChange={toggleMaster} />
       </MwSectionCard>
 
-      {/* rule_type 子开关 */}
+      {/* 规则列表 */}
       <MwSectionCard
         staggerMs={60}
         style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.typeToggles", "规则类型开关")}</div>
-        <div className="text-secondary" style={{ fontSize: 12, marginTop: -4 }}>
-          {t("middleware.typeTogglesDesc", "按规则类型单独启用 / 禁用")}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingTop: 4 }}>
-          {RULE_TYPES.map((rt) => (
-            <div key={rt} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 12 }}>{ruleTypeLabel(t, rt)}</span>
-              <Switch checked={typeEnabled(rt)} onCheckedChange={() => toggleType(rt)} />
-            </div>
-          ))}
-        </div>
-      </MwSectionCard>
-
-      {/* 全局规则 CRUD */}
-      <MwSectionCard
-        staggerMs={120}
-        style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}
-      >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.globalRules", "全局规则")}</div>
-        <MiddlewareRulesPanel scope="global" />
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("middleware.globalRules", "规则列表")}</div>
+        <MiddlewareRulesPanel />
       </MwSectionCard>
 
       {error && (

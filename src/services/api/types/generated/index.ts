@@ -3,6 +3,13 @@
 // PopoverItem 故意排除：Rust 侧字段(item_type/scope/time_window/size)为 String，TS 手写版('./manual')保留字面量联合窄化，两者字段名一致仅类型细化不同，避免重名冲突改走单独 export。
 export * from "./CliProxyProvider";
 export * from "./CreateCliProxyProvider";
+export * from "./ActionKind";
+export * from "./ActionParams";
+export * from "./ActionStep";
+export * from "./AppliesTo";
+export * from "./ConditionLeaf";
+export * from "./ConditionNode";
+export * from "./Target";
 export * from "./CreateMiddlewareRule";
 export * from "./DimensionEntry";
 export * from "./EnvVar";
@@ -42,7 +49,6 @@ export * from "./ProxyTimeoutSettings";
 export * from "./ResolvedPrice";
 export * from "./RetentionUnit";
 export * from "./RowMeta";
-export * from "./RuleAction";
 export * from "./RuleScope";
 export * from "./RuleType";
 export * from "./SchedulingBreakerSettings";

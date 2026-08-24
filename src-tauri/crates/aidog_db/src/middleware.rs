@@ -1,39 +1,46 @@
 use super::*;
 use rusqlite::{params, Result as SqlResult};
 
-use crate::models::{
-    CreateMiddlewareRule, MatchType, MiddlewareRule, RuleAction, RuleScope, RuleType,
-    UpdateMiddlewareRule,
-};
+use crate::models::{CreateMiddlewareRule, MiddlewareRule, UpdateMiddlewareRule};
 
 /// middleware_rule 全列序（INSERT 列子集 + SELECT 共用，与表定义列序一致）。
 const MIDDLEWARE_RULE_COLUMNS: &str =
-    "id, name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at";
+    "id, name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at";
 
-/// 从查询行构造 MiddlewareRule。未知 rule_type 不会出现在结果（行被 list 过滤前已按 from_db_str 处理）。
-/// 此处 rule_type 用 from_db_str → 未知值兜底为 RequestFilter 会误导，故 list 时遇未知直接跳过（见 list_middleware_rules）。
+/// 从查询行构造 MiddlewareRule。JSON 列解析失败不在此兜底（迁移后 schema 保证可解析）；
+/// 若手改 DB 产生坏行，list 时 serde 失败由 unwrap_or 兜底为 failed 标记（前端引导手删）。
 fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
-    let rule_type_str: String = row.get(3)?;
-    let scope_str: String = row.get(4)?;
-    let match_type_str: String = row.get(6)?;
-    let action_str: String = row.get(8)?;
+    let conditions_json: String = row.get(3)?;
+    let actions_json: String = row.get(4)?;
+    let applies_json: String = row.get(5)?;
+    let conditions = serde_json::from_str(&conditions_json)
+        .unwrap_or_else(|e| {
+            tracing::warn!("middleware rule {} bad conditions JSON: {e}", row.get::<_, i64>(0).unwrap_or(0));
+            default_failed_conditions()
+        });
     Ok(MiddlewareRule {
         id: row.get(0)?,
         name: row.get(1)?,
         description: row.get(2)?,
-        // 未知 rule_type 极少（仅手改 DB）；兜底为 RequestFilter 不影响引擎（引擎按 from_db_str 分桶时同样会跳过未知）。
-        rule_type: RuleType::from_db_str(&rule_type_str).unwrap_or(RuleType::RequestFilter),
-        scope: RuleScope::from_db_str(&scope_str),
-        scope_ref: row.get(5)?,
-        match_type: MatchType::from_db_str(&match_type_str),
-        pattern: row.get(7)?,
-        action: RuleAction::from_db_str(&action_str),
-        config: row.get(9)?,
-        priority: row.get(10)?,
-        enabled: row.get::<_, i64>(11)? == 1,
-        is_builtin: row.get::<_, i64>(12)? == 1,
-        created_at: row.get(13)?,
-        updated_at: row.get(14)?,
+        conditions,
+        actions: serde_json::from_str(&actions_json).unwrap_or_default(),
+        applies_to: serde_json::from_str(&applies_json).unwrap_or_default(),
+        priority: row.get(6)?,
+        enabled: row.get::<_, i64>(7)? == 1,
+        is_builtin: row.get::<_, i64>(8)? == 1,
+        failed: row.get::<_, i64>(9)? == 1,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
+    })
+}
+
+/// 坏 JSON 行兜底条件树（Failed Rule：恒不命中，前端引导手删）。
+fn default_failed_conditions() -> crate::models::ConditionNode {
+    crate::models::ConditionNode::Leaf(crate::models::ConditionLeaf {
+        target: crate::models::Target::RequestBody,
+        field: String::new(),
+        match_type: crate::models::MatchType::Exact,
+        pattern: "\u{0}unparseable-rule".to_string(),
     })
 }
 
@@ -63,27 +70,23 @@ pub fn create_middleware_rule(
 ) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    crate::models::validate_rule_phases(&input.conditions)?;
     let ts = now();
-    let rule_type = input.rule_type.as_str().to_string();
-    let scope = input.scope.as_str().to_string();
-    let match_type = input.match_type.as_str().to_string();
-    let action = input.action.as_str().to_string();
+    let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
+    let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
+    let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
     db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO middleware_rule
-                   (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)",
+                   (name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 0, ?9, ?9)",
                 params![
                     input.name,
                     input.description,
-                    rule_type,
-                    scope,
-                    input.scope_ref,
-                    match_type,
-                    input.pattern,
-                    action,
-                    input.config,
+                    conditions,
+                    actions,
+                    applies_to,
                     input.priority,
                     if input.enabled { 1 } else { 0 },
                     if input.is_builtin { 1 } else { 0 },
@@ -91,9 +94,9 @@ pub fn create_middleware_rule(
                 ],
             )?;
             let id = conn.last_insert_rowid();
-            let mut stmt = conn.prepare(
-                "SELECT id, name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at FROM middleware_rule WHERE id = ?1",
-            )?;
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
+            ))?;
             stmt.query_row(params![id], row_to_middleware_rule)
                 .map_err(tokio_rusqlite::Error::from)
         })
@@ -109,33 +112,27 @@ pub fn update_middleware_rule(
 ) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+    crate::models::validate_rule_phases(&input.conditions)?;
     let ts = now();
-    let rule_type = input.rule_type.as_str().to_string();
-    let scope = input.scope.as_str().to_string();
-    let match_type = input.match_type.as_str().to_string();
-    let action = input.action.as_str().to_string();
+    let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
+    let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
+    let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
     db
         .call_traced(None, __db_caller, move |conn| {
             let affected = conn.execute(
                 "UPDATE middleware_rule SET
-                   name = ?2, description = ?3, rule_type = ?4, scope = ?5, scope_ref = ?6,
-                   match_type = ?7, pattern = ?8, action = ?9, config = ?10, priority = ?11,
-                   enabled = ?12, is_builtin = ?13, updated_at = ?14
+                   name = ?2, description = ?3, conditions = ?4, actions = ?5, applies_to = ?6,
+                   priority = ?7, enabled = ?8, updated_at = ?9
                  WHERE id = ?1",
                 params![
                     input.id,
                     input.name,
                     input.description,
-                    rule_type,
-                    scope,
-                    input.scope_ref,
-                    match_type,
-                    input.pattern,
-                    action,
-                    input.config,
+                    conditions,
+                    actions,
+                    applies_to,
                     input.priority,
                     if input.enabled { 1 } else { 0 },
-                    if input.is_builtin { 1 } else { 0 },
                     ts,
                 ],
             )?;
@@ -144,9 +141,9 @@ pub fn update_middleware_rule(
                     format!("middleware rule {} not found", input.id).into(),
                 ));
             }
-            let mut stmt = conn.prepare(
-                "SELECT id, name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at FROM middleware_rule WHERE id = ?1",
-            )?;
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
+            ))?;
             stmt.query_row(params![input.id], row_to_middleware_rule)
                 .map_err(tokio_rusqlite::Error::from)
         })
@@ -155,12 +152,23 @@ pub fn update_middleware_rule(
     }
 }
 
+/// 删除规则。内置规则不可删（只允许启停）——拒绝并返回错误。
 #[track_caller]
 pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
         .call_traced(None, __db_caller, move |conn| {
+            let is_builtin: i64 = conn.query_row(
+                "SELECT is_builtin FROM middleware_rule WHERE id = ?1",
+                params![id],
+                |r| r.get(0),
+            ).map_err(tokio_rusqlite::Error::from)?;
+            if is_builtin == 1 {
+                return Err(tokio_rusqlite::Error::Other(
+                    "builtin middleware rule cannot be deleted (toggle enabled instead)".into(),
+                ));
+            }
             conn.execute("DELETE FROM middleware_rule WHERE id = ?1", params![id])?;
             Ok(())
         })
@@ -170,7 +178,7 @@ pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Outp
 }
 
 /// 读取中间件总设置（settings scope="middleware" key="settings"）。
-/// 无记录或解析失败 → Default（总开关 ON，各类型默认启用）。C2/C3 执行层调用。
+/// 无记录或解析失败 → Default（总开关 ON）。C2/C3 执行层调用。
 pub async fn get_middleware_settings(db: &Db) -> crate::models::MiddlewareSettings {
     match get_setting(db, "middleware", "settings").await {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
