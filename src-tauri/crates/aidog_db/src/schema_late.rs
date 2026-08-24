@@ -146,14 +146,168 @@ pub fn run_migrations_late(
                     }
                 }
 
-                // Migration 20260727-18 (原 050): 清主库拆库遗留孤儿表 proxy_log（stats_agg_hourly 已迁回主库
-                // 20260727-16，本处不再 DROP）。
-                // b2ef9811 把 proxy_log DDL + 全部访问点搬到 log.db（call_proxy_log_traced），
-                // 但未 DROP 主库旧表 → 旧装用户主库残留历史日志行（可达数 GB，随 WAL 膨胀）。
-                // proxy_log 是请求日志非业务数据（retention 90d 本就清理），不迁移直接 DROP。
-                // 幂等：表已不存在 → DROP IF EXISTS no-op；新装从未建过主库此表，空操作。
                 let _ = conn.execute("DROP TABLE IF EXISTS proxy_log", []);
+
+                // Migration 20260824-02 (票 01 统一中间件引擎): middleware_rule 表迁移到统一模型。
+                // 新增 conditions/actions/applies_to/failed 列；旧 8 类列按规则翻译为
+                // ConditionNode/ActionStep/AppliesTo JSON（翻译不了的 → failed=1，前端引导手删）；
+                // 最后 DROP 旧列 + 重建索引，并按新规格强制覆盖内置规则内容（保留用户 enabled 态）。
+                // 幂等守卫：conditions 列已存在（迁移过 / 新装）→ 整块跳过。
+                let has_mw_table = conn
+                    .query_row(
+                        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'middleware_rule'",
+                        [],
+                        |_| Ok(()),
+                    )
+                    .is_ok();
+                let has_mw_conditions = has_mw_table
+                    && conn
+                    .prepare("PRAGMA table_info(middleware_rule)")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "conditions");
+                if has_mw_table && !has_mw_conditions {
+                    conn.execute_batch(
+                        "ALTER TABLE middleware_rule ADD COLUMN conditions TEXT NOT NULL DEFAULT '';
+                         ALTER TABLE middleware_rule ADD COLUMN actions TEXT NOT NULL DEFAULT '[]';
+                         ALTER TABLE middleware_rule ADD COLUMN applies_to TEXT NOT NULL DEFAULT '{}';
+                         ALTER TABLE middleware_rule ADD COLUMN failed INTEGER NOT NULL DEFAULT 0;",
+                    )?;
+                    let translated = translate_legacy_middleware_rules(conn)?;
+                    conn.execute_batch(
+                        "DROP INDEX IF EXISTS idx_mw_rule_lookup;
+                         ALTER TABLE middleware_rule DROP COLUMN rule_type;
+                         ALTER TABLE middleware_rule DROP COLUMN scope;
+                         ALTER TABLE middleware_rule DROP COLUMN scope_ref;
+                         ALTER TABLE middleware_rule DROP COLUMN match_type;
+                         ALTER TABLE middleware_rule DROP COLUMN pattern;
+                         ALTER TABLE middleware_rule DROP COLUMN action;
+                         ALTER TABLE middleware_rule DROP COLUMN config;
+                         CREATE INDEX idx_mw_rule_lookup ON middleware_rule(enabled, priority);",
+                    )?;
+                    tracing::info!(
+                        translated,
+                        "migration 20260824-02: middleware_rule 迁移到统一引擎模型完成"
+                    );
+                    // 内置规则按新规格强制覆盖内容（seed 幂等：按 name 覆盖，保留 enabled）。
+                    crate::schema::seed_builtin_middleware_rules(conn)?;
+                }
     Ok(())
+}
+
+/// 20260824-02 核心：把旧 8 类模型行翻译为统一模型 JSON 列，逐行 UPDATE。
+/// 返回成功翻译行数；翻译不了的行置 failed=1（Failed Rule，引擎跳过 + 前端引导手删）。
+fn translate_legacy_middleware_rules(conn: &Connection) -> SqlResult<usize> {
+    use serde_json::json;
+    /// 旧行原样读出：(id, rule_type, scope, scope_ref, match_type, pattern, action, config)。
+    type LegacyRow = (i64, String, String, String, String, String, String, String);
+    let rows: Vec<LegacyRow> = {
+        let mut stmt = conn.prepare(
+            "SELECT id, rule_type, scope, scope_ref, match_type, pattern, action, config
+             FROM middleware_rule",
+        )?;
+        let mapped = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, i64>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, String>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, String>(6)?,
+                r.get::<_, String>(7)?,
+            ))
+        })?;
+        mapped.collect::<SqlResult<Vec<_>>>()?
+    };
+    let mut translated = 0;
+    for (id, rule_type, scope, scope_ref, match_type, pattern, action, config) in rows {
+        // 旧 rule_type → 新 target（error_rule 按旧语义匹配 status+body 文本 → response_body）。
+        let target: Option<&str> = match rule_type.as_str() {
+            "request_filter" | "sensitive_word" | "redaction" | "content_filter"
+            | "dynamic_injection" => Some("request_body"),
+            "response_override" | "rectifier" | "error_rule" => Some("response_body"),
+            _ => None,
+        };
+        // 旧 scope → applies_to（global 空 / group:[ref] / platform:[ref i64]）。
+        let applies = match scope.as_str() {
+            "global" => json!({}),
+            "group" if !scope_ref.is_empty() => json!({ "groups": [scope_ref] }),
+            "platform" if !scope_ref.is_empty() => match scope_ref.parse::<i64>() {
+                Ok(pid) => json!({ "platforms": [pid] }),
+                Err(_) => json!({}),
+            },
+            _ => json!({}),
+        };
+        // 空 pattern 的 content_filter/redaction 旧行为 = 引擎内置密钥/邮箱检测器
+        // → 翻译为显式 regex any 组（不保留隐藏兜底，ADR 0003）。
+        let effective_pattern = if pattern.is_empty()
+            && matches!(rule_type.as_str(), "content_filter" | "redaction")
+        {
+            None
+        } else {
+            Some(pattern.clone())
+        };
+        let leaf = |target: &str, pat: &str| {
+            json!({ "kind": "leaf", "target": target, "field": "", "match_type": match_type, "pattern": pat })
+        };
+        let conditions: Option<serde_json::Value> = match (&target, &effective_pattern) {
+            (Some(t), Some(p)) if p.is_empty() && rule_type == "error_rule" => {
+                // 旧 error_rule 空 pattern = 任意非 2xx 命中 → 翻译为 status 数字叶子
+                //（classify_error 仅在非 2xx 路径调用，语义等价）。
+                Some(json!({ "kind": "leaf", "target": "status", "field": "", "match_type": "regex", "pattern": "[0-9]+" }))
+            }
+            (Some(t), Some(p)) => Some(json!({ "kind": "all", "children": [leaf(t, p)] })),
+            (Some(_), None) => Some(json!({
+                "kind": "any",
+                "children": [
+                    leaf("request_body", crate::schema::BUILTIN_SECRET_PATTERN),
+                    leaf("request_body", crate::schema::BUILTIN_EMAIL_PATTERN),
+                ],
+            })),
+            (None, _) => None,
+        };
+        // 旧 config → ActionParams（按 action 取相关字段）。
+        let cfg: serde_json::Value = serde_json::from_str(&config).unwrap_or(json!({}));
+        let params = match action.as_str() {
+            "mask" | "override" => json!({
+                "replacement": cfg.get("replacement").cloned().unwrap_or(json!("****")),
+                "fields": cfg.get("fields").cloned().unwrap_or(json!([])),
+            }),
+            "inject" => json!({
+                "inject_mode": cfg.get("inject_mode").cloned().unwrap_or(json!("")),
+                "target": cfg.get("target").cloned().unwrap_or(json!("")),
+                "value": cfg.get("value").cloned().unwrap_or(json!("")),
+            }),
+            "classify" => json!({
+                "category": cfg.get("category").cloned().unwrap_or(json!("")),
+                "retryable": cfg.get("retryable").cloned().unwrap_or(json!(true)),
+                "override_status": cfg.get("override_status").cloned().unwrap_or(serde_json::Value::Null),
+                "override_body": cfg.get("override_body").cloned().unwrap_or(serde_json::Value::Null),
+            }),
+            // block/warn 无参数。
+            _ => json!({}),
+        };
+        let step = json!({ "kind": action, "params": params });
+        let Some(conditions) = conditions else {
+            conn.execute(
+                "UPDATE middleware_rule SET failed = 1 WHERE id = ?1",
+                params![id],
+            )?;
+            continue;
+        };
+        conn.execute(
+            "UPDATE middleware_rule SET conditions = ?2, actions = ?3, applies_to = ?4 WHERE id = ?1",
+            params![
+                id,
+                conditions.to_string(),
+                json!([step]).to_string(),
+                applies.to_string(),
+            ],
+        )?;
+        translated += 1;
+    }
+    Ok(translated)
 }
 
 /// proxy_log 表的 late migrations（log.db 库内序 20260727-10..20，原 021–047 范围内的 proxy_log 部分）。
@@ -925,6 +1079,92 @@ mod tests {
             CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
         "#).unwrap();
         conn
+    }
+
+    /// Migration 20260824-02（票 01 统一引擎）：旧 8 类 middleware_rule 行翻译为统一模型；
+    /// 未知 rule_type → failed=1；旧列 DROP；内置规则按新规格 seed（覆盖内容保留 enabled）。
+    #[test]
+    fn migrations_middleware_rule_unified_model_20260824() {
+        let conn = make_modern_conn();
+        conn.execute_batch(r#"
+            CREATE TABLE middleware_rule (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               name TEXT NOT NULL,
+               description TEXT NOT NULL DEFAULT '',
+               rule_type TEXT NOT NULL,
+               scope TEXT NOT NULL DEFAULT 'global',
+               scope_ref TEXT NOT NULL DEFAULT '',
+               match_type TEXT NOT NULL DEFAULT 'contains',
+               pattern TEXT NOT NULL DEFAULT '',
+               action TEXT NOT NULL DEFAULT 'warn',
+               config TEXT NOT NULL DEFAULT '{}',
+               priority INTEGER NOT NULL DEFAULT 0,
+               enabled INTEGER NOT NULL DEFAULT 1,
+               is_builtin INTEGER NOT NULL DEFAULT 0,
+               created_at INTEGER NOT NULL,
+               updated_at INTEGER NOT NULL
+            );
+            INSERT INTO middleware_rule (name, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at) VALUES
+              ('user-block', 'request_filter', 'group', 'gk1', 'contains', 'badword', 'block', '{}', 5, 1, 0, 0, 0),
+              ('user-mask', 'redaction', 'platform', '7', 'regex', 'sk-abc', 'mask', '{"replacement":"[x]","fields":["messages"]}', 6, 1, 0, 0, 0),
+              ('user-detector', 'content_filter', 'global', '', 'contains', '', 'mask', '{}', 7, 0, 0, 0, 0),
+              ('user-unknown', 'weird_type', 'global', '', 'contains', 'p', 'warn', '{}', 8, 1, 0, 0, 0),
+              ('内置·密钥脱敏', 'content_filter', 'global', '', 'contains', '', 'mask', '{}', 10, 0, 1, 0, 0);
+        "#).unwrap();
+        let r = run_migrations_late(&conn, no_op_backfill());
+        assert!(r.is_ok(), "migration 20260824-02 should succeed: {:?}", r);
+
+        let cols: Vec<String> = conn
+            .prepare("PRAGMA table_info(middleware_rule)").unwrap()
+            .query_map([], |r| r.get::<_, String>(1)).unwrap()
+            .filter_map(Result::ok).collect();
+        assert!(cols.contains(&"conditions".to_string()));
+        assert!(!cols.contains(&"rule_type".to_string()), "old columns dropped");
+
+        // ① request_filter block 翻译：request_body contains 叶子 + block 步骤 + applies_to.groups
+        let (cond, acts, appl): (String, String, String) = conn.query_row(
+            "SELECT conditions, actions, applies_to FROM middleware_rule WHERE name='user-block'", [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert!(cond.contains("\"kind\":\"all\"") && cond.contains("\"target\":\"request_body\"") && cond.contains("\"match_type\":\"contains\""));
+        assert!(acts.contains("\"kind\":\"block\""));
+        assert!(appl.contains("\"groups\":[\"gk1\"]"));
+
+        // ② redaction mask 平台作用域 + config 参数迁移
+        let (cond, acts, appl): (String, String, String) = conn.query_row(
+            "SELECT conditions, actions, applies_to FROM middleware_rule WHERE name='user-mask'", [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert!(cond.contains("\"match_type\":\"regex\""));
+        assert!(acts.contains("\"replacement\":\"[x]\"") && acts.contains("\"fields\":[\"messages\"]"));
+        assert!(appl.contains("\"platforms\":[7]"));
+
+        // ③ 空 pattern 检测器行 → 显式 secret/email any 组；enabled=0 保留
+        let (cond, enabled): (String, i64) = conn.query_row(
+            "SELECT conditions, enabled FROM middleware_rule WHERE name='user-detector'", [],
+            |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
+        // JSON 转义后反斜杠翻倍，用无反斜杠子串断言。
+        assert!(cond.contains("sk-[a-zA-Z0-9]{16,}") && cond.contains("@[a-zA-Z0-9."));
+        assert_eq!(enabled, 0);
+
+        // ④ 未知 rule_type → failed=1
+        let failed: i64 = conn.query_row(
+            "SELECT failed FROM middleware_rule WHERE name='user-unknown'", [], |r| r.get(0)).unwrap();
+        assert_eq!(failed, 1);
+
+        // ⑤ 内置规则：按新规格覆盖内容 + failed=0 重置 + enabled=0 保留（name 覆盖路径）
+        let (cond, enabled, failed): (String, i64, i64) = conn.query_row(
+            "SELECT conditions, enabled, failed FROM middleware_rule WHERE name='内置·密钥脱敏'", [],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?))).unwrap();
+        assert_eq!(enabled, 0, "user disabled builtin stays disabled");
+        assert_eq!(failed, 0);
+        assert!(cond.contains("\"kind\":\"leaf\""), "builtin content overwritten to new spec");
+        // 新内置规格补齐（升级新增的 DB/Redis 脱敏等）
+        let n_builtin: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM middleware_rule WHERE is_builtin=1", [], |r| r.get(0)).unwrap();
+        assert_eq!(n_builtin as usize, crate::schema::builtin_rule_specs().len());
+
+        // 幂等：再跑一次不炸（conditions 已存在 → 整块跳过）
+        let r2 = run_migrations_late(&conn, no_op_backfill());
+        assert!(r2.is_ok());
     }
 
     /// run_migrations_late on a fully modern schema (all conditional branches skip) → idempotent.

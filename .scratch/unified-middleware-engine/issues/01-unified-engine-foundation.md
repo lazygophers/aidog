@@ -8,11 +8,11 @@ retryable/override 喂现有重试编排，proxy 挂接点全部改到统一路�
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 表重建后 CRUD/引擎在新模型上编译通过，旧 RuleType/RuleScope/子开关类型消亡
-- [ ] 树求值测试：嵌套 ALL/ANY、contains/regex/exact、六种 target、混阶段拒绝
-- [ ] 动作链测试：顺序执行、block/classify 终止一切、applies_to 空即全/any-of/priority 累加
-- [ ] classify 命中产出 retryable/override_status/override_body，无命中走默认重试
-- [ ] ReDoS 防护（size/dfa 上限、编译失败 fail-open）保留并有测试
-- [ ] cargo test / clippy 全绿
+- [x] 表重建后 CRUD/引擎在新模型上编译通过，旧 RuleType/RuleScope/子开关类型消亡
+- [x] 树求值测试：嵌套 ALL/ANY、contains/regex/exact、六种 target、混阶段拒绝
+- [x] 动作链测试：顺序执行、block/classify 终止一切、applies_to 空即全/any-of/priority 累加
+- [x] classify 命中产出 retryable/override_status/override_body，无命中走默认重试
+- [x] ReDoS 防护（size/dfa 上限、编译失败 fail-open）保留并有测试
+- [x] cargo test / clippy 全绿

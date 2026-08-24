@@ -357,8 +357,8 @@ pub(super) async fn upsert_setting_row(
         .map_err(|e| format!("upsert setting: {e}"))
 }
 
-/// 按 name 查重写入中间件规则（middleware_rule 表无 name UNIQUE 约束，故手动查重避免重复导入）。
-/// 命中同名则 UPDATE（保留原 id/created_at），否则 INSERT。
+/// 按 name 查重写入中间件规则（统一引擎模型：JSON 列整体 upsert；middleware_rule 表
+/// 无 name UNIQUE 约束，故手动查重避免重复导入）。
 pub(super) async fn upsert_middleware_rule_by_name(
     db: &Db,
     rule: &crate::gateway::models::MiddlewareRule,
@@ -374,32 +374,28 @@ pub(super) async fn upsert_middleware_rule_by_name(
                     |row| row.get(0),
                 )
                 .ok();
-            let rule_type = r.rule_type.as_str();
-            let scope = r.scope.as_str();
-            let match_type = r.match_type.as_str();
-            let action = r.action.as_str();
+            let conditions = serde_json::to_string(&r.conditions).map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
+            let actions = serde_json::to_string(&r.actions).map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
+            let applies_to = serde_json::to_string(&r.applies_to).map_err(|e| tokio_rusqlite::Error::Other(e.into()))?;
             if let Some(id) = existing_id {
                 conn.execute(
                     "UPDATE middleware_rule SET
-                       description = ?2, rule_type = ?3, scope = ?4, scope_ref = ?5,
-                       match_type = ?6, pattern = ?7, action = ?8, config = ?9, priority = ?10,
-                       enabled = ?11, is_builtin = ?12, updated_at = ?13
+                       description = ?2, conditions = ?3, actions = ?4, applies_to = ?5,
+                       priority = ?6, enabled = ?7, is_builtin = ?8, failed = ?9, updated_at = ?10
                      WHERE id = ?1",
                     rusqlite::params![
-                        id, r.description, rule_type, scope, r.scope_ref,
-                        match_type, r.pattern, action, r.config, r.priority,
-                        r.enabled as i64, r.is_builtin as i64, now,
+                        id, r.description, conditions, actions, applies_to,
+                        r.priority, r.enabled as i64, r.is_builtin as i64, r.failed as i64, now,
                     ],
                 )?;
             } else {
                 conn.execute(
                     "INSERT INTO middleware_rule
-                       (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)",
+                       (name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)",
                     rusqlite::params![
-                        r.name, r.description, rule_type, scope, r.scope_ref,
-                        match_type, r.pattern, action, r.config, r.priority,
-                        r.enabled as i64, r.is_builtin as i64, now,
+                        r.name, r.description, conditions, actions, applies_to,
+                        r.priority, r.enabled as i64, r.is_builtin as i64, r.failed as i64, now,
                     ],
                 )?;
             }

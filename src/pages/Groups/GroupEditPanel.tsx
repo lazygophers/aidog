@@ -316,7 +316,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
           {t("middleware.groupRulesHint", "仅本分组生效，就近覆盖全局同类型规则")}
         </div>
-        <MiddlewareRulesPanel scope="group" scopeRef={editTarget!.group.group_key} embedded />
+        <MiddlewareRulesPanel groupKey={editTarget!.group.group_key} embedded />
       </div>
     </div>
   );

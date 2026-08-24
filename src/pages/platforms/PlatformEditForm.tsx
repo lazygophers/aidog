@@ -373,7 +373,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             title={t("middleware.platformRules", "平台中间件规则")}
             desc={t("middleware.platformRulesHint", "仅本平台生效，就近覆盖分组 / 全局同类型规则")}
           >
-            <MiddlewareRulesPanel scope="platform" scopeRef={String(editing.id)} embedded />
+            <MiddlewareRulesPanel platformId={editing.id} embedded />
           </FormSection>
         )}
 

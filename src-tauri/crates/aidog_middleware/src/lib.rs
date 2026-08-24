@@ -1,19 +1,14 @@
-//! 中间件规则引擎核心（C1 基座）。
+//! 中间件规则引擎核心（统一引擎，ADR 0003）。
 //!
-//! 职责：内存缓存（按 (rule_type, scope) 分桶）+ regex 预编译 + 三级作用域就近覆盖解析
-//! + ReDoS 防护（编译失败/超限跳过，fail-open 不 panic）。
+//! 一条规则 = 嵌套条件树 + 有序动作链 + Applies To 过滤器。职责：
+//! 内存缓存（enabled 且非 failed 规则，priority 升序）+ regex 预编译（ReDoS 防护，
+//! 编译失败 fail-open 跳过）+ 条件树求值 + 动作链执行（block/classify 终止一切）。
 //!
-//! 不负责：规则的实际执行（入站/出站 apply 属 C2/C3 在 proxy.rs）、内置 seed（C4）、UI（C5）。
-//! 熔断器已移出中间件层（归 group 功能块独立 task），本文件不含任何熔断逻辑。
+//! 不负责：CRUD 落库（aidog_db）、内置 seed（aidog_db::schema）、UI。
+//! 熔断器不在中间件层（归 group 功能块）。
 //!
-//! 集成方式（决策）：MiddlewareEngine 为独立单例，由 Tauri `app.manage(Arc<MiddlewareEngine>)`
-//! 持有；CRUD command 写库后调用 `engine.reload(&db)`。C2/C3 集成 proxy.rs 时把同一
-//! `Arc<MiddlewareEngine>` 注入 ProxyState 即可（与 Db 平级，互不耦合）。
-//!
-//! 模块划分（纯结构搬移）：
-//! - 本文件（mod）：引擎单例 + 缓存/解析 + regex 编译 + 共享脱敏/检测原语（mask/replace/builtin）。
-//! - [`inbound`]：入站规则执行（C2，apply_inbound/apply_inbound_platform）。
-//! - [`outbound`]：出站规则执行（C3，apply_outbound/classify_error/apply_outbound_stream_chunk）。
+//! 集成方式：MiddlewareEngine 独立单例，Tauri `app.manage(Arc<MiddlewareEngine>)`；
+//! CRUD 写库后 `engine.reload(&db)`；ProxyState 注入同一 Arc。
 
 mod inbound;
 mod outbound;
@@ -21,299 +16,301 @@ mod outbound;
 #[cfg(test)]
 pub(crate) mod test_mod;
 
-// 对外路径保持不变：`gateway::middleware::{InboundOutcome, ErrorClassification, ...}`。
 pub use inbound::InboundOutcome;
-// `classify_error` 返回此类型，属公开 API 表面；保留 `gateway::middleware::ErrorClassification`
-// 路径不变（当前无外部命名引用，故 allow 以免 unused_imports）。
 #[allow(unused_imports)]
 pub use outbound::ErrorClassification;
 
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::sync::RwLock;
 
 use regex::Regex;
-use serde::Deserialize;
+use serde_json::Value;
 
-use aidog_db::{self as db, Db};
-use aidog_db::models::{MatchType, MiddlewareRule, RuleScope, RuleType};
+use aidog_db::Db;
+use aidog_db::models::{
+    ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target,
+};
 
-/// 正则编译大小上限（字节）。regex crate 用无回溯 DFA，本身抗 ReDoS；
-/// 此上限进一步约束病态大模式的内存/编译开销。超限 → 编译失败 → 跳过该规则。
+/// 正则编译大小上限（字节）。regex crate 无回溯 DFA 本身抗 ReDoS；
+/// 此上限进一步约束病态大模式。超限 → 编译失败 → 跳过该叶子（fail-open）。
 const REGEX_SIZE_LIMIT: usize = 1 << 20; // 1 MiB
 /// DFA 状态缓存上限（字节）。
 const REGEX_DFA_SIZE_LIMIT: usize = 1 << 20; // 1 MiB
 
-/// 缓存中的已编译规则：原始规则 + 预编译正则（仅 match_type=regex 且编译成功时为 Some）。
+/// 编译后的条件树：叶子带预编译正则（仅 match_type=regex 且编译成功时 Some）。
+#[derive(Debug, Clone)]
+pub enum CompiledNode {
+    All(Vec<CompiledNode>),
+    Any(Vec<CompiledNode>),
+    Leaf {
+        leaf: ConditionLeaf,
+        regex: Option<Arc<Regex>>,
+    },
+}
+
+impl CompiledNode {
+    /// 树内任一叶子是否响应侧（决定规则在出站阶段求值）。
+    fn any_leaf<F: Fn(&ConditionLeaf) -> bool>(&self, f: &F) -> bool {
+        match self {
+            CompiledNode::All(cs) | CompiledNode::Any(cs) => cs.iter().any(|c| c.any_leaf(f)),
+            CompiledNode::Leaf { leaf, .. } => f(leaf),
+        }
+    }
+
+    fn is_response_side(&self) -> bool {
+        self.any_leaf(&|l| l.target.is_response_side())
+    }
+}
+
+/// 缓存中的已编译规则。
 #[derive(Debug, Clone)]
 pub struct CompiledRule {
     pub rule: MiddlewareRule,
-    /// 预编译正则；None 表示非 regex 匹配，或 regex 编译失败（已记日志，跳过匹配）。
-    pub regex: Option<Arc<Regex>>,
+    pub conditions: CompiledNode,
 }
 
 impl CompiledRule {
-    /// 文本是否命中本规则。regex 编译失败的规则（regex=None 且 match_type=Regex）永不命中（fail-open）。
-    pub fn is_match(&self, text: &str) -> bool {
-        match self.rule.match_type {
-            MatchType::Regex => self.regex.as_ref().map(|re| re.is_match(text)).unwrap_or(false),
-            MatchType::Contains => text.contains(&self.rule.pattern),
-            MatchType::Exact => text == self.rule.pattern,
+    /// Applies To 过滤：三维各自空 = 不限；多值 = 任一命中；三维间 AND。
+    fn applies(&self, group_key: Option<&str>, platform_id: Option<i64>, model: &str) -> bool {
+        let at = &self.rule.applies_to;
+        let p_ok = at.platforms.is_empty()
+            || platform_id.is_some_and(|pid| at.platforms.contains(&pid));
+        let g_ok = at.groups.is_empty() || group_key.is_some_and(|gk| at.groups.iter().any(|g| g == gk));
+        let m_ok = at.models.is_empty() || at.models.iter().any(|m| m == model);
+        p_ok && g_ok && m_ok
+    }
+}
+
+/// 条件求值的世界视图：按 target 取叶子文本。request 侧字段仅在入站有值，
+/// response 侧仅在出站 / 错误路径有值（混阶段规则在保存时已被校验拒绝）。
+#[derive(Default)]
+pub(crate) struct EvalView<'a> {
+    /// 请求侧聚合文本（messages+system 或透传原始 body）
+    pub req_text: String,
+    /// 请求 body 原始 JSON（JSON path 定位用；透传分支可为 None）
+    pub req_body_json: Option<Value>,
+    /// 请求 headers（JSON 对象字符串；chat_req 抽象层无 → None，header 叶子恒不命中）
+    pub req_headers: Option<&'a str>,
+    pub model: &'a str,
+    pub resp_body: Option<&'a str>,
+    pub resp_body_json: Option<Value>,
+    pub resp_headers: Option<&'a str>,
+    pub status: Option<u16>,
+}
+
+/// 按点分 JSON path 从 body 取值并字符串化。不存在 → None。
+fn json_path<'v>(root: &'v Value, path: &str) -> Option<&'v Value> {
+    if path.is_empty() {
+        return Some(root);
+    }
+    let mut cur = root;
+    for seg in path.split('.') {
+        cur = match cur {
+            Value::Object(m) => m.get(seg)?,
+            Value::Array(a) => a.get(seg.parse::<usize>().ok()?)?,
+            _ => return None,
+        };
+    }
+    Some(cur)
+}
+
+fn value_to_text(v: &Value) -> String {
+    match v {
+        Value::String(s) => s.clone(),
+        other => other.to_string(),
+    }
+}
+
+/// 从 headers JSON 字符串取 header 值（大小写不敏感；值非字符串则 to_string）。
+fn header_value(headers_json: &str, name: &str) -> Option<String> {
+    let m: Value = serde_json::from_str(headers_json).ok()?;
+    let m = m.as_object()?;
+    for (k, v) in m {
+        if k.eq_ignore_ascii_case(name) {
+            return Some(match v {
+                Value::String(s) => s.clone(),
+                other => other.to_string(),
+            });
+        }
+    }
+    None
+}
+
+impl CompiledNode {
+    /// 叶子文本命中判定（regex 编译失败 fail-open = 不命中）。
+    fn leaf_matches(leaf: &ConditionLeaf, regex: &Option<Arc<Regex>>, view: &EvalView) -> bool {
+        let text: Option<String> = match leaf.target {
+            Target::RequestBody => {
+                if leaf.field.is_empty() {
+                    Some(view.req_text.clone())
+                } else if let Some(json) = &view.req_body_json {
+                    json_path(json, &leaf.field).map(value_to_text)
+                } else {
+                    // 无原始 body JSON（chat_req 抽象层）→ 聚合文本内无法定位 path，退化为整文本
+                    Some(view.req_text.clone())
+                }
+            }
+            Target::RequestHeaders => {
+                view.req_headers.and_then(|h| header_value(h, &leaf.field))
+            }
+            Target::ResponseBody => {
+                if leaf.field.is_empty() {
+                    view.resp_body.map(|s| s.to_string())
+                } else {
+                    view.resp_body_json
+                        .as_ref()
+                        .and_then(|j| json_path(j, &leaf.field))
+                        .map(value_to_text)
+                }
+            }
+            Target::ResponseHeaders => {
+                view.resp_headers.and_then(|h| header_value(h, &leaf.field))
+            }
+            Target::Status => view.status.map(|s| s.to_string()),
+            Target::Model => Some(view.model.to_string()),
+        };
+        let Some(text) = text else { return false };
+        match leaf.match_type {
+            MatchType::Regex => regex.as_ref().map(|re| re.is_match(&text)).unwrap_or(false),
+            MatchType::Contains => text.contains(&leaf.pattern),
+            MatchType::Exact => text == leaf.pattern,
+        }
+    }
+
+    /// 条件树求值。空组：All([]) = true（vacuous），Any([]) = false。
+    pub(crate) fn eval(&self, view: &EvalView) -> bool {
+        match self {
+            CompiledNode::All(cs) => cs.iter().all(|c| c.eval(view)),
+            CompiledNode::Any(cs) => cs.iter().any(|c| c.eval(view)),
+            CompiledNode::Leaf { leaf, regex } => Self::leaf_matches(leaf, regex, view),
         }
     }
 }
 
-/// 分桶 key：按 (rule_type, scope) 分组缓存。
-type BucketKey = (RuleType, RuleScope);
-
-/// 中间件引擎单例。内部 RwLock 保护分桶缓存，读多写少（仅 CRUD 触发 reload）。
+/// 中间件引擎单例。读多写少（仅 CRUD 触发 rebuild），RwLock 保护。
 #[derive(Debug, Default)]
 pub struct MiddlewareEngine {
-    buckets: RwLock<HashMap<BucketKey, Vec<CompiledRule>>>,
+    rules: RwLock<Vec<CompiledRule>>,
 }
 
 impl MiddlewareEngine {
     pub fn new() -> Self {
         Self {
-            buckets: RwLock::new(HashMap::new()),
+            rules: RwLock::new(Vec::new()),
         }
     }
 
-    /// 从规则列表重建分桶缓存（预编译 regex）。纯内存操作，便于单测直接喂规则。
-    /// 只缓存 enabled 规则；disabled 规则不进桶（resolve 时无需再过滤 enabled）。
+    /// 从规则列表重建缓存（预编译 regex）。只收 enabled 且非 failed 规则，priority 升序。
     pub fn rebuild_from_rules(&self, rules: Vec<MiddlewareRule>) {
-        let mut buckets: HashMap<BucketKey, Vec<CompiledRule>> = HashMap::new();
+        let mut compiled = Vec::new();
         for rule in rules {
-            if !rule.enabled {
+            if !rule.enabled || rule.failed {
                 continue;
             }
-            let regex = if rule.match_type == MatchType::Regex {
-                match compile_regex(&rule.pattern) {
-                    Some(re) => Some(Arc::new(re)),
-                    None => {
-                        // ReDoS / 病态模式防护：编译失败 → 记日志 + regex=None（永不命中），不 panic。
-                        tracing::warn!(
-                            rule_id = rule.id,
-                            rule_name = %rule.name,
-                            pattern = %rule.pattern,
-                            "middleware: regex compile failed/over-limit, rule will never match (fail-open)"
-                        );
-                        None
-                    }
-                }
-            } else {
-                None
-            };
-            let key = (rule.rule_type, rule.scope);
-            buckets
-                .entry(key)
-                .or_default()
-                .push(CompiledRule { rule, regex });
+            let conditions = compile_node(&rule.conditions);
+            compiled.push(CompiledRule { rule, conditions });
         }
-        // 桶内已由 db 层按 priority/id 排序；rebuild 保持插入序即可。
-        if let Ok(mut guard) = self.buckets.write() {
-            *guard = buckets;
+        if let Ok(mut guard) = self.rules.write() {
+            *guard = compiled;
         } else {
-            tracing::error!("middleware: buckets RwLock poisoned on rebuild");
+            tracing::error!("middleware: rules RwLock poisoned on rebuild");
         }
     }
 
     /// 从 DB 重新加载全部规则并重建缓存。CRUD 写库后调用。
     pub async fn reload(&self, db: &Db) -> Result<(), String> {
-        let rules = db::list_middleware_rules(db).await?;
+        let rules = aidog_db::list_middleware_rules(db).await?;
         let count = rules.len();
         self.rebuild_from_rules(rules);
         tracing::debug!(rule_count = count, "middleware: cache reloaded");
         Ok(())
     }
 
-    /// 作用域就近覆盖解析（CSS 级联语义）：
-    /// platform 层(scope=platform, scope_ref=platform_id) 该类型有规则 → 用之；
-    /// 否则 group 层(scope=group, scope_ref=group_key) 有规则 → 用之；
-    /// 否则 global 层。同 rule_type 内只生效最细粒度存在的那一层（非累加）。
-    ///
-    /// C2/C3 入站/出站执行层调用。
-    pub fn resolve_rules(
+    fn snapshot(&self) -> Vec<CompiledRule> {
+        match self.rules.read() {
+            Ok(g) => g.clone(),
+            Err(_) => {
+                tracing::error!("middleware: rules RwLock poisoned on snapshot");
+                Vec::new()
+            }
+        }
+    }
+
+    /// 取按 applies_to 过滤后、指定阶段的规则（priority 已升序）。
+    /// phase: false = 请求侧（入站），true = 响应侧（出站/错误路径）。
+    fn phase_rules(
         &self,
-        rule_type: RuleType,
+        phase: bool,
         group_key: Option<&str>,
         platform_id: Option<i64>,
+        model: &str,
     ) -> Vec<CompiledRule> {
-        let guard = match self.buckets.read() {
-            Ok(g) => g,
-            Err(_) => {
-                tracing::error!("middleware: buckets RwLock poisoned on resolve");
-                return Vec::new();
-            }
-        };
-
-        // platform 层（最细）
-        if let Some(pid) = platform_id {
-            let pid_str = pid.to_string();
-            if let Some(bucket) = guard.get(&(rule_type, RuleScope::Platform)) {
-                let matched: Vec<CompiledRule> = bucket
-                    .iter()
-                    .filter(|c| c.rule.scope_ref == pid_str)
-                    .cloned()
-                    .collect();
-                if !matched.is_empty() {
-                    return matched;
-                }
-            }
-        }
-
-        // group 层
-        if let Some(gname) = group_key
-            && let Some(bucket) = guard.get(&(rule_type, RuleScope::Group)) {
-                let matched: Vec<CompiledRule> = bucket
-                    .iter()
-                    .filter(|c| c.rule.scope_ref == gname)
-                    .cloned()
-                    .collect();
-                if !matched.is_empty() {
-                    return matched;
-                }
-            }
-
-        // global 层（兜底）
-        guard
-            .get(&(rule_type, RuleScope::Global))
-            .cloned()
-            .unwrap_or_default()
+        self.snapshot()
+            .into_iter()
+            .filter(|c| c.conditions.is_response_side() == phase)
+            .filter(|c| c.applies(group_key, platform_id, model))
+            .collect()
     }
 
-    /// 仅解析 platform 层规则（不回退 group/global）。供入站「候选选定后」挂载点使用：
-    /// 路由前已用 [`resolve_rules`]（platform_id=None）应用过 group/global 层，
-    /// 此处只补 platform 层，避免就近覆盖语义下 group/global 被重复应用。
-    /// platform 层非空 → 用之并覆盖（CSS 级联：本应只生效 platform 层，group/global 已应用属轻微叠加，
-    /// 但 design 约定 platform 在候选后单独应用，且实战中 platform 与 group/global 规则集通常不重叠）。
-    pub(crate) fn resolve_platform_only(
+    /// 入站侧规则（请求侧条件）。
+    pub(crate) fn request_rules(
         &self,
-        rule_type: RuleType,
-        platform_id: i64,
+        group_key: Option<&str>,
+        platform_id: Option<i64>,
+        model: &str,
     ) -> Vec<CompiledRule> {
-        let guard = match self.buckets.read() {
-            Ok(g) => g,
-            Err(_) => {
-                tracing::error!("middleware: buckets RwLock poisoned on resolve_platform_only");
-                return Vec::new();
-            }
-        };
-        let pid_str = platform_id.to_string();
-        guard
-            .get(&(rule_type, RuleScope::Platform))
-            .map(|bucket| {
-                bucket
-                    .iter()
-                    .filter(|c| c.rule.scope_ref == pid_str)
-                    .cloned()
-                    .collect()
-            })
-            .unwrap_or_default()
+        self.phase_rules(false, group_key, platform_id, model)
+    }
+
+    /// 出站侧规则（响应侧条件）。
+    pub(crate) fn response_rules(
+        &self,
+        group_key: Option<&str>,
+        platform_id: Option<i64>,
+        model: &str,
+    ) -> Vec<CompiledRule> {
+        self.phase_rules(true, group_key, platform_id, model)
     }
 }
 
-// ════════════════════════════════════════════════════════════════════════
-// 共享原语：regex 编译 + 内置密钥/邮箱检测/替换 + redaction config + mask/replace
-// （入站 C2 与出站 C3 共用，集中于此单一来源）
-// ════════════════════════════════════════════════════════════════════════
-
-/// 内置密钥/邮箱检测正则（content_filter 类未配 pattern 时的兜底模式）。
-/// 单一来源：proxy 与单测共用。匹配宽松优先（漏匹配可接受，误伤靠 fields 限定）。
-const BUILTIN_SECRET_PATTERN: &str =
-    r"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|xox[baprs]-[a-zA-Z0-9\-]{10,})";
-const BUILTIN_EMAIL_PATTERN: &str = r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}";
-
-/// redaction/content_filter config 形状：`{ "replacement": "****", "fields": ["messages","system"] }`
-#[derive(Debug, Deserialize)]
-pub(crate) struct RedactionConfig {
-    #[serde(default = "default_replacement")]
-    pub(crate) replacement: String,
-    #[serde(default)]
-    pub(crate) fields: Vec<String>,
-}
-pub(crate) fn default_replacement() -> String {
-    "****".to_string()
+/// 递归编译条件树（预编译叶子 regex；失败 fail-open = None，永不命中）。
+fn compile_node(node: &ConditionNode) -> CompiledNode {
+    match node {
+        ConditionNode::All { children } => CompiledNode::All(children.iter().map(compile_node).collect()),
+        ConditionNode::Any { children } => CompiledNode::Any(children.iter().map(compile_node).collect()),
+        ConditionNode::Leaf(leaf) => CompiledNode::Leaf {
+            leaf: leaf.clone(),
+            regex: if leaf.match_type == MatchType::Regex {
+                compile_regex(&leaf.pattern)
+            } else {
+                None
+            },
+        },
+    }
 }
 
-/// 内置密钥/邮箱检测（缓存编译，编译失败 → false fail-open）。
-pub(crate) fn builtin_detectors_match(text: &str) -> bool {
-    use std::sync::OnceLock;
-    static SECRET: OnceLock<Option<Regex>> = OnceLock::new();
-    static EMAIL: OnceLock<Option<Regex>> = OnceLock::new();
-    let secret = SECRET.get_or_init(|| compile_regex(BUILTIN_SECRET_PATTERN));
-    let email = EMAIL.get_or_init(|| compile_regex(BUILTIN_EMAIL_PATTERN));
-    secret.as_ref().map(|re| re.is_match(text)).unwrap_or(false)
-        || email.as_ref().map(|re| re.is_match(text)).unwrap_or(false)
-}
-
-/// 对单段文本执行替换：内置检测器逐 match 替换；否则按 match_type 替换。
-pub(crate) fn mask_text(
+/// 按 match_type 在文本中替换命中片段为 replacement（regex 支持捕获组 $1；编译失败 fail-open）。
+pub(crate) fn replace_match(
+    match_type: MatchType,
+    regex: &Option<Arc<Regex>>,
+    pattern: &str,
     s: &str,
-    _rule_type: RuleType,
-    cr: &CompiledRule,
-    use_builtin: bool,
     replacement: &str,
 ) -> String {
-    if use_builtin {
-        let masked = builtin_replace_all(s, replacement);
-        return masked;
-    }
-    match cr.rule.match_type {
-        MatchType::Regex => match cr.regex.as_ref() {
-            Some(re) => re.replace_all(s, replacement).into_owned(),
-            None => s.to_string(), // 编译失败 fail-open
-        },
-        MatchType::Contains => {
-            if cr.rule.pattern.is_empty() {
-                s.to_string()
-            } else {
-                s.replace(&cr.rule.pattern, replacement)
-            }
-        }
-        MatchType::Exact => {
-            if s == cr.rule.pattern {
-                replacement.to_string()
-            } else {
-                s.to_string()
-            }
-        }
-    }
-}
-
-/// 内置密钥/邮箱替换（编译失败 → 原样返回）。
-fn builtin_replace_all(s: &str, replacement: &str) -> String {
-    use std::sync::OnceLock;
-    static SECRET: OnceLock<Option<Regex>> = OnceLock::new();
-    static EMAIL: OnceLock<Option<Regex>> = OnceLock::new();
-    let secret = SECRET.get_or_init(|| compile_regex(BUILTIN_SECRET_PATTERN));
-    let email = EMAIL.get_or_init(|| compile_regex(BUILTIN_EMAIL_PATTERN));
-    let mut out = s.to_string();
-    if let Some(re) = secret.as_ref() {
-        out = re.replace_all(&out, replacement).into_owned();
-    }
-    if let Some(re) = email.as_ref() {
-        out = re.replace_all(&out, replacement).into_owned();
-    }
-    out
-}
-
-/// 按 match_type 在文本中替换命中片段为 replacement（regex 编译失败 fail-open 原样）。
-pub(crate) fn replace_match(cr: &CompiledRule, s: &str, replacement: &str) -> String {
-    match cr.rule.match_type {
-        MatchType::Regex => match cr.regex.as_ref() {
+    match match_type {
+        MatchType::Regex => match regex.as_ref() {
             Some(re) => re.replace_all(s, replacement).into_owned(),
             None => s.to_string(),
         },
         MatchType::Contains => {
-            if cr.rule.pattern.is_empty() {
+            if pattern.is_empty() {
                 s.to_string()
             } else {
-                s.replace(&cr.rule.pattern, replacement)
+                s.replace(pattern, replacement)
             }
         }
         MatchType::Exact => {
-            if s == cr.rule.pattern {
+            if s == pattern {
                 replacement.to_string()
             } else {
                 s.to_string()
@@ -322,11 +319,40 @@ pub(crate) fn replace_match(cr: &CompiledRule, s: &str, replacement: &str) -> St
     }
 }
 
+/// 改写动作（mask/override）用的命中模式：条件树内指定 target 的叶子集合。
+pub(crate) struct RewriteLeaf {
+    pub match_type: MatchType,
+    pub regex: Option<Arc<Regex>>,
+    pub pattern: String,
+}
+
 /// 编译正则，附带 size/dfa 上限防护。失败返回 None（调用方记日志 + 跳过）。
-fn compile_regex(pattern: &str) -> Option<Regex> {
+fn compile_regex(pattern: &str) -> Option<Arc<Regex>> {
     regex::RegexBuilder::new(pattern)
         .size_limit(REGEX_SIZE_LIMIT)
         .dfa_size_limit(REGEX_DFA_SIZE_LIMIT)
         .build()
         .ok()
+        .map(Arc::new)
+}
+
+/// 收集条件树内指定 target 的叶子（mask/override 按这些 pattern 替换文本命中片段）。
+pub(crate) fn collect_patterns(node: &CompiledNode, target: Target) -> Vec<RewriteLeaf> {
+    fn walk(node: &CompiledNode, target: Target, out: &mut Vec<RewriteLeaf>) {
+        match node {
+            CompiledNode::All(cs) | CompiledNode::Any(cs) => cs.iter().for_each(|c| walk(c, target, out)),
+            CompiledNode::Leaf { leaf, regex } => {
+                if leaf.target == target {
+                    out.push(RewriteLeaf {
+                        match_type: leaf.match_type,
+                        regex: regex.clone(),
+                        pattern: leaf.pattern.clone(),
+                    });
+                }
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(node, target, &mut out);
+    out
 }

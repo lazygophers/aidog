@@ -7,11 +7,11 @@ Failed Rule 引导手删；启动时按 name upsert seed 内置规则（内容�
 
 **Blocked by:** 01 统一引擎基座
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] CRUD command 在新表上工作，builtin 的 edit/delete 被拒、仅 toggle
-- [ ] seed upsert 测试：内容覆盖、停用态保留
-- [ ] Failed Rule 标记展示 + 删除引导
-- [ ] 列表页组件测试：渲染、启停、builtin toggle-only、导入默认按钮不存在
-- [ ] 子开关只剩总开关，invoke 名注册表零差集自比对无孤儿命令
-- [ ] yarn build / yarn test / cargo test 全绿
+- [x] CRUD command 在新表上工作，builtin 的 edit/delete 被拒、仅 toggle
+- [x] seed upsert 测试：内容覆盖、停用态保留
+- [x] Failed Rule 标记展示 + 删除引导
+- [x] 列表页组件测试：渲染、启停、builtin toggle-only、导入默认按钮不存在
+- [x] 子开关只剩总开关，invoke 名注册表零差集自比对无孤儿命令
+- [x] yarn build / yarn test / cargo test 全绿

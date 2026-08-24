@@ -11,9 +11,9 @@ use aidog_db::test_support::test_db;
 fn create_payload(name: &str) -> CreateMiddlewareRule {
     serde_json::from_value(serde_json::json!({
         "name": name,
-        "rule_type": "sensitive_word",
-        "pattern": "x",
-        "config": "{}"
+        "conditions": { "kind": "leaf", "target": "request_body", "field": "",
+                        "match_type": "contains", "pattern": "x" },
+        "actions": [ { "kind": "warn", "params": {} } ]
     }))
     .expect("deserialize CreateMiddlewareRule")
 }
@@ -32,7 +32,9 @@ async fn rules_crud_and_settings() {
     let upd: UpdateMiddlewareRule = serde_json::from_value(serde_json::json!({
         "id": rule.id,
         "name": "r1-renamed",
-        "rule_type": "sensitive_word"
+        "conditions": { "kind": "leaf", "target": "request_body", "field": "",
+                        "match_type": "contains", "pattern": "x" },
+        "actions": [ { "kind": "block", "params": {} } ]
     }))
     .unwrap();
     db::update_middleware_rule(&db, upd).await.unwrap();
@@ -49,4 +51,14 @@ async fn rules_crud_and_settings() {
         scope: "middleware".to_string(), key: "settings".to_string(),
         value: serde_json::to_value(&s).unwrap(),
     }).await.unwrap();
+}
+
+#[tokio::test]
+async fn builtin_rule_cannot_be_deleted() {
+    let db = test_db().await;
+    // builtin seed 落库（migration）→ 取一条内置规则尝试删除应被拒
+    let rules = db::list_middleware_rules(&db).await.unwrap();
+    let builtin = rules.iter().find(|r| r.is_builtin).expect("builtin rules seeded");
+    let err = db::delete_middleware_rule(&db, builtin.id).await.unwrap_err();
+    assert!(err.contains("cannot be deleted"), "builtin delete refused: {err}");
 }

@@ -117,13 +117,19 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
         CreateMiddlewareRule {
             name: "blockfoo".into(),
             description: "d".into(),
-            rule_type: crate::gateway::models::RuleType::RequestFilter,
-            scope: crate::gateway::models::RuleScope::Global,
-            scope_ref: String::new(),
-            match_type: crate::gateway::models::MatchType::Contains,
-            pattern: "foo".into(),
-            action: crate::gateway::models::RuleAction::Warn,
-            config: "{}".into(),
+            conditions: crate::gateway::models::ConditionNode::Leaf(
+                crate::gateway::models::ConditionLeaf {
+                    target: crate::gateway::models::Target::RequestBody,
+                    field: String::new(),
+                    match_type: crate::gateway::models::MatchType::Contains,
+                    pattern: "foo".into(),
+                },
+            ),
+            actions: vec![crate::gateway::models::ActionStep {
+                kind: crate::gateway::models::ActionKind::Warn,
+                params: Default::default(),
+            }],
+            applies_to: Default::default(),
             priority: 0,
             enabled: true,
             is_builtin: false,

@@ -7,9 +7,9 @@
 
 **Blocked by:** 02 CRUD + seed + 前端列表页（最小可用）
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 四类内置规则 seed，各含条件树 + mask 动作，默认启用
-- [ ] 引擎内硬编码检测器（BUILTIN_SECRET/EMAIL pattern 与 builtin_detectors_match）删除
-- [ ] pattern 命中/不命中样本测试（含排除的高风险样本）
-- [ ] cargo test 全绿
+- [x] 四类内置规则 seed，各含条件树 + mask 动作，默认启用
+- [x] 引擎内硬编码检测器（BUILTIN_SECRET/EMAIL pattern 与 builtin_detectors_match）删除
+- [x] pattern 命中/不命中样本测试（含排除的高风险样本）
+- [x] cargo test 全绿

@@ -228,205 +228,194 @@ pub fn init_tables_raw(
         }
 }
 
-/// 内置预设手机号正则（中国大陆 11 位 + 通用国际 E.164 形式）。
-/// C2 无内置手机检测器，故此规则走显式 regex（content_filter match_type=regex），
-/// 与 C2 的密钥/邮箱内置检测器（content_filter 空 pattern）互补不冲突。
+/// 内置规则正则集（票 03：硬编码检测器迁为内置规则，单一真值于此）。
+pub const BUILTIN_SECRET_PATTERN: &str =
+    r"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|xox[baprs]-[a-zA-Z0-9\-]{10,})";
+pub const BUILTIN_EMAIL_PATTERN: &str = r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}";
 pub const BUILTIN_PHONE_PATTERN: &str =
     r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}|\+\d{6,15}";
+/// DB/Redis 等连接串中的明文凭据（scheme://user:pass@host 形式）。
+pub const BUILTIN_DB_URI_PATTERN: &str = r#"(?i)\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\+srv)?|amqp)://[^\s@/:"']*(?::[^\s/@'"]+)?@"#;
+/// 环境变量/配置文件式明文密钥（password/secret/api_key 等显式 key = value 形式）。
+pub const BUILTIN_KEY_VALUE_PATTERN: &str = r#"(?i)\b(password|passwd|pwd|secret|api_key|apikey|access_token)\s*["']?\s*[=:]\s*["']?[A-Za-z0-9_\-./+=]{8,}"#;
 
-/// 单条内置规则种子定义。INSERT 时按 (name, is_builtin=1) 幂等。
+/// 单条内置规则种子定义（统一引擎模型：conditions/actions 为 ConditionNode/ActionStep JSON）。
 pub struct BuiltinRuleSpec {
     pub(crate) name: &'static str,
     pub(crate) description: &'static str,
-    pub(crate) rule_type: &'static str,
-    pub(crate) match_type: &'static str,
-    /// 空 pattern → content_filter 类复用 C2 内置密钥/邮箱检测器（BUILTIN_SECRET/EMAIL_PATTERN）。
-    pub(crate) pattern: &'static str,
-    pub(crate) action: &'static str,
-    pub(crate) config: &'static str,
+    pub(crate) conditions: &'static str,
+    pub(crate) actions: &'static str,
     pub(crate) priority: i64,
 }
 
-/// 内置预设规则清单（密钥/邮箱/手机脱敏 + 默认 error_rules 分类）。
-/// 密钥/邮箱用 content_filter 空 pattern 复用 C2 内置检测器；手机用显式 regex。
-/// error_rules 覆盖 research category 集，pattern 用 (?i) 不区分大小写匹配上游错误消息。
+/// 内置预设规则清单（票 03：密钥/邮箱/手机/DB-Redis 凭据脱敏 + 日期改写 + 默认错误分类）。
+/// 全部显式 regex 条件（无空 pattern 隐藏兜底，ADR 0003）；error 分类按 response_body 命中。
 pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
     &[
-        // ── 脱敏/内容过滤（content_filter，action=mask，global，就近覆盖语义下作为最底层默认）──
         BuiltinRuleSpec {
             name: "内置·密钥脱敏",
-            description: "脱敏常见 API key（sk-/ghp_/AKIA/AIza/xox 等）。复用引擎内置密钥检测器。",
-            rule_type: "content_filter",
-            match_type: "regex",
-            pattern: "", // 空 → C2 BUILTIN_SECRET_PATTERN 检测器
-            action: "mask",
-            config: r#"{"replacement":"****","fields":["messages","system"]}"#,
+            description: "脱敏常见 AI/API 密钥（sk-/ghp_/AKIA/AIza/xox 等）。",
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|xox[baprs]-[a-zA-Z0-9\-]{10,})"}]}"#,
+            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 10,
         },
         BuiltinRuleSpec {
             name: "内置·邮箱脱敏",
-            description: "脱敏邮箱地址。复用引擎内置邮箱检测器。",
-            rule_type: "content_filter",
-            match_type: "regex",
-            pattern: "", // 空 → C2 BUILTIN_EMAIL_PATTERN 检测器
-            action: "mask",
-            config: r#"{"replacement":"****","fields":["messages","system"]}"#,
+            description: "脱敏邮箱地址。",
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"}]}"#,
+            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 11,
         },
         BuiltinRuleSpec {
             name: "内置·手机号脱敏",
             description: "脱敏手机号（中国大陆 11 位 + E.164 国际形式）。",
-            rule_type: "content_filter",
-            match_type: "regex",
-            pattern: BUILTIN_PHONE_PATTERN,
-            action: "mask",
-            config: r#"{"replacement":"****","fields":["messages","system"]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}|\+\d{6,15}"}]}"#,
+            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 12,
         },
-        // ── 日期格式改写防检测（redaction，action=mask，global）──
-        // Claude Code system prompt 注入斜杠日期 YYYY/MM/DD（中文区惯用格式），
-        // 易被上游针对性检测识别为中文用户 → 封禁风险。改 ISO 横杠 YYYY-MM-DD。
-        // 复用 redaction 引擎 regex capture（$1-$2-$3），不改 forward.rs。
         BuiltinRuleSpec {
-            name: "内置·日期格式改写防检测",
-            description: "将 body 中斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，防中文用户针对性检测。",
-            rule_type: "redaction",
-            match_type: "regex",
-            pattern: r"(\d{4})/(\d{1,2})/(\d{1,2})",
-            action: "mask",
-            config: r#"{"replacement":"$1-$2-$3","fields":["messages","system"]}"#,
+            name: "内置·数据库/Redis 凭据脱敏",
+            description: "脱敏连接串中的明文凭据（mysql/postgres/redis/mongodb 等 scheme://user:pass@host）。",
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\+srv)?|amqp)://[^\s@/:"']+(?::[^\s/'"]+)?@"}]}"#,
+            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 13,
         },
-        // ── 默认 error_rules（error_rule，action=classify，global）──
+        BuiltinRuleSpec {
+            name: "内置·配置式密钥脱敏",
+            description: "脱敏 password/secret/api_key 等显式 key=value 形式的明文密钥。",
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\b(password|passwd|pwd|secret|api_key|apikey|access_token)\s*[=:]\s*["']?[A-Za-z0-9_\-./+=]{8,}"}]}"#,
+            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+            priority: 14,
+        },
+        // ── 日期格式改写防检测（request_body 改写，regex capture $1-$2-$3）──
+        // Claude Code system prompt 注入斜杠日期 YYYY/MM/DD（中文区惯用格式），
+        // 易被上游针对性检测识别为中文用户 → 封禁风险。改 ISO 横杠 YYYY-MM-DD。
+        BuiltinRuleSpec {
+            name: "内置·日期格式改写防检测",
+            description: "将请求文本中斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，防中文用户针对性检测。",
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(\d{4})/(\d{1,2})/(\d{1,2})"}]}"#,
+            actions: r#"[{"kind":"mask","params":{"replacement":"$1-$2-$3","fields":["messages","system"]}}]"#,
+            priority: 15,
+        },
+        // ── 默认错误分类（response_body 条件 + classify 动作，retryable=false）──
         BuiltinRuleSpec {
             name: "内置·上下文超限",
             description: "上游报上下文/prompt 过长 → prompt_limit（不可重试，换候选无益）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(context length|context window|maximum context|prompt is too long|too many tokens|reduce the length|maximum.*tokens)",
-            action: "classify",
-            config: r#"{"category":"prompt_limit","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(context length|context window|maximum context|prompt is too long|too many tokens|reduce the length|maximum.*tokens)"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"prompt_limit","retryable":false}}]"#,
             priority: 20,
         },
         BuiltinRuleSpec {
             name: "内置·内容审查拦截",
             description: "上游内容安全过滤拦截 → content_filter（不可重试）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(content filter|content_filter|content policy|safety|flagged|moderation|responsible_ai_policy)",
-            action: "classify",
-            config: r#"{"category":"content_filter","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(content filter|content_filter|content policy|safety|flagged|moderation|responsible_ai_policy)"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"content_filter","retryable":false}}]"#,
             priority: 21,
         },
         BuiltinRuleSpec {
             name: "内置·PDF/文件超限",
             description: "上游报 PDF/文件页数或大小超限 → pdf_limit（不可重试）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(pdf.*(too many pages|exceed|too large|limit)|too many pages|file.*too large|maximum.*pages)",
-            action: "classify",
-            config: r#"{"category":"pdf_limit","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(pdf.*(too many pages|exceed|too large|limit)|too many pages|file.*too large|maximum.*pages)"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"pdf_limit","retryable":false}}]"#,
             priority: 22,
         },
         BuiltinRuleSpec {
             name: "内置·思考链错误",
             description: "上游报 thinking/reasoning 字段错误 → thinking_error（不可重试）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(thinking|reasoning).*(not (supported|allowed|enabled)|invalid|must be|required|error)",
-            action: "classify",
-            config: r#"{"category":"thinking_error","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(thinking|reasoning).*(not (supported|allowed|enabled)|invalid|must be|required|error)"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"thinking_error","retryable":false}}]"#,
             priority: 23,
         },
         BuiltinRuleSpec {
             name: "内置·参数错误",
             description: "上游报参数非法 → parameter_error（不可重试，换候选同样会失败）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(invalid.*parameter|unsupported parameter|unknown parameter|parameter.*(invalid|not supported)|unexpected.*field)",
-            action: "classify",
-            config: r#"{"category":"parameter_error","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid.*parameter|unsupported parameter|unknown parameter|parameter.*(invalid|not supported)|unexpected.*field)"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"parameter_error","retryable":false}}]"#,
             priority: 24,
         },
         BuiltinRuleSpec {
             name: "内置·非法请求",
             description: "上游报 invalid_request → invalid_request（不可重试）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(invalid_request_error|invalid request|bad request|malformed)",
-            action: "classify",
-            config: r#"{"category":"invalid_request","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid_request_error|invalid request|bad request|malformed)"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"invalid_request","retryable":false}}]"#,
             priority: 25,
         },
         BuiltinRuleSpec {
             name: "内置·缓存超限",
             description: "上游报 prompt cache 写入/数量超限 → cache_limit（不可重试）。",
-            rule_type: "error_rule",
-            match_type: "regex",
-            pattern: r"(?i)(cache.*(limit|exceed|too many)|prompt cache|cache_control.*(limit|exceed|maximum))",
-            action: "classify",
-            config: r#"{"category":"cache_limit","retryable":false}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(cache.*(limit|exceed|too many)|prompt cache|cache_control.*(limit|exceed|maximum))"}]}"#,
+            actions: r#"[{"kind":"classify","params":{"category":"cache_limit","retryable":false}}]"#,
             priority: 26,
         },
     ]
 }
 
-/// 首启 seed 内置预设中间件规则（C4）。幂等：按 (name, is_builtin=1) 判定，
-/// 已存在跳过——不重新插入也不重新启用（尊重用户对内置规则的禁用状态，内置规则可禁不可硬删）。
+/// 首启/升级 seed 内置预设中间件规则。幂等：按 (name, is_builtin=1) 判定；
+/// 已存在 → **强制覆盖内容**（description/conditions/actions/priority），保留 enabled
+/// （用户禁用态不被升级重置）；不存在 → INSERT (enabled=1, is_builtin=1)。
 /// 在 [`Db::init_tables`] migration 末尾、同一 connection 闭包内同步调用。
-///
-/// 薄 wrapper：调 [`seed_builtin_middleware_rules_counted`] 忽略计数，保 migration 20260727-07（原 015）调用点签名不破。
 pub fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
-    let (inserted, _skipped) = seed_builtin_middleware_rules_counted(conn)?;
-    if inserted > 0 {
-        tracing::info!(inserted, "migration 20260727-07 (原 015): seeded builtin middleware rules");
+    let (inserted, updated) = seed_builtin_middleware_rules_counted(conn)?;
+    if inserted + updated > 0 {
+        tracing::info!(inserted, updated, "migration: seeded builtin middleware rules");
     }
     Ok(())
 }
 
-/// 内置规则 seed 核心：返回 (inserted, skipped) 计数。
+/// 内置规则 seed 核心：返回 (inserted, updated) 计数。
 ///
-/// 抽出为独立 pub 入口，供 migration 20260727-07（原 015，经 [`seed_builtin_middleware_rules`] wrapper）
-/// 与 `middleware_import_default_rules` command 共用——禁抄第二份 builtin_rule_specs。
-///
-/// 语义：按 (name, is_builtin=1) 幂等判定，已存在 → skip（不 update enabled，
-/// 尊重用户禁用态）；不存在 → INSERT (enabled=1, is_builtin=1, scope=global)。
+/// 按 (name, is_builtin=1) 幂等判定，已存在 → UPDATE 内容（保留 enabled/failed=0 重置）；
+/// 不存在 → INSERT。升级时内置规格变化（如票 03 新增 DB/Redis 脱敏）靠此路径落地。
 pub fn seed_builtin_middleware_rules_counted(
     conn: &rusqlite::Connection,
 ) -> SqlResult<(u32, u32)> {
+    // 守卫：旧 8 类 schema（无 conditions 列，升级库 early 阶段）→ 跳过，
+    // 由 run_migrations_late 20260824-02 完成表迁移后重新 seed。
+    let has_conditions = conn
+        .prepare("PRAGMA table_info(middleware_rule)")?
+        .query_map([], |r| r.get::<_, String>(1))?
+        .filter_map(Result::ok)
+        .any(|c| c == "conditions");
+    if !has_conditions {
+        return Ok((0, 0));
+    }
     let ts = now();
     let mut inserted = 0u32;
-    let mut skipped = 0u32;
+    let mut updated = 0u32;
     for spec in builtin_rule_specs() {
-        let exists: bool = conn
+        let exists: Option<i64> = conn
             .query_row(
-                "SELECT 1 FROM middleware_rule WHERE name = ?1 AND is_builtin = 1 LIMIT 1",
+                "SELECT id FROM middleware_rule WHERE name = ?1 AND is_builtin = 1 LIMIT 1",
                 params![spec.name],
-                |_| Ok(()),
+                |r| r.get(0),
             )
-            .optional()?
-            .is_some();
-        if exists {
-            skipped += 1;
+            .optional()?;
+        if let Some(id) = exists {
+            conn.execute(
+                "UPDATE middleware_rule SET
+                   description = ?2, conditions = ?3, actions = ?4, priority = ?5,
+                   failed = 0, updated_at = ?6
+                 WHERE id = ?1",
+                params![id, spec.description, spec.conditions, spec.actions, spec.priority, ts],
+            )?;
+            updated += 1;
             continue;
         }
         conn.execute(
             "INSERT INTO middleware_rule
-               (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
-             VALUES (?1, ?2, ?3, 'global', '', ?4, ?5, ?6, ?7, ?8, 1, 1, ?9, ?9)",
+               (name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at)
+             VALUES (?1, ?2, ?3, ?4, '{}', ?5, 1, 1, 0, ?6, ?6)",
             params![
                 spec.name,
                 spec.description,
-                spec.rule_type,
-                spec.match_type,
-                spec.pattern,
-                spec.action,
-                spec.config,
+                spec.conditions,
+                spec.actions,
                 spec.priority,
                 ts,
             ],
         )?;
         inserted += 1;
     }
-    Ok((inserted, skipped))
+    Ok((inserted, updated))
 }
+

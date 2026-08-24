@@ -1,9 +1,10 @@
-//! 中间件规则引擎模型（C1 基座）。
+//! 中间件规则引擎模型（统一引擎，ADR 0003）。
 //!
-//! 8 类请求/响应中间件规则的公共数据模型。表 `middleware_rule` 单表存储，
-//! 枚举全部 snake_case serde，与 src/services/api.ts 字面量联合类型一一对齐
-//! （契约见 .trellis/tasks/06-13-request-response-middleware/design.md）。
-//! 实际执行（入站/出站 apply）由 C2/C3 在 proxy.rs 落地；本文件只定义模型。
+//! 一条规则 = Condition Tree（嵌套 ALL/ANY，叶子 target+field+match_type+pattern）
+//! 加 Action Chain（有序动作，block/classify 终止一切）加 Applies To 过滤器。
+//! Applies To 三维 platforms/groups/models 各自空 = 不限；规则按 priority 累加执行。
+//! 旧 8 类 RuleType、三级就近覆盖 scope、空 pattern 兜底全部废弃；旧模型残留行
+//! 由 migration 翻译或标记 failed（Failed Rule，前端引导手删）。
 
 use super::default_true;
 use serde::{Deserialize, Serialize};
@@ -13,89 +14,52 @@ use ts_rs::TS;
 #[path = "test_middleware.rs"]
 mod test_middleware;
 
-/// 规则类型（8 类中间件能力）。
+/// 条件匹配目标。请求侧/响应侧 target 决定规则求值阶段（同规则内叶子必须同阶段）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
-pub enum RuleType {
-    /// 请求字段过滤（model 白/黑名单等）
-    RequestFilter,
-    /// 敏感词拦截（pattern 即词）
-    SensitiveWord,
-    /// 脱敏（字段值替换）
-    Redaction,
-    /// 内容过滤
-    ContentFilter,
-    /// 动态注入（system/header/body）
-    DynamicInjection,
-    /// 响应覆写（成功体改写）
-    ResponseOverride,
-    /// 矫正器（SSE/JSON/编码/字段缺省修复）
-    Rectifier,
-    /// 错误分类规则（重试/熔断/覆写状态码）
-    ErrorRule,
+pub enum Target {
+    /// 请求 body（field 为空 = 聚合全文；否则 JSON path 定位字段）
+    RequestBody,
+    /// 请求 header（field = header 名）
+    RequestHeaders,
+    /// 上游响应 body（field 语义同 request_body）
+    ResponseBody,
+    /// 上游响应 header
+    ResponseHeaders,
+    /// 上游状态码（字符串匹配，如 regex ^5）
+    Status,
+    /// 请求 model 字段
+    Model,
 }
 
-impl RuleType {
-    /// DB TEXT 列值（与 serde snake_case 一致）。
+impl Target {
     pub fn as_str(&self) -> &'static str {
         match self {
-            RuleType::RequestFilter => "request_filter",
-            RuleType::SensitiveWord => "sensitive_word",
-            RuleType::Redaction => "redaction",
-            RuleType::ContentFilter => "content_filter",
-            RuleType::DynamicInjection => "dynamic_injection",
-            RuleType::ResponseOverride => "response_override",
-            RuleType::Rectifier => "rectifier",
-            RuleType::ErrorRule => "error_rule",
+            Target::RequestBody => "request_body",
+            Target::RequestHeaders => "request_headers",
+            Target::ResponseBody => "response_body",
+            Target::ResponseHeaders => "response_headers",
+            Target::Status => "status",
+            Target::Model => "model",
         }
     }
 
-    /// 从 DB TEXT 值解析；未知值返回 None（fail-open：调用方跳过该行）。
     pub fn from_db_str(s: &str) -> Option<Self> {
-        match s {
-            "request_filter" => Some(RuleType::RequestFilter),
-            "sensitive_word" => Some(RuleType::SensitiveWord),
-            "redaction" => Some(RuleType::Redaction),
-            "content_filter" => Some(RuleType::ContentFilter),
-            "dynamic_injection" => Some(RuleType::DynamicInjection),
-            "response_override" => Some(RuleType::ResponseOverride),
-            "rectifier" => Some(RuleType::Rectifier),
-            "error_rule" => Some(RuleType::ErrorRule),
-            _ => None,
-        }
-    }
-}
-
-/// 规则作用域（三级，就近覆盖语义）。
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
-#[serde(rename_all = "snake_case")]
-pub enum RuleScope {
-    /// 全局：所有请求
-    Global,
-    /// 分组：scope_ref = group_key
-    Group,
-    /// 平台：scope_ref = platform_id(字符串)
-    Platform,
-}
-
-impl RuleScope {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            RuleScope::Global => "global",
-            RuleScope::Group => "group",
-            RuleScope::Platform => "platform",
-        }
+        Some(match s {
+            "request_body" => Target::RequestBody,
+            "request_headers" => Target::RequestHeaders,
+            "response_body" => Target::ResponseBody,
+            "response_headers" => Target::ResponseHeaders,
+            "status" => Target::Status,
+            "model" => Target::Model,
+            _ => return None,
+        })
     }
 
-    pub fn from_db_str(s: &str) -> Self {
-        match s {
-            "group" => RuleScope::Group,
-            "platform" => RuleScope::Platform,
-            // 未知/空 → global（最安全的兜底层）
-            _ => RuleScope::Global,
-        }
+    /// 是否响应侧（出站阶段求值）。
+    pub fn is_response_side(&self) -> bool {
+        matches!(self, Target::ResponseBody | Target::ResponseHeaders | Target::Status)
     }
 }
 
@@ -125,60 +89,149 @@ impl MatchType {
         match s {
             "regex" => MatchType::Regex,
             "exact" => MatchType::Exact,
-            // 默认 contains（与表 DEFAULT 一致）
             _ => MatchType::Contains,
         }
     }
 }
 
-/// 命中动作。
+/// 条件树叶子。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ConditionLeaf {
+    pub target: Target,
+    /// 空 = 目标整体文本；request_body/response_body 支持 JSON path（如 messages.0.content）
+    #[serde(default)]
+    pub field: String,
+    pub match_type: MatchType,
+    pub pattern: String,
+}
+
+/// 条件树节点：嵌套 ALL/ANY 组或叶子。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum ConditionNode {
+    All { children: Vec<ConditionNode> },
+    Any { children: Vec<ConditionNode> },
+    Leaf(ConditionLeaf),
+}
+
+/// 动作种类。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(rename_all = "snake_case")]
-pub enum RuleAction {
-    /// 脱敏遮罩
+pub enum ActionKind {
+    /// 脱敏遮罩（params.replacement / params.fields）
     Mask,
-    /// 拦截（立即返回 4xx）
+    /// 拦截（终止性；请求侧 4xx，流式首块前断流）
     Block,
-    /// 仅告警
+    /// 仅告警记日志
     Warn,
-    /// 注入
+    /// 注入（params.inject_mode/system_append|body_set、target、value）
     Inject,
-    /// 覆写
+    /// 改写命中片段为 replacement
     Override,
-    /// 分类（error_rule）
+    /// 错误分类（终止性；category/retryable/override_status/override_body 喂重试编排）
     Classify,
 }
 
-impl RuleAction {
+impl ActionKind {
     pub fn as_str(&self) -> &'static str {
         match self {
-            RuleAction::Mask => "mask",
-            RuleAction::Block => "block",
-            RuleAction::Warn => "warn",
-            RuleAction::Inject => "inject",
-            RuleAction::Override => "override",
-            RuleAction::Classify => "classify",
+            ActionKind::Mask => "mask",
+            ActionKind::Block => "block",
+            ActionKind::Warn => "warn",
+            ActionKind::Inject => "inject",
+            ActionKind::Override => "override",
+            ActionKind::Classify => "classify",
         }
     }
 
-    pub fn from_db_str(s: &str) -> Self {
-        match s {
-            "mask" => RuleAction::Mask,
-            "block" => RuleAction::Block,
-            "inject" => RuleAction::Inject,
-            "override" => RuleAction::Override,
-            "classify" => RuleAction::Classify,
-            // 默认 warn（与表 DEFAULT 一致，最弱副作用）
-            _ => RuleAction::Warn,
+    /// 终止性动作：停止本链及后续规则。
+    pub fn is_terminal(&self) -> bool {
+        matches!(self, ActionKind::Block | ActionKind::Classify)
+    }
+}
+
+/// 动作参数（一个平铺结构按需取用，各 kind 只读自己关心的字段；默认值安全）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ActionParams {
+    /// mask/override 的替换文本
+    #[serde(default = "default_replacement")]
+    pub replacement: String,
+    /// mask 的字段限定（request_body：messages/system；空 = 全部）
+    #[serde(default)]
+    pub fields: Vec<String>,
+    /// inject：system_append | body_set
+    #[serde(default)]
+    pub inject_mode: String,
+    /// inject：body_set 的 JSON key / header_set 的 header 名
+    #[serde(default)]
+    pub target: String,
+    /// inject 的注入值
+    #[serde(default)]
+    pub value: String,
+    /// classify：分类类别（人读/审计）
+    #[serde(default)]
+    pub category: String,
+    /// classify：false = 立即返回不换候选；缺省 true（可重试）
+    #[serde(default = "default_true")]
+    pub retryable: bool,
+    /// classify：覆写回客户端状态码
+    #[serde(default)]
+    pub override_status: Option<u16>,
+    /// classify：覆写回客户端响应体
+    #[serde(default)]
+    pub override_body: Option<String>,
+}
+
+impl Default for ActionParams {
+    fn default() -> Self {
+        Self {
+            replacement: default_replacement(),
+            fields: Vec::new(),
+            inject_mode: String::new(),
+            target: String::new(),
+            value: String::new(),
+            category: String::new(),
+            retryable: true,
+            override_status: None,
+            override_body: None,
         }
     }
+}
+
+fn default_replacement() -> String {
+    "****".to_string()
+}
+
+/// 动作链一步。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ActionStep {
+    pub kind: ActionKind,
+    #[serde(default)]
+    pub params: ActionParams,
+}
+
+/// 规则应用范围过滤器：三维各自空 = 不限；多值 = 命中任一；三维间 AND。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct AppliesTo {
+    #[serde(default)]
+    #[ts(type = "number[]")]
+    pub platforms: Vec<i64>,
+    #[serde(default)]
+    pub groups: Vec<String>,
+    #[serde(default)]
+    pub models: Vec<String>,
 }
 
 /// 单条中间件规则（对应 `middleware_rule` 表一行）。
 ///
-/// `config` 是 type-specific JSON 字符串（设计文档列出每类形状），
-/// 引擎层不强解析，由各执行器（C2/C3）按需 `serde_json::from_str`。
+/// `conditions` / `actions` / `applies_to` 在模型层是强类型结构（DB TEXT JSON 列）。
+/// `failed = true` 表示旧模型残留无法翻译（Failed Rule，前端引导手删，引擎不执行）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct MiddlewareRule {
@@ -187,21 +240,11 @@ pub struct MiddlewareRule {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    pub rule_type: RuleType,
-    #[serde(default = "default_rule_scope")]
-    pub scope: RuleScope,
-    /// group_key | platform_id(字符串) | ''(global)
+    pub conditions: ConditionNode,
     #[serde(default)]
-    pub scope_ref: String,
-    #[serde(default = "default_match_type")]
-    pub match_type: MatchType,
+    pub actions: Vec<ActionStep>,
     #[serde(default)]
-    pub pattern: String,
-    #[serde(default = "default_rule_action")]
-    pub action: RuleAction,
-    /// type-specific JSON（默认 "{}"）
-    #[serde(default = "default_config_json")]
-    pub config: String,
+    pub applies_to: AppliesTo,
     #[serde(default)]
     #[ts(type = "number")]
     pub priority: i64,
@@ -209,6 +252,9 @@ pub struct MiddlewareRule {
     pub enabled: bool,
     #[serde(default)]
     pub is_builtin: bool,
+    /// 旧模型残留无法翻译 → 前端展示失败态引导手删；引擎跳过。
+    #[serde(default)]
+    pub failed: bool,
     #[serde(default)]
     #[ts(type = "number")]
     pub created_at: i64,
@@ -217,11 +263,6 @@ pub struct MiddlewareRule {
     pub updated_at: i64,
 }
 
-fn default_rule_scope() -> RuleScope { RuleScope::Global }
-fn default_match_type() -> MatchType { MatchType::Contains }
-fn default_rule_action() -> RuleAction { RuleAction::Warn }
-fn default_config_json() -> String { "{}".to_string() }
-
 /// 创建规则入参（前端不传 id/时间戳）。
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
@@ -229,19 +270,11 @@ pub struct CreateMiddlewareRule {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    pub rule_type: RuleType,
-    #[serde(default = "default_rule_scope")]
-    pub scope: RuleScope,
+    pub conditions: ConditionNode,
     #[serde(default)]
-    pub scope_ref: String,
-    #[serde(default = "default_match_type")]
-    pub match_type: MatchType,
+    pub actions: Vec<ActionStep>,
     #[serde(default)]
-    pub pattern: String,
-    #[serde(default = "default_rule_action")]
-    pub action: RuleAction,
-    #[serde(default = "default_config_json")]
-    pub config: String,
+    pub applies_to: AppliesTo,
     #[serde(default)]
     #[ts(type = "number")]
     pub priority: i64,
@@ -251,7 +284,7 @@ pub struct CreateMiddlewareRule {
     pub is_builtin: bool,
 }
 
-/// 更新规则入参（全量覆盖，id 必填）。
+/// 更新规则入参（全量覆盖，id 必填；Failed Rule 允许删除不允许编辑）。
 #[derive(Debug, Clone, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct UpdateMiddlewareRule {
@@ -260,62 +293,59 @@ pub struct UpdateMiddlewareRule {
     pub name: String,
     #[serde(default)]
     pub description: String,
-    pub rule_type: RuleType,
-    #[serde(default = "default_rule_scope")]
-    pub scope: RuleScope,
+    pub conditions: ConditionNode,
     #[serde(default)]
-    pub scope_ref: String,
-    #[serde(default = "default_match_type")]
-    pub match_type: MatchType,
+    pub actions: Vec<ActionStep>,
     #[serde(default)]
-    pub pattern: String,
-    #[serde(default = "default_rule_action")]
-    pub action: RuleAction,
-    #[serde(default = "default_config_json")]
-    pub config: String,
+    pub applies_to: AppliesTo,
     #[serde(default)]
     #[ts(type = "number")]
     pub priority: i64,
     #[serde(default = "default_true")]
     pub enabled: bool,
-    #[serde(default)]
-    pub is_builtin: bool,
+}
+
+/// 规则校验：条件树内所有叶子必须同阶段（请求侧/响应侧），混阶段拒绝。
+/// 返回 Err 描述冲突，Ok(()) 通过。
+pub fn validate_rule_phases(node: &ConditionNode) -> Result<(), String> {
+    fn walk(node: &ConditionNode, phase: &mut Option<bool>) -> Result<(), String> {
+        match node {
+            ConditionNode::All { children } | ConditionNode::Any { children } => {
+                for c in children {
+                    walk(c, phase)?;
+                }
+                Ok(())
+            }
+            ConditionNode::Leaf(leaf) => {
+                let p = leaf.target.is_response_side();
+                if let Some(prev) = *phase
+                    && prev != p
+                {
+                    return Err(format!(
+                        "mixed-phase conditions not allowed: leaf target '{}' on opposite side",
+                        leaf.target.as_str()
+                    ));
+                }
+                *phase = Some(p);
+                Ok(())
+            }
+        }
+    }
+    let mut phase = None;
+    walk(node, &mut phase)
 }
 
 /// 中间件总设置（settings KV：scope="middleware" key="settings"）。
-///
-/// `enabled` 为总开关（OFF = 全旁路）；`type_toggles` 按 rule_type 子开关
-/// （缺省视为 true，即默认所有类型启用）。
-/// 注：熔断器已移出中间件层，归 group 功能块独立 task 实现，本结构不含 breaker。
+/// 统一引擎后仅剩总开关；旧 8 类 type_toggles 子开关已废（票 02）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct MiddlewareSettings {
     #[serde(default = "default_true")]
     pub enabled: bool,
-    /// key = rule_type snake_case 字面量；缺省键视为 true。
-    #[serde(default)]
-    pub type_toggles: std::collections::HashMap<String, bool>,
 }
 
 impl Default for MiddlewareSettings {
     fn default() -> Self {
-        Self {
-            enabled: true,
-            type_toggles: std::collections::HashMap::new(),
-        }
-    }
-}
-
-impl MiddlewareSettings {
-    /// 指定 rule_type 是否启用：总开关关 → 全 false；否则查 type_toggles，缺省 true。
-    /// C2/C3 执行层判定调用。
-    pub fn type_enabled(&self, rule_type: RuleType) -> bool {
-        if !self.enabled {
-            return false;
-        }
-        self.type_toggles
-            .get(rule_type.as_str())
-            .copied()
-            .unwrap_or(true)
+        Self { enabled: true }
     }
 }
