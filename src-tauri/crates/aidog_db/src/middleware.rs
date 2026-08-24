@@ -13,10 +13,11 @@ fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
     let conditions_json: String = row.get(3)?;
     let actions_json: String = row.get(4)?;
     let applies_json: String = row.get(5)?;
-    let conditions = serde_json::from_str(&conditions_json)
+    let (conditions, json_failed) = serde_json::from_str(&conditions_json)
+        .map(|c| (c, false))
         .unwrap_or_else(|e| {
             tracing::warn!("middleware rule {} bad conditions JSON: {e}", row.get::<_, i64>(0).unwrap_or(0));
-            default_failed_conditions()
+            (default_failed_conditions(), true)
         });
     Ok(MiddlewareRule {
         id: row.get(0)?,
@@ -28,7 +29,7 @@ fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
         priority: row.get(6)?,
         enabled: row.get::<_, i64>(7)? == 1,
         is_builtin: row.get::<_, i64>(8)? == 1,
-        failed: row.get::<_, i64>(9)? == 1,
+        failed: row.get::<_, i64>(9)? == 1 || json_failed,
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
     })
@@ -119,6 +120,34 @@ pub fn update_middleware_rule(
     let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
     db
         .call_traced(None, __db_caller, move |conn| {
+            // 内置规则只允许启停（票 02）：整体改写会破坏 seed 强制覆盖语义。
+            let (is_builtin, old_name, old_desc, old_priority): (i64, String, String, i64) = conn.query_row(
+                "SELECT is_builtin, name, description, priority FROM middleware_rule WHERE id = ?1",
+                params![input.id],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )?;
+            if is_builtin == 1 {
+                if old_name != input.name || old_desc != input.description || old_priority != input.priority {
+                    return Err(tokio_rusqlite::Error::Other(
+                        "builtin middleware rule only supports enable/disable (content managed by seed)".into(),
+                    ));
+                }
+                let affected = conn.execute(
+                    "UPDATE middleware_rule SET enabled = ?2, updated_at = ?3 WHERE id = ?1",
+                    params![input.id, if input.enabled { 1 } else { 0 }, ts],
+                )?;
+                if affected == 0 {
+                    return Err(tokio_rusqlite::Error::Other(
+                        format!("middleware rule {} not found", input.id).into(),
+                    ));
+                }
+                let mut stmt = conn.prepare(&format!(
+                    "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule WHERE id = ?1"
+                ))?;
+                return stmt
+                    .query_row(params![input.id], row_to_middleware_rule)
+                    .map_err(tokio_rusqlite::Error::from);
+            }
             let affected = conn.execute(
                 "UPDATE middleware_rule SET
                    name = ?2, description = ?3, conditions = ?4, actions = ?5, applies_to = ?6,

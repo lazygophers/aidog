@@ -233,7 +233,7 @@ pub const BUILTIN_SECRET_PATTERN: &str =
     r"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|xox[baprs]-[a-zA-Z0-9\-]{10,})";
 pub const BUILTIN_EMAIL_PATTERN: &str = r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}";
 pub const BUILTIN_PHONE_PATTERN: &str =
-    r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}|\+\d{6,15}";
+    r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}";
 /// DB/Redis 等连接串中的明文凭据（scheme://user:pass@host 形式）。
 pub const BUILTIN_DB_URI_PATTERN: &str = r#"(?i)\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\+srv)?|amqp)://[^\s@/:"']*(?::[^\s/@'"]+)?@"#;
 /// 环境变量/配置文件式明文密钥（password/secret/api_key 等显式 key = value 形式）。

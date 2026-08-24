@@ -124,14 +124,6 @@ function appliesSummary(at: AppliesTo): string {
 
 // ── 规则编辑表单（JSON 级：conditions/actions/applies_to 三块 JSON + 基础字段）──
 
-interface RuleFormProps {
-  rule?: MiddlewareRule;
-  /** 新建时预置的 applies_to（group / platform 内嵌面板） */
-  presetApplies?: AppliesTo;
-  onSave: (draft: CreateMiddlewareRule) => Promise<void>;
-  onCancel: () => void;
-}
-
 // ── 条件树编辑器（递归组卡片，票 04）──
 
 interface NodeEditorProps {
@@ -467,9 +459,7 @@ export function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProp
   const [priority, setPriority] = useState(rule?.priority ?? 0);
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const [conditions, setConditions] = useState<ConditionNode>(
-    rule?.conditions ?? presetApplies
-      ? rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }
-      : { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" },
+    rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" },
   );
   const [actions, setActions] = useState<ActionStep[]>(
     rule?.actions?.length ? rule.actions : [{ kind: "mask", params: { ...defaultParams(), replacement: "****" } }],

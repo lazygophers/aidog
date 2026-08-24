@@ -317,6 +317,13 @@ pub fn validate_rule_phases(node: &ConditionNode) -> Result<(), String> {
                 Ok(())
             }
             ConditionNode::Leaf(leaf) => {
+                if leaf.pattern.is_empty() {
+                    // 空 pattern：contains/exact 会恒命中（隐藏兜底复活），regex 恒不命中——一律拒绝。
+                    return Err(format!(
+                        "empty pattern not allowed on leaf target '{}'",
+                        leaf.target.as_str()
+                    ));
+                }
                 let p = leaf.target.is_response_side();
                 if let Some(prev) = *phase
                     && prev != p

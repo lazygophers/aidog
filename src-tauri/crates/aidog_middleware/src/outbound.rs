@@ -150,7 +150,13 @@ impl MiddlewareEngine {
                             );
                         }
                     }
-                    _ => {}
+                    // warn/inject/classify 流式不适用：仅记日志（spec：disabled with a log line）。
+                    other => {
+                        tracing::debug!(
+                            rule_id = cr.rule.id, action = %other.as_str(),
+                            "middleware stream chunk: action not applicable, skipped"
+                        );
+                    }
                 }
             }
         }
