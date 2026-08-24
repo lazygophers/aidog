@@ -251,6 +251,7 @@ pub(crate) async fn forward_attempt(
             "manual budget exhausted, blocking request (402)"
         );
         log.status_code = 402;
+        log.done = true;
         log.platform_id = route.platform.id;
         log.response_body = body.clone();
         log.user_response_body = body.clone();
@@ -522,6 +523,7 @@ pub(crate) async fn forward_attempt(
             // 候选耗尽：返回 502 + 已记录的 attempts（此时尚未向客户端发任何字节，安全）。
             log.platform_id = route.platform.id;
             log.status_code = 502;
+            log.done = true;
             log.upstream_status_code = status.as_u16() as i32;
             let err_body = format!("{}: 200 but empty/invalid response", i18n::t(lang, ErrorKey::Upstream));
             // 取证：把上游真实首块原文截断（≤4KB + truncated 标记）落 response_body，替代占位文案；
@@ -687,6 +689,7 @@ pub(crate) async fn finalize_proxy_502(
     log.platform_id = platform_id;
     log.response_body = response_body;
     log.status_code = 502;
+    log.done = true;
     log.user_response_body = user_response_body.clone();
     log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;

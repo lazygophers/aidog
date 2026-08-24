@@ -134,13 +134,19 @@ use rusqlite::params;
         assert_eq!(row.model, "claude-sonnet-4");
     }
 
-    /// strip 时流式占位 `"[stream]"` 是控制标记，须保留（终态判定依赖），不被清空。
+    /// 票 06：占位哨兵已废，strip 对 body 一视同仁清空；终态判定由 done 列承担，
+    /// 中间态 body 不再承载控制语义。
     #[tokio::test]
-    async fn strip_preserves_stream_placeholder() {
+    async fn strip_clears_stream_body_and_keeps_done_flag() {
         let mut log = sample_log("strip-stream", "grp", now());
-        log.response_body = "[stream]".into();
+        log.response_body = "sse bytes...".into();
+        log.done = false;
         let cols = ProxyLogColumns::from_log(&log, true, true);
-        assert_eq!(cols.response_body, "[stream]");
+        assert!(cols.response_body.is_empty(), "strip 后 body 应清空，无占位例外");
+        assert_eq!(cols.done, 0, "中间态 done=0 原样入库");
+        log.done = true;
+        let cols = ProxyLogColumns::from_log(&log, true, true);
+        assert_eq!(cols.done, 1, "终态 done=1 不受 strip 影响");
     }
 
 

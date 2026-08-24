@@ -143,6 +143,7 @@ pub(crate) async fn handle_proxy_core(
         blocked_reason: String::new(),
         created_at,
         updated_at: created_at,
+        done: false,
         deleted_at: 0,
         cli_proxy_provider_id: None,
     };
@@ -203,6 +204,7 @@ pub(crate) async fn handle_proxy_core(
         Err(e) => {
             log.response_body = format!("read body error: {e}");
             log.status_code = 400;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody))).into_response();
@@ -264,6 +266,7 @@ pub(crate) async fn handle_proxy_core(
                 if let Some(ref token) = auth_header {
                     log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
                     log.status_code = 404;
+                    log.done = true;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(&state, &log, &log_settings).await;
                     let mut r = (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
@@ -272,6 +275,7 @@ pub(crate) async fn handle_proxy_core(
                 } else {
                     log.response_body = "no matching group".to_string();
                     log.status_code = 404;
+                    log.done = true;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(&state, &log, &log_settings).await;
                     let mut r = (StatusCode::NOT_FOUND, i18n::t(lang, ErrorKey::NoMatchingGroup)).into_response();
@@ -319,6 +323,7 @@ pub(crate) async fn handle_proxy_core(
         None => {
             log.response_body = "parse request json error: invalid JSON".to_string();
             log.status_code = 400;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (StatusCode::BAD_REQUEST, format!("{}: {}", i18n::t(lang, ErrorKey::ParseJson), "invalid JSON")).into_response();
@@ -331,6 +336,7 @@ pub(crate) async fn handle_proxy_core(
         Err(e) => {
             log.response_body = format!("failed to parse request for protocol ({}): {e}", log.source_protocol);
             log.status_code = 400;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (StatusCode::BAD_REQUEST, i18n::t(lang, ErrorKey::ParseRequest)).into_response();
@@ -386,6 +392,7 @@ pub(crate) async fn handle_proxy_core(
                 log.blocked_by = "router".to_string();
                 log.blocked_reason = "peak_hours".to_string();
                 log.status_code = 503;
+                log.done = true;
                 log.response_body = format!("route error: {e}");
                 log.duration_ms = start.elapsed().as_millis() as i32;
                 upsert_log(&state, &log, &log_settings).await;
@@ -395,6 +402,7 @@ pub(crate) async fn handle_proxy_core(
             }
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
             let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
@@ -521,6 +529,7 @@ pub(crate) async fn handle_proxy_core(
     // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
     // 仅 attempt_idx > max_retries 的 break 会落到这里）。返回 503 + 已记录的 attempts。
     log.status_code = 503;
+    log.done = true;
     let err_body = format!("{}: all candidates exhausted", i18n::t(lang, ErrorKey::Upstream));
     log.response_body = "all candidates exhausted".to_string();
     log.user_response_body = err_body.clone();

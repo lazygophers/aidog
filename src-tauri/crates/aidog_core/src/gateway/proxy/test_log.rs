@@ -15,13 +15,13 @@ use super::*;
             request_body: String::new(),
             upstream_request_headers: String::new(),
             upstream_request_body: String::new(),
-            response_body: "[stream]".to_string(),
+            response_body: String::new(),
             request_url: String::new(),
             upstream_request_url: String::new(),
             upstream_response_headers: String::new(),
             upstream_status_code: 200,
             user_response_headers: String::new(),
-            user_response_body: "[stream]".to_string(),
+            user_response_body: String::new(),
             status_code: 200,
             duration_ms: 0,
             input_tokens: 0,
@@ -37,6 +37,7 @@ use super::*;
             updated_at: ts,
             deleted_at: 0,
             cli_proxy_provider_id: None,
+            done: false,
         }
     }
 
@@ -72,6 +73,7 @@ use super::*;
     fn terminal_log(id: &str) -> ProxyLog {
         let mut l = placeholder_stream_log(id);
         l.is_stream = false;
+        l.done = true; // 票 06：终态判定改显式 done 列
         l.response_body = "ok".to_string();
         l.user_response_body = "ok".to_string();
         l.input_tokens = 100;

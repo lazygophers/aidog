@@ -399,11 +399,11 @@ impl StreamLogGuard {
         final_log.output_tokens = output_tokens;
         final_log.cache_tokens = cache_tokens;
         final_log.status_code = status_code;
+        final_log.done = true;
         final_log.duration_ms = self.start.elapsed().as_millis() as i32;
         // 聚合真实 SSE 内容写入 body（受 record 开关控制；upsert_log 仍按 settings 二次过滤）。
-        // 无论是否记录正文，都把 response_body 从 "[stream]" 占位改写为真实内容 / 空串，
-        // 使 upsert_log 的终态判定（response_body != "[stream]"）识别本次为流式终态 —— 否则
-        // 关日志正文时占位 "[stream]" 会残留，导致聚合统计漏计流式请求。
+        // 票 06：终态判定由 done=true 承担（上方已置位），body 只承载真实内容 / 空串，
+        // 关日志正文时不再有哨兵残留问题。
         if self.record_upstream_body {
             if let Ok(chunks) = self.agg.upstream_body.lock() {
                 final_log.response_body = join_stream_body(&chunks);

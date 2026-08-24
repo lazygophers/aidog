@@ -58,6 +58,7 @@ pub(crate) async fn finish_nonstream(
 
         log.response_body = upstream_body_str;
         log.status_code = 200;
+        log.done = true;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
@@ -379,8 +380,6 @@ where
     all_stream_headers.extend(stream_filtered.iter().cloned());
 
     log.status_code = 200;
-    log.response_body = "[stream]".to_string();
-    log.user_response_body = "[stream]".to_string();
     log.user_response_headers = resp_headers_to_log_json(&all_stream_headers);
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(state, log, log_settings).await;
