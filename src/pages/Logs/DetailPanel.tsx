@@ -90,14 +90,14 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
     ? safeParseJson(detail.upstream_request_body)
     : null;
   const upstreamRespHeaders = safeParseJson(detail.upstream_response_headers || "{}");
-  // 流式日志现已聚合真实 SSE 内容；仅当仍为 "[stream]" 占位（日志开关关闭 / 内容未捕获）才显示提示。
-  const upstreamRespBody = detail.response_body === "[stream]" || !detail.response_body
+  // 票 06：哨兵已废；空串 = 流式中 / 日志开关关闭 / 内容未捕获。
+  const upstreamRespBody = !detail.response_body
     ? t("logs.streamResponse", "(流式响应，内容未记录)")
     : safeParseJson(detail.response_body);
   const userRespHeaders = safeParseJson(detail.user_response_headers || "{}");
-  const userRespBody = detail.user_response_body && detail.user_response_body !== "[stream]"
+  const userRespBody = detail.user_response_body
     ? safeParseJson(detail.user_response_body)
-    : detail.response_body && detail.response_body !== "[stream]"
+    : detail.response_body
       ? safeParseJson(detail.response_body)
       : t("logs.streamResponse", "(流式响应，内容未记录)");
 

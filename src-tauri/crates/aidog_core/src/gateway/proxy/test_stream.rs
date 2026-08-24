@@ -223,13 +223,13 @@ use super::*;
             request_body: String::new(),
             upstream_request_headers: String::new(),
             upstream_request_body: String::new(),
-            response_body: "[stream]".to_string(),
+            response_body: String::new(),
             request_url: String::new(),
             upstream_request_url: String::new(),
             upstream_response_headers: String::new(),
             upstream_status_code: 200,
             user_response_headers: String::new(),
-            user_response_body: "[stream]".to_string(),
+            user_response_body: String::new(),
             status_code: 200,
             duration_ms: 0,
             input_tokens: 0,
@@ -245,6 +245,7 @@ use super::*;
             updated_at: ts,
             deleted_at: 0,
             cli_proxy_provider_id: None,
+            done: false,
         }
     }
 
@@ -296,10 +297,11 @@ use super::*;
 
     /// 等待 flush 内 tokio::spawn 的落库任务完成（短轮询，最多 ~2s）。
     async fn await_flush_write(db: &aidog_db::Db, id: &str) -> String {
+        // 票 06：占位哨兵已废，改等 done 置位（flush 终态回写完成标志）。
         for _ in 0..200 {
-            let body = read_response_body(db, id).await;
-            if body != "[stream]" {
-                return body;
+            let l = aidog_logs::get_proxy_log(db, id).await.unwrap().unwrap();
+            if l.done {
+                return l.response_body;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
@@ -331,7 +333,7 @@ use super::*;
         // 模拟闭包逐 chunk：末 chunk 命中 [DONE] → flush_if_done 触发 flush。
         guard.flush_if_done(chunks[1]);
         let body = await_flush_write(&state.db, id).await;
-        assert_ne!(body, "[stream]", "[DONE] 收尾后 response_body 不应停在占位");
+        assert_ne!(body, "", "[DONE] 收尾后 response_body 不应为空");
         assert!(body.contains("hi"), "应写回聚合上游内容: {body}");
 
         drop(guard);
@@ -363,7 +365,7 @@ use super::*;
         // 修复后认 message_stop → 触发 flush 确定性回写。
         guard.flush_if_done(tail);
         let body = await_flush_write(&state.db, id).await;
-        assert_ne!(body, "[stream]", "message_stop 收尾后 response_body 不应停在占位（核心 bug）");
+        assert_ne!(body, "", "message_stop 收尾后 response_body 不应为空（聚合内容未写回）");
         assert!(body.contains("message_stop"), "应写回聚合上游内容: {body}");
 
         drop(guard);
@@ -393,7 +395,7 @@ use super::*;
         // 不调用 flush_if_done（无终止符）；直接 Drop 触发兜底 flush。
         drop(guard);
         let body = await_flush_write(&state.db, id).await;
-        assert_ne!(body, "[stream]", "Drop 兜底后 response_body 不应停在占位");
+        assert_ne!(body, "", "Drop 兜底后 response_body 不应为空（部分内容未写回）");
         assert!(body.contains("partial"), "Drop 应写回已聚合的部分内容: {body}");
 
         let _ = std::fs::remove_file(path);
@@ -418,18 +420,19 @@ use super::*;
 
         let guard = make_guard(&state, log, &[], 0); // 零 upstream chunk
         drop(guard); // Drop 兜底 flush
-        // 空流：join_stream_body([]) == "" → response_body 应被改写成空串而非占位。
+        // 空流：join_stream_body([]) == "" → 票 06 后等待 done 置位（body 初始即空串，
+        // 不能再用占位差值判定 flush 是否发生）。
         for _ in 0..200 {
-            let body = read_response_body(&state.db, id).await;
-            if body != "[stream]" {
-                assert_eq!(body, "", "空流 finalize 应为空串");
+            let l = aidog_logs::get_proxy_log(&state.db, id).await.unwrap().unwrap();
+            if l.done {
+                assert_eq!(l.response_body, "", "空流 finalize 应为空串");
                 let _ = std::fs::remove_file(&path);
                 return;
             }
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         }
         let _ = std::fs::remove_file(path);
-        panic!("空流 response_body 仍停在 [stream] 占位（finalize 未执行）");
+        panic!("空流 flush 未置 done（finalize 未执行）");
     }
 
     // ── 回归复现（红，待 s2 修复）：finish.rs:279 `String::from_utf8_lossy(&chunk)` 对

@@ -251,6 +251,24 @@ pub fn run_migrations_proxy_log_late(
                     "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
                     [],
                 );
+                // Migration 20260824-01 (票 06 stream-full-log): proxy_log 加 done 终态列，取代
+                // `response_body == "[stream]"` 哨兵的终态判定（log.rs 背压/聚合 gate/快照移除）。
+                let _ = conn.execute(
+                    "ALTER TABLE proxy_log ADD COLUMN done INTEGER NOT NULL DEFAULT 0",
+                    [],
+                );
+                // 回填 ①：历史真实终态行（status!=0 且非哨兵）标 done=1。
+                // 关日志正文的非流式行 response_body='' 也算终态（哨兵只在流式路径写入）。
+                let _ = conn.execute(
+                    "UPDATE proxy_log SET done = 1 WHERE status_code != 0 AND response_body != '[stream]'",
+                    [],
+                );
+                // 回填 ②：卡死在哨兵的残留行（旧 bug：flush 丢写，body 永停 '[stream]'）——
+                // 终态翻为 done=1 + 清占位，与 sweep_incomplete 处置 status=0 行对称。
+                let _ = conn.execute(
+                    "UPDATE proxy_log SET done = 1, response_body = '' WHERE response_body = '[stream]'",
+                    [],
+                );
                 // Migration 20260727-19 (原 031 ②): notification 时间索引（从主库迁入 log.db）。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
@@ -1079,6 +1097,50 @@ mod tests {
             Some(true),
             "anthropic endpoint should have coding_plan=true after migration 20260727-05"
         );
+    }
+
+    /// Migration 20260824-01（票 06 stream-full-log）：proxy_log 加 done 终态列 + 回填。
+    /// ① 历史真实终态行（status!=0 且非哨兵）→ done=1；② 卡死哨兵行 → done=1 + 清占位；
+    /// ③ status=0 中间行 → 保持 done=0（由 sweep 兜底翻 499/done=1）。
+    #[test]
+    fn migrations_proxy_log_done_column_backfill_20260824() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE proxy_log (
+                id TEXT PRIMARY KEY, group_key TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '',
+                actual_model TEXT NOT NULL DEFAULT '', source_protocol TEXT NOT NULL DEFAULT '',
+                target_protocol TEXT NOT NULL DEFAULT '', platform_id INTEGER NOT NULL DEFAULT 0,
+                request_headers TEXT NOT NULL DEFAULT '', request_body TEXT NOT NULL DEFAULT '',
+                upstream_request_headers TEXT NOT NULL DEFAULT '', upstream_request_body TEXT NOT NULL DEFAULT '',
+                response_body TEXT NOT NULL DEFAULT '', request_url TEXT NOT NULL DEFAULT '',
+                upstream_request_url TEXT NOT NULL DEFAULT '', upstream_response_headers TEXT NOT NULL DEFAULT '',
+                upstream_status_code INTEGER NOT NULL DEFAULT 0, user_response_headers TEXT NOT NULL DEFAULT '',
+                user_response_body TEXT NOT NULL DEFAULT '', status_code INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0, cache_tokens INTEGER NOT NULL DEFAULT 0,
+                est_cost REAL NOT NULL DEFAULT 0, is_stream INTEGER NOT NULL DEFAULT 0,
+                attempts TEXT NOT NULL DEFAULT '', retry_count INTEGER NOT NULL DEFAULT 0,
+                blocked_by TEXT NOT NULL DEFAULT '', blocked_reason TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0, cli_proxy_provider_id INTEGER
+            );
+            INSERT INTO proxy_log (id, status_code, response_body) VALUES ('term_ok', 200, '{\"ok\":1}');
+            INSERT INTO proxy_log (id, status_code, response_body) VALUES ('term_err', 502, '');
+            INSERT INTO proxy_log (id, status_code, response_body) VALUES ('stuck', 200, '[stream]');
+            INSERT INTO proxy_log (id, status_code, response_body) VALUES ('mid', 0, '');",
+        ).unwrap();
+        run_migrations_proxy_log_late(&conn, &std::collections::HashMap::new(), &[], &[])
+            .expect("run_migrations_proxy_log_late should succeed");
+        let done: i64 = conn.query_row("SELECT done FROM proxy_log WHERE id='term_ok'", [], |r| r.get(0)).unwrap();
+        assert_eq!(done, 1, "历史 200 终态行应回填 done=1");
+        let done: i64 = conn.query_row("SELECT done FROM proxy_log WHERE id='term_err'", [], |r| r.get(0)).unwrap();
+        assert_eq!(done, 1, "关日志正文的错误终态行（body 空）也应回填 done=1");
+        let (done, body): (i64, String) = conn
+            .query_row("SELECT done, response_body FROM proxy_log WHERE id='stuck'", [], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap();
+        assert_eq!((done, body.as_str()), (1, ""), "卡死哨兵行应翻 done=1 且清占位");
+        let done: i64 = conn.query_row("SELECT done FROM proxy_log WHERE id='mid'", [], |r| r.get(0)).unwrap();
+        assert_eq!(done, 0, "status=0 中间行保持 done=0（交 sweep 兜底）");
     }
 
     /// run_migrations_late on a DB without group.path but also without group_key → exercises !has_group_key branch.

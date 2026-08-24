@@ -67,7 +67,7 @@ export function useLogsDetail() {
       fj(d.upstream_response_headers || "{}"),
       ``,
       `### Response Body`,
-      (d.response_body && d.response_body !== "[stream]") ? fj(d.response_body) : "(streaming, not captured)",
+      d.response_body ? fj(d.response_body) : "(streaming, not captured)",
     ];
     try {
       await writeText(lines.join("\n"));

@@ -129,6 +129,7 @@ async fn relay_passthrough(
             tracing::error!(url = %url, error = %e, duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
+            log.done = true;
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -193,6 +194,7 @@ async fn relay_passthrough(
         let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
         let record_client_body = log_settings.enabled && log_settings.log_user_request;
         log.status_code = status.as_u16() as i32;
+        log.done = true;
         log.duration_ms = start.elapsed().as_millis() as i32;
         if opts.extract_usage {
             // usage 借用：lossy 不经 to_string 中转
@@ -299,10 +301,9 @@ async fn relay_passthrough(
 
     let body = Body::from_stream(stream);
 
-    // 返回 stream 前的占位 upsert：标记流进行中，最终态由 guard.flush（[DONE]/断连）覆盖。
+    // 返回 stream 前的中间态 upsert（票 06：占位哨兵已废，done=false 标记流进行中，
+    // 最终态由 guard.flush（[DONE]/断连）置 done 回写）。
     log.duration_ms = start.elapsed().as_millis() as i32;
-    log.response_body = "[stream]".to_string();
-    log.user_response_body = "[stream]".to_string();
     log.user_response_headers = log.upstream_response_headers.clone();
     upsert_log(state, log, log_settings).await;
 
@@ -412,6 +413,7 @@ pub(crate) async fn handle_models_static(
 
     log.source_protocol = proto.wire_str();
     log.status_code = 200;
+    log.done = true;
     log.response_body = body_str.clone();
     log.user_response_body = body_str.clone();
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
@@ -497,6 +499,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         // 缺 Host header / 非可见 ASCII → 400（fallback 直通无目标 host 无法转发）。
         log.response_body = "passthrough unmatched: missing Host header".to_string();
         log.status_code = 400;
+        log.done = true;
         log.duration_ms = start.elapsed().as_millis() as i32;
         upsert_log(state, log, log_settings).await;
         let mut r = (StatusCode::BAD_REQUEST, "missing Host header").into_response();

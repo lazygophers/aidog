@@ -32,14 +32,16 @@ pub(crate) enum LogMsg {
 
 /// 终态判定（与 `process_upsert` 内 is_terminal 同判定）：决定背压分支——中间态队满即丢，
 /// 终态队满则阻塞等待腾位，保证最终结果 / 统计 / cost / emit 不丢。
+/// 票 06：终态 = status!=0 且 done 置位（流式 flush / 非流式终态 / 断连兜底），
+/// 取代旧 `response_body != "[stream]"` 哨兵（中间态占位写已废）。
 fn is_terminal_log(log: &ProxyLog) -> bool {
-    log.status_code != 0 && log.response_body != "[stream]"
+    log.status_code != 0 && log.done
 }
 
 /// 热路径入口：把日志投递进 `ProxyState.log_tx` 有界 mpsc 队列，构造 + 入队后立即返回，
 /// 不 `.await` 任何 DB 操作（DB 写全部移入 `spawn_log_writer` 单 writer 串行处理）。
 ///
-/// 背压（硬约束，s1 设计）：中间态（status==0 / response_body=="[stream]" 占位）队满即用
+/// 背压（硬约束，s1 设计）：中间态（status==0 / done 未置位）队满即用
 /// `try_send` 静默丢弃——不影响最终数据，终态 upsert 会覆盖写全部列；终态（真实 HTTP 结果）
 /// 队满则退化为阻塞 `send().await` 等待 writer 腾位，保证不丢失最终结果 / 统计 / cost / emit。
 ///
@@ -121,7 +123,7 @@ pub(crate) async fn flush_log_queue(state: &Arc<ProxyState>) {
 pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
     // ── 聚合统计写入（解耦于日志开关）──
     // 必须在 `!settings.enabled` 早退之前：关日志时统计仍需写。仅终态请求计入
-    // （status!=0 且非流式占位 "[stream]"，与下方 is_terminal 同判定，避免占位/中间节点重复计）。
+    // （status!=0 且 done 置位，与下方 is_terminal 同判定，避免中间节点重复计）。
     // est_cost：log 已带则用；否则（关日志路径不会经下方计算）就地走 calc_est_cost 回退链。
     // 失败非致命：warn 不中断请求。eff_pid 回溯在 upsert_stats_agg 的 SQL 内做。
     //
@@ -134,7 +136,7 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
     // 识别复用 request_url 判定，避免加列迁移；与 is_count_tokens_endpoint 同款尾段匹配。
     let is_count_tokens = is_count_tokens_endpoint(&log.request_url);
     let first_agg = log.status_code != 0
-        && log.response_body != "[stream]"
+        && log.done
         && !is_count_tokens
         && agg_mark_first(state, &log.id);
 
@@ -225,10 +227,10 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
 
     let id = cols.id.clone();
     let platform_id = log.platform_id;
-    // 终态判定：有真实 HTTP 状态(status!=0)。唯一例外是流式占位写（response_body=="[stream]"，
-    // 终态由 guard.flush 后显式 remove，不在此误删以免 guard 再 INSERT 撞主键）。
-    // 覆盖流式请求在占位前就出错(如 502)的分支，避免快照泄漏。
-    let is_terminal = cols.status_code != 0 && cols.response_body != "[stream]";
+    // 终态判定：有真实 HTTP 状态(status!=0) 且 done 置位（票 06：显式终态列，
+    // 取代旧 `response_body != "[stream]"` 哨兵例外——哨兵删除后无此特例）。
+    // 覆盖流式请求在 flush 前就出错(如 502)的分支，避免快照泄漏。
+    let is_terminal = cols.status_code != 0 && cols.done != 0;
 
     // 取上一快照决定 INSERT(首节点) 还是 部分列 UPDATE(后续节点)。
     // DashMap 分片 get 返回 Ref（持读锁），.map(|r| r.clone()) 释锁后返回克隆，避免持锁跨 await。
@@ -317,6 +319,7 @@ pub(crate) async fn block_inbound(
     .to_string();
     tracing::warn!(blocked_by = %blocked_by, reason = %blocked_reason, "middleware inbound: request blocked (403)");
     log.status_code = 403;
+    log.done = true;
     log.blocked_by = blocked_by;
     log.blocked_reason = blocked_reason;
     log.response_body = body.clone();
@@ -459,6 +462,7 @@ async fn process_connect_log(
         updated_at: now,
         deleted_at: 0,
         cli_proxy_provider_id: None,
+        done: 1,
     };
     if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");

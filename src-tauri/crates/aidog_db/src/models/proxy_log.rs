@@ -26,7 +26,7 @@ pub struct ProxyLog {
     pub upstream_request_headers: String,
     /// 代理转发给上游的请求体（协议转换后）
     pub upstream_request_body: String,
-    /// 上游返回的响应体（非流式完整 JSON，流式为 "[stream]"）
+    /// 上游返回的响应体（非流式完整 JSON；流式在终态 flush 后为聚合 SSE，中间态为空串，票 06 哨兵已废）
     pub response_body: String,
     /// 用户请求的完整 URL
     #[serde(default)]
@@ -43,7 +43,7 @@ pub struct ProxyLog {
     /// 代理返回给用户的响应头
     #[serde(default)]
     pub user_response_headers: String,
-    /// 代理返回给用户的响应体（非流式含模型名替换，流式为 "[stream]"）
+    /// 代理返回给用户的响应体（非流式含模型名替换；流式在终态 flush 后为聚合内容，中间态为空串）
     #[serde(default)]
     pub user_response_body: String,
     pub status_code: i32,
@@ -77,6 +77,11 @@ pub struct ProxyLog {
     /// 经 CLI 代理上游（cli_proxy_provider 表）路由时记录的 provider id；走传统 platform 路由为 None。
     #[serde(default)]
     pub cli_proxy_provider_id: Option<i64>,
+    /// 终态标记（stream-full-log 票 06）：请求日志生命周期完结（非流式终态 / 流式 flush /
+    /// 断连兜底 / 中断补写）时置位。取代旧 `response_body == "[stream]"` 哨兵的终态判定
+    /// （背压分支、聚合去重 gate、快照移除条件）。中间态（status=0 或流式聚合中）恒 false。
+    #[serde(default)]
+    pub done: bool,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）

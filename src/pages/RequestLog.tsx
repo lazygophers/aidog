@@ -58,9 +58,10 @@ function buildMarkdown(d: ProxyLogDetail): string {
     `### Request Headers`, fj(d.request_headers), ``,
     `### Request Body`, fj(d.request_body), ``,
     `### Response Body`,
-    (d.user_response_body && d.user_response_body !== "[stream]")
+    // 票 06：哨兵已废，空串 = 流式中/未捕获；done 置位后必有聚合内容（或按开关清空）
+    d.user_response_body
       ? fj(d.user_response_body)
-      : (d.response_body && d.response_body !== "[stream]")
+      : d.response_body
         ? fj(d.response_body)
         : "(streaming, not captured)",
     ``,
@@ -69,7 +70,7 @@ function buildMarkdown(d: ProxyLogDetail): string {
     `### Request Headers`, fj(d.upstream_request_headers), ``,
     `### Request Body`, d.upstream_request_body ? fj(d.upstream_request_body) : "(not captured)", ``,
     `### Response Body`,
-    (d.response_body && d.response_body !== "[stream]") ? fj(d.response_body) : "(streaming, not captured)",
+    d.response_body ? fj(d.response_body) : "(streaming, not captured)",
   ].join("\n");
 }
 

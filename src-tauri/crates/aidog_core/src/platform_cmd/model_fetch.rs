@@ -86,6 +86,7 @@ pub async fn platform_fetch_models(
             updated_at: created_at,
             deleted_at: 0,
             cli_proxy_provider_id: None,
+            done: true,
         }
     };
 
