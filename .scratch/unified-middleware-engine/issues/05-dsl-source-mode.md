@@ -6,9 +6,9 @@
 
 **Blocked by:** 04 条件树组卡片编辑器
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 树 → DSL、DSL → 树往返一致（round-trip 测试）
-- [ ] 非法 DSL 阻止保存/切换并显示错误位置
-- [ ] 组件测试覆盖切换、错误态
-- [ ] yarn build / yarn test 全绿
+- [x] 树 → DSL、DSL → 树往返一致（round-trip 测试）
+- [x] 非法 DSL 阻止保存/切换并显示错误位置
+- [x] 组件测试覆盖切换、错误态
+- [x] yarn build / yarn test 全绿

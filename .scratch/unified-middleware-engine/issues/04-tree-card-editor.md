@@ -7,9 +7,9 @@
 
 **Blocked by:** 02 CRUD + seed + 前端列表页（最小可用）
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] 组卡片递归增删改，叶子四要素齐全
-- [ ] 混阶段保存被拒并提示
-- [ ] applies_to 多选与动作链编辑提交的数据与引擎模型一致（组件测试断言提交 payload）
-- [ ] yarn build / yarn test 全绿
+- [x] 组卡片递归增删改，叶子四要素齐全
+- [x] 混阶段保存被拒并提示
+- [x] applies_to 多选与动作链编辑提交的数据与引擎模型一致（组件测试断言提交 payload）
+- [x] yarn build / yarn test 全绿
