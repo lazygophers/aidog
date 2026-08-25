@@ -255,35 +255,35 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
         BuiltinRuleSpec {
             name: "内置·密钥脱敏",
             description: "脱敏常见 AI/API 密钥（sk-/ghp_/AKIA/AIza/xox 等）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|xox[baprs]-[a-zA-Z0-9\-]{10,})"}]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\\-]{20,}|xox[baprs]-[a-zA-Z0-9\\-]{10,})"}]}"#,
             actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 10,
         },
         BuiltinRuleSpec {
             name: "内置·邮箱脱敏",
             description: "脱敏邮箱地址。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"}]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"}]}"#,
             actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 11,
         },
         BuiltinRuleSpec {
             name: "内置·手机号脱敏",
             description: "脱敏手机号（中国大陆 11 位 + E.164 国际形式）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}|\+\d{6,15}"}]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?:\\+?\\d{1,3}[\\s\\-]?)?1[3-9]\\d{9}|\\+\\d{6,15}"}]}"#,
             actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 12,
         },
         BuiltinRuleSpec {
             name: "内置·数据库/Redis 凭据脱敏",
             description: "脱敏连接串中的明文凭据（mysql/postgres/redis/mongodb 等 scheme://user:pass@host）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\+srv)?|amqp)://[^\s@/:"']+(?::[^\s/'"]+)?@"}]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\\+srv)?|amqp)://[^\\s@/:\"']+(?::[^\\s/'\"]+)?@"}]}"#,
             actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 13,
         },
         BuiltinRuleSpec {
             name: "内置·配置式密钥脱敏",
             description: "脱敏 password/secret/api_key 等显式 key=value 形式的明文密钥。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\b(password|passwd|pwd|secret|api_key|apikey|access_token)\s*[=:]\s*["']?[A-Za-z0-9_\-./+=]{8,}"}]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(password|passwd|pwd|secret|api_key|apikey|access_token)\\s*[=:]\\s*[\"']?[A-Za-z0-9_\\-./+=]{8,}"}]}"#,
             actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 14,
         },
@@ -293,7 +293,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
         BuiltinRuleSpec {
             name: "内置·日期格式改写防检测",
             description: "将请求文本中斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，防中文用户针对性检测。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(\d{4})/(\d{1,2})/(\d{1,2})"}]}"#,
+            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(\\d{4})/(\\d{1,2})/(\\d{1,2})"}]}"#,
             actions: r#"[{"kind":"mask","params":{"replacement":"$1-$2-$3","fields":["messages","system"]}}]"#,
             priority: 15,
         },
@@ -379,9 +379,25 @@ pub fn seed_builtin_middleware_rules_counted(
     if !has_conditions {
         return Ok((0, 0));
     }
-    // failed 内置行（如旧模型残留翻译失败）自动清除：内置内容由本 seed 全权管理，
-    // 失效即删 + 重新 INSERT 干净版本，不留给用户手动清理。
-    conn.execute("DELETE FROM middleware_rule WHERE is_builtin = 1 AND failed = 1", [])?;
+    // failed 内置行（旧模型残留翻译失败或 conditions JSON 损坏）自动清除：内置内容由
+    // 本 seed 全权管理，失效即删 + 重新 INSERT 干净版本，不留给用户手动清理。
+    // 失效判定与读时对齐（DB 列或 JSON 解析失败）。
+    {
+        let stale: Vec<i64> = conn
+            .prepare("SELECT id, failed, conditions FROM middleware_rule WHERE is_builtin = 1")?
+            .query_map([], |r| {
+                let id: i64 = r.get(0)?;
+                let failed: i64 = r.get(1)?;
+                let cond: String = r.get(2)?;
+                Ok(if crate::is_effective_failed(failed, &cond) { Some(id) } else { None })
+            })?
+            .filter_map(Result::ok)
+            .flatten()
+            .collect();
+        for id in stale {
+            conn.execute("DELETE FROM middleware_rule WHERE id = ?1", params![id])?;
+        }
+    }
     let ts = now();
     let mut inserted = 0u32;
     let mut updated = 0u32;
