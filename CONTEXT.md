@@ -75,3 +75,41 @@ _Avoid_: default rule, seed rule
 A leftover rule from the old 8-type model that could not be translated. It is shown as failed in
 the list for the user to delete manually.
 _Avoid_: broken rule, invalid rule
+
+### Model Info（模型信息）
+
+**Registry（注册表）**:
+随应用发布、人工维护的平台与模型知识库：一个平台一个文件夹，内含该平台的平台描述文件与模型文件，顶层一个索引文件。取代旧的单文件 `models.json` 与 `platform-presets.json`。
+_避免_: catalog、presets（指新结构时）、knowledge base
+
+**Registry Index（注册表索引）**:
+Registry 顶层索引文件，列出全部平台（名称、code、文件位置）。远程同步先读它，再决定拉取哪些文件。
+_避免_: manifest、目录枚举
+
+**Model Entry（模型条目）**:
+一个平台对一个模型的完整视图：价格、能力、上下文限制、内置工具剔除、版本链位置。同一底层模型在每个平台各有一条 Model Entry，相互独立——定价、能力、入参都可能不同。
+_避免_: model（有歧义——请明确说 Model Entry 或 Canonical Model）
+
+**Canonical Model（规范模型）**:
+模型的内部统一身份，用于跨平台聚合该模型的各条 Model Entry（比价、模型维度 tab 聚合）。区别于平台真实 `model_id`（线上请求实际用的名字）。
+_避免_: 默认模型 id、官方名
+
+**Capability（能力）**:
+模型能力的一个维度：text、vision、image_gen、tool_use、reasoning、audio、video、embedding。每条 Model Entry 携带一组能力（取代旧的单值 `modality`）。
+_避免_: modality
+
+**Version Chain（版本链）**:
+一个平台内模型的家族迭代谱系（如 glm-4.5 → glm-4.6），记录在每条 Model Entry 的 family / version / predecessor 字段里。
+_避免_: 别名演进史（同 id 不同时期重新指向，刻意不追踪）
+
+**Official Pricing（官方定价标记）**:
+价格记录上的 per-platform 标记，意为「这条价格是厂商自营价」——同一模型可以在一个平台是官方价、在另一个平台是转售价。
+_避免_: 官方平台（标记属于价格，不属于平台）
+
+**Builtin Tool Exclusion（内置工具剔除）**:
+已知某 Model Entry 不支持的 Claude Code 内置工具黑名单；缺省表示全部支持。描述模型本身，与 proxy 层的 `builtin_tool_compat` 兼容 hack 无关。
+_避免_: builtin_tool_compat（那是代理层 hack，不是模型能力）
+
+**Peak Price（分时价格）**:
+per-model 的分时段绝对价。平台 peak 窗口命中时优先使用；未命中或缺失时回落平台倍率，再回落默认价。
+_避免_: peak multiplier（倍率是平台级回落机制，不是模型价格）
