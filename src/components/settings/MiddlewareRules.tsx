@@ -716,13 +716,13 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
         title={t("middleware.enabled", "启用")}
       />
 
-      {/* 内置规则禁删禁编辑（只允许启停）；Failed 规则只可删除 */}
+      {/* 内置规则禁删禁编辑（只允许启停）；Failed 规则只可删除（含 failed 内置残留） */}
       {!rule.is_builtin && !rule.failed && (
         <Button variant="ghost" onClick={() => onEdit(rule)} title={t("action.edit", "编辑")}>
           <IconEdit size={14} />
         </Button>
       )}
-      {!rule.is_builtin && (
+      {!rule.is_builtin || rule.failed ? (
         <Button
           variant="ghost"
           onClick={() => onDelete(rule.id)}
@@ -731,7 +731,7 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
         >
           <IconClose size={14} />
         </Button>
-      )}
+      ) : null}
     </div>
   );
 }

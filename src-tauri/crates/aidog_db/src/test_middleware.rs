@@ -82,3 +82,23 @@ use rusqlite::params;
         let s2 = get_notification_settings(&db).await;
         assert!(!s2.enabled && !s2.tts_enabled);
     }
+
+    // ── 内置规则删除保护（failed 内置残留可删）──
+    #[tokio::test]
+    async fn failed_builtin_rule_can_be_deleted() {
+        let db = test_db().await;
+        let rules = list_middleware_rules(&db).await.unwrap();
+        let builtin = rules.iter().find(|r| r.is_builtin).expect("builtin rules seeded");
+        // 正常内置：拒删
+        let err = delete_middleware_rule(&db, builtin.id).await.unwrap_err();
+        assert!(err.contains("cannot be deleted"), "{err}");
+        let id = builtin.id;
+        // failed 内置残留：放行删（seed 层自动清 + 用户可手删兜底）
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute("UPDATE middleware_rule SET failed = 1 WHERE id = ?1", params![id])?;
+            Ok(())
+        }).await.unwrap();
+        delete_middleware_rule(&db, builtin.id).await.unwrap();
+        let left = list_middleware_rules(&db).await.unwrap();
+        assert!(left.iter().all(|r| r.id != builtin.id), "failed builtin deleted");
+    }
