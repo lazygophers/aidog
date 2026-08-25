@@ -1,9 +1,0 @@
-# CPU @ s2-scenario3-load — 20s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-91486    aidog(main)        42.3
-91550    GPU                 1.3
-91553    Networking         16.7
-91559    WebContent          7.9
-91565    WebContent          7.8
-----
-TOTAL                       76.0

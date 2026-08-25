@@ -1,9 +1,0 @@
-# CPU @ s2-scenario2-hidden — 20s 区间内 CPU 时间差值 / 墙钟
-PID      PROC            PCT_CPU
-72400    aidog(main)         0.0
-72413    GPU                 0.0
-72414    Networking          0.0
-72415    WebContent          0.0
-72420    WebContent          0.0
-----
-TOTAL                        0.0
