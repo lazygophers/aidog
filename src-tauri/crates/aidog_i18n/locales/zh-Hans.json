@@ -2779,5 +2779,11 @@
   "middleware.target.response_headers": "响应 header",
   "middleware.target.status": "状态码",
   "middleware.toCards": "卡片模式",
-  "middleware.toDsl": "DSL 源码"
+  "middleware.toDsl": "DSL 源码",
+  "platform.builtin_tool_compat": "内置工具兼容",
+  "platform.builtin_tool_compat_desc": "开启后转发时剔除 Claude Code 内置工具定义（ToolSearch/Read/Bash 等），用于不支持内置工具的第三方模型。默认关闭 = 请求原样转发。",
+  "platform.builtin_tool_compat_enable": "启用剔除",
+  "platform.builtin_tool_compat_models": "生效模型（逗号分隔，空 = 全部模型）",
+  "platform.builtin_tool_compat_strip": "剔除工具名（逗号分隔，空 = 全部内置工具）",
+  "test.modeTool": "工具调用探测"
 }

@@ -2779,5 +2779,11 @@
   "middleware.target.response_headers": "Response headers",
   "middleware.target.status": "Status code",
   "middleware.toCards": "Card mode",
-  "middleware.toDsl": "DSL source"
+  "middleware.toDsl": "DSL source",
+  "platform.builtin_tool_compat": "Builtin tool compat",
+  "platform.builtin_tool_compat_desc": "When enabled, strips Claude Code builtin tool definitions (ToolSearch/Read/Bash etc.) from forwarded requests, for third-party models that don't support them. Off by default = requests forwarded unchanged.",
+  "platform.builtin_tool_compat_enable": "Enable stripping",
+  "platform.builtin_tool_compat_models": "Models (comma-separated, empty = all)",
+  "platform.builtin_tool_compat_strip": "Tool names to strip (comma-separated, empty = all builtin)",
+  "test.modeTool": "Tool-call probe"
 }

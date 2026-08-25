@@ -19,7 +19,7 @@ interface Props {
   onResult?: (success: boolean) => void;
 }
 
-type TestMode = "quick" | "single" | "batch" | "random" | "custom";
+type TestMode = "quick" | "single" | "batch" | "random" | "custom" | "tool";
 
 export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   const { t, i18n } = useTranslation();
@@ -45,6 +45,8 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
       case "batch": return selectedModels.length > 0 ? selectedModels : allModels.slice(0, 5);
       case "random": return allModels;
       case "custom": return selectedModels.length > 0 ? [selectedModels[0]] : [defaultModel];
+      // 工具调用探测（builtin-tool-compat）：对全部模型发起 get_weather 工具测试
+      case "tool": return allModels;
     }
   }, [mode, selectedModels, allModels, defaultModel]);
 
@@ -80,6 +82,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           platform_id: platform.id,
           model: models[i],
           prompt: (mode === "custom" && customPrompt) ? customPrompt : undefined,
+          tool_test: mode === "tool" || undefined,
         });
         res.push(r);
         setResults([...res]);
@@ -110,6 +113,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
     { key: "batch", label: t("test.modeBatch", "批量测试") },
     { key: "random", label: t("test.modeRandom", "随机提示词批量") },
     { key: "custom", label: t("test.modeCustom", "指定提示词") },
+    { key: "tool", label: t("test.modeTool", "工具调用探测") },
   ];
 
   const needsModelSelect = mode === "single" || mode === "batch" || mode === "custom";

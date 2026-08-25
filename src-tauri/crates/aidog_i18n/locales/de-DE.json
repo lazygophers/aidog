@@ -2801,5 +2801,11 @@
   "middleware.target.response_headers": "Antwort-Header",
   "middleware.target.status": "Statuscode",
   "middleware.toCards": "Kartenmodus",
-  "middleware.toDsl": "DSL-Quelltext"
+  "middleware.toDsl": "DSL-Quelltext",
+  "platform.builtin_tool_compat": "Integrierte Werkzeug-Kompatibilität",
+  "platform.builtin_tool_compat_desc": "Wenn aktiviert, werden Claude-Codes integrierte Werkzeugdefinitionen (ToolSearch/Read/Bash usw.) aus weitergeleiteten Anfragen entfernt – für Modelle von Drittanbietern, die sie nicht unterstützen. Standardmäßig aus = Anfragen unverändert weitergeleitet.",
+  "platform.builtin_tool_compat_enable": "Entfernen aktivieren",
+  "platform.builtin_tool_compat_models": "Modelle (kommagetrennt, leer = alle)",
+  "platform.builtin_tool_compat_strip": "Zu entfernende Werkzeuge (kommagetrennt, leer = alle integrierten)",
+  "test.modeTool": "Werkzeugaufruf-Test"
 }
