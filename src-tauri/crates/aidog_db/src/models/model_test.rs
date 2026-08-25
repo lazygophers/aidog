@@ -18,6 +18,10 @@ pub struct ModelTestRequest {
     pub prompt: Option<String>,
     #[ts(optional)]
     pub max_tokens: Option<u32>,
+    /// 工具调用探测（builtin-tool-compat spec T5）：true = 携带 get_weather 工具定义，
+    /// 校验模型是否发起工具调用（默认 false，走常识问答）。
+    #[ts(optional)]
+    pub tool_test: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
