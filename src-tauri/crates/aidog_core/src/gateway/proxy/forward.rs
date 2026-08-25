@@ -309,6 +309,10 @@ pub(crate) async fn forward_attempt(
     // 模型上游无法禁用，响应不剥离——用户决策 2026-08-25，实测 3 端点 × 5 参数写法均仍思考）。
     apply_disable_thinking(&mut req_body);
 
+    // builtin-tool-compat：per-model 内置工具兼容（platform.extra.builtin_tool_compat，
+    // 默认关闭零进入）。透传与转换两分支共用本 seam（见 builtin_tools.rs 模块注释）。
+    builtin_tools::apply_builtin_tool_compat(&mut req_body, &route.platform.extra, &actual_model);
+
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
     let mut url = format!("{}{}", base_url, api_path);
@@ -466,6 +470,8 @@ pub(crate) async fn forward_attempt(
     // ── 捕获上游响应 headers + status ──
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
+    // builtin-tool-compat 运行时审计：4xx + 出站含 tools → blocked_by=upstream/tools_4xx
+    builtin_tools::mark_tools_4xx(log, &req_body, status.as_u16());
     // clone 上游响应头，供回包前透传筛选用（resp 后续被 bytes()/bytes_stream() 消费）
     let upstream_resp_headers = resp.headers().clone();
     {
