@@ -271,6 +271,25 @@ pub struct NewapiExtra {
     pub balance_api_key: String,
 }
 
+/// `platform.extra.builtin_tool_compat` 嵌套对象：Claude Code 内置工具兼容
+/// （builtin-tool-compat spec，默认关闭）。开启后转发层出站 body 剔除命中工具定义。
+/// - `models` 空 = 平台全部模型生效；非空 = 仅名单内模型
+/// - `strip_tools` 空 = 剔除全部内置工具；非空 = 精确按名剔除（允许自定义客户端工具名）
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct BuiltinToolCompat {
+    #[serde(default)]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub models: Vec<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub strip_tools: Vec<String>,
+}
+
+/// 从 `extra` JSON 字符串解析 `builtin_tool_compat`；空/非法/缺键 → 全默认（不兼容）。
+pub fn parse_builtin_tool_compat(extra: &str) -> BuiltinToolCompat {
+    PlatformExtra::parse(extra).builtin_tool_compat.unwrap_or_default()
+}
+
 /// `platform.extra` JSON 收敛 struct：已知业务键落具名字段，未知键（含前端 `_ui_*` 私有态）
 /// 经 `#[serde(flatten)] rest` 无损往返。**只读解析入口**——写回仍走 `extra` 原始字符串
 /// （`merge_breaker_into_extra` 等按需 patch 单键，不整体覆写，避免序列化裁掉 `rest` 之外的
@@ -303,6 +322,8 @@ pub struct PlatformExtra {
     pub newapi: Option<NewapiExtra>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mock: Option<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builtin_tool_compat: Option<BuiltinToolCompat>,
     /// 未建模键（`_ui_*` 前端私有态 + 尚未收敛的业务键）往返保留，禁丢。
     #[serde(flatten)]
     pub rest: serde_json::Map<String, serde_json::Value>,

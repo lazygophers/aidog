@@ -29,6 +29,7 @@ pub(crate) use super::models::{
 pub(crate) use super::router::{select_candidates_ctx, RouteResult, ScheduleCtx};
 
 mod bench;
+mod builtin_tools;
 mod count_tokens;
 mod connect;
 mod devin;

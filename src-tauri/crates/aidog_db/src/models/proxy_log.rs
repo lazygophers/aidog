@@ -4,7 +4,7 @@ use super::{default_true, ProxyAttempt};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProxyLog {
     pub id: String,
     pub group_key: String,
