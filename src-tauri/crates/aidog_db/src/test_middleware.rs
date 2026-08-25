@@ -102,3 +102,13 @@ use rusqlite::params;
         let left = list_middleware_rules(&db).await.unwrap();
         assert!(left.iter().all(|r| r.id != builtin.id), "failed builtin deleted");
     }
+
+    // ── 内置 spec conditions JSON 合法性（回归：正则反斜杠未 JSON 转义曾致全部内置规则失效）──
+    #[test]
+    fn builtin_spec_conditions_all_parse() {
+        for spec in builtin_rule_specs() {
+            let parsed: Result<crate::models::ConditionNode, _> =
+                serde_json::from_str(&spec.conditions);
+            assert!(parsed.is_ok(), "builtin spec '{}' conditions invalid JSON: {:#?}", spec.name, parsed.err());
+        }
+    }

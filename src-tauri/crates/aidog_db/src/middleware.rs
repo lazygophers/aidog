@@ -45,6 +45,13 @@ fn default_failed_conditions() -> crate::models::ConditionNode {
     })
 }
 
+/// 失效判定（与 row_to_middleware_rule 的读时 failed 对齐）：
+/// DB failed 列置位，或 conditions JSON 解析失败（读时兜底置 failed 的行 DB 列仍为 0）。
+pub fn is_effective_failed(db_failed: i64, conditions_json: &str) -> bool {
+    db_failed == 1
+        || serde_json::from_str::<crate::models::ConditionNode>(conditions_json).is_err()
+}
+
 /// 列出全部中间件规则（按 priority 升序，再 id 升序）。引擎 reload 与前端列表共用。
 #[track_caller]
 pub fn list_middleware_rules(db: &Db) -> impl std::future::Future<Output = Result<Vec<MiddlewareRule>, String>> + '_ {
@@ -188,12 +195,13 @@ pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Outp
     async move {
     db
         .call_traced(None, __db_caller, move |conn| {
-            let (is_builtin, failed): (i64, i64) = conn.query_row(
-                "SELECT is_builtin, failed FROM middleware_rule WHERE id = ?1",
+            let (is_builtin, failed, conditions): (i64, i64, String) = conn.query_row(
+                "SELECT is_builtin, failed, conditions FROM middleware_rule WHERE id = ?1",
                 params![id],
-                |r| Ok((r.get(0)?, r.get(1)?)),
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
             ).map_err(tokio_rusqlite::Error::from)?;
-            if is_builtin == 1 && failed == 0 {
+            // failed 判定与 row_to_middleware_rule 对齐：DB 列或 conditions JSON 解析失败均算失效
+            if is_builtin == 1 && !is_effective_failed(failed, &conditions) {
                 return Err(tokio_rusqlite::Error::Other(
                     "builtin middleware rule cannot be deleted (toggle enabled instead)".into(),
                 ));
