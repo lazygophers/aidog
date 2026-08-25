@@ -304,6 +304,11 @@ pub(crate) async fn forward_attempt(
         override_coding_plan_path(&mut api_path, platform_protocol);
     }
 
+    // disable_thinking：aidog 本地扩展字段（客户端请求禁用思考）。非标字段任何上游不认 →
+    // 识别后必剥除。语义 = 上游参数级尽力禁思考（各协议剔思考参数；MiniMax-M2 等内置思考
+    // 模型上游无法禁用，响应不剥离——用户决策 2026-08-25，实测 3 端点 × 5 参数写法均仍思考）。
+    apply_disable_thinking(&mut req_body);
+
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
     let mut url = format!("{}{}", base_url, api_path);
@@ -756,6 +761,30 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
     }
 }
 
+/// `disable_thinking` 请求字段处理（aidog 本地扩展）。字段存在即剥（非标，透传恐 400）；
+/// 值为 true 时按协议剔除思考参数（anthropic: thinking/context_management；openai 系:
+/// reasoning_effort/reasoning/enable_thinking/chat_template_kwargs.enable_thinking；
+/// gemini: generationConfig.thinkingConfig）。flat 移除跨协议同名安全——仅在禁用时触发。
+fn apply_disable_thinking(body: &mut Value) {
+    let Some(obj) = body.as_object_mut() else { return };
+    if !obj.contains_key("disable_thinking") {
+        return;
+    }
+    let disable = obj.remove("disable_thinking").and_then(|v| v.as_bool()).unwrap_or(false);
+    if !disable {
+        return;
+    }
+    for k in ["thinking", "context_management", "reasoning_effort", "reasoning", "enable_thinking"] {
+        obj.remove(k);
+    }
+    if let Some(ctk) = obj.get_mut("chat_template_kwargs").and_then(|o| o.as_object_mut()) {
+        ctk.remove("enable_thinking");
+    }
+    if let Some(gc) = obj.get_mut("generationConfig").and_then(|o| o.as_object_mut()) {
+        gc.remove("thinkingConfig");
+    }
+}
+
 /// 第三方 anthropic 端点：无条件剥离 messages[].content 内 `redacted_thinking` block。
 ///
 /// **根因（DB 响应体实证）**：Claude 4.x extended thinking 多轮请求含 `redacted_thinking`
@@ -847,6 +876,55 @@ fn hoist_mid_messages_system(body: &mut Value) {
         _ => {
             obj.insert("system".to_string(), Value::Array(hoisted_blocks));
         }
+    }
+}
+
+#[cfg(test)]
+mod test_disable_thinking {
+    use super::apply_disable_thinking;
+    use serde_json::json;
+
+    #[test]
+    fn true_strips_field_and_thinking_params_across_protocols() {
+        // anthropic passthrough（minimax 场景）：字段 + thinking/context_management 全剔
+        let mut b = json!({
+            "model": "m", "max_tokens": 300, "disable_thinking": true,
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+            "context_management": {"edits": []},
+        });
+        apply_disable_thinking(&mut b);
+        assert!(b.get("disable_thinking").is_none());
+        assert!(b.get("thinking").is_none());
+        assert!(b.get("context_management").is_none());
+
+        // openai 系：reasoning_effort / chat_template_kwargs.enable_thinking 剔
+        let mut b = json!({
+            "model": "m", "disable_thinking": true, "reasoning_effort": "medium",
+            "chat_template_kwargs": {"enable_thinking": true},
+        });
+        apply_disable_thinking(&mut b);
+        assert!(b.get("reasoning_effort").is_none());
+        assert!(b["chat_template_kwargs"].get("enable_thinking").is_none());
+
+        // gemini：generationConfig.thinkingConfig 剔
+        let mut b = json!({
+            "disable_thinking": true,
+            "generationConfig": {"thinkingConfig": {"thinkingBudget": 128}},
+        });
+        apply_disable_thinking(&mut b);
+        assert!(b["generationConfig"].get("thinkingConfig").is_none());
+    }
+
+    #[test]
+    fn false_strips_field_only_and_absent_is_noop() {
+        let mut b = json!({"disable_thinking": false, "thinking": {"type": "enabled"}});
+        apply_disable_thinking(&mut b);
+        assert!(b.get("disable_thinking").is_none(), "非标字段仍剥");
+        assert!(b.get("thinking").is_some(), "false 不动思考参数");
+
+        let mut b = json!({"model": "m"});
+        apply_disable_thinking(&mut b);
+        assert_eq!(b, json!({"model": "m"}));
     }
 }
 
