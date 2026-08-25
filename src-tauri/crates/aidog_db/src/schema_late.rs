@@ -1110,6 +1110,7 @@ mod tests {
               ('user-mask', 'redaction', 'platform', '7', 'regex', 'sk-abc', 'mask', '{"replacement":"[x]","fields":["messages"]}', 6, 1, 0, 0, 0),
               ('user-detector', 'content_filter', 'global', '', 'contains', '', 'mask', '{}', 7, 0, 0, 0, 0),
               ('user-unknown', 'weird_type', 'global', '', 'contains', 'p', 'warn', '{}', 8, 1, 0, 0, 0),
+              ('user-ghost-builtin', 'weird_type', 'global', '', 'contains', 'p', 'warn', '{}', 9, 1, 1, 0, 0),
               ('内置·密钥脱敏', 'content_filter', 'global', '', 'contains', '', 'mask', '{}', 10, 0, 1, 0, 0);
         "#).unwrap();
         let r = run_migrations_late(&conn, no_op_backfill());
@@ -1150,6 +1151,11 @@ mod tests {
         let failed: i64 = conn.query_row(
             "SELECT failed FROM middleware_rule WHERE name='user-unknown'", [], |r| r.get(0)).unwrap();
         assert_eq!(failed, 1);
+
+        // ④b failed 内置残留（未知类型翻译失败）→ seed 自动清除，不留给用户
+        let ghost: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM middleware_rule WHERE name='user-ghost-builtin'", [], |r| r.get(0)).unwrap();
+        assert_eq!(ghost, 0, "failed builtin row auto-removed by seed");
 
         // ⑤ 内置规则：按新规格覆盖内容 + failed=0 重置 + enabled=0 保留（name 覆盖路径）
         let (cond, enabled, failed): (String, i64, i64) = conn.query_row(

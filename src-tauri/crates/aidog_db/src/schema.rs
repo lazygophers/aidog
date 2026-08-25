@@ -379,6 +379,9 @@ pub fn seed_builtin_middleware_rules_counted(
     if !has_conditions {
         return Ok((0, 0));
     }
+    // failed 内置行（如旧模型残留翻译失败）自动清除：内置内容由本 seed 全权管理，
+    // 失效即删 + 重新 INSERT 干净版本，不留给用户手动清理。
+    conn.execute("DELETE FROM middleware_rule WHERE is_builtin = 1 AND failed = 1", [])?;
     let ts = now();
     let mut inserted = 0u32;
     let mut updated = 0u32;

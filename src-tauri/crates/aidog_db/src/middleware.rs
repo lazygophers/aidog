@@ -181,19 +181,19 @@ pub fn update_middleware_rule(
     }
 }
 
-/// 删除规则。内置规则不可删（只允许启停）——拒绝并返回错误。
+/// 删除规则。内置规则不可删（只允许启停）；failed 内置行除外（失效残留，允许清走）。
 #[track_caller]
 pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     db
         .call_traced(None, __db_caller, move |conn| {
-            let is_builtin: i64 = conn.query_row(
-                "SELECT is_builtin FROM middleware_rule WHERE id = ?1",
+            let (is_builtin, failed): (i64, i64) = conn.query_row(
+                "SELECT is_builtin, failed FROM middleware_rule WHERE id = ?1",
                 params![id],
-                |r| r.get(0),
+                |r| Ok((r.get(0)?, r.get(1)?)),
             ).map_err(tokio_rusqlite::Error::from)?;
-            if is_builtin == 1 {
+            if is_builtin == 1 && failed == 0 {
                 return Err(tokio_rusqlite::Error::Other(
                     "builtin middleware rule cannot be deleted (toggle enabled instead)".into(),
                 ));
