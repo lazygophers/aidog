@@ -47,12 +47,31 @@ async fn prepare_test_context(
                 "no model specified and no default model configured".to_string()
             })?;
 
-        let (prompt, expected) = match req.prompt.clone() {
-            Some(p) => (p, None),
-            None => {
-                let (p, e) = random_test_challenge();
-                (p, Some(e))
-            }
+        // 工具调用探测（builtin-tool-compat T5）：固定提示词 + get_weather 工具定义，
+        // 成功判据 = 响应含工具调用（见 extract_tool_call_name）。
+        let (prompt, expected, tools) = if req.tool_test.unwrap_or(false) {
+            (
+                "What is the weather in Tokyo? You must call the get_weather tool.".to_string(),
+                None,
+                Some(vec![adapter::Tool {
+                    name: "get_weather".to_string(),
+                    description: Some("Get current weather for a city".to_string()),
+                    input_schema: serde_json::json!({
+                        "type": "object",
+                        "properties": { "city": { "type": "string" } },
+                        "required": ["city"]
+                    }),
+                }]),
+            )
+        } else {
+            let (p, e) = match req.prompt.clone() {
+                Some(p) => (p, None),
+                None => {
+                    let (p, e) = random_test_challenge();
+                    (p, Some(e))
+                }
+            };
+            (p, e, None)
         };
 
         let chat_req = adapter::ChatRequest {
@@ -67,7 +86,7 @@ async fn prepare_test_context(
             temperature: None,
             top_p: None,
             stream: Some(false),
-            tools: None,
+            tools,
             tool_choice: None,
             extra: None,
         };
@@ -250,14 +269,23 @@ fn handle_success_response(
     let response_text = extract_response_text(&resp_json, target_protocol);
     let (in_tok, out_tok) = extract_test_usage(&resp_json, target_protocol);
 
-    let success = verify_test_response(&response_text, ctx.expected.as_deref());
-    let error = if success { String::new() } else { "响应内容校验失败".to_string() };
+    // 工具探测模式：成功判据 = 响应含工具调用；普通模式走关键词校验。
+    let (success, error, preview) = if ctx.chat_req.tools.is_some() {
+        match extract_tool_call_name(&resp_json, target_protocol) {
+            Some(name) => (true, String::new(), format!("[tool_call] {name}")),
+            None => (false, "模型未发起工具调用".to_string(), truncate_str(&response_text, 300)),
+        }
+    } else {
+        let ok = verify_test_response(&response_text, ctx.expected.as_deref());
+        let err = if ok { String::new() } else { "响应内容校验失败".to_string() };
+        (ok, err, truncate_str(&response_text, 300))
+    };
 
     ModelTestResult {
         success,
         model: ctx.model.clone(),
         prompt_preview: truncate_str(&ctx.prompt, 100),
-        response_preview: truncate_str(&response_text, 300),
+        response_preview: preview,
         duration_ms: http_ctx.start.elapsed().as_millis() as i32,
         input_tokens: in_tok,
         output_tokens: out_tok,
@@ -407,6 +435,21 @@ pub(crate) fn extract_response_text(v: &Value, protocol: &Protocol) -> String {
 }
 
 #[allow(dead_code)]
+pub(crate) fn extract_tool_call_name(v: &Value, protocol: &Protocol) -> Option<String> {
+    // anthropic：content blocks 内 type=tool_use → name；openai 系：message.tool_calls → function.name
+    match protocol {
+        Protocol::Anthropic => v.get("content")?.as_array()?.iter().find_map(|b| {
+            (b.get("type").and_then(Value::as_str) == Some("tool_use"))
+                .then(|| b.get("name").and_then(Value::as_str).map(str::to_string))
+                .flatten()
+        }),
+        _ => v.get("choices")?.get(0)?.get("message")?.get("tool_calls")?
+            .get(0)?.get("function")?.get("name")
+            .and_then(Value::as_str).map(str::to_string),
+    }
+}
+
+#[allow(dead_code)]
 pub(crate) fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
     let usage = v.get("usage");
     match protocol {
@@ -420,6 +463,40 @@ pub(crate) fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
             let out_tok = usage.and_then(|u| u.get("completion_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
             (in_tok, out_tok)
         }
+    }
+}
+
+#[cfg(test)]
+mod test_tool_call {
+    use super::*;
+
+    #[test]
+    fn anthropic_tool_use_block_extracted() {
+        let v = serde_json::json!({
+            "content": [
+                {"type": "text", "text": "let me check"},
+                {"type": "tool_use", "id": "t1", "name": "get_weather", "input": {"city": "Tokyo"}}
+            ]
+        });
+        assert_eq!(extract_tool_call_name(&v, &Protocol::Anthropic).as_deref(), Some("get_weather"));
+    }
+
+    #[test]
+    fn openai_tool_calls_extracted() {
+        let v = serde_json::json!({
+            "choices": [{"message": {"tool_calls": [
+                {"id": "c1", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}}
+            ]}}]
+        });
+        assert_eq!(extract_tool_call_name(&v, &Protocol::OpenAI).as_deref(), Some("get_weather"));
+    }
+
+    #[test]
+    fn no_tool_call_returns_none() {
+        let v = serde_json::json!({"content": [{"type": "text", "text": "hi"}]});
+        assert_eq!(extract_tool_call_name(&v, &Protocol::Anthropic), None);
+        let v = serde_json::json!({"choices": [{"message": {"content": "hi"}}]});
+        assert_eq!(extract_tool_call_name(&v, &Protocol::OpenAI), None);
     }
 }
 
