@@ -2,7 +2,7 @@
 // 「导入默认」入口不存在（统一引擎后内置规则不可删，无导入场景）。
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "../../test/render";
+import { render, screen, waitFor, fireEvent } from "../../test/render";
 import userEvent from "@testing-library/user-event";
 import { MiddlewareRulesPanel } from "./MiddlewareRules";
 import type { MiddlewareRule } from "../../services/api";
@@ -47,6 +47,8 @@ const mk = (over: Partial<MiddlewareRule>): MiddlewareRule => ({
 beforeEach(() => {
   listRules.mockReset();
   updateRule.mockReset();
+  platformList.mockReset().mockResolvedValue([]);
+  groupList.mockReset().mockResolvedValue([]);
 });
 
 describe("MiddlewareRulesPanel（统一引擎列表）", () => {
@@ -60,16 +62,19 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     expect(screen.queryByText("导入默认规则")).toBeNull();
   });
 
-  it("内置规则：可启停，无编辑/删除按钮（toggle-only）", async () => {
+  it("内置规则：可启停 + 查看详情（只读表单），无删除按钮", async () => {
     listRules.mockResolvedValue([mk({ id: 2, name: "内置·密钥脱敏", is_builtin: true })]);
     render(<MiddlewareRulesPanel />);
     await waitFor(() => expect(screen.getByText("内置·密钥脱敏")).toBeTruthy());
     expect(screen.getByText("middleware.builtin")).toBeTruthy();
     // toggle 存在（role switch）
     expect(screen.getByRole("switch")).toBeTruthy();
-    // 编辑（title=编辑）与删除按钮不存在
-    expect(screen.queryByTitle("action.edit")).toBeNull();
+    // 删除按钮不存在（内置内容归 seed 管）
     expect(screen.queryByTitle("action.delete")).toBeNull();
+    // 点编辑 → 只读查看表单：无保存按钮，有只读提示
+    await userEvent.click(screen.getByTitle("action.edit"));
+    await waitFor(() => expect(screen.getByText("middleware.builtinReadonlyHint")).toBeTruthy());
+    expect(screen.queryByText("action.save")).toBeNull();
   });
 
   it("Failed Rule：显示失效徽标 + 仅删除按钮", async () => {
