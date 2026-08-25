@@ -2801,5 +2801,11 @@
   "middleware.target.response_headers": "En-têtes de réponse",
   "middleware.target.status": "Code de statut",
   "middleware.toCards": "Mode cartes",
-  "middleware.toDsl": "Source DSL"
+  "middleware.toDsl": "Source DSL",
+  "platform.builtin_tool_compat": "Compatibilité outils intégrés",
+  "platform.builtin_tool_compat_desc": "Une fois activé, supprime les définitions d'outils intégrés de Claude Code (ToolSearch/Read/Bash etc.) des requêtes transférées, pour les modèles tiers qui ne les prennent pas en charge. Désactivé par défaut = requêtes transférées telles quelles.",
+  "platform.builtin_tool_compat_enable": "Activer la suppression",
+  "platform.builtin_tool_compat_models": "Modèles (séparés par des virgules, vide = tous)",
+  "platform.builtin_tool_compat_strip": "Outils à supprimer (séparés par des virgules, vide = tous les intégrés)",
+  "test.modeTool": "Test d'appel d'outil"
 }

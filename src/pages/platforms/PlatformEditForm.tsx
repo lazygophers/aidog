@@ -22,6 +22,7 @@ import {
   FormSection, ApiKeyField,
   NewApiBalanceConfigSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
   ManualBudgetsSection, BreakerSection, PeakHoursSection, GroupAssignSection,
+  BuiltinToolCompatSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
@@ -53,6 +54,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
     peakHours, setPeakHours, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
+    builtinToolCompat, setBuiltinToolCompat,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     levelPriority, setLevelPriority,
@@ -333,6 +335,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
             protocol={protocol}
             themeMode={themeMode}
+            t={t}
+          />
+        )}
+
+        {/* 内置工具兼容（builtin-tool-compat；默认关闭零改写，仅编辑态可配） */}
+        {editing && !isPassthrough && (
+          <BuiltinToolCompatSection
+            config={builtinToolCompat}
+            onChange={setBuiltinToolCompat}
             t={t}
           />
         )}

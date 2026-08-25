@@ -2801,5 +2801,11 @@
   "middleware.target.response_headers": "ترويسات الاستجابة",
   "middleware.target.status": "رمز الحالة",
   "middleware.toCards": "وضع البطاقات",
-  "middleware.toDsl": "مصدر DSL"
+  "middleware.toDsl": "مصدر DSL",
+  "platform.builtin_tool_compat": "توافق الأدوات المدمجة",
+  "platform.builtin_tool_compat_desc": "عند التفعيل تُزال تعريفات أدوات Claude Code المدمجة (ToolSearch/Read/Bash وغيرها) من الطلبات المُحوَّلة، للنماذج الخارجية التي لا تدعمها. معطّل افتراضيًا = تُمرَّر الطلبات كما هي.",
+  "platform.builtin_tool_compat_enable": "تفعيل الإزالة",
+  "platform.builtin_tool_compat_models": "النماذج (مفصولة بفواصل، فارغ = الكل)",
+  "platform.builtin_tool_compat_strip": "أسماء الأدوات المطلوب إزالتها (مفصولة بفواصل، فارغ = جميع الأدوات المدمجة)",
+  "test.modeTool": "اختبار استدعاء الأدوات"
 }

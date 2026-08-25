@@ -2801,5 +2801,11 @@
   "middleware.target.response_headers": "レスポンスヘッダー",
   "middleware.target.status": "ステータスコード",
   "middleware.toCards": "カードモード",
-  "middleware.toDsl": "DSL ソース"
+  "middleware.toDsl": "DSL ソース",
+  "platform.builtin_tool_compat": "内蔵ツール互換",
+  "platform.builtin_tool_compat_desc": "有効にすると、転送リクエストから Claude Code 内蔵ツール定義（ToolSearch/Read/Bash など）を除去します。未対応サードパーティモデル向け。デフォルト無効 = リクエストをそのまま転送。",
+  "platform.builtin_tool_compat_enable": "除去を有効化",
+  "platform.builtin_tool_compat_models": "対象モデル（カンマ区切り、空 = すべて）",
+  "platform.builtin_tool_compat_strip": "除去するツール名（カンマ区切り、空 = すべての内蔵ツール）",
+  "test.modeTool": "ツール呼び出しテスト"
 }

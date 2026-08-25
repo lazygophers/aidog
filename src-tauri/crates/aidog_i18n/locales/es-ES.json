@@ -2779,5 +2779,11 @@
   "middleware.target.response_headers": "Cabeceras de respuesta",
   "middleware.target.status": "Código de estado",
   "middleware.toCards": "Modo tarjetas",
-  "middleware.toDsl": "Fuente DSL"
+  "middleware.toDsl": "Fuente DSL",
+  "platform.builtin_tool_compat": "Compatibilidad de herramientas integradas",
+  "platform.builtin_tool_compat_desc": "Al activarlo, se eliminan las definiciones de herramientas integradas de Claude Code (ToolSearch/Read/Bash etc.) de las solicitudes reenviadas, para modelos de terceros que no las admiten. Desactivado por defecto = solicitudes reenviadas sin cambios.",
+  "platform.builtin_tool_compat_enable": "Activar eliminación",
+  "platform.builtin_tool_compat_models": "Modelos (separados por comas, vacío = todos)",
+  "platform.builtin_tool_compat_strip": "Herramientas a eliminar (separadas por comas, vacío = todas las integradas)",
+  "test.modeTool": "Prueba de llamada a herramienta"
 }

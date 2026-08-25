@@ -268,6 +268,56 @@ export function serializeDisableDuringPeak(extra: string, enabled: boolean): str
   return JSON.stringify(obj);
 }
 
+/** Claude Code 内置工具兼容配置（platform.extra.builtin_tool_compat，默认关闭）。
+ *  与 Rust BuiltinToolCompat 对称（builtin-tool-compat spec）。 */
+export interface BuiltinToolCompat {
+  enabled: boolean;
+  /** 空 = 平台全部模型生效；非空 = 仅名单内模型 */
+  models: string[];
+  /** 空 = 剔除全部内置工具；非空 = 精确按名剔除 */
+  stripTools: string[];
+}
+
+/** 从 platform.extra JSON 解析 builtin_tool_compat。缺失 / 非法 → 全默认（不兼容）。 */
+export function parseBuiltinToolCompat(extra: string): BuiltinToolCompat {
+  if (!extra.trim()) return { enabled: false, models: [], stripTools: [] };
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "builtin_tool_compat" in parsed) {
+      const raw = (parsed as { builtin_tool_compat: unknown }).builtin_tool_compat;
+      if (raw && typeof raw === "object") {
+        const o = raw as { enabled?: unknown; models?: unknown; strip_tools?: unknown };
+        const strArr = (v: unknown): string[] =>
+          Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+        return { enabled: o.enabled === true, models: strArr(o.models), stripTools: strArr(o.strip_tools) };
+      }
+    }
+  } catch { /* ignore */ }
+  return { enabled: false, models: [], stripTools: [] };
+}
+
+/** 把 builtin_tool_compat 写回 extra JSON（保留其余键）。enabled=false / 全空 → 移除键（默认行为）。 */
+export function serializeBuiltinToolCompat(extra: string, cfg: BuiltinToolCompat): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (!cfg.enabled) {
+    delete obj.builtin_tool_compat;
+  } else {
+    const nested: Record<string, unknown> = { enabled: true };
+    if (cfg.models.length > 0) nested.models = cfg.models;
+    if (cfg.stripTools.length > 0) nested.strip_tools = cfg.stripTools;
+    obj.builtin_tool_compat = nested;
+  }
+  return JSON.stringify(obj);
+}
+
 /** 从 platform.extra JSON 解析 time_models 规则（用户级配置，preset 不带）。
  *  缺失 / 非法 / 空数组 → []（无时段规则，用 platform.models default）。 */
 export function parsePlatformTimeModels(extra: string): TimeModelRule[] {

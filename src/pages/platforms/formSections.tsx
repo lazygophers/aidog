@@ -12,6 +12,7 @@ import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type NewApiConfig, type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
+  type BuiltinToolCompat,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelList } from "../../domains/platforms";
@@ -881,6 +882,57 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
           </div>
         </DialogContent>
       </Dialog>
+    </FormSection>
+  );
+}
+
+/** 内置工具兼容（builtin-tool-compat spec）：Claude Code 内置工具 per-model 剔除开关
+ *  （platform.extra.builtin_tool_compat，默认关闭零改写）。models / stripTools 均逗号分隔输入。 */
+export function BuiltinToolCompatSection({ config, onChange, t }: {
+  config: BuiltinToolCompat;
+  onChange: (c: BuiltinToolCompat) => void;
+  t: TFunction;
+}) {
+  const toList = (v: string): string[] =>
+    v.split(",").map(s => s.trim()).filter(Boolean);
+  return (
+    <FormSection
+      title={t("platform.builtin_tool_compat", "内置工具兼容")}
+      desc={t("platform.builtin_tool_compat_desc", "开启后转发时剔除 Claude Code 内置工具定义（ToolSearch/Read/Bash 等），用于不支持内置工具的第三方模型。默认关闭 = 请求原样转发。")}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
+          <Checkbox
+            checked={config.enabled}
+            onCheckedChange={v => onChange({ ...config, enabled: v === true })}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.builtin_tool_compat_enable", "启用剔除")}</span>
+        </label>
+      </div>
+      {config.enabled && (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              {t("platform.builtin_tool_compat_models", "生效模型（逗号分隔，空 = 全部模型）")}
+            </span>
+            <Input
+              value={config.models.join(", ")}
+              placeholder="glm-4.7, kimi-k2"
+              onChange={e => onChange({ ...config, models: toList(e.target.value) })}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              {t("platform.builtin_tool_compat_strip", "剔除工具名（逗号分隔，空 = 全部内置工具）")}
+            </span>
+            <Input
+              value={config.stripTools.join(", ")}
+              placeholder="ToolSearch, Bash"
+              onChange={e => onChange({ ...config, stripTools: toList(e.target.value) })}
+            />
+          </div>
+        </>
+      )}
     </FormSection>
   );
 }
