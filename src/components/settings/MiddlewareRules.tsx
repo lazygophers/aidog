@@ -448,11 +448,13 @@ interface RuleFormProps {
   rule?: MiddlewareRule;
   /** 新建时预置的 applies_to（group / platform 内嵌面板） */
   presetApplies?: AppliesTo;
+  /** 只读查看模式（内置规则：可看详情，不可改不可存） */
+  readOnly?: boolean;
   onSave: (draft: CreateMiddlewareRule) => Promise<void>;
   onCancel: () => void;
 }
 
-export function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProps) {
+export function RuleForm({ rule, presetApplies, readOnly, onSave, onCancel }: RuleFormProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");
@@ -525,9 +527,20 @@ export function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProp
       style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}
     >
       <div style={{ fontSize: F.label, fontWeight: 600 }}>
-        {rule ? t("middleware.editRule", "编辑规则") : t("middleware.addRule", "新增规则")}
+        {readOnly
+          ? t("middleware.viewRule", "查看规则")
+          : rule
+            ? t("middleware.editRule", "编辑规则")
+            : t("middleware.addRule", "新增规则")}
       </div>
+      {readOnly && (
+        <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          {t("middleware.builtinReadonlyHint", "内置规则只可启停，内容不可修改")}
+        </div>
+      )}
 
+      {/* 只读模式：pointer-events 阻断全部交互控件（含 Radix Select），文本仍可选中复制 */}
+      <div style={readOnly ? { pointerEvents: "none", userSelect: "text", display: "flex", flexDirection: "column", gap: S.gap } : { display: "flex", flexDirection: "column", gap: S.gap }}>
       <Input
         style={{ fontSize: F.body }}
         placeholder={t("middleware.name", "规则名称")}
@@ -624,6 +637,7 @@ export function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProp
         </span>
         <Switch checked={enabled} onCheckedChange={setEnabled} />
       </div>
+      </div>
 
       {saveError && (
         <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>{saveError}</div>
@@ -631,17 +645,19 @@ export function RuleForm({ rule, presetApplies, onSave, onCancel }: RuleFormProp
 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <Button variant="outline" style={{ fontSize: F.hint }} onClick={onCancel} disabled={saving}>
-          {t("action.cancel", "取消")}
+          {readOnly ? t("action.close", "关闭") : t("action.cancel", "取消")}
         </Button>
-        <Button
-          variant="default"
-          className="ripple"
-          style={{ fontSize: F.hint }}
-          onClick={(e) => { makeRipple(e); handleSave(); }}
-          disabled={saving || !name || !!phaseError || (mode === "dsl" && !!dslError)}
-        >
-          {t("action.save", "保存")}
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="default"
+            className="ripple"
+            style={{ fontSize: F.hint }}
+            onClick={(e) => { makeRipple(e); handleSave(); }}
+            disabled={saving || !name || !!phaseError || (mode === "dsl" && !!dslError)}
+          >
+            {t("action.save", "保存")}
+          </Button>
+        )}
       </div>
     </MwSectionCard>
   );
@@ -716,8 +732,8 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
         title={t("middleware.enabled", "启用")}
       />
 
-      {/* 内置规则禁删禁编辑（只允许启停）；Failed 规则只可删除（含 failed 内置残留） */}
-      {!rule.is_builtin && !rule.failed && (
+      {/* 内置规则可点开查看详情（表单只读）；Failed 规则（含内置残留）只可删除 */}
+      {!rule.failed && (
         <Button variant="ghost" onClick={() => onEdit(rule)} title={t("action.edit", "编辑")}>
           <IconEdit size={14} />
         </Button>
@@ -873,6 +889,7 @@ export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }:
       {showForm ? (
         <RuleForm
           rule={editingRule}
+          readOnly={editingRule?.is_builtin}
           presetApplies={presetApplies}
           onSave={handleSave}
           onCancel={() => {
