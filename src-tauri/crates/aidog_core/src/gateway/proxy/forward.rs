@@ -308,7 +308,11 @@ pub(crate) async fn forward_attempt(
     // 识别后必剥除。语义 = 剔掉开启型思考参数后，按目标 wire 协议写入显式禁用参数
     // （用户决策 2026-08-26；只剔不写会让上游按自身默认开启思考，见 apply_disable_thinking 注释）。
     // MiniMax-M2 等内置思考模型上游仍无法真正禁用，响应不剥离。
-    apply_disable_thinking(&mut req_body, target_protocol_enum, &target_base_url);
+    let disable_thinking = req_value
+        .get("disable_thinking")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    apply_disable_thinking(&mut req_body, disable_thinking, target_protocol_enum, &target_base_url);
 
     // builtin-tool-compat：per-model 内置工具兼容（platform.extra.builtin_tool_compat，
     // 默认关闭零进入）。两级 AND：全局总开关（ProxySettingsCache）× 平台级 enabled。
@@ -786,12 +790,14 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
 ///
 /// 上游硬限制不在本函数职责内：MiniMax M2.x 接受 `thinking.type=disabled` 但模型照样思考，
 /// 响应侧不做剥离（用户决策：剥了也救不回被思考烧光的 max_tokens）。
-fn apply_disable_thinking(body: &mut Value, wire: &Protocol, upstream_url: &str) {
+///
+/// **`disable` 由调用方从客户端原体读**：转换分支的 `req_body` 由强类型 struct 序列化而来
+/// （`adapter::convert_request`），`disable_thinking` 这种未建模的 aidog 私有字段在那一步就被丢掉，
+/// 从 `body` 读 key 在转换分支恒为 false（审计实证：本仓 707/1016 请求走 anthropic→openai 转换）。
+/// 函数内仍剥 `body` 上残留的同名 key，透传分支靠它把非标字段挡在上游之外。
+fn apply_disable_thinking(body: &mut Value, disable: bool, wire: &Protocol, upstream_url: &str) {
     let Some(obj) = body.as_object_mut() else { return };
-    if !obj.contains_key("disable_thinking") {
-        return;
-    }
-    let disable = obj.remove("disable_thinking").and_then(|v| v.as_bool()).unwrap_or(false);
+    obj.remove("disable_thinking");
     if !disable {
         return;
     }
@@ -964,7 +970,7 @@ mod test_disable_thinking {
             "thinking": {"type": "enabled", "budget_tokens": 1024},
             "context_management": {"edits": []},
         });
-        apply_disable_thinking(&mut b, &Protocol::Anthropic, "https://api.minimax.io/anthropic");
+        apply_disable_thinking(&mut b, true, &Protocol::Anthropic, "https://api.minimax.io/anthropic");
         assert!(b.get("disable_thinking").is_none());
         assert!(b.get("context_management").is_none());
         assert_eq!(b["thinking"], json!({"type": "disabled"}));
@@ -977,7 +983,7 @@ mod test_disable_thinking {
             "model": "m", "disable_thinking": true, "reasoning_effort": "medium",
             "chat_template_kwargs": {"enable_thinking": true, "other": 1},
         });
-        apply_disable_thinking(&mut b, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
+        apply_disable_thinking(&mut b, true, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
         assert!(b.get("reasoning_effort").is_none());
         assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
         assert_eq!(b["chat_template_kwargs"]["other"], json!(1), "同级其它字段不动");
@@ -987,7 +993,7 @@ mod test_disable_thinking {
     #[test]
     fn official_openai_emits_reasoning_effort() {
         let mut b = json!({"model": "gpt-5", "disable_thinking": true});
-        apply_disable_thinking(&mut b, &Protocol::OpenAI, "https://api.openai.com/v1");
+        apply_disable_thinking(&mut b, true, &Protocol::OpenAI, "https://api.openai.com/v1");
         assert_eq!(b["reasoning_effort"], json!("none"));
         assert!(b.get("chat_template_kwargs").is_none());
     }
@@ -996,7 +1002,7 @@ mod test_disable_thinking {
     #[test]
     fn openai_responses_emits_reasoning_effort_object() {
         let mut b = json!({"model": "m", "disable_thinking": true, "reasoning": {"effort": "high"}});
-        apply_disable_thinking(&mut b, &Protocol::OpenAIResponses, "https://api.openai.com/v1");
+        apply_disable_thinking(&mut b, true, &Protocol::OpenAIResponses, "https://api.openai.com/v1");
         assert_eq!(b["reasoning"], json!({"effort": "none"}));
     }
 
@@ -1007,25 +1013,35 @@ mod test_disable_thinking {
             "disable_thinking": true,
             "generationConfig": {"thinkingConfig": {"thinkingBudget": 128}, "temperature": 0.5},
         });
-        apply_disable_thinking(&mut b, &Protocol::Gemini, "https://generativelanguage.googleapis.com");
+        apply_disable_thinking(&mut b, true, &Protocol::Gemini, "https://generativelanguage.googleapis.com");
         assert_eq!(b["generationConfig"]["thinkingConfig"], json!({"thinkingBudget": 0}));
         assert_eq!(b["generationConfig"]["temperature"], json!(0.5));
 
         let mut b = json!({"disable_thinking": true});
-        apply_disable_thinking(&mut b, &Protocol::Gemini, "https://generativelanguage.googleapis.com");
+        apply_disable_thinking(&mut b, true, &Protocol::Gemini, "https://generativelanguage.googleapis.com");
         assert_eq!(b["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(0));
     }
 
     #[test]
     fn false_strips_field_only_and_absent_is_noop() {
         let mut b = json!({"disable_thinking": false, "thinking": {"type": "enabled"}});
-        apply_disable_thinking(&mut b, &Protocol::Anthropic, "https://example.com");
+        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com");
         assert!(b.get("disable_thinking").is_none(), "非标字段仍剥");
         assert_eq!(b["thinking"], json!({"type": "enabled"}), "false 不动思考参数");
 
         let mut b = json!({"model": "m"});
-        apply_disable_thinking(&mut b, &Protocol::Anthropic, "https://example.com");
-        assert_eq!(b, json!({"model": "m"}), "字段不存在整体不动");
+        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com");
+        assert_eq!(b, json!({"model": "m"}), "未请求禁用时整体不动");
+    }
+
+    /// 转换分支：`req_body` 由强类型 struct 序列化，body 里根本没有 `disable_thinking` key，
+    /// 禁用意图只能靠调用方从客户端原体读出的 flag 传进来（审计发现的漏修路径）。
+    #[test]
+    fn converted_body_without_key_still_disables() {
+        let mut b = json!({"model": "m", "messages": [], "reasoning_effort": "high"});
+        apply_disable_thinking(&mut b, true, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
+        assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
+        assert!(b.get("reasoning_effort").is_none());
     }
 
     #[test]
