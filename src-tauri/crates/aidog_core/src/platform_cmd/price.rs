@@ -62,8 +62,8 @@ pub async fn model_price_resolve(
 
 crate::tauri_command! {
 pub async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
-    gateway::price_sync::sync_github_prices(&db).await
-        .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "model price sync failed"); e })
+    gateway::price_sync::sync_registry(&db).await
+        .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "registry sync failed"); e })
 }
 }
 

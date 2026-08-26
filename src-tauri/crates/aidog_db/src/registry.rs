@@ -38,16 +38,33 @@ fn parse(what: &str, json: &str) -> Map<String, Value> {
 pub fn presets() -> &'static Value {
     PRESETS.get_or_init(|| {
         let index = parse("index.json", INDEX_JSON);
-        let protocols: Map<String, Value> = PLATFORM_FILES
-            .iter()
-            .map(|(code, json)| ((*code).to_string(), Value::Object(parse(code, json))))
-            .collect();
-        serde_json::json!({
-            "version": index["version"],
-            "last_updated": index["last_updated"],
-            "protocols": protocols,
-        })
+        presets_doc(
+            PLATFORM_FILES.iter().map(|(code, json)| (*code, *json)),
+            index["version"].clone(),
+            index["last_updated"].clone(),
+        )
     })
+}
+
+/// 用 per-platform JSON 文本组装 presets 文档（`{version, last_updated, protocols}`）。
+/// bundled（[`presets`]）与 DB 同步后的 `platform_preset` 行共用这一处形状定义。
+/// 单份文本解析失败 → 该协议整体跳过（DB 里的脏行不该炸掉整个文档）。
+pub fn presets_doc<'a>(
+    entries: impl IntoIterator<Item = (&'a str, &'a str)>,
+    version: Value,
+    last_updated: Value,
+) -> Value {
+    let protocols: Map<String, Value> = entries
+        .into_iter()
+        .filter_map(|(code, json)| match serde_json::from_str::<Map<String, Value>>(json) {
+            Ok(v) => Some((code.to_string(), Value::Object(v))),
+            Err(e) => {
+                tracing::warn!(error = %e, code, "platform preset json 解析失败，跳过该协议");
+                None
+            }
+        })
+        .collect();
+    serde_json::json!({ "version": version, "last_updated": last_updated, "protocols": protocols })
 }
 
 /// [`presets`] 的序列化文本，供命令层直接回传前端。
@@ -93,15 +110,68 @@ fn resolve_name(entry: Option<&Value>, code: &str, locale: &str) -> String {
     pick(key).or_else(|| pick("en-US")).unwrap_or(code).to_string()
 }
 
+/// `index.json` 的一条同步清单：远程同步照着它逐文件拉取。
+///
+/// `platform_file` 为 `None` 即 `pricing_only`（litellm / meta / mistral 这类只提供比价条目、
+/// 不是可选协议的来源），只拉 models 不拉 platform.json。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct IndexEntry {
+    pub code: String,
+    pub platform_file: Option<String>,
+    pub models_dir: String,
+    /// 该平台 models 目录下的文件名清单（相对 `models_dir`）。
+    pub models: Vec<String>,
+}
+
+/// 解析 `index.json` 的同步清单（`platforms` + `pricing_only` 合并，按 code 升序）。
+/// 远程拉到的 index 与编译期内置的 index 共用这一处 schema 定义。
+pub fn parse_index(json: &str) -> Result<Vec<IndexEntry>, String> {
+    let root: Map<String, Value> = serde_json::from_str(json).map_err(|e| format!("index.json: {e}"))?;
+    let mut out = Vec::new();
+    for (key, with_platform) in [("platforms", true), ("pricing_only", false)] {
+        let Some(arr) = root.get(key).and_then(Value::as_array) else {
+            continue;
+        };
+        for e in arr {
+            let Some(code) = e.get("code").and_then(Value::as_str) else {
+                return Err(format!("index.json: {key} 条目缺 code"));
+            };
+            out.push(IndexEntry {
+                code: code.to_string(),
+                platform_file: with_platform
+                    .then(|| e.get("platform_file").and_then(Value::as_str).map(str::to_string))
+                    .flatten(),
+                models_dir: e.get("models_dir").and_then(Value::as_str).unwrap_or_default().to_string(),
+                models: e
+                    .get("models")
+                    .and_then(Value::as_array)
+                    .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                    .unwrap_or_default(),
+            });
+        }
+    }
+    if out.is_empty() {
+        return Err("index.json: 平台清单为空".into());
+    }
+    out.sort_by(|a, b| a.code.cmp(&b.code));
+    Ok(out)
+}
+
+/// 编译期内置 `index.json` 的同步清单。漂移断言（清单 vs 磁盘实际文件）用。
+pub fn bundled_index() -> &'static [IndexEntry] {
+    static INDEX: OnceLock<Vec<IndexEntry>> = OnceLock::new();
+    INDEX.get_or_init(|| parse_index(INDEX_JSON).expect("bundled index.json"))
+}
+
 /// 编译期内置的全部 `platform.json`：`(platform_code, JSON 文本)`，按 code 升序。
 /// `model_entry` 的 bundled 兜底用（DB 空时直接落成 `platform_preset` 行形状）。
 pub fn bundled_platform_files() -> &'static [(&'static str, &'static str)] {
     PLATFORM_FILES
 }
 
-/// 编译期内置的全部模型条目文件：`(platform_code, JSON 文本)`。
+/// 编译期内置的全部模型条目文件：`(platform_code, 文件名, JSON 文本)`。
 /// 同一 `platform_code` 会出现多次（该平台每个模型一条）。
-pub fn bundled_model_files() -> &'static [(&'static str, &'static str)] {
+pub fn bundled_model_files() -> &'static [(&'static str, &'static str, &'static str)] {
     MODEL_FILES
 }
 
@@ -116,7 +186,7 @@ pub fn model_entry(name: &str) -> Option<&'static Value> {
 /// （`default_price` 缺省即该条目自身价），全部条目各自落进 `pricing[<code>]`。
 fn merge_models() -> HashMap<String, Value> {
     let mut out: HashMap<String, Map<String, Value>> = HashMap::new();
-    for (code, json) in MODEL_FILES {
+    for (code, _file, json) in MODEL_FILES {
         let e = parse(code, json);
         let id = e["model_id"].as_str().expect("model_id").to_string();
         let prices: Map<String, Value> = PRICE_FIELDS
