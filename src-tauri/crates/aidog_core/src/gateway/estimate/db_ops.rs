@@ -176,18 +176,20 @@ pub async fn estimate_after_request(
     cache_tokens: i64,
     is_coding_plan: bool,
 ) {
-    // resolve_price 单次解析，余额扣减（balance delta）与手动预算 est_cost 复用同一 ResolvedPrice
-    // （同一 (model, platform_type, input_tokens)，结果等价），避免对余额平台重复解析两次。
-    let resolved_price =
-        aidog_db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens, now())
+    // peak 窗口先算：`is_peak` 决定条目里的 peak 绝对价是否生效（票 T4）。
+    // 与 calc_est_cost（proxy/log.rs → billing.rs）同一口径，估算链此前漏乘（既存 bug）。
+    let windows = crate::gateway::peak_hours::peak_hours_for(extra, platform_type);
+    let is_peak = crate::gateway::peak_hours::is_in_peak_window(&windows, now(), model);
+    // resolve_price 单次解析，余额扣减（balance delta）与手动预算 est_cost 复用同一结果
+    // （同一 (platform_type, model, input_tokens)，结果等价），避免对余额平台重复解析两次。
+    let resolved =
+        aidog_db::resolve_price(db, platform_type, model, 0.0, 0.0, input_tokens, now(), is_peak)
             .await
             .ok();
-    // peak 倍率：与 calc_est_cost（proxy/log.rs → billing.rs）口径对齐，估算链此前漏乘（既存 bug）。
-    let peak_mult = crate::gateway::peak_hours::resolve_multiplier(
-        &crate::gateway::peak_hours::peak_hours_for(extra, platform_type),
-        now(),
-        model,
-    );
+    // 高峰绝对价已含涨价 → 倍率压成 1.0，否则乘平台 peak_hours 倍率（避免双重计价）。
+    let raw_mult = crate::gateway::peak_hours::resolve_multiplier(&windows, now(), model);
+    let peak_mult = resolved.as_ref().map_or(raw_mult, |r| r.multiplier(raw_mult));
+    let resolved_price = resolved.map(|r| r.price);
 
     // 1. 增量预估
     if is_coding_plan {
