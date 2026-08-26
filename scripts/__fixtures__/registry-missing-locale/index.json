@@ -1,0 +1,12 @@
+{
+  "version": "1",
+  "last_updated": 0,
+  "platforms": [
+    {
+      "code": "fixture_platform",
+      "name": "Fixture Platform",
+      "platform_file": "platforms/fixture_platform/platform.json",
+      "models_dir": "platforms/fixture_platform/models"
+    }
+  ]
+}
