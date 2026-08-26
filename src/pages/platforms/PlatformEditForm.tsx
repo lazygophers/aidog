@@ -84,7 +84,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     return () => { cancelled = true; };
   }, [i18n.language, protocol, editing?.platform_type]);
 
-  // 品牌色（async 派生自 platform-presets.json）；首帧 fallback var(--accent)。
+  // 品牌色（async 派生自 registry platform.json 的 color）；首帧 fallback var(--accent)。
   const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
   useEffect(() => {
     let cancelled = false;

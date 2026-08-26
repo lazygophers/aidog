@@ -1072,6 +1072,8 @@
   "platform.groupAssignTitle": "分组归属",
   "platform.groupLocked": "已锁定到此分组",
   "platform.homepage": "官网",
+  "platform.sourceDocs": "文档",
+  "platform.sourcePricing": "定价",
   "platform.lastError": "最近错误",
   "platform.lastErrorHint": "最近一次失败 · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "最近测试失败 · {{time}}{{error}}",

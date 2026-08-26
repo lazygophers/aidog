@@ -1072,6 +1072,8 @@
   "platform.groupAssignTitle": "Group Assignment",
   "platform.groupLocked": "Locked to this group",
   "platform.homepage": "Homepage",
+  "platform.sourceDocs": "Docs",
+  "platform.sourcePricing": "Pricing",
   "platform.lastError": "Last error",
   "platform.lastErrorHint": "Last failure · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "Last test failed · {{time}}{{error}}",

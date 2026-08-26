@@ -26,7 +26,7 @@ export function SearchableProtocolSelect({
   // 仅键盘导航/打开下拉时才自动滚动；鼠标 hover 改高亮不滚动（避免滚动→hover→滚动死循环）
   const autoScrollRef = useRef(false);
 
-  // ProtocolOption 列表（async 派生自 platform-presets.json）。
+  // ProtocolOption 列表（async 派生自 registry）。
   // 首帧 fallback 空数组（不崩），加载后 setState 重渲染。
   const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
   // 协议本地化 label 映射（value → 按 i18n.language 取 JSON name）。
