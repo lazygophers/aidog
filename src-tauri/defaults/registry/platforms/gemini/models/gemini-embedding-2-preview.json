@@ -1,0 +1,16 @@
+{
+  "model_id": "gemini-embedding-2-preview",
+  "canonical_model": "gemini-embedding-2-preview",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": true,
+  "input_cost_per_token": 2e-7,
+  "default_price": {
+    "input_cost_per_token": 2e-7,
+    "output_cost_per_token": 0,
+    "cache_read_input_token_cost": 0
+  }
+}

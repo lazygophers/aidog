@@ -1,0 +1,40 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": []
+  },
+  "models": {
+    "default": {
+      "default": "devin-default"
+    }
+  },
+  "model_list": {
+    "default": [
+      "devin-normal",
+      "devin-fast",
+      "devin-lite",
+      "devin-ultra",
+      "devin-fusion"
+    ]
+  },
+  "name": {
+    "en-US": "Devin",
+    "zh-Hans": "Devin",
+    "ar-SA": "Devin",
+    "fr-FR": "Devin",
+    "de-DE": "Devin",
+    "ru-RU": "Devin",
+    "ja-JP": "Devin",
+    "es-ES": "Devin"
+  },
+  "source_urls": {
+    "docs": "https://docs.devin.ai/api-reference/overview"
+  },
+  "homepage": "https://devin.ai",
+  "logo_url": "devin",
+  "keywords": [
+    "devin",
+    "cognition"
+  ],
+  "color": "#317CFF"
+}

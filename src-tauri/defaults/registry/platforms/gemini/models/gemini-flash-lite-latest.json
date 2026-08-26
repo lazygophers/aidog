@@ -1,0 +1,14 @@
+{
+  "model_id": "gemini-flash-lite-latest",
+  "canonical_model": "gemini-flash-lite-latest",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 65535,
+  "official": true,
+  "input_cost_per_token": 1e-7,
+  "output_cost_per_token": 4e-7,
+  "cache_read_input_token_cost": 2.5e-8
+}

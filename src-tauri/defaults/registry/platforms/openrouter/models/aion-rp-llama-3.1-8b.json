@@ -1,0 +1,18 @@
+{
+  "model_id": "aion-rp-llama-3.1-8b",
+  "canonical_model": "aion-rp-llama-3.1-8b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "max_output_tokens": 32768,
+  "context_window": 32768,
+  "official": true,
+  "input_cost_per_token": 8e-7,
+  "output_cost_per_token": 0.0000016,
+  "default_price": {
+    "input_cost_per_token": 8e-7,
+    "output_cost_per_token": 0.0000016,
+    "cache_read_input_token_cost": 0
+  }
+}

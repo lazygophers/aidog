@@ -1,0 +1,13 @@
+{
+  "model_id": "o1-pro",
+  "canonical_model": "o1-pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": false,
+  "input_cost_per_token": 0.00015,
+  "output_cost_per_token": 0.0006
+}

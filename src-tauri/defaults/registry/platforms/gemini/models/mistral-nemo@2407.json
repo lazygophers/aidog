@@ -1,0 +1,18 @@
+{
+  "model_id": "mistral-nemo@2407",
+  "canonical_model": "mistral-nemo@2407",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000003,
+  "default_price": {
+    "input_cost_per_token": 0.000003,
+    "output_cost_per_token": 0.000003,
+    "cache_read_input_token_cost": 0
+  }
+}

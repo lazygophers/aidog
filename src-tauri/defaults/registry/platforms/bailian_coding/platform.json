@@ -1,0 +1,50 @@
+{
+  "is_coding_plan": true,
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "qwen3-coder-plus"
+    }
+  },
+  "model_list": {
+    "default": [
+      "qwen3-coder-plus",
+      "qwen3-coder-flash",
+      "qwen-coder-plus",
+      "qwen-coder-turbo",
+      "qwen3.7-max"
+    ]
+  },
+  "name": {
+    "en-US": "Bailian Coding",
+    "zh-Hans": "百炼编程",
+    "ar-SA": "Bailian Coding",
+    "fr-FR": "Bailian Coding",
+    "de-DE": "Bailian Coding",
+    "ru-RU": "Bailian Coding",
+    "ja-JP": "百煉プログラミング",
+    "es-ES": "Bailian Coding"
+  },
+  "source_urls": {
+    "docs": "https://help.aliyun.com/zh/model-studio/developer-reference/use-claude-code",
+    "pricing": "https://help.aliyun.com/zh/model-studio/billing-for-model-studio"
+  },
+  "homepage": "https://www.aliyun.com",
+  "logo_url": "alibabacloud",
+  "keywords": [
+    "dashscope coding",
+    "阿里编程",
+    "百炼编程"
+  ],
+  "color": "#FF6A00"
+}

@@ -1,0 +1,18 @@
+{
+  "model_id": "gpt-5.2-pro",
+  "canonical_model": "gpt-5.2-pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 400000,
+  "official": true,
+  "input_cost_per_token": 0.000021,
+  "output_cost_per_token": 0.000168,
+  "default_price": {
+    "input_cost_per_token": 0.000021,
+    "output_cost_per_token": 0.000168,
+    "cache_read_input_token_cost": 0
+  }
+}

@@ -19,6 +19,7 @@
  */
 import { readFileSync } from 'fs';
 import { execFileSync } from 'child_process';
+import { readPresets } from './registry.mjs';
 
 const LOCALES = ['zh-Hans', 'en-US', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
 const BASE = 'en-US'; // 动态模板覆盖度基准
@@ -74,14 +75,12 @@ for (const l of LOCALES) {
   if (miss.length > 0) alignMissing.push({ locale: l, count: miss.length, sample: miss.slice(0, 8) });
 }
 
-// ── E. platform-presets.json protocol name 8 locale 完整性 ──────
+// ── E. registry platform.json protocol name 8 locale 完整性 ──────
 // 每 protocol 必须 8 locale 都有非空 name（缺失 → 切语言时协议选择器裸 key）
 // 注：desc 字段 2026-07-10 删除（无 UI 消费），不再校验
 const DEFAULTS_LOCALES = ['en-US', 'zh-Hans', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
-// presets 已内置化 aidog_db::presets_const BUNDLED 原始字符串（r##"..."##），从 .rs 提取
-const presetsRs = readFileSync('src-tauri/crates/aidog_db/src/presets_const.rs', 'utf8');
-const presetsRaw = JSON.parse(presetsRs.match(/r##"([\s\S]*?)"##/)[1]);
-const presetsProtocols = presetsRaw.protocols || {};
+// 真值源 = src-tauri/defaults/registry/platforms/<code>/platform.json（一协议一文件）
+const presetsProtocols = readPresets().protocols;
 const protocolMissing = []; // {protocol, field, miss}
 for (const [proto, entry] of Object.entries(presetsProtocols)) {
   for (const field of ['name']) {
@@ -119,7 +118,7 @@ const log = s => console.log(s);
 
 log(`\n# i18n 检查报告`);
 log(`扫描 ${files.length} 文件 | ${staticKeys.size} 静态 key | ${dynTemplates.size} 动态模板 | ${propKeys.size} 属性字面量 key | ${union.size} locale 并集 key\n`);
-log(`platform-presets.json: ${Object.keys(presetsProtocols).length} protocols × name × ${DEFAULTS_LOCALES.length} locale 校验\n`);
+log(`registry platform.json: ${Object.keys(presetsProtocols).length} protocols × name × ${DEFAULTS_LOCALES.length} locale 校验\n`);
 
 // A
 log(`## A. t() 静态 key 缺失: ${staticMissing.length}`);
@@ -153,7 +152,7 @@ for (const { key, miss, files } of propMissing.sort((a, b) => a.key.localeCompar
 }
 
 // E
-log(`\n## E. platform-presets protocol name locale 缺失: ${protocolMissing.length}`);
+log(`\n## E. registry protocol name locale 缺失: ${protocolMissing.length}`);
 for (const { protocol, field, miss } of protocolMissing) {
   log(`  🔴 ${protocol}.${field} 缺 [${miss.join(',')}]`);
   problems++;

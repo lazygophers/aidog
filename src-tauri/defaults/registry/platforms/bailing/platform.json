@@ -1,0 +1,40 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.tbox.cn/api/anthropic",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": []
+  },
+  "name": {
+    "en-US": "Bailing",
+    "zh-Hans": "百灵",
+    "ar-SA": "Bailing",
+    "fr-FR": "Bailing",
+    "de-DE": "Bailing",
+    "ru-RU": "Bailing",
+    "ja-JP": "ベイリン",
+    "es-ES": "Bailing"
+  },
+  "source_urls": {
+    "docs": "https://www.tbox.cn/",
+    "pricing": "https://www.tbox.cn/"
+  },
+  "homepage": "https://www.tbox.cn",
+  "logo_url": "",
+  "keywords": [
+    "bailing",
+    "百灵",
+    "tbox"
+  ],
+  "color": "#624AFF"
+}

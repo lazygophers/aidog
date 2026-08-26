@@ -1,0 +1,51 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://qianfan.baidubce.com/anthropic/coding",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "ernie-4.5-turbo"
+    }
+  },
+  "model_list": {
+    "default": [
+      "ernie-5.1",
+      "ernie-5.0",
+      "ernie-4.5-turbo-vl",
+      "ernie-4.5-turbo",
+      "ernie-x1-turbo",
+      "ernie-x1.1-preview"
+    ]
+  },
+  "name": {
+    "en-US": "Baidu Qianfan",
+    "zh-Hans": "百度千帆",
+    "ar-SA": "Baidu Qianfan",
+    "fr-FR": "Baidu Qianfan",
+    "de-DE": "Baidu Qianfan",
+    "ru-RU": "Baidu Qianfan",
+    "ja-JP": "百度千帆",
+    "es-ES": "Baidu Qianfan"
+  },
+  "source_urls": {
+    "docs": "https://cloud.baidu.com/doc/qianfan-api/",
+    "pricing": "https://cloud.baidu.com/product/wenxinworkshop/"
+  },
+  "homepage": "https://cloud.baidu.com",
+  "logo_url": "baidu",
+  "keywords": [
+    "baidu",
+    "百度",
+    "千帆",
+    "qianfan",
+    "coding"
+  ],
+  "color": "#2932E1"
+}

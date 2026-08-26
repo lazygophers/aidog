@@ -8,10 +8,10 @@ pub use aidog_db::models::PeakWindow;
 use chrono::{DateTime, Utc};
 
 
-/// bundled preset 唯一解析入口，见 `super::presets_cache`（单 OnceLock，跨 peak_hours /
+/// registry preset 唯一解析入口，见 `super::registry`（单 OnceLock，跨 peak_hours /
 /// defaults_sync / coding_plan 共享一份解析结果，避免 N 份 `serde_json::Value` 常驻）。
 /// 解析失败（不应发生，JSON 已校验）回退空 Map → `default_peak_hours` 返空 → caller 退 1.0。
-use super::presets_cache::presets;
+use super::registry::presets;
 
 /// t 的 UTC 小时 (0-23) 与 weekday (0=Sun…6=Sat)。
 ///

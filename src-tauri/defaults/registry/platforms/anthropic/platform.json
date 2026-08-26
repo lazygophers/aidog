@@ -1,0 +1,58 @@
+{
+  "client_type": "claude_code",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.anthropic.com",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-opus-5",
+      "opus": "claude-opus-5",
+      "fable": "claude-fable-5",
+      "sonnet": "claude-sonnet-5",
+      "haiku": "claude-haiku-4-5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-5",
+      "claude-fable-5",
+      "claude-mythos-5",
+      "claude-opus-4-8",
+      "claude-sonnet-5",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-sonnet-4-6",
+      "claude-opus-4-5-20251101",
+      "claude-sonnet-4-5-20250929"
+    ]
+  },
+  "name": {
+    "en-US": "Anthropic",
+    "zh-Hans": "Anthropic",
+    "ar-SA": "Anthropic",
+    "fr-FR": "Anthropic",
+    "de-DE": "Anthropic",
+    "ru-RU": "Anthropic",
+    "ja-JP": "Anthropic",
+    "es-ES": "Anthropic"
+  },
+  "source_urls": {
+    "docs": "https://docs.anthropic.com/en/api/overview",
+    "pricing": "https://www.anthropic.com/pricing"
+  },
+  "homepage": "https://www.anthropic.com",
+  "logo_url": "anthropic",
+  "keywords": [
+    "claude",
+    "克劳德",
+    "官方"
+  ],
+  "color": "#D97757"
+}

@@ -1,0 +1,68 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://aihubmix.com",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://aihubmix.com/v1",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "gemini",
+        "base_url": "https://aihubmix.com",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-sonnet-4-6",
+      "opus": "claude-opus-4-8",
+      "sonnet": "claude-sonnet-4-6",
+      "gpt": "gpt-5.5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-sonnet-4-5",
+      "gpt-5.5",
+      "gpt-5.5-pro",
+      "gpt-5.3-codex",
+      "gemini-3.5-flash",
+      "gemini-3.1-pro-preview",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "qwen3.7-max",
+      "glm-5.2",
+      "kimi-k2.7-code",
+      "grok-4.3"
+    ]
+  },
+  "name": {
+    "en-US": "AiHubMix",
+    "zh-Hans": "AiHubMix",
+    "ar-SA": "AiHubMix",
+    "fr-FR": "AiHubMix",
+    "de-DE": "AiHubMix",
+    "ru-RU": "AiHubMix",
+    "ja-JP": "AiHubMix",
+    "es-ES": "AiHubMix"
+  },
+  "source_urls": {
+    "docs": "https://docs.aihubmix.com/",
+    "pricing": "https://aihubmix.com/pricing"
+  },
+  "homepage": "https://aihubmix.com",
+  "logo_url": "",
+  "keywords": [
+    "aihubmix"
+  ],
+  "color": "#006FFB"
+}

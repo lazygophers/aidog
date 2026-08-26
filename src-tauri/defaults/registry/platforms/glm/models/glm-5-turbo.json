@@ -1,0 +1,27 @@
+{
+  "model_id": "glm-5-turbo",
+  "canonical_model": "glm-5-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 204800,
+  "max_output_tokens": 131072,
+  "context_window": 204800,
+  "official": true,
+  "input_cost_per_token": 6.944444444444444e-7,
+  "output_cost_per_token": 0.000003055555555555555,
+  "cache_read_input_token_cost": 1.6666666666666665e-7,
+  "context_tiers": [
+    {
+      "min_tokens": 32768,
+      "input_cost_per_token": 9.722222222222222e-7,
+      "output_cost_per_token": 0.000003611111111111111,
+      "cache_read_input_token_cost": 2.5e-7
+    }
+  ],
+  "default_price": {
+    "input_cost_per_token": 6.944444444444444e-7,
+    "output_cost_per_token": 0.0000030555555555555556,
+    "cache_read_input_token_cost": 1.6666666666666665e-7
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "model_id": "gpt-5.1-codex",
+  "canonical_model": "gpt-5.1-codex",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 400000,
+  "official": false,
+  "input_cost_per_token": 0.00000125,
+  "output_cost_per_token": 0.00001,
+  "cache_read_input_token_cost": 1.25e-7
+}

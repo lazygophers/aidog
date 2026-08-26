@@ -1,0 +1,18 @@
+{
+  "model_id": "meta/llama-4-scout-17b-16e-instruct-maas",
+  "canonical_model": "meta/llama-4-scout-17b-16e-instruct-maas",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 10000000,
+  "max_output_tokens": 10000000,
+  "context_window": 10000000,
+  "official": true,
+  "input_cost_per_token": 2.5e-7,
+  "output_cost_per_token": 7e-7,
+  "default_price": {
+    "input_cost_per_token": 2.5e-7,
+    "output_cost_per_token": 7e-7,
+    "cache_read_input_token_cost": 0
+  }
+}

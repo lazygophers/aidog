@@ -1,0 +1,18 @@
+{
+  "model_id": "hermes-3-llama-3.1-70b",
+  "canonical_model": "hermes-3-llama-3.1-70b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 16384,
+  "context_window": 131072,
+  "official": true,
+  "input_cost_per_token": 7e-7,
+  "output_cost_per_token": 7e-7,
+  "default_price": {
+    "input_cost_per_token": 7e-7,
+    "output_cost_per_token": 7e-7,
+    "cache_read_input_token_cost": 0
+  }
+}

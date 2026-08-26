@@ -1,0 +1,410 @@
+{
+  "version": "1",
+  "last_updated": 1786872534,
+  "platforms": [
+    {
+      "code": "aicodemirror",
+      "name": "AICodeMirror",
+      "platform_file": "platforms/aicodemirror/platform.json",
+      "models_dir": "platforms/aicodemirror/models"
+    },
+    {
+      "code": "aigocode",
+      "name": "AIGoCode",
+      "platform_file": "platforms/aigocode/platform.json",
+      "models_dir": "platforms/aigocode/models"
+    },
+    {
+      "code": "aihubmix",
+      "name": "AiHubMix",
+      "platform_file": "platforms/aihubmix/platform.json",
+      "models_dir": "platforms/aihubmix/models"
+    },
+    {
+      "code": "anthropic",
+      "name": "Anthropic",
+      "platform_file": "platforms/anthropic/platform.json",
+      "models_dir": "platforms/anthropic/models"
+    },
+    {
+      "code": "apikeyfun",
+      "name": "APIKEY.FUN",
+      "platform_file": "platforms/apikeyfun/platform.json",
+      "models_dir": "platforms/apikeyfun/models"
+    },
+    {
+      "code": "apinebula",
+      "name": "APINebula",
+      "platform_file": "platforms/apinebula/platform.json",
+      "models_dir": "platforms/apinebula/models"
+    },
+    {
+      "code": "atlascloud",
+      "name": "AtlasCloud",
+      "platform_file": "platforms/atlascloud/platform.json",
+      "models_dir": "platforms/atlascloud/models"
+    },
+    {
+      "code": "bailian",
+      "name": "Bailian (Alibaba Cloud)",
+      "platform_file": "platforms/bailian/platform.json",
+      "models_dir": "platforms/bailian/models"
+    },
+    {
+      "code": "bailian_coding",
+      "name": "Bailian Coding",
+      "platform_file": "platforms/bailian_coding/platform.json",
+      "models_dir": "platforms/bailian_coding/models"
+    },
+    {
+      "code": "bailing",
+      "name": "Bailing",
+      "platform_file": "platforms/bailing/platform.json",
+      "models_dir": "platforms/bailing/models"
+    },
+    {
+      "code": "byteplus",
+      "name": "BytePlus",
+      "platform_file": "platforms/byteplus/platform.json",
+      "models_dir": "platforms/byteplus/models"
+    },
+    {
+      "code": "ccsub",
+      "name": "CCSub",
+      "platform_file": "platforms/ccsub/platform.json",
+      "models_dir": "platforms/ccsub/models"
+    },
+    {
+      "code": "cherryin",
+      "name": "CherryIN",
+      "platform_file": "platforms/cherryin/platform.json",
+      "models_dir": "platforms/cherryin/models"
+    },
+    {
+      "code": "claude_code",
+      "name": "Claude Code Subscription (Passthrough)",
+      "platform_file": "platforms/claude_code/platform.json",
+      "models_dir": "platforms/claude_code/models"
+    },
+    {
+      "code": "claudeapi",
+      "name": "ClaudeAPI",
+      "platform_file": "platforms/claudeapi/platform.json",
+      "models_dir": "platforms/claudeapi/models"
+    },
+    {
+      "code": "claudecn",
+      "name": "ClaudeCN",
+      "platform_file": "platforms/claudecn/platform.json",
+      "models_dir": "platforms/claudecn/models"
+    },
+    {
+      "code": "codex",
+      "name": "OpenAI Codex",
+      "platform_file": "platforms/codex/platform.json",
+      "models_dir": "platforms/codex/models"
+    },
+    {
+      "code": "compshare",
+      "name": "Compshare (YouYun)",
+      "platform_file": "platforms/compshare/platform.json",
+      "models_dir": "platforms/compshare/models"
+    },
+    {
+      "code": "compshare_coding",
+      "name": "Compshare Coding Plan",
+      "platform_file": "platforms/compshare_coding/platform.json",
+      "models_dir": "platforms/compshare_coding/models"
+    },
+    {
+      "code": "crazyrouter",
+      "name": "CrazyRouter",
+      "platform_file": "platforms/crazyrouter/platform.json",
+      "models_dir": "platforms/crazyrouter/models"
+    },
+    {
+      "code": "ctok",
+      "name": "CTok.ai",
+      "platform_file": "platforms/ctok/platform.json",
+      "models_dir": "platforms/ctok/models"
+    },
+    {
+      "code": "cubence",
+      "name": "Cubence",
+      "platform_file": "platforms/cubence/platform.json",
+      "models_dir": "platforms/cubence/models"
+    },
+    {
+      "code": "deepseek",
+      "name": "DeepSeek",
+      "platform_file": "platforms/deepseek/platform.json",
+      "models_dir": "platforms/deepseek/models"
+    },
+    {
+      "code": "devin",
+      "name": "Devin",
+      "platform_file": "platforms/devin/platform.json",
+      "models_dir": "platforms/devin/models"
+    },
+    {
+      "code": "dmxapi",
+      "name": "DMXAPI",
+      "platform_file": "platforms/dmxapi/platform.json",
+      "models_dir": "platforms/dmxapi/models"
+    },
+    {
+      "code": "doubao",
+      "name": "Volcano Engine (ByteDance)",
+      "platform_file": "platforms/doubao/platform.json",
+      "models_dir": "platforms/doubao/models"
+    },
+    {
+      "code": "eflowcode",
+      "name": "E-FlowCode",
+      "platform_file": "platforms/eflowcode/platform.json",
+      "models_dir": "platforms/eflowcode/models"
+    },
+    {
+      "code": "gemini",
+      "name": "Gemini",
+      "platform_file": "platforms/gemini/platform.json",
+      "models_dir": "platforms/gemini/models"
+    },
+    {
+      "code": "glm",
+      "name": "GLM (Zhipu AI)",
+      "platform_file": "platforms/glm/platform.json",
+      "models_dir": "platforms/glm/models"
+    },
+    {
+      "code": "glm_coding",
+      "name": "GLM Coding Plan (Zhipu AI)",
+      "platform_file": "platforms/glm_coding/platform.json",
+      "models_dir": "platforms/glm_coding/models"
+    },
+    {
+      "code": "glm_en",
+      "name": "GLM International (z.ai)",
+      "platform_file": "platforms/glm_en/platform.json",
+      "models_dir": "platforms/glm_en/models"
+    },
+    {
+      "code": "kimi",
+      "name": "Kimi (Moonshot AI)",
+      "platform_file": "platforms/kimi/platform.json",
+      "models_dir": "platforms/kimi/models"
+    },
+    {
+      "code": "kimi_coding",
+      "name": "Kimi Code Plan (Moonshot Membership)",
+      "platform_file": "platforms/kimi_coding/platform.json",
+      "models_dir": "platforms/kimi_coding/models"
+    },
+    {
+      "code": "lemondata",
+      "name": "LemonData",
+      "platform_file": "platforms/lemondata/platform.json",
+      "models_dir": "platforms/lemondata/models"
+    },
+    {
+      "code": "longcat",
+      "name": "Longcat",
+      "platform_file": "platforms/longcat/platform.json",
+      "models_dir": "platforms/longcat/models"
+    },
+    {
+      "code": "micu",
+      "name": "Micu",
+      "platform_file": "platforms/micu/platform.json",
+      "models_dir": "platforms/micu/models"
+    },
+    {
+      "code": "minimax",
+      "name": "MiniMax",
+      "platform_file": "platforms/minimax/platform.json",
+      "models_dir": "platforms/minimax/models"
+    },
+    {
+      "code": "minimax_en",
+      "name": "MiniMax International",
+      "platform_file": "platforms/minimax_en/platform.json",
+      "models_dir": "platforms/minimax_en/models"
+    },
+    {
+      "code": "modelscope",
+      "name": "ModelScope",
+      "platform_file": "platforms/modelscope/platform.json",
+      "models_dir": "platforms/modelscope/models"
+    },
+    {
+      "code": "newapi",
+      "name": "New API",
+      "platform_file": "platforms/newapi/platform.json",
+      "models_dir": "platforms/newapi/models"
+    },
+    {
+      "code": "novita",
+      "name": "Novita AI",
+      "platform_file": "platforms/novita/platform.json",
+      "models_dir": "platforms/novita/models"
+    },
+    {
+      "code": "nvidia",
+      "name": "NVIDIA",
+      "platform_file": "platforms/nvidia/platform.json",
+      "models_dir": "platforms/nvidia/models"
+    },
+    {
+      "code": "openai",
+      "name": "OpenAI",
+      "platform_file": "platforms/openai/platform.json",
+      "models_dir": "platforms/openai/models"
+    },
+    {
+      "code": "opencode",
+      "name": "OpenCode Go",
+      "platform_file": "platforms/opencode/platform.json",
+      "models_dir": "platforms/opencode/models"
+    },
+    {
+      "code": "opencode_zen",
+      "name": "OpenCode Zen (Free)",
+      "platform_file": "platforms/opencode_zen/platform.json",
+      "models_dir": "platforms/opencode_zen/models"
+    },
+    {
+      "code": "openrouter",
+      "name": "OpenRouter",
+      "platform_file": "platforms/openrouter/platform.json",
+      "models_dir": "platforms/openrouter/models"
+    },
+    {
+      "code": "packycode",
+      "name": "PackyCode",
+      "platform_file": "platforms/packycode/platform.json",
+      "models_dir": "platforms/packycode/models"
+    },
+    {
+      "code": "pateway",
+      "name": "PatewayAI",
+      "platform_file": "platforms/pateway/platform.json",
+      "models_dir": "platforms/pateway/models"
+    },
+    {
+      "code": "pipellm",
+      "name": "PIPELLM",
+      "platform_file": "platforms/pipellm/platform.json",
+      "models_dir": "platforms/pipellm/models"
+    },
+    {
+      "code": "qianfan",
+      "name": "Baidu Qianfan",
+      "platform_file": "platforms/qianfan/platform.json",
+      "models_dir": "platforms/qianfan/models"
+    },
+    {
+      "code": "qianfan_coding",
+      "name": "Baidu Qianfan Coding Plan Lite",
+      "platform_file": "platforms/qianfan_coding/platform.json",
+      "models_dir": "platforms/qianfan_coding/models"
+    },
+    {
+      "code": "relaxycode",
+      "name": "RelaxyCode",
+      "platform_file": "platforms/relaxycode/platform.json",
+      "models_dir": "platforms/relaxycode/models"
+    },
+    {
+      "code": "rightcode",
+      "name": "RightCode",
+      "platform_file": "platforms/rightcode/platform.json",
+      "models_dir": "platforms/rightcode/models"
+    },
+    {
+      "code": "runapi",
+      "name": "RunAPI",
+      "platform_file": "platforms/runapi/platform.json",
+      "models_dir": "platforms/runapi/models"
+    },
+    {
+      "code": "sensenova",
+      "name": "SenseNova (SenseTime)",
+      "platform_file": "platforms/sensenova/platform.json",
+      "models_dir": "platforms/sensenova/models"
+    },
+    {
+      "code": "shengsuanyun",
+      "name": "ShengSuanYun",
+      "platform_file": "platforms/shengsuanyun/platform.json",
+      "models_dir": "platforms/shengsuanyun/models"
+    },
+    {
+      "code": "siliconflow",
+      "name": "SiliconFlow",
+      "platform_file": "platforms/siliconflow/platform.json",
+      "models_dir": "platforms/siliconflow/models"
+    },
+    {
+      "code": "siliconflow_en",
+      "name": "SiliconFlow International",
+      "platform_file": "platforms/siliconflow_en/platform.json",
+      "models_dir": "platforms/siliconflow_en/models"
+    },
+    {
+      "code": "sssaicode",
+      "name": "SSSAiCode",
+      "platform_file": "platforms/sssaicode/platform.json",
+      "models_dir": "platforms/sssaicode/models"
+    },
+    {
+      "code": "stepfun",
+      "name": "StepFun",
+      "platform_file": "platforms/stepfun/platform.json",
+      "models_dir": "platforms/stepfun/models"
+    },
+    {
+      "code": "stepfun_en",
+      "name": "StepFun International",
+      "platform_file": "platforms/stepfun_en/platform.json",
+      "models_dir": "platforms/stepfun_en/models"
+    },
+    {
+      "code": "sudocode",
+      "name": "SudoCode",
+      "platform_file": "platforms/sudocode/platform.json",
+      "models_dir": "platforms/sudocode/models"
+    },
+    {
+      "code": "therouter",
+      "name": "TheRouter",
+      "platform_file": "platforms/therouter/platform.json",
+      "models_dir": "platforms/therouter/models"
+    },
+    {
+      "code": "xiaomi_mimo",
+      "name": "Xiaomi MiMo",
+      "platform_file": "platforms/xiaomi_mimo/platform.json",
+      "models_dir": "platforms/xiaomi_mimo/models"
+    },
+    {
+      "code": "xiaomi_mimo_coding",
+      "name": "Xiaomi MiMo Token Plan",
+      "platform_file": "platforms/xiaomi_mimo_coding/platform.json",
+      "models_dir": "platforms/xiaomi_mimo_coding/models"
+    }
+  ],
+  "pricing_only": [
+    {
+      "code": "litellm",
+      "models_dir": "platforms/litellm/models"
+    },
+    {
+      "code": "meta",
+      "models_dir": "platforms/meta/models"
+    },
+    {
+      "code": "mistral",
+      "models_dir": "platforms/mistral/models"
+    }
+  ]
+}

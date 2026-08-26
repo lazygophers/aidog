@@ -1,0 +1,53 @@
+{
+  "is_coding_plan": true,
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://cp.compshare.cn",
+        "client_type": "claude_code",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "sonnet": "claude-sonnet-4-6",
+      "opus": "claude-opus-4-8",
+      "haiku": "claude-haiku-4-5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5"
+    ]
+  },
+  "name": {
+    "en-US": "Compshare Coding Plan",
+    "zh-Hans": "Compshare Coding Plan",
+    "ar-SA": "Compshare Coding Plan",
+    "fr-FR": "Compshare Coding Plan",
+    "de-DE": "Compshare Coding Plan",
+    "ru-RU": "Compshare Coding Plan",
+    "ja-JP": "Compshare プログラミングプラン",
+    "es-ES": "Compshare Coding Plan"
+  },
+  "source_urls": {
+    "docs": "https://www.compshare.cn/docs/modelverse/models/quick-start",
+    "pricing": "https://www.compshare.cn/price-list"
+  },
+  "homepage": "https://www.compshare.cn",
+  "logo_url": "",
+  "keywords": [
+    "compshare coding",
+    "优云编程"
+  ],
+  "color": "#00A67E"
+}

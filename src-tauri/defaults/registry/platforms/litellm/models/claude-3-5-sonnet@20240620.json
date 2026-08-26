@@ -1,0 +1,13 @@
+{
+  "model_id": "claude-3-5-sonnet@20240620",
+  "canonical_model": "claude-3-5-sonnet@20240620",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 8192,
+  "context_window": 8192,
+  "official": false,
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000015
+}

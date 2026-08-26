@@ -1,0 +1,51 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.stepfun.com/step_plan",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.stepfun.com/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "step-3.7-flash"
+    }
+  },
+  "model_list": {
+    "default": [
+      "step-3.7-flash",
+      "step-3.5-flash",
+      "step-3.5-flash-2603",
+      "step-1o-turbo-vision"
+    ]
+  },
+  "name": {
+    "en-US": "StepFun",
+    "zh-Hans": "阶跃星辰（StepFun）",
+    "ar-SA": "StepFun",
+    "fr-FR": "StepFun",
+    "de-DE": "StepFun",
+    "ru-RU": "StepFun",
+    "ja-JP": "StepFun",
+    "es-ES": "StepFun"
+  },
+  "source_urls": {
+    "docs": "https://platform.stepfun.com/docs",
+    "pricing": "https://platform.stepfun.com/docs"
+  },
+  "homepage": "https://www.stepfun.com",
+  "logo_url": "",
+  "keywords": [
+    "stepfun",
+    "阶跃"
+  ],
+  "color": "#16D6D2"
+}
