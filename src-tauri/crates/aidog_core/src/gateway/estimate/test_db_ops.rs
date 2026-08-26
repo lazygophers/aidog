@@ -13,6 +13,28 @@ async fn mem_db() -> Db {
     db
 }
 
+/// 落一条 `model_entry`（计费价格真值源，票 T4）。`pd` 是整份模型 JSON。
+async fn seed_entry(db: &Db, platform_code: &str, model_id: &str, pd: &str) {
+    let e = ModelEntry {
+        platform_code: platform_code.to_string(),
+        model_id: model_id.to_string(),
+        display_name: String::new(),
+        canonical_model: model_id.to_string(),
+        family: String::new(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec![],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: None,
+        max_output_tokens: None,
+        context_window: None,
+        official: true,
+        price_data: pd.to_string(),
+        updated_at: 0,
+    };
+    db::upsert_model_entries(db, vec![e]).await.unwrap();
+}
+
 async fn mk_platform(db: &Db, coding: bool) -> u64 {
     let p = db::create_platform(
         db,
@@ -295,17 +317,14 @@ async fn estimate_after_request_applies_peak_multiplier() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
     write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
-    db::upsert_model_price(
+    // 价格真值源是 model_entry（票 T4）：按 (platform_code=deepseek, model_id=test-model) 落条目。
+    seed_entry(
         &db,
+        "deepseek",
         "test-model",
-        "manual",
         r#"{"input_cost_per_token":0.001,"output_cost_per_token":0.002,"cache_read_input_token_cost":0.0}"#,
-        None,
-        None,
-        None,
     )
-    .await
-    .unwrap();
+    .await;
     // 全天永久窗口（无 days_of_week/start_at 限制），x2 倍率，用户覆盖优先于 bundled preset。
     let extra = r#"{"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
 

@@ -92,7 +92,9 @@ pub struct Payload {
     /// `middleware_rule` 表原始行。
     #[serde(default)]
     pub middleware: Vec<serde_json::Value>,
-    /// `model_price` 表完整行（price_data 全量，非 summary）。
+    /// `model_entry` 表完整行（`price_data` 全量）。字段名与 scope 字符串沿用
+    /// 历史的 `model_price`（前端勾选框 value 不变），行形状自票 T4 起是 `ModelEntry`：
+    /// 旧备份里的 `model_price` 行没有 `platform_code`，导入时静默跳过。
     #[serde(default)]
     pub model_price: Vec<serde_json::Value>,
 }

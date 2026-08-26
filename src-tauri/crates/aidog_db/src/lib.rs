@@ -1094,6 +1094,7 @@ mod middleware;
 mod maintenance;
 mod model_price;
 mod model_entry;
+mod price_resolve;
 mod cli_proxy;
 mod ui_extra;
 pub mod registry;
@@ -1106,6 +1107,7 @@ pub use middleware::*;
 pub use maintenance::*;
 pub use model_price::*;
 pub use model_entry::*;
+pub use price_resolve::*;
 pub use cli_proxy::*;
 pub use ui_extra::*;
 pub use registry::*;
@@ -1120,6 +1122,8 @@ mod test_rw_pool;
 mod test_model_price;
 #[cfg(test)]
 mod test_model_entry;
+#[cfg(test)]
+mod test_price_resolve;
 #[cfg(test)]
 mod test_group;
 #[cfg(test)]
