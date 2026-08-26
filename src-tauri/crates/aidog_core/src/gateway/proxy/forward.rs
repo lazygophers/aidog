@@ -305,9 +305,10 @@ pub(crate) async fn forward_attempt(
     }
 
     // disable_thinking：aidog 本地扩展字段（客户端请求禁用思考）。非标字段任何上游不认 →
-    // 识别后必剥除。语义 = 上游参数级尽力禁思考（各协议剔思考参数；MiniMax-M2 等内置思考
-    // 模型上游无法禁用，响应不剥离——用户决策 2026-08-25，实测 3 端点 × 5 参数写法均仍思考）。
-    apply_disable_thinking(&mut req_body);
+    // 识别后必剥除。语义 = 剔掉开启型思考参数后，按目标 wire 协议写入显式禁用参数
+    // （用户决策 2026-08-26；只剔不写会让上游按自身默认开启思考，见 apply_disable_thinking 注释）。
+    // MiniMax-M2 等内置思考模型上游仍无法真正禁用，响应不剥离。
+    apply_disable_thinking(&mut req_body, target_protocol_enum, &target_base_url);
 
     // builtin-tool-compat：per-model 内置工具兼容（platform.extra.builtin_tool_compat，
     // 默认关闭零进入）。两级 AND：全局总开关（ProxySettingsCache）× 平台级 enabled。
@@ -770,10 +771,22 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
 }
 
 /// `disable_thinking` 请求字段处理（aidog 本地扩展）。字段存在即剥（非标，透传恐 400）；
-/// 值为 true 时按协议剔除思考参数（anthropic: thinking/context_management；openai 系:
-/// reasoning_effort/reasoning/enable_thinking/chat_template_kwargs.enable_thinking；
-/// gemini: generationConfig.thinkingConfig）。flat 移除跨协议同名安全——仅在禁用时触发。
-fn apply_disable_thinking(body: &mut Value) {
+/// 值为 true 时先剔掉客户端带来的开启型思考参数，再按目标 wire 协议写入**显式禁用参数**。
+///
+/// **为什么不只剔参数**（用户决策 2026-08-26，request d1c87c9c 实证）：旧实现只剔不写，
+/// 上游收不到任何禁用指令 → 按自身默认（思考开启）执行。实测 MiniMax-M2 把 300 max_tokens
+/// 全烧在 thinking block 上，正文一个字没输出。语义因此改为「按协议显式告知上游关闭思考」。
+///
+/// 协议映射：
+/// - anthropic → `thinking: {"type": "disabled"}`
+/// - gemini → `generationConfig.thinkingConfig.thinkingBudget = 0`
+/// - openai_responses → `reasoning: {"effort": "none"}`
+/// - openai / openai_completions → 官方 host 用 `reasoning_effort: "none"`（官方拒未知顶层字段），
+///   第三方 OpenAI 兼容端点用 `chat_template_kwargs.enable_thinking = false`（vLLM/SGLang/GLM/Qwen 通行写法）
+///
+/// 上游硬限制不在本函数职责内：MiniMax M2.x 接受 `thinking.type=disabled` 但模型照样思考，
+/// 响应侧不做剥离（用户决策：剥了也救不回被思考烧光的 max_tokens）。
+fn apply_disable_thinking(body: &mut Value, wire: &Protocol, upstream_url: &str) {
     let Some(obj) = body.as_object_mut() else { return };
     if !obj.contains_key("disable_thinking") {
         return;
@@ -791,6 +804,56 @@ fn apply_disable_thinking(body: &mut Value) {
     if let Some(gc) = obj.get_mut("generationConfig").and_then(|o| o.as_object_mut()) {
         gc.remove("thinkingConfig");
     }
+
+    match wire {
+        Protocol::Anthropic => {
+            obj.insert("thinking".to_string(), serde_json::json!({"type": "disabled"}));
+        }
+        Protocol::Gemini => {
+            let gc = obj
+                .entry("generationConfig".to_string())
+                .or_insert_with(|| serde_json::json!({}));
+            if let Some(gc) = gc.as_object_mut() {
+                gc.insert("thinkingConfig".to_string(), serde_json::json!({"thinkingBudget": 0}));
+            }
+        }
+        Protocol::OpenAIResponses => {
+            obj.insert("reasoning".to_string(), serde_json::json!({"effort": "none"}));
+        }
+        Protocol::OpenAI | Protocol::OpenAICompletions => {
+            if is_official_openai_host(upstream_url) {
+                obj.insert("reasoning_effort".to_string(), Value::String("none".to_string()));
+            } else {
+                let ctk = obj
+                    .entry("chat_template_kwargs".to_string())
+                    .or_insert_with(|| serde_json::json!({}));
+                if let Some(ctk) = ctk.as_object_mut() {
+                    ctk.insert("enable_thinking".to_string(), Value::Bool(false));
+                }
+            }
+        }
+        // 其余枚举值不是 wire 协议（平台类型），不会作为 endpoint 协议出现
+        _ => {}
+    }
+}
+
+/// 官方 OpenAI 端点判定（host == api.openai.com）。官方 Chat Completions 对未知顶层字段
+/// 返回 400 `unknown_parameter`，因此禁思考只能走官方认的 `reasoning_effort`。
+/// host 提取与 `is_official_anthropic_host` 同 idiom。
+fn is_official_openai_host(upstream_url: &str) -> bool {
+    let after_scheme = upstream_url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(upstream_url);
+    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
+    let host = authority
+        .rsplit_once('@')
+        .map(|(_, h)| h)
+        .unwrap_or(authority)
+        .split(':')
+        .next()
+        .unwrap_or("");
+    host.eq_ignore_ascii_case("api.openai.com")
 }
 
 /// 第三方 anthropic 端点：无条件剥离 messages[].content 内 `redacted_thinking` block。
@@ -889,50 +952,88 @@ fn hoist_mid_messages_system(body: &mut Value) {
 
 #[cfg(test)]
 mod test_disable_thinking {
-    use super::apply_disable_thinking;
+    use super::{apply_disable_thinking, is_official_openai_host, Protocol};
     use serde_json::json;
 
+    /// anthropic：客户端开启型参数剔干净后，写入显式 `thinking.type=disabled`
+    /// （request d1c87c9c 的 minimax anthropic 端点场景）。
     #[test]
-    fn true_strips_field_and_thinking_params_across_protocols() {
-        // anthropic passthrough（minimax 场景）：字段 + thinking/context_management 全剔
+    fn anthropic_emits_explicit_disabled() {
         let mut b = json!({
             "model": "m", "max_tokens": 300, "disable_thinking": true,
             "thinking": {"type": "enabled", "budget_tokens": 1024},
             "context_management": {"edits": []},
         });
-        apply_disable_thinking(&mut b);
+        apply_disable_thinking(&mut b, &Protocol::Anthropic, "https://api.minimax.io/anthropic");
         assert!(b.get("disable_thinking").is_none());
-        assert!(b.get("thinking").is_none());
         assert!(b.get("context_management").is_none());
+        assert_eq!(b["thinking"], json!({"type": "disabled"}));
+    }
 
-        // openai 系：reasoning_effort / chat_template_kwargs.enable_thinking 剔
+    /// 第三方 OpenAI 兼容端点：`chat_template_kwargs.enable_thinking=false`，开启型参数不残留。
+    #[test]
+    fn third_party_openai_emits_chat_template_kwargs() {
         let mut b = json!({
             "model": "m", "disable_thinking": true, "reasoning_effort": "medium",
-            "chat_template_kwargs": {"enable_thinking": true},
+            "chat_template_kwargs": {"enable_thinking": true, "other": 1},
         });
-        apply_disable_thinking(&mut b);
+        apply_disable_thinking(&mut b, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
         assert!(b.get("reasoning_effort").is_none());
-        assert!(b["chat_template_kwargs"].get("enable_thinking").is_none());
+        assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
+        assert_eq!(b["chat_template_kwargs"]["other"], json!(1), "同级其它字段不动");
+    }
 
-        // gemini：generationConfig.thinkingConfig 剔
+    /// 官方 OpenAI：拒未知顶层字段，只能发 `reasoning_effort="none"`。
+    #[test]
+    fn official_openai_emits_reasoning_effort() {
+        let mut b = json!({"model": "gpt-5", "disable_thinking": true});
+        apply_disable_thinking(&mut b, &Protocol::OpenAI, "https://api.openai.com/v1");
+        assert_eq!(b["reasoning_effort"], json!("none"));
+        assert!(b.get("chat_template_kwargs").is_none());
+    }
+
+    /// openai_responses：`reasoning.effort="none"`。
+    #[test]
+    fn openai_responses_emits_reasoning_effort_object() {
+        let mut b = json!({"model": "m", "disable_thinking": true, "reasoning": {"effort": "high"}});
+        apply_disable_thinking(&mut b, &Protocol::OpenAIResponses, "https://api.openai.com/v1");
+        assert_eq!(b["reasoning"], json!({"effort": "none"}));
+    }
+
+    /// gemini：`generationConfig.thinkingConfig.thinkingBudget=0`，generationConfig 缺省时补建。
+    #[test]
+    fn gemini_emits_zero_thinking_budget() {
         let mut b = json!({
             "disable_thinking": true,
-            "generationConfig": {"thinkingConfig": {"thinkingBudget": 128}},
+            "generationConfig": {"thinkingConfig": {"thinkingBudget": 128}, "temperature": 0.5},
         });
-        apply_disable_thinking(&mut b);
-        assert!(b["generationConfig"].get("thinkingConfig").is_none());
+        apply_disable_thinking(&mut b, &Protocol::Gemini, "https://generativelanguage.googleapis.com");
+        assert_eq!(b["generationConfig"]["thinkingConfig"], json!({"thinkingBudget": 0}));
+        assert_eq!(b["generationConfig"]["temperature"], json!(0.5));
+
+        let mut b = json!({"disable_thinking": true});
+        apply_disable_thinking(&mut b, &Protocol::Gemini, "https://generativelanguage.googleapis.com");
+        assert_eq!(b["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(0));
     }
 
     #[test]
     fn false_strips_field_only_and_absent_is_noop() {
         let mut b = json!({"disable_thinking": false, "thinking": {"type": "enabled"}});
-        apply_disable_thinking(&mut b);
+        apply_disable_thinking(&mut b, &Protocol::Anthropic, "https://example.com");
         assert!(b.get("disable_thinking").is_none(), "非标字段仍剥");
-        assert!(b.get("thinking").is_some(), "false 不动思考参数");
+        assert_eq!(b["thinking"], json!({"type": "enabled"}), "false 不动思考参数");
 
         let mut b = json!({"model": "m"});
-        apply_disable_thinking(&mut b);
-        assert_eq!(b, json!({"model": "m"}));
+        apply_disable_thinking(&mut b, &Protocol::Anthropic, "https://example.com");
+        assert_eq!(b, json!({"model": "m"}), "字段不存在整体不动");
+    }
+
+    #[test]
+    fn official_openai_host_matches_host_only() {
+        assert!(is_official_openai_host("https://api.openai.com/v1/chat/completions"));
+        assert!(is_official_openai_host("https://API.OpenAI.com:443/v1"));
+        assert!(!is_official_openai_host("https://api.openai.com.evil.dev/v1"));
+        assert!(!is_official_openai_host("https://open.bigmodel.cn/api/paas/v4"));
     }
 }
 
