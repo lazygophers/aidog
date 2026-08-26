@@ -3,7 +3,6 @@ name: aidog-db-migration
 description: |
   给 aidog SQLite 数据库加 migration（schema 变更：加表/加列/改约束/拆列/重命名）。固化项目已验证范式：前向幂等、NNN_ 编号、SQLite 无 ALTER 限制的 rebuild-table 范式、**无 down/rollback**（SQLite 前向单线）、加列必带 DEFAULT、UNIQUE 变更走 rebuild 表、列改名禁用 sed 批改 SQL 源列名（历史误伤）。覆盖编号/写 SQL/幂等保护/启动自动执行/测试。触发词：加 migration、数据库迁移、加列、加表、改约束、UNIQUE 冲突、group_key 拆分、schema 变更、migration 011、rebuild table。
 when_to_use: 需要改 aidog SQLite schema（加表/加列/改类型/加 UNIQUE 约束/拆列重命名）；现有 migrations/ 最新是 010 要加 011；遇到 UNIQUE 冲突要改约束；列改名/拆分（如 group_key 那类大改）
-disable-model-invocation: true
 paths:
   - src-tauri/migrations/**
   - src-tauri/src/gateway/db.rs
