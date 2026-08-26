@@ -42,6 +42,7 @@ mod headers;
 mod non_success;
 mod health;
 mod log;
+mod middleware_body;
 mod mock;
 mod notify;
 mod passthrough;
