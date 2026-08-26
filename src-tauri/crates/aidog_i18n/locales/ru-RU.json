@@ -1380,6 +1380,7 @@
   "pricing.searchPlaceholder": "Поиск по имени модели...",
   "pricing.source": "Источник",
   "pricing.syncDesc": "Синхронизировать цены моделей + max_tokens из GitHub (включая цены по платформам)",
+  "pricing.syncFailures": "Не обновлено, сохранены прежние данные: {files}",
   "pricing.syncNow": "Синхр. сейчас",
   "pricing.syncResult": "Синхронизация завершена: +{added} добавлено, ~{updated} обновлено, {failed} с ошибкой (всего {total})",
   "pricing.syncTitle": "Синхронизация цен",

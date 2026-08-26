@@ -1358,6 +1358,7 @@
   "pricing.searchPlaceholder": "Search model name...",
   "pricing.source": "Source",
   "pricing.syncDesc": "Sync model pricing + max_tokens from GitHub (incl. per-platform prices)",
+  "pricing.syncFailures": "Not updated, existing data kept: {files}",
   "pricing.syncNow": "Sync Now",
   "pricing.syncResult": "Sync complete: +{added} added, ~{updated} updated, {failed} failed ({total} total)",
   "pricing.syncTitle": "Price Sync",

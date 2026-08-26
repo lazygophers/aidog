@@ -1380,6 +1380,7 @@
   "pricing.searchPlaceholder": "ابحث عن اسم النموذج...",
   "pricing.source": "المصدر",
   "pricing.syncDesc": "مزامنة أسعار النماذج + max_tokens من GitHub (تشمل أسعار كل منصة)",
+  "pricing.syncFailures": "لم يتم تحديث الملفات التالية، تم الاحتفاظ بالبيانات الحالية: {files}",
   "pricing.syncNow": "زامن الآن",
   "pricing.syncResult": "اكتملت المزامنة: +{added} مضاف، ~{updated} محدّث، {failed} فشل (الإجمالي {total})",
   "pricing.syncTitle": "مزامنة الأسعار",
