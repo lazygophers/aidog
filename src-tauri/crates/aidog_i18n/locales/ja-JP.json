@@ -1391,6 +1391,7 @@
   "modelInfo.morePlatforms": "他 {count} 件",
   "modelInfo.selectPlatform": "左のリストからプラットフォームを選択してください",
   "modelInfo.canonical": "統一 ID",
+  "modelInfo.priceRefOnly": "価格参考",
   "modelInfo.basics": "基本情報",
   "modelInfo.requestName": "リクエスト名",
   "modelInfo.displayName": "表示名",

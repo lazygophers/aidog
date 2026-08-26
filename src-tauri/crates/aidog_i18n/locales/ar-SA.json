@@ -1391,6 +1391,7 @@
   "modelInfo.morePlatforms": "+{count} أخرى",
   "modelInfo.selectPlatform": "اختر منصة من القائمة لعرض نماذجها",
   "modelInfo.canonical": "المعرّف الموحّد",
+  "modelInfo.priceRefOnly": "مرجع سعري",
   "modelInfo.basics": "معلومات أساسية",
   "modelInfo.requestName": "اسم الطلب",
   "modelInfo.displayName": "الاسم المعروض",

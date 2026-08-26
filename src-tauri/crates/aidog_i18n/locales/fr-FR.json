@@ -1391,6 +1391,7 @@
   "modelInfo.morePlatforms": "+{count} autres",
   "modelInfo.selectPlatform": "Sélectionnez une plateforme à gauche",
   "modelInfo.canonical": "Id canonique",
+  "modelInfo.priceRefOnly": "réf. tarifaire",
   "modelInfo.basics": "Informations de base",
   "modelInfo.requestName": "Nom de requête",
   "modelInfo.displayName": "Nom affiché",

@@ -1391,6 +1391,7 @@
   "modelInfo.morePlatforms": "ещё {count}",
   "modelInfo.selectPlatform": "Выберите платформу слева",
   "modelInfo.canonical": "Единый id",
+  "modelInfo.priceRefOnly": "только цены",
   "modelInfo.basics": "Основное",
   "modelInfo.requestName": "Имя в запросе",
   "modelInfo.displayName": "Отображаемое имя",

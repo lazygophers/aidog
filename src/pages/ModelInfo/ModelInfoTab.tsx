@@ -122,10 +122,18 @@ export function ModelInfoTab() {
     return m;
   }, [groups]);
 
+  /** `index.json` 的 pricing_only 来源（litellm / meta / mistral）：只提供比价条目，
+   *  没有 platform.json，用户在平台页根本选不到，不能出现在平台筛选与平台维度列表里。 */
+  const pricingOnly = useMemo(
+    () => new Set(snapshot?.pricing_only ?? []),
+    [snapshot],
+  );
+
   const platformCodes = useMemo(
-    () => [...byPlatform.keys()].sort((a, b) =>
-      (labelMap[a] ?? a).localeCompare(labelMap[b] ?? b)),
-    [byPlatform, labelMap],
+    () => [...byPlatform.keys()]
+      .filter(code => !pricingOnly.has(code))
+      .sort((a, b) => (labelMap[a] ?? a).localeCompare(labelMap[b] ?? b)),
+    [byPlatform, labelMap, pricingOnly],
   );
 
   const hasFilter = !!(query.trim() || platformFilter || capabilityFilter || officialOnly);
@@ -312,7 +320,7 @@ export function ModelInfoTab() {
         </Tabs>
       )}
 
-      <ModelDetailDialog group={selectedGroup} labelMap={labelMap} onClose={() => setSelected(null)} />
+      <ModelDetailDialog group={selectedGroup} labelMap={labelMap} pricingOnly={pricingOnly} onClose={() => setSelected(null)} />
 
       {message && <div className="toast">{message}</div>}
     </div>

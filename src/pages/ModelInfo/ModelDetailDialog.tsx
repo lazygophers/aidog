@@ -18,15 +18,20 @@ import { CapabilityBadges } from "./CapabilityBadges";
 import { nameParts } from "./ModelName";
 import { CopyButton } from "../../components/shared";
 
-export function ModelDetailDialog({ group, labelMap, onClose }: {
+export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
   /** null = 关闭态（父组件用「选中哪个 canonical」单一状态驱动开合）。 */
   group: ModelEntryGroup | null;
   labelMap: Record<string, string>;
+  /** 只提供比价条目、不可选为平台的来源 code（litellm / meta / mistral）。 */
+  pricingOnly: Set<string>;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
   if (!group) return null;
-  const entries = group.entries;
+  // 可选平台在前，比价参考来源排最后并单独标注，避免被当成「能选的平台」。
+  const entries = [...group.entries].sort(
+    (a, b) => Number(pricingOnly.has(a.platform_code)) - Number(pricingOnly.has(b.platform_code)),
+  );
   const title = nameParts(group.display_name, group.canonical_model);
 
   return (
@@ -51,6 +56,9 @@ export function ModelDetailDialog({ group, labelMap, onClose }: {
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                   <ProtocolLogo protocol={e.platform_code as Protocol} size={14} />
                   {labelMap[e.platform_code] ?? e.platform_code}
+                  {pricingOnly.has(e.platform_code) && (
+                    <span className="text-tertiary">{t("modelInfo.priceRefOnly")}</span>
+                  )}
                 </span>
               </TabsTrigger>
             ))}
