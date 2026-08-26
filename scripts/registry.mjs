@@ -3,7 +3,10 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-const REGISTRY = new URL('../src-tauri/defaults/registry/', import.meta.url).pathname;
+// 默认读真值源；AIDOG_REGISTRY_DIR 指向 fixture 目录时读 fixture（校验脚本自检用）。
+const REGISTRY = process.env.AIDOG_REGISTRY_DIR
+  ? join(process.env.AIDOG_REGISTRY_DIR, '/')
+  : new URL('../src-tauri/defaults/registry/', import.meta.url).pathname;
 
 /** @returns {{version: string, last_updated: number, protocols: Record<string, any>}} */
 export function readPresets() {

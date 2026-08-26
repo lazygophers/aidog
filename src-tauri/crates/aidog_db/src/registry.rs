@@ -73,6 +73,26 @@ pub fn default_endpoints(protocol: &str) -> Vec<crate::models::PlatformEndpoint>
     })
 }
 
+/// 平台展示名，三层回落收敛在此：`name[locale]` → `name["en-US"]` → 平台 code。
+/// 调用方只传当前 locale（`Lang::from_locale` 归一，`zh-CN` / `ja` 等变体同样命中），
+/// 不再各写回落分支。协议不存在或 `name` 整体缺失 → 返回 code 本身，UI 不出空白。
+pub fn platform_display_name(code: &str, locale: &str) -> String {
+    let entry = presets().get("protocols").and_then(|p| p.get(code));
+    resolve_name(entry, code, locale)
+}
+
+fn resolve_name(entry: Option<&Value>, code: &str, locale: &str) -> String {
+    let key = aidog_i18n::Lang::from_locale(locale).locale_key();
+    let name = entry.and_then(|e| e.get("name"));
+    let pick = |l: &str| {
+        name.and_then(|n| n.get(l))
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    };
+    pick(key).or_else(|| pick("en-US")).unwrap_or(code).to_string()
+}
+
 /// registry 里该模型的合并 price_data 节点（跨平台条目归并）。DB 未同步时的只读兜底
 /// （`resolve_price`：DB 无该模型行才读，DB 恒优先）。
 pub fn model_entry(name: &str) -> Option<&'static Value> {
