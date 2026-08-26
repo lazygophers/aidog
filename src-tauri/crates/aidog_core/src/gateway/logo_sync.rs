@@ -62,14 +62,14 @@ fn ensure_logos_dir(app_data_dir: &Path) -> Option<PathBuf> {
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn sync_all_logos(db: Arc<Db>, app_data_dir: PathBuf) {
     tracing::info!("protocol logos: batch sync started");
-    let presets_json = match read_presets_json(&db).await {
-        Ok(s) => s,
+    let doc = match aidog_db::presets_doc_value(&db).await {
+        Ok(v) => v,
         Err(e) => {
             tracing::warn!(error = %e, "logos sync: read registry presets failed, abort");
             return;
         }
     };
-    let entries = match extract_protocols(&presets_json) {
+    let entries = match extract_protocols(&doc) {
         Ok(v) => v,
         Err(e) => {
             tracing::warn!(error = %e, "logos sync: parse protocols failed, abort");
@@ -197,16 +197,11 @@ fn extract_domain(homepage: &str) -> Option<String> {
     url::Url::parse(&with_scheme).ok().and_then(|u| u.host_str().map(|s| s.to_string()))
 }
 
-/// presets 真值源：`platform_preset` 表（registry 同步落地），DB 空才回落编译期内置那份。
-/// 与 `get_defaults_json` 同一条读取链（`aidog_db::presets_doc_json`），所以同步下来的
-/// 新 `logo_url` 不必等发版就生效。`~/.aidog/platform-presets.json` 覆盖链已移除，禁改回。
-async fn read_presets_json(db: &Db) -> Result<String, String> {
-    aidog_db::presets_doc_json(db).await
-}
-
-/// 解析 presets → `Vec<(protocol_id, logo_slug, homepage)>`。
-fn extract_protocols(json: &str) -> Result<Vec<(String, String, String)>, String> {
-    let root: serde_json::Value = serde_json::from_str(json).map_err(|e| format!("parse: {e}"))?;
+/// presets → `Vec<(protocol_id, logo_slug, homepage)>`。真值源是 `platform_preset` 表
+/// （registry 同步落地）与编译期内置那份的并集，与 `get_defaults_json` 同一条读取链，
+/// 所以同步下来的新 `logo_url` 不必等发版就生效。
+/// `~/.aidog/platform-presets.json` 覆盖链已移除，禁改回。
+fn extract_protocols(root: &serde_json::Value) -> Result<Vec<(String, String, String)>, String> {
     let obj = root.get("protocols").and_then(|v| v.as_object())
         .ok_or_else(|| "missing `protocols` object".to_string())?;
     Ok(obj.iter().map(|(id, v)| {
@@ -217,11 +212,11 @@ fn extract_protocols(json: &str) -> Result<Vec<(String, String, String)>, String
 }
 
 /// 单 protocol lookup：返 `(logo_slug, homepage)`，未找到返 Err。
+/// 走 `preset_entry` 的单行查询——首屏 N 个 logo miss 就是 N 次调用，
+/// 不能为查一个 slug 先拼整篇 JSON 再整篇反解析（票 13-H）。
 async fn read_one_protocol(db: &Db, protocol_id: &str) -> Result<(String, String), String> {
-    let json = read_presets_json(db).await?;
-    let root: serde_json::Value = serde_json::from_str(&json).map_err(|e| format!("parse: {e}"))?;
-    let entry = root.get("protocols")
-        .and_then(|v| v.get(protocol_id))
+    let entry = aidog_db::preset_entry(db, protocol_id)
+        .await?
         .ok_or_else(|| format!("protocol `{protocol_id}` not found"))?;
     let slug = entry.get("logo_url").and_then(|x| x.as_str()).unwrap_or("").to_string();
     let hp = entry.get("homepage").and_then(|x| x.as_str()).unwrap_or("").to_string();

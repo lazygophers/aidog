@@ -62,11 +62,13 @@ fn main() {
                 // 相对 models_dir 的路径（vendor 前缀模型 id 会落进子目录，如 `mistralai/codestral-2.json`，
                 // 光取文件名会跨子目录撞名）。index.json 的 `models` 数组就是这份清单，
                 // 远程同步照它逐文件拉，一致性靠 `test_registry.rs` 的漂移断言守住。
+                // 分隔符归一成 `/`：Windows 上 `to_string_lossy` 会留 `\`，既对不上
+                // index.json 清单（漂移断言炸），远程同步也会拼出 404 的 URL。
                 let rel = f
                     .strip_prefix(&models_dir)
                     .expect("model file under models dir")
                     .to_string_lossy()
-                    .into_owned();
+                    .replace('\\', "/");
                 let _ = writeln!(model_files, "    ({code:?}, {rel:?}, include_str!({f:?})),");
             }
         }

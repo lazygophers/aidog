@@ -98,7 +98,7 @@ async fn group_by_canonical_picks_official_as_primary() {
         entry("zzz", "glm-4.6", "glm-4.6", false),
         entry("glm", "glm-4.6", "glm-4.6", true),
         entry("aihubmix", "glm-4.5", "glm-4.5", false),
-    ]);
+    ], &Default::default());
     assert_eq!(groups.len(), 2);
     assert_eq!(groups[0].canonical_model, "glm-4.5");
     // 无 official → 取 platform_code 字典序第一条
@@ -193,7 +193,7 @@ fn group_display_name_comes_from_official_entry() {
     third_party.display_name = "GLM-4.6-preview".to_string();
     let mut official = entry("glm", "glm-4.6", "glm-4.6", true);
     official.display_name = "GLM-4.6".to_string();
-    let groups = group_by_canonical(vec![third_party, official]);
+    let groups = group_by_canonical(vec![third_party, official], &Default::default());
     assert_eq!(groups.len(), 1);
     assert_eq!(groups[0].primary_platform, "glm");
     assert_eq!(groups[0].display_name, "GLM-4.6", "聚合行取 official 那条的展示名");
@@ -204,7 +204,7 @@ fn group_display_name_comes_from_official_entry() {
     );
 
     // 全员缺展示名 → 聚合行也回落 model_id，不出空白。
-    let groups = group_by_canonical(vec![entry("glm", "glm-4.5", "glm-4.5", true)]);
+    let groups = group_by_canonical(vec![entry("glm", "glm-4.5", "glm-4.5", true)], &Default::default());
     assert_eq!(groups[0].display_name, "glm-4.5");
 }
 
@@ -264,7 +264,99 @@ async fn presets_doc_json_prefers_db_over_bundled() {
 
     let doc: serde_json::Value = serde_json::from_str(&presets_doc_json(&db).await.unwrap()).unwrap();
     let protocols = doc["protocols"].as_object().expect("protocols");
-    assert_eq!(protocols.len(), 1, "DB 非空即完全接管，不与 bundled 合并");
-    assert_eq!(protocols["glm"]["name"]["en-US"], "Zhipu Renamed");
+    assert_eq!(protocols["glm"]["name"]["en-US"], "Zhipu Renamed", "同 code 以 DB 行为准");
+    // 票 13-C：DB 里没有的协议由 bundled 补齐，不能整篇接管
+    assert_eq!(protocols.len(), bundled_platform_presets().len());
+    assert!(protocols["anthropic"]["homepage"].is_string(), "DB 缺的协议须由 bundled 补齐");
     assert!(doc["last_updated"].as_i64().unwrap_or(0) > 0, "last_updated 取行 updated_at 最大值（秒）");
+
+    // 同一条链在 list 视图上同样是并集
+    let rows = list_platform_presets(&db).await.unwrap();
+    assert_eq!(rows.len(), bundled_platform_presets().len());
+    assert!(rows.iter().find(|p| p.code == "glm").unwrap().preset_data.contains("Zhipu Renamed"));
+}
+
+/// 票 13-H：单协议查询不重建整篇文档，DB 行优先、缺失回落 bundled。
+#[tokio::test]
+async fn preset_entry_reads_single_row_with_bundled_fallback() {
+    let db = test_db().await;
+    assert!(preset_entry(&db, "anthropic").await.unwrap().is_some(), "DB 空 → 回落 bundled");
+    assert!(preset_entry(&db, "__never_exists__").await.unwrap().is_none());
+
+    upsert_platform_presets(
+        &db,
+        vec![PlatformPreset { code: "anthropic".into(), preset_data: r#"{"logo_url":"newslug"}"#.into(), updated_at: 0 }],
+    )
+    .await
+    .unwrap();
+    let v = preset_entry(&db, "anthropic").await.unwrap().expect("row");
+    assert_eq!(v["logo_url"], "newslug");
+    // 未同步的协议照旧由 bundled 供给
+    assert!(preset_entry(&db, "openai").await.unwrap().is_some());
+}
+
+/// 票 13-E：bundled 兜底逐键生效——首轮只成功一部分，失败那批仍读得到内置价，
+/// 不会因为「表已非空」就整批掉进 fallback。
+#[tokio::test]
+async fn bundled_fallback_is_per_key_not_whole_table() {
+    let db = test_db().await;
+    let sample = &bundled_model_entries()[0];
+    // 只同步了一个无关条目 → 表非空
+    upsert_model_entries(&db, vec![entry("zzz-only", "zzz-model", "zzz-model", false)]).await.unwrap();
+    assert!(count_model_entries(&db).await.unwrap() > 0);
+
+    let got = get_model_entry(&db, &sample.platform_code, &sample.model_id).await.unwrap();
+    assert_eq!(got.map(|e| e.model_id), Some(sample.model_id.clone()), "该键 DB 缺失 → 回落 bundled");
+    assert!(get_model_entry(&db, "zzz-only", "no-such-model").await.unwrap().is_none());
+}
+
+/// 票 13-I：`pricing_only` 来源不能当聚合行的代表平台（用户根本选不到）。
+#[test]
+fn primary_platform_skips_pricing_only_sources() {
+    let pricing_only: std::collections::HashSet<String> = ["mistral".to_string()].into_iter().collect();
+    let mut official = entry("mistral", "codestral-2", "codestral-2", true);
+    official.display_name = "Codestral".into();
+    let groups = group_by_canonical(
+        vec![official.clone(), entry("siliconflow", "codestral-2", "codestral-2", false)],
+        &pricing_only,
+    );
+    assert_eq!(groups[0].primary_platform, "siliconflow", "official 但不可选 → 让给可选平台");
+
+    // 全组都是 pricing_only → 只能退回它，否则代表平台空白
+    let groups = group_by_canonical(vec![official], &pricing_only);
+    assert_eq!(groups[0].primary_platform, "mistral");
+}
+
+/// 票 13-F：写入层出问题时返回失败清单而不是把整轮结果换成一个 Err
+/// （调用方据此把失败的行并进 `PriceSyncResult.failures`，`last_sync_at` 照写）。
+#[tokio::test]
+async fn best_effort_upserts_report_failures_instead_of_aborting() {
+    let db = test_db().await;
+    let (ok, failed) = upsert_model_entries_best_effort(
+        &db,
+        vec![entry("glm", "glm-4.5", "glm-4.5", true), entry("glm", "glm-4.6", "glm-4.6", true)],
+    )
+    .await
+    .unwrap();
+    assert_eq!((ok, failed.len()), (2, 0));
+    assert_eq!(count_model_entries(&db).await.unwrap(), 2);
+
+    let (ok, failed) = upsert_platform_presets(
+        &db,
+        vec![PlatformPreset { code: "glm".into(), preset_data: "{}".into(), updated_at: 0 }],
+    )
+    .await
+    .unwrap();
+    assert_eq!((ok, failed.len()), (1, 0));
+}
+
+/// 票 13-K：导出走裸行，`display_name` 空串原样带出，不把读取层的回落值写死进备份。
+#[tokio::test]
+async fn select_returns_raw_display_name_for_export() {
+    let db = test_db().await;
+    upsert_model_entries(&db, vec![entry("glm", "glm-4.5", "glm-4.5", true)]).await.unwrap();
+    let raw = select_model_entries(&db, Some("glm")).await.unwrap();
+    assert_eq!(raw[0].display_name, "", "裸行保留空串 = 无展示名");
+    let shown = list_model_entries(&db, Some("glm")).await.unwrap();
+    assert_eq!(shown[0].display_name, "glm-4.5", "面向 UI 的读取入口才回落");
 }

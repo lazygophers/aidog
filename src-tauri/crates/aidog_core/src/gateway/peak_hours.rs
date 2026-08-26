@@ -8,10 +8,10 @@ pub use aidog_db::models::PeakWindow;
 use chrono::{DateTime, Utc};
 
 
-/// registry preset 唯一解析入口，见 `super::registry`（单 OnceLock，跨 peak_hours /
-/// defaults_sync / coding_plan 共享一份解析结果，避免 N 份 `serde_json::Value` 常驻）。
-/// 解析失败（不应发生，JSON 已校验）回退空 Map → `default_peak_hours` 返空 → caller 退 1.0。
-use super::registry::presets;
+/// registry preset 读取入口：`aidog_db::registry::effective_presets`（DB 同步值优先，
+/// 未同步过回落编译期内置那份）。缓存句柄 clone 一次即用，热路径不做 DB IO、不重建文档。
+/// 协议缺失 / 解析失败 → `default_peak_hours` 返空 → caller 退 1.0。
+use super::registry::effective_presets;
 
 /// t 的 UTC 小时 (0-23) 与 weekday (0=Sun…6=Sat)。
 ///
@@ -167,10 +167,15 @@ pub fn parse_disable_during_peak(extra: &str) -> bool {
     crate::gateway::models::PlatformExtra::parse(extra).disable_during_peak
 }
 
-/// 按 protocol 名（serde rename 裸名，如 "deepseek"）查 bundled preset 默认窗口。
+/// 按 protocol 名（serde rename 裸名，如 "deepseek"）查生效 preset（DB 优先）的默认窗口。
 /// protocol 缺失 / 无 peak_hours 字段 / 解析失败 → 空 Vec（caller 退 1.0）。
 pub fn default_peak_hours(protocol: &str) -> Vec<PeakWindow> {
-    let doc = presets();
+    let doc = effective_presets();
+    peak_hours_in(&doc, protocol)
+}
+
+/// [`default_peak_hours`] 的纯函数核心：从任意一篇 presets 文档取某协议的窗口。
+pub fn peak_hours_in(doc: &serde_json::Value, protocol: &str) -> Vec<PeakWindow> {
     let Some(proto_obj) = doc.get("protocols").and_then(|p| p.get(protocol)) else {
         return Vec::new();
     };
@@ -183,14 +188,19 @@ pub fn default_peak_hours(protocol: &str) -> Vec<PeakWindow> {
     })
 }
 
-/// 按 protocol 名查 bundled preset 的 `models.peak` 分支（PRD 07-11）。
+/// 按 protocol 名查生效 preset（DB 优先）的 `models.peak` 分支（PRD 07-11）。
 /// 返回解析后的 PlatformModels；protocol 缺失 / 无 models.peak 字段 / 解析失败 → None
 /// （caller 退 platform.models 默认）。仅 glm_coding 等少数协议 preset 带 peak 分支。
 ///
-/// 与 `default_peak_hours` 同源同 OnceLock：bundled `platform-presets.json`（禁抄第二份）。
+/// 与 `default_peak_hours` 同源：`effective_presets()`（DB 同步值优先，禁抄第二份）——
+/// 否则前端徽标按新同步的窗口显示「当前: 高峰」，后端仍按二进制里的旧窗口路由计价。
 /// 路由层 candidates.rs 命中高峰窗口且 preset 提供本协议 peak 分支时用此替换 effective_models。
 pub fn default_peak_models(protocol: &str) -> Option<crate::gateway::models::PlatformModels> {
-    let doc = presets();
+    peak_models_in(&effective_presets(), protocol)
+}
+
+/// [`default_peak_models`] 的纯函数核心。
+pub fn peak_models_in(doc: &serde_json::Value, protocol: &str) -> Option<crate::gateway::models::PlatformModels> {
     let proto_obj = doc.get("protocols").and_then(|p| p.get(protocol))?;
     let models_obj = proto_obj.get("models")?;
     let peak_val = models_obj.get("peak")?;
@@ -632,6 +642,32 @@ mod tests {
     fn default_peak_hours_anthropic_currently_empty() {
         // 当前 preset JSON 未手填 peak_hours，absent → 空（向后兼容）
         assert!(default_peak_hours("anthropic").is_empty());
+    }
+
+    /// 票 13-D：路由/计费读的窗口必须跟着 DB 同步下来的 preset 走，不能钉死在二进制内置那份
+    /// （否则前端徽标按新窗口显示「当前: 高峰」，后端仍按旧窗口计价，跨层判定分裂）。
+    #[test]
+    fn peak_windows_follow_db_synced_preset() {
+        // bundled 里 anthropic 没有窗口
+        assert!(peak_hours_in(aidog_db::registry::presets(), "anthropic").is_empty());
+        // 上游新增了 anthropic 的高峰窗口并同步入库 → 同一读取链立刻给出新窗口
+        let synced = aidog_db::registry::merge_presets_doc(
+            [(
+                "anthropic",
+                r#"{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],
+                    "models":{"peak":{"default":"claude-peak"}}}"#,
+            )],
+            Some(1),
+        );
+        let w = peak_hours_in(&synced, "anthropic");
+        assert_eq!(w.len(), 1);
+        assert_eq!(w[0].multiplier, 3.0);
+        assert_eq!(
+            peak_models_in(&synced, "anthropic").and_then(|m| m.default),
+            Some("claude-peak".to_string())
+        );
+        // 未被 DB 覆盖的协议照旧走 bundled 值
+        assert_eq!(peak_hours_in(&synced, "glm_coding").len(), peak_hours_in(aidog_db::registry::presets(), "glm_coding").len());
     }
 
     // ── is_in_peak_window ──

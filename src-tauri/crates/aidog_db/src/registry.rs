@@ -13,11 +13,12 @@
 //! 原始文本，归并逻辑不复存在（同一模型在不同平台是不同的行，不需要合并）。
 
 use serde_json::{Map, Value};
-use std::sync::OnceLock;
+use std::collections::BTreeMap;
+use std::sync::{Arc, OnceLock, RwLock};
 
 include!(concat!(env!("OUT_DIR"), "/registry_includes.rs"));
 
-static PRESETS: OnceLock<Value> = OnceLock::new();
+static PRESETS: OnceLock<Arc<Value>> = OnceLock::new();
 static PRESETS_JSON: OnceLock<String> = OnceLock::new();
 
 fn parse(what: &str, json: &str) -> Map<String, Value> {
@@ -27,16 +28,85 @@ fn parse(what: &str, json: &str) -> Map<String, Value> {
     }
 }
 
-/// 合并 65 份 `platform.json` → 旧 presets 文档。首次访问解析一次，后续共享同一静态实例。
-pub fn presets() -> &'static Value {
+/// 编译期内置那份合并文档的共享句柄（[`effective_presets`] 未命中缓存时返回它）。
+pub fn presets_arc() -> &'static Arc<Value> {
     PRESETS.get_or_init(|| {
         let index = parse("index.json", INDEX_JSON);
-        presets_doc(
+        Arc::new(presets_doc(
             PLATFORM_FILES.iter().map(|(code, json)| (*code, *json)),
             index["version"].clone(),
             index["last_updated"].clone(),
-        )
+        ))
     })
+}
+
+/// 合并 65 份 `platform.json` → 旧 presets 文档。首次访问解析一次，后续共享同一静态实例。
+/// **这是编译期内置那份**：需要「DB 同步值优先」的读取方一律走 [`effective_presets`]。
+pub fn presets() -> &'static Value {
+    presets_arc().as_ref()
+}
+
+/// DB 同步后的 preset 合并视图缓存：文档 + 其序列化文本。
+/// 一处构建、多处共享——前端 `get_defaults_json`、logo 懒加载、路由热路径的
+/// `peak_hours` / `models.peak` 都读它，避免各自重建整篇文档。
+struct PresetCache {
+    doc: Arc<Value>,
+    json: Arc<String>,
+}
+
+static PRESET_CACHE: RwLock<Option<PresetCache>> = RwLock::new(None);
+
+/// bundled + DB 行合并：同 `code` 以 DB 行为准，bundled 里 DB 缺的补齐（票 13-C）。
+/// DB 一份都没有时结果与 [`presets`] 逐字节相同（首次同步失败不该让协议下拉少几项）。
+///
+/// `db_last_updated_secs` = DB 行 `updated_at` 最大值（秒）；`None` 表示没有 DB 行，
+/// 此时 `last_updated` 用 bundled `index.json` 里那个。
+pub fn merge_presets_doc<'a>(
+    db_rows: impl IntoIterator<Item = (&'a str, &'a str)>,
+    db_last_updated_secs: Option<i64>,
+) -> Value {
+    let mut entries: BTreeMap<&str, &str> = PLATFORM_FILES.iter().map(|(c, j)| (*c, *j)).collect();
+    for (code, json) in db_rows {
+        entries.insert(code, json);
+    }
+    let index = parse("index.json", INDEX_JSON);
+    let last_updated = match db_last_updated_secs {
+        Some(secs) => Value::from(secs),
+        None => index["last_updated"].clone(),
+    };
+    presets_doc(entries, index["version"].clone(), last_updated)
+}
+
+/// 缓存命中即返 `(doc, json)`；未填充过返 None。
+pub fn cached_presets() -> Option<(Arc<Value>, Arc<String>)> {
+    let guard = PRESET_CACHE.read().ok()?;
+    guard.as_ref().map(|c| (c.doc.clone(), c.json.clone()))
+}
+
+/// 填充缓存并返回共享句柄。
+pub fn store_presets_cache(doc: Value) -> (Arc<Value>, Arc<String>) {
+    let json = Arc::new(doc.to_string());
+    let doc = Arc::new(doc);
+    if let Ok(mut guard) = PRESET_CACHE.write() {
+        *guard = Some(PresetCache { doc: doc.clone(), json: json.clone() });
+    }
+    (doc, json)
+}
+
+/// 作废缓存（`platform_preset` 写入后调用）。下一次读取重新从 DB 合并。
+pub fn invalidate_presets_cache() {
+    if let Ok(mut guard) = PRESET_CACHE.write() {
+        *guard = None;
+    }
+}
+
+/// 同步读取当前生效的 preset 文档：缓存（DB 合并视图）优先，未填充过回落编译期内置那份。
+/// 代理热路径（`peak_hours` / `models.peak`）用它，不做 DB IO。
+pub fn effective_presets() -> Arc<Value> {
+    match cached_presets() {
+        Some((doc, _)) => doc,
+        None => presets_arc().clone(),
+    }
 }
 
 /// 用 per-platform JSON 文本组装 presets 文档（`{version, last_updated, protocols}`）。
@@ -68,8 +138,16 @@ pub fn presets_json() -> &'static str {
 /// 按 protocol 名（serde rename 裸名）查 registry 默认端点。
 /// 厂商直连平台（`Protocol::endpoints_locked()`）保存时强制用此值，忽略用户传入。
 /// protocol 缺失 / 无 endpoints 字段 / 解析失败 → 空 Vec。
+///
+/// 读 [`effective_presets`]（DB 同步值优先）：否则平台保存会把刚同步下来的新 `base_url`
+/// 重置回二进制内置的旧值。
 pub fn default_endpoints(protocol: &str) -> Vec<crate::models::PlatformEndpoint> {
-    let Some(arr) = presets()
+    endpoints_in(&effective_presets(), protocol)
+}
+
+/// [`default_endpoints`] 的纯函数核心：从任意一篇 presets 文档取某协议的默认端点。
+pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformEndpoint> {
+    let Some(arr) = doc
         .get("protocols")
         .and_then(|p| p.get(protocol))
         .and_then(|e| e.get("endpoints"))
@@ -81,26 +159,6 @@ pub fn default_endpoints(protocol: &str) -> Vec<crate::models::PlatformEndpoint>
         tracing::warn!(error = %e, protocol, "registry endpoints parse failed; empty");
         Vec::new()
     })
-}
-
-/// 平台展示名，三层回落收敛在此：`name[locale]` → `name["en-US"]` → 平台 code。
-/// 调用方只传当前 locale（`Lang::from_locale` 归一，`zh-CN` / `ja` 等变体同样命中），
-/// 不再各写回落分支。协议不存在或 `name` 整体缺失 → 返回 code 本身，UI 不出空白。
-pub fn platform_display_name(code: &str, locale: &str) -> String {
-    let entry = presets().get("protocols").and_then(|p| p.get(code));
-    resolve_name(entry, code, locale)
-}
-
-fn resolve_name(entry: Option<&Value>, code: &str, locale: &str) -> String {
-    let key = aidog_i18n::Lang::from_locale(locale).locale_key();
-    let name = entry.and_then(|e| e.get("name"));
-    let pick = |l: &str| {
-        name.and_then(|n| n.get(l))
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-    };
-    pick(key).or_else(|| pick("en-US")).unwrap_or(code).to_string()
 }
 
 /// `index.json` 的一条同步清单：远程同步照着它逐文件拉取。

@@ -53,6 +53,17 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 .instrument(init_span)
                 .await
             });
+            // preset 缓存预热：`platform_preset` 表（registry 同步落地）与编译期内置那份的并集
+            // 装进进程内缓存，供路由/计费热路径的 `peak_hours` / `models.peak` / 端点锁死
+            // 同步读取。不预热则这些读取会一直用二进制里的旧值，与前端（读 DB）判定分裂。
+            {
+                let db_clone = db.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = aidog_db::refresh_presets_cache(&db_clone).await {
+                        tracing::warn!(error = %e, "preset cache warmup failed, falling back to bundled registry");
+                    }
+                });
+            }
             // 后台 auto_vacuum 迁移：老库（auto_vacuum=NONE）需 VACUUM 重建切到 INCREMENTAL
             // 才能回收 free pages。非阻塞——spawn 独立 task，失败仅 warn 不置标记，下次启动重试。
             // VACUUM 锁库期间代理写请求排队（busy_timeout=5000 兜底）。

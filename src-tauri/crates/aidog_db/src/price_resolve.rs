@@ -10,7 +10,10 @@
 //!    → 用模型 `peak` **绝对价**，此时 [`PriceResolution::peak_applied`] = true，
 //!    调用方**不得**再乘平台倍率（否则双重计价，见笔记 R6）。
 //! 2. 否则条目默认价（含 `time_tiers` / `context_tiers` 分档）× 平台倍率（调用方乘）。
-//! 3. 条目缺失 → `PriceSyncSettings` 的 fallback 默认价（不跑分档，同旧行为）。
+//! 3. 本平台无该模型条目 → 按 `model_id` 借用其它平台的条目（`official` 优先），
+//!    价格 `source` 记 `official_entry`。registry 里 50 个中转镜像平台 `models/` 目录为空，
+//!    这一层就是旧 `resolve_price` 的 `pricing[platform] → 顶层单价` 回退链（票 13-A/B）。
+//! 4. 哪个平台都没有 → `PriceSyncSettings` 的 fallback 默认价（不跑分档，同旧行为）。
 
 use crate::models::ResolvedPrice;
 use crate::Db;
@@ -169,15 +172,32 @@ pub async fn resolve_price(
     now_ms: i64,
     is_peak: bool,
 ) -> Result<PriceResolution, String> {
-    let entry = crate::get_model_entry(db, platform_code, model_id).await?;
-    let pd: Option<Value> = entry.as_ref().and_then(|e| serde_json::from_str(&e.price_data).ok());
-    Ok(resolve_price_from(pd.as_ref(), is_peak, fallback_input, fallback_output, input_tokens, now_ms))
+    let found = crate::model_entry_for_billing(db, platform_code, model_id).await?;
+    let cross_platform = found.as_ref().is_some_and(|(_, x)| *x);
+    let pd: Option<Value> =
+        found.as_ref().and_then(|(e, _)| serde_json::from_str(&e.price_data).ok());
+    let mut out =
+        resolve_price_from(pd.as_ref(), is_peak, fallback_input, fallback_output, input_tokens, now_ms);
+    if cross_platform {
+        mark_cross_platform(&mut out.price.source);
+    }
+    Ok(out)
+}
+
+/// 条目来自别的平台（`model_entry` → `official_entry`）时改写 `source` 前缀，
+/// 让日志 / 用量明细能把「本平台自带价」和「借用官方价」分开看。分档后缀原样保留。
+fn mark_cross_platform(source: &mut String) {
+    if let Some(rest) = source.strip_prefix("model_entry") {
+        *source = format!("official_entry{rest}");
+    }
 }
 
 /// 取模型最大输出 token（出站裁剪用）。列优先，NULL 时回退 `price_data` JSON。
+/// 本平台无条目时同样借用官方条目（票 13-B：否则中转镜像类平台恒返 None，
+/// 客户端发的超限 `max_tokens` 原样转发给上游，直接 400）。
 /// 返回 None = 未知/无限制（不裁剪）。
 pub async fn model_max_output_tokens(db: &Db, platform_code: &str, model_id: &str) -> Result<Option<i64>, String> {
-    let Some(entry) = crate::get_model_entry(db, platform_code, model_id).await? else {
+    let Some((entry, _)) = crate::model_entry_for_billing(db, platform_code, model_id).await? else {
         return Ok(None);
     };
     if let Some(v) = entry.max_output_tokens {
