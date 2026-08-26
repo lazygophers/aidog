@@ -70,18 +70,31 @@ matrix 两个 job：`macos-latest`（`--target universal-apple-darwin`，Apple S
 
 ## 4. 更新 Release 说明
 
-CI 产出的正文只有通用模板，**没有本次改了什么**。补 changelog：
+CI 产出的正文只有通用模板，**没有本次改了什么**。
+
+**完整性铁律：changelog 的范围必须是「上一个 release tag → 本次 tag」的全部非 merge commit，一条不漏。**
+注意 tag 不连续（`v0.1.9` 之后直接是 `v0.1.11`，没有 `v0.1.10`），所以上一版**必须按 tag 排序取**，不能按版本号 -1 推算。
 
 ```bash
 V=$(tr -d '[:space:]' < .version)
-PREV=$(git tag --sort=-v:refname | grep -v "^v$V$" | head -1)
-git log --oneline --no-merges "$PREV..v$V"   # 素材
-gh release view "v$V" --json body -q .body > /tmp/rel-$V.md
-# 在 /tmp/rel-$V.md 顶部（"## 🐕 AiDog" 之后）插入「### ✨ 本次更新」小节，再：
-gh release edit "v$V" --notes-file /tmp/rel-$V.md
+PREV=$(git tag --sort=-v:refname | grep -v "^v$V$" | head -1)   # 上一个真实存在的 tag
+git rev-list --count --no-merges "$PREV..HEAD"                  # 总数，写完要对得上
+git log --reverse --pretty="%s" --no-merges "$PREV..HEAD" | grep -E "^(feat|fix|style|perf|i18n)"   # 用户可见
+git log --reverse --pretty="%s" --no-merges "$PREV..HEAD" | grep -Ev "^(feat|fix|style|perf|i18n)"  # 内部（refactor/chore/docs/test）
 ```
 
-写法：按 conventional commit 的 type 归类（feat / fix / 其余合并成「其他」），每条一行人话，**不要贴 commit hash 和原始 scope 前缀**。保留模板里的下载表 / quarantine / 自动更新 / 文档四节，只加不删。
+正文草稿放 `.github/release-notes/v<版本>.md`（随代码入库，发版前就能写好、可 review、可 diff；注意 `.scratch/` 被全局 gitignore，放那里不进版本库），CI 跑完直接：
+
+```bash
+gh release edit "v$V" --notes-file .github/release-notes/v$V.md
+```
+
+写法：
+
+- 分四段 —— `新增` / `修复` / `内部（不影响使用）` / 保留模板四节（下载表 / macOS quarantine / 自动更新 / 文档），**只加不删**。
+- 用户可见的 commit 按**功能域**合并成一条人话（同一 feature 的多个 tracer-bullet 票合并，别一票一行），内部 commit 允许整段概括，但 **refactor/chore/docs 不能整类丢弃** —— 大规模拆 crate、覆盖率、文档重做这些用户会问「这版到底动了什么」。
+- 不贴 commit hash，不留 `feat(scope):` 前缀。
+- 收尾核对：每一条 commit 都能在正文里找到归属（合并进某条也算），数量对得上 `git rev-list --count`。
 
 ## 5. 验证门禁
 
