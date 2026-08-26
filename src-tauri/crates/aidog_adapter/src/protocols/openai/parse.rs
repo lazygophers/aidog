@@ -167,7 +167,17 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         stream: openai_req.stream,
         tools,
         tool_choice,
-        extra: None,
+        // 未建模顶层字段进 `extra`（票 11）：与 anthropic 入站的 `#[serde(flatten)]` 行为对齐。
+        // 不收就等于 `stop` / `top_k` / `response_format` 在中立层蒸发，openai → gemini
+        // （值落 `generationConfig`，forward 层的顶层白名单管不到）与 openai → completions
+        // 两条链路上这些参数必丢。收下不等于出站——出站仍由各 `to_*` 的白名单决定写不写。
+        extra: rest_keys(
+            body,
+            &[
+                "model", "messages", "max_tokens", "max_completion_tokens", "temperature",
+                "top_p", "stream", "tools", "tool_choice", "reasoning_effort",
+            ],
+        ),
         // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
         thinking_mode: crate::thinking::mode_from_effort(openai_req.reasoning_effort.as_deref()),
     })

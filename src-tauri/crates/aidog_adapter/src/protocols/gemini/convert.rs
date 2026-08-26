@@ -78,7 +78,10 @@ pub struct GeminiGenerationConfig {
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GeminiThinkingConfig {
-    pub thinking_budget: u32,
+    /// 思考预算；无预算时不写出（票 11：此前是非 Option，`includeThoughts` 单独出现时
+    /// 整个 thinkingConfig 节点建不起来，客户端只设 includeThoughts 的意图必丢）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thinking_budget: Option<u32>,
     /// 是否把思考链随响应回传（票 09）；无值时不写出，由上游按自身默认决定
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub include_thoughts: Option<bool>,
@@ -231,10 +234,14 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
     // 无预算时由档位名换算（换算表见 `crate::thinking`）。
     // `includeThoughts`（票 09）挂在同一节点上，随预算一起写出。
     let thinking_config = if crate::thinking::is_disabled(req) {
-        Some(GeminiThinkingConfig { thinking_budget: 0, include_thoughts })
+        Some(GeminiThinkingConfig { thinking_budget: Some(0), include_thoughts })
     } else {
-        crate::thinking::outbound_budget(req)
-            .map(|b| GeminiThinkingConfig { thinking_budget: b, include_thoughts })
+        match (crate::thinking::outbound_budget(req), include_thoughts) {
+            (None, None) => None,
+            // 票 11：只设了 includeThoughts（没设预算）时同样要建节点，
+            // 预算留空由上游按自身默认决定，不能拿 0 顶替（0 = 显式禁用思考，语义相反）。
+            (budget, _) => Some(GeminiThinkingConfig { thinking_budget: budget, include_thoughts }),
+        }
     };
     // gate 覆盖全部 generationConfig 内字段：漏一个就会出现「该字段单独存在时整节点不生成」
     let generation_config = if req.max_tokens.is_some() || req.temperature.is_some() || req.top_p.is_some()

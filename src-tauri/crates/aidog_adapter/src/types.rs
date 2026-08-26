@@ -194,7 +194,13 @@ fn block_text_view(b: &serde_json::Value) -> String {
 }
 
 /// 取出 object 里已建模键之外的剩余键；无剩余返回 None。
-fn rest_keys(v: &serde_json::Value, known: &[&str]) -> Option<serde_json::Value> {
+///
+/// 两处用法共用本函数：① block 级附加键（`cache_control` 等，票 04/06）；
+/// ② 请求顶层的未建模字段 → [`ChatRequest::extra`]（票 01/09/11）。后者让
+/// openai / openai_responses / openai_completions 三个入站解析与 anthropic 的
+/// `#[serde(flatten)]` 行为对齐——否则 `stop` / `top_k` / `response_format` 在中立层就没了，
+/// 出站 `to_gemini` / `to_completions` 从 `extra` 取值时永远取不到。
+pub fn rest_keys(v: &serde_json::Value, known: &[&str]) -> Option<serde_json::Value> {
     let obj = v.as_object()?;
     let rest: serde_json::Map<String, serde_json::Value> = obj
         .iter()
@@ -388,6 +394,34 @@ pub fn client_tools<'a>(tools: &'a [Tool], target_protocol: &str) -> Vec<&'a Too
         );
     }
     keep
+}
+
+/// `tool_choice` 指名的工具是否**恰好被本次的服务端工具过滤丢掉了**（票 11）。
+///
+/// [`client_tools`] 会把服务端工具整条丢掉；若 `tool_choice` 恰好指名了被丢掉的那个，
+/// 出站就是「强制调用一个 body 里不存在的工具」——上游要么 400，要么让模型空转。
+/// 判定为 false 时调用方应整条不写 `tool_choice`，退回上游默认（auto）。
+///
+/// **只管自己造成的不一致**，其余情况一律放行，不替客户端做主：
+/// - `auto` / `any` / `none` 不指名具体工具 → true
+/// - 客户端没声明 `tools` → true（本函数没丢过任何东西）
+/// - 指名的工具本来就不在 `tools` 声明里 → true（客户端自己的不一致，原样送上游报错）
+pub fn named_tool_available(choice: &ToolChoice, all: Option<&[Tool]>, kept: &[&Tool]) -> bool {
+    let ToolChoice::Named { name } = choice else {
+        return true;
+    };
+    let Some(all) = all else { return true };
+    if !all.iter().any(|t| t.name == *name) {
+        return true;
+    }
+    let available = kept.iter().any(|t| t.name == *name);
+    if !available {
+        tracing::warn!(
+            tool = %name,
+            "tool_choice names a server-side tool dropped for this target, omitting tool_choice"
+        );
+    }
+    available
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

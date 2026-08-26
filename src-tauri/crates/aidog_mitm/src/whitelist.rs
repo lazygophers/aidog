@@ -22,6 +22,9 @@ const MITM_WHITELIST_KEY: &str = "whitelist";
 /// MITM 配置在 setting 表的 scope（与 ca.rs 共用）。
 const MITM_SCOPE: &str = "mitm";
 
+/// 内置 MITM 规则集（从 aidog_db 单源再导出，供 command 层直接引用）。
+pub use aidog_db::DEFAULT_RULES;
+
 
 /// 白名单行（setting 表 mitm:whitelist JSON 数组元素）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -494,5 +497,3 @@ mod tests {
         assert!(evaluate_host(&entries, "openai.com").is_empty());
     }
 }
-
-pub use aidog_db::DEFAULT_RULES;
