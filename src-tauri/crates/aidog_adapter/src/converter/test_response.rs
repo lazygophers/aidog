@@ -101,19 +101,25 @@ fn convert_response_length_maps_max_tokens() {
     assert_eq!(out["stop_reason"], "max_tokens");
 }
 
-// ── reasoning_content 存在时排在 content 首位 ──
+// ── reasoning-only（无正文无 tool_calls）：reasoning 不降级为 text 块 ──
+// 复现 comet gpt-5.5 死循环（request fa74a0e7）：上游 content="" + reasoning="**Planning…**"
+// + finish=stop。修复前 reasoning 被渲染成 text 块，客户端把它当正式回答回灌历史，
+// 模型每轮只输出 Planning 笔记后 stop。修复后 content 为空兜底空 text 块。
 #[test]
-fn convert_response_empty_message_yields_nonempty_content() {
+fn convert_response_reasoning_only_not_rendered_as_text() {
     let upstream = serde_json::json!({
-        "id": "c4", "model": "m",
+        "id": "chatcmpl-27a3f16a", "model": "gpt-5.5",
         "choices": [{ "index": 0, "finish_reason": "stop", "message": {
-            "role": "assistant", "reasoning_content": "只有思维链" } }]
+            "role": "assistant", "content": "",
+            "reasoning_content": "**Planning sequential file inspection**" } }],
+        "usage": { "prompt_tokens": 46920, "completion_tokens": 204 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-opus-5").unwrap();
     let content = out["content"].as_array().unwrap();
-    assert_eq!(content.len(), 1, "reasoning 非空时排首位，content 含一个 text 块");
+    assert_eq!(content.len(), 1, "兜底空 text 块，无 reasoning 块");
     assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "只有思维链", "reasoning_content 排在 content 首位");
+    assert_eq!(content[0]["text"], "", "reasoning 不降级为 text（避免回灌污染历史）");
+    assert_eq!(out["stop_reason"], "end_turn");
 }
 
 // ── 同协议（client=openai, wire=openai）→ None（透传，不转换） ──
@@ -424,7 +430,8 @@ fn convert_response_openai_to_gemini() {
 }
 
 // ── 本案重放：request cd7ff24d 场景 ──
-// openai 上游含 reasoning_content + 空 content, client=anthropic → reasoning 排 content 首位
+// openai 上游含 reasoning_content + 空 content, client=anthropic。
+// 行为变更（comet gpt-5.5 死循环修复）：reasoning-only 不再降级为 text 块，content 为空兜底空 text。
 #[test]
 fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
     let upstream = serde_json::json!({
@@ -447,9 +454,9 @@ fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
     let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-3-opus")
         .expect("case cd7ff24d: openai reasoning_content → anthropic content with reasoning");
     let content = out["content"].as_array().unwrap();
-    assert_eq!(content.len(), 1, "仅有 reasoning 块");
+    assert_eq!(content.len(), 1, "兜底空 text 块");
     assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "Let me analyze this step by step...", "reasoning_content 排首位");
+    assert_eq!(content[0]["text"], "", "reasoning-only 不降级为 text（防回灌污染历史）");
     assert_eq!(out["stop_reason"], "end_turn", "stop→end_turn");
     assert_eq!(out["usage"]["input_tokens"], 50);
     assert_eq!(out["usage"]["output_tokens"], 30);

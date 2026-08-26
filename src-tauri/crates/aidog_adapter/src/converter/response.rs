@@ -107,7 +107,12 @@ pub fn convert_response(
 pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
     let mut content: Vec<Value> = Vec::new();
     // reasoning 排首位（方案 B：禁 thinking 块避 signature 风险）
-    if let Some(reasoning) = &r.reasoning
+    let has_substance = r.text.as_deref().is_some_and(|t| !t.is_empty())
+        || !r.tool_uses.is_empty();
+    // reasoning-only（上游只出思维链就 stop，实测 comet gpt-5.5：content="" + reasoning + 无
+    // tool_calls）不产出块——否则客户端把思考当正式回答回灌历史，「回答=Planning 笔记」自锁循环
+    if has_substance
+        && let Some(reasoning) = &r.reasoning
         && !reasoning.is_empty() {
             content.push(serde_json::json!({ "type": "text", "text": reasoning }));
         }
