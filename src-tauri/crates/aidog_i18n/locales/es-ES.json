@@ -1072,6 +1072,8 @@
   "platform.groupAssignTitle": "Asignación de grupo",
   "platform.groupLocked": "Bloqueado en este grupo",
   "platform.homepage": "Página principal",
+  "platform.sourceDocs": "Documentación",
+  "platform.sourcePricing": "Precios",
   "platform.lastError": "Último error",
   "platform.lastErrorHint": "Último fallo · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "Última prueba fallida · {{time}}{{error}}",

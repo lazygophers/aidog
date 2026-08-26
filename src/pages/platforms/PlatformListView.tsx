@@ -39,7 +39,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
       .finally(() => { if (!cancelled) setPreviewLoading(false); });
     return () => { cancelled = true; };
   }, [purgeConfirmOpen]);
-  // colorMap / labelMap：async 派生自 platform-presets.json；首帧空 map（fallback platform_type key）。
+  // colorMap / labelMap：async 派生自 registry platform.json；首帧空 map（fallback platform_type key）。
   const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   useEffect(() => {

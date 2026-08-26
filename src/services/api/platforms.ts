@@ -525,8 +525,10 @@ export const modelPriceApi = {
     invoke<PriceSyncResult>("model_price_sync"),
 };
 
-/** 平台默认配置（endpoints / models / model_list / client_type），内置 const
- *  （Rust `presets_const.rs`，原外部 JSON 已内置化）。返回原始 JSON 字符串，前端解析缓存。 */
+/** 平台默认配置与品牌字段（endpoints / models / model_list / client_type / name / logo_url /
+ *  color / homepage / keywords / source_urls），唯一真值源 = registry
+ *  （`src-tauri/defaults/registry/`，编译期 include，见 `aidog_db::registry::presets_json`）。
+ *  返回原始 JSON 字符串，前端解析缓存。 */
 export function getDefaultsJson(): Promise<string> {
   return invoke<string>("get_defaults_json");
 }
