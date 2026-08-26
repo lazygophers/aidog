@@ -4,7 +4,7 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, cli_proxy_provider_id, done";
+    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, cli_proxy_provider_id, done, field_trace";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
@@ -43,6 +43,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         deleted_at: row.get(31)?,
         cli_proxy_provider_id: row.get(32)?,
         done: row.get::<_, i64>(33)? == 1,
+        field_trace: row.get(34)?,
     })
 }
 
@@ -59,10 +60,10 @@ pub fn upsert_proxy_log(db: &Db, log: aidog_db::models::ProxyLog) -> impl std::f
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35)"),
             )?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.cli_proxy_provider_id, log.done as i64],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.cli_proxy_provider_id, log.done as i64, log.field_trace],
             )?;
             Ok(())
         })
@@ -115,6 +116,9 @@ pub struct ProxyLogColumns {
     pub cli_proxy_provider_id: Option<i64>,
     /// 终态标记（票 06）：替代旧 `response_body != "[stream]"` 哨兵的终态判定。
     pub done: i64,
+    /// 字段留痕（票 10）：出站 body 被丢弃 / 被改写的字段名 token 串。归上游侧「原始信息」，
+    /// 受 `strip_upstream` 清空。
+    pub field_trace: String,
 }
 
 impl ProxyLogColumns {
@@ -166,6 +170,8 @@ impl ProxyLogColumns {
             deleted_at: log.deleted_at,
             cli_proxy_provider_id: log.cli_proxy_provider_id,
             done: log.done as i64,
+            // 票 10：字段留痕描述的是「上游 body 被动了什么」，与 upstream_request_body 同侧同开关。
+            field_trace: if strip_upstream { empty() } else { log.field_trace.clone() },
         }
     }
 
@@ -208,6 +214,7 @@ impl ProxyLogColumns {
         diff!("deleted_at", deleted_at);
         diff!("cli_proxy_provider_id", cli_proxy_provider_id);
         diff!("done", done);
+        diff!("field_trace", field_trace);
         out
     }
 
@@ -254,10 +261,10 @@ pub fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> impl std::fut
             // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35)"),
             )?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.cli_proxy_provider_id, cols.done],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.cli_proxy_provider_id, cols.done, cols.field_trace],
             )?;
             Ok(())
         })

@@ -381,7 +381,8 @@ pub fn cleanup_user_request_fields(db: &Db, value: u32, unit: RetentionUnit) -> 
 
 /// Clear upstream-side raw fields for logs older than retention_days.
 /// 清理列集 = 上游侧「原始信息」全集：upstream_request_headers / upstream_request_body /
-/// upstream_response_headers / response_body（上游响应正文，与 from_log 的 strip_upstream 列集对称）。
+/// upstream_response_headers / response_body（上游响应正文）/ field_trace（票 10 字段留痕，
+/// 描述上游 body 被动过什么，与 upstream_request_body 同侧）——与 from_log 的 strip_upstream 列集对称。
 /// response_body 是体积大头（实测真实库 376MB），归本级 retention 回收。回客户端正文
 /// user_response_body 归 user_request_retention_days（见 cleanup_user_request_fields）。
 /// Does NOT delete the log row — keeps token stats and metadata.
@@ -396,8 +397,8 @@ pub fn cleanup_upstream_request_fields(db: &Db, value: u32, unit: RetentionUnit)
     db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
-                "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '' \
-                 WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '')",
+                "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', field_trace = '' \
+                 WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '' OR field_trace != '')",
                 params![cutoff],
             )?;
             Ok(())
