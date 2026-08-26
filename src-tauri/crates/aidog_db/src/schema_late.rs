@@ -424,6 +424,13 @@ pub fn run_migrations_proxy_log_late(
                     "UPDATE proxy_log SET done = 1, response_body = '' WHERE response_body = '[stream]'",
                     [],
                 );
+                // Migration 20260827-01 (票 10 field-trace): proxy_log 加 field_trace 列，
+                // 承载出站 body 构造中被丢弃 / 被改写的字段名留痕（只记名不记值）。
+                // 存量行按 DEFAULT '' 补齐 = 「无留痕」，语义正确，无需回填。
+                let _ = conn.execute(
+                    "ALTER TABLE proxy_log ADD COLUMN field_trace TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
                 // Migration 20260727-19 (原 031 ②): notification 时间索引（从主库迁入 log.db）。
                 let _ = conn.execute(
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
@@ -1388,6 +1395,51 @@ mod tests {
         assert_eq!((done, body.as_str()), (1, ""), "卡死哨兵行应翻 done=1 且清占位");
         let done: i64 = conn.query_row("SELECT done FROM proxy_log WHERE id='mid'", [], |r| r.get(0)).unwrap();
         assert_eq!(done, 0, "status=0 中间行保持 done=0（交 sweep 兜底）");
+    }
+
+    /// Migration 20260827-01（票 10 field-trace）：老库（无 field_trace 列）升级路径。
+    /// ① 列被补上；② 存量行按 DEFAULT '' 补齐（= 无留痕）；③ 重跑幂等（duplicate column 被吞）
+    /// 且不覆盖已写入的留痕值。
+    #[test]
+    fn migrations_proxy_log_field_trace_column_20260827() {
+        let conn = Connection::open_in_memory().unwrap();
+        // 老库 schema：done 之前的列集（field_trace 不存在）。
+        conn.execute_batch(
+            "CREATE TABLE proxy_log (
+                id TEXT PRIMARY KEY, group_key TEXT NOT NULL DEFAULT '', model TEXT NOT NULL DEFAULT '',
+                actual_model TEXT NOT NULL DEFAULT '', source_protocol TEXT NOT NULL DEFAULT '',
+                target_protocol TEXT NOT NULL DEFAULT '', platform_id INTEGER NOT NULL DEFAULT 0,
+                request_headers TEXT NOT NULL DEFAULT '', request_body TEXT NOT NULL DEFAULT '',
+                upstream_request_headers TEXT NOT NULL DEFAULT '', upstream_request_body TEXT NOT NULL DEFAULT '',
+                response_body TEXT NOT NULL DEFAULT '', request_url TEXT NOT NULL DEFAULT '',
+                upstream_request_url TEXT NOT NULL DEFAULT '', upstream_response_headers TEXT NOT NULL DEFAULT '',
+                upstream_status_code INTEGER NOT NULL DEFAULT 0, user_response_headers TEXT NOT NULL DEFAULT '',
+                user_response_body TEXT NOT NULL DEFAULT '', status_code INTEGER NOT NULL DEFAULT 0,
+                duration_ms INTEGER NOT NULL DEFAULT 0, input_tokens INTEGER NOT NULL DEFAULT 0,
+                output_tokens INTEGER NOT NULL DEFAULT 0, cache_tokens INTEGER NOT NULL DEFAULT 0,
+                est_cost REAL NOT NULL DEFAULT 0, is_stream INTEGER NOT NULL DEFAULT 0,
+                attempts TEXT NOT NULL DEFAULT '', retry_count INTEGER NOT NULL DEFAULT 0,
+                blocked_by TEXT NOT NULL DEFAULT '', blocked_reason TEXT NOT NULL DEFAULT '',
+                created_at INTEGER NOT NULL DEFAULT 0, updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0, cli_proxy_provider_id INTEGER
+            );
+            INSERT INTO proxy_log (id, status_code) VALUES ('legacy', 200);",
+        ).unwrap();
+        run_migrations_proxy_log_late(&conn, &std::collections::HashMap::new(), &[], &[])
+            .expect("run_migrations_proxy_log_late should succeed on legacy schema");
+        let ft: String = conn
+            .query_row("SELECT field_trace FROM proxy_log WHERE id='legacy'", [], |r| r.get(0))
+            .expect("field_trace column should exist after migration");
+        assert_eq!(ft, "", "存量行 field_trace 应为空串（无留痕）");
+
+        // 写入留痕后重跑迁移：幂等，不重建列、不覆盖值。
+        conn.execute("UPDATE proxy_log SET field_trace = 'drop:user' WHERE id='legacy'", []).unwrap();
+        run_migrations_proxy_log_late(&conn, &std::collections::HashMap::new(), &[], &[])
+            .expect("re-run should be idempotent");
+        let ft: String = conn
+            .query_row("SELECT field_trace FROM proxy_log WHERE id='legacy'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(ft, "drop:user", "重跑迁移不应覆盖已写入的留痕");
     }
 
     /// run_migrations_late on a DB without group.path but also without group_key → exercises !has_group_key branch.
