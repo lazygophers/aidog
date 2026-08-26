@@ -129,13 +129,9 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
             .collect()
     });
 
-    // reasoning_effort → 思考预算档位（to_openai 反向映射共用同一组数值）
-    let thinking_budget = openai_req.reasoning_effort.as_deref().and_then(|e| match e {
-        "low" => Some(2048),
-        "medium" => Some(8192),
-        "high" => Some(16384),
-        _ => None,
-    });
+    // reasoning_effort → 思考预算（换算表统一在 `crate::thinking`，票 03；此前这里的 low=2048
+    // 与出站表的 low<=4096 不自洽，openai → responses 往返会把 low 抬成 medium）
+    let thinking_budget = openai_req.reasoning_effort.as_deref().and_then(crate::thinking::effort_to_budget);
 
     let tool_choice = openai_req.tool_choice.and_then(|tc| {
         if tc.is_string() {
@@ -173,7 +169,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         tool_choice,
         extra: None,
         // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
-        thinking_mode: ThinkingMode::from_parts(None, openai_req.reasoning_effort.clone()),
+        thinking_mode: crate::thinking::mode_from_effort(openai_req.reasoning_effort.as_deref()),
     })
 }
 

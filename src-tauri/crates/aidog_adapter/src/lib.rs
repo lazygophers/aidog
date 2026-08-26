@@ -3,6 +3,7 @@
 pub mod converter;
 pub mod quota;
 pub mod protocols;
+pub mod thinking;
 pub mod types;
 
 // 平台转换器模块（与 Protocol enum 平台变体一一对齐，按 enum 声明顺序排列）

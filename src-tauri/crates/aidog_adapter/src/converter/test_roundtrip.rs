@@ -1313,3 +1313,124 @@ fn fa05_neither_key_no_default() {
     assert!(out.get("max_tokens").is_none(), "{out}");
     assert!(out.get("max_completion_tokens").is_none(), "{out}");
 }
+
+// ─── 票 03: 思考档位跨协议映射 ───
+//
+// Claude Code 2.x 发 `thinking:{type:"adaptive"}` + `output_config:{effort:"high"}`（无
+// budget_tokens）。修前 `thinking_budget=None` → 四个目标协议一个思考参数都不写，
+// 上游按自身默认执行（近 60 条 target_protocol=openai 样本丢失率 60/60）。
+
+/// 入参形态 A：adaptive + output_config.effort（Claude Code 2.x 原体）→ 四目标协议各自写出档位
+#[test]
+fn fa03_adaptive_effort_reaches_all_four_targets() {
+    let body = json!({
+        "model": "claude-opus-4-8", "max_tokens": 1024,
+        "thinking": { "type": "adaptive" },
+        "output_config": { "effort": "high" },
+        "messages": [{ "role": "user", "content": "hi" }]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+
+    // anthropic：adaptive 是 pi/Claude Code 私有 type，归一成官方 enabled + 换算预算
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"]["type"], "enabled", "{a}");
+    assert_eq!(a["thinking"]["budget_tokens"], json!(16384), "high → 16384: {a}");
+
+    // openai chat：档位原值直传
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(o["reasoning_effort"], "high", "{o}");
+
+    // openai_responses：新增的 reasoning 字段（修前整条缺失）
+    let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+    assert_eq!(r["reasoning"]["effort"], "high", "{r}");
+
+    // gemini：档位换算成 thinkingBudget
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(16384), "{g}");
+}
+
+/// 入参形态 B：只有档位名（OpenAI `reasoning_effort`）→ 四目标协议各自写出档位
+#[test]
+fn fa03_effort_only_reaches_all_four_targets() {
+    let body = json!({
+        "model": "gpt-x", "reasoning_effort": "medium",
+        "messages": [{ "role": "user", "content": "hi" }]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"], json!({ "type": "enabled", "budget_tokens": 8192 }), "{a}");
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(o["reasoning_effort"], "medium", "{o}");
+    let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+    assert_eq!(r["reasoning"]["effort"], "medium", "{r}");
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(8192), "{g}");
+}
+
+/// 换算表只有一份：openai `low` → responses → 回 openai 仍是 `low`（修前三套表会抬成 medium）
+#[test]
+fn fa03_single_conversion_table_no_roundtrip_drift() {
+    for effort in ["low", "medium", "high"] {
+        let body = json!({ "model": "m", "reasoning_effort": effort, "messages": [{ "role": "user", "content": "hi" }] });
+        let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+        let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+
+        let back = parse_incoming_request(&Protocol::OpenAIResponses, &r).expect("reparse");
+        let (o, _) = convert_request(&back, &Protocol::OpenAI, &Protocol::OpenAI);
+        assert_eq!(o["reasoning_effort"], effort, "{effort} 档往返漂移: {o}");
+
+        // 数字侧同样不漂：anthropic ↔ gemini 预算与档位互为定值
+        let (a, _) = convert_request(&back, &Protocol::Anthropic, &Protocol::Anthropic);
+        let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+        assert_eq!(a["thinking"]["budget_tokens"], g["generationConfig"]["thinkingConfig"]["thinkingBudget"]);
+    }
+}
+
+/// 优先级：显式禁用胜过任何档位。`thinking.type=disabled` 与 `output_config.effort=high`
+/// 同时存在时，四个目标协议都不得写出开启型思考参数。
+///
+/// 平台侧的 aidog `disable_thinking` 开关是另一条通道，由 `forward.rs::apply_disable_thinking`
+/// 在转换之后无条件剔 `thinking` / `reasoning_effort` / `reasoning` /
+/// `generationConfig.thinkingConfig` 再写显式禁用 —— 覆盖本函数会写出的全部四个键，
+/// 两条通道叠加时仍是禁用胜出（那一侧由 forward.rs 的 `mod test_disable_thinking` 锚定）。
+#[test]
+fn fa03_explicit_disable_beats_effort() {
+    let body = json!({
+        "model": "claude-opus-4-8", "max_tokens": 1024,
+        "thinking": { "type": "disabled" },
+        "output_config": { "effort": "high" },
+        "messages": [{ "role": "user", "content": "hi" }]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"], json!({ "type": "disabled" }), "{a}");
+
+    let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert!(o.get("reasoning_effort").is_none(), "chat 的禁用写法按 host 分叉，adapter 只保证不开启: {o}");
+
+    let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+    assert_eq!(r["reasoning"], json!({ "effort": "none" }), "{r}");
+
+    let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(0), "{g}");
+}
+
+/// 各协议自己的「不要思考」表达归一到同一个禁用判据：
+/// Responses `effort:"none"` 与 Gemini `thinkingBudget:0` 都不得被出站当成 0 预算的开启请求。
+#[test]
+fn fa03_per_protocol_disable_forms_normalize() {
+    let responses_none = json!({ "model": "gpt-5", "input": "hi", "reasoning": { "effort": "none" } });
+    let req = parse_incoming_request(&Protocol::OpenAIResponses, &responses_none).expect("parse");
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"], json!({ "type": "disabled" }), "{a}");
+
+    let gemini_zero = json!({
+        "contents": [{ "role": "user", "parts": [{ "text": "hi" }] }],
+        "generationConfig": { "thinkingConfig": { "thinkingBudget": 0 } }
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &gemini_zero).expect("parse");
+    let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(a["thinking"], json!({ "type": "disabled" }), "0 预算不是「开启且预算 0」: {a}");
+}

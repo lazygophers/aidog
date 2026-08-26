@@ -201,12 +201,12 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         stream: req.stream,
         tools,
         tool_choice,
-        // budget → effort 阈值映射（与 from_openai 反向映射共用档位）
-        reasoning_effort: req.thinking_budget.map(|b| match b {
-            0..=4096 => "low",
-            4097..=8192 => "medium",
-            _ => "high",
-        }.to_string()),
+        // 思考档位出站（票 03）：档位原值优先，无档位时由数字预算反查（换算表见 `crate::thinking`）。
+        // 显式禁用（`thinking.type=disabled`）在这里只保证**不写开启型参数**：Chat Completions 的
+        // 禁用写法要按上游 host 分叉（官方 `reasoning_effort:"none"` vs 第三方
+        // `chat_template_kwargs.enable_thinking=false`），adapter 层拿不到 host，
+        // 显式禁用指令统一由 `forward.rs::apply_disable_thinking` 负责。
+        reasoning_effort: crate::thinking::outbound_effort(req),
     }
 }
 

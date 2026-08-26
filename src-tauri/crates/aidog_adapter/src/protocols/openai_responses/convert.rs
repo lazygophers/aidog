@@ -22,6 +22,10 @@ pub struct ResponsesRequest {
     pub tools: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_choice: Option<Value>,
+    /// 思考档位 `{"effort": "low"|"medium"|"high"|"none"}`（票 03 新增；此前整条字段缺失，
+    /// 以 openai_responses 为目标协议时思考档位 100% 丢失）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -60,7 +64,15 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         ToolChoice::None => serde_json::json!("none"),
         ToolChoice::Named { name } => serde_json::json!({"type":"function","name":name}),
     });
-    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools, tool_choice }
+    // 思考档位出站（票 03）：显式禁用写 Responses 官方认的 `effort:"none"`（与
+    // `forward.rs::apply_disable_thinking` 的 Responses 分支同一写法）；否则档位原值优先，
+    // 无档位时由数字预算反查（换算表见 `crate::thinking`）。
+    let reasoning = if crate::thinking::is_disabled(req) {
+        Some(serde_json::json!({ "effort": "none" }))
+    } else {
+        crate::thinking::outbound_effort(req).map(|e| serde_json::json!({ "effort": e }))
+    };
+    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools, tool_choice, reasoning }
 }
 
 /// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
@@ -359,16 +371,10 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         Value::Object(o) => o.get("name").and_then(Value::as_str).map(|name| ToolChoice::Named { name: name.to_string() }),
         _ => None,
     });
-    // reasoning.effort → thinking_budget（与 to_openai budget→effort 档位映射互逆）
-    let thinking_budget = body
-        .get("reasoning")
-        .and_then(|r| r.get("effort"))
-        .and_then(Value::as_str)
-        .map(|effort| match effort {
-            "low" => 4096,
-            "medium" => 8192,
-            _ => 10000,
-        });
+    // reasoning.effort → thinking_budget（换算表统一在 `crate::thinking`，票 03；此前这里的
+    // `_ => 10000` 是全 crate 第三套数字，与出站表不自洽）
+    let effort = body.get("reasoning").and_then(|r| r.get("effort")).and_then(Value::as_str);
+    let thinking_budget = effort.and_then(crate::thinking::effort_to_budget);
 
     Some(ChatRequest {
         thinking_budget,
@@ -383,10 +389,7 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         tool_choice,
         extra: None,
         // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
-        thinking_mode: ThinkingMode::from_parts(
-            None,
-            body.get("reasoning").and_then(|r| r.get("effort")).and_then(Value::as_str).map(str::to_string),
-        ),
+        thinking_mode: crate::thinking::mode_from_effort(effort),
     })
 }
 
