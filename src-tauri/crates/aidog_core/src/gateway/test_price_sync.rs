@@ -119,6 +119,65 @@ async fn partial_failure_keeps_existing_rows_and_reports_files() {
     assert!(aidog_db::select_model_entries(&db, Some("beta")).await.unwrap().len() == 1);
 }
 
+/// 品牌字段整份随 `preset_data` 入库：8 locale 名字、logo slug、色值、keywords 数组、
+/// source_urls 对象一个不丢，且模型条目的 `display_name` 同轮落地。
+#[tokio::test]
+async fn sync_carries_brand_fields_and_display_name() {
+    const RICH_PLATFORM: &str = r##"{"name":{"en-US":"Alpha Inc","zh-Hans":"阿尔法"},"logo_url":"alpha","color":"#111111","homepage":"https://alpha.example.com","keywords":["alpha","阿尔法","aerfa"],"source_urls":{"docs":"https://alpha.example.com/docs","pricing":"https://alpha.example.com/pricing"}}"##;
+    const RICH_MODEL: &str = r#"{"model_id":"a-1","display_name":"Alpha 1","canonical_model":"a-1","official":true,"capabilities":["text"]}"#;
+
+    let db = test_db().await;
+    let mut files = full();
+    files.insert("platforms/alpha/platform.json", RICH_PLATFORM);
+    files.insert("platforms/alpha/models/a-1.json", RICH_MODEL);
+    let base = spawn_registry(files).await;
+    sync_registry_from(&db, &[&base]).await.unwrap();
+
+    let presets = aidog_db::select_platform_presets(&db).await.unwrap();
+    let alpha = presets.iter().find(|p| p.code == "alpha").unwrap();
+    let v: serde_json::Value = serde_json::from_str(&alpha.preset_data).unwrap();
+    assert_eq!(v["name"]["zh-Hans"], "阿尔法");
+    assert_eq!(v["logo_url"], "alpha");
+    assert_eq!(v["color"], "#111111");
+    assert_eq!(v["keywords"].as_array().unwrap().len(), 3, "keywords 数组不得被截断");
+    assert_eq!(v["source_urls"]["pricing"], "https://alpha.example.com/pricing");
+
+    let a1 = aidog_db::select_model_entries(&db, Some("alpha")).await.unwrap();
+    assert_eq!(a1[0].display_name, "Alpha 1", "模型展示名随同步入库");
+    // 上游没写 display_name 的条目在读取层回落 model_id，不留空单元格
+    let b1 = aidog_db::list_model_entries(&db, Some("beta")).await.unwrap();
+    assert_eq!(b1[0].display_name, "b-1");
+}
+
+/// 失败平台在 DB 里的品牌字段（含名字与 logo slug）逐字段原样保留，不被清空也不被部分覆盖。
+#[tokio::test]
+async fn failed_platform_keeps_brand_fields_intact() {
+    const RICH_BETA: &str = r##"{"name":{"en-US":"Beta Inc","ja-JP":"ベータ"},"logo_url":"beta","color":"#222222","keywords":["beta"],"source_urls":{"docs":"https://beta.example.com/docs"}}"##;
+
+    let db = test_db().await;
+    let mut files = full();
+    files.insert("platforms/beta/platform.json", RICH_BETA);
+    let base = spawn_registry(files.clone()).await;
+    sync_registry_from(&db, &[&base]).await.unwrap();
+
+    // 第二轮 beta 的 platform.json 404
+    let mut broken = files;
+    broken.remove("platforms/beta/platform.json");
+    let base = spawn_registry(broken).await;
+    let r = sync_registry_from(&db, &[&base]).await.unwrap();
+    assert_eq!(r.failed, 1);
+    assert_eq!(r.failures[0].file, "platforms/beta/platform.json");
+
+    let presets = aidog_db::select_platform_presets(&db).await.unwrap();
+    let beta = presets.iter().find(|p| p.code == "beta").expect("beta 行不可消失");
+    let v: serde_json::Value = serde_json::from_str(&beta.preset_data).unwrap();
+    assert_eq!(v["name"]["en-US"], "Beta Inc");
+    assert_eq!(v["name"]["ja-JP"], "ベータ");
+    assert_eq!(v["logo_url"], "beta", "logo slug 不因一次网络抖动变空");
+    assert_eq!(v["color"], "#222222");
+    assert_eq!(v["source_urls"]["docs"], "https://beta.example.com/docs");
+}
+
 /// 内容没变的第二轮不该被记成 updated（旧实现 unchanged 恒为 0）。
 #[tokio::test]
 async fn second_identical_sync_is_all_unchanged() {
