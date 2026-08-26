@@ -1,0 +1,12 @@
+{
+  "model_id": "MiniMax-M2.1-highspeed",
+  "canonical_model": "MiniMax-M2.1-highspeed",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 5.833333333333334e-7,
+  "output_cost_per_token": 0.0000023333333333333336,
+  "cache_read_input_token_cost": 2.9166666666666663e-8,
+  "cache_creation_input_token_cost": 3.645833333333333e-7
+}

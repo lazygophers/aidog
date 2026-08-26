@@ -1095,8 +1095,7 @@ mod maintenance;
 mod model_price;
 mod cli_proxy;
 mod ui_extra;
-pub mod presets_cache;
-pub mod presets_const;
+pub mod registry;
 pub mod client_types_const;
 pub use platform::*;
 pub use platform_lifecycle::*;
@@ -1107,7 +1106,7 @@ pub use maintenance::*;
 pub use model_price::*;
 pub use cli_proxy::*;
 pub use ui_extra::*;
-pub use presets_cache::*;
+pub use registry::*;
 
 #[cfg(test)]
 mod test_mod;

@@ -1,0 +1,60 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.apikey.fun",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.apikey.fun/v1",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "gemini",
+        "base_url": "https://api.apikey.fun",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-sonnet-4-6",
+      "opus": "claude-opus-4-8",
+      "haiku": "claude-haiku-4-5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5"
+    ]
+  },
+  "name": {
+    "en-US": "APIKEY.FUN",
+    "zh-Hans": "APIKEY.FUN",
+    "ar-SA": "APIKEY.FUN",
+    "fr-FR": "APIKEY.FUN",
+    "de-DE": "APIKEY.FUN",
+    "ru-RU": "APIKEY.FUN",
+    "ja-JP": "APIKEY.FUN",
+    "es-ES": "APIKEY.FUN"
+  },
+  "source_urls": {
+    "docs": "https://apikey.fun/",
+    "pricing": "https://apikey.fun/pricing"
+  },
+  "homepage": "https://apikey.fun",
+  "logo_url": "",
+  "keywords": [
+    "apikey fun"
+  ],
+  "color": "#FF9500"
+}

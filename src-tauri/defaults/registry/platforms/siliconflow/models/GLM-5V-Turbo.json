@@ -1,0 +1,13 @@
+{
+  "model_id": "GLM-5V-Turbo",
+  "canonical_model": "GLM-5V-Turbo",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 204800,
+  "context_window": 204800,
+  "official": true,
+  "input_cost_per_token": 0.0000012,
+  "output_cost_per_token": 0.000004,
+  "cache_read_input_token_cost": 2.4e-7
+}

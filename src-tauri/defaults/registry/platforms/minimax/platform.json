@@ -1,0 +1,64 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.minimaxi.com/v1",
+        "client_type": "codex_tui",
+        "coding_plan": false
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.minimaxi.com/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": false
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "MiniMax-M3",
+      "sonnet": "MiniMax-M2.7"
+    }
+  },
+  "model_list": {
+    "default": [
+      "MiniMax-M3",
+      "MiniMax-M2.7",
+      "MiniMax-M2.7-highspeed",
+      "MiniMax-M2.5",
+      "MiniMax-M2.5-highspeed",
+      "MiniMax-M2.1",
+      "MiniMax-M2.1-highspeed",
+      "MiniMax-M2"
+    ]
+  },
+  "name": {
+    "en-US": "MiniMax",
+    "zh-Hans": "MiniMax（海螺）",
+    "ar-SA": "MiniMax",
+    "fr-FR": "MiniMax",
+    "de-DE": "MiniMax",
+    "ru-RU": "MiniMax",
+    "ja-JP": "MiniMax（海螺）",
+    "es-ES": "MiniMax"
+  },
+  "source_urls": {
+    "docs": "https://platform.minimaxi.com/document/Announcement",
+    "pricing": "https://platform.minimaxi.com/document/Price"
+  },
+  "homepage": "https://www.minimaxi.com",
+  "logo_url": "minimax",
+  "keywords": [
+    "海螺",
+    "minimax",
+    "海螺编程",
+    "minimax coding",
+    "minimax code"
+  ],
+  "color": "#FF6B6B",
+  "codingKeyPrefixes": [
+    "sk-cp-"
+  ]
+}

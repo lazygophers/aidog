@@ -1,0 +1,18 @@
+{
+  "model_id": "moonshot-v1-8k-vision-preview",
+  "canonical_model": "moonshot-v1-8k-vision-preview",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 8192,
+  "context_window": 8192,
+  "official": true,
+  "input_cost_per_token": 2.777777777777778e-7,
+  "output_cost_per_token": 0.0000013888888888888887,
+  "default_price": {
+    "input_cost_per_token": 2.777777777777778e-7,
+    "output_cost_per_token": 0.0000013888888888888887,
+    "cache_read_input_token_cost": 0
+  }
+}

@@ -1,0 +1,75 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://ark.cn-beijing.volces.com/api/plan",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://ark.cn-beijing.volces.com/api/plan/v3",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "openai_responses",
+        "base_url": "https://ark.cn-beijing.volces.com/api/plan/v3",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "doubao-seed-2-0-code"
+    }
+  },
+  "model_list": {
+    "default": [
+      "doubao-seed-evolving",
+      "doubao-seed-2-1-pro-260628",
+      "doubao-seed-2-1-turbo-260628",
+      "doubao-seed-2-0-code",
+      "doubao-seed-2-0-pro",
+      "doubao-seed-2-0-lite",
+      "doubao-seed-2-0-mini",
+      "doubao-seed-code",
+      "doubao-seed-character",
+      "doubao-seed-1.8",
+      "doubao-seed-1.6",
+      "minimax-m2.7",
+      "minimax-m3",
+      "glm-5.2",
+      "deepseek-v4-flash",
+      "deepseek-v4-pro",
+      "kimi-k2.6",
+      "kimi-k2.7-code"
+    ]
+  },
+  "name": {
+    "en-US": "Volcano Engine (ByteDance)",
+    "zh-Hans": "火山引擎（字节跳动）",
+    "ar-SA": "Volcano Engine (ByteDance)",
+    "fr-FR": "Volcano Engine (ByteDance)",
+    "de-DE": "Volcano Engine (ByteDance)",
+    "ru-RU": "Volcano Engine (ByteDance)",
+    "ja-JP": "火山エンジン（ByteDance）",
+    "es-ES": "Volcano Engine (ByteDance)"
+  },
+  "source_urls": {
+    "docs": "https://www.volcengine.com/docs/82379",
+    "pricing": "https://www.volcengine.com/docs/82379/1544106"
+  },
+  "homepage": "https://www.volcengine.com",
+  "logo_url": "bytedance",
+  "keywords": [
+    "火山",
+    "volcengine",
+    "agentplan",
+    "豆包",
+    "doubao",
+    "seed",
+    "volces"
+  ],
+  "color": "#3370FF"
+}

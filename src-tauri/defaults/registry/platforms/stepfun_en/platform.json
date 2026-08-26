@@ -1,0 +1,51 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.stepfun.ai/step_plan",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.stepfun.ai/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "step-3.7-flash"
+    }
+  },
+  "model_list": {
+    "default": [
+      "step-3.7-flash",
+      "step-3.5-flash",
+      "step-3.5-flash-2603",
+      "step-1o-turbo-vision"
+    ]
+  },
+  "name": {
+    "en-US": "StepFun International",
+    "zh-Hans": "StepFun 国际版",
+    "ar-SA": "StepFun International",
+    "fr-FR": "StepFun International",
+    "de-DE": "StepFun International",
+    "ru-RU": "StepFun International",
+    "ja-JP": "StepFun 国際版",
+    "es-ES": "StepFun International"
+  },
+  "source_urls": {
+    "docs": "https://platform.stepfun.ai/docs",
+    "pricing": "https://platform.stepfun.ai/docs"
+  },
+  "homepage": "https://www.stepfun.ai",
+  "logo_url": "",
+  "keywords": [
+    "stepfun ai",
+    "阶跃国际"
+  ],
+  "color": "#16D6D2"
+}

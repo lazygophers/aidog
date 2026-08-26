@@ -1,0 +1,18 @@
+{
+  "model_id": "mistralai/mistral-medium-3@001",
+  "canonical_model": "mistralai/mistral-medium-3@001",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 8191,
+  "context_window": 8191,
+  "official": true,
+  "input_cost_per_token": 4e-7,
+  "output_cost_per_token": 0.000002,
+  "default_price": {
+    "input_cost_per_token": 4e-7,
+    "output_cost_per_token": 0.000002,
+    "cache_read_input_token_cost": 0
+  }
+}

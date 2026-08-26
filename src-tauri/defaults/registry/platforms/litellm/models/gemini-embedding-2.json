@@ -1,0 +1,11 @@
+{
+  "model_id": "gemini-embedding-2",
+  "canonical_model": "gemini-embedding-2",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": false,
+  "input_cost_per_token": 2e-7
+}

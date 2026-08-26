@@ -1,0 +1,14 @@
+{
+  "model_id": "claude-haiku-4-5",
+  "canonical_model": "claude-haiku-4-5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 65536,
+  "context_window": 200000,
+  "official": false,
+  "input_cost_per_token": 0.000001,
+  "output_cost_per_token": 0.000005,
+  "cache_read_input_token_cost": 1.0000000000000001e-7
+}

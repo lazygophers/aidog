@@ -1,0 +1,28 @@
+{
+  "model_id": "qwen-flash",
+  "canonical_model": "qwen-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 32768,
+  "context_window": 1000000,
+  "official": true,
+  "input_cost_per_token": 2.083333333333333e-8,
+  "output_cost_per_token": 2.0833333333333333e-7,
+  "cache_read_input_token_cost": 2.083333333333333e-9,
+  "context_tiers": [
+    {
+      "min_tokens": 131073,
+      "input_cost_per_token": 8.333333333333333e-8,
+      "output_cost_per_token": 8.333333333333333e-7,
+      "cache_read_input_token_cost": 8.333333333333332e-9
+    },
+    {
+      "min_tokens": 262145,
+      "input_cost_per_token": 1.6666666666666665e-7,
+      "output_cost_per_token": 0.0000016666666666666667,
+      "cache_read_input_token_cost": 1.6666666666666664e-8
+    }
+  ]
+}

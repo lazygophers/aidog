@@ -1,0 +1,82 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://sudocode.us",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://sudocode.us/v1",
+        "client_type": "default"
+      },
+      {
+        "protocol": "gemini",
+        "base_url": "https://sudocode.us",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-sonnet-4-6",
+      "opus": "claude-opus-4-8",
+      "haiku": "claude-haiku-4-5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-fable-5",
+      "claude-sonnet-4-5",
+      "claude-sonnet-5",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-5",
+      "gemini-3-pro-preview",
+      "gemini-3.5-flash",
+      "gemini-3.1-flash-image-preview",
+      "gemini-3.1-flash-lite",
+      "gemini-3-flash-preview",
+      "gemini-3.1-flash-lite-preview",
+      "gemini-3.1-pro-preview",
+      "gpt-5.4",
+      "gpt-5.5",
+      "gpt-5.3-codex",
+      "gpt-5.4-mini",
+      "gpt-image-2",
+      "MiniMax-M2.7",
+      "MiniMax-M2.5",
+      "kimi-k2.7-code",
+      "kimi-k2.6",
+      "glm-5.1",
+      "glm-5.2",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash"
+    ]
+  },
+  "name": {
+    "en-US": "SudoCode",
+    "zh-Hans": "SudoCode",
+    "ar-SA": "SudoCode",
+    "fr-FR": "SudoCode",
+    "de-DE": "SudoCode",
+    "ru-RU": "SudoCode",
+    "ja-JP": "SudoCode",
+    "es-ES": "SudoCode"
+  },
+  "source_urls": {
+    "docs": "https://docs.sudocode.us/",
+    "pricing": "https://sudocode.us/pricing"
+  },
+  "homepage": "https://sudocode.us",
+  "logo_url": "",
+  "keywords": [
+    "sudocode"
+  ],
+  "color": "#00A67E"
+}

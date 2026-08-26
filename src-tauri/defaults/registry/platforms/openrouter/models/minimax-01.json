@@ -1,0 +1,13 @@
+{
+  "model_id": "minimax-01",
+  "canonical_model": "minimax-01",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000192,
+  "max_output_tokens": 1000192,
+  "context_window": 1000192,
+  "official": false,
+  "input_cost_per_token": 2e-7,
+  "output_cost_per_token": 0.0000011
+}

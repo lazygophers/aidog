@@ -50,9 +50,9 @@ src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crat
 
 ## 关键约束
 
-### 平台默认配置 (platform-presets.json)
-- 真值源 = `src-tauri/defaults/platform-presets.json`（75 协议，含 `last_updated` Unix 秒；非 `resources/`）。手维护，禁机器生成覆盖。
-- Rust 入口 `commands_config/defaults.rs::get_defaults_json`：读 app data (`~/.aidog/platform-presets.json`) → 缺失/损坏回退 `include_str!` bundled（同 `settings.json` 模式，非 Tauri resources）。
+### 平台默认配置 (registry)
+- 真值源 = `src-tauri/defaults/registry/`：`index.json`（平台清单 + `last_updated` Unix 秒）+ `platforms/<code>/platform.json`（65 协议，一协议一文件）+ `platforms/<code>/models/<model>.json`（1010 条 per-platform 模型条目）。手维护，禁机器生成覆盖。原 `defaults/platform-presets.json` / `defaults/models.json` / `presets_const.rs` 已废弃删除。
+- Rust 入口 `aidog_db::registry`：`build.rs` 编译期枚举全部文件 → `include_str!`；`presets()` / `presets_json()` 合并出旧 presets 文档形状供 `defaults.rs::get_defaults_json` 回传前端，`model_entry()` 按 `model_id` 归并出旧 models.json 单模型形状供 `resolve_price` 兜底。无 app data 覆盖层。
 - 前端 5 函数（`src/domains/platforms/defaults.ts` 的 `getDefaultEndpoints` / `getDefaultModels` / `getDefaultModelList` / `getDefaultPeakHours` / `defaultClientForProtocol`）**全部 async**；模块级 `docPromise` 单次 RPC 缓存（多次调用复用同一 IPC）。**所有 caller 必须 `await`**（或 `.then`）—— 改动 grep 调用点确认无遗漏，TS 编译会捕获漏 await。`getDefaultModels`/`getDefaultModelList` 第 3 参 `isPeak`（PRD 07-11）：true 且 preset 含 `models.peak` 分支 → 返 peak 映射；缺省 false（向后兼容）。models 走 `pickModelsBranch`（三分支 default/coding_plan/peak），endpoints/model_list 走 `pickBranch`（两分支，model_list.default 必须是 models 各分支值集的超集 —— 见下 peak_hours 段）。
 - mock 协议不在 JSON 内（`platformPaste.ts:15` 从 `matchPlatform` 排除）；`getDefaultEndpoints("mock")` 返 `[]`。
 - **coding_plan 分支与 glm_coding 独立协议**：preset JSON **默认不带** `coding_plan` 子分支（endpoints/models/model_list 仅保留 `default` 单分支；2026-07-08 起 8 协议 glm/kimi/minimax/minimax_en/bailian/qianfan/xiaomi_mimo/doubao 的 cp 分支已删，去重 UI「anthropic / anthropic·cp」双显）。2026-07-09 起 GLM Coding Plan 恢复为**独立协议 `glm_coding`**（JSON key `glm_coding`，自带独立 endpoints/models/model_list/peak_hours；base_url `/api/coding/paas/v4` 比普通版 `/api/paas/v4` 多 `/coding/`），前端 `PROTOCOLS` 用独立 `value: "glm_coding"`，Rust `Protocol::GlmCoding`（serde `glm_coding`），双显问题由独立协议根治。其余 7 协议（kimi/minimax/...）仍走旧机制：① endpoint 级 `"coding_plan": false/true` flag（default 端点对象内可标注），② `defaults.ts::pickBranch` 缺 cp 分支自动回落 default（line 102），③ `endpoint.rs` 路由 `has_coding_ep=false` 走普通平台路径，④ 用户级 `platform.extra` 可手工启用 cp 端点（PlatformCard「Code」徽标仍展示）。`injectProtocolHosts` 派生自单一真值，禁抄第二份。

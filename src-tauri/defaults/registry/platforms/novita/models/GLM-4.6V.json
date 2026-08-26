@@ -1,0 +1,13 @@
+{
+  "model_id": "GLM-4.6V",
+  "canonical_model": "GLM-4.6V",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": true,
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 9.000000000000001e-7,
+  "cache_read_input_token_cost": 5.5e-8
+}
