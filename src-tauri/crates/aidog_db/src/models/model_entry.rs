@@ -81,6 +81,10 @@ pub struct ModelEntryGroup {
 pub struct ModelInfoSnapshot {
     pub groups: Vec<ModelEntryGroup>,
     pub platforms: Vec<PlatformPreset>,
+    /// 只出比价条目、没有 `platform.json` 的来源 code（`index.json` 的 `pricing_only`，
+    /// 现为 litellm / meta / mistral）。这些不是用户可选的平台：前端不得把它们放进
+    /// 平台筛选下拉与平台维度列表。
+    pub pricing_only: Vec<String>,
     /// true = DB 尚无同步数据，本次返回的是编译期内置 registry 兜底。
     pub bundled: bool,
 }

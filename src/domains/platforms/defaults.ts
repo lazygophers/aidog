@@ -212,7 +212,7 @@ export function normalizeDefaultsLocale(locale?: string): DefaultsLocale {
 
 /** 平台展示名三层回落唯一实现：`name[locale]` → `name["en-US"]` → 协议 code。
  *  空白值视同缺失。UI 与其余派生函数一律走这里，禁各写一份回落分支
- *  （与 Rust `aidog_db::registry::platform_display_name` 同语义）。 */
+ *  平台展示名只在前端渲染，Rust 侧无消费方（同名函数为死代码，已随票 13-L 删除）。 */
 function resolveName(
   name: Partial<Record<DefaultsLocale, string>> | undefined,
   code: string,

@@ -84,28 +84,49 @@ fn every_protocol_has_full_brand_fields() {
     }
 }
 
-/// 三层回落第一层：命中当前 locale。
+/// build.rs 生成的模型文件相对路径必须用 `/`（Windows 上 `strip_prefix` 会留 `\`，
+/// 与 index.json 清单零差集断言不符，且远程同步会拼出 404 的 URL）。
 #[test]
-fn display_name_uses_current_locale() {
-    assert_eq!(platform_display_name("glm_coding", "ja-JP"), "GLM コーディングプラン（智譜）");
-    // locale 变体经 Lang::from_locale 归一后同样命中
-    assert_eq!(platform_display_name("glm_coding", "zh-CN"), "GLM 编码套餐（智谱）");
+fn model_file_paths_use_forward_slash() {
+    for (code, file, _) in MODEL_FILES {
+        assert!(!file.contains('\\'), "{code}/{file} 路径分隔符须归一成 /");
+    }
+    // vendor 子目录的模型确实存在，否则本断言恒真而无意义
+    assert!(MODEL_FILES.iter().any(|(_, f, _)| f.contains('/')), "registry 应有 vendor 子目录模型");
 }
 
-/// 第二层：缺当前 locale（或值空白）取 en-US。
+/// 票 13-C：DB 行覆盖 bundled 同 code，bundled 里 DB 缺的补齐。
 #[test]
-fn display_name_falls_back_to_en_us() {
-    let entry = serde_json::json!({ "name": { "en-US": "Zhipu AI", "ja-JP": "  " } });
-    assert_eq!(resolve_name(Some(&entry), "glm", "de-DE"), "Zhipu AI");
-    assert_eq!(resolve_name(Some(&entry), "glm", "ja-JP"), "Zhipu AI");
+fn merge_presets_doc_unions_db_over_bundled() {
+    // DB 一行都没有 → 与 bundled 逐字节相同
+    assert_eq!(merge_presets_doc([], None).to_string(), presets_json());
+
+    let doc = merge_presets_doc([("anthropic", r#"{"homepage":"https://from-db"}"#)], Some(1234));
+    let p = doc["protocols"].as_object().expect("protocols");
+    // 覆盖：DB 那条整份替换
+    assert_eq!(p["anthropic"]["homepage"], "https://from-db");
+    // 补齐：DB 没有的协议照样在
+    assert_eq!(p.len(), PLATFORM_FILES.len());
+    assert!(p["openai"]["homepage"].is_string());
+    assert_eq!(doc["last_updated"], 1234);
 }
 
-/// 第三层：`name` 整体缺失（或协议不存在）取平台 code，UI 不出空白。
+/// 票 13-D：DB 同步下来的端点覆盖编译期内置那份，`endpoints_locked` 保存不再把
+/// 用户端点重置回二进制里的旧 `base_url`。
 #[test]
-fn display_name_falls_back_to_code() {
-    assert_eq!(resolve_name(Some(&serde_json::json!({})), "mock", "en-US"), "mock");
-    assert_eq!(resolve_name(None, "no_such_protocol", "zh-Hans"), "no_such_protocol");
-    assert_eq!(platform_display_name("no_such_protocol", "fr-FR"), "no_such_protocol");
+fn endpoints_follow_db_synced_preset() {
+    let bundled = endpoints_in(presets(), "anthropic");
+    assert!(!bundled.is_empty());
+    assert_ne!(bundled[0].base_url, "https://db.example/v1");
+
+    let patched = r#"{"endpoints":{"default":[{"protocol":"anthropic","base_url":"https://db.example/v1"}]}}"#;
+    let merged = merge_presets_doc([("anthropic", patched)], Some(1));
+    let got = endpoints_in(&merged, "anthropic");
+    assert_eq!(got.len(), 1);
+    assert_eq!(got[0].base_url, "https://db.example/v1");
+    // 未被 DB 覆盖的协议照旧走 bundled 端点
+    let urls = |d: &Value| endpoints_in(d, "openai").iter().map(|e| e.base_url.clone()).collect::<Vec<_>>();
+    assert_eq!(urls(&merged), urls(presets()));
 }
 
 /// R12：`endpoints_locked()` 协议保存时强制用 preset 端点，读空会清空用户端点。

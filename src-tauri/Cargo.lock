@@ -265,7 +265,6 @@ dependencies = [
 name = "aidog_db"
 version = "0.1.12"
 dependencies = [
- "aidog_i18n",
  "chrono",
  "dashmap",
  "dirs 6.0.0",

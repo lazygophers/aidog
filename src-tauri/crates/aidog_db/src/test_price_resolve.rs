@@ -213,9 +213,32 @@ async fn resolve_price_reads_platform_scoped_entry() {
     assert_eq!(a.price.input_cost_per_token, 1e-6);
     let b = resolve_price(&db, "anthropic", "shared-model", 99.0, 99.0, 0, 0, false).await.unwrap();
     assert_eq!(b.price.input_cost_per_token, 9e-6);
-    // 该平台没有这条模型 → fallback（不跨平台借价）
+    // 该平台没有这条模型 → 借用别的平台的条目（票 13-A），source 可区分
     let miss = resolve_price(&db, "glm", "shared-model", 3.0, 3.0, 0, 0, false).await.unwrap();
-    assert_eq!(miss.price.source, "fallback");
+    assert_eq!(miss.price.source, "official_entry");
+    assert_eq!(miss.price.input_cost_per_token, 9e-6, "official 优先，其次 platform_code 字典序");
+    // 哪个平台都没有 → 才轮到 settings fallback
+    let none = resolve_price(&db, "glm", "no-such-model-anywhere", 3.0, 3.0, 0, 0, false).await.unwrap();
+    assert_eq!(none.price.source, "fallback");
+}
+
+/// 票 13-A 的失败场景本体：registry 里 `models/` 目录为空的中转镜像平台
+/// （claude_code / packycode / aihubmix …）请求官方模型名，必须拿到官方价而不是 fallback 单价。
+#[tokio::test]
+async fn mirror_platform_borrows_official_price() {
+    let db = test_db().await;
+    let official = serde_json::json!({
+        "input_cost_per_token": 3e-6,
+        "output_cost_per_token": 1.5e-5,
+        "max_output_tokens": 64000
+    });
+    put_entry(&db, "anthropic", "claude-sonnet-4-5", &official, Some(64000)).await;
+
+    let r = resolve_price(&db, "claude_code", "claude-sonnet-4-5", 3.0, 3.0, 0, 0, false).await.unwrap();
+    assert_eq!(r.price.output_cost_per_token, 1.5e-5, "1M 输出 = $15，不是 fallback 的 $3");
+    assert_eq!(r.price.source, "official_entry");
+    // 票 13-B：同一条回退层让出站 max_tokens 裁剪对这些平台重新生效
+    assert_eq!(model_max_output_tokens(&db, "claude_code", "claude-sonnet-4-5").await.unwrap(), Some(64000));
 }
 
 #[tokio::test]
@@ -236,8 +259,8 @@ async fn model_max_output_tokens_column_then_json_then_none() {
     // 列 NULL → 回退 price_data JSON
     put_entry(&db, "openai", "b", &serde_json::json!({"max_output_tokens": 1234}), None).await;
     assert_eq!(model_max_output_tokens(&db, "openai", "b").await.unwrap(), Some(1234));
-    // 条目缺失 → None（不裁剪）
-    assert_eq!(model_max_output_tokens(&db, "openai", "none").await.unwrap(), None);
-    // 平台不匹配同样是 None
-    assert_eq!(model_max_output_tokens(&db, "anthropic", "a").await.unwrap(), None);
+    // 哪个平台都没有该 model_id → None（不裁剪）
+    assert_eq!(model_max_output_tokens(&db, "openai", "no-such-model-anywhere").await.unwrap(), None);
+    // 平台不匹配 → 借用其它平台的上限（票 13-B），不再恒 None
+    assert_eq!(model_max_output_tokens(&db, "anthropic", "a").await.unwrap(), Some(4096));
 }
