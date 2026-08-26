@@ -19,6 +19,9 @@ vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolLabelMap: vi.fn().mockResolvedValue({ glm: "智谱 GLM", openrouter: "OpenRouter" }),
 }));
 
+const writeText = vi.hoisted(() => vi.fn(() => Promise.resolve()));
+vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText }));
+
 // ProtocolLogo 内部走 get_protocol_logo_path IPC + colorMap，测试里换成哑元
 vi.mock("../../domains/platforms/ProtocolLogo", () => ({
   ProtocolLogo: ({ protocol }: { protocol: string }) => <span data-testid={`logo-${protocol}`} />,
@@ -77,6 +80,13 @@ const SNAPSHOT: ModelInfoSnapshot = {
         }),
       ],
     },
+    // 未维护 display_name 的模型：读取层（T10）已把展示名回落成 model_id，前端拿到的两串相同
+    {
+      canonical_model: "mystery-model",
+      display_name: "mystery-model",
+      primary_platform: "openrouter",
+      entries: [entry({ platform_code: "openrouter", model_id: "mystery-model" })],
+    },
   ],
 };
 
@@ -84,6 +94,7 @@ describe("ModelInfoTab", () => {
   beforeEach(() => {
     snapshotMock.mockReset().mockResolvedValue(SNAPSHOT);
     syncMock.mockReset();
+    writeText.mockClear();
     settingsGetMock.mockReset().mockResolvedValue({
       auto_sync_enabled: false,
       sync_interval_secs: 86400,
@@ -101,6 +112,37 @@ describe("ModelInfoTab", () => {
     expect(screen.getByText("modelInfo.official")).toBeInTheDocument();
     // 第二个平台折叠成「还有 N 个平台」提示
     expect(screen.getByText("modelInfo.morePlatforms")).toBeInTheDocument();
+  });
+
+  it("展示名存在时: 展示名与真实请求名同屏并列", async () => {
+    render(<ModelInfoTab />);
+    expect(await screen.findByText("GLM-4.6")).toBeInTheDocument();
+    expect(screen.getByText("glm-4.6")).toBeInTheDocument();
+  });
+
+  it("展示名缺省时: 只渲染一次 model_id，不出现空节点", async () => {
+    render(<ModelInfoTab />);
+    await screen.findByText("GLM-4.6");
+    expect(screen.getAllByText("mystery-model")).toHaveLength(1);
+  });
+
+  it("详情弹窗: 请求名可复制，展示名缺省时不重复出一行展示名", async () => {
+    render(<ModelInfoTab />);
+    fireEvent.click(await screen.findByText("mystery-model"));
+    const dialog = await screen.findByRole("dialog");
+    // 展示名 == 请求名 → 只保留「请求名」Field
+    expect(within(dialog).queryByText("modelInfo.displayName")).not.toBeInTheDocument();
+    expect(within(dialog).getByText("modelInfo.requestName")).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByTitle("modelInfo.copyRequestName"));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("mystery-model"));
+  });
+
+  it("详情弹窗: 展示名与请求名不同则两行都在", async () => {
+    render(<ModelInfoTab />);
+    fireEvent.click(await screen.findByText("GLM-4.6"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("modelInfo.displayName")).toBeInTheDocument();
+    expect(within(dialog).getByText("modelInfo.requestName")).toBeInTheDocument();
   });
 
   it("平台维度 tab: 切过去后按平台列出模型条目", async () => {

@@ -1394,6 +1394,7 @@
   "modelInfo.basics": "Basisdaten",
   "modelInfo.requestName": "Anfragename",
   "modelInfo.displayName": "Anzeigename",
+  "modelInfo.copyRequestName": "Anfragenamen kopieren",
   "modelInfo.officialYes": "Ja (Erstanbieter)",
   "modelInfo.officialNo": "Nein (Drittanbieter)",
   "modelInfo.versionChain": "Versionskette",

@@ -1372,6 +1372,7 @@
   "modelInfo.basics": "Basics",
   "modelInfo.requestName": "Request name",
   "modelInfo.displayName": "Display name",
+  "modelInfo.copyRequestName": "Copy request name",
   "modelInfo.officialYes": "Yes (first-party)",
   "modelInfo.officialNo": "No (third-party)",
   "modelInfo.versionChain": "Version chain",
