@@ -160,7 +160,12 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         model: openai_req.model,
         messages,
         system,
-        max_tokens: openai_req.max_tokens,
+        // 输出长度归一（票 05）：`max_completion_tokens` 是官方对 `max_tokens` 的继任键，
+        // 新版 SDK 与 o 系列模型只发前者；此前它被 serde 静默忽略，anthropic 目标随后
+        // 落到 `to_anthropic` 的默认 4096，长输出被截断且无痕。
+        // **两键同时出现时取 `max_completion_tokens`**：新键是客户端有意设置的那个，
+        // 旧键多为 SDK 为兼容老服务端保留的镜像值；官方本身也把 `max_tokens` 标为 deprecated。
+        max_tokens: openai_req.max_completion_tokens.or(openai_req.max_tokens),
         temperature: openai_req.temperature,
         top_p: openai_req.top_p,
         stream: openai_req.stream,
