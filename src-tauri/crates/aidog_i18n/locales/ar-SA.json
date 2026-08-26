@@ -1394,6 +1394,7 @@
   "modelInfo.basics": "معلومات أساسية",
   "modelInfo.requestName": "اسم الطلب",
   "modelInfo.displayName": "الاسم المعروض",
+  "modelInfo.copyRequestName": "نسخ اسم الطلب",
   "modelInfo.officialYes": "نعم (من المزوّد الرسمي)",
   "modelInfo.officialNo": "لا (طرف ثالث)",
   "modelInfo.versionChain": "سلسلة الإصدارات",

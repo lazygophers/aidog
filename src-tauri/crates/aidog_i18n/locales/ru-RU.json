@@ -1394,6 +1394,7 @@
   "modelInfo.basics": "Основное",
   "modelInfo.requestName": "Имя в запросе",
   "modelInfo.displayName": "Отображаемое имя",
+  "modelInfo.copyRequestName": "Скопировать имя запроса",
   "modelInfo.officialYes": "Да (первоисточник)",
   "modelInfo.officialNo": "Нет (сторонний)",
   "modelInfo.versionChain": "Цепочка версий",

@@ -1394,6 +1394,7 @@
   "modelInfo.basics": "Informations de base",
   "modelInfo.requestName": "Nom de requête",
   "modelInfo.displayName": "Nom affiché",
+  "modelInfo.copyRequestName": "Copier le nom de requête",
   "modelInfo.officialYes": "Oui (première partie)",
   "modelInfo.officialNo": "Non (tiers)",
   "modelInfo.versionChain": "Chaîne de versions",

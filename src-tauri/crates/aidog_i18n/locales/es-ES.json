@@ -1372,6 +1372,7 @@
   "modelInfo.basics": "Datos básicos",
   "modelInfo.requestName": "Nombre de solicitud",
   "modelInfo.displayName": "Nombre visible",
+  "modelInfo.copyRequestName": "Copiar el nombre de solicitud",
   "modelInfo.officialYes": "Sí (de primera mano)",
   "modelInfo.officialNo": "No (de terceros)",
   "modelInfo.versionChain": "Cadena de versiones",

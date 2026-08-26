@@ -1394,6 +1394,7 @@
   "modelInfo.basics": "基本情報",
   "modelInfo.requestName": "リクエスト名",
   "modelInfo.displayName": "表示名",
+  "modelInfo.copyRequestName": "リクエスト名をコピー",
   "modelInfo.officialYes": "はい（公式提供）",
   "modelInfo.officialNo": "いいえ（サードパーティ）",
   "modelInfo.versionChain": "バージョン系譜",
