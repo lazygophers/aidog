@@ -1372,6 +1372,7 @@
   "modelInfo.basics": "基本信息",
   "modelInfo.requestName": "请求名",
   "modelInfo.displayName": "展示名",
+  "modelInfo.copyRequestName": "复制请求名",
   "modelInfo.officialYes": "是（厂商自营）",
   "modelInfo.officialNo": "否（第三方转售）",
   "modelInfo.versionChain": "版本链",
