@@ -23,7 +23,7 @@ paths:
 1. **版本唯一可信源 = 根目录 `.version`（单行 semver）。** `package.json` / `src-tauri/tauri.conf.json` / `src-tauri/Cargo.toml` / `docs/package.json` 全是派生物，只能由 `node scripts/sync-version.mjs` 写。手改 manifest = 漂移，CI 的 `Verify version sync` 步骤（`sync-version.mjs --check`）直接 exit 1。
 2. **CI 触发条件 = push master 且 diff 含 `.version` 或 `release.yml`**（`.github/workflows/release.yml:5-9`）。只改 manifest 不改 `.version` → 不触发；改了 `.version` 但没跑 sync → 触发后在门禁步骤挂。
 3. **tag `v<版本>` 已存在时 tauri-action 失败。** 正常 push 路径假定新版本无碰撞；重发同版本必须走 `workflow_dispatch`（cleanup job 会 `gh release delete --cleanup-tag`）。
-4. **Release 正文由 workflow 的 `releaseBody` 模板生成**（下载表 / macOS quarantine / 自动更新 / 文档链接）。事后 `gh release edit` 覆盖的内容，**重新 dispatch 同版本会被模板重建冲掉** —— 先确认不再重发，再补说明。
+4. **Release 正文由 workflow 的 `releaseBody` 模板生成**（下载表 / macOS quarantine / 自动更新 / 文档链接）。`gh release edit` 写进去的 changelog **会被同版本重发（workflow_dispatch）整体重建冲掉** —— 所以正文的可信副本永远是仓库里的 `.github/release-notes/v<版本>.md`，**每次 dispatch 重发完成后立刻重跑 §4 的 `gh release edit`**，这条闭环是发版流程的一部分，不是可选收尾。
 5. **禁主 agent `sleep` 轮询 CI。** 监控脚本以 `run_in_background` 起，结果由 harness 通知回注（memory `no-sleep-polling`）。
 
 ---
@@ -38,7 +38,8 @@ NEW=$(echo "$CUR" | awk -F. '{printf "%d.%d.%d", $1, $2, $3+1}')
 echo "$NEW" > .version
 node scripts/sync-version.mjs        # 写入 4 个 manifest
 node scripts/sync-version.mjs --check # 必须 ✓
-git add -A && git commit -m "chore(release): bump version to $NEW"
+git add .version package.json src-tauri/tauri.conf.json src-tauri/Cargo.toml docs/package.json
+git commit -m "chore(release): bump version to $NEW"
 ```
 
 > 漂移修复同理：先决定目标版本写进 `.version`，再 sync，**不要反向把 `.version` 改成 manifest 的值**（除非确认那个版本还没发过 tag）。
@@ -64,8 +65,8 @@ matrix 两个 job：`macos-latest`（`--target universal-apple-darwin`，Apple S
 | 症状 | 根因 | 处置 |
 | --- | --- | --- |
 | `Verify version sync` exit 1 | manifest 被手改 / 漏跑 sync | 跑 `node scripts/sync-version.mjs`，commit 后重推 |
-| tauri-action `tag already exists` | 同版本重发 | 走 `gh workflow run release.yml`（cleanup job 删旧 tag+release） |
-| 仅 windows 或仅 macos 挂 | 平台特有编译/签名问题 | `gh run view <id> --log-failed` 看真实报错，修完重推新 commit（不必 bump 版本，但需改到 `.version`/`release.yml` 才会重触发 → 用 dispatch 更省事） |
+| tauri-action `tag already exists` | 同版本重发 | 走 `gh workflow run release.yml`（cleanup job 删旧 tag+release），**跑完重跑 §4 的 `gh release edit`**（§0-4） |
+| 仅 windows 或仅 macos 挂 | 平台特有编译/签名问题 | `gh run view <id> --log-failed` 看真实报错。修完代码后版本号不用动 —— 但 push 只在 diff 含 `.version`/`release.yml` 时才触发，所以同版本重跑一律走 `gh workflow run release.yml`，同样**跑完重跑 §4** |
 | 签名相关报错 | `TAURI_SIGNING_PRIVATE_KEY(_PASSWORD)` secret 缺失/过期 | 仓库 secrets 修，非代码问题 |
 
 ## 4. 更新 Release 说明
@@ -119,17 +120,16 @@ latest.json                          # updater 清单（includeUpdaterJson: true
 - [ ] push 前 `--check` 绿。
 - [ ] CI 两个平台 job 都 success。
 - [ ] Release 资产 8 个齐（dmg / app.tar.gz+sig / exe+sig / msi+sig / latest.json）。
-- [ ] Release 正文补了本次 changelog，模板四节没被删。
+- [ ] Release 正文补了本次 changelog，模板四节没被删；若期间 dispatch 重发过，`gh release edit` 已重跑一次。
 
 ---
 
-## 反例黑名单（不要做）
+## 反例黑名单（§0 铁律未覆盖的独有坑）
 
-1. ❌ 手改 `package.json` / `tauri.conf.json` / `Cargo.toml` / `docs/package.json` 的 version —— 只改 `.version` 后跑 sync。
-2. ❌ 主 agent 用 `sleep` + 轮询等 CI —— 后台脚本 + 通知回注。
-3. ❌ 未经用户授权 `git push` —— 项目 CLAUDE.md 明令禁止。
-4. ❌ 同版本删 tag 手工重发 —— 用 `workflow_dispatch`，cleanup job 已幂等处理。
-5. ❌ `gh release edit` 时整段覆盖成纯 changelog —— 下载表和 macOS quarantine 说明是用户唯一入口，必须保留。
+1. ❌ 未经用户授权 `git push` —— 项目 CLAUDE.md 明令禁止，发版这步永远由用户拍板。
+2. ❌ 按版本号 -1 推算上一个版本 —— tag 不连续（`v0.1.9` 后直接 `v0.1.11`），只能 `git tag --sort=-v:refname` 取。
+3. ❌ 把正文草稿放 `.scratch/` —— 全局 gitignore，不进版本库，dispatch 重发后就没得恢复。
+4. ❌ changelog 只写 feat/fix，整类丢掉 refactor/chore/docs —— 拆 crate、覆盖率、文档重做这些用户会问「这版到底动了什么」。
 
 ## 相关
 
