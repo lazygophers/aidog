@@ -188,13 +188,13 @@ pub(crate) async fn forward_attempt(
 
     // ── max_tokens 出站裁剪（convert_request 前）──
     // 客户端 max_tokens 超过选定模型上限时裁剪到上限；未传 / 模型无上限则不动（Q3 保守）。
-    // 仅作用于 convert_request（读 chat_req）；同协议透传分支用原始 req_value 不受影响
-    // （客户端原生协议，上游自纠；已知限制见 report）。
+    // 此处裁 chat_req（转换分支的入参，同时是 token 估算口径）；出站 body 上的同上限复裁
+    // 见下方 `cap_body_max_tokens` 调用点（透传分支唯一生效处）。
+    let model_max = aidog_db::get_model_max_output_tokens(&state.db, &actual_model)
+        .await
+        .ok()
+        .flatten();
     {
-        let model_max = aidog_db::get_model_max_output_tokens(&state.db, &actual_model)
-            .await
-            .ok()
-            .flatten();
         let (capped, did_cap) = super::router::cap_max_tokens(chat_req.max_tokens, model_max);
         if did_cap {
             tracing::info!(
@@ -209,7 +209,8 @@ pub(crate) async fn forward_attempt(
     // ── 中间件入站规则（platform 层，候选选定后、convert_request 前）──
     // 仅应用 platform 作用域规则（global/group 已在路由前应用，避免重复）。
     // block 在 forward 前返回，对透传/转换分支均生效；mask/inject 改写 chat_req，
-    // 转换分支(convert_request 读 chat_req)生效，同协议透传分支(用 req_value 原体)不生效（已知限制，见 report）。
+    // 转换分支(convert_request 读 chat_req)由此生效；同协议透传分支用 req_value 原体，
+    // 由下方 `apply_middleware_body` 在出站 body 上补齐（票 02）。
     {
         let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
         if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
@@ -319,6 +320,37 @@ pub(crate) async fn forward_attempt(
     // 透传与转换两分支共用本 seam（见 builtin_tools.rs 模块注释）。
     let btc_global = state.settings_cache.read().await.builtin_tool_compat.enabled;
     builtin_tools::apply_builtin_tool_compat(&mut req_body, &route.platform.extra, &actual_model, btc_global);
+
+    // ── max_tokens 出站裁剪（body 层，透传与转换两分支共用本 seam）──
+    // 上限口径与上方 chat_req 侧同源（同一个 `model_max`，不会出现「裁两次不同上限」）：
+    // 转换分支此处为幂等复裁（chat_req 已裁到同值，不再命中）；透传分支此处是唯一生效点，
+    // 修掉「客户端 max_tokens 超模型上限 → 上游 400」（票 02）。
+    // 留痕：proxy_log 同时存客户端原始 body（request_body）与上游实际 body
+    // （upstream_request_body），两者一比即知裁到多少。
+    if let Some((requested, capped)) = cap_body_max_tokens(&mut req_body, model_max, target_protocol_enum) {
+        tracing::info!(
+            model = %actual_model, requested, capped_to = capped,
+            passthrough = same_protocol_passthrough,
+            "max_tokens exceeds model limit, capping outbound body"
+        );
+    }
+
+    // ── 中间件入站改写（Value 层，仅透传分支）──
+    // 转换分支的 mask/override/inject 已在分叉前作用于 chat_req，两处都跑会把 system_append
+    // 注入两遍，故此处只补透传分支（脱敏规则不再因为「恰好同协议」被绕过，票 02）。
+    if same_protocol_passthrough {
+        let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
+        let changed = middleware_body::apply_middleware_body(
+            &state.middleware, &mw_settings, &mut req_body,
+            target_protocol_enum, &actual_model, route.platform.id as i64,
+        );
+        if changed {
+            tracing::info!(
+                platform_id = route.platform.id, model = %actual_model,
+                "middleware inbound rules rewrote passthrough body"
+            );
+        }
+    }
 
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
@@ -774,6 +806,40 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
     }
 }
 
+/// 出站 body 上的 `max_tokens` 裁剪（透传与转换两分支共用）。
+///
+/// **为什么要在 body 上再裁一次**：`chat_req` 侧的裁剪只喂给 `convert_request`，同协议透传
+/// 分支的 body 是客户端原体 `Value`，超限值原样上送 → 上游 400（票 02）。转换分支上此处
+/// 幂等（chat_req 已裁到同一上限，不会二次收缩），故不需要按分支分叉。
+///
+/// 键名按目标 wire 协议分叉：
+/// - anthropic / openai / openai_completions → 顶层 `max_tokens`
+/// - openai_responses → 顶层 `max_output_tokens`
+/// - gemini → `generationConfig.maxOutputTokens`
+///
+/// 上限口径由调用方给（`get_model_max_output_tokens(actual_model)`），保守语义同
+/// [`super::router::cap_max_tokens`]：未传 / 模型无上限 / 未超限一律不动。
+/// 返回 `Some((原值, 裁剪后值))` 表示发生了裁剪，`None` 表示 body 未被改动。
+fn cap_body_max_tokens(body: &mut Value, model_max: Option<i64>, wire: &Protocol) -> Option<(u32, u32)> {
+    let obj = body.as_object_mut()?;
+    let slot = match wire {
+        Protocol::Anthropic | Protocol::OpenAI | Protocol::OpenAICompletions => obj.get_mut("max_tokens"),
+        Protocol::OpenAIResponses => obj.get_mut("max_output_tokens"),
+        Protocol::Gemini => obj
+            .get_mut("generationConfig")
+            .and_then(|gc| gc.as_object_mut())
+            .and_then(|gc| gc.get_mut("maxOutputTokens")),
+        // 其余枚举值不是 wire 协议（平台类型），不会作为 endpoint 协议出现
+        _ => None,
+    }?;
+    // 超 u32 的病态值按 u32::MAX 处理（照样会被上限裁下来）。
+    let requested = u32::try_from(slot.as_u64()?).unwrap_or(u32::MAX);
+    let (capped, did_cap) = super::router::cap_max_tokens(Some(requested), model_max);
+    let capped = capped.filter(|_| did_cap)?;
+    *slot = Value::from(capped);
+    Some((requested, capped))
+}
+
 /// `disable_thinking` 请求字段处理（aidog 本地扩展）。字段存在即剥（非标，透传恐 400）；
 /// 值为 true 时先剔掉客户端带来的开启型思考参数，再按目标 wire 协议写入**显式禁用参数**。
 ///
@@ -953,6 +1019,73 @@ fn hoist_mid_messages_system(body: &mut Value) {
         _ => {
             obj.insert("system".to_string(), Value::Array(hoisted_blocks));
         }
+    }
+}
+
+#[cfg(test)]
+mod test_cap_body_max_tokens {
+    use super::{cap_body_max_tokens, Protocol};
+    use serde_json::json;
+
+    /// anthropic 透传 body：超模型上限的 max_tokens 被裁到上限（票 02 的 400 根因）。
+    #[test]
+    fn anthropic_caps_top_level_max_tokens() {
+        let mut b = json!({"model": "m", "max_tokens": 200_000, "messages": []});
+        assert_eq!(cap_body_max_tokens(&mut b, Some(8192), &Protocol::Anthropic), Some((200_000, 8192)));
+        assert_eq!(b["max_tokens"], json!(8192));
+        assert_eq!(b["messages"], json!([]), "同级其它字段不动");
+    }
+
+    /// openai / completions 同样是顶层 `max_tokens`。
+    #[test]
+    fn openai_and_completions_cap_top_level_max_tokens() {
+        for wire in [Protocol::OpenAI, Protocol::OpenAICompletions] {
+            let mut b = json!({"model": "m", "max_tokens": 9999});
+            assert_eq!(cap_body_max_tokens(&mut b, Some(4096), &wire), Some((9999, 4096)));
+            assert_eq!(b["max_tokens"], json!(4096), "{wire:?}");
+        }
+    }
+
+    /// openai_responses 的键名是 `max_output_tokens`。
+    #[test]
+    fn responses_caps_max_output_tokens() {
+        let mut b = json!({"model": "m", "max_output_tokens": 100_000, "max_tokens": 100_000});
+        assert_eq!(cap_body_max_tokens(&mut b, Some(16384), &Protocol::OpenAIResponses), Some((100_000, 16384)));
+        assert_eq!(b["max_output_tokens"], json!(16384));
+        assert_eq!(b["max_tokens"], json!(100_000), "responses 不碰顶层 max_tokens");
+    }
+
+    /// gemini 的键名嵌在 `generationConfig.maxOutputTokens`。
+    #[test]
+    fn gemini_caps_generation_config_max_output_tokens() {
+        let mut b = json!({"generationConfig": {"maxOutputTokens": 65536, "temperature": 0.5}});
+        assert_eq!(cap_body_max_tokens(&mut b, Some(8192), &Protocol::Gemini), Some((65536, 8192)));
+        assert_eq!(b["generationConfig"]["maxOutputTokens"], json!(8192));
+        assert_eq!(b["generationConfig"]["temperature"], json!(0.5), "同级其它字段不动");
+    }
+
+    /// 未超限 / 模型无上限 / 未传 max_tokens：body 整体不动（保守语义，与 chat_req 侧一致）。
+    #[test]
+    fn under_limit_or_no_limit_or_absent_is_noop() {
+        let cases = [
+            (json!({"model": "m", "max_tokens": 100}), Some(8192)),
+            (json!({"model": "m", "max_tokens": 100}), None),
+            (json!({"model": "m"}), Some(8192)),
+            (json!({"model": "m", "max_tokens": null}), Some(8192)),
+        ];
+        for (original, model_max) in cases {
+            let mut b = original.clone();
+            assert_eq!(cap_body_max_tokens(&mut b, model_max, &Protocol::Anthropic), None);
+            assert_eq!(b, original, "未超限/无上限/未传时 body 必须逐字节不变");
+        }
+    }
+
+    /// 非 wire 协议（平台类型枚举）不改写。
+    #[test]
+    fn non_wire_protocol_is_noop() {
+        let mut b = json!({"max_tokens": 999_999});
+        assert_eq!(cap_body_max_tokens(&mut b, Some(8), &Protocol::Mock), None);
+        assert_eq!(b["max_tokens"], json!(999_999));
     }
 }
 

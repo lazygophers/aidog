@@ -16,7 +16,7 @@ mod outbound;
 #[cfg(test)]
 pub(crate) mod test_mod;
 
-pub use inbound::InboundOutcome;
+pub use inbound::{InboundInject, InboundOutcome, InboundTexts};
 #[allow(unused_imports)]
 pub use outbound::ErrorClassification;
 
