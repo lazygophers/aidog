@@ -17,6 +17,13 @@ platform_code: string,
  */
 model_id: string, 
 /**
+ * 人类可读展示名，单字符串全语言共用（模型名是品牌标识，不译）。
+ * registry 里可缺省或为空串——**回落在读取层**：读出来的这个字段恒非空，
+ * 缺省/空串时等于 `model_id`，调用方与前端不再各写回落分支。
+ * 写入层原样存 registry 值（不把 `model_id` 回填进列），故 DB 列可为空串。
+ */
+display_name: string, 
+/**
  * 内部统一 id，跨平台聚合键。缺省回落 `model_id`（写入层保证非空）。
  */
 canonical_model: string, family: string, version: string, predecessor: string, 
