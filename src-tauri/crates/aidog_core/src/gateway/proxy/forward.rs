@@ -194,6 +194,9 @@ pub(crate) async fn forward_attempt(
         .await
         .ok()
         .flatten();
+    // 票 11：转换分支在这里就把 chat_req 裁到位，下方 body 层的 `cap_body_max_tokens` 因此
+    // 是幂等复裁、不再命中 → 留痕会漏掉整条转换路径。故在此处记住「裁过」，与 body 层的留痕合并。
+    let mut capped_on_chat_req = false;
     {
         let (capped, did_cap) = super::router::cap_max_tokens(chat_req.max_tokens, model_max);
         if did_cap {
@@ -203,6 +206,7 @@ pub(crate) async fn forward_attempt(
                 "max_tokens exceeds model limit, capping"
             );
             chat_req.max_tokens = capped;
+            capped_on_chat_req = true;
         }
     }
 
@@ -343,31 +347,30 @@ pub(crate) async fn forward_attempt(
     // 留痕：proxy_log 同时存客户端原始 body（request_body）与上游实际 body
     // （upstream_request_body），两者一比即知裁到多少。
     // 票 10：本次出站 body 被丢弃 / 被改写的字段名 token（只记名不记值），落 proxy_log.field_trace。
-    let mut field_trace: Vec<String> = Vec::new();
-    if let Some((requested, capped)) = cap_body_max_tokens(&mut req_body, model_max, target_protocol_enum) {
+    let capped_on_body = cap_body_max_tokens(&mut req_body, model_max, target_protocol_enum);
+    if let Some((requested, capped)) = capped_on_body {
         tracing::info!(
             model = %actual_model, requested, capped_to = capped,
             passthrough = same_protocol_passthrough,
             "max_tokens exceeds model limit, capping outbound body"
         );
-        field_trace.push("cap:max_tokens".to_string());
     }
 
     // ── 中间件入站改写（Value 层，仅透传分支）──
     // 转换分支的 mask/override/inject 已在分叉前作用于 chat_req，两处都跑会把 system_append
     // 注入两遍，故此处只补透传分支（脱敏规则不再因为「恰好同协议」被绕过，票 02）。
+    let mut middleware_changed = false;
     if same_protocol_passthrough {
         let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
-        let changed = middleware_body::apply_middleware_body(
+        middleware_changed = middleware_body::apply_middleware_body(
             &state.middleware, &mw_settings, &mut req_body,
             target_protocol_enum, &actual_model, route.platform.id as i64,
         );
-        if changed {
+        if middleware_changed {
             tracing::info!(
                 platform_id = route.platform.id, model = %actual_model,
                 "middleware inbound rules rewrote passthrough body"
             );
-            field_trace.push("rewrite:middleware".to_string());
         }
     }
 
@@ -376,12 +379,16 @@ pub(crate) async fn forward_attempt(
     // 没有对应字段，转换分支经 wire struct 序列化后静默消失。本 seam 从客户端原体按**目标 wire
     // 协议的允许集合**补齐（键名按协议换名），允许集合外的字段一律不写出。
     let dropped = apply_field_passthrough(&mut req_body, req_value, target_protocol_enum, &target_base_url);
-    field_trace.extend(dropped.into_iter().map(|f| format!("drop:{f}")));
 
     // 票 10：留痕落 log（无丢弃无改写时写空串，不产生噪音记录；本值随后续 upsert 入库，
     // 受 log_upstream_request 开关与 upstream_request_retention_days 清理约束）。
     // 每个候选平台重跑本段 → 无条件赋值，换平台重试时不残留上一候选的留痕。
-    log.field_trace = field_trace.join(",");
+    log.field_trace = build_field_trace(
+        capped_on_chat_req,
+        capped_on_body.is_some(),
+        middleware_changed,
+        &dropped,
+    );
 
     // ── 官方 OpenAI 输出长度键改写（票 05）──
     // 排在裁剪、中间件与兜底透传之后：前几步都按 `max_tokens` 认字段，改名放最后才不会漏。
@@ -1045,12 +1052,13 @@ fn apply_field_passthrough(body: &mut Value, src: &Value, wire: &Protocol, upstr
         _ => None,
     };
     if let Some(key) = stop_key.filter(|k| !obj.contains_key(*k)) {
-        // 取值时先认目标协议的写法，再回退另一族的写法
+        // 取值时先认目标协议的写法，再回退另一族的写法，最后回退 Gemini 源的 generationConfig
         let raw = if key == "stop_sequences" {
             src_obj.get("stop_sequences").or_else(|| src_obj.get("stop"))
         } else {
             src_obj.get("stop").or_else(|| src_obj.get("stop_sequences"))
-        };
+        }
+        .or_else(|| src_gen_config(src_obj).and_then(|g| g.get("stopSequences")));
         let normalized = match raw {
             Some(Value::String(s)) if key == "stop_sequences" => {
                 Some(Value::Array(vec![Value::String(s.clone())]))
@@ -1099,8 +1107,14 @@ fn apply_field_passthrough(body: &mut Value, src: &Value, wire: &Protocol, upstr
         if obj.contains_key(k) {
             continue;
         }
-        if let Some(v) = src_obj.get(k) {
-            obj.insert(k.to_string(), v.clone());
+        // Gemini 源的对应值埋在 generationConfig 里（顶层同名键不存在），故取值分两跳（票 11）
+        let from_src = src_obj.get(k).cloned().or_else(|| match k {
+            "top_k" => src_gen_config(src_obj).and_then(|g| g.get("topK")).cloned(),
+            "response_format" => src_gen_config(src_obj).and_then(gemini_response_format),
+            _ => None,
+        });
+        if let Some(v) = from_src {
+            obj.insert(k.to_string(), v);
         }
     }
 
@@ -1112,6 +1126,62 @@ fn apply_field_passthrough(body: &mut Value, src: &Value, wire: &Protocol, upstr
         .filter(|k| !(matches!(**k, "stop" | "stop_sequences") && stop_carried))
         .map(|k| (*k).to_string())
         .collect()
+}
+
+/// 客户端原体里的 Gemini `generationConfig` 节点（camelCase 为 REST 规范形态，
+/// snake_case 是部分 SDK 写法，与 `middleware_body::visit_texts` 的 systemInstruction 同口径）。
+///
+/// Gemini 把 `stopSequences` / `topK` / `responseMimeType` 全放在这个子对象里，而本函数
+/// 其余部分按顶层键取值——不下钻这一跳，gemini 客户端 → openai/anthropic 上游的这三项就必丢
+/// （中立层的 `ChatRequest.extra` 有值，但 `to_openai` / `to_anthropic` 的 wire struct 没有槽位）。
+fn src_gen_config(src_obj: &serde_json::Map<String, Value>) -> Option<&serde_json::Map<String, Value>> {
+    src_obj
+        .get("generationConfig")
+        .or_else(|| src_obj.get("generation_config"))?
+        .as_object()
+}
+
+/// Gemini `responseMimeType` / `responseSchema` → OpenAI `response_format`。
+/// 与 `adapter::gemini::extra_response_format` 的正向换算互逆，只认 `application/json`
+/// （Gemini 另有 `text/plain` = 默认态，OpenAI 无对应显式写法，不写出）。
+fn gemini_response_format(gc: &serde_json::Map<String, Value>) -> Option<Value> {
+    let mime = gc.get("responseMimeType").and_then(|v| v.as_str())?;
+    if !mime.eq_ignore_ascii_case("application/json") {
+        return None;
+    }
+    Some(match gc.get("responseSchema") {
+        Some(schema) => serde_json::json!({
+            "type": "json_schema",
+            "json_schema": { "name": "response", "schema": schema }
+        }),
+        None => serde_json::json!({ "type": "json_object" }),
+    })
+}
+
+/// 把本次出站的三类改写合成 `proxy_log.field_trace` 的 token 串（票 10；票 11 抽成纯函数）。
+///
+/// - `capped_on_chat_req` / `capped_on_body`：`max_tokens` 被裁到模型上限的两个来源，
+///   **合成同一个 token，不重复记**。转换分支裁在 `chat_req` 上（body 层随后是幂等复裁、
+///   必不命中），透传分支裁在 body 层。此前只看 body 层的返回值，整条转换路径的裁剪因此不留痕。
+/// - `middleware_changed`：middleware 规则改写过透传 body。
+/// - `dropped`：被出站允许集合挡掉的字段名（只有名没有值）。
+///
+/// 无改写无丢弃时返回空串（不产生噪音记录）。
+fn build_field_trace(
+    capped_on_chat_req: bool,
+    capped_on_body: bool,
+    middleware_changed: bool,
+    dropped: &[String],
+) -> String {
+    let mut tokens: Vec<String> = Vec::new();
+    if capped_on_chat_req || capped_on_body {
+        tokens.push("cap:max_tokens".to_string());
+    }
+    if middleware_changed {
+        tokens.push("rewrite:middleware".to_string());
+    }
+    tokens.extend(dropped.iter().map(|f| format!("drop:{f}")));
+    tokens.join(",")
 }
 
 /// 票 10 留痕的候选字段集合 = `apply_field_passthrough` 认识的全部顶层键（跨协议并集）。
@@ -1352,6 +1422,100 @@ mod test_field_trace {
         let mut b = json!({"model": "m", "contents": []});
         let dropped = apply_field_passthrough(&mut b, &src, &Protocol::Gemini, "https://generativelanguage.googleapis.com/v1beta");
         assert_eq!(dropped, vec!["stop".to_string(), "seed".to_string(), "n".to_string()]);
+    }
+}
+
+/// 票 11 对账补的两处：Gemini 源的生成参数下钻取值、`cap:max_tokens` 两来源合一。
+#[cfg(test)]
+mod test_fa11_reconciliation {
+    use super::{apply_field_passthrough, build_field_trace, Protocol};
+    use serde_json::json;
+
+    /// Gemini 客户端 → OpenAI 上游：stop / topK / responseMimeType 埋在 `generationConfig` 里，
+    /// 按顶层键取值取不到。下钻一跳后三项都要到达出站 body。
+    #[test]
+    fn fa11_gemini_source_generation_config_reaches_openai_target() {
+        let src = json!({
+            "contents": [],
+            "generationConfig": {
+                "stopSequences": ["END"],
+                "topK": 40,
+                "responseMimeType": "application/json",
+                "temperature": 0.3
+            }
+        });
+        let mut b = json!({"model": "m", "messages": []});
+        let dropped = apply_field_passthrough(&mut b, &src, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
+        assert_eq!(b["stop"], json!(["END"]));
+        assert_eq!(b["top_k"], json!(40));
+        assert_eq!(b["response_format"], json!({"type": "json_object"}));
+        assert!(dropped.is_empty(), "全部承载，不应留痕：{dropped:?}");
+    }
+
+    /// 带 responseSchema 时换算成 OpenAI 的 json_schema 形态（`name` 必填，上游缺它判 400）。
+    #[test]
+    fn fa11_gemini_response_schema_maps_to_openai_json_schema() {
+        let src = json!({"contents": [], "generationConfig": {
+            "responseMimeType": "application/json",
+            "responseSchema": {"type": "object", "properties": {"a": {"type": "string"}}}
+        }});
+        let mut b = json!({"model": "m", "messages": []});
+        apply_field_passthrough(&mut b, &src, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
+        assert_eq!(b["response_format"]["type"], json!("json_schema"));
+        assert_eq!(b["response_format"]["json_schema"]["name"], json!("response"));
+        assert_eq!(b["response_format"]["json_schema"]["schema"]["type"], json!("object"));
+    }
+
+    /// Gemini 源 → Anthropic 上游：stopSequences 直接同名承载，topK 换名 top_k。
+    #[test]
+    fn fa11_gemini_source_reaches_anthropic_target() {
+        let src = json!({"contents": [], "generationConfig": {"stopSequences": ["X"], "topK": 5}});
+        let mut b = json!({"model": "m", "messages": []});
+        apply_field_passthrough(&mut b, &src, &Protocol::Anthropic, "https://api.anthropic.com/v1/messages");
+        assert_eq!(b["stop_sequences"], json!(["X"]));
+        assert_eq!(b["top_k"], json!(5));
+    }
+
+    /// `responseMimeType: text/plain` 是 Gemini 默认态，OpenAI 无对应显式写法 → 不写出。
+    #[test]
+    fn fa11_gemini_text_plain_mime_writes_no_response_format() {
+        let src = json!({"contents": [], "generationConfig": {"responseMimeType": "text/plain"}});
+        let mut b = json!({"model": "m", "messages": []});
+        apply_field_passthrough(&mut b, &src, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
+        assert!(b.get("response_format").is_none(), "默认 mime 不该产出 response_format");
+    }
+
+    /// 顶层写法优先于 generationConfig（客户端两处都写时以显式顶层为准）。
+    #[test]
+    fn fa11_top_level_wins_over_generation_config() {
+        let src = json!({"stop": ["TOP"], "top_k": 1, "generationConfig": {"stopSequences": ["NESTED"], "topK": 99}});
+        let mut b = json!({"model": "m", "messages": []});
+        apply_field_passthrough(&mut b, &src, &Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4");
+        assert_eq!(b["stop"], json!(["TOP"]));
+        assert_eq!(b["top_k"], json!(1));
+    }
+
+    /// 转换分支：裁剪发生在 `chat_req` 上，body 层是幂等复裁不再命中 —— 留痕仍须记
+    /// `cap:max_tokens`（此前只看 body 层，整条转换路径的裁剪不留痕）。
+    #[test]
+    fn fa11_cap_trace_covers_both_branches_without_duplicating() {
+        // (转换分支, 透传分支, 两者同时) 三种组合都记且只记一个 token
+        for (on_chat_req, on_body) in [(true, false), (false, true), (true, true)] {
+            let trace = build_field_trace(on_chat_req, on_body, false, &[]);
+            assert_eq!(trace, "cap:max_tokens", "chat_req={on_chat_req} body={on_body}");
+            assert_eq!(trace.matches("cap:max_tokens").count(), 1);
+        }
+        assert_eq!(build_field_trace(false, false, false, &[]), "", "未裁剪不记");
+    }
+
+    /// 三类改写按固定序拼接；全无改写时空串（不产生噪音记录）。
+    #[test]
+    fn fa11_field_trace_composition_and_empty() {
+        assert_eq!(
+            build_field_trace(false, true, true, &["seed".to_string(), "n".to_string()]),
+            "cap:max_tokens,rewrite:middleware,drop:seed,drop:n"
+        );
+        assert_eq!(build_field_trace(false, false, false, &[]), "");
     }
 }
 

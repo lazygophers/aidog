@@ -53,12 +53,14 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         SystemContent::Blocks(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
     });
     // 服务端工具在 Responses 侧无执行方，整条不下发；全被丢弃时不写 tools 键
-    let tools = req.tools.as_ref().and_then(|tools| {
-        let kept: Vec<Value> = client_tools(tools, "openai_responses").into_iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
-        (!kept.is_empty()).then_some(Value::Array(kept))
-    });
-    // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆
-    let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {
+    let kept_tools: Vec<&Tool> = req.tools.as_deref().map(|ts| client_tools(ts, "openai_responses")).unwrap_or_default();
+    let tools = {
+        let mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        (!mapped.is_empty()).then_some(Value::Array(mapped))
+    };
+    // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆；
+    // 指名了被丢掉的服务端工具时整条不写（票 11，见 `named_tool_available`）
+    let tool_choice = req.tool_choice.as_ref().filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools)).map(|tc| match tc {
         ToolChoice::Auto => serde_json::json!("auto"),
         ToolChoice::Any => serde_json::json!("required"),
         ToolChoice::None => serde_json::json!("none"),
@@ -387,7 +389,15 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         stream: body.get("stream").and_then(|v| v.as_bool()),
         tools,
         tool_choice,
-        extra: None,
+        // 未建模顶层字段进 `extra`（票 11）：与 anthropic 入站的 `#[serde(flatten)]` 行为对齐，
+        // 否则 responses → gemini 路径上 `stop` / `top_k` / `response_format` 在中立层就没了。
+        extra: crate::types::rest_keys(
+            body,
+            &[
+                "model", "input", "instructions", "max_output_tokens", "temperature",
+                "top_p", "stream", "tools", "tool_choice", "reasoning",
+            ],
+        ),
         // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
         thinking_mode: crate::thinking::mode_from_effort(effort),
     })

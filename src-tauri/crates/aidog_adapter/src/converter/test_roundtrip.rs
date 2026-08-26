@@ -1587,3 +1587,236 @@ fn fa09_gemini_only_keys_do_not_leak_to_other_targets() {
         assert!(out.get("topK").is_none(), "{name} 目标不应出现 gemini 键名: {out}");
     }
 }
+
+// ─────────────────────── 票 11：九类缺口对账补的收口 ───────────────────────
+
+/// 缺口 1：`from_openai` 此前写死 `extra: None`，openai 入站的 stop / top_k /
+/// response_format 到不了中立层 → openai → gemini 三项必丢（值落 generationConfig，
+/// forward 层的顶层白名单管不到）。
+#[test]
+fn fa11_openai_inbound_unmodeled_fields_reach_gemini() {
+    let body = json!({
+        "model": "gpt-4o",
+        "messages": [{"role": "user", "content": "hi"}],
+        "stop": ["END"],
+        "top_k": 40,
+        "response_format": {"type": "json_object"}
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    assert!(req.extra.is_some(), "未建模顶层字段必须进 extra");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let gc = &out["generationConfig"];
+    assert_eq!(gc["stopSequences"], json!(["END"]), "{out}");
+    assert_eq!(gc["topK"], json!(40), "{out}");
+    assert_eq!(gc["responseMimeType"], json!("application/json"), "{out}");
+}
+
+/// 同一缺口在 openai_responses / openai_completions 两个入站上的对称断言。
+#[test]
+fn fa11_responses_and_completions_inbound_unmodeled_fields_reach_gemini() {
+    let cases = [
+        (
+            Protocol::OpenAIResponses,
+            json!({"model": "gpt-5", "input": "hi", "stop": ["END"], "top_k": 7}),
+        ),
+        (
+            Protocol::OpenAICompletions,
+            json!({"model": "davinci", "prompt": "hi", "stop": ["END"], "top_k": 7}),
+        ),
+    ];
+    for (src, body) in cases {
+        let req = parse_incoming_request(&src, &body).expect("parse");
+        let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+        assert_eq!(out["generationConfig"]["stopSequences"], json!(["END"]), "{src:?} {out}");
+        assert_eq!(out["generationConfig"]["topK"], json!(7), "{src:?} {out}");
+    }
+}
+
+/// 收 extra 不等于出站：目标协议的允许集合仍然说了算，客户端的自定义键不得外溢到 wire body。
+#[test]
+fn fa11_extra_does_not_leak_unknown_keys_to_outbound() {
+    let body = json!({
+        "model": "gpt-4o",
+        "messages": [{"role": "user", "content": "hi"}],
+        "my_private_flag": true,
+        "stop": ["END"]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    for tgt in [Protocol::Anthropic, Protocol::OpenAI, Protocol::Gemini, Protocol::OpenAIResponses] {
+        let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
+        assert!(
+            !out.to_string().contains("my_private_flag"),
+            "{tgt:?} 目标不得外溢未建模自定义键: {out}"
+        );
+    }
+}
+
+/// 缺口 5：`tool_choice` 指名了一个在目标协议上被丢掉的服务端工具 → 整条 tool_choice 不写出。
+/// 留着它等于强制模型调用一个 body 里不存在的工具。
+#[test]
+fn fa11_tool_choice_naming_dropped_server_tool_is_omitted() {
+    let body = json!({
+        "model": "claude-3",
+        "max_tokens": 64,
+        "messages": [{"role": "user", "content": "search it"}],
+        "tools": [
+            {"type": "web_search_20250305", "name": "web_search", "max_uses": 3},
+            {"name": "calc", "description": "c", "input_schema": {"type": "object"}}
+        ],
+        "tool_choice": {"type": "tool", "name": "web_search"}
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+
+    for tgt in [Protocol::OpenAI, Protocol::OpenAIResponses] {
+        let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
+        assert!(out.get("tool_choice").is_none(), "{tgt:?} 应整条省掉 tool_choice: {out}");
+        assert!(out.get("tools").is_some(), "{tgt:?} 客户端工具不应被误伤: {out}");
+    }
+    // anthropic 目标能执行服务端工具，tool_choice 照常写出
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(out["tool_choice"], json!({"type": "tool", "name": "web_search"}), "{out}");
+}
+
+/// 指名的是客户端工具时行为不变（回归防线：别把正常的 tool_choice 一起丢了）。
+#[test]
+fn fa11_tool_choice_naming_client_tool_unchanged() {
+    let body = json!({
+        "model": "claude-3", "max_tokens": 64,
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{"name": "calc", "description": "c", "input_schema": {"type": "object"}}],
+        "tool_choice": {"type": "tool", "name": "calc"}
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(out["tool_choice"], json!({"type": "function", "function": {"name": "calc"}}), "{out}");
+}
+
+/// 缺口 6：`includeThoughts` 此前挂在 `thinkingConfig` 上，而该节点只在有 thinkingBudget
+/// 时才建（字段是非 Option 的 u32）→ 客户端只设 includeThoughts 时意图必丢。
+/// 预算留空而不是拿 0 顶替：`thinkingBudget: 0` 在 Gemini 侧是「显式禁用思考」，语义相反。
+#[test]
+fn fa11_gemini_include_thoughts_survives_without_budget() {
+    let body = json!({
+        "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+        "generationConfig": {"thinkingConfig": {"includeThoughts": true}}
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let tc = &out["generationConfig"]["thinkingConfig"];
+    assert_eq!(tc["includeThoughts"], json!(true), "{out}");
+    assert!(tc.get("thinkingBudget").is_none(), "无预算时不得写出 thinkingBudget（0 = 禁用思考）: {out}");
+}
+
+/// 预算与 includeThoughts 并存时两者都写出（回归防线）。
+#[test]
+fn fa11_gemini_include_thoughts_with_budget() {
+    let body = json!({
+        "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+        "generationConfig": {"thinkingConfig": {"thinkingBudget": 2048, "includeThoughts": true}}
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let tc = &out["generationConfig"]["thinkingConfig"];
+    assert_eq!(tc["thinkingBudget"], json!(2048), "{out}");
+    assert_eq!(tc["includeThoughts"], json!(true), "{out}");
+}
+
+/// 缺口 4：legacy `/v1/completions` 没有 tools API，工具回合只能落进 prompt 文本；
+/// 此前整块跳过 → 工具调用与结果在 prompt 里凭空消失，失败标记也无从体现。
+#[test]
+fn fa11_completions_prompt_keeps_tool_blocks() {
+    let body = json!({
+        "model": "claude-3", "max_tokens": 64,
+        "messages": [
+            {"role": "assistant", "content": [
+                {"type": "tool_use", "id": "t1", "name": "calc", "input": {"x": 1}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "t1", "content": "boom", "is_error": true}
+            ]}
+        ]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
+    let prompt = out["prompt"].as_str().expect("prompt");
+    assert!(prompt.contains("calc"), "工具名应进 prompt: {prompt}");
+    assert!(prompt.contains("boom"), "工具结果应进 prompt: {prompt}");
+    assert!(prompt.contains(crate::types::TOOL_ERROR_PREFIX.trim()), "失败标记应进 prompt: {prompt}");
+}
+
+/// 纯文本对话的 prompt 渲染不变（回归防线：上一条的改动只对工具块生效）。
+#[test]
+fn fa11_completions_plain_text_prompt_unchanged() {
+    let body = json!({
+        "model": "claude-3", "max_tokens": 64,
+        "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
+    assert_eq!(out["prompt"], json!("User: hello"), "{out}");
+}
+
+/// 边界：客户端没声明 tools 却指名了 tool_choice，或指名的名字本就不在声明里 —— 都原样透传，
+/// 本次过滤没丢过它，不替客户端做主（回归防线，锁住 `named_tool_available` 的放行分支）。
+#[test]
+fn fa11_tool_choice_unrelated_to_server_tool_filter_is_passed_through() {
+    let cases = [
+        json!({"model": "claude-3", "max_tokens": 64,
+               "messages": [{"role": "user", "content": "hi"}],
+               "tool_choice": {"type": "tool", "name": "ghost"}}),
+        json!({"model": "claude-3", "max_tokens": 64,
+               "messages": [{"role": "user", "content": "hi"}],
+               "tools": [{"name": "calc", "input_schema": {"type": "object"}}],
+               "tool_choice": {"type": "tool", "name": "ghost"}}),
+    ];
+    for body in cases {
+        let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+        let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+        assert_eq!(out["tool_choice"]["function"]["name"], json!("ghost"), "{out}");
+    }
+}
+
+/// 票 06 的样本回归（票 11 补做）。形状取自 proxy_log 真实样本普查：
+/// 1749 条带 `cache_control` 的请求里，标记只出现在 4 个位置 —— `system[]` 块（452/452 命中）、
+/// message 的 `text` / `tool_result` / `tool_use` 块。`tools[]` 上一次都没出现过。
+/// 本用例把这 4 个位置合成一份 body，断言 anthropic **转换分支**（非透传）逐个保真。
+#[test]
+fn fa11_cache_control_sample_shape_survives_anthropic_conversion() {
+    let body = json!({
+        "model": "claude-opus-5",
+        "max_tokens": 512,
+        "system": [
+            {"type": "text", "text": "You are Claude Code."},
+            {"type": "text", "text": "<long preamble>", "cache_control": {"type": "ephemeral"}}
+        ],
+        "messages": [
+            {"role": "user", "content": [
+                {"type": "text", "text": "hi", "cache_control": {"type": "ephemeral"}}
+            ]},
+            {"role": "assistant", "content": [
+                {"type": "tool_use", "id": "t1", "name": "Read", "input": {"p": "a"},
+                 "cache_control": {"type": "ephemeral"}}
+            ]},
+            {"role": "user", "content": [
+                {"type": "tool_result", "tool_use_id": "t1", "content": "ok",
+                 "cache_control": {"type": "ephemeral"}}
+            ]}
+        ]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+
+    assert_eq!(out["system"][1]["cache_control"]["type"], json!("ephemeral"), "{out}");
+    assert_eq!(out["messages"][0]["content"][0]["cache_control"]["type"], json!("ephemeral"), "{out}");
+    assert_eq!(out["messages"][1]["content"][0]["cache_control"]["type"], json!("ephemeral"), "{out}");
+    assert_eq!(out["messages"][2]["content"][0]["cache_control"]["type"], json!("ephemeral"), "{out}");
+    assert_eq!(
+        out.to_string().matches("cache_control").count(), 4,
+        "4 个真实位置各一处，不多不少: {out}"
+    );
+
+    // 同一份 body 转 openai 目标：上游不支持 prompt caching，整份 body 不得出现该标记
+    // （DB 实测 anthropic→openai 1297 条入站带标记、出站 0 条，本断言锁住这个现状）。
+    let (oa, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert!(!oa.to_string().contains("cache_control"), "{oa}");
+}

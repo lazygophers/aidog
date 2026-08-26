@@ -33,8 +33,15 @@ pub fn to_completions(req: &ChatRequest) -> CompletionsRequest {
             MessageContent::Text(t) => t.clone(),
             MessageContent::Blocks(blocks) => blocks.iter()
                 .filter_map(|b| match b {
-                    ContentBlock::Text { text, .. } => Some(text.as_str()),
-                    _ => None,
+                    ContentBlock::Text { text, .. } => Some(text.clone()),
+                    // legacy `/v1/completions` 没有 tools API（无 tools / tool_choice / tool 角色），
+                    // 工具回合只能落进 prompt 文本。此前整块跳过 → 工具调用与结果在 prompt 里
+                    // 凭空消失，模型看到一段断裂的对话；失败标记同样无从体现（票 11）。
+                    ContentBlock::ToolUse { name, input, .. } => Some(format!("\n[tool_use {name}] {input}")),
+                    ContentBlock::ToolResult { content, is_error, .. } => {
+                        Some(format!("\n[tool_result] {}", mark_tool_error(content, *is_error)))
+                    }
+                    ContentBlock::Unknown(_) => None,
                 })
                 .collect::<Vec<_>>()
                 .join(""),
@@ -206,7 +213,12 @@ pub fn from_completions(body: &Value) -> Option<ChatRequest> {
         stream: body.get("stream").and_then(|v| v.as_bool()),
         tools: None,
         tool_choice: None,
-        extra: None,
+        // 未建模顶层字段进 `extra`（票 11）：与 anthropic 入站的 `#[serde(flatten)]` 行为对齐，
+        // 否则 completions → gemini 路径上 `stop` / `top_k` 在中立层就没了。
+        extra: rest_keys(
+            body,
+            &["model", "prompt", "max_tokens", "temperature", "top_p", "stream"],
+        ),
         thinking_mode: None,
     })
 }

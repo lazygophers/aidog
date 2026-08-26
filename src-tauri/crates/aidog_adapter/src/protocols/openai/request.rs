@@ -164,9 +164,10 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
     }
 
     // 服务端工具在 OpenAI 侧无执行方，整条不下发；全被丢弃时不写 tools 键
-    let tools = req.tools.as_ref().and_then(|ts| {
-        let kept: Vec<OpenAITool> = client_tools(ts, "openai")
-            .into_iter()
+    let kept_tools: Vec<&Tool> = req.tools.as_deref().map(|ts| client_tools(ts, "openai")).unwrap_or_default();
+    let tools = {
+        let mapped: Vec<OpenAITool> = kept_tools
+            .iter()
             .map(|t| OpenAITool {
                 r#type: "function".to_string(),
                 function: OpenAIFunction {
@@ -176,10 +177,15 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 },
             })
             .collect();
-        (!kept.is_empty()).then_some(kept)
-    });
+        (!mapped.is_empty()).then_some(mapped)
+    };
 
-    let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {
+    // 指名了被丢掉的服务端工具时整条不写（票 11，见 `named_tool_available`）
+    let tool_choice = req
+        .tool_choice
+        .as_ref()
+        .filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools))
+        .map(|tc| match tc {
         ToolChoice::Auto => serde_json::json!("auto"),
         ToolChoice::Any => serde_json::json!("required"),
         ToolChoice::None => serde_json::json!("none"),
