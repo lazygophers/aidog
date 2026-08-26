@@ -1453,3 +1453,133 @@ async fn truncated_stream_logs_502_not_200() {
         "截断前已聚合的 token 必须保留（记录不因失败而丢）"
     );
 }
+
+// ═══════════════ 票 09：Gemini 同协议透传的模型口径 ═══════════════
+
+/// 记录每次上游请求 (uri, body) 的 stub 上游，返回 (base_url, 记录表)。
+/// `spawn_stub_upstream` 丢弃请求体，无法断言「实际打到上游的是什么」。
+async fn spawn_recording_upstream(
+    body: &'static str,
+) -> (String, Arc<std::sync::Mutex<Vec<(String, String)>>>) {
+    use axum::routing::any;
+    let rec: Arc<std::sync::Mutex<Vec<(String, String)>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let rec_srv = rec.clone();
+    let app = axum::Router::new().fallback(any(move |req: HttpRequest<Body>| {
+        let rec = rec_srv.clone();
+        async move {
+            let uri = req.uri().to_string();
+            let bytes = axum::body::to_bytes(req.into_body(), 1 << 20).await.unwrap_or_default();
+            rec.lock().unwrap().push((uri, String::from_utf8_lossy(&bytes).to_string()));
+            (
+                axum::http::StatusCode::OK,
+                [("content-type", "application/json")],
+                body,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), rec)
+}
+
+const GEMINI_OK: &str = r#"{"candidates":[{"content":{"parts":[{"text":"hi"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":5,"candidatesTokenCount":3,"totalTokenCount":8}}"#;
+
+/// 注册 Gemini 平台 + 显式 Gemini endpoint（同协议透传命中），group 带
+/// `gemini-src → gemini-target` 模型改写。
+async fn setup_gemini_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    use crate::gateway::models::{ModelMapping, PlatformEndpoint};
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "gem".into(),
+            platform_type: Protocol::Gemini,
+            base_url: base_url.to_string(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: Some(vec![PlatformEndpoint {
+                protocol: Protocol::Gemini,
+                base_url: base_url.to_string(),
+                client_type: "default".to_string(),
+                coding_plan: false,
+            }]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None, default_level_priority: None, expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group(
+            gk,
+            vec![ModelMapping {
+                source_model: "gemini-src".to_string(),
+                target_platform_id: plat.id,
+                target_model: "gemini-target".to_string(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            }],
+        ),
+    )
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// 票 09：gemini 同协议透传 + 路由改写模型 → 上游 URL path 的模型段是改写后的模型名，
+/// 且 body 不含顶层 `model` 键（Gemini generateContent 规范无此字段，多送会被判未知字段）。
+#[tokio::test]
+async fn gemini_passthrough_uses_remapped_model_in_path_not_body() {
+    let (upstream, rec) = spawn_recording_upstream(GEMINI_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_gemini_passthrough_group(&state, "gkgem", &upstream).await;
+
+    // 两种客户端形态都要成立：① 真实 gemini 形态（model 只在 URL path）；
+    // ② body 里额外带了 model 键（该键须被剔除，不得原样带着旧模型名上送）。
+    for inbound in [
+        r#"{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}"#,
+        r#"{"model":"gemini-src","contents":[{"role":"user","parts":[{"text":"hi"}]}]}"#,
+    ] {
+        let req = HttpRequest::builder()
+            .method("POST")
+            .uri("/v1beta/models/gemini-src:generateContent")
+            .header("authorization", "Bearer gkgem")
+            .header("content-type", "application/json")
+            .body(Body::from(inbound))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(resp.status(), StatusCode::OK, "inbound={inbound}");
+    }
+
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 2, "上游应恰收到两次请求: {captured:?}");
+    for (uri, body) in &captured {
+        assert!(
+            uri.contains("gemini-target") && !uri.contains("gemini-src"),
+            "URL path 的模型段应是路由改写后的模型名: {uri}"
+        );
+        let sent: serde_json::Value = serde_json::from_str(body).expect("上游 body 应是合法 JSON");
+        assert!(
+            sent.get("model").is_none(),
+            "gemini 出站 body 不应含顶层 model 键（客户端原体带的也须剔除）: {sent}"
+        );
+        assert_eq!(sent["contents"][0]["parts"][0]["text"], "hi", "透传体其余内容不动: {sent}");
+    }
+}

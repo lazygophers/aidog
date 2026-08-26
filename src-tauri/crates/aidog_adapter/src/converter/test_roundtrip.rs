@@ -1313,3 +1313,156 @@ fn fa05_neither_key_no_default() {
     assert!(out.get("max_tokens").is_none(), "{out}");
     assert!(out.get("max_completion_tokens").is_none(), "{out}");
 }
+
+// ═══════════════ 票 09：Gemini 生成参数保真 ═══════════════
+
+/// gemini → gemini（转换路径）：generationConfig 内新增 4 项 + safetySettings + includeThoughts 全部保真。
+#[test]
+fn fa09_gemini_generation_config_full_roundtrip() {
+    let body = json!({
+        "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+        "generationConfig": {
+            "maxOutputTokens": 512,
+            "temperature": 0.5,
+            "stopSequences": ["END", "STOP"],
+            "topK": 40,
+            "responseMimeType": "application/json",
+            "responseSchema": {"type": "object", "properties": {"city": {"type": "string"}}},
+            "thinkingConfig": {"thinkingBudget": 1024, "includeThoughts": true}
+        },
+        "safetySettings": [
+            {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}
+        ]
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+
+    let g = &out["generationConfig"];
+    assert_eq!(g["stopSequences"], json!(["END", "STOP"]), "{out}");
+    assert_eq!(g["topK"], json!(40), "{out}");
+    assert_eq!(g["responseMimeType"], json!("application/json"), "{out}");
+    assert_eq!(g["responseSchema"]["properties"]["city"]["type"], json!("string"), "{out}");
+    assert_eq!(g["thinkingConfig"]["includeThoughts"], json!(true), "{out}");
+    assert_eq!(g["thinkingConfig"]["thinkingBudget"], json!(1024), "{out}");
+    assert_eq!(out["safetySettings"][0]["threshold"], json!("BLOCK_NONE"), "{out}");
+    // 原有 4 项不因扩字段而回归
+    assert_eq!(g["maxOutputTokens"], json!(512), "{out}");
+    assert_eq!(g["temperature"], json!(0.5), "{out}");
+    // gemini 的模型名只进 URL path，body 不得多出 model 键
+    assert!(out.get("model").is_none(), "gemini body 不应含 model 键: {out}");
+}
+
+/// anthropic → gemini：`stop_sequences` / `top_k` 落到 gemini 的对应键
+/// （anthropic 顶层未建模键由 `ChatRequest` 的 flatten `extra` 收下）。
+#[test]
+fn fa09_anthropic_stop_and_top_k_to_gemini() {
+    let body = json!({
+        "model": "m", "max_tokens": 100,
+        "stop_sequences": ["\n\nHuman:"],
+        "top_k": 5,
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(out["generationConfig"]["stopSequences"], json!(["\n\nHuman:"]), "{out}");
+    assert_eq!(out["generationConfig"]["topK"], json!(5), "{out}");
+}
+
+/// 字符串形态的 `stop` 升为单元素数组（Gemini `stopSequences` 只吃数组）。
+#[test]
+fn fa09_string_stop_normalized_to_array_for_gemini() {
+    let body = json!({
+        "model": "m", "max_tokens": 100, "stop": "END",
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(out["generationConfig"]["stopSequences"], json!(["END"]), "{out}");
+}
+
+/// `response_format`（OpenAI 形态 JSON 模式）→ gemini `responseMimeType` + `responseSchema`。
+/// 用 anthropic 入站承载：openai 入站的 `from_openai` 当前写死 `extra: None`，
+/// 该键到不了中立层（中立层缺口，非本票范围）。
+#[test]
+fn fa09_response_format_json_schema_maps_to_gemini() {
+    let schema = json!({"type": "object", "properties": {"n": {"type": "number"}}});
+    let body = json!({
+        "model": "m", "max_tokens": 100,
+        "response_format": {"type": "json_schema", "json_schema": {"name": "s", "schema": schema}},
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(out["generationConfig"]["responseMimeType"], json!("application/json"), "{out}");
+    assert_eq!(out["generationConfig"]["responseSchema"], schema, "{out}");
+
+    // json_object 形态：只出 mime，不造 schema
+    let body2 = json!({
+        "model": "m", "max_tokens": 100,
+        "response_format": {"type": "json_object"},
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req2 = parse_incoming_request(&Protocol::Anthropic, &body2).expect("parse");
+    let (out2, _) = convert_request(&req2, &Protocol::Gemini, &Protocol::Gemini);
+    assert_eq!(out2["generationConfig"]["responseMimeType"], json!("application/json"), "{out2}");
+    assert!(out2["generationConfig"].get("responseSchema").is_none(), "{out2}");
+}
+
+/// gate 回归：新字段单独存在（无 maxOutputTokens / temperature / topP / thinkingBudget）
+/// 时 generationConfig 节点仍必须生成——gate 漏扩即在此失败。
+#[test]
+fn fa09_generation_config_gate_covers_new_fields_alone() {
+    for (name, body) in [
+        ("stopSequences", json!({
+            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+            "generationConfig": {"stopSequences": ["END"]}
+        })),
+        ("topK", json!({
+            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+            "generationConfig": {"topK": 3}
+        })),
+        ("responseMimeType", json!({
+            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+            "generationConfig": {"responseMimeType": "application/json"}
+        })),
+        ("responseSchema", json!({
+            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+            "generationConfig": {"responseSchema": {"type": "object"}}
+        })),
+    ] {
+        let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+        let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+        assert!(
+            out.get("generationConfig").is_some(),
+            "{name} 单独存在时 generationConfig 节点丢失: {out}"
+        );
+    }
+}
+
+/// 守卫式 no-op：入站无任何生成参数 → 不产 generationConfig / safetySettings 节点，也不造默认值。
+#[test]
+fn fa09_no_generation_params_no_nodes() {
+    let body = json!({"contents": [{"role": "user", "parts": [{"text": "hi"}]}]});
+    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    assert!(req.extra.is_none(), "无生成参数时不应产生 extra: {:?}", req.extra);
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert!(out.get("generationConfig").is_none(), "{out}");
+    assert!(out.get("safetySettings").is_none(), "{out}");
+}
+
+/// 邻居不受影响：gemini 新增字段不外溢到 anthropic / openai 目标（各自允许集合由票 01 的 forward seam 管）。
+#[test]
+fn fa09_gemini_only_keys_do_not_leak_to_other_targets() {
+    let body = json!({
+        "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+        "generationConfig": {"maxOutputTokens": 10, "stopSequences": ["END"], "topK": 3},
+        "safetySettings": [{"category": "c", "threshold": "t"}]
+    });
+    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    for (name, tgt) in [("anthropic", Protocol::Anthropic), ("openai", Protocol::OpenAI)] {
+        let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
+        assert!(out.get("safetySettings").is_none(), "{name} 目标不应出现 safetySettings: {out}");
+        assert!(out.get("stopSequences").is_none(), "{name} 目标不应出现 gemini 键名: {out}");
+        assert!(out.get("topK").is_none(), "{name} 目标不应出现 gemini 键名: {out}");
+    }
+}

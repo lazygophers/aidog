@@ -347,8 +347,21 @@ pub(crate) async fn handle_proxy_core(
 
     let is_stream = chat_req.stream.unwrap_or(false);
     log.is_stream = is_stream;
+    // gemini 入站的模型名在 URL path（`/v1beta/models/<model>:generateContent`）而非 body，
+    // body 与 `from_gemini` 两处都取不到 → 路由拿到空模型名：模型映射不命中，且出站
+    // `/v1beta/models/{model}:…` 的模型段为空。故 gemini 源从 path 兜底取模型（票 09）。
+    let raw_model = if raw_model.is_empty() && matches!(source_protocol, Protocol::Gemini) {
+        model_from_gemini_path(&path)
+    } else {
+        raw_model
+    };
     let requested_model = if chat_req.model.is_empty() { raw_model } else { chat_req.model.clone() };
     log.model = requested_model.clone();
+    // 路由按 `chat_req.model` 选候选（下方 select_candidates_ctx），gemini 源此处仍为空，
+    // 补齐后模型映射与出站 path 才拿得到模型名。其余协议 model 本就来自 body，此赋值等价空操作。
+    if chat_req.model.is_empty() {
+        chat_req.model = requested_model.clone();
+    }
 
     // ── 中间件入站规则（global/group 层，路由前）──
     // settings 读取 fail-open（异常 → Default 总开关 ON）；apply 内单条规则异常不阻断主链路。

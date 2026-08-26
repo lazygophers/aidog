@@ -52,6 +52,20 @@ pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
 }
 
 
+/// 从 gemini 入站 path 取模型名：`/v1beta/models/<model>:<method>` → `<model>`。
+///
+/// gemini 的模型名只在 URL 里，body 无此字段（票 09）。取不到返回空串，调用方按「无模型名」处理。
+/// 代理根前缀（`/proxy/...`）与方法段（`:generateContent` / `:streamGenerateContent` /
+/// `:countTokens`）都不进结果。
+pub(crate) fn model_from_gemini_path(path: &str) -> String {
+    let Some(idx) = path.find("/models/") else {
+        return String::new();
+    };
+    let rest = &path[idx + "/models/".len()..];
+    let seg = rest.split('/').next().unwrap_or("");
+    seg.split(':').next().unwrap_or("").to_string()
+}
+
 pub(crate) fn select_endpoint_for_protocol<'a>(
     endpoints: &'a [super::models::PlatformEndpoint],
     source_protocol: &Protocol,

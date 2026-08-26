@@ -290,7 +290,17 @@ pub(crate) async fn forward_attempt(
         let mut body = req_value.clone();
         // model remap：透传下仍必须替换路由模型名（请求体 model 字段）
         if let Some(obj) = body.as_object_mut() {
-            obj.insert("model".to_string(), Value::String(actual_model.clone()));
+            match target_protocol_enum {
+                // Gemini generateContent 的 body 规范里没有顶层 model（模型在 URL path，
+                // 由下方 passthrough_api_path 用改写后的 actual_model 构造）。客户端若带了这个键，
+                // 上游按未知字段判 400，故剔除而非改写（票 09）。
+                Protocol::Gemini => {
+                    obj.remove("model");
+                }
+                _ => {
+                    obj.insert("model".to_string(), Value::String(actual_model.clone()));
+                }
+            }
         }
         let path = adapter::passthrough_api_path(target_protocol_enum, &actual_model, platform_protocol);
         tracing::debug!(protocol = %target_protocol, "same-protocol passthrough: skip request format conversion");
