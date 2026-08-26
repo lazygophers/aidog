@@ -20,6 +20,8 @@ pub struct ResponsesRequest {
     pub stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -32,8 +34,10 @@ pub struct ResponsesInput {
 pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
     let input: Vec<Value> = req.messages.iter().flat_map(|m| {
         let role_str = match m.role { Role::User => "user", Role::Assistant => "assistant", Role::System => "developer", Role::Tool => "tool" };
+        // Responses 的 part 类型按角色分：助手轮是模型产出（output_text），其余轮是输入（input_text）
+        let part_type = if matches!(m.role, Role::Assistant) { "output_text" } else { "input_text" };
         m.content.blocks().into_iter().filter_map(move |b| match b {
-            ContentBlock::Text { text, .. } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":"input_text","text":text}]})),
+            ContentBlock::Text { text, .. } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":part_type,"text":text}]})),
             ContentBlock::ToolUse { id, name, input, .. } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
             // function_call_output.output 只吃文本：失败标注与非文本 block 的占位都在文本里
             ContentBlock::ToolResult { tool_use_id, content, is_error, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":mark_tool_error(&content, is_error)})),
@@ -49,7 +53,14 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         let kept: Vec<Value> = client_tools(tools, "openai_responses").into_iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
         (!kept.is_empty()).then_some(Value::Array(kept))
     });
-    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools }
+    // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆
+    let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {
+        ToolChoice::Auto => serde_json::json!("auto"),
+        ToolChoice::Any => serde_json::json!("required"),
+        ToolChoice::None => serde_json::json!("none"),
+        ToolChoice::Named { name } => serde_json::json!({"type":"function","name":name}),
+    });
+    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools, tool_choice }
 }
 
 /// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
@@ -659,6 +670,62 @@ mod tests {
 
         assert_eq!(out.max_output_tokens, Some(1024));
         assert_eq!(out.stream, Some(true));
+    }
+
+    #[test]
+    fn to_responses_text_part_type_by_role() {
+        // user + assistant + user 三轮：助手轮的 part 必须是 output_text，用户轮是 input_text
+        let body = json!({
+            "model": "gpt-5",
+            "input": [
+                { "role": "user", "content": [{"type":"input_text","text":"q1"}] },
+                { "role": "assistant", "content": [{"type":"output_text","text":"a1"}] },
+                { "role": "user", "content": [{"type":"input_text","text":"q2"}] }
+            ]
+        });
+        let req = from_responses(&body).expect("parse");
+        let out = to_responses(&req);
+        let parts: Vec<(&str, &str)> = out
+            .input
+            .iter()
+            .map(|i| (i["role"].as_str().unwrap(), i["content"][0]["type"].as_str().unwrap()))
+            .collect();
+        assert_eq!(
+            parts,
+            vec![("user", "input_text"), ("assistant", "output_text"), ("user", "input_text")]
+        );
+    }
+
+    #[test]
+    fn to_responses_single_user_turn_unchanged() {
+        // 回归防线：单轮 user 请求仍然是 input_text
+        let req = from_responses(&json!({ "model": "gpt-5", "input": "say hi" })).expect("parse");
+        let out = to_responses(&req);
+        assert_eq!(out.input.len(), 1);
+        assert_eq!(out.input[0]["type"], "message");
+        assert_eq!(out.input[0]["role"], "user");
+        assert_eq!(out.input[0]["content"][0]["type"], "input_text");
+        assert_eq!(out.input[0]["content"][0]["text"], "say hi");
+    }
+
+    #[test]
+    fn to_responses_tool_choice_roundtrip() {
+        // tool_choice 曾在 Responses→Responses 路径静默消失
+        for (inbound, expected) in [
+            (json!("auto"), json!("auto")),
+            (json!("required"), json!("required")),
+            (json!("none"), json!("none")),
+            (json!({"type":"function","name":"f"}), json!({"type":"function","name":"f"})),
+        ] {
+            let req = from_responses(&json!({
+                "model": "gpt-5", "input": "hi", "tool_choice": inbound
+            }))
+            .expect("parse");
+            assert_eq!(to_responses(&req).tool_choice, Some(expected));
+        }
+        // 未指定时不写出该键
+        let req = from_responses(&json!({ "model": "gpt-5", "input": "hi" })).expect("parse");
+        assert!(to_responses(&req).tool_choice.is_none());
     }
 
     // ── render_responses_response 测试 ──
