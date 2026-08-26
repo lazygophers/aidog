@@ -21,11 +21,13 @@ async fn price_crud_and_resolve() {
     assert_eq!(f.len(), 1);
     assert_eq!(aidog_db::filtered_count_model_prices(&db, Some("cl"), None).await.unwrap(), 1);
 
+    // 计费解析已改查 model_entry（票 T4）：model_price 里的行不再参与，
+    // 落到 bundled registry 的 (anthropic, claude-opus-4-6) 条目上。
     let settings = gateway::price_sync::get_sync_settings(&db).await;
-    let r = aidog_db::resolve_price(&db, "claude", "anthropic", settings.fallback_input_price, settings.fallback_output_price, 0, 0).await.unwrap();
-    assert_eq!(r.source, "top_level");
-    let r2 = aidog_db::resolve_price(&db, "claude", "anthropic", settings.fallback_input_price, settings.fallback_output_price, 0, 0).await.unwrap();
-    assert!(r2.input_cost_per_token > 0.0);
+    let r = aidog_db::resolve_price(&db, "anthropic", "claude-opus-4-6", settings.fallback_input_price, settings.fallback_output_price, 0, 0, false).await.unwrap();
+    assert_eq!(r.price.source, "model_entry");
+    assert!(r.price.input_cost_per_token > 0.0);
+    assert!(!r.peak_applied);
 }
 
 #[tokio::test]

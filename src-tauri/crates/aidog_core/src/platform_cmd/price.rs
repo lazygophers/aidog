@@ -56,7 +56,14 @@ pub async fn model_price_resolve(
     let input_tokens = input_tokens.unwrap_or(0);
     tracing::debug!(command = "model_price_resolve", model_name = %model_name, platform_type = %platform_type, input_tokens, "command invoked");
     let settings = gateway::price_sync::get_sync_settings(&db).await;
-    aidog_db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price, input_tokens, aidog_db::now()).await
+    // 预览口径与计费链一致：先判高峰（preset 默认窗口，无 platform_id 上下文故不读用户覆盖），
+    // 再按 (platform_type, model_name) 查 model_entry。
+    let now_ms = aidog_db::now();
+    let windows = gateway::peak_hours::default_peak_hours(&platform_type);
+    let is_peak = gateway::peak_hours::is_in_peak_window(&windows, now_ms, &model_name);
+    aidog_db::resolve_price(&db, &platform_type, &model_name, settings.fallback_input_price, settings.fallback_output_price, input_tokens, now_ms, is_peak)
+        .await
+        .map(|r| r.price)
 }
 }
 

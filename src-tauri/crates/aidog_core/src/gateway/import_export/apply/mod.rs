@@ -224,18 +224,26 @@ fn build_items(
         });
     }
 
-    // model_price：key = `model:<model_name>`（model_name 唯一）；label = model_name。
+    // model_entry：key = `model:<platform_code>:<model_id>`（复合主键）；label = `<platform>/<model>`。
     for mp in &payload.model_price {
-        let name = mp.get("model_name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+        let Some((key, label)) = model_entry_key(mp) else { continue };
         out.push(ImportItem {
             scope: SCOPE_MODEL_PRICE.to_string(),
-            key: format!("model:{name}"),
-            label: name.to_string(),
+            key,
+            label,
             conflict: false,
         });
     }
 
     out
+}
+
+/// `model_entry` 行 → (选择项 key, 展示 label)。缺 `platform_code` / `model_id` → None
+/// （旧备份里的 `model_price` 行走这条，静默不出现在勾选列表里）。
+fn model_entry_key(row: &serde_json::Value) -> Option<(String, String)> {
+    let s = |k: &str| row.get(k).and_then(|v| v.as_str()).filter(|v| !v.is_empty());
+    let (platform, model) = (s("platform_code")?, s("model_id")?);
+    Some((format!("model:{platform}:{model}"), format!("{platform}/{model}")))
 }
 
 /// 把决策列表索引化便于查询。
@@ -313,9 +321,9 @@ pub fn filter_payload(payload: &mut Payload, selection: Option<&Selection>) {
     }
     payload.middleware = middleware;
 
-    payload.model_price.retain(|mp| {
-        let name = mp.get("model_name").and_then(|v| v.as_str()).unwrap_or("");
-        keep(super::SCOPE_MODEL_PRICE, &format!("model:{name}"))
+    payload.model_price.retain(|mp| match model_entry_key(mp) {
+        Some((key, _)) => keep(super::SCOPE_MODEL_PRICE, &key),
+        None => false,
     });
 }
 
@@ -498,33 +506,19 @@ async fn apply_db(
         }
     }
 
-    // model_price（key = model:<model_name>；upsert by (model_name, source) UNIQUE 覆盖）
+    // model_entry（key = model:<platform_code>:<model_id>；upsert by 复合主键覆盖）。
+    // 旧备份的 model_price 行没有 platform_code → model_entry_key 返 None → 跳过，不报错。
     for mp in &payload.model_price {
-        let model_name = match mp.get("model_name").and_then(|v| v.as_str()) {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-        if !is_selected(selection, super::SCOPE_MODEL_PRICE, &format!("model:{model_name}")) {
+        let Some((key, label)) = model_entry_key(mp) else { continue };
+        if !is_selected(selection, super::SCOPE_MODEL_PRICE, &key) {
             continue;
         }
-        match serde_json::from_value::<crate::gateway::models::ModelPrice>(mp.clone()) {
-            Ok(p) => {
-                let res = aidog_db::upsert_model_price(
-                    db,
-                    &p.model_name,
-                    &p.source,
-                    &p.price_data,
-                    p.max_input_tokens,
-                    p.max_output_tokens,
-                    p.context_window,
-                )
-                .await;
-                match res {
-                    Ok(()) => bump(&mut report.applied, super::SCOPE_MODEL_PRICE),
-                    Err(e) => report.errors.push(format!("model_price「{}」: {e}", p.model_name)),
-                }
-            }
-            Err(e) => report.errors.push(format!("model_price parse: {e}")),
+        match serde_json::from_value::<crate::gateway::models::ModelEntry>(mp.clone()) {
+            Ok(e) => match aidog_db::upsert_model_entries(db, vec![e]).await {
+                Ok(_) => bump(&mut report.applied, super::SCOPE_MODEL_PRICE),
+                Err(err) => report.errors.push(format!("model_entry「{label}」: {err}")),
+            },
+            Err(err) => report.errors.push(format!("model_entry「{label}」parse: {err}")),
         }
     }
 
