@@ -2,10 +2,6 @@
 name: aidog-add-platform
 description: 在 aidog 里加一个新平台或改一个平台的默认配置（base_url / 端点协议 / coding plan / 默认模型 / 余额查询）。覆盖「加 Protocol 枚举变体（Rust↔TS 双写）、前端 Platforms.tsx 预设、余额/coding plan 配额查询、价格估算接入」全套触点与顺序，并避开调研证实的反直觉陷阱（预设住前端非 db.rs、glm/kimi adapter 是死代码、quota 按 base_url 子串分派）。触发词：加平台、新增平台、添加平台、改平台默认配置、平台 base_url、平台预设、getDefaultEndpoints、获取余额、查余额、coding plan 配额、coding plan 查询、默认模型、Protocol 枚举、新协议、新增 adapter。
 when_to_use: 给 aidog 新增一个平台预设（下拉里能选、自动填 base_url）；改某平台的默认 base_url/端点/coding plan；给平台接上游余额或 coding plan 配额查询；加一个全新的 wire 协议（anthropic/openai/gemini 都不匹配）时
-paths:
-  - src/pages/Platforms.tsx
-  - src/services/api.ts
-  - src-tauri/src/gateway/**
 ---
 
 # aidog 加平台 / 改平台
@@ -243,3 +239,4 @@ cd src-tauri && cargo test           # 若动 quota/estimate/usage_color
 - 默认模型节：`references/default-model.md`
 - 请求链路调试：`aidog-request-inspect` skill
 - 流程/IA：`aidog-flow-ia` skill
+- 主要涉及文件：`src/pages/Platforms.tsx`、`src/services/api.ts`、`src-tauri/src/gateway/**`

@@ -3,11 +3,6 @@ name: aidog-price-source-update
 description: |
   更新 aidog 模型定价信源（models.json 人工维护 + app 远端拉取 + 模型 max_tokens）。固化 resolve_price 回退链（不改估算代码里默认价）、上下文阶梯定价（context_tiers + resolve_price 按 input_tokens 选档）、出站 cap、app 定时拉取（price_sync.rs）。触发词：更新价格、定价信源、加模型定价、max_tokens、context_tiers、阶梯计费、price_sync、模型价格月级腐化、新平台定价。
 when_to_use: 模型价格过期需刷新（月级腐化）；加新平台/新模型需接定价；要改 context_tiers 阶梯计费；price_sync 拉取链路出问题；resolve_price 回退不到价
-paths:
-  - src-tauri/defaults/models.json
-  - src-tauri/src/gateway/price_sync.rs
-  - src-tauri/src/gateway/estimate.rs
-  - src-tauri/src/gateway/db.rs
 ---
 
 # aidog 定价信源更新
@@ -105,3 +100,4 @@ cd src-tauri && cargo test                      # estimate/db 有 resolve_price 
 - 持久化：memory `est-cost-persistence`
 - 阶梯计费：memory `openai-pricing-scraper-tiered`
 - 脚本：`src-tauri/src/gateway/price_sync.rs`、`estimate.rs`、`db.rs`（resolve_price）
+- 主要涉及文件：`src-tauri/defaults/models.json`、`src-tauri/src/gateway/price_sync.rs`、`src-tauri/src/gateway/estimate.rs`、`src-tauri/src/gateway/db.rs`
