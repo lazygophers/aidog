@@ -241,6 +241,17 @@ CREATE TABLE IF NOT EXISTS platform_preset (
     deleted_at  INTEGER NOT NULL DEFAULT 0
 );"#,
                 )?;
+
+                // Migration 20260826-02 (model-info 票 T10): model_entry 加模型展示名列。
+                // 单字符串全语言共用（模型名是品牌标识，不译）。独立成列而非塞 price_data JSON——
+                // 它要参与列表排序与搜索，塞 JSON 会逼查询层解 JSON。
+                // 列存 registry 原值（可为空串，registry 不为省事把展示名填成 model_id）；
+                // 缺省/空串回落 model_id 发生在读取层（model_entry.rs::row_to_model_entry）。
+                // `let _ =` 是本文件既有加列 idiom：列已存在时 ALTER 报错被吞，等价幂等。
+                let _ = conn.execute(
+                    "ALTER TABLE model_entry ADD COLUMN display_name TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
     Ok(())
 }
 

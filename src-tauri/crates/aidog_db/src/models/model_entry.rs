@@ -19,6 +19,11 @@ pub struct ModelEntry {
     pub platform_code: String,
     /// 该平台上的真实请求名。
     pub model_id: String,
+    /// 人类可读展示名，单字符串全语言共用（模型名是品牌标识，不译）。
+    /// registry 里可缺省或为空串——**回落在读取层**：读出来的这个字段恒非空，
+    /// 缺省/空串时等于 `model_id`，调用方与前端不再各写回落分支。
+    /// 写入层原样存 registry 值（不把 `model_id` 回填进列），故 DB 列可为空串。
+    pub display_name: String,
     /// 内部统一 id，跨平台聚合键。缺省回落 `model_id`（写入层保证非空）。
     pub canonical_model: String,
     pub family: String,
@@ -61,6 +66,9 @@ pub struct PlatformPreset {
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ModelEntryGroup {
     pub canonical_model: String,
+    /// 聚合行默认展示名 = 代表条目（`primary_platform` 那条）的 `display_name`，恒非空。
+    /// 各平台条目的 `display_name` 各自独立，不被本字段覆盖。
+    pub display_name: String,
     /// 代表条目所在平台：优先 `official = true`，否则按 `platform_code` 字典序第一条。
     pub primary_platform: String,
     /// 该 canonical 下全部平台条目，`platform_code` 升序。
