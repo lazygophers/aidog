@@ -115,9 +115,17 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
         top_p: req.top_p,
         stream: req.stream,
         tools,
-        thinking: req.thinking_budget.map(|b| {
-            serde_json::json!({ "type": "enabled", "budget_tokens": b })
-        }),
+        // 思考档位出站（票 03）：显式禁用一票否决；否则用数字预算，无预算时由档位名换算
+        // （换算表见 `crate::thinking`）。**只写 Anthropic 官方词汇 `enabled` / `disabled`**：
+        // 客户端 `thinking.type=adaptive` 是 Claude Code 2.x / pi 私有值，原样送官方端点会 400，
+        // 因此归一成 `enabled` + 换算出的 budget；adaptive 且无 effort 无预算时算不出数，
+        // 不写 thinking 字段（不猜一个预算替客户端做主）。
+        thinking: if crate::thinking::is_disabled(req) {
+            Some(serde_json::json!({ "type": "disabled" }))
+        } else {
+            crate::thinking::outbound_budget(req)
+                .map(|b| serde_json::json!({ "type": "enabled", "budget_tokens": b }))
+        },
         tool_choice: req.tool_choice.as_ref().map(|tc| {
             match tc {
                 ToolChoice::Auto => serde_json::json!({"type": "auto"}),

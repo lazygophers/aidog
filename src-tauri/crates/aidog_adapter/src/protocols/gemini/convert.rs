@@ -201,13 +201,21 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         (!decls.is_empty()).then(|| vec![GeminiToolDecl { function_declarations: decls }])
     });
 
+    // 思考档位出站（票 03）：显式禁用写 Gemini 官方认的 `thinkingBudget: 0`（与
+    // `forward.rs::apply_disable_thinking` 的 Gemini 分支同一写法）；否则用数字预算，
+    // 无预算时由档位名换算（换算表见 `crate::thinking`）。
+    let thinking_config = if crate::thinking::is_disabled(req) {
+        Some(GeminiThinkingConfig { thinking_budget: 0 })
+    } else {
+        crate::thinking::outbound_budget(req).map(|b| GeminiThinkingConfig { thinking_budget: b })
+    };
     let generation_config = if req.max_tokens.is_some() || req.temperature.is_some() || req.top_p.is_some()
-        || req.thinking_budget.is_some() {
+        || thinking_config.is_some() {
         Some(GeminiGenerationConfig {
             max_output_tokens: req.max_tokens,
             temperature: req.temperature,
             top_p: req.top_p,
-            thinking_config: req.thinking_budget.map(|b| GeminiThinkingConfig { thinking_budget: b }),
+            thinking_config,
         })
     } else {
         None
@@ -536,7 +544,9 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         tools,
         tool_choice: None,
         extra: None,
-        thinking_mode: None,
+        // Gemini 用 `thinkingBudget: 0` 表达「不要思考」（票 03）：归一成中立三态的显式禁用，
+        // 否则 0 预算出站会被当成「开启且预算为 0」（anthropic 会写 budget_tokens: 0）。
+        thinking_mode: (thinking_budget == Some(0)).then(crate::thinking::disabled_mode),
     })
 }
 
