@@ -6,6 +6,11 @@ import type { ModelEntry } from "./ModelEntry";
  */
 export type ModelEntryGroup = { canonical_model: string, 
 /**
+ * 聚合行默认展示名 = 代表条目（`primary_platform` 那条）的 `display_name`，恒非空。
+ * 各平台条目的 `display_name` 各自独立，不被本字段覆盖。
+ */
+display_name: string, 
+/**
  * 代表条目所在平台：优先 `official = true`，否则按 `platform_code` 字典序第一条。
  */
 primary_platform: string, 
