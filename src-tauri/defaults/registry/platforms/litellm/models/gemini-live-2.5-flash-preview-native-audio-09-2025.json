@@ -1,0 +1,14 @@
+{
+  "model_id": "gemini-live-2.5-flash-preview-native-audio-09-2025",
+  "canonical_model": "gemini-live-2.5-flash-preview-native-audio-09-2025",
+  "capabilities": [
+    "audio"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 65535,
+  "official": false,
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 0.000002,
+  "cache_read_input_token_cost": 7.5e-8
+}

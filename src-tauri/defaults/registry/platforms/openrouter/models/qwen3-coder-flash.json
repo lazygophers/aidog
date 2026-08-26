@@ -1,0 +1,14 @@
+{
+  "model_id": "qwen3-coder-flash",
+  "canonical_model": "qwen3-coder-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": false,
+  "input_cost_per_token": 1.3888888888888888e-7,
+  "output_cost_per_token": 5.555555555555555e-7,
+  "cache_read_input_token_cost": 1.388888888888889e-8
+}

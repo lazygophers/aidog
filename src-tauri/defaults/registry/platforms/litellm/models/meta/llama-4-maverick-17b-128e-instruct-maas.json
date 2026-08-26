@@ -1,0 +1,13 @@
+{
+  "model_id": "meta/llama-4-maverick-17b-128e-instruct-maas",
+  "canonical_model": "meta/llama-4-maverick-17b-128e-instruct-maas",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "input_cost_per_token": 3.5e-7,
+  "output_cost_per_token": 0.00000115
+}

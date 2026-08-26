@@ -93,7 +93,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
     let available_str = serialize_available_models(&available_models);
     // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
     let endpoints = if input.platform_type.endpoints_locked() {
-        crate::presets_cache::default_endpoints(&input.platform_type.wire_str())
+        crate::registry::default_endpoints(&input.platform_type.wire_str())
     } else {
         input.endpoints.unwrap_or_default()
     };
@@ -265,7 +265,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
     let platform_type = input.platform_type.unwrap_or(existing.platform_type);
     // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
     let endpoints = if platform_type.endpoints_locked() {
-        crate::presets_cache::default_endpoints(&platform_type.wire_str())
+        crate::registry::default_endpoints(&platform_type.wire_str())
     } else {
         input.endpoints.unwrap_or(existing.endpoints)
     };

@@ -1,14 +1,13 @@
 //! defaults.json / client-types.json 读取命令。
 //!
-//! 2026-08-16 内置化：两份 JSON 已删除，真值源 = 代码内 const（`presets_const.rs` /
-//! `client_types_const.rs`），app data 覆盖与远端同步链整体移除——内置即唯一，禁改。
+//! 真值源 = `defaults/registry/`（编译期 include，见 `aidog_db::registry`）与代码内
+//! `client_types_const.rs`；app data 覆盖与远端同步链整体移除——内置即唯一，禁改。
 
-const BUNDLED: &str = crate::gateway::presets_cache::bundled_str();
 const CLIENT_TYPES_BUNDLED: &str = crate::gateway::client_types_const::BUNDLED;
 
 crate::tauri_command! {
     pub async fn get_defaults_json() -> Result<String, String> {
-        Ok(BUNDLED.to_string())
+        Ok(crate::gateway::registry::presets_json().to_string())
     }
 }
 

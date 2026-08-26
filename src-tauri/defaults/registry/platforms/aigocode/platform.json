@@ -1,0 +1,64 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.aigocode.com",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.aigocode.com/v1",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "gemini",
+        "base_url": "https://api.aigocode.com",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-sonnet-4-6",
+      "opus": "claude-opus-4-8",
+      "haiku": "claude-haiku-4-5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gemini-3.1-pro-preview",
+      "gemini-3.5-flash",
+      "gemini-3-flash-preview"
+    ]
+  },
+  "name": {
+    "en-US": "AIGoCode",
+    "zh-Hans": "AIGoCode",
+    "ar-SA": "AIGoCode",
+    "fr-FR": "AIGoCode",
+    "de-DE": "AIGoCode",
+    "ru-RU": "AIGoCode",
+    "ja-JP": "AIGoCode",
+    "es-ES": "AIGoCode"
+  },
+  "source_urls": {
+    "docs": "https://www.aigocode.com/",
+    "pricing": "https://www.aigocode.com/pricing"
+  },
+  "homepage": "https://www.aigocode.com",
+  "logo_url": "",
+  "keywords": [
+    "aigocode"
+  ],
+  "color": "#5B7FFF"
+}

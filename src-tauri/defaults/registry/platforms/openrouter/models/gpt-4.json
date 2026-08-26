@@ -1,0 +1,13 @@
+{
+  "model_id": "gpt-4",
+  "canonical_model": "gpt-4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8191,
+  "max_output_tokens": 4096,
+  "context_window": 8191,
+  "official": false,
+  "input_cost_per_token": 0.00003,
+  "output_cost_per_token": 0.00006
+}

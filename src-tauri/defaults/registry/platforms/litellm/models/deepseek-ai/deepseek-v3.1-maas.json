@@ -1,0 +1,13 @@
+{
+  "model_id": "deepseek-ai/deepseek-v3.1-maas",
+  "canonical_model": "deepseek-ai/deepseek-v3.1-maas",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 163840,
+  "max_output_tokens": 32768,
+  "context_window": 32768,
+  "official": false,
+  "input_cost_per_token": 0.00000135,
+  "output_cost_per_token": 0.0000054
+}

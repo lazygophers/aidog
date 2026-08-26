@@ -1,0 +1,12 @@
+{
+  "model_id": "gemini-gemma-2-9b-it",
+  "canonical_model": "gemini-gemma-2-9b-it",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 8192,
+  "context_window": 8192,
+  "official": false,
+  "input_cost_per_token": 3.5e-7,
+  "output_cost_per_token": 0.00000105
+}

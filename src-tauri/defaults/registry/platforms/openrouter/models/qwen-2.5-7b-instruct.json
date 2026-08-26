@@ -1,0 +1,13 @@
+{
+  "model_id": "qwen-2.5-7b-instruct",
+  "canonical_model": "qwen-2.5-7b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": false,
+  "input_cost_per_token": 4e-8,
+  "output_cost_per_token": 1e-7
+}

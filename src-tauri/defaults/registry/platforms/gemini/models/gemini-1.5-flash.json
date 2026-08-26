@@ -1,0 +1,16 @@
+{
+  "model_id": "gemini-1.5-flash",
+  "canonical_model": "gemini-1.5-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": true,
+  "input_cost_per_token": 7.5e-8,
+  "default_price": {
+    "input_cost_per_token": 7.5e-8,
+    "output_cost_per_token": 0,
+    "cache_read_input_token_cost": 0
+  }
+}

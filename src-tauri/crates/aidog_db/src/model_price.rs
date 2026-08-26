@@ -189,7 +189,7 @@ pub async fn resolve_price(
     let mp = get_model_price(db, model_name).await?;
     let pd: serde_json::Value = match &mp {
         Some(m) => serde_json::from_str(&m.price_data).unwrap_or_default(),
-        None => bundled_model_entry(model_name)
+        None => crate::registry::model_entry(model_name)
             .cloned()
             .unwrap_or(serde_json::Value::Null),
     };
@@ -467,16 +467,3 @@ pub fn filtered_count_model_prices<'a>(
 // ─── MCP server CRUD ───────────────────────────────────────
 // 集中存 MCP server 配置（migration 20260727-11，原 020）。行结构见 aidog_mcp::McpServerRow。
 // env_json/headers_json 含原始敏感值，调用方负责脱敏后再返前端。
-
-/// bundled models.json 里该模型的 price_data 节点。DB 未同步时的只读兜底
-/// （`resolve_price`：DB 无该模型行才读，DB 恒优先）。
-/// 原 aidog_core::gateway::price_sync 同名实现下沉（2026-08-16 db-crate 拆分）。
-const BUNDLED_MODELS: &str = include_str!("../../../defaults/models.json");
-static BUNDLED: std::sync::OnceLock<serde_json::Value> = std::sync::OnceLock::new();
-
-pub fn bundled_model_entry(name: &str) -> Option<&'static serde_json::Value> {
-    BUNDLED
-        .get_or_init(|| serde_json::from_str(BUNDLED_MODELS).unwrap_or_default())
-        .get("models")?
-        .get(name)
-}

@@ -1,0 +1,61 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.pateway.ai",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.pateway.ai/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "sonnet": "claude-sonnet-4-6",
+      "gpt": "gpt-5.5",
+      "default": "deepseek-v4-pro"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "gpt-5.5",
+      "gpt-5.3-codex",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "qwen3.7-max",
+      "qwen3.6-plus",
+      "glm-5.1",
+      "glm-5"
+    ]
+  },
+  "name": {
+    "en-US": "PatewayAI",
+    "zh-Hans": "PatewayAI",
+    "ar-SA": "PatewayAI",
+    "fr-FR": "PatewayAI",
+    "de-DE": "PatewayAI",
+    "ru-RU": "PatewayAI",
+    "ja-JP": "PatewayAI",
+    "es-ES": "PatewayAI"
+  },
+  "source_urls": {
+    "docs": "https://pateway.ai/docs/",
+    "pricing": "https://pateway.ai/docs/pricing.html"
+  },
+  "homepage": "https://pateway.ai",
+  "logo_url": "",
+  "keywords": [
+    "pateway"
+  ],
+  "color": "#00A67E"
+}

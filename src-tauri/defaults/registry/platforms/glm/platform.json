@@ -1,0 +1,62 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "client_type": "codex_tui",
+        "coding_plan": false
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://open.bigmodel.cn/api/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": false
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "glm-5.2"
+    }
+  },
+  "model_list": {
+    "default": [
+      "glm-5.3",
+      "glm-5.2",
+      "glm-5.1",
+      "glm-5",
+      "glm-5-turbo",
+      "glm-4.7",
+      "glm-4.7-flashx",
+      "glm-4.7-flash",
+      "glm-4.6",
+      "glm-4.5-air",
+      "glm-4.5-airx"
+    ]
+  },
+  "name": {
+    "en-US": "GLM (Zhipu AI)",
+    "zh-Hans": "GLM（智谱）",
+    "ar-SA": "GLM (Zhipu AI)",
+    "fr-FR": "GLM (Zhipu AI)",
+    "de-DE": "GLM (Zhipu AI)",
+    "ru-RU": "GLM (Zhipu AI)",
+    "ja-JP": "GLM（ジーフーエム）",
+    "es-ES": "GLM (Zhipu AI)"
+  },
+  "source_urls": {
+    "docs": "https://docs.bigmodel.cn/cn/guide/start/quick-start",
+    "pricing": "https://open.bigmodel.cn/pricing"
+  },
+  "homepage": "https://www.zhipuai.cn",
+  "logo_url": "",
+  "keywords": [
+    "zhipu",
+    "智谱",
+    "bigmodel",
+    "codegeex"
+  ],
+  "color": "#3B5FEC"
+}

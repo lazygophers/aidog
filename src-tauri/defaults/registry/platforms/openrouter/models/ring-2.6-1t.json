@@ -1,0 +1,14 @@
+{
+  "model_id": "ring-2.6-1t",
+  "canonical_model": "ring-2.6-1t",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 7.5e-8,
+  "output_cost_per_token": 6.25e-7,
+  "cache_read_input_token_cost": 1.5e-8
+}

@@ -1,0 +1,58 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.xiaomimimo.com/anthropic",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.xiaomimimo.com/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "mimo-v2.5-pro"
+    }
+  },
+  "model_list": {
+    "default": [
+      "mimo-v2.5-pro",
+      "mimo-v2.5",
+      "mimo-v2-flash"
+    ]
+  },
+  "name": {
+    "en-US": "Xiaomi MiMo",
+    "zh-Hans": "小米 MiMo",
+    "ar-SA": "Xiaomi MiMo",
+    "fr-FR": "Xiaomi MiMo",
+    "de-DE": "Xiaomi MiMo",
+    "ru-RU": "Xiaomi MiMo",
+    "ja-JP": "小米 MiMo",
+    "es-ES": "Xiaomi MiMo"
+  },
+  "source_urls": {
+    "docs": "https://platform.xiaomimimo.com/docs",
+    "pricing": "https://platform.xiaomimimo.com/docs/en-US/quick-start/summary/model"
+  },
+  "homepage": "https://mimo.xiaomi.com",
+  "logo_url": "xiaomi",
+  "keywords": [
+    "xiaomi",
+    "小米",
+    "mimo",
+    "xiaomi coding",
+    "小米编程",
+    "mimo token plan",
+    "token plan"
+  ],
+  "color": "#FF6900",
+  "codingKeyPrefixes": [
+    "tp-"
+  ]
+}

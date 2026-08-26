@@ -1,0 +1,22 @@
+{
+  "model_id": "MiniMax-M3",
+  "canonical_model": "MiniMax-M3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 128000,
+  "context_window": 1048576,
+  "official": true,
+  "input_cost_per_token": 2.916666666666667e-7,
+  "output_cost_per_token": 0.0000011666666666666668,
+  "cache_read_input_token_cost": 5.8333333333333326e-8,
+  "context_tiers": [
+    {
+      "min_tokens": 524289,
+      "input_cost_per_token": 5.833333333333334e-7,
+      "output_cost_per_token": 0.0000023333333333333336,
+      "cache_read_input_token_cost": 1.1666666666666665e-7
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "model_id": "magnum-v4-72b",
+  "canonical_model": "magnum-v4-72b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "max_output_tokens": 2048,
+  "context_window": 32768,
+  "official": true,
+  "input_cost_per_token": 0.000003,
+  "output_cost_per_token": 0.000005,
+  "default_price": {
+    "input_cost_per_token": 0.000003,
+    "output_cost_per_token": 0.000005,
+    "cache_read_input_token_cost": 0
+  }
+}
