@@ -146,8 +146,14 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         })
         .collect();
 
-    aidog_db::upsert_platform_presets(db, presets).await?;
-    aidog_db::upsert_model_entries(db, entries).await?;
+    // DB 写入同样 best-effort：一行脏数据不该吞掉整轮结果（`last_sync_at` 不写、
+    // failures 清单整个丢失、前端只看到一个字符串错误）。写失败的行并进 failures。
+    failures.extend(write_failures("platform_preset", aidog_db::upsert_platform_presets(db, presets).await));
+    failures.extend(write_failures("model_entry", aidog_db::upsert_model_entries_best_effort(db, entries).await));
+    // preset 写入作废了热路径缓存，这里把新值装回去（路由/计费与前端读同一份）。
+    if let Err(e) = aidog_db::refresh_presets_cache(db).await {
+        tracing::warn!(error = %e, "registry sync: refresh presets cache failed");
+    }
 
     let sync_settings = get_sync_settings(db).await;
     save_sync_settings(
@@ -159,6 +165,26 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
     let failed = failures.len() as u32;
     tracing::info!(added, updated, unchanged, failed, total, "registry sync completed");
     Ok(PriceSyncResult { added, updated, unchanged, failed, total, failures })
+}
+
+/// DB 写入结果 → 失败清单：整个事务打不开记一条（`what` 定位到表），单行失败逐条记。
+/// 返回空 = 全部写成功。
+fn write_failures(
+    what: &str,
+    r: Result<(u32, Vec<aidog_db::WriteFailure>), String>,
+) -> Vec<SyncFailure> {
+    match r {
+        Ok((_, rows)) => {
+            for (file, error) in &rows {
+                tracing::warn!(%file, %error, "registry sync: db row write failed");
+            }
+            rows.into_iter().map(|(file, error)| SyncFailure { file, error }).collect()
+        }
+        Err(error) => {
+            tracing::error!(table = what, %error, "registry sync: db write failed");
+            vec![SyncFailure { file: what.to_string(), error }]
+        }
+    }
 }
 
 /// 逐源回退拉单个 registry 文件（`path` 是 registry 内相对路径）。全部源失败才返 Err。
