@@ -1094,6 +1094,8 @@
   "platform.groupAssignTitle": "グループ割り当て",
   "platform.groupLocked": "このグループにロック済み",
   "platform.homepage": "ホームページ",
+  "platform.sourceDocs": "ドキュメント",
+  "platform.sourcePricing": "料金",
   "platform.lastError": "最新エラー",
   "platform.lastErrorHint": "直近の失敗 · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "最終テスト失敗 · {{time}}{{error}}",
