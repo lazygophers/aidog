@@ -17,7 +17,7 @@ pub struct TodayStats {
     pub cache_tokens: i64,
     /// 今日 cache 命中率（cache_tokens / input_tokens * 100）
     pub cache_rate: f64,
-    /// 今日预估花费（$），基于 model_price 定价
+    /// 今日预估花费（$），基于 model_entry 定价
     pub cost: f64,
     /// 今日总请求数
     pub total_requests: i64,
