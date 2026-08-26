@@ -72,9 +72,6 @@ ts-rs = { workspace = true }
 # cli_env 更新检测版本比对（C3 c3-commands 批2 迁入）
 semver = { workspace = true }
 
-[target.'cfg(not(target_os = "macos"))'.dependencies]
-tts = { workspace = true }
-
 # macOS 托盘小字：refresh_tray_menu → set_tray_attributed_title 直连 NSStatusItem button。
 # 与 root package 同版本（workspace.dependencies 集中声明）。
 [target.'cfg(target_os = "macos")'.dependencies]

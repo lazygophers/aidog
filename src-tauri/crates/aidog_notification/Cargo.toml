@@ -16,6 +16,10 @@ chrono = { workspace = true }
 tauri = { workspace = true }
 tauri-plugin-notification = { workspace = true }
 
+# tts.rs 的 CrossPlatform 后端；macOS 走系统 `say`，不需要它。
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tts = { workspace = true }
+
 [dev-dependencies]
 tracing-subscriber = { workspace = true }
 tokio = { workspace = true }
