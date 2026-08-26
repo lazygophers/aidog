@@ -231,6 +231,23 @@ async fn invalid_payload_counts_as_failure_without_writing() {
     assert!(aidog_db::select_model_entries(&db, Some("beta")).await.unwrap().is_empty());
 }
 
+/// 票 13-F：一轮里有文件失败时，成功的行照样落库、`last_sync_at` 照写、
+/// failures 清单原样回给前端——不能因为写入层一处出错就把整轮结果换成一个字符串错误。
+#[tokio::test]
+async fn partial_round_still_commits_and_stamps_last_sync_at() {
+    let db = test_db().await;
+    let mut broken = full();
+    broken.remove("platforms/beta/models/b-1.json"); // 404
+    let base = spawn_registry(broken).await;
+
+    let r = sync_registry_from(&db, &[&base]).await.unwrap();
+    assert_eq!(r.failed, 1);
+    assert_eq!(r.failures.len(), 1);
+    assert_eq!(r.added, 4, "拉到的 4 个文件必须落库");
+    assert_eq!(aidog_db::select_model_entries(&db, None).await.unwrap().len(), 2);
+    assert!(get_sync_settings(&db).await.last_sync_at > 0, "last_sync_at 不能因部分失败而不写");
+}
+
 #[tokio::test]
 async fn get_sync_settings_returns_default_when_absent() {
     let db = test_db().await;
