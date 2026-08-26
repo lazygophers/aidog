@@ -36,7 +36,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
             if let Some(content) = &m.content
                 && let Some(text) = content.as_str()
                     && !text.is_empty() {
-                        blocks.push(ContentBlock::Text { text: text.to_string() });
+                        blocks.push(ContentBlock::Text { text: text.to_string(), extra: None });
                     }
             for tc in tool_calls {
                 let input: serde_json::Value = serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Object(Default::default()));
@@ -44,7 +44,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 blocks.push(ContentBlock::ToolUse {
                     id: tc.id.clone(),
                     name: tc.function.name.clone(),
-                    input,
+                    input, extra: None
                 });
             }
             messages.push(Message {
@@ -64,7 +64,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: tool_call_id.clone(),
                     content: content.to_string(),
-                    name: call_names.get(tool_call_id).cloned(),
+                    name: call_names.get(tool_call_id).cloned(), is_error: None, content_blocks: None, extra: None
                 }]),
             });
             continue;
@@ -78,9 +78,9 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                     .filter_map(|p| {
                         // 纯字符串元素 或 {type:"text"} object
                         if let Some(s) = p.as_str() {
-                            Some(ContentBlock::Text { text: s.to_string() })
+                            Some(ContentBlock::Text { text: s.to_string(), extra: None })
                         } else {
-                            p.get("text").and_then(|t| t.as_str()).map(|s| ContentBlock::Text { text: s.to_string() })
+                            p.get("text").and_then(|t| t.as_str()).map(|s| ContentBlock::Text { text: s.to_string(), extra: None })
                         }
                     })
                     .collect();
@@ -101,7 +101,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 texts.extend(images);
                 let texts = texts;
                 if texts.len() == 1 {
-                    if let ContentBlock::Text { text } = &texts[0] {
+                    if let ContentBlock::Text { text, .. } = &texts[0] {
                         MessageContent::Text(text.clone())
                     } else {
                         MessageContent::Blocks(texts)
@@ -122,6 +122,9 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 name: t.function.name,
                 description: t.function.description,
                 input_schema: t.function.parameters,
+                tool_type: None,
+                cache_control: None,
+                extra: None,
             })
             .collect()
     });
@@ -164,6 +167,8 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         tools,
         tool_choice,
         extra: None,
+        // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
+        thinking_mode: ThinkingMode::from_parts(None, openai_req.reasoning_effort.clone()),
     })
 }
 

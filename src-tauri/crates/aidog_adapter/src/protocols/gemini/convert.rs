@@ -113,7 +113,7 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
             }
             MessageContent::Blocks(blocks) => {
                 blocks.iter().map(|b| match b {
-                    ContentBlock::Text { text } => GeminiPart {
+                    ContentBlock::Text { text, .. } => GeminiPart {
                         text: Some(text.clone()), function_call: None, function_response: None,
                         thought: None,
                     extra: None,
@@ -128,13 +128,16 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                         thought: None,
                     extra: None,
                     },
-                    ContentBlock::ToolResult { tool_use_id, content, name } => GeminiPart {
+                    ContentBlock::ToolResult { tool_use_id, content, name, is_error, .. } => GeminiPart {
                         text: None,
                         function_call: None,
                         function_response: Some(GeminiFunctionResponse {
                             // Gemini 靠 name 关联 functionResponse ↔ functionCall；中立 name 缺时退 tool_use_id
                             name: name.clone().unwrap_or_else(|| tool_use_id.clone()),
-                            response: serde_json::json!({ "result": content }),
+                            // response 是自由 object，没有官方 error 键约定；且多模态 functionResponse
+                            // 会被上游拒（"Multimodal function responses are not supported"），
+                            // 所以失败与非文本 block 一律走文本标注/占位
+                            response: serde_json::json!({ "result": mark_tool_error(content, *is_error) }),
                         }),
                         thought: None,
                     extra: None,
@@ -188,14 +191,14 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         contents.push(GeminiContent { role: role.to_string(), parts });
     }
 
-    let tools = req.tools.as_ref().map(|ts| {
-        vec![GeminiToolDecl {
-            function_declarations: ts.iter().map(|t| GeminiFunctionDecl {
-                name: t.name.clone(),
-                description: t.description.clone(),
-                parameters: t.input_schema.clone(),
-            }).collect(),
-        }]
+    // 服务端工具在 Gemini 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    let tools = req.tools.as_ref().and_then(|ts| {
+        let decls: Vec<GeminiFunctionDecl> = client_tools(ts, "gemini").into_iter().map(|t| GeminiFunctionDecl {
+            name: t.name.clone(),
+            description: t.description.clone(),
+            parameters: t.input_schema.clone(),
+        }).collect();
+        (!decls.is_empty()).then(|| vec![GeminiToolDecl { function_declarations: decls }])
     });
 
     let generation_config = if req.max_tokens.is_some() || req.temperature.is_some() || req.top_p.is_some()
@@ -461,7 +464,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 tool_blocks.push(ContentBlock::ToolUse {
                     id,
                     name: name.to_string(),
-                    input: args,
+                    input: args, extra: None
                 });
             }
             if let Some(fr) = p.get("functionResponse") {
@@ -470,13 +473,13 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 tool_blocks.push(ContentBlock::ToolResult {
                     tool_use_id: call_ids.get(name).cloned().unwrap_or_else(|| format!("gemini-fc-{name}")),
                     content: response.to_string(),
-                    name: Some(name.to_string()),
+                    name: Some(name.to_string()), is_error: None, content_blocks: None, extra: None
                 });
             }
         }
         if !tool_blocks.is_empty() || !thinking_blocks.is_empty() || !image_blocks.is_empty() {
             let mut blocks: Vec<ContentBlock> = text_parts.into_iter()
-                .map(|t| ContentBlock::Text { text: t })
+                .map(|t| ContentBlock::Text { text: t, extra: None })
                 .collect();
             blocks.extend(thinking_blocks);
             blocks.extend(image_blocks);
@@ -514,6 +517,9 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                     name: d.get("name").and_then(|v| v.as_str()).unwrap_or("").to_string(),
                     description: d.get("description").and_then(|v| v.as_str()).map(str::to_string),
                     input_schema: d.get("parameters").cloned().unwrap_or(serde_json::json!({})),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
                 })
                 .collect::<Vec<_>>()
         })
@@ -530,6 +536,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         tools,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     })
 }
 

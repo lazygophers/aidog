@@ -221,7 +221,7 @@ fn for_each_text(content: &MessageContent, f: &mut dyn FnMut(&str)) {
         MessageContent::Text(t) => f(t),
         MessageContent::Blocks(blocks) => {
             for b in blocks {
-                if let aidog_adapter::ContentBlock::Text { text } = b {
+                if let aidog_adapter::ContentBlock::Text { text, .. } = b {
                     f(text);
                 }
             }
@@ -235,7 +235,7 @@ fn map_text(content: &mut MessageContent, f: &dyn Fn(&str) -> String) {
         MessageContent::Text(t) => *t = f(t),
         MessageContent::Blocks(blocks) => {
             for b in blocks.iter_mut() {
-                if let aidog_adapter::ContentBlock::Text { text } = b {
+                if let aidog_adapter::ContentBlock::Text { text, .. } = b {
                     *text = f(text);
                 }
             }

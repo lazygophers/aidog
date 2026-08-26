@@ -33,9 +33,10 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
     let input: Vec<Value> = req.messages.iter().flat_map(|m| {
         let role_str = match m.role { Role::User => "user", Role::Assistant => "assistant", Role::System => "developer", Role::Tool => "tool" };
         m.content.blocks().into_iter().filter_map(move |b| match b {
-            ContentBlock::Text { text } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":"input_text","text":text}]})),
-            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
-            ContentBlock::ToolResult { tool_use_id, content, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":content})),
+            ContentBlock::Text { text, .. } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":"input_text","text":text}]})),
+            ContentBlock::ToolUse { id, name, input, .. } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
+            // function_call_output.output 只吃文本：失败标注与非文本 block 的占位都在文本里
+            ContentBlock::ToolResult { tool_use_id, content, is_error, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":mark_tool_error(&content, is_error)})),
             ContentBlock::Unknown(_) => None,
         })
     }).collect();
@@ -43,7 +44,11 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         SystemContent::Text(text) => text.clone(),
         SystemContent::Blocks(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
     });
-    let tools = req.tools.as_ref().map(|tools| Value::Array(tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect()));
+    // 服务端工具在 Responses 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    let tools = req.tools.as_ref().and_then(|tools| {
+        let kept: Vec<Value> = client_tools(tools, "openai_responses").into_iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        (!kept.is_empty()).then_some(Value::Array(kept))
+    });
     ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools }
 }
 
@@ -266,7 +271,7 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
                                 id: item.get("call_id").and_then(Value::as_str).unwrap_or_default().to_string(),
                                 name: item.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
-                                input: input_json,
+                                input: input_json, extra: None
                             }]),
                         });
                     }
@@ -283,7 +288,7 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                                         other => other.to_string(),
                                     })
                                     .unwrap_or_default(),
-                                name: None,
+                                name: None, is_error: None, content_blocks: None, extra: None
                             }]),
                         });
                     }
@@ -326,6 +331,9 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                 name: t.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
                 description: t.get("description").and_then(Value::as_str).map(str::to_string),
                 input_schema: t.get("parameters").cloned().unwrap_or_else(|| serde_json::json!({})),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
             })
             .collect::<Vec<_>>()
     });
@@ -363,6 +371,11 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         tools,
         tool_choice,
         extra: None,
+        // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
+        thinking_mode: ThinkingMode::from_parts(
+            None,
+            body.get("reasoning").and_then(|r| r.get("effort")).and_then(Value::as_str).map(str::to_string),
+        ),
     })
 }
 
@@ -639,6 +652,7 @@ mod tests {
             tools: None,
             tool_choice: None,
             extra: None,
+        thinking_mode: None,
         };
         let out = to_responses(&req);
         assert_eq!(out.model, "gpt-5");
@@ -761,10 +775,10 @@ mod tests {
             model: "gpt-5".into(),
             messages: vec![
                 Message { role: Role::Assistant, content: MessageContent::Blocks(vec![
-                    ContentBlock::ToolUse { id: "call_1".into(), name: "lookup".into(), input: json!({"q": "x"}) },
+                    ContentBlock::ToolUse { id: "call_1".into(), name: "lookup".into(), input: json!({"q": "x"}), extra: None },
                 ]) },
                 Message { role: Role::Tool, content: MessageContent::Blocks(vec![
-                    ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "ok".into(), name: Some("lookup".into()) },
+                    ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "ok".into(), name: Some("lookup".into()), is_error: None, content_blocks: None, extra: None },
                 ]) },
             ],
             system: Some(SystemContent::Text("system prompt".into())),
@@ -772,9 +786,10 @@ mod tests {
             temperature: None,
             top_p: None,
             stream: Some(true),
-            tools: Some(vec![Tool { name: "lookup".into(), description: Some("look up".into()), input_schema: json!({"type":"object"}) }]),
+            tools: Some(vec![Tool { name: "lookup".into(), description: Some("look up".into()), input_schema: json!({"type":"object"}), tool_type: None, cache_control: None, extra: None }]),
             tool_choice: Some(ToolChoice::Auto),
             extra: None,
+        thinking_mode: None,
         };
 
         let out = to_responses(&req);

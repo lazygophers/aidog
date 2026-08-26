@@ -49,7 +49,7 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let text_parts: Vec<String> = blocks
                     .iter()
                     .filter_map(|b| match b {
-                        ContentBlock::Text { text } => Some(text.clone()),
+                        ContentBlock::Text { text, .. } => Some(text.clone()),
                         _ => None,
                     })
                     .collect();
@@ -64,7 +64,7 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let tool_calls: Vec<OpenAIToolCall> = blocks
                     .iter()
                     .filter_map(|b| match b {
-                        ContentBlock::ToolUse { id, name, input } => Some(OpenAIToolCall {
+                        ContentBlock::ToolUse { id, name, input, .. } => Some(OpenAIToolCall {
                             id: id.clone(),
                             r#type: "function".to_string(),
                             function: OpenAIFunctionCall {
@@ -90,10 +90,11 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let has_tool_result = blocks.iter().any(|b| matches!(b, ContentBlock::ToolResult { .. }));
                 if has_tool_result {
                     for b in blocks {
-                        if let ContentBlock::ToolResult { tool_use_id, content, .. } = b {
+                        if let ContentBlock::ToolResult { tool_use_id, content, is_error, .. } = b {
                             messages.push(OpenAIMessage {
                                 role: "tool".to_string(),
-                                content: Some(Value::String(content.clone())),
+                                // OpenAI tool message 只吃文本：失败标注与非文本 block 的占位都在文本里
+                                content: Some(Value::String(mark_tool_error(content, *is_error))),
                                 tool_calls: None,
                                 tool_call_id: Some(tool_use_id.clone()),
                             });
@@ -162,8 +163,10 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         }
     }
 
-    let tools = req.tools.as_ref().map(|ts| {
-        ts.iter()
+    // 服务端工具在 OpenAI 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    let tools = req.tools.as_ref().and_then(|ts| {
+        let kept: Vec<OpenAITool> = client_tools(ts, "openai")
+            .into_iter()
             .map(|t| OpenAITool {
                 r#type: "function".to_string(),
                 function: OpenAIFunction {
@@ -172,7 +175,8 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                     parameters: t.input_schema.clone(),
                 },
             })
-            .collect()
+            .collect();
+        (!kept.is_empty()).then_some(kept)
     });
 
     let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {

@@ -525,7 +525,7 @@ fn ticket05_gemini_tools_to_openai() {
     let fc_msg = req.messages.iter().find(|m| m.content.blocks().iter().any(|b| matches!(b, ContentBlock::ToolUse { .. })))
         .expect("ToolUse 消息缺失");
     let tu = fc_msg.content.blocks().into_iter()
-        .find_map(|b| if let ContentBlock::ToolUse { id, name, input } = b { Some((id, name, input)) } else { None })
+        .find_map(|b| if let ContentBlock::ToolUse { id, name, input, .. } = b { Some((id, name, input)) } else { None })
         .unwrap();
     assert_eq!(tu.1, "get_weather");
     assert_eq!(tu.2["city"], "Beijing");
@@ -533,7 +533,7 @@ fn ticket05_gemini_tools_to_openai() {
 
     let tr = req.messages.iter()
         .find_map(|m| m.content.blocks().into_iter()
-            .find_map(|b| if let ContentBlock::ToolResult { tool_use_id, content, name } = b { Some((tool_use_id, content, name)) } else { None }))
+            .find_map(|b| if let ContentBlock::ToolResult { tool_use_id, content, name, .. } = b { Some((tool_use_id, content, name)) } else { None }))
         .expect("ToolResult 消息缺失");
     assert_eq!(tr.2.as_deref(), Some("get_weather"));
     assert!(tr.1.contains("temp"));
@@ -990,4 +990,264 @@ fn ticket08_text_only_state_machine_no_regression() {
     assert!(wire.contains("\"text\":\"h\"") && wire.contains("\"text\":\"i\""));
     assert!(wire.contains("message_stop"));
     assert_eq!(wire.matches("event: content_block_stop").count(), 1, "单 text 块 close 一次");
+}
+
+// ═══════════════════════════ field-adapt 票 04 / 06 / 07 ═══════════════════════════
+// 断言口径：给定一份客户端 body + 目标协议，出站 body 里有什么、值是什么。
+
+/// 带 cache_control（message 块 / system 块 / tool 定义三处）与一个服务端工具的 anthropic 入站 body
+fn fa_anthropic_body() -> serde_json::Value {
+    json!({
+        "model": "claude-3",
+        "max_tokens": 100,
+        "system": [{"type": "text", "text": "sys", "cache_control": {"type": "ephemeral"}}],
+        "messages": [{"role": "user", "content": [
+            {"type": "text", "text": "hi", "cache_control": {"type": "ephemeral"}}
+        ]}],
+        "tools": [
+            {"name": "get_weather", "description": "d", "input_schema": {"type": "object"},
+             "cache_control": {"type": "ephemeral"}},
+            {"type": "web_search_20250305", "name": "web_search", "max_uses": 5}
+        ]
+    })
+}
+
+/// 出站 body 里第一个匹配 type 的 content block（跨 message 找）
+fn fa_first_block<'a>(out: &'a serde_json::Value, ty: &str) -> &'a serde_json::Value {
+    out["messages"].as_array().expect("messages").iter()
+        .filter_map(|m| m["content"].as_array())
+        .flatten()
+        .find(|b| b["type"] == ty)
+        .unwrap_or_else(|| panic!("出站没有 {ty} block: {out}"))
+}
+
+/// openai 出站里第一条 tool message 的 content 文本
+fn fa_openai_tool_text(out: &serde_json::Value) -> String {
+    out["messages"].as_array().expect("messages").iter()
+        .find(|m| m["role"] == "tool")
+        .and_then(|m| m["content"].as_str())
+        .unwrap_or_else(|| panic!("出站没有 tool message: {out}"))
+        .to_string()
+}
+
+/// 各目标协议出站的工具名清单（没有 tools 键 → 空 Vec）
+fn fa_tool_names(target: &Protocol, out: &serde_json::Value) -> Vec<String> {
+    let arr = match target {
+        Protocol::Gemini => out.get("tools")
+            .and_then(|t| t.get(0))
+            .and_then(|t| t.get("functionDeclarations"))
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default(),
+        _ => out.get("tools").and_then(|v| v.as_array()).cloned().unwrap_or_default(),
+    };
+    arr.iter()
+        .map(|t| match target {
+            Protocol::OpenAI => t["function"]["name"].as_str().unwrap_or_default().to_string(),
+            _ => t["name"].as_str().unwrap_or_default().to_string(),
+        })
+        .collect()
+}
+
+// ── 票 04：tool_result 保真 ──
+
+/// `is_error: true` → 四个目标各自可辨识为失败（anthropic 用原生字段，其余用文本标注）
+#[test]
+fn fa04_is_error_recognizable_on_four_targets() {
+    let body = json!({
+        "model": "m", "max_tokens": 10,
+        "messages": [{"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "tu1", "content": "boom", "is_error": true}
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(fa_first_block(&out, "tool_result")["is_error"], json!(true), "anthropic 出站丢 is_error: {out}");
+
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert!(fa_openai_tool_text(&out).starts_with("[tool_error] "), "openai tool 结果未标注失败: {out}");
+
+    let (out, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+    let output = out["input"].as_array().expect("input").iter()
+        .find(|i| i["type"] == "function_call_output").expect("function_call_output")["output"]
+        .as_str().unwrap().to_string();
+    assert!(output.starts_with("[tool_error] "), "responses 工具结果未标注失败: {out}");
+
+    let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    let resp = out["contents"].as_array().expect("contents").iter()
+        .flat_map(|c| c["parts"].as_array().unwrap().iter())
+        .find(|p| p.get("functionResponse").is_some()).expect("functionResponse")
+        ["functionResponse"]["response"]["result"].as_str().unwrap().to_string();
+    assert!(resp.starts_with("[tool_error] "), "gemini 工具结果未标注失败: {out}");
+}
+
+/// 数组形态 content：anthropic 目标保留 image block 原样，纯文本目标降级为可读占位而非丢弃
+#[test]
+fn fa04_tool_result_image_survives_anthropic_and_degrades_to_placeholder() {
+    let body = json!({
+        "model": "m", "max_tokens": 10,
+        "messages": [{"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "tu1", "content": [
+                {"type": "text", "text": "see"},
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "AAA"}}
+            ]}
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    let content = fa_first_block(&out, "tool_result")["content"].as_array()
+        .unwrap_or_else(|| panic!("anthropic tool_result content 应保持数组: {out}"));
+    let img = content.iter().find(|b| b["type"] == "image").unwrap_or_else(|| panic!("image block 丢了: {out}"));
+    assert_eq!(img["source"]["data"], json!("AAA"), "图像数据丢失: {out}");
+
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    let text = fa_openai_tool_text(&out);
+    assert!(text.contains("see"), "文本段丢失: {out}");
+    assert!(text.contains("[image: image/png]"), "image block 未降级为占位: {out}");
+}
+
+/// 非 text 非 image 的未知 block 类型留痕（占位带原 type，不静默丢）
+#[test]
+fn fa04_unknown_block_in_tool_result_leaves_trace() {
+    let body = json!({
+        "model": "m", "max_tokens": 10,
+        "messages": [{"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "tu1", "content": [
+                {"type": "document", "source": {"type": "base64", "data": "x"}}
+            ]}
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(fa_openai_tool_text(&out), "[document block]", "未知 block 未留痕: {out}");
+}
+
+/// 回归防线：纯文本 tool_result 行为不变（content 仍是字符串、无 is_error 键、无标注前缀）
+#[test]
+fn fa04_plain_text_tool_result_unchanged() {
+    let body = json!({
+        "model": "m", "max_tokens": 10,
+        "messages": [{"role": "user", "content": [
+            {"type": "tool_result", "tool_use_id": "tu1", "content": "ok"}
+        ]}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    let b = fa_first_block(&out, "tool_result");
+    assert_eq!(b["content"], json!("ok"), "字符串 content 被改写: {out}");
+    assert!(b.get("is_error").is_none(), "未失败的 tool_result 不应出现 is_error: {out}");
+
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(fa_openai_tool_text(&out), "ok", "openai tool 结果被改写: {out}");
+}
+
+// ── 票 06：cache_control 保真 ──
+
+/// message 内容块与 tools 定义上的 cache_control 到达 anthropic 出站，位置正确
+#[test]
+fn fa06_cache_control_on_message_block_and_tool_reaches_anthropic() {
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+
+    assert_eq!(fa_first_block(&out, "text")["cache_control"], json!({"type": "ephemeral"}),
+        "message 块的 cache_control 丢了: {out}");
+    let tool = out["tools"].as_array().expect("tools").iter()
+        .find(|t| t["name"] == "get_weather").expect("get_weather");
+    assert_eq!(tool["cache_control"], json!({"type": "ephemeral"}), "tool 定义的 cache_control 丢了: {out}");
+    assert_eq!(tool["input_schema"], json!({"type": "object"}), "客户端工具 schema 不应被改写: {out}");
+}
+
+/// 回归断言（非修复）：system 块是 raw Value 数组，anthropic 出站原样透传，cache_control 本就不丢
+#[test]
+fn fa06_system_block_cache_control_is_passthrough_regression() {
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(out["system"][0]["cache_control"], json!({"type": "ephemeral"}),
+        "system 块的 cache_control 丢了: {out}");
+}
+
+/// 守卫式：不支持 prompt caching 的目标不出现 cache_control（不能靠发上游不认的字段来「通过」）
+#[test]
+fn fa06_cache_control_absent_on_non_anthropic_targets() {
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    for (name, target, platform) in [
+        ("openai", Protocol::OpenAI, Protocol::OpenAI),
+        ("gemini", Protocol::Gemini, Protocol::Gemini),
+        ("openai_responses", Protocol::OpenAIResponses, Protocol::OpenAI),
+    ] {
+        let (out, _) = convert_request(&req, &target, &platform);
+        assert!(!out.to_string().contains("cache_control"), "{name} 出站不应含 cache_control: {out}");
+    }
+}
+
+// ── 票 07：服务端工具 type 保真 ──
+
+/// anthropic 目标：type 与服务端工具的配置键保真，空 schema 不写出
+#[test]
+fn fa07_server_tool_type_preserved_to_anthropic() {
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+
+    let tool = out["tools"].as_array().expect("tools").iter()
+        .find(|t| t["name"] == "web_search").unwrap_or_else(|| panic!("服务端工具整条丢了: {out}"));
+    assert_eq!(tool["type"], json!("web_search_20250305"), "服务端工具 type 丢了: {out}");
+    assert_eq!(tool["max_uses"], json!(5), "服务端工具配置键丢了: {out}");
+    assert!(tool.get("input_schema").is_none(), "服务端工具不应带兜底空 schema: {out}");
+}
+
+/// 非 anthropic 目标：服务端工具整条不下发，不产出空 schema 的假 function；客户端工具照常在
+#[test]
+fn fa07_server_tool_not_downgraded_to_fake_function() {
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    for (name, target, platform) in [
+        ("openai", Protocol::OpenAI, Protocol::OpenAI),
+        ("gemini", Protocol::Gemini, Protocol::Gemini),
+        ("openai_responses", Protocol::OpenAIResponses, Protocol::OpenAI),
+    ] {
+        let (out, _) = convert_request(&req, &target, &platform);
+        let names = fa_tool_names(&target, &out);
+        assert!(!names.iter().any(|n| n == "web_search"), "{name} 不应下发服务端工具: {out}");
+        assert!(names.iter().any(|n| n == "get_weather"), "{name} 客户端工具不应被误伤: {out}");
+    }
+}
+
+/// 客户端 function 工具（无 type / type=custom）行为不变，四目标都在
+#[test]
+fn fa07_client_tools_unchanged() {
+    let body = json!({
+        "model": "m", "max_tokens": 10,
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [
+            {"name": "plain", "description": "d", "input_schema": {"type": "object"}},
+            {"type": "custom", "name": "explicit_custom", "input_schema": {"type": "object"}}
+        ]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    for (name, target, platform) in [
+        ("anthropic", Protocol::Anthropic, Protocol::Anthropic),
+        ("openai", Protocol::OpenAI, Protocol::OpenAI),
+        ("gemini", Protocol::Gemini, Protocol::Gemini),
+        ("openai_responses", Protocol::OpenAIResponses, Protocol::OpenAI),
+    ] {
+        let (out, _) = convert_request(&req, &target, &platform);
+        let names = fa_tool_names(&target, &out);
+        assert_eq!(names.len(), 2, "{name} 客户端工具数变了: {out}");
+        assert!(names.iter().any(|n| n == "explicit_custom"), "{name} 丢了 custom 工具: {out}");
+    }
+}
+
+/// 全部工具都是服务端工具时，非 anthropic 目标不写 tools 键（空数组会被上游判成参数错误）
+#[test]
+fn fa07_all_server_tools_means_no_tools_key() {
+    let body = json!({
+        "model": "m", "max_tokens": 10,
+        "messages": [{"role": "user", "content": "hi"}],
+        "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}]
+    });
+    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert!(out.get("tools").is_none(), "openai 出站不应出现空 tools: {out}");
 }

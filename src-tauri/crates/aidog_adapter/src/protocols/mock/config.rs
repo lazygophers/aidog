@@ -67,7 +67,7 @@ pub fn resolve_mock_config(extra: &str, chat_req: &ChatRequest, body_json: &Valu
             MessageContent::Blocks(blocks) => blocks
                 .iter()
                 .filter_map(|b| match b {
-                    ContentBlock::Text { text } => Some(text.as_str()),
+                    ContentBlock::Text { text, .. } => Some(text.as_str()),
                     _ => None,
                 })
                 .collect::<Vec<_>>()
