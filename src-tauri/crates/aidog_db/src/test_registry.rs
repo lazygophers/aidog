@@ -125,50 +125,24 @@ fn glm_coding_keeps_peak_branches() {
     assert_eq!(glm["is_coding_plan"], true);
 }
 
+/// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
+/// 一个都没有 → 该模型在 UI 里挑不出默认平台）。旧断言经 `registry::model_entry`
+/// 归并视图间接验证，该视图随票 T6 删除，这里直接数原始文件。
 #[test]
-fn model_entry_merges_cross_platform_pricing() {
-    let e = model_entry("glm-4.6").expect("glm-4.6");
-    assert_eq!(e["default_platform"], "glm");
-    assert_eq!(e["input_cost_per_token"], 6e-7);
-    assert_eq!(e["max_input_tokens"], 200000);
-    assert_eq!(e["context_tiers"], serde_json::json!([]));
-    let pricing = e["pricing"].as_object().expect("pricing");
-    let mut codes: Vec<&String> = pricing.keys().collect();
-    codes.sort();
-    assert_eq!(codes, ["glm", "litellm", "openrouter"]);
-}
-
-/// `time_tiers`（含内嵌 context_tiers）只挂在提供它的平台条目上，不可提升到模型顶层。
-#[test]
-fn model_entry_keeps_platform_scoped_time_tiers() {
-    let e = model_entry("glm-5-turbo").expect("glm-5-turbo");
-    assert!(e.get("time_tiers").is_none(), "time_tiers 属平台条目，不入模型顶层");
-    let tt = e["pricing"]["glm_coding"]["time_tiers"].as_array().expect("time_tiers");
-    assert_eq!(tt[0]["start_at"], 1790784000_i64);
-    assert!(tt[0]["context_tiers"].as_array().is_some_and(|a| !a.is_empty()));
-    assert_eq!(e["context_tiers"].as_array().expect("context_tiers").len(), 1);
-}
-
-/// `official` 条目的 `default_price` 承载旧 models.json 顶层通用价（未匹配平台时的回退价），
-/// 与该条目自身平台价不同才写。
-#[test]
-fn model_entry_top_level_price_differs_from_official_platform_price() {
-    let e = model_entry("gemini-2.0-flash").expect("gemini-2.0-flash");
-    assert_eq!(e["cache_read_input_token_cost"], 2.5e-8);
-    assert!(e["pricing"]["gemini"].get("cache_read_input_token_cost").is_none());
-}
-
-#[test]
-fn every_model_has_exactly_one_official_platform() {
-    let mut ids = std::collections::HashSet::new();
+fn every_model_has_an_official_platform() {
+    let mut seen = std::collections::HashSet::new();
+    let mut official: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
     for (code, _file, json) in MODEL_FILES {
         let e = parse(code, json);
         let id = e["model_id"].as_str().expect("model_id");
-        assert!(ids.insert(format!("{code}/{id}")), "{code} 内 model_id `{id}` 重复");
+        assert!(seen.insert(format!("{code}/{id}")), "{code} 内 model_id `{id}` 重复");
         assert!(e["capabilities"].is_array(), "{code}/{id} 缺 capabilities");
+        let slot = official.entry(id.to_string()).or_default();
+        if e["official"] == Value::Bool(true) {
+            slot.push(code);
+        }
     }
-    for id in ids.iter().map(|k| k.split_once('/').expect("key").1) {
-        let e = model_entry(id).expect(id);
-        assert!(e["default_platform"].is_string(), "{id} 无 official 条目");
+    for (id, codes) in &official {
+        assert!(!codes.is_empty(), "{id} 无 official 条目");
     }
 }

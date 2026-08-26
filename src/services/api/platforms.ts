@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule } from "./types";
 import type { PeakWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/peakHours";
 
@@ -508,19 +508,12 @@ export const quotaApi = {
 // ─── Model Price Types & API ──────────────────────────────
 
 
+/** registry 同步（platform.json 品牌/端点 + 逐平台模型条目整份拉取入库）。
+ *  command 名保留 `model_price_` 前缀的理由见 `platform_cmd/price.rs` 顶部注释
+ *  （与之成组的 setting key `price_sync` 已持久化在用户 DB，单改命令名反而更不一致）。
+ *  旧的 list / count / search / listFiltered / countFiltered / resolve 随 `model_price`
+ *  表 DROP 一并删除；模型清单与价格改走 `modelEntryApi` / `modelInfoApi`。 */
 export const modelPriceApi = {
-  list: (limit = 50, offset = 0) =>
-    invoke<ModelPriceSummary[]>("model_price_list", { limit, offset }),
-  count: () =>
-    invoke<number>("model_price_count"),
-  search: (query: string, limit = 50) =>
-    invoke<ModelPriceSummary[]>("model_price_search", { query, limit }),
-  listFiltered: (filter: ModelPriceFilter, limit = 50, offset = 0) =>
-    invoke<ModelPriceSummary[]>("model_price_list_filtered", { ...filter, limit, offset }),
-  countFiltered: (filter: ModelPriceFilter) =>
-    invoke<number>("model_price_count_filtered", { ...filter }),
-  resolve: (modelName: string, platformType: string) =>
-    invoke<ResolvedPrice>("model_price_resolve", { modelName, platformType }),
   sync: () =>
     invoke<PriceSyncResult>("model_price_sync"),
 };

@@ -24,9 +24,6 @@ const REGISTRY_FALLBACK_BASE: &str =
 /// 16 路对 CDN 友好且把整轮压到十秒量级。
 const FETCH_CONCURRENCY: usize = 16;
 
-/// bundled registry（同一份人工维护信源，编译期内嵌）。DB 未同步时的只读兜底。
-pub use aidog_db::registry::model_entry as bundled_model_entry;
-
 /// 一个待拉文件：registry 内相对路径 + 它归属的平台 code。
 struct Job {
     platform_code: String,
