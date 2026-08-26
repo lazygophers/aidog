@@ -373,3 +373,15 @@ use super::*;
         // 未知路径仍回退 anthropic
         assert_eq!(d("/proxy/foo/bar"), Protocol::Anthropic);
     }
+
+/// 票 09：gemini 模型名只在 URL path 里，各形态都要取到，且方法段不混进模型名。
+#[test]
+fn model_from_gemini_path_extracts_model_segment() {
+    use super::model_from_gemini_path as m;
+    assert_eq!(m("/v1beta/models/gemini-2.5-pro:generateContent"), "gemini-2.5-pro");
+    assert_eq!(m("/v1beta/models/gemini-2.5-pro:streamGenerateContent"), "gemini-2.5-pro");
+    assert_eq!(m("/proxy/v1beta/models/gemini-1.5-flash:countTokens"), "gemini-1.5-flash");
+    // 无方法段 / 非 gemini 路径
+    assert_eq!(m("/v1beta/models/gemini-2.5-pro"), "gemini-2.5-pro");
+    assert_eq!(m("/v1/messages"), "");
+}
