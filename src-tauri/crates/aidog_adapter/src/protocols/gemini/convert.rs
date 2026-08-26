@@ -12,6 +12,9 @@ pub struct GeminiRequest {
     pub generation_config: Option<GeminiGenerationConfig>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Vec<GeminiToolDecl>>,
+    /// 安全阈值设置（Gemini 顶层字段，中立层无等价物；原值经 `ChatRequest.extra` 往返，票 09）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub safety_settings: Option<Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -58,6 +61,16 @@ pub struct GeminiGenerationConfig {
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub top_p: Option<f32>,
+    /// 以下 4 项（票 09）中立层未建模，原值经 `ChatRequest.extra` 往返
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_k: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+    /// JSON 输出模式：`application/json` 等；OpenAI `response_format` 换算而来时同样落此键
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_mime_type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_schema: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thinking_config: Option<GeminiThinkingConfig>,
 }
@@ -66,6 +79,9 @@ pub struct GeminiGenerationConfig {
 #[serde(rename_all = "camelCase")]
 pub struct GeminiThinkingConfig {
     pub thinking_budget: u32,
+    /// 是否把思考链随响应回传（票 09）；无值时不写出，由上游按自身默认决定
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub include_thoughts: Option<bool>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -201,20 +217,38 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         (!decls.is_empty()).then(|| vec![GeminiToolDecl { function_declarations: decls }])
     });
 
+    // 票 09：以下生成参数中立层未建模，客户端原值落在 flatten 的 `ChatRequest.extra` 里
+    // （gemini 源由 `from_gemini` 从 generationConfig 提升，anthropic 源由顶层 flatten 直接收下）。
+    let extra = req.extra.as_ref();
+    let stop_sequences = extra.and_then(extra_stop_sequences);
+    let top_k = extra.and_then(extra_top_k);
+    let (response_mime_type, response_schema) = extra.map(extra_response_format).unwrap_or((None, None));
+    let include_thoughts = extra.and_then(|e| e.get("includeThoughts")).and_then(|v| v.as_bool());
+    let safety_settings = extra.and_then(|e| e.get("safetySettings")).cloned();
+
     // 思考档位出站（票 03）：显式禁用写 Gemini 官方认的 `thinkingBudget: 0`（与
     // `forward.rs::apply_disable_thinking` 的 Gemini 分支同一写法）；否则用数字预算，
     // 无预算时由档位名换算（换算表见 `crate::thinking`）。
+    // `includeThoughts`（票 09）挂在同一节点上，随预算一起写出。
     let thinking_config = if crate::thinking::is_disabled(req) {
-        Some(GeminiThinkingConfig { thinking_budget: 0 })
+        Some(GeminiThinkingConfig { thinking_budget: 0, include_thoughts })
     } else {
-        crate::thinking::outbound_budget(req).map(|b| GeminiThinkingConfig { thinking_budget: b })
+        crate::thinking::outbound_budget(req)
+            .map(|b| GeminiThinkingConfig { thinking_budget: b, include_thoughts })
     };
+    // gate 覆盖全部 generationConfig 内字段：漏一个就会出现「该字段单独存在时整节点不生成」
     let generation_config = if req.max_tokens.is_some() || req.temperature.is_some() || req.top_p.is_some()
-        || thinking_config.is_some() {
+        || thinking_config.is_some()
+        || stop_sequences.is_some() || top_k.is_some()
+        || response_mime_type.is_some() || response_schema.is_some() {
         Some(GeminiGenerationConfig {
             max_output_tokens: req.max_tokens,
             temperature: req.temperature,
             top_p: req.top_p,
+            top_k,
+            stop_sequences,
+            response_mime_type,
+            response_schema,
             thinking_config,
         })
     } else {
@@ -226,6 +260,51 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
         system_instruction,
         generation_config,
         tools,
+        safety_settings,
+    }
+}
+
+/// 停止序列：Gemini 原生 `stopSequences` 优先，回退 anthropic `stop_sequences` / openai `stop`；
+/// 字符串形态升为单元素数组（Gemini 只吃数组）。取不到或形态不合法返回 None。
+fn extra_stop_sequences(extra: &Value) -> Option<Vec<String>> {
+    let v = extra
+        .get("stopSequences")
+        .or_else(|| extra.get("stop_sequences"))
+        .or_else(|| extra.get("stop"))?;
+    match v {
+        Value::String(s) => Some(vec![s.clone()]),
+        Value::Array(items) => {
+            let out: Vec<String> = items.iter().filter_map(|i| i.as_str().map(String::from)).collect();
+            (!out.is_empty()).then_some(out)
+        }
+        _ => None,
+    }
+}
+
+/// topK：Gemini 原生 `topK` 优先，回退 anthropic/openai 族的 `top_k`。
+fn extra_top_k(extra: &Value) -> Option<u32> {
+    extra.get("topK").or_else(|| extra.get("top_k"))?.as_u64().map(|v| v as u32)
+}
+
+/// JSON 输出模式 →（responseMimeType, responseSchema）。
+/// Gemini 原生两键优先；否则按 OpenAI `response_format` 换算：
+/// `json_object` → `application/json`；`json_schema` → `application/json` + 取其 schema。
+fn extra_response_format(extra: &Value) -> (Option<String>, Option<Value>) {
+    let mime = extra.get("responseMimeType").and_then(|v| v.as_str()).map(str::to_string);
+    let schema = extra.get("responseSchema").cloned();
+    if mime.is_some() || schema.is_some() {
+        return (mime, schema);
+    }
+    let Some(rf) = extra.get("response_format") else {
+        return (None, None);
+    };
+    match rf.get("type").and_then(|v| v.as_str()) {
+        Some("json_object") => (Some("application/json".to_string()), None),
+        Some("json_schema") => (
+            Some("application/json".to_string()),
+            rf.get("json_schema").and_then(|j| j.get("schema")).cloned(),
+        ),
+        _ => (None, None),
     }
 }
 
@@ -515,6 +594,25 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
     let temperature = gen_config.and_then(|g| g.get("temperature")).and_then(|v| v.as_f64()).map(|v| v as f32);
     let top_p = gen_config.and_then(|g| g.get("topP")).and_then(|v| v.as_f64()).map(|v| v as f32);
 
+    // 票 09：中立层未建模的生成参数原样挂到 flatten 的 `extra`（键名保持 Gemini camelCase 写法），
+    // 出站由 `to_gemini` 按同名取回。不挂就在 gemini→gemini 转换路径上静默丢失。
+    let mut carried = serde_json::Map::new();
+    for k in ["stopSequences", "topK", "responseMimeType", "responseSchema"] {
+        if let Some(v) = gen_config.and_then(|g| g.get(k)) {
+            carried.insert(k.to_string(), v.clone());
+        }
+    }
+    if let Some(v) = gen_config
+        .and_then(|g| g.get("thinkingConfig"))
+        .and_then(|t| t.get("includeThoughts"))
+    {
+        carried.insert("includeThoughts".to_string(), v.clone());
+    }
+    if let Some(v) = body.get("safetySettings") {
+        carried.insert("safetySettings".to_string(), v.clone());
+    }
+    let extra = (!carried.is_empty()).then_some(Value::Object(carried));
+
     let tools = body.get("tools")
         .and_then(|t| t.as_array())
         .map(|ts| {
@@ -543,7 +641,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         stream: None,
         tools,
         tool_choice: None,
-        extra: None,
+        extra,
         // Gemini 用 `thinkingBudget: 0` 表达「不要思考」（票 03）：归一成中立三态的显式禁用，
         // 否则 0 预算出站会被当成「开启且预算为 0」（anthropic 会写 budget_tokens: 0）。
         thinking_mode: (thinking_budget == Some(0)).then(crate::thinking::disabled_mode),
