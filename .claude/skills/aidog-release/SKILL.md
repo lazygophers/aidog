@@ -3,10 +3,6 @@ name: aidog-release
 description: |
   aidog 发版全流程（版本号 → push 触发 CI → 后台监控构建 → 更新 Release 说明）。固化 `.version` 单一可信源（禁手改 package.json / tauri.conf.json / Cargo.toml / docs/package.json，必须跑 sync-version.mjs）、CI 的 `--check` 漂移门禁、tag 撞车与 workflow_dispatch 重发路径、gh run 后台监控（禁主 agent sleep 轮询）、gh release edit 覆盖 releaseBody 模板。触发词：发版、发布新版本、release、出包、bump 版本、更新版本号、打 tag、CI 挂了、构建失败、release 说明、changelog、latest.json、自动更新。
 when_to_use: 要发一个新版本（改版本号 + 触发 CI + 出安装包）；release CI 失败要定位修复；已发布的 Release 说明要补 changelog；版本漂移（sync-version --check 红）要修
-paths:
-  - .version
-  - scripts/sync-version.mjs
-  - .github/workflows/release.yml
 ---
 
 # aidog 发版
@@ -136,3 +132,4 @@ latest.json                          # updater 清单（includeUpdaterJson: true
 - 同步器：`scripts/sync-version.mjs`（`--check` = CI 门禁）
 - 监控脚本：`.claude/skills/aidog-release/scripts/watch-release.sh`
 - memory `no-sleep-polling`
+- 主要涉及文件：`.version`、`scripts/sync-version.mjs`、`.github/workflows/release.yml`
