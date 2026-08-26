@@ -1,13 +1,17 @@
 //! defaults.json / client-types.json 读取命令。
 //!
-//! 真值源 = `defaults/registry/`（编译期 include，见 `aidog_db::registry`）与代码内
-//! `client_types_const.rs`；app data 覆盖与远端同步链整体移除——内置即唯一，禁改。
+//! 真值源 = `defaults/registry/`；`platform_preset` 表是它同步后的落地，DB 有数据即以 DB 为准，
+//! 从未同步过才回落编译期内置那份（`aidog_db::registry`）。`~/.aidog/platform-presets.json`
+//! 本地文件覆盖链已彻底移除，禁改回。`client_types_const.rs` 仍是代码内常量。
+
+use aidog_db::Db;
+use tauri::State;
 
 const CLIENT_TYPES_BUNDLED: &str = crate::gateway::client_types_const::BUNDLED;
 
 crate::tauri_command! {
-    pub async fn get_defaults_json() -> Result<String, String> {
-        Ok(crate::gateway::registry::presets_json().to_string())
+    pub async fn get_defaults_json(db: State<'_, Db>) -> Result<String, String> {
+        aidog_db::presets_doc_json(&db).await
     }
 }
 

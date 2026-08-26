@@ -19,6 +19,52 @@ fn index_platform_list_matches_platform_files() {
     let mut found: Vec<&str> = PLATFORM_FILES.iter().map(|(c, _)| *c).collect();
     found.sort_unstable();
     assert_eq!(listed, found, "index.json 平台清单须与 platforms/*/platform.json 一致");
+    assert_eq!(protocols().len(), PLATFORM_FILES.len(), "有 platform.json 解析失败被跳过");
+}
+
+/// index.json 的 `models` 数组是远程同步的逐文件拉取清单：漏一个文件 = 该模型永远同步不下来，
+/// 而 bundled 读取层照样有（build.rs 自动发现），线上才暴露。这里锁死两者零差集。
+#[test]
+fn index_model_list_matches_model_files() {
+    let mut on_disk: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+    for (code, file, _) in MODEL_FILES {
+        on_disk.entry(code).or_default().push(file);
+    }
+    for e in bundled_index() {
+        let mut listed = e.models.clone();
+        listed.sort();
+        let mut found = on_disk.remove(e.code.as_str()).unwrap_or_default();
+        found.sort_unstable();
+        assert_eq!(listed, found, "{} 的 index.json models 清单与磁盘文件不一致", e.code);
+    }
+    assert!(on_disk.is_empty(), "这些平台目录未登记进 index.json: {:?}", on_disk.keys());
+}
+
+/// `pricing_only`（litellm / meta / mistral）只出模型条目，不进协议选择器。
+#[test]
+fn pricing_only_entries_carry_models_without_platform_file() {
+    let idx = bundled_index();
+    for code in ["litellm", "meta", "mistral"] {
+        let e = idx.iter().find(|e| e.code == code).expect(code);
+        assert!(e.platform_file.is_none(), "{code} 不该有 platform.json");
+        assert!(!e.models.is_empty(), "{code} 模型清单不可为空");
+    }
+    assert!(idx.iter().find(|e| e.code == "anthropic").expect("anthropic").platform_file.is_some());
+}
+
+/// DB 同步后的 presets 文档与 bundled 同形状；单份脏 JSON 只丢该协议，不炸整篇。
+#[test]
+fn presets_doc_skips_unparsable_entry() {
+    let doc = presets_doc(
+        [("good", r#"{"name":{"en-US":"Good"}}"#), ("bad", "{oops")],
+        Value::String("1".into()),
+        Value::from(7),
+    );
+    assert_eq!(doc["version"], "1");
+    assert_eq!(doc["last_updated"], 7);
+    let p = doc["protocols"].as_object().expect("protocols");
+    assert_eq!(p.len(), 1);
+    assert_eq!(p["good"]["name"]["en-US"], "Good");
 }
 
 #[test]
@@ -115,7 +161,7 @@ fn model_entry_top_level_price_differs_from_official_platform_price() {
 #[test]
 fn every_model_has_exactly_one_official_platform() {
     let mut ids = std::collections::HashSet::new();
-    for (code, json) in MODEL_FILES {
+    for (code, _file, json) in MODEL_FILES {
         let e = parse(code, json);
         let id = e["model_id"].as_str().expect("model_id");
         assert!(ids.insert(format!("{code}/{id}")), "{code} 内 model_id `{id}` 重复");
