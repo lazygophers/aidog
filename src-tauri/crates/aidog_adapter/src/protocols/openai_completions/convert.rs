@@ -50,7 +50,24 @@ pub fn to_completions(req: &ChatRequest) -> CompletionsRequest {
         temperature: req.temperature,
         top_p: req.top_p,
         stream: req.stream,
-        stop: None,
+        // `ChatRequest` 无强类型 stop 字段，客户端原值落在 flatten 的 `extra` 里
+        // （anthropic 入站写 stop_sequences，openai 族写 stop）。出站 forward 层还有一道
+        // 按目标协议的白名单兜底，本处已写出时那道会因 key 已存在而跳过（票 01）。
+        stop: req.extra.as_ref().and_then(extra_stop),
+    }
+}
+
+/// 从 `ChatRequest.extra` 取停止序列，兼容 `stop` / `stop_sequences` 两种写法与
+/// 字符串 / 数组两种值形态；取不到或形态不合法返回 None。
+fn extra_stop(extra: &Value) -> Option<Vec<String>> {
+    let v = extra.get("stop").or_else(|| extra.get("stop_sequences"))?;
+    match v {
+        Value::String(s) => Some(vec![s.clone()]),
+        Value::Array(items) => {
+            let out: Vec<String> = items.iter().filter_map(|i| i.as_str().map(String::from)).collect();
+            (!out.is_empty()).then_some(out)
+        }
+        _ => None,
     }
 }
 
