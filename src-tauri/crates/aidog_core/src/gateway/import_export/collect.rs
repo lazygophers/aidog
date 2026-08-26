@@ -93,12 +93,18 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_MODEL_PRICE) {
-        let rows = aidog_db::list_all_model_prices(db).await?;
+        // 只导已同步进 DB 的条目：DB 空时 list_model_entries 会回落编译期 registry，
+        // 那份数据随版本内置、导出它只会把备份撑大且导入后立刻被同步覆盖。
+        let rows = if aidog_db::count_model_entries(db).await? > 0 {
+            aidog_db::list_model_entries(db, None).await?
+        } else {
+            Vec::new()
+        };
         payload.model_price = rows
             .into_iter()
             .map(serde_json::to_value)
             .collect::<Result<_, _>>()
-            .map_err(|e| format!("serialize model_price: {e}"))?;
+            .map_err(|e| format!("serialize model_entry: {e}"))?;
     }
 
     Ok(payload)
