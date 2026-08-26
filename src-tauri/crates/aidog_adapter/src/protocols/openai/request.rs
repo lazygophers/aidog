@@ -193,6 +193,9 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         model: req.model.clone(),
         messages,
         max_tokens: req.max_tokens,
+        // 出站统一写 `max_tokens`（第三方 OpenAI 兼容端点只认它）；官方 api.openai.com
+        // 需要的 `max_completion_tokens` 由 forward 层按 host 改键（票 05）。
+        max_completion_tokens: None,
         temperature: req.temperature,
         top_p: req.top_p,
         stream: req.stream,
