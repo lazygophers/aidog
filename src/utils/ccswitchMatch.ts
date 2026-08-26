@@ -162,7 +162,7 @@ function buildClaudeFallback(baseUrl: string): CcMatchResult {
 /**
  * 匹配主入口：cc-switch provider → aidog platform_type + endpoints。
  * @param provider 后端 DTO（已含 detected_base_url / codex_config_parsed）
- * @param protocols 可选 ProtocolOption[]（默认 buildProtocolsFromPresets 派生自 platform-presets.json）
+ * @param protocols 可选 ProtocolOption[]（默认 buildProtocolsFromPresets 派生自 registry）
  */
 export async function matchCcProvider(
   provider: CcProvider,

@@ -1094,6 +1094,8 @@
   "platform.groupAssignTitle": "تعيين المجموعة",
   "platform.groupLocked": "مقفل على هذه المجموعة",
   "platform.homepage": "الصفحة الرئيسية",
+  "platform.sourceDocs": "الوثائق",
+  "platform.sourcePricing": "التسعير",
   "platform.lastError": "آخر خطأ",
   "platform.lastErrorHint": "آخر فشل · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "آخر اختبار فاشل · {{time}}{{error}}",

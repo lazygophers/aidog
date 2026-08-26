@@ -7,6 +7,7 @@ import {
   getProtocolHomepage,
   getProtocolLabel,
   getProtocolLabelMap,
+  getProtocolSourceUrls,
   isCodingPlanProtocol,
 } from "./defaults";
 import { allModelValues } from "./health";
@@ -33,6 +34,7 @@ import { parsePlatformPeakHours } from "../../services/api";
  *  - isCpProtocol: 协议层 coding plan 套餐标记（preset.is_coding_plan 真值源）
  *  - defaultModels: 高峰判定后的默认模型列表（allModelValues 后）
  *  - homepage: 协议官网 URL（未配置返空串）
+ *  - sourceUrls: registry `source_urls` 的文档 / 定价页外链（未配置各返空串）
  *  - protocolLabel: 当前协议本地化名（fallback PROTOCOL_LABELS → key）
  *  - labelMap: 全协议 label 映射（endpoint badge 覆盖所有 ep.protocol） */
 export interface ProtocolMeta {
@@ -40,6 +42,7 @@ export interface ProtocolMeta {
   isCpProtocol: boolean;
   defaultModels: string[];
   homepage: string;
+  sourceUrls: { docs: string; pricing: string };
   protocolLabel: string;
   labelMap: Record<string, string>;
 }
@@ -49,6 +52,7 @@ const INITIAL: ProtocolMeta = {
   isCpProtocol: false,
   defaultModels: [],
   homepage: "",
+  sourceUrls: { docs: "", pricing: "" },
   protocolLabel: "",
   labelMap: {},
 };
@@ -65,11 +69,12 @@ export function useProtocolMeta(
     let cancelled = false;
     (async () => {
       // 单次 Promise.all 聚合 5 派生（docPromise 单例缓存，无 N 次 RPC）
-      const [colorMap, isCp, peakWindows, homepage, protocolLabel, labelMap] = await Promise.all([
+      const [colorMap, isCp, peakWindows, homepage, sourceUrls, protocolLabel, labelMap] = await Promise.all([
         getProtocolColorMap(),
         isCodingPlanProtocol(protocol),
         getDefaultPeakHours(protocol),
         getProtocolHomepage(protocol),
+        getProtocolSourceUrls(protocol),
         getProtocolLabel(protocol, lang),
         getProtocolLabelMap(lang),
       ]);
@@ -85,6 +90,7 @@ export function useProtocolMeta(
         isCpProtocol: isCp,
         defaultModels: allModelValues(modelsBranch),
         homepage,
+        sourceUrls,
         protocolLabel,
         labelMap,
       });

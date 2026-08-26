@@ -19,7 +19,7 @@ export function ProtocolLogo({
   const { logoSrc, fallbackInitial } = useProtocolLogo(protocol);
   // `<img>` onError（缓存文件存在但渲染失败 / 格式坏）→ 触发首字母圆圈 fallback
   const [imgFailed, setImgFailed] = useState(false);
-  // 品牌色（async 派生自 platform-presets.json）；首帧 fallback var(--accent)。
+  // 品牌色（async 派生自 registry platform.json 的 color）；首帧 fallback var(--accent)。
   const [color, setColor] = useState<string>("var(--accent)");
   useEffect(() => {
     let cancelled = false;

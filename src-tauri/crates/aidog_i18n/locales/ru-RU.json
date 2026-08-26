@@ -1094,6 +1094,8 @@
   "platform.groupAssignTitle": "Назначение группы",
   "platform.groupLocked": "Заблокировано в эту группу",
   "platform.homepage": "Главная страница",
+  "platform.sourceDocs": "Документация",
+  "platform.sourcePricing": "Цены",
   "platform.lastError": "Последняя ошибка",
   "platform.lastErrorHint": "Последний сбой · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "Последний тест провален · {{time}}{{error}}",

@@ -1094,6 +1094,8 @@
   "platform.groupAssignTitle": "Gruppenzuweisung",
   "platform.groupLocked": "Auf diese Gruppe gesperrt",
   "platform.homepage": "Startseite",
+  "platform.sourceDocs": "Dokumentation",
+  "platform.sourcePricing": "Preise",
   "platform.lastError": "Letzter Fehler",
   "platform.lastErrorHint": "Letzter Fehlschlag · {{time}}\n{{error}}",
   "platform.lastTestFailHint": "Letzter Test fehlgeschlagen · {{time}}{{error}}",

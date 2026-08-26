@@ -1,7 +1,7 @@
 import type { Protocol, ModelSlot } from "../../services/api";
 
 /** 支持的协议选项（含 coding plan 变体）。
- *  派生自 platform-presets.json（见 defaults.ts::buildProtocolsFromPresets）。 */
+ *  派生自 registry（见 defaults.ts::buildProtocolsFromPresets）。 */
 export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[]; codingKeyPrefixes?: string[] };
 
 /** Endpoint 协议：只有 AI 请求协议（非平台类型）。
