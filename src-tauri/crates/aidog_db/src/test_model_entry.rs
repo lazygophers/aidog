@@ -7,6 +7,7 @@ fn entry(platform: &str, model: &str, canonical: &str, official: bool) -> ModelE
     ModelEntry {
         platform_code: platform.to_string(),
         model_id: model.to_string(),
+        display_name: String::new(),
         canonical_model: canonical.to_string(),
         family: "glm".to_string(),
         version: "4.6".to_string(),
@@ -159,6 +160,63 @@ async fn db_rows_win_over_bundled() {
     assert_eq!(snap.groups.len(), 1);
     // 平台预设表仍为空 → 该维度独立回落 bundled。
     assert_eq!(snap.platforms.len(), bundled_platform_presets().len());
+}
+
+#[tokio::test]
+async fn display_name_roundtrips_and_falls_back_to_model_id() {
+    let db = test_db().await;
+    let mut named = entry("glm", "glm-4.6", "glm-4.6", true);
+    named.display_name = "GLM-4.6".to_string();
+    let blank = entry("glm", "glm-4.5", "glm-4.5", true); // 空串
+    let mut spaces = entry("glm", "glm-4.4", "glm-4.4", true);
+    spaces.display_name = "   ".to_string(); // 纯空白同样算缺省
+    upsert_model_entries(&db, vec![named, blank, spaces]).await.unwrap();
+
+    // 有值往返无损。
+    let got = get_model_entry(&db, "glm", "glm-4.6").await.unwrap().unwrap();
+    assert_eq!(got.display_name, "GLM-4.6");
+    // 空串 / 空白回落 model_id，调用方拿到的恒非空。
+    assert_eq!(get_model_entry(&db, "glm", "glm-4.5").await.unwrap().unwrap().display_name, "glm-4.5");
+    assert_eq!(get_model_entry(&db, "glm", "glm-4.4").await.unwrap().unwrap().display_name, "glm-4.4");
+    assert!(list_model_entries(&db, Some("glm")).await.unwrap().iter().all(|e| !e.display_name.is_empty()));
+
+    // 改名后再写即覆盖（同键整行覆盖，展示名不粘旧值）。
+    let mut renamed = entry("glm", "glm-4.6", "glm-4.6", true);
+    renamed.display_name = "GLM 4.6 (Coding)".to_string();
+    upsert_model_entries(&db, vec![renamed]).await.unwrap();
+    assert_eq!(get_model_entry(&db, "glm", "glm-4.6").await.unwrap().unwrap().display_name, "GLM 4.6 (Coding)");
+}
+
+#[test]
+fn group_display_name_comes_from_official_entry() {
+    let mut third_party = entry("aihubmix", "glm-4.6", "glm-4.6", false);
+    third_party.display_name = "GLM-4.6-preview".to_string();
+    let mut official = entry("glm", "glm-4.6", "glm-4.6", true);
+    official.display_name = "GLM-4.6".to_string();
+    let groups = group_by_canonical(vec![third_party, official]);
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].primary_platform, "glm");
+    assert_eq!(groups[0].display_name, "GLM-4.6", "聚合行取 official 那条的展示名");
+    // 各平台条目展示名各自独立，不被聚合行覆盖。
+    assert_eq!(
+        groups[0].entries.iter().map(|e| e.display_name.as_str()).collect::<Vec<_>>(),
+        vec!["GLM-4.6-preview", "GLM-4.6"]
+    );
+
+    // 全员缺展示名 → 聚合行也回落 model_id，不出空白。
+    let groups = group_by_canonical(vec![entry("glm", "glm-4.5", "glm-4.5", true)]);
+    assert_eq!(groups[0].display_name, "glm-4.5");
+}
+
+#[test]
+fn from_json_reads_display_name_without_write_side_fallback() {
+    let e = model_entry_from_json("glm", r#"{"model_id":"glm-4.6","display_name":"GLM-4.6"}"#).expect("parse");
+    assert_eq!(e.display_name, "GLM-4.6");
+    // 写入路径不回填 model_id：registry 缺省即空串入库，回落留给读取层。
+    let e = model_entry_from_json("glm", r#"{"model_id":"glm-4.6"}"#).expect("parse");
+    assert_eq!(e.display_name, "");
+    // bundled 兜底是读取路径，展示名恒非空。
+    assert!(bundled_model_entries().iter().all(|e| !e.display_name.is_empty()));
 }
 
 #[test]

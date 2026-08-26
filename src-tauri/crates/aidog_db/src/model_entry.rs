@@ -9,17 +9,28 @@ use crate::models::{ModelEntry, ModelEntryGroup, ModelInfoSnapshot, PlatformPres
 use rusqlite::{params, OptionalExtension, Result as SqlResult};
 use std::sync::OnceLock;
 
-const MODEL_ENTRY_COLUMNS: &str = "platform_code, model_id, canonical_model, family, version, predecessor, capabilities, builtin_tools_excluded, max_input_tokens, max_output_tokens, context_window, official, price_data, updated_at";
+const MODEL_ENTRY_COLUMNS: &str = "platform_code, model_id, canonical_model, family, version, predecessor, capabilities, builtin_tools_excluded, max_input_tokens, max_output_tokens, context_window, official, price_data, updated_at, display_name";
 
 /// JSON 数组文本 → `Vec<String>`。非数组 / 解析失败 → 空（列有 DEFAULT '[]'，脏值不该阻断读取）。
 fn json_str_array(raw: &str) -> Vec<String> {
     serde_json::from_str(raw).unwrap_or_default()
 }
 
+/// 展示名回落（票 T10）：缺省 / 空串 / 纯空白 → `model_id`。
+/// 只在读取层调用，写入层原样存 registry 值。
+fn resolve_display_name(raw: &str, model_id: &str) -> String {
+    match raw.trim() {
+        "" => model_id.to_string(),
+        s => s.to_string(),
+    }
+}
+
 fn row_to_model_entry(row: &rusqlite::Row) -> SqlResult<ModelEntry> {
+    let model_id: String = row.get(1)?;
     Ok(ModelEntry {
         platform_code: row.get(0)?,
-        model_id: row.get(1)?,
+        display_name: resolve_display_name(&row.get::<_, String>(14)?, &model_id),
+        model_id,
         canonical_model: row.get(2)?,
         family: row.get(3)?,
         version: row.get(4)?,
@@ -37,6 +48,7 @@ fn row_to_model_entry(row: &rusqlite::Row) -> SqlResult<ModelEntry> {
 
 /// registry 模型 JSON → 行形状。`price_data` 保留整份原文，缺省字段落空值；
 /// `canonical_model` 缺省回落 `model_id`（聚合键必须非空）。`model_id` 缺失 → None（跳过该文件）。
+/// `display_name` **不在此回落**——这是写入路径，缺省即空串入库，回落在读取层。
 pub fn model_entry_from_json(platform_code: &str, raw: &str) -> Option<ModelEntry> {
     let v: serde_json::Value = serde_json::from_str(raw).ok()?;
     let model_id = v.get("model_id")?.as_str()?.to_string();
@@ -54,6 +66,7 @@ pub fn model_entry_from_json(platform_code: &str, raw: &str) -> Option<ModelEntr
     Some(ModelEntry {
         platform_code: platform_code.to_string(),
         model_id,
+        display_name: text("display_name"),
         canonical_model,
         family: text("family"),
         version: text("version"),
@@ -73,11 +86,16 @@ static BUNDLED_ENTRIES: OnceLock<Vec<ModelEntry>> = OnceLock::new();
 static BUNDLED_PRESETS: OnceLock<Vec<PlatformPreset>> = OnceLock::new();
 
 /// 编译期内置 registry 的模型条目快照，`(platform_code, model_id)` 升序。首次访问解析一次。
+/// 这是读取路径（DB 空兜底），故此处补上 `display_name` 回落，与 DB 行返回同一契约。
 pub fn bundled_model_entries() -> &'static [ModelEntry] {
     BUNDLED_ENTRIES.get_or_init(|| {
         let mut out: Vec<ModelEntry> = crate::registry::bundled_model_files()
             .iter()
             .filter_map(|(code, raw)| model_entry_from_json(code, raw))
+            .map(|mut e| {
+                e.display_name = resolve_display_name(&e.display_name, &e.model_id);
+                e
+            })
             .collect();
         out.sort_by(|a, b| (&a.platform_code, &a.model_id).cmp(&(&b.platform_code, &b.model_id)));
         out
@@ -114,25 +132,26 @@ pub fn group_by_canonical(mut entries: Vec<ModelEntry>) -> Vec<ModelEntryGroup> 
             Some(g) if g.canonical_model == e.canonical_model => g.entries.push(e),
             _ => out.push(ModelEntryGroup {
                 canonical_model: e.canonical_model.clone(),
+                display_name: String::new(),
                 primary_platform: String::new(),
                 entries: vec![e],
             }),
         }
     }
     for g in &mut out {
-        g.primary_platform = g
-            .entries
-            .iter()
-            .find(|e| e.official)
-            .or_else(|| g.entries.first())
-            .map(|e| e.platform_code.clone())
-            .unwrap_or_default();
+        // 代表条目同时决定 primary_platform 与聚合行展示名（票 T10：官方那条的展示名）。
+        let primary = g.entries.iter().find(|e| e.official).or_else(|| g.entries.first());
+        g.primary_platform = primary.map(|e| e.platform_code.clone()).unwrap_or_default();
+        g.display_name = primary
+            .map(|e| resolve_display_name(&e.display_name, &e.model_id))
+            .unwrap_or_else(|| g.canonical_model.clone());
     }
     out
 }
 
 /// 批量 upsert 模型条目（单事务）。主键 `(platform_code, model_id)` 冲突即整行覆盖并复活软删。
 /// 入参的 `updated_at` 被忽略，统一写当前时间。
+/// `display_name` 原样入库（registry 缺省即空串），回落只在读取层做。
 #[track_caller]
 pub fn upsert_model_entries(db: &Db, entries: Vec<ModelEntry>) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
@@ -144,13 +163,13 @@ pub fn upsert_model_entries(db: &Db, entries: Vec<ModelEntry>) -> impl std::futu
                 let mut stmt = tx.prepare(
                     "INSERT INTO model_entry (platform_code, model_id, canonical_model, family, version, predecessor,
                         capabilities, builtin_tools_excluded, max_input_tokens, max_output_tokens, context_window,
-                        official, price_data, created_at, updated_at, deleted_at)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, 0)
+                        official, price_data, created_at, updated_at, deleted_at, display_name)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, 0, ?15)
                      ON CONFLICT(platform_code, model_id) DO UPDATE SET
                        canonical_model = ?3, family = ?4, version = ?5, predecessor = ?6,
                        capabilities = ?7, builtin_tools_excluded = ?8,
                        max_input_tokens = ?9, max_output_tokens = ?10, context_window = ?11,
-                       official = ?12, price_data = ?13, updated_at = ?14, deleted_at = 0",
+                       official = ?12, price_data = ?13, updated_at = ?14, display_name = ?15, deleted_at = 0",
                 )?;
                 for e in &entries {
                     stmt.execute(params![
@@ -168,6 +187,7 @@ pub fn upsert_model_entries(db: &Db, entries: Vec<ModelEntry>) -> impl std::futu
                         i64::from(e.official),
                         e.price_data,
                         ts,
+                        e.display_name,
                     ])?;
                 }
             }
