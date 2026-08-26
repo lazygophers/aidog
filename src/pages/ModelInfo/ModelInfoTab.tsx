@@ -45,6 +45,7 @@ import { SyncStatusCard } from "./SyncStatusCard";
 import { ModelDetailDialog } from "./ModelDetailDialog";
 import { CAPABILITIES, CapabilityBadges, capabilityLabel } from "./CapabilityBadges";
 import { PAGE_SIZE_OPTIONS, Pagination } from "./Pagination";
+import { ModelNameCell } from "./ModelName";
 import { fmtPricePerM, fmtTokens, parsePriceData } from "./priceData";
 
 // radix Select 的 SelectItem value="" 会抛错 → __none__ 哨兵映射回「不筛选」
@@ -337,10 +338,7 @@ function ModelRow({ group, labelMap, onOpen }: {
       title={group.canonical_model}
     >
       <Td>
-        <div style={{ display: "flex", flexDirection: "column" }}>
-          <span style={{ fontWeight: 500, fontSize: F.small }}>{group.display_name}</span>
-          <code className="text-tertiary" style={{ fontSize: 11 }}>{primary?.model_id}</code>
-        </div>
+        <ModelNameCell displayName={group.display_name} modelId={primary?.model_id ?? ""} />
       </Td>
       <Td>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -430,10 +428,7 @@ function PlatformPane({ platformCodes, byPlatform, labelMap, active, onSelect, q
                 return (
                   <TableRow key={e.model_id} className="hover-lift">
                     <Td>
-                      <div style={{ display: "flex", flexDirection: "column" }}>
-                        <span style={{ fontWeight: 500, fontSize: F.small }}>{e.display_name}</span>
-                        <code className="text-tertiary" style={{ fontSize: 11 }}>{e.model_id}</code>
-                      </div>
+                      <ModelNameCell displayName={e.display_name} modelId={e.model_id} />
                     </Td>
                     <Td><CapabilityBadges capabilities={e.capabilities} /></Td>
                     <Td><span className="text-secondary" style={{ fontSize: F.small }}>{fmtTokens(e.context_window)}</span></Td>

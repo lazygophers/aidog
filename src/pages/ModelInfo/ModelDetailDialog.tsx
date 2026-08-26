@@ -15,6 +15,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { fmtPricePerM, fmtTokens, parsePriceData, type PriceTier } from "./priceData";
 import { CapabilityBadges } from "./CapabilityBadges";
+import { nameParts } from "./ModelName";
+import { CopyButton } from "../../components/shared";
 
 export function ModelDetailDialog({ group, labelMap, onClose }: {
   /** null = 关闭态（父组件用「选中哪个 canonical」单一状态驱动开合）。 */
@@ -25,16 +27,20 @@ export function ModelDetailDialog({ group, labelMap, onClose }: {
   const { t } = useTranslation();
   if (!group) return null;
   const entries = group.entries;
+  const title = nameParts(group.display_name, group.canonical_model);
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent style={{ maxWidth: 720, maxHeight: "82vh", overflow: "auto" }}>
         <DialogHeader>
           <DialogTitle style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-            <span>{group.display_name}</span>
-            <span className="text-tertiary" style={{ fontSize: F.small, fontWeight: 400 }}>
-              {t("modelInfo.canonical")}: <code>{group.canonical_model}</code>
-            </span>
+            <span>{title.primary}</span>
+            {/* 展示名与 canonical id 同串时（读取层回落）只留标题，不把同一串再写一遍 */}
+            {title.secondary !== null && (
+              <span className="text-tertiary" style={{ fontSize: F.small, fontWeight: 400 }}>
+                {t("modelInfo.canonical")}: <code>{title.secondary}</code>
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -64,12 +70,21 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
   const { t } = useTranslation();
   const price = parsePriceData(entry.price_data);
   const tiers = price.context_tiers ?? [];
+  // secondary === null → 展示名就是请求名本身，只留「请求名」一个 Field，不重复渲染同一串
+  const { secondary } = nameParts(entry.display_name, entry.model_id);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14, paddingTop: 8 }}>
       <Section title={t("modelInfo.basics")}>
-        <Field label={t("modelInfo.requestName")}><code>{entry.model_id}</code></Field>
-        <Field label={t("modelInfo.displayName")}>{entry.display_name}</Field>
+        <Field label={t("modelInfo.requestName")}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <code>{entry.model_id}</code>
+            <CopyButton text={entry.model_id} title={t("modelInfo.copyRequestName")} size={12} />
+          </span>
+        </Field>
+        {secondary !== null && (
+          <Field label={t("modelInfo.displayName")}>{entry.display_name}</Field>
+        )}
         <Field label={t("modelInfo.official")}>
           {entry.official ? t("modelInfo.officialYes") : t("modelInfo.officialNo")}
         </Field>
