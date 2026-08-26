@@ -1251,3 +1251,65 @@ fn fa07_all_server_tools_means_no_tools_key() {
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert!(out.get("tools").is_none(), "openai 出站不应出现空 tools: {out}");
 }
+
+// ═══ fa05：max_completion_tokens 入站归一 ═══
+
+/// 只发 `max_completion_tokens`（新版 OpenAI SDK / o 系列形态）→ 出站值等于用户设的值。
+/// anthropic 目标是回归重点：此前解析不到 → `to_anthropic` 落默认 4096，长输出被静默截断。
+#[test]
+fn fa05_max_completion_tokens_only_reaches_three_targets() {
+    let body = json!({
+        "model": "m", "max_completion_tokens": 9000,
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    assert_eq!(req.max_tokens, Some(9000), "入站未归一 max_completion_tokens");
+    for (tgt_name, tgt_proto) in [
+        ("anthropic", Protocol::Anthropic),
+        ("openai", Protocol::OpenAI),
+        ("gemini", Protocol::Gemini),
+    ] {
+        let (out, _) = convert_request(&req, &tgt_proto, &Protocol::OpenAI);
+        let (mx, _, _) = params_of(&tgt_proto, &out);
+        assert_eq!(mx, Some(9000), "openai → {tgt_name}: 未按用户设定值下发（4096 即为回归）, body: {out}");
+    }
+}
+
+/// 两键同时存在 → 取 `max_completion_tokens`（新键为准，规则见 `from_openai` 注释）。
+#[test]
+fn fa05_both_keys_prefer_max_completion_tokens() {
+    let body = json!({
+        "model": "m", "max_tokens": 100, "max_completion_tokens": 9000,
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    assert_eq!(req.max_tokens, Some(9000), "两键并存时应取新键");
+    let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::OpenAI);
+    assert_eq!(out["max_tokens"], json!(9000), "{out}");
+}
+
+/// 回归防线：只发 `max_tokens` 时行为不变，且出站不凭空多出新键
+/// （第三方 OpenAI 兼容端点只认 `max_tokens`；官方 host 的改键在 forward 层做）。
+#[test]
+fn fa05_max_tokens_only_unchanged() {
+    let body = json!({
+        "model": "m", "max_tokens": 777,
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    assert_eq!(req.max_tokens, Some(777));
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert_eq!(out["max_tokens"], json!(777));
+    assert!(out.get("max_completion_tokens").is_none(), "出站不应凭空多出新键: {out}");
+}
+
+/// 守卫式：两键都不传时不产默认值（openai 目标不写 max_tokens，也不写新键）。
+#[test]
+fn fa05_neither_key_no_default() {
+    let body = json!({"model": "m", "messages": [{"role": "user", "content": "hi"}]});
+    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    assert_eq!(req.max_tokens, None);
+    let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+    assert!(out.get("max_tokens").is_none(), "{out}");
+    assert!(out.get("max_completion_tokens").is_none(), "{out}");
+}

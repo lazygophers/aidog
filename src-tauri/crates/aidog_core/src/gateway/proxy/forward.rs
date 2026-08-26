@@ -321,6 +321,11 @@ pub(crate) async fn forward_attempt(
     let btc_global = state.settings_cache.read().await.builtin_tool_compat.enabled;
     builtin_tools::apply_builtin_tool_compat(&mut req_body, &route.platform.extra, &actual_model, btc_global);
 
+    // ── max_completion_tokens 归一（必须排在下方裁剪之前）──
+    // 透传分支的 body 是客户端原体：新版 OpenAI SDK 只发 `max_completion_tokens`，
+    // 不折成 `max_tokens` 的话下方 cap 找不到槽位 → 超模型上限的值原样上送（票 05）。
+    fold_openai_max_completion_tokens(&mut req_body, target_protocol_enum);
+
     // ── max_tokens 出站裁剪（body 层，透传与转换两分支共用本 seam）──
     // 上限口径与上方 chat_req 侧同源（同一个 `model_max`，不会出现「裁两次不同上限」）：
     // 转换分支此处为幂等复裁（chat_req 已裁到同值，不再命中）；透传分支此处是唯一生效点，
@@ -350,6 +355,12 @@ pub(crate) async fn forward_attempt(
                 "middleware inbound rules rewrote passthrough body"
             );
         }
+    }
+
+    // ── 官方 OpenAI 输出长度键改写（票 05）──
+    // 排在裁剪与中间件之后：前两步都按 `max_tokens` 认字段，改名放最后才不会漏。
+    if rename_openai_max_tokens_key(&mut req_body, target_protocol_enum, &target_base_url) {
+        tracing::debug!(model = %actual_model, "official OpenAI host: max_tokens → max_completion_tokens");
     }
 
     // 构建目标 URL
@@ -840,6 +851,45 @@ fn cap_body_max_tokens(body: &mut Value, model_max: Option<i64>, wire: &Protocol
     Some((requested, capped))
 }
 
+/// OpenAI wire 出站 body 上把 `max_completion_tokens` 折进 `max_tokens`（票 05）。
+///
+/// 转换分支上是 no-op（`to_openai` 只写 `max_tokens`）；生效点是同协议透传——新版 OpenAI
+/// SDK 与 o 系列模型只发 `max_completion_tokens`，不折就绕过下游的模型上限裁剪。
+///
+/// 取值规则与入站 `from_openai` 同源：**两键同时存在时取 `max_completion_tokens`**
+/// （新键是客户端有意设置的那个，旧键多是 SDK 为兼容老服务端保留的镜像值）。
+/// 折完 body 上只剩 `max_tokens`，官方 host 需要的键名由
+/// [`rename_openai_max_tokens_key`] 在链路末端改回。
+fn fold_openai_max_completion_tokens(body: &mut Value, wire: &Protocol) {
+    if !matches!(wire, Protocol::OpenAI) {
+        return;
+    }
+    let Some(obj) = body.as_object_mut() else { return };
+    if let Some(v) = obj.remove("max_completion_tokens")
+        && !v.is_null()
+    {
+        obj.insert("max_tokens".to_string(), v);
+    }
+}
+
+/// 官方 OpenAI Chat Completions 的输出长度键改写（票 05）。
+///
+/// 官方端点已把 `max_tokens` 标为 deprecated，o 系列等新模型直接拒绝该参数，只认
+/// `max_completion_tokens`；第三方 OpenAI 兼容端点与 legacy `/v1/completions`
+/// 反过来只认 `max_tokens`。故仅 `wire == OpenAI` 且 host 为 `api.openai.com` 时改键，
+/// 值不动（此时值已是裁剪后的最终值）。host 判定复用 [`is_official_openai_host`]。
+///
+/// 返回是否改写过。
+fn rename_openai_max_tokens_key(body: &mut Value, wire: &Protocol, upstream_url: &str) -> bool {
+    if !matches!(wire, Protocol::OpenAI) || !is_official_openai_host(upstream_url) {
+        return false;
+    }
+    let Some(obj) = body.as_object_mut() else { return false };
+    let Some(v) = obj.remove("max_tokens") else { return false };
+    obj.insert("max_completion_tokens".to_string(), v);
+    true
+}
+
 /// `disable_thinking` 请求字段处理（aidog 本地扩展）。字段存在即剥（非标，透传恐 400）；
 /// 值为 true 时先剔掉客户端带来的开启型思考参数，再按目标 wire 协议写入**显式禁用参数**。
 ///
@@ -1086,6 +1136,92 @@ mod test_cap_body_max_tokens {
         let mut b = json!({"max_tokens": 999_999});
         assert_eq!(cap_body_max_tokens(&mut b, Some(8), &Protocol::Mock), None);
         assert_eq!(b["max_tokens"], json!(999_999));
+    }
+}
+
+#[cfg(test)]
+mod test_openai_max_completion_tokens {
+    use super::{
+        cap_body_max_tokens, fold_openai_max_completion_tokens, rename_openai_max_tokens_key,
+        Protocol,
+    };
+    use aidog_adapter::converter::{convert_request, parse_incoming_request};
+    use serde_json::json;
+
+    const OFFICIAL: &str = "https://api.openai.com/v1";
+    const THIRD_PARTY: &str = "https://open.bigmodel.cn/api/paas/v4";
+
+    /// 透传 body 上两键同时存在 → 取 `max_completion_tokens`（与入站 `from_openai` 同规则）。
+    #[test]
+    fn both_keys_present_prefers_max_completion_tokens() {
+        let mut b = json!({"model": "m", "max_tokens": 100, "max_completion_tokens": 9000});
+        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
+        assert_eq!(b["max_tokens"], json!(9000));
+        assert!(b.get("max_completion_tokens").is_none(), "折叠后旧键不残留: {b}");
+    }
+
+    /// 回归防线：只发 `max_tokens` 时 body 逐字节不变。
+    #[test]
+    fn max_tokens_only_body_unchanged() {
+        let original = json!({"model": "m", "max_tokens": 777});
+        let mut b = original.clone();
+        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
+        assert_eq!(b, original, "无新键时 body 逐字节不变");
+    }
+
+    /// 与 cap 链路衔接：入站只发 `max_completion_tokens` 且超模型上限 →
+    /// 裁剪作用在识别后的值上（转换分支 chat_req 侧口径由 body 侧幂等复裁锚住）。
+    #[test]
+    fn cap_applies_to_recognized_value() {
+        let body = json!({
+            "model": "gpt-5", "max_completion_tokens": 200_000,
+            "messages": [{"role": "user", "content": "hi"}]
+        });
+        let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+        let (mut out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
+        assert_eq!(
+            cap_body_max_tokens(&mut out, Some(8192), &Protocol::OpenAI),
+            Some((200_000, 8192)),
+            "cap 没作用在归一后的值上: {out}"
+        );
+        assert_eq!(out["max_tokens"], json!(8192));
+
+        // 透传分支：原体只有新键，折叠后同样被裁
+        let mut b = json!({"model": "gpt-5", "max_completion_tokens": 200_000});
+        fold_openai_max_completion_tokens(&mut b, &Protocol::OpenAI);
+        assert_eq!(cap_body_max_tokens(&mut b, Some(8192), &Protocol::OpenAI), Some((200_000, 8192)));
+        assert_eq!(b["max_tokens"], json!(8192));
+    }
+
+    /// 出站键名按目标分叉：官方 OpenAI host 改成 `max_completion_tokens`，第三方保持 `max_tokens`。
+    #[test]
+    fn official_host_renames_third_party_keeps_max_tokens() {
+        let mut b = json!({"model": "m", "max_tokens": 8192, "temperature": 0.5});
+        assert!(rename_openai_max_tokens_key(&mut b, &Protocol::OpenAI, OFFICIAL));
+        assert_eq!(b["max_completion_tokens"], json!(8192));
+        assert!(b.get("max_tokens").is_none(), "官方 host 不应残留旧键: {b}");
+        assert_eq!(b["temperature"], json!(0.5), "同级其它字段不动");
+
+        let original = json!({"model": "m", "max_tokens": 8192});
+        let mut b = original.clone();
+        assert!(!rename_openai_max_tokens_key(&mut b, &Protocol::OpenAI, THIRD_PARTY));
+        assert_eq!(b, original, "第三方端点 body 逐字节不变");
+    }
+
+    /// 其它 wire 协议与「没有 max_tokens」时不动（anthropic 只认 max_tokens）。
+    #[test]
+    fn other_wires_and_absent_key_are_noop() {
+        for wire in [Protocol::Anthropic, Protocol::OpenAICompletions, Protocol::Gemini] {
+            let original = json!({"model": "m", "max_tokens": 8192});
+            let mut b = original.clone();
+            assert!(!rename_openai_max_tokens_key(&mut b, &wire, OFFICIAL));
+            assert_eq!(b, original, "{wire:?}: 非 openai wire 不应改键");
+            fold_openai_max_completion_tokens(&mut b, &wire);
+            assert_eq!(b, original, "{wire:?}: 非 openai wire 不应折叠");
+        }
+        let mut b = json!({"model": "m"});
+        assert!(!rename_openai_max_tokens_key(&mut b, &Protocol::OpenAI, OFFICIAL));
+        assert_eq!(b, json!({"model": "m"}), "未传 max_tokens 时不产键");
     }
 }
 
