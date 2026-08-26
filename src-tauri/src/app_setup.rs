@@ -244,8 +244,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 });
             }
 
-            // 模型价格自动同步：启动时一次性尝试（开关/间隔判定全在 maybe_auto_sync 内部，
-            // 外层不加逻辑）。全新安装未点过「立即同步」按钮时 model_price 表为空，
+            // registry 自动同步：启动时一次性尝试（开关/间隔判定全在 maybe_auto_sync 内部，
+            // 外层不加逻辑）。全新安装未点过「立即同步」按钮时 model_entry / platform_preset 表为空，
             // 此调用是唯一接回生产的入口。失败仅 warn，不阻塞启动。
             {
                 let db = app.state::<Db>().inner().clone();

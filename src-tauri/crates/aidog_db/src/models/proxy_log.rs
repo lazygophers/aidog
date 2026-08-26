@@ -51,7 +51,7 @@ pub struct ProxyLog {
     pub input_tokens: i32,
     pub output_tokens: i32,
     pub cache_tokens: i32,
-    /// 预估花费（$），基于 model_price 定价
+    /// 预估花费（$），基于 model_entry 定价
     #[serde(default)]
     pub est_cost: f64,
     /// 是否为流式（SSE）请求；流式日志的 body 为聚合的真实 SSE 内容（非 "[stream]" 哨兵）

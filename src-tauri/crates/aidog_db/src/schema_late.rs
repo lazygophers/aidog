@@ -206,8 +206,8 @@ pub fn run_migrations_late(
                 // 品牌字段（name/logo_url/color/homepage/keywords/source_urls）不拆列：
                 // 前端拿整份即可渲染，同步整体覆盖，失败时整份保留（票 12）。
                 //
-                // 旧 model_price 表本轮**保留不删**：resolve_price / 导入导出 / 出站 max_tokens
-                // 裁剪仍在读它，切换到 model_entry 是票 T4，DROP 收在票 T6。
+                // 旧 model_price 表本轮保留（当时 resolve_price / 导入导出 / 出站 max_tokens
+                // 裁剪仍在读它），切换到 model_entry 是票 T4，DROP 见下方 20260826-03。
                 // 数据不迁移——registry 是真值源，T3 同步一轮即重建。
                 conn.execute_batch(
                     r#"CREATE TABLE IF NOT EXISTS model_entry (
@@ -252,6 +252,16 @@ CREATE TABLE IF NOT EXISTS platform_preset (
                     "ALTER TABLE model_entry ADD COLUMN display_name TEXT NOT NULL DEFAULT ''",
                     [],
                 );
+
+                // Migration 20260826-03 (model-info 票 T6): DROP 旧 model_price 表。
+                //
+                // T2 起不再同步、T4 起计费与出站 max_tokens 裁剪全改查 model_entry，
+                // 至此表已无任何读写方（读取层 model_price.rs 与 5 个查询 command 同票删除）。
+                // 数据不迁移：registry 是真值源，同步一轮即由 model_entry 重建；
+                // 表内仅有的用户自有数据是 source='manual' 的手工定价，该功能随旧 PricingTab
+                // 一并下线（票 T5），没有承接入口，故直接丢弃。
+                // 前向单线、无 down：DROP 幂等靠 IF EXISTS。
+                conn.execute_batch("DROP TABLE IF EXISTS model_price;")?;
     Ok(())
 }
 

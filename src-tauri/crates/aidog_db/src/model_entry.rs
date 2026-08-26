@@ -268,22 +268,22 @@ pub fn select_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> i
 }
 
 /// 列模型条目：`platform_code` 为 None 即全量。DB 无任何条目 → 回落 bundled registry。
-pub fn list_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> impl std::future::Future<Output = Result<Vec<ModelEntry>, String>> + 'a {
-    async move {
-        let rows = select_model_entries(db, platform_code).await?;
-        if !rows.is_empty() {
-            return Ok(rows);
-        }
-        // 空结果分两种：DB 整表空（未同步）→ bundled 兜底；表非空只是该平台没有 → 照实返回空。
-        if count_model_entries(db).await? > 0 {
-            return Ok(rows);
-        }
-        Ok(bundled_model_entries()
-            .iter()
-            .filter(|e| platform_code.is_none_or(|c| e.platform_code == c))
-            .cloned()
-            .collect())
+/// 本函数不带 `#[track_caller]`（DB 访问在 `select_model_entries` / `count_model_entries`
+/// 内各自记 caller），故用 `async fn` 而非本模块其余处的 `impl Future` idiom。
+pub async fn list_model_entries(db: &Db, platform_code: Option<&str>) -> Result<Vec<ModelEntry>, String> {
+    let rows = select_model_entries(db, platform_code).await?;
+    if !rows.is_empty() {
+        return Ok(rows);
     }
+    // 空结果分两种：DB 整表空（未同步）→ bundled 兜底；表非空只是该平台没有 → 照实返回空。
+    if count_model_entries(db).await? > 0 {
+        return Ok(rows);
+    }
+    Ok(bundled_model_entries()
+        .iter()
+        .filter(|e| platform_code.is_none_or(|c| e.platform_code == c))
+        .cloned()
+        .collect())
 }
 
 /// 单条模型条目（按平台 + 真实请求名）。DB 未命中且整表空 → 回落 bundled registry。

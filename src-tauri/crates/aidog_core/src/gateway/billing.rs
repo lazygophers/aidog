@@ -10,7 +10,7 @@ use aidog_db::Db;
 ///
 /// 价格走 `resolve_price`（票 T4）：按 `(platform_type, model_name)` 查 `model_entry` 条目
 /// （DB 未同步时自动回落 bundled registry），条目缺失 / 无价 → `PriceSyncSettings` 的
-/// fallback 默认价（默认 3.0 $/M），不返回 0。与 preview 命令 `model_price_resolve` 同一实现。
+/// fallback 默认价（默认 3.0 $/M），不返回 0。
 ///
 /// **高峰只调价一次**：命中窗口且条目带 `peak` → 用模型 peak 绝对价，此时倍率压成 1.0
 /// （`PriceResolution::multiplier`）；条目无 `peak` 才乘平台 `peak_hours` 倍率。
@@ -23,7 +23,7 @@ use aidog_db::Db;
 /// 倍率 × base cost 落 `est_cost`（无新列；审计凭 time + platform_id 可重建窗口命中）。
 ///
 /// 锁安全：本函数不持有 `db.0.lock()`；`get_sync_settings` / `resolve_price`
-/// （内部 `get_model_price`）/ `get_platform` 各自获取并释放 db 锁，不会重入死锁。
+/// （内部 `get_model_entry`）/ `get_platform` 各自获取并释放 db 锁，不会重入死锁。
 ///
 /// `platform_type` 传入平台主类型的 serde 裸名（如 `"deepseek"`）以启用 pricing override；
 /// 传 `""` 时 override 不命中，但回退链仍保证非 0。`platform_id`=0（自动分组日志无源平台）

@@ -39,7 +39,7 @@ async fn put_entry(db: &Db, platform: &str, model: &str, pd: &serde_json::Value,
     .unwrap();
 }
 
-// ── 分档纯函数（从 model_price.rs 迁来，行为逐字不变）──
+// ── 分档纯函数（从已删除的 model_price.rs 迁来，行为逐字不变）──
 
 #[test]
 fn apply_context_tier_selects_long_tier() {

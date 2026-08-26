@@ -108,7 +108,7 @@ use rusqlite::params;
     fn builtin_spec_conditions_all_parse() {
         for spec in builtin_rule_specs() {
             let parsed: Result<crate::models::ConditionNode, _> =
-                serde_json::from_str(&spec.conditions);
+                serde_json::from_str(spec.conditions);
             assert!(parsed.is_ok(), "builtin spec '{}' conditions invalid JSON: {:#?}", spec.name, parsed.err());
         }
     }

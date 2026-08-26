@@ -1092,7 +1092,6 @@ mod group;
 mod group_platform;
 mod middleware;
 mod maintenance;
-mod model_price;
 mod model_entry;
 mod price_resolve;
 mod cli_proxy;
@@ -1105,7 +1104,6 @@ pub use group::*;
 pub use group_platform::*;
 pub use middleware::*;
 pub use maintenance::*;
-pub use model_price::*;
 pub use model_entry::*;
 pub use price_resolve::*;
 pub use cli_proxy::*;
@@ -1118,8 +1116,6 @@ mod test_mod;
 mod test_trace;
 #[cfg(test)]
 mod test_rw_pool;
-#[cfg(test)]
-mod test_model_price;
 #[cfg(test)]
 mod test_model_entry;
 #[cfg(test)]
