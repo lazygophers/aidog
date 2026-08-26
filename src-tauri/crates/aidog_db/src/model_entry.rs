@@ -91,7 +91,7 @@ pub fn bundled_model_entries() -> &'static [ModelEntry] {
     BUNDLED_ENTRIES.get_or_init(|| {
         let mut out: Vec<ModelEntry> = crate::registry::bundled_model_files()
             .iter()
-            .filter_map(|(code, raw)| model_entry_from_json(code, raw))
+            .filter_map(|(code, _file, raw)| model_entry_from_json(code, raw))
             .map(|mut e| {
                 e.display_name = resolve_display_name(&e.display_name, &e.model_id);
                 e
@@ -240,29 +240,37 @@ pub fn count_model_entries(db: &Db) -> impl std::future::Future<Output = Result<
     }
 }
 
-/// 列模型条目：`platform_code` 为 None 即全量。DB 无任何条目 → 回落 bundled registry。
+/// 列模型条目裸行（无 bundled 兜底）：`platform_code` 为 None 即全量。
+/// 同步的「新增 / 更新 / 未变」分类必须走这条——带兜底的 [`list_model_entries`] 在空表时
+/// 会返回 bundled 快照，会把首次同步的全部条目误判成「未变」。
 #[track_caller]
-pub fn list_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> impl std::future::Future<Output = Result<Vec<ModelEntry>, String>> + 'a {
+pub fn select_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> impl std::future::Future<Output = Result<Vec<ModelEntry>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
         let code = platform_code.map(str::to_string);
-        let rows: Vec<ModelEntry> = db
-            .call_read_traced(None, __db_caller, move |conn| {
-                let base = format!("SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE deleted_at = 0");
-                let order = " ORDER BY platform_code, model_id";
-                match &code {
-                    Some(c) => {
-                        let mut stmt = conn.prepare(&format!("{base} AND platform_code = ?1{order}"))?;
-                        Ok(stmt.query_map(params![c], row_to_model_entry)?.collect::<SqlResult<Vec<_>>>()?)
-                    }
-                    None => {
-                        let mut stmt = conn.prepare(&format!("{base}{order}"))?;
-                        Ok(stmt.query_map([], row_to_model_entry)?.collect::<SqlResult<Vec<_>>>()?)
-                    }
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let base = format!("SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE deleted_at = 0");
+            let order = " ORDER BY platform_code, model_id";
+            match &code {
+                Some(c) => {
+                    let mut stmt = conn.prepare(&format!("{base} AND platform_code = ?1{order}"))?;
+                    Ok(stmt.query_map(params![c], row_to_model_entry)?.collect::<SqlResult<Vec<_>>>()?)
                 }
-            })
-            .await
-            .map_err(|e| e.to_string())?;
+                None => {
+                    let mut stmt = conn.prepare(&format!("{base}{order}"))?;
+                    Ok(stmt.query_map([], row_to_model_entry)?.collect::<SqlResult<Vec<_>>>()?)
+                }
+            }
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// 列模型条目：`platform_code` 为 None 即全量。DB 无任何条目 → 回落 bundled registry。
+pub fn list_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> impl std::future::Future<Output = Result<Vec<ModelEntry>, String>> + 'a {
+    async move {
+        let rows = select_model_entries(db, platform_code).await?;
         if !rows.is_empty() {
             return Ok(rows);
         }
@@ -303,29 +311,51 @@ pub fn get_model_entry<'a>(db: &'a Db, platform_code: &'a str, model_id: &'a str
     }
 }
 
-/// 列平台预设。DB 空 → 回落 bundled registry。
+/// 列平台预设裸行（无 bundled 兜底）。空 = DB 从未同步过。
 #[track_caller]
-pub fn list_platform_presets(db: &Db) -> impl std::future::Future<Output = Result<Vec<PlatformPreset>, String>> + '_ {
+pub fn select_platform_presets(db: &Db) -> impl std::future::Future<Output = Result<Vec<PlatformPreset>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        let rows: Vec<PlatformPreset> = db
-            .call_read_traced(None, __db_caller, move |conn| {
-                let mut stmt = conn.prepare(
-                    "SELECT code, preset_data, updated_at FROM platform_preset WHERE deleted_at = 0 ORDER BY code",
-                )?;
-                Ok(stmt
-                    .query_map([], |r| {
-                        Ok(PlatformPreset { code: r.get(0)?, preset_data: r.get(1)?, updated_at: r.get(2)? })
-                    })?
-                    .collect::<SqlResult<Vec<_>>>()?)
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-        if rows.is_empty() {
-            return Ok(bundled_platform_presets().to_vec());
-        }
-        Ok(rows)
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT code, preset_data, updated_at FROM platform_preset WHERE deleted_at = 0 ORDER BY code",
+            )?;
+            Ok(stmt
+                .query_map([], |r| {
+                    Ok(PlatformPreset { code: r.get(0)?, preset_data: r.get(1)?, updated_at: r.get(2)? })
+                })?
+                .collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
     }
+}
+
+/// 列平台预设。DB 空 → 回落 bundled registry。
+pub async fn list_platform_presets(db: &Db) -> Result<Vec<PlatformPreset>, String> {
+    let rows = select_platform_presets(db).await?;
+    if rows.is_empty() {
+        return Ok(bundled_platform_presets().to_vec());
+    }
+    Ok(rows)
+}
+
+/// 旧 `platform-presets.json` 形状的整篇文档（`get_defaults_json` 的数据源）。
+/// DB 有同步数据即用 DB（`last_updated` 取各行 `updated_at` 最大值，秒），
+/// 从未同步过则原样回落编译期内置的那份（含 registry 自带的 version / last_updated）。
+pub async fn presets_doc_json(db: &Db) -> Result<String, String> {
+    let rows = select_platform_presets(db).await?;
+    if rows.is_empty() {
+        return Ok(crate::registry::presets_json().to_string());
+    }
+    let last_updated = rows.iter().map(|r| r.updated_at).max().unwrap_or(0) / 1000;
+    let version = crate::registry::presets()["version"].clone();
+    Ok(crate::registry::presets_doc(
+        rows.iter().map(|r| (r.code.as_str(), r.preset_data.as_str())),
+        version,
+        serde_json::Value::from(last_updated),
+    )
+    .to_string())
 }
 
 /// 模型信息页一次性数据源：模型维度聚合行 + 全部平台预设（含品牌字段）。

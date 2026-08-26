@@ -59,7 +59,15 @@ fn main() {
             let mut files = Vec::new();
             collect(&models_dir, &mut files);
             for f in files {
-                let _ = writeln!(model_files, "    ({code:?}, include_str!({f:?})),");
+                // 相对 models_dir 的路径（vendor 前缀模型 id 会落进子目录，如 `mistralai/codestral-2.json`，
+                // 光取文件名会跨子目录撞名）。index.json 的 `models` 数组就是这份清单，
+                // 远程同步照它逐文件拉，一致性靠 `test_registry.rs` 的漂移断言守住。
+                let rel = f
+                    .strip_prefix(&models_dir)
+                    .expect("model file under models dir")
+                    .to_string_lossy()
+                    .into_owned();
+                let _ = writeln!(model_files, "    ({code:?}, {rel:?}, include_str!({f:?})),");
             }
         }
     }
@@ -67,7 +75,7 @@ fn main() {
     let _ = write!(
         src,
         "pub static PLATFORM_FILES: &[(&str, &str)] = &[\n{platform_files}];\n\
-         pub static MODEL_FILES: &[(&str, &str)] = &[\n{model_files}];\n"
+         pub static MODEL_FILES: &[(&str, &str, &str)] = &[\n{model_files}];\n"
     );
 
     let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("registry_includes.rs");

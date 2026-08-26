@@ -242,3 +242,29 @@ fn bundled_registry_entries_are_wellformed() {
     assert!(presets.iter().all(|p| p.preset_data.starts_with('{')));
     assert!(presets.windows(2).all(|w| w[0].code < w[1].code), "code 升序且无重复");
 }
+
+/// `get_defaults_json` 的数据源：DB 有同步数据即以 DB 为准，
+/// 从未同步过才回落编译期内置那份（`~/.aidog/platform-presets.json` 本地文件层已彻底移除）。
+#[tokio::test]
+async fn presets_doc_json_prefers_db_over_bundled() {
+    let db = test_db().await;
+    let empty = presets_doc_json(&db).await.unwrap();
+    assert_eq!(empty, crate::registry::presets_json(), "DB 空 → 原样回落 bundled");
+
+    upsert_platform_presets(
+        &db,
+        vec![PlatformPreset {
+            code: "glm".into(),
+            preset_data: r#"{"name":{"en-US":"Zhipu Renamed"}}"#.into(),
+            updated_at: 0,
+        }],
+    )
+    .await
+    .unwrap();
+
+    let doc: serde_json::Value = serde_json::from_str(&presets_doc_json(&db).await.unwrap()).unwrap();
+    let protocols = doc["protocols"].as_object().expect("protocols");
+    assert_eq!(protocols.len(), 1, "DB 非空即完全接管，不与 bundled 合并");
+    assert_eq!(protocols["glm"]["name"]["en-US"], "Zhipu Renamed");
+    assert!(doc["last_updated"].as_i64().unwrap_or(0) > 0, "last_updated 取行 updated_at 最大值（秒）");
+}

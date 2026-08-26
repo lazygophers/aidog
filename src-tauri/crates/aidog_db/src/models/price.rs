@@ -101,7 +101,17 @@ impl Default for PriceSyncSettings {
     }
 }
 
-/// 同步结果
+/// registry 同步中单个文件的失败记录（best-effort：该文件的 DB 旧数据原样保留）。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct SyncFailure {
+    /// registry 内的相对路径，如 `platforms/glm/models/glm-4.6.json`。
+    pub file: String,
+    pub error: String,
+}
+
+/// 同步结果。`total` = 本轮尝试拉取的文件数（platform.json + 模型条目），
+/// `failures` 非空即 partial：成功的文件已入库，失败的保留 DB 旧值。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PriceSyncResult {
@@ -110,4 +120,6 @@ pub struct PriceSyncResult {
     pub unchanged: u32,
     pub failed: u32,
     pub total: u32,
+    #[serde(default)]
+    pub failures: Vec<SyncFailure>,
 }
