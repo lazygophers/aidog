@@ -146,6 +146,7 @@ pub(crate) async fn handle_proxy_core(
         done: false,
         deleted_at: 0,
         cli_proxy_provider_id: None,
+        field_trace: String::new(),
     };
 
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──

@@ -463,6 +463,8 @@ async fn process_connect_log(
         deleted_at: 0,
         cli_proxy_provider_id: None,
         done: 1,
+        // CONNECT 隧道日志不经出站 body 构造 seam，无字段留痕（票 10）。
+        field_trace: String::new(),
     };
     if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");

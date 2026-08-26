@@ -342,12 +342,15 @@ pub(crate) async fn forward_attempt(
     // 修掉「客户端 max_tokens 超模型上限 → 上游 400」（票 02）。
     // 留痕：proxy_log 同时存客户端原始 body（request_body）与上游实际 body
     // （upstream_request_body），两者一比即知裁到多少。
+    // 票 10：本次出站 body 被丢弃 / 被改写的字段名 token（只记名不记值），落 proxy_log.field_trace。
+    let mut field_trace: Vec<String> = Vec::new();
     if let Some((requested, capped)) = cap_body_max_tokens(&mut req_body, model_max, target_protocol_enum) {
         tracing::info!(
             model = %actual_model, requested, capped_to = capped,
             passthrough = same_protocol_passthrough,
             "max_tokens exceeds model limit, capping outbound body"
         );
+        field_trace.push("cap:max_tokens".to_string());
     }
 
     // ── 中间件入站改写（Value 层，仅透传分支）──
@@ -364,6 +367,7 @@ pub(crate) async fn forward_attempt(
                 platform_id = route.platform.id, model = %actual_model,
                 "middleware inbound rules rewrote passthrough body"
             );
+            field_trace.push("rewrite:middleware".to_string());
         }
     }
 
@@ -371,7 +375,13 @@ pub(crate) async fn forward_attempt(
     // 客户端设的采样参数（stop / top_k / seed / response_format / …）在 ChatRequest 强类型模型里
     // 没有对应字段，转换分支经 wire struct 序列化后静默消失。本 seam 从客户端原体按**目标 wire
     // 协议的允许集合**补齐（键名按协议换名），允许集合外的字段一律不写出。
-    apply_field_passthrough(&mut req_body, req_value, target_protocol_enum, &target_base_url);
+    let dropped = apply_field_passthrough(&mut req_body, req_value, target_protocol_enum, &target_base_url);
+    field_trace.extend(dropped.into_iter().map(|f| format!("drop:{f}")));
+
+    // 票 10：留痕落 log（无丢弃无改写时写空串，不产生噪音记录；本值随后续 upsert 入库，
+    // 受 log_upstream_request 开关与 upstream_request_retention_days 清理约束）。
+    // 每个候选平台重跑本段 → 无条件赋值，换平台重试时不残留上一候选的留痕。
+    log.field_trace = field_trace.join(",");
 
     // ── 官方 OpenAI 输出长度键改写（票 05）──
     // 排在裁剪、中间件与兜底透传之后：前几步都按 `max_tokens` 认字段，改名放最后才不会漏。
@@ -1020,9 +1030,13 @@ fn is_official_openai_host(upstream_url: &str) -> bool {
 ///
 /// **`src` 是客户端原体**（`req_value`），不是 `req_body`——同 `apply_disable_thinking` 的
 /// 调用方约束：转换分支的 `req_body` 由 wire struct 序列化而来，未建模字段在那里已经没了。
-fn apply_field_passthrough(body: &mut Value, src: &Value, wire: &Protocol, upstream_url: &str) {
-    let Some(src_obj) = src.as_object() else { return };
-    let Some(obj) = body.as_object_mut() else { return };
+/// **返回值（票 10）**：客户端发了、但本函数的允许集合没让它出站的字段名（按 `TRACED_FIELDS`
+/// 固定序，只有名没有值——值可能含敏感内容）。调用方拼进 `proxy_log.field_trace`。
+/// 判据是「候选集合内、客户端有、最终出站 body 里没有」；`stop` / `stop_sequences` 互为换名，
+/// 目标键已出站即视为已承载，不算被挡。
+fn apply_field_passthrough(body: &mut Value, src: &Value, wire: &Protocol, upstream_url: &str) -> Vec<String> {
+    let Some(src_obj) = src.as_object() else { return Vec::new() };
+    let Some(obj) = body.as_object_mut() else { return Vec::new() };
 
     // ① 停止序列：anthropic 用 stop_sequences（只收数组），openai 族用 stop（字符串或数组）
     let stop_key = match wire {
@@ -1089,7 +1103,31 @@ fn apply_field_passthrough(body: &mut Value, src: &Value, wire: &Protocol, upstr
             obj.insert(k.to_string(), v.clone());
         }
     }
+
+    // ③ 留痕（票 10）：候选集合内、客户端发了但没出站的字段名。
+    let stop_carried = stop_key.map(|k| obj.contains_key(k)).unwrap_or(false);
+    TRACED_FIELDS
+        .iter()
+        .filter(|k| src_obj.contains_key(**k) && !obj.contains_key(**k))
+        .filter(|k| !(matches!(**k, "stop" | "stop_sequences") && stop_carried))
+        .map(|k| (*k).to_string())
+        .collect()
 }
+
+/// 票 10 留痕的候选字段集合 = `apply_field_passthrough` 认识的全部顶层键（跨协议并集）。
+/// 不在本集合内的键不参与留痕：转换分支的 `system` / `tools` 等是被结构化转换吸收，不是被挡掉。
+const TRACED_FIELDS: [&str; 10] = [
+    "stop",
+    "stop_sequences",
+    "top_k",
+    "seed",
+    "stream_options",
+    "presence_penalty",
+    "frequency_penalty",
+    "n",
+    "user",
+    "response_format",
+];
 
 /// 第三方 anthropic 端点：无条件剥离 messages[].content 内 `redacted_thinking` block。
 ///
@@ -1249,6 +1287,71 @@ mod test_cap_body_max_tokens {
         let mut b = json!({"max_tokens": 999_999});
         assert_eq!(cap_body_max_tokens(&mut b, Some(8), &Protocol::Mock), None);
         assert_eq!(b["max_tokens"], json!(999_999));
+    }
+}
+
+/// 票 10：`apply_field_passthrough` 的留痕返回值——只记被挡掉的字段名，绝不记值。
+#[cfg(test)]
+mod test_field_trace {
+    use super::{apply_field_passthrough, Protocol};
+    use serde_json::json;
+
+    /// 被允许集合挡掉的字段：名进留痕，值不进。
+    #[test]
+    fn blocked_field_name_recorded_without_its_value() {
+        let src = json!({
+            "model": "m",
+            "messages": [],
+            "top_k": 40,
+            "user": "tenant-42-secret-id",
+            "response_format": {"type": "json_object"}
+        });
+        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
+        // anthropic 允许集合只有 top_k → user / response_format 被挡。
+        let dropped = apply_field_passthrough(&mut b, &src, &Protocol::Anthropic, "https://api.anthropic.com/v1/messages");
+        assert_eq!(dropped, vec!["user".to_string(), "response_format".to_string()]);
+        let trace = dropped.join(",");
+        assert!(!trace.contains("tenant-42-secret-id"), "留痕不得含字段值：{trace}");
+        assert!(!trace.contains("json_object"), "留痕不得含字段值：{trace}");
+        assert!(!trace.contains("top_k"), "已出站的字段不算被挡：{trace}");
+    }
+
+    /// 官方 OpenAI host 上 `top_k` 被 host gate 挡掉 → 记名。
+    #[test]
+    fn official_openai_host_records_top_k_drop() {
+        let src = json!({"model": "m", "messages": [], "top_k": 40, "seed": 7});
+        let mut b = json!({"model": "m", "messages": []});
+        let dropped = apply_field_passthrough(&mut b, &src, &Protocol::OpenAI, "https://api.openai.com/v1/chat/completions");
+        assert_eq!(dropped, vec!["top_k".to_string()]);
+        assert_eq!(b["seed"], json!(7), "允许集合内的字段照常出站");
+    }
+
+    /// 无丢弃时不产生噪音：全部字段都出站（或本就不在候选集合内）→ 留痕为空。
+    #[test]
+    fn no_drop_produces_no_trace() {
+        let src = json!({"model": "m", "messages": [], "max_tokens": 100, "temperature": 0.7, "top_k": 40});
+        let mut b = json!({"model": "m", "messages": [], "max_tokens": 100});
+        let dropped = apply_field_passthrough(&mut b, &src, &Protocol::Anthropic, "https://open.bigmodel.cn/api/anthropic");
+        assert!(dropped.is_empty(), "无字段被挡时不应产生留痕：{dropped:?}");
+    }
+
+    /// 换名承载不算被挡：客户端 `stop` 以 `stop_sequences` 出站 → 留痕为空。
+    #[test]
+    fn renamed_stop_is_not_reported_as_dropped() {
+        let src = json!({"model": "m", "messages": [], "stop": ["\n\n"]});
+        let mut b = json!({"model": "m", "messages": []});
+        let dropped = apply_field_passthrough(&mut b, &src, &Protocol::Anthropic, "https://api.anthropic.com/v1/messages");
+        assert_eq!(b["stop_sequences"], json!(["\n\n"]));
+        assert!(dropped.is_empty(), "换名出站的字段不算被挡：{dropped:?}");
+    }
+
+    /// gemini 顶层无本组字段 → 客户端发的采样参数全被挡，逐个记名。
+    #[test]
+    fn gemini_reports_all_candidates_as_dropped() {
+        let src = json!({"model": "m", "contents": [], "stop": ["x"], "seed": 1, "n": 2});
+        let mut b = json!({"model": "m", "contents": []});
+        let dropped = apply_field_passthrough(&mut b, &src, &Protocol::Gemini, "https://generativelanguage.googleapis.com/v1beta");
+        assert_eq!(dropped, vec!["stop".to_string(), "seed".to_string(), "n".to_string()]);
     }
 }
 
