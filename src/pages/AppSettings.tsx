@@ -9,13 +9,13 @@ import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSet
 export type Tab = "system" | "claude" | "codex" | "pi" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
 
 // ponytail: 每个 settings 子 tab 单独 chunk。AppSettings 本身已由 App.tsx 懒加载，
-// 这里再拆一层子 tab —— 进 system tab 时不该把 pricing/tray/codex 等其余 tab 的代码一并拖下来。
+// 这里再拆一层子 tab —— 进 system tab 时不该把 modelInfo/tray/codex 等其余 tab 的代码一并拖下来。
 // 外层 Suspense fallback=null：settings 内部 tab 切换同样经 App.tsx handleNavigate 的
 // startTransition（Sidebar 二级菜单走同一 handleNavigate），旧 tab 树留屏不闪烁。
 const Settings = lazy(() => import("./Settings").then(m => ({ default: m.Settings })));
 const CodexSettings = lazy(() => import("./CodexSettings").then(m => ({ default: m.CodexSettings })));
 const PiSettings = lazy(() => import("./PiSettings").then(m => ({ default: m.PiSettings })));
-const PricingTab = lazy(() => import("./PricingTab").then(m => ({ default: m.PricingTab })));
+const ModelInfoTab = lazy(() => import("./ModelInfo/ModelInfoTab").then(m => ({ default: m.ModelInfoTab })));
 const TrayConfigTab = lazy(() => import("./TrayConfigTab").then(m => ({ default: m.TrayConfigTab })));
 const PopoverConfigTab = lazy(() => import("./PopoverConfigTab").then(m => ({ default: m.PopoverConfigTab })));
 const MiddlewareSettingsTab = lazy(() => import("../components/settings/MiddlewareRules").then(m => ({ default: m.MiddlewareSettingsTab })));
@@ -34,7 +34,7 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
 }
 
 function AppSettingsTabContent({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
-  if (tab === "pricing") return <PricingTab />;
+  if (tab === "pricing") return <ModelInfoTab />;
   if (tab === "tray") return <TrayConfigTab />;
   if (tab === "popover") return <PopoverConfigTab />;
   if (tab === "middleware") return <MiddlewareSettingsTab />;
