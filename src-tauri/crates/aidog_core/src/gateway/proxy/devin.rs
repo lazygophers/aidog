@@ -514,7 +514,7 @@ pub(crate) fn extract_message_text(content: &aidog_adapter::types::MessageConten
             let mut buf = String::new();
             for b in blocks {
                 match b {
-                    ContentBlock::Text { text } => {
+                    ContentBlock::Text { text, .. } => {
                         buf.push_str(text);
                         buf.push('\n');
                     }
@@ -1003,6 +1003,7 @@ mod tests {
             system: None,
             max_tokens: None, temperature: None, top_p: None,
             stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[user] hello");
@@ -1021,6 +1022,7 @@ mod tests {
             system: Some(SystemContent::Text("be concise".into())),
             max_tokens: None, temperature: None, top_p: None,
             stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[system] be concise\n\n[user] hi\n\n[assistant] hello\n\n[user] how are you");
@@ -1046,6 +1048,7 @@ mod tests {
             system: None,
             max_tokens: None, temperature: None, top_p: None,
             stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[user] first\nsecond");
@@ -1060,6 +1063,7 @@ mod tests {
             system: None,
             max_tokens: None, temperature: None, top_p: None,
             stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
         };
         assert!(build_prompt(&req).is_err());
     }
@@ -1076,6 +1080,7 @@ mod tests {
             system: None,
             max_tokens: None, temperature: None, top_p: None,
             stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[assistant] real");

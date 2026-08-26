@@ -13,8 +13,8 @@ fn to_completions_joins_messages() {
             Message {
                 role: Role::Assistant,
                 content: MessageContent::Blocks(vec![
-                    ContentBlock::Text { text: "a".into() },
-                    ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({}) },
+                    ContentBlock::Text { text: "a".into(), extra: None },
+                    ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({}), extra: None },
                 ]),
             },
             Message {
@@ -22,7 +22,7 @@ fn to_completions_joins_messages() {
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: "i".into(),
                     content: "r".into(),
-                    name: None,
+                    name: None, is_error: None, content_blocks: None, extra: None
                 }]),
             },
         ],
@@ -34,6 +34,7 @@ fn to_completions_joins_messages() {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     };
     let c = to_completions(&req);
     assert!(c.prompt.contains("System: sys"));

@@ -15,6 +15,7 @@ fn req(messages: Vec<Message>) -> ChatRequest {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     }
 }
 
@@ -38,14 +39,14 @@ fn to_gemini_roles_and_blocks() {
         Message {
             role: Role::Assistant,
             content: MessageContent::Blocks(vec![
-                ContentBlock::Text { text: "t".into() },
-                ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({"a": 1}) },
+                ContentBlock::Text { text: "t".into(), extra: None },
+                ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({"a": 1}), extra: None },
             ]),
         },
         Message {
             role: Role::Tool,
             content: MessageContent::Blocks(vec![
-                ContentBlock::ToolResult { tool_use_id: "f".into(), content: "res".into(), name: None },
+                ContentBlock::ToolResult { tool_use_id: "f".into(), content: "res".into(), name: None, is_error: None, content_blocks: None, extra: None },
                 ContentBlock::Unknown(json!({"type": "thinking", "thinking": "th"})),
             ]),
         },
@@ -63,7 +64,7 @@ fn to_gemini_roles_and_blocks() {
 #[test]
 fn to_gemini_tools_and_gen_config() {
     let mut r = req(vec![]);
-    r.tools = Some(vec![Tool { name: "f".into(), description: Some("d".into()), input_schema: json!({}) }]);
+    r.tools = Some(vec![Tool { name: "f".into(), description: Some("d".into()), input_schema: json!({}), tool_type: None, cache_control: None, extra: None }]);
     r.max_tokens = Some(100);
     r.temperature = Some(0.5);
     let g = to_gemini(&r);

@@ -61,6 +61,9 @@ async fn prepare_test_context(
                         "properties": { "city": { "type": "string" } },
                         "required": ["city"]
                     }),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
                 }]),
             )
         } else {
@@ -89,6 +92,7 @@ async fn prepare_test_context(
             tools,
             tool_choice: None,
             extra: None,
+        thinking_mode: None,
         };
 
         Ok(TestContext { platform, model, prompt, expected, chat_req })
@@ -539,6 +543,7 @@ mod test_prepare_http_request {
                 tools: None,
                 tool_choice: None,
                 extra: None,
+        thinking_mode: None,
             },
         }
     }

@@ -33,7 +33,7 @@ pub fn to_completions(req: &ChatRequest) -> CompletionsRequest {
             MessageContent::Text(t) => t.clone(),
             MessageContent::Blocks(blocks) => blocks.iter()
                 .filter_map(|b| match b {
-                    ContentBlock::Text { text } => Some(text.as_str()),
+                    ContentBlock::Text { text, .. } => Some(text.as_str()),
                     _ => None,
                 })
                 .collect::<Vec<_>>()
@@ -190,6 +190,7 @@ pub fn from_completions(body: &Value) -> Option<ChatRequest> {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     })
 }
 

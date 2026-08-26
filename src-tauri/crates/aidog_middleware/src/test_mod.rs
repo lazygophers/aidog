@@ -69,6 +69,7 @@ pub(crate) fn chat_req(system: &str, user: &str) -> ChatRequest {
         tool_choice: None,
         thinking_budget: None,
         extra: None,
+        thinking_mode: None,
     }
 }
 
