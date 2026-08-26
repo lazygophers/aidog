@@ -255,7 +255,6 @@ dependencies = [
  "tracing-appender",
  "tracing-subscriber",
  "ts-rs",
- "tts",
  "url",
  "uuid",
  "webpki-roots 0.26.11",
@@ -388,6 +387,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "tts",
 ]
 
 [[package]]
