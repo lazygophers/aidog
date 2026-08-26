@@ -1427,6 +1427,8 @@
   "proxy.stopped": "プロキシ停止",
   "proxy.timeout": "タイムアウト設定",
   "proxy.timeoutDesc": "システムデフォルトのタイムアウト。グループ・モデルレベルで上書き可能",
+  "proxy.btcGlobal": "内蔵ツール互換マスタースイッチ",
+  "proxy.btcGlobalDesc": "プラットフォームごとの内蔵ツール互換が有効になる前提条件。オフの場合はすべてのプラットフォーム設定が無効",
   "proxy.upstreamProxy": "アップストリームプロキシ",
   "proxy.upstreamProxyDesc": "アップストリームプラットフォームへの HTTP/SOCKS5 プロキシを設定",
   "proxy.upstreamReqRetention": "アップストリームリクエスト保持時間",

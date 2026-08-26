@@ -81,6 +81,18 @@ export const proxyTimeoutApi = {
     invoke<void>("proxy_timeout_set", { settings }),
 };
 
+// ─── Builtin Tool Compat Global Switch ──────────────────────
+// 全局总开关（scope "proxy" / key "builtin_tool_compat"），与平台级 platform.extra.
+// builtin_tool_compat.enabled AND 关系，两层默认均 false。走通用 settings_get/set：
+// settings_set 内部自动 refresh_proxy_settings_cache，代理热路径立即生效。
+
+export const builtinToolCompatGlobalApi = {
+  get: () =>
+    invoke<{ enabled: boolean } | null>("settings_get", { scope: "proxy", key: "builtin_tool_compat" }),
+  set: (enabled: boolean) =>
+    invoke<void>("settings_set", { input: { scope: "proxy", key: "builtin_tool_compat", value: { enabled } } }),
+};
+
 // ─── Middleware Rule Engine API (C1 契约冻结点) ─────────────
 // 字段名与 Rust serde（src-tauri/src/gateway/models.rs MiddlewareRule/MiddlewareSettings
 // + 枚举 RuleType/RuleScope/MatchType/RuleAction）严格 snake_case 一致。

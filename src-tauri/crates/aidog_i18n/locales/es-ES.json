@@ -1405,6 +1405,8 @@
   "proxy.stopped": "Proxy detenido",
   "proxy.timeout": "Ajustes de tiempo de espera",
   "proxy.timeoutDesc": "Tiempos de espera del sistema por defecto; los niveles de grupo y modelo pueden anularlos",
+  "proxy.btcGlobal": "Interruptor maestro de compatibilidad de herramientas integradas",
+  "proxy.btcGlobalDesc": "Requisito previo para la compatibilidad de herramientas integradas por plataforma; desactivado, se ignoran todas las configuraciones de plataforma",
   "proxy.upstreamProxy": "Proxy upstream",
   "proxy.upstreamProxyDesc": "Configurar proxy HTTP/SOCKS5 para todas las peticiones upstream de plataforma",
   "proxy.upstreamReqRetention": "Tiempo de retención de solicitud upstream",

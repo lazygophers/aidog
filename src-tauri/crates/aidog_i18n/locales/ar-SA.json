@@ -1427,6 +1427,8 @@
   "proxy.stopped": "الوكيل متوقف",
   "proxy.timeout": "إعدادات المهلة",
   "proxy.timeoutDesc": "مهلات النظام الافتراضية؛ يمكن للمجموعة ومستوى النموذج تجاوزها",
+  "proxy.btcGlobal": "مفتاح توافق الأدوات المدمجة الرئيسي",
+  "proxy.btcGlobalDesc": "شرط مسبق لتوافق الأدوات المدمجة لكل منصة؛ عند إيقافه يتم تجاهل جميع إعدادات المنصات",
   "proxy.upstreamProxy": "وكيل المنبع",
   "proxy.upstreamProxyDesc": "تكوين وكيل HTTP/SOCKS5 لجميع طلبات المنصة",
   "proxy.upstreamReqRetention": "مدة الاحتفاظ بطلب المنبع",

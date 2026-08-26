@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
+import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
@@ -26,6 +26,8 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   const [upstreamReqRetentionUnit, setUpstreamReqRetentionUnit] = useState<RetentionUnit>("day");
   const [reqTimeout, setReqTimeout] = useState(300);
   const [connTimeout, setConnTimeout] = useState(10);
+  // builtin_tool_compat 全局总开关（与平台级 enabled AND，默认 false）
+  const [btcGlobalEnabled, setBtcGlobalEnabled] = useState(false);
   const [logFileEnabled, setLogFileEnabled] = useState(true);
   const [logLevel, setLogLevel] = useState("info");
   const [logRetHours, setLogRetHours] = useState(3);
@@ -85,6 +87,10 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
         const ts = await proxyTimeoutApi.get();
         setReqTimeout(ts.request_timeout_secs);
         setConnTimeout(ts.connect_timeout_secs);
+      } catch { /* defaults */ }
+      try {
+        const btc = await builtinToolCompatGlobalApi.get();
+        setBtcGlobalEnabled(btc?.enabled ?? false);
       } catch { /* defaults */ }
       try {
         const ls = await appLogApi.get();
@@ -251,6 +257,13 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     } catch (e: any) { setMessage(e.toString()); }
   };
 
+  const handleBtcGlobalChange = async (val: boolean) => {
+    try {
+      await builtinToolCompatGlobalApi.set(val);
+      setBtcGlobalEnabled(val);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
   const handleLogSettingsChange = async (partial: Partial<AppLogSettings>) => {
     const next = { file_enabled: logFileEnabled, level: logLevel, retention_hours: logRetHours, ...partial };
     setLogFileEnabled(next.file_enabled);
@@ -267,7 +280,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     logEnabled, logRetention, logRetentionUnit, logUserReq, logUpstreamReq,
     userReqRetention, userReqRetentionUnit,
     upstreamReqRetention, upstreamReqRetentionUnit,
-    reqTimeout, connTimeout,
+    reqTimeout, connTimeout, btcGlobalEnabled,
     logFileEnabled, logLevel, logRetHours, message, proxyStartError, appVersion,
     dbCompacting, statsRetention, statsRebuilding, proxyClient,
     autoUpdateEnabled,
@@ -282,7 +295,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     handleAutolaunchChange, handleSilentLaunchChange,
     handleProxyClientChange, handleLogEnabledChange, updateLogSettings,
     handleDbCompact, handleStatsRetentionChange, handleStatsRebuild,
-    handleTimeoutChange, handleLogSettingsChange, handleAutoUpdateChange,
+    handleTimeoutChange, handleLogSettingsChange, handleAutoUpdateChange, handleBtcGlobalChange,
   };
 }
 

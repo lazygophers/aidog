@@ -1427,6 +1427,8 @@
   "proxy.stopped": "Proxy arrêté",
   "proxy.timeout": "Paramètres de délai",
   "proxy.timeoutDesc": "Délais système par défaut ; les niveaux groupe et modèle peuvent les remplacer",
+  "proxy.btcGlobal": "Interrupteur global de compatibilité des outils intégrés",
+  "proxy.btcGlobalDesc": "Condition préalable à la compatibilité des outils intégrés par plateforme ; désactivé, toutes les configurations de plateforme sont ignorées",
   "proxy.upstreamProxy": "Proxy amont",
   "proxy.upstreamProxyDesc": "Configurer un proxy HTTP/SOCKS5 pour les requêtes amont",
   "proxy.upstreamReqRetention": "Durée de rétention de la requête amont",
