@@ -28,6 +28,20 @@ impl Lang {
             _ => Self::EnUs,
         }
     }
+
+    /// 规范 locale 标识（8 语言 locale JSON 与 registry `platform.json` 的 `name` 键同一套）。
+    pub fn locale_key(self) -> &'static str {
+        match self {
+            Self::ZhCn => "zh-Hans",
+            Self::EnUs => "en-US",
+            Self::JaJp => "ja-JP",
+            Self::FrFr => "fr-FR",
+            Self::DeDe => "de-DE",
+            Self::RuRu => "ru-RU",
+            Self::ArSa => "ar-SA",
+            Self::EsEs => "es-ES",
+        }
+    }
 }
 
 // ── 错误消息键 ──────────────────────────────────────────────

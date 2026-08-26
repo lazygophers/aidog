@@ -11,8 +11,12 @@
  *   D. labelKey/group 属性字面量覆盖 — t(变量) 路径 (t(item.labelKey)/t(g.key)) 数据源,
  *      扫 NAV_ITEMS/sections 配置的 labelKey/group 字面量, 每 key 必须 8 locale 存在。
  *      (A/B/C 都要求 t( 后跟引号/反引号, t(变量) 完全漏扫 → D 堵此盲区)。
+ *   E. registry 平台展示名 8 locale 完整性 — 真值源 src-tauri/defaults/registry/platforms/<code>/platform.json
+ *      的 name，任一平台缺任一 locale 或值空白 → 报红。
  *
  * 用法: node scripts/check-i18n.mjs
+ * E 项自检: AIDOG_REGISTRY_DIR=$PWD/scripts/__fixtures__/registry-missing-locale node scripts/check-i18n.mjs
+ *          (fixture 缺 ja-JP、ar-SA 空白 → 退出码 1，E 计数 1)
  * 退出码: 0 = 零缺失; 非 0 = 有缺失 (check 阶段 fail)。
  *
  * 规约见 .trellis/spec/frontend/conventions.md i18n 章节。
