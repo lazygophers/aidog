@@ -603,11 +603,6 @@ export interface DbCompactResult {
   after_bytes: number;
 }
 
-export interface ModelPriceFilter {
-  query?: string;
-  source?: string;
-}
-
 /** notify hook 片段中单个 handler（CC hooks schema：type=command + 脚本命令串）。 */
 export interface NotifyHookHandler {
   type: string;

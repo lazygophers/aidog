@@ -10,7 +10,8 @@ pub fn run_migrations_early(conn: &Connection) -> SqlResult<()> {
                 conn.execute_batch(
                     r#"-- AiDog Schema (v2 — singular table names, uint64 PKs, ms timestamps, soft delete, no NULL)
 -- config-db-split: platform / "group" / group_platform CREATE 迁出 → run_migrations_platform_early（落 platform.db）。
--- 主库仅留 setting（+ model_price 20260727-03 / middleware_rule 20260727-05 / mcp_server 20260727-11，见后续 migration）。
+-- 主库仅留 setting（+ middleware_rule 20260727-05 / mcp_server 20260727-11 /
+-- model_entry + platform_preset 20260826-01，见后续 migration）。
 
 PRAGMA journal_mode=WAL;
 PRAGMA foreign_keys=ON;
@@ -28,25 +29,11 @@ CREATE TABLE IF NOT EXISTS setting (
 "#,
                 )?;
                 // Migration 20260727-02 (原 002): proxy_log 索引已迁至 run_migrations_proxy_log_early（落 log.db）。
-                // Migration 20260727-03 (原 003): 模型价格表 model_price。
-                conn.execute_batch(
-                    r#"-- Model price table: stores per-model pricing data synced from LiteLLM or entered manually
-
-CREATE TABLE IF NOT EXISTS model_price (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    model_name       TEXT NOT NULL DEFAULT '',
-    source           TEXT NOT NULL DEFAULT 'manual',  -- 'litellm' | 'manual'
-    price_data       TEXT NOT NULL DEFAULT '{}',       -- JSON: {input_cost_per_token, output_cost_per_token, cache_read_input_token_cost, pricing: {platform_type: {...}}, default_platform, ...}
-    created_at       INTEGER NOT NULL DEFAULT 0,
-    updated_at       INTEGER NOT NULL DEFAULT 0,
-    deleted_at       INTEGER NOT NULL DEFAULT 0,
-    UNIQUE(model_name, source)
-);
-
--- idx_model_price_name 已删：UNIQUE(model_name, source) 自带的隐式索引前导列即 model_name，
--- 已覆盖按 model_name 的等值/前缀查找，单列偏索引纯重复。旧库由 migration 20260727-14（原 035）DROP。
-"#,
-                )?;
+                // Migration 20260727-03 (原 003): 模型价格表 model_price —— **建表语句随票 T6 移除**。
+                // 该表已被 model_entry 取代（20260826-01 建表，20260826-03 DROP 旧表）。
+                // 新库直接不建，老库照旧走 20260826-03 的 DROP；建了再删纯属空转。
+                // 后续针对 model_price 的 ALTER（20260727-12）/ DROP INDEX（20260727-14）
+                // 是 `let _ =` / `IF EXISTS`，新库无表也不报错。
                 // Migration 20260727-04 (原 004–012): platform / "group" 的 ALTER 与 012 kimi endpoint 修正
                 // → run_migrations_platform_early / run_migrations_platform_late（落 platform.db）。
                 // Migration 20260727-05 (原 013): 中间件规则表基座。20260824-02（票 01 统一引擎）
