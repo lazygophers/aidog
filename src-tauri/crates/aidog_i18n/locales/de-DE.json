@@ -1391,6 +1391,7 @@
   "modelInfo.morePlatforms": "+{count} weitere",
   "modelInfo.selectPlatform": "Links eine Plattform auswählen",
   "modelInfo.canonical": "Kanonische ID",
+  "modelInfo.priceRefOnly": "Preisreferenz",
   "modelInfo.basics": "Basisdaten",
   "modelInfo.requestName": "Anfragename",
   "modelInfo.displayName": "Anzeigename",

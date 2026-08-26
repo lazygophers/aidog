@@ -49,6 +49,7 @@ function entry(over: Partial<ModelEntry> & Pick<ModelEntry, "platform_code" | "m
 const SNAPSHOT: ModelInfoSnapshot = {
   bundled: false,
   platforms: [],
+  pricing_only: [],
   groups: [
     {
       canonical_model: "glm-4.6",
@@ -182,6 +183,29 @@ describe("ModelInfoTab", () => {
     await waitFor(() => expect(syncMock).toHaveBeenCalled());
     expect(await screen.findByText("platforms/glm/models/glm-4.6.json")).toBeInTheDocument();
     expect(screen.getByText(/404/)).toBeInTheDocument();
+  });
+
+  // 票 13-I：litellm / meta / mistral 只提供比价条目，没有 platform.json，
+  // 用户在平台页选不到 → 不能进平台筛选下拉与平台维度列表，详情弹窗里要标出来。
+  it("pricing_only 来源: 不进平台筛选与平台维度，详情弹窗标为比价参考", async () => {
+    snapshotMock.mockResolvedValue({
+      ...SNAPSHOT,
+      pricing_only: ["openrouter"],
+    });
+    render(<ModelInfoTab />);
+    await screen.findByText("GLM-4.6");
+
+    // 平台维度左侧列表不再列它
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "modelInfo.tabPlatforms" }), { button: 0 });
+    await screen.findByText("modelInfo.selectPlatform");
+    expect(screen.queryByText("OpenRouter")).not.toBeInTheDocument();
+
+    // 详情弹窗仍保留该条目比价，但带「仅比价」标注
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "modelInfo.tabModels" }), { button: 0 });
+    fireEvent.click(await screen.findByText("GLM-4.6"));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("tab", { name: /OpenRouter/ })).toBeInTheDocument();
+    expect(within(dialog).getByText("modelInfo.priceRefOnly")).toBeInTheDocument();
   });
 
   it("bundled 兜底: snapshot.bundled=true 时提示尚未同步", async () => {

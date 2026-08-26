@@ -1369,6 +1369,7 @@
   "modelInfo.morePlatforms": "+{count} more",
   "modelInfo.selectPlatform": "Pick a platform on the left to see its model entries",
   "modelInfo.canonical": "Canonical id",
+  "modelInfo.priceRefOnly": "price ref.",
   "modelInfo.basics": "Basics",
   "modelInfo.requestName": "Request name",
   "modelInfo.displayName": "Display name",
