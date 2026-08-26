@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  builtinToolCompatGlobalApi,
   codingToolsSettingsApi,
   codexApi,
   middlewareApi,
@@ -140,6 +141,9 @@ export function CodingToolsSettingsTab() {
   // 自动压缩窗口：draft = 用户编辑中的 K 值；applied = 已落盘原始 token 字符串。
   const [compactDraft, setCompactDraft] = useState<string>("");
   const [compactApplied, setCompactApplied] = useState<string>("");
+  // 内置工具兼容总开关：与系统 tab 同一 setting（scope proxy / key builtin_tool_compat），
+  // 非本页私有态 —— 两处入口读写同源，改一处另一处重挂载即同步。
+  const [btcGlobal, setBtcGlobal] = useState(false);
   // 日期改写开关：null = 加载中/规则未找到（Toggle 不响应）；true/false = 镜像 rule.enabled。
   const [dateRewriteEnabled, setDateRewriteEnabled] = useState<boolean | null>(null);
   const [dateRewriteRuleId, setDateRewriteRuleId] = useState<number | null>(null);
@@ -202,6 +206,16 @@ export function CodingToolsSettingsTab() {
     }).catch(() => {
       // 读失败不阻塞开关加载：language 留空，compact 留空
     });
+
+    // 内置工具兼容总开关：settings scope proxy / key builtin_tool_compat（缺省 = 关）。
+    builtinToolCompatGlobalApi.get()
+      .then((v) => {
+        if (cancelled || dirtyRef.current) return;
+        setBtcGlobal(!!v?.enabled);
+      })
+      .catch(() => {
+        // 读失败不阻塞其余开关加载：保持默认关闭
+      });
 
     // 日期改写规则态：从 middleware_rule 读 enabled。
     middlewareApi.listRules()
@@ -278,6 +292,17 @@ export function CodingToolsSettingsTab() {
         });
         setDateRewriteRuleId(updated.id);
         setDateRewriteEnabled(!!updated.enabled);
+        return next;
+      },
+    );
+
+  // 内置工具兼容总开关：两级 AND 的第一级，关闭时所有平台级配置均不生效。
+  const handleBtcGlobalToggle = (next: boolean) =>
+    runCommit(
+      () => setBtcGlobal(next),
+      () => setBtcGlobal(!next),
+      async () => {
+        await builtinToolCompatGlobalApi.set(next);
         return next;
       },
     );
@@ -427,8 +452,21 @@ export function CodingToolsSettingsTab() {
         staggerMs={180}
       />
 
+      {/* 内置工具兼容总开关：settings scope proxy / key builtin_tool_compat。
+          与「设置 → 系统」的同名开关同源（同一 setting），非独立副本。
+          平台级 extra.builtin_tool_compat 生效前提，两级 AND。 */}
+      <ToggleCard
+        titleKey="proxy.btcGlobal"
+        descKey="proxy.btcGlobalDesc"
+        hint={"settings · proxy · builtin_tool_compat"}
+        active={btcGlobal}
+        disabled={busy}
+        onToggle={handleBtcGlobalToggle}
+        staggerMs={240}
+      />
+
       {/* 语言选择：写 ~/.claude/settings.json 的 language key */}
-      <CodingSectionCard staggerMs={240} style={{
+      <CodingSectionCard staggerMs={300} style={{
         padding: "16px 20px",
         display: "flex",
         justifyContent: "space-between",
@@ -463,7 +501,7 @@ export function CodingToolsSettingsTab() {
       </CodingSectionCard>
 
       {/* 努力级别：claude 顶层 effortLevel + codex model_reasoning_effort 双写 */}
-      <CodingSectionCard staggerMs={300} style={{
+      <CodingSectionCard staggerMs={360} style={{
         padding: "16px 20px",
         display: "flex",
         justifyContent: "space-between",
@@ -497,7 +535,7 @@ export function CodingToolsSettingsTab() {
       </CodingSectionCard>
 
       {/* 自动压缩窗口：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + codex model_auto_compact_token_limit */}
-      <CodingSectionCard staggerMs={360} style={{
+      <CodingSectionCard staggerMs={420} style={{
         padding: "16px 20px",
         display: "flex",
         justifyContent: "space-between",
@@ -544,7 +582,7 @@ export function CodingToolsSettingsTab() {
 
       {/* 代理设置：URL 写 HTTP/HTTPS/ALL 三键同值 + NO_PROXY 单独（onBlur 批量提交）。
           Codex 无 config 级 proxy 字段，由「复制启动命令」注入 env（另见 Groups 启动命令复制点）。 */}
-      <CodingSectionCard staggerMs={420} style={{ padding: "16px 20px" }}>
+      <CodingSectionCard staggerMs={480} style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.proxy.title")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
           {t("codingTools.proxy.desc")}
