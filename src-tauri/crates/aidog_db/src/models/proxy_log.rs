@@ -82,6 +82,13 @@ pub struct ProxyLog {
     /// （背压分支、聚合去重 gate、快照移除条件）。中间态（status=0 或流式聚合中）恒 false。
     #[serde(default)]
     pub done: bool,
+    /// 出站 body 构造过程中被丢弃 / 被改写的**字段名**留痕（票 10），逗号分隔的 token 串，空表示无改动。
+    /// token 形态：`drop:<字段名>`（客户端发了但目标协议允许集合不收，见 `apply_field_passthrough`）、
+    /// `cap:max_tokens`（透传路径出站裁剪）、`rewrite:middleware`（透传路径 middleware 改写 body）。
+    /// **只记名不记值**：字段值可能含敏感内容，任何情况下不进本列。
+    /// 归上游侧「原始信息」：受 `log_upstream_request` 开关约束，按 `upstream_request_retention_days` 清理。
+    #[serde(default)]
+    pub field_trace: String,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）

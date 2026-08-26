@@ -38,6 +38,7 @@ use super::*;
             deleted_at: 0,
             cli_proxy_provider_id: None,
             done: false,
+            field_trace: String::new(),
         }
     }
 
