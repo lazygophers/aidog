@@ -42,6 +42,7 @@ export * from "./PlatformModels";
 export * from "./PlatformUsageStats";
 export * from "./PopoverConfig";
 export * from "./PriceSyncResult";
+export * from "./SyncFailure";
 export * from "./PriceSyncSettings";
 export * from "./ProxyAttempt";
 export * from "./ProxyClientSettings";
