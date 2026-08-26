@@ -91,13 +91,21 @@ gh run list --workflow=release.yml -L 1      # 状态 completed / success
 gh release view "v$(tr -d '[:space:]' < .version)" --json assets -q '.assets[].name'
 ```
 
-资产必须含：`*_universal.dmg`、`*_x64-setup.exe`、`*_x64_en-US.msi`、对应 `.sig`、`latest.json`（`includeUpdaterJson: true`，缺它客户端「关于」页自动更新会瞎）。
+v0.1.11 实际资产清单（8 个，作为基线比对）：
+
+```
+AiDog_<版本>_universal.dmg           # macOS 安装包（无 .sig，dmg 不参与 updater）
+AiDog_universal.app.tar.gz(+.sig)    # macOS updater 包 —— 自动更新真正下载的是它
+AiDog_<版本>_x64-setup.exe(+.sig)    # Windows NSIS（推荐）
+AiDog_<版本>_x64_en-US.msi(+.sig)    # Windows MSI
+latest.json                          # updater 清单（includeUpdaterJson: true），缺它客户端「关于」页自动更新会瞎
+```
 
 收尾自检：
 - [ ] `.version` 是唯一手改的版本文件，4 个 manifest 由脚本写。
 - [ ] push 前 `--check` 绿。
 - [ ] CI 两个平台 job 都 success。
-- [ ] Release 资产含 `latest.json` + 两平台安装包 + `.sig`。
+- [ ] Release 资产 8 个齐（dmg / app.tar.gz+sig / exe+sig / msi+sig / latest.json）。
 - [ ] Release 正文补了本次 changelog，模板四节没被删。
 
 ---
