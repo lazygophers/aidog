@@ -15,6 +15,7 @@ import { useReveal, makeRipple, levelColor, costLevel } from "../components/shar
 // ponytail: 统一 token (title 15→20, body 14→15), 视觉差异可忽略
 import { F } from "../domains/shared/tokens";
 import { formatDateTime } from "../utils/formatters";
+import { syncResultMessage } from "./PricingTab/syncMessage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -107,13 +108,7 @@ export function PricingTab() {
     setMessage("");
     try {
       const result: PriceSyncResult = await modelPriceApi.sync();
-      setMessage(
-        t("pricing.syncResult", "同步完成: +{added} 新增, ~{updated} 更新, {failed} 失败 (共 {total} 模型)")
-          .replace("{added}", String(result.added))
-          .replace("{updated}", String(result.updated))
-          .replace("{failed}", String(result.failed))
-          .replace("{total}", String(result.total))
-      );
+      setMessage(syncResultMessage(result, t));
       await loadSettings();
       load();
     } catch (e: any) {

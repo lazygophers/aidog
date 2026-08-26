@@ -1358,6 +1358,7 @@
   "pricing.searchPlaceholder": "搜索模型名称...",
   "pricing.source": "来源",
   "pricing.syncDesc": "从 GitHub 同步模型价格 + max_tokens（含各平台价格）",
+  "pricing.syncFailures": "以下文件未更新，保留原有数据: {files}",
   "pricing.syncNow": "立即同步",
   "pricing.syncResult": "同步完成: +{added} 新增, ~{updated} 更新, {failed} 失败 (共 {total} 模型)",
   "pricing.syncTitle": "价格同步",

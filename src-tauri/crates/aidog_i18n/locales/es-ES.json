@@ -1358,6 +1358,7 @@
   "pricing.searchPlaceholder": "Buscar nombre de modelo...",
   "pricing.source": "Fuente",
   "pricing.syncDesc": "Sincroniza precios de modelos + max_tokens desde GitHub (incl. precios por plataforma)",
+  "pricing.syncFailures": "No actualizados, se conservan los datos existentes: {files}",
   "pricing.syncNow": "Sincronizar ahora",
   "pricing.syncResult": "Sincronización completa: +{added} añadidos, ~{updated} actualizados, {failed} fallidos ({total} total)",
   "pricing.syncTitle": "Sincronización de precios",

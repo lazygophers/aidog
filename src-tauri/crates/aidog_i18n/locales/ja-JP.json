@@ -1380,6 +1380,7 @@
   "pricing.searchPlaceholder": "モデル名で検索...",
   "pricing.source": "ソース",
   "pricing.syncDesc": "GitHub からモデル価格 + max_tokens を同期（プラットフォーム別価格含む）",
+  "pricing.syncFailures": "未更新のため既存データを保持: {files}",
   "pricing.syncNow": "今すぐ同期",
   "pricing.syncResult": "同期完了: +{added} 追加, ~{updated} 更新, {failed} 失敗 (合計 {total})",
   "pricing.syncTitle": "価格同期",
