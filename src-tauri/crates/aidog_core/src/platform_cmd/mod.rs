@@ -4,6 +4,7 @@ pub mod group;
 pub mod model_fetch;
 pub mod stats;
 pub mod price;
+pub mod model_entry;
 pub mod quota;
 pub mod batch;
 pub mod ui_extra;
