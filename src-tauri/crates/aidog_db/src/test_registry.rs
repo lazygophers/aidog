@@ -38,6 +38,30 @@ fn every_protocol_has_full_brand_fields() {
     }
 }
 
+/// 三层回落第一层：命中当前 locale。
+#[test]
+fn display_name_uses_current_locale() {
+    assert_eq!(platform_display_name("glm_coding", "ja-JP"), "GLM コーディングプラン（智譜）");
+    // locale 变体经 Lang::from_locale 归一后同样命中
+    assert_eq!(platform_display_name("glm_coding", "zh-CN"), "GLM 编码套餐（智谱）");
+}
+
+/// 第二层：缺当前 locale（或值空白）取 en-US。
+#[test]
+fn display_name_falls_back_to_en_us() {
+    let entry = serde_json::json!({ "name": { "en-US": "Zhipu AI", "ja-JP": "  " } });
+    assert_eq!(resolve_name(Some(&entry), "glm", "de-DE"), "Zhipu AI");
+    assert_eq!(resolve_name(Some(&entry), "glm", "ja-JP"), "Zhipu AI");
+}
+
+/// 第三层：`name` 整体缺失（或协议不存在）取平台 code，UI 不出空白。
+#[test]
+fn display_name_falls_back_to_code() {
+    assert_eq!(resolve_name(Some(&serde_json::json!({})), "mock", "en-US"), "mock");
+    assert_eq!(resolve_name(None, "no_such_protocol", "zh-Hans"), "no_such_protocol");
+    assert_eq!(platform_display_name("no_such_protocol", "fr-FR"), "no_such_protocol");
+}
+
 /// R12：`endpoints_locked()` 协议保存时强制用 preset 端点，读空会清空用户端点。
 #[test]
 fn default_endpoints_present_for_direct_vendors() {
