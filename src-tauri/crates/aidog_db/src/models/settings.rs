@@ -74,6 +74,18 @@ impl Default for ProxyTimeoutSettings {
     }
 }
 
+// ─── Builtin Tool Compat Global Settings ────────────────────
+
+/// builtin_tool_compat 全局总开关（scope "proxy" / key "builtin_tool_compat"）。
+/// 与平台级 `platform.extra.builtin_tool_compat.enabled` AND 关系：
+/// 全局关 = 所有平台即使配了 enabled:true 也不生效；两层默认均 false。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct BuiltinToolCompatGlobalSettings {
+    #[serde(default)]
+    pub enabled: bool,
+}
+
 // ─── Proxy Client Settings (upstream HTTP proxy) ──────────
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

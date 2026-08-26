@@ -1405,6 +1405,8 @@
   "proxy.stopped": "Proxy Stopped",
   "proxy.timeout": "Timeout Settings",
   "proxy.timeoutDesc": "System default timeouts; group and model levels can override",
+  "proxy.btcGlobal": "Builtin tool compat master switch",
+  "proxy.btcGlobalDesc": "Prerequisite for per-platform builtin tool compat; when off, all platform configs are ignored",
   "proxy.upstreamProxy": "Upstream Proxy",
   "proxy.upstreamProxyDesc": "Configure HTTP/SOCKS5 proxy for all upstream platform requests",
   "proxy.upstreamReqRetention": "Upstream request retention time",

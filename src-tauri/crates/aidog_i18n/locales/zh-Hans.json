@@ -1405,6 +1405,8 @@
   "proxy.stopped": "代理已停止",
   "proxy.timeout": "超时设置",
   "proxy.timeoutDesc": "系统默认超时，分组和模型级别可覆盖",
+  "proxy.btcGlobal": "内置工具兼容总开关",
+  "proxy.btcGlobalDesc": "平台级「内置工具兼容」生效的前提；关闭时所有平台配置均不生效",
   "proxy.upstreamProxy": "上游代理",
   "proxy.upstreamProxyDesc": "为所有上游平台请求配置 HTTP/SOCKS5 代理",
   "proxy.upstreamReqRetention": "上游请求保留时间",

@@ -1427,6 +1427,8 @@
   "proxy.stopped": "Proxy gestoppt",
   "proxy.timeout": "Zeitüberschreitung-Einstellungen",
   "proxy.timeoutDesc": "System-Standard-Timeouts; Gruppen- und Modellebene können überschreiben",
+  "proxy.btcGlobal": "Hauptschalter für eingebaute Tool-Kompatibilität",
+  "proxy.btcGlobalDesc": "Voraussetzung für die plattformweise eingebaute Tool-Kompatibilität; aus = alle Plattformkonfigurationen werden ignoriert",
   "proxy.upstreamProxy": "Upstream-Proxy",
   "proxy.upstreamProxyDesc": "HTTP/SOCKS5-Proxy für alle Upstream-Plattformanfragen",
   "proxy.upstreamReqRetention": "Upstream-Anfrage-Aufbewahrungsdauer",

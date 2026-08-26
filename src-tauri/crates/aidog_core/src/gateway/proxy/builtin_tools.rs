@@ -10,6 +10,19 @@
 use crate::gateway::models::ProxyLog;
 use serde_json::Value;
 
+/// 全局总开关读取（scope "proxy" / key "builtin_tool_compat"；缺省/损坏 = disabled）。
+/// 与 `timeout.rs::get_system_timeout` 同 idiom，缓存于 `ProxySettingsCache`。
+pub(crate) async fn get_builtin_tool_compat_global(
+    db: &aidog_db::Db,
+) -> crate::gateway::models::BuiltinToolCompatGlobalSettings {
+    aidog_db::get_setting(db, "proxy", "builtin_tool_compat")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
 /// Claude Code 内置工具名单（供剔除匹配与日志归因）。与 `STATIC_MODEL_IDS` 同理，
 /// 随 Claude Code 版本演进存在月级腐化，需手工核对。
 pub const BUILTIN_TOOL_NAMES: &[&str] = &[
@@ -82,8 +95,13 @@ pub fn strip_tools(body: &mut Value, strip: &[String]) -> usize {
 }
 
 /// 转发层出站 seam 入口：按 `platform.extra.builtin_tool_compat` 对出站 body 剔除工具定义。
-/// 开关关闭（默认）/ 模型不命中名单 → 零改写（含透传与转换两分支）。
-pub fn apply_builtin_tool_compat(body: &mut Value, extra: &str, model: &str) {
+/// 两级 AND 开关，均默认禁用：全局总开关（scope "proxy" / key "builtin_tool_compat"，
+/// `BuiltinToolCompatGlobalSettings`）× 平台级 `enabled`。任一关闭 / 模型不命中名单 →
+/// 零改写（含透传与转换两分支）。
+pub fn apply_builtin_tool_compat(body: &mut Value, extra: &str, model: &str, global_enabled: bool) {
+    if !global_enabled {
+        return;
+    }
     let cfg = aidog_db::models::parse_builtin_tool_compat(extra);
     if !cfg.enabled {
         return;
@@ -189,10 +207,24 @@ mod tests {
     fn compat_disabled_by_default_is_noop() {
         let mut b = anthropic_body();
         let before = b.clone();
-        apply_builtin_tool_compat(&mut b, "", "any");
+        apply_builtin_tool_compat(&mut b, "", "any", true);
         assert_eq!(b, before);
-        apply_builtin_tool_compat(&mut b, r#"{"builtin_tool_compat":{"enabled":false}}"#, "any");
+        apply_builtin_tool_compat(&mut b, r#"{"builtin_tool_compat":{"enabled":false}}"#, "any", true);
         assert_eq!(b, before);
+    }
+
+    #[test]
+    fn compat_global_switch_gates_platform_config() {
+        // 全局关（默认）→ 平台配了 enabled:true 也不生效（两级 AND）
+        let extra = r#"{"builtin_tool_compat":{"enabled":true}}"#;
+        let mut b = anthropic_body();
+        let before = b.clone();
+        apply_builtin_tool_compat(&mut b, extra, "glm-4.7", false);
+        assert_eq!(b, before);
+        // 全局开 + 平台开 → 剔除
+        let mut b = anthropic_body();
+        apply_builtin_tool_compat(&mut b, extra, "glm-4.7", true);
+        assert_eq!(b["tools"].as_array().unwrap().len(), 1);
     }
 
     #[test]
@@ -200,16 +232,16 @@ mod tests {
         let extra = r#"{"builtin_tool_compat":{"enabled":true,"models":["glm-4.7"]}}"#;
         // 不在名单 → 不动
         let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra, "kimi-k2");
+        apply_builtin_tool_compat(&mut b, extra, "kimi-k2", true);
         assert_eq!(b["tools"].as_array().unwrap().len(), 3);
         // 在名单 → 剔除
         let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra, "glm-4.7");
+        apply_builtin_tool_compat(&mut b, extra, "glm-4.7", true);
         assert_eq!(b["tools"].as_array().unwrap().len(), 1);
         // 名单空 → 全模型生效
         let extra_all = r#"{"builtin_tool_compat":{"enabled":true}}"#;
         let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra_all, "glm-4.7");
+        apply_builtin_tool_compat(&mut b, extra_all, "glm-4.7", true);
         assert_eq!(b["tools"].as_array().unwrap().len(), 1);
     }
 

@@ -15,6 +15,8 @@ pub(crate) struct ProxySettingsCache {
     pub middleware_settings: MiddlewareSettings,
     pub system_timeout: ProxyTimeoutSettings,
     pub proxy_client: ProxyClientSettings,
+    /// builtin_tool_compat 全局总开关（默认 false；与平台级 enabled AND）
+    pub builtin_tool_compat: super::models::BuiltinToolCompatGlobalSettings,
 }
 
 impl ProxySettingsCache {
@@ -25,6 +27,7 @@ impl ProxySettingsCache {
             middleware_settings: aidog_db::get_middleware_settings(db).await,
             system_timeout: get_system_timeout(db).await,
             proxy_client: super::http_client::load_proxy_client_settings(db).await,
+            builtin_tool_compat: super::builtin_tools::get_builtin_tool_compat_global(db).await,
         }
     }
 }

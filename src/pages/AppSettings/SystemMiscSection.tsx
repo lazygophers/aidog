@@ -9,7 +9,7 @@ import { Switch } from "@/components/ui/switch";
  */
 export function SystemMiscSection({ s }: { s: SystemSettings }) {
   const { t } = useTranslation();
-  const { reqTimeout, connTimeout, handleTimeoutChange } = s;
+  const { reqTimeout, connTimeout, handleTimeoutChange, btcGlobalEnabled, handleBtcGlobalChange } = s;
 
   return (
     <>
@@ -52,6 +52,23 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
             <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
           </div>
         </div>
+      </div>
+
+      {/* Builtin tool compat global switch — 全局总开关（两级 AND 的第一级，默认关闭） */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 12,
+      }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.btcGlobal", "内置工具兼容总开关")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("proxy.btcGlobalDesc", "平台级「内置工具兼容」生效的前提；关闭时所有平台配置均不生效")}
+          </div>
+        </div>
+        <Switch checked={btcGlobalEnabled} onCheckedChange={handleBtcGlobalChange} />
       </div>
     </>
   );
