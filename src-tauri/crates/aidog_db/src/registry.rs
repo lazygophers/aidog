@@ -93,6 +93,18 @@ fn resolve_name(entry: Option<&Value>, code: &str, locale: &str) -> String {
     pick(key).or_else(|| pick("en-US")).unwrap_or(code).to_string()
 }
 
+/// 编译期内置的全部 `platform.json`：`(platform_code, JSON 文本)`，按 code 升序。
+/// `model_entry` 的 bundled 兜底用（DB 空时直接落成 `platform_preset` 行形状）。
+pub fn bundled_platform_files() -> &'static [(&'static str, &'static str)] {
+    PLATFORM_FILES
+}
+
+/// 编译期内置的全部模型条目文件：`(platform_code, JSON 文本)`。
+/// 同一 `platform_code` 会出现多次（该平台每个模型一条）。
+pub fn bundled_model_files() -> &'static [(&'static str, &'static str)] {
+    MODEL_FILES
+}
+
 /// registry 里该模型的合并 price_data 节点（跨平台条目归并）。DB 未同步时的只读兜底
 /// （`resolve_price`：DB 无该模型行才读，DB 恒优先）。
 pub fn model_entry(name: &str) -> Option<&'static Value> {

@@ -1093,6 +1093,7 @@ mod group_platform;
 mod middleware;
 mod maintenance;
 mod model_price;
+mod model_entry;
 mod cli_proxy;
 mod ui_extra;
 pub mod registry;
@@ -1104,6 +1105,7 @@ pub use group_platform::*;
 pub use middleware::*;
 pub use maintenance::*;
 pub use model_price::*;
+pub use model_entry::*;
 pub use cli_proxy::*;
 pub use ui_extra::*;
 pub use registry::*;
@@ -1116,6 +1118,8 @@ mod test_trace;
 mod test_rw_pool;
 #[cfg(test)]
 mod test_model_price;
+#[cfg(test)]
+mod test_model_entry;
 #[cfg(test)]
 mod test_group;
 #[cfg(test)]
