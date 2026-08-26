@@ -1,0 +1,59 @@
+{
+  "is_coding_plan": true,
+  "client_type": "codex_tui",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.kimi.com/coding/v1",
+        "client_type": "codex_tui",
+        "coding_plan": true
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.kimi.com/coding/",
+        "client_type": "claude_code",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "kimi-for-coding",
+      "opus": "kimi-for-coding-highspeed",
+      "sonnet": "kimi-for-coding",
+      "haiku": "kimi-for-coding"
+    }
+  },
+  "model_list": {
+    "default": [
+      "kimi-for-coding",
+      "kimi-for-coding-highspeed"
+    ]
+  },
+  "name": {
+    "en-US": "Kimi Code Plan (Moonshot Membership)",
+    "zh-Hans": "Kimi 编程套餐（月之暗面会员）",
+    "ar-SA": "Kimi Code Plan (Moonshot Membership)",
+    "fr-FR": "Kimi Code Plan (Moonshot Membership)",
+    "de-DE": "Kimi Code Plan (Moonshot Membership)",
+    "ru-RU": "Kimi Code Plan (Moonshot Membership)",
+    "ja-JP": "Kimi コーディングプラン（月之暗面メンバーシップ）",
+    "es-ES": "Kimi Code Plan (Moonshot Membership)"
+  },
+  "source_urls": {
+    "docs": "https://www.kimi.com/code/docs/",
+    "pricing": "https://www.kimi.com/membership/pricing"
+  },
+  "homepage": "https://www.kimi.com/code/",
+  "logo_url": "moonshotai",
+  "keywords": [
+    "kimi编程",
+    "kimi code",
+    "kimi coding",
+    "kimi-for-coding",
+    "kimi code plan",
+    "kimi membership"
+  ],
+  "color": "#1783FF"
+}

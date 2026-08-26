@@ -1,0 +1,47 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai_responses",
+        "base_url": "https://api.openai.com/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "gpt": "gpt-5.5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.5",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.3-codex-spark"
+    ]
+  },
+  "name": {
+    "en-US": "OpenAI Codex",
+    "zh-Hans": "OpenAI Codex",
+    "ar-SA": "OpenAI Codex",
+    "fr-FR": "OpenAI Codex",
+    "de-DE": "OpenAI Codex",
+    "ru-RU": "OpenAI Codex",
+    "ja-JP": "OpenAI Codex",
+    "es-ES": "OpenAI Codex"
+  },
+  "source_urls": {
+    "docs": "https://platform.openai.com/docs/guides/codex",
+    "pricing": "https://openai.com/api/pricing/"
+  },
+  "homepage": "https://openai.com",
+  "logo_url": "",
+  "keywords": [
+    "codex"
+  ],
+  "color": "#10A37F"
+}

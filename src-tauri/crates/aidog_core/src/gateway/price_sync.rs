@@ -16,8 +16,8 @@ const MODELS_JSON_FALLBACK_URL: &str =
     "https://raw.githubusercontent.com/lazygophers/aidog/master/src-tauri/defaults/models.json";
 
 /// bundled models.json（同一份人工维护信源，编译期内嵌）。DB 未同步时的只读兜底，
-/// 与 `platform-presets.json` 同法（`presets_cache.rs:10-12`），非 Tauri resources。
-pub use aidog_db::bundled_model_entry;
+/// 与 presets 同法（`aidog_db::registry`，编译期 include），非 Tauri resources。
+pub use aidog_db::registry::model_entry as bundled_model_entry;
 
 /// Fetch + parse src-tauri/defaults/models.json，upsert 全部模型（source="github"）。
 ///

@@ -1,0 +1,64 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://node-hk.sssaicodeapi.com/api",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://node-hk.sssaicodeapi.com/api/v1",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-sonnet-5",
+      "opus": "claude-opus-4-8",
+      "haiku": "claude-haiku-4-5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5",
+      "claude-sonnet-5",
+      "claude-fable-5",
+      "gpt-4o",
+      "gpt-4o-mini",
+      "gpt-4-turbo",
+      "gpt-3.5-turbo",
+      "o1-preview",
+      "deepseek-chat",
+      "deepseek-coder"
+    ]
+  },
+  "name": {
+    "en-US": "SSSAiCode",
+    "zh-Hans": "SSSAiCode",
+    "ar-SA": "SSSAiCode",
+    "fr-FR": "SSSAiCode",
+    "de-DE": "SSSAiCode",
+    "ru-RU": "SSSAiCode",
+    "ja-JP": "SSSAiCode",
+    "es-ES": "SSSAiCode"
+  },
+  "source_urls": {
+    "docs": "https://sssaicode.com/docs",
+    "pricing": "https://sssaicode.com/pricing"
+  },
+  "homepage": "https://sssaicode.com",
+  "logo_url": "",
+  "keywords": [
+    "sssaicode"
+  ],
+  "color": "#FF9500"
+}

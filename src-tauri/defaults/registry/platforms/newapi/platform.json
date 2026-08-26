@@ -1,0 +1,42 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://your-newapi-instance.com/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": []
+  },
+  "name": {
+    "en-US": "New API",
+    "zh-Hans": "New API",
+    "ar-SA": "New API",
+    "fr-FR": "New API",
+    "de-DE": "New API",
+    "ru-RU": "New API",
+    "ja-JP": "New API",
+    "es-ES": "New API"
+  },
+  "source_urls": {
+    "docs": "https://docs.newapi.pro/",
+    "pricing": "https://docs.newapi.pro/pricing"
+  },
+  "homepage": "https://docs.newapi.pro",
+  "logo_url": "",
+  "keywords": [
+    "newapi",
+    "new-api",
+    "one-api",
+    "oneapi",
+    "中转"
+  ],
+  "color": "#10A37F"
+}

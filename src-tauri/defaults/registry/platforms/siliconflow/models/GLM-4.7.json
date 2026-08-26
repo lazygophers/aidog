@@ -1,0 +1,13 @@
+{
+  "model_id": "GLM-4.7",
+  "canonical_model": "GLM-4.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 204800,
+  "context_window": 204800,
+  "official": true,
+  "input_cost_per_token": 4.2e-7,
+  "output_cost_per_token": 0.0000022,
+  "cache_read_input_token_cost": 1.1e-7
+}

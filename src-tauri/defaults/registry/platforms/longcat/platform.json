@@ -1,0 +1,48 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.longcat.chat/anthropic",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.longcat.chat/openai/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "LongCat-2.0"
+    }
+  },
+  "model_list": {
+    "default": [
+      "LongCat-2.0"
+    ]
+  },
+  "name": {
+    "en-US": "Longcat",
+    "zh-Hans": "Longcat（龙猫）",
+    "ar-SA": "Longcat",
+    "fr-FR": "Longcat",
+    "de-DE": "Longcat",
+    "ru-RU": "Longcat",
+    "ja-JP": "Longcat（竜猫）",
+    "es-ES": "Longcat"
+  },
+  "source_urls": {
+    "docs": "https://longcat.chat/",
+    "pricing": "https://longcat.chat/pricing"
+  },
+  "homepage": "https://longcat.chat",
+  "logo_url": "",
+  "keywords": [
+    "longcat",
+    "龙猫"
+  ],
+  "color": "#29E154"
+}

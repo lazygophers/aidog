@@ -1,0 +1,18 @@
+{
+  "model_id": "perceptron-mk1",
+  "canonical_model": "perceptron-mk1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "max_output_tokens": 8192,
+  "context_window": 32768,
+  "official": true,
+  "input_cost_per_token": 1.5e-7,
+  "output_cost_per_token": 0.0000015,
+  "default_price": {
+    "input_cost_per_token": 1.5e-7,
+    "output_cost_per_token": 0.0000015,
+    "cache_read_input_token_cost": 0
+  }
+}

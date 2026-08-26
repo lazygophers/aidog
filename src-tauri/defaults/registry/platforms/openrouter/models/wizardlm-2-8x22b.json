@@ -1,0 +1,18 @@
+{
+  "model_id": "wizardlm-2-8x22b",
+  "canonical_model": "wizardlm-2-8x22b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 8000,
+  "context_window": 65536,
+  "official": true,
+  "input_cost_per_token": 6.2e-7,
+  "output_cost_per_token": 6.2e-7,
+  "default_price": {
+    "input_cost_per_token": 6.2e-7,
+    "output_cost_per_token": 6.2e-7,
+    "cache_read_input_token_cost": 0
+  }
+}

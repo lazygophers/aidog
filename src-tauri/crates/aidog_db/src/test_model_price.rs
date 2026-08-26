@@ -293,8 +293,8 @@ use super::*;
     #[test]
     fn bundled_model_entry_finds_glm_5_2() {
         // 断言真拿到值而非只断言不 panic —— unwrap_or_default() 会静默吞 JSON 解析错误
-        let entry = bundled_model_entry("glm-5.2");
-        assert!(entry.is_some(), "bundled models.json 应含 glm-5.2 条目");
+        let entry = crate::registry::model_entry("glm-5.2");
+        assert!(entry.is_some(), "registry 应含 glm-5.2 条目");
     }
 
     #[tokio::test]

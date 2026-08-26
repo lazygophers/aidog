@@ -1,0 +1,13 @@
+{
+  "model_id": "qwen3-coder",
+  "canonical_model": "qwen3-coder",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": false,
+  "input_cost_per_token": 2.2e-7,
+  "output_cost_per_token": 0.0000018
+}

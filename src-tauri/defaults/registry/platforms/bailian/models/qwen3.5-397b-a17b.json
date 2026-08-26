@@ -1,0 +1,17 @@
+{
+  "model_id": "qwen3.5-397b-a17b",
+  "canonical_model": "qwen3.5-397b-a17b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "official": true,
+  "input_cost_per_token": 3.85e-7,
+  "output_cost_per_token": 0.00000245,
+  "default_price": {
+    "input_cost_per_token": 3.85e-7,
+    "output_cost_per_token": 0.00000245,
+    "cache_read_input_token_cost": 0
+  }
+}

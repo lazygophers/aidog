@@ -1,0 +1,60 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.minimax.io/v1",
+        "client_type": "codex_tui",
+        "coding_plan": false
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.minimax.io/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": false
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "MiniMax-M3",
+      "sonnet": "MiniMax-M2.7"
+    }
+  },
+  "model_list": {
+    "default": [
+      "MiniMax-M3",
+      "MiniMax-M2.7",
+      "MiniMax-M2.7-highspeed",
+      "MiniMax-M2.5",
+      "MiniMax-M2.5-highspeed",
+      "MiniMax-M2.1",
+      "MiniMax-M2.1-highspeed",
+      "MiniMax-M2"
+    ]
+  },
+  "name": {
+    "en-US": "MiniMax International",
+    "zh-Hans": "MiniMax 国际版",
+    "ar-SA": "MiniMax International",
+    "fr-FR": "MiniMax International",
+    "de-DE": "MiniMax International",
+    "ru-RU": "MiniMax International",
+    "ja-JP": "MiniMax 国際版",
+    "es-ES": "MiniMax International"
+  },
+  "source_urls": {
+    "docs": "https://platform.minimax.io/document/Announcement",
+    "pricing": "https://platform.minimax.io/document/Price"
+  },
+  "homepage": "https://www.minimax.io",
+  "logo_url": "minimax",
+  "keywords": [
+    "minimax io",
+    "minimax en",
+    "minimax coding intl",
+    "海螺编程国际"
+  ],
+  "color": "#FF6B6B"
+}

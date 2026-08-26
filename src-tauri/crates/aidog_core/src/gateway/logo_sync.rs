@@ -168,10 +168,10 @@ fn extract_domain(homepage: &str) -> Option<String> {
     url::Url::parse(&with_scheme).ok().and_then(|u| u.host_str().map(|s| s.to_string()))
 }
 
-/// presets 真值源（2026-08-16 内置化后唯一）：代码内 bundled 常量。
+/// presets 真值源：`defaults/registry/` 编译期内置合并视图（见 `aidog_db::registry`）。
 /// `~/.aidog/platform-presets.json` app data 覆盖链已移除——内置即唯一，禁改回。
 fn read_local_presets_json() -> Result<String, String> {
-    Ok(super::presets_cache::bundled_str().to_string())
+    Ok(super::registry::presets_json().to_string())
 }
 
 /// 解析 presets → `Vec<(protocol_id, logo_slug, homepage)>`。
