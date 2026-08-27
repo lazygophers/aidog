@@ -1,0 +1,13 @@
+{
+  "model_id": "mistral/devstral-2",
+  "canonical_model": "devstral-2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.32e-07,
+  "output_cost_per_token": 2.16e-06,
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 16000
+}

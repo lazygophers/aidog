@@ -1,0 +1,11 @@
+{
+  "model_id": "openai/gpt-image-1-mini",
+  "canonical_model": "gpt-image-1-mini",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.16e-06,
+  "output_cost_per_token": 0.0
+}

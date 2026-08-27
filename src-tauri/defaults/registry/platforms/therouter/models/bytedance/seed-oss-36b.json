@@ -1,0 +1,13 @@
+{
+  "model_id": "bytedance/seed-oss-36b",
+  "canonical_model": "seed-oss-36b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.268e-07,
+  "output_cost_per_token": 6.156e-07,
+  "max_input_tokens": 131000,
+  "context_window": 131000,
+  "max_output_tokens": 33000
+}

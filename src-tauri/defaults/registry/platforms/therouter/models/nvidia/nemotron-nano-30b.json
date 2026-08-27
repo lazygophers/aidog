@@ -1,0 +1,13 @@
+{
+  "model_id": "nvidia/nemotron-nano-30b",
+  "canonical_model": "nemotron-nano-30b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 6.48e-08,
+  "output_cost_per_token": 2.592e-07,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 262000
+}

@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-5.1-chat",
+  "canonical_model": "gpt-5.1-chat",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.35e-06,
+  "output_cost_per_token": 1.08e-05,
+  "max_input_tokens": 400000,
+  "context_window": 400000,
+  "max_output_tokens": 128000
+}

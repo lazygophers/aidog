@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek/deepseek-v3.1",
+  "canonical_model": "deepseek-v3.1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "input_cost_per_token": 6.264e-07,
+  "output_cost_per_token": 1.81e-06,
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 33000
+}

@@ -1,0 +1,13 @@
+{
+  "model_id": "zai/glm-4.7",
+  "canonical_model": "glm-4.7",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 6.48e-07,
+  "output_cost_per_token": 2.38e-06,
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 8000
+}

@@ -1,0 +1,13 @@
+{
+  "model_id": "meta/llama-4-scout",
+  "canonical_model": "llama-4-scout",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.836e-07,
+  "output_cost_per_token": 7.128e-07,
+  "max_input_tokens": 10000000,
+  "context_window": 10000000,
+  "max_output_tokens": 16000
+}

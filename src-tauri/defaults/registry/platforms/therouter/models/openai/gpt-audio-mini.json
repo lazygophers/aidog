@@ -1,0 +1,11 @@
+{
+  "model_id": "openai/gpt-audio-mini",
+  "canonical_model": "gpt-audio-mini",
+  "capabilities": [
+    "text",
+    "audio"
+  ],
+  "official": false,
+  "input_cost_per_token": 6.48e-07,
+  "output_cost_per_token": 2.59e-06
+}

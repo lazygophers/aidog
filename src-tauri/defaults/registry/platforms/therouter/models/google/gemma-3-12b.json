@@ -1,0 +1,13 @@
+{
+  "model_id": "google/gemma-3-12b",
+  "canonical_model": "gemma-3-12b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 9.72e-08,
+  "output_cost_per_token": 3.132e-07,
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8000
+}

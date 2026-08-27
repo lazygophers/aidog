@@ -1,0 +1,14 @@
+{
+  "model_id": "cohere/embed-v4",
+  "canonical_model": "embed-v4",
+  "capabilities": [
+    "text",
+    "vision",
+    "embedding"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.296e-07,
+  "output_cost_per_token": 0.0,
+  "max_input_tokens": 8000,
+  "context_window": 8000
+}

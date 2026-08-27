@@ -1,0 +1,10 @@
+{
+  "model_id": "black-forest-labs/flux-kontext-max",
+  "canonical_model": "flux-kontext-max",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 8.64e-08,
+  "output_cost_per_token": 0.0
+}

@@ -1,0 +1,11 @@
+{
+  "model_id": "openai/gpt-audio-1.5",
+  "canonical_model": "gpt-audio-1.5",
+  "capabilities": [
+    "text",
+    "audio"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.32e-06,
+  "output_cost_per_token": 1.728e-05
+}

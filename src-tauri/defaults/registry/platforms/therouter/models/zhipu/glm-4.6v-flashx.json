@@ -1,0 +1,13 @@
+{
+  "model_id": "zhipu/glm-4.6v-flashx",
+  "canonical_model": "glm-4.6v-flashx",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.32e-08,
+  "output_cost_per_token": 4.32e-07,
+  "max_input_tokens": 131000,
+  "context_window": 131000,
+  "max_output_tokens": 16000
+}

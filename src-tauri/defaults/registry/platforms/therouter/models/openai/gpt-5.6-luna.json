@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-5.6-luna",
+  "canonical_model": "gpt-5.6-luna",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.08e-06,
+  "output_cost_per_token": 6.48e-06,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000
+}
