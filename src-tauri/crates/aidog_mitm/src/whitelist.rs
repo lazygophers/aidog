@@ -155,6 +155,9 @@ pub async fn matches_db(db: &Db, host: &str) -> bool {
     }
 }
 
+/// 内置白名单默认规则（真值源在 aidog_db，此处只做再导出，供 mitm 侧同名引用）。
+pub use aidog_db::DEFAULT_RULES;
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -494,5 +497,3 @@ mod tests {
         assert!(evaluate_host(&entries, "openai.com").is_empty());
     }
 }
-
-pub use aidog_db::DEFAULT_RULES;

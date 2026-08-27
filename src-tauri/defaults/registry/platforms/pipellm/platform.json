@@ -1,0 +1,56 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://cc-api.pipellm.ai",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.pipellm.ai/openai",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "gemini",
+        "base_url": "https://api.pipellm.ai/gemini",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5"
+    ]
+  },
+  "name": {
+    "en-US": "PIPELLM",
+    "zh-Hans": "PIPELLM",
+    "ar-SA": "PIPELLM",
+    "fr-FR": "PIPELLM",
+    "de-DE": "PIPELLM",
+    "ru-RU": "PIPELLM",
+    "ja-JP": "PIPELLM",
+    "es-ES": "PIPELLM"
+  },
+  "source_urls": {
+    "docs": "https://docs.pipellm.ai/",
+    "pricing": "https://pipellm.ai/pricing"
+  },
+  "homepage": "https://pipellm.ai",
+  "logo_url": "",
+  "keywords": [
+    "pipellm"
+  ],
+  "color": "#4285F4"
+}

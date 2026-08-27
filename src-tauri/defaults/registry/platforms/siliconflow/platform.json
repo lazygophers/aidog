@@ -1,0 +1,67 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.siliconflow.cn",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://api.siliconflow.cn/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "Qwen/Qwen2.5-72B-Instruct"
+    }
+  },
+  "model_list": {
+    "default": [
+      "Qwen/Qwen2.5-72B-Instruct",
+      "Qwen/Qwen3.5-27B",
+      "Qwen/Qwen3.5-9B",
+      "deepseek-ai/DeepSeek-V4-Flash",
+      "deepseek-ai/DeepSeek-V3.2",
+      "deepseek-ai/DeepSeek-R1",
+      "zai-org/GLM-4.7",
+      "zai-org/GLM-4.6",
+      "moonshotai/Kimi-K2-Instruct-0905",
+      "moonshotai/Kimi-K2.6",
+      "MiniMaxAI/MiniMax-M2.5",
+      "tencent/Hunyuan-A13B-Instruct",
+      "ByteDance-Seed/Seed-OSS-36B-Instruct",
+      "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "meta-llama/Meta-Llama-3.1-8B-Instruct",
+      "google/gemma-4-26B-A4B-it",
+      "openai/gpt-oss-120b",
+      "Qwen/Qwen2.5-Coder-32B-Instruct",
+      "baidu/ERNIE-4.5-300B-A47B",
+      "inclusionAI/Ling-flash-2.0"
+    ]
+  },
+  "name": {
+    "en-US": "SiliconFlow",
+    "zh-Hans": "SiliconFlow（硅基流动）",
+    "ar-SA": "SiliconFlow",
+    "fr-FR": "SiliconFlow",
+    "de-DE": "SiliconFlow",
+    "ru-RU": "SiliconFlow",
+    "ja-JP": "SiliconFlow",
+    "es-ES": "SiliconFlow"
+  },
+  "source_urls": {
+    "docs": "https://docs.siliconflow.cn/",
+    "pricing": "https://siliconflow.cn/pricing"
+  },
+  "homepage": "https://siliconflow.cn",
+  "logo_url": "",
+  "keywords": [
+    "siliconflow",
+    "硅基流动"
+  ],
+  "color": "#6E29F6"
+}

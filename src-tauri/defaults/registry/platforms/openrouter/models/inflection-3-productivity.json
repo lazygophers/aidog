@@ -1,0 +1,18 @@
+{
+  "model_id": "inflection-3-productivity",
+  "canonical_model": "inflection-3-productivity",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8000,
+  "max_output_tokens": 1024,
+  "context_window": 8000,
+  "official": true,
+  "input_cost_per_token": 0.0000025,
+  "output_cost_per_token": 0.00001,
+  "default_price": {
+    "input_cost_per_token": 0.0000025,
+    "output_cost_per_token": 0.00001,
+    "cache_read_input_token_cost": 0
+  }
+}

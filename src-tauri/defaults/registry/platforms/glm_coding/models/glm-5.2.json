@@ -1,0 +1,22 @@
+{
+  "model_id": "glm-5.2",
+  "canonical_model": "glm-5.2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "official": false,
+  "input_cost_per_token": 0.0000011111111111111112,
+  "output_cost_per_token": 0.000003888888888888889,
+  "cache_read_input_token_cost": 2.777777777777778e-7,
+  "time_tiers": [
+    {
+      "start_at": 1790784000,
+      "input_cost_per_token": 0.0000022222222222222225,
+      "output_cost_per_token": 0.000007777777777777777,
+      "cache_read_input_token_cost": 5.555555555555556e-7
+    }
+  ]
+}

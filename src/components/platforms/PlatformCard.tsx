@@ -110,7 +110,7 @@ export const PlatformCard = memo(function PlatformCard({
   // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
-  const { color, isCpProtocol, defaultModels, homepage, protocolLabel, labelMap } =
+  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap } =
     useProtocolMeta(p.platform_type, hasCodingEndpoint, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
     const explicit = allModelValues(p.models);
@@ -508,26 +508,33 @@ export const PlatformCard = memo(function PlatformCard({
       >
         {hasDetail && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* 官网外链（platform-presets.json homepage 字段，未配置则不渲染） */}
-            {homepage && (
-              <div>
-                <a
-                  href={homepage}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{
-                    fontSize: 11, color: "var(--accent)",
-                    textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                  title={homepage}
-                >
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-                  </svg>
-                  {t("platform.homepage", "Homepage")}
-                </a>
+            {/* 品牌外链（registry homepage + source_urls.docs/pricing；未配置的项不渲染） */}
+            {(homepage || sourceUrls.docs || sourceUrls.pricing) && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {([
+                  [homepage, t("platform.homepage", "Homepage")],
+                  [sourceUrls.docs, t("platform.sourceDocs", "Docs")],
+                  [sourceUrls.pricing, t("platform.sourcePricing", "Pricing")],
+                ] as const).filter(([href]) => !!href).map(([href, label]) => (
+                  <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      fontSize: 11, color: "var(--accent)",
+                      textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    title={href}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                    </svg>
+                    {label}
+                  </a>
+                ))}
               </div>
             )}
             {/* 已使用统计（总计 + 今日） */}

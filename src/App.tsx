@@ -55,7 +55,7 @@ const BASE_NAV: NavItem[] = [
       { id: "settings/middleware", labelKey: "appSettings.middlewareTab", group: "nav.settingsGroup.rules" },
       { id: "settings/scheduling", labelKey: "appSettings.schedulingTab", group: "nav.settingsGroup.rules" },
       { id: "settings/notifications", labelKey: "appSettings.notificationsTab", group: "nav.settingsGroup.notification" },
-      { id: "settings/pricing", labelKey: "appSettings.pricingTab", group: "nav.settingsGroup.config" },
+      { id: "settings/pricing", labelKey: "appSettings.modelInfoTab", group: "nav.settingsGroup.config" },
       { id: "settings/tray", labelKey: "appSettings.trayTab", group: "nav.settingsGroup.config" },
       { id: "settings/popover", labelKey: "appSettings.popoverTab", group: "nav.settingsGroup.config" },
       { id: "settings/importexport", labelKey: "appSettings.importExportTab", group: "nav.settingsGroup.config" },

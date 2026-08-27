@@ -53,6 +53,17 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 .instrument(init_span)
                 .await
             });
+            // preset 缓存预热：`platform_preset` 表（registry 同步落地）与编译期内置那份的并集
+            // 装进进程内缓存，供路由/计费热路径的 `peak_hours` / `models.peak` / 端点锁死
+            // 同步读取。不预热则这些读取会一直用二进制里的旧值，与前端（读 DB）判定分裂。
+            {
+                let db_clone = db.clone();
+                tauri::async_runtime::spawn(async move {
+                    if let Err(e) = aidog_db::refresh_presets_cache(&db_clone).await {
+                        tracing::warn!(error = %e, "preset cache warmup failed, falling back to bundled registry");
+                    }
+                });
+            }
             // 后台 auto_vacuum 迁移：老库（auto_vacuum=NONE）需 VACUUM 重建切到 INCREMENTAL
             // 才能回收 free pages。非阻塞——spawn 独立 task，失败仅 warn 不置标记，下次启动重试。
             // VACUUM 锁库期间代理写请求排队（busy_timeout=5000 兜底）。
@@ -244,8 +255,8 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 });
             }
 
-            // 模型价格自动同步：启动时一次性尝试（开关/间隔判定全在 maybe_auto_sync 内部，
-            // 外层不加逻辑）。全新安装未点过「立即同步」按钮时 model_price 表为空，
+            // registry 自动同步：启动时一次性尝试（开关/间隔判定全在 maybe_auto_sync 内部，
+            // 外层不加逻辑）。全新安装未点过「立即同步」按钮时 model_entry / platform_preset 表为空，
             // 此调用是唯一接回生产的入口。失败仅 warn，不阻塞启动。
             {
                 let db = app.state::<Db>().inner().clone();

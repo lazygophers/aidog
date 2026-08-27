@@ -28,7 +28,9 @@ function sorted(values) {
 function parseStartup(source) {
   const handler = source.match(/generate_handler!\s*\[([\s\S]*?)\]\s*\)/);
   if (!handler) throw new Error("startup.rs 中找不到 generate_handler! 注册表");
-  const entries = [...handler[1].matchAll(/\baidog_core::[A-Za-z0-9_:]+::([A-Za-z0-9_]+)\s*,?/g)];
+  // 注册表条目不止 aidog_core：workspace 拆分后 aidog_backup / aidog_cli_proxy 等 crate
+  // 也直接注册 command，写死 `aidog_core::` 会把它们整批漏掉（表现为「TS wrapper 未注册 startup」误报）。
+  const entries = [...handler[1].matchAll(/\baidog_[a-z0-9_]+::[A-Za-z0-9_:]+::([A-Za-z0-9_]+)\s*,?/g)];
   if (!entries.length) throw new Error("startup.rs 注册表为空或格式无法解析");
   return new Map(entries.map(([, name]) => [name, "startup.rs"]));
 }
@@ -37,7 +39,8 @@ function parseRust(files) {
   const commands = new Map();
   for (const file of files) {
     const source = fs.readFileSync(file, "utf8");
-    for (const match of source.matchAll(/^\s*crate::tauri_command!\s*\{\s*(?:\/\/[^\n]*\n\s*)*pub\s+(?:async\s+)?fn\s+([A-Za-z0-9_]+)/gm)) {
+    // 宏调用路径两种：crate 内 `crate::tauri_command!`，其他 crate `aidog_core::tauri_command!`。
+    for (const match of source.matchAll(/^\s*(?:crate|aidog_core)::tauri_command!\s*\{\s*(?:\/\/[^\n]*\n\s*)*pub\s+(?:async\s+)?fn\s+([A-Za-z0-9_]+)/gm)) {
       commands.set(match[1], path.relative(root, file));
     }
     for (const match of source.matchAll(/^\s*#\[tauri::command(?:\([^\]]*\))?\]\s*(?:#\[[^\n]+\]\s*)*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)/gm)) {

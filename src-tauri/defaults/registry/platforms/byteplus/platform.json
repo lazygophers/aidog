@@ -1,0 +1,61 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/coding",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "openai_responses",
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "seed-2-0-pro"
+    }
+  },
+  "model_list": {
+    "default": [
+      "seed-2-0-pro",
+      "seed-2-0-code-preview",
+      "seed-2-0-lite",
+      "seed-2-0-mini",
+      "seed-1-8",
+      "seed-1-6",
+      "glm-5-2",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash"
+    ]
+  },
+  "name": {
+    "en-US": "BytePlus",
+    "zh-Hans": "BytePlus",
+    "ar-SA": "BytePlus",
+    "fr-FR": "BytePlus",
+    "de-DE": "BytePlus",
+    "ru-RU": "BytePlus",
+    "ja-JP": "BytePlus",
+    "es-ES": "BytePlus"
+  },
+  "source_urls": {
+    "docs": "https://docs.byteplus.com/en/docs/ModelArk",
+    "pricing": "https://docs.byteplus.com/en/docs/ModelArk/1544106"
+  },
+  "homepage": "https://www.byteplus.com",
+  "logo_url": "bytedance",
+  "keywords": [
+    "byteplus",
+    "字节国际"
+  ],
+  "color": "#3370FF"
+}

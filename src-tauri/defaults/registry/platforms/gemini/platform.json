@@ -1,0 +1,52 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "gemini",
+        "base_url": "https://generativelanguage.googleapis.com",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "gemini-3.7-flash"
+    }
+  },
+  "model_list": {
+    "default": [
+      "gemini-3.7-flash",
+      "gemini-3",
+      "gemini-3-flash",
+      "gemini-3-flash-preview",
+      "gemini-2.5-pro",
+      "gemini-2.5-flash",
+      "gemini-2.5-flash-lite",
+      "gemini-2.0-flash",
+      "gemini-2.0-flash-lite"
+    ]
+  },
+  "name": {
+    "en-US": "Gemini",
+    "zh-Hans": "Gemini",
+    "ar-SA": "Gemini",
+    "fr-FR": "Gemini",
+    "de-DE": "Gemini",
+    "ru-RU": "Gemini",
+    "ja-JP": "Gemini",
+    "es-ES": "Gemini"
+  },
+  "source_urls": {
+    "docs": "https://ai.google.dev/gemini-api/docs",
+    "pricing": "https://ai.google.dev/gemini-api/docs/pricing"
+  },
+  "homepage": "https://ai.google.dev",
+  "logo_url": "googlegemini",
+  "keywords": [
+    "google",
+    "谷歌",
+    "gemini"
+  ],
+  "color": "#4285F4"
+}

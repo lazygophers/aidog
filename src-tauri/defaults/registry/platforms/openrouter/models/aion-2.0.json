@@ -1,0 +1,14 @@
+{
+  "model_id": "aion-2.0",
+  "canonical_model": "aion-2.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "input_cost_per_token": 8e-7,
+  "output_cost_per_token": 0.0000016,
+  "cache_read_input_token_cost": 2e-7
+}

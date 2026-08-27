@@ -1,0 +1,50 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.anthropic.com",
+        "client_type": "default"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5"
+    ]
+  },
+  "name": {
+    "en-US": "Claude Code Subscription (Passthrough)",
+    "zh-Hans": "Claude Code 订阅（透传）",
+    "ar-SA": "Claude Code Subscription (Passthrough)",
+    "fr-FR": "Claude Code Subscription (Passthrough)",
+    "de-DE": "Claude Code Subscription (Passthrough)",
+    "ru-RU": "Claude Code Subscription (Passthrough)",
+    "ja-JP": "Claude Code サブスクリプション（パススルー）",
+    "es-ES": "Claude Code Subscription (Passthrough)"
+  },
+  "source_urls": {
+    "docs": "https://docs.anthropic.com/en/docs/claude-code/overview",
+    "pricing": "https://www.anthropic.com/pricing"
+  },
+  "homepage": "https://www.anthropic.com",
+  "logo_url": "claudecode",
+  "keywords": [
+    "claude code",
+    "订阅",
+    "透传",
+    "subscription",
+    "passthrough"
+  ],
+  "color": "#D97757"
+}

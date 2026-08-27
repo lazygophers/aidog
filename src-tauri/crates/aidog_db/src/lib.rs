@@ -1092,11 +1092,11 @@ mod group;
 mod group_platform;
 mod middleware;
 mod maintenance;
-mod model_price;
+mod model_entry;
+mod price_resolve;
 mod cli_proxy;
 mod ui_extra;
-pub mod presets_cache;
-pub mod presets_const;
+pub mod registry;
 pub mod client_types_const;
 pub use platform::*;
 pub use platform_lifecycle::*;
@@ -1104,10 +1104,11 @@ pub use group::*;
 pub use group_platform::*;
 pub use middleware::*;
 pub use maintenance::*;
-pub use model_price::*;
+pub use model_entry::*;
+pub use price_resolve::*;
 pub use cli_proxy::*;
 pub use ui_extra::*;
-pub use presets_cache::*;
+pub use registry::*;
 
 #[cfg(test)]
 mod test_mod;
@@ -1116,7 +1117,9 @@ mod test_trace;
 #[cfg(test)]
 mod test_rw_pool;
 #[cfg(test)]
-mod test_model_price;
+mod test_model_entry;
+#[cfg(test)]
+mod test_price_resolve;
 #[cfg(test)]
 mod test_group;
 #[cfg(test)]

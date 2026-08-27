@@ -1,0 +1,13 @@
+{
+  "model_id": "MiMo-V2.5-Pro",
+  "canonical_model": "MiMo-V2.5-Pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "input_cost_per_token": 5.22e-7,
+  "output_cost_per_token": 0.000001044,
+  "cache_read_input_token_cost": 4.3e-9
+}

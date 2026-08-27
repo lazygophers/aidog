@@ -191,10 +191,15 @@ pub(crate) async fn forward_attempt(
     // 仅作用于 convert_request（读 chat_req）；同协议透传分支用原始 req_value 不受影响
     // （客户端原生协议，上游自纠；已知限制见 report）。
     {
-        let model_max = aidog_db::get_model_max_output_tokens(&state.db, &actual_model)
-            .await
-            .ok()
-            .flatten();
+        // 上限按 (平台协议裸名, 实际请求模型) 查 model_entry —— 同一模型在不同平台上限可不同。
+        let model_max = aidog_db::model_max_output_tokens(
+            &state.db,
+            &route.platform.platform_type.wire_str(),
+            &actual_model,
+        )
+        .await
+        .ok()
+        .flatten();
         let (capped, did_cap) = super::router::cap_max_tokens(chat_req.max_tokens, model_max);
         if did_cap {
             tracing::info!(

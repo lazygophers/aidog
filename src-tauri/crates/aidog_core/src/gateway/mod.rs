@@ -9,13 +9,9 @@ pub mod manual_budget;
 pub mod models { pub use aidog_db::models::*; }
 pub mod peak_hours;
 pub mod pi;
-pub(crate) mod presets_cache {
-    //! 拆分 shim：实现在 aidog_db::presets_cache，此处保持旧路径。
-    pub use aidog_db::presets_cache::*;
-}
-pub(crate) mod presets_const {
-    //! 拆分 shim：实现在 aidog_db::presets_const，此处保持旧路径。
-    
+pub(crate) mod registry {
+    //! 拆分 shim：实现在 aidog_db::registry，此处保持旧路径。
+    pub use aidog_db::registry::*;
 }
 pub(crate) mod client_types_const {
     //! 拆分 shim：实现在 aidog_db::client_types_const，此处保持旧路径。

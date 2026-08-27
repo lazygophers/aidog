@@ -93,12 +93,16 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
     }
 
     if scope_set.contains(super::SCOPE_MODEL_PRICE) {
-        let rows = aidog_db::list_all_model_prices(db).await?;
+        // 只导已同步进 DB 的裸行：`select_model_entries` 无 bundled 兜底（那份数据随版本
+        // 内置，导出只会把备份撑大且导入后立刻被同步覆盖），且 `display_name` 原样带出
+        // ——走带回落的 `list_model_entries` 会把回落值（= model_id）写死进备份，
+        // 导入后 DB 列里存的就是 model_id 字面量，与「空串表示无展示名」的约定相反（票 13-K）。
+        let rows = aidog_db::select_model_entries(db, None).await?;
         payload.model_price = rows
             .into_iter()
             .map(serde_json::to_value)
             .collect::<Result<_, _>>()
-            .map_err(|e| format!("serialize model_price: {e}"))?;
+            .map_err(|e| format!("serialize model_entry: {e}"))?;
     }
 
     Ok(payload)

@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek-chat-v3.1",
+  "canonical_model": "deepseek-chat-v3.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 163840,
+  "max_output_tokens": 32768,
+  "context_window": 163840,
+  "official": false,
+  "input_cost_per_token": 2.1e-7,
+  "output_cost_per_token": 7.9e-7,
+  "cache_read_input_token_cost": 1.3e-7
+}

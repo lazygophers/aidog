@@ -1,0 +1,49 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.deepseek.com/v1",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.deepseek.com/anthropic",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "deepseek-v4-flash"
+    }
+  },
+  "model_list": {
+    "default": [
+      "deepseek-v4-flash",
+      "deepseek-v4-pro"
+    ]
+  },
+  "name": {
+    "en-US": "DeepSeek",
+    "zh-Hans": "DeepSeek（深度求索）",
+    "ar-SA": "DeepSeek",
+    "fr-FR": "DeepSeek",
+    "de-DE": "DeepSeek",
+    "ru-RU": "DeepSeek",
+    "ja-JP": "DeepSeek",
+    "es-ES": "DeepSeek"
+  },
+  "source_urls": {
+    "docs": "https://api-docs.deepseek.com/",
+    "pricing": "https://api-docs.deepseek.com/quick_start/pricing"
+  },
+  "homepage": "https://www.deepseek.com",
+  "logo_url": "deepseek",
+  "keywords": [
+    "深度求索",
+    "deepseek"
+  ],
+  "color": "#1E88E5"
+}

@@ -1,0 +1,47 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://e-flowcode.cc",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5",
+      "claude-opus-4-7",
+      "claude-opus-4-6",
+      "claude-opus-4-5",
+      "claude-sonnet-4-5"
+    ]
+  },
+  "name": {
+    "en-US": "E-FlowCode",
+    "zh-Hans": "E-FlowCode",
+    "ar-SA": "E-FlowCode",
+    "fr-FR": "E-FlowCode",
+    "de-DE": "E-FlowCode",
+    "ru-RU": "E-FlowCode",
+    "ja-JP": "E-FlowCode",
+    "es-ES": "E-FlowCode"
+  },
+  "source_urls": {
+    "docs": "https://e-flowcode.cc/",
+    "pricing": "https://e-flowcode.cc/"
+  },
+  "homepage": "https://e-flowcode.cc",
+  "logo_url": "",
+  "keywords": [
+    "eflowcode",
+    "flowcode"
+  ],
+  "color": "#6C5CE7"
+}

@@ -1,0 +1,15 @@
+{
+  "model_id": "gpt-4-0613",
+  "canonical_model": "gpt-4-0613",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.00003,
+  "output_cost_per_token": 0.00006,
+  "default_price": {
+    "input_cost_per_token": 0.00003,
+    "output_cost_per_token": 0.00006,
+    "cache_read_input_token_cost": 0
+  }
+}

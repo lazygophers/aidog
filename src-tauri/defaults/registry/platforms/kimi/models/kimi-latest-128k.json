@@ -1,0 +1,14 @@
+{
+  "model_id": "kimi-latest-128k",
+  "canonical_model": "kimi-latest-128k",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 131072,
+  "context_window": 131072,
+  "official": true,
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000005,
+  "cache_read_input_token_cost": 1.5e-7
+}
