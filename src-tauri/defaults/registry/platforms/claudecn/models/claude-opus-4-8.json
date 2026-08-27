@@ -1,0 +1,13 @@
+{
+  "model_id": "claude-opus-4-8",
+  "canonical_model": "claude-opus-4-8",
+  "family": "claude",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "context_window": 1000000,
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 2.5e-05,
+  "cache_read_input_token_cost": 5e-07
+}

@@ -571,7 +571,15 @@
       "name": "ClaudeCN",
       "platform_file": "platforms/claudecn/platform.json",
       "models_dir": "platforms/claudecn/models",
-      "models": []
+      "models": [
+        "claude-haiku-4-5-20251001.json",
+        "claude-opus-4-5-20251101.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5-20250929.json",
+        "claude-sonnet-4-6.json"
+      ]
     },
     {
       "code": "codex",
