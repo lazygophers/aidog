@@ -1,0 +1,16 @@
+{
+  "model_id": "google/gemini-2.5-flash-lite",
+  "canonical_model": "gemini-2.5-flash-lite",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "official": false,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 64000,
+  "context_window": 1000000,
+  "input_cost_per_token": 9.72222e-08,
+  "output_cost_per_token": 3.88889e-07,
+  "cache_read_input_token_cost": 9.72222e-09
+}

@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek/deepseek-v4-pro",
+  "canonical_model": "deepseek-v4-pro",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 384000,
+  "context_window": 1000000,
+  "input_cost_per_token": 6.25e-07,
+  "output_cost_per_token": 1.875e-06,
+  "cache_read_input_token_cost": 6.25e-08
+}

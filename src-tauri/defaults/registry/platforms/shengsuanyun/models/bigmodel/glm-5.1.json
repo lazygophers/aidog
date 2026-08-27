@@ -1,0 +1,13 @@
+{
+  "model_id": "bigmodel/glm-5.1",
+  "canonical_model": "glm-5.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 200000,
+  "max_output_tokens": 128000,
+  "context_window": 200000,
+  "input_cost_per_token": 8.33333e-07,
+  "output_cost_per_token": 3.33333e-06
+}

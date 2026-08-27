@@ -1,0 +1,14 @@
+{
+  "model_id": "anthropic/claude-sonnet-5",
+  "canonical_model": "claude-sonnet-5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 64000,
+  "context_window": 1000000,
+  "input_cost_per_token": 2.91667e-06,
+  "output_cost_per_token": 1.45833e-05
+}

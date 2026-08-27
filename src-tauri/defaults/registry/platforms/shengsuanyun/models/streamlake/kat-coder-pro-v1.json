@@ -1,0 +1,14 @@
+{
+  "model_id": "streamlake/kat-coder-pro-v1",
+  "canonical_model": "kat-coder-pro-v1",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 128000,
+  "max_output_tokens": 32000,
+  "context_window": 128000,
+  "input_cost_per_token": 5.55556e-07,
+  "output_cost_per_token": 2.22222e-06,
+  "cache_read_input_token_cost": 1.11111e-07
+}

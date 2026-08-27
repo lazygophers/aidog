@@ -1,0 +1,13 @@
+{
+  "model_id": "xiaomi/mimo-v2.5",
+  "canonical_model": "mimo-v2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "input_cost_per_token": 1.38889e-07,
+  "output_cost_per_token": 2.77778e-07
+}

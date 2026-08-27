@@ -1,0 +1,15 @@
+{
+  "model_id": "openai/o4-mini",
+  "canonical_model": "o4-mini",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "official": false,
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "input_cost_per_token": 1.06944e-06,
+  "output_cost_per_token": 4.27778e-06
+}

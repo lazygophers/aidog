@@ -1,0 +1,14 @@
+{
+  "model_id": "moonshot/kimi-k2.7-code-highspeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 32000,
+  "context_window": 256000,
+  "input_cost_per_token": 1.80556e-06,
+  "output_cost_per_token": 7.5e-06
+}

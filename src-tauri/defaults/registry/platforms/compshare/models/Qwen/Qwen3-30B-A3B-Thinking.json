@@ -1,0 +1,10 @@
+{
+  "model_id": "Qwen/Qwen3-30B-A3B-Thinking",
+  "canonical_model": "qwen3-30b-a3b-thinking",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.04167e-07,
+  "output_cost_per_token": 1.04167e-06
+}

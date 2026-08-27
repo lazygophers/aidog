@@ -1,0 +1,10 @@
+{
+  "model_id": "BAAI/bge-m3",
+  "canonical_model": "bge-m3",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

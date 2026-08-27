@@ -1,0 +1,14 @@
+{
+  "model_id": "bigmodel/glm-5.3-flash",
+  "canonical_model": "glm-5.3-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "input_cost_per_token": 5.55556e-08,
+  "output_cost_per_token": 1.94444e-07,
+  "cache_read_input_token_cost": 1.66667e-08
+}

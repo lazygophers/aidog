@@ -1,0 +1,14 @@
+{
+  "model_id": "anthropic/claude-haiku-4.5",
+  "canonical_model": "claude-haiku-4.5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "max_input_tokens": 200000,
+  "max_output_tokens": 64000,
+  "context_window": 200000,
+  "input_cost_per_token": 9.72222e-07,
+  "output_cost_per_token": 4.86111e-06
+}

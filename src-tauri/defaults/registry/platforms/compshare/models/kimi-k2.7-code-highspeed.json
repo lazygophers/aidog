@@ -1,0 +1,11 @@
+{
+  "model_id": "kimi-k2.7-code-highspeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.80556e-06,
+  "output_cost_per_token": 7.5e-06,
+  "cache_read_input_token_cost": 3.61111e-07
+}

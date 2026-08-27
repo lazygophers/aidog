@@ -1,0 +1,13 @@
+{
+  "model_id": "ali/qwen3.6-max-preview",
+  "canonical_model": "qwen3.6-max-preview",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 64000,
+  "context_window": 256000,
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 7.5e-06
+}

@@ -1,0 +1,11 @@
+{
+  "model_id": "doubao-1-5-pro-32k-character-250715",
+  "canonical_model": "doubao-1-5-pro-32k-character-250715",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.11111e-07,
+  "output_cost_per_token": 2.77778e-07,
+  "cache_read_input_token_cost": 2.22222e-08
+}

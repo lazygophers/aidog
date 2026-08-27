@@ -1,0 +1,15 @@
+{
+  "model_id": "tencent/hunyuan-turbo-vision",
+  "canonical_model": "hunyuan-turbo-vision",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "max_input_tokens": 6000,
+  "max_output_tokens": 6000,
+  "context_window": 6000,
+  "input_cost_per_token": 4.16667e-07,
+  "output_cost_per_token": 1.25e-06,
+  "cache_read_input_token_cost": 0.0
+}

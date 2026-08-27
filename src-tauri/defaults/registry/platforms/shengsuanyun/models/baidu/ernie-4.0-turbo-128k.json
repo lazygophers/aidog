@@ -1,0 +1,13 @@
+{
+  "model_id": "baidu/ernie-4.0-turbo-128k",
+  "canonical_model": "ernie-4.0-turbo-128k",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 124000,
+  "max_output_tokens": 4000,
+  "context_window": 124000,
+  "input_cost_per_token": 4.16667e-07,
+  "output_cost_per_token": 1.25e-06
+}

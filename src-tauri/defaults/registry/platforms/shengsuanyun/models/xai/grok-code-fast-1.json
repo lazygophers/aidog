@@ -1,0 +1,13 @@
+{
+  "model_id": "xai/grok-code-fast-1",
+  "canonical_model": "grok-code-fast-1",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 10000,
+  "context_window": 256000,
+  "input_cost_per_token": 1.94444e-07,
+  "output_cost_per_token": 1.45833e-06
+}

@@ -1,0 +1,13 @@
+{
+  "model_id": "bigmodel/glm-4.5-x:thinking",
+  "canonical_model": "glm-4.5-x:thinking",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 128000,
+  "max_output_tokens": 96000,
+  "context_window": 128000,
+  "input_cost_per_token": 1.11111e-06,
+  "output_cost_per_token": 2.22222e-06
+}

@@ -1,0 +1,14 @@
+{
+  "model_id": "baidu/ernie-4.5-turbo-vl-preview",
+  "canonical_model": "ernie-4.5-turbo-vl-preview",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "max_input_tokens": 128000,
+  "max_output_tokens": 123000,
+  "context_window": 128000,
+  "input_cost_per_token": 4.16667e-07,
+  "output_cost_per_token": 1.25e-06
+}

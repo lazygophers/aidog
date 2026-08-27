@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen-mt-flash",
+  "canonical_model": "qwen-mt-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 9.72222e-08,
+  "output_cost_per_token": 2.70833e-07
+}

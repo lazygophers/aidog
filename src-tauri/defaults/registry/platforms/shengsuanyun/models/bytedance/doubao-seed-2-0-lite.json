@@ -1,0 +1,16 @@
+{
+  "model_id": "bytedance/doubao-seed-2-0-lite",
+  "canonical_model": "doubao-seed-2-0-lite",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 128000,
+  "context_window": 256000,
+  "input_cost_per_token": 8.33333e-08,
+  "output_cost_per_token": 5e-07,
+  "cache_read_input_token_cost": 1.66667e-08
+}

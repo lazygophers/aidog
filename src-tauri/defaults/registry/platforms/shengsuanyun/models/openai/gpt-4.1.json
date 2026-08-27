@@ -1,0 +1,15 @@
+{
+  "model_id": "openai/gpt-4.1",
+  "canonical_model": "gpt-4.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "official": false,
+  "max_input_tokens": 1047576,
+  "max_output_tokens": 32768,
+  "context_window": 1047576,
+  "input_cost_per_token": 1.94444e-06,
+  "output_cost_per_token": 7.77778e-06
+}

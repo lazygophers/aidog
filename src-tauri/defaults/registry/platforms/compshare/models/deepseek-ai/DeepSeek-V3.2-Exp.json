@@ -1,0 +1,10 @@
+{
+  "model_id": "deepseek-ai/DeepSeek-V3.2-Exp",
+  "canonical_model": "deepseek-v3.2-exp",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.77778e-07,
+  "output_cost_per_token": 4.16667e-07
+}
