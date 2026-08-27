@@ -211,6 +211,7 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | KimiCoding
         | MiniMax
         | MiniMaxEn
+        | MinimaxCoding
         | Codex
         | Bailian
         | BailianCoding

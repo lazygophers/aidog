@@ -739,10 +739,10 @@ fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
     // extra 无用户覆盖 → peak_hours_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
     let p = glm_coding_platform("", platform_models);
     let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
-    // 命中高峰 → 切到 preset.models.peak（glm-4.7 / glm-4.6 ...）
-    assert_eq!(eff.default.as_deref(), Some("glm-4.7"), "peak: default 切 glm-4.7");
-    assert_eq!(eff.sonnet.as_deref(), Some("glm-4.6"), "peak: sonnet 切 glm-4.6");
-    assert_eq!(eff.haiku.as_deref(), Some("glm-4.5"), "peak: haiku 不变 glm-4.5");
+    // 命中高峰 → 切到 preset.models.peak（当前 registry 全档 glm-5.3-flash）
+    assert_eq!(eff.default.as_deref(), Some("glm-5.3-flash"), "peak: default 切 glm-5.3-flash");
+    assert_eq!(eff.sonnet.as_deref(), Some("glm-5.3-flash"), "peak: sonnet 切 glm-5.3-flash");
+    assert_eq!(eff.haiku.as_deref(), Some("glm-5.3-flash"), "peak: haiku 切 glm-5.3-flash");
 }
 
 #[test]
@@ -807,7 +807,7 @@ fn resolve_effective_models_user_peak_hours_override_takes_effect() {
     let p = glm_coding_platform(&extra, platform_models);
     // OFF_MS（hour=12，正常非高峰）但用户窗口全天命中 → 仍切 peak
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
-    assert_eq!(eff.default.as_deref(), Some("glm-4.7"), "用户 peak_hours 命中 → 切 peak");
+    assert_eq!(eff.default.as_deref(), Some("glm-5.3-flash"), "用户 peak_hours 命中 → 切 peak");
 }
 
 // ── cpa-standalone-module s2: cli-proxy 平台路由 ──────────────────────────────

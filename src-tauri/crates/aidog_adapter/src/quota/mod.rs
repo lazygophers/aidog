@@ -33,7 +33,7 @@ pub fn quota_config_for(protocol: &Protocol) -> QuotaCapability {
     match protocol {
         Glm | GlmCoding | GlmEn => crate::glm::quota::quota_config(),
         Kimi | KimiCoding => crate::kimi::quota::quota_config(),
-        MiniMax | MiniMaxEn => crate::minimax::quota::quota_config(),
+        MiniMax | MiniMaxEn | MinimaxCoding => crate::minimax::quota::quota_config(),
         DeepSeek => crate::deepseek::quota::quota_config(),
         StepFun | StepFunEn => crate::stepfun::quota::quota_config(),
         SiliconFlow | SiliconFlowEn => crate::siliconflow::quota::quota_config(),
@@ -74,7 +74,7 @@ async fn query_for_inner(db: Option<&Arc<Db>>, protocol: &Protocol, base_url: &s
     match protocol {
         Glm | GlmCoding | GlmEn => crate::glm::quota::query_zhipu_coding_plan(db, base_url, api_key).await,
         Kimi | KimiCoding => crate::kimi::quota::query_kimi_coding_plan(db, api_key).await,
-        MiniMax => crate::minimax::quota::query_minimax_coding_plan(db, api_key, true).await,
+        MiniMax | MinimaxCoding => crate::minimax::quota::query_minimax_coding_plan(db, api_key, true).await,
         MiniMaxEn => crate::minimax::quota::query_minimax_coding_plan(db, api_key, false).await,
         DeepSeek => crate::deepseek::quota::query_deepseek_balance(db, api_key).await,
         StepFun | StepFunEn => crate::stepfun::quota::query_stepfun_balance(db, api_key).await,

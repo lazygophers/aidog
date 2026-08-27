@@ -836,11 +836,11 @@ mod tests {
         // glm_coding preset 带 models.{default,peak} 双分支（PRD 07-11）
         let m = default_peak_models("glm_coding").expect("glm_coding preset has models.peak");
         // peak 分支值（platform-presets.json 真值，禁硬编码第二份 — 此处仅锁 schema 解析正确）
-        assert_eq!(m.default.as_deref(), Some("glm-4.7"));
-        assert_eq!(m.opus.as_deref(), Some("glm-4.7"));
-        assert_eq!(m.sonnet.as_deref(), Some("glm-4.6"));
-        assert_eq!(m.gpt.as_deref(), Some("glm-4.7"));
-        assert_eq!(m.haiku.as_deref(), Some("glm-4.5"));
+        assert_eq!(m.default.as_deref(), Some("glm-5.3-flash"));
+        assert_eq!(m.opus.as_deref(), Some("glm-5.3-flash"));
+        assert_eq!(m.sonnet.as_deref(), Some("glm-5.3-flash"));
+        assert_eq!(m.gpt.as_deref(), Some("glm-5.3-flash"));
+        assert_eq!(m.haiku.as_deref(), Some("glm-5.3-flash"));
     }
 
     #[test]
