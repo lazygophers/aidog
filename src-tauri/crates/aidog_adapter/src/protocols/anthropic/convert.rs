@@ -137,6 +137,47 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
     }
 }
 
+/// 同协议透传出站前清洗：剔除请求体里**无 signature 的 thinking / redacted_thinking 块**，
+/// 块被剔空的消息整条移除。
+///
+/// signature 是 Anthropic 模型对自己思考内容的签发凭据，官方端点回传时校验；非 Anthropic
+/// 上游的思维链（含 aidog 自己从 `reasoning_content` / 行内 `<thinking>` 标签合成的 thinking 块）
+/// 没有签名，原样回传会被判 400（thinking blocks 不可伪造/修改）。转换分支早已按此丢弃
+/// （见 [`to_anthropic`] 里 `ContentBlock::Unknown` 分支），本函数补上透传分支的同一语义。
+///
+/// 返回被剔除的块数（0 = 未改动，调用方可据此决定是否留痕）。
+pub fn strip_unsigned_thinking_blocks(body: &mut Value) -> usize {
+    let Some(messages) = body.get_mut("messages").and_then(|v| v.as_array_mut()) else {
+        return 0;
+    };
+    let mut removed = 0usize;
+    for msg in messages.iter_mut() {
+        let Some(blocks) = msg.get_mut("content").and_then(|v| v.as_array_mut()) else {
+            continue;
+        };
+        blocks.retain(|b| {
+            let ty = b.get("type").and_then(|t| t.as_str()).unwrap_or("");
+            let unsigned_thinking = matches!(ty, "thinking" | "redacted_thinking")
+                && b.get("signature").and_then(|s| s.as_str()).is_none_or(str::is_empty);
+            if unsigned_thinking {
+                removed += 1;
+            }
+            !unsigned_thinking
+        });
+    }
+    if removed > 0 {
+        // 内容被剔空的消息不能留（Anthropic 拒收空 content 数组）
+        if let Some(messages) = body.get_mut("messages").and_then(|v| v.as_array_mut()) {
+            messages.retain(|m| {
+                m.get("content")
+                    .and_then(|c| c.as_array())
+                    .is_none_or(|a| !a.is_empty())
+            });
+        }
+    }
+    removed
+}
+
 /// 解析 Anthropic Messages API 非流式响应为归一 NonStreamResponse
 pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<crate::converter::NonStreamResponse> {
     let id = body.get("id")?.as_str()?.to_string();

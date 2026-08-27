@@ -8,7 +8,7 @@ pub mod openai_completions;
 pub mod openai_responses;
 
 // Re-export converters
-pub use anthropic::AnthropicConverter;
+pub use anthropic::{strip_unsigned_thinking_blocks, AnthropicConverter};
 pub use gemini::GeminiConverter;
 pub use mock::MockConverter;
 pub use openai::OpenAIConverter;

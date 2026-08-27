@@ -90,7 +90,7 @@ pub fn convert_response(
         _ => None, // 非目标协议回退透传
     };
 
-    let parsed = parsed?;
+    let parsed = normalize_inline_reasoning(parsed?);
 
     // render 阶段：NonStreamResponse → client_protocol
     match client_protocol {
@@ -103,18 +103,44 @@ pub fn convert_response(
     }
 }
 
+/// 把上游写在正文里的行内思维链标签（`<thinking>` / `<think>`）归一到 `reasoning` 字段。
+///
+/// 不识别这类标签时，标签连同思考内容会作为普通 text 块下发，Claude Code 按正文渲染
+/// → 用户看到裸 `<thinking>…</thinking>`。识别后与结构化思维链通道
+/// （`reasoning_content` / thinking 块 / Gemini `thought`）汇到同一字段，
+/// 由各协议 render 按各自标准语义写出（Anthropic → thinking 块）。
+///
+/// 上游同时给了结构化 reasoning 与行内标签时，结构化的排前，行内的追加在后（出现顺序）。
+fn normalize_inline_reasoning(mut r: NonStreamResponse) -> NonStreamResponse {
+    let Some(text) = r.text.as_deref() else { return r };
+    if !super::super::reasoning_tags::has_inline_reasoning_tag(text) {
+        return r;
+    }
+    let (inline_reasoning, clean_text) = super::super::reasoning_tags::split_inline_reasoning(text);
+    r.text = Some(clean_text);
+    if inline_reasoning.is_empty() {
+        return r;
+    }
+    r.reasoning = Some(match r.reasoning.take() {
+        Some(existing) if !existing.is_empty() => format!("{existing}\n\n{inline_reasoning}"),
+        _ => inline_reasoning,
+    });
+    r
+}
+
 /// 渲染归一响应为 Anthropic Messages 非流式响应体。
+///
+/// 思维链走标准 `thinking` 块（与流式 `thinking_delta` 同语义），不降级成 text 块：
+/// 降级会让客户端把思考当正式回答回灌历史（实测 comet gpt-5.5 reasoning-only 自锁循环），
+/// 也让上游写在正文里的 `<thinking>` 标签原样透到界面上。
+/// 不带 `signature`：签名是 Anthropic 官方模型对自己思考内容的签发凭据，
+/// 非 Anthropic 上游的思维链没有、也不能伪造（伪造签名会被真 Anthropic 上游判 400）。
 pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
     let mut content: Vec<Value> = Vec::new();
-    // reasoning 排首位（方案 B：禁 thinking 块避 signature 风险）
-    let has_substance = r.text.as_deref().is_some_and(|t| !t.is_empty())
-        || !r.tool_uses.is_empty();
-    // reasoning-only（上游只出思维链就 stop，实测 comet gpt-5.5：content="" + reasoning + 无
-    // tool_calls）不产出块——否则客户端把思考当正式回答回灌历史，「回答=Planning 笔记」自锁循环
-    if has_substance
-        && let Some(reasoning) = &r.reasoning
+    // thinking 块排首位（Anthropic 规定 thinking 必须在同一条消息的正文块之前）
+    if let Some(reasoning) = &r.reasoning
         && !reasoning.is_empty() {
-            content.push(serde_json::json!({ "type": "text", "text": reasoning }));
+            content.push(serde_json::json!({ "type": "thinking", "thinking": reasoning }));
         }
     if let Some(text) = &r.text
         && !text.is_empty() {
@@ -356,6 +382,37 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
     }
 }
 
+/// 流式：把一个中立事件里写在正文中的行内思维链标签分流为 `ReasoningDelta`。
+///
+/// 与非流式 [`normalize_inline_reasoning`] 同一判定，只是按增量做：`Delta` 文本经
+/// [`InlineReasoningSplitter`] 拆成正文段 / 思维链段，分别产出 `Delta` / `ReasoningDelta`；
+/// `Stop` 前先冲刷跨 chunk 残留（未闭合 `<thinking>` 按思维链收尾），其余事件原样透过。
+///
+/// 返回 0..n 个事件，调用方按序渲染。
+pub fn split_stream_inline_reasoning(
+    event: ChatStreamEvent,
+    splitter: &mut super::super::reasoning_tags::InlineReasoningSplitter,
+) -> Vec<ChatStreamEvent> {
+    use super::super::reasoning_tags::Segment;
+    let to_events = |segs: Vec<Segment>| -> Vec<ChatStreamEvent> {
+        segs.into_iter()
+            .map(|s| match s {
+                Segment::Text(text) => ChatStreamEvent::Delta { text },
+                Segment::Reasoning(text) => ChatStreamEvent::ReasoningDelta { text },
+            })
+            .collect()
+    };
+    match event {
+        ChatStreamEvent::Delta { text } => to_events(splitter.push(&text)),
+        ChatStreamEvent::Stop { .. } => {
+            let mut out = to_events(splitter.finish());
+            out.push(event);
+            out
+        }
+        other => vec![other],
+    }
+}
+
 #[cfg(test)]
 #[path = "test_response.rs"]
 mod test_response;
@@ -369,8 +426,8 @@ mod test_response;
 pub struct AnthropicSseState {
     /// 下一个可用 wire block index
     next_index: u32,
-    /// text 块是否已开
-    text_open: bool,
+    /// text 块是否已开 + 其 wire index（thinking 先于 text 出现时 text 不再恒占 0）
+    text_index: Option<u32>,
     /// thinking 块是否已开 + 其 wire index
     thinking_index: Option<u32>,
     /// thinking 首帧标记（首个 thinking_delta 前须发 content_block_start）
@@ -396,16 +453,23 @@ impl AnthropicSseState {
             )),
             ChatStreamEvent::Delta { text } => {
                 let mut parts = Vec::new();
-                if !self.text_open {
-                    self.text_open = true;
-                    parts.push(format!(
-                        "event: content_block_start\ndata: {}\n\n",
-                        serde_json::json!({ "type": "content_block_start", "index": 0, "content_block": { "type": "text", "text": "" } })
-                    ));
-                }
+                let idx = match self.text_index {
+                    Some(i) => i,
+                    None => {
+                        // 思维链先于正文出现时 thinking 已占 0，text 顺延；不可再写死 0
+                        // （两块同 index 会让客户端把 text_delta 灌进 thinking 块 → 解析错乱）。
+                        let i = self.alloc_block();
+                        self.text_index = Some(i);
+                        parts.push(format!(
+                            "event: content_block_start\ndata: {}\n\n",
+                            serde_json::json!({ "type": "content_block_start", "index": i, "content_block": { "type": "text", "text": "" } })
+                        ));
+                        i
+                    }
+                };
                 parts.push(format!(
                     "event: content_block_delta\ndata: {}\n\n",
-                    serde_json::json!({ "type": "content_block_delta", "index": 0, "delta": { "type": "text_delta", "text": text } })
+                    serde_json::json!({ "type": "content_block_delta", "index": idx, "delta": { "type": "text_delta", "text": text } })
                 ));
                 Some(parts.join(""))
             }
@@ -459,7 +523,7 @@ impl AnthropicSseState {
                 let mut parts = Vec::new();
                 // 关全部开块（text / thinking / tool × n），wire index 升序
                 let mut closes: Vec<u32> = Vec::new();
-                if self.text_open { closes.push(0); }
+                if let Some(i) = self.text_index { closes.push(i); }
                 if let Some(i) = self.thinking_index { closes.push(i); }
                 closes.extend(self.tool_wire.values().copied());
                 closes.sort();
@@ -484,10 +548,7 @@ impl AnthropicSseState {
     }
 
     fn alloc_block(&mut self) -> u32 {
-        // text 块恒占 wire 0；已开 text 时后续块从 1 起编
-        if self.text_open && self.next_index == 0 {
-            self.next_index = 1;
-        }
+        // 按出现顺序连续编号（text / thinking / tool 共用同一计数器）
         let i = self.next_index;
         self.next_index += 1;
         i

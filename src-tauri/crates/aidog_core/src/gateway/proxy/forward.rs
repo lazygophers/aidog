@@ -311,6 +311,15 @@ pub(crate) async fn forward_attempt(
                 }
             }
         }
+        // 无签名 thinking 块清洗（仅 Anthropic wire 上游）：客户端回灌的历史里可能带 aidog 从
+        // 非 Anthropic 上游合成的 thinking 块（reasoning_content / 行内 `<thinking>` 标签转换而来），
+        // 这类块没有 Anthropic 签名，原样上送官方端点判 400。转换分支早有同语义丢弃，此处补齐透传分支。
+        if target_protocol_enum.same_wire_family(&Protocol::Anthropic) {
+            let removed = adapter::strip_unsigned_thinking_blocks(&mut body);
+            if removed > 0 {
+                tracing::info!(removed, "passthrough: stripped unsigned thinking blocks before anthropic upstream");
+            }
+        }
         let path = adapter::passthrough_api_path(target_protocol_enum, &actual_model, platform_protocol);
         tracing::debug!(protocol = %target_protocol, "same-protocol passthrough: skip request format conversion");
         (body, path)
@@ -684,6 +693,7 @@ pub(crate) async fn forward_attempt(
         actual_model: actual_model.clone(),
         eff_api_key: eff_api_key.clone(),
         quota_base_url: target_base_url.clone(),
+        disable_thinking,
     };
 
     // 非流式：直接透传 JSON
