@@ -3,6 +3,8 @@
 pub mod converter;
 pub mod quota;
 pub mod protocols;
+pub mod reasoning_tags;
+pub mod thinking_strip;
 pub mod thinking;
 pub mod types;
 
@@ -72,6 +74,8 @@ pub mod newapi;
 pub mod cli_proxy;
 pub mod devin;
 
-pub use converter::{convert_request, convert_response, parse_sse, parse_upstream_sse, parse_incoming_request, passthrough_api_path, to_client_sse, to_client_sse_stateful, AnthropicSseState};
+pub use converter::{convert_request, convert_response, parse_sse, parse_upstream_sse, parse_incoming_request, passthrough_api_path, split_stream_inline_reasoning, to_client_sse, to_client_sse_stateful, AnthropicSseState};
+pub use reasoning_tags::InlineReasoningSplitter;
+pub use thinking_strip::{strip_thinking_in_body, SseThinkingStripper};
 pub use protocols::*;
 pub use types::*;

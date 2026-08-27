@@ -33,11 +33,11 @@ fn convert_response_openai_to_anthropic_content_and_tools() {
     assert_eq!(out["model"], "glm-4.6", "model 使用上游响应的模型（未覆盖时）");
     assert_eq!(out["stop_reason"], "tool_use", "tool_calls→tool_use");
     let content = out["content"].as_array().unwrap();
-    // 三块：reasoning 排首位，然后 text，最后 tool_use（顺序：reasoning → text → tool_use）
-    assert_eq!(content.len(), 3, "reasoning + text + tool_use 三块");
-    // 第一块 reasoning（text 块）
-    assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "用户触发...(GLM思维链)", "reasoning_content 排首位");
+    // 三块：thinking 排首位，然后 text，最后 tool_use
+    assert_eq!(content.len(), 3, "thinking + text + tool_use 三块");
+    // 第一块 thinking（标准协议块，非 text）
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "用户触发...(GLM思维链)", "reasoning_content → thinking 块");
     // 第二块 text
     assert_eq!(content[1]["type"], "text");
     assert_eq!(content[1]["text"], "Trellis SessionStart...");
@@ -101,12 +101,12 @@ fn convert_response_length_maps_max_tokens() {
     assert_eq!(out["stop_reason"], "max_tokens");
 }
 
-// ── reasoning-only（无正文无 tool_calls）：reasoning 不降级为 text 块 ──
+// ── reasoning-only（无正文无 tool_calls）：出标准 thinking 块，不降级为 text 块 ──
 // 复现 comet gpt-5.5 死循环（request fa74a0e7）：上游 content="" + reasoning="**Planning…**"
-// + finish=stop。修复前 reasoning 被渲染成 text 块，客户端把它当正式回答回灌历史，
-// 模型每轮只输出 Planning 笔记后 stop。修复后 content 为空兜底空 text 块。
+// + finish=stop。降级成 text 块时客户端把思考当正式回答回灌历史，模型每轮只输出 Planning
+// 笔记后 stop。现按标准协议出 thinking 块：客户端按思考渲染，不会当正文回灌。
 #[test]
-fn convert_response_reasoning_only_not_rendered_as_text() {
+fn convert_response_reasoning_only_renders_thinking_block() {
     let upstream = serde_json::json!({
         "id": "chatcmpl-27a3f16a", "model": "gpt-5.5",
         "choices": [{ "index": 0, "finish_reason": "stop", "message": {
@@ -116,10 +116,74 @@ fn convert_response_reasoning_only_not_rendered_as_text() {
     });
     let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-opus-5").unwrap();
     let content = out["content"].as_array().unwrap();
-    assert_eq!(content.len(), 1, "兜底空 text 块，无 reasoning 块");
-    assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "", "reasoning 不降级为 text（避免回灌污染历史）");
+    assert_eq!(content.len(), 1, "只有思维链 → 只出 thinking 块");
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "**Planning sequential file inspection**");
     assert_eq!(out["stop_reason"], "end_turn");
+}
+
+// ── 行内 `<thinking>` 标签（上游把思考写进正文）→ 标准 thinking 块 ──
+// 修复前：标签连同思考内容作为 text 块下发，Claude Code 按正文渲染 → 界面出现裸标签。
+#[test]
+fn convert_response_inline_thinking_tag_becomes_thinking_block() {
+    let upstream = serde_json::json!({
+        "id": "c9", "model": "MiniMax-M3",
+        "choices": [{ "index": 0, "finish_reason": "stop", "message": {
+            "role": "assistant",
+            "content": "<thinking>先看 diff 再决定 type</thinking>\n\ndocs: 更新说明" } }],
+        "usage": { "prompt_tokens": 10, "completion_tokens": 20 }
+    });
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let content = out["content"].as_array().unwrap();
+    assert_eq!(content.len(), 2, "thinking + text 两块");
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "先看 diff 再决定 type");
+    assert_eq!(content[1]["type"], "text");
+    assert_eq!(content[1]["text"], "docs: 更新说明", "正文不含标签");
+}
+
+// ── 结构化 reasoning 与行内标签并存：结构化在前，行内追加在后 ──
+#[test]
+fn convert_response_inline_tag_appends_to_structured_reasoning() {
+    let upstream = serde_json::json!({
+        "id": "c10", "model": "m",
+        "choices": [{ "index": 0, "finish_reason": "stop", "message": {
+            "role": "assistant",
+            "reasoning_content": "结构化思考",
+            "content": "<think>行内思考</think>答案" } }],
+        "usage": { "prompt_tokens": 1, "completion_tokens": 2 }
+    });
+    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let content = out["content"].as_array().unwrap();
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "结构化思考\n\n行内思考");
+    assert_eq!(content[1]["text"], "答案");
+}
+
+// ── 流式：正文里的行内标签分流为 thinking_delta，正文块 index 顺延不撞车 ──
+#[test]
+fn stream_inline_thinking_tag_routed_to_thinking_delta() {
+    let mut splitter = crate::reasoning_tags::InlineReasoningSplitter::new();
+    let mut state = AnthropicSseState::default();
+    let mut out = String::new();
+    let chunks = ["<thin", "king>思考</thinking>正", "文"];
+    for c in chunks {
+        for ev in split_stream_inline_reasoning(ChatStreamEvent::Delta { text: c.to_string() }, &mut splitter) {
+            out.push_str(&state.push(&ev).unwrap_or_default());
+        }
+    }
+    for ev in split_stream_inline_reasoning(ChatStreamEvent::Stop { finish_reason: Some("stop".into()) }, &mut splitter) {
+        out.push_str(&state.push(&ev).unwrap_or_default());
+    }
+    assert!(out.contains("\"type\":\"thinking_delta\""), "思考走 thinking_delta: {out}");
+    assert!(!out.contains("<thinking>"), "标签不下发: {out}");
+    assert!(out.contains("\"type\":\"text_delta\""), "正文走 text_delta");
+    // thinking 块占 index 0 → text 块必须顺延到 1（同 index 会被客户端灌进 thinking 块）
+    let text_start = out
+        .lines()
+        .find(|l| l.contains("content_block_start") && l.contains("\"type\":\"text\""))
+        .unwrap_or_else(|| panic!("缺 text 块 content_block_start: {out}"));
+    assert!(text_start.contains("\"index\":1"), "text 块顺延到 index 1: {text_start}");
 }
 
 // ── 同协议（client=openai, wire=openai）→ None（透传，不转换） ──
@@ -298,10 +362,11 @@ fn render_anthropic_with_reasoning_first() {
     let out = render_anthropic_response(&r);
     let content = out["content"].as_array().unwrap();
 
-    // 方案 B：reasoning 排 text 块首位（禁 thinking 块）
+    // reasoning → 标准 thinking 块，排正文之前（不降级为 text 块）
     assert_eq!(content.len(), 2);
-    assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "Thinking..."); // reasoning 排首位
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "Thinking...");
+    assert!(content[0].get("signature").is_none(), "非 Anthropic 上游无签名，禁伪造");
     assert_eq!(content[1]["type"], "text");
     assert_eq!(content[1]["text"], "Answer");
 }
@@ -327,10 +392,10 @@ fn render_anthropic_reasoning_with_tools() {
     let out = render_anthropic_response(&r);
     let content = out["content"].as_array().unwrap();
 
-    // reasoning + text + tool_use
+    // thinking + text + tool_use
     assert_eq!(content.len(), 3);
-    assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "Analyzing...");
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "Analyzing...");
     assert_eq!(content[1]["type"], "text");
     assert_eq!(content[1]["text"], "Calling function");
     assert_eq!(content[2]["type"], "tool_use");
@@ -454,9 +519,9 @@ fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
     let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-3-opus")
         .expect("case cd7ff24d: openai reasoning_content → anthropic content with reasoning");
     let content = out["content"].as_array().unwrap();
-    assert_eq!(content.len(), 1, "兜底空 text 块");
-    assert_eq!(content[0]["type"], "text");
-    assert_eq!(content[0]["text"], "", "reasoning-only 不降级为 text（防回灌污染历史）");
+    assert_eq!(content.len(), 1, "只有思维链 → 只出 thinking 块");
+    assert_eq!(content[0]["type"], "thinking");
+    assert_eq!(content[0]["thinking"], "Let me analyze this step by step...");
     assert_eq!(out["stop_reason"], "end_turn", "stop→end_turn");
     assert_eq!(out["usage"]["input_tokens"], 50);
     assert_eq!(out["usage"]["output_tokens"], 30);

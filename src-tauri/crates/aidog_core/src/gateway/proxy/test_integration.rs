@@ -198,6 +198,49 @@ async fn x_api_key_resolves_group_and_forwards() {
     assert!(logs.iter().any(|l| l.status_code == 200 && l.group_key == "gkxapi"));
 }
 
+/// 复现 request 3ed5a698：客户端发 `disable_thinking: true`，上游（MiniMax-M2 这类内置思考
+/// 模型）不认显式禁用，仍回 thinking 块。同协议透传路径此前原样下发 → 用户看到「禁用没生效」。
+/// 修复后响应侧剥离 thinking 块（content 被剔空则补空 text 块，Anthropic 拒收空数组）。
+#[tokio::test]
+async fn disable_thinking_strips_thinking_from_passthrough_response() {
+    const THINKING_ONLY: &str = r#"{"id":"msg_t","type":"message","role":"assistant","model":"MiniMax-M2","content":[{"type":"thinking","thinking":"让我分析…","signature":"sig"}],"stop_reason":"max_tokens","usage":{"input_tokens":726,"output_tokens":300}}"#;
+    let upstream = spawn_stub_upstream(200, THINKING_ONLY).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkdt", &upstream).await;
+
+    let req = messages_request(
+        "gkdt",
+        r#"{"model":"haiku","max_tokens":300,"disable_thinking":true,"messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    let content = json["content"].as_array().unwrap();
+    assert!(
+        content.iter().all(|b| b["type"] != "thinking"),
+        "disable_thinking 时 thinking 块必须剥掉: {json}"
+    );
+    assert_eq!(content.len(), 1, "剔空后补空 text 块: {json}");
+    assert_eq!(content[0]["type"], "text");
+}
+
+/// 未禁用思考时不动上游 thinking 块（避免上一条修复误伤正常思考链路）。
+#[tokio::test]
+async fn thinking_blocks_preserved_without_disable_flag() {
+    const WITH_THINKING: &str = r#"{"id":"msg_t2","type":"message","role":"assistant","model":"m","content":[{"type":"thinking","thinking":"想","signature":"sig"},{"type":"text","text":"答案"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
+    let upstream = spawn_stub_upstream(200, WITH_THINKING).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkkeep", &upstream).await;
+
+    let req = messages_request("gkkeep", r#"{"model":"m","messages":[{"role":"user","content":"hi"}]}"#);
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(json["content"][0]["type"], "thinking", "{json}");
+    assert_eq!(json["content"][1]["text"], "答案");
+}
+
 #[tokio::test]
 async fn successful_forward_to_stub_upstream() {
     let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;

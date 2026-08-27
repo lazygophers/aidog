@@ -15,6 +15,9 @@ pub(crate) struct AttemptCtx {
     // 校准/预估链路用的 base_url：endpoint 真 base_url（coding plan 平台级 base_url 恒空，
     // 用它 dispatch query_quota 子串匹配才命中）。空则回退平台级，见 finish_nonstream/finish_stream 开头。
     pub quota_base_url: String,
+    /// 客户端显式禁用思考（请求体 `disable_thinking: true`）。出站已写显式禁用参数，
+    /// 但 MiniMax-M2 等内置思考模型照发思维链回来 → 响应侧再剥一次，兑现「禁用」语义。
+    pub disable_thinking: bool,
 }
 
 /// 非流式 2xx 成功响应处理：usage 提取 + 跨协议转换 + 模型回填 + 出站中间件 + 响应头透传。
@@ -84,6 +87,22 @@ pub(crate) async fn finish_nonstream(
             body.to_vec()
         };
         let body = Bytes::from(body);
+
+        // ── 禁用思考的响应侧兑现（转换与透传两分支共用本 seam）──
+        // 出站已按目标协议写了显式禁用参数，但 MiniMax-M2 这类内置思考模型不认，照回思维链
+        // （实测 request 3ed5a698：整条响应只有 thinking 块）。按客户端协议剥掉思维链载体，
+        // 客户端拿到干净正文；上游已花的思考 token 无法追回，仍照实计费。
+        let body = if ctx.disable_thinking {
+            let mut json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            if adapter::strip_thinking_in_body(&mut json, source_protocol) {
+                tracing::info!(model = %actual_model, "disable_thinking: stripped thinking from upstream response");
+                Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| body.to_vec()))
+            } else {
+                body
+            }
+        } else {
+            body
+        };
 
         // 下发 model 始终回填客户端请求的模型名（含未 remap 但上游自报名不符的场景）
         let body = if !requested_model.is_empty() {
@@ -257,6 +276,16 @@ where
     // Anthropic 系客户端流式渲染状态机：跨 chunk 维护 content block index 分配与开块表
     // （tool/thinking 块完整 content_block_start·stop 序列；ticket 08）。
     let mut client_sse_state = adapter::AnthropicSseState::default();
+    // 行内思维链标签（`<thinking>` / `<think>`）跨 chunk 分离器：部分上游把思考写进正文文本而非
+    // 结构化思维链字段，不分流则标签原样渲染到客户端界面。与 client_sse_state 同生命周期
+    // （逐 chunk 顺序 poll，闭包内独占可变捕获）。
+    let mut inline_reasoning = adapter::InlineReasoningSplitter::new();
+    // 禁用思考（客户端 disable_thinking=true）时的流式剥离：
+    // 透传分支按客户端 wire 逐帧剔思维链帧（含 Anthropic block index 重编号），
+    // 转换分支直接丢 ReasoningDelta 事件（不必过状态机）。
+    let disable_thinking = ctx.disable_thinking;
+    let mut sse_thinking_stripper = disable_thinking
+        .then(|| adapter::SseThinkingStripper::new(client_protocol.clone()));
     // 上游流自然耗尽哨兵：chain 在 map 之前，上游 Stream 返 None 时置 exhausted 位，使 Drop
     // 兜底 flush 能区分「上游读完（无 [DONE]/message_stop 也算正常收尾，如 Gemini）」与
     // 「客户端提前断连」。poll_fn 恒返 Ready(None)，不产 item，对下游 map / 客户端字节零影响。
@@ -302,6 +331,18 @@ where
             // 跨 chunk 行重组后累计 usage（逐 chunk .lines() 会因 data: 行被切断而丢 usage）。
             guard.agg.feed_sse_usage(&text);
             let line_ready_text = sse_line_buf.feed(&text);
+            // 禁用思考：逐帧剔上游思维链帧（帧被 chunk 切断时由 stripper 内部缓冲）。
+            // 末帧可能不带结尾空行 → 见到终止哨兵时冲刷残留，避免吞掉 message_stop / [DONE]。
+            let line_ready_text = match sse_thinking_stripper.as_mut() {
+                Some(s) => {
+                    let mut out = s.push(&line_ready_text);
+                    if line_ready_text.contains("[DONE]") || line_ready_text.contains("message_stop") {
+                        out.push_str(&s.finish());
+                    }
+                    out
+                }
+                None => line_ready_text,
+            };
             if line_ready_text.contains("\"model\"") {
                 Bytes::from(replace_model_in_sse_text(&line_ready_text, &model_for_sse))
             } else {
@@ -328,8 +369,16 @@ where
                 } else {
                     event
                 };
-                if let Some(sse) = adapter::to_client_sse_stateful(&event, &mut client_sse_state, &client_protocol, &model_for_sse) {
-                    output.push_str(&sse);
+                // 正文里的行内思维链标签 → ReasoningDelta（出口与结构化思维链一致：
+                // Anthropic 客户端得 thinking 块，OpenAI 客户端得 reasoning_content）。
+                for event in adapter::split_stream_inline_reasoning(event, &mut inline_reasoning) {
+                    // 禁用思考：思维链事件（含行内标签分出来的）不下发
+                    if disable_thinking && matches!(event, ChatStreamEvent::ReasoningDelta { .. }) {
+                        continue;
+                    }
+                    if let Some(sse) = adapter::to_client_sse_stateful(&event, &mut client_sse_state, &client_protocol, &model_for_sse) {
+                        output.push_str(&sse);
+                    }
                 }
             }
             Bytes::from(output)
