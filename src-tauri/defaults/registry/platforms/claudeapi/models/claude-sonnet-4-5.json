@@ -1,0 +1,14 @@
+{
+  "model_id": "claude-sonnet-4-5",
+  "canonical_model": "claude-sonnet-4-5-20250929",
+  "family": "claude",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.4e-06,
+  "output_cost_per_token": 1.2e-05,
+  "cache_read_input_token_cost": 2.4e-07,
+  "cache_creation_input_token_cost": 3e-06,
+  "context_window": 64000
+}
