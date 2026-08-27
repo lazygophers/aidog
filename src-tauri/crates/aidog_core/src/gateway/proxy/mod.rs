@@ -102,7 +102,7 @@ pub(crate) use headers::{
 // is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
 #[allow(unused_imports)]
 pub(crate) use headers::is_official_anthropic_host;
-pub(crate) use health::handle_root;
+pub(crate) use health::{handle_root, is_hello_endpoint};
 // remove_log_snapshot/spawn_log_writer/LogMsg 仅测试文件 unqualified 消费（本 mod.rs 走 log:: 全限定路径）；
 // 非 test cfg 下重导出未被引用，同 is_official_anthropic_host 先例 allow。
 #[allow(unused_imports)]

@@ -185,6 +185,14 @@ pub(crate) async fn handle_proxy_core(
     let path = req.uri().path().to_string();
     tracing::info!(method = %req.method(), path = %path, "http request");
 
+    // ── Claude Code 连接预热探测分流（必须在读 body / 首次 upsert_log 之前）──
+    // 客户端启动对 base_url 发 `HEAD /api/hello`（base_url 带 /proxy 前缀 → `/proxy/api/hello`），
+    // 无 Authorization → 走 resolve_group 必 404，且每次探测落一行 proxy_log 污染统计（实测 263 行）。
+    // 与 `/` `/proxy` 健康端点同语义：200 + 身份 JSON，不落库、不碰上游、不解析 body。
+    if is_hello_endpoint(&path) {
+        return handle_root().await;
+    }
+
     // ── 记录用户请求 URL（含 host 完整 url：scheme://host/path?query）──
     // origin-form URI（MITM 解密灌入 / reverse proxy）只有 path 段，须从 Host header 重构完整 url。
     // absolute-form（forward proxy `GET http://host/path`）req.uri() 本身含 scheme+host，build_url_from_host

@@ -124,6 +124,35 @@ async fn health_endpoint_returns_ok() {
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
+#[test]
+fn hello_endpoint_matches_prefixed_paths() {
+    assert!(is_hello_endpoint("/api/hello"));
+    assert!(is_hello_endpoint("/proxy/api/hello"));
+    assert!(is_hello_endpoint("/proxy/api/hello/")); // 容尾斜杠
+    assert!(!is_hello_endpoint("/api/hello/world"));
+    assert!(!is_hello_endpoint("/v1/messages"));
+    assert!(!is_hello_endpoint("/api/group-info"));
+}
+
+/// Claude Code 启动预热探测 `HEAD /proxy/api/hello`（无 Authorization）：
+/// 应 200 + 不落 proxy_log（修复前：resolve_group None → 404 且每次探测落一行）。
+#[tokio::test]
+async fn hello_probe_returns_ok_and_no_log() {
+    let state = make_state(test_db().await).await;
+    for method in ["HEAD", "GET"] {
+        let req = HttpRequest::builder()
+            .method(method)
+            .uri("/proxy/api/hello")
+            .body(Body::empty())
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(resp.status(), StatusCode::OK, "method={method}");
+    }
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    assert!(logs.is_empty(), "预热探测不应落 proxy_log, got: {logs:?}");
+}
+
 #[tokio::test]
 async fn no_auth_returns_404() {
     let state = make_state(test_db().await).await;
