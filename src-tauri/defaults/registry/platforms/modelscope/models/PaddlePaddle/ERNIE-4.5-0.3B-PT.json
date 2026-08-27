@@ -1,0 +1,10 @@
+{
+  "model_id": "PaddlePaddle/ERNIE-4.5-0.3B-PT",
+  "canonical_model": "ernie-4.5-0.3b-pt",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

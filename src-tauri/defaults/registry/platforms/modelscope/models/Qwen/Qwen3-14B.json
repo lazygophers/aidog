@@ -1,0 +1,11 @@
+{
+  "model_id": "Qwen/Qwen3-14B",
+  "canonical_model": "qwen3-14b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "context_window": 131072
+}

@@ -1,0 +1,10 @@
+{
+  "model_id": "opencompass/CompassJudger-1-32B-Instruct",
+  "canonical_model": "compassjudger-1-32b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

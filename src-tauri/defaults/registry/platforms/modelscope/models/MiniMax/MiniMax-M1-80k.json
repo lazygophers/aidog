@@ -1,0 +1,10 @@
+{
+  "model_id": "MiniMax/MiniMax-M1-80k",
+  "canonical_model": "minimax-m1-80k",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

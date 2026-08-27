@@ -1,0 +1,10 @@
+{
+  "model_id": "Qwen/Qwen-Image-Edit",
+  "canonical_model": "qwen-image-edit",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

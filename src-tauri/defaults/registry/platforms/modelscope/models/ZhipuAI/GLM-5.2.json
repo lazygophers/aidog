@@ -1,0 +1,11 @@
+{
+  "model_id": "ZhipuAI/GLM-5.2",
+  "canonical_model": "glm-5.2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "context_window": 1048576
+}

@@ -1,0 +1,11 @@
+{
+  "model_id": "Qwen/Qwen3.5-27B",
+  "canonical_model": "Qwen3.5-27B",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "context_window": 262144
+}
