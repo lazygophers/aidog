@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787854984,
+  "last_updated": 1787855236,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -1058,7 +1058,16 @@
       "name": "LemonData",
       "platform_file": "platforms/lemondata/platform.json",
       "models_dir": "platforms/lemondata/models",
-      "models": []
+      "models": [
+        "claude-fable-5.json",
+        "claude-haiku-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-opus-5.json",
+        "claude-sonnet-4-6.json",
+        "claude-sonnet-5.json"
+      ]
     },
     {
       "code": "longcat",
