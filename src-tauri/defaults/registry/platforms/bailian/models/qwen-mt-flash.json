@@ -1,0 +1,18 @@
+{
+  "model_id": "qwen-mt-flash",
+  "canonical_model": "qwen-mt-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 16000,
+  "context_window": 16000,
+  "max_output_tokens": 16000,
+  "input_cost_per_token": 9.72222e-08,
+  "output_cost_per_token": 2.70833e-07,
+  "default_price": {
+    "input_cost_per_token": 9.72222e-08,
+    "output_cost_per_token": 2.70833e-07,
+    "cache_read_input_token_cost": 0
+  }
+}

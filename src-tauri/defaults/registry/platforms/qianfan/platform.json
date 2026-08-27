@@ -4,14 +4,14 @@
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://qianfan.baidubce.com/anthropic/coding",
+        "base_url": "https://qianfan.baidubce.com/anthropic",
         "client_type": "claude_code"
       }
     ]
   },
   "models": {
     "default": {
-      "default": "ernie-4.5-turbo"
+      "default": "ernie-4.5-turbo-128k"
     }
   },
   "model_list": {
@@ -19,8 +19,10 @@
       "ernie-5.1",
       "ernie-5.0",
       "ernie-4.5-turbo-vl",
-      "ernie-4.5-turbo",
-      "ernie-x1-turbo",
+      "ernie-4.5-turbo-128k",
+      "ernie-4.5-turbo-32k",
+      "ernie-4.5-turbo-20260402",
+      "ernie-x1-turbo-32k",
       "ernie-x1.1-preview"
     ]
   },

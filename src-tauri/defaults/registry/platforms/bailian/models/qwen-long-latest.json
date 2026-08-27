@@ -1,0 +1,18 @@
+{
+  "model_id": "qwen-long-latest",
+  "canonical_model": "qwen-long-latest",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 10000000,
+  "context_window": 10000000,
+  "max_output_tokens": 65536,
+  "input_cost_per_token": 6.94444e-08,
+  "output_cost_per_token": 2.77778e-07,
+  "default_price": {
+    "input_cost_per_token": 6.94444e-08,
+    "output_cost_per_token": 2.77778e-07,
+    "cache_read_input_token_cost": 0
+  }
+}

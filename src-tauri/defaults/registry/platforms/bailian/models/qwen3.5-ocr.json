@@ -1,0 +1,15 @@
+{
+  "model_id": "qwen3.5-ocr",
+  "canonical_model": "qwen3.5-ocr",
+  "capabilities": [
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 6.94444e-08,
+  "output_cost_per_token": 2.77778e-07,
+  "default_price": {
+    "input_cost_per_token": 6.94444e-08,
+    "output_cost_per_token": 2.77778e-07,
+    "cache_read_input_token_cost": 0
+  }
+}

@@ -5,7 +5,7 @@
   },
   "models": {
     "default": {
-      "default": "devin-default"
+      "default": "devin-normal"
     }
   },
   "model_list": {

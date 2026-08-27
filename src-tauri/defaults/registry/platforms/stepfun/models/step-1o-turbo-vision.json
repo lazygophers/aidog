@@ -1,0 +1,11 @@
+{
+  "model_id": "step-1o-turbo-vision",
+  "canonical_model": "step-1o-turbo-vision",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 3.472222222222222e-07,
+  "output_cost_per_token": 1.1111111111111112e-06
+}
