@@ -1,0 +1,22 @@
+{
+  "model_id": "qwen3.6-plus",
+  "canonical_model": "qwen3.6-plus",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.352e-07,
+  "output_cost_per_token": 1.412e-06,
+  "cache_read_input_token_cost": 2.32e-08,
+  "cache_creation_input_token_cost": 2.9360000000000003e-07,
+  "context_window": 1000000,
+  "context_tiers": [
+    {
+      "min_tokens": 262145,
+      "input_cost_per_token": 9.408e-07,
+      "output_cost_per_token": 5.6472e-06,
+      "cache_read_input_token_cost": 9.44e-08
+    }
+  ]
+}

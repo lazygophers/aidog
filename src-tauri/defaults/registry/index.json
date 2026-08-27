@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787854001,
+  "last_updated": 1787854114,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -1854,7 +1854,21 @@
       "name": "PatewayAI",
       "platform_file": "platforms/pateway/platform.json",
       "models_dir": "platforms/pateway/models",
-      "models": []
+      "models": [
+        "claude-haiku-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-6.json",
+        "deepseek-v4-flash.json",
+        "deepseek-v4-pro.json",
+        "glm-5.1.json",
+        "glm-5.json",
+        "gpt-5.3-codex.json",
+        "gpt-5.5.json",
+        "qwen3.6-plus.json",
+        "qwen3.7-max.json"
+      ]
     },
     {
       "code": "pipellm",
