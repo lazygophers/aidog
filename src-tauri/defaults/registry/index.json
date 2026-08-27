@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787852682,
+  "last_updated": 1787852810,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -318,7 +318,30 @@
       "name": "CCSub",
       "platform_file": "platforms/ccsub/platform.json",
       "models_dir": "platforms/ccsub/models",
-      "models": []
+      "models": [
+        "claude-fable-5.json",
+        "claude-haiku-4-5.json",
+        "claude-opus-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-8.json",
+        "claude-opus-5.json",
+        "claude-sonnet-4-5.json",
+        "claude-sonnet-4-6.json",
+        "claude-sonnet-5.json",
+        "codex-mini-latest.json",
+        "gemini-2.5-flash-lite.json",
+        "gemini-2.5-flash.json",
+        "gemini-2.5-pro.json",
+        "gemini-3.5-flash.json",
+        "gpt-4o.json",
+        "gpt-5-mini.json",
+        "gpt-5.4.json",
+        "gpt-5.5.json",
+        "gpt-5.json",
+        "o3-pro.json",
+        "o3.json",
+        "o4-mini.json"
+      ]
     },
     {
       "code": "cherryin",
