@@ -2016,7 +2016,11 @@
       "name": "SenseNova (SenseTime)",
       "platform_file": "platforms/sensenova/platform.json",
       "models_dir": "platforms/sensenova/models",
-      "models": []
+      "models": [
+        "deepseek-v4-flash.json",
+        "sensenova-6.7-flash-lite.json",
+        "sensenova-u1-fast.json"
+      ]
     },
     {
       "code": "shengsuanyun",
