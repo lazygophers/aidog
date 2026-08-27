@@ -82,7 +82,15 @@
       "name": "APIKEY.FUN",
       "platform_file": "platforms/apikeyfun/platform.json",
       "models_dir": "platforms/apikeyfun/models",
-      "models": []
+      "models": [
+        "claude-haiku-4-5.json",
+        "claude-opus-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5.json",
+        "claude-sonnet-4-6.json"
+      ]
     },
     {
       "code": "atlascloud",
