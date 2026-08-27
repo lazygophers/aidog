@@ -1,0 +1,14 @@
+{
+  "model_id": "moonshotai/Kimi-K2.5",
+  "canonical_model": "Kimi-K2.5",
+  "display_name": "Kimi-K2.5",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 4.5000000000000003e-07,
+  "output_cost_per_token": 2.25e-06,
+  "cache_read_input_token_cost": 7e-08,
+  "context_window": 262144
+}
