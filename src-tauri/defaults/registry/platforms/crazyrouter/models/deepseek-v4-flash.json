@@ -1,0 +1,16 @@
+{
+  "model_id": "deepseek-v4-flash",
+  "canonical_model": "deepseek-v4-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.3e-07,
+  "output_cost_per_token": 6.7e-07,
+  "cache_read_input_token_cost": 1e-08,
+  "peak": {
+    "input_cost_per_token": 4.5e-07,
+    "output_cost_per_token": 1.34e-06,
+    "cache_read_input_token_cost": 2e-08
+  }
+}

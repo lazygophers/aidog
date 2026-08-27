@@ -1,0 +1,11 @@
+{
+  "model_id": "glm-ocr",
+  "canonical_model": "glm-ocr",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 3e-08,
+  "output_cost_per_token": 3e-08
+}

@@ -1,0 +1,11 @@
+{
+  "model_id": "youtu-vita",
+  "canonical_model": "youtu-vita",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.62e-07,
+  "output_cost_per_token": 4.86e-07
+}

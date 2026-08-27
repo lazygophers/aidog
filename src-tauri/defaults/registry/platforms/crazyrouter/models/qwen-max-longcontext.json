@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen-max-longcontext",
+  "canonical_model": "qwen-max-longcontext",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.2e-06
+}

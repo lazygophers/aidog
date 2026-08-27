@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen-turbo",
+  "canonical_model": "qwen-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 7e-08,
+  "output_cost_per_token": 2.1e-07,
+  "cache_read_input_token_cost": 1.4e-08
+}

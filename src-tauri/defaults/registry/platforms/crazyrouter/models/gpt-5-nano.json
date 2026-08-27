@@ -1,0 +1,11 @@
+{
+  "model_id": "gpt-5-nano",
+  "canonical_model": "gpt-5-nano",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 3.3e-08,
+  "output_cost_per_token": 2.6e-07,
+  "cache_read_input_token_cost": 7e-09
+}

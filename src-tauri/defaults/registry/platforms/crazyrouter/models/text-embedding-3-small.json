@@ -1,0 +1,10 @@
+{
+  "model_id": "text-embedding-3-small",
+  "canonical_model": "text-embedding-3-small",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "input_cost_per_token": 2e-08,
+  "output_cost_per_token": 2e-08
+}

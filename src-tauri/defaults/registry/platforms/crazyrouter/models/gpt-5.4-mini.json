@@ -1,0 +1,11 @@
+{
+  "model_id": "gpt-5.4-mini",
+  "canonical_model": "gpt-5.4-mini",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 4.88e-07,
+  "output_cost_per_token": 2.925e-06,
+  "cache_read_input_token_cost": 4.9e-08
+}
