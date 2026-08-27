@@ -1,0 +1,13 @@
+{
+  "model_id": "moonshotai/Kimi-K2.6",
+  "canonical_model": "Kimi-K2.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 9.027777777777778e-07,
+  "output_cost_per_token": 3.75e-06,
+  "cache_read_input_token_cost": 1.527777777777778e-07
+}

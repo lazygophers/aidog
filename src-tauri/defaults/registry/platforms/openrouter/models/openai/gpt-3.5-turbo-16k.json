@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-3.5-turbo-16k",
+  "canonical_model": "gpt-3.5-turbo-16k",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16385,
+  "max_output_tokens": 4096,
+  "context_window": 16385,
+  "official": true,
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 4e-06
+}

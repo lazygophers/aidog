@@ -1,0 +1,13 @@
+{
+  "model_id": "qwen/qwen-mt-plus",
+  "canonical_model": "qwen-mt-plus",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 7.5e-07,
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "max_output_tokens": 8192
+}

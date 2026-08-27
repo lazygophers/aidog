@@ -4,7 +4,7 @@
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://www.right.codes/claude",
+        "base_url": "https://right.codes/claude",
         "client_type": "claude_code"
       },
       {
@@ -16,19 +16,13 @@
         "protocol": "gemini",
         "base_url": "https://right.codes/gemini",
         "client_type": "default"
-      },
-      {
-        "protocol": "openai",
-        "base_url": "https://right.codes/deepseek",
-        "client_type": "default"
       }
     ]
   },
   "models": {
     "default": {
-      "sonnet": "claude-sonnet-5",
-      "gpt": "gpt-5.5",
-      "default": "deepseek-v4-pro"
+      "sonnet": "claude-sonnet-4-6",
+      "gpt": "gpt-5.5"
     }
   },
   "model_list": {
@@ -42,14 +36,12 @@
       "claude-sonnet-4-5-20250929",
       "claude-sonnet-4-6",
       "claude-sonnet-5",
-      "codex-auto-review",
       "gpt-5.4",
       "gpt-5.4-high",
       "gpt-5.4-medium",
       "gpt-5.4-mini",
       "gpt-5.4-xhigh",
       "gpt-5.5",
-      "gpt-5.5-openai-compact",
       "gemini-2.5-flash",
       "gemini-2.5-pro",
       "gemini-3-flash-preview",
@@ -57,9 +49,7 @@
       "gemini-3.1-pro",
       "gemini-3.1-pro-preview",
       "gemini-3.1-pro-preview-customtools",
-      "gemini-3.5-flash",
-      "deepseek-v4-flash",
-      "deepseek-v4-pro"
+      "gemini-3.5-flash"
     ]
   },
   "name": {

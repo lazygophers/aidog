@@ -1,0 +1,17 @@
+{
+  "model_id": "perplexity/sonar-deep-research",
+  "canonical_model": "sonar-deep-research",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 8e-06,
+  "default_price": {
+    "input_cost_per_token": 2e-06,
+    "output_cost_per_token": 8e-06,
+    "cache_read_input_token_cost": 0
+  }
+}

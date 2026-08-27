@@ -1,0 +1,14 @@
+{
+  "model_id": "zai-org/glm-4.5v",
+  "canonical_model": "glm-4.5v",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 1.8000000000000001e-06,
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "max_output_tokens": 16384,
+  "cache_read_input_token_cost": 1.1e-07
+}

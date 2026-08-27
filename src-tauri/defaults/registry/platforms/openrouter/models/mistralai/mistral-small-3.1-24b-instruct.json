@@ -1,0 +1,13 @@
+{
+  "model_id": "mistralai/mistral-small-3.1-24b-instruct",
+  "canonical_model": "mistral-small-3.1-24b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "input_cost_per_token": 3.51e-07,
+  "output_cost_per_token": 5.55e-07
+}

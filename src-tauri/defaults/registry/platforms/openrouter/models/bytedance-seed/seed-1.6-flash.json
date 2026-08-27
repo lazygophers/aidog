@@ -1,0 +1,18 @@
+{
+  "model_id": "bytedance-seed/seed-1.6-flash",
+  "canonical_model": "seed-1.6-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 32768,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 7.5e-08,
+  "output_cost_per_token": 3e-07,
+  "default_price": {
+    "input_cost_per_token": 7.5e-08,
+    "output_cost_per_token": 3e-07,
+    "cache_read_input_token_cost": 0
+  }
+}

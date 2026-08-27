@@ -1,0 +1,14 @@
+{
+  "model_id": "qwen/qwen3.7-max",
+  "canonical_model": "qwen3.7-max",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 3.75e-06,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 65536,
+  "cache_read_input_token_cost": 2.5e-07
+}

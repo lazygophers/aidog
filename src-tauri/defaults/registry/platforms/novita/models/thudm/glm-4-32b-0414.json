@@ -1,0 +1,13 @@
+{
+  "model_id": "thudm/glm-4-32b-0414",
+  "canonical_model": "glm-4-32b-0414",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 5.5e-07,
+  "output_cost_per_token": 1.66e-06,
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 32000
+}

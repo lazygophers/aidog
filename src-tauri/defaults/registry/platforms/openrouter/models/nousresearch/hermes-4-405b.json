@@ -1,0 +1,17 @@
+{
+  "model_id": "nousresearch/hermes-4-405b",
+  "canonical_model": "hermes-4-405b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": true,
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 3e-06,
+  "default_price": {
+    "input_cost_per_token": 1e-06,
+    "output_cost_per_token": 3e-06,
+    "cache_read_input_token_cost": 0
+  }
+}

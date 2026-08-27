@@ -22,19 +22,19 @@
   "models": {
     "default": {
       "default": "claude-sonnet-4-6",
-      "opus": "claude-opus-4-8",
-      "haiku": "claude-haiku-4-5"
+      "opus": "claude-opus-4-6",
+      "haiku": "claude-haiku-4-5-20251001"
     }
   },
   "model_list": {
     "default": [
-      "claude-opus-4-8",
-      "claude-sonnet-4-6",
-      "claude-haiku-4-5",
-      "claude-opus-4-7",
       "claude-opus-4-6",
-      "claude-opus-4-5",
-      "claude-sonnet-4-5"
+      "claude-sonnet-4-6",
+      "claude-haiku-4-5-20251001",
+      "claude-opus-4-5-20251101",
+      "claude-sonnet-4-5-20250929",
+      "claude-sonnet-4-5-20250902",
+      "claude-sonnet-4-20250514"
     ]
   },
   "name": {
@@ -51,7 +51,7 @@
     "docs": "https://www.relaxycode.com/",
     "pricing": "https://www.relaxycode.com/pricing"
   },
-  "homepage": "https://relaxycode.com",
+  "homepage": "https://www.relaxycode.com/",
   "logo_url": "",
   "keywords": [
     "relaxycode"

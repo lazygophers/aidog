@@ -14,13 +14,14 @@
   },
   "model_list": {
     "default": [
-      "claude-opus-4-8",
-      "claude-sonnet-4-6",
-      "claude-haiku-4-5",
-      "claude-opus-4-7",
+      "claude-fable-5",
+      "claude-haiku-4-5-20251001",
       "claude-opus-4-6",
-      "claude-opus-4-5",
-      "claude-sonnet-4-5"
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5"
     ]
   },
   "name": {
@@ -34,8 +35,8 @@
     "es-ES": "E-FlowCode"
   },
   "source_urls": {
-    "docs": "https://e-flowcode.cc/",
-    "pricing": "https://e-flowcode.cc/"
+    "docs": "https://e-flowcode.cc/docs/",
+    "pricing": "https://e-flowcode.cc/docs/guides/pricing"
   },
   "homepage": "https://e-flowcode.cc",
   "logo_url": "",

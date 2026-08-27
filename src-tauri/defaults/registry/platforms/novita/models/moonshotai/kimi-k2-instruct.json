@@ -1,0 +1,13 @@
+{
+  "model_id": "moonshotai/kimi-k2-instruct",
+  "canonical_model": "kimi-k2-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 5.699999999999999e-07,
+  "output_cost_per_token": 2.3e-06,
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 100352
+}

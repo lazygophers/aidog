@@ -24,13 +24,14 @@
   },
   "model_list": {
     "default": [
+      "claude-fable-5",
+      "claude-opus-5",
+      "claude-sonnet-5",
       "claude-opus-4-8",
       "claude-sonnet-4-6",
       "claude-haiku-4-5",
       "claude-opus-4-7",
-      "claude-opus-4-6",
-      "claude-opus-4-5",
-      "claude-sonnet-4-5"
+      "claude-opus-4-6"
     ]
   },
   "name": {
@@ -44,10 +45,10 @@
     "es-ES": "LemonData"
   },
   "source_urls": {
-    "docs": "https://docs.lemondata.cc/",
-    "pricing": "https://lemondata.cc/pricing"
+    "docs": "https://docs.tokenlab.sh/",
+    "pricing": "https://tokenlab.sh/pricing"
   },
-  "homepage": "https://lemondata.cc",
+  "homepage": "https://tokenlab.sh",
   "logo_url": "",
   "keywords": [
     "lemondata"

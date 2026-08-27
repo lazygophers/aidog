@@ -1,0 +1,14 @@
+{
+  "model_id": "google/gemini-3.1-pro-preview-customtools",
+  "canonical_model": "gemini-3.1-pro-preview-customtools",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 65536,
+  "official": true,
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 1.2e-05,
+  "cache_read_input_token_cost": 2e-07
+}

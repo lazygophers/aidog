@@ -1,0 +1,13 @@
+{
+  "model_id": "x-ai/grok-4.20",
+  "canonical_model": "grok-4.20",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 2000000,
+  "context_window": 2000000,
+  "official": true,
+  "input_cost_per_token": 1.25e-06,
+  "output_cost_per_token": 2.5e-06,
+  "cache_read_input_token_cost": 2e-07
+}

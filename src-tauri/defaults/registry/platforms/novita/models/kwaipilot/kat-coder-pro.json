@@ -1,0 +1,14 @@
+{
+  "model_id": "kwaipilot/kat-coder-pro",
+  "canonical_model": "kat-coder-pro",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 128000,
+  "cache_read_input_token_cost": 6e-08
+}

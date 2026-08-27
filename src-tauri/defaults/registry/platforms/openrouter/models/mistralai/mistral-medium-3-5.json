@@ -1,0 +1,12 @@
+{
+  "model_id": "mistralai/mistral-medium-3-5",
+  "canonical_model": "mistral-medium-3-5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 7.5e-06
+}

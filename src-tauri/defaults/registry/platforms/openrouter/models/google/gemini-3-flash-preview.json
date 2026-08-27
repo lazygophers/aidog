@@ -1,0 +1,14 @@
+{
+  "model_id": "google/gemini-3-flash-preview",
+  "canonical_model": "gemini-3-flash-preview",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 65535,
+  "official": true,
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "cache_read_input_token_cost": 5e-08
+}

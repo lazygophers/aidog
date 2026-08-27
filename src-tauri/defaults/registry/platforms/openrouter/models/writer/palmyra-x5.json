@@ -1,0 +1,18 @@
+{
+  "model_id": "writer/palmyra-x5",
+  "canonical_model": "palmyra-x5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1040000,
+  "max_output_tokens": 8192,
+  "context_window": 1040000,
+  "official": true,
+  "input_cost_per_token": 6e-07,
+  "output_cost_per_token": 6e-06,
+  "default_price": {
+    "input_cost_per_token": 6e-07,
+    "output_cost_per_token": 6e-06,
+    "cache_read_input_token_cost": 0
+  }
+}

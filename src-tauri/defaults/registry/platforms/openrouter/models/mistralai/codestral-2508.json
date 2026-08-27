@@ -1,0 +1,13 @@
+{
+  "model_id": "mistralai/codestral-2508",
+  "canonical_model": "codestral-2508",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "official": true,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 9e-07,
+  "cache_read_input_token_cost": 3e-08
+}

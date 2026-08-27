@@ -9,7 +9,7 @@
       },
       {
         "protocol": "openai",
-        "base_url": "https://api.pipellm.ai/openai",
+        "base_url": "https://api.pipellm.ai/openai/v1",
         "client_type": "codex_tui"
       },
       {

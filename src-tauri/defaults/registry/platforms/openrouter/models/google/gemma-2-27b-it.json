@@ -1,0 +1,13 @@
+{
+  "model_id": "google/gemma-2-27b-it",
+  "canonical_model": "gemma-2-27b-it",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 2048,
+  "context_window": 8192,
+  "official": true,
+  "input_cost_per_token": 6.5e-07,
+  "output_cost_per_token": 6.5e-07
+}

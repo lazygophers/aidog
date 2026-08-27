@@ -1,0 +1,12 @@
+{
+  "model_id": "claude-haiku-4-5-20251001",
+  "canonical_model": "claude-haiku-4-5-20251001",
+  "display_name": "Claude Haiku 4.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1e-06,
+  "output_cost_per_token": 5e-06,
+  "cache_read_input_token_cost": 1.0000000000000001e-07
+}

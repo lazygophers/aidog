@@ -14,7 +14,7 @@
       },
       {
         "protocol": "gemini",
-        "base_url": "https://aihubmix.com",
+        "base_url": "https://aihubmix.com/gemini",
         "client_type": "default"
       }
     ]

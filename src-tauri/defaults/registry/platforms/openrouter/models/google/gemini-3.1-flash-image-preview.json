@@ -1,0 +1,13 @@
+{
+  "model_id": "google/gemini-3.1-flash-image-preview",
+  "canonical_model": "gemini-3.1-flash-image-preview",
+  "capabilities": [
+    "image_gen"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 32768,
+  "context_window": 32768,
+  "official": true,
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06
+}
