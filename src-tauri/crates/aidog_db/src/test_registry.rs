@@ -84,6 +84,40 @@ fn every_protocol_has_full_brand_fields() {
     }
 }
 
+#[test]
+fn known_simpleicons_slugs_are_valid() {
+    // 只校验 registry 中手填过、且 Simple Icons 已收录的 slug；空值仍走 favicon/clearbit/首字母 fallback。
+    let allowed = [
+        "alibabacloud",
+        "anthropic",
+        "baidu",
+        "bytedance",
+        "claude",
+        "claudecode",
+        "codemirror",
+        "deepseek",
+        "googlegemini",
+        "minimax",
+        "modelscope",
+        "moonshotai",
+        "nebula",
+        "nvidia",
+        "opencode",
+        "openrouter",
+        "xiaomi",
+        "zai",
+    ];
+    let allowed: std::collections::BTreeSet<_> = allowed.into_iter().collect();
+
+    for (code, entry) in protocols() {
+        let slug = entry["logo_url"].as_str().expect("logo_url").trim();
+        if slug.is_empty() {
+            continue;
+        }
+        assert!(allowed.contains(slug), "{code}.logo_url `{slug}` 不在已核验 Simple Icons slug 白名单");
+    }
+}
+
 /// build.rs 生成的模型文件相对路径必须用 `/`（Windows 上 `strip_prefix` 会留 `\`，
 /// 与 index.json 清单零差集断言不符，且远程同步会拼出 404 的 URL）。
 #[test]
