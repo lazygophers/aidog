@@ -20,6 +20,11 @@ yarn check:registry
 
 脚本 `scripts/check-registry.mjs` 用 ajv（devDependency）逐文件校验，支持 `AIDOG_REGISTRY_DIR` 环境变量指到 fixture 目录。与 Rust 侧 `aidog_db::test_registry` 的漂移断言互补：**那边锁清单一致性**（index 与磁盘零差集、每模型必有 official 条目等跨文件不变量），**这边锁单文件形状**。
 
+除 schema 外，脚本还检查 **models 目录/文件缺失**（`make lint` 门禁）：
+
+1. **index 清单零差集（硬错）**：`index.json` 声明的 `models[]` 文件必须存在于 `models_dir`；磁盘上多出的未登记文件也是错。
+2. **引用完整性**：`platform.json` 里 `models.*` 分支值 + `model_list.*` 条目引用的每个 model id 必须有对应 `models/<id>.json`（vendor 子目录路径 = id）。平台已带 models 目录（自建价目）时为**硬错**；完全没目录的中转平台降为 warning——`AIDOG_REGISTRY_STRICT=1` 时全部按错处理。
+
 ## 目录结构约定
 
 ```
