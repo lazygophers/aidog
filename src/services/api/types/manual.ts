@@ -29,13 +29,13 @@ export type Protocol =
   | "bailian" | "bailian_coding" | "qianfan_coding" | "xiaomi_mimo_coding"
   // ── 国内官方平台 ──
   | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "byteplus" | "qianfan"
-  | "xiaomi_mimo" | "bailing" | "longcat" | "sensenova"
+  | "xiaomi_mimo" | "longcat" | "sensenova"
   // ── 聚合平台 ──
   | "openrouter" | "siliconflow" | "siliconflow_en" | "aihubmix" | "dmxapi" | "modelscope"
   | "shengsuanyun" | "atlascloud" | "novita" | "therouter" | "cherryin"
   // ── 第三方平台 ──
   | "packycode" | "cubence" | "aigocode" | "rightcode" | "aicodemirror" | "nvidia"
-  | "pateway" | "ccsub" | "apikeyfun" | "apinebula" | "sudocode" | "claudeapi" | "claudecn"
+  | "pateway" | "ccsub" | "apikeyfun" | "sudocode" | "claudeapi" | "claudecn"
   | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
   | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode" | "opencode_zen"
   // ── 中转平台 ──

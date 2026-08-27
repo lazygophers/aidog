@@ -84,13 +84,6 @@
       "models": []
     },
     {
-      "code": "apinebula",
-      "name": "APINebula",
-      "platform_file": "platforms/apinebula/platform.json",
-      "models_dir": "platforms/apinebula/models",
-      "models": []
-    },
-    {
       "code": "atlascloud",
       "name": "AtlasCloud",
       "platform_file": "platforms/atlascloud/platform.json",
@@ -174,13 +167,6 @@
       "name": "Bailian Coding",
       "platform_file": "platforms/bailian_coding/platform.json",
       "models_dir": "platforms/bailian_coding/models",
-      "models": []
-    },
-    {
-      "code": "bailing",
-      "name": "Bailing",
-      "platform_file": "platforms/bailing/platform.json",
-      "models_dir": "platforms/bailing/models",
       "models": []
     },
     {

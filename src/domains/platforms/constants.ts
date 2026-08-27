@@ -46,7 +46,7 @@ export const ENDPOINTS_LOCKED_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protoco
   "minimax", "minimax_en", "codex", "bailian", "bailian_coding",
   "deepseek", "stepfun", "stepfun_en", "doubao", "byteplus",
   "qianfan", "qianfan_coding", "xiaomi_mimo", "xiaomi_mimo_coding",
-  "bailing", "longcat", "sensenova", "devin",
+  "longcat", "sensenova", "devin",
 ]);
 
 /** 默认平台名集合（用于 handleProtocolChange 判断「name 仍是协议默认名 → 切协议时自动覆盖」）。
