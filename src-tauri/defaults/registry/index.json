@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787854114,
+  "last_updated": 1787854459,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -1910,7 +1910,18 @@
       "name": "RunAPI",
       "platform_file": "platforms/runapi/platform.json",
       "models_dir": "platforms/runapi/models",
-      "models": []
+      "models": [
+        "claude-fable-5.json",
+        "claude-haiku-4-5-20251001.json",
+        "claude-opus-4-5-20251101.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5-20250929.json",
+        "claude-sonnet-4-6-thinking.json",
+        "claude-sonnet-4-6.json",
+        "claude-sonnet-5.json"
+      ]
     },
     {
       "code": "sensenova",
