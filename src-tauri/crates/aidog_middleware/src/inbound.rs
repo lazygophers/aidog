@@ -108,6 +108,154 @@ impl MiddlewareEngine {
     }
 }
 
+/// 注入指令：Value 层入口不碰 body 结构，由调用方（协议层）按 wire 协议写回。
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum InboundInject {
+    /// 追加到 system / instructions / systemInstruction 侧。
+    SystemAppend(String),
+    /// 顶层 body 键赋值（键名由规则给定）。
+    BodySet { target: String, value: String },
+}
+
+/// Value 层（同协议透传 body）入站改写的文本视图。
+///
+/// 协议知识留在调用方：调用方按 wire 协议把 body 内可读文本抽进 `system` / `messages`
+/// 两组文本槽，引擎原地改写后再由调用方按同一顺序写回。
+#[derive(Debug, Default)]
+pub struct InboundTexts<'a> {
+    /// 路由后的实际模型名（applies_to.models 与 model 叶子求值用）。
+    pub model: &'a str,
+    /// system 侧文本槽（anthropic `system` / responses `instructions` / gemini `systemInstruction`
+    /// / openai role=system|developer 消息）。
+    pub system: Vec<String>,
+    /// 消息侧文本槽。
+    pub messages: Vec<String>,
+    /// 引擎产出的注入指令（调用方按协议写回）。
+    pub injects: Vec<InboundInject>,
+}
+
+impl<'a> InboundTexts<'a> {
+    pub fn new(model: &'a str) -> Self {
+        Self { model, ..Default::default() }
+    }
+
+    /// 条件求值用的聚合文本（与 [`collect_request_text`] 同口径：system 在前，逐条换行）。
+    fn aggregate(&self) -> String {
+        let mut buf = String::new();
+        for t in self.system.iter().chain(self.messages.iter()) {
+            buf.push_str(t);
+            buf.push('\n');
+        }
+        buf
+    }
+}
+
+impl MiddlewareEngine {
+    /// 入站规则执行（Value 层挂载点：同协议透传 body 的文本槽）。
+    ///
+    /// 只做 mask / override / inject —— **block 已在 chat_req 层（forward 分叉前）判定并返回**，
+    /// 此处不重复拦截（同一套规则、同口径聚合文本，Value 层不会新命中一条 block）。
+    ///
+    /// 已知限制：本入口不带 body JSON path 上下文 → `request_body` 带 field 的叶子退化为
+    /// 整文本匹配（与 chat_req 层同口径）。方向是「更容易命中」，不会漏掉用户配的脱敏规则。
+    pub fn apply_inbound_texts(
+        &self,
+        settings: &MiddlewareSettings,
+        texts: &mut InboundTexts<'_>,
+        platform_id: i64,
+    ) {
+        if !settings.enabled {
+            return;
+        }
+        for cr in self.request_rules(None, Some(platform_id), texts.model) {
+            // 每条规则求值前重新聚合文本（前序规则的 mask 已改写）。
+            let matched = {
+                let view = EvalView {
+                    req_text: texts.aggregate(),
+                    model: texts.model,
+                    ..Default::default()
+                };
+                cr.conditions.eval(&view)
+            };
+            if !matched {
+                continue;
+            }
+            for step in &cr.rule.actions {
+                match step.kind {
+                    ActionKind::Mask | ActionKind::Override => {
+                        rewrite_texts(&cr, step, texts);
+                    }
+                    ActionKind::Inject => {
+                        collect_inject(cr.rule.id, &step.params, texts);
+                    }
+                    ActionKind::Warn => {
+                        tracing::warn!(
+                            rule_id = cr.rule.id, rule_name = %cr.rule.name,
+                            "middleware inbound(body): warn rule matched"
+                        );
+                    }
+                    // block 已在 chat_req 层返回，此处不可达；保守终止该规则剩余动作。
+                    ActionKind::Block => break,
+                    // classify 属错误路径（非 2xx 出站），入站忽略。
+                    ActionKind::Classify => {}
+                }
+            }
+        }
+    }
+}
+
+/// Value 层 mask/override：与 [`apply_rewrite_inbound`] 同一套 pattern 来源与 fields 语义。
+fn rewrite_texts(cr: &CompiledRule, step: &aidog_db::models::ActionStep, texts: &mut InboundTexts<'_>) {
+    let leaves = collect_patterns(&cr.conditions, Target::RequestBody);
+    if leaves.is_empty() {
+        return;
+    }
+    let fields = &step.params.fields;
+    let replacement = &step.params.replacement;
+    let touch_system = fields.is_empty() || fields.iter().any(|f| f == "system");
+    let touch_messages = fields.is_empty() || fields.iter().any(|f| f == "messages");
+    let replace = |s: &str| -> String {
+        let mut out = s.to_string();
+        for p in &leaves {
+            out = replace_match(p.match_type, &p.regex, &p.pattern, &out, replacement);
+        }
+        out
+    };
+    if touch_system {
+        for t in texts.system.iter_mut() {
+            *t = replace(t);
+        }
+    }
+    if touch_messages {
+        for t in texts.messages.iter_mut() {
+            *t = replace(t);
+        }
+    }
+}
+
+/// Value 层 inject：只产出指令，写回由调用方按协议做（与 [`apply_inject`] 语义对齐）。
+fn collect_inject(rule_id: i64, params: &aidog_db::models::ActionParams, texts: &mut InboundTexts<'_>) {
+    match params.inject_mode.as_str() {
+        "system_append" => texts.injects.push(InboundInject::SystemAppend(params.value.clone())),
+        "body_set" => {
+            if params.target.is_empty() {
+                tracing::warn!(rule_id, "middleware inject body_set: empty target, skip");
+                return;
+            }
+            texts.injects.push(InboundInject::BodySet {
+                target: params.target.clone(),
+                value: params.value.clone(),
+            });
+        }
+        "header_set" => {
+            tracing::debug!(rule_id, "middleware inject header_set: not supported at body layer, skipped");
+        }
+        other => {
+            tracing::warn!(rule_id, mode = %other, "middleware inject: unknown inject_mode, skip");
+        }
+    }
+}
+
 /// mask/override 入站改写：把请求文本块中命中「条件树内 request_body 叶子 pattern」的
 /// 片段替换为 replacement（regex 支持捕获组 $1）。fields 限定 messages/system（空 = 全部）。
 fn apply_rewrite_inbound(cr: &CompiledRule, step: &aidog_db::models::ActionStep, chat_req: &mut ChatRequest) {
@@ -221,7 +369,7 @@ fn for_each_text(content: &MessageContent, f: &mut dyn FnMut(&str)) {
         MessageContent::Text(t) => f(t),
         MessageContent::Blocks(blocks) => {
             for b in blocks {
-                if let aidog_adapter::ContentBlock::Text { text } = b {
+                if let aidog_adapter::ContentBlock::Text { text, .. } = b {
                     f(text);
                 }
             }
@@ -235,7 +383,7 @@ fn map_text(content: &mut MessageContent, f: &dyn Fn(&str) -> String) {
         MessageContent::Text(t) => *t = f(t),
         MessageContent::Blocks(blocks) => {
             for b in blocks.iter_mut() {
-                if let aidog_adapter::ContentBlock::Text { text } = b {
+                if let aidog_adapter::ContentBlock::Text { text, .. } = b {
                     *text = f(text);
                 }
             }

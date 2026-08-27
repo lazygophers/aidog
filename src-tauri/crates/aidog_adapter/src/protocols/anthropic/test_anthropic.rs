@@ -15,6 +15,7 @@ fn req(messages: Vec<Message>) -> ChatRequest {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     }
 }
 
@@ -28,7 +29,7 @@ fn to_anthropic_skips_system_role_maps_tool_to_user() {
             content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                 tool_use_id: "c".into(),
                 content: "r".into(),
-                name: None,
+                name: None, is_error: None, content_blocks: None, extra: None
             }]),
         },
         Message { role: Role::Assistant, content: MessageContent::Text("a".into()) },
@@ -66,7 +67,7 @@ fn to_anthropic_tools_and_tool_choice() {
         (ToolChoice::Named { name: "f".into() }, true),
     ] {
         let mut r = req(vec![]);
-        r.tools = Some(vec![Tool { name: "f".into(), description: None, input_schema: json!({}) }]);
+        r.tools = Some(vec![Tool { name: "f".into(), description: None, input_schema: json!({}), tool_type: None, cache_control: None, extra: None }]);
         r.tool_choice = Some(tc);
         let a = to_anthropic(&r);
         assert!(a.tools.is_some());

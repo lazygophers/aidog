@@ -22,6 +22,7 @@ fn base_req(messages: Vec<Message>) -> ChatRequest {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     }
 }
 
@@ -49,7 +50,7 @@ fn thinking_plus_tool_use_keeps_tool_calls() {
         ContentBlock::ToolUse {
             id: "call_1".into(),
             name: "read_file".into(),
-            input: serde_json::json!({"path":"/a"}),
+            input: serde_json::json!({"path":"/a"}), extra: None
         },
     ])]);
     let out = to_openai(&req);
@@ -65,8 +66,8 @@ fn thinking_plus_tool_use_keeps_tool_calls() {
 #[test]
 fn tool_result_plus_text_preserves_text() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "file content".into(), name: None },
-        ContentBlock::Text { text: "now do X".into() },
+        ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "file content".into(), name: None, is_error: None, content_blocks: None, extra: None },
+        ContentBlock::Text { text: "now do X".into(), extra: None },
     ])]);
     let out = to_openai(&req);
     // tool message + 残余 user 文本 message
@@ -81,8 +82,8 @@ fn tool_result_plus_text_preserves_text() {
 #[test]
 fn multiple_tool_results_each_become_tool_message() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::ToolResult { tool_use_id: "c1".into(), content: "r1".into(), name: None },
-        ContentBlock::ToolResult { tool_use_id: "c2".into(), content: "r2".into(), name: None },
+        ContentBlock::ToolResult { tool_use_id: "c1".into(), content: "r1".into(), name: None, is_error: None, content_blocks: None, extra: None },
+        ContentBlock::ToolResult { tool_use_id: "c2".into(), content: "r2".into(), name: None, is_error: None, content_blocks: None, extra: None },
     ])]);
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 2);
@@ -94,8 +95,8 @@ fn multiple_tool_results_each_become_tool_message() {
 #[test]
 fn multiple_text_blocks_join_into_string() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::Text { text: "part1".into() },
-        ContentBlock::Text { text: "part2".into() },
+        ContentBlock::Text { text: "part1".into(), extra: None },
+        ContentBlock::Text { text: "part2".into(), extra: None },
     ])]);
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 1);
@@ -164,6 +165,9 @@ fn tools_are_converted() {
         name: "my_tool".into(),
         description: Some("does stuff".into()),
         input_schema: serde_json::json!({"type":"object"}),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
     }]);
     let out = to_openai(&req);
     let tools = out.tools.expect("tools present");

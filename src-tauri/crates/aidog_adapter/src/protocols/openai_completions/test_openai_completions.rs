@@ -13,8 +13,8 @@ fn to_completions_joins_messages() {
             Message {
                 role: Role::Assistant,
                 content: MessageContent::Blocks(vec![
-                    ContentBlock::Text { text: "a".into() },
-                    ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({}) },
+                    ContentBlock::Text { text: "a".into(), extra: None },
+                    ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({}), extra: None },
                 ]),
             },
             Message {
@@ -22,7 +22,7 @@ fn to_completions_joins_messages() {
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: "i".into(),
                     content: "r".into(),
-                    name: None,
+                    name: None, is_error: None, content_blocks: None, extra: None
                 }]),
             },
         ],
@@ -34,6 +34,7 @@ fn to_completions_joins_messages() {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     };
     let c = to_completions(&req);
     assert!(c.prompt.contains("System: sys"));
@@ -42,6 +43,37 @@ fn to_completions_joins_messages() {
     assert!(c.prompt.contains("Tool: "));
     assert_eq!(c.max_tokens, Some(50));
     assert_eq!(c.stream, Some(true));
+}
+
+/// `stop` 不是 ChatRequest 的强类型字段，客户端原值落在 flatten 的 `extra` 里：
+/// anthropic 入站写 `stop_sequences`，openai 族写 `stop`，值可以是字符串或数组（票 01）。
+#[test]
+fn to_completions_fills_stop_from_extra() {
+    let base = |extra: Option<serde_json::Value>| ChatRequest {
+        model: "m".into(),
+        messages: vec![Message { role: Role::User, content: MessageContent::Text("hi".into()) }],
+        system: None,
+        max_tokens: None,
+        temperature: None,
+        top_p: None,
+        stream: None,
+        tools: None,
+        tool_choice: None,
+        thinking_budget: None,
+        thinking_mode: None,
+        extra,
+    };
+    assert_eq!(to_completions(&base(None)).stop, None, "客户端没设就不造");
+    assert_eq!(
+        to_completions(&base(Some(json!({"stop": ["\n\n", "END"]})))).stop,
+        Some(vec!["\n\n".to_string(), "END".to_string()])
+    );
+    assert_eq!(
+        to_completions(&base(Some(json!({"stop_sequences": "END"})))).stop,
+        Some(vec!["END".to_string()]),
+        "anthropic 写法 + 字符串形态"
+    );
+    assert_eq!(to_completions(&base(Some(json!({"stop": 42})))).stop, None, "非法形态不写出");
 }
 
 #[test]

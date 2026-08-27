@@ -23,6 +23,7 @@ fn passthrough_path_matches_convert_request() {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     };
     for wire in wires {
         let (_body, conv_path) = convert_request(&req, &wire, &Protocol::OpenAI);
@@ -182,6 +183,7 @@ fn convert_request_anthropic_path() {
         messages: vec![],
         system: None, max_tokens: None, temperature: None, top_p: None,
         stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(path, "/v1/messages");
@@ -195,6 +197,7 @@ fn convert_request_openai_completions_path() {
         messages: vec![],
         system: None, max_tokens: None, temperature: None, top_p: None,
         stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
     // base_url 约定带 /v1（OpenAI 系），path 只返后缀，禁重复拼。
@@ -209,6 +212,7 @@ fn convert_request_openai_responses_path() {
         messages: vec![],
         system: None, max_tokens: None, temperature: None, top_p: None,
         stream: None, tools: None, tool_choice: None, extra: None,
+        thinking_mode: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
     // base_url 约定带 /v1（OpenAI 系），path 只返后缀，禁重复拼（回归：曾出 /v1/v1/responses）。
@@ -242,4 +246,12 @@ fn anthropic_parse_tolerates_pi_specific_fields() {
     assert_eq!(req.tools.as_ref().expect("tools kept").len(), 1);
     // adaptive thinking 无 budget_tokens → 不误当成 0 预算的显式思考请求。
     assert_eq!(req.thinking_budget, None);
+    // 档位本身不丢：thinking.type 与 output_config.effort 原值进 thinking_mode。
+    let mode = req.thinking_mode.as_ref().expect("thinking_mode 应捕获档位");
+    assert_eq!(mode.kind.as_deref(), Some("adaptive"));
+    assert_eq!(mode.effort.as_deref(), Some("high"));
+    // 工具上的 cache_control 与服务端工具配置键（eager_input_streaming）不丢。
+    let tool = &req.tools.as_ref().unwrap()[0];
+    assert_eq!(tool.cache_control, Some(serde_json::json!({"type": "ephemeral", "ttl": "1h"})));
+    assert_eq!(tool.extra.as_ref().and_then(|e| e.get("eager_input_streaming")), Some(&serde_json::json!(true)));
 }

@@ -31,10 +31,20 @@ pub struct AnthropicMessage {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AnthropicTool {
+    /// 服务端内置工具类型（`web_search_20250305` 等）；客户端 function 无此字段
+    #[serde(rename = "type", default, skip_serializing_if = "Option::is_none")]
+    pub tool_type: Option<String>,
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
-    pub input_schema: Value,
+    /// 服务端工具没有客户端 schema 时不写出（多送一个空 schema 会被上游判成参数错误）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub input_schema: Option<Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cache_control: Option<Value>,
+    /// 服务端工具的其余配置键（`max_uses` / `allowed_domains` …）
+    #[serde(flatten, default, skip_serializing_if = "Option::is_none")]
+    pub extra: Option<Value>,
 }
 
 /// 从内部 ChatRequest 转为 Anthropic 格式
@@ -82,9 +92,13 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
     let tools = req.tools.as_ref().map(|ts| {
         ts.iter()
             .map(|t| AnthropicTool {
+                // Anthropic 是唯一能执行服务端工具的目标：type 与其配置键原样带过去
+                tool_type: t.tool_type.clone(),
                 name: t.name.clone(),
                 description: t.description.clone(),
-                input_schema: t.input_schema.clone(),
+                input_schema: t.outbound_input_schema(),
+                cache_control: t.cache_control.clone(),
+                extra: t.extra.clone(),
             })
             .collect()
     });
@@ -101,9 +115,17 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
         top_p: req.top_p,
         stream: req.stream,
         tools,
-        thinking: req.thinking_budget.map(|b| {
-            serde_json::json!({ "type": "enabled", "budget_tokens": b })
-        }),
+        // 思考档位出站（票 03）：显式禁用一票否决；否则用数字预算，无预算时由档位名换算
+        // （换算表见 `crate::thinking`）。**只写 Anthropic 官方词汇 `enabled` / `disabled`**：
+        // 客户端 `thinking.type=adaptive` 是 Claude Code 2.x / pi 私有值，原样送官方端点会 400，
+        // 因此归一成 `enabled` + 换算出的 budget；adaptive 且无 effort 无预算时算不出数，
+        // 不写 thinking 字段（不猜一个预算替客户端做主）。
+        thinking: if crate::thinking::is_disabled(req) {
+            Some(serde_json::json!({ "type": "disabled" }))
+        } else {
+            crate::thinking::outbound_budget(req)
+                .map(|b| serde_json::json!({ "type": "enabled", "budget_tokens": b }))
+        },
         tool_choice: req.tool_choice.as_ref().map(|tc| {
             match tc {
                 ToolChoice::Auto => serde_json::json!({"type": "auto"}),
