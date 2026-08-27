@@ -1,0 +1,12 @@
+{
+  "model_id": "gemini-3.7-flash",
+  "canonical_model": "gemini-3.7-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1048576,
+  "input_cost_per_token": 1.5e-06,
+  "output_cost_per_token": 7.5e-06,
+  "cache_read_input_token_cost": 1.5e-07
+}

@@ -1,0 +1,10 @@
+{
+  "model_id": "deepseek-v4-flash-free",
+  "canonical_model": "deepseek-v4-flash-free",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

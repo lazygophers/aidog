@@ -1,0 +1,11 @@
+{
+  "model_id": "grok-4.6",
+  "canonical_model": "grok-4.6",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "context_window": 500000,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

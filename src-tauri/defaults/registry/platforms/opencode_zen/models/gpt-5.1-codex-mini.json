@@ -1,0 +1,12 @@
+{
+  "model_id": "gpt-5.1-codex-mini",
+  "canonical_model": "gpt-5.1-codex-mini",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 400000,
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 2e-06,
+  "cache_read_input_token_cost": 2.5e-08
+}

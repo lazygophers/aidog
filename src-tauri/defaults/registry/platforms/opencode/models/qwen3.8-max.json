@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen3.8-max",
+  "canonical_model": "qwen3.8-max",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1000000,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

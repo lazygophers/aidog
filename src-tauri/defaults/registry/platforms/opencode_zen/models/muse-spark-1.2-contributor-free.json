@@ -1,0 +1,10 @@
+{
+  "model_id": "muse-spark-1.2-contributor-free",
+  "canonical_model": "muse-spark-1.2-contributor-free",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}
