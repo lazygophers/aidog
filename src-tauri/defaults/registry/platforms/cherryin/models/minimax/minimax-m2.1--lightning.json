@@ -1,0 +1,11 @@
+{
+  "model_id": "minimax/minimax-m2.1--lightning",
+  "canonical_model": "minimax-m2.1--lightning",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "cache_read_input_token_cost": 3e-08
+}

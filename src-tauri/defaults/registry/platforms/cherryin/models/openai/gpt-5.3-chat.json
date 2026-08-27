@@ -1,0 +1,10 @@
+{
+  "model_id": "openai/gpt-5.3-chat",
+  "canonical_model": "gpt-5.3-chat",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05
+}

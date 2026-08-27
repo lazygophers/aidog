@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen/qwen3-reranker-0.6b(free)",
+  "canonical_model": "qwen3-reranker-0.6b(free)",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

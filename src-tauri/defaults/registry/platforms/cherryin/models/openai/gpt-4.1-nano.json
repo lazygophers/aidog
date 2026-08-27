@@ -1,0 +1,11 @@
+{
+  "model_id": "openai/gpt-4.1-nano",
+  "canonical_model": "gpt-4.1-nano",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 4e-07,
+  "cache_read_input_token_cost": 3e-08
+}

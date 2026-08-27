@@ -1,0 +1,11 @@
+{
+  "model_id": "deepseek/deepseek-ocr(free)",
+  "canonical_model": "deepseek-ocr(free)",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}
