@@ -5,7 +5,7 @@
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 0.7,
+  "input_cost_per_token": 7e-07,
   "output_cost_per_token": 2.1e-06,
   "cache_read_input_token_cost": 7e-08
 }
