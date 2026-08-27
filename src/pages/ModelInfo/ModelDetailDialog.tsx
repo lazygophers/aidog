@@ -153,7 +153,15 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ fontSize: F.small, fontWeight: 700, color: "var(--text-secondary)" }}>{title}</div>
-      {children}
+      {/* 分区内容落在一块半透明面板上：弹窗里原本是一串裸字段，没有层次也没有玻璃质感 */}
+      <div style={{
+        display: "flex", flexDirection: "column", gap: 6,
+        padding: "10px 12px", borderRadius: "var(--radius-sm)",
+        background: "color-mix(in srgb, var(--bg-surface) 60%, transparent)",
+        border: "1px solid color-mix(in srgb, var(--border) 40%, transparent)",
+      }}>
+        {children}
+      </div>
     </div>
   );
 }
