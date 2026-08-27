@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787854727,
+  "last_updated": 1787854984,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -807,7 +807,16 @@
       "name": "E-FlowCode",
       "platform_file": "platforms/eflowcode/platform.json",
       "models_dir": "platforms/eflowcode/models",
-      "models": []
+      "models": [
+        "claude-fable-5.json",
+        "claude-haiku-4-5-20251001.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-opus-5.json",
+        "claude-sonnet-4-6.json",
+        "claude-sonnet-5.json"
+      ]
     },
     {
       "code": "gemini",
