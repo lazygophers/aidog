@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen3.7-max-batch",
+  "canonical_model": "qwen3.7-max-batch",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 8.33333e-07,
+  "output_cost_per_token": 2.5e-06
+}

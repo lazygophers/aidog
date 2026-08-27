@@ -1,0 +1,14 @@
+{
+  "model_id": "ali/qwen3.6-35b-a3b",
+  "canonical_model": "qwen3.6-35b-a3b",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 64000,
+  "context_window": 256000,
+  "input_cost_per_token": 2.5e-07,
+  "output_cost_per_token": 1.5e-06
+}

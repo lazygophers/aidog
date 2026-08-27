@@ -1,0 +1,11 @@
+{
+  "model_id": "deepseek-v4-pro-sg",
+  "canonical_model": "deepseek-v4-pro-sg",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.49806e-06,
+  "output_cost_per_token": 4.99611e-06,
+  "cache_read_input_token_cost": 2.08194e-07
+}

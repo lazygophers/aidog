@@ -1,0 +1,13 @@
+{
+  "model_id": "stepfun/step-3.5-flash",
+  "canonical_model": "step-3.5-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 256000,
+  "context_window": 256000,
+  "input_cost_per_token": 9.72222e-08,
+  "output_cost_per_token": 2.91667e-07
+}

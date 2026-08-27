@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek/deepseek-v3.2-think",
+  "canonical_model": "deepseek-v3.2-think",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 128000,
+  "max_output_tokens": 64000,
+  "context_window": 128000,
+  "input_cost_per_token": 2.77778e-07,
+  "output_cost_per_token": 4.16667e-07,
+  "cache_read_input_token_cost": 2.77778e-08
+}

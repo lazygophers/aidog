@@ -1,0 +1,11 @@
+{
+  "model_id": "doubao-seed-2-1-pro-260628",
+  "canonical_model": "doubao-seed-2-1-pro-260628",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 8.33333e-07,
+  "output_cost_per_token": 4.16667e-06,
+  "cache_read_input_token_cost": 1.66667e-07
+}

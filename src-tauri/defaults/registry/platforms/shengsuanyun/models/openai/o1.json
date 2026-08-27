@@ -1,0 +1,14 @@
+{
+  "model_id": "openai/o1",
+  "canonical_model": "o1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "input_cost_per_token": 1.45833e-05,
+  "output_cost_per_token": 5.83333e-05
+}

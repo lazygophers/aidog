@@ -1,0 +1,10 @@
+{
+  "model_id": "deepseek/deepseek-v3.1-think",
+  "canonical_model": "deepseek-v3.1-think",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

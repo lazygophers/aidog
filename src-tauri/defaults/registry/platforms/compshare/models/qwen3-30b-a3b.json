@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen3-30b-a3b",
+  "canonical_model": "qwen3-30b-a3b",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.04167e-07,
+  "output_cost_per_token": 4.16667e-07
+}

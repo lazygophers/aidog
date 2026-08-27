@@ -1,0 +1,10 @@
+{
+  "model_id": "speech-2.6-turbo",
+  "canonical_model": "speech-2.6-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.77778e-05,
+  "output_cost_per_token": 0.0
+}

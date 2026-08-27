@@ -1,0 +1,10 @@
+{
+  "model_id": "MiniMax-M2.7-highspeed",
+  "canonical_model": "minimax-m2.7-highspeed",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 5.83333e-07,
+  "output_cost_per_token": 2.33333e-06
+}

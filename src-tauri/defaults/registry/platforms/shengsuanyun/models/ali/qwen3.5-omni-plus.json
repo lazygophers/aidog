@@ -1,0 +1,13 @@
+{
+  "model_id": "ali/qwen3.5-omni-plus",
+  "canonical_model": "qwen3.5-omni-plus",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 64000,
+  "context_window": 256000,
+  "input_cost_per_token": 9.72222e-07,
+  "output_cost_per_token": 5.55556e-06
+}

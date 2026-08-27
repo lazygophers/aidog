@@ -1,0 +1,15 @@
+{
+  "model_id": "bytedance/doubao-seed-1.6:thinking",
+  "canonical_model": "doubao-seed-1.6:thinking",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 32000,
+  "context_window": 256000,
+  "input_cost_per_token": 1.11111e-07,
+  "output_cost_per_token": 1.11111e-06,
+  "cache_read_input_token_cost": 2.22222e-08
+}

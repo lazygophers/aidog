@@ -1,0 +1,10 @@
+{
+  "model_id": "bigmodel/glm-z1-air",
+  "canonical_model": "glm-z1-air",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

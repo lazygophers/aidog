@@ -1,0 +1,13 @@
+{
+  "model_id": "moonshot/kimi-latest",
+  "canonical_model": "kimi-latest",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "max_input_tokens": 128000,
+  "max_output_tokens": 128000,
+  "context_window": 128000,
+  "input_cost_per_token": 2.77778e-07,
+  "output_cost_per_token": 1.38889e-06
+}
