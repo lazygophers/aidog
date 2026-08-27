@@ -1,0 +1,10 @@
+{
+  "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
+  "canonical_model": "xiyansql-qwencoder-32b-2504",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

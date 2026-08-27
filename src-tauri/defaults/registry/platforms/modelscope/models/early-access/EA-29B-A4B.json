@@ -1,0 +1,10 @@
+{
+  "model_id": "early-access/EA-29B-A4B",
+  "canonical_model": "ea-29b-a4b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

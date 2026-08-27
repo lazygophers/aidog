@@ -1,0 +1,10 @@
+{
+  "model_id": "Shanghai_AI_Laboratory/Intern-S1-mini",
+  "canonical_model": "intern-s1-mini",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}
