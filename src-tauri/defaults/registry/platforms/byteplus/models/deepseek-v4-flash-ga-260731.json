@@ -1,0 +1,12 @@
+{
+  "model_id": "deepseek-v4-flash-ga-260731",
+  "canonical_model": "deepseek-v4-flash-ga-260731",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.4e-07,
+  "output_cost_per_token": 1.32e-06,
+  "cache_read_input_token_cost": 1.4e-08
+}

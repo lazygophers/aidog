@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787854459,
+  "last_updated": 1787854640,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -326,7 +326,17 @@
       "name": "BytePlus",
       "platform_file": "platforms/byteplus/platform.json",
       "models_dir": "platforms/byteplus/models",
-      "models": []
+      "models": [
+        "deepseek-v4-flash-ga-260731.json",
+        "deepseek-v4-pro-ga-260813.json",
+        "glm-5-2-260617.json",
+        "seed-1-6-250915.json",
+        "seed-1-8-251228.json",
+        "seed-2-0-code-preview-260328.json",
+        "seed-2-0-lite-260428.json",
+        "seed-2-0-mini-260428.json",
+        "seed-2-0-pro-260328.json"
+      ]
     },
     {
       "code": "ccsub",
