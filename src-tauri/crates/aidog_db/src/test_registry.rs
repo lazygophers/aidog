@@ -176,7 +176,7 @@ fn default_endpoints_present_for_direct_vendors() {
 fn glm_coding_keeps_peak_branches() {
     let glm = &protocols()["glm_coding"];
     assert!(glm["peak_hours"].as_array().is_some_and(|a| !a.is_empty()));
-    assert_eq!(glm["models"]["peak"]["default"], "glm-4.7");
+    assert_eq!(glm["models"]["peak"]["default"], "glm-5.3-flash");
     assert_eq!(glm["is_coding_plan"], true);
 }
 
