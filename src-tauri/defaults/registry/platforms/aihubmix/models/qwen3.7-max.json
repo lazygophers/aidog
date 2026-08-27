@@ -1,0 +1,15 @@
+{
+  "model_id": "qwen3.7-max",
+  "canonical_model": "qwen3.7-max",
+  "display_name": "Qwen3.7 Max",
+  "family": "",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.69e-06,
+  "output_cost_per_token": 5.070000000000001e-06,
+  "cache_read_input_token_cost": 1.6900000000000002e-07,
+  "cache_creation_input_token_cost": 2.1124999999999997e-06,
+  "context_window": 991000
+}

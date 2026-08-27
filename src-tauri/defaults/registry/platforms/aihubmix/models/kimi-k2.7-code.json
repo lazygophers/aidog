@@ -1,0 +1,14 @@
+{
+  "model_id": "kimi-k2.7-code",
+  "canonical_model": "kimi-k2.7-code",
+  "display_name": "Kimi K2.7 Code",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 9.499999999999999e-07,
+  "output_cost_per_token": 3.9994999999999996e-06,
+  "cache_read_input_token_cost": 1.60835e-07,
+  "context_window": 262144
+}

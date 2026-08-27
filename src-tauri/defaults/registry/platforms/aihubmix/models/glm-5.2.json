@@ -1,0 +1,14 @@
+{
+  "model_id": "glm-5.2",
+  "canonical_model": "glm-5.2",
+  "display_name": "GLM 5.2",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.1268e-06,
+  "output_cost_per_token": 3.9438e-06,
+  "cache_read_input_token_cost": 2.817e-07,
+  "context_window": 1000000
+}

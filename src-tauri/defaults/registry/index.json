@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787853459,
+  "last_updated": 1787854001,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -21,7 +21,22 @@
       "name": "AiHubMix",
       "platform_file": "platforms/aihubmix/platform.json",
       "models_dir": "platforms/aihubmix/models",
-      "models": []
+      "models": [
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5.json",
+        "claude-sonnet-4-6.json",
+        "deepseek-v4-flash.json",
+        "deepseek-v4-pro.json",
+        "gemini-3.1-pro-preview.json",
+        "gemini-3.5-flash.json",
+        "glm-5.2.json",
+        "gpt-5.3-codex.json",
+        "gpt-5.5-pro.json",
+        "gpt-5.5.json",
+        "grok-4.3.json",
+        "kimi-k2.7-code.json",
+        "qwen3.7-max.json"
+      ]
     },
     {
       "code": "anthropic",
