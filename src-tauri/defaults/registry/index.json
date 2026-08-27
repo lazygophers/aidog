@@ -651,6 +651,13 @@
       ]
     },
     {
+      "code": "minimax_coding",
+      "name": "MiniMax Coding Plan (Token Plan)",
+      "platform_file": "platforms/minimax_coding/platform.json",
+      "models_dir": "platforms/minimax_coding/models",
+      "models": []
+    },
+    {
       "code": "minimax_en",
       "name": "MiniMax International",
       "platform_file": "platforms/minimax_en/platform.json",

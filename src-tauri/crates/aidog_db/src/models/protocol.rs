@@ -41,6 +41,10 @@ pub enum Protocol {
     MiniMax,
     #[serde(rename = "minimax_en")]
     MiniMaxEn,
+    /// MiniMax Coding Plan（Token Plan）独立协议（与 glm_coding 同构，JSON key `minimax_coding`）。
+    /// 端点与按量版同域（api.minimaxi.com），靠 `sk-cp` 前缀订阅 Key 区分计费，无独立 per-token 价目。
+    #[serde(rename = "minimax_coding")]
+    MinimaxCoding,
     #[serde(rename = "codex")]
     Codex,
     #[serde(rename = "bailian")]
@@ -195,7 +199,7 @@ impl Protocol {
             self,
             Mock | ClaudeCode
                 | Glm | GlmCoding | GlmEn | Kimi | KimiCoding
-                | MiniMax | MiniMaxEn | Codex | Bailian | BailianCoding
+                | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Bailian | BailianCoding
                 | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
                 | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding
                 | Longcat | SenseNova | Devin
@@ -246,7 +250,7 @@ mod test_endpoints_locked {
     fn endpoints_locked_set() {
         let locked: &[(&str, bool)] = &[
             ("glm", true), ("glm_coding", true), ("kimi", true), ("minimax", true),
-            ("deepseek", true), ("qianfan_coding", true), ("xiaomi_mimo", true),
+            ("minimax_coding", true), ("deepseek", true), ("qianfan_coding", true), ("xiaomi_mimo", true),
             ("mock", true), ("claude_code", true), ("devin", true),
             ("anthropic", false), ("openai", false), ("gemini", false),
             ("newapi", false), ("openrouter", false), ("packycode", false),
@@ -274,7 +278,9 @@ mod test_protocol_coding_variants {
             ("kimi_coding", Protocol::KimiCoding),
             ("qianfan_coding", Protocol::QianfanCoding),
             ("xiaomi_mimo_coding", Protocol::XiaomiMimoCoding),
-            // CLI 代理独立协议（cpa-standalone-module s2）
+            // MiniMax Coding Plan 独立协议（minimax_coding）
+        ("minimax_coding", Protocol::MinimaxCoding),
+        // CLI 代理独立协议（cpa-standalone-module s2）
             ("cli-proxy", Protocol::CliProxy),
             // Devin 平台（add-devin-support s1）
             ("devin", Protocol::Devin),

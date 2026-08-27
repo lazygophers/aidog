@@ -1,0 +1,61 @@
+{
+  "is_coding_plan": true,
+  "client_type": "codex_tui",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.minimaxi.com/v1",
+        "client_type": "codex_tui",
+        "coding_plan": true
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.minimaxi.com/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "MiniMax-M3",
+      "sonnet": "MiniMax-M2.7",
+      "opus": "MiniMax-M3",
+      "gpt": "MiniMax-M3",
+      "haiku": "MiniMax-M2.7-highspeed"
+    }
+  },
+  "model_list": {
+    "default": [
+      "MiniMax-M3",
+      "MiniMax-M2.7",
+      "MiniMax-M2.7-highspeed"
+    ]
+  },
+  "name": {
+    "en-US": "MiniMax Coding Plan (Token Plan)",
+    "zh-Hans": "MiniMax 编程套餐（Token Plan）",
+    "ar-SA": "MiniMax Coding Plan (Token Plan)",
+    "fr-FR": "MiniMax Coding Plan (Token Plan)",
+    "de-DE": "MiniMax Coding Plan (Token Plan)",
+    "ru-RU": "MiniMax Coding Plan (Token Plan)",
+    "ja-JP": "MiniMax コーディングプラン（Token Plan）",
+    "es-ES": "MiniMax Coding Plan (Token Plan)"
+  },
+  "source_urls": {
+    "docs": "https://platform.minimaxi.com/docs/token-plan/other-tools",
+    "pricing": "https://platform.minimaxi.com/subscribe/token-plan"
+  },
+  "homepage": "https://platform.minimaxi.com",
+  "logo_url": "minimax",
+  "keywords": [
+    "minimax编程",
+    "minimax coding",
+    "minimax token plan",
+    "sk-cp",
+    "minimax coding plan",
+    "MiniMax-M3"
+  ],
+  "color": "#FF6B6B"
+}
