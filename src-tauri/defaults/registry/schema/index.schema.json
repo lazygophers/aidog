@@ -1,0 +1,83 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "index.schema.json",
+  "title": "registry index",
+  "description": "registry 清单真值源。远程同步（price_sync.rs）先拉本文件，再照 platforms[].models / pricing_only[].models 逐文件拉取；漏登记一个模型文件 = 该模型线上永远同步不下来。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "last_updated", "platforms", "pricing_only"],
+  "properties": {
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "last_updated": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Unix 秒。前端拿它判断是否需要重新同步。"
+    },
+    "platforms": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "name", "platform_file", "models_dir", "models"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "description": "平台 code，与 platforms/<code>/ 目录名一致，也是协议选择器的 value。"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "platform_file": {
+            "type": "string",
+            "pattern": "^platforms/[a-z0-9_]+/platform\\.json$"
+          },
+          "models_dir": {
+            "type": "string",
+            "pattern": "^platforms/[a-z0-9_]+/models$"
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[^/].+\\.json$",
+              "description": "相对 models_dir 的文件路径（vendor 子目录模型如 mistralai/codestral-2.json 含子目录前缀）。必须与磁盘文件零差集（test_registry.rs 锁定）。"
+            }
+          }
+        }
+      }
+    },
+    "pricing_only": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "models_dir", "models"],
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]+$",
+            "description": "只出模型定价条目、不进协议选择器的平台（litellm / meta / mistral）。"
+          },
+          "models_dir": {
+            "type": "string",
+            "pattern": "^platforms/[a-z0-9_]+/models$"
+          },
+          "models": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[^/].+\\.json$"
+            }
+          }
+        }
+      }
+    }
+  }
+}
