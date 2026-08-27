@@ -1937,7 +1937,15 @@
       "name": "PIPELLM",
       "platform_file": "platforms/pipellm/platform.json",
       "models_dir": "platforms/pipellm/models",
-      "models": []
+      "models": [
+        "claude-haiku-4-5.json",
+        "claude-opus-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5.json",
+        "claude-sonnet-4-6.json"
+      ]
     },
     {
       "code": "qianfan",
