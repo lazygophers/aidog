@@ -2826,5 +2826,7 @@
   "platform.builtin_tool_compat_enable": "Activar eliminación",
   "platform.builtin_tool_compat_models": "Modelos (separados por comas, vacío = todos)",
   "platform.builtin_tool_compat_strip": "Herramientas a eliminar (separadas por comas, vacío = todas las integradas)",
-  "test.modeTool": "Prueba de llamada a herramienta"
+  "test.modeTool": "Prueba de llamada a herramienta",
+  "jsonEditor.format": "Formatear",
+  "jsonEditor.searchHint": "Ctrl/⌘+F buscar, Ctrl/⌘+Alt+F reemplazar"
 }

@@ -21,7 +21,7 @@ import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { JsonCodeEditor } from "../../components/shared";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -1108,20 +1108,7 @@ export function ClaudeConfigSection({ show, setShow, json, setJson, globalConfig
       </Button>
       {show && (
         <div className="animate-fade-in" style={{ marginTop: 6 }}>
-          <Textarea
-            className="input"
-            style={{
-              fontFamily: '"SF Mono", "Fira Code", monospace',
-              fontSize: 12,
-              lineHeight: 1.6,
-              minHeight: 180,
-              resize: "vertical",
-              whiteSpace: "pre",
-            }}
-            value={json}
-            onChange={(e) => setJson(e.target.value)}
-            spellCheck={false}
-          />
+          <JsonCodeEditor value={json} onChange={setJson} minHeight={180} />
           <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
             {t("settings.platformConfigHint")}
           </div>

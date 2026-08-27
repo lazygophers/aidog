@@ -2848,5 +2848,7 @@
   "platform.builtin_tool_compat_enable": "除去を有効化",
   "platform.builtin_tool_compat_models": "対象モデル（カンマ区切り、空 = すべて）",
   "platform.builtin_tool_compat_strip": "除去するツール名（カンマ区切り、空 = すべての内蔵ツール）",
-  "test.modeTool": "ツール呼び出しテスト"
+  "test.modeTool": "ツール呼び出しテスト",
+  "jsonEditor.format": "整形",
+  "jsonEditor.searchHint": "Ctrl/⌘+F で検索、Ctrl/⌘+Alt+F で置換"
 }

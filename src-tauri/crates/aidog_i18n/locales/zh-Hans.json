@@ -2826,5 +2826,7 @@
   "platform.builtin_tool_compat_enable": "启用剔除",
   "platform.builtin_tool_compat_models": "生效模型（逗号分隔，空 = 全部模型）",
   "platform.builtin_tool_compat_strip": "剔除工具名（逗号分隔，空 = 全部内置工具）",
-  "test.modeTool": "工具调用探测"
+  "test.modeTool": "工具调用探测",
+  "jsonEditor.format": "格式化",
+  "jsonEditor.searchHint": "Ctrl/⌘+F 搜索，Ctrl/⌘+Alt+F 替换"
 }

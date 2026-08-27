@@ -2848,5 +2848,7 @@
   "platform.builtin_tool_compat_enable": "Включить удаление",
   "platform.builtin_tool_compat_models": "Модели (через запятую, пусто = все)",
   "platform.builtin_tool_compat_strip": "Удаляемые инструменты (через запятую, пусто = все встроенные)",
-  "test.modeTool": "Тест вызова инструмента"
+  "test.modeTool": "Тест вызова инструмента",
+  "jsonEditor.format": "Форматировать",
+  "jsonEditor.searchHint": "Ctrl/⌘+F поиск, Ctrl/⌘+Alt+F замена"
 }

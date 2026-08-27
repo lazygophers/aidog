@@ -5,6 +5,7 @@ import { useReveal } from "../../utils/motion";
 import type { ProxyLogSummary } from "../../services/api";
 import type { TFunc } from "./types";
 import { formatDateTime } from "../../utils/formatters";
+import { JsonCodeEditor } from "../../components/shared";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -183,7 +184,7 @@ function RequestSectionContent({
           {t("logs.requestHeaders", "请求头")}
         </div>
         <div style={{ position: "relative" }}>
-          <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{headersText(reqHeaders)}</pre>
+          <JsonCodeEditor value={headersText(reqHeaders)} maxHeight={200} minHeight={60} />
           {!headersEmpty(reqHeaders) && <CopyButton text={headersText(reqHeaders)} title={copyTitle} />}
         </div>
       </div>
@@ -194,7 +195,7 @@ function RequestSectionContent({
         {reqBody
           ? (
             <div style={{ position: "relative" }}>
-              <pre className="code-block" style={{ maxHeight: 300, overflow: "auto" }}>{bodyStr(reqBody)}</pre>
+              <JsonCodeEditor value={bodyStr(reqBody)} maxHeight={300} minHeight={60} />
               {!isPlaceholder(bodyStr(reqBody)) && <CopyButton text={bodyStr(reqBody)} title={copyTitle} />}
             </div>
           )
@@ -206,7 +207,7 @@ function RequestSectionContent({
           {t("logs.responseHeaders", "响应头")}
         </div>
         <div style={{ position: "relative" }}>
-          <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{headersText(respHeaders)}</pre>
+          <JsonCodeEditor value={headersText(respHeaders)} maxHeight={200} minHeight={60} />
           {!headersEmpty(respHeaders) && <CopyButton text={headersText(respHeaders)} title={copyTitle} />}
         </div>
       </div>
@@ -215,7 +216,7 @@ function RequestSectionContent({
           {t("logs.responseBody", "响应体")}
         </div>
         <div style={{ position: "relative" }}>
-          <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{bodyStr(respBody)}</pre>
+          <JsonCodeEditor value={bodyStr(respBody)} maxHeight={400} minHeight={60} />
           {!isPlaceholder(bodyStr(respBody)) && <CopyButton text={bodyStr(respBody)} title={copyTitle} />}
         </div>
       </div>

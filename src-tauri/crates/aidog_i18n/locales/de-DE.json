@@ -2848,5 +2848,7 @@
   "platform.builtin_tool_compat_enable": "Entfernen aktivieren",
   "platform.builtin_tool_compat_models": "Modelle (kommagetrennt, leer = alle)",
   "platform.builtin_tool_compat_strip": "Zu entfernende Werkzeuge (kommagetrennt, leer = alle integrierten)",
-  "test.modeTool": "Werkzeugaufruf-Test"
+  "test.modeTool": "Werkzeugaufruf-Test",
+  "jsonEditor.format": "Formatieren",
+  "jsonEditor.searchHint": "Ctrl/⌘+F suchen, Ctrl/⌘+Alt+F ersetzen"
 }

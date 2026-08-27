@@ -6,6 +6,7 @@ import { TransportBadge, KVRows } from "./primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { JsonCodeEditor } from "../../components/shared";
 import { Checkbox } from "@/components/ui/checkbox";
 import { makeRipple } from "@/utils/motion";
 import {
@@ -179,11 +180,12 @@ export function McpModals({ d }: { d: McpData }) {
           <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
             {t("mcp.pasteHint", "粘贴 Claude 格式 MCP 配置（含 mcpServers 包裹或直接 名称→配置 映射）。同名跳过，导入后逐 agent 启用。")}
           </p>
-          <Textarea
-            style={{ minHeight: 220, fontFamily: "var(--font-mono, monospace)", resize: "vertical" }}
+          <JsonCodeEditor
             value={pasteText}
+            onChange={setPasteText}
+            minHeight={220}
+            maxHeight={360}
             placeholder={'{\n  "mcpServers": {\n    "filesystem": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]\n    }\n  }\n}'}
-            onChange={(e) => setPasteText(e.target.value)}
           />
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <Button variant="outline" onClick={() => setPasteOpen(false)} disabled={pasteBusy}>

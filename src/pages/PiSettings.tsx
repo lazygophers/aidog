@@ -12,10 +12,9 @@ import {
   PI_RECOMMENDED_CONFIG,
 } from "../services/pi-settings-schema";
 import { deepMerge } from "../utils/deepMerge";
-import { stableStringify } from "../components/shared";
+import { stableStringify, JsonCodeEditor } from "../components/shared";
 import { useReveal } from "../utils/motion";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 
 type PiConfig = Record<string, unknown>;
 
@@ -234,26 +233,7 @@ export function PiSettings() {
           className="glass-surface"
           style={{ flex: 1, display: "flex", flexDirection: "column", padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "hidden", marginTop: 12 }}
         >
-          <Textarea
-            style={{
-              fontFamily: '"SF Mono", "Fira Code", monospace',
-              fontSize: F.body,
-              lineHeight: 1.7,
-              flex: 1,
-              resize: "none",
-              whiteSpace: "pre",
-              padding: S.inputPad,
-              minHeight: 0,
-            }}
-            value={editJson}
-            onChange={(e) => setEditJson(e.target.value)}
-            spellCheck={false}
-          />
-          {saveError && (
-            <div style={{ fontSize: F.body, color: "var(--color-danger)", marginTop: 12, wordBreak: "break-all" }}>
-              {saveError}
-            </div>
-          )}
+          <JsonCodeEditor fill value={editJson} onChange={setEditJson} error={saveError} />
         </div>
       ) : (
         <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
