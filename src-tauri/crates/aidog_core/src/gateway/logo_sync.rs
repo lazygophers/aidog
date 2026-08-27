@@ -1,10 +1,10 @@
-//! Protocol logo 同步：按需下载 → 缓存 `~/.aidog/logos/<protocol>.png`，离线可用。
+//! Protocol logo 同步：按需下载 → 缓存 `~/.aidog/logos/<protocol>.<ext>`，离线可用。
 //!
 //! 三路 fallback（首成功即止）：
 //! 1. simpleicons.org CDN（CC0/GPL）—— 仅当 protocol 配 `logo_url`（=slug，如 "anthropic"）。
-//!    URL = `https://cdn.simpleicons.org/<slug>`，默认返 PNG。
-//! 2. 厂商 favicon —— 从 `homepage` 提取域名 → `https://<domain>/favicon.ico`。
-//! 3. clearbit logo api —— `https://logo.clearbit.com/<domain>`（末路；隐私：clearbit 知用户访问品牌）。
+//!    URL = `https://cdn.simpleicons.org/<slug>`，返回 SVG，缓存为 `.svg`。
+//! 2. 厂商 favicon —— 从 `homepage` 提取域名 → `https://<domain>/favicon.ico`，缓存为 `.ico`。
+//! 3. clearbit logo api —— `https://logo.clearbit.com/<domain>`（末路；隐私：clearbit 知用户访问品牌），缓存为 `.png`。
 //!
 //! 不写缓存场景：三路全失败 / 无 homepage 且 logo_url 空 → 前端 fallback 首字母圆圈。
 //! 缓存命中（文件存在 + size>0 + 旁记 `.src` 与当前 `logo_url|homepage` 一致）→ skip；
@@ -16,14 +16,28 @@ use aidog_db::Db;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-/// Logo 缓存子目录名（`~/.aidog/logos/`）。统一 `.png` 扩展名：
-/// simpleicons/clearbit 返 PNG，favicon 返 ICO——后者强存 `.png` 浏览器仍可渲染。
+/// Logo 缓存子目录名（`~/.aidog/logos/`）。按真实格式存扩展名。
 const LOGOS_SUBDIR: &str = "logos";
+const LOGO_CACHE_EXTS: [&str; 5] = ["svg", "ico", "png", "jpg", "webp"];
 
-/// `~/.aidog/logos/<protocol_id>.png` —— 前端 `convertFileSrc` 用的缓存路径。
-pub fn logo_cache_path(app_data_dir: &Path, protocol_id: &str) -> PathBuf {
-    app_data_dir.join(LOGOS_SUBDIR).join(format!("{protocol_id}.png"))
+fn logo_cache_path_for_ext(app_data_dir: &Path, protocol_id: &str, ext: &str) -> PathBuf {
+    app_data_dir.join(LOGOS_SUBDIR).join(format!("{protocol_id}.{ext}"))
 }
+
+/// legacy helper：只用于旧测试/兼容旧 `.png` 缓存；新同步按真实格式写 `.svg/.ico/.png`。
+pub fn logo_cache_path(app_data_dir: &Path, protocol_id: &str) -> PathBuf {
+    logo_cache_path_for_ext(app_data_dir, protocol_id, "png")
+}
+
+pub fn logo_cached_path(app_data_dir: &Path, protocol_id: &str) -> Option<PathBuf> {
+    logo_cache_paths(app_data_dir, protocol_id)
+        .find(|path| std::fs::metadata(path).map(|m| m.len() > 0).unwrap_or(false))
+}
+
+fn logo_cache_paths<'a>(app_data_dir: &'a Path, protocol_id: &'a str) -> impl Iterator<Item = PathBuf> + 'a {
+    LOGO_CACHE_EXTS.into_iter().map(move |ext| logo_cache_path_for_ext(app_data_dir, protocol_id, ext))
+}
+
 
 /// `~/.aidog/logos/<protocol_id>.src` —— 记下该缓存是用哪个来源下的（`<slug>|<homepage>`）。
 /// registry 同步换了 `logo_url` 后这行对不上，缓存即判过期。
@@ -38,8 +52,8 @@ fn logo_source_key(logo_slug: &str, homepage: &str) -> String {
 /// 缓存可直接复用 = 文件非空 **且** 旁记的来源与当前 registry 值一致。
 /// 旁记缺失（老版本留下的缓存）算过期，重下一次后补上旁记。
 fn cache_is_fresh(app_data_dir: &Path, protocol_id: &str, source_key: &str) -> bool {
-    let cache = logo_cache_path(app_data_dir, protocol_id);
-    let nonempty = std::fs::metadata(&cache).map(|m| m.len() > 0).unwrap_or(false);
+    let nonempty = logo_cache_paths(app_data_dir, protocol_id)
+        .any(|cache| std::fs::metadata(cache).map(|m| m.len() > 0).unwrap_or(false));
     if !nonempty {
         return false;
     }
@@ -47,6 +61,7 @@ fn cache_is_fresh(app_data_dir: &Path, protocol_id: &str, source_key: &str) -> b
         .map(|s| s.trim() == source_key)
         .unwrap_or(false)
 }
+
 
 /// 返回 `~/.aidog/logos/`，不存在则建。失败回 None（caller skip 而非崩）。
 fn ensure_logos_dir(app_data_dir: &Path) -> Option<PathBuf> {
@@ -109,6 +124,14 @@ pub async fn sync_one_logo(db: Arc<Db>, app_data_dir: PathBuf, protocol_id: Stri
     }
 }
 
+fn remove_other_logo_cache_files(app_data_dir: &Path, protocol_id: &str, keep: &Path) {
+    for path in logo_cache_paths(app_data_dir, protocol_id) {
+        if path != keep {
+            let _ = std::fs::remove_file(path);
+        }
+    }
+}
+
 async fn sync_one_into(
     client: &reqwest::Client,
     app_data_dir: &Path,
@@ -117,9 +140,9 @@ async fn sync_one_into(
     homepage: &str,
 ) -> Result<(), String> {
     let dir = ensure_logos_dir(app_data_dir).ok_or_else(|| "logos dir init failed".to_string())?;
-    let cache = dir.join(format!("{protocol_id}.png"));
-    // 下成功后落旁记，下一轮才知道这张图是用哪个 slug 下的。
-    let mark = || {
+    // 下成功后落旁记，下一轮才知道这张图是用哪个来源下的。
+    let mark = |cache: &Path| {
+        remove_other_logo_cache_files(app_data_dir, protocol_id, cache);
         let key = logo_source_key(logo_slug, homepage);
         let path = logo_source_marker_path(app_data_dir, protocol_id);
         if let Err(e) = std::fs::write(&path, key) {
@@ -130,9 +153,10 @@ async fn sync_one_into(
     // 路 1 simpleicons：仅当 slug 非空
     if !logo_slug.is_empty() {
         let url = format!("https://cdn.simpleicons.org/{}", logo_slug);
+        let cache = dir.join(format!("{protocol_id}.svg"));
         if let Ok(bytes) = fetch_bytes(client, &url).await
             && write_if_nonzero(&cache, &bytes) {
-                mark();
+                mark(&cache);
                 return Ok(());
             }
     }
@@ -144,17 +168,19 @@ async fn sync_one_into(
 
     // 路 2 favicon
     let fav_url = format!("https://{domain}/favicon.ico");
+    let fav_cache = dir.join(format!("{protocol_id}.ico"));
     if let Ok(bytes) = fetch_bytes(client, &fav_url).await
-        && write_if_nonzero(&cache, &bytes) {
-            mark();
+        && write_if_nonzero(&fav_cache, &bytes) {
+            mark(&fav_cache);
             return Ok(());
         }
 
     // 路 3 clearbit（末路）
     let cb_url = format!("https://logo.clearbit.com/{domain}");
+    let cb_cache = dir.join(format!("{protocol_id}.png"));
     if let Ok(bytes) = fetch_bytes(client, &cb_url).await
-        && write_if_nonzero(&cache, &bytes) {
-            mark();
+        && write_if_nonzero(&cb_cache, &bytes) {
+            mark(&cb_cache);
             return Ok(());
         }
 
