@@ -1,0 +1,20 @@
+{
+  "model_id": "seed-2-0-mini-260428",
+  "canonical_model": "seed-2-0-mini-260428",
+  "family": "seed",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.0000000000000001e-07,
+  "output_cost_per_token": 4.0000000000000003e-07,
+  "cache_read_input_token_cost": 2e-08,
+  "context_tiers": [
+    {
+      "min_tokens": 129,
+      "input_cost_per_token": 2.0000000000000002e-07,
+      "output_cost_per_token": 8.000000000000001e-07,
+      "cache_read_input_token_cost": 4e-08
+    }
+  ]
+}
