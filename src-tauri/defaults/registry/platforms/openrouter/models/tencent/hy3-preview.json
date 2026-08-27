@@ -1,0 +1,13 @@
+{
+  "model_id": "tencent/hy3-preview",
+  "canonical_model": "hy3-preview",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 6.3e-08,
+  "output_cost_per_token": 2.1e-07,
+  "cache_read_input_token_cost": 2.1e-08
+}

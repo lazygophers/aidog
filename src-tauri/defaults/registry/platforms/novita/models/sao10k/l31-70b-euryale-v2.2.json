@@ -1,0 +1,13 @@
+{
+  "model_id": "sao10k/l31-70b-euryale-v2.2",
+  "canonical_model": "l31-70b-euryale-v2.2",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.48e-06,
+  "output_cost_per_token": 1.48e-06,
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192
+}

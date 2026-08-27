@@ -190,7 +190,9 @@
       "text-curie-001",
       "text-davinci-edit-001",
       "text-moderation-latest",
-      "text-moderation-stable"
+      "text-moderation-stable",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra"
     ]
   },
   "name": {

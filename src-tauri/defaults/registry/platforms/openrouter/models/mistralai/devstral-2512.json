@@ -1,0 +1,13 @@
+{
+  "model_id": "mistralai/devstral-2512",
+  "canonical_model": "devstral-2512",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 2e-06,
+  "cache_read_input_token_cost": 4e-08
+}

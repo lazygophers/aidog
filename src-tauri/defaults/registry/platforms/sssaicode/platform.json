@@ -17,28 +17,34 @@
   "models": {
     "default": {
       "default": "claude-sonnet-5",
-      "opus": "claude-opus-4-8",
-      "haiku": "claude-haiku-4-5"
+      "opus": "claude-opus-5",
+      "haiku": "claude-haiku-4-5-20251001"
     }
   },
   "model_list": {
     "default": [
-      "claude-opus-4-8",
-      "claude-sonnet-4-6",
-      "claude-haiku-4-5",
-      "claude-opus-4-7",
-      "claude-opus-4-6",
-      "claude-opus-4-5",
-      "claude-sonnet-4-5",
-      "claude-sonnet-5",
       "claude-fable-5",
-      "gpt-4o",
-      "gpt-4o-mini",
-      "gpt-4-turbo",
-      "gpt-3.5-turbo",
-      "o1-preview",
-      "deepseek-chat",
-      "deepseek-coder"
+      "claude-haiku-4-5-20251001",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-sonnet-4-6",
+      "claude-sonnet-5",
+      "codex-auto-review",
+      "deepseek-v4-flash",
+      "deepseek-v4-flash-vision-exp",
+      "deepseek-v4-pro",
+      "gemini-2.5-flash",
+      "gemini-3-flash-preview",
+      "gemini-3.1-pro-preview",
+      "gpt-5.4",
+      "gpt-5.4-mini",
+      "gpt-5.5",
+      "gpt-5.6-sol",
+      "gpt-5.6-terra",
+      "grok-4.5",
+      "grok-4.6"
     ]
   },
   "name": {
@@ -52,10 +58,10 @@
     "es-ES": "SSSAiCode"
   },
   "source_urls": {
-    "docs": "https://sssaicode.com/docs",
+    "docs": "https://sssaicode.com/clients",
     "pricing": "https://sssaicode.com/pricing"
   },
-  "homepage": "https://sssaicode.com",
+  "homepage": "https://sssaicode.ai",
   "logo_url": "",
   "keywords": [
     "sssaicode"

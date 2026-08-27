@@ -1,0 +1,18 @@
+{
+  "model_id": "amazon/nova-2-lite-v1",
+  "canonical_model": "nova-2-lite-v1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65535,
+  "context_window": 1000000,
+  "official": true,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 2.5e-06,
+  "default_price": {
+    "input_cost_per_token": 3e-07,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 0
+  }
+}

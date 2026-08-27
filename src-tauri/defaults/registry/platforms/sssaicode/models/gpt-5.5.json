@@ -1,0 +1,12 @@
+{
+  "model_id": "gpt-5.5",
+  "canonical_model": "gpt-5.5",
+  "display_name": "GPT-5.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "cache_read_input_token_cost": 5e-07
+}

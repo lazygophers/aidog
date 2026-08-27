@@ -1,0 +1,13 @@
+{
+  "model_id": "deepseek/deepseek-v3-turbo",
+  "canonical_model": "deepseek-v3-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.0000000000000003e-07,
+  "output_cost_per_token": 1.3e-06,
+  "max_input_tokens": 64000,
+  "context_window": 64000,
+  "max_output_tokens": 16000
+}

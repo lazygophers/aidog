@@ -1,0 +1,18 @@
+{
+  "model_id": "rekaai/reka-edge",
+  "canonical_model": "reka-edge",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16384,
+  "max_output_tokens": 16384,
+  "context_window": 16384,
+  "official": true,
+  "input_cost_per_token": 1e-07,
+  "output_cost_per_token": 1e-07,
+  "default_price": {
+    "input_cost_per_token": 1e-07,
+    "output_cost_per_token": 1e-07,
+    "cache_read_input_token_cost": 0
+  }
+}

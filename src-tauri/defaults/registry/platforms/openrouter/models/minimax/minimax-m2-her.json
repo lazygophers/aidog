@@ -1,0 +1,14 @@
+{
+  "model_id": "minimax/minimax-m2-her",
+  "canonical_model": "minimax-m2-her",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 2048,
+  "context_window": 65536,
+  "official": true,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "cache_read_input_token_cost": 3e-08
+}

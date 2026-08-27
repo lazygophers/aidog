@@ -1,0 +1,12 @@
+{
+  "model_id": "codex-auto-review",
+  "canonical_model": "codex-auto-review",
+  "display_name": "CodeX Auto Review",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 5e-06,
+  "output_cost_per_token": 3e-05,
+  "cache_read_input_token_cost": 5e-07
+}

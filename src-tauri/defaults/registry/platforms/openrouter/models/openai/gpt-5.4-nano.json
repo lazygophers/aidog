@@ -1,0 +1,14 @@
+{
+  "model_id": "openai/gpt-5.4-nano",
+  "canonical_model": "gpt-5.4-nano",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 400000,
+  "official": true,
+  "input_cost_per_token": 2.0000000000000002e-07,
+  "output_cost_per_token": 1.25e-06,
+  "cache_read_input_token_cost": 2e-08
+}

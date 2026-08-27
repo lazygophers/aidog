@@ -1,0 +1,18 @@
+{
+  "model_id": "gryphe/mythomax-l2-13b",
+  "canonical_model": "mythomax-l2-13b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 4096,
+  "max_output_tokens": 4096,
+  "context_window": 4096,
+  "official": true,
+  "input_cost_per_token": 6e-08,
+  "output_cost_per_token": 6e-08,
+  "default_price": {
+    "input_cost_per_token": 6e-08,
+    "output_cost_per_token": 6e-08,
+    "cache_read_input_token_cost": 0
+  }
+}

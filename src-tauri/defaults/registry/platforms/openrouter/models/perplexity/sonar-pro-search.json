@@ -1,0 +1,18 @@
+{
+  "model_id": "perplexity/sonar-pro-search",
+  "canonical_model": "sonar-pro-search",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 8000,
+  "context_window": 200000,
+  "official": true,
+  "input_cost_per_token": 3e-06,
+  "output_cost_per_token": 1.5e-05,
+  "default_price": {
+    "input_cost_per_token": 3e-06,
+    "output_cost_per_token": 1.5e-05,
+    "cache_read_input_token_cost": 0
+  }
+}

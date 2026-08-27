@@ -16,31 +16,29 @@
   },
   "models": {
     "default": {
-      "default": "Qwen/Qwen2.5-72B-Instruct"
+      "default": "Qwen/Qwen3.5-27B"
     }
   },
   "model_list": {
     "default": [
-      "Qwen/Qwen2.5-72B-Instruct",
       "Qwen/Qwen3.5-27B",
       "Qwen/Qwen3.5-9B",
       "deepseek-ai/DeepSeek-V4-Flash",
       "deepseek-ai/DeepSeek-V3.2",
-      "deepseek-ai/DeepSeek-R1",
-      "zai-org/GLM-4.7",
-      "zai-org/GLM-4.6",
-      "moonshotai/Kimi-K2-Instruct-0905",
       "moonshotai/Kimi-K2.6",
       "MiniMaxAI/MiniMax-M2.5",
       "tencent/Hunyuan-A13B-Instruct",
-      "ByteDance-Seed/Seed-OSS-36B-Instruct",
-      "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-      "meta-llama/Meta-Llama-3.1-8B-Instruct",
       "google/gemma-4-26B-A4B-it",
       "openai/gpt-oss-120b",
-      "Qwen/Qwen2.5-Coder-32B-Instruct",
-      "baidu/ERNIE-4.5-300B-A47B",
-      "inclusionAI/Ling-flash-2.0"
+      "Qwen/Qwen3.6-27B",
+      "Qwen/Qwen3.6-35B-A3B",
+      "Qwen/Qwen3.5-122B-A10B",
+      "moonshotai/Kimi-K2.5",
+      "MiniMaxAI/MiniMax-M3",
+      "zai-org/GLM-5.2",
+      "deepseek-ai/DeepSeek-V4-Pro",
+      "google/gemma-4-31B-it",
+      "openai/gpt-oss-20b"
     ]
   },
   "name": {

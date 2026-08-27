@@ -1,0 +1,14 @@
+{
+  "model_id": "amazon/nova-premier-v1",
+  "canonical_model": "nova-premier-v1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 32000,
+  "context_window": 1000000,
+  "official": true,
+  "input_cost_per_token": 2.5e-06,
+  "output_cost_per_token": 1.25e-05,
+  "cache_read_input_token_cost": 6.25e-07
+}

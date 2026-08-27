@@ -1,0 +1,17 @@
+{
+  "model_id": "Qwen/Qwen3.6-27B",
+  "canonical_model": "Qwen3.6-27B",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "input_cost_per_token": 4.166666666666666e-07,
+  "output_cost_per_token": 2.5e-06,
+  "default_price": {
+    "input_cost_per_token": 4.166666666666666e-07,
+    "output_cost_per_token": 2.5e-06,
+    "cache_read_input_token_cost": 0
+  }
+}

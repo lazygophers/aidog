@@ -1,0 +1,13 @@
+{
+  "model_id": "baidu/ernie-4.5-21B-a3b",
+  "canonical_model": "ernie-4.5-21B-a3b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 7e-08,
+  "output_cost_per_token": 2.8e-07,
+  "max_input_tokens": 120000,
+  "context_window": 120000,
+  "max_output_tokens": 8000
+}
