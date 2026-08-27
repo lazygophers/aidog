@@ -49,6 +49,8 @@ check: ## Run TypeScript + Rust type checks
 
 .PHONY: lint
 lint: ## Run linters
+	@printf "$(CYAN)▶ Registry schema check...$(RESET)\n"
+	yarn check:registry
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
