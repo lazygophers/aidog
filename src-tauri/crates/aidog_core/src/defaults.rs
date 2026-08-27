@@ -27,12 +27,9 @@ crate::tauri_command! {
     pub async fn get_protocol_logo_path(protocol: String) -> Result<String, String> {
         tracing::debug!(command = "get_protocol_logo_path", protocol = %protocol, "command invoked");
         let dir = crate::shared::aidog_data_dir()?;
-        let path = crate::gateway::logo_sync::logo_cache_path(&dir, &protocol);
-        if path.exists()
-            && let Ok(meta) = std::fs::metadata(&path)
-                && meta.len() > 0 {
-                    return Ok(path.to_string_lossy().into_owned());
-                }
+        if let Some(path) = crate::gateway::logo_sync::logo_cached_path(&dir, &protocol) {
+            return Ok(path.to_string_lossy().into_owned());
+        }
         Ok(String::new())
     }
 }
