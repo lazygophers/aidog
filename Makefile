@@ -45,12 +45,12 @@ check: ## Run TypeScript + Rust type checks
 	@printf "$(CYAN)▶ TypeScript check...$(RESET)\n"
 	npx tsc --noEmit
 	@printf "$(CYAN)▶ Rust check...$(RESET)\n"
-	cd $(TAURI_DIR) && cargo check
+	cd $(TAURI_DIR) && cargo check --workspace --all-targets
 
 .PHONY: lint
 lint: ## Run linters
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
-	cd $(TAURI_DIR) && cargo clippy -- -D warnings
+	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
 .PHONY: clean
 clean: ## Remove build artifacts
