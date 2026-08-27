@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen3.8-flash",
+  "canonical_model": "qwen3.8-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.8,
+  "output_cost_per_token": 2.7e-06,
+  "cache_read_input_token_cost": 1e-07
+}

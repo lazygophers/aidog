@@ -1,0 +1,11 @@
+{
+  "model_id": "kimi-k2.6",
+  "canonical_model": "kimi-k2.6",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 6.5,
+  "output_cost_per_token": 2.7e-05,
+  "cache_read_input_token_cost": 1.0985e-06
+}

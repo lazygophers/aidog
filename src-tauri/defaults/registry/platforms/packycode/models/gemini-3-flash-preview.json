@@ -1,0 +1,10 @@
+{
+  "model_id": "gemini-3-flash-preview",
+  "canonical_model": "gemini-3-flash-preview",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 0.5,
+  "output_cost_per_token": 3e-06
+}

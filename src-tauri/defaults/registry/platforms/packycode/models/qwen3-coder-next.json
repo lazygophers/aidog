@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen3-coder-next",
+  "canonical_model": "qwen3-coder-next",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.0,
+  "output_cost_per_token": 4e-06
+}

@@ -1,0 +1,11 @@
+{
+  "model_id": "kimi-k3",
+  "canonical_model": "kimi-k3",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 20.0,
+  "output_cost_per_token": 0.0001,
+  "cache_read_input_token_cost": 2e-06
+}
