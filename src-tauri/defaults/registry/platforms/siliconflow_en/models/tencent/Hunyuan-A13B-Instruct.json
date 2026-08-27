@@ -1,0 +1,13 @@
+{
+  "model_id": "tencent/Hunyuan-A13B-Instruct",
+  "canonical_model": "Hunyuan-A13B-Instruct",
+  "display_name": "Hunyuan-A13B-Instruct",
+  "family": "hunyuan",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.4e-07,
+  "output_cost_per_token": 5.699999999999999e-07,
+  "context_window": 131072
+}

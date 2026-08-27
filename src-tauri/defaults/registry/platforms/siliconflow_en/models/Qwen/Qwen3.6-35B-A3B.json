@@ -1,0 +1,13 @@
+{
+  "model_id": "Qwen/Qwen3.6-35B-A3B",
+  "canonical_model": "Qwen3.6-35B-A3B",
+  "display_name": "Qwen3.6-35B-A3B",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.0000000000000002e-07,
+  "output_cost_per_token": 1.6000000000000001e-06,
+  "context_window": 262144
+}

@@ -1,0 +1,13 @@
+{
+  "model_id": "Qwen/Qwen3.5-122B-A10B",
+  "canonical_model": "Qwen3.5-122B-A10B",
+  "display_name": "Qwen3.5-122B-A10B",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.6e-07,
+  "output_cost_per_token": 2.08e-06,
+  "context_window": 262144
+}

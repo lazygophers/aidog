@@ -1,0 +1,13 @@
+{
+  "model_id": "google/gemma-4-31B-it",
+  "canonical_model": "gemma-4-31B-it",
+  "display_name": "gemma-4-31B-it",
+  "family": "gemma",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 4.0000000000000003e-07,
+  "context_window": 262144
+}

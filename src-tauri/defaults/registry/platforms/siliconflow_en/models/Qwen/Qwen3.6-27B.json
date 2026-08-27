@@ -1,0 +1,13 @@
+{
+  "model_id": "Qwen/Qwen3.6-27B",
+  "canonical_model": "Qwen3.6-27B",
+  "display_name": "Qwen3.6-27B",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 3.2000000000000003e-06,
+  "context_window": 262144
+}

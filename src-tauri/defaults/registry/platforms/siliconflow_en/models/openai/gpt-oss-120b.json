@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-oss-120b",
+  "canonical_model": "gpt-oss-120b",
+  "display_name": "gpt-oss-120b",
+  "family": "gpt",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 5.0000000000000004e-08,
+  "output_cost_per_token": 4.5000000000000003e-07,
+  "context_window": 131072
+}
