@@ -1,0 +1,11 @@
+{
+  "model_id": "glm-5.3-flash",
+  "canonical_model": "glm-5.3-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1310720,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

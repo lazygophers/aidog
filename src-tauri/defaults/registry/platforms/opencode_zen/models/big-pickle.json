@@ -1,0 +1,10 @@
+{
+  "model_id": "big-pickle",
+  "canonical_model": "big-pickle",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

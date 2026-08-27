@@ -1,0 +1,12 @@
+{
+  "model_id": "gpt-5.2-codex",
+  "canonical_model": "gpt-5.2-codex",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 400000,
+  "input_cost_per_token": 1.75e-06,
+  "output_cost_per_token": 1.4e-05,
+  "cache_read_input_token_cost": 1.75e-07
+}

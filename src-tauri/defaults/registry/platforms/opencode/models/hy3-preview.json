@@ -1,0 +1,11 @@
+{
+  "model_id": "hy3-preview",
+  "canonical_model": "hy3-preview",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 262144,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

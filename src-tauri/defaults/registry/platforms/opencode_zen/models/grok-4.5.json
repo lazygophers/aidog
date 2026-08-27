@@ -1,0 +1,20 @@
+{
+  "model_id": "grok-4.5",
+  "canonical_model": "grok-4.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "context_window": 500000,
+  "input_cost_per_token": 2e-06,
+  "output_cost_per_token": 6e-06,
+  "cache_read_input_token_cost": 3e-07,
+  "context_tiers": [
+    {
+      "min_tokens": 200001,
+      "input_cost_per_token": 4e-06,
+      "output_cost_per_token": 1.2e-05,
+      "cache_read_input_token_cost": 6e-07
+    }
+  ]
+}

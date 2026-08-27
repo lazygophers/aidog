@@ -1,0 +1,12 @@
+{
+  "model_id": "minimax-m2.5",
+  "canonical_model": "minimax-m2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 204800,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "cache_read_input_token_cost": 6e-08
+}

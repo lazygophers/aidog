@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen3.7-plus",
+  "canonical_model": "qwen3.7-plus",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "context_window": 1000000,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}
