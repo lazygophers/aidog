@@ -2848,5 +2848,7 @@
   "platform.builtin_tool_compat_enable": "Activer la suppression",
   "platform.builtin_tool_compat_models": "Modèles (séparés par des virgules, vide = tous)",
   "platform.builtin_tool_compat_strip": "Outils à supprimer (séparés par des virgules, vide = tous les intégrés)",
-  "test.modeTool": "Test d'appel d'outil"
+  "test.modeTool": "Test d'appel d'outil",
+  "jsonEditor.format": "Formater",
+  "jsonEditor.searchHint": "Ctrl/⌘+F rechercher, Ctrl/⌘+Alt+F remplacer"
 }

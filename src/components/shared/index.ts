@@ -32,5 +32,6 @@ export {
   balanceColorLevel,
 } from "./usageColor";
 export { stableStringify } from "./stableStringify";
+export { JsonCodeEditor, type JsonCodeEditorProps } from "./JsonCodeEditor";
 export { PiUnsupportedNote } from "./PiUnsupportedNote";
 export { useReveal, useInView, useCounter, makeRipple } from "../../utils/motion";

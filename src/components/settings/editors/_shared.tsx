@@ -11,9 +11,8 @@ import { SectionIcon } from "./icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { useReveal, makeRipple } from "../../shared";
+import { useReveal, makeRipple, JsonCodeEditor } from "../../shared";
 
 /** Toggle switch — shadcn Switch under the hood, legacy `active`/`onChange` props kept for callers */
 export function Toggle({
@@ -172,7 +171,8 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
   );
 }
 
-/** JSON textarea for complex objects */
+/** JSON 字段编辑器（对象值）：内部走统一的 JsonCodeEditor —— 搜索/替换、高亮、行内标红、折叠行号。
+ *  对外仍收发**解析后的对象**（调用方 schema 驱动，不感知文本），文本态由本组件持有。 */
 export function JsonEditor({
   value,
   onChange,
@@ -207,40 +207,25 @@ export function JsonEditor({
   }, [value]);
 
   return (
-    <div>
-      <Textarea
-        
-        style={{
-          fontFamily: '"SF Mono", "Fira Code", monospace',
-          fontSize: F.body,
-          lineHeight: 1.6,
-          minHeight: rows * 24,
-          resize: "vertical",
-          whiteSpace: "pre",
-          padding: S.inputPad,
-        }}
-        value={text}
-        placeholder={placeholder}
-        spellCheck={false}
-        onChange={(e) => {
-          setText(e.target.value);
-          setError("");
-          try {
-            if (e.target.value.trim()) {
-              const parsed = JSON.parse(e.target.value);
-              onChange(parsed);
-            } else {
-              onChange(undefined);
-            }
-          } catch {
-            setError("Invalid JSON");
+    <JsonCodeEditor
+      value={text}
+      placeholder={placeholder}
+      minHeight={rows * 24}
+      error={error}
+      onChange={(next) => {
+        setText(next);
+        setError("");
+        try {
+          if (next.trim()) {
+            onChange(JSON.parse(next));
+          } else {
+            onChange(undefined);
           }
-        }}
-      />
-      {error && (
-        <span style={{ fontSize: F.small, color: "var(--color-danger)" }}>{error}</span>
-      )}
-    </div>
+        } catch {
+          setError("Invalid JSON");
+        }
+      }}
+    />
   );
 }
 

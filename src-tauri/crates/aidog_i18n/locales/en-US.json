@@ -2826,5 +2826,7 @@
   "platform.builtin_tool_compat_enable": "Enable stripping",
   "platform.builtin_tool_compat_models": "Models (comma-separated, empty = all)",
   "platform.builtin_tool_compat_strip": "Tool names to strip (comma-separated, empty = all builtin)",
-  "test.modeTool": "Tool-call probe"
+  "test.modeTool": "Tool-call probe",
+  "jsonEditor.format": "Format",
+  "jsonEditor.searchHint": "Ctrl/⌘+F to find, Ctrl/⌘+Alt+F to replace"
 }

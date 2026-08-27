@@ -11,6 +11,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { stringify as yamlStringify } from "yaml";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";
+import { JsonCodeEditor } from "../shared";
 import {
   Dialog,
   DialogContent,
@@ -190,28 +191,32 @@ export function ShareModal<T extends object = Record<string, unknown>>({
           ))}
         </div>
 
-        {/* 内容预览 */}
-        <pre
-          style={{
-            flex: 1,
-            minHeight: 160,
-            maxHeight: "46vh",
-            margin: 0,
-            overflow: "auto",
-            padding: "12px 14px",
-            borderRadius: "var(--radius-sm)",
-            background: "var(--bg-glass)",
-            border: "1px solid var(--border)",
-            fontFamily: "var(--font-mono, monospace)",
-            fontSize: 12.5,
-            lineHeight: 1.55,
-            color: "var(--text-primary)",
-            whiteSpace: "pre-wrap",
-            wordBreak: "break-all",
-          }}
-        >
-          {text}
-        </pre>
+        {/* 内容预览：JSON 格式走代码编辑器（可搜索 / 折叠 / 高亮），其余格式仍是纯文本 pre */}
+        {format === "json" ? (
+          <JsonCodeEditor value={text} minHeight={160} maxHeight={window.innerHeight * 0.46} />
+        ) : (
+          <pre
+            style={{
+              flex: 1,
+              minHeight: 160,
+              maxHeight: "46vh",
+              margin: 0,
+              overflow: "auto",
+              padding: "12px 14px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-glass)",
+              border: "1px solid var(--border)",
+              fontFamily: "var(--font-mono, monospace)",
+              fontSize: 12.5,
+              lineHeight: 1.55,
+              color: "var(--text-primary)",
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
+            }}
+          >
+            {text}
+          </pre>
+        )}
 
         {/* QR 区块（仅 urlScheme 存在时显示；超长 / 生成失败 → 降级提示） */}
         {urlScheme && (

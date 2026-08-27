@@ -23,10 +23,9 @@ import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
 import { StatChip } from "../shared/StatChip";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import { useReveal, makeRipple } from "../../components/shared";
+import { useReveal, makeRipple, JsonCodeEditor } from "../../components/shared";
 
 /** 脱敏 api_key：保留前 4 + 后 4，中间打码。 */
 function maskKey(key?: string): string {
@@ -194,12 +193,12 @@ export function Sub2ApiImportSection({
               : t("importExport.sub2api.parsePaste", "解析粘贴内容")}
           </Button>
         </div>
-        <Textarea
-          
+        <JsonCodeEditor
           value={pasteText}
-          onChange={(e) => setPasteText(e.target.value)}
+          onChange={setPasteText}
+          minHeight={120}
+          maxHeight={320}
           placeholder={t("importExport.sub2api.pastePlaceholder", "粘贴 sub2api 导出的 JSON 文本…")}
-          style={{ minHeight: 80, fontFamily: "monospace", fontSize: 12, resize: "vertical" }}
         />
       </div>
 
