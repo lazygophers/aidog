@@ -1,0 +1,11 @@
+{
+  "model_id": "glm-5.1",
+  "canonical_model": "glm-5.1",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.1869,
+  "output_cost_per_token": 4.15415e-06,
+  "cache_read_input_token_cost": 2.96725e-07
+}
