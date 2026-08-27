@@ -1,0 +1,11 @@
+{
+  "model_id": "sensenova-6.7-flash-lite",
+  "canonical_model": "sensenova-6.7-flash-lite",
+  "family": "sensenova",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0,
+  "output_cost_per_token": 0
+}
