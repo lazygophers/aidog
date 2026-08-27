@@ -138,16 +138,15 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     .await
     .unwrap();
 
-    // model_price
-    aidog_db::upsert_model_price(
+    // model_entry（scope 字符串仍叫 model_price，行形状自票 T4 起是 ModelEntry）
+    aidog_db::upsert_model_entries(
         &db,
-        "gpt-test",
-        "manual",
-        r#"{"input_cost_per_token":0.000001}"#,
-        Some(1000),
-        Some(2000),
-        Some(8000),
+        vec![aidog_db::model_entry_from_json(
+            "openai",
+            r#"{"model_id":"gpt-test","input_cost_per_token":0.000001,"max_output_tokens":2000}"#,
         )
+        .unwrap()],
+    )
     .await
     .unwrap();
 
@@ -159,7 +158,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     let has_model = |pl: &super::Payload, name: &str| {
         pl.model_price
             .iter()
-            .any(|m| m.get("model_name").and_then(|v| v.as_str()) == Some(name))
+            .any(|m| m.get("model_id").and_then(|v| v.as_str()) == Some(name))
     };
     let has_mw = |pl: &super::Payload, name: &str| {
         pl.middleware
@@ -183,7 +182,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     let has = |scope: &str, key: &str| items.iter().any(|i| i.scope == scope && i.key == key);
     assert!(has(SCOPE_MCP, "idx:0"));
     assert!(has(SCOPE_MIDDLEWARE, "idx:0"));
-    assert!(has(SCOPE_MODEL_PRICE, "model:gpt-test"));
+    assert!(has(SCOPE_MODEL_PRICE, "model:openai:gpt-test"));
 
     // filter_payload selection 命中新 scope key → 仅保留选中项
     let mut sel = std::collections::BTreeSet::new();

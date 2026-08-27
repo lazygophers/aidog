@@ -12,14 +12,15 @@ use rusqlite::{params, Connection, Result as SqlResult};
 ///
 /// `"group"` 是 SQL 保留字，SQL 标识符引号必须保留；map key 用 `group`（去引号）便于日志可读。
 ///
-/// **分库归属**（config-db-split）：主库表清单见 `SOFT_DELETE_TABLES`（setting / model_price）；
+/// **分库归属**（config-db-split）：主库表清单见 `SOFT_DELETE_TABLES`（setting）；
 /// platform / "group" / group_platform 见 `SOFT_DELETE_TABLES_PLATFORM`（platform.db）；
 /// proxy_log 表（落 log.db）见 `SOFT_DELETE_TABLES_PROXY_LOG`。
 /// `purge_all_soft_deleted` 各走对应 handle（`call_traced` / `call_platform_traced` / `call_proxy_log_traced`）。
 pub const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
     // (SQL 标识符（含引号）, map key / 日志名（去引号）) —— 主库 handle
+    // `model_price` 随票 T6 DROP，已从清单移除（`model_entry` / `platform_preset` 是同步整体
+    // 覆盖的镜像表，无软删语义，不入本清单）。
     ("setting", "setting"),
-    ("model_price", "model_price"),
 ];
 
 /// platform.db 下的软删表清单（config-db-split：4 表迁 platform.db 后 purge 走 platform handle）。
@@ -61,7 +62,7 @@ pub fn purge_all_soft_deleted(
         let total_tables =
             SOFT_DELETE_TABLES.len() + SOFT_DELETE_TABLES_PLATFORM.len() + SOFT_DELETE_TABLES_PROXY_LOG.len();
 
-        // 主库表（setting / model_price）走 call_traced。
+        // 主库表（setting）走 call_traced。
         // ponytail: 三清单 + 同构闭包，比抽泛型 helper（需参数化 handle 方法引用）更短更直白。
         for &(sql_ident, key) in SOFT_DELETE_TABLES {
             let sql = format!(

@@ -192,6 +192,76 @@ pub fn run_migrations_late(
                     // 内置规则按新规格强制覆盖内容（seed 幂等：按 name 覆盖，保留 enabled）。
                     crate::schema::seed_builtin_middleware_rules(conn)?;
                 }
+
+                // Migration 20260826-01 (model-info 票 T2): registry 落库两表。
+                //
+                // model_entry —— 平台视角模型条目，主键 (platform_code, model_id)。
+                // 同一模型在不同平台是各自独立的行（价格/上下文限制/官方标记逐平台不同），
+                // 跨平台聚合走 canonical_model（故建索引）。
+                // 价格全量留在 price_data JSON（同旧 model_price idiom）；单独提列的只有
+                // 参与查询/排序/搜索的字段。**票 10 会在此表 ALTER ADD COLUMN display_name**
+                // （展示名要参与排序与搜索，不塞 JSON），本 migration 不预建该列。
+                //
+                // platform_preset —— 一份 platform.json 整体快照，code 主键。
+                // 品牌字段（name/logo_url/color/homepage/keywords/source_urls）不拆列：
+                // 前端拿整份即可渲染，同步整体覆盖，失败时整份保留（票 12）。
+                //
+                // 旧 model_price 表本轮保留（当时 resolve_price / 导入导出 / 出站 max_tokens
+                // 裁剪仍在读它），切换到 model_entry 是票 T4，DROP 见下方 20260826-03。
+                // 数据不迁移——registry 是真值源，T3 同步一轮即重建。
+                conn.execute_batch(
+                    r#"CREATE TABLE IF NOT EXISTS model_entry (
+    platform_code          TEXT NOT NULL,
+    model_id               TEXT NOT NULL,
+    canonical_model        TEXT NOT NULL DEFAULT '',
+    family                 TEXT NOT NULL DEFAULT '',
+    version                TEXT NOT NULL DEFAULT '',
+    predecessor            TEXT NOT NULL DEFAULT '',
+    capabilities           TEXT NOT NULL DEFAULT '[]',
+    builtin_tools_excluded TEXT NOT NULL DEFAULT '[]',
+    max_input_tokens       INTEGER,
+    max_output_tokens      INTEGER,
+    context_window         INTEGER,
+    official               INTEGER NOT NULL DEFAULT 0,
+    price_data             TEXT NOT NULL DEFAULT '{}',
+    created_at             INTEGER NOT NULL DEFAULT 0,
+    updated_at             INTEGER NOT NULL DEFAULT 0,
+    deleted_at             INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (platform_code, model_id)
+);
+
+-- 模型维度聚合（group by canonical_model）与「这个模型有哪些平台在卖」查询的驱动索引。
+CREATE INDEX IF NOT EXISTS idx_model_entry_canonical ON model_entry(canonical_model);
+
+CREATE TABLE IF NOT EXISTS platform_preset (
+    code        TEXT NOT NULL PRIMARY KEY,
+    preset_data TEXT NOT NULL DEFAULT '{}',
+    created_at  INTEGER NOT NULL DEFAULT 0,
+    updated_at  INTEGER NOT NULL DEFAULT 0,
+    deleted_at  INTEGER NOT NULL DEFAULT 0
+);"#,
+                )?;
+
+                // Migration 20260826-02 (model-info 票 T10): model_entry 加模型展示名列。
+                // 单字符串全语言共用（模型名是品牌标识，不译）。独立成列而非塞 price_data JSON——
+                // 它要参与列表排序与搜索，塞 JSON 会逼查询层解 JSON。
+                // 列存 registry 原值（可为空串，registry 不为省事把展示名填成 model_id）；
+                // 缺省/空串回落 model_id 发生在读取层（model_entry.rs::row_to_model_entry）。
+                // `let _ =` 是本文件既有加列 idiom：列已存在时 ALTER 报错被吞，等价幂等。
+                let _ = conn.execute(
+                    "ALTER TABLE model_entry ADD COLUMN display_name TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
+
+                // Migration 20260826-03 (model-info 票 T6): DROP 旧 model_price 表。
+                //
+                // T2 起不再同步、T4 起计费与出站 max_tokens 裁剪全改查 model_entry，
+                // 至此表已无任何读写方（读取层 model_price.rs 与 5 个查询 command 同票删除）。
+                // 数据不迁移：registry 是真值源，同步一轮即由 model_entry 重建；
+                // 表内仅有的用户自有数据是 source='manual' 的手工定价，该功能随旧 PricingTab
+                // 一并下线（票 T5），没有承接入口，故直接丢弃。
+                // 前向单线、无 down：DROP 幂等靠 IF EXISTS。
+                conn.execute_batch("DROP TABLE IF EXISTS model_price;")?;
     Ok(())
 }
 

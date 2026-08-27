@@ -1,59 +1,10 @@
-//! 模型价格模型：价格记录 / 摘要 / 解析结果 / 同步设置与结果。
+//! 模型价格模型：解析结果 / 同步设置与结果。
+//!
+//! 旧 `ModelPrice` / `ModelPriceSummary`（`model_price` 表的行与列表摘要）随票 T6
+//! 与该表一并删除：模型条目的真值源已是 `model_entry`（见 `models/model_entry.rs`）。
 
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
-
-/// 模型价格记录
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ModelPrice {
-    pub id: u64,
-    pub model_name: String,
-    /// "github" | "manual"
-    pub source: String,
-    /// JSON: {input_cost_per_token, output_cost_per_token, cache_read_input_token_cost, pricing: {platform_type: {...}}, default_platform, ...}
-    pub price_data: String,
-    /// 最大输入 token（模型固有，平台无关）。NULL = 未知。
-    #[serde(default)]
-    pub max_input_tokens: Option<i64>,
-    /// 最大输出 token（出站裁剪用）。NULL = 未知/无限制。
-    #[serde(default)]
-    pub max_output_tokens: Option<i64>,
-    /// 上下文窗口。NULL = 未知。
-    #[serde(default)]
-    pub context_window: Option<i64>,
-    pub created_at: i64,
-    pub updated_at: i64,
-    #[serde(default)]
-    pub deleted_at: i64,
-}
-
-/// 模型价格摘要（列表展示用，解析了关键字段）
-#[derive(Debug, Clone, Serialize, Deserialize, TS)]
-#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
-pub struct ModelPriceSummary {
-    #[ts(type = "number")]
-    pub id: u64,
-    pub model_name: String,
-    pub source: String,
-    pub default_platform: Option<String>,
-    /// $/M input tokens
-    pub input_price: Option<f64>,
-    /// $/M output tokens
-    pub output_price: Option<f64>,
-    /// $/M cache read tokens
-    pub cache_read_price: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(type = "number | null")]
-    pub max_input_tokens: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(type = "number | null")]
-    pub max_output_tokens: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[ts(type = "number | null")]
-    pub context_window: Option<i64>,
-    #[ts(type = "number")]
-    pub updated_at: i64,
-}
 
 /// 价格解析结果
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -101,7 +52,17 @@ impl Default for PriceSyncSettings {
     }
 }
 
-/// 同步结果
+/// registry 同步中单个文件的失败记录（best-effort：该文件的 DB 旧数据原样保留）。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct SyncFailure {
+    /// registry 内的相对路径，如 `platforms/glm/models/glm-4.6.json`。
+    pub file: String,
+    pub error: String,
+}
+
+/// 同步结果。`total` = 本轮尝试拉取的文件数（platform.json + 模型条目），
+/// `failures` 非空即 partial：成功的文件已入库，失败的保留 DB 旧值。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PriceSyncResult {
@@ -110,4 +71,6 @@ pub struct PriceSyncResult {
     pub unchanged: u32,
     pub failed: u32,
     pub total: u32,
+    #[serde(default)]
+    pub failures: Vec<SyncFailure>,
 }

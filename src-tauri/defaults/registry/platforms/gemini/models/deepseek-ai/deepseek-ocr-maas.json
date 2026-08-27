@@ -1,0 +1,16 @@
+{
+  "model_id": "deepseek-ai/deepseek-ocr-maas",
+  "canonical_model": "deepseek-ai/deepseek-ocr-maas",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 3e-7,
+  "output_cost_per_token": 0.0000012,
+  "default_price": {
+    "input_cost_per_token": 3e-7,
+    "output_cost_per_token": 0.0000012,
+    "cache_read_input_token_cost": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "model_id": "glm-4.6",
+  "canonical_model": "glm-4.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 128000,
+  "context_window": 200000,
+  "official": false,
+  "input_cost_per_token": 6e-7,
+  "output_cost_per_token": 0.0000022,
+  "cache_read_input_token_cost": 1.1e-7
+}

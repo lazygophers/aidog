@@ -1,0 +1,17 @@
+{
+  "_comment": "check-i18n.mjs E 项自检 fixture：ja-JP 缺失、ar-SA 空白，跑 AIDOG_REGISTRY_DIR 指向本目录须退出码非零。",
+  "name": {
+    "en-US": "Fixture Platform",
+    "zh-Hans": "示例平台",
+    "ar-SA": "   ",
+    "fr-FR": "Fixture Platform",
+    "de-DE": "Fixture Platform",
+    "ru-RU": "Fixture Platform",
+    "es-ES": "Fixture Platform"
+  },
+  "logo_url": "fixture",
+  "color": "#000000",
+  "homepage": "https://example.com",
+  "keywords": ["fixture"],
+  "source_urls": { "docs": "https://example.com/docs" }
+}

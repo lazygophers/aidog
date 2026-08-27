@@ -249,15 +249,12 @@ pub fn run() {
             aidog_cli_proxy::batch::batch_override_cli_proxy_models,
             aidog_cli_proxy::batch::batch_set_cli_proxy_quota,
             // Model Prices
-            aidog_core::platform_cmd::price::model_price_list,
-            aidog_core::platform_cmd::price::model_price_count,
-            aidog_core::platform_cmd::price::model_price_search,
-            aidog_core::platform_cmd::price::model_price_list_filtered,
-            aidog_core::platform_cmd::price::model_price_count_filtered,
-            aidog_core::platform_cmd::price::model_price_resolve,
             aidog_core::platform_cmd::price::model_price_sync,
             aidog_core::platform_cmd::price::price_sync_settings_get,
             aidog_core::platform_cmd::price::price_sync_settings_set,
+            aidog_core::platform_cmd::model_entry::model_entry_list,
+            aidog_core::platform_cmd::model_entry::model_entry_get,
+            aidog_core::platform_cmd::model_entry::model_info_snapshot,
             // About
             aidog_core::system_cmd::about::about_info,
             // CLI 工具环境（Claude Code / Codex 版本 / 安装 / 升级 / 冲突诊断）

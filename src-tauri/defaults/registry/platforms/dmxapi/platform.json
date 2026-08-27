@@ -1,0 +1,59 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://www.dmxapi.cn",
+        "client_type": "claude_code"
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://www.dmxapi.cn/v1",
+        "client_type": "codex_tui"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "claude-sonnet-4-6",
+      "opus": "claude-opus-4-8",
+      "sonnet": "claude-sonnet-4-6",
+      "gpt": "gpt-5.5"
+    }
+  },
+  "model_list": {
+    "default": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6",
+      "deepseek-v4-pro",
+      "deepseek-v4-flash",
+      "gpt-5.5",
+      "gpt-5.3-codex",
+      "gemini-3.5-flash",
+      "gemini-3.1-pro-preview",
+      "glm-5.2",
+      "kimi-k2.7-code"
+    ]
+  },
+  "name": {
+    "en-US": "DMXAPI",
+    "zh-Hans": "DMXAPI",
+    "ar-SA": "DMXAPI",
+    "fr-FR": "DMXAPI",
+    "de-DE": "DMXAPI",
+    "ru-RU": "DMXAPI",
+    "ja-JP": "DMXAPI",
+    "es-ES": "DMXAPI"
+  },
+  "source_urls": {
+    "docs": "https://docs.dmxapi.cn/",
+    "pricing": "https://www.dmxapi.cn/pricing"
+  },
+  "homepage": "https://www.dmxapi.cn",
+  "logo_url": "",
+  "keywords": [
+    "dmxapi"
+  ],
+  "color": "#FF6B6B"
+}

@@ -1,0 +1,15 @@
+{
+  "model_id": "davinci-002",
+  "canonical_model": "davinci-002",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.000002,
+  "output_cost_per_token": 0.000002,
+  "default_price": {
+    "input_cost_per_token": 0.000002,
+    "output_cost_per_token": 0.000002,
+    "cache_read_input_token_cost": 0
+  }
+}

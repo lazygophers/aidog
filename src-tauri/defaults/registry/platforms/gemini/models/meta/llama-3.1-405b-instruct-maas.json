@@ -1,0 +1,18 @@
+{
+  "model_id": "meta/llama-3.1-405b-instruct-maas",
+  "canonical_model": "meta/llama-3.1-405b-instruct-maas",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 2048,
+  "context_window": 2048,
+  "official": true,
+  "input_cost_per_token": 0.000005,
+  "output_cost_per_token": 0.000016,
+  "default_price": {
+    "input_cost_per_token": 0.000005,
+    "output_cost_per_token": 0.000016,
+    "cache_read_input_token_cost": 0
+  }
+}

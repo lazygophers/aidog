@@ -61,8 +61,9 @@ type DefaultsDoc = {
     models: { default?: Partial<Record<ModelSlot, string>>; coding_plan?: Partial<Record<ModelSlot, string>>; peak?: Partial<Record<ModelSlot, string>> };
     model_list: { default?: string[]; coding_plan?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
-    /** 维护用 metadata：官方文档页 + 定价页 URL（非 UI 展示，仅手动核对更新时一站直达）。 */
-    source_urls?: { docs: string; pricing: string };
+    /** 官方文档页 + 定价页 URL（registry `platform.json` 实为对象而非数组）。
+     *  平台详情处以外链展示，供用户自行核对官方定价。 */
+    source_urls?: { docs?: string; pricing?: string };
     /** 官网首页 URL（非文档页；前端平台详情处展示外链）。 */
     homepage?: string;
     /** simpleicons.org slug（Rust logo_sync 拼 https://cdn.simpleicons.org/<slug>）；空串走 favicon/clearbit fallback。 */
@@ -145,7 +146,7 @@ export async function defaultClientForProtocol(protocol: Protocol): Promise<Clie
 }
 
 /** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
- *  数据来源：platform-presets.json（运行时可被 ~/.aidog/platform-presets.json 覆盖） */
+ *  数据来源：registry（`src-tauri/defaults/registry/`，经 get_defaults_json 合并回传；无 app data 覆盖链） */
 export async function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Promise<PlatformEndpoint[]> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
@@ -194,26 +195,56 @@ export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindo
   }));
 }
 
-/** i18next locale 与 JSON name locale key 统一为 BCP 47 script 子标签 (zh-Hans)。
- *  两端一致，直接用 i18next locale 作 DefaultsLocale 查 name。 */
+/** i18next locale → registry `name` 的 locale key。变体（`zh`/`zh-CN`/`ja`）归一到 8 key 之一，
+ *  未知语言归 en-US。与 Rust `aidog_i18n::Lang::from_locale(..).locale_key()` 对称（跨层一致）。 */
+export function normalizeDefaultsLocale(locale?: string): DefaultsLocale {
+  switch ((locale ?? "").trim().toLowerCase().replace(/_/g, "-")) {
+    case "zh": case "zh-cn": case "zh-hans": return "zh-Hans";
+    case "ja": case "ja-jp": return "ja-JP";
+    case "fr": case "fr-fr": return "fr-FR";
+    case "de": case "de-de": return "de-DE";
+    case "ru": case "ru-ru": return "ru-RU";
+    case "ar": case "ar-sa": return "ar-SA";
+    case "es": case "es-es": return "es-ES";
+    default: return "en-US";
+  }
+}
 
-/** 派生协议本地化显示名（fallback: locale → en-US → protocol key）。
+/** 平台展示名三层回落唯一实现：`name[locale]` → `name["en-US"]` → 协议 code。
+ *  空白值视同缺失。UI 与其余派生函数一律走这里，禁各写一份回落分支
+ *  平台展示名只在前端渲染，Rust 侧无消费方（同名函数为死代码，已随票 13-L 删除）。 */
+function resolveName(
+  name: Partial<Record<DefaultsLocale, string>> | undefined,
+  code: string,
+  locale?: string,
+): string {
+  const pick = (l: DefaultsLocale): string | undefined => {
+    const v = name?.[l];
+    return v && v.trim() ? v : undefined;
+  };
+  return pick(normalizeDefaultsLocale(locale)) ?? pick("en-US") ?? code;
+}
+
+/** 派生协议本地化显示名（三层回落见 resolveName）。
  *  调用方: SearchableProtocolSelect 渲染 + 拼音搜索 + Sub2ApiImport option。
  *  ponytail: 复用 docPromise 单次 RPC，纯函数式派生，零状态机。 */
 export async function getProtocolLabel(protocol: Protocol, locale?: string): Promise<string> {
   const doc = await loadDoc();
-  const entry = doc.protocols[protocol];
-  const name = entry?.name;
-  if (!name) return protocol;
-  const loc = locale ? (locale as DefaultsLocale) : undefined;
-  if (loc && name[loc]) return name[loc]!;
-  return name["en-US"] ?? protocol;
+  return resolveName(doc.protocols[protocol]?.name, protocol, locale);
 }
 
 /** 取 protocol 官网首页 URL（平台详情处展示外链；未配置返空串）。 */
 export async function getProtocolHomepage(protocol: Protocol): Promise<string> {
   const doc = await loadDoc();
   return doc.protocols[protocol]?.homepage ?? "";
+}
+
+/** 取 protocol 官方文档 / 定价页外链（平台详情处展示，供用户核对官方定价）。
+ *  registry 里 `source_urls` 是对象 `{docs, pricing}`；缺任一项返空串，两项皆缺 → 两空串。 */
+export async function getProtocolSourceUrls(protocol: Protocol): Promise<{ docs: string; pricing: string }> {
+  const doc = await loadDoc();
+  const su = doc.protocols[protocol]?.source_urls;
+  return { docs: su?.docs ?? "", pricing: su?.pricing ?? "" };
 }
 
 /** 协议是否标记为 coding plan 套餐（数据驱动真值源，非硬编码协议键名）。
@@ -229,12 +260,9 @@ export async function isCodingPlanProtocol(protocol: Protocol): Promise<boolean>
  *  codingPlan 变体共用同 value 的 name，调用方自行追加 "Coding Plan" 后缀。 */
 export async function getProtocolLabelMap(locale?: string): Promise<Record<Protocol, string>> {
   const doc = await loadDoc();
-  const loc = locale ? (locale as DefaultsLocale) : undefined;
   const out = {} as Record<Protocol, string>;
   for (const proto of Object.keys(doc.protocols) as Protocol[]) {
-    const name = doc.protocols[proto]?.name;
-    if (!name) { out[proto] = proto; continue; }
-    out[proto] = (loc && name[loc]) || name["en-US"] || proto;
+    out[proto] = resolveName(doc.protocols[proto]?.name, proto, locale);
   }
   return out;
 }
@@ -273,13 +301,11 @@ function deriveProtocolHosts(eps: PlatformEndpoint[]): string[] {
  *  ponytail: 复用 docPromise 单次 RPC，纯函数式派生，零状态机。 */
 export async function buildProtocolsFromPresets(locale?: string): Promise<ProtocolOption[]> {
   const doc = await loadDoc();
-  const loc = locale ? (locale as DefaultsLocale) : undefined;
   const out: ProtocolOption[] = [];
   for (const proto of Object.keys(doc.protocols) as Protocol[]) {
     const entry = doc.protocols[proto];
     if (!entry) continue;
-    const name = entry.name;
-    const label = (name && ((loc && name[loc]) || name["en-US"])) || proto;
+    const label = resolveName(entry.name, proto, locale);
     const codingPlan = !!entry.is_coding_plan;
     // hosts: 合并 default + coding_plan 分支端点（cp 协议自身也带 endpoints）
     const epsAll = [
