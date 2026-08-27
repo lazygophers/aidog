@@ -1,0 +1,13 @@
+{
+  "model_id": "doubao/doubao-1-5-pro-32k",
+  "canonical_model": "doubao-1-5-pro-32k",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.296e-07,
+  "output_cost_per_token": 3.24e-07,
+  "max_input_tokens": 33000,
+  "context_window": 33000,
+  "max_output_tokens": 16000
+}

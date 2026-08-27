@@ -1,0 +1,13 @@
+{
+  "model_id": "qwen/qwen-flash",
+  "canonical_model": "qwen-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 5.4e-08,
+  "output_cost_per_token": 4.32e-07,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 33000
+}

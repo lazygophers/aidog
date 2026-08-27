@@ -1,0 +1,13 @@
+{
+  "model_id": "mistral/ministral-3b",
+  "canonical_model": "ministral-3b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.08e-07,
+  "output_cost_per_token": 1.08e-07,
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 16000
+}

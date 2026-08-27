@@ -1,0 +1,13 @@
+{
+  "model_id": "nvidia/nemotron-super-120b",
+  "canonical_model": "nemotron-super-120b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.62e-07,
+  "output_cost_per_token": 7.02e-07,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 262000
+}

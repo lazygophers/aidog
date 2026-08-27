@@ -1,0 +1,13 @@
+{
+  "model_id": "doubao/doubao-seed-character",
+  "canonical_model": "doubao-seed-character",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.296e-07,
+  "output_cost_per_token": 3.24e-07,
+  "max_input_tokens": 131000,
+  "context_window": 131000,
+  "max_output_tokens": 33000
+}

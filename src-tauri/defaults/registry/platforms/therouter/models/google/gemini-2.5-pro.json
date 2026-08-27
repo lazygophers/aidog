@@ -1,0 +1,14 @@
+{
+  "model_id": "google/gemini-2.5-pro",
+  "canonical_model": "gemini-2.5-pro",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.35e-06,
+  "output_cost_per_token": 1.08e-05,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 66000
+}

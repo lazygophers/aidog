@@ -1,0 +1,14 @@
+{
+  "model_id": "amazon/nova-pro",
+  "canonical_model": "nova-pro",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 8.64e-07,
+  "output_cost_per_token": 3.46e-06,
+  "max_input_tokens": 300000,
+  "context_window": 300000,
+  "max_output_tokens": 5000
+}

@@ -1,0 +1,13 @@
+{
+  "model_id": "zhipu/embedding-2",
+  "canonical_model": "embedding-2",
+  "capabilities": [
+    "text",
+    "embedding"
+  ],
+  "official": true,
+  "input_cost_per_token": 8.1e-08,
+  "output_cost_per_token": 0.0,
+  "max_input_tokens": 512,
+  "context_window": 512
+}

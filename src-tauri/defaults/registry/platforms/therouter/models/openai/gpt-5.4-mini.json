@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-5.4-mini",
+  "canonical_model": "gpt-5.4-mini",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.62e-06,
+  "output_cost_per_token": 4.86e-06,
+  "max_input_tokens": 400000,
+  "context_window": 400000,
+  "max_output_tokens": 128000
+}

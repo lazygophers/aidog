@@ -1,0 +1,13 @@
+{
+  "model_id": "zhipu/glm-4.5v",
+  "canonical_model": "glm-4.5v",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 6.48e-07,
+  "output_cost_per_token": 1.94e-06,
+  "max_input_tokens": 66000,
+  "context_window": 66000,
+  "max_output_tokens": 16000
+}

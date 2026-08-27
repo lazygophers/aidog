@@ -1,0 +1,13 @@
+{
+  "model_id": "moonshot/kimi-k2-thinking",
+  "canonical_model": "kimi-k2-thinking",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 6.48e-07,
+  "output_cost_per_token": 2.7e-06,
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 64000
+}

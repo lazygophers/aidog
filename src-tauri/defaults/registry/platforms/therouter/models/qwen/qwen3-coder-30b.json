@@ -1,0 +1,13 @@
+{
+  "model_id": "qwen/qwen3-coder-30b",
+  "canonical_model": "qwen3-coder-30b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.86e-07,
+  "output_cost_per_token": 2.43e-06,
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 66000
+}

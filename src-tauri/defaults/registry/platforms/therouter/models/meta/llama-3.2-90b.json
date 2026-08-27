@@ -1,0 +1,13 @@
+{
+  "model_id": "meta/llama-3.2-90b",
+  "canonical_model": "llama-3.2-90b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 7.776e-07,
+  "output_cost_per_token": 7.776e-07,
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8000
+}

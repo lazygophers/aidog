@@ -1,0 +1,14 @@
+{
+  "model_id": "amazon/titan-embed-v2",
+  "canonical_model": "titan-embed-v2",
+  "capabilities": [
+    "text",
+    "vision",
+    "embedding"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.16e-08,
+  "output_cost_per_token": 0.0,
+  "max_input_tokens": 8000,
+  "context_window": 8000
+}
