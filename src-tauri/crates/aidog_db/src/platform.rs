@@ -20,7 +20,8 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     Ok(Platform {
         id: row.get::<_, i64>(0)? as u64,
         name: row.get(1)?,
-        platform_type: serde_json::from_str(&platform_type_str).unwrap(),
+        // 禁 unwrap：非法/未知 platform_type 会 panic 杀 DB 后台线程（见 Protocol::from_db_str）。
+        platform_type: crate::models::Protocol::from_db_str(&platform_type_str),
         base_url: row.get(3)?,
         api_key: row.get(4)?,
         extra: row.get(5)?,
