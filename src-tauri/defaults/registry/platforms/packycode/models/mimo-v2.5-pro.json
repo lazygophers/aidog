@@ -1,0 +1,11 @@
+{
+  "model_id": "mimo-v2.5-pro",
+  "canonical_model": "mimo-v2.5-pro",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 3.0,
+  "output_cost_per_token": 6e-06,
+  "cache_read_input_token_cost": 2.49e-08
+}
