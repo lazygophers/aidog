@@ -1,0 +1,11 @@
+{
+  "model_id": "openai/gpt-4.1-mini",
+  "canonical_model": "gpt-4.1-mini",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 4e-07,
+  "output_cost_per_token": 1.6e-06,
+  "cache_read_input_token_cost": 1e-07
+}

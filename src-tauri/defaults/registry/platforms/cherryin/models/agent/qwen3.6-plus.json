@@ -1,0 +1,10 @@
+{
+  "model_id": "agent/qwen3.6-plus",
+  "canonical_model": "qwen3.6-plus",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 2.86e-07,
+  "output_cost_per_token": 1.714e-06
+}

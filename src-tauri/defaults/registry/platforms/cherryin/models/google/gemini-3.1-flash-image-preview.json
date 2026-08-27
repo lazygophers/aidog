@@ -1,0 +1,10 @@
+{
+  "model_id": "google/gemini-3.1-flash-image-preview",
+  "canonical_model": "gemini-3.1-flash-image-preview",
+  "capabilities": [
+    "image_gen"
+  ],
+  "official": false,
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 6e-05
+}

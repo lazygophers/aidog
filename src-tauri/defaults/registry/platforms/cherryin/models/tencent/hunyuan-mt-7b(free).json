@@ -1,0 +1,10 @@
+{
+  "model_id": "tencent/hunyuan-mt-7b(free)",
+  "canonical_model": "hunyuan-mt-7b(free)",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

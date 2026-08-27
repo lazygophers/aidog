@@ -1,0 +1,11 @@
+{
+  "model_id": "agent/kimi-k2.7-code",
+  "canonical_model": "kimi-k2.7-code",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 9.6e-07,
+  "output_cost_per_token": 3.98e-06,
+  "cache_read_input_token_cost": 1.9e-07
+}

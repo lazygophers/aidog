@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen/qwen3-embedding-8b",
+  "canonical_model": "qwen3-embedding-8b",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "input_cost_per_token": 5.6e-07,
+  "output_cost_per_token": 5.6e-07,
+  "cache_read_input_token_cost": 1.12e-07
+}

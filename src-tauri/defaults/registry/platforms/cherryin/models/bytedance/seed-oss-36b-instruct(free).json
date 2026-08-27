@@ -1,0 +1,10 @@
+{
+  "model_id": "bytedance/seed-oss-36b-instruct(free)",
+  "canonical_model": "seed-oss-36b-instruct(free)",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}
