@@ -5,6 +5,7 @@ import { registerNavGuard } from "../utils/navGuard";
 import { deepMerge } from "../utils/deepMerge";
 import { UnsavedChangesModal } from "../components/settings/UnsavedChangesModal";
 import { SECTIONS, RECOMMENDED_CONFIG } from "../services/claude-settings-schema";
+import { updateConfigField } from "../services/settings-env-pairs";
 import {
   F,
   S,
@@ -203,17 +204,10 @@ export function Settings() {
     load();
   }, []);
 
+  // 写字段本身 + 把有配对关系的另一侧（settings 键 ↔ 环境变量）同步成等价值。
+  // 详见 services/settings-env-pairs.ts：谁后改谁为准，删一边另一边一起删。
   const updateField = useCallback((field: string, value: any) => {
-    setConfig((prev) => {
-      const next: Record<string, any> = {};
-      for (const [k, v] of Object.entries(prev)) {
-        if (k !== field) next[k] = v;
-      }
-      if (value !== undefined && value !== null && value !== "") {
-        next[field] = value;
-      }
-      return next;
-    });
+    setConfig((prev) => updateConfigField(prev, field, value));
   }, []);
 
   const handleSave = useCallback(async (): Promise<boolean> => {
