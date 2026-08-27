@@ -1,0 +1,11 @@
+{
+  "model_id": "meta/llama-guard-4-12b",
+  "canonical_model": "llama-guard-4-12b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "context_window": 163840
+}

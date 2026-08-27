@@ -1,0 +1,10 @@
+{
+  "model_id": "mistralai/mistral-nemotron",
+  "canonical_model": "mistral-nemotron",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0
+}

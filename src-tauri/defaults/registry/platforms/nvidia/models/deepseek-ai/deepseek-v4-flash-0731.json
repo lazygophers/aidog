@@ -1,0 +1,11 @@
+{
+  "model_id": "deepseek-ai/deepseek-v4-flash-0731",
+  "canonical_model": "deepseek-v4-flash-0731",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "context_window": 1048576
+}

@@ -1,0 +1,11 @@
+{
+  "model_id": "meta/llama-3.2-11b-vision-instruct",
+  "canonical_model": "llama-3.2-11b-vision-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 0.0,
+  "output_cost_per_token": 0.0,
+  "context_window": 131072
+}
