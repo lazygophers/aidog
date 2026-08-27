@@ -1920,7 +1920,16 @@
       "name": "Baidu Qianfan",
       "platform_file": "platforms/qianfan/platform.json",
       "models_dir": "platforms/qianfan/models",
-      "models": []
+      "models": [
+        "ernie-4.5-turbo-128k.json",
+        "ernie-4.5-turbo-20260402.json",
+        "ernie-4.5-turbo-32k.json",
+        "ernie-4.5-turbo-vl.json",
+        "ernie-5.0.json",
+        "ernie-5.1.json",
+        "ernie-x1-turbo-32k.json",
+        "ernie-x1.1-preview.json"
+      ]
     },
     {
       "code": "qianfan_coding",

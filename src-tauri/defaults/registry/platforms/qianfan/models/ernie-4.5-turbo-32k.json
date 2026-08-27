@@ -1,0 +1,13 @@
+{
+  "model_id": "ernie-4.5-turbo-32k",
+  "canonical_model": "ernie-4.5-turbo-32k",
+  "official": true,
+  "family": "ernie",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 32768,
+  "input_cost_per_token": 1.11111111e-07,
+  "output_cost_per_token": 4.44444444e-07,
+  "cache_read_input_token_cost": 2.7777778e-08
+}

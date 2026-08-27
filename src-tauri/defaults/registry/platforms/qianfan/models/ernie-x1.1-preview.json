@@ -1,0 +1,14 @@
+{
+  "model_id": "ernie-x1.1-preview",
+  "canonical_model": "ernie-x1.1-preview",
+  "official": true,
+  "family": "ernie-x",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 65536,
+  "max_input_tokens": 56320,
+  "max_output_tokens": 65536,
+  "input_cost_per_token": 1.38888889e-07,
+  "output_cost_per_token": 5.55555556e-07
+}
