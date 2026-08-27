@@ -86,6 +86,20 @@ pub fn parse_incoming_request(source_protocol: &Protocol, body: &Value) -> Resul
                 .and_then(|t| t.get("budget_tokens"))
                 .and_then(|v| v.as_u64())
                 .map(|v| v as u32);
+            // thinking.type 三态与 output_config.effort 档位同样落在 extra 内，提取到 thinking_mode
+            let kind = req.extra
+                .as_ref()
+                .and_then(|e| e.get("thinking"))
+                .and_then(|t| t.get("type"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+            let effort = req.extra
+                .as_ref()
+                .and_then(|e| e.get("output_config"))
+                .and_then(|c| c.get("effort"))
+                .and_then(|v| v.as_str())
+                .map(str::to_string);
+            req.thinking_mode = ThinkingMode::from_parts(kind, effort);
             Ok(req)
         }
     }

@@ -59,7 +59,7 @@ fn assistant_tool_calls_with_text() {
             assert_eq!(blocks.len(), 2);
             matches!(blocks[0], ContentBlock::Text { .. });
             match &blocks[1] {
-                ContentBlock::ToolUse { id, name, input } => {
+                ContentBlock::ToolUse { id, name, input, .. } => {
                     assert_eq!(id, "call_1");
                     assert_eq!(name, "read");
                     assert_eq!(input["path"], "/a");

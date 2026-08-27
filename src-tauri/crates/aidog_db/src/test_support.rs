@@ -152,6 +152,7 @@ impl Drop for HomeGuard {
             deleted_at: 0,
             cli_proxy_provider_id: None,
             done: true,
+            field_trace: String::new(),
         }
     }
 

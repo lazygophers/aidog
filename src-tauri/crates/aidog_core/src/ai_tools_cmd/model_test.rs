@@ -61,6 +61,9 @@ async fn prepare_test_context(
                         "properties": { "city": { "type": "string" } },
                         "required": ["city"]
                     }),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
                 }]),
             )
         } else {
@@ -89,6 +92,7 @@ async fn prepare_test_context(
             tools,
             tool_choice: None,
             extra: None,
+        thinking_mode: None,
         };
 
         Ok(TestContext { platform, model, prompt, expected, chat_req })
@@ -206,6 +210,8 @@ fn build_test_proxy_log(
         deleted_at: 0,
         cli_proxy_provider_id: None,
         done: true,
+        // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
+        field_trace: String::new(),
     }
 }
 
@@ -539,6 +545,7 @@ mod test_prepare_http_request {
                 tools: None,
                 tool_choice: None,
                 extra: None,
+        thinking_mode: None,
             },
         }
     }

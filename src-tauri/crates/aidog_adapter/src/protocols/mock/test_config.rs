@@ -15,6 +15,7 @@ fn chat_req(messages: Vec<Message>) -> ChatRequest {
         tools: None,
         tool_choice: None,
         extra: None,
+        thinking_mode: None,
     }
 }
 
@@ -155,7 +156,7 @@ fn message_blocks_content_concatenated_for_role_field() {
     let req = chat_req(vec![Message {
         role: Role::User,
         content: MessageContent::Blocks(vec![
-            ContentBlock::Text { text: "10".to_string() },
+            ContentBlock::Text { text: "10".to_string(), extra: None },
         ]),
     }]);
     // role=user does not match any field; no change to defaults

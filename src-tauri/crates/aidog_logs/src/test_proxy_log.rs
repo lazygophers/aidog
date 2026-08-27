@@ -602,3 +602,46 @@ use rusqlite::params;
         let actual_models = distinct_models_proxy_log(&db, &filter, true, 200).await.unwrap();
         assert_eq!(actual_models, vec!["deepseek-chat".to_string(), "glm-4-plus".to_string()]);
     }
+
+    /// 票 10：field_trace 列入库往返 + 受上游日志开关约束。
+    /// 开关开 → 留痕原样落库；`strip_upstream`（!log_upstream_request）→ 与上游侧原始信息一同清空。
+    #[tokio::test]
+    async fn field_trace_roundtrip_and_strip() {
+        let db = test_db().await;
+        let now_ms = now();
+
+        let mut kept = sample_log("ft-keep", "g", now_ms);
+        kept.field_trace = "cap:max_tokens,drop:user".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&kept, false, false)).await.unwrap();
+        let row = get_proxy_log(&db, "ft-keep").await.unwrap().unwrap();
+        assert_eq!(row.field_trace, "cap:max_tokens,drop:user");
+
+        let mut stripped = sample_log("ft-strip", "g", now_ms);
+        stripped.field_trace = "drop:user".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&stripped, false, true)).await.unwrap();
+        let row = get_proxy_log(&db, "ft-strip").await.unwrap().unwrap();
+        assert_eq!(row.field_trace, "", "关上游日志开关时 field_trace 一并清空");
+
+        // 无丢弃无改写 → 空串，不产生噪音记录。
+        let quiet = sample_log("ft-quiet", "g", now_ms);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&quiet, false, false)).await.unwrap();
+        assert_eq!(get_proxy_log(&db, "ft-quiet").await.unwrap().unwrap().field_trace, "");
+    }
+
+    /// 票 10：渐进式写入下 field_trace 变化能被 diff 捕获（首节点空 → 后续节点补留痕）。
+    #[tokio::test]
+    async fn field_trace_updated_by_progressive_diff() {
+        let db = test_db().await;
+        let now_ms = now();
+        let n1 = sample_log("ft-prog", "g", now_ms);
+        let c1 = ProxyLogColumns::from_log(&n1, false, false);
+        insert_proxy_log_columns(&db, c1.clone()).await.unwrap();
+
+        let mut n2 = n1.clone();
+        n2.field_trace = "rewrite:middleware".into();
+        let c2 = ProxyLogColumns::from_log(&n2, false, false);
+        update_proxy_log_columns(&db, c2, &c1).await.unwrap();
+
+        let row = get_proxy_log(&db, "ft-prog").await.unwrap().unwrap();
+        assert_eq!(row.field_trace, "rewrite:middleware");
+    }

@@ -20,6 +20,12 @@ pub struct ResponsesRequest {
     pub stream: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tools: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<Value>,
+    /// 思考档位 `{"effort": "low"|"medium"|"high"|"none"}`（票 03 新增；此前整条字段缺失，
+    /// 以 openai_responses 为目标协议时思考档位 100% 丢失）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reasoning: Option<Value>,
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -32,10 +38,13 @@ pub struct ResponsesInput {
 pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
     let input: Vec<Value> = req.messages.iter().flat_map(|m| {
         let role_str = match m.role { Role::User => "user", Role::Assistant => "assistant", Role::System => "developer", Role::Tool => "tool" };
+        // Responses 的 part 类型按角色分：助手轮是模型产出（output_text），其余轮是输入（input_text）
+        let part_type = if matches!(m.role, Role::Assistant) { "output_text" } else { "input_text" };
         m.content.blocks().into_iter().filter_map(move |b| match b {
-            ContentBlock::Text { text } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":"input_text","text":text}]})),
-            ContentBlock::ToolUse { id, name, input } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
-            ContentBlock::ToolResult { tool_use_id, content, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":content})),
+            ContentBlock::Text { text, .. } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":part_type,"text":text}]})),
+            ContentBlock::ToolUse { id, name, input, .. } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
+            // function_call_output.output 只吃文本：失败标注与非文本 block 的占位都在文本里
+            ContentBlock::ToolResult { tool_use_id, content, is_error, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":mark_tool_error(&content, is_error)})),
             ContentBlock::Unknown(_) => None,
         })
     }).collect();
@@ -43,8 +52,29 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         SystemContent::Text(text) => text.clone(),
         SystemContent::Blocks(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
     });
-    let tools = req.tools.as_ref().map(|tools| Value::Array(tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect()));
-    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools }
+    // 服务端工具在 Responses 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    let kept_tools: Vec<&Tool> = req.tools.as_deref().map(|ts| client_tools(ts, "openai_responses")).unwrap_or_default();
+    let tools = {
+        let mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
+        (!mapped.is_empty()).then_some(Value::Array(mapped))
+    };
+    // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆；
+    // 指名了被丢掉的服务端工具时整条不写（票 11，见 `named_tool_available`）
+    let tool_choice = req.tool_choice.as_ref().filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools)).map(|tc| match tc {
+        ToolChoice::Auto => serde_json::json!("auto"),
+        ToolChoice::Any => serde_json::json!("required"),
+        ToolChoice::None => serde_json::json!("none"),
+        ToolChoice::Named { name } => serde_json::json!({"type":"function","name":name}),
+    });
+    // 思考档位出站（票 03）：显式禁用写 Responses 官方认的 `effort:"none"`（与
+    // `forward.rs::apply_disable_thinking` 的 Responses 分支同一写法）；否则档位原值优先，
+    // 无档位时由数字预算反查（换算表见 `crate::thinking`）。
+    let reasoning = if crate::thinking::is_disabled(req) {
+        Some(serde_json::json!({ "effort": "none" }))
+    } else {
+        crate::thinking::outbound_effort(req).map(|e| serde_json::json!({ "effort": e }))
+    };
+    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools, tool_choice, reasoning }
 }
 
 /// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
@@ -266,7 +296,7 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
                                 id: item.get("call_id").and_then(Value::as_str).unwrap_or_default().to_string(),
                                 name: item.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
-                                input: input_json,
+                                input: input_json, extra: None
                             }]),
                         });
                     }
@@ -283,7 +313,7 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                                         other => other.to_string(),
                                     })
                                     .unwrap_or_default(),
-                                name: None,
+                                name: None, is_error: None, content_blocks: None, extra: None
                             }]),
                         });
                     }
@@ -326,6 +356,9 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                 name: t.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
                 description: t.get("description").and_then(Value::as_str).map(str::to_string),
                 input_schema: t.get("parameters").cloned().unwrap_or_else(|| serde_json::json!({})),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
             })
             .collect::<Vec<_>>()
     });
@@ -340,16 +373,10 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         Value::Object(o) => o.get("name").and_then(Value::as_str).map(|name| ToolChoice::Named { name: name.to_string() }),
         _ => None,
     });
-    // reasoning.effort → thinking_budget（与 to_openai budget→effort 档位映射互逆）
-    let thinking_budget = body
-        .get("reasoning")
-        .and_then(|r| r.get("effort"))
-        .and_then(Value::as_str)
-        .map(|effort| match effort {
-            "low" => 4096,
-            "medium" => 8192,
-            _ => 10000,
-        });
+    // reasoning.effort → thinking_budget（换算表统一在 `crate::thinking`，票 03；此前这里的
+    // `_ => 10000` 是全 crate 第三套数字，与出站表不自洽）
+    let effort = body.get("reasoning").and_then(|r| r.get("effort")).and_then(Value::as_str);
+    let thinking_budget = effort.and_then(crate::thinking::effort_to_budget);
 
     Some(ChatRequest {
         thinking_budget,
@@ -362,7 +389,17 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         stream: body.get("stream").and_then(|v| v.as_bool()),
         tools,
         tool_choice,
-        extra: None,
+        // 未建模顶层字段进 `extra`（票 11）：与 anthropic 入站的 `#[serde(flatten)]` 行为对齐，
+        // 否则 responses → gemini 路径上 `stop` / `top_k` / `response_format` 在中立层就没了。
+        extra: crate::types::rest_keys(
+            body,
+            &[
+                "model", "input", "instructions", "max_output_tokens", "temperature",
+                "top_p", "stream", "tools", "tool_choice", "reasoning",
+            ],
+        ),
+        // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
+        thinking_mode: crate::thinking::mode_from_effort(effort),
     })
 }
 
@@ -639,12 +676,69 @@ mod tests {
             tools: None,
             tool_choice: None,
             extra: None,
+        thinking_mode: None,
         };
         let out = to_responses(&req);
         assert_eq!(out.model, "gpt-5");
 
         assert_eq!(out.max_output_tokens, Some(1024));
         assert_eq!(out.stream, Some(true));
+    }
+
+    #[test]
+    fn to_responses_text_part_type_by_role() {
+        // user + assistant + user 三轮：助手轮的 part 必须是 output_text，用户轮是 input_text
+        let body = json!({
+            "model": "gpt-5",
+            "input": [
+                { "role": "user", "content": [{"type":"input_text","text":"q1"}] },
+                { "role": "assistant", "content": [{"type":"output_text","text":"a1"}] },
+                { "role": "user", "content": [{"type":"input_text","text":"q2"}] }
+            ]
+        });
+        let req = from_responses(&body).expect("parse");
+        let out = to_responses(&req);
+        let parts: Vec<(&str, &str)> = out
+            .input
+            .iter()
+            .map(|i| (i["role"].as_str().unwrap(), i["content"][0]["type"].as_str().unwrap()))
+            .collect();
+        assert_eq!(
+            parts,
+            vec![("user", "input_text"), ("assistant", "output_text"), ("user", "input_text")]
+        );
+    }
+
+    #[test]
+    fn to_responses_single_user_turn_unchanged() {
+        // 回归防线：单轮 user 请求仍然是 input_text
+        let req = from_responses(&json!({ "model": "gpt-5", "input": "say hi" })).expect("parse");
+        let out = to_responses(&req);
+        assert_eq!(out.input.len(), 1);
+        assert_eq!(out.input[0]["type"], "message");
+        assert_eq!(out.input[0]["role"], "user");
+        assert_eq!(out.input[0]["content"][0]["type"], "input_text");
+        assert_eq!(out.input[0]["content"][0]["text"], "say hi");
+    }
+
+    #[test]
+    fn to_responses_tool_choice_roundtrip() {
+        // tool_choice 曾在 Responses→Responses 路径静默消失
+        for (inbound, expected) in [
+            (json!("auto"), json!("auto")),
+            (json!("required"), json!("required")),
+            (json!("none"), json!("none")),
+            (json!({"type":"function","name":"f"}), json!({"type":"function","name":"f"})),
+        ] {
+            let req = from_responses(&json!({
+                "model": "gpt-5", "input": "hi", "tool_choice": inbound
+            }))
+            .expect("parse");
+            assert_eq!(to_responses(&req).tool_choice, Some(expected));
+        }
+        // 未指定时不写出该键
+        let req = from_responses(&json!({ "model": "gpt-5", "input": "hi" })).expect("parse");
+        assert!(to_responses(&req).tool_choice.is_none());
     }
 
     // ── render_responses_response 测试 ──
@@ -761,10 +855,10 @@ mod tests {
             model: "gpt-5".into(),
             messages: vec![
                 Message { role: Role::Assistant, content: MessageContent::Blocks(vec![
-                    ContentBlock::ToolUse { id: "call_1".into(), name: "lookup".into(), input: json!({"q": "x"}) },
+                    ContentBlock::ToolUse { id: "call_1".into(), name: "lookup".into(), input: json!({"q": "x"}), extra: None },
                 ]) },
                 Message { role: Role::Tool, content: MessageContent::Blocks(vec![
-                    ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "ok".into(), name: Some("lookup".into()) },
+                    ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "ok".into(), name: Some("lookup".into()), is_error: None, content_blocks: None, extra: None },
                 ]) },
             ],
             system: Some(SystemContent::Text("system prompt".into())),
@@ -772,9 +866,10 @@ mod tests {
             temperature: None,
             top_p: None,
             stream: Some(true),
-            tools: Some(vec![Tool { name: "lookup".into(), description: Some("look up".into()), input_schema: json!({"type":"object"}) }]),
+            tools: Some(vec![Tool { name: "lookup".into(), description: Some("look up".into()), input_schema: json!({"type":"object"}), tool_type: None, cache_control: None, extra: None }]),
             tool_choice: Some(ToolChoice::Auto),
             extra: None,
+        thinking_mode: None,
         };
 
         let out = to_responses(&req);

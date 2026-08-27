@@ -49,7 +49,7 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let text_parts: Vec<String> = blocks
                     .iter()
                     .filter_map(|b| match b {
-                        ContentBlock::Text { text } => Some(text.clone()),
+                        ContentBlock::Text { text, .. } => Some(text.clone()),
                         _ => None,
                     })
                     .collect();
@@ -64,7 +64,7 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let tool_calls: Vec<OpenAIToolCall> = blocks
                     .iter()
                     .filter_map(|b| match b {
-                        ContentBlock::ToolUse { id, name, input } => Some(OpenAIToolCall {
+                        ContentBlock::ToolUse { id, name, input, .. } => Some(OpenAIToolCall {
                             id: id.clone(),
                             r#type: "function".to_string(),
                             function: OpenAIFunctionCall {
@@ -90,10 +90,11 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let has_tool_result = blocks.iter().any(|b| matches!(b, ContentBlock::ToolResult { .. }));
                 if has_tool_result {
                     for b in blocks {
-                        if let ContentBlock::ToolResult { tool_use_id, content, .. } = b {
+                        if let ContentBlock::ToolResult { tool_use_id, content, is_error, .. } = b {
                             messages.push(OpenAIMessage {
                                 role: "tool".to_string(),
-                                content: Some(Value::String(content.clone())),
+                                // OpenAI tool message 只吃文本：失败标注与非文本 block 的占位都在文本里
+                                content: Some(Value::String(mark_tool_error(content, *is_error))),
                                 tool_calls: None,
                                 tool_call_id: Some(tool_use_id.clone()),
                             });
@@ -162,8 +163,11 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         }
     }
 
-    let tools = req.tools.as_ref().map(|ts| {
-        ts.iter()
+    // 服务端工具在 OpenAI 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    let kept_tools: Vec<&Tool> = req.tools.as_deref().map(|ts| client_tools(ts, "openai")).unwrap_or_default();
+    let tools = {
+        let mapped: Vec<OpenAITool> = kept_tools
+            .iter()
             .map(|t| OpenAITool {
                 r#type: "function".to_string(),
                 function: OpenAIFunction {
@@ -172,10 +176,16 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                     parameters: t.input_schema.clone(),
                 },
             })
-            .collect()
-    });
+            .collect();
+        (!mapped.is_empty()).then_some(mapped)
+    };
 
-    let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {
+    // 指名了被丢掉的服务端工具时整条不写（票 11，见 `named_tool_available`）
+    let tool_choice = req
+        .tool_choice
+        .as_ref()
+        .filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools))
+        .map(|tc| match tc {
         ToolChoice::Auto => serde_json::json!("auto"),
         ToolChoice::Any => serde_json::json!("required"),
         ToolChoice::None => serde_json::json!("none"),
@@ -189,17 +199,20 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         model: req.model.clone(),
         messages,
         max_tokens: req.max_tokens,
+        // 出站统一写 `max_tokens`（第三方 OpenAI 兼容端点只认它）；官方 api.openai.com
+        // 需要的 `max_completion_tokens` 由 forward 层按 host 改键（票 05）。
+        max_completion_tokens: None,
         temperature: req.temperature,
         top_p: req.top_p,
         stream: req.stream,
         tools,
         tool_choice,
-        // budget → effort 阈值映射（与 from_openai 反向映射共用档位）
-        reasoning_effort: req.thinking_budget.map(|b| match b {
-            0..=4096 => "low",
-            4097..=8192 => "medium",
-            _ => "high",
-        }.to_string()),
+        // 思考档位出站（票 03）：档位原值优先，无档位时由数字预算反查（换算表见 `crate::thinking`）。
+        // 显式禁用（`thinking.type=disabled`）在这里只保证**不写开启型参数**：Chat Completions 的
+        // 禁用写法要按上游 host 分叉（官方 `reasoning_effort:"none"` vs 第三方
+        // `chat_template_kwargs.enable_thinking=false`），adapter 层拿不到 host，
+        // 显式禁用指令统一由 `forward.rs::apply_disable_thinking` 负责。
+        reasoning_effort: crate::thinking::outbound_effort(req),
     }
 }
 

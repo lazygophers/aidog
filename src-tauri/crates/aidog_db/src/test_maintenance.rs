@@ -129,6 +129,36 @@ use rusqlite::params;
         assert_eq!(resp, "", "response_body should be cleared");
     }
 
+    /// 票 10：field_trace 归上游侧，随 upstream retention 一同清空（行保留）。
+    #[tokio::test]
+    async fn cleanup_upstream_request_fields_clears_field_trace() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let old_ts = now - 2 * 24 * 3600 * 1000_i64;
+        // 只有 field_trace 有值（其它上游列全空）→ 验证 WHERE 条件也认这一列。
+        db.call_traced(None, std::panic::Location::caller(), move |c| {
+            c.execute_batch(&format!(
+                "INSERT INTO proxy_log (id,model,actual_model,group_key,platform_id,status_code,\
+                 input_tokens,output_tokens,cache_tokens,est_cost,duration_ms,is_stream,request_url,\
+                 attempts,field_trace,created_at,updated_at,deleted_at) \
+                 VALUES ('maint-ft1','m','','g',1,200,1,1,0,0.0,10,0,'url','[]','drop:user,cap:max_tokens',\
+                 {old_ts},{old_ts},0)"
+            ))?;
+            Ok(())
+        }).await.unwrap();
+
+        cleanup_upstream_request_fields(&db, 1, RetentionUnit::Day).await.unwrap();
+
+        let (ft, cnt): (String, i64) = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT field_trace, COUNT(*) FROM proxy_log WHERE id='maint-ft1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(ft, "", "field_trace should be cleared by upstream retention");
+        assert_eq!(cnt, 1, "row must not be deleted");
+    }
+
     /// count_proxy_logs returns count of non-deleted rows.
     #[tokio::test]
     async fn count_proxy_logs_returns_count() {

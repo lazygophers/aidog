@@ -62,6 +62,11 @@ pub struct OpenAIRequest {
     pub messages: Vec<OpenAIMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
+    /// 新版 OpenAI SDK / o 系列模型发的输出长度键（`max_tokens` 的官方继任者）。
+    /// 入站在 `from_openai` 归一到 `ChatRequest::max_tokens`；出站恒为 `None`
+    /// （`to_openai` 只写 `max_tokens`，官方 host 的键名改写在 forward 层做，票 05）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_completion_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]

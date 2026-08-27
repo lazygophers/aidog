@@ -237,6 +237,8 @@ fn make_quota_log(
         updated_at: created_at,
         deleted_at: 0,
         done: true,
+        // quota 拉取不经出站 body 构造 seam，无字段留痕（票 10）。
+        field_trace: String::new(),
     }
 }
 
