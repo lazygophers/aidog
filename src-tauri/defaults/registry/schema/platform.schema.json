@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "platform.schema.json",
+  "title": "platform preset",
+  "description": "platforms/<code>/platform.json。构建期由 build.rs include_str! 内置，运行期 DB 空表时兜底（ADR 0005）。",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "client_type",
+    "endpoints",
+    "models",
+    "model_list",
+    "name",
+    "source_urls",
+    "homepage",
+    "logo_url",
+    "keywords",
+    "color"
+  ],
+  "properties": {
+    "client_type": {
+      "type": "string",
+      "enum": [
+        "default",
+        "claude_code",
+        "codex_tui"
+      ]
+    },
+    "is_coding_plan": {
+      "type": "boolean",
+      "description": "编码套餐（coding plan）变体标记。router/ordering.rs 优先普通平台；前端 platformPaste 机制 B 用它找 coding 变体。"
+    },
+    "codingKeyPrefixes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "编码套餐 API key 前缀（如 sk-cp- / tp-）。platformPaste.ts 粘贴分享帖时命中前缀即升级到 coding 变体。"
+    },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default"
+      ],
+      "properties": {
+        "default": {
+          "$ref": "#/definitions/endpointList"
+        },
+        "coding_plan": {
+          "$ref": "#/definitions/endpointList",
+          "description": "cp 独立端点分支（2026-07-08 起仅少数平台保留，glm 已拆成独立协议 glm_coding）。"
+        }
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default"
+      ],
+      "properties": {
+        "default": {
+          "$ref": "#/definitions/modelBranch"
+        },
+        "peak": {
+          "$ref": "#/definitions/modelBranch",
+          "description": "高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中 peak_hours 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
+        },
+        "coding_plan": {
+          "$ref": "#/definitions/modelBranch"
+        }
+      }
+    },
+    "model_list": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "default"
+      ],
+      "properties": {
+        "default": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "下拉冷启动候选全集。不变量：必须是 models 各分支（default/peak/coding_plan）值集的超集。"
+        },
+        "coding_plan": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "peak_hours": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/peakWindow"
+      },
+      "description": "高峰/低峰计价窗口（UTC+0 基准，first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。"
+    },
+    "name": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "en-US",
+        "zh-Hans",
+        "ar-SA",
+        "fr-FR",
+        "de-DE",
+        "ru-RU",
+        "ja-JP",
+        "es-ES"
+      ],
+      "properties": {
+        "en-US": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "zh-Hans": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "ar-SA": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "fr-FR": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "de-DE": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "ru-RU": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "ja-JP": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "es-ES": {
+          "$ref": "#/definitions/nonEmptyString"
+        }
+      }
+    },
+    "source_urls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "docs"
+      ],
+      "properties": {
+        "docs": {
+          "$ref": "#/definitions/nonEmptyString"
+        },
+        "pricing": {
+          "$ref": "#/definitions/nonEmptyString",
+          "description": "官方定价页。除 devin（无公开定价页）外全部平台必填。"
+        }
+      }
+    },
+    "homepage": {
+      "$ref": "#/definitions/nonEmptyString"
+    },
+    "logo_url": {
+      "type": "string",
+      "description": "Simple Icons slug（如 minimax）或完整图片 URL，空串走 favicon/clearbit/首字母 fallback。本项目不存储任何平台 logo，由用户端从第三方获取（logo_sync.rs 三路拉取）。"
+    },
+    "keywords": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "搜索关键词（platformPaste.ts 粘贴匹配 + 前端拼音搜索）。"
+    },
+    "color": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "description": "品牌色，前端徽标/卡片着色。"
+    }
+  },
+  "definitions": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "endpointList": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "protocol",
+          "base_url",
+          "client_type"
+        ],
+        "properties": {
+          "protocol": {
+            "type": "string",
+            "minLength": 1
+          },
+          "base_url": {
+            "type": "string",
+            "pattern": "^https?://",
+            "description": "含版本前缀（如 /v1、/api/paas/v4）。最终 URL = base_url + provider_api_path，禁止额外拼接。"
+          },
+          "client_type": {
+            "type": "string",
+            "enum": [
+              "default",
+              "claude_code",
+              "codex_tui"
+            ]
+          },
+          "coding_plan": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "modelBranch": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "客户端模型槽位到平台真实模型 id 的映射。槽位：default / opus / sonnet / haiku / gpt / fable。聚合/中转平台可留空对象（候选全由用户填）。"
+    },
+    "peakWindow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "start_hour",
+        "end_hour",
+        "multiplier"
+      ],
+      "properties": {
+        "start_hour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23
+        },
+        "end_hour": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 23
+        },
+        "multiplier": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "days_of_week": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          }
+        },
+        "models": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "限定仅特定请求模型命中窗口；缺省 = 该平台全部模型。"
+        },
+        "start_at": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "窗口生效起点（Unix 秒）。"
+        }
+      }
+    }
+  }
+}
