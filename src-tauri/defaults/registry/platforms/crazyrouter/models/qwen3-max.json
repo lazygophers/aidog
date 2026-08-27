@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen3-max",
+  "canonical_model": "qwen3-max",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 2.11e-06,
+  "output_cost_per_token": 8.43e-06,
+  "cache_read_input_token_cost": 2.11e-07
+}

@@ -1,0 +1,12 @@
+{
+  "model_id": "qwen3-vl-plus",
+  "canonical_model": "qwen3-vl-plus",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.43e-07,
+  "output_cost_per_token": 1.429e-06,
+  "cache_read_input_token_cost": 2.9e-08
+}

@@ -1,0 +1,10 @@
+{
+  "model_id": "doubao-seed-code-preview-251028",
+  "canonical_model": "doubao-seed-code-preview-251028",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.71e-07,
+  "output_cost_per_token": 1.143e-06
+}

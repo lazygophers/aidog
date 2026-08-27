@@ -1,0 +1,10 @@
+{
+  "model_id": "qwen3.6-plus",
+  "canonical_model": "qwen3.6-plus",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.8e-06
+}

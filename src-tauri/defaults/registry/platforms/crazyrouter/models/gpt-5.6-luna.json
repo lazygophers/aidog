@@ -1,0 +1,11 @@
+{
+  "model_id": "gpt-5.6-luna",
+  "canonical_model": "gpt-5.6-luna",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.3e-07,
+  "output_cost_per_token": 7.8e-07,
+  "cache_read_input_token_cost": 1.3e-08
+}

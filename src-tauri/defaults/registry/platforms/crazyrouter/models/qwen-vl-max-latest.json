@@ -1,0 +1,11 @@
+{
+  "model_id": "qwen-vl-max-latest",
+  "canonical_model": "qwen-vl-max-latest",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.1e-07,
+  "output_cost_per_token": 1.64e-06
+}

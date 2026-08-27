@@ -1,0 +1,11 @@
+{
+  "model_id": "gemini-2.5-flash",
+  "canonical_model": "gemini-2.5-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "input_cost_per_token": 1.65e-07,
+  "output_cost_per_token": 1.375e-06,
+  "cache_read_input_token_cost": 4.4e-08
+}

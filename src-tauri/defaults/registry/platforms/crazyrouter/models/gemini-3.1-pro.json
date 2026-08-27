@@ -1,0 +1,11 @@
+{
+  "model_id": "gemini-3.1-pro",
+  "canonical_model": "gemini-3.1-pro",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 1.1e-06,
+  "output_cost_per_token": 6.6e-06,
+  "cache_read_input_token_cost": 2.75e-07
+}
