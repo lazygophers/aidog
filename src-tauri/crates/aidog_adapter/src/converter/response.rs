@@ -223,7 +223,6 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | QianfanCoding
         | XiaomiMimo
         | XiaomiMimoCoding
-        | BaiLing
         | Longcat
         | SenseNova
         | OpenRouter
@@ -246,7 +245,6 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | Pateway
         | CcSub
         | ApiKeyFun
-        | ApiNebula
         | SudoCode
         | ClaudeApi
         | ClaudeCN

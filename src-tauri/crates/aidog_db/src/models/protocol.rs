@@ -68,8 +68,6 @@ pub enum Protocol {
     /// XiaomiMimo Coding Plan 独立协议（与 glm_coding 同构，JSON key `xiaomi_mimo_coding`）。
     #[serde(rename = "xiaomi_mimo_coding")]
     XiaomiMimoCoding,
-    #[serde(rename = "bailing")]
-    BaiLing,
     #[serde(rename = "longcat")]
     Longcat,
     #[serde(rename = "sensenova")]
@@ -116,8 +114,6 @@ pub enum Protocol {
     CcSub,
     #[serde(rename = "apikeyfun")]
     ApiKeyFun,
-    #[serde(rename = "apinebula")]
-    ApiNebula,
     #[serde(rename = "sudocode")]
     SudoCode,
     #[serde(rename = "claudeapi")]
@@ -202,7 +198,7 @@ impl Protocol {
                 | MiniMax | MiniMaxEn | Codex | Bailian | BailianCoding
                 | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
                 | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding
-                | BaiLing | Longcat | SenseNova | Devin
+                | Longcat | SenseNova | Devin
         )
     }
 }

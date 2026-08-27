@@ -174,8 +174,6 @@ fn protocol_for_openai_compat_name(name: &str) -> Protocol {
         Protocol::CherryIn
     } else if n.contains("xiaomi") || n.contains("mimo") {
         Protocol::XiaomiMimo
-    } else if n.contains("bailing") {
-        Protocol::BaiLing
     } else {
         Protocol::OpenAI
     }
