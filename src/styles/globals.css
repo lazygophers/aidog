@@ -122,7 +122,10 @@
      setProperty; these aliases follow automatically at computed-value time.
      Saves 700+ sed renames across 90+ files; shadcn-pages removes aliases when migrating. */
   --text-primary: var(--foreground);
-  --text-secondary: var(--muted-foreground);
+  /* 三级文字梯度：primary(前景) > secondary > tertiary(muted)。secondary 若直接等于
+     muted-foreground，二三级同色 —— 正文辅助信息（表格数值、字段说明）灰得过头，
+     且梯度信息丢失。用前景与 muted 的混合把它抬到中间档，两种模式都自动跟随。 */
+  --text-secondary: color-mix(in srgb, var(--foreground) 45%, var(--muted-foreground));
   --text-tertiary: var(--muted-foreground);
   --text-on-accent: var(--primary-foreground);
   --bg-base: var(--background);
@@ -137,6 +140,12 @@
   --accent-hover: var(--primary);
   --accent-subtle: color-mix(in srgb, var(--primary) 13%, transparent);
   --border-focus: var(--ring);
+  /* 语义色裸名别名：全库既有 6 处写 var(--danger) / var(--success)（分组测试面板、
+     MCP 页、模型信息同步卡…），但只定义过 --color-* 前缀名 —— 无效变量让 color 退化成
+     继承色，失败态不是红的。别名统一指向 --color-*，dark 块覆盖 --color-* 时自动跟随。 */
+  --danger: var(--color-danger);
+  --success: var(--color-success);
+  --warning: var(--color-warning);
   --accent-1: var(--primary);
   --accent-2: var(--secondary);
   --accent-3: var(--accent);
@@ -265,6 +274,27 @@ body {
 .glass-surface:hover {
   border-color: color-mix(in srgb, var(--primary) 28%, var(--glass-edge));
   box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+}
+
+/* 玻璃表格：挂在 .glass-surface 容器内的 <table> 上。
+   shadcn 的 border-b 用全强度 --border 逐行画线，行一多线条比内容还抢眼；这里把行分隔
+   压到 40%、表头下沿留 70% 作分区线，表头本身给一层 primary 微染的底band 与正文分层，
+   hover 用 --accent-subtle 而不是 muted 灰块 —— 与 CompactCard / StatChip 同一套观感。 */
+.glass-table tbody tr {
+  border-bottom-color: color-mix(in srgb, var(--border) 40%, transparent);
+}
+
+.glass-table thead tr {
+  border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.glass-table thead th {
+  background: color-mix(in srgb, var(--primary) 5%, var(--bg-surface));
+  letter-spacing: 0.02em;
+}
+
+.glass-table tbody tr:hover {
+  background: var(--accent-subtle);
 }
 
 .glass-elevated {

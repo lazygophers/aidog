@@ -74,10 +74,10 @@ export function Pagination({
             <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
           ) : (
             <Button key={p} variant={p === currentPage ? "default" : "ghost"}
-              style={{
-                ...btnStyle,
-                ...(p === currentPage ? { fontWeight: 700, color: "var(--accent)" } : {}),
-              }}
+              // 当前页走 default variant（primary 底），文字色交给 variant 自己的
+              // primary-foreground —— 之前额外覆写 color: var(--accent) 等于把强调色写在
+              // 强调色底上，两种模式下都近乎看不清。
+              style={p === currentPage ? { ...btnStyle, fontWeight: 700 } : btnStyle}
               onClick={() => onPageChange(p)}>{p}</Button>
           ),
         )}

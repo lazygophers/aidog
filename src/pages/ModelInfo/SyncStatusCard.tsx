@@ -69,7 +69,7 @@ export function SyncStatusCard({
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid color-mix(in srgb, var(--border) 45%, transparent)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <Switch
             checked={settings.auto_sync_enabled}
@@ -104,7 +104,7 @@ export function SyncStatusCard({
         </span>
       </div>
 
-      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid color-mix(in srgb, var(--border) 45%, transparent)" }}>
         <span style={{ fontSize: F.small, fontWeight: 600 }}>{t("modelInfo.fallback")}</span>
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <label style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("modelInfo.input")}</label>
@@ -127,7 +127,7 @@ export function SyncStatusCard({
       </div>
 
       {result && (
-        <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ paddingTop: 8, borderTop: "1px solid color-mix(in srgb, var(--border) 45%, transparent)", display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: F.small }}>
             {t("modelInfo.syncResult")
               .replace("{added}", String(result.added))

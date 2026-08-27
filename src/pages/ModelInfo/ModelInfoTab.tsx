@@ -269,7 +269,7 @@ export function ModelInfoTab() {
           <TabsContent value="models">
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div className="glass-surface" style={{ overflow: "auto" }}>
-                <Table style={{ fontSize: F.hint }}>
+                <Table className="glass-table" style={{ fontSize: F.hint }}>
                   <TableHeader>
                     <TableRow>
                       <Th>{t("modelInfo.colModel")}</Th>
@@ -402,7 +402,12 @@ function PlatformPane({ platformCodes, byPlatform, labelMap, active, onSelect, q
               width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "6px 8px",
               background: code === current ? "var(--accent-subtle)" : "transparent",
               border: "none", borderRadius: "var(--radius-sm)", cursor: "pointer",
-              color: "inherit", textAlign: "start",
+              // 选中态只靠 13% 透明的 accent-subtle 底色，浅色模式下几乎看不出选了哪一项；
+              // 补一条 accent 竖线 + 文字提权，两种模式下都能一眼定位。
+              boxShadow: code === current ? "inset 2px 0 0 var(--accent)" : "none",
+              color: code === current ? "var(--accent)" : "inherit",
+              fontWeight: code === current ? 600 : 400,
+              textAlign: "start",
             }}
           >
             <ProtocolLogo protocol={code as Protocol} size={16} />
@@ -420,7 +425,7 @@ function PlatformPane({ platformCodes, byPlatform, labelMap, active, onSelect, q
             {t("modelInfo.selectPlatform")}
           </div>
         ) : (
-          <Table style={{ fontSize: F.hint }}>
+          <Table className="glass-table" style={{ fontSize: F.hint }}>
             <TableHeader>
               <TableRow>
                 <Th>{t("modelInfo.colModel")}</Th>
