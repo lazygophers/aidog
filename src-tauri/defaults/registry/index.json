@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787854640,
+  "last_updated": 1787854727,
   "platforms": [
     {
       "code": "aicodemirror",
@@ -538,7 +538,17 @@
       "name": "ClaudeAPI",
       "platform_file": "platforms/claudeapi/platform.json",
       "models_dir": "platforms/claudeapi/models",
-      "models": []
+      "models": [
+        "claude-fable-5.json",
+        "claude-haiku-4-5.json",
+        "claude-opus-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5.json",
+        "claude-sonnet-4-6.json",
+        "claude-sonnet-5.json"
+      ]
     },
     {
       "code": "claudecn",
