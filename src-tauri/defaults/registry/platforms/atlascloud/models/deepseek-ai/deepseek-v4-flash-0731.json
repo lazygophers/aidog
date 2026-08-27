@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek-ai/deepseek-v4-flash-0731",
+  "canonical_model": "deepseek-v4-flash-0731",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "input_cost_per_token": 4.4e-07,
+  "output_cost_per_token": 1.32e-06,
+  "cache_read_input_token_cost": 2.8e-08,
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 393216
+}
