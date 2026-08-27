@@ -45,8 +45,8 @@
     "es-ES": "MiniMax"
   },
   "source_urls": {
-    "docs": "https://platform.minimaxi.com/document/Announcement",
-    "pricing": "https://platform.minimaxi.com/document/Price"
+    "docs": "https://platform.minimaxi.com/docs",
+    "pricing": "https://platform.minimaxi.com/docs/pricing/overview"
   },
   "homepage": "https://www.minimaxi.com",
   "logo_url": "minimax",

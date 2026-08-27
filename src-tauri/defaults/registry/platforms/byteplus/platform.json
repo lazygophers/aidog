@@ -4,7 +4,7 @@
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://ark.ap-southeast.bytepluses.com/api/coding",
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan",
         "client_type": "claude_code"
       },
       {

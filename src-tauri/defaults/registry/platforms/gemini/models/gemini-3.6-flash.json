@@ -1,0 +1,22 @@
+{
+  "model_id": "gemini-3.6-flash",
+  "canonical_model": "gemini-3.6-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 1048576,
+  "official": true,
+  "input_cost_per_token": 7.5e-07,
+  "output_cost_per_token": 3.75e-06,
+  "cache_read_input_token_cost": 7.5e-08,
+  "time_tiers": [
+    {
+      "start_at": 1798761600,
+      "input_cost_per_token": 1.5e-06,
+      "output_cost_per_token": 7.5e-06,
+      "cache_read_input_token_cost": 1.5e-07
+    }
+  ]
+}

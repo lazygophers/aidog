@@ -23,8 +23,7 @@
     "default": [
       "step-3.7-flash",
       "step-3.5-flash",
-      "step-3.5-flash-2603",
-      "step-1o-turbo-vision"
+      "step-3.5-flash-2603"
     ]
   },
   "name": {
@@ -39,7 +38,7 @@
   },
   "source_urls": {
     "docs": "https://platform.stepfun.ai/docs",
-    "pricing": "https://platform.stepfun.ai/docs"
+    "pricing": "https://platform.stepfun.ai/docs/en/guides/pricing/details"
   },
   "homepage": "https://www.stepfun.ai",
   "logo_url": "",

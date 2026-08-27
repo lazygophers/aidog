@@ -45,8 +45,8 @@
     "es-ES": "MiniMax International"
   },
   "source_urls": {
-    "docs": "https://platform.minimax.io/document/Announcement",
-    "pricing": "https://platform.minimax.io/document/Price"
+    "docs": "https://platform.minimax.io/docs",
+    "pricing": "https://platform.minimax.io/docs/pricing/overview"
   },
   "homepage": "https://www.minimax.io",
   "logo_url": "minimax",

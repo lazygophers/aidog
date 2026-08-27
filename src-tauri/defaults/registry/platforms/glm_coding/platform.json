@@ -21,27 +21,22 @@
     "default": {
       "default": "glm-5.3",
       "opus": "glm-5.3",
-      "sonnet": "glm-4.7",
+      "sonnet": "glm-5.3-flash",
       "gpt": "glm-5.3",
-      "haiku": "glm-4.5"
+      "haiku": "glm-5.3-flash"
     },
     "peak": {
-      "default": "glm-4.7",
-      "opus": "glm-4.7",
-      "sonnet": "glm-4.6",
-      "gpt": "glm-4.7",
-      "haiku": "glm-4.5"
+      "default": "glm-5.3-flash",
+      "opus": "glm-5.3-flash",
+      "sonnet": "glm-5.3-flash",
+      "gpt": "glm-5.3-flash",
+      "haiku": "glm-5.3-flash"
     }
   },
   "model_list": {
     "default": [
-      "glm-5.2",
-      "glm-5-turbo",
-      "glm-4.7",
-      "glm-4.6",
-      "glm-4.5",
-      "glm-5.1",
-      "glm-5"
+      "glm-5.3",
+      "glm-5.3-flash"
     ]
   },
   "name": {
@@ -80,8 +75,8 @@
         5
       ],
       "models": [
-        "glm-5.2",
-        "glm-5-turbo"
+        "glm-5.3",
+        "glm-5.3-flash"
       ]
     }
   ]

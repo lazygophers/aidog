@@ -37,10 +37,10 @@
     "es-ES": "SenseNova (SenseTime)"
   },
   "source_urls": {
-    "docs": "https://platform.sensenova.cn/document",
-    "pricing": "https://platform.sensenova.cn/document"
+    "docs": "https://platform.sensenova.cn",
+    "pricing": "https://www.sensenova.cn/token-plan"
   },
-  "homepage": "https://www.sense_time.com",
+  "homepage": "https://www.sensetime.com",
   "logo_url": "",
   "keywords": [
     "sensenova",

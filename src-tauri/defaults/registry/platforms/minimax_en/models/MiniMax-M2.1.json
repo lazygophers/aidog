@@ -1,0 +1,14 @@
+{
+  "model_id": "MiniMax-M2.1",
+  "canonical_model": "MiniMax-M2.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 204800,
+  "max_output_tokens": 100000,
+  "context_window": 204800,
+  "official": true,
+  "input_cost_per_token": 3e-07,
+  "output_cost_per_token": 1.2e-06,
+  "cache_read_input_token_cost": 3e-08
+}
