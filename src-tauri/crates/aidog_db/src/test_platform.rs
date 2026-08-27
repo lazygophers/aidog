@@ -50,6 +50,35 @@ use rusqlite::params;
 
 
 
+    /// 回归：DB 里存了**裸** wire 名（无 JSON 引号，外部工具 / 老 seed SQL 直写）时，
+    /// 读行不得 panic —— 旧实现 `serde_json::from_str(..).unwrap()` 会杀死 tokio-rusqlite
+    /// 后台线程，该连接此后永久返 ConnectionClosed，platform 读池逐条耗尽后
+    /// `get_group_platforms` 全失败 → 所有代理请求 400 route error（2026-08-28 现场）。
+    #[tokio::test]
+    async fn bare_platform_type_does_not_kill_db_thread() {
+        let db = test_db().await;
+        let mut input = sample_platform("bare");
+        input.platform_type = Protocol::Glm;
+        let p = create_platform(&db, input).await.unwrap();
+        let pid = p.id as i64;
+        // 绕过写路径，直接把列改成裸值（复现脏数据形态）
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "UPDATE platform SET platform_type = 'minimax_coding' WHERE id = ?1",
+                params![pid],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+        db.invalidate_hot_caches();
+
+        let fetched = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(fetched.platform_type, Protocol::MinimaxCoding, "裸 wire 名应被认出");
+        // 连接仍存活：后续查询不返 ConnectionClosed
+        assert!(!list_platforms(&db).await.unwrap().is_empty(), "DB 线程应仍存活");
+    }
+
     // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──
     #[tokio::test]
     async fn s1_async_platform_crud_roundtrip() {

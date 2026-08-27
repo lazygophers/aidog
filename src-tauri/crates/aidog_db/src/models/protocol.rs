@@ -177,6 +177,33 @@ impl Protocol {
             .unwrap_or_default()
     }
 
+    /// DB `platform.platform_type` 列解析（永不 panic）。
+    ///
+    /// 该列历史上既存 JSON 字符串（`"glm"`，`serde_json::to_string` 写入的正常形态），也存在
+    /// 裸 wire 名（`minimax_coding`，外部工具 / 老 seed SQL 直写）。两种形态都要认。
+    ///
+    /// 🔴 禁改回 `unwrap()`：本函数在 `row_to_platform` 内、tokio-rusqlite 后台线程上执行，
+    /// panic 会杀死该条连接的后台线程 → 该连接永久返 `ConnectionClosed` → platform 读池逐条
+    /// 耗尽 → 路由 `get_group_platforms` 失败 → 全部代理请求 400 "route error: ConnectionClosed"
+    /// （2026-08-28 现场：DB 存了裸 `minimax_coding`，整池死，UI + 转发同时瘫）。
+    ///
+    /// 无法识别的值（枚举里没有的协议名，如降级到旧版本读新版本写的数据）回落 `Anthropic`
+    /// 并打 warn：平台可能路由到错误 wire 格式，但服务存活、日志可定位，好过整池崩。
+    pub fn from_db_str(raw: &str) -> Protocol {
+        if let Ok(p) = serde_json::from_str::<Protocol>(raw) {
+            return p;
+        }
+        let bare = raw.trim().trim_matches('"');
+        if let Ok(p) = serde_json::from_str::<Protocol>(&format!("\"{bare}\"")) {
+            return p;
+        }
+        tracing::warn!(
+            raw = %raw,
+            "unknown platform_type in DB, falling back to anthropic"
+        );
+        Protocol::Anthropic
+    }
+
     /// 判定两个协议是否属于同一「wire family」（可互相跳过响应转换 / 共用错误体与 SSE 渲染）。
     /// openai / openai_completions / openai_responses 三者共享同一渲染族；其余协议仅与自身同族。
     ///
@@ -318,6 +345,34 @@ mod test_protocol_coding_variants {
             serde_json::from_str::<Protocol>("\"xiaomi_mimo\"").unwrap(),
             Protocol::XiaomiMimo
         );
+    }
+}
+
+#[cfg(test)]
+mod test_from_db_str {
+    use super::*;
+
+    /// 正常形态：`serde_json::to_string` 写入的带引号 JSON 字符串。
+    #[test]
+    fn quoted_json_form_parses() {
+        assert_eq!(Protocol::from_db_str("\"glm_coding\""), Protocol::GlmCoding);
+        assert_eq!(Protocol::from_db_str("\"anthropic\""), Protocol::Anthropic);
+    }
+
+    /// 裸 wire 名（外部工具 / 老 seed SQL 直写）——2026-08-28 整池 ConnectionClosed 现场形态。
+    #[test]
+    fn bare_wire_name_parses() {
+        assert_eq!(Protocol::from_db_str("minimax_coding"), Protocol::MinimaxCoding);
+        assert_eq!(Protocol::from_db_str("glm"), Protocol::Glm);
+        assert_eq!(Protocol::from_db_str(" newapi "), Protocol::NewApi);
+    }
+
+    /// 未知值回落 Anthropic 且不 panic（降级运行 / 未来新协议读旧版本）。
+    #[test]
+    fn unknown_falls_back_without_panic() {
+        assert_eq!(Protocol::from_db_str("no_such_protocol"), Protocol::Anthropic);
+        assert_eq!(Protocol::from_db_str(""), Protocol::Anthropic);
+        assert_eq!(Protocol::from_db_str("{\"a\":1}"), Protocol::Anthropic);
     }
 }
 
