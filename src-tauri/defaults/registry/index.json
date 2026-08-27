@@ -71,6 +71,7 @@
         "claude-opus-4-8.json",
         "claude-opus-5.json",
         "claude-sonnet-4-20250514.json",
+        "claude-sonnet-4-5-20250902.json",
         "claude-sonnet-4-5-20250929.json",
         "claude-sonnet-4-5.json",
         "claude-sonnet-4-6.json",
@@ -1975,7 +1976,15 @@
       "name": "RelaxyCode",
       "platform_file": "platforms/relaxycode/platform.json",
       "models_dir": "platforms/relaxycode/models",
-      "models": []
+      "models": [
+        "claude-haiku-4-5-20251001.json",
+        "claude-opus-4-5-20251101.json",
+        "claude-opus-4-6.json",
+        "claude-sonnet-4-20250514.json",
+        "claude-sonnet-4-5-20250902.json",
+        "claude-sonnet-4-5-20250929.json",
+        "claude-sonnet-4-6.json"
+      ]
     },
     {
       "code": "rightcode",
