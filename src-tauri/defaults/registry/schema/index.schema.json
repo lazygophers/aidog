@@ -5,7 +5,12 @@
   "description": "registry 清单真值源。远程同步（price_sync.rs）先拉本文件，再照 platforms[].models / pricing_only[].models 逐文件拉取；漏登记一个模型文件 = 该模型线上永远同步不下来。",
   "type": "object",
   "additionalProperties": false,
-  "required": ["version", "last_updated", "platforms", "pricing_only"],
+  "required": [
+    "version",
+    "last_updated",
+    "platforms",
+    "pricing_only"
+  ],
   "properties": {
     "version": {
       "type": "string",
@@ -22,7 +27,13 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["code", "name", "platform_file", "models_dir", "models"],
+        "required": [
+          "code",
+          "name",
+          "platform_file",
+          "models_dir",
+          "models"
+        ],
         "properties": {
           "code": {
             "type": "string",
@@ -57,12 +68,16 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["code", "models_dir", "models"],
+        "required": [
+          "code",
+          "models_dir",
+          "models"
+        ],
         "properties": {
           "code": {
             "type": "string",
             "pattern": "^[a-z0-9_]+$",
-            "description": "只出模型定价条目、不进协议选择器的平台（litellm / meta / mistral）。"
+            "description": "只出模型定价条目、不进协议选择器的平台（litellm / meta / mistral / xai）。"
           },
           "models_dir": {
             "type": "string",

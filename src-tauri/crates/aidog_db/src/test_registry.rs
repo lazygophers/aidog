@@ -40,11 +40,11 @@ fn index_model_list_matches_model_files() {
     assert!(on_disk.is_empty(), "这些平台目录未登记进 index.json: {:?}", on_disk.keys());
 }
 
-/// `pricing_only`（litellm / meta / mistral）只出模型条目，不进协议选择器。
+/// `pricing_only`（litellm / meta / mistral / xai）只出模型条目，不进协议选择器。
 #[test]
 fn pricing_only_entries_carry_models_without_platform_file() {
     let idx = bundled_index();
-    for code in ["litellm", "meta", "mistral"] {
+    for code in ["litellm", "meta", "mistral", "xai"] {
         let e = idx.iter().find(|e| e.code == code).expect(code);
         assert!(e.platform_file.is_none(), "{code} 不该有 platform.json");
         assert!(!e.models.is_empty(), "{code} 模型清单不可为空");

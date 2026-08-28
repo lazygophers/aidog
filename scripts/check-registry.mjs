@@ -62,7 +62,33 @@ validate("index", "index.json", readFileSync(join(registryDir, "index.json"), "u
 //    平台已带 models 目录（自建价目）时为错；完全没目录的中转平台仅 warning
 //    （AIDOG_REGISTRY_STRICT=1 把 warning 也升级为错）。
 const strict = process.env.AIDOG_REGISTRY_STRICT === "1";
+// 无 models 目录豁免：协议/订阅/自部署类平台，计费不走 per-token 价目
+// （用户决策 2026-08-27：除这些外所有引用了 model id 的平台都必须有 models 目录）。
+// 豁免平台缺文件仍报 warning，strict 模式升级为错。
+const EXEMPT_NO_MODELS = new Set([
+  "mock", // 假协议
+  "claude_code", "codex", "devin", // 订阅/虚拟映射，无 per-token 价
+  "newapi", // 自部署中转，价目随部署方
+  "kimi_coding", "qianfan_coding", "xiaomi_mimo_coding", "bailian_coding", "compshare_coding", "minimax_coding", // coding 订阅套餐
+]);
 const indexDoc = JSON.parse(readFileSync(join(registryDir, "index.json"), "utf8"));
+
+// ③ 目录注册完整性（2026-08-28 补洞）：
+// platforms/ 下每个目录必须被 index.json 的 platforms 或 pricing_only 之一登记；
+// platforms 条目必须有 platform.json（缺了此前被静默 continue 跳过，lint 漏检）；
+// pricing_only 条目（litellm/meta/mistral）按设计只有 models/、禁止 platform.json。
+const pricingOnly = new Set((indexDoc.pricing_only ?? []).map((e) => e.code));
+const registered = new Set([...indexDoc.platforms.map((e) => e.code), ...pricingOnly]);
+for (const name of readdirSync(join(registryDir, "platforms"))) {
+  if (name === ".DS_Store") continue;
+  if (!registered.has(name)) failures.push([`platforms/${name}`, "目录未登记进 index.json（platforms / pricing_only 都没有）"]);
+}
+for (const code of pricingOnly) {
+  if (statSync(join(registryDir, "platforms", code, "platform.json"), { throwIfNoEntry: false })) {
+    failures.push([`index.json[pricing_only:${code}]`, "pricing_only 条目不应有 platform.json"]);
+  }
+}
+
 for (const entry of indexDoc.platforms) {
   const code = entry.code;
   const modelsDir = join(registryDir, "platforms", code, "models");
@@ -84,7 +110,10 @@ for (const entry of indexDoc.platforms) {
   }
 
   const platformPath = join(registryDir, "platforms", code, "platform.json");
-  if (!statSync(platformPath, { throwIfNoEntry: false })) continue;
+  if (!statSync(platformPath, { throwIfNoEntry: false })) {
+    failures.push([`platforms/${code}`, "platform.json 缺失（index.json platforms 条目必须带 platform.json）"]);
+    continue;
+  }
   const platformDoc = JSON.parse(readFileSync(platformPath, "utf8"));
   const refs = new Set();
   for (const branch of Object.values(platformDoc.models ?? {})) {
@@ -96,8 +125,28 @@ for (const entry of indexDoc.platforms) {
   const missing = [...refs].filter((id) => !diskSet.has(id));
   if (missing.length) {
     const msg = `引用 ${missing.length} 个 model id 无对应文件: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? " …" : ""}`;
-    if (diskSet.size > 0 || strict) failures.push([`platforms/${code}/platform.json`, msg]);
-    else warnings.push(`platforms/${code}: ${msg}`);
+    // 豁免平台且整个平台没有 models 目录 → warning；有目录缺文件、或非豁免平台缺目录 → 硬错
+    if (EXEMPT_NO_MODELS.has(code) && diskSet.size === 0 && !strict) warnings.push(`platforms/${code}: ${msg}`);
+    else failures.push([`platforms/${code}/platform.json`, msg]);
+  }
+}
+
+// ④ pricing_only 条目（litellm/meta/mistral）：模型文件 schema 校验 + 盘上/声明零差集。
+// 2026-08-28 前这批文件完全绕过 models 完整性检查。
+for (const entry of indexDoc.pricing_only ?? []) {
+  const code = entry.code;
+  const modelsDir = join(registryDir, "platforms", code, "models");
+  const disk = [];
+  if (statSync(modelsDir, { throwIfNoEntry: false })?.isDirectory()) {
+    walkModels(modelsDir, `platforms/${code}/models`, "", disk);
+  }
+  const diskSet = new Set(disk);
+  const declared = new Set((entry.models ?? []).map((f) => f.replace(/\.json$/, "")));
+  for (const f of declared) {
+    if (!diskSet.has(f)) failures.push([`index.json[pricing_only:${code}]`, `声明的 ${f}.json 磁盘上不存在`]);
+  }
+  for (const f of diskSet) {
+    if (!declared.has(f)) failures.push([`platforms/${code}/models`, `${f}.json 未登记进 index.json pricing_only 清单`]);
   }
 }
 
