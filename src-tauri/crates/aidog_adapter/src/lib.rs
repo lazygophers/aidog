@@ -33,6 +33,7 @@ pub mod qianfan;
 pub mod qianfan_coding;
 pub mod xiaomi_mimo;
 pub mod xiaomi_mimo_coding;
+pub mod xiaomi_mimo_coding_en;
 pub mod longcat;
 pub mod sensenova;
 pub mod sensenova_en;

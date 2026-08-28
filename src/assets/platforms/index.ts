@@ -16,6 +16,7 @@ const ALIASES: Partial<Record<Protocol, string>> = {
   bailian_en: "bailian",
   bailian_coding_en: "bailian_coding",
   kimi_en: "kimi",
+  xiaomi_mimo_coding_en: "xiaomi_mimo_coding",
   sensenova_en: "sensenova",
   bailian_coding: "bailian",
 };

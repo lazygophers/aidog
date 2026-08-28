@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787889590,
+  "last_updated": 1787923421,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2194,6 +2194,13 @@
       "name": "Xiaomi MiMo Token Plan",
       "platform_file": "platforms/xiaomi_mimo_coding/platform.json",
       "models_dir": "platforms/xiaomi_mimo_coding/models",
+      "models": []
+    },
+    {
+      "code": "xiaomi_mimo_coding_en",
+      "name": "Xiaomi MiMo Token Plan International",
+      "platform_file": "platforms/xiaomi_mimo_coding_en/platform.json",
+      "models_dir": "platforms/xiaomi_mimo_coding_en/models",
       "models": []
     }
   ],
