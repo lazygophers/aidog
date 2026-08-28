@@ -32,7 +32,8 @@ import {
   type PlatformUsageStats, type LastTestResult,
   type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
-import { pinyinMatch } from "../../utils/pinyin";
+import { platformMatchesQuery } from "../../domains/groups";
+import { getProtocolSearchTermsMap } from "../../domains/platforms/defaults";
 import { usePlatformQuota, getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformForm, type PlatformFormState } from "./usePlatformForm";
 import { setUiExtra } from "../../services/api/ui_extra";
@@ -601,6 +602,14 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     }
   };
 
+  // 协议搜索词（registry name 全 locale + keywords）：挂载时拉一次，搜索跨语言匹配用
+  const [protocolTerms, setProtocolTerms] = useState<Partial<Record<string, string[]>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolSearchTermsMap().then(m => { if (!cancelled) setProtocolTerms(m); }).catch(console.error);
+    return () => { cancelled = true; };
+  }, []);
+
   // ════════════ DERIVED (standalone + counts) ════════════
   // 未归属任何分组的平台（主列表独立展示）；已分组平台只在 GroupsEmbedded 内展示，避免重复。
   const standalonePlatforms = useMemo(
@@ -609,11 +618,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       .filter(p => {
         const q = searchQuery.trim();
         if (!q) return true;
-        return pinyinMatch(q, p.name)
-          || pinyinMatch(q, p.base_url)
-          || pinyinMatch(q, p.platform_type);
+        return platformMatchesQuery(p, q, protocolTerms);
       }),
-    [platforms, platformMembership, searchQuery],
+    [platforms, platformMembership, searchQuery, protocolTerms],
   );
   // 列表头部「启用 / 总数」派生值：仅随 platforms 变化，避免每次轮询/拖拽重渲染时重扫全列表
   const enabledCount = useMemo(() => platforms.filter(p => p.enabled).length, [platforms]);

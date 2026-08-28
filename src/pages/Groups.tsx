@@ -6,6 +6,7 @@ import type {
 import { groupApi, groupDetailApi, platformApi } from "../services/api";
 import { setUiExtra } from "../services/api/ui_extra";
 import { allModelValues } from "../domains/platforms";
+import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import type { PlatformCardActions } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
 import {
@@ -667,6 +668,14 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
   const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];
 
+  // 协议搜索词（registry name 全 locale + keywords）：挂载时拉一次，平台搜索跨语言匹配用
+  const [protocolTerms, setProtocolTerms] = useState<Partial<Record<string, string[]>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolSearchTermsMap().then(m => { if (!cancelled) setProtocolTerms(m); }).catch(console.error);
+    return () => { cancelled = true; };
+  }, []);
+
   // per-group 搜索结果：命中分组名 → 整组（visibleIds=null 信号）；否则 → 命中平台 id 集（可能空）。
   const groupSearch = useMemo(() => {
     if (!sq) return null;
@@ -679,12 +688,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       const matched = new Set<number>();
       for (const gp of d.platforms) {
         const pp = platforms.find(p => p.id === gp.platform.id);
-        if (pp && platformMatchesQuery(pp, sq)) matched.add(pp.id);
+        if (pp && platformMatchesQuery(pp, sq, protocolTerms)) matched.add(pp.id);
       }
       if (matched.size > 0) map.set(d.group.id, { visibleIds: matched });
     }
     return map;
-  }, [sq, details, platforms]);
+  }, [sq, details, platforms, protocolTerms]);
 
   // SortableList items + group→index 映射：搜索态下过滤掉无命中的组。
   const groupRows = useMemo<GroupRow[]>(

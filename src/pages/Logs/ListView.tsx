@@ -18,6 +18,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useEffect, useState } from "react";
+import { getProtocolSearchTermsMap } from "../../domains/platforms/defaults";
 
 /**
  * 日志列表视图（自原 Logs.tsx L455-637 外迁）。
@@ -29,6 +31,13 @@ export function ListView({ filters, list, openDetail, copyRow }: {
   openDetail: (id: string) => void;
   copyRow: (id: string) => void;
 }) {
+  // 协议搜索词（registry name 全 locale + keywords）：平台筛选下拉跨语言搜索用
+  const [protocolTerms, setProtocolTerms] = useState<Partial<Record<string, string[]>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolSearchTermsMap().then(m => { if (!cancelled) setProtocolTerms(m); }).catch(console.error);
+    return () => { cancelled = true; };
+  }, []);
   const {
     t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
     filterModelType, filterModelText, filterPath,
@@ -82,7 +91,7 @@ export function ListView({ filters, list, openDetail, copyRow }: {
           value={filterPlatform}
           onChange={setFilterPlatform}
           options={[
-            ...platforms.map(p => ({ value: String(p.id), label: p.name })),
+            ...platforms.map(p => ({ value: String(p.id), label: p.name, searchTerms: protocolTerms[p.platform_type] })),
             // 隧道请求 host 未命中任何平台 → platform_id=0
             { value: "0", label: t("logs.noPlatform", "无平台") },
           ]}

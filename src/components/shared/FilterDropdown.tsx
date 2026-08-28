@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
 import { makeRipple } from "../../utils/motion";
+import { pinyinMatch } from "../../utils/pinyin";
 
 export interface FilterDropdownProps {
   width: number;
@@ -16,7 +17,8 @@ export interface FilterDropdownProps {
   /** 「全部」选项标签（value="" 时显示） */
   allLabel: string;
   searchPlaceholder: string;
-  options: Array<{ value: string; label: string }>;
+  /** 选项可带 searchTerms（registry 协议搜索词），搜索时跨语言/拼音匹配（label 之外） */
+  options: Array<{ value: string; label: string; searchTerms?: string[] }>;
   /** 搜索无匹配时的空态文案 */
   emptyLabel: string;
 }
@@ -26,9 +28,9 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
   const [search, setSearch] = useState("");
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const q = search.trim();
     if (!q) return options;
-    return options.filter(o => o.label.toLowerCase().includes(q));
+    return options.filter(o => pinyinMatch(q, o.label) || !!o.searchTerms?.some(t => pinyinMatch(q, t)));
   }, [options, search]);
 
   const current = options.find(o => o.value === value);

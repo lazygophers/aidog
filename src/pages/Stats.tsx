@@ -15,6 +15,7 @@ import {
 import { formatNumber, formatCost, successRate } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
 import { F } from "../domains/shared/tokens";
+import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import {
   successRateLevel,
   costLevel,
@@ -137,6 +138,13 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  // 协议搜索词（registry name 全 locale + keywords）：平台筛选下拉跨语言搜索用
+  const [protocolTerms, setProtocolTerms] = useState<Partial<Record<string, string[]>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolSearchTermsMap().then(m => { if (!cancelled) setProtocolTerms(m); }).catch(console.error);
+    return () => { cancelled = true; };
+  }, []);
 
   // 维度表排序 / 分页
   const [sortKey, setSortKey] = useState<SortKey>("total_requests");
@@ -217,8 +225,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     [data],
   );
   const allPlatforms = useMemo(
-    () => platforms.map(p => ({ value: String(p.id), label: p.name })),
-    [platforms],
+    () => platforms.map(p => ({ value: String(p.id), label: p.name, searchTerms: protocolTerms[p.platform_type] })),
+    [platforms, protocolTerms],
   );
 
   const overview = data?.overview;
