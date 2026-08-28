@@ -31,7 +31,7 @@ use http::{err_quota, QUOTA_PLATFORM_ID};
 pub fn quota_config_for(protocol: &Protocol) -> QuotaCapability {
     use Protocol::*;
     match protocol {
-        Glm | GlmCoding | GlmEn => crate::glm::quota::quota_config(),
+        Glm | GlmCoding | GlmEn | GlmCodingEn => crate::glm::quota::quota_config(),
         Kimi | KimiCoding => crate::kimi::quota::quota_config(),
         MiniMax | MiniMaxEn | MinimaxCoding => crate::minimax::quota::quota_config(),
         DeepSeek => crate::deepseek::quota::quota_config(),
@@ -72,7 +72,7 @@ async fn query_for_inner(db: Option<&Arc<Db>>, protocol: &Protocol, base_url: &s
         return err_quota("API key is empty");
     }
     match protocol {
-        Glm | GlmCoding | GlmEn => crate::glm::quota::query_zhipu_coding_plan(db, base_url, api_key).await,
+        Glm | GlmCoding | GlmEn | GlmCodingEn => crate::glm::quota::query_zhipu_coding_plan(db, base_url, api_key).await,
         Kimi | KimiCoding => crate::kimi::quota::query_kimi_coding_plan(db, api_key).await,
         MiniMax | MinimaxCoding => crate::minimax::quota::query_minimax_coding_plan(db, api_key, true).await,
         MiniMaxEn => crate::minimax::quota::query_minimax_coding_plan(db, api_key, false).await,

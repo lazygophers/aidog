@@ -166,7 +166,7 @@ fn endpoints_follow_db_synced_preset() {
 /// R12：`endpoints_locked()` 协议保存时强制用 preset 端点，读空会清空用户端点。
 #[test]
 fn default_endpoints_present_for_direct_vendors() {
-    for code in ["anthropic", "openai", "gemini", "deepseek", "glm_coding"] {
+    for code in ["anthropic", "openai", "gemini", "deepseek", "glm_coding", "glm_coding_en"] {
         assert!(!default_endpoints(code).is_empty(), "{code} 默认端点不可为空");
     }
 }
