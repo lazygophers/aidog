@@ -65,9 +65,9 @@ export function SearchableProtocolSelect({
   };
   const filtered = protocols.filter(p => {
     if (!query.trim()) return true;
+    // searchTerms = name 全 8 locale + label + keywords（跨语言搜索；中文条目拼音/首字母经 pinyinMatch 生效）
+    if (p.searchTerms?.some(term => pinyinMatch(query, term))) return true;
     if (pinyinMatch(query, labelOf(p))) return true;
-    if (pinyinMatch(query, p.label)) return true; // fallback 英文兜底也参与匹配
-    if (p.keywords?.some(kw => pinyinMatch(query, kw))) return true;
     if (pinyinMatch(query, p.value)) return true;
     return false;
   });
