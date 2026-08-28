@@ -313,11 +313,21 @@ export async function buildProtocolsFromPresets(locale?: string): Promise<Protoc
       ...(entry.endpoints?.coding_plan ?? []),
     ];
     const hosts = deriveProtocolHosts(epsAll);
+    // 搜索词全集：name 全 8 locale + label + keywords（跨语言搜索用，UI 语言无关）
+    const keywords = entry.keywords ?? [];
+    const searchTerms = [
+      ...new Set([
+        ...Object.values(entry.name ?? {}).filter((v): v is string => !!v && !!v.trim()),
+        label,
+        ...keywords,
+      ]),
+    ];
     out.push({
       value: proto,
       label,
       codingPlan,
-      keywords: entry.keywords ?? [],
+      keywords,
+      searchTerms,
       ...(hosts.length ? { hosts } : {}),
       ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
     });

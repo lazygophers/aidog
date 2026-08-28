@@ -4,6 +4,7 @@ import {
   getDefaultModels,
   getDefaultModelList,
   getDefaultEndpoints,
+  buildProtocolsFromPresets,
   __resetDefaultsCacheForTests,
 } from "./defaults";
 import type { Protocol } from "../../services/api";
@@ -44,7 +45,8 @@ const DEFAULTS_MOCK = JSON.stringify({
         coding_plan: { default: "kimi-cp", sonnet: "kimi-cp-sonnet" },
       },
       model_list: { default: ["kimi-default"] },
-      name: { "en-US": "Kimi Coding" },
+      name: { "en-US": "Kimi Coding", "zh-Hans": "Kimi 编程" },
+      keywords: ["moonshot"],
     },
     deepseek: {
       client_type: "codex_tui",
@@ -119,5 +121,23 @@ describe("getDefaultEndpoints / getDefaultModelList — 仅 default/coding_plan 
     expect(list).toContain("glm-4.5");
     expect(list).toContain("glm-4.6");
     expect(list).toContain("glm-4.7");
+  });
+});
+
+describe("buildProtocolsFromPresets — searchTerms 跨语言搜索", () => {
+  it("searchTerms 含 name 全 locale + label + keywords（UI locale 无关）", async () => {
+    const list = await buildProtocolsFromPresets("en-US");
+    const kimi = list.find(p => p.value === ("kimi_coding" as Protocol));
+    expect(kimi).toBeDefined();
+    expect(kimi!.searchTerms).toContain("Kimi Coding");   // en-US label
+    expect(kimi!.searchTerms).toContain("Kimi 编程");      // zh-Hans name（UI 在 en-US 也可搜中文）
+    expect(kimi!.searchTerms).toContain("moonshot");       // keywords
+  });
+
+  it("name 只有单 locale 时 searchTerms 不含空串", async () => {
+    const list = await buildProtocolsFromPresets("zh-Hans");
+    const ds = list.find(p => p.value === ("deepseek" as Protocol));
+    expect(ds!.searchTerms).toContain("DeepSeek");
+    expect(ds!.searchTerms!.every(t => t.trim())).toBe(true);
   });
 });
