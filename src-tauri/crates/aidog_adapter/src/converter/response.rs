@@ -207,6 +207,7 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | Glm
         | GlmCoding
         | GlmEn
+        | GlmCodingEn
         | Kimi
         | KimiCoding
         | MiniMax

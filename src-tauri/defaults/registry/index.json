@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787855236,
+  "last_updated": 1787887935,
   "platforms": [
     {
       "code": "aihubmix",
@@ -712,6 +712,18 @@
       "name": "GLM Coding Plan (Zhipu AI)",
       "platform_file": "platforms/glm_coding/platform.json",
       "models_dir": "platforms/glm_coding/models",
+      "models": [
+        "glm-5-turbo.json",
+        "glm-5.2.json",
+        "glm-5.3-flash.json",
+        "glm-5.3.json"
+      ]
+    },
+    {
+      "code": "glm_coding_en",
+      "name": "GLM Coding Plan International (z.ai)",
+      "platform_file": "platforms/glm_coding_en/platform.json",
+      "models_dir": "platforms/glm_coding_en/models",
       "models": [
         "glm-5-turbo.json",
         "glm-5.2.json",

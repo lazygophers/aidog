@@ -1,0 +1,83 @@
+{
+  "is_coding_plan": true,
+  "client_type": "codex_tui",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.z.ai/api/coding/paas/v4",
+        "client_type": "codex_tui",
+        "coding_plan": true
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.z.ai/api/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "glm-5.3",
+      "opus": "glm-5.3",
+      "sonnet": "glm-5.3-flash",
+      "gpt": "glm-5.3",
+      "haiku": "glm-5.3-flash"
+    },
+    "peak": {
+      "default": "glm-5.3-flash",
+      "opus": "glm-5.3-flash",
+      "sonnet": "glm-5.3-flash",
+      "gpt": "glm-5.3-flash",
+      "haiku": "glm-5.3-flash"
+    }
+  },
+  "model_list": {
+    "default": [
+      "glm-5.3",
+      "glm-5.3-flash"
+    ]
+  },
+  "name": {
+    "en-US": "GLM Coding Plan International (z.ai)",
+    "zh-Hans": "GLM Coding 国际版（z.ai）",
+    "ar-SA": "GLM Coding Plan International (z.ai)",
+    "fr-FR": "GLM Coding Plan International (z.ai)",
+    "de-DE": "GLM Coding Plan International (z.ai)",
+    "ru-RU": "GLM Coding Plan International (z.ai)",
+    "ja-JP": "GLM コーディング国際版（z.ai）",
+    "es-ES": "GLM Coding Plan International (z.ai)"
+  },
+  "source_urls": {
+    "docs": "https://docs.z.ai/devpack/overview",
+    "pricing": "https://docs.z.ai/devpack/overview"
+  },
+  "homepage": "https://z.ai",
+  "logo_url": "zai",
+  "keywords": [
+    "z.ai coding",
+    "zhipu en coding",
+    "智谱国际编程",
+    "glm coding intl"
+  ],
+  "color": "#3B5FEC",
+  "peak_hours": [
+    {
+      "start_hour": 6,
+      "end_hour": 10,
+      "multiplier": 3,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "models": [
+        "glm-5.3",
+        "glm-5.3-flash"
+      ]
+    }
+  ]
+}

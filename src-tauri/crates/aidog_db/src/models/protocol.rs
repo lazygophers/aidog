@@ -31,6 +31,10 @@ pub enum Protocol {
     GlmCoding,
     #[serde(rename = "glm_en")]
     GlmEn,
+    /// GLM Coding Plan 国际版（z.ai，docs.z.ai/devpack）：与 glm_coding 同构，
+    /// 端点在 api.z.ai（openai `/api/coding/paas/v4` / anthropic `/api/anthropic`）。
+    #[serde(rename = "glm_coding_en")]
+    GlmCodingEn,
     #[serde(rename = "kimi")]
     Kimi,
     /// Kimi Coding Plan 独立协议（与 glm_coding 同构，JSON key `kimi_coding`，
@@ -225,7 +229,7 @@ impl Protocol {
         matches!(
             self,
             Mock | ClaudeCode
-                | Glm | GlmCoding | GlmEn | Kimi | KimiCoding
+                | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiCoding
                 | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Bailian | BailianCoding
                 | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
                 | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding

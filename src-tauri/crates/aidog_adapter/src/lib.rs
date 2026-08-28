@@ -14,6 +14,7 @@ pub mod claude_code;
 pub mod glm;
 pub mod glm_coding;
 pub mod glm_en;
+pub mod glm_coding_en;
 pub mod kimi;
 pub mod kimi_coding;
 pub mod minimax;
