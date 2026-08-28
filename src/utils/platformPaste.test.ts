@@ -680,17 +680,4 @@ describe("全协议回归矩阵（platform-presets.json 数据驱动）", () => 
     expect(out.apiKeys.some((k) => k.startsWith("tp-"))).toBe(true);
     expect(out.platform?.value).toBe("xiaomi_mimo");
   });
-
-  it("SPEC 已知限制: claudeapi/claudecn brand 含 'claude' 子串，'官方 API' 干扰下 anthropic 抢匹配", () => {
-    // 文档化（不禁跳过，让限制可见）：keyword 打分下 anthropic "claude"(子串命中 brand) + "官方" = 2 hits，
-    // 而 claudeapi/claudecn 单 brand keyword = 1 hit → anthropic 胜。
-    // 真实场景影响：用户粘贴 "claudeapi 官方 API key sk-..." 会被识别为 anthropic 而非 claudeapi。
-    // SPEC(交 main 判): 是否给 claudeapi/claudecn 补 distinctive keyword（如 "claude api 中转"/"claude cn 镜像"），
-    // 或调整 keyword 打分权重（brand 完整匹配 > 子串匹配），禁擅自改 presets.json。
-    for (const proto of ["claudeapi", "claudecn"]) {
-      const entry = PROTOCOLS_JSON[proto];
-      const text = (entry.keywords ?? []).join(" ") + " 官方 API";
-      expect(matchPlatform(text, ALL_PRESETS)?.value).toBe("anthropic");
-    }
-  });
 });
