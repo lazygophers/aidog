@@ -1,0 +1,59 @@
+{
+  "is_coding_plan": true,
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://token-plan-sgp.xiaomimimo.com/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": true
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
+        "client_type": "codex_tui",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "mimo-v2.5-pro"
+    }
+  },
+  "model_list": {
+    "default": [
+      "mimo-v2.5-pro",
+      "mimo-v2.5"
+    ]
+  },
+  "name": {
+    "en-US": "Xiaomi MiMo Token Plan International",
+    "zh-Hans": "小米 MiMo 套餐国际版",
+    "ar-SA": "Xiaomi MiMo Token Plan International",
+    "fr-FR": "Xiaomi MiMo Token Plan International",
+    "de-DE": "Xiaomi MiMo Token Plan International",
+    "ru-RU": "Xiaomi MiMo Token Plan International",
+    "ja-JP": "小米 MiMo トークンプラン国際版",
+    "es-ES": "Xiaomi MiMo Token Plan International"
+  },
+  "source_urls": {
+    "docs": "https://platform.xiaomimimo.com/docs/welcome",
+    "pricing": "https://platform.xiaomimimo.com/token-plan"
+  },
+  "homepage": "https://platform.xiaomimimo.com",
+  "logo_url": "xiaomi",
+  "keywords": [
+    "xiaomi coding intl",
+    "mimo token plan sgp",
+    "token-plan-sgp",
+    "小米编程国际",
+    "小米套餐国际",
+    "mimo international"
+  ],
+  "color": "#FF6900",
+  "codingKeyPrefixes": [
+    "tp-"
+  ]
+}

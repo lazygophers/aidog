@@ -228,6 +228,7 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | QianfanCoding
         | XiaomiMimo
         | XiaomiMimoCoding
+        | XiaomiMimoCodingEn
         | Longcat
         | SenseNova
         | SenseNovaEn
