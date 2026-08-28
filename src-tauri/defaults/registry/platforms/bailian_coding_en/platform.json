@@ -1,0 +1,54 @@
+{
+  "is_coding_plan": true,
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "anthropic",
+        "base_url": "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic",
+        "client_type": "claude_code",
+        "coding_plan": true
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://coding-intl.dashscope.aliyuncs.com/v1",
+        "client_type": "codex_tui",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "qwen3-coder-plus"
+    }
+  },
+  "model_list": {
+    "default": [
+      "qwen3-coder-plus",
+      "qwen3-coder-flash",
+      "qwen3.7-max"
+    ]
+  },
+  "name": {
+    "en-US": "Bailian Coding Plan International",
+    "zh-Hans": "百炼编程国际版",
+    "ar-SA": "Bailian Coding Plan International",
+    "fr-FR": "Bailian Coding Plan International",
+    "de-DE": "Bailian Coding Plan International",
+    "ru-RU": "Bailian Coding Plan International",
+    "ja-JP": "百煉プログラミング国際版",
+    "es-ES": "Bailian Coding Plan International"
+  },
+  "source_urls": {
+    "docs": "https://www.alibabacloud.com/help/en/model-studio/claude-code",
+    "pricing": "https://www.alibabacloud.com/help/en/model-studio/coding-plan"
+  },
+  "homepage": "https://www.alibabacloud.com",
+  "logo_url": "alibabacloud",
+  "keywords": [
+    "dashscope coding intl",
+    "coding-intl",
+    "百炼编程国际"
+  ],
+  "color": "#FF6A00"
+}

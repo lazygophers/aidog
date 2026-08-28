@@ -1,0 +1,22 @@
+{
+  "model_id": "qwen3.6-plus",
+  "canonical_model": "qwen3.6-plus",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": true,
+  "input_cost_per_token": 5e-07,
+  "output_cost_per_token": 3e-06,
+  "cache_read_input_token_cost": 5.0000000000000004e-08,
+  "context_tiers": [
+    {
+      "min_tokens": 262145,
+      "input_cost_per_token": 2e-06,
+      "output_cost_per_token": 6e-06,
+      "cache_read_input_token_cost": 2.0000000000000002e-07
+    }
+  ]
+}

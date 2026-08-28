@@ -42,11 +42,11 @@ export const PROTOCOL_LABELS: Partial<Record<Protocol, string>> = {
  *  本集合必须与其 matches! 分支一致，禁单侧改。 */
 export const ENDPOINTS_LOCKED_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
   "mock", "claude_code",
-  "glm", "glm_coding", "glm_en", "glm_coding_en", "kimi", "kimi_coding",
-  "minimax", "minimax_en", "minimax_coding", "codex", "bailian", "bailian_coding",
+  "glm", "glm_coding", "glm_en", "glm_coding_en", "kimi", "kimi_en", "kimi_coding",
+  "minimax", "minimax_en", "minimax_coding", "codex", "bailian", "bailian_en", "bailian_coding", "bailian_coding_en",
   "deepseek", "stepfun", "stepfun_en", "doubao", "byteplus",
   "qianfan", "qianfan_coding", "xiaomi_mimo", "xiaomi_mimo_coding",
-  "longcat", "sensenova", "devin",
+  "longcat", "sensenova", "sensenova_en", "devin",
 ]);
 
 /** 默认平台名集合（用于 handleProtocolChange 判断「name 仍是协议默认名 → 切协议时自动覆盖」）。
