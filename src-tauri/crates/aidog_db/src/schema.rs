@@ -13,6 +13,73 @@ type NotifRow = (String, String, String, i64);
 /// 避免对 4 表 80+ 列各自建 tuple 类型（列漂移时自动跟随 SELECT *）。
 type TableRows = (Vec<String>, Vec<Vec<rusqlite::types::Value>>);
 
+/// 2026-08-28 registry 下架的 20 家 newapi 类中转站（用户决策：「newapi 的那种第三方站，
+/// 都不要作为独立的平台存在」；registry preset 已删，Protocol 枚举与 adapter 有意保留——
+/// DB 里填过 key 的存量条目照常工作，wire 转换不受下架影响）。
+const DELISTED_PLATFORM_CODES: &[&str] = &[
+    "aicodemirror", "aigocode", "ccsub", "relaxycode", "ctok", "cubence", "rightcode",
+    "micu", "lemondata", "apikeyfun", "claudeapi", "claudecn", "eflowcode", "packycode",
+    "runapi", "sudocode", "sssaicode", "pateway", "dmxapi", "cherryin",
+];
+
+/// 下架平台启动期清理（platform.db 侧，Phase 3 回填后跑，幂等）：
+/// `api_key` 空的行 = 用户从未配置（只是点过预设），软删 + 清 group_platform 成员关系
+/// （与 delete_platform 同语义，拆两步而非单事务——deleted_at 置位后不再命中，重放安全）。
+/// 填过 key 的行不动：那是在用的平台，删了直接断用户请求。
+fn cleanup_delisted_platform_rows(conn: &rusqlite::Connection) {
+    let mut removed = 0usize;
+    for code in DELISTED_PLATFORM_CODES {
+        // platform_type 两种历史形态都认（from_db_str 同口径）：带引号 JSON 串 + 裸 wire 名。
+        let quoted = format!("\"{code}\"");
+        let ids: Vec<i64> = conn
+            .prepare(
+                "SELECT id FROM platform
+                 WHERE deleted_at = 0 AND TRIM(api_key) = ''
+                   AND platform_type IN (?1, ?2)",
+            )
+            .and_then(|mut s| {
+                s.query_map(params![code, quoted], |r| r.get::<_, i64>(0))
+                    .map(|iter| iter.filter_map(Result::ok).collect())
+            })
+            .unwrap_or_default();
+        for id in ids {
+            if conn
+                .execute(
+                    "UPDATE platform SET deleted_at = ?1 WHERE id = ?2 AND deleted_at = 0",
+                    params![now(), id],
+                )
+                .map(|n| n > 0)
+                .unwrap_or(false)
+            {
+                conn.execute("DELETE FROM group_platform WHERE platform_id = ?1", params![id])
+                    .unwrap_or_default();
+                removed += 1;
+            }
+        }
+    }
+    if removed > 0 {
+        tracing::info!(removed, "registry 下架平台清理：api_key 空的存量行已软删（填过 key 的行保留）");
+    }
+}
+
+/// 主库镜像表（platform_preset / model_entry）对应行无条件清：镜像数据无用户态，registry
+/// 真值源已删，留着只会在模型维度列表里继续展示下架平台。幂等：无匹配行 0 影响。
+/// Phase 1 主库闭包在 run_migrations_late 之后跑（两表 DDL 在 20260826-01 内）。
+fn cleanup_delisted_registry_mirror_rows(conn: &rusqlite::Connection) {
+    let mut removed = 0usize;
+    for code in DELISTED_PLATFORM_CODES {
+        let _ = conn
+            .execute("DELETE FROM platform_preset WHERE code = ?1", params![code])
+            .map(|n| removed += n);
+        let _ = conn
+            .execute("DELETE FROM model_entry WHERE platform_code = ?1", params![code])
+            .map(|n| removed += n);
+    }
+    if removed > 0 {
+        tracing::info!(removed, "registry 下架平台镜像行清理（platform_preset / model_entry）");
+    }
+}
+
 /// Migration 20260727-20 (原 049): `notification` 表归属 log.db。主库残留表读出全部行（**不 DROP**，由 Phase 1
 /// 主库闭包独立 DROP，避免 notification 049 的 read+DROP→INSERT 顺序在 crash 时丢数据）。
 /// 幂等：表已不存在 → SELECT 报错吞空 Vec。
@@ -150,6 +217,7 @@ pub fn init_tables_raw(
                     move |conn| {
                     run_migrations_early(conn)?;
                     run_migrations_late(conn, backfill.clone())?;
+                    cleanup_delisted_registry_mirror_rows(conn);
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
                     // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（原 Mig 046 在 log.db 上的
@@ -202,6 +270,8 @@ pub fn init_tables_raw(
                 insert_platform_table_rows(conn, "\"group\"", &grp_rows.0, &grp_rows.1)?;
                 insert_platform_table_rows(conn, "group_platform", &gp_rows.0, &gp_rows.1)?;
                 insert_platform_table_rows(conn, "cli_proxy_provider", &cpa_rows.0, &cpa_rows.1)?;
+                // 回填之后再清：首次迁移（主库存量 → platform.db）若先清，回填会把待删行原样搬回。
+                cleanup_delisted_platform_rows(conn);
                 Ok(())
             })
             .await
@@ -438,3 +508,7 @@ pub fn seed_builtin_middleware_rules_counted(
     Ok((inserted, updated))
 }
 
+
+#[cfg(test)]
+#[path = "test_delisted_cleanup.rs"]
+mod test_delisted_cleanup;
