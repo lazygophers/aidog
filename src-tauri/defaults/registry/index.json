@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1787887935,
+  "last_updated": 1787889590,
   "platforms": [
     {
       "code": "aihubmix",
@@ -300,6 +300,37 @@
       "platform_file": "platforms/bailian_coding/platform.json",
       "models_dir": "platforms/bailian_coding/models",
       "models": []
+    },
+    {
+      "code": "bailian_coding_en",
+      "name": "Bailian Coding Plan International",
+      "platform_file": "platforms/bailian_coding_en/platform.json",
+      "models_dir": "platforms/bailian_coding_en/models",
+      "models": []
+    },
+    {
+      "code": "bailian_en",
+      "name": "Bailian International (Alibaba Cloud)",
+      "platform_file": "platforms/bailian_en/platform.json",
+      "models_dir": "platforms/bailian_en/models",
+      "models": [
+        "qwen-flash.json",
+        "qwen-plus.json",
+        "qwen-turbo.json",
+        "qwen3-coder-flash.json",
+        "qwen3-coder-plus.json",
+        "qwen3-max.json",
+        "qwen3-vl-flash.json",
+        "qwen3-vl-plus.json",
+        "qwen3.5-flash.json",
+        "qwen3.5-plus.json",
+        "qwen3.6-flash.json",
+        "qwen3.6-plus.json",
+        "qwen3.7-flash.json",
+        "qwen3.7-max.json",
+        "qwen3.7-plus.json",
+        "qwen3.8-max.json"
+      ]
     },
     {
       "code": "byteplus",
@@ -795,6 +826,19 @@
       "platform_file": "platforms/kimi_coding/platform.json",
       "models_dir": "platforms/kimi_coding/models",
       "models": []
+    },
+    {
+      "code": "kimi_en",
+      "name": "Kimi International (Moonshot AI)",
+      "platform_file": "platforms/kimi_en/platform.json",
+      "models_dir": "platforms/kimi_en/models",
+      "models": [
+        "kimi-k2.5.json",
+        "kimi-k2.6.json",
+        "kimi-k2.7-code-highspeed.json",
+        "kimi-k2.7-code.json",
+        "kimi-k3.json"
+      ]
     },
     {
       "code": "longcat",
@@ -1583,6 +1627,15 @@
         "deepseek-v4-flash.json",
         "sensenova-6.7-flash-lite.json",
         "sensenova-u1-fast.json"
+      ]
+    },
+    {
+      "code": "sensenova_en",
+      "name": "SenseNova International",
+      "platform_file": "platforms/sensenova_en/platform.json",
+      "models_dir": "platforms/sensenova_en/models",
+      "models": [
+        "sensenova-6.8-flash-lite.json"
       ]
     },
     {

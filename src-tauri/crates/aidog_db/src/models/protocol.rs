@@ -41,6 +41,9 @@ pub enum Protocol {
     /// 自带独立 endpoints/models/model_list 分支）。
     #[serde(rename = "kimi_coding")]
     KimiCoding,
+    /// Kimi 国际版（Moonshot AI，api.moonshot.ai）：模型集与美元价目独立于 CN 版。
+    #[serde(rename = "kimi_en")]
+    KimiEn,
     #[serde(rename = "minimax")]
     MiniMax,
     #[serde(rename = "minimax_en")]
@@ -55,6 +58,13 @@ pub enum Protocol {
     Bailian,
     #[serde(rename = "bailian_coding")]
     BailianCoding,
+    /// 阿里百炼国际版（Model Studio International，新加坡区）：
+    /// dashscope-intl.aliyuncs.com，模型集与美元价目与 CN 版独立。
+    #[serde(rename = "bailian_en")]
+    BailianEn,
+    /// 阿里 Coding Plan 国际版：coding-intl.dashscope.aliyuncs.com（openai `/v1` / anthropic `/apps/anthropic`）。
+    #[serde(rename = "bailian_coding_en")]
+    BailianCodingEn,
     // ── 国内官方平台 ──
     #[serde(rename = "deepseek")]
     DeepSeek,
@@ -80,6 +90,9 @@ pub enum Protocol {
     Longcat,
     #[serde(rename = "sensenova")]
     SenseNova,
+    /// SenseNova 国际版（sensenova.ai，token.sensenova.ai）：OpenAI `/v1` + Anthropic 裸域（SDK 拼 /v1/messages）。
+    #[serde(rename = "sensenova_en")]
+    SenseNovaEn,
     // ── 聚合平台 ──
     #[serde(rename = "openrouter")]
     OpenRouter,
@@ -229,11 +242,11 @@ impl Protocol {
         matches!(
             self,
             Mock | ClaudeCode
-                | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiCoding
-                | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Bailian | BailianCoding
+                | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiEn | KimiCoding
+                | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Bailian | BailianCoding | BailianEn | BailianCodingEn
                 | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
                 | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding
-                | Longcat | SenseNova | Devin
+                | Longcat | SenseNova | SenseNovaEn | Devin
         )
     }
 }

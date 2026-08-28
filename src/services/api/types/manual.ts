@@ -25,11 +25,11 @@ export type Protocol =
   // ── AI 请求协议（endpoint 协议）──
   | "anthropic" | "openai" | "openai_responses" | "openai_completions" | "gemini"
   // ── 平台类型 ──
-  | "glm" | "glm_coding" | "glm_en" | "glm_coding_en" | "kimi" | "kimi_coding" | "minimax" | "minimax_en" | "minimax_coding" | "codex"
-  | "bailian" | "bailian_coding" | "qianfan_coding" | "xiaomi_mimo_coding"
+  | "glm" | "glm_coding" | "glm_en" | "glm_coding_en" | "kimi" | "kimi_en" | "kimi_coding" | "minimax" | "minimax_en" | "minimax_coding" | "codex"
+  | "bailian" | "bailian_en" | "bailian_coding" | "bailian_coding_en" | "qianfan_coding" | "xiaomi_mimo_coding"
   // ── 国内官方平台 ──
   | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "byteplus" | "qianfan"
-  | "xiaomi_mimo" | "longcat" | "sensenova"
+  | "xiaomi_mimo" | "longcat" | "sensenova" | "sensenova_en"
   // ── 聚合平台 ──
   | "openrouter" | "siliconflow" | "siliconflow_en" | "aihubmix" | "dmxapi" | "modelscope"
   | "shengsuanyun" | "atlascloud" | "novita" | "therouter" | "cherryin"

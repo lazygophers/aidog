@@ -209,6 +209,7 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | GlmEn
         | GlmCodingEn
         | Kimi
+        | KimiEn
         | KimiCoding
         | MiniMax
         | MiniMaxEn
@@ -216,6 +217,8 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | Codex
         | Bailian
         | BailianCoding
+        | BailianEn
+        | BailianCodingEn
         | DeepSeek
         | StepFun
         | StepFunEn
@@ -227,6 +230,7 @@ pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model:
         | XiaomiMimoCoding
         | Longcat
         | SenseNova
+        | SenseNovaEn
         | OpenRouter
         | SiliconFlow
         | SiliconFlowEn

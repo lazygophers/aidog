@@ -69,7 +69,8 @@ const EXEMPT_NO_MODELS = new Set([
   "mock", // 假协议
   "claude_code", "codex", "devin", // 订阅/虚拟映射，无 per-token 价
   "newapi", // 自部署中转，价目随部署方
-  "kimi_coding", "qianfan_coding", "xiaomi_mimo_coding", "bailian_coding", "compshare_coding", "minimax_coding", // coding 订阅套餐
+  "kimi_coding", "qianfan_coding", "xiaomi_mimo_coding", "bailian_coding", "bailian_coding_en",
+  "compshare_coding", "minimax_coding", "glm_coding_en", // coding 订阅套餐
 ]);
 const indexDoc = JSON.parse(readFileSync(join(registryDir, "index.json"), "utf8"));
 

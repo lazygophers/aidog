@@ -1,0 +1,53 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.moonshot.ai/v1",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.moonshot.ai/anthropic",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "kimi-k3"
+    }
+  },
+  "model_list": {
+    "default": [
+      "kimi-k3",
+      "kimi-k2.7-code",
+      "kimi-k2.7-code-highspeed",
+      "kimi-k2.6",
+      "kimi-k2.5"
+    ]
+  },
+  "name": {
+    "en-US": "Kimi International (Moonshot AI)",
+    "zh-Hans": "Kimi 国际版（月之暗面）",
+    "ar-SA": "Kimi International (Moonshot AI)",
+    "fr-FR": "Kimi International (Moonshot AI)",
+    "de-DE": "Kimi International (Moonshot AI)",
+    "ru-RU": "Kimi International (Moonshot AI)",
+    "ja-JP": "Kimi 国際版（Moonshot AI）",
+    "es-ES": "Kimi International (Moonshot AI)"
+  },
+  "source_urls": {
+    "docs": "https://platform.kimi.ai/docs",
+    "pricing": "https://platform.kimi.ai/docs/pricing/chat"
+  },
+  "homepage": "https://platform.kimi.ai",
+  "logo_url": "moonshotai",
+  "keywords": [
+    "moonshot intl",
+    "kimi international",
+    "月之暗面国际"
+  ],
+  "color": "#1783FF"
+}

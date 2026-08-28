@@ -1,0 +1,49 @@
+{
+  "client_type": "default",
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://token.sensenova.ai/v1",
+        "client_type": "codex_tui"
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://token.sensenova.ai",
+        "client_type": "claude_code"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "sensenova-6.8-flash-lite"
+    }
+  },
+  "model_list": {
+    "default": [
+      "sensenova-6.8-flash-lite"
+    ]
+  },
+  "name": {
+    "en-US": "SenseNova International (SenseTime)",
+    "zh-Hans": "日日新国际版（商汤）",
+    "ar-SA": "SenseNova International (SenseTime)",
+    "fr-FR": "SenseNova International (SenseTime)",
+    "de-DE": "SenseNova International (SenseTime)",
+    "ru-RU": "SenseNova International (SenseTime)",
+    "ja-JP": "SenseNova 国際版（SenseTime）",
+    "es-ES": "SenseNova International (SenseTime)"
+  },
+  "source_urls": {
+    "docs": "https://platform.sensenova.ai/docs",
+    "pricing": "https://www.sensenova.ai/token-plan"
+  },
+  "homepage": "https://www.sensenova.ai",
+  "logo_url": "",
+  "keywords": [
+    "sensenova intl",
+    "商汤国际",
+    "日日新国际"
+  ],
+  "color": "#888888"
+}
