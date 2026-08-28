@@ -267,6 +267,25 @@ export async function getProtocolLabelMap(locale?: string): Promise<Record<Proto
   return out;
 }
 
+/** 协议搜索词全集映射（value → name 全 8 locale + label + keywords），供平台列表/筛选搜索跨语言匹配。
+ *  与 buildProtocolsFromPresets 的 searchTerms 同源派生；UI 语言无关（中文词条任何 locale 下都可搜，拼音经 pinyinMatch 生效）。 */
+export async function getProtocolSearchTermsMap(): Promise<Partial<Record<Protocol, string[]>>> {
+  const doc = await loadDoc();
+  const out: Partial<Record<Protocol, string[]>> = {};
+  for (const proto of Object.keys(doc.protocols) as Protocol[]) {
+    const entry = doc.protocols[proto];
+    if (!entry) continue;
+    out[proto] = [
+      ...new Set([
+        ...Object.values(entry.name ?? {}).filter((v): v is string => !!v && !!v.trim()),
+        resolveName(entry.name, proto),
+        ...(entry.keywords ?? []),
+      ]),
+    ];
+  }
+  return out;
+}
+
 /** 从 getDefaultEndpoints 派生 URL 子串（host + path），供智能识别 base_url 优先匹配。
  *  按 preset.codingPlan 取对应 cp 分支，避免 coding plan 与普通版互相误匹配。
  *  取 host+pathname（非仅 hostname）：同 host 分裂（如 glm open.bigmodel.cn 普通 /api/paas/v4 vs
