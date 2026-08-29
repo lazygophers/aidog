@@ -49,8 +49,14 @@
             "properties": {
               "protocol": {
                 "type": "string",
-                "minLength": 1,
-                "description": "【必填】端点协议（anthropic / openai 等）。"
+                "description": "【必填】端点 wire 协议（= Rust Protocol 枚举头段 5 个请求协议，与前端 constants.ts PROTOCOLS 对称）。平台类型协议（glm_coding / mock / devin 等）不作为 endpoint 协议。",
+                "enum": [
+                  "anthropic",
+                  "openai",
+                  "openai_responses",
+                  "openai_completions",
+                  "gemini"
+                ]
               },
               "base_url": {
                 "type": "string",
