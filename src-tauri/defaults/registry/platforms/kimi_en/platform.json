@@ -54,5 +54,8 @@
     "kimi code",
     "kimi coding"
   ],
-  "color": "#1783FF"
+  "color": "#1783FF",
+  "key_prefixes": [
+    "sk-kimi-"
+  ]
 }

@@ -62,5 +62,8 @@
     "chatgpt",
     "官方"
   ],
-  "color": "#10A37F"
+  "color": "#10A37F",
+  "key_prefixes": [
+    "sk-proj-"
+  ]
 }

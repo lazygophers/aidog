@@ -51,6 +51,7 @@ registry/
 | `peak_hours[]` | Rust `gateway/peak_hours.rs`（resolve_multiplier / is_in_peak_window）、前端 `utils/peakHours.ts`（isCurrentlyPeak，cross-layer 对称） |
 | `is_coding_plan` | Rust `gateway/router/ordering.rs`（coding 平台排序靠后）、前端 platformPaste 机制 B |
 | `codingKeyPrefixes` | 前端 `utils/platformPaste.ts`（粘贴分享帖时 API key 前缀命中即升级 coding 变体） |
+| `key_prefixes` | 前端 `platformPaste.ts::collectKeyPrefixes`（粘贴识别 key 提取正则数据驱动生成；平台前缀禁在代码硬编码，通用 `sk-`/`sk_` 除外） |
 | `name`（8 locale 全必填） | 前端 `useProtocolMeta` / 协议选择器 label |
 | `source_urls.docs` / `.pricing` | 前端模型信息页 / 官方价核对入口 |
 | `homepage` | 前端平台卡片外链 + logo fallback（favicon） |

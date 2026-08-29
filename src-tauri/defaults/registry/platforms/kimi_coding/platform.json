@@ -59,5 +59,8 @@
     "moonshot",
     "月之暗面"
   ],
-  "color": "#1783FF"
+  "color": "#1783FF",
+  "key_prefixes": [
+    "sk-kimi-"
+  ]
 }

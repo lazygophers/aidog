@@ -55,5 +55,8 @@
   "color": "#FF6900",
   "codingKeyPrefixes": [
     "tp-"
+  ],
+  "key_prefixes": [
+    "tp-"
   ]
 }

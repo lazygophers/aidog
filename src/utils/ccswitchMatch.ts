@@ -46,6 +46,8 @@ function toPastePresets(protocols: ProtocolOption[]): PastePresetRef[] {
     codingPlan: p.codingPlan,
     // 机制 B 数据源，必须透传，否则纯 token 粘贴的 coding plan 升级（如 tp- 前缀）失效。
     codingKeyPrefixes: p.codingKeyPrefixes,
+    // key 提取正则数据源（registry `key_prefixes`），必须透传，否则平台专属前缀 key 漏提。
+    keyPrefixes: p.keyPrefixes,
   }));
 }
 

@@ -75,6 +75,8 @@ type DefaultsDoc = {
     keywords?: string[];
     /** coding plan 专属 token 前缀（如小米 token-plan 的 "tp-"）；机制 B 升级用。 */
     codingKeyPrefixes?: string[];
+    /** 平台 API key 前缀（如 sk-ant- / sk-kimi- / ark-）；粘贴识别的 key 提取正则据此数据驱动生成。 */
+    key_prefixes?: string[];
     /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
      *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
      *  absent / 空数组 = 无调整（multiplier 1.0）。
@@ -349,6 +351,7 @@ export async function buildProtocolsFromPresets(locale?: string): Promise<Protoc
       searchTerms,
       ...(hosts.length ? { hosts } : {}),
       ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
+      ...(entry.key_prefixes?.length ? { keyPrefixes: entry.key_prefixes } : {}),
     });
   }
   return out;

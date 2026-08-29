@@ -6,6 +6,7 @@ import {
   matchPlatform,
   parsePlatformPaste,
   extractExpiryAt,
+  collectKeyPrefixes,
   type PastePresetRef,
 } from "./platformPaste";
 // 真值源 = src-tauri/defaults/registry/（一协议一 platform.json）——数据驱动回归矩阵用。
@@ -22,12 +23,14 @@ const PRESETS: PastePresetRef[] = [
     label: "Anthropic",
     keywords: ["claude", "克劳德", "官方"],
     hosts: ["api.anthropic.com"],
+    keyPrefixes: ["sk-ant-"],
   },
   {
     value: "openai",
     label: "OpenAI",
     keywords: ["gpt", "chatgpt", "官方"],
     hosts: ["api.openai.com/v1"],
+    keyPrefixes: ["sk-proj-"],
   },
   { value: "deepseek", label: "DeepSeek", keywords: ["deepseek"], hosts: ["api.deepseek.com"] },
   {
@@ -63,6 +66,7 @@ const PRESETS: PastePresetRef[] = [
     value: "doubao",
     label: "火山引擎",
     keywords: ["火山", "doubao", "volces", "agentplan"],
+    keyPrefixes: ["ark-"],
     // 单平台多端点派生：coding plan（/api/coding + /api/coding/v3）+
     // agent plan（/api/plan + /api/plan/v3）。hosts Set 去重后四条。
     hosts: [
@@ -567,6 +571,7 @@ describe("extractExpiryAt — MM.DD (月.日) format", () => {
 interface PresetEntry {
   keywords?: string[];
   codingKeyPrefixes?: string[];
+  key_prefixes?: string[];
   is_coding_plan?: boolean;
   name?: { "en-US"?: string; [locale: string]: string | undefined };
   endpoints?: {
@@ -608,6 +613,7 @@ function buildAllPresetsFromJson(): PastePresetRef[] {
       ...(hosts.size ? { hosts: [...hosts] } : {}),
       ...(entry.is_coding_plan ? { codingPlan: true } : {}),
       ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
+      ...(entry.key_prefixes?.length ? { keyPrefixes: entry.key_prefixes } : {}),
     });
   }
   return out;
@@ -622,6 +628,23 @@ const PROTOCOLS_JSON = (presetsJson as { protocols: Record<string, PresetEntry> 
  * SPEC: 交 main 判是否补更独特 keyword（如 "claude api 中转"/"claude cn 镜像"），禁擅自改 presets.json。
  */
 const KNOWN_WEAK_KEYWORD_PROTOCOLS = new Set(["claudeapi", "claudecn"]);
+
+describe("collectKeyPrefixes — key 前缀数据驱动（禁代码硬编码平台前缀）", () => {
+  it("从 registry key_prefixes + codingKeyPrefixes 收集，含通用 sk-，长在前", () => {
+    const prefixes = collectKeyPrefixes(ALL_PRESETS);
+    expect(prefixes).toContain("sk-ant-");   // anthropic
+    expect(prefixes).toContain("sk-kimi-");  // kimi
+    expect(prefixes).toContain("ark-");      // doubao
+    expect(prefixes).toContain("tp-");       // xiaomi_mimo_coding codingKeyPrefixes
+    expect(prefixes).toContain("sk-");       // 通用
+    // 长在前（sk-ant- 先于 sk-）
+    expect(prefixes.indexOf("sk-ant-")).toBeLessThan(prefixes.indexOf("sk-"));
+  });
+
+  it("无平台前缀时至少返回通用 sk-", () => {
+    expect(collectKeyPrefixes([{ value: "x", label: "x" }])).toEqual(["sk-", "sk_"]);
+  });
+});
 
 describe("全协议回归矩阵（platform-presets.json 数据驱动）", () => {
   // 排除 mock（NEVER_AUTO_MATCH）、xiaomi_mimo_coding（coding 变体同族，需 tp- key 区分，见专项测试）、
