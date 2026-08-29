@@ -1,6 +1,6 @@
 // ui_extra.ts — UI 态持久化 invoke 封装。
 // 对应 Rust `commands_platform::ui_extra::set_ui_extra`（读改写 platform/group extra JSON 单键）。
-// key 推荐 `_ui_` 前缀（与业务键 peak_hours/breaker/...共存无副作用；导出时 strip）。
+// key 推荐 `_ui_` 前缀（与业务键 peak/breaker/...共存无副作用；导出时 strip）。
 
 import { invoke } from "@tauri-apps/api/core";
 

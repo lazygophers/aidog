@@ -27,7 +27,7 @@ pub fn resolve_time_windows(
         return default_models.clone();
     }
 
-    // 复用 peak_hours 的 utc_time 和 hit 判定（含 minute + day_of_month）
+    // 复用 peak 的 utc_time 和 hit 判定（含 minute + day_of_month）
     let (hour, minute, weekday, day_of_month) = crate::gateway::peak::utc_time(epoch_ms);
 
     // first-match: 遍历 rules，找到第一个命中的窗口
@@ -66,13 +66,13 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak::Time
         end_minute: Option<i32>,
         #[serde(default)]
         days_of_month: Option<Vec<i32>>,
-        /// 窗口时区（IANA；缺省 UTC）。与 peak_hours 窗口同字段，time_windows 时段切换同样按此时区解释。
+        /// 窗口时区（IANA；缺省 UTC）。与 peak 窗口同字段，time_windows 时段切换同样按此时区解释。
         #[serde(default)]
         timezone: Option<String>,
     }
     let helper: WindowHelper = serde_json::from_value(v.clone()).ok()?;
     // multiplier 字段不需要，设 1.0；time_windows 仅用时间维度切换 models，model scope 不参与
-    // （peak_hours 的 model scope 过滤语义不适用 time_windows，故 models 字段不解析 / 不传递到 hit）
+    // （peak 的 model scope 过滤语义不适用 time_windows，故 models 字段不解析 / 不传递到 hit）
     Some(crate::gateway::peak::TimeWindow {
         start_hour: helper.start_hour,
         end_hour: helper.end_hour,

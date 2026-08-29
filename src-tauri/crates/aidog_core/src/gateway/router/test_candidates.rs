@@ -141,7 +141,7 @@ async fn single_platform_peak_disabled_errs() {
     // 设置 disable_during_peak=true + 跨天窗口 22-06（always 命中：测一个非边界 hour）
     db::update_platform(&db, UpdatePlatform {
         id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+        extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
         join_group_ids: None, expires_at: None,
@@ -169,7 +169,7 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
     // 窗口设为 1-2 点（当前测试在 1-2 点外的概率 ≈ 1；如运行在 1-2 点间会偶发失败，可忽略）
     db::update_platform(&db, UpdatePlatform {
         id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":1,"end_hour":2,"multiplier":1.5}]}"#.to_string()),
+        extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":1,"end_hour":2,"multiplier":1.5}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
         join_group_ids: None, expires_at: None,
@@ -194,7 +194,7 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
 }
 
 /// 多平台分组：所有候选高峰禁用 → 返 Err("peak_disabled")（区别于普通 NoCandidate）。
-/// 验证 D5: 整组全被高峰排除时返结构化错误，handler.rs 据此落 proxy_log blocked_reason='peak_hours'。
+/// 验证 D5: 整组全被高峰排除时返结构化错误，handler.rs 据此落 proxy_log blocked_reason='peak'。
 #[tokio::test]
 async fn multi_platform_all_peak_disabled_errs() {
     let db = mk_test_db().await;
@@ -204,7 +204,7 @@ async fn multi_platform_all_peak_disabled_errs() {
     for pid in [p1.id, p2.id] {
         db::update_platform(&db, UpdatePlatform {
             id: pid, name: None, platform_type: None, base_url: None, api_key: None,
-            extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
             models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
             join_group_ids: None, expires_at: None,
@@ -232,7 +232,7 @@ async fn multi_platform_partial_peak_disabled_skipped() {
     let p2 = mk_db_platform(&db, "p2").await; // 正常
     db::update_platform(&db, UpdatePlatform {
         id: p1.id, name: None, platform_type: None, base_url: None, api_key: None,
-        extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+        extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
         join_group_ids: None, expires_at: None,
@@ -711,7 +711,7 @@ async fn least_latency_prefers_earliest_expiry_within_same_ema() {
 
 // ── PRD 07-11: preset.models.peak 分支路由层切换 ──────────────────────────────
 
-/// 构造一个 glm_coding 协议的 Platform（带 peak_hours + preset.models.default 填入 platform.models）。
+/// 构造一个 glm_coding 协议的 Platform（带 peak + preset.models.default 填入 platform.models）。
 fn glm_coding_platform(extra: &str, platform_models: PlatformModels) -> Platform {
     let mut p = super::super::test_mod::mk_platform(PlatformStatus::Enabled, 0);
     p.platform_type = Protocol::GlmCoding;
@@ -720,7 +720,7 @@ fn glm_coding_platform(extra: &str, platform_models: PlatformModels) -> Platform
     p
 }
 
-/// 高峰窗口 06:00-10:00 UTC × 3.0（与 platform-presets.json glm_coding.peak_hours[0] 同）。
+/// 高峰窗口 06:00-10:00 UTC × 3.0（与 platform-presets.json glm_coding.peak[0] 同）。
 /// 测试时间戳选 2024-01-01T07:00:00Z（hour=7 落 [6,10)）→ 命中高峰。
 const PEAK_MS: i64 = (1_704_067_200 + 7 * 3600) * 1000;
 /// 非高峰时间戳 2024-01-01T12:00:00Z（hour=12，[6,10) 外）。
@@ -794,20 +794,20 @@ fn resolve_effective_models_protocol_without_peak_branch_unchanged() {
 }
 
 #[test]
-fn resolve_effective_models_user_peak_hours_override_takes_effect() {
-    // 用户 extra.peak_hours 覆盖 preset 默认（peak_for 优先返用户值）
+fn resolve_effective_models_user_peak_override_takes_effect() {
+    // 用户 extra.peak 覆盖 preset 默认（peak_for 优先返用户值）
     // 此处用户窗口设为非时段（start=end=0 退化 = 全天命中）→ is_in_peak_window=true
     let platform_models = PlatformModels {
         default: Some("glm-5.2".into()),
         ..Default::default()
     };
     let extra = serde_json::json!({
-        "peak_hours": [{"start_hour": 0, "end_hour": 0, "multiplier": 1.5}]
+        "peak": [{"start_hour": 0, "end_hour": 0, "multiplier": 1.5}]
     }).to_string();
     let p = glm_coding_platform(&extra, platform_models);
     // OFF_MS（hour=12，正常非高峰）但用户窗口全天命中 → 仍切 peak
     let eff = resolve_effective_models(&p, &[], OFF_MS, "");
-    assert_eq!(eff.default.as_deref(), Some("glm-5.3-flash"), "用户 peak_hours 命中 → 切 peak");
+    assert_eq!(eff.default.as_deref(), Some("glm-5.3-flash"), "用户 peak 命中 → 切 peak");
 }
 
 // ── cpa-standalone-module s2: cli-proxy 平台路由 ──────────────────────────────

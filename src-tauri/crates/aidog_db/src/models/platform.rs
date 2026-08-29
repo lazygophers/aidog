@@ -298,7 +298,7 @@ pub fn parse_builtin_tool_compat(extra: &str) -> BuiltinToolCompat {
 /// 各字段对应旧 ad-hoc 解析点（见 file:line 清单，均已改走本 struct）：
 /// - `breaker` ← `parse_breaker`
 /// - `disable_during_peak` ← `parse_disable_during_peak`
-/// - `peak_hours` ← `parse_platform_peak`
+/// - `peak` ← `parse_platform_peak`
 /// - `time_windows` ← `parse_platform_time_windows`
 /// - `cli_proxy_provider_id` ← `router::candidates::read_cli_proxy_provider_id`
 /// - `devin` ← `quota::devin::parse_devin_extra`
@@ -311,7 +311,7 @@ pub struct PlatformExtra {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disable_during_peak: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub peak_hours: Vec<crate::models::stats::TimeWindow>,
+    pub peak: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub time_windows: Vec<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -515,36 +515,36 @@ mod tests {
     // ── PlatformExtra ──
 
     #[test]
-    fn platform_extra_peak_hours_round_trip() {
-        let extra = r#"{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],"disable_during_peak":true}"#;
+    fn platform_extra_peak_round_trip() {
+        let extra = r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],"disable_during_peak":true}"#;
         let parsed = PlatformExtra::parse(extra);
         assert!(parsed.disable_during_peak);
-        assert_eq!(parsed.peak_hours.len(), 1);
-        assert_eq!(parsed.peak_hours[0].start_hour, 6);
-        assert_eq!(parsed.peak_hours[0].multiplier, 3.0);
+        assert_eq!(parsed.peak.len(), 1);
+        assert_eq!(parsed.peak[0].start_hour, 6);
+        assert_eq!(parsed.peak[0].multiplier, 3.0);
 
         // 序列化回 JSON 再解析，值应保持一致（往返）。
         let re_serialized = serde_json::to_string(&parsed).unwrap();
         let round_tripped = PlatformExtra::parse(&re_serialized);
         assert_eq!(round_tripped.disable_during_peak, parsed.disable_during_peak);
-        assert_eq!(round_tripped.peak_hours.len(), parsed.peak_hours.len());
-        assert_eq!(round_tripped.peak_hours[0].start_hour, parsed.peak_hours[0].start_hour);
+        assert_eq!(round_tripped.peak.len(), parsed.peak.len());
+        assert_eq!(round_tripped.peak[0].start_hour, parsed.peak[0].start_hour);
     }
 
     #[test]
     fn platform_extra_unknown_keys_preserved_in_rest() {
-        let extra = r#"{"_ui_collapsed":true,"peak_hours":[]}"#;
+        let extra = r#"{"_ui_collapsed":true,"peak":[]}"#;
         let parsed = PlatformExtra::parse(extra);
         assert_eq!(parsed.rest.get("_ui_collapsed"), Some(&serde_json::json!(true)));
-        // rest 不应吞掉已知字段（peak_hours 走专属字段，不落 rest）。
-        assert!(parsed.rest.get("peak_hours").is_none());
+        // rest 不应吞掉已知字段（peak 走专属字段，不落 rest）。
+        assert!(parsed.rest.get("peak").is_none());
     }
 
     #[test]
     fn platform_extra_empty_returns_default() {
         let parsed = PlatformExtra::parse("");
         assert!(!parsed.disable_during_peak);
-        assert!(parsed.peak_hours.is_empty());
+        assert!(parsed.peak.is_empty());
         assert!(parsed.rest.is_empty());
     }
 

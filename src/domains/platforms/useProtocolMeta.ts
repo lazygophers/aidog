@@ -25,7 +25,7 @@ import { parsePlatformPeak } from "../../services/api";
  *
  *  入参（依赖项）：
  *  - protocol: 平台类型（驱动 colorMap / isCp / models / homepage / label 查询）
- *  - extra: platform.extra JSON 串（含用户覆盖 peak_hours；驱动 isPeak 计算）
+ *  - extra: platform.extra JSON 串（含用户覆盖 peak；驱动 isPeak 计算）
  *  - lang: i18n 当前 locale（驱动 label / labelMap 本地化）
  *
  *  返回（首次渲染返初始值，异步聚合完成后 setState 触发一次重渲）：
@@ -77,7 +77,7 @@ export function useProtocolMeta(
         getProtocolLabelMap(lang),
       ]);
       if (cancelled) return;
-      // 高峰判定：用户 extra.peak_hours 优先 → preset default；命中则取 models.peak 分支
+      // 高峰判定：用户 extra.peak 优先 → preset default；命中则取 models.peak 分支
       const userPh = parsePlatformPeak(extra);
       const phWindows = userPh.length > 0 ? userPh : peakWindows;
       const isPeak = isCurrentlyPeak(phWindows, Date.now());

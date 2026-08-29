@@ -326,7 +326,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
     )
     .await;
     // 全天永久窗口（无 days_of_week/start_at 限制），x2 倍率，用户覆盖优先于 bundled preset。
-    let extra = r#"{"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
+    let extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
 
     estimate_after_request(
         &db, id, "deepseek", "https://example.com", "sk", "test-model", extra, 1000, 500, 0, false,

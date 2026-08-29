@@ -1,22 +1,22 @@
-//! 计费规则：根据 `model_entry` 定价 + peak_hours 倍率算单次请求预估花费（$）。
+//! 计费规则：根据 `model_entry` 定价 + peak 倍率算单次请求预估花费（$）。
 //!
 //! 从 `db/stats_today.rs` 迁出（locality：计费是业务规则，不属于「今日统计」DB 模块）。
 //! 纯函数 `est_cost_from` 不碰 DB，供单测直接验证计费规则；`calc_est_cost` 是薄壳，
-//! 只负责取数据（价格 / peak_hours 窗口）再调纯函数。
+//! 只负责取数据（价格 / peak 窗口）再调纯函数。
 
 use aidog_db::Db;
 
-/// 根据 `model_entry` 定价计算单次请求预估花费（$），含 peak_hours 调价。
+/// 根据 `model_entry` 定价计算单次请求预估花费（$），含 peak 调价。
 ///
 /// 价格走 `resolve_price`（票 T4）：按 `(platform_type, model_name)` 查 `model_entry` 条目
 /// （DB 未同步时自动回落 bundled registry），条目缺失 / 无价 → `PriceSyncSettings` 的
 /// fallback 默认价（默认 3.0 $/M），不返回 0。
 ///
 /// **高峰只调价一次**：命中窗口且条目带 `peak` → 用模型 peak 绝对价，此时倍率压成 1.0
-/// （`PriceResolution::multiplier`）；条目无 `peak` 才乘平台 `peak_hours` 倍率。
+/// （`PriceResolution::multiplier`）；条目无 `peak` 才乘平台 `peak` 倍率。
 ///
-/// peak_hours（高峰/低峰倍率）混合源（PRD 决策 B），见 `peak::peak_for`：
-/// 1. `platform.extra.peak_hours`（用户覆盖，非空 → 用之）
+/// peak（高峰/低峰倍率）混合源（PRD 决策 B），见 `peak::peak_for`：
+/// 1. `platform.extra.peak`（用户覆盖，非空 → 用之）
 /// 2. `default_peak(platform_type)`（bundled preset 默认）
 /// 3. 1.0（无调整）
 ///
@@ -27,7 +27,7 @@ use aidog_db::Db;
 ///
 /// `platform_type` 传入平台主类型的 serde 裸名（如 `"deepseek"`）以启用 pricing override；
 /// 传 `""` 时 override 不命中，但回退链仍保证非 0。`platform_id`=0（自动分组日志无源平台）
-/// / `created_at_ms`=0（缺失）时 peak_hours 不生效（multiplier=1.0）。
+/// / `created_at_ms`=0（缺失）时 peak 不生效（multiplier=1.0）。
 #[allow(clippy::too_many_arguments)]
 pub async fn calc_est_cost(
     db: &Db,
@@ -41,7 +41,7 @@ pub async fn calc_est_cost(
 ) -> f64 {
     let settings = crate::gateway::price_sync::get_sync_settings(db).await;
 
-    // peak_hours 窗口：仅当有真实平台 + 时间戳才查（mock / 隧道 / 缺失上下文 → 空 → multiplier=1.0）。
+    // peak 窗口：仅当有真实平台 + 时间戳才查（mock / 隧道 / 缺失上下文 → 空 → multiplier=1.0）。
     // 必须先于价格解析——`is_peak` 决定条目里的 peak 绝对价是否生效。
     let windows = if platform_id > 0 && created_at_ms > 0 {
         match aidog_db::get_platform(db, platform_id as u64).await {

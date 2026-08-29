@@ -54,7 +54,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 .await
             });
             // preset 缓存预热：`platform_preset` 表（registry 同步落地）与编译期内置那份的并集
-            // 装进进程内缓存，供路由/计费热路径的 `peak_hours` / `models.peak` / 端点锁死
+            // 装进进程内缓存，供路由/计费热路径的 `peak` / `models.peak` / 端点锁死
             // 同步读取。不预热则这些读取会一直用二进制里的旧值，与前端（读 DB）判定分裂。
             {
                 let db_clone = db.clone();

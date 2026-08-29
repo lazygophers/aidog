@@ -3,7 +3,7 @@
 /**
  * `platform_preset` 行：一份 `platform.json` 的整体快照。
  *
- * `preset_data` 是整份 JSON（endpoints / models / model_list / peak_hours + 品牌字段
+ * `preset_data` 是整份 JSON（endpoints / models / model_list / peak + 品牌字段
  * name / logo_url / color / homepage / keywords / source_urls）。
  * 品牌字段不拆列——前端拿到整份即可渲染，同步也能整体覆盖（票 12）。
  */

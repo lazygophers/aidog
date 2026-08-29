@@ -136,7 +136,7 @@
     "crazyrouter"
   ],
   "color": "#FF6B6B",
-  "peak_hours": [
+  "peak": [
     {
       "start_hour": 9,
       "end_hour": 12,
@@ -157,5 +157,6 @@
       ],
       "timezone": "Asia/Shanghai"
     }
-  ]
+  ],
+  "last_updated": 1788012963
 }

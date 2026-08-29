@@ -26,7 +26,7 @@ pub struct ScheduleCtx<'a> {
     pub sticky_key: Option<String>,
 }
 
-/// Platform extra 解析缓存：避免每个候选重复解析 time_windows 和 peak_hours
+/// Platform extra 解析缓存：避免每个候选重复解析 time_windows 和 peak
 #[derive(Clone, Debug)]
 struct ExtraCache {
     time_windows: Vec<serde_json::Value>,
@@ -134,7 +134,7 @@ pub async fn select_candidates_ctx(
     let effective_mode = group.routing_mode;
 
     // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
-    // ponytail: 在入口处统一解析 time_windows 和 peak_hours，缓存传递给 helper 函数
+    // ponytail: 在入口处统一解析 time_windows 和 peak，缓存传递给 helper 函数
     let extra_cache: ExtraCacheMap = group_platforms.iter()
         .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra, &gp.platform.platform_type)))
         .collect();
@@ -231,7 +231,7 @@ pub async fn select_candidates_ctx(
     // ── 阶段 5: 空候选处理 ──
     if ordered.is_empty() {
         // 整组所有候选被高峰禁用排除 → 返特殊 Err，caller handler.rs 据此落审计 proxy_log
-        // (blocked_by='router', blocked_reason='peak_hours', est_cost=0, status_code=503)。
+        // (blocked_by='router', blocked_reason='peak', est_cost=0, status_code=503)。
         // 其他原因（disabled / auto_disabled / 熔断无回退）照旧 NoCandidate warn 不落库。
         if peak_disabled_count > 0 && peak_disabled_count == group_platforms.len() {
             tracing::info!(
@@ -517,7 +517,7 @@ fn build_route_results(
         .collect()
 }
 
-/// 缓存版本的 peak_hours 窗口判定（避免重新解析 peak_hours）
+/// 缓存版本的 peak 窗口判定（避免重新解析 peak）
 fn is_in_peak_window_cached(windows: &[peak::TimeWindow], now_ms: i64, source_model: &str) -> bool {
     peak::is_in_peak_window(windows, now_ms, source_model)
 }
@@ -534,7 +534,7 @@ fn is_in_peak_window_cached(windows: &[peak::TimeWindow], now_ms: i64, source_mo
 ///    `time_windows` 显式时段切换，其优先级高于 peak）。非 bug — 见 CLAUDE.md `models.peak` 段。
 /// 3. **platform.models**（用户级显式槽位 / 创建时填入 preset.models.default）：兜底默认。
 ///
-/// `source_model`：请求模型名（透传给 peak_hours model scope 过滤；空串 = 无上下文跳过）。
+/// `source_model`：请求模型名（透传给 peak model scope 过滤；空串 = 无上下文跳过）。
 fn resolve_effective_models(
     platform: &Platform,
     time_rules: &[serde_json::Value],

@@ -202,21 +202,21 @@ export function serializePlatformBreaker(extra: string, b: PlatformBreaker): str
   return JSON.stringify(obj);
 }
 
-/** 从 platform.extra JSON 解析 peak_hours 窗口（用户覆盖）。
+/** 从 platform.extra JSON 解析 peak 窗口（用户覆盖）。
  *  缺失 / 非法 / 空数组 → []（caller 退 preset 默认或 1.0）。 */
 export function parsePlatformPeak(extra: string): TimeWindow[] {
   if (!extra.trim()) return [];
   try {
     const parsed: unknown = JSON.parse(extra);
-    if (parsed && typeof parsed === "object" && "peak_hours" in parsed) {
-      const arr = (parsed as { peak_hours: unknown }).peak_hours;
+    if (parsed && typeof parsed === "object" && "peak" in parsed) {
+      const arr = (parsed as { peak: unknown }).peak;
       if (Array.isArray(arr)) return (arr as TimeWindow[]).map(normalizeWindow);
     }
   } catch { /* ignore */ }
   return [];
 }
 
-/** 把 peak_hours 窗口写回 extra JSON（保留其余键）。空数组 → 移除 peak_hours 键（无覆盖→用 preset 默认）。 */
+/** 把 peak 窗口写回 extra JSON（保留其余键）。空数组 → 移除 peak 键（无覆盖→用 preset 默认）。 */
 export function serializePlatformPeak(extra: string, windows: TimeWindow[]): string {
   let obj: Record<string, unknown> = {};
   if (extra.trim()) {
@@ -228,9 +228,9 @@ export function serializePlatformPeak(extra: string, windows: TimeWindow[]): str
     } catch { /* ignore */ }
   }
   if (windows.length === 0) {
-    delete obj.peak_hours;
+    delete obj.peak;
   } else {
-    obj.peak_hours = windows;
+    obj.peak = windows;
   }
   return JSON.stringify(obj);
 }

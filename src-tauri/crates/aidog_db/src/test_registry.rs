@@ -171,11 +171,11 @@ fn default_endpoints_present_for_direct_vendors() {
     }
 }
 
-/// glm_coding 是唯一带 peak_hours 与 models.peak 的协议（路由/计费硬依赖）。
+/// glm_coding 是唯一带 peak 与 models.peak 的协议（路由/计费硬依赖）。
 #[test]
 fn glm_coding_keeps_peak_branches() {
     let glm = &protocols()["glm_coding"];
-    assert!(glm["peak_hours"].as_array().is_some_and(|a| !a.is_empty()));
+    assert!(glm["peak"].as_array().is_some_and(|a| !a.is_empty()));
     assert_eq!(glm["models"]["peak"]["default"], "glm-5.3-flash");
     assert_eq!(glm["is_coding_plan"], true);
 }

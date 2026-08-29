@@ -46,7 +46,7 @@
     "sdqs"
   ],
   "color": "#1E88E5",
-  "peak_hours": [
+  "peak": [
     {
       "start_hour": 9,
       "end_hour": 12,
@@ -79,5 +79,6 @@
       ],
       "timezone": "Asia/Shanghai"
     }
-  ]
+  ],
+  "last_updated": 1788012963
 }

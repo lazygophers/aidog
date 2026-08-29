@@ -48,7 +48,7 @@ registry/
 | `endpoints.default[]`（protocol / base_url / client_type?） | `src/domains/platforms/defaults.ts`（getDefaultEndpoints，缺省 client_type 按 protocol 派生 clientTypeForProtocol）、Rust `registry.rs::endpoints_in`（同派生 derive_client_type）；URL = base_url + provider_api_path，禁额外拼接 |
 | `models.default` / `models.peak` | `defaults.ts::pickModelsBranch`（两分支）、`gateway/router/candidates.rs::resolve_effective_models`（peak 三层级联） |
 | `model_list.default` | `defaults.ts::pickBranch`（下拉冷启动候选） |
-| `peak_hours[]` | Rust `gateway/peak_hours.rs`（resolve_multiplier / is_in_peak_window）、前端 `utils/peakHours.ts`（isCurrentlyPeak，cross-layer 对称） |
+| `peak[]` | Rust `gateway/peak.rs`（resolve_multiplier / is_in_peak_window）、前端 `utils/timeWindow.ts`（isCurrentlyPeak，cross-layer 对称） |
 | `is_coding_plan` | Rust `gateway/router/ordering.rs`（coding 平台排序靠后）、前端 `defaults.ts::isCodingPlanProtocol` / ProtocolOption.codingPlan（徽标 / 选择器） |
 | `key_prefixes` | 前端 `platformPaste.ts::collectKeyPrefixes` + 优先级 2 平台直判（粘贴识别 key 提取正则与平台判定数据驱动；平台前缀禁在代码硬编码，通用 `sk-`/`sk_` 除外。coding 套餐平台是独立协议，其专属 token 前缀（tp- / sk-cp-）写在本字段，无独立 coding 前缀字段） |
 | `name`（8 locale 全必填） | 前端 `useProtocolMeta` / 协议选择器 label |
@@ -72,7 +72,7 @@ registry/
 | `official` | 模型维度列表默认展示官方条目（不变量：每 model_id 至少一条 official=true） |
 | `input/output/cache_read/cache_creation_cost_per_token` | `aidog_db::resolve_price` 计费解析（ADR 0006 三级顺序） |
 | `default_price` | 条目无独立价时的兜底价对象 |
-| `peak` | 高峰**绝对价**：命中 peak_hours 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0（禁双重计价，`price_resolve.rs`） |
+| `peak` | 高峰**绝对价**：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0（禁双重计价，`price_resolve.rs`） |
 | `context_tiers[]` | 按上下文长度分档计价 |
 | `time_tiers[]` | 按生效时间切换价目（start_at，latest wins）；条目可内嵌 `context_tiers`（时间 × 上下文二维） |
 

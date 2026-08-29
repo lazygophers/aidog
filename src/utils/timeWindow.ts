@@ -1,4 +1,4 @@
-/** 前端高峰时段判定 helper（与 Rust `gateway::peak_hours::is_in_peak_window` 对称）。
+/** 前端高峰时段判定 helper（与 Rust `gateway::peak::is_in_peak_window` 对称）。
  *  跨层一致：minute 精度 + days_of_week / days_of_month 过滤 + model scope 过滤 + 跨天 end<start 半开 [start,end)；
  *  days_of_week 0=Sun…6=Sat 缺省=每天；model scope 缺省=全平台；空/无命中=false。
  *  for: 平台列表徽标 + 编辑表单预览 + Groups 指示（D7/D8/D9 共用此 helper）。 */
@@ -9,7 +9,7 @@ export type TzMode = "local" | "utc";
 
 /** 窗口时区下拉候选（IANA 名）。存储即 IANA 串；__utc__ 哨兵 = 无 timezone（= UTC，向后兼容）。
  *  覆盖主流市场 + 用户所在地（瑞士）；完整 IANA 列表过长，收窄为常用集。
- *  formSections.tsx（peak_hours）与 WindowsEditModal.tsx（time_windows）两编辑器共用。 */
+ *  formSections.tsx（peak）与 WindowsEditModal.tsx（time_windows）两编辑器共用。 */
 export const WINDOW_TIMEZONES = [
   "__utc__", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore", "Asia/Kolkata",
   "America/New_York", "America/Chicago", "America/Los_Angeles",
@@ -63,7 +63,7 @@ function splitFraction(h: number, existingMinute: number | undefined): { hour: n
 }
 
 /** t 在 tz（IANA 名，缺省 / 非法 = UTC）的**本地**全时间分量（DST 由浏览器 tz 数据处理）。
- *  与 Rust `peak_hours::wall_time` 对称（跨层一致）。非法时区名回落 UTC（数据脏不炸 UI）。
+ *  与 Rust `peak::wall_time` 对称（跨层一致）。非法时区名回落 UTC（数据脏不炸 UI）。
  *  ponytail: Intl.DateTimeFormat formatToParts 免手算 epoch 偏移。 */
 export function wallTimeInTz(
   ms: number,
@@ -98,7 +98,7 @@ export function wallTimeInTz(
 }
 
 /** 当前 UTC 时刻命中窗口？
- *  与 Rust `peak_hours::hit` + `window_models_hit` + `period_active` 逐行对称：
+ *  与 Rust `peak::hit` + `window_models_hit` + `period_active` 逐行对称：
  *   - 生效期判定（PRD 07-09 D2，优先级最高）：start_at Some 且 epoch_sec < start_at → 未启用跳过；
  *     end_at Some 且 epoch_sec >= end_at → 已失效跳过；二者均 absent = 永久/立即可用。
  *   - days_of_week 过滤（含则需在列表里；双 Some 与 days_of_month 取 AND 兜底）
@@ -145,7 +145,7 @@ function clampMinute(m: number): number {
   return m;
 }
 
-/** 窗口 model scope 是否覆盖 requestModel（与 Rust `peak_hours::window_models_hit` 对称）。
+/** 窗口 model scope 是否覆盖 requestModel（与 Rust `peak::window_models_hit` 对称）。
  *  - requestModel === "" → true（调用方无上下文，跳过过滤，兼容旧行为）
  *  - w.models undefined → true（窗口未限定，全平台生效）
  *  - w.models 定义 → 任一 pattern 命中（exact 或 `prefix*` 通配）
@@ -156,7 +156,7 @@ function windowModelsHit(w: TimeWindow, requestModel: string): boolean {
   return w.models.some((p) => modelMatch(p, requestModel));
 }
 
-/** 单 pattern 与请求模型匹配（与 Rust `peak_hours::model_match` 对称）：
+/** 单 pattern 与请求模型匹配（与 Rust `peak::model_match` 对称）：
  *  exact OR 前缀通配（`"glm-5.2*"` 覆盖 `glm-5.2` / `glm-5.2-turbo`）。
  *  exact-first：非 `*` 结尾走精确匹配；`*` 结尾取前缀，`requestModel === prefix || startsWith(prefix)`。
  */
@@ -170,7 +170,7 @@ function modelMatch(pattern: string, requestModel: string): boolean {
 
 /** first-match 命中任一窗口 → true（不关心 multiplier 值）；空/无命中 → false。
  *  时段基准：每窗口各自 timezone（缺省 = UTC，向后兼容），hour/weekday/day_of_month
- *  按该窗口时区本地时刻取 —— 与 Rust `peak_hours::is_in_peak_window` 每窗口
+ *  按该窗口时区本地时刻取 —— 与 Rust `peak::is_in_peak_window` 每窗口
  *  `wall_time(epoch_ms, w.timezone)` 对称。
  *
  *  requestModel（PRD 07-09 D2）：请求模型名，用于 model scope 过滤；

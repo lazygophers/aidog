@@ -264,8 +264,8 @@ mod tests {
         assert_eq!(log.blocked_reason, "");
 
         // 已有 blocked 标记不覆盖
-        let mut log = ProxyLog { blocked_reason: "peak_hours".into(), ..Default::default() };
+        let mut log = ProxyLog { blocked_reason: "peak".into(), ..Default::default() };
         mark_tools_4xx(&mut log, &anthropic_body(), 400);
-        assert_eq!(log.blocked_reason, "peak_hours");
+        assert_eq!(log.blocked_reason, "peak");
     }
 }

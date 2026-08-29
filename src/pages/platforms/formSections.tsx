@@ -39,7 +39,7 @@ export function toDatetimeLocal(ms: number): string {
 }
 
 /** Unix 秒 → datetime-local 字符串（本地时区）；0/undefined → 空串。
- *  PRD 07-09 D2：peak_hours start_at/end_at 用 Unix 秒存储。 */
+ *  PRD 07-09 D2：peak start_at/end_at 用 Unix 秒存储。 */
 function secToLocalInput(sec: number | undefined): string {
   if (!sec || sec <= 0) return "";
   return toDatetimeLocal(sec * 1000);
@@ -511,7 +511,7 @@ function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): strin
   // 跨天判定：end_hour < start_hour（原始 UTC 值，不在 display 层比较）
   const isNextDay = w.end_hour < w.start_hour;
   const nextDayLabel = isNextDay
-    ? t("platform.peak_hours_next_day", "次日")
+    ? t("platform.peak_next_day", "次日")
     : "";
 
   return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
@@ -601,8 +601,8 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
 
   return (
     <FormSection
-      title={t("platform.peak_hours", "高峰时段倍率")}
-      desc={t("platform.peak_hours_desc", "设置时段倍率（>1 加价 / <1 折扣）。时段按各窗口指定时区的本地时间判定；时区默认 UTC。多窗口按顺序 first-match；不命中 = 1.0。")}
+      title={t("platform.peak", "高峰时段倍率")}
+      desc={t("platform.peak_desc", "设置时段倍率（>1 加价 / <1 折扣）。时段按各窗口指定时区的本地时间判定；时区默认 UTC。多窗口按顺序 first-match；不命中 = 1.0。")}
       action={
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
@@ -624,10 +624,10 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             size="sm"
             style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap", height: "auto" }}
             disabled={!defaultCache || defaultCache.length === 0}
-            title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_hours_no_default", "该平台无默认高峰配置") : ""}
+            title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_no_default", "该平台无默认高峰配置") : ""}
             onClick={() => setModalOpen(true)}
           >
-            {t("platform.peak_hours_import_default", "导入默认配置")}
+            {t("platform.peak_import_default", "导入默认配置")}
           </Button>
         </div>
       }
@@ -666,7 +666,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
       </div>
       {windows.length === 0 && (
         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          {t("platform.peak_hours_empty", "未配置 → 按预设默认或 1.0（无调整）")}
+          {t("platform.peak_empty", "未配置 → 按预设默认或 1.0（无调整）")}
         </div>
       )}
       {windows.map((w, idx) => (
@@ -796,10 +796,10 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               absent / 空 = 全平台（标「全部模型」），UI 暴露 model 维度过滤可见性。 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_hours_model_scope", "受影响模型")}
+              {t("platform.peak_model_scope", "受影响模型")}
               {(!w.models || w.models.length === 0) && (
                 <span style={{ color: "var(--text-tertiary)", marginLeft: 4 }}>
-                  · {t("platform.peak_hours_model_scope_all", "全部模型")}
+                  · {t("platform.peak_model_scope_all", "全部模型")}
                 </span>
               )}
             </div>
@@ -830,7 +830,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 className="input"
                 style={{ width: 160, fontSize: 11, padding: "2px 6px" }}
                 list={`peak-models-${idx}`}
-                placeholder={t("platform.peak_hours_model_placeholder", "模型名或 前缀*")}
+                placeholder={t("platform.peak_model_placeholder", "模型名或 前缀*")}
                 value={modelInput[idx] ?? ""}
                 onChange={e => setModelInput(s => ({ ...s, [idx]: e.target.value }))}
                 onKeyDown={e => {
@@ -857,7 +857,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_hours_start_at", "生效起始")}
+              {t("platform.peak_start_at", "生效起始")}
               <Input
                 className="input"
                 type="datetime-local"
@@ -870,7 +870,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               />
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_hours_end_at", "生效截止")}
+              {t("platform.peak_end_at", "生效截止")}
               <Input
                 className="input"
                 type="datetime-local"
@@ -892,10 +892,10 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 14 }}>
-              {t("platform.peak_hours_overwrite_confirm_title", "覆盖高峰配置？")}
+              {t("platform.peak_overwrite_confirm_title", "覆盖高峰配置？")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 12 }}>
-              {t("platform.peak_hours_overwrite_confirm_body", "当前高峰配置将被默认值替换（{{count}} 个窗口），此操作不可撤销。").replace("{{count}}", String(defaultCache?.length ?? 0))}
+              {t("platform.peak_overwrite_confirm_body", "当前高峰配置将被默认值替换（{{count}} 个窗口），此操作不可撤销。").replace("{{count}}", String(defaultCache?.length ?? 0))}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -903,12 +903,12 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               variant="ghost"
               onClick={() => setModalOpen(false)}
             >
-              {t("platform.peak_hours_overwrite_cancel_button", "取消")}
+              {t("platform.peak_overwrite_cancel_button", "取消")}
             </Button>
             <Button
               onClick={handleImportDefault}
             >
-              {t("platform.peak_hours_overwrite_confirm_button", "确认")}
+              {t("platform.peak_overwrite_confirm_button", "确认")}
             </Button>
           </div>
         </DialogContent>

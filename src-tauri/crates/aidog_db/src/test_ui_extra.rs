@@ -16,7 +16,7 @@ use crate::update_extra_key;
         assert_eq!(v["_ui_collapsed"], serde_json::json!(true));
     }
 
-    /// 已有业务键（breaker / peak_hours）→ 写 _ui_* 不破坏其它键。
+    /// 已有业务键（breaker / peak）→ 写 _ui_* 不破坏其它键。
     #[tokio::test]
     async fn ui_extra_preserves_existing_business_keys() {
         let db = test_db().await;

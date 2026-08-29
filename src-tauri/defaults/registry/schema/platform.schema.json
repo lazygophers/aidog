@@ -114,7 +114,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "【可选】高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中 peak_hours 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
+          "description": "【可选】高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中平台 peak 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
         }
       },
       "description": "【必填】客户端模型槽位映射表。default 必填；peak 高峰切换（现仅 glm_coding）。coding 套餐是独立协议，无 coding_plan 分支。"
@@ -137,7 +137,7 @@
       },
       "description": "【必填】模型下拉候选表，仅 default 单分支（default 必须是 models 各分支值集的超集，冷启动兜底列全候选）。coding 套餐是独立协议，无 coding_plan 分支。"
     },
-    "peak_hours": {
+    "peak": {
       "type": "array",
       "minItems": 1,
       "items": {
@@ -197,7 +197,7 @@
           }
         }
       },
-      "description": "【可选】高峰/低峰计价窗口（每窗口可指定 timezone，缺省 UTC；first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。"
+      "description": "【可选】平台级高峰/低峰计价窗口（每窗口可指定 timezone，缺省 UTC；first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。注意三层同名不同层：本字段 peak = 平台级计价窗口；models.peak = 高峰模型切换分支；模型条目 peak = 高峰绝对价对象。"
     },
     "name": {
       "type": "object",
@@ -299,5 +299,6 @@
       "pattern": "^#[0-9A-Fa-f]{6}$",
       "description": "【必填】品牌色，前端徽标/卡片着色。"
     }
-  }
+  },
+  "last_updated": 1788012963
 }
