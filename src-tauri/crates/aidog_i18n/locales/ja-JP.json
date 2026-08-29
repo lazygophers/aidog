@@ -1186,7 +1186,7 @@
   "platform.peak_badge_models_tooltip": "対象モデル：{{models}}",
   "platform.peak_disabled_badge": "ピーク無効化中",
   "platform.peak_hours": "ピーク時間帯乗数",
-  "platform.peak_hours_desc": "時間枠の乗数を設定 (>1 追加料金 / <1 割引)。保存は UTC+0、表示は下記のタイムゾーンに従う。複数ウィンドウはファーストマッチ; 一致なし = 1.0。",
+  "platform.peak_hours_desc": "時間枠の乗数を設定 (>1 追加料金 / <1 割引)。各ウィンドウは指定タイムゾーンの現地時刻で判定、既定は UTC。複数ウィンドウはファーストマッチ; 一致なし = 1.0。",
   "platform.peak_hours_empty": "未設定 → プリセット既定値または 1.0 (調整なし)",
   "platform.peak_hours_end_at": "終了",
   "platform.peak_hours_import_default": "デフォルトをインポート",
@@ -2850,5 +2850,7 @@
   "platform.builtin_tool_compat_strip": "除去するツール名（カンマ区切り、空 = すべての内蔵ツール）",
   "test.modeTool": "ツール呼び出しテスト",
   "jsonEditor.format": "整形",
-  "jsonEditor.searchHint": "Ctrl/⌘+F で検索、Ctrl/⌘+Alt+F で置換"
+  "jsonEditor.searchHint": "Ctrl/⌘+F で検索、Ctrl/⌘+Alt+F で置換",
+  "platform.window_timezone": "タイムゾーン",
+  "platform.window_timezone_utc_default": "UTC（既定）"
 }

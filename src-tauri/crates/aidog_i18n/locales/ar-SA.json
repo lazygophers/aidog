@@ -1186,7 +1186,7 @@
   "platform.peak_badge_models_tooltip": "النماذج المتأثرة: {{models}}",
   "platform.peak_disabled_badge": "معطّل أوقات الذروة",
   "platform.peak_hours": "مضاعف ساعات الذروة",
-  "platform.peak_hours_desc": "اضبط مضاعفات النوافذ الزمنية (>1 رسوم إضافية / <1 خصم). التخزين بتوقيت UTC+0، والعرض حسب المنطقة الزمنية أدناه. النوافذ المتعددة بأول تطابق؛ بدون تطابق = 1.0.",
+  "platform.peak_hours_desc": "اضبط مضاعفات النوافذ الزمنية (>1 رسوم إضافية / <1 خصم). تُقيّم النوافذ بالتوقيت المحلي للمنطقة الزمنية المحددة لكل نافذة؛ الافتراضي UTC. النوافذ المتعددة بأول تطابق؛ بدون تطابق = 1.0.",
   "platform.peak_hours_empty": "غير مُهيأ ← استخدم الافتراضي أو 1.0 (بدون تعديل)",
   "platform.peak_hours_end_at": "ينتهي عند",
   "platform.peak_hours_import_default": "استيراد الافتراضي",
@@ -2850,5 +2850,7 @@
   "platform.builtin_tool_compat_strip": "أسماء الأدوات المطلوب إزالتها (مفصولة بفواصل، فارغ = جميع الأدوات المدمجة)",
   "test.modeTool": "اختبار استدعاء الأدوات",
   "jsonEditor.format": "تنسيق",
-  "jsonEditor.searchHint": "Ctrl/⌘+F للبحث، Ctrl/⌘+Alt+F للاستبدال"
+  "jsonEditor.searchHint": "Ctrl/⌘+F للبحث، Ctrl/⌘+Alt+F للاستبدال",
+  "platform.window_timezone": "المنطقة الزمنية",
+  "platform.window_timezone_utc_default": "UTC (افتراضي)"
 }

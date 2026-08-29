@@ -66,6 +66,9 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         end_minute: Option<i32>,
         #[serde(default)]
         days_of_month: Option<Vec<i32>>,
+        /// 窗口时区（IANA；缺省 UTC）。与 peak_hours 窗口同字段，time_models 时段切换同样按此时区解释。
+        #[serde(default)]
+        timezone: Option<String>,
     }
     let helper: WindowHelper = serde_json::from_value(v.clone()).ok()?;
     // multiplier 字段不需要，设 1.0；time_models 仅用时间维度切换 models，model scope 不参与
@@ -78,6 +81,7 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         start_minute: helper.start_minute,
         end_minute: helper.end_minute,
         days_of_month: helper.days_of_month,
+        timezone: helper.timezone,
         models: None,
         start_at: None,
         end_at: None,

@@ -2,18 +2,23 @@ import type { Protocol, PlatformEndpoint, ModelSlot, ClientType } from "../../se
 import { getDefaultsJson, getClientTypesJson } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
-/** 高峰/低峰时段倍率窗口（多窗口数组，UTC+0 基准）。
+/** 高峰/低峰时段倍率窗口（多窗口数组）。
  *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
  *  absent / 空数组 = 无调整（multiplier 1.0）。
  *  多窗口 first-match wins（数组顺序，命中第一个即用其 multiplier；都不命中 = 1.0）。
- *  跨天窗口：end_hour < start_hour（半开 [start,end)，22→6 = 22:00-06:00 次日）。 */
+ *  跨天窗口：end_hour < start_hour（半开 [start,end)，22→6 = 22:00-06:00 次日）。
+ *  时段基准：timezone（IANA 名，缺省 = UTC，向后兼容）；hour/weekday/day_of_month
+ *  均按该时区本地时刻解释。 */
 export type PeakWindow = {
-  /** 0-23 UTC+0，含起始 */
+  /** 0-23（窗口时区本地），含起始 */
   start_hour: number;
-  /** 0-23 UTC+0，不含结束；<start_hour 表跨天 */
+  /** 0-23（窗口时区本地），不含结束；<start_hour 表跨天 */
   end_hour: number;
   /** >0；>1 加价 / <1 折扣 / =1 无意义（勿存） */
   multiplier: number;
+  /** 窗口时区（IANA 名，如 "Asia/Shanghai"）；缺省 / undefined = UTC（向后兼容）。
+   *  与 Rust `PeakWindow.timezone: Option<String>` 对称。 */
+  timezone?: string;
   /** 可选；0=Sunday…6=Saturday；absent = 每天适用 */
   days_of_week?: number[];
   /** 分钟精度起点 (0-59)；缺省 = 0（仅 hour 精度，向后兼容旧数据）。

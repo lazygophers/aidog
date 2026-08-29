@@ -7,6 +7,15 @@ import type { PeakWindow } from "../domains/platforms/defaults";
 /** 时区展示模式：本地 or UTC+0。存储永远 UTC+0，仅展示/输入层换算。 */
 export type TzMode = "local" | "utc";
 
+/** 窗口时区下拉候选（IANA 名）。存储即 IANA 串；__utc__ 哨兵 = 无 timezone（= UTC，向后兼容）。
+ *  覆盖主流市场 + 用户所在地（瑞士）；完整 IANA 列表过长，收窄为常用集。
+ *  formSections.tsx（peak_hours）与 WindowsEditModal.tsx（time_models）两编辑器共用。 */
+export const WINDOW_TIMEZONES = [
+  "__utc__", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore", "Asia/Kolkata",
+  "America/New_York", "America/Chicago", "America/Los_Angeles",
+  "Europe/London", "Europe/Berlin", "Europe/Zurich", "Europe/Moscow",
+] as const;
+
 /** 本地时区相对 UTC 的分钟偏移（东区为正）。模块加载时取值，沿用既有时机（不做 DST 跨时刻重算）。 */
 export const LOCAL_OFFSET_MINUTES = -new Date().getTimezoneOffset();
 
@@ -51,6 +60,41 @@ function splitFraction(h: number, existingMinute: number | undefined): { hour: n
   const hour = Math.floor(h);
   const extraMinutes = Math.round((h - hour) * 60);
   return shiftClock(hour, (existingMinute ?? 0) + extraMinutes, 0);
+}
+
+/** t 在 tz（IANA 名，缺省 / 非法 = UTC）的**本地**全时间分量（DST 由浏览器 tz 数据处理）。
+ *  与 Rust `peak_hours::wall_time` 对称（跨层一致）。非法时区名回落 UTC（数据脏不炸 UI）。
+ *  ponytail: Intl.DateTimeFormat formatToParts 免手算 epoch 偏移。 */
+export function wallTimeInTz(
+  ms: number,
+  timeZone: string | undefined,
+): { hour: number; minute: number; weekday: number; dayOfMonth: number } {
+  const fmt = (() => {
+    try {
+      return new Intl.DateTimeFormat("en-US", {
+        timeZone: timeZone || "UTC",
+        hour12: false,
+        hour: "2-digit",
+        minute: "2-digit",
+        weekday: "short",
+        day: "2-digit",
+      });
+    } catch {
+      return undefined; // 非法时区名 → 回落 UTC
+    }
+  })();
+  if (!fmt) return wallTimeInTz(ms, "UTC");
+  const parts = fmt.formatToParts(new Date(ms));
+  const get = (t: string): string => parts.find((p) => p.type === t)?.value ?? "";
+  const WD: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+  let hour = parseInt(get("hour"), 10);
+  if (hour === 24) hour = 0; // hour12:false 某些引擎给 24:xx
+  const wd = WD[get("weekday")] ?? 0;
+  if (Number.isNaN(hour) || Number.isNaN(wd)) {
+    // 防御：parts 异常缺字段 → 回落 UTC（不静默给 0 值）
+    return wallTimeInTz(ms, "UTC");
+  }
+  return { hour, minute: parseInt(get("minute"), 10), weekday: wd, dayOfMonth: parseInt(get("day"), 10) };
 }
 
 /** 当前 UTC 时刻命中窗口？
@@ -125,24 +169,21 @@ function modelMatch(pattern: string, requestModel: string): boolean {
 }
 
 /** first-match 命中任一窗口 → true（不关心 multiplier 值）；空/无命中 → false。
- *  使用 UTC 小时 / 分钟 / weekday (0=Sun) / day_of_month (1-31)，与 Rust `utc_time` 对齐。
- *  weekday 归一：JS `Date.getUTCDay()` 返 0=Sun…6=Sat，与 Rust 目标 `(num_days_from_monday + 1) % 7`
- *  完全一致，无需转换。day_of_month 用 `Date.getUTCDate()` (1-31)。
+ *  时段基准：每窗口各自 timezone（缺省 = UTC，向后兼容），hour/weekday/day_of_month
+ *  按该窗口时区本地时刻取 —— 与 Rust `peak_hours::is_in_peak_window` 每窗口
+ *  `wall_time(epoch_ms, w.timezone)` 对称。
  *
  *  requestModel（PRD 07-09 D2）：请求模型名，用于 model scope 过滤；
- *  缺省 / 空串 = 无 model 上下文 → 跳过 model 过滤（兼容旧行为，向后兼容）。
- *  ponytail: 复用 Date.getUTC* 免手算 epoch 偏移。 */
+ *  缺省 / 空串 = 无 model 上下文 → 跳过 model 过滤（兼容旧行为，向后兼容）。 */
 export function isCurrentlyPeak(
   windows: PeakWindow[] | undefined | null,
   nowMs: number,
   requestModel: string = "",
 ): boolean {
   if (!windows || windows.length === 0) return false;
-  const d = new Date(nowMs);
-  const hour = d.getUTCHours();
-  const minute = d.getUTCMinutes();
-  const weekday = d.getUTCDay(); // 0=Sun…6=Sat
-  const dayOfMonth = d.getUTCDate(); // 1-31
   const epochSec = Math.floor(nowMs / 1000);
-  return windows.some((w) => hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec));
+  return windows.some((w) => {
+    const { hour, minute, weekday, dayOfMonth } = wallTimeInTz(nowMs, w.timezone);
+    return hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec);
+  });
 }

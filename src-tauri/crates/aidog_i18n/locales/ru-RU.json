@@ -1186,7 +1186,7 @@
   "platform.peak_badge_models_tooltip": "Затронутые модели: {{models}}",
   "platform.peak_disabled_badge": "Отключён в пик",
   "platform.peak_hours": "Множитель часов пик",
-  "platform.peak_hours_desc": "Установите множители временных окон (>1 наценка / <1 скидка). Хранится в UTC+0, отображается по часовому поясу ниже. Несколько окон — первый матч; без совпадения = 1.0.",
+  "platform.peak_hours_desc": "Установите множители временных окон (>1 наценка / <1 скидка). Окна оцениваются по местному времени выбранного для окна часового пояса; по умолчанию UTC. Несколько окон — первый матч; без совпадения = 1.0.",
   "platform.peak_hours_empty": "Не настроено → использовать пресет или 1.0 (без корректировки)",
   "platform.peak_hours_end_at": "Истекает",
   "platform.peak_hours_import_default": "Импорт по умолчанию",
@@ -2850,5 +2850,7 @@
   "platform.builtin_tool_compat_strip": "Удаляемые инструменты (через запятую, пусто = все встроенные)",
   "test.modeTool": "Тест вызова инструмента",
   "jsonEditor.format": "Форматировать",
-  "jsonEditor.searchHint": "Ctrl/⌘+F поиск, Ctrl/⌘+Alt+F замена"
+  "jsonEditor.searchHint": "Ctrl/⌘+F поиск, Ctrl/⌘+Alt+F замена",
+  "platform.window_timezone": "Часовой пояс",
+  "platform.window_timezone_utc_default": "UTC (по умолчанию)"
 }

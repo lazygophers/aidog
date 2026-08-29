@@ -1164,7 +1164,7 @@
   "platform.peak_badge_models_tooltip": "Modelos afectados: {{models}}",
   "platform.peak_disabled_badge": "Desactivado en pico",
   "platform.peak_hours": "Multiplicador horas pico",
-  "platform.peak_hours_desc": "Establece multiplicadores de ventanas horarias (>1 recargo / <1 descuento). Almacenado en UTC+0, mostrado según la zona horaria de abajo. Multi-ventana primer coincidencia; sin coincidencia = 1.0.",
+  "platform.peak_hours_desc": "Establece multiplicadores de ventanas horarias (>1 recargo / <1 descuento). Las ventanas se evalúan en la hora local de la zona horaria definida por ventana; por defecto UTC. Multi-ventana primer coincidencia; sin coincidencia = 1.0.",
   "platform.peak_hours_empty": "No configurado → usar predeterminado o 1.0 (sin ajuste)",
   "platform.peak_hours_end_at": "Vence el",
   "platform.peak_hours_import_default": "Importar predeterminado",
@@ -2828,5 +2828,7 @@
   "platform.builtin_tool_compat_strip": "Herramientas a eliminar (separadas por comas, vacío = todas las integradas)",
   "test.modeTool": "Prueba de llamada a herramienta",
   "jsonEditor.format": "Formatear",
-  "jsonEditor.searchHint": "Ctrl/⌘+F buscar, Ctrl/⌘+Alt+F reemplazar"
+  "jsonEditor.searchHint": "Ctrl/⌘+F buscar, Ctrl/⌘+Alt+F reemplazar",
+  "platform.window_timezone": "Zona horaria",
+  "platform.window_timezone_utc_default": "UTC (predeterminado)"
 }
