@@ -180,7 +180,7 @@ describe("isCurrentlyPeak — start_at 生效期护栏", () => {
   });
 });
 
-// 镜像 Rust peak_hours 时区测试（wall_time_* / resolve_multiplier_* / is_in_peak_window_*）。
+// 镜像 Rust peak 时区测试（wall_time_* / resolve_multiplier_* / is_in_peak_window_*）。
 describe("wallTimeInTz / isCurrentlyPeak — 窗口时区", () => {
   // 1704595800000 = 2024-01-07T02:50:00Z；北京 = 同日 10:50，周日(0)、7 号。
   const MS = 1704595800000;

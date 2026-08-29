@@ -69,7 +69,7 @@
     "gjld"
   ],
   "color": "#6E29F6",
-  "peak_hours": [
+  "peak": [
     {
       "start_hour": 17,
       "end_hour": 2,
@@ -79,5 +79,6 @@
       ],
       "timezone": "Asia/Shanghai"
     }
-  ]
+  ],
+  "last_updated": 1788012963
 }

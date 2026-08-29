@@ -525,7 +525,7 @@ pub fn run_migrations_proxy_log_late(
 /// 023–024 group 重建 / 025 GLM coding_plan 回填 / 026 breaker backfill + 列裁剪 / 027 is_default /
 /// 029 level_priority / 036 expires_at / 037 last_error / 038 env_vars / 039 last_error 重提 /
 /// 044 extra / 045 cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota / 20260729-01 清 W2 peak_hours 副本 /
-/// 20260829-01 extra 键 time_models→time_windows）。
+/// 20260829-01 extra 键 time_models→time_windows / 20260829-02 extra 键 peak_hours→peak）。
 ///
 /// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内、紧随
 /// `run_migrations_platform_early` 之后调用。fresh install：platform_early 已建现代 schema，
@@ -810,6 +810,10 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // Migration 20260829-01 (peak-rename 票 03): platform.extra 键 time_models → time_windows
                 // （词汇统一，行为零变）。幂等：无旧键 → 空转；新旧键并存取新键并 warn（异常态）。
                 rename_extra_time_models_to_windows(conn);
+
+                // Migration 20260829-02 (peak-rename 票 04): platform.extra 键 peak_hours → peak
+                // （词汇统一，行为零变）。幂等：无旧键 → 空转；新旧键并存取新键并 warn（异常态）。
+                rename_extra_peak_hours_to_peak(conn);
     Ok(())
 }
 
@@ -908,6 +912,49 @@ fn rename_extra_time_models_to_windows(conn: &Connection) {
     }
     if renamed > 0 {
         tracing::info!(renamed, "migration 20260829-01: platform.extra.time_models → time_windows 改名完成");
+    }
+}
+
+/// Migration 20260829-02 实体：遍历 `platform.extra` JSON，`peak_hours` 键改名 `peak`。
+/// 新旧键并存（异常态，正常只跑一次）→ **新键优先**，旧键丢弃并 warn；无旧键 → 空转；
+/// 其余键原样保留。幂等：跑过一次后旧键不存在 → 再跑全空转。
+fn rename_extra_peak_hours_to_peak(conn: &Connection) {
+    let rows: Vec<(i64, String)> = match conn
+        .prepare("SELECT id, extra FROM platform WHERE extra LIKE '%peak_hours%'")
+    {
+        Ok(mut stmt) => stmt
+            .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+            .ok()
+            .map(|iter| iter.filter_map(Result::ok).collect())
+            .unwrap_or_default(),
+        Err(_) => return,
+    };
+    let mut renamed = 0u64;
+    for (id, extra) in rows {
+        let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
+            continue;
+        };
+        let Some(obj) = root.as_object_mut() else {
+            continue;
+        };
+        let Some(old) = obj.remove("peak_hours") else {
+            continue;
+        };
+        if obj.contains_key("peak") {
+            tracing::warn!(platform_id = id,
+                "migration 20260829-02: extra 同时含 peak_hours 与 peak，保留新键 peak（旧键丢弃）");
+        } else {
+            obj.insert("peak".to_string(), old);
+        }
+        let new_extra = serde_json::to_string(&root).unwrap_or(extra);
+        let _ = conn.execute(
+            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+            params![new_extra, id],
+        );
+        renamed += 1;
+    }
+    if renamed > 0 {
+        tracing::info!(renamed, "migration 20260829-02: platform.extra.peak_hours → peak 改名完成");
     }
 }
 
@@ -1916,6 +1963,55 @@ mod tests {
         // ④ 无任一键 → 完全不动
         let e4 = extra_of(4);
         assert!(e4.get("time_windows").is_none() && e4.get("time_models").is_none(), "unrelated row gains no key");
+        assert_eq!(e4["disable_during_peak"], true, "unrelated row values intact");
+
+        // ⑤ 幂等：再跑一遍，4 行 extra 全部不变
+        let before: Vec<serde_json::Value> = (1..=4).map(extra_of).collect();
+        let r2 = run_migrations_platform_late(&conn);
+        assert!(r2.is_ok(), "second run failed: {:?}", r2);
+        for (id, b) in before.iter().enumerate() {
+            let after = extra_of(id as i64 + 1);
+            assert_eq!(&after, b, "row {} extra must be identical after re-run", id + 1);
+        }
+    }
+
+    /// Migration 20260829-02（peak-rename 票 04）：platform.extra 键 `peak_hours` → `peak`。
+    /// 覆盖：旧键→新键 + 无关键原样、新旧并存取新键、无旧键空转、跑两遍幂等。
+    #[test]
+    fn migrations_platform_extra_peak_hours_renamed_20260829() {
+        let conn = make_modern_conn();
+        conn.execute_batch(r#"
+            INSERT INTO platform (id, name, extra) VALUES
+            (1, 'old-key', '{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],"breaker":{"threshold":3}}'),
+            (2, 'both-keys', '{"peak_hours":[{"multiplier":2.0}],"peak":[{"multiplier":1.5}]}'),
+            (3, 'new-key-only', '{"peak":[{"multiplier":1.25}],"mock":{"v":1}}'),
+            (4, 'unrelated', '{"breaker":{"threshold":5},"disable_during_peak":true}');
+        "#).unwrap();
+        let r1 = run_migrations_platform_late(&conn);
+        assert!(r1.is_ok(), "run_migrations_platform_late failed: {:?}", r1);
+
+        let extra_of = |id: i64| -> serde_json::Value {
+            let raw: String = conn
+                .query_row("SELECT extra FROM platform WHERE id = ?1", params![id], |r| r.get(0))
+                .unwrap();
+            serde_json::from_str(&raw).unwrap()
+        };
+        // ① 旧键 → 新键（值原样搬），无关键 breaker 保留，旧键消失
+        let e1 = extra_of(1);
+        assert_eq!(e1["peak"][0]["multiplier"], 3.0, "old-key row: value moved to peak");
+        assert!(e1.get("peak_hours").is_none(), "old-key row: peak_hours must be removed");
+        assert_eq!(e1["breaker"]["threshold"], 3, "unrelated key breaker preserved");
+        // ② 新旧并存 → 新键优先，旧键丢弃
+        let e2 = extra_of(2);
+        assert_eq!(e2["peak"][0]["multiplier"], 1.5, "both-keys row: new key wins");
+        assert!(e2.get("peak_hours").is_none(), "both-keys row: old key dropped");
+        // ③ 本就只有新键 → 原样（空转路径）
+        let e3 = extra_of(3);
+        assert_eq!(e3["peak"][0]["multiplier"], 1.25, "new-key-only row untouched");
+        assert_eq!(e3["mock"]["v"], 1, "unrelated key mock preserved");
+        // ④ 无任一键 → 完全不动
+        let e4 = extra_of(4);
+        assert!(e4.get("peak").is_none() && e4.get("peak_hours").is_none(), "unrelated row gains no key");
         assert_eq!(e4["disable_during_peak"], true, "unrelated row values intact");
 
         // ⑤ 幂等：再跑一遍，4 行 extra 全部不变

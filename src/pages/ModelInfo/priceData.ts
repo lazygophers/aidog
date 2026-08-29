@@ -15,7 +15,7 @@ export interface PriceTier {
 
 /** `price_data` 整体形状（未列出的 registry 字段不参与展示，原样忽略）。 */
 export interface ModelPriceData extends PriceTier {
-  /** 高峰绝对价：命中平台 `peak_hours` 窗口时整体替换默认价。 */
+  /** 高峰绝对价：命中平台 `peak` 窗口时整体替换默认价。 */
   peak?: PriceTier | null;
   /** 上下文阶梯价：按请求 input_tokens 选档，`min_tokens` 为起档阈值。 */
   context_tiers?: Array<PriceTier & { min_tokens?: number | null }> | null;

@@ -40,13 +40,13 @@ pub struct RouteResult {
 /// 判定平台当前是否可作为候选纳入：
 /// - 过期（`expires_at > 0 && now_ms >= expires_at`）：始终排除（等效自动禁用，
 ///   但独立于 status 三态枚举；用户改 expires_at 清空/延后即恢复，无需退避试探）
-/// - 高峰禁用（`extra.disable_during_peak` on 且 now 命中 `peak_hours` 任一窗口）：
+/// - 高峰禁用（`extra.disable_during_peak` on 且 now 命中 `peak` 任一窗口）：
 ///   始终排除（独立维度，与 status 正交；临时闸门，用户关开关/出窗口即恢复）
 /// - Enabled：始终纳入
 /// - AutoDisabled 且已过退避试探时间（now >= until）：纳入（末尾试探）
 /// - Disabled（用户手动）/ AutoDisabled 未到试探时间：排除
 ///
-/// `request_model`：当前请求的模型名（用于 peak_hours model scope 过滤，PRD 07-09 D2）。
+/// `request_model`：当前请求的模型名（用于 peak model scope 过滤，PRD 07-09 D2）。
 /// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
 pub(crate) fn candidate_state(platform: &Platform, now_ms: i64, request_model: &str) -> Option<bool> {
     // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
@@ -69,7 +69,7 @@ pub(crate) fn candidate_state(platform: &Platform, now_ms: i64, request_model: &
 /// 路由排除用的纯判定函数：与 status 三态正交，不改 status。
 /// 多平台组：candidate_state 返 None 跳过此平台；单平台组：bypass 覆盖（此开关优先级高于 status bypass）。
 ///
-/// `request_model`：当前请求模型名（peak_hours model scope 过滤，PRD 07-09 D2）。
+/// `request_model`：当前请求模型名（peak model scope 过滤，PRD 07-09 D2）。
 /// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
 pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64, request_model: &str) -> bool {
     if !super::peak::parse_disable_during_peak(&platform.extra) {

@@ -48,7 +48,7 @@ pub fn presets() -> &'static Value {
 
 /// DB 同步后的 preset 合并视图缓存：文档 + 其序列化文本。
 /// 一处构建、多处共享——前端 `get_defaults_json`、logo 懒加载、路由热路径的
-/// `peak_hours` / `models.peak` 都读它，避免各自重建整篇文档。
+/// `peak` / `models.peak` 都读它，避免各自重建整篇文档。
 struct PresetCache {
     doc: Arc<Value>,
     json: Arc<String>,
@@ -101,7 +101,7 @@ pub fn invalidate_presets_cache() {
 }
 
 /// 同步读取当前生效的 preset 文档：缓存（DB 合并视图）优先，未填充过回落编译期内置那份。
-/// 代理热路径（`peak_hours` / `models.peak`）用它，不做 DB IO。
+/// 代理热路径（`peak` / `models.peak`）用它，不做 DB IO。
 pub fn effective_presets() -> Arc<Value> {
     match cached_presets() {
         Some((doc, _)) => doc,

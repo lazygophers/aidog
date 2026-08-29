@@ -274,7 +274,7 @@ export const PlatformCard = memo(function PlatformCard({
                     {t("platform.peak_disabled_badge", "高峰禁用中")}
                   </div>
                 )}
-                {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak_hours && 当前命中 → 显示。
+                {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak && 当前命中 → 显示。
                     model scope 限定时徽标显「高峰·N模型」+ tooltip 列模型；非限定显「高峰」。
                     disable_during_peak 已有「高峰禁用中」徽标时跳过（避免重复）。 */}
                 {!disableDuringPeak && (() => {
@@ -289,7 +289,7 @@ export const PlatformCard = memo(function PlatformCard({
                   const tooltip = hasScope
                     ? t("platform.peak_badge_models_tooltip", "受影响模型：{{models}}")
                         .replace("{{models}}", models!.join(", "))
-                    : t("platform.peak_hours", "高峰时段倍率");
+                    : t("platform.peak", "高峰时段倍率");
                   return (
                     <div
                       style={{

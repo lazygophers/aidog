@@ -1,7 +1,7 @@
-//! 高峰/低峰时段倍率（peak_hours）：多窗口数组 + first-match 倍率解析。
+//! 高峰/低峰时段倍率（peak）：多窗口数组 + first-match 倍率解析。
 //!
 //! 真值源同 `platform-presets.json`（`include_str!` 编入二进制，禁抄第二份）。
-//! `calc_est_cost` 按 `platform.extra.peak_hours`（用户覆盖）→ bundled preset default
+//! `calc_est_cost` 按 `platform.extra.peak`（用户覆盖）→ bundled preset default
 //! → 1.0 的混合源拿窗口，再 first-match 命中算 multiplier。
 
 pub use aidog_db::models::TimeWindow;
@@ -168,8 +168,8 @@ fn model_match(pattern: &str, request_model: &str) -> bool {
     }
 }
 
-/// 混合源取某平台 peak_hours 窗口：用户 `extra.peak_hours` 覆盖优先；空/缺 → bundled preset 默认。
-/// 等价于 `db::stats_today::platform_peak_hours` 的纯函数版（无 DB 查询），供路由层直接用。
+/// 混合源取某平台 peak 窗口：用户 `extra.peak` 覆盖优先；空/缺 → bundled preset 默认。
+/// 等价于 `db::stats_today::platform_peak` 的纯函数版（无 DB 查询），供路由层直接用。
 pub fn peak_for(extra: &str, protocol: &str) -> Vec<TimeWindow> {
     let user = parse_platform_peak(extra);
     if !user.is_empty() {
@@ -184,7 +184,7 @@ pub fn parse_disable_during_peak(extra: &str) -> bool {
 }
 
 /// 按 protocol 名（serde rename 裸名，如 "deepseek"）查生效 preset（DB 优先）的默认窗口。
-/// protocol 缺失 / 无 peak_hours 字段 / 解析失败 → 空 Vec（caller 退 1.0）。
+/// protocol 缺失 / 无 peak 字段 / 解析失败 → 空 Vec（caller 退 1.0）。
 pub fn default_peak(protocol: &str) -> Vec<TimeWindow> {
     let doc = effective_presets();
     peak_in(&doc, protocol)
@@ -195,11 +195,11 @@ pub fn peak_in(doc: &serde_json::Value, protocol: &str) -> Vec<TimeWindow> {
     let Some(proto_obj) = doc.get("protocols").and_then(|p| p.get(protocol)) else {
         return Vec::new();
     };
-    let Some(arr) = proto_obj.get("peak_hours") else {
+    let Some(arr) = proto_obj.get("peak") else {
         return Vec::new();
     };
     serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, protocol, "peak_hours preset parse failed; skipping");
+        tracing::warn!(error = %e, protocol, "peak preset parse failed; skipping");
         Vec::new()
     })
 }
@@ -223,9 +223,9 @@ pub fn peak_models_in(doc: &serde_json::Value, protocol: &str) -> Option<crate::
     serde_json::from_value(peak_val.clone()).ok()
 }
 
-/// 从 `platform.extra` JSON 字符串解析 `peak_hours` 字段；非法 / 缺失 → 空。
+/// 从 `platform.extra` JSON 字符串解析 `peak` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_peak(extra: &str) -> Vec<TimeWindow> {
-    crate::gateway::models::PlatformExtra::parse(extra).peak_hours
+    crate::gateway::models::PlatformExtra::parse(extra).peak
 }
 
 #[cfg(test)]
@@ -710,8 +710,8 @@ mod tests {
     // ── parse_platform_peak ──
 
     #[test]
-    fn parse_extra_peak_hours_user_override() {
-        let extra = r#"{"peak_hours":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
+    fn parse_extra_peak_user_override() {
+        let extra = r#"{"peak":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
         let v = parse_platform_peak(extra);
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].multiplier, 1.5);
@@ -733,7 +733,7 @@ mod tests {
 
     #[test]
     fn default_peak_anthropic_currently_empty() {
-        // 当前 preset JSON 未手填 peak_hours，absent → 空（向后兼容）
+        // 当前 preset JSON 未手填 peak，absent → 空（向后兼容）
         assert!(default_peak("anthropic").is_empty());
     }
 
@@ -747,7 +747,7 @@ mod tests {
         let synced = aidog_db::registry::merge_presets_doc(
             [(
                 "anthropic",
-                r#"{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],
+                r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],
                     "models":{"peak":{"default":"claude-peak"}}}"#,
             )],
             Some(1),
@@ -889,7 +889,7 @@ mod tests {
 
     #[test]
     fn peak_for_user_override_wins() {
-        let user_extra = r#"{"peak_hours":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
+        let user_extra = r#"{"peak":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
         // preset 默认 anthropic 当前为空；用户覆盖应优先
         let v = peak_for(user_extra, "anthropic");
         assert_eq!(v.len(), 1);
@@ -898,7 +898,7 @@ mod tests {
 
     #[test]
     fn peak_for_empty_extra_falls_back_preset() {
-        // anthropic 当前 preset 无 peak_hours → 空 Vec（caller 退 1.0 / is_in_peak_window=false）
+        // anthropic 当前 preset 无 peak → 空 Vec（caller 退 1.0 / is_in_peak_window=false）
         assert!(peak_for("", "anthropic").is_empty());
         assert!(peak_for("{}", "anthropic").is_empty());
     }

@@ -327,7 +327,7 @@ async fn collect_platform_whitespace_only_extra_omitted() {
     assert!(p.platform[0].get("extra").is_none());
 }
 
-/// 导出清洗：extra 含 `_ui_*` 前缀键 → 导出时剥离，业务键（peak_hours 等）保留。
+/// 导出清洗：extra 含 `_ui_*` 前缀键 → 导出时剥离，业务键（peak 等）保留。
 /// 仿 `_aidog_statusline` strip 模式（sync_settings.rs）。
 #[tokio::test]
 async fn collect_platform_strips_ui_keys_from_extra() {
@@ -336,7 +336,7 @@ async fn collect_platform_strips_ui_keys_from_extra() {
     insert_platform_with_extra(
         &db,
         "with-ui",
-        r#"{"_ui_expand_plat":true,"_ui_expand_grp":false,"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}]}"#,
+        r#"{"_ui_expand_plat":true,"_ui_expand_grp":false,"peak":[{"start_hour":6,"end_hour":10,"multiplier":3.0}]}"#,
     )
     .await;
     // 仅含 `_ui_*` → strip 后空 obj → 省略（与「空 extra 省略」对称）。
@@ -355,7 +355,7 @@ async fn collect_platform_strips_ui_keys_from_extra() {
     assert!(extra.get("_ui_expand_plat").is_none(), "_ui_* 不应导出");
     assert!(extra.get("_ui_expand_grp").is_none(), "_ui_* 不应导出");
     assert!(extra.get("_ui_collapsed").is_none(), "_ui_* 不应导出");
-    assert_eq!(extra["peak_hours"][0]["multiplier"], 3.0, "业务键 peak_hours 保留");
+    assert_eq!(extra["peak"][0]["multiplier"], 3.0, "业务键 peak 保留");
 
     let ui_only = p
         .platform

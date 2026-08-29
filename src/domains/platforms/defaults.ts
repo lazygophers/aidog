@@ -3,7 +3,7 @@ import { getDefaultsJson, getClientTypesJson } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
 /** 高峰/低峰时段倍率窗口（多窗口数组）。
- *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
+ *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak。
  *  absent / 空数组 = 无调整（multiplier 1.0）。
  *  多窗口 first-match wins（数组顺序，命中第一个即用其 multiplier；都不命中 = 1.0）。
  *  跨天窗口：end_hour < start_hour（半开 [start,end)，22→6 = 22:00-06:00 次日）。
@@ -59,7 +59,7 @@ type DefaultsDoc = {
      *  absent = false（向后兼容）。与 Rust `gateway::coding_plan::default_is_coding_plan` 对称。 */
     is_coding_plan?: boolean;
     endpoints: { default?: PlatformEndpoint[] };    /** models 分支：default = 默认映射；
-     *  peak = 高峰时段映射（PRD 07-11，命中 peak_hours 任一窗口时启用，仅 glm_coding 等少数协议带）。
+     *  peak = 高峰时段映射（PRD 07-11，命中平台 peak 任一窗口时启用，仅 glm_coding 等少数协议带）。
      *  absent peak = 无高峰切换（向后兼容，旧协议不受影响）。coding 套餐是独立协议，无 coding_plan 分支。 */
     models: { default?: Partial<Record<ModelSlot, string>>; peak?: Partial<Record<ModelSlot, string>> };
     model_list: { default?: string[] };
@@ -79,10 +79,10 @@ type DefaultsDoc = {
     /** 平台 API key 前缀（如 sk-ant- / sk-kimi- / tp- / ark-）；粘贴识别的 key 提取与平台直判据此数据驱动生成。 */
     key_prefixes?: string[];
     /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
-     *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
+     *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak。
      *  absent / 空数组 = 无调整（multiplier 1.0）。
      *  多窗口 first-match wins。跨天: end_hour < start_hour（半开 [start,end)）。 */
-    peak_hours?: TimeWindow[];
+    peak?: TimeWindow[];
   }>>;
 };
 
@@ -172,7 +172,7 @@ export async function getDefaultEndpoints(protocol: Protocol): Promise<PlatformE
  *  与 getDefaultEndpoints 同址同模式：从 defaults.json 读，落 CreatePlatform.models。
  *
  *  `isPeak`（PRD 07-11）：true 且 preset 含 `models.peak` 分支时返回 peak 映射；否则返 default。
- *  caller 应传 `isCurrentlyPeak(platform.extra.peak_hours ?? (await getDefaultPeak(protocol)), Date.now())`。
+ *  caller 应传 `isCurrentlyPeak(platform.extra.peak ?? (await getDefaultPeak(protocol)), Date.now())`。
  *  缺省 false（向后兼容：旧 caller 无 peak 切换）。 */
 export async function getDefaultModels(
   protocol: Protocol,
@@ -193,11 +193,11 @@ export async function getDefaultModelList(protocol: Protocol): Promise<string[]>
   return [...list];
 }
 
-/** preset 该协议的 peak_hours 默认（用户覆盖存 platform.extra.peak_hours；absent/空 = 1.0 无调整）。
+/** preset 该协议的 peak 默认（用户覆盖存 platform.extra.peak；absent/空 = 1.0 无调整）。
  *  deep copy 防 mutate 污染 docPromise 缓存。 */
 export async function getDefaultPeak(protocol: Protocol): Promise<TimeWindow[]> {
   const doc = await loadDoc();
-  const list = doc.protocols[protocol]?.peak_hours ?? [];
+  const list = doc.protocols[protocol]?.peak ?? [];
   return list.map(w => ({
     ...w,
     days_of_week: w.days_of_week ? [...w.days_of_week] : undefined,

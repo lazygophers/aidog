@@ -6,7 +6,7 @@
 //! 同一模型在不同平台的价格是**不同的行**，不再靠一份合并文档的 `pricing` 子键区分。
 //!
 //! ADR 0006 的解析顺序（同 `SPEC.md`「计费解析顺序」）：
-//! 1. 命中 preset `peak_hours` 窗口（由调用方判定并以 `is_peak` 传入）且条目带 `peak`
+//! 1. 命中 preset `peak` 窗口（由调用方判定并以 `is_peak` 传入）且条目带 `peak`
 //!    → 用模型 `peak` **绝对价**，此时 [`PriceResolution::peak_applied`] = true，
 //!    调用方**不得**再乘平台倍率（否则双重计价，见笔记 R6）。
 //! 2. 否则条目默认价（含 `time_tiers` / `context_tiers` 分档）× 平台倍率（调用方乘）。

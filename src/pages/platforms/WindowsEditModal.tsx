@@ -217,7 +217,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       </div>
                       {isNextDay && (
                         <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontStyle: "italic" }}>
-                          （{t("platform.peak_hours_next_day", "次日")}）
+                          （{t("platform.peak_next_day", "次日")}）
                         </span>
                       )}
                       <Button

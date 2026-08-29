@@ -13,7 +13,7 @@ import {
   serializePlatformTimeWindows,
 } from "./platforms";
 
-// platform.extra 是单个 JSON 字符串，多个特性（devin / peak_hours / time_windows /
+// platform.extra 是单个 JSON 字符串，多个特性（devin / peak / time_windows /
 // disable_during_peak / breaker / newapi / mock）共享它。每对 parse/serialize 必须：
 // 空串、非法 JSON、数组、缺键 → 回默认；serialize 保留兄弟键；空值 → 删键而非写空。
 
@@ -85,12 +85,12 @@ describe("parsePlatformPeak", () => {
     expect(parsePlatformPeak(extra)).toEqual([]);
   });
 
-  it("peak_hours 非数组回空", () => {
-    expect(parsePlatformPeak('{"peak_hours":{"start_hour":1}}')).toEqual([]);
+  it("peak 非数组回空", () => {
+    expect(parsePlatformPeak('{"peak":{"start_hour":1}}')).toEqual([]);
   });
 
   it("窗口经 normalizeWindow 归一", () => {
-    const out = parsePlatformPeak('{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3}]}');
+    const out = parsePlatformPeak('{"peak":[{"start_hour":6,"end_hour":10,"multiplier":3}]}');
     expect(out).toHaveLength(1);
     expect(out[0].start_hour).toBe(6);
     expect(out[0].end_hour).toBe(10);
@@ -102,15 +102,15 @@ describe("serializePlatformPeak", () => {
   const win = { start_hour: 6, end_hour: 10, multiplier: 3 };
 
   it("空数组 → 删键，保留兄弟键", () => {
-    const o = JSON.parse(serializePlatformPeak('{"mock":{},"peak_hours":[{}]}', []));
-    expect(o.peak_hours).toBeUndefined();
+    const o = JSON.parse(serializePlatformPeak('{"mock":{},"peak":[{}]}', []));
+    expect(o.peak).toBeUndefined();
     expect(o.mock).toEqual({});
   });
 
   it("非空数组写入；非法/数组 extra 重建", () => {
-    expect(JSON.parse(serializePlatformPeak("", [win])).peak_hours).toEqual([win]);
-    expect(JSON.parse(serializePlatformPeak("bad", [win])).peak_hours).toEqual([win]);
-    expect(JSON.parse(serializePlatformPeak("[]", [win])).peak_hours).toEqual([win]);
+    expect(JSON.parse(serializePlatformPeak("", [win])).peak).toEqual([win]);
+    expect(JSON.parse(serializePlatformPeak("bad", [win])).peak).toEqual([win]);
+    expect(JSON.parse(serializePlatformPeak("[]", [win])).peak).toEqual([win]);
   });
 });
 

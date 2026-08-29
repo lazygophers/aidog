@@ -209,7 +209,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [breakerFailureThreshold, setBreakerFailureThreshold] = useState<string>("");
   const [breakerOpenSecs, setBreakerOpenSecs] = useState<string>("");
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
-  // peak_hours（用户覆盖，存 platform.extra.peak_hours；时区仅前端态，默认本地）
+  // peak（用户覆盖，存 platform.extra.peak；时区仅前端态，默认本地）
   const [peak, setPeak] = useState<TimeWindow[]>([]);
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
@@ -634,7 +634,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       open_secs: toBreakerNum(breakerOpenSecs),
       half_open_max: toBreakerNum(breakerHalfOpenMax),
     });
-    // peak_hours：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
+    // peak：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
     extraPayload = serializePlatformPeak(extraPayload, peak);
     // disable_during_peak：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);

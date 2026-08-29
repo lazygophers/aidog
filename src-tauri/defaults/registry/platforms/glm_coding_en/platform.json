@@ -66,7 +66,7 @@
     "zp"
   ],
   "color": "#3B5FEC",
-  "peak_hours": [
+  "peak": [
     {
       "start_hour": 6,
       "end_hour": 10,
@@ -83,5 +83,6 @@
         "glm-5.3-flash"
       ]
     }
-  ]
+  ],
+  "last_updated": 1788012963
 }

@@ -7,7 +7,7 @@
 //! 失败链路（不 panic）：HF tokenizer 加载/编码失败 → cl100k。
 //! tiktoken 单例内部 `.unwrap()` 仅在 bundled BPE 数据损坏时炸（不会发生），属可接受硬约束。
 //!
-//! ponytail: 缓存用 std::sync::OnceLock（同 `gateway/peak_hours.rs` idiom），不引入 lazy_static。
+//! ponytail: 缓存用 std::sync::OnceLock（同 `gateway/peak.rs` idiom），不引入 lazy_static。
 //! HF Tokenizer 解析 19MB JSON 耗时百毫秒级，OnceLock 保证进程级一次解析。
 
 use std::sync::OnceLock;

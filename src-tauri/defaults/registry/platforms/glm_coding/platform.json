@@ -65,7 +65,7 @@
     "zp"
   ],
   "color": "#3B5FEC",
-  "peak_hours": [
+  "peak": [
     {
       "start_hour": 14,
       "end_hour": 18,
@@ -83,5 +83,6 @@
       ],
       "timezone": "Asia/Shanghai"
     }
-  ]
+  ],
+  "last_updated": 1788012963
 }

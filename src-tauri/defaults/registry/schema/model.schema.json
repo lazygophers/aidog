@@ -155,7 +155,7 @@
           "description": "【可选】缓存写单价（$/token）。"
         }
       },
-      "description": "【可选】高峰时段绝对价（price_resolve.rs：命中 peak_hours 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。"
+      "description": "【可选】高峰时段绝对价（price_resolve.rs：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。"
     },
     "context_tiers": {
       "type": "array",
@@ -265,5 +265,6 @@
       },
       "description": "【可选】按生效时间切换的价目（start_at Unix 秒，latest wins）。"
     }
-  }
+  },
+  "last_updated": 1788012963
 }

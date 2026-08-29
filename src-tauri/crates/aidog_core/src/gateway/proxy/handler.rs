@@ -408,11 +408,11 @@ pub(crate) async fn handle_proxy_core(
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
-            // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak_hours'）。
+            // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak'）。
             // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
             if e == "peak_disabled" {
                 log.blocked_by = "router".to_string();
-                log.blocked_reason = "peak_hours".to_string();
+                log.blocked_reason = "peak".to_string();
                 log.status_code = 503;
                 log.done = true;
                 log.response_body = format!("route error: {e}");

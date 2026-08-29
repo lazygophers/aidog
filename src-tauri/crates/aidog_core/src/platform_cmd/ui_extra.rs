@@ -6,7 +6,7 @@ use tauri::State;
 crate::tauri_command! {
 /// 写 UI 态到 extra 单键（读改写）。target="platform"（"group" 待 group 表加 extra 列后开放）。
 /// key 推荐 `_ui_` 前缀（`_ui_collapsed` / `_ui_expand_plat` / `_ui_expand_grp`），
-/// 与业务键（peak_hours / breaker / disable_during_peak）共存无副作用——serde_json 解析
+/// 与业务键（peak / breaker / disable_during_peak）共存无副作用——serde_json 解析
 /// 时忽略未知键。
 pub async fn set_ui_extra(
     target: String,

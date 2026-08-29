@@ -186,7 +186,7 @@ pub async fn estimate_after_request(
         aidog_db::resolve_price(db, platform_type, model, 0.0, 0.0, input_tokens, now(), is_peak)
             .await
             .ok();
-    // 高峰绝对价已含涨价 → 倍率压成 1.0，否则乘平台 peak_hours 倍率（避免双重计价）。
+    // 高峰绝对价已含涨价 → 倍率压成 1.0，否则乘平台 peak 倍率（避免双重计价）。
     let raw_mult = crate::gateway::peak::resolve_multiplier(&windows, now(), model);
     let peak_mult = resolved.as_ref().map_or(raw_mult, |r| r.multiplier(raw_mult));
     let resolved_price = resolved.map(|r| r.price);
