@@ -1,21 +1,17 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://aihubmix.com",
-        "client_type": "claude_code"
+        "base_url": "https://aihubmix.com"
       },
       {
         "protocol": "openai",
-        "base_url": "https://aihubmix.com/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://aihubmix.com/v1"
       },
       {
         "protocol": "gemini",
-        "base_url": "https://aihubmix.com/gemini",
-        "client_type": "default"
+        "base_url": "https://aihubmix.com/gemini"
       }
     ]
   },

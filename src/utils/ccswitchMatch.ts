@@ -26,7 +26,6 @@ export type MatchedBy = "preset_keyword" | "base_url_host" | "protocol_fallback"
 export interface CcMatchResult {
   /** 命中的 platform_type（Protocol 枚举值）。 */
   protocol: Protocol;
-  codingPlan?: boolean;
   matchedBy: MatchedBy;
   /** getDefaultEndpoints 骨架 + 实际 base_url 覆盖同协议 endpoint。 */
   endpoints: PlatformEndpoint[];
@@ -69,16 +68,16 @@ function hostOf(url: string): string {
 async function matchByBaseUrlHost(
   baseUrl: string,
   protocols: ProtocolOption[],
-): Promise<{ protocol: Protocol; codingPlan?: boolean; label: string } | null> {
+): Promise<{ protocol: Protocol; label: string } | null> {
   const target = normalizeForMatch(hostOf(baseUrl));
   if (!target) return null;
   for (const p of protocols) {
-    const eps = await getDefaultEndpoints(p.value, p.codingPlan);
+    const eps = await getDefaultEndpoints(p.value);
     for (const ep of eps) {
       const h = normalizeForMatch(hostOf(ep.base_url));
       // 双向子串匹配（preset host 可能是子域，或反之）。
       if (h && (target.includes(h) || h.includes(target)) && h.length >= 4) {
-        return { protocol: p.value, codingPlan: p.codingPlan, label: p.label };
+        return { protocol: p.value, label: p.label };
       }
     }
   }
@@ -88,12 +87,11 @@ async function matchByBaseUrlHost(
 /** 构造命中结果：取 preset 骨架 endpoints，用实际 base_url 覆盖同协议 endpoint。 */
 async function buildMatch(
   protocol: Protocol,
-  codingPlan: boolean | undefined,
   matchedBy: MatchedBy,
   baseUrl: string,
   label?: string,
 ): Promise<CcMatchResult> {
-  const skeleton = await getDefaultEndpoints(protocol, codingPlan);
+  const skeleton = await getDefaultEndpoints(protocol);
   const endpoints = baseUrl
     ? skeleton.map((ep) =>
         // 用实际 base_url 覆盖同协议 endpoint；不同协议保留骨架默认。
@@ -102,7 +100,6 @@ async function buildMatch(
     : skeleton;
   return {
     protocol,
-    codingPlan,
     matchedBy,
     endpoints,
     matchedLabel: label,
@@ -175,12 +172,8 @@ export async function matchCcProvider(
   // 步骤 1：preset 关键词匹配（name + base_url 整体做 hay）。
   const hit = matchPlatform(text, toPastePresets(list));
   if (hit) {
-    const preset = list.find(
-      (p) => p.value === hit.value && p.label === hit.label,
-    );
     return buildMatch(
       hit.value as Protocol,
-      preset?.codingPlan,
       "preset_keyword",
       baseUrl,
       hit.label,
@@ -192,7 +185,6 @@ export async function matchCcProvider(
   if (hostHit) {
     return buildMatch(
       hostHit.protocol,
-      hostHit.codingPlan,
       "base_url_host",
       baseUrl,
       hostHit.label,

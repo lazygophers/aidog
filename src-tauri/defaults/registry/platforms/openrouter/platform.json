@@ -1,16 +1,13 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://openrouter.ai/api",
-        "client_type": "claude_code"
+        "base_url": "https://openrouter.ai/api"
       },
       {
         "protocol": "openai",
-        "base_url": "https://openrouter.ai/api/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://openrouter.ai/api/v1"
       }
     ]
   },

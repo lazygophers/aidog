@@ -111,7 +111,7 @@ export const PlatformCard = memo(function PlatformCard({
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
   const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap } =
-    useProtocolMeta(p.platform_type, hasCodingEndpoint, p.extra ?? "", i18n.language);
+    useProtocolMeta(p.platform_type, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
     const explicit = allModelValues(p.models);
     if (explicit.length > 0) return explicit;

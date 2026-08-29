@@ -1,16 +1,13 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "openai",
-        "base_url": "https://token.sensenova.cn/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://token.sensenova.cn/v1"
       },
       {
         "protocol": "anthropic",
-        "base_url": "https://token.sensenova.cn",
-        "client_type": "claude_code"
+        "base_url": "https://token.sensenova.cn"
       }
     ]
   },

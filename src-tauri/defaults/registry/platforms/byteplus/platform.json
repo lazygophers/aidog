@@ -1,21 +1,17 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan",
-        "client_type": "claude_code"
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan"
       },
       {
         "protocol": "openai",
-        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3",
-        "client_type": "codex_tui"
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3"
       },
       {
         "protocol": "openai_responses",
-        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3",
-        "client_type": "codex_tui"
+        "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3"
       }
     ]
   },

@@ -9,10 +9,10 @@ import {
 } from "./defaults";
 import type { Protocol } from "../../services/api";
 
-/** 最小 preset mock：3 协议覆盖 3 种分支拓扑。
- *  - glm_coding: 带 models.{default,peak} 双分支（无 coding_plan 分支），endpoints.default 2 端点
- *  - kimi_coding: 带 models.{default,coding_plan} 双分支（无 peak），endpoints.default + coding_plan
- *  - deepseek: 仅 models.default 单分支（向后兼容）。
+/** 最小 preset mock：3 协议覆盖分支拓扑与 client_type 派生。
+ *  - glm_coding: 带 models.{default,peak} 双分支，endpoints.default 2 端点（无 client_type → 派生）
+ *  - kimi_coding: 仅 models.default 单分支，endpoints.default 1 端点（无 client_type → 派生）
+ *  - deepseek: 仅 models.default 单分支（向后兼容），endpoint 显式 client_type 例外保留。
  */
 const DEFAULTS_MOCK = JSON.stringify({
   version: "1",
@@ -20,10 +20,9 @@ const DEFAULTS_MOCK = JSON.stringify({
   protocols: {
     glm_coding: {
       is_coding_plan: true,
-      client_type: "codex_tui",
       endpoints: { default: [
-        { protocol: "openai", base_url: "https://open.bigmodel.cn/api/coding/paas/v4", client_type: "codex_tui", coding_plan: true },
-        { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code", coding_plan: true },
+        { protocol: "openai", base_url: "https://open.bigmodel.cn/api/coding/paas/v4", coding_plan: true },
+        { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", coding_plan: true },
       ] },
       // PRD 07-11：default + peak 双分支
       models: {
@@ -35,23 +34,19 @@ const DEFAULTS_MOCK = JSON.stringify({
     },
     kimi_coding: {
       is_coding_plan: true,
-      client_type: "codex_tui",
       endpoints: {
-        default: [{ protocol: "openai", base_url: "https://api.kimi.com/coding/v1", client_type: "codex_tui", coding_plan: true }],
-        coding_plan: [{ protocol: "anthropic", base_url: "https://api.kimi.com/coding/anthropic", client_type: "claude_code", coding_plan: true }],
+        default: [{ protocol: "openai", base_url: "https://api.kimi.com/coding/v1", coding_plan: true }],
       },
       models: {
         default: { default: "kimi-default", sonnet: "kimi-sonnet-default" },
-        coding_plan: { default: "kimi-cp", sonnet: "kimi-cp-sonnet" },
       },
       model_list: { default: ["kimi-default"] },
       name: { "en-US": "Kimi Coding", "zh-Hans": "Kimi 编程" },
       keywords: ["moonshot"],
     },
     deepseek: {
-      client_type: "codex_tui",
-      endpoints: { default: [{ protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "codex_tui" }] },
-      // 单分支（向后兼容：无 peak / coding_plan 分支）
+      endpoints: { default: [{ protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "default" }] },
+      // 单分支（向后兼容：无 peak 分支）
       models: { default: { default: "deepseek-v4-flash" } },
       model_list: { default: ["deepseek-v4-flash"] },
       name: { "en-US": "DeepSeek" },
@@ -82,41 +77,37 @@ describe("getDefaultModels — PRD 07-11 peak 分支", () => {
   });
 
   it("glm_coding 高峰（isPeak=true）→ 切 peak 分支", async () => {
-    const m = await getDefaultModels("glm_coding" as Protocol, false, true);
+    const m = await getDefaultModels("glm_coding" as Protocol, true);
     expect(m.sonnet).toBe("glm-4.6");
     expect(m.default).toBe("glm-4.7");
     expect(m.haiku).toBe("glm-4.5");
   });
 
-  it("kimi_coding codingPlan=true → coding_plan 分支（与 peak 互斥，cp 优先）", async () => {
-    // coding_plan 与 peak 同时命中时 cp 优先（端点维度硬约束 > 时段维度软切换）
-    const m = await getDefaultModels("kimi_coding" as Protocol, true, true);
-    expect(m.default).toBe("kimi-cp");
-    expect(m.sonnet).toBe("kimi-cp-sonnet");
-  });
-
-  it("kimi_coding codingPlan=true isPeak=false → coding_plan 分支", async () => {
-    const m = await getDefaultModels("kimi_coding" as Protocol, true, false);
-    expect(m.default).toBe("kimi-cp");
-  });
-
-  it("kimi_coding 无 cp 端点（codingPlan=false）+ isPeak=true 但无 peak 分支 → 回落 default", async () => {
+  it("kimi_coding 无 peak 分支 + isPeak=true → 回落 default", async () => {
     // 向后兼容：preset 无 peak 分支 → isPeak=true 仍返 default
-    const m = await getDefaultModels("kimi_coding" as Protocol, false, true);
+    const m = await getDefaultModels("kimi_coding" as Protocol, true);
     expect(m.default).toBe("kimi-default");
   });
 
-  it("deepseek 单分支（无 peak 无 cp）：isPeak=true 不影响，返 default", async () => {
-    const m = await getDefaultModels("deepseek" as Protocol, false, true);
+  it("deepseek 单分支（无 peak）：isPeak=true 不影响，返 default", async () => {
+    const m = await getDefaultModels("deepseek" as Protocol, true);
     expect(m.default).toBe("deepseek-v4-flash");
   });
 });
 
-describe("getDefaultEndpoints / getDefaultModelList — 仅 default/coding_plan 两分支（不含 peak）", () => {
-  it("getDefaultEndpoints 不受 isPeak 影响（无第 3 参）", async () => {
+describe("getDefaultEndpoints / getDefaultModelList — 单分支 default + client_type 派生", () => {
+  it("getDefaultEndpoints 缺省 client_type 按 protocol 派生（openai→codex_tui / anthropic→claude_code）", async () => {
     const eps = await getDefaultEndpoints("glm_coding" as Protocol);
     expect(eps.length).toBe(2);
     expect(eps[0].protocol).toBe("openai");
+    expect(eps[0].client_type).toBe("codex_tui");
+    expect(eps[1].protocol).toBe("anthropic");
+    expect(eps[1].client_type).toBe("claude_code");
+  });
+
+  it("getDefaultEndpoints 显式 client_type 例外保留（不覆盖）", async () => {
+    const eps = await getDefaultEndpoints("deepseek" as Protocol);
+    expect(eps[0].client_type).toBe("default");
   });
 
   it("getDefaultModelList glm_coding 含 glm-4.5 / glm-4.6（R4 补全）", async () => {

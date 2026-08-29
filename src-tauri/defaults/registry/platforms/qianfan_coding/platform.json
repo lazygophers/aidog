@@ -1,18 +1,15 @@
 {
   "is_coding_plan": true,
-  "client_type": "claude_code",
   "endpoints": {
     "default": [
       {
         "protocol": "openai",
         "base_url": "https://qianfan.baidubce.com/v2/coding",
-        "client_type": "codex_tui",
         "coding_plan": true
       },
       {
         "protocol": "anthropic",
         "base_url": "https://qianfan.baidubce.com/anthropic/coding",
-        "client_type": "claude_code",
         "coding_plan": true
       }
     ]

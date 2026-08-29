@@ -25,7 +25,6 @@ import { parsePlatformPeakHours } from "../../services/api";
  *
  *  入参（依赖项）：
  *  - protocol: 平台类型（驱动 colorMap / isCp / models / homepage / label 查询）
- *  - hasCodingEndpoint: 端点层 cp 标记（驱动 getDefaultModels 第二参 codingPlan）
  *  - extra: platform.extra JSON 串（含用户覆盖 peak_hours；驱动 isPeak 计算）
  *  - lang: i18n 当前 locale（驱动 label / labelMap 本地化）
  *
@@ -59,7 +58,6 @@ const INITIAL: ProtocolMeta = {
 
 export function useProtocolMeta(
   protocol: Protocol,
-  hasCodingEndpoint: boolean,
   extra: string,
   lang: string,
 ): ProtocolMeta {
@@ -83,7 +81,7 @@ export function useProtocolMeta(
       const userPh = parsePlatformPeakHours(extra);
       const phWindows = userPh.length > 0 ? userPh : peakWindows;
       const isPeak = isCurrentlyPeak(phWindows, Date.now());
-      const modelsBranch = await getDefaultModels(protocol, hasCodingEndpoint, isPeak);
+      const modelsBranch = await getDefaultModels(protocol, isPeak);
       if (cancelled) return;
       setMeta({
         color: colorMap[protocol] ?? "var(--accent)",
@@ -97,7 +95,7 @@ export function useProtocolMeta(
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [protocol, hasCodingEndpoint, extra, lang]);
+  }, [protocol, extra, lang]);
 
   return meta;
 }

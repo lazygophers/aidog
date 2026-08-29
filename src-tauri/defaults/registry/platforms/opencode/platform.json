@@ -1,11 +1,9 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "openai",
-        "base_url": "https://opencode.ai/zen/go/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://opencode.ai/zen/go/v1"
       }
     ]
   },

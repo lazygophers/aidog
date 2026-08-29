@@ -1,11 +1,9 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "openai_responses",
-        "base_url": "https://api.openai.com/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://api.openai.com/v1"
       }
     ]
   },
