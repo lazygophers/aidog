@@ -52,10 +52,7 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
           size="sm"
           style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
           onClick={() => {
-            // defaultClientForProtocol async 化后取默认客户端类型（仅一处调用，不阻塞渲染）
-            defaultClientForProtocol("openai").then((ct) =>
-              setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: ct, coding_plan: false }]),
-            );
+            setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: defaultClientForProtocol("openai"), coding_plan: false }]);
           }}
         >
           + {t("platform.addEndpoint", "Add Endpoint")}
@@ -72,13 +69,11 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
           <Select
             value={ep.protocol}
             onValueChange={(newProto) => {
-              // defaultClientForProtocol async 化后异步取默认客户端类型，更新该 endpoint。
-              defaultClientForProtocol(newProto as Protocol).then((ct) => {
-                setEndpoints((prev) => {
-                  const next = [...prev];
-                  next[idx] = { ...next[idx], protocol: newProto as Protocol, client_type: ct };
-                  return next;
-                });
+              const ct = defaultClientForProtocol(newProto as Protocol);
+              setEndpoints((prev) => {
+                const next = [...prev];
+                next[idx] = { ...next[idx], protocol: newProto as Protocol, client_type: ct };
+                return next;
               });
             }}
           >

@@ -1,16 +1,13 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "openai",
-        "base_url": "https://api.z.ai/api/paas/v4",
-        "client_type": "codex_tui"
+        "base_url": "https://api.z.ai/api/paas/v4"
       },
       {
         "protocol": "anthropic",
-        "base_url": "https://api.z.ai/api/anthropic",
-        "client_type": "claude_code"
+        "base_url": "https://api.z.ai/api/anthropic"
       }
     ]
   },

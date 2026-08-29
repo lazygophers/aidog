@@ -1,12 +1,10 @@
 {
   "is_coding_plan": true,
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
         "base_url": "https://cp.compshare.cn",
-        "client_type": "claude_code",
         "coding_plan": true
       }
     ]

@@ -1,16 +1,13 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://api.longcat.chat/anthropic",
-        "client_type": "claude_code"
+        "base_url": "https://api.longcat.chat/anthropic"
       },
       {
         "protocol": "openai",
-        "base_url": "https://api.longcat.chat/openai/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://api.longcat.chat/openai/v1"
       }
     ]
   },

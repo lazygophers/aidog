@@ -1,21 +1,17 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://api.modelverse.cn",
-        "client_type": "claude_code"
+        "base_url": "https://api.modelverse.cn"
       },
       {
         "protocol": "openai",
-        "base_url": "https://api.modelverse.cn/v1",
-        "client_type": "codex_tui"
+        "base_url": "https://api.modelverse.cn/v1"
       },
       {
         "protocol": "gemini",
-        "base_url": "https://api.modelverse.cn",
-        "client_type": "default"
+        "base_url": "https://api.modelverse.cn"
       }
     ]
   },

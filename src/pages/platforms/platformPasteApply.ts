@@ -127,8 +127,6 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
   }
   // 匹配到内置平台 → 走协议切换（设置 name + 默认 endpoints + client_type）。
   // 未匹配 → 不改平台选择（保持当前 protocol/endpoints），仅填 base_url/apiKey。
-  // codingPlan flag 必传：同 value 的普通/coding 两 preset（如 xiaomi_mimo）命中后，
-  // 不传 flag 则 getDefaultEndpoints 拿普通 endpoints（base_url 取错）。
   if (r.platform) {
     await handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
   }
@@ -175,7 +173,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
           const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
           const idx = eps.findIndex((e) => e.protocol === epProto);
           if (idx >= 0) eps[idx] = { ...eps[idx], base_url: b.url };
-          else eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto), coding_plan: false });
+          else eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto), coding_plan: false });
         }
       }
       return eps;
@@ -188,7 +186,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
       if (idx >= 0) {
         eps[idx] = { ...eps[idx], base_url: b.url };
       } else {
-        eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto), coding_plan: false });
+        eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto), coding_plan: false });
       }
     }
     return eps;
@@ -201,7 +199,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     // 协议已由上方 handleProtocolChange(r.platform.value...) 落表单（命中平台时），
     // 未命中平台则沿用当前表单 protocol；此处不再重复设协议。
     const basePrev = r.platform
-      ? await getDefaultEndpoints(r.platform.value as Protocol, r.platform.codingPlan)
+      ? await getDefaultEndpoints(r.platform.value as Protocol)
       : endpoints;
     const effectiveEndpoints = await computeEndpoints(basePrev);
     // 灌表单态（让用户可见将批量化创建的配置），触发预览（与手动表单多 key 同路径，统一预览 UX）。

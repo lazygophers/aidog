@@ -263,10 +263,10 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     const isDefaultName = !name.trim() || DEFAULT_NAMES.has(name)
       || Object.values(protocolLabelMap).includes(name);
     if (isDefaultName) {
-      setName(cp ? `${label} Coding Plan` : label);
+      setName(label);
     }
     // Auto-fill endpoints from defaults（mock 无真实上游，返回空）
-    const defaultEps = await getDefaultEndpoints(newProtocol, cp);
+    const defaultEps = await getDefaultEndpoints(newProtocol);
     if (defaultEps.length > 0) {
       setEndpoints(defaultEps);
     } else {
@@ -274,7 +274,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     // Auto-fill 默认模型预设（与 endpoints 同步随协议切换）。
     // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
-    const defaultModels = await getDefaultModels(newProtocol, cp);
+    const defaultModels = await getDefaultModels(newProtocol);
     setModels({
       default: "", sonnet: "", opus: "", haiku: "", gpt: "",
       ...defaultModels,

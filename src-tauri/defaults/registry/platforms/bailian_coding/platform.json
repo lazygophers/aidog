@@ -1,12 +1,10 @@
 {
   "is_coding_plan": true,
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
         "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
-        "client_type": "claude_code",
         "coding_plan": true
       }
     ]

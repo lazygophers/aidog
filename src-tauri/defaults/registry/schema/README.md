@@ -45,11 +45,11 @@ registry/
 | 字段 | 消费方 |
 |---|---|
 | `client_type` | 前端协议选择器 / Rust preset 解析 |
-| `endpoints.default[]`（protocol / base_url / client_type / coding_plan） | `src/domains/platforms/defaults.ts`（getDefaultEndpoints）、Rust endpoint 路由；URL = base_url + provider_api_path，禁额外拼接 |
-| `models.default` / `models.peak` / `models.coding_plan` | `defaults.ts::pickModelsBranch`（三分支）、`gateway/router/candidates.rs::resolve_effective_models`（peak 三层级联） |
-| `model_list.default` / `.coding_plan` | `defaults.ts::pickBranch`（下拉冷启动候选） |
+| `endpoints.default[]`（protocol / base_url / client_type?） | `src/domains/platforms/defaults.ts`（getDefaultEndpoints，缺省 client_type 按 protocol 派生 clientTypeForProtocol）、Rust `registry.rs::endpoints_in`（同派生 derive_client_type）；URL = base_url + provider_api_path，禁额外拼接 |
+| `models.default` / `models.peak` | `defaults.ts::pickModelsBranch`（两分支）、`gateway/router/candidates.rs::resolve_effective_models`（peak 三层级联） |
+| `model_list.default` | `defaults.ts::pickBranch`（下拉冷启动候选） |
 | `peak_hours[]` | Rust `gateway/peak_hours.rs`（resolve_multiplier / is_in_peak_window）、前端 `utils/peakHours.ts`（isCurrentlyPeak，cross-layer 对称） |
-| `is_coding_plan` | Rust `gateway/router/ordering.rs`（coding 平台排序靠后）、前端 platformPaste 机制 B |
+| `is_coding_plan` | Rust `gateway/router/ordering.rs`（coding 平台排序靠后）、前端 `defaults.ts::isCodingPlanProtocol` / ProtocolOption.codingPlan（徽标 / 选择器） |
 | `key_prefixes` | 前端 `platformPaste.ts::collectKeyPrefixes` + 优先级 2 平台直判（粘贴识别 key 提取正则与平台判定数据驱动；平台前缀禁在代码硬编码，通用 `sk-`/`sk_` 除外。coding 套餐平台是独立协议，其专属 token 前缀（tp- / sk-cp-）写在本字段，无独立 coding 前缀字段） |
 | `name`（8 locale 全必填） | 前端 `useProtocolMeta` / 协议选择器 label |
 | `source_urls.docs` / `.pricing` | 前端模型信息页 / 官方价核对入口 |

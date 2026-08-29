@@ -6,7 +6,6 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "client_type",
     "endpoints",
     "models",
     "model_list",
@@ -18,28 +17,9 @@
     "color"
   ],
   "properties": {
-    "client_type": {
-      "type": "string",
-      "enum": [
-        "default",
-        "claude_code",
-        "claude_code_vscode",
-        "claude_code_sdk_ts",
-        "claude_code_sdk_py",
-        "claude_code_gh_action",
-        "codex_cli",
-        "codex_tui",
-        "codex_desktop",
-        "codex_vscode",
-        "pi_cli",
-        "cursor",
-        "windsurf"
-      ],
-      "description": "默认客户端形态（全集见 client_types_const.rs：claude_code 系 / codex 系 / pi_cli / cursor / windsurf / default）。"
-    },
     "is_coding_plan": {
       "type": "boolean",
-      "description": "编码套餐（coding plan）变体标记。router/ordering.rs 优先普通平台；前端 platformPaste 机制 B 用它找 coding 变体。"
+      "description": "编码套餐（coding plan）协议标记：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。router/ordering.rs 优先普通平台；前端 ProtocolOption.codingPlan / PlatformCard 徽标据此派生。coding 套餐一律是独立协议条目（禁与普通版同 code 双 preset）。"
     },
     "key_prefixes": {
       "type": "array",
@@ -59,14 +39,10 @@
       "properties": {
         "default": {
           "$ref": "#/definitions/endpointList",
-          "description": "默认端点列表（每项含 protocol / base_url / client_type）。"
-        },
-        "coding_plan": {
-          "$ref": "#/definitions/endpointList",
-          "description": "cp 独立端点分支（2026-07-08 起仅少数平台保留，glm 已拆成独立协议 glm_coding）。"
+          "description": "端点列表（每项含 protocol / base_url / client_type）。"
         }
       },
-      "description": "端点分支表。default 必填；coding_plan 仅少数平台保留（glm 已拆独立协议 glm_coding）。"
+      "description": "端点表，仅 default 单分支。coding 套餐是独立协议（如 glm_coding / minimax_coding），不再有 coding_plan 分支。"
     },
     "models": {
       "type": "object",
@@ -82,13 +58,9 @@
         "peak": {
           "$ref": "#/definitions/modelBranch",
           "description": "高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中 peak_hours 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
-        },
-        "coding_plan": {
-          "$ref": "#/definitions/modelBranch",
-          "description": "编码套餐槽位映射分支。"
         }
       },
-      "description": "客户端模型槽位映射分支表。default 必填；peak 高峰切换（现仅 glm_coding）；coding_plan 编码套餐。"
+      "description": "客户端模型槽位映射表。default 必填；peak 高峰切换（现仅 glm_coding）。coding 套餐是独立协议，无 coding_plan 分支。"
     },
     "model_list": {
       "type": "object",
@@ -104,17 +76,9 @@
             "minLength": 1
           },
           "description": "下拉冷启动候选全集（不变量：models 各分支值集的超集）。"
-        },
-        "coding_plan": {
-          "type": "array",
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": "编码套餐下拉候选列表。"
         }
       },
-      "description": "模型下拉候选分支表。default 必须是 models 各分支值集的超集（冷启动兜底列全候选）。"
+      "description": "模型下拉候选表，仅 default 单分支（default 必须是 models 各分支值集的超集，冷启动兜底列全候选）。coding 套餐是独立协议，无 coding_plan 分支。"
     },
     "peak_hours": {
       "type": "array",
@@ -226,8 +190,7 @@
         "additionalProperties": false,
         "required": [
           "protocol",
-          "base_url",
-          "client_type"
+          "base_url"
         ],
         "properties": {
           "protocol": {
@@ -257,7 +220,7 @@
               "cursor",
               "windsurf"
             ],
-            "description": "端点客户端形态（同顶层 client_type 全集），覆盖平台级默认。"
+            "description": "可选：端点客户端形态覆盖。缺省按 protocol 派生（前端 defaults.ts::clientTypeForProtocol / Rust registry.rs::derive_client_type 对称）：anthropic → claude_code、openai 系 → codex_tui、其余 → default。仅派生规则不适用的例外平台标注（如官方 claude_code 直连端点标 default 不模拟客户端）。"
           },
           "coding_plan": {
             "type": "boolean",

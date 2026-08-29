@@ -300,7 +300,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <ModelsMatrixSection
           models={models} handleModelChange={handleModelChange} handleModelSelect={handleModelSelect}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
-          availableModels={availableModels} protocol={proto} codingPlan={codingPlan}
+          availableModels={availableModels} protocol={proto}
           fetchError={fetchError} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}

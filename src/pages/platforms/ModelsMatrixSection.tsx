@@ -77,7 +77,7 @@ export function ModelsMatrixSection({
   // activeDropdown / setActiveDropdown 接受签名兼容，矩阵内部用 activeCell 单开管理；
   //   外部 state 仅同步关闭（避免旧 dropdown 残留），不再驱动矩阵渲染。
   activeDropdown: _activeDropdown, setActiveDropdown: _setActiveDropdown,
-  availableModels, protocol, codingPlan,
+  availableModels, protocol,
   fetchError, fetching,
   onFillAll, onFetchModels, apiKeyMissing, endpointsCount,
   // 时段档列 props
@@ -93,7 +93,6 @@ export function ModelsMatrixSection({
   setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
   availableModels: string[];
   protocol: Protocol;
-  codingPlan: boolean;
   fetchError: string;
   fetching: boolean;
   onFillAll: () => void;
@@ -118,11 +117,11 @@ export function ModelsMatrixSection({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const list = await getDefaultModelList(protocol, codingPlan);
+      const list = await getDefaultModelList(protocol);
       if (!cancelled) setDefaultList(list);
     })();
     return () => { cancelled = true; };
-  }, [protocol, codingPlan]);
+  }, [protocol]);
 
   // ─── 时段档列操作（从 TimeModelsSection 移植）───
   const addRule = () => {

@@ -1,18 +1,13 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "openai",
-        "base_url": "https://api.minimax.io/v1",
-        "client_type": "codex_tui",
-        "coding_plan": false
+        "base_url": "https://api.minimax.io/v1"
       },
       {
         "protocol": "anthropic",
-        "base_url": "https://api.minimax.io/anthropic",
-        "client_type": "claude_code",
-        "coding_plan": false
+        "base_url": "https://api.minimax.io/anthropic"
       }
     ]
   },

@@ -53,13 +53,11 @@ type DefaultsDoc = {
      *  与 endpoint 级 `coding_plan` flag 语义不同（端点路由级）；两者并存。
      *  absent = false（向后兼容）。与 Rust `gateway::coding_plan::default_is_coding_plan` 对称。 */
     is_coding_plan?: boolean;
-    client_type?: ClientType;
-    endpoints: { default?: PlatformEndpoint[]; coding_plan?: PlatformEndpoint[] };
-    /** models 分支：default = 非高峰默认映射；coding_plan = 编程套餐端点专用映射；
+    endpoints: { default?: PlatformEndpoint[] };    /** models 分支：default = 默认映射；
      *  peak = 高峰时段映射（PRD 07-11，命中 peak_hours 任一窗口时启用，仅 glm_coding 等少数协议带）。
-     *  absent peak = 无高峰切换（向后兼容，旧协议不受影响）。 */
-    models: { default?: Partial<Record<ModelSlot, string>>; coding_plan?: Partial<Record<ModelSlot, string>>; peak?: Partial<Record<ModelSlot, string>> };
-    model_list: { default?: string[]; coding_plan?: string[] };
+     *  absent peak = 无高峰切换（向后兼容，旧协议不受影响）。coding 套餐是独立协议，无 coding_plan 分支。 */
+    models: { default?: Partial<Record<ModelSlot, string>>; peak?: Partial<Record<ModelSlot, string>> };
+    model_list: { default?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
     /** 官方文档页 + 定价页 URL（registry `platform.json` 实为对象而非数组）。
      *  平台详情处以外链展示，供用户自行核对官方定价。 */
@@ -117,47 +115,52 @@ export function __resetDefaultsCacheForTests(): void {
 
 
 /** 短路空响应：JSON 缺 protocol 时返默认值（保 4 函数向后兼容）。
- *  pickBranch 仅处理 `endpoints` / `model_list` 等不含 peak 分支的 section（两分支：default/coding_plan）。
- *  models section 含 peak 第三分支，走 `pickModelsBranch`（独立 fn 处理高峰维度）。 */
-function pickBranch<T>(section: { default?: T; coding_plan?: T } | undefined, codingPlan: boolean | undefined, fallback: T): T {
-  if (!section) return fallback;
-  const cp = !!codingPlan;
-  const branch = cp ? section.coding_plan : section.default;
-  // coding_plan 分支缺失时回落 default（保旧行为：cp 但无独立配置 = 与 default 同）
-  return (branch ?? section.default ?? fallback);
+ *  pickBranch 仅处理 `endpoints` / `model_list` 等不含 peak 分支的 section（单分支 default）。
+ *  models section 含 peak 分支，走 `pickModelsBranch`（独立 fn 处理高峰维度）。 */
+function pickBranch<T>(section: { default?: T } | undefined, fallback: T): T {
+  return section?.default ?? fallback;
 }
 
-/** models section 专用 picker：三分支 default / coding_plan / peak（PRD 07-11）。
- *  优先级：codingPlan=true 且有 coding_plan → coding_plan；isPeak=true 且有 peak → peak；
- *  否则 → default。coding_plan/peak 分支缺失自动回落 default（向后兼容）。
- *  coding_plan 与 peak 同时命中时 coding_plan 优先（cp 是端点维度硬性约束，peak 是时段维度软切换）。 */
+/** models section 专用 picker：两分支 default / peak（PRD 07-11）。
+ *  优先级：isPeak=true 且有 peak → peak；否则 → default。peak 分支缺失自动回落 default（向后兼容）。 */
 function pickModelsBranch<T>(
-  section: { default?: T; coding_plan?: T; peak?: T } | undefined,
-  codingPlan: boolean | undefined,
+  section: { default?: T; peak?: T } | undefined,
   isPeak: boolean | undefined,
   fallback: T,
 ): T {
   if (!section) return fallback;
-  if (codingPlan && section.coding_plan) return section.coding_plan;
   if (isPeak && section.peak) return section.peak;
   return section.default ?? fallback;
 }
 
-/** 根据端点协议返回推荐的默认客户端类型（async：从 defaults.json 读 client_type 字段）。 */
-export async function defaultClientForProtocol(protocol: Protocol): Promise<ClientType> {
-  const doc = await loadDoc();
-  return doc.protocols[protocol]?.client_type ?? "default";
+/** endpoint 协议 → 默认客户端形态（registry 已不存 client_type 字段，缺省按此派生）。
+ *  与 Rust `aidog_db::registry::derive_client_type` 对称（跨层一致）。
+ *  anthropic → claude_code、openai 系 → codex_tui、其余（gemini / 未知）→ default。
+ *  仅例外平台在 preset endpoint 显式标注（如官方 claude_code 直连端点标 default 不模拟）。 */
+export function clientTypeForProtocol(protocol: string): ClientType {
+  switch (protocol) {
+    case "anthropic": return "claude_code";
+    case "openai":
+    case "openai_responses":
+    case "openai_completions": return "codex_tui";
+    default: return "default";
+  }
 }
 
-/** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
- *  数据来源：registry（`src-tauri/defaults/registry/`，经 get_defaults_json 合并回传；无 app data 覆盖链） */
-export async function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Promise<PlatformEndpoint[]> {
+/** 根据端点协议返回推荐的默认客户端类型（clientTypeForProtocol 的旧名别名，保留调用方兼容）。 */
+export const defaultClientForProtocol = clientTypeForProtocol;
+
+/** 根据 ProtocolOption 生成默认端点
+ *  数据来源：registry（`src-tauri/defaults/registry/`，经 get_defaults_json 合并回传；无 app data 覆盖链）。
+ *  registry 不存冗余 client_type：缺省按 endpoint protocol 派生（clientTypeForProtocol），
+ *  仅例外平台显式标注。 */
+export async function getDefaultEndpoints(protocol: Protocol): Promise<PlatformEndpoint[]> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
   if (!entry) return [];
-  const list = pickBranch<PlatformEndpoint[]>(entry.endpoints, codingPlan, []);
-  // 浅拷贝（保旧行为：调用方 mutate 不污染源）
-  return list.map((ep) => ({ ...ep }));
+  const list = pickBranch<PlatformEndpoint[]>(entry.endpoints, []);
+  // 浅拷贝（保旧行为：调用方 mutate 不污染源）+ 缺省 client_type 补派生值
+  return list.map((ep) => ({ ...ep, client_type: ep.client_type ?? clientTypeForProtocol(ep.protocol) }));
 }
 
 /** 主流平台预设默认模型（按 PlatformModels 槽位语义归类）。
@@ -168,21 +171,20 @@ export async function getDefaultEndpoints(protocol: Protocol, codingPlan?: boole
  *  缺省 false（向后兼容：旧 caller 无 peak 切换）。 */
 export async function getDefaultModels(
   protocol: Protocol,
-  codingPlan?: boolean,
   isPeak?: boolean,
 ): Promise<Partial<Record<ModelSlot, string>>> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
   if (!entry) return {};
-  return { ...pickModelsBranch<Partial<Record<ModelSlot, string>>>(entry.models, codingPlan, isPeak, {}) };
+  return { ...pickModelsBranch<Partial<Record<ModelSlot, string>>>(entry.models, isPeak, {}) };
 }
 
 /** 平台内置候选模型列表（供模型槽位下拉冷启动兜底）。 */
-export async function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): Promise<string[]> {
+export async function getDefaultModelList(protocol: Protocol): Promise<string[]> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
   if (!entry) return [];
-  const list = pickBranch<string[]>(entry.model_list, codingPlan, []);
+  const list = pickBranch<string[]>(entry.model_list, []);
   return [...list];
 }
 
@@ -261,7 +263,7 @@ export async function isCodingPlanProtocol(protocol: Protocol): Promise<boolean>
 }
 
 /** 批量取协议 label（一次 RPC 拉全表后内存过滤，避免 N 次 await）。
- *  codingPlan 变体共用同 value 的 name，调用方自行追加 "Coding Plan" 后缀。 */
+ *  coding 套餐协议是独立 value，name 各自带（无共用 name 后缀机制）。 */
 export async function getProtocolLabelMap(locale?: string): Promise<Record<Protocol, string>> {
   const doc = await loadDoc();
   const out = {} as Record<Protocol, string>;
@@ -292,9 +294,8 @@ export async function getProtocolSearchTermsMap(): Promise<Partial<Record<Protoc
 }
 
 /** 从 getDefaultEndpoints 派生 URL 子串（host + path），供智能识别 base_url 优先匹配。
- *  按 preset.codingPlan 取对应 cp 分支，避免 coding plan 与普通版互相误匹配。
  *  取 host+pathname（非仅 hostname）：同 host 分裂（如 glm open.bigmodel.cn 普通 /api/paas/v4 vs
- *  coding /api/coding/paas/v4）靠 path 子串区分；不同 host（xiaomi_mimo token-plan-cn vs api）靠 host 区分。
+ *  coding /api/coding/paas/v4，独立协议 glm_coding 各自带端点）靠 path 子串区分；不同 host（xiaomi_mimo token-plan-cn vs api）靠 host 区分。
  *  matchPlatform 最长串胜出 → 最特异 preset 命中。单一事实源：base_url 改动只动 getDefaultEndpoints。
  *
  *  注：buildProtocolsFromPresets 内联本逻辑（hosts 直接写入 ProtocolOption.hosts），
@@ -317,9 +318,9 @@ function deriveProtocolHosts(eps: PlatformEndpoint[]): string[] {
 /** 派生 ProtocolOption 列表（替代旧模块级 PROTOCOLS 硬编码常量）。
  *  loadDoc → 每 key 派生 {value, label, codingPlan, keywords, hosts, keyPrefixes}。
  *  - label: name[locale] || name["en-US"] || key（三级回退链）；
- *  - codingPlan: is_coding_plan || false；
+ *  - codingPlan: is_coding_plan || false（coding 套餐协议独立标记）；
  *  - keywords: keywords || []；
- *  - hosts: 派生自 endpoints（host+path 子串，含 cp 分支），并入旧 injectProtocolHosts 逻辑；
+ *  - hosts: 派生自 endpoints（host+path 子串），并入旧 injectProtocolHosts 逻辑；
  *  - keyPrefixes: key_prefixes || []。
  *  调用方：SearchableProtocolSelect / Sub2ApiImport / PlatformEditForm / ccswitchMatch 等。
  *  ponytail: 复用 docPromise 单次 RPC，纯函数式派生，零状态机。 */
@@ -332,11 +333,8 @@ export async function buildProtocolsFromPresets(locale?: string): Promise<Protoc
     if (!entry) continue;
     const label = resolveName(entry.name, proto, locale);
     const codingPlan = !!entry.is_coding_plan;
-    // hosts: 合并 default + coding_plan 分支端点（cp 协议自身也带 endpoints）
-    const epsAll = [
-      ...(entry.endpoints?.default ?? []),
-      ...(entry.endpoints?.coding_plan ?? []),
-    ];
+    // hosts: 派生自 default 分支端点（coding 套餐协议自带独立 endpoints）
+    const epsAll = [...(entry.endpoints?.default ?? [])];
     const hosts = deriveProtocolHosts(epsAll);
     // 搜索词全集：name 全 8 locale + label + keywords（跨语言搜索用，UI 语言无关）
     const keywords = entry.keywords ?? [];

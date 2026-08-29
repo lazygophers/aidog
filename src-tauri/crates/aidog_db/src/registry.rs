@@ -155,10 +155,41 @@ pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformE
     else {
         return Vec::new();
     };
-    serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
+    let raw: Vec<Value> = serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, protocol, "registry endpoints parse failed; empty");
+        Vec::new()
+    });
+    // registry JSON 已不存冗余 client_type：缺省按 endpoint protocol 派生（仅例外平台
+    // 显式标注，如官方 claude_code 直连端点标 default 不模拟）。不补的话 serde default
+    // 会落 "default"，厂商直连锁定端点丢失模拟客户端（headers / user_agent）行为。
+    let filled: Vec<Value> = raw
+        .into_iter()
+        .map(|mut e| {
+            let missing = e
+                .get("client_type")
+                .and_then(Value::as_str)
+                .is_none_or(str::is_empty);
+            if missing && let Some(p) = e.get("protocol").and_then(Value::as_str) {
+                e["client_type"] = Value::String(derive_client_type(p));
+            }
+            e
+        })
+        .collect();
+    serde_json::from_value(Value::Array(filled)).unwrap_or_else(|e| {
         tracing::warn!(error = %e, protocol, "registry endpoints parse failed; empty");
         Vec::new()
     })
+}
+
+/// endpoint 协议 → 默认客户端形态（registry 无 client_type 时的缺省派生，与前端
+/// `defaults.ts::clientTypeForProtocol` 对称）：anthropic → claude_code、openai 系 →
+/// codex_tui、其余（gemini / 未知）→ default。
+pub fn derive_client_type(endpoint_protocol: &str) -> String {
+    match endpoint_protocol {
+        "anthropic" => "claude_code".to_string(),
+        "openai" | "openai_responses" | "openai_completions" => "codex_tui".to_string(),
+        _ => "default".to_string(),
+    }
 }
 
 /// `index.json` 的一条同步清单：远程同步照着它逐文件拉取。

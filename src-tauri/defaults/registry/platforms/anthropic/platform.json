@@ -1,11 +1,9 @@
 {
-  "client_type": "claude_code",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://api.anthropic.com",
-        "client_type": "claude_code"
+        "base_url": "https://api.anthropic.com"
       }
     ]
   },

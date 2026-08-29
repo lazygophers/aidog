@@ -1,11 +1,9 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://qianfan.baidubce.com/anthropic",
-        "client_type": "claude_code"
+        "base_url": "https://qianfan.baidubce.com/anthropic"
       }
     ]
   },

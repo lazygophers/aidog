@@ -1,11 +1,9 @@
 {
-  "client_type": "default",
   "endpoints": {
     "default": [
       {
         "protocol": "gemini",
-        "base_url": "https://generativelanguage.googleapis.com",
-        "client_type": "default"
+        "base_url": "https://generativelanguage.googleapis.com"
       }
     ]
   },
