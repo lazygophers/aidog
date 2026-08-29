@@ -29,7 +29,7 @@ pub fn utc_time(epoch_ms: i64) -> (i32, i32, i32, i32) {
 
 /// t 在 `tz`（IANA 名，None/非法 = UTC）的**本地**全时间分量（DST 由 tz 数据库处理）。
 /// 窗口时区解析的统一入口：`hit` 的 hour/weekday/day_of_month 均以此值比较。
-/// 与前端 `utils/peakHours.ts::wallTimeInTz` 对称（跨层一致）。
+/// 与前端 `utils/timeWindow.ts::wallTimeInTz` 对称（跨层一致）。
 pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
     // ponytail: chrono 已是依赖，直接用，免手算 1970-01-01=Thursday 偏移。
     let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
