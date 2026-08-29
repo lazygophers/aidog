@@ -12,7 +12,7 @@ import {
   parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig,
   parseDevinConfig, serializeDevinConfig,
   parsePlatformBreaker, serializePlatformBreaker,
-  parsePlatformPeakHours, serializePlatformPeakHours,
+  parsePlatformPeak, serializePlatformPeak,
   parseDisableDuringPeak, serializeDisableDuringPeak,
   parseBuiltinToolCompat, serializeBuiltinToolCompat, type BuiltinToolCompat,
   parsePlatformTimeModels, serializePlatformTimeModels,
@@ -27,7 +27,7 @@ import { type SmartPasteApplyResult } from "../../components/platforms/SmartPast
 import {
   PROTOCOL_LABELS, MODEL_SLOTS, DEFAULT_NAMES,
   getDefaultEndpoints, getDefaultModels,
-  autoCategorize, type PeakWindow,
+  autoCategorize, type TimeWindow,
 } from "../../domains/platforms";
 import { getProtocolLabelMap } from "../../domains/platforms/defaults";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
@@ -114,7 +114,7 @@ export interface PlatformFormState {
   breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   breakerDefaults: SchedulingBreakerSettings | null;
-  peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
+  peak: TimeWindow[]; setPeak: React.Dispatch<React.SetStateAction<TimeWindow[]>>;
   windowsTz: "local" | "utc"; setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   /** disable_during_peak 开关（用户覆盖，存 platform.extra.disable_during_peak；默认 false）。 */
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
@@ -210,7 +210,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [breakerOpenSecs, setBreakerOpenSecs] = useState<string>("");
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
   // peak_hours（用户覆盖，存 platform.extra.peak_hours；时区仅前端态，默认本地）
-  const [peakHours, setPeakHours] = useState<PeakWindow[]>([]);
+  const [peak, setPeak] = useState<TimeWindow[]>([]);
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
@@ -307,7 +307,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setPeakHours([]); setWindowsTz("local"); setDisableDuringPeak(false);
+    setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false);
     setBuiltinToolCompat({ enabled: false, models: [], stripTools: [] });
     setTimeModels([]);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
@@ -364,7 +364,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
-    setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
+    setPeak(parsePlatformPeak(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
     setBuiltinToolCompat(parseBuiltinToolCompat(p.extra ?? ""));
     setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
@@ -435,7 +435,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
-    setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
+    setPeak(parsePlatformPeak(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
     setBuiltinToolCompat(parseBuiltinToolCompat(p.extra ?? ""));
     setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
@@ -635,7 +635,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       half_open_max: toBreakerNum(breakerHalfOpenMax),
     });
     // peak_hours：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
-    extraPayload = serializePlatformPeakHours(extraPayload, peakHours);
+    extraPayload = serializePlatformPeak(extraPayload, peak);
     // disable_during_peak：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
     // builtin_tool_compat：enabled=false → 移除键（默认行为）；true 写入。
@@ -803,7 +803,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerOpenSecs, setBreakerOpenSecs,
     breakerHalfOpenMax, setBreakerHalfOpenMax,
     breakerDefaults,
-    peakHours, setPeakHours, windowsTz, setWindowsTz,
+    peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
     builtinToolCompat, setBuiltinToolCompat,
     timeModels, setTimeModels,

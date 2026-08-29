@@ -3,13 +3,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "../../test/render";
 import { WindowsEditModal } from "./WindowsEditModal";
-import type { PeakWindow } from "../../domains/platforms/defaults";
+import type { TimeWindow } from "../../domains/platforms/defaults";
 
 // t 用简单 stub：有 fallback 返 fallback，无 fallback 返 key 本身（与 test/render.tsx 的空 resources 回退同构）。
 const t = ((key: string, fallback?: string) => fallback ?? key) as unknown as Parameters<typeof WindowsEditModal>[0]["t"];
 
 // Dialog 走 Radix Portal，内容渲染进 document.body，不在 RTL container 内 → 断言一律走 document.body。
-function renderModal(windows: PeakWindow[], onSave = vi.fn(), onClose = vi.fn()) {
+function renderModal(windows: TimeWindow[], onSave = vi.fn(), onClose = vi.fn()) {
   const { rerender } = render(
     <WindowsEditModal
       open
@@ -57,7 +57,7 @@ describe("WindowsEditModal", () => {
 
     fireEvent.click(container.querySelector("button.ripple") as HTMLElement);
     expect(onSave).toHaveBeenCalledTimes(1);
-    const saved = onSave.mock.calls[0][0] as PeakWindow[];
+    const saved = onSave.mock.calls[0][0] as TimeWindow[];
     expect(saved[0].days_of_week).toBeUndefined();
     expect(saved[0].days_of_month).toBeUndefined();
   });
@@ -69,7 +69,7 @@ describe("WindowsEditModal", () => {
 
     fireEvent.click(container.querySelector("button.ripple") as HTMLElement);
     expect(onSave).toHaveBeenCalledTimes(1);
-    const saved = onSave.mock.calls[0][0] as PeakWindow[];
+    const saved = onSave.mock.calls[0][0] as TimeWindow[];
     expect(saved[0].days_of_week).toBeUndefined();
     expect(saved[0].days_of_month).toBeUndefined();
   });
@@ -90,7 +90,7 @@ describe("WindowsEditModal", () => {
   });
 
   it("关闭再重开: uiDim 按 windows 数据重算, 周/月/都无三种形态选中态都对", () => {
-    const windows: PeakWindow[] = [
+    const windows: TimeWindow[] = [
       { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [1, 2] },
       { start_hour: 0, end_hour: 24, multiplier: 1, days_of_month: [5] },
       { start_hour: 0, end_hour: 24, multiplier: 1 },
@@ -116,7 +116,7 @@ describe("WindowsEditModal", () => {
   });
 
   it("删中间窗口: 剩余窗口的选中态各自不变（不因数组前移而错位）", () => {
-    const windows: PeakWindow[] = [
+    const windows: TimeWindow[] = [
       { start_hour: 0, end_hour: 24, multiplier: 1 },                    // widx0: none
       { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [3] }, // widx1: week
       { start_hour: 0, end_hour: 24, multiplier: 1, days_of_month: [9] }, // widx2: month

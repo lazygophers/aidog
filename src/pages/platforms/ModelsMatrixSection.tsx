@@ -9,8 +9,8 @@ import type { TFunction } from "i18next";
 import {
   type Protocol, type ModelSlot, type TimeModelRule,
 } from "../../services/api";
-import type { PeakWindow } from "../../domains/platforms/defaults";
-import { type TzMode, utcToDisplay } from "../../utils/peakHours";
+import type { TimeWindow } from "../../domains/platforms/defaults";
+import { type TzMode, utcToDisplay } from "../../utils/timeWindow";
 import { pinyinMatch } from "../../utils/pinyin";
 import { pad } from "../../utils/formatters";
 import {
@@ -37,7 +37,7 @@ function weekdayShort(t: TFunction, day: number): string {
   return t(`platform.weekday_short.${day}`);
 }
 
-function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
+function describeWindow(w: TimeWindow, tzMode: TzMode, t: TFunction): string {
   const isFullDay = w.start_hour === 0 && w.end_hour === 24
     && (w.start_minute ?? 0) === 0 && (w.end_minute ?? 0) === 0
     && !w.days_of_week && !w.days_of_month;
@@ -64,7 +64,7 @@ function describeWindow(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
   return `${timePart}${dayPart}（${tzLabel}）`;
 }
 
-export function describeWindows(windows: PeakWindow[], tzMode: TzMode, t: TFunction): string {
+export function describeWindows(windows: TimeWindow[], tzMode: TzMode, t: TFunction): string {
   if (!windows || windows.length === 0) return t("platform.window_never");
   const first = describeWindow(windows[0], tzMode, t);
   if (windows.length === 1) return first;
@@ -81,8 +81,8 @@ export function ModelsMatrixSection({
   fetchError, fetching,
   onFillAll, onFetchModels, apiKeyMissing, endpointsCount,
   // 时段档列 props
-  rules, setRules, peakHours,
-  // tz 展示模式：表单级共用一份（design.md §3.5 契约），与 PeakHoursSection 的 tzMode/setTzMode 签名逐字一致
+  rules, setRules, peak,
+  // tz 展示模式：表单级共用一份（design.md §3.5 契约），与 PeakSection 的 tzMode/setTzMode 签名逐字一致
   tzMode, setTzMode,
   t,
 }: {
@@ -101,7 +101,7 @@ export function ModelsMatrixSection({
   endpointsCount: number;
   rules: TimeModelRule[];
   setRules: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
-  peakHours: PeakWindow[];
+  peak: TimeWindow[];
   tzMode: TzMode;
   setTzMode: React.Dispatch<React.SetStateAction<TzMode>>;
   t: TFunction;
@@ -164,10 +164,10 @@ export function ModelsMatrixSection({
     }));
   };
 
-  const importFromPeakHours = () => {
-    if (peakHours.length === 0) return;
+  const importFromPeak = () => {
+    if (peak.length === 0) return;
     const newRule: TimeModelRule = {
-      windows: peakHours.map((w) => ({ ...w })),
+      windows: peak.map((w) => ({ ...w })),
       models: {},
     };
     setRules([...rules, newRule]);
@@ -298,8 +298,8 @@ export function ModelsMatrixSection({
             variant="ghost"
             size="sm"
             style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
-            disabled={peakHours.length === 0}
-            title={peakHours.length === 0 ? t("platform.time_models_no_peak", "当前无高峰时段配置") : ""}
+            disabled={peak.length === 0}
+            title={peak.length === 0 ? t("platform.time_models_no_peak", "当前无高峰时段配置") : ""}
             onClick={() => setImportModalOpen(true)}
           >
             {t("platform.time_models_import_peak", "从高峰时段导入")}
@@ -454,7 +454,7 @@ export function ModelsMatrixSection({
               {t("platform.time_models_import_confirm_title", "导入高峰时段配置？")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 12 }}>
-              {t("platform.time_models_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peakHours.length))}
+              {t("platform.time_models_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -466,7 +466,7 @@ export function ModelsMatrixSection({
             </Button>
             <Button
               className="ripple"
-              onClick={(e) => { makeRipple(e); importFromPeakHours(); }}
+              onClick={(e) => { makeRipple(e); importFromPeak(); }}
             >
               {t("platform.time_models_import_confirm_button", "确认")}
             </Button>

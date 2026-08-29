@@ -2,7 +2,7 @@
  *  跨层一致：minute 精度 + days_of_week / days_of_month 过滤 + model scope 过滤 + 跨天 end<start 半开 [start,end)；
  *  days_of_week 0=Sun…6=Sat 缺省=每天；model scope 缺省=全平台；空/无命中=false。
  *  for: 平台列表徽标 + 编辑表单预览 + Groups 指示（D7/D8/D9 共用此 helper）。 */
-import type { PeakWindow } from "../domains/platforms/defaults";
+import type { TimeWindow } from "../domains/platforms/defaults";
 
 /** 时区展示模式：本地 or UTC+0。存储永远 UTC+0，仅展示/输入层换算。 */
 export type TzMode = "local" | "utc";
@@ -43,7 +43,7 @@ export function displayToUtc(hour: number, minute: number, mode: TzMode): { hour
 }
 
 /** 存量非整数 start_hour/end_hour（半时区旧逻辑产物，如 8.5）拆为 hour+minute。整数值原样不动。 */
-export function normalizeWindow(w: PeakWindow): PeakWindow {
+export function normalizeWindow(w: TimeWindow): TimeWindow {
   let result = w;
   if (!Number.isInteger(w.start_hour)) {
     const { hour, minute } = splitFraction(w.start_hour, w.start_minute);
@@ -112,7 +112,7 @@ export function wallTimeInTz(
  *     requestModel 空串 = 调用方无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
  */
 function hit(
-  w: PeakWindow,
+  w: TimeWindow,
   hour: number,
   minute: number,
   weekday: number,
@@ -150,7 +150,7 @@ function clampMinute(m: number): number {
  *  - w.models undefined → true（窗口未限定，全平台生效）
  *  - w.models 定义 → 任一 pattern 命中（exact 或 `prefix*` 通配）
  */
-function windowModelsHit(w: PeakWindow, requestModel: string): boolean {
+function windowModelsHit(w: TimeWindow, requestModel: string): boolean {
   if (requestModel === "") return true;
   if (!w.models || w.models.length === 0) return true;
   return w.models.some((p) => modelMatch(p, requestModel));
@@ -176,7 +176,7 @@ function modelMatch(pattern: string, requestModel: string): boolean {
  *  requestModel（PRD 07-09 D2）：请求模型名，用于 model scope 过滤；
  *  缺省 / 空串 = 无 model 上下文 → 跳过 model 过滤（兼容旧行为，向后兼容）。 */
 export function isCurrentlyPeak(
-  windows: PeakWindow[] | undefined | null,
+  windows: TimeWindow[] | undefined | null,
   nowMs: number,
   requestModel: string = "",
 ): boolean {

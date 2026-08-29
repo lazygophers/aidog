@@ -20,7 +20,7 @@ vi.mock("../../domains/platforms", async () => {
 
 vi.mock("../../domains/platforms/defaults", () => ({
   getDefaultModels: vi.fn().mockResolvedValue({ "claude-3-5-sonnet": "claude-3-5-sonnet" }),
-  getDefaultPeakHours: vi.fn().mockResolvedValue([]),
+  getDefaultPeak: vi.fn().mockResolvedValue([]),
   getProtocolHomepage: vi.fn().mockResolvedValue(""),
   getProtocolSourceUrls: vi.fn().mockResolvedValue({ docs: "", pricing: "" }),
   isCodingPlanProtocol: vi.fn().mockResolvedValue(false),

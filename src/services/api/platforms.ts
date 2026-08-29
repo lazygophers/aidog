@@ -2,8 +2,8 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule } from "./types";
-import type { PeakWindow } from "../../domains/platforms/defaults";
-import { normalizeWindow } from "../../utils/peakHours";
+import type { TimeWindow } from "../../domains/platforms/defaults";
+import { normalizeWindow } from "../../utils/timeWindow";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
   status_code: 200,
@@ -204,20 +204,20 @@ export function serializePlatformBreaker(extra: string, b: PlatformBreaker): str
 
 /** 从 platform.extra JSON 解析 peak_hours 窗口（用户覆盖）。
  *  缺失 / 非法 / 空数组 → []（caller 退 preset 默认或 1.0）。 */
-export function parsePlatformPeakHours(extra: string): PeakWindow[] {
+export function parsePlatformPeak(extra: string): TimeWindow[] {
   if (!extra.trim()) return [];
   try {
     const parsed: unknown = JSON.parse(extra);
     if (parsed && typeof parsed === "object" && "peak_hours" in parsed) {
       const arr = (parsed as { peak_hours: unknown }).peak_hours;
-      if (Array.isArray(arr)) return (arr as PeakWindow[]).map(normalizeWindow);
+      if (Array.isArray(arr)) return (arr as TimeWindow[]).map(normalizeWindow);
     }
   } catch { /* ignore */ }
   return [];
 }
 
 /** 把 peak_hours 窗口写回 extra JSON（保留其余键）。空数组 → 移除 peak_hours 键（无覆盖→用 preset 默认）。 */
-export function serializePlatformPeakHours(extra: string, windows: PeakWindow[]): string {
+export function serializePlatformPeak(extra: string, windows: TimeWindow[]): string {
   let obj: Record<string, unknown> = {};
   if (extra.trim()) {
     try {

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { Protocol } from "../../services/api";
 import {
   getDefaultModels,
-  getDefaultPeakHours,
+  getDefaultPeak,
   getProtocolColorMap,
   getProtocolHomepage,
   getProtocolLabel,
@@ -11,8 +11,8 @@ import {
   isCodingPlanProtocol,
 } from "./defaults";
 import { allModelValues } from "./health";
-import { isCurrentlyPeak } from "../../utils/peakHours";
-import { parsePlatformPeakHours } from "../../services/api";
+import { isCurrentlyPeak } from "../../utils/timeWindow";
+import { parsePlatformPeak } from "../../services/api";
 
 /** useProtocolMeta — PlatformCard 协议元数据聚合 hook（替代 5 个独立 async effect）。
  *
@@ -70,7 +70,7 @@ export function useProtocolMeta(
       const [colorMap, isCp, peakWindows, homepage, sourceUrls, protocolLabel, labelMap] = await Promise.all([
         getProtocolColorMap(),
         isCodingPlanProtocol(protocol),
-        getDefaultPeakHours(protocol),
+        getDefaultPeak(protocol),
         getProtocolHomepage(protocol),
         getProtocolSourceUrls(protocol),
         getProtocolLabel(protocol, lang),
@@ -78,7 +78,7 @@ export function useProtocolMeta(
       ]);
       if (cancelled) return;
       // 高峰判定：用户 extra.peak_hours 优先 → preset default；命中则取 models.peak 分支
-      const userPh = parsePlatformPeakHours(extra);
+      const userPh = parsePlatformPeak(extra);
       const phWindows = userPh.length > 0 ? userPh : peakWindows;
       const isPeak = isCurrentlyPeak(phWindows, Date.now());
       const modelsBranch = await getDefaultModels(protocol, isPeak);

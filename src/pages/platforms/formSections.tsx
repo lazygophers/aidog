@@ -15,8 +15,8 @@ import {
   type BuiltinToolCompat,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
-import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelList } from "../../domains/platforms";
-import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/peakHours";
+import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList } from "../../domains/platforms";
+import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
@@ -470,7 +470,7 @@ export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpe
 
 // ─── Peak Hours（高峰/低峰时段倍率）─────────────────────
 // 时区切换：仅前端运行时态（默认本地，可切 UTC+0），不持久化。
-// 存储恒 UTC+0；展示 / 输入按选中时区换算，换算内核见 src/utils/peakHours.ts（shiftClock，按绝对分钟，半时区精确）。
+// 存储恒 UTC+0；展示 / 输入按选中时区换算，换算内核见 src/utils/peak.ts（shiftClock，按绝对分钟，半时区精确）。
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
 
 /** number input 值裁到 [min,max]；非法输入回落 min。 */
@@ -485,7 +485,7 @@ function clampInt(raw: string, min: number, max: number): number {
  *  全天特例：end==24 或 start==end 退化 → 00:00:00 - 23:59:59。
  *  时区标签：窗口带 timezone → 存值即该时区本地值，直接显示 tz 名；
  *  无 timezone（= UTC 存储）→ 按 tzMode 换算显示。 */
-function formatWindowPreview(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
+function formatWindowPreview(w: TimeWindow, tzMode: TzMode, t: TFunction): string {
   // start：hour+minute 一起换算（带 timezone 窗口存值即本地，不换算）
   const startDisplay = w.timezone
     ? { hour: w.start_hour, minute: w.start_minute ?? 0 }
@@ -517,9 +517,9 @@ function formatWindowPreview(w: PeakWindow, tzMode: TzMode, t: TFunction): strin
   return `${startStr} - ${endStr}（${tzLabel}）${nextDayLabel ? `（${nextDayLabel}）` : ""}`;
 }
 
-export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, themeMode, t }: {
-  windows: PeakWindow[];
-  setWindows: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
+export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, themeMode, t }: {
+  windows: TimeWindow[];
+  setWindows: React.Dispatch<React.SetStateAction<TimeWindow[]>>;
   tzMode: TzMode;
   setTzMode: React.Dispatch<React.SetStateAction<TzMode>>;
   disableDuringPeak: boolean;
@@ -528,7 +528,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
   themeMode: ThemeMode;
   t: TFunction;
 }) {
-  const [defaultCache, setDefaultCache] = useState<PeakWindow[] | null>(null);
+  const [defaultCache, setDefaultCache] = useState<TimeWindow[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   // model scope 候选列表：从 preset model_list 拉取，chip 编辑 + datalist 自动补全用。
   const [modelList, setModelList] = useState<string[]>([]);
@@ -536,7 +536,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
   const [modelInput, setModelInput] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    getDefaultPeakHours(protocol).then(setDefaultCache);
+    getDefaultPeak(protocol).then(setDefaultCache);
   }, [protocol]);
 
   useEffect(() => {
@@ -558,7 +558,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
     setWindows(copied);
     setModalOpen(false);
   };
-  const update = (idx: number, patch: Partial<PeakWindow>) => {
+  const update = (idx: number, patch: Partial<TimeWindow>) => {
     setWindows(prev => prev.map((w, i) => i === idx ? { ...w, ...patch } : w));
   };
   const remove = (idx: number) => {

@@ -9,7 +9,7 @@ import type { ProtocolOption } from "./constants";
  *  跨天窗口：end_hour < start_hour（半开 [start,end)，22→6 = 22:00-06:00 次日）。
  *  时段基准：timezone（IANA 名，缺省 = UTC，向后兼容）；hour/weekday/day_of_month
  *  均按该时区本地时刻解释。 */
-export type PeakWindow = {
+export type TimeWindow = {
   /** 0-23（窗口时区本地），含起始 */
   start_hour: number;
   /** 0-23（窗口时区本地），不含结束；<start_hour 表跨天 */
@@ -17,30 +17,30 @@ export type PeakWindow = {
   /** >0；>1 加价 / <1 折扣 / =1 无意义（勿存） */
   multiplier: number;
   /** 窗口时区（IANA 名，如 "Asia/Shanghai"）；缺省 / undefined = UTC（向后兼容）。
-   *  与 Rust `PeakWindow.timezone: Option<String>` 对称。 */
+   *  与 Rust `TimeWindow.timezone: Option<String>` 对称。 */
   timezone?: string;
   /** 可选；0=Sunday…6=Saturday；absent = 每天适用 */
   days_of_week?: number[];
   /** 分钟精度起点 (0-59)；缺省 = 0（仅 hour 精度，向后兼容旧数据）。
-   *  与 Rust `PeakWindow.start_minute` 对称（serde Option，#[serde(default)]）。 */
+   *  与 Rust `TimeWindow.start_minute` 对称（serde Option，#[serde(default)]）。 */
   start_minute?: number;
   /** 分钟精度终点 (0-59)；缺省 = 0（仅 hour 精度，向后兼容旧数据）。
-   *  与 Rust `PeakWindow.end_minute` 对称。 */
+   *  与 Rust `TimeWindow.end_minute` 对称。 */
   end_minute?: number;
   /** 月内日过滤 (1-31)；缺省 = 不过滤；与 `days_of_week` 在 UI 层互斥
-   *  （hit 层同时 Some 取 AND 兜底，正常不触发）。与 Rust `PeakWindow.days_of_month` 对称。 */
+   *  （hit 层同时 Some 取 AND 兜底，正常不触发）。与 Rust `TimeWindow.days_of_month` 对称。 */
   days_of_month?: number[];
   /** model scope（model 维度过滤，PRD 07-09 D2）；缺省 / undefined = 全平台模型生效（向后兼容）。
    *  元素支持 `"glm-5.2*"` 后缀通配（覆盖 `glm-5.2` / `glm-5.2-turbo`），exact-first。
-   *  与 Rust `PeakWindow.models: Option<Vec<String>>` 对称（跨层一致，见 cross-layer-rules.md）。 */
+   *  与 Rust `TimeWindow.models: Option<Vec<String>>` 对称（跨层一致，见 cross-layer-rules.md）。 */
   models?: string[];
   /** 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / undefined = 立即可用。
    *  `epoch_sec < start_at` → 窗口尚未启用，跳过此窗口（first-match 继续后续）。
-   *  与 Rust `PeakWindow.start_at: Option<i64>` 对称。 */
+   *  与 Rust `TimeWindow.start_at: Option<i64>` 对称。 */
   start_at?: number;
   /** 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / undefined = 永久。
    *  `epoch_sec >= end_at` → 窗口已失效，跳过此窗口。
-   *  与 Rust `PeakWindow.end_at: Option<i64>` 对称。 */
+   *  与 Rust `TimeWindow.end_at: Option<i64>` 对称。 */
   end_at?: number;
 };
 
@@ -82,7 +82,7 @@ type DefaultsDoc = {
      *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
      *  absent / 空数组 = 无调整（multiplier 1.0）。
      *  多窗口 first-match wins。跨天: end_hour < start_hour（半开 [start,end)）。 */
-    peak_hours?: PeakWindow[];
+    peak_hours?: TimeWindow[];
   }>>;
 };
 
@@ -172,7 +172,7 @@ export async function getDefaultEndpoints(protocol: Protocol): Promise<PlatformE
  *  与 getDefaultEndpoints 同址同模式：从 defaults.json 读，落 CreatePlatform.models。
  *
  *  `isPeak`（PRD 07-11）：true 且 preset 含 `models.peak` 分支时返回 peak 映射；否则返 default。
- *  caller 应传 `isCurrentlyPeak(platform.extra.peak_hours ?? (await getDefaultPeakHours(protocol)), Date.now())`。
+ *  caller 应传 `isCurrentlyPeak(platform.extra.peak_hours ?? (await getDefaultPeak(protocol)), Date.now())`。
  *  缺省 false（向后兼容：旧 caller 无 peak 切换）。 */
 export async function getDefaultModels(
   protocol: Protocol,
@@ -195,7 +195,7 @@ export async function getDefaultModelList(protocol: Protocol): Promise<string[]>
 
 /** preset 该协议的 peak_hours 默认（用户覆盖存 platform.extra.peak_hours；absent/空 = 1.0 无调整）。
  *  deep copy 防 mutate 污染 docPromise 缓存。 */
-export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindow[]> {
+export async function getDefaultPeak(protocol: Protocol): Promise<TimeWindow[]> {
   const doc = await loadDoc();
   const list = doc.protocols[protocol]?.peak_hours ?? [];
   return list.map(w => ({
