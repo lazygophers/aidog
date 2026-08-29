@@ -9,8 +9,8 @@ import {
   utcToDisplay,
   displayToUtc,
   LOCAL_OFFSET_MINUTES,
-} from "./peakHours";
-import type { PeakWindow } from "../domains/platforms/defaults";
+} from "./timeWindow";
+import type { TimeWindow } from "../domains/platforms/defaults";
 
 describe("shiftClock", () => {
   it("offset=0 恒等", () => {
@@ -46,17 +46,17 @@ describe("shiftClock", () => {
 
 describe("normalizeWindow", () => {
   it("整数 hour 原样返回", () => {
-    const w = { start_hour: 8, end_hour: 20, multiplier: 1.5 } as PeakWindow;
+    const w = { start_hour: 8, end_hour: 20, multiplier: 1.5 } as TimeWindow;
     expect(normalizeWindow(w)).toEqual(w);
   });
 
   it("8.0 视为整数不变（Number.isInteger(8.0) === true）", () => {
-    const w = { start_hour: 8.0, end_hour: 20, multiplier: 1.5 } as PeakWindow;
+    const w = { start_hour: 8.0, end_hour: 20, multiplier: 1.5 } as TimeWindow;
     expect(normalizeWindow(w)).toEqual(w);
   });
 
   it("半时区脏数据拆分（8.5 -> 8:30）", () => {
-    const w = { start_hour: 8.5, end_hour: 20, multiplier: 1.5 } as PeakWindow;
+    const w = { start_hour: 8.5, end_hour: 20, multiplier: 1.5 } as TimeWindow;
     const result = normalizeWindow(w);
     expect(result.start_hour).toBe(8);
     expect(result.start_minute).toBe(30);
@@ -65,7 +65,7 @@ describe("normalizeWindow", () => {
   });
 
   it("已有 start_minute 时叠加进位", () => {
-    const w = { start_hour: 8.5, start_minute: 40, end_hour: 20, multiplier: 1.5 } as PeakWindow;
+    const w = { start_hour: 8.5, start_minute: 40, end_hour: 20, multiplier: 1.5 } as TimeWindow;
     const result = normalizeWindow(w);
     // 8.5 -> floor=8, extra=30; 30+40=70 -> 借位 1 小时 10 分
     expect(result.start_hour).toBe(9);
@@ -73,7 +73,7 @@ describe("normalizeWindow", () => {
   });
 
   it("both start/end 非整数各自独立归一", () => {
-    const w = { start_hour: 8.5, end_hour: 20.25, multiplier: 1.5 } as PeakWindow;
+    const w = { start_hour: 8.5, end_hour: 20.25, multiplier: 1.5 } as TimeWindow;
     const result = normalizeWindow(w);
     expect(result.start_hour).toBe(8);
     expect(result.start_minute).toBe(30);
@@ -102,8 +102,8 @@ describe("tzOffsetMinutes / utcToDisplay / displayToUtc", () => {
 // hit() 的每个过滤维度独立测。基准时刻 2026-06-26T08:30:00Z = 周五(5)、26 号。
 describe("isCurrentlyPeak — 时段 / 星期 / 日期 / model scope", () => {
   const NOW = Date.UTC(2026, 5, 26, 8, 30, 0);
-  const win = (extra: Partial<PeakWindow>): PeakWindow =>
-    ({ start_hour: 6, end_hour: 10, multiplier: 2, ...extra }) as PeakWindow;
+  const win = (extra: Partial<TimeWindow>): TimeWindow =>
+    ({ start_hour: 6, end_hour: 10, multiplier: 2, ...extra }) as TimeWindow;
 
   it("空 / null / undefined 窗口列表恒不命中", () => {
     expect(isCurrentlyPeak([], NOW)).toBe(false);
@@ -167,7 +167,7 @@ describe("isCurrentlyPeak — 时段 / 星期 / 日期 / model scope", () => {
 
 describe("isCurrentlyPeak — start_at 生效期护栏", () => {
   // 全天窗口（start_hour=0/end_hour=24）令时段判定恒真，命中与否只受 start_at 门控。
-  const w = { start_hour: 0, end_hour: 24, multiplier: 2.0, start_at: 1790784000 } as PeakWindow;
+  const w = { start_hour: 0, end_hour: 24, multiplier: 2.0, start_at: 1790784000 } as TimeWindow;
 
   it("nowMs 未越过 start_at → 不命中", () => {
     const beforeMs = (1790784000 - 1) * 1000;
@@ -202,7 +202,7 @@ describe("wallTimeInTz / isCurrentlyPeak — 窗口时区", () => {
   });
 
   it("isCurrentlyPeak 按窗口时区判定：北京 9-12 窗口 UTC 01:26 命中、05:26 miss", () => {
-    const win = { start_hour: 9, end_hour: 12, multiplier: 2, timezone: "Asia/Shanghai" } as PeakWindow;
+    const win = { start_hour: 9, end_hour: 12, multiplier: 2, timezone: "Asia/Shanghai" } as TimeWindow;
     // 2026-06-26T01:26:00Z → 北京 09:26 命中
     expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 1, 26, 0))).toBe(true);
     // 2026-06-26T05:26:00Z → 北京 13:26 miss
@@ -210,7 +210,7 @@ describe("wallTimeInTz / isCurrentlyPeak — 窗口时区", () => {
   });
 
   it("缺省 timezone = UTC（向后兼容）", () => {
-    const win = { start_hour: 9, end_hour: 12, multiplier: 2 } as PeakWindow;
+    const win = { start_hour: 9, end_hour: 12, multiplier: 2 } as TimeWindow;
     // UTC 09:30 命中
     expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 9, 30, 0))).toBe(true);
     // UTC 02:30（北京 10:30）不命中 —— 无 timezone 字段不按本地解释
@@ -220,9 +220,9 @@ describe("wallTimeInTz / isCurrentlyPeak — 窗口时区", () => {
   it("days_of_week 按窗口时区本地 weekday 过滤", () => {
     // UTC 周六 18:00 = 北京周日 02:00；窗口限周日 → 仅带时区版本命中
     const ms = 1704564000000;
-    const sunday = { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [0] } as PeakWindow;
+    const sunday = { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [0] } as TimeWindow;
     expect(isCurrentlyPeak([sunday], ms)).toBe(false); // UTC 周六
-    const sundaySh = { ...sunday, timezone: "Asia/Shanghai" } as PeakWindow;
+    const sundaySh = { ...sunday, timezone: "Asia/Shanghai" } as TimeWindow;
     expect(isCurrentlyPeak([sundaySh], ms)).toBe(true); // 北京周日
   });
 });

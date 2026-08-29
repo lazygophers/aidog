@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import {
   FormSection, ApiKeyField,
   NewApiBalanceConfigSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
-  ManualBudgetsSection, BreakerSection, PeakHoursSection, GroupAssignSection,
+  ManualBudgetsSection, BreakerSection, PeakSection, GroupAssignSection,
   BuiltinToolCompatSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
@@ -52,7 +52,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
-    peakHours, setPeakHours, windowsTz, setWindowsTz,
+    peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
     builtinToolCompat, setBuiltinToolCompat,
     timeModels, setTimeModels,
@@ -304,7 +304,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           fetchError={fetchError} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
-          rules={timeModels} setRules={setTimeModels} peakHours={peakHours}
+          rules={timeModels} setRules={setTimeModels} peak={peak}
           tzMode={windowsTz} setTzMode={setWindowsTz}
           t={t}
         />
@@ -329,8 +329,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
         {/* Peak Hours 高峰/低峰倍率（仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
         {editing && !isPassthrough && (
-          <PeakHoursSection
-            windows={peakHours} setWindows={setPeakHours}
+          <PeakSection
+            windows={peak} setWindows={setPeak}
             tzMode={windowsTz} setTzMode={setWindowsTz}
             disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
             protocol={protocol}

@@ -1,7 +1,7 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { TFunction } from "i18next";
-import type { PeakWindow } from "../../domains/platforms/defaults";
-import { type TzMode, utcToDisplay, displayToUtc, WINDOW_TIMEZONES } from "../../utils/peakHours";
+import type { TimeWindow } from "../../domains/platforms/defaults";
+import { type TzMode, utcToDisplay, displayToUtc, WINDOW_TIMEZONES } from "../../utils/timeWindow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -14,7 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/** 周几按钮标签（0=Sunday…6=Saturday，与 PeakWindow.days_of_week 索引对齐）。 */
+/** 周几按钮标签（0=Sunday…6=Saturday，与 TimeWindow.days_of_week 索引对齐）。 */
 const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
 
 /** 单窗口维度 radio 三态：
@@ -25,7 +25,7 @@ const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
  *  互斥语义：切换维度时清空另一维度字段（PRD 决策：UI radio 单选）。 */
 type Dimension = "none" | "week" | "month";
 
-function dimensionOf(w: PeakWindow): Dimension {
+function dimensionOf(w: TimeWindow): Dimension {
   if (w.days_of_month && w.days_of_month.length > 0) return "month";
   if (w.days_of_week && w.days_of_week.length > 0) return "week";
   return "none";
@@ -41,14 +41,14 @@ function clampInt(v: number, min: number, max: number, fallback: number): number
  *  Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。 */
 export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTzMode, t }: {
   open: boolean;
-  windows: PeakWindow[];
-  onSave: (w: PeakWindow[]) => void;
+  windows: TimeWindow[];
+  onSave: (w: TimeWindow[]) => void;
   onClose: () => void;
   tzMode: TzMode;
   setTzMode: Dispatch<SetStateAction<TzMode>>;
   t: TFunction;
 }) {
-  const [local, setLocal] = useState<PeakWindow[]>(windows);
+  const [local, setLocal] = useState<TimeWindow[]>(windows);
   // UI-only 维度选中态（与 local 同索引同步）：数据层「周几-但一天没选」与「每天」同形，
   // 纯派生态 dimensionOf 推不出中间态，故显式维护，禁落盘（design.md 方案）。
   const [uiDim, setUiDim] = useState<Dimension[]>([]);
@@ -62,7 +62,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
 
   if (!open) return null;
 
-  const updateWindow = (widx: number, patch: Partial<PeakWindow>) => {
+  const updateWindow = (widx: number, patch: Partial<TimeWindow>) => {
     setLocal(cur => cur.map((w, i) => i === widx ? { ...w, ...patch } : w));
   };
 
@@ -124,7 +124,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
         <DialogHeader>
           <DialogTitle style={{ margin: "0 0 12px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span>{t("platform.windows_edit_title", "编辑时段窗口")}</span>
-            {/* tz 切换：与 formSections.tsx PeakHoursSection 同款样式，windows 存储恒 UTC+0，仅展示/输入换算 */}
+            {/* tz 切换：与 formSections.tsx PeakSection 同款样式，windows 存储恒 UTC+0，仅展示/输入换算 */}
             <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
               {(["local", "utc"] as const).map(m => (
                 <Button
@@ -234,7 +234,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                 })()}
 
                 {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
-                    切换时区只改解释基准，存值数字不动（与 formSections PeakHoursSection 同口径）。 */}
+                    切换时区只改解释基准，存值数字不动（与 formSections PeakSection 同口径）。 */}
                 <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
                   <span>{t("platform.window_timezone", "时区")}</span>
                   <Select

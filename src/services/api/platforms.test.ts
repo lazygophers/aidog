@@ -3,8 +3,8 @@ import {
   DEFAULT_DEVIN_CONFIG,
   parseDevinConfig,
   serializeDevinConfig,
-  parsePlatformPeakHours,
-  serializePlatformPeakHours,
+  parsePlatformPeak,
+  serializePlatformPeak,
   parseDisableDuringPeak,
   serializeDisableDuringPeak,
   parseBuiltinToolCompat,
@@ -80,17 +80,17 @@ describe("serializeDevinConfig", () => {
   });
 });
 
-describe("parsePlatformPeakHours", () => {
+describe("parsePlatformPeak", () => {
   it.each(BAD)("非法/缺键 %s 回空数组", (extra) => {
-    expect(parsePlatformPeakHours(extra)).toEqual([]);
+    expect(parsePlatformPeak(extra)).toEqual([]);
   });
 
   it("peak_hours 非数组回空", () => {
-    expect(parsePlatformPeakHours('{"peak_hours":{"start_hour":1}}')).toEqual([]);
+    expect(parsePlatformPeak('{"peak_hours":{"start_hour":1}}')).toEqual([]);
   });
 
   it("窗口经 normalizeWindow 归一", () => {
-    const out = parsePlatformPeakHours('{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3}]}');
+    const out = parsePlatformPeak('{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3}]}');
     expect(out).toHaveLength(1);
     expect(out[0].start_hour).toBe(6);
     expect(out[0].end_hour).toBe(10);
@@ -98,19 +98,19 @@ describe("parsePlatformPeakHours", () => {
   });
 });
 
-describe("serializePlatformPeakHours", () => {
+describe("serializePlatformPeak", () => {
   const win = { start_hour: 6, end_hour: 10, multiplier: 3 };
 
   it("空数组 → 删键，保留兄弟键", () => {
-    const o = JSON.parse(serializePlatformPeakHours('{"mock":{},"peak_hours":[{}]}', []));
+    const o = JSON.parse(serializePlatformPeak('{"mock":{},"peak_hours":[{}]}', []));
     expect(o.peak_hours).toBeUndefined();
     expect(o.mock).toEqual({});
   });
 
   it("非空数组写入；非法/数组 extra 重建", () => {
-    expect(JSON.parse(serializePlatformPeakHours("", [win])).peak_hours).toEqual([win]);
-    expect(JSON.parse(serializePlatformPeakHours("bad", [win])).peak_hours).toEqual([win]);
-    expect(JSON.parse(serializePlatformPeakHours("[]", [win])).peak_hours).toEqual([win]);
+    expect(JSON.parse(serializePlatformPeak("", [win])).peak_hours).toEqual([win]);
+    expect(JSON.parse(serializePlatformPeak("bad", [win])).peak_hours).toEqual([win]);
+    expect(JSON.parse(serializePlatformPeak("[]", [win])).peak_hours).toEqual([win]);
   });
 });
 
@@ -217,14 +217,14 @@ describe("多特性共享 extra 串", () => {
   it("串行 serialize 后所有键并存", () => {
     let extra = "";
     extra = serializeDevinConfig(extra, { org_id: "o1", devin_timeout: "", devin_mode: "" });
-    extra = serializePlatformPeakHours(extra, [{ start_hour: 6, end_hour: 10, multiplier: 2 }]);
+    extra = serializePlatformPeak(extra, [{ start_hour: 6, end_hour: 10, multiplier: 2 }]);
     extra = serializeDisableDuringPeak(extra, true);
     extra = serializePlatformTimeModels(extra, [
       { windows: [{ start_hour: 0, end_hour: 6, multiplier: 1 }], models: { default: "m1" } },
     ]);
 
     expect(parseDevinConfig(extra).org_id).toBe("o1");
-    expect(parsePlatformPeakHours(extra)).toHaveLength(1);
+    expect(parsePlatformPeak(extra)).toHaveLength(1);
     expect(parseDisableDuringPeak(extra)).toBe(true);
     expect(parsePlatformTimeModels(extra)).toHaveLength(1);
   });

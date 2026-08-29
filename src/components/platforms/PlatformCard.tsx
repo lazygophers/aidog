@@ -14,8 +14,8 @@ import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
-import { isCurrentlyPeak } from "../../utils/peakHours";
-import { parseDisableDuringPeak, parsePlatformPeakHours } from "../../services/api";
+import { isCurrentlyPeak } from "../../utils/timeWindow";
+import { parseDisableDuringPeak, parsePlatformPeak } from "../../services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -142,11 +142,11 @@ export const PlatformCard = memo(function PlatformCard({
   const { logoSrc: cachedLogo } = useProtocolLogo(p.platform_type);
   const [cachedLogoFailed, setCachedLogoFailed] = useState(false);
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
-  // p.extra 单次解析（原 parseDisableDuringPeak/parsePlatformPeakHours 各在渲染体内被调 2 次，
+  // p.extra 单次解析（原 parseDisableDuringPeak/parsePlatformPeak 各在渲染体内被调 2 次，
   //   均内含独立 JSON.parse(extra)）。两函数已各自做好容错（非法/缺失 JSON → false / []），此处
   //   仅去重调用次数，不改其内部解析逻辑。
   const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
-  const peakWindows = parsePlatformPeakHours(p.extra ?? "");
+  const peakWindows = parsePlatformPeak(p.extra ?? "");
 
   return (
     <div
