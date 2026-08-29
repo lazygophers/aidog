@@ -15,7 +15,7 @@ import {
   parsePlatformPeak, serializePlatformPeak,
   parseDisableDuringPeak, serializeDisableDuringPeak,
   parseBuiltinToolCompat, serializeBuiltinToolCompat, type BuiltinToolCompat,
-  parsePlatformTimeModels, serializePlatformTimeModels,
+  parsePlatformTimeWindows, serializePlatformTimeWindows,
   DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, DEFAULT_DEVIN_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig, type DevinConfig,
@@ -120,7 +120,7 @@ export interface PlatformFormState {
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   /** Claude Code 内置工具兼容（存 platform.extra.builtin_tool_compat；默认关闭）。 */
   builtinToolCompat: BuiltinToolCompat; setBuiltinToolCompat: React.Dispatch<React.SetStateAction<BuiltinToolCompat>>;
-  /** time_models：时段模型规则列表（按时段切换主力模型档） */
+  /** time_windows：时段模型规则列表（按时段切换主力模型档） */
   timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
@@ -216,7 +216,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
   /** Claude Code 内置工具兼容（platform.extra.builtin_tool_compat；默认关闭不剔除）。 */
   const [builtinToolCompat, setBuiltinToolCompat] = useState<BuiltinToolCompat>({ enabled: false, models: [], stripTools: [] });
-  // time_models（时段模型规则，存 platform.extra.time_models；默认空数组）
+  // time_windows（时段模型规则，存 platform.extra.time_windows；默认空数组）
   const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
   const [autoGroup, setAutoGroup] = useState(true);
@@ -367,7 +367,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setPeak(parsePlatformPeak(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
     setBuiltinToolCompat(parseBuiltinToolCompat(p.extra ?? ""));
-    setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
+    setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
     try {
@@ -438,7 +438,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setPeak(parsePlatformPeak(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
     setBuiltinToolCompat(parseBuiltinToolCompat(p.extra ?? ""));
-    setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
+    setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
@@ -640,8 +640,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
     // builtin_tool_compat：enabled=false → 移除键（默认行为）；true 写入。
     extraPayload = serializeBuiltinToolCompat(extraPayload, builtinToolCompat);
-    // time_models：空数组 → 移除键（无规则 → 用 default）；非空写入。
-    extraPayload = serializePlatformTimeModels(extraPayload, timeModels);
+    // time_windows：空数组 → 移除键（无规则 → 用 default）；非空写入。
+    extraPayload = serializePlatformTimeWindows(extraPayload, timeModels);
     const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
     return {
       platform_type: protocol,

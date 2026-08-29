@@ -318,14 +318,14 @@ export function serializeBuiltinToolCompat(extra: string, cfg: BuiltinToolCompat
   return JSON.stringify(obj);
 }
 
-/** 从 platform.extra JSON 解析 time_models 规则（用户级配置，preset 不带）。
+/** 从 platform.extra JSON 解析 time_windows 规则（用户级配置，preset 不带）。
  *  缺失 / 非法 / 空数组 → []（无时段规则，用 platform.models default）。 */
-export function parsePlatformTimeModels(extra: string): TimeModelRule[] {
+export function parsePlatformTimeWindows(extra: string): TimeModelRule[] {
   if (!extra.trim()) return [];
   try {
     const parsed: unknown = JSON.parse(extra);
-    if (parsed && typeof parsed === "object" && "time_models" in parsed) {
-      const arr = (parsed as { time_models: unknown }).time_models;
+    if (parsed && typeof parsed === "object" && "time_windows" in parsed) {
+      const arr = (parsed as { time_windows: unknown }).time_windows;
       if (Array.isArray(arr)) {
         return (arr as TimeModelRule[]).map((rule) => ({ ...rule, windows: rule.windows.map(normalizeWindow) }));
       }
@@ -334,8 +334,8 @@ export function parsePlatformTimeModels(extra: string): TimeModelRule[] {
   return [];
 }
 
-/** 把 time_models 规则写回 extra JSON（保留其余键）。空数组 → 移除 time_models 键（无规则→用 default）。 */
-export function serializePlatformTimeModels(extra: string, rules: TimeModelRule[]): string {
+/** 把 time_windows 规则写回 extra JSON（保留其余键）。空数组 → 移除 time_windows 键（无规则→用 default）。 */
+export function serializePlatformTimeWindows(extra: string, rules: TimeModelRule[]): string {
   let obj: Record<string, unknown> = {};
   if (extra.trim()) {
     try {
@@ -346,9 +346,9 @@ export function serializePlatformTimeModels(extra: string, rules: TimeModelRule[
     } catch { /* ignore */ }
   }
   if (rules.length === 0) {
-    delete obj.time_models;
+    delete obj.time_windows;
   } else {
-    obj.time_models = rules;
+    obj.time_windows = rules;
   }
   return JSON.stringify(obj);
 }

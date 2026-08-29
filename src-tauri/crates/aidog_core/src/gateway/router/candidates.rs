@@ -26,7 +26,7 @@ pub struct ScheduleCtx<'a> {
     pub sticky_key: Option<String>,
 }
 
-/// Platform extra 解析缓存：避免每个候选重复解析 time_models 和 peak_hours
+/// Platform extra 解析缓存：避免每个候选重复解析 time_windows 和 peak_hours
 #[derive(Clone, Debug)]
 struct ExtraCache {
     time_windows: Vec<serde_json::Value>,
@@ -134,7 +134,7 @@ pub async fn select_candidates_ctx(
     let effective_mode = group.routing_mode;
 
     // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
-    // ponytail: 在入口处统一解析 time_models 和 peak_hours，缓存传递给 helper 函数
+    // ponytail: 在入口处统一解析 time_windows 和 peak_hours，缓存传递给 helper 函数
     let extra_cache: ExtraCacheMap = group_platforms.iter()
         .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra, &gp.platform.platform_type)))
         .collect();
@@ -294,7 +294,7 @@ async fn handle_single_platform(
         return Err("peak_disabled".to_string());
     }
 
-    // 时段模型：从缓存获取 time_models，再用 resolve_model
+    // 时段模型：从缓存获取 time_windows，再用 resolve_model
     // cli-proxy 平台：effective_models 从 provider.models 覆盖（platform.models 只读）
     let target_model = if let Some(provider) = cli_cache.providers.get(&only.platform.id) {
         mapped_target_model
@@ -522,16 +522,16 @@ fn is_in_peak_window_cached(windows: &[peak::TimeWindow], now_ms: i64, source_mo
     peak::is_in_peak_window(windows, now_ms, source_model)
 }
 
-/// 解析当前时段的有效模型配置（effective_models）—— 使用已解析的 time_models 缓存。
+/// 解析当前时段的有效模型配置（effective_models）—— 使用已解析的 time_windows 缓存。
 ///
 /// 三层级联（优先级高 → 低）：
-/// 1. **time_models**（用户级显式时段切换，`platform.extra.time_models`）：命中 → 用该时段 models；
-///    用户已自定义 time_models 时不再应用 preset peak 分支（用户显式覆盖优先）。
-/// 2. **preset.models.peak**（preset 级高峰分支，PRD 07-11）：用户未配 time_models 且
+/// 1. **time_windows**（用户级显式时段切换，`platform.extra.time_windows`）：命中 → 用该时段 models；
+///    用户已自定义 time_windows 时不再应用 preset peak 分支（用户显式覆盖优先）。
+/// 2. **preset.models.peak**（preset 级高峰分支，PRD 07-11）：用户未配 time_windows 且
 ///    preset 提供本协议 `models.peak` 分支 + 当前命中 `peak_for` 任一窗口 → 用 peak 替换。
 ///    **设计意图：peak 分支为 preset 级硬约束，覆盖用户手工定制的 `platform.models`**
 ///    （等同 coding_plan 端点维度优先级；用户显式定制在高峰窗口期内不保留，如需保留请配
-///    `time_models` 显式时段切换，其优先级高于 peak）。非 bug — 见 CLAUDE.md `models.peak` 段。
+///    `time_windows` 显式时段切换，其优先级高于 peak）。非 bug — 见 CLAUDE.md `models.peak` 段。
 /// 3. **platform.models**（用户级显式槽位 / 创建时填入 preset.models.default）：兜底默认。
 ///
 /// `source_model`：请求模型名（透传给 peak_hours model scope 过滤；空串 = 无上下文跳过）。
@@ -542,7 +542,7 @@ fn resolve_effective_models(
     source_model: &str,
 ) -> PlatformModels {
     let mut effective = time_windows::resolve_time_windows(time_rules, &platform.models, now_ms);
-    // PRD 07-11：time_models 未自定义时查 preset.models.peak 分支
+    // PRD 07-11：time_windows 未自定义时查 preset.models.peak 分支
     if time_rules.is_empty() {
         // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
         let ptype = platform.platform_type.wire_str();

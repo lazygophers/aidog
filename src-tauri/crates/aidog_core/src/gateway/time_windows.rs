@@ -1,22 +1,22 @@
-//! 时段模型配置（time_models）：按时段窗口切换主力模型档。
+//! 时段模型配置（time_windows）：按时段窗口切换主力模型档。
 //!
-//! 数据源：`platform.extra.time_models`（用户级配置，preset 不带）。
+//! 数据源：`platform.extra.time_windows`（用户级配置，preset 不带）。
 //! 路由按当前时段 first-match 命中 → 用该时段 models 替换 platform.models 调 resolve_model；
 //! 未命中 → platform.models default。
 
 use crate::gateway::models::PlatformModels;
 
-/// 从 `platform.extra` JSON 字符串解析 `time_models` 字段；非法 / 缺失 → 空。
+/// 从 `platform.extra` JSON 字符串解析 `time_windows` 字段；非法 / 缺失 → 空。
 pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
-    // 验证每个元素都有 windows 和 models 字段（PlatformExtra.time_models 未内嵌此校验）
+    // 验证每个元素都有 windows 和 models 字段（PlatformExtra.time_windows 未内嵌此校验）
     crate::gateway::models::PlatformExtra::parse(extra)
-        .time_models
+        .time_windows
         .into_iter()
         .filter(|item| item.is_object() && item.get("windows").is_some() && item.get("models").is_some())
         .collect()
 }
 
-/// 按当前时段（epoch_ms UTC）first-match 命中 time_models，返回对应 models；
+/// 按当前时段（epoch_ms UTC）first-match 命中 time_windows，返回对应 models；
 /// 未命中 → 返回 default_models（platform.models）。
 pub fn resolve_time_windows(
     rules: &[serde_json::Value],
@@ -66,13 +66,13 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak::Time
         end_minute: Option<i32>,
         #[serde(default)]
         days_of_month: Option<Vec<i32>>,
-        /// 窗口时区（IANA；缺省 UTC）。与 peak_hours 窗口同字段，time_models 时段切换同样按此时区解释。
+        /// 窗口时区（IANA；缺省 UTC）。与 peak_hours 窗口同字段，time_windows 时段切换同样按此时区解释。
         #[serde(default)]
         timezone: Option<String>,
     }
     let helper: WindowHelper = serde_json::from_value(v.clone()).ok()?;
-    // multiplier 字段不需要，设 1.0；time_models 仅用时间维度切换 models，model scope 不参与
-    // （peak_hours 的 model scope 过滤语义不适用 time_models，故 models 字段不解析 / 不传递到 hit）
+    // multiplier 字段不需要，设 1.0；time_windows 仅用时间维度切换 models，model scope 不参与
+    // （peak_hours 的 model scope 过滤语义不适用 time_windows，故 models 字段不解析 / 不传递到 hit）
     Some(crate::gateway::peak::TimeWindow {
         start_hour: helper.start_hour,
         end_hour: helper.end_hour,
@@ -100,9 +100,9 @@ mod tests {
     }
 
     #[test]
-    fn parse_extra_time_models_valid() {
+    fn parse_extra_time_windows_valid() {
         let extra = r#"{
-            "time_models": [
+            "time_windows": [
                 {
                     "windows": [{"start_hour": 14, "end_hour": 22, "days_of_week": [1,2,3,4,5]}],
                     "models": {"default": "gpt-4o", "sonnet": "claude-sonnet-4-20250514"}
@@ -116,10 +116,10 @@ mod tests {
     }
 
     #[test]
-    fn parse_extra_time_models_invalid_windows_filtered() {
+    fn parse_extra_time_windows_invalid_windows_filtered() {
         // 缺少 windows 或 models 的 rule 应被过滤
         let extra = r#"{
-            "time_models": [
+            "time_windows": [
                 {"windows": [{"start_hour": 14, "end_hour": 22}]},
                 {"models": {"default": "gpt-4o"}},
                 {"windows": [], "models": {"default": "gpt-4o"}}

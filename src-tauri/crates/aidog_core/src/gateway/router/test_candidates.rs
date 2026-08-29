@@ -760,15 +760,15 @@ fn resolve_effective_models_no_peak_when_off_peak() {
 }
 
 #[test]
-fn resolve_effective_models_user_time_models_overrides_peak_branch() {
-    // 用户显式 time_models 优先级高于 preset.models.peak（time_rules 非空 → 跳过 peak 分支）
+fn resolve_effective_models_user_time_windows_overrides_peak_branch() {
+    // 用户显式 time_windows 优先级高于 preset.models.peak（time_rules 非空 → 跳过 peak 分支）
     let platform_models = PlatformModels {
         default: Some("glm-5.2".into()),
         ..Default::default()
     };
-    // extra 含 time_models（全天命中 → models.default=custom-model）
+    // extra 含 time_windows（全天命中 → models.default=custom-model）
     let extra = serde_json::json!({
-        "time_models": [{
+        "time_windows": [{
             "windows": [{"start_hour": 0, "end_hour": 24}],
             "models": {"default": "custom-model"}
         }]
@@ -776,8 +776,8 @@ fn resolve_effective_models_user_time_models_overrides_peak_branch() {
     let p = glm_coding_platform(&extra, platform_models);
     let time_rules = crate::gateway::time_windows::parse_platform_time_windows(&p.extra);
     let eff = resolve_effective_models(&p, &time_rules, PEAK_MS, "");
-    // time_models 命中 → custom-model（不被 preset.models.peak 覆盖）
-    assert_eq!(eff.default.as_deref(), Some("custom-model"), "user time_models 优先于 preset peak");
+    // time_windows 命中 → custom-model（不被 preset.models.peak 覆盖）
+    assert_eq!(eff.default.as_deref(), Some("custom-model"), "user time_windows 优先于 preset peak");
 }
 
 #[test]
