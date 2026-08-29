@@ -1,7 +1,7 @@
 //! UI 态持久化（_ui_* 键）：单键读改写 extra JSON。
 //!
 //! 前端把 UI 态（卡片展开/折叠等）写到 platform/group 的 `extra` JSON 的 `_ui_*` 键，
-//! 后端业务解析（peak_hours_for / parse_disable_during_peak / parse_breaker 等）用
+//! 后端业务解析（peak_for / parse_disable_during_peak / parse_breaker 等）用
 //! serde_json 读己键天然忽略未知键，故 _ui_* 与业务键共存无副作用。
 //!
 //! 白名单：`platform` / `group`（两表均有 extra 列，schema_late migration 20260727-13（原 044）起 group 也带）。

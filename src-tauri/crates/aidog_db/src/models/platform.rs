@@ -298,8 +298,8 @@ pub fn parse_builtin_tool_compat(extra: &str) -> BuiltinToolCompat {
 /// 各字段对应旧 ad-hoc 解析点（见 file:line 清单，均已改走本 struct）：
 /// - `breaker` ← `parse_breaker`
 /// - `disable_during_peak` ← `parse_disable_during_peak`
-/// - `peak_hours` ← `parse_platform_peak_hours`
-/// - `time_models` ← `parse_platform_time_models`
+/// - `peak_hours` ← `parse_platform_peak`
+/// - `time_models` ← `parse_platform_time_windows`
 /// - `cli_proxy_provider_id` ← `router::candidates::read_cli_proxy_provider_id`
 /// - `devin` ← `quota::devin::parse_devin_extra`
 /// - `newapi` ← `quota::newapi::parse_newapi_extra`
@@ -311,7 +311,7 @@ pub struct PlatformExtra {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disable_during_peak: bool,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub peak_hours: Vec<crate::models::stats::PeakWindow>,
+    pub peak_hours: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub time_models: Vec<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

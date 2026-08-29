@@ -1,4 +1,4 @@
-/// 单个时段窗口。serde 字段名直接对齐 JSON / TS `PeakWindow`。
+/// 单个时段窗口。serde 字段名直接对齐 JSON / TS `TimeWindow`。
 ///
 /// 时段基准：`timezone`（IANA 名，如 `Asia/Shanghai`）；缺省 / 非法 = UTC（向后兼容）。
 /// `start_hour` / `end_hour` / `days_of_week` / `days_of_month` 均按该时区的**本地时刻**解释。
@@ -7,12 +7,12 @@
 /// （`start_minute`/`end_minute` None=0，`days_of_month` None=不过滤，`timezone` None=UTC）。
 /// `Serialize` 供 `PlatformExtra`（gateway/models/platform.rs）整体往返测试用。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct PeakWindow {
+pub struct TimeWindow {
     pub start_hour: i32,
     pub end_hour: i32,
     pub multiplier: f64,
     /// 窗口时区（IANA 名，如 `Asia/Shanghai`）；缺省 = UTC（向后兼容）。
-    /// 时段按该时区本地 xx:xx–xx:xx 解释；与 TS `PeakWindow.timezone?: string` 对称。
+    /// 时段按该时区本地 xx:xx–xx:xx 解释；与 TS `TimeWindow.timezone?: string` 对称。
     #[serde(default)]
     pub timezone: Option<String>,
     #[serde(default)]
@@ -28,17 +28,17 @@ pub struct PeakWindow {
     pub days_of_month: Option<Vec<i32>>,
     /// model scope（model 维度过滤，PRD 07-09 D2）；缺省 / None = 全平台模型生效（向后兼容）。
     /// 元素支持 `"glm-5.2*"` 后缀通配（覆盖 `glm-5.2` / `glm-5.2-turbo`），exact-first。
-    /// 与 TS `PeakWindow.models?: string[]` 对称（跨层一致，见 cross-layer-rules.md）。
+    /// 与 TS `TimeWindow.models?: string[]` 对称（跨层一致，见 cross-layer-rules.md）。
     #[serde(default)]
     pub models: Option<Vec<String>>,
     /// 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / None = 立即可用。
     /// `epoch_sec < start_at` → 窗口尚未启用，跳过（first-match 继续后续窗口）。
-    /// 与 TS `PeakWindow.start_at?: number` 对称。
+    /// 与 TS `TimeWindow.start_at?: number` 对称。
     #[serde(default)]
     pub start_at: Option<i64>,
     /// 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / None = 永久。
     /// `epoch_sec >= end_at` → 窗口已失效，跳过。
-    /// 与 TS `PeakWindow.end_at?: number` 对称。
+    /// 与 TS `TimeWindow.end_at?: number` 对称。
     #[serde(default)]
     pub end_at: Option<i64>,
 }
