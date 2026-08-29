@@ -19,7 +19,7 @@
   "properties": {
     "is_coding_plan": {
       "type": "boolean",
-      "description": "编码套餐（coding plan）协议标记：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。router/ordering.rs 优先普通平台；前端 ProtocolOption.codingPlan / PlatformCard 徽标据此派生。coding 套餐一律是独立协议条目（禁与普通版同 code 双 preset）。"
+      "description": "【可选】编码套餐（coding plan）协议标记：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。router/ordering.rs 优先普通平台；前端 ProtocolOption.codingPlan / PlatformCard 徽标据此派生。coding 套餐一律是独立协议条目（禁与普通版同 code 双 preset）。"
     },
     "key_prefixes": {
       "type": "array",
@@ -28,7 +28,7 @@
         "type": "string",
         "minLength": 2
       },
-      "description": "平台 API key 前缀（如 sk-ant- / sk-kimi- / tp- / ark-）。粘贴识别的 key 提取与平台直判（platformPaste.ts 优先级 2）据此数据驱动生成，禁在代码硬编码平台前缀；通用格式前缀（sk- / sk_）仍留代码。coding 套餐平台是独立协议（禁与普通版同 code 双 preset），其专属 token 前缀写在本字段，不另设 coding 前缀字段。"
+      "description": "【可选】平台 API key 前缀（如 sk-ant- / sk-kimi- / tp- / ark-）。粘贴识别的 key 提取与平台直判（platformPaste.ts 优先级 2）据此数据驱动生成，禁在代码硬编码平台前缀；通用格式前缀（sk- / sk_）仍留代码。coding 套餐平台是独立协议（禁与普通版同 code 双 preset），其专属 token 前缀写在本字段，不另设 coding 前缀字段。"
     },
     "endpoints": {
       "type": "object",
@@ -50,12 +50,12 @@
               "protocol": {
                 "type": "string",
                 "minLength": 1,
-                "description": "端点协议（anthropic / openai 等）。"
+                "description": "【必填】端点协议（anthropic / openai 等）。"
               },
               "base_url": {
                 "type": "string",
                 "pattern": "^https?://",
-                "description": "含版本前缀（如 /v1、/api/paas/v4）。最终 URL = base_url + provider_api_path，禁止额外拼接。"
+                "description": "【必填】含版本前缀（如 /v1、/api/paas/v4）。最终 URL = base_url + provider_api_path，禁止额外拼接。"
               },
               "client_type": {
                 "type": "string",
@@ -74,18 +74,18 @@
                   "cursor",
                   "windsurf"
                 ],
-                "description": "可选：端点客户端形态覆盖。缺省按 protocol 派生（前端 defaults.ts::clientTypeForProtocol / Rust registry.rs::derive_client_type 对称）：anthropic → claude_code、openai 系 → codex_tui、其余 → default。仅派生规则不适用的例外平台标注（如官方 claude_code 直连端点标 default 不模拟客户端）。"
+                "description": "【可选】可选：端点客户端形态覆盖。缺省按 protocol 派生（前端 defaults.ts::clientTypeForProtocol / Rust registry.rs::derive_client_type 对称）：anthropic → claude_code、openai 系 → codex_tui、其余 → default。仅派生规则不适用的例外平台标注（如官方 claude_code 直连端点标 default 不模拟客户端）。"
               },
               "coding_plan": {
                 "type": "boolean",
-                "description": "标记该端点属编码套餐（true 时路由走 cp 端点路径）。"
+                "description": "【可选】标记该端点属编码套餐（true 时路由走 cp 端点路径）。"
               }
             }
           },
-          "description": "端点列表（每项含 protocol / base_url / client_type）。"
+          "description": "【必填】端点列表（每项含 protocol / base_url / client_type）。"
         }
       },
-      "description": "端点表，仅 default 单分支。coding 套餐是独立协议（如 glm_coding / minimax_coding），不再有 coding_plan 分支。"
+      "description": "【必填】端点表，仅 default 单分支。coding 套餐是独立协议（如 glm_coding / minimax_coding），不再有 coding_plan 分支。"
     },
     "models": {
       "type": "object",
@@ -100,7 +100,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable → 平台真实模型 id）。聚合/中转平台可留空对象。"
+          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable → 平台真实模型 id）。聚合/中转平台可留空对象。"
         },
         "peak": {
           "type": "object",
@@ -108,10 +108,10 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中 peak_hours 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
+          "description": "【可选】高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中 peak_hours 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
         }
       },
-      "description": "客户端模型槽位映射表。default 必填；peak 高峰切换（现仅 glm_coding）。coding 套餐是独立协议，无 coding_plan 分支。"
+      "description": "【必填】客户端模型槽位映射表。default 必填；peak 高峰切换（现仅 glm_coding）。coding 套餐是独立协议，无 coding_plan 分支。"
     },
     "model_list": {
       "type": "object",
@@ -126,10 +126,10 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "下拉冷启动候选全集（不变量：models 各分支值集的超集）。"
+          "description": "【必填】下拉冷启动候选全集（不变量：models 各分支值集的超集）。"
         }
       },
-      "description": "模型下拉候选表，仅 default 单分支（default 必须是 models 各分支值集的超集，冷启动兜底列全候选）。coding 套餐是独立协议，无 coding_plan 分支。"
+      "description": "【必填】模型下拉候选表，仅 default 单分支（default 必须是 models 各分支值集的超集，冷启动兜底列全候选）。coding 套餐是独立协议，无 coding_plan 分支。"
     },
     "peak_hours": {
       "type": "array",
@@ -147,18 +147,23 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 23,
-            "description": "窗口起始小时（UTC+0，0-23；跨天窗口 end < start）。"
+            "description": "【必填】窗口起始小时（窗口时区本地，0-23；跨天窗口 end < start）。"
           },
           "end_hour": {
             "type": "integer",
             "minimum": 0,
             "maximum": 23,
-            "description": "窗口结束小时（UTC+0，0-23；end=24 语义为到 23 点末）。"
+            "description": "【必填】窗口结束小时（窗口时区本地，0-23；end=24 语义为到 23 点末）。"
           },
           "multiplier": {
             "type": "number",
             "exclusiveMinimum": 0,
-            "description": "窗口内计费倍率（条目带模型 peak 绝对价时被压成 1.0）。"
+            "description": "【必填】窗口内计费倍率（条目带模型 peak 绝对价时被压成 1.0）。"
+          },
+          "timezone": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【可选】窗口时区（IANA 名，如 Asia/Shanghai）；小时/星期按该时区本地时刻解释；缺省 = UTC。"
           },
           "days_of_week": {
             "type": "array",
@@ -168,7 +173,7 @@
               "minimum": 0,
               "maximum": 6
             },
-            "description": "窗口限定的星期（0=周日 … 6=周六）；缺省 = 每天。"
+            "description": "【可选】窗口限定的星期（窗口时区本地，0=周日 … 6=周六）；缺省 = 每天。"
           },
           "models": {
             "type": "array",
@@ -177,16 +182,16 @@
               "type": "string",
               "minLength": 1
             },
-            "description": "限定仅特定请求模型命中窗口；缺省 = 该平台全部模型。"
+            "description": "【可选】限定仅特定请求模型命中窗口；缺省 = 该平台全部模型。"
           },
           "start_at": {
             "type": "integer",
             "minimum": 0,
-            "description": "窗口生效起点（Unix 秒）。"
+            "description": "【可选】窗口生效起点（Unix 秒）。"
           }
         }
       },
-      "description": "高峰/低峰计价窗口（UTC+0 基准，first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。"
+      "description": "【可选】高峰/低峰计价窗口（每窗口可指定 timezone，缺省 UTC；first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。"
     },
     "name": {
       "type": "object",
@@ -205,45 +210,45 @@
         "en-US": {
           "type": "string",
           "minLength": 1,
-          "description": "英语显示名"
+          "description": "【必填】英语显示名"
         },
         "zh-Hans": {
           "type": "string",
           "minLength": 1,
-          "description": "简体中文显示名"
+          "description": "【必填】简体中文显示名"
         },
         "ar-SA": {
           "type": "string",
           "minLength": 1,
-          "description": "阿拉伯语显示名（RTL）"
+          "description": "【必填】阿拉伯语显示名（RTL）"
         },
         "fr-FR": {
           "type": "string",
           "minLength": 1,
-          "description": "法语显示名"
+          "description": "【必填】法语显示名"
         },
         "de-DE": {
           "type": "string",
           "minLength": 1,
-          "description": "德语显示名"
+          "description": "【必填】德语显示名"
         },
         "ru-RU": {
           "type": "string",
           "minLength": 1,
-          "description": "俄语显示名"
+          "description": "【必填】俄语显示名"
         },
         "ja-JP": {
           "type": "string",
           "minLength": 1,
-          "description": "日语显示名"
+          "description": "【必填】日语显示名"
         },
         "es-ES": {
           "type": "string",
           "minLength": 1,
-          "description": "西班牙语显示名"
+          "description": "【必填】西班牙语显示名"
         }
       },
-      "description": "8 locale 本地化显示名，全部必填非空。"
+      "description": "【必填】8 locale 本地化显示名，全部必填非空。"
     },
     "source_urls": {
       "type": "object",
@@ -255,24 +260,24 @@
         "docs": {
           "type": "string",
           "minLength": 1,
-          "description": "官方文档 URL（必填）。"
+          "description": "【必填】官方文档 URL（必填）。"
         },
         "pricing": {
           "type": "string",
           "minLength": 1,
-          "description": "官方定价页。除 devin（无公开定价页）外全部平台必填。"
+          "description": "【可选】官方定价页。除 devin（无公开定价页）外全部平台必填。"
         }
       },
-      "description": "官方文档/定价页 URL（docs 必填；pricing 除 devin 外全部必填）。"
+      "description": "【必填】官方文档/定价页 URL（docs 必填；pricing 除 devin 外全部必填）。"
     },
     "homepage": {
       "type": "string",
       "minLength": 1,
-      "description": "平台官网 URL。"
+      "description": "【必填】平台官网 URL。"
     },
     "logo_url": {
       "type": "string",
-      "description": "Simple Icons slug（如 minimax）或完整图片 URL，空串走 favicon/clearbit/首字母 fallback。本项目不存储任何平台 logo，由用户端从第三方获取（logo_sync.rs 三路拉取）。"
+      "description": "【必填】Simple Icons slug（如 minimax）或完整图片 URL，空串走 favicon/clearbit/首字母 fallback。本项目不存储任何平台 logo，由用户端从第三方获取（logo_sync.rs 三路拉取）。"
     },
     "keywords": {
       "type": "array",
@@ -281,12 +286,12 @@
         "type": "string",
         "minLength": 1
       },
-      "description": "搜索关键词（platformPaste.ts 粘贴匹配 + 前端搜索）。词条多语言：中文、英文品牌名/别名，中文词条须附全拼串与首字母串（如 智谱 → zhipu + zp）——拼音形式作为数据存于此处，代码不做拼音推导。子平台变体须包含父平台全部词条。"
+      "description": "【必填】搜索关键词（platformPaste.ts 粘贴匹配 + 前端搜索）。词条多语言：中文、英文品牌名/别名，中文词条须附全拼串与首字母串（如 智谱 → zhipu + zp）——拼音形式作为数据存于此处，代码不做拼音推导。子平台变体须包含父平台全部词条。"
     },
     "color": {
       "type": "string",
       "pattern": "^#[0-9A-Fa-f]{6}$",
-      "description": "品牌色，前端徽标/卡片着色。"
+      "description": "【必填】品牌色，前端徽标/卡片着色。"
     }
   }
 }

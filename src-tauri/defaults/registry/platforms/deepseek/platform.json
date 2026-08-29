@@ -45,5 +45,39 @@
     "shenduqiusuo",
     "sdqs"
   ],
-  "color": "#1E88E5"
+  "color": "#1E88E5",
+  "peak_hours": [
+    {
+      "start_hour": 9,
+      "end_hour": 12,
+      "multiplier": 2,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "models": [
+        "deepseek-v4*"
+      ],
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "start_hour": 14,
+      "end_hour": 18,
+      "multiplier": 2,
+      "days_of_week": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "models": [
+        "deepseek-v4*"
+      ],
+      "timezone": "Asia/Shanghai"
+    }
+  ]
 }

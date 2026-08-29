@@ -71,12 +71,13 @@
   "color": "#6E29F6",
   "peak_hours": [
     {
-      "start_hour": 9,
-      "end_hour": 18,
+      "start_hour": 17,
+      "end_hour": 2,
       "multiplier": 1.25,
       "models": [
         "tencent/Hunyuan-A13B-Instruct"
-      ]
+      ],
+      "timezone": "Asia/Shanghai"
     }
   ]
 }
