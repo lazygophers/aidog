@@ -15,7 +15,7 @@ describe("platformMatchesQuery — 跨语言/拼音匹配", () => {
     expect(platformMatchesQuery(p, "智谱", terms)).toBe(true);
     expect(platformMatchesQuery(p, "zhipu", terms)).toBe(true);
     expect(platformMatchesQuery(p, "bigmodel", terms)).toBe(true);
-    // 中文词条的拼音也生效
+    // 中文词条的拼音形式已作为字面词条入库（platform.json keywords），纯子串命中
     expect(platformMatchesQuery(p, "zhip", terms)).toBe(true);
   });
 

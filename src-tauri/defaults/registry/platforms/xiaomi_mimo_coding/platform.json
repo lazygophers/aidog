@@ -50,12 +50,15 @@
     "mimo token plan",
     "token plan",
     "小米套餐",
-    "mimo 套餐"
+    "mimo 套餐",
+    "xiaomibiancheng",
+    "xmbc",
+    "xiaomitaocan",
+    "xmtc",
+    "taocan",
+    "tc"
   ],
   "color": "#FF6900",
-  "codingKeyPrefixes": [
-    "tp-"
-  ],
   "key_prefixes": [
     "tp-"
   ]

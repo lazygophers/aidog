@@ -1,7 +1,7 @@
 // 平台展示名读取层：三层回落（name[locale] → name["en-US"] → 协议 code）与品牌外链。
 // 真值源 = registry（`src-tauri/defaults/registry/platforms/<code>/platform.json`），
 // 经 get_defaults_json 合并回传；此处用两组 registry fixture 断言切 locale 后名字变化。
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
 import {
   getProtocolLabel,
@@ -55,6 +55,8 @@ beforeAll(async () => {
   // 预热 docPromise：setup.ts afterEach 会 clearMocks，缓存必须在 mock 仍挂载时建立。
   await getProtocolLabel("deepseek" as Protocol, "en-US");
 });
+// buildProtocolsFromPresets 走 fetchDoc（无缓存直读），每测试重挂 IPC mock。
+beforeEach(() => mockIPC((cmd: string) => (cmd === "get_defaults_json" ? REGISTRY_MOCK : null)));
 
 afterAll(() => {
   clearMocks();

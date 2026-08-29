@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
 import {
   getDefaultModels,
@@ -65,6 +65,9 @@ beforeAll(async () => {
   // 预热 docPromise：setup.ts afterEach 会 clearMocks，缓存必须在 mock 仍挂载时建立。
   await getDefaultModels("deepseek" as Protocol);
 });
+// buildProtocolsFromPresets 走 fetchDoc（无缓存直读），每测试都发一次 IPC：
+// setup.ts afterEach 清了 mock，这里重挂。
+beforeEach(() => mockIPC((cmd: string) => (cmd === "get_defaults_json" ? DEFAULTS_MOCK : null)));
 
 afterAll(() => {
   clearMocks();

@@ -55,10 +55,11 @@
     "minimax",
     "海螺编程",
     "minimax coding",
-    "minimax code"
+    "minimax code",
+    "hailuo",
+    "hl",
+    "hailuobiancheng",
+    "hlbc"
   ],
-  "color": "#FF6B6B",
-  "codingKeyPrefixes": [
-    "sk-cp-"
-  ]
+  "color": "#FF6B6B"
 }

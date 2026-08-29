@@ -55,6 +55,7 @@ const DEFAULT_SYNC_SETTINGS: PriceSyncSettings = {
   auto_sync_enabled: false,
   sync_interval_secs: 86400,
   last_sync_at: 0,
+  registry_last_updated: 0,
   fallback_input_price: 3.0,
   fallback_output_price: 3.0,
 };

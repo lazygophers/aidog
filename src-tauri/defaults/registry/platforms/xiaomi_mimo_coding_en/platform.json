@@ -57,12 +57,16 @@
     "xiaomi coding",
     "小米编程",
     "mimo token plan",
-    "token plan"
+    "token plan",
+    "xiaomibianchengguoji",
+    "xmbcgj",
+    "xiaomitaocanguoji",
+    "xmtcgj",
+    "xm",
+    "xiaomibiancheng",
+    "xmbc"
   ],
   "color": "#FF6900",
-  "codingKeyPrefixes": [
-    "tp-"
-  ],
   "key_prefixes": [
     "tp-"
   ]

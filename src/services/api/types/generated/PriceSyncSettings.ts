@@ -13,6 +13,10 @@ sync_interval_secs: number,
  */
 last_sync_at: number, 
 /**
+ * 上次入库的 registry index `last_updated`（Unix 秒）；远程不比它新则整轮跳过
+ */
+registry_last_updated: number, 
+/**
  * 兜底默认价格 $/M tokens
  */
 fallback_input_price: number, fallback_output_price: number, };

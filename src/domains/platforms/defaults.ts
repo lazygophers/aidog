@@ -73,9 +73,7 @@ type DefaultsDoc = {
     color?: string;
     /** 协议搜索关键词（拼音/子串匹配用）；派生层 buildProtocolsFromPresets 透传到 ProtocolOption.keywords。 */
     keywords?: string[];
-    /** coding plan 专属 token 前缀（如小米 token-plan 的 "tp-"）；机制 B 升级用。 */
-    codingKeyPrefixes?: string[];
-    /** 平台 API key 前缀（如 sk-ant- / sk-kimi- / ark-）；粘贴识别的 key 提取正则据此数据驱动生成。 */
+    /** 平台 API key 前缀（如 sk-ant- / sk-kimi- / tp- / ark-）；粘贴识别的 key 提取与平台直判据此数据驱动生成。 */
     key_prefixes?: string[];
     /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
      *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
@@ -87,24 +85,28 @@ type DefaultsDoc = {
 
 let docPromise: Promise<DefaultsDoc> | null = null;
 
+/** 全量拉取一次 presets 文档（DB 优先、bundled 兜底）——不走 docPromise 缓存。
+ *  匹配/识别路径（平台搜索词、粘贴识别）用：数据表即真值，用时直读，无代码侧缓存/判断。 */
+async function fetchDoc(): Promise<DefaultsDoc> {
+  return getDefaultsJson()
+    .then((raw) => {
+      try {
+        const parsed = JSON.parse(raw) as DefaultsDoc;
+        if (parsed && parsed.protocols) return parsed;
+      } catch (e) {
+        // fall through to empty
+        console.warn("[defaults] parse defaults.json failed:", e);
+      }
+      return { protocols: {} } as DefaultsDoc;
+    })
+    .catch((e) => {
+      console.warn("[defaults] get_defaults_json failed:", e);
+      return { protocols: {} } as DefaultsDoc;
+    });
+}
+
 async function loadDoc(): Promise<DefaultsDoc> {
-  if (!docPromise) {
-    docPromise = getDefaultsJson()
-      .then((raw) => {
-        try {
-          const parsed = JSON.parse(raw) as DefaultsDoc;
-          if (parsed && parsed.protocols) return parsed;
-        } catch (e) {
-          // fall through to empty
-          console.warn("[defaults] parse defaults.json failed:", e);
-        }
-        return { protocols: {} } as DefaultsDoc;
-      })
-      .catch((e) => {
-        console.warn("[defaults] get_defaults_json failed:", e);
-        return { protocols: {} } as DefaultsDoc;
-      });
-  }
+  if (!docPromise) docPromise = fetchDoc();
   return docPromise;
 }
 
@@ -270,9 +272,10 @@ export async function getProtocolLabelMap(locale?: string): Promise<Record<Proto
 }
 
 /** 协议搜索词全集映射（value → name 全 8 locale + label + keywords），供平台列表/筛选搜索跨语言匹配。
- *  与 buildProtocolsFromPresets 的 searchTerms 同源派生；UI 语言无关（中文词条任何 locale 下都可搜，拼音经 pinyinMatch 生效）。 */
+ *  与 buildProtocolsFromPresets 的 searchTerms 同源派生；UI 语言无关（中文词条任何 locale 下都可搜）。
+ *  fetchDoc 直读数据表（无缓存）——配置文件即真值，拼音/首字母等形式已在 keywords 数据里。 */
 export async function getProtocolSearchTermsMap(): Promise<Partial<Record<Protocol, string[]>>> {
-  const doc = await loadDoc();
+  const doc = await fetchDoc();
   const out: Partial<Record<Protocol, string[]>> = {};
   for (const proto of Object.keys(doc.protocols) as Protocol[]) {
     const entry = doc.protocols[proto];
@@ -312,16 +315,17 @@ function deriveProtocolHosts(eps: PlatformEndpoint[]): string[] {
 }
 
 /** 派生 ProtocolOption 列表（替代旧模块级 PROTOCOLS 硬编码常量）。
- *  loadDoc → 每 key 派生 {value, label, codingPlan, keywords, hosts, codingKeyPrefixes}。
+ *  loadDoc → 每 key 派生 {value, label, codingPlan, keywords, hosts, keyPrefixes}。
  *  - label: name[locale] || name["en-US"] || key（三级回退链）；
  *  - codingPlan: is_coding_plan || false；
  *  - keywords: keywords || []；
  *  - hosts: 派生自 endpoints（host+path 子串，含 cp 分支），并入旧 injectProtocolHosts 逻辑；
- *  - codingKeyPrefixes: codingKeyPrefixes || []。
+ *  - keyPrefixes: key_prefixes || []。
  *  调用方：SearchableProtocolSelect / Sub2ApiImport / PlatformEditForm / ccswitchMatch 等。
  *  ponytail: 复用 docPromise 单次 RPC，纯函数式派生，零状态机。 */
 export async function buildProtocolsFromPresets(locale?: string): Promise<ProtocolOption[]> {
-  const doc = await loadDoc();
+  // fetchDoc 直读数据表（无缓存）——搜索/粘贴识别的匹配目标全部来自配置数据
+  const doc = await fetchDoc();
   const out: ProtocolOption[] = [];
   for (const proto of Object.keys(doc.protocols) as Protocol[]) {
     const entry = doc.protocols[proto];
@@ -350,7 +354,6 @@ export async function buildProtocolsFromPresets(locale?: string): Promise<Protoc
       keywords,
       searchTerms,
       ...(hosts.length ? { hosts } : {}),
-      ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
       ...(entry.key_prefixes?.length ? { keyPrefixes: entry.key_prefixes } : {}),
     });
   }

@@ -30,6 +30,10 @@ pub struct PriceSyncSettings {
     #[serde(default)]
     #[ts(type = "number")]
     pub last_sync_at: i64,
+    /// 上次入库的 registry index `last_updated`（Unix 秒）；远程不比它新则整轮跳过
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub registry_last_updated: i64,
     /// 兜底默认价格 $/M tokens
     #[serde(default = "default_fallback_price")]
     pub fallback_input_price: f64,
@@ -46,6 +50,7 @@ impl Default for PriceSyncSettings {
             auto_sync_enabled: false,
             sync_interval_secs: default_sync_interval(),
             last_sync_at: 0,
+            registry_last_updated: 0,
             fallback_input_price: default_fallback_price(),
             fallback_output_price: default_fallback_price(),
         }

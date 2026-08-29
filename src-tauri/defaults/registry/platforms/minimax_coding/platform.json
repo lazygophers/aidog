@@ -59,7 +59,16 @@
     "海螺",
     "minimax",
     "海螺编程",
-    "minimax code"
+    "minimax code",
+    "hailuo",
+    "hl",
+    "hailuobiancheng",
+    "hlbc",
+    "minimaxbiancheng",
+    "mbc"
   ],
-  "color": "#FF6B6B"
+  "color": "#FF6B6B",
+  "key_prefixes": [
+    "sk-cp-"
+  ]
 }

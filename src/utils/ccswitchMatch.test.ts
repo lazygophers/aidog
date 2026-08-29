@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
 import {
   matchCcProvider,
@@ -37,6 +37,8 @@ beforeAll(async () => {
   // docPromise 必须在 mockIPC 仍挂载时缓存好（预热触发 loadDoc 一次）。
   await matchCcProvider({ id: "_warmup", appType: "claude", name: "zzz-unmatched", settingsConfig: {} });
 });
+// buildProtocolsFromPresets 走 fetchDoc（无缓存直读），每测试重挂 IPC mock。
+beforeEach(() => mockIPC((cmd: string) => cmd === "get_defaults_json" ? DEFAULTS_MOCK : null));
 afterAll(() => clearMocks());
 
 function claudeProvider(over: Partial<CcProvider> = {}): CcProvider {

@@ -52,15 +52,15 @@ const PRESETS: PastePresetRef[] = [
     keywords: ["xiaomi", "mimo"],
     hosts: ["api.xiaomimimo.com"],
   },
-  // 真实 buildProtocolsFromPresets 输出中普通/coding 变体共用同 value（xiaomi_mimo），靠 hosts/codingPlan/
-  // codingKeyPrefixes 区分。机制 B 升级依赖同 value 匹配，fixture 须对齐此结构。
+  // coding 套餐是独立协议（独立 value + is_coding_plan），专属 token 前缀（tp-）写自家 key_prefixes；
+  // 优先级 2 命中即直接返回 coding 平台，无同 value 升级机制。
   {
-    value: "xiaomi_mimo",
+    value: "xiaomi_mimo_coding",
     label: "Xiaomi MiMo Coding",
     keywords: [],
     hosts: ["token-plan-cn.xiaomimimo.com"],
     codingPlan: true,
-    codingKeyPrefixes: ["tp-"],
+    keyPrefixes: ["tp-"],
   },
   {
     value: "doubao",
@@ -112,7 +112,7 @@ describe("matchPlatform", () => {
     const hit = matchPlatform("", PRESETS, [
       { url: "https://token-plan-cn.xiaomimimo.com/v1", protocol: "openai" },
     ]);
-    expect(hit?.value).toBe("xiaomi_mimo");
+    expect(hit?.value).toBe("xiaomi_mimo_coding");
     expect(hit?.codingPlan).toBe(true);
   });
   it("distinguishes same-host coding vs normal by path substring", () => {
@@ -251,7 +251,7 @@ describe("parsePlatformPaste", () => {
     const injected = `分享MIMO 即将过期 ${full.slice(0, cut)}使劲蹬啊${full.slice(cut)} 自己蹬不动了 lark_024`;
     const out = parsePlatformPaste(injected, PRESETS);
     expect(out.apiKeys.some(k => k.startsWith("tp-"))).toBe(true);
-    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.value).toBe("xiaomi_mimo_coding");
     expect(out.platform?.codingPlan).toBe(true);
   });
 
@@ -267,25 +267,25 @@ describe("parsePlatformPaste", () => {
     // 裸 key 经 PREFIX_TOKEN_RE 兜底补提
     expect(out.apiKeys.some(k => k.startsWith("tp-ctzbh"))).toBe(true);
     // platform 命中 MiMo coding（token-plan-cn host → coding 变体）
-    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.value).toBe("xiaomi_mimo_coding");
     expect(out.platform?.codingPlan).toBe(true);
     // base_url 含 /v1（首个 OpenAI 兼容端点）
     expect(out.baseUrls.some(b => b.url === "https://token-plan-cn.xiaomimimo.com/v1")).toBe(true);
   });
 
-  it("机制 B：纯 token 粘贴（无 base_url）命中 codingKeyPrefixes → 升级 coding plan", () => {
-    // 无 base_url，host 匹配（机制 A）触不到 coding host；靠 keyword 命中普通 xiaomi_mimo
-    // 后由 tp- 前缀（codingKeyPrefixes 数据驱动）升级到 coding 变体。
+  it("优先级 2：纯 token 粘贴（无 base_url）命中 key_prefixes → 直接识别 coding 平台", () => {
+    // 无 base_url，host 匹配（优先级 1）触不到 coding host；tp- 前缀（key_prefixes 数据驱动）
+    // 命中独立协议 xiaomi_mimo_coding，跳过 keyword 打分。
     const out = parsePlatformPaste(
       "小米 MiMo 套餐 key: tp-abc1234567890defghijklmnop",
       PRESETS,
     );
     expect(out.apiKeys.some(k => k.startsWith("tp-"))).toBe(true);
-    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.value).toBe("xiaomi_mimo_coding");
     expect(out.platform?.codingPlan).toBe(true);
   });
 
-  it("机制 B 守卫：普通 mimo key（无 codingKeyPrefixes 前缀）不误升级 coding plan", () => {
+  it("优先级 2 守卫：普通 mimo key（无平台专属前缀）不误判 coding 平台", () => {
     // 命中普通 xiaomi_mimo（keyword），key 非 tp- 前缀 → 保持普通版，codingPlan 不置真。
     const out = parsePlatformPaste(
       "小米 MiMo 普通版 key: sk-abc1234567890defghijklmnop",
@@ -301,7 +301,7 @@ describe("parsePlatformPaste", () => {
       "MiMo PRO 分享 https://token-plan-cn.xiaomimimo.com/v1 key tp-abc1234567890defghij 6.27 到期",
       PRESETS,
     );
-    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.value).toBe("xiaomi_mimo_coding");
     expect(out.platform?.codingPlan).toBe(true);
     expect(out.expiresAt).not.toBeNull();
     expect(out.expiresAt).toBeGreaterThan(0);
@@ -565,12 +565,11 @@ describe("extractExpiryAt — MM.DD (月.日) format", () => {
 // 每协议造典型分享帖（自身 keywords + anthropic/openai 通用干扰词「官方 API」），
 // 断言 matchPlatform 识别为自身（非 anthropic/openai 抢匹配）。根因根治验证：
 // s1 打分（命中数 desc > 最长命中 keyword 优先）让多 keyword 协议胜出；
-// s2 codingKeyPrefixes 前置判定让 minimax/xiaomi_mimo 等 sk-cp-/tp- key 协议跳过 keyword 路径。
+// s2 key_prefixes 前置判定让 minimax_coding / xiaomi_mimo_coding 等 sk-cp-/tp- key 协议跳过 keyword 路径。
 
 /** presets.json 单协议 entry 的最小子集（仅取解析器所需字段，避免 any）。 */
 interface PresetEntry {
   keywords?: string[];
-  codingKeyPrefixes?: string[];
   key_prefixes?: string[];
   is_coding_plan?: boolean;
   name?: { "en-US"?: string; [locale: string]: string | undefined };
@@ -612,7 +611,6 @@ function buildAllPresetsFromJson(): PastePresetRef[] {
       keywords: entry.keywords ?? [],
       ...(hosts.size ? { hosts: [...hosts] } : {}),
       ...(entry.is_coding_plan ? { codingPlan: true } : {}),
-      ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
       ...(entry.key_prefixes?.length ? { keyPrefixes: entry.key_prefixes } : {}),
     });
   }
@@ -630,12 +628,12 @@ const PROTOCOLS_JSON = (presetsJson as { protocols: Record<string, PresetEntry> 
 const KNOWN_WEAK_KEYWORD_PROTOCOLS = new Set(["claudeapi", "claudecn"]);
 
 describe("collectKeyPrefixes — key 前缀数据驱动（禁代码硬编码平台前缀）", () => {
-  it("从 registry key_prefixes + codingKeyPrefixes 收集，含通用 sk-，长在前", () => {
+  it("从 registry key_prefixes 收集，含通用 sk-，长在前", () => {
     const prefixes = collectKeyPrefixes(ALL_PRESETS);
     expect(prefixes).toContain("sk-ant-");   // anthropic
     expect(prefixes).toContain("sk-kimi-");  // kimi
     expect(prefixes).toContain("ark-");      // doubao
-    expect(prefixes).toContain("tp-");       // xiaomi_mimo_coding codingKeyPrefixes
+    expect(prefixes).toContain("tp-");       // xiaomi_mimo_coding key_prefixes
     expect(prefixes).toContain("sk-");       // 通用
     // 长在前（sk-ant- 先于 sk-）
     expect(prefixes.indexOf("sk-ant-")).toBeLessThan(prefixes.indexOf("sk-"));
@@ -683,24 +681,23 @@ describe("全协议回归矩阵（platform-presets.json 数据驱动）", () => 
     expect(hit?.value).toBe("minimax");
   });
 
-  it("minimax 根因场景（s2 codingKeyPrefixes 前置）：含 sk-cp- key 的分享帖 → minimax", () => {
-    // s2 根治：parsePlatformPaste 优先级 2 命中 sk-cp- 前缀直接返 minimax，跳过 keyword 打分。
-    // 含 key 的真实分享帖（key 用脱敏 placeholder，禁用真实 key）。
+  it("minimax 根因场景（s2 key_prefixes 前置）：含 sk-cp- key 的分享帖 → minimax_coding", () => {
+    // s2 根治：parsePlatformPaste 优先级 2 命中 sk-cp- 前缀直接返 minimax_coding（独立协议），
+    // 跳过 keyword 打分。含 key 的真实分享帖（key 用脱敏 placeholder，禁用真实 key）。
     const out = parsePlatformPaste(
       "minimax 海螺 claude code 官方 API key sk-cp-abcdefghijklmnop1234567890",
       ALL_PRESETS,
     );
     expect(out.apiKeys.some((k) => k.startsWith("sk-cp-"))).toBe(true);
-    expect(out.platform?.value).toBe("minimax");
+    expect(out.platform?.value).toBe("minimax_coding");
+    expect(out.platform?.codingPlan).toBe(true);
   });
 
-  it("xiaomi_mimo 同族：tp- key（无文案无 URL）→ xiaomi_mimo（presets.json 中 xiaomi_mimo 与 xiaomi_mimo_coding 共享 tp- 前缀，首个胜出）", () => {
-    // SPEC 数据现状：presets.json 中 xiaomi_mimo 与 xiaomi_mimo_coding 均 codingKeyPrefixes=['tp-']，
-    // parsePlatformPaste priority-2 取首个匹配 → xiaomi_mimo（普通版，在 JSON 中先于 coding 变体）。
-    // coding 变体在真实场景靠 host 区分（token-plan-cn.xiaomimimo.com，机制 A），纯 token 无法区分。
-    // ponytail: 测试断言实际行为（非理想行为），让数据歧义可见；交 main 判是否调整 codingKeyPrefixes 归属。
+  it("xiaomi_mimo_coding：纯 tp- token（无文案无 URL）→ 命中 key_prefixes 直判", () => {
+    // tp- 只登记在 xiaomi_mimo_coding 的 key_prefixes（coding 套餐专属 token 前缀，
+    // 普通版不带），纯 token 粘贴即可无歧义直判。
     const out = parsePlatformPaste("tp-abcdefghijklmnop1234567890", ALL_PRESETS);
     expect(out.apiKeys.some((k) => k.startsWith("tp-"))).toBe(true);
-    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.value).toBe("xiaomi_mimo_coding");
   });
 });

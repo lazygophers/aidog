@@ -14,7 +14,8 @@
   "properties": {
     "version": {
       "type": "string",
-      "minLength": 1
+      "minLength": 1,
+      "description": "registry 版本号，随内容变更递增。"
     },
     "last_updated": {
       "type": "integer",
@@ -42,15 +43,18 @@
           },
           "name": {
             "type": "string",
-            "minLength": 1
+            "minLength": 1,
+            "description": "平台显示名（en-US 单语，仅清单管理用；本地化名在 platform.json name 8 locale）。"
           },
           "platform_file": {
             "type": "string",
-            "pattern": "^platforms/[a-z0-9_]+/platform\\.json$"
+            "pattern": "^platforms/[a-z0-9_]+/platform\\.json$",
+            "description": "该平台 platform.json 相对 registry 根的路径（含 platforms/ 前缀）。"
           },
           "models_dir": {
             "type": "string",
-            "pattern": "^platforms/[a-z0-9_]+/models$"
+            "pattern": "^platforms/[a-z0-9_]+/models$",
+            "description": "该平台模型文件目录相对 registry 根的路径。"
           },
           "models": {
             "type": "array",
@@ -58,10 +62,12 @@
               "type": "string",
               "pattern": "^[^/].+\\.json$",
               "description": "相对 models_dir 的文件路径（vendor 子目录模型如 mistralai/codestral-2.json 含子目录前缀）。必须与磁盘文件零差集（test_registry.rs 锁定）。"
-            }
+            },
+            "description": "该平台模型文件名清单（相对 models_dir）。必须与磁盘文件零差集（test_registry.rs 锁定）。"
           }
         }
-      }
+      },
+      "description": "进协议选择器的正式平台清单（有 platform.json）。"
     },
     "pricing_only": {
       "type": "array",
@@ -81,18 +87,22 @@
           },
           "models_dir": {
             "type": "string",
-            "pattern": "^platforms/[a-z0-9_]+/models$"
+            "pattern": "^platforms/[a-z0-9_]+/models$",
+            "description": "该平台模型文件目录相对 registry 根的路径。"
           },
           "models": {
             "type": "array",
             "minItems": 1,
             "items": {
               "type": "string",
-              "pattern": "^[^/].+\\.json$"
-            }
+              "pattern": "^[^/].+\\.json$",
+              "description": "相对 models_dir 的模型文件路径。必须与磁盘文件零差集。"
+            },
+            "description": "该平台模型文件名清单（相对 models_dir）。必须与磁盘文件零差集。"
           }
         }
-      }
+      },
+      "description": "只出模型定价条目、不进协议选择器的平台清单（无 platform.json）。"
     }
   }
 }

@@ -6,8 +6,8 @@ use super::*;
 use aidog_db::test_support::test_db;
 use std::collections::BTreeMap;
 
-/// 起一个只认清单内路径的 registry stub，返回可直接当 base 用的 URL。
-async fn spawn_registry(files: BTreeMap<&'static str, &'static str>) -> String {
+/// 只认清单内路径的 registry stub，返回可直接当 base 用的 URL。
+async fn spawn_registry(files: BTreeMap<String, String>) -> String {
     use axum::extract::Path;
     use axum::routing::get;
     let files = Arc::new(files);
@@ -17,8 +17,8 @@ async fn spawn_registry(files: BTreeMap<&'static str, &'static str>) -> String {
             let files = files.clone();
             async move {
                 match files.get(path.as_str()) {
-                    Some(body) => (axum::http::StatusCode::OK, *body),
-                    None => (axum::http::StatusCode::NOT_FOUND, "not found"),
+                    Some(body) => (axum::http::StatusCode::OK, body.clone()),
+                    None => (axum::http::StatusCode::NOT_FOUND, "not found".to_string()),
                 }
             }
         }),
@@ -31,17 +31,18 @@ async fn spawn_registry(files: BTreeMap<&'static str, &'static str>) -> String {
     format!("http://{addr}")
 }
 
-const INDEX: &str = r#"{
-  "version": "1",
-  "last_updated": 1,
+fn index_with(last_updated: u64) -> String {
+    format!(
+        r#"{{"version": "1", "last_updated": {last_updated},
   "platforms": [
-    {"code": "alpha", "platform_file": "platforms/alpha/platform.json", "models_dir": "platforms/alpha/models", "models": ["a-1.json"]},
-    {"code": "beta", "platform_file": "platforms/beta/platform.json", "models_dir": "platforms/beta/models", "models": ["b-1.json"]}
+    {{"code": "alpha", "platform_file": "platforms/alpha/platform.json", "models_dir": "platforms/alpha/models", "models": ["a-1.json"]}},
+    {{"code": "beta", "platform_file": "platforms/beta/platform.json", "models_dir": "platforms/beta/models", "models": ["b-1.json"]}}
   ],
   "pricing_only": [
-    {"code": "litellm", "models_dir": "platforms/litellm/models", "models": ["a-1.json"]}
-  ]
-}"#;
+    {{"code": "litellm", "models_dir": "platforms/litellm/models", "models": ["a-1.json"]}}
+  ]}}"#
+    )
+}
 
 const ALPHA_PLATFORM: &str = r##"{"name":{"en-US":"Alpha"},"logo_url":"alpha","color":"#111111"}"##;
 const BETA_PLATFORM: &str = r##"{"name":{"en-US":"Beta"},"logo_url":"beta","color":"#222222"}"##;
@@ -49,16 +50,25 @@ const A1: &str = r#"{"model_id":"a-1","canonical_model":"a-1","official":true,"c
 const B1: &str = r#"{"model_id":"b-1","canonical_model":"a-1","official":false,"capabilities":["text"]}"#;
 const A1_LITELLM: &str = r#"{"model_id":"a-1","canonical_model":"a-1","official":false,"capabilities":["text"]}"#;
 
-/// 完整快照：4 个文件全在。
-fn full() -> BTreeMap<&'static str, &'static str> {
+/// 完整快照：4 个文件全在（index.last_updated 可配，模拟上游发版）。
+fn full_with(last_updated: u64) -> BTreeMap<String, String> {
     BTreeMap::from([
-        ("index.json", INDEX),
-        ("platforms/alpha/platform.json", ALPHA_PLATFORM),
-        ("platforms/beta/platform.json", BETA_PLATFORM),
-        ("platforms/alpha/models/a-1.json", A1),
-        ("platforms/beta/models/b-1.json", B1),
-        ("platforms/litellm/models/a-1.json", A1_LITELLM),
+        ("index.json".to_string(), index_with(last_updated)),
+        ("platforms/alpha/platform.json".to_string(), ALPHA_PLATFORM.to_string()),
+        ("platforms/beta/platform.json".to_string(), BETA_PLATFORM.to_string()),
+        ("platforms/alpha/models/a-1.json".to_string(), A1.to_string()),
+        ("platforms/beta/models/b-1.json".to_string(), B1.to_string()),
+        ("platforms/litellm/models/a-1.json".to_string(), A1_LITELLM.to_string()),
     ])
+}
+
+fn full() -> BTreeMap<String, String> {
+    full_with(1)
+}
+
+/// 同 `full()` 但 index.last_updated 更新：上游发布了新版本的模拟。
+fn full_newer() -> BTreeMap<String, String> {
+    full_with(2)
 }
 
 #[tokio::test]
@@ -92,11 +102,11 @@ async fn partial_failure_keeps_existing_rows_and_reports_files() {
     let base = spawn_registry(full()).await;
     sync_registry_from(&db, &[&base]).await.unwrap();
 
-    // 第二轮：beta 的两个文件从上游消失（404），alpha 的 platform.json 改了名字
-    let mut broken = full();
+    // 第二轮：beta 的两个文件从上游消失（404），alpha 的 platform.json 改了名字（index 更新）
+    let mut broken = full_newer();
     broken.remove("platforms/beta/platform.json");
     broken.remove("platforms/beta/models/b-1.json");
-    broken.insert("platforms/alpha/platform.json", r##"{"name":{"en-US":"Alpha Renamed"},"logo_url":"alpha2","color":"#111111"}"##);
+    broken.insert("platforms/alpha/platform.json".to_string(), r##"{"name":{"en-US":"Alpha Renamed"},"logo_url":"alpha2","color":"#111111"}"##.to_string());
     let base = spawn_registry(broken).await;
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
 
@@ -128,8 +138,8 @@ async fn sync_carries_brand_fields_and_display_name() {
 
     let db = test_db().await;
     let mut files = full();
-    files.insert("platforms/alpha/platform.json", RICH_PLATFORM);
-    files.insert("platforms/alpha/models/a-1.json", RICH_MODEL);
+    files.insert("platforms/alpha/platform.json".to_string(), RICH_PLATFORM.to_string());
+    files.insert("platforms/alpha/models/a-1.json".to_string(), RICH_MODEL.to_string());
     let base = spawn_registry(files).await;
     sync_registry_from(&db, &[&base]).await.unwrap();
 
@@ -156,12 +166,13 @@ async fn failed_platform_keeps_brand_fields_intact() {
 
     let db = test_db().await;
     let mut files = full();
-    files.insert("platforms/beta/platform.json", RICH_BETA);
+    files.insert("platforms/beta/platform.json".to_string(), RICH_BETA.to_string());
     let base = spawn_registry(files.clone()).await;
     sync_registry_from(&db, &[&base]).await.unwrap();
 
-    // 第二轮 beta 的 platform.json 404
+    // 第二轮 beta 的 platform.json 404（index 更新才会真正拉文件）
     let mut broken = files;
+    broken.insert("index.json".to_string(), index_with(2));
     broken.remove("platforms/beta/platform.json");
     let base = spawn_registry(broken).await;
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
@@ -178,14 +189,23 @@ async fn failed_platform_keeps_brand_fields_intact() {
     assert_eq!(v["source_urls"]["docs"], "https://beta.example.com/docs");
 }
 
-/// 内容没变的第二轮不该被记成 updated（旧实现 unchanged 恒为 0）。
+/// index 不比 DB 新 → 整轮跳过一个文件都不拉；last_updated 变了但内容没变 → 全部 unchanged。
 #[tokio::test]
-async fn second_identical_sync_is_all_unchanged() {
+async fn second_identical_sync_skips_then_bumped_index_is_all_unchanged() {
     let db = test_db().await;
     let base = spawn_registry(full()).await;
     sync_registry_from(&db, &[&base]).await.unwrap();
+
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
-    assert_eq!((r.added, r.updated, r.failed), (0, 0, 0));
+    assert_eq!((r.added, r.updated, r.unchanged, r.failed, r.total), (0, 0, 0, 0, 0),
+        "index last_updated 未变 → 整轮跳过");
+    assert_eq!(aidog_db::select_model_entries(&db, None).await.unwrap().len(), 3, "DB 数据原样");
+    assert!(get_sync_settings(&db).await.last_sync_at > 0, "跳过也写 last_sync_at，周期判定不空转");
+
+    let base = spawn_registry(full_newer()).await;
+    let r = sync_registry_from(&db, &[&base]).await.unwrap();
+    assert_eq!(r.total, 5);
+    assert_eq!((r.added, r.updated), (0, 0), "内容没变不该被记成 updated");
     assert_eq!(r.unchanged, 5);
 }
 
@@ -218,8 +238,8 @@ async fn falls_back_to_secondary_source_per_file() {
 async fn invalid_payload_counts_as_failure_without_writing() {
     let db = test_db().await;
     let mut dirty = full();
-    dirty.insert("platforms/beta/models/b-1.json", r#"{"no_model_id":true}"#);
-    dirty.insert("platforms/beta/platform.json", "{not json");
+    dirty.insert("platforms/beta/models/b-1.json".to_string(), r#"{"no_model_id":true}"#.to_string());
+    dirty.insert("platforms/beta/platform.json".to_string(), "{not json".to_string());
     let base = spawn_registry(dirty).await;
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
 
@@ -264,6 +284,7 @@ async fn save_and_get_sync_settings_roundtrip() {
         auto_sync_enabled: true,
         sync_interval_secs: 3600,
         last_sync_at: 1234567890,
+        registry_last_updated: 0,
         fallback_input_price: 5.0,
         fallback_output_price: 7.0,
     };
@@ -289,6 +310,7 @@ async fn maybe_auto_sync_returns_none_when_not_due() {
         auto_sync_enabled: true,
         sync_interval_secs: 86400,
         last_sync_at: aidog_db::now() - 100, // 100ms 前刚同步过
+        registry_last_updated: 0,
         fallback_input_price: 3.0,
         fallback_output_price: 3.0,
     };
