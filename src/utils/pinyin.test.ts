@@ -50,3 +50,25 @@ describe("pinyinMatch", () => {
     expect(pinyinMatch("pingtai", "平台0")).toBe(true);
   });
 });
+
+describe("pinyinMatch — 拼音首字母", () => {
+  it("中文词条按首字母命中（bl → 百炼 / yzam → 月之暗面）", () => {
+    expect(pinyinMatch("bl", "百炼")).toBe(true);
+    expect(pinyinMatch("yzam", "月之暗面")).toBe(true);
+    expect(pinyinMatch("zp", "智谱")).toBe(true);
+    expect(pinyinMatch("xm", "小米")).toBe(true);
+  });
+
+  it("首字母子串也命中（zh → 智谱）", () => {
+    expect(pinyinMatch("zh", "智谱")).toBe(true);
+  });
+
+  it("拉丁 target 不走首字母分支（照旧子串匹配）", () => {
+    expect(pinyinMatch("zp", "GLM")).toBe(false);
+    expect(pinyinMatch("gl", "GLM")).toBe(true);
+  });
+
+  it("含中文的 query 不触发首字母分支", () => {
+    expect(pinyinMatch("百", "智谱")).toBe(false);
+  });
+});

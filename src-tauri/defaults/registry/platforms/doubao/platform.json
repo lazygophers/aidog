@@ -72,5 +72,8 @@
     "seed",
     "volces"
   ],
-  "color": "#3370FF"
+  "color": "#3370FF",
+  "key_prefixes": [
+    "ark-"
+  ]
 }

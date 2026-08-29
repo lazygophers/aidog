@@ -2,24 +2,37 @@ import { pinyin as pinyinFn } from "pinyin-pro";
 
 /** 拼音转换 LRU 缓存：搜索高频复用同一 target，避免每 keystroke 重算 */
 const PINYIN_CACHE_MAX = 500;
-const pinyinCache = new Map<string, string>();
 
-function cachedToPinyin(text: string): string {
-  const hit = pinyinCache.get(text);
+/** 通用 LRU 缓存包装（全拼 / 首字母两份 cache 共用同一淘汰逻辑） */
+function cachedConvert(cache: Map<string, string>, compute: (text: string) => string, text: string): string {
+  const hit = cache.get(text);
   if (hit !== undefined) {
     // LRU: 命中后移到末尾（最近使用）
-    pinyinCache.delete(text);
-    pinyinCache.set(text, hit);
+    cache.delete(text);
+    cache.set(text, hit);
     return hit;
   }
-  const value = computePinyin(text);
-  pinyinCache.set(text, value);
-  if (pinyinCache.size > PINYIN_CACHE_MAX) {
+  const value = compute(text);
+  cache.set(text, value);
+  if (cache.size > PINYIN_CACHE_MAX) {
     // 淘汰最旧（Map 迭代顺序 = 插入顺序）
-    const oldest = pinyinCache.keys().next().value;
-    if (oldest !== undefined) pinyinCache.delete(oldest);
+    const oldest = cache.keys().next().value;
+    if (oldest !== undefined) cache.delete(oldest);
   }
   return value;
+}
+
+const pinyinCache = new Map<string, string>();
+const initialsCache = new Map<string, string>();
+
+function toPinyin(text: string): string {
+  return cachedConvert(pinyinCache, computePinyin, text);
+}
+
+/** 中文字符首字母串（搜索首字母用）
+ *  例: "百炼" → "bl", "月之暗面" → "yzam" */
+function toInitials(text: string): string {
+  return cachedConvert(initialsCache, computeInitials, text);
 }
 
 /**
@@ -38,18 +51,24 @@ function computePinyin(text: string): string {
   return result.toLowerCase();
 }
 
-function toPinyin(text: string): string {
-  return cachedToPinyin(text);
+function computeInitials(text: string): string {
+  let result = "";
+  for (const ch of text) {
+    if (/[一-鿿]/.test(ch)) {
+      result += pinyinFn(ch, { pattern: "first", toneType: "none" });
+    }
+  }
+  return result.toLowerCase();
 }
 
 /**
- * 拼音模糊匹配：支持纯拼音 / 纯中文 / 中英混合搜索
+ * 拼音模糊匹配：支持纯拼音 / 拼音首字母 / 纯中文 / 中英混合搜索
  *
  * 例: target="百炼"
- *   "bailian" ✓  "bai" ✓  "百" ✓  "百lian" ✓  "炼" ✓
+ *   "bailian" ✓  "bai" ✓  "bl" ✓（首字母）  "百" ✓  "百lian" ✓  "炼" ✓
  *
  * 例: target="小米"
- *   "xiaomi" ✓  "xiao米" ✓  "ao米" ✓  "xi" ✓  "小m" ✓
+ *   "xiaomi" ✓  "xiao米" ✓  "xm" ✓  "xi" ✓  "小m" ✓
  *
  * 例: target="GLM"
  *   "gl" ✓  "glm" ✓
@@ -71,6 +90,11 @@ export function pinyinMatch(query: string, target: string): boolean {
   const queryPinyin = toPinyin(query);
   if (targetPinyin.includes(queryPinyin)) return true;
   if (t.includes(queryPinyin)) return true;
+
+  // 4. 拼音首字母匹配（query 为拉丁字母时，如 "bl" → "百炼"、"yzam" → "月之暗面"）
+  if (!/[一-鿿]/.test(q)) {
+    if (toInitials(target).includes(q)) return true;
+  }
 
   return false;
 }

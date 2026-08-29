@@ -32,6 +32,9 @@ export interface PastePresetRef {
    *  coding 变体。前缀须区别于普通版 key（如小米 token-plan 的 "tp-"），同形无法区分则不填，
    *  仅靠机制 A（host 匹配）。 */
   codingKeyPrefixes?: string[];
+  /** 平台 API key 前缀（registry platform.json `key_prefixes`，如 sk-ant- / sk-kimi- / ark-）。
+   *  key 提取正则（前缀锚定 + hasKnownPrefix 守卫）据此数据驱动生成——平台前缀禁在代码硬编码。 */
+  keyPrefixes?: string[];
 }
 
 export interface ParsedPaste {
@@ -48,10 +51,20 @@ export interface ParsedPaste {
   expiresAt: number | null;
 }
 
-/** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。
- *  含 sk_（下划线变体，部分中转站用），与 sk- 并列。
- *  ark-：火山方舟（coding/agent plan 通用前缀）。 */
-const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "sk_", "tp-", "ark-"];
+/** 通用 apikey 前缀（格式约定，非平台品牌）：sk- 及下划线变体 sk_（部分中转站用）。
+ *  平台专属前缀（sk-ant- / sk-kimi- / sk-or- / sk-proj- / tp- / ark- …）一律来自
+ *  registry platform.json `key_prefixes`，由 collectKeyPrefixes 合入——禁在代码硬编码。 */
+const GENERIC_KEY_PREFIXES = ["sk-", "sk_"];
+
+/** 从 presets 收集全部 key 前缀（keyPrefixes + codingKeyPrefixes + 通用），长在前
+ *  （regex 交替按序尝试，避免 sk- 抢先吃掉 sk-ant-）。 */
+export function collectKeyPrefixes(presets: PastePresetRef[]): string[] {
+  const set = new Set<string>(GENERIC_KEY_PREFIXES);
+  for (const p of presets) {
+    for (const pre of [...(p.keyPrefixes ?? []), ...(p.codingKeyPrefixes ?? [])]) set.add(pre);
+  }
+  return [...set].sort((a, b) => b.length - a.length);
+}
 
 /** CJK 及全角标点区段（用于剔除 key 中混入的防爬汉字）。
  *  \p{Script=Han} 覆盖全部汉字变体（基本区 + 扩展 A-F + 兼容汉字），比手写区段全；
@@ -60,9 +73,24 @@ const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "sk_",
 const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯①-⓿]/gu;
 
 /** 前缀锚定 token：前缀 + 后续 alnum/_/-，允许中间穿插 CJK（防爬），后面整体 stripCjk 剔除。
- *  字符类含 \p{Script=Han} 防 CJK 扩展区汉字（如 𠀀）截断匹配。 */
-const PREFIX_TOKEN_RE =
-  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|sk_|tp-|ark-)[A-Za-z0-9_\-\.\p{Script=Han}　-〿＀-￯①-⓿]{12,}/gu;
+ *  字符类含 \p{Script=Han} 防 CJK 扩展区汉字（如 𠀀）截断匹配。
+ *  前缀集合数据驱动（collectKeyPrefixes，来自 registry `key_prefixes`），按集合缓存正则。 */
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+const prefixTokenReCache = new Map<string, RegExp>();
+function prefixTokenRe(prefixes: string[]): RegExp {
+  const key = prefixes.join("|");
+  let re = prefixTokenReCache.get(key);
+  if (!re) {
+    re = new RegExp(
+      `(${prefixes.map(escapeRegExp).join("|")})[A-Za-z0-9_\\-\\.\\p{Script=Han}　-〿＀-￯①-⓿]{12,}`,
+      "gu",
+    );
+    prefixTokenReCache.set(key, re);
+  }
+  return re;
+}
 
 /** 赋值锚定：API_KEY= / apikey: / 秘药： / key= 等后跟值。 */
 const ASSIGN_RE =
@@ -100,8 +128,8 @@ function stripCjk(s: string): string {
   return s.replace(CJK_RE, "");
 }
 
-function hasKnownPrefix(s: string): boolean {
-  return KEY_PREFIXES.some((p) => s.startsWith(p));
+function hasKnownPrefix(s: string, prefixes: string[]): boolean {
+  return prefixes.some((p) => s.startsWith(p));
 }
 
 /** base64 解码（浏览器 atob，非法输入返回 null）。
@@ -223,8 +251,8 @@ export function splitApiKeys(raw: string): string[] {
   return out;
 }
 
-/** 抽取 apikey 候选。 */
-function extractApiKeys(text: string): string[] {
+/** 抽取 apikey 候选。prefixes 为当前 presets 的 key 前缀集合（collectKeyPrefixes 派生）。 */
+function extractApiKeys(text: string, prefixes: string[]): string[] {
   const keys: string[] = [];
 
   // 旁注（如「（base64编码）」）会夹在 key 标签与分隔符之间阻断 ASSIGN_RE，
@@ -232,7 +260,7 @@ function extractApiKeys(text: string): string[] {
   const cleaned = text.replace(BASE64_NOTE_RE, "");
 
   // 1) 前缀锚定（覆盖 sk-/tp-/sk-kimi-，含防爬汉字穿插）
-  for (const m of cleaned.matchAll(PREFIX_TOKEN_RE)) {
+  for (const m of cleaned.matchAll(prefixTokenRe(prefixes))) {
     const clean = stripCjk(m[0]);
     if (clean.length >= 16) pushUnique(keys, clean);
   }
@@ -241,7 +269,7 @@ function extractApiKeys(text: string): string[] {
   for (const m of cleaned.matchAll(ASSIGN_RE)) {
     const raw = stripCjk(m[1]);
     if (!raw) continue;
-    if (hasKnownPrefix(raw)) {
+    if (hasKnownPrefix(raw, prefixes)) {
       if (raw.length >= 16) pushUnique(keys, raw);
       continue;
     }
@@ -260,7 +288,7 @@ function extractApiKeys(text: string): string[] {
   for (const m of cleaned.matchAll(BARE_BASE64_RE)) {
     const decoded = tryBase64Decode(m[0]);
     if (!decoded || decoded.length < 12) continue;
-    if (hasKnownPrefix(decoded) || DECODED_KEY_SHAPE.test(decoded)) {
+    if (hasKnownPrefix(decoded, prefixes) || DECODED_KEY_SHAPE.test(decoded)) {
       pushUnique(keys, decoded);
     }
   }
@@ -273,7 +301,7 @@ function extractApiKeys(text: string): string[] {
     if (joined.length < 24) continue;
     const decoded = tryBase64Decode(joined);
     if (!decoded || decoded.length < 12) continue;
-    if (hasKnownPrefix(decoded) || DECODED_KEY_SHAPE.test(decoded)) {
+    if (hasKnownPrefix(decoded, prefixes) || DECODED_KEY_SHAPE.test(decoded)) {
       pushUnique(keys, decoded);
     }
   }
@@ -387,7 +415,7 @@ export function matchPlatform(
  *  中末尾的 tp- key）会被归入「接口」段被 URL 正则忽略致漏提。故 parseCompoundLabeled 之后，
  *  若 parts.apiKey 未已填，对 decoded 明文补跑 PREFIX_TOKEN_RE 裸 key 扫描兜底，
  *  复用 extractApiKeys 同款守卫（stripCjk + 长度≥16 + hasKnownPrefix / DECODED_KEY_SHAPE）。 */
-function extractCompoundFromBase64(text: string): CompoundParts[] {
+function extractCompoundFromBase64(text: string, prefixes: string[]): CompoundParts[] {
   const out: CompoundParts[] = [];
   for (const m of text.matchAll(BARE_BASE64_RE)) {
     if (m[0].length < 24) continue;
@@ -395,11 +423,11 @@ function extractCompoundFromBase64(text: string): CompoundParts[] {
     if (!decoded) continue;
     const parts = parseCompoundLabeled(decoded) ?? {};
     // 裸 key 兜底：parseCompoundLabeled 按标签切分时，无 key 标签的裸 key 漏提；
-    // 此处补扫 PREFIX_TOKEN_RE，守卫同 extractApiKeys（防 URL 片段误命中）。
+    // 此处补扫前缀锚定正则，守卫同 extractApiKeys（防 URL 片段误命中）。
     if (!parts.apiKey) {
-      for (const km of decoded.matchAll(PREFIX_TOKEN_RE)) {
+      for (const km of decoded.matchAll(prefixTokenRe(prefixes))) {
         const clean = stripCjk(km[0]);
-        if (clean.length >= 16 && (hasKnownPrefix(clean) || DECODED_KEY_SHAPE.test(clean))) {
+        if (clean.length >= 16 && (hasKnownPrefix(clean, prefixes) || DECODED_KEY_SHAPE.test(clean))) {
           parts.apiKey = clean;
           break;
         }
@@ -544,12 +572,14 @@ export function parsePlatformPaste(
   if (!text || !text.trim()) {
     return { apiKeys: [], baseUrls: [], platform: null, models: [], expiresAt: null };
   }
+  // key 前缀集合数据驱动（registry `key_prefixes` + codingKeyPrefixes + 通用 sk-）。
+  const keyPrefixes = collectKeyPrefixes(presets);
   const baseUrls = extractBaseUrls(text);
-  const apiKeys = extractApiKeys(text);
+  const apiKeys = extractApiKeys(text, keyPrefixes);
   const models: string[] = [];
 
   // 第三变体：base64 解码后是中文标签复合串。补提 key/base_url/model。
-  for (const parts of extractCompoundFromBase64(text)) {
+  for (const parts of extractCompoundFromBase64(text, keyPrefixes)) {
     if (parts.apiKey) pushUnique(apiKeys, parts.apiKey);
     if (parts.baseUrl && !baseUrls.some((b) => b.url === parts.baseUrl)) {
       baseUrls.push({ url: parts.baseUrl, protocol: guessProtocol(parts.baseUrl) });

@@ -323,5 +323,8 @@
     "openrouter",
     "聚合"
   ],
-  "color": "#6566F1"
+  "color": "#6566F1",
+  "key_prefixes": [
+    "sk-or-"
+  ]
 }
