@@ -102,11 +102,59 @@
       "description": "缓存写单价（$/token）。"
     },
     "default_price": {
-      "$ref": "#/definitions/priceObject",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "input_cost_per_token": {
+          "type": "number",
+          "minimum": 0,
+          "description": "输入单价（$/token）。"
+        },
+        "output_cost_per_token": {
+          "type": "number",
+          "minimum": 0,
+          "description": "输出单价（$/token）。"
+        },
+        "cache_read_input_token_cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "缓存读单价（$/token）。"
+        },
+        "cache_creation_input_token_cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "缓存写单价（$/token）。"
+        }
+      },
       "description": "非官方渠道条目的兜底单价对象（vendor 中转站常无官方价）。"
     },
     "peak": {
-      "$ref": "#/definitions/priceObject",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "input_cost_per_token": {
+          "type": "number",
+          "minimum": 0,
+          "description": "输入单价（$/token）。"
+        },
+        "output_cost_per_token": {
+          "type": "number",
+          "minimum": 0,
+          "description": "输出单价（$/token）。"
+        },
+        "cache_read_input_token_cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "缓存读单价（$/token）。"
+        },
+        "cache_creation_input_token_cost": {
+          "type": "number",
+          "minimum": 0,
+          "description": "缓存写单价（$/token）。"
+        }
+      },
       "description": "高峰时段绝对价（price_resolve.rs：命中 peak_hours 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。"
     },
     "context_tiers": {
@@ -181,73 +229,41 @@
             "type": "array",
             "minItems": 1,
             "items": {
-              "$ref": "#/definitions/contextTier"
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "min_tokens",
+                "input_cost_per_token",
+                "output_cost_per_token"
+              ],
+              "properties": {
+                "min_tokens": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "description": "档位门槛：请求数达到该 token 数起用本档价。"
+                },
+                "input_cost_per_token": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "本档输入单价（$/token）。"
+                },
+                "output_cost_per_token": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "本档输出单价（$/token）。"
+                },
+                "cache_read_input_token_cost": {
+                  "type": "number",
+                  "minimum": 0,
+                  "description": "本档缓存读单价（$/token）。"
+                }
+              }
             },
             "description": "本时段档内再按上下文长度分档（形状同顶层 context_tiers）。"
           }
         }
       },
       "description": "按生效时间切换的价目（start_at Unix 秒，latest wins）。"
-    }
-  },
-  "definitions": {
-    "priceObject": {
-      "type": "object",
-      "minProperties": 1,
-      "additionalProperties": false,
-      "properties": {
-        "input_cost_per_token": {
-          "type": "number",
-          "minimum": 0,
-          "description": "输入单价（$/token）。"
-        },
-        "output_cost_per_token": {
-          "type": "number",
-          "minimum": 0,
-          "description": "输出单价（$/token）。"
-        },
-        "cache_read_input_token_cost": {
-          "type": "number",
-          "minimum": 0,
-          "description": "缓存读单价（$/token）。"
-        },
-        "cache_creation_input_token_cost": {
-          "type": "number",
-          "minimum": 0,
-          "description": "缓存写单价（$/token）。"
-        }
-      }
-    },
-    "contextTier": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "min_tokens",
-        "input_cost_per_token",
-        "output_cost_per_token"
-      ],
-      "properties": {
-        "min_tokens": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "档位门槛：请求数达到该 token 数起用本档价。"
-        },
-        "input_cost_per_token": {
-          "type": "number",
-          "minimum": 0,
-          "description": "本档输入单价（$/token）。"
-        },
-        "output_cost_per_token": {
-          "type": "number",
-          "minimum": 0,
-          "description": "本档输出单价（$/token）。"
-        },
-        "cache_read_input_token_cost": {
-          "type": "number",
-          "minimum": 0,
-          "description": "本档缓存读单价（$/token）。"
-        }
-      }
     }
   }
 }

@@ -38,7 +38,50 @@
       ],
       "properties": {
         "default": {
-          "$ref": "#/definitions/endpointList",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "protocol",
+              "base_url"
+            ],
+            "properties": {
+              "protocol": {
+                "type": "string",
+                "minLength": 1,
+                "description": "端点协议（anthropic / openai 等）。"
+              },
+              "base_url": {
+                "type": "string",
+                "pattern": "^https?://",
+                "description": "含版本前缀（如 /v1、/api/paas/v4）。最终 URL = base_url + provider_api_path，禁止额外拼接。"
+              },
+              "client_type": {
+                "type": "string",
+                "enum": [
+                  "default",
+                  "claude_code",
+                  "claude_code_vscode",
+                  "claude_code_sdk_ts",
+                  "claude_code_sdk_py",
+                  "claude_code_gh_action",
+                  "codex_cli",
+                  "codex_tui",
+                  "codex_desktop",
+                  "codex_vscode",
+                  "pi_cli",
+                  "cursor",
+                  "windsurf"
+                ],
+                "description": "可选：端点客户端形态覆盖。缺省按 protocol 派生（前端 defaults.ts::clientTypeForProtocol / Rust registry.rs::derive_client_type 对称）：anthropic → claude_code、openai 系 → codex_tui、其余 → default。仅派生规则不适用的例外平台标注（如官方 claude_code 直连端点标 default 不模拟客户端）。"
+              },
+              "coding_plan": {
+                "type": "boolean",
+                "description": "标记该端点属编码套餐（true 时路由走 cp 端点路径）。"
+              }
+            }
+          },
           "description": "端点列表（每项含 protocol / base_url / client_type）。"
         }
       },
@@ -52,11 +95,19 @@
       ],
       "properties": {
         "default": {
-          "$ref": "#/definitions/modelBranch",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": "默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable → 平台真实模型 id）。聚合/中转平台可留空对象。"
         },
         "peak": {
-          "$ref": "#/definitions/modelBranch",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          },
           "description": "高峰时段模型切换分支（PRD 07-11，现仅 glm_coding）。命中 peak_hours 任一窗口时整支替换 default（router/candidates.rs 三层级联第 ② 层）。"
         }
       },
@@ -84,7 +135,56 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "$ref": "#/definitions/peakWindow"
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start_hour",
+          "end_hour",
+          "multiplier"
+        ],
+        "properties": {
+          "start_hour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "description": "窗口起始小时（UTC+0，0-23；跨天窗口 end < start）。"
+          },
+          "end_hour": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 23,
+            "description": "窗口结束小时（UTC+0，0-23；end=24 语义为到 23 点末）。"
+          },
+          "multiplier": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "窗口内计费倍率（条目带模型 peak 绝对价时被压成 1.0）。"
+          },
+          "days_of_week": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 6
+            },
+            "description": "窗口限定的星期（0=周日 … 6=周六）；缺省 = 每天。"
+          },
+          "models": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "description": "限定仅特定请求模型命中窗口；缺省 = 该平台全部模型。"
+          },
+          "start_at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "窗口生效起点（Unix 秒）。"
+          }
+        }
       },
       "description": "高峰/低峰计价窗口（UTC+0 基准，first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。"
     },
@@ -103,35 +203,43 @@
       ],
       "properties": {
         "en-US": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "英语显示名"
         },
         "zh-Hans": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "简体中文显示名"
         },
         "ar-SA": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "阿拉伯语显示名（RTL）"
         },
         "fr-FR": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "法语显示名"
         },
         "de-DE": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "德语显示名"
         },
         "ru-RU": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "俄语显示名"
         },
         "ja-JP": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "日语显示名"
         },
         "es-ES": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "西班牙语显示名"
         }
       },
@@ -145,18 +253,21 @@
       ],
       "properties": {
         "docs": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "官方文档 URL（必填）。"
         },
         "pricing": {
-          "$ref": "#/definitions/nonEmptyString",
+          "type": "string",
+          "minLength": 1,
           "description": "官方定价页。除 devin（无公开定价页）外全部平台必填。"
         }
       },
       "description": "官方文档/定价页 URL（docs 必填；pricing 除 devin 外全部必填）。"
     },
     "homepage": {
-      "$ref": "#/definitions/nonEmptyString",
+      "type": "string",
+      "minLength": 1,
       "description": "平台官网 URL。"
     },
     "logo_url": {
@@ -176,118 +287,6 @@
       "type": "string",
       "pattern": "^#[0-9A-Fa-f]{6}$",
       "description": "品牌色，前端徽标/卡片着色。"
-    }
-  },
-  "definitions": {
-    "nonEmptyString": {
-      "type": "string",
-      "minLength": 1
-    },
-    "endpointList": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "protocol",
-          "base_url"
-        ],
-        "properties": {
-          "protocol": {
-            "type": "string",
-            "minLength": 1,
-            "description": "端点协议（anthropic / openai 等）。"
-          },
-          "base_url": {
-            "type": "string",
-            "pattern": "^https?://",
-            "description": "含版本前缀（如 /v1、/api/paas/v4）。最终 URL = base_url + provider_api_path，禁止额外拼接。"
-          },
-          "client_type": {
-            "type": "string",
-            "enum": [
-              "default",
-              "claude_code",
-              "claude_code_vscode",
-              "claude_code_sdk_ts",
-              "claude_code_sdk_py",
-              "claude_code_gh_action",
-              "codex_cli",
-              "codex_tui",
-              "codex_desktop",
-              "codex_vscode",
-              "pi_cli",
-              "cursor",
-              "windsurf"
-            ],
-            "description": "可选：端点客户端形态覆盖。缺省按 protocol 派生（前端 defaults.ts::clientTypeForProtocol / Rust registry.rs::derive_client_type 对称）：anthropic → claude_code、openai 系 → codex_tui、其余 → default。仅派生规则不适用的例外平台标注（如官方 claude_code 直连端点标 default 不模拟客户端）。"
-          },
-          "coding_plan": {
-            "type": "boolean",
-            "description": "标记该端点属编码套餐（true 时路由走 cp 端点路径）。"
-          }
-        }
-      }
-    },
-    "modelBranch": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "string",
-        "minLength": 1
-      },
-      "description": "客户端模型槽位到平台真实模型 id 的映射。槽位：default / opus / sonnet / haiku / gpt / fable。聚合/中转平台可留空对象（候选全由用户填）。"
-    },
-    "peakWindow": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "start_hour",
-        "end_hour",
-        "multiplier"
-      ],
-      "properties": {
-        "start_hour": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 23,
-          "description": "窗口起始小时（UTC+0，0-23；跨天窗口 end < start）。"
-        },
-        "end_hour": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 23,
-          "description": "窗口结束小时（UTC+0，0-23；end=24 语义为到 23 点末）。"
-        },
-        "multiplier": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "description": "窗口内计费倍率（条目带模型 peak 绝对价时被压成 1.0）。"
-        },
-        "days_of_week": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "integer",
-            "minimum": 0,
-            "maximum": 6
-          },
-          "description": "窗口限定的星期（0=周日 … 6=周六）；缺省 = 每天。"
-        },
-        "models": {
-          "type": "array",
-          "minItems": 1,
-          "items": {
-            "type": "string",
-            "minLength": 1
-          },
-          "description": "限定仅特定请求模型命中窗口；缺省 = 该平台全部模型。"
-        },
-        "start_at": {
-          "type": "integer",
-          "minimum": 0,
-          "description": "窗口生效起点（Unix 秒）。"
-        }
-      }
     }
   }
 }
