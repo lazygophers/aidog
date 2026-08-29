@@ -24,16 +24,31 @@ pub fn utc_hour_weekday(epoch_ms: i64) -> (i32, i32) {
 
 /// t 的 UTC 全时间分量：hour (0-23)、minute (0-59)、weekday (0=Sun…6=Sat)、day_of_month (1-31)。
 pub fn utc_time(epoch_ms: i64) -> (i32, i32, i32, i32) {
+    wall_time(epoch_ms, None)
+}
+
+/// t 在 `tz`（IANA 名，None/非法 = UTC）的**本地**全时间分量（DST 由 tz 数据库处理）。
+/// 窗口时区解析的统一入口：`hit` 的 hour/weekday/day_of_month 均以此值比较。
+/// 与前端 `utils/peakHours.ts::wallTimeInTz` 对称（跨层一致）。
+pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
     // ponytail: chrono 已是依赖，直接用，免手算 1970-01-01=Thursday 偏移。
     let dt = DateTime::<Utc>::from_timestamp_millis(epoch_ms)
         .unwrap_or_else(|| DateTime::<Utc>::from_timestamp(0, 0).unwrap());
+    // naive_local 保留目标时区的墙面时钟分量（hour/weekday/dom），两分支统一形状。
+    let local = match tz {
+        Some(name) => match name.parse::<chrono_tz::Tz>() {
+            Ok(z) => dt.with_timezone(&z).naive_local(),
+            Err(_) => dt.naive_utc(), // 非法时区名回落 UTC（数据脏不炸热路径）
+        },
+        None => dt.naive_utc(),
+    };
     use chrono::{Datelike, Timelike};
-    let hour = dt.hour() as i32;
-    let minute = dt.minute() as i32;
+    let hour = local.hour() as i32;
+    let minute = local.minute() as i32;
     // chrono weekday(): Mon=0…Sun=6 → 转 0=Sun…6=Sat。
-    let wd_chrono = dt.weekday().num_days_from_monday() as i32;
+    let wd_chrono = local.weekday().num_days_from_monday() as i32;
     let weekday = (wd_chrono + 1) % 7;
-    let day_of_month = dt.day() as i32;
+    let day_of_month = local.day() as i32;
     (hour, minute, weekday, day_of_month)
 }
 
@@ -75,12 +90,13 @@ pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64, request_model: 
         return 1.0;
     }
     let epoch_sec = epoch_ms / 1000;
-    let (hour, minute, weekday, day_of_month) = utc_time(epoch_ms);
     for w in windows {
         // 生效期判定优先（start_at/end_at，Unix 秒；未启用 / 已失效 → 跳过此窗口）
         if !period_active(w, epoch_sec) {
             continue;
         }
+        // 每窗口各自时区的本地时刻（timezone 缺省 = UTC，向后兼容）
+        let (hour, minute, weekday, day_of_month) = wall_time(epoch_ms, w.timezone.as_deref());
         if !hit(w, hour, minute, weekday, day_of_month) {
             continue;
         }
@@ -102,8 +118,8 @@ pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64, request_model: &
         return false;
     }
     let epoch_sec = epoch_ms / 1000;
-    let (hour, minute, weekday, day_of_month) = utc_time(epoch_ms);
     windows.iter().any(|w| {
+        let (hour, minute, weekday, day_of_month) = wall_time(epoch_ms, w.timezone.as_deref());
         period_active(w, epoch_sec)
             && hit(w, hour, minute, weekday, day_of_month)
             && window_models_hit(w, request_model)
@@ -221,6 +237,7 @@ mod tests {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
+            timezone: None,
             days_of_week: None,
             start_minute: None,
             end_minute: None,
@@ -236,6 +253,7 @@ mod tests {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
+            timezone: None,
             days_of_week: Some(days),
             start_minute: None,
             end_minute: None,
@@ -252,6 +270,7 @@ mod tests {
             start_hour: start_h,
             end_hour: end_h,
             multiplier: mult,
+            timezone: None,
             days_of_week: None,
             start_minute: Some(start_m),
             end_minute: Some(end_m),
@@ -268,6 +287,7 @@ mod tests {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
+            timezone: None,
             days_of_week: None,
             start_minute: None,
             end_minute: None,
@@ -284,6 +304,7 @@ mod tests {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
+            timezone: None,
             days_of_week: None,
             start_minute: None,
             end_minute: None,
@@ -300,6 +321,7 @@ mod tests {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
+            timezone: None,
             days_of_week: None,
             start_minute: None,
             end_minute: None,
@@ -391,6 +413,7 @@ mod tests {
             start_hour: 0,
             end_hour: 24,
             multiplier: 1.0,
+            timezone: None,
             days_of_week: Some(vec![0]),
             start_minute: None,
             end_minute: None,
@@ -449,6 +472,74 @@ mod tests {
         assert_eq!(m, 50);
         assert_eq!(wd, 0); // Sunday
         assert_eq!(dom, 7);
+    }
+
+    // ── wall_time / timezone ──
+
+    #[test]
+    fn wall_time_shanghai_shifts_eight_hours() {
+        // 2024-01-07T02:50:00Z = 北京时间 10:50 同日（+8，无跨日）
+        let ms = DateTime::<Utc>::from_timestamp(1704595800, 0).unwrap().timestamp_millis();
+        let (h, m, wd, dom) = wall_time(ms, Some("Asia/Shanghai"));
+        assert_eq!(h, 10);
+        assert_eq!(m, 50);
+        assert_eq!(wd, 0); // 同日仍 Sunday
+        assert_eq!(dom, 7);
+        // 缺省 / None = UTC；非法名回落 UTC
+        assert_eq!(wall_time(ms, None), wall_time(ms, Some("UTC")));
+        assert_eq!(wall_time(ms, None), wall_time(ms, Some("not-a-tz")));
+    }
+
+    #[test]
+    fn wall_time_shanghai_weekday_rolls() {
+        // 2024-01-06T18:00:00Z（Saturday）= 北京时间 1 月 7 日 02:00（Sunday）
+        let ms = DateTime::<Utc>::from_timestamp(1704564000, 0).unwrap().timestamp_millis();
+        let (h, _m, wd, dom) = wall_time(ms, Some("Asia/Shanghai"));
+        assert_eq!(h, 2);
+        assert_eq!(wd, 0); // Sunday
+        assert_eq!(dom, 7);
+    }
+
+    #[test]
+    fn resolve_multiplier_respects_window_timezone() {
+        // 窗口按北京时间 9-12 高峰 ×2：UTC 01:00（北京 09:00）命中；UTC 05:00（北京 13:00）不命中
+        let win = PeakWindow {
+            start_hour: 9,
+            end_hour: 12,
+            multiplier: 2.0,
+            days_of_week: None,
+            start_minute: None,
+            end_minute: None,
+            days_of_month: None,
+            timezone: Some("Asia/Shanghai".to_string()),
+            models: None,
+            start_at: None,
+            end_at: None,
+        };
+        let ms_hit = DateTime::<Utc>::from_timestamp(1704590800, 0).unwrap().timestamp_millis(); // 2024-01-07T01:26:40Z
+        let ms_miss = DateTime::<Utc>::from_timestamp(1704605200, 0).unwrap().timestamp_millis(); // 2024-01-07T05:26:40Z
+        assert_eq!(resolve_multiplier(&[win.clone()], ms_hit, ""), 2.0);
+        assert_eq!(resolve_multiplier(&[win], ms_miss, ""), 1.0);
+    }
+
+    #[test]
+    fn resolve_multiplier_absent_timezone_uses_utc_backward_compat() {
+        // 旧数据无 timezone：窗口 6-10 按 UTC 解释，行为与迁移前完全一致
+        let win = PeakWindow {
+            start_hour: 6,
+            end_hour: 10,
+            multiplier: 3.0,
+            days_of_week: None,
+            start_minute: None,
+            end_minute: None,
+            days_of_month: None,
+            timezone: None,
+            models: None,
+            start_at: None,
+            end_at: None,
+        };
+        let ms = DateTime::<Utc>::from_timestamp(1704590800, 0).unwrap().timestamp_millis(); // UTC 01:26
+        assert_eq!(resolve_multiplier(&[win], ms, ""), 1.0); // UTC 1 点不在 [6,10)
     }
 
     // ── 向后兼容（旧 JSON 无新字段 → None）──
@@ -565,6 +656,7 @@ mod tests {
                 start_hour: 0,
                 end_hour: 24,
                 multiplier: 2.0,
+                timezone: None,
                 days_of_week: None,
                 start_minute: None,
                 end_minute: None,
@@ -588,6 +680,7 @@ mod tests {
                 start_hour: 0,
                 end_hour: 24,
                 multiplier: 2.0,
+                timezone: None,
                 days_of_week: None,
                 start_minute: None,
                 end_minute: None,

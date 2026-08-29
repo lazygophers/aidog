@@ -1,10 +1,11 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import type { PeakWindow } from "../../domains/platforms/defaults";
-import { type TzMode, utcToDisplay, displayToUtc } from "../../utils/peakHours";
+import { type TzMode, utcToDisplay, displayToUtc, WINDOW_TIMEZONES } from "../../utils/peakHours";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { makeRipple } from "../../components/shared";
 import {
   Dialog,
@@ -161,11 +162,16 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   display: "flex", flexDirection: "column", gap: 8,
                 }}
               >
-                {/* 起 / 止 hour:minute —— 存储恒 UTC+0，输入/展示按 tzMode 双向换算 */}
+                {/* 起 / 止 hour:minute —— 无 timezone（= UTC 存储）按 tzMode 双向换算；
+                    带 timezone：存值即该时区本地值，直接读写不换算 */}
                 {(() => {
-                  const startDisp = utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
-                  const endDisp = utcToDisplay(w.end_hour, w.end_minute ?? 0, tzMode);
-                  // 跨天判定用原始 UTC 值比较（与 formSections.tsx formatWindowPreview 同口径），不在 display 层比较
+                  const toDisp = (h: number, m: number) =>
+                    w.timezone ? { hour: h, minute: m } : utcToDisplay(h, m, tzMode);
+                  const fromDisp = (h: number, m: number) =>
+                    w.timezone ? { hour: h, minute: m } : displayToUtc(h, m, tzMode);
+                  const startDisp = toDisp(w.start_hour, w.start_minute ?? 0);
+                  const endDisp = toDisp(w.end_hour, w.end_minute ?? 0);
+                  // 跨天判定用原始存储值比较（与 formSections.tsx formatWindowPreview 同口径），不在 display 层比较
                   const isNextDay = w.end_hour < w.start_hour;
                   return (
                     <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
@@ -175,7 +181,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           value={startDisp.hour}
                           onChange={e => {
                             const h = clampInt(Number(e.target.value), 0, 23, 0);
-                            const utc = displayToUtc(h, startDisp.minute, tzMode);
+                            const utc = fromDisp(h, startDisp.minute);
                             updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
                           }}
                         />
@@ -184,7 +190,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           value={startDisp.minute}
                           onChange={e => {
                             const m = clampInt(Number(e.target.value), 0, 59, 0);
-                            const utc = displayToUtc(startDisp.hour, m, tzMode);
+                            const utc = fromDisp(startDisp.hour, m);
                             updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
                           }}
                         />
@@ -195,7 +201,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           value={endDisp.hour}
                           onChange={e => {
                             const h = clampInt(Number(e.target.value), 0, 24, 0);
-                            const utc = displayToUtc(h, endDisp.minute, tzMode);
+                            const utc = fromDisp(h, endDisp.minute);
                             updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
                           }}
                         />
@@ -204,7 +210,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           value={endDisp.minute}
                           onChange={e => {
                             const m = clampInt(Number(e.target.value), 0, 59, 0);
-                            const utc = displayToUtc(endDisp.hour, m, tzMode);
+                            const utc = fromDisp(endDisp.hour, m);
                             updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
                           }}
                         />
@@ -226,6 +232,27 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     </div>
                   );
                 })()}
+
+                {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
+                    切换时区只改解释基准，存值数字不动（与 formSections PeakHoursSection 同口径）。 */}
+                <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                  <span>{t("platform.window_timezone", "时区")}</span>
+                  <Select
+                    value={w.timezone ?? "__utc__"}
+                    onValueChange={(v) => updateWindow(widx, { timezone: v === "__utc__" ? undefined : v })}
+                  >
+                    <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28 }}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {WINDOW_TIMEZONES.map((tz) => (
+                        <SelectItem key={tz} value={tz}>
+                          {tz === "__utc__" ? t("platform.window_timezone_utc_default", "UTC（默认）") : tz}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
                 {/* 维度 radio：无 / 周几 / 每月几日（互斥） */}
                 <RadioGroup

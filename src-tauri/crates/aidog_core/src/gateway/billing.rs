@@ -121,6 +121,7 @@ mod tests {
             start_hour,
             end_hour,
             multiplier,
+            timezone: None,
             days_of_week: None,
             start_minute: None,
             end_minute: None,

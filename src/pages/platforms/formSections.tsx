@@ -16,7 +16,7 @@ import {
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelList } from "../../domains/platforms";
-import { isCurrentlyPeak, utcToDisplay, displayToUtc, type TzMode } from "../../utils/peakHours";
+import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/peakHours";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
@@ -482,10 +482,14 @@ function clampInt(raw: string, min: number, max: number): number {
 
 /** 窗口预览可读时段：半开区间 [start, end) → 显示 end-1:59:59。
  *  格式：HH:MM:SS - HH:MM:SS（<tz 标签>）+ (次日) 如跨天。
- *  全天特例：end==24 或 start==end 退化 → 00:00:00 - 23:59:59。 */
+ *  全天特例：end==24 或 start==end 退化 → 00:00:00 - 23:59:59。
+ *  时区标签：窗口带 timezone → 存值即该时区本地值，直接显示 tz 名；
+ *  无 timezone（= UTC 存储）→ 按 tzMode 换算显示。 */
 function formatWindowPreview(w: PeakWindow, tzMode: TzMode, t: TFunction): string {
-  // start：hour+minute 一起换算
-  const startDisplay = utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
+  // start：hour+minute 一起换算（带 timezone 窗口存值即本地，不换算）
+  const startDisplay = w.timezone
+    ? { hour: w.start_hour, minute: w.start_minute ?? 0 }
+    : utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
 
   // end：先算绝对分钟 -1（半开区间），再拆 hour:minute，再对 hour+minute 一起换算
   const endTotalMin = w.end_hour * 60 + (w.end_minute ?? 0);
@@ -493,14 +497,16 @@ function formatWindowPreview(w: PeakWindow, tzMode: TzMode, t: TFunction): strin
   // 负数 → 23:59（跨天边界，如 0:00 -1 = -1 → 前一天 23:59）
   const endHourRaw = endMinusOneMin < 0 ? 23 : Math.floor(endMinusOneMin / 60);
   const endMinRaw = endMinusOneMin < 0 ? 59 : endMinusOneMin % 60;
-  const endDisplay = utcToDisplay(endHourRaw, endMinRaw, tzMode);
+  const endDisplay = w.timezone
+    ? { hour: endHourRaw, minute: endMinRaw }
+    : utcToDisplay(endHourRaw, endMinRaw, tzMode);
 
   const startStr = `${pad(startDisplay.hour)}:${pad(startDisplay.minute)}:00`;
   const endStr = `${pad(endDisplay.hour)}:${pad(endDisplay.minute)}:59`;
 
-  const tzLabel = tzMode === "local"
+  const tzLabel = w.timezone ?? (tzMode === "local"
     ? t("platform.timezone_local", "本地")
-    : t("platform.timezone_utc", "UTC+0");
+    : t("platform.timezone_utc", "UTC+0"));
 
   // 跨天判定：end_hour < start_hour（原始 UTC 值，不在 display 层比较）
   const isNextDay = w.end_hour < w.start_hour;
@@ -596,7 +602,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
   return (
     <FormSection
       title={t("platform.peak_hours", "高峰时段倍率")}
-      desc={t("platform.peak_hours_desc", "设置时段倍率（>1 加价 / <1 折扣）。存储 UTC+0，按下方时区显示。多窗口按顺序 first-match；不命中 = 1.0。")}
+      desc={t("platform.peak_hours_desc", "设置时段倍率（>1 加价 / <1 折扣）。时段按各窗口指定时区的本地时间判定；时区默认 UTC。多窗口按顺序 first-match；不命中 = 1.0。")}
       action={
         <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
           <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
@@ -668,9 +674,14 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
           {/* 顶行：时段 + 倍率 + 周日 + 删除 */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             {(() => {
-              // 起/止 hour:minute —— 存储恒 UTC+0，输入/展示按 tzMode 双向换算（半时区精确到分钟）。
-              const startDisp = utcToDisplay(w.start_hour, w.start_minute ?? 0, tzMode);
-              const endDisp = utcToDisplay(w.end_hour, w.end_minute ?? 0, tzMode);
+              // 起/止 hour:minute —— 无 timezone（= UTC 存储）按 tzMode 双向换算；
+              // 带 timezone：存值即该时区本地值，直接读写不换算（半时区精确到分钟）。
+              const toDisp = (h: number, m: number) =>
+                w.timezone ? { hour: h, minute: m } : utcToDisplay(h, m, tzMode);
+              const fromDisp = (h: number, m: number) =>
+                w.timezone ? { hour: h, minute: m } : displayToUtc(h, m, tzMode);
+              const startDisp = toDisp(w.start_hour, w.start_minute ?? 0);
+              const endDisp = toDisp(w.end_hour, w.end_minute ?? 0);
               return (
                 <>
                   <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
@@ -679,7 +690,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                       className="input" type="number" min={0} max={23} style={{ width: 64 }}
                       value={startDisp.hour}
                       onChange={e => {
-                        const utc = displayToUtc(clampInt(e.target.value, 0, 23), startDisp.minute, tzMode);
+                        const utc = fromDisp(clampInt(e.target.value, 0, 23), startDisp.minute);
                         update(idx, { start_hour: utc.hour, start_minute: utc.minute });
                       }}
                     />
@@ -688,7 +699,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                       className="input" type="number" min={0} max={59} style={{ width: 64 }}
                       value={startDisp.minute}
                       onChange={e => {
-                        const utc = displayToUtc(startDisp.hour, clampInt(e.target.value, 0, 59), tzMode);
+                        const utc = fromDisp(startDisp.hour, clampInt(e.target.value, 0, 59));
                         update(idx, { start_hour: utc.hour, start_minute: utc.minute });
                       }}
                     />
@@ -699,7 +710,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                       className="input" type="number" min={0} max={24} style={{ width: 64 }}
                       value={endDisp.hour}
                       onChange={e => {
-                        const utc = displayToUtc(clampInt(e.target.value, 0, 24), endDisp.minute, tzMode);
+                        const utc = fromDisp(clampInt(e.target.value, 0, 24), endDisp.minute);
                         update(idx, { end_hour: utc.hour, end_minute: utc.minute });
                       }}
                     />
@@ -708,7 +719,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                       className="input" type="number" min={0} max={59} style={{ width: 64 }}
                       value={endDisp.minute}
                       onChange={e => {
-                        const utc = displayToUtc(endDisp.hour, clampInt(e.target.value, 0, 59), tzMode);
+                        const utc = fromDisp(endDisp.hour, clampInt(e.target.value, 0, 59));
                         update(idx, { end_hour: utc.hour, end_minute: utc.minute });
                       }}
                     />
@@ -723,6 +734,26 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                 value={w.multiplier}
                 onChange={e => update(idx, { multiplier: Number(e.target.value) || 1 })}
               />
+            </label>
+            {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
+                切换时区只改解释基准，存值数字不动（用户自定时段含义）。 */}
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.window_timezone", "时区")}
+              <Select
+                value={w.timezone ?? "__utc__"}
+                onValueChange={(v) => update(idx, { timezone: v === "__utc__" ? undefined : v })}
+              >
+                <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28 }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {WINDOW_TIMEZONES.map((tz) => (
+                    <SelectItem key={tz} value={tz}>
+                      {tz === "__utc__" ? t("platform.window_timezone_utc_default", "UTC（默认）") : tz}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </label>
             <div style={{ display: "flex", gap: 2 }}>
               {WEEKDAY_LABELS.map((lbl, di) => {

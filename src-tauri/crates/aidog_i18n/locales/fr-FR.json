@@ -1186,7 +1186,7 @@
   "platform.peak_badge_models_tooltip": "Modèles concernés : {{models}}",
   "platform.peak_disabled_badge": "Désactivé en pointe",
   "platform.peak_hours": "Multiplicateur heures de pointe",
-  "platform.peak_hours_desc": "Définissez les multiplicateurs de fenêtres horaires (>1 majoration / <1 remise). Stockage en UTC+0, affichage selon le fuseau horaire ci-dessous. Multi-fenêtres premier match ; pas de match = 1.0.",
+  "platform.peak_hours_desc": "Définissez les multiplicateurs de fenêtres horaires (>1 majoration / <1 remise). Les fenêtres sont évaluées en heure locale du fuseau défini par fenêtre ; par défaut UTC. Multi-fenêtres premier match ; pas de match = 1.0.",
   "platform.peak_hours_empty": "Non configuré → utiliser le préréglage ou 1.0 (sans ajustement)",
   "platform.peak_hours_end_at": "Expire le",
   "platform.peak_hours_import_default": "Importer par défaut",
@@ -2850,5 +2850,7 @@
   "platform.builtin_tool_compat_strip": "Outils à supprimer (séparés par des virgules, vide = tous les intégrés)",
   "test.modeTool": "Test d'appel d'outil",
   "jsonEditor.format": "Formater",
-  "jsonEditor.searchHint": "Ctrl/⌘+F rechercher, Ctrl/⌘+Alt+F remplacer"
+  "jsonEditor.searchHint": "Ctrl/⌘+F rechercher, Ctrl/⌘+Alt+F remplacer",
+  "platform.window_timezone": "Fuseau horaire",
+  "platform.window_timezone_utc_default": "UTC (défaut)"
 }

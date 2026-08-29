@@ -1,13 +1,20 @@
-/// 单个时段窗口（UTC+0 基准）。serde 字段名直接对齐 JSON / TS `PeakWindow`。
+/// 单个时段窗口。serde 字段名直接对齐 JSON / TS `PeakWindow`。
 ///
-/// 向后兼容：旧数据无 `start_minute` / `end_minute` / `days_of_month` → None
-/// （`start_minute`/`end_minute` None=0，`days_of_month` None=不过滤）。
+/// 时段基准：`timezone`（IANA 名，如 `Asia/Shanghai`）；缺省 / 非法 = UTC（向后兼容）。
+/// `start_hour` / `end_hour` / `days_of_week` / `days_of_month` 均按该时区的**本地时刻**解释。
+///
+/// 向后兼容：旧数据无 `start_minute` / `end_minute` / `days_of_month` / `timezone` → None
+/// （`start_minute`/`end_minute` None=0，`days_of_month` None=不过滤，`timezone` None=UTC）。
 /// `Serialize` 供 `PlatformExtra`（gateway/models/platform.rs）整体往返测试用。
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct PeakWindow {
     pub start_hour: i32,
     pub end_hour: i32,
     pub multiplier: f64,
+    /// 窗口时区（IANA 名，如 `Asia/Shanghai`）；缺省 = UTC（向后兼容）。
+    /// 时段按该时区本地 xx:xx–xx:xx 解释；与 TS `PeakWindow.timezone?: string` 对称。
+    #[serde(default)]
+    pub timezone: Option<String>,
     #[serde(default)]
     pub days_of_week: Option<Vec<i32>>,
     /// 分钟精度起点（0-59）；缺省 = 0（仅 hour 精度，向后兼容）。

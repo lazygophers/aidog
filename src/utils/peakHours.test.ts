@@ -4,6 +4,7 @@ import {
   shiftClock,
   normalizeWindow,
   isCurrentlyPeak,
+  wallTimeInTz,
   tzOffsetMinutes,
   utcToDisplay,
   displayToUtc,
@@ -176,5 +177,52 @@ describe("isCurrentlyPeak — start_at 生效期护栏", () => {
   it("nowMs 越过 start_at → 命中", () => {
     const afterMs = (1790784000 + 1) * 1000;
     expect(isCurrentlyPeak([w], afterMs)).toBe(true);
+  });
+});
+
+// 镜像 Rust peak_hours 时区测试（wall_time_* / resolve_multiplier_* / is_in_peak_window_*）。
+describe("wallTimeInTz / isCurrentlyPeak — 窗口时区", () => {
+  // 1704595800000 = 2024-01-07T02:50:00Z；北京 = 同日 10:50，周日(0)、7 号。
+  const MS = 1704595800000;
+
+  it("Asia/Shanghai 平移 +8 且 None/UTC/非法名一致", () => {
+    const sh = wallTimeInTz(MS, "Asia/Shanghai");
+    expect(sh).toEqual({ hour: 10, minute: 50, weekday: 0, dayOfMonth: 7 });
+    const utc = wallTimeInTz(MS, undefined);
+    expect(utc).toEqual({ hour: 2, minute: 50, weekday: 0, dayOfMonth: 7 });
+    expect(wallTimeInTz(MS, "UTC")).toEqual(utc);
+    expect(wallTimeInTz(MS, "Not/AZone")).toEqual(utc); // 非法名回落 UTC
+  });
+
+  it("时区平移跨日时 weekday / day_of_month 翻转", () => {
+    // 1704564000000 = 2024-01-06T18:00:00Z 周六；北京 = 2024-01-07 02:00 周日、7 号。
+    const sh = wallTimeInTz(1704564000000, "Asia/Shanghai");
+    expect(sh).toEqual({ hour: 2, minute: 0, weekday: 0, dayOfMonth: 7 });
+    expect(wallTimeInTz(1704564000000, undefined).weekday).toBe(6); // UTC 周六
+  });
+
+  it("isCurrentlyPeak 按窗口时区判定：北京 9-12 窗口 UTC 01:26 命中、05:26 miss", () => {
+    const win = { start_hour: 9, end_hour: 12, multiplier: 2, timezone: "Asia/Shanghai" } as PeakWindow;
+    // 2026-06-26T01:26:00Z → 北京 09:26 命中
+    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 1, 26, 0))).toBe(true);
+    // 2026-06-26T05:26:00Z → 北京 13:26 miss
+    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 5, 26, 0))).toBe(false);
+  });
+
+  it("缺省 timezone = UTC（向后兼容）", () => {
+    const win = { start_hour: 9, end_hour: 12, multiplier: 2 } as PeakWindow;
+    // UTC 09:30 命中
+    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 9, 30, 0))).toBe(true);
+    // UTC 02:30（北京 10:30）不命中 —— 无 timezone 字段不按本地解释
+    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 2, 30, 0))).toBe(false);
+  });
+
+  it("days_of_week 按窗口时区本地 weekday 过滤", () => {
+    // UTC 周六 18:00 = 北京周日 02:00；窗口限周日 → 仅带时区版本命中
+    const ms = 1704564000000;
+    const sunday = { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [0] } as PeakWindow;
+    expect(isCurrentlyPeak([sunday], ms)).toBe(false); // UTC 周六
+    const sundaySh = { ...sunday, timezone: "Asia/Shanghai" } as PeakWindow;
+    expect(isCurrentlyPeak([sundaySh], ms)).toBe(true); // 北京周日
   });
 });

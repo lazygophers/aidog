@@ -1186,7 +1186,7 @@
   "platform.peak_badge_models_tooltip": "Betroffene Modelle: {{models}}",
   "platform.peak_disabled_badge": "Spitzenzeit-deaktiviert",
   "platform.peak_hours": "Spitzenstunden-Multiplikator",
-  "platform.peak_hours_desc": "Zeitfenster-Multiplikatoren festlegen (>1 Aufschlag / <1 Rabatt). Speicherung in UTC+0, Anzeige gemäß der Zeitzone unten. Mehrere Fenster nach First-Match; kein Treffer = 1.0.",
+  "platform.peak_hours_desc": "Zeitfenster-Multiplikatoren festlegen (>1 Aufschlag / <1 Rabatt). Fenster werden in der Ortszeit der pro Fenster gewählten Zeitzone bewertet; Standard ist UTC. Mehrere Fenster nach First-Match; kein Treffer = 1.0.",
   "platform.peak_hours_empty": "Nicht konfiguriert → Voreinstellung oder 1.0 (keine Anpassung)",
   "platform.peak_hours_end_at": "Gültig bis",
   "platform.peak_hours_import_default": "Standard importieren",
@@ -2850,5 +2850,7 @@
   "platform.builtin_tool_compat_strip": "Zu entfernende Werkzeuge (kommagetrennt, leer = alle integrierten)",
   "test.modeTool": "Werkzeugaufruf-Test",
   "jsonEditor.format": "Formatieren",
-  "jsonEditor.searchHint": "Ctrl/⌘+F suchen, Ctrl/⌘+Alt+F ersetzen"
+  "jsonEditor.searchHint": "Ctrl/⌘+F suchen, Ctrl/⌘+Alt+F ersetzen",
+  "platform.window_timezone": "Zeitzone",
+  "platform.window_timezone_utc_default": "UTC (Standard)"
 }

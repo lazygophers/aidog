@@ -19,6 +19,7 @@ tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
+chrono-tz = { workspace = true }
 dashmap = { workspace = true }
 ts-rs = { workspace = true }
 rand = { workspace = true }
