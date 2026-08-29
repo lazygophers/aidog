@@ -875,9 +875,10 @@ fn strip_w2_peak_hours_copies(conn: &Connection) {
 /// Migration 20260829-01 实体：遍历 `platform.extra` JSON，`time_models` 键改名 `time_windows`。
 /// 新旧键并存（异常态，正常只跑一次）→ **新键优先**，旧键丢弃并 warn；无旧键 → 空转；
 /// 其余键原样保留。幂等：跑过一次后旧键不存在 → 再跑全空转。
+/// 行筛选按 JSON 键字面量（带引号 `"time_models"`）LIKE 匹配：值里出现裸词不误命中。
 fn rename_extra_time_models_to_windows(conn: &Connection) {
     let rows: Vec<(i64, String)> = match conn
-        .prepare("SELECT id, extra FROM platform WHERE extra LIKE '%time_models%'")
+        .prepare("SELECT id, extra FROM platform WHERE extra LIKE '%\"time_models\"%'")
     {
         Ok(mut stmt) => stmt
             .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
@@ -886,6 +887,10 @@ fn rename_extra_time_models_to_windows(conn: &Connection) {
             .unwrap_or_default(),
         Err(_) => return,
     };
+    // 单事务包行循环：中途 crash 整批回滚，杜绝半迁移（逐行状态不一致）。外层调用无事务
+    //（schema.rs Phase 3 裸跑）→ BEGIN IMMEDIATE 不会嵌套；万一失败（异常态）则裸跑，
+    // 退化为旧行为，幂等重跑仍兜底。
+    let in_txn = conn.execute_batch("BEGIN IMMEDIATE").is_ok();
     let mut renamed = 0u64;
     for (id, extra) in rows {
         let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
@@ -910,6 +915,10 @@ fn rename_extra_time_models_to_windows(conn: &Connection) {
         );
         renamed += 1;
     }
+    // in_txn 门控：BEGIN 失败时连接已在（外层）事务中，裸 COMMIT 会提前提交外层事务。
+    if in_txn {
+        let _ = conn.execute_batch("COMMIT");
+    }
     if renamed > 0 {
         tracing::info!(renamed, "migration 20260829-01: platform.extra.time_models → time_windows 改名完成");
     }
@@ -918,9 +927,10 @@ fn rename_extra_time_models_to_windows(conn: &Connection) {
 /// Migration 20260829-02 实体：遍历 `platform.extra` JSON，`peak_hours` 键改名 `peak`。
 /// 新旧键并存（异常态，正常只跑一次）→ **新键优先**，旧键丢弃并 warn；无旧键 → 空转；
 /// 其余键原样保留。幂等：跑过一次后旧键不存在 → 再跑全空转。
+/// 行筛选按 JSON 键字面量（带引号 `"peak_hours"`）LIKE 匹配：值里出现裸词不误命中。
 fn rename_extra_peak_hours_to_peak(conn: &Connection) {
     let rows: Vec<(i64, String)> = match conn
-        .prepare("SELECT id, extra FROM platform WHERE extra LIKE '%peak_hours%'")
+        .prepare("SELECT id, extra FROM platform WHERE extra LIKE '%\"peak_hours\"%'")
     {
         Ok(mut stmt) => stmt
             .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
@@ -929,6 +939,10 @@ fn rename_extra_peak_hours_to_peak(conn: &Connection) {
             .unwrap_or_default(),
         Err(_) => return,
     };
+    // 单事务包行循环：中途 crash 整批回滚，杜绝半迁移（逐行状态不一致）。外层调用无事务
+    //（schema.rs Phase 3 裸跑）→ BEGIN IMMEDIATE 不会嵌套；万一失败（异常态）则裸跑，
+    // 退化为旧行为，幂等重跑仍兜底。
+    let in_txn = conn.execute_batch("BEGIN IMMEDIATE").is_ok();
     let mut renamed = 0u64;
     for (id, extra) in rows {
         let Ok(mut root) = serde_json::from_str::<serde_json::Value>(&extra) else {
@@ -952,6 +966,10 @@ fn rename_extra_peak_hours_to_peak(conn: &Connection) {
             params![new_extra, id],
         );
         renamed += 1;
+    }
+    // in_txn 门控：BEGIN 失败时连接已在（外层）事务中，裸 COMMIT 会提前提交外层事务。
+    if in_txn {
+        let _ = conn.execute_batch("COMMIT");
     }
     if renamed > 0 {
         tracing::info!(renamed, "migration 20260829-02: platform.extra.peak_hours → peak 改名完成");
@@ -1936,7 +1954,8 @@ mod tests {
             (1, 'old-key', '{"time_models":[{"windows":[{"start_hour":0,"end_hour":24}],"models":{"default":"m1"}}],"breaker":{"threshold":3}}'),
             (2, 'both-keys', '{"time_models":[{"models":{"default":"old"}}],"time_windows":[{"models":{"default":"new"}}]}'),
             (3, 'new-key-only', '{"time_windows":[{"models":{"default":"kept"}}],"mock":{"v":1}}'),
-            (4, 'unrelated', '{"breaker":{"threshold":5},"disable_during_peak":true}');
+            (4, 'unrelated', '{"breaker":{"threshold":5},"disable_during_peak":true}'),
+            (5, 'value-substring', '{"note":"legacy time_models mentioned in a value"}');
         "#).unwrap();
         let r1 = run_migrations_platform_late(&conn);
         assert!(r1.is_ok(), "run_migrations_platform_late failed: {:?}", r1);
@@ -1964,9 +1983,14 @@ mod tests {
         let e4 = extra_of(4);
         assert!(e4.get("time_windows").is_none() && e4.get("time_models").is_none(), "unrelated row gains no key");
         assert_eq!(e4["disable_during_peak"], true, "unrelated row values intact");
+        // ④b 值里含裸词 time_models（非带引号键）→ LIKE 不误命中，行不动
+        let e5 = extra_of(5);
+        assert!(e5.get("time_windows").is_none() && e5.get("time_models").is_none(),
+            "value-substring row gains no key");
+        assert!(e5["note"].as_str().unwrap().contains("time_models"), "value-substring row note preserved");
 
-        // ⑤ 幂等：再跑一遍，4 行 extra 全部不变
-        let before: Vec<serde_json::Value> = (1..=4).map(extra_of).collect();
+        // ⑤ 幂等：再跑一遍，5 行 extra 全部不变
+        let before: Vec<serde_json::Value> = (1..=5).map(extra_of).collect();
         let r2 = run_migrations_platform_late(&conn);
         assert!(r2.is_ok(), "second run failed: {:?}", r2);
         for (id, b) in before.iter().enumerate() {
@@ -1985,7 +2009,8 @@ mod tests {
             (1, 'old-key', '{"peak_hours":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],"breaker":{"threshold":3}}'),
             (2, 'both-keys', '{"peak_hours":[{"multiplier":2.0}],"peak":[{"multiplier":1.5}]}'),
             (3, 'new-key-only', '{"peak":[{"multiplier":1.25}],"mock":{"v":1}}'),
-            (4, 'unrelated', '{"breaker":{"threshold":5},"disable_during_peak":true}');
+            (4, 'unrelated', '{"breaker":{"threshold":5},"disable_during_peak":true}'),
+            (5, 'value-substring', '{"note":"legacy peak_hours mentioned in a value"}');
         "#).unwrap();
         let r1 = run_migrations_platform_late(&conn);
         assert!(r1.is_ok(), "run_migrations_platform_late failed: {:?}", r1);
@@ -2013,9 +2038,14 @@ mod tests {
         let e4 = extra_of(4);
         assert!(e4.get("peak").is_none() && e4.get("peak_hours").is_none(), "unrelated row gains no key");
         assert_eq!(e4["disable_during_peak"], true, "unrelated row values intact");
+        // ④b 值里含裸词 peak_hours（非带引号键）→ LIKE 不误命中，行不动
+        let e5 = extra_of(5);
+        assert!(e5.get("peak").is_none() && e5.get("peak_hours").is_none(),
+            "value-substring row gains no key");
+        assert!(e5["note"].as_str().unwrap().contains("peak_hours"), "value-substring row note preserved");
 
-        // ⑤ 幂等：再跑一遍，4 行 extra 全部不变
-        let before: Vec<serde_json::Value> = (1..=4).map(extra_of).collect();
+        // ⑤ 幂等：再跑一遍，5 行 extra 全部不变
+        let before: Vec<serde_json::Value> = (1..=5).map(extra_of).collect();
         let r2 = run_migrations_platform_late(&conn);
         assert!(r2.is_ok(), "second run failed: {:?}", r2);
         for (id, b) in before.iter().enumerate() {
