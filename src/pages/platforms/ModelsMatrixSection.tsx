@@ -2,7 +2,7 @@
 // ponytail: PRD 07-09 要求单 FormSection 内列=档（默认 + 时段档 rules[*]）、行=5 槽，
 //   每格 input + 可搜索下拉（pinyinMatch）。默认列行为不退化（下拉 / fillAll / fetchModels），
 //   时段档列头点弹窗（WindowsEditModal，ST4 产出）编辑 windows；矩阵主体只管模型值。
-//   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_models.rules[*].models。
+//   数据通道分离：默认列 = platform.models；时段档列 = platform.extra.time_windows.rules[*].models。
 //   仍纯 props 驱动，无外部 state（矩阵内部仅 UI 临时态：activeCell / editingIdx / importModalOpen）。
 import React, { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
@@ -299,10 +299,10 @@ export function ModelsMatrixSection({
             size="sm"
             style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
             disabled={peak.length === 0}
-            title={peak.length === 0 ? t("platform.time_models_no_peak", "当前无高峰时段配置") : ""}
+            title={peak.length === 0 ? t("platform.time_windows_no_peak", "当前无高峰时段配置") : ""}
             onClick={() => setImportModalOpen(true)}
           >
-            {t("platform.time_models_import_peak", "从高峰时段导入")}
+            {t("platform.time_windows_import_peak", "从高峰时段导入")}
           </Button>
           <Button
             variant="ghost"
@@ -310,7 +310,7 @@ export function ModelsMatrixSection({
             style={{ fontSize: 12, padding: "4px 10px", color: "var(--accent)" }}
             onClick={addRule}
           >
-            + {t("platform.time_models_add_rule", "添加时段档")}
+            + {t("platform.time_windows_add_rule", "添加时段档")}
           </Button>
         </div>
       )}
@@ -349,7 +349,7 @@ export function ModelsMatrixSection({
                     overflow: "hidden", textOverflow: "ellipsis",
                     border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
                   }}
-                  title={t("platform.time_models_edit_windows", "点击编辑时段窗口")}
+                  title={t("platform.time_windows_edit_windows", "点击编辑时段窗口")}
                   onClick={() => setEditingIdx(idx)}
                 >
                   {describeWindows(rule.windows, tzMode, t)}
@@ -426,7 +426,7 @@ export function ModelsMatrixSection({
 
           {rules.length === 0 && (
             <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic", paddingLeft: LABEL_W + 8 }}>
-              {t("platform.time_models_empty", "未配置 → 全时段用默认模型档")}
+              {t("platform.time_windows_empty", "未配置 → 全时段用默认模型档")}
             </div>
           )}
         </div>
@@ -451,10 +451,10 @@ export function ModelsMatrixSection({
         <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
           <DialogHeader>
             <DialogTitle style={{ fontSize: 13 }}>
-              {t("platform.time_models_import_confirm_title", "导入高峰时段配置？")}
+              {t("platform.time_windows_import_confirm_title", "导入高峰时段配置？")}
             </DialogTitle>
             <DialogDescription style={{ fontSize: 12 }}>
-              {t("platform.time_models_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
+              {t("platform.time_windows_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
             </DialogDescription>
           </DialogHeader>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -468,7 +468,7 @@ export function ModelsMatrixSection({
               className="ripple"
               onClick={(e) => { makeRipple(e); importFromPeak(); }}
             >
-              {t("platform.time_models_import_confirm_button", "确认")}
+              {t("platform.time_windows_import_confirm_button", "确认")}
             </Button>
           </div>
         </DialogContent>

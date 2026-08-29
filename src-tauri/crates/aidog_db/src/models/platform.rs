@@ -299,7 +299,7 @@ pub fn parse_builtin_tool_compat(extra: &str) -> BuiltinToolCompat {
 /// - `breaker` ← `parse_breaker`
 /// - `disable_during_peak` ← `parse_disable_during_peak`
 /// - `peak_hours` ← `parse_platform_peak`
-/// - `time_models` ← `parse_platform_time_windows`
+/// - `time_windows` ← `parse_platform_time_windows`
 /// - `cli_proxy_provider_id` ← `router::candidates::read_cli_proxy_provider_id`
 /// - `devin` ← `quota::devin::parse_devin_extra`
 /// - `newapi` ← `quota::newapi::parse_newapi_extra`
@@ -313,7 +313,7 @@ pub struct PlatformExtra {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peak_hours: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub time_models: Vec<serde_json::Value>,
+    pub time_windows: Vec<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cli_proxy_provider_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

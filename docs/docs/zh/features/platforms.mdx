@@ -15,7 +15,7 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 平台 API wrapper 在 `src/services/api/platforms.ts`，覆盖平台创建、列表、更新、删除、分享解析、模型拉取、用量统计、余额和规则相关调用。Rust command 注册表在 `src-tauri/src/startup.rs`，`platform_create`、`platform_list`、`platform_update`、`platform_delete` 等命令必须在那里注册后才可被前端调用。
 
-平台配置保存上游 Base URL、API Key、协议、模型、状态、extra JSON 和配额相关字段。`extra` 中当前有 mock、New API、Devin、breaker、peak_hours、disable_during_peak、time_models 等结构化子项，前端解析函数集中在 `src/services/api/platforms.ts`。
+平台配置保存上游 Base URL、API Key、协议、模型、状态、extra JSON 和配额相关字段。`extra` 中当前有 mock、New API、Devin、breaker、peak_hours、disable_during_peak、time_windows 等结构化子项，前端解析函数集中在 `src/services/api/platforms.ts`。
 
 ## 文档演示边界
 

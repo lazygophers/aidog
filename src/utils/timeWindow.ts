@@ -9,7 +9,7 @@ export type TzMode = "local" | "utc";
 
 /** 窗口时区下拉候选（IANA 名）。存储即 IANA 串；__utc__ 哨兵 = 无 timezone（= UTC，向后兼容）。
  *  覆盖主流市场 + 用户所在地（瑞士）；完整 IANA 列表过长，收窄为常用集。
- *  formSections.tsx（peak_hours）与 WindowsEditModal.tsx（time_models）两编辑器共用。 */
+ *  formSections.tsx（peak_hours）与 WindowsEditModal.tsx（time_windows）两编辑器共用。 */
 export const WINDOW_TIMEZONES = [
   "__utc__", "Asia/Shanghai", "Asia/Tokyo", "Asia/Singapore", "Asia/Kolkata",
   "America/New_York", "America/Chicago", "America/Los_Angeles",

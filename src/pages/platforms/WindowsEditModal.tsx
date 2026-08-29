@@ -112,7 +112,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
   const handleSave = () => {
     onSave(local.map(w => ({
       ...w,
-      // multiplier 不在弹窗内编辑，time_models 窗口默认 1.0；保留传入值兼容旧数据
+      // multiplier 不在弹窗内编辑，time_windows 窗口默认 1.0；保留传入值兼容旧数据
       multiplier: typeof w.multiplier === "number" && w.multiplier > 0 ? w.multiplier : 1.0,
     })));
     onClose();

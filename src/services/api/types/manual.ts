@@ -456,7 +456,7 @@ export type ClientType = string;
 
 export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";
 
-/** 时段模型规则：按时段窗口切换主力模型档（time_models） */
+/** 时段模型规则：按时段窗口切换主力模型档（time_windows） */
 export interface TimeModelRule {
   /** 时段窗口列表（复用 TimeWindow 定义，multiplier 字段忽略） */
   windows: import("../../../domains/platforms/defaults").TimeWindow[];

@@ -9,11 +9,11 @@ import {
   serializeDisableDuringPeak,
   parseBuiltinToolCompat,
   serializeBuiltinToolCompat,
-  parsePlatformTimeModels,
-  serializePlatformTimeModels,
+  parsePlatformTimeWindows,
+  serializePlatformTimeWindows,
 } from "./platforms";
 
-// platform.extra 是单个 JSON 字符串，多个特性（devin / peak_hours / time_models /
+// platform.extra 是单个 JSON 字符串，多个特性（devin / peak_hours / time_windows /
 // disable_during_peak / breaker / newapi / mock）共享它。每对 parse/serialize 必须：
 // 空串、非法 JSON、数组、缺键 → 回默认；serialize 保留兄弟键；空值 → 删键而非写空。
 
@@ -176,18 +176,18 @@ describe("serializeBuiltinToolCompat", () => {
   });
 });
 
-describe("parsePlatformTimeModels", () => {
+describe("parsePlatformTimeWindows", () => {
   it.each(BAD)("非法/缺键 %s 回空数组", (extra) => {
-    expect(parsePlatformTimeModels(extra)).toEqual([]);
+    expect(parsePlatformTimeWindows(extra)).toEqual([]);
   });
 
-  it("time_models 非数组回空", () => {
-    expect(parsePlatformTimeModels('{"time_models":"x"}')).toEqual([]);
+  it("time_windows 非数组回空", () => {
+    expect(parsePlatformTimeWindows('{"time_windows":"x"}')).toEqual([]);
   });
 
   it("每条规则的 windows 逐个归一", () => {
-    const out = parsePlatformTimeModels(
-      '{"time_models":[{"windows":[{"start_hour":0,"end_hour":6,"multiplier":1}],"models":{"default":"m1"}}]}',
+    const out = parsePlatformTimeWindows(
+      '{"time_windows":[{"windows":[{"start_hour":0,"end_hour":6,"multiplier":1}],"models":{"default":"m1"}}]}',
     );
     expect(out).toHaveLength(1);
     expect(out[0].windows[0].end_hour).toBe(6);
@@ -195,19 +195,19 @@ describe("parsePlatformTimeModels", () => {
   });
 });
 
-describe("serializePlatformTimeModels", () => {
+describe("serializePlatformTimeWindows", () => {
   const rule = { windows: [{ start_hour: 0, end_hour: 6, multiplier: 1 }], models: { default: "m1" } };
 
   it("空数组 → 删键，保留兄弟键", () => {
-    const o = JSON.parse(serializePlatformTimeModels('{"mock":{},"time_models":[{}]}', []));
-    expect(o.time_models).toBeUndefined();
+    const o = JSON.parse(serializePlatformTimeWindows('{"mock":{},"time_windows":[{}]}', []));
+    expect(o.time_windows).toBeUndefined();
     expect(o.mock).toEqual({});
   });
 
   it("非空写入；非法/数组 extra 重建", () => {
-    expect(JSON.parse(serializePlatformTimeModels("", [rule])).time_models).toEqual([rule]);
-    expect(JSON.parse(serializePlatformTimeModels("bad", [rule])).time_models).toEqual([rule]);
-    expect(JSON.parse(serializePlatformTimeModels("[]", [rule])).time_models).toEqual([rule]);
+    expect(JSON.parse(serializePlatformTimeWindows("", [rule])).time_windows).toEqual([rule]);
+    expect(JSON.parse(serializePlatformTimeWindows("bad", [rule])).time_windows).toEqual([rule]);
+    expect(JSON.parse(serializePlatformTimeWindows("[]", [rule])).time_windows).toEqual([rule]);
   });
 });
 
@@ -219,13 +219,13 @@ describe("多特性共享 extra 串", () => {
     extra = serializeDevinConfig(extra, { org_id: "o1", devin_timeout: "", devin_mode: "" });
     extra = serializePlatformPeak(extra, [{ start_hour: 6, end_hour: 10, multiplier: 2 }]);
     extra = serializeDisableDuringPeak(extra, true);
-    extra = serializePlatformTimeModels(extra, [
+    extra = serializePlatformTimeWindows(extra, [
       { windows: [{ start_hour: 0, end_hour: 6, multiplier: 1 }], models: { default: "m1" } },
     ]);
 
     expect(parseDevinConfig(extra).org_id).toBe("o1");
     expect(parsePlatformPeak(extra)).toHaveLength(1);
     expect(parseDisableDuringPeak(extra)).toBe(true);
-    expect(parsePlatformTimeModels(extra)).toHaveLength(1);
+    expect(parsePlatformTimeWindows(extra)).toHaveLength(1);
   });
 });
