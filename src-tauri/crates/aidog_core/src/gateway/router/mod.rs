@@ -72,12 +72,12 @@ pub(crate) fn candidate_state(platform: &Platform, now_ms: i64, request_model: &
 /// `request_model`：当前请求模型名（peak_hours model scope 过滤，PRD 07-09 D2）。
 /// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
 pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64, request_model: &str) -> bool {
-    if !super::peak_hours::parse_disable_during_peak(&platform.extra) {
+    if !super::peak::parse_disable_during_peak(&platform.extra) {
         return false;
     }
     let ptype = platform.platform_type.wire_str();
-    let windows = super::peak_hours::peak_hours_for(&platform.extra, &ptype);
-    super::peak_hours::is_in_peak_window(&windows, now_ms, request_model)
+    let windows = super::peak::peak_for(&platform.extra, &ptype);
+    super::peak::is_in_peak_window(&windows, now_ms, request_model)
 }
 
 /// 有效权重 = weight × level_priority（per-group 平台优先级 1~10 乘性放大）。

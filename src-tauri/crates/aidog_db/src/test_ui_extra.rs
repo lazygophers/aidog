@@ -29,7 +29,7 @@ use crate::update_extra_key;
         let got = get_platform(&db, p.id).await.unwrap().unwrap();
         let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
         assert_eq!(v["_ui_expand_plat"], serde_json::json!(false));
-        // 业务键完整保留（peak_hours_for 等解析仍能正常工作）
+        // 业务键完整保留（peak_for 等解析仍能正常工作）
         assert_eq!(v["breaker"]["failure_threshold"], 3);
         assert_eq!(v["breaker"]["open_secs"], 30);
     }

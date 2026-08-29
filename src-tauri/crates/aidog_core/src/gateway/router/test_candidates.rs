@@ -183,7 +183,7 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
 
     // 极小概率运行在 01:00-02:00 UTC；选择窗口外的概率 22/24 ≈ 92%
     let now = db::now();
-    let (hour, _) = crate::gateway::peak_hours::utc_hour_weekday(now);
+    let (hour, _) = crate::gateway::peak::utc_hour_weekday(now);
     if hour == 1 {
         return; // 偶发跳过
     }
@@ -736,7 +736,7 @@ fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
         gpt: Some("glm-5.2".into()),
         haiku: Some("glm-4.5".into()),
     };
-    // extra 无用户覆盖 → peak_hours_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
+    // extra 无用户覆盖 → peak_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
     let p = glm_coding_platform("", platform_models);
     let eff = resolve_effective_models(&p, &[], PEAK_MS, "");
     // 命中高峰 → 切到 preset.models.peak（当前 registry 全档 glm-5.3-flash）
@@ -774,7 +774,7 @@ fn resolve_effective_models_user_time_models_overrides_peak_branch() {
         }]
     }).to_string();
     let p = glm_coding_platform(&extra, platform_models);
-    let time_rules = crate::gateway::time_models::parse_platform_time_models(&p.extra);
+    let time_rules = crate::gateway::time_windows::parse_platform_time_windows(&p.extra);
     let eff = resolve_effective_models(&p, &time_rules, PEAK_MS, "");
     // time_models 命中 → custom-model（不被 preset.models.peak 覆盖）
     assert_eq!(eff.default.as_deref(), Some("custom-model"), "user time_models 优先于 preset peak");
@@ -795,7 +795,7 @@ fn resolve_effective_models_protocol_without_peak_branch_unchanged() {
 
 #[test]
 fn resolve_effective_models_user_peak_hours_override_takes_effect() {
-    // 用户 extra.peak_hours 覆盖 preset 默认（peak_hours_for 优先返用户值）
+    // 用户 extra.peak_hours 覆盖 preset 默认（peak_for 优先返用户值）
     // 此处用户窗口设为非时段（start=end=0 退化 = 全天命中）→ is_in_peak_window=true
     let platform_models = PlatformModels {
         default: Some("glm-5.2".into()),

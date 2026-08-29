@@ -3,8 +3,8 @@
 use aidog_db as db;
 use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
-use super::super::time_models;
-use super::super::peak_hours;
+use super::super::time_windows;
+use super::super::peak;
 use super::model_mapping::resolve_model;
 use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
 use super::{candidate_state, sole_platform, RouteResult};
@@ -29,16 +29,16 @@ pub struct ScheduleCtx<'a> {
 /// Platform extra 解析缓存：避免每个候选重复解析 time_models 和 peak_hours
 #[derive(Clone, Debug)]
 struct ExtraCache {
-    time_models: Vec<serde_json::Value>,
-    peak_windows: Vec<peak_hours::PeakWindow>,
+    time_windows: Vec<serde_json::Value>,
+    peak_windows: Vec<peak::TimeWindow>,
 }
 
 impl ExtraCache {
     /// `platform_type` 直接取自 `Platform` 顶层字段（非 extra 内字段，caller 传入）。
     fn new(extra: &str, platform_type: &Protocol) -> Self {
-        let time_models = time_models::parse_platform_time_models(extra);
-        let peak_windows = peak_hours::peak_hours_for(extra, &platform_type.wire_str());
-        Self { time_models, peak_windows }
+        let time_windows = time_windows::parse_platform_time_windows(extra);
+        let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
+        Self { time_windows, peak_windows }
     }
 }
 
@@ -285,7 +285,7 @@ async fn handle_single_platform(
 
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
     let cache = extra_cache.get(&only.platform.id);
-    let peak_windows: &[peak_hours::PeakWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
+    let peak_windows: &[peak::TimeWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
     if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
@@ -301,7 +301,7 @@ async fn handle_single_platform(
             .clone()
             .unwrap_or_else(|| resolve_cli_proxy_target_model(provider, source_model))
     } else {
-        let time_rules: &[serde_json::Value] = cache.map(|c| c.time_models.as_slice()).unwrap_or_default();
+        let time_rules: &[serde_json::Value] = cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
         let effective_models = resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
         mapped_target_model
             .clone()
@@ -368,7 +368,7 @@ fn filter_candidates<'a>(
         if auto_state.is_none() {
             // 区分高峰禁用与其他排除原因（使用缓存避免重新解析）
             let cache = extra_cache.get(&gp.platform.id);
-            let peak_windows: &[peak_hours::PeakWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
+            let peak_windows: &[peak::TimeWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
             if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
                 peak_disabled_count += 1;
             }
@@ -504,7 +504,7 @@ fn build_route_results(
                 tm.clone()
             } else {
                 let cache = extra_cache.get(&gp.platform.id);
-                let time_rules: &[serde_json::Value] = cache.map(|c| c.time_models.as_slice()).unwrap_or_default();
+                let time_rules: &[serde_json::Value] = cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
                 let effective_models = resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
                 resolve_model(&effective_models, source_model)
             };
@@ -518,8 +518,8 @@ fn build_route_results(
 }
 
 /// 缓存版本的 peak_hours 窗口判定（避免重新解析 peak_hours）
-fn is_in_peak_window_cached(windows: &[peak_hours::PeakWindow], now_ms: i64, source_model: &str) -> bool {
-    peak_hours::is_in_peak_window(windows, now_ms, source_model)
+fn is_in_peak_window_cached(windows: &[peak::TimeWindow], now_ms: i64, source_model: &str) -> bool {
+    peak::is_in_peak_window(windows, now_ms, source_model)
 }
 
 /// 解析当前时段的有效模型配置（effective_models）—— 使用已解析的 time_models 缓存。
@@ -528,7 +528,7 @@ fn is_in_peak_window_cached(windows: &[peak_hours::PeakWindow], now_ms: i64, sou
 /// 1. **time_models**（用户级显式时段切换，`platform.extra.time_models`）：命中 → 用该时段 models；
 ///    用户已自定义 time_models 时不再应用 preset peak 分支（用户显式覆盖优先）。
 /// 2. **preset.models.peak**（preset 级高峰分支，PRD 07-11）：用户未配 time_models 且
-///    preset 提供本协议 `models.peak` 分支 + 当前命中 `peak_hours_for` 任一窗口 → 用 peak 替换。
+///    preset 提供本协议 `models.peak` 分支 + 当前命中 `peak_for` 任一窗口 → 用 peak 替换。
 ///    **设计意图：peak 分支为 preset 级硬约束，覆盖用户手工定制的 `platform.models`**
 ///    （等同 coding_plan 端点维度优先级；用户显式定制在高峰窗口期内不保留，如需保留请配
 ///    `time_models` 显式时段切换，其优先级高于 peak）。非 bug — 见 CLAUDE.md `models.peak` 段。
@@ -541,14 +541,14 @@ fn resolve_effective_models(
     now_ms: i64,
     source_model: &str,
 ) -> PlatformModels {
-    let mut effective = time_models::resolve_time_models(time_rules, &platform.models, now_ms);
+    let mut effective = time_windows::resolve_time_windows(time_rules, &platform.models, now_ms);
     // PRD 07-11：time_models 未自定义时查 preset.models.peak 分支
     if time_rules.is_empty() {
         // serde rename 裸名（如 "glm_coding"），同 is_peak_disabled / calc_est_cost 取名模式
         let ptype = platform.platform_type.wire_str();
-        if let Some(peak_models) = super::super::peak_hours::default_peak_models(&ptype) {
-            let windows = super::super::peak_hours::peak_hours_for(&platform.extra, &ptype);
-            if super::super::peak_hours::is_in_peak_window(&windows, now_ms, source_model) {
+        if let Some(peak_models) = super::super::peak::default_peak_models(&ptype) {
+            let windows = super::super::peak::peak_for(&platform.extra, &ptype);
+            if super::super::peak::is_in_peak_window(&windows, now_ms, source_model) {
                 effective = peak_models;
             }
         }

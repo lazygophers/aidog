@@ -15,9 +15,9 @@ use aidog_db::Db;
 /// **高峰只调价一次**：命中窗口且条目带 `peak` → 用模型 peak 绝对价，此时倍率压成 1.0
 /// （`PriceResolution::multiplier`）；条目无 `peak` 才乘平台 `peak_hours` 倍率。
 ///
-/// peak_hours（高峰/低峰倍率）混合源（PRD 决策 B），见 `peak_hours::peak_hours_for`：
+/// peak_hours（高峰/低峰倍率）混合源（PRD 决策 B），见 `peak::peak_for`：
 /// 1. `platform.extra.peak_hours`（用户覆盖，非空 → 用之）
-/// 2. `default_peak_hours(platform_type)`（bundled preset 默认）
+/// 2. `default_peak(platform_type)`（bundled preset 默认）
 /// 3. 1.0（无调整）
 ///
 /// 倍率 × base cost 落 `est_cost`（无新列；审计凭 time + platform_id 可重建窗口命中）。
@@ -45,13 +45,13 @@ pub async fn calc_est_cost(
     // 必须先于价格解析——`is_peak` 决定条目里的 peak 绝对价是否生效。
     let windows = if platform_id > 0 && created_at_ms > 0 {
         match aidog_db::get_platform(db, platform_id as u64).await {
-            Ok(Some(p)) => super::peak_hours::peak_hours_for(&p.extra, platform_type),
-            _ => super::peak_hours::default_peak_hours(platform_type),
+            Ok(Some(p)) => super::peak::peak_for(&p.extra, platform_type),
+            _ => super::peak::default_peak(platform_type),
         }
     } else {
         Vec::new()
     };
-    let is_peak = super::peak_hours::is_in_peak_window(&windows, created_at_ms, model_name);
+    let is_peak = super::peak::is_in_peak_window(&windows, created_at_ms, model_name);
 
     let resolved = aidog_db::resolve_price(
         db,
@@ -78,7 +78,7 @@ pub async fn calc_est_cost(
     let multiplier = if created_at_ms <= 0 {
         1.0
     } else {
-        resolved.multiplier(super::peak_hours::resolve_multiplier(&windows, created_at_ms, model_name))
+        resolved.multiplier(super::peak::resolve_multiplier(&windows, created_at_ms, model_name))
     };
     let rp = &resolved.price;
     est_cost_from(
@@ -114,10 +114,10 @@ pub fn est_cost_from(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::peak_hours::PeakWindow;
+    use crate::gateway::peak::TimeWindow;
 
-    fn window(start_hour: i32, end_hour: i32, multiplier: f64) -> PeakWindow {
-        PeakWindow {
+    fn window(start_hour: i32, end_hour: i32, multiplier: f64) -> TimeWindow {
+        TimeWindow {
             start_hour,
             end_hour,
             multiplier,
@@ -145,7 +145,7 @@ mod tests {
         // 2026-01-01 08:00:00 UTC
         let created_at_ms = 1_767_254_400_000;
         let windows = vec![window(6, 10, 2.0)];
-        let mult = super::super::peak_hours::resolve_multiplier(&windows, created_at_ms, "claude-3");
+        let mult = super::super::peak::resolve_multiplier(&windows, created_at_ms, "claude-3");
         assert_eq!(mult, 2.0);
         let base = 1000.0 * 3.0 / 1_000_000.0;
         let cost = est_cost_from(1000, 0, 0, 3.0 / 1_000_000.0, 0.0, 0.0, mult);
@@ -167,7 +167,7 @@ mod tests {
     fn peak_absolute_price_suppresses_multiplier() {
         let created_at_ms = 1_767_254_400_000; // 2026-01-01 08:00:00 UTC，命中 6-10 窗口
         let windows = vec![window(6, 10, 3.0)];
-        let raw = super::super::peak_hours::resolve_multiplier(&windows, created_at_ms, "glm-5.2");
+        let raw = super::super::peak::resolve_multiplier(&windows, created_at_ms, "glm-5.2");
         // 条目带 peak 绝对价（3 倍价直接写在条目里）
         let pd = serde_json::json!({
             "input_cost_per_token": 1.0e-6,

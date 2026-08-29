@@ -4,13 +4,13 @@
 //! `calc_est_cost` 按 `platform.extra.peak_hours`（用户覆盖）→ bundled preset default
 //! → 1.0 的混合源拿窗口，再 first-match 命中算 multiplier。
 
-pub use aidog_db::models::PeakWindow;
+pub use aidog_db::models::TimeWindow;
 use chrono::{DateTime, Utc};
 
 
 /// registry preset 读取入口：`aidog_db::registry::effective_presets`（DB 同步值优先，
 /// 未同步过回落编译期内置那份）。缓存句柄 clone 一次即用，热路径不做 DB IO、不重建文档。
-/// 协议缺失 / 解析失败 → `default_peak_hours` 返空 → caller 退 1.0。
+/// 协议缺失 / 解析失败 → `default_peak` 返空 → caller 退 1.0。
 use super::registry::effective_presets;
 
 /// t 的 UTC 小时 (0-23) 与 weekday (0=Sun…6=Sat)。
@@ -59,7 +59,7 @@ pub fn wall_time(epoch_ms: i64, tz: Option<&str>) -> (i32, i32, i32, i32) {
 ///   - 跨天 (end_min <= start_min)：`t_min >= start_min || t_min < end_min`
 ///   - 退化 (end_min == start_min)：全天命中（兼容旧 hour 精度 start==end 语义）
 /// - days_of_week / days_of_month 同时 Some → AND（UI 保证互斥，此为兜底）
-pub(crate) fn hit(w: &PeakWindow, hour: i32, minute: i32, weekday: i32, day_of_month: i32) -> bool {
+pub(crate) fn hit(w: &TimeWindow, hour: i32, minute: i32, weekday: i32, day_of_month: i32) -> bool {
     if let Some(days) = &w.days_of_week
         && !days.contains(&weekday) {
             return false;
@@ -85,7 +85,7 @@ pub(crate) fn hit(w: &PeakWindow, hour: i32, minute: i32, weekday: i32, day_of_m
 /// - `""`（空串）= 调用方无 model 上下文 → 跳过 model 过滤（兼容旧行为，向后兼容）
 /// - 窗口 `models` = None → 全平台生效（向后兼容）
 /// - 窗口 `models` = Some(patterns) → request_model 须匹配某 pattern（exact 或 `prefix*` 通配）
-pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64, request_model: &str) -> f64 {
+pub fn resolve_multiplier(windows: &[TimeWindow], epoch_ms: i64, request_model: &str) -> f64 {
     if windows.is_empty() {
         return 1.0;
     }
@@ -113,7 +113,7 @@ pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64, request_model: 
 /// 仅返回 bool（caller 不关心 multiplier 值）。`disable_during_peak` 开关的路由排除用此函数。
 ///
 /// `request_model` 语义同 `resolve_multiplier`：空串 = 无 model 上下文（跳过 model 过滤）。
-pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64, request_model: &str) -> bool {
+pub fn is_in_peak_window(windows: &[TimeWindow], epoch_ms: i64, request_model: &str) -> bool {
     if windows.is_empty() {
         return false;
     }
@@ -132,7 +132,7 @@ pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64, request_model: &
 /// - 否则（含二者均 None = 永久/立即可用）→ true
 ///
 /// 判定顺序：生效期 → 时间 → model（见 design §1.2，生效期优先级最高）。
-fn period_active(w: &PeakWindow, epoch_sec: i64) -> bool {
+fn period_active(w: &TimeWindow, epoch_sec: i64) -> bool {
     if let Some(s) = w.start_at
         && epoch_sec < s {
             return false;
@@ -148,7 +148,7 @@ fn period_active(w: &PeakWindow, epoch_sec: i64) -> bool {
 /// - `request_model == ""` → true（调用方无上下文，跳过过滤，兼容旧行为）
 /// - `w.models == None` → true（窗口未限定，全平台生效）
 /// - `w.models == Some(patterns)` → 任一 pattern 命中（exact 或通配）
-fn window_models_hit(w: &PeakWindow, request_model: &str) -> bool {
+fn window_models_hit(w: &TimeWindow, request_model: &str) -> bool {
     if request_model.is_empty() {
         return true;
     }
@@ -170,12 +170,12 @@ fn model_match(pattern: &str, request_model: &str) -> bool {
 
 /// 混合源取某平台 peak_hours 窗口：用户 `extra.peak_hours` 覆盖优先；空/缺 → bundled preset 默认。
 /// 等价于 `db::stats_today::platform_peak_hours` 的纯函数版（无 DB 查询），供路由层直接用。
-pub fn peak_hours_for(extra: &str, protocol: &str) -> Vec<PeakWindow> {
-    let user = parse_platform_peak_hours(extra);
+pub fn peak_for(extra: &str, protocol: &str) -> Vec<TimeWindow> {
+    let user = parse_platform_peak(extra);
     if !user.is_empty() {
         return user;
     }
-    default_peak_hours(protocol)
+    default_peak(protocol)
 }
 
 /// 从 `platform.extra` JSON 解析 `disable_during_peak` 字段；缺失/非法/非 bool → false（默认）。
@@ -185,13 +185,13 @@ pub fn parse_disable_during_peak(extra: &str) -> bool {
 
 /// 按 protocol 名（serde rename 裸名，如 "deepseek"）查生效 preset（DB 优先）的默认窗口。
 /// protocol 缺失 / 无 peak_hours 字段 / 解析失败 → 空 Vec（caller 退 1.0）。
-pub fn default_peak_hours(protocol: &str) -> Vec<PeakWindow> {
+pub fn default_peak(protocol: &str) -> Vec<TimeWindow> {
     let doc = effective_presets();
-    peak_hours_in(&doc, protocol)
+    peak_in(&doc, protocol)
 }
 
-/// [`default_peak_hours`] 的纯函数核心：从任意一篇 presets 文档取某协议的窗口。
-pub fn peak_hours_in(doc: &serde_json::Value, protocol: &str) -> Vec<PeakWindow> {
+/// [`default_peak`] 的纯函数核心：从任意一篇 presets 文档取某协议的窗口。
+pub fn peak_in(doc: &serde_json::Value, protocol: &str) -> Vec<TimeWindow> {
     let Some(proto_obj) = doc.get("protocols").and_then(|p| p.get(protocol)) else {
         return Vec::new();
     };
@@ -208,7 +208,7 @@ pub fn peak_hours_in(doc: &serde_json::Value, protocol: &str) -> Vec<PeakWindow>
 /// 返回解析后的 PlatformModels；protocol 缺失 / 无 models.peak 字段 / 解析失败 → None
 /// （caller 退 platform.models 默认）。仅 glm_coding 等少数协议 preset 带 peak 分支。
 ///
-/// 与 `default_peak_hours` 同源：`effective_presets()`（DB 同步值优先，禁抄第二份）——
+/// 与 `default_peak` 同源：`effective_presets()`（DB 同步值优先，禁抄第二份）——
 /// 否则前端徽标按新同步的窗口显示「当前: 高峰」，后端仍按二进制里的旧窗口路由计价。
 /// 路由层 candidates.rs 命中高峰窗口且 preset 提供本协议 peak 分支时用此替换 effective_models。
 pub fn default_peak_models(protocol: &str) -> Option<crate::gateway::models::PlatformModels> {
@@ -224,7 +224,7 @@ pub fn peak_models_in(doc: &serde_json::Value, protocol: &str) -> Option<crate::
 }
 
 /// 从 `platform.extra` JSON 字符串解析 `peak_hours` 字段；非法 / 缺失 → 空。
-pub fn parse_platform_peak_hours(extra: &str) -> Vec<PeakWindow> {
+pub fn parse_platform_peak(extra: &str) -> Vec<TimeWindow> {
     crate::gateway::models::PlatformExtra::parse(extra).peak_hours
 }
 
@@ -232,8 +232,8 @@ pub fn parse_platform_peak_hours(extra: &str) -> Vec<PeakWindow> {
 mod tests {
     use super::*;
 
-    fn w(start: i32, end: i32, mult: f64) -> PeakWindow {
-        PeakWindow {
+    fn w(start: i32, end: i32, mult: f64) -> TimeWindow {
+        TimeWindow {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
@@ -248,8 +248,8 @@ mod tests {
         }
     }
 
-    fn wd(start: i32, end: i32, mult: f64, days: Vec<i32>) -> PeakWindow {
-        PeakWindow {
+    fn wd(start: i32, end: i32, mult: f64, days: Vec<i32>) -> TimeWindow {
+        TimeWindow {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
@@ -265,8 +265,8 @@ mod tests {
     }
 
     /// minute 精度窗口构造 helper
-    fn w_min(start_h: i32, start_m: i32, end_h: i32, end_m: i32, mult: f64) -> PeakWindow {
-        PeakWindow {
+    fn w_min(start_h: i32, start_m: i32, end_h: i32, end_m: i32, mult: f64) -> TimeWindow {
+        TimeWindow {
             start_hour: start_h,
             end_hour: end_h,
             multiplier: mult,
@@ -282,8 +282,8 @@ mod tests {
     }
 
     /// day_of_month 窗口构造 helper
-    fn w_dom(start: i32, end: i32, mult: f64, doms: Vec<i32>) -> PeakWindow {
-        PeakWindow {
+    fn w_dom(start: i32, end: i32, mult: f64, doms: Vec<i32>) -> TimeWindow {
+        TimeWindow {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
@@ -299,8 +299,8 @@ mod tests {
     }
 
     /// 带 model scope 的窗口构造 helper（PRD 07-09 D2）
-    fn w_models(start: i32, end: i32, mult: f64, models: Vec<String>) -> PeakWindow {
-        PeakWindow {
+    fn w_models(start: i32, end: i32, mult: f64, models: Vec<String>) -> TimeWindow {
+        TimeWindow {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
@@ -316,8 +316,8 @@ mod tests {
     }
 
     /// 带生效期窗口构造 helper（PRD 07-09 D2 福利期切换）
-    fn w_period(start: i32, end: i32, mult: f64, start_at: Option<i64>, end_at: Option<i64>) -> PeakWindow {
-        PeakWindow {
+    fn w_period(start: i32, end: i32, mult: f64, start_at: Option<i64>, end_at: Option<i64>) -> TimeWindow {
+        TimeWindow {
             start_hour: start,
             end_hour: end,
             multiplier: mult,
@@ -409,7 +409,7 @@ mod tests {
     #[test]
     fn hit_days_of_month_and_week_mutually_some_and_defense() {
         // 同时 Some（UI 应避免，hit 层 AND 兜底）：周日(0) 且 15 日
-        let win = PeakWindow {
+        let win = TimeWindow {
             start_hour: 0,
             end_hour: 24,
             multiplier: 1.0,
@@ -503,7 +503,7 @@ mod tests {
     #[test]
     fn resolve_multiplier_respects_window_timezone() {
         // 窗口按北京时间 9-12 高峰 ×2：UTC 01:00（北京 09:00）命中；UTC 05:00（北京 13:00）不命中
-        let win = PeakWindow {
+        let win = TimeWindow {
             start_hour: 9,
             end_hour: 12,
             multiplier: 2.0,
@@ -518,14 +518,14 @@ mod tests {
         };
         let ms_hit = DateTime::<Utc>::from_timestamp(1704590800, 0).unwrap().timestamp_millis(); // 2024-01-07T01:26:40Z
         let ms_miss = DateTime::<Utc>::from_timestamp(1704605200, 0).unwrap().timestamp_millis(); // 2024-01-07T05:26:40Z
-        assert_eq!(resolve_multiplier(&[win.clone()], ms_hit, ""), 2.0);
+        assert_eq!(resolve_multiplier(std::slice::from_ref(&win), ms_hit, ""), 2.0);
         assert_eq!(resolve_multiplier(&[win], ms_miss, ""), 1.0);
     }
 
     #[test]
     fn resolve_multiplier_absent_timezone_uses_utc_backward_compat() {
         // 旧数据无 timezone：窗口 6-10 按 UTC 解释，行为与迁移前完全一致
-        let win = PeakWindow {
+        let win = TimeWindow {
             start_hour: 6,
             end_hour: 10,
             multiplier: 3.0,
@@ -548,7 +548,7 @@ mod tests {
     fn peak_window_backward_compat_no_new_fields() {
         // 旧数据仅含 start_hour / end_hour / multiplier / days_of_week
         let json = r#"{"start_hour":14,"end_hour":22,"multiplier":1.5}"#;
-        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        let parsed: TimeWindow = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.start_hour, 14);
         assert_eq!(parsed.end_hour, 22);
         assert_eq!(parsed.multiplier, 1.5);
@@ -570,7 +570,7 @@ mod tests {
             "end_minute": 1,
             "days_of_month": [1, 15]
         }"#;
-        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        let parsed: TimeWindow = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.start_minute, Some(1));
         assert_eq!(parsed.end_minute, Some(1));
         assert_eq!(parsed.days_of_month, Some(vec![1, 15]));
@@ -585,7 +585,7 @@ mod tests {
             "multiplier": 3.0,
             "models": ["glm-5.2", "glm-5-turbo"]
         }"#;
-        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        let parsed: TimeWindow = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.models, Some(vec!["glm-5.2".to_string(), "glm-5-turbo".to_string()]));
     }
 
@@ -593,7 +593,7 @@ mod tests {
     fn peak_window_models_null_treated_as_none() {
         // 显式 null → None（serde default + Option 双重保险）
         let json = r#"{"start_hour":6,"end_hour":10,"multiplier":3.0,"models":null}"#;
-        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        let parsed: TimeWindow = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.models, None);
     }
 
@@ -609,7 +609,7 @@ mod tests {
             "start_at": 1759276800,
             "end_at": 1800000000
         }"#;
-        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        let parsed: TimeWindow = serde_json::from_str(json).unwrap();
         assert_eq!(parsed.start_at, Some(1759276800));
         assert_eq!(parsed.end_at, Some(1800000000));
     }
@@ -652,7 +652,7 @@ mod tests {
         // 当前 9 月（福利期）+ 时间 7 点（落高峰 6-10）：高峰排前 first-match → 命中 3.0
         let windows = vec![
             w_models(6, 10, 3.0, vec!["glm-5.2".into()]),
-            PeakWindow {
+            TimeWindow {
                 start_hour: 0,
                 end_hour: 24,
                 multiplier: 2.0,
@@ -676,7 +676,7 @@ mod tests {
         // 非高峰时段 + 兜底窗口未启用（start_at 在未来）→ 跳过兜底 → 返默认 1.0（福利期 1 倍抵扣）
         let windows = vec![
             w_models(6, 10, 3.0, vec!["glm-5.2".into()]),
-            PeakWindow {
+            TimeWindow {
                 start_hour: 0,
                 end_hour: 24,
                 multiplier: 2.0,
@@ -707,34 +707,34 @@ mod tests {
         assert!(!is_in_peak_window(&windows_expired, ms, ""), "已失效 → 不命中");
     }
 
-    // ── parse_platform_peak_hours ──
+    // ── parse_platform_peak ──
 
     #[test]
     fn parse_extra_peak_hours_user_override() {
         let extra = r#"{"peak_hours":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
-        let v = parse_platform_peak_hours(extra);
+        let v = parse_platform_peak(extra);
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].multiplier, 1.5);
     }
 
     #[test]
     fn parse_extra_empty_returns_empty() {
-        assert!(parse_platform_peak_hours("").is_empty());
-        assert!(parse_platform_peak_hours("not-json").is_empty());
-        assert!(parse_platform_peak_hours("{}").is_empty());
+        assert!(parse_platform_peak("").is_empty());
+        assert!(parse_platform_peak("not-json").is_empty());
+        assert!(parse_platform_peak("{}").is_empty());
     }
 
-    // ── default_peak_hours ──
+    // ── default_peak ──
 
     #[test]
-    fn default_peak_hours_unknown_protocol_empty() {
-        assert!(default_peak_hours("__never_exists__").is_empty());
+    fn default_peak_unknown_protocol_empty() {
+        assert!(default_peak("__never_exists__").is_empty());
     }
 
     #[test]
-    fn default_peak_hours_anthropic_currently_empty() {
+    fn default_peak_anthropic_currently_empty() {
         // 当前 preset JSON 未手填 peak_hours，absent → 空（向后兼容）
-        assert!(default_peak_hours("anthropic").is_empty());
+        assert!(default_peak("anthropic").is_empty());
     }
 
     /// 票 13-D：路由/计费读的窗口必须跟着 DB 同步下来的 preset 走，不能钉死在二进制内置那份
@@ -742,7 +742,7 @@ mod tests {
     #[test]
     fn peak_windows_follow_db_synced_preset() {
         // bundled 里 anthropic 没有窗口
-        assert!(peak_hours_in(aidog_db::registry::presets(), "anthropic").is_empty());
+        assert!(peak_in(aidog_db::registry::presets(), "anthropic").is_empty());
         // 上游新增了 anthropic 的高峰窗口并同步入库 → 同一读取链立刻给出新窗口
         let synced = aidog_db::registry::merge_presets_doc(
             [(
@@ -752,7 +752,7 @@ mod tests {
             )],
             Some(1),
         );
-        let w = peak_hours_in(&synced, "anthropic");
+        let w = peak_in(&synced, "anthropic");
         assert_eq!(w.len(), 1);
         assert_eq!(w[0].multiplier, 3.0);
         assert_eq!(
@@ -760,7 +760,7 @@ mod tests {
             Some("claude-peak".to_string())
         );
         // 未被 DB 覆盖的协议照旧走 bundled 值
-        assert_eq!(peak_hours_in(&synced, "glm_coding").len(), peak_hours_in(aidog_db::registry::presets(), "glm_coding").len());
+        assert_eq!(peak_in(&synced, "glm_coding").len(), peak_in(aidog_db::registry::presets(), "glm_coding").len());
     }
 
     // ── is_in_peak_window ──
@@ -885,22 +885,22 @@ mod tests {
         assert!(is_in_peak_window(&windows, ms, ""));
     }
 
-    // ── peak_hours_for（混合源）──
+    // ── peak_for（混合源）──
 
     #[test]
-    fn peak_hours_for_user_override_wins() {
+    fn peak_for_user_override_wins() {
         let user_extra = r#"{"peak_hours":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
         // preset 默认 anthropic 当前为空；用户覆盖应优先
-        let v = peak_hours_for(user_extra, "anthropic");
+        let v = peak_for(user_extra, "anthropic");
         assert_eq!(v.len(), 1);
         assert_eq!(v[0].multiplier, 1.5);
     }
 
     #[test]
-    fn peak_hours_for_empty_extra_falls_back_preset() {
+    fn peak_for_empty_extra_falls_back_preset() {
         // anthropic 当前 preset 无 peak_hours → 空 Vec（caller 退 1.0 / is_in_peak_window=false）
-        assert!(peak_hours_for("", "anthropic").is_empty());
-        assert!(peak_hours_for("{}", "anthropic").is_empty());
+        assert!(peak_for("", "anthropic").is_empty());
+        assert!(peak_for("{}", "anthropic").is_empty());
     }
 
     // ── parse_disable_during_peak ──
