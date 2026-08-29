@@ -149,9 +149,9 @@ def build_view_data():
         cp_model_ids = ((p.get("model_list") or {}).get("coding_plan")) or []
         cp_model_rows = [_model_row(mid, key, models) for mid in cp_model_ids]
 
-        # peak_hours（per-protocol，UTC+0；absent = 无调整）
-        peak_hours = p.get("peak_hours") or []
-        if peak_hours:
+        # peak（per-protocol，UTC+0；absent = 无调整）
+        peak = p.get("peak") or []
+        if peak:
             protocols_with_peak += 1
 
         # 槽位映射（default / coding_plan 分支）
@@ -205,7 +205,7 @@ def build_view_data():
             "model_count": len(model_rows),
             "has_override": has_override,
             "min_input_M": min_input,
-            "peak_hours": peak_hours,
+            "peak": peak,
             "slots_default": slots_default,
             "slots_coding_plan": slots_coding_plan,
             "is_coding_plan": is_cp,
@@ -436,11 +436,11 @@ HTML_TEMPLATE = """<!doctype html>
   .price-bar-fill.mid { background: var(--amber); }
   .price-bar-fill.high { background: var(--red); }
 
-  /* 槽位映射 / peak_hours 紧凑表 */
+  /* 槽位映射 / peak 紧凑表 */
   .compact td, .compact th { padding: 4px 6px; font-size: 11.5px; }
   .slot-name { font-family: ui-monospace, Menlo, monospace; color: var(--accent); }
 
-  /* peak_hours 表 */
+  /* peak 表 */
   .peak-mult { font-family: ui-monospace, Menlo, monospace; font-weight: 600; }
   .peak-mult.up { color: var(--red); }
   .peak-mult.down { color: var(--green); }
@@ -500,7 +500,7 @@ HTML_TEMPLATE = """<!doctype html>
     <option value="">所有 client_type</option>
   </select>
   <label><input type="checkbox" id="only-override"> 仅 override</label>
-  <label><input type="checkbox" id="has-peak"> 有 peak_hours</label>
+  <label><input type="checkbox" id="has-peak"> 有 peak</label>
   <label><input type="checkbox" id="has-cp"> 有 coding_plan 端点</label>
   <label><input type="checkbox" id="is-cp"> is_coding_plan</label>
 </header>
@@ -606,8 +606,8 @@ function logoHtml(p) {
   return esc((p.name || '?').slice(0,1).toUpperCase());
 }
 
-// peak_hours 窗口格式化（UTC+0，与 Rust gateway::peak_hours 一致，不转本地时区）
-function fmtPeakWindow(w) {
+// peak 窗口格式化（UTC+0，与 Rust gateway::peak 一致，不转本地时区）
+function fmtTimeWindow(w) {
   function pad(n) { return String(n).padStart(2, '0'); }
   const sH = w.start_hour ?? 0;
   const eH = w.end_hour ?? 0;
@@ -641,20 +641,20 @@ function fmtPeakActive(w) {
 }
 
 function peakTableHtml(p) {
-  if (!p.peak_hours || !p.peak_hours.length) return '';
-  const rows = p.peak_hours.map(w => {
+  if (!p.peak || !p.peak.length) return '';
+  const rows = p.peak.map(w => {
     const mult = w.multiplier;
     const cls = mult > 1 ? 'up' : (mult < 1 ? 'down' : '');
     const active = fmtPeakActive(w);
     return '<tr>'
       + '<td><span class="peak-mult ' + cls + '">×' + mult + '</span></td>'
-      + '<td>' + esc(fmtPeakWindow(w)) + '</td>'
+      + '<td>' + esc(fmtTimeWindow(w)) + '</td>'
       + '<td>' + esc(fmtPeakDays(w)) + '</td>'
       + '<td class="peak-scope">' + esc(fmtPeakScope(w)) + (active ? ' · <span class="peak-scope">' + esc(active) + '</span>' : '') + '</td>'
       + '</tr>';
   }).join('');
   return '<div class="subsec">'
-    + '<div class="subsec-title peak-title">⚡ peak_hours（UTC+0，first-match wins）</div>'
+    + '<div class="subsec-title peak-title">⚡ peak（UTC+0，first-match wins）</div>'
     + '<table class="compact"><thead><tr>'
     + '<th class="num">倍率</th><th>时段</th><th>适用日</th><th>模型范围</th>'
     + '</tr></thead><tbody>' + rows + '</tbody></table></div>';
@@ -709,7 +709,7 @@ function cardHtml(p) {
   if (p.source_urls.pricing) links.push('<a href="' + esc(p.source_urls.pricing) + '" target="_blank">定价</a>');
   if (p.source_urls.docs) links.push('<a href="' + esc(p.source_urls.docs) + '" target="_blank">文档</a>');
 
-  const hasPeak = p.peak_hours && p.peak_hours.length > 0;
+  const hasPeak = p.peak && p.peak.length > 0;
   const hasCpBranch = (p.slots_coding_plan && Object.keys(p.slots_coding_plan).length)
     || (p.models_coding_plan && p.models_coding_plan.length);
 
@@ -927,8 +927,8 @@ function applyFilter() {
       return bmax - amax;
     }
     if (sortKey === 'has_peak') {
-      const ap = (a.peak_hours && a.peak_hours.length) ? 1 : 0;
-      const bp = (b.peak_hours && b.peak_hours.length) ? 1 : 0;
+      const ap = (a.peak && a.peak.length) ? 1 : 0;
+      const bp = (b.peak && b.peak.length) ? 1 : 0;
       if (ap !== bp) return bp - ap;
       return (a.name || '').localeCompare(b.name || '');
     }
@@ -939,13 +939,13 @@ function applyFilter() {
   grid.innerHTML = '';
   for (const p of proto) {
     if (onlyOv && !p.has_override) continue;
-    if (fPeak && !(p.peak_hours && p.peak_hours.length)) continue;
+    if (fPeak && !(p.peak && p.peak.length)) continue;
     if (fCp && p.endpoints_coding_plan.length === 0) continue;
     if (fIscp && !p.is_coding_plan) continue;
     if (ct && p.client_type !== ct) continue;
     // 搜索：name / key / 模型 id / 槽位 model_id / peak scope
     const slotIds = Object.values(p.slots_default || {}).concat(Object.values(p.slots_coding_plan || {}));
-    const peakScope = (p.peak_hours || []).flatMap(w => w.models || []);
+    const peakScope = (p.peak || []).flatMap(w => w.models || []);
     const modelIds = p.models.map(m => m.id).concat((p.models_coding_plan || []).map(m => m.id));
     const haystack = [
       (p.name || '').toLowerCase(), p.key.toLowerCase(),

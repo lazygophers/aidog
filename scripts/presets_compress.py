@@ -3,7 +3,7 @@
 
 Folds the following leaves onto single lines (key + value on one line), while
 keeping structural layers (top-level / protocol objects / section keys) and
-peak_hours windows multi-line for editability:
+peak windows multi-line for editability:
 
 - ``model_list``  protocol field       -> entire value single line
 - ``name``        protocol field       -> entire value single line (8 locale map)
@@ -41,7 +41,7 @@ INLINE_VALUE_KEYS = {"model_list", "name", "desc", "source_urls"}
 # protocol-level keys rendered as multi-line wrappers with inline children.
 # ``models`` keeps its wrapper multi-line (one line per branch) with each
 # branch's slot map inline; ``endpoints`` renders endpoint objects one per
-# line. ``peak_hours`` is intentionally untouched (default multi-line
+# line. ``peak`` is intentionally untouched (default multi-line
 # recursion) so its window objects stay editable.
 WRAPPER_KEYS = {"models", "endpoints"}
 
@@ -105,7 +105,7 @@ def serialize(obj, indent: int) -> str:
                         )
                 lines.append(f"{inner_pad}}}{comma}")
             else:
-                # default: standard multi-line recursion (peak_hours, scalars,
+                # default: standard multi-line recursion (peak, scalars,
                 # any unexpected shape)
                 lines.append(
                     f"{inner_pad}{jk}: {serialize(value, indent + 1)}{comma}"
@@ -115,7 +115,7 @@ def serialize(obj, indent: int) -> str:
         if not obj:
             return "[]"
         inner_pad = "  " * (indent + 1)
-        # default list: each element on its own line (peak_hours windows, etc.)
+        # default list: each element on its own line (peak windows, etc.)
         items = list(obj)
         lines = []
         for idx, item in enumerate(items):

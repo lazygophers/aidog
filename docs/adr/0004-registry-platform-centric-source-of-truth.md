@@ -16,7 +16,7 @@ per-(模型, 平台) 属性。
 1. **新真值源** `src-tauri/defaults/registry/`，**以平台为基准拆分**：
    - `registry/index.json`：列出全部平台（名称、code、platform 文件与模型文件位置）
    - `registry/platforms/<code>/platform.json`：该平台（协议）的 endpoints / models / model_list /
-     peak_hours（由 platform-presets.json 拆分收编，一协议一文件）
+     peak（由 platform-presets.json 拆分收编，一协议一文件；决策时键名 `peak_hours`，2026-08-29 全链路更名 `peak`）
    - `registry/platforms/<code>/models/<model>.json`：该平台视角的模型条目
 2. **同一模型每平台独立一条 Model Entry**（定价/能力/入参可不同），跨平台关联靠双 id：
    `model_id`（平台真实请求名）+ Canonical Model（内部统一 id，转换映射与聚合用）。
