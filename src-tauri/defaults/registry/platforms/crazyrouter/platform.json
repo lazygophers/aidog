@@ -138,22 +138,24 @@
   "color": "#FF6B6B",
   "peak_hours": [
     {
-      "start_hour": 1,
-      "end_hour": 4,
+      "start_hour": 9,
+      "end_hour": 12,
       "multiplier": 1.0,
       "models": [
         "deepseek-v4-flash",
         "deepseek-v4-pro"
-      ]
+      ],
+      "timezone": "Asia/Shanghai"
     },
     {
-      "start_hour": 6,
-      "end_hour": 10,
+      "start_hour": 14,
+      "end_hour": 18,
       "multiplier": 1.0,
       "models": [
         "deepseek-v4-flash",
         "deepseek-v4-pro"
-      ]
+      ],
+      "timezone": "Asia/Shanghai"
     }
   ]
 }

@@ -67,8 +67,8 @@
   "color": "#3B5FEC",
   "peak_hours": [
     {
-      "start_hour": 6,
-      "end_hour": 10,
+      "start_hour": 14,
+      "end_hour": 18,
       "multiplier": 3,
       "days_of_week": [
         1,
@@ -80,7 +80,8 @@
       "models": [
         "glm-5.3",
         "glm-5.3-flash"
-      ]
+      ],
+      "timezone": "Asia/Shanghai"
     }
   ]
 }

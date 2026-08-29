@@ -107,26 +107,26 @@
     "free"
   ],
   "color": "#6E56CF",
-  "peak_hours": {
-    "default": [
-      {
-        "start_hour": 1,
-        "end_hour": 4,
-        "multiplier": 1.0,
-        "models": [
-          "deepseek-v4-pro",
-          "deepseek-v4-flash"
-        ]
-      },
-      {
-        "start_hour": 6,
-        "end_hour": 10,
-        "multiplier": 1.0,
-        "models": [
-          "deepseek-v4-pro",
-          "deepseek-v4-flash"
-        ]
-      }
-    ]
-  }
+  "peak_hours": [
+    {
+      "start_hour": 9,
+      "end_hour": 12,
+      "multiplier": 1.0,
+      "models": [
+        "deepseek-v4-pro",
+        "deepseek-v4-flash"
+      ],
+      "timezone": "Asia/Shanghai"
+    },
+    {
+      "start_hour": 14,
+      "end_hour": 18,
+      "multiplier": 1.0,
+      "models": [
+        "deepseek-v4-pro",
+        "deepseek-v4-flash"
+      ],
+      "timezone": "Asia/Shanghai"
+    }
+  ]
 }

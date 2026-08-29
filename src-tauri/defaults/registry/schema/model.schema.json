@@ -16,28 +16,28 @@
     "model_id": {
       "type": "string",
       "minLength": 1,
-      "description": "平台真实请求名，须与文件名（去 .json）一致，@ / : 等特殊字符原样保留。"
+      "description": "【必填】平台真实请求名，须与文件名（去 .json）一致，@ / : 等特殊字符原样保留。"
     },
     "canonical_model": {
       "type": "string",
       "minLength": 1,
-      "description": "跨平台聚合键。写入层缺省回落 model_id（model_entry.rs），schema 层必填。"
+      "description": "【必填】跨平台聚合键。写入层缺省回落 model_id（model_entry.rs），schema 层必填。"
     },
     "display_name": {
       "type": "string",
-      "description": "展示名（单字符串不译）。缺省 / 空串 / 纯空白由读取层回落 model_id（票 T10）。"
+      "description": "【可选】展示名（单字符串不译）。缺省 / 空串 / 纯空白由读取层回落 model_id（票 T10）。"
     },
     "family": {
       "type": "string",
-      "description": "模型家族（如 claude / glm）。"
+      "description": "【可选】模型家族（如 claude / glm）。"
     },
     "version": {
       "type": "string",
-      "description": "版本号字符串。"
+      "description": "【可选】版本号字符串。"
     },
     "predecessor": {
       "type": "string",
-      "description": "上一代模型 id，用于 UI 前后代链。"
+      "description": "【可选】上一代模型 id，用于 UI 前后代链。"
     },
     "capabilities": {
       "type": "array",
@@ -52,7 +52,7 @@
           "embedding"
         ]
       },
-      "description": "能力标签枚举（text 必含；vision / image_gen / audio / embedding 按需）。"
+      "description": "【必填】能力标签枚举（text 必含；vision / image_gen / audio / embedding 按需）。"
     },
     "builtin_tools_excluded": {
       "type": "array",
@@ -60,46 +60,46 @@
         "type": "string",
         "minLength": 1
       },
-      "description": "该模型不支持的内置工具名单。"
+      "description": "【可选】该模型不支持的内置工具名单。"
     },
     "max_input_tokens": {
       "type": "integer",
       "minimum": 1,
-      "description": "最大输入 token 数。"
+      "description": "【可选】最大输入 token 数。"
     },
     "max_output_tokens": {
       "type": "integer",
       "minimum": 1,
-      "description": "最大输出 token 数。"
+      "description": "【可选】最大输出 token 数。"
     },
     "context_window": {
       "type": "integer",
       "minimum": 1,
-      "description": "上下文窗口总 token 数。"
+      "description": "【可选】上下文窗口总 token 数。"
     },
     "official": {
       "type": "boolean",
-      "description": "是否官方渠道条目。不变量：每个 model_id 至少有一个平台条目 official=true（test_registry.rs 锁定）。"
+      "description": "【必填】是否官方渠道条目。不变量：每个 model_id 至少有一个平台条目 official=true（test_registry.rs 锁定）。"
     },
     "input_cost_per_token": {
       "type": "number",
       "minimum": 0,
-      "description": "输入单价（$/token；非流式基础价）。"
+      "description": "【必填】输入单价（$/token；非流式基础价）。"
     },
     "output_cost_per_token": {
       "type": "number",
       "minimum": 0,
-      "description": "输出单价（$/token）。"
+      "description": "【可选】输出单价（$/token）。"
     },
     "cache_read_input_token_cost": {
       "type": "number",
       "minimum": 0,
-      "description": "缓存读单价（$/token）。"
+      "description": "【可选】缓存读单价（$/token）。"
     },
     "cache_creation_input_token_cost": {
       "type": "number",
       "minimum": 0,
-      "description": "缓存写单价（$/token）。"
+      "description": "【可选】缓存写单价（$/token）。"
     },
     "default_price": {
       "type": "object",
@@ -109,25 +109,25 @@
         "input_cost_per_token": {
           "type": "number",
           "minimum": 0,
-          "description": "输入单价（$/token）。"
+          "description": "【可选】输入单价（$/token）。"
         },
         "output_cost_per_token": {
           "type": "number",
           "minimum": 0,
-          "description": "输出单价（$/token）。"
+          "description": "【可选】输出单价（$/token）。"
         },
         "cache_read_input_token_cost": {
           "type": "number",
           "minimum": 0,
-          "description": "缓存读单价（$/token）。"
+          "description": "【可选】缓存读单价（$/token）。"
         },
         "cache_creation_input_token_cost": {
           "type": "number",
           "minimum": 0,
-          "description": "缓存写单价（$/token）。"
+          "description": "【可选】缓存写单价（$/token）。"
         }
       },
-      "description": "非官方渠道条目的兜底单价对象（vendor 中转站常无官方价）。"
+      "description": "【可选】非官方渠道条目的兜底单价对象（vendor 中转站常无官方价）。"
     },
     "peak": {
       "type": "object",
@@ -137,25 +137,25 @@
         "input_cost_per_token": {
           "type": "number",
           "minimum": 0,
-          "description": "输入单价（$/token）。"
+          "description": "【可选】输入单价（$/token）。"
         },
         "output_cost_per_token": {
           "type": "number",
           "minimum": 0,
-          "description": "输出单价（$/token）。"
+          "description": "【可选】输出单价（$/token）。"
         },
         "cache_read_input_token_cost": {
           "type": "number",
           "minimum": 0,
-          "description": "缓存读单价（$/token）。"
+          "description": "【可选】缓存读单价（$/token）。"
         },
         "cache_creation_input_token_cost": {
           "type": "number",
           "minimum": 0,
-          "description": "缓存写单价（$/token）。"
+          "description": "【可选】缓存写单价（$/token）。"
         }
       },
-      "description": "高峰时段绝对价（price_resolve.rs：命中 peak_hours 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。"
+      "description": "【可选】高峰时段绝对价（price_resolve.rs：命中 peak_hours 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。"
     },
     "context_tiers": {
       "type": "array",
@@ -172,26 +172,26 @@
           "min_tokens": {
             "type": "integer",
             "minimum": 1,
-            "description": "档位门槛：请求数达到该 token 数起用本档价。"
+            "description": "【必填】档位门槛：请求数达到该 token 数起用本档价。"
           },
           "input_cost_per_token": {
             "type": "number",
             "minimum": 0,
-            "description": "本档输入单价（$/token）。"
+            "description": "【必填】本档输入单价（$/token）。"
           },
           "output_cost_per_token": {
             "type": "number",
             "minimum": 0,
-            "description": "本档输出单价（$/token）。"
+            "description": "【必填】本档输出单价（$/token）。"
           },
           "cache_read_input_token_cost": {
             "type": "number",
             "minimum": 0,
-            "description": "本档缓存读单价（$/token）。"
+            "description": "【可选】本档缓存读单价（$/token）。"
           }
         }
       },
-      "description": "按上下文长度分档计价（如 >524288 tokens 档）。"
+      "description": "【可选】按上下文长度分档计价（如 >524288 tokens 档）。"
     },
     "time_tiers": {
       "type": "array",
@@ -208,22 +208,22 @@
           "start_at": {
             "type": "integer",
             "minimum": 0,
-            "description": "本档生效起点（Unix 秒，latest wins）。"
+            "description": "【必填】本档生效起点（Unix 秒，latest wins）。"
           },
           "input_cost_per_token": {
             "type": "number",
             "minimum": 0,
-            "description": "本档输入单价（$/token）。"
+            "description": "【必填】本档输入单价（$/token）。"
           },
           "output_cost_per_token": {
             "type": "number",
             "minimum": 0,
-            "description": "本档输出单价（$/token）。"
+            "description": "【必填】本档输出单价（$/token）。"
           },
           "cache_read_input_token_cost": {
             "type": "number",
             "minimum": 0,
-            "description": "本档缓存读单价（$/token）。"
+            "description": "【可选】本档缓存读单价（$/token）。"
           },
           "context_tiers": {
             "type": "array",
@@ -240,30 +240,30 @@
                 "min_tokens": {
                   "type": "integer",
                   "minimum": 1,
-                  "description": "档位门槛：请求数达到该 token 数起用本档价。"
+                  "description": "【必填】档位门槛：请求数达到该 token 数起用本档价。"
                 },
                 "input_cost_per_token": {
                   "type": "number",
                   "minimum": 0,
-                  "description": "本档输入单价（$/token）。"
+                  "description": "【必填】本档输入单价（$/token）。"
                 },
                 "output_cost_per_token": {
                   "type": "number",
                   "minimum": 0,
-                  "description": "本档输出单价（$/token）。"
+                  "description": "【必填】本档输出单价（$/token）。"
                 },
                 "cache_read_input_token_cost": {
                   "type": "number",
                   "minimum": 0,
-                  "description": "本档缓存读单价（$/token）。"
+                  "description": "【可选】本档缓存读单价（$/token）。"
                 }
               }
             },
-            "description": "本时段档内再按上下文长度分档（形状同顶层 context_tiers）。"
+            "description": "【可选】本时段档内再按上下文长度分档（形状同顶层 context_tiers）。"
           }
         }
       },
-      "description": "按生效时间切换的价目（start_at Unix 秒，latest wins）。"
+      "description": "【可选】按生效时间切换的价目（start_at Unix 秒，latest wins）。"
     }
   }
 }

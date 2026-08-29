@@ -15,12 +15,12 @@
     "version": {
       "type": "string",
       "minLength": 1,
-      "description": "registry 版本号，随内容变更递增。"
+      "description": "【必填】registry 版本号，随内容变更递增。"
     },
     "last_updated": {
       "type": "integer",
       "minimum": 0,
-      "description": "Unix 秒。前端拿它判断是否需要重新同步。"
+      "description": "【必填】Unix 秒。前端拿它判断是否需要重新同步。"
     },
     "platforms": {
       "type": "array",
@@ -39,22 +39,22 @@
           "code": {
             "type": "string",
             "pattern": "^[a-z0-9_]+$",
-            "description": "平台 code，与 platforms/<code>/ 目录名一致，也是协议选择器的 value。"
+            "description": "【必填】平台 code，与 platforms/<code>/ 目录名一致，也是协议选择器的 value。"
           },
           "name": {
             "type": "string",
             "minLength": 1,
-            "description": "平台显示名（en-US 单语，仅清单管理用；本地化名在 platform.json name 8 locale）。"
+            "description": "【必填】平台显示名（en-US 单语，仅清单管理用；本地化名在 platform.json name 8 locale）。"
           },
           "platform_file": {
             "type": "string",
             "pattern": "^platforms/[a-z0-9_]+/platform\\.json$",
-            "description": "该平台 platform.json 相对 registry 根的路径（含 platforms/ 前缀）。"
+            "description": "【必填】该平台 platform.json 相对 registry 根的路径（含 platforms/ 前缀）。"
           },
           "models_dir": {
             "type": "string",
             "pattern": "^platforms/[a-z0-9_]+/models$",
-            "description": "该平台模型文件目录相对 registry 根的路径。"
+            "description": "【必填】该平台模型文件目录相对 registry 根的路径。"
           },
           "models": {
             "type": "array",
@@ -63,11 +63,11 @@
               "pattern": "^[^/].+\\.json$",
               "description": "相对 models_dir 的文件路径（vendor 子目录模型如 mistralai/codestral-2.json 含子目录前缀）。必须与磁盘文件零差集（test_registry.rs 锁定）。"
             },
-            "description": "该平台模型文件名清单（相对 models_dir）。必须与磁盘文件零差集（test_registry.rs 锁定）。"
+            "description": "【必填】该平台模型文件名清单（相对 models_dir）。必须与磁盘文件零差集（test_registry.rs 锁定）。"
           }
         }
       },
-      "description": "进协议选择器的正式平台清单（有 platform.json）。"
+      "description": "【必填】进协议选择器的正式平台清单（有 platform.json）。"
     },
     "pricing_only": {
       "type": "array",
@@ -83,12 +83,12 @@
           "code": {
             "type": "string",
             "pattern": "^[a-z0-9_]+$",
-            "description": "只出模型定价条目、不进协议选择器的平台（litellm / meta / mistral / xai）。"
+            "description": "【必填】只出模型定价条目、不进协议选择器的平台（litellm / meta / mistral / xai）。"
           },
           "models_dir": {
             "type": "string",
             "pattern": "^platforms/[a-z0-9_]+/models$",
-            "description": "该平台模型文件目录相对 registry 根的路径。"
+            "description": "【必填】该平台模型文件目录相对 registry 根的路径。"
           },
           "models": {
             "type": "array",
@@ -98,11 +98,11 @@
               "pattern": "^[^/].+\\.json$",
               "description": "相对 models_dir 的模型文件路径。必须与磁盘文件零差集。"
             },
-            "description": "该平台模型文件名清单（相对 models_dir）。必须与磁盘文件零差集。"
+            "description": "【必填】该平台模型文件名清单（相对 models_dir）。必须与磁盘文件零差集。"
           }
         }
       },
-      "description": "只出模型定价条目、不进协议选择器的平台清单（无 platform.json）。"
+      "description": "【必填】只出模型定价条目、不进协议选择器的平台清单（无 platform.json）。"
     }
   }
 }
