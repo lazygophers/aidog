@@ -152,26 +152,40 @@ for (const entry of indexDoc.pricing_only ?? []) {
   }
 }
 
-// ⑤ schema 自检：schema/ 三个文件的每个字段（properties 下每个子 schema）都必须带 description。
-// schema 是 registry 的字段说明书（CLAUDE.md 引用），漏 description 的字段对新维护者是黑盒。
+// ⑤ schema 自检：schema/ 三个文件的每个字段（properties 下每个子 schema）都必须带 description，
+// 且首 token 必须是【必填】/【可选】，与所在对象的 required 数组一致（票 #18）。
+// schema 是 registry 的字段说明书（CLAUDE.md 引用），漏 description 或前缀错标对新维护者是黑盒。
+// walk 递归嵌套 object properties + items + additionalProperties（旧版漏嵌套 object，endpoints.default
+// 等字段的 description 检查从未生效——2026-08-29 票 #18 修复）。
+const REQUIRED_PREFIX = "【必填】";
+const OPTIONAL_PREFIX = "【可选】";
+const PREFIX_RE = /^(【必填】|【可选】)/;
 for (const f of ["index.schema.json", "platform.schema.json", "model.schema.json"]) {
   const doc = JSON.parse(readFileSync(join(schemaDir, f), "utf8"));
   const miss = [];
   const walk = (node, path) => {
-    if (!node || typeof node !== "object") return;
+    if (!node || typeof node !== "object" || Array.isArray(node)) return;
     const props = node.properties;
     if (props) {
+      const req = new Set(node.required || []);
       for (const [k, v] of Object.entries(props)) {
-        if (v && typeof v === "object" && v.description === undefined) miss.push(path + k);
-        walk(v.items, `${path}${k}.items.`);
-        walk(v.additionalProperties, `${path}${k}.ap.`);
+        if (v && typeof v === "object") {
+          if (v.description === undefined) miss.push([path + k, "缺 description（每个字段必须存在 description）"]);
+          else if (typeof v.description === "string") {
+            const want = req.has(k) ? REQUIRED_PREFIX : OPTIONAL_PREFIX;
+            if (!v.description.startsWith(want)) {
+              miss.push([path + k, `description 前缀应为 ${want}，实际是 ${v.description.slice(0, 12)}`]);
+            }
+          }
+        }
+        walk(v, `${path}${k}.`);
       }
     }
-    for (const kk of ["items", "additionalProperties"]) walk(node[kk], `${path}${kk}.`);
-    if (node.definitions) for (const [n, s] of Object.entries(node.definitions)) walk(s, `${path}${n}.`);
+    walk(node.items, `${path}items.`);
+    walk(node.additionalProperties, `${path}ap.`);
   };
   walk(doc, "");
-  for (const m of miss) failures.push([`schema/${f}`, `字段 ${m} 缺 description（每个字段必须存在 description）`]);
+  for (const [m, msg] of miss) failures.push([`schema/${f}`, `字段 ${m} ${msg}`]);
 }
 
 if (failures.length) {
@@ -182,4 +196,6 @@ if (failures.length) {
 console.log(`registry schema 校验通过：${checked} 个文件（1 index + platforms + models）`);
 if (warnings.length) {
   console.log(`registry warning：${warnings.length} 个平台引用了无文件的 model id（中转平台常见，AIDOG_REGISTRY_STRICT=1 时报错）`);
+  // 票 #19：逐平台明细（原先只汇总会数，43 平台谁缺多少条不可见）
+  for (const w of warnings) console.log(`  ${w}`);
 }
