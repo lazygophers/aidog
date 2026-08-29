@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Protocol } from "../../services/api";
-import { pinyinMatch } from "../../utils/pinyin";
 import type { ProtocolOption } from "./constants";
 import { buildProtocolsFromPresets, getProtocolLabel } from "./defaults";
 import { ProtocolLogo } from "./ProtocolLogo";
@@ -64,12 +63,12 @@ export function SearchableProtocolSelect({
     return p.codingPlan && !/Coding/i.test(base) ? `${base} Coding Plan` : base;
   };
   const filtered = protocols.filter(p => {
-    if (!query.trim()) return true;
-    // searchTerms = name 全 8 locale + label + keywords（跨语言搜索；中文条目拼音/首字母经 pinyinMatch 生效）
-    if (p.searchTerms?.some(term => pinyinMatch(query, term))) return true;
-    if (pinyinMatch(query, labelOf(p))) return true;
-    if (pinyinMatch(query, p.value)) return true;
-    return false;
+    const q = query.trim().toLowerCase();
+    if (!q) return true;
+    // searchTerms = registry keywords + name 全 locale（配置文件已含中文/英文/全拼/首字母各形式）。
+    // 纯子串比对，无代码侧推导——拼音等形式一律作为数据存 platform.json。
+    if (p.searchTerms?.some(term => term.toLowerCase().includes(q))) return true;
+    return p.value.toLowerCase().includes(q);
   });
 
   // Tab 切换：在完整列表中循环到下一个平台

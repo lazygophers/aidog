@@ -30,7 +30,10 @@ export function FilterDropdown({ width, value, onChange, allLabel, searchPlaceho
   const filtered = useMemo(() => {
     const q = search.trim();
     if (!q) return options;
-    return options.filter(o => pinyinMatch(q, o.label) || !!o.searchTerms?.some(t => pinyinMatch(q, t)));
+    // searchTerms（registry 词条，直读数据表）纯子串比对——拼音/首字母已作为字面数据存 platform.json；
+    // label 是用户/展示侧内容，仍走 pinyinMatch。
+    const ql = q.toLowerCase();
+    return options.filter(o => pinyinMatch(q, o.label) || !!o.searchTerms?.some(t => t.toLowerCase().includes(ql)));
   }, [options, search]);
 
   const current = options.find(o => o.value === value);

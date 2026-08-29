@@ -176,6 +176,15 @@ pub struct IndexEntry {
 
 /// 解析 `index.json` 的同步清单（`platforms` + `pricing_only` 合并，按 code 升序）。
 /// 远程拉到的 index 与编译期内置的 index 共用这一处 schema 定义。
+/// index.json 的 `last_updated`（Unix 秒）。同步用它判定远程 registry 是否比 DB 新；
+/// 缺省或非法返回 None（调用方按「无法判定」处理，照常全量同步）。
+pub fn parse_index_last_updated(json: &str) -> Option<i64> {
+    serde_json::from_str::<Map<String, Value>>(json)
+        .ok()?
+        .get("last_updated")?
+        .as_i64()
+}
+
 pub fn parse_index(json: &str) -> Result<Vec<IndexEntry>, String> {
     let root: Map<String, Value> = serde_json::from_str(json).map_err(|e| format!("index.json: {e}"))?;
     let mut out = Vec::new();

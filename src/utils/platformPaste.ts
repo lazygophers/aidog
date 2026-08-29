@@ -26,14 +26,9 @@ export interface PastePresetRef {
   /** coding plan 变体标记：透传到 applyPaste → handleProtocolChange(value, codingPlan)，
    *  否则同 value 的普通/coding 两 preset 命中后 endpoints 取错（拿普通 base_url）。 */
   codingPlan?: boolean;
-  /** coding plan 专属 token 前缀（仅 coding 变体 preset 填，承载该平台 coding-plan 独有 key 前缀）。
-   *  机制 B（纯 token 粘贴无 base_url，host 子串匹配触不到 coding host）：matchPlatform 命中
-   *  非 coding 变体后，若同 value 存在带本字段的 coding 变体且任一 apiKey 命中其前缀 → 升级到
-   *  coding 变体。前缀须区别于普通版 key（如小米 token-plan 的 "tp-"），同形无法区分则不填，
-   *  仅靠机制 A（host 匹配）。 */
-  codingKeyPrefixes?: string[];
-  /** 平台 API key 前缀（registry platform.json `key_prefixes`，如 sk-ant- / sk-kimi- / ark-）。
-   *  key 提取正则（前缀锚定 + hasKnownPrefix 守卫）据此数据驱动生成——平台前缀禁在代码硬编码。 */
+  /** 平台 API key 前缀（registry platform.json `key_prefixes`，如 sk-ant- / sk-kimi- / tp- / ark-）。
+   *  key 提取正则与平台直判（优先级 2）据此数据驱动生成——平台前缀禁在代码硬编码。
+   *  coding 套餐是独立协议，其专属 token 前缀（如 tp- / sk-cp-）直接写在本平台本字段。 */
   keyPrefixes?: string[];
 }
 
@@ -56,12 +51,12 @@ export interface ParsedPaste {
  *  registry platform.json `key_prefixes`，由 collectKeyPrefixes 合入——禁在代码硬编码。 */
 const GENERIC_KEY_PREFIXES = ["sk-", "sk_"];
 
-/** 从 presets 收集全部 key 前缀（keyPrefixes + codingKeyPrefixes + 通用），长在前
+/** 从 presets 收集全部 key 前缀（keyPrefixes + 通用），长在前
  *  （regex 交替按序尝试，避免 sk- 抢先吃掉 sk-ant-）。 */
 export function collectKeyPrefixes(presets: PastePresetRef[]): string[] {
   const set = new Set<string>(GENERIC_KEY_PREFIXES);
   for (const p of presets) {
-    for (const pre of [...(p.keyPrefixes ?? []), ...(p.codingKeyPrefixes ?? [])]) set.add(pre);
+    for (const pre of p.keyPrefixes ?? []) set.add(pre);
   }
   return [...set].sort((a, b) => b.length - a.length);
 }
@@ -572,7 +567,7 @@ export function parsePlatformPaste(
   if (!text || !text.trim()) {
     return { apiKeys: [], baseUrls: [], platform: null, models: [], expiresAt: null };
   }
-  // key 前缀集合数据驱动（registry `key_prefixes` + codingKeyPrefixes + 通用 sk-）。
+  // key 前缀集合数据驱动（registry `key_prefixes` + 通用 sk-）。
   const keyPrefixes = collectKeyPrefixes(presets);
   const baseUrls = extractBaseUrls(text);
   const apiKeys = extractApiKeys(text, keyPrefixes);
@@ -587,13 +582,14 @@ export function parsePlatformPaste(
     if (parts.model) pushUnique(models, parts.model);
   }
 
-  // 优先级 2（新）：apiKeys 命中某 preset 的 codingKeyPrefixes → 直接返该 preset，跳过 keyword 打分。
+  // 优先级 2：apiKeys 命中某 preset 的 key_prefixes → 直接返该 preset，跳过 keyword 打分。
   // 纯 token 粘贴（无文案无 URL）也能识别；host 匹配（优先级 1）未命中时此前置兜底。
+  // coding 套餐是独立协议，其专属前缀（tp- / sk-cp-）直接命中对应平台，无需旧机制 B 的同 value 升级。
   let platform: { value: string; label: string; codingPlan?: boolean } | null = null;
   if (apiKeys.length) {
     for (const p of presets) {
       if (NEVER_AUTO_MATCH.has(p.value)) continue;
-      const prefixes = p.codingKeyPrefixes ?? [];
+      const prefixes = p.keyPrefixes ?? [];
       if (prefixes.length && apiKeys.some(k => prefixes.some(pre => k.startsWith(pre)))) {
         platform = { value: p.value, label: p.label, codingPlan: p.codingPlan };
         break;
@@ -601,20 +597,6 @@ export function parsePlatformPaste(
     }
   }
   if (!platform) platform = matchPlatform(text, presets, baseUrls);
-  // 机制 B — coding plan token 前缀升级（数据驱动，覆盖所有声明 codingKeyPrefixes 的平台）。
-  // 普通版 preset 命中后，若同 value 存在带 codingKeyPrefixes 的 coding 变体且任一 apiKey 命中其
-  // 前缀 → 升级到 coding 变体。纯 token 粘贴无 base_url，host 匹配（机制 A）触不到 coding host，
-  // 靠 token 前缀补判（如小米 token-plan 的 "tp-"，token-plan-cn.xiaomimimo.com）。
-  if (platform && !platform.codingPlan) {
-    const cpPreset = presets.find(
-      p => p.value === platform!.value && p.codingPlan
-        && (p.codingKeyPrefixes?.length ?? 0) > 0
-        && apiKeys.some(k => p.codingKeyPrefixes!.some(pre => k.startsWith(pre))),
-    );
-    if (cpPreset) {
-      platform = { value: cpPreset.value, label: cpPreset.label, codingPlan: true };
-    }
-  }
 
   return {
     apiKeys,

@@ -152,6 +152,28 @@ for (const entry of indexDoc.pricing_only ?? []) {
   }
 }
 
+// ⑤ schema 自检：schema/ 三个文件的每个字段（properties 下每个子 schema）都必须带 description。
+// schema 是 registry 的字段说明书（CLAUDE.md 引用），漏 description 的字段对新维护者是黑盒。
+for (const f of ["index.schema.json", "platform.schema.json", "model.schema.json"]) {
+  const doc = JSON.parse(readFileSync(join(schemaDir, f), "utf8"));
+  const miss = [];
+  const walk = (node, path) => {
+    if (!node || typeof node !== "object") return;
+    const props = node.properties;
+    if (props) {
+      for (const [k, v] of Object.entries(props)) {
+        if (v && typeof v === "object" && v.description === undefined) miss.push(path + k);
+        walk(v.items, `${path}${k}.items.`);
+        walk(v.additionalProperties, `${path}${k}.ap.`);
+      }
+    }
+    for (const kk of ["items", "additionalProperties"]) walk(node[kk], `${path}${kk}.`);
+    if (node.definitions) for (const [n, s] of Object.entries(node.definitions)) walk(s, `${path}${n}.`);
+  };
+  walk(doc, "");
+  for (const m of miss) failures.push([`schema/${f}`, `字段 ${m} 缺 description（每个字段必须存在 description）`]);
+}
+
 if (failures.length) {
   console.error(`registry 校验失败：${failures.length} 处 / ${checked} 个文件`);
   for (const [file, msg] of failures) console.error(`  ${file}: ${msg}`);

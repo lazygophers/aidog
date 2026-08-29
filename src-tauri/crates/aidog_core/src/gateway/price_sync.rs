@@ -55,6 +55,22 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
             format!("index.json: {e}")
         })?;
     let index = aidog_db::registry::parse_index(&index_json)?;
+    let remote_index_updated = aidog_db::registry::parse_index_last_updated(&index_json);
+
+    // last_updated 早退：远程 index 不比上次入库的 `registry_last_updated` 新就整轮跳过，
+    // 一个文件都不拉。首次同步（0）不早退。last_sync_at 照写，周期判定不空转。
+    if let Some(remote) = remote_index_updated {
+        let s = get_sync_settings(db).await;
+        if s.registry_last_updated > 0 && remote <= s.registry_last_updated {
+            tracing::info!(remote, local = s.registry_last_updated, "registry sync skipped: index not newer");
+            save_sync_settings(
+                db,
+                &super::models::PriceSyncSettings { last_sync_at: aidog_db::now(), ..s },
+            )
+            .await;
+            return Ok(PriceSyncResult { added: 0, updated: 0, unchanged: 0, failed: 0, total: 0, failures: Vec::new() });
+        }
+    }
 
     let jobs: Vec<Job> = index
         .iter()
@@ -155,10 +171,20 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         tracing::warn!(error = %e, "registry sync: refresh presets cache failed");
     }
 
+    // failures 非空 = 有文件没进库，DB 停在半新半旧：remote last_updated 不能记成已入库，
+    // 否则下轮被早退跳过，失败的文件永远补不上。
     let sync_settings = get_sync_settings(db).await;
     save_sync_settings(
         db,
-        &super::models::PriceSyncSettings { last_sync_at: aidog_db::now(), ..sync_settings },
+        &super::models::PriceSyncSettings {
+            last_sync_at: aidog_db::now(),
+            registry_last_updated: if failures.is_empty() {
+                remote_index_updated.unwrap_or(sync_settings.registry_last_updated)
+            } else {
+                sync_settings.registry_last_updated
+            },
+            ..sync_settings
+        },
     )
     .await;
 
