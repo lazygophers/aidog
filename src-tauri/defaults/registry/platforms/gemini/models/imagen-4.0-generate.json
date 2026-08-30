@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "imagen-4.0-generate",
+  "canonical_model": "imagen-4.0-generate",
+  "display_name": "Imagen 4",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

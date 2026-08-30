@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-realtime-translate",
+  "canonical_model": "gpt-realtime-translate",
+  "display_name": "GPT Realtime Translate",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0005666667
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gemini-3.1-flash-tts-preview",
+  "canonical_model": "gemini-3.1-flash-tts-preview",
+  "display_name": "Gemini 3.1 Flash TTS",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 1e-06,
+    "output": 2e-05
+  }
+}

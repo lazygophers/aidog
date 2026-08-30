@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "tts-1-hd",
+  "canonical_model": "tts-1-hd",
+  "display_name": "TTS-1 HD",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

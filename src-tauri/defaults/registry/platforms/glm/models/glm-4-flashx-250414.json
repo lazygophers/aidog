@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "glm-4-flashx-250414",
+  "canonical_model": "glm-4-flashx-250414",
+  "display_name": "GLM-4-FlashX-250414",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 128000,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 1.388888888888889e-08,
+    "output": 1.388888888888889e-08
+  }
+}

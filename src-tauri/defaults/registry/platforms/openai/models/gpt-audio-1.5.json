@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-audio-1.5",
+  "canonical_model": "gpt-audio-1.5",
+  "display_name": "GPT-Audio-1.5",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 2.5e-06,
+    "output": 1e-05
+  }
+}

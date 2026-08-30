@@ -1,0 +1,28 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "ernie-5.0-thinking-preview",
+  "canonical_model": "ernie-5.0-thinking-preview",
+  "display_name": "ERNIE 5.0 Thinking Preview",
+  "family": "ernie",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 121856,
+  "max_output_tokens": 65536,
+  "context_window": 121856,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 8.33333333e-07,
+    "output": 3.333333333e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 1.388888889e-06,
+        "output": 5.555555556e-06
+      }
+    ]
+  }
+}

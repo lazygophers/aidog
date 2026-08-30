@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "lyria-realtime-exp",
+  "canonical_model": "lyria-realtime-exp",
+  "display_name": "Lyria Realtime",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

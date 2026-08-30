@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-live-transcribe",
+  "canonical_model": "gpt-live-transcribe",
+  "display_name": "GPT Live Transcribe",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0002833333
+  }
+}

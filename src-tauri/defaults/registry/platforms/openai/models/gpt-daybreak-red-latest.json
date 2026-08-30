@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-daybreak-red-latest",
+  "canonical_model": "gpt-daybreak-red-latest",
+  "display_name": "GPT Daybreak Red (latest)",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "input": 1.25e-05,
+    "output": 7.5e-05,
+    "cache_read": 1.25e-06
+  }
+}

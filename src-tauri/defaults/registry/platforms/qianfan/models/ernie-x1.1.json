@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "ernie-x1.1",
+  "canonical_model": "ernie-x1.1",
+  "display_name": "ERNIE X1.1",
+  "family": "ernie-x",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 56320,
+  "max_output_tokens": 65536,
+  "context_window": 65536,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.38888889e-07,
+    "output": 5.55555556e-07
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "qwen3.6-plus-2026-04-02",
+  "canonical_model": "qwen3.6-plus-2026-04-02",
+  "display_name": "Qwen3.6-Plus (2026-04-02)",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 3.25e-07,
+    "output": 1.95e-06,
+    "cache_write": 4.0625e-07,
+    "cache_read": 0
+  }
+}

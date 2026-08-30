@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "glm-5.3-flash",
+  "canonical_model": "glm-5.3-flash",
+  "display_name": "GLM-5.3-Flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.1111111111111112e-07,
+    "output": 3.8888888888888884e-07,
+    "cache_read": 3.194444444444444e-08
+  }
+}

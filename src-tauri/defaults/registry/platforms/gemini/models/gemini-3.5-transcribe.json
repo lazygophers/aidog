@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gemini-3.5-transcribe",
+  "canonical_model": "gemini-3.5-transcribe",
+  "display_name": "Gemini 3.5 Transcribe",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 2e-06,
+    "output": 1.2e-05
+  }
+}
