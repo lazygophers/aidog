@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086879,
+  "model_id": "openai/sora-2-pro",
+  "canonical_model": "sora-2-pro",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.324
+  }
+}

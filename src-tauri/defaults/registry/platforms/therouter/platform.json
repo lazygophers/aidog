@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788086879,
   "endpoints": {
     "default": [
       {
@@ -266,7 +266,34 @@
       "zhipu/glm-5-turbo",
       "zhipu/glm-5.1",
       "zhipu/glm-5v-turbo",
-      "zhipu/glm-ocr"
+      "zhipu/glm-ocr",
+      "doubao/doubao-seedance-2-0",
+      "doubao/doubao-seedance-2-0-fast",
+      "doubao/doubao-seedream-4-5",
+      "doubao/doubao-seedream-5-0",
+      "indexteam/indextts-2",
+      "openai/gpt-realtime-whisper",
+      "openai/sora-2",
+      "openai/sora-2-pro",
+      "openai/tts-1",
+      "openai/tts-1-hd",
+      "openai/whisper-1",
+      "wan/wan2.2-t2i-flash",
+      "wan/wan2.2-t2i-plus",
+      "xiaomi/mimo-v2.5-asr",
+      "zhipu/cogvideox-3",
+      "zhipu/cogview-4",
+      "zhipu/glm-image",
+      "zhipu/search-pro",
+      "zhipu/search-pro-quark",
+      "zhipu/search-pro-sogou",
+      "zhipu/search-std",
+      "zhipu/vidu2-image",
+      "zhipu/vidu2-reference",
+      "zhipu/vidu2-start-end",
+      "zhipu/viduq1-image",
+      "zhipu/viduq1-start-end",
+      "zhipu/viduq1-text"
     ]
   },
   "name": {

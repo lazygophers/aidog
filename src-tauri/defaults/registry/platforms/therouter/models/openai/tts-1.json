@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086879,
+  "model_id": "openai/tts-1",
+  "canonical_model": "tts-1",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0162
+  }
+}

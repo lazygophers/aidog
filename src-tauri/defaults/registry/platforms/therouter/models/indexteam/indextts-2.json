@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086823,
+  "model_id": "indexteam/indextts-2",
+  "canonical_model": "indextts-2",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.00772
+  }
+}

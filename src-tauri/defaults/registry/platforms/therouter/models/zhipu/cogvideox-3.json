@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086879,
+  "model_id": "zhipu/cogvideox-3",
+  "canonical_model": "cogvideox-3",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.216
+  }
+}

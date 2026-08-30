@@ -182,8 +182,8 @@
       "properties": {
         "unit": {
           "type": "string",
-          "enum": ["token", "image", "second", "request"],
-          "description": "【可选】计价单位。缺省=token（$/token，chat 计费）。image=按张、second=按秒（视频）、request=按次（搜索/工具）——此时价格用 unit_price 表达，chat 计费链不消费（resolve_price 无 token 价自动走 fallback）。"
+          "enum": ["token", "image", "second", "request", "char"],
+          "description": "【可选】计价单位。缺省=token（$/token，chat 计费）。image=按张、second=按秒（视频/音频时长）、request=按次（搜索/工具）、char=按字符（TTS，unit_price 单位 $/1K chars）——此时价格用 unit_price 表达，chat 计费链不消费（resolve_price 无 token 价自动走 fallback）。"
         },
         "unit_price": {
           "type": "number",
@@ -308,7 +308,7 @@
           "price": {
             "properties": {
               "unit": {
-                "enum": ["image", "second", "request"]
+                "enum": ["image", "second", "request", "char"]
               }
             },
             "required": ["unit"]
