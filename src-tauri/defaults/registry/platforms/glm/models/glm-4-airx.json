@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-4-airx",
+  "canonical_model": "glm-4-airx",
+  "display_name": "GLM-4-AirX",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 0.00000138889,
+    "output": 0.00000138889
+  }
+}

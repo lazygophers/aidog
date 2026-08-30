@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "vidu2-start-end",
+  "canonical_model": "vidu2-start-end",
+  "display_name": "Vidu2-Start-End",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.173611
+  }
+}

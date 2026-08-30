@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-asr-2512",
+  "canonical_model": "glm-asr-2512",
+  "display_name": "GLM-ASR-2512",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.00000222222,
+    "output": 0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "rerank",
+  "canonical_model": "rerank",
+  "display_name": "Rerank",
+  "capabilities": [
+    "rerank"
+  ],
+  "context_window": 4096,
+  "official": true,
+  "price": {
+    "input": 1.11111e-7
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-realtime-flash",
+  "canonical_model": "glm-realtime-flash",
+  "display_name": "GLM-Realtime-Flash",
+  "capabilities": [
+    "text",
+    "audio",
+    "video"
+  ],
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.000416667
+  }
+}

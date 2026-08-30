@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-tts-clone",
+  "canonical_model": "glm-tts-clone",
+  "display_name": "GLM-TTS-Clone",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.833333
+  }
+}

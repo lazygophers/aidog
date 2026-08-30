@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-4-voice",
+  "canonical_model": "glm-4-voice",
+  "display_name": "GLM-4-Voice",
+  "capabilities": [
+    "text",
+    "audio"
+  ],
+  "max_output_tokens": 4096,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 0.0000111111,
+    "output": 0.0000111111
+  }
+}
