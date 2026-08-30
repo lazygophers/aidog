@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788101093,
+  "last_updated": 1788101961,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1905,8 +1905,6 @@
         "gpt-daybreak-red-latest.json",
         "gpt-image-2.json",
         "gpt-live-transcribe.json",
-        "gpt-oss-120b.json",
-        "gpt-oss-20b.json",
         "gpt-realtime-1.5.json",
         "gpt-realtime-2.1-mini.json",
         "gpt-realtime-2.1.json",
@@ -3433,7 +3431,6 @@
         "mistral-ocr-2606.json",
         "mistral-small-2603.json",
         "ocr-4-0.json",
-        "shieldstral-1-0.json",
         "voxtral-mini-transcribe-2602.json",
         "voxtral-mini-transcribe-realtime-2602.json",
         "voxtral-small-24b-2507.json",
