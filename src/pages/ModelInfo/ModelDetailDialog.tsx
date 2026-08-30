@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fmtPricePerM, fmtTokens, parseEntryFlags, parsePriceData, type PriceTier } from "./priceData";
+import { fmtPricePerM, fmtPricePerUnit, fmtTokens, parseEntryFlags, parsePriceData, type PriceTier } from "./priceData";
 import { CapabilityBadges } from "./CapabilityBadges";
 import { nameParts } from "./ModelName";
 import { CopyButton } from "../../components/shared";
@@ -127,7 +127,11 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
       </Section>
 
       <Section title={t("modelInfo.prices")}>
-        <PriceRow label={t("modelInfo.priceDefault")} tier={price} />
+        {price.unit && price.unit !== "token" ? (
+          <PriceRow label={t("modelInfo.priceDefault")} unitPrice={price.unit_price} unit={price.unit} />
+        ) : (
+          <PriceRow label={t("modelInfo.priceDefault")} tier={price} />
+        )}
         {price.peak && <PriceRow label={t("modelInfo.pricePeak")} tier={price.peak} />}
         {tiers.map((tier, i) => (
           <PriceRow
@@ -141,14 +145,26 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
   );
 }
 
-function PriceRow({ label, tier }: { label: string; tier: PriceTier }) {
+function PriceRow({ label, tier, unitPrice, unit }: {
+  label: string;
+  tier?: PriceTier;
+  /** 非 token 计价（$/张、$/秒、$/次）时与 unit 成对传入。 */
+  unitPrice?: number | null;
+  unit?: string | null;
+}) {
   const { t } = useTranslation();
   return (
     <Field label={label}>
       <span style={{ display: "inline-flex", gap: 12, flexWrap: "wrap" }}>
-        <span>{t("modelInfo.colInput")}: {fmtPricePerM(tier.input)}</span>
-        <span>{t("modelInfo.colOutput")}: {fmtPricePerM(tier.output)}</span>
-        <span>{t("modelInfo.colCacheRead")}: {fmtPricePerM(tier.cache_read)}</span>
+        {unit && unit !== "token" ? (
+          <span>{fmtPricePerUnit(unitPrice, unit)}</span>
+        ) : (
+          <>
+            <span>{t("modelInfo.colInput")}: {fmtPricePerM(tier?.input)}</span>
+            <span>{t("modelInfo.colOutput")}: {fmtPricePerM(tier?.output)}</span>
+            <span>{t("modelInfo.colCacheRead")}: {fmtPricePerM(tier?.cache_read)}</span>
+          </>
+        )}
       </span>
     </Field>
   );

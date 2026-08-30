@@ -14,8 +14,14 @@ export interface PriceTier {
 }
 
 /** registry `price` 子树形状（2026-08-30 起价格收归于条目 `price` 字段；
- *  Rust ui_entry 读取出口已把未重同步的旧顶层形状归一化，这里只认新形状）。 */
+ *  Rust ui_entry 读取出口已把未重同步的旧顶层形状归一化，这里只认新形状）。
+ *  非 chat 模态（图像/视频/搜索工具类）用 `unit` + `unit_price` 计价（$/张、$/秒、$/次），
+ *  token 单价字段不适用；chat 计费链不消费这类条目（无 token 价自动 fallback）。 */
 export interface ModelPriceData extends PriceTier {
+  /** 计价单位，缺省 token。 */
+  unit?: "token" | "image" | "second" | "request" | null;
+  /** 非 token 条目的单价（$/unit）。 */
+  unit_price?: number | null;
   /** 高峰绝对价：命中平台 `peak` 窗口时整体替换默认价。 */
   peak?: PriceTier | null;
   /** 上下文阶梯价：按请求 input_tokens 选档，`min_tokens` 为起档阈值。 */
@@ -62,6 +68,11 @@ export function parseEntryFlags(raw: string): EntryFlags {
     // 同 parsePriceData：数据损坏不炸页，未标注即 "-"
   }
   return {};
+}
+
+/** $/unit（张/秒/次）展示串（`$x.xx /张` 等）；缺值 → "-"。 */
+export function fmtPricePerUnit(v?: number | null, unit?: string | null): string {
+  return typeof v === "number" && Number.isFinite(v) ? formatCostUsd(v) + ` /${unit ?? "unit"}` : "-";
 }
 
 /** $/token → $/M tokens；非有限数返回 null。 */
