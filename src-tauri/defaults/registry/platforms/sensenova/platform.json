@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788094705,
   "endpoints": {
     "default": [
       {
@@ -13,15 +13,10 @@
     ]
   },
   "models": {
-    "default": {
-      "default": "sensenova-6.7-flash-lite"
-    }
+    "default": {}
   },
   "model_list": {
     "default": [
-      "sensenova-6.7-flash-lite",
-      "sensenova-u1-fast",
-      "deepseek-v4-flash"
     ]
   },
   "name": {
