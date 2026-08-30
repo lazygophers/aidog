@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788086218,
+  "model_id": "gpt-5.5",
+  "canonical_model": "gpt-5.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1050000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "input": 5e-06,
+    "output": 3e-05,
+    "cache_read": 5e-07
+  }
+}

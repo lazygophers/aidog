@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788086218,
+  "model_id": "gemini-3-pro-image-preview",
+  "canonical_model": "gemini-3-pro-image-preview",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 32768,
+  "context_window": 32768,
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 1.2e-05,
+    "cache_read": 2e-07
+  }
+}

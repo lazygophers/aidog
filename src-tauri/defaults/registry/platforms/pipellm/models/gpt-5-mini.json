@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788086218,
+  "model_id": "gpt-5-mini",
+  "canonical_model": "gpt-5-mini",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 400000,
+  "official": false,
+  "price": {
+    "input": 2.5e-07,
+    "output": 2e-06,
+    "cache_read": 2.5000000000000002e-08
+  }
+}
