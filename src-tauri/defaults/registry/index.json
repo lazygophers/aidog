@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788108806,
+  "last_updated": 1788109208,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1577,6 +1577,13 @@
       "platform_file": "platforms/minimax/platform.json",
       "models_dir": "platforms/minimax/models",
       "models": [
+        "MiniMax-H3-Context-IR.json",
+        "MiniMax-H3-Max.json",
+        "MiniMax-H3-Regeneration.json",
+        "MiniMax-H3.json",
+        "MiniMax-Hailuo-02.json",
+        "MiniMax-Hailuo-2.3-Fast.json",
+        "MiniMax-Hailuo-2.3.json",
         "MiniMax-M2.1-highspeed.json",
         "MiniMax-M2.1-lightning.json",
         "MiniMax-M2.1.json",
@@ -1587,9 +1594,17 @@
         "MiniMax-M2.7.json",
         "MiniMax-M2.json",
         "MiniMax-M3.json",
+        "image-01-live.json",
+        "image-01.json",
         "minimax-01.json",
         "minimax-m1.json",
-        "minimax-m2-her.json"
+        "minimax-m2-her.json",
+        "speech-02-hd.json",
+        "speech-02-turbo.json",
+        "speech-2.6-hd.json",
+        "speech-2.6-turbo.json",
+        "speech-2.8-hd.json",
+        "speech-2.8-turbo.json"
       ]
     },
     {
@@ -1609,6 +1624,13 @@
       "platform_file": "platforms/minimax_en/platform.json",
       "models_dir": "platforms/minimax_en/models",
       "models": [
+        "MiniMax-H3-Context-IR.json",
+        "MiniMax-H3-Max.json",
+        "MiniMax-H3-Regeneration.json",
+        "MiniMax-H3.json",
+        "MiniMax-Hailuo-02.json",
+        "MiniMax-Hailuo-2.3-Fast.json",
+        "MiniMax-Hailuo-2.3.json",
         "MiniMax-M2.1-highspeed.json",
         "MiniMax-M2.1.json",
         "MiniMax-M2.5-highspeed.json",
@@ -1616,7 +1638,14 @@
         "MiniMax-M2.7-highspeed.json",
         "MiniMax-M2.7.json",
         "MiniMax-M2.json",
-        "MiniMax-M3.json"
+        "MiniMax-M3.json",
+        "image-01.json",
+        "speech-02-hd.json",
+        "speech-02-turbo.json",
+        "speech-2.6-hd.json",
+        "speech-2.6-turbo.json",
+        "speech-2.8-hd.json",
+        "speech-2.8-turbo.json"
       ]
     },
     {

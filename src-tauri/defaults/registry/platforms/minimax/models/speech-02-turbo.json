@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788109208,
+  "model_id": "speech-02-turbo",
+  "canonical_model": "speech-02-turbo",
+  "display_name": "Speech 02 Turbo",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0277778
+  }
+}
