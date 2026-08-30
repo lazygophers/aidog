@@ -1,0 +1,23 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "qwen/qwen3.8-max",
+  "canonical_model": "qwen3.8-max",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2e-06,
+    "output": 6e-06,
+    "cache_read": 2.5e-07,
+    "cache_write": 2.5e-06
+  }
+}

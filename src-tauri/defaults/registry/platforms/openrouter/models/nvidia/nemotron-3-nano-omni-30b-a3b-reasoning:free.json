@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "canonical_model": "nemotron-3-nano-omni-30b-a3b-reasoning",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "max_output_tokens": 65536,
+  "context_window": 256000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

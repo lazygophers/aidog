@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "dots-studio/dots-3-note-preview:free",
+  "canonical_model": "dots-3-note-preview",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 512000,
+  "max_output_tokens": 460800,
+  "context_window": 512000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

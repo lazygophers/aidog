@@ -1,0 +1,20 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "minimax/minimax-m2.7:free",
+  "canonical_model": "minimax-m2.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 196608,
+  "max_output_tokens": 176947,
+  "context_window": 196608,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

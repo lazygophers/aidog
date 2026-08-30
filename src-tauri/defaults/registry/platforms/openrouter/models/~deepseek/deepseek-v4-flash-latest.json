@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "~deepseek/deepseek-v4-flash-latest",
+  "canonical_model": "deepseek-v4-flash-latest",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1310720,
+  "max_output_tokens": 393216,
+  "context_window": 1310720,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3e-08,
+    "output": 1.6e-07,
+    "cache_read": 1e-08
+  }
+}

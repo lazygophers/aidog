@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "moonshotai/Kimi-K3",
+  "canonical_model": "Kimi-K3",
+  "display_name": "Kimi-K3",
+  "family": "kimi",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "input": 3e-06,
+    "cache_read": 3e-07,
+    "output": 1.5e-05
+  },
+  "context_window": 1048576
+}

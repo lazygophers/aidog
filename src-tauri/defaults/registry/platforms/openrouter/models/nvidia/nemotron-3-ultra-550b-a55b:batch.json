@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "nvidia/nemotron-3-ultra-550b-a55b:batch",
+  "canonical_model": "nemotron-3-ultra-550b-a55b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 512288,
+  "max_output_tokens": 461059,
+  "context_window": 512288,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 6e-07,
+    "output": 3.6e-06,
+    "cache_read": 2e-07
+  }
+}

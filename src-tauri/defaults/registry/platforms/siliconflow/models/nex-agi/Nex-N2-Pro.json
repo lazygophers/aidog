@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "nex-agi/Nex-N2-Pro",
+  "canonical_model": "Nex-N2-Pro",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 2.4305555555555555e-07,
+    "output": 9.722222222222222e-07
+  }
+}

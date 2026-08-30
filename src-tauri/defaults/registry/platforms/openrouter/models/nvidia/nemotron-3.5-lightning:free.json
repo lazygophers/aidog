@@ -1,0 +1,20 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "nvidia/nemotron-3.5-lightning:free",
+  "canonical_model": "nemotron-3.5-lightning",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "Qwen/Qwen3.5-4B",
+  "canonical_model": "Qwen3.5-4B",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

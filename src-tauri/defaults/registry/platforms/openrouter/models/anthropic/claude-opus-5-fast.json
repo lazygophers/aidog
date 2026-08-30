@@ -1,0 +1,23 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "anthropic/claude-opus-5-fast",
+  "canonical_model": "claude-opus-5-fast",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1e-05,
+    "output": 5e-05,
+    "cache_read": 1e-06,
+    "cache_write": 1.25e-05
+  }
+}

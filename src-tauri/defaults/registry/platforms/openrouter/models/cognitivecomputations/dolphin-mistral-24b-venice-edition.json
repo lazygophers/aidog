@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "cognitivecomputations/dolphin-mistral-24b-venice-edition",
+  "canonical_model": "dolphin-mistral-24b-venice-edition",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 8192,
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 2e-07,
+    "output": 9e-07
+  }
+}

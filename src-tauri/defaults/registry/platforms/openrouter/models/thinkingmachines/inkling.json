@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "thinkingmachines/inkling",
+  "canonical_model": "inkling",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 471859,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1e-06,
+    "output": 4.05e-06,
+    "cache_read": 1.7e-07
+  }
+}

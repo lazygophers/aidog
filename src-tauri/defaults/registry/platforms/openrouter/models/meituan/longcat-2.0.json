@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "meituan/longcat-2.0",
+  "canonical_model": "longcat-2.0",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048756,
+  "max_output_tokens": 262144,
+  "context_window": 1048756,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3e-07,
+    "output": 1.2e-06,
+    "cache_read": 6e-09
+  }
+}

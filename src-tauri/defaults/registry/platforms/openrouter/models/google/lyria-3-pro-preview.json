@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "google/lyria-3-pro-preview",
+  "canonical_model": "lyria-3-pro-preview",
+  "capabilities": [
+    "audio"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.0
+  }
+}

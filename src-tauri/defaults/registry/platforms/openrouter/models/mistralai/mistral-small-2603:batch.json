@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "mistralai/mistral-small-2603:batch",
+  "canonical_model": "mistral-small-2603",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 209715,
+  "context_window": 262144,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.5e-07,
+    "output": 6e-07,
+    "cache_read": 1.5e-08
+  }
+}

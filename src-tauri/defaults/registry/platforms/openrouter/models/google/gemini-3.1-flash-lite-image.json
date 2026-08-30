@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "google/gemini-3.1-flash-lite-image",
+  "canonical_model": "gemini-3.1-flash-lite-image",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning",
+    "text_to_image"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 58982,
+  "context_window": 65536,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.5e-07,
+    "output": 1.5e-06
+  }
+}

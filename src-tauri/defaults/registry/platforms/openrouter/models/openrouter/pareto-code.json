@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "openrouter/pareto-code",
+  "canonical_model": "pareto-code",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 2000000,
+  "context_window": 2000000,
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

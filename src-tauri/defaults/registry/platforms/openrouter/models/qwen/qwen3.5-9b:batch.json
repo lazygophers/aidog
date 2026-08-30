@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "qwen/qwen3.5-9b:batch",
+  "canonical_model": "qwen3.5-9b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 235929,
+  "context_window": 262144,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.7e-07,
+    "output": 2.5e-07
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "sakana/fugu-ultra",
+  "canonical_model": "fugu-ultra",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "context_window": 1000000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-06,
+    "output": 3e-05,
+    "cache_read": 5e-07
+  }
+}

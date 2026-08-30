@@ -1,0 +1,20 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "nvidia/nemotron-3.5-content-safety:free",
+  "canonical_model": "nemotron-3.5-content-safety",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 8192,
+  "context_window": 128000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "tencent/hy-mt2-1.8b",
+  "canonical_model": "hy-mt2-1.8b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 4096,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 4.4e-08,
+    "output": 1.77e-07
+  }
+}

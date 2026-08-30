@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "minimax/minimax-m3:batch",
+  "canonical_model": "minimax-m3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 524288,
+  "max_output_tokens": 471859,
+  "context_window": 524288,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3e-07,
+    "output": 1.2e-06,
+    "cache_read": 6e-08
+  }
+}

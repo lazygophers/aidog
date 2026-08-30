@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "deepseek-ai/DeepSeek-V3.1-Terminus",
+  "canonical_model": "DeepSeek-V3.1-Terminus",
+  "display_name": "DeepSeek-V3.1-Terminus",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 163840,
+  "max_output_tokens": 163840,
+  "official": false,
+  "price": {
+    "input": 2.7e-07,
+    "output": 1e-06
+  },
+  "context_window": 163840
+}

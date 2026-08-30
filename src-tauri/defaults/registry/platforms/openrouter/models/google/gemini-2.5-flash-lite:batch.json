@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "google/gemini-2.5-flash-lite:batch",
+  "canonical_model": "gemini-2.5-flash-lite",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-08,
+    "output": 2e-07,
+    "cache_read": 1e-08
+  }
+}

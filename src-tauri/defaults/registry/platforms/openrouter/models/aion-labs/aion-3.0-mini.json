@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "aion-labs/aion-3.0-mini",
+  "canonical_model": "aion-3.0-mini",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 7e-07,
+    "output": 1.4e-06,
+    "cache_read": 1.8e-07
+  }
+}
