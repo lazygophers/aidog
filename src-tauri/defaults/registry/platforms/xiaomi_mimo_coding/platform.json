@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -54,7 +54,10 @@
     "xiaomitaocan",
     "xmtc",
     "taocan",
-    "tc"
+    "tc",
+    "xiaomi",
+    "xm",
+    "tookunpuran"
   ],
   "color": "#FF6900",
   "key_prefixes": [

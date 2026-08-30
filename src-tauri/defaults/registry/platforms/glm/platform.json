@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -53,7 +53,8 @@
     "智谱",
     "bigmodel",
     "codegeex",
-    "zp"
+    "zp",
+    "jiifuuemu"
   ],
   "color": "#3B5FEC"
 }

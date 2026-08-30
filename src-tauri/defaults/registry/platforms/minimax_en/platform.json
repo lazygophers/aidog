@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -61,7 +61,9 @@
     "hailuo",
     "hl",
     "hailuobiancheng",
-    "hlbc"
+    "hlbc",
+    "guojiban",
+    "gjb"
   ],
   "color": "#FF6B6B"
 }

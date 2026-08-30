@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -48,7 +48,8 @@
     "shangtang",
     "st",
     "ririxin",
-    "rrx"
+    "rrx",
+    "sensutaimu"
   ],
   "color": "#888888"
 }

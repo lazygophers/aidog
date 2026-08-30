@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -55,7 +55,9 @@
     "dingyue",
     "dy",
     "touchuan",
-    "tc"
+    "tc",
+    "sabusukuripushon",
+    "pasusuruu"
   ],
   "color": "#D97757"
 }

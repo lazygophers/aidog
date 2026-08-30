@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -55,7 +55,10 @@
     "ali",
     "al",
     "tongyi",
-    "ty"
+    "ty",
+    "puroguramingu",
+    "bailian",
+    "bl"
   ],
   "color": "#FF6A00"
 }

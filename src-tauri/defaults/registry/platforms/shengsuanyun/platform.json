@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -242,7 +242,8 @@
     "shengsuanyun",
     "盛算",
     "shengsuan",
-    "ss"
+    "ss",
+    "ssy"
   ],
   "color": "#00A67E"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -48,7 +48,9 @@
     "qianfan",
     "coding",
     "bd",
-    "qf"
+    "qf",
+    "baiduqianfan",
+    "bdqf"
   ],
   "color": "#2932E1"
 }

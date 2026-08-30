@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -96,7 +96,11 @@
     "ali",
     "al",
     "tongyi",
-    "ty"
+    "ty",
+    "bailian",
+    "bl",
+    "aliyun",
+    "aly"
   ],
   "color": "#FF6A00"
 }
