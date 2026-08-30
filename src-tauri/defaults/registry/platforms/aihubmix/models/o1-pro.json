@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "o1-pro",
   "canonical_model": "o1-pro",
   "capabilities": [
@@ -11,7 +11,6 @@
   "official": false,
   "price": {
     "input": 0.00015,
-    "output": 0.0006,
-    "cache_read": 0
+    "output": 0.0006
   }
 }

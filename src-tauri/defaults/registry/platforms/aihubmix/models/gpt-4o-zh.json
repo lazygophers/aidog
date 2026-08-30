@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "gpt-4o-zh",
   "canonical_model": "gpt-4o",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 128000,
   "official": true,
   "price": {
-    "input": 1.625e-06,
-    "output": 6.5e-06,
-    "cache_read": 8.13e-07
+    "input": 0.0000025,
+    "output": 0.00001
   }
 }

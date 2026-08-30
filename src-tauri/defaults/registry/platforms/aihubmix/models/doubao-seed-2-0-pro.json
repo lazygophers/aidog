@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "doubao-seed-2-0-pro",
   "canonical_model": "doubao-seed-2-0-pro",
   "capabilities": [
@@ -10,7 +10,22 @@
   "context_window": 128000,
   "official": false,
   "price": {
-    "input": 4.444444444444444e-07,
-    "output": 2.2222222222222225e-06
+    "input": 4.822e-7,
+    "output": 0.000002411,
+    "cache_read": 9.644e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 7.2328e-7,
+        "output": 0.0000036164,
+        "cache_read": 1.44656e-7
+      },
+      {
+        "min_tokens": 128001,
+        "input": 0.0000014466,
+        "output": 0.000007233,
+        "cache_read": 2.8932e-7
+      }
+    ]
   }
 }

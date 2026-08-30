@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-coder-flash",
   "canonical_model": "qwen3-coder-flash",
   "capabilities": [
@@ -10,8 +10,24 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 1.3888888888888888e-07,
-    "output": 5.555555555555555e-07,
-    "cache_read": 1.388888888888889e-08
+    "input": 1.36986e-7,
+    "output": 5.47944e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 2.05478e-7,
+        "output": 8.21912e-7
+      },
+      {
+        "min_tokens": 128001,
+        "input": 3.42464e-7,
+        "output": 0.00000136986
+      },
+      {
+        "min_tokens": 256001,
+        "input": 6.8493e-7,
+        "output": 0.00000342465
+      }
+    ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "claude-opus-4-7-think",
   "canonical_model": "claude-opus-4-7",
   "capabilities": [
@@ -11,9 +11,8 @@
   "official": true,
   "thinking_supported": true,
   "price": {
-    "input": 3.25e-06,
-    "output": 1.625e-05,
-    "cache_read": 3.25e-07,
-    "cache_write": 4.063e-06
+    "input": 0.000005,
+    "output": 0.000025,
+    "cache_read": 5e-7
   }
 }

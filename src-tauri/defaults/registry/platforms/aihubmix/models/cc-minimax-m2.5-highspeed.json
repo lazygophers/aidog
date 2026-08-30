@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "cc-minimax-m2.5-highspeed",
   "canonical_model": "MiniMax-M2.5-highspeed",
   "capabilities": [
@@ -10,9 +10,7 @@
   "context_window": 204800,
   "official": true,
   "price": {
-    "input": 5.833333333333334e-07,
-    "output": 2.3333333333333336e-06,
-    "cache_read": 2.9166666666666663e-08,
-    "cache_write": 3.645833333333333e-07
+    "input": 1e-7,
+    "output": 1e-7
   }
 }

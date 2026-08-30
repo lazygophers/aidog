@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-14b",
   "canonical_model": "qwen3-14b",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 1.3888888888888888e-07,
-    "output": 5.555555555555555e-07,
-    "cache_read": 0
+    "input": 1.6e-7,
+    "output": 0.0000016
   }
 }

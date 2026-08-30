@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "gpt-5-nano",
   "canonical_model": "gpt-5-nano",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 400000,
   "official": false,
   "price": {
-    "input": 3.3e-08,
-    "output": 2.6e-07,
-    "cache_read": 7e-09
+    "input": 5e-8,
+    "output": 4e-7,
+    "cache_read": 5e-9
   }
 }

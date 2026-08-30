@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "step-3.7-flash",
   "canonical_model": "step-3.7-flash",
   "capabilities": [
@@ -11,8 +11,8 @@
   "context_window": 256000,
   "official": false,
   "price": {
-    "input": 2e-07,
-    "output": 1.15e-06,
-    "cache_read": 4e-08
+    "input": 2.2e-7,
+    "output": 0.00000132,
+    "cache_read": 4.4e-8
   }
 }

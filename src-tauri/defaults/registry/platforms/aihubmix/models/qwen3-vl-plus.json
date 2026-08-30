@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-vl-plus",
   "canonical_model": "qwen3-vl-plus",
   "capabilities": [
@@ -11,8 +11,20 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 1.43e-07,
-    "output": 1.429e-06,
-    "cache_read": 2.9e-08
+    "input": 1.37e-7,
+    "output": 0.00000137,
+    "cache_read": 2.74e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 2.054e-7,
+        "output": 0.000002054
+      },
+      {
+        "min_tokens": 128001,
+        "input": 4.11e-7,
+        "output": 0.00000411
+      }
+    ]
   }
 }

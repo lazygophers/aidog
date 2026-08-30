@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788102888,
   "model_id": "cc-minimax-m2",
   "canonical_model": "MiniMax-M2",
   "capabilities": [
@@ -10,7 +10,7 @@
   "context_window": 204800,
   "official": true,
   "price": {
-    "input": 2.91667e-07,
-    "output": 1.16667e-06
+    "input": 1e-7,
+    "output": 1e-7
   }
 }

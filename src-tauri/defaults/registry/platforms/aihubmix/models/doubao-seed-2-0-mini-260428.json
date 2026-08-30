@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "doubao-seed-2-0-mini-260428",
   "canonical_model": "seed-2-0-mini-260428",
   "family": "seed",
@@ -11,8 +11,22 @@
   "context_window": 262144,
   "official": true,
   "price": {
-    "input": 1.0000000000000001e-07,
-    "output": 4.0000000000000003e-07,
-    "cache_read": 2e-08
+    "input": 2.82e-8,
+    "output": 2.82e-7,
+    "cache_read": 5.64e-9,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 5.64e-8,
+        "output": 5.64e-7,
+        "cache_read": 1.128e-8
+      },
+      {
+        "min_tokens": 128001,
+        "input": 1.128e-7,
+        "output": 0.000001128,
+        "cache_read": 2.256e-8
+      }
+    ]
   }
 }

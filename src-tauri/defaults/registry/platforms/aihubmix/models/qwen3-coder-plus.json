@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
   "capabilities": [
@@ -10,8 +10,25 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 5.55556e-07,
-    "cache_read": 1.11111e-07,
-    "output": 2.22222e-06
+    "input": 5.47944e-7,
+    "output": 0.00000219178,
+    "cache_read": 1.09589e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 8.21916e-7,
+        "output": 0.00000328766
+      },
+      {
+        "min_tokens": 128001,
+        "input": 0.00000136986,
+        "output": 0.00000547944
+      },
+      {
+        "min_tokens": 256001,
+        "input": 0.00000273973,
+        "output": 0.0000273973
+      }
+    ]
   }
 }

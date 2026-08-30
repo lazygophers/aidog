@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "grok-4.5",
   "canonical_model": "grok-4.5",
   "capabilities": [
@@ -11,8 +11,16 @@
   "context_window": 500000,
   "official": false,
   "price": {
-    "input": 2e-06,
-    "output": 6e-06,
-    "cache_read": 3e-07
+    "input": 0.0000022,
+    "output": 0.0000066,
+    "cache_read": 5.5e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 0.0000044,
+        "output": 0.0000132,
+        "cache_read": 0.0000011
+      }
+    ]
   }
 }

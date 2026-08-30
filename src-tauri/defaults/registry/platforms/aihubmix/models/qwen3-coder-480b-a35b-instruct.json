@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-coder-480b-a35b-instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "capabilities": [
@@ -10,8 +10,19 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 8.333333333333333e-07,
-    "output": 3.3333333333333333e-06,
-    "cache_read": 0
+    "input": 8.21916e-7,
+    "output": 0.00000328766,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 0.00000123288,
+        "output": 0.00000493152
+      },
+      {
+        "min_tokens": 128001,
+        "input": 0.00000205479,
+        "output": 0.00000821916
+      }
+    ]
   }
 }

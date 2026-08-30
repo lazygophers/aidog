@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "gpt-5.6-luna",
   "canonical_model": "gpt-5.6-luna",
   "capabilities": [
@@ -10,8 +10,16 @@
   "context_window": 400000,
   "official": false,
   "price": {
-    "input": 1.3e-07,
-    "output": 7.8e-07,
-    "cache_read": 1.3e-08
+    "input": 2e-7,
+    "output": 0.0000012,
+    "cache_read": 2e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 4e-7,
+        "output": 0.0000018,
+        "cache_read": 4e-8
+      }
+    ]
   }
 }

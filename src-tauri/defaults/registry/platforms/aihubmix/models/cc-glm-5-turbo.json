@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "cc-glm-5-turbo",
   "canonical_model": "glm-5-turbo",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 204800,
   "official": true,
   "price": {
-    "input": 6.94444e-07,
-    "cache_read": 1.66667e-07,
-    "output": 3.05556e-06
+    "input": 6e-8,
+    "output": 2.2e-7
   }
 }

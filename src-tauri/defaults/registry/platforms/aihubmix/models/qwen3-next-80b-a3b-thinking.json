@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-next-80b-a3b-thinking",
   "canonical_model": "qwen3-next-80b-a3b-thinking",
   "capabilities": [
@@ -11,8 +11,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 9.75e-08,
-    "output": 7.8e-07,
-    "cache_read": 0
+    "input": 1.42e-7,
+    "output": 0.00000142
   }
 }
