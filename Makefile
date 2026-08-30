@@ -85,20 +85,6 @@ uninstall: ## 从 /Applications 移除 AiDog.app
 	@rm -rf "$(INSTALLED)"
 	@printf "$(GREEN)🗑  已移除: $(INSTALLED)$(RESET)\n"
 
-##@ Docs
-
-.PHONY: presets-view
-presets-view: ## Generate interactive HTML from platform-presets.json + models.json and open it
-	@printf "$(GREEN)▶ Generating presets HTML...$(RESET)\n"
-	@python3 scripts/presets_view/generate.py
-	@printf "$(GREEN)▶ Opening...$(RESET)\n"
-	@case "$$(uname -s)" in \
-		Darwin) open "$(PWD)/.aidoc/presets.html" ;; \
-		Linux)  (xdg-open "$(PWD)/.aidoc/presets.html" || echo "open manually: $(PWD)/.aidoc/presets.html") ;; \
-		MINGW*|MSYS*|CYGWIN*) start "" "$(PWD)/.aidoc/presets.html" ;; \
-		*) echo "unsupported OS, open manually: $(PWD)/.aidoc/presets.html" ;; \
-	esac
-
 ##@ Help
 
 .PHONY: help
