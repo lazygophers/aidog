@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086468,
+  "model_id": "doubao-seedance-1-0-lite-t2v",
+  "canonical_model": "doubao-seedance-1-0-lite-t2v",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0
+  }
+}

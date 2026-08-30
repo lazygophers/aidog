@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086468,
+  "model_id": "nano-banana-2",
+  "canonical_model": "nano-banana-2",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.067
+  }
+}

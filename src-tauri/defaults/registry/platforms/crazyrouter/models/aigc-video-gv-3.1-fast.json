@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086468,
+  "model_id": "aigc-video-gv-3.1-fast",
+  "canonical_model": "aigc-video-gv-3.1-fast",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0
+  }
+}
