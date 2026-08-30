@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788096132,
+  "model_id": "muse-image-1.0",
+  "canonical_model": "muse-image-1.0",
+  "display_name": "Muse Image 1.0",
+  "family": "muse",
+  "version": "1.0",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.01
+  }
+}
