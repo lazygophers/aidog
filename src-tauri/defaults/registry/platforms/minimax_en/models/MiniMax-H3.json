@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788109208,
+  "model_id": "MiniMax-H3",
+  "canonical_model": "MiniMax-H3",
+  "display_name": "MiniMax-H3",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.08
+  }
+}

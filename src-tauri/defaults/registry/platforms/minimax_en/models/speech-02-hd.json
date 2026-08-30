@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788109208,
+  "model_id": "speech-02-hd",
+  "canonical_model": "speech-02-hd",
+  "display_name": "Speech 02 HD",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.1
+  }
+}

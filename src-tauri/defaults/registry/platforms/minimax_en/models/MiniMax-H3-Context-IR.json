@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788109208,
+  "model_id": "MiniMax-H3-Context-IR",
+  "canonical_model": "MiniMax-H3-Context-IR",
+  "display_name": "MiniMax-H3-Context-IR",
+  "capabilities": [
+    "video"
+  ],
+  "official": true,
+  "price": {
+    "input": 9e-7,
+    "output": 0.0000036
+  }
+}
