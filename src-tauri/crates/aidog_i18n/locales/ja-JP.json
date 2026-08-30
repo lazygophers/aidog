@@ -1398,6 +1398,8 @@
   "modelInfo.copyRequestName": "リクエスト名をコピー",
   "modelInfo.officialYes": "はい（公式提供）",
   "modelInfo.officialNo": "いいえ（サードパーティ）",
+  "modelInfo.thinkingSupported": "思考機能に対応",
+  "modelInfo.thinkingToggleable": "思考のオン／オフ切替可",
   "modelInfo.versionChain": "バージョン系譜",
   "modelInfo.family": "ファミリー",
   "modelInfo.version": "バージョン",

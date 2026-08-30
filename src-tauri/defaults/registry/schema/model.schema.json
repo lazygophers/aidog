@@ -168,6 +168,14 @@
       "type": "boolean",
       "description": "【必填】是否官方渠道条目。不变量：每个 model_id 至少有一个平台条目 official=true（test_registry.rs 锁定）。"
     },
+    "thinking_supported": {
+      "type": "boolean",
+      "description": "【可选】该模型是否支持 thinking/推理模式（扩展思考输出）。缺省=未标注，消费方视为未知。"
+    },
+    "thinking_toggleable": {
+      "type": "boolean",
+      "description": "【可选】thinking 是否可由请求参数开关（如 qwen3 enable_thinking、claude thinking.budget_tokens）。false=强制思考（deepseek-r1 型）。缺省=未标注。"
+    },
     "price": {
       "type": "object",
       "additionalProperties": false,

@@ -1376,6 +1376,8 @@
   "modelInfo.copyRequestName": "Copy request name",
   "modelInfo.officialYes": "Yes (first-party)",
   "modelInfo.officialNo": "No (third-party)",
+  "modelInfo.thinkingSupported": "Supports thinking",
+  "modelInfo.thinkingToggleable": "Thinking toggleable",
   "modelInfo.versionChain": "Version chain",
   "modelInfo.family": "Family",
   "modelInfo.version": "Version",
