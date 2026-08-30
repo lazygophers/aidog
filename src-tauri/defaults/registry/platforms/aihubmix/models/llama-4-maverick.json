@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "llama-4-maverick",
+  "canonical_model": "llama-4-maverick",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 16384,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 1.5e-07,
+    "output": 6e-07,
+    "cache_read": 0
+  }
+}

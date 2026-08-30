@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "grok-4",
+  "canonical_model": "grok-4",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

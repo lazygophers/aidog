@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "claude-haiku-4-5",
+  "canonical_model": "claude-haiku-4-5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 65536,
+  "context_window": 200000,
+  "official": false,
+  "price": {
+    "input": 6.5e-07,
+    "output": 3.25e-06,
+    "cache_read": 6.5e-08,
+    "cache_write": 8.13e-07
+  }
+}

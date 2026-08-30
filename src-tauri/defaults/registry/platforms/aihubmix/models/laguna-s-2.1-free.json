@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "laguna-s-2.1-free",
+  "canonical_model": "laguna-s-2.1-free",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 32768,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 0.0
+  }
+}

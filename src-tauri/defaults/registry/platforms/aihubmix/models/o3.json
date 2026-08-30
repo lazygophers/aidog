@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "o3",
+  "canonical_model": "o3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": false,
+  "price": {
+    "input": 1.3e-06,
+    "output": 5.2e-06,
+    "cache_read": 3.25e-07
+  }
+}

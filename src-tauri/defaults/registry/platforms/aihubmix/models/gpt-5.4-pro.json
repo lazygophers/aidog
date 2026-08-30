@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gpt-5.4-pro",
+  "canonical_model": "gpt-5.4-pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1050000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "input": 2.55e-05,
+    "output": 0.000153,
+    "cache_read": 2.55e-05
+  }
+}

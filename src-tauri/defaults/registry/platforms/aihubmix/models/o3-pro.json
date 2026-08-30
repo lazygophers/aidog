@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "o3-pro",
+  "canonical_model": "o3-pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": false,
+  "price": {
+    "input": 2e-05,
+    "output": 8e-05,
+    "cache_read": 0
+  }
+}

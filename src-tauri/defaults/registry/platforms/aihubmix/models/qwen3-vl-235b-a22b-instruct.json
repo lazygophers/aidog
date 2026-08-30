@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "qwen3-vl-235b-a22b-instruct",
+  "canonical_model": "qwen3-vl-235b-a22b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 16384,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 8.8e-07,
+    "cache_read": 1.1e-07
+  }
+}

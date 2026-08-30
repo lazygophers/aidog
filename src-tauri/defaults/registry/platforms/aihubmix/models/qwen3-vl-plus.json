@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "qwen3-vl-plus",
+  "canonical_model": "qwen3-vl-plus",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 258048,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 1.43e-07,
+    "output": 1.429e-06,
+    "cache_read": 2.9e-08
+  }
+}

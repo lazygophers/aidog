@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "coding-glm-5.1",
+  "canonical_model": "glm-5.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 204800,
+  "max_output_tokens": 131072,
+  "context_window": 204800,
+  "official": true,
+  "price": {
+    "input": 8.33333e-07,
+    "output": 3.33333e-06,
+    "cache_read": 1.80556e-07
+  }
+}

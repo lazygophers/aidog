@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "ernie-4.5-turbo-128k-preview",
+  "canonical_model": "ernie-4.5-turbo-128k-preview",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

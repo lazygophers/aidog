@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "llama-4-scout",
+  "canonical_model": "llama-4-scout",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 10000000,
+  "max_output_tokens": 16384,
+  "context_window": 10000000,
+  "official": false,
+  "price": {
+    "input": 1e-07,
+    "output": 3e-07,
+    "cache_read": 0
+  }
+}

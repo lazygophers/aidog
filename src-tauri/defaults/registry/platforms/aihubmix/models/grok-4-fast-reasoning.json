@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "grok-4-fast-reasoning",
+  "canonical_model": "grok-4-fast-reasoning",
+  "capabilities": [],
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0
+  }
+}

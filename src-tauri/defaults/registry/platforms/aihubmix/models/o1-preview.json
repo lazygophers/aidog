@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "o1-preview",
+  "canonical_model": "o1-preview",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

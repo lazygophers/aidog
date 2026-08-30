@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "anthropic-opus-4-6",
+  "canonical_model": "anthropic-opus-4-6",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

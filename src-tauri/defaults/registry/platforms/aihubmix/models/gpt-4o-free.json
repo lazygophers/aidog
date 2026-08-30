@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gpt-4o-free",
+  "canonical_model": "gpt-4o",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

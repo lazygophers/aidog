@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "bai-qwen3-vl-235b-a22b-instruct",
+  "canonical_model": "bai-qwen3-vl-235b-a22b-instruct",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

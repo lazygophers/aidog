@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gemini-3.1-flash-lite",
+  "canonical_model": "gemini-3.1-flash-lite",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.38e-07,
+    "output": 8.25e-07,
+    "cache_read": 1.4e-08
+  }
+}

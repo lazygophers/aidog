@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "codex-mini-latest",
+  "canonical_model": "codex-mini-latest",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": false,
+  "price": {
+    "input": 1.5e-06,
+    "output": 6e-06,
+    "cache_read": 3.75e-07
+  }
+}

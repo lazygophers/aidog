@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gemini-2.5-flash-nothink",
+  "canonical_model": "gemini-2.5-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.65e-07,
+    "output": 1.375e-06,
+    "cache_read": 4.4e-08
+  }
+}

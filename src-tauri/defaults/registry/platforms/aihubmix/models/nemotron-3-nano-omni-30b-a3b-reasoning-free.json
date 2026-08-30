@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "nemotron-3-nano-omni-30b-a3b-reasoning-free",
+  "canonical_model": "nemotron-3-nano-omni-30b-a3b-reasoning-free",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

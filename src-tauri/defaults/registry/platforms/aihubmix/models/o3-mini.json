@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "o3-mini",
+  "canonical_model": "o3-mini",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": false,
+  "price": {
+    "input": 1.1e-06,
+    "output": 4.4e-06,
+    "cache_read": 5.5e-07
+  }
+}

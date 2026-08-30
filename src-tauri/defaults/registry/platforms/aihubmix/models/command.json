@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "command",
+  "canonical_model": "command",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

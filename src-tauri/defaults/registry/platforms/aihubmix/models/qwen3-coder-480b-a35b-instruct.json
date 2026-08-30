@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "qwen3-coder-480b-a35b-instruct",
+  "canonical_model": "qwen3-coder-480b-a35b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 8.333333333333333e-07,
+    "output": 3.3333333333333333e-06,
+    "cache_read": 0
+  }
+}
