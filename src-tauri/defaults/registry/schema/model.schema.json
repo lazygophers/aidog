@@ -53,12 +53,21 @@
         "enum": [
           "text",
           "vision",
-          "image_gen",
+          "tool_use",
+          "reasoning",
+          "text_to_image",
+          "image_to_image",
+          "image_edit",
+          "text_to_video",
+          "image_to_video",
+          "video_to_video",
+          "video_edit",
           "audio",
+          "video",
           "embedding"
         ]
       },
-      "description": "【必填】能力标签枚举（text 必含；vision / image_gen / audio / embedding 按需）。"
+      "description": "【必填】能力标签枚举（text 必含；vision / tool_use / reasoning 理解类，text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit 生成类按需，audio / video / embedding 按需）。"
     },
     "builtin_tools_excluded": {
       "type": "array",
