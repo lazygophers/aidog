@@ -57,10 +57,9 @@ fn pricing_only_entries_carry_models_without_platform_file() {
 fn presets_doc_skips_unparsable_entry() {
     let doc = presets_doc(
         [("good", r#"{"name":{"en-US":"Good"}}"#), ("bad", "{oops")],
-        Value::String("1".into()),
         Value::from(7),
     );
-    assert_eq!(doc["version"], "1");
+    assert_eq!(doc["version"], Value::Null);
     assert_eq!(doc["last_updated"], 7);
     let p = doc["protocols"].as_object().expect("protocols");
     assert_eq!(p.len(), 1);

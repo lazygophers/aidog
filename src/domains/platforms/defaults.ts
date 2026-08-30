@@ -51,7 +51,6 @@ export type TimeWindow = {
 export type DefaultsLocale = "en-US" | "zh-Hans" | "ar-SA" | "fr-FR" | "de-DE" | "ru-RU" | "ja-JP" | "es-ES";
 
 type DefaultsDoc = {
-  version?: string;
   last_updated?: number;
   protocols: Partial<Record<Protocol, {
     /** 协议层 coding plan 套餐标记（真值源）：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。

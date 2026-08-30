@@ -6,17 +6,11 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "version",
     "last_updated",
     "platforms",
     "pricing_only"
   ],
   "properties": {
-    "version": {
-      "type": "string",
-      "minLength": 1,
-      "description": "【必填】registry 版本号，随内容变更递增。"
-    },
     "last_updated": {
       "type": "integer",
       "minimum": 0,

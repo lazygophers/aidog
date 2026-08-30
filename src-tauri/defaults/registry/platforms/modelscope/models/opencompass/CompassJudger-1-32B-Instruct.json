@@ -1,4 +1,5 @@
 {
+  "last_updated": 1788060539,
   "model_id": "opencompass/CompassJudger-1-32B-Instruct",
   "canonical_model": "compassjudger-1-32b-instruct",
   "capabilities": [

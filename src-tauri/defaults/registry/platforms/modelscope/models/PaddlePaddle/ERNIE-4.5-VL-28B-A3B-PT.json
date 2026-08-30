@@ -1,4 +1,5 @@
 {
+  "last_updated": 1788060539,
   "model_id": "PaddlePaddle/ERNIE-4.5-VL-28B-A3B-PT",
   "canonical_model": "ernie-4.5-vl-28b-a3b-pt",
   "capabilities": [
