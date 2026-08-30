@@ -68,7 +68,7 @@ registry/
 | `canonical_model` | 跨平台聚合键（`model_entry.rs` 缺省回落 model_id） |
 | `display_name` | 展示名，读取层回落 model_id（票 T10，`model_entry.rs::with_display_name`） |
 | `family` / `version` / `predecessor` | DB 列 `model_entry`（`MODEL_ENTRY_COLUMNS`），模型信息页前后代链 |
-| `capabilities` | 前端 ModelInfo 页 `CapabilityBadges` |
+| `capabilities` | 前端 ModelInfo 页 `CapabilityBadges`。理解类：text（必含）/ vision / tool_use / reasoning / audio / video / embedding；生成类（输入→输出细分）：text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit |
 | `builtin_tools_excluded` | DB 列；内置工具过滤 |
 | `max_input_tokens` / `max_output_tokens` / `context_window` | 估算 / 请求裁剪（`gateway/estimate`）、模型信息页 |
 | `official` | 模型维度列表默认展示官方条目（不变量：每 model_id 至少一条 official=true） |

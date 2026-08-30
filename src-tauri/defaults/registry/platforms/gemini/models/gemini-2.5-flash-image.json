@@ -1,9 +1,11 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788061541,
   "model_id": "gemini-2.5-flash-image",
   "canonical_model": "gemini-2.5-flash-image",
   "capabilities": [
-    "image_gen"
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
   ],
   "max_input_tokens": 32768,
   "max_output_tokens": 32768,
