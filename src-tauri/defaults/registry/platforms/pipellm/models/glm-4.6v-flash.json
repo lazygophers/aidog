@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1788103292,
   "model_id": "glm-4.6v-flash",
   "canonical_model": "glm-4.6v-flash",
   "capabilities": [
@@ -10,7 +10,8 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 0.0,
-    "output": 0.0
+    "input": 0,
+    "output": 0,
+    "cache_read": 0
   }
 }

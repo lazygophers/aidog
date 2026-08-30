@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1788103292,
   "model_id": "claude-sonnet-4-6",
   "canonical_model": "claude-sonnet-4-6",
   "capabilities": [
@@ -10,8 +10,16 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 3e-06,
-    "output": 1.5e-05,
-    "cache_read": 3e-07
+    "input": 0.000003,
+    "output": 0.000015,
+    "cache_read": 3e-7,
+    "cache_write": 0.00000375,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 0.000006,
+        "output": 0.0000225
+      }
+    ]
   }
 }
