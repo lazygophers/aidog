@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1788088124,
   "model_id": "google/gemma-4-26B-A4B-it",
   "canonical_model": "gemma-4-26B-A4B-it",
   "display_name": "gemma-4-26B-A4B-it",
@@ -9,7 +9,7 @@
   ],
   "max_input_tokens": 262144,
   "max_output_tokens": 128000,
-  "official": false,
+  "official": true,
   "price": {
     "input": 1.2e-07,
     "output": 4.0000000000000003e-07
