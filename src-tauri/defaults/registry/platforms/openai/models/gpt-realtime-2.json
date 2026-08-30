@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-realtime-2",
+  "canonical_model": "gpt-realtime-2",
+  "display_name": "GPT Realtime 2",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 4e-06,
+    "output": 2.4e-05,
+    "cache_read": 4e-07
+  }
+}

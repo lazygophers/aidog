@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "qwen3.7-text-embedding",
+  "canonical_model": "qwen3.7-text-embedding",
+  "display_name": "Qwen3.7-Text-Embedding",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

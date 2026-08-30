@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-5-search-api",
+  "canonical_model": "gpt-5-search-api",
+  "display_name": "GPT-5 Search API",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 400000,
+  "official": true,
+  "price": {
+    "input": 1.25e-06,
+    "output": 1e-05,
+    "cache_read": 1.25e-07
+  }
+}

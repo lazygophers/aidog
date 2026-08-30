@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "text-embedding-3-large",
+  "canonical_model": "text-embedding-3-large",
+  "display_name": "Text Embedding 3 Large",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.3e-07
+  }
+}

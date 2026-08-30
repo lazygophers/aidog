@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "lyria-3-pro-preview",
+  "canonical_model": "lyria-3-pro-preview",
+  "display_name": "Lyria 3 Pro",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.08
+  }
+}

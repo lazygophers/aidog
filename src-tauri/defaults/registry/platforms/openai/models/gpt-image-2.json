@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-image-2",
+  "canonical_model": "gpt-image-2",
+  "display_name": "GPT-Image-2",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "input": 5e-06,
+    "output": 3e-05,
+    "cache_read": 1.25e-06
+  }
+}

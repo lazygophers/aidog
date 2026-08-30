@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-daybreak-blue-latest",
+  "canonical_model": "gpt-daybreak-blue-latest",
+  "display_name": "GPT Daybreak Blue (latest)",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "input": 4e-06,
+    "output": 2e-05
+  }
+}

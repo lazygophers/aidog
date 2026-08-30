@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "step-router-v1",
+  "canonical_model": "step-router-v1",
+  "display_name": "Step Router V1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 256000,
+  "max_output_tokens": 65536,
+  "context_window": 256000,
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

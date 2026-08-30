@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "autoglm-phone",
+  "canonical_model": "autoglm-phone",
+  "display_name": "AutoGLM-Phone",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

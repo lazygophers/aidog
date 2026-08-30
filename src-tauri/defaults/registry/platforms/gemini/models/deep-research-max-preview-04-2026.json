@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "deep-research-max-preview-04-2026",
+  "canonical_model": "deep-research-max-preview-04-2026",
+  "display_name": "Gemini Deep Research Max",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 32768,
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "input": 2e-06,
+    "output": 1.2e-05,
+    "cache_read": 0
+  }
+}

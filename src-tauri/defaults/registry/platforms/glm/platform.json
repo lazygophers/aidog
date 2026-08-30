@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788083579,
   "endpoints": {
     "default": [
       {
@@ -20,6 +20,7 @@
   "model_list": {
     "default": [
       "glm-5.3",
+      "glm-5.3-flash",
       "glm-5.2",
       "glm-5.1",
       "glm-5",

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "text-embedding-ada-002",
+  "canonical_model": "text-embedding-ada-002",
+  "display_name": "Text Embedding Ada-002",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 1e-07
+  }
+}

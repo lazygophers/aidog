@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788083579,
+  "model_id": "gpt-4o-mini-tts",
+  "canonical_model": "gpt-4o-mini-tts",
+  "display_name": "GPT-4o Mini TTS",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 6e-07,
+    "output": 1.2e-05
+  }
+}
