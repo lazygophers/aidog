@@ -1,10 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1788072476,
   "model_id": "big-pickle",
   "canonical_model": "big-pickle",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 160000,
+  "max_output_tokens": 32000,
+  "context_window": 200000,
   "official": true,
   "price": {
     "input": 0.0,

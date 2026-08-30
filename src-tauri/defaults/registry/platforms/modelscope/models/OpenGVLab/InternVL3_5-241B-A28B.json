@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1788072476,
   "model_id": "OpenGVLab/InternVL3_5-241B-A28B",
   "canonical_model": "internvl3_5-241b-a28b",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 40960,
+  "context_window": 40960,
   "official": true,
   "price": {
     "input": 0.0,
