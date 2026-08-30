@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085336,
+  "model_id": "Wan-AI/Wan2.5-T2V",
+  "canonical_model": "wan2.5-t2v",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.101389
+  }
+}

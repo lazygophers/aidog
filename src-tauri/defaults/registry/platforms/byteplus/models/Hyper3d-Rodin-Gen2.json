@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "Hyper3d-Rodin-Gen2",
+  "canonical_model": "Hyper3d-Rodin-Gen2",
+  "family": "hyper3d",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.399
+  }
+}

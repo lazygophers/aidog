@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "mistralai/mixtral-8x22b-v0.1",
+  "canonical_model": "mixtral-8x22b-v0.1",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

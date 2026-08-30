@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "Qwen/Qwen-Image-Edit",
+  "canonical_model": "qwen-image-edit",
+  "capabilities": [
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.0416667
+  }
+}

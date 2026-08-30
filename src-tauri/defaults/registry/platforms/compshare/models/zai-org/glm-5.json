@@ -1,0 +1,25 @@
+{
+  "last_updated": 1788085336,
+  "model_id": "zai-org/glm-5",
+  "canonical_model": "glm-5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 202800,
+  "max_output_tokens": 131072,
+  "context_window": 202800,
+  "official": false,
+  "price": {
+    "input": 5.55556e-07,
+    "cache_read": 1.38889e-07,
+    "output": 2.5e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 8.33333e-07,
+        "cache_read": 2.08333e-07,
+        "output": 3.05556e-06
+      }
+    ]
+  }
+}

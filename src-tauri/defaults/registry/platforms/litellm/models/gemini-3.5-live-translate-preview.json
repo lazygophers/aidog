@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "gemini-3.5-live-translate-preview",
+  "canonical_model": "gemini-3.5-live-translate-preview",
+  "display_name": "Gemini 3.5 Live Translate",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 3.5e-06,
+    "output": 2.1e-05
+  }
+}

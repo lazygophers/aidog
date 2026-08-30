@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085397,
+  "model_id": "nvidia/nv-embedqa-mistral-7b-v2",
+  "canonical_model": "nv-embedqa-mistral-7b-v2",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

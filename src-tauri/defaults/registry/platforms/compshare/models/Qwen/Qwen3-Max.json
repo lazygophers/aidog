@@ -1,0 +1,28 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "Qwen/Qwen3-Max",
+  "canonical_model": "qwen3-max",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 3.47222e-07,
+    "output": 1.38889e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 5.55556e-07,
+        "output": 2.22222e-06
+      },
+      {
+        "min_tokens": 131073,
+        "input": 9.72222e-07,
+        "output": 3.88889e-06
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "microsoft/kosmos-2",
+  "canonical_model": "kosmos-2",
+  "capabilities": [
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

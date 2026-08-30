@@ -1,0 +1,23 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "qwen3.7-plus-batch",
+  "canonical_model": "qwen3.7-plus-batch",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 1.38889e-07,
+    "output": 5.55556e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 262145,
+        "input": 4.16667e-07,
+        "output": 1.66667e-06
+      }
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "nvidia/llama-3.2-nemoretriever-1b-vlm-embed-v1",
+  "canonical_model": "llama-3.2-nemoretriever-1b-vlm-embed-v1",
+  "capabilities": [
+    "embedding",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

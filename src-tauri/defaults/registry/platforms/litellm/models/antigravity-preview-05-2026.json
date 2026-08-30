@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "antigravity-preview-05-2026",
+  "canonical_model": "antigravity-preview-05-2026",
+  "display_name": "Antigravity Agent",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 65536,
+  "official": false,
+  "price": {
+    "input": 0.0
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "bigcode/starcoder2-15b",
+  "canonical_model": "starcoder2-15b",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

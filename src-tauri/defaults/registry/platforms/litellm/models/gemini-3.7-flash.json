@@ -1,0 +1,25 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "gemini-3.7-flash",
+  "canonical_model": "gemini-3.7-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 7.5e-07,
+    "output": 3.75e-06,
+    "cache_read": 7.5e-08,
+    "time_tiers": [
+      {
+        "start_at": 1798761600,
+        "input": 1.5e-06,
+        "output": 7.5e-06,
+        "cache_read": 1.5e-07
+      }
+    ]
+  }
+}

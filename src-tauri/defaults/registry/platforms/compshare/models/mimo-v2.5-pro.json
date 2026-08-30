@@ -1,0 +1,25 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "mimo-v2.5-pro",
+  "canonical_model": "mimo-v2.5-pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 9.72222e-07,
+    "cache_read": 1.94444e-07,
+    "output": 2.91667e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 262145,
+        "input": 1.94444e-06,
+        "cache_read": 3.88889e-07,
+        "output": 5.83333e-06
+      }
+    ]
+  }
+}

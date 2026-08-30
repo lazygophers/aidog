@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "MiniMax-Hailuo-2.3",
+  "canonical_model": "minimax-hailuo-2.3",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0462963
+  }
+}

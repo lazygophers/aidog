@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085397,
+  "model_id": "nvidia/vila",
+  "canonical_model": "vila",
+  "capabilities": [
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "lyria-3-clip-preview",
+  "canonical_model": "lyria-3-clip-preview",
+  "display_name": "Lyria 3 Clip",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.04
+  }
+}

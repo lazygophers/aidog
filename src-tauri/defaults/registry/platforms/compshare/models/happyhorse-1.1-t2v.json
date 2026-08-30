@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "happyhorse-1.1-t2v",
+  "canonical_model": "happyhorse-1.1-t2v",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.125
+  }
+}

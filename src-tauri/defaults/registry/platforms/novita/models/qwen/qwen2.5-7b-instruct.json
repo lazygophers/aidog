@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "qwen/qwen2.5-7b-instruct",
+  "canonical_model": "qwen2.5-7b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 7e-08,
+    "output": 7e-08
+  },
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 8192
+}

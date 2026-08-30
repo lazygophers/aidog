@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "viduq2-pro-fast-abroad",
+  "canonical_model": "viduq2-pro-fast-abroad",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0138889
+  }
+}

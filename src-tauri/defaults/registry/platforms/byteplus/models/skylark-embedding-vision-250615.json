@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "skylark-embedding-vision-250615",
+  "canonical_model": "skylark-embedding-vision-250615",
+  "family": "skylark",
+  "capabilities": [
+    "embedding",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.25e-07
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "deepseek-v4-flash-260425",
+  "canonical_model": "deepseek-v4-flash-260425",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 384000,
+  "context_window": 1000000,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

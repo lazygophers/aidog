@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "easydoc-emr-mask",
+  "canonical_model": "easydoc-emr-mask",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.0833333
+  }
+}

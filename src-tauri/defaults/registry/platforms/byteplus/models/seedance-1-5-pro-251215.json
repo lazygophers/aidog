@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "seedance-1-5-pro-251215",
+  "canonical_model": "seedance-1-5-pro-251215",
+  "family": "seedance",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 1.2e-06
+  }
+}

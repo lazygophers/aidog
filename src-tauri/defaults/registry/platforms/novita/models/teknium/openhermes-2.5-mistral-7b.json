@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788085336,
+  "model_id": "teknium/openhermes-2.5-mistral-7b",
+  "canonical_model": "openhermes-2.5-mistral-7b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.7e-07,
+    "output": 1.7e-07
+  },
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 8000
+}

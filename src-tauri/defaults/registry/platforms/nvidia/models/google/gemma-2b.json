@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "google/gemma-2b",
+  "canonical_model": "gemma-2b",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

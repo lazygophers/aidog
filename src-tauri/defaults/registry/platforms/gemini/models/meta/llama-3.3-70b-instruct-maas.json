@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "meta/llama-3.3-70b-instruct-maas",
+  "canonical_model": "meta/llama-3.3-70b-instruct-maas",
+  "display_name": "Llama 3.3 70B (MaaS)",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 16384,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 1e-07,
+    "output": 3.2e-07,
+    "cache_read": 0
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "baidu/ernie-4.5-21B-a3b-thinking",
+  "canonical_model": "ernie-4.5-21b-a3b-thinking",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "official": true,
+  "price": {
+    "input": 7e-08,
+    "output": 2.8e-07
+  },
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 65536
+}

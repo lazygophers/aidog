@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "claude-opus-5",
+  "canonical_model": "claude-opus-5",
+  "display_name": "Claude Opus 5 on Google Cloud",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07,
+    "cache_write": 6.25e-06
+  }
+}

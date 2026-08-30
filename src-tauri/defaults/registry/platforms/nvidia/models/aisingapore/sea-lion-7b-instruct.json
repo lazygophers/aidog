@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "aisingapore/sea-lion-7b-instruct",
+  "canonical_model": "sea-lion-7b-instruct",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

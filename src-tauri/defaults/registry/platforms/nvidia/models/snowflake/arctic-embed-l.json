@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "snowflake/arctic-embed-l",
+  "canonical_model": "arctic-embed-l",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

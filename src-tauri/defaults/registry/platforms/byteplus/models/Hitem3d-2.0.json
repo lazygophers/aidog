@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "Hitem3d-2.0",
+  "canonical_model": "Hitem3d-2.0",
+  "family": "hitem3d",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.8
+  }
+}

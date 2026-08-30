@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "nvidia/llama3-chatqa-1.5-70b",
+  "canonical_model": "llama3-chatqa-1.5-70b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

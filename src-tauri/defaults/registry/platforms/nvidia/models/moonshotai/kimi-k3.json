@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "moonshotai/kimi-k3",
+  "canonical_model": "kimi-k3",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 943718,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

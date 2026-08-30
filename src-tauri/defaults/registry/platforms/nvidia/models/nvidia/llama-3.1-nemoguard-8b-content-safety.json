@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "nvidia/llama-3.1-nemoguard-8b-content-safety",
+  "canonical_model": "llama-3.1-nemoguard-8b-content-safety",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

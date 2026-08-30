@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "veo-3.1-fast-generate-preview",
+  "canonical_model": "veo-3.1-fast-generate-preview",
+  "display_name": "Veo 3.1 Fast",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0
+  }
+}

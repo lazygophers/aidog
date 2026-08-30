@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "kling-v3-omni",
+  "canonical_model": "kling-v3-omni",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0833333
+  }
+}

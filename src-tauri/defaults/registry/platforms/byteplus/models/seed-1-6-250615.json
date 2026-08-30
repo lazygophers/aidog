@@ -1,0 +1,26 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "seed-1-6-250615",
+  "canonical_model": "seed-1-6-250615",
+  "family": "seed",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 229376,
+  "max_output_tokens": 32768,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 2.5e-07,
+    "output": 2e-06,
+    "cache_read": 5e-08,
+    "context_tiers": [
+      {
+        "min_tokens": 131073,
+        "input": 5e-07,
+        "output": 4e-06,
+        "cache_read": 5e-08
+      }
+    ]
+  }
+}

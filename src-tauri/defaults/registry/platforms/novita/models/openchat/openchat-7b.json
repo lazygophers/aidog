@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788085336,
+  "model_id": "openchat/openchat-7b",
+  "canonical_model": "openchat-7b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 6e-08,
+    "output": 6e-08
+  },
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 4096
+}
