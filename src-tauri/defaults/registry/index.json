@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1788108806,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1472,6 +1472,9 @@
       "platform_file": "platforms/glm_en/platform.json",
       "models_dir": "platforms/glm_en/models",
       "models": [
+        "cogvideox-3.json",
+        "cogview-4.json",
+        "glm-4-32b-0414-128k.json",
         "glm-4-flash-250414.json",
         "glm-4-flashx-250414.json",
         "glm-4-long.json",
@@ -1480,7 +1483,11 @@
         "glm-4.5-flash.json",
         "glm-4.5-x.json",
         "glm-4.5.json",
+        "glm-4.5v.json",
         "glm-4.6.json",
+        "glm-4.6v-flash.json",
+        "glm-4.6v-flashx.json",
+        "glm-4.6v.json",
         "glm-4.7-flash.json",
         "glm-4.7-flashx.json",
         "glm-4.7.json",
@@ -1489,7 +1496,10 @@
         "glm-5.2.json",
         "glm-5.3-flash.json",
         "glm-5.3.json",
-        "glm-5.json"
+        "glm-5.json",
+        "glm-asr-2512.json",
+        "glm-image.json",
+        "glm-ocr.json"
       ]
     },
     {
@@ -2646,11 +2656,11 @@
       "platform_file": "platforms/sensenova/platform.json",
       "models_dir": "platforms/sensenova/models",
       "models": [
-        "sensenova-6.8-flash-lite.json",
-        "sensenova-u1.5-lite.json",
-        "sensenova-u1-fast.json",
         "deepseek-v4-flash.json",
-        "glm-5.2.json"
+        "glm-5.2.json",
+        "sensenova-6.8-flash-lite.json",
+        "sensenova-u1-fast.json",
+        "sensenova-u1.5-lite.json"
       ]
     },
     {

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788108806,
+  "model_id": "glm-4.6v-flashx",
+  "canonical_model": "glm-4.6v-flashx",
+  "display_name": "GLM-4.6V-FlashX",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 16000,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 4e-8,
+    "output": 4e-7,
+    "cache_read": 4e-9
+  }
+}
