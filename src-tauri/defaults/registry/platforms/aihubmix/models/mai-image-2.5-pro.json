@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mai-image-2.5-pro",
+  "canonical_model": "mai-image-2.5-pro",
+  "display_name": "MAI-Image-2.5 Pro",
+  "family": "mai-image",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "max_output_tokens": 1024,
+  "context_window": 4096,
+  "official": true,
+  "price": {
+    "input": 5e-06,
+    "output": 0.000106
+  }
+}

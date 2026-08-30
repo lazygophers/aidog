@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788087755,
   "endpoints": {
     "default": [
       {
@@ -20,7 +20,11 @@
   "model_list": {
     "default": [
       "mimo-v2.5-pro",
-      "mimo-v2.5"
+      "mimo-v2.5",
+      "mimo-v2.5-asr",
+      "mimo-v2.5-tts",
+      "mimo-v2.5-tts-voiceclone",
+      "mimo-v2.5-tts-voicedesign"
     ]
   },
   "name": {

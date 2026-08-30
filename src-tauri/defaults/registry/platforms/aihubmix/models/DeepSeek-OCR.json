@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "DeepSeek-OCR",
+  "canonical_model": "DeepSeek-OCR",
+  "display_name": "DeepSeek OCR",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 8192,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 3e-08,
+    "output": 3e-08
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mimo-v2.5-tts-voiceclone",
+  "canonical_model": "mimo-v2.5-tts-voiceclone",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "mimo",
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0
+  }
+}

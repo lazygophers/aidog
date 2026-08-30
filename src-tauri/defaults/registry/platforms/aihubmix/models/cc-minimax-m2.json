@@ -1,6 +1,6 @@
 {
-  "last_updated": 1788085930,
-  "model_id": "cc-MiniMax-M2",
+  "last_updated": 1788087755,
+  "model_id": "cc-minimax-m2",
   "canonical_model": "MiniMax-M2",
   "capabilities": [
     "text"

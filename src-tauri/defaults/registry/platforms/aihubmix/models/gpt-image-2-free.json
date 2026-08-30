@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "gpt-image-2-free",
+  "canonical_model": "gpt-image-2-free",
+  "display_name": "GPT-Image-2 Free",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

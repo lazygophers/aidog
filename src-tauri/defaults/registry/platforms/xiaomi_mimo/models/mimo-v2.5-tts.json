@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mimo-v2.5-tts",
+  "canonical_model": "mimo-v2.5-tts",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "mimo",
+  "context_window": 8000,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0
+  }
+}

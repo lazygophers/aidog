@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "grok-voice-think-fast-1.0",
+  "canonical_model": "grok-voice-think-fast-1.0",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "grok-voice",
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0008333333333333334
+  }
+}

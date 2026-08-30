@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "grok-stt",
+  "canonical_model": "grok-stt",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "grok",
+  "price": {
+    "unit": "second",
+    "unit_price": 2.777777777777778e-05
+  }
+}

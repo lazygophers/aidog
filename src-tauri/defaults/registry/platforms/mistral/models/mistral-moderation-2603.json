@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mistral-moderation-2603",
+  "canonical_model": "mistral-moderation-2603",
+  "capabilities": [],
+  "official": true,
+  "family": "mistral",
+  "context_window": 128000,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

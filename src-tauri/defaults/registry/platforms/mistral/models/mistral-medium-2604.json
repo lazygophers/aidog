@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mistral-medium-2604",
+  "canonical_model": "mistral-medium-3-5",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "family": "mistral",
+  "context_window": 262144,
+  "max_input_tokens": 262144,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.5e-06,
+    "output": 7.5e-06,
+    "cache_read": 1.5e-07
+  }
+}
