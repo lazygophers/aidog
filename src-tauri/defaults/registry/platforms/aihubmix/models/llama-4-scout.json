@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "llama-4-scout",
   "canonical_model": "llama-4-scout",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 10000000,
   "official": false,
   "price": {
-    "input": 1e-07,
-    "output": 3e-07,
-    "cache_read": 0
+    "input": 2e-7,
+    "output": 2e-7
   }
 }

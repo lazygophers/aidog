@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "doubao-seed-2-0-lite-260215",
   "canonical_model": "doubao-seed-2-0-lite-260215",
   "capabilities": [
@@ -10,8 +10,22 @@
   "context_window": 256000,
   "official": false,
   "price": {
-    "input": 8.33333e-08,
-    "output": 5e-07,
-    "cache_read": 1.66667e-08
+    "input": 9.041e-8,
+    "output": 5.4246e-7,
+    "cache_read": 1.8082e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 1.35616e-7,
+        "output": 8.13696e-7,
+        "cache_read": 2.71232e-8
+      },
+      {
+        "min_tokens": 128001,
+        "input": 2.71232e-7,
+        "output": 0.00000162739,
+        "cache_read": 5.42464e-8
+      }
+    ]
   }
 }

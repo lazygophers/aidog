@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1788102888,
   "model_id": "gemini-3.1-pro-preview",
   "canonical_model": "gemini-3.1-pro-preview",
   "display_name": "Gemini 3.1 Pro Preview",
@@ -11,9 +11,17 @@
   "max_output_tokens": 65536,
   "official": false,
   "price": {
-    "input": 2e-06,
-    "output": 1.2e-05,
-    "cache_read": 2.0000000000000002e-07
+    "input": 0.000002,
+    "output": 0.000012,
+    "cache_read": 2e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 0.000004,
+        "output": 0.000018,
+        "cache_read": 4e-7
+      }
+    ]
   },
   "context_window": 1000000
 }

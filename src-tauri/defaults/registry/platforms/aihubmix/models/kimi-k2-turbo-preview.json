@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "kimi-k2-turbo-preview",
   "canonical_model": "kimi-k2-turbo-preview",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 1.15e-06,
-    "output": 8e-06,
-    "cache_read": 1.5e-07
+    "input": 0.0000012,
+    "output": 0.0000048,
+    "cache_read": 3e-7
   }
 }

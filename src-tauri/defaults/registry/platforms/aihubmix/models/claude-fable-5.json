@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "claude-fable-5",
   "canonical_model": "claude-fable-5",
   "capabilities": [
@@ -10,9 +10,8 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 6.5e-06,
-    "output": 3.25e-05,
-    "cache_read": 6.5e-07,
-    "cache_write": 8.125e-06
+    "input": 0.000011,
+    "output": 0.000055,
+    "cache_read": 0.0000011
   }
 }

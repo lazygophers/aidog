@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1788102888,
   "model_id": "gpt-5.5",
   "canonical_model": "gpt-5.5",
   "display_name": "GPT 5.5",
@@ -11,9 +11,17 @@
   "max_output_tokens": 128000,
   "official": false,
   "price": {
-    "input": 5e-06,
-    "output": 3e-05,
-    "cache_read": 5e-07
+    "input": 0.000005,
+    "output": 0.00003,
+    "cache_read": 5e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 0.00001,
+        "output": 0.000045,
+        "cache_read": 0.000001
+      }
+    ]
   },
   "context_window": 1050000
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "glm-4.5v",
   "canonical_model": "glm-4.5v",
   "capabilities": [
@@ -10,8 +10,14 @@
   "context_window": 65536,
   "official": false,
   "price": {
-    "input": 2.777777777777778e-07,
-    "output": 8.333333333333332e-07,
-    "cache_read": 5.555555555555556e-08
+    "input": 2.74e-7,
+    "output": 0.000001096,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 5.48e-7,
+        "output": 0.000001644
+      }
+    ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "gemini-2.5-flash-lite-nothink",
   "canonical_model": "gemini-2.5-flash-lite",
   "capabilities": [
@@ -12,8 +12,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5.5e-08,
-    "output": 2.2e-07,
-    "cache_read": 1.4e-08
+    "input": 1e-7,
+    "output": 4e-7,
+    "cache_read": 1e-8
   }
 }

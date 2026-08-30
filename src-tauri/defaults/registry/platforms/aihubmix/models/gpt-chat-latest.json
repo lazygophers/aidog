@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788088124,
+  "last_updated": 1788102888,
   "model_id": "gpt-chat-latest",
   "canonical_model": "gpt-chat-latest",
   "capabilities": [
@@ -10,8 +10,16 @@
   "context_window": 400000,
   "official": true,
   "price": {
-    "input": 5e-06,
-    "output": 3e-05,
-    "cache_read": 5e-07
+    "input": 0.000005,
+    "output": 0.00003,
+    "cache_read": 5e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 0.00001,
+        "output": 0.000045,
+        "cache_read": 0.000001
+      }
+    ]
   }
 }

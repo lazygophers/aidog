@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085901,
+  "last_updated": 1788102888,
   "model_id": "inclusionAI/Ling-flash-2.0",
   "canonical_model": "Ling-flash-2.0",
   "display_name": "Ling-flash-2.0",
@@ -12,7 +12,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 1.4e-07,
-    "output": 5.699999999999999e-07
+    "input": 1.36e-7,
+    "output": 5.44e-7
   }
 }

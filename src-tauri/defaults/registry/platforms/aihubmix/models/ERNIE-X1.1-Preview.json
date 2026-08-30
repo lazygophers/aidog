@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086022,
+  "last_updated": 1788102888,
   "model_id": "ERNIE-X1.1-Preview",
   "canonical_model": "ernie-x1.1-preview",
   "family": "ernie-x",
@@ -11,7 +11,7 @@
   "context_window": 65536,
   "official": true,
   "price": {
-    "input": 1.38888889e-07,
-    "output": 5.55555556e-07
+    "input": 1.36e-7,
+    "output": 5.44e-7
   }
 }

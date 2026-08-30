@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen2.5-vl-72b-instruct",
   "canonical_model": "qwen2.5-vl-72b-instruct",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 8e-07,
-    "output": 1e-06,
-    "cache_read": 4e-07
+    "input": 0.0000024,
+    "output": 0.0000072
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "glm-5v-turbo",
   "canonical_model": "glm-5v-turbo",
   "capabilities": [
@@ -11,8 +11,16 @@
   "context_window": 204800,
   "official": false,
   "price": {
-    "input": 6.94444e-07,
-    "cache_read": 1.66667e-07,
-    "output": 3.05556e-06
+    "input": 7.042e-7,
+    "output": 0.00000309848,
+    "cache_read": 1.69008e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 9.86e-7,
+        "output": 0.000003662,
+        "cache_read": 2.53402e-7
+      }
+    ]
   }
 }

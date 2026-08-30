@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "deepseek-v3.2-think",
   "canonical_model": "deepseek-v3.2",
   "capabilities": [
@@ -11,7 +11,8 @@
   "official": true,
   "thinking_supported": true,
   "price": {
-    "input": 2.8e-07,
-    "output": 4e-07
+    "input": 3.02e-7,
+    "output": 4.53e-7,
+    "cache_read": 3.02e-8
   }
 }

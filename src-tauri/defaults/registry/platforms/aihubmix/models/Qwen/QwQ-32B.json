@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085901,
+  "last_updated": 1788102888,
   "model_id": "Qwen/QwQ-32B",
   "canonical_model": "qwq-32b",
   "capabilities": [
@@ -9,7 +9,7 @@
   "context_window": 131072,
   "official": true,
   "price": {
-    "input": 9e-07,
-    "output": 2.7e-06
+    "input": 1.4e-7,
+    "output": 5.6e-7
   }
 }

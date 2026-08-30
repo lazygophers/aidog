@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "capabilities": [
@@ -10,8 +10,13 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 6.25e-07,
-    "cache_read": 2.08333e-08,
-    "output": 1.875e-06
+    "input": 6.918e-07,
+    "output": 2.0754e-06,
+    "cache_read": 2.30577e-08,
+    "peak": {
+      "input": 1.3944e-06,
+      "output": 4.1832e-06,
+      "cache_read": 4.64723e-08
+    }
   }
 }

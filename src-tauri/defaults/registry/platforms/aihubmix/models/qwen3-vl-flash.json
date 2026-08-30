@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-vl-flash",
   "canonical_model": "qwen3-vl-flash",
   "capabilities": [
@@ -11,8 +11,20 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 4.16667e-08,
-    "cache_read": 4.16667e-09,
-    "output": 1.04167e-07
+    "input": 2.06e-8,
+    "output": 2.06e-7,
+    "cache_read": 4.12e-9,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 4.1e-8,
+        "output": 4.1e-7
+      },
+      {
+        "min_tokens": 128001,
+        "input": 8.22e-8,
+        "output": 8.22e-7
+      }
+    ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "cc-minimax-m3",
   "canonical_model": "MiniMax-M3",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 1000000,
   "official": true,
   "price": {
-    "input": 3e-07,
-    "output": 1.2e-06,
-    "cache_read": 6e-08
+    "input": 1e-7,
+    "output": 1e-7
   }
 }

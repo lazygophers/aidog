@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788102888,
   "endpoints": {
     "default": [
       {
@@ -436,6 +436,26 @@
       "gpt-4o-mini-search-preview"
     ]
   },
+  "peak": [
+    {
+      "start_hour": 1,
+      "end_hour": 4,
+      "multiplier": 2.0,
+      "timezone": "UTC",
+      "models": [
+        "deepseek-v4-pro-0813"
+      ]
+    },
+    {
+      "start_hour": 6,
+      "end_hour": 10,
+      "multiplier": 2.0,
+      "timezone": "UTC",
+      "models": [
+        "deepseek-v4-pro-0813"
+      ]
+    }
+  ],
   "name": {
     "en-US": "AiHubMix",
     "zh-Hans": "AiHubMix",

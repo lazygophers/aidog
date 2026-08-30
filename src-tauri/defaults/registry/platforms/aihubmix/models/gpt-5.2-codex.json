@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "gpt-5.2-codex",
   "canonical_model": "gpt-5.2-codex",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 400000,
   "official": false,
   "price": {
-    "input": 1.137e-06,
-    "output": 9.1e-06,
-    "cache_read": 1.14e-07
+    "input": 0.00000175,
+    "output": 0.000014,
+    "cache_read": 1.75e-7
   }
 }

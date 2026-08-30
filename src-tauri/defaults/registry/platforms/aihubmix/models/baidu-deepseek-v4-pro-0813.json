@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "baidu-deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 1048576,
   "official": true,
   "price": {
-    "input": 6.25e-07,
-    "cache_read": 2.08333e-08,
-    "output": 1.875e-06
+    "input": 0.000001268,
+    "output": 0.000003804,
+    "cache_read": 1.268e-7
   }
 }

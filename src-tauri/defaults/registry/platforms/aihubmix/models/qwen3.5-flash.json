@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3.5-flash",
   "canonical_model": "qwen3.5-flash",
   "capabilities": [
@@ -10,7 +10,22 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 2.9e-08,
-    "output": 2.87e-07
+    "input": 2.82e-8,
+    "output": 2.82e-7,
+    "cache_read": 2.82e-9,
+    "context_tiers": [
+      {
+        "min_tokens": 128001,
+        "input": 1.126e-7,
+        "output": 0.000001126,
+        "cache_read": 1.126e-8
+      },
+      {
+        "min_tokens": 256001,
+        "input": 1.69e-7,
+        "output": 0.00000169,
+        "cache_read": 1.69e-8
+      }
+    ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3.5-plus",
   "canonical_model": "qwen3.5-plus",
   "capabilities": [
@@ -11,9 +11,22 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 1.11111e-07,
-    "output": 6.66667e-07,
-    "cache_read": 1.11111e-08,
-    "cache_write": 1.38889e-07
+    "input": 1.096e-7,
+    "output": 6.576e-7,
+    "cache_read": 1.096e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 128001,
+        "input": 2.74e-7,
+        "output": 0.000001644,
+        "cache_read": 2.74e-8
+      },
+      {
+        "min_tokens": 256001,
+        "input": 5.48e-7,
+        "output": 0.000003288,
+        "cache_read": 5.48e-8
+      }
+    ]
   }
 }

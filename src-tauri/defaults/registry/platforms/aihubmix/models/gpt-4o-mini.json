@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "gpt-4o-mini",
   "canonical_model": "gpt-4o-mini",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 128000,
   "official": false,
   "price": {
-    "input": 9.8e-08,
-    "output": 3.9e-07,
-    "cache_read": 5.2e-08
+    "input": 1.5e-7,
+    "output": 6e-7,
+    "cache_read": 7.5e-8
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "coding-glm-4.6",
   "canonical_model": "glm-4.6",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 200000,
   "official": true,
   "price": {
-    "input": 6e-07,
-    "output": 2.2e-06,
-    "cache_read": 1.1e-07
+    "input": 6e-8,
+    "output": 2.2e-7,
+    "cache_read": 1.0998e-8
   }
 }

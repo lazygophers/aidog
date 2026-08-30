@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3-235b-a22b-instruct-2507",
   "canonical_model": "qwen3-235b-a22b-instruct-2507",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 128000,
   "official": false,
   "price": {
-    "input": 2.77778e-07,
-    "output": 1.11111e-06,
-    "cache_read": 0
+    "input": 2.8e-7,
+    "output": 0.00000112
   }
 }

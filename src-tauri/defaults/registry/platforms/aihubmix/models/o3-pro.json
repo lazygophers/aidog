@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "o3-pro",
   "canonical_model": "o3-pro",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 200000,
   "official": false,
   "price": {
-    "input": 2e-05,
-    "output": 8e-05,
-    "cache_read": 0
+    "input": 0.00002,
+    "output": 0.00008
   }
 }

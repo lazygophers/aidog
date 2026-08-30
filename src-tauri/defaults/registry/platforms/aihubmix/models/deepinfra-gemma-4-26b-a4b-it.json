@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "deepinfra-gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 262144,
   "official": true,
   "price": {
-    "input": 6e-08,
-    "output": 3.3e-07,
-    "cache_read": 0
+    "input": 8.8e-8,
+    "output": 3.85e-7,
+    "cache_read": 1.1e-8
   }
 }

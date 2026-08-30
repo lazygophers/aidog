@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "qwen3.6-27b",
   "canonical_model": "qwen3.6-27b",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 2.885e-07,
-    "output": 3.17e-06,
-    "cache_read": 0
+    "input": 4.22e-7,
+    "output": 0.000002532
   }
 }

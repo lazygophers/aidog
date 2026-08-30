@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788102888,
   "model_id": "grok-4.20-multi-agent-0309",
   "canonical_model": "grok-4.20-multi-agent-0309",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 1.25e-06,
-    "output": 2.5e-06,
-    "cache_read": 2e-07
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 2e-7
   }
 }

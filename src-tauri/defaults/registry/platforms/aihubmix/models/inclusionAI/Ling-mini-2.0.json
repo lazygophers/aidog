@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085901,
+  "last_updated": 1788102888,
   "model_id": "inclusionAI/Ling-mini-2.0",
   "canonical_model": "Ling-mini-2.0",
   "capabilities": [
@@ -8,7 +8,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 6.944444444444444e-08,
-    "output": 2.7777777777777776e-07
+    "input": 6.8e-8,
+    "output": 2.72e-7
   }
 }

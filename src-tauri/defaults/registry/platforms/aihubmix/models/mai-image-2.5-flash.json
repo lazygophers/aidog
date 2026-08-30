@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788102888,
   "model_id": "mai-image-2.5-flash",
   "canonical_model": "mai-image-2.5-flash",
   "display_name": "MAI-Image-2.5 Flash",
@@ -13,7 +13,7 @@
   "context_window": 4096,
   "official": true,
   "price": {
-    "input": 1.75e-06,
-    "output": 1.95e-05
+    "input": 0.00000175,
+    "output": 0.00000175
   }
 }
