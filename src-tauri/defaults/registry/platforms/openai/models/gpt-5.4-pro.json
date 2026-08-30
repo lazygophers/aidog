@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gpt-5.4-pro",
   "canonical_model": "gpt-5.4-pro",
   "capabilities": [
@@ -9,18 +9,16 @@
   "max_output_tokens": 128000,
   "context_window": 1050000,
   "official": true,
-  "input_cost_per_token": 0.00003,
-  "output_cost_per_token": 0.00018,
-  "context_tiers": [
-    {
-      "min_tokens": 272000,
-      "input_cost_per_token": 0.00006,
-      "output_cost_per_token": 0.00027
-    }
-  ],
-  "default_price": {
-    "input_cost_per_token": 0.00003,
-    "output_cost_per_token": 0.00018,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 3e-05,
+    "output": 0.00018,
+    "context_tiers": [
+      {
+        "min_tokens": 272000,
+        "input": 6e-05,
+        "output": 0.00027
+      }
+    ],
+    "cache_read": 0
   }
 }

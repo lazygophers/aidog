@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "mistralai/mistral-medium-3-5",
   "canonical_model": "mistral-medium-3-5",
   "capabilities": [
@@ -8,6 +8,8 @@
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
-  "input_cost_per_token": 1.5e-06,
-  "output_cost_per_token": 7.5e-06
+  "price": {
+    "input": 1.5e-06,
+    "output": 7.5e-06
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "MiniMax-M2.5-highspeed",
   "canonical_model": "MiniMax-M2.5-highspeed",
   "capabilities": [
@@ -8,9 +8,11 @@
   "max_input_tokens": 204800,
   "context_window": 204800,
   "official": true,
-  "input_cost_per_token": 5.833333333333334e-07,
-  "output_cost_per_token": 2.3333333333333336e-06,
-  "cache_read_input_token_cost": 2.9166666666666663e-08,
-  "cache_creation_input_token_cost": 3.645833333333333e-07,
+  "price": {
+    "input": 5.833333333333334e-07,
+    "output": 2.3333333333333336e-06,
+    "cache_read": 2.9166666666666663e-08,
+    "cache_write": 3.645833333333333e-07
+  },
   "max_output_tokens": 8192
 }

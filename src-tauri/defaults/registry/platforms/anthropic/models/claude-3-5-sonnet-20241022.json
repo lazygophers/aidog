@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "claude-3-5-sonnet-20241022",
   "canonical_model": "claude-3-5-sonnet-20241022",
   "capabilities": [
@@ -9,8 +9,10 @@
   "max_output_tokens": 8192,
   "context_window": 200000,
   "official": true,
-  "input_cost_per_token": 3e-06,
-  "output_cost_per_token": 1.5e-05,
-  "cache_read_input_token_cost": 3e-07,
-  "cache_creation_input_token_cost": 3.75e-06
+  "price": {
+    "input": 3e-06,
+    "output": 1.5e-05,
+    "cache_read": 3e-07,
+    "cache_write": 3.75e-06
+  }
 }

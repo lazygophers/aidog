@@ -1,12 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "gpt-5.6-sol",
   "canonical_model": "gpt-5.6-sol",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
   "official": false,
-  "input_cost_per_token": 3.25e-06,
-  "output_cost_per_token": 1.95e-05,
-  "cache_read_input_token_cost": 3.25e-07
+  "price": {
+    "input": 3.25e-06,
+    "output": 1.95e-05,
+    "cache_read": 3.25e-07
+  }
 }

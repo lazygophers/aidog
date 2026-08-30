@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "qwen/qwen3.5-397b-a17b",
   "canonical_model": "qwen3.5-397b-a17b",
   "capabilities": [
@@ -7,7 +7,10 @@
   ],
   "max_input_tokens": 256000,
   "context_window": 256000,
+  "max_output_tokens": 65536,
   "official": false,
-  "input_cost_per_token": 3.85e-07,
-  "output_cost_per_token": 2.45e-06
+  "price": {
+    "input": 3.85e-07,
+    "output": 2.45e-06
+  }
 }

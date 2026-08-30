@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gpt-oss-safeguard-20b",
   "canonical_model": "gpt-oss-safeguard-20b",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 65536,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 7.5e-8,
-  "output_cost_per_token": 3e-7,
-  "cache_read_input_token_cost": 3.75e-8
+  "price": {
+    "input": 7.5e-08,
+    "output": 3e-07,
+    "cache_read": 3.75e-08
+  }
 }

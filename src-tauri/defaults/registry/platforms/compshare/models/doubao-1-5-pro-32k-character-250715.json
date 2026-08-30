@@ -1,12 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "doubao-1-5-pro-32k-character-250715",
   "canonical_model": "doubao-1-5-pro-32k-character-250715",
   "capabilities": [
     "text"
   ],
+  "max_output_tokens": 12288,
+  "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 1.11111e-07,
-  "output_cost_per_token": 2.77778e-07,
-  "cache_read_input_token_cost": 2.22222e-08
+  "price": {
+    "input": 1.11111e-07,
+    "output": 2.77778e-07,
+    "cache_read": 2.22222e-08
+  }
 }

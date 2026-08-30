@@ -1,11 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "Shanghai_AI_Laboratory/Intern-S1-mini",
   "canonical_model": "intern-s1-mini",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
 }

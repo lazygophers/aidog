@@ -369,8 +369,8 @@ function ModelRow({ group, labelMap, onOpen }: {
       </Td>
       <Td><CapabilityBadges capabilities={primary?.capabilities ?? []} /></Td>
       <Td><span className="text-secondary" style={{ fontSize: F.small }}>{fmtTokens(primary?.context_window)}</span></Td>
-      <Td>{fmtPricePerM(price.input_cost_per_token)}</Td>
-      <Td>{fmtPricePerM(price.output_cost_per_token)}</Td>
+      <Td>{fmtPricePerM(price.input)}</Td>
+      <Td>{fmtPricePerM(price.output)}</Td>
     </TableRow>
   );
 }
@@ -446,8 +446,8 @@ function PlatformPane({ platformCodes, byPlatform, labelMap, active, onSelect, q
                     </Td>
                     <Td><CapabilityBadges capabilities={e.capabilities} /></Td>
                     <Td><span className="text-secondary" style={{ fontSize: F.small }}>{fmtTokens(e.context_window)}</span></Td>
-                    <Td>{fmtPricePerM(price.input_cost_per_token)}</Td>
-                    <Td>{fmtPricePerM(price.output_cost_per_token)}</Td>
+                    <Td>{fmtPricePerM(price.input)}</Td>
+                    <Td>{fmtPricePerM(price.output)}</Td>
                   </TableRow>
                 );
               })}

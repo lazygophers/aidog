@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "speech-2.8-turbo",
   "canonical_model": "speech-2.8-turbo",
   "capabilities": [
-    "text"
+    "audio"
   ],
   "official": true,
-  "input_cost_per_token": 2.77778e-05,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 2.77778e-05,
+    "output": 0.0
+  }
 }

@@ -1405,6 +1405,7 @@
   "modelInfo.cap.audio": "Audio",
   "modelInfo.cap.video": "Video",
   "modelInfo.cap.embedding": "Embedding",
+  "modelInfo.cap.rerank": "Rerank",
   "proxy.autolaunch": "Auto Start on Login",
   "proxy.autolaunchDesc": "Launch AiDog automatically when you log in",
   "proxy.autostart": "Auto Start",

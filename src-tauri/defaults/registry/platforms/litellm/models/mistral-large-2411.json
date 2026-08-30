@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "mistral-large-2411",
   "canonical_model": "mistral-large-2411",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 8191,
   "context_window": 8191,
   "official": false,
-  "input_cost_per_token": 0.000002,
-  "output_cost_per_token": 0.000006
+  "price": {
+    "input": 2e-06,
+    "output": 6e-06
+  }
 }

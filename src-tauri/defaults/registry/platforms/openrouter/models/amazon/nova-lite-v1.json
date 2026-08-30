@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "amazon/nova-lite-v1",
   "canonical_model": "nova-lite-v1",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 5120,
   "context_window": 300000,
   "official": true,
-  "input_cost_per_token": 6e-08,
-  "output_cost_per_token": 2.4e-07,
-  "default_price": {
-    "input_cost_per_token": 6e-08,
-    "output_cost_per_token": 2.4e-07,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 6e-08,
+    "output": 2.4e-07,
+    "cache_read": 0
   }
 }

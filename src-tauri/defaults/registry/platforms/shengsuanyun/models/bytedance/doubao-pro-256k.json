@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "bytedance/doubao-pro-256k",
   "canonical_model": "doubao-pro-256k",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 6.94444e-07,
+    "output": 1.25e-06
+  },
   "max_input_tokens": 256000,
   "max_output_tokens": 12000,
-  "context_window": 256000,
-  "input_cost_per_token": 6.94444e-07,
-  "output_cost_per_token": 1.25e-06
+  "context_window": 256000
 }

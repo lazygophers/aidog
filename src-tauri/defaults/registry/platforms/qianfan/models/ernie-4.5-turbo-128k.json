@@ -1,16 +1,18 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ernie-4.5-turbo-128k",
   "canonical_model": "ernie-4.5-turbo-128k",
   "official": true,
+  "price": {
+    "input": 1.11111111e-07,
+    "output": 4.44444444e-07,
+    "cache_read": 2.7777778e-08
+  },
   "family": "ernie",
   "capabilities": [
     "text"
   ],
   "context_window": 131072,
   "max_input_tokens": 125952,
-  "max_output_tokens": 12288,
-  "input_cost_per_token": 1.11111111e-07,
-  "output_cost_per_token": 4.44444444e-07,
-  "cache_read_input_token_cost": 2.7777778e-08
+  "max_output_tokens": 12288
 }

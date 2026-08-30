@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "mistralai/mistral-nemo",
   "canonical_model": "mistral-nemo",
   "capabilities": [
@@ -7,7 +7,10 @@
   ],
   "max_input_tokens": 131072,
   "context_window": 131072,
+  "max_output_tokens": 16000,
   "official": false,
-  "input_cost_per_token": 2e-08,
-  "output_cost_per_token": 3e-08
+  "price": {
+    "input": 2e-08,
+    "output": 3e-08
+  }
 }

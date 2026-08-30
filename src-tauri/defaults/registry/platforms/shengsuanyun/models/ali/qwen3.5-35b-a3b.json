@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen3.5-35b-a3b",
   "canonical_model": "qwen3.5-35b-a3b",
   "capabilities": [
@@ -7,9 +7,11 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 5.55556e-08,
+    "output": 4.44444e-07
+  },
   "max_input_tokens": 256000,
   "max_output_tokens": 64000,
-  "context_window": 256000,
-  "input_cost_per_token": 5.55556e-08,
-  "output_cost_per_token": 4.44444e-07
+  "context_window": 256000
 }

@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "bytedance/doubao-seed-2.1-turbo-260628",
   "canonical_model": "doubao-seed-2.1-turbo-260628",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 4.5e-07,
-  "output_cost_per_token": 2.25e-06,
-  "cache_read_input_token_cost": 9e-08,
+  "price": {
+    "input": 4.5e-07,
+    "output": 2.25e-06,
+    "cache_read": 9e-08
+  },
   "max_input_tokens": 262144,
   "context_window": 262144,
   "max_output_tokens": 262144

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "anthropic/claude-opus-4.7",
   "canonical_model": "claude-opus-4.7",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": false,
+  "price": {
+    "input": 4.86111e-06,
+    "output": 2.43056e-05,
+    "cache_read": 4.86111e-07
+  },
   "max_input_tokens": 1000000,
   "max_output_tokens": 128000,
-  "context_window": 1000000,
-  "input_cost_per_token": 4.86111e-06,
-  "output_cost_per_token": 2.43056e-05,
-  "cache_read_input_token_cost": 4.86111e-07
+  "context_window": 1000000
 }

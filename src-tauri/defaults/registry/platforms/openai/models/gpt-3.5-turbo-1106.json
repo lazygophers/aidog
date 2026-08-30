@@ -1,16 +1,14 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gpt-3.5-turbo-1106",
   "canonical_model": "gpt-3.5-turbo-1106",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 0.000001,
-  "output_cost_per_token": 0.000002,
-  "default_price": {
-    "input_cost_per_token": 0.000001,
-    "output_cost_per_token": 0.000002,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 1e-06,
+    "output": 2e-06,
+    "cache_read": 0
   }
 }

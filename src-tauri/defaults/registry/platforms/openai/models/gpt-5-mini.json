@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gpt-5-mini",
   "canonical_model": "gpt-5-mini",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 128000,
   "context_window": 400000,
   "official": true,
-  "input_cost_per_token": 2.5e-7,
-  "output_cost_per_token": 0.000002,
-  "cache_read_input_token_cost": 2.5000000000000002e-8
+  "price": {
+    "input": 2.5e-07,
+    "output": 2e-06,
+    "cache_read": 2.5000000000000002e-08
+  }
 }

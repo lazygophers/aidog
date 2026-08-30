@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "minimax-m3",
   "canonical_model": "MiniMax-M3",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 128000,
   "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 2.916666666666667e-07,
-  "output_cost_per_token": 1.1666666666666668e-06,
-  "cache_read_input_token_cost": 5.8333333333333326e-08
+  "price": {
+    "input": 2.916666666666667e-07,
+    "output": 1.1666666666666668e-06,
+    "cache_read": 5.8333333333333326e-08
+  }
 }

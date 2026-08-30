@@ -143,7 +143,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
         &db,
         vec![aidog_db::model_entry_from_json(
             "openai",
-            r#"{"model_id":"gpt-test","input_cost_per_token":0.000001,"max_output_tokens":2000}"#,
+            r#"{"model_id":"gpt-test","price":{"input":0.000001},"max_output_tokens":2000}"#,
         )
         .unwrap()],
     )

@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067652,
   "model_id": "zhipu/glm-4.1v-thinking-flashx",
   "canonical_model": "glm-4.1v-thinking-flashx",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 3.24e-07,
-  "output_cost_per_token": 3.24e-07,
+  "price": {
+    "input": 3.24e-07,
+    "output": 3.24e-07
+  },
   "max_input_tokens": 66000,
   "context_window": 66000,
   "max_output_tokens": 16000

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "sao10k/l3.1-euryale-70b",
   "canonical_model": "l3.1-euryale-70b",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 16384,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 8.5e-07,
-  "output_cost_per_token": 8.5e-07,
-  "default_price": {
-    "input_cost_per_token": 8.5e-07,
-    "output_cost_per_token": 8.5e-07,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 8.5e-07,
+    "output": 8.5e-07,
+    "cache_read": 0
   }
 }

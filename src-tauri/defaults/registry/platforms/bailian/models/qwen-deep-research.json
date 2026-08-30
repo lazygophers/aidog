@@ -1,17 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "qwen-deep-research",
   "canonical_model": "qwen-deep-research",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 997952,
+  "context_window": 1000000,
   "official": true,
-  "max_output_tokens": 65536,
-  "input_cost_per_token": 7.5e-06,
-  "output_cost_per_token": 2.26389e-05,
-  "default_price": {
-    "input_cost_per_token": 7.5e-06,
-    "output_cost_per_token": 2.26389e-05,
-    "cache_read_input_token_cost": 0
-  }
+  "price": {
+    "input": 7.5e-06,
+    "output": 2.26389e-05,
+    "cache_read": 0
+  },
+  "max_output_tokens": 65536
 }

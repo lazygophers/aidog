@@ -12,7 +12,7 @@ export const CAPABILITIES = [
   "text", "vision", "tool_use", "reasoning",
   "text_to_image", "image_to_image", "image_edit",
   "text_to_video", "image_to_video", "video_to_video", "video_edit",
-  "audio", "video", "embedding",
+  "audio", "video", "embedding", "rerank",
 ] as const;
 
 export function capabilityLabel(t: (k: string) => string, cap: string): string {

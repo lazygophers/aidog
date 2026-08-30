@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "gemini-2.0-flash-001",
   "canonical_model": "gemini-2.0-flash-001",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 8192,
   "context_window": 8192,
   "official": true,
-  "input_cost_per_token": 1e-7,
-  "output_cost_per_token": 4e-7,
-  "cache_read_input_token_cost": 2.5e-8
+  "price": {
+    "input": 1e-07,
+    "output": 4e-07,
+    "cache_read": 2.5e-08
+  }
 }

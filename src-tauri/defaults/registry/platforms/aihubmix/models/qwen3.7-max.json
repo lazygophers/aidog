@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "qwen3.7-max",
   "canonical_model": "qwen3.7-max",
   "display_name": "Qwen3.7 Max",
@@ -7,10 +7,14 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
   "official": false,
-  "input_cost_per_token": 1.69e-06,
-  "output_cost_per_token": 5.070000000000001e-06,
-  "cache_read_input_token_cost": 1.6900000000000002e-07,
-  "cache_creation_input_token_cost": 2.1124999999999997e-06,
+  "price": {
+    "input": 1.69e-06,
+    "output": 5.070000000000001e-06,
+    "cache_read": 1.6900000000000002e-07,
+    "cache_write": 2.1124999999999997e-06
+  },
   "context_window": 991000
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
   "capabilities": [
@@ -9,27 +9,29 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 5.555555555555555e-7,
-  "output_cost_per_token": 0.000002222222222222222,
-  "cache_read_input_token_cost": 5.555555555555556e-8,
-  "context_tiers": [
-    {
-      "min_tokens": 32769,
-      "input_cost_per_token": 8.333333333333333e-7,
-      "output_cost_per_token": 0.0000033333333333333333,
-      "cache_read_input_token_cost": 8.333333333333334e-8
-    },
-    {
-      "min_tokens": 131073,
-      "input_cost_per_token": 0.000001388888888888889,
-      "output_cost_per_token": 0.000005555555555555556,
-      "cache_read_input_token_cost": 1.3888888888888888e-7
-    },
-    {
-      "min_tokens": 262145,
-      "input_cost_per_token": 0.000002777777777777778,
-      "output_cost_per_token": 0.00002777777777777778,
-      "cache_read_input_token_cost": 2.7777777777777776e-7
-    }
-  ]
+  "price": {
+    "input": 5.555555555555555e-07,
+    "output": 2.222222222222222e-06,
+    "cache_read": 5.555555555555556e-08,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 8.333333333333333e-07,
+        "output": 3.3333333333333333e-06,
+        "cache_read": 8.333333333333334e-08
+      },
+      {
+        "min_tokens": 131073,
+        "input": 1.388888888888889e-06,
+        "output": 5.555555555555556e-06,
+        "cache_read": 1.3888888888888888e-07
+      },
+      {
+        "min_tokens": 262145,
+        "input": 2.777777777777778e-06,
+        "output": 2.777777777777778e-05,
+        "cache_read": 2.7777777777777776e-07
+      }
+    ]
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "claude-3-5-haiku",
   "canonical_model": "claude-3-5-haiku",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 8192,
   "context_window": 8192,
   "official": true,
-  "input_cost_per_token": 0.000001,
-  "output_cost_per_token": 0.000005,
-  "default_price": {
-    "input_cost_per_token": 0.000001,
-    "output_cost_per_token": 0.000005,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 1e-06,
+    "output": 5e-06,
+    "cache_read": 0
   }
 }

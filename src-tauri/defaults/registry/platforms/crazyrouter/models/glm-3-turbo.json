@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "glm-3-turbo",
   "canonical_model": "glm-3-turbo",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 6.3e-08,
-  "output_cost_per_token": 6.3e-08
+  "price": {
+    "input": 6.3e-08,
+    "output": 6.3e-08
+  }
 }

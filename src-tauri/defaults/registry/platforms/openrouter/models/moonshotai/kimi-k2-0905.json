@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "moonshotai/kimi-k2-0905",
   "canonical_model": "kimi-k2-0905",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": false,
-  "input_cost_per_token": 6e-07,
-  "output_cost_per_token": 2.5e-06
+  "price": {
+    "input": 6e-07,
+    "output": 2.5e-06
+  }
 }

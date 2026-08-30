@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "amazon/nova-premier",
   "canonical_model": "nova-premier",
   "capabilities": [
@@ -7,8 +7,10 @@
     "vision"
   ],
   "official": true,
-  "input_cost_per_token": 2.7e-06,
-  "output_cost_per_token": 1.35e-05,
+  "price": {
+    "input": 2.7e-06,
+    "output": 1.35e-05
+  },
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "max_output_tokens": 5000

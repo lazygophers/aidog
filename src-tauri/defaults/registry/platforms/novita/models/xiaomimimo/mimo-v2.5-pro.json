@@ -1,15 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "xiaomimimo/mimo-v2.5-pro",
   "canonical_model": "mimo-v2.5-pro",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 5.22e-07,
-  "output_cost_per_token": 1.044e-06,
+  "price": {
+    "input": 5.22e-07,
+    "output": 1.044e-06,
+    "cache_read": 4.3e-09
+  },
   "max_input_tokens": 1048576,
   "context_window": 1048576,
-  "max_output_tokens": 131072,
-  "cache_read_input_token_cost": 4.3e-09
+  "max_output_tokens": 131072
 }

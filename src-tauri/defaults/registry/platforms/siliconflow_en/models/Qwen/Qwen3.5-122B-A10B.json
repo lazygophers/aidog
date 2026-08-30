@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "Qwen/Qwen3.5-122B-A10B",
   "canonical_model": "Qwen3.5-122B-A10B",
   "display_name": "Qwen3.5-122B-A10B",
@@ -7,8 +7,12 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 65536,
   "official": false,
-  "input_cost_per_token": 2.6e-07,
-  "output_cost_per_token": 2.08e-06,
+  "price": {
+    "input": 2.6e-07,
+    "output": 2.08e-06
+  },
   "context_window": 262144
 }

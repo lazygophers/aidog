@@ -1,15 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen-turbo-latest",
   "canonical_model": "qwen-turbo-latest",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 4.16667e-08,
+    "output": 8.33333e-08,
+    "cache_read": 8.33333e-09
+  },
   "max_input_tokens": 1000000,
   "max_output_tokens": 16384,
-  "context_window": 1000000,
-  "input_cost_per_token": 4.16667e-08,
-  "output_cost_per_token": 8.33333e-08,
-  "cache_read_input_token_cost": 8.33333e-09
+  "context_window": 1000000
 }

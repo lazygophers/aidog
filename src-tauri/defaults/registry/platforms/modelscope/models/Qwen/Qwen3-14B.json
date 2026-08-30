@@ -1,12 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "Qwen/Qwen3-14B",
   "canonical_model": "qwen3-14b",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 8192,
   "official": true,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  },
   "context_window": 131072
 }

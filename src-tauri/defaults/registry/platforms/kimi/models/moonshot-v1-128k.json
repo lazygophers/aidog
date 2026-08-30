@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "moonshot-v1-128k",
   "canonical_model": "moonshot-v1-128k",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 131072,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 0.0000013888888888888887,
-  "output_cost_per_token": 0.000004166666666666667,
-  "default_price": {
-    "input_cost_per_token": 0.0000013888888888888887,
-    "output_cost_per_token": 0.000004166666666666667,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 1.3888888888888887e-06,
+    "output": 4.166666666666667e-06,
+    "cache_read": 0
   }
 }

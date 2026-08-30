@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067652,
   "model_id": "tencent/hy3",
   "canonical_model": "hy3",
   "capabilities": [
     "text"
   ],
   "official": false,
-  "input_cost_per_token": 1.426e-07,
-  "output_cost_per_token": 5.702e-07,
+  "price": {
+    "input": 1.426e-07,
+    "output": 5.702e-07
+  },
   "max_input_tokens": 262000,
   "context_window": 262000,
   "max_output_tokens": 33000

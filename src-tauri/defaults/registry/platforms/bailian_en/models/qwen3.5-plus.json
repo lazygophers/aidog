@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "qwen3.5-plus",
   "canonical_model": "qwen3.5-plus",
   "capabilities": [
@@ -9,15 +9,17 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 4.0000000000000003e-07,
-  "output_cost_per_token": 2.4e-06,
-  "cache_read_input_token_cost": 4.000000000000001e-08,
-  "context_tiers": [
-    {
-      "min_tokens": 262145,
-      "input_cost_per_token": 5e-07,
-      "output_cost_per_token": 3e-06,
-      "cache_read_input_token_cost": 5.0000000000000004e-08
-    }
-  ]
+  "price": {
+    "input": 4.0000000000000003e-07,
+    "output": 2.4e-06,
+    "cache_read": 4.000000000000001e-08,
+    "context_tiers": [
+      {
+        "min_tokens": 262145,
+        "input": 5e-07,
+        "output": 3e-06,
+        "cache_read": 5.0000000000000004e-08
+      }
+    ]
+  }
 }

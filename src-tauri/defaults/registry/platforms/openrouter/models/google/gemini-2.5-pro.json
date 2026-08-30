@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "google/gemini-2.5-pro",
   "canonical_model": "gemini-2.5-pro",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 65535,
   "context_window": 1048576,
   "official": true,
-  "input_cost_per_token": 1.25e-06,
-  "output_cost_per_token": 1e-05,
-  "cache_read_input_token_cost": 1.25e-07
+  "price": {
+    "input": 1.25e-06,
+    "output": 1e-05,
+    "cache_read": 1.25e-07
+  }
 }

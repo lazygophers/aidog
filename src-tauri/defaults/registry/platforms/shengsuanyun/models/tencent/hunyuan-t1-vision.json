@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "tencent/hunyuan-t1-vision",
   "canonical_model": "hunyuan-t1-vision",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 4.16667e-07,
+    "output": 1.25e-06,
+    "cache_read": 0.0
+  },
   "max_input_tokens": 32000,
   "max_output_tokens": 8000,
-  "context_window": 32000,
-  "input_cost_per_token": 4.16667e-07,
-  "output_cost_per_token": 1.25e-06,
-  "cache_read_input_token_cost": 0.0
+  "context_window": 32000
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "qwen/qwen3-coder-480b-a35b-instruct-maas",
   "canonical_model": "qwen/qwen3-coder-480b-a35b-instruct-maas",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 32768,
   "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 0.000001,
-  "output_cost_per_token": 0.000004,
-  "default_price": {
-    "input_cost_per_token": 0.000001,
-    "output_cost_per_token": 0.000004,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 1e-06,
+    "output": 4e-06,
+    "cache_read": 0
   }
 }

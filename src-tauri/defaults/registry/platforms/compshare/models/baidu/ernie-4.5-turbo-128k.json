@@ -1,12 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "baidu/ernie-4.5-turbo-128k",
   "canonical_model": "ernie-4.5-turbo-128k",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 123000,
+  "context_window": 131072,
   "official": false,
-  "input_cost_per_token": 1.11111e-07,
-  "output_cost_per_token": 4.44444e-07,
-  "cache_read_input_token_cost": 2.77778e-08
+  "price": {
+    "input": 1.11111e-07,
+    "output": 4.44444e-07,
+    "cache_read": 2.77778e-08
+  }
 }

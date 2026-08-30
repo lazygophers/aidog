@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "bigmodel/glm-4.5-airx:thinking",
   "canonical_model": "glm-4.5-airx:thinking",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 5.55556e-07,
+    "output": 1.66667e-06
+  },
   "max_input_tokens": 128000,
   "max_output_tokens": 9600,
-  "context_window": 128000,
-  "input_cost_per_token": 5.55556e-07,
-  "output_cost_per_token": 1.66667e-06
+  "context_window": 128000
 }

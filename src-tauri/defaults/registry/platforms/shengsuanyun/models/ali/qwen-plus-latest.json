@@ -1,15 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen-plus-latest",
   "canonical_model": "qwen-plus-latest",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 1.11111e-07,
+    "output": 2.77778e-07,
+    "cache_read": 2.22222e-08
+  },
   "max_input_tokens": 131072,
   "max_output_tokens": 16384,
-  "context_window": 131072,
-  "input_cost_per_token": 1.11111e-07,
-  "output_cost_per_token": 2.77778e-07,
-  "cache_read_input_token_cost": 2.22222e-08
+  "context_window": 131072
 }

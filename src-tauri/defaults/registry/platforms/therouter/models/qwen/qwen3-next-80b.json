@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "qwen/qwen3-next-80b",
   "canonical_model": "qwen3-next-80b",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 1.62e-07,
-  "output_cost_per_token": 1.3e-06,
+  "price": {
+    "input": 1.62e-07,
+    "output": 1.3e-06
+  },
   "max_input_tokens": 262000,
   "context_window": 262000,
   "max_output_tokens": 16000

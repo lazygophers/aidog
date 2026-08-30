@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "glm-5.1",
   "canonical_model": "glm-5.1",
   "capabilities": [
@@ -9,15 +9,17 @@
   "max_output_tokens": 65535,
   "context_window": 204800,
   "official": true,
-  "input_cost_per_token": 8.333333333333332e-7,
-  "output_cost_per_token": 0.000003333333333333333,
-  "cache_read_input_token_cost": 1.8055555555555556e-7,
-  "context_tiers": [
-    {
-      "min_tokens": 32768,
-      "input_cost_per_token": 0.0000011111111111111112,
-      "output_cost_per_token": 0.000003888888888888889,
-      "cache_read_input_token_cost": 2.777777777777778e-7
-    }
-  ]
+  "price": {
+    "input": 8.333333333333332e-07,
+    "output": 3.333333333333333e-06,
+    "cache_read": 1.8055555555555556e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 32768,
+        "input": 1.1111111111111112e-06,
+        "output": 3.888888888888889e-06,
+        "cache_read": 2.777777777777778e-07
+      }
+    ]
+  }
 }

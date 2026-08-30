@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "kimi-k2-thinking-turbo",
   "canonical_model": "kimi-k2-thinking-turbo",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": false,
-  "input_cost_per_token": 0.00000115,
-  "output_cost_per_token": 0.000008,
-  "cache_read_input_token_cost": 1.5e-7
+  "price": {
+    "input": 1.15e-06,
+    "output": 8e-06,
+    "cache_read": 1.5e-07
+  }
 }

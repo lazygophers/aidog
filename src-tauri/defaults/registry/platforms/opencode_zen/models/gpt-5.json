@@ -1,13 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gpt-5",
   "canonical_model": "gpt-5",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
   "official": true,
-  "context_window": 400000,
-  "input_cost_per_token": 1.07e-06,
-  "output_cost_per_token": 8.5e-06,
-  "cache_read_input_token_cost": 1.07e-07
+  "price": {
+    "input": 1.07e-06,
+    "output": 8.5e-06,
+    "cache_read": 1.07e-07
+  },
+  "context_window": 400000
 }

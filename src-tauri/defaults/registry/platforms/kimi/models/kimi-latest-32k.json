@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "kimi-latest-32k",
   "canonical_model": "kimi-latest-32k",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 32768,
   "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 0.000001,
-  "output_cost_per_token": 0.000003,
-  "cache_read_input_token_cost": 1.5e-7
+  "price": {
+    "input": 1e-06,
+    "output": 3e-06,
+    "cache_read": 1.5e-07
+  }
 }

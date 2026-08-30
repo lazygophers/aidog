@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "gemma-2-27b-it",
   "canonical_model": "gemma-2-27b-it",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 2048,
   "context_window": 8192,
   "official": true,
-  "input_cost_per_token": 6.5e-7,
-  "output_cost_per_token": 6.5e-7,
-  "default_price": {
-    "input_cost_per_token": 6.5e-7,
-    "output_cost_per_token": 6.5e-7,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 6.5e-07,
+    "output": 6.5e-07,
+    "cache_read": 0
   }
 }

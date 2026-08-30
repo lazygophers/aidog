@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "glm-4.5-x",
   "canonical_model": "glm-4.5-x",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 65535,
   "context_window": 128000,
   "official": true,
-  "input_cost_per_token": 2.2e-06,
-  "output_cost_per_token": 8.900000000000001e-06,
-  "cache_read_input_token_cost": 4.5000000000000003e-07
+  "price": {
+    "input": 2.2e-06,
+    "output": 8.900000000000001e-06,
+    "cache_read": 4.5000000000000003e-07
+  }
 }

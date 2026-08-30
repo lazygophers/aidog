@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "openai/gpt-4o-mini",
   "canonical_model": "gpt-4o-mini",
   "capabilities": [
@@ -8,9 +8,11 @@
     "audio"
   ],
   "official": false,
+  "price": {
+    "input": 1.45833e-07,
+    "output": 5.83333e-07
+  },
   "max_input_tokens": 128000,
   "max_output_tokens": 16384,
-  "context_window": 128000,
-  "input_cost_per_token": 1.45833e-07,
-  "output_cost_per_token": 5.83333e-07
+  "context_window": 128000
 }

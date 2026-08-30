@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "perceptron/perceptron-mk1",
   "canonical_model": "perceptron-mk1",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 8192,
   "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 1.5e-07,
-  "output_cost_per_token": 1.5e-06,
-  "default_price": {
-    "input_cost_per_token": 1.5e-07,
-    "output_cost_per_token": 1.5e-06,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 1.5e-07,
+    "output": 1.5e-06,
+    "cache_read": 0
   }
 }

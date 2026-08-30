@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "whisper-1",
   "canonical_model": "whisper-1",
   "capabilities": [
     "audio"
   ],
   "official": true,
-  "input_cost_per_token": 6e-09,
-  "output_cost_per_token": 6e-09
+  "price": {
+    "input": 6e-09,
+    "output": 6e-09
+  }
 }

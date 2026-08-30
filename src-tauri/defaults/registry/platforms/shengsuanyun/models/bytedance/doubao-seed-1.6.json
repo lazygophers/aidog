@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "bytedance/doubao-seed-1.6",
   "canonical_model": "doubao-seed-1.6",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 1.11111e-07,
+    "output": 1.11111e-06,
+    "cache_read": 2.22222e-08
+  },
   "max_input_tokens": 256000,
   "max_output_tokens": 32000,
-  "context_window": 256000,
-  "input_cost_per_token": 1.11111e-07,
-  "output_cost_per_token": 1.11111e-06,
-  "cache_read_input_token_cost": 2.22222e-08
+  "context_window": 256000
 }

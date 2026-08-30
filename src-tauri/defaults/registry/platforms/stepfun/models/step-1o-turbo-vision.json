@@ -1,12 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "step-1o-turbo-vision",
   "canonical_model": "step-1o-turbo-vision",
   "capabilities": [
     "text",
     "vision"
   ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 3.472222222222222e-07,
-  "output_cost_per_token": 1.1111111111111112e-06
+  "price": {
+    "input": 3.472222222222222e-07,
+    "output": 1.1111111111111112e-06
+  }
 }

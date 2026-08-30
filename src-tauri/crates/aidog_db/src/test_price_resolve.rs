@@ -45,14 +45,14 @@ async fn put_entry(db: &Db, platform: &str, model: &str, pd: &serde_json::Value,
 fn apply_context_tier_selects_long_tier() {
     // OpenAI gpt-5.5: short in=5e-6/out=3e-5/cache=5e-7, long@272000 in=1e-5/out=4.5e-5/cache=1e-6
     let pd = serde_json::json!({
-        "input_cost_per_token": 5e-6,
-        "output_cost_per_token": 3e-5,
-        "cache_read_input_token_cost": 5e-7,
+        "input": 5e-6,
+        "output": 3e-5,
+        "cache_read": 5e-7,
         "context_tiers": [{
             "min_tokens": 272000,
-            "input_cost_per_token": 1e-5,
-            "output_cost_per_token": 4.5e-5,
-            "cache_read_input_token_cost": 1e-6
+            "input": 1e-5,
+            "output": 4.5e-5,
+            "cache_read": 1e-6
         }]
     });
     // 短档: input < 272000 → base 不变 (无 +tier 后缀)
@@ -72,7 +72,7 @@ fn apply_context_tier_selects_long_tier() {
 #[test]
 fn apply_context_tier_no_tier_passthrough() {
     // 无 context_tiers 字段 → base 不变
-    let pd = serde_json::json!({"input_cost_per_token": 2.5e-6});
+    let pd = serde_json::json!({"input": 2.5e-6});
     let r = apply_context_tier(base_price("model_entry"), &pd, 999_999_999);
     assert_eq!(r.input_cost_per_token, 5e-6);
     assert_eq!(r.source, "model_entry");
@@ -87,8 +87,8 @@ fn apply_context_tier_partial_override() {
     let pd = serde_json::json!({
         "context_tiers": [{
             "min_tokens": 272000,
-            "input_cost_per_token": 6e-5,
-            "output_cost_per_token": 2.7e-4
+            "input": 6e-5,
+            "output": 2.7e-4
         }]
     });
     let r = apply_context_tier(base_price("model_entry"), &pd, 300_000);
@@ -97,22 +97,22 @@ fn apply_context_tier_partial_override() {
     assert_eq!(r.cache_read_input_token_cost, 5e-7); // 继承 base
 }
 
-/// registry 里 glm-5-turbo 的真实形状：条目顶层三价 + time_tiers（内嵌 context_tiers）。
+/// registry 里 glm-5-turbo 的真实形状：`price` 子树 + time_tiers（内嵌 context_tiers）。
 fn glm_turbo_pd() -> serde_json::Value {
     serde_json::json!({
-        "input_cost_per_token": 6.944444444444444e-07,
-        "output_cost_per_token": 3.055555555555555e-06,
-        "cache_read_input_token_cost": 1.6666666666666665e-07,
+        "input": 6.944444444444444e-07,
+        "output": 3.055555555555555e-06,
+        "cache_read": 1.6666666666666665e-07,
         "time_tiers": [{
             "start_at": 1790784000,
-            "input_cost_per_token": 1.3888888888888888e-06,
-            "output_cost_per_token": 6.111111111111111e-06,
-            "cache_read_input_token_cost": 3.333333333333333e-07,
+            "input": 1.3888888888888888e-06,
+            "output": 6.111111111111111e-06,
+            "cache_read": 3.333333333333333e-07,
             "context_tiers": [{
                 "min_tokens": 32768,
-                "input_cost_per_token": 1.9444444444444444e-06,
-                "output_cost_per_token": 7.222222222222222e-06,
-                "cache_read_input_token_cost": 5.0e-07
+                "input": 1.9444444444444444e-06,
+                "output": 7.222222222222222e-06,
+                "cache_read": 5.0e-07
             }]
         }]
     })
@@ -140,10 +140,12 @@ fn apply_tiers_time_hit_miss_and_nested_context() {
 
 fn peak_pd() -> serde_json::Value {
     serde_json::json!({
-        "input_cost_per_token": 1.1e-6,
-        "output_cost_per_token": 4.2e-6,
-        "cache_read_input_token_cost": 1.1e-7,
-        "peak": { "input_cost_per_token": 3.3e-6, "output_cost_per_token": 1.26e-5 }
+        "price": {
+            "input": 1.1e-6,
+            "output": 4.2e-6,
+            "cache_read": 1.1e-7,
+            "peak": { "input": 3.3e-6, "output": 1.26e-5 }
+        }
     })
 }
 
@@ -174,7 +176,7 @@ fn resolve_price_from_peak_miss_uses_default_price() {
 #[test]
 fn resolve_price_from_entry_without_peak_falls_back_to_multiplier() {
     // 条目无 peak 子树，即使命中窗口也走「默认价 × 平台倍率」
-    let pd = serde_json::json!({"input_cost_per_token": 1.1e-6, "output_cost_per_token": 4.2e-6});
+    let pd = serde_json::json!({"price": {"input": 1.1e-6, "output": 4.2e-6}});
     let r = resolve_price_from(Some(&pd), true, 3.0, 3.0, 0, 0);
     assert!(!r.peak_applied);
     assert_eq!(r.price.input_cost_per_token, 1.1e-6);
@@ -193,7 +195,7 @@ fn resolve_price_from_missing_entry_uses_settings_fallback() {
 #[test]
 fn resolve_price_from_zero_priced_entry_uses_fallback() {
     // 条目在但没有价格字段（如仅登记能力的模型）→ 与条目缺失同样落 fallback，不返回 0
-    let pd = serde_json::json!({"capabilities": ["text"]});
+    let pd = serde_json::json!({"price": {"input": 0, "output": 0}});
     let r = resolve_price_from(Some(&pd), false, 3.0, 6.0, 0, 0);
     assert_eq!(r.price.source, "fallback");
 }
@@ -263,4 +265,61 @@ async fn model_max_output_tokens_column_then_json_then_none() {
     assert_eq!(model_max_output_tokens(&db, "openai", "no-such-model-anywhere").await.unwrap(), None);
     // 平台不匹配 → 借用其它平台的上限（票 13-B），不再恒 None
     assert_eq!(model_max_output_tokens(&db, "anthropic", "a").await.unwrap(), Some(4096));
+}
+
+// ── 旧形状（价格平铺顶层）读取层归一化：2026-08-30 price 收归迁移的兼容层 ──
+
+#[test]
+fn legacy_price_into_migrates_flat_shape() {
+    // 旧形状：单价平铺 + peak/context_tiers/time_tiers 旧键名 + default_price 死字段
+    let mut doc = serde_json::json!({
+        "model_id": "m",
+        "input_cost_per_token": 1e-6,
+        "output_cost_per_token": 2e-6,
+        "default_price": {"input_cost_per_token": 1e-6, "cache_read_input_token_cost": 0.0},
+        "peak": {"input_cost_per_token": 3e-6},
+        "context_tiers": [{"min_tokens": 8192, "input_cost_per_token": 5e-6, "output_cost_per_token": 6e-6}],
+        "time_tiers": [{
+            "start_at": 100,
+            "input_cost_per_token": 7e-6,
+            "output_cost_per_token": 8e-6,
+            "context_tiers": [{"min_tokens": 4096, "input_cost_per_token": 9e-6, "output_cost_per_token": 1e-5}]
+        }]
+    });
+    assert!(legacy_price_into(&mut doc));
+    let price = &doc["price"];
+    assert_eq!(price["input"], 1e-6);
+    assert_eq!(price["output"], 2e-6);
+    assert_eq!(price["cache_read"], 0.0, "default_price 仅补 price 缺失位（显式 0 保留）");
+    assert_eq!(price["peak"]["input"], 3e-6);
+    assert_eq!(price["context_tiers"][0]["min_tokens"], 8192);
+    assert_eq!(price["context_tiers"][0]["input"], 5e-6);
+    assert_eq!(price["time_tiers"][0]["start_at"], 100);
+    assert_eq!(price["time_tiers"][0]["context_tiers"][0]["input"], 9e-6);
+    // 旧键清空
+    for k in ["input_cost_per_token", "output_cost_per_token", "default_price", "peak", "context_tiers", "time_tiers"] {
+        assert!(doc.get(k).is_none(), "{k} 应已移除");
+    }
+    assert_eq!(doc["model_id"], "m", "非价格字段不动");
+    // 新形状 no-op
+    assert!(!legacy_price_into(&mut doc));
+}
+
+#[tokio::test]
+async fn db_legacy_row_bills_and_displays_through_normalization() {
+    let db = test_db().await;
+    // DB 行保持旧形状（用户未重同步）：计费与 UI 出口各自归一化
+    let legacy = serde_json::json!({
+        "input_cost_per_token": 1e-6,
+        "output_cost_per_token": 2e-6,
+        "peak": {"input_cost_per_token": 4e-6, "output_cost_per_token": 8e-6}
+    });
+    put_entry(&db, "oldplatform", "legacy-model", &legacy, None).await;
+    let r = resolve_price(&db, "oldplatform", "legacy-model", 3.0, 3.0, 0, 0, true).await.unwrap();
+    assert!(r.peak_applied, "旧形状 peak 也要命中");
+    assert_eq!(r.price.input_cost_per_token, 4e-6);
+    // UI 出口：get_model_entry 返回的 price_data 已是 price 子树（前端只认新形状）
+    let e = get_model_entry(&db, "oldplatform", "legacy-model").await.unwrap().unwrap();
+    let pd: serde_json::Value = serde_json::from_str(&e.price_data).unwrap();
+    assert!(pd["price"]["input"].is_number(), "展示层拿到的应是归一化后的 price 子树");
 }

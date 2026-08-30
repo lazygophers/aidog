@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "openai/gpt-oss-20b",
   "canonical_model": "gpt-oss-20b",
   "capabilities": [
     "text"
   ],
   "official": false,
+  "price": {
+    "input": 4.86111e-08,
+    "output": 1.94444e-07
+  },
   "max_input_tokens": 131072,
   "max_output_tokens": 131072,
-  "context_window": 131072,
-  "input_cost_per_token": 4.86111e-08,
-  "output_cost_per_token": 1.94444e-07
+  "context_window": 131072
 }

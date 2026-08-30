@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "text-embedding-v1",
   "canonical_model": "text-embedding-v1",
   "capabilities": [
     "embedding"
   ],
   "official": true,
-  "input_cost_per_token": 1e-07,
-  "output_cost_per_token": 1e-07
+  "price": {
+    "input": 1e-07,
+    "output": 1e-07
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "qwen3.5-omni-plus",
   "canonical_model": "qwen3.5-omni-plus",
   "capabilities": [
@@ -7,12 +7,13 @@
     "vision",
     "audio"
   ],
+  "max_input_tokens": 256000,
+  "max_output_tokens": 64000,
+  "context_window": 256000,
   "official": true,
-  "input_cost_per_token": 9.72222e-07,
-  "output_cost_per_token": 5.55556e-06,
-  "default_price": {
-    "input_cost_per_token": 9.72222e-07,
-    "output_cost_per_token": 5.55556e-06,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 9.72222e-07,
+    "output": 5.55556e-06,
+    "cache_read": 0
   }
 }

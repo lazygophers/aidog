@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "deepseek-ai/deepseek-r1-0528-maas",
   "canonical_model": "deepseek-ai/deepseek-r1-0528-maas",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 8192,
   "context_window": 8192,
   "official": true,
-  "input_cost_per_token": 0.00000135,
-  "output_cost_per_token": 0.0000054,
-  "default_price": {
-    "input_cost_per_token": 0.00000135,
-    "output_cost_per_token": 0.0000054,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 1.35e-06,
+    "output": 5.4e-06,
+    "cache_read": 0
   }
 }

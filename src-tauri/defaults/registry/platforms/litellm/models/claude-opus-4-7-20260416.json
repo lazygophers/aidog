@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "claude-opus-4-7-20260416",
   "canonical_model": "claude-opus-4-7-20260416",
   "capabilities": [
@@ -9,8 +9,10 @@
   "max_output_tokens": 128000,
   "context_window": 128000,
   "official": true,
-  "input_cost_per_token": 5e-06,
-  "output_cost_per_token": 2.5e-05,
-  "cache_read_input_token_cost": 5e-07,
-  "cache_creation_input_token_cost": 6.25e-06
+  "price": {
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07,
+    "cache_write": 6.25e-06
+  }
 }

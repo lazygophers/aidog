@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen3.5-omni-flash",
   "canonical_model": "qwen3.5-omni-flash",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 3.05556e-07,
+    "output": 1.84722e-06
+  },
   "max_input_tokens": 256000,
   "max_output_tokens": 64000,
-  "context_window": 256000,
-  "input_cost_per_token": 3.05556e-07,
-  "output_cost_per_token": 1.84722e-06
+  "context_window": 256000
 }

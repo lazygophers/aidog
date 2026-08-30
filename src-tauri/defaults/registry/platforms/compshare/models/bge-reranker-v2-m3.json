@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "bge-reranker-v2-m3",
   "canonical_model": "bge-reranker-v2-m3",
   "capabilities": [
-    "text"
+    "rerank"
   ],
   "official": true,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
 }

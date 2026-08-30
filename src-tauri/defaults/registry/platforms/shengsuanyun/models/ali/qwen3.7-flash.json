@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen3.7-flash",
   "canonical_model": "qwen3.7-flash",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 2.77778e-08,
+    "output": 1.11111e-07,
+    "cache_read": 5.55556e-09
+  },
   "max_input_tokens": 1000000,
   "max_output_tokens": 64000,
-  "context_window": 1000000,
-  "input_cost_per_token": 2.77778e-08,
-  "output_cost_per_token": 1.11111e-07,
-  "cache_read_input_token_cost": 5.55556e-09
+  "context_window": 1000000
 }

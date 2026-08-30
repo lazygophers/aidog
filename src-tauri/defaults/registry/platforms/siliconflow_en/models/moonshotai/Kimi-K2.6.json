@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "moonshotai/Kimi-K2.6",
   "canonical_model": "Kimi-K2.6",
   "display_name": "Kimi-K2.6",
@@ -7,9 +7,12 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 262144,
   "official": false,
-  "input_cost_per_token": 7.7e-07,
-  "output_cost_per_token": 3.4e-06,
-  "cache_read_input_token_cost": 1.4e-07,
+  "price": {
+    "input": 7.7e-07,
+    "output": 3.4e-06,
+    "cache_read": 1.4e-07
+  },
   "context_window": 262144
 }

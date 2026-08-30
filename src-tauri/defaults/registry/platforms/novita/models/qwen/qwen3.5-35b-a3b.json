@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "qwen/qwen3.5-35b-a3b",
   "canonical_model": "qwen3.5-35b-a3b",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 2.5e-07,
-  "output_cost_per_token": 2e-06,
+  "price": {
+    "input": 2.5e-07,
+    "output": 2e-06
+  },
   "max_input_tokens": 262144,
   "context_window": 262144,
   "max_output_tokens": 65536

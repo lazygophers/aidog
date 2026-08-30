@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "qwen3-reranker-8b",
   "canonical_model": "qwen3-reranker-8b",
   "capabilities": [
-    "text"
+    "rerank"
   ],
   "official": true,
-  "input_cost_per_token": 3.88889e-08,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 3.88889e-08,
+    "output": 0.0
+  }
 }

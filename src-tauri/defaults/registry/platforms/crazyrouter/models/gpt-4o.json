@@ -1,12 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "gpt-4o",
   "canonical_model": "gpt-4o",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
+  "context_window": 128000,
   "official": false,
-  "input_cost_per_token": 1.625e-06,
-  "output_cost_per_token": 6.5e-06,
-  "cache_read_input_token_cost": 8.13e-07
+  "price": {
+    "input": 1.625e-06,
+    "output": 6.5e-06,
+    "cache_read": 8.13e-07
+  }
 }

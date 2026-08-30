@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "minimax/minimax-m2.7",
   "canonical_model": "minimax-m2.7",
   "capabilities": [
     "text"
   ],
   "official": false,
-  "input_cost_per_token": 3.241e-07,
-  "output_cost_per_token": 1.3e-06,
+  "price": {
+    "input": 3.241e-07,
+    "output": 1.3e-06
+  },
   "max_input_tokens": 200000,
   "context_window": 200000,
   "max_output_tokens": 8000

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "llama-3.2-11b-vision-instruct",
   "canonical_model": "llama-3.2-11b-vision-instruct",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 16384,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 3.45e-7,
-  "output_cost_per_token": 3.45e-7,
-  "default_price": {
-    "input_cost_per_token": 3.45e-7,
-    "output_cost_per_token": 3.45e-7,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 3.45e-07,
+    "output": 3.45e-07,
+    "cache_read": 0
   }
 }

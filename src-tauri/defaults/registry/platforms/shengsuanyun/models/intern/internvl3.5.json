@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "intern/internvl3.5",
   "canonical_model": "internvl3.5",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  },
   "max_input_tokens": 128000,
   "max_output_tokens": 8000,
-  "context_window": 128000,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0
+  "context_window": 128000
 }

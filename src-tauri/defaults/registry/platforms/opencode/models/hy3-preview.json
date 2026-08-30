@@ -1,12 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "hy3-preview",
   "canonical_model": "hy3-preview",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 128000,
   "official": true,
-  "context_window": 262144,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  },
+  "context_window": 262144
 }

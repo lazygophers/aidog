@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "moonshot-v1-auto",
   "canonical_model": "moonshot-v1-auto",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 131072,
   "context_window": 131072,
   "official": false,
-  "input_cost_per_token": 0.000002,
-  "output_cost_per_token": 0.000005
+  "price": {
+    "input": 2e-06,
+    "output": 5e-06
+  }
 }

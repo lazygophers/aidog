@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "doubao/doubao-1-5-lite-32k",
   "canonical_model": "doubao-1-5-lite-32k",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 4.86e-08,
-  "output_cost_per_token": 9.72e-08,
+  "price": {
+    "input": 4.86e-08,
+    "output": 9.72e-08
+  },
   "max_input_tokens": 33000,
   "context_window": 33000,
   "max_output_tokens": 16000

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "glm-5-turbo",
   "canonical_model": "glm-5-turbo",
   "capabilities": [
@@ -9,23 +9,25 @@
   "max_output_tokens": 131072,
   "context_window": 204800,
   "official": false,
-  "input_cost_per_token": 6.944444444444444e-7,
-  "output_cost_per_token": 0.000003055555555555555,
-  "cache_read_input_token_cost": 1.6666666666666665e-7,
-  "time_tiers": [
-    {
-      "start_at": 1790784000,
-      "input_cost_per_token": 0.0000013888888888888887,
-      "output_cost_per_token": 0.000006111111111111111,
-      "cache_read_input_token_cost": 3.333333333333333e-7,
-      "context_tiers": [
-        {
-          "min_tokens": 32768,
-          "input_cost_per_token": 0.0000019444444444444444,
-          "output_cost_per_token": 0.000007222222222222222,
-          "cache_read_input_token_cost": 5e-7
-        }
-      ]
-    }
-  ]
+  "price": {
+    "input": 6.944444444444444e-07,
+    "output": 3.055555555555555e-06,
+    "cache_read": 1.6666666666666665e-07,
+    "time_tiers": [
+      {
+        "start_at": 1790784000,
+        "input": 1.3888888888888887e-06,
+        "output": 6.111111111111111e-06,
+        "cache_read": 3.333333333333333e-07,
+        "context_tiers": [
+          {
+            "min_tokens": 32768,
+            "input": 1.9444444444444444e-06,
+            "output": 7.222222222222222e-06,
+            "cache_read": 5e-07
+          }
+        ]
+      }
+    ]
+  }
 }

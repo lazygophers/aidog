@@ -1,20 +1,22 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gemini-3.1-pro",
   "canonical_model": "gemini-3.1-pro",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 2e-06,
-  "output_cost_per_token": 1.2e-05,
-  "cache_read_input_token_cost": 2e-07,
-  "context_tiers": [
-    {
-      "min_tokens": 200001,
-      "input_cost_per_token": 4e-06,
-      "output_cost_per_token": 1.8e-05,
-      "cache_read_input_token_cost": 4e-07
-    }
-  ]
+  "price": {
+    "input": 2e-06,
+    "output": 1.2e-05,
+    "cache_read": 2e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 4e-06,
+        "output": 1.8e-05,
+        "cache_read": 4e-07
+      }
+    ]
+  }
 }
