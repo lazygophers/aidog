@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1788070590,
   "model_id": "gpt-4-32k",
   "canonical_model": "gpt-4-32k",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
   "official": true,
   "price": {
     "input": 6e-05,

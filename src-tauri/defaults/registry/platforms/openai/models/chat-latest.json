@@ -1,10 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1788070590,
   "model_id": "chat-latest",
   "canonical_model": "chat-latest",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 272000,
+  "max_output_tokens": 128000,
+  "context_window": 400000,
   "official": true,
   "price": {
     "input": 5e-06,
