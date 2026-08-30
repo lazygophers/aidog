@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { fmtPricePerM, fmtTokens, parsePriceData, type PriceTier } from "./priceData";
+import { fmtPricePerM, fmtTokens, parseEntryFlags, parsePriceData, type PriceTier } from "./priceData";
 import { CapabilityBadges } from "./CapabilityBadges";
 import { nameParts } from "./ModelName";
 import { CopyButton } from "../../components/shared";
@@ -78,6 +78,9 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
   const { t } = useTranslation();
   const price = parsePriceData(entry.price_data);
   const tiers = price.context_tiers ?? [];
+  const flags = parseEntryFlags(entry.price_data);
+  // 未标注 = "-"（不与 false 混同）
+  const fmtFlag = (v?: boolean | null) => (v == null ? "-" : v ? t("common.yes") : t("common.no"));
   // secondary === null → 展示名就是请求名本身，只留「请求名」一个 Field，不重复渲染同一串
   const { secondary } = nameParts(entry.display_name, entry.model_id);
 
@@ -106,6 +109,8 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
 
       <Section title={t("modelInfo.capabilities")}>
         <CapabilityBadges capabilities={entry.capabilities} />
+        <Field label={t("modelInfo.thinkingSupported")}>{fmtFlag(flags.thinking_supported)}</Field>
+        <Field label={t("modelInfo.thinkingToggleable")}>{fmtFlag(flags.thinking_toggleable)}</Field>
         <Field label={t("modelInfo.builtinTools")}>
           {entry.builtin_tools_excluded.length === 0
             ? t("modelInfo.builtinToolsAll")

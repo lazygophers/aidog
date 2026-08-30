@@ -1398,6 +1398,8 @@
   "modelInfo.copyRequestName": "Copier le nom de requête",
   "modelInfo.officialYes": "Oui (première partie)",
   "modelInfo.officialNo": "Non (tiers)",
+  "modelInfo.thinkingSupported": "Prise en charge du thinking",
+  "modelInfo.thinkingToggleable": "Thinking activable/désactivable",
   "modelInfo.versionChain": "Chaîne de versions",
   "modelInfo.family": "Famille",
   "modelInfo.version": "Version",

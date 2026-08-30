@@ -1398,6 +1398,8 @@
   "modelInfo.copyRequestName": "Скопировать имя запроса",
   "modelInfo.officialYes": "Да (первоисточник)",
   "modelInfo.officialNo": "Нет (сторонний)",
+  "modelInfo.thinkingSupported": "Поддержка thinking",
+  "modelInfo.thinkingToggleable": "Thinking можно включать/выключать",
   "modelInfo.versionChain": "Цепочка версий",
   "modelInfo.family": "Семейство",
   "modelInfo.version": "Версия",

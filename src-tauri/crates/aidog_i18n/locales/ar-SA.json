@@ -1398,6 +1398,8 @@
   "modelInfo.copyRequestName": "نسخ اسم الطلب",
   "modelInfo.officialYes": "نعم (من المزوّد الرسمي)",
   "modelInfo.officialNo": "لا (طرف ثالث)",
+  "modelInfo.thinkingSupported": "يدعم التفكير",
+  "modelInfo.thinkingToggleable": "التفكير قابل للتبديل",
   "modelInfo.versionChain": "سلسلة الإصدارات",
   "modelInfo.family": "العائلة",
   "modelInfo.version": "الإصدار",

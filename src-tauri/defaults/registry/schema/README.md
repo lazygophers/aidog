@@ -67,6 +67,7 @@ registry/
 | `model_id` | 平台真实请求名；DB 主键一半（platform_code + model_id，ADR 0005）；须与文件名一致 |
 | `canonical_model` | 跨平台聚合键（`model_entry.rs` 缺省回落 model_id） |
 | `display_name` | 展示名，读取层回落 model_id（票 T10，`model_entry.rs::with_display_name`） |
+| `thinking_supported` / `thinking_toggleable` | 【可选 bool】是否支持 thinking / thinking 是否可由请求参数开关（false = 强制思考）。缺省=未标注。消费方：前端模型详情弹窗（`priceData.ts::parseEntryFlags`）；数据填充随 models 清单审计批次逐平台查证 |
 | `family` / `version` / `predecessor` | DB 列 `model_entry`（`MODEL_ENTRY_COLUMNS`），模型信息页前后代链 |
 | `capabilities` | 前端 ModelInfo 页 `CapabilityBadges`。理解类：text（必含）/ vision / tool_use / reasoning / audio / video / embedding；生成类（输入→输出细分）：text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit |
 | `builtin_tools_excluded` | DB 列；内置工具过滤 |

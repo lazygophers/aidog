@@ -1398,6 +1398,8 @@
   "modelInfo.copyRequestName": "Anfragenamen kopieren",
   "modelInfo.officialYes": "Ja (Erstanbieter)",
   "modelInfo.officialNo": "Nein (Drittanbieter)",
+  "modelInfo.thinkingSupported": "Thinking unterstützt",
+  "modelInfo.thinkingToggleable": "Thinking umschaltbar",
   "modelInfo.versionChain": "Versionskette",
   "modelInfo.family": "Familie",
   "modelInfo.version": "Version",

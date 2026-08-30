@@ -1376,6 +1376,8 @@
   "modelInfo.copyRequestName": "复制请求名",
   "modelInfo.officialYes": "是（厂商自营）",
   "modelInfo.officialNo": "否（第三方转售）",
+  "modelInfo.thinkingSupported": "支持思考",
+  "modelInfo.thinkingToggleable": "思考可开关",
   "modelInfo.versionChain": "版本链",
   "modelInfo.family": "系列",
   "modelInfo.version": "版本",

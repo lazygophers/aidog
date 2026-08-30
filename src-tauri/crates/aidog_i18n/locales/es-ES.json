@@ -1376,6 +1376,8 @@
   "modelInfo.copyRequestName": "Copiar el nombre de solicitud",
   "modelInfo.officialYes": "Sí (de primera mano)",
   "modelInfo.officialNo": "No (de terceros)",
+  "modelInfo.thinkingSupported": "Admite thinking",
+  "modelInfo.thinkingToggleable": "Thinking conmutable",
   "modelInfo.versionChain": "Cadena de versiones",
   "modelInfo.family": "Familia",
   "modelInfo.version": "Versión",

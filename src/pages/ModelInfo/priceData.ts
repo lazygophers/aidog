@@ -40,6 +40,30 @@ export function parsePriceData(raw: string): ModelPriceData {
   return {};
 }
 
+/** registry 模型条目顶层的非价格标记（`price_data` 整份原文里的可选 bool）。
+ *  缺省 = 条目未标注，展示层渲染 "-"（不与 false 混同）。 */
+export interface EntryFlags {
+  /** 是否支持 thinking/推理模式。 */
+  thinking_supported?: boolean | null;
+  /** thinking 是否可由请求参数开关（false = 强制思考）。 */
+  thinking_toggleable?: boolean | null;
+}
+
+/** 解析 `price_data` 取顶层标记字段；空串 / 非法 JSON 返回空对象。 */
+export function parseEntryFlags(raw: string): EntryFlags {
+  if (!raw) return {};
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const { thinking_supported, thinking_toggleable } = parsed as EntryFlags;
+      return { thinking_supported, thinking_toggleable };
+    }
+  } catch {
+    // 同 parsePriceData：数据损坏不炸页，未标注即 "-"
+  }
+  return {};
+}
+
 /** $/token → $/M tokens；非有限数返回 null。 */
 export function perMillion(v?: number | null): number | null {
   return typeof v === "number" && Number.isFinite(v) ? v * 1_000_000 : null;
