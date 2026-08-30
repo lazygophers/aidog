@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1788088405,
   "model_id": "deepseek-ai/DeepSeek-V3.1-Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 131072,
-  "context_window": 131072,
+  "max_input_tokens": 163840,
+  "context_window": 163840,
   "max_output_tokens": 65536,
   "official": true,
   "price": {
