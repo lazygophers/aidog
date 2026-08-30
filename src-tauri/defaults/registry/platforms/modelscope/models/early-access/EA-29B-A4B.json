@@ -1,10 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1788072775,
   "model_id": "early-access/EA-29B-A4B",
   "canonical_model": "ea-29b-a4b",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": [],
   "official": true,
   "price": {
     "input": 0.0,

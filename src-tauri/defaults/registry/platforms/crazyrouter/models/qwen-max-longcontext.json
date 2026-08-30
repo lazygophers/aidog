@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1788072775,
   "model_id": "qwen-max-longcontext",
   "canonical_model": "qwen-max-longcontext",
   "capabilities": [
@@ -9,5 +9,8 @@
   "price": {
     "input": 4e-07,
     "output": 1.2e-06
-  }
+  },
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 28000
 }
