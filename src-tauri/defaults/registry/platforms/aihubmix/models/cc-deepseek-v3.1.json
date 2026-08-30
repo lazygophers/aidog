@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "cc-deepseek-v3.1",
   "canonical_model": "cc-deepseek-v3.1",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 5.6e-7,
+    "output": 0.00000168
   }
 }

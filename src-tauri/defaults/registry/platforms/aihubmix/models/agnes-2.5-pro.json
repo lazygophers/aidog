@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "agnes-2.5-pro",
   "canonical_model": "agnes-2.5-pro",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 4.5e-7,
+    "output": 9e-7,
+    "cache_read": 3.78e-9
   }
 }

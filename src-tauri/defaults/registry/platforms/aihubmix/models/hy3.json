@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "hy3",
   "canonical_model": "hy3",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 1.562e-7,
+    "output": 6.248e-7,
+    "cache_read": 3.905e-8
   }
 }

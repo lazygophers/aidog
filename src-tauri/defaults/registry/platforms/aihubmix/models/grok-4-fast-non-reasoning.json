@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "grok-4-fast-non-reasoning",
   "canonical_model": "grok-4-fast-non-reasoning",
   "capabilities": [],
@@ -7,6 +7,16 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0
+    "input": 2e-7,
+    "output": 5e-7,
+    "cache_read": 5e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 128001,
+        "input": 4e-7,
+        "output": 0.000001,
+        "cache_read": 5e-8
+      }
+    ]
   }
 }

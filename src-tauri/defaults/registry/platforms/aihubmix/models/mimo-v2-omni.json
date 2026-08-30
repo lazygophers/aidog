@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "mimo-v2-omni",
   "canonical_model": "mimo-v2-omni",
   "capabilities": [
@@ -8,6 +8,8 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 4.4e-7,
+    "output": 0.0000022,
+    "cache_read": 8.8e-8
   }
 }

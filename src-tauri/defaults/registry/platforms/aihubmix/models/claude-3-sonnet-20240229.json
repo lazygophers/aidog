@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "claude-3-sonnet-20240229",
   "canonical_model": "claude-3-sonnet-20240229",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 0.0000033,
+    "output": 0.0000165
   }
 }

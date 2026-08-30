@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "grok-code-fast-1",
   "canonical_model": "grok-code-fast-1",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 2e-7,
+    "output": 5e-7,
+    "cache_read": 5e-8
   }
 }

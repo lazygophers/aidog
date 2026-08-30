@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "claude-3-haiku-20240229",
   "canonical_model": "claude-3-haiku-20240229",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 2.75e-7,
+    "output": 2.75e-7
   }
 }

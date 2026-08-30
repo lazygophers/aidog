@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
   "display_name": "Qwen3.8-2.4T-A95B",
@@ -12,6 +12,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 5e-7
   }
 }

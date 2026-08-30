@@ -1,10 +1,26 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "doubao-seed-1-8",
   "canonical_model": "doubao-seed-1-8",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 1.0959e-7,
+    "output": 2.73975e-7,
+    "cache_read": 2.1918e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 1.644e-7,
+        "output": 0.00000219199,
+        "cache_read": 2.19145e-8
+      },
+      {
+        "min_tokens": 128001,
+        "input": 3.2876e-7,
+        "output": 0.0000032876,
+        "cache_read": 2.19184e-8
+      }
+    ]
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "hy3-preview",
   "canonical_model": "hy3-preview",
   "capabilities": [
@@ -10,6 +10,22 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 1.7e-7,
+    "output": 5.66661e-7,
+    "cache_read": 5.1e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 16001,
+        "input": 2.254e-7,
+        "output": 9.016e-7,
+        "cache_read": 8.4525e-8
+      },
+      {
+        "min_tokens": 32001,
+        "input": 2.818e-7,
+        "output": 0.0000011272,
+        "cache_read": 1.1272e-7
+      }
+    ]
   }
 }

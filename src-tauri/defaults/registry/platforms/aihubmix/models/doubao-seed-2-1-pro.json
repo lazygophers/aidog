@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "doubao-seed-2-1-pro",
   "canonical_model": "doubao-seed-2-1-pro",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 9.295e-7,
+    "output": 0.0000046475,
+    "cache_read": 1.859e-7
   }
 }

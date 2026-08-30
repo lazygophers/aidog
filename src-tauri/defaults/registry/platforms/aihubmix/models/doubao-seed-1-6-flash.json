@@ -1,10 +1,26 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "doubao-seed-1-6-flash",
   "canonical_model": "doubao-seed-1-6-flash",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 2.0548e-8,
+    "output": 2.0548e-7,
+    "cache_read": 4.1096e-9,
+    "context_tiers": [
+      {
+        "min_tokens": 32001,
+        "input": 4.1096e-8,
+        "output": 4.1096e-7,
+        "cache_read": 4.1096e-9
+      },
+      {
+        "min_tokens": 128001,
+        "input": 8.2192e-8,
+        "output": 8.2192e-7,
+        "cache_read": 4.1096e-9
+      }
+    ]
   }
 }

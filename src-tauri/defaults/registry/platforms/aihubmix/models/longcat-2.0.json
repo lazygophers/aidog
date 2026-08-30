@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "longcat-2.0",
   "canonical_model": "longcat-2.0",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 1048756,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 7.746e-7,
+    "output": 0.0000030984,
+    "cache_read": 1.5492e-8
   }
 }

@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085901,
+  "last_updated": 1788100767,
   "model_id": "inclusionAI/Ling-1T",
   "canonical_model": "inclusionAI/Ling-1T",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 5.48e-7,
+    "output": 0.000002192
   }
 }

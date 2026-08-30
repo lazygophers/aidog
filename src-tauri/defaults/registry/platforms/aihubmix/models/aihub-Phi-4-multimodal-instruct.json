@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "aihub-Phi-4-multimodal-instruct",
   "canonical_model": "aihub-Phi-4-multimodal-instruct",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 1.2e-7,
+    "output": 4.8e-7
   }
 }
