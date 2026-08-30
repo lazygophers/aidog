@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788086218,
+  "model_id": "gemini-3.5-flash",
+  "canonical_model": "gemini-3.5-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65535,
+  "context_window": 65535,
+  "official": false,
+  "price": {
+    "input": 1.5e-06,
+    "output": 9e-06,
+    "cache_read": 1.5e-07
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788086218,
+  "model_id": "glm-4.6v-flash",
+  "canonical_model": "glm-4.6v-flash",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

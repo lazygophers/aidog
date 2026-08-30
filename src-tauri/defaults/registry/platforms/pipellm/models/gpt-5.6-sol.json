@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788086218,
+  "model_id": "gpt-5.6-sol",
+  "canonical_model": "gpt-5.6-sol",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "input": 4e-06,
+    "output": 2e-05
+  }
+}
