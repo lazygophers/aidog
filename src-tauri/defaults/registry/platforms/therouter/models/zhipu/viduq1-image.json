@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086879,
+  "model_id": "zhipu/viduq1-image",
+  "canonical_model": "viduq1-image",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.432
+  }
+}

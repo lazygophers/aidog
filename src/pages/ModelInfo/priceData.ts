@@ -19,7 +19,7 @@ export interface PriceTier {
  *  token 单价字段不适用；chat 计费链不消费这类条目（无 token 价自动 fallback）。 */
 export interface ModelPriceData extends PriceTier {
   /** 计价单位，缺省 token。 */
-  unit?: "token" | "image" | "second" | "request" | null;
+  unit?: "token" | "image" | "second" | "request" | "char" | null;
   /** 非 token 条目的单价（$/unit）。 */
   unit_price?: number | null;
   /** 高峰绝对价：命中平台 `peak` 窗口时整体替换默认价。 */
@@ -72,7 +72,9 @@ export function parseEntryFlags(raw: string): EntryFlags {
 
 /** $/unit（张/秒/次）展示串（`$x.xx /张` 等）；缺值 → "-"。 */
 export function fmtPricePerUnit(v?: number | null, unit?: string | null): string {
-  return typeof v === "number" && Number.isFinite(v) ? formatCostUsd(v) + ` /${unit ?? "unit"}` : "-";
+  if (typeof v !== "number" || !Number.isFinite(v)) return "-";
+  // char 单位存 $/1K chars；其余 $/unit
+  return unit === "char" ? formatCostUsd(v) + " /1K chars" : formatCostUsd(v) + ` /${unit ?? "unit"}`;
 }
 
 /** $/token → $/M tokens；非有限数返回 null。 */

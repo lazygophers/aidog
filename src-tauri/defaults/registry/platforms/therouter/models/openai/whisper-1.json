@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788086879,
+  "model_id": "openai/whisper-1",
+  "canonical_model": "whisper-1",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00010833333333333333
+  }
+}

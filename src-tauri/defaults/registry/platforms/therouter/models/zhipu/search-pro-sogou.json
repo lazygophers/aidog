@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788086879,
+  "model_id": "zhipu/search-pro-sogou",
+  "canonical_model": "search-pro-sogou",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.0108
+  }
+}
