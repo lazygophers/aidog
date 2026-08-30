@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788095447,
+  "last_updated": 1788096132,
   "platforms": [
     {
       "code": "aihubmix",
@@ -3405,7 +3405,11 @@
         "llama-3.3-70b-instruct.json",
         "llama-4-maverick.json",
         "llama-4-scout.json",
-        "llama-guard-4-12b.json"
+        "llama-guard-4-12b.json",
+        "muse-image-1.0.json",
+        "muse-spark-1.1.json",
+        "muse-spark-1.2-contributor.json",
+        "muse-spark-1.2.json"
       ]
     },
     {

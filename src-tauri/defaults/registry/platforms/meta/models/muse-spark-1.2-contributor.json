@@ -1,0 +1,24 @@
+{
+  "last_updated": 1788096132,
+  "model_id": "muse-spark-1.2-contributor",
+  "canonical_model": "muse-spark-1.2",
+  "display_name": "Muse Spark 1.2 Contributor",
+  "family": "muse",
+  "version": "1.2",
+  "predecessor": "muse-spark-1.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}
