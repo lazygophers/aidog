@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1788098169,
   "model_id": "mistral-ocr-2505",
   "canonical_model": "mistral-ocr-2505",
   "display_name": "Mistral OCR (25.05)",
@@ -8,6 +8,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0.0
+    "unit": "request",
+    "unit_price": 0.001
   }
 }

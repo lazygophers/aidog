@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1788098169,
   "model_id": "imagen-4.0-generate",
   "canonical_model": "imagen-4.0-generate",
   "display_name": "Imagen 4",
@@ -8,6 +8,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0.0
+    "unit": "image",
+    "unit_price": 0.04
   }
 }

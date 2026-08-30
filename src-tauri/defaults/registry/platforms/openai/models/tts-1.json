@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1788098169,
   "model_id": "tts-1",
   "canonical_model": "tts-1",
   "display_name": "TTS-1",
@@ -8,6 +8,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0.0
+    "unit": "char",
+    "unit_price": 0.015
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1788098169,
   "model_id": "deepseek/deepseek-ocr",
   "canonical_model": "deepseek-ocr",
   "capabilities": [
@@ -11,8 +11,7 @@
   "context_window": 8192,
   "official": true,
   "price": {
-    "input": 0.0,
-    "output": 0.0,
-    "cache_read": 0.0
+    "unit": "request",
+    "unit_price": 0.00277778
   }
 }
