@@ -291,8 +291,6 @@
       },
       "then": {
         "required": [
-          "max_input_tokens",
-          "max_output_tokens",
           "context_window"
         ]
       }
