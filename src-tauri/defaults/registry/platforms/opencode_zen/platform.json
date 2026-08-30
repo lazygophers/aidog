@@ -81,7 +81,8 @@
       "nemotron-3-ultra-free",
       "nemotron-3.5-lightning-free",
       "qwen3.5-plus",
-      "qwen3.6-plus"
+      "qwen3.6-plus",
+      "ling-3.0-flash-fin-free"
     ]
   },
   "name": {
@@ -133,5 +134,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788063148
+  "last_updated": 1788087755
 }

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "anthropic/claude-sonnet-5-aws",
+  "canonical_model": "claude-sonnet-5",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "family": "claude",
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 128000,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

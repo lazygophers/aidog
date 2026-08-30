@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "grok-imagine-video",
+  "canonical_model": "grok-imagine-video",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "family": "grok-imagine",
+  "price": {
+    "unit": "second",
+    "unit_price": 0.05
+  }
+}

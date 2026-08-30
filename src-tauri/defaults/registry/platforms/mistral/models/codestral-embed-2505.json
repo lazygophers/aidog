@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "codestral-embed-2505",
+  "canonical_model": "codestral-embed-2505",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "family": "codestral",
+  "price": {
+    "input": 1.5e-07
+  }
+}

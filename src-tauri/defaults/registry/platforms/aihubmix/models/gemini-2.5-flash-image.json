@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "gemini-2.5-flash-image",
+  "canonical_model": "gemini-2.5-flash-image",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "max_input_tokens": 32768,
+  "max_output_tokens": 32768,
+  "context_window": 32768,
+  "official": false,
+  "price": {
+    "input": 3e-07,
+    "output": 2.5e-06,
+    "cache_read": 3e-08
+  }
+}

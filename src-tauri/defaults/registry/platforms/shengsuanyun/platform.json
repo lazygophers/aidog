@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788087755,
   "endpoints": {
     "default": [
       {
@@ -219,7 +219,10 @@
       "x-ai/grok-4.6",
       "xai/grok-code-fast-1",
       "xiaomi/mimo-v2.5",
-      "xiaomi/mimo-v2.5-pro"
+      "xiaomi/mimo-v2.5-pro",
+      "agnes/agnes-2.0-flash",
+      "agnes/agnes-2.5-flash",
+      "tencent/hy4-preview"
     ]
   },
   "name": {

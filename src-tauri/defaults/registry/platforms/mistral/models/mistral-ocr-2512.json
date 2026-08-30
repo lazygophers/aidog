@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mistral-ocr-2512",
+  "canonical_model": "mistral-ocr-2512",
+  "capabilities": [],
+  "official": true,
+  "family": "mistral",
+  "price": {
+    "unit": "request",
+    "unit_price": 0.0
+  }
+}

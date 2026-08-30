@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788087755,
   "endpoints": {
     "default": [
       {
@@ -65,7 +65,10 @@
       "mistralai/Mistral-Large-Instruct-2407",
       "opencompass/CompassJudger-1-32B-Instruct",
       "stepfun-ai/Step-3.5-Flash",
-      "stepfun-ai/Step-3.7-Flash"
+      "stepfun-ai/Step-3.7-Flash",
+      "Qwen/Qwen3-Embedding-0.6B",
+      "Qwen/Qwen3-Embedding-4B",
+      "Qwen/Qwen3-Embedding-8B"
     ]
   },
   "name": {

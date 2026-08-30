@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "voxtral-tts-2603",
+  "canonical_model": "voxtral-tts-2603",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "voxtral",
+  "price": {
+    "unit": "char",
+    "unit_price": 0.016
+  }
+}

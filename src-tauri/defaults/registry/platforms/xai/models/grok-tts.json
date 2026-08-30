@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "grok-tts",
+  "canonical_model": "grok-tts",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "grok",
+  "price": {
+    "unit": "char",
+    "unit_price": 0.015
+  }
+}

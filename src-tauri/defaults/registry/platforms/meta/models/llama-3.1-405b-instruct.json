@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "llama-3.1-405b-instruct",
+  "canonical_model": "meta/llama-3.1-405b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "family": "llama",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 2.59e-06,
+    "output": 2.59e-06
+  },
+  "max_input_tokens": 128000,
+  "max_output_tokens": 8000,
+  "context_window": 128000
+}

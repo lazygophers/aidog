@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788087755,
   "endpoints": {
     "default": [
       {
@@ -107,7 +107,6 @@
       "openai/o3-mini",
       "openai/o3-pro",
       "openai/o4-mini",
-      "qwen/Qwen3-235B-A22B-Instruct-2507",
       "qwen/qwen3-vl-235b-a22b-thinking",
       "qwen/qwen3.5-122b-a10b",
       "qwen/qwen3.5-27b",
@@ -156,7 +155,10 @@
       "qwen/qwen3.8-max",
       "xai/grok-4.5",
       "xai/grok-4.6",
-      "zai-org/glm-5.3"
+      "zai-org/glm-5.3",
+      "anthropic/claude-opus-5-aws",
+      "anthropic/claude-sonnet-5-aws",
+      "qwen/Qwen3-235B-A22B-Instruct-2507"
     ]
   },
   "name": {

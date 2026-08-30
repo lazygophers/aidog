@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788087755,
+  "model_id": "mimo-v2.5-asr",
+  "canonical_model": "mimo-v2.5-asr",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "family": "mimo",
+  "context_window": 8000,
+  "max_output_tokens": 2000,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0
+  }
+}
