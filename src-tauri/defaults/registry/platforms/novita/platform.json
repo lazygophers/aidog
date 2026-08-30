@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788072775,
   "endpoints": {
     "default": [
       {
@@ -53,7 +53,6 @@
       "google/gemma-4-26b-a4b-it",
       "google/gemma-4-31b-it",
       "gryphe/mythomax-l2-13b",
-      "gt-4p",
       "inclusionai/ling-3.0-flash",
       "inclusionai/ling-3.0-flash-fast",
       "inclusionai/ling-3.0-flash-fin",
