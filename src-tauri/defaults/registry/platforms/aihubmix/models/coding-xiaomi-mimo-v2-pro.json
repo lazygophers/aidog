@@ -1,10 +1,20 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "coding-xiaomi-mimo-v2-pro",
   "canonical_model": "coding-xiaomi-mimo-v2-pro",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 2e-7,
+    "output": 6e-7,
+    "cache_read": 4e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 256001,
+        "input": 4e-7,
+        "output": 0.0000012,
+        "cache_read": 8e-8
+      }
+    ]
   }
 }

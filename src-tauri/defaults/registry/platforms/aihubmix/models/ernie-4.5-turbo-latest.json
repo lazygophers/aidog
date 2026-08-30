@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "ernie-4.5-turbo-latest",
   "canonical_model": "ernie-4.5-turbo-latest",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 1.1e-7,
+    "output": 4.4e-7
   }
 }

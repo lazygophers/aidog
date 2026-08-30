@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "gpt-5.2-low",
   "canonical_model": "gpt-5.2-low",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 0.00000175,
+    "output": 0.000014,
+    "cache_read": 1.75e-7
   }
 }

@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "qwen-turbo-latest",
   "canonical_model": "qwen-turbo-latest",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 4.6e-8,
+    "output": 9.2e-8,
+    "cache_read": 9.2e-9
   }
 }

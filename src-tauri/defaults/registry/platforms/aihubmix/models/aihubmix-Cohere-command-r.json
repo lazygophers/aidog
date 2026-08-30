@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "aihubmix-Cohere-command-r",
   "canonical_model": "aihubmix-Cohere-command-r",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 6.4e-7,
+    "output": 0.00000192
   }
 }

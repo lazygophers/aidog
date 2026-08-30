@@ -1,11 +1,12 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "mai-thinking-1",
   "canonical_model": "mai-thinking-1",
   "capabilities": [],
   "official": true,
   "thinking_supported": true,
   "price": {
-    "input": 0.0
+    "input": 0.000002,
+    "output": 0.000008
   }
 }

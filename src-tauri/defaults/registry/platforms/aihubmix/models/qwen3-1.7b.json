@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "qwen3-1.7b",
   "canonical_model": "qwen3-1.7b",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 4.6e-8,
+    "output": 4.6e-7
   }
 }

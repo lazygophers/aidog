@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1788100767,
   "model_id": "cohere-command-a",
   "canonical_model": "cohere-command-a",
   "capabilities": [],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 0.0000025,
+    "output": 0.00001
   }
 }
