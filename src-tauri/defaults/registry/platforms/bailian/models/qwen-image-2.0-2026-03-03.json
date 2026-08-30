@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "qwen-image-2.0-2026-03-03",
+  "canonical_model": "qwen-image-2.0-2026-03-03",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.0277778
+  }
+}

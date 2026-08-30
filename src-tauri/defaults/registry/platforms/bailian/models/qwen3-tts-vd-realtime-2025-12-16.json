@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "qwen3-tts-vd-realtime-2025-12-16",
+  "canonical_model": "qwen3-tts-vd-realtime-2025-12-16",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0138889
+  }
+}

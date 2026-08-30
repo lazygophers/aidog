@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "qwen-omni-turbo-realtime-latest",
+  "canonical_model": "qwen-omni-turbo-realtime-latest",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0000025,
+    "output": 0.00000694444
+  }
+}
