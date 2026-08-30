@@ -63,7 +63,10 @@
     "codegeex",
     "zhipuguojibiancheng",
     "zpgjbc",
-    "zp"
+    "zp",
+    "guojiban",
+    "gjb",
+    "koodingu"
   ],
   "color": "#3B5FEC",
   "peak": [
@@ -84,5 +87,5 @@
       ]
     }
   ],
-  "last_updated": 1788060539
+  "last_updated": 1788063148
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -62,7 +62,12 @@
     "xmtcgj",
     "xm",
     "xiaomibiancheng",
-    "xmbc"
+    "xmbc",
+    "taocanguojiban",
+    "tcgjb",
+    "tookunpuran",
+    "guojiban",
+    "gjb"
   ],
   "color": "#FF6900",
   "key_prefixes": [

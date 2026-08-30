@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -45,7 +45,9 @@
     "stepfun",
     "阶跃",
     "jieyue",
-    "jy"
+    "jy",
+    "jieyuexingchen",
+    "jyxc"
   ],
   "color": "#16D6D2"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "endpoints": {
     "default": [
       {
@@ -60,7 +60,9 @@
     "siliconflow",
     "硅基流动",
     "guijiliudong",
-    "gjld"
+    "gjld",
+    "guojiban",
+    "gjb"
   ],
   "color": "#6E29F6"
 }

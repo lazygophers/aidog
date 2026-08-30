@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -70,7 +70,12 @@
     "volces",
     "huoshan",
     "hs",
-    "db"
+    "db",
+    "huoshanyinqing",
+    "hsyq",
+    "zijietiaodong",
+    "zjtd",
+    "enjin"
   ],
   "color": "#3370FF",
   "key_prefixes": [

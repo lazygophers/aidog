@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -59,7 +59,12 @@
     "yuezhianmian",
     "yzam",
     "kimibiancheng",
-    "kbc"
+    "kbc",
+    "bianchengtaocan",
+    "bctc",
+    "yuezhianmianhuiyuan",
+    "yzamhy",
+    "koodingupuran"
   ],
   "color": "#1783FF",
   "key_prefixes": [

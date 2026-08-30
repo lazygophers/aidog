@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788063148,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -63,7 +63,10 @@
     "hailuobiancheng",
     "hlbc",
     "minimaxbiancheng",
-    "mbc"
+    "mbc",
+    "bianchengtaocan",
+    "bctc",
+    "koodingupuran"
   ],
   "color": "#FF6B6B",
   "key_prefixes": [

@@ -104,7 +104,11 @@
     "opencode",
     "zen",
     "opencode.ai",
-    "free"
+    "free",
+    "mianfei",
+    "mf",
+    "wuliao",
+    "wl"
   ],
   "color": "#6E56CF",
   "peak": [
@@ -129,5 +133,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788060539
+  "last_updated": 1788063148
 }

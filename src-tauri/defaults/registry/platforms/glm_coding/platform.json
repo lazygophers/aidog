@@ -62,7 +62,10 @@
     "bigmodel",
     "zhipubiancheng",
     "zpbc",
-    "zp"
+    "zp",
+    "bianmataocan",
+    "bmtc",
+    "koodingupuran"
   ],
   "color": "#3B5FEC",
   "peak": [
@@ -84,5 +87,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788060539
+  "last_updated": 1788063148
 }
