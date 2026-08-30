@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1788098892,
   "model_id": "qwen3.7-text-embedding",
   "canonical_model": "qwen3.7-text-embedding",
   "display_name": "Qwen3.7-Text-Embedding",
@@ -8,6 +8,6 @@
   ],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 6.94444e-08
   }
 }
