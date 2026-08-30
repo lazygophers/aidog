@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "aion-labs/aion-3.0",
+  "canonical_model": "aion-3.0",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3e-06,
+    "output": 6e-06,
+    "cache_read": 7.5e-07
+  }
+}

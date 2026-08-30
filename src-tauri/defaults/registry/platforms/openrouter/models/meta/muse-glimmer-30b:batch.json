@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "meta/muse-glimmer-30b:batch",
+  "canonical_model": "muse-glimmer-30b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 117964,
+  "context_window": 131072,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3.5e-07,
+    "output": 1.5e-06,
+    "cache_read": 4e-08
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "google/gemma-4-26b-a4b-it:free",
+  "canonical_model": "gemma-4-26b-a4b-it",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 32768,
+  "context_window": 262144,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

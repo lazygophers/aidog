@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "google/gemini-3.1-pro-preview:batch",
+  "canonical_model": "gemini-3.1-pro-preview",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1e-06,
+    "output": 6e-06
+  }
+}

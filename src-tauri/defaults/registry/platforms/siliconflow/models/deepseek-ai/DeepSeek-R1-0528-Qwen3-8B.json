@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
+  "canonical_model": "DeepSeek-R1-0528-Qwen3-8B",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "z-ai/glm-5.3-flash:batch",
+  "canonical_model": "glm-5.3-flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048575,
+  "max_output_tokens": 943717,
+  "context_window": 1048575,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.5e-07,
+    "output": 5e-07,
+    "cache_read": 3e-08
+  }
+}

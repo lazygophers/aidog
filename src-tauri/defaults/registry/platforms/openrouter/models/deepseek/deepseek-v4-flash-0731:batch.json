@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "deepseek/deepseek-v4-flash-0731:batch",
+  "canonical_model": "deepseek-v4-flash-0731",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 943718,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.4e-07,
+    "output": 2.8e-07,
+    "cache_read": 3e-08
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "anthropic/claude-opus-4.1:batch",
+  "canonical_model": "claude-opus-4.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 32000,
+  "context_window": 200000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 7.5e-06,
+    "output": 3.75e-05,
+    "cache_read": 7.5e-07,
+    "cache_write": 9.375e-06
+  }
+}

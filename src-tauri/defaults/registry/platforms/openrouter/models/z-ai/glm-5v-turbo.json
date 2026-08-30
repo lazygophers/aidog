@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "z-ai/glm-5v-turbo",
+  "canonical_model": "glm-5v-turbo",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 202752,
+  "max_output_tokens": 131072,
+  "context_window": 202752,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.2e-06,
+    "output": 4e-06,
+    "cache_read": 2.4e-07
+  }
+}

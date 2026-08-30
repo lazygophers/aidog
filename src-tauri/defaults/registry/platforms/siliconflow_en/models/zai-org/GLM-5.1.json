@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "zai-org/GLM-5.1",
+  "canonical_model": "GLM-5.1",
+  "display_name": "GLM-5.1",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 204800,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "input": 1.19e-06,
+    "cache_read": 6e-07,
+    "output": 3.74e-06
+  },
+  "context_window": 204800
+}

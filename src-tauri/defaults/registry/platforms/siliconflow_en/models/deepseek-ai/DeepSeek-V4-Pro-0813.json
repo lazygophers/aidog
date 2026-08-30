@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "deepseek-ai/DeepSeek-V4-Pro-0813",
+  "canonical_model": "deepseek-v4-pro-0813",
+  "display_name": "DeepSeek-V4-Pro-0813",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "official": false,
+  "price": {
+    "input": 1.5016199999999999e-06,
+    "cache_read": 1.35e-07,
+    "output": 3.1349999999999996e-06
+  },
+  "context_window": 1048576
+}

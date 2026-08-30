@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "kwaipilot/kat-coder-air-v2.5",
+  "canonical_model": "kat-coder-air-v2.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "max_output_tokens": 80000,
+  "context_window": 256000,
+  "official": false,
+  "price": {
+    "input": 1.5e-07,
+    "output": 6e-07,
+    "cache_read": 3e-08
+  }
+}

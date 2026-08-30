@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "~z-ai/glm-latest",
+  "canonical_model": "glm-latest",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1310720,
+  "max_output_tokens": 131072,
+  "context_window": 1310720,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.1875e-06,
+    "output": 4.18e-06,
+    "cache_read": 2.47e-07
+  }
+}

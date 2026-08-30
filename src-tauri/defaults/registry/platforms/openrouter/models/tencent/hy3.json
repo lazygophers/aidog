@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "tencent/hy3",
+  "canonical_model": "hy3",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 128000,
+  "context_window": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.32e-07,
+    "output": 5.28e-07,
+    "cache_read": 3.3e-08
+  }
+}

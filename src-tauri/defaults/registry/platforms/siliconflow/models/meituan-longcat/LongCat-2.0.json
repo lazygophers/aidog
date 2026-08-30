@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "meituan-longcat/LongCat-2.0",
+  "canonical_model": "LongCat-2.0",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 6.944444444444445e-07,
+    "output": 2.777777777777778e-06
+  }
+}

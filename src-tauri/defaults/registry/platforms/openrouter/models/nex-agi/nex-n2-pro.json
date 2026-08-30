@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "nex-agi/nex-n2-pro",
+  "canonical_model": "nex-n2-pro",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 235929,
+  "context_window": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.5e-07,
+    "output": 1e-06,
+    "cache_read": 2.5e-08
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "moonshotai/Kimi-K2.7-Code",
+  "canonical_model": "Kimi-K2.7-Code",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 9.027777777777778e-07,
+    "output": 3.75e-06
+  }
+}

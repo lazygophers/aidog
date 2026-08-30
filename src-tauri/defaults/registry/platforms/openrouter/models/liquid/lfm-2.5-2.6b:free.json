@@ -1,0 +1,20 @@
+{
+  "last_updated": 1788084177,
+  "model_id": "liquid/lfm-2.5-2.6b:free",
+  "canonical_model": "lfm-2.5-2.6b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 8192,
+  "context_window": 65536,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

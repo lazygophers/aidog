@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "mistralai/codestral-2508:batch",
+  "canonical_model": "codestral-2508",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "max_output_tokens": 204800,
+  "context_window": 256000,
+  "official": true,
+  "price": {
+    "input": 3e-07,
+    "output": 9e-07,
+    "cache_read": 3e-08
+  }
+}

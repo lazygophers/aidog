@@ -1,0 +1,22 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "x-ai/grok-4.6",
+  "canonical_model": "grok-4.6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 500000,
+  "max_output_tokens": 450000,
+  "context_window": 500000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2e-06,
+    "output": 6e-06,
+    "cache_read": 5e-07
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "tencent/hy4-preview",
+  "canonical_model": "hy4-preview",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 64000,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 8.34e-07,
+    "output": 2.501e-06,
+    "cache_read": 4.2e-08
+  }
+}

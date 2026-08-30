@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "kwaipilot/kat-coder-pro-v2.5",
+  "canonical_model": "kat-coder-pro-v2.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 262144,
+  "max_output_tokens": 80000,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 7.4e-07,
+    "output": 2.96e-06,
+    "cache_read": 1.5e-07
+  }
+}

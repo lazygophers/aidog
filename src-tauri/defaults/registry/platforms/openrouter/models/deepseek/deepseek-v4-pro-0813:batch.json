@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788084265,
+  "model_id": "deepseek/deepseek-v4-pro-0813:batch",
+  "canonical_model": "deepseek-v4-pro-0813",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 943718,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.32e-06,
+    "output": 3.96e-06,
+    "cache_read": 1.3e-07
+  }
+}
