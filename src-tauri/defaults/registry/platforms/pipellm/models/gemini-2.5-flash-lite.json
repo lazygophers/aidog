@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1788103292,
   "model_id": "gemini-2.5-flash-lite",
   "canonical_model": "gemini-2.5-flash-lite",
   "capabilities": [
@@ -10,8 +10,7 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 1.0000000000000001e-07,
-    "output": 4.0000000000000003e-07,
-    "cache_read": 1e-08
+    "input": 1e-7,
+    "output": 4e-7
   }
 }

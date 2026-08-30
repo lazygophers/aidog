@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1788103292,
   "model_id": "gpt-4.1",
   "canonical_model": "gpt-4.1",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 1047576,
   "official": false,
   "price": {
-    "input": 2e-06,
-    "output": 8e-06,
-    "cache_read": 5e-07
+    "input": 0.000003,
+    "output": 0.00001,
+    "cache_read": 7.5e-7
   }
 }

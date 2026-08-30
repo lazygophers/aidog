@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1788103292,
   "model_id": "gpt-image-2",
   "canonical_model": "gpt-image-2",
   "capabilities": [
@@ -7,8 +7,8 @@
   ],
   "official": false,
   "price": {
-    "input": 5e-06,
-    "output": 3e-05,
-    "cache_read": 1.25e-06
+    "input": 0.000008,
+    "output": 0.00003,
+    "cache_read": 0.000002
   }
 }

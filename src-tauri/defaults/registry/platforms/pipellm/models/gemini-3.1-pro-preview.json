@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1788103292,
   "model_id": "gemini-3.1-pro-preview",
   "canonical_model": "gemini-3.1-pro-preview",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 65536,
   "official": false,
   "price": {
-    "input": 2e-06,
-    "output": 1.2e-05,
-    "cache_read": 2e-07
+    "input": 0.000002,
+    "output": 0.000012,
+    "cache_read": 0
   }
 }
