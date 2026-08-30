@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1788098892,
   "model_id": "qwen3.8-27b",
   "canonical_model": "qwen3.8-27b",
   "display_name": "Qwen3.8-27B",
@@ -13,6 +13,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0
+    "input": 5e-07,
+    "output": 3e-06
   }
 }
