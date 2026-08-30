@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "claude-sonnet-4-6",
+  "canonical_model": "claude-sonnet-4-6",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

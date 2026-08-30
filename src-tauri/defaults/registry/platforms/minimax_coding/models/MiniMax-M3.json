@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "MiniMax-M3",
+  "canonical_model": "MiniMax-M3",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

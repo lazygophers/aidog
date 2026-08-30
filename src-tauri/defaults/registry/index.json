@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788103292,
+  "last_updated": 1788104075,
   "platforms": [
     {
       "code": "aihubmix",
@@ -717,14 +717,24 @@
       "name": "Bailian Coding",
       "platform_file": "platforms/bailian_coding/platform.json",
       "models_dir": "platforms/bailian_coding/models",
-      "models": []
+      "models": [
+        "qwen-coder-plus.json",
+        "qwen-coder-turbo.json",
+        "qwen3-coder-flash.json",
+        "qwen3-coder-plus.json",
+        "qwen3.7-max.json"
+      ]
     },
     {
       "code": "bailian_coding_en",
       "name": "Bailian Coding Plan International",
       "platform_file": "platforms/bailian_coding_en/platform.json",
       "models_dir": "platforms/bailian_coding_en/models",
-      "models": []
+      "models": [
+        "qwen3-coder-flash.json",
+        "qwen3-coder-plus.json",
+        "qwen3.7-max.json"
+      ]
     },
     {
       "code": "bailian_en",
@@ -813,14 +823,31 @@
       "name": "Claude Code Subscription (Passthrough)",
       "platform_file": "platforms/claude_code/platform.json",
       "models_dir": "platforms/claude_code/models",
-      "models": []
+      "models": [
+        "claude-fable-5.json",
+        "claude-haiku-4-5-20251001.json",
+        "claude-haiku-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-opus-5.json",
+        "claude-sonnet-4-6.json",
+        "claude-sonnet-5.json"
+      ]
     },
     {
       "code": "codex",
       "name": "OpenAI Codex",
       "platform_file": "platforms/codex/platform.json",
       "models_dir": "platforms/codex/models",
-      "models": []
+      "models": [
+        "gpt-5.3-codex-spark.json",
+        "gpt-5.5.json",
+        "gpt-5.6-luna.json",
+        "gpt-5.6-sol.json",
+        "gpt-5.6-terra.json",
+        "gpt-5.6.json"
+      ]
     },
     {
       "code": "compshare",
@@ -967,7 +994,15 @@
       "name": "Compshare Coding Plan",
       "platform_file": "platforms/compshare_coding/platform.json",
       "models_dir": "platforms/compshare_coding/models",
-      "models": []
+      "models": [
+        "claude-haiku-4-5.json",
+        "claude-opus-4-5.json",
+        "claude-opus-4-6.json",
+        "claude-opus-4-7.json",
+        "claude-opus-4-8.json",
+        "claude-sonnet-4-5.json",
+        "claude-sonnet-4-6.json"
+      ]
     },
     {
       "code": "crazyrouter",
@@ -1144,7 +1179,13 @@
       "name": "Devin",
       "platform_file": "platforms/devin/platform.json",
       "models_dir": "platforms/devin/models",
-      "models": []
+      "models": [
+        "devin-fast.json",
+        "devin-fusion.json",
+        "devin-lite.json",
+        "devin-normal.json",
+        "devin-ultra.json"
+      ]
     },
     {
       "code": "doubao",
@@ -1458,7 +1499,12 @@
       "name": "Kimi Code Plan (Moonshot Membership)",
       "platform_file": "platforms/kimi_coding/platform.json",
       "models_dir": "platforms/kimi_coding/models",
-      "models": []
+      "models": [
+        "k3-256k.json",
+        "k3.json",
+        "kimi-for-coding-highspeed.json",
+        "kimi-for-coding.json"
+      ]
     },
     {
       "code": "kimi_en",
@@ -1508,7 +1554,11 @@
       "name": "MiniMax Coding Plan (Token Plan)",
       "platform_file": "platforms/minimax_coding/platform.json",
       "models_dir": "platforms/minimax_coding/models",
-      "models": []
+      "models": [
+        "MiniMax-M2.7-highspeed.json",
+        "MiniMax-M2.7.json",
+        "MiniMax-M3.json"
+      ]
     },
     {
       "code": "minimax_en",
@@ -2546,7 +2596,16 @@
       "name": "Baidu Qianfan Coding Plan Lite",
       "platform_file": "platforms/qianfan_coding/platform.json",
       "models_dir": "platforms/qianfan_coding/models",
-      "models": []
+      "models": [
+        "deepseek-v3.2.json",
+        "deepseek-v4-flash.json",
+        "ernie-4.5-turbo-20260402.json",
+        "glm-5.1.json",
+        "glm-5.json",
+        "kimi-k2.5.json",
+        "minimax-m2.5.json",
+        "qianfan-code-latest.json"
+      ]
     },
     {
       "code": "sensenova",
@@ -3177,14 +3236,20 @@
       "name": "Xiaomi MiMo Token Plan",
       "platform_file": "platforms/xiaomi_mimo_coding/platform.json",
       "models_dir": "platforms/xiaomi_mimo_coding/models",
-      "models": []
+      "models": [
+        "mimo-v2.5-pro.json",
+        "mimo-v2.5.json"
+      ]
     },
     {
       "code": "xiaomi_mimo_coding_en",
       "name": "Xiaomi MiMo Token Plan International",
       "platform_file": "platforms/xiaomi_mimo_coding_en/platform.json",
       "models_dir": "platforms/xiaomi_mimo_coding_en/models",
-      "models": []
+      "models": [
+        "mimo-v2.5-pro.json",
+        "mimo-v2.5.json"
+      ]
     }
   ],
   "pricing_only": [

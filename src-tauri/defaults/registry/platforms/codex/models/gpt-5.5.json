@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "gpt-5.5",
+  "canonical_model": "gpt-5.5",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

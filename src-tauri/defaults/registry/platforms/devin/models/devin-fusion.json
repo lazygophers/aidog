@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "devin-fusion",
+  "canonical_model": "devin-fusion",
+  "display_name": "Devin Fusion",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}

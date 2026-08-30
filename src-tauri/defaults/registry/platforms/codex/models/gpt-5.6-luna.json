@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "gpt-5.6-luna",
+  "canonical_model": "gpt-5.6-luna",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 400000,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

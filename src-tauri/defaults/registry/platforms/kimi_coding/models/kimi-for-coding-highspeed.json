@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "kimi-for-coding-highspeed",
+  "canonical_model": "kimi-for-coding-highspeed",
+  "display_name": "Kimi K2.7 Code HighSpeed",
+  "capabilities": [
+    "text",
+    "vision",
+    "video",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "devin-fast",
+  "canonical_model": "devin-fast",
+  "display_name": "Devin Fast",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}
