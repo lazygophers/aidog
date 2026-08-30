@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1788101961,
   "model_id": "gpt-oss-20b",
   "canonical_model": "gpt-oss-20b",
   "display_name": "GPT-OSS-20B",
@@ -8,7 +8,7 @@
     "reasoning"
   ],
   "context_window": 400000,
-  "official": false,
+  "official": true,
   "price": {
     "input": 1.1e-7,
     "output": 5.5e-7
