@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788086468,
+  "model_id": "aigc-video-kling-3.0",
+  "canonical_model": "aigc-video-kling-3.0",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0
+  }
+}
