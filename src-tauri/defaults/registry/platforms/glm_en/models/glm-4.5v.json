@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788108806,
+  "model_id": "glm-4.5v",
+  "canonical_model": "glm-4.5v",
+  "display_name": "GLM-4.5V",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 32000,
+  "context_window": 65536,
+  "official": true,
+  "price": {
+    "input": 6e-7,
+    "output": 0.0000018,
+    "cache_read": 1.1e-7
+  }
+}
