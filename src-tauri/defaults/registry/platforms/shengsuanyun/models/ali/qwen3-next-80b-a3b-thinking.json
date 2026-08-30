@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen3-next-80b-a3b-thinking",
   "canonical_model": "qwen3-next-80b-a3b-thinking",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 1.38889e-07,
+    "output": 1.38889e-06
+  },
   "max_input_tokens": 131072,
   "max_output_tokens": 32768,
-  "context_window": 131072,
-  "input_cost_per_token": 1.38889e-07,
-  "output_cost_per_token": 1.38889e-06
+  "context_window": 131072
 }

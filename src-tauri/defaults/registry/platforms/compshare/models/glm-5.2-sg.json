@@ -1,12 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "glm-5.2-sg",
   "canonical_model": "glm-5.2-sg",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 8000,
+  "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 1.45722e-06,
-  "output_cost_per_token": 4.57972e-06,
-  "cache_read_input_token_cost": 2.91389e-07
+  "price": {
+    "input": 1.45722e-06,
+    "output": 4.57972e-06,
+    "cache_read": 2.91389e-07
+  }
 }

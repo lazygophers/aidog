@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067652,
   "model_id": "qwen/qwen3-vl-8b",
   "canonical_model": "qwen3-vl-8b",
   "capabilities": [
@@ -7,8 +7,10 @@
     "vision"
   ],
   "official": true,
-  "input_cost_per_token": 1.944e-07,
-  "output_cost_per_token": 7.56e-07,
+  "price": {
+    "input": 1.944e-07,
+    "output": 7.56e-07
+  },
   "max_input_tokens": 33000,
   "context_window": 33000,
   "max_output_tokens": 8000

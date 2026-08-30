@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "openai/o3-pro",
   "canonical_model": "o3-pro",
   "capabilities": [
     "text"
   ],
   "official": false,
-  "input_cost_per_token": 2e-05,
-  "output_cost_per_token": 8e-05,
+  "price": {
+    "input": 2e-05,
+    "output": 8e-05
+  },
   "max_input_tokens": 200000,
   "context_window": 200000,
   "max_output_tokens": 100000

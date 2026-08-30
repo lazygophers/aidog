@@ -17,7 +17,106 @@
 
 use crate::models::ResolvedPrice;
 use crate::Db;
-use serde_json::Value;
+use serde_json::{Map, Value};
+
+/// 旧顶层价格键 → `price` 子树简名（2026-08-30 收归迁移的映射表，Rust 侧仅用于
+/// 读取层归一化 DB 里未重同步的旧形状行；registry 仓库本身已全量迁移）。
+const LEGACY_UNIT_KEYS: [(&str, &str); 4] = [
+    ("input_cost_per_token", "input"),
+    ("output_cost_per_token", "output"),
+    ("cache_read_input_token_cost", "cache_read"),
+    ("cache_creation_input_token_cost", "cache_write"),
+];
+
+/// 单价对象键映射（顶层价 / peak / tiers 档共用）。非单价键原样丢弃。
+fn remap_unit_object(obj: &Value) -> Value {
+    let mut out = Map::new();
+    for (old, new) in LEGACY_UNIT_KEYS {
+        if let Some(v) = obj.get(old) {
+            out.insert(new.to_string(), v.clone());
+        }
+    }
+    Value::Object(out)
+}
+
+/// tiers 数组档对象映射：门槛键（min_tokens / start_at）保留，单价键换简名，
+/// time_tiers 档内的 context_tiers 递归同构。非数组原样返回。
+fn remap_tier_array(arr: &Value, threshold_key: &str) -> Value {
+    let Some(tiers) = arr.as_array() else { return arr.clone() };
+    Value::Array(
+        tiers
+            .iter()
+            .map(|t| {
+                let mut out = Map::new();
+                if let Some(v) = t.get(threshold_key) {
+                    out.insert(threshold_key.to_string(), v.clone());
+                }
+                for (old, new) in LEGACY_UNIT_KEYS {
+                    if let Some(v) = t.get(old) {
+                        out.insert(new.to_string(), v.clone());
+                    }
+                }
+                if let Some(ct) = t.get("context_tiers") {
+                    out.insert("context_tiers".to_string(), remap_tier_array(ct, "min_tokens"));
+                }
+                Value::Object(out)
+            })
+            .collect(),
+    )
+}
+
+/// 旧形状（价格平铺顶层）→ 新形状（`price` 子树）就地归一化，返回是否改动了文档。
+///
+/// 背景：DB `price_data` 存的是同步当时 registry 仓库的原文。仓库迁移成 `price` 子树后，
+/// 已同步过旧格式的本地 DB 要等下一次远程同步才变新——期间计费 / 前端展示读到的还是
+/// 旧形状。读取层在此统一归一化，调用方只认新形状。`default_price`（旧死字段）的值
+/// 并入 `price` 缺失位后连同其余旧顶层价格键一并移除，与仓库迁移脚本（
+/// `.scratch/price-refactor/migrate.py`，一次性）同构。已是新形状 → no-op。
+pub fn legacy_price_into(doc: &mut Value) -> bool {
+    if !doc.is_object() || doc.get("price").is_some() || doc.get("input_cost_per_token").is_none() {
+        return false;
+    }
+    let mut price = Map::new();
+    for (old, new) in LEGACY_UNIT_KEYS {
+        if let Some(v) = doc.get(old) {
+            price.insert(new.to_string(), v.clone());
+        }
+    }
+    // default_price 仅补 price 缺失位（顶层优先，同迁移脚本）
+    if let Some(dp) = doc.get("default_price") {
+        for (old, new) in LEGACY_UNIT_KEYS {
+            if !price.contains_key(new) && let Some(v) = dp.get(old) {
+                price.insert(new.to_string(), v.clone());
+            }
+        }
+    }
+    if let Some(p) = doc.get("peak") {
+        price.insert("peak".to_string(), remap_unit_object(p));
+    }
+    if let Some(t) = doc.get("context_tiers") {
+        price.insert("context_tiers".to_string(), remap_tier_array(t, "min_tokens"));
+    }
+    if let Some(t) = doc.get("time_tiers") {
+        price.insert("time_tiers".to_string(), remap_tier_array(t, "start_at"));
+    }
+    let obj = doc.as_object_mut().expect("checked is_object");
+    for (old, _) in LEGACY_UNIT_KEYS {
+        obj.remove(old);
+    }
+    for k in ["default_price", "peak", "context_tiers", "time_tiers"] {
+        obj.remove(k);
+    }
+    obj.insert("price".to_string(), Value::Object(price));
+    true
+}
+
+/// 解析 `price_data` 文本并归一化为新形状。计费路径的统一入口（旧形状就地转换，
+/// 不让旧 DB 数据把 fallback 价喂进计费）。
+fn parse_price_data(raw: &str) -> Value {
+    let mut v: Value = serde_json::from_str(raw).unwrap_or_default();
+    legacy_price_into(&mut v);
+    v
+}
 
 /// 价格解析结果。`peak_applied` 只在 Rust 内部流转（不进 TS 契约）：
 /// true 表示价格已是高峰绝对价，调用方须把平台倍率视为 1.0。
@@ -39,23 +138,25 @@ impl PriceResolution {
 }
 
 /// 三价字段非 null 覆盖 base（null 字段继承 base）。`apply_context_tier` / `apply_tiers` 共用。
+/// 键名 = `price` 子树简名（input / output / cache_read）。
 fn overlay_prices(base: &mut ResolvedPrice, tier: &Value) {
-    if let Some(v) = tier.get("input_cost_per_token").and_then(Value::as_f64) {
+    if let Some(v) = tier.get("input").and_then(Value::as_f64) {
         base.input_cost_per_token = v;
     }
-    if let Some(v) = tier.get("output_cost_per_token").and_then(Value::as_f64) {
+    if let Some(v) = tier.get("output").and_then(Value::as_f64) {
         base.output_cost_per_token = v;
     }
-    if let Some(v) = tier.get("cache_read_input_token_cost").and_then(Value::as_f64) {
+    if let Some(v) = tier.get("cache_read").and_then(Value::as_f64) {
         base.cache_read_input_token_cost = v;
     }
 }
 
-/// 上下文阶梯选档：取 `context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
+/// 上下文阶梯选档：取 `price.context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
 /// 非 null 字段覆盖 base 价（null 字段继承 base，如某些模型长档无 cache 价）。
-/// `context_tiers` 缺失/非数组/无命中档 → 返回 base 不变。
-pub fn apply_context_tier(mut base: ResolvedPrice, pd: &Value, input_tokens: i64) -> ResolvedPrice {
-    let Some(tiers) = pd.get("context_tiers").and_then(Value::as_array) else {
+/// `context_tiers` 缺失/非数组/无命中档 → 返回 base 不变。`owner` 是 tiers 所在对象
+/// （`price` 子树或命中的 `time_tiers` 档）。
+pub fn apply_context_tier(mut base: ResolvedPrice, owner: &Value, input_tokens: i64) -> ResolvedPrice {
+    let Some(tiers) = owner.get("context_tiers").and_then(Value::as_array) else {
         return base;
     };
     let best = tiers
@@ -73,13 +174,13 @@ pub fn apply_context_tier(mut base: ResolvedPrice, pd: &Value, input_tokens: i64
     base
 }
 
-/// 时间阶梯选档：取 `time_tiers` 中 `start_at * 1000 <= now_ms` 的最大档。命中后该条目
-/// 整体作为价表（三价覆盖 + 其内嵌 `context_tiers` 替代顶层），再跑 context 分档 ——
+/// 时间阶梯选档：取 `price.time_tiers` 中 `start_at * 1000 <= now_ms` 的最大档。命中后该档
+/// 整体作为价表（三价覆盖 + 其内嵌 `context_tiers` 替代 price 顶层），再跑 context 分档 ——
 /// 顺序 time→context，因为涨价后的长文档价只能表达在 time 条目内部。
-/// `now_ms <= 0` = 无时间上下文，跳过分档。
-pub fn apply_tiers(mut base: ResolvedPrice, pd: &Value, input_tokens: i64, now_ms: i64) -> ResolvedPrice {
+/// `now_ms <= 0` = 无时间上下文，跳过分档。`price_obj` 是条目 `price` 子树。
+pub fn apply_tiers(mut base: ResolvedPrice, price_obj: &Value, input_tokens: i64, now_ms: i64) -> ResolvedPrice {
     let hit = (now_ms > 0)
-        .then(|| pd.get("time_tiers").and_then(Value::as_array))
+        .then(|| price_obj.get("time_tiers").and_then(Value::as_array))
         .flatten()
         .and_then(|tiers| {
             tiers
@@ -96,7 +197,7 @@ pub fn apply_tiers(mut base: ResolvedPrice, pd: &Value, input_tokens: i64, now_m
             base.source.push_str("+time");
             tier
         }
-        None => pd,
+        None => price_obj,
     };
     apply_context_tier(base, ctx_src, input_tokens)
 }
@@ -122,19 +223,20 @@ pub fn resolve_price_from(
     let Some(pd) = pd else {
         return PriceResolution { price: fallback(), peak_applied: false };
     };
-
-    let num = |k: &str| pd.get(k).and_then(Value::as_f64).unwrap_or(0.0);
-    let input = num("input_cost_per_token");
-    let output = num("output_cost_per_token");
+    // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
+    let price_obj = pd.get("price").cloned().unwrap_or_default();
+    let num = |k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+    let input = num("input");
+    let output = num("output");
     let mut price = if input > 0.0 || output > 0.0 {
         apply_tiers(
             ResolvedPrice {
                 input_cost_per_token: input,
                 output_cost_per_token: output,
-                cache_read_input_token_cost: num("cache_read_input_token_cost"),
+                cache_read_input_token_cost: num("cache_read"),
                 source: "model_entry".to_string(),
             },
-            pd,
+            &price_obj,
             input_tokens,
             now_ms,
         )
@@ -143,10 +245,13 @@ pub fn resolve_price_from(
     };
 
     // 高峰绝对价：覆盖已分档的默认价（peak 未写的字段继承默认价，如 cache_read）。
-    let peak = is_peak.then(|| pd.get("peak")).flatten().filter(|p| {
-        p.get("input_cost_per_token").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
-            || p.get("output_cost_per_token").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
-    });
+    let peak = is_peak
+        .then(|| price_obj.get("peak"))
+        .flatten()
+        .filter(|p| {
+            p.get("input").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
+                || p.get("output").and_then(Value::as_f64).unwrap_or(0.0) > 0.0
+        });
     match peak {
         Some(p) => {
             overlay_prices(&mut price, p);
@@ -174,8 +279,10 @@ pub async fn resolve_price(
 ) -> Result<PriceResolution, String> {
     let found = crate::model_entry_for_billing(db, platform_code, model_id).await?;
     let cross_platform = found.as_ref().is_some_and(|(_, x)| *x);
-    let pd: Option<Value> =
-        found.as_ref().and_then(|(e, _)| serde_json::from_str(&e.price_data).ok());
+    // parse + 旧形状归一化（DB 未重同步的行计费照常走 price 子树）
+    let pd: Option<Value> = found
+        .as_ref()
+        .map(|(e, _)| parse_price_data(&e.price_data));
     let mut out =
         resolve_price_from(pd.as_ref(), is_peak, fallback_input, fallback_output, input_tokens, now_ms);
     if cross_platform {

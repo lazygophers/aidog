@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "meta/llama-3.1-405b-instruct-maas",
   "canonical_model": "meta/llama-3.1-405b-instruct-maas",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 2048,
   "context_window": 2048,
   "official": false,
-  "input_cost_per_token": 0.000005,
-  "output_cost_per_token": 0.000016
+  "price": {
+    "input": 5e-06,
+    "output": 1.6e-05
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "deepseek-ai/deepseek-ocr-maas",
   "canonical_model": "deepseek-ai/deepseek-ocr-maas",
   "capabilities": [
@@ -7,11 +7,9 @@
     "vision"
   ],
   "official": true,
-  "input_cost_per_token": 3e-7,
-  "output_cost_per_token": 0.0000012,
-  "default_price": {
-    "input_cost_per_token": 3e-7,
-    "output_cost_per_token": 0.0000012,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 3e-07,
+    "output": 1.2e-06,
+    "cache_read": 0
   }
 }

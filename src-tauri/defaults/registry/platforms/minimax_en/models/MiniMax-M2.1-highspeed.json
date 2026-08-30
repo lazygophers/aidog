@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "MiniMax-M2.1-highspeed",
   "canonical_model": "MiniMax-M2.1-highspeed",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 100000,
   "context_window": 204800,
   "official": true,
-  "input_cost_per_token": 6e-07,
-  "output_cost_per_token": 2.4e-06,
-  "cache_read_input_token_cost": 3e-08
+  "price": {
+    "input": 6e-07,
+    "output": 2.4e-06,
+    "cache_read": 3e-08
+  }
 }

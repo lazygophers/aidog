@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "kimi-thinking-preview",
   "canonical_model": "kimi-thinking-preview",
   "capabilities": [
@@ -9,7 +9,9 @@
   "max_output_tokens": 131072,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 6e-7,
-  "output_cost_per_token": 0.0000025,
-  "cache_read_input_token_cost": 1.5e-7
+  "price": {
+    "input": 6e-07,
+    "output": 2.5e-06,
+    "cache_read": 1.5e-07
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "openai/gpt-5-nano",
   "canonical_model": "gpt-5-nano",
   "capabilities": [
@@ -7,9 +7,11 @@
     "vision"
   ],
   "official": false,
+  "price": {
+    "input": 4.86111e-08,
+    "output": 3.88889e-07
+  },
   "max_input_tokens": 400000,
   "max_output_tokens": 128000,
-  "context_window": 400000,
-  "input_cost_per_token": 4.86111e-08,
-  "output_cost_per_token": 3.88889e-07
+  "context_window": 400000
 }

@@ -1,14 +1,18 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "claude-fable-5",
   "canonical_model": "claude-fable-5",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
   "official": true,
-  "context_window": 1000000,
-  "input_cost_per_token": 1e-05,
-  "output_cost_per_token": 5e-05,
-  "cache_read_input_token_cost": 1e-06,
-  "cache_creation_input_token_cost": 1.25e-05
+  "price": {
+    "input": 1e-05,
+    "output": 5e-05,
+    "cache_read": 1e-06,
+    "cache_write": 1.25e-05
+  },
+  "context_window": 1000000
 }

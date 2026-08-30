@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
   "capabilities": [
@@ -9,27 +9,29 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 1e-06,
-  "output_cost_per_token": 5e-06,
-  "cache_read_input_token_cost": 1.0000000000000001e-07,
-  "context_tiers": [
-    {
-      "min_tokens": 32769,
-      "input_cost_per_token": 1.8000000000000001e-06,
-      "output_cost_per_token": 9e-06,
-      "cache_read_input_token_cost": 1.8000000000000002e-07
-    },
-    {
-      "min_tokens": 131073,
-      "input_cost_per_token": 3e-06,
-      "output_cost_per_token": 1.5e-05,
-      "cache_read_input_token_cost": 3.0000000000000004e-07
-    },
-    {
-      "min_tokens": 262145,
-      "input_cost_per_token": 6e-06,
-      "output_cost_per_token": 6e-05,
-      "cache_read_input_token_cost": 6.000000000000001e-07
-    }
-  ]
+  "price": {
+    "input": 1e-06,
+    "output": 5e-06,
+    "cache_read": 1.0000000000000001e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 1.8000000000000001e-06,
+        "output": 9e-06,
+        "cache_read": 1.8000000000000002e-07
+      },
+      {
+        "min_tokens": 131073,
+        "input": 3e-06,
+        "output": 1.5e-05,
+        "cache_read": 3.0000000000000004e-07
+      },
+      {
+        "min_tokens": 262145,
+        "input": 6e-06,
+        "output": 6e-05,
+        "cache_read": 6.000000000000001e-07
+      }
+    ]
+  }
 }

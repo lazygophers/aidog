@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "amazon/nova-2-lite",
   "canonical_model": "nova-2-lite",
   "capabilities": [
@@ -7,8 +7,10 @@
     "vision"
   ],
   "official": true,
-  "input_cost_per_token": 3.564e-07,
-  "output_cost_per_token": 2.97e-06,
+  "price": {
+    "input": 3.564e-07,
+    "output": 2.97e-06
+  },
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "max_output_tokens": 65000

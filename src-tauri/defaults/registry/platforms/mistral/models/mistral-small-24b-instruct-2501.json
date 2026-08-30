@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "mistral-small-24b-instruct-2501",
   "canonical_model": "mistral-small-24b-instruct-2501",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 16384,
   "context_window": 32768,
   "official": true,
-  "input_cost_per_token": 5e-8,
-  "output_cost_per_token": 8e-8,
-  "default_price": {
-    "input_cost_per_token": 5e-8,
-    "output_cost_per_token": 8e-8,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 5e-08,
+    "output": 8e-08,
+    "cache_read": 0
   }
 }

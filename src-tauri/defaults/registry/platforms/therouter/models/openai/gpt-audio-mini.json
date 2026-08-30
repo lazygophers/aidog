@@ -1,12 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "openai/gpt-audio-mini",
   "canonical_model": "gpt-audio-mini",
   "capabilities": [
-    "text",
     "audio"
   ],
   "official": false,
-  "input_cost_per_token": 6.48e-07,
-  "output_cost_per_token": 2.59e-06
+  "price": {
+    "input": 6.48e-07,
+    "output": 2.59e-06
+  }
 }

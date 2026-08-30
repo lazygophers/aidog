@@ -1,15 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "minimax/minimax-m2",
   "canonical_model": "minimax-m2",
   "capabilities": [
     "text"
   ],
   "official": false,
-  "input_cost_per_token": 3e-07,
-  "output_cost_per_token": 1.2e-06,
+  "price": {
+    "input": 3e-07,
+    "output": 1.2e-06,
+    "cache_read": 3e-08
+  },
   "max_input_tokens": 204800,
   "context_window": 204800,
-  "max_output_tokens": 131072,
-  "cache_read_input_token_cost": 3e-08
+  "max_output_tokens": 131072
 }

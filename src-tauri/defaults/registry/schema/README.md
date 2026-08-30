@@ -72,11 +72,7 @@ registry/
 | `builtin_tools_excluded` | DB 列；内置工具过滤 |
 | `max_input_tokens` / `max_output_tokens` / `context_window` | 估算 / 请求裁剪（`gateway/estimate`）、模型信息页 |
 | `official` | 模型维度列表默认展示官方条目（不变量：每 model_id 至少一条 official=true） |
-| `input/output/cache_read/cache_creation_cost_per_token` | `aidog_db::resolve_price` 计费解析（ADR 0006 三级顺序） |
-| `default_price` | 条目无独立价时的兜底价对象 |
-| `peak` | 高峰**绝对价**：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0（禁双重计价，`price_resolve.rs`） |
-| `context_tiers[]` | 按上下文长度分档计价 |
-| `time_tiers[]` | 按生效时间切换价目（start_at，latest wins）；条目可内嵌 `context_tiers`（时间 × 上下文二维） |
+| `price` | 计价结构子树（2026-08-30 收归）：`input`（必填）/ `output` / `cache_read` / `cache_write`（$/token）+ `peak`（高峰**绝对价**：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，禁双重计价，`price_resolve.rs`）+ `context_tiers[]`（按上下文长度分档）+ `time_tiers[]`（按生效时间切换价目，start_at latest wins；档内可嵌 `context_tiers`，时间 × 上下文二维）。全数值字段，禁字符串表达式。旧顶层平铺价与 `default_price` 死字段已删；DB 未重同步的旧行由读取层归一化（`price_resolve::legacy_price_into` / `model_entry::ui_entry`） |
 
 ## 加新字段流程
 

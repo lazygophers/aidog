@@ -1,13 +1,15 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ernie-x1-turbo-32k",
   "canonical_model": "ernie-x1-turbo-32k",
   "official": true,
+  "price": {
+    "input": 1.38888889e-07,
+    "output": 5.55555556e-07
+  },
   "family": "ernie-x",
   "capabilities": [
     "text"
   ],
-  "context_window": 32768,
-  "input_cost_per_token": 1.38888889e-07,
-  "output_cost_per_token": 5.55555556e-07
+  "context_window": 32768
 }

@@ -67,9 +67,11 @@ const SNAPSHOT: ModelInfoSnapshot = {
           version: "4.6",
           predecessor: "glm-4.5",
           price_data: JSON.stringify({
-            input_cost_per_token: 1.1e-6,
-            output_cost_per_token: 4.2e-6,
-            peak: { input_cost_per_token: 3.3e-6, output_cost_per_token: 1.26e-5 },
+            price: {
+              input: 1.1e-6,
+              output: 4.2e-6,
+              peak: { input: 3.3e-6, output: 1.26e-5 },
+            },
           }),
         }),
         entry({
@@ -77,7 +79,7 @@ const SNAPSHOT: ModelInfoSnapshot = {
           model_id: "zhipu/glm-4.6",
           display_name: "GLM-4.6 (OpenRouter)",
           capabilities: ["text"],
-          price_data: JSON.stringify({ input_cost_per_token: 2e-6 }),
+          price_data: JSON.stringify({ price: { input: 2e-6 } }),
         }),
       ],
     },

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "openai/gpt-5.5",
   "canonical_model": "gpt-5.5",
   "capabilities": [
@@ -7,9 +7,11 @@
     "vision"
   ],
   "official": false,
-  "input_cost_per_token": 5e-06,
-  "output_cost_per_token": 3e-05,
-  "cache_read_input_token_cost": 5e-07,
+  "price": {
+    "input": 5e-06,
+    "output": 3e-05,
+    "cache_read": 5e-07
+  },
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "max_output_tokens": 128000

@@ -1,12 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "gpt-5.1-codex-mini",
   "canonical_model": "gpt-5.1-codex-mini",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 400000,
+  "max_output_tokens": 100000,
+  "context_window": 400000,
   "official": true,
-  "input_cost_per_token": 8.13e-07,
-  "output_cost_per_token": 3.25e-06,
-  "cache_read_input_token_cost": 8.1e-08
+  "price": {
+    "input": 8.13e-07,
+    "output": 3.25e-06,
+    "cache_read": 8.1e-08
+  }
 }

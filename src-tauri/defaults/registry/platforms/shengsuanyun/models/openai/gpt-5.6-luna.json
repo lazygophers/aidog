@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "openai/gpt-5.6-luna",
   "canonical_model": "gpt-5.6-luna",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 9.72222e-07,
+    "output": 5.83333e-06,
+    "cache_read": 9.72222e-08
+  },
   "max_input_tokens": 400000,
   "max_output_tokens": 128000,
-  "context_window": 400000,
-  "input_cost_per_token": 9.72222e-07,
-  "output_cost_per_token": 5.83333e-06,
-  "cache_read_input_token_cost": 9.72222e-08
+  "context_window": 400000
 }

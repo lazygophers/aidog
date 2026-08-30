@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
   "canonical_model": "Seed-OSS-36B-Instruct",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 2.083333333333333e-07,
-  "output_cost_per_token": 5.555555555555556e-07
+  "price": {
+    "input": 2.083333333333333e-07,
+    "output": 5.555555555555556e-07
+  }
 }

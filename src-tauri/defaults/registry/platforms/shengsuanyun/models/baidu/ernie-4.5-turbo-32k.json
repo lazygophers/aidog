@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "baidu/ernie-4.5-turbo-32k",
   "canonical_model": "ernie-4.5-turbo-32k",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 1.11111e-07,
+    "output": 4.44444e-07
+  },
   "max_input_tokens": 32000,
   "max_output_tokens": 27000,
-  "context_window": 32000,
-  "input_cost_per_token": 1.11111e-07,
-  "output_cost_per_token": 4.44444e-07
+  "context_window": 32000
 }

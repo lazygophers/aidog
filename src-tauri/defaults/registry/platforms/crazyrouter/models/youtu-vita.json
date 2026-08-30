@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "youtu-vita",
   "canonical_model": "youtu-vita",
   "capabilities": [
@@ -7,6 +7,8 @@
     "vision"
   ],
   "official": true,
-  "input_cost_per_token": 1.62e-07,
-  "output_cost_per_token": 4.86e-07
+  "price": {
+    "input": 1.62e-07,
+    "output": 4.86e-07
+  }
 }

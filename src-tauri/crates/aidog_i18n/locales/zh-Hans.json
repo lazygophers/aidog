@@ -1405,6 +1405,7 @@
   "modelInfo.cap.audio": "音频",
   "modelInfo.cap.video": "视频",
   "modelInfo.cap.embedding": "向量嵌入",
+  "modelInfo.cap.rerank": "重排",
   "proxy.autolaunch": "开机自动启动",
   "proxy.autolaunchDesc": "系统登录时自动启动 AiDog",
   "proxy.autostart": "自动启动",

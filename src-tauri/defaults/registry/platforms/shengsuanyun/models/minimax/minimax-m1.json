@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "minimax/minimax-m1",
   "canonical_model": "minimax-m1",
   "capabilities": [
     "text"
   ],
   "official": false,
+  "price": {
+    "input": 1.11111e-07,
+    "output": 1.11111e-06
+  },
   "max_input_tokens": 1000000,
   "max_output_tokens": 80000,
-  "context_window": 1000000,
-  "input_cost_per_token": 1.11111e-07,
-  "output_cost_per_token": 1.11111e-06
+  "context_window": 1000000
 }

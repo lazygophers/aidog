@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067647,
   "model_id": "claude-3-sonnet@20240229",
   "canonical_model": "claude-3-sonnet@20240229",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 4096,
   "context_window": 4096,
   "official": false,
-  "input_cost_per_token": 0.000003,
-  "output_cost_per_token": 0.000015
+  "price": {
+    "input": 3e-06,
+    "output": 1.5e-05
+  }
 }

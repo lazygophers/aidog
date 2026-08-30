@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "openai/gpt-4o-2024-11-20",
   "canonical_model": "gpt-4o-2024-11-20",
   "capabilities": [
@@ -7,9 +7,11 @@
     "vision"
   ],
   "official": false,
+  "price": {
+    "input": 4.86111e-06,
+    "output": 1.45833e-05
+  },
   "max_input_tokens": 128000,
   "max_output_tokens": 16384,
-  "context_window": 128000,
-  "input_cost_per_token": 4.86111e-06,
-  "output_cost_per_token": 1.45833e-05
+  "context_window": 128000
 }

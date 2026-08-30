@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "nemotron-3-ultra-free",
   "canonical_model": "nemotron-3-ultra-free",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
 }

@@ -1,14 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "xiaomi/mimo-v2.5",
   "canonical_model": "mimo-v2.5",
   "capabilities": [
     "text"
   ],
   "official": false,
-  "input_cost_per_token": 1.4e-07,
-  "output_cost_per_token": 2.8e-07,
-  "cache_read_input_token_cost": 3e-09,
+  "price": {
+    "input": 1.4e-07,
+    "output": 2.8e-07,
+    "cache_read": 3e-09
+  },
   "max_input_tokens": 1024000,
   "context_window": 1024000,
   "max_output_tokens": 131072

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "zai-org/GLM-5.2",
   "canonical_model": "GLM-5.2",
   "display_name": "GLM-5.2",
@@ -7,9 +7,13 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
   "official": false,
-  "input_cost_per_token": 1.302e-06,
-  "output_cost_per_token": 4.092e-06,
-  "cache_read_input_token_cost": 2.6e-07,
+  "price": {
+    "input": 1.302e-06,
+    "output": 4.092e-06,
+    "cache_read": 2.6e-07
+  },
   "context_window": 1048576
 }

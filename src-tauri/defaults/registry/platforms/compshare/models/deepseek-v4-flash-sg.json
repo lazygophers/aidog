@@ -1,12 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "deepseek-v4-flash-sg",
   "canonical_model": "deepseek-v4-flash-sg",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 384000,
+  "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 2.08194e-07,
-  "output_cost_per_token": 4.16389e-07,
-  "cache_read_input_token_cost": 4.16667e-08
+  "price": {
+    "input": 2.08194e-07,
+    "output": 4.16389e-07,
+    "cache_read": 4.16667e-08
+  }
 }

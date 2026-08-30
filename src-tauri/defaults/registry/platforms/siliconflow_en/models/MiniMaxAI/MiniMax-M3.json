@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "MiniMaxAI/MiniMax-M3",
   "canonical_model": "MiniMax-M3",
   "display_name": "MiniMax-M3",
@@ -7,9 +7,13 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 128000,
   "official": false,
-  "input_cost_per_token": 3e-07,
-  "output_cost_per_token": 1.2e-06,
-  "cache_read_input_token_cost": 6e-08,
+  "price": {
+    "input": 3e-07,
+    "output": 1.2e-06,
+    "cache_read": 6e-08
+  },
   "context_window": 1048576
 }

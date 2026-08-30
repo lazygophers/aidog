@@ -1427,6 +1427,7 @@
   "modelInfo.cap.audio": "Audio",
   "modelInfo.cap.video": "Vidéo",
   "modelInfo.cap.embedding": "Embedding",
+  "modelInfo.cap.rerank": "Reclassement",
   "proxy.autolaunch": "Démarrage automatique",
   "proxy.autolaunchDesc": "Lancer AiDog automatiquement à la connexion",
   "proxy.autostart": "Démarrage auto",

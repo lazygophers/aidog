@@ -168,10 +168,9 @@ mod tests {
         let created_at_ms = 1_767_254_400_000; // 2026-01-01 08:00:00 UTC，命中 6-10 窗口
         let windows = vec![window(6, 10, 3.0)];
         let raw = super::super::peak::resolve_multiplier(&windows, created_at_ms, "glm-5.2");
-        // 条目带 peak 绝对价（3 倍价直接写在条目里）
+        // 条目带 peak 绝对价（3 倍价直接写在 price 子树里）
         let pd = serde_json::json!({
-            "input_cost_per_token": 1.0e-6,
-            "peak": { "input_cost_per_token": 3.0e-6 }
+            "price": { "input": 1.0e-6, "peak": { "input": 3.0e-6 } }
         });
         let hit = aidog_db::resolve_price_from(Some(&pd), true, 3.0, 3.0, 0, created_at_ms);
         assert_eq!(hit.multiplier(raw), 1.0);

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "arcee-ai/virtuoso-large",
   "canonical_model": "virtuoso-large",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 64000,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 7.5e-07,
-  "output_cost_per_token": 1.2e-06,
-  "default_price": {
-    "input_cost_per_token": 7.5e-07,
-    "output_cost_per_token": 1.2e-06,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 7.5e-07,
+    "output": 1.2e-06,
+    "cache_read": 0
   }
 }

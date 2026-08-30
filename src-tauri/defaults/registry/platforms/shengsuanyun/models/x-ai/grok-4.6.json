@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "x-ai/grok-4.6",
   "canonical_model": "grok-4.6",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 1.94444e-06,
+    "output": 5.83333e-06,
+    "cache_read": 4.86111e-07
+  },
   "max_input_tokens": 2000000,
   "max_output_tokens": 30000,
-  "context_window": 2000000,
-  "input_cost_per_token": 1.94444e-06,
-  "output_cost_per_token": 5.83333e-06,
-  "cache_read_input_token_cost": 4.86111e-07
+  "context_window": 2000000
 }

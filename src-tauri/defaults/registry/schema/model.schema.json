@@ -11,8 +11,79 @@
     "canonical_model",
     "capabilities",
     "official",
-    "input_cost_per_token"
+    "price"
   ],
+  "definitions": {
+    "unit_price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "单价（$/token）。计价一律数值字段，禁字符串表达式。"
+    },
+    "tier_prices": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "input",
+        "output"
+      ],
+      "properties": {
+        "input": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【必填】本档输入单价（$/token）。"
+        },
+        "output": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【必填】本档输出单价（$/token）。"
+        },
+        "cache_read": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【可选】本档缓存读单价（$/token）。"
+        }
+      }
+    },
+    "context_tier": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min_tokens",
+        "input",
+        "output"
+      ],
+      "properties": {
+        "min_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "【必填】档位门槛：请求数达到该 token 数起用本档价。"
+        },
+        "input": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【必填】本档输入单价（$/token）。"
+        },
+        "output": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【必填】本档输出单价（$/token）。"
+        },
+        "cache_read": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【可选】本档缓存读单价（$/token）。"
+        }
+      }
+    },
+    "context_tiers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/definitions/context_tier"
+      },
+      "description": "按上下文长度分档计价（数值结构化，禁表达式）。"
+    }
+  },
   "properties": {
     "last_updated": {
       "type": "integer",
@@ -64,10 +135,11 @@
           "video_edit",
           "audio",
           "video",
-          "embedding"
+          "embedding",
+          "rerank"
         ]
       },
-      "description": "【必填】能力标签枚举（text 必含；vision / tool_use / reasoning 理解类，text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit 生成类按需，audio / video / embedding 按需）。"
+      "description": "【必填】能力标签枚举（text 必含；vision / tool_use / reasoning 理解类，text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit 生成类按需，audio / video / embedding / rerank 按需）。"
     },
     "builtin_tools_excluded": {
       "type": "array",
@@ -96,190 +168,126 @@
       "type": "boolean",
       "description": "【必填】是否官方渠道条目。不变量：每个 model_id 至少有一个平台条目 official=true（test_registry.rs 锁定）。"
     },
-    "input_cost_per_token": {
-      "type": "number",
-      "minimum": 0,
-      "description": "【必填】输入单价（$/token；非流式基础价）。"
-    },
-    "output_cost_per_token": {
-      "type": "number",
-      "minimum": 0,
-      "description": "【可选】输出单价（$/token）。"
-    },
-    "cache_read_input_token_cost": {
-      "type": "number",
-      "minimum": 0,
-      "description": "【可选】缓存读单价（$/token）。"
-    },
-    "cache_creation_input_token_cost": {
-      "type": "number",
-      "minimum": 0,
-      "description": "【可选】缓存写单价（$/token）。"
-    },
-    "default_price": {
+    "price": {
       "type": "object",
-      "minProperties": 1,
       "additionalProperties": false,
+      "required": [
+        "input"
+      ],
       "properties": {
-        "input_cost_per_token": {
+        "input": {
           "type": "number",
           "minimum": 0,
-          "description": "【可选】输入单价（$/token）。"
+          "description": "【必填】输入单价（$/token；非流式基础价）。"
         },
-        "output_cost_per_token": {
+        "output": {
           "type": "number",
           "minimum": 0,
           "description": "【可选】输出单价（$/token）。"
         },
-        "cache_read_input_token_cost": {
+        "cache_read": {
           "type": "number",
           "minimum": 0,
           "description": "【可选】缓存读单价（$/token）。"
         },
-        "cache_creation_input_token_cost": {
+        "cache_write": {
           "type": "number",
           "minimum": 0,
           "description": "【可选】缓存写单价（$/token）。"
-        }
-      },
-      "description": "【可选】非官方渠道条目的兜底单价对象（vendor 中转站常无官方价）。"
-    },
-    "peak": {
-      "type": "object",
-      "minProperties": 1,
-      "additionalProperties": false,
-      "properties": {
-        "input_cost_per_token": {
-          "type": "number",
-          "minimum": 0,
-          "description": "【可选】输入单价（$/token）。"
         },
-        "output_cost_per_token": {
-          "type": "number",
-          "minimum": 0,
-          "description": "【可选】输出单价（$/token）。"
-        },
-        "cache_read_input_token_cost": {
-          "type": "number",
-          "minimum": 0,
-          "description": "【可选】缓存读单价（$/token）。"
-        },
-        "cache_creation_input_token_cost": {
-          "type": "number",
-          "minimum": 0,
-          "description": "【可选】缓存写单价（$/token）。"
-        }
-      },
-      "description": "【可选】高峰时段绝对价（price_resolve.rs：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。"
-    },
-    "context_tiers": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "min_tokens",
-          "input_cost_per_token",
-          "output_cost_per_token"
-        ],
-        "properties": {
-          "min_tokens": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "【必填】档位门槛：请求数达到该 token 数起用本档价。"
-          },
-          "input_cost_per_token": {
-            "type": "number",
-            "minimum": 0,
-            "description": "【必填】本档输入单价（$/token）。"
-          },
-          "output_cost_per_token": {
-            "type": "number",
-            "minimum": 0,
-            "description": "【必填】本档输出单价（$/token）。"
-          },
-          "cache_read_input_token_cost": {
-            "type": "number",
-            "minimum": 0,
-            "description": "【可选】本档缓存读单价（$/token）。"
-          }
-        }
-      },
-      "description": "【可选】按上下文长度分档计价（如 >524288 tokens 档）。"
-    },
-    "time_tiers": {
-      "type": "array",
-      "minItems": 1,
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "start_at",
-          "input_cost_per_token",
-          "output_cost_per_token"
-        ],
-        "properties": {
-          "start_at": {
-            "type": "integer",
-            "minimum": 0,
-            "description": "【必填】本档生效起点（Unix 秒，latest wins）。"
-          },
-          "input_cost_per_token": {
-            "type": "number",
-            "minimum": 0,
-            "description": "【必填】本档输入单价（$/token）。"
-          },
-          "output_cost_per_token": {
-            "type": "number",
-            "minimum": 0,
-            "description": "【必填】本档输出单价（$/token）。"
-          },
-          "cache_read_input_token_cost": {
-            "type": "number",
-            "minimum": 0,
-            "description": "【可选】本档缓存读单价（$/token）。"
-          },
-          "context_tiers": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "min_tokens",
-                "input_cost_per_token",
-                "output_cost_per_token"
-              ],
-              "properties": {
-                "min_tokens": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "description": "【必填】档位门槛：请求数达到该 token 数起用本档价。"
-                },
-                "input_cost_per_token": {
-                  "type": "number",
-                  "minimum": 0,
-                  "description": "【必填】本档输入单价（$/token）。"
-                },
-                "output_cost_per_token": {
-                  "type": "number",
-                  "minimum": 0,
-                  "description": "【必填】本档输出单价（$/token）。"
-                },
-                "cache_read_input_token_cost": {
-                  "type": "number",
-                  "minimum": 0,
-                  "description": "【可选】本档缓存读单价（$/token）。"
-                }
-              }
+        "peak": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "input": {
+              "type": "number",
+              "minimum": 0,
+              "description": "【可选】高峰输入单价（$/token）。"
             },
-            "description": "【可选】本时段档内再按上下文长度分档（形状同顶层 context_tiers）。"
-          }
+            "output": {
+              "type": "number",
+              "minimum": 0,
+              "description": "【可选】高峰输出单价（$/token）。"
+            },
+            "cache_read": {
+              "type": "number",
+              "minimum": 0,
+              "description": "【可选】高峰缓存读单价（$/token）。"
+            }
+          },
+          "description": "【可选】高峰时段绝对价（price_resolve.rs：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，不得再乘，否则双重计价）。未写字段继承默认价。"
+        },
+        "context_tiers": {
+          "$ref": "#/definitions/context_tiers",
+          "description": "【可选】按上下文长度分档计价（如 >524288 tokens 档）。"
+        },
+        "time_tiers": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "start_at",
+              "input",
+              "output"
+            ],
+            "properties": {
+              "start_at": {
+                "type": "integer",
+                "minimum": 0,
+                "description": "【必填】本档生效起点（Unix 秒，latest wins）。"
+              },
+              "input": {
+                "type": "number",
+                "minimum": 0,
+                "description": "【必填】本档输入单价（$/token）。"
+              },
+              "output": {
+                "type": "number",
+                "minimum": 0,
+                "description": "【必填】本档输出单价（$/token）。"
+              },
+              "cache_read": {
+                "type": "number",
+                "minimum": 0,
+                "description": "【可选】本档缓存读单价（$/token）。"
+              },
+              "context_tiers": {
+                "$ref": "#/definitions/context_tiers",
+                "description": "【可选】本时段档内再按上下文长度分档（形状同顶层 context_tiers）。"
+              }
+            }
+          },
+          "description": "【可选】按生效时间切换的价目（start_at Unix 秒，latest wins）。"
         }
       },
-      "description": "【可选】按生效时间切换的价目（start_at Unix 秒，latest wins）。"
+      "description": "【必填】计价结构：默认单价 + 高峰绝对价 + 分档价，全部数值字段（$/token），禁字符串表达式。旧顶层价格字段（input_cost_per_token 等 + default_price）2026-08-30 已收归于此。"
     }
   },
-  "last_updated": 1788012963
+  "last_updated": 1788012963,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "capabilities": {
+            "contains": {
+              "const": "text"
+            }
+          }
+        },
+        "required": [
+          "capabilities"
+        ]
+      },
+      "then": {
+        "required": [
+          "max_input_tokens",
+          "max_output_tokens",
+          "context_window"
+        ]
+      }
+    }
+  ]
 }

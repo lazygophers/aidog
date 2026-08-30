@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "perplexity/sonar-reasoning-pro",
   "canonical_model": "sonar-reasoning-pro",
   "capabilities": [
@@ -8,11 +8,9 @@
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
-  "input_cost_per_token": 2e-06,
-  "output_cost_per_token": 8e-06,
-  "default_price": {
-    "input_cost_per_token": 2e-06,
-    "output_cost_per_token": 8e-06,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 2e-06,
+    "output": 8e-06,
+    "cache_read": 0
   }
 }

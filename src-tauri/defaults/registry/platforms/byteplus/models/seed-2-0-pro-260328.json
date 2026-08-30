@@ -1,21 +1,26 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "seed-2-0-pro-260328",
   "canonical_model": "seed-2-0-pro-260328",
   "family": "seed",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 229376,
+  "max_output_tokens": 131072,
+  "context_window": 262144,
   "official": true,
-  "input_cost_per_token": 5e-07,
-  "output_cost_per_token": 3e-06,
-  "cache_read_input_token_cost": 1.0000000000000001e-07,
-  "context_tiers": [
-    {
-      "min_tokens": 129,
-      "input_cost_per_token": 1e-06,
-      "output_cost_per_token": 6e-06,
-      "cache_read_input_token_cost": 2.0000000000000002e-07
-    }
-  ]
+  "price": {
+    "input": 5e-07,
+    "output": 3e-06,
+    "cache_read": 1.0000000000000001e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 129,
+        "input": 1e-06,
+        "output": 6e-06,
+        "cache_read": 2.0000000000000002e-07
+      }
+    ]
+  }
 }

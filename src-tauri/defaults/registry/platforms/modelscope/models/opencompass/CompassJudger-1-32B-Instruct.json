@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "opencompass/CompassJudger-1-32B-Instruct",
   "canonical_model": "compassjudger-1-32b-instruct",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
 }

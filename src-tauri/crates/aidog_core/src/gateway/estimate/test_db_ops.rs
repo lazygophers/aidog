@@ -322,7 +322,7 @@ async fn estimate_after_request_applies_peak_multiplier() {
         &db,
         "deepseek",
         "test-model",
-        r#"{"input_cost_per_token":0.001,"output_cost_per_token":0.002,"cache_read_input_token_cost":0.0}"#,
+        r#"{"price":{"input":0.001,"output":0.002,"cache_read":0.0}}"#,
     )
     .await;
     // 全天永久窗口（无 days_of_week/start_at 限制），x2 倍率，用户覆盖优先于 bundled preset。

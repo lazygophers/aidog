@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "meta/llama-4-scout",
   "canonical_model": "llama-4-scout",
   "capabilities": [
@@ -7,9 +7,11 @@
     "vision"
   ],
   "official": true,
+  "price": {
+    "input": 7.77778e-08,
+    "output": 2.91667e-07
+  },
   "max_input_tokens": 128000,
   "max_output_tokens": 8000,
-  "context_window": 128000,
-  "input_cost_per_token": 7.77778e-08,
-  "output_cost_per_token": 2.91667e-07
+  "context_window": 128000
 }

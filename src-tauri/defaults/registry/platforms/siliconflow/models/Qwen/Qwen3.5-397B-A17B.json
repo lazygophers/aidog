@@ -1,23 +1,28 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "Qwen/Qwen3.5-397B-A17B",
   "canonical_model": "Qwen3.5-397B-A17B",
   "capabilities": [
     "text"
   ],
+  "context_window": 262144,
+  "max_input_tokens": 260096,
+  "max_output_tokens": 65536,
   "official": true,
-  "context_tiers": [
-    {
-      "min_tokens": 1,
-      "input_cost_per_token": 1.6666666666666665e-07,
-      "output_cost_per_token": 1e-06
-    },
-    {
-      "min_tokens": 131072,
-      "input_cost_per_token": 4.166666666666666e-07,
-      "output_cost_per_token": 2.5e-06
-    }
-  ],
-  "input_cost_per_token": 1.6666666666666665e-07,
-  "output_cost_per_token": 1e-06
+  "price": {
+    "input": 1.6666666666666665e-07,
+    "output": 1e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 1,
+        "input": 1.6666666666666665e-07,
+        "output": 1e-06
+      },
+      {
+        "min_tokens": 131072,
+        "input": 4.166666666666666e-07,
+        "output": 2.5e-06
+      }
+    ]
+  }
 }

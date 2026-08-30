@@ -141,9 +141,9 @@ function PriceRow({ label, tier }: { label: string; tier: PriceTier }) {
   return (
     <Field label={label}>
       <span style={{ display: "inline-flex", gap: 12, flexWrap: "wrap" }}>
-        <span>{t("modelInfo.colInput")}: {fmtPricePerM(tier.input_cost_per_token)}</span>
-        <span>{t("modelInfo.colOutput")}: {fmtPricePerM(tier.output_cost_per_token)}</span>
-        <span>{t("modelInfo.colCacheRead")}: {fmtPricePerM(tier.cache_read_input_token_cost)}</span>
+        <span>{t("modelInfo.colInput")}: {fmtPricePerM(tier.input)}</span>
+        <span>{t("modelInfo.colOutput")}: {fmtPricePerM(tier.output)}</span>
+        <span>{t("modelInfo.colCacheRead")}: {fmtPricePerM(tier.cache_read)}</span>
       </span>
     </Field>
   );

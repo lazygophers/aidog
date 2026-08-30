@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ali/qwen3-omni-flash",
   "canonical_model": "qwen3-omni-flash",
   "capabilities": [
@@ -8,9 +8,11 @@
     "audio"
   ],
   "official": true,
+  "price": {
+    "input": 2.5e-07,
+    "output": 9.58333e-07
+  },
   "max_input_tokens": 65536,
   "max_output_tokens": 16384,
-  "context_window": 65536,
-  "input_cost_per_token": 2.5e-07,
-  "output_cost_per_token": 9.58333e-07
+  "context_window": 65536
 }

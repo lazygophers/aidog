@@ -55,6 +55,28 @@ fn row_to_model_entry(row: &rusqlite::Row) -> SqlResult<ModelEntry> {
     })
 }
 
+/// 读取层价格结构归一化：DB 未重同步的旧形状行（价格平铺顶层）→ `price` 子树，
+/// 前端展示只认新形状。前置 `contains` 过滤让已是新形状的行（绝大多数）零解析开销。
+/// 导出（`select_model_entries`）**不走这里**——同步的内容比较与备份必须拿原文。
+fn with_price_normalized(mut e: ModelEntry) -> ModelEntry {
+    if !e.price_data.contains("input_cost_per_token") {
+        return e;
+    }
+    // 脏 JSON 保持原文，前端 parsePriceData 自有「无价格」回落
+    if let Ok(mut v) = serde_json::from_str::<serde_json::Value>(&e.price_data)
+        && crate::price_resolve::legacy_price_into(&mut v)
+    {
+        e.price_data = v.to_string();
+    }
+    e
+}
+
+/// UI 读取入口的统一出口：展示名回落 + 价格结构归一化（计费路径在
+/// `price_resolve::parse_price_data` 各自归一化，不走这里）。
+fn ui_entry(e: ModelEntry) -> ModelEntry {
+    with_price_normalized(with_display_name(e))
+}
+
 /// registry 模型 JSON → 行形状。`price_data` 保留整份原文，缺省字段落空值；
 /// `canonical_model` 缺省回落 `model_id`（聚合键必须非空）。`model_id` 缺失 → None（跳过该文件）。
 /// `display_name` **不在此回落**——这是写入路径，缺省即空串入库，回落在读取层。
@@ -368,7 +390,7 @@ pub fn select_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> i
 pub async fn list_model_entries(db: &Db, platform_code: Option<&str>) -> Result<Vec<ModelEntry>, String> {
     let rows = select_model_entries(db, platform_code).await?;
     if !rows.is_empty() {
-        return Ok(rows.into_iter().map(with_display_name).collect());
+        return Ok(rows.into_iter().map(ui_entry).collect());
     }
     // 空结果分两种：DB 整表空（未同步）→ bundled 兜底；表非空只是该平台没有 → 照实返回空。
     if count_model_entries(db).await? > 0 {
@@ -411,7 +433,7 @@ pub fn get_model_entry<'a>(db: &'a Db, platform_code: &'a str, model_id: &'a str
             .map_err(|e| e.to_string())?;
         Ok(hit
             .or_else(|| bundled_entry(platform_code, model_id).cloned())
-            .map(with_display_name))
+            .map(ui_entry))
     }
 }
 
@@ -445,7 +467,7 @@ pub fn get_model_entry_any_platform<'a>(db: &'a Db, model_id: &'a str) -> impl s
                     .or_else(|| all.iter().find(|e| e.model_id == model_id))
                     .cloned()
             })
-            .map(with_display_name))
+            .map(ui_entry))
     }
 }
 

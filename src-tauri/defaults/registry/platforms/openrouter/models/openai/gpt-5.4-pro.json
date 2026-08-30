@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "openai/gpt-5.4-pro",
   "canonical_model": "gpt-5.4-pro",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 128000,
   "context_window": 1050000,
   "official": true,
-  "input_cost_per_token": 3e-05,
-  "output_cost_per_token": 0.00018
+  "price": {
+    "input": 3e-05,
+    "output": 0.00018
+  }
 }

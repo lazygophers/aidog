@@ -1,11 +1,16 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "MiniMax-M2.1-lightning",
   "canonical_model": "minimax-m2.1-lightning",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 131000,
+  "context_window": 200000,
   "official": false,
-  "input_cost_per_token": 2.91667e-07,
-  "output_cost_per_token": 2.33333e-06
+  "price": {
+    "input": 2.91667e-07,
+    "output": 2.33333e-06
+  }
 }

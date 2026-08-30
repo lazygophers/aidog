@@ -1,15 +1,17 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "streamlake/kat-coder-exp-72b-1010",
   "canonical_model": "kat-coder-exp-72b-1010",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0,
+    "cache_read": 0.0
+  },
   "max_input_tokens": 128000,
   "max_output_tokens": 32000,
-  "context_window": 128000,
-  "input_cost_per_token": 0.0,
-  "output_cost_per_token": 0.0,
-  "cache_read_input_token_cost": 0.0
+  "context_window": 128000
 }

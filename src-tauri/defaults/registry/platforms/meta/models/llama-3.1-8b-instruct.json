@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "llama-3.1-8b-instruct",
   "canonical_model": "llama-3.1-8b-instruct",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 16384,
   "context_window": 131072,
   "official": true,
-  "input_cost_per_token": 2e-8,
-  "output_cost_per_token": 3e-8,
-  "default_price": {
-    "input_cost_per_token": 2e-8,
-    "output_cost_per_token": 3e-8,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 2e-08,
+    "output": 3e-08,
+    "cache_read": 0
   }
 }

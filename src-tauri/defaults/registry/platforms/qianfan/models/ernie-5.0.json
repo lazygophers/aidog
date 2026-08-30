@@ -1,21 +1,25 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "ernie-5.0",
   "canonical_model": "ernie-5.0",
+  "max_input_tokens": 121856,
+  "max_output_tokens": 65536,
   "official": true,
+  "price": {
+    "input": 8.33333333e-07,
+    "output": 3.333333333e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 1.388888889e-06,
+        "output": 5.555555556e-06
+      }
+    ]
+  },
   "family": "ernie",
   "capabilities": [
     "text",
     "vision"
   ],
-  "context_window": 121856,
-  "input_cost_per_token": 8.33333333e-07,
-  "output_cost_per_token": 3.333333333e-06,
-  "context_tiers": [
-    {
-      "min_tokens": 32769,
-      "input_cost_per_token": 1.388888889e-06,
-      "output_cost_per_token": 5.555555556e-06
-    }
-  ]
+  "context_window": 121856
 }

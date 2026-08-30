@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067652,
   "model_id": "grok-build-0.1",
   "canonical_model": "grok-build-0.1",
   "capabilities": [
@@ -7,16 +7,20 @@
     "vision"
   ],
   "context_window": 256000,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 8000,
   "official": true,
-  "input_cost_per_token": 1e-06,
-  "output_cost_per_token": 2e-06,
-  "cache_read_input_token_cost": 2e-07,
-  "context_tiers": [
-    {
-      "min_tokens": 200001,
-      "input_cost_per_token": 2e-06,
-      "output_cost_per_token": 4e-06,
-      "cache_read_input_token_cost": 4e-07
-    }
-  ]
+  "price": {
+    "input": 1e-06,
+    "output": 2e-06,
+    "cache_read": 2e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 2e-06,
+        "output": 4e-06,
+        "cache_read": 4e-07
+      }
+    ]
+  }
 }

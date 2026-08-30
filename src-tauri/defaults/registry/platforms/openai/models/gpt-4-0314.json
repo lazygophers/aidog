@@ -1,16 +1,14 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "gpt-4-0314",
   "canonical_model": "gpt-4-0314",
   "capabilities": [
     "text"
   ],
   "official": true,
-  "input_cost_per_token": 0.00003,
-  "output_cost_per_token": 0.00006,
-  "default_price": {
-    "input_cost_per_token": 0.00003,
-    "output_cost_per_token": 0.00006,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 3e-05,
+    "output": 6e-05,
+    "cache_read": 0
   }
 }

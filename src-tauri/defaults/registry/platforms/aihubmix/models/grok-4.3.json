@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "grok-4.3",
   "canonical_model": "grok-4.3",
   "display_name": "Grok 4.3",
@@ -7,9 +7,13 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 66000,
   "official": false,
-  "input_cost_per_token": 1.25e-06,
-  "output_cost_per_token": 2.5e-06,
-  "cache_read_input_token_cost": 2.0000000000000002e-07,
+  "price": {
+    "input": 1.25e-06,
+    "output": 2.5e-06,
+    "cache_read": 2.0000000000000002e-07
+  },
   "context_window": 1000000
 }

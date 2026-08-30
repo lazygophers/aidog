@@ -1427,6 +1427,7 @@
   "modelInfo.cap.audio": "音声",
   "modelInfo.cap.video": "動画",
   "modelInfo.cap.embedding": "埋め込み",
+  "modelInfo.cap.rerank": "リランキング",
   "proxy.autolaunch": "ログイン時に自動起動",
   "proxy.autolaunchDesc": "システムログイン時にAiDogを自動的に起動する",
   "proxy.autostart": "自動起動",

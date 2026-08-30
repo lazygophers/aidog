@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067650,
   "model_id": "deepseek/deepseek-v4-flash-vision-exp",
   "canonical_model": "deepseek-v4-flash-vision-exp",
   "capabilities": [
@@ -7,10 +7,12 @@
     "vision"
   ],
   "official": false,
+  "price": {
+    "input": 2.08333e-07,
+    "output": 6.25e-07,
+    "cache_read": 6.94444e-09
+  },
   "max_input_tokens": 1000000,
   "max_output_tokens": 384000,
-  "context_window": 1000000,
-  "input_cost_per_token": 2.08333e-07,
-  "output_cost_per_token": 6.25e-07,
-  "cache_read_input_token_cost": 6.94444e-09
+  "context_window": 1000000
 }

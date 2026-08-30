@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067646,
   "model_id": "qwen3.6-flash",
   "canonical_model": "qwen3.6-flash",
   "capabilities": [
@@ -9,13 +9,10 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": true,
-  "input_cost_per_token": 1.875e-7,
-  "output_cost_per_token": 0.000001125,
-  "cache_creation_input_token_cost": 2.34375e-7,
-  "default_price": {
-    "input_cost_per_token": 1.875e-7,
-    "output_cost_per_token": 0.000001125,
-    "cache_read_input_token_cost": 0,
-    "cache_creation_input_token_cost": 2.34375e-7
+  "price": {
+    "input": 1.875e-07,
+    "output": 1.125e-06,
+    "cache_write": 2.34375e-07,
+    "cache_read": 0
   }
 }

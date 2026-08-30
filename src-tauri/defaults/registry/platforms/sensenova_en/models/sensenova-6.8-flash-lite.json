@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067649,
   "model_id": "sensenova-6.8-flash-lite",
   "canonical_model": "sensenova-6.8-flash-lite",
   "family": "sensenova",
@@ -8,6 +8,8 @@
     "vision"
   ],
   "official": true,
-  "input_cost_per_token": 0,
-  "output_cost_per_token": 0
+  "price": {
+    "input": 0,
+    "output": 0
+  }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067645,
   "model_id": "qwen-long",
   "canonical_model": "qwen-long",
   "capabilities": [
@@ -9,11 +9,9 @@
   "max_output_tokens": 32768,
   "context_window": 10000000,
   "official": true,
-  "input_cost_per_token": 6.944444444444444e-8,
-  "output_cost_per_token": 2.7777777777777776e-7,
-  "default_price": {
-    "input_cost_per_token": 6.944444444444444e-8,
-    "output_cost_per_token": 2.7777777777777776e-7,
-    "cache_read_input_token_cost": 0
+  "price": {
+    "input": 6.944444444444444e-08,
+    "output": 2.7777777777777776e-07,
+    "cache_read": 0
   }
 }

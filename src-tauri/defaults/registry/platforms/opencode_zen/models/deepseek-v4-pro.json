@@ -1,18 +1,22 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067648,
   "model_id": "deepseek-v4-pro",
   "canonical_model": "deepseek-v4-pro",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
   "official": false,
-  "context_window": 1048576,
-  "input_cost_per_token": 6.6e-07,
-  "output_cost_per_token": 1.98e-06,
-  "cache_read_input_token_cost": 2.2e-08,
-  "peak": {
-    "input_cost_per_token": 1.32e-06,
-    "output_cost_per_token": 3.96e-06,
-    "cache_read_input_token_cost": 4.4e-08
-  }
+  "price": {
+    "input": 6.6e-07,
+    "output": 1.98e-06,
+    "cache_read": 2.2e-08,
+    "peak": {
+      "input": 1.32e-06,
+      "output": 3.96e-06,
+      "cache_read": 4.4e-08
+    }
+  },
+  "context_window": 1048576
 }

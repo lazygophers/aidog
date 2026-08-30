@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788067651,
   "model_id": "step-3.7-flash",
   "canonical_model": "step-3.7-flash",
   "capabilities": [
@@ -10,7 +10,9 @@
   "max_output_tokens": 16384,
   "context_window": 262144,
   "official": true,
-  "input_cost_per_token": 2.0000000000000002e-07,
-  "output_cost_per_token": 1.15e-06,
-  "cache_read_input_token_cost": 4e-08
+  "price": {
+    "input": 2.0000000000000002e-07,
+    "output": 1.15e-06,
+    "cache_read": 4e-08
+  }
 }
