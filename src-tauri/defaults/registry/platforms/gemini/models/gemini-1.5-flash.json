@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1788070590,
   "model_id": "gemini-1.5-flash",
   "canonical_model": "gemini-1.5-flash",
   "capabilities": [
@@ -7,6 +7,7 @@
   ],
   "max_input_tokens": 8192,
   "context_window": 8192,
+  "max_output_tokens": 8192,
   "official": true,
   "price": {
     "input": 7.5e-08,

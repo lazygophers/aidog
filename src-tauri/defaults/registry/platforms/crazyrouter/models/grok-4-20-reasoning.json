@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1788070590,
   "model_id": "grok-4-20-reasoning",
   "canonical_model": "grok-4-20-reasoning",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
   "official": true,
   "price": {
     "input": 1.7e-06,

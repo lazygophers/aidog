@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1788070590,
   "model_id": "doubao-1-5-pro-32k-character-250715",
   "canonical_model": "doubao-1-5-pro-32k-character-250715",
   "capabilities": [
@@ -12,5 +12,6 @@
     "input": 1.11111e-07,
     "output": 2.77778e-07,
     "cache_read": 2.22222e-08
-  }
+  },
+  "max_input_tokens": 32768
 }
