@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1788088237,
   "model_id": "seed-1-8-251228",
   "canonical_model": "seed-1-8-251228",
   "family": "seed",
@@ -16,7 +16,7 @@
     "cache_read": 5.0000000000000004e-08,
     "context_tiers": [
       {
-        "min_tokens": 129,
+        "min_tokens": 131073,
         "input": 5e-07,
         "output": 4e-06,
         "cache_read": 5.0000000000000004e-08
