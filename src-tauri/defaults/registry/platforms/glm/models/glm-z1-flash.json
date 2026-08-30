@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-z1-flash",
+  "canonical_model": "glm-z1-flash",
+  "display_name": "GLM-Z1-Flash",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

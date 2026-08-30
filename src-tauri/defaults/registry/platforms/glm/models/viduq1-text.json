@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "viduq1-text",
+  "canonical_model": "viduq1-text",
+  "display_name": "ViduQ1-Text",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.347222
+  }
+}

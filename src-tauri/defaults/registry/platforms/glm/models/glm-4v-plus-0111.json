@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-4v-plus-0111",
+  "canonical_model": "glm-4v-plus-0111",
+  "display_name": "GLM-4V-Plus-0111",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "context_window": 16384,
+  "official": true,
+  "price": {
+    "input": 5.55556e-7,
+    "output": 5.55556e-7
+  }
+}

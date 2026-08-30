@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "viduq1-image",
+  "canonical_model": "viduq1-image",
+  "display_name": "ViduQ1-Image",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.347222
+  }
+}

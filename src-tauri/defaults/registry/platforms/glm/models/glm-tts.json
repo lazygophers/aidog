@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "glm-tts",
+  "canonical_model": "glm-tts",
+  "display_name": "GLM-TTS",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0277778
+  }
+}

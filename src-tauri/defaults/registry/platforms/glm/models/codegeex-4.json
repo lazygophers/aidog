@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "codegeex-4",
+  "canonical_model": "codegeex-4",
+  "display_name": "CodeGeeX-4",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 1.38889e-8,
+    "output": 1.38889e-8
+  }
+}

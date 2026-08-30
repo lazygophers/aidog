@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "cogvideox-2",
+  "canonical_model": "cogvideox-2",
+  "display_name": "CogVideoX-2",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.0694444
+  }
+}

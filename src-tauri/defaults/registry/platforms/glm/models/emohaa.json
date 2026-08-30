@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788108577,
+  "model_id": "emohaa",
+  "canonical_model": "emohaa",
+  "display_name": "Emohaa",
+  "capabilities": [
+    "text"
+  ],
+  "max_output_tokens": 4096,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 0.00000208333,
+    "output": 0.00000208333
+  }
+}
