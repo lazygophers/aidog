@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "speech-2.6-hd",
+  "canonical_model": "speech-2.6-hd",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 4.86111e-05,
+    "output": 0.0
+  }
+}

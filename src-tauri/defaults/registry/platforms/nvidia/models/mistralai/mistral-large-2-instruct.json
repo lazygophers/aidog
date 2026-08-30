@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "mistralai/mistral-large-2-instruct",
+  "canonical_model": "mistral-large-2-instruct",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

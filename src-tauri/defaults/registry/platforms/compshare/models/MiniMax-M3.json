@@ -1,0 +1,25 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "MiniMax-M3",
+  "canonical_model": "minimax-m3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 5.83333e-07,
+    "cache_read": 1.16667e-07,
+    "output": 2.33333e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 524289,
+        "input": 1.16667e-06,
+        "cache_read": 2.33333e-07,
+        "output": 4.66667e-06
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "Qwen/Qwen3-Coder",
+  "canonical_model": "qwen3-coder",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 8.33333e-07,
+    "output": 3.33333e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 1.25e-06,
+        "output": 5e-06
+      },
+      {
+        "min_tokens": 131073,
+        "input": 2.08333e-06,
+        "output": 8.33333e-06
+      }
+    ]
+  }
+}

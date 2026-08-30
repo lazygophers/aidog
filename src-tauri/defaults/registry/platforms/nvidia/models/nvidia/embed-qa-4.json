@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "nvidia/embed-qa-4",
+  "canonical_model": "embed-qa-4",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

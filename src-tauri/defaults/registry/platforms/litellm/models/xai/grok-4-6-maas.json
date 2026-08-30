@@ -1,0 +1,27 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "xai/grok-4-6-maas",
+  "canonical_model": "xai/grok-4-6-maas",
+  "display_name": "Grok 4.6 (Preview)",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 2000000,
+  "max_output_tokens": 66000,
+  "context_window": 500000,
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 6e-06,
+    "cache_read": 5e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 200001,
+        "input": 4e-06,
+        "output": 1.2e-05,
+        "cache_read": 1e-06
+      }
+    ]
+  }
+}

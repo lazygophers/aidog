@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "cicada-customised-audio",
+  "canonical_model": "cicada-customised-audio",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.333333
+  }
+}

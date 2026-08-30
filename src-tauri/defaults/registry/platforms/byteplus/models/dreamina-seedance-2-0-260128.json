@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "dreamina-seedance-2-0-260128",
+  "canonical_model": "dreamina-seedance-2-0-260128",
+  "family": "seedance",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 7e-06
+  }
+}

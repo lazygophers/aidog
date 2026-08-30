@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "nvidia/cosmos-reason2-8b",
+  "canonical_model": "cosmos-reason2-8b",
+  "capabilities": [
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

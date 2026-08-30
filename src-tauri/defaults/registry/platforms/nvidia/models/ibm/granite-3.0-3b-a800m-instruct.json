@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "ibm/granite-3.0-3b-a800m-instruct",
+  "canonical_model": "granite-3.0-3b-a800m-instruct",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

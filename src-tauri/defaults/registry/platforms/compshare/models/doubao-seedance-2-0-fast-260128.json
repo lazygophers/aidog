@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "doubao-seedance-2-0-fast-260128",
+  "canonical_model": "doubao-seedance-2-0-fast-260128",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 5.13889e-06
+  }
+}

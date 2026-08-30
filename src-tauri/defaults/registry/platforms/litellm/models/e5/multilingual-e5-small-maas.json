@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085233,
+  "model_id": "e5/multilingual-e5-small-maas",
+  "canonical_model": "e5/multilingual-e5-small-maas",
+  "display_name": "Multilingual E5 Small",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 0.0
+  }
+}

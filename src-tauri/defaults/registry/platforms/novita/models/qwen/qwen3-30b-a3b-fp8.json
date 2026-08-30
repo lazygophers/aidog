@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "qwen/qwen3-30b-a3b-fp8",
+  "canonical_model": "qwen3-30b-a3b-fp8",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "official": true,
+  "price": {
+    "input": 9e-08,
+    "output": 4.5e-07
+  },
+  "max_input_tokens": 40960,
+  "context_window": 40960,
+  "max_output_tokens": 20000
+}

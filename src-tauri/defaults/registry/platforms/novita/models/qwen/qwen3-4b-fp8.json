@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "qwen/qwen3-4b-fp8",
+  "canonical_model": "qwen3-4b-fp8",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "official": true,
+  "price": {
+    "input": 3e-08,
+    "output": 3e-08
+  },
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8192
+}

@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "mistralai/mistral-7b-instruct-v0.3",
+  "canonical_model": "mistral-7b-instruct-v0.3",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

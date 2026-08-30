@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788085214,
+  "model_id": "databricks/dbrx-instruct",
+  "canonical_model": "dbrx-instruct",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0,
+    "output": 0.0
+  }
+}

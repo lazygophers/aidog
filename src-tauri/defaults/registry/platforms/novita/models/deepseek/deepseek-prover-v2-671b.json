@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "deepseek/deepseek-prover-v2-671b",
+  "canonical_model": "deepseek-prover-v2-671b",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 7e-07,
+    "output": 2.5e-06
+  },
+  "max_input_tokens": 160000,
+  "context_window": 160000,
+  "max_output_tokens": 160000
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "cicada-video-lip-sync",
+  "canonical_model": "cicada-video-lip-sync",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00416667
+  }
+}

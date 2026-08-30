@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788085396,
   "endpoints": {
     "default": [
       {
@@ -16,21 +16,33 @@
   },
   "model_list": {
     "default": [
+      "ai21labs/jamba-1.5-large-instruct",
       "deepseek-ai/deepseek-v4-flash-0731",
       "deepseek-ai/deepseek-v4-pro-0813",
       "google/diffusiongemma-26b-a4b-it",
+      "google/gemma-3-12b-it",
+      "google/gemma-3-4b-it",
       "google/gemma-4-31b-it",
       "meta/llama-3.2-11b-vision-instruct",
       "meta/llama-3.2-90b-vision-instruct",
       "meta/llama-guard-4-12b",
       "meta/muse-glimmer-30b",
       "minimaxai/minimax-m3",
+      "mistralai/mistral-large",
       "mistralai/mistral-nemotron",
+      "moonshotai/kimi-k2.6",
+      "moonshotai/kimi-k3",
+      "nvidia/llama-3.1-nemotron-51b-instruct",
+      "nvidia/llama-3.1-nemotron-70b-instruct",
+      "nvidia/llama-3.1-nemotron-ultra-253b-v1",
+      "nvidia/llama3-chatqa-1.5-70b",
       "nvidia/nemotron-3-nano-30b-a3b",
       "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
       "nvidia/nemotron-3-super-120b-a12b",
       "nvidia/nemotron-3-ultra-550b-a55b",
       "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "nvidia/nemotron-4-340b-instruct",
+      "nvidia/nemotron-nano-3-30b-a3b",
       "nvidia/nemotron-voicechat",
       "openai/gpt-oss-120b",
       "openai/gpt-oss-20b",

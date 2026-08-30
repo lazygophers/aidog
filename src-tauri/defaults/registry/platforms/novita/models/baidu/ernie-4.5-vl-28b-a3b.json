@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "baidu/ernie-4.5-vl-28b-a3b",
+  "canonical_model": "ernie-4.5-vl-28b-a3b",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "official": true,
+  "price": {
+    "input": 1.4e-07,
+    "output": 5.6e-07
+  },
+  "max_input_tokens": 30000,
+  "context_window": 30000,
+  "max_output_tokens": 8000
+}

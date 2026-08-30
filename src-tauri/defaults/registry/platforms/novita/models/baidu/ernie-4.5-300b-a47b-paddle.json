@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "baidu/ernie-4.5-300b-a47b-paddle",
+  "canonical_model": "ernie-4.5-300b-a47b-paddle",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 2.8e-07,
+    "output": 1.1e-06
+  },
+  "max_input_tokens": 123000,
+  "context_window": 123000,
+  "max_output_tokens": 12000
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "inclusionai/ling-2.6-1t",
+  "canonical_model": "ling-2.6-1t",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 3e-07,
+    "output": 2.5e-06,
+    "cache_read": 6e-08
+  },
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 32768
+}

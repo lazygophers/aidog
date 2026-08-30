@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "claude-3-5-sonnet-v2",
+  "canonical_model": "claude-3-5-sonnet-v2",
+  "display_name": "Claude 3.5 Sonnet v2 on Google Cloud",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 8192,
+  "context_window": 200000,
+  "official": true,
+  "price": {
+    "input": 3e-06,
+    "output": 1.5e-05,
+    "cache_read": 3e-07,
+    "cache_write": 3.75e-06
+  }
+}

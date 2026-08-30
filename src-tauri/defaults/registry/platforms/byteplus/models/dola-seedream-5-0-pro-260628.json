@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085396,
+  "model_id": "dola-seedream-5-0-pro-260628",
+  "canonical_model": "dola-seedream-5-0-pro-260628",
+  "family": "seedream",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.0
+  }
+}
