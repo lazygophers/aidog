@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1788084395,
   "model_id": "zai-org/GLM-4.7",
   "canonical_model": "GLM-4.7",
   "display_name": "GLM-4.7",
@@ -9,7 +9,7 @@
   ],
   "max_input_tokens": 204800,
   "max_output_tokens": 204800,
-  "official": false,
+  "official": true,
   "price": {
     "input": 4.2e-07,
     "output": 2.2e-06
