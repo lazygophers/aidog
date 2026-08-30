@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "k3",
+  "canonical_model": "k3",
+  "display_name": "Kimi K3",
+  "capabilities": [
+    "text",
+    "vision",
+    "video",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}

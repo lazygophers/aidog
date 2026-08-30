@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "qianfan-code-latest",
+  "canonical_model": "qianfan-code-latest",
+  "display_name": "Qianfan Code (latest)",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}

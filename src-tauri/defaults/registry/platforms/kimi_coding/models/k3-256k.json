@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "k3-256k",
+  "canonical_model": "k3-256k",
+  "display_name": "Kimi K3 (256K)",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}

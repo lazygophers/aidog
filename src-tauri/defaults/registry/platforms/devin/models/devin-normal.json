@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "devin-normal",
+  "canonical_model": "devin-normal",
+  "display_name": "Devin",
+  "capabilities": [
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0
+  }
+}

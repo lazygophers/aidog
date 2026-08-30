@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "deepseek-v3.2",
+  "canonical_model": "deepseek-v3.2",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 163840,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

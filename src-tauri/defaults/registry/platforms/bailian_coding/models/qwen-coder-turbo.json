@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "qwen-coder-turbo",
+  "canonical_model": "qwen-coder-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

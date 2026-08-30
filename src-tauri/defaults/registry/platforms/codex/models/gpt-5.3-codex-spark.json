@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788104075,
+  "model_id": "gpt-5.3-codex-spark",
+  "canonical_model": "gpt-5.3-codex-spark",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 128000,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}
