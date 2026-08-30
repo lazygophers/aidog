@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "muse-glimmer-30b",
+  "canonical_model": "muse-glimmer-30b",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

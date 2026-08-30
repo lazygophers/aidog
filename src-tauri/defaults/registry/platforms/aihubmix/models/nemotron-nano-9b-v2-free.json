@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "nemotron-nano-9b-v2-free",
+  "canonical_model": "nemotron-nano-9b-v2-free",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

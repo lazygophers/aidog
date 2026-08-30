@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "aihubmix-command-r-plus",
+  "canonical_model": "aihubmix-command-r-plus",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "claude-sonnet-4-5-think",
+  "canonical_model": "claude-sonnet-4-5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 65536,
+  "context_window": 200000,
+  "official": true,
+  "thinking_supported": true,
+  "price": {
+    "input": 3.2999999999999997e-06,
+    "output": 1.65e-05,
+    "cache_read": 3.3e-07,
+    "cache_write": 4.125e-06
+  }
+}

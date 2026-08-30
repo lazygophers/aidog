@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "llama2-70b-40960",
+  "canonical_model": "llama2-70b-40960",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

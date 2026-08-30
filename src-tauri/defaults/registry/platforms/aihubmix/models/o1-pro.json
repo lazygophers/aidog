@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "o1-pro",
+  "canonical_model": "o1-pro",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": false,
+  "price": {
+    "input": 0.00015,
+    "output": 0.0006,
+    "cache_read": 0
+  }
+}

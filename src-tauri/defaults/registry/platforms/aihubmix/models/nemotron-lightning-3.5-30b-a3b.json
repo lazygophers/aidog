@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "nemotron-lightning-3.5-30b-a3b",
+  "canonical_model": "nemotron-lightning-3.5-30b-a3b",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

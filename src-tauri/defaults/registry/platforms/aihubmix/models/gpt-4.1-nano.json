@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gpt-4.1-nano",
+  "canonical_model": "gpt-4.1-nano",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1047576,
+  "max_output_tokens": 32768,
+  "context_window": 1047576,
+  "official": false,
+  "price": {
+    "input": 6.5e-08,
+    "output": 2.6e-07,
+    "cache_read": 1.9e-08
+  }
+}

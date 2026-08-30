@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "mimo-v2-pro",
+  "canonical_model": "mimo-v2-pro",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 0.0
+  }
+}

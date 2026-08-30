@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "ernie-x1-turbo",
+  "canonical_model": "ernie-x1-turbo",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "grok-4-1-fast-reasoning",
+  "canonical_model": "grok-4-1-fast-reasoning",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 2000000,
+  "max_output_tokens": 66000,
+  "context_window": 2000000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.7e-07,
+    "output": 4.25e-07,
+    "cache_read": 4.3e-08
+  }
+}

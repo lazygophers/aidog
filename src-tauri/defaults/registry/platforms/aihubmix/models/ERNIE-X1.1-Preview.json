@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788086022,
+  "model_id": "ERNIE-X1.1-Preview",
+  "canonical_model": "ernie-x1.1-preview",
+  "family": "ernie-x",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 56320,
+  "max_output_tokens": 65536,
+  "context_window": 65536,
+  "official": true,
+  "price": {
+    "input": 1.38888889e-07,
+    "output": 5.55555556e-07
+  }
+}

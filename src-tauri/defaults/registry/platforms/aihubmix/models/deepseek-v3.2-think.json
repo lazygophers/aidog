@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "deepseek-v3.2-think",
+  "canonical_model": "deepseek-v3.2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 163840,
+  "max_output_tokens": 163840,
+  "context_window": 163840,
+  "official": true,
+  "thinking_supported": true,
+  "price": {
+    "input": 2.8e-07,
+    "output": 4e-07
+  }
+}

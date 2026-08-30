@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "qwen3.6-plus-preview-free",
+  "canonical_model": "qwen3.6-plus-preview-free",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

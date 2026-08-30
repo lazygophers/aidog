@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "o1-2024-12-17",
+  "canonical_model": "o1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": true,
+  "price": {
+    "input": 1.5e-05,
+    "output": 6e-05,
+    "cache_read": 7.5e-06
+  }
+}

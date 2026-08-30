@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "coding-glm-4.6-free",
+  "canonical_model": "glm-4.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 65535,
+  "context_window": 200000,
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

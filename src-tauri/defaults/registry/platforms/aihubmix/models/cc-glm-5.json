@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "cc-glm-5",
+  "canonical_model": "glm-5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 203000,
+  "max_output_tokens": 131072,
+  "context_window": 203000,
+  "official": true,
+  "price": {
+    "input": 1e-06,
+    "output": 3.2e-06,
+    "cache_read": 2e-07
+  }
+}

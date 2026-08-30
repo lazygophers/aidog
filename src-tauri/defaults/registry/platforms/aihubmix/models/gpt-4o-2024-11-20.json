@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gpt-4o-2024-11-20",
+  "canonical_model": "gpt-4o-2024-11-20",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
+  "context_window": 128000,
+  "official": false,
+  "price": {
+    "input": 2.5e-06,
+    "output": 1e-05,
+    "cache_read": 1.25e-06
+  }
+}

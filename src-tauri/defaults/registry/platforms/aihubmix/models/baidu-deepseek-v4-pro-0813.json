@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "baidu-deepseek-v4-pro-0813",
+  "canonical_model": "deepseek-v4-pro-0813",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 6.25e-07,
+    "cache_read": 2.08333e-08,
+    "output": 1.875e-06
+  }
+}

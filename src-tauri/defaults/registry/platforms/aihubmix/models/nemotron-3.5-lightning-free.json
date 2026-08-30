@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "nemotron-3.5-lightning-free",
+  "canonical_model": "nemotron-3.5-lightning-free",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 0.0
+  }
+}

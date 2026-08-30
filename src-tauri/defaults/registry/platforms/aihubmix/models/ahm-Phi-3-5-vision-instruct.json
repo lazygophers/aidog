@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "ahm-Phi-3-5-vision-instruct",
+  "canonical_model": "ahm-Phi-3-5-vision-instruct",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

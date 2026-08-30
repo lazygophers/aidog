@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "claude-3-7-sonnet",
+  "canonical_model": "claude-3-7-sonnet",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

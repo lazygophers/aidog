@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "coding-kimi-k3-free",
+  "canonical_model": "kimi-k3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

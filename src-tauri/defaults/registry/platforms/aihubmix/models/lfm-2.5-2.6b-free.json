@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "lfm-2.5-2.6b-free",
+  "canonical_model": "lfm-2.5-2.6b-free",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

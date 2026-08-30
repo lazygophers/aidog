@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "grok-4.6",
+  "canonical_model": "grok-4.6",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 2000000,
+  "max_output_tokens": 66000,
+  "context_window": 500000,
+  "official": false,
+  "price": {
+    "input": 1.7e-06,
+    "output": 5.1e-06,
+    "cache_read": 2.72e-07
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "qwen-mt-turbo",
+  "canonical_model": "qwen-mt-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16000,
+  "max_output_tokens": 16000,
+  "context_window": 16000,
+  "official": false,
+  "price": {
+    "input": 9.72222e-08,
+    "output": 2.70833e-07,
+    "cache_read": 0
+  }
+}

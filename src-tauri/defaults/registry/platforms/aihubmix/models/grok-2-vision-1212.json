@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "grok-2-vision-1212",
+  "canonical_model": "grok-2-vision-1212",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

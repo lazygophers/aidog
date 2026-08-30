@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "hy3-free",
+  "canonical_model": "hy3-free",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 0.0
+  }
+}

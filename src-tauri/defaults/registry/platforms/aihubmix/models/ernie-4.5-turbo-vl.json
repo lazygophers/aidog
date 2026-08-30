@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "ernie-4.5-turbo-vl",
+  "canonical_model": "ernie-4.5-turbo-vl",
+  "family": "ernie",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 125952,
+  "max_output_tokens": 16384,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 4.16666667e-07,
+    "output": 1.25e-06,
+    "cache_read": 1.04166667e-07
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "grok-4.20-multi-agent-beta-0309",
+  "canonical_model": "grok-4.20-multi-agent-beta-0309",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}

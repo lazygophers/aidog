@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "gemini-2.5-pro-preview-03-25",
+  "canonical_model": "gemini-2.5-pro-preview",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 1.25e-06,
+    "output": 1e-05,
+    "cache_read": 1.25e-07,
+    "cache_write": 3.75e-07
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "last_updated": 1788085930,
+  "model_id": "mistral-large-3",
+  "canonical_model": "mistral-large-3",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.0
+  }
+}
