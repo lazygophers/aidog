@@ -1,11 +1,14 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1788072476,
   "model_id": "youtu-vita",
   "canonical_model": "youtu-vita",
   "capabilities": [
     "text",
     "vision"
   ],
+  "max_input_tokens": 102400,
+  "max_output_tokens": 15360,
+  "context_window": 131072,
   "official": true,
   "price": {
     "input": 1.62e-07,

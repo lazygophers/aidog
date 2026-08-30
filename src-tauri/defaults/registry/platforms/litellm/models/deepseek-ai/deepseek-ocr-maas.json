@@ -1,11 +1,12 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1788072476,
   "model_id": "deepseek-ai/deepseek-ocr-maas",
   "canonical_model": "deepseek-ai/deepseek-ocr-maas",
   "capabilities": [
     "text",
     "vision"
   ],
+  "context_window": 8192,
   "official": false,
   "price": {
     "input": 3e-07,

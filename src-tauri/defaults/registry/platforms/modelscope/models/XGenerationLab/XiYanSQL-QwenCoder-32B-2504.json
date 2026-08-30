@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1788072476,
   "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
   "canonical_model": "xiyansql-qwencoder-32b-2504",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
   "official": true,
   "price": {
     "input": 0.0,
