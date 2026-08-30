@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788098169,
   "model_id": "tencent/hy4-preview",
   "canonical_model": "hy4-preview",
   "capabilities": [
@@ -8,8 +8,9 @@
   "official": false,
   "family": "hunyuan",
   "price": {
-    "input": 0.0,
-    "output": 0.0
+    "input": 8.33333e-07,
+    "output": 2.5e-06,
+    "cache_read": 4.16667e-08
   },
   "context_window": 1024000,
   "max_output_tokens": 64000

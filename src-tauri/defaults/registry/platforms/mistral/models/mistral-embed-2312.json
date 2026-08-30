@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788098169,
   "model_id": "mistral-embed-2312",
   "canonical_model": "mistral-embed-2312",
   "capabilities": [
@@ -8,6 +8,6 @@
   "official": true,
   "family": "mistral",
   "price": {
-    "input": 0.0
+    "input": 1e-7
   }
 }

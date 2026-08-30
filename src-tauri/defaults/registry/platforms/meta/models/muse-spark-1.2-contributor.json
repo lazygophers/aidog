@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788096132,
+  "last_updated": 1788098169,
   "model_id": "muse-spark-1.2-contributor",
   "canonical_model": "muse-spark-1.2",
   "display_name": "Muse Spark 1.2 Contributor",
@@ -18,7 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0,
-    "output": 0
+    "input": 1e-7,
+    "output": 2e-7,
+    "cache_read": 2e-9
   }
 }

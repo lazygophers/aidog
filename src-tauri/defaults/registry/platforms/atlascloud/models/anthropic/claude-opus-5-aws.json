@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788098169,
   "model_id": "anthropic/claude-opus-5-aws",
   "canonical_model": "claude-opus-5",
   "capabilities": [
@@ -11,7 +11,8 @@
   "max_input_tokens": 1000000,
   "max_output_tokens": 128000,
   "price": {
-    "input": 0.0,
-    "output": 0.0
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07
   }
 }
