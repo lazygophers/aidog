@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788088405,
+  "last_updated": 1788094705,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2555,11 +2555,7 @@
       "name": "SenseNova (SenseTime)",
       "platform_file": "platforms/sensenova/platform.json",
       "models_dir": "platforms/sensenova/models",
-      "models": [
-        "deepseek-v4-flash.json",
-        "sensenova-6.7-flash-lite.json",
-        "sensenova-u1-fast.json"
-      ]
+      "models": []
     },
     {
       "code": "sensenova_en",
@@ -3392,7 +3388,6 @@
       "code": "meta",
       "models_dir": "platforms/meta/models",
       "models": [
-        "llama-3-8b-instruct.json",
         "llama-3.1-405b-instruct.json",
         "llama-3.1-70b-instruct.json",
         "llama-3.1-8b-instruct.json",
