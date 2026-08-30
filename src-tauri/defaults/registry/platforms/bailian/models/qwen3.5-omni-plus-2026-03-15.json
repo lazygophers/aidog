@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "qwen3.5-omni-plus-2026-03-15",
+  "canonical_model": "qwen3.5-omni-plus-2026-03-15",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.00000555556,
+    "output": 0.0000295833
+  }
+}

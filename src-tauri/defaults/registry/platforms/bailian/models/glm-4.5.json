@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "glm-4.5",
+  "canonical_model": "glm-4.5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 98304,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 4.16667e-7,
+    "output": 0.00000194444
+  }
+}

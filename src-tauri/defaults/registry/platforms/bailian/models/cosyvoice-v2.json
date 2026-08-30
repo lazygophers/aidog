@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "cosyvoice-v2",
+  "canonical_model": "cosyvoice-v2",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0277778
+  }
+}

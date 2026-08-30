@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "wan2.5-i2i-preview",
+  "canonical_model": "wan2.5-i2i-preview",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.0277778
+  }
+}

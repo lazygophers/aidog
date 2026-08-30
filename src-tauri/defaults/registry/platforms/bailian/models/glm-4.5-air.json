@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32000,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 1.11111e-7,
+    "output": 8.33333e-7
+  }
+}

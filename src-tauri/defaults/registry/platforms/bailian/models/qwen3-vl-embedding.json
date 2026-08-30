@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "qwen3-vl-embedding",
+  "canonical_model": "qwen3-vl-embedding",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": true,
+  "price": {
+    "input": 9.72222e-8,
+    "output": 2.5e-7
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788110545,
+  "model_id": "qwen3-tts-vd-2026-01-26",
+  "canonical_model": "qwen3-tts-vd-2026-01-26",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0111111
+  }
+}
