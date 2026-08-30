@@ -33,7 +33,7 @@ async fn spawn_registry(files: BTreeMap<String, String>) -> String {
 
 fn index_with(last_updated: u64) -> String {
     format!(
-        r#"{{"version": "1", "last_updated": {last_updated},
+        r#"{{"last_updated": {last_updated},
   "platforms": [
     {{"code": "alpha", "platform_file": "platforms/alpha/platform.json", "models_dir": "platforms/alpha/models", "models": ["a-1.json"]}},
     {{"code": "beta", "platform_file": "platforms/beta/platform.json", "models_dir": "platforms/beta/models", "models": ["b-1.json"]}}

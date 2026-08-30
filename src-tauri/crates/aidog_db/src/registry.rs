@@ -6,7 +6,7 @@
 //! （macOS 文件系统大小写不敏感，如 `MiniMax-M2` / `minimax-m2`）。
 //!
 //! 本模块提供一个合并视图 [`presets`] / [`presets_json`]，等价于旧 `platform-presets.json`
-//! （`{version, last_updated, protocols}`），供既有消费方零改动接入。
+//! （`{last_updated, protocols}`），供既有消费方零改动接入。
 //!
 //! 模型条目**不再有合并视图**：旧 `models.json` 单模型形状（跨平台条目按 `model_id` 归并回
 //! `pricing` 映射）随票 T4 把计费切到 `model_entry` 表一并废弃，本模块只出 [`bundled_model_files`]
@@ -34,7 +34,6 @@ pub fn presets_arc() -> &'static Arc<Value> {
         let index = parse("index.json", INDEX_JSON);
         Arc::new(presets_doc(
             PLATFORM_FILES.iter().map(|(code, json)| (*code, *json)),
-            index["version"].clone(),
             index["last_updated"].clone(),
         ))
     })
@@ -74,7 +73,7 @@ pub fn merge_presets_doc<'a>(
         Some(secs) => Value::from(secs),
         None => index["last_updated"].clone(),
     };
-    presets_doc(entries, index["version"].clone(), last_updated)
+    presets_doc(entries, last_updated)
 }
 
 /// 缓存命中即返 `(doc, json)`；未填充过返 None。
@@ -109,12 +108,11 @@ pub fn effective_presets() -> Arc<Value> {
     }
 }
 
-/// 用 per-platform JSON 文本组装 presets 文档（`{version, last_updated, protocols}`）。
+/// 用 per-platform JSON 文本组装 presets 文档（`{last_updated, protocols}`）。
 /// bundled（[`presets`]）与 DB 同步后的 `platform_preset` 行共用这一处形状定义。
 /// 单份文本解析失败 → 该协议整体跳过（DB 里的脏行不该炸掉整个文档）。
 pub fn presets_doc<'a>(
     entries: impl IntoIterator<Item = (&'a str, &'a str)>,
-    version: Value,
     last_updated: Value,
 ) -> Value {
     let protocols: Map<String, Value> = entries
@@ -127,7 +125,7 @@ pub fn presets_doc<'a>(
             }
         })
         .collect();
-    serde_json::json!({ "version": version, "last_updated": last_updated, "protocols": protocols })
+    serde_json::json!({ "last_updated": last_updated, "protocols": protocols })
 }
 
 /// [`presets`] 的序列化文本，供命令层直接回传前端。

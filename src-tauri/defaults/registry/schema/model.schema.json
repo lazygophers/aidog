@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "last_updated",
     "model_id",
     "canonical_model",
     "capabilities",
@@ -13,6 +14,11 @@
     "input_cost_per_token"
   ],
   "properties": {
+    "last_updated": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "【必填】内容变更时间 Unix 秒。改完内容必须跑 scripts/bump-registry-last-updated.mjs 重新盖戳，不盖则远程同步按内容比对永远跳过该文件。"
+    },
     "model_id": {
       "type": "string",
       "minLength": 1,

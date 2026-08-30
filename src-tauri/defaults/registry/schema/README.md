@@ -44,6 +44,7 @@ registry/
 
 | 字段 | 消费方 |
 |---|---|
+| `last_updated` | 内容变更时间 Unix 秒（每文件必填）。远程同步内容比较的审计元数据；改内容必跑 `scripts/bump-registry-last-updated.mjs` 盖戳并推高 index.json 全局值 |
 | `client_type` | 前端协议选择器 / Rust preset 解析 |
 | `endpoints.default[]`（protocol / base_url / client_type?） | `src/domains/platforms/defaults.ts`（getDefaultEndpoints，缺省 client_type 按 protocol 派生 clientTypeForProtocol）、Rust `registry.rs::endpoints_in`（同派生 derive_client_type）；URL = base_url + provider_api_path，禁额外拼接 |
 | `models.default` / `models.peak` | `defaults.ts::pickModelsBranch`（两分支）、`gateway/router/candidates.rs::resolve_effective_models`（peak 三层级联） |
@@ -62,6 +63,7 @@ registry/
 
 | 字段 | 消费方 |
 |---|---|
+| `last_updated` | 内容变更时间 Unix 秒（每文件必填）。改内容必跑 `scripts/bump-registry-last-updated.mjs` 盖戳并推高 index.json 全局值 |
 | `model_id` | 平台真实请求名；DB 主键一半（platform_code + model_id，ADR 0005）；须与文件名一致 |
 | `canonical_model` | 跨平台聚合键（`model_entry.rs` 缺省回落 model_id） |
 | `display_name` | 展示名，读取层回落 model_id（票 T10，`model_entry.rs::with_display_name`） |

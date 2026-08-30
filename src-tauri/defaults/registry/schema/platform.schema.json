@@ -6,6 +6,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
+    "last_updated",
     "endpoints",
     "models",
     "model_list",
@@ -17,6 +18,11 @@
     "color"
   ],
   "properties": {
+    "last_updated": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "【必填】内容变更时间 Unix 秒。改完内容必须跑 scripts/bump-registry-last-updated.mjs 重新盖戳，不盖则远程同步按内容比对永远跳过该文件。"
+    },
     "is_coding_plan": {
       "type": "boolean",
       "description": "【可选】编码套餐（coding plan）协议标记：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。router/ordering.rs 优先普通平台；前端 ProtocolOption.codingPlan / PlatformCard 徽标据此派生。coding 套餐一律是独立协议条目（禁与普通版同 code 双 preset）。"
