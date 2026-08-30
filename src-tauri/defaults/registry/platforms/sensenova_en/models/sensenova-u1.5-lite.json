@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788095447,
+  "model_id": "sensenova-u1.5-lite",
+  "canonical_model": "sensenova-u1.5-lite",
+  "display_name": "SenseNova U1.5 Lite",
+  "family": "sensenova",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

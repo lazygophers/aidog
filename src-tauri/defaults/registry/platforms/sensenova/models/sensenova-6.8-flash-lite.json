@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788095210,
+  "model_id": "sensenova-6.8-flash-lite",
+  "canonical_model": "sensenova-6.8-flash-lite",
+  "display_name": "SenseNova 6.8 Flash Lite",
+  "family": "sensenova",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}
