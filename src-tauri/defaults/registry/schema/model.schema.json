@@ -179,14 +179,21 @@
     "price": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "input"
-      ],
       "properties": {
+        "unit": {
+          "type": "string",
+          "enum": ["token", "image", "second", "request"],
+          "description": "【可选】计价单位。缺省=token（$/token，chat 计费）。image=按张、second=按秒（视频）、request=按次（搜索/工具）——此时价格用 unit_price 表达，chat 计费链不消费（resolve_price 无 token 价自动走 fallback）。"
+        },
+        "unit_price": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【可选】单价（$/unit：张/秒/次；unit 非 token 时由 if/then 强制必填）。input/output 不适用。"
+        },
         "input": {
           "type": "number",
           "minimum": 0,
-          "description": "【必填】输入单价（$/token；非流式基础价）。"
+          "description": "【可选】输入单价（$/token；token 计价条目由 if/else 强制必填）。"
         },
         "output": {
           "type": "number",
@@ -293,6 +300,37 @@
         "required": [
           "context_window"
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "price": {
+            "properties": {
+              "unit": {
+                "enum": ["image", "second", "request"]
+              }
+            },
+            "required": ["unit"]
+          }
+        },
+        "required": ["price"]
+      },
+      "then": {
+        "required": ["price"],
+        "properties": {
+          "price": {
+            "required": ["unit_price"]
+          }
+        }
+      },
+      "else": {
+        "required": ["price"],
+        "properties": {
+          "price": {
+            "required": ["input"]
+          }
+        }
       }
     }
   ]

@@ -73,7 +73,7 @@ registry/
 | `builtin_tools_excluded` | DB 列；内置工具过滤 |
 | `max_input_tokens` / `max_output_tokens` / `context_window` | 估算 / 请求裁剪（`gateway/estimate`、`price_resolve.rs::model_max_output_tokens`）、模型信息页。必填强度（schema if/then，2026-08-30 拍板）：capabilities 含 text → `context_window` 必填；max_input/max_output 可选（大量厂商不公布 output 上限，缺省=未知不裁剪） |
 | `official` | 模型维度列表默认展示官方条目（不变量：每 model_id 至少一条 official=true） |
-| `price` | 计价结构子树（2026-08-30 收归）：`input`（必填）/ `output` / `cache_read` / `cache_write`（$/token）+ `peak`（高峰**绝对价**：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，禁双重计价，`price_resolve.rs`）+ `context_tiers[]`（按上下文长度分档）+ `time_tiers[]`（按生效时间切换价目，start_at latest wins；档内可嵌 `context_tiers`，时间 × 上下文二维）。全数值字段，禁字符串表达式。旧顶层平铺价与 `default_price` 死字段已删；DB 未重同步的旧行由读取层归一化（`price_resolve::legacy_price_into` / `model_entry::ui_entry`） |
+| `price` | 计价结构子树（2026-08-30 收归）：`input`（token 计价条目必填，if/else 强制）/ `output` / `cache_read` / `cache_write`（$/token）+ `peak`（高峰**绝对价**：命中平台 peak 窗口且条目带 peak → 用绝对价，平台倍率压成 1.0，禁双重计价，`price_resolve.rs`）+ `context_tiers[]`（按上下文长度分档）+ `time_tiers[]`（按生效时间切换价目，start_at latest wins；档内可嵌 `context_tiers`，时间 × 上下文二维）。**非 chat 模态计价**（2026-08-30 拍板扩展）：`unit: image/second/request` + `unit_price`（$/张、$/秒、$/次，if/then 强制必填），token 单价字段不适用；chat 计费链不消费这类条目（`resolve_price` 无 token 价自动走 fallback）。全数值字段，禁字符串表达式。旧顶层平铺价与 `default_price` 死字段已删；DB 未重同步的旧行由读取层归一化（`price_resolve::legacy_price_into` / `model_entry::ui_entry`） |
 
 ## 加新字段流程
 
