@@ -7,8 +7,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { quotaApi, type Platform, type PlatformQuota } from "../../services/api";
-import { hasCustomQuotaScript } from "../../services/api";
-import { QUOTA_CONCURRENCY, quotaScriptIndexSync } from "../../domains/platforms";
+import { QUOTA_CONCURRENCY, platformHasQuotaScript } from "../../domains/platforms";
 
 /** 从 endpoints 推导主 base_url（匹配主协议，否则取第一个）。配额查询 / 主 URL 推导共用。 */
 function getPrimaryBaseUrl(proto: Platform["platform_type"], eps: Platform["endpoints"] | undefined): string {
@@ -63,16 +62,11 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
 
   const platformWantsQuota = useCallback((p: Platform): boolean => {
     if (!p.api_key) return false;
-    // 能力入口按 quota_scripts 派生（quota-scripts T6，替代 mock/claude_code/devin 硬编码）：
-    //   registry 有变体（选中脚本 returns 决定可查什么）或平台带自定义脚本 → 可查。
-    //   索引未就绪（registry 文档未回）回落旧启发式 —— 18 个脚本协议旧判定同为真，迁移期等价。
-    //   注意：不做 requires 满足度门控 —— newapi 的 balance_* 仅 unlimited 路径必需，
-    //   门控会回归 limited token 用户；requires 缺失时脚本本地报错（无出站），无害。
-    const idx = quotaScriptIndexSync(p.platform_type);
-    const hasScript = idx.loaded
-      ? idx.variants.length > 0 || hasCustomQuotaScript(p.extra ?? "")
-      : p.platform_type !== "mock" && p.platform_type !== "claude_code";
-    if (!hasScript) return false;
+    // 能力入口单点 = platformHasQuotaScript（registry 变体或自定义脚本；索引未就绪回落
+    //   旧启发式，见 defaults.ts）。注意：不做 requires 满足度门控 —— newapi 的 balance_*
+    //   仅 unlimited 路径必需，门控会回归 limited token 用户；requires 缺失时脚本本地
+    //   报错（无出站），无害。
+    if (!platformHasQuotaScript(p)) return false;
     return !!(getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url);
   }, []);
 
