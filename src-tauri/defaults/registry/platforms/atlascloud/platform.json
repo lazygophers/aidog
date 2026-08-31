@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788154191,
   "endpoints": {
     "default": [
       {
@@ -158,7 +158,7 @@
       "zai-org/glm-5.3",
       "anthropic/claude-opus-5-aws",
       "anthropic/claude-sonnet-5-aws",
-      "qwen/Qwen3-235B-A22B-Instruct-2507"
+      "Qwen/Qwen3-235B-A22B-Instruct-2507"
     ]
   },
   "name": {

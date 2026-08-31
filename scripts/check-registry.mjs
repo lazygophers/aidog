@@ -41,15 +41,25 @@ function validate(kind, rel, raw) {
   }
 }
 
-function walkModels(dir, baseRel, rel, out) {
+// out = 相对路径（index.json 登记用），ids = 文件内 model_id（platform.json 引用用）。
+// 两者通常相同；macOS 文件系统不分大小写，装不下只差大小写的两个 id（如 atlascloud
+// `Qwen/...` 与 `qwen/...`），这种条目路径退化成小写、真值仍是文件内的 model_id。
+function walkModels(dir, baseRel, rel, out, ids) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) {
-      walkModels(p, baseRel, rel === "" ? name : `${rel}/${name}`, out);
+      walkModels(p, baseRel, rel === "" ? name : `${rel}/${name}`, out, ids);
     } else if (name.endsWith(".json")) {
-      validate("model", `${baseRel}/${rel === "" ? name : `${rel}/${name}`}`, readFileSync(p, "utf8"));
-      // 相对 models/ 的路径（含 vendor 子目录）去掉 .json = model id
+      const raw = readFileSync(p, "utf8");
+      validate("model", `${baseRel}/${rel === "" ? name : `${rel}/${name}`}`, raw);
       out.push(rel === "" ? name.replace(/\.json$/, "") : `${rel}/${name.replace(/\.json$/, "")}`);
+      if (ids) {
+        try {
+          ids.push(JSON.parse(raw).model_id);
+        } catch {
+          /* schema 校验已经报过错，这里不重复 */
+        }
+      }
     }
   }
 }
@@ -95,10 +105,12 @@ for (const entry of indexDoc.platforms) {
   const code = entry.code;
   const modelsDir = join(registryDir, "platforms", code, "models");
   const disk = [];
+  const diskIds = [];
   if (statSync(modelsDir, { throwIfNoEntry: false })?.isDirectory()) {
-    walkModels(modelsDir, `platforms/${code}/models`, "", disk);
+    walkModels(modelsDir, `platforms/${code}/models`, "", disk, diskIds);
   }
   const diskSet = new Set(disk);
+  const idSet = new Set(diskIds);
   const declared = new Set((entry.models ?? []).map((f) => f.replace(/\.json$/, "")));
 
   if (declared.size > 0 && diskSet.size === 0) {
@@ -124,7 +136,7 @@ for (const entry of indexDoc.platforms) {
   for (const branch of Object.values(platformDoc.model_list ?? {})) {
     for (const id of branch ?? []) refs.add(id);
   }
-  const missing = [...refs].filter((id) => !diskSet.has(id));
+  const missing = [...refs].filter((id) => !idSet.has(id));
   if (missing.length) {
     const msg = `引用 ${missing.length} 个 model id 无对应文件: ${missing.slice(0, 5).join(", ")}${missing.length > 5 ? " …" : ""}`;
     // 豁免平台且整个平台没有 models 目录 → warning；有目录缺文件、或非豁免平台缺目录 → 硬错
