@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788144722,
+  "model_id": "stepaudio-2.5-realtime",
+  "canonical_model": "stepaudio-2.5-realtime",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.00000138889,
+    "output": 0.00000972222,
+    "cache_read": 2.77778e-7
+  }
+}

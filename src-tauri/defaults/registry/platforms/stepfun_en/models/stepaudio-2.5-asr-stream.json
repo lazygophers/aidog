@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144722,
+  "model_id": "stepaudio-2.5-asr-stream",
+  "canonical_model": "stepaudio-2.5-asr-stream",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00005
+  }
+}

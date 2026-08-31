@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144722,
+  "model_id": "stepaudio-2.5-tts",
+  "canonical_model": "stepaudio-2.5-tts",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.085
+  }
+}

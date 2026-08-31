@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788144722,
+  "model_id": "step-audio-r1.5",
+  "canonical_model": "step-audio-r1.5",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.00000138889,
+    "output": 0.0000145833,
+    "cache_read": 2.77778e-7
+  }
+}
