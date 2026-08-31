@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "doubao-embedding-vision-250615",
+  "canonical_model": "doubao-embedding-vision-250615",
+  "capabilities": [
+    "embedding",
+    "vision"
+  ],
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 9.72222e-8
+  }
+}

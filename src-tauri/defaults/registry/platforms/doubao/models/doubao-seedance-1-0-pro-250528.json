@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "doubao-seedance-1-0-pro-250528",
+  "canonical_model": "doubao-seedance-1-0-pro-250528",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0.00000208333
+  }
+}

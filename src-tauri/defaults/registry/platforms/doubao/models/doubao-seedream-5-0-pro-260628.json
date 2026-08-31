@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "doubao-seedream-5-0-pro-260628",
+  "canonical_model": "doubao-seedream-5-0-pro-260628",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image",
+    "image_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.0416667
+  }
+}

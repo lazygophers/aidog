@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "doubao-seedance-2-0-mini-260615",
+  "canonical_model": "doubao-seedance-2-0-mini-260615",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video",
+    "video_to_video"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0.00000319444
+  }
+}
