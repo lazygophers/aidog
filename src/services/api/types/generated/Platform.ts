@@ -94,4 +94,10 @@ last_error: string,
 /**
  * 最近一次错误的毫秒 unix 时间戳（DB 列；0 = 无）。
  */
-last_error_at: number, };
+last_error_at: number, 
+/**
+ * 物化的 quota 查询脚本正文（quota-scripts spec，DB 列）：用户保存平台 / 选变体时从
+ * registry 选中变体写入（`extra.quota_custom_script` 非空则物化用户手写脚本）；
+ * 空 = 未物化，执行时回落 registry 首条变体。远程同步不动此列。
+ */
+quota_script: string, };

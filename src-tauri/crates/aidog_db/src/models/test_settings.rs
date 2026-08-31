@@ -39,6 +39,7 @@ fn platform_with_extra(extra: &str) -> Platform {
         balance_level: String::new(),
         last_error: String::new(),
         last_error_at: 0,
+        quota_script: String::new(),
     }
 }
 

@@ -229,6 +229,11 @@ pub struct Platform {
     #[serde(default)]
     #[ts(type = "number")]
     pub last_error_at: i64,
+    /// 物化的 quota 查询脚本正文（quota-scripts spec，DB 列）：用户保存平台 / 选变体时从
+    /// registry 选中变体写入（`extra.quota_custom_script` 非空则物化用户手写脚本）；
+    /// 空 = 未物化，执行时回落 registry 首条变体。远程同步不动此列。
+    #[serde(default)]
+    pub quota_script: String,
 }
 
 /// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
@@ -591,7 +596,7 @@ mod tests {
             created_at: 0, updated_at: 0, deleted_at: 0,
             est_coding_plan: "".into(), last_real_query_at: 0, estimate_count: 0,
             show_in_tray: false, tray_display: "".into(), sort_order: 0, balance_level: "".into(),
-            expires_at: 0, last_error: "".into(), last_error_at: 0,
+            expires_at: 0, last_error: "".into(), last_error_at: 0, quota_script: String::new(),
         };
         let b = p.breaker();
         assert_eq!(b.failure_threshold, 7);
