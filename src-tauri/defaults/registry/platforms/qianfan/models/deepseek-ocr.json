@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "deepseek-ocr",
+  "canonical_model": "deepseek-ocr",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 8192,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 4.16667e-8,
+    "output": 1.66667e-7
+  }
+}

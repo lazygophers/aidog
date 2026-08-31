@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "bge-large-zh",
+  "canonical_model": "bge-large-zh",
+  "capabilities": [
+    "embedding"
+  ],
+  "context_window": 512,
+  "official": true,
+  "price": {
+    "input": 6.94444e-8
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "qwen3-embedding-0.6b",
+  "canonical_model": "qwen3-embedding-0.6b",
+  "capabilities": [
+    "embedding"
+  ],
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 6.94444e-8
+  }
+}
