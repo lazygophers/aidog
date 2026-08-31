@@ -151,7 +151,6 @@ dependencies = [
  "aidog_logs",
  "axum",
  "boa_engine",
- "chrono",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
