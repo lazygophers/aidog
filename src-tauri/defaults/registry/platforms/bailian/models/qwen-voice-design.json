@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-voice-design",
+  "canonical_model": "qwen-voice-design",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.02777777777777778
+  }
+}

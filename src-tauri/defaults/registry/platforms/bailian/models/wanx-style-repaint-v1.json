@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wanx-style-repaint-v1",
+  "canonical_model": "wanx-style-repaint-v1",
+  "capabilities": [
+    "image_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.016666666666666666
+  }
+}

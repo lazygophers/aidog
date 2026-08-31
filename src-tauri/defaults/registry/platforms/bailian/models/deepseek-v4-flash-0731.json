@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "deepseek-v4-flash-0731",
+  "canonical_model": "deepseek-v4-flash-0731",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 4.166666666666666e-07,
+    "output": 1.25e-06
+  },
+  "context_window": 131072
+}

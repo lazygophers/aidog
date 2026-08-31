@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-image-edit-plus-2025-10-30",
+  "canonical_model": "qwen-image-edit-plus-2025-10-30",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

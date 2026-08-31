@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wanx2.1-t2v-turbo",
+  "canonical_model": "wanx2.1-t2v-turbo",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.03333333333333333
+  }
+}

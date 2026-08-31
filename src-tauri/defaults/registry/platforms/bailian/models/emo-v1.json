@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "emo-v1",
+  "canonical_model": "emo-v1",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.011111111111111112
+  }
+}

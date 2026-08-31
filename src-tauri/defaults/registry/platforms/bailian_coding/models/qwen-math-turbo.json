@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-math-turbo",
+  "canonical_model": "qwen-math-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_input_tokens": 3072,
+  "max_output_tokens": 3072,
+  "context_window": 4096
+}

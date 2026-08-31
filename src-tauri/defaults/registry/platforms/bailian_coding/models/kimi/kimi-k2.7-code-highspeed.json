@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184022,
+  "model_id": "kimi/kimi-k2.7-code-highspeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 262144
+}

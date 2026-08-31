@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "tongyi-xiaomi-analysis-pro",
+  "canonical_model": "tongyi-xiaomi-analysis-pro",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.388888888888889e-07,
+    "output": 3.75e-07
+  },
+  "context_window": 131072
+}

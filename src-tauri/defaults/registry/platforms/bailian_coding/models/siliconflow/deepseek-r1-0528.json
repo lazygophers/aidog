@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184022,
+  "model_id": "siliconflow/deepseek-r1-0528",
+  "canonical_model": "deepseek-r1-0528",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 131072
+}

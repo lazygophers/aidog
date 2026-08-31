@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-audio-3.0-realtime-flash",
+  "canonical_model": "qwen-audio-3.0-realtime-flash",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

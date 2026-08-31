@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "vanchin/deepseek-v3.1-terminus",
+  "canonical_model": "deepseek-v3.1-terminus",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 5.555555555555556e-07,
+    "output": 1.6666666666666665e-06
+  },
+  "context_window": 131072
+}

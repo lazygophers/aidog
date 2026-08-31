@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "stepfun/step-3.7-flash",
+  "canonical_model": "step-3.7-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.875e-07,
+    "output": 1.125e-06
+  },
+  "context_window": 131072
+}

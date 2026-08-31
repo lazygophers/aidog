@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wan2.2-s2v",
+  "canonical_model": "wan2.2-s2v",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.125
+  }
+}

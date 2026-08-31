@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen3.5-omni-plus",
+  "canonical_model": "qwen3.5-omni-plus",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_input_tokens": 256000,
+  "max_output_tokens": 64000,
+  "context_window": 256000
+}

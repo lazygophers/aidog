@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "tongyi-embedding-vision-plus",
+  "canonical_model": "tongyi-embedding-vision-plus",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

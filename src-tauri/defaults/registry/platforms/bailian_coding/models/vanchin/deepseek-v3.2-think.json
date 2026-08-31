@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184022,
+  "model_id": "vanchin/deepseek-v3.2-think",
+  "canonical_model": "deepseek-v3.2-think",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 131072
+}

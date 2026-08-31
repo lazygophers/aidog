@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "kimi-k3",
+  "canonical_model": "kimi-k3",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_output_tokens": 65536,
+  "context_window": 262144
+}

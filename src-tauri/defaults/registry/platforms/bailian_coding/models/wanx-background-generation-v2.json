@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wanx-background-generation-v2",
+  "canonical_model": "wanx-background-generation-v2",
+  "capabilities": [
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

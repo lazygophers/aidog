@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "glm-4.6",
+  "canonical_model": "glm-4.6",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 169984
+}

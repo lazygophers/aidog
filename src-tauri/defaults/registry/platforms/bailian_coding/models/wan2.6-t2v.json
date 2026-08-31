@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wan2.6-t2v",
+  "canonical_model": "wan2.6-t2v",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

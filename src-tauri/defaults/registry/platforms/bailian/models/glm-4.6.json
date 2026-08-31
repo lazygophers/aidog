@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "glm-4.6",
+  "canonical_model": "glm-4.6",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 4.166666666666666e-07,
+    "output": 1.9444444444444444e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 5.555555555555556e-07,
+        "output": 2.2222222222222225e-06
+      }
+    ]
+  },
+  "context_window": 169984
+}

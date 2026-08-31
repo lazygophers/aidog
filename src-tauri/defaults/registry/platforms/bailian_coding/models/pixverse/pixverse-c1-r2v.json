@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184022,
+  "model_id": "pixverse/pixverse-c1-r2v",
+  "canonical_model": "pixverse-c1-r2v",
+  "capabilities": [
+    "video_to_video"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

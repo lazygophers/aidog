@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-mt-image-2.0",
+  "canonical_model": "qwen-mt-image-2.0",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "display_name": "Qwen-MT-Image-2.0"
+}

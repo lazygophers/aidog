@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen3-coder",
+  "canonical_model": "qwen3-coder",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576
+}

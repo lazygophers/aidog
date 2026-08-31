@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-deep-research-2025-12-15",
+  "canonical_model": "qwen-deep-research-2025-12-15",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 1000000
+}

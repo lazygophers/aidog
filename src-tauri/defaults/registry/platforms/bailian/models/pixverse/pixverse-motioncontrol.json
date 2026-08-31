@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "pixverse/pixverse-motioncontrol",
+  "canonical_model": "pixverse-motioncontrol",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.041666666666666664
+  }
+}

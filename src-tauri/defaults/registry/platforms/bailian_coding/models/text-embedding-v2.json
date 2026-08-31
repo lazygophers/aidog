@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "text-embedding-v2",
+  "canonical_model": "text-embedding-v2",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

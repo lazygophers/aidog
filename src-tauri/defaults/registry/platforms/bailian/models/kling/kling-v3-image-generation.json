@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "kling/kling-v3-image-generation",
+  "canonical_model": "kling-v3-image-generation",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.02777777777777778
+  }
+}

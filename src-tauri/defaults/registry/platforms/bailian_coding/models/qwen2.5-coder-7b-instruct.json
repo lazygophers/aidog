@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen2.5-coder-7b-instruct",
+  "canonical_model": "qwen2.5-coder-7b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_input_tokens": 131072,
+  "max_output_tokens": 8192,
+  "context_window": 131072
+}
