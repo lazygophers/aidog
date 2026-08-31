@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788196784,
+  "last_updated": 1788200874,
   "endpoints": {
     "default": [
       {
@@ -80,6 +80,7 @@
     "gjb"
   ],
   "color": "#3B5FEC",
+  "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
       "id": "default",

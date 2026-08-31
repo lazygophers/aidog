@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788196784,
+  "last_updated": 1788200874,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -70,6 +70,7 @@
   "key_prefixes": [
     "sk-kimi-"
   ],
+  "quota_url_match": ["api.kimi.com/coding"],
   "quota_scripts": [
     {
       "id": "default",

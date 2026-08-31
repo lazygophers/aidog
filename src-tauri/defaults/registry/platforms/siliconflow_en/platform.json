@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788196020,
+  "last_updated": 1788200874,
   "endpoints": {
     "default": [
       {
@@ -118,6 +118,7 @@
     "gjb"
   ],
   "color": "#6E29F6",
+  "quota_url_match": ["api.siliconflow.com"],
   "quota_scripts": [
     {
       "id": "default",

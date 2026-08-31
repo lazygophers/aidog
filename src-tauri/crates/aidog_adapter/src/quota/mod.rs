@@ -158,33 +158,14 @@ async fn query_quota_inner(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) 
     let url = base_url.to_lowercase();
     let unsupported = || err_quota(&format!("Unsupported base_url for quota query: {base_url}"));
 
-    // Coding Plan 查询 (优先检测，这些平台通常同时有 Coding Plan)
-    let code = if url.contains("api.kimi.com/coding") {
-        "kimi"
-    } else if url.contains("bigmodel.cn") || url.contains("api.z.ai") {
-        // glm 族脚本按 ctx.baseUrl 自派生 open.bigmodel.cn / api.z.ai，两分支同一正文
-        "glm"
-    } else if url.contains("api.minimaxi.com") {
-        "minimax"
-    } else if url.contains("api.minimax.io") {
-        "minimax_en"
-    } else if url.contains("api.deepseek.com") {
-        "deepseek"
-    } else if url.contains("api.stepfun.com") || url.contains("api.stepfun.ai") {
-        "stepfun"
-    } else if url.contains("api.siliconflow.cn") {
-        "siliconflow"
-    } else if url.contains("api.siliconflow.com") {
-        "siliconflow_en"
-    } else if url.contains("openrouter.ai") {
-        "openrouter"
-    } else if url.contains("api.novita.ai") {
-        "novita"
-    } else {
+    // 关键词数据驱动（platform.json 顶层 quota_url_match，禁代码硬编码）：
+    //   kimi/glm coding 查询优先检测（这些平台通常同时有 Coding Plan）由文档序保证
+    //   （api.kimi.com/coding → kimi、bigmodel.cn → glm 排在各自 coding 变体前）。
+    let Some(code) = aidog_db::registry::quota_code_for_base_url(&url) else {
         return unsupported();
     };
     // 启发式路径无平台行（extra/物化列空），零配置走 registry 首条变体
-    run_script_at(db, code, base_url, api_key, "", "", 0)
+    run_script_at(db, &code, base_url, api_key, "", "", 0)
         .await
         .unwrap_or_else(unsupported)
 }

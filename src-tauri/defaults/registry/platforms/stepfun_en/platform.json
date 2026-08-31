@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788196020,
+  "last_updated": 1788200874,
   "endpoints": {
     "default": [
       {
@@ -58,6 +58,7 @@
     "gjb"
   ],
   "color": "#16D6D2",
+  "quota_url_match": ["api.stepfun.ai"],
   "quota_scripts": [
     {
       "id": "default",

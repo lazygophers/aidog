@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788196784,
+  "last_updated": 1788200874,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -74,6 +74,7 @@
   "key_prefixes": [
     "sk-cp-"
   ],
+  "quota_url_match": ["api.minimaxi.com"],
   "quota_scripts": [
     {
       "id": "default",

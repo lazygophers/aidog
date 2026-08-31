@@ -276,6 +276,30 @@ pub fn select_quota_variant<'a>(
         .or_else(|| variants.first())
 }
 
+/// base_url 启发式分派（数据驱动）：读生效 preset 文档各协议顶层 `quota_url_match`
+/// 关键词数组，小写子串匹配（`base_url_lower` 调用方先转小写）命中的首个协议 code。
+/// 同族多协议共享关键词时取文档序首个（serde_json Map 排序 = 协议名序，base 变体
+/// 排在 coding/_en 变体前，如 bigmodel.cn → glm / api.kimi.com/coding → kimi）。
+/// 平台匹配词一律 registry 数据驱动，禁在代码硬编码。无命中 → None。
+pub fn quota_code_for_base_url(base_url_lower: &str) -> Option<String> {
+    let doc = effective_presets();
+    let protocols = doc.get("protocols")?.as_object()?;
+    for (code, entry) in protocols {
+        let hit = entry
+            .get("quota_url_match")
+            .and_then(Value::as_array)
+            .is_some_and(|kws| {
+                kws.iter()
+                    .filter_map(Value::as_str)
+                    .any(|k| base_url_lower.contains(k))
+            });
+        if hit {
+            return Some(code.clone());
+        }
+    }
+    None
+}
+
 /// 读 `platform.extra` 顶层小字符串键（`quota_script_id` / `quota_custom_script` 等未建模键，
 /// 天然落在 `PlatformExtra::rest`）。extra 非 JSON / 键非字符串 → None。
 fn extra_str_key(extra_json: &str, key: &str) -> Option<String> {

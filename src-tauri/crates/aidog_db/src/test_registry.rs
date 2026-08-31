@@ -270,6 +270,27 @@ fn quota_scripts_in_and_selection() {
     assert!(select_quota_variant(&[], None).is_none());
 }
 
+/// review-fix：base_url 启发式分派数据驱动（platform.json 顶层 `quota_url_match`）。
+/// 锁 bundled 文档的关键词 → 协议映射（同族共享关键词取文档序首个 = base 变体）。
+#[test]
+fn quota_code_for_base_url_matches_bundled_keywords() {
+    assert_eq!(quota_code_for_base_url("https://api.kimi.com/coding/v1").as_deref(), Some("kimi"));
+    assert_eq!(quota_code_for_base_url("https://open.bigmodel.cn/api/paas/v4").as_deref(), Some("glm"));
+    assert_eq!(quota_code_for_base_url("https://api.z.ai/api/paas/v4").as_deref(), Some("glm"));
+    assert_eq!(quota_code_for_base_url("https://api.minimaxi.com/v1").as_deref(), Some("minimax"));
+    assert_eq!(quota_code_for_base_url("https://api.minimax.io/v1").as_deref(), Some("minimax_en"));
+    assert_eq!(quota_code_for_base_url("https://api.deepseek.com").as_deref(), Some("deepseek"));
+    assert_eq!(quota_code_for_base_url("https://api.stepfun.com/v1").as_deref(), Some("stepfun"));
+    assert_eq!(quota_code_for_base_url("https://api.stepfun.ai/v1").as_deref(), Some("stepfun_en"));
+    assert_eq!(quota_code_for_base_url("https://api.siliconflow.cn/v1").as_deref(), Some("siliconflow"));
+    assert_eq!(quota_code_for_base_url("https://api.siliconflow.com/v1").as_deref(), Some("siliconflow_en"));
+    assert_eq!(quota_code_for_base_url("https://openrouter.ai/api/v1").as_deref(), Some("openrouter"));
+    assert_eq!(quota_code_for_base_url("https://api.novita.ai/v1").as_deref(), Some("novita"));
+    // 无命中 / newapi（自部署中转，无专属域名关键词）→ None
+    assert_eq!(quota_code_for_base_url("https://unknown.example.com/v1"), None);
+    assert_eq!(quota_code_for_base_url("https://my-newapi.example.com/v1"), None);
+}
+
 #[test]
 fn resolve_quota_script_fallback_chain() {
     let first = quota_scripts_in(presets(), "deepseek")[0].script.clone();
