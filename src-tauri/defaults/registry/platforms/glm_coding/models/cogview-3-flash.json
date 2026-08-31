@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788181367,
+  "model_id": "cogview-3-flash",
+  "canonical_model": "cogview-3-flash",
+  "display_name": "CogView-3-Flash",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "input": 6.944444444444444e-07,
+    "output": 3.055555555555555e-06,
+    "cache_read": 1.6666666666666665e-07
+  }
+}

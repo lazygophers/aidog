@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788181367,
+  "model_id": "cogvideox-3",
+  "canonical_model": "cogvideox-3",
+  "display_name": "CogVideoX-3",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "input": 6.944444444444444e-07,
+    "output": 3.055555555555555e-06,
+    "cache_read": 1.6666666666666665e-07
+  }
+}

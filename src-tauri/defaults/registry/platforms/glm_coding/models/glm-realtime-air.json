@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788181367,
+  "model_id": "glm-realtime-air",
+  "canonical_model": "glm-realtime-air",
+  "display_name": "GLM-Realtime-Air",
+  "capabilities": [
+    "text",
+    "audio",
+    "video"
+  ],
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "input": 6.944444444444444e-07,
+    "output": 3.055555555555555e-06,
+    "cache_read": 1.6666666666666665e-07
+  }
+}
