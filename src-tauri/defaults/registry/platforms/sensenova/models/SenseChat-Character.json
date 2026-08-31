@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788147401,
+  "model_id": "SenseChat-Character",
+  "canonical_model": "SenseChat-Character",
+  "family": "sensenova",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 1024,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 0.00000166667,
+    "output": 0.00000166667
+  }
+}

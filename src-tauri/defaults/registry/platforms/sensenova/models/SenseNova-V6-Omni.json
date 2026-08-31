@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788147401,
+  "model_id": "SenseNova-V6-Omni",
+  "canonical_model": "SenseNova-V6-Omni",
+  "family": "sensenova",
+  "capabilities": [
+    "audio",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.000462963
+  }
+}

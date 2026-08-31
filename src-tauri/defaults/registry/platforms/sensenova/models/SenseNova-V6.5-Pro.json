@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788147401,
+  "model_id": "SenseNova-V6.5-Pro",
+  "canonical_model": "SenseNova-V6.5-Pro",
+  "family": "sensenova",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 4.16667e-7,
+    "output": 0.00000125
+  }
+}

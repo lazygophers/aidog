@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788147401,
+  "model_id": "nova-tts-1",
+  "canonical_model": "nova-tts-1",
+  "family": "sensenova",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0
+  }
+}

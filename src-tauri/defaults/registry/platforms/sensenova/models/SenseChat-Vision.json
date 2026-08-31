@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788147401,
+  "model_id": "SenseChat-Vision",
+  "canonical_model": "SenseChat-Vision",
+  "family": "sensenova",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 16384,
+  "max_output_tokens": 16384,
+  "context_window": 16384,
+  "official": true,
+  "price": {
+    "input": 0.00000138889,
+    "output": 0.00000833333
+  }
+}
