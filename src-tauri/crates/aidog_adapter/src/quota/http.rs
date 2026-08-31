@@ -127,7 +127,7 @@ pub fn set_client_builder(f: QuotaClientBuilder) {
     let _ = CLIENT_BUILDER.set(f);
 }
 
-async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
+pub(super) async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
     match (db, CLIENT_BUILDER.get()) {
         (Some(db), Some(f)) => f(db).await,
         _ => reqwest::Client::builder()
@@ -184,7 +184,55 @@ pub async fn quota_get_json(
     serde_json::from_str(&text).map_err(|e| format!("Parse: {e}"))
 }
 
+/// JS 自定义查询脚本出站单点（get/post 统一）: 走注入的系统代理 client（由 script.rs
+/// eval 前 build 好传入），错误/成功均落 proxy_log（group_key="[quota:script]"，
+/// 与 quota_get_json 单点同模式）。错误文案维持 script 既有格式（裸 reqwest 错误 /
+/// `HTTP {status}: {body}` / `JSON parse: {e}`，脚本侧 try/catch 依赖）。
+pub(super) async fn quota_script_request(
+    db: Option<&Arc<Db>>,
+    client: reqwest::Client,
+    method: reqwest::Method,
+    url: &str,
+    body: Option<String>,
+    headers: Vec<(String, String)>,
+) -> Result<serde_json::Value, String> {
+    tracing::info!(method = %method, url = %url, "quota script outbound request");
+    let mut req = client.request(method, url);
+    for (k, v) in &headers {
+        req = req.header(k, v);
+    }
+    if let Some(b) = body {
+        req = req.body(b);
+    }
+    let resp = match req.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = e.to_string();
+            persist_quota_log(db, make_quota_log_for_script(url, 0, &msg)).await;
+            return Err(msg);
+        }
+    };
+    let status = resp.status().as_u16();
+    let text = match resp.text().await {
+        Ok(t) => t,
+        Err(e) => {
+            let msg = e.to_string();
+            persist_quota_log(db, make_quota_log_for_script(url, status, &msg)).await;
+            return Err(msg);
+        }
+    };
+    if !(200..300).contains(&status) {
+        let msg = format!("HTTP {status}: {}", text.chars().take(500).collect::<String>());
+        persist_quota_log(db, make_quota_log_for_script(url, status, &msg)).await;
+        return Err(msg);
+    }
+    // 成功响应落库 (保留 body 原文); parse 失败也落库 (body 已在, 便于排查)
+    persist_quota_log(db, make_quota_log_for_script(url, status, &text)).await;
+    serde_json::from_str(&text).map_err(|e| format!("JSON parse: {e}"))
+}
+
 /// JS 自定义查询脚本出站请求日志（与 make_quota_log 同型，duration/created 简化）。
+/// quota_script_request 单点调用（成功/失败均落）。
 pub fn make_quota_log_for_script(url: &str, upstream_status: u16, body: &str) -> aidog_db::models::ProxyLog {
     let created_at = now_millis();
     let mut log = make_quota_log("", url, upstream_status as i32, body, 0, created_at);

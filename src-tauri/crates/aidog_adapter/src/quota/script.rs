@@ -3,6 +3,8 @@
 //! 脚本环境内置：
 //!   - `ctx`：注入的查询上下文（`ctx.baseUrl` / `ctx.apiKey` / `ctx.extra`）
 //!   - `http.get(url, headers?)` / `http.post(url, body, headers?)`：出站请求，
+//!     走系统代理感知 client（CLIENT_BUILDER 注入，缺省直连 + 超时），每次出站落
+//!     proxy_log（source_protocol="quota"，group_key="[quota:script]"），
 //!     返回解析后的 JSON 对象（非 2xx / 解析失败 throw，脚本可 try/catch）
 //!   - `JSON.parse` / `JSON.stringify`：boa 内置原生实现
 //!
@@ -16,20 +18,26 @@
 //!     { name: "five_hour", utilization: 42.0, resets_at: "2026-08-16T00:00:00Z",
 //!       limit: 100, remaining: 58 },
 //!   ]},
+//!   newapi_user_id: "42", // 可选：New API 系从 /api/user/self 取回的用户 ID，前端回填用
 //! };
 //! ```
 // ponytail: http.* 在 spawn_blocking 线程内同步执行；脚本查询频率低（手动/定时余额拉取），
-// 阻塞代价可忽略；脚本出站请求不落 proxy_log（平台侧 PlatformQuota 结果仍走上层落库），
-// 需要逐请求审计时再接 context data 通道。
+// 阻塞代价可忽略；脚本出站经 http.rs::quota_script_request 单点落 proxy_log（[quota:script]）。
+// CLIENT_BUILDER 是 async Fn，eval 在 spawn_blocking 内拿不到——出站 client 在 eval 前
+// （异步侧）build 好，连同 db 经 Context::insert_data 注入，native 闭包内取用。
 
 use boa_engine::{
     Context, JsArgs, JsNativeError, JsResult, JsValue, NativeFunction, Source,
+    gc::{Finalize, Trace, empty_trace},
     js_string,
-    object::ObjectInitializer,
+    object::{JsData, ObjectInitializer},
     property::Attribute,
 };
 
-use super::http::{err_quota, now_millis, PlatformQuota, QUOTA_PLATFORM_ID};
+use super::http::{
+    err_quota, http_client, now_millis, quota_script_request, PlatformQuota,
+    QUOTA_PLATFORM_ID,
+};
 use std::sync::Arc;
 
 use aidog_db::Db;
@@ -43,18 +51,20 @@ pub struct CustomQueryCtx {
 }
 
 /// 执行 JS 自定义查询脚本，返回固定格式 PlatformQuota。
-/// platform_id 透传落库日志（与 query_quota 同 idiom）。
+/// platform_id 透传落库日志（与 query_quota 同 idiom）；db 供脚本出站 client
+/// 构建与 proxy_log 落库（与 quota_get_json 同模式）。
 pub async fn run_custom_query(
-    _db: Option<&Arc<Db>>,
+    db: Option<&Arc<Db>>,
     ctx: CustomQueryCtx,
     script: &str,
     platform_id: i64,
 ) -> PlatformQuota {
     QUOTA_PLATFORM_ID.scope(platform_id, {
         let script = script.to_string();
+        let outbound = Outbound { client: http_client(db).await, db: db.cloned() };
         async move {
             // JS 引擎 Context 非 Send，spawn_blocking 线程内独占跑
-            let joined = tokio::task::spawn_blocking(move || eval_script(&ctx, &script))
+            let joined = tokio::task::spawn_blocking(move || eval_script(&ctx, &outbound, &script))
                 .await;
             match joined {
                 Ok(Ok(quota)) => quota,
@@ -66,8 +76,27 @@ pub async fn run_custom_query(
     .await
 }
 
-fn eval_script(qctx: &CustomQueryCtx, script: &str) -> Result<PlatformQuota, String> {
+/// 脚本出站通道：eval 前（异步侧）build 好的 client + 落库用 db，
+/// 经 `Context::insert_data` 注入，http.get/post native 函数内取用。
+#[derive(Clone)]
+struct Outbound {
+    client: reqwest::Client,
+    db: Option<Arc<Db>>,
+}
+impl Finalize for Outbound {}
+// SAFETY: 字段（reqwest::Client / Option<Arc<Db>>）均非 boa Gc 可追踪类型。
+unsafe impl Trace for Outbound {
+    empty_trace!();
+}
+impl JsData for Outbound {}
+
+fn eval_script(
+    qctx: &CustomQueryCtx,
+    outbound: &Outbound,
+    script: &str,
+) -> Result<PlatformQuota, String> {
     let mut ctx = Context::default();
+    ctx.insert_data(outbound.clone());
 
     // ── 注入 ctx 对象 ──
     let ctx_obj = ObjectInitializer::new(&mut ctx)
@@ -116,18 +145,25 @@ fn parse_result(json: serde_json::Value) -> PlatformQuota {
     }
     let balance = obj.get("balance").and_then(|b| serde_json::from_value(b.clone()).ok());
     let coding_plan = obj.get("coding_plan").and_then(|c| serde_json::from_value(c.clone()).ok());
+    let newapi_user_id = obj.get("newapi_user_id").and_then(|v| v.as_str()).map(str::to_string);
     PlatformQuota {
         success: true,
         error: None,
         queried_at: now_millis(),
         balance,
         coding_plan,
-        newapi_user_id: None,
+        newapi_user_id,
     }
 }
 
 // ── native: http.get / http.post ────────────────────────
-// spawn_blocking 线程内同步执行 reqwest。
+// spawn_blocking 线程内同步执行 reqwest；出站通道（client + db）从 Context data 取。
+
+fn outbound_from_ctx(ctx: &Context) -> JsResult<Outbound> {
+    ctx.get_data::<Outbound>().cloned().ok_or_else(|| {
+        JsNativeError::error().with_message("script outbound client missing").into()
+    })
+}
 
 fn js_headers_to_vec(headers: &JsValue, ctx: &mut Context) -> JsResult<Vec<(String, String)>> {
     let mut out = Vec::new();
@@ -145,6 +181,7 @@ fn js_headers_to_vec(headers: &JsValue, ctx: &mut Context) -> JsResult<Vec<(Stri
 }
 
 fn fetch_and_to_json(
+    outbound: &Outbound,
     ctx: &mut Context,
     method: reqwest::Method,
     url: String,
@@ -152,23 +189,14 @@ fn fetch_and_to_json(
     headers: Vec<(String, String)>,
 ) -> JsResult<JsValue> {
     let result: Result<serde_json::Value, String> = tokio::task::block_in_place(|| {
-        tokio::runtime::Handle::current().block_on(async {
-            let client = reqwest::Client::new();
-            let mut req = client.request(method, &url);
-            for (k, v) in &headers {
-                req = req.header(k, v);
-            }
-            if let Some(b) = &body {
-                req = req.body(b.clone());
-            }
-            let resp = req.send().await.map_err(|e| e.to_string())?;
-            let status = resp.status().as_u16();
-            let text = resp.text().await.map_err(|e| e.to_string())?;
-            if !(200..300).contains(&status) {
-                return Err(format!("HTTP {status}: {}", text.chars().take(500).collect::<String>()));
-            }
-            serde_json::from_str::<serde_json::Value>(&text).map_err(|e| format!("JSON parse: {e}"))
-        })
+        tokio::runtime::Handle::current().block_on(quota_script_request(
+            outbound.db.as_ref(),
+            outbound.client.clone(),
+            method,
+            &url,
+            body,
+            headers,
+        ))
     });
     match result {
         Ok(json) => JsValue::from_json(&json, ctx),
@@ -177,16 +205,18 @@ fn fetch_and_to_json(
 }
 
 fn http_get(_this: &JsValue, args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
+    let outbound = outbound_from_ctx(ctx)?;
     let url = args.get_or_undefined(0).to_string(ctx)?.to_std_string_escaped();
     let headers = js_headers_to_vec(args.get_or_undefined(1), ctx)?;
-    fetch_and_to_json(ctx, reqwest::Method::GET, url, None, headers)
+    fetch_and_to_json(&outbound, ctx, reqwest::Method::GET, url, None, headers)
 }
 
 fn http_post(_this: &JsValue, args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
+    let outbound = outbound_from_ctx(ctx)?;
     let url = args.get_or_undefined(0).to_string(ctx)?.to_std_string_escaped();
     let body = args.get_or_undefined(1).to_string(ctx)?.to_std_string_escaped();
     let headers = js_headers_to_vec(args.get_or_undefined(2), ctx)?;
-    fetch_and_to_json(ctx, reqwest::Method::POST, url, Some(body), headers)
+    fetch_and_to_json(&outbound, ctx, reqwest::Method::POST, url, Some(body), headers)
 }
 
 #[cfg(test)]
