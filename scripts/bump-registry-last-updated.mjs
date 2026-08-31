@@ -32,12 +32,27 @@ const listRegistryFiles = () => {
   return out.filter((p) => !relative(REG, p).startsWith("schema/"));
 };
 
+const statusEntries = execSync("git status --porcelain=v1 -z -- src-tauri/defaults/registry", { cwd: ROOT })
+  .toString("utf8")
+  .split("\0")
+  .filter(Boolean);
+const statusPaths = [];
+for (let i = 0; i < statusEntries.length; i++) {
+  const entry = statusEntries[i];
+  const status = entry.slice(0, 2);
+  const path = entry.slice(3);
+  if (status.includes("D")) continue;
+  // Rename / copy entries in porcelain -z store source path in current record and destination in next record.
+  if (status[0] === "R" || status[0] === "C") {
+    const dest = statusEntries[++i];
+    if (dest) statusPaths.push(dest);
+  } else {
+    statusPaths.push(path);
+  }
+}
 const changed = new Set(
-  execSync("git status --porcelain -- src-tauri/defaults/registry", { cwd: ROOT })
-    .toString()
-    .split("\n")
-    .filter(Boolean)
-    .map((l) => join(ROOT, l.slice(3).trim()))
+  statusPaths
+    .map((p) => join(ROOT, p))
     // schema/ 是 JSON Schema 文档不是数据，不盖戳（同一过滤与 listRegistryFiles 对齐）
     .filter((p) => !relative(REG, p).startsWith("schema/")),
 );
