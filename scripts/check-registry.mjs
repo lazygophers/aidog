@@ -129,7 +129,11 @@ for (const entry of indexDoc.platforms) {
     failures.push([`platforms/${code}`, "platform.json 缺失（index.json platforms 条目必须带 platform.json）"]);
     continue;
   }
-  const platformDoc = JSON.parse(readFileSync(platformPath, "utf8"));
+  // platform.json 现承载可执行 JS（quota_scripts.script）与 quota_scripts/quota_url_match
+  // 约束，须与 models 同级过 platform.schema.json 校验（此前只编译了 schema 从未跑过）。
+  const platformRaw = readFileSync(platformPath, "utf8");
+  validate("platform", "platforms/" + code + "/platform.json", platformRaw);
+  const platformDoc = JSON.parse(platformRaw);
   const refs = new Set();
   for (const branch of Object.values(platformDoc.models ?? {})) {
     for (const id of Object.values(branch ?? {})) refs.add(id);
