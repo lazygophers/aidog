@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "gpt-5-chat-latest",
+  "canonical_model": "gpt-5-chat-latest",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 0.00000125,
+    "output": 0.00001,
+    "cache_read": 1.25e-7
+  }
+}

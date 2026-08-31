@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "sora-2",
+  "canonical_model": "sora-2",
+  "capabilities": [
+    "text_to_video",
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.1
+  }
+}

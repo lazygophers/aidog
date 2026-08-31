@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "o4-mini-deep-research",
+  "canonical_model": "o4-mini-deep-research",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 100000,
+  "context_window": 200000,
+  "official": true,
+  "price": {
+    "input": 0.000002,
+    "output": 0.000008,
+    "cache_read": 5e-7
+  }
+}
