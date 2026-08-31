@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "qwen3-vl-rerank",
+  "canonical_model": "qwen3-vl-rerank",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": true,
+  "price": {
+    "input": 9.72222e-8
+  }
+}

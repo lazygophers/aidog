@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "fun-asr-2025-08-25",
+  "canonical_model": "fun-asr-2025-08-25",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0000305556
+  }
+}
