@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788149865,
+  "model_id": "easydoc-fin-chat",
+  "canonical_model": "easydoc-fin-chat",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "input": 0.00000138889,
+    "output": 0.0000125
+  }
+}
