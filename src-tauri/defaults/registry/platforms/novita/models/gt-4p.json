@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788149865,
+  "model_id": "gt-4p",
+  "canonical_model": "gt-4p",
+  "capabilities": [],
+  "max_output_tokens": 131072,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

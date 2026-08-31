@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788149245,
+  "last_updated": 1788149865,
   "platforms": [
     {
       "code": "aihubmix",
@@ -35,6 +35,7 @@
         "bai-qwen3-vl-235b-a22b-instruct.json",
         "baidu-deepseek-v4-pro-0813.json",
         "baidu/ERNIE-4.5-300B-A47B.json",
+        "cc-MiniMax-M2-uppercase-alias.json",
         "cc-deepseek-v3.1.json",
         "cc-ernie-4.5-300b-a47b.json",
         "cc-glm-5-turbo.json",
@@ -1269,6 +1270,7 @@
         "doubao-web-search-custom.json",
         "easydoc-emr-mask.json",
         "easydoc-extract.json",
+        "easydoc-fin-chat.json",
         "easydoc-parse-premium.json",
         "glm-5-turbo.json",
         "glm-5.1.json",
@@ -2158,6 +2160,7 @@
         "google/gemma-4-26b-a4b-it.json",
         "google/gemma-4-31b-it.json",
         "gryphe/mythomax-l2-13b.json",
+        "gt-4p.json",
         "inclusionai/ling-2.6-1t.json",
         "inclusionai/ling-2.6-flash.json",
         "inclusionai/ling-3.0-flash-fast.json",
