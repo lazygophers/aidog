@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788147245,
+  "model_id": "black-forest-labs/FLUX.1-schnell",
+  "canonical_model": "FLUX.1-schnell",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.0014
+  }
+}
