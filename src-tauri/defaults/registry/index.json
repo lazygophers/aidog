@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1788164531,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1997,6 +1997,8 @@
         "minimax-01.json",
         "minimax-m1.json",
         "minimax-m2-her.json",
+        "music-2.6.json",
+        "music-3.0.json",
         "speech-02-hd.json",
         "speech-02-turbo.json",
         "speech-2.6-hd.json",
