@@ -1,0 +1,45 @@
+{
+  "last_updated": 1788189046,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://your-litellm-instance.com/v1"
+      }
+    ]
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": []
+  },
+  "name": {
+    "en-US": "LiteLLM Gateway",
+    "zh-Hans": "LiteLLM Gateway",
+    "ar-SA": "LiteLLM Gateway",
+    "fr-FR": "LiteLLM Gateway",
+    "de-DE": "LiteLLM Gateway",
+    "ru-RU": "LiteLLM Gateway",
+    "ja-JP": "LiteLLM Gateway",
+    "es-ES": "LiteLLM Gateway"
+  },
+  "source_urls": {
+    "docs": "https://docs.litellm.ai/",
+    "pricing": "https://docs.litellm.ai/"
+  },
+  "homepage": "https://www.litellm.ai",
+  "logo_url": "",
+  "keywords": [
+    "litellm",
+    "ltm",
+    "gateway",
+    "wangguan",
+    "wg",
+    "网关",
+    "代理",
+    "daili",
+    "dl"
+  ],
+  "color": "#000000"
+}

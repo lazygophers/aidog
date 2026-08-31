@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788184710,
+  "last_updated": 1788189046,
   "endpoints": {
     "default": [
       {
@@ -48,7 +48,7 @@
     "pricing": "https://docs.x.ai/docs/models"
   },
   "homepage": "https://x.ai",
-  "logo_url": "xai",
+  "logo_url": "",
   "keywords": [
     "xai",
     "grok",

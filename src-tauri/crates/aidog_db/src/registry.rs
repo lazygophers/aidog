@@ -192,8 +192,8 @@ pub fn derive_client_type(endpoint_protocol: &str) -> String {
 
 /// `index.json` 的一条同步清单：远程同步照着它逐文件拉取。
 ///
-/// `platform_file` 为 `None` 即 `pricing_only`（litellm / meta / mistral 这类只提供比价条目、
-/// 不是可选协议的来源），只拉 models 不拉 platform.json。
+/// `platform_file` 为 `None` 即 `pricing_only`（纯协议豁免，只拉 models 不拉 platform.json）。
+/// 2026-08-31 起该清单为空：非纯协议平台一律登记进 platforms 并带 platform.json。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct IndexEntry {
     pub code: String,
