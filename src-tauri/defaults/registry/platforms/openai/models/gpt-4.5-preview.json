@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "gpt-4.5-preview",
+  "canonical_model": "gpt-4.5-preview",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 0.000075,
+    "output": 0.00015,
+    "cache_read": 0.0000375
+  }
+}

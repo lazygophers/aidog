@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "computer-use-preview",
+  "canonical_model": "computer-use-preview",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 8192,
+  "max_output_tokens": 1024,
+  "context_window": 8192,
+  "official": true,
+  "price": {
+    "input": 0.000003,
+    "output": 0.000012
+  }
+}

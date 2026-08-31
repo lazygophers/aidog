@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "o1-preview",
+  "canonical_model": "o1-preview",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 32768,
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 0.000015,
+    "output": 0.00006,
+    "cache_read": 0.0000075
+  }
+}

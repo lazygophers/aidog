@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "gpt-4o-mini-realtime-preview",
+  "canonical_model": "gpt-4o-mini-realtime-preview",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "input": 6e-7,
+    "output": 0.0000024,
+    "cache_read": 3e-7
+  }
+}

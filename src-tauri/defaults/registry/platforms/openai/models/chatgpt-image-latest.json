@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "chatgpt-image-latest",
+  "canonical_model": "chatgpt-image-latest",
+  "capabilities": [
+    "text_to_image",
+    "image_edit",
+    "image_to_image"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.000005,
+    "output": 0.00001,
+    "cache_read": 0.00000125
+  }
+}

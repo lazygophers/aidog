@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788148784,
+  "model_id": "chatgpt-4o-latest",
+  "canonical_model": "chatgpt-4o-latest",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000015
+  }
+}
