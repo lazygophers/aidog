@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "zai-org/GLM-4.5V",
+  "canonical_model": "GLM-4.5V",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 32000,
+  "context_window": 65536,
+  "official": true,
+  "price": {
+    "input": 1.38889e-7,
+    "output": 8.33333e-7
+  }
+}

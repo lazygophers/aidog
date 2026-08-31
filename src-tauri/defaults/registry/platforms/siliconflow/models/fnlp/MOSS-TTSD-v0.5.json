@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "fnlp/MOSS-TTSD-v0.5",
+  "canonical_model": "MOSS-TTSD-v0.5",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.00694444
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "Qwen/Qwen3-8B",
+  "canonical_model": "Qwen3-8B",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 8192,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

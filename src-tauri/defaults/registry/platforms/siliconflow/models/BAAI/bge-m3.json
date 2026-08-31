@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "BAAI/bge-m3",
+  "canonical_model": "bge-m3",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

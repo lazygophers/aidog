@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "Pro/BAAI/bge-reranker-v2-m3",
+  "canonical_model": "bge-reranker-v2-m3",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": true,
+  "price": {
+    "input": 9.72222e-9
+  }
+}

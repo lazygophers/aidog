@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "Qwen/Qwen3-Reranker-4B",
+  "canonical_model": "Qwen3-Reranker-4B",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.94444e-8
+  }
+}
