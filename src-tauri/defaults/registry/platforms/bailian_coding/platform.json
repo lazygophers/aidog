@@ -1,11 +1,16 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1788189887,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
       {
         "protocol": "anthropic",
         "base_url": "https://coding.dashscope.aliyuncs.com/apps/anthropic",
+        "coding_plan": true
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://coding.dashscope.aliyuncs.com/v1",
         "coding_plan": true
       }
     ]
