@@ -14,7 +14,7 @@ pub mod capability;
 pub mod http;
 pub mod script;
 
-pub use capability::QuotaCapability;
+pub use capability::{QuotaCapability, capability_for_variant};
 pub use http::{BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
 
 use std::sync::Arc;

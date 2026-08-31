@@ -225,3 +225,56 @@ async fn script_outbound_error_persists_log() {
         .expect("非 2xx 出站也须落 proxy_log");
     assert_eq!(hit.status_code, 500);
 }
+
+/// T2 加载测试（boa 只在 aidog_adapter，求值断言落本 crate；解析函数跨 crate 取
+/// aidog_db::registry）：platform.json 的 quota_scripts 解析出变体后，脚本文本
+/// 可直接喂 eval_script 空跑求值（不触网）。
+#[test]
+fn registry_quota_script_parses_and_evaluates() {
+    let locale = serde_json::json!({
+        "en-US": "Official", "zh-Hans": "官方", "ar-SA": "رسمي", "fr-FR": "Officiel",
+        "de-DE": "Offiziell", "ru-RU": "Официальный", "ja-JP": "公式", "es-ES": "Oficial",
+    });
+    let platform_json = serde_json::json!({
+        "last_updated": 1,
+        "quota_scripts": [{
+            "id": "official",
+            "name": locale,
+            "requires": [{ "key": "panel_url", "label": locale }],
+            "returns": { "balance": true, "tiers": ["monthly"] },
+            "script": r#"
+                const extra = JSON.parse(ctx.extra);
+                return {
+                    success: true,
+                    balance: { remaining: 1.5, currency: "CNY", is_valid: true },
+                    panel: extra.panel_url,
+                };
+            "#,
+        }],
+    })
+    .to_string();
+
+    let variants = aidog_db::registry::parse_quota_scripts(&platform_json);
+    assert_eq!(variants.len(), 1);
+    let v = &variants[0];
+    assert_eq!(v.id, "official");
+    assert_eq!(v.name["zh-Hans"], "官方");
+    assert_eq!(v.requires[0].key, "panel_url");
+    assert!(v.returns.balance);
+    assert_eq!(v.returns.tiers, ["monthly"]);
+
+    let q = eval_script(
+        &CustomQueryCtx {
+            base_url: "https://example.com/v1".into(),
+            api_key: "sk-test".into(),
+            extra: r#"{"panel_url":"https://panel.example"}"#.into(),
+        },
+        &outbound(),
+        &v.script,
+    )
+    .unwrap();
+    assert!(q.success);
+    let b = q.balance.expect("balance");
+    assert!((b.remaining - 1.5).abs() < 1e-9);
+    assert_eq!(b.currency, "CNY");
+}
