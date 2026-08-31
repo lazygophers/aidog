@@ -150,8 +150,9 @@ pub fn bundled_platform_presets() -> &'static [PlatformPreset] {
 }
 
 /// 按 `canonical_model` 聚合。代表平台按「可选平台优先、其中再 `official` 优先」挑：
-/// `pricing_only` 里的 code（litellm / meta / mistral，只有比价条目没有 `platform.json`）
-/// 用户根本选不到，不能当聚合行的代表平台（票 13-I）。全组都是 pricing_only 时才退给它们。
+/// `pricing_only` 里的 code（纯协议豁免，没有 `platform.json`，用户选不到）
+/// 不能当聚合行的代表平台（票 13-I）。全组都是 pricing_only 时才退给它们。
+/// 2026-08-31 起该清单为空，机制保留供纯协议条目复用。
 /// 输入顺序不作要求，输出按 `canonical_model` 升序、组内按 `platform_code` 升序。
 pub fn group_by_canonical(
     mut entries: Vec<ModelEntry>,

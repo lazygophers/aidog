@@ -85,10 +85,11 @@ const EXEMPT_NO_MODELS = new Set([
 ]);
 const indexDoc = JSON.parse(readFileSync(join(registryDir, "index.json"), "utf8"));
 
-// ③ 目录注册完整性（2026-08-28 补洞）：
+// ③ 目录注册完整性（2026-08-28 补洞；2026-08-31 收紧）：
 // platforms/ 下每个目录必须被 index.json 的 platforms 或 pricing_only 之一登记；
 // platforms 条目必须有 platform.json（缺了此前被静默 continue 跳过，lint 漏检）；
-// pricing_only 条目（litellm/meta/mistral）按设计只有 models/、禁止 platform.json。
+// pricing_only 是纯协议豁免清单（无 platform.json），禁止登记非纯协议平台——
+// 2026-08-31 用户决策：litellm/mistral 已升级正式平台，清单现应为空。
 const pricingOnly = new Set((indexDoc.pricing_only ?? []).map((e) => e.code));
 const registered = new Set([...indexDoc.platforms.map((e) => e.code), ...pricingOnly]);
 for (const name of readdirSync(join(registryDir, "platforms"))) {
@@ -145,7 +146,7 @@ for (const entry of indexDoc.platforms) {
   }
 }
 
-// ④ pricing_only 条目（litellm/meta/mistral）：模型文件 schema 校验 + 盘上/声明零差集。
+// ④ pricing_only 条目（纯协议豁免，现应为空）：模型文件 schema 校验 + 盘上/声明零差集。
 // 2026-08-28 前这批文件完全绕过 models 完整性检查。
 for (const entry of indexDoc.pricing_only ?? []) {
   const code = entry.code;

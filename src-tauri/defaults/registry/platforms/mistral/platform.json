@@ -1,0 +1,70 @@
+{
+  "last_updated": 1788189046,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.mistral.ai/v1"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "mistral-large"
+    }
+  },
+  "model_list": {
+    "default": [
+      "codestral-2508",
+      "codestral-embed-2505",
+      "glm-5.2",
+      "labs-leanstral-1-5",
+      "labs-leanstral-2603",
+      "ministral-14b-2512",
+      "ministral-3b-2512",
+      "ministral-8b-2512",
+      "mistral-embed-2312",
+      "mistral-large",
+      "mistral-large-2512",
+      "mistral-medium-2604",
+      "mistral-medium-3-5",
+      "mistral-moderation-2603",
+      "mistral-ocr-2512",
+      "mistral-ocr-2606",
+      "mistral-small-2603",
+      "ocr-4-0",
+      "voxtral-mini-transcribe-2602",
+      "voxtral-mini-transcribe-realtime-2602",
+      "voxtral-small-24b-2507",
+      "voxtral-tts-2603",
+      "zai-glm-5-2"
+    ]
+  },
+  "name": {
+    "en-US": "Mistral API",
+    "zh-Hans": "Mistral API",
+    "ar-SA": "Mistral API",
+    "fr-FR": "Mistral API",
+    "de-DE": "Mistral API",
+    "ru-RU": "Mistral API",
+    "ja-JP": "Mistral API",
+    "es-ES": "Mistral API"
+  },
+  "source_urls": {
+    "docs": "https://docs.mistral.ai/",
+    "pricing": "https://mistral.ai/pricing/"
+  },
+  "homepage": "https://mistral.ai",
+  "logo_url": "mistralai",
+  "keywords": [
+    "mistral",
+    "mst",
+    "codestral",
+    "voxtral",
+    "法国",
+    "faguo",
+    "fg",
+    "ministral"
+  ],
+  "color": "#FA520F"
+}

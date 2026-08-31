@@ -40,13 +40,16 @@ fn index_model_list_matches_model_files() {
     assert!(on_disk.is_empty(), "这些平台目录未登记进 index.json: {:?}", on_disk.keys());
 }
 
-/// `pricing_only`（litellm / meta / mistral / xai）只出模型条目，不进协议选择器。
+/// 所有登记平台必带 platform.json；`pricing_only` 只允许纯协议豁免（现应为空）。
+/// 2026-08-31 用户决策：禁止非纯协议豁免——litellm / mistral 已升级正式平台。
 #[test]
-fn pricing_only_entries_carry_models_without_platform_file() {
+fn every_platform_entry_carries_platform_file() {
     let idx = bundled_index();
+    let po = idx.iter().filter(|e| e.platform_file.is_none()).collect::<Vec<_>>();
+    assert!(po.is_empty(), "非纯协议平台不得豁免 platform.json: {:?}", po.iter().map(|e| e.code.clone()).collect::<Vec<_>>());
     for code in ["litellm", "meta", "mistral", "xai"] {
         let e = idx.iter().find(|e| e.code == code).expect(code);
-        assert!(e.platform_file.is_none(), "{code} 不该有 platform.json");
+        assert!(e.platform_file.is_some(), "{code} 必须有 platform.json");
         assert!(!e.models.is_empty(), "{code} 模型清单不可为空");
     }
     assert!(idx.iter().find(|e| e.code == "anthropic").expect("anthropic").platform_file.is_some());
@@ -96,7 +99,9 @@ fn known_simpleicons_slugs_are_valid() {
         "codemirror",
         "deepseek",
         "googlegemini",
+        "meta",
         "minimax",
+        "mistralai",
         "modelscope",
         "moonshotai",
         "nebula",
