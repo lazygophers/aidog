@@ -1,9 +1,9 @@
 //! 平台余额 & Coding Plan 配额查询服务（拆自 aidog_core::gateway::quota，2026-08-16）。
 //!
-//! quota-scripts spec（T4）：查询执行统一走 registry JS 脚本（`run_quota_script` →
+//! quota-scripts spec（T4/T5）：查询执行统一走 registry JS 脚本（`run_quota_script` →
 //! `script::run_custom_query`），脚本正文来自 platform 行的物化列（空则回落 registry
 //! 选中/首条变体，见 `aidog_db::registry::resolve_quota_script`）。旧 per-platform
-//! Rust 查询实现仍保留至 T5 删除。
+//! Rust 查询实现已随 T5 删除。
 //!
 //! dispatch 保留旧 `query_quota`（base_url 自动检测）签名，调用方零改动；
 //! 另提供按 Protocol 的类型化入口。

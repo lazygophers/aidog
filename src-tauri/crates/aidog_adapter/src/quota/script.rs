@@ -52,7 +52,7 @@ pub struct CustomQueryCtx {
 
 /// 执行 JS 自定义查询脚本，返回固定格式 PlatformQuota。
 /// platform_id 透传落库日志（与 query_quota 同 idiom）；db 供脚本出站 client
-/// 构建与 proxy_log 落库（与 quota_get_json 同模式）。
+/// 构建与 proxy_log 落库。
 pub async fn run_custom_query(
     db: Option<&Arc<Db>>,
     ctx: CustomQueryCtx,

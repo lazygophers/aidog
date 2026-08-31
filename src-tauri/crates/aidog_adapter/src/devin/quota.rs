@@ -21,36 +21,23 @@
 //!   - `currency` = "ACU"
 //!   - `is_valid` = true（只要查询成功即认为 key 可用）
 //!
-//! org_id 来自 `platform.extra` JSON：`{"devin":{"org_id":"<id>"}}`。
-//! 执行已统一走 registry quota 脚本（`registry/platforms/devin`）；本文件保留
-//! extra 解析纯函数（proxy handle_devin 复用的真值源）。旧 Rust 查询实现已随 T4 移除。
+//! org_id 取值（quota-scripts T5 与脚本对齐的两层兜底）：`extra.devin.org_id` 嵌套
+//! 优先，缺失/空回落顶层 `extra.org_id`——真值源是 registry devin 脚本
+//! （`registry/platforms/devin/platform.json` quota_scripts），proxy 侧 handle_devin
+//! 经 `resolve_devin_org_id` 同款读取。执行统一走 registry quota 脚本；本文件仅剩
+//! 特化 command 薄委托（旧 Rust 查询实现已随 T4 移除，parse_devin_extra 已随 T5 删除）。
 
 use std::sync::Arc;
 
 use aidog_db::Db;
 
-use crate::quota::capability::QuotaCapability;
 use crate::quota::http::{err_quota, PlatformQuota};
-
-/// 从 platform.extra JSON 解析 Devin org_id。
-/// 形态：`{"devin":{"org_id":"<id>"}}`（org_id 非空才返）。
-pub fn parse_devin_extra(extra: &str) -> Option<String> {
-    let org_id = aidog_db::models::PlatformExtra::parse(extra)
-        .devin?
-        .org_id?
-        .trim()
-        .to_string();
-    if org_id.is_empty() {
-        return None;
-    }
-    Some(org_id)
-}
 
 /// Devin 用量查询入口。
 ///
 /// `_base_url`：保留参数以与 `query_quota` / `query_quota_newapi` 签名对称。
 /// `api_key`：`cog_` 前缀 API key。
-/// `extra`：platform.extra JSON，需含 `{"devin":{"org_id":"<id>"}}`。
+/// `extra`：platform.extra JSON，org_id 读取见文件头。
 ///
 /// 统一脚本路径（`quota::run_quota_script`）：物化列 → 自定义脚本 → registry 选中
 /// （或首条）变体；registry 缺脚本（理论上不可能，bundled 编译期内置）→ Unsupported err。
@@ -65,16 +52,3 @@ pub async fn query_quota_devin(
         .await
         .unwrap_or_else(|| err_quota(&format!("Unsupported base_url for quota query: {base_url}")))
 }
-
-/// 平台 quota 能力配置（三函数模式之一；registry 侧由变体 returns 派生，T5 删除本函数）
-pub fn quota_config() -> QuotaCapability {
-    QuotaCapability {
-        supports_balance: true,
-        tier_names: vec![],
-        ..Default::default()
-    }.with_custom()
-}
-
-#[cfg(test)]
-#[path = "test_quota.rs"]
-mod test_quota;
