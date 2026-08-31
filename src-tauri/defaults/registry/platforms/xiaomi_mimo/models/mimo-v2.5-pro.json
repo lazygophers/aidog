@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1788147477,
   "model_id": "mimo-v2.5-pro",
   "canonical_model": "mimo-v2.5-pro",
   "capabilities": [
@@ -10,8 +10,8 @@
   "context_window": 1048576,
   "official": true,
   "price": {
-    "input": 4.35e-07,
-    "output": 8.7e-07,
-    "cache_read": 3.6e-09
+    "input": 4.16667e-7,
+    "output": 8.33333e-7,
+    "cache_read": 3.47222e-9
   }
 }
