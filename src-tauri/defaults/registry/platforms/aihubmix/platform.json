@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -67,6 +67,7 @@
       "cc-kimi-k2-instruct",
       "cc-kimi-k2-instruct-0905",
       "cc-minimax-m2",
+      "cc-MiniMax-M2",
       "cc-minimax-m2.1",
       "cc-minimax-m2.5",
       "cc-minimax-m2.5-highspeed",

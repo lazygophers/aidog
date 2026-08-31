@@ -20,7 +20,19 @@
     "default": [
       "deepseek-v4-flash-vision-exp",
       "deepseek-v4-flash",
-      "deepseek-v4-pro"
+      "deepseek-v4-pro",
+      "deepseek-chat",
+      "deepseek-chat-v3-0324",
+      "deepseek-chat-v3.1",
+      "deepseek-coder",
+      "deepseek-r1",
+      "deepseek-r1-0528",
+      "deepseek-r1-distill-llama-70b",
+      "deepseek-reasoner",
+      "deepseek-v3",
+      "deepseek-v3.1-terminus",
+      "deepseek-v3.2",
+      "deepseek-v3.2-exp"
     ]
   },
   "name": {
@@ -80,5 +92,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788060539
+  "last_updated": 1788155152
 }

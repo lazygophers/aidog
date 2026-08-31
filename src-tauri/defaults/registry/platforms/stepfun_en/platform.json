@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -21,7 +21,12 @@
     "default": [
       "step-3.7-flash",
       "step-3.5-flash",
-      "step-3.5-flash-2603"
+      "step-3.5-flash-2603",
+      "stepaudio-2.5-asr",
+      "stepaudio-2.5-asr-stream",
+      "stepaudio-2.5-chat",
+      "stepaudio-2.5-realtime",
+      "stepaudio-2.5-tts"
     ]
   },
   "name": {
