@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788196594,
   "endpoints": {
     "default": [
       {
@@ -39,5 +39,55 @@
     "zhongzhuan",
     "zz"
   ],
-  "color": "#10A37F"
+  "color": "#10A37F",
+  "quota_scripts": [
+    {
+      "id": "default",
+      "name": {
+        "en-US": "Balance Query",
+        "zh-Hans": "余额查询",
+        "ar-SA": "استعلام الرصيد",
+        "fr-FR": "Requête solde",
+        "de-DE": "Guthaben-Abfrage",
+        "ru-RU": "Запрос баланса",
+        "ja-JP": "残高照会",
+        "es-ES": "Consulta de saldo"
+      },
+      "requires": [
+        {
+          "key": "balance_base_url",
+          "label": {
+            "en-US": "Balance Query URL",
+            "zh-Hans": "余额查询地址",
+            "ar-SA": "رابط استعلام الرصيد",
+            "fr-FR": "URL requête solde",
+            "de-DE": "Guthaben-Abfrage-URL",
+            "ru-RU": "URL запроса баланса",
+            "ja-JP": "残高照会URL",
+            "es-ES": "URL de consulta de saldo"
+          }
+        },
+        {
+          "key": "balance_api_key",
+          "label": {
+            "en-US": "Balance Token",
+            "zh-Hans": "余额查询 Token",
+            "ar-SA": "رمز استعلام الرصيد",
+            "fr-FR": "Jeton de solde",
+            "de-DE": "Guthaben-Token",
+            "ru-RU": "Токен баланса",
+            "ja-JP": "残高照会トークン",
+            "es-ES": "Token de saldo"
+          }
+        }
+      ],
+      "returns": {
+        "balance": true,
+        "coding_plan": false,
+        "mcp": false,
+        "tiers": []
+      },
+      "script": "function httpErr(e) {\n  var m = e && e.message ? String(e.message) : String(e);\n  if (m.indexOf(\"HTTP \") === 0) return m;\n  if (m.indexOf(\"JSON parse: \") === 0) return \"Parse: \" + m.slice(12);\n  return \"Network: \" + m;\n}\nfunction num(v) {\n  if (typeof v === \"number\") return v;\n  if (typeof v === \"string\" && v.trim() !== \"\" && !isNaN(Number(v))) return Number(v);\n  return 0.0;\n}\nfunction parseNum(v) {\n  if (typeof v === \"number\") return v;\n  if (typeof v === \"string\" && v.trim() !== \"\" && !isNaN(Number(v))) return Number(v);\n  return null;\n}\nif (ctx.apiKey == null || ctx.apiKey.trim() === \"\") {\n  return { success: false, error: \"New API: api_key required for token usage query\" };\n}\nvar root = ctx.baseUrl.replace(/\\/+$/, \"\");\nvar pos = root.lastIndexOf(\"/\");\nif (pos >= 0) {\n  var last = root.slice(pos + 1);\n  if (last.length > 1 && last.charAt(0) === \"v\" && /^[0-9]+$/.test(last.slice(1))) {\n    root = root.slice(0, pos);\n  }\n}\nvar usageUrl = root + \"/api/usage/token/?key=\" + encodeURIComponent(ctx.apiKey) + \"&api_key=\" + encodeURIComponent(ctx.apiKey);\nvar step1;\ntry {\n  step1 = http.get(usageUrl, { Authorization: \"Bearer \" + ctx.apiKey });\n} catch (e) {\n  return { success: false, error: \"Token usage: \" + httpErr(e) };\n}\nif (step1 == null) step1 = {};\nvar data = step1.data;\nif (data === undefined) {\n  return { success: false, error: \"Token usage: Missing data field\" };\n}\nif (data == null || typeof data !== \"object\") data = {};\nvar unlimited = data.unlimited_quota === true;\nvar totalGranted = num(data.total_granted);\nvar totalUsed = num(data.total_used);\nvar totalAvailable = num(data.total_available);\nif (!unlimited) {\n  var remaining = totalAvailable / 500000.0;\n  var used = totalUsed / 500000.0;\n  var total = totalGranted / 500000.0;\n  return {\n    success: true,\n    error: null,\n    balance: {\n      remaining: remaining,\n      total: total > 0.0 ? total : null,\n      used: used > 0.0 ? used : null,\n      currency: \"USD\",\n      is_valid: remaining > 0.0\n    },\n    coding_plan: null\n  };\n}\nvar extra = {};\ntry { extra = JSON.parse(ctx.extra); } catch (e) { extra = {}; }\nif (extra == null || typeof extra !== \"object\") extra = {};\nvar n = extra.newapi != null && typeof extra.newapi === \"object\" ? extra.newapi : {};\nvar balanceBaseUrl = typeof n.balance_base_url === \"string\" ? n.balance_base_url : \"\";\nif (balanceBaseUrl === \"\" && typeof extra.balance_base_url === \"string\") balanceBaseUrl = extra.balance_base_url;\nvar balanceApiKey = typeof n.balance_api_key === \"string\" ? n.balance_api_key : \"\";\nif (balanceApiKey === \"\" && typeof extra.balance_api_key === \"string\") balanceApiKey = extra.balance_api_key;\nif (balanceApiKey.trim() === \"\") {\n  return { success: false, error: \"New API: unlimited token requires balance_api_key in config\" };\n}\nif (balanceBaseUrl === \"\") {\n  return { success: false, error: \"New API: unlimited token requires balance_base_url\" };\n}\nvar selfBody;\ntry {\n  selfBody = http.get(balanceBaseUrl.replace(/\\/+$/, \"\") + \"/api/user/self\", { Authorization: \"Bearer \" + balanceApiKey, \"Content-Type\": \"application/json\" });\n} catch (e) {\n  return { success: false, error: httpErr(e) };\n}\nif (selfBody == null) selfBody = {};\nif (selfBody.success !== true) {\n  return { success: false, error: typeof selfBody.message === \"string\" ? selfBody.message : \"Query failed\" };\n}\nvar ud = selfBody.data;\nif (ud === undefined) {\n  return { success: false, error: \"Missing data field\" };\n}\nif (ud == null || typeof ud !== \"object\") ud = {};\nvar userIdStr = null;\nif (typeof ud.id === \"number\" && isFinite(ud.id)) userIdStr = String(ud.id);\nelse if (typeof ud.id === \"string\") userIdStr = ud.id;\nvar remaining2 = num(ud.quota) / 500000.0;\nvar used2 = num(ud.used_quota) / 500000.0;\nreturn {\n  success: true,\n  error: null,\n  balance: {\n    remaining: remaining2,\n    total: remaining2 + used2,\n    used: used2,\n    currency: \"USD\",\n    is_valid: remaining2 > 0.0\n  },\n  coding_plan: null,\n  newapi_user_id: userIdStr\n};"
+    }
+  ]
 }
