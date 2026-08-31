@@ -12,6 +12,7 @@
 //! `pricing` 映射）随票 T4 把计费切到 `model_entry` 表一并废弃，本模块只出 [`bundled_model_files`]
 //! 原始文本，归并逻辑不复存在（同一模型在不同平台是不同的行，不需要合并）。
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -188,6 +189,63 @@ pub fn derive_client_type(endpoint_protocol: &str) -> String {
         "openai" | "openai_responses" | "openai_completions" => "codex_tui".to_string(),
         _ => "default".to_string(),
     }
+}
+
+// ── 配额查询脚本（platform.json 顶层 `quota_scripts`）──────────────
+
+/// quota 脚本的用户参数声明（`quota_scripts[].requires` 一项）。
+/// 值由用户在前端按选中变体填写，存 `platform.extra.<key>`，脚本经 `ctx.extra` 读取。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QuotaScriptParam {
+    pub key: String,
+    /// 8 locale 显示标签（同品牌 `name` 的惯例形状）。
+    pub label: BTreeMap<String, String>,
+}
+
+/// quota 脚本能力声明（`quota_scripts[].returns`）。查询入口与 `QuotaCapability`
+/// 由选中变体的这份声明派生（`aidog_adapter::quota::capability_for_variant`）。
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct QuotaScriptReturns {
+    #[serde(default)]
+    pub balance: bool,
+    #[serde(default)]
+    pub coding_plan: bool,
+    #[serde(default)]
+    pub mcp: bool,
+    /// 配额层级名（`QuotaTier.name` 词表：five_hour / weekly_limit / monthly / mcp_monthly）。
+    #[serde(default)]
+    pub tiers: Vec<String>,
+}
+
+/// platform.json 顶层 `quota_scripts` 一条：一个部署变体一份自包含 JS 脚本
+/// （内部可多次调上游接口再汇总；同族协议各自文件复制正文，无跨文件引用）。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct QuotaScriptVariant {
+    pub id: String,
+    /// 8 locale 变体显示名。
+    pub name: BTreeMap<String, String>,
+    #[serde(default)]
+    pub requires: Vec<QuotaScriptParam>,
+    #[serde(default)]
+    pub returns: QuotaScriptReturns,
+    pub script: String,
+}
+
+/// 解析一份 platform.json 文本顶层的 `quota_scripts`。
+/// 无该字段 / 单份解析失败 → warn 后返回空 Vec（与 [`endpoints_in`] 同 idiom：
+/// DB 里远程同步来的脏行不该炸掉调用方）。运行时读取应取自 [`effective_presets`]
+/// 生效文档（DB 同步值优先），禁直读 bundled。
+pub fn parse_quota_scripts(platform_json: &str) -> Vec<QuotaScriptVariant> {
+    let Ok(map) = serde_json::from_str::<Map<String, Value>>(platform_json) else {
+        return Vec::new();
+    };
+    let Some(arr) = map.get("quota_scripts") else {
+        return Vec::new();
+    };
+    serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "registry quota_scripts parse failed; empty");
+        Vec::new()
+    })
 }
 
 /// `index.json` 的一条同步清单：远程同步照着它逐文件拉取。
