@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use aidog_db::registry::QuotaScriptVariant;
 
-/// 平台 quota 能力静态配置。
+/// 平台 quota 能力静态配置（由 registry 变体 `returns` 派生，见 `capability_for_variant`）。
 ///
 /// tier_names 取值约定（与 QuotaTier.name 同词汇表）：
 /// "five_hour"（5 小时窗口）/ "weekly_limit"（周限制）/ "monthly"（月限制）/
@@ -22,14 +22,6 @@ pub struct QuotaCapability {
     pub tier_names: Vec<String>,
     /// 支持 JS 脚本自定义查询（通用能力，各平台均可注入 ctx）
     pub custom_query_supported: bool,
-}
-
-impl QuotaCapability {
-    /// 自定义查询是通用能力，各平台构造 helper 统一补 true。
-    pub fn with_custom(mut self) -> Self {
-        self.custom_query_supported = true;
-        self
-    }
 }
 
 /// 由 registry quota 脚本变体派生能力配置（spec「能力派生」：选中变体的 `returns`

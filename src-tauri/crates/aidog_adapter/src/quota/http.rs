@@ -1,4 +1,6 @@
-//! quota 子模块共享: 类型、工具函数、统一出站 HTTP + 日志落库。
+//! quota 子模块共享: 类型、工具函数、脚本出站 HTTP 单点 + 日志落库。
+//! （quota-scripts T5：旧 per-provider 出站 `quota_get_json` 已随各平台 Rust 查询实现删除，
+//! 出站 HTTP 仅剩脚本路径 `quota_script_request`。）
 
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -7,8 +9,8 @@ use std::time::Duration;
 use aidog_db::Db;
 
 // 当前 quota 查询归属的平台 ID。
-// query_quota / query_quota_newapi 进入时 scope 设定；quota_get_json 单点落库时读取，
-// 避免沿 10 个 provider 函数链逐层透传 platform_id 签名。未设（如裸调测试）→ 0。
+// query_quota / query_quota_for / 特化入口进入时 scope 设定；make_quota_log 落库时读取，
+// 免沿调用链逐层透传 platform_id 签名。未设（如裸调测试）→ 0。
 tokio::task_local! {
     pub static QUOTA_PLATFORM_ID: i64;
     // cli_proxy_test 透传的 provider 归属 ID。scope 内有值 → make_quota_log 填
@@ -88,28 +90,8 @@ pub fn now_millis() -> i64 {
         .as_millis() as i64
 }
 
-pub fn millis_to_iso8601(ms: i64) -> Option<String> {
-    let secs = ms / 1000;
-    let nsecs = ((ms % 1000) * 1_000_000) as u32;
-    chrono::DateTime::from_timestamp(secs, nsecs).map(|dt| dt.to_rfc3339())
-}
-
-pub fn parse_f64(value: &serde_json::Value) -> Option<f64> {
-    value.as_f64().or_else(|| value.as_str().and_then(|s| s.parse().ok()))
-}
-
-pub fn parse_f64_field(obj: &serde_json::Value, field: &str) -> Option<f64> {
-    obj.get(field).and_then(parse_f64)
-}
-
 pub fn err_quota(msg: &str) -> PlatformQuota {
     tracing::warn!(error = %msg, "quota query failed");
-    PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
-}
-
-/// 同 err_quota，但附带平台标识，供排障定位是哪个平台查询失败。
-pub fn err_quota_platform(platform: &str, msg: &str) -> PlatformQuota {
-    tracing::warn!(platform = %platform, error = %msg, "quota query failed");
     PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
 }
 
@@ -137,56 +119,9 @@ pub(super) async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
     }
 }
 
-/// 统一 quota 出站 GET: 记录请求 path (info 级) + 响应体 (debug 级), 返回解析后的 JSON。
-/// headers 原样设置 (调用方决定是否加 Bearer 前缀)。
-/// 错误前缀保持与各 func 原行为一致: Network / HTTP {status} / Parse。
-/// 所有 quota 出站 HTTP 经此单点, 落 proxy_log (source_protocol="quota"), 与 fetch_models/model_test 同模式。
-pub async fn quota_get_json(
-    db: Option<&Arc<Db>>,
-    url: &str,
-    headers: &[(&str, String)],
-) -> Result<serde_json::Value, String> {
-    tracing::info!(method = "GET", url = %url, "quota outbound request");
-    let start = std::time::Instant::now();
-    let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let created_at = aidog_db::now();
-
-    let mut rb = http_client(db).await.get(url);
-    for (k, v) in headers {
-        rb = rb.header(*k, v);
-    }
-    let resp = match rb.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            let msg = format!("Network: {e}");
-            persist_quota_log(db, make_quota_log(&request_id, url, 0, &msg, start.elapsed().as_millis() as i32, created_at)).await;
-            return Err(msg);
-        }
-    };
-    let status = resp.status();
-    let upstream_status = status.as_u16() as i32;
-    if !status.is_success() {
-        let msg = format!("HTTP {status}");
-        persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &msg, start.elapsed().as_millis() as i32, created_at)).await;
-        return Err(msg);
-    }
-    let text = match resp.text().await {
-        Ok(t) => t,
-        Err(e) => {
-            let msg = format!("Parse: {e}");
-            persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &msg, start.elapsed().as_millis() as i32, created_at)).await;
-            return Err(msg);
-        }
-    };
-    tracing::debug!(url = %url, body = %aidog_db::log_util::log_body_preview(&text), "quota response body");
-    // 成功响应落库 (保留 body 原文); parse 失败也落库 (body 已在, 便于排查)
-    persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &text, start.elapsed().as_millis() as i32, created_at)).await;
-    serde_json::from_str(&text).map_err(|e| format!("Parse: {e}"))
-}
-
 /// JS 自定义查询脚本出站单点（get/post 统一）: 走注入的系统代理 client（由 script.rs
-/// eval 前 build 好传入），错误/成功均落 proxy_log（group_key="[quota:script]"，
-/// 与 quota_get_json 单点同模式）。错误文案维持 script 既有格式（裸 reqwest 错误 /
+/// eval 前 build 好传入），错误/成功均落 proxy_log（group_key="[quota:script]"）。
+/// 错误文案维持 script 既有格式（裸 reqwest 错误 /
 /// `HTTP {status}: {body}` / `JSON parse: {e}`，脚本侧 try/catch 依赖）。
 pub(super) async fn quota_script_request(
     db: Option<&Arc<Db>>,
@@ -298,6 +233,3 @@ async fn persist_quota_log(db: Option<&Arc<Db>>, log: aidog_db::models::ProxyLog
         }
 }
 
-#[cfg(test)]
-#[path = "test_http.rs"]
-mod test_http;

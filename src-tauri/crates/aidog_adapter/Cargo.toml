@@ -15,7 +15,6 @@ reqwest = { version = "0.12", features = ["json", "gzip", "socks"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-chrono = { workspace = true }
 tokio = { workspace = true }
 uuid = { workspace = true }
 
