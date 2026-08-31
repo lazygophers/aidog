@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144722,
+  "model_id": "stepaudio-2-asr-pro",
+  "canonical_model": "stepaudio-2-asr-pro",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0000771605
+  }
+}

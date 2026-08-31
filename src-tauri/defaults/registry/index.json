@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788144513,
+  "last_updated": 1788144722,
   "platforms": [
     {
       "code": "aihubmix",
@@ -3422,11 +3422,27 @@
       "platform_file": "platforms/stepfun/platform.json",
       "models_dir": "platforms/stepfun/models",
       "models": [
+        "step-1o-audio.json",
         "step-1o-turbo-vision.json",
+        "step-2x-large.json",
         "step-3.5-flash-2603.json",
         "step-3.5-flash.json",
         "step-3.7-flash.json",
-        "step-router-v1.json"
+        "step-asr-1.1-stream.json",
+        "step-asr-1.1.json",
+        "step-asr.json",
+        "step-audio-2.json",
+        "step-audio-r1.5.json",
+        "step-image-edit-2.json",
+        "step-router-v1.json",
+        "step-tts-2.json",
+        "step-tts-mini.json",
+        "stepaudio-2-asr-pro.json",
+        "stepaudio-2.5-asr-stream.json",
+        "stepaudio-2.5-asr.json",
+        "stepaudio-2.5-chat.json",
+        "stepaudio-2.5-realtime.json",
+        "stepaudio-2.5-tts.json"
       ]
     },
     {
@@ -3437,7 +3453,12 @@
       "models": [
         "step-3.5-flash-2603.json",
         "step-3.5-flash.json",
-        "step-3.7-flash.json"
+        "step-3.7-flash.json",
+        "stepaudio-2.5-asr-stream.json",
+        "stepaudio-2.5-asr.json",
+        "stepaudio-2.5-chat.json",
+        "stepaudio-2.5-realtime.json",
+        "stepaudio-2.5-tts.json"
       ]
     },
     {

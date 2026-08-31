@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144722,
+  "model_id": "step-asr-1.1-stream",
+  "canonical_model": "step-asr-1.1-stream",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.000100309
+  }
+}
