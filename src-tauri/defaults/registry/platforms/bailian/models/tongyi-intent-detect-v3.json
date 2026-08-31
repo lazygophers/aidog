@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "tongyi-intent-detect-v3",
+  "canonical_model": "tongyi-intent-detect-v3",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 5.555555555555556e-08,
+    "output": 1.388888888888889e-07
+  },
+  "context_window": 131072
+}

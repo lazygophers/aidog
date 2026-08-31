@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wan2.6-i2v-flash",
+  "canonical_model": "wan2.6-i2v-flash",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.041666666666666664
+  }
+}

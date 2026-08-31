@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wanx-sketch-to-image-lite",
+  "canonical_model": "wanx-sketch-to-image-lite",
+  "capabilities": [
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "animate-anyone-detect-gen2",
+  "canonical_model": "animate-anyone-detect-gen2",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

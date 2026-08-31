@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "fun-music-preview",
+  "canonical_model": "fun-music-preview",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

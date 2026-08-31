@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "wanx2.1-kf2v-plus",
+  "canonical_model": "wanx2.1-kf2v-plus",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

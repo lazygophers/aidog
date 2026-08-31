@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-long",
+  "canonical_model": "qwen-long",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_input_tokens": 10000000,
+  "max_output_tokens": 32768,
+  "context_window": 10000000
+}

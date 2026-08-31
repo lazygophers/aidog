@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen2.5-omni-7b",
+  "canonical_model": "qwen2.5-omni-7b",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 32768
+}

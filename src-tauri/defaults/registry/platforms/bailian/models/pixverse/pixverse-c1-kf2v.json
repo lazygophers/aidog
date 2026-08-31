@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "pixverse/pixverse-c1-kf2v",
+  "canonical_model": "pixverse-c1-kf2v",
+  "capabilities": [
+    "image_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.041666666666666664
+  }
+}

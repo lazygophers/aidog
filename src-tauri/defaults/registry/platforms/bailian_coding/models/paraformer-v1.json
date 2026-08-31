@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "paraformer-v1",
+  "canonical_model": "paraformer-v1",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

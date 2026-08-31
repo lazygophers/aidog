@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "tongyi-embedding-vision-flash",
+  "canonical_model": "tongyi-embedding-vision-flash",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

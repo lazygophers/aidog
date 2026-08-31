@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184022,
+  "model_id": "MiniMax/MiniMax-M2.5",
+  "canonical_model": "MiniMax-M2.5",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 204800
+}

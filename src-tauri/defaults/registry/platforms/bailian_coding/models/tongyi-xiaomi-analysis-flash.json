@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "tongyi-xiaomi-analysis-flash",
+  "canonical_model": "tongyi-xiaomi-analysis-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 131072
+}

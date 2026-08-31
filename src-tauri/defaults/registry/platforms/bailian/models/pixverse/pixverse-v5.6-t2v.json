@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "pixverse/pixverse-v5.6-t2v",
+  "canonical_model": "pixverse-v5.6-t2v",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.06527777777777777
+  }
+}

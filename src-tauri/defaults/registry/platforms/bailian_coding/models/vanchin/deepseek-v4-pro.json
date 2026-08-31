@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788184022,
+  "model_id": "vanchin/deepseek-v4-pro",
+  "canonical_model": "deepseek-v4-pro",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 131072
+}

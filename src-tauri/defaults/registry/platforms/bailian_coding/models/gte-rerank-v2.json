@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "gte-rerank-v2",
+  "canonical_model": "gte-rerank-v2",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

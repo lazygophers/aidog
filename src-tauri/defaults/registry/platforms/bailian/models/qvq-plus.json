@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qvq-plus",
+  "canonical_model": "qvq-plus",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "official": true,
+  "price": {
+    "input": 2.777777777777778e-07,
+    "output": 6.944444444444444e-07
+  },
+  "context_window": 32768
+}

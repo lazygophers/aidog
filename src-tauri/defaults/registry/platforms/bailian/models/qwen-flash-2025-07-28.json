@@ -1,0 +1,27 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen-flash-2025-07-28",
+  "canonical_model": "qwen-flash-2025-07-28",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 2.083333333333333e-08,
+    "output": 2.083333333333333e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 131073,
+        "input": 8.333333333333333e-08,
+        "output": 8.333333333333332e-07
+      },
+      {
+        "min_tokens": 262145,
+        "input": 1.6666666666666665e-07,
+        "output": 1.6666666666666665e-06
+      }
+    ]
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 65536
+}

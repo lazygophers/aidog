@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788184283,
+  "model_id": "qwen3-30b-a3b",
+  "canonical_model": "qwen3-30b-a3b",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "max_input_tokens": 131072,
+  "max_output_tokens": 16384,
+  "context_window": 131072
+}

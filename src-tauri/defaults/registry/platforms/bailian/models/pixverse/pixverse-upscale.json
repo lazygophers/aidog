@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "pixverse/pixverse-upscale",
+  "canonical_model": "pixverse-upscale",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.020833333333333332
+  }
+}

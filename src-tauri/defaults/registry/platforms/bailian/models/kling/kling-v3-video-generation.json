@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788183969,
+  "model_id": "kling/kling-v3-video-generation",
+  "canonical_model": "kling-v3-video-generation",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.08333333333333333
+  }
+}
