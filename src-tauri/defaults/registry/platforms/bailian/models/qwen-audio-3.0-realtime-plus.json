@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788110545,
+  "last_updated": 1788143594,
   "model_id": "qwen-audio-3.0-realtime-plus",
   "canonical_model": "qwen-audio-3.0-realtime-plus",
   "capabilities": [
@@ -7,7 +7,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0.00000555556,
-    "output": 0.0000208333
+    "input": 6.94444e-7,
+    "output": 0.00000555556
   }
 }

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-doc-turbo",
+  "canonical_model": "qwen-doc-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 253952,
+  "max_output_tokens": 8192,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 8.7e-8,
+    "output": 1.44e-7
+  }
+}

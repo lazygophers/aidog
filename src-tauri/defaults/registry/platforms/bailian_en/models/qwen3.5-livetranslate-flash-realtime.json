@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3.5-livetranslate-flash-realtime",
+  "canonical_model": "qwen3.5-livetranslate-flash-realtime",
+  "display_name": "Qwen3.5-LiveTranslate-Flash-Realtime",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 0.0000075,
+    "output": 0.00002
+  }
+}

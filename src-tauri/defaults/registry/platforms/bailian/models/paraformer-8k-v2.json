@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788110545,
+  "last_updated": 1788143594,
   "model_id": "paraformer-8k-v2",
   "canonical_model": "paraformer-8k-v2",
   "capabilities": [
@@ -8,6 +8,6 @@
   "official": true,
   "price": {
     "unit": "second",
-    "unit_price": 0.0000333333
+    "unit_price": 0.0000111111
   }
 }

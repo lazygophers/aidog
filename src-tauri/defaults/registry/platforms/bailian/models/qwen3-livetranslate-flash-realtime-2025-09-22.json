@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788110545,
+  "last_updated": 1788143594,
   "model_id": "qwen3-livetranslate-flash-realtime-2025-09-22",
   "canonical_model": "qwen3-livetranslate-flash-realtime-2025-09-22",
   "capabilities": [
@@ -8,6 +8,6 @@
   "official": true,
   "price": {
     "input": 0.00000888889,
-    "output": 0.0000333333
+    "output": 0.00000888889
   }
 }

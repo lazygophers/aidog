@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-deep-research",
+  "canonical_model": "qwen-deep-research",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 997952,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 0.000007742,
+    "output": 0.000023367000000000002
+  }
+}

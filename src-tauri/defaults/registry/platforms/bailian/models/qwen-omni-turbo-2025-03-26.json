@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788110545,
+  "last_updated": 1788143594,
   "model_id": "qwen-omni-turbo-2025-03-26",
   "canonical_model": "qwen-omni-turbo-2025-03-26",
   "capabilities": [
@@ -7,7 +7,7 @@
   ],
   "official": true,
   "price": {
-    "input": 6.25e-7,
-    "output": 0.00000694444
+    "input": 5.55556e-8,
+    "output": 2.22222e-7
   }
 }

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-mt-lite",
+  "canonical_model": "qwen-mt-lite",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16000,
+  "max_output_tokens": 16000,
+  "context_window": 16000,
+  "official": false,
+  "price": {
+    "input": 1.2e-7,
+    "output": 3.6e-7
+  }
+}

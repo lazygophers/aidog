@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3-omni-flash-realtime",
+  "canonical_model": "qwen3-omni-flash-realtime-2025-12-01",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 5.2e-7,
+    "output": 0.00000199
+  }
+}

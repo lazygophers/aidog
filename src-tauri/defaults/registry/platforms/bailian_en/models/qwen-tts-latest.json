@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-tts-latest",
+  "canonical_model": "qwen-tts-latest",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 2.3000000000000002e-7,
+    "output": 0.000001434
+  }
+}

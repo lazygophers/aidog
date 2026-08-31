@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-plus-character",
+  "canonical_model": "qwen-plus-character",
+  "display_name": "Qwen-Plus-Character",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 5e-7,
+    "output": 0.0000014
+  }
+}

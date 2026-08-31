@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3.7-max-2026-05-20",
+  "canonical_model": "qwen3.7-max-2026-05-20",
+  "display_name": "Qwen3.7-Max (2026-05-20)",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 0.0000025,
+    "output": 0.0000075
+  }
+}

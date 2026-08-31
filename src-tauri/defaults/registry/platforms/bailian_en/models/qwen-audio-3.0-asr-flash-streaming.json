@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-audio-3.0-asr-flash-streaming",
+  "canonical_model": "qwen-audio-3.0-asr-flash-streaming",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00009
+  }
+}
