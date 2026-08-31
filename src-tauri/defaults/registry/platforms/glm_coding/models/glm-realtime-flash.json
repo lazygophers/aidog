@@ -1,13 +1,14 @@
 {
   "last_updated": 1788181367,
-  "model_id": "glm-5.3-flash",
-  "canonical_model": "glm-5.3-flash",
+  "model_id": "glm-realtime-flash",
+  "canonical_model": "glm-realtime-flash",
+  "display_name": "GLM-Realtime-Flash",
   "capabilities": [
-    "text"
+    "text",
+    "audio",
+    "video"
   ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
-  "context_window": 131072,
+  "context_window": 32768,
   "official": true,
   "price": {
     "input": 6.944444444444444e-07,

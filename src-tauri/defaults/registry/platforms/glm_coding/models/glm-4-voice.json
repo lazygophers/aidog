@@ -1,13 +1,14 @@
 {
   "last_updated": 1788181367,
-  "model_id": "glm-5.3",
-  "canonical_model": "glm-5.3",
+  "model_id": "glm-4-voice",
+  "canonical_model": "glm-4-voice",
+  "display_name": "GLM-4-Voice",
   "capabilities": [
-    "text"
+    "text",
+    "audio"
   ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 131072,
-  "context_window": 1048576,
+  "max_output_tokens": 4096,
+  "context_window": 8192,
   "official": true,
   "price": {
     "input": 1.1111111111111112e-06,

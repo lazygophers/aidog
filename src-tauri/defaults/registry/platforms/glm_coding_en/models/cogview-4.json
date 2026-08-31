@@ -1,13 +1,11 @@
 {
   "last_updated": 1788181367,
-  "model_id": "glm-5.3-flash",
-  "canonical_model": "glm-5.3-flash",
+  "model_id": "cogview-4",
+  "canonical_model": "cogview-4",
+  "display_name": "CogView-4",
   "capabilities": [
-    "text"
+    "text_to_image"
   ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
-  "context_window": 131072,
   "official": true,
   "price": {
     "input": 6.944444444444444e-07,

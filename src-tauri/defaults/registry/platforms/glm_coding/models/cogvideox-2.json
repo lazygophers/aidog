@@ -1,13 +1,12 @@
 {
   "last_updated": 1788181367,
-  "model_id": "glm-5.3-flash",
-  "canonical_model": "glm-5.3-flash",
+  "model_id": "cogvideox-2",
+  "canonical_model": "cogvideox-2",
+  "display_name": "CogVideoX-2",
   "capabilities": [
-    "text"
+    "text_to_video",
+    "image_to_video"
   ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
-  "context_window": 131072,
   "official": true,
   "price": {
     "input": 6.944444444444444e-07,

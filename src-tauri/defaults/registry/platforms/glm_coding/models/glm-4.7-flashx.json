@@ -1,13 +1,13 @@
 {
   "last_updated": 1788181367,
-  "model_id": "glm-5.3-flash",
-  "canonical_model": "glm-5.3-flash",
+  "model_id": "glm-4.7-flashx",
+  "canonical_model": "glm-4.7-flashx",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
-  "context_window": 131072,
+  "max_input_tokens": 204800,
+  "context_window": 204800,
+  "max_output_tokens": 131000,
   "official": true,
   "price": {
     "input": 6.944444444444444e-07,

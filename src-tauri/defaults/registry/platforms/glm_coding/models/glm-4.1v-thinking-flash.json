@@ -1,14 +1,18 @@
 {
   "last_updated": 1788181367,
-  "model_id": "glm-5.3-flash",
-  "canonical_model": "glm-5.3-flash",
+  "model_id": "glm-4.1v-thinking-flash",
+  "canonical_model": "glm-4.1v-thinking-flash",
+  "display_name": "GLM-4.1V-Thinking-Flash",
   "capabilities": [
-    "text"
+    "text",
+    "vision",
+    "reasoning"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
+  "max_output_tokens": 32768,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 6.944444444444444e-07,
     "output": 3.055555555555555e-06,
