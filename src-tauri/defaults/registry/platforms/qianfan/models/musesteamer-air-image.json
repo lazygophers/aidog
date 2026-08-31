@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "musesteamer-air-image",
+  "canonical_model": "musesteamer-air-image",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.00694444
+  }
+}

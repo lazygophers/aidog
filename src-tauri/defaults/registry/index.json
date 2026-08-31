@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788144135,
+  "last_updated": 1788144513,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1165,6 +1165,7 @@
         "seedance-1-0-pro-250528.json",
         "seedance-1-0-pro-fast-251015.json",
         "seedance-1-5-pro-251215.json",
+        "seededit-3-0-i2i-250628.json",
         "seedream-4-0-250828.json",
         "seedream-4-5-251128.json",
         "seedream-5-0-260128.json",
@@ -3043,6 +3044,15 @@
       "platform_file": "platforms/qianfan/platform.json",
       "models_dir": "platforms/qianfan/models",
       "models": [
+        "bce-reranker-base.json",
+        "bge-large-en.json",
+        "bge-large-zh.json",
+        "deepseek-ocr.json",
+        "deepseek-v3.2-think.json",
+        "deepseek-v3.2.json",
+        "deepseek-v4-flash.json",
+        "deepseek-v4-pro.json",
+        "embedding-v1.json",
         "ernie-4.5-turbo-128k.json",
         "ernie-4.5-turbo-20260402.json",
         "ernie-4.5-turbo-32k.json",
@@ -3055,7 +3065,31 @@
         "ernie-5.1.json",
         "ernie-x1-turbo-32k.json",
         "ernie-x1.1-preview.json",
-        "ernie-x1.1.json"
+        "ernie-x1.1.json",
+        "glm-5.1.json",
+        "glm-5.2.json",
+        "glm-5.3-flash.json",
+        "glm-5.3.json",
+        "glm-5.json",
+        "kimi-k2.6.json",
+        "musesteamer-air-i2v.json",
+        "musesteamer-air-image.json",
+        "paddleocr-vl-0.9b.json",
+        "pp-structurev3.json",
+        "qianfan-ocr.json",
+        "qwen-image-edit.json",
+        "qwen-image.json",
+        "qwen3-embedding-0.6b.json",
+        "qwen3-embedding-4b.json",
+        "qwen3-embedding-8b.json",
+        "qwen3-reranker-0.6b.json",
+        "qwen3-reranker-4b.json",
+        "qwen3-reranker-8b.json",
+        "qwen3.5-122b-a10b.json",
+        "qwen3.5-27b.json",
+        "qwen3.5-35b-a3b.json",
+        "qwen3.5-397b-a17b.json",
+        "tao-8k.json"
       ]
     },
     {

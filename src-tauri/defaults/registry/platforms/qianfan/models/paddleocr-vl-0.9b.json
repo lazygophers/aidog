@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "paddleocr-vl-0.9b",
+  "canonical_model": "paddleocr-vl-0.9b",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.025
+  }
+}

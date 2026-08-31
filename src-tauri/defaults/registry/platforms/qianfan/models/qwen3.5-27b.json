@@ -1,0 +1,25 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "qwen3.5-27b",
+  "canonical_model": "qwen3.5-27b",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 258048,
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 8.33333e-8,
+    "output": 6.66667e-7,
+    "context_tiers": [
+      {
+        "min_tokens": 131073,
+        "input": 2.5e-7,
+        "output": 0.000002
+      }
+    ]
+  }
+}

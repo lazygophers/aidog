@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788144513,
+  "model_id": "qianfan-ocr",
+  "canonical_model": "qianfan-ocr",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 32768,
+  "max_output_tokens": 28672,
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "input": 6.25e-8,
+    "output": 2.5e-7
+  }
+}
