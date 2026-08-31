@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788147401,
+  "model_id": "SenseNova-Audio-Fusion-0603",
+  "canonical_model": "SenseNova-Audio-Fusion-0603",
+  "family": "sensenova",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0486111
+  }
+}

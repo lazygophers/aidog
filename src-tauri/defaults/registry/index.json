@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788147245,
+  "last_updated": 1788147401,
   "platforms": [
     {
       "code": "aihubmix",
@@ -3114,8 +3114,19 @@
       "platform_file": "platforms/sensenova/platform.json",
       "models_dir": "platforms/sensenova/models",
       "models": [
+        "SenseChat-Character-Pro.json",
+        "SenseChat-Character.json",
+        "SenseChat-Vision.json",
+        "SenseNova-Audio-Fusion-0603.json",
+        "SenseNova-V6-Omni.json",
+        "SenseNova-V6-Pro.json",
+        "SenseNova-V6-Reasoner.json",
+        "SenseNova-V6-Turbo.json",
+        "SenseNova-V6.5-Pro.json",
+        "SenseNova-V6.5-Turbo.json",
         "deepseek-v4-flash.json",
         "glm-5.2.json",
+        "nova-tts-1.json",
         "sensenova-6.8-flash-lite.json",
         "sensenova-u1-fast.json",
         "sensenova-u1.5-lite.json"
