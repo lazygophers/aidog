@@ -1,4 +1,4 @@
-//! JS 自定义查询脚本测试：纯 eval（不触网）+ 固定格式解析。
+//! JS 自定义查询脚本测试：纯 eval（不触网）+ 固定格式解析 + 出站注入/落库。
 use super::*;
 
 fn qctx() -> CustomQueryCtx {
@@ -9,10 +9,33 @@ fn qctx() -> CustomQueryCtx {
     }
 }
 
+fn outbound() -> Outbound {
+    // 纯 eval 测试不触网，client 仅占位
+    Outbound { client: reqwest::Client::new(), db: None }
+}
+
+async fn spawn_stub(status: u16, body: &'static str) -> String {
+    use axum::routing::any;
+    let app = axum::Router::new().fallback(any(move || async move {
+        (
+            axum::http::StatusCode::from_u16(status).unwrap(),
+            [("content-type", "application/json")],
+            body,
+        )
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    format!("http://{addr}")
+}
+
 #[test]
 fn script_returns_balance() {
     let q = eval_script(
         &qctx(),
+        &outbound(),
         r#"
         return {
             success: true,
@@ -31,6 +54,7 @@ fn script_returns_balance() {
 fn script_returns_coding_plan_tiers() {
     let q = eval_script(
         &qctx(),
+        &outbound(),
         r#"
         return {
             success: true,
@@ -50,9 +74,32 @@ fn script_returns_coding_plan_tiers() {
 }
 
 #[test]
+fn script_returns_newapi_user_id() {
+    let q = eval_script(
+        &qctx(),
+        &outbound(),
+        r#"
+        return {
+            success: true,
+            balance: { remaining: 1.0, currency: "CNY", is_valid: true },
+            newapi_user_id: "42",
+        };
+        "#,
+    )
+    .unwrap();
+    assert!(q.success);
+    assert_eq!(q.newapi_user_id.as_deref(), Some("42"), "顶层 newapi_user_id 须透传");
+
+    // 未返回时缺省 None
+    let q = eval_script(&qctx(), &outbound(), r#"return { success: true };"#).unwrap();
+    assert_eq!(q.newapi_user_id, None);
+}
+
+#[test]
 fn script_can_read_ctx_and_parse_json() {
     let q = eval_script(
         &qctx(),
+        &outbound(),
         r#"
         const extra = JSON.parse(ctx.extra);
         return { success: extra.foo === 1 };
@@ -65,12 +112,13 @@ fn script_can_read_ctx_and_parse_json() {
 #[test]
 fn script_error_path() {
     // 脚本 throw → err_quota
-    let q = eval_script(&qctx(), "throw new Error('boom');").unwrap_err();
+    let q = eval_script(&qctx(), &outbound(), "throw new Error('boom');").unwrap_err();
     assert!(q.contains("boom"), "须携带脚本错误信息: {q}");
 
     // success=false + error
     let q = eval_script(
         &qctx(),
+        &outbound(),
         r#"return { success: false, error: "quota exceeded" };"#,
     )
     .unwrap();
@@ -80,7 +128,7 @@ fn script_error_path() {
 
 #[test]
 fn script_non_object_return_rejected() {
-    let q = eval_script(&qctx(), r#"return 42;"#).unwrap();
+    let q = eval_script(&qctx(), &outbound(), r#"return 42;"#).unwrap();
     assert!(!q.success);
     assert!(q.error.unwrap().contains("must return an object"));
 }
@@ -109,4 +157,71 @@ async fn script_http_error_propagates() {
     .await;
     assert!(!q.success);
     assert!(q.error.unwrap().starts_with("caught:"), "脚本须能 catch http 错误");
+}
+
+/// 出站走 CLIENT_BUILDER 注入的 client（app_setup 注系统代理 client 的同一通道），
+/// 成功出站落 proxy_log（group_key="[quota:script]"，source_protocol="quota"）。
+/// 注入的 builder 返回直连 + 超时 client（与缺省回落一致），经 AtomicBool 标记断言
+/// 确被调用——不改变行为，避免污染同进程并行测试。
+#[tokio::test]
+async fn script_outbound_uses_injected_client_and_persists_log() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use crate::quota::http::set_client_builder;
+
+    static BUILDER_CALLED: AtomicBool = AtomicBool::new(false);
+    set_client_builder(Arc::new(|_db| {
+        BUILDER_CALLED.store(true, Ordering::SeqCst);
+        Box::pin(async {
+            reqwest::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .unwrap_or_default()
+        })
+    }));
+
+    let url = spawn_stub(200, r#"{"ok":true}"#).await;
+    let db = Arc::new(aidog_db::test_support::test_db().await);
+    let script = format!(r#"var r = http.get("{url}"); return {{ success: true }};"#);
+    let q = run_custom_query(Some(&db), qctx(), &script, 0).await;
+    assert!(q.success, "脚本须跑通本地 stub: {:?}", q.error);
+    assert!(
+        BUILDER_CALLED.load(Ordering::SeqCst),
+        "出站须走 CLIENT_BUILDER 注入的 client（db=Some 时）"
+    );
+
+    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let hit = logs
+        .iter()
+        .find(|l| l.group_key == "[quota:script]")
+        .expect("成功出站须落 proxy_log");
+    assert_eq!(hit.source_protocol, "quota");
+    assert_eq!(hit.status_code, 200);
+}
+
+/// 非 2xx 出站同样落 proxy_log（upstream_status_code 原样），错误文案可被脚本 catch。
+#[tokio::test]
+async fn script_outbound_error_persists_log() {
+    let url = spawn_stub(500, r#"{"e":"x"}"#).await;
+    let db = Arc::new(aidog_db::test_support::test_db().await);
+    let script = format!(
+        r#"
+        try {{
+            http.get("{url}");
+            return {{ success: false, error: "unreachable" }};
+        }} catch (e) {{
+            return {{ success: false, error: "caught: " + e.message }};
+        }}
+        "#,
+    );
+    let q = run_custom_query(Some(&db), qctx(), &script, 0).await;
+    assert!(!q.success);
+    assert!(q.error.unwrap().starts_with("caught:"), "脚本须能 catch 非 2xx");
+
+    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let hit = logs
+        .iter()
+        .find(|l| l.group_key == "[quota:script]")
+        .expect("非 2xx 出站也须落 proxy_log");
+    assert_eq!(hit.status_code, 500);
 }
