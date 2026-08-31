@@ -5,8 +5,7 @@
 
 pub use aidog_adapter::quota::http::with_cli_proxy_provider_id;
 pub use aidog_adapter::quota::{
-    query_quota, query_quota_for, quota_config_for, BalanceInfo, CodingPlanInfo, PlatformQuota,
-    QuotaCapability, QuotaTier,
+    query_quota, query_quota_for, BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier,
 };
 
 pub use aidog_adapter::newapi::quota::query_quota_newapi;

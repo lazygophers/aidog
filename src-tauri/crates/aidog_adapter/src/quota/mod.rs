@@ -8,11 +8,9 @@
 //! dispatch 保留旧 `query_quota`（base_url 自动检测）签名，调用方零改动；
 //! 另提供按 Protocol 的类型化入口。
 
-pub mod capability;
 pub mod http;
 pub mod script;
 
-pub use capability::{QuotaCapability, capability_for_variant};
 pub use http::{BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
 pub use script::CustomQueryCtx;
 
@@ -24,26 +22,7 @@ use aidog_db::Db;
 use http::{err_quota, QUOTA_PLATFORM_ID};
 use script::run_custom_query;
 
-// ── 入口 1: 能力配置（选中变体 returns 派生）──────────────
-
-/// 按平台协议返回该平台的 quota 能力配置（quota-scripts spec：由 registry 首条变体的
-/// `returns` 声明派生，替代旧的 per-platform 硬编码）。
-/// 无 quota 脚本的平台返回空能力（全 false），custom_query 恒可用。
-pub fn quota_config_for(protocol: &Protocol) -> QuotaCapability {
-    let variants = aidog_db::registry::quota_scripts_in(
-        &aidog_db::registry::effective_presets(),
-        &protocol.wire_str(),
-    );
-    match variants.first() {
-        Some(v) => capability_for_variant(v),
-        None => QuotaCapability {
-            custom_query_supported: true,
-            ..Default::default()
-        },
-    }
-}
-
-// ── 入口 2: 完整查询结果 ─────────────────────────────────
+// ── 完整查询结果 ─────────────────────────────────────────
 
 /// 统一脚本执行入口：解析生效脚本（物化列 → `extra.quota_custom_script` → 选中/首条
 /// 变体，`registry::resolve_quota_script`）后 `run_custom_query`。
