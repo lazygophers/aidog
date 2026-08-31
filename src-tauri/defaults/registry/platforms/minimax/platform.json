@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788164531,
+  "last_updated": 1788196784,
   "endpoints": {
     "default": [
       {
@@ -79,5 +79,31 @@
     "hailuobiancheng",
     "hlbc"
   ],
-  "color": "#FF6B6B"
+  "color": "#FF6B6B",
+  "quota_scripts": [
+    {
+      "id": "default",
+      "name": {
+        "en-US": "Coding Plan Query",
+        "zh-Hans": "Coding Plan 查询",
+        "ar-SA": "استعلام Coding Plan",
+        "fr-FR": "Requête Coding Plan",
+        "de-DE": "Coding Plan-Abfrage",
+        "ru-RU": "Запрос Coding Plan",
+        "ja-JP": "Coding Plan 照会",
+        "es-ES": "Consulta de Coding Plan"
+      },
+      "requires": [],
+      "returns": {
+        "balance": false,
+        "coding_plan": true,
+        "mcp": false,
+        "tiers": [
+          "five_hour",
+          "weekly_limit"
+        ]
+      },
+      "script": "function httpErr(e) {\n  var m = e && e.message ? String(e.message) : String(e);\n  if (m.indexOf(\"HTTP \") === 0) return m;\n  if (m.indexOf(\"JSON parse: \") === 0) return \"Parse: \" + m.slice(12);\n  return \"Network: \" + m;\n}\nfunction intVal(v) {\n  return typeof v === \"number\" && Number.isInteger(v) ? v : null;\n}\nfunction msToIso(ms) {\n  try {\n    var iso = new Date(ms).toISOString();\n  } catch (e) {\n    return null;\n  }\n  if (ms % 1000 === 0) return iso.slice(0, 19) + \"+00:00\";\n  return iso.slice(0, 23) + \"+00:00\";\n}\nvar body;\ntry {\n  body = http.get(\"https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains\", {\n    \"Authorization\": \"Bearer \" + ctx.apiKey,\n    \"Content-Type\": \"application/json\"\n  });\n} catch (e) {\n  return { success: false, error: httpErr(e) };\n}\nif (body == null || typeof body !== \"object\" || Array.isArray(body)) body = {};\nif (body.base_resp !== undefined) {\n  var br = body.base_resp;\n  var code = br == null ? null : intVal(br.status_code);\n  if (code === null) code = -1;\n  if (code !== 0) {\n    var msg = br != null && typeof br.status_msg === \"string\" ? br.status_msg : \"Unknown\";\n    return { success: false, error: \"API error (code \" + code + \"): \" + msg };\n  }\n}\nvar tiers = [];\nif (Array.isArray(body.model_remains)) {\n  var item = null;\n  for (var i = 0; i < body.model_remains.length; i++) {\n    var m = body.model_remains[i];\n    if (m != null && typeof m.model_name === \"string\" && m.model_name === \"general\") {\n      item = m;\n      break;\n    }\n  }\n  if (item != null) {\n    var pct5 = typeof item.current_interval_remaining_percent === \"number\"\n      ? item.current_interval_remaining_percent\n      : null;\n    if (pct5 !== null) {\n      var et = intVal(item.end_time);\n      tiers.push({\n        name: \"five_hour\",\n        utilization: 100.0 - pct5,\n        resets_at: et === null ? null : msToIso(et)\n      });\n    }\n    var ws = intVal(item.current_weekly_status);\n    var wpct = typeof item.current_weekly_remaining_percent === \"number\"\n      ? item.current_weekly_remaining_percent\n      : null;\n    if ((ws === 1 || ws === 2) && wpct !== null) {\n      var wet = intVal(item.weekly_end_time);\n      var totalC = typeof item.current_weekly_total_count === \"number\"\n        ? item.current_weekly_total_count\n        : null;\n      var limit = totalC !== null && totalC > 0.0 ? totalC : null;\n      var remaining = null;\n      if (limit !== null) {\n        var uc = typeof item.current_weekly_usage_count === \"number\"\n          ? item.current_weekly_usage_count\n          : null;\n        if (uc !== null) remaining = Math.max(limit - uc, 0.0);\n      }\n      tiers.push({\n        name: \"weekly_limit\",\n        utilization: 100.0 - wpct,\n        resets_at: wet === null ? null : msToIso(wet),\n        limit: limit,\n        remaining: remaining\n      });\n    }\n  }\n}\nreturn {\n  success: true,\n  error: null,\n  balance: null,\n  coding_plan: { level: null, tiers: tiers }\n};"
+    }
+  ]
 }
