@@ -136,8 +136,9 @@ pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuo
 }
 
 /// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
-/// NewApi 平台走专用两步查询（query_quota_newapi），与 lib.rs 手动查询/冷启动一致；
-/// 否则 query_quota 按 base_url 子串分派对 newapi 自定义实例返 "Unsupported" → est 永不主动刷新。
+/// query_quota 按平台行协议路由 registry 脚本（quota-scripts T4）：newapi 两步查询 /
+/// devin ACU / 11 平台族统一覆盖（旧行为缺口：devin 未特判 → base_url 启发式打不中
+/// → "Unsupported"，现随统一脚本路径顺带消除）。
 async fn run_calibration(
     db: &Db,
     platform_id: u64,
@@ -147,13 +148,10 @@ async fn run_calibration(
     extra: &str,
     is_coding_plan: bool,
 ) {
+    let _ = (platform_type, extra); // 旧分流入参，保留签名免改 caller（T5 可清）
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
-    let quota = if platform_type == "newapi" {
-        crate::gateway::quota::query_quota_newapi(Some(&db_arc), base_url, api_key, extra, platform_id as i64).await
-    } else {
-        crate::gateway::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await
-    };
+    let quota = crate::gateway::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await;
     // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }

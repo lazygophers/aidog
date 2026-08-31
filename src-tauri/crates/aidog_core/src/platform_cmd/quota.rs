@@ -87,16 +87,10 @@ pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
         tauri::async_runtime::spawn(async move {
             let Some(db) = handle.try_state::<Db>() else { return };
             let db_arc = Arc::new(db.inner().clone());
-            let is_newapi = matches!(p.platform_type, gateway::models::Protocol::NewApi);
-            let is_devin = matches!(p.platform_type, gateway::models::Protocol::Devin);
-            // 锁外 async 真查
-            let q = if is_newapi {
-                gateway::quota::query_quota_newapi(Some(&db_arc), &p.base_url, &p.api_key, &p.extra, p.id as i64).await
-            } else if is_devin {
-                gateway::quota::query_quota_devin(Some(&db_arc), &p.base_url, &p.api_key, &p.extra, p.id as i64).await
-            } else {
-                gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64).await
-            };
+            // 统一脚本路径（quota-scripts T4）：query_quota 按平台行协议路由（物化列 →
+            // registry 变体），newapi 两步查询 / devin ACU / 11 平台族全覆盖，
+            // 不再 newapi/devin 三分支特判。
+            let q = gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64).await;
             if !q.success {
                 return; // 失败保留，下次再试（不重置 last_real_query_at）
             }
