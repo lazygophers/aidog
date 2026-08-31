@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -22,7 +22,24 @@
       "step-3.7-flash",
       "step-3.5-flash",
       "step-3.5-flash-2603",
-      "step-1o-turbo-vision"
+      "step-1o-turbo-vision",
+      "step-1o-audio",
+      "step-2x-large",
+      "step-asr",
+      "step-asr-1.1",
+      "step-asr-1.1-stream",
+      "step-audio-2",
+      "step-audio-r1.5",
+      "step-image-edit-2",
+      "step-router-v1",
+      "step-tts-2",
+      "step-tts-mini",
+      "stepaudio-2-asr-pro",
+      "stepaudio-2.5-asr",
+      "stepaudio-2.5-asr-stream",
+      "stepaudio-2.5-chat",
+      "stepaudio-2.5-realtime",
+      "stepaudio-2.5-tts"
     ]
   },
   "name": {

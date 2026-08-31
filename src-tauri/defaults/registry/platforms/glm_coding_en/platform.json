@@ -33,7 +33,9 @@
   "model_list": {
     "default": [
       "glm-5.3",
-      "glm-5.3-flash"
+      "glm-5.3-flash",
+      "glm-5-turbo",
+      "glm-5.2"
     ]
   },
   "name": {
@@ -87,5 +89,5 @@
       ]
     }
   ],
-  "last_updated": 1788063148
+  "last_updated": 1788155152
 }

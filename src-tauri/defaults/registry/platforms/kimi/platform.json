@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -29,7 +29,23 @@
       "moonshot-v1-32k",
       "moonshot-v1-32k-vision-preview",
       "moonshot-v1-8k",
-      "moonshot-v1-8k-vision-preview"
+      "moonshot-v1-8k-vision-preview",
+      "kimi-k2",
+      "kimi-k2-0711-preview",
+      "kimi-k2-0905",
+      "kimi-k2-0905-preview",
+      "kimi-k2-thinking",
+      "kimi-k2-thinking-turbo",
+      "kimi-k2-turbo-preview",
+      "kimi-latest",
+      "kimi-latest-128k",
+      "kimi-latest-32k",
+      "kimi-latest-8k",
+      "kimi-thinking-preview",
+      "moonshot-v1-128k-0430",
+      "moonshot-v1-32k-0430",
+      "moonshot-v1-8k-0430",
+      "moonshot-v1-auto"
     ]
   },
   "name": {

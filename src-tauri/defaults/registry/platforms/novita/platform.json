@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788154191,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -172,7 +172,8 @@
       "zai-org/glm-5.2",
       "zai-org/glm-5.3",
       "zai-org/glm-5.3-flash",
-      "zai-org/glm-5v-turbo"
+      "zai-org/glm-5v-turbo",
+      "gt-4p"
     ]
   },
   "name": {

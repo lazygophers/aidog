@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -43,7 +43,23 @@
       "seed-1-6-flash-250715",
       "seed-2-0-lite-260215",
       "seed-2-0-lite-260228",
-      "seed-2-0-mini-260215"
+      "seed-2-0-mini-260215",
+      "dola-seedream-5-0-pro-260628",
+      "dreamina-seedance-2-0-260128",
+      "dreamina-seedance-2-0-fast-260128",
+      "dreamina-seedance-2-0-mini-260615",
+      "dreamina-seedance-2-5-260628",
+      "Hitem3d-2.0",
+      "Hyper3d-Rodin-Gen2",
+      "seedance-1-0-pro-250528",
+      "seedance-1-0-pro-fast-251015",
+      "seedance-1-5-pro-251215",
+      "seededit-3-0-i2i-250628",
+      "seedream-4-0-250828",
+      "seedream-4-5-251128",
+      "seedream-5-0-260128",
+      "skylark-embedding-vision-250615",
+      "skylark-embedding-vision-251215"
     ]
   },
   "name": {

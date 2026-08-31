@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788095447,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -23,7 +23,18 @@
       "sensenova-u1.5-lite",
       "sensenova-u1-fast",
       "deepseek-v4-flash",
-      "glm-5.2"
+      "glm-5.2",
+      "nova-tts-1",
+      "SenseChat-Character",
+      "SenseChat-Character-Pro",
+      "SenseChat-Vision",
+      "SenseNova-Audio-Fusion-0603",
+      "SenseNova-V6-Omni",
+      "SenseNova-V6-Pro",
+      "SenseNova-V6-Reasoner",
+      "SenseNova-V6-Turbo",
+      "SenseNova-V6.5-Pro",
+      "SenseNova-V6.5-Turbo"
     ]
   },
   "name": {

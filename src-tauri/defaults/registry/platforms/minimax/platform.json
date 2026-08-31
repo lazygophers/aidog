@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788060539,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -27,7 +27,27 @@
       "MiniMax-M2.5-highspeed",
       "MiniMax-M2.1",
       "MiniMax-M2.1-highspeed",
-      "MiniMax-M2"
+      "MiniMax-M2",
+      "image-01",
+      "image-01-live",
+      "minimax-01",
+      "MiniMax-H3",
+      "MiniMax-H3-Context-IR",
+      "MiniMax-H3-Max",
+      "MiniMax-H3-Regeneration",
+      "MiniMax-Hailuo-02",
+      "MiniMax-Hailuo-2.3",
+      "MiniMax-Hailuo-2.3-Fast",
+      "minimax-m1",
+      "minimax-m2-her",
+      "MiniMax-M2.1-lightning",
+      "MiniMax-M2.5-lightning",
+      "speech-02-hd",
+      "speech-02-turbo",
+      "speech-2.6-hd",
+      "speech-2.6-turbo",
+      "speech-2.8-hd",
+      "speech-2.8-turbo"
     ]
   },
   "name": {

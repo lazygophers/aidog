@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1788155152,
   "endpoints": {
     "default": [
       {
@@ -55,7 +55,41 @@
       "google/gemma-4-31B-it",
       "google/gemma-4-12B-it",
       "ByteDance-Seed/Seed-OSS-36B-Instruct",
-      "openai/gpt-oss-20b"
+      "openai/gpt-oss-20b",
+      "black-forest-labs/FLUX.1-dev",
+      "black-forest-labs/FLUX.1-Kontext-dev",
+      "black-forest-labs/FLUX.1-schnell",
+      "deepseek-ai/DeepSeek-R1",
+      "deepseek-ai/DeepSeek-V3",
+      "deepseek-ai/DeepSeek-V3.1",
+      "fishaudio/fish-speech-1.5",
+      "FunAudioLLM/CosyVoice2-0.5B",
+      "IndexTeam/IndexTTS-2",
+      "Qwen/Qwen-Image",
+      "Qwen/Qwen-Image-Edit",
+      "Qwen/Qwen2.5-72B-Instruct",
+      "Qwen/Qwen2.5-7B-Instruct",
+      "Qwen/Qwen3-14B",
+      "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "Qwen/Qwen3-32B",
+      "Qwen/Qwen3-8B",
+      "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "Qwen/Qwen3-Coder-480B-A35B",
+      "Qwen/Qwen3-Embedding-0.6B",
+      "Qwen/Qwen3-Embedding-4B",
+      "Qwen/Qwen3-Embedding-8B",
+      "Qwen/Qwen3-Reranker-0.6B",
+      "Qwen/Qwen3-Reranker-8B",
+      "Qwen/Qwen3-VL-30B-A3B-Instruct",
+      "Qwen/Qwen3-VL-30B-A3B-Thinking",
+      "Qwen/Qwen3-VL-32B-Instruct",
+      "Qwen/Qwen3-VL-32B-Thinking",
+      "Qwen/Qwen3-VL-8B-Instruct",
+      "tencent/Hy3",
+      "Tongyi-MAI/Z-Image-Turbo",
+      "Wan-AI/Wan2.2-I2V-A14B",
+      "Wan-AI/Wan2.2-T2V-A14B",
+      "zai-org/GLM-4.5-Air"
     ]
   },
   "name": {
