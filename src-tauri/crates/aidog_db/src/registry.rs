@@ -202,8 +202,8 @@ pub struct QuotaScriptParam {
     pub label: BTreeMap<String, String>,
 }
 
-/// quota 脚本能力声明（`quota_scripts[].returns`）。查询入口与 `QuotaCapability`
-/// 由选中变体的这份声明派生（`aidog_adapter::quota::capability_for_variant`）。
+/// quota 脚本能力声明（`quota_scripts[].returns`）。前端查询入口是否渲染
+/// 由该声明驱动（索引只存 `capable` 汇总布尔）。
 #[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
 pub struct QuotaScriptReturns {
     #[serde(default)]
