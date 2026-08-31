@@ -20,7 +20,7 @@ import { Input } from "@/components/ui/input";
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
   FormSection, ApiKeyField,
-  NewApiBalanceConfigSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
+  QuotaScriptSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
   ManualBudgetsSection, BreakerSection, PeakSection, GroupAssignSection,
   BuiltinToolCompatSection,
   ExpirySection, ClaudeConfigSection,
@@ -44,7 +44,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
-    newApiConfig, setNewApiConfig,
+    quotaVariants, quotaVariantId, handleQuotaVariantChange,
+    quotaCustomScript, setQuotaCustomScript,
+    quotaRequires, setQuotaRequires,
     devinConfig, setDevinConfig,
     endpoints, setEndpoints,
     models, handleModelChange, handleModelSelect, activeDropdown, setActiveDropdown,
@@ -248,12 +250,22 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           </FormSection>
         )}
 
-        {/* New API 余额查询配置（仅 newapi 平台显示） */}
-        {protocol === "newapi" && (
-          <NewApiBalanceConfigSection config={newApiConfig} onChange={setNewApiConfig} t={t} />
-        )}
+        {/* 配额查询脚本（registry 变体 + 自定义伪变体 + requires 动态表单；
+            无变体且无自定义脚本的协议内部自渲染 null，quota-scripts T6） */}
+        <QuotaScriptSection
+          protocol={protocol}
+          variants={quotaVariants}
+          variantId={quotaVariantId}
+          onVariantChange={handleQuotaVariantChange}
+          customScript={quotaCustomScript}
+          onCustomScriptChange={setQuotaCustomScript}
+          requires={quotaRequires}
+          onRequiresChange={(k, v) => setQuotaRequires(prev => ({ ...prev, [k]: v }))}
+          locale={i18n.language}
+          t={t}
+        />
 
-        {/* Devin 平台配置（org_id + 可选 timeout/mode，仅 devin 协议显示） */}
+        {/* Devin 平台配置（可选 timeout/mode，仅 devin 协议显示；org_id 走上方 requires 表单） */}
         {protocol === "devin" && (
           <DevinConfigSection config={devinConfig} onChange={setDevinConfig} t={t} />
         )}

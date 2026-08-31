@@ -27,9 +27,9 @@ export const DEFAULT_NEWAPI_CONFIG: NewApiConfig = {
   user_id: "",
 };
 
-/** Devin 平台默认配置（org_id 必填，timeout/mode 可选）。timeout 用 string 与 number input 兼容。 */
+/** Devin 平台默认配置（timeout/mode 可选；org_id 编辑已移交配额脚本 requires 表单）。
+ *  timeout 用 string 与 number input 兼容。 */
 export const DEFAULT_DEVIN_CONFIG: DevinConfig = {
-  org_id: "",
   devin_timeout: "",
   devin_mode: "",
 };
@@ -68,9 +68,10 @@ export function serializeNewApiConfig(extra: string, cfg: NewApiConfig): string 
   return JSON.stringify(obj);
 }
 
-/** 从 platform.extra JSON 解析 Devin 配置（org_id / devin_timeout / devin_mode）。
+/** 从 platform.extra JSON 解析 Devin 配置（devin_timeout / devin_mode）。
  *  形态：`{"devin":{"org_id":"<id>","devin_timeout":300,"devin_mode":"normal"}}`。
- *  与 Rust `quota/devin.rs::parse_devin_extra` 形态对称（nested `devin` 子对象）。 */
+ *  org_id 的编辑已移交配额查询脚本 requires 表单（quota-scripts T6），本对 parse/serialize
+ *  不再读写它 —— serialize 保留存量嵌套 org_id 原样透传（proxy devin 路由仍读该键）。 */
 export function parseDevinConfig(extra: string): DevinConfig {
   if (!extra.trim()) return { ...DEFAULT_DEVIN_CONFIG };
   try {
@@ -80,7 +81,6 @@ export function parseDevinConfig(extra: string): DevinConfig {
       if (d && typeof d === "object") {
         const o = d as Record<string, unknown>;
         return {
-          org_id: typeof o.org_id === "string" ? o.org_id : "",
           devin_timeout: typeof o.devin_timeout === "number" ? String(o.devin_timeout) : (typeof o.devin_timeout === "string" ? o.devin_timeout : ""),
           devin_mode: typeof o.devin_mode === "string" ? o.devin_mode : "",
         };
@@ -91,7 +91,7 @@ export function parseDevinConfig(extra: string): DevinConfig {
 }
 
 /** 把 Devin 配置写回 extra JSON（保留其余键）。
- *  org_id 为空 → 移除整个 `devin` 键（无意义配置不入库，避免下次编辑误读半填值）。 */
+ *  存量嵌套 org_id 原样保留（本表单不再编辑）；全空且无存量 org_id → 移除整个 `devin` 键。 */
 export function serializeDevinConfig(extra: string, cfg: DevinConfig): string {
   let obj: Record<string, unknown> = {};
   if (extra.trim()) {
@@ -102,15 +102,155 @@ export function serializeDevinConfig(extra: string, cfg: DevinConfig): string {
       }
     } catch { /* ignore */ }
   }
-  const trimmedOrg = cfg.org_id.trim();
-  if (!trimmedOrg && !cfg.devin_timeout.trim() && !cfg.devin_mode.trim()) {
+  const prev = obj.devin && typeof obj.devin === "object" && !Array.isArray(obj.devin)
+    ? obj.devin as Record<string, unknown> : null;
+  const orgId = prev && typeof prev.org_id === "string" ? prev.org_id : "";
+  const timeoutNum = Math.max(0, Math.floor(Number(cfg.devin_timeout) || 0));
+  const mode = cfg.devin_mode.trim();
+  if (!orgId.trim() && timeoutNum === 0 && !mode) {
     delete obj.devin;
   } else {
-    const devin: Record<string, unknown> = { org_id: trimmedOrg };
-    const timeoutNum = Math.max(0, Math.floor(Number(cfg.devin_timeout) || 0));
+    const devin: Record<string, unknown> = {};
+    if (orgId.trim()) devin.org_id = orgId;
     if (timeoutNum > 0) devin.devin_timeout = timeoutNum;
-    if (cfg.devin_mode.trim()) devin.devin_mode = cfg.devin_mode.trim();
+    if (mode) devin.devin_mode = mode;
     obj.devin = devin;
+  }
+  return JSON.stringify(obj);
+}
+
+// ─── 配额查询脚本（quota-scripts T6）：变体选择 + requires 参数 ────────────
+
+/** requires 参数的旧嵌套家（key → extra 子对象名）。脚本读值嵌套优先、顶层兜底（t3c 两层
+ *  兜底），且 T4 基线 proxy devin 路由只读嵌套 —— 表单写顶层（schema 约定）同时镜像写嵌套，
+ *  保证脚本 / proxy / 表单三处取值一致，旧数据不漂移。 */
+const LEGACY_REQUIRES_NEST: Record<string, string> = {
+  org_id: "devin",
+  balance_base_url: "newapi",
+  balance_api_key: "newapi",
+};
+
+/** quota 脚本表单态（platform.extra 持久化，见 parse/serializeQuotaScriptConfig）。 */
+export interface QuotaScriptFormConfig {
+  /** 选中变体 id（registry quota_scripts[].id；"" = 未显式选择，后端物化回落首条）。 */
+  variantId: string;
+  /** 自定义脚本正文（非空 = 自定义伪变体，物化时覆盖 id 选择）。 */
+  customScript: string;
+  /** requires 参数值（key → 用户输入；含 newapi user_id 等非 requires 附加键）。 */
+  requires: Record<string, string>;
+}
+
+/** 从 platform.extra 解析变体选择（id / 自定义脚本正文；requires 值走 readRequiresValue）。 */
+export function parseQuotaScriptConfig(extra: string): { variantId: string; customScript: string } {
+  if (!extra.trim()) return { variantId: "", customScript: "" };
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const o = parsed as Record<string, unknown>;
+      return {
+        variantId: typeof o.quota_script_id === "string" ? o.quota_script_id : "",
+        customScript: typeof o.quota_custom_script === "string" ? o.quota_custom_script : "",
+      };
+    }
+  } catch { /* ignore */ }
+  return { variantId: "", customScript: "" };
+}
+
+/** extra 是否带非空自定义配额脚本（伪变体）。 */
+export function hasCustomQuotaScript(extra: string): boolean {
+  return parseQuotaScriptConfig(extra).customScript.trim() !== "";
+}
+
+/** 读 requires 参数值：嵌套优先（extra.newapi / extra.devin 子对象，同脚本取值语义：
+ *  嵌套存在但空串**不**回落顶层，t3c）→ 顶层兜底。缺失 / 非法 → ""。 */
+export function readRequiresValue(extra: string, key: string): string {
+  if (!extra.trim()) return "";
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return "";
+    const o = parsed as Record<string, unknown>;
+    for (const nest of ["newapi", "devin"]) {
+      const home = o[nest];
+      if (home && typeof home === "object" && !Array.isArray(home) && key in (home as Record<string, unknown>)) {
+        const v = (home as Record<string, unknown>)[key];
+        return typeof v === "string" ? v : "";
+      }
+    }
+    const top = o[key];
+    return typeof top === "string" ? top : "";
+  } catch { /* ignore */ }
+  return "";
+}
+
+/** 把变体选择 + requires 参数写回 extra JSON（保留其余键）。互斥规则（与后端物化对齐）：
+ *  - customScript 非空 → 写 quota_custom_script、删 quota_script_id（custom 优先）；
+ *  - 否则 → 删 quota_custom_script；id 命中 variants 才写 quota_script_id，
+ *    缺省 / 失效 id 不写（后端 resolve/materialize 回落首条）。
+ *  requires 仅写选中变体（custom 无元数据，不动 requires 键）：值写顶层 + 镜像写旧嵌套家；
+ *  置空则顶层与嵌套同删（清掉旧嵌套脏值，防嵌套优先读到陈旧值）。
+ *  newapi 的 user_id（非 requires、回填目标字段，spec user story 7）单独写 extra.newapi.user_id。 */
+export function serializeQuotaScriptConfig(
+  extra: string,
+  cfg: QuotaScriptFormConfig,
+  variants: Array<{ id: string; requires: string[] }>,
+  protocol: string,
+): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  const nestOf = (obj2: Record<string, unknown>, nest: string): Record<string, unknown> | null => {
+    const home = obj2[nest];
+    if (home && typeof home === "object" && !Array.isArray(home)) return home as Record<string, unknown>;
+    return null;
+  };
+  const custom = cfg.customScript.trim();
+  if (custom) {
+    obj.quota_custom_script = cfg.customScript;
+    delete obj.quota_script_id;
+  } else {
+    delete obj.quota_custom_script;
+    const sel = variants.find(v => v.id === cfg.variantId) ?? variants[0];
+    if (cfg.variantId && variants.some(v => v.id === cfg.variantId)) {
+      obj.quota_script_id = cfg.variantId;
+    } else {
+      delete obj.quota_script_id;
+    }
+    if (sel) {
+      for (const key of sel.requires) {
+        const val = (cfg.requires[key] ?? "").trim();
+        const nest = LEGACY_REQUIRES_NEST[key];
+        if (val) {
+          obj[key] = val;
+          if (nest) {
+            const home = (obj[nest] ?? {}) as Record<string, unknown>;
+            obj[nest] = { ...home, [key]: val };
+          }
+        } else {
+          delete obj[key];
+          if (nest) {
+            const home = nestOf(obj, nest);
+            if (home) delete home[key];
+          }
+        }
+      }
+    }
+  }
+  // newapi user_id：旧表单字段保留（查询结果回填目标，读取方暂缺 — 回填链现状见 notes/01）。
+  if (protocol === "newapi") {
+    const uid = (cfg.requires.user_id ?? "").trim();
+    if (uid) {
+      const home = (obj.newapi ?? {}) as Record<string, unknown>;
+      obj.newapi = { ...home, user_id: uid };
+    } else {
+      const home = nestOf(obj, "newapi");
+      if (home) delete home.user_id;
+    }
   }
   return JSON.stringify(obj);
 }

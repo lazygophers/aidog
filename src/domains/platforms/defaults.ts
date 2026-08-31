@@ -1,5 +1,5 @@
 import type { Protocol, PlatformEndpoint, ModelSlot, ClientType } from "../../services/api";
-import { getDefaultsJson, getClientTypesJson } from "../../services/api";
+import { getDefaultsJson, getClientTypesJson, hasCustomQuotaScript } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
 /** 高峰/低峰时段倍率窗口（多窗口数组）。
@@ -82,10 +82,74 @@ type DefaultsDoc = {
      *  absent / 空数组 = 无调整（multiplier 1.0）。
      *  多窗口 first-match wins。跨天: end_hour < start_hour（半开 [start,end)）。 */
     peak?: TimeWindow[];
+    /** 配额查询脚本变体（quota-scripts spec；absent = 该协议无配额查询）。 */
+    quota_scripts?: QuotaScriptVariant[];
   }>>;
 };
 
 let docPromise: Promise<DefaultsDoc> | null = null;
+
+// ─── quota_scripts（配额查询脚本变体，platform.json 顶层）───────────────
+// 真值源 = registry platform.json 的 `quota_scripts` 数组（quota-scripts spec），
+// 随 presets 文档整体透传到前端（getDefaultsJson / docPromise），无独立 RPC。
+
+/** 脚本的用户参数声明（`quota_scripts[].requires` 一项）。label 8 locale（同平台 name 惯例）。 */
+export type QuotaScriptRequire = {
+  key: string;
+  label?: Partial<Record<DefaultsLocale, string>>;
+};
+
+/** 脚本能力声明（`quota_scripts[].returns`）：能查什么。全 false/空 = 无可展示产出。 */
+export type QuotaScriptReturns = {
+  balance?: boolean;
+  coding_plan?: boolean;
+  mcp?: boolean;
+  tiers?: string[];
+};
+
+/** platform.json 顶层 `quota_scripts` 一条：一个部署变体一份自包含 JS 脚本。 */
+export type QuotaScriptVariant = {
+  id: string;
+  name?: Partial<Record<DefaultsLocale, string>>;
+  requires?: QuotaScriptRequire[];
+  returns?: QuotaScriptReturns;
+  /** 脚本正文（表单不需要，索引不携带；读正文走后端物化列）。 */
+  script?: string;
+};
+
+/** 同步索引的单条目（不含脚本文本）：id + requires key 列表 + 是否有可展示能力。
+ *  供 usePlatformQuota.platformWantsQuota / PlatformCard.quotaCapable 在渲染路径上
+ *  同步判定（registry 未就绪时调用方回落旧启发式，见 quotaScriptIndexSync）。 */
+export type QuotaScriptIndexEntry = {
+  id: string;
+  requires: string[];
+  capable: boolean;
+};
+
+let quotaScriptIndex: Partial<Record<string, QuotaScriptIndexEntry[]>> | null = null;
+
+/** 返回值是否有任何可展示产出（balance / coding plan / mcp / tiers）。 */
+function variantCapable(returns: QuotaScriptReturns | undefined): boolean {
+  if (!returns) return false;
+  return !!(returns.balance || returns.coding_plan || returns.mcp || (returns.tiers?.length ?? 0) > 0);
+}
+
+/** 从 presets 文档构建同步索引（loadDoc 首次 resolve 后调用一次）。 */
+function primeQuotaScriptIndex(doc: DefaultsDoc): void {
+  const idx: Partial<Record<string, QuotaScriptIndexEntry[]>> = {};
+  for (const proto of Object.keys(doc.protocols ?? {})) {
+    const variants = doc.protocols[proto as Protocol]?.quota_scripts ?? [];
+    if (variants.length === 0) continue;
+    idx[proto] = variants
+      .filter(v => typeof v?.id === "string")
+      .map(v => ({
+        id: v.id,
+        requires: (v.requires ?? []).map(r => r.key),
+        capable: variantCapable(v.returns),
+      }));
+  }
+  quotaScriptIndex = idx;
+}
 
 /** 全量拉取一次 presets 文档（DB 优先、bundled 兜底）——不走 docPromise 缓存。
  *  匹配/识别路径（平台搜索词、粘贴识别）用：数据表即真值，用时直读，无代码侧缓存/判断。 */
@@ -108,8 +172,35 @@ async function fetchDoc(): Promise<DefaultsDoc> {
 }
 
 async function loadDoc(): Promise<DefaultsDoc> {
-  if (!docPromise) docPromise = fetchDoc();
+  if (!docPromise) {
+    docPromise = fetchDoc().then(doc => {
+      primeQuotaScriptIndex(doc);
+      return doc;
+    });
+  }
   return docPromise;
+}
+
+/** 确保 quota_scripts 同步索引已就绪（共享 docPromise 单次 RPC； Platforms 页 load 时
+ *  与 platformApi.list 并行 await，保证渲染路径上 quotaScriptIndexSync 不再走回落分支）。 */
+export async function ensureQuotaScriptIndex(): Promise<void> {
+  await loadDoc();
+}
+
+/** quota_scripts 同步索引读取。`loaded=false` = registry 文档未就绪（调用方回落旧启发式）；
+ *  `loaded=true` + 空数组 = 该协议无脚本（不可查配额，除非用户自定义脚本）。 */
+export function quotaScriptIndexSync(protocol: string): { loaded: boolean; variants: QuotaScriptIndexEntry[] } {
+  if (quotaScriptIndex === null) return { loaded: false, variants: [] };
+  return { loaded: true, variants: quotaScriptIndex[protocol] ?? [] };
+}
+
+/** 该平台是否具备配额查询入口（quota-scripts T6：registry 有变体或带自定义脚本）。
+ *  索引未就绪回落旧启发式（mock/claude_code 排除 —— 两协议本就无脚本，回落等价）。
+ *  消费点：PlatformCard.quotaCapable（刷新按钮 / 余额区渲染门控）。 */
+export function platformHasQuotaScript(p: { platform_type: string; extra?: string }): boolean {
+  const idx = quotaScriptIndexSync(p.platform_type);
+  if (!idx.loaded) return p.platform_type !== "mock" && p.platform_type !== "claude_code";
+  return idx.variants.length > 0 || hasCustomQuotaScript(p.extra ?? "");
 }
 
 /** 测试专用：清缓存让下一轮 loadDoc 重新走 mockIPC（生产代码禁调）。 */
@@ -203,6 +294,29 @@ export async function getDefaultPeak(protocol: Protocol): Promise<TimeWindow[]> 
     days_of_month: w.days_of_month ? [...w.days_of_month] : undefined,
     models: w.models ? [...w.models] : undefined,
   }));
+}
+
+/** 该协议的配额查询脚本变体列表（registry `quota_scripts`，DB 同步值优先）。
+ *  deep copy（requires 数组）防 mutate 污染 docPromise 缓存。无脚本 → []。 */
+export async function getDefaultQuotaScripts(protocol: Protocol): Promise<QuotaScriptVariant[]> {
+  const doc = await loadDoc();
+  const list = doc.protocols[protocol]?.quota_scripts ?? [];
+  return list
+    .filter(v => typeof v?.id === "string")
+    .map(v => ({
+      ...v,
+      requires: (v.requires ?? []).map(r => ({ ...r })),
+      returns: v.returns ? { ...v.returns, tiers: v.returns.tiers ? [...v.returns.tiers] : undefined } : undefined,
+    }));
+}
+
+/** 变体展示名（三层回落同 resolveName：label[locale] → en-US → 变体 id）。 */
+export function quotaVariantLabel(
+  name: Partial<Record<DefaultsLocale, string>> | undefined,
+  id: string,
+  locale?: string,
+): string {
+  return resolveName(name, id, locale);
 }
 
 /** i18next locale → registry `name` 的 locale key。变体（`zh`/`zh-CN`/`ja`）归一到 8 key 之一，

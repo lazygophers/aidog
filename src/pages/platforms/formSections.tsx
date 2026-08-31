@@ -11,11 +11,11 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
-  type NewApiConfig, type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
+  type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
   type BuiltinToolCompat,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
-import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList } from "../../domains/platforms";
+import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
@@ -149,50 +149,117 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
   );
 }
 
-export function NewApiBalanceConfigSection({ config, onChange, t }: {
-  config: NewApiConfig;
-  onChange: React.Dispatch<React.SetStateAction<NewApiConfig>>;
+// ─── 配额查询脚本（quota-scripts T6）────────────────────────────────────
+// 变体下拉（registry quota_scripts + 自定义伪变体）+ requires 动态表单。
+// 数据流：usePlatformForm 持 state（变体列表经 getDefaultQuotaScripts 异步拉取），
+//   本组件纯 props 渲染；requires 值 / 变体 id / 自定义正文的 extra 序列化见
+//   services/api/platforms.ts::serializeQuotaScriptConfig。
+
+/** 自定义伪变体下拉哨兵值（radix Select 禁空串 value；选中时表单切到 customScript 编辑）。 */
+export const QUOTA_CUSTOM_VARIANT = "__custom__";
+
+export function QuotaScriptSection({
+  protocol, variants, variantId, onVariantChange,
+  customScript, onCustomScriptChange,
+  requires, onRequiresChange,
+  locale, t,
+}: {
+  protocol: Protocol;
+  variants: QuotaScriptVariant[];
+  variantId: string;
+  onVariantChange: (v: string) => void;
+  customScript: string;
+  onCustomScriptChange: (v: string) => void;
+  requires: Record<string, string>;
+  onRequiresChange: (key: string, value: string) => void;
+  locale?: string;
   t: TFunction;
 }) {
+  // 无变体且无自定义脚本的平台不渲染本控件（quota-scripts spec user story 5 反面）。
+  if (variants.length === 0 && !customScript.trim()) return null;
+  const hasCustom = !!customScript.trim();
+  const idValid = variants.some(v => v.id === variantId);
+  // 选中值解析（与后端 resolve_quota_script 对齐：custom 优先 → 显式 id → 回落首条）。
+  const selection = hasCustom || variantId === QUOTA_CUSTOM_VARIANT
+    ? QUOTA_CUSTOM_VARIANT
+    : idValid ? variantId : (variants[0]?.id ?? "");
+  // 存量 id 失效（远程改名/删条）→ 已回落首条，提示用户重选（spec「UI 显示已回落」）。
+  const fellBack = !hasCustom && variantId !== QUOTA_CUSTOM_VARIANT && variantId !== "" && !idValid;
+  const selVariant = selection === QUOTA_CUSTOM_VARIANT ? null : variants.find(v => v.id === selection) ?? null;
   return (
     <FormSection
-      title={t("platform.newapiBalanceConfig", "余额查询配置")}
-      desc={t("platform.newapiBalanceHint", "查询余额需要独立的地址和 Token（从控制台获取），与 API Key 不同")}
+      title={t("platform.quotaScript.title", "配额查询脚本")}
+      desc={t("platform.quotaScript.desc", "选择匹配你部署的查询脚本变体；脚本要求的参数会自动出现")}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {t("platform.newapiBalanceUrl", "余额查询地址")}
+          {t("platform.quotaScript.variant", "脚本变体")}
         </div>
-        <Input
-          className="input"
-          placeholder={t("platform.newapiBalanceUrlPlaceholder", "https://your-newapi-instance.com")}
-          value={config.balance_base_url}
-          onChange={(e) => onChange(prev => ({ ...prev, balance_base_url: e.target.value }))}
-        />
+        <Select value={selection || QUOTA_CUSTOM_VARIANT} onValueChange={onVariantChange}>
+          <SelectTrigger className="input">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {variants.map(v => (
+              <SelectItem key={v.id} value={v.id}>{quotaVariantLabel(v.name, v.id, locale)}</SelectItem>
+            ))}
+            <SelectItem value={QUOTA_CUSTOM_VARIANT}>{t("platform.quotaScript.custom", "自定义脚本")}</SelectItem>
+          </SelectContent>
+        </Select>
+        {fellBack && (
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+            {t("platform.quotaScript.fellBack", "已选变体已失效，已回落到首个变体")}
+          </div>
+        )}
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {t("platform.newapiBalanceKey", "余额查询 Token")}
+      {selection === QUOTA_CUSTOM_VARIANT ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("platform.quotaScript.customLabel", "自定义 JS 脚本")}
+          </div>
+          <textarea
+            className="input"
+            placeholder={t("platform.quotaScript.customPlaceholder", "// 返回 { success, balance, tiers, newapi_user_id }")}
+            value={customScript}
+            onChange={(e) => onCustomScriptChange(e.target.value)}
+            spellCheck={false}
+            rows={10}
+            style={{ resize: "vertical", minHeight: 120, fontFamily: "var(--font-mono, monospace)", fontSize: 12, lineHeight: 1.6 }}
+          />
+          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+            {t("platform.quotaScript.customHint", "ctx 提供 baseUrl / apiKey / extra（requires 参数在 extra 顶层）；可用 http.get / http.post 出站（走系统代理、记录日志）。")}
+          </div>
         </div>
-        <Input
-          className="input"
-          type="text"
-          placeholder={t("platform.newapiBalanceKeyPlaceholder", "sess-xxxx 或 access token")}
-          value={config.balance_api_key}
-          onChange={(e) => onChange(prev => ({ ...prev, balance_api_key: e.target.value }))}
-        />
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {t("platform.newapiUserId", "用户 ID")}
+      ) : (selVariant?.requires ?? []).map(r => (
+        <div key={r.key} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {quotaVariantLabel(r.label, r.key, locale)}
+          </div>
+          <Input
+            className="input"
+            type="text"
+            placeholder={r.key}
+            value={requires[r.key] ?? ""}
+            onChange={(e) => onRequiresChange(r.key, e.target.value)}
+          />
         </div>
-        <Input
-          className="input"
-          placeholder={t("platform.newapiUserIdPlaceholder", "数字 ID（可选）")}
-          value={config.user_id}
-          onChange={(e) => onChange(prev => ({ ...prev, user_id: e.target.value }))}
-        />
-      </div>
+      ))}
+      {/* New API 用户 ID：非 requires 字段，保留旧表单入口（查询结果 newapi_user_id 的回填目标，
+          回填链现状见 notes/01；序列化写 extra.newapi.user_id）。 */}
+      {protocol === "newapi" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("platform.newapiUserId", "用户 ID")}
+          </div>
+          <Input
+            className="input"
+            type="text"
+            placeholder={t("platform.newapiUserIdPlaceholder", "数字 ID（可选）")}
+            value={requires.user_id ?? ""}
+            onChange={(e) => onRequiresChange("user_id", e.target.value)}
+          />
+        </div>
+      )}
     </FormSection>
   );
 }
@@ -206,19 +273,8 @@ export function DevinConfigSection({ config, onChange, t }: {
   return (
     <FormSection
       title={t("platform.devinConfig", "Devin 配置")}
-      desc={t("platform.devinConfigHint", "API Key 填 cog_ 前缀凭证；组织 ID 必填（v3 path 段），可在 Devin 控制台获取")}
+      desc={t("platform.devinConfigHint", "API Key 填 cog_ 前缀凭证；组织 ID 在「配额查询脚本」区配置")}
     >
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {t("platform.devinOrgId", "组织 ID")}
-        </div>
-        <Input
-          className="input"
-          placeholder={t("platform.devinOrgIdPlaceholder", "org-xxxxxxxx")}
-          value={config.org_id}
-          onChange={(e) => onChange(prev => ({ ...prev, org_id: e.target.value }))}
-        />
-      </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.devinTimeout", "Session 超时（秒，可选）")}
