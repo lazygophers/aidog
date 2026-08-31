@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1788147477,
   "model_id": "mimo-v2.5-asr",
   "canonical_model": "mimo-v2.5-asr",
   "capabilities": [
@@ -11,6 +11,6 @@
   "max_output_tokens": 2000,
   "price": {
     "unit": "second",
-    "unit_price": 0.0
+    "unit_price": 0.0000192901
   }
 }
