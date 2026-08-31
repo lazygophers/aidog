@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "qwen3-vl-plus-2025-12-19",
+  "canonical_model": "qwen3-vl-plus-2025-12-19",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 262144
+}

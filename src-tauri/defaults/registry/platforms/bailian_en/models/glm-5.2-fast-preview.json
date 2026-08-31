@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "glm-5.2-fast-preview",
+  "canonical_model": "glm-5.2-fast-preview",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 2.8e-06,
+    "output": 8.8e-06
+  },
+  "context_window": 1048576
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "emoji-detect-v1",
+  "canonical_model": "emoji-detect-v1",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

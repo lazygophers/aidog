@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "qwen3-vl-flash-2025-10-15",
+  "canonical_model": "qwen3-vl-flash-2025-10-15",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  },
+  "context_window": 262144
+}

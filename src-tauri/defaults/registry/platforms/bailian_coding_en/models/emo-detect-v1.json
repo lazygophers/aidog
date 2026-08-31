@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "emo-detect-v1",
+  "canonical_model": "emo-detect-v1",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

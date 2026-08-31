@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "wan2.2-s2v-detect",
+  "canonical_model": "wan2.2-s2v-detect",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}
