@@ -363,6 +363,15 @@
       "pattern": "^#[0-9A-Fa-f]{6}$",
       "description": "【必填】品牌色，前端徽标/卡片着色。"
     },
+    "quota_url_match": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "description": "【可选】配额查询 base_url 启发式关键词（小写子串数组，元素如 api.deepseek.com）。无平台行的零配置路径（aidog_adapter::quota query_quota_inner）据此把 base_url 分派到本协议跑 registry quota 脚本；同族多协议共享关键词时取文档序首个（如 bigmodel.cn → glm）。平台匹配词一律存此处数据驱动，禁在 Rust 代码硬编码；含路径段的关键词（如 api.kimi.com/coding）照子串匹配。"
+    },
     "quota_scripts": {
       "type": "array",
       "minItems": 1,

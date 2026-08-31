@@ -147,7 +147,8 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788196784,
+  "last_updated": 1788200874,
+  "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
       "id": "default",

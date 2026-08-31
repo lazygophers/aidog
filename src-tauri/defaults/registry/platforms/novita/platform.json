@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788196020,
+  "last_updated": 1788200874,
   "endpoints": {
     "default": [
       {
@@ -196,6 +196,7 @@
     "novita"
   ],
   "color": "#000000",
+  "quota_url_match": ["api.novita.ai"],
   "quota_scripts": [
     {
       "id": "default",
