@@ -113,3 +113,19 @@ _避免_: builtin_tool_compat（那是代理层 hack，不是模型能力）
 **Peak Price（分时价格）**:
 per-model 的分时段绝对价。平台 peak 窗口命中时优先使用；未命中或缺失时回落平台倍率，再回落默认价。
 _避免_: peak multiplier（倍率是平台级回落机制，不是模型价格）
+
+### Quota（配额查询）
+
+**Quota Script（配额脚本）**:
+platform.json 顶层 `quota_scripts` 数组里的一条自包含 JS 脚本，查询一个平台的余额 / Coding
+Plan 配额：内部多次调上游接口再汇总，返回一份完整 PlatformQuota。执行走 boa 沙箱（仅
+http.get/post 出站、统一系统代理 + 落日志）；用户参数按 `requires` 声明存 `platform.extra`，
+脚本经 `ctx.extra` 读。取代旧的 per-platform Rust 查询实现（ADR 0007）。
+_避免_: quota.rs、custom query script（那是旧的泛型用户脚本入口，机制已统一）
+
+**Quota Script Variant（配额脚本变体）**:
+同一平台协议下的一个部署形态对应一条 Quota Script（如 new-api 的各种 fork 各一条）。用户
+在平台设置里选定变体（id 存 `extra.quota_script_id`，缺省数组首条、id 失效回落首条），
+保存时单条正文物化进 platform 行的 `quota_script` 列执行；用户自定义脚本合成为伪变体
+（custom 正文优先于 id 选中）。远程同步只更新 registry 变体清单，不自动换已物化脚本。
+_避免_: deployment、provider preset
