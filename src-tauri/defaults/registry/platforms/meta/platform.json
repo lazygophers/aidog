@@ -1,0 +1,65 @@
+{
+  "last_updated": 1788184710,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.meta.ai/v1"
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://api.meta.ai"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "muse-spark-1.2"
+    }
+  },
+  "model_list": {
+    "default": [
+      "llama-3.1-405b-instruct",
+      "llama-3.1-70b-instruct",
+      "llama-3.1-8b-instruct",
+      "llama-3.2-11b-vision-instruct",
+      "llama-3.2-1b-instruct",
+      "llama-3.2-3b-instruct",
+      "llama-3.2-90b-vision-instruct",
+      "llama-3.3-70b-instruct",
+      "llama-4-maverick",
+      "llama-4-scout",
+      "llama-guard-4-12b",
+      "muse-image-1.0",
+      "muse-spark-1.1",
+      "muse-spark-1.2-contributor",
+      "muse-spark-1.2"
+    ]
+  },
+  "name": {
+    "en-US": "Meta Model API",
+    "zh-Hans": "Meta Model API",
+    "ar-SA": "Meta Model API",
+    "fr-FR": "Meta Model API",
+    "de-DE": "Meta Model API",
+    "ru-RU": "Meta Model API",
+    "ja-JP": "Meta Model API",
+    "es-ES": "Meta Model API"
+  },
+  "source_urls": {
+    "docs": "https://dev.meta.ai/docs/",
+    "pricing": "https://dev.meta.ai/docs/pricing-rate-limits"
+  },
+  "homepage": "https://llama.com/ai/",
+  "logo_url": "meta",
+  "keywords": [
+    "meta",
+    "llama",
+    "muse",
+    "muse-spark",
+    "muse-code",
+    "llama-api",
+    "meta-model-api"
+  ],
+  "color": "#0668E1"
+}
