@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "deepseek-ai/DeepSeek-R1",
+  "canonical_model": "DeepSeek-R1",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 8192,
+  "context_window": 65536,
+  "official": true,
+  "price": {
+    "input": 5.55556e-7,
+    "output": 0.00000222222,
+    "cache_read": 5.55556e-8
+  }
+}

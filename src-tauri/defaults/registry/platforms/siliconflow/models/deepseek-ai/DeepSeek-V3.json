@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "deepseek-ai/DeepSeek-V3",
+  "canonical_model": "DeepSeek-V3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "max_output_tokens": 8192,
+  "context_window": 65536,
+  "official": true,
+  "price": {
+    "input": 2.77778e-7,
+    "output": 0.00000111111,
+    "cache_read": 2.77778e-8
+  }
+}

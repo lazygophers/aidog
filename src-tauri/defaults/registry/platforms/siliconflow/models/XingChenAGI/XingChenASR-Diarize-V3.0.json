@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "XingChenAGI/XingChenASR-Diarize-V3.0",
+  "canonical_model": "XingChenASR-Diarize-V3.0",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "Qwen/Qwen3-VL-30B-A3B-Thinking",
+  "canonical_model": "Qwen3-VL-30B-A3B-Thinking",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 9.72222e-8,
+    "output": 3.88889e-7
+  }
+}

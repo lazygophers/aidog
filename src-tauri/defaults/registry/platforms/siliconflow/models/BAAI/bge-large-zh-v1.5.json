@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788145821,
+  "model_id": "BAAI/bge-large-zh-v1.5",
+  "canonical_model": "bge-large-zh-v1.5",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}
