@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788196784,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -69,5 +69,31 @@
   "color": "#1783FF",
   "key_prefixes": [
     "sk-kimi-"
+  ],
+  "quota_scripts": [
+    {
+      "id": "default",
+      "name": {
+        "en-US": "Coding Plan Query",
+        "zh-Hans": "Coding Plan 查询",
+        "ar-SA": "استعلام Coding Plan",
+        "fr-FR": "Requête Coding Plan",
+        "de-DE": "Coding Plan-Abfrage",
+        "ru-RU": "Запрос Coding Plan",
+        "ja-JP": "Coding Plan 照会",
+        "es-ES": "Consulta de Coding Plan"
+      },
+      "requires": [],
+      "returns": {
+        "balance": false,
+        "coding_plan": true,
+        "mcp": false,
+        "tiers": [
+          "five_hour",
+          "weekly_limit"
+        ]
+      },
+      "script": "function httpErr(e) {\n  var m = e && e.message ? String(e.message) : String(e);\n  if (m.indexOf(\"HTTP \") === 0) return m;\n  if (m.indexOf(\"JSON parse: \") === 0) return \"Parse: \" + m.slice(12);\n  return \"Network: \" + m;\n}\nfunction intVal(v) {\n  return typeof v === \"number\" && Number.isInteger(v) ? v : null;\n}\nfunction msToIso(ms) {\n  try {\n    var iso = new Date(ms).toISOString();\n  } catch (e) {\n    return null;\n  }\n  if (ms % 1000 === 0) return iso.slice(0, 19) + \"+00:00\";\n  return iso.slice(0, 23) + \"+00:00\";\n}\nfunction numField(obj, f, d) {\n  if (obj == null) return d;\n  var v = obj[f];\n  if (typeof v === \"number\") return v;\n  if (typeof v === \"string\" && v.trim() !== \"\" && !isNaN(Number(v))) return Number(v);\n  return d;\n}\nfunction tier(name, src) {\n  if (src == null || typeof src !== \"object\" || Array.isArray(src)) src = {};\n  var limit = numField(src, \"limit\", 1.0);\n  var remaining = numField(src, \"remaining\", 0.0);\n  var used = Math.max(limit - remaining, 0.0);\n  var utilization = limit > 0.0 ? (used / limit) * 100.0 : 0.0;\n  var rt = src.resetTime;\n  var resets_at = typeof rt === \"string\" ? rt : (intVal(rt) === null ? null : msToIso(intVal(rt)));\n  return { name: name, utilization: utilization, resets_at: resets_at, limit: limit, remaining: remaining };\n}\nvar body;\ntry {\n  body = http.get(\"https://api.kimi.com/coding/v1/usages\", { \"Authorization\": \"Bearer \" + ctx.apiKey });\n} catch (e) {\n  return { success: false, error: httpErr(e) };\n}\nif (body == null || typeof body !== \"object\" || Array.isArray(body)) body = {};\nvar tiers = [];\nif (Array.isArray(body.limits)) {\n  for (var i = 0; i < body.limits.length; i++) {\n    var item = body.limits[i];\n    if (item == null) continue;\n    if (item.detail === undefined) continue;\n    tiers.push(tier(\"five_hour\", item.detail));\n  }\n}\nif (body.usage !== undefined) {\n  tiers.push(tier(\"weekly_limit\", body.usage));\n}\nreturn {\n  success: true,\n  error: null,\n  balance: null,\n  coding_plan: { level: null, tiers: tiers }\n};"
+    }
   ]
 }

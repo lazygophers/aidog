@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1788196784,
   "endpoints": {
     "default": [
       {
@@ -79,5 +79,32 @@
     "guojiban",
     "gjb"
   ],
-  "color": "#3B5FEC"
+  "color": "#3B5FEC",
+  "quota_scripts": [
+    {
+      "id": "default",
+      "name": {
+        "en-US": "Coding Plan Query",
+        "zh-Hans": "Coding Plan 查询",
+        "ar-SA": "استعلام Coding Plan",
+        "fr-FR": "Requête Coding Plan",
+        "de-DE": "Coding Plan-Abfrage",
+        "ru-RU": "Запрос Coding Plan",
+        "ja-JP": "Coding Plan 照会",
+        "es-ES": "Consulta de Coding Plan"
+      },
+      "requires": [],
+      "returns": {
+        "balance": false,
+        "coding_plan": true,
+        "mcp": true,
+        "tiers": [
+          "five_hour",
+          "weekly_limit",
+          "mcp_monthly"
+        ]
+      },
+      "script": "function httpErr(e) {\n  var m = e && e.message ? String(e.message) : String(e);\n  if (m.indexOf(\"HTTP \") === 0) return m;\n  if (m.indexOf(\"JSON parse: \") === 0) return \"Parse: \" + m.slice(12);\n  return \"Network: \" + m;\n}\nfunction intVal(v) {\n  return typeof v === \"number\" && Number.isInteger(v) ? v : null;\n}\nfunction msToIso(ms) {\n  try {\n    var iso = new Date(ms).toISOString();\n  } catch (e) {\n    return null;\n  }\n  if (ms % 1000 === 0) return iso.slice(0, 19) + \"+00:00\";\n  return iso.slice(0, 23) + \"+00:00\";\n}\nfunction num(v) {\n  if (typeof v === \"number\") return v;\n  if (typeof v === \"string\" && v.trim() !== \"\" && !isNaN(Number(v))) return Number(v);\n  return 0.0;\n}\nvar base = String(ctx.baseUrl).toLowerCase().indexOf(\"bigmodel.cn\") !== -1\n  ? \"https://open.bigmodel.cn\"\n  : \"https://api.z.ai\";\nvar body;\ntry {\n  body = http.get(base + \"/api/monitor/usage/quota/limit\", {\n    \"Authorization\": ctx.apiKey,\n    \"Content-Type\": \"application/json\"\n  });\n} catch (e) {\n  return { success: false, error: httpErr(e) };\n}\nif (body == null || typeof body !== \"object\" || Array.isArray(body)) body = {};\nif (body.success === false) {\n  return { success: false, error: typeof body.msg === \"string\" ? body.msg : \"Unknown\" };\n}\nif (!(\"data\" in body)) return { success: false, error: \"Missing data field\" };\nvar data = body.data;\nif (data == null || typeof data !== \"object\" || Array.isArray(data)) data = {};\nvar level = typeof data.level === \"string\" ? data.level : null;\nvar tiers = [];\nvar fiveHour = null;\nvar weekly = null;\nvar unclassified = [];\nif (Array.isArray(data.limits)) {\n  for (var i = 0; i < data.limits.length; i++) {\n    var item = data.limits[i];\n    if (item == null) continue;\n    var type = typeof item.type === \"string\" ? item.type : \"\";\n    var pct = typeof item.percentage === \"number\" ? item.percentage : 0.0;\n    var resetMs = intVal(item.nextResetTime);\n    var resetIso = resetMs === null ? null : msToIso(resetMs);\n    if (type.toLowerCase() === \"tokens_limit\") {\n      var entry = { resetMs: resetMs, pct: pct, resetIso: resetIso };\n      var unit = intVal(item.unit);\n      if (unit === 3 && fiveHour === null) fiveHour = entry;\n      else if (unit === 6 && weekly === null) weekly = entry;\n      else unclassified.push(entry);\n    } else if (type.toLowerCase() === \"time_limit\") {\n      var usage = num(item.usage);\n      var remaining = num(item.remaining);\n      tiers.push({\n        name: \"mcp_monthly\",\n        utilization: pct,\n        resets_at: resetIso,\n        limit: usage > 0.0 ? usage : null,\n        remaining: remaining > 0.0 ? remaining : null\n      });\n    }\n  }\n  unclassified.sort(function (a, b) {\n    if ((a.resetMs === null) !== (b.resetMs === null)) return a.resetMs === null ? -1 : 1;\n    if (a.resetMs === null) return 0;\n    return a.resetMs - b.resetMs;\n  });\n  for (var j = 0; j < unclassified.length; j++) {\n    if (fiveHour === null) fiveHour = unclassified[j];\n    else if (weekly === null) weekly = unclassified[j];\n  }\n  if (fiveHour !== null) {\n    tiers.unshift({ name: \"five_hour\", utilization: fiveHour.pct, resets_at: fiveHour.resetIso });\n  }\n  if (weekly !== null) {\n    var pos = 0;\n    while (pos < tiers.length && tiers[pos].name !== \"mcp_monthly\") pos++;\n    tiers.splice(pos, 0, { name: \"weekly_limit\", utilization: weekly.pct, resets_at: weekly.resetIso });\n  }\n}\nreturn {\n  success: true,\n  error: null,\n  balance: null,\n  coding_plan: { level: level, tiers: tiers }\n};"
+    }
+  ]
 }
