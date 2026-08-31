@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "qwen3-asr-flash-2025-09-08",
+  "canonical_model": "qwen3-asr-flash-2025-09-08",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0000305556
+  }
+}

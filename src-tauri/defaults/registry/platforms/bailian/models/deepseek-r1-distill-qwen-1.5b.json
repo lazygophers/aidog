@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "deepseek-r1-distill-qwen-1.5b",
+  "canonical_model": "deepseek-r1-distill-qwen-1.5b",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

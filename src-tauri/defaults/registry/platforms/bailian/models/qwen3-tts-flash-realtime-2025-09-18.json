@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "qwen3-tts-flash-realtime-2025-09-18",
+  "canonical_model": "qwen3-tts-flash-realtime-2025-09-18",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0138889
+  }
+}

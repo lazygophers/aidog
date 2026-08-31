@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "MiniMax/speech-02-hd",
+  "canonical_model": "MiniMax/speech-02-hd",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.0486111
+  }
+}

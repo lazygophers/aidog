@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "Tripo/Tripo-P1.0",
+  "canonical_model": "Tripo/Tripo-P1.0",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.291667
+  }
+}

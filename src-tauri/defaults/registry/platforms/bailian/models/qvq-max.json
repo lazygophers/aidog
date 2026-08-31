@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788143154,
+  "model_id": "qvq-max",
+  "canonical_model": "qvq-max",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 0.00000111111,
+    "output": 0.00000444444
+  }
+}
