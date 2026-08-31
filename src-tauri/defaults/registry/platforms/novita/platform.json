@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1788196020,
   "endpoints": {
     "default": [
       {
@@ -195,5 +195,23 @@
   "keywords": [
     "novita"
   ],
-  "color": "#000000"
+  "color": "#000000",
+  "quota_scripts": [
+    {
+      "id": "default",
+      "name": {
+        "en-US": "Balance Query",
+        "zh-Hans": "余额查询",
+        "ar-SA": "استعلام الرصيد",
+        "fr-FR": "Requête solde",
+        "de-DE": "Guthaben-Abfrage",
+        "ru-RU": "Запрос баланса",
+        "ja-JP": "残高照会",
+        "es-ES": "Consulta de saldo"
+      },
+      "requires": [],
+      "returns": { "balance": true, "coding_plan": false, "mcp": false, "tiers": [] },
+      "script": "function httpErr(e) {\n  var m = e && e.message ? String(e.message) : String(e);\n  if (m.indexOf(\"HTTP \") === 0) return m;\n  if (m.indexOf(\"JSON parse: \") === 0) return \"Parse: \" + m.slice(12);\n  return \"Network: \" + m;\n}\nfunction num(v) {\n  if (typeof v === \"number\") return v;\n  if (typeof v === \"string\" && v.trim() !== \"\" && !isNaN(Number(v))) return Number(v);\n  return 0.0;\n}\nvar body;\ntry {\n  body = http.get(\"https://api.novita.ai/v3/user/balance\", { Authorization: \"Bearer \" + ctx.apiKey });\n} catch (e) {\n  return { success: false, error: httpErr(e) };\n}\nif (body == null) body = {};\nvar available = num(body.availableBalance) / 10000.0;\nreturn {\n  success: true,\n  error: null,\n  balance: {\n    remaining: available,\n    total: null,\n    used: null,\n    currency: \"USD\",\n    is_valid: available > 0.0\n  },\n  coding_plan: null\n};"
+    }
+  ]
 }
