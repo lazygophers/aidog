@@ -161,8 +161,9 @@ export function hasCustomQuotaScript(extra: string): boolean {
   return parseQuotaScriptConfig(extra).customScript.trim() !== "";
 }
 
-/** 读 requires 参数值：嵌套优先（extra.newapi / extra.devin 子对象，同脚本取值语义：
- *  嵌套存在但空串**不**回落顶层，t3c）→ 顶层兜底。缺失 / 非法 → ""。 */
+/** 读 requires 参数值：嵌套优先（extra.newapi / extra.devin 子对象）→ 顶层兜底，
+ *  同脚本/Rust 取值语义（registry 脚本与 gateway/proxy/devin.rs resolve_devin_org_id）：
+ *  嵌套缺失 / 空串 / 非字符串都回落顶层。全缺失 / 非法 → ""。 */
 export function readRequiresValue(extra: string, key: string): string {
   if (!extra.trim()) return "";
   try {
@@ -171,9 +172,9 @@ export function readRequiresValue(extra: string, key: string): string {
     const o = parsed as Record<string, unknown>;
     for (const nest of ["newapi", "devin"]) {
       const home = o[nest];
-      if (home && typeof home === "object" && !Array.isArray(home) && key in (home as Record<string, unknown>)) {
+      if (home && typeof home === "object" && !Array.isArray(home)) {
         const v = (home as Record<string, unknown>)[key];
-        return typeof v === "string" ? v : "";
+        if (typeof v === "string" && v !== "") return v;
       }
     }
     const top = o[key];

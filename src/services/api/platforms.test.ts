@@ -106,16 +106,16 @@ describe("parseQuotaScriptConfig / hasCustomQuotaScript", () => {
 });
 
 describe("readRequiresValue", () => {
-  it("嵌套优先（newapi/devin）→ 顶层兜底；嵌套存在但空串不回落顶层（t3c 语义）", () => {
+  it("嵌套优先（newapi/devin）→ 顶层兜底；嵌套空串/缺失/非字符串都回落顶层（与脚本/Rust 对齐）", () => {
     const extra = JSON.stringify({
-      newapi: { balance_base_url: "https://n.example" },
-      balance_api_key: "top-key",
+      newapi: { balance_base_url: "https://n.example", balance_api_key: "" },
       devin: { org_id: "" },
       org_id: "top-org",
+      balance_api_key: "top-key",
     });
     expect(readRequiresValue(extra, "balance_base_url")).toBe("https://n.example");
-    expect(readRequiresValue(extra, "balance_api_key")).toBe("top-key");
-    expect(readRequiresValue(extra, "org_id")).toBe("");           // 嵌套空串不回落
+    expect(readRequiresValue(extra, "balance_api_key")).toBe("top-key"); // 嵌套空串回落顶层
+    expect(readRequiresValue(extra, "org_id")).toBe("top-org");          // 嵌套空串回落顶层
     expect(readRequiresValue(extra, "unknown")).toBe("");
   });
 
