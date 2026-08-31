@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1788184710,
   "platforms": [
     {
       "code": "aihubmix",
@@ -4547,6 +4547,53 @@
         "mimo-v2.5-pro.json",
         "mimo-v2.5.json"
       ]
+    },
+    {
+      "code": "meta",
+      "platform_file": "platforms/meta/platform.json",
+      "models_dir": "platforms/meta/models",
+      "models": [
+        "llama-3.1-405b-instruct.json",
+        "llama-3.1-70b-instruct.json",
+        "llama-3.1-8b-instruct.json",
+        "llama-3.2-11b-vision-instruct.json",
+        "llama-3.2-1b-instruct.json",
+        "llama-3.2-3b-instruct.json",
+        "llama-3.2-90b-vision-instruct.json",
+        "llama-3.3-70b-instruct.json",
+        "llama-4-maverick.json",
+        "llama-4-scout.json",
+        "llama-guard-4-12b.json",
+        "muse-image-1.0.json",
+        "muse-spark-1.1.json",
+        "muse-spark-1.2-contributor.json",
+        "muse-spark-1.2.json"
+      ],
+      "name": "Meta Model API"
+    },
+    {
+      "code": "xai",
+      "platform_file": "platforms/xai/platform.json",
+      "models_dir": "platforms/xai/models",
+      "models": [
+        "grok-4.20-0309-non-reasoning.json",
+        "grok-4.20-0309-reasoning.json",
+        "grok-4.20-multi-agent-0309.json",
+        "grok-4.3.json",
+        "grok-4.5.json",
+        "grok-4.6.json",
+        "grok-build-0.1.json",
+        "grok-imagine-image-2.0.json",
+        "grok-imagine-image-quality.json",
+        "grok-imagine-image.json",
+        "grok-imagine-video-1.5.json",
+        "grok-imagine-video.json",
+        "grok-stt.json",
+        "grok-tts.json",
+        "grok-voice-think-fast-1.0.json",
+        "grok-voice-think-fast-2.0.json"
+      ],
+      "name": "xAI Grok API"
     }
   ],
   "pricing_only": [
@@ -4752,27 +4799,6 @@
       ]
     },
     {
-      "code": "meta",
-      "models_dir": "platforms/meta/models",
-      "models": [
-        "llama-3.1-405b-instruct.json",
-        "llama-3.1-70b-instruct.json",
-        "llama-3.1-8b-instruct.json",
-        "llama-3.2-11b-vision-instruct.json",
-        "llama-3.2-1b-instruct.json",
-        "llama-3.2-3b-instruct.json",
-        "llama-3.2-90b-vision-instruct.json",
-        "llama-3.3-70b-instruct.json",
-        "llama-4-maverick.json",
-        "llama-4-scout.json",
-        "llama-guard-4-12b.json",
-        "muse-image-1.0.json",
-        "muse-spark-1.1.json",
-        "muse-spark-1.2-contributor.json",
-        "muse-spark-1.2.json"
-      ]
-    },
-    {
       "code": "mistral",
       "models_dir": "platforms/mistral/models",
       "models": [
@@ -4799,28 +4825,6 @@
         "voxtral-small-24b-2507.json",
         "voxtral-tts-2603.json",
         "zai-glm-5-2.json"
-      ]
-    },
-    {
-      "code": "xai",
-      "models_dir": "platforms/xai/models",
-      "models": [
-        "grok-4.20-0309-non-reasoning.json",
-        "grok-4.20-0309-reasoning.json",
-        "grok-4.20-multi-agent-0309.json",
-        "grok-4.3.json",
-        "grok-4.5.json",
-        "grok-4.6.json",
-        "grok-build-0.1.json",
-        "grok-imagine-image-2.0.json",
-        "grok-imagine-image-quality.json",
-        "grok-imagine-image.json",
-        "grok-imagine-video-1.5.json",
-        "grok-imagine-video.json",
-        "grok-stt.json",
-        "grok-tts.json",
-        "grok-voice-think-fast-1.0.json",
-        "grok-voice-think-fast-2.0.json"
       ]
     }
   ]

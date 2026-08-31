@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788063148,
+  "last_updated": 1788184710,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -11,6 +11,16 @@
       {
         "protocol": "openai",
         "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
+        "coding_plan": true
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://token-plan-sgp.xiaomimimo.com/anthropic",
+        "coding_plan": true
+      },
+      {
+        "protocol": "openai",
+        "base_url": "https://token-plan-sgp.xiaomimimo.com/v1",
         "coding_plan": true
       }
     ]
