@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788164531,
+  "model_id": "music-2.6",
+  "canonical_model": "music-2.6",
+  "display_name": "Music 2.6",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.138889
+  }
+}

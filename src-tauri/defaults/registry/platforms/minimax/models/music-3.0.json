@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788164531,
+  "model_id": "music-3.0",
+  "canonical_model": "music-3.0",
+  "display_name": "Music 3.0",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.138889
+  }
+}
