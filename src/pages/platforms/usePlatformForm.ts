@@ -9,16 +9,17 @@ import { useState, useMemo, useEffect } from "react";
 import type { TFunction } from "i18next";
 import {
   platformApi, settingsApi, groupDetailApi,
-  parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig,
+  parseMockConfig, serializeMockConfig,
   parseDevinConfig, serializeDevinConfig,
+  parseQuotaScriptConfig, serializeQuotaScriptConfig, readRequiresValue,
   parsePlatformBreaker, serializePlatformBreaker,
   parsePlatformPeak, serializePlatformPeak,
   parseDisableDuringPeak, serializeDisableDuringPeak,
   parseBuiltinToolCompat, serializeBuiltinToolCompat, type BuiltinToolCompat,
   parsePlatformTimeWindows, serializePlatformTimeWindows,
-  DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, DEFAULT_DEVIN_CONFIG,
+  DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
-  type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig, type DevinConfig,
+  type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError, type TimeModelRule,
 } from "../../services/api";
@@ -26,11 +27,12 @@ import { splitApiKeys } from "../../utils/platformPaste";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import {
   PROTOCOL_LABELS, MODEL_SLOTS, DEFAULT_NAMES,
-  getDefaultEndpoints, getDefaultModels,
+  getDefaultEndpoints, getDefaultModels, getDefaultQuotaScripts, type QuotaScriptVariant,
   autoCategorize, type TimeWindow,
 } from "../../domains/platforms";
 import { getProtocolLabelMap } from "../../domains/platforms/defaults";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
+import { QUOTA_CUSTOM_VARIANT } from "./formSections";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
@@ -106,8 +108,18 @@ export interface PlatformFormState {
   globalClaudeConfig: Record<string, any>; setGlobalClaudeConfig: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
   mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
-  newApiConfig: NewApiConfig; setNewApiConfig: React.Dispatch<React.SetStateAction<NewApiConfig>>;
-  /** Devin 配置（org_id + 可选 devin_timeout/devin_mode，存 platform.extra.devin 子对象）。 */
+  /** 配额查询脚本（quota-scripts T6）：registry 变体列表（protocol 派生异步拉取）。 */
+  quotaVariants: QuotaScriptVariant[];
+  /** 选中变体 id（""=缺省回落首条；QUOTA_CUSTOM_VARIANT=自定义伪变体，哨兵见 formSections）。 */
+  quotaVariantId: string; setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
+  /** 自定义脚本正文（非空 = 自定义伪变体，序列化时覆盖 id 选择）。 */
+  quotaCustomScript: string; setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
+  /** requires 参数值（key → 输入；含 newapi user_id 附加键）。 */
+  quotaRequires: Record<string, string>; setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  /** 变体下拉切换（切回 registry 变体时清自定义正文，保持互斥）。 */
+  handleQuotaVariantChange: (v: string) => void;
+  /** Devin 配置（devin_timeout / devin_mode，存 platform.extra.devin 子对象）。
+   *  org_id 编辑已移交配额脚本 requires 表单。 */
   devinConfig: DevinConfig; setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   manualBudgets: ManualBudget[]; setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
   breakerFailureThreshold: string; setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
@@ -200,8 +212,13 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // Mock 平台配置（持久化到 platform.extra 的 mock 子对象）
   const [extra, setExtra] = useState("");
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
-  const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ ...DEFAULT_NEWAPI_CONFIG });
-  // Devin 平台配置（org_id / devin_timeout / devin_mode，持久化 platform.extra.devin）
+  // 配额查询脚本（quota-scripts T6）：变体列表随 protocol 异步拉取（docPromise 单次 RPC）；
+  //   选择 id / 自定义正文 / requires 值序列化见 buildSharedCreateFields。
+  const [quotaVariants, setQuotaVariants] = useState<QuotaScriptVariant[]>([]);
+  const [quotaVariantId, setQuotaVariantId] = useState<string>("");
+  const [quotaCustomScript, setQuotaCustomScript] = useState<string>("");
+  const [quotaRequires, setQuotaRequires] = useState<Record<string, string>>({});
+  // Devin 平台配置（devin_timeout / devin_mode，持久化 platform.extra.devin）
   const [devinConfig, setDevinConfig] = useState<DevinConfig>({ ...DEFAULT_DEVIN_CONFIG });
   // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
   const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
@@ -255,6 +272,35 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     return { show: false, groupId: null as number | null, isAuto: false };
   }, [isPassthrough, editing, groupDetails, lockedGroupId, autoGroup, joinGroupIds]);
 
+  // 协议的 quota_scripts 变体列表（registry → getDefaultsJson；docPromise 单次 RPC 共享）。
+  useEffect(() => {
+    let cancelled = false;
+    getDefaultQuotaScripts(protocol).then(list => { if (!cancelled) setQuotaVariants(list); });
+    return () => { cancelled = true; };
+  }, [protocol]);
+
+  // requires 初值回填：变体列表 / 选择 / extra 任一变化后，为选中变体缺失的 requires key
+  //   从 extra 读初值（嵌套优先，同脚本取值语义 —— 见 readRequiresValue）。用户已输入的键不覆盖。
+  useEffect(() => {
+    const sel = quotaVariants.find(v => v.id === quotaVariantId) ?? quotaVariants[0] ?? null;
+    const keys = [...(sel?.requires ?? []).map(r => r.key)];
+    if (protocol === "newapi" && !keys.includes("user_id")) keys.push("user_id");
+    setQuotaRequires(prev => {
+      let changed = false;
+      const next = { ...prev };
+      for (const k of keys) {
+        if (!(k in next)) { next[k] = readRequiresValue(extra, k); changed = true; }
+      }
+      return changed ? next : prev;
+    });
+  }, [quotaVariants, quotaVariantId, protocol, extra]);
+
+  /** 变体下拉切换：切回 registry 变体时清自定义正文（互斥，序列化规则见 serializeQuotaScriptConfig）。 */
+  const handleQuotaVariantChange = (v: string) => {
+    setQuotaVariantId(v);
+    if (v !== QUOTA_CUSTOM_VARIANT) setQuotaCustomScript("");
+  };
+
   const handleProtocolChange = async (newProtocol: Protocol, newCodingPlan?: boolean) => {
     const cp = !!newCodingPlan;
     // DEFAULT_NAMES 运行时并入 protocolLabelMap value 集合（覆盖 60+ platform JSON name）
@@ -283,14 +329,15 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     if (newProtocol === "mock") {
       setMockConfig(parseMockConfig(extra));
     }
-    // 切到 newapi 时用当前 extra 初始化 newapi 配置
-    if (newProtocol === "newapi") {
-      setNewApiConfig(parseNewApiConfig(extra));
-    }
     // 切到 devin 时用当前 extra 初始化 devin 配置
     if (newProtocol === "devin") {
       setDevinConfig(parseDevinConfig(extra));
     }
+    // quota 脚本选择随协议重置（变体列表由上面 protocol effect 重拉；
+    //   requires 初值由 requires effect 从 extra 回填）。
+    setQuotaVariantId("");
+    setQuotaCustomScript("");
+    setQuotaRequires({});
     setProtocol(newProtocol);
     setCodingPlan(cp);
   };
@@ -303,7 +350,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
-    setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
+    setQuotaVariantId(""); setQuotaCustomScript(""); setQuotaRequires({});
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
@@ -352,7 +399,12 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
-    setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
+    {
+      const qs = parseQuotaScriptConfig(p.extra ?? "");
+      setQuotaVariantId(qs.variantId);
+      setQuotaCustomScript(qs.customScript);
+      setQuotaRequires({});
+    }
     setManualBudgets(p.manual_budgets ?? []);
     // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
     setExpiresAt(p.expires_at ?? 0);
@@ -424,7 +476,12 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
-    setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
+    {
+      const qs = parseQuotaScriptConfig(p.extra ?? "");
+      setQuotaVariantId(qs.variantId);
+      setQuotaCustomScript(qs.customScript);
+      setQuotaRequires({});
+    }
     setManualBudgets(p.manual_budgets ?? []);
     // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
     setExpiresAt(p.expires_at ?? 0);
@@ -584,7 +641,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     buildSharedCreateFields,
     name, protocol, endpoints, lockedGroupId, joinGroupIds, autoGroup, expiresAt,
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig, setDevinConfig,
+    setEndpoints, setManualBudgets, setExtra, setMockConfig, setDevinConfig,
+    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires,
     setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
@@ -622,11 +680,18 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
     const availablePayload = availableModels.length > 0 ? availableModels : undefined;
     const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
-    // mock 平台：把配置写回 extra；newapi 平台写回 newapi 配置；其余原样保留
+    // mock 平台：把配置写回 extra；其余原样保留
     let extraPayload = extra;
     if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
-    if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
     if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
+    // quota 脚本变体选择 + requires 参数（custom↔id 互斥、requires 顶层+旧嵌套镜像，
+    //   见 serializeQuotaScriptConfig；须在 devin 序列化之后 —— org_id 镜像写 extra.devin）。
+    extraPayload = serializeQuotaScriptConfig(
+      extraPayload,
+      { variantId: quotaVariantId, customScript: quotaCustomScript, requires: quotaRequires },
+      quotaVariants.map(v => ({ id: v.id, requires: (v.requires ?? []).map(r => r.key) })),
+      protocol,
+    );
     // 熔断覆盖现写入 extra.breaker：空 = 继承（写 0 → 移除 breaker 键）；负值钳为 0。
     const toBreakerNum = (v: string) => Math.max(0, Math.floor(Number(v) || 0));
     extraPayload = serializePlatformBreaker(extraPayload, {
@@ -796,7 +861,11 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     endpoints, setEndpoints, activeDropdown, setActiveDropdown,
     showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
     globalClaudeConfig, setGlobalClaudeConfig, extra, setExtra,
-    mockConfig, setMockConfig, newApiConfig, setNewApiConfig,
+    mockConfig, setMockConfig,
+    quotaVariants, quotaVariantId, setQuotaVariantId,
+    quotaCustomScript, setQuotaCustomScript,
+    quotaRequires, setQuotaRequires,
+    handleQuotaVariantChange,
     devinConfig, setDevinConfig,
     manualBudgets, setManualBudgets,
     breakerFailureThreshold, setBreakerFailureThreshold,

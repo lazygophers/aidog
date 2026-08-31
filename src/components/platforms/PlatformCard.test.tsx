@@ -27,6 +27,8 @@ vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolLabel: vi.fn().mockResolvedValue("Anthropic"),
   getProtocolLabelMap: vi.fn().mockResolvedValue({}),
   getProtocolColorMap: vi.fn().mockResolvedValue({}),
+  // quota_scripts 同步派生（T6）：默认可查（测试卡多数断言余额区）
+  platformHasQuotaScript: vi.fn().mockReturnValue(true),
 }));
 
 vi.mock("../../domains/platforms/useProtocolLogo", () => ({

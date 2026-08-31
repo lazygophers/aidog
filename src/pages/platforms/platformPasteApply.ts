@@ -5,9 +5,9 @@
 import type { TFunction } from "i18next";
 import {
   platformApi,
-  parseMockConfig, parseNewApiConfig, parseDevinConfig, parsePlatformBreaker,
+  parseMockConfig, parseDevinConfig, parseQuotaScriptConfig, parsePlatformBreaker,
   type Platform, type Protocol, type PlatformEndpoint,
-  type ManualBudget, type MockConfig, type NewApiConfig, type DevinConfig,
+  type ManualBudget, type MockConfig, type DevinConfig,
 } from "../../services/api";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import {
@@ -41,7 +41,10 @@ export interface PlatformPasteCtx {
   setManualBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
   setExtra: React.Dispatch<React.SetStateAction<string>>;
   setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
-  setNewApiConfig: React.Dispatch<React.SetStateAction<NewApiConfig>>;
+  /** quota 脚本变体选择（fullShare 路径回填；requires 初值由 usePlatformForm effect 从 extra 补）。 */
+  setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
+  setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
+  setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setDevinConfig: React.Dispatch<React.SetStateAction<DevinConfig>>;
   setBreakerFailureThreshold: React.Dispatch<React.SetStateAction<string>>;
   setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
@@ -77,7 +80,8 @@ export interface PlatformPasteCtx {
 export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): Promise<void> {
   const {
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
-    setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig, setDevinConfig,
+    setEndpoints, setManualBudgets, setExtra, setMockConfig,
+    setQuotaVariantId, setQuotaCustomScript, setQuotaRequires, setDevinConfig,
     setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
     setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
@@ -106,7 +110,12 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     const ex = s.extra ?? "";
     setExtra(ex);
     setMockConfig(parseMockConfig(ex));
-    setNewApiConfig(parseNewApiConfig(ex));
+    {
+      const qs = parseQuotaScriptConfig(ex);
+      setQuotaVariantId(qs.variantId);
+      setQuotaCustomScript(qs.customScript);
+      setQuotaRequires({});
+    }
     setDevinConfig(parseDevinConfig(ex));
     {
       const brk = parsePlatformBreaker(ex);

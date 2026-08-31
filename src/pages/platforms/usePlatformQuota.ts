@@ -7,7 +7,8 @@
 import { useCallback, useRef, useState } from "react";
 import type { TFunction } from "i18next";
 import { quotaApi, type Platform, type PlatformQuota } from "../../services/api";
-import { QUOTA_CONCURRENCY } from "../../domains/platforms";
+import { hasCustomQuotaScript } from "../../services/api";
+import { QUOTA_CONCURRENCY, quotaScriptIndexSync } from "../../domains/platforms";
 
 /** 从 endpoints 推导主 base_url（匹配主协议，否则取第一个）。配额查询 / 主 URL 推导共用。 */
 function getPrimaryBaseUrl(proto: Platform["platform_type"], eps: Platform["endpoints"] | undefined): string {
@@ -26,7 +27,8 @@ export interface UsePlatformQuotaResult {
   quotaScheduledRef: React.MutableRefObject<Set<number>>;
   quotaPoolActiveRef: React.MutableRefObject<number>;
   quotaWantMapRef: React.MutableRefObject<Map<number, Platform>>;
-  /** 该平台是否需要外部 quota 查询（mock/claude_code 无配额；无 key / 无 base_url 不可查）。 */
+  /** 该平台是否需要外部 quota 查询（按 quota_scripts 派生：registry 有变体或带自定义脚本；
+   *  索引未就绪回落旧启发式。无 key / 无 base_url 不可查）。 */
   platformWantsQuota: (p: Platform) => boolean;
   /** 单平台 quota 查询（成功填 quotaMap），结束后清 pending。供有界并发池 worker 调用。 */
   fetchQuotaForPlatform: (p: Platform) => Promise<void>;
@@ -60,11 +62,18 @@ export function usePlatformQuota(t: TFunction): UsePlatformQuotaResult {
   const quotaWantMapRef = useRef<Map<number, Platform>>(new Map());
 
   const platformWantsQuota = useCallback((p: Platform): boolean => {
-    if (p.platform_type === "mock" || p.platform_type === "claude_code") return false;
     if (!p.api_key) return false;
-    // Devin quota 端点固定（backend 忽略 base_url），仅需 api_key + extra.org_id 即可查。
-    if (p.platform_type === "devin") return !!(p.extra && p.extra.includes("org_id"));
-    return !!getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
+    // 能力入口按 quota_scripts 派生（quota-scripts T6，替代 mock/claude_code/devin 硬编码）：
+    //   registry 有变体（选中脚本 returns 决定可查什么）或平台带自定义脚本 → 可查。
+    //   索引未就绪（registry 文档未回）回落旧启发式 —— 18 个脚本协议旧判定同为真，迁移期等价。
+    //   注意：不做 requires 满足度门控 —— newapi 的 balance_* 仅 unlimited 路径必需，
+    //   门控会回归 limited token 用户；requires 缺失时脚本本地报错（无出站），无害。
+    const idx = quotaScriptIndexSync(p.platform_type);
+    const hasScript = idx.loaded
+      ? idx.variants.length > 0 || hasCustomQuotaScript(p.extra ?? "")
+      : p.platform_type !== "mock" && p.platform_type !== "claude_code";
+    if (!hasScript) return false;
+    return !!(getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url);
   }, []);
 
   const fetchQuotaForPlatform = useCallback(async (p: Platform) => {

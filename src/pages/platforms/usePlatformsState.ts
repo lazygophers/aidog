@@ -33,7 +33,7 @@ import {
   type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { platformMatchesQuery } from "../../domains/groups";
-import { getProtocolSearchTermsMap } from "../../domains/platforms/defaults";
+import { getProtocolSearchTermsMap, ensureQuotaScriptIndex } from "../../domains/platforms/defaults";
 import { usePlatformQuota, getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformForm, type PlatformFormState } from "./usePlatformForm";
 import { setUiExtra } from "../../services/api/ui_extra";
@@ -387,7 +387,10 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     const epoch = platformsEpochRef.current;
     let list: Platform[] = [];
     try {
-      list = (await platformApi.list()) || [];
+      // quota_scripts 同步索引与平台列表并行预热（共享 docPromise 单次 RPC）：
+      // 保证下方 resetForLoad / 卡片渲染时 platformWantsQuota 不走索引未就绪回落分支。
+      const [, l] = await Promise.all([ensureQuotaScriptIndex(), platformApi.list()]);
+      list = l || [];
     } catch (e) { console.error(e); }
     // 在途期间发生本地乐观写（删除/保存/清理）则放弃整列表覆盖，避免晚到 resolve 回弹。
     if (epoch !== platformsEpochRef.current) { setLoading(false); return; }

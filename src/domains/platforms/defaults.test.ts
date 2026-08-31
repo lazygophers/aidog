@@ -5,6 +5,10 @@ import {
   getDefaultModelList,
   getDefaultEndpoints,
   buildProtocolsFromPresets,
+  getDefaultQuotaScripts,
+  quotaScriptIndexSync,
+  platformHasQuotaScript,
+  quotaVariantLabel,
   __resetDefaultsCacheForTests,
 } from "./defaults";
 import type { Protocol } from "../../services/api";
@@ -43,6 +47,13 @@ const DEFAULTS_MOCK = JSON.stringify({
       model_list: { default: ["kimi-default"] },
       name: { "en-US": "Kimi Coding", "zh-Hans": "Kimi 编程" },
       keywords: ["moonshot"],
+      // quota_scripts（T6）：带 requires 的变体
+      quota_scripts: [{
+        id: "default",
+        name: { "en-US": "Coding Plan Query", "zh-Hans": "Coding Plan 查询" },
+        requires: [{ key: "balance_base_url", label: { "en-US": "Balance Query URL", "zh-Hans": "余额查询地址" } }],
+        returns: { balance: false, coding_plan: true, mcp: false, tiers: ["five_hour"] },
+      }],
     },
     deepseek: {
       endpoints: { default: [{ protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "default" }] },
@@ -50,6 +61,8 @@ const DEFAULTS_MOCK = JSON.stringify({
       models: { default: { default: "deepseek-v4-flash" } },
       model_list: { default: ["deepseek-v4-flash"] },
       name: { "en-US": "DeepSeek" },
+      // quota_scripts（T6）：无 requires 变体
+      quota_scripts: [{ id: "default", requires: [], returns: { balance: true } }],
     },
   },
 });
@@ -133,5 +146,58 @@ describe("buildProtocolsFromPresets — searchTerms 跨语言搜索", () => {
     const ds = list.find(p => p.value === ("deepseek" as Protocol));
     expect(ds!.searchTerms).toContain("DeepSeek");
     expect(ds!.searchTerms!.every(t => t.trim())).toBe(true);
+  });
+});
+
+// ─── quota_scripts（配额查询脚本，quota-scripts T6）────────────────────────
+
+describe("getDefaultQuotaScripts — 变体列表", () => {
+  it("带 quota_scripts 的协议返回变体（含 requires / returns）；无脚本协议返回 []", async () => {
+    const kimi = await getDefaultQuotaScripts("kimi_coding" as Protocol);
+    expect(kimi).toHaveLength(1);
+    expect(kimi[0].id).toBe("default");
+    expect(kimi[0].requires?.[0].key).toBe("balance_base_url");
+    expect(kimi[0].returns?.coding_plan).toBe(true);
+    const none = await getDefaultQuotaScripts("glm_coding" as Protocol);
+    expect(none).toEqual([]);
+  });
+
+  it("deep copy：mutate 返回值不污染 docPromise 缓存", async () => {
+    const a = await getDefaultQuotaScripts("kimi_coding" as Protocol);
+    a[0].requires!.length = 0;
+    const b = await getDefaultQuotaScripts("kimi_coding" as Protocol);
+    expect(b[0].requires).toHaveLength(1);
+  });
+});
+
+describe("quotaVariantLabel — 三层回落", () => {
+  it("label[locale] → en-US → id", () => {
+    const name = { "en-US": "Balance Query", "zh-Hans": "余额查询" };
+    expect(quotaVariantLabel(name, "default", "zh-Hans")).toBe("余额查询");
+    expect(quotaVariantLabel(name, "default", "ja-JP")).toBe("Balance Query");   // 无 ja → en-US
+    expect(quotaVariantLabel(undefined, "default", "zh-Hans")).toBe("default");  // 无 name → id
+  });
+});
+
+describe("quotaScriptIndexSync / platformHasQuotaScript — 同步索引", () => {
+  it("docPromise 就绪后 loaded=true；有变体协议可查、无脚本协议不可查（除非自定义脚本）", async () => {
+    await getDefaultQuotaScripts("deepseek" as Protocol);   // 确保 docPromise 已 resolve（beforeAll 已预热）
+    const ds = quotaScriptIndexSync("deepseek");
+    expect(ds.loaded).toBe(true);
+    expect(ds.variants).toEqual([{ id: "default", requires: [], capable: true }]);
+
+    const glm = quotaScriptIndexSync("glm_coding");
+    expect(glm.loaded).toBe(true);
+    expect(glm.variants).toEqual([]);
+
+    expect(platformHasQuotaScript({ platform_type: "deepseek" as Protocol })).toBe(true);
+    expect(platformHasQuotaScript({ platform_type: "glm_coding" as Protocol })).toBe(false);
+    // 自定义脚本伪变体：无 registry 变体也可查
+    expect(platformHasQuotaScript({
+      platform_type: "glm_coding" as Protocol,
+      extra: '{"quota_custom_script":"return {}"}',
+    })).toBe(true);
+    // coding_plan-only returns（balance=false）同样算可查（coding plan tiers 有产出）
+    expect(quotaScriptIndexSync("kimi_coding").variants[0].capable).toBe(true);
   });
 });

@@ -9,6 +9,7 @@ import {
   PROTOCOL_LABELS, HEALTH_COLORS,
   computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, deriveHealth,
+  platformHasQuotaScript,
 } from "../../domains/platforms";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
@@ -118,7 +119,9 @@ export const PlatformCard = memo(function PlatformCard({
     if ((p.available_models?.length ?? 0) > 0) return explicit;
     return defaultModels;
   })();
-  const quotaCapable = p.platform_type !== "mock" && p.platform_type !== "claude_code";
+  // 配额查询入口按 quota_scripts 派生（quota-scripts T6，替代 mock/claude_code 硬编码；
+  //   索引未就绪回落旧启发式，见 platformHasQuotaScript）。
+  const quotaCapable = platformHasQuotaScript(p);
   const showQuota = quotaCapable && quota.hasData;
   // ④ 延迟档：可查 quota 的平台数据未回（quotaPending）→ 余额区显骨架而非空白/est 旧值闪烁
   const showQuotaSkeleton = quotaCapable && !quota.hasData && quotaPending;

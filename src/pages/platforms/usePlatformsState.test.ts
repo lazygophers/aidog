@@ -70,6 +70,12 @@ vi.mock("./usePlatformForm", () => ({
   }),
 }));
 
+// defaults 依赖 services/api（getDefaultsJson），而 services/api 整包被上面拦截 → 同步 mock。
+vi.mock("../../domains/platforms/defaults", () => ({
+  getProtocolSearchTermsMap: vi.fn().mockResolvedValue({}),
+  ensureQuotaScriptIndex: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ── 工具：构造最小可用 Platform ─────────────────────────
 function mkPlatform(id: number, name: string): any {
   return {
