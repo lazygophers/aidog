@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1788149245,
   "platforms": [
     {
       "code": "aihubmix",
@@ -4141,6 +4141,7 @@
         "codestral-embed-2505.json",
         "glm-5.2.json",
         "labs-leanstral-1-5.json",
+        "labs-leanstral-2603.json",
         "ministral-14b-2512.json",
         "ministral-3b-2512.json",
         "ministral-8b-2512.json",
@@ -4157,7 +4158,8 @@
         "voxtral-mini-transcribe-2602.json",
         "voxtral-mini-transcribe-realtime-2602.json",
         "voxtral-small-24b-2507.json",
-        "voxtral-tts-2603.json"
+        "voxtral-tts-2603.json",
+        "zai-glm-5-2.json"
       ]
     },
     {

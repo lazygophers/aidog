@@ -1,0 +1,20 @@
+{
+  "last_updated": 1788149245,
+  "model_id": "zai-glm-5-2",
+  "canonical_model": "glm-5.2",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000014,
+    "output": 0.0000044,
+    "cache_read": 1.4e-7
+  }
+}
