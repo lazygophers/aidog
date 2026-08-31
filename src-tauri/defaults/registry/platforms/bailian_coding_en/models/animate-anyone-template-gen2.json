@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "animate-anyone-template-gen2",
+  "canonical_model": "animate-anyone-template-gen2",
+  "capabilities": [
+    "video_edit"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788187322,
+  "model_id": "wan2.7-r2v",
+  "canonical_model": "wan2.7-r2v",
+  "capabilities": [
+    "video_to_video"
+  ],
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.1
+  }
+}
