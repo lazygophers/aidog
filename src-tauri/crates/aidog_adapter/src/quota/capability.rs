@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
+use aidog_db::registry::QuotaScriptVariant;
+
 /// 平台 quota 能力静态配置。
 ///
 /// tier_names 取值约定（与 QuotaTier.name 同词汇表）：
@@ -29,3 +31,20 @@ impl QuotaCapability {
         self
     }
 }
+
+/// 由 registry quota 脚本变体派生能力配置（spec「能力派生」：选中变体的 `returns`
+/// 声明合并生成，替代本文件的 Protocol 硬编码）。`custom_query_supported` 恒 true
+/// （脚本查询本身就是自定义查询）。
+pub fn capability_for_variant(variant: &QuotaScriptVariant) -> QuotaCapability {
+    QuotaCapability {
+        supports_balance: variant.returns.balance,
+        supports_coding_plan: variant.returns.coding_plan,
+        supports_mcp_query: variant.returns.mcp,
+        tier_names: variant.returns.tiers.clone(),
+        custom_query_supported: true,
+    }
+}
+
+#[cfg(test)]
+#[path = "test_capability.rs"]
+mod test_capability;

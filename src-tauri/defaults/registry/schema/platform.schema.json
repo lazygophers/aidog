@@ -5,6 +5,64 @@
   "description": "platforms/<code>/platform.json。构建期由 build.rs include_str! 内置，运行期 DB 空表时兜底（ADR 0005）。",
   "type": "object",
   "additionalProperties": false,
+  "definitions": {
+    "locale_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "en-US",
+        "zh-Hans",
+        "ar-SA",
+        "fr-FR",
+        "de-DE",
+        "ru-RU",
+        "ja-JP",
+        "es-ES"
+      ],
+      "properties": {
+        "en-US": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】英语文案"
+        },
+        "zh-Hans": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】简体中文文案"
+        },
+        "ar-SA": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】阿拉伯语文案（RTL）"
+        },
+        "fr-FR": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】法语文案"
+        },
+        "de-DE": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】德语文案"
+        },
+        "ru-RU": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】俄语文案"
+        },
+        "ja-JP": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】日语文案"
+        },
+        "es-ES": {
+          "type": "string",
+          "minLength": 1,
+          "description": "【必填】西班牙语文案"
+        }
+      }
+    }
+  },
   "required": [
     "last_updated",
     "endpoints",
@@ -304,6 +362,91 @@
       "type": "string",
       "pattern": "^#[0-9A-Fa-f]{6}$",
       "description": "【必填】品牌色，前端徽标/卡片着色。"
+    },
+    "quota_scripts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "script"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】部署变体 id（用户选择存 platform.extra.quota_script_id；缺省取数组首条，id 消失/删条回落首条）。同平台内唯一。"
+          },
+          "name": {
+            "$ref": "#/definitions/locale_text",
+            "description": "【必填】变体显示名（8 locale，如 new-api 官方 / done-hub / VoAPI 等 fork 名）。"
+          },
+          "requires": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "key",
+                "label"
+              ],
+              "properties": {
+                "key": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "【必填】参数键：值由用户填写，存 platform.extra.<key>，脚本经 ctx.extra 读取（extra 是 JSON 字符串，脚本内 JSON.parse）。"
+                },
+                "label": {
+                  "$ref": "#/definitions/locale_text",
+                  "description": "【必填】参数输入框标签（8 locale，前端据此自动渲染 requires 表单）。"
+                }
+              }
+            },
+            "description": "【可选】用户参数声明（前端按选中变体自动渲染输入框）；缺省 []。"
+          },
+          "returns": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "balance": {
+                "type": "boolean",
+                "description": "【可选】脚本可返回余额（BalanceInfo）；缺省 false。"
+              },
+              "coding_plan": {
+                "type": "boolean",
+                "description": "【可选】脚本可返回 Coding Plan 配额（CodingPlanInfo）；缺省 false。"
+              },
+              "mcp": {
+                "type": "boolean",
+                "description": "【可选】脚本可返回 MCP 用量（如 GLM TIME_LIMIT 月用量）；缺省 false。"
+              },
+              "tiers": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "five_hour",
+                    "weekly_limit",
+                    "monthly",
+                    "mcp_monthly"
+                  ]
+                },
+                "description": "【可选】脚本可返回的配额层级名（QuotaTier.name 词表：five_hour / weekly_limit / monthly / mcp_monthly）；缺省 []。"
+              }
+            },
+            "description": "【可选】能力声明：查询入口与 QuotaCapability 由选中变体的 returns 派生；缺省全 false / []。"
+          },
+          "script": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】JS 脚本文本（boa 引擎执行，注入 ctx.baseUrl / ctx.apiKey / ctx.extra 与 http.get / http.post；顶层 return 返回固定格式对象）。单脚本自包含：内部可多次调上游接口再汇总。同族协议各自文件复制正文，无跨文件引用。"
+          }
+        }
+      },
+      "description": "【可选】配额查询脚本变体数组（每条对应一种部署变体，如 new-api 官方与各 fork）。运行时按用户选中物化单条入 DB 执行；远程同步整份分发但不自动换脚本。"
     }
   },
   "last_updated": 1788012963

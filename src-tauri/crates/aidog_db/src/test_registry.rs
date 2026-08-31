@@ -205,3 +205,51 @@ fn every_model_has_an_official_platform() {
         assert!(!codes.is_empty(), "{id} 无 official 条目");
     }
 }
+
+/// T2 加载测试：bundled 全部 platform.json 的 `quota_scripts` 可解析（当前 0 条，
+/// 空集须过；T3 起逐族写入后本测试自动兜住可解析性与基本不变量）。
+#[test]
+fn bundled_quota_scripts_parse() {
+    for (code, json) in bundled_platform_files() {
+        for v in parse_quota_scripts(json) {
+            assert!(!v.id.is_empty(), "{code} quota_scripts 有空 id");
+            assert!(!v.script.trim().is_empty(), "{code}/{} script 为空", v.id);
+        }
+    }
+}
+
+/// T2：quota_scripts 解析（字段正确性 + requires/returns 缺省补全 + 脏输入返空）。
+#[test]
+fn quota_scripts_parse_fields_and_defaults() {
+    let locale = serde_json::json!({
+        "en-US": "Official", "zh-Hans": "官方", "ar-SA": "رسمي", "fr-FR": "Officiel",
+        "de-DE": "Offiziell", "ru-RU": "Официальный", "ja-JP": "公式", "es-ES": "Oficial",
+    });
+    let doc = serde_json::json!({
+        "last_updated": 1,
+        "quota_scripts": [
+            { "id": "official", "name": locale, "script": "return { success: true }" },
+            { "id": "fork", "name": locale,
+              "requires": [{ "key": "balance_base_url", "label": locale }],
+              "returns": { "balance": true, "mcp": true, "tiers": ["five_hour", "mcp_monthly"] },
+              "script": "return 1" },
+        ],
+    })
+    .to_string();
+    let vs = parse_quota_scripts(&doc);
+    assert_eq!(vs.len(), 2);
+    // requires / returns 缺省补全
+    assert!(vs[0].requires.is_empty());
+    assert_eq!(vs[0].returns, QuotaScriptReturns::default());
+    assert_eq!(vs[0].script, "return { success: true }");
+    // 声明字段逐项
+    assert_eq!(vs[1].name["zh-Hans"], "官方");
+    assert_eq!(vs[1].requires[0].key, "balance_base_url");
+    assert_eq!(vs[1].requires[0].label["en-US"], "Official");
+    assert!(vs[1].returns.balance && vs[1].returns.mcp && !vs[1].returns.coding_plan);
+    assert_eq!(vs[1].returns.tiers, ["five_hour", "mcp_monthly"]);
+    // 无字段 / 坏 JSON / 错类型 → 空 Vec（脏行不炸调用方）
+    assert!(parse_quota_scripts(r#"{"last_updated":1}"#).is_empty());
+    assert!(parse_quota_scripts("{oops").is_empty());
+    assert!(parse_quota_scripts(r#"{"quota_scripts":"oops"}"#).is_empty());
+}
