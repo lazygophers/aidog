@@ -248,6 +248,91 @@ pub fn parse_quota_scripts(platform_json: &str) -> Vec<QuotaScriptVariant> {
     })
 }
 
+/// 从任意一篇 presets 文档取某协议的 quota 脚本变体列表（[`endpoints_in`] 同 idiom：
+/// 无该字段 / 解析失败 → 空 Vec）。运行时读取应取自 [`effective_presets`]（DB 同步值优先）。
+pub fn quota_scripts_in(doc: &Value, protocol: &str) -> Vec<QuotaScriptVariant> {
+    let Some(arr) = doc
+        .get("protocols")
+        .and_then(|p| p.get(protocol))
+        .and_then(|e| e.get("quota_scripts"))
+    else {
+        return Vec::new();
+    };
+    serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, protocol, "registry quota_scripts parse failed; empty");
+        Vec::new()
+    })
+}
+
+/// 变体选中语义（spec「变体选择」）：`quota_script_id` 命中取该条；缺省 / id 失效
+/// （远程改名删条）回落数组首条。空数组 → None。
+pub fn select_quota_variant<'a>(
+    variants: &'a [QuotaScriptVariant],
+    id: Option<&str>,
+) -> Option<&'a QuotaScriptVariant> {
+    variants
+        .iter()
+        .find(|v| Some(v.id.as_str()) == id)
+        .or_else(|| variants.first())
+}
+
+/// 读 `platform.extra` 顶层小字符串键（`quota_script_id` / `quota_custom_script` 等未建模键，
+/// 天然落在 `PlatformExtra::rest`）。extra 非 JSON / 键非字符串 → None。
+fn extra_str_key(extra_json: &str, key: &str) -> Option<String> {
+    serde_json::from_str::<Map<String, Value>>(extra_json)
+        .ok()?
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::to_string)
+}
+
+/// 解析某平台执行用的 quota 脚本正文（回落链，spec「存储」决策）：
+/// ① 物化列非空 → 用之（用户保存时固化，远程同步不换）；
+/// ② `extra.quota_custom_script` 非空 → 用户手写脚本；
+/// ③ [`select_quota_variant`] 选中变体（`extra.quota_script_id` → 首条，零配置开箱即用）。
+/// 返回 None = 该协议无任何脚本（调用方维持原 err 行为）。
+pub fn resolve_quota_script(protocol: &str, extra_json: &str, materialized: &str) -> Option<String> {
+    if !materialized.trim().is_empty() {
+        return Some(materialized.to_string());
+    }
+    if let Some(custom) = extra_str_key(extra_json, "quota_custom_script")
+        .filter(|s| !s.trim().is_empty())
+    {
+        return Some(custom);
+    }
+    let variants = quota_scripts_in(&effective_presets(), protocol);
+    let id = extra_str_key(extra_json, "quota_script_id");
+    select_quota_variant(&variants, id.as_deref()).map(|v| v.script.clone())
+}
+
+/// 用户保存平台（create/update）时物化 `platform.quota_script` 列的取值：
+/// - `extra.quota_custom_script` 非空 → 物化用户手写脚本（优先于变体）；
+/// - 否则 `extra.quota_script_id` 有值（用户显式选过变体，远程更新待拉入）或列空
+///   （从未物化）/ 协议变更（旧列是别的协议的脚本）→ 写入选中（或首条）变体正文；
+/// - 否则（无 id 且列已有值）保留现值——变体正文已在保存时固化，远程同步不自动换脚本。
+///
+/// 无脚本协议 → 空串（清列）。
+pub fn materialize_quota_script(
+    protocol: &str,
+    extra_json: &str,
+    current: &str,
+    type_changed: bool,
+) -> String {
+    if let Some(custom) = extra_str_key(extra_json, "quota_custom_script")
+        .filter(|s| !s.trim().is_empty())
+    {
+        return custom;
+    }
+    let id = extra_str_key(extra_json, "quota_script_id");
+    if id.is_none() && !current.is_empty() && !type_changed {
+        return current.to_string();
+    }
+    let variants = quota_scripts_in(&effective_presets(), protocol);
+    select_quota_variant(&variants, id.as_deref())
+        .map(|v| v.script.clone())
+        .unwrap_or_default()
+}
+
 /// `index.json` 的一条同步清单：远程同步照着它逐文件拉取。
 ///
 /// `platform_file` 为 `None` 即 `pricing_only`（纯协议豁免，只拉 models 不拉 platform.json）。

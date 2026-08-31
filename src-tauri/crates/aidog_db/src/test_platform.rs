@@ -259,3 +259,71 @@ use rusqlite::params;
         assert_eq!(upd.auto_disable_strikes, 0);
         assert_eq!(upd.auto_disabled_until, 0);
     }
+
+    // ── quota-scripts T4：quota_script 物化列随 create/update 的写读规则 ──
+
+    #[tokio::test]
+    async fn create_materializes_first_variant() {
+        let db = test_db().await;
+        let mut input = sample_platform("quota-glm");
+        input.platform_type = Protocol::Glm;
+        input.extra = String::new();
+        let created = create_platform(&db, input).await.unwrap();
+        let first = registry::quota_scripts_in(registry::presets(), "glm")[0].script.clone();
+        assert_eq!(created.quota_script, first, "创建即物化首条变体（零配置）");
+        assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().quota_script, first, "列持久化");
+    }
+
+    #[tokio::test]
+    async fn create_without_scripts_keeps_empty() {
+        let db = test_db().await;
+        let mut input = sample_platform("quota-none");
+        input.platform_type = Protocol::OpenAI;
+        let created = create_platform(&db, input).await.unwrap();
+        assert_eq!(created.quota_script, "", "无脚本协议 → 空列");
+    }
+
+    #[tokio::test]
+    async fn update_pins_custom_and_rematrializes_on_type_change() {
+        let db = test_db().await;
+        let mut input = sample_platform("quota-upd");
+        input.platform_type = Protocol::DeepSeek;
+        input.extra = String::new();
+        let created = create_platform(&db, input).await.unwrap();
+        let ds = created.quota_script.clone();
+        assert!(!ds.is_empty());
+
+        // 无 id + 列非空 + 协议未变 → 保留（远程同步不自动换已物化脚本）
+        let upd = update_platform(&db, UpdatePlatform {
+            id: created.id, name: Some("n2".into()), ..empty_update()
+        }).await.unwrap();
+        assert_eq!(upd.quota_script, ds);
+
+        // extra.quota_custom_script → 物化用户手写脚本
+        let upd2 = update_platform(&db, UpdatePlatform {
+            id: created.id, extra: Some(r#"{"quota_custom_script":"return 1"}"#.into()), ..empty_update()
+        }).await.unwrap();
+        assert_eq!(upd2.quota_script, "return 1");
+
+        // id 失效（远程改名/删条）→ 回落首条重物化
+        let upd3 = update_platform(&db, UpdatePlatform {
+            id: created.id, extra: Some(r#"{"quota_script_id":"gone"}"#.into()), ..empty_update()
+        }).await.unwrap();
+        assert_eq!(upd3.quota_script, ds, "deepseek 单变体，id 失效回落首条");
+
+        // 协议变更 → 重物化（目标协议无脚本 → 清列）
+        let upd4 = update_platform(&db, UpdatePlatform {
+            id: created.id, platform_type: Some(Protocol::OpenAI), ..empty_update()
+        }).await.unwrap();
+        assert_eq!(upd4.quota_script, "");
+    }
+
+    /// 最小 UpdatePlatform 骨架（全部 None = 不动）。
+    fn empty_update() -> UpdatePlatform {
+        UpdatePlatform {
+            id: 0, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: None, models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None, join_group_ids: None,
+            expires_at: None,
+        }
+    }

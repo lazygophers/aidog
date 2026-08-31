@@ -814,6 +814,15 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // Migration 20260829-02 (peak-rename 票 04): platform.extra 键 peak_hours → peak
                 // （词汇统一，行为零变）。幂等：无旧键 → 空转；新旧键并存取新键并 warn（异常态）。
                 rename_extra_peak_hours_to_peak(conn);
+
+                // Migration 20260901-01 (quota-scripts T4): platform.quota_script 物化列。
+                // 用户保存平台 / 选变体时从 registry 选中变体写入选中脚本正文；空 = 未物化，
+                // 执行时回落 registry 首条变体（零配置开箱即用）。已在 platform_early 建表
+                // 含此列，ALTER 幂等（同 036 expires_at 先例）。
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN quota_script TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
     Ok(())
 }
 

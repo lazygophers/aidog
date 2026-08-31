@@ -253,3 +253,62 @@ fn quota_scripts_parse_fields_and_defaults() {
     assert!(parse_quota_scripts("{oops").is_empty());
     assert!(parse_quota_scripts(r#"{"quota_scripts":"oops"}"#).is_empty());
 }
+
+/// T4：`quota_scripts_in`（presets 文档形状）+ 变体选中 / 脚本解析回落链。
+#[test]
+fn quota_scripts_in_and_selection() {
+    // bundled 文档：glm 有脚本、kimi_en 无
+    assert!(!quota_scripts_in(presets(), "glm").is_empty());
+    assert!(quota_scripts_in(presets(), "kimi_en").is_empty());
+    assert!(quota_scripts_in(presets(), "nonexistent").is_empty());
+
+    // 选中：id 命中 / 缺省首条 / id 失效回落首条
+    let vs = quota_scripts_in(presets(), "glm");
+    assert_eq!(select_quota_variant(&vs, Some("default")).unwrap().id, "default");
+    assert_eq!(select_quota_variant(&vs, None).unwrap().id, "default");
+    assert_eq!(select_quota_variant(&vs, Some("renamed-by-remote")).unwrap().id, "default");
+    assert!(select_quota_variant(&[], None).is_none());
+}
+
+#[test]
+fn resolve_quota_script_fallback_chain() {
+    let first = quota_scripts_in(presets(), "deepseek")[0].script.clone();
+    // ① 物化列非空 → 直接用之（不被 extra 覆盖）
+    assert_eq!(resolve_quota_script("deepseek", r#"{"quota_script_id":"x"}"#, "MATERIALIZED"), Some("MATERIALIZED".into()));
+    // ② 无物化列：extra.quota_custom_script 优先于变体
+    assert_eq!(
+        resolve_quota_script("deepseek", r#"{"quota_custom_script":"return 1"}"#, ""),
+        Some("return 1".into())
+    );
+    // ③ id 命中 / 缺省 / 失效 → 首条变体正文
+    assert_eq!(resolve_quota_script("deepseek", r#"{"quota_script_id":"default"}"#, ""), Some(first.clone()));
+    assert_eq!(resolve_quota_script("deepseek", "{}", ""), Some(first.clone()));
+    assert_eq!(resolve_quota_script("deepseek", r#"{"quota_script_id":"gone"}"#, ""), Some(first));
+    // 无脚本协议 → None（调用方维持 Unsupported err）
+    assert_eq!(resolve_quota_script("kimi_en", "{}", ""), None);
+    // extra 非 JSON → 不炸，走首条
+    assert!(resolve_quota_script("deepseek", "oops", "").is_some());
+}
+
+#[test]
+fn materialize_quota_script_rules() {
+    let first = quota_scripts_in(presets(), "glm")[0].script.clone();
+    // 全新（列空）→ 首条变体；无脚本协议 → 空串
+    assert_eq!(materialize_quota_script("glm", "{}", "", true), first);
+    assert_eq!(materialize_quota_script("kimi_en", "{}", "", true), "");
+    // 自定义脚本优先（即使 id 也在）
+    assert_eq!(
+        materialize_quota_script("glm", r#"{"quota_script_id":"default","quota_custom_script":"return 9"}"#, "OLD", false),
+        "return 9"
+    );
+    // id 有值 → 重写为选中变体（远程更新待拉入）
+    assert_eq!(materialize_quota_script("glm", r#"{"quota_script_id":"default"}"#, "OLD", false), first);
+    // id 失效 → 回落首条重写
+    assert_eq!(materialize_quota_script("glm", r#"{"quota_script_id":"gone"}"#, "OLD", false), first);
+    // 无 id + 列已有值 + 协议未变 → 保留（已物化脚本不随远程同步自动换）
+    assert_eq!(materialize_quota_script("glm", "{}", "OLD", false), "OLD");
+    // 协议变更（旧列是别的协议的脚本）→ 重物化
+    assert_eq!(materialize_quota_script("glm", "{}", "OLD-OTHER-PROTO", true), first);
+    // 协议变更为无脚本协议 → 清列
+    assert_eq!(materialize_quota_script("openai", "{}", "OLD", true), "");
+}

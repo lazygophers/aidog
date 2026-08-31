@@ -9,7 +9,7 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// SELECT 列序
 pub const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script";
 
 /// 从查询行构造 Platform
 pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -47,6 +47,7 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         balance_level: String::new(),
         last_error: row.get(24)?,
         last_error_at: row.get::<_, i64>(25)?,
+        quota_script: row.get(26)?,
     })
 }
 
@@ -102,6 +103,14 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
     let manual_budgets = input.manual_budgets.unwrap_or_default();
     let manual_budgets_str = crate::models::serialize_manual_budgets(&manual_budgets);
     let expires_at = input.expires_at.unwrap_or(0).max(0);
+    // quota 脚本物化（quota-scripts spec T4）：创建即物化选中（或首条）变体 / 自定义脚本，
+    // 零配置开箱即用；无脚本协议 → 空串。仅用户操作路径（create/update）物化，远程同步不动。
+    let quota_script = crate::registry::materialize_quota_script(
+        &input.platform_type.wire_str(),
+        &input.extra,
+        "",
+        true,
+    );
 
     let id = db
 
@@ -110,10 +119,11 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
             let base_url = input.base_url.clone();
             let api_key = input.api_key.clone();
             let extra = input.extra.clone();
+            let quota_script_db = quota_script.clone();
             move |conn| {
                 conn.execute(
-                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, expires_at],
+                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at, quota_script) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, expires_at, quota_script_db],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -152,6 +162,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
         balance_level: String::new(),
         last_error: String::new(),
         last_error_at: 0,
+        quota_script,
     })
     }
 }
@@ -263,7 +274,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
         auto_disable_strikes = 0;
     }
 
-    let platform_type = input.platform_type.unwrap_or(existing.platform_type);
+    let platform_type = input.platform_type.unwrap_or(existing.platform_type.clone());
     // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
     let endpoints = if platform_type.endpoints_locked() {
         crate::registry::default_endpoints(&platform_type.wire_str())
@@ -271,7 +282,17 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
         input.endpoints.unwrap_or(existing.endpoints)
     };
 
+    // quota 脚本再物化：协议变更（旧列是别的协议的脚本）/ 选了变体 / 自定义脚本 → 重写；
+    // 其余保留现值（远程同步的 registry 变体更新不自动换已物化脚本，spec 存储决策）。
+    let quota_script = crate::registry::materialize_quota_script(
+        &platform_type.wire_str(),
+        input.extra.as_deref().unwrap_or(&existing.extra),
+        &existing.quota_script,
+        platform_type != existing.platform_type,
+    );
+
     let updated = Platform {
+        quota_script,
         name: input.name.unwrap_or(existing.name),
         platform_type,
         base_url: input.base_url.unwrap_or(existing.base_url),
@@ -308,10 +329,11 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
             let auto_disable_strikes = updated.auto_disable_strikes;
             let expires_at = updated.expires_at;
             let updated_at = updated.updated_at;
+            let quota_script = updated.quota_script.clone();
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, expires_at=?15 WHERE id=?16",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, expires_at=?15, quota_script=?16 WHERE id=?17",
                     params![
                         name,
                         platform_type_str,
@@ -328,6 +350,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
                         auto_disabled_until,
                         auto_disable_strikes,
                         expires_at,
+                        quota_script.clone(),
                         id,
                     ],
                 )?;
