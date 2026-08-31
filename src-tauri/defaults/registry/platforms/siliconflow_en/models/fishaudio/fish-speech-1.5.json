@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788147245,
+  "model_id": "fishaudio/fish-speech-1.5",
+  "canonical_model": "fish-speech-1.5",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.015
+  }
+}
