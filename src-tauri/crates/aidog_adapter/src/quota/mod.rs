@@ -1,11 +1,9 @@
 //! 平台余额 & Coding Plan 配额查询服务（拆自 aidog_core::gateway::quota，2026-08-16）。
 //!
-//! 三函数模式（每个有 quota 能力的平台目录挂 `quota.rs`）：
-//!   1. `<platform>::quota::quota_config() -> QuotaCapability` —— 静态能力配置
-//!      （是否支持 coding plan / 余额 / MCP / 周·月·五小时限制层级）
-//!   2. `<platform>::quota::query_quota(...) -> PlatformQuota` —— 完整查询结果
-//!   3. 本模块 `run_custom_query(...)` —— JS 脚本自定义查询
-//!      （内置 http 请求 / JSON 解析等，返回固定格式 PlatformQuota）
+//! quota-scripts spec（T4）：查询执行统一走 registry JS 脚本（`run_quota_script` →
+//! `script::run_custom_query`），脚本正文来自 platform 行的物化列（空则回落 registry
+//! 选中/首条变体，见 `aidog_db::registry::resolve_quota_script`）。旧 per-platform
+//! Rust 查询实现仍保留至 T5 删除。
 //!
 //! dispatch 保留旧 `query_quota`（base_url 自动检测）签名，调用方零改动；
 //! 另提供按 Protocol 的类型化入口。
@@ -16,31 +14,29 @@ pub mod script;
 
 pub use capability::{QuotaCapability, capability_for_variant};
 pub use http::{BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier};
+pub use script::CustomQueryCtx;
 
 use std::sync::Arc;
 
-use aidog_db::models::Protocol;
+use aidog_db::models::{Platform, Protocol};
 use aidog_db::Db;
 
 use http::{err_quota, QUOTA_PLATFORM_ID};
+use script::run_custom_query;
 
-// ── 入口 1: 能力配置（Protocol → 平台 config 函数）────────
+// ── 入口 1: 能力配置（选中变体 returns 派生）──────────────
 
-/// 按平台协议返回该平台的 quota 能力配置。
-/// 无 quota 实现的平台返回空能力（全 false），custom_query 恒可用。
+/// 按平台协议返回该平台的 quota 能力配置（quota-scripts spec：由 registry 首条变体的
+/// `returns` 声明派生，替代旧的 per-platform 硬编码）。
+/// 无 quota 脚本的平台返回空能力（全 false），custom_query 恒可用。
 pub fn quota_config_for(protocol: &Protocol) -> QuotaCapability {
-    use Protocol::*;
-    match protocol {
-        Glm | GlmCoding | GlmEn | GlmCodingEn => crate::glm::quota::quota_config(),
-        Kimi | KimiCoding => crate::kimi::quota::quota_config(),
-        MiniMax | MiniMaxEn | MinimaxCoding => crate::minimax::quota::quota_config(),
-        DeepSeek => crate::deepseek::quota::quota_config(),
-        StepFun | StepFunEn => crate::stepfun::quota::quota_config(),
-        SiliconFlow | SiliconFlowEn => crate::siliconflow::quota::quota_config(),
-        OpenRouter => crate::openrouter::quota::quota_config(),
-        Novita => crate::novita::quota::quota_config(),
-        Devin => crate::devin::quota::quota_config(),
-        _ => QuotaCapability {
+    let variants = aidog_db::registry::quota_scripts_in(
+        &aidog_db::registry::effective_presets(),
+        &protocol.wire_str(),
+    );
+    match variants.first() {
+        Some(v) => capability_for_variant(v),
+        None => QuotaCapability {
             custom_query_supported: true,
             ..Default::default()
         },
@@ -49,10 +45,96 @@ pub fn quota_config_for(protocol: &Protocol) -> QuotaCapability {
 
 // ── 入口 2: 完整查询结果 ─────────────────────────────────
 
+/// 统一脚本执行入口：解析生效脚本（物化列 → `extra.quota_custom_script` → 选中/首条
+/// 变体，`registry::resolve_quota_script`）后 `run_custom_query`。
+/// 返回 None = 该协议无任何脚本（调用方回落 base_url 启发式或维持 Unsupported err）。
+pub async fn run_quota_script(
+    db: Option<&Arc<Db>>,
+    protocol_code: &str,
+    base_url: &str,
+    api_key: &str,
+    extra: &str,
+    platform_id: i64,
+) -> Option<PlatformQuota> {
+    let materialized = platform_row(db, platform_id)
+        .await
+        .map(|p| p.quota_script)
+        .unwrap_or_default();
+    run_script_at(db, protocol_code, base_url, api_key, extra, &materialized, platform_id).await
+}
+
+async fn run_script_at(
+    db: Option<&Arc<Db>>,
+    protocol_code: &str,
+    base_url: &str,
+    api_key: &str,
+    extra: &str,
+    materialized: &str,
+    platform_id: i64,
+) -> Option<PlatformQuota> {
+    let script =
+        aidog_db::registry::resolve_quota_script(protocol_code, extra, materialized)?;
+    Some(
+        run_custom_query(
+            db,
+            CustomQueryCtx {
+                base_url: base_url.to_string(),
+                api_key: api_key.to_string(),
+                extra: extra.to_string(),
+            },
+            &script,
+            platform_id,
+        )
+        .await,
+    )
+}
+
+/// platform_id > 0 且 db 可用时读平台行（协议路由 + extra + 物化脚本列）；
+/// 否则 None（base_url 启发式路径，如 cli_proxy provider 探测）。
+async fn platform_row(db: Option<&Arc<Db>>, platform_id: i64) -> Option<Platform> {
+    if platform_id <= 0 {
+        return None;
+    }
+    let db = db?;
+    aidog_db::get_platform(db, platform_id as u64)
+        .await
+        .ok()
+        .flatten()
+}
+
 /// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额（旧签名，调用方零改动）。
 /// platform_id 透传给落库日志（task_local scope），让 Logs 页能显示归属平台。
 pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, platform_id: i64) -> PlatformQuota {
-    QUOTA_PLATFORM_ID.scope(platform_id, query_quota_inner(db, base_url, api_key)).await
+    let row = platform_row(db, platform_id).await;
+    QUOTA_PLATFORM_ID.scope(platform_id, query_quota_with_row(db, base_url, api_key, row)).await
+}
+
+/// 行在 → 按行协议走脚本（协议是权威：newapi 两步查询 / devin ACU / 11 平台族全覆盖，
+/// 含 base_url 启发式打不中的自定义网关域名）；行协议无脚本再回落 base_url 启发式。
+async fn query_quota_with_row(
+    db: Option<&Arc<Db>>,
+    base_url: &str,
+    api_key: &str,
+    row: Option<Platform>,
+) -> PlatformQuota {
+    if api_key.trim().is_empty() {
+        return err_quota("API key is empty");
+    }
+    if let Some(p) = &row
+        && let Some(q) = run_script_at(
+            db,
+            &p.platform_type.wire_str(),
+            base_url,
+            api_key,
+            &p.extra,
+            &p.quota_script,
+            p.id as i64,
+        )
+        .await
+    {
+        return q;
+    }
+    query_quota_inner(db, base_url, api_key).await
 }
 
 /// 按 Protocol 类型化入口（平台注册即用，无需 base_url 启发式）。
@@ -63,75 +145,69 @@ pub async fn query_quota_for(
     api_key: &str,
     platform_id: i64,
 ) -> PlatformQuota {
-    QUOTA_PLATFORM_ID.scope(platform_id, query_for_inner(db, protocol, base_url, api_key)).await
+    let row = platform_row(db, platform_id).await;
+    QUOTA_PLATFORM_ID.scope(platform_id, query_for_inner(db, protocol, base_url, api_key, row)).await
 }
 
-async fn query_for_inner(db: Option<&Arc<Db>>, protocol: &Protocol, base_url: &str, api_key: &str) -> PlatformQuota {
-    use Protocol::*;
+async fn query_for_inner(
+    db: Option<&Arc<Db>>,
+    protocol: &Protocol,
+    base_url: &str,
+    api_key: &str,
+    row: Option<Platform>,
+) -> PlatformQuota {
     if api_key.trim().is_empty() {
         return err_quota("API key is empty");
     }
-    match protocol {
-        Glm | GlmCoding | GlmEn | GlmCodingEn => crate::glm::quota::query_zhipu_coding_plan(db, base_url, api_key).await,
-        Kimi | KimiCoding => crate::kimi::quota::query_kimi_coding_plan(db, api_key).await,
-        MiniMax | MinimaxCoding => crate::minimax::quota::query_minimax_coding_plan(db, api_key, true).await,
-        MiniMaxEn => crate::minimax::quota::query_minimax_coding_plan(db, api_key, false).await,
-        DeepSeek => crate::deepseek::quota::query_deepseek_balance(db, api_key).await,
-        StepFun | StepFunEn => crate::stepfun::quota::query_stepfun_balance(db, api_key).await,
-        SiliconFlow => crate::siliconflow::quota::query_siliconflow_balance(db, api_key, true).await,
-        SiliconFlowEn => crate::siliconflow::quota::query_siliconflow_balance(db, api_key, false).await,
-        OpenRouter => crate::openrouter::quota::query_openrouter_balance(db, api_key).await,
-        Novita => crate::novita::quota::query_novita_balance(db, api_key).await,
-        // 未注册平台回落 base_url 启发式（New API 系中转按 URL 判定）
-        _ => query_quota_inner(db, base_url, api_key).await,
+    let (extra, materialized, platform_id) = match &row {
+        Some(p) => (p.extra.as_str(), p.quota_script.as_str(), p.id as i64),
+        None => ("", "", 0),
+    };
+    if let Some(q) = run_script_at(db, &protocol.wire_str(), base_url, api_key, extra, materialized, platform_id).await {
+        return q;
     }
+    // 未注册平台回落 base_url 启发式（New API 系中转按 URL 判定）
+    query_quota_inner(db, base_url, api_key).await
 }
 
-/// base_url 启发式 dispatch（原 query_quota_inner 逻辑原样迁入）。
+/// base_url 启发式 dispatch：URL 关键词 → registry 协议 code → 脚本执行。
+/// 无命中 / 脚本缺失 → 维持原 `Unsupported base_url` err 文案。
 async fn query_quota_inner(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> PlatformQuota {
     if api_key.trim().is_empty() {
         return err_quota("API key is empty");
     }
     let url = base_url.to_lowercase();
+    let unsupported = || err_quota(&format!("Unsupported base_url for quota query: {base_url}"));
 
     // Coding Plan 查询 (优先检测，这些平台通常同时有 Coding Plan)
-    if url.contains("api.kimi.com/coding") {
-        return crate::kimi::quota::query_kimi_coding_plan(db, api_key).await;
-    }
-    if url.contains("bigmodel.cn") {
-        return crate::glm::quota::query_zhipu_coding_plan(db, base_url, api_key).await;
-    }
-    if url.contains("api.z.ai") {
-        return crate::glm::quota::query_zhipu_coding_plan(db, base_url, api_key).await;
-    }
-    if url.contains("api.minimaxi.com") {
-        return crate::minimax::quota::query_minimax_coding_plan(db, api_key, true).await;
-    }
-    if url.contains("api.minimax.io") {
-        return crate::minimax::quota::query_minimax_coding_plan(db, api_key, false).await;
-    }
-
-    // 余额查询
-    if url.contains("api.deepseek.com") {
-        return crate::deepseek::quota::query_deepseek_balance(db, api_key).await;
-    }
-    if url.contains("api.stepfun.com") || url.contains("api.stepfun.ai") {
-        return crate::stepfun::quota::query_stepfun_balance(db, api_key).await;
-    }
-    if url.contains("api.siliconflow.cn") {
-        return crate::siliconflow::quota::query_siliconflow_balance(db, api_key, true).await;
-    }
-    if url.contains("api.siliconflow.com") {
-        return crate::siliconflow::quota::query_siliconflow_balance(db, api_key, false).await;
-    }
-    if url.contains("openrouter.ai") {
-        return crate::openrouter::quota::query_openrouter_balance(db, api_key).await;
-    }
-    if url.contains("api.novita.ai") {
-        return crate::novita::quota::query_novita_balance(db, api_key).await;
-    }
-
-    err_quota(&format!("Unsupported base_url for quota query: {base_url}"))
+    let code = if url.contains("api.kimi.com/coding") {
+        "kimi"
+    } else if url.contains("bigmodel.cn") || url.contains("api.z.ai") {
+        // glm 族脚本按 ctx.baseUrl 自派生 open.bigmodel.cn / api.z.ai，两分支同一正文
+        "glm"
+    } else if url.contains("api.minimaxi.com") {
+        "minimax"
+    } else if url.contains("api.minimax.io") {
+        "minimax_en"
+    } else if url.contains("api.deepseek.com") {
+        "deepseek"
+    } else if url.contains("api.stepfun.com") || url.contains("api.stepfun.ai") {
+        "stepfun"
+    } else if url.contains("api.siliconflow.cn") {
+        "siliconflow"
+    } else if url.contains("api.siliconflow.com") {
+        "siliconflow_en"
+    } else if url.contains("openrouter.ai") {
+        "openrouter"
+    } else if url.contains("api.novita.ai") {
+        "novita"
+    } else {
+        return unsupported();
+    };
+    // 启发式路径无平台行（extra/物化列空），零配置走 registry 首条变体
+    run_script_at(db, code, base_url, api_key, "", "", 0)
+        .await
+        .unwrap_or_else(unsupported)
 }
 
 #[cfg(test)]
@@ -143,3 +219,9 @@ mod test_coding_plan;
 #[cfg(test)]
 #[path = "test_dispatch.rs"]
 mod test_dispatch;
+#[cfg(test)]
+#[path = "test_special_scripts.rs"]
+mod test_special_scripts;
+#[cfg(test)]
+#[path = "test_stub.rs"]
+mod test_stub;
