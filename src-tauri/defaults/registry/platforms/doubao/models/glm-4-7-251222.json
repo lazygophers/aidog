@@ -1,0 +1,25 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "glm-4-7-251222",
+  "canonical_model": "glm-4-7-251222",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 204800,
+  "max_output_tokens": 131072,
+  "context_window": 204800,
+  "official": false,
+  "price": {
+    "input": 2.77778e-7,
+    "output": 0.00000111111,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 5.55556e-7,
+        "output": 0.00000222222
+      }
+    ]
+  }
+}

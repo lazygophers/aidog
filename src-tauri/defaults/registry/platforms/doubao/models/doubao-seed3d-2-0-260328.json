@@ -1,0 +1,11 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "doubao-seed3d-2-0-260328",
+  "canonical_model": "doubao-seed3d-2-0-260328",
+  "capabilities": [],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.333333
+  }
+}

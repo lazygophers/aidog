@@ -1,0 +1,18 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "deepseek-v4-pro-ga-260813",
+  "canonical_model": "deepseek-v4-pro-ga-260813",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 0.00000125,
+    "output": 0.00000375
+  }
+}

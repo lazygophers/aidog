@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788144135,
+  "model_id": "doubao-1-5-vision-pro-32k-250115",
+  "canonical_model": "doubao-1-5-vision-pro-32k-250115",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_output_tokens": 12288,
+  "context_window": 32768,
+  "official": true,
+  "price": {
+    "input": 4.16667e-7,
+    "output": 0.00000125
+  }
+}
