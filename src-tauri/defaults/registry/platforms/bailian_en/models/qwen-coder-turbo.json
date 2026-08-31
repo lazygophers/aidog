@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-coder-turbo",
+  "canonical_model": "qwen-coder-turbo",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "max_output_tokens": 8192,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 2.8699999999999996e-7,
+    "output": 8.61e-7
+  }
+}

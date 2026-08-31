@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3.5-ocr",
+  "canonical_model": "qwen3.5-ocr",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 6.900000000000001e-8,
+    "output": 2.75e-7
+  }
+}

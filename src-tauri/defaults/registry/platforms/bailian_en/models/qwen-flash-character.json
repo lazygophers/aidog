@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-flash-character",
+  "canonical_model": "qwen-flash-character",
+  "display_name": "Qwen-Flash-Character",
+  "capabilities": [
+    "text"
+  ],
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 5.0000000000000004e-8,
+    "output": 4.0000000000000003e-7
+  }
+}

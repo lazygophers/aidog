@@ -1,0 +1,28 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3-max-preview",
+  "canonical_model": "qwen3-max-preview",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 256000,
+  "max_output_tokens": 32768,
+  "context_window": 256000,
+  "official": false,
+  "price": {
+    "input": 0.0000012,
+    "output": 0.000006,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 0.0000024,
+        "output": 0.000012
+      },
+      {
+        "min_tokens": 131073,
+        "input": 0.000003,
+        "output": 0.000015
+      }
+    ]
+  }
+}

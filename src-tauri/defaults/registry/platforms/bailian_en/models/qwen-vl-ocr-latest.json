@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-vl-ocr-latest",
+  "canonical_model": "qwen-vl-ocr-latest",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 4.2999999999999995e-8,
+    "output": 7.2e-8
+  }
+}

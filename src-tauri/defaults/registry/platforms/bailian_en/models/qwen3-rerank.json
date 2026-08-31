@@ -1,0 +1,12 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3-rerank",
+  "canonical_model": "qwen3-rerank",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.0000000000000001e-7
+  }
+}

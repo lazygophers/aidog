@@ -1,0 +1,16 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-math-plus",
+  "canonical_model": "qwen-math-plus",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 3072,
+  "max_output_tokens": 3072,
+  "context_window": 4096,
+  "official": false,
+  "price": {
+    "input": 5.739999999999999e-7,
+    "output": 0.0000017210000000000001
+  }
+}

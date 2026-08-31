@@ -1,0 +1,14 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "wan2.6-t2i",
+  "canonical_model": "wan2.6-t2i",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.03
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788110545,
+  "last_updated": 1788143594,
   "model_id": "qwen3-omni-flash-2025-12-01",
   "canonical_model": "qwen3-omni-flash-2025-12-01",
   "capabilities": [
@@ -7,7 +7,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0.00000176389,
-    "output": 0.00000869444
+    "input": 2.5e-7,
+    "output": 9.58333e-7
   }
 }

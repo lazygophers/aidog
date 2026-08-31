@@ -1,0 +1,33 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3-coder-plus-2025-09-23",
+  "canonical_model": "qwen3-coder-plus",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000005,
+    "context_tiers": [
+      {
+        "min_tokens": 32769,
+        "input": 0.0000018000000000000001,
+        "output": 0.000009
+      },
+      {
+        "min_tokens": 131073,
+        "input": 0.000003,
+        "output": 0.000015
+      },
+      {
+        "min_tokens": 262145,
+        "input": 0.000006,
+        "output": 0.00006
+      }
+    ]
+  }
+}

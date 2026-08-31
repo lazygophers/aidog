@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3-livetranslate-flash-realtime",
+  "canonical_model": "qwen3-livetranslate-flash-realtime-2025-09-22",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 0.00001,
+    "output": 0.00001
+  }
+}

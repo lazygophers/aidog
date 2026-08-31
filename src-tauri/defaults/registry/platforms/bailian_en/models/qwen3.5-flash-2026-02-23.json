@@ -1,0 +1,17 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen3.5-flash-2026-02-23",
+  "canonical_model": "qwen3.5-flash-2026-02-23",
+  "display_name": "Qwen3.5-Flash (2026-02-23)",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 65536,
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 1.0000000000000001e-7,
+    "output": 4.0000000000000003e-7
+  }
+}

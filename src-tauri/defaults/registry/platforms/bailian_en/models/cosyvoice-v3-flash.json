@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "cosyvoice-v3-flash",
+  "canonical_model": "cosyvoice-v3-flash",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.014335
+  }
+}

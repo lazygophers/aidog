@@ -1,0 +1,13 @@
+{
+  "last_updated": 1788143594,
+  "model_id": "qwen-omni-turbo",
+  "canonical_model": "qwen-omni-turbo-2025-03-26",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 7e-8,
+    "output": 2.7e-7
+  }
+}
