@@ -142,13 +142,10 @@ pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuo
 async fn run_calibration(
     db: &Db,
     platform_id: u64,
-    platform_type: &str,
     base_url: &str,
     api_key: &str,
-    extra: &str,
     is_coding_plan: bool,
 ) {
-    let _ = (platform_type, extra); // 旧分流入参，保留签名免改 caller（T5 可清）
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
     let quota = crate::gateway::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await;
@@ -236,7 +233,7 @@ pub async fn estimate_after_request(
     // 2. 校准判定（短读，锁外 await）
     if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await
         && should_calibrate(now(), last_real, count) {
-            run_calibration(db, platform_id, platform_type, base_url, api_key, extra, is_coding_plan).await;
+            run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
         }
 }
 

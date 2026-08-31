@@ -258,7 +258,8 @@ pub fn parse_breaker(extra: &str) -> PlatformBreaker {
 // ─── PlatformExtra（`platform.extra` JSON 收敛 struct）──────────
 
 /// `platform.extra.devin` 嵌套对象：Devin（Cognition）平台专属配置。
-/// nested 读取（禁 flat `extra.org_id`/`extra.dev_timeout`），对齐前端 serializeDevinConfig。
+/// dev_timeout 仅 nested 读取（禁 flat）；org_id 由 proxy 侧 `resolve_devin_org_id`
+/// 嵌套优先、顶层兜底（quota-scripts T5 与 registry 脚本对齐）。
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct DevinExtra {
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -267,14 +268,6 @@ pub struct DevinExtra {
     pub dev_timeout: Option<u64>,
 }
 
-/// `platform.extra.newapi` 嵌套对象：New API 中转平台余额查询配置。
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct NewapiExtra {
-    #[serde(default)]
-    pub balance_base_url: String,
-    #[serde(default)]
-    pub balance_api_key: String,
-}
 
 /// `platform.extra.builtin_tool_compat` 嵌套对象：Claude Code 内置工具兼容
 /// （builtin-tool-compat spec，默认关闭）。开启后转发层出站 body 剔除命中工具定义。
@@ -306,8 +299,8 @@ pub fn parse_builtin_tool_compat(extra: &str) -> BuiltinToolCompat {
 /// - `peak` ← `parse_platform_peak`
 /// - `time_windows` ← `parse_platform_time_windows`
 /// - `cli_proxy_provider_id` ← `router::candidates::read_cli_proxy_provider_id`
-/// - `devin` ← `quota::devin::parse_devin_extra`
-/// - `newapi` ← `quota::newapi::parse_newapi_extra`
+/// - `devin` ← `gateway::proxy::devin`（org_id 经 `resolve_devin_org_id` 脚本同款两层兜底、
+///   dev_timeout 经 `read_dev_timeout_secs`，均 nested）
 /// - `mock` ← `adapter::mock::config::resolve_mock_config`
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct PlatformExtra {
@@ -323,8 +316,6 @@ pub struct PlatformExtra {
     pub cli_proxy_provider_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub devin: Option<DevinExtra>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub newapi: Option<NewapiExtra>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mock: Option<serde_json::Value>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

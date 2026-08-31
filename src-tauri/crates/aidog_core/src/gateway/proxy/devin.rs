@@ -125,23 +125,19 @@ pub(crate) async fn handle_devin(
     log.actual_model = requested_model.to_string();
 
     // org_id 必填（path 段 + Bearer realm），api_key = Devin cog_ key。
-    // s9: nested `extra.devin.org_id`（对齐前端 serializeDevinConfig + quota/devin.rs::parse_devin_extra
-    // + s6 read_dev_timeout_secs 同层级）。禁 flat extra.org_id（s2/s3 旧代码 bug，前端从未写此形态）。
-    // c2-platformextra: platform.extra 只解析一次（经 PlatformExtra），org_id / dev_timeout
-    // 均从同一份 `devin_extra` 取，禁再各自 serde_json::from_str 重复解析原始字符串。
-    let devin_extra = crate::gateway::models::PlatformExtra::parse(&platform.extra).devin;
-    let org_id = match devin_extra
-        .as_ref()
-        .and_then(|d| d.org_id.as_deref())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        Some(id) => id.to_string(),
+    // quota-scripts T5: org_id 两层兜底（嵌套 extra.devin.org_id 优先，顶层 extra.org_id
+    // 兜底），与 registry devin quota 脚本（platform.json quota_scripts）取值保持一致，
+    // 否则 proxy 与查询脚本取值漂移。c2-platformextra: platform.extra 只解析一次
+    // （经 PlatformExtra），org_id / dev_timeout 均从同一份解析结果取。
+    let parsed_extra = crate::gateway::models::PlatformExtra::parse(&platform.extra);
+    let devin_extra = parsed_extra.devin.clone();
+    let org_id = match resolve_devin_org_id(&parsed_extra) {
+        Some(id) => id,
         None => {
             return devin_error(
                 &state, &mut log, &log_settings, lang, start,
                 StatusCode::BAD_REQUEST,
-                r#"devin platform missing extra.devin.org_id (expected {"devin":{"org_id":"..."}})"#,
+                "devin platform missing extra.devin.org_id (expected {\"devin\":{\"org_id\":\"...\"}})",
             ).await;
         }
     };
@@ -601,11 +597,35 @@ pub(crate) fn format_chat_response(
     }
 }
 
+/// org_id 两层兜底：嵌套 `extra.devin.org_id` 优先，缺失/空串回落顶层 `extra.org_id`
+/// （顶层未建模键落 PlatformExtra::rest）。quota-scripts T5 与 registry devin quota 脚本
+/// （registry/platforms/devin/platform.json quota_scripts）取值对齐——proxy 与查询脚本
+/// 必须同款读法，否则同一平台两处取值漂移。
+fn resolve_devin_org_id(extra: &crate::gateway::models::PlatformExtra) -> Option<String> {
+    let nested = extra
+        .devin
+        .as_ref()
+        .and_then(|d| d.org_id.as_deref())
+        .map(str::trim)
+        .unwrap_or("");
+    let org_id = if nested.is_empty() {
+        extra
+            .rest
+            .get("org_id")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+    } else {
+        nested
+    };
+    let org_id = org_id.trim();
+    (!org_id.is_empty()).then(|| org_id.to_string())
+}
+
 /// 默认 Devin 轮询超时（秒）。spec design.md line 72-76。
 pub(crate) const DEVIN_DEFAULT_TIMEOUT_SECS: u64 = 300;
 
 /// 从 platform.extra JSON 读 `devin.dev_timeout`（秒），缺省 DEVIN_DEFAULT_TIMEOUT_SECS。
-/// ponytail: nested 读取（与 quota/devin.rs extra.devin.org_id 同层级），禁 flat extra.dev_timeout。
+/// ponytail: nested 读取（与 org_id 嵌套形态同层级），禁 flat extra.dev_timeout。
 /// ≤ 0 或非 u64 → 默认（安全侧兜底，禁 0 触发立即超时）。
 pub(crate) fn read_dev_timeout_secs(extra_v: &Value) -> u64 {
     extra_v
@@ -1436,32 +1456,51 @@ mod tests {
         );
     }
 
-    // ── s9: org_id nested 读取回归（对齐前端 serializeDevinConfig + quota::parse_devin_extra）──
+    // ── T5: org_id 两层兜底（嵌套优先 + 顶层兜底），对齐 registry devin 脚本取值 ──
 
-    /// 回归 guard：handle_devin 读 org_id 必须走 nested `extra.devin.org_id`。
-    /// flat `extra.org_id`（s2/s3 旧 bug 形态）必须返 None，否则 Devin session 请求 BAD_REQUEST。
-    /// ponytail: 直接调 quota::parse_devin_extra（proxy 复用的真值源），禁再抄一份 nested 解析到 proxy。
+    /// 回归 guard：handle_devin 读 org_id 必须与 quota 脚本同款——嵌套
+    /// `extra.devin.org_id` 优先，缺失/空串回落顶层 `extra.org_id`。
     #[test]
-    fn org_id_nested_read_hits_and_flat_misses() {
+    fn org_id_nested_priority_and_flat_fallback() {
+        use crate::gateway::models::PlatformExtra;
         // nested 形态（前端 serializeDevinConfig 实际写入）→ 命中
         assert_eq!(
-            crate::gateway::quota::parse_devin_extra(r#"{"devin":{"org_id":"org-abc"}}"#),
+            resolve_devin_org_id(&PlatformExtra::parse(r#"{"devin":{"org_id":"org-abc"}}"#)),
             Some("org-abc".to_string())
         );
         // 同时含 api_key + dev_timeout 的完整 nested 形态 → 仍命中
         assert_eq!(
-            crate::gateway::quota::parse_devin_extra(
+            resolve_devin_org_id(&PlatformExtra::parse(
                 r#"{"devin":{"org_id":"org-xyz","api_key":"cog_xxx","dev_timeout":120}}"#
-            ),
+            )),
             Some("org-xyz".to_string())
         );
-        // flat 形态（s2/s3 旧 bug 读法，前端从未写）→ 必须返 None
-        assert!(
-            crate::gateway::quota::parse_devin_extra(r#"{"org_id":"org-flat"}"#).is_none(),
-            "flat extra.org_id 必须不命中（nested-only，防 s2/s3 bug 回归）"
+        // nested 空串 → 顶层兜底命中（脚本同款：nested 空才看顶层）
+        assert_eq!(
+            resolve_devin_org_id(&PlatformExtra::parse(
+                r#"{"devin":{"org_id":""},"org_id":"org-flat"}"#
+            )),
+            Some("org-flat".to_string())
         );
-        // 空 / 非 JSON / 缺 devin → None
-        assert!(crate::gateway::quota::parse_devin_extra("").is_none());
-        assert!(crate::gateway::quota::parse_devin_extra(r#"{"devin":{}}"#).is_none());
+        // 无 nested → 顶层兜底命中
+        assert_eq!(
+            resolve_devin_org_id(&PlatformExtra::parse(r#"{"org_id":" org-flat "}"#)),
+            Some("org-flat".to_string())
+        );
+        // nested 非空优先于顶层
+        assert_eq!(
+            resolve_devin_org_id(&PlatformExtra::parse(
+                r#"{"devin":{"org_id":"org-n"},"org_id":"org-f"}"#
+            )),
+            Some("org-n".to_string())
+        );
+        // 空 / 非 JSON / 缺 org_id / 顶层非字符串 → None
+        assert_eq!(resolve_devin_org_id(&PlatformExtra::parse("")), None);
+        assert_eq!(resolve_devin_org_id(&PlatformExtra::parse("not json")), None);
+        assert_eq!(resolve_devin_org_id(&PlatformExtra::parse(r#"{"devin":{}}"#)), None);
+        assert_eq!(
+            resolve_devin_org_id(&PlatformExtra::parse(r#"{"org_id":123}"#)),
+            None
+        );
     }
 }
