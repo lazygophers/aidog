@@ -747,10 +747,11 @@ mod tests {
         let synced = aidog_db::registry::merge_presets_doc(
             [(
                 "anthropic",
-                r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],
+                r#"{"last_updated":9999999999,
+                    "peak":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],
                     "models":{"peak":{"default":"claude-peak"}}}"#,
             )],
-            Some(1),
+            Some(9_999_999_999),
         );
         let w = peak_in(&synced, "anthropic");
         assert_eq!(w.len(), 1);

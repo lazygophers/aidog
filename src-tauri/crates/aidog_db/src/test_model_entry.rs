@@ -255,7 +255,7 @@ async fn presets_doc_json_prefers_db_over_bundled() {
         &db,
         vec![PlatformPreset {
             code: "glm".into(),
-            preset_data: r#"{"name":{"en-US":"Zhipu Renamed"}}"#.into(),
+            preset_data: r#"{"last_updated":9999999999,"name":{"en-US":"Zhipu Renamed"}}"#.into(),
             updated_at: 0,
         }],
     )
@@ -285,7 +285,11 @@ async fn preset_entry_reads_single_row_with_bundled_fallback() {
 
     upsert_platform_presets(
         &db,
-        vec![PlatformPreset { code: "anthropic".into(), preset_data: r#"{"logo_url":"newslug"}"#.into(), updated_at: 0 }],
+        vec![PlatformPreset {
+            code: "anthropic".into(),
+            preset_data: r#"{"last_updated":9999999999,"logo_url":"newslug"}"#.into(),
+            updated_at: 0,
+        }],
     )
     .await
     .unwrap();
@@ -293,6 +297,21 @@ async fn preset_entry_reads_single_row_with_bundled_fallback() {
     assert_eq!(v["logo_url"], "newslug");
     // 未同步的协议照旧由 bundled 供给
     assert!(preset_entry(&db, "openai").await.unwrap().is_some());
+
+    // 同步源比二进制旧时不得覆盖：旧行读回来仍是 bundled 那份（与 merge_presets_doc 同规则）
+    upsert_platform_presets(
+        &db,
+        vec![PlatformPreset {
+            code: "glm_coding".into(),
+            preset_data: r#"{"last_updated":1,"logo_url":"stale"}"#.into(),
+            updated_at: 0,
+        }],
+    )
+    .await
+    .unwrap();
+    let v = preset_entry(&db, "glm_coding").await.unwrap().expect("entry");
+    assert_ne!(v["logo_url"], "stale", "旧行不得盖掉更新的 bundled");
+    assert!(v["quota_scripts"].is_array(), "bundled 的 quota_scripts 须仍可见");
 }
 
 /// 票 13-E：bundled 兜底逐键生效——首轮只成功一部分，失败那批仍读得到内置价，

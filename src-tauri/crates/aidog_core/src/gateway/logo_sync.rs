@@ -284,7 +284,7 @@ mod tests {
             &db,
             vec![aidog_db::PlatformPreset {
                 code: "anthropic".into(),
-                preset_data: r#"{"logo_url":"newslug","homepage":"https://new.example.com"}"#.into(),
+                preset_data: r#"{"last_updated":9999999999,"logo_url":"newslug","homepage":"https://new.example.com"}"#.into(),
                 updated_at: 0,
             }],
         )

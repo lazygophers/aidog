@@ -133,20 +133,40 @@ fn model_file_paths_use_forward_slash() {
     assert!(MODEL_FILES.iter().any(|(_, f, _)| f.contains('/')), "registry 应有 vendor 子目录模型");
 }
 
-/// 票 13-C：DB 行覆盖 bundled 同 code，bundled 里 DB 缺的补齐。
+/// 票 13-C：更新的 DB 行覆盖 bundled 同 code，bundled 里 DB 缺的补齐。
 #[test]
 fn merge_presets_doc_unions_db_over_bundled() {
     // DB 一行都没有 → 与 bundled 逐字节相同
     assert_eq!(merge_presets_doc([], None).to_string(), presets_json());
 
-    let doc = merge_presets_doc([("anthropic", r#"{"homepage":"https://from-db"}"#)], Some(1234));
+    let newer = r#"{"last_updated":9999999999,"homepage":"https://from-db"}"#;
+    let doc = merge_presets_doc([("anthropic", newer)], Some(9_999_999_999));
     let p = doc["protocols"].as_object().expect("protocols");
     // 覆盖：DB 那条整份替换
     assert_eq!(p["anthropic"]["homepage"], "https://from-db");
     // 补齐：DB 没有的协议照样在
     assert_eq!(p.len(), PLATFORM_FILES.len());
     assert!(p["openai"]["homepage"].is_string());
-    assert_eq!(doc["last_updated"], 1234);
+    assert_eq!(doc["last_updated"], 9_999_999_999i64);
+}
+
+/// 同步源（上游仓库）比二进制里的 bundled 旧时，DB 行不得覆盖——否则二进制新增的字段
+/// （如 quota_scripts / plan_quotas）被旧行整篇盖掉，界面上表现为该能力凭空消失。
+#[test]
+fn merge_presets_doc_keeps_newer_bundled_over_stale_db_row() {
+    let bundled_stamp = presets()["protocols"]["glm_coding"]["last_updated"]
+        .as_i64()
+        .expect("bundled glm_coding 须带 last_updated");
+    let stale = format!(r#"{{"last_updated":{},"homepage":"https://stale"}}"#, bundled_stamp - 1);
+    let doc = merge_presets_doc([("glm_coding", stale.as_str())], Some(bundled_stamp - 1));
+    // 旧行被忽略：bundled 的 quota_scripts 仍在，homepage 不是旧行那个
+    assert_ne!(doc["protocols"]["glm_coding"]["homepage"], "https://stale");
+    assert!(doc["protocols"]["glm_coding"]["quota_scripts"].is_array());
+    // 文档级 last_updated 取 bundled 与 DB 的较大值
+    assert!(doc["last_updated"].as_i64().unwrap() >= bundled_stamp - 1);
+    // 无 last_updated 的旧行（戳缺失按 0 处理）同样不覆盖
+    let doc2 = merge_presets_doc([("glm_coding", r#"{"homepage":"https://nostamp"}"#)], Some(1));
+    assert_ne!(doc2["protocols"]["glm_coding"]["homepage"], "https://nostamp");
 }
 
 /// 票 13-D：DB 同步下来的端点覆盖编译期内置那份，`endpoints_locked` 保存不再把
@@ -157,8 +177,8 @@ fn endpoints_follow_db_synced_preset() {
     assert!(!bundled.is_empty());
     assert_ne!(bundled[0].base_url, "https://db.example/v1");
 
-    let patched = r#"{"endpoints":{"default":[{"protocol":"anthropic","base_url":"https://db.example/v1"}]}}"#;
-    let merged = merge_presets_doc([("anthropic", patched)], Some(1));
+    let patched = r#"{"last_updated":9999999999,"endpoints":{"default":[{"protocol":"anthropic","base_url":"https://db.example/v1"}]}}"#;
+    let merged = merge_presets_doc([("anthropic", patched)], Some(9_999_999_999));
     let got = endpoints_in(&merged, "anthropic");
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].base_url, "https://db.example/v1");
