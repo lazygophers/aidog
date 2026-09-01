@@ -219,14 +219,15 @@ yarn tauri build
 
 ## 发布与版本管理
 
-**版本唯一可信源 = 根目录 `.version`**（单行 semver，如 `0.1.0`）。所有 manifest（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` / `docs/package.json`）由脚本从 `.version` 同步：
+**版本唯一可信源 = 根目录 `.version`**（单行 semver，如 `0.1.0`）。所有版本文件（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/Cargo.lock` / `src-tauri/tauri.conf.json` / `docs/package.json`）由脚本从 `.version` 同步：
 
 ```bash
-node scripts/sync-version.mjs          # 写入各 manifest（= yarn version:sync）
-node scripts/sync-version.mjs --check  # 校验一致性，CI 用（= yarn version:check）
+make version-bump                 # 默认 patch +1，并同步所有版本文件（含 Cargo.lock）
+make version-bump VERSION=0.1.13  # 指定版本，并同步所有版本文件
+make version-check                # 校验一致性，CI 用（= yarn version:check）
 ```
 
-**发版流程**：改 `.version` → `yarn version:sync` → 提交推送 master。`.version` 变更触发两条 CI：
+**发版流程**：`make version-bump` → 提交推送 master。`.version` 变更触发两条 CI：
 
 - `.github/workflows/release.yml` — macOS(arm64+x64) + Windows(x64) 多平台构建 + minisign 签名 + 发布 GitHub Release（tag `v<version>`）+ 生成 updater `latest.json`。
 - `.github/workflows/deploy-docs.yml` — 重新部署文档站点。
