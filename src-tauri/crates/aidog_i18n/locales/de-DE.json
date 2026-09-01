@@ -2844,6 +2844,8 @@
   "middleware.appliesModels": "Modelle (kommagetrennt, leer = alle)",
   "middleware.appliesPlatforms": "Plattformen (leer = alle)",
   "middleware.appliesTo": "Gilt für (leer = uneingeschränkt; mehrere Werte = beliebige Übereinstimmung)",
+  "middleware.appliesAll": "Alle",
+  "middleware.maskFieldsAll": "Alle Felder (messages + system)",
   "middleware.clearConditions": "Bedingungen leeren",
   "middleware.conditions": "Bedingungen",
   "middleware.dslHint": "Syntax: ALL(...)/ANY(...)/Blatt, Blatt = target[.field] contains|regex|exact \"pattern\"",

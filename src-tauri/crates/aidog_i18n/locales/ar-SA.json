@@ -2844,6 +2844,8 @@
   "middleware.appliesModels": "النماذج (مفصولة بفواصل، فارغ = الكل)",
   "middleware.appliesPlatforms": "المنصات (فارغ = الكل)",
   "middleware.appliesTo": "يطبَّق على (فارغ = بلا قيد؛ قيم متعددة = أي تطابق)",
+  "middleware.appliesAll": "الكل",
+  "middleware.maskFieldsAll": "كل الحقول (messages + system)",
   "middleware.clearConditions": "مسح الشروط",
   "middleware.conditions": "الشروط",
   "middleware.dslHint": "بناء الجملة: ALL(...)/ANY(...)/ورقة، الورقة = target[.field] contains|regex|exact \"pattern\"",

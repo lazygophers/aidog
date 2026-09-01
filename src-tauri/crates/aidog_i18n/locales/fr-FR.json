@@ -2844,6 +2844,8 @@
   "middleware.appliesModels": "Modèles (séparés par des virgules, vide = tous)",
   "middleware.appliesPlatforms": "Plateformes (vide = toutes)",
   "middleware.appliesTo": "S’applique à (vide = sans limite ; plusieurs valeurs = correspondance)",
+  "middleware.appliesAll": "Tous",
+  "middleware.maskFieldsAll": "Tous les champs (messages + system)",
   "middleware.clearConditions": "Effacer les conditions",
   "middleware.conditions": "Conditions",
   "middleware.dslHint": "Syntaxe : ALL(...)/ANY(...)/feuille, feuille = target[.field] contains|regex|exact \"pattern\"",

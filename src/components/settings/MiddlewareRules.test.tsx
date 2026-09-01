@@ -168,8 +168,7 @@ describe("RuleForm（票 04/05：卡片编辑器 + DSL）", () => {
     render(<RuleForm onSave={onSave} onCancel={() => {}} />);
     await user.click(screen.getByRole("button", { name: "middleware.toDsl" }));
     // 定位 DSL textarea（最后一个 textarea）
-    const tas = document.querySelectorAll("textarea");
-    const dsl = tas[tas.length - 1] as HTMLTextAreaElement;
+    const dsl = screen.getByTestId("mw-dsl") as HTMLTextAreaElement;
     await user.clear(dsl);
     await user.type(dsl, 'foo contains "x"');
     await waitFor(() => expect(screen.getByText(/未知 target/)).toBeTruthy());
@@ -185,8 +184,7 @@ describe("RuleForm（票 04/05：卡片编辑器 + DSL）", () => {
     render(<RuleForm onSave={onSave} onCancel={() => {}} />);
     await user.type(screen.getByPlaceholderText("middleware.name"), "dsl-rule");
     await user.click(screen.getByRole("button", { name: "middleware.toDsl" }));
-    const tas = document.querySelectorAll("textarea");
-    const dsl = tas[tas.length - 1] as HTMLTextAreaElement;
+    const dsl = screen.getByTestId("mw-dsl") as HTMLTextAreaElement;
     await user.clear(dsl);
     await user.type(dsl, 'ALL(request_body regex "a+" model exact "m")')
     await user.click(screen.getByRole("button", { name: "middleware.toCards" }));
