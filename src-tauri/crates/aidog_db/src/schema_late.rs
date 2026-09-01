@@ -1343,7 +1343,7 @@ mod tests {
             "SELECT conditions, enabled FROM middleware_rule WHERE name='user-detector'", [],
             |r| Ok((r.get(0)?, r.get(1)?))).unwrap();
         // JSON 转义后反斜杠翻倍，用无反斜杠子串断言。
-        assert!(cond.contains("sk-[a-zA-Z0-9]{16,}") && cond.contains("@[a-zA-Z0-9."));
+        assert!(cond.contains("sk-[A-Za-z0-9._") && cond.contains("@[a-zA-Z0-9."));
         assert_eq!(enabled, 0);
 
         // ④ 未知 rule_type → failed=1
