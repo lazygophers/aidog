@@ -102,6 +102,8 @@
     "vitest": "^4.1.9"
   },
   "resolutions": {
-    "esbuild": "0.28.1"
+    "esbuild": "0.28.1",
+    "undici@npm:^6.25.0": "6.28.0",
+    "undici@npm:^7.25.0": "7.29.0"
   }
 }
