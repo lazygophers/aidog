@@ -64,6 +64,17 @@ clean: ## Remove build artifacts
 deps: ## Install frontend dependencies
 	yarn install
 
+.PHONY: version-bump
+version-bump: ## Set .version and sync manifests: make version-bump VERSION=0.1.13
+	@test -n "$(VERSION)" || { printf "$(BOLD)❌ VERSION required. Usage: make version-bump VERSION=0.1.13$(RESET)\n"; exit 1; }
+	@printf "%s\n" "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:]_.]+)?$$' || { printf "$(BOLD)❌ VERSION must be semver, e.g. 0.1.13$(RESET)\n"; exit 1; }
+	@printf "%s\n" "$(VERSION)" > .version
+	node scripts/sync-version.mjs
+
+.PHONY: version-check
+version-check: ## Verify manifests match .version
+	node scripts/sync-version.mjs --check
+
 .PHONY: install
 install: ## Release build + 安装 AiDog.app 到 /Applications (自动 kill 运行中实例)
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))…$(RESET)\n"
