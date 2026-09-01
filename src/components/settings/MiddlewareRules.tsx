@@ -920,8 +920,10 @@ export function MiddlewareRulesPanel() {
   const [editingRule, setEditingRule] = useState<MiddlewareRule | undefined>(undefined);
   const [error, setError] = useState("");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // silent=true：写操作（启停 / 删除 / 保存）后的刷新。不置 loading，否则整张规则列表
+  // 被「加载中」占位替换一帧，改一条规则的体感变成整页重来。首屏加载才需要 loading。
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const all = await middlewareApi.listRules();
       setRules(all || []);
@@ -945,7 +947,7 @@ export function MiddlewareRulesPanel() {
     }
     setShowForm(false);
     setEditingRule(undefined);
-    await load();
+    await load(true);
   };
 
   const handleToggle = async (rule: MiddlewareRule) => {
@@ -960,7 +962,7 @@ export function MiddlewareRulesPanel() {
         priority: rule.priority,
         enabled: !rule.enabled,
       });
-      await load();
+      await load(true);
     } catch (e) {
       console.error("toggle middleware rule failed", e);
       setError(String(e));
@@ -970,7 +972,7 @@ export function MiddlewareRulesPanel() {
   const handleDelete = async (id: number) => {
     try {
       await middlewareApi.deleteRule(id);
-      await load();
+      await load(true);
     } catch (e) {
       console.error("delete middleware rule failed", e);
       setError(String(e));
