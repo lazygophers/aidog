@@ -454,7 +454,7 @@ export function CodingToolsSettingsTab() {
 
       {/* 内置工具兼容总开关：settings scope proxy / key builtin_tool_compat。
           与「设置 → 系统」的同名开关同源（同一 setting），非独立副本。
-          平台级 extra.builtin_tool_compat 生效前提，两级 AND。 */}
+          内置工具剔除的唯一配置入口，无平台级覆盖。 */}
       <ToggleCard
         titleKey="proxy.btcGlobal"
         descKey="proxy.btcGlobalDesc"

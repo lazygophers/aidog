@@ -100,14 +100,14 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     );
   });
 
-  it("platformId 过滤：applies_to.platforms 不含该 id 的规则不显示", async () => {
+  it("全局面板不按范围过滤：限定平台的规则也列出（唯一配置入口）", async () => {
     listRules.mockResolvedValue([
       mk({ id: 5, name: "scoped", applies_to: { platforms: [8], groups: [], models: [] } }),
       mk({ id: 6, name: "wild" }),
     ]);
-    render(<MiddlewareRulesPanel platformId={9} embedded />);
+    render(<MiddlewareRulesPanel />);
     await waitFor(() => expect(screen.getByText("wild")).toBeTruthy());
-    expect(screen.queryByText("scoped")).toBeNull(); // 限 platform 8 的规则在 platform 9 面板隐藏
+    expect(screen.getByText("scoped")).toBeTruthy();
   });
 
   it("新增 / 编辑走弹窗：默认无 dialog，点开后 role=dialog 存在，关闭后消失", async () => {

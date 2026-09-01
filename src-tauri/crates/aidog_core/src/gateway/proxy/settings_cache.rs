@@ -15,7 +15,7 @@ pub(crate) struct ProxySettingsCache {
     pub middleware_settings: MiddlewareSettings,
     pub system_timeout: ProxyTimeoutSettings,
     pub proxy_client: ProxyClientSettings,
-    /// builtin_tool_compat 全局总开关（默认 false；与平台级 enabled AND）
+    /// builtin_tool_compat 全局总开关（默认 false；内置工具剔除的唯一开关）
     pub builtin_tool_compat: super::models::BuiltinToolCompatGlobalSettings,
 }
 

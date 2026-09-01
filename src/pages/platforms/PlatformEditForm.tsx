@@ -1,11 +1,10 @@
 // PlatformEditForm — Platforms 编辑/新建表单（全屏视图，showForm=true 时渲染）。
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state 经 props 从 usePlatformsState 传入，
-//   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires/claude/middleware）
+//   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
-import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
 import { cliProxyApi, type CliProxyProvider } from "../../services/api";
 import {
   SearchableProtocolSelect, MockConfigEditor,
@@ -22,8 +21,7 @@ import {
   FormSection, ApiKeyField,
   QuotaScriptSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
   ManualBudgetsSection, BreakerSection, PeakSection, GroupAssignSection,
-  BuiltinToolCompatSection,
-  ExpirySection, ClaudeConfigSection,
+  ExpirySection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
@@ -56,14 +54,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
     peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
-    builtinToolCompat, setBuiltinToolCompat,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     levelPriority, setLevelPriority,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     uniqueGroupInfo,
-    showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
-    globalClaudeConfig,
     saveError,
     handleSave, resetForm, applyPaste,
   } = s.form;
@@ -351,15 +346,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
-        {/* 内置工具兼容（builtin-tool-compat；默认关闭零改写，仅编辑态可配） */}
-        {editing && !isPassthrough && (
-          <BuiltinToolCompatSection
-            config={builtinToolCompat}
-            onChange={setBuiltinToolCompat}
-            t={t}
-          />
-        )}
-
         {/* 分组归属 */}
         {!isPassthrough && (
           <GroupAssignSection
@@ -379,26 +365,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           themeMode={themeMode}
           t={t}
         />
-
-        {/* Claude Code Config */}
-        {editing && (
-          <ClaudeConfigSection
-            show={showClaudeConfig} setShow={setShowClaudeConfig}
-            json={claudeConfigJson} setJson={setClaudeConfigJson}
-            globalConfig={globalClaudeConfig}
-            t={t}
-          />
-        )}
-
-        {/* Middleware rules (platform scope) — 需已有 platform_id */}
-        {editing && (
-          <FormSection
-            title={t("middleware.platformRules", "平台中间件规则")}
-            desc={t("middleware.platformRulesHint", "仅本平台生效，就近覆盖分组 / 全局同类型规则")}
-          >
-            <MiddlewareRulesPanel platformId={editing.id} embedded />
-          </FormSection>
-        )}
 
         {saveError && (
           <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>

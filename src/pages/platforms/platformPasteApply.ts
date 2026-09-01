@@ -52,8 +52,6 @@ export interface PlatformPasteCtx {
   setEditing: React.Dispatch<React.SetStateAction<Platform | null>>;
   setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
   setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
-  setShowClaudeConfig: React.Dispatch<React.SetStateAction<boolean>>;
-  setClaudeConfigJson: React.Dispatch<React.SetStateAction<string>>;
   setFetchError: React.Dispatch<React.SetStateAction<string>>;
   setSaveError: React.Dispatch<React.SetStateAction<string>>;
   setShowPaste: React.Dispatch<React.SetStateAction<boolean>>;
@@ -84,7 +82,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     setQuotaVariantId, setQuotaCustomScript, setQuotaRequires, setDevinConfig,
     setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
-    setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
+    setFetchError, setSaveError,
     setShowPaste, setShowForm,
     handleProtocolChange,
     endpoints,
@@ -126,8 +124,6 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     setEditing(null);
     setLockedGroupId(null);
     setJoinGroupIds([]);
-    setShowClaudeConfig(false);
-    setClaudeConfigJson("");
     setFetchError("");
     setSaveError("");
     setShowPaste(false);

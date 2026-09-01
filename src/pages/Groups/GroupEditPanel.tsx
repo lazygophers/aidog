@@ -12,7 +12,6 @@ import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, b
   PI_APIS, type PiApi, piApiLabel, parseGroupPiApi, setGroupPiApi } from "../../domains/groups";
 import { CopyButton } from "../../components/shared";
 import { IconClose } from "../../components/icons";
-import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -308,15 +307,6 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
             + {t("group.addEnvVar", "添加环境变量")}
           </Button>
         </div>
-      </div>
-
-      {/* Middleware rules (group scope) */}
-      <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
-        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("middleware.groupRules", "分组中间件规则")}</div>
-        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
-          {t("middleware.groupRulesHint", "仅本分组生效，就近覆盖全局同类型规则")}
-        </div>
-        <MiddlewareRulesPanel groupKey={editTarget!.group.group_key} embedded />
       </div>
     </div>
   );

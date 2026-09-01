@@ -343,11 +343,11 @@ pub(crate) async fn forward_attempt(
         .unwrap_or(false);
     apply_disable_thinking(&mut req_body, disable_thinking, target_protocol_enum, &target_base_url);
 
-    // builtin-tool-compat：per-model 内置工具兼容（platform.extra.builtin_tool_compat，
-    // 默认关闭零进入）。两级 AND：全局总开关（ProxySettingsCache）× 平台级 enabled。
+    // builtin-tool-compat：内置工具兼容（全局总开关，settings scope "proxy" / key
+    // "builtin_tool_compat"，默认关闭零进入）。开启 = 所有平台所有模型剔除内置工具定义。
     // 透传与转换两分支共用本 seam（见 builtin_tools.rs 模块注释）。
     let btc_global = state.settings_cache.read().await.builtin_tool_compat.enabled;
-    builtin_tools::apply_builtin_tool_compat(&mut req_body, &route.platform.extra, &actual_model, btc_global);
+    builtin_tools::apply_builtin_tool_compat(&mut req_body, &actual_model, btc_global);
 
     // ── max_completion_tokens 归一（必须排在下方裁剪之前）──
     // 透传分支的 body 是客户端原体：新版 OpenAI SDK 只发 `max_completion_tokens`，

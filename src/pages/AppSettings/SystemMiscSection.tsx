@@ -65,7 +65,7 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
         <div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.btcGlobal", "内置工具兼容总开关")}</div>
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-            {t("proxy.btcGlobalDesc", "平台级「内置工具兼容」生效的前提；关闭时所有平台配置均不生效")}
+            {t("proxy.btcGlobalDesc", "开启后所有平台转发时剔除 Claude Code 内置工具定义（ToolSearch/Read/Bash 等），用于不支持内置工具的第三方模型；默认关闭 = 请求原样转发")}
           </div>
         </div>
         <Switch checked={btcGlobalEnabled} onCheckedChange={handleBtcGlobalChange} />
