@@ -141,7 +141,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
         api_key: "sk-e2e-up".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.expect("create platform");
     let group = aidog_db::create_group(
         &state.db, sample_group("mitm-e2e-gk", vec![]),

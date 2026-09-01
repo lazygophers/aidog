@@ -56,9 +56,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
-    levelPriority, setLevelPriority,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
-    uniqueGroupInfo,
     saveError,
     handleSave, resetForm, applyPaste,
   } = s.form;
@@ -352,8 +350,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             editing={editing} lockedGroupId={lockedGroupId} groupDetails={groupDetails}
             autoGroup={autoGroup} setAutoGroup={setAutoGroup}
             joinGroupIds={joinGroupIds} setJoinGroupIds={setJoinGroupIds}
-            uniqueGroupInfo={uniqueGroupInfo}
-            levelPriority={levelPriority} setLevelPriority={setLevelPriority}
             t={t}
           />
         )}

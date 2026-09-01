@@ -45,7 +45,6 @@ aidog_core::tauri_command! {
             auto_group: Some(true),
             // group_id 若提供，加入既有分组（plain membership）。
             join_group_ids: group_id.map(|g| vec![g as u64]),
-            default_level_priority: None,
             expires_at: None,
         };
         let p = db::create_platform(&db, input).await?;

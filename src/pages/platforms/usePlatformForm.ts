@@ -130,7 +130,6 @@ export interface PlatformFormState {
   timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
-  levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;
   expiresAt: number; setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
   expiryEnabled: boolean; setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
   lockedGroupId: number | null; setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
@@ -138,7 +137,6 @@ export interface PlatformFormState {
   isPassthrough: boolean;
   keyOptional: boolean;
   apiKeyMissing: boolean;
-  uniqueGroupInfo: { show: boolean; groupId: number | null; isAuto: boolean };
   resetForm: () => void;
   openCreatePlatform: (presetGroupIds?: number[], lockGid?: number) => void;
   handleEdit: (p: Platform) => Promise<void>;
@@ -158,7 +156,7 @@ export interface PlatformFormState {
 export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormState {
   const {
     t, platforms, setPlatforms, platformsEpochRef, quota,
-    groupDetails, setGroupDetails, handleGroupsChanged, groupsReloadRef,
+    setGroupDetails, handleGroupsChanged, groupsReloadRef,
     setToast, breakerDefaults, setUsageMap, setLastTestMap,
     onNavigate, consumedEditPidRef,
   } = listDeps;
@@ -227,8 +225,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
-  // per-group level_priority 表单态（1~10，默认 5）。仅当平台归属唯一分组时可设。
-  const [levelPriority, setLevelPriority] = useState(5);
   // 过期时间（毫秒 unix 时间戳，0 = 永不过期）。路由候选排除的独立维度（不改 status 三态）。
   const [expiresAt, setExpiresAt] = useState(0);
   // 「启用过期」toggle：默认 OFF（隐藏 datetime-local）。仅当用户勾选 toggle 才显示日期选择器；
@@ -245,22 +241,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const keyOptional = protocol === "opencode_zen";
   // 需要 api_key 但未填（keyOptional 平台不要求）—— fetch/列模型按钮共用的禁用判定。
   const apiKeyMissing = !keyOptional && !apiKey;
-  // 唯一分组判定：平台最终归属恰好一个分组时，表单提供 level_priority 设置。
-  const uniqueGroupInfo = useMemo(() => {
-    if (isPassthrough) return { show: false, groupId: null as number | null, isAuto: false };
-    if (editing) {
-      const autoGd = groupDetails.find(gd => gd.group.auto_from_platform === String(editing.id));
-      const total = (autoGd ? 1 : 0) + joinGroupIds.length;
-      if (total === 1) return { show: true, groupId: autoGd ? autoGd.group.id : joinGroupIds[0], isAuto: false };
-      return { show: false, groupId: null as number | null, isAuto: false };
-    }
-    if (lockedGroupId != null) return { show: true, groupId: lockedGroupId, isAuto: false };
-    const joinCount = joinGroupIds.length;
-    if (autoGroup && joinCount === 0) return { show: true, groupId: null as number | null, isAuto: true };
-    if (!autoGroup && joinCount === 1) return { show: true, groupId: joinGroupIds[0], isAuto: false };
-    return { show: false, groupId: null as number | null, isAuto: false };
-  }, [isPassthrough, editing, groupDetails, lockedGroupId, autoGroup, joinGroupIds]);
-
   // 协议的 quota_scripts 变体列表（registry → getDefaultsJson；docPromise 单次 RPC 共享）。
   useEffect(() => {
     let cancelled = false;
@@ -344,7 +324,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false);
     setTimeModels([]);
-    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
+    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
     consumedEditPidRef.current = null;
@@ -415,16 +395,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
           && gd.platforms.some(gp => gp.platform.id === p.id))
         .map(gd => gd.group.id);
       setJoinGroupIds(manualIds);
-      // 唯一分组回填 level_priority（auto 组 + 手动组总数==1 才显示控件）。
-      const autoGd = gds.find(gd => gd.group.auto_from_platform === String(p.id));
-      const total = (autoGd ? 1 : 0) + manualIds.length;
-      if (total === 1) {
-        const uniqGd = autoGd ?? gds.find(gd => gd.group.id === manualIds[0]);
-        const lp = uniqGd?.platforms.find(gp => gp.platform.id === p.id)?.level_priority;
-        setLevelPriority(lp ?? 5);
-      } else {
-        setLevelPriority(5);
-      }
     } catch {
       setJoinGroupIds([]);
     }
@@ -633,7 +603,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   /** 构建创建 payload 的共享字段（除 name/api_key 外全部）：单平台保存与多 key 批量创建共用，
    *  保证批量创建的每个平台与表单配置完全一致（仅 token 不同），而非各用默认配置。
-   *  update 路径也复用（api_key 由 caller 覆盖；auto_group/default_level_priority 仅 create 语义）。 */
+   *  update 路径也复用（api_key 由 caller 覆盖；auto_group 仅 create 语义）。 */
   const buildSharedCreateFields = () => {
     const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
     const availablePayload = availableModels.length > 0 ? availableModels : undefined;
@@ -674,8 +644,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
       auto_group: autoGroup,
       join_group_ids: joinGroupIds,
-      // 唯一分组为默认组(autoGroup)时, 后端建组直接用此值, 免前端回查。
-      default_level_priority: uniqueGroupInfo.isAuto ? levelPriority : undefined,
       expires_at: expiresAt,
     };
   };
@@ -718,30 +686,19 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     try {
       const shared = buildSharedCreateFields();
-      let savedId: number | undefined;
       let saved: Platform | undefined;
       const wasEditing = !!editing;
-      const { auto_group: _auto, default_level_priority: _dlp, manual_budgets: _mb, ...sharedCore } = shared;
+      const { auto_group: _auto, manual_budgets: _mb, ...sharedCore } = shared;
       if (editing) {
         saved = await platformApi.update({
           id: editing.id, name, api_key: apiKey, ...sharedCore,
-          // update 语义：手动预算空也全量清空；auto_group/default_level_priority 属 create 专属
+          // update 语义：手动预算空也全量清空；auto_group 属 create 专属
           manual_budgets: shared.manual_budgets ?? [],
         });
-        savedId = editing.id;
       } else {
         saved = await platformApi.create({
           name, ...shared, api_key: apiKey,
         });
-        savedId = saved.id;
-      }
-
-      // 唯一分组为已有组(locked/join/editing 唯一关联)时, 平台落库后设其 level_priority。
-      // (autoGroup 默认组路径走后端 default_level_priority, 不在此重复设。)
-      if (savedId && uniqueGroupInfo.show && uniqueGroupInfo.groupId != null && !uniqueGroupInfo.isAuto) {
-        try {
-          await groupDetailApi.setPlatformLevelPriority(uniqueGroupInfo.groupId, savedId, levelPriority);
-        } catch (e) { /* level_priority 非关键路径, 失败不阻塞保存 */ console.warn("set level_priority failed", e); }
       }
 
       resetForm();
@@ -813,9 +770,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
-    levelPriority, setLevelPriority, expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
+    expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,
-    isMock, isPassthrough, keyOptional, apiKeyMissing, uniqueGroupInfo,
+    isMock, isPassthrough, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelChange, handleModelSelect, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,

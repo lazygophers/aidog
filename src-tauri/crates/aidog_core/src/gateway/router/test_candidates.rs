@@ -19,7 +19,7 @@ async fn mk_db_platform(db: &db::Db, name: &str) -> Platform {
         api_key: "k".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.expect("create platform")
 }
 
@@ -39,7 +39,7 @@ async fn mk_db_platform_cp(db: &db::Db, name: &str) -> Platform {
             coding_plan: true,
         }]),
         manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.expect("create coding-plan platform")
 }
 
@@ -585,7 +585,7 @@ async fn mk_db_platform_exp(db: &db::Db, name: &str, expires_at: i64) -> Platfor
         api_key: "k".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None,
+        auto_group: None, join_group_ids: None,
         expires_at: Some(expires_at),
     }).await.expect("create platform with expires_at")
 }
@@ -822,7 +822,7 @@ async fn mk_cli_proxy_platform(db: &db::Db, name: &str, provider_id: u64) -> Pla
         api_key: String::new(),
         extra,
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.expect("create cli-proxy platform")
 }
 
@@ -917,7 +917,7 @@ async fn cli_proxy_missing_provider_id_excludes() {
         api_key: String::new(),
         extra: String::new(),  // 无 cli_proxy_provider_id
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.expect("create platform");
     let g = mk_db_group(&db, "g", &[p.id]).await;
 
