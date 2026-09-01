@@ -77,8 +77,10 @@ export function CliProxy() {
   const enterSelect = () => { sel.enter(); setMsg(null); };
   const exitSelect = () => sel.exit();
 
-  const reload = useCallback(async () => {
-    setLoading(true);
+  // silent=true：写操作后的刷新，不置 loading —— 否则整张列表被「加载中」占位替换，
+  // 用户点一个开关看到的是整页重来一遍。首屏加载才需要 loading。
+  const reload = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [list, gs] = await Promise.all([cliProxyApi.list(), groupApi.list()]);
       setProviders(list);
@@ -127,7 +129,7 @@ export function CliProxy() {
       }
       setMsg({ kind: "ok", text: t("cliProxy.saved") });
       cancelForm();
-      await reload();
+      await reload(true);
     } catch (e) {
       setMsg({ kind: "err", text: String(e) });
     } finally {
@@ -142,7 +144,7 @@ export function CliProxy() {
       await cliProxyApi.delete(deleteTarget.id);
       setMsg({ kind: "ok", text: t("cliProxy.deleted") });
       setDeleteTarget(null);
-      await reload();
+      await reload(true);
     } catch (e) {
       setMsg({ kind: "err", text: String(e) });
     } finally {
@@ -210,7 +212,7 @@ export function CliProxy() {
       reportToast(r, "cliProxy.batchDeleted");
       sel.closeBatchDelete();
       exitSelect();
-      await reload();
+      await reload(true);
     } catch (e) {
       setMsg({ kind: "err", text: String(e) });
     } finally {
@@ -229,7 +231,7 @@ export function CliProxy() {
       reportToast(r, "cliProxy.batchModelsUpdated");
       sel.closeBatchModels();
       exitSelect();
-      await reload();
+      await reload(true);
     } catch (e) {
       setMsg({ kind: "err", text: String(e) });
     } finally {
@@ -248,7 +250,7 @@ export function CliProxy() {
       reportToast(r, "cliProxy.batchQuotaUpdated");
       sel.closeBatchQuota();
       exitSelect();
-      await reload();
+      await reload(true);
     } catch (e) {
       setMsg({ kind: "err", text: String(e) });
     } finally {
@@ -283,7 +285,7 @@ export function CliProxy() {
       });
       setImportOpen(false);
       setImportSource(""); setImportAuthDir(""); setImportGroupId("");
-      await reload();
+      await reload(true);
     } catch (e) {
       setMsg({ kind: "err", text: String(e) });
     } finally {

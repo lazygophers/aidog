@@ -45,8 +45,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** 父级(Platforms)页头「添加分组」按钮经此 ref 触发本组件创建弹窗（按钮已上移到 Platforms 页头）。
    *  结构型 { current: fn | null } 免 import，与 useRef<fn|null> 兼容。 */
   openCreateGroupRef?: { current: (() => void) | null };
-  /** 父级(Platforms)跨组件刷新入口（如全局 purge 删平台后），触发本组件 load() 重建分组/平台状态。
-   *  本组件 load() 只在 mount 跑一次，父级 groupDetails 更新不会自动同步到内部 details/platforms。 */
+  /** 父级(Platforms)跨组件刷新入口（如全局 purge 删平台后），触发本组件静默刷新分组/平台状态。
+   *  本组件只在 mount 拉一次全量，父级 groupDetails 更新不会自动同步到内部 details/platforms。 */
   reloadRef?: { current: (() => void) | null };
   /** 渐进加载计数回传：随各组平台逐组流入而递增/校正（{total, active}），供父级页头
    *  「N / M active」徽章增量更新。null = 尚未开始/重置回退父级自身列表。 */
@@ -61,8 +61,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const {
     details, platforms, setDetails, groupStats, groupBalance, unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
-    load, refreshSingleGroup,
+    silentReload, patchPlatform, refreshSingleGroup,
   } = useGroupData({ onCountChange });
+  // 写操作后一律走 silentReload（不清空列表、不回第一页、不闪 loading）；load() 只留给 mount。
 
   // Edit mode（8 字段合并为单 reducer）
   const [edit, dispatchEdit] = useReducer(editReducer, EMPTY_EDIT);
@@ -92,12 +93,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     onViewModeChange?.(fullscreenView);
   }, [fullscreenView, onViewModeChange]);
 
-  // 父级跨组件刷新入口（全局 purge 后触发），绑定本组件 load() 重建分组卡内平台状态。
+  // 父级跨组件刷新入口（全局 purge 后触发），绑定本组件静默刷新分组卡内平台状态。
   useEffect(() => {
     if (!reloadRef) return;
-    reloadRef.current = () => { load(); onGroupsChanged?.(); };
+    reloadRef.current = () => { silentReload(); onGroupsChanged?.(); };
     return () => { reloadRef.current = null; };
-  }, [reloadRef, load, onGroupsChanged]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reloadRef, onGroupsChanged]);
 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
@@ -123,7 +125,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
   const collapseDebounceRef = useRef<Record<number, ReturnType<typeof setTimeout>>>({});
   const collapseInitRef = useRef(false);
-  // mount 首次拿到 details 后从 extra 回灌折叠态（仅一次，避免 load() 刷新覆盖用户后续 toggle）。
+  // mount 首次拿到 details 后从 extra 回灌折叠态（仅一次，避免后续刷新覆盖用户 toggle）。
   useEffect(() => {
     if (collapseInitRef.current || details.length === 0) return;
     collapseInitRef.current = true;
@@ -187,13 +189,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       .map((gp, i) => ({ platform_id: gp.platform.id, priority: i + 1, weight: gp.weight ?? 1 }));
     try {
       await groupApi.setPlatforms(gid, remaining);
-      load(); onGroupsChanged?.();
+      silentReload(); onGroupsChanged?.();
     } catch (e) {
       console.error(e);
       onToast?.({ text: `${t("group.removeFromGroupFailed", "移出分组失败")}: ${e}`, ok: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [details, load, t]);
+  }, [details, silentReload, t]);
 
   // 分组上下文「移除」语义：总弹 modal，让用户明确选（单组→删平台；多组→移出本组 or 删全部）。
   // groupCount/groupNames 必须实时拉后端（groupDetailApi.list 走后端缓存，写时 invalidate），
@@ -226,7 +228,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     try {
       await cards.handleDelete(target.platform.id);
       setRemoveTarget(null);
-      load(); onGroupsChanged?.();
+      silentReload(); onGroupsChanged?.();
       // 触发父级 platforms state 局部移除（独立信号）：被删平台须从 usePlatformsState.platforms 移除，
       // 否则 stale platforms 内被删平台在 membership effect 清理后归 standalonePlatforms「未分组」段，
       // 用户体感「只移除分组未彻底销毁」（07-10 回归根因）。局部移除替代全量 refetch，消除整页刷新体感。
@@ -238,7 +240,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setRemoveTarget(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [removeTarget, cards, load, onToast, t, onPlatformDeleted]);
+  }, [removeTarget, cards, silentReload, onToast, t, onPlatformDeleted]);
 
   // ── 批量删除平台（group-batch-ops s3）──
   // 工具栏「删除」→ 开 BatchDeleteModal（全列可滚 + 跨组警告）→ 确认调 batch_delete_platforms 原子事务。
@@ -287,7 +289,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       const ids = batchDeleteTarget.platforms.map(p => p.id);
       const report = await platformApi.batchDelete(ids);
       setBatchDeleteTarget(null);
-      load(); onGroupsChanged?.(); onPlatformDeleted?.(ids);
+      silentReload(); onGroupsChanged?.(); onPlatformDeleted?.(ids);
       onToast?.({
         text: t("group.batchDeleteDone", "已删除 {{count}} 个平台", { count: report.applied }),
         ok: true,
@@ -302,7 +304,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchDeleteBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchDeleteTarget, load, onToast, t, onGroupsChanged, onPlatformDeleted]);
+  }, [batchDeleteTarget, silentReload, onToast, t, onGroupsChanged, onPlatformDeleted]);
 
   // ── 批量覆盖平台模型（group-batch-ops s4）──
   // 工具栏「覆盖模型」→ 开 BatchOverrideModelsModal（三来源 radio + 全 diff）→
@@ -331,7 +333,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       const report = await platformApi.batchOverrideModels(ids, models);
       setBatchOverrideTarget(null);
       setBatchDoneSignal(n => n + 1);
-      load(); onGroupsChanged?.();
+      silentReload(); onGroupsChanged?.();
       onToast?.({
         text: t("group.batchOverrideModelsDone", "已覆盖 {{count}} 个平台的模型", { count: report.applied }),
         ok: true,
@@ -346,7 +348,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchOverrideBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchOverrideTarget, load, onToast, t, onGroupsChanged]);
+  }, [batchOverrideTarget, silentReload, onToast, t, onGroupsChanged]);
 
   // ── 批量改状态（group-batch-ops s5）──
   // 工具栏「改状态」→ 开 BatchSetStatusModal（启用/禁用 radio + 无候选警告）→
@@ -381,7 +383,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       const report = await platformApi.batchSetStatus(ids, status);
       setBatchSetStatusTarget(null);
       setBatchDoneSignal(n => n + 1);
-      load(); onGroupsChanged?.();
+      silentReload(); onGroupsChanged?.();
       onToast?.({
         text: t("group.batchSetStatusDone", "已改 {{count}} 个平台状态", { count: report.applied }),
         ok: true,
@@ -396,7 +398,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchSetStatusBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchSetStatusTarget, load, onToast, t, onGroupsChanged]);
+  }, [batchSetStatusTarget, silentReload, onToast, t, onGroupsChanged]);
 
   // ── 批量移组（group-batch-ops s5）──
   // 工具栏「移组」→ 开 BatchMoveGroupModal（目标组下拉 + move/add radio）→
@@ -426,7 +428,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       const report = await platformApi.batchMoveGroup(ids, targetGroupId, mode);
       setBatchMoveGroupTarget(null);
       setBatchDoneSignal(n => n + 1);
-      load(); onGroupsChanged?.();
+      silentReload(); onGroupsChanged?.();
       onToast?.({
         text: t("group.batchMoveGroupDone", "已{{mode}} {{count}} 个平台", {
           count: report.applied,
@@ -444,15 +446,21 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setBatchMoveGroupBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [batchMoveGroupTarget, load, onToast, t, onGroupsChanged]);
+  }, [batchMoveGroupTarget, silentReload, onToast, t, onGroupsChanged]);
 
   // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
-  // 拖拽 no-op（分组内禁拖拽）；启停后 load() 刷新本地 platforms。
+  // 拖拽 no-op（分组内禁拖拽）；启停后只给那一行打补丁，不重拉列表。
   const makeGroupCardActions = useCallback((gid: number): PlatformCardActions => ({
     onPointerDown: () => {}, onPointerMove: () => {}, onPointerUp: () => {},
     onToggleExpanded: cards.toggleExpanded,
     onRefreshQuota: cards.refreshQuota,
-    onToggleEnabled: async (p) => { await cards.handleToggle(p); load(); },
+    onToggleEnabled: async (p) => {
+      // 乐观：先本地翻转那一行，界面立刻响应；后端回来再用写回值校正，失败则回滚。
+      const nextStatus = p.status === "enabled" ? "disabled" : "enabled";
+      patchPlatform({ ...p, status: nextStatus, enabled: nextStatus === "enabled" });
+      const updated = await cards.handleToggle(p);
+      patchPlatform(updated ?? p);
+    },
     onEdit: cards.handleEdit,
     onShare: cards.handleShare,
     onDuplicate: (p) => {
@@ -468,7 +476,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     onCustomTest: cards.handleCustomTest,
     onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [cards, load, platforms, handleGroupRemovePlatform, onDuplicatePlatform, onNavigate]);
+  }), [cards, platforms, handleGroupRemovePlatform, onDuplicatePlatform, onNavigate]);
 
   // ── per-group 优先级（level_priority）就地编辑：乐观更新 + 失败回滚 + toast ──
   const handleSetLevelPriority = useCallback((gid: number, pid: number, next: number) => {
@@ -503,7 +511,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
 
   // ── 分组展开区平台拖拽（pointer 事件驱动） ──
   const { dropIndicator, dragOverGroup, onPlatPointerDown } = usePlatformDrag({
-    details, platforms, setDetails, load, onToast, onGroupsChanged,
+    details, platforms, setDetails, load: silentReload, onToast, onGroupsChanged,
   });
 
   // ── 列表排序（dnd-kit）：搜索态下 no-op（搜索是临时视图，重排会丢未命中组）──
@@ -566,7 +574,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
         );
       }
       setCName(""); setCGroupKey(""); setCMode("failover"); setCPlatformIds([]); setShowCreate(false);
-      load();
+      silentReload();
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
@@ -577,7 +585,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const handleDeleteGroup = useCallback(async (id: number) => {
     try {
       await groupApi.delete(id);
-      load();
+      silentReload();
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
@@ -585,13 +593,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setTimeout(() => onToast?.(null), 3000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load, onGroupsChanged]);
+  }, [silentReload, onGroupsChanged]);
 
   const handleToggleDefault = useCallback(async (group: GroupDetail["group"]) => {
     try {
       const nextId = group.is_default ? null : group.id;
       await groupApi.setDefault(nextId);
-      load();
+      silentReload();
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
@@ -599,7 +607,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       setTimeout(() => onToast?.(null), 3000);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [load, onGroupsChanged]);
+  }, [silentReload, onGroupsChanged]);
 
   // ── Quick mapping (list view) — persists inline via group.update ──
   const handleAddMapping = useCallback(async () => {
@@ -641,13 +649,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       } else {
         onToast?.({ text: t("group.purgeDisabledDone", "已清理：删除 {{deleted}}，移除 {{unassigned}}", { deleted: r.deletedIds.length, unassigned: r.unassignedIds.length }), ok: true });
       }
-      load();
+      silentReload();
       onGroupsChanged?.();
     } catch (err) {
       onToast?.({ text: `${t("group.purgeDisabled", "清理失效")}: ${err}`, ok: false });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [t, onToast, onGroupsChanged, load]);
+  }, [t, onToast, onGroupsChanged, silentReload]);
 
   const handleDeleteMapping = useCallback(async (groupId: number, index: number) => {
     const detail = details.find(d => d.group.id === groupId);

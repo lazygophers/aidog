@@ -44,7 +44,8 @@ interface UsePlatformCardsReturn {
   refreshQuota: (p: Platform) => Promise<void>;
   toggleExpanded: (id: number, next: boolean) => void;
   handleQuickTest: (p: Platform) => Promise<void>;
-  handleToggle: (p: Platform) => Promise<void>;
+  /** 启停平台。返回后端写回的最新平台行（供调用方就地打补丁，不必重拉列表）；失败返回 null。 */
+  handleToggle: (p: Platform) => Promise<Platform | null>;
   handleViewLogs: (p: Platform) => void;
   handleDelete: (id: number) => Promise<void>;
   handleEdit: (p: Platform) => void;
@@ -179,12 +180,12 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   }, [refreshLastTest]);
 
   // Toggle enabled
-  const handleToggle = useCallback(async (p: Platform) => {
+  const handleToggle = useCallback(async (p: Platform): Promise<Platform | null> => {
     try {
       const nextStatus = p.status === "enabled" ? "disabled" : "enabled";
-      await platformApi.update({ id: p.id, status: nextStatus });
-      // 触发重新加载（由父组件处理）
-    } catch (e) { console.error(e); }
+      // 返回后端写回的整行，调用方据此就地更新那一张卡（旧行为是返 void、逼调用方重拉整页）。
+      return await platformApi.update({ id: p.id, status: nextStatus });
+    } catch (e) { console.error(e); return null; }
   }, []);
 
   // View logs

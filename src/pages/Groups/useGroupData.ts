@@ -183,6 +183,73 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   };
 
   /**
+   * 静默重载（写操作后刷新）：与 load() 取同样的数据，但不清空列表、不置 loading、不回退到第一页。
+   *
+   * load() 会先 setDetails([]) / setPlatforms([]) 再从 offset 0 重新分页，用户体感就是「整页刷新」：
+   * 列表瞬间空白、滚动位置归零、已触底加载的第 2 页之后全部丢失。写操作（启停 / 删除 / 排序 / 批量）
+   * 只改动其中一两行，没有理由付这个代价，故本函数：
+   *   ① 一次性拉回「当前已加载的页深」条组 detail（不足一页按一页算），单次 setState 整批替换，无空白帧；
+   *   ② 未变的 group / platform 对象保持原引用，React.memo 的卡片不会重渲染，只有真变的那行更新。
+   */
+  const silentReload = async () => {
+    const seq = ++loadSeqRef.current;
+    const alive = () => seq === loadSeqRef.current;
+    const keep = Math.max(PAGE_SIZE, loadedDetailsRef.current.length);
+    try {
+      const [allPlatforms, page] = await Promise.all([
+        platformApi.list().then(p => p || []),
+        groupDetailApi.listPaged(0, keep).then(p => p || []),
+      ]);
+      if (!alive()) return;
+      allPlatformsRef.current = allPlatforms;
+      loadingMoreRef.current = false;
+      nextOffsetRef.current = keep;
+      setHasMore(page.length >= keep);
+
+      // 组：按 id 比对，内容未变则保留旧对象引用（卡片不重渲染）。
+      const prevById = new Map(loadedDetailsRef.current.map(d => [d.group.id, d]));
+      const filled: GroupDetail[] = page.map(d => {
+        const next: GroupDetail = {
+          group: d.group,
+          platforms: d.platforms || [],
+          model_mappings: d.model_mappings || d.group.model_mappings || [],
+        };
+        const old = prevById.get(d.group.id);
+        return old && JSON.stringify(old) === JSON.stringify(next) ? old : next;
+      });
+      loadedDetailsRef.current = filled;
+      setDetails(filled);
+
+      // 平台：以后端全量为准（删掉的行随之消失），未变的同样保留旧引用。
+      setPlatforms(prev => {
+        const oldById = new Map(prev.map(p => [p.id, p]));
+        return allPlatforms.map(p => {
+          const old = oldById.get(p.id);
+          return old && JSON.stringify(old) === JSON.stringify(p) ? old : p;
+        });
+      });
+      reportCount();
+      await recomputeStats(alive);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  /** 单平台就地打补丁：把一行平台的最新值写回 platforms + 各组 detail，不发任何请求。
+   *  启停这类「只改一行」的写操作用它，避免为一个字段重拉整张列表。 */
+  const patchPlatform = (updated: Platform) => {
+    setPlatforms(prev => prev.map(p => (p.id === updated.id ? updated : p)));
+    allPlatformsRef.current = allPlatformsRef.current.map(p => (p.id === updated.id ? updated : p));
+    const apply = (list: GroupDetail[]) => list.map(d => {
+      if (!d.platforms.some(gp => gp.platform.id === updated.id)) return d;
+      return { ...d, platforms: d.platforms.map(gp => (gp.platform.id === updated.id ? { ...gp, platform: updated } : gp)) };
+    });
+    loadedDetailsRef.current = apply(loadedDetailsRef.current);
+    setDetails(prev => apply(prev));
+    reportCount();
+  };
+
+  /**
    * 单组就地刷新：只重拉该组 detail（O(1) 一次往返），原地替换对应 GroupDetail
    * + 把该组平台 upsert 进 platforms（保留其余组卡引用稳定，避免 load() 全量重渲闪烁）。
    * 组结构已变（增删组）时回退全量 load()。
@@ -190,7 +257,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   const refreshSingleGroup = async (gid: number) => {
     try {
       const d = await groupDetailApi.get(gid);
-      if (!d) { load(); return; } // 该组已不存在（被删）→ 全量回退
+      if (!d) { silentReload(); return; } // 该组已不存在（被删）→ 静默全量回退
       const filled: GroupDetail = {
         group: d.group,
         platforms: d.platforms || [],
@@ -205,7 +272,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
         });
         return found ? next : prev;
       });
-      if (!found) { load(); return; }
+      if (!found) { silentReload(); return; }
       loadedDetailsRef.current = loadedDetailsRef.current.map(x => x.group.id === gid ? filled : x);
       setPlatforms(prev => {
         let next = prev;
@@ -215,7 +282,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
       refreshStats();
     } catch (e) {
       console.error(e);
-      load();
+      silentReload();
     }
   };
 
@@ -246,8 +313,9 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
 
   // 监听跨组件分组变更（Platforms pointer 拖入分组后通知刷新；HTML5 DnD 跨区域在 WKWebView 失效，改 pointer + window 事件）
+  // 静默刷新：这是被动广播，用户此刻可能正在别处操作，不能清空列表把他的滚动位置抹掉。
   useEffect(() => {
-    const h = () => { load(); refreshStats(); };
+    const h = () => { silentReload(); };
     window.addEventListener("aidog-groups-changed", h);
     return () => window.removeEventListener("aidog-groups-changed", h);
   }, []);
@@ -260,6 +328,6 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
     unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef,
     proxyBaseUrl, allPlatformsRef,
-    load, refreshStats, refreshSingleGroup,
+    load, silentReload, patchPlatform, refreshStats, refreshSingleGroup,
   };
 }
