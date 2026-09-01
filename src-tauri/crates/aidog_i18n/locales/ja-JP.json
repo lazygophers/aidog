@@ -2844,6 +2844,8 @@
   "middleware.appliesModels": "モデル（カンマ区切り、空 = すべて）",
   "middleware.appliesPlatforms": "プラットフォーム（空 = すべて）",
   "middleware.appliesTo": "適用範囲（空 = 無制限；複数値 = いずれかに一致）",
+  "middleware.appliesAll": "すべて",
+  "middleware.maskFieldsAll": "すべてのフィールド（messages + system）",
   "middleware.clearConditions": "条件をクリア",
   "middleware.conditions": "条件",
   "middleware.dslHint": "構文: ALL(...)/ANY(...)/リーフ、リーフ = target[.field] contains|regex|exact \"pattern\"",

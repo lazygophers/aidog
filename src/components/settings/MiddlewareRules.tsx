@@ -3,7 +3,7 @@
 // 列表（内置徽标 / Failed 徽标 / 启停 / 删除）+ JSON 级编辑表单。
 // 票 04/05（递归树卡片编辑器 + DSL 源码模式）在此文件上迭代。
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
@@ -25,6 +25,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { useReveal, makeRipple } from "../../components/shared";
 import { treeToDsl, parseDsl } from "../../utils/mwDsl";
 import { platformApi } from "../../services/api/platforms";
@@ -53,11 +59,114 @@ function MwSectionCard({
   );
 }
 
+/**
+ * 自由文本输入框：单行起步，内容变长自动增高换行显示全文。
+ * 中间件的 pattern / replacement / value 等常写很长（正则、整段提示词），
+ * 用单行 <input> 会把超出宽度的部分滚出视野，只能靠光标摸——故一律换成
+ * 自动增高的 textarea，写多少看多少。回车不换行（提交语义留给表单）。
+ */
+function AutoTextarea({
+  value,
+  onChange,
+  placeholder,
+  mono,
+  style,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  mono?: boolean;
+  style?: React.CSSProperties;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value]);
+  return (
+    <Textarea
+      ref={ref}
+      rows={1}
+      className="min-h-0 resize-none px-2 py-1"
+      style={{
+        fontSize: F.hint,
+        overflow: "hidden",
+        wordBreak: "break-all",
+        ...(mono ? { fontFamily: '"SF Mono", "Fira Code", monospace' } : {}),
+        ...style,
+      }}
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" && !e.shiftKey) e.preventDefault();
+      }}
+    />
+  );
+}
+
+/** 多选下拉：trigger 展示全部已选项（换行不省略），空 = 全部。 */
+function MultiSelect<T extends number | string>({
+  options,
+  selected,
+  onToggle,
+  emptyLabel,
+}: {
+  options: { value: T; label: string }[];
+  selected: T[];
+  onToggle: (v: T, on: boolean) => void;
+  emptyLabel: string;
+}) {
+  const labels = options.filter((o) => selected.includes(o.value)).map((o) => o.label);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="glass-surface"
+          style={{
+            fontSize: F.hint,
+            width: "100%",
+            justifyContent: "flex-start",
+            textAlign: "left",
+            height: "auto",
+            minHeight: 32,
+            padding: "4px 8px",
+            whiteSpace: "normal",
+            wordBreak: "break-all",
+            color: labels.length ? undefined : "var(--text-tertiary)",
+          }}
+        >
+          {labels.length ? labels.join("、") : emptyLabel}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" style={{ maxHeight: 280, overflowY: "auto" }}>
+        {options.map((o) => (
+          <DropdownMenuCheckboxItem
+            key={String(o.value)}
+            checked={selected.includes(o.value)}
+            onCheckedChange={(on) => onToggle(o.value, !!on)}
+            onSelect={(e) => e.preventDefault()}
+          >
+            {o.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 // ── 编辑器常量 ──
 
 const TARGETS = ["request_body", "request_headers", "response_body", "response_headers", "status", "model"] as const;
 const MATCH_TYPES = ["contains", "regex", "exact"] as const;
 const ACTION_KINDS = ["mask", "block", "warn", "inject", "override", "classify"] as const;
+// mask 的 fields 是闭集：Rust 侧 inbound.rs 只认 "messages" / "system"，
+// 写别的值等于什么都不 mask（静默失效），故这里用多选而非自由文本。
+const MASK_FIELDS = ["messages", "system"] as const;
+type MaskField = (typeof MASK_FIELDS)[number];
 
 /** target 是否响应侧（与 Rust Target::is_response_side 对称）。 */
 function isResponseTarget(t: string): boolean {
@@ -153,12 +262,14 @@ function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<Nod
         </SelectContent>
       </Select>
       {(node.target === "request_body" || node.target === "response_body" || node.target === "request_headers" || node.target === "response_headers") && (
-        <Input
-          style={{ fontSize: F.hint, flex: "1 1 100px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
-          placeholder={t("middleware.fieldHint", "字段（空=整体 / JSON path / header 名）")}
-          value={node.field}
-          onChange={(e) => onChange({ ...node, field: e.target.value })}
-        />
+        <div style={{ flex: "1 1 100px", minWidth: 100 }}>
+          <AutoTextarea
+            mono
+            placeholder={t("middleware.fieldHint", "字段（空=整体 / JSON path / header 名）")}
+            value={node.field}
+            onChange={(v) => onChange({ ...node, field: v })}
+          />
+        </div>
       )}
       <Select value={node.match_type} onValueChange={(v) => onChange({ ...node, match_type: v as typeof node.match_type })}>
         <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 100, flexShrink: 0 }}><SelectValue /></SelectTrigger>
@@ -168,12 +279,14 @@ function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<Nod
           ))}
         </SelectContent>
       </Select>
-      <Input
-        style={{ fontSize: F.hint, flex: "2 1 160px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
-        placeholder={t("middleware.pattern", "匹配模式")}
-        value={node.pattern}
-        onChange={(e) => onChange({ ...node, pattern: e.target.value })}
-      />
+      <div style={{ flex: "2 1 160px", minWidth: 160 }}>
+        <AutoTextarea
+          mono
+          placeholder={t("middleware.pattern", "匹配模式")}
+          value={node.pattern}
+          onChange={(v) => onChange({ ...node, pattern: v })}
+        />
+      </div>
       {onRemove && (
         <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
           <IconClose size={12} />
@@ -305,19 +418,28 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           {/* 参数区（按 kind 显示相关字段） */}
           {(st.kind === "mask" || st.kind === "override") && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <Input
-                style={{ fontSize: F.hint, flex: "1 1 120px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
-                placeholder='replacement（默认 ****，regex 支持 $1）'
-                value={st.params.replacement}
-                onChange={(e) => setStep(i, { ...st, params: { ...st.params, replacement: e.target.value } })}
-              />
-              {st.kind === "mask" && (
-                <Input
-                  style={{ fontSize: F.hint, flex: "1 1 140px" }}
-                  placeholder='fields 逗号分隔（messages,system；空=全部）'
-                  value={st.params.fields.join(",")}
-                  onChange={(e) => setStep(i, { ...st, params: { ...st.params, fields: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) } })}
+              <div style={{ flex: "1 1 120px", minWidth: 120 }}>
+                <AutoTextarea
+                  mono
+                  placeholder='replacement（默认 ****，regex 支持 $1）'
+                  value={st.params.replacement}
+                  onChange={(v) => setStep(i, { ...st, params: { ...st.params, replacement: v } })}
                 />
+              </div>
+              {st.kind === "mask" && (
+                <div style={{ flex: "1 1 140px", minWidth: 140 }}>
+                  <MultiSelect
+                    options={MASK_FIELDS.map((f) => ({ value: f, label: f }))}
+                    selected={st.params.fields.filter((f): f is MaskField => (MASK_FIELDS as readonly string[]).includes(f))}
+                    onToggle={(v, on) =>
+                      setStep(i, {
+                        ...st,
+                        params: { ...st.params, fields: on ? [...st.params.fields, v] : st.params.fields.filter((x) => x !== v) },
+                      })
+                    }
+                    emptyLabel={t("middleware.maskFieldsAll", "全部字段（messages + system）")}
+                  />
+                </div>
               )}
             </div>
           )}
@@ -332,29 +454,33 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                 </SelectContent>
               </Select>
               {st.params.inject_mode === "body_set" && (
-                <Input
-                  style={{ fontSize: F.hint, flex: "1 1 100px", fontFamily: '"SF Mono", "Fira Code", monospace' }}
-                  placeholder="target JSON key"
-                  value={st.params.target}
-                  onChange={(e) => setStep(i, { ...st, params: { ...st.params, target: e.target.value } })}
-                />
+                <div style={{ flex: "1 1 100px", minWidth: 100 }}>
+                  <AutoTextarea
+                    mono
+                    placeholder="target JSON key"
+                    value={st.params.target}
+                    onChange={(v) => setStep(i, { ...st, params: { ...st.params, target: v } })}
+                  />
+                </div>
               )}
-              <Input
-                style={{ fontSize: F.hint, flex: "2 1 160px" }}
-                placeholder="value"
-                value={st.params.value}
-                onChange={(e) => setStep(i, { ...st, params: { ...st.params, value: e.target.value } })}
-              />
+              <div style={{ flex: "2 1 160px", minWidth: 160 }}>
+                <AutoTextarea
+                  placeholder="value"
+                  value={st.params.value}
+                  onChange={(v) => setStep(i, { ...st, params: { ...st.params, value: v } })}
+                />
+              </div>
             </div>
           )}
           {st.kind === "classify" && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <Input
-                style={{ fontSize: F.hint, flex: "1 1 100px" }}
-                placeholder="category"
-                value={st.params.category}
-                onChange={(e) => setStep(i, { ...st, params: { ...st.params, category: e.target.value } })}
-              />
+              <div style={{ flex: "1 1 100px", minWidth: 100 }}>
+                <AutoTextarea
+                  placeholder="category"
+                  value={st.params.category}
+                  onChange={(v) => setStep(i, { ...st, params: { ...st.params, category: v } })}
+                />
+              </div>
               <label style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
                 <Switch checked={st.params.retryable} onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, retryable: v } })} />
                 retryable
@@ -366,12 +492,13 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                 value={st.params.override_status ?? ""}
                 onChange={(e) => setStep(i, { ...st, params: { ...st.params, override_status: e.target.value ? Number(e.target.value) : null } })}
               />
-              <Input
-                style={{ fontSize: F.hint, flex: "1 1 120px" }}
-                placeholder="override body"
-                value={st.params.override_body ?? ""}
-                onChange={(e) => setStep(i, { ...st, params: { ...st.params, override_body: e.target.value || null } })}
-              />
+              <div style={{ flex: "1 1 120px", minWidth: 120 }}>
+                <AutoTextarea
+                  placeholder="override body"
+                  value={st.params.override_body ?? ""}
+                  onChange={(v) => setStep(i, { ...st, params: { ...st.params, override_body: v || null } })}
+                />
+              </div>
             </div>
           )}
         </div>
@@ -406,40 +533,36 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
   const check = (dim: "platforms" | "groups", v: number | string) => (value[dim] as (number | string)[]).includes(v);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div>
-        <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.appliesPlatforms", "平台（空 = 全部）")}
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {platforms.map((p) => (
-            <label key={p.id} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
-              <input type="checkbox" checked={check("platforms", p.id)} onChange={(e) => toggle("platforms", p.id, e.target.checked)} />
-              {p.name}
-            </label>
-          ))}
-        </div>
-      </div>
-      <div>
-        <div style={{ fontSize: F.hint, color: "var(--text-secondary)", marginBottom: 4 }}>
+        </span>
+        <MultiSelect
+          options={platforms.map((p) => ({ value: p.id, label: p.name }))}
+          selected={platforms.filter((p) => check("platforms", p.id)).map((p) => p.id)}
+          onToggle={(v, on) => toggle("platforms", v, on)}
+          emptyLabel={t("middleware.appliesAll", "全部")}
+        />
+      </label>
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.appliesGroups", "分组（空 = 全部）")}
-        </div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          {groups.map((g) => (
-            <label key={g.id} style={{ display: "flex", gap: 4, alignItems: "center", fontSize: 11 }}>
-              <input type="checkbox" checked={check("groups", g.group_key)} onChange={(e) => toggle("groups", g.group_key, e.target.checked)} />
-              {g.name}
-            </label>
-          ))}
-        </div>
-      </div>
+        </span>
+        <MultiSelect
+          options={groups.map((g) => ({ value: g.group_key, label: g.name }))}
+          selected={groups.filter((g) => check("groups", g.group_key)).map((g) => g.group_key)}
+          onToggle={(v, on) => toggle("groups", v, on)}
+          emptyLabel={t("middleware.appliesAll", "全部")}
+        />
+      </label>
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.appliesModels", "模型（逗号分隔，空 = 全部）")}
         </span>
-        <Input
-          style={{ fontSize: F.hint, fontFamily: '"SF Mono", "Fira Code", monospace' }}
+        <AutoTextarea
+          mono
           value={value.models.join(",")}
-          onChange={(e) => onChange({ ...value, models: e.target.value.split(",").map((x) => x.trim()).filter(Boolean) })}
+          onChange={(v) => onChange({ ...value, models: v.split(",").map((x) => x.trim()).filter(Boolean) })}
         />
       </label>
     </div>
@@ -581,6 +704,7 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
               resize: "vertical",
               whiteSpace: "pre",
             }}
+            data-testid="mw-dsl"
             value={dslText}
             onChange={(e) => {
               setDslText(e.target.value);
