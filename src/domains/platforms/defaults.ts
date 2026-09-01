@@ -84,6 +84,8 @@ type DefaultsDoc = {
     peak?: TimeWindow[];
     /** 配额查询脚本变体（quota-scripts spec；absent = 该协议无配额查询）。 */
     quota_scripts?: QuotaScriptVariant[];
+    /** 官方套餐档位的内置额度默认值（absent = 官方未公布数字，用户手填）。 */
+    plan_quotas?: PlanQuotaTier[];
   }>>;
 };
 
@@ -115,6 +117,28 @@ export type QuotaScriptVariant = {
   returns?: QuotaScriptReturns;
   /** 脚本正文（表单不需要，索引不携带；读正文走后端物化列）。 */
   script?: string;
+};
+
+// ─── plan_quotas（官方套餐档位内置额度，platform.json 顶层）─────────────
+// 真值源 = registry platform.json 的 `plan_quotas` 数组，随 presets 文档整体透传，无独立 RPC。
+// 仅登记官方文档明确公布的数字；absent = 该平台无内置默认，表单留给用户手填。
+
+/** 档位内一条内置限额（形状对齐 ManualBudget 的可配置子集）。 */
+export type PlanQuotaBudget = {
+  kind: "total" | "rolling" | "fixed" | "daily";
+  unit: "usd" | "token" | "count";
+  amount: number;
+  window_hours?: number;
+  window_unit?: "minute" | "hour" | "day" | "week" | "month";
+};
+
+/** `plan_quotas` 一条：一个官方套餐档位（如 Pro）+ 其额度条目 + 数字出处。 */
+export type PlanQuotaTier = {
+  id: string;
+  /** 官方原文档位名（不译）。 */
+  name: string;
+  budgets: PlanQuotaBudget[];
+  source_url: string;
 };
 
 /** 同步索引的单条目（不含脚本文本）：id + requires key 列表 + 是否有可展示能力。
@@ -308,6 +332,16 @@ export async function getDefaultQuotaScripts(protocol: Protocol): Promise<QuotaS
       requires: (v.requires ?? []).map(r => ({ ...r })),
       returns: v.returns ? { ...v.returns, tiers: v.returns.tiers ? [...v.returns.tiers] : undefined } : undefined,
     }));
+}
+
+/** 该协议的官方套餐档位内置额度（registry `plan_quotas`，DB 同步值优先）。
+ *  deep copy（budgets 数组）防 mutate 污染 docPromise 缓存。无内置数字 → []。 */
+export async function getDefaultPlanQuotas(protocol: Protocol): Promise<PlanQuotaTier[]> {
+  const doc = await loadDoc();
+  const list = doc.protocols[protocol]?.plan_quotas ?? [];
+  return list
+    .filter(tier => typeof tier?.id === "string" && Array.isArray(tier.budgets))
+    .map(tier => ({ ...tier, budgets: tier.budgets.map(b => ({ ...b })) }));
 }
 
 /** 变体展示名（三层回落同 resolveName：label[locale] → en-US → 变体 id）。 */

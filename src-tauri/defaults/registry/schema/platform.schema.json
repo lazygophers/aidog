@@ -372,6 +372,70 @@
       },
       "description": "【可选】配额查询 base_url 启发式关键词（小写子串数组，元素如 api.deepseek.com）。无平台行的零配置路径（aidog_adapter::quota query_quota_inner）据此把 base_url 分派到本协议跑 registry quota 脚本；同族多协议共享关键词时取文档序首个（如 bigmodel.cn → glm）。平台匹配词一律存此处数据驱动，禁在 Rust 代码硬编码；含路径段的关键词（如 api.kimi.com/coding）照子串匹配。"
     },
+    "plan_quotas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "budgets", "source_url"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】套餐档位 id（同平台内唯一，如 pro / max）。前端手动预算区块按它区分内置档位。"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】档位显示名（官方原文，如 Pro、Max；不译，与 models 的 display_name 同惯例）。"
+          },
+          "budgets": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["kind", "unit", "amount"],
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": ["total", "rolling", "fixed", "daily"],
+                  "description": "【必填】窗口语义，同 ManualBudget.kind。官方按滚动刷新的额度用 rolling。"
+                },
+                "unit": {
+                  "type": "string",
+                  "enum": ["usd", "token", "count"],
+                  "description": "【必填】扣减单位，同 ManualBudget.unit：count = 每请求扣 1（官方「N 次请求」口径）。"
+                },
+                "amount": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "【必填】额度上限（官方公布数字照抄，禁推算）。"
+                },
+                "window_hours": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "【可选】窗口数值（配合 window_unit），rolling/fixed 必填；total/daily 省略。"
+                },
+                "window_unit": {
+                  "type": "string",
+                  "enum": ["minute", "hour", "day", "week", "month"],
+                  "description": "【可选】窗口单位，缺省 hour。"
+                }
+              }
+            },
+            "description": "【必填】该档位的内置限额条目（一档可多条，如 5 小时 / 每周 / 每月三条并存）。前端填入时逐条转成 ManualBudget。"
+          },
+          "source_url": {
+            "type": "string",
+            "minLength": 1,
+            "description": "【必填】数字出处（官方文档 URL）。无官方公布数字的平台不得登记本字段，留给用户手填。"
+          }
+        }
+      },
+      "description": "【可选】官方套餐档位的内置额度默认值（coding 套餐「每 5 小时 N 次请求」这类）。前端创建平台时默认填入首档，用户可切档、可编辑、可重置。仅登记官方文档明确公布的数字。"
+    },
     "quota_scripts": {
       "type": "array",
       "minItems": 1,

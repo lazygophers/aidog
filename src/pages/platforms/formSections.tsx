@@ -13,7 +13,7 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
-import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
+import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
@@ -351,24 +351,86 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
   );
 }
 
-export function ManualBudgetsSection({ budgets, setBudgets, t }: {
+/** registry 内置档位 → 一组新 ManualBudget（各条独立 id，consumed 从 0 起算）。 */
+function tierToBudgets(tier: PlanQuotaTier): ManualBudget[] {
+  return tier.budgets.map(b => ({
+    ...newManualBudget(),
+    kind: b.kind,
+    unit: b.unit,
+    amount: b.amount,
+    window_hours: b.window_hours ?? null,
+    window_unit: b.window_unit ?? "hour",
+  }));
+}
+
+export function ManualBudgetsSection({ budgets, setBudgets, protocol, editing, t }: {
   budgets: ManualBudget[];
   setBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
+  /** 当前协议：决定有没有 registry 内置套餐档位（plan_quotas）。 */
+  protocol: Protocol;
+  /** 编辑态不自动填入（已有配置以库里为准）；创建态首次进入自动填首档。 */
+  editing: boolean;
   t: TFunction;
 }) {
+  const [tiers, setTiers] = useState<PlanQuotaTier[]>([]);
+  const [tierId, setTierId] = useState("");
+  // 自动填入只做一次/协议：用户清空后切回本协议不再回填。
+  const autofilledFor = React.useRef<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getDefaultPlanQuotas(protocol).then(list => {
+      if (!alive) return;
+      setTiers(list);
+      setTierId(list[0]?.id ?? "");
+      if (!editing && list.length > 0 && autofilledFor.current !== protocol) {
+        autofilledFor.current = protocol;
+        setBudgets(prev => (prev.length === 0 ? tierToBudgets(list[0]) : prev));
+      }
+    });
+    return () => { alive = false; };
+  }, [protocol, editing, setBudgets]);
+
+  const selectedTier = tiers.find(x => x.id === tierId) ?? tiers[0];
+
   return (
     <FormSection
       title={t("platform.manualBudgetTitle", "手动预算")}
-      desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。")}
+      desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。单位支持 $ / Token / 次数（次数 = 每请求扣 1，对应 coding 套餐「每 5 小时 N 次请求」口径）；官方公布了额度的平台可一键填入内置档位后再编辑。")}
       action={(
-        <Button
-          variant="ghost"
-          size="sm"
-          style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-          onClick={() => setBudgets([...budgets, newManualBudget()])}
-        >
-          {t("platform.manualBudgetAdd", "添加限额")}
-        </Button>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          {tiers.length > 0 && (
+            <>
+              {tiers.length > 1 && (
+                <Select value={selectedTier?.id ?? ""} onValueChange={setTierId}>
+                  <SelectTrigger className="input" style={{ width: 120, flexShrink: 0, height: 28, fontSize: 12 }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tiers.map(x => <SelectItem key={x.id} value={x.id}>{x.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                title={selectedTier?.source_url}
+                onClick={() => selectedTier && setBudgets(tierToBudgets(selectedTier))}
+              >
+                {t("platform.manualBudgetUseTier", "填入内置额度（{{tier}}）").replace("{{tier}}", selectedTier?.name ?? "")}
+              </Button>
+            </>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+            onClick={() => setBudgets([...budgets, newManualBudget()])}
+          >
+            {t("platform.manualBudgetAdd", "添加限额")}
+          </Button>
+        </div>
       )}
     >
       {budgets.length === 0 && (
@@ -415,6 +477,7 @@ export function ManualBudgetsSection({ budgets, setBudgets, t }: {
               <SelectContent>
                 <SelectItem value="usd">$ USD</SelectItem>
                 <SelectItem value="token">{t("platform.manualBudgetUnitToken", "Token")}</SelectItem>
+                <SelectItem value="count">{t("platform.manualBudgetUnitCount", "次数")}</SelectItem>
               </SelectContent>
             </Select>
             <Input

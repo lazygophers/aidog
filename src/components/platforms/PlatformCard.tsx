@@ -425,7 +425,9 @@ export const PlatformCard = memo(function PlatformCard({
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                         <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
                           {formatNumber(Math.max(0, mb.remaining))}
-                          <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>/ {formatNumber(mb.amount)} tok</span>
+                          <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>
+                            / {formatNumber(mb.amount)} {mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}
+                          </span>
                         </span>
                         <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
                           <div style={{ width: `${mb.ratio * 100}%`, height: "100%", background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />

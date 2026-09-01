@@ -507,8 +507,8 @@ export interface DevinConfig {
 }
 
 export type ManualBudgetKind = "total" | "rolling" | "fixed" | "daily";
-/** 手动预算计量单位。 */
-export type ManualBudgetUnit = "usd" | "token";
+/** 手动预算计量单位。count = 每请求扣 1（coding 套餐「N 次请求」口径）。 */
+export type ManualBudgetUnit = "usd" | "token" | "count";
 
 export interface ProxySettings {
   port: number;

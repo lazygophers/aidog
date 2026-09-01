@@ -173,12 +173,17 @@ pub fn evaluate_depletion(budgets: &[ManualBudget], now_ms: i64) -> Option<Deple
 }
 
 /// 单条限额扣减（纯函数）：先窗口重置，再按 unit 累加。
+/// usd → est_cost；count → 每请求 1（coding 套餐「N 次请求」口径）；其余（token）→ 总 token。
 pub fn apply_one(budget: &mut ManualBudget, est_cost: f64, total_tokens: f64, now_ms: i64) {
     if !budget.enabled {
         return;
     }
     maybe_reset(budget, now_ms);
-    let delta = if budget.unit == "usd" { est_cost } else { total_tokens };
+    let delta = match budget.unit.as_str() {
+        "usd" => est_cost,
+        "count" => 1.0,
+        _ => total_tokens,
+    };
     budget.consumed += delta;
 }
 
@@ -299,6 +304,22 @@ mod tests {
         let mut b = mk("total", "token", 100_000.0, None);
         apply_one(&mut b, 5.0, 30_000.0, 1_700_000_000_000); // est_cost 忽略
         assert!((b.consumed - 30_000.0).abs() < 1e-9);
+    }
+
+    // ── count 单位按请求次数扣：每次 +1，与 est_cost / token 无关 ──
+    #[test]
+    fn count_unit_decrements_one_per_request() {
+        let mut b = mk("rolling", "count", 3.0, Some(5.0));
+        let t0 = 1_700_000_000_000;
+        apply_one(&mut b, 5.0, 30_000.0, t0);
+        apply_one(&mut b, 0.0, 0.0, t0 + 3_600_000);
+        assert!((b.consumed - 2.0).abs() < 1e-9, "两次请求应扣 2, got {}", b.consumed);
+        assert!(!is_depleted(&b));
+        apply_one(&mut b, 0.0, 0.0, t0 + 2 * 3_600_000);
+        assert!(is_depleted(&b), "第 3 次应耗尽");
+        // 窗口到期后恢复
+        apply_one(&mut b, 0.0, 0.0, t0 + 5 * 3_600_000);
+        assert!((b.consumed - 1.0).abs() < 1e-9, "5h 后应重置, got {}", b.consumed);
     }
 
     // ── daily：跨本地自然日重置 ──

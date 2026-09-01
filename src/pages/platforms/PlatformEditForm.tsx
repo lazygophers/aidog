@@ -318,7 +318,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
         {/* Manual Budgets */}
         {!isPassthrough && (
-          <ManualBudgetsSection budgets={manualBudgets} setBudgets={setManualBudgets} t={t} />
+          <ManualBudgetsSection budgets={manualBudgets} setBudgets={setManualBudgets} protocol={protocol} editing={!!editing} t={t} />
         )}
 
         {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}

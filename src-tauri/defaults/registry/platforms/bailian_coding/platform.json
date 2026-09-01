@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788189887,
+  "last_updated": 1788252919,
   "is_coding_plan": true,
   "endpoints": {
     "default": [
@@ -471,5 +471,17 @@
     "bailian",
     "bl"
   ],
-  "color": "#FF6A00"
+  "color": "#FF6A00",
+  "plan_quotas": [
+    {
+      "id": "pro",
+      "name": "Pro",
+      "budgets": [
+        { "kind": "rolling", "unit": "count", "amount": 6000, "window_hours": 5, "window_unit": "hour" },
+        { "kind": "rolling", "unit": "count", "amount": 45000, "window_hours": 1, "window_unit": "week" },
+        { "kind": "rolling", "unit": "count", "amount": 90000, "window_hours": 1, "window_unit": "month" }
+      ],
+      "source_url": "https://help.aliyun.com/zh/model-studio/coding-plan"
+    }
+  ]
 }
