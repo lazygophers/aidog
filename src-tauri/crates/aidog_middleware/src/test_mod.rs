@@ -319,6 +319,55 @@ fn builtin_secret_email_phone_samples() {
     assert!(!pat_matches(aidog_db::BUILTIN_PHONE_PATTERN, "12345"));
 }
 
+/// 密钥模式跨平台覆盖：各厂商前缀形态 + 未知厂商长 token 兜底。
+#[test]
+fn builtin_secret_pattern_covers_vendor_key_shapes() {
+    let p = aidog_db::BUILTIN_SECRET_PATTERN;
+    for s in [
+        // 分节 sk-（点/连字符分段，旧 `sk-[a-zA-Z0-9]{16,}` 会漏）
+        "sk-ws-H.EYIMLMI.abcdefghijklmnop",
+        "sk-ant-api03-abcdefghijklmnop1234",
+        "sk-or-v1-abcdefghijklmnopqrstuv",
+        // 短前缀厂商 token
+        "bfl_a1b2c3d4e5f6g7h8",
+        "gsk_abcdefghij123456",
+        "hf_abcdefghijklmnopqrst",
+        "r8_Abcdef123456789012",
+        "nvapi-abcdefghij1234567",
+        "ark-0f1e2d3c4b5a69788796",
+        // 通用词前缀 + 含数字长尾
+        "key_b5eaca1f899ac96abcdefghij",
+        // Google OAuth / JWT / GitHub / GitLab
+        "AQ.Ab8RN6LDH_kdGabcdefgh",
+        "ya29.a0AfB_abcdefghijklmnop",
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N",
+        "github_pat_11ABCDEFG0abcdefghijklmno",
+        "glpat-abcdefghij1234567890",
+        // 未知厂商兜底（前缀不在名单内，靠「长尾 + 含数字」命中）
+        "zzcloud_9f8e7d6c5b4a39281706",
+    ] {
+        assert!(pat_matches(p, s), "应命中密钥样例: {s}");
+    }
+}
+
+/// 密钥模式防误伤：普通标识符/路径/版本号不得被当密钥抹掉。
+#[test]
+fn builtin_secret_pattern_rejects_ordinary_text() {
+    let p = aidog_db::BUILTIN_SECRET_PATTERN;
+    for s in [
+        "sk-short",
+        "token_expiration_check",
+        "run_migrations_proxy_log_late",
+        "some-file-name-that-is-long.tsx",
+        "migration-20260824-02",
+        "node_modules/.bin/vitest",
+        "v1.2.3-beta.4",
+        "claude-opus-5",
+    ] {
+        assert!(!pat_matches(p, s), "不应命中普通文本: {s}");
+    }
+}
+
 /// 聚合请求文本（测试侧内联同逻辑：inbound 的实现是 pub(super) 不可跨 mod 引）。
 pub(crate) fn collect_request_text(chat_req: &ChatRequest) -> String {
     let mut buf = String::new();

@@ -299,8 +299,18 @@ pub fn init_tables_raw(
 }
 
 /// 内置规则正则集（票 03：硬编码检测器迁为内置规则，单一真值于此）。
-pub const BUILTIN_SECRET_PATTERN: &str =
-    r"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\-]{20,}|xox[baprs]-[a-zA-Z0-9\-]{10,})";
+///
+/// 密钥模式分三层（覆盖任意平台的 key 形态，不止 sk-/ghp_/AKIA/AIza/xox）：
+/// ① 显式厂商形态：`sk-` 系（含 `sk-ant-` / `sk-or-` / `sk-ws-H.xxx.yyy` 这类带 `.`/`-` 分节的）、
+///    GitHub / GitLab / Slack / AWS / Google API key、Google OAuth（`ya29.` / `AQ.`）、JWT。
+/// ② 短前缀厂商 token：`bfl_` / `gsk_` / `hf_` / `r8_` / `nvapi-` / `ark-` / `tp-` 等，前缀已足够独特，
+///    尾串仅要求长度 ≥ 8。
+/// ③ 通用兜底（未知厂商）：`<前缀><_|-><尾串>`，尾串**必须含数字**且足够长——
+///    通用词前缀（key/token/auth/sess/cred/bearer）尾串 ≥ 12，任意前缀尾串 ≥ 16。
+///    「必须含数字」用两段式写法表达（Rust regex 无 lookahead）：数字左边或右边至少有 N 个 token 字符。
+///    这条约束是防误伤的关键：`token_expiration_check` / `run_migrations_proxy_log_late` /
+///    `some-file-name-that-is-long.tsx` 这类普通标识符不含数字，不会被当密钥抹掉。
+pub const BUILTIN_SECRET_PATTERN: &str = r"(?i)\b(?:sk-[A-Za-z0-9._\-]{16,}|(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9._\-]{16,}|xox[baprs]-[A-Za-z0-9\-]{10,}|(?:AKIA|ASIA)[0-9A-Z]{16}|AIza[A-Za-z0-9_\-]{20,}|(?:ya29|AQ)\.[A-Za-z0-9._\-]{16,}|eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}|(?:bfl|gsk|hf|fal|r8|nvapi|pplx|tvly|csk|ark|tp|xai|dop_v1|rk|pk|ak)[_\-][A-Za-z0-9._\-]{8,}|(?:key|token|auth|sess|session|cred|bearer)[_\-](?:[A-Za-z0-9._\-]{11,}[0-9][A-Za-z0-9._\-]*|[A-Za-z0-9._\-]*[0-9][A-Za-z0-9._\-]{11,})|[A-Za-z][A-Za-z0-9]{1,11}[_\-](?:[A-Za-z0-9._\-]{15,}[0-9][A-Za-z0-9._\-]*|[A-Za-z0-9._\-]*[0-9][A-Za-z0-9._\-]{15,}))";
 pub const BUILTIN_EMAIL_PATTERN: &str = r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}";
 pub const BUILTIN_PHONE_PATTERN: &str =
     r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}";
@@ -318,14 +328,30 @@ pub struct BuiltinRuleSpec {
     pub(crate) priority: i64,
 }
 
+/// 密钥脱敏规则的 conditions JSON：pattern 由 [`BUILTIN_SECRET_PATTERN`] 单点生成，
+/// 禁在此再抄一份正则字面量（抄第二份必漂移；schema_late 迁移路径同样引用该常量）。
+static SECRET_RULE_CONDITIONS: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    serde_json::json!({
+        "kind": "any",
+        "children": [{
+            "kind": "leaf",
+            "target": "request_body",
+            "field": "",
+            "match_type": "regex",
+            "pattern": BUILTIN_SECRET_PATTERN,
+        }],
+    })
+    .to_string()
+});
+
 /// 内置预设规则清单（票 03：密钥/邮箱/手机/DB-Redis 凭据脱敏 + 日期改写 + 默认错误分类）。
 /// 全部显式 regex 条件（无空 pattern 隐藏兜底，ADR 0003）；error 分类按 response_body 命中。
 pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
-    &[
+    static SPECS: std::sync::LazyLock<Vec<BuiltinRuleSpec>> = std::sync::LazyLock::new(|| vec![
         BuiltinRuleSpec {
             name: "内置·密钥脱敏",
-            description: "脱敏常见 AI/API 密钥（sk-/ghp_/AKIA/AIza/xox 等）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)(sk-[a-zA-Z0-9]{16,}|ghp_[a-zA-Z0-9]{20,}|AKIA[0-9A-Z]{16}|AIza[0-9A-Za-z_\\-]{20,}|xox[baprs]-[a-zA-Z0-9\\-]{10,})"}]}"#,
+            description: "脱敏各平台 API 密钥（sk- 系 / ghp_ / AKIA / AIza / bfl_ / key_ / AQ. 等，含未知厂商的长随机 token）。",
+            conditions: SECRET_RULE_CONDITIONS.as_str(),
             actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
             priority: 10,
         },
@@ -417,7 +443,8 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
             actions: r#"[{"kind":"classify","params":{"category":"cache_limit","retryable":false}}]"#,
             priority: 26,
         },
-    ]
+    ]);
+    &SPECS
 }
 
 /// 首启/升级 seed 内置预设中间件规则。幂等：按 (name, is_builtin=1) 判定；
