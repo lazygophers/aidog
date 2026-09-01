@@ -2,7 +2,7 @@
 
 /**
  * builtin_tool_compat 全局总开关（scope "proxy" / key "builtin_tool_compat"）。
- * 与平台级 `platform.extra.builtin_tool_compat.enabled` AND 关系：
- * 全局关 = 所有平台即使配了 enabled:true 也不生效；两层默认均 false。
+ * 内置工具剔除的唯一配置入口（无平台级覆盖）：开 = 所有平台所有模型剔除
+ * Claude Code 内置工具定义；默认 false = 零改写。
  */
 export type BuiltinToolCompatGlobalSettings = { enabled: boolean, };

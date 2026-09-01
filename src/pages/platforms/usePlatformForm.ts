@@ -8,14 +8,13 @@
 import { useState, useMemo, useEffect } from "react";
 import type { TFunction } from "i18next";
 import {
-  platformApi, settingsApi, groupDetailApi,
+  platformApi, groupDetailApi,
   parseMockConfig, serializeMockConfig,
   parseDevinConfig, serializeDevinConfig,
   parseQuotaScriptConfig, serializeQuotaScriptConfig, readRequiresValue,
   parsePlatformBreaker, serializePlatformBreaker,
   parsePlatformPeak, serializePlatformPeak,
   parseDisableDuringPeak, serializeDisableDuringPeak,
-  parseBuiltinToolCompat, serializeBuiltinToolCompat, type BuiltinToolCompat,
   parsePlatformTimeWindows, serializePlatformTimeWindows,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
@@ -103,9 +102,6 @@ export interface PlatformFormState {
   availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
   endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
   activeDropdown: ModelSlot | null; setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
-  showClaudeConfig: boolean; setShowClaudeConfig: React.Dispatch<React.SetStateAction<boolean>>;
-  claudeConfigJson: string; setClaudeConfigJson: React.Dispatch<React.SetStateAction<string>>;
-  globalClaudeConfig: Record<string, any>; setGlobalClaudeConfig: React.Dispatch<React.SetStateAction<Record<string, any>>>;
   extra: string; setExtra: React.Dispatch<React.SetStateAction<string>>;
   mockConfig: MockConfig; setMockConfig: React.Dispatch<React.SetStateAction<MockConfig>>;
   /** 配额查询脚本（quota-scripts T6）：registry 变体列表（protocol 派生异步拉取）。 */
@@ -130,8 +126,6 @@ export interface PlatformFormState {
   windowsTz: "local" | "utc"; setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   /** disable_during_peak 开关（用户覆盖，存 platform.extra.disable_during_peak；默认 false）。 */
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
-  /** Claude Code 内置工具兼容（存 platform.extra.builtin_tool_compat；默认关闭）。 */
-  builtinToolCompat: BuiltinToolCompat; setBuiltinToolCompat: React.Dispatch<React.SetStateAction<BuiltinToolCompat>>;
   /** time_windows：时段模型规则列表（按时段切换主力模型档） */
   timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
@@ -206,9 +200,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<ModelSlot | null>(null);
-  const [showClaudeConfig, setShowClaudeConfig] = useState(false);
-  const [claudeConfigJson, setClaudeConfigJson] = useState("");
-  const [globalClaudeConfig, setGlobalClaudeConfig] = useState<Record<string, any>>({});
   // Mock 平台配置（持久化到 platform.extra 的 mock 子对象）
   const [extra, setExtra] = useState("");
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
@@ -231,8 +222,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
-  /** Claude Code 内置工具兼容（platform.extra.builtin_tool_compat；默认关闭不剔除）。 */
-  const [builtinToolCompat, setBuiltinToolCompat] = useState<BuiltinToolCompat>({ enabled: false, models: [], stripTools: [] });
   // time_windows（时段模型规则，存 platform.extra.time_windows；默认空数组）
   const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
@@ -348,14 +337,12 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
-    setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
     setQuotaVariantId(""); setQuotaCustomScript(""); setQuotaRequires({});
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false);
-    setBuiltinToolCompat({ enabled: false, models: [], stripTools: [] });
     setTimeModels([]);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
@@ -396,7 +383,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
     setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
-    setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
     {
@@ -418,7 +404,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     setPeak(parsePlatformPeak(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
-    setBuiltinToolCompat(parseBuiltinToolCompat(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
@@ -443,22 +428,10 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     } catch {
       setJoinGroupIds([]);
     }
-
-    // Load global + platform Claude Code config
-    try {
-      const [globalResult, platformResult] = await Promise.all([
-        settingsApi.get("global", "claude_code"),
-        settingsApi.get(`platform:${p.id}`, "claude_code"),
-      ]);
-      const gv = (globalResult as Record<string, any>) ?? {};
-      const pv = (platformResult as Record<string, any>) ?? {};
-      setGlobalClaudeConfig(gv);
-      setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
-    } catch (e) { console.error(e); }
   };
 
   /** 复制平台：复用源平台全部配置灌入表单，但以「新建态」打开（editing=null），保存才新建。
-   *  与 handleEdit 唯一差异：setEditing(null)（不绑定源平台 id）+ Claude 配置仅在存在非空 override diff 时展开。 */
+   *  与 handleEdit 唯一差异：setEditing(null)（不绑定源平台 id）。 */
   const handleDuplicate = async (p: Platform) => {
     setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
     const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
@@ -473,7 +446,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
     setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
-    setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
     {
@@ -494,7 +466,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     setPeak(parsePlatformPeak(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
-    setBuiltinToolCompat(parseBuiltinToolCompat(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
@@ -509,19 +480,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     } catch {
       setJoinGroupIds([]);
     }
-
-    // 加载 global + 源平台 Claude Code 配置，合并填入；仅当源平台存在非空 override diff 时展开面板。
-    try {
-      const [globalResult, platformResult] = await Promise.all([
-        settingsApi.get("global", "claude_code"),
-        settingsApi.get(`platform:${p.id}`, "claude_code"),
-      ]);
-      const gv = (globalResult as Record<string, any>) ?? {};
-      const pv = (platformResult as Record<string, any>) ?? {};
-      setGlobalClaudeConfig(gv);
-      setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
-      if (Object.keys(pv).length > 0) setShowClaudeConfig(true);
-    } catch (e) { console.error(e); }
   };
 
   const handleModelChange = (slot: ModelSlot, value: string) => {
@@ -645,7 +603,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setQuotaVariantId, setQuotaCustomScript, setQuotaRequires,
     setBreakerFailureThreshold, setBreakerOpenSecs, setBreakerHalfOpenMax,
     setEditing, setLockedGroupId, setJoinGroupIds,
-    setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
+    setFetchError, setSaveError,
     setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
     setBatchPreviewKeys,
     handleProtocolChange, resetForm,
@@ -703,8 +661,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extraPayload = serializePlatformPeak(extraPayload, peak);
     // disable_during_peak：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
-    // builtin_tool_compat：enabled=false → 移除键（默认行为）；true 写入。
-    extraPayload = serializeBuiltinToolCompat(extraPayload, builtinToolCompat);
     // time_windows：空数组 → 移除键（无规则 → 用 default）；非空写入。
     extraPayload = serializePlatformTimeWindows(extraPayload, timeModels);
     const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
@@ -788,24 +744,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
         } catch (e) { /* level_priority 非关键路径, 失败不阻塞保存 */ console.warn("set level_priority failed", e); }
       }
 
-      // Save Claude Code config overrides for this platform
-      if (savedId && showClaudeConfig && claudeConfigJson.trim()) {
-        try {
-          const merged = JSON.parse(claudeConfigJson);
-          const diff: Record<string, any> = {};
-          for (const [k, v] of Object.entries(merged)) {
-            if (JSON.stringify(v) !== JSON.stringify(globalClaudeConfig[k])) {
-              diff[k] = v;
-            }
-          }
-          if (Object.keys(diff).length > 0) {
-            await settingsApi.set(`platform:${savedId}`, "claude_code", diff);
-          } else {
-            await settingsApi.delete(`platform:${savedId}`, "claude_code");
-          }
-        } catch (e) { /* ignore JSON parse errors for config */ }
-      }
-
       resetForm();
       // 局部刷新：用返回的完整 Platform 单项 setState（编辑=replace / 新建=append），不整页 load()。
       // 自增 epoch 让任何在途的 load()/refreshStats 放弃覆盖，防晚到 resolve 回弹乐观结果。
@@ -859,8 +797,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     handleApiKeyChange, previewNames,
     models, setModels, availableModels, setAvailableModels,
     endpoints, setEndpoints, activeDropdown, setActiveDropdown,
-    showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
-    globalClaudeConfig, setGlobalClaudeConfig, extra, setExtra,
+    extra, setExtra,
     mockConfig, setMockConfig,
     quotaVariants, quotaVariantId, setQuotaVariantId,
     quotaCustomScript, setQuotaCustomScript,
@@ -874,7 +811,6 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerDefaults,
     peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
-    builtinToolCompat, setBuiltinToolCompat,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     levelPriority, setLevelPriority, expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,

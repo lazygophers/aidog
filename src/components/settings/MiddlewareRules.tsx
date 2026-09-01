@@ -447,15 +447,13 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
 
 interface RuleFormProps {
   rule?: MiddlewareRule;
-  /** 新建时预置的 applies_to（group / platform 内嵌面板） */
-  presetApplies?: AppliesTo;
   /** 只读查看模式（内置规则：可看详情，不可改不可存） */
   readOnly?: boolean;
   onSave: (draft: CreateMiddlewareRule) => Promise<void>;
   onCancel: () => void;
 }
 
-export function RuleForm({ rule, presetApplies, readOnly, onSave, onCancel }: RuleFormProps) {
+export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
   const { t } = useTranslation();
   const [name, setName] = useState(rule?.name ?? "");
   const [description, setDescription] = useState(rule?.description ?? "");
@@ -467,7 +465,7 @@ export function RuleForm({ rule, presetApplies, readOnly, onSave, onCancel }: Ru
   const [actions, setActions] = useState<ActionStep[]>(
     rule?.actions?.length ? rule.actions : [{ kind: "mask", params: { ...defaultParams(), replacement: "****" } }],
   );
-  const [applies, setApplies] = useState<AppliesTo>(rule?.applies_to ?? presetApplies ?? { platforms: [], groups: [], models: [] });
+  const [applies, setApplies] = useState<AppliesTo>(rule?.applies_to ?? { platforms: [], groups: [], models: [] });
   const [mode, setMode] = useState<"cards" | "dsl">("cards");
   const [dslText, setDslText] = useState<string>(() => treeToDsl(rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }));
   const [dslError, setDslError] = useState("");
@@ -779,17 +777,9 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
   );
 }
 
-// ── 规则面板（可复用：global / group / platform 内嵌按 applies_to 过滤）──
+// ── 规则面板（全局唯一入口：规则限定平台 / 分组一律经表单里的「应用范围」）──
 
-export interface MiddlewareRulesPanelProps {
-  /** group 内嵌：只看 applies_to 含该 group（或未限定 group）的规则 */
-  groupKey?: string;
-  /** platform 内嵌：只看 applies_to 含该 platform（或未限定 platform）的规则 */
-  platformId?: number;
-  embedded?: boolean;
-}
-
-export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }: MiddlewareRulesPanelProps) {
+export function MiddlewareRulesPanel() {
   const { t } = useTranslation();
   const [rules, setRules] = useState<MiddlewareRule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -797,30 +787,18 @@ export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }:
   const [editingRule, setEditingRule] = useState<MiddlewareRule | undefined>(undefined);
   const [error, setError] = useState("");
 
-  const matchesScope = useCallback(
-    (r: MiddlewareRule) => {
-      const g = r.applies_to.groups;
-      const p = r.applies_to.platforms;
-      if (groupKey) return g.length === 0 || g.includes(groupKey);
-      if (platformId !== undefined) return p.length === 0 || p.includes(platformId);
-      // global 视图：展示全部（含限定范围的规则，供总览）
-      return true;
-    },
-    [groupKey, platformId],
-  );
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const all = await middlewareApi.listRules();
-      setRules((all || []).filter(matchesScope));
+      setRules(all || []);
     } catch (e) {
       console.error("list middleware rules failed", e);
       setError(String(e));
     } finally {
       setLoading(false);
     }
-  }, [matchesScope]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -876,19 +854,11 @@ export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }:
     setShowForm(true);
   };
 
-  const presetApplies: AppliesTo | undefined = groupKey
-    ? { platforms: [], groups: [groupKey], models: [] }
-    : platformId !== undefined
-      ? { platforms: [platformId], groups: [], models: [] }
-      : undefined;
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      {!embedded && (
-        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-          {t("middleware.globalRulesHint", "规则按优先级堆叠执行；应用范围为空时对所有分组 / 平台生效")}
-        </div>
-      )}
+      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
+        {t("middleware.globalRulesHint", "规则按优先级堆叠执行；应用范围为空时对所有分组 / 平台生效")}
+      </div>
 
       {loading ? (
         <div className="text-secondary" style={{ fontSize: F.hint, padding: 8 }}>
@@ -931,7 +901,6 @@ export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }:
         }}
         rule={editingRule}
         readOnly={editingRule?.is_builtin}
-        presetApplies={presetApplies}
         onSave={handleSave}
         onCancel={() => {
           setShowForm(false);

@@ -12,7 +12,6 @@ import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
-  type BuiltinToolCompat,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
@@ -21,7 +20,6 @@ import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { JsonCodeEditor } from "../../components/shared";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -973,57 +971,6 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   );
 }
 
-/** 内置工具兼容（builtin-tool-compat spec）：Claude Code 内置工具 per-model 剔除开关
- *  （platform.extra.builtin_tool_compat，默认关闭零改写）。models / stripTools 均逗号分隔输入。 */
-export function BuiltinToolCompatSection({ config, onChange, t }: {
-  config: BuiltinToolCompat;
-  onChange: (c: BuiltinToolCompat) => void;
-  t: TFunction;
-}) {
-  const toList = (v: string): string[] =>
-    v.split(",").map(s => s.trim()).filter(Boolean);
-  return (
-    <FormSection
-      title={t("platform.builtin_tool_compat", "内置工具兼容")}
-      desc={t("platform.builtin_tool_compat_desc", "开启后转发时剔除 Claude Code 内置工具定义（ToolSearch/Read/Bash 等），用于不支持内置工具的第三方模型。默认关闭 = 请求原样转发。")}
-    >
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
-          <Checkbox
-            checked={config.enabled}
-            onCheckedChange={v => onChange({ ...config, enabled: v === true })}
-          />
-          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.builtin_tool_compat_enable", "启用剔除")}</span>
-        </label>
-      </div>
-      {config.enabled && (
-        <>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-              {t("platform.builtin_tool_compat_models", "生效模型（逗号分隔，空 = 全部模型）")}
-            </span>
-            <Input
-              value={config.models.join(", ")}
-              placeholder="glm-4.7, kimi-k2"
-              onChange={e => onChange({ ...config, models: toList(e.target.value) })}
-            />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-              {t("platform.builtin_tool_compat_strip", "剔除工具名（逗号分隔，空 = 全部内置工具）")}
-            </span>
-            <Input
-              value={config.stripTools.join(", ")}
-              placeholder="ToolSearch, Bash"
-              onChange={e => onChange({ ...config, stripTools: toList(e.target.value) })}
-            />
-          </div>
-        </>
-      )}
-    </FormSection>
-  );
-}
-
 export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, uniqueGroupInfo, levelPriority, setLevelPriority, t }: {
   editing: Platform | null;
   lockedGroupId: number | null;
@@ -1164,62 +1111,6 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
               })()}
             </span>
           )}
-        </div>
-      )}
-    </FormSection>
-  );
-}
-
-export function ClaudeConfigSection({ show, setShow, json, setJson, globalConfig, t }: {
-  show: boolean; setShow: React.Dispatch<React.SetStateAction<boolean>>;
-  json: string; setJson: React.Dispatch<React.SetStateAction<string>>;
-  globalConfig: Record<string, any>;
-  t: TFunction;
-}) {
-  return (
-    <FormSection title={t("settings.claudeCodeConfig")}>
-      <Button
-        variant="ghost"
-        size="sm"
-        style={{
-          width: "100%",
-          justifyContent: "space-between",
-          fontSize: 12,
-          padding: "6px 4px",
-          color: "var(--text-secondary)",
-        }}
-        onClick={() => setShow(!show)}
-      >
-        <span style={{ fontWeight: 600 }}>{t("settings.claudeConfigToggle", "Config Override")}</span>
-        <span style={{ opacity: 0.5 }}>{show ? "▾" : "▸"}</span>
-      </Button>
-      {show && (
-        <div className="animate-fade-in" style={{ marginTop: 6 }}>
-          <JsonCodeEditor value={json} onChange={setJson} minHeight={180} />
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
-            {t("settings.platformConfigHint")}
-          </div>
-          {(() => {
-            try {
-              const merged = JSON.parse(json);
-              const overridden = Object.keys(merged).filter(
-                k => JSON.stringify(merged[k]) !== JSON.stringify(globalConfig[k]),
-              );
-              return overridden.length > 0 ? (
-                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                  {overridden.map(k => (
-                    <span key={k} className="badge badge-accent" style={{ fontSize: 10 }}>
-                      {k}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
-                  {t("settings.allAligned")}
-                </div>
-              );
-            } catch { return null; }
-          })()}
         </div>
       )}
     </FormSection>

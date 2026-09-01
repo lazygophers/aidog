@@ -11,8 +11,6 @@ import {
   serializePlatformPeak,
   parseDisableDuringPeak,
   serializeDisableDuringPeak,
-  parseBuiltinToolCompat,
-  serializeBuiltinToolCompat,
   parsePlatformTimeWindows,
   serializePlatformTimeWindows,
 } from "./platforms";
@@ -283,41 +281,6 @@ describe("serializeDisableDuringPeak", () => {
     expect(JSON.parse(serializeDisableDuringPeak("", true)).disable_during_peak).toBe(true);
     expect(JSON.parse(serializeDisableDuringPeak("bad", true)).disable_during_peak).toBe(true);
     expect(JSON.parse(serializeDisableDuringPeak("[]", true)).disable_during_peak).toBe(true);
-  });
-});
-
-describe("parseBuiltinToolCompat", () => {
-  it.each(BAD)("非法/缺键 %s 回默认（不兼容）", (extra) => {
-    expect(parseBuiltinToolCompat(extra)).toEqual({ enabled: false, models: [], stripTools: [] });
-  });
-
-  it("enabled 严格布尔；models/strip_tools 非字符串项过滤", () => {
-    expect(parseBuiltinToolCompat('{"builtin_tool_compat":{"enabled":true,"models":["glm-4.7"],"strip_tools":["ToolSearch"]}}'))
-      .toEqual({ enabled: true, models: ["glm-4.7"], stripTools: ["ToolSearch"] });
-    expect(parseBuiltinToolCompat('{"builtin_tool_compat":{"enabled":1,"models":[1,"a"]}}'))
-      .toEqual({ enabled: false, models: ["a"], stripTools: [] });
-  });
-});
-
-describe("serializeBuiltinToolCompat", () => {
-  it("enabled=false → 删键，保留兄弟键", () => {
-    const o = JSON.parse(serializeBuiltinToolCompat(
-      '{"mock":{},"builtin_tool_compat":{"enabled":true}}',
-      { enabled: false, models: [], stripTools: [] },
-    ));
-    expect(o.builtin_tool_compat).toBeUndefined();
-    expect(o.mock).toEqual({});
-  });
-
-  it("enabled=true 写键；models/stripTools 空数组不入键", () => {
-    const o = JSON.parse(serializeBuiltinToolCompat(
-      "", { enabled: true, models: ["glm-4.7"], stripTools: [] },
-    ));
-    expect(o.builtin_tool_compat).toEqual({ enabled: true, models: ["glm-4.7"] });
-  });
-
-  it("非法 extra 重建不抛", () => {
-    expect(() => serializeBuiltinToolCompat("bad", { enabled: true, models: [], stripTools: [] })).not.toThrow();
   });
 });
 

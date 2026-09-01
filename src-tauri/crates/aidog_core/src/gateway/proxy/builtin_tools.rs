@@ -2,10 +2,11 @@
 //!
 //! Claude Code 内置工具（ToolSearch / deferred tools / Read / Bash / Agent 等）由客户端
 //! 执行，仅以普通 tools 定义随请求下发。第三方模型/端点不支持时（4xx 拒收或不会调用），
-//! 按 `platform.extra.builtin_tool_compat`（默认关闭）在转发层出站 body 上做字段级剔除。
+//! 按全局总开关（settings scope "proxy" / key "builtin_tool_compat"，默认关闭）在转发层
+//! 出站 body 上做字段级剔除。开关是唯一配置入口，无平台级覆盖（2026-09-01 起）。
 //!
 //! 本模块与 ADR 0003 middleware 规则引擎分工：middleware 管用户自定义规则，
-//! 本模块管路由级内置 per-model 策略，互不叠加重复改写。
+//! 本模块管全局内置工具剔除，互不叠加重复改写。
 
 use crate::gateway::models::ProxyLog;
 use serde_json::Value;
@@ -94,23 +95,14 @@ pub fn strip_tools(body: &mut Value, strip: &[String]) -> usize {
     removed
 }
 
-/// 转发层出站 seam 入口：按 `platform.extra.builtin_tool_compat` 对出站 body 剔除工具定义。
-/// 两级 AND 开关，均默认禁用：全局总开关（scope "proxy" / key "builtin_tool_compat"，
-/// `BuiltinToolCompatGlobalSettings`）× 平台级 `enabled`。任一关闭 / 模型不命中名单 →
-/// 零改写（含透传与转换两分支）。
-pub fn apply_builtin_tool_compat(body: &mut Value, extra: &str, model: &str, global_enabled: bool) {
+/// 转发层出站 seam 入口：全局总开关开启时剔除出站 body 里的全部内置工具定义。
+/// 开关（settings scope "proxy" / key "builtin_tool_compat"，`BuiltinToolCompatGlobalSettings`）
+/// 默认关闭 → 零改写（含透传与转换两分支）。
+pub fn apply_builtin_tool_compat(body: &mut Value, model: &str, global_enabled: bool) {
     if !global_enabled {
         return;
     }
-    let cfg = aidog_db::models::parse_builtin_tool_compat(extra);
-    if !cfg.enabled {
-        return;
-    }
-    // models 空 = 平台全部模型生效；非空 = 仅名单内模型
-    if !cfg.models.is_empty() && !cfg.models.iter().any(|m| m == model) {
-        return;
-    }
-    let removed = strip_tools(body, &cfg.strip_tools);
+    let removed = strip_tools(body, &[]);
     if removed > 0 {
         tracing::info!(model, removed, "builtin-tool-compat: stripped builtin tool defs");
     }
@@ -207,41 +199,21 @@ mod tests {
     fn compat_disabled_by_default_is_noop() {
         let mut b = anthropic_body();
         let before = b.clone();
-        apply_builtin_tool_compat(&mut b, "", "any", true);
-        assert_eq!(b, before);
-        apply_builtin_tool_compat(&mut b, r#"{"builtin_tool_compat":{"enabled":false}}"#, "any", true);
+        apply_builtin_tool_compat(&mut b, "any", false);
         assert_eq!(b, before);
     }
 
     #[test]
-    fn compat_global_switch_gates_platform_config() {
-        // 全局关（默认）→ 平台配了 enabled:true 也不生效（两级 AND）
-        let extra = r#"{"builtin_tool_compat":{"enabled":true}}"#;
+    fn compat_global_switch_strips_all_platforms_and_models() {
+        // 全局开 → 任意模型剔除全部内置工具，保留自定义工具
         let mut b = anthropic_body();
-        let before = b.clone();
-        apply_builtin_tool_compat(&mut b, extra, "glm-4.7", false);
-        assert_eq!(b, before);
-        // 全局开 + 平台开 → 剔除
-        let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra, "glm-4.7", true);
-        assert_eq!(b["tools"].as_array().unwrap().len(), 1);
-    }
+        apply_builtin_tool_compat(&mut b, "glm-4.7", true);
+        let names: Vec<&str> = b["tools"].as_array().unwrap().iter()
+            .map(|t| t["name"].as_str().unwrap()).collect();
+        assert_eq!(names, ["get_weather"]);
 
-    #[test]
-    fn compat_enabled_strips_but_model_scope_gates() {
-        let extra = r#"{"builtin_tool_compat":{"enabled":true,"models":["glm-4.7"]}}"#;
-        // 不在名单 → 不动
         let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra, "kimi-k2", true);
-        assert_eq!(b["tools"].as_array().unwrap().len(), 3);
-        // 在名单 → 剔除
-        let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra, "glm-4.7", true);
-        assert_eq!(b["tools"].as_array().unwrap().len(), 1);
-        // 名单空 → 全模型生效
-        let extra_all = r#"{"builtin_tool_compat":{"enabled":true}}"#;
-        let mut b = anthropic_body();
-        apply_builtin_tool_compat(&mut b, extra_all, "glm-4.7", true);
+        apply_builtin_tool_compat(&mut b, "kimi-k2", true);
         assert_eq!(b["tools"].as_array().unwrap().len(), 1);
     }
 
