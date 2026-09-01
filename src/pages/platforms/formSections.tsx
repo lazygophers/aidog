@@ -172,12 +172,14 @@ export function QuotaScriptSection({
   locale?: string;
   t: TFunction;
 }) {
-  // 无变体且无自定义脚本的平台不渲染本控件（quota-scripts spec user story 5 反面）。
-  if (variants.length === 0 && !customScript.trim()) return null;
   const hasCustom = !!customScript.trim();
   const idValid = variants.some(v => v.id === variantId);
+  // registry 无内置变体（如 bailian_coding / qianfan_coding 等 coding 套餐平台）：
+  // 仍渲染本区块并直接进自定义脚本编辑态 —— 否则「无脚本 → 不显示 → 没法写脚本」死循环，
+  // 用户在创建/编辑表单里看不到任何刷新数据的入口。
+  const customOnly = variants.length === 0;
   // 选中值解析（与后端 resolve_quota_script 对齐：custom 优先 → 显式 id → 回落首条）。
-  const selection = hasCustom || variantId === QUOTA_CUSTOM_VARIANT
+  const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
     ? QUOTA_CUSTOM_VARIANT
     : idValid ? variantId : (variants[0]?.id ?? "");
   // 存量 id 失效（远程改名/删条）→ 已回落首条，提示用户重选（spec「UI 显示已回落」）。
@@ -188,6 +190,11 @@ export function QuotaScriptSection({
       title={t("platform.quotaScript.title", "配额查询脚本")}
       desc={t("platform.quotaScript.desc", "选择匹配你部署的查询脚本变体；脚本要求的参数会自动出现")}
     >
+      {customOnly ? (
+        <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+          {t("platform.quotaScript.noBuiltin", "该平台暂无内置查询脚本，可在下方自行编写；写好后平台卡片会出现刷新按钮。")}
+        </div>
+      ) : (
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           {t("platform.quotaScript.variant", "脚本变体")}
@@ -209,6 +216,7 @@ export function QuotaScriptSection({
           </div>
         )}
       </div>
+      )}
       {selection === QUOTA_CUSTOM_VARIANT ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>

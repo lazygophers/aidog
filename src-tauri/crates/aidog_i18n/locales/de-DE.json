@@ -1219,6 +1219,7 @@
   "platform.quotaRefreshFail": "Kontingentaktualisierung fehlgeschlagen",
   "platform.quotaRemainSuffix": "übrig",
   "platform.quotaScript.custom": "Benutzerdefiniertes Skript",
+  "platform.quotaScript.noBuiltin": "Diese Plattform hat kein integriertes Abfrageskript. Schreibe unten dein eigenes; nach dem Speichern erscheint auf der Plattformkarte eine Aktualisieren-Schaltfläche.",
   "platform.quotaScript.customHint": "ctx stellt baseUrl / apiKey / extra bereit (requires-Parameter auf oberster Ebene von extra); http.get / http.post für ausgehende Aufrufe (Systemproxy, protokolliert).",
   "platform.quotaScript.customLabel": "Benutzerdefiniertes JS-Skript",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",

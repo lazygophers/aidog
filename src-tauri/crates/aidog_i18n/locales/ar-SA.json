@@ -1219,6 +1219,7 @@
   "platform.quotaRefreshFail": "فشل تحديث الحصة",
   "platform.quotaRemainSuffix": "متبقٍ",
   "platform.quotaScript.custom": "سكربت مخصص",
+  "platform.quotaScript.noBuiltin": "لا يوجد لهذه المنصة برنامج استعلام مدمج. اكتب برنامجك أدناه؛ بعد الحفظ يظهر زر التحديث على بطاقة المنصة.",
   "platform.quotaScript.customHint": "يوفر ctx قيم baseUrl / apiKey / extra (معاملات requires في المستوى الأعلى لـ extra)؛ يمكن استخدام http.get / http.post للطلبات الصادرة (عبر وكيل النظام مع تسجيل).",
   "platform.quotaScript.customLabel": "سكربت JS مخصص",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",

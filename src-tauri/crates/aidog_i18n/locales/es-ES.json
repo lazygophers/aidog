@@ -1197,6 +1197,7 @@
   "platform.quotaRefreshFail": "Error al actualizar cuota",
   "platform.quotaRemainSuffix": "rest.",
   "platform.quotaScript.custom": "Script personalizado",
+  "platform.quotaScript.noBuiltin": "Esta plataforma no tiene script de consulta integrado. Escribe el tuyo abajo; al guardarlo aparecerá un botón de actualizar en la tarjeta de la plataforma.",
   "platform.quotaScript.customHint": "ctx proporciona baseUrl / apiKey / extra (parámetros requires en el nivel superior de extra); http.get / http.post disponibles para llamadas salientes (proxy del sistema, con registro).",
   "platform.quotaScript.customLabel": "Script JS personalizado",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",

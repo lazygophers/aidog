@@ -1197,6 +1197,7 @@
   "platform.quotaRefreshFail": "刷新额度失败",
   "platform.quotaRemainSuffix": "剩",
   "platform.quotaScript.custom": "自定义脚本",
+  "platform.quotaScript.noBuiltin": "该平台暂无内置查询脚本，可在下方自行编写；写好后平台卡片会出现刷新按钮。",
   "platform.quotaScript.customHint": "ctx 提供 baseUrl / apiKey / extra（requires 参数在 extra 顶层）；可用 http.get / http.post 出站（走系统代理、记录日志）。",
   "platform.quotaScript.customLabel": "自定义 JS 脚本",
   "platform.quotaScript.customPlaceholder": "// 返回 { success, balance, tiers, newapi_user_id }",

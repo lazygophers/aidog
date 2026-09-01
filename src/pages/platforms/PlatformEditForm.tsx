@@ -243,8 +243,10 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           </FormSection>
         )}
 
-        {/* 配额查询脚本（registry 变体 + 自定义伪变体 + requires 动态表单；
-            无变体且无自定义脚本的协议内部自渲染 null，quota-scripts T6） */}
+        {/* 配额查询脚本（registry 变体 + 自定义伪变体 + requires 动态表单）。
+            registry 无内置变体的协议直接进自定义脚本编辑态（否则没法给这类平台写脚本）；
+            mock / 纯透传无上游配额可查，整块不渲染。 */}
+        {!isMock && !isPassthrough && (
         <QuotaScriptSection
           protocol={protocol}
           variants={quotaVariants}
@@ -257,6 +259,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           locale={i18n.language}
           t={t}
         />
+        )}
 
         {/* Devin 平台配置（可选 timeout/mode，仅 devin 协议显示；org_id 走上方 requires 表单） */}
         {protocol === "devin" && (
