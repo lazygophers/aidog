@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useReveal, makeRipple } from "../../components/shared";
 import { treeToDsl, parseDsl } from "../../utils/mwDsl";
 import { platformApi } from "../../services/api/platforms";
@@ -522,17 +523,7 @@ export function RuleForm({ rule, presetApplies, readOnly, onSave, onCancel }: Ru
   };
 
   return (
-    <MwSectionCard
-      staggerMs={0}
-      style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}
-    >
-      <div style={{ fontSize: F.label, fontWeight: 600 }}>
-        {readOnly
-          ? t("middleware.viewRule", "查看规则")
-          : rule
-            ? t("middleware.editRule", "编辑规则")
-            : t("middleware.addRule", "新增规则")}
-      </div>
+    <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
       {readOnly && (
         <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
           {t("middleware.builtinReadonlyHint", "内置规则只可启停，内容不可修改")}
@@ -659,7 +650,43 @@ export function RuleForm({ rule, presetApplies, readOnly, onSave, onCancel }: Ru
           </Button>
         )}
       </div>
-    </MwSectionCard>
+    </div>
+  );
+}
+
+/** 规则编辑弹窗：表单从「页面最底部内嵌」改为独立 modal（Radix Portal → document.body，
+ *  满足 modal 居中规则；祖先的 backdrop-filter 不再把 fixed 拉回 page 内）。 */
+export function RuleFormDialog({
+  open,
+  onOpenChange,
+  ...formProps
+}: RuleFormProps & { open: boolean; onOpenChange: (v: boolean) => void }) {
+  const { t } = useTranslation();
+  const title = formProps.readOnly
+    ? t("middleware.viewRule", "查看规则")
+    : formProps.rule
+      ? t("middleware.editRule", "编辑规则")
+      : t("middleware.addRule", "新增规则");
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent
+        className="glass-surface"
+        style={{
+          padding: 20,
+          maxWidth: 720,
+          width: "min(92vw, 720px)",
+          maxHeight: "86vh",
+          overflowY: "auto",
+          borderRadius: "var(--radius-lg)",
+          gap: 12,
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle style={{ fontSize: F.label, fontWeight: 600 }}>{title}</DialogTitle>
+        </DialogHeader>
+        <RuleForm {...formProps} />
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -869,7 +896,7 @@ export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }:
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {rules.length === 0 && !showForm && (
+          {rules.length === 0 && (
             <div className="text-tertiary" style={{ fontSize: F.hint, padding: 8 }}>
               {t("middleware.noRules", "暂无规则")}
             </div>
@@ -886,24 +913,31 @@ export function MiddlewareRulesPanel({ groupKey, platformId, embedded = false }:
         </div>
       )}
 
-      {showForm ? (
-        <RuleForm
-          rule={editingRule}
-          readOnly={editingRule?.is_builtin}
-          presetApplies={presetApplies}
-          onSave={handleSave}
-          onCancel={() => {
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <Button variant="ghost" style={{ fontSize: F.hint }} onClick={openCreate}>
+          + {t("middleware.addRule", "新增规则")}
+        </Button>
+      </div>
+
+      {/* 新增 / 编辑 / 查看一律走弹窗（key 强制换实例：切换规则时表单 state 重新初始化） */}
+      <RuleFormDialog
+        key={editingRule?.id ?? "new"}
+        open={showForm}
+        onOpenChange={(v) => {
+          if (!v) {
             setShowForm(false);
             setEditingRule(undefined);
-          }}
-        />
-      ) : (
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <Button variant="ghost" style={{ fontSize: F.hint }} onClick={openCreate}>
-            + {t("middleware.addRule", "新增规则")}
-          </Button>
-        </div>
-      )}
+          }
+        }}
+        rule={editingRule}
+        readOnly={editingRule?.is_builtin}
+        presetApplies={presetApplies}
+        onSave={handleSave}
+        onCancel={() => {
+          setShowForm(false);
+          setEditingRule(undefined);
+        }}
+      />
 
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
