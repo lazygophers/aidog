@@ -538,7 +538,8 @@ pub async fn presets_doc_value(db: &Db) -> Result<serde_json::Value, String> {
     ))
 }
 
-/// 单个协议的 preset 条目：DB 行优先，缺失回落 bundled（票 13-H）。
+/// 单个协议的 preset 条目：DB 行与 bundled **取较新那份**（比 `last_updated`，同 [`merge_presets_doc`]），
+/// DB 无行 / 解析失败 → bundled（票 13-H）。
 /// logo 懒加载这类「只查一个协议的一两个字段」的场景走它，别为一次查询重建整篇文档。
 pub async fn preset_entry(db: &Db, code: &str) -> Result<Option<serde_json::Value>, String> {
     let owned = code.to_string();
@@ -554,13 +555,20 @@ pub async fn preset_entry(db: &Db, code: &str) -> Result<Option<serde_json::Valu
         })
         .await
         .map_err(|e| e.to_string())?;
+    let bundled = crate::registry::presets().get("protocols").and_then(|p| p.get(code)).cloned();
     if let Some(raw) = row {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
+            let stamp = |x: Option<&serde_json::Value>| {
+                x.and_then(|v| v.get("last_updated")).and_then(serde_json::Value::as_i64).unwrap_or(0)
+            };
+            if stamp(bundled.as_ref()) > stamp(Some(&v)) {
+                return Ok(bundled);
+            }
             return Ok(Some(v));
         }
         tracing::warn!(code, "platform_preset 行 JSON 解析失败，回落 bundled");
     }
-    Ok(crate::registry::presets().get("protocols").and_then(|p| p.get(code)).cloned())
+    Ok(bundled)
 }
 
 /// 把 DB 里的 preset 合并视图装进进程内缓存，供热路径 `effective_presets()` 同步读取。

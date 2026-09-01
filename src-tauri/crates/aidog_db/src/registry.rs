@@ -56,22 +56,45 @@ struct PresetCache {
 
 static PRESET_CACHE: RwLock<Option<PresetCache>> = RwLock::new(None);
 
-/// bundled + DB 行合并：同 `code` 以 DB 行为准，bundled 里 DB 缺的补齐（票 13-C）。
+/// 一份 platform.json 文本顶层的 `last_updated`（Unix 秒）；缺失 / 非数字 → 0。
+/// 新旧比较用：registry 约定每个数据文件顶层必带该戳（见 CLAUDE.md「平台默认配置」）。
+fn last_updated_of(platform_json: &str) -> i64 {
+    serde_json::from_str::<Map<String, Value>>(platform_json)
+        .ok()
+        .and_then(|m| m.get("last_updated").and_then(Value::as_i64))
+        .unwrap_or(0)
+}
+
+/// bundled + DB 行合并：同 `code` **取两者中较新的那份**（比 `last_updated` 戳），
+/// bundled 里 DB 缺的补齐（票 13-C）。
 /// DB 一份都没有时结果与 [`presets`] 逐字节相同（首次同步失败不该让协议下拉少几项）。
 ///
-/// `db_last_updated_secs` = DB 行 `updated_at` 最大值（秒）；`None` 表示没有 DB 行，
-/// 此时 `last_updated` 用 bundled `index.json` 里那个。
+/// 为什么不是「DB 行无条件覆盖」：同步源是上游仓库，二进制里的 bundled 可能比上游更新
+/// （本地新增字段尚未发布、或用户升级了版本而上游那份还没动）。无条件覆盖会让新字段
+/// 被旧行整篇盖掉，症状是新加的能力在界面上凭空消失（如 quota_scripts 变体下拉不出现）。
+///
+/// `db_last_updated_secs` = DB 行 `updated_at` 最大值（秒）；文档级 `last_updated` 取它与
+/// bundled `index.json` 的较大值（`None` = 没有 DB 行 → 用 bundled 那个）。
 pub fn merge_presets_doc<'a>(
     db_rows: impl IntoIterator<Item = (&'a str, &'a str)>,
     db_last_updated_secs: Option<i64>,
 ) -> Value {
     let mut entries: BTreeMap<&str, &str> = PLATFORM_FILES.iter().map(|(c, j)| (*c, *j)).collect();
     for (code, json) in db_rows {
-        entries.insert(code, json);
+        match entries.get(code) {
+            // bundled 更新 → 保留 bundled（同戳按 DB 走，维持旧行为）
+            Some(bundled) if last_updated_of(bundled) > last_updated_of(json) => {
+                tracing::debug!(code, "bundled preset 比 DB 行新，保留 bundled");
+            }
+            _ => {
+                entries.insert(code, json);
+            }
+        }
     }
     let index = parse("index.json", INDEX_JSON);
+    let bundled_last_updated = index["last_updated"].as_i64().unwrap_or(0);
     let last_updated = match db_last_updated_secs {
-        Some(secs) => Value::from(secs),
+        Some(secs) => Value::from(secs.max(bundled_last_updated)),
         None => index["last_updated"].clone(),
     };
     presets_doc(entries, last_updated)
