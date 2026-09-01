@@ -1219,6 +1219,7 @@
   "platform.quotaRefreshFail": "Не удалось обновить квоту",
   "platform.quotaRemainSuffix": "ост.",
   "platform.quotaScript.custom": "Пользовательский скрипт",
+  "platform.quotaScript.noBuiltin": "У этой платформы нет встроенного скрипта запроса. Напишите свой ниже; после сохранения на карточке платформы появится кнопка обновления.",
   "platform.quotaScript.customHint": "ctx предоставляет baseUrl / apiKey / extra (параметры requires на верхнем уровне extra); доступны http.get / http.post для исходящих запросов (системный прокси, с логированием).",
   "platform.quotaScript.customLabel": "Пользовательский JS-скрипт",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",

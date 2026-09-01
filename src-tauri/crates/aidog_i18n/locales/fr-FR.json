@@ -1219,6 +1219,7 @@
   "platform.quotaRefreshFail": "Échec de l'actualisation du quota",
   "platform.quotaRemainSuffix": "rest.",
   "platform.quotaScript.custom": "Script personnalisé",
+  "platform.quotaScript.noBuiltin": "Cette plateforme n'a pas de script d'interrogation intégré. Écrivez le vôtre ci-dessous ; une fois enregistré, un bouton d'actualisation apparaît sur la carte de la plateforme.",
   "platform.quotaScript.customHint": "ctx fournit baseUrl / apiKey / extra (paramètres requires au premier niveau de extra) ; http.get / http.post disponibles pour les appels sortants (proxy système, journalisés).",
   "platform.quotaScript.customLabel": "Script JS personnalisé",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",

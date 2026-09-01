@@ -1197,6 +1197,7 @@
   "platform.quotaRefreshFail": "Failed to refresh quota",
   "platform.quotaRemainSuffix": "left",
   "platform.quotaScript.custom": "Custom script",
+  "platform.quotaScript.noBuiltin": "This platform has no built-in lookup script. Write your own below; once saved, a refresh button appears on the platform card.",
   "platform.quotaScript.customHint": "ctx provides baseUrl / apiKey / extra (requires params at the top level of extra); http.get / http.post available for outbound calls (system proxy, logged).",
   "platform.quotaScript.customLabel": "Custom JS script",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",

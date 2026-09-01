@@ -1219,6 +1219,7 @@
   "platform.quotaRefreshFail": "クォータ更新失敗",
   "platform.quotaRemainSuffix": "残",
   "platform.quotaScript.custom": "カスタムスクリプト",
+  "platform.quotaScript.noBuiltin": "このプラットフォームには内蔵の照会スクリプトがありません。下で自作できます。保存するとプラットフォームカードに更新ボタンが表示されます。",
   "platform.quotaScript.customHint": "ctx は baseUrl / apiKey / extra を提供（requires パラメータは extra の最上位）；外向き呼び出しには http.get / http.post が利用可能（システムプロキシ経由、ログ記録付き）。",
   "platform.quotaScript.customLabel": "カスタム JS スクリプト",
   "platform.quotaScript.customPlaceholder": "// return { success, balance, tiers, newapi_user_id }",
