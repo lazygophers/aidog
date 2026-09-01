@@ -109,6 +109,23 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     await waitFor(() => expect(screen.getByText("wild")).toBeTruthy());
     expect(screen.queryByText("scoped")).toBeNull(); // 限 platform 8 的规则在 platform 9 面板隐藏
   });
+
+  it("新增 / 编辑走弹窗：默认无 dialog，点开后 role=dialog 存在，关闭后消失", async () => {
+    listRules.mockResolvedValue([mk({ id: 7, name: "dlg" })]);
+    const user = userEvent.setup();
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("dlg")).toBeTruthy());
+    // 表单不再内嵌在页面底部
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByPlaceholderText("middleware.name")).toBeNull();
+
+    await user.click(screen.getByText("+ middleware.addRule"));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog.querySelector("input[placeholder='middleware.name']")).toBeTruthy();
+
+    await user.click(screen.getByText("action.cancel"));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
 });
 
 import { RuleForm } from "./MiddlewareRules";
