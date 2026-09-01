@@ -49,7 +49,6 @@ async fn match_platform_by_host_hits_main_base_url() {
         manual_budgets: None,
         auto_group: None,
         join_group_ids: None,
-        default_level_priority: None,
         expires_at: None,
     }).await.expect("create platform");
 
@@ -462,7 +461,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
         api_key: "sk-up".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.unwrap();
     let group = aidog_db::create_group(&state.db, sample_group("mitm-gk", vec![])).await.unwrap();
     aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
@@ -679,7 +678,7 @@ async fn connect_failure_records_breaker_fail_count() {
         api_key: "sk".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.unwrap();
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
@@ -739,7 +738,7 @@ async fn connect_failure_sets_platform_last_error() {
         api_key: "sk".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+        auto_group: None, join_group_ids: None, expires_at: None,
     }).await.unwrap();
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {

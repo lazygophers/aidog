@@ -19,7 +19,7 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
         endpoints: None,
         manual_budgets: None,
         auto_group,
-        join_group_ids: join, default_level_priority: None, expires_at: None,
+        join_group_ids: join, expires_at: None,
     }
 }
 
@@ -27,10 +27,9 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
 async fn create_platform_via_db(db: &Db, input: CreatePlatform) -> Result<Platform, String> {
     let auto_group = input.auto_group.unwrap_or(true);
     let join_group_ids = input.join_group_ids.clone().unwrap_or_default();
-    let default_level_priority = input.default_level_priority;
     let platform = db::create_platform(db, input).await?;
     if auto_group {
-        create_auto_group_for(db, &platform, default_level_priority).await?;
+        create_auto_group_for(db, &platform).await?;
     }
     if !join_group_ids.is_empty() {
         let _ = db::sync_platform_manual_groups(db, platform.id, &join_group_ids).await;
@@ -106,7 +105,7 @@ async fn ensure_auto_group_idempotent() {
         if groups.iter().any(|g| g.auto_from_platform == platform_id_str) {
             return Ok(());
         }
-        create_auto_group_for(db, &platform, None).await
+        create_auto_group_for(db, &platform).await
     }
 
     ensure_auto_group(&db, p.id).await.unwrap();

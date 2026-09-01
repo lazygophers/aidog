@@ -13,7 +13,6 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
-import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
@@ -971,14 +970,12 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   );
 }
 
-export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, uniqueGroupInfo, levelPriority, setLevelPriority, t }: {
+export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, t }: {
   editing: Platform | null;
   lockedGroupId: number | null;
   groupDetails: GroupDetail[];
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
-  uniqueGroupInfo: { show: boolean; groupId: number | null; isAuto: boolean };
-  levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;
   t: TFunction;
 }) {
   return (
@@ -1035,13 +1032,6 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
               })}
           </div>
         </>
-      )}
-      {/* 唯一分组时提供 per-group 优先级设置（复用 Groups 页同款控件）。
-          多分组/零分组不显示——语义上 level_priority 属 group×platform 关联。 */}
-      {uniqueGroupInfo.show && (
-        <div style={{ marginTop: 12 }}>
-          <LevelPriorityControl value={levelPriority} onChange={setLevelPriority} />
-        </div>
       )}
     </FormSection>
   );
