@@ -94,6 +94,8 @@ src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crat
 - UI 风格偏好：Liquid Glass
 - 无 react-router：导航是 `App.tsx`(侧栏) + `AppSettings.tsx`(tab) 的本地 state；离页拦截走 `utils/navGuard.ts` 注册表，禁原生 confirm / beforeunload（破坏 Tauri）
 - modal/confirm 必须 `createPortal(document.body)`：祖先含 `transform`/`backdrop-filter`（liquid glass 主题）会让 `position:fixed` 退化为相对祖先，弹窗只在 page 内居中。详见 memory `modal-window-center-rule`。
+- **CSS 层级铁律：`src/styles/globals.css` 里禁裸写（unlayered）`position`**。Tailwind v4 的 `.fixed`/`.absolute` 在 `@layer utilities`，而 unlayered 声明压过任何 layered 声明（与特异性无关）——一条裸写的 `.glass-surface { position: relative }` 就能把挂该 class 的 Radix `DialogContent` 打回文档流，症状是「弹窗不按窗口居中」。给伪元素当锚点的 position 一律加进文件末尾 `@layer components` 的「定位上下文」块；唯三例外是弹窗定位硬保障类 `.ui-dialog-overlay` / `.ui-dialog-panel` / `.ui-fixed-panel`（故意 unlayered，压过调用方 className，挂在 `components/ui/{dialog,alert-dialog,sheet}.tsx` 上）。
+- 护栏 `yarn check:modal`（`scripts/check-modal-centering.mjs`，已进 `make lint`）：查 ① globals.css unlayered 区无 position ② 三个 ui 组件仍带保障类 ③ 手写居中遮罩必须 createPortal。
 - 数值格式化统一走 `utils/formatters.ts`，禁页内重复定义 formatNumber 等
 
 ## Agent skills

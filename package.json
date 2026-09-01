@@ -18,6 +18,7 @@
     "test:cov": "vitest run --coverage",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:registry": "node scripts/check-registry.mjs",
+    "check:modal": "node scripts/check-modal-centering.mjs",
     "gen:types": "cd src-tauri && cargo test -p aidog_core export_bindings",
     "check:statusline-runtime": "node scripts/build-statusline-runtime.mjs --check",
     "check:docs": "node scripts/gen-command-docs.mjs --check && yarn workspace aidog-docs check:docs",

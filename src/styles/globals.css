@@ -236,7 +236,6 @@ body {
 
 /* proxy 运行中卡片外发光：独立叠层动 opacity(合成器), 不动宿主的 box-shadow */
 .proxy-status-glow {
-  position: absolute;
   inset: 0;
   border-radius: inherit;
   box-shadow: 0 0 20px var(--accent-subtle), var(--shadow-lg);
@@ -309,9 +308,8 @@ body {
 
 /* ── Glass Highlight (refraction edge) ── */
 
-.glass-highlight {
-  position: relative;
-}
+/* position 见文件末尾「定位上下文（@layer components）」块：裸写会压过 utilities 的
+   .fixed/.absolute，把挂了本 class 的 Radix 弹窗/浮层按回文档流。 */
 
 .glass-highlight::before {
   content: "";
@@ -507,7 +505,6 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 /* ── Toggle Switch ── */
 
 .toggle {
-  position: relative;
   width: 40px;
   height: 22px;
   border-radius: 11px;
@@ -618,7 +615,6 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 /* ── Drag & Drop ── */
 
 .drag-handle {
-  position: absolute;
   left: 0; top: 0; bottom: 0; width: 40px;
   display: flex; align-items: center; justify-content: center;
   cursor: grab;
@@ -634,7 +630,6 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 }
 /* Inline drag handle (inside CompactCard header, not absolute-positioned) */
 .drag-handle-inline {
-  position: static;
   width: auto;
   height: auto;
   opacity: 0.5;
@@ -917,18 +912,11 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   to { --flow-ang: 360deg; }
 }
 
-.glass,
-.glass-surface {
-  position: relative;
-}
+/* .glass / .glass-surface / .flow-border 的 position 见文件末尾「定位上下文」块。
 
-/* flow-border: opt-in 流光描边（原全局挂在 .glass/.glass-surface::after，
+   flow-border: opt-in 流光描边（原全局挂在 .glass/.glass-surface::after，
    247 处常驻 ::after 伪元素收窄为按需点位，见
    .skein/task/glass-flow-border-component/design.md） */
-.flow-border {
-  position: relative;
-}
-
 .flow-border::after {
   content: "";
   position: absolute;
@@ -966,9 +954,8 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 .counter { font-variant-numeric: tabular-nums; }
 
 /* Ripple 涟漪 */
-.ripple { position: relative; overflow: hidden; }
+.ripple { overflow: hidden; }
 .ripple-wave {
-  position: absolute;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.4);
   transform: scale(0);
@@ -1036,4 +1023,62 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   }
   .proxy-status-glow { animation: none; opacity: 0.6; }
   .hover-lift:hover { transform: none; }
+}
+
+/* ─── 定位上下文（必须 @layer components，禁裸写）────────────────────────────
+   这些 class 只需要一个 ::before/::after 的定位锚点，`position: relative` 是手段不是语义。
+
+   🔴 为什么必须在 layer 内：CSS Cascade Layer 规则下 **unlayered 声明压过任何 layered 声明**
+   （与特异性无关）。Tailwind v4 的 .fixed/.absolute 在 `@layer utilities`，一旦这里裸写
+   `position: relative`，任何挂了 .glass-surface / .glass-highlight 的 Radix DialogContent /
+   PopoverContent 都会被强制回 static 流内 —— 表现就是「弹窗不按窗口居中、跟着页面走」。
+   放进 components（顺序在 utilities 之前，见文件头 @layer 声明）后 utility 重新胜出。
+
+   新增任何「给伪元素当锚点」的 position 声明，一律加到本块内，不要写在 layer 外。
+   回归护栏：`yarn check:modal`（scripts/check-modal-centering.mjs）。 */
+@layer components {
+  .glass,
+  .glass-surface,
+  .glass-highlight,
+  .flow-border,
+  .toggle,
+  .ripple {
+    position: relative;
+  }
+
+  .proxy-status-glow,
+  .drag-handle,
+  .ripple-wave {
+    position: absolute;
+  }
+
+  /* 顺序敏感：必须排在 .drag-handle 之后，靠后来者覆盖（同层同特异性）。 */
+  .drag-handle-inline {
+    position: static;
+  }
+}
+
+/* ─── 弹窗定位硬保障（故意 unlayered）───────────────────────────────────────
+   .ui-dialog-overlay / .ui-dialog-panel 挂在 shadcn Dialog / AlertDialog / Sheet 的
+   Overlay 与 Content 上（src/components/ui/*.tsx），是「弹窗必须相对**窗口**定位」这条
+   规则的唯一落点。裸写（不进 layer）是刻意的：调用方传进来的 className（.glass-surface
+   等自定义类）也压不掉它，弹窗永远按视口居中，不会掉回页面流里。
+
+   max-height + overflow 防第二类「看着没居中」：内容超过视口时上下溢出被裁，
+   顶部看不见。inline style 仍可覆盖（优先级更高），个别弹窗要自定义高度照旧生效。 */
+.ui-dialog-overlay {
+  position: fixed;
+  inset: 0;
+}
+
+.ui-dialog-panel {
+  position: fixed;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+}
+
+/* 侧边抽屉（Sheet）只保 position，不能带 inset —— inset 会压掉 side variant 的
+   inset-y-0 / left-0 / right-0（同样是 unlayered > utilities），抽屉被拉成全屏。 */
+.ui-fixed-panel {
+  position: fixed;
 }
