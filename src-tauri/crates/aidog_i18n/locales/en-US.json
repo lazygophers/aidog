@@ -2822,6 +2822,7 @@
   "middleware.appliesModels": "Models (comma-separated, empty = all)",
   "middleware.appliesPlatforms": "Platforms (empty = all)",
   "middleware.appliesTo": "Applies to (each empty = unrestricted; multiple values = any match)",
+  "middleware.clearConditions": "Clear conditions",
   "middleware.conditions": "Conditions",
   "middleware.dslHint": "Syntax: ALL(...)/ANY(...)/leaf, leaf = target[.field] contains|regex|exact \"pattern\"",
   "middleware.failed": "Failed",

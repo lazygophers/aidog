@@ -130,17 +130,22 @@ function appliesSummary(at: AppliesTo): string {
 interface NodeEditorProps {
   node: ConditionNode;
   onChange: (n: ConditionNode) => void;
-  /** 删除本节点（顶层不可删） */
+  /** 删除本节点；顶层传的是「清空条件」（重置为空叶子），故文案由 removeLabel 决定 */
   onRemove?: () => void;
+  /** 删除按钮的 title；缺省 = 「删除」 */
+  removeLabel?: string;
   depth: number;
 }
 
-function ConditionLeafEditor({ node, onChange, onRemove }: Omit<NodeEditorProps, "depth"> & { node: Extract<ConditionNode, { kind: "leaf" }> }) {
+/** 空条件叶子（新增子条件 / 顶层清空后的初始形态）。 */
+const EMPTY_LEAF: ConditionNode = { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" };
+
+function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<NodeEditorProps, "depth"> & { node: Extract<ConditionNode, { kind: "leaf" }> }) {
   const { t } = useTranslation();
   return (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
       <Select value={node.target} onValueChange={(v) => onChange({ ...node, target: v as typeof node.target, field: "" })}>
-        <SelectTrigger style={{ fontSize: F.hint, width: 140 }}><SelectValue /></SelectTrigger>
+        <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 140, flexShrink: 0 }}><SelectValue /></SelectTrigger>
         <SelectContent>
           {TARGETS.map((x) => (
             <SelectItem key={x} value={x}>{conditionsTargetLabel(t, x)}</SelectItem>
@@ -156,7 +161,7 @@ function ConditionLeafEditor({ node, onChange, onRemove }: Omit<NodeEditorProps,
         />
       )}
       <Select value={node.match_type} onValueChange={(v) => onChange({ ...node, match_type: v as typeof node.match_type })}>
-        <SelectTrigger style={{ fontSize: F.hint, width: 100 }}><SelectValue /></SelectTrigger>
+        <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 100, flexShrink: 0 }}><SelectValue /></SelectTrigger>
         <SelectContent>
           {MATCH_TYPES.map((x) => (
             <SelectItem key={x} value={x}>{x}</SelectItem>
@@ -170,7 +175,7 @@ function ConditionLeafEditor({ node, onChange, onRemove }: Omit<NodeEditorProps,
         onChange={(e) => onChange({ ...node, pattern: e.target.value })}
       />
       {onRemove && (
-        <Button variant="ghost" onClick={onRemove} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+        <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
           <IconClose size={12} />
         </Button>
       )}
@@ -190,10 +195,10 @@ function conditionsTargetLabel(t: TFunction, x: string): string {
   return map[x] ?? x;
 }
 
-function ConditionNodeEditor({ node, onChange, onRemove, depth }: NodeEditorProps) {
+function ConditionNodeEditor({ node, onChange, onRemove, removeLabel, depth }: NodeEditorProps) {
   const { t } = useTranslation();
   if (node.kind === "leaf") {
-    return <ConditionLeafEditor node={node} onChange={onChange} onRemove={onRemove} />;
+    return <ConditionLeafEditor node={node} onChange={onChange} onRemove={onRemove} removeLabel={removeLabel} />;
   }
   const setChild = (i: number, c: ConditionNode) => onChange({ ...node, children: node.children.map((x, j) => (j === i ? c : x)) });
   const removeChild = (i: number) => onChange({ ...node, children: node.children.filter((_, j) => j !== i) });
@@ -202,9 +207,7 @@ function ConditionNodeEditor({ node, onChange, onRemove, depth }: NodeEditorProp
       ...node,
       children: [
         ...node.children,
-        leaf
-          ? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }
-          : { kind: "any", children: [{ kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }] },
+        leaf ? EMPTY_LEAF : { kind: "any", children: [EMPTY_LEAF] },
       ],
     });
   return (
@@ -222,7 +225,7 @@ function ConditionNodeEditor({ node, onChange, onRemove, depth }: NodeEditorProp
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
         <Select value={node.kind} onValueChange={(v) => onChange({ ...node, kind: v as "all" | "any" })}>
-          <SelectTrigger style={{ fontSize: F.hint, width: 92 }}><SelectValue /></SelectTrigger>
+          <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 92, flexShrink: 0 }}><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">AND (全部满足)</SelectItem>
             <SelectItem value="any">OR (任一满足)</SelectItem>
@@ -236,7 +239,7 @@ function ConditionNodeEditor({ node, onChange, onRemove, depth }: NodeEditorProp
           + {t("middleware.addGroup", "子组")}
         </Button>
         {onRemove && (
-          <Button variant="ghost" onClick={onRemove} title={t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
+          <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
             <IconClose size={12} />
           </Button>
         )}
@@ -285,7 +288,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <span style={{ fontSize: 11, color: "var(--text-tertiary)", width: 18 }}>{i + 1}</span>
             <Select value={st.kind} onValueChange={(v) => setStep(i, { ...st, kind: v as ActionKind })}>
-              <SelectTrigger style={{ fontSize: F.hint, width: 110 }}><SelectValue /></SelectTrigger>
+              <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 110, flexShrink: 0 }}><SelectValue /></SelectTrigger>
               <SelectContent>
                 {ACTION_KINDS.map((k) => (
                   <SelectItem key={k} value={k}>{actionLabel(t, k)}{terminal(k) ? " ⏹" : ""}</SelectItem>
@@ -321,7 +324,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
           {st.kind === "inject" && (
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <Select value={st.params.inject_mode || "system_append"} onValueChange={(v) => setStep(i, { ...st, params: { ...st.params, inject_mode: v } })}>
-                <SelectTrigger style={{ fontSize: F.hint, width: 150 }}><SelectValue /></SelectTrigger>
+                <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 150, flexShrink: 0 }}><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="system_append">system_append</SelectItem>
                   <SelectItem value="body_set">body_set</SelectItem>
@@ -357,7 +360,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                 retryable
               </label>
               <Input
-                style={{ fontSize: F.hint, width: 90 }}
+                style={{ fontSize: F.hint, minWidth: 110, flex: "0 1 140px" }}
                 type="number"
                 placeholder="override status"
                 value={st.params.override_status ?? ""}
@@ -460,14 +463,14 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
   const [priority, setPriority] = useState(rule?.priority ?? 0);
   const [enabled, setEnabled] = useState(rule?.enabled ?? true);
   const [conditions, setConditions] = useState<ConditionNode>(
-    rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" },
+    rule?.conditions ?? EMPTY_LEAF,
   );
   const [actions, setActions] = useState<ActionStep[]>(
     rule?.actions?.length ? rule.actions : [{ kind: "mask", params: { ...defaultParams(), replacement: "****" } }],
   );
   const [applies, setApplies] = useState<AppliesTo>(rule?.applies_to ?? { platforms: [], groups: [], models: [] });
   const [mode, setMode] = useState<"cards" | "dsl">("cards");
-  const [dslText, setDslText] = useState<string>(() => treeToDsl(rule?.conditions ?? { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" }));
+  const [dslText, setDslText] = useState<string>(() => treeToDsl(rule?.conditions ?? EMPTY_LEAF));
   const [dslError, setDslError] = useState("");
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -560,7 +563,13 @@ export function RuleForm({ rule, readOnly, onSave, onCancel }: RuleFormProps) {
         )}
       </div>
       {mode === "cards" ? (
-        <ConditionNodeEditor node={conditions} onChange={setConditions} depth={0} />
+        <ConditionNodeEditor
+          node={conditions}
+          onChange={setConditions}
+          onRemove={() => setConditions(EMPTY_LEAF)}
+          removeLabel={t("middleware.clearConditions", "清空条件")}
+          depth={0}
+        />
       ) : (
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           <Textarea
@@ -741,9 +750,9 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
               color: "var(--text-tertiary)",
               marginTop: 3,
               fontFamily: '"SF Mono", "Fira Code", monospace',
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
+              // 条件全文照列，不截断成省略号（长条件正是需要看清的那种）
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-all",
             }}
           >
             {conditionsSummary(rule.conditions)}

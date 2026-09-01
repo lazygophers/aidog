@@ -2822,6 +2822,7 @@
   "middleware.appliesModels": "Modelos (separados por comas, vacío = todos)",
   "middleware.appliesPlatforms": "Plataformas (vacío = todas)",
   "middleware.appliesTo": "Se aplica a (vacío = sin límites; varios valores = cualquier coincidencia)",
+  "middleware.clearConditions": "Borrar condiciones",
   "middleware.conditions": "Condiciones",
   "middleware.dslHint": "Sintaxis: ALL(...)/ANY(...)/hoja, hoja = target[.field] contains|regex|exact \"pattern\"",
   "middleware.failed": "Fallido",

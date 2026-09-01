@@ -2822,6 +2822,7 @@
   "middleware.appliesModels": "模型（逗号分隔，空 = 全部）",
   "middleware.appliesPlatforms": "平台（空 = 全部）",
   "middleware.appliesTo": "应用范围（各自空 = 不限；多值命中任一）",
+  "middleware.clearConditions": "清空条件",
   "middleware.conditions": "条件",
   "middleware.dslHint": "语法: ALL(...)/ANY(...)/叶子，叶子 = target[.field] contains|regex|exact \"pattern\"",
   "middleware.failed": "失效",

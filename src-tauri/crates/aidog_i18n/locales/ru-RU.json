@@ -2844,6 +2844,7 @@
   "middleware.appliesModels": "Модели (через запятую, пусто = все)",
   "middleware.appliesPlatforms": "Платформы (пусто = все)",
   "middleware.appliesTo": "Применяется к (пусто = без ограничений; несколько значений = любое совпадение)",
+  "middleware.clearConditions": "Очистить условия",
   "middleware.conditions": "Условия",
   "middleware.dslHint": "Синтаксис: ALL(...)/ANY(...)/лист, лист = target[.field] contains|regex|exact \"pattern\"",
   "middleware.failed": "Ошибка",
