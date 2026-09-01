@@ -29,9 +29,9 @@ pub struct ManualBudget {
     pub id: String,
     /// "total" 不重置 | "rolling" 滑动 N 个 window_unit | "fixed" 固定 N 个 window_unit 钟点对齐 | "daily" 自然日重置
     pub kind: String,
-    /// "usd" 扣 est_cost | "token" 扣总 token
+    /// "usd" 扣 est_cost | "token" 扣总 token | "count" 每请求扣 1（coding 套餐「N 次请求」口径）
     pub unit: String,
-    /// 限额额度（usd 为 $ / token 为 token 数）
+    /// 限额额度（usd 为 $ / token 为 token 数 / count 为请求次数）
     pub amount: f64,
     /// 窗口数值（该 window_unit 下的数量），仅 rolling/fixed 有意义。
     /// 历史字段名保留为 window_hours（不改名以最小化迁移）：

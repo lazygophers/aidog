@@ -16,11 +16,11 @@ id: string,
  */
 kind: string, 
 /**
- * "usd" 扣 est_cost | "token" 扣总 token
+ * "usd" 扣 est_cost | "token" 扣总 token | "count" 每请求扣 1（coding 套餐「N 次请求」口径）
  */
 unit: string, 
 /**
- * 限额额度（usd 为 $ / token 为 token 数）
+ * 限额额度（usd 为 $ / token 为 token 数 / count 为请求次数）
  */
 amount: number, 
 /**
