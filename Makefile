@@ -65,11 +65,12 @@ deps: ## Install frontend dependencies
 	yarn install
 
 .PHONY: version-bump
-version-bump: ## Set .version and sync manifests: make version-bump VERSION=0.1.13
-	@test -n "$(VERSION)" || { printf "$(BOLD)❌ VERSION required. Usage: make version-bump VERSION=0.1.13$(RESET)\n"; exit 1; }
-	@printf "%s\n" "$(VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:]_.]+)?$$' || { printf "$(BOLD)❌ VERSION must be semver, e.g. 0.1.13$(RESET)\n"; exit 1; }
-	@printf "%s\n" "$(VERSION)" > .version
-	node scripts/sync-version.mjs
+version-bump: ## Auto bump patch version and sync manifests; override: VERSION=0.1.13
+	@if [ -n "$(VERSION)" ]; then \
+		node scripts/sync-version.mjs --set "$(VERSION)"; \
+	else \
+		node scripts/sync-version.mjs --bump; \
+	fi
 
 .PHONY: version-check
 version-check: ## Verify manifests match .version

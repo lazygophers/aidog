@@ -1,11 +1,13 @@
 #!/usr/bin/env node
 // 版本单一源同步器。
 // 唯一可信源 = 根目录 `.version`（单行，如 `0.1.0`）。
-// 默认：把 .version 写入所有 manifest。`--check`：仅校验一致性（CI 用），drift 则 exit 1。
+// 默认：把 .version 写入所有版本文件。`--bump`：自动 patch bump 后同步。`--set`：指定版本后同步。`--check`：仅校验一致性（CI 用），drift 则 exit 1。
 //
 // 用法:
-//   node scripts/sync-version.mjs          # 写入各 manifest
-//   node scripts/sync-version.mjs --check  # 校验，不一致 exit 1
+//   node scripts/sync-version.mjs               # 写入所有版本文件
+//   node scripts/sync-version.mjs --bump        # .version patch +1 后同步
+//   node scripts/sync-version.mjs --set 0.1.13  # 指定 .version 后同步
+//   node scripts/sync-version.mjs --check       # 校验，不一致 exit 1
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -13,18 +15,46 @@ import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const CHECK = process.argv.includes("--check");
+const BUMP = process.argv.includes("--bump");
+const SET_INDEX = process.argv.indexOf("--set");
+const SET_VERSION = SET_INDEX === -1 ? null : process.argv[SET_INDEX + 1];
+const SEMVER_RE = /^\d+\.\d+\.\d+(-[\w.]+)?$/;
 
-/** 读 .version（trim，校验 semver 形态）。 */
-function readVersion() {
-  const raw = readFileSync(join(ROOT, ".version"), "utf8").trim();
-  if (!/^\d+\.\d+\.\d+(-[\w.]+)?$/.test(raw)) {
-    console.error(`[sync-version] .version 内容非法: "${raw}"（期望 semver 如 0.1.0）`);
+if ([CHECK, BUMP, SET_VERSION !== null].filter(Boolean).length > 1) {
+  console.error("[sync-version] --check / --bump / --set 只能选一个");
+  process.exit(1);
+}
+
+if (SET_INDEX !== -1 && !SET_VERSION) {
+  console.error("[sync-version] --set 需要版本号，如 0.1.13");
+  process.exit(1);
+}
+
+function validateVersion(version, label = "version 内容非法") {
+  if (!SEMVER_RE.test(version)) {
+    console.error(`[sync-version] ${label}: "${version}"（期望 semver 如 0.1.0）`);
     process.exit(1);
   }
+}
+
+function readVersion() {
+  const raw = readFileSync(join(ROOT, ".version"), "utf8").trim();
+  validateVersion(raw, ".version 内容非法");
   return raw;
 }
 
-/** JSON manifest：读取/替换顶层 version 字段（保留原缩进 2 空格）。 */
+function bumpPatch(version) {
+  validateVersion(version);
+  const [core] = version.split("-");
+  const [major, minor, patch] = core.split(".").map(Number);
+  return `${major}.${minor}.${patch + 1}`;
+}
+
+function writeVersion(version) {
+  validateVersion(version);
+  writeFileSync(join(ROOT, ".version"), `${version}\n`);
+}
+
 function jsonTarget(relPath) {
   return {
     path: relPath,
@@ -41,7 +71,6 @@ function jsonTarget(relPath) {
   };
 }
 
-/** Cargo.toml：仅替换 [package] 段首个 `version = "..."`（避免误伤依赖版本）。 */
 function cargoTarget(relPath) {
   const VER_RE = /^version\s*=\s*"[^"]*"/m;
   return {
@@ -59,14 +88,55 @@ function cargoTarget(relPath) {
   };
 }
 
+function cargoLockTarget(relPath) {
+  return {
+    path: relPath,
+    read() {
+      const text = readFileSync(join(ROOT, relPath), "utf8");
+      const versions = aidogCargoLockVersions(text);
+      return versions.size === 1 ? [...versions][0] : null;
+    },
+    write(version) {
+      const full = join(ROOT, relPath);
+      const text = readFileSync(full, "utf8");
+      writeFileSync(full, updateAidogCargoLockVersions(text, version));
+    },
+  };
+}
+
+function aidogCargoLockVersions(text) {
+  const versions = new Set();
+  for (const block of text.split(/\n(?=\[\[package\]\]\n)/)) {
+    const name = block.match(/^name = "([^"]+)"$/m)?.[1];
+    const version = block.match(/^version = "([^"]+)"$/m)?.[1];
+    if (name && version && (name === "aidog" || name.startsWith("aidog_"))) versions.add(version);
+  }
+  return versions;
+}
+
+function updateAidogCargoLockVersions(text, version) {
+  return text
+    .split(/\n(?=\[\[package\]\]\n)/)
+    .map((block) => {
+      const name = block.match(/^name = "([^"]+)"$/m)?.[1];
+      if (name !== "aidog" && !name?.startsWith("aidog_")) return block;
+      return block.replace(/^version = "[^"]+"$/m, `version = "${version}"`);
+    })
+    .join("\n");
+}
+
 const targets = [
   jsonTarget("package.json"),
   jsonTarget("src-tauri/tauri.conf.json"),
   jsonTarget("docs/package.json"),
   cargoTarget("src-tauri/Cargo.toml"),
+  cargoLockTarget("src-tauri/Cargo.lock"),
 ];
 
-const version = readVersion();
+const version = BUMP ? bumpPatch(readVersion()) : SET_VERSION ?? readVersion();
+if (SET_VERSION) validateVersion(SET_VERSION);
+
+if (BUMP || SET_VERSION) writeVersion(version);
 
 if (CHECK) {
   const drift = targets.filter((t) => t.read() !== version);
