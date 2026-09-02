@@ -36,7 +36,7 @@ pub fn slugify(input: &str) -> String {
 pub struct ProxyHandle(pub StdMutex<Option<JoinHandle<()>>>);
 
 fn default_bind_lan() -> bool {
-    true
+    false
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
@@ -46,7 +46,8 @@ pub struct ProxySettings {
     #[serde(default)]
     pub silent_launch: bool,
     /// 代理绑定地址：true=0.0.0.0(局域网可访问) / false=127.0.0.1(仅本机)。
-    /// 默认开 LAN（升级后存量用户走 serde default = true）。
+    /// 默认**关**（安全缺省：不在用户不知情时把代理开放给局域网）。缺省只影响新装与
+    /// 字段缺失的旧记录；已存库里的显式 `true` 照常反序列化为 true，老用户行为不变。
     #[serde(default = "default_bind_lan")]
     pub bind_lan: bool,
 }
@@ -87,7 +88,7 @@ pub async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings
         port: 9890,
         autostart: true,
         silent_launch: false,
-        bind_lan: true,
+        bind_lan: false,
     })
 }
 

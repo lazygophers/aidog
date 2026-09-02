@@ -461,7 +461,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         port: 9890,
                         autostart: true,
                         silent_launch: false,
-                        bind_lan: true,
+                        bind_lan: false,
                     },
                 );
                 let port = settings.port;

@@ -71,3 +71,60 @@ async fn start_proxy_never_rewrites_port_setting_on_failure() {
 
     drop(occupier);
 }
+
+/// 04-endpoint-security 验收 2：DB 无 proxy/settings 记录（= 新装）时，`bind_lan` 缺省为
+/// false（只监听 127.0.0.1），不在用户不知情时把代理开放给局域网。
+#[tokio::test]
+async fn fresh_install_defaults_bind_lan_to_false() {
+    let db = test_db().await;
+    assert!(
+        db::get_setting(&db, "proxy", "settings")
+            .await
+            .unwrap()
+            .is_none(),
+        "前置条件：新建 DB 不应已有 proxy/settings"
+    );
+
+    // load_proxy_settings 需要 AppHandle，这里直接断言 serde 缺省 + 走同一 default 函数的
+    // 「字段缺失」路径（缺省值只有 default_bind_lan 一个来源）。
+    let missing: crate::shared::ProxySettings =
+        serde_json::from_str(r#"{"port":9890,"autostart":true}"#).unwrap();
+    assert!(
+        !missing.bind_lan,
+        "字段缺失时 bind_lan 必须缺省为 false（仅本机）"
+    );
+}
+
+/// 04-endpoint-security 验收 3：老用户不被打断 —— 库里已存的显式 `bind_lan: true`
+/// 读回后仍是 true，默认值翻转不改变已有配置的语义。
+#[tokio::test]
+async fn existing_explicit_bind_lan_true_round_trips() {
+    let db = test_db().await;
+    // 直接写入用户真实存量形状的 JSON（非经 struct 序列化，模拟旧版本落库的原始行）。
+    db::set_setting(
+        &db,
+        crate::gateway::models::SetSettingInput {
+            scope: "proxy".to_string(),
+            key: "settings".to_string(),
+            value: serde_json::json!({
+                "autostart": true,
+                "bind_lan": true,
+                "port": 9890,
+                "silent_launch": false
+            }),
+        },
+    )
+    .await
+    .unwrap();
+
+    let raw = db::get_setting(&db, "proxy", "settings")
+        .await
+        .unwrap()
+        .unwrap();
+    let s: crate::shared::ProxySettings = serde_json::from_value(raw).unwrap();
+    assert!(
+        s.bind_lan,
+        "存量显式 bind_lan=true 必须仍读作 true（默认值翻转不得影响老用户）"
+    );
+    assert_eq!(s.port, 9890);
+}

@@ -1818,3 +1818,31 @@ async fn gemini_passthrough_uses_remapped_model_in_path_not_body() {
         );
     }
 }
+
+/// 04-endpoint-security 验收 1：无鉴权调试端点 `/api/debug/bench-query` 已从产品中删除，
+/// 路由表不再有它 —— 请求落 fallback（handle_proxy 无匹配 group）返 404，且响应体
+/// 绝不含旧 handler 的量测字段。
+#[tokio::test]
+async fn debug_bench_query_endpoint_is_gone() {
+    let state = make_state(test_db().await).await;
+    let base = spawn_proxy_router(state).await;
+
+    let resp = reqwest::Client::new()
+        .post(format!("{base}/api/debug/bench-query"))
+        .header("content-type", "application/json")
+        .body(r#"{"which":"logs","n":1}"#)
+        .send()
+        .await
+        .unwrap();
+
+    assert_eq!(
+        resp.status(),
+        reqwest::StatusCode::NOT_FOUND,
+        "调试端点必须已删除（落 fallback → 404）"
+    );
+    let body = resp.text().await.unwrap();
+    assert!(
+        !body.contains("durations_ms"),
+        "响应体不得含旧 bench handler 字段，实际: {body}"
+    );
+}

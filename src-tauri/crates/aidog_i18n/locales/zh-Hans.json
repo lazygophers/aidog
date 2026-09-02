@@ -1423,6 +1423,7 @@
   "proxy.bindLan": "局域网访问",
   "proxy.bindLanApplied": "已更新局域网访问设置（代理运行时已自动重启生效）",
   "proxy.bindLanDesc": "允许同局域网内其他设备连接此代理（关闭则仅本机可用）",
+  "proxy.bindLanSecurity": "开启后代理监听 0.0.0.0，同局域网设备均可访问，仅凭 group_key 的 Bearer 令牌鉴权；不信任的网络请保持关闭。",
   "proxy.configDesc": "将此环境变量设置到 Claude Code 中，即可通过本代理转发请求。",
   "proxy.configExportPath": "写入路径",
   "proxy.configExported": "配置已导出",

@@ -43,6 +43,9 @@ export function StartupSection({ s }: { s: SystemSettings }) {
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
             {t("proxy.bindLanDesc")}
           </div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("proxy.bindLanSecurity")}
+          </div>
         </div>
         <Switch checked={bindLan} onCheckedChange={handleBindLanChange} />
       </div>

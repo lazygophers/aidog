@@ -1445,6 +1445,7 @@
   "proxy.bindLan": "LAN-Zugriff",
   "proxy.bindLanApplied": "LAN-Zugriffseinstellung aktualisiert (Proxy bei laufendem Betrieb automatisch neu gestartet)",
   "proxy.bindLanDesc": "Anderen Geräten im selben lokalen Netzwerk die Verbindung zu diesem Proxy erlauben (deaktiviert: nur dieser Rechner)",
+  "proxy.bindLanSecurity": "Wenn aktiviert, lauscht der Proxy auf 0.0.0.0 und jedes Gerät im selben lokalen Netzwerk kann ihn erreichen – authentifiziert allein durch das group_key-Bearer-Token; in nicht vertrauenswürdigen Netzwerken deaktiviert lassen.",
   "proxy.configDesc": "Umgebungsvariable für Claude Code setzen.",
   "proxy.configExportPath": "Geschrieben in",
   "proxy.configExported": "Konfiguration exportiert",
