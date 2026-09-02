@@ -1,6 +1,6 @@
 // groups.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats } from "./types";
 
 export const groupUsageApi = {

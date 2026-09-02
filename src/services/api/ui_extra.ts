@@ -2,7 +2,7 @@
 // 对应 Rust `commands_platform::ui_extra::set_ui_extra`（读改写 platform/group extra JSON 单键）。
 // key 推荐 `_ui_` 前缀（与业务键 peak/breaker/...共存无副作用；导出时 strip）。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 
 /** extra 写入目标表。group 待 s7 schema migration 后开放。 */
 export type UiExtraTarget = "group" | "platform";
