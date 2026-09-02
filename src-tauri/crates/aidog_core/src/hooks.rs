@@ -3,7 +3,6 @@ use crate::shared::*;
 use crate::sync_settings::do_sync_group_settings;
 use aidog_db::Db;
 use gateway::models::*;
-use tauri::State;
 
 pub fn generate_hook_scripts(
     invoker: gateway::scripts::ScriptInvoker,
@@ -147,10 +146,9 @@ crate::tauri_command! {
     /// - `client="codex"`：把 `notify=[<complete 脚本>]` 注入 `~/.codex/config.toml`。
     /// 同时物化内置默认模板。`group` 入参用于 API 对称（Claude Code hooks 走基线对全分组生效）。
     pub async fn inject_hooks(
-        db: State<'_, Db>,
         group: String,
-        client: String,
-    ) -> Result<(), String> {
+        client: String) -> Result<(), String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "inject_hooks", group = %group, client = %client, "command invoked");
         let hook_client = aidog_hooks::HookClient::from_str(&client)?;
         let invoker = resolve_script_invoker(&db).await;
@@ -188,10 +186,9 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 一键移除通知 hook（strip）。client 同 inject_hooks。
     pub async fn remove_hooks(
-        db: State<'_, Db>,
         group: String,
-        client: String,
-    ) -> Result<(), String> {
+        client: String) -> Result<(), String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "remove_hooks", group = %group, client = %client, "command invoked");
         let hook_client = aidog_hooks::HookClient::from_str(&client)?;
         match hook_client {
@@ -223,7 +220,8 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     /// 读取「默认为所有分组注入通知 hook」总开关状态（基线 `claude_code._aidog_hooks.enabled`）。
-    pub async fn get_default_hooks_enabled(db: State<'_, Db>) -> Result<bool, String> {
+    pub async fn get_default_hooks_enabled() -> Result<bool, String> {
+    let db = aidog_ctx::db();
         Ok(default_hooks_enabled_from_db(&db).await)
     }
 }
@@ -232,9 +230,8 @@ crate::tauri_command! {
     /// 设置「默认为所有分组注入通知 hook」总开关：写基线 `claude_code._aidog_hooks.enabled`，
     /// re-sync 物化（开=全分组 CC hooks + Codex notify；关=全移除）。
     pub async fn set_default_hooks_enabled(
-        db: State<'_, Db>,
-        enabled: bool,
-    ) -> Result<(), String> {
+        enabled: bool) -> Result<(), String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "set_default_hooks_enabled", enabled, "command invoked");
         // 读基线 claude_code 配置（无则用编译内默认），设置 marker，回写。
         let mut config = aidog_db::get_setting(&db, "global", "claude_code").await
@@ -265,7 +262,8 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     /// 构造通知 hook 片段供前端 Hooks 编辑器并入草稿（只读式），薄转发 `&Db` 版本。
-    pub async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json::Value, String> {
+    pub async fn build_notify_hooks_fragment() -> Result<serde_json::Value, String> {
+    let db = aidog_ctx::db();
         build_notify_hooks_fragment_from_db(&db).await
     }
 }

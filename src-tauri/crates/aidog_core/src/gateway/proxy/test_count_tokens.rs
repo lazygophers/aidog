@@ -1,4 +1,3 @@
-
 #[test]
 fn count_tokens_endpoint_detection() {
     use super::is_count_tokens_endpoint;

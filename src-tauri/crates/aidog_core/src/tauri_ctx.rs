@@ -92,7 +92,9 @@ impl AppCtx for TauriCtx {
         use tauri_plugin_autostart::ManagerExt;
         let manager = self.app.autolaunch();
         if enabled {
-            manager.enable().map_err(|e| format!("enable autolaunch: {e}"))
+            manager
+                .enable()
+                .map_err(|e| format!("enable autolaunch: {e}"))
         } else {
             manager
                 .disable()

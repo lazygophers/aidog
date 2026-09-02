@@ -2,7 +2,6 @@ use crate::gateway;
 use crate::logging;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-use tauri::State;
 
 pub async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
     db::get_setting(db, "app", "logging")
@@ -48,13 +47,15 @@ pub async fn migrate_log_settings_file_to_db(db: &Db) {
 }
 
 crate::tauri_command! {
-    pub async fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
+    pub async fn app_log_settings_get() -> Result<logging::AppLogSettings, String> {
+    let db = aidog_ctx::db();
         Ok(load_app_log_settings_from_db(&db).await)
     }
 }
 
 crate::tauri_command! {
-    pub async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
+    pub async fn app_log_settings_set(settings: logging::AppLogSettings) -> Result<(), String> {
+    let db = aidog_ctx::db();
         let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
         db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await
             .map_err(|e| { tracing::error!(command = "app_log_settings_set", error = %e, "persist log settings failed"); e })?;
