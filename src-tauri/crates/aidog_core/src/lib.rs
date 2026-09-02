@@ -13,6 +13,17 @@ pub mod logging {
     pub use aidog_db::logging::*;
 }
 mod command_macro;
+// 票 07：`tauri_command!` 的 HTTP 形态支撑（参数取值 / 返回值归一 / 错误响应）。
+#[cfg(feature = "http")]
+pub mod http_command;
+// 票 07：宏展开里用的第三方路径经 `$crate::` 转发，这样 aidog_backup / aidog_cli_proxy
+// 这类只借宏定义命令的 crate 不必自己再引 axum。
+#[cfg(feature = "http")]
+#[doc(hidden)]
+pub use axum as __axum;
+#[cfg(feature = "http")]
+#[doc(hidden)]
+pub use serde_json as __serde_json;
 // 票 06：AppCtx 的桌面壳实现（唯一把 AppHandle 接进命令层的地方）。
 pub mod hooks;
 pub mod sync_settings;
