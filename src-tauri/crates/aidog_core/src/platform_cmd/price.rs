@@ -17,7 +17,7 @@ use crate::gateway;
 crate::tauri_command! {
 pub async fn model_price_sync() -> Result<gateway::models::PriceSyncResult, String> {
     let db = aidog_ctx::db();
-    gateway::price_sync::sync_registry(&db).await
+    gateway::price_sync::sync_registry(db).await
         .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "registry sync failed"); e })
 }
 }
@@ -25,14 +25,14 @@ pub async fn model_price_sync() -> Result<gateway::models::PriceSyncResult, Stri
 crate::tauri_command! {
 pub async fn price_sync_settings_get() -> Result<gateway::models::PriceSyncSettings, String> {
     let db = aidog_ctx::db();
-    Ok(gateway::price_sync::get_sync_settings(&db).await)
+    Ok(gateway::price_sync::get_sync_settings(db).await)
 }
 }
 
 crate::tauri_command! {
 pub async fn price_sync_settings_set( settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
     let db = aidog_ctx::db();
-    gateway::price_sync::save_sync_settings(&db, &settings).await;
+    gateway::price_sync::save_sync_settings(db, &settings).await;
     Ok(())
 }
 }

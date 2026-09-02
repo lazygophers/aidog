@@ -49,7 +49,7 @@ aidog_core::tauri_command! {
         for p in parsed.providers {
             let name = resolve_name(&p);
             let input = map_to_create_input(p, group_id);
-            match db::create_cli_proxy_provider(&db, input).await {
+            match db::create_cli_proxy_provider(db, input).await {
                 Ok(provider) => {
                     tracing::info!(provider_id = provider.id, name = %provider.name, "cli_proxy_import created");
                     created.push(provider);

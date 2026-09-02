@@ -9,7 +9,7 @@ const CLIENT_TYPES_BUNDLED: &str = crate::gateway::client_types_const::BUNDLED;
 crate::tauri_command! {
     pub async fn get_defaults_json() -> Result<String, String> {
     let db = aidog_ctx::db();
-        aidog_db::presets_doc_json(&db).await
+        aidog_db::presets_doc_json(db).await
     }
 }
 

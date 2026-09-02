@@ -10,7 +10,7 @@ crate::tauri_command! {
 pub async fn model_entry_list( platform_code: Option<String>) -> Result<Vec<gateway::models::ModelEntry>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "model_entry_list", platform_code = ?platform_code, "command invoked");
-    aidog_db::list_model_entries(&db, platform_code.as_deref()).await
+    aidog_db::list_model_entries(db, platform_code.as_deref()).await
 }
 }
 
@@ -18,13 +18,13 @@ crate::tauri_command! {
 pub async fn model_entry_get( platform_code: String, model_id: String) -> Result<Option<gateway::models::ModelEntry>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "model_entry_get", platform_code = %platform_code, model_id = %model_id, "command invoked");
-    aidog_db::get_model_entry(&db, &platform_code, &model_id).await
+    aidog_db::get_model_entry(db, &platform_code, &model_id).await
 }
 }
 
 crate::tauri_command! {
 pub async fn model_info_snapshot() -> Result<gateway::models::ModelInfoSnapshot, String> {
     let db = aidog_ctx::db();
-    aidog_db::model_info_snapshot(&db).await
+    aidog_db::model_info_snapshot(db).await
 }
 }

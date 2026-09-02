@@ -13,7 +13,7 @@ pub async fn set_ui_extra(
     value: serde_json::Value) -> Result<(), String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "set_ui_extra", target = %target, id, key = %key, "command invoked");
-    db::update_extra_key(&db, &target, id, &key, value)
+    db::update_extra_key(db, &target, id, &key, value)
         .await
         .map_err(|e| {
             tracing::error!(command = "set_ui_extra", target = %target, id, error = %e, "update extra key failed");

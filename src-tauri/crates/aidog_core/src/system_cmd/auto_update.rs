@@ -15,7 +15,7 @@ pub(crate) async fn load_auto_update_enabled(db: &Db) -> bool {
 crate::tauri_command! {
     pub async fn get_auto_update_enabled() -> Result<bool, String> {
     let db = aidog_ctx::db();
-        Ok(load_auto_update_enabled(&db).await)
+        Ok(load_auto_update_enabled(db).await)
     }
 }
 
@@ -23,7 +23,7 @@ crate::tauri_command! {
     pub async fn set_auto_update_enabled(enabled: bool) -> Result<(), String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "set_auto_update_enabled", enabled, "command invoked");
-        db::set_setting(&db, SetSettingInput {
+        db::set_setting(db, SetSettingInput {
             scope: "app".to_string(),
             key: "auto_update_enabled".to_string(),
             value: serde_json::Value::Bool(enabled),

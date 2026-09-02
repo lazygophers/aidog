@@ -9,7 +9,7 @@ crate::tauri_command! {
 pub async fn proxy_log_list( limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "proxy_log_list", limit, offset, "command invoked");
-    aidog_logs::list_proxy_logs(&db, limit, offset).await
+    aidog_logs::list_proxy_logs(db, limit, offset).await
 }
 }
 
@@ -20,7 +20,7 @@ pub async fn proxy_log_list_filtered(
     offset: u32) -> Result<ProxyLogPage, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "proxy_log_list_filtered", limit, offset, "command invoked");
-    aidog_logs::filtered_list_proxy_logs(&db, &filter, limit, offset).await
+    aidog_logs::filtered_list_proxy_logs(db, &filter, limit, offset).await
 }
 }
 
@@ -34,7 +34,7 @@ pub async fn proxy_log_distinct_models(
     limit: u32) -> Result<Vec<String>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "proxy_log_distinct_models", actual, limit, "command invoked");
-    aidog_logs::distinct_models_proxy_log(&db, &filter, actual, limit).await
+    aidog_logs::distinct_models_proxy_log(db, &filter, actual, limit).await
 }
 }
 
@@ -42,7 +42,7 @@ crate::tauri_command! {
 pub async fn proxy_log_count_filtered(
     filter: ProxyLogFilter) -> Result<u32, String> {
     let db = aidog_ctx::db();
-    aidog_logs::filtered_count_proxy_logs(&db, &filter).await
+    aidog_logs::filtered_count_proxy_logs(db, &filter).await
 }
 }
 
@@ -56,7 +56,7 @@ pub async fn request_log_list(
     offset: u32) -> Result<Vec<RequestLogSummary>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "request_log_list", limit, offset, "command invoked");
-    aidog_logs::list_request_logs(&db, &filter, limit, offset).await
+    aidog_logs::list_request_logs(db, &filter, limit, offset).await
 }
 }
 
@@ -64,21 +64,21 @@ crate::tauri_command! {
 pub async fn proxy_log_get(id: String) -> Result<Option<ProxyLog>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "proxy_log_get", id = %id, "command invoked");
-    aidog_logs::get_proxy_log(&db, &id).await
+    aidog_logs::get_proxy_log(db, &id).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_clear() -> Result<(), String> {
     let db = aidog_ctx::db();
-    aidog_logs::clear_proxy_logs(&db).await
+    aidog_logs::clear_proxy_logs(db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_count() -> Result<u32, String> {
     let db = aidog_ctx::db();
-    aidog_db::count_proxy_logs(&db).await
+    aidog_db::count_proxy_logs(db).await
 }
 }
 
@@ -86,7 +86,7 @@ crate::tauri_command! {
 pub async fn platform_usage_stats(platform_id: u64) -> Result<gateway::models::PlatformUsageStats, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "platform_usage_stats", platform_id, "command invoked");
-    aidog_stats::get_platform_usage_stats(&db, platform_id).await
+    aidog_stats::get_platform_usage_stats(db, platform_id).await
 }
 }
 
@@ -94,21 +94,21 @@ crate::tauri_command! {
 pub async fn group_usage_stats(group_key: String) -> Result<gateway::models::PlatformUsageStats, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "group_usage_stats", group_key = %group_key, "command invoked");
-    aidog_stats::get_group_usage_stats(&db, &group_key).await
+    aidog_stats::get_group_usage_stats(db, &group_key).await
 }
 }
 
 crate::tauri_command! {
 pub async fn all_group_usage_stats() -> Result<std::collections::HashMap<String, gateway::models::PlatformUsageStats>, String> {
     let db = aidog_ctx::db();
-    aidog_stats::get_all_group_usage_stats(&db).await
+    aidog_stats::get_all_group_usage_stats(db).await
 }
 }
 
 crate::tauri_command! {
 pub async fn all_platform_usage_stats() -> Result<std::collections::HashMap<u64, gateway::models::PlatformUsageStats>, String> {
     let db = aidog_ctx::db();
-    aidog_stats::platform_usage_stats_all(&db).await
+    aidog_stats::platform_usage_stats_all(db).await
 }
 }
 
@@ -116,14 +116,14 @@ crate::tauri_command! {
 pub async fn get_last_test_result(platform_id: u64) -> Result<Option<gateway::models::LastTestResult>, String> {
     let db = aidog_ctx::db();
     tracing::debug!(command = "get_last_test_result", platform_id, "command invoked");
-    aidog_stats::get_last_test_result(&db, platform_id).await
+    aidog_stats::get_last_test_result(db, platform_id).await
 }
 }
 
 crate::tauri_command! {
 pub async fn proxy_log_settings_get() -> Result<ProxyLogSettings, String> {
     let db = aidog_ctx::db();
-    let val = aidog_db::get_setting(&db, "proxy", "logging").await
+    let val = aidog_db::get_setting(db, "proxy", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -137,13 +137,13 @@ pub async fn proxy_log_settings_set( settings: ProxyLogSettings) -> Result<(), S
     let db = aidog_ctx::db();
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize log settings: {e}"))?;
-    aidog_db::set_setting(&db, gateway::models::SetSettingInput {
+    aidog_db::set_setting(db, gateway::models::SetSettingInput {
         scope: "proxy".into(),
         key: "logging".into(),
         value,
     }).await
         .map_err(|e| { tracing::error!(command = "proxy_log_settings_set", error = %e, "persist log settings failed"); e })?;
-    run_retention_cleanup(&db, &settings).await;
+    run_retention_cleanup(db, &settings).await;
     // 保留期变了 → 调度周期必须跟着变：唤醒清理循环重读设置重算周期，不必重启应用。
     wake_retention_scheduler();
     Ok(())
@@ -229,12 +229,12 @@ crate::tauri_command! {
 /// 复用 settings_set 的清理链（run_retention_cleanup）。
 pub async fn proxy_log_cleanup_expired() -> Result<(), String> {
     let db = aidog_ctx::db();
-    let settings: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
+    let settings: ProxyLogSettings = aidog_db::get_setting(db, "proxy", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
-    run_retention_cleanup(&db, &settings).await;
+    run_retention_cleanup(db, &settings).await;
     Ok(())
 }
 }
@@ -244,12 +244,12 @@ crate::tauri_command! {
 /// 口径按当前 ProxyLogSettings 的整行保留期，与 proxy_log_cleanup_expired 的删除谓词同源。
 pub async fn proxy_log_cleanup_estimate() -> Result<gateway::models::CleanupEstimate, String> {
     let db = aidog_ctx::db();
-    let settings: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
+    let settings: ProxyLogSettings = aidog_db::get_setting(db, "proxy", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
         .unwrap_or_default();
-    aidog_logs::estimate_cleanup(&db, settings.retention_days, settings.retention_unit).await
+    aidog_logs::estimate_cleanup(db, settings.retention_days, settings.retention_unit).await
 }
 }
 

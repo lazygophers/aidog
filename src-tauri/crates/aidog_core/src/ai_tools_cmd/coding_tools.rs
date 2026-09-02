@@ -94,7 +94,7 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
 crate::tauri_command! {
     pub async fn coding_tools_settings_get() -> Result<CodingToolsSettings, String> {
     let db = aidog_ctx::db();
-        let current = load_coding_tools_settings(&db).await;
+        let current = load_coding_tools_settings(db).await;
         Ok(current)
     }
 }
@@ -104,7 +104,7 @@ crate::tauri_command! {
         apply_to_claude_plugin: Option<bool>,
         skip_claude_onboarding: Option<bool>) -> Result<CodingToolsSettings, String> {
     let db = aidog_ctx::db();
-        let mut current = load_coding_tools_settings(&db).await;
+        let mut current = load_coding_tools_settings(db).await;
 
         // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
         // 不再静默 warn+返原值（旧实现致前端乐观翻转后被 setSettings(原值) 回滚 = 「开关点击无反应」）。
@@ -152,7 +152,7 @@ crate::tauri_command! {
 
         // 写回 DB。
         let value = serde_json::to_value(&current).map_err(|e| e.to_string())?;
-        db::set_setting(&db, SetSettingInput {
+        db::set_setting(db, SetSettingInput {
             scope: "global".to_string(),
             key: "coding_tools_settings".to_string(),
             value,

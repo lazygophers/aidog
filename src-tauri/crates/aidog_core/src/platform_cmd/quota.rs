@@ -13,7 +13,7 @@ pub async fn platform_query_quota(
     let q = gateway::quota::query_quota(Some(&Arc::new(db.clone())), &base_url, &api_key, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q).await;
+        persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -29,7 +29,7 @@ pub async fn platform_query_quota_newapi(
     let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(command = "platform_query_quota_newapi", platform_id = ?platform_id, success = q.success, "quota query result");
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q).await;
+        persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -46,7 +46,7 @@ pub async fn platform_query_quota_devin(
     let q = gateway::quota::query_quota_devin(Some(&Arc::new(db.clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(command = "platform_query_quota_devin", platform_id = ?platform_id, success = q.success, "quota query result");
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q).await;
+        persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
 }

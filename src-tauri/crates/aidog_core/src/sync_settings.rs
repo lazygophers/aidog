@@ -450,8 +450,8 @@ crate::tauri_command! {
 /// Tauri command — manual sync from UI
 pub async fn sync_group_settings() -> Result<Vec<String>, String> {
     let db = aidog_ctx::db();
-    let proxy_settings = load_proxy_settings(&db).await?;
-    do_sync_group_settings(&db, proxy_settings.port).await
+    let proxy_settings = load_proxy_settings(db).await?;
+    do_sync_group_settings(db, proxy_settings.port).await
         .map_err(|e| { tracing::error!(command = "sync_group_settings", error = %e, "sync group settings failed"); e })
 }
 }
@@ -462,7 +462,7 @@ crate::tauri_command! {
 /// 只列用户新增/改动。空/缺省 → 空数组（diff 降级为不排除，零回归）。
 pub async fn get_managed_paths() -> Result<Vec<String>, String> {
     let db = aidog_ctx::db();
-    let v = aidog_db::get_setting(&db, MANAGED_SCOPE, MANAGED_KEY).await?;
+    let v = aidog_db::get_setting(db, MANAGED_SCOPE, MANAGED_KEY).await?;
     Ok(v.and_then(|val| {
         val.as_array().map(|arr| {
             arr.iter()
