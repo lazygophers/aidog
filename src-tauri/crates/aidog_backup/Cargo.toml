@@ -9,7 +9,7 @@ license = { workspace = true }
 # 必须在**调用宏的 crate** 上声明（cfg 在展开处求值），并转发给 aidog_core。
 [features]
 default = ["desktop", "http"]
-desktop = ["aidog_core/desktop"]
+desktop = ["dep:tauri", "aidog_core/desktop"]
 http = ["aidog_core/http"]
 
 # aidog_backup：备份域（调度器 + 加密导出/导入命令，拆自 aidog_core::gateway::backup 与
@@ -25,6 +25,9 @@ aidog_ctx = { path = "../aidog_ctx" }
 tokio = { workspace = true }
 dirs = { workspace = true }
 aidog_notification = { path = "../aidog_notification" }
+# `desktop` 展开出的 `#[tauri::command]` 落在**本 crate**里，所以 tauri 必须是本 crate 的
+# 直接依赖；`http` 单形态（无头内核）下不链它。
+tauri = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
