@@ -33,15 +33,15 @@ pub struct PopoverData {
 }
 
 crate::tauri_command! {
-    pub async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<PopoverData, String> {
+    pub async fn popover_data(db: State<'_, Db>) -> Result<PopoverData, String> {
         // today_stats 先取（tray_layout 若含 today_usage item 复用同一份，消重复聚合），
         // 其余 4 个无依赖 await 并发（config / layout / platform_today / proxy settings）。
         let today_stats = aidog_stats::today_stats(&db).await?;
         let (config, layout, platform_today, settings) = tokio::join!(
             aidog_stats::get_popover_config(&db),
-            tray_layout_with_stats(&app, Some(&today_stats)),
+            tray_layout_with_stats(&db, Some(&today_stats)),
             aidog_stats::today_platform_stats(&db),
-            load_proxy_settings(&app),
+            load_proxy_settings(&db),
         );
         let config = config?;
         let platform_today = platform_today?;

@@ -41,8 +41,8 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
 }
 
 /// Helper: attempt sync, log errors but don't propagate
-pub async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
-    if let Ok(settings) = load_proxy_settings(app).await
+pub async fn try_sync_settings(db: &Db) {
+    if let Ok(settings) = load_proxy_settings(db).await
         && let Err(e) = do_sync_group_settings(db, settings.port).await
     {
         tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
@@ -450,10 +450,9 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 crate::tauri_command! {
 /// Tauri command — manual sync from UI
 pub async fn sync_group_settings(
-    app: tauri::AppHandle,
     db: State<'_, Db>,
 ) -> Result<Vec<String>, String> {
-    let proxy_settings = load_proxy_settings(&app).await?;
+    let proxy_settings = load_proxy_settings(&db).await?;
     do_sync_group_settings(&db, proxy_settings.port).await
         .map_err(|e| { tracing::error!(command = "sync_group_settings", error = %e, "sync group settings failed"); e })
 }

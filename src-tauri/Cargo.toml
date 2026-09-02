@@ -144,6 +144,7 @@ tauri = { version = "2", features = ["test"] }
 # C2 core-extract：gateway/shared/sync/hooks/tray_render/logging 全部下沉 aidog_core。
 # C3 c3-commands 4 批全下沉完毕：commands_* crate 层已清零，全部命令域均在 aidog_core 内。
 aidog_core = { path = "crates/aidog_core" }
+aidog_ctx = { path = "crates/aidog_ctx" }
 aidog_db = { path = "crates/aidog_db" }
 aidog_logs = { path = "crates/aidog_logs" }
 aidog_stats = { path = "crates/aidog_stats" }

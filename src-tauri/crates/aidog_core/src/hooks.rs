@@ -147,7 +147,6 @@ crate::tauri_command! {
     /// - `client="codex"`：把 `notify=[<complete 脚本>]` 注入 `~/.codex/config.toml`。
     /// 同时物化内置默认模板。`group` 入参用于 API 对称（Claude Code hooks 走基线对全分组生效）。
     pub async fn inject_hooks(
-        app: tauri::AppHandle,
         db: State<'_, Db>,
         group: String,
         client: String,
@@ -173,7 +172,7 @@ crate::tauri_command! {
                     key: "claude_code".to_string(),
                     value: config,
                 }).await?;
-                let port = load_proxy_settings(&app).await?.port;
+                let port = load_proxy_settings(&db).await?.port;
                 do_sync_group_settings(&db, port).await?;
             }
             aidog_hooks::HookClient::Codex => {
@@ -189,7 +188,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 一键移除通知 hook（strip）。client 同 inject_hooks。
     pub async fn remove_hooks(
-        app: tauri::AppHandle,
         db: State<'_, Db>,
         group: String,
         client: String,
@@ -201,7 +199,7 @@ crate::tauri_command! {
                 let Some(mut config) = aidog_db::get_setting(&db, "global", "claude_code").await
                     .ok().flatten().filter(|v| v.is_object()) else {
                     // 无基线配置 → 无 aidog hook 可清，re-sync 即可（settings 文件 strip 已生效）。
-                    let port = load_proxy_settings(&app).await?.port;
+                    let port = load_proxy_settings(&db).await?.port;
                     return do_sync_group_settings(&db, port).await.map(|_| ());
                 };
                 aidog_hooks::remove_claude_code_hooks(&mut config);
@@ -210,7 +208,7 @@ crate::tauri_command! {
                     key: "claude_code".to_string(),
                     value: config,
                 }).await?;
-                let port = load_proxy_settings(&app).await?.port;
+                let port = load_proxy_settings(&db).await?.port;
                 do_sync_group_settings(&db, port).await?;
             }
             aidog_hooks::HookClient::Codex => {
@@ -234,7 +232,6 @@ crate::tauri_command! {
     /// 设置「默认为所有分组注入通知 hook」总开关：写基线 `claude_code._aidog_hooks.enabled`，
     /// re-sync 物化（开=全分组 CC hooks + Codex notify；关=全移除）。
     pub async fn set_default_hooks_enabled(
-        app: tauri::AppHandle,
         db: State<'_, Db>,
         enabled: bool,
     ) -> Result<(), String> {
@@ -260,7 +257,7 @@ crate::tauri_command! {
         if enabled {
             seed_default_templates(&db).await?;
         }
-        let port = load_proxy_settings(&app).await?.port;
+        let port = load_proxy_settings(&db).await?.port;
         do_sync_group_settings(&db, port).await?;
         Ok(())
     }

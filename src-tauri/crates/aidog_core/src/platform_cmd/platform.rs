@@ -2,7 +2,7 @@ use crate::gateway;
 use crate::shared::*;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-use tauri::{Emitter, State};
+use tauri::State;
 
 pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
     let group_key = slugify(&format!("{}-auto", platform.name));
@@ -251,7 +251,6 @@ pub async fn platform_set_tray(
     tray_display: String,
     enabled: bool,
     db: State<'_, Db>,
-    app: tauri::AppHandle,
 ) -> Result<(), String> {
     tracing::debug!(command = "platform_set_tray", platform_id, tray_display = %tray_display, enabled, "command invoked");
     if enabled {
@@ -263,7 +262,7 @@ pub async fn platform_set_tray(
     }
     // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
     // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
-    let _ = app.emit("tray-refresh", ());
+    aidog_ctx::emit_unit("tray-refresh");
     Ok(())
 }
 }
@@ -280,13 +279,12 @@ crate::tauri_command! {
 pub async fn tray_config_set(
     config: TrayConfig,
     db: State<'_, Db>,
-    app: tauri::AppHandle,
 ) -> Result<(), String> {
     db::set_tray_config(&db, &config).await
         .map_err(|e| { tracing::error!(command = "tray_config_set", error = %e, "set_tray_config failed"); e })?;
     // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
     // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
-    let _ = app.emit("tray-refresh", ());
+    aidog_ctx::emit_unit("tray-refresh");
     Ok(())
 }
 }
