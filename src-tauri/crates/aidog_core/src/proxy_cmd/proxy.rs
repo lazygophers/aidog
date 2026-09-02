@@ -91,7 +91,7 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
         port: 9890,
         autostart: true,
         silent_launch: false,
-        bind_lan: true,
+        bind_lan: false,
     });
 
     // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
