@@ -192,7 +192,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     tracing::warn!("sync_settings_startup: Db state missing, skip");
                     return;
                 };
-                try_sync_settings(&handle, &db_state).await;
+                try_sync_settings(&db_state).await;
             }
             .instrument(span)
             .await
@@ -459,7 +459,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "proxy_start" => {
-                let settings = tauri::async_runtime::block_on(load_proxy_settings(app)).unwrap_or(
+                let settings = tauri::async_runtime::block_on(load_proxy_settings(aidog_ctx::db())).unwrap_or(
                     ProxySettings {
                         port: 9890,
                         autostart: true,
@@ -470,7 +470,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 let port = settings.port;
                 let app_handle = app.clone();
                 tauri::async_runtime::block_on(async move {
-                    if let Err(e) = proxy_start(port, app_handle.clone()).await {
+                    if let Err(e) = proxy_start(port).await {
                         tracing::error!(port, error = %e, "tray: proxy start failed");
                         // 无前端窗口路径（托盘点启动同自启动，proxy-port-no-drift s3）：
                         // emit 结构化错误供 App.tsx 监听转系统通知（i18n 在前端做，
@@ -483,7 +483,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             }
             "proxy_stop" => {
                 tauri::async_runtime::block_on(async {
-                    if let Err(e) = proxy_stop(app.clone()).await {
+                    if let Err(e) = proxy_stop().await {
                         tracing::error!(error = %e, "tray: proxy stop failed");
                     }
                 });
@@ -566,12 +566,12 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     }
 
     // 自动启动代理
-    let settings = tauri::async_runtime::block_on(load_proxy_settings(app.handle()))?;
+    let settings = tauri::async_runtime::block_on(load_proxy_settings(aidog_ctx::db()))?;
     if settings.autostart {
         let port = settings.port;
         let handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = proxy_start(port, handle.clone()).await {
+            if let Err(e) = proxy_start(port).await {
                 tracing::error!(port, error = %e, "autostart: proxy start failed");
                 // 无前端窗口路径：emit 结构化错误供 App.tsx 监听转系统通知
                 // （proxy-port-no-drift s3，与托盘点启动分支同处理，见上）。

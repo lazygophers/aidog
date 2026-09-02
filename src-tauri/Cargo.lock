@@ -86,6 +86,7 @@ dependencies = [
  "aidog_backup",
  "aidog_cli_proxy",
  "aidog_core",
+ "aidog_ctx",
  "aidog_db",
  "aidog_logs",
  "aidog_mcp",
