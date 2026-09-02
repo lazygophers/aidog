@@ -232,6 +232,19 @@ pub async fn proxy_log_cleanup_expired(db: State<'_, Db>) -> Result<(), String> 
 }
 }
 
+crate::tauri_command! {
+/// 手动清理前的只读预估：超期行数 + 这些行 body 字节总和 + log.db 当前大小。
+/// 口径按当前 ProxyLogSettings 的整行保留期，与 proxy_log_cleanup_expired 的删除谓词同源。
+pub async fn proxy_log_cleanup_estimate(db: State<'_, Db>) -> Result<gateway::models::CleanupEstimate, String> {
+    let settings: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    aidog_logs::estimate_cleanup(&db, settings.retention_days, settings.retention_unit).await
+}
+}
+
 #[cfg(test)]
 #[path = "test_proxy_log.rs"]
 mod test_proxy_log;
