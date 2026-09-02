@@ -1,6 +1,6 @@
 // notification.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type { NotifType, NotificationSettings, Notification, NotifyHooksFragment, NotifyDispatchResult, HookClient } from "./types";
 
 export const notificationApi = {

@@ -2,7 +2,7 @@
 // 对齐 `commands_cli_proxy` crate 的 #[tauri::command] 函数名（snake_case）。
 // 域类型从 "./types" 取（barrel re-export 经 types.ts → part5.ts）。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type {
   CliProxyProvider,
   CreateCliProxyProvider,

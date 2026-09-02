@@ -13,6 +13,7 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
+import { isTauri } from "../../../services/transport";
 import {
   importExportApi,
   type ImportExportScope,
@@ -274,6 +275,10 @@ export function ImportExportTab() {
   useEffect(() => {
     let unlisten: (() => void) | undefined;
     let cancelled = false;
+    // 浏览器形态（票 09）没有 Tauri webview：`getCurrentWebview()` 会**同步**抛
+    // TypeError（读 `window.__TAURI_INTERNALS__.metadata`），effect 里抛出会把整棵
+    // React 树卸掉。这里直接跳过订阅 —— 原生拖入是桌面独有能力，浏览器里点按钮选文件。
+    if (!isTauri()) return;
     getCurrentWebview()
       .onDragDropEvent((event) => {
         const { type } = event.payload;
