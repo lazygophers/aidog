@@ -1,4 +1,13 @@
 {
+  "kernel.bindLan": "Acceso LAN a la interfaz de administración",
+  "kernel.bindLanDesc": "Permitir que otros dispositivos de la misma red local accedan a la interfaz de administración del núcleo (si está desactivado, solo 127.0.0.1 en este equipo)",
+  "kernel.bindLanSecurity": "La interfaz de administración expone los 210 comandos de administración: cambiar cualquier ajuste, leer todos los registros de solicitudes (incluidos los cuerpos de solicitud y respuesta) y ejecutar scripts. Al activarla, el núcleo escucha en 0.0.0.0 y solo se autentica con el token de acceso de abajo.",
+  "kernel.bindLanNotProxy": "Este no es el interruptor del puerto de reenvío del proxy. El acceso LAN para el reenvío se configura por separado en «Acceso LAN» más arriba; ambos son independientes.",
+  "kernel.bindLanRequiresAuth": "Establece primero un token de acceso y luego activa el acceso LAN a la interfaz de administración.",
+  "kernel.authToken": "Token de acceso a la interfaz de administración",
+  "kernel.authTokenDesc": "Se verifica como Authorization: Bearer <token> en las solicitudes de administración. Déjalo vacío para desactivar la verificación (entonces la interfaz solo será accesible desde este equipo).",
+  "kernel.authTokenPlaceholder": "Vacío = solo este equipo",
+  "kernel.saved": "Guardado",
   "modality.text2text": "Texto → Texto",
   "modality.text2image": "Texto → Imagen",
   "modality.text2video": "Texto → Vídeo",
