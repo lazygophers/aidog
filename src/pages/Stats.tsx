@@ -113,7 +113,7 @@ function ArrowDown({ size = 11, color = "currentColor" }: { size?: number; color
 // ── 排序 ──
 type SortKey =
   | "name" | "total_requests" | "success_count" | "input_tokens"
-  | "output_tokens" | "cache_tokens" | "avg_duration_ms" | "total_cost";
+  | "output_tokens" | "cache_tokens" | "cache_rate" | "avg_duration_ms" | "total_cost";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
@@ -587,6 +587,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                     <SortableTh label={t("stats.inputTokens", "输入")} col="input_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.outputTokens", "输出")} col="output_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.cacheTokens", "缓存")} col="cache_tokens" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
+                    <SortableTh label={t("stats.cacheRate", "缓存率")} col="cache_rate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.avgMs", "平均延迟")} col="avg_duration_ms" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                     <SortableTh label={t("stats.totalCost", "预估成本")} col="total_cost" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} />
                   </TableRow>
@@ -602,6 +603,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</TableCell>
+                        <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{d.cache_rate.toFixed(1)}%</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{d.avg_duration_ms.toFixed(0)} ms</TableCell>
                         <TableCell style={{ textAlign: "right", padding: "6px 8px", color: levelColor(costLevel(d.total_cost)) }}>${formatCost(d.total_cost)}</TableCell>
                       </TableRow>

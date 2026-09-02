@@ -303,6 +303,8 @@ fn query_stats_inner_agg(
                 .query_map(refs.as_slice(), |row| {
                     let pid: i64 = row.get(0).unwrap_or(0);
                     let req: i64 = row.get(1).unwrap_or(0);
+                    let input: i64 = row.get(3).unwrap_or(0);
+                    let cache: i64 = row.get(5).unwrap_or(0);
                     let sum_dur: i64 = row.get(6).unwrap_or(0);
                     Ok((
                         pid,
@@ -313,6 +315,11 @@ fn query_stats_inner_agg(
                             input_tokens: row.get(3).unwrap_or(0),
                             output_tokens: row.get(4).unwrap_or(0),
                             cache_tokens: row.get(5).unwrap_or(0),
+                            cache_rate: if input + cache > 0 {
+                                cache as f64 / (input + cache) as f64 * 100.0
+                            } else {
+                                0.0
+                            },
                             avg_duration_ms: if req > 0 {
                                 sum_dur as f64 / req as f64
                             } else {
@@ -350,6 +357,8 @@ fn query_stats_inner_agg(
                 .map_err(|e| e.to_string())?
                 .query_map(refs.as_slice(), |row| {
                     let req: i64 = row.get(1).unwrap_or(0);
+                    let input: i64 = row.get(3).unwrap_or(0);
+                    let cache: i64 = row.get(5).unwrap_or(0);
                     let sum_dur: i64 = row.get(6).unwrap_or(0);
                     Ok(DimensionEntry {
                         name: row.get(0).unwrap_or_default(),
@@ -358,6 +367,11 @@ fn query_stats_inner_agg(
                         input_tokens: row.get(3).unwrap_or(0),
                         output_tokens: row.get(4).unwrap_or(0),
                         cache_tokens: row.get(5).unwrap_or(0),
+                        cache_rate: if input + cache > 0 {
+                            cache as f64 / (input + cache) as f64 * 100.0
+                        } else {
+                            0.0
+                        },
                         avg_duration_ms: if req > 0 {
                             sum_dur as f64 / req as f64
                         } else {
@@ -680,6 +694,11 @@ pub(crate) fn query_stats_inner(
                     input_tokens: d.input,
                     output_tokens: d.output,
                     cache_tokens: d.cache,
+                    cache_rate: if d.input + d.cache > 0 {
+                        d.cache as f64 / (d.input + d.cache) as f64 * 100.0
+                    } else {
+                        0.0
+                    },
                     avg_duration_ms: if d.req > 0 {
                         d.dur as f64 / d.req as f64
                     } else {
@@ -697,6 +716,11 @@ pub(crate) fn query_stats_inner(
                     input_tokens: d.input,
                     output_tokens: d.output,
                     cache_tokens: d.cache,
+                    cache_rate: if d.input + d.cache > 0 {
+                        d.cache as f64 / (d.input + d.cache) as f64 * 100.0
+                    } else {
+                        0.0
+                    },
                     avg_duration_ms: if d.req > 0 {
                         d.dur as f64 / d.req as f64
                     } else {
