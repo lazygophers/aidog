@@ -36,15 +36,9 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     /// 触发单 protocol 后台 logo 同步（前端懒加载 miss 时调）。非阻塞 spawn，立即返。
-    pub async fn sync_protocol_logo(
-        app: tauri::AppHandle,
-        protocol: String,
-    ) -> Result<(), String> {
+    pub async fn sync_protocol_logo(protocol: String) -> Result<(), String> {
         tracing::debug!(command = "sync_protocol_logo", protocol = %protocol, "command invoked");
-        use tauri::Manager;
-        let db = app.try_state::<aidog_db::Db>()
-            .map(|s| std::sync::Arc::new(s.inner().clone()))
-            .ok_or("db not initialized")?;
+        let db = std::sync::Arc::new(aidog_ctx::db().clone());
         let dir = crate::shared::aidog_data_dir()?;
         tauri::async_runtime::spawn(async move {
             crate::gateway::logo_sync::sync_one_logo(db, dir, protocol).await;
