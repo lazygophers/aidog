@@ -184,6 +184,7 @@ name = "aidog_cli_proxy"
 version = "0.1.14"
 dependencies = [
  "aidog_core",
+ "aidog_ctx",
  "aidog_db",
  "flate2",
  "rusqlite",

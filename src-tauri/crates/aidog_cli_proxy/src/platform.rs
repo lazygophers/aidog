@@ -5,18 +5,16 @@
 //! 对齐 test_candidates.rs::mk_cli_proxy_platform idiom。
 
 use aidog_core::gateway::models::{CreatePlatform, Platform, Protocol};
-use aidog_db::{self as db, Db};
-use tauri::State;
+use aidog_db::{self as db};
 
 aidog_core::tauri_command! {
     /// 建 cli-proxy platform 行。extra 存 cli_proxy_provider_id 指向 provider 表。
     /// base_url/api_key 留空（由路由层从 provider 注入）。
     pub async fn create_cli_proxy_platform(
-        db: State<'_, Db>,
         provider_id: u64,
         name: Option<String>,
-        group_id: Option<i64>,
-    ) -> Result<Platform, String> {
+        group_id: Option<i64>) -> Result<Platform, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(
             command = "create_cli_proxy_platform",
             provider_id,

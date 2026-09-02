@@ -1,15 +1,12 @@
 use aidog_core::gateway;
-use aidog_db::Db;
-use tauri::State;
 
 aidog_core::tauri_command! {
     pub async fn export_to_file(
-        db: State<'_, Db>,
         scopes: Vec<String>,
         path: String,
         // selection: 逐项导出白名单（[scope, key] 对列表）；None = 全量导出（旧客户端兼容）。
-        selection: Option<Vec<(String, String)>>,
-    ) -> Result<(), String> {
+        selection: Option<Vec<(String, String)>>) -> Result<(), String> {
+    let db = aidog_ctx::db();
         tracing::debug!(
             command = "export_to_file",
             scopes = ?scopes,
@@ -32,9 +29,8 @@ aidog_core::tauri_command! {
     /// 导出预览：collect 指定 scope 全量 → 枚举可导出条目（与导入侧 ImportItem 同构），
     /// 供前端逐项勾选（默认全选）。无文件 IO、不加密。conflicts 恒空（导出无冲突语义）。
     pub async fn export_preview(
-        db: State<'_, Db>,
-        scopes: Vec<String>,
-    ) -> Result<gateway::import_export::ImportPreview, String> {
+        scopes: Vec<String>) -> Result<gateway::import_export::ImportPreview, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "export_preview", scopes = ?scopes, "command invoked");
         let payload = gateway::import_export::collect::collect(&db, &scopes).await?;
         let items = gateway::import_export::apply::export_items(&payload);
@@ -54,7 +50,8 @@ aidog_core::tauri_command! {
 
 aidog_core::tauri_command! {
     /// 读取定时备份设置 (缺省/解析失败 → 默认)。
-    pub async fn backup_settings_get(db: State<'_, Db>) -> Result<crate::BackupSettings, String> {
+    pub async fn backup_settings_get() -> Result<crate::BackupSettings, String> {
+    let db = aidog_ctx::db();
         Ok(crate::BackupSettings::load(&db).await.sanitized())
     }
 }
@@ -62,9 +59,8 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// 写入定时备份设置 (前端勾选/改间隔/改保留天数)。
     pub async fn backup_settings_set(
-        db: State<'_, Db>,
-        settings: crate::BackupSettings,
-    ) -> Result<crate::BackupSettings, String> {
+        settings: crate::BackupSettings) -> Result<crate::BackupSettings, String> {
+    let db = aidog_ctx::db();
         // 宏只匹配 `arg: ty` 形参（无 mut）；body 内补 let mut 重绑定，行为等价。
         let mut settings = settings;
         // 走过此命令 (UI 保存入口) = 用户手动确认, 强制标记为当前版本;
@@ -78,7 +74,8 @@ aidog_core::tauri_command! {
 
 aidog_core::tauri_command! {
     /// 立即触发一次备份 (忽略 throttle; 失败返回 error, 前端 toast)。
-    pub async fn backup_run_now(db: State<'_, Db>) -> Result<crate::BackupResult, String> {
+    pub async fn backup_run_now() -> Result<crate::BackupResult, String> {
+    let db = aidog_ctx::db();
         let ts = chrono::Utc::now().timestamp_millis();
         match crate::run_backup(&db).await {
             Ok(path) => Ok(crate::BackupResult {
@@ -102,7 +99,8 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// 全量 VACUUM 压缩数据库到最小。设置页「立即压缩数据库」按钮入口。
     /// 锁库期间代理写请求排队（busy_timeout 兜底），前端有警示。
-    pub async fn db_compact(db: State<'_, Db>) -> Result<aidog_db::CompactResult, String> {
+    pub async fn db_compact() -> Result<aidog_db::CompactResult, String> {
+    let db = aidog_ctx::db();
         aidog_db::compact_database(&db).await
     }
 }
@@ -110,9 +108,8 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// 导入预览：读文件 → 解密 → 校验 → 扫描冲突，返回前端弹窗所需信息。
     pub async fn import_read_file(
-        db: State<'_, Db>,
-        path: String,
-    ) -> Result<gateway::import_export::ImportPreview, String> {
+        path: String) -> Result<gateway::import_export::ImportPreview, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "import_read_file", path = %path, "command invoked");
         let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
         gateway::import_export::apply::preview(&bytes, &db).await
@@ -122,12 +119,11 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// 导入应用：按用户决策写入 db + 文件 + skills。
     pub async fn import_apply(
-        db: State<'_, Db>,
         path: String,
         decisions: Vec<gateway::import_export::ConflictDecision>,
         // selection: 选中条目白名单（[scope, key] 对列表）；None = 导入全部（旧客户端兼容）。
-        selection: Option<Vec<(String, String)>>,
-    ) -> Result<gateway::import_export::ImportReport, String> {
+        selection: Option<Vec<(String, String)>>) -> Result<gateway::import_export::ImportReport, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(
             command = "import_apply",
             path = %path,
@@ -156,9 +152,8 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// cc-switch 导入：读取 providers（仅 claude + codex），返回原始 DTO。
     pub async fn ccswitch_read(
-        db: State<'_, Db>,
-        path: Option<String>,
-    ) -> Result<gateway::import_export::CcswitchReadResult, String> {
+        path: Option<String>) -> Result<gateway::import_export::CcswitchReadResult, String> {
+    let db = aidog_ctx::db();
         gateway::import_export::ccswitch::read(&db, path).await
     }
 }
@@ -166,11 +161,10 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// cc-switch 导入：接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。
     pub async fn ccswitch_import(
-        db: State<'_, Db>,
         platform_payload: Vec<serde_json::Value>,
         decisions: Vec<gateway::import_export::ConflictDecision>,
-        auto_group: bool,
-    ) -> Result<gateway::import_export::ImportReport, String> {
+        auto_group: bool) -> Result<gateway::import_export::ImportReport, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(
             command = "ccswitch_import",
             payload_count = platform_payload.len(),
@@ -205,11 +199,10 @@ aidog_core::tauri_command! {
     /// sub2api 导入：接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入；
     /// auto_group=true 时关联 `sub2api` 分组。
     pub async fn sub2api_import(
-        db: State<'_, Db>,
         platform_payload: Vec<serde_json::Value>,
         decisions: Vec<gateway::import_export::ConflictDecision>,
-        auto_group: bool,
-    ) -> Result<gateway::import_export::ImportReport, String> {
+        auto_group: bool) -> Result<gateway::import_export::ImportReport, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(
             command = "sub2api_import",
             payload_count = platform_payload.len(),
