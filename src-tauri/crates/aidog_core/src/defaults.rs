@@ -38,7 +38,7 @@ crate::tauri_command! {
         tracing::debug!(command = "sync_protocol_logo", protocol = %protocol, "command invoked");
         let db = std::sync::Arc::new(aidog_ctx::db().clone());
         let dir = crate::shared::aidog_data_dir()?;
-        tauri::async_runtime::spawn(async move {
+        tokio::spawn(async move {
             crate::gateway::logo_sync::sync_one_logo(db, dir, protocol).await;
         });
         Ok(())

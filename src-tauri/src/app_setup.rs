@@ -252,8 +252,10 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         );
     }
 
-    // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
-    aidog_backup::spawn_scheduler();
+    // 定时备份调度器 (常驻 loop, 启动首次检查补「关机错过」)。
+    // 票 08：loop 本体挪进 aidog_backup::scheduler_loop（裸 async，不再自带 spawn），
+    // spawn 由外壳做 —— 这里仍是 tauri::async_runtime，行为与之前一字不差。
+    tauri::async_runtime::spawn(aidog_backup::scheduler_loop());
 
     // Protocol logo 后台批量同步：启动时预热 `~/.aidog/logos/<protocol>.png`，
     // 三路 fallback（simpleicons → favicon → clearbit），缓存命中跳过，不阻塞启动。

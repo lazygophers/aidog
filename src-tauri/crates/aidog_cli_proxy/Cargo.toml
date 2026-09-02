@@ -24,7 +24,6 @@ serde_yaml = { workspace = true }
 rusqlite = { workspace = true }
 tracing = { workspace = true }
 aidog_ctx = { path = "../aidog_ctx" }
-tauri = { workspace = true }
 zip = { workspace = true }
 tar = { workspace = true }
 flate2 = { workspace = true }
