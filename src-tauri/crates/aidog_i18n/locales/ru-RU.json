@@ -2878,5 +2878,11 @@
   "jsonEditor.format": "Форматировать",
   "jsonEditor.searchHint": "Ctrl/⌘+F поиск, Ctrl/⌘+Alt+F замена",
   "platform.window_timezone": "Часовой пояс",
-  "platform.window_timezone_utc_default": "UTC (по умолчанию)"
+  "platform.window_timezone_utc_default": "UTC (по умолчанию)",
+  "pathPicker.openHint": "В браузере нет системного диалога выбора файлов — введите путь вручную (~/ для домашней папки, Tab для автодополнения).",
+  "pathPicker.saveHint": "В браузере нет системного диалога «Сохранить как» — введите полный путь для записи.",
+  "importExport.dropUnsupportedInBrowser": "Перетаскивание в браузере не даёт полный путь — нажмите здесь и введите путь к файлу .aidogx.",
+  "importExport.pickHintBrowser": "Нажмите и введите полный путь к .aidogx (с автодополнением) · авторасшифровка · навыки ставятся автоматически",
+  "settings.backup.copyPath": "Скопировать путь к резервной копии",
+  "about.updateDesktopOnly": "В браузере обновления не проверяются — обновляйте ядро на машине, где оно запущено"
 }

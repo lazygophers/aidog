@@ -7,7 +7,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { revealItemInDir, canRevealItemInDir } from "../../../services/platform";
 import { backupApi, type BackupSettings, type BackupResult } from "../../../services/api";
 import { SectionHeader } from "./primitives";
 import { pad } from "../../../utils/formatters";
@@ -209,7 +209,11 @@ export function ScheduledBackupSection() {
                   background: "transparent", color: "var(--text-secondary)",
                 }}
               >
-                {t("settings.backup.reveal", "在文件夹显示")}
+                {/* 票 10：浏览器沙箱里打不开本机文件管理器，这里退化成「复制路径」，
+                    文案跟着换 —— 按钮说「在文件夹显示」却只复制了路径，那是骗人。 */}
+                {canRevealItemInDir()
+                  ? t("settings.backup.reveal", "在文件夹显示")
+                  : t("settings.backup.copyPath", "复制备份路径")}
               </Button>
             )}
           </div>

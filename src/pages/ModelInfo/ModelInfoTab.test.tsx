@@ -19,8 +19,9 @@ vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolLabelMap: vi.fn().mockResolvedValue({ glm: "智谱 GLM", openrouter: "OpenRouter" }),
 }));
 
+// 票 10：复制统一走 services/platform（按 Tauri / 浏览器分流），mock 换到那一层。
 const writeText = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText }));
+vi.mock("../../services/platform", () => ({ writeText }));
 
 // ProtocolLogo 内部走 get_protocol_logo_path IPC + colorMap，测试里换成哑元
 vi.mock("../../domains/platforms/ProtocolLogo", () => ({

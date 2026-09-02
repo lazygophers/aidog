@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickPath } from "../../services/pathPicker";
 import {
   skillsApi,
   type SkillAgent,
@@ -199,12 +199,11 @@ export function useSkillsData() {
 
   const pickProjectDir = async () => {
     try {
-      const selected = await open({
+      const selected = await pickPath({
         directory: true,
-        multiple: false,
         title: t("skills.chooseProjectDir", "选择项目目录"),
       });
-      if (typeof selected === "string") setProjectPath(selected);
+      if (selected) setProjectPath(selected);
     } catch {
       // user cancelled
     }

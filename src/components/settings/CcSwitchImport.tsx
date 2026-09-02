@@ -11,7 +11,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickPath } from "../../services/pathPicker";
 import {
   ccswitchApi,
   platformApi,
@@ -135,8 +135,8 @@ export function CcSwitchImportSection({
   };
 
   const handlePickDir = async () => {
-    const picked = await open({ directory: true, multiple: false });
-    if (picked && typeof picked === "string") {
+    const picked = await pickPath({ directory: true });
+    if (picked) {
       await handleDetect(picked);
     }
   };

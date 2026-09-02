@@ -28,6 +28,8 @@ tauri-plugin-autostart = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+# logo 缓存文件 → data: URL（浏览器形态没有 asset:// 协议，见 defaults.rs）。
+base64 = "0.22"
 aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 aidog_i18n = { path = "../aidog_i18n" }

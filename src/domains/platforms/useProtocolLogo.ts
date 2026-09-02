@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "../../services/transport";
 import type { Protocol } from "../../services/api";
 import { getProtocolLogoPath, syncProtocolLogo } from "../../services/api";
 
@@ -26,7 +27,15 @@ export function useProtocolLogo(protocol: Protocol): {
         const path = await getProtocolLogoPath(protocol);
         if (cancelled) return;
         if (path) {
-          setLogoSrc(convertFileSrc(path));
+          // 票 10：`convertFileSrc` 出的是 Tauri 的 `asset://` URL，浏览器里没有这个协议。
+          // 浏览器形态改问后端要同一个文件的 data: URL（`get_protocol_logo_data_url`）。
+          if (isTauri()) {
+            setLogoSrc(convertFileSrc(path));
+          } else {
+            const dataUrl = await invoke<string>("get_protocol_logo_data_url", { protocol });
+            if (cancelled) return;
+            setLogoSrc(dataUrl || null);
+          }
         } else {
           // 缓存 miss：触发后台同步，本会话不等待（下次 mount 命中）
           syncProtocolLogo(protocol).catch((e) =>

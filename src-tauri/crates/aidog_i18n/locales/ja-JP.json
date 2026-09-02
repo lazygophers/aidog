@@ -2878,5 +2878,11 @@
   "jsonEditor.format": "整形",
   "jsonEditor.searchHint": "Ctrl/⌘+F で検索、Ctrl/⌘+Alt+F で置換",
   "platform.window_timezone": "タイムゾーン",
-  "platform.window_timezone_utc_default": "UTC（既定）"
+  "platform.window_timezone_utc_default": "UTC（既定）",
+  "pathPicker.openHint": "ブラウザーにはネイティブのファイルダイアログがありません。パスを直接入力してください（~/ でホームを参照、Tab で補完）。",
+  "pathPicker.saveHint": "ブラウザーにはネイティブの「保存先」ダイアログがありません。書き込む完全なパスを入力してください。",
+  "importExport.dropUnsupportedInBrowser": "ブラウザーへのドロップでは完全なパスが取得できません。ここをクリックして .aidogx のパスを入力してください。",
+  "importExport.pickHintBrowser": "クリックして .aidogx の完全なパスを入力（補完あり）· 自動復号 · Skill 自動インストール",
+  "settings.backup.copyPath": "バックアップのパスをコピー",
+  "about.updateDesktopOnly": "ブラウザーでは更新を確認しません。カーネルの更新は実行中のマシンで行ってください"
 }

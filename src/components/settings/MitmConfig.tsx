@@ -3,7 +3,8 @@
 //
 // 流程（design.md D1/D7/D8）：
 //   启用 MITM → 后端 ensure_root_ca 生成 CA → 写 ca.pem 到数据目录
-//   → 前端用 @tauri-apps/plugin-shell Command.create(name, args).execute() 装信任库
+//   → 前端调后端命令 mitm_install_ca 执行装信任库（票 10：原先走 @tauri-apps/plugin-shell，
+//     浏览器形态没有那个插件；命令串现在完全在后端，前端只拿 exit code）
 //     （OS 原生提权：macOS osascript admin / Windows UAC / Linux pkexec，零背景用户无需手敲 sudo）
 //   → exit=0 回写 ca_installed=true；非 0 / reject → classifyTrustError 分类（取消/密码错/无 agent/命令失败）
 //     + 弹窗给 manual_display 真实 sudo 命令 + 路径引导手动装（D8 兜底）
@@ -13,7 +14,6 @@
 import { useState, useEffect, useCallback } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Command } from "@tauri-apps/plugin-shell";
 import {
   mitmApi,
   type MitmStatus,
@@ -68,7 +68,7 @@ export function MitmConfigTab() {
   // 手动装命令兜底弹窗（D8）：shell execute 失败 / reject 时展示。
   const [manualInstall, setManualInstall] = useState<CaCommandSpec | null>(null);
   // 阶段A 诊断：存 execute() 的原始输出（code/stderr/stdout/signal），兜底弹窗里展示给用户复现。
-  const [installResult, setInstallResult] = useState<{ code: number | null; stderr: string; stdout: string; signal: number | null } | null>(null);
+  const [installResult, setInstallResult] = useState<{ code: number | null; stderr: string; stdout: string; program: string } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -102,21 +102,20 @@ export function MitmConfigTab() {
   const handleInstallCa = async () => {
     setBusy(true); setError(""); setManualInstall(null); setInstallResult(null);
     try {
+      // spec 只为兜底弹窗的「手动执行这条命令」文案；真正的执行在后端（票 10）。
       const spec = await mitmApi.installCaPrepare();
-      // tauri-plugin-shell：capability mitm-ca.json 按 name 限定（cmd 键），OS 原生提权包装（osascript/UAC/pkexec）。
-      const out = await Command.create(spec.name, spec.args).execute();
+      // 后端 mitm_install_ca：编译期固定的 OS 提权命令（osascript/UAC/pkexec），前端不再持有命令串。
+      const out = await mitmApi.installCa();
       const ok = out.code === 0;
-      // 阶段A 诊断：不论 ok 都打全字段（code/stderr/stdout/signal），定位 osascript 失败真实根因。
+      // 阶段A 诊断：不论 ok 都打全字段（code/stderr/stdout/program），定位 osascript 失败真实根因。
       console.error("[ca-install]", {
         ok,
         code: out.code,
         stderr: out.stderr,
         stdout: out.stdout,
-        signal: out.signal,
-        name: spec.name,
-        args: spec.args,
+        program: out.program,
       });
-      setInstallResult({ code: out.code, stderr: out.stderr, stdout: out.stdout, signal: out.signal });
+      setInstallResult({ code: out.code, stderr: out.stderr, stdout: out.stdout, program: out.program });
       await mitmApi.setCaInstalled(ok);
       if (!ok) {
         // 失败兜底（D8）：分类错误 + 给 manual_display 真实 sudo 命令引导手动装。
@@ -141,9 +140,9 @@ export function MitmConfigTab() {
       }
       await refresh();
     } catch (e) {
-      // 阶段A 诊断：打印完整 reject 原因（含 capability scope 错误 / 用户取消 sudo 等）。
+      // 阶段A 诊断：打印完整 reject 原因（后端起进程失败 / CA 写盘失败等）。
       console.error("[ca-install] reject", e);
-      // Command.create reject（capability 拒绝 / 用户取消 sudo）→ 兜底手动装。
+      // mitm_install_ca reject（起不了进程 / 写不了 ca.pem）→ 兜底手动装。
       // 阶段A 兜底：reject 的 e 可能无 message（空 reject）→ 也必给非空文案。
       setError(String(e) || "(reject 无 message)");
       try {
@@ -369,7 +368,7 @@ export function MitmConfigTab() {
                     fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
                     fontSize: 11, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-all",
                   }}>
-                    <div>exit={String(installResult.code)} signal={String(installResult.signal)}</div>
+                    <div>exit={String(installResult.code)} program={installResult.program}</div>
                     <div>stderr: {installResult.stderr || "(empty)"}</div>
                     <div>stdout: {installResult.stdout || "(empty)"}</div>
                   </div>
