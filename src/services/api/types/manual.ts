@@ -518,6 +518,19 @@ export interface ProxySettings {
 }
 
 /**
+ * 无界面内核**管理面**的监听设置（Rust `aidog_core::kernel_settings::KernelSettings`，票 08）。
+ *
+ * 注意与上面 `ProxySettings.bind_lan` 的区别：那个开放的是转发端口，这个开放的是管理接口
+ * （210 个命令，含改配置、读全部日志、执行脚本）。**两个开关互不读取**，前后端都一样。
+ * `auth_token` 为空 = 未配凭据，此时后端拒绝把 `bind_lan` 置为 true。
+ */
+export interface KernelSettings {
+  port: number;
+  bind_lan: boolean;
+  auth_token: string;
+}
+
+/**
  * proxy_start 失败时 invoke() 的 reject 值（Rust `ProxyStartError`，proxy_cmd/proxy.rs）。
  * `kind` 区分「端口占用」与「其他绑定失败」；`message` 是英文调试信息，禁直接展示给用户
  * （用户可见文案走 i18n，按 kind + port 拼模板，见 proxy-port-no-drift/design.md）。

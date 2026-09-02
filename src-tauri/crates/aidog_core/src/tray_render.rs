@@ -1,9 +1,13 @@
 use crate::gateway;
+#[cfg(feature = "desktop")]
 use crate::shared::*;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
+#[cfg(feature = "desktop")]
 use std::future::Future;
+#[cfg(feature = "desktop")]
 use std::pin::Pin;
+#[cfg(feature = "desktop")]
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 
 // TrayColumn / TrayLayout / TRAY_FONT_SIZE 数据类型 + build_tray_menu / tray_layout /
@@ -40,12 +44,13 @@ pub struct TrayLayout {
     pub gaps: Vec<Option<String>>,
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "desktop"))]
 pub const TRAY_FONT_SIZE: f64 = 9.0;
 
 /// UI 构造注入点：refresh_tray_menu 需要的 3 个 UI 辅助函数（build_tray_menu /
 /// tray_layout / tray_separator）由 commands::tray 层（root 过渡 → C8 commands-tray）
 /// 实现，避免 core 反向依赖 commands crate（循环）。
+#[cfg(feature = "desktop")]
 pub trait TrayMenuBuild: Sync {
     /// 构造菜单（proxy 状态 / quota 详情 / show+quit 项）。
     fn build_menu<'a>(
@@ -61,7 +66,7 @@ pub trait TrayMenuBuild: Sync {
     fn separator<'a>(&'a self) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "desktop"))]
 pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
     use objc2_app_kit::NSColor;
     match color.mode.as_str() {
@@ -98,7 +103,7 @@ pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2
 /// menuBarFont 近似等宽（CJK 全角约 1 字宽 = fontSize，ASCII 半角约 fontSize*0.6）。
 /// 精确测量文本渲染宽度：用 AppKit sizeWithAttributes 返回实际像素宽。
 /// 需要 MainThread（AppKit 要求），调用方已在主线程闭包内。
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "desktop"))]
 pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
@@ -129,7 +134,7 @@ pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
 ///     tab/换行字符用 follow 颜色（无 range:setAttributes，规避 utf16 偏移坑）。
 /// - 无 two_line 列 → **单行模式**：沿用 separator 横排拼接（无回归）。
 ///   整串套用同一 NSParagraphStyle（tabStops + 固定行高居中）+ baselineOffset 垂直居中。
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "desktop"))]
 pub(crate) fn set_tray_attributed_title(
     tray: &tauri::tray::TrayIcon,
     columns: Vec<TrayColumn>,
@@ -401,6 +406,7 @@ pub(crate) fn set_tray_attributed_title(
     .map_err(|e| e.to_string())?
 }
 
+#[cfg(feature = "desktop")]
 pub async fn refresh_tray_menu(
     app: &tauri::AppHandle,
     builder: &dyn TrayMenuBuild,
@@ -470,8 +476,10 @@ pub async fn refresh_tray_menu(
 /// build_tray_menu / tray_layout / tray_separator（同 crate 合并后无需再跨 crate 注入，
 /// 保留 trait 间接层是纯搬运选择）。root aidog crate（app_setup）经
 /// `aidog_core::tray_render::TrayMenuBuildImpl` 路径引用（C3 c3-commands 迁入）。
+#[cfg(feature = "desktop")]
 pub struct TrayMenuBuildImpl;
 
+#[cfg(feature = "desktop")]
 impl TrayMenuBuild for TrayMenuBuildImpl {
     fn build_menu<'a>(
         &'a self,
@@ -636,6 +644,7 @@ pub(crate) async fn tray_layout_with_stats(
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
+#[cfg(feature = "desktop")]
 pub(crate) async fn tray_separator(db: &Db) -> String {
     if let Ok(Some(config)) = db::get_tray_config(db).await {
         return config.separator;
@@ -643,11 +652,13 @@ pub(crate) async fn tray_separator(db: &Db) -> String {
     default_separator_str()
 }
 
+#[cfg(feature = "desktop")]
 pub(crate) fn default_separator_str() -> String {
     "  ".to_string()
 }
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
+#[cfg(feature = "desktop")]
 pub(crate) async fn tray_quota_text(db: &Db) -> Option<String> {
     let layout = tray_layout(db).await;
     if layout.columns.is_empty() {
@@ -669,6 +680,7 @@ pub(crate) async fn tray_quota_text(db: &Db) -> Option<String> {
     Some(texts.join(&default_sep))
 }
 
+#[cfg(feature = "desktop")]
 pub async fn build_tray_menu(
     app: &tauri::AppHandle,
 ) -> Result<tauri::menu::Menu<tauri::Wry>, String> {

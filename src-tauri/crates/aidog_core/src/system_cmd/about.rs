@@ -16,7 +16,18 @@ crate::tauri_command! {
 pub fn about_info() -> AboutInfo {
     AboutInfo {
         app_version: env!("CARGO_PKG_VERSION").to_string(),
-        tauri_version: tauri::VERSION.to_string(),
+        // 票 08：无界面内核不链 tauri（`desktop` feature 关），此时该字段为 "headless" ——
+        // 关于页只在桌面壳展示，Web 形态下显示的是内核实际形态，不编造一个版本号。
+        tauri_version: {
+            #[cfg(feature = "desktop")]
+            {
+                tauri::VERSION.to_string()
+            }
+            #[cfg(not(feature = "desktop"))]
+            {
+                "headless".to_string()
+            }
+        },
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
         family: std::env::consts::FAMILY.to_string(),
