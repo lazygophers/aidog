@@ -112,6 +112,7 @@ pub struct DimensionEntry {
     pub output_tokens: i64,
     #[ts(type = "number")]
     pub cache_tokens: i64,
+    pub cache_rate: f64,
     pub avg_duration_ms: f64,
     pub total_cost: f64,
 }

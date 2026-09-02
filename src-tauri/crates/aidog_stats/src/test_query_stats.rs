@@ -43,6 +43,40 @@ async fn query_stats_platform_dim_and_filter() {
     println!("dim entries = {}", res.dimension_data.len());
 }
 
+#[tokio::test]
+async fn dimension_cache_rate_matches_input_plus_cache_tokens() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+
+    let mut a = sample_log("cache-dim-a", "g1", now);
+    a.actual_model = "cache-rate-model".into();
+    a.input_tokens = 30;
+    a.cache_tokens = 10;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    for granularity in ["daily", "minute"] {
+        let q = StatsQuery {
+            start: Some(now - 3_600_000),
+            end: Some(now + 3_600_000),
+            granularity: Some(granularity.into()),
+            group_by: Some("model".into()),
+            filter_group: None,
+            filter_model: None,
+            filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        let dim = res
+            .dimension_data
+            .iter()
+            .find(|d| d.name == "cache-rate-model")
+            .expect("cache-rate-model dimension");
+        assert!((dim.cache_rate - 25.0).abs() < 1e-9, "{granularity}: {dim:?}");
+    }
+}
+
 /// 批量 `query_stats_batch` 必须逐项等于逐卡 `query_stats`（同 query 同结果，顺序对齐）。
 /// 覆盖浮窗各卡参数组合：overall/platform/group × today(hourly)/7d(daily)。
 #[tokio::test]
