@@ -17,7 +17,6 @@ async fn start_proxy_fails_fast_when_port_occupied() {
     let err = start_proxy(
         db,
         occupied_port,
-        None,
         Arc::new(MiddlewareEngine::new()),
         false,
     )
@@ -55,7 +54,6 @@ async fn start_proxy_never_rewrites_port_setting_on_failure() {
     let result = start_proxy(
         db.clone(),
         occupied_port,
-        None,
         Arc::new(MiddlewareEngine::new()),
         false,
     )

@@ -316,12 +316,9 @@ pub(crate) async fn process_upsert(
 /// ——emit/托盘重建频次降至请求量的 6/45 ≈ 13.3%（降幅 86.7%）。`is_terminal_log` 的 gate
 /// 语义见下方 `emit_gate_pass_rate_across_request_lifecycle` 测试（用真实 `is_terminal_log`
 /// 判定逐条计数，避免跨测试共享 static 计数器在默认并行 `cargo test` 下的 flaky 风险）。
-fn emit_log_events(state: &Arc<ProxyState>, platform_id: u64) {
-    if let Some(app) = &state.app {
-        use tauri::Emitter;
-        let _ = app.emit("proxy-log-updated", platform_id);
-        let _ = app.emit("tray-refresh", ());
-    }
+fn emit_log_events(_state: &Arc<ProxyState>, platform_id: u64) {
+    aidog_ctx::emit("proxy-log-updated", platform_id.into());
+    aidog_ctx::emit_unit("tray-refresh");
 }
 
 /// 移除某请求 id 的列快照（终态写入后调用，防止 in-flight 快照 map 无限增长）。
@@ -398,7 +395,6 @@ pub(crate) fn spawn_estimate(
     }
     let ptype = platform_type.wire_str();
     let db = state.db.clone();
-    let app = state.app.clone();
     tokio::spawn(
         async move {
             super::estimate::estimate_after_request(
@@ -416,10 +412,7 @@ pub(crate) fn spawn_estimate(
             )
             .await;
             // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）
-            if let Some(app) = app {
-                use tauri::Emitter;
-                let _ = app.emit("tray-refresh", ());
-            }
+            aidog_ctx::emit_unit("tray-refresh");
         }
         .instrument(span),
     );

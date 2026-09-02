@@ -390,13 +390,12 @@ dependencies = [
 name = "aidog_notification"
 version = "0.1.14"
 dependencies = [
+ "aidog_ctx",
  "aidog_db",
  "aidog_stats",
  "chrono",
  "serde",
  "serde_json",
- "tauri",
- "tauri-plugin-notification",
  "tempfile",
  "tokio",
  "tracing",

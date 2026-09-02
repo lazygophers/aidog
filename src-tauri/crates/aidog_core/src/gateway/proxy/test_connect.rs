@@ -15,7 +15,6 @@ async fn make_state() -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
@@ -76,7 +75,6 @@ async fn upsert_connect_log_writes_http_connect_row() {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(aidog_middleware::MiddlewareEngine::default()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
@@ -464,7 +462,6 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
@@ -580,7 +577,6 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
@@ -768,7 +764,6 @@ async fn connect_failure_records_breaker_fail_count() {
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
@@ -845,7 +840,6 @@ async fn connect_failure_sets_platform_last_error() {
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),

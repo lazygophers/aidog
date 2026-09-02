@@ -97,7 +97,6 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
     let proxy_handle = gateway::proxy::start_proxy(
         proxy_db,
         port,
-        Some(app.clone()),
         middleware,
         saved.bind_lan,
     )
