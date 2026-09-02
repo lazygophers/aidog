@@ -1,12 +1,12 @@
 use crate::gateway;
 use crate::shared::*;
 use crate::sync_settings::{do_sync_group_settings, try_sync_settings};
-use aidog_db::{self as db, Db};
+use aidog_db::{self as db};
 use gateway::models::*;
-use tauri::State;
 
 crate::tauri_command! {
-pub async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+pub async fn group_create(input: CreateGroup) -> Result<Group, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_create", name = %input.name, "command invoked");
     // group_key 校验：用户提供时只允许 [A-Za-z0-9_-] 且非空；None 则 db.rs 自动生成。
     if let Some(gk) = &input.group_key {
@@ -16,43 +16,47 @@ pub async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::App
         }
     }
     // name 保持原样支持任意 Unicode（含中文），group_key 由 db.rs 自动生成或用户提供
-    let result = db::create_group(&db, input).await
+    let result = db::create_group(db, input).await
         .map_err(|e| { tracing::error!(command = "group_create", error = %e, "create group failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(result)
 }
 }
 
 crate::tauri_command! {
-pub async fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
-    db::list_groups(&db).await
+pub async fn group_list() -> Result<Vec<Group>, String> {
+    let db = aidog_ctx::db();
+    db::list_groups(db).await
 }
 }
 
 crate::tauri_command! {
-pub async fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
+pub async fn group_get(id: u64) -> Result<Option<Group>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_get", id, "command invoked");
-    db::get_group(&db, id).await
+    db::get_group(db, id).await
 }
 }
 
 crate::tauri_command! {
-pub async fn group_update(input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+pub async fn group_update(input: UpdateGroup) -> Result<Group, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_update", id = input.id, "command invoked");
     // name 保持原样支持任意 Unicode（含中文），不转换
-    let result = db::update_group(&db, input).await
+    let result = db::update_group(db, input).await
         .map_err(|e| { tracing::error!(command = "group_update", error = %e, "update group failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(result)
 }
 }
 
 crate::tauri_command! {
-pub async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn group_delete(id: u64) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_delete", id, "command invoked");
-    db::delete_group(&db, id).await
+    db::delete_group(db, id).await
         .map_err(|e| { tracing::error!(command = "group_delete", id, error = %e, "delete group failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(())
 }
 }
@@ -60,55 +64,59 @@ pub async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> 
 // ─── GroupPlatform Commands ────────────────────────────────
 
 crate::tauri_command! {
-pub async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn group_set_platforms(input: SetGroupPlatforms) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_set_platforms", group_id = input.group_id, count = input.platforms.len(), "command invoked");
-    db::set_group_platforms(&db, input.group_id, &input.platforms).await
+    db::set_group_platforms(db, input.group_id, &input.platforms).await
         .map_err(|e| { tracing::error!(command = "group_set_platforms", group_id = input.group_id, error = %e, "set_group_platforms failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(())
 }
 }
 
 crate::tauri_command! {
 pub async fn group_get_platforms(
-    group_id: u64,
-    db: State<'_, Db>,
-) -> Result<Vec<GroupPlatformDetail>, String> {
+    group_id: u64) -> Result<Vec<GroupPlatformDetail>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_get_platforms", group_id, "command invoked");
-    db::get_group_platforms(&db, group_id).await
+    db::get_group_platforms(db, group_id).await
 }
 }
 
 // ─── Aggregate ─────────────────────────────────────────────
 
 crate::tauri_command! {
-pub async fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
+pub async fn group_detail(id: u64) -> Result<Option<GroupDetail>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_detail", id, "command invoked");
-    db::get_group_detail(&db, id).await
+    db::get_group_detail(db, id).await
 }
 }
 
 crate::tauri_command! {
-pub async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
-    db::list_group_details(&db).await
+pub async fn group_detail_list() -> Result<Vec<GroupDetail>, String> {
+    let db = aidog_ctx::db();
+    db::list_group_details(db).await
 }
 }
 
 crate::tauri_command! {
 /// 分页取分组详情（前端触底加载）。offset/limit 为页窗（camelCase invoke）；
 /// 越界返回空 Vec，前端据此停止加载。后端无 JOIN（单表 group_platform + 内存补 platform）。
-pub async fn group_detail_list_paged(offset: u64, limit: u64, db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
+pub async fn group_detail_list_paged(offset: u64, limit: u64) -> Result<Vec<GroupDetail>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_detail_list_paged", offset, limit, "command invoked");
-    db::list_group_details_paged(&db, offset, limit).await
+    db::list_group_details_paged(db, offset, limit).await
 }
 }
 
 crate::tauri_command! {
-pub async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+pub async fn group_reorder(ordered_ids: Vec<u64>) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_reorder", count = ordered_ids.len(), "command invoked");
-    db::reorder_groups(&db, &ordered_ids).await
+    db::reorder_groups(db, &ordered_ids).await
         .map_err(|e| { tracing::error!(command = "group_reorder", error = %e, "reorder groups failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(())
 }
 }
@@ -116,14 +124,12 @@ pub async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri:
 crate::tauri_command! {
 pub async fn group_platform_reorder(
     group_id: u64,
-    ordered_ids: Vec<u64>,
-    db: State<'_, Db>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
+    ordered_ids: Vec<u64>) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_platform_reorder", group_id, count = ordered_ids.len(), "command invoked");
-    db::reorder_group_platforms(&db, group_id, &ordered_ids).await
+    db::reorder_group_platforms(db, group_id, &ordered_ids).await
         .map_err(|e| { tracing::error!(command = "group_platform_reorder", error = %e, "reorder group platforms failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(())
 }
 }
@@ -132,14 +138,12 @@ crate::tauri_command! {
 pub async fn group_platform_set_level_priority(
     group_id: u64,
     platform_id: u64,
-    level_priority: i32,
-    db: State<'_, Db>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
+    level_priority: i32) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_platform_set_level_priority", group_id, platform_id, level_priority, "command invoked");
-    db::set_group_platform_level_priority(&db, group_id, platform_id, level_priority).await
+    db::set_group_platform_level_priority(db, group_id, platform_id, level_priority).await
         .map_err(|e| { tracing::error!(command = "group_platform_set_level_priority", error = %e, "set level_priority failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(())
 }
 }
@@ -148,29 +152,25 @@ crate::tauri_command! {
 pub async fn group_platform_move(
     platform_id: u64,
     from_group_id: u64,
-    to_group_id: u64,
-    db: State<'_, Db>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
+    to_group_id: u64) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_platform_move", platform_id, from_group_id, to_group_id, "command invoked");
-    db::move_group_platform(&db, platform_id, from_group_id, to_group_id).await
+    db::move_group_platform(db, platform_id, from_group_id, to_group_id).await
         .map_err(|e| { tracing::error!(command = "group_platform_move", error = %e, "move group platform failed"); e })?;
-    try_sync_settings(&app, &db).await;
+    try_sync_settings(db).await;
     Ok(())
 }
 }
 
 crate::tauri_command! {
 pub async fn group_set_default(
-    id: Option<u64>,
-    app: tauri::AppHandle,
-    db: State<'_, Db>,
-) -> Result<(), String> {
+    id: Option<u64>) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "group_set_default", id, "command invoked");
-    db::set_default_group(&db, id).await
+    db::set_default_group(db, id).await
         .map_err(|e| { tracing::error!(command = "group_set_default", id, error = %e, "set default group failed"); e })?;
-    let port = load_proxy_settings(&app).await?.port;
-    do_sync_group_settings(&db, port).await
+    let port = load_proxy_settings(db).await?.port;
+    do_sync_group_settings(db, port).await
         .map(|_| ())
         .map_err(|e| { tracing::error!(command = "group_set_default", error = %e, "sync after set default failed"); e })
 }

@@ -16,6 +16,7 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 rusqlite = { workspace = true }
 tracing = { workspace = true }
+aidog_ctx = { path = "../aidog_ctx" }
 tauri = { workspace = true }
 zip = { workspace = true }
 tar = { workspace = true }

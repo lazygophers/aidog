@@ -14,15 +14,9 @@ async fn start_proxy_fails_fast_when_port_occupied() {
     let occupied_port = occupier.local_addr().unwrap().port();
 
     let db = Arc::new(test_db().await);
-    let err = start_proxy(
-        db,
-        occupied_port,
-        None,
-        Arc::new(MiddlewareEngine::new()),
-        false,
-    )
-    .await
-    .expect_err("端口被占用时 start_proxy 必须返回 Err，不再递增换端口");
+    let err = start_proxy(db, occupied_port, Arc::new(MiddlewareEngine::new()), false)
+        .await
+        .expect_err("端口被占用时 start_proxy 必须返回 Err，不再递增换端口");
 
     assert!(
         matches!(err, ProxyBindError::AddrInUse(p) if p == occupied_port),
@@ -55,7 +49,6 @@ async fn start_proxy_never_rewrites_port_setting_on_failure() {
     let result = start_proxy(
         db.clone(),
         occupied_port,
-        None,
         Arc::new(MiddlewareEngine::new()),
         false,
     )
