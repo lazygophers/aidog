@@ -90,7 +90,7 @@ pub async fn cold_start_init_tray_estimates() {
         }
     }
     for p in targets {
-        tauri::async_runtime::spawn(async move {
+        tokio::spawn(async move {
             let db = aidog_ctx::db();
             let db_arc = Arc::new(db.clone());
             // 统一脚本路径（quota-scripts T4）：query_quota 按平台行协议路由（物化列 →

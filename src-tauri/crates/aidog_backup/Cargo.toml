@@ -22,7 +22,6 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }
 aidog_ctx = { path = "../aidog_ctx" }
-tauri = { workspace = true }
 tokio = { workspace = true }
 dirs = { workspace = true }
 aidog_notification = { path = "../aidog_notification" }

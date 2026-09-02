@@ -24,11 +24,15 @@ pub use axum as __axum;
 #[cfg(feature = "http")]
 #[doc(hidden)]
 pub use serde_json as __serde_json;
-// 票 06：AppCtx 的桌面壳实现（唯一把 AppHandle 接进命令层的地方）。
 pub mod hooks;
 pub mod sync_settings;
+// 票 06：AppCtx 的桌面壳实现（唯一把 AppHandle 接进命令层的地方）。
+// 票 08：随 `desktop` feature 一起开关 —— 无界面内核不链 tauri，自带 `HeadlessCtx`。
+#[cfg(feature = "desktop")]
 pub mod tauri_ctx;
 pub mod tray_render;
+// 票 08：内核管理面设置（绑定开关 + Bearer 凭据）。与代理的 `bind_lan` 相互独立。
+pub mod kernel_settings;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
 pub mod popover;
 // C3 c3-commands 第 2 批：commands_cli_env / commands_config / commands_cli_proxy 下沉。
@@ -45,4 +49,6 @@ pub mod system_cmd;
 pub use aidog_db::Db;
 pub use gateway::models::SetSettingInput;
 pub use gateway::models::*;
-pub use tray_render::{TrayColumn, TrayLayout, TrayMenuBuild, refresh_tray_menu};
+pub use tray_render::{TrayColumn, TrayLayout};
+#[cfg(feature = "desktop")]
+pub use tray_render::{TrayMenuBuild, refresh_tray_menu};

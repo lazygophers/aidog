@@ -16,7 +16,7 @@
 mod cleanup;
 mod scheduler;
 
-pub use scheduler::{run_backup, spawn_scheduler};
+pub use scheduler::{run_backup, scheduler_loop};
 
 use aidog_db as db;
 use serde::{Deserialize, Serialize};
