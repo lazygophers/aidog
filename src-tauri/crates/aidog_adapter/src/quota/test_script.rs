@@ -14,6 +14,7 @@ fn outbound() -> Outbound {
     Outbound {
         client: reqwest::Client::new(),
         db: None,
+        platform_id: 0,
     }
 }
 
@@ -207,6 +208,27 @@ async fn script_outbound_uses_injected_client_and_persists_log() {
         .expect("成功出站须落 proxy_log");
     assert_eq!(hit.source_protocol, "quota");
     assert_eq!(hit.status_code, 200);
+}
+
+/// platform_id=0 表示脚本入口没有平台行；如果外层 query_quota 已有真实平台 ID，
+/// 不能被内层启发式脚本 scope 覆盖成 0，否则 Logs 详情页无法按 platform_id 显示品牌。
+#[tokio::test]
+async fn script_zero_platform_id_keeps_outer_platform_scope_for_log() {
+    let url = spawn_stub(200, r#"{"ok":true}"#).await;
+    let db = Arc::new(aidog_db::test_support::test_db().await);
+    let script = format!(r#"var r = http.get("{url}"); return {{ success: true }};"#);
+
+    let q = crate::quota::http::QUOTA_PLATFORM_ID
+        .scope(287, run_custom_query(Some(&db), qctx(), &script, 0))
+        .await;
+    assert!(q.success, "脚本须跑通本地 stub: {:?}", q.error);
+
+    let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
+    let hit = logs
+        .iter()
+        .find(|l| l.group_key == "[quota:script]")
+        .expect("成功出站须落 proxy_log");
+    assert_eq!(hit.platform_id, 287);
 }
 
 /// 非 2xx 出站同样落 proxy_log（upstream_status_code 原样），错误文案可被脚本 catch。

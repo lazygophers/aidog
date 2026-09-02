@@ -40,7 +40,7 @@ async fn run(script: &str, base_url: &str, extra: &str) -> crate::quota::Platfor
 
 #[tokio::test]
 async fn quota_script_log_has_non_empty_id() {
-    let log = make_quota_log_for_script("https://example.com/quota", 200, "{}");
+    let log = make_quota_log_for_script("https://example.com/quota", 200, "{}", 0);
     assert!(!log.id.is_empty());
     assert_eq!(log.group_key, "[quota:script]");
     assert_eq!(log.source_protocol, "quota");
