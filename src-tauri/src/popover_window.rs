@@ -47,16 +47,7 @@ pub(crate) fn open<R: Runtime>(app: &AppHandle<R>, pos: Option<(f64, f64)>) {
     .transparent(true)
     .always_on_top(true)
     .skip_taskbar(true)
-    .visible(false)
-    // 首次点击到面板可用的端到端延迟埋点：页面 load 完成 = HTML/JS 就绪、React 即将挂载。
-    .on_page_load(move |_w, payload| {
-        if matches!(payload.event(), tauri::webview::PageLoadEvent::Finished) {
-            tracing::info!(
-                elapsed_ms = t0.elapsed().as_secs_f64() * 1000.0,
-                "popover page load finished"
-            );
-        }
-    });
+    .visible(false);
     if let Some((x, y)) = pos {
         builder = builder.position(x, y);
     }
