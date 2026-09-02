@@ -849,6 +849,53 @@ pub fn cleanup_proxy_logs(
     }
 }
 
+/// 手动清理前的**只读**预估：超期行数 + 这些行的 body 字节总和 + log.db 当前大小。
+///
+/// 只读红线：全部 SQL 是 `SELECT` / `PRAGMA` 读，走 log.db 只读连接池
+/// （`call_read_proxy_log_traced`），不开写事务、不加写锁、不动一行数据。
+///
+/// 口径与 [`cleanup_proxy_logs`] 逐字同源（同一个 `retention_cutoff_secs` + 同一条
+/// `created_at < cutoff AND deleted_at = 0` 谓词），故 `overdue_rows` = 随后实际删除的行数。
+/// `value = 0`（永久保留）→ 两个超期数为 0，仍返回库大小。
+///
+/// body 字节用 `length(CAST(col AS BLOB))` 取**字节**而非字符数（body 是 UTF-8 JSON，
+/// 多字节字符下 `length()` 的字符口径会低估实际占用）。
+#[track_caller]
+pub fn estimate_cleanup(
+    db: &Db,
+    value: u32,
+    unit: RetentionUnit,
+) -> impl std::future::Future<Output = Result<CleanupEstimate, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let cutoff = retention_cutoff_secs(unit.secs(value));
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (overdue_rows, overdue_body_bytes) = match cutoff {
+                Some(cutoff) => conn.query_row(
+                    "SELECT COUNT(*), COALESCE(SUM(\
+                       length(CAST(request_body AS BLOB)) \
+                       + length(CAST(upstream_request_body AS BLOB)) \
+                       + length(CAST(response_body AS BLOB)) \
+                       + length(CAST(user_response_body AS BLOB))), 0) \
+                     FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
+                    params![cutoff],
+                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+                )?,
+                None => (0, 0),
+            };
+            let page_count: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
+            let page_size: i64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0))?;
+            Ok(CleanupEstimate {
+                overdue_rows,
+                overdue_body_bytes,
+                db_size_bytes: page_count * page_size,
+            })
+        })
+        .await
+        .map_err(|e| format!("estimate cleanup: {e}"))
+    }
+}
+
 /// 物理删除所有历史软删 tombstone（`deleted_at != 0`），回收 free pages。
 ///
 /// 迁移期（cleanup_proxy_logs 由软删改硬删）清积压 tombstone；日常可被
