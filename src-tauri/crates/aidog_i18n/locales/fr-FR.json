@@ -2878,5 +2878,11 @@
   "jsonEditor.format": "Formater",
   "jsonEditor.searchHint": "Ctrl/⌘+F rechercher, Ctrl/⌘+Alt+F remplacer",
   "platform.window_timezone": "Fuseau horaire",
-  "platform.window_timezone_utc_default": "UTC (défaut)"
+  "platform.window_timezone_utc_default": "UTC (défaut)",
+  "pathPicker.openHint": "Le navigateur n'a pas de boîte de dialogue de fichiers native — saisissez directement le chemin (~/ pour parcourir votre dossier personnel, Tab pour compléter).",
+  "pathPicker.saveHint": "Le navigateur n'a pas de boîte de dialogue « Enregistrer sous » — saisissez le chemin complet du fichier à écrire.",
+  "importExport.dropUnsupportedInBrowser": "Un glisser-déposer dans le navigateur ne fournit pas le chemin complet — cliquez ici et saisissez le chemin du fichier .aidogx.",
+  "importExport.pickHintBrowser": "Cliquez pour saisir le chemin complet du .aidogx (avec complétion) · déchiffrement auto · skills installés auto",
+  "settings.backup.copyPath": "Copier le chemin de la sauvegarde",
+  "about.updateDesktopOnly": "Pas de vérification des mises à jour dans le navigateur — mettez à jour le noyau sur la machine qui l'héberge"
 }

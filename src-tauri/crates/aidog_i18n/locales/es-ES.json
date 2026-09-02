@@ -2856,5 +2856,11 @@
   "jsonEditor.format": "Formatear",
   "jsonEditor.searchHint": "Ctrl/⌘+F buscar, Ctrl/⌘+Alt+F reemplazar",
   "platform.window_timezone": "Zona horaria",
-  "platform.window_timezone_utc_default": "UTC (predeterminado)"
+  "platform.window_timezone_utc_default": "UTC (predeterminado)",
+  "pathPicker.openHint": "El navegador no tiene diálogo de archivos nativo: escriba la ruta directamente (~/ para su carpeta personal, Tab para completar).",
+  "pathPicker.saveHint": "El navegador no tiene diálogo «Guardar como»: escriba la ruta completa de destino.",
+  "importExport.dropUnsupportedInBrowser": "Arrastrar en el navegador no da la ruta completa: haga clic aquí y escriba la ruta del archivo .aidogx.",
+  "importExport.pickHintBrowser": "Haga clic para escribir la ruta completa del .aidogx (con autocompletado) · descifrado automático · skills instaladas automáticamente",
+  "settings.backup.copyPath": "Copiar la ruta de la copia de seguridad",
+  "about.updateDesktopOnly": "En el navegador no se buscan actualizaciones: actualice el núcleo en la máquina donde se ejecuta"
 }

@@ -18,7 +18,8 @@ use std::sync::Arc;
 
 /// Logo 缓存子目录名（`~/.aidog/logos/`）。按真实格式存扩展名。
 const LOGOS_SUBDIR: &str = "logos";
-const LOGO_CACHE_EXTS: [&str; 5] = ["svg", "ico", "png", "jpg", "webp"];
+/// 票 10：`defaults.rs::logo_mime_for_ext` 必须覆盖这里的每一项（有测试盯着），故 pub(crate)。
+pub(crate) const LOGO_CACHE_EXTS: [&str; 5] = ["svg", "ico", "png", "jpg", "webp"];
 
 fn logo_cache_path_for_ext(app_data_dir: &Path, protocol_id: &str, ext: &str) -> PathBuf {
     app_data_dir

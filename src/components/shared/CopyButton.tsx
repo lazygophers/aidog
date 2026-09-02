@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { writeText } from "../../services/platform";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

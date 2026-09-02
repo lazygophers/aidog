@@ -5,7 +5,7 @@
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
+import { readText } from "../../services/platform";
 import {
   parsePlatformPaste,
   type PastePresetRef,

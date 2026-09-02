@@ -9,7 +9,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickPath } from "../../services/pathPicker";
 import {
   sub2apiApi,
   type Sub2ApiAccount,
@@ -89,11 +89,10 @@ export function Sub2ApiImportSection({
   const handlePickFile = async () => {
     setError("");
     try {
-      const picked = await open({
-        multiple: false,
+      const picked = await pickPath({
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
-      if (picked && typeof picked === "string") {
+      if (picked) {
         const text = await sub2apiApi.readFile(picked);
         setPasteText(text);
         await handleParseText(text);

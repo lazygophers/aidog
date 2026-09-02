@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { getVersion } from "@tauri-apps/api/app";
+import { getAppVersion } from "../../services/platform";
 import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolCompatGlobalApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings, type ProxyStartError, type RetentionUnit } from "../../services/api";
 
 /**
@@ -46,7 +46,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   });
 
   useEffect(() => {
-    getVersion().then(setAppVersion).catch(() => setAppVersion(""));
+    getAppVersion().then(setAppVersion).catch(() => setAppVersion(""));
   }, []);
 
   useEffect(() => {

@@ -169,6 +169,75 @@ pub async fn mitm_install_ca_prepare() -> Result<CaCommandSpec, String> {
 }
 }
 
+/// `mitm_install_ca` 的执行结果（与前端原先从 `Command.execute()` 拿到的形状对齐）。
+#[derive(Debug, Clone, Serialize)]
+pub struct CaInstallOutcome {
+    /// 进程退出码。被信号杀死时为 `None`。
+    pub code: Option<i32>,
+    pub stdout: String,
+    pub stderr: String,
+    /// 触发提权的真实程序路径（诊断用，前端弹窗展示）。
+    pub program: String,
+}
+
+crate::tauri_command! {
+/// **执行系统提权命令**把假根证书装进本机系统信任库。
+///
+/// ⚠️ 这个命令会真的动系统级信任配置，不是静默操作，读者请先看清楚它干什么：
+///
+/// 1. `ensure_root_ca` 取（必要时生成）AiDog 的假根 CA，把公钥证书写到 `~/.aidog/mitm-ca.pem`；
+/// 2. 按当前 OS 拼一条**固定的**提权命令（`aidog_mitm::ca::trust_ca_command`，参数只有上面那个
+///    PEM 路径，无任何用户输入参与拼串）：
+///    - macOS：`osascript -e 'do shell script "security add-trusted-cert -d -r trustRoot
+///      -k /Library/Keychains/System.keychain <pem>" with administrator privileges'`
+///    - Windows：`powershell -Command "Start-Process certutil -ArgumentList
+///      '-addstore','-f','Root','<pem>' -Verb RunAs -Wait -PassThru"`
+///    - Linux：`pkexec /bin/sh -c "cp <pem> /usr/local/share/ca-certificates/aidog-ca.crt
+///      && update-ca-certificates"`
+/// 3. 同步等它跑完，把 exit code / stdout / stderr 原样回传。
+///
+/// **影响**：成功后本机会信任 AiDog 签发的任何 HTTPS 证书，直到用户手动卸载
+/// （`mitm_uninstall_ca_prepare` 给的是卸载命令）。提权由 OS 自己弹框确认——用户不点同意，
+/// 这个命令什么也改不了。
+///
+/// **为什么下沉到后端**（票 10）：原先由前端 `@tauri-apps/plugin-shell` 执行，浏览器形态里
+/// 没有这个插件。收进后端后两种形态走同一条路，且命令串彻底脱离前端可控范围。
+///
+/// **安全边界**：本命令挂在管理面上（桌面 IPC + 内核 `/rpc`）。管理面默认只听 127.0.0.1；
+/// 开放到局域网需要先配鉴权凭据（票 08 的两道闸）。能调到这个命令的人 == 能改 aidog 全部配置的人，
+/// 但它仍需一次 OS 提权确认才会真的落地。
+pub async fn mitm_install_ca() -> Result<CaInstallOutcome, String> {
+    let db = aidog_ctx::db();
+    let ca = ensure_root_ca(db).await?;
+    let dir = aidog_data_dir()?;
+    let ca_pem_path = dir.join(CA_PEM_FILENAME);
+    std::fs::write(&ca_pem_path, &ca.cert_pem).map_err(|e| format!("write ca.pem: {e}"))?;
+
+    let (program, args, _manual) = trust_ca_command(&ca_pem_path.to_string_lossy());
+    tracing::warn!(
+        command = "mitm_install_ca",
+        program = %program,
+        "executing privileged system trust-store install"
+    );
+
+    let prog_for_spawn = program.clone();
+    // 提权弹框会阻塞到用户点掉，扔进阻塞线程池，别占住 async runtime。
+    let out = tokio::task::spawn_blocking(move || {
+        std::process::Command::new(&prog_for_spawn).args(&args).output()
+    })
+    .await
+    .map_err(|e| format!("join install task: {e}"))?
+    .map_err(|e| format!("spawn {program}: {e}"))?;
+
+    Ok(CaInstallOutcome {
+        code: out.status.code(),
+        stdout: String::from_utf8_lossy(&out.stdout).into_owned(),
+        stderr: String::from_utf8_lossy(&out.stderr).into_owned(),
+        program,
+    })
+}
+}
+
 crate::tauri_command! {
 /// 准备卸载信任库（ST9 实装 reverse 命令；当前提供 spec 供 UI 展示）。
 pub async fn mitm_uninstall_ca_prepare() -> Result<CaUninstallSpec, String> {
