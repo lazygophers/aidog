@@ -1,0 +1,64 @@
+; aidog 无界面内核的 systemd 示例单元（票 08）。
+;
+; 安装：
+;   sudo install -m 0755 aidog-kernel /usr/local/bin/aidog-kernel
+;   sudo install -m 0644 aidog-kernel.service /etc/systemd/system/aidog-kernel.service
+;   sudo systemctl daemon-reload && sudo systemctl enable --now aidog-kernel
+;   journalctl -u aidog-kernel -f          # 标准输出的日志
+;   tail -f /var/lib/aidog/.aidog/logs/*   # 文件日志（同一份内容）
+;
+; 默认这份是**纯内核**：只转发代理，不开任何 HTTP 管理面。要 Web 界面见文件末尾注释。
+
+[Unit]
+Description=aidog headless kernel
+Documentation=https://github.com/lyxamour/aidog
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# 专用非特权账号（先建：sudo useradd --system --home-dir /var/lib/aidog --create-home aidog）。
+User=aidog
+Group=aidog
+
+# 数据目录是 $HOME/.aidog（数据库、日志、脚本都在里面），所以 HOME 必须指对。
+Environment=HOME=/var/lib/aidog
+WorkingDirectory=/var/lib/aidog
+
+ExecStart=/usr/local/bin/aidog-kernel
+
+# 内核收到 SIGTERM 会正常退出（main.rs 的 wait_for_shutdown 显式监听）。
+KillSignal=SIGTERM
+TimeoutStopSec=20
+Restart=on-failure
+RestartSec=5
+
+# 日志：内核同时写标准输出与文件，这里把标准输出交给 journald。
+StandardOutput=journal
+StandardError=journal
+
+# 加固。注意 ProtectHome=true 会让 $HOME 不可写，所以用 ReadWritePaths 放行数据目录。
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+ReadWritePaths=/var/lib/aidog
+
+[Install]
+WantedBy=multi-user.target
+
+; ---------------------------------------------------------------------------
+; 要 Web 管理界面：把上面的 ExecStart 换成
+;
+;   ExecStart=/usr/local/bin/aidog-kernel --ui --ui-dir /usr/local/share/aidog/ui
+;
+; 管理面监听地址与端口来自数据库里的内核设置（默认 127.0.0.1:9891），不是命令行参数。
+;
+; ⚠️ 管理面开放的是全部管理命令（改任意配置、读全部请求日志、执行脚本）。
+;    要让局域网访问，必须**先**配好访问令牌，再打开内核绑定开关；令牌为空时内核会拒绝
+;    监听 0.0.0.0 并降级回 127.0.0.1（main.rs::management_bind_addr）。
+;    只想本机远程看界面，推荐别开绑定开关，改用 SSH 端口转发：
+;      ssh -N -L 9891:127.0.0.1:9891 aidog@<服务器>
