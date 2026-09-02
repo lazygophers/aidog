@@ -1,5 +1,6 @@
 //! 输出后端：系统弹窗、TTS 三后端、系统提示音。
 
+use aidog_ctx::AppCtx;
 use aidog_db::models::TtsBackend;
 
 /// 前端事件名：WebSpeech 后端播报请求（payload = 文本，前端 webview SpeechSynthesis 朗读）。
@@ -16,12 +17,10 @@ pub const NOTIF_SPEAK: &str = "notif-speak";
 /// 丢弃。运行期补救见前端通知设置页「打开系统通知设置」引导按钮（仅 macOS），以及
 /// 启动时的 request_permission（lib.rs setup）。
 ///
-/// 失败仅记日志，不阻塞调用方。
-pub fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
-    use tauri_plugin_notification::NotificationExt;
-    if let Err(e) = app.notification().builder().title(title).body(body).show() {
-        tracing::warn!(error = %e, "notify: popup show failed");
-    }
+/// 失败仅记日志，不阻塞调用方。票 06 起插件调用落在
+/// `aidog_core::tauri_ctx::TauriCtx::show_popup`，本 crate 只认 `AppCtx`。
+pub fn show_popup(ctx: &dyn AppCtx, title: &str, body: &str) {
+    ctx.show_popup(title, body);
 }
 
 /// TTS 播报：按后端分发。
@@ -29,14 +28,13 @@ pub fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
 ///   speak 为非阻塞触发，线程随即退出，平台 backend 自行排播）。
 /// - MacSay：std::process `say`（macOS only；其他平台退化为 CrossPlatform）。
 /// - WebSpeech：emit 事件给前端 webview，由 N3 webview SpeechSynthesis 朗读。
-pub fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
+pub fn speak(ctx: Option<&dyn AppCtx>, backend: TtsBackend, text: &str) {
     match backend {
         TtsBackend::WebSpeech => {
-            if let Some(app) = app {
-                use tauri::Emitter;
-                let _ = app.emit(NOTIF_SPEAK, text.to_string());
+            if let Some(ctx) = ctx {
+                ctx.speak_via_ui(text);
             } else {
-                tracing::debug!("notify: web_speech backend but no app handle, skip");
+                tracing::debug!("notify: web_speech backend but no app ctx, skip");
             }
         }
         TtsBackend::MacSay => {

@@ -205,7 +205,6 @@ fn flush_test_state(db: Arc<aidog_db::Db>) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db,
-        app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
         scheduler: Arc::new(super::super::scheduling::SchedulerState::new()),
         sticky: Arc::new(super::super::scheduling::StickyTable::new()),

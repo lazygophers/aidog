@@ -44,7 +44,6 @@ crate::tauri_command! {
 crate::tauri_command! {
     pub async fn notification_test(
         db: State<'_, Db>,
-        app: tauri::AppHandle,
         notif_type: String,
         content: Option<String>,
     ) -> Result<aidog_notification::DispatchResult, String> {
@@ -58,7 +57,7 @@ crate::tauri_command! {
         vars.insert("session".to_string(), "test-session".to_string());
         vars.insert("group".to_string(), "test".to_string());
         let db_arc = std::sync::Arc::new(db.inner().clone());
-        Ok(aidog_notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
+        Ok(aidog_notification::dispatch(&db_arc, aidog_ctx::try_ctx(), None, &notif_type, content.as_deref(), &vars).await)
     }
 }
 
@@ -66,12 +65,11 @@ crate::tauri_command! {
     /// 仅测 TTS 通道（绕过 dispatch，按当前 settings.tts_backend 播报 text）。
     pub async fn notification_test_tts(
         db: State<'_, Db>,
-        app: tauri::AppHandle,
         text: String,
     ) -> Result<(), String> {
         let db_arc = std::sync::Arc::new(db.inner().clone());
         let settings = aidog_db::get_notification_settings(&db_arc).await;
-        aidog_notification::speak(Some(&app), settings.tts_backend, &text);
+        aidog_notification::speak(aidog_ctx::try_ctx(), settings.tts_backend, &text);
         Ok(())
     }
 }
@@ -79,11 +77,10 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 仅测系统弹窗通道（绕过 dispatch，直接调 tauri-plugin-notification）。
     pub async fn notification_test_popup(
-        app: tauri::AppHandle,
         title: String,
         body: String,
     ) -> Result<(), String> {
-        aidog_notification::show_popup(&app, &title, &body);
+        aidog_notification::show_popup(aidog_ctx::ctx(), &title, &body);
         Ok(())
     }
 }

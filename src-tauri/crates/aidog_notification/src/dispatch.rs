@@ -6,12 +6,13 @@ use std::sync::Arc;
 use super::render::{BRAND_FALLBACK, DispatchResult, channels_for_form, default_title, render};
 use super::tts::{play_beep, show_popup, speak};
 use super::vars::substitute_vars_fill_empty;
+use aidog_ctx::AppCtx;
 use aidog_db::Db;
 use aidog_db::models::{NotifType, default_template_for_event};
 
 /// 核心分发入口。
 ///
-/// `app` 为可选 AppHandle（无头测试 / 端点未带 app 时为 None，则跳过 popup/sound/emit，仅落库）。
+/// `ctx` 为可选 [`AppCtx`]（无头测试 / 端点未带 ctx 时为 None，则跳过 popup/sound/emit，仅落库）。
 ///
 /// `event`（N2 hook 事件通知 — 逐事件自含路径）：
 /// - 存在且 `settings.per_event[event]` 命中且 `enabled` → **完全自含**，不经 notif_type/per_type/form：
@@ -24,7 +25,7 @@ use aidog_db::models::{NotifType, default_template_for_event};
 ///   （向后兼容，不破坏 Codex；未知 type → TaskComplete）。
 pub async fn dispatch(
     db: &Arc<Db>,
-    app: Option<&tauri::AppHandle>,
+    ctx: Option<&dyn AppCtx>,
     event: Option<&str>,
     type_str: &str,
     content: Option<&str>,
@@ -118,8 +119,8 @@ pub async fn dispatch(
             Err(e) => tracing::warn!(error = %e, "notify: insert inbox failed"),
         }
 
-        if do_popup && let Some(app) = app {
-            show_popup(app, &title, &body);
+        if do_popup && let Some(ctx) = ctx {
+            show_popup(ctx, &title, &body);
         }
         if do_tts {
             let speak_text = if body.is_empty() {
@@ -127,10 +128,10 @@ pub async fn dispatch(
             } else {
                 body.clone()
             };
-            speak(app, settings.tts_backend, &speak_text);
+            speak(ctx, settings.tts_backend, &speak_text);
         }
-        // event 路径 sound 为独立开关（不再跟随 popup）。无头测试 app=None 时跳过实际播音。
-        if do_sound && app.is_some() {
+        // event 路径 sound 为独立开关（不再跟随 popup）。无头测试 ctx=None 时跳过实际播音。
+        if do_sound && ctx.is_some() {
             play_beep();
         }
 
@@ -204,13 +205,13 @@ pub async fn dispatch(
     }
 
     // 弹窗：title 空（无 project 注入）时退化到类型默认名，避免空标题弹窗
-    if do_popup && let Some(app) = app {
+    if do_popup && let Some(ctx) = ctx {
         let popup_title = if title.is_empty() {
             default_title(notif_type)
         } else {
             title.as_str()
         };
-        show_popup(app, popup_title, &body);
+        show_popup(ctx, popup_title, &body);
     }
 
     // TTS（含 sound 语义：播报本身即声音；SoundOnly 无文本则播 title）
@@ -220,7 +221,7 @@ pub async fn dispatch(
         } else {
             body.clone()
         };
-        speak(app, settings.tts_backend, &speak_text);
+        speak(ctx, settings.tts_backend, &speak_text);
     }
     // SoundOnly 通道但未启用 TTS：仍走系统提示音（弹窗带声 / 单独提示音）。
     // tauri 弹窗自带系统提示音；SoundOnly 无弹窗时退化为 TTS（若关则静默）。

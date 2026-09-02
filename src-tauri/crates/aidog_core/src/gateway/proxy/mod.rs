@@ -146,9 +146,6 @@ pub struct ProxyState {
     /// 用 Arc<Db> 而非 Mutex<Db>：Db 内部已自带 Mutex<Connection>，
     /// Arc 便于克隆进后台预估 spawn（每次操作锁内自治，禁持锁跨 await）。
     pub db: Arc<Db>,
-    /// 可选 AppHandle：预估更新后 emit "tray-refresh" 事件让主线程刷新托盘。
-    /// 后台 spawn 不直接操作 tray（线程安全），改 emit 事件由主线程 setup 监听刷新。
-    pub app: Option<tauri::AppHandle>,
     /// 中间件规则引擎单例（与 lib.rs app.manage 的同一 Arc，C2/C3 入站/出站执行用）。
     pub middleware: Arc<MiddlewareEngine>,
     /// 调度器状态（per-platform 熔断 + 延迟 EMA + 在途计数，内存）。
@@ -275,7 +272,6 @@ impl std::fmt::Display for ProxyBindError {
 pub async fn start_proxy(
     db: Arc<Db>,
     port: u16,
-    app: Option<tauri::AppHandle>,
     middleware: Arc<MiddlewareEngine>,
     bind_lan: bool,
 ) -> Result<tokio::task::JoinHandle<()>, ProxyBindError> {
@@ -288,7 +284,6 @@ pub async fn start_proxy(
         register_settings_cache(&settings_cache);
         ProxyState {
             db,
-            app,
             middleware,
             scheduler: Arc::new(super::scheduling::SchedulerState::new()),
             sticky: Arc::new(super::scheduling::StickyTable::new()),

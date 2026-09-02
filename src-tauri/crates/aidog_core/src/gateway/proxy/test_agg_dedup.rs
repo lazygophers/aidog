@@ -8,7 +8,6 @@ async fn make_state() -> Arc<ProxyState> {
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(16);
     Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),

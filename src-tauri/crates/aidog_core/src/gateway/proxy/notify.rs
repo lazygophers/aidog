@@ -89,7 +89,7 @@ async fn handle_notify_inner(
 
     let result = aidog_notification::dispatch(
         &state.db,
-        state.app.as_ref(),
+        aidog_ctx::try_ctx(),
         req.event.as_deref(),
         &req.notif_type,
         req.content.as_deref(),
