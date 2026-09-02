@@ -16,7 +16,10 @@ http = ["aidog_core/http"]
 # 2026-08-16）。tauri commands 依赖 aidog_core 的 tauri_command! 宏与 quota/models。
 [dependencies]
 tempfile = { workspace = true }
-aidog_core = { path = "../aidog_core" }
+# 必须 default-features = false：aidog_core 的默认 features 含 desktop，会把 tauri →
+# wry/tao → gtk3 拉进无头内核的依赖图（headless Linux 上直接构建失败）。desktop 由本
+# crate 的同名 feature 转发。
+aidog_core = { path = "../aidog_core", default-features = false }
 aidog_db = { path = "../aidog_db" }
 serde = { workspace = true }
 serde_json = { workspace = true }
