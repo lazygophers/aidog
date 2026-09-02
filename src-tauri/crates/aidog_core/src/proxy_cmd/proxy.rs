@@ -67,7 +67,7 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
     };
 
     // 检查是否已运行
-    let handle = app.state::<ProxyHandle>();
+    let handle = aidog_ctx::ctx().proxy_handle();
     {
         let h = handle
             .0
@@ -135,7 +135,7 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
 
 crate::tauri_command! {
 pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
-    let handle = app.state::<ProxyHandle>();
+    let handle = aidog_ctx::ctx().proxy_handle();
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
         if let Some(jh) = h.take() {
@@ -151,8 +151,8 @@ pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 crate::tauri_command! {
-pub fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
-    let handle = app.state::<ProxyHandle>();
+pub fn proxy_status() -> Result<bool, String> {
+    let handle = aidog_ctx::ctx().proxy_handle();
     let h = handle.0.lock().map_err(|e| e.to_string())?;
     Ok(h.is_some())
 }
@@ -181,7 +181,7 @@ pub async fn proxy_set_bind_lan(app: tauri::AppHandle, enabled: bool) -> Result<
     save_proxy_settings(&app, current.port, current.autostart, current.silent_launch, enabled).await
         .map_err(|e| { tracing::error!(command = "proxy_set_bind_lan", error = %e, "persist proxy settings failed"); e })?;
     // 绑定地址只在 bind 时读取 → 若代理在跑，重启使新地址生效。
-    if proxy_status(app.clone())? {
+    if proxy_status()? {
         proxy_stop(app.clone()).await?;
         proxy_start(current.port, app.clone()).await?;
     }

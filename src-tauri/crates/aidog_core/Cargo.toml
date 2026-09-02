@@ -14,6 +14,7 @@ tauri-plugin-autostart = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
+aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 aidog_i18n = { path = "../aidog_i18n" }
 aidog_logs = { path = "../aidog_logs" }
