@@ -4,7 +4,6 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tauri::Manager;
 
 use super::cleanup::{backup_dir, cleanup_expired, now_millis, timestamp_name_fragment};
 use super::{ALL_SCOPES, BACKUP_EXT, BackupSettings};
@@ -76,18 +75,18 @@ async fn run_backup_inner(db: &Db) -> Result<PathBuf, String> {
 
 /// 启动常驻调度 loop: 每轮读 settings (即时生效), 到点 → maybe_backup。
 ///
-/// tick = min(interval, 60s), 平衡响应性与唤醒开销。app 生命周期内常驻。
-pub fn spawn_scheduler(app: tauri::AppHandle) {
+/// tick = min(interval, 60s), 平衡响应性与唤醒开销。进程生命周期内常驻。
+pub fn spawn_scheduler() {
     tauri::async_runtime::spawn(async move {
         // 启动不立即跑（用户要求「启动不做定时操作」）；先 sleep 一个 tick 再进入循环，
         // 周期触发照旧。关机错过的补偿交由周期内 maybe_backup 的到点判定自然吸收。
         loop {
-            let db = app.state::<Db>();
-            let s = BackupSettings::load(&db).await.sanitized();
+            let db = aidog_ctx::db();
+            let s = BackupSettings::load(db).await.sanitized();
             // 下一轮 tick: 不超过 60s, 不超过 interval。
             let tick_secs = (s.interval_hours * 3600).clamp(1, 60) as u64;
             tokio::time::sleep(Duration::from_secs(tick_secs)).await;
-            if let Err(e) = maybe_backup(&db).await {
+            if let Err(e) = maybe_backup(db).await {
                 tracing::warn!(error = %e, "backup: scheduler maybe_backup failed");
             }
         }

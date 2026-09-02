@@ -165,6 +165,7 @@ name = "aidog_backup"
 version = "0.1.14"
 dependencies = [
  "aidog_core",
+ "aidog_ctx",
  "aidog_db",
  "aidog_notification",
  "aidog_stats",

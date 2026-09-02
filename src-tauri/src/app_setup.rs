@@ -254,7 +254,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     }
 
     // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
-    aidog_backup::spawn_scheduler(app.handle().clone());
+    aidog_backup::spawn_scheduler();
 
     // Protocol logo 后台批量同步：启动时预热 `~/.aidog/logos/<protocol>.png`，
     // 三路 fallback（simpleicons → favicon → clearbit），缓存命中跳过，不阻塞启动。
@@ -584,14 +584,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
 
     // 冷启动 est 初始化：tray 平台从未真查（last_real_query_at==0）→ 后台真查对齐 est=真实。
     {
-        let handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
             use tracing::Instrument;
             let span =
                 tracing::info_span!("cold_start_init_tray", trace_id = %logging::new_trace_id());
-            cold_start_init_tray_estimates(&handle)
-                .instrument(span)
-                .await;
+            cold_start_init_tray_estimates().instrument(span).await;
         });
     }
 

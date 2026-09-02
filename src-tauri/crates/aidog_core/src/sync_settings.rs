@@ -5,7 +5,7 @@ use aidog_db::Db;
 use tauri::State;
 
 crate::tauri_command! {
-pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, String> {
+pub fn export_claude_config(port: u16) -> Result<String, String> {
     tracing::debug!(command = "export_claude_config", port, "command invoked");
     let base_url = format!("http://localhost:{}/claude/v1/messages", port);
     let config_path = dirs::home_dir()
