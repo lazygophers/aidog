@@ -47,7 +47,6 @@ async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),

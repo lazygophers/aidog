@@ -1,14 +1,12 @@
 use crate::shared::*;
 use crate::sync_settings::do_sync_group_settings;
-use aidog_middleware::MiddlewareEngine;
 // 托盘刷新经 Tauri event 解耦：emit "tray-refresh"，app crate setup() 内已有 listener
 // (app_setup.rs:395) 调 refresh_tray_menu + TrayMenuBuildImpl。复用现有事件 +
 // listener（同 proxy/log.rs:164 同域 precedent），避 commands_proxy → commands_platform
 // 跨 command 依赖 + 零新 wiring 代码。
 use crate::gateway;
-use aidog_db::{self as db, Db};
+use aidog_db as db;
 use std::sync::Arc;
-use tauri::{Emitter, Manager};
 
 /// proxy_start 命令的结构化错误（proxy-port-no-drift s2：区分「端口占用」与「其他绑定失败」，
 /// 供前端错误条 / s3 系统通知据此判别，禁靠字符串前缀匹配）。`message` 是英文调试信息，
@@ -58,7 +56,7 @@ impl From<ProxyStartError> for String {
 
 // 结构化错误类型走 tauri_command! 的兜底分支（不自动补 Err 日志，错误分支已手写）。
 crate::tauri_command! {
-pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, ProxyStartError> {
+pub async fn proxy_start(port: u16) -> Result<String, ProxyStartError> {
     tracing::debug!(command = "proxy_start", port, "command invoked");
     let other_err = |port: u16, message: String| ProxyStartError {
         kind: ProxyStartErrorKind::Other,
@@ -66,8 +64,10 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
         message,
     };
 
+    let ctx = aidog_ctx::ctx();
+
     // 检查是否已运行
-    let handle = app.state::<ProxyHandle>();
+    let handle = ctx.proxy_handle();
     {
         let h = handle
             .0
@@ -79,25 +79,24 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
         }
     }
 
-    // 复用主 Db 实例（app.manage 在 app_setup 注入，含 proxy_log / stats_agg 独立 handle +
+    // 复用主 Db 实例（AppCtx 持有的那一个，含 proxy_log / stats_agg 独立 handle +
     // 读池 + 进程内缓存）。禁独立 Db::new：会开第二条 log.db 写连接，与主实例争锁且
     // 绕过 proxy_log/settings 缓存，致数据不一致。clone 廉价（Arc 引用计数，共享同一后台线程）。
-    let proxy_db = std::sync::Arc::new(app.state::<Db>().inner().clone());
+    let proxy_db = std::sync::Arc::new(ctx.db().clone());
 
     // 读取绑定模式（0.0.0.0 LAN / 127.0.0.1 本机）；地址只在 bind 时读取一次。
-    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings {
+    let saved = load_proxy_settings(ctx.db()).await.unwrap_or(ProxySettings {
         port: 9890,
         autostart: true,
         silent_launch: false,
         bind_lan: false,
     });
 
-    // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
-    let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();
+    // 复用 setup 阶段建的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
+    let middleware = ctx.middleware().clone();
     let proxy_handle = gateway::proxy::start_proxy(
         proxy_db,
         port,
-        Some(app.clone()),
         middleware,
         saved.bind_lan,
     )
@@ -119,14 +118,12 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
     // 端口是用户设定值，不是启动流程的输出 —— 不回写设置（proxy-port-no-drift 根因 2）。
 
     // 同步所有分组的 settings 文件
-    if let Some(db) = app.try_state::<Db>()
-        && let Err(e) = do_sync_group_settings(&db, port).await
-    {
+    if let Err(e) = do_sync_group_settings(ctx.db(), port).await {
         tracing::warn!(command = "proxy_start", port, error = %e, "sync group settings after start failed");
     }
 
-    // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
-    let _ = app.emit("tray-refresh", ());
+    // 通知桌面壳刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs）
+    ctx.emit("tray-refresh", serde_json::Value::Null);
 
     tracing::info!(command = "proxy_start", port, "proxy started");
     Ok(format!("proxy started on port {port}"))
@@ -134,8 +131,8 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
 }
 
 crate::tauri_command! {
-pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
-    let handle = app.state::<ProxyHandle>();
+pub async fn proxy_stop() -> Result<(), String> {
+    let handle = aidog_ctx::ctx().proxy_handle();
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
         if let Some(jh) = h.take() {
@@ -143,85 +140,73 @@ pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
         }
     }
 
-    // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
-    let _ = app.emit("tray-refresh", ());
+    // 通知桌面壳刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs）
+    aidog_ctx::emit_unit("tray-refresh");
     tracing::info!(command = "proxy_stop", "proxy stopped");
     Ok(())
 }
 }
 
 crate::tauri_command! {
-pub fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
-    let handle = app.state::<ProxyHandle>();
+pub fn proxy_status() -> Result<bool, String> {
+    let handle = aidog_ctx::ctx().proxy_handle();
     let h = handle.0.lock().map_err(|e| e.to_string())?;
     Ok(h.is_some())
 }
 }
 
 crate::tauri_command! {
-pub async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
-    load_proxy_settings(&app).await
+pub async fn proxy_get_settings() -> Result<ProxySettings, String> {
+    load_proxy_settings(aidog_ctx::db()).await
 }
 }
 
 crate::tauri_command! {
-pub async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+pub async fn proxy_set_autostart(enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "proxy_set_autostart", enabled, "command invoked");
-    let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, enabled, current.silent_launch, current.bind_lan).await
+    let db = aidog_ctx::db();
+    let current = load_proxy_settings(db).await?;
+    save_proxy_settings(db, current.port, enabled, current.silent_launch, current.bind_lan).await
         .map_err(|e| { tracing::error!(command = "proxy_set_autostart", error = %e, "persist proxy settings failed"); e })?;
     Ok(())
 }
 }
 
 crate::tauri_command! {
-pub async fn proxy_set_bind_lan(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+pub async fn proxy_set_bind_lan(enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "proxy_set_bind_lan", enabled, "command invoked");
-    let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, current.autostart, current.silent_launch, enabled).await
+    let db = aidog_ctx::db();
+    let current = load_proxy_settings(db).await?;
+    save_proxy_settings(db, current.port, current.autostart, current.silent_launch, enabled).await
         .map_err(|e| { tracing::error!(command = "proxy_set_bind_lan", error = %e, "persist proxy settings failed"); e })?;
     // 绑定地址只在 bind 时读取 → 若代理在跑，重启使新地址生效。
-    if proxy_status(app.clone())? {
-        proxy_stop(app.clone()).await?;
-        proxy_start(current.port, app.clone()).await?;
+    if proxy_status()? {
+        proxy_stop().await?;
+        proxy_start(current.port).await?;
     }
     Ok(())
 }
 }
 
 crate::tauri_command! {
-pub fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+pub fn app_set_autolaunch(enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_autolaunch", enabled, "command invoked");
-    use tauri_plugin_autostart::ManagerExt;
-    let manager = app.autolaunch();
-    if enabled {
-        manager.enable().map_err(|e| {
-            tracing::error!(command = "app_set_autolaunch", error = %e, "enable autolaunch failed");
-            format!("enable autolaunch: {e}")
-        })?;
-    } else {
-        manager.disable().map_err(|e| { tracing::error!(command = "app_set_autolaunch", error = %e, "disable autolaunch failed"); format!("disable autolaunch: {e}") })?;
-    }
-    Ok(())
+    aidog_ctx::ctx().set_autolaunch(enabled)
 }
 }
 
 crate::tauri_command! {
-pub fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
-    use tauri_plugin_autostart::ManagerExt;
-    let manager = app.autolaunch();
-    manager.is_enabled().map_err(|e| {
-        tracing::warn!(command = "app_get_autolaunch", error = %e, "get autolaunch failed");
-        format!("get autolaunch: {e}")
-    })
+pub fn app_get_autolaunch() -> Result<bool, String> {
+    aidog_ctx::ctx().autolaunch_enabled()
 }
 }
 
 crate::tauri_command! {
-pub async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+pub async fn app_set_silent_launch(enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_silent_launch", enabled, "command invoked");
-    let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, current.autostart, enabled, current.bind_lan).await
+    let db = aidog_ctx::db();
+    let current = load_proxy_settings(db).await?;
+    save_proxy_settings(db, current.port, current.autostart, enabled, current.bind_lan).await
         .map_err(|e| { tracing::error!(command = "app_set_silent_launch", error = %e, "persist proxy settings failed"); e })?;
     Ok(())
 }
@@ -230,20 +215,15 @@ pub async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Resu
 // ─── Proxy Client Settings (upstream HTTP proxy) ─────────────
 
 crate::tauri_command! {
-pub async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
-    let db = app.try_state::<Db>()
-        .map(|s| s.inner().clone())
-        .ok_or_else(|| { tracing::error!(command = "proxy_client_get_settings", "db not initialized"); "db not initialized".to_string() })?;
-    let settings = gateway::http_client::load_proxy_client_settings(&Arc::new(db)).await;
-    Ok(settings)
+pub async fn proxy_client_get_settings() -> Result<gateway::models::ProxyClientSettings, String> {
+    let db = Arc::new(aidog_ctx::db().clone());
+    Ok(gateway::http_client::load_proxy_client_settings(&db).await)
 }
 }
 
 crate::tauri_command! {
-pub async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
-    let db = app.try_state::<Db>()
-        .map(|s| s.inner())
-        .ok_or_else(|| { tracing::error!(command = "proxy_client_set_settings", "db not initialized"); "db not initialized".to_string() })?;
+pub async fn proxy_client_set_settings(settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
+    let db = aidog_ctx::db();
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize proxy client settings: {e}"))?;
     db::set_setting(db, gateway::models::SetSettingInput {

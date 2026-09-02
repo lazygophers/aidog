@@ -2,7 +2,6 @@ use crate::gateway;
 use crate::shared::*;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-use tauri::{Emitter, State};
 
 pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
     let group_key = slugify(&format!("{}-auto", platform.name));
@@ -42,24 +41,25 @@ pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Resul
 }
 
 crate::tauri_command! {
-pub async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
+pub async fn platform_create(input: CreatePlatform) -> Result<Platform, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_create", name = %input.name, "command invoked");
     // 分组选项先捕获（input 随即 move 进 create_platform）。
     let auto_group = input.auto_group.unwrap_or(true);
     let join_group_ids = input.join_group_ids.clone().unwrap_or_default();
-    let platform = db::create_platform(&db, input).await
+    let platform = db::create_platform(db, input).await
         .map_err(|e| { tracing::error!(command = "platform_create", error = %e, "create platform failed"); e })?;
 
     // ① 创建默认分组（用户勾选；默认勾 = 旧行为）。
     if auto_group
-        && let Err(e) = create_auto_group_for(&db, &platform).await {
+        && let Err(e) = create_auto_group_for(db, &platform).await {
             tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed");
             return Err(e);
         }
 
     // ② 加入用户指定的已有分组（plain membership；sync 跳过 auto 组，对新平台即纯追加）。
     if !join_group_ids.is_empty()
-        && let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &join_group_ids).await {
+        && let Err(e) = db::sync_platform_manual_groups(db, platform.id, &join_group_ids).await {
             tracing::warn!(command = "platform_create", platform_id = platform.id, error = %e, "join groups failed");
         }
 
@@ -68,8 +68,9 @@ pub async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result
 }
 
 crate::tauri_command! {
-pub async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
-    let mut platforms = db::list_platforms(&db).await?;
+pub async fn platform_list() -> Result<Vec<Platform>, String> {
+    let db = aidog_ctx::db();
+    let mut platforms = db::list_platforms(db).await?;
     // 列表页余额按使用速率配色：per-platform 动态窗口日速率 → days_remaining → balance_level。
     // 阈值走 usage_color::balance_level（唯一源，不漂移）；无用量数据 → neutral（前端退中性）。
     for p in platforms.iter_mut() {
@@ -81,7 +82,7 @@ pub async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
             .map(gateway::manual_budget::remaining)
             .sum();
         let balance = p.est_balance_remaining.max(manual_total_remaining);
-        let days_remaining = match aidog_stats::get_platform_hourly_rate(&db, p.id).await {
+        let days_remaining = match aidog_stats::get_platform_hourly_rate(db, p.id).await {
             Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
             _ => None,
         };
@@ -92,9 +93,10 @@ pub async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
 }
 
 crate::tauri_command! {
-pub async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, String> {
+pub async fn platform_get(id: u64) -> Result<Option<Platform>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_get", id, "command invoked");
-    db::get_platform(&db, id).await
+    db::get_platform(db, id).await
 }
 }
 
@@ -127,9 +129,10 @@ crate::tauri_command! {
 /// 导出单平台的可分享数据对象（结构化对象）。
 /// 后端只返回干净的数据对象，格式转换（YAML / JSON / Base64）由前端负责，
 /// 避免后端把 YAML 引入序列化主路径。本地操作，不落 proxy_log。
-pub async fn platform_share_export(platform_id: u64, db: State<'_, Db>) -> Result<SharePlatform, String> {
+pub async fn platform_share_export(platform_id: u64) -> Result<SharePlatform, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_share_export", platform_id, "command invoked");
-    let p = match db::get_platform(&db, platform_id).await? {
+    let p = match db::get_platform(db, platform_id).await? {
         Some(p) => p,
         None => return Err(format!("platform {platform_id} not found")),
     };
@@ -163,18 +166,19 @@ pub async fn platform_share_parse(text: String) -> Result<SharePlatform, String>
 }
 
 crate::tauri_command! {
-pub async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
+pub async fn platform_update(input: UpdatePlatform) -> Result<Platform, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_update", id = input.id, "command invoked");
     // 分组选项先捕获（input 随即 move 进 update_platform）。
     let join_group_ids = input.join_group_ids.clone();
-    let platform = db::update_platform(&db, input).await
+    let platform = db::update_platform(db, input).await
         .map_err(|e| { tracing::error!(command = "platform_update", error = %e, "update platform failed"); e })?;
 
     // 自动建默认分组是「创建时一次性判断」（见 platform_create），编辑平台不再触发建组/拆组对账。
 
     // join_group_ids：全量同步手动组成员关系（auto 组不动；None=不改）。
     if let Some(ids) = join_group_ids
-        && let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &ids).await {
+        && let Err(e) = db::sync_platform_manual_groups(db, platform.id, &ids).await {
             tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "sync manual groups failed");
         }
 
@@ -183,9 +187,10 @@ pub async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result
 }
 
 crate::tauri_command! {
-pub async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
+pub async fn platform_delete(id: u64) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_delete", id, "command invoked");
-    db::delete_platform(&db, id).await
+    db::delete_platform(db, id).await
         .map_err(|e| { tracing::error!(command = "platform_delete", id, error = %e, "delete platform failed"); e })
 }
 }
@@ -196,11 +201,10 @@ crate::tauri_command! {
 /// - `group_id = <gid>`：分组级，独占本分组的永久删除，共享（属多分组）的仅从本分组移除关联。
 /// 返回 { deletedIds, unassignedIds }。
 pub async fn platform_purge_disabled(
-    group_id: Option<u64>,
-    db: State<'_, Db>,
-) -> Result<db::PurgeResult, String> {
+    group_id: Option<u64>) -> Result<db::PurgeResult, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_purge_disabled", ?group_id, "command invoked");
-    db::purge_auto_disabled_platforms(&db, group_id).await.map_err(|e| {
+    db::purge_auto_disabled_platforms(db, group_id).await.map_err(|e| {
         tracing::error!(command = "platform_purge_disabled", ?group_id, error = %e, "purge disabled platforms failed");
         e
     })
@@ -212,11 +216,10 @@ crate::tauri_command! {
 /// 候选集与 `platform_purge_disabled` 共用同一筛选条件（`db::find_purge_candidates`），
 /// 保证弹窗展示与实际删除一致，杜绝「弹窗列 3 个实际删 5 个」。
 pub async fn platform_purge_disabled_preview(
-    group_id: Option<u64>,
-    db: State<'_, Db>,
-) -> Result<Vec<db::PurgeCandidate>, String> {
+    group_id: Option<u64>) -> Result<Vec<db::PurgeCandidate>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_purge_disabled_preview", ?group_id, "command invoked");
-    db::find_purge_candidates(&db, group_id).await.map_err(|e| {
+    db::find_purge_candidates(db, group_id).await.map_err(|e| {
         tracing::error!(command = "platform_purge_disabled_preview", ?group_id, error = %e, "preview purge candidates failed");
         e
     })
@@ -226,19 +229,20 @@ pub async fn platform_purge_disabled_preview(
 crate::tauri_command! {
 /// 为平台补建默认 auto 分组（已存在则跳过）。供批量导入（cc-switch / .aidogx）回挂复用：
 /// 这些路径直接 INSERT 平台行、不走 platform_create 的建组副作用，故需显式补建。
-pub async fn platform_ensure_auto_group(id: u64, db: State<'_, Db>) -> Result<(), String> {
+pub async fn platform_ensure_auto_group(id: u64) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_ensure_auto_group", id, "command invoked");
-    let platform = match db::get_platform(&db, id).await? {
+    let platform = match db::get_platform(db, id).await? {
         Some(p) => p,
         None => return Err(format!("platform {id} not found")),
     };
     // 已有关联 auto 分组 → 跳过（幂等）。
-    let groups = db::list_groups(&db).await.unwrap_or_default();
+    let groups = db::list_groups(db).await.unwrap_or_default();
     let platform_id_str = platform.id.to_string();
     if groups.iter().any(|g| g.auto_from_platform == platform_id_str) {
         return Ok(());
     }
-    create_auto_group_for(&db, &platform).await
+    create_auto_group_for(db, &platform).await
 }
 }
 
@@ -249,59 +253,58 @@ crate::tauri_command! {
 pub async fn platform_set_tray(
     platform_id: u64,
     tray_display: String,
-    enabled: bool,
-    db: State<'_, Db>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
+    enabled: bool) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_set_tray", platform_id, tray_display = %tray_display, enabled, "command invoked");
     if enabled {
-        db::set_tray_platform(&db, platform_id, &tray_display).await
+        db::set_tray_platform(db, platform_id, &tray_display).await
             .map_err(|e| { tracing::error!(command = "platform_set_tray", platform_id, error = %e, "set_tray_platform failed"); e })?;
     } else {
-        db::clear_tray(&db).await
+        db::clear_tray(db).await
             .map_err(|e| { tracing::error!(command = "platform_set_tray", error = %e, "clear_tray failed"); e })?;
     }
     // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
     // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
-    let _ = app.emit("tray-refresh", ());
+    aidog_ctx::emit_unit("tray-refresh");
     Ok(())
 }
 }
 
 crate::tauri_command! {
 /// 读取托盘配置。无配置时（首次/升级）从旧 show_in_tray 平台迁移生成默认。
-pub async fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
-    Ok(db::get_tray_config(&db).await?.unwrap_or_default())
+pub async fn tray_config_get() -> Result<TrayConfig, String> {
+    let db = aidog_ctx::db();
+    Ok(db::get_tray_config(db).await?.unwrap_or_default())
 }
 }
 
 crate::tauri_command! {
 /// 保存托盘配置并刷新托盘渲染。
 pub async fn tray_config_set(
-    config: TrayConfig,
-    db: State<'_, Db>,
-    app: tauri::AppHandle,
-) -> Result<(), String> {
-    db::set_tray_config(&db, &config).await
+    config: TrayConfig) -> Result<(), String> {
+    let db = aidog_ctx::db();
+    db::set_tray_config(db, &config).await
         .map_err(|e| { tracing::error!(command = "tray_config_set", error = %e, "set_tray_config failed"); e })?;
     // C8 cmd-tray：tray.rs 迁 commands_tray 后，跨 crate 边禁直调 refresh_tray_menu。
     // 改 emit "tray-refresh" event，复用 app_setup.rs 现有 listener（C4 cmd-proxy 模式）。
-    let _ = app.emit("tray-refresh", ());
+    aidog_ctx::emit_unit("tray-refresh");
     Ok(())
 }
 }
 
 crate::tauri_command! {
 /// 获取今日统计摘要（供前端预览使用）
-pub async fn tray_today_stats(db: State<'_, Db>) -> Result<aidog_stats::TodayStats, String> {
-    aidog_stats::today_stats(&db).await
+pub async fn tray_today_stats() -> Result<aidog_stats::TodayStats, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::today_stats(db).await
 }
 }
 
 crate::tauri_command! {
-pub async fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Result<(), String> {
+pub async fn platform_reorder(ordered_ids: Vec<u64>) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_reorder", count = ordered_ids.len(), "command invoked");
-    db::reorder_platforms(&db, &ordered_ids).await
+    db::reorder_platforms(db, &ordered_ids).await
         .map_err(|e| { tracing::error!(command = "platform_reorder", error = %e, "reorder platforms failed"); e })
 }
 }

@@ -1,10 +1,8 @@
 use crate::gateway;
-use aidog_db::Db;
 use gateway::models::*;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
-use tauri::State;
 
 /// fetch-models 失败的结构化错误。前端按 `kind` 分流：
 /// - `Auth`(401/403) → 鉴权问题，立即 break 回退链 + 鉴权专用文案
@@ -37,11 +35,10 @@ crate::tauri_command! {
 pub async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
-    api_key: String,
-    db: State<'_, Db>,
-) -> Result<Vec<String>, FetchModelsError> {
+    api_key: String) -> Result<Vec<String>, FetchModelsError> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let db_arc = Arc::new(db.inner().clone());
+    let db_arc = Arc::new(db.clone());
     let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
 
     let start = std::time::Instant::now();
@@ -113,7 +110,7 @@ pub async fn platform_fetch_models(
         Err(e) => {
             tracing::error!("fetch models request failed: {e}");
             if let Err(le) = aidog_logs::upsert_proxy_log(
-                &db,
+                db,
                 make_log(0, 502, &format!("upstream error: {e}"), &url),
             )
             .await
@@ -136,7 +133,7 @@ pub async fn platform_fetch_models(
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
     if let Err(le) =
-        aidog_logs::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url))
+        aidog_logs::upsert_proxy_log(db, make_log(upstream_status, upstream_status, &body, &url))
             .await
     {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");

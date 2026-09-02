@@ -1,20 +1,19 @@
 use crate::gateway;
 use aidog_db::{self as db, Db};
 use std::sync::Arc;
-use tauri::{Manager, State};
 
 use gateway::quota::PlatformQuota;
 
 crate::tauri_command! {
 pub async fn platform_query_quota(
     base_url: String, api_key: String,
-    platform_id: Option<u64>, db: State<'_, Db>,
-) -> Result<PlatformQuota, String> {
+    platform_id: Option<u64>) -> Result<PlatformQuota, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_query_quota", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, platform_id.unwrap_or(0) as i64).await;
+    let q = gateway::quota::query_quota(Some(&Arc::new(db.clone())), &base_url, &api_key, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q).await;
+        persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -24,13 +23,13 @@ crate::tauri_command! {
 /// New API 专用余额查询（两步：先查 token quota 类型，再按需查用户余额）
 pub async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
-    platform_id: Option<u64>, db: State<'_, Db>,
-) -> Result<PlatformQuota, String> {
+    platform_id: Option<u64>) -> Result<PlatformQuota, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_query_quota_newapi", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
+    let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(command = "platform_query_quota_newapi", platform_id = ?platform_id, success = q.success, "quota query result");
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q).await;
+        persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -41,13 +40,13 @@ crate::tauri_command! {
 /// extra 需含 `{"devin":{"org_id":"<id>"}}`，缺 org_id → 失败 PlatformQuota。
 pub async fn platform_query_quota_devin(
     base_url: String, api_key: String, extra: String,
-    platform_id: Option<u64>, db: State<'_, Db>,
-) -> Result<PlatformQuota, String> {
+    platform_id: Option<u64>) -> Result<PlatformQuota, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "platform_query_quota_devin", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota_devin(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
+    let q = gateway::quota::query_quota_devin(Some(&Arc::new(db.clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(command = "platform_query_quota_devin", platform_id = ?platform_id, success = q.success, "quota query result");
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q).await;
+        persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -69,11 +68,9 @@ pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &P
 /// 后台触发一次真查并校准对齐 est=真实。避免冷启动 tray 显 0/旧偏差大。
 /// 不阻塞：每平台 spawn 独立 async（锁外 await 真查，calibrate_from_quota 短持锁写）。
 /// 真查完成后发 tray-refresh，让主线程刷新托盘显示。
-pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
-    let Some(db_state) = app.try_state::<Db>() else {
-        return;
-    };
-    let Ok(Some(config)) = db::get_tray_config(&db_state).await else {
+pub async fn cold_start_init_tray_estimates() {
+    let db_state = aidog_ctx::db();
+    let Ok(Some(config)) = db::get_tray_config(db_state).await else {
         return;
     };
     // 收集 tray 启用、platform 类型、且 last_real_query_at==0 的平台
@@ -86,19 +83,16 @@ pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
         let Some(pid) = item.platform_id else {
             continue;
         };
-        if let Ok(Some(p)) = db::get_platform(&db_state, pid).await
+        if let Ok(Some(p)) = db::get_platform(db_state, pid).await
             && p.last_real_query_at == 0
         {
             targets.push(p);
         }
     }
     for p in targets {
-        let handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            let Some(db) = handle.try_state::<Db>() else {
-                return;
-            };
-            let db_arc = Arc::new(db.inner().clone());
+            let db = aidog_ctx::db();
+            let db_arc = Arc::new(db.clone());
             // 统一脚本路径（quota-scripts T4）：query_quota 按平台行协议路由（物化列 →
             // registry 变体），newapi 两步查询 / devin ACU / 11 平台族全覆盖，
             // 不再 newapi/devin 三分支特判。
@@ -109,9 +103,8 @@ pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
                 return; // 失败保留，下次再试（不重置 last_real_query_at）
             }
             let is_coding_plan = q.coding_plan.is_some();
-            gateway::estimate::calibrate_from_quota(&db, p.id, &q, is_coding_plan).await;
-            use tauri::Emitter;
-            let _ = handle.emit("tray-refresh", ());
+            gateway::estimate::calibrate_from_quota(db, p.id, &q, is_coding_plan).await;
+            aidog_ctx::emit_unit("tray-refresh");
         });
     }
 }

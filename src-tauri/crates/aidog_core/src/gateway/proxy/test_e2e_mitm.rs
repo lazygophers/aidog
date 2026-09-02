@@ -51,7 +51,6 @@ async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
-        app: None,
         middleware: Arc::new(MiddlewareEngine::new()),
         scheduler: Arc::new(scheduling::SchedulerState::new()),
         sticky: Arc::new(scheduling::StickyTable::new()),

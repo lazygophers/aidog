@@ -4,7 +4,6 @@ use aidog_db::{self as db, Db};
 use gateway::models::*;
 use std::future::Future;
 use std::pin::Pin;
-use tauri::Manager;
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 
 // TrayColumn / TrayLayout / TRAY_FONT_SIZE 数据类型 + build_tray_menu / tray_layout /
@@ -55,16 +54,11 @@ pub trait TrayMenuBuild: Sync {
     ) -> Pin<Box<dyn Future<Output = Result<tauri::menu::Menu<tauri::Wry>, String>> + Send + 'a>>;
 
     /// 取当前 enabled + ordered 的渲染布局（数据列 + gaps）。
-    fn layout<'a>(
-        &'a self,
-        app: &'a tauri::AppHandle,
-    ) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>>;
+    /// 票 06：只读 Db，故不再收 `AppHandle`（实现自 `AppCtx` 取）。
+    fn layout<'a>(&'a self) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>>;
 
     /// 配置的 separator（多 item 横排间隔）。
-    fn separator<'a>(
-        &'a self,
-        app: &'a tauri::AppHandle,
-    ) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
+    fn separator<'a>(&'a self) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
 }
 
 #[cfg(target_os = "macos")]
@@ -414,9 +408,9 @@ pub async fn refresh_tray_menu(
     // 异步准备（可在任意线程）：菜单 + 布局数据。tray 句柄不在此触碰。
     let menu = builder.build_menu(app).await?;
     #[cfg(target_os = "macos")]
-    let layout = builder.layout(app).await;
+    let layout = builder.layout().await;
     #[cfg(target_os = "macos")]
-    let separator = builder.separator(app).await;
+    let separator = builder.separator().await;
 
     // tauri TrayIcon<R> 内含非原子 Rc（tray-icon crate 的 Rc<RefCell<platform TrayIcon>>），
     // 其 `unsafe impl Send` 的安全契约是「所有访问（含 Drop）恒在主线程」。
@@ -486,17 +480,11 @@ impl TrayMenuBuild for TrayMenuBuildImpl {
     {
         Box::pin(build_tray_menu(app))
     }
-    fn layout<'a>(
-        &'a self,
-        app: &'a tauri::AppHandle,
-    ) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>> {
-        Box::pin(tray_layout(app))
+    fn layout<'a>(&'a self) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>> {
+        Box::pin(tray_layout(aidog_ctx::db()))
     }
-    fn separator<'a>(
-        &'a self,
-        app: &'a tauri::AppHandle,
-    ) -> Pin<Box<dyn Future<Output = String> + Send + 'a>> {
-        Box::pin(tray_separator(app))
+    fn separator<'a>(&'a self) -> Pin<Box<dyn Future<Output = String> + Send + 'a>> {
+        Box::pin(tray_separator(aidog_ctx::db()))
     }
 }
 
@@ -522,25 +510,22 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
 /// separator items 不生成列，而是作为相邻数据列之间的间隙。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。
-pub async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
-    tray_layout_with_stats(app, None).await
+pub async fn tray_layout(db: &Db) -> TrayLayout {
+    tray_layout_with_stats(db, None).await
 }
 
 /// `tray_layout` 内部实现，`precomputed_today_stats` 可选预取值：
 /// popover_data 已单独查过 today_stats 时传入复用，消内部重复聚合；
 /// 独立 tray 菜单路径（无预取）传 None，内部按需现查（`tray_layout` 公开入口即此语义）。
 pub(crate) async fn tray_layout_with_stats(
-    app: &tauri::AppHandle,
+    db: &Db,
     precomputed_today_stats: Option<&aidog_stats::TodayStats>,
 ) -> TrayLayout {
     let empty = TrayLayout {
         columns: Vec::new(),
         gaps: Vec::new(),
     };
-    let Some(db) = app.try_state::<Db>() else {
-        return empty;
-    };
-    let Ok(Some(config)) = db::get_tray_config(&db).await else {
+    let Ok(Some(config)) = db::get_tray_config(db).await else {
         return empty;
     };
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
@@ -556,7 +541,7 @@ pub(crate) async fn tray_layout_with_stats(
     let platforms = if platform_ids.is_empty() {
         std::collections::HashMap::new()
     } else {
-        db::get_platforms_by_ids(&db, &platform_ids)
+        db::get_platforms_by_ids(db, &platform_ids)
             .await
             .unwrap_or_default()
     };
@@ -596,17 +581,18 @@ pub(crate) async fn tray_layout_with_stats(
                 let stats = match precomputed_today_stats {
                     Some(s) => s,
                     None => {
-                        owned_stats = aidog_stats::today_stats(&db).await.unwrap_or(
-                            aidog_stats::TodayStats {
-                                tokens: 0,
-                                input_tokens: 0,
-                                output_tokens: 0,
-                                cache_tokens: 0,
-                                cache_rate: 0.0,
-                                cost: 0.0,
-                                total_requests: 0,
-                            },
-                        );
+                        owned_stats =
+                            aidog_stats::today_stats(db)
+                                .await
+                                .unwrap_or(aidog_stats::TodayStats {
+                                    tokens: 0,
+                                    input_tokens: 0,
+                                    output_tokens: 0,
+                                    cache_tokens: 0,
+                                    cache_rate: 0.0,
+                                    cost: 0.0,
+                                    total_requests: 0,
+                                });
                         &owned_stats
                     }
                 };
@@ -650,10 +636,8 @@ pub(crate) async fn tray_layout_with_stats(
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
-pub(crate) async fn tray_separator(app: &tauri::AppHandle) -> String {
-    if let Some(db) = app.try_state::<Db>()
-        && let Ok(Some(config)) = db::get_tray_config(&db).await
-    {
+pub(crate) async fn tray_separator(db: &Db) -> String {
+    if let Ok(Some(config)) = db::get_tray_config(db).await {
         return config.separator;
     }
     default_separator_str()
@@ -664,12 +648,12 @@ pub(crate) fn default_separator_str() -> String {
 }
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
-pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
-    let layout = tray_layout(app).await;
+pub(crate) async fn tray_quota_text(db: &Db) -> Option<String> {
+    let layout = tray_layout(db).await;
     if layout.columns.is_empty() {
         return None;
     }
-    let default_sep = tray_separator(app).await;
+    let default_sep = tray_separator(db).await;
     let mut texts: Vec<String> = Vec::new();
     for (i, col) in layout.columns.iter().enumerate() {
         if i > 0 {
@@ -688,13 +672,9 @@ pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
 pub async fn build_tray_menu(
     app: &tauri::AppHandle,
 ) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
-    let running = {
-        let handle = app.state::<ProxyHandle>();
-        let h = handle.0.lock().map_err(|e| e.to_string())?;
-        h.is_some()
-    };
+    let running = aidog_ctx::ctx().proxy_handle().is_running();
 
-    let settings = load_proxy_settings(app).await?;
+    let settings = load_proxy_settings(aidog_ctx::db()).await?;
     let status_text = if running {
         format!("● Proxy Running :{}", settings.port)
     } else {
@@ -712,7 +692,7 @@ pub async fn build_tray_menu(
     );
 
     // tray quota 详情项（选定平台余额 / coding%）
-    if let Some(quota_text) = tray_quota_text(app).await {
+    if let Some(quota_text) = tray_quota_text(aidog_ctx::db()).await {
         builder = builder.item(
             &MenuItemBuilder::with_id("tray_quota", quota_text)
                 .enabled(false)

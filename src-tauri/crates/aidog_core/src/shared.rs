@@ -1,8 +1,5 @@
 use crate::gateway;
 use aidog_db::{self as db, Db};
-use std::sync::Mutex as StdMutex;
-use tauri::Manager;
-use tokio::task::JoinHandle;
 
 pub fn slugify(input: &str) -> String {
     input
@@ -32,8 +29,9 @@ pub fn slugify(input: &str) -> String {
         .join("-")
 }
 
-/// 代理服务器状态
-pub struct ProxyHandle(pub StdMutex<Option<JoinHandle<()>>>);
+/// 代理服务器状态。票 06 下沉到 `aidog_ctx`（与 Tauri 无关，改由 `AppCtx` 持有），
+/// 此处保留 re-export：`use crate::shared::*` 的调用点不必改 import。
+pub use aidog_ctx::ProxyHandle;
 
 fn default_bind_lan() -> bool {
     false
@@ -52,13 +50,11 @@ pub struct ProxySettings {
     pub bind_lan: bool,
 }
 
-/// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件
-pub async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
-    let db = app
-        .try_state::<Db>()
-        .map(|s| s.inner())
-        .ok_or("db not initialized")?;
-
+/// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件。
+///
+/// 票 06：入参由 `&AppHandle` 改为 `&Db` —— 本函数从来只用 AppHandle 取 Db，
+/// 直接收 Db 后它与外壳无关，无界面内核可原样复用。
+pub async fn load_proxy_settings(db: &Db) -> Result<ProxySettings, String> {
     // 从 DB 读取
     if let Some(val) = db::get_setting(db, "proxy", "settings").await? {
         let s: ProxySettings =
@@ -107,16 +103,12 @@ pub async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Res
 }
 
 pub async fn save_proxy_settings(
-    app: &tauri::AppHandle,
+    db: &Db,
     port: u16,
     autostart: bool,
     silent_launch: bool,
     bind_lan: bool,
 ) -> Result<(), String> {
-    let db = app
-        .try_state::<Db>()
-        .map(|s| s.inner())
-        .ok_or("db not initialized")?;
     let settings = ProxySettings {
         port,
         autostart,

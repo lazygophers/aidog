@@ -2,10 +2,9 @@ use crate::gateway;
 use crate::hooks::{enabled_hook_events, generate_hook_scripts};
 use crate::shared::*;
 use aidog_db::Db;
-use tauri::State;
 
 crate::tauri_command! {
-pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, String> {
+pub fn export_claude_config(port: u16) -> Result<String, String> {
     tracing::debug!(command = "export_claude_config", port, "command invoked");
     let base_url = format!("http://localhost:{}/claude/v1/messages", port);
     let config_path = dirs::home_dir()
@@ -41,8 +40,8 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
 }
 
 /// Helper: attempt sync, log errors but don't propagate
-pub async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
-    if let Ok(settings) = load_proxy_settings(app).await
+pub async fn try_sync_settings(db: &Db) {
+    if let Ok(settings) = load_proxy_settings(db).await
         && let Err(e) = do_sync_group_settings(db, settings.port).await
     {
         tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
@@ -449,12 +448,10 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 
 crate::tauri_command! {
 /// Tauri command — manual sync from UI
-pub async fn sync_group_settings(
-    app: tauri::AppHandle,
-    db: State<'_, Db>,
-) -> Result<Vec<String>, String> {
-    let proxy_settings = load_proxy_settings(&app).await?;
-    do_sync_group_settings(&db, proxy_settings.port).await
+pub async fn sync_group_settings() -> Result<Vec<String>, String> {
+    let db = aidog_ctx::db();
+    let proxy_settings = load_proxy_settings(db).await?;
+    do_sync_group_settings(db, proxy_settings.port).await
         .map_err(|e| { tracing::error!(command = "sync_group_settings", error = %e, "sync group settings failed"); e })
 }
 }
@@ -463,8 +460,9 @@ crate::tauri_command! {
 /// 读默认分组托管叶子 dot-path 快照（DB `setting` 表 scope=`claude_default_group`/
 /// key=`managed_paths`）。前端「从 Claude Code 导入」字段级 diff 据此排除托管字段，
 /// 只列用户新增/改动。空/缺省 → 空数组（diff 降级为不排除，零回归）。
-pub async fn get_managed_paths(db: State<'_, Db>) -> Result<Vec<String>, String> {
-    let v = aidog_db::get_setting(&db, MANAGED_SCOPE, MANAGED_KEY).await?;
+pub async fn get_managed_paths() -> Result<Vec<String>, String> {
+    let db = aidog_ctx::db();
+    let v = aidog_db::get_setting(db, MANAGED_SCOPE, MANAGED_KEY).await?;
     Ok(v.and_then(|val| {
         val.as_array().map(|arr| {
             arr.iter()

@@ -33,7 +33,7 @@ src/                    # React 前端
     *.ts                # 各模块 API（groups/platforms/proxy/stats/settings/skills/mcp 等）
   themes/               # 每主题 light/dark CSS 变量
   utils/                # pinyin(拼音搜索) / formatters(统一数值格式化) / navGuard(无路由离页拦截)
-src-tauri/              # Rust workspace（16 个 crate：root bin `aidog` + crates/ 下 15 个）
+src-tauri/              # Rust workspace（17 个 crate：root bin `aidog` + crates/ 下 16 个）
   crates/
     aidog_core/         # 核心库 + 全部 206 个 #[tauri::command]（准数以 startup.rs 注册表为准）
       gateway/          # models/db/estimate/price_sync/proxy/quota/router/billing/usage_color/peak/time_windows 等
@@ -44,6 +44,10 @@ src-tauri/              # Rust workspace（16 个 crate：root bin `aidog` + cra
       cli_proxy_cmd/    # CLI 代理命令（batch/import/platform/provider）
       cli_env.rs / settings.rs / defaults.rs / popover.rs / tray_render.rs   # 单文件命令族
       command_macro.rs  # tauri_command! 宏（自动挂 #[tauri::command] + tracing instrument/error）
+    aidog_ctx/          # AppCtx trait（进程级 OnceLock 单例，**零 tauri 依赖**）：命令拿 db /
+                        # middleware / proxy handle / emit 一律走它，桌面壳实现在
+                        # aidog_core/src/tauri_ctx.rs（唯一接 AppHandle 的地方），
+                        # 无头内核（票 08）实现同一 trait
     aidog_test_util/    # 测试工具（依赖 aidog_core，故 aidog_core 不可反向 dev-dep）
 ```
 > command 注册表在 `src-tauri/src/startup.rs` 的 `tauri::generate_handler![...]`，**它是前端 invoke 名的唯一真值源**（invoke 名取 `#[tauri::command]` 函数名，与模块路径无关）。搬迁命令后用该集合零差集自比对即可证明 invoke 名未变。

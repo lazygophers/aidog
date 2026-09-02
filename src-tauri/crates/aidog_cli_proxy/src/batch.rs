@@ -6,16 +6,14 @@
 //! - batch_set_cli_proxy_quota:         覆盖 quota JSON
 
 use aidog_core::gateway::models::{BatchReport, serialize_cli_proxy_models};
-use aidog_db::{Db, now};
+use aidog_db::now;
 use rusqlite::{ToSql, params_from_iter};
-use tauri::State;
 
 aidog_core::tauri_command! {
     /// 批量删除 cli_proxy_provider（物理删，无级联）
     pub async fn batch_delete_cli_proxy_providers(
-        db: State<'_, Db>,
-        ids: Vec<u64>,
-    ) -> Result<BatchReport, String> {
+        ids: Vec<u64>) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "batch_delete_cli_proxy_providers", count = ids.len(), "command invoked");
         if ids.is_empty() {
             return Ok(BatchReport { applied: 0, skipped: vec![] });
@@ -40,10 +38,9 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// 批量覆盖 cli_proxy_provider models（完全覆盖，非追加）
     pub async fn batch_override_cli_proxy_models(
-        db: State<'_, Db>,
         ids: Vec<u64>,
-        models: Vec<String>,
-    ) -> Result<BatchReport, String> {
+        models: Vec<String>) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "batch_override_cli_proxy_models", count = ids.len(), "command invoked");
         if ids.is_empty() {
             return Ok(BatchReport { applied: 0, skipped: vec![] });
@@ -77,10 +74,9 @@ aidog_core::tauri_command! {
 aidog_core::tauri_command! {
     /// 批量设置 cli_proxy_provider quota（覆盖整 quota JSON）
     pub async fn batch_set_cli_proxy_quota(
-        db: State<'_, Db>,
         ids: Vec<u64>,
-        quota: String,
-    ) -> Result<BatchReport, String> {
+        quota: String) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "batch_set_cli_proxy_quota", count = ids.len(), "command invoked");
         if ids.is_empty() {
             return Ok(BatchReport { applied: 0, skipped: vec![] });

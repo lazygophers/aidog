@@ -19,7 +19,6 @@ use aidog_mitm::ca::{
 };
 use aidog_mitm::whitelist::{WhitelistEntry, evaluate_host, list_whitelist};
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 /// MITM 配置在 setting 表的 scope（与 ca.rs / whitelist.rs 共用）。
 const MITM_SCOPE: &str = "mitm";
@@ -85,13 +84,14 @@ pub struct CaUninstallSpec {
 // ─── 状态查询 ───────────────────────────────────────────────
 
 crate::tauri_command! {
-pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
-    let ca = load_root_ca(&db).await?;
-    let whitelist = list_whitelist(&db).await?.into_iter().map(Into::into).collect();
+pub async fn mitm_status() -> Result<MitmStatus, String> {
+    let db = aidog_ctx::db();
+    let ca = load_root_ca(db).await?;
+    let whitelist = list_whitelist(db).await?.into_iter().map(Into::into).collect();
     // 修问题 2：ca_present 时调 sync_ca_installed_from_system 双向校验 keychain 实状
     // （手动装/卸后 DB 静态字段不更新），返实状供页面显示。ca_present=false 仍 false。
     let ca_installed = match &ca {
-        Some(c) => sync_ca_installed_from_system(&db, c).await,
+        Some(c) => sync_ca_installed_from_system(db, c).await,
         None => false,
     };
     Ok(MitmStatus {
@@ -108,18 +108,20 @@ pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
 
 crate::tauri_command! {
 /// 启用 MITM（D7：首次启用时 ensure_root_ca 生成假 CA）。
-pub async fn mitm_enable(db: State<'_, Db>) -> Result<(), String> {
+pub async fn mitm_enable() -> Result<(), String> {
+    let db = aidog_ctx::db();
     // ensure 先建 CA（若 DB 无），再设 enabled=true。两步都需成功。
-    let _ca = ensure_root_ca(&db).await?;
-    set_enabled(&db, true).await?;
+    let _ca = ensure_root_ca(db).await?;
+    set_enabled(db, true).await?;
     Ok(())
 }
 }
 
 crate::tauri_command! {
 /// 禁用 MITM（CA 保留，仅置 enabled=false；后续 ST9 提供「移除 CA + 卸信任库」清理）。
-pub async fn mitm_disable(db: State<'_, Db>) -> Result<(), String> {
-    set_enabled(&db, false).await?;
+pub async fn mitm_disable() -> Result<(), String> {
+    let db = aidog_ctx::db();
+    set_enabled(db, false).await?;
     Ok(())
 }
 }
@@ -149,8 +151,9 @@ crate::tauri_command! {
 /// 前端拿 spec 调 `Command.create(spec.name, spec.args).execute()`：
 ///   - exit code 0 → 调 `mitm_set_ca_installed(true)`
 ///   - 非 0 / reject → 调 `mitm_set_ca_installed(false)` + UI 弹窗给 spec + ca_pem_path 引导手动装（D8 兜底）
-pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec, String> {
-    let ca = ensure_root_ca(&db).await?;
+pub async fn mitm_install_ca_prepare() -> Result<CaCommandSpec, String> {
+    let db = aidog_ctx::db();
+    let ca = ensure_root_ca(db).await?;
     let dir = aidog_data_dir()?;
     let ca_pem_path = dir.join(CA_PEM_FILENAME);
     std::fs::write(&ca_pem_path, &ca.cert_pem)
@@ -168,8 +171,9 @@ pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec,
 
 crate::tauri_command! {
 /// 准备卸载信任库（ST9 实装 reverse 命令；当前提供 spec 供 UI 展示）。
-pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallSpec, String> {
-    let ca = load_root_ca(&db)
+pub async fn mitm_uninstall_ca_prepare() -> Result<CaUninstallSpec, String> {
+    let db = aidog_ctx::db();
+    let ca = load_root_ca(db)
         .await?
         .ok_or_else(|| "CA not generated".to_string())?;
     // untrust_ca_command 内部从 cert_pem 现算 SHA-1 thumbprint（macOS -Z / Windows -delstore Root）。
@@ -181,9 +185,10 @@ pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallS
 
 crate::tauri_command! {
 /// 前端 shell execute 完成后回写 CA 安装状态（成功 true / 失败 false）。
-pub async fn mitm_set_ca_installed(db: State<'_, Db>, installed: bool) -> Result<(), String> {
+pub async fn mitm_set_ca_installed( installed: bool) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "mitm_set_ca_installed", installed, "command invoked");
-    set_ca_installed(&db, installed).await
+    set_ca_installed(db, installed).await
 }
 }
 
@@ -258,9 +263,8 @@ async fn save_whitelist_array(db: &Db, entries: Vec<WhitelistEntry>) -> Result<(
 
 crate::tauri_command! {
 pub async fn mitm_whitelist_add(
-    input: WhitelistAddInput,
-    db: State<'_, Db>,
-) -> Result<(), String> {
+    input: WhitelistAddInput) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "mitm_whitelist_add", pattern = %input.host_pattern, rule_type = %input.rule_type, "command invoked");
     let pattern = input.host_pattern.trim().to_lowercase();
     if pattern.is_empty() {
@@ -269,7 +273,7 @@ pub async fn mitm_whitelist_add(
     let rule_type = valid_rule_type(&input.rule_type)
         .ok_or_else(|| format!("invalid rule_type: {}", input.rule_type))?;
     // read-modify-write：load → 重复静默成功（等价旧 INSERT OR IGNORE）→ push → save。
-    let mut entries = load_whitelist_array(&db).await?;
+    let mut entries = load_whitelist_array(db).await?;
     if entries.iter().any(|e| e.host_pattern == pattern) {
         return Ok(()); // 重复静默成功（幂等，与旧 INSERT OR IGNORE 等价）
     }
@@ -279,37 +283,37 @@ pub async fn mitm_whitelist_add(
         enabled: true,
         source: "user".to_string(),
     });
-    save_whitelist_array(&db, entries).await
+    save_whitelist_array(db, entries).await
 }
 }
 
 crate::tauri_command! {
-pub async fn mitm_whitelist_remove(host_pattern: String, db: State<'_, Db>) -> Result<(), String> {
+pub async fn mitm_whitelist_remove(host_pattern: String) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "mitm_whitelist_remove", pattern = %host_pattern, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
     // read-modify-write：load → filter 掉匹配项 → save（保序）。
-    let mut entries = load_whitelist_array(&db).await?;
+    let mut entries = load_whitelist_array(db).await?;
     entries.retain(|e| e.host_pattern != pattern);
-    save_whitelist_array(&db, entries).await
+    save_whitelist_array(db, entries).await
 }
 }
 
 crate::tauri_command! {
 pub async fn mitm_whitelist_toggle(
     host_pattern: String,
-    enabled: bool,
-    db: State<'_, Db>,
-) -> Result<(), String> {
+    enabled: bool) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "mitm_whitelist_toggle", pattern = %host_pattern, enabled, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
     // read-modify-write：load → map 改匹配项 enabled → save（保序）。
-    let mut entries = load_whitelist_array(&db).await?;
+    let mut entries = load_whitelist_array(db).await?;
     for e in entries.iter_mut() {
         if e.host_pattern == pattern {
             e.enabled = enabled;
         }
     }
-    save_whitelist_array(&db, entries).await
+    save_whitelist_array(db, entries).await
 }
 }
 
@@ -321,10 +325,9 @@ crate::tauri_command! {
 ///
 /// 返 `ImportDefaultsResult { imported, skipped }`：imported = 新插入；skipped = 已存在。
 /// 可重复点击（幂等）。
-pub async fn mitm_whitelist_import_defaults(
-    db: State<'_, Db>,
-) -> Result<ImportDefaultsResult, String> {
-    let mut entries = load_whitelist_array(&db).await?;
+pub async fn mitm_whitelist_import_defaults() -> Result<ImportDefaultsResult, String> {
+    let db = aidog_ctx::db();
+    let mut entries = load_whitelist_array(db).await?;
     let mut imported = 0usize;
     let mut skipped = 0usize;
     for (rule_type, pattern) in aidog_mitm::whitelist::DEFAULT_RULES {
@@ -340,7 +343,7 @@ pub async fn mitm_whitelist_import_defaults(
             imported += 1;
         }
     }
-    save_whitelist_array(&db, entries).await?;
+    save_whitelist_array(db, entries).await?;
     Ok(ImportDefaultsResult { imported, skipped })
 }
 }
@@ -363,10 +366,11 @@ crate::tauri_command! {
 /// 返删除条数（前端 toast `mitm.clearDone` 用 {{n}}）= 清前数组长度。
 ///
 /// 安全：不可撤销，前端必走 confirm 弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
-pub async fn mitm_whitelist_clear(db: State<'_, Db>) -> Result<usize, String> {
-    let entries = load_whitelist_array(&db).await?;
+pub async fn mitm_whitelist_clear() -> Result<usize, String> {
+    let db = aidog_ctx::db();
+    let entries = load_whitelist_array(db).await?;
     let n = entries.len();
-    save_whitelist_array(&db, Vec::new()).await?;
+    save_whitelist_array(db, Vec::new()).await?;
     Ok(n)
 }
 }
@@ -394,12 +398,11 @@ crate::tauri_command! {
 /// 仅 enabled 规则参与匹配（复用 whitelist::evaluate_host 单源引擎，反映 MITM 实际行为）。
 /// 返命中规则列表（前端展示 host_pattern + rule_type badge），或空 Vec = 未命中。
 pub async fn mitm_whitelist_test_url(
-    url: String,
-    db: State<'_, Db>,
-) -> Result<Vec<MatchedRuleDto>, String> {
+    url: String) -> Result<Vec<MatchedRuleDto>, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "mitm_whitelist_test_url", %url, "command invoked");
     let host = parse_host_from_input(&url);
-    let entries = list_whitelist(&db).await?;
+    let entries = list_whitelist(db).await?;
     let hits = evaluate_host(&entries, &host);
     Ok(hits
         .into_iter()
