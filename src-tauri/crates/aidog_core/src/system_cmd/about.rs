@@ -12,10 +12,8 @@ pub struct AboutInfo {
     build_time: String,
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn about_info() -> AboutInfo {
-    tracing::debug!(command = "about_info", "command invoked");
     AboutInfo {
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         tauri_version: tauri::VERSION.to_string(),
@@ -31,6 +29,7 @@ pub fn about_info() -> AboutInfo {
         git_commit: env!("AIDOG_GIT_COMMIT").to_string(),
         build_time: env!("AIDOG_BUILD_TIME").to_string(),
     }
+}
 }
 
 #[cfg(test)]

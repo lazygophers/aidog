@@ -130,15 +130,16 @@ pub fn cleanup_group_profiles(keep: &std::collections::HashSet<String>) -> Resul
     Ok(())
 }
 
+crate::tauri_command! {
 /// 返回 `~/.codex/config.toml` 的绝对路径（字符串），供前端展示。
-#[tauri::command]
 pub fn codex_config_path() -> Result<String, String> {
     Ok(config_path()?.to_string_lossy().to_string())
 }
+}
 
+crate::tauri_command! {
 /// 读取 `~/.codex/config.toml` 并转为 JSON。
 /// 文件不存在 → 返回空对象 `{}`（前端据此填充推荐默认）。
-#[tauri::command]
 pub fn codex_config_read() -> Result<serde_json::Value, String> {
     let path = config_path()?;
     if !path.exists() {
@@ -162,10 +163,11 @@ pub fn codex_config_read() -> Result<serde_json::Value, String> {
     })?;
     Ok(json_value)
 }
+}
 
+crate::tauri_command! {
 /// 将前端 JSON 写回 `~/.codex/config.toml`（先转 TOML）。
 /// `~/.codex/` 不存在则创建。已知/未知键经 JSON 往返尽量保留。
-#[tauri::command]
 pub fn codex_config_write(value: serde_json::Value) -> Result<(), String> {
     // 顶层必须是对象，否则不是合法的 TOML 文档。
     if !value.is_object() {
@@ -196,6 +198,7 @@ pub fn codex_config_write(value: serde_json::Value) -> Result<(), String> {
     })?;
     tracing::info!(path = %path.display(), "codex config written");
     Ok(())
+}
 }
 
 /// 递归剔除 JSON 中值为 null 的键与数组元素（toml::Value 无 null 表示）。
