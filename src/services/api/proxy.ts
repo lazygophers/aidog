@@ -2,7 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import type { ProxySettings, ProxyStartError, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary } from "./types";
+import type { ProxySettings, ProxyStartError, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary, CleanupEstimate } from "./types";
 
 // proxy_start 失败时 invoke() 以 ProxyStartError 结构体（非纯字符串）reject（Rust 侧
 // serde 序列化的 struct，Tauri 原样传回 JS）。类型守卫供调用方判别 kind，别用字符串匹配。
@@ -47,6 +47,8 @@ export const proxyLogApi = {
     invoke<ProxyLogDetail | null>("proxy_log_get", { id }),
   clear: () => invoke<void>("proxy_log_clear"),
   cleanupExpired: () => invoke<void>("proxy_log_cleanup_expired"),
+  // 只读预估：超期行数 + 这些行 body 字节总和 + log.db 当前大小。手动清理前展示给用户。
+  cleanupEstimate: () => invoke<CleanupEstimate>("proxy_log_cleanup_estimate"),
   count: () => invoke<number>("proxy_log_count"),
   countFiltered: (filter: ProxyLogFilter) =>
     invoke<number>("proxy_log_count_filtered", { filter }),

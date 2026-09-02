@@ -115,6 +115,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::proxy_log_settings_get,
             aidog_core::proxy_cmd::proxy_log::proxy_log_settings_set,
             aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_expired,
+            aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_estimate,
             // Request Logs (cli-proxy test/quota page)
             aidog_core::proxy_cmd::proxy_log::request_log_list,
             // Stats aggregation settings + rebuild

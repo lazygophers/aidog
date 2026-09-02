@@ -15,6 +15,24 @@ export function formatNumber(n: number): string {
 }
 
 /**
+ * 字节数人读化：`0` → "0 B"，1536 → "1.5 KB"，7.4e9 → "6.9 GB"。
+ *
+ * 1024 进制（与 macOS 活动监视器一致的 KB/MB/GB 标签写法），保留 1 位小数，
+ * B 档不带小数。负数 / NaN 归 "0 B"（预估值不可能为负，防御性归零而非显示 "NaN B"）。
+ */
+export function formatBytes(n: number): string {
+  if (!(n > 0)) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return `${i === 0 ? Math.round(v) : v.toFixed(1)} ${units[i]}`;
+}
+
+/**
  * 成本数值格式化（不含货币符号），按量级选择精度：
  * - 0（或非正 / NaN）→ "0"
  * - >= 1 → 2 位小数

@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi } from "../../services/api/proxy";
-import type { RetentionUnit } from "../../services/api";
+import type { CleanupEstimate, RetentionUnit } from "../../services/api";
+import { formatBytes, formatNumber } from "../../utils/formatters";
 import type { SystemSettings } from "./useSystemSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,25 +29,44 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   } = s;
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showCleanupConfirm, setShowCleanupConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  const [estimate, setEstimate] = useState<CleanupEstimate | null>(null);
 
   function flashMessage(text: string, type: "success" | "error" = "success") {
     setMessage({ text, type });
     setTimeout(() => setMessage(null), 3000);
   }
 
-  async function handleCleanupExpired() {
+  // 只读预估（超期行数 / 可回收 body 字节 / 库大小）。挂载时取一次，保留期改动后重取
+  // （口径跟随 retention_days + retention_unit），清理完成后再取一次让数字随体积变化。
+  const refreshEstimate = useCallback(async () => {
+    try {
+      setEstimate(await proxyLogApi.cleanupEstimate());
+    } catch (e) {
+      console.error("[LogSettings] cleanupEstimate failed", e);
+      setEstimate(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    void refreshEstimate();
+  }, [refreshEstimate, logRetention, logRetentionUnit]);
+
+  async function handleCleanupConfirm() {
     if (busy) return;
     setBusy(true);
     try {
       await proxyLogApi.cleanupExpired();
+      setShowCleanupConfirm(false);
       flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"), "success");
     } catch (e) {
       console.error("[LogSettings] cleanupExpired failed", e);
       flashMessage(String(e), "error");
     } finally {
       setBusy(false);
+      await refreshEstimate();
     }
   }
 
@@ -191,7 +211,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <Button variant="outline"
-              onClick={handleCleanupExpired}
+              onClick={() => setShowCleanupConfirm(true)}
               disabled={busy || logRetention === 0}
               title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
               style={{ fontSize: 12, padding: "4px 12px", height: 28, opacity: busy ? 0.6 : 1 }}
@@ -205,6 +225,16 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
             >
               {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
             </Button>
+          </div>
+          {/* 预估三个数：超期行数 / 可回收 body 体积 / 库总大小。按钮旁常驻，清理后自动刷新。 */}
+          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 2 }}>
+            {estimate
+              ? t("logs.cleanupEstimate", "当前有 {{rows}} 行超期、占 {{bytes}}，库总大小 {{size}}", {
+                  rows: formatNumber(estimate.overdue_rows),
+                  bytes: formatBytes(estimate.overdue_body_bytes),
+                  size: formatBytes(estimate.db_size_bytes),
+                })
+              : t("logs.cleanupEstimateLoading", "正在统计超期日志...")}
           </div>
           {message && (
             <div
@@ -278,6 +308,42 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
           </div>
         )}
       </div>
+
+      {/* 清理过期确认 modal — 文案带预估数字（行数 / 可回收体积），删数据前的二次确认。 */}
+      <Dialog open={showCleanupConfirm} onOpenChange={(o) => { if (!busy) setShowCleanupConfirm(o); }}>
+        <DialogContent className="glass-surface" style={{ maxWidth: 380, padding: 20, borderRadius: "var(--radius-lg)", gap: 16 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
+              {t("logs.cleanupConfirmTitle", "清理过期日志")}
+            </DialogTitle>
+            <DialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {estimate
+                ? t("logs.cleanupConfirm", "将删除 {{rows}} 行过期日志，释放约 {{bytes}}（库当前 {{size}}）。此操作不可撤销。", {
+                    rows: formatNumber(estimate.overdue_rows),
+                    bytes: formatBytes(estimate.overdue_body_bytes),
+                    size: formatBytes(estimate.db_size_bytes),
+                  })
+                : t("logs.cleanupConfirmNoEstimate", "将按当前保留期删除过期日志。此操作不可撤销。")}
+            </DialogDescription>
+          </DialogHeader>
+          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+            <Button variant="ghost"
+              onClick={() => setShowCleanupConfirm(false)}
+              disabled={busy}
+              style={{ padding: "6px 14px", fontSize: 12 }}
+            >
+              {t("logs.cancel", "取消")}
+            </Button>
+            <Button variant="destructive"
+              onClick={handleCleanupConfirm}
+              disabled={busy}
+              style={{ padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1 }}
+            >
+              {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* 清空确认 modal — shadcn Dialog (Radix Portal) 满足 createPortal(document.body) 居中规则。 */}
       <Dialog open={showClearConfirm} onOpenChange={(o) => { if (!busy) setShowClearConfirm(o); }}>

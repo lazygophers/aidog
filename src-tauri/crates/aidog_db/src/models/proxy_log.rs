@@ -237,6 +237,26 @@ pub struct ProxyLogFilter {
     pub cli_proxy_provider_id: Option<i64>,
 }
 
+/// 手动「立即清理」前的只读预估（三个数）。
+///
+/// 口径：`overdue_rows` / `overdue_body_bytes` 只按**整行保留期**（`retention_days` +
+/// `retention_unit`）算，与 `cleanup_proxy_logs` 的删除谓词逐字同源，故预估行数 = 随后
+/// 实际删除的行数。`db_size_bytes` 取 `page_count × page_size`（**不含 WAL 文件**，
+/// WAL 在 checkpoint 后并入主文件，不是独立的可回收量）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct CleanupEstimate {
+    /// 超过整行保留期、下次清理会被物理删除的行数（保留期=0 时恒为 0）
+    #[ts(type = "number")]
+    pub overdue_rows: i64,
+    /// 上述行的四个 body 列字节总和（request/upstream_request/response/user_response）
+    #[ts(type = "number")]
+    pub overdue_body_bytes: i64,
+    /// log.db 当前大小（page_count × page_size，不含 WAL）
+    #[ts(type = "number")]
+    pub db_size_bytes: i64,
+}
+
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]

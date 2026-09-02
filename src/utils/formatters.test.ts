@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   formatNumber,
+  formatBytes,
   formatCost,
   formatCostUsd,
   formatPercent,
@@ -28,6 +29,27 @@ describe("formatNumber", () => {
   });
   it("formats non-integers below 1000 with 1 decimal", () => {
     expect(formatNumber(12.34)).toBe("12.3");
+  });
+});
+
+describe("formatBytes", () => {
+  it("returns 0 B for zero / negative / NaN", () => {
+    expect(formatBytes(0)).toBe("0 B");
+    expect(formatBytes(-1)).toBe("0 B");
+    expect(formatBytes(NaN)).toBe("0 B");
+  });
+  it("keeps bytes as integers", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1023)).toBe("1023 B");
+  });
+  it("steps up units at 1024 with 1 decimal", () => {
+    expect(formatBytes(1024)).toBe("1.0 KB");
+    expect(formatBytes(1536)).toBe("1.5 KB");
+    expect(formatBytes(1024 * 1024)).toBe("1.0 MB");
+  });
+  it("formats the real 7.4 GB log.db case", () => {
+    // 7,401 MB —— 票 02 背景里用户实测的 log.db 体积
+    expect(formatBytes(7401 * 1024 * 1024)).toBe("7.2 GB");
   });
 });
 
