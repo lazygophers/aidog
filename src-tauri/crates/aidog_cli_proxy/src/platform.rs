@@ -21,7 +21,7 @@ aidog_core::tauri_command! {
             "command invoked"
         );
         // 校验 provider 存在（fail fast，避免建出 orphan platform）
-        let provider = db::get_cli_proxy_provider(&db, provider_id)
+        let provider = db::get_cli_proxy_provider(db, provider_id)
             .await?
             .ok_or_else(|| format!("cli_proxy_provider {provider_id} 不存在"))?;
 
@@ -45,7 +45,7 @@ aidog_core::tauri_command! {
             join_group_ids: group_id.map(|g| vec![g as u64]),
             expires_at: None,
         };
-        let p = db::create_platform(&db, input).await?;
+        let p = db::create_platform(db, input).await?;
         tracing::info!(platform_id = p.id, provider_id, "cli-proxy platform created");
         Ok(p)
     }

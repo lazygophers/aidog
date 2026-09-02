@@ -18,7 +18,7 @@ aidog_core::tauri_command! {
     pub async fn cli_proxy_test( id: u64) -> Result<PlatformQuota, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "cli_proxy_test", id, "command invoked");
-        let provider = db::get_cli_proxy_provider(&db, id)
+        let provider = db::get_cli_proxy_provider(db, id)
             .await?
             .ok_or_else(|| format!("cli_proxy_provider {id} 不存在"))?;
         let quota_type = parse_quota_type(&provider.quota);

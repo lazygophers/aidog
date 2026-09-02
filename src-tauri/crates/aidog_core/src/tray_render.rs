@@ -541,7 +541,7 @@ pub(crate) async fn tray_layout_with_stats(
     let platforms = if platform_ids.is_empty() {
         std::collections::HashMap::new()
     } else {
-        db::get_platforms_by_ids(&db, &platform_ids)
+        db::get_platforms_by_ids(db, &platform_ids)
             .await
             .unwrap_or_default()
     };
@@ -581,17 +581,18 @@ pub(crate) async fn tray_layout_with_stats(
                 let stats = match precomputed_today_stats {
                     Some(s) => s,
                     None => {
-                        owned_stats = aidog_stats::today_stats(&db).await.unwrap_or(
-                            aidog_stats::TodayStats {
-                                tokens: 0,
-                                input_tokens: 0,
-                                output_tokens: 0,
-                                cache_tokens: 0,
-                                cache_rate: 0.0,
-                                cost: 0.0,
-                                total_requests: 0,
-                            },
-                        );
+                        owned_stats =
+                            aidog_stats::today_stats(db)
+                                .await
+                                .unwrap_or(aidog_stats::TodayStats {
+                                    tokens: 0,
+                                    input_tokens: 0,
+                                    output_tokens: 0,
+                                    cache_tokens: 0,
+                                    cache_rate: 0.0,
+                                    cost: 0.0,
+                                    total_requests: 0,
+                                });
                         &owned_stats
                     }
                 };

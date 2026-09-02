@@ -13,7 +13,7 @@ crate::tauri_command! {
     pub async fn settings_get(scope: String, key: String) -> Result<Option<serde_json::Value>, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_get", scope = %scope, key = %key, "command invoked");
-        db::get_setting(&db, &scope, &key).await
+        db::get_setting(db, &scope, &key).await
     }
 }
 
@@ -21,12 +21,12 @@ crate::tauri_command! {
     pub async fn settings_set(input: SetSettingInput) -> Result<(), String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_set", scope = %input.scope, key = %input.key, "command invoked");
-        db::set_setting(&db, input).await?;
+        db::set_setting(db, input).await?;
         // Auto-sync group settings files when claude code config changes
-        try_sync_settings(&db).await;
+        try_sync_settings(db).await;
         // P2 #4: 同步刷新 ProxyState 设置缓存，禁陈旧（请求路径直接读缓存）。
         // proxy 未启动 → no-op（refresh 内部判 weak stale）。
-        gateway::proxy::refresh_proxy_settings_cache(&db).await;
+        gateway::proxy::refresh_proxy_settings_cache(db).await;
         Ok(())
     }
 }
@@ -35,7 +35,7 @@ crate::tauri_command! {
     pub async fn settings_delete(scope: String, key: String) -> Result<(), String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_delete", scope = %scope, key = %key, "command invoked");
-        db::delete_setting(&db, &scope, &key).await
+        db::delete_setting(db, &scope, &key).await
     }
 }
 
@@ -43,7 +43,7 @@ crate::tauri_command! {
     pub async fn settings_list(scope: String) -> Result<Vec<String>, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "settings_list", scope = %scope, "command invoked");
-        db::list_setting_keys(&db, &scope).await
+        db::list_setting_keys(db, &scope).await
     }
 }
 
@@ -72,7 +72,7 @@ crate::tauri_command! {
             perms.set_mode(0o755);
             std::fs::set_permissions(&path, perms).map_err(|e| format!("chmod script: {e}"))?;
         }
-        let invoker = resolve_script_invoker(&db).await;
+        let invoker = resolve_script_invoker(db).await;
         Ok(invoker.command_for(&path.to_string_lossy()))
     }
 }

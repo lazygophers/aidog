@@ -23,7 +23,7 @@ pub async fn batch_delete_platforms( ids: Vec<u64>) -> Result<BatchReport, Strin
 
     let n = ids.len() as u64;
     for id in ids {
-        db::delete_platform(&db, id).await?;
+        db::delete_platform(db, id).await?;
     }
 
     Ok(BatchReport { applied: n, skipped: vec![] })
@@ -46,7 +46,7 @@ pub async fn batch_override_models(
 
     let n = ids.len() as u64;
     for id in ids {
-        db::update_platform(&db, UpdatePlatform {
+        db::update_platform(db, UpdatePlatform {
             id,
             name: None,
             platform_type: None,
@@ -95,7 +95,7 @@ pub async fn batch_set_status(
 
     let n = ids.len() as u64;
     for id in ids {
-        db::update_platform(&db, UpdatePlatform {
+        db::update_platform(db, UpdatePlatform {
             id,
             name: None,
             platform_type: None,
@@ -144,7 +144,7 @@ pub async fn batch_move_group(
     }
 
     // 验证目标组存在
-    db::get_group(&db, target_group_id)
+    db::get_group(db, target_group_id)
         .await?
         .ok_or("目标分组不存在")?;
 

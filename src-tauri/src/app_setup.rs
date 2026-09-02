@@ -240,12 +240,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         if let Err(e) = tauri::async_runtime::block_on(engine.reload(&db_state)) {
             tracing::warn!(error = %e, "middleware engine initial load failed");
         }
-        app.manage(engine.clone());
-
         // 票 06：装进程级 AppCtx。必须在 Db + MiddlewareEngine 就绪之后、任何命令可能被
         // 调用之前（命令走 invoke，webview 起来才可能触发，此处已足够早）。
-        // ProxyHandle 由 TauriCtx 独占持有，不再 app.manage —— 两份句柄会让
-        // 「代理是否在跑」在托盘 / popover / proxy_status 之间自相矛盾。
+        // engine 与 ProxyHandle 均由 TauriCtx 独占持有，不再 app.manage —— 命令侧统一走
+        // AppCtx 取；留第二份在 Tauri 状态表只会让「代理是否在跑」/「规则桶是哪一个」
+        // 在托盘、popover、proxy_status 之间自相矛盾。
         aidog_core::tauri_ctx::install(
             app.handle().clone(),
             app.state::<Db>().inner().clone(),
@@ -459,14 +458,13 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         })
         .on_menu_event(|app, event| match event.id().as_ref() {
             "proxy_start" => {
-                let settings = tauri::async_runtime::block_on(load_proxy_settings(aidog_ctx::db())).unwrap_or(
-                    ProxySettings {
+                let settings = tauri::async_runtime::block_on(load_proxy_settings(aidog_ctx::db()))
+                    .unwrap_or(ProxySettings {
                         port: 9890,
                         autostart: true,
                         silent_launch: false,
                         bind_lan: false,
-                    },
-                );
+                    });
                 let port = settings.port;
                 let app_handle = app.clone();
                 tauri::async_runtime::block_on(async move {

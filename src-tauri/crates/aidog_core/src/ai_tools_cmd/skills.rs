@@ -25,7 +25,7 @@ crate::tauri_command! {
     /// 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。尊重上游代理。
     pub async fn skills_browse_catalog() -> Result<Vec<CatalogEntry>, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         Ok(gateway::skills::browse_catalog(proxy.as_deref()).await)
     }
 }
@@ -35,7 +35,7 @@ crate::tauri_command! {
     pub async fn skills_search( keyword: String) -> Result<Vec<CatalogEntry>, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "skills_search", keyword = %keyword, "command invoked");
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         Ok(gateway::skills::search(&keyword, proxy.as_deref()).await)
     }
 }
@@ -54,7 +54,7 @@ crate::tauri_command! {
     /// SWR 的 "revalidate" 半：前端后台调用，完成后更新列表。
     pub async fn skills_list_refresh( scope: SkillScope) -> Result<CachedSkills, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         Ok(gateway::skills::list_refresh(&scope, proxy.as_deref()))
     }
 }
@@ -70,7 +70,7 @@ crate::tauri_command! {
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "skills_enable", name = %name, "command invoked");
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::enable(&name, &path, agent, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -88,7 +88,7 @@ crate::tauri_command! {
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "skills_install", id = %id, agents = ?agents, "command invoked");
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::install(&id, &agents, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -124,7 +124,7 @@ crate::tauri_command! {
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "skills_disable", name = %name, "command invoked");
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::disable(&name, agent, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -137,7 +137,7 @@ crate::tauri_command! {
     /// 更新已装 skills（shell out `npx skills update`）。尊重上游代理（拉取更新）。
     pub async fn skills_update( scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::update(&scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -150,7 +150,7 @@ crate::tauri_command! {
     /// 一键卸载当前 scope 下所有平台所有 skills（破坏性，前端二次确认）。
     pub async fn skills_uninstall_all( scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::uninstall_all(&scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -165,7 +165,7 @@ crate::tauri_command! {
         name: String,
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let result = gateway::skills::uninstall(&name, &scope, proxy.as_deref());
         tracing::debug!(
             command = "skills_uninstall",
@@ -191,7 +191,7 @@ crate::tauri_command! {
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "skills_install_batch", count = ids.len(), agents = ?agents, "command invoked");
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::install_batch(&ids, &agents, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -207,7 +207,7 @@ crate::tauri_command! {
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "skills_uninstall_batch", count = names.len(), "command invoked");
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::uninstall_batch(&names, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -223,7 +223,7 @@ crate::tauri_command! {
         to: SkillAgent,
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::align_agents(from, to, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);
@@ -238,7 +238,7 @@ crate::tauri_command! {
         agent: SkillAgent,
         scope: SkillScope) -> Result<SkillsOpResult, String> {
     let db = aidog_ctx::db();
-        let proxy = skills_proxy_url(&db).await;
+        let proxy = skills_proxy_url(db).await;
         let res = gateway::skills::enable_all(agent, &scope, proxy.as_deref());
         if res.success {
             gateway::skills::invalidate(&scope);

@@ -16,7 +16,7 @@ crate::tauri_command! {
         tracing::debug!(command = "set_script_executor", executor = %executor, "command invoked");
         // 经 ScriptInvoker 规范化（"uv" → uv，其余 → python3），保证存库值与解析一致。
         let normalized = gateway::scripts::ScriptInvoker::from_setting(Some(&executor)).as_setting();
-        db::set_setting(&db, SetSettingInput {
+        db::set_setting(db, SetSettingInput {
             scope: "app".to_string(),
             key: "script_executor".to_string(),
             value: serde_json::Value::String(normalized.to_string()),
@@ -33,7 +33,7 @@ crate::tauri_command! {
     let db = aidog_ctx::db();
         if detect_uv() {
             // 已安装 → 直接记录选择。
-            db::set_setting(&db, SetSettingInput {
+            db::set_setting(db, SetSettingInput {
                 scope: "app".to_string(),
                 key: "script_executor".to_string(),
                 value: serde_json::Value::String("uv".to_string()),
@@ -58,7 +58,7 @@ crate::tauri_command! {
             }
             // 官方脚本装到 ~/.local/bin（或 ~/.cargo/bin）；detect_uv 依赖 PATH，可能本进程
             // PATH 未含安装目录 → 这里以「脚本退出成功」为准记录选择，运行时 hook 由用户 shell PATH 解析 uv。
-            db::set_setting(&db, SetSettingInput {
+            db::set_setting(db, SetSettingInput {
                 scope: "app".to_string(),
                 key: "script_executor".to_string(),
                 value: serde_json::Value::String("uv".to_string()),

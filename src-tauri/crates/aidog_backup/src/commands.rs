@@ -14,7 +14,7 @@ aidog_core::tauri_command! {
             selection = selection.as_ref().map(|s| s.len()).unwrap_or(0),
             "command invoked"
         );
-        let mut payload = gateway::import_export::collect::collect(&db, &scopes).await?;
+        let mut payload = gateway::import_export::collect::collect(db, &scopes).await?;
         let sel: Option<gateway::import_export::Selection> =
             selection.map(|v| v.into_iter().collect());
         gateway::import_export::apply::filter_payload(&mut payload, sel.as_ref());
@@ -32,7 +32,7 @@ aidog_core::tauri_command! {
         scopes: Vec<String>) -> Result<gateway::import_export::ImportPreview, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "export_preview", scopes = ?scopes, "command invoked");
-        let payload = gateway::import_export::collect::collect(&db, &scopes).await?;
+        let payload = gateway::import_export::collect::collect(db, &scopes).await?;
         let items = gateway::import_export::apply::export_items(&payload);
         let mut counts = std::collections::BTreeMap::new();
         for item in &items {
@@ -52,7 +52,7 @@ aidog_core::tauri_command! {
     /// 读取定时备份设置 (缺省/解析失败 → 默认)。
     pub async fn backup_settings_get() -> Result<crate::BackupSettings, String> {
     let db = aidog_ctx::db();
-        Ok(crate::BackupSettings::load(&db).await.sanitized())
+        Ok(crate::BackupSettings::load(db).await.sanitized())
     }
 }
 
@@ -67,7 +67,7 @@ aidog_core::tauri_command! {
         // 前端不传 defaults_version → serde default=0, 这里覆写后即便 enabled=false 也永久尊重。
         settings.defaults_version = crate::CURRENT_DEFAULTS_VERSION;
         let sanitized = settings.sanitized();
-        sanitized.save(&db).await?;
+        sanitized.save(db).await?;
         Ok(sanitized)
     }
 }
@@ -77,7 +77,7 @@ aidog_core::tauri_command! {
     pub async fn backup_run_now() -> Result<crate::BackupResult, String> {
     let db = aidog_ctx::db();
         let ts = chrono::Utc::now().timestamp_millis();
-        match crate::run_backup(&db).await {
+        match crate::run_backup(db).await {
             Ok(path) => Ok(crate::BackupResult {
                 ok: true,
                 path: Some(path.to_string_lossy().to_string()),
@@ -101,7 +101,7 @@ aidog_core::tauri_command! {
     /// 锁库期间代理写请求排队（busy_timeout 兜底），前端有警示。
     pub async fn db_compact() -> Result<aidog_db::CompactResult, String> {
     let db = aidog_ctx::db();
-        aidog_db::compact_database(&db).await
+        aidog_db::compact_database(db).await
     }
 }
 
@@ -112,7 +112,7 @@ aidog_core::tauri_command! {
     let db = aidog_ctx::db();
         tracing::debug!(command = "import_read_file", path = %path, "command invoked");
         let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
-        gateway::import_export::apply::preview(&bytes, &db).await
+        gateway::import_export::apply::preview(&bytes, db).await
     }
 }
 
@@ -136,7 +136,7 @@ aidog_core::tauri_command! {
         let payload = gateway::import_export::Payload::from_bytes_verified(&plain)?;
         let sel: Option<gateway::import_export::Selection> =
             selection.map(|v| v.into_iter().collect());
-        gateway::import_export::apply::apply(payload, &decisions, sel.as_ref(), &db).await
+        gateway::import_export::apply::apply(payload, &decisions, sel.as_ref(), db).await
     }
 }
 
@@ -154,7 +154,7 @@ aidog_core::tauri_command! {
     pub async fn ccswitch_read(
         path: Option<String>) -> Result<gateway::import_export::CcswitchReadResult, String> {
     let db = aidog_ctx::db();
-        gateway::import_export::ccswitch::read(&db, path).await
+        gateway::import_export::ccswitch::read(db, path).await
     }
 }
 
@@ -172,7 +172,7 @@ aidog_core::tauri_command! {
             auto_group,
             "command invoked"
         );
-        gateway::import_export::ccswitch::import(platform_payload, &decisions, auto_group, &db).await
+        gateway::import_export::ccswitch::import(platform_payload, &decisions, auto_group, db).await
     }
 }
 
@@ -210,6 +210,6 @@ aidog_core::tauri_command! {
             auto_group,
             "command invoked"
         );
-        gateway::import_export::sub2api::import(platform_payload, &decisions, auto_group, &db).await
+        gateway::import_export::sub2api::import(platform_payload, &decisions, auto_group, db).await
     }
 }

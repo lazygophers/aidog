@@ -10,7 +10,7 @@ aidog_core::tauri_command! {
     /// 列出全部 cli_proxy_provider。
     pub async fn cli_proxy_list() -> Result<Vec<CliProxyProvider>, String> {
     let db = aidog_ctx::db();
-        db::list_cli_proxy_providers(&db).await
+        db::list_cli_proxy_providers(db).await
     }
 }
 
@@ -19,7 +19,7 @@ aidog_core::tauri_command! {
     pub async fn cli_proxy_get( id: u64) -> Result<Option<CliProxyProvider>, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "cli_proxy_get", id, "command invoked");
-        db::get_cli_proxy_provider(&db, id).await
+        db::get_cli_proxy_provider(db, id).await
     }
 }
 
@@ -29,7 +29,7 @@ aidog_core::tauri_command! {
         input: CreateCliProxyProvider) -> Result<CliProxyProvider, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "cli_proxy_create", name = %input.name, "command invoked");
-        db::create_cli_proxy_provider(&db, input).await
+        db::create_cli_proxy_provider(db, input).await
     }
 }
 
@@ -40,7 +40,7 @@ aidog_core::tauri_command! {
         input: CreateCliProxyProvider) -> Result<Option<CliProxyProvider>, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "cli_proxy_update", id, name = %input.name, "command invoked");
-        db::update_cli_proxy_provider(&db, id, input).await
+        db::update_cli_proxy_provider(db, id, input).await
     }
 }
 
@@ -49,6 +49,6 @@ aidog_core::tauri_command! {
     pub async fn cli_proxy_delete( id: u64) -> Result<bool, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "cli_proxy_delete", id, "command invoked");
-        db::delete_cli_proxy_provider(&db, id).await
+        db::delete_cli_proxy_provider(db, id).await
     }
 }

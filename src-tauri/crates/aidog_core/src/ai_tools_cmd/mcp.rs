@@ -4,7 +4,7 @@ crate::tauri_command! {
     /// 列出 DB 中所有 MCP server（env/headers 已脱敏）。
     pub async fn mcp_list() -> Result<Vec<gateway::mcp::McpServerInfo>, String> {
     let db = aidog_ctx::db();
-        let rows = aidog_mcp::store::list_mcp_servers(&db).await?;
+        let rows = aidog_mcp::store::list_mcp_servers(db).await?;
         Ok(rows.into_iter().map(gateway::mcp::McpServerInfo::from).collect())
     }
 }
@@ -13,7 +13,7 @@ crate::tauri_command! {
     /// 扫描 Claude Code + Codex 配置的所有 MCP，去重合并（env/headers 已脱敏）。
     pub async fn mcp_scan() -> Result<Vec<gateway::mcp::McpScanItem>, String> {
     let db = aidog_ctx::db();
-        gateway::mcp::scan_all(&db).await
+        gateway::mcp::scan_all(db).await
     }
 }
 
@@ -23,7 +23,7 @@ crate::tauri_command! {
         items: Vec<gateway::mcp::McpImportPayload>) -> Result<gateway::mcp::ImportReport, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "mcp_import", count = items.len(), "command invoked");
-        gateway::mcp::import_items(&db, items).await
+        gateway::mcp::import_items(db, items).await
     }
 }
 
@@ -32,7 +32,7 @@ crate::tauri_command! {
     pub async fn mcp_import_json(
         json: String) -> Result<gateway::mcp::ImportReport, String> {
     let db = aidog_ctx::db();
-        gateway::mcp::import_pasted(&db, &json).await
+        gateway::mcp::import_pasted(db, &json).await
     }
 }
 
@@ -46,7 +46,7 @@ crate::tauri_command! {
         tracing::debug!(command = "mcp_set_agent", name = %name, agent = %agent, enabled, "command invoked");
         let agent = gateway::mcp::McpAgent::from_slug(&agent)
             .ok_or_else(|| format!("unknown agent slug: {agent}"))?;
-        gateway::mcp::set_agent_enabled(&db, &name, agent, enabled).await
+        gateway::mcp::set_agent_enabled(db, &name, agent, enabled).await
     }
 }
 
@@ -55,7 +55,7 @@ crate::tauri_command! {
     pub async fn mcp_delete( name: String) -> Result<(), String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "mcp_delete", name = %name, "command invoked");
-        gateway::mcp::delete_server(&db, &name).await
+        gateway::mcp::delete_server(db, &name).await
     }
 }
 
@@ -65,7 +65,7 @@ crate::tauri_command! {
         payload: gateway::mcp::McpUpdatePayload) -> Result<gateway::mcp::McpServerInfo, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "mcp_add", name = %payload.name, "command invoked");
-        gateway::mcp::add_server(&db, payload).await
+        gateway::mcp::add_server(db, payload).await
     }
 }
 
@@ -76,7 +76,7 @@ crate::tauri_command! {
         payload: gateway::mcp::McpUpdatePayload) -> Result<gateway::mcp::McpServerInfo, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "mcp_update", old = %old_name, "command invoked");
-        gateway::mcp::update_server(&db, &old_name, payload).await
+        gateway::mcp::update_server(db, &old_name, payload).await
     }
 }
 
@@ -85,7 +85,7 @@ crate::tauri_command! {
     /// 修复外部污染（如 env:null 致 Claude Code 跳过 server）。返回重写条数。
     pub async fn mcp_resync() -> Result<usize, String> {
     let db = aidog_ctx::db();
-        gateway::mcp::resync_all(&db).await
+        gateway::mcp::resync_all(db).await
     }
 }
 
@@ -95,7 +95,7 @@ crate::tauri_command! {
     pub async fn mcp_share_export( name: String) -> Result<serde_json::Value, String> {
     let db = aidog_ctx::db();
         tracing::debug!(command = "mcp_share_export", name = %name, "command invoked");
-        gateway::mcp::share_server(&db, &name).await
+        gateway::mcp::share_server(db, &name).await
     }
 }
 
