@@ -282,7 +282,9 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
     // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）
     // + proxy_log 三级 retention 清理链（user/upstream fields + retention_days + tombstone）
     // + 阈值触发全量 VACUUM（db>100MB；retention 后大块 free pages 回收）。
-    // 启动不立即跑（用户要求「启动不做定时操作」），每 24h 一轮；非关键路径，失败仅 warn。
+    // 启动不立即跑（用户要求「启动不做定时操作」）；周期不再写死 24h，而是每轮从当前
+    // ProxyLogSettings 派生（三档保留期最短非零值 ÷4，夹在 [1min, 24h]，见
+    // ProxyLogSettings::cleanup_interval_secs）。非关键路径，失败仅 warn。
     //
     // VACUUM 经 db.call_traced 跑在 DB 专属后台线程（共享唯一连接），不阻塞 async
     // runtime；锁库期间代理写请求排队（busy_timeout=5000 兜底）。compact_database 内部
@@ -291,14 +293,23 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         let handle = app.handle().clone();
         tauri::async_runtime::spawn(async move {
             use tracing::Instrument;
-            let interval = std::time::Duration::from_secs(24 * 3600);
             let older_than_secs: i64 = 3 * 24 * 3600;
             // 全量 VACUUM 触发阈值：100MB。低于此 incremental_vacuum 已够；高于此
             // compact_database 整库重建激进回收（response_body 累积型胀库主因）。
             const VACUUM_THRESHOLD_BYTES: i64 = 100 * 1024 * 1024;
             loop {
-                // 启动不立即跑：先 sleep 到下一周期再执行清理。
-                tokio::time::sleep(interval).await;
+                // 周期跟随保留期：每轮重读设置重算（Db 尚未就绪时退化为 24h 再试）。
+                let interval = match handle.try_state::<Db>() {
+                    Some(db) => {
+                        aidog_core::proxy_cmd::proxy_log::retention_cleanup_interval(&db).await
+                    }
+                    None => std::time::Duration::from_secs(24 * 3600),
+                };
+                // 启动不立即跑：先等一个周期再执行清理。等待期间保留期被改 → 提前唤醒，
+                // 本轮只重算周期不清理（proxy_log_settings_set 已同步跑过清理链）。
+                if aidog_core::proxy_cmd::proxy_log::wait_next_retention_cycle(interval).await {
+                    continue;
+                }
                 // 每个清理周期一个真实唯一链路 id：本周期内所有 SQL 共享该 id（SQL 日志
                 // req= 经 call_traced 的环境捕获自动带上），不同周期 id 不同。
                 let cycle_span = tracing::info_span!(
