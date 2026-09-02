@@ -1,4 +1,13 @@
 {
+  "kernel.bindLan": "Accès LAN à l'interface d'administration",
+  "kernel.bindLanDesc": "Autoriser les autres appareils du réseau local à accéder à l'interface d'administration du noyau (désactivé, seul 127.0.0.1 sur cette machine y accède)",
+  "kernel.bindLanSecurity": "L'interface d'administration expose les 210 commandes d'administration : modifier n'importe quel réglage, lire tous les journaux de requêtes (corps de requête et de réponse compris) et exécuter des scripts. Une fois activée, le noyau écoute sur 0.0.0.0 et n'est authentifié que par le jeton d'accès ci-dessous.",
+  "kernel.bindLanNotProxy": "Ce n'est pas le commutateur du port de transfert du proxy. L'accès LAN au transfert se règle séparément sous « Accès LAN » ci-dessus ; les deux sont indépendants.",
+  "kernel.bindLanRequiresAuth": "Définissez d'abord un jeton d'accès, puis activez l'accès LAN à l'interface d'administration.",
+  "kernel.authToken": "Jeton d'accès à l'interface d'administration",
+  "kernel.authTokenDesc": "Vérifié via Authorization: Bearer <jeton> sur les requêtes d'administration. Laissez vide pour désactiver la vérification (l'interface n'est alors accessible que depuis cette machine).",
+  "kernel.authTokenPlaceholder": "Vide = cette machine uniquement",
+  "kernel.saved": "Enregistré",
   "modality.text2text": "Texte → Texte",
   "modality.text2image": "Texte → Image",
   "modality.text2video": "Texte → Vidéo",

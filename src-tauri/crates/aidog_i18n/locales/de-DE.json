@@ -1,4 +1,13 @@
 {
+  "kernel.bindLan": "LAN-Zugriff auf die Verwaltungsschnittstelle",
+  "kernel.bindLanDesc": "Anderen Geräten im selben lokalen Netzwerk den Zugriff auf die Verwaltungsschnittstelle des Kernels erlauben (aus: nur 127.0.0.1 auf diesem Rechner)",
+  "kernel.bindLanSecurity": "Die Verwaltungsschnittstelle gibt alle 210 Verwaltungsbefehle frei: jede Einstellung ändern, sämtliche Anfrageprotokolle lesen (inklusive Anfrage- und Antwortinhalt) und Skripte ausführen. Eingeschaltet lauscht der Kernel auf 0.0.0.0 und prüft ausschließlich das Zugriffstoken unten.",
+  "kernel.bindLanNotProxy": "Das ist nicht der Schalter für den Weiterleitungsport des Proxys. Der LAN-Zugriff für die Weiterleitung wird oben unter „LAN-Zugriff“ separat eingestellt; beide beeinflussen sich nicht.",
+  "kernel.bindLanRequiresAuth": "Bitte zuerst ein Zugriffstoken setzen, dann den LAN-Zugriff auf die Verwaltungsschnittstelle einschalten.",
+  "kernel.authToken": "Zugriffstoken der Verwaltungsschnittstelle",
+  "kernel.authTokenDesc": "Wird als Authorization: Bearer <Token> bei Verwaltungsanfragen geprüft. Leer lassen, um die Prüfung abzuschalten (die Schnittstelle ist dann nur von diesem Rechner erreichbar).",
+  "kernel.authTokenPlaceholder": "Leer = nur dieser Rechner",
+  "kernel.saved": "Gespeichert",
   "modality.text2text": "Text → Text",
   "modality.text2image": "Text → Bild",
   "modality.text2video": "Text → Video",
