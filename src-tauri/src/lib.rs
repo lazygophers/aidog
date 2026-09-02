@@ -7,6 +7,7 @@
 mod app_setup;
 mod commands;
 mod deep_link;
+mod popover_window;
 mod startup;
 
 pub use startup::run;
