@@ -36,12 +36,9 @@ static UPDATE_CACHE_INIT: std::sync::OnceLock<
 const CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
 
 /// 获取更新缓存（延迟初始化）。
-fn update_cache() -> &'static tokio::sync::RwLock<
-    std::collections::HashMap<String, (std::time::Instant, String)>
-> {
-    UPDATE_CACHE_INIT.get_or_init(|| {
-        tokio::sync::RwLock::new(std::collections::HashMap::new())
-    })
+fn update_cache()
+-> &'static tokio::sync::RwLock<std::collections::HashMap<String, (std::time::Instant, String)>> {
+    UPDATE_CACHE_INIT.get_or_init(|| tokio::sync::RwLock::new(std::collections::HashMap::new()))
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -597,7 +594,9 @@ async fn fetch_npm_latest(pkg: &str) -> Option<String> {
     }
     let body = resp.text().await.ok()?;
     let json: serde_json::Value = serde_json::from_str(&body).ok()?;
-    json.get("version").and_then(|v| v.as_str()).map(|s| s.to_string())
+    json.get("version")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 /// semver 比对：local < latest 返回 true（有更新）。
@@ -648,7 +647,9 @@ pub async fn cli_check_updates() -> Vec<CliToolStatus> {
             if let Some(cached_latest) = cached {
                 drop(cache);
                 tracing::debug!(tool = tool, latest_version = %cached_latest, "using cached version");
-                let has_update_val = version.as_ref().and_then(|v| has_update_available(v, &cached_latest));
+                let has_update_val = version
+                    .as_ref()
+                    .and_then(|v| has_update_available(v, &cached_latest));
                 (Some(cached_latest), has_update_val)
             } else {
                 drop(cache);
@@ -659,11 +660,16 @@ pub async fn cli_check_updates() -> Vec<CliToolStatus> {
                         // 更新缓存
                         let mut cache = update_cache().write().await;
                         cache.insert(tool.to_string(), (now, latest.clone()));
-                        let has_update_val = version.as_ref().and_then(|v| has_update_available(v, &latest));
+                        let has_update_val = version
+                            .as_ref()
+                            .and_then(|v| has_update_available(v, &latest));
                         (Some(latest), has_update_val)
                     }
                     None => {
-                        tracing::warn!(tool = tool, "failed to fetch latest version from npm registry");
+                        tracing::warn!(
+                            tool = tool,
+                            "failed to fetch latest version from npm registry"
+                        );
                         (None, None)
                     }
                 }
@@ -774,10 +780,7 @@ mod test_cli_env {
 
     #[test]
     fn infer_source_windows_backslash() {
-        assert_eq!(
-            infer_source(r"C:\Users\u\scoop\shims\claude.exe"),
-            "scoop"
-        );
+        assert_eq!(infer_source(r"C:\Users\u\scoop\shims\claude.exe"), "scoop");
     }
 
     #[test]

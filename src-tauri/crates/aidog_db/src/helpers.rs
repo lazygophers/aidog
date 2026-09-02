@@ -23,7 +23,9 @@ pub fn platform_id_name_map(
 ) -> SqlResult<std::collections::HashMap<i64, String>> {
     let mut stmt = conn.prepare_cached("SELECT id, name FROM platform")?;
     let map = stmt
-        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
         .collect::<SqlResult<Vec<_>>>()?
         .into_iter()
         .collect();
@@ -46,7 +48,6 @@ pub fn extract_error_message(body: &str) -> Option<String> {
         Some(msg.to_string())
     }
 }
-
 
 /// 按入站 User-Agent 推断客户端"原生" wire 协议（仅用于 UA 透传分支，见 [protocol-same-proto-passthrough] 扩展）。
 ///
@@ -92,17 +93,15 @@ pub fn endpoint_host(base_url: &str) -> Option<String> {
         .next()
         .unwrap_or(after_scheme);
     // 去掉 userinfo（user:pass@host）
-    let host_port = authority.rsplit_once('@').map(|(_, h)| h).unwrap_or(authority);
+    let host_port = authority
+        .rsplit_once('@')
+        .map(|(_, h)| h)
+        .unwrap_or(authority);
     // 去掉端口（注意 IPv6 字面量含 ':'，但 base_url 平台预设均为域名，简单截端口即可）
     let host = host_port.split(':').next().unwrap_or(host_port);
     let host = host.trim().to_lowercase();
-    if host.is_empty() {
-        None
-    } else {
-        Some(host)
-    }
+    if host.is_empty() { None } else { Some(host) }
 }
-
 
 /// 默认白名单规则集（37 条：Claude 3 + OpenAI 34）。
 ///
@@ -158,7 +157,7 @@ pub const DEFAULT_RULES: &[(&str, &str)] = &[
 ];
 
 // 序列化小工具（platform.rs 下沉，schema 迁移 + core 领域层共用）
-use crate::models::{PlatformModels, PlatformEndpoint};
+use crate::models::{PlatformEndpoint, PlatformModels};
 /// 从 JSON 字符串反序列化 models
 pub fn parse_models(json: &str) -> PlatformModels {
     serde_json::from_str(json).unwrap_or_else(|e| {
@@ -211,9 +210,10 @@ pub fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
 /// 原 aidog_core::gateway::codex::codex_home 逻辑下沉：aidog_mcp 跨 crate 复用同一真值。
 pub fn codex_home() -> Result<std::path::PathBuf, String> {
     if let Ok(custom) = std::env::var("CODEX_HOME")
-        && !custom.trim().is_empty() {
-            return Ok(std::path::PathBuf::from(custom));
-        }
+        && !custom.trim().is_empty()
+    {
+        return Ok(std::path::PathBuf::from(custom));
+    }
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     Ok(home.join(".codex"))
 }

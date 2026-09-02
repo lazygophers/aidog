@@ -1,6 +1,6 @@
-use aidog_stats::DbInitTables;
 use super::*;
 use crate::CURRENT_DEFAULTS_VERSION;
+use aidog_stats::DbInitTables;
 
 #[tokio::test]
 async fn maybe_backup_skips_when_disabled() {
@@ -17,7 +17,11 @@ async fn maybe_backup_skips_when_disabled() {
     };
     s.save(&db).await.unwrap();
     let r = maybe_backup(&db).await;
-    assert!(r.is_ok(), "maybe_backup disabled should not error: {:?}", r.err());
+    assert!(
+        r.is_ok(),
+        "maybe_backup disabled should not error: {:?}",
+        r.err()
+    );
     assert!(r.unwrap().is_none());
 }
 

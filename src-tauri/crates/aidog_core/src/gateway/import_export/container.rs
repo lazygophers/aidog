@@ -29,8 +29,8 @@
 //! 完整性靠三层：HMAC（防篡改头 + 密文）→ GCM tag（防密文篡改 + 解密失败）→ 上层 manifest.checksum。
 
 use aes_gcm::{
-    aead::{Aead, KeyInit, Nonce as AeadNonce},
     Aes256Gcm, Key,
+    aead::{Aead, KeyInit, Nonce as AeadNonce},
 };
 use hmac::{Hmac, KeyInit as HmacKeyInit, Mac};
 use rand::RngCore;
@@ -124,8 +124,8 @@ pub fn encrypt(plaintext: &[u8]) -> Result<Vec<u8>, String> {
     out.extend_from_slice(&ciphertext);
 
     // HMAC over [0, end-of-ciphertext)。
-    let mut mac =
-        <HmacSha256 as HmacKeyInit>::new_from_slice(&hmac_key()).map_err(|e| format!("hmac init: {e}"))?;
+    let mut mac = <HmacSha256 as HmacKeyInit>::new_from_slice(&hmac_key())
+        .map_err(|e| format!("hmac init: {e}"))?;
     mac.update(&out);
     let tag = mac.finalize().into_bytes();
     out.extend_from_slice(&tag);
@@ -161,9 +161,7 @@ pub fn decrypt(file: &[u8]) -> Result<Vec<u8>, String> {
     let nonce_len = file[6] as usize;
     let obf_key_len = file[7] as usize;
     if nonce_len != NONCE_LEN || obf_key_len != KEY_LEN {
-        return Err(format!(
-            "bad lengths: nonce={nonce_len} key={obf_key_len}"
-        ));
+        return Err(format!("bad lengths: nonce={nonce_len} key={obf_key_len}"));
     }
 
     let header_fixed = 8;
@@ -177,8 +175,8 @@ pub fn decrypt(file: &[u8]) -> Result<Vec<u8>, String> {
     // HMAC 校验（覆盖除末尾 HMAC 外全部）。
     let body_end = file.len() - HMAC_LEN;
     let stored_hmac = &file[body_end..];
-    let mut mac =
-        <HmacSha256 as HmacKeyInit>::new_from_slice(&hmac_key()).map_err(|e| format!("hmac init: {e}"))?;
+    let mut mac = <HmacSha256 as HmacKeyInit>::new_from_slice(&hmac_key())
+        .map_err(|e| format!("hmac init: {e}"))?;
     mac.update(&file[..body_end]);
     mac.verify_slice(stored_hmac)
         .map_err(|_| "hmac verification failed: file corrupted or tampered".to_string())?;
@@ -354,7 +352,10 @@ mod payload_tests {
         let bytes = p.serialize_with_checksum().unwrap();
         // 篡改 aidog_version（checksum 不变 → 校验失败）。
         let needle = b"\"0.0.0\"";
-        let pos = bytes.windows(needle.len()).position(|w| w == needle).expect("needle");
+        let pos = bytes
+            .windows(needle.len())
+            .position(|w| w == needle)
+            .expect("needle");
         let mut corrupted = bytes.clone();
         corrupted[pos + 1] = b'9';
         assert_ne!(corrupted, bytes);

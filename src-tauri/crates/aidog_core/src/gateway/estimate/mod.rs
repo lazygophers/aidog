@@ -22,13 +22,13 @@ mod model;
 // 对外路径保持 `gateway::estimate::X` 不变（部分项仅测试 / 备用，allow 保稳定 API）。
 #[allow(unused_imports)]
 pub use algo::{
-    apply_tier_delta, balance_cost, calibrate_tier, should_calibrate, tier_pace, tier_usage_level,
-    TierPace,
+    TierPace, apply_tier_delta, balance_cost, calibrate_tier, should_calibrate, tier_pace,
+    tier_usage_level,
 };
 #[allow(unused_imports)]
 pub use db_ops::{
-    apply_balance_delta, apply_coding_plan_delta, build_calibrated_coding_plan, calibrate_from_quota,
-    estimate_after_request, read_estimate_state, write_real_quota,
+    apply_balance_delta, apply_coding_plan_delta, build_calibrated_coding_plan,
+    calibrate_from_quota, estimate_after_request, read_estimate_state, write_real_quota,
 };
 #[allow(unused_imports)]
-pub use model::{EstCodingPlan, EstTier, CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS};
+pub use model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstCodingPlan, EstTier};

@@ -33,9 +33,10 @@ pub fn run() {
         // 窗口复用：hide 而非 destroy，保留 webview + NSWindow 指针，下次 show 秒显。
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(false) = event
-                && window.label() == "popover" {
-                    let _ = window.hide();
-                }
+                && window.label() == "popover"
+            {
+                let _ = window.hide();
+            }
         })
         .setup(|app| crate::app_setup::setup(app))
         .invoke_handler(tauri::generate_handler![

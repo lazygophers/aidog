@@ -13,7 +13,7 @@ pub async fn import(
     auto_group: bool,
     db: &Db,
 ) -> Result<super::super::ImportReport, String> {
-    use super::super::{apply, Manifest, Payload, SCOPE_PLATFORM};
+    use super::super::{Manifest, Payload, SCOPE_PLATFORM, apply};
 
     // apply 前快照已有 platform id，供 auto-group 回出本次新建行。
     let before = if auto_group {
@@ -68,7 +68,9 @@ mod tests {
     #[tokio::test]
     async fn import_empty_payload_no_autogroup() {
         let db = test_db().await;
-        let report = import(vec![], &[], false, &db).await.expect("should succeed");
+        let report = import(vec![], &[], false, &db)
+            .await
+            .expect("should succeed");
         assert!(report.applied.values().sum::<usize>() == 0);
     }
 
@@ -76,10 +78,15 @@ mod tests {
     #[tokio::test]
     async fn import_empty_payload_with_autogroup() {
         let db = test_db().await;
-        let _report = import(vec![], &[], true, &db).await.expect("should succeed");
+        let _report = import(vec![], &[], true, &db)
+            .await
+            .expect("should succeed");
         // cc-switch group should exist
         let groups = aidog_db::list_groups(&db).await.unwrap();
-        assert!(groups.iter().any(|g| g.name == "cc-switch"), "cc-switch group should be created");
+        assert!(
+            groups.iter().any(|g| g.name == "cc-switch"),
+            "cc-switch group should be created"
+        );
     }
 
     /// 单平台 payload + auto_group=false → applied platform=1.
@@ -97,7 +104,9 @@ mod tests {
             "available_models": [],
             "auto_group": true
         });
-        let report = import(vec![platform_json], &[], false, &db).await.expect("should succeed");
+        let report = import(vec![platform_json], &[], false, &db)
+            .await
+            .expect("should succeed");
         assert!(report.applied.values().sum::<usize>() >= 1);
     }
 }

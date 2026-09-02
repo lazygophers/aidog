@@ -4,7 +4,7 @@ use crate::protocols::anthropic::convert::*;
 
 fn req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "claude".into(),
         messages,
         system: None,
@@ -22,17 +22,29 @@ fn req(messages: Vec<Message>) -> ChatRequest {
 #[test]
 fn to_anthropic_skips_system_role_maps_tool_to_user() {
     let r = req(vec![
-        Message { role: Role::System, content: MessageContent::Text("s".into()) },
-        Message { role: Role::User, content: MessageContent::Text("u".into()) },
+        Message {
+            role: Role::System,
+            content: MessageContent::Text("s".into()),
+        },
+        Message {
+            role: Role::User,
+            content: MessageContent::Text("u".into()),
+        },
         Message {
             role: Role::Tool,
             content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                 tool_use_id: "c".into(),
                 content: "r".into(),
-                name: None, is_error: None, content_blocks: None, extra: None
+                name: None,
+                is_error: None,
+                content_blocks: None,
+                extra: None,
             }]),
         },
-        Message { role: Role::Assistant, content: MessageContent::Text("a".into()) },
+        Message {
+            role: Role::Assistant,
+            content: MessageContent::Text("a".into()),
+        },
     ]);
     let a = to_anthropic(&r);
     assert_eq!(a.messages.len(), 3);
@@ -67,7 +79,14 @@ fn to_anthropic_tools_and_tool_choice() {
         (ToolChoice::Named { name: "f".into() }, true),
     ] {
         let mut r = req(vec![]);
-        r.tools = Some(vec![Tool { name: "f".into(), description: None, input_schema: json!({}), tool_type: None, cache_control: None, extra: None }]);
+        r.tools = Some(vec![Tool {
+            name: "f".into(),
+            description: None,
+            input_schema: json!({}),
+            tool_type: None,
+            cache_control: None,
+            extra: None,
+        }]);
         r.tool_choice = Some(tc);
         let a = to_anthropic(&r);
         assert!(a.tools.is_some());
@@ -122,7 +141,8 @@ fn parse_sse_thinking_delta() {
 
 #[test]
 fn parse_sse_empty_thinking_delta_none() {
-    let d = json!({"type": "content_block_delta", "delta": {"type": "thinking_delta", "thinking": ""}});
+    let d =
+        json!({"type": "content_block_delta", "delta": {"type": "thinking_delta", "thinking": ""}});
     assert!(parse_anthropic_sse(&d).is_none());
 }
 
@@ -130,7 +150,9 @@ fn parse_sse_empty_thinking_delta_none() {
 fn parse_sse_content_block_start_tool_use() {
     let d = json!({"type": "content_block_start", "index": 1, "content_block": {"type": "tool_use", "id": "c", "name": "f"}});
     match parse_anthropic_sse(&d) {
-        Some(ChatStreamEvent::ToolDelta { index, id, name, .. }) => {
+        Some(ChatStreamEvent::ToolDelta {
+            index, id, name, ..
+        }) => {
             assert_eq!(index, 1);
             assert_eq!(id.as_deref(), Some("c"));
             assert_eq!(name.as_deref(), Some("f"));
@@ -149,7 +171,9 @@ fn parse_sse_content_block_start_text_none() {
 fn parse_sse_message_delta_and_stop() {
     let d = json!({"type": "message_delta", "delta": {"stop_reason": "end_turn"}});
     match parse_anthropic_sse(&d) {
-        Some(ChatStreamEvent::Stop { finish_reason }) => assert_eq!(finish_reason.as_deref(), Some("end_turn")),
+        Some(ChatStreamEvent::Stop { finish_reason }) => {
+            assert_eq!(finish_reason.as_deref(), Some("end_turn"))
+        }
         _ => panic!("stop"),
     }
     let d2 = json!({"type": "message_stop"});
@@ -191,8 +215,14 @@ fn parse_anthropic_response_with_thinking() {
     let parsed = parse_anthropic_response(&body, "claude").expect("should parse");
     assert_eq!(parsed.id, "msg_123");
     assert_eq!(parsed.model, "claude-3-5-sonnet-20241022");
-    assert_eq!(parsed.text.as_deref(), Some("Based on my analysis, here's the solution."));
-    assert_eq!(parsed.reasoning.as_deref(), Some("Let me analyze this step by step.\n\nFirst, I need to understand the requirements."));
+    assert_eq!(
+        parsed.text.as_deref(),
+        Some("Based on my analysis, here's the solution.")
+    );
+    assert_eq!(
+        parsed.reasoning.as_deref(),
+        Some("Let me analyze this step by step.\n\nFirst, I need to understand the requirements.")
+    );
     assert_eq!(parsed.stop_reason, "end_turn");
     assert_eq!(parsed.input_tokens, 100);
     assert_eq!(parsed.output_tokens, 50);

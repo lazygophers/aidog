@@ -3,7 +3,8 @@
 //! host 常量替换为 stub URL 实现离线 mock）。
 //! 错误文案差异（t3b-handoff）：HTTP 错误带 body（只锁 `HTTP ` 前缀 + status 码）、
 //! Parse 锁前缀、Network 锁前缀。
-use super::script::{run_custom_query, CustomQueryCtx};
+use super::http::make_quota_log_for_script;
+use super::script::{CustomQueryCtx, run_custom_query};
 use super::test_stub::spawn_stub;
 use aidog_db::registry;
 
@@ -37,8 +38,15 @@ async fn run(script: &str, base_url: &str, extra: &str) -> crate::quota::Platfor
     .await
 }
 
-// ── deepseek ──────────────────────────────────────────────
+#[tokio::test]
+async fn quota_script_log_has_non_empty_id() {
+    let log = make_quota_log_for_script("https://example.com/quota", 200, "{}");
+    assert!(!log.id.is_empty());
+    assert_eq!(log.group_key, "[quota:script]");
+    assert_eq!(log.source_protocol, "quota");
+}
 
+// ── deepseek ──────────────────────────────────────────────
 #[tokio::test]
 async fn deepseek_sums_balance_infos() {
     let stub = spawn_stub(
@@ -81,7 +89,12 @@ async fn deepseek_http_parse_network_errors() {
     let code = script_for("deepseek");
     // HTTP：文案含 body 且 status 为裸数字，只锁前缀（t3b 差异 1）
     let stub = spawn_stub(401, r#"{"message":"bad key"}"#).await;
-    let q = run(&retarget(&code, "https://api.deepseek.com", &stub), &stub, "").await;
+    let q = run(
+        &retarget(&code, "https://api.deepseek.com", &stub),
+        &stub,
+        "",
+    )
+    .await;
     assert!(!q.success);
     let e = q.error.unwrap();
     assert!(e.starts_with("HTTP 401"), "实际: {e}");
@@ -89,13 +102,23 @@ async fn deepseek_http_parse_network_errors() {
 
     // Parse：serde 细节串可能不同，锁前缀
     let stub2 = spawn_stub(200, "not json at all").await;
-    let q2 = run(&retarget(&code, "https://api.deepseek.com", &stub2), &stub2, "").await;
+    let q2 = run(
+        &retarget(&code, "https://api.deepseek.com", &stub2),
+        &stub2,
+        "",
+    )
+    .await;
     assert!(!q2.success);
     assert!(q2.error.unwrap().starts_with("Parse: "));
 
     // Network：未监听端口直连（NO_PROXY 逗号分隔，reqwest 只认逗号）
     unsafe { std::env::set_var("NO_PROXY", "127.0.0.1,localhost,::1") };
-    let q3 = run(&retarget(&code, "https://api.deepseek.com", "http://127.0.0.1:1"), "http://127.0.0.1:1", "").await;
+    let q3 = run(
+        &retarget(&code, "https://api.deepseek.com", "http://127.0.0.1:1"),
+        "http://127.0.0.1:1",
+        "",
+    )
+    .await;
     assert!(!q3.success);
     assert!(q3.error.unwrap().starts_with("Network: "));
 }
@@ -145,13 +168,23 @@ async fn siliconflow_cn_cny_and_en_usd() {
 async fn siliconflow_missing_data_errors_null_data_ok() {
     let code = script_for("siliconflow");
     let stub = spawn_stub(200, r#"{"code":20000}"#).await;
-    let q = run(&retarget(&code, "https://api.siliconflow.cn", &stub), &stub, "").await;
+    let q = run(
+        &retarget(&code, "https://api.siliconflow.cn", &stub),
+        &stub,
+        "",
+    )
+    .await;
     assert!(!q.success);
     assert_eq!(q.error.unwrap(), "Missing data field");
 
     // data:null → 走缺省 0，不报错（Rust Value::Null 语义）
     let stub2 = spawn_stub(200, r#"{"data":null}"#).await;
-    let q2 = run(&retarget(&code, "https://api.siliconflow.cn", &stub2), &stub2, "").await;
+    let q2 = run(
+        &retarget(&code, "https://api.siliconflow.cn", &stub2),
+        &stub2,
+        "",
+    )
+    .await;
     assert!(q2.success, "{:?}", q2.error);
     assert_eq!(q2.balance.unwrap().remaining, 0.0);
 }
@@ -178,7 +211,12 @@ async fn openrouter_nested_flat_and_negative() {
 
     // flat body 兼容
     let stub2 = spawn_stub(200, r#"{"total_credits":5.0,"total_usage":7.0}"#).await;
-    let q2 = run(&retarget(&code, "https://openrouter.ai", &stub2), &stub2, "").await;
+    let q2 = run(
+        &retarget(&code, "https://openrouter.ai", &stub2),
+        &stub2,
+        "",
+    )
+    .await;
     let b2 = q2.balance.unwrap();
     assert_eq!(b2.remaining, -2.0);
     assert!(!b2.is_valid, "负 remaining → invalid");
@@ -198,7 +236,12 @@ async fn novita_scales_by_1e4_and_zero_invalid() {
     assert!(b.is_valid);
 
     let stub2 = spawn_stub(200, r#"{"availableBalance":0}"#).await;
-    let q2 = run(&retarget(&code, "https://api.novita.ai", &stub2), &stub2, "").await;
+    let q2 = run(
+        &retarget(&code, "https://api.novita.ai", &stub2),
+        &stub2,
+        "",
+    )
+    .await;
     let b2 = q2.balance.unwrap();
     assert_eq!(b2.remaining, 0.0);
     assert!(!b2.is_valid);

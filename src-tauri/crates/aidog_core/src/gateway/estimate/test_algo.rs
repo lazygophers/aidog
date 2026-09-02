@@ -15,7 +15,11 @@ fn kimi_precise_increment() {
         window_start: 0,
     };
     apply_tier_delta(&mut tier, 1000.0); // 1000 × (100/10000) = 10%
-    assert!((tier.est_utilization - 50.0).abs() < 1e-9, "got {}", tier.est_utilization);
+    assert!(
+        (tier.est_utilization - 50.0).abs() < 1e-9,
+        "got {}",
+        tier.est_utilization
+    );
     // clamp 到 100
     apply_tier_delta(&mut tier, 100_000.0);
     assert!((tier.est_utilization - 100.0).abs() < 1e-9);
@@ -35,7 +39,11 @@ fn fitted_increment_with_coef() {
         window_start: 0,
     };
     apply_tier_delta(&mut tier, 50_000.0); // 40 + 50000×0.0001 = 45
-    assert!((tier.est_utilization - 45.0).abs() < 1e-9, "got {}", tier.est_utilization);
+    assert!(
+        (tier.est_utilization - 45.0).abs() < 1e-9,
+        "got {}",
+        tier.est_utilization
+    );
     assert!((tier.tokens_since_real - 50_000.0).abs() < 1e-9);
 }
 
@@ -53,7 +61,11 @@ fn cold_start_no_estimate() {
         window_start: 0,
     };
     apply_tier_delta(&mut tier, 50_000.0);
-    assert!((tier.est_utilization - 40.0).abs() < 1e-9, "冷启动不应预估，got {}", tier.est_utilization);
+    assert!(
+        (tier.est_utilization - 40.0).abs() < 1e-9,
+        "冷启动不应预估，got {}",
+        tier.est_utilization
+    );
     // 但 tokens 仍累计，供下次真查拟合
     assert!((tier.tokens_since_real - 50_000.0).abs() < 1e-9);
 }
@@ -73,7 +85,11 @@ fn calibrate_fits_coef() {
     };
     // 真查得 util_real = 50% → coef = (50-40)/50000 = 0.0002
     let cal = calibrate_tier(&prev, "five_hour", 50.0, false, None, None, now());
-    assert!((cal.coef_per_token - 0.0002).abs() < 1e-12, "coef = {}", cal.coef_per_token);
+    assert!(
+        (cal.coef_per_token - 0.0002).abs() < 1e-12,
+        "coef = {}",
+        cal.coef_per_token
+    );
     assert!((cal.est_utilization - 50.0).abs() < 1e-9);
     assert!((cal.util_at_last_real - 50.0).abs() < 1e-9);
     assert_eq!(cal.tokens_since_real, 0.0);
@@ -94,7 +110,11 @@ fn calibrate_reset_discards_sample() {
     };
     // 窗口 reset，真值跌到 5%（< 80）→ 丢弃本窗口样本，coef 保留旧值
     let cal = calibrate_tier(&prev, "five_hour", 5.0, false, None, None, now());
-    assert!((cal.coef_per_token - 0.0003).abs() < 1e-12, "reset 应保留旧 coef，got {}", cal.coef_per_token);
+    assert!(
+        (cal.coef_per_token - 0.0003).abs() < 1e-12,
+        "reset 应保留旧 coef，got {}",
+        cal.coef_per_token
+    );
     assert!((cal.est_utilization - 5.0).abs() < 1e-9);
     assert!((cal.util_at_last_real - 5.0).abs() < 1e-9);
     assert_eq!(cal.tokens_since_real, 0.0);
@@ -132,7 +152,12 @@ fn balance_cost_sums_components() {
 
 #[test]
 fn apply_tier_delta_zero_tokens_noop() {
-    let mut tier = EstTier { est_utilization: 10.0, has_base: true, limit: 100.0, ..Default::default() };
+    let mut tier = EstTier {
+        est_utilization: 10.0,
+        has_base: true,
+        limit: 100.0,
+        ..Default::default()
+    };
     apply_tier_delta(&mut tier, 0.0);
     assert_eq!(tier.est_utilization, 10.0);
     apply_tier_delta(&mut tier, -5.0);
@@ -141,14 +166,23 @@ fn apply_tier_delta_zero_tokens_noop() {
 
 #[test]
 fn fitted_increment_clamps_at_100() {
-    let mut tier = EstTier { est_utilization: 99.0, coef_per_token: 1.0, util_at_last_real: 99.0, has_base: false, ..Default::default() };
+    let mut tier = EstTier {
+        est_utilization: 99.0,
+        coef_per_token: 1.0,
+        util_at_last_real: 99.0,
+        has_base: false,
+        ..Default::default()
+    };
     apply_tier_delta(&mut tier, 100.0);
     assert!((tier.est_utilization - 100.0).abs() < 1e-9);
 }
 
 #[test]
 fn tier_pace_levels_and_as_str() {
-    let mk = |u: f64| EstTier { est_utilization: u, ..Default::default() };
+    let mk = |u: f64| EstTier {
+        est_utilization: u,
+        ..Default::default()
+    };
     assert_eq!(tier_pace(&mk(85.0)), TierPace::Fast);
     assert_eq!(tier_pace(&mk(50.0)), TierPace::Normal);
     assert_eq!(tier_pace(&mk(10.0)), TierPace::Busy);
@@ -162,33 +196,96 @@ fn tier_pace_levels_and_as_str() {
 #[test]
 fn tier_usage_level_neutral_and_computed() {
     // unknown name (no cycle) → Neutral
-    let unknown = EstTier { name: "weird".into(), window_start: 1, est_utilization: 50.0, ..Default::default() };
-    assert_eq!(tier_usage_level(&unknown, now()), crate::gateway::usage_color::UsageLevel::Neutral);
+    let unknown = EstTier {
+        name: "weird".into(),
+        window_start: 1,
+        est_utilization: 50.0,
+        ..Default::default()
+    };
+    assert_eq!(
+        tier_usage_level(&unknown, now()),
+        crate::gateway::usage_color::UsageLevel::Neutral
+    );
     // known name but window_start <= 0 → Neutral
-    let no_window = EstTier { name: "five_hour".into(), window_start: 0, ..Default::default() };
-    assert_eq!(tier_usage_level(&no_window, now()), crate::gateway::usage_color::UsageLevel::Neutral);
+    let no_window = EstTier {
+        name: "five_hour".into(),
+        window_start: 0,
+        ..Default::default()
+    };
+    assert_eq!(
+        tier_usage_level(&no_window, now()),
+        crate::gateway::usage_color::UsageLevel::Neutral
+    );
     // known name + window_start → computed (just assert it runs and returns a level)
-    let active = EstTier { name: "five_hour".into(), window_start: now(), est_utilization: 50.0, ..Default::default() };
+    let active = EstTier {
+        name: "five_hour".into(),
+        window_start: now(),
+        est_utilization: 50.0,
+        ..Default::default()
+    };
     let _ = tier_usage_level(&active, now());
 }
 
 #[test]
 fn calibrate_with_resets_at_iso_and_millis() {
-    let prev = EstTier { name: "five_hour".into(), ..Default::default() };
+    let prev = EstTier {
+        name: "five_hour".into(),
+        ..Default::default()
+    };
     // ISO8601 resets_at → window_start derived
-    let cal = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("2030-01-01T00:00:00Z"), now());
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("2030-01-01T00:00:00Z"),
+        now(),
+    );
     assert!(cal.window_start != 0);
     // bare millis (>1e12) resets_at
-    let cal2 = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("1893456000000"), now());
+    let cal2 = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("1893456000000"),
+        now(),
+    );
     assert!(cal2.window_start != 0);
     // bare seconds (<1e12) resets_at → ×1000
-    let cal3 = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("1893456000"), now());
+    let cal3 = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("1893456000"),
+        now(),
+    );
     assert!(cal3.window_start != 0);
     // unparseable resets_at → keep prev.window_start (0)
-    let cal4 = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("not-a-date"), now());
+    let cal4 = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("not-a-date"),
+        now(),
+    );
     assert_eq!(cal4.window_start, prev.window_start);
     // unknown name → no cycle → keep prev.window_start
-    let cal5 = calibrate_tier(&prev, "weird", 20.0, false, None, Some("2030-01-01T00:00:00Z"), now());
+    let cal5 = calibrate_tier(
+        &prev,
+        "weird",
+        20.0,
+        false,
+        None,
+        Some("2030-01-01T00:00:00Z"),
+        now(),
+    );
     assert_eq!(cal5.window_start, prev.window_start);
 }
 
@@ -204,7 +301,10 @@ fn mcp_monthly_not_token_estimated() {
         ..Default::default()
     };
     apply_tier_delta(&mut tier, 2_000_000.0);
-    assert_eq!(tier.est_utilization, 5.0, "mcp_monthly 用量单位是调用次数，不吃 LLM token 增量，只靠真查校准");
+    assert_eq!(
+        tier.est_utilization, 5.0,
+        "mcp_monthly 用量单位是调用次数，不吃 LLM token 增量，只靠真查校准"
+    );
     // 对照：token 口径 tier 照常累加
     let mut five_hour = EstTier {
         name: "five_hour".into(),

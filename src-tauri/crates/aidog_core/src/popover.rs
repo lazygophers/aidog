@@ -1,11 +1,11 @@
 //! Popover 弹窗 command（C3 c3-commands 第 1 批：原 commands_tray::popover 迁入，纯搬运）。
 
+use crate::gateway;
 use crate::shared::*;
 use crate::tray_render::tray_layout_with_stats;
-use crate::gateway;
 use aidog_db::Db;
 use gateway::models::*;
-use tauri::{State, Manager};
+use tauri::{Manager, State};
 
 #[derive(serde::Serialize)]
 pub struct PopoverEntry {
@@ -94,7 +94,7 @@ crate::tauri_command! {
 
 #[cfg(test)]
 mod test_popover {
-    
+
     use aidog_db::test_support::test_db;
 
     /// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），

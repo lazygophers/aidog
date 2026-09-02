@@ -24,11 +24,7 @@ pub(crate) fn is_coding_plan(p: &Platform) -> bool {
 ///
 /// 各模式均不改主排序键；统一在 `apply_coding_plan_priority` 与显式 mapping 提首之前。
 pub(crate) fn expiry_sort_key(expires_at: i64) -> i64 {
-    if expires_at > 0 {
-        expires_at
-    } else {
-        i64::MAX
-    }
+    if expires_at > 0 { expires_at } else { i64::MAX }
 }
 
 /// coding plan 平台优先：在已按路由模式排好序的候选列表上做**稳定分桶上浮**，
@@ -57,7 +53,9 @@ pub(crate) fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed
     platforms.sort_by(|a, b| {
         std::cmp::Reverse(effective_weight(a))
             .cmp(&std::cmp::Reverse(effective_weight(b)))
-            .then_with(|| expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at)))
+            .then_with(|| {
+                expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at))
+            })
     });
     if total_weight <= 0 {
         return;
@@ -80,7 +78,10 @@ pub(crate) fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed
 
 /// LeastLatency 排序：按 per-platform 延迟 EMA 升序；无样本（None）视为最大排末尾。
 /// 无 ctx（无指标）时退化为不变序（保持入参顺序）。
-pub(crate) fn order_least_latency(platforms: &mut [&GroupPlatformDetail], ctx: Option<&ScheduleCtx<'_>>) {
+pub(crate) fn order_least_latency(
+    platforms: &mut [&GroupPlatformDetail],
+    ctx: Option<&ScheduleCtx<'_>>,
+) {
     let Some(c) = ctx else { return };
     platforms.sort_by(|a, b| {
         let la = c.scheduler.latency_ema(a.platform.id).unwrap_or(f64::MAX);
@@ -90,25 +91,32 @@ pub(crate) fn order_least_latency(platforms: &mut [&GroupPlatformDetail], ctx: O
         // 再 level_priority 降序（高优先先）为末级 tiebreaker。
         la.partial_cmp(&lb)
             .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at)))
+            .then_with(|| {
+                expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at))
+            })
             .then_with(|| b.level_priority.cmp(&a.level_priority))
     });
 }
 
 /// Sticky：若 session 键命中已绑定平台且该平台仍在健康候选集中，提到首位；
 /// 否则把当前首选（加权随机已定）写为新绑定。失效 / 熔断的旧绑定自然回退（不在集中即重绑）。
-pub(crate) fn apply_sticky(platforms: &mut [&GroupPlatformDetail], ctx: Option<&ScheduleCtx<'_>>, now_ms: i64) {
+pub(crate) fn apply_sticky(
+    platforms: &mut [&GroupPlatformDetail],
+    ctx: Option<&ScheduleCtx<'_>>,
+    now_ms: i64,
+) {
     let Some(c) = ctx else { return };
     let Some(ref key) = c.sticky_key else { return };
     if platforms.is_empty() {
         return;
     }
     if let Some(bound_id) = c.sticky.get(key, now_ms)
-        && let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id) {
-            platforms.swap(0, pos);
-            return; // 绑定健康，维持
-        }
-        // 绑定平台已失效 / 熔断 / 不在集 → 落到重绑（用新首选）
+        && let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id)
+    {
+        platforms.swap(0, pos);
+        return; // 绑定健康，维持
+    }
+    // 绑定平台已失效 / 熔断 / 不在集 → 落到重绑（用新首选）
     // 写 / 重写绑定为当前首选平台
     c.sticky.put(key.clone(), platforms[0].platform.id, now_ms);
 }

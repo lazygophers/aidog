@@ -51,9 +51,7 @@ pub fn sql_profile_callback(sql: &str, dur: std::time::Duration) {
         (
             // call_traced 保证 req 永远是真实唯一 id（环境捕获或兜底生成），此处
             // unwrap_or 仅防御未经 call_traced 的极端旁路，同样不输出固定常量。
-            c.req
-                .clone()
-                .unwrap_or_else(crate::logging::new_trace_id),
+            c.req.clone().unwrap_or_else(crate::logging::new_trace_id),
             c.caller.map(fmt_caller).unwrap_or_else(|| "-".to_string()),
         )
     });

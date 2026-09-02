@@ -2,7 +2,10 @@ use super::*;
 use std::collections::HashMap;
 
 fn vars(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 #[test]
@@ -18,7 +21,10 @@ fn substitute_known_and_unknown() {
     // 孤立 {
     assert_eq!(substitute_vars("a { b", &v), "a { b");
     // 多字节中文不被切断
-    assert_eq!(substitute_vars("项目 {project} 完成", &v), "项目 aidog 完成");
+    assert_eq!(
+        substitute_vars("项目 {project} 完成", &v),
+        "项目 aidog 完成"
+    );
 }
 
 #[test]

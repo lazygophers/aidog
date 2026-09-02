@@ -9,15 +9,13 @@ use tempfile::TempDir;
 
 /// 解压 ZIP 文件，返回临时目录路径。
 pub(super) fn unzip_archive(zip_path: &Path) -> Result<TempDir, String> {
-    let file = fs::File::open(zip_path)
-        .map_err(|e| format!("打开 ZIP 失败: {e}"))?;
-    let mut archive = zip::ZipArchive::new(file)
-        .map_err(|e| format!("ZIP 解析失败: {e}"))?;
+    let file = fs::File::open(zip_path).map_err(|e| format!("打开 ZIP 失败: {e}"))?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| format!("ZIP 解析失败: {e}"))?;
 
-    let temp_dir = TempDir::new()
-        .map_err(|e| format!("创建临时目录失败: {e}"))?;
+    let temp_dir = TempDir::new().map_err(|e| format!("创建临时目录失败: {e}"))?;
 
-    archive.extract(temp_dir.path())
+    archive
+        .extract(temp_dir.path())
         .map_err(|e| format!("ZIP 解压失败: {e}"))?;
 
     Ok(temp_dir)
@@ -25,28 +23,33 @@ pub(super) fn unzip_archive(zip_path: &Path) -> Result<TempDir, String> {
 
 /// 解压 TAR/TAR.GZ/TGZ 文件，返回临时目录路径。
 pub(super) fn untar_archive(tar_path: &Path) -> Result<TempDir, String> {
-    let file = fs::File::open(tar_path)
-        .map_err(|e| format!("打开 TAR 失败: {e}"))?;
+    let file = fs::File::open(tar_path).map_err(|e| format!("打开 TAR 失败: {e}"))?;
 
-    let temp_dir = TempDir::new()
-        .map_err(|e| format!("创建临时目录失败: {e}"))?;
+    let temp_dir = TempDir::new().map_err(|e| format!("创建临时目录失败: {e}"))?;
 
-    let is_gz = tar_path.extension()
+    let is_gz = tar_path
+        .extension()
         .and_then(|s| s.to_str())
-        .map(|s| s == "gz" || tar_path.file_stem()
-            .and_then(|st| st.to_str())
-            .map(|st| st.ends_with(".tar"))
-            .unwrap_or(false))
+        .map(|s| {
+            s == "gz"
+                || tar_path
+                    .file_stem()
+                    .and_then(|st| st.to_str())
+                    .map(|st| st.ends_with(".tar"))
+                    .unwrap_or(false)
+        })
         .unwrap_or(false);
 
     if is_gz {
         let decoder = flate2::read::GzDecoder::new(file);
         let mut archive = tar::Archive::new(decoder);
-        archive.unpack(temp_dir.path())
+        archive
+            .unpack(temp_dir.path())
             .map_err(|e| format!("TAR.GZ 解压失败: {e}"))?;
     } else {
         let mut archive = tar::Archive::new(file);
-        archive.unpack(temp_dir.path())
+        archive
+            .unpack(temp_dir.path())
             .map_err(|e| format!("TAR 解压失败: {e}"))?;
     }
 
@@ -62,7 +65,8 @@ pub(super) fn is_supported_archive(path: &Path) -> bool {
             "tgz" => return true,
             "tar" => {
                 // .tar 无扩展名，检查文件名
-                return path.file_stem()
+                return path
+                    .file_stem()
                     .and_then(|s| s.to_str())
                     .map(|stem| !stem.ends_with(".tar"))
                     .unwrap_or(true);

@@ -2,12 +2,12 @@
 //! 覆盖 apply_files / apply_db / db_rows upsert / conflicts 检测 / resolve_name 决策分支。
 //! 本模块经 #[path] 挂在 apply/mod.rs，故 `super` = apply 模块，可直调 preview/apply。
 use super::{apply, preview};
-use aidog_db::test_support::{sample_group, sample_platform, test_db, HomeGuard};
 use crate::gateway::import_export::{
-    collect, container, ConflictDecision, Decision, Manifest, NamedText, Payload, SCOPE_CLAUDE_CODE,
-    SCOPE_CODEX, SCOPE_GROUP, SCOPE_GROUP_PLATFORM, SCOPE_PLATFORM, SCOPE_SETTING,
+    ConflictDecision, Decision, Manifest, NamedText, Payload, SCOPE_CLAUDE_CODE, SCOPE_CODEX,
+    SCOPE_GROUP, SCOPE_GROUP_PLATFORM, SCOPE_PLATFORM, SCOPE_SETTING, collect, container,
 };
 use crate::gateway::models::GroupPlatformInput;
+use aidog_db::test_support::{HomeGuard, sample_group, sample_platform, test_db};
 
 fn blank_manifest(scopes: Vec<String>) -> Manifest {
     Manifest {
@@ -100,17 +100,8 @@ async fn full_collect_apply_into_fresh_db() {
     assert_eq!(*report.applied.get(SCOPE_PLATFORM).unwrap(), 1);
     assert_eq!(*report.applied.get(SCOPE_GROUP).unwrap(), 1);
 
-    assert_eq!(
-        aidog_db::list_platforms(&target)
-            .await
-            .unwrap()
-            .len(),
-        1
-    );
-    assert_eq!(
-        aidog_db::list_groups(&target).await.unwrap().len(),
-        1
-    );
+    assert_eq!(aidog_db::list_platforms(&target).await.unwrap().len(), 1);
+    assert_eq!(aidog_db::list_groups(&target).await.unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -132,7 +123,11 @@ async fn preview_roundtrip_via_encrypt() {
         .iter()
         .filter(|c| !c.key.starts_with("mitm:"))
         .collect();
-    assert!(non_mitm_conflicts.is_empty(), "non-mitm conflicts: {:?}", non_mitm_conflicts);
+    assert!(
+        non_mitm_conflicts.is_empty(),
+        "non-mitm conflicts: {:?}",
+        non_mitm_conflicts
+    );
 }
 
 #[tokio::test]
@@ -233,10 +228,7 @@ async fn apply_file_scopes_and_setting_skip() {
     assert!(codex_dir.join("config.toml").exists());
     // backup 已生成
     assert!(codex_dir.join("config.toml.aidogbak").exists());
-    assert!(h
-        .home()
-        .join(".aidog/settings.team.json")
-        .exists());
+    assert!(h.home().join(".aidog/settings.team.json").exists());
     // setting locale 入库，theme 被跳过
     let locale = aidog_db::get_setting(&target, "app", "locale")
         .await
@@ -290,8 +282,12 @@ async fn ensure_group_attach_reuses_existing_name() {
     aidog_db::create_platform(&db, sample_platform("p1"))
         .await
         .unwrap();
-    db_rows::ensure_group_and_attach(&db, "dup", &before).await.unwrap();
-    db_rows::ensure_group_and_attach(&db, "dup", &before).await.unwrap();
+    db_rows::ensure_group_and_attach(&db, "dup", &before)
+        .await
+        .unwrap();
+    db_rows::ensure_group_and_attach(&db, "dup", &before)
+        .await
+        .unwrap();
     let groups = aidog_db::list_groups(&db).await.unwrap();
     assert_eq!(groups.iter().filter(|g| g.name == "dup").count(), 1);
 }
@@ -309,7 +305,9 @@ async fn relink_success_and_missing() {
         .await
         .unwrap();
     // relink 按 name 查 group（参数名 group_key 实为 name）
-    db_rows::relink_group_platform(&db, "rg", "rp").await.unwrap();
+    db_rows::relink_group_platform(&db, "rg", "rp")
+        .await
+        .unwrap();
     let detail = aidog_db::get_group_detail(&db, grp.id)
         .await
         .unwrap()

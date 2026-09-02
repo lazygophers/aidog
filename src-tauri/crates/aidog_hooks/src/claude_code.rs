@@ -6,10 +6,10 @@
 //! 供 codex 子模块复用（pub(crate)）。
 
 use super::scripts::{
-    ScriptPaths, LEGACY_SCRIPT_COMPLETE, LEGACY_SCRIPT_WAITING, SCRIPT_COMPLETE, SCRIPT_EVENT_NOTIFY,
-    SCRIPT_WAITING,
+    LEGACY_SCRIPT_COMPLETE, LEGACY_SCRIPT_WAITING, SCRIPT_COMPLETE, SCRIPT_EVENT_NOTIFY,
+    SCRIPT_WAITING, ScriptPaths,
 };
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Claude Code 内部标记键（UI 状态；禁止写入 settings.{group}.json）。
 pub const MARKER_HOOKS: &str = "_aidog_hooks";
@@ -36,7 +36,11 @@ pub fn hooks_marker_enabled(config: &Value) -> bool {
 /// 同时打 `_aidog_hooks` 标记（UI 状态，sync 时 strip）。
 ///
 /// `enabled_events` 为空时仅打 marker、清旧 aidog hook（不注入任何事件）。
-pub fn inject_claude_code_hooks(config: &mut Value, scripts: &ScriptPaths, enabled_events: &[String]) {
+pub fn inject_claude_code_hooks(
+    config: &mut Value,
+    scripts: &ScriptPaths,
+    enabled_events: &[String],
+) {
     // 先清掉旧 aidog 注入（全量事件目录遍历），保用户项；随后按 enabled_events 重新注入。
     // remove 会顺带删 marker，下面再补回。
     remove_claude_code_hooks(config);
@@ -74,9 +78,13 @@ pub fn inject_claude_code_hooks(config: &mut Value, scripts: &ScriptPaths, enabl
 /// N2：遍历**全量事件目录** `CC_HOOK_EVENTS` 移除 aidog 项（确保改配置后旧事件 hook 不残留）；
 /// `references_aidog_script` 靠单脚本名 `aidog-notify.py`（+ 旧 complete/waiting/.sh）识别，全匹配。
 pub fn remove_claude_code_hooks(config: &mut Value) {
-    let Some(obj) = config.as_object_mut() else { return };
+    let Some(obj) = config.as_object_mut() else {
+        return;
+    };
     obj.remove(MARKER_HOOKS);
-    let Some(hooks) = obj.get_mut("hooks").and_then(|v| v.as_object_mut()) else { return };
+    let Some(hooks) = obj.get_mut("hooks").and_then(|v| v.as_object_mut()) else {
+        return;
+    };
     for event in aidog_db::models::CC_HOOK_EVENTS {
         remove_event_hook(hooks, event);
     }
@@ -107,7 +115,9 @@ fn set_event_hook(hooks: &mut serde_json::Map<String, Value>, event: &str, scrip
 /// 从某 Event 数组移除所有指向 aidog notify 脚本的命令项；清理空匹配组与空 Event。
 /// 混合组（aidog + 用户命令）只剔除 aidog 命令项，保留用户项；纯 aidog 组整组丢弃。
 fn remove_event_hook(hooks: &mut serde_json::Map<String, Value>, event: &str) {
-    let Some(arr) = hooks.get_mut(event).and_then(|v| v.as_array_mut()) else { return };
+    let Some(arr) = hooks.get_mut(event).and_then(|v| v.as_array_mut()) else {
+        return;
+    };
     for matcher in arr.iter_mut() {
         if let Some(inner) = matcher.get_mut("hooks").and_then(|v| v.as_array_mut()) {
             inner.retain(|h| !is_aidog_command(h));

@@ -30,7 +30,10 @@ fn cost_trend_item_roundtrips() {
         time_window: "30d".to_string(),
         row: 2,
         size: "l".to_string(),
-        color: TrayColor { mode: "custom".to_string(), value: "#ff8800".to_string() },
+        color: TrayColor {
+            mode: "custom".to_string(),
+            value: "#ff8800".to_string(),
+        },
     };
     let json = serde_json::to_string(&item).unwrap();
     let back: PopoverItem = serde_json::from_str(&json).unwrap();

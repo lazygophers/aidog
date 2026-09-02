@@ -1,6 +1,6 @@
 //! 代理日志模型：完整日志行 / 平台用量统计 / 测试结果 / 列表摘要 / 筛选 / 日志设置。
 
-use super::{default_true, ProxyAttempt};
+use super::{ProxyAttempt, default_true};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -301,9 +301,15 @@ impl RetentionUnit {
     }
 }
 
-fn default_user_req_retention() -> u32 { 7 }
-fn default_upstream_req_retention() -> u32 { 7 }
-fn default_retention_days() -> u32 { 90 }
+fn default_user_req_retention() -> u32 {
+    7
+}
+fn default_upstream_req_retention() -> u32 {
+    7
+}
+fn default_retention_days() -> u32 {
+    90
+}
 
 impl Default for ProxyLogSettings {
     fn default() -> Self {

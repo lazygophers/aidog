@@ -11,10 +11,17 @@ fn random_challenge_prompt_varies_and_expected_nonempty() {
         assert!(!p.trim().is_empty(), "prompt 不应为空");
         assert!(!e.trim().is_empty(), "expected 不应为空");
         // expected 直接喂回校验必然通过（归一化自反）。
-        assert!(verify_test_response(&e, Some(&e)), "expected 自校验应通过: {e}");
+        assert!(
+            verify_test_response(&e, Some(&e)),
+            "expected 自校验应通过: {e}"
+        );
         prompts.insert(p);
     }
-    assert!(prompts.len() > 1, "200 次生成应产生多种 prompt，实际 {}", prompts.len());
+    assert!(
+        prompts.len() > 1,
+        "200 次生成应产生多种 prompt，实际 {}",
+        prompts.len()
+    );
 }
 
 #[test]
@@ -37,7 +44,10 @@ fn arithmetic_answers_are_correct() {
 fn verify_substring_match_tolerates_natural_answers() {
     // 含子串即通过：模型自然长答 + 标点 + 大小写均应匹配。
     assert!(verify_test_response("答案是 95。", Some("95")));
-    assert!(verify_test_response("中国的首都是北京，是一座历史名城。", Some("北京")));
+    assert!(verify_test_response(
+        "中国的首都是北京，是一座历史名城。",
+        Some("北京")
+    ));
     assert!(verify_test_response("The formula is H2O.", Some("H2O")));
     assert!(verify_test_response("h2o", Some("H2O"))); // 大小写归一
     // 不含 expected → 失败。

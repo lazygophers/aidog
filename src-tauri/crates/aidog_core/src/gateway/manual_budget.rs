@@ -18,8 +18,8 @@
 use chrono::{Local, TimeZone, Timelike};
 use rusqlite::params;
 
+use super::models::{ManualBudget, WindowUnit, parse_manual_budgets, serialize_manual_budgets};
 use aidog_db::Db;
-use super::models::{parse_manual_budgets, serialize_manual_budgets, ManualBudget, WindowUnit};
 
 /// 窗口数值 + 单位 → 毫秒时长（纯函数，锁安全）。
 /// month 固定按 30 天换算（无歧义需求）。负值/0 由调用方判定（返回非正值表示「无窗口」）。
@@ -41,11 +41,7 @@ pub fn window_duration_ms(budget: &ManualBudget) -> Option<i64> {
         return None;
     }
     let dur = window_ms(budget.window_hours.unwrap_or(0.0), budget.window_unit);
-    if dur > 0.0 {
-        Some(dur as i64)
-    } else {
-        None
-    }
+    if dur > 0.0 { Some(dur as i64) } else { None }
 }
 
 /// 本地自然日 00:00 的毫秒戳（包含 now_ms 的那一天）
@@ -191,7 +187,10 @@ pub fn apply_one(budget: &mut ManualBudget, est_cost: f64, total_tokens: f64, no
 /// 空 → 上层直接短路，不进写连接、不失效缓存。非空 → 上层仍需进写连接临界区做原子扣减
 /// （此处结果仅用于短路判断，不作为扣减依据，避免 TOCTOU 影响计费准确性）。
 #[track_caller]
-fn has_any_budget(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
+fn has_any_budget(
+    db: &Db,
+    platform_id: u64,
+) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_platform_traced(None, __db_caller, move |conn| {
@@ -294,7 +293,11 @@ mod tests {
         assert!((b.consumed - 9.0).abs() < 1e-9);
         // 6h 后（>=5h）→ 重置后扣
         apply_one(&mut b, 2.0, 0.0, t0 + 6 * 3_600_000);
-        assert!((b.consumed - 2.0).abs() < 1e-9, "应重置后 = 2, got {}", b.consumed);
+        assert!(
+            (b.consumed - 2.0).abs() < 1e-9,
+            "应重置后 = 2, got {}",
+            b.consumed
+        );
         assert_eq!(b.window_start_at, Some(t0 + 6 * 3_600_000));
     }
 
@@ -313,13 +316,21 @@ mod tests {
         let t0 = 1_700_000_000_000;
         apply_one(&mut b, 5.0, 30_000.0, t0);
         apply_one(&mut b, 0.0, 0.0, t0 + 3_600_000);
-        assert!((b.consumed - 2.0).abs() < 1e-9, "两次请求应扣 2, got {}", b.consumed);
+        assert!(
+            (b.consumed - 2.0).abs() < 1e-9,
+            "两次请求应扣 2, got {}",
+            b.consumed
+        );
         assert!(!is_depleted(&b));
         apply_one(&mut b, 0.0, 0.0, t0 + 2 * 3_600_000);
         assert!(is_depleted(&b), "第 3 次应耗尽");
         // 窗口到期后恢复
         apply_one(&mut b, 0.0, 0.0, t0 + 5 * 3_600_000);
-        assert!((b.consumed - 1.0).abs() < 1e-9, "5h 后应重置, got {}", b.consumed);
+        assert!(
+            (b.consumed - 1.0).abs() < 1e-9,
+            "5h 后应重置, got {}",
+            b.consumed
+        );
     }
 
     // ── daily：跨本地自然日重置 ──
@@ -333,7 +344,11 @@ mod tests {
         // 次日（+24h）→ 重置
         let next_noon = noon + 24 * 3_600_000;
         apply_one(&mut b, 3.0, 0.0, next_noon);
-        assert!((b.consumed - 3.0).abs() < 1e-9, "次日应重置, got {}", b.consumed);
+        assert!(
+            (b.consumed - 3.0).abs() < 1e-9,
+            "次日应重置, got {}",
+            b.consumed
+        );
     }
 
     // ── fixed：钟点对齐分段重置（6h 段）──
@@ -349,7 +364,11 @@ mod tests {
         assert!((b.consumed - 8.0).abs() < 1e-9);
         // 进入第二段 [6h,12h) 的 07:00 → 重置
         apply_one(&mut b, 2.0, 0.0, day0 + 7 * 3_600_000);
-        assert!((b.consumed - 2.0).abs() < 1e-9, "跨段应重置, got {}", b.consumed);
+        assert!(
+            (b.consumed - 2.0).abs() < 1e-9,
+            "跨段应重置, got {}",
+            b.consumed
+        );
     }
 
     // ── disabled 限额不扣不阻断 ──
@@ -359,7 +378,10 @@ mod tests {
         b.enabled = false;
         apply_one(&mut b, 100.0, 0.0, 1_700_000_000_000);
         assert!((b.consumed - 0.0).abs() < 1e-9, "disabled 不应扣");
-        assert!(evaluate_depletion(&[b], 1_700_000_000_000).is_none(), "disabled 不阻断");
+        assert!(
+            evaluate_depletion(&[b], 1_700_000_000_000).is_none(),
+            "disabled 不阻断"
+        );
     }
 
     // ── 耗尽判定：任一限额耗尽即阻断，返回该限额信息 ──
@@ -383,7 +405,10 @@ mod tests {
     fn evaluate_passes_when_all_remain() {
         let b = mk("total", "usd", 10.0, None);
         assert!(evaluate_depletion(&[b], 1_700_000_000_000).is_none());
-        assert!(evaluate_depletion(&[], 1_700_000_000_000).is_none(), "空 → 放行");
+        assert!(
+            evaluate_depletion(&[], 1_700_000_000_000).is_none(),
+            "空 → 放行"
+        );
     }
 
     // ── 阻断判定含惰性窗口重置：耗尽限额在新窗口恢复放行 ──
@@ -406,10 +431,19 @@ mod tests {
         assert!((window_ms(1.0, WindowUnit::Hour) - 3_600_000.0).abs() < 1e-6);
         assert!((window_ms(1.0, WindowUnit::Day) - 86_400_000.0).abs() < 1e-6);
         assert!((window_ms(1.0, WindowUnit::Week) - 604_800_000.0).abs() < 1e-6);
-        assert!((window_ms(1.0, WindowUnit::Month) - 2_592_000_000.0).abs() < 1e-6, "month=30d");
+        assert!(
+            (window_ms(1.0, WindowUnit::Month) - 2_592_000_000.0).abs() < 1e-6,
+            "month=30d"
+        );
         // 复合数值：7 天、90 分钟
-        assert!((window_ms(7.0, WindowUnit::Day) - 604_800_000.0).abs() < 1e-6, "7d == 1week");
-        assert!((window_ms(90.0, WindowUnit::Minute) - 5_400_000.0).abs() < 1e-6, "90min");
+        assert!(
+            (window_ms(7.0, WindowUnit::Day) - 604_800_000.0).abs() < 1e-6,
+            "7d == 1week"
+        );
+        assert!(
+            (window_ms(90.0, WindowUnit::Minute) - 5_400_000.0).abs() < 1e-6,
+            "90min"
+        );
     }
 
     // ── 向后兼容：旧 JSON {window_hours:2} 无 window_unit → 解析为 2 小时窗口 ──
@@ -419,7 +453,11 @@ mod tests {
         let budgets = parse_manual_budgets(json);
         assert_eq!(budgets.len(), 1);
         let b = &budgets[0];
-        assert_eq!(b.window_unit, WindowUnit::Hour, "缺 window_unit → 默认 hour");
+        assert_eq!(
+            b.window_unit,
+            WindowUnit::Hour,
+            "缺 window_unit → 默认 hour"
+        );
         assert_eq!(b.window_hours, Some(2.0));
         // 行为不变：2 小时窗口
         let mut bb = b.clone();
@@ -428,7 +466,11 @@ mod tests {
         apply_one(&mut bb, 1.0, 0.0, t0 + 3_600_000); // 1h 后未到期 → 累加
         assert!((bb.consumed - 9.0).abs() < 1e-9);
         apply_one(&mut bb, 2.0, 0.0, t0 + 2 * 3_600_000); // 2h 后到期 → 重置
-        assert!((bb.consumed - 2.0).abs() < 1e-9, "2h 后应重置, got {}", bb.consumed);
+        assert!(
+            (bb.consumed - 2.0).abs() < 1e-9,
+            "2h 后应重置, got {}",
+            bb.consumed
+        );
     }
 
     // ── rolling 以「天」为单位：7 天窗口 ──
@@ -441,7 +483,11 @@ mod tests {
         apply_one(&mut b, 1.0, 0.0, t0 + 6 * 86_400_000); // 6 天后未到期 → 累加
         assert!((b.consumed - 9.0).abs() < 1e-9);
         apply_one(&mut b, 2.0, 0.0, t0 + 7 * 86_400_000); // 7 天后到期 → 重置
-        assert!((b.consumed - 2.0).abs() < 1e-9, "7 天后应重置, got {}", b.consumed);
+        assert!(
+            (b.consumed - 2.0).abs() < 1e-9,
+            "7 天后应重置, got {}",
+            b.consumed
+        );
     }
 
     // ── 零配额短路：platform 写连接被占满时，空 manual_budgets 请求仍秒回（未排队等写锁）。
@@ -451,14 +497,16 @@ mod tests {
     #[tokio::test]
     async fn zero_budget_shortcircuits_write_conn() {
         use aidog_db::test_support::sample_platform;
-        use aidog_db::{create_platform, Db};
-use aidog_stats::{DbInitTables};
+        use aidog_db::{Db, create_platform};
+        use aidog_stats::DbInitTables;
 
         let dir = tempfile::tempdir().unwrap();
         let db_path = dir.path().join("aidog.db").to_string_lossy().into_owned();
         let db = Db::new(&db_path).await.expect("open file db");
         db.init_tables().await.expect("init tables");
-        let p = create_platform(&db, sample_platform("no-budget")).await.unwrap();
+        let p = create_platform(&db, sample_platform("no-budget"))
+            .await
+            .unwrap();
         assert!(p.manual_budgets.is_empty(), "sample_platform 无预算配置");
 
         // 长时间占住唯一的 platform 写连接（tokio-rusqlite 写连接单线程串行）。
@@ -509,10 +557,15 @@ use aidog_stats::{DbInitTables};
         }]);
         let p = create_platform(&db, cp).await.unwrap();
 
-        apply_manual_budgets(&db, p.id, 4.0, 1000.0, 1_700_000_000_000).await.unwrap();
+        apply_manual_budgets(&db, p.id, 4.0, 1000.0, 1_700_000_000_000)
+            .await
+            .unwrap();
         let reloaded = get_platform(&db, p.id).await.unwrap().unwrap();
         assert_eq!(reloaded.manual_budgets.len(), 1);
-        assert!((reloaded.manual_budgets[0].consumed - 4.0).abs() < 1e-9, "usd 单位扣 est_cost=4.0，与改动前逐字一致");
+        assert!(
+            (reloaded.manual_budgets[0].consumed - 4.0).abs() < 1e-9,
+            "usd 单位扣 est_cost=4.0，与改动前逐字一致"
+        );
     }
 
     // ── rolling 以「分钟」为单位：90 分钟窗口 ──
@@ -525,6 +578,10 @@ use aidog_stats::{DbInitTables};
         apply_one(&mut b, 1.0, 0.0, t0 + 60 * 60_000); // 60 分钟后未到期 → 累加
         assert!((b.consumed - 9.0).abs() < 1e-9);
         apply_one(&mut b, 2.0, 0.0, t0 + 90 * 60_000); // 90 分钟后到期 → 重置
-        assert!((b.consumed - 2.0).abs() < 1e-9, "90 分钟后应重置, got {}", b.consumed);
+        assert!(
+            (b.consumed - 2.0).abs() < 1e-9,
+            "90 分钟后应重置, got {}",
+            b.consumed
+        );
     }
 }

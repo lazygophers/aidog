@@ -14,7 +14,13 @@ fn base_price(source: &str) -> ResolvedPrice {
 }
 
 /// 落一条 model_entry：`pd` 既是 price_data 也提供 max_output_tokens 列。
-async fn put_entry(db: &Db, platform: &str, model: &str, pd: &serde_json::Value, max_out: Option<i64>) {
+async fn put_entry(
+    db: &Db,
+    platform: &str,
+    model: &str,
+    pd: &serde_json::Value,
+    max_out: Option<i64>,
+) {
     upsert_model_entries(
         db,
         vec![ModelEntry {
@@ -66,7 +72,10 @@ fn apply_context_tier_selects_long_tier() {
     assert_eq!(long.cache_read_input_token_cost, 1e-6);
     assert_eq!(long.source, "model_entry+tier");
     // 边界: 恰好等于阈值 → long
-    assert_eq!(apply_context_tier(base_price("model_entry"), &pd, 272_000).input_cost_per_token, 1e-5);
+    assert_eq!(
+        apply_context_tier(base_price("model_entry"), &pd, 272_000).input_cost_per_token,
+        1e-5
+    );
 }
 
 #[test]
@@ -78,7 +87,10 @@ fn apply_context_tier_no_tier_passthrough() {
     assert_eq!(r.source, "model_entry");
     // tiers 为空数组 → 同样不变
     let pd2 = serde_json::json!({"context_tiers": []});
-    assert_eq!(apply_context_tier(base_price("model_entry"), &pd2, 999_999_999).source, "model_entry");
+    assert_eq!(
+        apply_context_tier(base_price("model_entry"), &pd2, 999_999_999).source,
+        "model_entry"
+    );
 }
 
 #[test]
@@ -128,7 +140,10 @@ fn apply_tiers_time_hit_miss_and_nested_context() {
     assert_eq!(hit.cache_read_input_token_cost, 3.333333333333333e-07);
     assert_eq!(hit.source, "model_entry+time");
     // 未越过 start_at → 不变；now_ms <= 0 → 跳过 time_tiers
-    assert_eq!(apply_tiers(base.clone(), &pd, 100, 1790784000_i64 * 1000 - 1).source, "model_entry");
+    assert_eq!(
+        apply_tiers(base.clone(), &pd, 100, 1790784000_i64 * 1000 - 1).source,
+        "model_entry"
+    );
     assert_eq!(apply_tiers(base.clone(), &pd, 100, 0).source, "model_entry");
     // time 命中后 context 分档改读 time 条目内嵌的 context_tiers
     let long = apply_tiers(base, &pd, 40_000, 1790784000_i64 * 1000 + 1);
@@ -211,16 +226,27 @@ async fn resolve_price_reads_platform_scoped_entry() {
     put_entry(&db, "anthropic", "shared-model", &dear, None).await;
 
     // 同一 model_id 在两个平台是两条独立价格，按 platform_code 取
-    let a = resolve_price(&db, "openai", "shared-model", 99.0, 99.0, 0, 0, false).await.unwrap();
+    let a = resolve_price(&db, "openai", "shared-model", 99.0, 99.0, 0, 0, false)
+        .await
+        .unwrap();
     assert_eq!(a.price.input_cost_per_token, 1e-6);
-    let b = resolve_price(&db, "anthropic", "shared-model", 99.0, 99.0, 0, 0, false).await.unwrap();
+    let b = resolve_price(&db, "anthropic", "shared-model", 99.0, 99.0, 0, 0, false)
+        .await
+        .unwrap();
     assert_eq!(b.price.input_cost_per_token, 9e-6);
     // 该平台没有这条模型 → 借用别的平台的条目（票 13-A），source 可区分
-    let miss = resolve_price(&db, "glm", "shared-model", 3.0, 3.0, 0, 0, false).await.unwrap();
+    let miss = resolve_price(&db, "glm", "shared-model", 3.0, 3.0, 0, 0, false)
+        .await
+        .unwrap();
     assert_eq!(miss.price.source, "official_entry");
-    assert_eq!(miss.price.input_cost_per_token, 9e-6, "official 优先，其次 platform_code 字典序");
+    assert_eq!(
+        miss.price.input_cost_per_token, 9e-6,
+        "official 优先，其次 platform_code 字典序"
+    );
     // 哪个平台都没有 → 才轮到 settings fallback
-    let none = resolve_price(&db, "glm", "no-such-model-anywhere", 3.0, 3.0, 0, 0, false).await.unwrap();
+    let none = resolve_price(&db, "glm", "no-such-model-anywhere", 3.0, 3.0, 0, 0, false)
+        .await
+        .unwrap();
     assert_eq!(none.price.source, "fallback");
 }
 
@@ -234,21 +260,52 @@ async fn mirror_platform_borrows_official_price() {
         "output_cost_per_token": 1.5e-5,
         "max_output_tokens": 64000
     });
-    put_entry(&db, "anthropic", "claude-sonnet-4-5", &official, Some(64000)).await;
+    put_entry(
+        &db,
+        "anthropic",
+        "claude-sonnet-4-5",
+        &official,
+        Some(64000),
+    )
+    .await;
 
-    let r = resolve_price(&db, "claude_code", "claude-sonnet-4-5", 3.0, 3.0, 0, 0, false).await.unwrap();
-    assert_eq!(r.price.output_cost_per_token, 1.5e-5, "1M 输出 = $15，不是 fallback 的 $3");
+    let r = resolve_price(
+        &db,
+        "claude_code",
+        "claude-sonnet-4-5",
+        3.0,
+        3.0,
+        0,
+        0,
+        false,
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        r.price.output_cost_per_token, 1.5e-5,
+        "1M 输出 = $15，不是 fallback 的 $3"
+    );
     assert_eq!(r.price.source, "official_entry");
     // 票 13-B：同一条回退层让出站 max_tokens 裁剪对这些平台重新生效
-    assert_eq!(model_max_output_tokens(&db, "claude_code", "claude-sonnet-4-5").await.unwrap(), Some(64000));
+    assert_eq!(
+        model_max_output_tokens(&db, "claude_code", "claude-sonnet-4-5")
+            .await
+            .unwrap(),
+        Some(64000)
+    );
 }
 
 #[tokio::test]
 async fn resolve_price_falls_back_to_bundled_when_db_empty() {
     let db = test_db().await;
     // DB 未同步 → get_model_entry 回落编译期 registry，而非直接掉进 settings fallback
-    let r = resolve_price(&db, "glm_coding", "glm-5.2", 3.0, 3.0, 0, 0, false).await.unwrap();
-    assert_ne!(r.price.source, "fallback", "DB 未同步时应命中 bundled registry 兜底");
+    let r = resolve_price(&db, "glm_coding", "glm-5.2", 3.0, 3.0, 0, 0, false)
+        .await
+        .unwrap();
+    assert_ne!(
+        r.price.source, "fallback",
+        "DB 未同步时应命中 bundled registry 兜底"
+    );
     assert!(r.price.input_cost_per_token > 0.0);
 }
 
@@ -257,14 +314,37 @@ async fn model_max_output_tokens_column_then_json_then_none() {
     let db = test_db().await;
     // 列有值 → 用列
     put_entry(&db, "openai", "a", &serde_json::json!({}), Some(4096)).await;
-    assert_eq!(model_max_output_tokens(&db, "openai", "a").await.unwrap(), Some(4096));
+    assert_eq!(
+        model_max_output_tokens(&db, "openai", "a").await.unwrap(),
+        Some(4096)
+    );
     // 列 NULL → 回退 price_data JSON
-    put_entry(&db, "openai", "b", &serde_json::json!({"max_output_tokens": 1234}), None).await;
-    assert_eq!(model_max_output_tokens(&db, "openai", "b").await.unwrap(), Some(1234));
+    put_entry(
+        &db,
+        "openai",
+        "b",
+        &serde_json::json!({"max_output_tokens": 1234}),
+        None,
+    )
+    .await;
+    assert_eq!(
+        model_max_output_tokens(&db, "openai", "b").await.unwrap(),
+        Some(1234)
+    );
     // 哪个平台都没有该 model_id → None（不裁剪）
-    assert_eq!(model_max_output_tokens(&db, "openai", "no-such-model-anywhere").await.unwrap(), None);
+    assert_eq!(
+        model_max_output_tokens(&db, "openai", "no-such-model-anywhere")
+            .await
+            .unwrap(),
+        None
+    );
     // 平台不匹配 → 借用其它平台的上限（票 13-B），不再恒 None
-    assert_eq!(model_max_output_tokens(&db, "anthropic", "a").await.unwrap(), Some(4096));
+    assert_eq!(
+        model_max_output_tokens(&db, "anthropic", "a")
+            .await
+            .unwrap(),
+        Some(4096)
+    );
 }
 
 // ── 旧形状（价格平铺顶层）读取层归一化：2026-08-30 price 收归迁移的兼容层 ──
@@ -290,14 +370,24 @@ fn legacy_price_into_migrates_flat_shape() {
     let price = &doc["price"];
     assert_eq!(price["input"], 1e-6);
     assert_eq!(price["output"], 2e-6);
-    assert_eq!(price["cache_read"], 0.0, "default_price 仅补 price 缺失位（显式 0 保留）");
+    assert_eq!(
+        price["cache_read"], 0.0,
+        "default_price 仅补 price 缺失位（显式 0 保留）"
+    );
     assert_eq!(price["peak"]["input"], 3e-6);
     assert_eq!(price["context_tiers"][0]["min_tokens"], 8192);
     assert_eq!(price["context_tiers"][0]["input"], 5e-6);
     assert_eq!(price["time_tiers"][0]["start_at"], 100);
     assert_eq!(price["time_tiers"][0]["context_tiers"][0]["input"], 9e-6);
     // 旧键清空
-    for k in ["input_cost_per_token", "output_cost_per_token", "default_price", "peak", "context_tiers", "time_tiers"] {
+    for k in [
+        "input_cost_per_token",
+        "output_cost_per_token",
+        "default_price",
+        "peak",
+        "context_tiers",
+        "time_tiers",
+    ] {
         assert!(doc.get(k).is_none(), "{k} 应已移除");
     }
     assert_eq!(doc["model_id"], "m", "非价格字段不动");
@@ -315,11 +405,19 @@ async fn db_legacy_row_bills_and_displays_through_normalization() {
         "peak": {"input_cost_per_token": 4e-6, "output_cost_per_token": 8e-6}
     });
     put_entry(&db, "oldplatform", "legacy-model", &legacy, None).await;
-    let r = resolve_price(&db, "oldplatform", "legacy-model", 3.0, 3.0, 0, 0, true).await.unwrap();
+    let r = resolve_price(&db, "oldplatform", "legacy-model", 3.0, 3.0, 0, 0, true)
+        .await
+        .unwrap();
     assert!(r.peak_applied, "旧形状 peak 也要命中");
     assert_eq!(r.price.input_cost_per_token, 4e-6);
     // UI 出口：get_model_entry 返回的 price_data 已是 price 子树（前端只认新形状）
-    let e = get_model_entry(&db, "oldplatform", "legacy-model").await.unwrap().unwrap();
+    let e = get_model_entry(&db, "oldplatform", "legacy-model")
+        .await
+        .unwrap()
+        .unwrap();
     let pd: serde_json::Value = serde_json::from_str(&e.price_data).unwrap();
-    assert!(pd["price"]["input"].is_number(), "展示层拿到的应是归一化后的 price 子树");
+    assert!(
+        pd["price"]["input"].is_number(),
+        "展示层拿到的应是归一化后的 price 子树"
+    );
 }

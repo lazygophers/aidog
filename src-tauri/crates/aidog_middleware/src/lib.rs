@@ -27,9 +27,7 @@ use regex::Regex;
 use serde_json::Value;
 
 use aidog_db::Db;
-use aidog_db::models::{
-    ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target,
-};
+use aidog_db::models::{ConditionLeaf, ConditionNode, MatchType, MiddlewareRule, Target};
 
 /// 正则编译大小上限（字节）。regex crate 无回溯 DFA 本身抗 ReDoS；
 /// 此上限进一步约束病态大模式。超限 → 编译失败 → 跳过该叶子（fail-open）。
@@ -73,9 +71,10 @@ impl CompiledRule {
     /// Applies To 过滤：三维各自空 = 不限；多值 = 任一命中；三维间 AND。
     fn applies(&self, group_key: Option<&str>, platform_id: Option<i64>, model: &str) -> bool {
         let at = &self.rule.applies_to;
-        let p_ok = at.platforms.is_empty()
-            || platform_id.is_some_and(|pid| at.platforms.contains(&pid));
-        let g_ok = at.groups.is_empty() || group_key.is_some_and(|gk| at.groups.iter().any(|g| g == gk));
+        let p_ok =
+            at.platforms.is_empty() || platform_id.is_some_and(|pid| at.platforms.contains(&pid));
+        let g_ok =
+            at.groups.is_empty() || group_key.is_some_and(|gk| at.groups.iter().any(|g| g == gk));
         let m_ok = at.models.is_empty() || at.models.iter().any(|m| m == model);
         p_ok && g_ok && m_ok
     }
@@ -150,9 +149,7 @@ impl CompiledNode {
                     Some(view.req_text.clone())
                 }
             }
-            Target::RequestHeaders => {
-                view.req_headers.and_then(|h| header_value(h, &leaf.field))
-            }
+            Target::RequestHeaders => view.req_headers.and_then(|h| header_value(h, &leaf.field)),
             Target::ResponseBody => {
                 if leaf.field.is_empty() {
                     view.resp_body.map(|s| s.to_string())
@@ -163,9 +160,7 @@ impl CompiledNode {
                         .map(value_to_text)
                 }
             }
-            Target::ResponseHeaders => {
-                view.resp_headers.and_then(|h| header_value(h, &leaf.field))
-            }
+            Target::ResponseHeaders => view.resp_headers.and_then(|h| header_value(h, &leaf.field)),
             Target::Status => view.status.map(|s| s.to_string()),
             Target::Model => Some(view.model.to_string()),
         };
@@ -276,8 +271,12 @@ impl MiddlewareEngine {
 /// 递归编译条件树（预编译叶子 regex；失败 fail-open = None，永不命中）。
 fn compile_node(node: &ConditionNode) -> CompiledNode {
     match node {
-        ConditionNode::All { children } => CompiledNode::All(children.iter().map(compile_node).collect()),
-        ConditionNode::Any { children } => CompiledNode::Any(children.iter().map(compile_node).collect()),
+        ConditionNode::All { children } => {
+            CompiledNode::All(children.iter().map(compile_node).collect())
+        }
+        ConditionNode::Any { children } => {
+            CompiledNode::Any(children.iter().map(compile_node).collect())
+        }
         ConditionNode::Leaf(leaf) => CompiledNode::Leaf {
             leaf: leaf.clone(),
             regex: if leaf.match_type == MatchType::Regex {
@@ -340,7 +339,9 @@ fn compile_regex(pattern: &str) -> Option<Arc<Regex>> {
 pub(crate) fn collect_patterns(node: &CompiledNode, target: Target) -> Vec<RewriteLeaf> {
     fn walk(node: &CompiledNode, target: Target, out: &mut Vec<RewriteLeaf>) {
         match node {
-            CompiledNode::All(cs) | CompiledNode::Any(cs) => cs.iter().for_each(|c| walk(c, target, out)),
+            CompiledNode::All(cs) | CompiledNode::Any(cs) => {
+                cs.iter().for_each(|c| walk(c, target, out))
+            }
             CompiledNode::Leaf { leaf, regex } => {
                 if leaf.target == target {
                     out.push(RewriteLeaf {

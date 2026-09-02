@@ -2,7 +2,7 @@
 //! （requires balance_base_url + balance_api_key，两步查询 + newapi_user_id）的
 //! registry 脚本 + 路由捕获 stub。等价差异（t3c-handoff）：HTTP 错误带 body 只锁
 //! 前缀；api_key 空检查在脚本内（专属 command 不经 dispatch 通用检查）。
-use super::script::{run_custom_query, CustomQueryCtx};
+use super::script::{CustomQueryCtx, run_custom_query};
 use super::test_stub::spawn_capture;
 use aidog_db::registry;
 
@@ -14,7 +14,12 @@ fn script_for(code: &str) -> String {
         .unwrap_or_else(|| panic!("registry {code} 无 quota 脚本"))
 }
 
-async fn run(script: &str, base_url: &str, extra: &str, api_key: &str) -> crate::quota::PlatformQuota {
+async fn run(
+    script: &str,
+    base_url: &str,
+    extra: &str,
+    api_key: &str,
+) -> crate::quota::PlatformQuota {
     run_custom_query(
         None,
         CustomQueryCtx {
@@ -32,7 +37,9 @@ async fn run(script: &str, base_url: &str, extra: &str, api_key: &str) -> crate:
 
 /// Step1 token usage 路由 stub；返回 stub 根 URL。
 async fn newapi_step1(body: &'static str) -> String {
-    spawn_capture(vec![("/api/usage/token/", 200, body)]).await.0
+    spawn_capture(vec![("/api/usage/token/", 200, body)])
+        .await
+        .0
 }
 
 #[tokio::test]
@@ -67,20 +74,38 @@ async fn newapi_limited_zero_all() {
 #[tokio::test]
 async fn newapi_step1_url_and_headers() {
     // instance_root 剥最后一段 /v<纯数字>（/openai/v1 → /openai）+ query 双入参 + Bearer 双通道
-    let (stub, log) = spawn_capture(vec![("/openai/api/usage/token/", 200, r#"{"data":{}}"#)]).await;
-    let q = run(&script_for("newapi"), &format!("{stub}/openai/v1"), "{}", "sk my key").await;
+    let (stub, log) =
+        spawn_capture(vec![("/openai/api/usage/token/", 200, r#"{"data":{}}"#)]).await;
+    let q = run(
+        &script_for("newapi"),
+        &format!("{stub}/openai/v1"),
+        "{}",
+        "sk my key",
+    )
+    .await;
     assert!(q.success, "{:?}", q.error);
     let log = log.lock().unwrap();
     assert_eq!(log.len(), 1);
-    assert_eq!(log[0].path, "/openai/api/usage/token/?key=sk%20my%20key&api_key=sk%20my%20key");
+    assert_eq!(
+        log[0].path,
+        "/openai/api/usage/token/?key=sk%20my%20key&api_key=sk%20my%20key"
+    );
     assert_eq!(log[0].authorization, "Bearer sk my key");
 }
 
 #[tokio::test]
 async fn newapi_unlimited_user_self_with_user_id() {
     let (stub, log) = spawn_capture(vec![
-        ("/api/usage/token/", 200, r#"{"data":{"unlimited_quota":true}}"#),
-        ("/api/user/self", 200, r#"{"success":true,"data":{"id":42,"quota":250000,"used_quota":50000}}"#),
+        (
+            "/api/usage/token/",
+            200,
+            r#"{"data":{"unlimited_quota":true}}"#,
+        ),
+        (
+            "/api/user/self",
+            200,
+            r#"{"success":true,"data":{"id":42,"quota":250000,"used_quota":50000}}"#,
+        ),
     ])
     .await;
     let extra = format!(r#"{{"newapi":{{"balance_base_url":"{stub}","balance_api_key":"bk-1"}}}}"#);
@@ -101,8 +126,16 @@ async fn newapi_unlimited_user_self_with_user_id() {
 #[tokio::test]
 async fn newapi_unlimited_string_id_and_top_level_extra_fallback() {
     let (stub, _) = spawn_capture(vec![
-        ("/api/usage/token/", 200, r#"{"data":{"unlimited_quota":true}}"#),
-        ("/api/user/self", 200, r#"{"success":true,"data":{"id":"u-7","quota":0,"used_quota":0}}"#),
+        (
+            "/api/usage/token/",
+            200,
+            r#"{"data":{"unlimited_quota":true}}"#,
+        ),
+        (
+            "/api/user/self",
+            200,
+            r#"{"success":true,"data":{"id":"u-7","quota":0,"used_quota":0}}"#,
+        ),
     ])
     .await;
     // requires 表单写顶层（schema 约定 extra.<key>），嵌套缺失回落顶层
@@ -120,11 +153,23 @@ async fn newapi_requires_missing_paths() {
     // 无 balance_api_key（检查顺序：先 key 后 url，同 Rust 源码）
     let q = run(&code, &stub, "{}", "sk-n").await;
     assert!(!q.success);
-    assert_eq!(q.error.as_deref(), Some("New API: unlimited token requires balance_api_key in config"));
+    assert_eq!(
+        q.error.as_deref(),
+        Some("New API: unlimited token requires balance_api_key in config")
+    );
     // key 有但 base_url 空
-    let q2 = run(&code, &stub, r#"{"newapi":{"balance_api_key":"k"}}"#, "sk-n").await;
+    let q2 = run(
+        &code,
+        &stub,
+        r#"{"newapi":{"balance_api_key":"k"}}"#,
+        "sk-n",
+    )
+    .await;
     assert!(!q2.success);
-    assert_eq!(q2.error.as_deref(), Some("New API: unlimited token requires balance_base_url"));
+    assert_eq!(
+        q2.error.as_deref(),
+        Some("New API: unlimited token requires balance_base_url")
+    );
 }
 
 #[tokio::test]
@@ -133,7 +178,10 @@ async fn newapi_error_paths() {
     // 空 api_key（脚本内检查，专属 command 不经 dispatch 通用检查）
     let q = run(&code, "https://x.com", "{}", "  ").await;
     assert!(!q.success);
-    assert_eq!(q.error.as_deref(), Some("New API: api_key required for token usage query"));
+    assert_eq!(
+        q.error.as_deref(),
+        Some("New API: api_key required for token usage query")
+    );
 
     // Step1 data 键缺失 → Token usage: 前缀
     let stub = newapi_step1(r#"{"message":"nope"}"#).await;
@@ -148,7 +196,8 @@ async fn newapi_error_paths() {
     assert_eq!(q3.balance.unwrap().remaining, 0.0);
 
     // Step1 HTTP 错误 → Token usage: HTTP 前缀（带 body，锁前缀 + status）
-    let (stub3, _) = spawn_capture(vec![("/api/usage/token/", 403, r#"{"error":"forbidden"}"#)]).await;
+    let (stub3, _) =
+        spawn_capture(vec![("/api/usage/token/", 403, r#"{"error":"forbidden"}"#)]).await;
     let q4 = run(&code, &stub3, "{}", "sk-n").await;
     assert!(!q4.success);
     let e = q4.error.unwrap();
@@ -156,8 +205,16 @@ async fn newapi_error_paths() {
 
     // Step2 user/self success:false → message / 缺省 Query failed（无 Token usage 前缀）
     let (stub4, _) = spawn_capture(vec![
-        ("/api/usage/token/", 200, r#"{"data":{"unlimited_quota":true}}"#),
-        ("/api/user/self", 200, r#"{"success":false,"message":"denied"}"#),
+        (
+            "/api/usage/token/",
+            200,
+            r#"{"data":{"unlimited_quota":true}}"#,
+        ),
+        (
+            "/api/user/self",
+            200,
+            r#"{"success":false,"message":"denied"}"#,
+        ),
     ])
     .await;
     let extra = format!(r#"{{"newapi":{{"balance_base_url":"{stub4}","balance_api_key":"k"}}}}"#);
@@ -166,7 +223,11 @@ async fn newapi_error_paths() {
     assert_eq!(q5.error.as_deref(), Some("denied"));
 
     let (stub5, _) = spawn_capture(vec![
-        ("/api/usage/token/", 200, r#"{"data":{"unlimited_quota":true}}"#),
+        (
+            "/api/usage/token/",
+            200,
+            r#"{"data":{"unlimited_quota":true}}"#,
+        ),
         ("/api/user/self", 200, r#"{"success":false}"#),
     ])
     .await;
@@ -206,19 +267,24 @@ async fn devin_success_records_total_acus() {
     let log = log.lock().unwrap();
     assert_eq!(log.len(), 1);
     // org_id encodeURIComponent + Bearer cog key
-    assert_eq!(log[0].path, "/v3/organizations/org%20abc%2Fx/consumption/daily");
+    assert_eq!(
+        log[0].path,
+        "/v3/organizations/org%20abc%2Fx/consumption/daily"
+    );
     assert_eq!(log[0].authorization, "Bearer cog-1");
 }
 
 #[tokio::test]
 async fn devin_string_total_acus_and_zero_valid() {
-    let (stub, _) = spawn_capture(vec![("/v3/organizations/", 200, r#"{"total_acus":"42"}"#)]).await;
+    let (stub, _) =
+        spawn_capture(vec![("/v3/organizations/", 200, r#"{"total_acus":"42"}"#)]).await;
     let extra = r#"{"org_id":"org-1"}"#; // 顶层兜底（requires 表单约定）
     let q = run(&devin_script(&stub), &stub, extra, "cog-1").await;
     assert!(q.success, "{:?}", q.error);
     assert_eq!(q.balance.unwrap().used, Some(42.0));
 
-    let (stub2, _) = spawn_capture(vec![("/v3/organizations/", 200, r#"{"total_acus":0.0}"#)]).await;
+    let (stub2, _) =
+        spawn_capture(vec![("/v3/organizations/", 200, r#"{"total_acus":0.0}"#)]).await;
     let q2 = run(&devin_script(&stub2), &stub2, r#"{"org_id":"o"}"#, "cog-1").await;
     assert!(q2.success);
     assert!(q2.balance.unwrap().is_valid, "0 ACU 仍 valid");
@@ -226,7 +292,12 @@ async fn devin_string_total_acus_and_zero_valid() {
 
 #[tokio::test]
 async fn devin_missing_total_acus_and_null_body() {
-    let (stub, _) = spawn_capture(vec![("/v3/organizations/", 200, r#"{"acus_by_product":{}}"#)]).await;
+    let (stub, _) = spawn_capture(vec![(
+        "/v3/organizations/",
+        200,
+        r#"{"acus_by_product":{}}"#,
+    )])
+    .await;
     let q = run(&devin_script(&stub), &stub, r#"{"org_id":"o"}"#, "cog-1").await;
     assert!(!q.success);
     assert_eq!(q.error.as_deref(), Some("Missing total_acus field"));
@@ -254,8 +325,16 @@ async fn devin_org_id_priority_and_errors() {
     assert!(bad.error.unwrap().contains("missing org_id"));
 
     // 嵌套优先：nested.org_id 存在但空白 → 不回落顶层（与 Rust devin? 命中即不回落一致）
-    let stub = spawn_capture(vec![("/v3/organizations/", 200, r#"{"total_acus":1}"#)]).await.0;
-    let nested_blank = run(&devin_script(&stub), &stub, r#"{"devin":{"org_id":"  "},"org_id":"top"}"#, "cog-1").await;
+    let stub = spawn_capture(vec![("/v3/organizations/", 200, r#"{"total_acus":1}"#)])
+        .await
+        .0;
+    let nested_blank = run(
+        &devin_script(&stub),
+        &stub,
+        r#"{"devin":{"org_id":"  "},"org_id":"top"}"#,
+        "cog-1",
+    )
+    .await;
     assert!(!nested_blank.success);
     assert!(nested_blank.error.unwrap().contains("missing org_id"));
 

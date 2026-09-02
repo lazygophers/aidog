@@ -12,7 +12,9 @@ pub fn parse_platform_time_windows(extra: &str) -> Vec<serde_json::Value> {
     crate::gateway::models::PlatformExtra::parse(extra)
         .time_windows
         .into_iter()
-        .filter(|item| item.is_object() && item.get("windows").is_some() && item.get("models").is_some())
+        .filter(|item| {
+            item.is_object() && item.get("windows").is_some() && item.get("models").is_some()
+        })
         .collect()
 }
 
@@ -36,13 +38,16 @@ pub fn resolve_time_windows(
             // 转换窗口为 TimeWindow 格式进行判定
             for w in windows {
                 if let Some(parsed) = parse_peak_window(w)
-                    && crate::gateway::peak::hit(&parsed, hour, minute, weekday, day_of_month) {
-                        // 命中：解析该 rule 的 models
-                        if let Some(models_val) = rule.get("models")
-                            && let Ok(models) = serde_json::from_value::<PlatformModels>(models_val.clone()) {
-                                return models;
-                            }
+                    && crate::gateway::peak::hit(&parsed, hour, minute, weekday, day_of_month)
+                {
+                    // 命中：解析该 rule 的 models
+                    if let Some(models_val) = rule.get("models")
+                        && let Ok(models) =
+                            serde_json::from_value::<PlatformModels>(models_val.clone())
+                    {
+                        return models;
                     }
+                }
             }
         }
     }

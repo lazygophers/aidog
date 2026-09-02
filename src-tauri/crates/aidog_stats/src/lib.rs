@@ -4,7 +4,6 @@
 mod query_stats;
 mod stats_agg;
 mod stats_today;
-mod usage_stats;
 #[cfg(test)]
 mod test_query_stats;
 #[cfg(test)]
@@ -13,6 +12,7 @@ mod test_stats_agg;
 mod test_stats_today;
 #[cfg(test)]
 mod test_usage_stats;
+mod usage_stats;
 
 pub use query_stats::*;
 pub use stats_agg::*;

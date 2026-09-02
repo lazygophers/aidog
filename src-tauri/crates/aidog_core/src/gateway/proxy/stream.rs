@@ -70,7 +70,9 @@ pub(crate) struct Utf8ChunkReassembler {
 
 impl Utf8ChunkReassembler {
     pub(crate) fn new() -> Self {
-        Self { pending: Vec::new() }
+        Self {
+            pending: Vec::new(),
+        }
     }
 
     /// 喂入一个网络 chunk，返回本次可解码出的文本（已按需拼接上次残留字节）。
@@ -219,12 +221,14 @@ impl StreamAggregator {
 
     /// 上游 chunk 报错 → 标记上游截断（relay 闭包 Err 分支唯一调用点）。
     pub(crate) fn mark_upstream_err(&self) {
-        self.upstream_err.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.upstream_err
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// 上游流自然耗尽 → 标记正常收尾（chain 哨兵唯一调用点）。
     pub(crate) fn mark_exhausted(&self) {
-        self.exhausted.store(true, std::sync::atomic::Ordering::Relaxed);
+        self.exhausted
+            .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
     /// 无终止符时的终态状态码：上游报错 502 / 自然耗尽 200 / 都不是则客户端断连 499。
@@ -294,7 +298,12 @@ impl StreamAggregator {
                     continue;
                 }
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    accumulate_sse_usage(&json, &self.tokens_in, &self.tokens_out, &self.tokens_cache);
+                    accumulate_sse_usage(
+                        &json,
+                        &self.tokens_in,
+                        &self.tokens_out,
+                        &self.tokens_cache,
+                    );
                 }
             }
         }
@@ -371,10 +380,11 @@ impl StreamLogGuard {
             }
             // SSE event 行形式：`event: message_stop`
             if let Some(ev) = line.strip_prefix("event: ")
-                && ev.trim() == "message_stop" {
-                    self.flush_with(200);
-                    return;
-                }
+                && ev.trim() == "message_stop"
+            {
+                self.flush_with(200);
+                return;
+            }
         }
     }
 
@@ -412,9 +422,10 @@ impl StreamLogGuard {
             final_log.response_body = String::new();
         }
         if self.record_client_body
-            && let Ok(chunks) = self.agg.client_body.lock() {
-                final_log.user_response_body = join_stream_body(&chunks);
-            }
+            && let Ok(chunks) = self.agg.client_body.lock()
+        {
+            final_log.user_response_body = join_stream_body(&chunks);
+        }
 
         tracing::info!(
             platform_id = final_log.platform_id, model = %final_log.actual_model,
@@ -539,20 +550,26 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32) {
         Some(u) => u,
         None => return (0, 0, 0),
     };
-    let input = usage.get("input_tokens")
+    let input = usage
+        .get("input_tokens")
         .or_else(|| usage.get("prompt_tokens"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
-    let output = usage.get("output_tokens")
+    let output = usage
+        .get("output_tokens")
         .or_else(|| usage.get("completion_tokens"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
     // Cache tokens: Anthropic (cache_read_input_tokens), OpenAI (prompt_tokens_details.cached_tokens), generic
-    let cache = usage.get("cache_read_input_tokens")
+    let cache = usage
+        .get("cache_read_input_tokens")
         .and_then(|v| v.as_i64())
-        .or_else(|| usage.get("prompt_tokens_details")
-            .and_then(|d| d.get("cached_tokens"))
-            .and_then(|v| v.as_i64()))
+        .or_else(|| {
+            usage
+                .get("prompt_tokens_details")
+                .and_then(|d| d.get("cached_tokens"))
+                .and_then(|v| v.as_i64())
+        })
         .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
         .unwrap_or(0) as i32;
     (input, output, cache)
@@ -569,7 +586,10 @@ pub(crate) fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u
         if obj.get("model").and_then(|m| m.as_str()) == Some(original_model) {
             return bytes.to_vec();
         }
-        obj.insert("model".to_string(), Value::String(original_model.to_string()));
+        obj.insert(
+            "model".to_string(),
+            Value::String(original_model.to_string()),
+        );
     }
     serde_json::to_vec(&v).unwrap_or_else(|_| bytes.to_vec())
 }
@@ -580,7 +600,8 @@ pub(crate) fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u
 static SSE_MODEL_RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
 pub(crate) fn replace_model_in_sse_text(text: &str, model: &str) -> String {
     let re = SSE_MODEL_RE.get_or_init(|| regex::Regex::new(r#""model"\s*:\s*"[^"]*""#).unwrap());
-    re.replace_all(text, format!(r#""model":"{model}""#)).into_owned()
+    re.replace_all(text, format!(r#""model":"{model}""#))
+        .into_owned()
 }
 
 #[cfg(test)]

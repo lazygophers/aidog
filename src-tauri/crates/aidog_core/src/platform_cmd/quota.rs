@@ -1,8 +1,7 @@
 use crate::gateway;
 use aidog_db::{self as db, Db};
-use tauri::{State, Manager};
 use std::sync::Arc;
-
+use tauri::{Manager, State};
 
 use gateway::quota::PlatformQuota;
 
@@ -71,26 +70,41 @@ pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &P
 /// 不阻塞：每平台 spawn 独立 async（锁外 await 真查，calibrate_from_quota 短持锁写）。
 /// 真查完成后发 tray-refresh，让主线程刷新托盘显示。
 pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
-    let Some(db_state) = app.try_state::<Db>() else { return };
-    let Ok(Some(config)) = db::get_tray_config(&db_state).await else { return };
+    let Some(db_state) = app.try_state::<Db>() else {
+        return;
+    };
+    let Ok(Some(config)) = db::get_tray_config(&db_state).await else {
+        return;
+    };
     // 收集 tray 启用、platform 类型、且 last_real_query_at==0 的平台
     let mut targets: Vec<gateway::models::Platform> = Vec::new();
-    for item in config.items.iter().filter(|i| i.enabled && i.item_type == "platform") {
-        let Some(pid) = item.platform_id else { continue };
+    for item in config
+        .items
+        .iter()
+        .filter(|i| i.enabled && i.item_type == "platform")
+    {
+        let Some(pid) = item.platform_id else {
+            continue;
+        };
         if let Ok(Some(p)) = db::get_platform(&db_state, pid).await
-            && p.last_real_query_at == 0 {
-                targets.push(p);
-            }
+            && p.last_real_query_at == 0
+        {
+            targets.push(p);
+        }
     }
     for p in targets {
         let handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            let Some(db) = handle.try_state::<Db>() else { return };
+            let Some(db) = handle.try_state::<Db>() else {
+                return;
+            };
             let db_arc = Arc::new(db.inner().clone());
             // 统一脚本路径（quota-scripts T4）：query_quota 按平台行协议路由（物化列 →
             // registry 变体），newapi 两步查询 / devin ACU / 11 平台族全覆盖，
             // 不再 newapi/devin 三分支特判。
-            let q = gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64).await;
+            let q =
+                gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64)
+                    .await;
             if !q.success {
                 return; // 失败保留，下次再试（不重置 last_real_query_at）
             }

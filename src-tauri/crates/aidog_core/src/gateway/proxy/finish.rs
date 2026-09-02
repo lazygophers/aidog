@@ -47,138 +47,145 @@ pub(crate) async fn finish_nonstream(
         ctx.quota_base_url.clone()
     };
     // usage 借用：lossy 不经 to_string 中转
-        let (input_tokens, output_tokens, cache_tokens) =
-            extract_usage(String::from_utf8_lossy(&body).as_ref());
+    let (input_tokens, output_tokens, cache_tokens) =
+        extract_usage(String::from_utf8_lossy(&body).as_ref());
 
-        // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，
-        //   客户端侧 body 受 log_user_request。body 先不分配——gate 开才走 cap_nonstream_body 截断 + 落库。──
-        let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-        let upstream_body_str: String = if record_upstream_body {
-            cap_nonstream_body(&body)
-        } else {
-            String::new()
-        };
+    // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，
+    //   客户端侧 body 受 log_user_request。body 先不分配——gate 开才走 cap_nonstream_body 截断 + 落库。──
+    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+    let upstream_body_str: String = if record_upstream_body {
+        cap_nonstream_body(&body)
+    } else {
+        String::new()
+    };
 
-        log.response_body = upstream_body_str;
-        log.status_code = 200;
-        log.done = true;
-        log.duration_ms = start.elapsed().as_millis() as i32;
-        log.input_tokens = input_tokens;
-        log.output_tokens = output_tokens;
-        log.cache_tokens = cache_tokens;
+    log.response_body = upstream_body_str;
+    log.status_code = 200;
+    log.done = true;
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.input_tokens = input_tokens;
+    log.output_tokens = output_tokens;
+    log.cache_tokens = cache_tokens;
 
-        // ── 非流式跨协议响应转换 ──
-        // 流式路径靠 parse_sse→to_client_sse 转换响应格式，但非流式分支历史上**直接透传上游 body**，
-        // 致 source≠target 且非同协议透传时（如 anthropic 客户端 ↔ openai 平台），CC 收到上游原生
-        // openai chat completion JSON（含 tool_calls）而非 anthropic messages → "empty or malformed (200)"。
-        // 这里补齐：同协议透传跳过；否则按 (wire=target, client=source) 转换。返回 None 表示无需转换，透传原文。
-        let body = if !same_protocol_passthrough {
-            let upstream_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-            match adapter::convert_response(
-                &upstream_json,
-                target_protocol_enum,
-                source_protocol,
-                requested_model,
-            ) {
-                Some(converted) => serde_json::to_vec(&converted).unwrap_or_else(|_| body.to_vec()),
-                None => body.to_vec(),
-            }
-        } else {
-            body.to_vec()
-        };
-        let body = Bytes::from(body);
+    // ── 非流式跨协议响应转换 ──
+    // 流式路径靠 parse_sse→to_client_sse 转换响应格式，但非流式分支历史上**直接透传上游 body**，
+    // 致 source≠target 且非同协议透传时（如 anthropic 客户端 ↔ openai 平台），CC 收到上游原生
+    // openai chat completion JSON（含 tool_calls）而非 anthropic messages → "empty or malformed (200)"。
+    // 这里补齐：同协议透传跳过；否则按 (wire=target, client=source) 转换。返回 None 表示无需转换，透传原文。
+    let body = if !same_protocol_passthrough {
+        let upstream_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+        match adapter::convert_response(
+            &upstream_json,
+            target_protocol_enum,
+            source_protocol,
+            requested_model,
+        ) {
+            Some(converted) => serde_json::to_vec(&converted).unwrap_or_else(|_| body.to_vec()),
+            None => body.to_vec(),
+        }
+    } else {
+        body.to_vec()
+    };
+    let body = Bytes::from(body);
 
-        // ── 禁用思考的响应侧兑现（转换与透传两分支共用本 seam）──
-        // 出站已按目标协议写了显式禁用参数，但 MiniMax-M2 这类内置思考模型不认，照回思维链
-        // （实测 request 3ed5a698：整条响应只有 thinking 块）。按客户端协议剥掉思维链载体，
-        // 客户端拿到干净正文；上游已花的思考 token 无法追回，仍照实计费。
-        let body = if ctx.disable_thinking {
-            let mut json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
-            if adapter::strip_thinking_in_body(&mut json, source_protocol) {
-                tracing::info!(model = %actual_model, "disable_thinking: stripped thinking from upstream response");
-                Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| body.to_vec()))
-            } else {
-                body
-            }
+    // ── 禁用思考的响应侧兑现（转换与透传两分支共用本 seam）──
+    // 出站已按目标协议写了显式禁用参数，但 MiniMax-M2 这类内置思考模型不认，照回思维链
+    // （实测 request 3ed5a698：整条响应只有 thinking 块）。按客户端协议剥掉思维链载体，
+    // 客户端拿到干净正文；上游已花的思考 token 无法追回，仍照实计费。
+    let body = if ctx.disable_thinking {
+        let mut json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+        if adapter::strip_thinking_in_body(&mut json, source_protocol) {
+            tracing::info!(model = %actual_model, "disable_thinking: stripped thinking from upstream response");
+            Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| body.to_vec()))
         } else {
             body
-        };
-
-        // 下发 model 始终回填客户端请求的模型名（含未 remap 但上游自报名不符的场景）
-        let body = if !requested_model.is_empty() {
-            replace_model_in_json(&body, requested_model)
-        } else {
-            body.to_vec()
-        };
-
-        // ── 中间件出站规则（非流式 2xx）：response_override/redaction/content_filter 改写 body。
-        //   在 usage 提取后改写（脱敏不影响计费/统计）；与入站脱敏幂等。
-        //   总开关/子开关 OFF 时为 no-op。error_rule 不在此（仅非 2xx 路径分类）。──
-        let body = {
-            let mut s = String::from_utf8_lossy(&body).to_string();
-            let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
-            state.middleware.apply_outbound(
-                &mw_settings, &mut s,
-                Some(&group.group_key), Some(route.platform.id as i64),
-            );
-            s.into_bytes()
-        };
-        // 客户端侧 body gate（受 log_user_request）+ 16MB cap
-        let record_client_body = log_settings.enabled && log_settings.log_user_request;
-        log.user_response_body = if record_client_body {
-            cap_nonstream_body(&body)
-        } else {
-            String::new()
-        };
-
-        // ── 透传上游响应头（黑名单剔除 content-encoding/content-length/hop-by-hop）──
-        let mut filtered = filter_upstream_resp_headers(upstream_resp_headers, false);
-        // 上游缺 content-type 时回退默认 application/json
-        if !filtered
-            .iter()
-            .any(|(n, _)| n == axum::http::header::CONTENT_TYPE)
-        {
-            filtered.push((
-                axum::http::header::CONTENT_TYPE,
-                axum::http::HeaderValue::from_static("application/json"),
-            ));
         }
-        // 日志字段 = 实际发回客户端的头集合（不再写死 content-type）
-        log.user_response_headers = resp_headers_to_log_json(&filtered);
+    } else {
+        body
+    };
 
-        tracing::info!(
-            platform = %route.platform.name, model = %actual_model, status = 200, stream = false,
-            duration_ms = log.duration_ms, input_tokens, output_tokens, cache_tokens,
-            "request completed"
+    // 下发 model 始终回填客户端请求的模型名（含未 remap 但上游自报名不符的场景）
+    let body = if !requested_model.is_empty() {
+        replace_model_in_json(&body, requested_model)
+    } else {
+        body.to_vec()
+    };
+
+    // ── 中间件出站规则（非流式 2xx）：response_override/redaction/content_filter 改写 body。
+    //   在 usage 提取后改写（脱敏不影响计费/统计）；与入站脱敏幂等。
+    //   总开关/子开关 OFF 时为 no-op。error_rule 不在此（仅非 2xx 路径分类）。──
+    let body = {
+        let mut s = String::from_utf8_lossy(&body).to_string();
+        let mw_settings = state
+            .settings_cache
+            .read()
+            .await
+            .middleware_settings
+            .clone();
+        state.middleware.apply_outbound(
+            &mw_settings,
+            &mut s,
+            Some(&group.group_key),
+            Some(route.platform.id as i64),
         );
-        upsert_log(state, log, log_settings).await;
+        s.into_bytes()
+    };
+    // 客户端侧 body gate（受 log_user_request）+ 16MB cap
+    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    log.user_response_body = if record_client_body {
+        cap_nonstream_body(&body)
+    } else {
+        String::new()
+    };
 
-        // ── 请求驱动预估（后台，不阻塞响应）──
-        spawn_estimate(
-            state,
-            route.platform.id,
-            &route.platform.platform_type,
-            quota_base_url,
-            eff_api_key.to_string(),
-            actual_model.to_string(),
-            route.platform.extra.clone(),
-            input_tokens,
-            output_tokens,
-            cache_tokens,
-            coding_plan,
-            tracing::Span::current(),
-        );
+    // ── 透传上游响应头（黑名单剔除 content-encoding/content-length/hop-by-hop）──
+    let mut filtered = filter_upstream_resp_headers(upstream_resp_headers, false);
+    // 上游缺 content-type 时回退默认 application/json
+    if !filtered
+        .iter()
+        .any(|(n, _)| n == axum::http::header::CONTENT_TYPE)
+    {
+        filtered.push((
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        ));
+    }
+    // 日志字段 = 实际发回客户端的头集合（不再写死 content-type）
+    log.user_response_headers = resp_headers_to_log_json(&filtered);
 
-        let mut response = (StatusCode::OK, body.to_vec()).into_response();
-        // into_response 对 Vec<u8> 写死 content-type: application/octet-stream；
-        // HeaderMap::extend 用 append 语义，直接 extend 会产生重复 content-type（octet-stream + 真实值）。
-        // 故先 remove 默认 content-type，再 extend（filtered 已含真实 content-type 或回退 application/json）。
-        response
-            .headers_mut()
-            .remove(axum::http::header::CONTENT_TYPE);
-        response.headers_mut().extend(filtered);
-        inject_trace_header(&mut response);
-        response
+    tracing::info!(
+        platform = %route.platform.name, model = %actual_model, status = 200, stream = false,
+        duration_ms = log.duration_ms, input_tokens, output_tokens, cache_tokens,
+        "request completed"
+    );
+    upsert_log(state, log, log_settings).await;
+
+    // ── 请求驱动预估（后台，不阻塞响应）──
+    spawn_estimate(
+        state,
+        route.platform.id,
+        &route.platform.platform_type,
+        quota_base_url,
+        eff_api_key.to_string(),
+        actual_model.to_string(),
+        route.platform.extra.clone(),
+        input_tokens,
+        output_tokens,
+        cache_tokens,
+        coding_plan,
+        tracing::Span::current(),
+    );
+
+    let mut response = (StatusCode::OK, body.to_vec()).into_response();
+    // into_response 对 Vec<u8> 写死 content-type: application/octet-stream；
+    // HeaderMap::extend 用 append 语义，直接 extend 会产生重复 content-type（octet-stream + 真实值）。
+    // 故先 remove 默认 content-type，再 extend（filtered 已含真实 content-type 或回退 application/json）。
+    response
+        .headers_mut()
+        .remove(axum::http::header::CONTENT_TYPE);
+    response.headers_mut().extend(filtered);
+    inject_trace_header(&mut response);
+    response
 }
 
 /// 流式 2xx 成功响应处理：peek 已确认有内容，此处构建 StreamLogGuard + SSE relay/转换闭包。
@@ -223,7 +230,12 @@ where
     //   不可再 await DB）。引擎 Arc clone 进闭包，每 chunk 文本应用 mask/override/sensitive。
     //   error 已由上游 HTTP 状态码在 forward 后判定（非 2xx 不会走到这里，故流式无需再判 error）。──
     let mw_engine = state.middleware.clone();
-    let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
+    let mw_settings = state
+        .settings_cache
+        .read()
+        .await
+        .middleware_settings
+        .clone();
     let mw_active = mw_settings.enabled;
     let mw_group = group.group_key.clone();
     let mw_platform_id = route.platform.id as i64;
@@ -284,8 +296,8 @@ where
     // 透传分支按客户端 wire 逐帧剔思维链帧（含 Anthropic block index 重编号），
     // 转换分支直接丢 ReasoningDelta 事件（不必过状态机）。
     let disable_thinking = ctx.disable_thinking;
-    let mut sse_thinking_stripper = disable_thinking
-        .then(|| adapter::SseThinkingStripper::new(client_protocol.clone()));
+    let mut sse_thinking_stripper =
+        disable_thinking.then(|| adapter::SseThinkingStripper::new(client_protocol.clone()));
     // 上游流自然耗尽哨兵：chain 在 map 之前，上游 Stream 返 None 时置 exhausted 位，使 Drop
     // 兜底 flush 能区分「上游读完（无 [DONE]/message_stop 也算正常收尾，如 Gemini）」与
     // 「客户端提前断连」。poll_fn 恒返 Ready(None)，不产 item，对下游 map / 客户端字节零影响。
@@ -306,9 +318,16 @@ where
                 // 终态标记：本次流是被上游掐断的（flush 回写 502，禁再记 200 成功）。
                 guard.agg.mark_upstream_err();
                 let mut out = upstream_break_error_frame(&client_protocol);
-                out.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
-                    finish_reason: Some("end_turn".to_string()),
-                }, &client_protocol, &model_for_sse).unwrap_or_default());
+                out.push_str(
+                    &adapter::to_client_sse(
+                        &ChatStreamEvent::Stop {
+                            finish_reason: Some("end_turn".to_string()),
+                        },
+                        &client_protocol,
+                        &model_for_sse,
+                    )
+                    .unwrap_or_default(),
+                );
                 return Ok::<_, std::io::Error>(Bytes::from(out));
             }
         };
@@ -336,7 +355,9 @@ where
             let line_ready_text = match sse_thinking_stripper.as_mut() {
                 Some(s) => {
                     let mut out = s.push(&line_ready_text);
-                    if line_ready_text.contains("[DONE]") || line_ready_text.contains("message_stop") {
+                    if line_ready_text.contains("[DONE]")
+                        || line_ready_text.contains("message_stop")
+                    {
                         out.push_str(&s.finish());
                     }
                     out
@@ -376,7 +397,12 @@ where
                     if disable_thinking && matches!(event, ChatStreamEvent::ReasoningDelta { .. }) {
                         continue;
                     }
-                    if let Some(sse) = adapter::to_client_sse_stateful(&event, &mut client_sse_state, &client_protocol, &model_for_sse) {
+                    if let Some(sse) = adapter::to_client_sse_stateful(
+                        &event,
+                        &mut client_sse_state,
+                        &client_protocol,
+                        &model_for_sse,
+                    ) {
                         output.push_str(&sse);
                     }
                 }
@@ -390,7 +416,10 @@ where
         let out_bytes = if mw_active && !out_bytes.is_empty() {
             let original = String::from_utf8_lossy(&out_bytes);
             let rewritten = mw_engine.apply_outbound_stream_chunk(
-                &mw_settings, &original, Some(&mw_group), Some(mw_platform_id),
+                &mw_settings,
+                &original,
+                Some(&mw_group),
+                Some(mw_platform_id),
             );
             if rewritten == original.as_ref() {
                 out_bytes
@@ -418,9 +447,18 @@ where
     // 最终态由 guard.flush（[DONE] 或断连 Drop）覆盖。
     // ── SSE 三自管头（content-type/cache-control/connection）+ 叠加筛选上游头（is_stream=true 额外剔这三者，防上游覆盖）──
     let sse_self_managed: [(axum::http::HeaderName, axum::http::HeaderValue); 3] = [
-        (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/event-stream")),
-        (axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-cache")),
-        (axum::http::header::CONNECTION, axum::http::HeaderValue::from_static("keep-alive")),
+        (
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("text/event-stream"),
+        ),
+        (
+            axum::http::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static("no-cache"),
+        ),
+        (
+            axum::http::header::CONNECTION,
+            axum::http::HeaderValue::from_static("keep-alive"),
+        ),
     ];
     let stream_filtered = filter_upstream_resp_headers(upstream_resp_headers, true);
     // 日志字段 = 实发头 = SSE 三自管头 + 透传上游头
@@ -480,7 +518,11 @@ mod test_break_frame {
 
     #[test]
     fn openai_family_gets_error_chunk_and_done() {
-        for p in [Protocol::OpenAI, Protocol::OpenAIResponses, Protocol::OpenAICompletions] {
+        for p in [
+            Protocol::OpenAI,
+            Protocol::OpenAIResponses,
+            Protocol::OpenAICompletions,
+        ] {
             let f = upstream_break_error_frame(&p);
             assert!(f.contains("\"error\""));
             assert!(f.ends_with("data: [DONE]\n\n"));

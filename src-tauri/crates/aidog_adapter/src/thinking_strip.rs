@@ -64,9 +64,10 @@ fn strip_openai_chat(body: &mut Value) -> bool {
     let mut changed = false;
     for c in choices {
         if let Some(msg) = c.get_mut("message").and_then(|v| v.as_object_mut())
-            && msg.remove("reasoning_content").is_some() {
-                changed = true;
-            }
+            && msg.remove("reasoning_content").is_some()
+        {
+            changed = true;
+        }
     }
     changed
 }
@@ -184,9 +185,7 @@ impl SseThinkingStripper {
         match ty {
             "content_block_start" => {
                 let i = idx?;
-                let is_thinking = json
-                    .get("content_block")
-                    .is_some_and(is_thinking_block);
+                let is_thinking = json.get("content_block").is_some_and(is_thinking_block);
                 if is_thinking {
                     self.dropped.insert(i);
                     return None;

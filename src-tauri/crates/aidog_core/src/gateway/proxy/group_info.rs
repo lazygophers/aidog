@@ -51,7 +51,9 @@ pub(crate) async fn handle_group_info(
     // 每次 group-info 调用生成独立 trace id（statusline 周期拉取，无上游请求关联），
     // span 内所有日志自动带 group_info{trace_id=xxxxxxxx} 前缀。
     let span = tracing::info_span!("group_info", trace_id = %crate::logging::new_trace_id());
-    handle_group_info_inner(state, headers).instrument(span).await
+    handle_group_info_inner(state, headers)
+        .instrument(span)
+        .await
 }
 
 async fn handle_group_info_inner(
@@ -124,13 +126,14 @@ async fn handle_group_info_inner(
     let Some(gp) = crate::gateway::router::sole_platform(&platforms) else {
         // 多平台组：不适用预估，但组已定位——带上 group_name + 最近命中平台名
         //（statusline L3 group-route 段消费），再以 applicable=false 返回。
-        let last_platform_name = match aidog_logs::last_success_platform_id(&state.db, group_key.clone()).await {
-            Ok(Some(pid)) => platforms
-                .iter()
-                .find(|gp| gp.platform.id as i64 == pid)
-                .map(|gp| gp.platform.name.clone()),
-            _ => None,
-        };
+        let last_platform_name =
+            match aidog_logs::last_success_platform_id(&state.db, group_key.clone()).await {
+                Ok(Some(pid)) => platforms
+                    .iter()
+                    .find(|gp| gp.platform.id as i64 == pid)
+                    .map(|gp| gp.platform.name.clone()),
+                _ => None,
+            };
         let mut r = (
             StatusCode::OK,
             Json(GroupInfoResp {
@@ -146,8 +149,9 @@ async fn handle_group_info_inner(
     let platform = &gp.platform;
 
     // usage 统计（复用现有 db 查询，只读）
-    let stats = aidog_stats::get_group_usage_stats(&state.db, &group.group_key).await.unwrap_or(
-        super::models::PlatformUsageStats {
+    let stats = aidog_stats::get_group_usage_stats(&state.db, &group.group_key)
+        .await
+        .unwrap_or(super::models::PlatformUsageStats {
             total_requests: 0,
             success_count: 0,
             total_input_tokens: 0,
@@ -159,8 +163,7 @@ async fn handle_group_info_inner(
             total_cost: 0.0,
             today_tokens: 0,
             today_cost: 0.0,
-        }
-    );
+        });
 
     let success_rate = if stats.total_requests > 0 {
         stats.success_count as f64 / stats.total_requests as f64 * 100.0
@@ -174,28 +177,35 @@ async fn handle_group_info_inner(
     // level 走 usage_color（按 window_start + cycle 推算剩余可用时间%）；
     // reset_at = window_start + cycle（预估侧推算的本周期重置点，无 window_start 时 None）。
     let now_ms = aidog_db::now();
-    let mut coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
-        .tiers
-        .into_iter()
-        .map(|t| {
-            let pace = super::estimate::tier_pace(&t).as_str().to_string();
-            let level = super::estimate::tier_usage_level(&t, now_ms).as_str().to_string();
-            let reset_at = super::usage_color::cycle_ms_for_tier(&t.name)
-                .filter(|_| t.window_start > 0)
-                .map(|cycle| (t.window_start + cycle) / 1000);
-            CodingTierResp {
-                name: t.name,
-                utilization: t.est_utilization,
-                pace,
-                level,
-                reset_at,
-            }
-        })
-        .collect();
+    let mut coding_plan: Vec<CodingTierResp> =
+        super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
+            .tiers
+            .into_iter()
+            .map(|t| {
+                let pace = super::estimate::tier_pace(&t).as_str().to_string();
+                let level = super::estimate::tier_usage_level(&t, now_ms)
+                    .as_str()
+                    .to_string();
+                let reset_at = super::usage_color::cycle_ms_for_tier(&t.name)
+                    .filter(|_| t.window_start > 0)
+                    .map(|cycle| (t.window_start + cycle) / 1000);
+                CodingTierResp {
+                    name: t.name,
+                    utilization: t.est_utilization,
+                    pace,
+                    level,
+                    reset_at,
+                }
+            })
+            .collect();
 
     // 追加 manual budgets 为 coding_plan tiers（让 statusline 显示各窗口预算利用率）
     // 只追加窗口类预算（rolling/fixed/daily），"total" 由 balance 段单独展示。
-    for b in platform.manual_budgets.iter().filter(|b| b.enabled && b.kind != "total") {
+    for b in platform
+        .manual_budgets
+        .iter()
+        .filter(|b| b.enabled && b.kind != "total")
+    {
         let util = if b.amount > 0.0 {
             (b.consumed / b.amount * 100.0).min(100.0)
         } else {
@@ -213,10 +223,21 @@ async fn handle_group_info_inner(
                     super::models::WindowUnit::Month => "mo",
                 };
                 let w_int = w.fract() == 0.0;
-                if w_int { format!("{}{}", w as i64, short) } else { format!("{}{}", w, short) }
+                if w_int {
+                    format!("{}{}", w as i64, short)
+                } else {
+                    format!("{}{}", w, short)
+                }
             }
         };
-        let pace = if util > 80.0 { "fast" } else if util > 50.0 { "normal" } else { "busy" }.to_string();
+        let pace = if util > 80.0 {
+            "fast"
+        } else if util > 50.0 {
+            "normal"
+        } else {
+            "busy"
+        }
+        .to_string();
         // level 走 usage_color：按窗口剩余时间 + 利用率算剩余可用时间%。
         // 窗口预算的 cycle = window_duration_ms，remain = window_start_at + dur - now；
         // 无窗口起点 / total 类 → 中性。
@@ -243,7 +264,8 @@ async fn handle_group_info_inner(
 
     // 余额 = max(est_balance_remaining, manual "total" budget remaining)
     // 只取 kind="total" 的手动预算作为余额来源；rolling/fixed/daily 是窗口限速，不是余额。
-    let manual_total_remaining: f64 = platform.manual_budgets
+    let manual_total_remaining: f64 = platform
+        .manual_budgets
         .iter()
         .filter(|b| b.enabled && b.kind == "total")
         .map(super::manual_budget::remaining)
@@ -253,13 +275,17 @@ async fn handle_group_info_inner(
     // 余额可用天数：动态窗口日速率（rate_per_hour，prd B）→ days = (balance / rate_per_hour) / 24。
     // 无用量数据 / 无余额 → null（配色中性，不报警）。
     let balance_days_remaining = {
-        let rate_per_hour = aidog_stats::get_group_hourly_rate(&state.db, &group.group_key).await.unwrap_or(None);
+        let rate_per_hour = aidog_stats::get_group_hourly_rate(&state.db, &group.group_key)
+            .await
+            .unwrap_or(None);
         match rate_per_hour {
             Some(rate) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
             _ => None,
         }
     };
-    let balance_level = super::usage_color::balance_level(balance_days_remaining).as_str().to_string();
+    let balance_level = super::usage_color::balance_level(balance_days_remaining)
+        .as_str()
+        .to_string();
 
     let resp = GroupInfoResp {
         applicable: true,

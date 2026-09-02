@@ -1,6 +1,6 @@
 use super::*;
-use aidog_db::test_support::HomeGuard;
 use crate::types::{SkillInfo, SkillScope};
+use aidog_db::test_support::HomeGuard;
 use std::fs;
 use tempfile::TempDir;
 
@@ -62,7 +62,10 @@ fn list_cached_cold_start_returns_stale() {
     let result = list_cached(&scope);
     // cold start → stale
     assert!(result.stale, "expected stale on cold start");
-    assert!(result.items.is_empty(), "expected empty items on cold start");
+    assert!(
+        result.items.is_empty(),
+        "expected empty items on cold start"
+    );
 }
 
 /// invalidate: removing a scope that was never written → no panic.

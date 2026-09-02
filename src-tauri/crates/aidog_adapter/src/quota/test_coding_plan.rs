@@ -2,7 +2,7 @@
 //! 本地 axum stub，逐平台断言 PlatformQuota 字段级一致。ISO 毫秒格式以 t3a 实测样例为准：
 //! 1750000000000 → `2025-06-15T15:06:40+00:00`，1750000000123 → `2025-06-15T15:06:40.123+00:00`。
 //! 同族协议正文拷贝（glm 4 份 / kimi 2 份 / minimax cn 2 份），各代码点独立跑防漂移。
-use super::script::{run_custom_query, CustomQueryCtx};
+use super::script::{CustomQueryCtx, run_custom_query};
 use super::test_stub::{spawn_capture, spawn_stub};
 use aidog_db::registry;
 
@@ -66,9 +66,15 @@ async fn glm_all_family_codes_classify_units_and_level() {
         assert_eq!(t[0].name, "five_hour");
         assert!((t[0].utilization - 42.0).abs() < 1e-9);
         assert_eq!(t[0].resets_at.as_deref(), Some("2025-06-15T15:06:40+00:00"));
-        assert!(t[0].limit.is_none() && t[0].remaining.is_none(), "five_hour 恒不带绝对量");
+        assert!(
+            t[0].limit.is_none() && t[0].remaining.is_none(),
+            "five_hour 恒不带绝对量"
+        );
         assert_eq!(t[1].name, "weekly_limit");
-        assert_eq!(t[1].resets_at.as_deref(), Some("2025-06-15T15:06:40.123+00:00"));
+        assert_eq!(
+            t[1].resets_at.as_deref(),
+            Some("2025-06-15T15:06:40.123+00:00")
+        );
         assert_eq!(t[2].name, "mcp_monthly");
         assert!((t[2].utilization - 10.0).abs() < 1e-9);
         // mcp 绝对量 parse_f64 字符串双兼容
@@ -95,13 +101,19 @@ async fn glm_unclassified_fill_and_mcp_zero_percent() {
     let t = &q.coding_plan.unwrap().tiers;
     assert_eq!(t.len(), 3);
     assert_eq!(t[0].name, "five_hour");
-    assert_eq!(t[0].resets_at.as_deref(), Some("1970-01-01T00:00:00.100+00:00"));
+    assert_eq!(
+        t[0].resets_at.as_deref(),
+        Some("1970-01-01T00:00:00.100+00:00")
+    );
     assert_eq!(t[1].name, "weekly_limit");
     // None-first：unit=9 无 reset 排前占 weekly
     assert_eq!(t[1].utilization, 11.0);
     assert_eq!(t[2].name, "mcp_monthly");
     assert_eq!(t[2].utilization, 0.0);
-    assert!(t[2].limit.is_none() && t[2].remaining.is_none(), "≤0 绝对量不带");
+    assert!(
+        t[2].limit.is_none() && t[2].remaining.is_none(),
+        "≤0 绝对量不带"
+    );
 }
 
 #[tokio::test]
@@ -141,7 +153,10 @@ async fn glm_bare_authorization_header() {
     let log = log.lock().unwrap();
     assert_eq!(log.len(), 1);
     assert_eq!(log[0].path, "/api/monitor/usage/quota/limit");
-    assert_eq!(log[0].authorization, "sk-test", "glm 裸 Authorization 不加 Bearer");
+    assert_eq!(
+        log[0].authorization, "sk-test",
+        "glm 裸 Authorization 不加 Bearer"
+    );
 }
 
 // ── kimi / kimi_coding ────────────────────────────────────
@@ -172,7 +187,10 @@ async fn kimi_five_hour_and_weekly_formulas() {
         assert!((first.utilization - 60.0).abs() < 1e-9, "(100-40)/100");
         assert_eq!(first.limit, Some(100.0), "暴露绝对 limit");
         assert_eq!(first.remaining, Some(40.0));
-        assert_eq!(first.resets_at.as_deref(), Some("2025-06-15T15:06:40+00:00"));
+        assert_eq!(
+            first.resets_at.as_deref(),
+            Some("2025-06-15T15:06:40+00:00")
+        );
         // limit=0 → 除零保护 util=0；字符串 resetTime 原样透传
         let second = &t[1];
         assert_eq!(second.utilization, 0.0);
@@ -189,17 +207,16 @@ async fn kimi_five_hour_and_weekly_formulas() {
 async fn kimi_default_bucket_and_null_usage() {
     // detail:null → 缺省桶 limit=1.0 remaining=0.0（util=100，= Rust unwrap_or(1.0)）；
     // usage:null（键存在值 null）→ 默认桶 weekly
-    let q = kimi_run(
-        "kimi",
-        r#"{"limits":[{"detail":null}],"usage":null}"#,
-    )
-    .await;
+    let q = kimi_run("kimi", r#"{"limits":[{"detail":null}],"usage":null}"#).await;
     assert!(q.success, "{:?}", q.error);
     let t = &q.coding_plan.unwrap().tiers;
     assert_eq!(t.len(), 2);
     assert_eq!(t[0].limit, Some(1.0));
     assert_eq!(t[0].remaining, Some(0.0));
-    assert!((t[0].utilization - 100.0).abs() < 1e-9, "缺省 1.0/0.0 → 已用满");
+    assert!(
+        (t[0].utilization - 100.0).abs() < 1e-9,
+        "缺省 1.0/0.0 → 已用满"
+    );
     assert_eq!(t[1].name, "weekly_limit");
     assert_eq!(t[1].limit, Some(1.0));
 
@@ -239,7 +256,10 @@ async fn minimax_general_bucket_counts() {
         assert_eq!(t.len(), 2, "{code}");
         assert_eq!(t[0].name, "five_hour");
         assert!((t[0].utilization - 29.5).abs() < 1e-9, "100-70.5");
-        assert_eq!(t[0].resets_at.as_deref(), Some("2025-06-15T15:06:40.123+00:00"));
+        assert_eq!(
+            t[0].resets_at.as_deref(),
+            Some("2025-06-15T15:06:40.123+00:00")
+        );
         assert_eq!(t[1].name, "weekly_limit");
         assert!((t[1].utilization - 75.0).abs() < 1e-9);
         assert_eq!(t[1].limit, Some(200.0), "次数型带绝对 limit");
@@ -287,7 +307,10 @@ async fn minimax_base_resp_errors_and_empty_remains() {
     )
     .await;
     assert!(!q.success);
-    assert_eq!(q.error.as_deref(), Some("API error (code 1001): invalid key"));
+    assert_eq!(
+        q.error.as_deref(),
+        Some("API error (code 1001): invalid key")
+    );
 
     // msg 缺省 Unknown
     let q2 = minimax_run(
@@ -308,7 +331,12 @@ async fn minimax_base_resp_errors_and_empty_remains() {
     assert!(q3.success, "{:?}", q3.error);
     assert!(q3.coding_plan.unwrap().tiers.is_empty());
 
-    let q4 = minimax_run("minimax_en", "https://api.minimax.io", r#"{"model_remains":[]}"#).await;
+    let q4 = minimax_run(
+        "minimax_en",
+        "https://api.minimax.io",
+        r#"{"model_remains":[]}"#,
+    )
+    .await;
     assert!(q4.success);
     assert!(q4.coding_plan.unwrap().tiers.is_empty());
 }

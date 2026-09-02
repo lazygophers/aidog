@@ -97,7 +97,10 @@ impl MitmState {
                     // 过期：剔 + 视为非 suspect（host 重新可尝试 MITM）。
                     guard.remove(host);
                     tracing::info!(
-                        host, marked_at = ts, now, ttl = SUSPECT_TTL_SECS,
+                        host,
+                        marked_at = ts,
+                        now,
+                        ttl = SUSPECT_TTL_SECS,
                         "mitm: pinning_suspect expired, host re-eligible for MITM"
                     );
                     false
@@ -194,7 +197,10 @@ mod tests {
         // 手动把时间戳拨到 TTL 之前模拟过期（直接操作内部 map）。
         {
             let mut g = state.suspects.lock().await;
-            g.insert("pinning.host.example".into(), now_secs().saturating_sub(SUSPECT_TTL_SECS + 1));
+            g.insert(
+                "pinning.host.example".into(),
+                now_secs().saturating_sub(SUSPECT_TTL_SECS + 1),
+            );
         }
         let still = state.is_suspect("pinning.host.example").await;
         assert!(
@@ -214,7 +220,13 @@ mod tests {
         state.mark_suspect("b.example".into()).await;
         let n = state.reset_suspects().await;
         assert_eq!(n, 2, "reset_suspects 返清点数 = 清前集合大小");
-        assert!(!state.is_suspect("a.example").await, "reset 后 a 不再 suspect");
-        assert!(!state.is_suspect("b.example").await, "reset 后 b 不再 suspect");
+        assert!(
+            !state.is_suspect("a.example").await,
+            "reset 后 a 不再 suspect"
+        );
+        assert!(
+            !state.is_suspect("b.example").await,
+            "reset 后 b 不再 suspect"
+        );
     }
 }

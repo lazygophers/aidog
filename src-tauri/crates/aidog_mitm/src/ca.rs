@@ -18,8 +18,8 @@ use rcgen::{
 };
 use serde::{Deserialize, Serialize};
 
-use aidog_db::{get_setting, set_setting, Db};
 use aidog_db::models::SetSettingInput;
+use aidog_db::{Db, get_setting, set_setting};
 
 /// MITM 配置在 setting 表的 scope（与 app/global/middleware 同级）。
 const MITM_SCOPE: &str = "mitm";
@@ -92,7 +92,9 @@ fn cert_sha1_thumbprint_hex(cert_pem: &str) -> String {
     let mut hasher = Sha1::new();
     hasher.update(&der);
     let hash = hasher.finalize();
-    hash.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+    hash.iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>()
 }
 
 /// 解析 PEM 取 X.509 DER bytes（cert_fingerprint_hex / cert_sha1_thumbprint_hex 共用）。
@@ -118,7 +120,9 @@ pub fn generate_root_ca() -> Result<(KeyPair, Certificate), rcgen::Error> {
     params
         .distinguished_name
         .push(DnType::CommonName, "AirDog MITM CA");
-    params.distinguished_name.push(DnType::OrganizationName, "AirDog");
+    params
+        .distinguished_name
+        .push(DnType::OrganizationName, "AirDog");
     // CA:TRUE 由 rcgen 默认开启（self-signed CA 即设 is_ca）。显式标记 is_ca 防未来版本默认变更。
     params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
     let key_pair = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256)?;
@@ -139,9 +143,7 @@ pub fn sign_host_cert(ca: &RootCa, host: &str) -> Result<SignedCert, SignError> 
     let issuer = rcgen::Issuer::from_ca_cert_pem(&ca.cert_pem, issuer_key)?;
     let mut params = CertificateParams::new(vec![host.to_string()])?;
     params.distinguished_name = DistinguishedName::new();
-    params
-        .distinguished_name
-        .push(DnType::CommonName, host);
+    params.distinguished_name.push(DnType::CommonName, host);
     let leaf_key = KeyPair::generate_for(&PKCS_ECDSA_P256_SHA256)?;
     let cert = params.signed_by(&leaf_key, &issuer)?;
     Ok(SignedCert {
@@ -272,7 +274,10 @@ pub fn verify_trust_installed() -> bool {
         VerifyOutcome::Installed => true,
         VerifyOutcome::NotInstalled => false,
         VerifyOutcome::Timeout => {
-            tracing::warn!(timeout_secs = VERIFY_TIMEOUT_SECS, "mitm ca verify subprocess timed out");
+            tracing::warn!(
+                timeout_secs = VERIFY_TIMEOUT_SECS,
+                "mitm ca verify subprocess timed out"
+            );
             false
         }
         VerifyOutcome::SpawnFailed(e) => {
@@ -732,8 +737,10 @@ mod tests {
             "cert_pem should be PEM-wrapped"
         );
         // 解析 DER 后断言 SAN 字节含 host —— X.509 SAN 是明文 IA5String 含 host。
-        assert!(pem_der_contains_san_host(&signed.cert_pem, "api.anthropic.com"),
-            "signed cert DER should contain host 'api.anthropic.com' in SAN extension");
+        assert!(
+            pem_der_contains_san_host(&signed.cert_pem, "api.anthropic.com"),
+            "signed cert DER should contain host 'api.anthropic.com' in SAN extension"
+        );
     }
 
     /// ST1 验收：Root CA 自身可重新 from_pem 出 KeyPair（持久化 round-trip）。
@@ -756,9 +763,15 @@ mod tests {
     fn ca_fingerprint_stable() {
         let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
         let ca = RootCa::new(&key_pair, &cert);
-        assert!(!ca.fingerprint.is_empty(), "fingerprint should be non-empty");
-        assert_eq!(ca.fingerprint, cert_fingerprint_hex(&ca.cert_pem),
-            "fingerprint should be deterministic for same cert PEM");
+        assert!(
+            !ca.fingerprint.is_empty(),
+            "fingerprint should be non-empty"
+        );
+        assert_eq!(
+            ca.fingerprint,
+            cert_fingerprint_hex(&ca.cert_pem),
+            "fingerprint should be deterministic for same cert PEM"
+        );
         // fingerprint 是 colon-separated 64 hex chars（32 bytes SHA-256）。
         let octets: Vec<&str> = ca.fingerprint.split(':').collect();
         assert_eq!(octets.len(), 32, "SHA-256 fingerprint = 32 octets");
@@ -774,19 +787,36 @@ mod tests {
         let (prog, args, manual) = trust_ca_command("/tmp/aidog-ca.pem");
         assert!(!prog.is_empty());
         assert!(!args.is_empty());
-        assert!(args.iter().any(|a| a.contains("aidog-ca.pem")), "args must embed pem path");
-        assert!(manual.contains("aidog-ca.pem"), "manual_display must embed pem path");
+        assert!(
+            args.iter().any(|a| a.contains("aidog-ca.pem")),
+            "args must embed pem path"
+        );
+        assert!(
+            manual.contains("aidog-ca.pem"),
+            "manual_display must embed pem path"
+        );
         // 三 OS 提权 wrapper 断言（编译期 cfg 分支，每 OS 仅 1 段激活）
         #[cfg(target_os = "macos")]
         {
             assert_eq!(prog, "/usr/bin/osascript");
-            assert!(args.iter().any(|a| a.contains("with administrator privileges")), "macOS must wrap in osascript admin");
+            assert!(
+                args.iter()
+                    .any(|a| a.contains("with administrator privileges")),
+                "macOS must wrap in osascript admin"
+            );
             assert!(manual.starts_with("sudo security add-trusted-cert"));
         }
         #[cfg(target_os = "windows")]
         {
-            assert_eq!(prog, r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
-            assert!(args.iter().any(|a| a.contains("Start-Process") && a.contains("-Verb RunAs")), "Windows must wrap in Start-Process RunAs");
+            assert_eq!(
+                prog,
+                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+            );
+            assert!(
+                args.iter()
+                    .any(|a| a.contains("Start-Process") && a.contains("-Verb RunAs")),
+                "Windows must wrap in Start-Process RunAs"
+            );
         }
         #[cfg(all(unix, not(target_os = "macos")))]
         {
@@ -822,18 +852,36 @@ mod tests {
         {
             assert_eq!(prog, "/usr/bin/osascript");
             assert_eq!(args[0], "-e");
-            assert!(args[1].contains("delete-certificate"), "macOS wrapper must contain delete-certificate");
-            assert!(args[1].contains(&sha1), "macOS wrapper must embed SHA-1 thumbprint");
-            assert!(args[1].contains("with administrator privileges"), "macOS must wrap in osascript admin");
+            assert!(
+                args[1].contains("delete-certificate"),
+                "macOS wrapper must contain delete-certificate"
+            );
+            assert!(
+                args[1].contains(&sha1),
+                "macOS wrapper must embed SHA-1 thumbprint"
+            );
+            assert!(
+                args[1].contains("with administrator privileges"),
+                "macOS must wrap in osascript admin"
+            );
             assert!(manual.contains(&sha1), "manual_display must embed SHA-1");
         }
         #[cfg(target_os = "windows")]
         {
-            assert_eq!(prog, r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+            assert_eq!(
+                prog,
+                r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+            );
             assert_eq!(args[0], "-Command");
-            assert!(args[1].contains("-delstore"), "Windows wrapper must contain -delstore");
+            assert!(
+                args[1].contains("-delstore"),
+                "Windows wrapper must contain -delstore"
+            );
             assert!(args[1].contains(&sha1), "Windows wrapper must embed SHA-1");
-            assert!(args[1].contains("-Verb RunAs"), "Windows must wrap in Start-Process RunAs");
+            assert!(
+                args[1].contains("-Verb RunAs"),
+                "Windows must wrap in Start-Process RunAs"
+            );
         }
         #[cfg(all(unix, not(target_os = "macos")))]
         {
@@ -875,15 +923,30 @@ mod tests {
         );
         // 提权 wrapper token 锁（防 wrapper 被误删）
         assert!(body.contains("osascript"), "macOS elevation wrapper locked");
-        assert!(body.contains("with administrator privileges"), "macOS admin privileges locked");
-        assert!(body.contains("Start-Process"), "Windows elevation wrapper locked");
+        assert!(
+            body.contains("with administrator privileges"),
+            "macOS admin privileges locked"
+        );
+        assert!(
+            body.contains("Start-Process"),
+            "Windows elevation wrapper locked"
+        );
         assert!(body.contains("-Verb RunAs"), "Windows RunAs locked");
         assert!(body.contains("pkexec"), "Linux elevation wrapper locked");
         // reverse 命令 token 锁（防内层命令被误改）
-        assert!(body.contains("delete-certificate"), "macOS reverse token locked");
+        assert!(
+            body.contains("delete-certificate"),
+            "macOS reverse token locked"
+        );
         assert!(body.contains("-delstore"), "Windows reverse token locked");
-        assert!(body.contains("aidog-ca.crt"), "Linux rm fixed filename locked");
-        assert!(body.contains("update-ca-certificates --fresh"), "Linux refresh token locked");
+        assert!(
+            body.contains("aidog-ca.crt"),
+            "Linux rm fixed filename locked"
+        );
+        assert!(
+            body.contains("update-ca-certificates --fresh"),
+            "Linux refresh token locked"
+        );
     }
 
     /// SHA-1 thumbprint round-trip：同 PEM 现算两次结果一致（deterministic）。
@@ -895,7 +958,10 @@ mod tests {
         let h2 = cert_sha1_thumbprint_hex(&ca.cert_pem);
         assert_eq!(h1, h2, "SHA-1 thumbprint must be deterministic");
         assert_eq!(h1.len(), 40, "SHA-1 = 20 bytes = 40 hex chars");
-        assert!(!h1.contains(':'), "thumbprint must be plain hex (no colon, capability validator)");
+        assert!(
+            !h1.contains(':'),
+            "thumbprint must be plain hex (no colon, capability validator)"
+        );
     }
 
     // ─── 阶段 C verify_trust_installed 命令字面锁（修问题 2）──────────────────
@@ -910,7 +976,10 @@ mod tests {
     #[test]
     fn ca_verify_command_tokens_locked() {
         // CA_COMMON_NAME 必须与 generate_root_ca L117 的 CN 字面一致（双向锁）。
-        assert_eq!(CA_COMMON_NAME, "AirDog MITM CA", "CA_COMMON_NAME must match generate_root_ca CN");
+        assert_eq!(
+            CA_COMMON_NAME, "AirDog MITM CA",
+            "CA_COMMON_NAME must match generate_root_ca CN"
+        );
         assert_eq!(VERIFY_TIMEOUT_SECS, 3, "verify timeout 3s ceiling locked");
 
         // 3 OS verify 查询命令 token 锁定（设计 §1 + 验收）。这些字面在 spawn_verify 各 OS
@@ -922,10 +991,22 @@ mod tests {
             "Linux:/bin/sh -c test -f /usr/local/share/ca-certificates/aidog-ca.crt;",
         );
         // 提权无关的查询命令 token 锁
-        assert!(body.contains("find-certificate"), "macOS verify command locked");
-        assert!(body.contains("System.keychain"), "macOS verify reads System.keychain");
-        assert!(body.contains("-store Root"), "Windows verify reads Root store");
-        assert!(body.contains("aidog-ca.crt"), "Linux verify tests trust_ca's fixed filename");
+        assert!(
+            body.contains("find-certificate"),
+            "macOS verify command locked"
+        );
+        assert!(
+            body.contains("System.keychain"),
+            "macOS verify reads System.keychain"
+        );
+        assert!(
+            body.contains("-store Root"),
+            "Windows verify reads Root store"
+        );
+        assert!(
+            body.contains("aidog-ca.crt"),
+            "Linux verify tests trust_ca's fixed filename"
+        );
 
         // sync_ca_installed_from_system 签名存在性（编译期保证，运行期无 DB handle 无法调）。
         // ponytail: 不引 mockall mock Db，靠 mitm_status 实机验收 + 此处签名锁覆盖。
@@ -973,10 +1054,17 @@ mod tests {
             "/home/user/.aidog/mitm-ca.pem"
         );
         // untrust_ca_command Linux 分支产出的 -c 串（静态，不含动态路径）。
-        let untrust_cmd = "rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates --fresh";
+        let untrust_cmd =
+            "rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates --fresh";
 
-        assert!(validator.is_match(&trust_cmd), "validator must match Linux trust command");
-        assert!(validator.is_match(untrust_cmd), "validator must match Linux untrust command");
+        assert!(
+            validator.is_match(&trust_cmd),
+            "validator must match Linux trust command"
+        );
+        assert!(
+            validator.is_match(untrust_cmd),
+            "validator must match Linux untrust command"
+        );
 
         // 反向锁：非法命令（注入 / 路径 traversal / 缺 update）必须被拒。
         assert!(!validator.is_match("rm -rf /"), "must reject arbitrary rm");
@@ -1017,7 +1105,10 @@ mod tests {
         );
         // 127 + stderr 含 "agent" → NoAgent
         assert_eq!(
-            classify_trust_error_linux(Some(127), "Cannot automatically authenticate: no polkit authentication agent available"),
+            classify_trust_error_linux(
+                Some(127),
+                "Cannot automatically authenticate: no polkit authentication agent available"
+            ),
             TrustErrorKind::NoAgent,
             "linux code=127 + 'agent' must classify as NoAgent"
         );
@@ -1153,10 +1244,17 @@ mod tests {
         // 必须是 4 合法变体之一（编译期 enum 保证，运行期 assert 防回归）。
         assert!(matches!(
             kind,
-            TrustErrorKind::Cancel | TrustErrorKind::AuthFail | TrustErrorKind::NoAgent | TrustErrorKind::CmdFail
+            TrustErrorKind::Cancel
+                | TrustErrorKind::AuthFail
+                | TrustErrorKind::NoAgent
+                | TrustErrorKind::CmdFail
         ));
         // 当前 OS 空 stderr 入口必落 CmdFail（三 OS 一致）。
-        assert_eq!(kind, TrustErrorKind::CmdFail, "current OS empty input must be CmdFail");
+        assert_eq!(
+            kind,
+            TrustErrorKind::CmdFail,
+            "current OS empty input must be CmdFail"
+        );
     }
 
     // ─── 阶段 B：osascript 命令语法集成测试（macOS only）──────────────────────
@@ -1177,7 +1275,12 @@ mod tests {
 
         // osacompile -e <串> -o /tmp/aidog-ca-osacompile-trust.scpt：仅编译，不执行，不需 GUI/admin。
         let out = std::process::Command::new("/usr/bin/osacompile")
-            .args(["-e", applescript, "-o", "/tmp/aidog-ca-osacompile-trust.scpt"])
+            .args([
+                "-e",
+                applescript,
+                "-o",
+                "/tmp/aidog-ca-osacompile-trust.scpt",
+            ])
             .output()
             .expect("spawn osacompile");
         let stderr = String::from_utf8_lossy(&out.stderr);
@@ -1200,7 +1303,12 @@ mod tests {
         let applescript = &args[1];
 
         let out = std::process::Command::new("/usr/bin/osacompile")
-            .args(["-e", applescript, "-o", "/tmp/aidog-ca-osacompile-untrust.scpt"])
+            .args([
+                "-e",
+                applescript,
+                "-o",
+                "/tmp/aidog-ca-osacompile-untrust.scpt",
+            ])
             .output()
             .expect("spawn osacompile");
         let stderr = String::from_utf8_lossy(&out.stderr);

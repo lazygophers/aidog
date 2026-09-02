@@ -3,11 +3,11 @@
 //! C3+ 各 commands crate dev-deps 引此 crate；root aidog crate 测试也保留 pub(crate)
 //! 版本（过渡期 C10 才统一）。本 crate 不依赖任何 commands_* crate（禁循环）。
 
-use aidog_stats::DbInitTables;
 use aidog_db::Db;
+use aidog_stats::DbInitTables;
+use tauri::test::MockRuntime;
 use tauri::test::{mock_builder, mock_context, noop_assets};
 use tauri::{App, Manager};
-use tauri::test::MockRuntime;
 
 /// 建一个 manage 了内存 Db 的 mock App。State 生命周期绑定返回的 App，调用方需持有它。
 ///

@@ -1,7 +1,7 @@
 //! proxy-port-no-drift s1 回归门：绑定层占用即失败 + 停止回写端口设置。
 //! 接缝 = `start_proxy` 返回值 + 启动前后设置里的端口值（design.md「测试接缝」）。
-use aidog_db as db;
 use super::*;
+use aidog_db as db;
 use aidog_db::test_support::test_db;
 use aidog_middleware::MiddlewareEngine;
 
@@ -14,9 +14,15 @@ async fn start_proxy_fails_fast_when_port_occupied() {
     let occupied_port = occupier.local_addr().unwrap().port();
 
     let db = Arc::new(test_db().await);
-    let err = start_proxy(db, occupied_port, None, Arc::new(MiddlewareEngine::new()), false)
-        .await
-        .expect_err("端口被占用时 start_proxy 必须返回 Err，不再递增换端口");
+    let err = start_proxy(
+        db,
+        occupied_port,
+        None,
+        Arc::new(MiddlewareEngine::new()),
+        false,
+    )
+    .await
+    .expect_err("端口被占用时 start_proxy 必须返回 Err，不再递增换端口");
 
     assert!(
         matches!(err, ProxyBindError::AddrInUse(p) if p == occupied_port),
@@ -37,17 +43,29 @@ async fn start_proxy_never_rewrites_port_setting_on_failure() {
         silent_launch: false,
         bind_lan: false,
     };
-    crate::shared::save_proxy_settings_to_db(&db, &seeded).await.unwrap();
+    crate::shared::save_proxy_settings_to_db(&db, &seeded)
+        .await
+        .unwrap();
 
     // 占用一个与设置无关的端口，触发 start_proxy 走 Err 路径。
     let occupier = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let occupied_port = occupier.local_addr().unwrap().port();
 
     let db = Arc::new(db);
-    let result = start_proxy(db.clone(), occupied_port, None, Arc::new(MiddlewareEngine::new()), false).await;
+    let result = start_proxy(
+        db.clone(),
+        occupied_port,
+        None,
+        Arc::new(MiddlewareEngine::new()),
+        false,
+    )
+    .await;
     assert!(result.is_err());
 
-    let raw = db::get_setting(&db, "proxy", "settings").await.unwrap().unwrap();
+    let raw = db::get_setting(&db, "proxy", "settings")
+        .await
+        .unwrap()
+        .unwrap();
     let after: crate::shared::ProxySettings = serde_json::from_value(raw).unwrap();
     assert_eq!(after.port, 9890, "start_proxy 失败路径禁改写设置里的端口值");
 

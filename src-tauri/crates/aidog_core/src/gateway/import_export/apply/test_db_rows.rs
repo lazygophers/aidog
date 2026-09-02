@@ -1,8 +1,8 @@
 //! db_rows.rs 测试：breaker 迁入 extra + ensure_group_and_attach 幂等。
 
-use aidog_stats::DbInitTables;
 use super::{effective_extra_with_breaker, ensure_group_and_attach, snapshot_platform_ids};
 use aidog_db::Db;
+use aidog_stats::DbInitTables;
 
 /// 内存库（同 db.rs test 约定）。
 async fn test_db() -> Db {
@@ -48,7 +48,10 @@ fn legacy_top_level_breaker_migrates_into_extra() {
     row["breaker_half_open_max"] = serde_json::json!(3);
     let extra = effective_extra_with_breaker(&row);
     let b = crate::gateway::models::parse_breaker(&extra);
-    assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (6, 180, 3));
+    assert_eq!(
+        (b.failure_threshold, b.open_secs, b.half_open_max),
+        (6, 180, 3)
+    );
 }
 
 /// 直插一个 platform（绕过 apply 事务），返回 rowid。
@@ -108,16 +111,23 @@ async fn ensure_group_creates_when_absent() {
     insert_test_platform(&db, "new1").await;
     insert_test_platform(&db, "new2").await;
 
-    ensure_group_and_attach(&db, "sub2api", &before).await.unwrap();
+    ensure_group_and_attach(&db, "sub2api", &before)
+        .await
+        .unwrap();
 
-    let gid = group_id_by_name(&db, "sub2api").await.expect("group created");
+    let gid = group_id_by_name(&db, "sub2api")
+        .await
+        .expect("group created");
     // 校验 group_key 生成。
-    let gkey: String = db.write_conn()
+    let gkey: String = db
+        .write_conn()
         .call(move |conn| {
             Ok(conn
-                .query_row("SELECT group_key FROM \"group\" WHERE id = ?1", [gid], |r| {
-                    r.get::<_, String>(0)
-                })
+                .query_row(
+                    "SELECT group_key FROM \"group\" WHERE id = ?1",
+                    [gid],
+                    |r| r.get::<_, String>(0),
+                )
                 .unwrap())
         })
         .await
@@ -133,18 +143,23 @@ async fn ensure_group_idempotent() {
     let db = test_db().await;
     let before1 = snapshot_platform_ids(&db).await.unwrap();
     insert_test_platform(&db, "p1").await;
-    ensure_group_and_attach(&db, "sub2api", &before1).await.unwrap();
+    ensure_group_and_attach(&db, "sub2api", &before1)
+        .await
+        .unwrap();
     let gid = group_id_by_name(&db, "sub2api").await.unwrap();
     assert_eq!(link_count(&db, gid).await, 1);
 
     // 第二次导入：组已存在 → 复用同 id，不重复建组。
     let before2 = snapshot_platform_ids(&db).await.unwrap();
     insert_test_platform(&db, "p2").await;
-    ensure_group_and_attach(&db, "sub2api", &before2).await.unwrap();
+    ensure_group_and_attach(&db, "sub2api", &before2)
+        .await
+        .unwrap();
     let gid2 = group_id_by_name(&db, "sub2api").await.unwrap();
     assert_eq!(gid, gid2, "同名组不应重复创建");
     // 组数确认只有一个。
-    let group_count: i64 = db.write_conn()
+    let group_count: i64 = db
+        .write_conn()
         .call(|conn| {
             Ok(conn
                 .query_row(
@@ -176,12 +191,19 @@ fn new_format_extra_breaker_preserved() {
     let mut row = platform_payload("New", "https://a.example.com");
     row["extra"] = serde_json::json!(crate::gateway::models::merge_breaker_into_extra(
         "{}",
-        &crate::gateway::models::PlatformBreaker { failure_threshold: 9, open_secs: 30, half_open_max: 1 },
+        &crate::gateway::models::PlatformBreaker {
+            failure_threshold: 9,
+            open_secs: 30,
+            half_open_max: 1
+        },
     ));
     // 顶层全 0（新导出不再含顶层 breaker）。
     let extra = effective_extra_with_breaker(&row);
     let b = crate::gateway::models::parse_breaker(&extra);
-    assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (9, 30, 1));
+    assert_eq!(
+        (b.failure_threshold, b.open_secs, b.half_open_max),
+        (9, 30, 1)
+    );
 }
 
 /// 新格式导出 extra 为 JSON object（非 string）→ 导入兼容，breaker 迁入仍生效。
@@ -196,7 +218,10 @@ fn new_format_extra_as_object_breaker_preserved() {
     // 新格式顶层无 breaker_* 字段 → 全 0。
     let extra = effective_extra_with_breaker(&row);
     let b = crate::gateway::models::parse_breaker(&extra);
-    assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (4, 120, 2));
+    assert_eq!(
+        (b.failure_threshold, b.open_secs, b.half_open_max),
+        (4, 120, 2)
+    );
 }
 
 /// 新格式导出省略 extra（空）→ 导入回空字符串（分享语义：平台像全新，无 breaker 覆盖）。
@@ -207,7 +232,10 @@ fn new_format_extra_missing_yields_empty() {
     let extra = effective_extra_with_breaker(&row);
     assert!(extra.is_empty(), "缺失 extra 应回空字符串");
     let b = crate::gateway::models::parse_breaker(&extra);
-    assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (0, 0, 0));
+    assert_eq!(
+        (b.failure_threshold, b.open_secs, b.half_open_max),
+        (0, 0, 0)
+    );
 }
 
 /// 新格式导出省略 models/available_models/endpoints（空配置）→ 导入写库写标准空 JSON
@@ -235,12 +263,19 @@ async fn new_format_missing_config_fields_write_default_json() {
         .unwrap();
 
     // 读回 DB 列值，校验写的是标准空 JSON（非空串）。
-    let (models, available, endpoints): (String, String, String) = db.write_conn()
+    let (models, available, endpoints): (String, String, String) = db
+        .write_conn()
         .call(move |conn| {
             Ok(conn.query_row(
                 "SELECT models, available_models, endpoints FROM platform WHERE name = 'Clean'",
                 [],
-                |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?)),
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
+                },
             )?)
         })
         .await

@@ -15,10 +15,10 @@
 
 use std::sync::Arc;
 
+use rustls::ServerConfig;
 use rustls::pki_types::ServerName;
 use rustls::server::{ClientHello, ResolvesServerCert};
 use rustls::sign::CertifiedKey;
-use rustls::ServerConfig;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio_rustls::TlsAcceptor;
 use tokio_rustls::{client::TlsStream as ClientTlsStream, server::TlsStream as ServerTlsStream};
@@ -122,10 +122,7 @@ pub enum UpstreamTlsOutcome {
     Connected(Box<ClientTlsStream<tokio::net::TcpStream>>),
     /// 疑似 cert pinning（或上游证书无效）：握手失败，但 TCP 通。
     /// 调用方降级盲转（不解密，原样转 TCP 字节）。
-    PinningSuspect {
-        host: String,
-        error: String,
-    },
+    PinningSuspect { host: String, error: String },
     /// 其它 IO 错（TCP 断 / 超时），非 pinning 类。
     IoError(std::io::Error),
 }
@@ -142,10 +139,7 @@ pub enum UpstreamTlsOutcome {
 /// ponytail: ServerName 用 host 字面（非 IP）；CONNECT target 是域名场景占绝大多数。
 /// IP literal 上游（极少见，AI 平台 base_url 全是域名）→ 当作 DNS name 尝试，
 /// 失败走 IoError 分类，调用方降级盲转即可。
-pub async fn connect_upstream(
-    host: &str,
-    stream: tokio::net::TcpStream,
-) -> UpstreamTlsOutcome {
+pub async fn connect_upstream(host: &str, stream: tokio::net::TcpStream) -> UpstreamTlsOutcome {
     // Mozilla 内置 root store（webpki-roots，无系统依赖）。
     let mut root_store = rustls::RootCertStore::empty();
     root_store.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
@@ -206,7 +200,7 @@ fn is_cert_validation_error(e: &std::io::Error) -> bool {
         || msg.contains("notvalidforname")
         || msg.contains("certvalidation")
         || msg.contains("certificate")
-        && (msg.contains("invalid") || msg.contains("untrusted") || msg.contains("expired"))
+            && (msg.contains("invalid") || msg.contains("untrusted") || msg.contains("expired"))
 }
 
 // ─── ResolvesServerCert Debug via CertSigner not needed; derive fails on dyn ─
@@ -218,7 +212,7 @@ fn is_cert_validation_error(e: &std::io::Error) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ca::{generate_root_ca, RootCa};
+    use crate::ca::{RootCa, generate_root_ca};
     use crate::cert_signer::CertSigner;
 
     /// 测试用 RootCa（字段直接构造，fingerprint 留空）。
@@ -273,9 +267,8 @@ mod tests {
         // 5. client connect（连到 server 端的 duplex 另一半，模拟隧道）
         let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config));
         let server_name = ServerName::try_from("api.anthropic.com".to_string()).unwrap();
-        let client_task = tokio::spawn(async move {
-            connector.connect(server_name, client_io).await
-        });
+        let client_task =
+            tokio::spawn(async move { connector.connect(server_name, client_io).await });
 
         let mut server_stream = server_task
             .await

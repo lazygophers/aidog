@@ -3,7 +3,6 @@ use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
-
 crate::tauri_command! {
     pub async fn notification_settings_get(db: State<'_, Db>) -> Result<NotificationSettings, String> {
         Ok(aidog_db::get_notification_settings(&db).await)

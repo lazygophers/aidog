@@ -12,22 +12,26 @@ pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {
     // 检查是否有 tool_calls
     if let Some(tool_calls_val) = delta.get("tool_calls")
         && let Some(tool_calls) = tool_calls_val.as_array()
-            && let Some(tc) = tool_calls.first() {
-                let id = tc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
-                let func = tc.get("function");
-                let name = func.and_then(|f| f.get("name")).and_then(|v| v.as_str()).map(|s| s.to_string());
-                let input = func
-                    .and_then(|f| f.get("arguments"))
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
+        && let Some(tc) = tool_calls.first()
+    {
+        let id = tc.get("id").and_then(|v| v.as_str()).map(|s| s.to_string());
+        let func = tc.get("function");
+        let name = func
+            .and_then(|f| f.get("name"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+        let input = func
+            .and_then(|f| f.get("arguments"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
-                return Some(ChatStreamEvent::ToolDelta {
-                    index,
-                    id,
-                    name,
-                    input,
-                });
-            }
+        return Some(ChatStreamEvent::ToolDelta {
+            index,
+            id,
+            name,
+            input,
+        });
+    }
 
     // 文本 delta
     if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
@@ -41,19 +45,21 @@ pub fn parse_openai_sse(data: &Value) -> Option<ChatStreamEvent> {
 
     // reasoning_content delta（GLM/deepseek/商汤思维链流式增量）
     if let Some(reasoning) = delta.get("reasoning_content").and_then(|v| v.as_str())
-        && !reasoning.is_empty() {
-            return Some(ChatStreamEvent::ReasoningDelta {
-                text: reasoning.to_string(),
-            });
-        }
+        && !reasoning.is_empty()
+    {
+        return Some(ChatStreamEvent::ReasoningDelta {
+            text: reasoning.to_string(),
+        });
+    }
 
     // 结束
     if let Some(reason) = choice.get("finish_reason").and_then(|v| v.as_str())
-        && (reason == "stop" || reason == "tool_calls" || reason == "length") {
-            return Some(ChatStreamEvent::Stop {
-                finish_reason: Some(reason.to_string()),
-            });
-        }
+        && (reason == "stop" || reason == "tool_calls" || reason == "length")
+    {
+        return Some(ChatStreamEvent::Stop {
+            finish_reason: Some(reason.to_string()),
+        });
+    }
 
     None
 }
@@ -86,7 +92,12 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                 "choices": [{"index": 0, "delta": {"reasoning_content": text}, "finish_reason": null}]
             })
         )),
-        ChatStreamEvent::ToolDelta { index, id, name, input } => {
+        ChatStreamEvent::ToolDelta {
+            index,
+            id,
+            name,
+            input,
+        } => {
             let mut parts = Vec::new();
             if let (Some(id), Some(name)) = (id, name) {
                 parts.push(format!(
@@ -108,8 +119,12 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                     })
                 ));
             }
-            if parts.is_empty() { None } else { Some(parts.join("")) }
-        },
+            if parts.is_empty() {
+                None
+            } else {
+                Some(parts.join(""))
+            }
+        }
         ChatStreamEvent::Stop { finish_reason } => {
             let reason = match finish_reason.as_deref().unwrap_or("end_turn") {
                 "end_turn" => "stop",
@@ -123,7 +138,7 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
                     "choices": [{"index": 0, "delta": {}, "finish_reason": reason}]
                 })
             ))
-        },
+        }
         ChatStreamEvent::Usage { .. } => None,
     }
 }

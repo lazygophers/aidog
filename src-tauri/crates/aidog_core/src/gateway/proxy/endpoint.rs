@@ -51,7 +51,6 @@ pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
     }
 }
 
-
 /// 从 gemini 入站 path 取模型名：`/v1beta/models/<model>:<method>` → `<model>`。
 ///
 /// gemini 的模型名只在 URL 里，body 无此字段（票 09）。取不到返回空串，调用方按「无模型名」处理。
@@ -90,7 +89,11 @@ pub(crate) fn select_endpoint_for_protocol<'a>(
         endpoints
             .iter()
             .find(|ep| ep.protocol == *source_protocol && key_usable(ep))
-            .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI))
+            .or_else(|| {
+                endpoints
+                    .iter()
+                    .find(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI)
+            })
     } else {
         // 普通平台：步骤 3 同协议直发；步骤 4 跨协议回退（释放 converter 5×5 互转）。
         // 优先 openai（最稳 converter 路径，平台最常见），若无 openai 取 endpoints 首个非 source 可用 endpoint。
@@ -129,7 +132,10 @@ pub(crate) async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group>
         }
         tracing::warn!(token = %token, "resolve_group: token did not match any group_key");
     }
-    tracing::warn!(group_count = groups.len(), "resolve_group: no group matched token");
+    tracing::warn!(
+        group_count = groups.len(),
+        "resolve_group: no group matched token"
+    );
     None
 }
 
@@ -169,7 +175,10 @@ pub fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
 /// 查询）；未命中返回 None（调用方写 platform_id=0）。P1 隧道无 apikey（HTTPS 未解密），无法做
 /// group 路由——不计费、不入候选选择，仅 host 标记 proxy_log.platform_id。平台数量小，O(n) 全表
 /// 扫描可接受（CONNECT 每连接一次）。
-pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Option<(u64, super::models::Platform)> {
+pub(crate) async fn match_platform_by_host(
+    db: &Db,
+    connect_host: &str,
+) -> Option<(u64, super::models::Platform)> {
     let target = connect_host.to_lowercase();
     let platforms = match aidog_db::list_platforms(db).await {
         Ok(p) => p,
@@ -178,11 +187,14 @@ pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Optio
             return None;
         }
     };
-    platforms.iter()
+    platforms
+        .iter()
         .filter(|p| p.status != super::models::PlatformStatus::Disabled)
         .find(|p| {
             endpoint_host(&p.base_url).as_deref() == Some(&target)
-                || p.endpoints.iter().any(|ep| endpoint_host(&ep.base_url).as_deref() == Some(&target))
+                || p.endpoints
+                    .iter()
+                    .any(|ep| endpoint_host(&ep.base_url).as_deref() == Some(&target))
         })
         .map(|p| (p.id, p.clone()))
 }
@@ -233,7 +245,10 @@ pub(crate) fn is_api_endpoint(path: &str) -> bool {
 ///
 /// - `host`：请求 Host header（含端口，如 `www.baidu.com` 或 `127.0.0.1:9892`）。
 /// - `listen_addr`：代理实际监听 (ip, port)（state.listen_addr）；None 走保守分支不直通。
-pub(crate) fn should_fallback_passthrough(host: &str, listen_addr: Option<(std::net::IpAddr, u16)>) -> bool {
+pub(crate) fn should_fallback_passthrough(
+    host: &str,
+    listen_addr: Option<(std::net::IpAddr, u16)>,
+) -> bool {
     let Some((ip, port)) = listen_addr else {
         // 测试 state 或未启动：保守不直通（保留原 404 语义，避免误旁路）。
         return false;
@@ -255,7 +270,7 @@ pub(crate) fn should_fallback_passthrough(host: &str, listen_addr: Option<(std::
     } else if let Ok(req_ip) = req_host.parse::<std::net::IpAddr>() {
         req_ip == ip
     } else {
-        false  // 既非 loopback 名也非 IP 字面量 → MITM 解密灌入 / forward proxy absolute-form host
+        false // 既非 loopback 名也非 IP 字面量 → MITM 解密灌入 / forward proxy absolute-form host
     };
     // host 自身 → false（保留 404）；非自身 → true（透明直通原 host）。
     !is_self

@@ -1,6 +1,6 @@
 use crate::gateway;
-use aidog_db::{self as db, Db};
 use crate::shared::*;
+use aidog_db::{self as db, Db};
 use gateway::models::*;
 use std::future::Future;
 use std::pin::Pin;
@@ -67,7 +67,6 @@ pub trait TrayMenuBuild: Sync {
     ) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
 }
 
-
 #[cfg(target_os = "macos")]
 pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
     use objc2_app_kit::NSColor;
@@ -85,14 +84,15 @@ pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2
                     u8::from_str_radix(&hex[0..2], 16),
                     u8::from_str_radix(&hex[2..4], 16),
                     u8::from_str_radix(&hex[4..6], 16),
-                ) {
-                    return NSColor::colorWithSRGBRed_green_blue_alpha(
-                        r as f64 / 255.0,
-                        g as f64 / 255.0,
-                        b as f64 / 255.0,
-                        1.0,
-                    );
-                }
+                )
+            {
+                return NSColor::colorWithSRGBRed_green_blue_alpha(
+                    r as f64 / 255.0,
+                    g as f64 / 255.0,
+                    b as f64 / 255.0,
+                    1.0,
+                );
+            }
             NSColor::labelColor()
         }
         // "follow" 及未知 → labelColor
@@ -142,12 +142,16 @@ pub(crate) fn set_tray_attributed_title(
     gaps: Vec<Option<String>>,
     _separator: String,
 ) -> Result<(), String> {
-    use objc2::rc::Retained;
-    use objc2_app_kit::{NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSParagraphStyleAttributeName};
-    use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment, NSTextTab, NSTextTabType};
-    use objc2_app_kit::NSBaselineOffsetAttributeName;
-    use objc2_foundation::{NSArray, NSAttributedString, NSMutableAttributedString, NSDictionary, NSNumber, NSString};
     use objc2::AnyThread;
+    use objc2::rc::Retained;
+    use objc2_app_kit::NSBaselineOffsetAttributeName;
+    use objc2_app_kit::{
+        NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSParagraphStyleAttributeName,
+    };
+    use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment, NSTextTab, NSTextTabType};
+    use objc2_foundation::{
+        NSArray, NSAttributedString, NSDictionary, NSMutableAttributedString, NSNumber, NSString,
+    };
 
     tray.with_inner_tray_icon(move |inner| -> Result<(), String> {
         // SAFETY: with_inner_tray_icon 在主线程执行闭包，AppKit 调用满足主线程要求。
@@ -199,7 +203,11 @@ pub(crate) fn set_tray_attributed_title(
                 } else {
                     format!("{} {}", col.name, col.value)
                 };
-                let line2 = if col.two_line { col.value.clone() } else { String::new() };
+                let line2 = if col.two_line {
+                    col.value.clone()
+                } else {
+                    String::new()
+                };
                 let w1 = measure_text_width(&line1, TRAY_FONT_SIZE);
                 let w2 = measure_text_width(&line2, TRAY_FONT_SIZE + 3.0);
                 let col_w = w1.max(w2) + COL_PADDING;
@@ -222,14 +230,21 @@ pub(crate) fn set_tray_attributed_title(
             }
             let text_w = measure_text_width(text, font_size);
             let space_w = measure_text_width(" ", font_size);
-            if space_w <= 0.0 { return text.to_string(); }
+            if space_w <= 0.0 {
+                return text.to_string();
+            }
             let extra = (col_w - text_w).max(0.0);
             let n_spaces = (extra / space_w).round() as usize;
             match align {
                 "right" => format!("{}{}", " ".repeat(n_spaces), text),
                 "center" => {
                     let half = n_spaces / 2;
-                    format!("{}{}{}", " ".repeat(half), text, " ".repeat(n_spaces - half))
+                    format!(
+                        "{}{}{}",
+                        " ".repeat(half),
+                        text,
+                        " ".repeat(n_spaces - half)
+                    )
                 }
                 _ => text.to_string(),
             }
@@ -249,7 +264,11 @@ pub(crate) fn set_tray_attributed_title(
 
         // 构造单段 attributed string（文字 + 字号 + 颜色 + 指定段落/baseline）。
         // 两行模式：标签行和值行共用 `para`（LeftTabStopType），列边界自然对齐。
-        let make_part = |text: &str, font_size: f64, color: &TrayColor, para_style: &NSMutableParagraphStyle| -> Retained<NSAttributedString> {
+        let make_part = |text: &str,
+                         font_size: f64,
+                         color: &TrayColor,
+                         para_style: &NSMutableParagraphStyle|
+         -> Retained<NSAttributedString> {
             let ns_text = NSString::from_str(text);
             let font: Retained<NSFont> = NSFont::boldSystemFontOfSize(font_size);
             let ns_color = resolve_tray_color(color);
@@ -280,12 +299,23 @@ pub(crate) fn set_tray_attributed_title(
             // 第一行（标签行）：各列首段，列间 \t + gap 文字。整行用 `para`（left tab）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
-                    result.appendAttributedString(&make_part("\t", TRAY_FONT_SIZE, &follow_color, &para));
-                    let gap_text = gaps.get(idx - 1)
+                    result.appendAttributedString(&make_part(
+                        "\t",
+                        TRAY_FONT_SIZE,
+                        &follow_color,
+                        &para,
+                    ));
+                    let gap_text = gaps
+                        .get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_default();
                     if !gap_text.is_empty() {
-                        result.appendAttributedString(&make_part(&gap_text, TRAY_FONT_SIZE, &follow_color, &para));
+                        result.appendAttributedString(&make_part(
+                            &gap_text,
+                            TRAY_FONT_SIZE,
+                            &follow_color,
+                            &para,
+                        ));
                     }
                 }
                 let line1 = if col.two_line {
@@ -295,29 +325,53 @@ pub(crate) fn set_tray_attributed_title(
                 };
                 let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
                 let aligned = align_text(&line1, col_w, TRAY_FONT_SIZE, &col.align);
-                result.appendAttributedString(&make_part(&aligned, TRAY_FONT_SIZE, &col.color, &para));
+                result.appendAttributedString(&make_part(
+                    &aligned,
+                    TRAY_FONT_SIZE,
+                    &col.color,
+                    &para,
+                ));
             }
             // 行间换行
-            let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
+            let nl_font = columns
+                .first()
+                .map(|c| c.font_size)
+                .unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
             // 第二行（值行）：与标签行相同结构，对齐取 align_row2（fallback align）。字体比标签行大1pt。
             for (idx, col) in columns.iter().enumerate() {
                 let row2_font = TRAY_FONT_SIZE + 3.0;
                 if idx > 0 {
-                    result.appendAttributedString(&make_part("\t", row2_font, &follow_color, &para));
-                    let gap_text = gaps.get(idx - 1)
+                    result.appendAttributedString(&make_part(
+                        "\t",
+                        row2_font,
+                        &follow_color,
+                        &para,
+                    ));
+                    let gap_text = gaps
+                        .get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_default();
                     if !gap_text.is_empty() {
-                        result.appendAttributedString(&make_part(&gap_text, row2_font, &follow_color, &para));
+                        result.appendAttributedString(&make_part(
+                            &gap_text,
+                            row2_font,
+                            &follow_color,
+                            &para,
+                        ));
                     }
                 }
-                let line2 = if col.two_line { col.value.clone() } else { String::new() };
+                let line2 = if col.two_line {
+                    col.value.clone()
+                } else {
+                    String::new()
+                };
                 if !line2.is_empty() {
                     let row2_align = col.align_row2.as_deref().unwrap_or(&col.align);
                     let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
                     let aligned = align_text(&line2, col_w, row2_font, row2_align);
-                    result.appendAttributedString(&make_part(&aligned, row2_font, &col.color, &para));
+                    result
+                        .appendAttributedString(&make_part(&aligned, row2_font, &col.color, &para));
                 }
             }
         } else {
@@ -326,13 +380,24 @@ pub(crate) fn set_tray_attributed_title(
             let join_font = single_line_font_size;
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
-                    let gap_text = gaps.get(idx - 1)
+                    let gap_text = gaps
+                        .get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_else(|| default_gap.clone());
-                    result.appendAttributedString(&make_part(&gap_text, join_font, &follow_color, &para));
+                    result.appendAttributedString(&make_part(
+                        &gap_text,
+                        join_font,
+                        &follow_color,
+                        &para,
+                    ));
                 }
                 let text = format!("{} {}", col.name, col.value);
-                result.appendAttributedString(&make_part(&text, single_line_font_size, &col.color, &para));
+                result.appendAttributedString(&make_part(
+                    &text,
+                    single_line_font_size,
+                    &col.color,
+                    &para,
+                ));
             }
         }
 
@@ -342,7 +407,10 @@ pub(crate) fn set_tray_attributed_title(
     .map_err(|e| e.to_string())?
 }
 
-pub async fn refresh_tray_menu(app: &tauri::AppHandle, builder: &dyn TrayMenuBuild) -> Result<(), String> {
+pub async fn refresh_tray_menu(
+    app: &tauri::AppHandle,
+    builder: &dyn TrayMenuBuild,
+) -> Result<(), String> {
     // 异步准备（可在任意线程）：菜单 + 布局数据。tray 句柄不在此触碰。
     let menu = builder.build_menu(app).await?;
     #[cfg(target_os = "macos")]
@@ -362,38 +430,45 @@ pub async fn refresh_tray_menu(app: &tauri::AppHandle, builder: &dyn TrayMenuBui
     // 不自锁。
     let app = app.clone();
     let (tx, rx) = std::sync::mpsc::channel();
-    app.clone().run_on_main_thread(move || {
-        let r = (|| -> Result<(), String> {
-            let tray = app.tray_by_id("main").ok_or("tray not found")?;
-            tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
-            // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
-            // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
-            #[cfg(target_os = "macos")]
-            {
-                if layout.columns.is_empty() {
-                    tray.set_icon(app.default_window_icon().cloned())
-                        .map_err(|e| e.to_string())?;
-                    tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
-                } else {
-                    tray.set_icon(None).map_err(|e| e.to_string())?;
-                    // 兜底文字：各列 "名 值"，间隙用 separator
-                    let fallback_text = layout.columns
-                        .iter()
-                        .map(|c| format!("{} {}", c.name, c.value))
-                        .collect::<Vec<_>>()
-                        .join(separator.as_str());
-                    tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
-                    if let Err(e) = set_tray_attributed_title(&tray, layout.columns, layout.gaps, separator) {
-                        tracing::warn!("tray attributed title failed, fallback to default font: {e}");
+    app.clone()
+        .run_on_main_thread(move || {
+            let r = (|| -> Result<(), String> {
+                let tray = app.tray_by_id("main").ok_or("tray not found")?;
+                tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+                // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
+                // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
+                #[cfg(target_os = "macos")]
+                {
+                    if layout.columns.is_empty() {
+                        tray.set_icon(app.default_window_icon().cloned())
+                            .map_err(|e| e.to_string())?;
+                        tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
+                    } else {
+                        tray.set_icon(None).map_err(|e| e.to_string())?;
+                        // 兜底文字：各列 "名 值"，间隙用 separator
+                        let fallback_text = layout
+                            .columns
+                            .iter()
+                            .map(|c| format!("{} {}", c.name, c.value))
+                            .collect::<Vec<_>>()
+                            .join(separator.as_str());
+                        tray.set_title(Some(&fallback_text))
+                            .map_err(|e| e.to_string())?;
+                        if let Err(e) =
+                            set_tray_attributed_title(&tray, layout.columns, layout.gaps, separator)
+                        {
+                            tracing::warn!(
+                                "tray attributed title failed, fallback to default font: {e}"
+                            );
+                        }
                     }
                 }
-            }
-            Ok(())
-            // tray 在此 drop —— 主线程内，Rc 递减安全。
-        })();
-        let _ = tx.send(r);
-    })
-    .map_err(|e| e.to_string())?;
+                Ok(())
+                // tray 在此 drop —— 主线程内，Rc 递减安全。
+            })();
+            let _ = tx.send(r);
+        })
+        .map_err(|e| e.to_string())?;
     rx.recv().map_err(|e| e.to_string())?
 }
 
@@ -407,7 +482,8 @@ impl TrayMenuBuild for TrayMenuBuildImpl {
     fn build_menu<'a>(
         &'a self,
         app: &'a tauri::AppHandle,
-    ) -> Pin<Box<dyn Future<Output = Result<tauri::menu::Menu<tauri::Wry>, String>> + Send + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = Result<tauri::menu::Menu<tauri::Wry>, String>> + Send + 'a>>
+    {
         Box::pin(build_tray_menu(app))
     }
     fn layout<'a>(
@@ -435,7 +511,10 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
         format!("{:.0}%", (100.0 - util).max(0.0))
     } else {
-        format!("${}", trim_trailing_zeros(&format!("{:.2}", platform.est_balance_remaining)))
+        format!(
+            "${}",
+            trim_trailing_zeros(&format!("{:.2}", platform.est_balance_remaining))
+        )
     };
     (name, value)
 }
@@ -454,14 +533,22 @@ pub(crate) async fn tray_layout_with_stats(
     app: &tauri::AppHandle,
     precomputed_today_stats: Option<&aidog_stats::TodayStats>,
 ) -> TrayLayout {
-    let empty = TrayLayout { columns: Vec::new(), gaps: Vec::new() };
-    let Some(db) = app.try_state::<Db>() else { return empty; };
-    let Ok(Some(config)) = db::get_tray_config(&db).await else { return empty; };
+    let empty = TrayLayout {
+        columns: Vec::new(),
+        gaps: Vec::new(),
+    };
+    let Some(db) = app.try_state::<Db>() else {
+        return empty;
+    };
+    let Ok(Some(config)) = db::get_tray_config(&db).await else {
+        return empty;
+    };
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
     // 批量预取所涉 platform（消 per-item 单查 N+1；IN 批量单次查询替代逐 item get_platform）。
-    let platform_ids: Vec<i64> = items.iter()
+    let platform_ids: Vec<i64> = items
+        .iter()
         .filter(|i| i.item_type == "platform")
         .filter_map(|i| i.platform_id)
         .map(|id| id as i64)
@@ -469,7 +556,9 @@ pub(crate) async fn tray_layout_with_stats(
     let platforms = if platform_ids.is_empty() {
         std::collections::HashMap::new()
     } else {
-        db::get_platforms_by_ids(&db, &platform_ids).await.unwrap_or_default()
+        db::get_platforms_by_ids(&db, &platform_ids)
+            .await
+            .unwrap_or_default()
     };
 
     let mut columns: Vec<TrayColumn> = Vec::new();
@@ -478,7 +567,11 @@ pub(crate) async fn tray_layout_with_stats(
 
     for item in items {
         if item.item_type == "separator" {
-            pending_sep = Some(if item.display.is_empty() { "·".to_string() } else { item.display.clone() });
+            pending_sep = Some(if item.display.is_empty() {
+                "·".to_string()
+            } else {
+                item.display.clone()
+            });
             continue;
         }
 
@@ -490,8 +583,12 @@ pub(crate) async fn tray_layout_with_stats(
         let two_line = item.line_mode == "two";
         let (name, value) = match item.item_type.as_str() {
             "platform" => {
-                let Some(pid) = item.platform_id else { continue };
-                let Some(platform) = platforms.get(&(pid as i64)) else { continue };
+                let Some(pid) = item.platform_id else {
+                    continue;
+                };
+                let Some(platform) = platforms.get(&(pid as i64)) else {
+                    continue;
+                };
                 platform_item_parts(platform, &item.display)
             }
             "today_usage" => {
@@ -499,10 +596,17 @@ pub(crate) async fn tray_layout_with_stats(
                 let stats = match precomputed_today_stats {
                     Some(s) => s,
                     None => {
-                        owned_stats = aidog_stats::today_stats(&db).await.unwrap_or(aidog_stats::TodayStats {
-                            tokens: 0, input_tokens: 0, output_tokens: 0, cache_tokens: 0,
-                            cache_rate: 0.0, cost: 0.0, total_requests: 0,
-                        });
+                        owned_stats = aidog_stats::today_stats(&db).await.unwrap_or(
+                            aidog_stats::TodayStats {
+                                tokens: 0,
+                                input_tokens: 0,
+                                output_tokens: 0,
+                                cache_tokens: 0,
+                                cache_rate: 0.0,
+                                cost: 0.0,
+                                total_requests: 0,
+                            },
+                        );
                         &owned_stats
                     }
                 };
@@ -511,7 +615,13 @@ pub(crate) async fn tray_layout_with_stats(
                     "cache_rate" => ("Cache".to_string(), format!("{:.0}%", stats.cache_rate)),
                     "cost" => {
                         let d = item.decimals.unwrap_or(5) as usize;
-                        ("花费".to_string(), format!("${}", trim_trailing_zeros(&format!("{:.d$}", stats.cost, d = d))))
+                        (
+                            "花费".to_string(),
+                            format!(
+                                "${}",
+                                trim_trailing_zeros(&format!("{:.d$}", stats.cost, d = d))
+                            ),
+                        )
                     }
                     "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
                     _ => ("今日".to_string(), format!("{} tok", stats.tokens)),
@@ -526,7 +636,8 @@ pub(crate) async fn tray_layout_with_stats(
         // 自定义 label 优先
         let name = item.label.clone().unwrap_or(name);
         columns.push(TrayColumn {
-            name, value,
+            name,
+            value,
             color: item.color.clone(),
             font_size: item.font_size,
             two_line,
@@ -541,13 +652,16 @@ pub(crate) async fn tray_layout_with_stats(
 /// 托盘配置的分隔符（多 item 横排间隔）。
 pub(crate) async fn tray_separator(app: &tauri::AppHandle) -> String {
     if let Some(db) = app.try_state::<Db>()
-        && let Ok(Some(config)) = db::get_tray_config(&db).await {
-            return config.separator;
-        }
+        && let Ok(Some(config)) = db::get_tray_config(&db).await
+    {
+        return config.separator;
+    }
     default_separator_str()
 }
 
-pub(crate) fn default_separator_str() -> String { "  ".to_string() }
+pub(crate) fn default_separator_str() -> String {
+    "  ".to_string()
+}
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
 pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
@@ -559,7 +673,11 @@ pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     let mut texts: Vec<String> = Vec::new();
     for (i, col) in layout.columns.iter().enumerate() {
         if i > 0 {
-            let gap = layout.gaps.get(i - 1).and_then(|g| g.clone()).unwrap_or_else(|| " ".to_string());
+            let gap = layout
+                .gaps
+                .get(i - 1)
+                .and_then(|g| g.clone())
+                .unwrap_or_else(|| " ".to_string());
             texts.push(gap);
         }
         texts.push(format!("{} {}", col.name, col.value));
@@ -567,7 +685,9 @@ pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     Some(texts.join(&default_sep))
 }
 
-pub async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
+pub async fn build_tray_menu(
+    app: &tauri::AppHandle,
+) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
     let running = {
         let handle = app.state::<ProxyHandle>();
         let h = handle.0.lock().map_err(|e| e.to_string())?;
@@ -584,22 +704,43 @@ pub async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu
     let toggle_id = if running { "proxy_stop" } else { "proxy_start" };
     let toggle_text = if running { "Stop Proxy" } else { "Start Proxy" };
 
-    let mut builder = MenuBuilder::new(app)
-        .item(&MenuItemBuilder::with_id("status", status_text).enabled(false).build(app).map_err(|e| e.to_string())?);
+    let mut builder = MenuBuilder::new(app).item(
+        &MenuItemBuilder::with_id("status", status_text)
+            .enabled(false)
+            .build(app)
+            .map_err(|e| e.to_string())?,
+    );
 
     // tray quota 详情项（选定平台余额 / coding%）
     if let Some(quota_text) = tray_quota_text(app).await {
-        builder = builder
-            .item(&MenuItemBuilder::with_id("tray_quota", quota_text).enabled(false).build(app).map_err(|e| e.to_string())?);
+        builder = builder.item(
+            &MenuItemBuilder::with_id("tray_quota", quota_text)
+                .enabled(false)
+                .build(app)
+                .map_err(|e| e.to_string())?,
+        );
     }
 
     let menu = builder
         .separator()
-        .item(&MenuItemBuilder::with_id(toggle_id, toggle_text).build(app).map_err(|e| e.to_string())?)
+        .item(
+            &MenuItemBuilder::with_id(toggle_id, toggle_text)
+                .build(app)
+                .map_err(|e| e.to_string())?,
+        )
         .separator()
-        .item(&MenuItemBuilder::with_id("show", "Show Window").build(app).map_err(|e| e.to_string())?)
-        .item(&MenuItemBuilder::with_id("quit", "Quit").build(app).map_err(|e| e.to_string())?)
-        .build().map_err(|e| e.to_string())?;
+        .item(
+            &MenuItemBuilder::with_id("show", "Show Window")
+                .build(app)
+                .map_err(|e| e.to_string())?,
+        )
+        .item(
+            &MenuItemBuilder::with_id("quit", "Quit")
+                .build(app)
+                .map_err(|e| e.to_string())?,
+        )
+        .build()
+        .map_err(|e| e.to_string())?;
 
     Ok(menu)
 }
@@ -608,7 +749,11 @@ pub async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu
 pub(crate) fn trim_trailing_zeros(s: &str) -> String {
     if let Some(_pos) = s.find('.') {
         let trimmed = s.trim_end_matches('0').trim_end_matches('.');
-        if trimmed.is_empty() { "0".to_string() } else { trimmed.to_string() }
+        if trimmed.is_empty() {
+            "0".to_string()
+        } else {
+            trimmed.to_string()
+        }
     } else {
         s.to_string()
     }

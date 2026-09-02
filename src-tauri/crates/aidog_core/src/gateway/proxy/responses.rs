@@ -44,7 +44,11 @@ pub(crate) async fn handle_responses_subendpoint(
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
             return {
-                let mut r = (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+                let mut r = (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
+                )
+                    .into_response();
                 inject_trace_header(&mut r);
                 r
             };
@@ -79,12 +83,18 @@ pub(crate) async fn handle_responses_subendpoint(
                 }
                 None => {
                     tracing::warn!(group = %group.name, "responses subendpoint: no enabled platform in group");
-                    log.response_body = "no responses-capable or enabled platform for responses subendpoint".to_string();
+                    log.response_body =
+                        "no responses-capable or enabled platform for responses subendpoint"
+                            .to_string();
                     log.status_code = 503;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(state, log, log_settings).await;
                     return {
-                        let mut r = (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+                        let mut r = (
+                            StatusCode::SERVICE_UNAVAILABLE,
+                            i18n::t(lang, ErrorKey::Route),
+                        )
+                            .into_response();
                         inject_trace_header(&mut r);
                         r
                     };
@@ -126,15 +136,31 @@ pub(crate) async fn handle_responses_subendpoint(
 
     log.platform_id = platform.id;
     log.upstream_request_url = url.clone();
-    log.upstream_request_headers = r#"{"authorization":"[REDACTED]","openai-beta":"responses=experimental"}"#.to_string();
+    log.upstream_request_headers =
+        r#"{"authorization":"[REDACTED]","openai-beta":"responses=experimental"}"#.to_string();
 
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
         (c.system_timeout.clone(), c.proxy_client.clone())
     };
-    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
-    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let client = super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, Some(&platform.extra), None).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 {
+        system_timeout.request_timeout_secs
+    } else {
+        60
+    };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 {
+        system_timeout.connect_timeout_secs
+    } else {
+        10
+    };
+    let client = super::http_client::build_http_client(
+        &proxy_client,
+        req_timeout,
+        conn_timeout,
+        Some(&platform.extra),
+        None,
+    )
+    .await;
 
     // 保留原始 method + 原样转发 body（GET/DELETE 无 body；POST cancel/compact 原样）。
     let mut rb = client
@@ -142,7 +168,9 @@ pub(crate) async fn handle_responses_subendpoint(
         .header("Authorization", format!("Bearer {}", platform.api_key))
         .header("OpenAI-Beta", "responses=experimental");
     if !bytes.is_empty() {
-        rb = rb.header("Content-Type", "application/json").body(bytes.to_vec());
+        rb = rb
+            .header("Content-Type", "application/json")
+            .body(bytes.to_vec());
         log.upstream_request_body = String::from_utf8_lossy(bytes).to_string();
     }
     tracing::info!(group = %group.name, platform = %platform.name, method = %orig_method, url = %url, "responses subendpoint upstream request");
@@ -158,7 +186,11 @@ pub(crate) async fn handle_responses_subendpoint(
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
             return {
-                let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+                let mut r = (
+                    StatusCode::BAD_GATEWAY,
+                    format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream)),
+                )
+                    .into_response();
                 inject_trace_header(&mut r);
                 r
             };
@@ -187,7 +219,9 @@ pub(crate) async fn handle_responses_subendpoint(
     let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
     let mut response = (resp_status, body.to_vec()).into_response();
     if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
-        response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
+        response
+            .headers_mut()
+            .insert(axum::http::header::CONTENT_TYPE, hv);
     }
     inject_trace_header(&mut response);
     response

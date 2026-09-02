@@ -4,7 +4,7 @@ use crate::protocols::gemini::convert::*;
 
 fn req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "gemini".into(),
         messages,
         system: None,
@@ -24,29 +24,58 @@ fn to_gemini_system_text_and_blocks() {
     let mut r = req(vec![]);
     r.system = Some(SystemContent::Text("sys".into()));
     let g = to_gemini(&r);
-    assert_eq!(g.system_instruction.as_ref().unwrap().parts[0].text.as_deref(), Some("sys"));
+    assert_eq!(
+        g.system_instruction.as_ref().unwrap().parts[0]
+            .text
+            .as_deref(),
+        Some("sys")
+    );
 
     let mut r2 = req(vec![]);
-    r2.system = Some(SystemContent::Blocks(vec![json!({"text": "a"}), json!({"text": "b"})]));
+    r2.system = Some(SystemContent::Blocks(vec![
+        json!({"text": "a"}),
+        json!({"text": "b"}),
+    ]));
     let g2 = to_gemini(&r2);
-    assert_eq!(g2.system_instruction.unwrap().parts[0].text.as_deref(), Some("a\nb"));
+    assert_eq!(
+        g2.system_instruction.unwrap().parts[0].text.as_deref(),
+        Some("a\nb")
+    );
 }
 
 #[test]
 fn to_gemini_roles_and_blocks() {
     let r = req(vec![
-        Message { role: Role::User, content: MessageContent::Text("hi".into()) },
+        Message {
+            role: Role::User,
+            content: MessageContent::Text("hi".into()),
+        },
         Message {
             role: Role::Assistant,
             content: MessageContent::Blocks(vec![
-                ContentBlock::Text { text: "t".into(), extra: None },
-                ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({"a": 1}), extra: None },
+                ContentBlock::Text {
+                    text: "t".into(),
+                    extra: None,
+                },
+                ContentBlock::ToolUse {
+                    id: "i".into(),
+                    name: "f".into(),
+                    input: json!({"a": 1}),
+                    extra: None,
+                },
             ]),
         },
         Message {
             role: Role::Tool,
             content: MessageContent::Blocks(vec![
-                ContentBlock::ToolResult { tool_use_id: "f".into(), content: "res".into(), name: None, is_error: None, content_blocks: None, extra: None },
+                ContentBlock::ToolResult {
+                    tool_use_id: "f".into(),
+                    content: "res".into(),
+                    name: None,
+                    is_error: None,
+                    content_blocks: None,
+                    extra: None,
+                },
                 ContentBlock::Unknown(json!({"type": "thinking", "thinking": "th"})),
             ]),
         },
@@ -58,13 +87,24 @@ fn to_gemini_roles_and_blocks() {
     assert!(g.contents[1].parts[1].function_call.is_some());
     assert!(g.contents[2].parts[0].function_response.is_some());
     assert_eq!(g.contents[2].parts[1].text.as_deref(), Some("th"));
-    assert_eq!(g.contents[2].parts[1].thought, Some(true), "thinking block → thought part");
+    assert_eq!(
+        g.contents[2].parts[1].thought,
+        Some(true),
+        "thinking block → thought part"
+    );
 }
 
 #[test]
 fn to_gemini_tools_and_gen_config() {
     let mut r = req(vec![]);
-    r.tools = Some(vec![Tool { name: "f".into(), description: Some("d".into()), input_schema: json!({}), tool_type: None, cache_control: None, extra: None }]);
+    r.tools = Some(vec![Tool {
+        name: "f".into(),
+        description: Some("d".into()),
+        input_schema: json!({}),
+        tool_type: None,
+        cache_control: None,
+        extra: None,
+    }]);
     r.max_tokens = Some(100);
     r.temperature = Some(0.5);
     let g = to_gemini(&r);
@@ -151,7 +191,8 @@ fn parse_gemini_sse_none() {
 
 #[test]
 fn parse_gemini_sse_thought_part() {
-    let d = json!({"candidates": [{"content": {"parts": [{"thought": true, "text": "thinking..."}]}}]});
+    let d =
+        json!({"candidates": [{"content": {"parts": [{"thought": true, "text": "thinking..."}]}}]});
     match parse_gemini_sse(&d) {
         Some(ChatStreamEvent::ReasoningDelta { text }) => assert_eq!(text, "thinking..."),
         _ => panic!("expected reasoning_delta"),
@@ -160,7 +201,13 @@ fn parse_gemini_sse_thought_part() {
 
 #[test]
 fn to_gemini_sse_reasoning_delta() {
-    let s = to_gemini_sse(&ChatStreamEvent::ReasoningDelta { text: "thought".into() }, "m").unwrap();
+    let s = to_gemini_sse(
+        &ChatStreamEvent::ReasoningDelta {
+            text: "thought".into(),
+        },
+        "m",
+    )
+    .unwrap();
     assert!(s.contains("\"thought\":true"));
     assert!(s.contains("thought"));
 }
@@ -175,19 +222,64 @@ fn to_gemini_sse_wire_frame_has_data_prefix_and_terminator() {
 
 #[test]
 fn to_gemini_sse_variants() {
-    assert!(to_gemini_sse(&ChatStreamEvent::Start { id: "i".into(), model: "m".into() }, "m").is_none());
-    assert!(to_gemini_sse(&ChatStreamEvent::Delta { text: "x".into() }, "m").unwrap().contains("x"));
-    assert!(to_gemini_sse(&ChatStreamEvent::Usage { usage: Usage { prompt_tokens: None, completion_tokens: None, total_tokens: None } }, "m").is_none());
+    assert!(
+        to_gemini_sse(
+            &ChatStreamEvent::Start {
+                id: "i".into(),
+                model: "m".into()
+            },
+            "m"
+        )
+        .is_none()
+    );
+    assert!(
+        to_gemini_sse(&ChatStreamEvent::Delta { text: "x".into() }, "m")
+            .unwrap()
+            .contains("x")
+    );
+    assert!(
+        to_gemini_sse(
+            &ChatStreamEvent::Usage {
+                usage: Usage {
+                    prompt_tokens: None,
+                    completion_tokens: None,
+                    total_tokens: None
+                }
+            },
+            "m"
+        )
+        .is_none()
+    );
 
-    for (fr, expect) in [(Some("end_turn"), "STOP"), (Some("max_tokens"), "MAX_TOKENS"), (None, "STOP")] {
-        let s = to_gemini_sse(&ChatStreamEvent::Stop { finish_reason: fr.map(String::from) }, "m").unwrap();
+    for (fr, expect) in [
+        (Some("end_turn"), "STOP"),
+        (Some("max_tokens"), "MAX_TOKENS"),
+        (None, "STOP"),
+    ] {
+        let s = to_gemini_sse(
+            &ChatStreamEvent::Stop {
+                finish_reason: fr.map(String::from),
+            },
+            "m",
+        )
+        .unwrap();
         assert!(s.contains(expect));
     }
 
-    let td = ChatStreamEvent::ToolDelta { index: 0, id: Some("f".into()), name: Some("f".into()), input: Some("{\"a\":1}".into()) };
+    let td = ChatStreamEvent::ToolDelta {
+        index: 0,
+        id: Some("f".into()),
+        name: Some("f".into()),
+        input: Some("{\"a\":1}".into()),
+    };
     assert!(to_gemini_sse(&td, "m").unwrap().contains("functionCall"));
     // bad input → defaults to {}
-    let td2 = ChatStreamEvent::ToolDelta { index: 0, id: None, name: Some("f".into()), input: Some("bad".into()) };
+    let td2 = ChatStreamEvent::ToolDelta {
+        index: 0,
+        id: None,
+        name: Some("f".into()),
+        input: Some("bad".into()),
+    };
     assert!(to_gemini_sse(&td2, "m").unwrap().contains("functionCall"));
 }
 
@@ -226,7 +318,10 @@ fn parse_gemini_response_with_thinking() {
     assert_eq!(parsed.id, "gemini_123");
     assert_eq!(parsed.model, "gemini-2.5-flash");
     assert_eq!(parsed.text.as_deref(), Some("Here is my answer."));
-    assert_eq!(parsed.reasoning.as_deref(), Some("Let me think about this...\n\nAnalysis complete."));
+    assert_eq!(
+        parsed.reasoning.as_deref(),
+        Some("Let me think about this...\n\nAnalysis complete.")
+    );
     assert_eq!(parsed.stop_reason, "end_turn");
     assert_eq!(parsed.input_tokens, 20);
     assert_eq!(parsed.output_tokens, 30);
@@ -268,7 +363,10 @@ fn parse_gemini_response_with_function_call() {
     assert_eq!(parsed.text.as_deref(), Some("I'll call a function."));
     assert_eq!(parsed.tool_uses.len(), 1);
     assert_eq!(parsed.tool_uses[0].1, "calculator");
-    assert_eq!(parsed.tool_uses[0].2, serde_json::json!({"operation": "add", "x": 1, "y": 2}));
+    assert_eq!(
+        parsed.tool_uses[0].2,
+        serde_json::json!({"operation": "add", "x": 1, "y": 2})
+    );
     assert_eq!(parsed.stop_reason, "end_turn");
     assert_eq!(parsed.cache_read_tokens, 5);
 }
@@ -329,8 +427,8 @@ fn parse_gemini_response_minimal() {
 // ── render_gemini_response 测试 ──
 #[test]
 fn render_gemini_text_only() {
-    use crate::converter::NonStreamResponse;
     use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
@@ -347,15 +445,24 @@ fn render_gemini_text_only() {
     let out = render_gemini_response(&r).unwrap();
     assert_eq!(out["candidates"][0]["content"]["role"], "model");
     assert_eq!(out["candidates"][0]["finishReason"], "STOP"); // end_turn → STOP
-    assert_eq!(out["candidates"][0]["content"]["parts"].as_array().unwrap().len(), 1);
-    assert_eq!(out["candidates"][0]["content"]["parts"][0]["text"], "Hello world");
+    assert_eq!(
+        out["candidates"][0]["content"]["parts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
+    assert_eq!(
+        out["candidates"][0]["content"]["parts"][0]["text"],
+        "Hello world"
+    );
     assert_eq!(out["modelVersion"], "gemini-pro");
 }
 
 #[test]
 fn render_gemini_with_reasoning() {
-    use crate::converter::NonStreamResponse;
     use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
@@ -379,16 +486,18 @@ fn render_gemini_with_reasoning() {
 
 #[test]
 fn render_gemini_with_function_call() {
-    use crate::converter::NonStreamResponse;
     use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
         model: "gemini-pro".to_string(),
         text: Some("Calling function".to_string()),
-        tool_uses: vec![
-            ("tool_0".to_string(), "read_file".to_string(), json!({"path": "/tmp"})),
-        ],
+        tool_uses: vec![(
+            "tool_0".to_string(),
+            "read_file".to_string(),
+            json!({"path": "/tmp"}),
+        )],
         stop_reason: "tool_use".to_string(),
         input_tokens: 15,
         output_tokens: 8,
@@ -406,8 +515,8 @@ fn render_gemini_with_function_call() {
 
 #[test]
 fn render_gemini_max_tokens_maps_max_tokens() {
-    use crate::converter::NonStreamResponse;
     use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
@@ -427,16 +536,18 @@ fn render_gemini_max_tokens_maps_max_tokens() {
 
 #[test]
 fn render_gemini_with_all() {
-    use crate::converter::NonStreamResponse;
     use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
         model: "gemini-pro".to_string(),
         text: Some("Result".to_string()),
-        tool_uses: vec![
-            ("tool_0".to_string(), "write".to_string(), json!({"content": "data"})),
-        ],
+        tool_uses: vec![(
+            "tool_0".to_string(),
+            "write".to_string(),
+            json!({"content": "data"}),
+        )],
         stop_reason: "tool_use".to_string(),
         input_tokens: 25,
         output_tokens: 12,
@@ -456,8 +567,8 @@ fn render_gemini_with_all() {
 
 #[test]
 fn render_gemini_empty_message() {
-    use crate::converter::NonStreamResponse;
     use super::render_gemini_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "empty".to_string(),
@@ -473,6 +584,12 @@ fn render_gemini_empty_message() {
 
     let out = render_gemini_response(&r).unwrap();
     // 兜底空 text part
-    assert_eq!(out["candidates"][0]["content"]["parts"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        out["candidates"][0]["content"]["parts"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
     assert_eq!(out["candidates"][0]["content"]["parts"][0]["text"], "");
 }

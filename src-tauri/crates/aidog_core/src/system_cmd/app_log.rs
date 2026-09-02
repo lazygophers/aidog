@@ -1,12 +1,12 @@
 use crate::gateway;
-use aidog_db::{self as db, Db};
 use crate::logging;
+use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;
 
-
 pub async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
-    db::get_setting(db, "app", "logging").await
+    db::get_setting(db, "app", "logging")
+        .await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -26,18 +26,23 @@ pub async fn migrate_log_settings_file_to_db(db: &Db) {
     }
     if let Ok(content) = std::fs::read_to_string(&path)
         && let Ok(settings) = serde_json::from_str::<logging::AppLogSettings>(&content)
-            && db::get_setting(db, "app", "logging").await.ok().flatten().is_none()
-                && let Ok(value) = serde_json::to_value(&settings) {
-                    let _ = db::set_setting(
-                        db,
-                        SetSettingInput {
-                            scope: "app".to_string(),
-                            key: "logging".to_string(),
-                            value,
-                        },
-                    )
-                    .await;
-                }
+        && db::get_setting(db, "app", "logging")
+            .await
+            .ok()
+            .flatten()
+            .is_none()
+        && let Ok(value) = serde_json::to_value(&settings)
+    {
+        let _ = db::set_setting(
+            db,
+            SetSettingInput {
+                scope: "app".to_string(),
+                key: "logging".to_string(),
+                value,
+            },
+        )
+        .await;
+    }
     // 无论解析成功与否都删除：坏文件不保留，DB 已是唯一源（缺失则 default）。
     let _ = std::fs::remove_file(&path);
 }

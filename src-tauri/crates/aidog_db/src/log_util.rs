@@ -132,7 +132,10 @@ mod tests {
         let sql = format!("INSERT INTO t(body) VALUES ('{long}')");
         let out = truncate_sql_literals(&sql);
         let expected_lit = format!("{}…[truncated +36]", "x".repeat(SQL_LITERAL_MAX));
-        assert_eq!(out, format!("INSERT INTO t(body) VALUES ('{expected_lit}')"));
+        assert_eq!(
+            out,
+            format!("INSERT INTO t(body) VALUES ('{expected_lit}')")
+        );
     }
 
     #[test]

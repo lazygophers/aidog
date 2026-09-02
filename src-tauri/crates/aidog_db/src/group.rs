@@ -1,5 +1,5 @@
 use super::*;
-use rusqlite::{params, OptionalExtension, Result as SqlResult};
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// 序列化 / 反序列化内联 model_mappings
 fn serialize_mappings(mappings: &[ModelMapping]) -> String {
@@ -20,8 +20,7 @@ fn parse_env_vars(json: &str) -> Vec<EnvVar> {
 }
 
 /// Group SELECT 列序
-const GROUP_COLUMNS: &str =
-    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default, env_vars, extra";
+const GROUP_COLUMNS: &str = "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default, env_vars, extra";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(2)?;
@@ -50,22 +49,27 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
 }
 
 #[track_caller]
-pub fn create_group(db: &Db, input: CreateGroup) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
+pub fn create_group(
+    db: &Db,
+    input: CreateGroup,
+) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ts = now();
-    let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
-    let source_protocol = input.source_protocol.unwrap_or_else(|| "anthropic".to_string());
-    let mappings_str = serialize_mappings(&input.model_mappings);
-    let env_vars_str = serialize_env_vars(&input.env_vars);
-    // group_key：用户提供则用，否则自动生成 gk_<32hex>（创建后锁定不可改）。
-    let group_key = input
-        .group_key
-        .filter(|s| !s.trim().is_empty())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| format!("gk_{}", uuid::Uuid::new_v4().simple()));
+        let ts = now();
+        let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
+        let source_protocol = input
+            .source_protocol
+            .unwrap_or_else(|| "anthropic".to_string());
+        let mappings_str = serialize_mappings(&input.model_mappings);
+        let env_vars_str = serialize_env_vars(&input.env_vars);
+        // group_key：用户提供则用，否则自动生成 gk_<32hex>（创建后锁定不可改）。
+        let group_key = input
+            .group_key
+            .filter(|s| !s.trim().is_empty())
+            .map(|s| s.trim().to_string())
+            .unwrap_or_else(|| format!("gk_{}", uuid::Uuid::new_v4().simple()));
 
-    let id = db
+        let id = db
 
         .call_platform_traced(None, __db_caller, {
             let name = input.name.clone();
@@ -85,38 +89,40 @@ pub fn create_group(db: &Db, input: CreateGroup) -> impl std::future::Future<Out
         })
         .await
         .map_err(|e| format!("create group: {e}"))?;
-    db.invalidate_groups_cache();
+        db.invalidate_groups_cache();
 
-    Ok(Group {
-        id,
-        name: input.name,
-        group_key,
-        routing_mode: input.routing_mode,
-        auto_from_platform: input.auto_from_platform,
-        created_at: ts,
-        updated_at: ts,
-        request_timeout_secs: input.request_timeout_secs,
-        connect_timeout_secs: input.connect_timeout_secs,
-        source_protocol,
-        model_mappings: input.model_mappings,
-        deleted_at: 0,
-        sort_order: 0,
-        max_retries: input.max_retries,
-        is_default: false,
-        env_vars: input.env_vars,
-        extra: String::new(),
-    })
+        Ok(Group {
+            id,
+            name: input.name,
+            group_key,
+            routing_mode: input.routing_mode,
+            auto_from_platform: input.auto_from_platform,
+            created_at: ts,
+            updated_at: ts,
+            request_timeout_secs: input.request_timeout_secs,
+            connect_timeout_secs: input.connect_timeout_secs,
+            source_protocol,
+            model_mappings: input.model_mappings,
+            deleted_at: 0,
+            sort_order: 0,
+            max_retries: input.max_retries,
+            is_default: false,
+            env_vars: input.env_vars,
+            extra: String::new(),
+        })
     }
 }
 
 /// 批量更新 group 的 sort_order：接收有序 id 列表，按序赋值 1, 2, 3, …
 #[track_caller]
-pub fn reorder_groups<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+pub fn reorder_groups<'a>(
+    db: &'a Db,
+    ordered_ids: &'a [u64],
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ordered_ids = ordered_ids.to_vec();
-    db
-        .call_platform_traced(None, __db_caller, move |conn| {
+        let ordered_ids = ordered_ids.to_vec();
+        db.call_platform_traced(None, __db_caller, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -127,19 +133,21 @@ pub fn reorder_groups<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::futur
         })
         .await
         .map_err(|e| format!("reorder group: {e}"))?;
-    db.invalidate_groups_cache();
-    Ok(())
+        db.invalidate_groups_cache();
+        Ok(())
     }
 }
 
 /// 批量更新 platform 的 sort_order
 #[track_caller]
-pub fn reorder_platforms<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+pub fn reorder_platforms<'a>(
+    db: &'a Db,
+    ordered_ids: &'a [u64],
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ordered_ids = ordered_ids.to_vec();
-    db
-        .call_platform_traced(None, __db_caller, move |conn| {
+        let ordered_ids = ordered_ids.to_vec();
+        db.call_platform_traced(None, __db_caller, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -150,8 +158,8 @@ pub fn reorder_platforms<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::fu
         })
         .await
         .map_err(|e| format!("reorder platform: {e}"))?;
-    db.invalidate_group_details_cache();
-    Ok(())
+        db.invalidate_group_details_cache();
+        Ok(())
     }
 }
 
@@ -164,11 +172,10 @@ pub fn reorder_group_platforms<'a>(
 ) -> impl std::future::Future<Output = Result<(), String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let group_id = group_id as i64;
-    let ordered = ordered_platform_ids.to_vec();
-    let ts = now();
-    db
-        .call_platform_traced(None, __db_caller, move |conn| {
+        let group_id = group_id as i64;
+        let ordered = ordered_platform_ids.to_vec();
+        let ts = now();
+        db.call_platform_traced(None, __db_caller, move |conn| {
             for (i, &pid) in ordered.iter().enumerate() {
                 conn.execute(
                     "UPDATE group_platform SET priority = ?1, updated_at = ?2 \
@@ -180,8 +187,8 @@ pub fn reorder_group_platforms<'a>(
         })
         .await
         .map_err(|e| format!("reorder group platforms: {e}"))?;
-    db.invalidate_group_details_cache();
-    Ok(())
+        db.invalidate_group_details_cache();
+        Ok(())
     }
 }
 
@@ -196,12 +203,11 @@ pub fn set_group_platform_level_priority(
 ) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let lp = crate::models::clamp_level_priority(level_priority);
-    let gid = group_id as i64;
-    let pid = platform_id as i64;
-    let ts = now();
-    db
-        .call_platform_traced(None, __db_caller, move |conn| {
+        let lp = crate::models::clamp_level_priority(level_priority);
+        let gid = group_id as i64;
+        let pid = platform_id as i64;
+        let ts = now();
+        db.call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE group_platform SET level_priority = ?1, updated_at = ?2 \
                  WHERE group_id = ?3 AND platform_id = ?4 AND deleted_at = 0",
@@ -211,8 +217,8 @@ pub fn set_group_platform_level_priority(
         })
         .await
         .map_err(|e| format!("set group platform level_priority: {e}"))?;
-    db.invalidate_group_details_cache();
-    Ok(())
+        db.invalidate_group_details_cache();
+        Ok(())
     }
 }
 
@@ -226,11 +232,11 @@ pub fn move_group_platform(
 ) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let pid = platform_id as i64;
-    let from = from_group_id as i64;
-    let to = to_group_id as i64;
-    let ts = now();
-    db
+        let pid = platform_id as i64;
+        let from = from_group_id as i64;
+        let to = to_group_id as i64;
+        let ts = now();
+        db
         .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
@@ -259,8 +265,8 @@ pub fn move_group_platform(
         })
         .await
         .map_err(|e| format!("move group platform: {e}"))?;
-    db.invalidate_group_details_cache();
-    Ok(())
+        db.invalidate_group_details_cache();
+        Ok(())
     }
 }
 
@@ -268,11 +274,12 @@ pub fn move_group_platform(
 pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Group>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    if let Ok(g) = db.1.groups.read()
-        && let Some(cached) = g.as_ref() {
+        if let Ok(g) = db.1.groups.read()
+            && let Some(cached) = g.as_ref()
+        {
             return Ok(cached.clone());
         }
-    let groups = db
+        let groups = db
         
         .call_read_platform_traced(None, __db_caller, |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
@@ -281,21 +288,27 @@ pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Grou
         })
         .await
         .map_err(|e| e.to_string())?;
-    if let Ok(mut g) = db.1.groups.write() {
-        *g = Some(groups.clone());
-    }
-    Ok(groups)
+        if let Ok(mut g) = db.1.groups.write() {
+            *g = Some(groups.clone());
+        }
+        Ok(groups)
     }
 }
 
 #[track_caller]
-pub fn get_group(db: &Db, id: u64) -> impl std::future::Future<Output = Result<Option<Group>, String>> + '_ {
+pub fn get_group(
+    db: &Db,
+    id: u64,
+) -> impl std::future::Future<Output = Result<Option<Group>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
-        .call_read_platform_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))?;
-            Ok(stmt.query_row(params![id as i64], row_to_group).optional()?)
+        db.call_read_platform_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"
+            ))?;
+            Ok(stmt
+                .query_row(params![id as i64], row_to_group)
+                .optional()?)
         })
         .await
         .map_err(|e| e.to_string())
@@ -303,28 +316,39 @@ pub fn get_group(db: &Db, id: u64) -> impl std::future::Future<Output = Result<O
 }
 
 #[track_caller]
-pub fn update_group(db: &Db, input: UpdateGroup) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
+pub fn update_group(
+    db: &Db,
+    input: UpdateGroup,
+) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let existing = get_group(db, input.id).await?.ok_or("group not found")?;
+        let existing = get_group(db, input.id).await?.ok_or("group not found")?;
 
-    let updated = Group {
-        name: input.name.unwrap_or(existing.name),
-        routing_mode: input.routing_mode.unwrap_or(existing.routing_mode),
-        request_timeout_secs: if input.request_timeout_secs > 0 { input.request_timeout_secs } else { existing.request_timeout_secs },
-        connect_timeout_secs: if input.connect_timeout_secs > 0 { input.connect_timeout_secs } else { existing.connect_timeout_secs },
-        source_protocol: input.source_protocol.unwrap_or(existing.source_protocol),
-        max_retries: input.max_retries.unwrap_or(existing.max_retries),
-        model_mappings: input.model_mappings,
-        env_vars: input.env_vars,
-        updated_at: now(),
-        ..existing
-    };
+        let updated = Group {
+            name: input.name.unwrap_or(existing.name),
+            routing_mode: input.routing_mode.unwrap_or(existing.routing_mode),
+            request_timeout_secs: if input.request_timeout_secs > 0 {
+                input.request_timeout_secs
+            } else {
+                existing.request_timeout_secs
+            },
+            connect_timeout_secs: if input.connect_timeout_secs > 0 {
+                input.connect_timeout_secs
+            } else {
+                existing.connect_timeout_secs
+            },
+            source_protocol: input.source_protocol.unwrap_or(existing.source_protocol),
+            max_retries: input.max_retries.unwrap_or(existing.max_retries),
+            model_mappings: input.model_mappings,
+            env_vars: input.env_vars,
+            updated_at: now(),
+            ..existing
+        };
 
-    let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
-    let mappings_str = serialize_mappings(&updated.model_mappings);
-    let env_vars_str = serialize_env_vars(&updated.env_vars);
-    db
+        let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
+        let mappings_str = serialize_mappings(&updated.model_mappings);
+        let env_vars_str = serialize_env_vars(&updated.env_vars);
+        db
         .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
             let updated_at = updated.updated_at;
@@ -343,9 +367,9 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> impl std::future::Future<Out
         })
         .await
         .map_err(|e| format!("update group: {e}"))?;
-    db.invalidate_groups_cache();
+        db.invalidate_groups_cache();
 
-    Ok(updated)
+        Ok(updated)
     }
 }
 
@@ -353,11 +377,14 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> impl std::future::Future<Out
 /// 一条 UPDATE 同时清零全部 + 置目标；updated_at 仅刷新被切换的行（保持排序稳定）。
 /// 清除默认（target_id 为 None）时把所有 is_default 置 0。
 #[track_caller]
-pub fn set_default_group(db: &Db, target_id: Option<u64>) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn set_default_group(
+    db: &Db,
+    target_id: Option<u64>,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ts = now();
-    db
+        let ts = now();
+        db
         .call_platform_traced(None, __db_caller, move |conn| {
             match target_id {
                 Some(id) => {
@@ -380,8 +407,8 @@ pub fn set_default_group(db: &Db, target_id: Option<u64>) -> impl std::future::F
         })
         .await
         .map_err(|e| format!("set default group: {e}"))?;
-    db.invalidate_groups_cache();
-    Ok(())
+        db.invalidate_groups_cache();
+        Ok(())
     }
 }
 
@@ -392,9 +419,10 @@ pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
         // auto 分组：仅当关联平台已空（源平台已删的孤儿分组）时允许手动删除
         let plats = get_group_platforms(db, id).await?;
         if !plats.is_empty() {
-            return Err("auto-created group with linked platforms cannot be deleted manually".to_string());
+            return Err(
+                "auto-created group with linked platforms cannot be deleted manually".to_string(),
+            );
         }
     }
     force_delete_group(db, id).await
 }
-

@@ -36,10 +36,17 @@ pub(crate) fn filter_upstream_resp_headers(
     let mut out = Vec::with_capacity(src.len());
     for (k, v) in src.iter() {
         let name = k.as_str(); // HeaderName 已小写
-        if RESP_HEADER_BLACKLIST.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+        if RESP_HEADER_BLACKLIST
+            .iter()
+            .any(|b| name.eq_ignore_ascii_case(b))
+        {
             continue;
         }
-        if is_stream && SSE_EXTRA_BLACKLIST.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+        if is_stream
+            && SSE_EXTRA_BLACKLIST
+                .iter()
+                .any(|b| name.eq_ignore_ascii_case(b))
+        {
             continue;
         }
         // reqwest header 类型 → axum(http) header 类型；非法则跳过不 panic
@@ -55,7 +62,9 @@ pub(crate) fn filter_upstream_resp_headers(
 
 /// 把实发头集合（HeaderName, HeaderValue）序列化为日志 JSON 字符串，
 /// 与 upstream_response_headers 同格式 `{name: value}`；多值同名头保留首值（与既有格式约定一致）。
-pub(crate) fn resp_headers_to_log_json(headers: &[(axum::http::HeaderName, axum::http::HeaderValue)]) -> String {
+pub(crate) fn resp_headers_to_log_json(
+    headers: &[(axum::http::HeaderName, axum::http::HeaderValue)],
+) -> String {
     let mut h = serde_json::Map::new();
     for (k, v) in headers {
         if let Ok(s) = v.to_str() {
@@ -65,7 +74,6 @@ pub(crate) fn resp_headers_to_log_json(headers: &[(axum::http::HeaderName, axum:
     }
     Value::Object(h).to_string()
 }
-
 
 /// 区分 429：配额耗尽（true）vs 限流 transient（false）。仅用于熔断分类（C3）：
 /// 配额耗尽不计熔断（record_ignored），限流计熔断（record_failure）。
@@ -265,17 +273,13 @@ pub(crate) fn is_nonstream_body_valid(body: &str) -> bool {
         return true;
     };
     // error 结构（顶层 error 字段 / type==error）→ 无效
-    if json.get("error").is_some()
-        || json.get("type").and_then(|v| v.as_str()) == Some("error")
-    {
+    if json.get("error").is_some() || json.get("type").and_then(|v| v.as_str()) == Some("error") {
         return false;
     }
     // openai 风格：choices 非空且含实质内容（message/content/text/delta/tool_calls）
     if let Some(choices) = json.get("choices").and_then(|v| v.as_array()) {
         return choices.iter().any(|c| {
-            c.get("message").is_some()
-                || c.get("text").is_some()
-                || c.get("delta").is_some()
+            c.get("message").is_some() || c.get("text").is_some() || c.get("delta").is_some()
         });
     }
     // anthropic 风格：content 数组非空

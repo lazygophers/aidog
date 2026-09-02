@@ -2,8 +2,8 @@ use crate::gateway;
 use aidog_adapter as adapter;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-use tauri::State;
 use serde_json::Value;
+use tauri::State;
 
 // ── 测试上下文：准备阶段的聚合 ──
 struct TestContext {
@@ -30,98 +30,126 @@ struct HttpRequestContext {
 }
 
 // ── 阶段1：准备测试上下文 ──
-async fn prepare_test_context(
-    db: &Db,
-    req: &ModelTestRequest,
-) -> Result<TestContext, String> {
-        let platform = db::get_platform(db, req.platform_id).await?
-            .ok_or_else(|| {
-                tracing::warn!(command = "model_test", platform_id = req.platform_id, "platform not found");
-                "platform not found".to_string()
-            })?;
+async fn prepare_test_context(db: &Db, req: &ModelTestRequest) -> Result<TestContext, String> {
+    let platform = db::get_platform(db, req.platform_id)
+        .await?
+        .ok_or_else(|| {
+            tracing::warn!(
+                command = "model_test",
+                platform_id = req.platform_id,
+                "platform not found"
+            );
+            "platform not found".to_string()
+        })?;
 
-        let model = req.model.clone()
-            .or(platform.models.default.clone())
-            .ok_or_else(|| {
-                tracing::warn!(command = "model_test", platform_id = req.platform_id, "no model specified and no default model configured");
-                "no model specified and no default model configured".to_string()
-            })?;
+    let model = req
+        .model
+        .clone()
+        .or(platform.models.default.clone())
+        .ok_or_else(|| {
+            tracing::warn!(
+                command = "model_test",
+                platform_id = req.platform_id,
+                "no model specified and no default model configured"
+            );
+            "no model specified and no default model configured".to_string()
+        })?;
 
-        // 工具调用探测（builtin-tool-compat T5）：固定提示词 + get_weather 工具定义，
-        // 成功判据 = 响应含工具调用（见 extract_tool_call_name）。
-        let (prompt, expected, tools) = if req.tool_test.unwrap_or(false) {
-            (
-                "What is the weather in Tokyo? You must call the get_weather tool.".to_string(),
-                None,
-                Some(vec![adapter::Tool {
-                    name: "get_weather".to_string(),
-                    description: Some("Get current weather for a city".to_string()),
-                    input_schema: serde_json::json!({
-                        "type": "object",
-                        "properties": { "city": { "type": "string" } },
-                        "required": ["city"]
-                    }),
+    // 工具调用探测（builtin-tool-compat T5）：固定提示词 + get_weather 工具定义，
+    // 成功判据 = 响应含工具调用（见 extract_tool_call_name）。
+    let (prompt, expected, tools) = if req.tool_test.unwrap_or(false) {
+        (
+            "What is the weather in Tokyo? You must call the get_weather tool.".to_string(),
+            None,
+            Some(vec![adapter::Tool {
+                name: "get_weather".to_string(),
+                description: Some("Get current weather for a city".to_string()),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": { "city": { "type": "string" } },
+                    "required": ["city"]
+                }),
                 tool_type: None,
                 cache_control: None,
                 extra: None,
-                }]),
-            )
-        } else {
-            let (p, e) = match req.prompt.clone() {
-                Some(p) => (p, None),
-                None => {
-                    let (p, e) = random_test_challenge();
-                    (p, Some(e))
-                }
-            };
-            (p, e, None)
+            }]),
+        )
+    } else {
+        let (p, e) = match req.prompt.clone() {
+            Some(p) => (p, None),
+            None => {
+                let (p, e) = random_test_challenge();
+                (p, Some(e))
+            }
         };
+        (p, e, None)
+    };
 
-        let chat_req = adapter::ChatRequest {
-            thinking_budget: None,
-            model: model.clone(),
-            messages: vec![adapter::Message {
-                role: adapter::Role::User,
-                content: adapter::MessageContent::Text(prompt.clone()),
-            }],
-            system: None,
-            max_tokens: Some(req.max_tokens.unwrap_or(1024)),
-            temperature: None,
-            top_p: None,
-            stream: Some(false),
-            tools,
-            tool_choice: None,
-            extra: None,
+    let chat_req = adapter::ChatRequest {
+        thinking_budget: None,
+        model: model.clone(),
+        messages: vec![adapter::Message {
+            role: adapter::Role::User,
+            content: adapter::MessageContent::Text(prompt.clone()),
+        }],
+        system: None,
+        max_tokens: Some(req.max_tokens.unwrap_or(1024)),
+        temperature: None,
+        top_p: None,
+        stream: Some(false),
+        tools,
+        tool_choice: None,
+        extra: None,
         thinking_mode: None,
-        };
+    };
 
-        Ok(TestContext { platform, model, prompt, expected, chat_req })
+    Ok(TestContext {
+        platform,
+        model,
+        prompt,
+        expected,
+        chat_req,
+    })
 }
 
 // ── 阶段2：准备 HTTP 请求 ──
-fn prepare_http_request(
-    ctx: &TestContext,
-) -> Result<HttpRequestContext, String> {
-    let (target_protocol, target_base_url, client_type, coding_plan) = if !ctx.platform.endpoints.is_empty() {
-        let ep = ctx.platform.endpoints.iter()
-            .find(|ep| ep.coding_plan)
-            .unwrap_or(&ctx.platform.endpoints[0]);
-        (ep.protocol.clone(), ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan)
-    } else {
-        (ctx.platform.platform_type.clone(), ctx.platform.base_url.clone(), "default".to_string(), false)
-    };
+fn prepare_http_request(ctx: &TestContext) -> Result<HttpRequestContext, String> {
+    let (target_protocol, target_base_url, client_type, coding_plan) =
+        if !ctx.platform.endpoints.is_empty() {
+            let ep = ctx
+                .platform
+                .endpoints
+                .iter()
+                .find(|ep| ep.coding_plan)
+                .unwrap_or(&ctx.platform.endpoints[0]);
+            (
+                ep.protocol.clone(),
+                ep.base_url.clone(),
+                ep.client_type.clone(),
+                ep.coding_plan,
+            )
+        } else {
+            (
+                ctx.platform.platform_type.clone(),
+                ctx.platform.base_url.clone(),
+                "default".to_string(),
+                false,
+            )
+        };
 
     // base_url 缺失 guard：OAuth 未回填 / 用户手建平台漏配 → 友好错误替代 reqwest builder error。
     // 空 base_url 拼 api_path 得无 host 相对 URL，reqwest builder 直接 error → client 502，错误不友好。
     if target_base_url.trim().is_empty() {
         tracing::warn!(
-            command = "model_test", platform_id = ctx.platform.id,
+            command = "model_test",
+            platform_id = ctx.platform.id,
             "base_url empty, cannot build upstream url"
         );
         return Err("base_url 缺失，请在平台 endpoints 配置上游地址".to_string());
     }
 
-    let (mut req_body, mut api_path) = adapter::convert_request(&ctx.chat_req, &target_protocol, &ctx.platform.platform_type);
+    let (mut req_body, mut api_path) =
+        adapter::convert_request(&ctx.chat_req, &target_protocol, &ctx.platform.platform_type);
     if coding_plan {
         gateway::proxy::inject_coding_plan_fields(&mut req_body, &target_protocol);
         gateway::proxy::override_coding_plan_path(&mut api_path, &target_protocol);
@@ -133,14 +161,19 @@ fn prepare_http_request(
     let eff_api_key = gateway::proxy::resolve_opencode_zen_key(&ctx.platform);
 
     let upstream_headers = gateway::proxy::build_upstream_headers(
-        &client_type, &target_protocol, &eff_api_key,
-        &axum::http::HeaderMap::new(), &url
+        &client_type,
+        &target_protocol,
+        &eff_api_key,
+        &axum::http::HeaderMap::new(),
+        &url,
     );
     let upstream_headers_json = serde_json::Value::Object(
-        upstream_headers.iter()
+        upstream_headers
+            .iter()
             .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
-            .collect()
-    ).to_string();
+            .collect(),
+    )
+    .to_string();
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -184,7 +217,10 @@ fn build_test_proxy_log(
         target_protocol: format!("{:?}", target_protocol).to_lowercase(),
         platform_id,
         request_headers: r#"{"source":"model-test"}"#.into(),
-        request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":&http_ctx.prompt}]})).unwrap_or_default(),
+        request_body: serde_json::to_string(
+            &serde_json::json!({"messages":[{"role":"user","content":&http_ctx.prompt}]}),
+        )
+        .unwrap_or_default(),
         upstream_request_headers: http_ctx.upstream_headers_json.clone(),
         upstream_request_body: http_ctx.req_body_str.clone(),
         response_body: body_override.into(),
@@ -216,42 +252,91 @@ fn build_test_proxy_log(
 }
 
 // ── 阶段4：Mock 平台处理 ──
-fn handle_mock_test(
-    ctx: &TestContext,
-    http_ctx: &HttpRequestContext,
-) -> Option<ModelTestResult> {
+fn handle_mock_test(ctx: &TestContext, http_ctx: &HttpRequestContext) -> Option<ModelTestResult> {
     if !matches!(http_ctx.target_protocol, Protocol::Mock) {
         return None;
     }
 
-    let req_body: serde_json::Value = serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
+    let req_body: serde_json::Value =
+        serde_json::from_str(&http_ctx.req_body_str).unwrap_or_default();
     let cfg = adapter::mock::resolve_mock_config(&ctx.platform.extra, &ctx.chat_req, &req_body);
     // mock 响应形态须match target_protocol（下游 handle_success_response 用同一 target_protocol 解析），而非字面量占位符。
     let target_protocol = &http_ctx.target_protocol;
-    let (success, status_code, _resp_body, err_msg, in_tok, out_tok, preview): (bool, u16, String, String, i32, i32, String) = match cfg.error_mode.as_str() {
+    let (success, status_code, _resp_body, err_msg, in_tok, out_tok, preview): (
+        bool,
+        u16,
+        String,
+        String,
+        i32,
+        i32,
+        String,
+    ) = match cfg.error_mode.as_str() {
         "http_error" => {
-            let body = adapter::mock::build_error_body(target_protocol, cfg.status_code, "mock http_error");
+            let body = adapter::mock::build_error_body(
+                target_protocol,
+                cfg.status_code,
+                "mock http_error",
+            );
             let body_str = serde_json::to_string(&body).unwrap_or_default();
-            (false, cfg.status_code, body_str, format!("mock http_error (status {})", cfg.status_code), 0, 0, String::new())
+            (
+                false,
+                cfg.status_code,
+                body_str,
+                format!("mock http_error (status {})", cfg.status_code),
+                0,
+                0,
+                String::new(),
+            )
         }
         "rate_limit_429" => {
             let body = adapter::mock::build_error_body(target_protocol, 429, "mock rate limit");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
-            (false, 429, body_str, "mock rate_limit_429".to_string(), 0, 0, String::new())
+            (
+                false,
+                429,
+                body_str,
+                "mock rate_limit_429".to_string(),
+                0,
+                0,
+                String::new(),
+            )
         }
         "timeout" => {
             let body = adapter::mock::build_error_body(target_protocol, 504, "mock timeout");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
-            (false, 504, body_str, "mock timeout".to_string(), 0, 0, String::new())
+            (
+                false,
+                504,
+                body_str,
+                "mock timeout".to_string(),
+                0,
+                0,
+                String::new(),
+            )
         }
         _ => {
             let body = adapter::mock::build_response(&cfg, target_protocol, &ctx.model);
             let body_str = serde_json::to_string(&body).unwrap_or_default();
-            (true, 200, body_str, String::new(), cfg.input_tokens, cfg.output_tokens, cfg.response_text.clone())
+            (
+                true,
+                200,
+                body_str,
+                String::new(),
+                cfg.input_tokens,
+                cfg.output_tokens,
+                cfg.response_text.clone(),
+            )
         }
     };
 
-    tracing::info!(command = "model_test", platform_id = ctx.platform.id, mock = true, success, status = status_code, "model test mock response");
+    tracing::info!(
+        command = "model_test",
+        platform_id = ctx.platform.id,
+        mock = true,
+        success,
+        status = status_code,
+        "model test mock response"
+    );
     Some(ModelTestResult {
         success,
         model: ctx.model.clone(),
@@ -279,11 +364,19 @@ fn handle_success_response(
     let (success, error, preview) = if ctx.chat_req.tools.is_some() {
         match extract_tool_call_name(&resp_json, target_protocol) {
             Some(name) => (true, String::new(), format!("[tool_call] {name}")),
-            None => (false, "模型未发起工具调用".to_string(), truncate_str(&response_text, 300)),
+            None => (
+                false,
+                "模型未发起工具调用".to_string(),
+                truncate_str(&response_text, 300),
+            ),
         }
     } else {
         let ok = verify_test_response(&response_text, ctx.expected.as_deref());
-        let err = if ok { String::new() } else { "响应内容校验失败".to_string() };
+        let err = if ok {
+            String::new()
+        } else {
+            "响应内容校验失败".to_string()
+        };
         (ok, err, truncate_str(&response_text, 300))
     };
 
@@ -422,21 +515,31 @@ crate::tauri_command! {
 
 #[allow(dead_code)]
 pub(crate) fn truncate_str(s: &str, max: usize) -> String {
-    if s.len() <= max { s.to_string() } else { format!("{}\u{2026}", &s[..max]) }
+    if s.len() <= max {
+        s.to_string()
+    } else {
+        format!("{}\u{2026}", &s[..max])
+    }
 }
 
 #[allow(dead_code)]
 pub(crate) fn extract_response_text(v: &Value, protocol: &Protocol) -> String {
     match protocol {
-        Protocol::Anthropic => {
-            v.get("content").and_then(|c| c.get(0)).and_then(|b| b.get("text"))
-                .and_then(|t| t.as_str()).unwrap_or("").to_string()
-        }
-        _ => {
-            v.get("choices").and_then(|c| c.get(0))
-                .and_then(|c| c.get("message")).and_then(|m| m.get("content"))
-                .and_then(|t| t.as_str()).unwrap_or("").to_string()
-        }
+        Protocol::Anthropic => v
+            .get("content")
+            .and_then(|c| c.get(0))
+            .and_then(|b| b.get("text"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string(),
+        _ => v
+            .get("choices")
+            .and_then(|c| c.get(0))
+            .and_then(|c| c.get("message"))
+            .and_then(|m| m.get("content"))
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string(),
     }
 }
 
@@ -449,9 +552,16 @@ pub(crate) fn extract_tool_call_name(v: &Value, protocol: &Protocol) -> Option<S
                 .then(|| b.get("name").and_then(Value::as_str).map(str::to_string))
                 .flatten()
         }),
-        _ => v.get("choices")?.get(0)?.get("message")?.get("tool_calls")?
-            .get(0)?.get("function")?.get("name")
-            .and_then(Value::as_str).map(str::to_string),
+        _ => v
+            .get("choices")?
+            .get(0)?
+            .get("message")?
+            .get("tool_calls")?
+            .get(0)?
+            .get("function")?
+            .get("name")
+            .and_then(Value::as_str)
+            .map(str::to_string),
     }
 }
 
@@ -460,13 +570,25 @@ pub(crate) fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
     let usage = v.get("usage");
     match protocol {
         Protocol::Anthropic => {
-            let in_tok = usage.and_then(|u| u.get("input_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
-            let out_tok = usage.and_then(|u| u.get("output_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
+            let in_tok = usage
+                .and_then(|u| u.get("input_tokens"))
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0) as i32;
+            let out_tok = usage
+                .and_then(|u| u.get("output_tokens"))
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0) as i32;
             (in_tok, out_tok)
         }
         _ => {
-            let in_tok = usage.and_then(|u| u.get("prompt_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
-            let out_tok = usage.and_then(|u| u.get("completion_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
+            let in_tok = usage
+                .and_then(|u| u.get("prompt_tokens"))
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0) as i32;
+            let out_tok = usage
+                .and_then(|u| u.get("completion_tokens"))
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0) as i32;
             (in_tok, out_tok)
         }
     }
@@ -484,7 +606,10 @@ mod test_tool_call {
                 {"type": "tool_use", "id": "t1", "name": "get_weather", "input": {"city": "Tokyo"}}
             ]
         });
-        assert_eq!(extract_tool_call_name(&v, &Protocol::Anthropic).as_deref(), Some("get_weather"));
+        assert_eq!(
+            extract_tool_call_name(&v, &Protocol::Anthropic).as_deref(),
+            Some("get_weather")
+        );
     }
 
     #[test]
@@ -494,7 +619,10 @@ mod test_tool_call {
                 {"id": "c1", "type": "function", "function": {"name": "get_weather", "arguments": "{}"}}
             ]}}]
         });
-        assert_eq!(extract_tool_call_name(&v, &Protocol::OpenAI).as_deref(), Some("get_weather"));
+        assert_eq!(
+            extract_tool_call_name(&v, &Protocol::OpenAI).as_deref(),
+            Some("get_weather")
+        );
     }
 
     #[test]
@@ -524,14 +652,15 @@ mod test_prepare_http_request {
             "created_at": 0,
             "updated_at": 0,
             "endpoints": endpoints,
-        })).unwrap();
+        }))
+        .unwrap();
         TestContext {
             platform,
             model: "gpt-4".to_string(),
             prompt: "hi".to_string(),
             expected: None,
             chat_req: ChatRequest {
-            thinking_budget: None,
+                thinking_budget: None,
                 model: "gpt-4".to_string(),
                 messages: vec![Message {
                     role: Role::User,
@@ -545,7 +674,7 @@ mod test_prepare_http_request {
                 tools: None,
                 tool_choice: None,
                 extra: None,
-        thinking_mode: None,
+                thinking_mode: None,
             },
         }
     }
@@ -555,8 +684,14 @@ mod test_prepare_http_request {
         // 平台 base_url 空 + 无 endpoints → guard 触发返友好错误，非 reqwest builder error。
         let ctx = make_ctx("", vec![]);
         let err = prepare_http_request(&ctx).err().expect("expected error");
-        assert!(err.contains("base_url"), "错误文案应含 base_url，实际: {err}");
-        assert!(!err.to_lowercase().contains("builder"), "不应是 reqwest builder error");
+        assert!(
+            err.contains("base_url"),
+            "错误文案应含 base_url，实际: {err}"
+        );
+        assert!(
+            !err.to_lowercase().contains("builder"),
+            "不应是 reqwest builder error"
+        );
     }
 
     #[test]
@@ -572,7 +707,8 @@ mod test_prepare_http_request {
         // endpoints 存在但端点 base_url 空 + 平台 base_url 空 → 仍 guard 拦截。
         let ep = serde_json::from_value(serde_json::json!({
             "protocol": "openai", "base_url": "", "client_type": "default", "coding_plan": false,
-        })).unwrap();
+        }))
+        .unwrap();
         let ctx = make_ctx("", vec![ep]);
         let err = prepare_http_request(&ctx).err().expect("expected error");
         assert!(err.contains("base_url"));

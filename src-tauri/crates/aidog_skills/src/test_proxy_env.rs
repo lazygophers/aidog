@@ -35,7 +35,10 @@ fn proxy_env_url_http_no_auth() {
 #[test]
 fn proxy_env_url_https_with_auth() {
     let s = proxy_settings(true, "https", "u", "p", true);
-    assert_eq!(proxy_env_url(&s).as_deref(), Some("https://u:p@1.2.3.4:7890"));
+    assert_eq!(
+        proxy_env_url(&s).as_deref(),
+        Some("https://u:p@1.2.3.4:7890")
+    );
 }
 
 #[test]
@@ -53,7 +56,10 @@ fn proxy_env_url_socks5_no_dns_is_socks5() {
 #[test]
 fn proxy_env_url_socks5_with_auth() {
     let s = proxy_settings(true, "socks5", "u", "p", false);
-    assert_eq!(proxy_env_url(&s).as_deref(), Some("socks5://u:p@1.2.3.4:7890"));
+    assert_eq!(
+        proxy_env_url(&s).as_deref(),
+        Some("socks5://u:p@1.2.3.4:7890")
+    );
 }
 
 #[test]

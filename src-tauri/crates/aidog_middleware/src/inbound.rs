@@ -10,7 +10,7 @@
 use aidog_adapter::{ChatRequest, MessageContent, SystemContent};
 use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
 
-use super::{collect_patterns, replace_match, CompiledRule, EvalView, MiddlewareEngine};
+use super::{CompiledRule, EvalView, MiddlewareEngine, collect_patterns, replace_match};
 
 /// 入站执行结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -136,7 +136,10 @@ pub struct InboundTexts<'a> {
 
 impl<'a> InboundTexts<'a> {
     pub fn new(model: &'a str) -> Self {
-        Self { model, ..Default::default() }
+        Self {
+            model,
+            ..Default::default()
+        }
     }
 
     /// 条件求值用的聚合文本（与 [`collect_request_text`] 同口径：system 在前，逐条换行）。
@@ -205,7 +208,11 @@ impl MiddlewareEngine {
 }
 
 /// Value 层 mask/override：与 [`apply_rewrite_inbound`] 同一套 pattern 来源与 fields 语义。
-fn rewrite_texts(cr: &CompiledRule, step: &aidog_db::models::ActionStep, texts: &mut InboundTexts<'_>) {
+fn rewrite_texts(
+    cr: &CompiledRule,
+    step: &aidog_db::models::ActionStep,
+    texts: &mut InboundTexts<'_>,
+) {
     let leaves = collect_patterns(&cr.conditions, Target::RequestBody);
     if leaves.is_empty() {
         return;
@@ -234,9 +241,15 @@ fn rewrite_texts(cr: &CompiledRule, step: &aidog_db::models::ActionStep, texts: 
 }
 
 /// Value 层 inject：只产出指令，写回由调用方按协议做（与 [`apply_inject`] 语义对齐）。
-fn collect_inject(rule_id: i64, params: &aidog_db::models::ActionParams, texts: &mut InboundTexts<'_>) {
+fn collect_inject(
+    rule_id: i64,
+    params: &aidog_db::models::ActionParams,
+    texts: &mut InboundTexts<'_>,
+) {
     match params.inject_mode.as_str() {
-        "system_append" => texts.injects.push(InboundInject::SystemAppend(params.value.clone())),
+        "system_append" => texts
+            .injects
+            .push(InboundInject::SystemAppend(params.value.clone())),
         "body_set" => {
             if params.target.is_empty() {
                 tracing::warn!(rule_id, "middleware inject body_set: empty target, skip");
@@ -248,7 +261,10 @@ fn collect_inject(rule_id: i64, params: &aidog_db::models::ActionParams, texts: 
             });
         }
         "header_set" => {
-            tracing::debug!(rule_id, "middleware inject header_set: not supported at body layer, skipped");
+            tracing::debug!(
+                rule_id,
+                "middleware inject header_set: not supported at body layer, skipped"
+            );
         }
         other => {
             tracing::warn!(rule_id, mode = %other, "middleware inject: unknown inject_mode, skip");
@@ -258,7 +274,11 @@ fn collect_inject(rule_id: i64, params: &aidog_db::models::ActionParams, texts: 
 
 /// mask/override 入站改写：把请求文本块中命中「条件树内 request_body 叶子 pattern」的
 /// 片段替换为 replacement（regex 支持捕获组 $1）。fields 限定 messages/system（空 = 全部）。
-fn apply_rewrite_inbound(cr: &CompiledRule, step: &aidog_db::models::ActionStep, chat_req: &mut ChatRequest) {
+fn apply_rewrite_inbound(
+    cr: &CompiledRule,
+    step: &aidog_db::models::ActionStep,
+    chat_req: &mut ChatRequest,
+) {
     let leaves = collect_patterns(&cr.conditions, Target::RequestBody);
     if leaves.is_empty() {
         return;
@@ -323,11 +343,17 @@ fn apply_inject(rule_id: i64, params: &aidog_db::models::ActionParams, chat_req:
                 .extra
                 .get_or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
             if let Some(obj) = extra.as_object_mut() {
-                obj.insert(params.target.clone(), serde_json::Value::String(params.value.clone()));
+                obj.insert(
+                    params.target.clone(),
+                    serde_json::Value::String(params.value.clone()),
+                );
             }
         }
         "header_set" => {
-            tracing::debug!(rule_id, "middleware inject header_set: not supported at inbound chat_req layer, skipped");
+            tracing::debug!(
+                rule_id,
+                "middleware inject header_set: not supported at inbound chat_req layer, skipped"
+            );
         }
         other => {
             tracing::warn!(rule_id, mode = %other, "middleware inject: unknown inject_mode, skip");

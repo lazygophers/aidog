@@ -92,8 +92,15 @@ fn texts_push(dst: &mut Vec<String>, s: &str) {
 
 /// 按 wire 协议遍历 body 内某一侧的可读文本槽。`f` 返回 `Some(new)` 即原地改写，
 /// `None` 表示只读。收集与写回共用本函数，保证两趟遍历顺序严格一致。
-fn visit_texts(body: &mut Value, wire: &Protocol, side: Side, f: &mut dyn FnMut(&str) -> Option<String>) {
-    let Some(obj) = body.as_object_mut() else { return };
+fn visit_texts(
+    body: &mut Value,
+    wire: &Protocol,
+    side: Side,
+    f: &mut dyn FnMut(&str) -> Option<String>,
+) {
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
     match wire {
         Protocol::Anthropic => match side {
             Side::System => {
@@ -131,7 +138,9 @@ fn visit_texts(body: &mut Value, wire: &Protocol, side: Side, f: &mut dyn FnMut(
         }
         // completions 无 system 概念，正文只有 prompt（字符串或字符串数组）。
         Protocol::OpenAICompletions => {
-            if side == Side::Messages && let Some(p) = obj.get_mut("prompt") {
+            if side == Side::Messages
+                && let Some(p) = obj.get_mut("prompt")
+            {
                 match p {
                     Value::Array(items) => items.iter_mut().for_each(|i| visit_str(i, f)),
                     other => visit_str(other, f),
@@ -210,7 +219,9 @@ fn visit_parts(node: &mut Value, f: &mut dyn FnMut(&str) -> Option<String>) {
 }
 
 fn visit_str(v: &mut Value, f: &mut dyn FnMut(&str) -> Option<String>) {
-    if let Value::String(s) = v && let Some(new) = f(s) {
+    if let Value::String(s) = v
+        && let Some(new) = f(s)
+    {
         *s = new;
     }
 }
@@ -219,7 +230,9 @@ fn visit_str(v: &mut Value, f: &mut dyn FnMut(&str) -> Option<String>) {
 
 /// `system_append` 按 wire 协议写回。缺 system 结构时按协议规范形态补建。
 fn append_system(body: &mut Value, wire: &Protocol, value: &str) {
-    let Some(obj) = body.as_object_mut() else { return };
+    let Some(obj) = body.as_object_mut() else {
+        return;
+    };
     match wire {
         Protocol::Anthropic => match obj.get_mut("system") {
             Some(Value::String(s)) => *s = format!("{s}\n{value}"),
@@ -234,7 +247,9 @@ fn append_system(body: &mut Value, wire: &Protocol, value: &str) {
             let msgs = obj
                 .entry("messages".to_string())
                 .or_insert_with(|| Value::Array(Vec::new()));
-            let Some(arr) = msgs.as_array_mut() else { return };
+            let Some(arr) = msgs.as_array_mut() else {
+                return;
+            };
             let existing = arr.iter_mut().find(|m| {
                 matches!(
                     m.get("role").and_then(|r| r.as_str()),
@@ -272,7 +287,10 @@ fn append_system(body: &mut Value, wire: &Protocol, value: &str) {
         }
         // completions 协议无 system 角色，无处可注入（inject 对其为 no-op）。
         _ => {
-            tracing::debug!(?wire, "middleware inject system_append: protocol has no system slot, skipped");
+            tracing::debug!(
+                ?wire,
+                "middleware inject system_append: protocol has no system slot, skipped"
+            );
         }
     }
 }

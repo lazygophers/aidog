@@ -4,8 +4,8 @@
 //! 引用的 `parse_breaker` / `merge_breaker_into_extra` / `Platform` 等经 models::* 重导出。
 
 use super::super::{
-    merge_breaker_into_extra, parse_breaker, Platform, PlatformBreaker, PlatformModels, PlatformStatus, Protocol,
-    ProxyClientSettings, SchedulingBreakerSettings,
+    Platform, PlatformBreaker, PlatformModels, PlatformStatus, Protocol, ProxyClientSettings,
+    SchedulingBreakerSettings, merge_breaker_into_extra, parse_breaker,
 };
 
 /// 最小 Platform，仅设 extra 用于 breaker 解析测试。
@@ -53,12 +53,19 @@ fn parse_merge_breaker_roundtrip() {
     // merge 写入 → 再解析一致，且保留 extra 其余键。
     let merged = merge_breaker_into_extra(
         r#"{"mock":{"x":1}}"#,
-        &PlatformBreaker { failure_threshold: 4, open_secs: 90, half_open_max: 2 },
+        &PlatformBreaker {
+            failure_threshold: 4,
+            open_secs: 90,
+            half_open_max: 2,
+        },
     );
     let v: serde_json::Value = serde_json::from_str(&merged).unwrap();
     assert_eq!(v["mock"]["x"], 1, "保留 extra 其余键");
     let b = parse_breaker(&merged);
-    assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (4, 90, 2));
+    assert_eq!(
+        (b.failure_threshold, b.open_secs, b.half_open_max),
+        (4, 90, 2)
+    );
 
     // 全 0 → 移除 breaker 键（无覆盖=继承全局）。
     let cleared = merge_breaker_into_extra(&merged, &PlatformBreaker::default());
@@ -78,14 +85,22 @@ fn effective_thresholds_extra_override_and_inherit() {
     // extra.breaker 全覆盖。
     let p_all = platform_with_extra(&merge_breaker_into_extra(
         "{}",
-        &PlatformBreaker { failure_threshold: 9, open_secs: 120, half_open_max: 4 },
+        &PlatformBreaker {
+            failure_threshold: 9,
+            open_secs: 120,
+            half_open_max: 4,
+        },
     ));
     assert_eq!(global.effective_thresholds(&p_all), (9, 120, 4));
 
     // 单键覆盖（failure_threshold），其余继承全局；open_secs/half_open_max=0 → 用全局。
     let p_partial = platform_with_extra(&merge_breaker_into_extra(
         "{}",
-        &PlatformBreaker { failure_threshold: 8, open_secs: 0, half_open_max: 0 },
+        &PlatformBreaker {
+            failure_threshold: 8,
+            open_secs: 0,
+            half_open_max: 0,
+        },
     ));
     assert_eq!(global.effective_thresholds(&p_partial), (8, 60, 2));
 }

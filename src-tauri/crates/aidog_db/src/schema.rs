@@ -1,8 +1,8 @@
-use rusqlite::Connection;
 use crate::schema_early::*;
 use crate::schema_late::*;
-use crate::{Db, now, load_auto_from_map};
-use rusqlite::{params, OptionalExtension, Result as SqlResult};
+use crate::{Db, load_auto_from_map, now};
+use rusqlite::Connection;
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// 主库迁出的 notification 行（migration 20260727-20, 原 049）。由 init_tables 在主库闭包内读出 + DROP 主库
 /// 残留表后，传入 proxy_log_late 写入 log.db.notification。空 Vec = 主库表已不存在（已迁移过）。
@@ -17,9 +17,26 @@ type TableRows = (Vec<String>, Vec<Vec<rusqlite::types::Value>>);
 /// 都不要作为独立的平台存在」；registry preset 已删，Protocol 枚举与 adapter 有意保留——
 /// DB 里填过 key 的存量条目照常工作，wire 转换不受下架影响）。
 const DELISTED_PLATFORM_CODES: &[&str] = &[
-    "aicodemirror", "aigocode", "ccsub", "relaxycode", "ctok", "cubence", "rightcode",
-    "micu", "lemondata", "apikeyfun", "claudeapi", "claudecn", "eflowcode", "packycode",
-    "runapi", "sudocode", "sssaicode", "pateway", "dmxapi", "cherryin",
+    "aicodemirror",
+    "aigocode",
+    "ccsub",
+    "relaxycode",
+    "ctok",
+    "cubence",
+    "rightcode",
+    "micu",
+    "lemondata",
+    "apikeyfun",
+    "claudeapi",
+    "claudecn",
+    "eflowcode",
+    "packycode",
+    "runapi",
+    "sudocode",
+    "sssaicode",
+    "pateway",
+    "dmxapi",
+    "cherryin",
 ];
 
 /// 下架平台启动期清理（platform.db 侧，Phase 3 回填后跑，幂等）：
@@ -51,14 +68,20 @@ fn cleanup_delisted_platform_rows(conn: &rusqlite::Connection) {
                 .map(|n| n > 0)
                 .unwrap_or(false)
             {
-                conn.execute("DELETE FROM group_platform WHERE platform_id = ?1", params![id])
-                    .unwrap_or_default();
+                conn.execute(
+                    "DELETE FROM group_platform WHERE platform_id = ?1",
+                    params![id],
+                )
+                .unwrap_or_default();
                 removed += 1;
             }
         }
     }
     if removed > 0 {
-        tracing::info!(removed, "registry 下架平台清理：api_key 空的存量行已软删（填过 key 的行保留）");
+        tracing::info!(
+            removed,
+            "registry 下架平台清理：api_key 空的存量行已软删（填过 key 的行保留）"
+        );
     }
 }
 
@@ -72,11 +95,17 @@ fn cleanup_delisted_registry_mirror_rows(conn: &rusqlite::Connection) {
             .execute("DELETE FROM platform_preset WHERE code = ?1", params![code])
             .map(|n| removed += n);
         let _ = conn
-            .execute("DELETE FROM model_entry WHERE platform_code = ?1", params![code])
+            .execute(
+                "DELETE FROM model_entry WHERE platform_code = ?1",
+                params![code],
+            )
             .map(|n| removed += n);
     }
     if removed > 0 {
-        tracing::info!(removed, "registry 下架平台镜像行清理（platform_preset / model_entry）");
+        tracing::info!(
+            removed,
+            "registry 下架平台镜像行清理（platform_preset / model_entry）"
+        );
     }
 }
 
@@ -141,7 +170,10 @@ fn cleanup_cpa_stats_agg(conn: &rusqlite::Connection, cpa_pids: &[i64]) {
         }
     }
     if deleted > 0 {
-        tracing::info!(deleted, "cleanup_cpa_stats_agg: 主库 CPA 残留聚合行清理完成");
+        tracing::info!(
+            deleted,
+            "cleanup_cpa_stats_agg: 主库 CPA 残留聚合行清理完成"
+        );
     }
 }
 
@@ -161,7 +193,8 @@ fn read_platform_tables_out(conn: &rusqlite::Connection, table: &str) -> TableRo
                     .collect()
             }) {
                 Ok(iter) => {
-                    let rows: Vec<Vec<rusqlite::types::Value>> = iter.filter_map(Result::ok).collect();
+                    let rows: Vec<Vec<rusqlite::types::Value>> =
+                        iter.filter_map(Result::ok).collect();
                     (cols, rows)
                 }
                 Err(_) => (Vec::new(), Vec::new()),
@@ -199,22 +232,26 @@ fn insert_platform_table_rows(
 
 /// 建表/迁移编排（backfill 由 caller 注入：aidog_core 传 aidog_stats::backfill_stats_agg_if_empty，
 /// 避免 aidog_db → aidog_stats 循环依赖）。
-pub type BackfillFn = std::sync::Arc<dyn Fn(&Connection, &std::collections::HashMap<String, i64>) -> rusqlite::Result<()> + Send + Sync>;
+pub type BackfillFn = std::sync::Arc<
+    dyn Fn(&Connection, &std::collections::HashMap<String, i64>) -> rusqlite::Result<()>
+        + Send
+        + Sync,
+>;
 
 #[track_caller]
 pub fn init_tables_raw(
     db: &Db,
     backfill: BackfillFn,
 ) -> impl std::future::Future<Output = Result<(), String>> + '_ {
-        let __db_caller = std::panic::Location::caller();
-        async move {
-            // Phase 1: 主库 migration（不含 4 表 DDL）+ 读 4 表全部行 + 读 proxy_log 阶段所需预数据。
-            // crash-safe：仅读不 DROP。auto_map 读主库 "group" 表（首次迁移仍在；二次启动空表 →
-            // backfill_stats_agg_if_empty 跳过，无回归）。cpa_pids / notif_rows 同 Phase 2 消费。
-            let (auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows) = db
-                .call_traced(None, __db_caller, {
-                    let backfill = backfill.clone();
-                    move |conn| {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        // Phase 1: 主库 migration（不含 4 表 DDL）+ 读 4 表全部行 + 读 proxy_log 阶段所需预数据。
+        // crash-safe：仅读不 DROP。auto_map 读主库 "group" 表（首次迁移仍在；二次启动空表 →
+        // backfill_stats_agg_if_empty 跳过，无回归）。cpa_pids / notif_rows 同 Phase 2 消费。
+        let (auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows) = db
+            .call_traced(None, __db_caller, {
+                let backfill = backfill.clone();
+                move |conn| {
                     run_migrations_early(conn)?;
                     run_migrations_late(conn, backfill.clone())?;
                     cleanup_delisted_registry_mirror_rows(conn);
@@ -243,59 +280,61 @@ pub fn init_tables_raw(
                             "config-db-split: 主库 4 表数据读出待迁 platform.db",
                         );
                     }
-                    Ok((auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows))
-                    }
-                })
-                .await
-                .map_err(|e| e.to_string())?;
-
-            // Phase 2: log.db migration（proxy_log + notification 建表/索引/回填）。
-            // stats-agg-to-main-db：stats_agg_hourly 已迁主库（Phase 1 run_migrations_late 20260727-16）。
-            // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
-            db.call_proxy_log_traced(None, __db_caller, move |conn| {
-                run_migrations_proxy_log_early(conn)?;
-                run_migrations_proxy_log_late(conn, &auto_map, &cpa_pids, &notif_rows)?;
-                Ok(())
+                    Ok((
+                        auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows,
+                    ))
+                }
             })
             .await
             .map_err(|e| e.to_string())?;
 
-            // Phase 3: platform.db migration（建 4 表 DDL + 历史 ALTER + INSERT OR IGNORE 保 id 回填）。
-            // crash-safe：INSERT OR IGNORE 可任意重放。内存库 fallback 下 platform handle = 主内存连接
-            // clone，与 Phase 1 同物理库，4 表数据仍在（Phase 1 未 DROP），INSERT OR IGNORE 全部 id 冲突跳过。
-            db.call_platform_traced(None, __db_caller, move |conn| {
-                run_migrations_platform_early(conn)?;
-                run_migrations_platform_late(conn)?;
-                insert_platform_table_rows(conn, "platform", &plat_rows.0, &plat_rows.1)?;
-                insert_platform_table_rows(conn, "\"group\"", &grp_rows.0, &grp_rows.1)?;
-                insert_platform_table_rows(conn, "group_platform", &gp_rows.0, &gp_rows.1)?;
-                insert_platform_table_rows(conn, "cli_proxy_provider", &cpa_rows.0, &cpa_rows.1)?;
-                // 回填之后再清：首次迁移（主库存量 → platform.db）若先清，回填会把待删行原样搬回。
-                cleanup_delisted_platform_rows(conn);
-                Ok(())
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-
-            // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达）。crash 前未达 Phase 4 → 下次启动 Phase 1
-            // 仍能读到 4 表（read 幂等）+ Phase 3 INSERT OR IGNORE 跳过已回填行（id 冲突），无重复无丢失。
-            // 内存库 fallback：platform handle = 主内存 conn clone，DROP 会清掉共享物理连接上的 4 表
-            // 致后续 call_platform_traced 访问失败 → 内存库跳过 Phase 4（main 与 platform 同 conn，
-            // DROP main 等于 DROP platform；文件库才有「main 残留待清 + platform 独立存在」语义）。
-            if !db.is_memory() {
-                db.call_traced(None, __db_caller, |conn| {
-                    let _ = conn.execute("DROP TABLE IF EXISTS platform", []);
-                    let _ = conn.execute("DROP TABLE IF EXISTS \"group\"", []);
-                    let _ = conn.execute("DROP TABLE IF EXISTS group_platform", []);
-                    let _ = conn.execute("DROP TABLE IF EXISTS cli_proxy_provider", []);
-                    Ok(())
-                })
-                .await
-                .map_err(|e| e.to_string())?;
-            }
-
+        // Phase 2: log.db migration（proxy_log + notification 建表/索引/回填）。
+        // stats-agg-to-main-db：stats_agg_hourly 已迁主库（Phase 1 run_migrations_late 20260727-16）。
+        // 内存库 fallback 下 proxy_log handle = 主内存连接 clone，两阶段同物理库，行为不变。
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            run_migrations_proxy_log_early(conn)?;
+            run_migrations_proxy_log_late(conn, &auto_map, &cpa_pids, &notif_rows)?;
             Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+        // Phase 3: platform.db migration（建 4 表 DDL + 历史 ALTER + INSERT OR IGNORE 保 id 回填）。
+        // crash-safe：INSERT OR IGNORE 可任意重放。内存库 fallback 下 platform handle = 主内存连接
+        // clone，与 Phase 1 同物理库，4 表数据仍在（Phase 1 未 DROP），INSERT OR IGNORE 全部 id 冲突跳过。
+        db.call_platform_traced(None, __db_caller, move |conn| {
+            run_migrations_platform_early(conn)?;
+            run_migrations_platform_late(conn)?;
+            insert_platform_table_rows(conn, "platform", &plat_rows.0, &plat_rows.1)?;
+            insert_platform_table_rows(conn, "\"group\"", &grp_rows.0, &grp_rows.1)?;
+            insert_platform_table_rows(conn, "group_platform", &gp_rows.0, &gp_rows.1)?;
+            insert_platform_table_rows(conn, "cli_proxy_provider", &cpa_rows.0, &cpa_rows.1)?;
+            // 回填之后再清：首次迁移（主库存量 → platform.db）若先清，回填会把待删行原样搬回。
+            cleanup_delisted_platform_rows(conn);
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+
+        // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达）。crash 前未达 Phase 4 → 下次启动 Phase 1
+        // 仍能读到 4 表（read 幂等）+ Phase 3 INSERT OR IGNORE 跳过已回填行（id 冲突），无重复无丢失。
+        // 内存库 fallback：platform handle = 主内存 conn clone，DROP 会清掉共享物理连接上的 4 表
+        // 致后续 call_platform_traced 访问失败 → 内存库跳过 Phase 4（main 与 platform 同 conn，
+        // DROP main 等于 DROP platform；文件库才有「main 残留待清 + platform 独立存在」语义）。
+        if !db.is_memory() {
+            db.call_traced(None, __db_caller, |conn| {
+                let _ = conn.execute("DROP TABLE IF EXISTS platform", []);
+                let _ = conn.execute("DROP TABLE IF EXISTS \"group\"", []);
+                let _ = conn.execute("DROP TABLE IF EXISTS group_platform", []);
+                let _ = conn.execute("DROP TABLE IF EXISTS cli_proxy_provider", []);
+                Ok(())
+            })
+            .await
+            .map_err(|e| e.to_string())?;
         }
+
+        Ok(())
+    }
 }
 
 /// 内置规则正则集（票 03：硬编码检测器迁为内置规则，单一真值于此）。
@@ -312,8 +351,7 @@ pub fn init_tables_raw(
 ///    `some-file-name-that-is-long.tsx` 这类普通标识符不含数字，不会被当密钥抹掉。
 pub const BUILTIN_SECRET_PATTERN: &str = r"(?i)\b(?:sk-[A-Za-z0-9._\-]{16,}|(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9._\-]{16,}|xox[baprs]-[A-Za-z0-9\-]{10,}|(?:AKIA|ASIA)[0-9A-Z]{16}|AIza[A-Za-z0-9_\-]{20,}|(?:ya29|AQ)\.[A-Za-z0-9._\-]{16,}|eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}|(?:bfl|gsk|hf|fal|r8|nvapi|pplx|tvly|csk|ark|tp|xai|dop_v1|rk|pk|ak)[_\-][A-Za-z0-9._\-]{8,}|(?:key|token|auth|sess|session|cred|bearer)[_\-](?:[A-Za-z0-9._\-]{11,}[0-9][A-Za-z0-9._\-]*|[A-Za-z0-9._\-]*[0-9][A-Za-z0-9._\-]{11,})|[A-Za-z][A-Za-z0-9]{1,11}[_\-](?:[A-Za-z0-9._\-]{15,}[0-9][A-Za-z0-9._\-]*|[A-Za-z0-9._\-]*[0-9][A-Za-z0-9._\-]{15,}))";
 pub const BUILTIN_EMAIL_PATTERN: &str = r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}";
-pub const BUILTIN_PHONE_PATTERN: &str =
-    r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}";
+pub const BUILTIN_PHONE_PATTERN: &str = r"(?:\+?\d{1,3}[\s\-]?)?1[3-9]\d{9}";
 /// DB/Redis 等连接串中的明文凭据（scheme://user:pass@host 形式）。
 pub const BUILTIN_DB_URI_PATTERN: &str = r#"(?i)\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\+srv)?|amqp)://[^\s@/:"']*(?::[^\s/@'"]+)?@"#;
 /// 环境变量/配置文件式明文密钥（password/secret/api_key 等显式 key = value 形式）。
@@ -347,103 +385,105 @@ static SECRET_RULE_CONDITIONS: std::sync::LazyLock<String> = std::sync::LazyLock
 /// 内置预设规则清单（票 03：密钥/邮箱/手机/DB-Redis 凭据脱敏 + 日期改写 + 默认错误分类）。
 /// 全部显式 regex 条件（无空 pattern 隐藏兜底，ADR 0003）；error 分类按 response_body 命中。
 pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
-    static SPECS: std::sync::LazyLock<Vec<BuiltinRuleSpec>> = std::sync::LazyLock::new(|| vec![
-        BuiltinRuleSpec {
-            name: "内置·密钥脱敏",
-            description: "脱敏各平台 API 密钥（sk- 系 / ghp_ / AKIA / AIza / bfl_ / key_ / AQ. 等，含未知厂商的长随机 token）。",
-            conditions: SECRET_RULE_CONDITIONS.as_str(),
-            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
-            priority: 10,
-        },
-        BuiltinRuleSpec {
-            name: "内置·邮箱脱敏",
-            description: "脱敏邮箱地址。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"}]}"#,
-            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
-            priority: 11,
-        },
-        BuiltinRuleSpec {
-            name: "内置·手机号脱敏",
-            description: "脱敏手机号（中国大陆 11 位 + E.164 国际形式）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?:\\+?\\d{1,3}[\\s\\-]?)?1[3-9]\\d{9}|\\+\\d{6,15}"}]}"#,
-            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
-            priority: 12,
-        },
-        BuiltinRuleSpec {
-            name: "内置·数据库/Redis 凭据脱敏",
-            description: "脱敏连接串中的明文凭据（mysql/postgres/redis/mongodb 等 scheme://user:pass@host）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\\+srv)?|amqp)://[^\\s@/:\"']+(?::[^\\s/'\"]+)?@"}]}"#,
-            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
-            priority: 13,
-        },
-        BuiltinRuleSpec {
-            name: "内置·配置式密钥脱敏",
-            description: "脱敏 password/secret/api_key 等显式 key=value 形式的明文密钥。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(password|passwd|pwd|secret|api_key|apikey|access_token)\\s*[=:]\\s*[\"']?[A-Za-z0-9_\\-./+=]{8,}"}]}"#,
-            actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
-            priority: 14,
-        },
-        // ── 日期格式改写防检测（request_body 改写，regex capture $1-$2-$3）──
-        // Claude Code system prompt 注入斜杠日期 YYYY/MM/DD（中文区惯用格式），
-        // 易被上游针对性检测识别为中文用户 → 封禁风险。改 ISO 横杠 YYYY-MM-DD。
-        BuiltinRuleSpec {
-            name: "内置·日期格式改写防检测",
-            description: "将请求文本中斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，防中文用户针对性检测。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(\\d{4})/(\\d{1,2})/(\\d{1,2})"}]}"#,
-            actions: r#"[{"kind":"mask","params":{"replacement":"$1-$2-$3","fields":["messages","system"]}}]"#,
-            priority: 15,
-        },
-        // ── 默认错误分类（response_body 条件 + classify 动作，retryable=false）──
-        BuiltinRuleSpec {
-            name: "内置·上下文超限",
-            description: "上游报上下文/prompt 过长 → prompt_limit（不可重试，换候选无益）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(context length|context window|maximum context|prompt is too long|too many tokens|reduce the length|maximum.*tokens)"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"prompt_limit","retryable":false}}]"#,
-            priority: 20,
-        },
-        BuiltinRuleSpec {
-            name: "内置·内容审查拦截",
-            description: "上游内容安全过滤拦截 → content_filter（不可重试）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(content filter|content_filter|content policy|safety|flagged|moderation|responsible_ai_policy)"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"content_filter","retryable":false}}]"#,
-            priority: 21,
-        },
-        BuiltinRuleSpec {
-            name: "内置·PDF/文件超限",
-            description: "上游报 PDF/文件页数或大小超限 → pdf_limit（不可重试）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(pdf.*(too many pages|exceed|too large|limit)|too many pages|file.*too large|maximum.*pages)"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"pdf_limit","retryable":false}}]"#,
-            priority: 22,
-        },
-        BuiltinRuleSpec {
-            name: "内置·思考链错误",
-            description: "上游报 thinking/reasoning 字段错误 → thinking_error（不可重试）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(thinking|reasoning).*(not (supported|allowed|enabled)|invalid|must be|required|error)"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"thinking_error","retryable":false}}]"#,
-            priority: 23,
-        },
-        BuiltinRuleSpec {
-            name: "内置·参数错误",
-            description: "上游报参数非法 → parameter_error（不可重试，换候选同样会失败）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid.*parameter|unsupported parameter|unknown parameter|parameter.*(invalid|not supported)|unexpected.*field)"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"parameter_error","retryable":false}}]"#,
-            priority: 24,
-        },
-        BuiltinRuleSpec {
-            name: "内置·非法请求",
-            description: "上游报 invalid_request → invalid_request（不可重试）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid_request_error|invalid request|bad request|malformed)"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"invalid_request","retryable":false}}]"#,
-            priority: 25,
-        },
-        BuiltinRuleSpec {
-            name: "内置·缓存超限",
-            description: "上游报 prompt cache 写入/数量超限 → cache_limit（不可重试）。",
-            conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(cache.*(limit|exceed|too many)|prompt cache|cache_control.*(limit|exceed|maximum))"}]}"#,
-            actions: r#"[{"kind":"classify","params":{"category":"cache_limit","retryable":false}}]"#,
-            priority: 26,
-        },
-    ]);
+    static SPECS: std::sync::LazyLock<Vec<BuiltinRuleSpec>> = std::sync::LazyLock::new(|| {
+        vec![
+            BuiltinRuleSpec {
+                name: "内置·密钥脱敏",
+                description: "脱敏各平台 API 密钥（sk- 系 / ghp_ / AKIA / AIza / bfl_ / key_ / AQ. 等，含未知厂商的长随机 token）。",
+                conditions: SECRET_RULE_CONDITIONS.as_str(),
+                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                priority: 10,
+            },
+            BuiltinRuleSpec {
+                name: "内置·邮箱脱敏",
+                description: "脱敏邮箱地址。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"}]}"#,
+                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                priority: 11,
+            },
+            BuiltinRuleSpec {
+                name: "内置·手机号脱敏",
+                description: "脱敏手机号（中国大陆 11 位 + E.164 国际形式）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?:\\+?\\d{1,3}[\\s\\-]?)?1[3-9]\\d{9}|\\+\\d{6,15}"}]}"#,
+                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                priority: 12,
+            },
+            BuiltinRuleSpec {
+                name: "内置·数据库/Redis 凭据脱敏",
+                description: "脱敏连接串中的明文凭据（mysql/postgres/redis/mongodb 等 scheme://user:pass@host）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\\+srv)?|amqp)://[^\\s@/:\"']+(?::[^\\s/'\"]+)?@"}]}"#,
+                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                priority: 13,
+            },
+            BuiltinRuleSpec {
+                name: "内置·配置式密钥脱敏",
+                description: "脱敏 password/secret/api_key 等显式 key=value 形式的明文密钥。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(password|passwd|pwd|secret|api_key|apikey|access_token)\\s*[=:]\\s*[\"']?[A-Za-z0-9_\\-./+=]{8,}"}]}"#,
+                actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
+                priority: 14,
+            },
+            // ── 日期格式改写防检测（request_body 改写，regex capture $1-$2-$3）──
+            // Claude Code system prompt 注入斜杠日期 YYYY/MM/DD（中文区惯用格式），
+            // 易被上游针对性检测识别为中文用户 → 封禁风险。改 ISO 横杠 YYYY-MM-DD。
+            BuiltinRuleSpec {
+                name: "内置·日期格式改写防检测",
+                description: "将请求文本中斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，防中文用户针对性检测。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(\\d{4})/(\\d{1,2})/(\\d{1,2})"}]}"#,
+                actions: r#"[{"kind":"mask","params":{"replacement":"$1-$2-$3","fields":["messages","system"]}}]"#,
+                priority: 15,
+            },
+            // ── 默认错误分类（response_body 条件 + classify 动作，retryable=false）──
+            BuiltinRuleSpec {
+                name: "内置·上下文超限",
+                description: "上游报上下文/prompt 过长 → prompt_limit（不可重试，换候选无益）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(context length|context window|maximum context|prompt is too long|too many tokens|reduce the length|maximum.*tokens)"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"prompt_limit","retryable":false}}]"#,
+                priority: 20,
+            },
+            BuiltinRuleSpec {
+                name: "内置·内容审查拦截",
+                description: "上游内容安全过滤拦截 → content_filter（不可重试）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(content filter|content_filter|content policy|safety|flagged|moderation|responsible_ai_policy)"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"content_filter","retryable":false}}]"#,
+                priority: 21,
+            },
+            BuiltinRuleSpec {
+                name: "内置·PDF/文件超限",
+                description: "上游报 PDF/文件页数或大小超限 → pdf_limit（不可重试）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(pdf.*(too many pages|exceed|too large|limit)|too many pages|file.*too large|maximum.*pages)"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"pdf_limit","retryable":false}}]"#,
+                priority: 22,
+            },
+            BuiltinRuleSpec {
+                name: "内置·思考链错误",
+                description: "上游报 thinking/reasoning 字段错误 → thinking_error（不可重试）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(thinking|reasoning).*(not (supported|allowed|enabled)|invalid|must be|required|error)"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"thinking_error","retryable":false}}]"#,
+                priority: 23,
+            },
+            BuiltinRuleSpec {
+                name: "内置·参数错误",
+                description: "上游报参数非法 → parameter_error（不可重试，换候选同样会失败）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid.*parameter|unsupported parameter|unknown parameter|parameter.*(invalid|not supported)|unexpected.*field)"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"parameter_error","retryable":false}}]"#,
+                priority: 24,
+            },
+            BuiltinRuleSpec {
+                name: "内置·非法请求",
+                description: "上游报 invalid_request → invalid_request（不可重试）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid_request_error|invalid request|bad request|malformed)"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"invalid_request","retryable":false}}]"#,
+                priority: 25,
+            },
+            BuiltinRuleSpec {
+                name: "内置·缓存超限",
+                description: "上游报 prompt cache 写入/数量超限 → cache_limit（不可重试）。",
+                conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(cache.*(limit|exceed|too many)|prompt cache|cache_control.*(limit|exceed|maximum))"}]}"#,
+                actions: r#"[{"kind":"classify","params":{"category":"cache_limit","retryable":false}}]"#,
+                priority: 26,
+            },
+        ]
+    });
     &SPECS
 }
 
@@ -454,7 +494,11 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
 pub fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
     let (inserted, updated) = seed_builtin_middleware_rules_counted(conn)?;
     if inserted + updated > 0 {
-        tracing::info!(inserted, updated, "migration: seeded builtin middleware rules");
+        tracing::info!(
+            inserted,
+            updated,
+            "migration: seeded builtin middleware rules"
+        );
     }
     Ok(())
 }
@@ -463,9 +507,7 @@ pub fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<(
 ///
 /// 按 (name, is_builtin=1) 幂等判定，已存在 → UPDATE 内容（保留 enabled/failed=0 重置）；
 /// 不存在 → INSERT。升级时内置规格变化（如票 03 新增 DB/Redis 脱敏）靠此路径落地。
-pub fn seed_builtin_middleware_rules_counted(
-    conn: &rusqlite::Connection,
-) -> SqlResult<(u32, u32)> {
+pub fn seed_builtin_middleware_rules_counted(conn: &rusqlite::Connection) -> SqlResult<(u32, u32)> {
     // 守卫：旧 8 类 schema（无 conditions 列，升级库 early 阶段）→ 跳过，
     // 由 run_migrations_late 20260824-02 完成表迁移后重新 seed。
     let has_conditions = conn
@@ -486,7 +528,11 @@ pub fn seed_builtin_middleware_rules_counted(
                 let id: i64 = r.get(0)?;
                 let failed: i64 = r.get(1)?;
                 let cond: String = r.get(2)?;
-                Ok(if crate::is_effective_failed(failed, &cond) { Some(id) } else { None })
+                Ok(if crate::is_effective_failed(failed, &cond) {
+                    Some(id)
+                } else {
+                    None
+                })
             })?
             .filter_map(Result::ok)
             .flatten()
@@ -512,7 +558,14 @@ pub fn seed_builtin_middleware_rules_counted(
                    description = ?2, conditions = ?3, actions = ?4, priority = ?5,
                    failed = 0, updated_at = ?6
                  WHERE id = ?1",
-                params![id, spec.description, spec.conditions, spec.actions, spec.priority, ts],
+                params![
+                    id,
+                    spec.description,
+                    spec.conditions,
+                    spec.actions,
+                    spec.priority,
+                    ts
+                ],
             )?;
             updated += 1;
             continue;
@@ -534,7 +587,6 @@ pub fn seed_builtin_middleware_rules_counted(
     }
     Ok((inserted, updated))
 }
-
 
 #[cfg(test)]
 #[path = "test_delisted_cleanup.rs"]

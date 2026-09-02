@@ -70,7 +70,10 @@ fn build_response_openai_responses_shape() {
 #[test]
 fn build_response_gemini_shape() {
     let v = build_response(&cfg_with_tokens(), &Protocol::Gemini, "gemini-x");
-    assert_eq!(v["candidates"][0]["content"]["parts"][0]["text"], "hello-mock");
+    assert_eq!(
+        v["candidates"][0]["content"]["parts"][0]["text"],
+        "hello-mock"
+    );
     assert_eq!(v["candidates"][0]["content"]["role"], "model");
     assert_eq!(v["candidates"][0]["finishReason"], "STOP");
     assert_eq!(v["usageMetadata"]["promptTokenCount"], 100);
@@ -98,7 +101,11 @@ fn error_body_anthropic_shape() {
 
 #[test]
 fn error_body_openai_shape() {
-    for proto in [&Protocol::OpenAI, &Protocol::OpenAIResponses, &Protocol::OpenAICompletions] {
+    for proto in [
+        &Protocol::OpenAI,
+        &Protocol::OpenAIResponses,
+        &Protocol::OpenAICompletions,
+    ] {
         let v = build_error_body(proto, 429, "rate limited");
         assert_eq!(v["error"]["message"], "rate limited", "proto {proto:?}");
         assert_eq!(v["error"]["type"], "mock_error", "proto {proto:?}");

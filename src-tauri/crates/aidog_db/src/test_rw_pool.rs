@@ -26,9 +26,11 @@ async fn insert_log(db: &Db, id: &str, tokens: i64) {
 /// 经读路径（call_read_traced）统计 setting 行数。
 async fn read_count(db: &Db) -> i64 {
     db.call_read_traced(None, std::panic::Location::caller(), |conn| {
-        Ok(conn.query_row("SELECT COUNT(*) FROM setting WHERE scope = 'test' AND deleted_at = 0", [], |r| {
-            r.get(0)
-        })?)
+        Ok(conn.query_row(
+            "SELECT COUNT(*) FROM setting WHERE scope = 'test' AND deleted_at = 0",
+            [],
+            |r| r.get(0),
+        )?)
     })
     .await
     .expect("read count")
@@ -38,13 +40,19 @@ async fn read_count(db: &Db) -> i64 {
 #[tokio::test]
 async fn memory_fallback_read_sees_writes() {
     let db = Db::new(":memory:").await.expect("open memory db");
-    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .expect("init tables");
 
     assert_eq!(read_count(&db).await, 0, "空库读路径应为 0");
     insert_log(&db, "mem-1", 10).await;
     insert_log(&db, "mem-2", 20).await;
     // 若读池误开独立内存库，这里会读到 0 → 断言失败。
-    assert_eq!(read_count(&db).await, 2, ":memory: fallback 读路径须见写连接已提交数据");
+    assert_eq!(
+        read_count(&db).await,
+        2,
+        ":memory: fallback 读路径须见写连接已提交数据"
+    );
 }
 
 /// 真实文件库：读池为独立只读连接，WAL 下写连接提交后读连接看到最新数据。
@@ -60,7 +68,9 @@ async fn file_db_read_pool_sees_committed_writes() {
 
     {
         let db = Db::new(&path_str).await.expect("open file db");
-        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .expect("init tables");
 
         // 读池是独立只读连接（非写连接 clone），仍须看到写连接提交的数据。
         assert_eq!(read_count(&db).await, 0);
@@ -89,7 +99,10 @@ fn read_cache_pragma_unset_or_invalid_falls_back_to_default() {
         Db::read_cache_pragma(Some("not-a-number".to_string())),
         " PRAGMA cache_size=-64;"
     );
-    assert_eq!(Db::read_cache_pragma(Some("".to_string())), " PRAGMA cache_size=-64;");
+    assert_eq!(
+        Db::read_cache_pragma(Some("".to_string())),
+        " PRAGMA cache_size=-64;"
+    );
 }
 
 #[test]
@@ -120,7 +133,9 @@ async fn concurrent_reads_not_blocked_by_writes() {
 
     {
         let db = std::sync::Arc::new(Db::new(&path_str).await.expect("open file db"));
-        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("init tables");
+        crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .expect("init tables");
 
         // 写任务：串行灌 50 行（单写连接，WAL 单写约束）。
         let writer = {
@@ -143,7 +158,10 @@ async fn concurrent_reads_not_blocked_by_writes() {
         writer.await.expect("writer task");
         for r in readers {
             let n = r.await.expect("reader task");
-            assert!((0..=50).contains(&n), "并发读计数须在 0..=50 单调区间内，实际 {n}");
+            assert!(
+                (0..=50).contains(&n),
+                "并发读计数须在 0..=50 单调区间内，实际 {n}"
+            );
         }
 
         // 写流结束后最终读须为 50：证所有写最终对读连接可见。

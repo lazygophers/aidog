@@ -2,11 +2,17 @@ pub mod billing;
 pub mod codex;
 pub mod estimate;
 pub mod http_client;
-pub mod i18n { pub use aidog_i18n::*; }
-pub mod log_util { pub use aidog_db::log_util::*; }
+pub mod i18n {
+    pub use aidog_i18n::*;
+}
+pub mod log_util {
+    pub use aidog_db::log_util::*;
+}
 pub mod logo_sync;
 pub mod manual_budget;
-pub mod models { pub use aidog_db::models::*; }
+pub mod models {
+    pub use aidog_db::models::*;
+}
 pub mod peak;
 pub mod pi;
 pub(crate) mod registry {
@@ -27,9 +33,9 @@ pub mod skills {
     //! 拆分 shim：实现在独立 crate aidog_skills，此处保持 `gateway::skills::X` 旧路径。
     pub use aidog_skills::*;
 }
+pub mod import_export;
 pub mod time_windows;
 pub mod usage_color;
-pub mod import_export;
 pub mod mcp {
     //! 拆分 shim：实现在独立 crate aidog_mcp，此处保持 `gateway::mcp::X` 旧路径。
     pub use aidog_mcp::*;

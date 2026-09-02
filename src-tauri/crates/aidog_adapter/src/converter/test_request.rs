@@ -12,7 +12,7 @@ fn passthrough_path_matches_convert_request() {
         Protocol::OpenAI,
     ];
     let req = ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "gpt-4o".to_string(),
         messages: vec![],
         system: None,
@@ -36,7 +36,10 @@ fn passthrough_path_matches_convert_request() {
 #[test]
 fn passthrough_path_gemini_embeds_model() {
     let path = passthrough_api_path(&Protocol::Gemini, "gemini-2.0-flash", &Protocol::Gemini);
-    assert_eq!(path, "/v1beta/models/gemini-2.0-flash:streamGenerateContent");
+    assert_eq!(
+        path,
+        "/v1beta/models/gemini-2.0-flash:streamGenerateContent"
+    );
 }
 
 // ── Anthropic 入站含未知 block(thinking/image) 不再 400，降级 Unknown ──
@@ -52,14 +55,23 @@ fn anthropic_parse_tolerates_unknown_blocks() {
             ]
         }]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("anthropic parse should succeed");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body)
+        .expect("anthropic parse should succeed");
     assert_eq!(req.model, "claude-opus-4-8");
     let blocks = match &req.messages[0].content {
         MessageContent::Blocks(b) => b,
         _ => panic!("expected blocks"),
     };
-    assert!(blocks.iter().any(|b| matches!(b, ContentBlock::Unknown(_))), "thinking 应降级 Unknown");
-    assert!(blocks.iter().any(|b| matches!(b, ContentBlock::Text { .. })), "text block 应保留");
+    assert!(
+        blocks.iter().any(|b| matches!(b, ContentBlock::Unknown(_))),
+        "thinking 应降级 Unknown"
+    );
+    assert!(
+        blocks
+            .iter()
+            .any(|b| matches!(b, ContentBlock::Text { .. })),
+        "text block 应保留"
+    );
 }
 
 // ── tool_result.content 为 array(Anthropic 富格式) 容错抽取文本 ──
@@ -76,10 +88,15 @@ fn anthropic_parse_tool_result_array_content() {
             ]
         }]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("tool_result array content parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body)
+        .expect("tool_result array content parse");
     match &req.messages[0].content {
         MessageContent::Blocks(b) => match &b[0] {
-            ContentBlock::ToolResult { tool_use_id, content, .. } => {
+            ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                ..
+            } => {
                 assert_eq!(tool_use_id, "t1");
                 assert_eq!(content, "result chunk");
             }
@@ -114,7 +131,11 @@ fn anthropic_parse_tool_missing_input_schema() {
     let tools = req.tools.as_ref().expect("tools present");
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0].name, "web_search");
-    assert_eq!(tools[0].input_schema, serde_json::json!({}), "缺失时默认空对象, 非 null");
+    assert_eq!(
+        tools[0].input_schema,
+        serde_json::json!({}),
+        "缺失时默认空对象, 非 null"
+    );
 }
 
 // ── openai 入站解析 ──
@@ -139,7 +160,8 @@ fn openai_responses_parse_incoming_request() {
             { "role": "user", "content": "hello" }
         ]
     });
-    let req = parse_incoming_request(&Protocol::OpenAIResponses, &body).expect("openai_responses parse");
+    let req =
+        parse_incoming_request(&Protocol::OpenAIResponses, &body).expect("openai_responses parse");
     assert_eq!(req.model, "gpt-4o");
 }
 
@@ -150,7 +172,8 @@ fn openai_completions_parse_incoming_request() {
         "model": "gpt-3.5-turbo-instruct",
         "prompt": "Hello world"
     });
-    let req = parse_incoming_request(&Protocol::OpenAICompletions, &body).expect("openai_completions parse");
+    let req = parse_incoming_request(&Protocol::OpenAICompletions, &body)
+        .expect("openai_completions parse");
     assert_eq!(req.model, "gpt-3.5-turbo-instruct");
 }
 
@@ -178,11 +201,17 @@ fn anthropic_parse_invalid_returns_err() {
 #[test]
 fn convert_request_anthropic_path() {
     let req = ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "claude-opus-4".to_string(),
         messages: vec![],
-        system: None, max_tokens: None, temperature: None, top_p: None,
-        stream: None, tools: None, tool_choice: None, extra: None,
+        system: None,
+        max_tokens: None,
+        temperature: None,
+        top_p: None,
+        stream: None,
+        tools: None,
+        tool_choice: None,
+        extra: None,
         thinking_mode: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -192,11 +221,17 @@ fn convert_request_anthropic_path() {
 #[test]
 fn convert_request_openai_completions_path() {
     let req = ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "gpt-3.5-turbo-instruct".to_string(),
         messages: vec![],
-        system: None, max_tokens: None, temperature: None, top_p: None,
-        stream: None, tools: None, tool_choice: None, extra: None,
+        system: None,
+        max_tokens: None,
+        temperature: None,
+        top_p: None,
+        stream: None,
+        tools: None,
+        tool_choice: None,
+        extra: None,
         thinking_mode: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
@@ -207,11 +242,17 @@ fn convert_request_openai_completions_path() {
 #[test]
 fn convert_request_openai_responses_path() {
     let req = ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "gpt-4o".to_string(),
         messages: vec![],
-        system: None, max_tokens: None, temperature: None, top_p: None,
-        stream: None, tools: None, tool_choice: None, extra: None,
+        system: None,
+        max_tokens: None,
+        temperature: None,
+        top_p: None,
+        stream: None,
+        tools: None,
+        tool_choice: None,
+        extra: None,
         thinking_mode: None,
     };
     let (_body, path) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
@@ -247,11 +288,22 @@ fn anthropic_parse_tolerates_pi_specific_fields() {
     // adaptive thinking 无 budget_tokens → 不误当成 0 预算的显式思考请求。
     assert_eq!(req.thinking_budget, None);
     // 档位本身不丢：thinking.type 与 output_config.effort 原值进 thinking_mode。
-    let mode = req.thinking_mode.as_ref().expect("thinking_mode 应捕获档位");
+    let mode = req
+        .thinking_mode
+        .as_ref()
+        .expect("thinking_mode 应捕获档位");
     assert_eq!(mode.kind.as_deref(), Some("adaptive"));
     assert_eq!(mode.effort.as_deref(), Some("high"));
     // 工具上的 cache_control 与服务端工具配置键（eager_input_streaming）不丢。
     let tool = &req.tools.as_ref().unwrap()[0];
-    assert_eq!(tool.cache_control, Some(serde_json::json!({"type": "ephemeral", "ttl": "1h"})));
-    assert_eq!(tool.extra.as_ref().and_then(|e| e.get("eager_input_streaming")), Some(&serde_json::json!(true)));
+    assert_eq!(
+        tool.cache_control,
+        Some(serde_json::json!({"type": "ephemeral", "ttl": "1h"}))
+    );
+    assert_eq!(
+        tool.extra
+            .as_ref()
+            .and_then(|e| e.get("eager_input_streaming")),
+        Some(&serde_json::json!(true))
+    );
 }

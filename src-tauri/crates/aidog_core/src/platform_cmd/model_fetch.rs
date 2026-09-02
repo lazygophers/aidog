@@ -1,10 +1,10 @@
 use crate::gateway;
 use aidog_db::Db;
 use gateway::models::*;
-use tauri::State;
 use serde::Serialize;
 use serde_json::Value;
 use std::sync::Arc;
+use tauri::State;
 
 /// fetch-models 失败的结构化错误。前端按 `kind` 分流：
 /// - `Auth`(401/403) → 鉴权问题，立即 break 回退链 + 鉴权专用文案
@@ -51,7 +51,11 @@ pub async fn platform_fetch_models(
     let target_protocol = format!("{:?}", protocol).to_lowercase();
 
     // fetch-models 日志构造器（复用 model_test 标记模式：source_protocol 约定串 + platform_id=0）
-    let make_log = |upstream_status: i32, user_status: i32, body: &str, log_url: &str| -> gateway::models::ProxyLog {
+    let make_log = |upstream_status: i32,
+                    user_status: i32,
+                    body: &str,
+                    log_url: &str|
+     -> gateway::models::ProxyLog {
         gateway::models::ProxyLog {
             id: request_id.clone(),
             group_key: "[fetch-models]".into(),
@@ -109,10 +113,18 @@ pub async fn platform_fetch_models(
         Ok(r) => r,
         Err(e) => {
             tracing::error!("fetch models request failed: {e}");
-            if let Err(le) = aidog_logs::upsert_proxy_log(&db, make_log(0, 502, &format!("upstream error: {e}"), &url)).await {
+            if let Err(le) = aidog_logs::upsert_proxy_log(
+                &db,
+                make_log(0, 502, &format!("upstream error: {e}"), &url),
+            )
+            .await
+            {
                 tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
             }
-            return Err(FetchModelsError::from_status(0, format!("fetch models: {e}")));
+            return Err(FetchModelsError::from_status(
+                0,
+                format!("fetch models: {e}"),
+            ));
         }
     };
     let status = resp.status();
@@ -124,7 +136,10 @@ pub async fn platform_fetch_models(
     tracing::debug!(url = %url, body = %gateway::log_util::log_body_preview(&body), "fetch models response body");
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
-    if let Err(le) = aidog_logs::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url)).await {
+    if let Err(le) =
+        aidog_logs::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url))
+            .await
+    {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
     }
     // 🔴 status code 参与控制流：非 2xx 按 code 映射错误变体（401/403 → Auth, 404 → NotFound, 其余 → Other）。
@@ -135,11 +150,13 @@ pub async fn platform_fetch_models(
         tracing::warn!(url = %url, %code, "fetch models non-success status");
         return Err(FetchModelsError::from_status(code, body));
     }
-    let resp: Value = serde_json::from_str::<Value>(&body)
-        .map_err(|e| {
-            tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
-            FetchModelsError::from_status(status.as_u16(), format!("parse response: {e}"))
-        })?;
+    let resp: Value = serde_json::from_str::<Value>(&body).map_err(|e| {
+        tracing::error!(
+            "parse response failed: {e}, body={}",
+            &body[..body.len().min(500)]
+        );
+        FetchModelsError::from_status(status.as_u16(), format!("parse response: {e}"))
+    })?;
 
     // 解析 {"data": [{"id": "..."}, ...]} 格式
     let models = resp
@@ -204,7 +221,10 @@ mod tests {
 
     #[test]
     fn serialize_tag_kind_for_frontend_dispatch() {
-        let e = FetchModelsError::Auth { code: 401, message: "invalid".into() };
+        let e = FetchModelsError::Auth {
+            code: 401,
+            message: "invalid".into(),
+        };
         let v = serde_json::to_value(&e).unwrap();
         assert_eq!(v["kind"], "Auth");
         assert_eq!(v["code"], 401);

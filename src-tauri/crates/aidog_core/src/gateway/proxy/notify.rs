@@ -27,7 +27,9 @@ pub(crate) async fn handle_notify(
     body: Bytes,
 ) -> Response {
     let span = tracing::info_span!("notify", trace_id = %crate::logging::new_trace_id());
-    handle_notify_inner(state, headers, body).instrument(span).await
+    handle_notify_inner(state, headers, body)
+        .instrument(span)
+        .await
 }
 
 async fn handle_notify_inner(
@@ -80,10 +82,10 @@ async fn handle_notify_inner(
 
     // 注入内置变量：{group} 默认取鉴权分组的显示名（name，非 token group_key）；{time} 默认当前本地时间（脚本可覆盖）。
     let mut vars = req.vars;
-    vars.entry("group".to_string()).or_insert_with(|| group_name.clone());
-    vars.entry("time".to_string()).or_insert_with(|| {
-        chrono::Local::now().format("%H:%M:%S").to_string()
-    });
+    vars.entry("group".to_string())
+        .or_insert_with(|| group_name.clone());
+    vars.entry("time".to_string())
+        .or_insert_with(|| chrono::Local::now().format("%H:%M:%S").to_string());
 
     let result = aidog_notification::dispatch(
         &state.db,

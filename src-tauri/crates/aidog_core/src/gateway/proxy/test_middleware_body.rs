@@ -81,7 +81,10 @@ fn run(engine: &MiddlewareEngine, body: &mut Value, wire: &Protocol) -> bool {
 /// anthropic 透传：system 与 messages 两侧的敏感串都被替换。
 #[test]
 fn anthropic_passthrough_masks_secret_in_system_and_messages() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("[REDACTED]", &[])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("[REDACTED]", &[])],
+    )]);
     let mut body = json!({
         "model": "claude-3", "max_tokens": 100,
         "system": format!("key is {SECRET}"),
@@ -95,9 +98,19 @@ fn anthropic_passthrough_masks_secret_in_system_and_messages() {
     });
     assert!(run(&engine, &mut body, &Protocol::Anthropic));
     assert_eq!(body["system"], json!("key is [REDACTED]"));
-    assert_eq!(body["messages"][0]["content"], json!("use [REDACTED] please"));
-    assert_eq!(body["messages"][1]["content"][1]["text"], json!("echo [REDACTED]"));
-    assert_eq!(body["messages"][1]["content"][0]["thinking"], json!("keep"), "无 text 字段的块不动");
+    assert_eq!(
+        body["messages"][0]["content"],
+        json!("use [REDACTED] please")
+    );
+    assert_eq!(
+        body["messages"][1]["content"][1]["text"],
+        json!("echo [REDACTED]")
+    );
+    assert_eq!(
+        body["messages"][1]["content"][0]["thinking"],
+        json!("keep"),
+        "无 text 字段的块不动"
+    );
     assert_eq!(body["max_tokens"], json!(100), "同级其它字段不动");
     assert!(!serde_json::to_string(&body).unwrap().contains(SECRET));
 }
@@ -105,7 +118,10 @@ fn anthropic_passthrough_masks_secret_in_system_and_messages() {
 /// openai 透传：role=system|developer 归 system 侧，其余归 messages 侧，两侧都脱敏。
 #[test]
 fn openai_passthrough_masks_system_role_and_user_parts() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("***", &[])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("***", &[])],
+    )]);
     let mut body = json!({
         "model": "gpt", "messages": [
             {"role": "system", "content": format!("sys {SECRET}")},
@@ -120,22 +136,35 @@ fn openai_passthrough_masks_system_role_and_user_parts() {
 /// gemini 透传：systemInstruction.parts 与 contents[].parts 都脱敏。
 #[test]
 fn gemini_passthrough_masks_parts() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("***", &[])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("***", &[])],
+    )]);
     let mut body = json!({
         "systemInstruction": {"parts": [{"text": format!("s {SECRET}")}]},
         "contents": [{"role": "user", "parts": [{"text": format!("c {SECRET}")}, {"inlineData": {"data": "x"}}]}],
         "generationConfig": {"maxOutputTokens": 8}
     });
     assert!(run(&engine, &mut body, &Protocol::Gemini));
-    assert_eq!(body["systemInstruction"]["parts"][0]["text"], json!("s ***"));
+    assert_eq!(
+        body["systemInstruction"]["parts"][0]["text"],
+        json!("s ***")
+    );
     assert_eq!(body["contents"][0]["parts"][0]["text"], json!("c ***"));
-    assert_eq!(body["generationConfig"]["maxOutputTokens"], json!(8), "同级其它字段不动");
+    assert_eq!(
+        body["generationConfig"]["maxOutputTokens"],
+        json!(8),
+        "同级其它字段不动"
+    );
 }
 
 /// openai_responses 透传：instructions（system 侧）与 input items（messages 侧）都脱敏。
 #[test]
 fn responses_passthrough_masks_instructions_and_input() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("***", &[])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("***", &[])],
+    )]);
     let mut body = json!({
         "model": "gpt-5", "instructions": format!("i {SECRET}"),
         "input": [{"role": "user", "content": [{"type": "input_text", "text": format!("in {SECRET}")}]}]
@@ -148,8 +177,12 @@ fn responses_passthrough_masks_instructions_and_input() {
 /// openai_completions 透传：prompt（字符串数组形态）脱敏。
 #[test]
 fn completions_passthrough_masks_prompt() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("***", &[])])]);
-    let mut body = json!({"model": "davinci", "prompt": [format!("p {SECRET}"), "clean".to_string()]});
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("***", &[])],
+    )]);
+    let mut body =
+        json!({"model": "davinci", "prompt": [format!("p {SECRET}"), "clean".to_string()]});
     assert!(run(&engine, &mut body, &Protocol::OpenAICompletions));
     assert_eq!(body["prompt"], json!(["p ***", "clean"]));
 }
@@ -157,14 +190,21 @@ fn completions_passthrough_masks_prompt() {
 /// fields 限定：只写 system 时 messages 侧原样保留。
 #[test]
 fn mask_fields_scope_limits_rewrite_to_system() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("***", &["system"])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("***", &["system"])],
+    )]);
     let mut body = json!({
         "system": format!("s {SECRET}"),
         "messages": [{"role": "user", "content": format!("u {SECRET}")}]
     });
     assert!(run(&engine, &mut body, &Protocol::Anthropic));
     assert_eq!(body["system"], json!("s ***"));
-    assert_eq!(body["messages"][0]["content"], json!(format!("u {SECRET}")), "fields=system 时消息侧不动");
+    assert_eq!(
+        body["messages"][0]["content"],
+        json!(format!("u {SECRET}")),
+        "fields=system 时消息侧不动"
+    );
 }
 
 // ─── 无规则 / 未命中：body 逐字节不变 ────────────────────────────
@@ -187,7 +227,10 @@ fn no_rules_leaves_body_untouched() {
 /// 规则条件不命中：body 同样不动。
 #[test]
 fn unmatched_rule_leaves_body_untouched() {
-    let engine = engine_with(vec![rule(body_contains_leaf("nope"), vec![mask_step("***", &[])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf("nope"),
+        vec![mask_step("***", &[])],
+    )]);
     let original = json!({"system": "hello", "messages": [{"role": "user", "content": "hi"}]});
     let mut body = original.clone();
     assert!(!run(&engine, &mut body, &Protocol::Anthropic));
@@ -197,12 +240,19 @@ fn unmatched_rule_leaves_body_untouched() {
 /// 引擎总开关关闭：规则存在也不改写。
 #[test]
 fn disabled_settings_leave_body_untouched() {
-    let engine = engine_with(vec![rule(body_contains_leaf(SECRET), vec![mask_step("***", &[])])]);
+    let engine = engine_with(vec![rule(
+        body_contains_leaf(SECRET),
+        vec![mask_step("***", &[])],
+    )]);
     let original = json!({"system": format!("s {SECRET}"), "messages": []});
     let mut body = original.clone();
     let changed = apply_middleware_body(
-        &engine, &MiddlewareSettings { enabled: false }, &mut body,
-        &Protocol::Anthropic, "test-model", 7,
+        &engine,
+        &MiddlewareSettings { enabled: false },
+        &mut body,
+        &Protocol::Anthropic,
+        "test-model",
+        7,
     );
     assert!(!changed);
     assert_eq!(body, original);
@@ -246,7 +296,10 @@ fn inject_system_append_openai_inserts_system_message() {
     )]);
     let mut body = json!({"messages": [{"role": "user", "content": "hi"}]});
     assert!(run(&engine, &mut body, &Protocol::OpenAI));
-    assert_eq!(body["messages"][0], json!({"role": "system", "content": "POLICY"}));
+    assert_eq!(
+        body["messages"][0],
+        json!({"role": "system", "content": "POLICY"})
+    );
     assert_eq!(body["messages"][1]["role"], json!("user"));
 }
 
@@ -259,7 +312,10 @@ fn inject_system_append_gemini_creates_system_instruction() {
     )]);
     let mut body = json!({"contents": [{"role": "user", "parts": [{"text": "hi"}]}]});
     assert!(run(&engine, &mut body, &Protocol::Gemini));
-    assert_eq!(body["systemInstruction"], json!({"parts": [{"text": "POLICY"}]}));
+    assert_eq!(
+        body["systemInstruction"],
+        json!({"parts": [{"text": "POLICY"}]})
+    );
 }
 
 /// system_append：responses 写 instructions。

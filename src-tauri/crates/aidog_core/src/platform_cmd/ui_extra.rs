@@ -1,6 +1,6 @@
 //! UI 态持久化命令：前端 _ui_* 键写入 platform/group 的 extra JSON。
 use aidog_db as db;
-use aidog_db::{Db};
+use aidog_db::Db;
 use tauri::State;
 
 crate::tauri_command! {

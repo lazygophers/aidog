@@ -118,7 +118,13 @@ impl SchedulerState {
 
     /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
     /// `enabled=false`（熔断总开关关）→ 一律 Allow，旁路熔断。
-    pub fn admission(&self, platform_id: u64, thresholds: &BreakerThresholds, now_ms: i64, enabled: bool) -> Admission {
+    pub fn admission(
+        &self,
+        platform_id: u64,
+        thresholds: &BreakerThresholds,
+        now_ms: i64,
+        enabled: bool,
+    ) -> Admission {
         if !enabled {
             return Admission::Allow;
         }
@@ -187,15 +193,21 @@ impl SchedulerState {
                 BreakerState::Closed { fails } => {
                     let next = fails + 1;
                     if next >= thresholds.failure_threshold {
-                        BreakerState::Open { until_ms: open_until }
+                        BreakerState::Open {
+                            until_ms: open_until,
+                        }
                     } else {
                         BreakerState::Closed { fails: next }
                     }
                 }
                 // HalfOpen 探测失败 → 立即重新 Open。
-                BreakerState::HalfOpen { .. } => BreakerState::Open { until_ms: open_until },
+                BreakerState::HalfOpen { .. } => BreakerState::Open {
+                    until_ms: open_until,
+                },
                 // Open 期间不应有 inflight 结果回流，但兜底重置 until。
-                BreakerState::Open { .. } => BreakerState::Open { until_ms: open_until },
+                BreakerState::Open { .. } => BreakerState::Open {
+                    until_ms: open_until,
+                },
             };
         }
     }
@@ -203,9 +215,10 @@ impl SchedulerState {
     /// 不计入熔断的请求结束（401/403/客户端 4xx 非 429）：仅 inflight-1，不动 breaker/EMA。
     pub fn record_ignored(&self, platform_id: u64) {
         if let Ok(mut g) = self.health.write()
-            && let Some(h) = g.get_mut(&platform_id) {
-                Self::dec_inflight(h);
-            }
+            && let Some(h) = g.get_mut(&platform_id)
+        {
+            Self::dec_inflight(h);
+        }
     }
 
     /// 测试 / 诊断：读取当前 breaker 状态副本。
@@ -269,14 +282,15 @@ impl StickyTable {
     /// 写绑定（回退调度选定平台后）。超容量时淘汰最久未访问项。
     pub fn put(&self, key: String, platform_id: u64, now_ms: i64) {
         if let Ok(mut g) = self.map.write() {
-            if g.len() >= STICKY_CAP && !g.contains_key(&key)
+            if g.len() >= STICKY_CAP
+                && !g.contains_key(&key)
                 && let Some(oldest) = g
                     .iter()
                     .min_by_key(|(_, e)| e.last_access_ms)
                     .map(|(k, _)| k.clone())
-                {
-                    g.remove(&oldest);
-                }
+            {
+                g.remove(&oldest);
+            }
             g.insert(
                 key,
                 StickyEntry {
@@ -324,7 +338,10 @@ mod tests {
         assert_eq!(s.admission(1, &th, until_passed, true), Admission::Probe);
         // 探测成功 → Closed
         s.record_success(1, 120);
-        assert!(matches!(s.breaker_state(1), BreakerState::Closed { fails: 0 }));
+        assert!(matches!(
+            s.breaker_state(1),
+            BreakerState::Closed { fails: 0 }
+        ));
         assert_eq!(s.admission(1, &th, until_passed, true), Admission::Allow);
     }
 

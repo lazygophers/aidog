@@ -45,10 +45,12 @@ pub(crate) async fn handle_bench_query(
                 };
                 aidog_stats::query_stats(&state.db, &q).await.is_ok()
             }
-            "balance" => aidog_stats::platform_usage_stats_all(&state.db).await.is_ok(),
+            "balance" => aidog_stats::platform_usage_stats_all(&state.db)
+                .await
+                .is_ok(),
             _ => {
-                let mut r = (StatusCode::BAD_REQUEST, "which must be logs|stats|balance")
-                    .into_response();
+                let mut r =
+                    (StatusCode::BAD_REQUEST, "which must be logs|stats|balance").into_response();
                 inject_trace_header(&mut r);
                 return r;
             }
@@ -60,7 +62,11 @@ pub(crate) async fn handle_bench_query(
     }
     let mut r = (
         StatusCode::OK,
-        Json(BenchQueryResp { which: req.which, n: req.n, durations_ms }),
+        Json(BenchQueryResp {
+            which: req.which,
+            n: req.n,
+            durations_ms,
+        }),
     )
         .into_response();
     inject_trace_header(&mut r);

@@ -20,10 +20,10 @@
 //! - `domain`: scan / import / set_agent / add / delete / resync / update
 
 mod backend_claude;
-pub mod store;
 mod backend_codex;
 mod domain;
 mod mask;
+pub mod store;
 mod types;
 
 use backend_claude::ClaudeCodeBackend;

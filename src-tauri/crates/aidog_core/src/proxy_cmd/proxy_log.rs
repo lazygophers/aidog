@@ -2,8 +2,9 @@ use crate::gateway;
 use aidog_db::Db;
 use tauri::State;
 
-
-use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogPage, ProxyLogSettings, ProxyLogFilter, RequestLogSummary};
+use gateway::models::{
+    ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary, RequestLogSummary,
+};
 
 crate::tauri_command! {
 pub async fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
@@ -146,17 +147,32 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
 /// app_setup 每日调度共用（&Db 入参脱离 State 绑定，便于后台 spawn 调用）。
 pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     // Run field-level cleanup for user/upstream request data
-    if let Err(e) = aidog_db::cleanup_user_request_fields(db, settings.user_request_retention_days, settings.user_request_retention_unit).await {
+    if let Err(e) = aidog_db::cleanup_user_request_fields(
+        db,
+        settings.user_request_retention_days,
+        settings.user_request_retention_unit,
+    )
+    .await
+    {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup user_request fields failed");
     }
-    if let Err(e) = aidog_db::cleanup_upstream_request_fields(db, settings.upstream_request_retention_days, settings.upstream_request_retention_unit).await {
+    if let Err(e) = aidog_db::cleanup_upstream_request_fields(
+        db,
+        settings.upstream_request_retention_days,
+        settings.upstream_request_retention_unit,
+    )
+    .await
+    {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup upstream_request fields failed");
     }
     // Delete entire log rows older than overall retention (hard delete → physical row removal)
     if settings.retention_days > 0
-        && let Err(e) = aidog_logs::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit).await {
-            tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
-        }
+        && let Err(e) =
+            aidog_logs::cleanup_proxy_logs(db, settings.retention_days, settings.retention_unit)
+                .await
+    {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
+    }
     // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
     // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
     if let Err(e) = aidog_logs::purge_deleted_proxy_logs(db).await {

@@ -12,12 +12,13 @@ pub struct PathEntry {
 /// Expand `~` to home directory and resolve path
 pub(crate) fn expand_path(input: &str) -> std::path::PathBuf {
     if (input.starts_with("~/") || input == "~")
-        && let Some(home) = dirs::home_dir() {
-            if input == "~" {
-                return home;
-            }
-            return home.join(&input[2..]);
+        && let Some(home) = dirs::home_dir()
+    {
+        if input == "~" {
+            return home;
         }
+        return home.join(&input[2..]);
+    }
     std::path::PathBuf::from(input)
 }
 
@@ -46,7 +47,10 @@ pub fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
     }
 
     let entries: Vec<PathEntry> = std::fs::read_dir(&parent)
-        .map_err(|e| { tracing::warn!(command = "fs_autocomplete", error = %e, "read_dir failed"); e.to_string() })?
+        .map_err(|e| {
+            tracing::warn!(command = "fs_autocomplete", error = %e, "read_dir failed");
+            e.to_string()
+        })?
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let name = entry.file_name().to_string_lossy().to_string();
@@ -77,12 +81,10 @@ pub fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
 
     // Sort: directories first, then by modification time descending
     let mut sorted = entries;
-    sorted.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => b.modified.cmp(&a.modified),
-        }
+    sorted.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => b.modified.cmp(&a.modified),
     });
 
     // Limit results

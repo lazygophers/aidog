@@ -50,22 +50,34 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
     }).collect();
     let instructions = req.system.as_ref().map(|system| match system {
         SystemContent::Text(text) => text.clone(),
-        SystemContent::Blocks(blocks) => blocks.iter().filter_map(|b| b.get("text").and_then(Value::as_str)).collect::<Vec<_>>().join("\n"),
+        SystemContent::Blocks(blocks) => blocks
+            .iter()
+            .filter_map(|b| b.get("text").and_then(Value::as_str))
+            .collect::<Vec<_>>()
+            .join("\n"),
     });
     // 服务端工具在 Responses 侧无执行方，整条不下发；全被丢弃时不写 tools 键
-    let kept_tools: Vec<&Tool> = req.tools.as_deref().map(|ts| client_tools(ts, "openai_responses")).unwrap_or_default();
+    let kept_tools: Vec<&Tool> = req
+        .tools
+        .as_deref()
+        .map(|ts| client_tools(ts, "openai_responses"))
+        .unwrap_or_default();
     let tools = {
         let mapped: Vec<Value> = kept_tools.iter().map(|tool| serde_json::json!({"type":"function","name":tool.name,"description":tool.description,"parameters":tool.input_schema})).collect();
         (!mapped.is_empty()).then_some(Value::Array(mapped))
     };
     // tool_choice：Responses 侧是扁平形态 {type:"function",name}，与 from_responses 的解析互逆；
     // 指名了被丢掉的服务端工具时整条不写（票 11，见 `named_tool_available`）
-    let tool_choice = req.tool_choice.as_ref().filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools)).map(|tc| match tc {
-        ToolChoice::Auto => serde_json::json!("auto"),
-        ToolChoice::Any => serde_json::json!("required"),
-        ToolChoice::None => serde_json::json!("none"),
-        ToolChoice::Named { name } => serde_json::json!({"type":"function","name":name}),
-    });
+    let tool_choice = req
+        .tool_choice
+        .as_ref()
+        .filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools))
+        .map(|tc| match tc {
+            ToolChoice::Auto => serde_json::json!("auto"),
+            ToolChoice::Any => serde_json::json!("required"),
+            ToolChoice::None => serde_json::json!("none"),
+            ToolChoice::Named { name } => serde_json::json!({"type":"function","name":name}),
+        });
     // 思考档位出站（票 03）：显式禁用写 Responses 官方认的 `effort:"none"`（与
     // `forward.rs::apply_disable_thinking` 的 Responses 分支同一写法）；否则档位原值优先，
     // 无档位时由数字预算反查（换算表见 `crate::thinking`）。
@@ -74,16 +86,32 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
     } else {
         crate::thinking::outbound_effort(req).map(|e| serde_json::json!({ "effort": e }))
     };
-    ResponsesRequest { model: req.model.clone(), input, instructions, max_output_tokens: req.max_tokens, temperature: req.temperature, top_p: req.top_p, stream: req.stream, tools, tool_choice, reasoning }
+    ResponsesRequest {
+        model: req.model.clone(),
+        input,
+        instructions,
+        max_output_tokens: req.max_tokens,
+        temperature: req.temperature,
+        top_p: req.top_p,
+        stream: req.stream,
+        tools,
+        tool_choice,
+        reasoning,
+    }
 }
 
 /// 解析 OpenAI Responses API 非流式响应为归一 NonStreamResponse
-pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<crate::converter::NonStreamResponse> {
-    let id = body.get("id")
+pub fn parse_responses_response(
+    body: &Value,
+    fallback_model: &str,
+) -> Option<crate::converter::NonStreamResponse> {
+    let id = body
+        .get("id")
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let model = body.get("model")
+    let model = body
+        .get("model")
         .and_then(|v| v.as_str())
         .filter(|s| !s.is_empty())
         .unwrap_or(fallback_model)
@@ -110,9 +138,10 @@ pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<cr
                         reasoning_parts.push(text.to_string());
                     }
                 } else if ctype == "text"
-                    && let Some(text) = c.get("text").and_then(|v| v.as_str()) {
-                        text_parts.push(text.to_string());
-                    }
+                    && let Some(text) = c.get("text").and_then(|v| v.as_str())
+                {
+                    text_parts.push(text.to_string());
+                }
             }
         }
 
@@ -120,28 +149,38 @@ pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<cr
         //   ① 嵌套：item: {function_call: {id, name, arguments}}
         //   ② 扁平：item: {type:"function_call", id, name, arguments}
         if let Some(fc) = item.get("function_call") {
-            let id = fc.get("id")
+            let id = fc
+                .get("id")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let name = fc.get("name")
+            let name = fc
+                .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let args = fc.get("arguments").cloned().unwrap_or_else(|| Value::Object(Default::default()));
+            let args = fc
+                .get("arguments")
+                .cloned()
+                .unwrap_or_else(|| Value::Object(Default::default()));
             if !id.is_empty() || !name.is_empty() {
                 tool_uses.push((id, name, args));
             }
         } else if item.get("type").and_then(|v| v.as_str()) == Some("function_call") {
-            let id = item.get("id")
+            let id = item
+                .get("id")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let name = item.get("name")
+            let name = item
+                .get("name")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string();
-            let args = item.get("arguments").cloned().unwrap_or_else(|| Value::Object(Default::default()));
+            let args = item
+                .get("arguments")
+                .cloned()
+                .unwrap_or_else(|| Value::Object(Default::default()));
             if !id.is_empty() || !name.is_empty() {
                 tool_uses.push((id, name, args));
             }
@@ -166,14 +205,16 @@ pub fn parse_responses_response(body: &Value, fallback_model: &str) -> Option<cr
     };
 
     // Responses API 的 status 映射到 stop_reason
-    let status = body.get("status")
+    let status = body
+        .get("status")
         .and_then(|v| v.as_str())
         .unwrap_or("completed");
     let stop_reason = match status {
         "completed" => "end_turn",
         "failed" | "incomplete" => "end_turn",
         _ => "end_turn",
-    }.to_string();
+    }
+    .to_string();
 
     // usage 信息
     let usage = body.get("usage");
@@ -211,21 +252,23 @@ pub fn render_responses_response(r: &crate::converter::NonStreamResponse) -> Opt
 
     // 添加文本 item
     if let Some(text) = &r.text
-        && !text.is_empty() {
-            output.push(serde_json::json!({
-                "type": "text",
-                "text": text,
-            }));
-        }
+        && !text.is_empty()
+    {
+        output.push(serde_json::json!({
+            "type": "text",
+            "text": text,
+        }));
+    }
 
     // 添加 reasoning summary item
     if let Some(reasoning) = &r.reasoning
-        && !reasoning.is_empty() {
-            output.push(serde_json::json!({
-                "type": "summary",
-                "text": reasoning,
-            }));
-        }
+        && !reasoning.is_empty()
+    {
+        output.push(serde_json::json!({
+            "type": "summary",
+            "text": reasoning,
+        }));
+    }
 
     // 添加 function_call item（每个 tool_use 一个 item）
     for (id, name, input) in &r.tool_uses {
@@ -294,9 +337,18 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                         messages.push(Message {
                             role: Role::Assistant,
                             content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
-                                id: item.get("call_id").and_then(Value::as_str).unwrap_or_default().to_string(),
-                                name: item.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
-                                input: input_json, extra: None
+                                id: item
+                                    .get("call_id")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                name: item
+                                    .get("name")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or_default()
+                                    .to_string(),
+                                input: input_json,
+                                extra: None,
                             }]),
                         });
                     }
@@ -305,7 +357,11 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                         messages.push(Message {
                             role: Role::Tool,
                             content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
-                                tool_use_id: item.get("call_id").and_then(Value::as_str).unwrap_or_default().to_string(),
+                                tool_use_id: item
+                                    .get("call_id")
+                                    .and_then(Value::as_str)
+                                    .unwrap_or_default()
+                                    .to_string(),
                                 content: item
                                     .get("output")
                                     .map(|o| match o {
@@ -313,7 +369,10 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                                         other => other.to_string(),
                                     })
                                     .unwrap_or_default(),
-                                name: None, is_error: None, content_blocks: None, extra: None
+                                name: None,
+                                is_error: None,
+                                content_blocks: None,
+                                extra: None,
                             }]),
                         });
                     }
@@ -353,9 +412,19 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         ts.iter()
             .filter(|t| t.get("type").and_then(Value::as_str) == Some("function"))
             .map(|t| crate::types::Tool {
-                name: t.get("name").and_then(Value::as_str).unwrap_or_default().to_string(),
-                description: t.get("description").and_then(Value::as_str).map(str::to_string),
-                input_schema: t.get("parameters").cloned().unwrap_or_else(|| serde_json::json!({})),
+                name: t
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+                description: t
+                    .get("description")
+                    .and_then(Value::as_str)
+                    .map(str::to_string),
+                input_schema: t
+                    .get("parameters")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!({})),
                 tool_type: None,
                 cache_control: None,
                 extra: None,
@@ -370,12 +439,20 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
             "required" => Some(ToolChoice::Any),
             _ => None,
         },
-        Value::Object(o) => o.get("name").and_then(Value::as_str).map(|name| ToolChoice::Named { name: name.to_string() }),
+        Value::Object(o) => o
+            .get("name")
+            .and_then(Value::as_str)
+            .map(|name| ToolChoice::Named {
+                name: name.to_string(),
+            }),
         _ => None,
     });
     // reasoning.effort → thinking_budget（换算表统一在 `crate::thinking`，票 03；此前这里的
     // `_ => 10000` 是全 crate 第三套数字，与出站表不自洽）
-    let effort = body.get("reasoning").and_then(|r| r.get("effort")).and_then(Value::as_str);
+    let effort = body
+        .get("reasoning")
+        .and_then(|r| r.get("effort"))
+        .and_then(Value::as_str);
     let thinking_budget = effort.and_then(crate::thinking::effort_to_budget);
 
     Some(ChatRequest {
@@ -383,8 +460,14 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         model,
         messages,
         system,
-        max_tokens: body.get("max_output_tokens").and_then(|v| v.as_u64()).map(|v| v as u32),
-        temperature: body.get("temperature").and_then(|v| v.as_f64()).map(|v| v as f32),
+        max_tokens: body
+            .get("max_output_tokens")
+            .and_then(|v| v.as_u64())
+            .map(|v| v as u32),
+        temperature: body
+            .get("temperature")
+            .and_then(|v| v.as_f64())
+            .map(|v| v as f32),
         top_p: body.get("top_p").and_then(|v| v.as_f64()).map(|v| v as f32),
         stream: body.get("stream").and_then(|v| v.as_bool()),
         tools,
@@ -394,8 +477,16 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
         extra: crate::types::rest_keys(
             body,
             &[
-                "model", "input", "instructions", "max_output_tokens", "temperature",
-                "top_p", "stream", "tools", "tool_choice", "reasoning",
+                "model",
+                "input",
+                "instructions",
+                "max_output_tokens",
+                "temperature",
+                "top_p",
+                "stream",
+                "tools",
+                "tool_choice",
+                "reasoning",
             ],
         ),
         // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量
@@ -412,7 +503,9 @@ fn extract_content_text(content: Option<&Value>) -> String {
             .iter()
             .filter_map(|p| {
                 // 优先 part.text；兼容 {"type":"input_text","text":"..."}
-                p.get("text").and_then(|v| v.as_str()).map(|s| s.to_string())
+                p.get("text")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
             })
             .collect::<Vec<_>>()
             .join(""),
@@ -430,7 +523,9 @@ pub fn parse_responses_sse(data: &Value) -> Option<ChatStreamEvent> {
             if delta.is_empty() {
                 None
             } else {
-                Some(ChatStreamEvent::Delta { text: delta.to_string() })
+                Some(ChatStreamEvent::Delta {
+                    text: delta.to_string(),
+                })
             }
         }
         "response.reasoning_text.delta" | "response.reasoning_summary_text.delta" => {
@@ -438,7 +533,9 @@ pub fn parse_responses_sse(data: &Value) -> Option<ChatStreamEvent> {
             if delta.is_empty() {
                 None
             } else {
-                Some(ChatStreamEvent::ReasoningDelta { text: delta.to_string() })
+                Some(ChatStreamEvent::ReasoningDelta {
+                    text: delta.to_string(),
+                })
             }
         }
         "response.output_item.added" => {
@@ -457,11 +554,20 @@ pub fn parse_responses_sse(data: &Value) -> Option<ChatStreamEvent> {
             index: data.get("output_index").and_then(Value::as_u64)? as u32,
             id: None,
             name: None,
-            input: data.get("delta").and_then(Value::as_str).map(str::to_string),
+            input: data
+                .get("delta")
+                .and_then(Value::as_str)
+                .map(str::to_string),
         }),
-        "response.completed" => Some(ChatStreamEvent::Stop { finish_reason: Some("stop".to_string()) }),
-        "response.incomplete" => Some(ChatStreamEvent::Stop { finish_reason: Some("length".to_string()) }),
-        "response.failed" => Some(ChatStreamEvent::Stop { finish_reason: Some("stop".to_string()) }),
+        "response.completed" => Some(ChatStreamEvent::Stop {
+            finish_reason: Some("stop".to_string()),
+        }),
+        "response.incomplete" => Some(ChatStreamEvent::Stop {
+            finish_reason: Some("length".to_string()),
+        }),
+        "response.failed" => Some(ChatStreamEvent::Stop {
+            finish_reason: Some("stop".to_string()),
+        }),
         _ => None,
     }
 }
@@ -484,7 +590,12 @@ mod tests {
             "item":{"type":"function_call","id":"call_1","name":"get_weather"}
         }));
         match added {
-            Some(ChatStreamEvent::ToolDelta { index, id, name, input }) => {
+            Some(ChatStreamEvent::ToolDelta {
+                index,
+                id,
+                name,
+                input,
+            }) => {
                 assert_eq!(index, 1);
                 assert_eq!(id.as_deref(), Some("call_1"));
                 assert_eq!(name.as_deref(), Some("get_weather"));
@@ -495,15 +606,21 @@ mod tests {
         let args = parse_responses_sse(&json!({
             "type":"response.function_arguments.delta","output_index":1,"delta":"{\"city\":"
         }));
-        assert!(matches!(args, Some(ChatStreamEvent::ToolDelta { input: Some(ref s), .. }) if s == "{\"city\":"));
+        assert!(
+            matches!(args, Some(ChatStreamEvent::ToolDelta { input: Some(ref s), .. }) if s == "{\"city\":")
+        );
     }
 
     #[test]
     fn parse_responses_sse_terminal_events() {
         let done = parse_responses_sse(&json!({"type":"response.completed","response":{}}));
-        assert!(matches!(done, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "stop"));
+        assert!(
+            matches!(done, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "stop")
+        );
         let truncated = parse_responses_sse(&json!({"type":"response.incomplete","response":{}}));
-        assert!(matches!(truncated, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "length"));
+        assert!(
+            matches!(truncated, Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "length")
+        );
         let ignored = parse_responses_sse(&json!({"type":"response.created","response":{}}));
         assert!(ignored.is_none());
     }
@@ -541,8 +658,15 @@ mod tests {
         let req = from_responses(&body).expect("parse");
         // 出站方向应还原出同样的 typed items（上下文跨协议接续的关键路径）
         let out = to_responses(&req);
-        let types: Vec<&str> = out.input.iter().filter_map(|i| i.get("type").and_then(Value::as_str)).collect();
-        assert_eq!(types, vec!["message", "function_call", "function_call_output"]);
+        let types: Vec<&str> = out
+            .input
+            .iter()
+            .filter_map(|i| i.get("type").and_then(Value::as_str))
+            .collect();
+        assert_eq!(
+            types,
+            vec!["message", "function_call", "function_call_output"]
+        );
         let fc = &out.input[1];
         assert_eq!(fc["call_id"], "call_1");
         assert_eq!(fc["name"], "get_weather");
@@ -662,12 +786,10 @@ mod tests {
         let req = ChatRequest {
             thinking_budget: None,
             model: "gpt-5".into(),
-            messages: vec![
-                crate::types::Message {
-                    role: Role::User,
-                    content: MessageContent::Text("hello".into()),
-                }
-            ],
+            messages: vec![crate::types::Message {
+                role: Role::User,
+                content: MessageContent::Text("hello".into()),
+            }],
             system: None,
             max_tokens: Some(1024),
             temperature: Some(0.5),
@@ -676,7 +798,7 @@ mod tests {
             tools: None,
             tool_choice: None,
             extra: None,
-        thinking_mode: None,
+            thinking_mode: None,
         };
         let out = to_responses(&req);
         assert_eq!(out.model, "gpt-5");
@@ -701,11 +823,20 @@ mod tests {
         let parts: Vec<(&str, &str)> = out
             .input
             .iter()
-            .map(|i| (i["role"].as_str().unwrap(), i["content"][0]["type"].as_str().unwrap()))
+            .map(|i| {
+                (
+                    i["role"].as_str().unwrap(),
+                    i["content"][0]["type"].as_str().unwrap(),
+                )
+            })
             .collect();
         assert_eq!(
             parts,
-            vec![("user", "input_text"), ("assistant", "output_text"), ("user", "input_text")]
+            vec![
+                ("user", "input_text"),
+                ("assistant", "output_text"),
+                ("user", "input_text")
+            ]
         );
     }
 
@@ -728,7 +859,10 @@ mod tests {
             (json!("auto"), json!("auto")),
             (json!("required"), json!("required")),
             (json!("none"), json!("none")),
-            (json!({"type":"function","name":"f"}), json!({"type":"function","name":"f"})),
+            (
+                json!({"type":"function","name":"f"}),
+                json!({"type":"function","name":"f"}),
+            ),
         ] {
             let req = from_responses(&json!({
                 "model": "gpt-5", "input": "hi", "tool_choice": inbound
@@ -744,8 +878,8 @@ mod tests {
     // ── render_responses_response 测试 ──
     #[test]
     fn render_responses_text_only() {
-        use crate::converter::NonStreamResponse;
         use super::render_responses_response;
+        use crate::converter::NonStreamResponse;
 
         let r = NonStreamResponse {
             id: "test".to_string(),
@@ -770,8 +904,8 @@ mod tests {
 
     #[test]
     fn render_responses_with_reasoning() {
-        use crate::converter::NonStreamResponse;
         use super::render_responses_response;
+        use crate::converter::NonStreamResponse;
 
         let r = NonStreamResponse {
             id: "test".to_string(),
@@ -795,16 +929,18 @@ mod tests {
 
     #[test]
     fn render_responses_with_function_call() {
-        use crate::converter::NonStreamResponse;
         use super::render_responses_response;
+        use crate::converter::NonStreamResponse;
 
         let r = NonStreamResponse {
             id: "test".to_string(),
             model: "gpt-5".to_string(),
             text: Some("Let me check".to_string()),
-            tool_uses: vec![
-                ("tool-1".to_string(), "read_file".to_string(), json!({"path": "/tmp"})),
-            ],
+            tool_uses: vec![(
+                "tool-1".to_string(),
+                "read_file".to_string(),
+                json!({"path": "/tmp"}),
+            )],
             stop_reason: "tool_use".to_string(),
             input_tokens: 15,
             output_tokens: 8,
@@ -823,16 +959,18 @@ mod tests {
 
     #[test]
     fn render_responses_with_all() {
-        use crate::converter::NonStreamResponse;
         use super::render_responses_response;
+        use crate::converter::NonStreamResponse;
 
         let r = NonStreamResponse {
             id: "test".to_string(),
             model: "gpt-5".to_string(),
             text: Some("Result".to_string()),
-            tool_uses: vec![
-                ("tool-2".to_string(), "write".to_string(), json!({"content": "data"})),
-            ],
+            tool_uses: vec![(
+                "tool-2".to_string(),
+                "write".to_string(),
+                json!({"content": "data"}),
+            )],
             stop_reason: "tool_use".to_string(),
             input_tokens: 25,
             output_tokens: 12,
@@ -854,35 +992,60 @@ mod tests {
             thinking_budget: None,
             model: "gpt-5".into(),
             messages: vec![
-                Message { role: Role::Assistant, content: MessageContent::Blocks(vec![
-                    ContentBlock::ToolUse { id: "call_1".into(), name: "lookup".into(), input: json!({"q": "x"}), extra: None },
-                ]) },
-                Message { role: Role::Tool, content: MessageContent::Blocks(vec![
-                    ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "ok".into(), name: Some("lookup".into()), is_error: None, content_blocks: None, extra: None },
-                ]) },
+                Message {
+                    role: Role::Assistant,
+                    content: MessageContent::Blocks(vec![ContentBlock::ToolUse {
+                        id: "call_1".into(),
+                        name: "lookup".into(),
+                        input: json!({"q": "x"}),
+                        extra: None,
+                    }]),
+                },
+                Message {
+                    role: Role::Tool,
+                    content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                        tool_use_id: "call_1".into(),
+                        content: "ok".into(),
+                        name: Some("lookup".into()),
+                        is_error: None,
+                        content_blocks: None,
+                        extra: None,
+                    }]),
+                },
             ],
             system: Some(SystemContent::Text("system prompt".into())),
             max_tokens: None,
             temperature: None,
             top_p: None,
             stream: Some(true),
-            tools: Some(vec![Tool { name: "lookup".into(), description: Some("look up".into()), input_schema: json!({"type":"object"}), tool_type: None, cache_control: None, extra: None }]),
+            tools: Some(vec![Tool {
+                name: "lookup".into(),
+                description: Some("look up".into()),
+                input_schema: json!({"type":"object"}),
+                tool_type: None,
+                cache_control: None,
+                extra: None,
+            }]),
             tool_choice: Some(ToolChoice::Auto),
             extra: None,
-        thinking_mode: None,
+            thinking_mode: None,
         };
 
         let out = to_responses(&req);
         assert_eq!(out.instructions.as_deref(), Some("system prompt"));
         assert!(out.tools.is_some());
         assert!(out.input.iter().any(|item| item["type"] == "function_call"));
-        assert!(out.input.iter().any(|item| item["type"] == "function_call_output"));
+        assert!(
+            out.input
+                .iter()
+                .any(|item| item["type"] == "function_call_output")
+        );
     }
 
     #[test]
     fn render_responses_empty_message() {
-        use crate::converter::NonStreamResponse;
         use super::render_responses_response;
+        use crate::converter::NonStreamResponse;
 
         let r = NonStreamResponse {
             id: "empty".to_string(),
@@ -934,7 +1097,10 @@ mod tests {
         assert_eq!(parsed.id, "resp_123");
         assert_eq!(parsed.model, "gpt-5");
         assert_eq!(parsed.text.as_deref(), Some("Final answer here."));
-        assert_eq!(parsed.reasoning.as_deref(), Some("Let me analyze this.\n\nStep 1: Understand.\n\nStep 2: Solve."));
+        assert_eq!(
+            parsed.reasoning.as_deref(),
+            Some("Let me analyze this.\n\nStep 1: Understand.\n\nStep 2: Solve.")
+        );
         assert_eq!(parsed.stop_reason, "end_turn");
         assert_eq!(parsed.input_tokens, 25);
         assert_eq!(parsed.output_tokens, 35);
@@ -967,7 +1133,10 @@ mod tests {
         assert_eq!(parsed.tool_uses.len(), 1);
         assert_eq!(parsed.tool_uses[0].0, "call_abc");
         assert_eq!(parsed.tool_uses[0].1, "search");
-        assert_eq!(parsed.tool_uses[0].2, serde_json::json!({"query": "weather"}));
+        assert_eq!(
+            parsed.tool_uses[0].2,
+            serde_json::json!({"query": "weather"})
+        );
     }
 
     #[test]

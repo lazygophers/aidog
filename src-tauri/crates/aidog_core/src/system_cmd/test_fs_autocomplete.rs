@@ -9,7 +9,10 @@ fn expand_path_tilde_and_plain() {
     let home = g.home();
     assert_eq!(expand_path("~"), home);
     assert_eq!(expand_path("~/sub"), home.join("sub"));
-    assert_eq!(expand_path("/abs/path"), std::path::PathBuf::from("/abs/path"));
+    assert_eq!(
+        expand_path("/abs/path"),
+        std::path::PathBuf::from("/abs/path")
+    );
 }
 
 #[test]

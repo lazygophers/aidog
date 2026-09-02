@@ -1,9 +1,8 @@
-use crate::shared::*;
-use crate::hooks::{generate_hook_scripts, enabled_hook_events};
 use crate::gateway;
+use crate::hooks::{enabled_hook_events, generate_hook_scripts};
+use crate::shared::*;
 use aidog_db::Db;
 use tauri::State;
-
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -16,8 +15,8 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
 
     // 读取已有配置
     let mut config: serde_json::Value = if config_path.exists() {
-        let content = std::fs::read_to_string(&config_path)
-            .map_err(|e| format!("read config: {e}"))?;
+        let content =
+            std::fs::read_to_string(&config_path).map_err(|e| format!("read config: {e}"))?;
         serde_json::from_str(&content).unwrap_or(serde_json::Value::Object(Default::default()))
     } else {
         serde_json::Value::Object(Default::default())
@@ -31,10 +30,12 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
         );
     }
 
-    let content = serde_json::to_string_pretty(&config)
-        .map_err(|e| format!("serialize config: {e}"))?;
-    std::fs::write(&config_path, content)
-        .map_err(|e| { tracing::error!(command = "export_claude_config", error = %e, "write .claude.json failed"); format!("write config: {e}") })?;
+    let content =
+        serde_json::to_string_pretty(&config).map_err(|e| format!("serialize config: {e}"))?;
+    std::fs::write(&config_path, content).map_err(|e| {
+        tracing::error!(command = "export_claude_config", error = %e, "write .claude.json failed");
+        format!("write config: {e}")
+    })?;
 
     Ok(config_path.to_string_lossy().to_string())
 }
@@ -42,9 +43,10 @@ pub fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String,
 /// Helper: attempt sync, log errors but don't propagate
 pub async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     if let Ok(settings) = load_proxy_settings(app).await
-        && let Err(e) = do_sync_group_settings(db, settings.port).await {
-            tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
-        }
+        && let Err(e) = do_sync_group_settings(db, settings.port).await
+    {
+        tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
+    }
 }
 
 /// DB 存储托管叶子快照的 scope/key。复用 KV `setting` 表，不加新表/列。
@@ -106,8 +108,7 @@ pub async fn write_default_claude_settings(
 ) -> Result<(), String> {
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     let claude_dir = home.join(".claude");
-    std::fs::create_dir_all(&claude_dir)
-        .map_err(|e| format!("create ~/.claude dir: {e}"))?;
+    std::fs::create_dir_all(&claude_dir).map_err(|e| format!("create ~/.claude dir: {e}"))?;
     let settings_path = claude_dir.join("settings.json");
 
     // 全量覆盖：写入内容 = 默认组 config，不读旧文件内容参与合并。
@@ -223,12 +224,12 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         .join(".aidog");
 
     // Ensure ~/.aidog/ exists
-    std::fs::create_dir_all(&aidog_dir)
-        .map_err(|e| format!("create .aidog dir: {e}"))?;
+    std::fs::create_dir_all(&aidog_dir).map_err(|e| format!("create .aidog dir: {e}"))?;
 
     // Load base claude code config from app settings (scope=global, key=claude_code)
     // Fallback to compiled-in defaults when DB has no config
-    let base_config: serde_json::Value = aidog_db::get_setting(db, "global", "claude_code").await
+    let base_config: serde_json::Value = aidog_db::get_setting(db, "global", "claude_code")
+        .await
         .ok()
         .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
@@ -238,7 +239,8 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         });
 
     // Collect current group names for cleanup
-    let group_keys: std::collections::HashSet<String> = groups.iter().map(|g| g.group_key.clone()).collect();
+    let group_keys: std::collections::HashSet<String> =
+        groups.iter().map(|g| g.group_key.clone()).collect();
 
     // 默认通知 hook 物化（镜像 statusLine）：marker `_aidog_hooks.enabled` 为 true 时，
     // 为每个分组 config 注入 hooks.Stop/Notification（strip marker 之前），并对 Codex
@@ -395,11 +397,14 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     if let Ok(entries) = std::fs::read_dir(&aidog_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if let Some(group_key) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json"))
+            if let Some(group_key) = name
+                .strip_prefix("settings.")
+                .and_then(|s| s.strip_suffix(".json"))
                 && !group_keys.contains(group_key)
-                    && let Err(e) = std::fs::remove_file(entry.path()) {
-                        tracing::debug!(group = %group_key, error = %e, "remove stale settings file failed");
-                    }
+                && let Err(e) = std::fs::remove_file(entry.path())
+            {
+                tracing::debug!(group = %group_key, error = %e, "remove stale settings file failed");
+            }
         }
     }
 
@@ -419,13 +424,19 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
             group_key: d.group.group_key.clone(),
             models: pi_model_candidates(
                 &d.group.model_mappings,
-                &d.platforms.iter().map(|gp| gp.platform.models.clone()).collect::<Vec<_>>(),
+                &d.platforms
+                    .iter()
+                    .map(|gp| gp.platform.models.clone())
+                    .collect::<Vec<_>>(),
             ),
             api: gateway::pi::parse_group_api(&d.group.extra),
         })
         .collect();
     let pi_settings = gateway::pi::PiSettings {
-        default_group: groups.iter().find(|g| g.is_default).map(|g| g.group_key.clone()),
+        default_group: groups
+            .iter()
+            .find(|g| g.is_default)
+            .map(|g| g.group_key.clone()),
         http_proxy: proxy_url_from_config(&base_config),
     };
     match gateway::pi::sync_groups(&pi_groups, port, &pi_settings) {
@@ -439,7 +450,10 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 /// Tauri command — manual sync from UI
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-pub async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<String>, String> {
+pub async fn sync_group_settings(
+    app: tauri::AppHandle,
+    db: State<'_, Db>,
+) -> Result<Vec<String>, String> {
     tracing::debug!(command = "sync_group_settings", "command invoked");
     let proxy_settings = load_proxy_settings(&app).await?;
     do_sync_group_settings(&db, proxy_settings.port).await
@@ -454,14 +468,15 @@ pub async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Re
 pub async fn get_managed_paths(db: State<'_, Db>) -> Result<Vec<String>, String> {
     tracing::debug!(command = "get_managed_paths", "command invoked");
     let v = aidog_db::get_setting(&db, MANAGED_SCOPE, MANAGED_KEY).await?;
-    Ok(v.and_then(|val| val.as_array().map(|arr| {
-        arr.iter()
-            .filter_map(|x| x.as_str().map(|s| s.to_string()))
-            .collect()
-    }))
+    Ok(v.and_then(|val| {
+        val.as_array().map(|arr| {
+            arr.iter()
+                .filter_map(|x| x.as_str().map(|s| s.to_string()))
+                .collect()
+        })
+    })
     .unwrap_or_default())
 }
-
 
 #[cfg(test)]
 #[path = "test_sync_settings.rs"]

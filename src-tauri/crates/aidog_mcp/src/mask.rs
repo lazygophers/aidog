@@ -5,9 +5,17 @@ use std::collections::BTreeMap;
 /// 判定 env/header key 是否敏感（含 token/key/secret/auth/password/pass/credential）。
 fn is_sensitive_key(k: &str) -> bool {
     let lk = k.to_ascii_lowercase();
-    ["token", "key", "secret", "auth", "password", "pass", "credential"]
-        .iter()
-        .any(|s| lk.contains(s))
+    [
+        "token",
+        "key",
+        "secret",
+        "auth",
+        "password",
+        "pass",
+        "credential",
+    ]
+    .iter()
+    .any(|s| lk.contains(s))
 }
 
 /// 脱敏 map：敏感 key 的值替换为 "***"。

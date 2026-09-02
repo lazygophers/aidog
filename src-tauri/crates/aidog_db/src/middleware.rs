@@ -1,11 +1,10 @@
 use super::*;
-use rusqlite::{params, Result as SqlResult};
+use rusqlite::{Result as SqlResult, params};
 
 use crate::models::{CreateMiddlewareRule, MiddlewareRule, UpdateMiddlewareRule};
 
 /// middleware_rule 全列序（INSERT 列子集 + SELECT 共用，与表定义列序一致）。
-const MIDDLEWARE_RULE_COLUMNS: &str =
-    "id, name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at";
+const MIDDLEWARE_RULE_COLUMNS: &str = "id, name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at";
 
 /// 从查询行构造 MiddlewareRule。JSON 列解析失败不在此兜底（迁移后 schema 保证可解析）；
 /// 若手改 DB 产生坏行，list 时 serde 失败由 unwrap_or 兜底为 failed 标记（前端引导手删）。
@@ -16,7 +15,10 @@ fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
     let (conditions, json_failed) = serde_json::from_str(&conditions_json)
         .map(|c| (c, false))
         .unwrap_or_else(|e| {
-            tracing::warn!("middleware rule {} bad conditions JSON: {e}", row.get::<_, i64>(0).unwrap_or(0));
+            tracing::warn!(
+                "middleware rule {} bad conditions JSON: {e}",
+                row.get::<_, i64>(0).unwrap_or(0)
+            );
             (default_failed_conditions(), true)
         });
     Ok(MiddlewareRule {
@@ -48,20 +50,20 @@ fn default_failed_conditions() -> crate::models::ConditionNode {
 /// 失效判定（与 row_to_middleware_rule 的读时 failed 对齐）：
 /// DB failed 列置位，或 conditions JSON 解析失败（读时兜底置 failed 的行 DB 列仍为 0）。
 pub fn is_effective_failed(db_failed: i64, conditions_json: &str) -> bool {
-    db_failed == 1
-        || serde_json::from_str::<crate::models::ConditionNode>(conditions_json).is_err()
+    db_failed == 1 || serde_json::from_str::<crate::models::ConditionNode>(conditions_json).is_err()
 }
 
 /// 列出全部中间件规则（按 priority 升序，再 id 升序）。引擎 reload 与前端列表共用。
 #[track_caller]
-pub fn list_middleware_rules(db: &Db) -> impl std::future::Future<Output = Result<Vec<MiddlewareRule>, String>> + '_ {
+pub fn list_middleware_rules(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Vec<MiddlewareRule>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let sql = format!(
-        "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule ORDER BY priority ASC, id ASC"
-    );
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
+        let sql = format!(
+            "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule ORDER BY priority ASC, id ASC"
+        );
+        db.call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_middleware_rule)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -78,12 +80,12 @@ pub fn create_middleware_rule(
 ) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    crate::models::validate_rule_phases(&input.conditions)?;
-    let ts = now();
-    let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
-    let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
-    let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
-    db
+        crate::models::validate_rule_phases(&input.conditions)?;
+        let ts = now();
+        let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
+        let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
+        let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
+        db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO middleware_rule
@@ -120,12 +122,12 @@ pub fn update_middleware_rule(
 ) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    crate::models::validate_rule_phases(&input.conditions)?;
-    let ts = now();
-    let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
-    let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
-    let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
-    db
+        crate::models::validate_rule_phases(&input.conditions)?;
+        let ts = now();
+        let conditions = serde_json::to_string(&input.conditions).map_err(|e| e.to_string())?;
+        let actions = serde_json::to_string(&input.actions).map_err(|e| e.to_string())?;
+        let applies_to = serde_json::to_string(&input.applies_to).map_err(|e| e.to_string())?;
+        db
         .call_traced(None, __db_caller, move |conn| {
             // 内置规则只允许启停（票 02）：整体改写会破坏 seed 强制覆盖语义。
             let (is_builtin, old_name, old_desc, old_priority): (i64, String, String, i64) = conn.query_row(
@@ -190,16 +192,20 @@ pub fn update_middleware_rule(
 
 /// 删除规则。内置规则不可删（只允许启停）；failed 内置行除外（失效残留，允许清走）。
 #[track_caller]
-pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn delete_middleware_rule(
+    db: &Db,
+    id: i64,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
-        .call_traced(None, __db_caller, move |conn| {
-            let (is_builtin, failed, conditions): (i64, i64, String) = conn.query_row(
-                "SELECT is_builtin, failed, conditions FROM middleware_rule WHERE id = ?1",
-                params![id],
-                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            ).map_err(tokio_rusqlite::Error::from)?;
+        db.call_traced(None, __db_caller, move |conn| {
+            let (is_builtin, failed, conditions): (i64, i64, String) = conn
+                .query_row(
+                    "SELECT is_builtin, failed, conditions FROM middleware_rule WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+                )
+                .map_err(tokio_rusqlite::Error::from)?;
             // failed 判定与 row_to_middleware_rule 对齐：DB 列或 conditions JSON 解析失败均算失效
             if is_builtin == 1 && !is_effective_failed(failed, &conditions) {
                 return Err(tokio_rusqlite::Error::Other(
@@ -252,11 +258,11 @@ pub fn insert_notification<'a>(
 ) -> impl std::future::Future<Output = Result<i64, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let notif_type = notif_type.to_string();
-    let title = title.to_string();
-    let body = body.to_string();
-    let ts = now();
-    db
+        let notif_type = notif_type.to_string();
+        let title = title.to_string();
+        let body = body.to_string();
+        let ts = now();
+        db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO notification (notif_type, title, body, created_at) VALUES (?1, ?2, ?3, ?4)",
@@ -277,7 +283,7 @@ pub fn list_notifications(
 ) -> impl std::future::Future<Output = Result<Vec<crate::models::Notification>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
+        db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
@@ -303,8 +309,7 @@ pub fn list_notifications(
 pub fn clear_notifications(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
-        .call_proxy_log_traced(None, __db_caller, |conn| {
+        db.call_proxy_log_traced(None, __db_caller, |conn| {
             conn.execute("DELETE FROM notification", [])?;
             Ok(())
         })
@@ -319,13 +324,20 @@ pub fn clear_notifications(db: &Db) -> impl std::future::Future<Output = Result<
 /// 抄 proxy_log retention 模式避 SQLite 体积单调增长（见记忆 db-volume-soft-delete-no-vacuum）。
 /// 硬删后 `incremental_vacuum(100)` 回收 free pages（auto_vacuum != INCREMENTAL 时 no-op）。
 #[track_caller]
-pub fn cleanup_notifications(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn cleanup_notifications(
+    db: &Db,
+    retention_days: u32,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    db
-        .call_proxy_log_traced(None, __db_caller, move |conn| {
-            conn.execute("DELETE FROM notification WHERE created_at < ?1", params![cutoff])?;
+        let Some(cutoff) = retention_cutoff(retention_days) else {
+            return Ok(());
+        };
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "DELETE FROM notification WHERE created_at < ?1",
+                params![cutoff],
+            )?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
         })
@@ -335,4 +347,3 @@ pub fn cleanup_notifications(db: &Db, retention_days: u32) -> impl std::future::
 }
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
-

@@ -7,19 +7,37 @@ use super::*;
 fn default_template_per_event_independent() {
     // 每事件模板各自独立、用其专属入参（抽样核对）。
     assert_eq!(default_template_for_event("Stop"), "{project} 任务完成");
-    assert_eq!(default_template_for_event("SubagentStop"), "{project} 子代理 {agent_type} 完成");
-    assert_eq!(default_template_for_event("Notification"), "{project}：{message}");
-    assert_eq!(default_template_for_event("PostToolUseFailure"), "{project} {tool_name} 失败：{error}");
-    assert_eq!(default_template_for_event("SessionEnd"), "{project} 会话结束（{end_reason}）");
+    assert_eq!(
+        default_template_for_event("SubagentStop"),
+        "{project} 子代理 {agent_type} 完成"
+    );
+    assert_eq!(
+        default_template_for_event("Notification"),
+        "{project}：{message}"
+    );
+    assert_eq!(
+        default_template_for_event("PostToolUseFailure"),
+        "{project} {tool_name} 失败：{error}"
+    );
+    assert_eq!(
+        default_template_for_event("SessionEnd"),
+        "{project} 会话结束（{end_reason}）"
+    );
     // 全量目录每事件都有非空专属默认模板。
     for e in CC_HOOK_EVENTS {
-        assert!(!default_template_for_event(e).is_empty(), "event {e} missing default template");
+        assert!(
+            !default_template_for_event(e).is_empty(),
+            "event {e} missing default template"
+        );
     }
     // 各事件模板互不相同（无统一模板）。
     let mut seen = std::collections::HashSet::new();
     for e in CC_HOOK_EVENTS {
         let t = default_template_for_event(e);
-        assert!(seen.insert(t), "duplicate default template across events: {t}");
+        assert!(
+            seen.insert(t),
+            "duplicate default template across events: {t}"
+        );
     }
     // 未命中事件 → 空串（dispatch 兜底类型 default_template）。
     assert_eq!(default_template_for_event("UnknownEvent"), "");
@@ -28,7 +46,10 @@ fn default_template_per_event_independent() {
 #[test]
 fn default_on_set_subset_of_catalog() {
     for e in DEFAULT_ON_EVENTS {
-        assert!(CC_HOOK_EVENTS.contains(e), "default-on event {e} not in catalog");
+        assert!(
+            CC_HOOK_EVENTS.contains(e),
+            "default-on event {e} not in catalog"
+        );
     }
     // 默认 ON 仅 Stop + PermissionRequest（用户指示精简）。
     assert_eq!(DEFAULT_ON_EVENTS, &["Stop", "PermissionRequest"]);
@@ -40,8 +61,14 @@ fn default_on_set_subset_of_catalog() {
         "SessionEnd",
         "PreCompact",
     ] {
-        assert!(CC_HOOK_EVENTS.contains(&e), "event {e} should be in catalog");
-        assert!(!DEFAULT_ON_EVENTS.contains(&e), "event {e} should default off");
+        assert!(
+            CC_HOOK_EVENTS.contains(&e),
+            "event {e} should be in catalog"
+        );
+        assert!(
+            !DEFAULT_ON_EVENTS.contains(&e),
+            "event {e} should default off"
+        );
     }
 }
 
@@ -110,20 +137,44 @@ fn notif_type_serde_snake_case_roundtrip() {
         assert_eq!(back, variant);
         assert_eq!(format!("\"{}\"", variant.as_str()), lit);
     }
-    assert_eq!(NotifType::from_str_or_default("waiting_input"), NotifType::WaitingInput);
-    assert_eq!(NotifType::from_str_or_default("unknown_xyz"), NotifType::TaskComplete);
+    assert_eq!(
+        NotifType::from_str_or_default("waiting_input"),
+        NotifType::WaitingInput
+    );
+    assert_eq!(
+        NotifType::from_str_or_default("unknown_xyz"),
+        NotifType::TaskComplete
+    );
 }
 
 #[test]
 fn notif_form_and_backend_serde() {
-    assert_eq!(serde_json::to_string(&NotifForm::PopupOnly).unwrap(), "\"popup_only\"");
-    assert_eq!(serde_json::to_string(&NotifForm::InboxOnly).unwrap(), "\"inbox_only\"");
-    assert_eq!(serde_json::to_string(&NotifForm::SoundOnly).unwrap(), "\"sound_only\"");
+    assert_eq!(
+        serde_json::to_string(&NotifForm::PopupOnly).unwrap(),
+        "\"popup_only\""
+    );
+    assert_eq!(
+        serde_json::to_string(&NotifForm::InboxOnly).unwrap(),
+        "\"inbox_only\""
+    );
+    assert_eq!(
+        serde_json::to_string(&NotifForm::SoundOnly).unwrap(),
+        "\"sound_only\""
+    );
     assert_eq!(serde_json::to_string(&NotifForm::Full).unwrap(), "\"full\"");
     assert_eq!(NotifForm::default(), NotifForm::Full);
-    assert_eq!(serde_json::to_string(&TtsBackend::CrossPlatform).unwrap(), "\"cross_platform\"");
-    assert_eq!(serde_json::to_string(&TtsBackend::MacSay).unwrap(), "\"mac_say\"");
-    assert_eq!(serde_json::to_string(&TtsBackend::WebSpeech).unwrap(), "\"web_speech\"");
+    assert_eq!(
+        serde_json::to_string(&TtsBackend::CrossPlatform).unwrap(),
+        "\"cross_platform\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TtsBackend::MacSay).unwrap(),
+        "\"mac_say\""
+    );
+    assert_eq!(
+        serde_json::to_string(&TtsBackend::WebSpeech).unwrap(),
+        "\"web_speech\""
+    );
     assert_eq!(TtsBackend::default(), TtsBackend::CrossPlatform);
 }
 
@@ -152,7 +203,12 @@ fn notification_settings_default_and_partial() {
     let mut s2 = NotificationSettings::default();
     s2.per_type.insert(
         NotifType::TaskComplete.as_str().into(),
-        TypeSetting { tts: false, popup: true, form: NotifForm::InboxOnly, template: "{project} done".into() },
+        TypeSetting {
+            tts: false,
+            popup: true,
+            form: NotifForm::InboxOnly,
+            template: "{project} done".into(),
+        },
     );
     let json = serde_json::to_string(&s2).unwrap();
     let back: NotificationSettings = serde_json::from_str(&json).unwrap();

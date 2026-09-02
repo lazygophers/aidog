@@ -1,8 +1,6 @@
 use super::*;
-use aidog_db::test_support::{HomeGuard, ENV_LOCK};
+use aidog_db::test_support::{ENV_LOCK, HomeGuard};
 use std::collections::HashSet;
-
-
 
 #[test]
 fn build_group_profile_toml_shape() {
@@ -111,7 +109,10 @@ fn default_profile_inject_and_remove() {
     let injected = write_default_profile_to_config(8080).unwrap();
     assert!(injected.is_some());
     let cfg = codex_config_read().unwrap();
-    assert_eq!(cfg.get("model_provider").and_then(|v| v.as_str()), Some("aidog"));
+    assert_eq!(
+        cfg.get("model_provider").and_then(|v| v.as_str()),
+        Some("aidog")
+    );
     assert!(cfg.pointer("/model_providers/aidog").is_some());
 
     // re-inject identical → None (no change)
@@ -141,7 +142,10 @@ fn remove_keeps_user_provider_and_non_aidog_model_provider() {
     remove_default_profile_from_config().unwrap();
     let cfg = codex_config_read().unwrap();
     // user's model_provider "openai" preserved (not aidog)
-    assert_eq!(cfg.get("model_provider").and_then(|v| v.as_str()), Some("openai"));
+    assert_eq!(
+        cfg.get("model_provider").and_then(|v| v.as_str()),
+        Some("openai")
+    );
     // aidog provider removed but openai provider kept
     assert!(cfg.pointer("/model_providers/aidog").is_none());
     assert!(cfg.pointer("/model_providers/openai").is_some());
@@ -178,8 +182,14 @@ fn strip_nulls_removes_nulls_from_arrays() {
 #[test]
 fn strip_nulls_primitives_pass_through() {
     assert_eq!(strip_nulls(serde_json::json!(42)), serde_json::json!(42));
-    assert_eq!(strip_nulls(serde_json::json!("text")), serde_json::json!("text"));
-    assert_eq!(strip_nulls(serde_json::json!(true)), serde_json::json!(true));
+    assert_eq!(
+        strip_nulls(serde_json::json!("text")),
+        serde_json::json!("text")
+    );
+    assert_eq!(
+        strip_nulls(serde_json::json!(true)),
+        serde_json::json!(true)
+    );
 }
 
 // ── set_obj_path ──

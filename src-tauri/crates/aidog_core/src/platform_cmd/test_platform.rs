@@ -1,6 +1,6 @@
 #![cfg(test)]
-use aidog_db as db;
 use super::*;
+use aidog_db as db;
 use aidog_db::test_support::test_db;
 
 // aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
@@ -19,7 +19,8 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
         endpoints: None,
         manual_budgets: None,
         auto_group,
-        join_group_ids: join, expires_at: None,
+        join_group_ids: join,
+        expires_at: None,
     }
 }
 
@@ -42,7 +43,9 @@ async fn create_list_get_update_delete_flow() {
     let db = test_db().await;
 
     // create with auto_group
-    let p = create_platform_via_db(&db, sample_create("P1", Some(true), None)).await.unwrap();
+    let p = create_platform_via_db(&db, sample_create("P1", Some(true), None))
+        .await
+        .unwrap();
     assert_eq!(p.name, "P1");
 
     // list (balance_level computed path)
@@ -85,7 +88,9 @@ async fn create_list_get_update_delete_flow() {
 async fn create_without_auto_group_and_join_groups() {
     let db = test_db().await;
     // no auto group + empty join
-    let p = create_platform_via_db(&db, sample_create("NA", Some(false), Some(vec![]))).await.unwrap();
+    let p = create_platform_via_db(&db, sample_create("NA", Some(false), Some(vec![])))
+        .await
+        .unwrap();
     assert!(p.id > 0);
 }
 
@@ -93,7 +98,9 @@ async fn create_without_auto_group_and_join_groups() {
 async fn ensure_auto_group_idempotent() {
     let db = test_db().await;
     // create without auto group, then ensure
-    let p = create_platform_via_db(&db, sample_create("E1", Some(false), None)).await.unwrap();
+    let p = create_platform_via_db(&db, sample_create("E1", Some(false), None))
+        .await
+        .unwrap();
 
     async fn ensure_auto_group(db: &Db, id: u64) -> Result<(), String> {
         let platform = match db::get_platform(db, id).await? {
@@ -102,7 +109,10 @@ async fn ensure_auto_group_idempotent() {
         };
         let groups = db::list_groups(db).await.unwrap_or_default();
         let platform_id_str = platform.id.to_string();
-        if groups.iter().any(|g| g.auto_from_platform == platform_id_str) {
+        if groups
+            .iter()
+            .any(|g| g.auto_from_platform == platform_id_str)
+        {
             return Ok(());
         }
         create_auto_group_for(db, &platform).await
@@ -163,16 +173,31 @@ fn share_empty_fields_skipped_in_yaml() {
     let s = empty_share();
     let yaml = serde_yml::to_string(&s).expect("serialize");
     // 必保留字段
-    assert!(yaml.contains("aidog_platform_share:"), "marker kept: {yaml}");
+    assert!(
+        yaml.contains("aidog_platform_share:"),
+        "marker kept: {yaml}"
+    );
     assert!(yaml.contains("name: P"), "name kept: {yaml}");
     assert!(yaml.contains("base_url:"), "base_url kept: {yaml}");
-    assert!(yaml.contains("api_key:"), "api_key kept (even non-empty here): {yaml}");
+    assert!(
+        yaml.contains("api_key:"),
+        "api_key kept (even non-empty here): {yaml}"
+    );
     // 空值字段必须从串里消失
     assert!(!yaml.contains("extra:"), "empty extra skipped: {yaml}");
     assert!(!yaml.contains("models:"), "empty models skipped: {yaml}");
-    assert!(!yaml.contains("available_models:"), "empty available_models skipped: {yaml}");
-    assert!(!yaml.contains("endpoints:"), "empty endpoints skipped: {yaml}");
-    assert!(!yaml.contains("manual_budgets:"), "empty manual_budgets skipped: {yaml}");
+    assert!(
+        !yaml.contains("available_models:"),
+        "empty available_models skipped: {yaml}"
+    );
+    assert!(
+        !yaml.contains("endpoints:"),
+        "empty endpoints skipped: {yaml}"
+    );
+    assert!(
+        !yaml.contains("manual_budgets:"),
+        "empty manual_budgets skipped: {yaml}"
+    );
 }
 
 #[test]
@@ -181,7 +206,10 @@ fn share_empty_api_key_still_present() {
     let mut s = empty_share();
     s.api_key = String::new();
     let yaml = serde_yml::to_string(&s).expect("serialize");
-    assert!(yaml.contains("api_key:"), "empty api_key still present: {yaml}");
+    assert!(
+        yaml.contains("api_key:"),
+        "empty api_key still present: {yaml}"
+    );
 }
 
 #[test]
@@ -190,13 +218,25 @@ fn share_nonempty_models_field_kept() {
     let mut s = empty_share();
     s.models.sonnet = Some("claude-sonnet-4".into());
     let yaml = serde_yml::to_string(&s).expect("serialize");
-    assert!(yaml.contains("models:"), "models block kept when slot set: {yaml}");
-    assert!(yaml.contains("sonnet: claude-sonnet-4"), "sonnet slot value present: {yaml}");
+    assert!(
+        yaml.contains("models:"),
+        "models block kept when slot set: {yaml}"
+    );
+    assert!(
+        yaml.contains("sonnet: claude-sonnet-4"),
+        "sonnet slot value present: {yaml}"
+    );
     // PlatformModels 槽位自身 skip_serializing_if Option::is_none，未设槽位不出现在 models 块里
-    assert!(!yaml.contains("default:"), "unset models.default skipped inside block: {yaml}");
+    assert!(
+        !yaml.contains("default:"),
+        "unset models.default skipped inside block: {yaml}"
+    );
     // 其余空字段仍剔除
     assert!(!yaml.contains("extra:"), "extra still skipped: {yaml}");
-    assert!(!yaml.contains("available_models:"), "available_models still skipped: {yaml}");
+    assert!(
+        !yaml.contains("available_models:"),
+        "available_models still skipped: {yaml}"
+    );
 }
 
 #[test]

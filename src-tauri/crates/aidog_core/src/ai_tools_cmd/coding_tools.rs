@@ -3,7 +3,6 @@ use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;
 
-
 // ─── AI 编程工具联动开关 ──────────────────────────
 //
 // 两开关存 DB（scope="global", key="coding_tools_settings"），变化时按 diff 触发
@@ -26,8 +25,12 @@ pub struct CodingToolsSettings {
     skip_claude_onboarding: bool,
 }
 
-pub(crate) fn coding_tools_default_apply() -> bool { CODING_TOOLS_DEFAULT_APPLY }
-pub(crate) fn coding_tools_default_skip() -> bool { CODING_TOOLS_DEFAULT_SKIP }
+pub(crate) fn coding_tools_default_apply() -> bool {
+    CODING_TOOLS_DEFAULT_APPLY
+}
+pub(crate) fn coding_tools_default_skip() -> bool {
+    CODING_TOOLS_DEFAULT_SKIP
+}
 
 impl Default for CodingToolsSettings {
     fn default() -> Self {
@@ -56,7 +59,12 @@ pub(crate) async fn load_coding_tools_settings(db: &Db) -> CodingToolsSettings {
 /// 幂等：claude_integration 内部对已存在字段做 diff 跳过（重复写无副作用）。
 /// 失败仅 warn 不中断启动。
 pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String> {
-    if db::get_setting(db, "global", "coding_tools_settings").await.ok().flatten().is_some() {
+    if db::get_setting(db, "global", "coding_tools_settings")
+        .await
+        .ok()
+        .flatten()
+        .is_some()
+    {
         // 用户已 toggle 过两开关，完全尊重 DB 值，不强制默认写。
         return Ok(());
     }
@@ -64,14 +72,18 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
     // 无记录（用户未操作）→ 写两外部文件让功能开箱生效。
     // 独立 try，失败 warn 不中断另一个；不落 DB 记录。
     match gateway::claude_integration::write_plugin_primary_key() {
-        Ok(_changed) => tracing::info!("ensure_default_coding_tools_settings: wrote ~/.claude/config.json primaryApiKey"),
+        Ok(_changed) => tracing::info!(
+            "ensure_default_coding_tools_settings: wrote ~/.claude/config.json primaryApiKey"
+        ),
         Err(e) => tracing::warn!(
             error = %e,
             "ensure_default_coding_tools_settings: write ~/.claude/config.json failed"
         ),
     }
     match gateway::claude_integration::set_has_completed_onboarding() {
-        Ok(_changed) => tracing::info!("ensure_default_coding_tools_settings: wrote ~/.claude.json hasCompletedOnboarding"),
+        Ok(_changed) => tracing::info!(
+            "ensure_default_coding_tools_settings: wrote ~/.claude.json hasCompletedOnboarding"
+        ),
         Err(e) => tracing::warn!(
             error = %e,
             "ensure_default_coding_tools_settings: write ~/.claude.json failed"

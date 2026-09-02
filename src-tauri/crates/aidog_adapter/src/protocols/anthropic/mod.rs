@@ -3,8 +3,8 @@
 pub mod convert;
 pub use convert::*;
 
-use crate::converter::traits::ProtocolConverter;
 use crate::converter::NonStreamResponse;
+use crate::converter::traits::ProtocolConverter;
 use crate::types::*;
 use serde_json::Value;
 
@@ -18,8 +18,7 @@ impl ProtocolConverter for AnthropicConverter {
 
     fn parse_incoming(&self, body: &[u8]) -> Result<ChatRequest, String> {
         // Anthropic 入站请求直接反序列化为 ChatRequest
-        serde_json::from_slice(body)
-            .map_err(|e| format!("Anthropic parse error: {}", e))
+        serde_json::from_slice(body).map_err(|e| format!("Anthropic parse error: {}", e))
     }
 
     fn serialize_request(&self, req: &ChatRequest) -> Result<(Value, String), String> {

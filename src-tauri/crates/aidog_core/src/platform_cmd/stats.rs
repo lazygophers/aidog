@@ -3,7 +3,6 @@ use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
-
 crate::tauri_command! {
 pub async fn stats_query(
     db: State<'_, Db>,

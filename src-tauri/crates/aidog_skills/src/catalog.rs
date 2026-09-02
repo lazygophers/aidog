@@ -107,25 +107,26 @@ fn parse_add_list_output(raw: &str, source: &str) -> Vec<CatalogEntry> {
     let mut current: Option<(String, String)> = None; // (name, desc)
     let mut in_section = false;
 
-    let flush =
-        |cur: &mut Option<(String, String)>, source: &str, repo_url: &str, out: &mut Vec<CatalogEntry>| {
-            if let Some((name, desc)) = cur.take() {
-                let desc = desc.trim().to_string();
-                out.push(CatalogEntry {
-                    id: format!("{source}@{name}"),
-                    name,
-                    description: if desc.is_empty() { None } else { Some(desc) },
-                    repo_url: Some(repo_url.to_string()),
-                });
-            }
-        };
+    let flush = |cur: &mut Option<(String, String)>,
+                 source: &str,
+                 repo_url: &str,
+                 out: &mut Vec<CatalogEntry>| {
+        if let Some((name, desc)) = cur.take() {
+            let desc = desc.trim().to_string();
+            out.push(CatalogEntry {
+                id: format!("{source}@{name}"),
+                name,
+                description: if desc.is_empty() { None } else { Some(desc) },
+                repo_url: Some(repo_url.to_string()),
+            });
+        }
+    };
 
     for line in clean.lines() {
         // 去前导框形字符 / spinner / 状态符号 + 空白。
         // 保留 `└` 不剥 (用作 footer 检测)。
         let stripped = line.trim_start_matches(|c: char| {
-            matches!(c, '│' | '◇' | '●' | '◒' | '◐' | '◓' | '◑' | '⊙' | '◌')
-                || c.is_whitespace()
+            matches!(c, '│' | '◇' | '●' | '◒' | '◐' | '◓' | '◑' | '⊙' | '◌') || c.is_whitespace()
         });
         if !in_section {
             if stripped.starts_with("Available Skills") {
@@ -253,17 +254,18 @@ fn parse_find_output(raw: &str) -> Vec<CatalogEntry> {
 
     let mut out = Vec::new();
     let mut pending: Option<(String, String)> = None; // (id, installs)
-    let flush = |pending: &mut Option<(String, String)>, url: Option<&str>, out: &mut Vec<CatalogEntry>| {
-        if let Some((id, installs)) = pending.take() {
-            let name = id.split('@').next_back().unwrap_or(&id).to_string();
-            out.push(CatalogEntry {
-                id,
-                name,
-                description: Some(installs),
-                repo_url: url.map(|s| s.to_string()),
-            });
-        }
-    };
+    let flush =
+        |pending: &mut Option<(String, String)>, url: Option<&str>, out: &mut Vec<CatalogEntry>| {
+            if let Some((id, installs)) = pending.take() {
+                let name = id.split('@').next_back().unwrap_or(&id).to_string();
+                out.push(CatalogEntry {
+                    id,
+                    name,
+                    description: Some(installs),
+                    repo_url: url.map(|s| s.to_string()),
+                });
+            }
+        };
     for line in clean.lines() {
         let line = line.trim();
         if let Some(caps) = id_re.captures(line) {
@@ -273,9 +275,10 @@ fn parse_find_output(raw: &str) -> Vec<CatalogEntry> {
             let installs = caps[2].trim().to_string();
             pending = Some((id, installs));
         } else if pending.is_some()
-            && let Some(m) = url_re.find(line) {
-                flush(&mut pending, Some(m.as_str()), &mut out);
-            }
+            && let Some(m) = url_re.find(line)
+        {
+            flush(&mut pending, Some(m.as_str()), &mut out);
+        }
     }
     // 收尾：最后一条若无 URL 行也提交。
     flush(&mut pending, None, &mut out);

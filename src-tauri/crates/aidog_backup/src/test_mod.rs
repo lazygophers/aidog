@@ -1,6 +1,6 @@
+use super::*;
 use aidog_db as db;
 use aidog_stats::DbInitTables;
-use super::*;
 
 #[test]
 fn settings_roundtrip() {
@@ -36,8 +36,8 @@ fn settings_default_when_missing_fields() {
 fn sanitized_clamps_invalid_values() {
     let s = BackupSettings {
         enabled: true,
-        interval_hours: 0,    // 非法 → 默认 24
-        retention_days: 999,  // 非法 → 默认 7
+        interval_hours: 0,   // 非法 → 默认 24
+        retention_days: 999, // 非法 → 默认 7
         last_backup_at: 0,
         last_backup_error: String::new(),
         defaults_version: CURRENT_DEFAULTS_VERSION,
@@ -123,7 +123,8 @@ async fn migration_idempotent_across_loads() {
     let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
     // 写老数据 (无 version)。
-    let legacy_json = serde_json::json!({"enabled": false, "interval_hours": 48, "retention_days": 14});
+    let legacy_json =
+        serde_json::json!({"enabled": false, "interval_hours": 48, "retention_days": 14});
     db::set_setting(
         &db,
         SetSettingInput {

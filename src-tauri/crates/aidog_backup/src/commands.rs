@@ -2,7 +2,6 @@ use aidog_core::gateway;
 use aidog_db::Db;
 use tauri::State;
 
-
 aidog_core::tauri_command! {
     pub async fn export_to_file(
         db: State<'_, Db>,
@@ -221,4 +220,3 @@ aidog_core::tauri_command! {
         gateway::import_export::sub2api::import(platform_payload, &decisions, auto_group, &db).await
     }
 }
-

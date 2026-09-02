@@ -1,17 +1,23 @@
 use serde_json::Value;
 
-use crate::types::*;
 use super::to_openai;
+use crate::types::*;
 
 fn user_blocks(blocks: Vec<ContentBlock>) -> Message {
-    Message { role: Role::User, content: MessageContent::Blocks(blocks) }
+    Message {
+        role: Role::User,
+        content: MessageContent::Blocks(blocks),
+    }
 }
 fn assistant_blocks(blocks: Vec<ContentBlock>) -> Message {
-    Message { role: Role::Assistant, content: MessageContent::Blocks(blocks) }
+    Message {
+        role: Role::Assistant,
+        content: MessageContent::Blocks(blocks),
+    }
 }
 fn base_req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "kimi-k2".into(),
         messages,
         system: None,
@@ -33,12 +39,19 @@ fn thinking_only_assistant_message_is_skipped() {
         "type": "thinking", "thinking": "let me think", "signature": "sig"
     }));
     let req = base_req(vec![
-        Message { role: Role::User, content: MessageContent::Text("hi".into()) },
+        Message {
+            role: Role::User,
+            content: MessageContent::Text("hi".into()),
+        },
         assistant_blocks(vec![thinking]),
     ]);
     let out = to_openai(&req);
     // 只应保留 user 消息,thinking-only assistant 被跳过(否则 Kimi 400)
-    assert_eq!(out.messages.len(), 1, "thinking-only assistant 不应产出空 message");
+    assert_eq!(
+        out.messages.len(),
+        1,
+        "thinking-only assistant 不应产出空 message"
+    );
     assert_eq!(out.messages[0].role, "user");
 }
 
@@ -50,7 +63,8 @@ fn thinking_plus_tool_use_keeps_tool_calls() {
         ContentBlock::ToolUse {
             id: "call_1".into(),
             name: "read_file".into(),
-            input: serde_json::json!({"path":"/a"}), extra: None
+            input: serde_json::json!({"path":"/a"}),
+            extra: None,
         },
     ])]);
     let out = to_openai(&req);
@@ -66,8 +80,18 @@ fn thinking_plus_tool_use_keeps_tool_calls() {
 #[test]
 fn tool_result_plus_text_preserves_text() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::ToolResult { tool_use_id: "call_1".into(), content: "file content".into(), name: None, is_error: None, content_blocks: None, extra: None },
-        ContentBlock::Text { text: "now do X".into(), extra: None },
+        ContentBlock::ToolResult {
+            tool_use_id: "call_1".into(),
+            content: "file content".into(),
+            name: None,
+            is_error: None,
+            content_blocks: None,
+            extra: None,
+        },
+        ContentBlock::Text {
+            text: "now do X".into(),
+            extra: None,
+        },
     ])]);
     let out = to_openai(&req);
     // tool message + 残余 user 文本 message
@@ -75,15 +99,32 @@ fn tool_result_plus_text_preserves_text() {
     assert_eq!(out.messages[0].role, "tool");
     assert_eq!(out.messages[0].tool_call_id.as_deref(), Some("call_1"));
     assert_eq!(out.messages[1].role, "user");
-    assert_eq!(out.messages[1].content, Some(Value::String("now do X".into())));
+    assert_eq!(
+        out.messages[1].content,
+        Some(Value::String("now do X".into()))
+    );
 }
 
 // 缺陷 A 变体: 多个 tool_result(并行工具)各自成 tool message,tool_call_id 对应
 #[test]
 fn multiple_tool_results_each_become_tool_message() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::ToolResult { tool_use_id: "c1".into(), content: "r1".into(), name: None, is_error: None, content_blocks: None, extra: None },
-        ContentBlock::ToolResult { tool_use_id: "c2".into(), content: "r2".into(), name: None, is_error: None, content_blocks: None, extra: None },
+        ContentBlock::ToolResult {
+            tool_use_id: "c1".into(),
+            content: "r1".into(),
+            name: None,
+            is_error: None,
+            content_blocks: None,
+            extra: None,
+        },
+        ContentBlock::ToolResult {
+            tool_use_id: "c2".into(),
+            content: "r2".into(),
+            name: None,
+            is_error: None,
+            content_blocks: None,
+            extra: None,
+        },
     ])]);
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 2);
@@ -95,49 +136,72 @@ fn multiple_tool_results_each_become_tool_message() {
 #[test]
 fn multiple_text_blocks_join_into_string() {
     let req = base_req(vec![user_blocks(vec![
-        ContentBlock::Text { text: "part1".into(), extra: None },
-        ContentBlock::Text { text: "part2".into(), extra: None },
+        ContentBlock::Text {
+            text: "part1".into(),
+            extra: None,
+        },
+        ContentBlock::Text {
+            text: "part2".into(),
+            extra: None,
+        },
     ])]);
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 1);
-    assert_eq!(out.messages[0].content, Some(Value::String("part1\npart2".into())));
+    assert_eq!(
+        out.messages[0].content,
+        Some(Value::String("part1\npart2".into()))
+    );
 }
 
 // system 字符串消息放在最前
 #[test]
 fn system_text_becomes_first_message() {
-    let mut req = base_req(vec![
-        Message { role: Role::User, content: MessageContent::Text("hello".into()) },
-    ]);
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("hello".into()),
+    }]);
     req.system = Some(SystemContent::Text("You are helpful".into()));
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 2);
     assert_eq!(out.messages[0].role, "system");
-    assert_eq!(out.messages[0].content, Some(Value::String("You are helpful".into())));
+    assert_eq!(
+        out.messages[0].content,
+        Some(Value::String("You are helpful".into()))
+    );
     assert_eq!(out.messages[1].role, "user");
 }
 
 // system blocks: 提取 text 字段拼接
 #[test]
 fn system_blocks_extract_text() {
-    let mut req = base_req(vec![
-        Message { role: Role::User, content: MessageContent::Text("q".into()) },
-    ]);
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("q".into()),
+    }]);
     req.system = Some(SystemContent::Blocks(vec![
         serde_json::json!({"type":"text","text":"block1"}),
         serde_json::json!({"type":"text","text":"block2"}),
     ]));
     let out = to_openai(&req);
     assert_eq!(out.messages[0].role, "system");
-    assert_eq!(out.messages[0].content, Some(Value::String("block1\nblock2".into())));
+    assert_eq!(
+        out.messages[0].content,
+        Some(Value::String("block1\nblock2".into()))
+    );
 }
 
 // 普通 user/assistant 文本消息
 #[test]
 fn plain_text_user_and_assistant() {
     let req = base_req(vec![
-        Message { role: Role::User, content: MessageContent::Text("question".into()) },
-        Message { role: Role::Assistant, content: MessageContent::Text("answer".into()) },
+        Message {
+            role: Role::User,
+            content: MessageContent::Text("question".into()),
+        },
+        Message {
+            role: Role::Assistant,
+            content: MessageContent::Text("answer".into()),
+        },
     ]);
     let out = to_openai(&req);
     assert_eq!(out.messages.len(), 2);
@@ -148,9 +212,10 @@ fn plain_text_user_and_assistant() {
 // system/tool role messages
 #[test]
 fn system_role_message_in_messages() {
-    let req = base_req(vec![
-        Message { role: Role::System, content: MessageContent::Text("sys".into()) },
-    ]);
+    let req = base_req(vec![Message {
+        role: Role::System,
+        content: MessageContent::Text("sys".into()),
+    }]);
     let out = to_openai(&req);
     assert_eq!(out.messages[0].role, "system");
 }
@@ -158,16 +223,17 @@ fn system_role_message_in_messages() {
 // tools passthrough
 #[test]
 fn tools_are_converted() {
-    let mut req = base_req(vec![
-        Message { role: Role::User, content: MessageContent::Text("use tool".into()) },
-    ]);
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("use tool".into()),
+    }]);
     req.tools = Some(vec![Tool {
         name: "my_tool".into(),
         description: Some("does stuff".into()),
         input_schema: serde_json::json!({"type":"object"}),
-                tool_type: None,
-                cache_control: None,
-                extra: None,
+        tool_type: None,
+        cache_control: None,
+        extra: None,
     }]);
     let out = to_openai(&req);
     let tools = out.tools.expect("tools present");
@@ -179,7 +245,10 @@ fn tools_are_converted() {
 // tool_choice variants
 #[test]
 fn tool_choice_auto() {
-    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("q".into()),
+    }]);
     req.tool_choice = Some(ToolChoice::Auto);
     let out = to_openai(&req);
     assert_eq!(out.tool_choice, Some(serde_json::json!("auto")));
@@ -187,7 +256,10 @@ fn tool_choice_auto() {
 
 #[test]
 fn tool_choice_any_maps_to_required() {
-    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("q".into()),
+    }]);
     req.tool_choice = Some(ToolChoice::Any);
     let out = to_openai(&req);
     assert_eq!(out.tool_choice, Some(serde_json::json!("required")));
@@ -195,7 +267,10 @@ fn tool_choice_any_maps_to_required() {
 
 #[test]
 fn tool_choice_none() {
-    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("q".into()),
+    }]);
     req.tool_choice = Some(ToolChoice::None);
     let out = to_openai(&req);
     assert_eq!(out.tool_choice, Some(serde_json::json!("none")));
@@ -203,8 +278,13 @@ fn tool_choice_none() {
 
 #[test]
 fn tool_choice_named() {
-    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
-    req.tool_choice = Some(ToolChoice::Named { name: "my_tool".into() });
+    let mut req = base_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Text("q".into()),
+    }]);
+    req.tool_choice = Some(ToolChoice::Named {
+        name: "my_tool".into(),
+    });
     let out = to_openai(&req);
     let tc = out.tool_choice.unwrap();
     assert_eq!(tc["type"], "function");

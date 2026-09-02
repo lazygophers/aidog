@@ -1,6 +1,6 @@
 //! KV 设置与各类全局配置：通用 KV / 统计 / 超时 / 出站代理 / 调度+熔断默认。
 
-use super::{default_true, Platform, RoutingMode};
+use super::{Platform, RoutingMode, default_true};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -41,11 +41,15 @@ pub struct StatsSettings {
     pub retention_days: u32,
 }
 
-fn default_stats_retention_days() -> u32 { 365 }
+fn default_stats_retention_days() -> u32 {
+    365
+}
 
 impl Default for StatsSettings {
     fn default() -> Self {
-        Self { retention_days: default_stats_retention_days() }
+        Self {
+            retention_days: default_stats_retention_days(),
+        }
     }
 }
 
@@ -68,8 +72,8 @@ pub struct ProxyTimeoutSettings {
 impl Default for ProxyTimeoutSettings {
     fn default() -> Self {
         Self {
-            request_timeout_secs: 300,  // 5 minutes
-            connect_timeout_secs: 10,   // 10 seconds
+            request_timeout_secs: 300, // 5 minutes
+            connect_timeout_secs: 10,  // 10 seconds
         }
     }
 }
@@ -109,9 +113,15 @@ pub struct ProxyClientSettings {
     pub dns_over_proxy: bool,
 }
 
-fn default_proxy_type() -> String { "socks5".to_string() }
-fn default_proxy_host() -> String { "127.0.0.1".to_string() }
-fn default_proxy_port() -> u16 { 7890 }
+fn default_proxy_type() -> String {
+    "socks5".to_string()
+}
+fn default_proxy_host() -> String {
+    "127.0.0.1".to_string()
+}
+fn default_proxy_port() -> u16 {
+    7890
+}
 
 impl Default for ProxyClientSettings {
     fn default() -> Self {
@@ -130,7 +140,9 @@ impl Default for ProxyClientSettings {
 impl ProxyClientSettings {
     /// Build a reqwest::Proxy from settings. Returns None if not enabled.
     pub fn to_reqwest_proxy(&self) -> Option<reqwest::Proxy> {
-        if !self.enabled { return None; }
+        if !self.enabled {
+            return None;
+        }
         let scheme = match self.proxy_type.as_str() {
             "socks5" if self.dns_over_proxy => "socks5h",
             "socks5" => "socks5",
@@ -139,7 +151,10 @@ impl ProxyClientSettings {
         };
         let url = format!("{}://{}:{}", scheme, self.host, self.port);
         let mut proxy = reqwest::Proxy::all(&url)
-            .map_err(|e| { tracing::warn!("invalid proxy URL {}: {e}", url); e })
+            .map_err(|e| {
+                tracing::warn!("invalid proxy URL {}: {e}", url);
+                e
+            })
             .ok()?;
         if !self.username.is_empty() {
             proxy = proxy.basic_auth(&self.username, &self.password);
@@ -174,10 +189,18 @@ pub struct SchedulingBreakerSettings {
     pub enabled: bool,
 }
 
-fn default_routing_mode_str() -> String { "health_aware".to_string() }
-fn default_breaker_failure_threshold() -> u32 { 5 }
-fn default_breaker_open_secs() -> u64 { 60 }
-fn default_breaker_half_open_max() -> u32 { 2 }
+fn default_routing_mode_str() -> String {
+    "health_aware".to_string()
+}
+fn default_breaker_failure_threshold() -> u32 {
+    5
+}
+fn default_breaker_open_secs() -> u64 {
+    60
+}
+fn default_breaker_half_open_max() -> u32 {
+    2
+}
 
 impl Default for SchedulingBreakerSettings {
     fn default() -> Self {

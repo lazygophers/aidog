@@ -57,7 +57,9 @@ pub(crate) async fn handle_connect(
     let span = tracing::info_span!(
         "req", trace_id = %&request_id[..8], request_id = %request_id,
     );
-    handle_connect_inner(state, req, request_id).instrument(span).await
+    handle_connect_inner(state, req, request_id)
+        .instrument(span)
+        .await
 }
 
 async fn handle_connect_inner(
@@ -90,7 +92,11 @@ async fn handle_connect_inner(
         inject_trace_header(&mut r);
         return r;
     }
-    let host_only = target.rsplit_once(':').map(|(h, _)| h).unwrap_or(&target).to_string();
+    let host_only = target
+        .rsplit_once(':')
+        .map(|(h, _)| h)
+        .unwrap_or(&target)
+        .to_string();
     tracing::info!(target = %target, host_only = %host_only, request_id = %request_id, "connect parsed target/host");
     let on_upgrade = hyper::upgrade::on(req);
 
@@ -126,7 +132,9 @@ async fn handle_connect_inner(
         let sched_defaults = super::models::SchedulingBreakerSettings::default();
         let (ft, os, hom) = sched_defaults.effective_thresholds(p);
         super::scheduling::BreakerThresholds {
-            failure_threshold: ft, open_secs: os, half_open_max: hom,
+            failure_threshold: ft,
+            open_secs: os,
+            half_open_max: hom,
         }
     });
 
@@ -148,23 +156,43 @@ async fn handle_connect_inner(
     if !mitm_candidate {
         // P2-A/B/C：TCP 连接套 timeout + 熔断/last_error 记账（命中平台时）。
         let upstream = match tcp_connect_accounted(
-            &state, &target, platform_id, breaker_th.as_ref(), conn_timeout_secs,
-        ).await {
+            &state,
+            &target,
+            platform_id,
+            breaker_th.as_ref(),
+            conn_timeout_secs,
+        )
+        .await
+        {
             Ok(s) => s,
             Err(()) => {
                 if log_enabled {
                     upsert_connect_log(
-                        &state, request_id, String::new(), platform_id,
-                        target.clone(), 502, start.elapsed().as_millis() as i32,
-                    ).await;
+                        &state,
+                        request_id,
+                        String::new(),
+                        platform_id,
+                        target.clone(),
+                        502,
+                        start.elapsed().as_millis() as i32,
+                    )
+                    .await;
                 }
-                let mut r = (StatusCode::BAD_GATEWAY, format!("connect {target} failed")).into_response();
+                let mut r =
+                    (StatusCode::BAD_GATEWAY, format!("connect {target} failed")).into_response();
                 inject_trace_header(&mut r);
                 return r;
             }
         };
         return spawn_blind_relay(
-            state, on_upgrade, upstream, target, request_id, platform_id, start, log_enabled,
+            state,
+            on_upgrade,
+            upstream,
+            target,
+            request_id,
+            platform_id,
+            start,
+            log_enabled,
         );
     }
 
@@ -188,25 +216,43 @@ async fn handle_connect_inner(
                 tracing::warn!(error = %e, target = %target, request_id = %request_id, "connect upgrade failed");
                 if log_enabled {
                     upsert_connect_log(
-                        &st, request_id, String::new(), platform_id,
-                        target, 499, start.elapsed().as_millis() as i32,
-                    ).await;
+                        &st,
+                        request_id,
+                        String::new(),
+                        platform_id,
+                        target,
+                        499,
+                        start.elapsed().as_millis() as i32,
+                    )
+                    .await;
                 }
                 return;
             }
         };
         // hyper-util auto 用私有 Rewind<T> 包 IO；downcast 回 TokioIo<TcpStream>
         // （axum::serve 喂入的 IO 类型）+ 拿预读 buf。
-        let parts = match hyper_util::server::conn::auto::upgrade::downcast::<TokioIo<tokio::net::TcpStream>>(upgraded) {
+        let parts = match hyper_util::server::conn::auto::upgrade::downcast::<
+            TokioIo<tokio::net::TcpStream>,
+        >(upgraded)
+        {
             Ok(p) => p,
             Err(upgraded) => {
                 // downcast 失败（理论上不应）→ 退化 blind_relay（裸 Upgraded，不进 MITM）。
                 tracing::warn!(target = %target, request_id = %request_id, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
                 blind_relay_after_connect(
-                    &st, client, &target, request_id, platform_id,
-                    breaker_th.as_ref(), conn_timeout_secs, start, log_enabled, &[],
-                ).await;
+                    &st,
+                    client,
+                    &target,
+                    request_id,
+                    platform_id,
+                    breaker_th.as_ref(),
+                    conn_timeout_secs,
+                    start,
+                    log_enabled,
+                    &[],
+                )
+                .await;
                 return;
             }
         };
@@ -229,9 +275,18 @@ async fn handle_connect_inner(
         let client_for_blind: Option<_> = if parts.read_buf.is_empty() {
             tracing::info!(target = %target, request_id = %request_id, "→ handle_mitm (read_buf empty)");
             match handle_mitm(
-                &st, mitm_state, client, &target, &host_only,
-                request_id.clone(), platform_id, start, log_enabled,
-            ).await {
+                &st,
+                mitm_state,
+                client,
+                &target,
+                &host_only,
+                request_id.clone(),
+                platform_id,
+                start,
+                log_enabled,
+            )
+            .await
+            {
                 MitmOutcome::Connected => {
                     tracing::info!(target = %target, request_id = %request_id, "← handle_mitm Connected (MITM 隧道建/终态已写)");
                     return; // MITM 成功建隧道或终态日志已写
@@ -257,9 +312,18 @@ async fn handle_connect_inner(
         // blind_relay_after_connect，由其在 connect upstream 成功后 flush 到 upstream
         // （写错对象回灌 client 会致 TLS 状态机错乱 RST，见 spawn_blind_relay 同款修复）。
         blind_relay_after_connect(
-            &st, client, &target, request_id, platform_id,
-            breaker_th.as_ref(), conn_timeout_secs, start, log_enabled, &parts.read_buf,
-        ).await;
+            &st,
+            client,
+            &target,
+            request_id,
+            platform_id,
+            breaker_th.as_ref(),
+            conn_timeout_secs,
+            start,
+            log_enabled,
+            &parts.read_buf,
+        )
+        .await;
     });
 
     // CONNECT 200 响应是 AirDog 直构（与之后 TCP 字节透传 blind_relay 无关）→ 注入 trace header。
@@ -301,14 +365,23 @@ fn spawn_blind_relay(
                 }
                 if log_enabled {
                     upsert_connect_log(
-                        &state, request_id, String::new(), platform_id,
-                        target, 499, start.elapsed().as_millis() as i32,
-                    ).await;
+                        &state,
+                        request_id,
+                        String::new(),
+                        platform_id,
+                        target,
+                        499,
+                        start.elapsed().as_millis() as i32,
+                    )
+                    .await;
                 }
                 return;
             }
         };
-        let parts = match hyper_util::server::conn::auto::upgrade::downcast::<TokioIo<tokio::net::TcpStream>>(upgraded) {
+        let parts = match hyper_util::server::conn::auto::upgrade::downcast::<
+            TokioIo<tokio::net::TcpStream>,
+        >(upgraded)
+        {
             Ok(p) => p,
             Err(upgraded) => {
                 tracing::warn!(target = %target, "downcast TokioIo<TcpStream> failed, blind relay");
@@ -318,7 +391,8 @@ fn spawn_blind_relay(
                 if platform_id != 0 {
                     state.scheduler.record_ignored(platform_id);
                 }
-                log_connect_success(&state, request_id, platform_id, target, start, log_enabled).await;
+                log_connect_success(&state, request_id, platform_id, target, start, log_enabled)
+                    .await;
                 return;
             }
         };
@@ -384,10 +458,26 @@ async fn blind_relay_after_connect(
             if platform_id != 0 {
                 st.scheduler.record_ignored(platform_id);
             }
-            log_connect_success(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
+            log_connect_success(
+                st,
+                request_id,
+                platform_id,
+                target.to_string(),
+                start,
+                log_enabled,
+            )
+            .await;
         }
         Err(()) => {
-            log_connect_502(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
+            log_connect_502(
+                st,
+                request_id,
+                platform_id,
+                target.to_string(),
+                start,
+                log_enabled,
+            )
+            .await;
         }
     }
 }
@@ -420,17 +510,34 @@ pub(crate) async fn tcp_connect_accounted(
     let conn = tokio::time::timeout(
         std::time::Duration::from_secs(conn_timeout_secs),
         tokio::net::TcpStream::connect(target),
-    ).await;
+    )
+    .await;
     match conn {
         Ok(Ok(s)) => Ok(s),
         Ok(Err(e)) => {
             tracing::warn!(error = %e, target, "connect: upstream TCP failed");
-            record_connect_failure(st, platform_id, breaker_th, format!("connect TCP error: {e}")).await;
+            record_connect_failure(
+                st,
+                platform_id,
+                breaker_th,
+                format!("connect TCP error: {e}"),
+            )
+            .await;
             Err(())
         }
         Err(_) => {
-            tracing::warn!(target, secs = conn_timeout_secs, "connect: upstream TCP timeout");
-            record_connect_failure(st, platform_id, breaker_th, format!("connect TCP timeout ({conn_timeout_secs}s)")).await;
+            tracing::warn!(
+                target,
+                secs = conn_timeout_secs,
+                "connect: upstream TCP timeout"
+            );
+            record_connect_failure(
+                st,
+                platform_id,
+                breaker_th,
+                format!("connect TCP timeout ({conn_timeout_secs}s)"),
+            )
+            .await;
             Err(())
         }
     }
@@ -448,7 +555,8 @@ async fn record_connect_failure(
         return;
     }
     if let Some(th) = breaker_th {
-        st.scheduler.record_failure(platform_id, th, aidog_db::now());
+        st.scheduler
+            .record_failure(platform_id, th, aidog_db::now());
     }
     let _ = aidog_db::set_platform_last_error(&st.db, platform_id, Some(err_msg)).await;
 }
@@ -546,7 +654,15 @@ where
         Ok(s) => s,
         Err(e) => {
             tracing::warn!(error = %e, target, "mitm: upstream TCP failed, terminal 502");
-            log_connect_502(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
+            log_connect_502(
+                st,
+                request_id,
+                platform_id,
+                target.to_string(),
+                start,
+                log_enabled,
+            )
+            .await;
             // TCP 失败非 pinning，不标 suspect；client 不再有用（上游连不上 blind_relay 也连不上）。
             // Connected 表示「MITM 已处理」（此处：写了终态 502），调用方 return 不 blind_relay。
             drop(client);
@@ -558,19 +674,26 @@ where
             // 3. accept 客户端 TLS（假 CA 签 leaf，SNI fallback = CONNECT target host）。
             //    失败（client 不信任 CA / 网络断）→ client 已被 accept 消费，无法降级 blind_relay。
             //    写终态 502 + Connected（客户端 TLS 握手失败隧道断，blind_relay 也救不回）。
-            let client_tls = match aidog_mitm::tls::accept_client(
-                signer, client, host_only.to_string(),
-            ).await {
-                Ok(s) => s,
-                Err(e) => {
-                    tracing::warn!(
-                        error = %e, host = host_only,
-                        "mitm: client TLS handshake failed (CA not trusted?), terminal 502"
-                    );
-                    log_connect_502(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
-                    return MitmOutcome::Connected;
-                }
-            };
+            let client_tls =
+                match aidog_mitm::tls::accept_client(signer, client, host_only.to_string()).await {
+                    Ok(s) => s,
+                    Err(e) => {
+                        tracing::warn!(
+                            error = %e, host = host_only,
+                            "mitm: client TLS handshake failed (CA not trusted?), terminal 502"
+                        );
+                        log_connect_502(
+                            st,
+                            request_id,
+                            platform_id,
+                            target.to_string(),
+                            start,
+                            log_enabled,
+                        )
+                        .await;
+                        return MitmOutcome::Connected;
+                    }
+                };
 
             // ST5/ST6 明文 forward：在 client_tls 上读明文 HTTP Request（http/1.1 或 h2，
             // 由 hyper-util auto Builder 按 H2 preface 自动检测）→ 灌入 handle_proxy_core
@@ -655,8 +778,6 @@ where
     }
 }
 
-
-
 /// ST5/ST6 明文 forward：在已 accept 的 client_tls（明文）流上用 hyper-util **auto**
 /// server 读明文 HTTP Request，每条 Request 构造 axum Request 灌入 `handle_proxy_core`
 /// （middleware / 路由 / forward_attempt 全套），响应明文回写 client_tls（hyper 写回，
@@ -682,11 +803,8 @@ where
 /// handle_proxy_core 内部各阶段已 upsert_log 终态，499 兜底语义重叠；YAGNI 不重复 guard。
 // ponytail: pub(crate) 仅为 ST8 端到端测试直调（绕过 handle_connect 的真上游预检，connect_upstream
 // 写死 webpki-roots 无法 mock）；生产调用方仍只有 handle_mitm。
-pub(crate) async fn serve_plaintext<S>(
-    state: Arc<ProxyState>,
-    client_tls: S,
-    host_only: &str,
-) where
+pub(crate) async fn serve_plaintext<S>(state: Arc<ProxyState>, client_tls: S, host_only: &str)
+where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     // TokioIo 包装：rustls server TlsStream impl tokio AsyncRead/Write，TokioIo 转 hyper Read/Write。
@@ -708,7 +826,10 @@ pub(crate) async fn serve_plaintext<S>(
                     tracing::warn!(error = %e, host = %host, "mitm plaintext: read body failed");
                     let mut resp = hyper::Response::builder().status(StatusCode::BAD_REQUEST);
                     if let Some(h) = resp.headers_mut() {
-                        h.insert(axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/plain"));
+                        h.insert(
+                            axum::http::header::CONTENT_TYPE,
+                            axum::http::HeaderValue::from_static("text/plain"),
+                        );
                         // MITM 明文路径：AirDog 直构响应也注入 trace header（与 axum 路径一致诊断体验）。
                         if cfg!(debug_assertions) {
                             let id = crate::logging::current_trace_id()
@@ -749,7 +870,8 @@ pub(crate) async fn serve_plaintext<S>(
     // auto Builder：按 H2 preface 自动分发 h1（keep-alive 循环）/ h2（多路复用流）。
     // TokioExecutor：h2 多流并发执行需 Executor，axum::serve 同款（hyper-util rt tokio feature）。
     // serve_connection future 在 client 关闭连接 / 协议错时返 Err（tracing 后接受）。
-    let builder = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+    let builder =
+        hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
     if let Err(e) = builder.serve_connection(io, svc).await {
         tracing::debug!(error = %e, host = host_only, "mitm plaintext: connection ended");
     }
@@ -770,9 +892,15 @@ async fn log_connect_success(
         return;
     }
     upsert_connect_log(
-        st, request_id, String::new(), platform_id,
-        target, 200, start.elapsed().as_millis() as i32,
-    ).await;
+        st,
+        request_id,
+        String::new(),
+        platform_id,
+        target,
+        200,
+        start.elapsed().as_millis() as i32,
+    )
+    .await;
 }
 
 /// 上游失败写 proxy_log 终态（status=502）。
@@ -788,7 +916,13 @@ async fn log_connect_502(
         return;
     }
     upsert_connect_log(
-        st, request_id, String::new(), platform_id,
-        target, 502, start.elapsed().as_millis() as i32,
-    ).await;
+        st,
+        request_id,
+        String::new(),
+        platform_id,
+        target,
+        502,
+        start.elapsed().as_millis() as i32,
+    )
+    .await;
 }

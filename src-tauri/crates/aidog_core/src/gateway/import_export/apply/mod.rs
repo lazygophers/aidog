@@ -11,7 +11,9 @@
 
 use std::collections::BTreeMap;
 
-use super::{ConflictDecision, Decision, ImportItem, ImportPreview, ImportReport, Payload, Selection};
+use super::{
+    ConflictDecision, Decision, ImportItem, ImportPreview, ImportReport, Payload, Selection,
+};
 use aidog_db::Db;
 
 mod conflicts;
@@ -34,7 +36,10 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
     let conflicts = conflicts::detect_conflicts(&payload, db).await?;
     let mut counts = BTreeMap::new();
     if !payload.platform.is_empty() {
-        counts.insert(crate::gateway::import_export::SCOPE_PLATFORM.to_string(), payload.platform.len());
+        counts.insert(
+            crate::gateway::import_export::SCOPE_PLATFORM.to_string(),
+            payload.platform.len(),
+        );
     }
     if !payload.group.is_empty() {
         counts.insert(super::SCOPE_GROUP.to_string(), payload.group.len());
@@ -68,10 +73,16 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
         counts.insert(super::SCOPE_MCP.to_string(), payload.mcp.len());
     }
     if !payload.middleware.is_empty() {
-        counts.insert(super::SCOPE_MIDDLEWARE.to_string(), payload.middleware.len());
+        counts.insert(
+            super::SCOPE_MIDDLEWARE.to_string(),
+            payload.middleware.len(),
+        );
     }
     if !payload.model_price.is_empty() {
-        counts.insert(super::SCOPE_MODEL_PRICE.to_string(), payload.model_price.len());
+        counts.insert(
+            super::SCOPE_MODEL_PRICE.to_string(),
+            payload.model_price.len(),
+        );
     }
 
     let items = build_items(&payload, &conflicts);
@@ -87,10 +98,7 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
 
 /// 枚举全部可导入条目（前端逐项勾选）。条目 key 与 [`apply`] 迭代时构造的键严格一致，
 /// 否则白名单过滤会漏选 / 错选。
-fn build_items(
-    payload: &Payload,
-    conflicts: &[super::ConflictItem],
-) -> Vec<ImportItem> {
+fn build_items(payload: &Payload, conflicts: &[super::ConflictItem]) -> Vec<ImportItem> {
     use super::*;
     let conflict_set: std::collections::BTreeSet<(&str, &str)> = conflicts
         .iter()
@@ -204,7 +212,10 @@ fn build_items(
 
     // mcp：name 唯一但用数组下标 idx:N 作稳定 key（与 apply_db 迭代一致）；label = name。
     for (i, m) in payload.mcp.iter().enumerate() {
-        let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+        let name = m
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("(unnamed)");
         out.push(ImportItem {
             scope: SCOPE_MCP.to_string(),
             key: format!("idx:{i}"),
@@ -215,7 +226,10 @@ fn build_items(
 
     // middleware：key = idx:N；label = name。
     for (i, r) in payload.middleware.iter().enumerate() {
-        let name = r.get("name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+        let name = r
+            .get("name")
+            .and_then(|v| v.as_str())
+            .unwrap_or("(unnamed)");
         out.push(ImportItem {
             scope: SCOPE_MIDDLEWARE.to_string(),
             key: format!("idx:{i}"),
@@ -226,7 +240,9 @@ fn build_items(
 
     // model_entry：key = `model:<platform_code>:<model_id>`（复合主键）；label = `<platform>/<model>`。
     for mp in &payload.model_price {
-        let Some((key, label)) = model_entry_key(mp) else { continue };
+        let Some((key, label)) = model_entry_key(mp) else {
+            continue;
+        };
         out.push(ImportItem {
             scope: SCOPE_MODEL_PRICE.to_string(),
             key,
@@ -241,15 +257,20 @@ fn build_items(
 /// `model_entry` 行 → (选择项 key, 展示 label)。缺 `platform_code` / `model_id` → None
 /// （旧备份里的 `model_price` 行走这条，静默不出现在勾选列表里）。
 fn model_entry_key(row: &serde_json::Value) -> Option<(String, String)> {
-    let s = |k: &str| row.get(k).and_then(|v| v.as_str()).filter(|v| !v.is_empty());
+    let s = |k: &str| {
+        row.get(k)
+            .and_then(|v| v.as_str())
+            .filter(|v| !v.is_empty())
+    };
     let (platform, model) = (s("platform_code")?, s("model_id")?);
-    Some((format!("model:{platform}:{model}"), format!("{platform}/{model}")))
+    Some((
+        format!("model:{platform}:{model}"),
+        format!("{platform}/{model}"),
+    ))
 }
 
 /// 把决策列表索引化便于查询。
-fn index_decisions(
-    decisions: &[ConflictDecision],
-) -> BTreeMap<(String, String), &Decision> {
+fn index_decisions(decisions: &[ConflictDecision]) -> BTreeMap<(String, String), &Decision> {
     decisions
         .iter()
         .map(|d| ((d.scope.clone(), d.key.clone()), &d.decision))
@@ -266,7 +287,10 @@ pub fn filter_payload(payload: &mut Payload, selection: Option<&Selection>) {
     let keep = |scope: &str, key: &str| sel.contains(&(scope.to_string(), key.to_string()));
 
     let mut platform = Vec::new();
-    for (i, p) in std::mem::take(&mut payload.platform).into_iter().enumerate() {
+    for (i, p) in std::mem::take(&mut payload.platform)
+        .into_iter()
+        .enumerate()
+    {
         if keep(super::SCOPE_PLATFORM, &format!("idx:{i}")) {
             platform.push(p);
         }
@@ -294,16 +318,20 @@ pub fn filter_payload(payload: &mut Payload, selection: Option<&Selection>) {
         .codex_profiles
         .retain(|nt| keep(super::SCOPE_CODEX, &format!("codex_profile:{}", nt.name)));
 
-    if payload.claude_code_global.is_some()
-        && !keep(super::SCOPE_CLAUDE_CODE, "claude_code_global")
+    if payload.claude_code_global.is_some() && !keep(super::SCOPE_CLAUDE_CODE, "claude_code_global")
     {
         payload.claude_code_global = None;
     }
-    payload
-        .claude_code_group_settings
-        .retain(|nt| keep(super::SCOPE_CLAUDE_CODE, &format!("claude_code_group:{}", nt.name)));
+    payload.claude_code_group_settings.retain(|nt| {
+        keep(
+            super::SCOPE_CLAUDE_CODE,
+            &format!("claude_code_group:{}", nt.name),
+        )
+    });
 
-    payload.skills.retain(|s| keep(super::SCOPE_SKILLS, &s.name));
+    payload
+        .skills
+        .retain(|s| keep(super::SCOPE_SKILLS, &s.name));
 
     let mut mcp = Vec::new();
     for (i, m) in std::mem::take(&mut payload.mcp).into_iter().enumerate() {
@@ -314,7 +342,10 @@ pub fn filter_payload(payload: &mut Payload, selection: Option<&Selection>) {
     payload.mcp = mcp;
 
     let mut middleware = Vec::new();
-    for (i, r) in std::mem::take(&mut payload.middleware).into_iter().enumerate() {
+    for (i, r) in std::mem::take(&mut payload.middleware)
+        .into_iter()
+        .enumerate()
+    {
         if keep(super::SCOPE_MIDDLEWARE, &format!("idx:{i}")) {
             middleware.push(r);
         }
@@ -425,34 +456,49 @@ async fn apply_db(
             Some(n) => n.to_string(),
             None => continue,
         };
-        if !is_selected(selection, crate::gateway::import_export::SCOPE_PLATFORM, &format!("idx:{i}")) {
+        if !is_selected(
+            selection,
+            crate::gateway::import_export::SCOPE_PLATFORM,
+            &format!("idx:{i}"),
+        ) {
             continue;
         }
         let key = name.clone();
         let decision = dec
-            .get(&(crate::gateway::import_export::SCOPE_PLATFORM.to_string(), key.clone()))
+            .get(&(
+                crate::gateway::import_export::SCOPE_PLATFORM.to_string(),
+                key.clone(),
+            ))
             .copied();
         let (effective_name, skip) = resolve_name(&name, decision);
         if skip {
-            bump(&mut report.skipped, crate::gateway::import_export::SCOPE_PLATFORM);
+            bump(
+                &mut report.skipped,
+                crate::gateway::import_export::SCOPE_PLATFORM,
+            );
             continue;
         }
         if let Err(e) = db_rows::upsert_platform_row(db, &name, &effective_name, p).await {
             report.errors.push(format!("platform「{name}」: {e}"));
         } else {
-            bump(&mut report.applied, crate::gateway::import_export::SCOPE_PLATFORM);
+            bump(
+                &mut report.applied,
+                crate::gateway::import_export::SCOPE_PLATFORM,
+            );
         }
     }
 
     // group_platform（按名称解析 → id）
     for [g_name, p_name] in &payload.group_platform {
-        if !is_selected(selection, super::SCOPE_GROUP_PLATFORM, &format!("{g_name}::{p_name}")) {
+        if !is_selected(
+            selection,
+            super::SCOPE_GROUP_PLATFORM,
+            &format!("{g_name}::{p_name}"),
+        ) {
             continue;
         }
         if let Err(e) = db_rows::relink_group_platform(db, g_name, p_name).await {
-            report
-                .errors
-                .push(format!("link {g_name}↔{p_name}: {e}"));
+            report.errors.push(format!("link {g_name}↔{p_name}: {e}"));
         }
     }
 
@@ -470,9 +516,7 @@ async fn apply_db(
             continue;
         }
         if let Err(e) = db_rows::upsert_setting_row(db, scope, key, val).await {
-            report
-                .errors
-                .push(format!("setting「{ck}」: {e}"));
+            report.errors.push(format!("setting「{ck}」: {e}"));
         } else {
             bump(&mut report.applied, super::SCOPE_SETTING);
         }
@@ -500,7 +544,9 @@ async fn apply_db(
         match serde_json::from_value::<crate::gateway::models::MiddlewareRule>(r.clone()) {
             Ok(rule) => match db_rows::upsert_middleware_rule_by_name(db, &rule).await {
                 Ok(()) => bump(&mut report.applied, super::SCOPE_MIDDLEWARE),
-                Err(e) => report.errors.push(format!("middleware「{}」: {e}", rule.name)),
+                Err(e) => report
+                    .errors
+                    .push(format!("middleware「{}」: {e}", rule.name)),
             },
             Err(e) => report.errors.push(format!("middleware parse: {e}")),
         }
@@ -509,7 +555,9 @@ async fn apply_db(
     // model_entry（key = model:<platform_code>:<model_id>；upsert by 复合主键覆盖）。
     // 旧备份的 model_price 行没有 platform_code → model_entry_key 返 None → 跳过，不报错。
     for mp in &payload.model_price {
-        let Some((key, label)) = model_entry_key(mp) else { continue };
+        let Some((key, label)) = model_entry_key(mp) else {
+            continue;
+        };
         if !is_selected(selection, super::SCOPE_MODEL_PRICE, &key) {
             continue;
         }
@@ -518,7 +566,9 @@ async fn apply_db(
                 Ok(_) => bump(&mut report.applied, super::SCOPE_MODEL_PRICE),
                 Err(err) => report.errors.push(format!("model_entry「{label}」: {err}")),
             },
-            Err(err) => report.errors.push(format!("model_entry「{label}」parse: {err}")),
+            Err(err) => report
+                .errors
+                .push(format!("model_entry「{label}」parse: {err}")),
         }
     }
 

@@ -24,9 +24,10 @@ pub fn profile_path_public(group: &str) -> Result<PathBuf, String> {
 
 fn codex_home() -> Result<PathBuf, String> {
     if let Ok(custom) = std::env::var("CODEX_HOME")
-        && !custom.trim().is_empty() {
-            return Ok(PathBuf::from(custom));
-        }
+        && !custom.trim().is_empty()
+    {
+        return Ok(PathBuf::from(custom));
+    }
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     Ok(home.join(".codex"))
 }
@@ -77,10 +78,7 @@ pub fn build_group_profile_toml(port: u16) -> Result<String, String> {
 
     let mut providers = toml::map::Map::new();
     providers.insert("aidog".to_string(), toml::Value::Table(aidog));
-    root.insert(
-        "model_providers".to_string(),
-        toml::Value::Table(providers),
-    );
+    root.insert("model_providers".to_string(), toml::Value::Table(providers));
 
     toml::to_string_pretty(&toml::Value::Table(root))
         .map_err(|e| format!("serialize codex profile toml: {e}"))
@@ -119,13 +117,15 @@ pub fn cleanup_group_profiles(keep: &std::collections::HashSet<String>) -> Resul
             continue;
         }
         if let Some(group) = name.strip_suffix(".config.toml")
-            && !group.is_empty() && !keep.contains(group) {
-                if let Err(e) = std::fs::remove_file(entry.path()) {
-                    tracing::warn!(group, path = %entry.path().display(), error = %e, "cleanup codex profile: remove failed");
-                } else {
-                    tracing::debug!(group, "cleanup codex profile: removed stale profile");
-                }
+            && !group.is_empty()
+            && !keep.contains(group)
+        {
+            if let Err(e) = std::fs::remove_file(entry.path()) {
+                tracing::warn!(group, path = %entry.path().display(), error = %e, "cleanup codex profile: remove failed");
+            } else {
+                tracing::debug!(group, "cleanup codex profile: removed stale profile");
             }
+        }
     }
     Ok(())
 }
@@ -244,7 +244,11 @@ pub fn write_default_profile_to_config(port: u16) -> Result<Option<String>, Stri
     });
 
     // 写 model_provider（顶层标量，覆盖任何现有 aidog/其它 provider 选择）
-    set_obj_path(&mut config, &["model_provider"], serde_json::Value::String("aidog".into()));
+    set_obj_path(
+        &mut config,
+        &["model_provider"],
+        serde_json::Value::String("aidog".into()),
+    );
     // merge [model_providers.aidog]
     set_obj_path(&mut config, &["model_providers", "aidog"], aidog_profile);
 
@@ -280,15 +284,19 @@ pub fn remove_default_profile_from_config() -> Result<Option<String>, String> {
         changed = true;
     }
     // [model_providers.aidog] → 整块删
-    if let Some(providers) = config.get_mut("model_providers").and_then(|v| v.as_object_mut()) {
+    if let Some(providers) = config
+        .get_mut("model_providers")
+        .and_then(|v| v.as_object_mut())
+    {
         if providers.remove("aidog").is_some() {
             changed = true;
         }
         // 空 providers 表也清理（避免留下空 [model_providers]）
         if providers.is_empty()
-            && let Some(obj) = config.as_object_mut() {
-                obj.remove("model_providers");
-            }
+            && let Some(obj) = config.as_object_mut()
+        {
+            obj.remove("model_providers");
+        }
     }
 
     if !changed {
@@ -316,7 +324,9 @@ fn set_obj_path(base: &mut serde_json::Value, path: &[&str], value: serde_json::
         obj.insert(head.to_string(), value);
         return;
     }
-    let entry = obj.entry(head.to_string()).or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+    let entry = obj
+        .entry(head.to_string())
+        .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
     set_obj_path(entry, &path[1..], value);
 }
 

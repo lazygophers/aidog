@@ -15,8 +15,8 @@
 //!    这一层就是旧 `resolve_price` 的 `pricing[platform] → 顶层单价` 回退链（票 13-A/B）。
 //! 4. 哪个平台都没有 → `PriceSyncSettings` 的 fallback 默认价（不跑分档，同旧行为）。
 
-use crate::models::ResolvedPrice;
 use crate::Db;
+use crate::models::ResolvedPrice;
 use serde_json::{Map, Value};
 
 /// 旧顶层价格键 → `price` 子树简名（2026-08-30 收归迁移的映射表，Rust 侧仅用于
@@ -42,7 +42,9 @@ fn remap_unit_object(obj: &Value) -> Value {
 /// tiers 数组档对象映射：门槛键（min_tokens / start_at）保留，单价键换简名，
 /// time_tiers 档内的 context_tiers 递归同构。非数组原样返回。
 fn remap_tier_array(arr: &Value, threshold_key: &str) -> Value {
-    let Some(tiers) = arr.as_array() else { return arr.clone() };
+    let Some(tiers) = arr.as_array() else {
+        return arr.clone();
+    };
     Value::Array(
         tiers
             .iter()
@@ -57,7 +59,10 @@ fn remap_tier_array(arr: &Value, threshold_key: &str) -> Value {
                     }
                 }
                 if let Some(ct) = t.get("context_tiers") {
-                    out.insert("context_tiers".to_string(), remap_tier_array(ct, "min_tokens"));
+                    out.insert(
+                        "context_tiers".to_string(),
+                        remap_tier_array(ct, "min_tokens"),
+                    );
                 }
                 Value::Object(out)
             })
@@ -85,7 +90,9 @@ pub fn legacy_price_into(doc: &mut Value) -> bool {
     // default_price 仅补 price 缺失位（顶层优先，同迁移脚本）
     if let Some(dp) = doc.get("default_price") {
         for (old, new) in LEGACY_UNIT_KEYS {
-            if !price.contains_key(new) && let Some(v) = dp.get(old) {
+            if !price.contains_key(new)
+                && let Some(v) = dp.get(old)
+            {
                 price.insert(new.to_string(), v.clone());
             }
         }
@@ -94,7 +101,10 @@ pub fn legacy_price_into(doc: &mut Value) -> bool {
         price.insert("peak".to_string(), remap_unit_object(p));
     }
     if let Some(t) = doc.get("context_tiers") {
-        price.insert("context_tiers".to_string(), remap_tier_array(t, "min_tokens"));
+        price.insert(
+            "context_tiers".to_string(),
+            remap_tier_array(t, "min_tokens"),
+        );
     }
     if let Some(t) = doc.get("time_tiers") {
         price.insert("time_tiers".to_string(), remap_tier_array(t, "start_at"));
@@ -129,11 +139,7 @@ pub struct PriceResolution {
 impl PriceResolution {
     /// 调用方该乘的平台倍率：高峰绝对价已含涨价，返回 1.0；否则原样返回 `multiplier`。
     pub fn multiplier(&self, multiplier: f64) -> f64 {
-        if self.peak_applied {
-            1.0
-        } else {
-            multiplier
-        }
+        if self.peak_applied { 1.0 } else { multiplier }
     }
 }
 
@@ -155,7 +161,11 @@ fn overlay_prices(base: &mut ResolvedPrice, tier: &Value) {
 /// 非 null 字段覆盖 base 价（null 字段继承 base，如某些模型长档无 cache 价）。
 /// `context_tiers` 缺失/非数组/无命中档 → 返回 base 不变。`owner` 是 tiers 所在对象
 /// （`price` 子树或命中的 `time_tiers` 档）。
-pub fn apply_context_tier(mut base: ResolvedPrice, owner: &Value, input_tokens: i64) -> ResolvedPrice {
+pub fn apply_context_tier(
+    mut base: ResolvedPrice,
+    owner: &Value,
+    input_tokens: i64,
+) -> ResolvedPrice {
     let Some(tiers) = owner.get("context_tiers").and_then(Value::as_array) else {
         return base;
     };
@@ -178,7 +188,12 @@ pub fn apply_context_tier(mut base: ResolvedPrice, owner: &Value, input_tokens: 
 /// 整体作为价表（三价覆盖 + 其内嵌 `context_tiers` 替代 price 顶层），再跑 context 分档 ——
 /// 顺序 time→context，因为涨价后的长文档价只能表达在 time 条目内部。
 /// `now_ms <= 0` = 无时间上下文，跳过分档。`price_obj` 是条目 `price` 子树。
-pub fn apply_tiers(mut base: ResolvedPrice, price_obj: &Value, input_tokens: i64, now_ms: i64) -> ResolvedPrice {
+pub fn apply_tiers(
+    mut base: ResolvedPrice,
+    price_obj: &Value,
+    input_tokens: i64,
+    now_ms: i64,
+) -> ResolvedPrice {
     let hit = (now_ms > 0)
         .then(|| price_obj.get("time_tiers").and_then(Value::as_array))
         .flatten()
@@ -221,7 +236,10 @@ pub fn resolve_price_from(
         source: "fallback".to_string(),
     };
     let Some(pd) = pd else {
-        return PriceResolution { price: fallback(), peak_applied: false };
+        return PriceResolution {
+            price: fallback(),
+            peak_applied: false,
+        };
     };
     // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
     let price_obj = pd.get("price").cloned().unwrap_or_default();
@@ -256,9 +274,15 @@ pub fn resolve_price_from(
         Some(p) => {
             overlay_prices(&mut price, p);
             price.source.push_str("+peak");
-            PriceResolution { price, peak_applied: true }
+            PriceResolution {
+                price,
+                peak_applied: true,
+            }
         }
-        None => PriceResolution { price, peak_applied: false },
+        None => PriceResolution {
+            price,
+            peak_applied: false,
+        },
     }
 }
 
@@ -280,11 +304,15 @@ pub async fn resolve_price(
     let found = crate::model_entry_for_billing(db, platform_code, model_id).await?;
     let cross_platform = found.as_ref().is_some_and(|(_, x)| *x);
     // parse + 旧形状归一化（DB 未重同步的行计费照常走 price 子树）
-    let pd: Option<Value> = found
-        .as_ref()
-        .map(|(e, _)| parse_price_data(&e.price_data));
-    let mut out =
-        resolve_price_from(pd.as_ref(), is_peak, fallback_input, fallback_output, input_tokens, now_ms);
+    let pd: Option<Value> = found.as_ref().map(|(e, _)| parse_price_data(&e.price_data));
+    let mut out = resolve_price_from(
+        pd.as_ref(),
+        is_peak,
+        fallback_input,
+        fallback_output,
+        input_tokens,
+        now_ms,
+    );
     if cross_platform {
         mark_cross_platform(&mut out.price.source);
     }
@@ -303,8 +331,13 @@ fn mark_cross_platform(source: &mut String) {
 /// 本平台无条目时同样借用官方条目（票 13-B：否则中转镜像类平台恒返 None，
 /// 客户端发的超限 `max_tokens` 原样转发给上游，直接 400）。
 /// 返回 None = 未知/无限制（不裁剪）。
-pub async fn model_max_output_tokens(db: &Db, platform_code: &str, model_id: &str) -> Result<Option<i64>, String> {
-    let Some((entry, _)) = crate::model_entry_for_billing(db, platform_code, model_id).await? else {
+pub async fn model_max_output_tokens(
+    db: &Db,
+    platform_code: &str,
+    model_id: &str,
+) -> Result<Option<i64>, String> {
+    let Some((entry, _)) = crate::model_entry_for_billing(db, platform_code, model_id).await?
+    else {
         return Ok(None);
     };
     if let Some(v) = entry.max_output_tokens {

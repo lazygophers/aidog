@@ -26,18 +26,29 @@ fn convert_response_openai_to_anthropic_content_and_tools() {
         "usage": { "prompt_tokens": 100, "completion_tokens": 1002,
                    "prompt_tokens_details": { "cached_tokens": 40 } }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-opus-4")
-        .expect("openai→anthropic should convert");
+    let out = convert_response(
+        &upstream,
+        &Protocol::OpenAI,
+        &Protocol::Anthropic,
+        "claude-opus-4",
+    )
+    .expect("openai→anthropic should convert");
     assert_eq!(out["type"], "message");
     assert_eq!(out["role"], "assistant");
-    assert_eq!(out["model"], "glm-4.6", "model 使用上游响应的模型（未覆盖时）");
+    assert_eq!(
+        out["model"], "glm-4.6",
+        "model 使用上游响应的模型（未覆盖时）"
+    );
     assert_eq!(out["stop_reason"], "tool_use", "tool_calls→tool_use");
     let content = out["content"].as_array().unwrap();
     // 三块：thinking 排首位，然后 text，最后 tool_use
     assert_eq!(content.len(), 3, "thinking + text + tool_use 三块");
     // 第一块 thinking（标准协议块，非 text）
     assert_eq!(content[0]["type"], "thinking");
-    assert_eq!(content[0]["thinking"], "用户触发...(GLM思维链)", "reasoning_content → thinking 块");
+    assert_eq!(
+        content[0]["thinking"], "用户触发...(GLM思维链)",
+        "reasoning_content → thinking 块"
+    );
     // 第二块 text
     assert_eq!(content[1]["type"], "text");
     assert_eq!(content[1]["text"], "Trellis SessionStart...");
@@ -45,7 +56,10 @@ fn convert_response_openai_to_anthropic_content_and_tools() {
     assert_eq!(content[2]["type"], "tool_use");
     assert_eq!(content[2]["id"], "call_-7518760127650854872");
     assert_eq!(content[2]["name"], "read_file");
-    assert_eq!(content[2]["input"]["path"], "/a", "arguments JSON 解析为 input 对象");
+    assert_eq!(
+        content[2]["input"]["path"], "/a",
+        "arguments JSON 解析为 input 对象"
+    );
     // usage 映射
     assert_eq!(out["usage"]["input_tokens"], 100);
     assert_eq!(out["usage"]["output_tokens"], 1002);
@@ -64,7 +78,8 @@ fn convert_response_openai_to_anthropic_tool_only() {
         }}],
         "usage": { "prompt_tokens": 5, "completion_tokens": 7 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let out =
+        convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1, "无 text 时只含 tool_use");
     assert_eq!(content[0]["type"], "tool_use");
@@ -81,7 +96,8 @@ fn convert_response_openai_to_anthropic_text_only() {
             "role": "assistant", "content": "hello world" } }],
         "usage": { "prompt_tokens": 3, "completion_tokens": 2 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let out =
+        convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1);
     assert_eq!(content[0]["type"], "text");
@@ -97,7 +113,8 @@ fn convert_response_length_maps_max_tokens() {
         "choices": [{ "index": 0, "finish_reason": "length", "message": {
             "role": "assistant", "content": "truncated" } }]
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let out =
+        convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     assert_eq!(out["stop_reason"], "max_tokens");
 }
 
@@ -114,11 +131,20 @@ fn convert_response_reasoning_only_renders_thinking_block() {
             "reasoning_content": "**Planning sequential file inspection**" } }],
         "usage": { "prompt_tokens": 46920, "completion_tokens": 204 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-opus-5").unwrap();
+    let out = convert_response(
+        &upstream,
+        &Protocol::OpenAI,
+        &Protocol::Anthropic,
+        "claude-opus-5",
+    )
+    .unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1, "只有思维链 → 只出 thinking 块");
     assert_eq!(content[0]["type"], "thinking");
-    assert_eq!(content[0]["thinking"], "**Planning sequential file inspection**");
+    assert_eq!(
+        content[0]["thinking"],
+        "**Planning sequential file inspection**"
+    );
     assert_eq!(out["stop_reason"], "end_turn");
 }
 
@@ -133,7 +159,8 @@ fn convert_response_inline_thinking_tag_becomes_thinking_block() {
             "content": "<thinking>先看 diff 再决定 type</thinking>\n\ndocs: 更新说明" } }],
         "usage": { "prompt_tokens": 10, "completion_tokens": 20 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let out =
+        convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 2, "thinking + text 两块");
     assert_eq!(content[0]["type"], "thinking");
@@ -153,7 +180,8 @@ fn convert_response_inline_tag_appends_to_structured_reasoning() {
             "content": "<think>行内思考</think>答案" } }],
         "usage": { "prompt_tokens": 1, "completion_tokens": 2 }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
+    let out =
+        convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude").unwrap();
     let content = out["content"].as_array().unwrap();
     assert_eq!(content[0]["type"], "thinking");
     assert_eq!(content[0]["thinking"], "结构化思考\n\n行内思考");
@@ -168,14 +196,27 @@ fn stream_inline_thinking_tag_routed_to_thinking_delta() {
     let mut out = String::new();
     let chunks = ["<thin", "king>思考</thinking>正", "文"];
     for c in chunks {
-        for ev in split_stream_inline_reasoning(ChatStreamEvent::Delta { text: c.to_string() }, &mut splitter) {
+        for ev in split_stream_inline_reasoning(
+            ChatStreamEvent::Delta {
+                text: c.to_string(),
+            },
+            &mut splitter,
+        ) {
             out.push_str(&state.push(&ev).unwrap_or_default());
         }
     }
-    for ev in split_stream_inline_reasoning(ChatStreamEvent::Stop { finish_reason: Some("stop".into()) }, &mut splitter) {
+    for ev in split_stream_inline_reasoning(
+        ChatStreamEvent::Stop {
+            finish_reason: Some("stop".into()),
+        },
+        &mut splitter,
+    ) {
         out.push_str(&state.push(&ev).unwrap_or_default());
     }
-    assert!(out.contains("\"type\":\"thinking_delta\""), "思考走 thinking_delta: {out}");
+    assert!(
+        out.contains("\"type\":\"thinking_delta\""),
+        "思考走 thinking_delta: {out}"
+    );
     assert!(!out.contains("<thinking>"), "标签不下发: {out}");
     assert!(out.contains("\"type\":\"text_delta\""), "正文走 text_delta");
     // thinking 块占 index 0 → text 块必须顺延到 1（同 index 会被客户端灌进 thinking 块）
@@ -183,7 +224,10 @@ fn stream_inline_thinking_tag_routed_to_thinking_delta() {
         .lines()
         .find(|l| l.contains("content_block_start") && l.contains("\"type\":\"text\""))
         .unwrap_or_else(|| panic!("缺 text 块 content_block_start: {out}"));
-    assert!(text_start.contains("\"index\":1"), "text 块顺延到 index 1: {text_start}");
+    assert!(
+        text_start.contains("\"index\":1"),
+        "text 块顺延到 index 1: {text_start}"
+    );
 }
 
 // ── 同协议（client=openai, wire=openai）→ None（透传，不转换） ──
@@ -201,16 +245,24 @@ fn to_anthropic_sse_start_event() {
         model: "claude-opus-4".to_string(),
     };
     let sse = to_anthropic_sse(&event).expect("Start should produce SSE");
-    assert!(sse.contains("event: message_start"), "should have message_start event");
+    assert!(
+        sse.contains("event: message_start"),
+        "should have message_start event"
+    );
     assert!(sse.contains("msg_01"), "should contain message id");
     assert!(sse.contains("claude-opus-4"), "should contain model");
-    assert!(sse.contains("\"type\":\"message_start\""), "should contain type");
+    assert!(
+        sse.contains("\"type\":\"message_start\""),
+        "should contain type"
+    );
 }
 
 // ── to_anthropic_sse: Delta event ──
 #[test]
 fn to_anthropic_sse_delta_event() {
-    let event = ChatStreamEvent::Delta { text: "hello world".to_string() };
+    let event = ChatStreamEvent::Delta {
+        text: "hello world".to_string(),
+    };
     let sse = to_anthropic_sse(&event).expect("Delta should produce SSE");
     assert!(sse.contains("event: content_block_delta"));
     assert!(sse.contains("hello world"), "should contain text");
@@ -227,10 +279,16 @@ fn to_anthropic_sse_tool_delta_full() {
         input: Some("{\"path\":\"/a\"}".to_string()),
     };
     let sse = to_anthropic_sse(&event).expect("ToolDelta should produce SSE");
-    assert!(sse.contains("content_block_start"), "should have content_block_start");
+    assert!(
+        sse.contains("content_block_start"),
+        "should have content_block_start"
+    );
     assert!(sse.contains("tool_1"), "should contain tool id");
     assert!(sse.contains("read_file"), "should contain tool name");
-    assert!(sse.contains("input_json_delta"), "should contain input delta");
+    assert!(
+        sse.contains("input_json_delta"),
+        "should contain input delta"
+    );
 }
 
 // ── to_anthropic_sse: ToolDelta only input (no id/name) ──
@@ -243,7 +301,10 @@ fn to_anthropic_sse_tool_delta_input_only() {
         input: Some("{}".to_string()),
     };
     let sse = to_anthropic_sse(&event).expect("ToolDelta input only should produce SSE");
-    assert!(!sse.contains("content_block_start"), "no start without id/name");
+    assert!(
+        !sse.contains("content_block_start"),
+        "no start without id/name"
+    );
     assert!(sse.contains("input_json_delta"), "should have input delta");
 }
 
@@ -256,13 +317,18 @@ fn to_anthropic_sse_tool_delta_empty_returns_none() {
         name: None,
         input: None,
     };
-    assert!(to_anthropic_sse(&event).is_none(), "empty ToolDelta should be None");
+    assert!(
+        to_anthropic_sse(&event).is_none(),
+        "empty ToolDelta should be None"
+    );
 }
 
 // ── to_anthropic_sse: Stop event ──
 #[test]
 fn to_anthropic_sse_stop_event() {
-    let event = ChatStreamEvent::Stop { finish_reason: Some("end_turn".to_string()) };
+    let event = ChatStreamEvent::Stop {
+        finish_reason: Some("end_turn".to_string()),
+    };
     let sse = to_anthropic_sse(&event).expect("Stop should produce SSE");
     assert!(sse.contains("event: message_delta"));
     assert!(sse.contains("event: message_stop"));
@@ -272,9 +338,14 @@ fn to_anthropic_sse_stop_event() {
 // ── to_anthropic_sse: Stop with no reason → defaults end_turn ──
 #[test]
 fn to_anthropic_sse_stop_no_reason_defaults_end_turn() {
-    let event = ChatStreamEvent::Stop { finish_reason: None };
+    let event = ChatStreamEvent::Stop {
+        finish_reason: None,
+    };
     let sse = to_anthropic_sse(&event).expect("Stop None should produce SSE");
-    assert!(sse.contains("end_turn"), "None reason should default to end_turn");
+    assert!(
+        sse.contains("end_turn"),
+        "None reason should default to end_turn"
+    );
 }
 
 // ── to_anthropic_sse: 上游 finish_reason 必须翻成 Anthropic 语义 ──
@@ -286,7 +357,9 @@ fn to_anthropic_sse_maps_upstream_finish_reason_to_anthropic_vocabulary() {
         ("tool_calls", "tool_use"),
         ("length", "max_tokens"),
     ] {
-        let event = ChatStreamEvent::Stop { finish_reason: Some(upstream.to_string()) };
+        let event = ChatStreamEvent::Stop {
+            finish_reason: Some(upstream.to_string()),
+        };
         let sse = to_anthropic_sse(&event).expect("Stop should produce SSE");
         assert!(
             sse.contains(&format!("\"stop_reason\":\"{want}\"")),
@@ -300,7 +373,9 @@ fn to_anthropic_sse_maps_upstream_finish_reason_to_anthropic_vocabulary() {
 fn anthropic_sse_state_maps_upstream_finish_reason_to_anthropic_vocabulary() {
     let mut state = AnthropicSseState::default();
     let sse = state
-        .push(&ChatStreamEvent::Stop { finish_reason: Some("stop".to_string()) })
+        .push(&ChatStreamEvent::Stop {
+            finish_reason: Some("stop".to_string()),
+        })
         .expect("Stop should produce SSE");
     assert!(sse.contains("\"stop_reason\":\"end_turn\""), "got: {sse}");
 }
@@ -310,15 +385,24 @@ fn anthropic_sse_state_maps_upstream_finish_reason_to_anthropic_vocabulary() {
 fn to_anthropic_sse_usage_returns_none() {
     use crate::types::Usage;
     let event = ChatStreamEvent::Usage {
-        usage: Usage { prompt_tokens: Some(100), completion_tokens: Some(50), total_tokens: None },
+        usage: Usage {
+            prompt_tokens: Some(100),
+            completion_tokens: Some(50),
+            total_tokens: None,
+        },
     };
-    assert!(to_anthropic_sse(&event).is_none(), "Usage should produce None");
+    assert!(
+        to_anthropic_sse(&event).is_none(),
+        "Usage should produce None"
+    );
 }
 
 // ── to_client_sse: anthropic protocol ──
 #[test]
 fn to_client_sse_anthropic_protocol() {
-    let event = ChatStreamEvent::Delta { text: "hi".to_string() };
+    let event = ChatStreamEvent::Delta {
+        text: "hi".to_string(),
+    };
     let sse = to_client_sse(&event, &Protocol::Anthropic, "m");
     assert!(sse.is_some(), "anthropic protocol should produce SSE");
     assert!(sse.unwrap().contains("content_block_delta"));
@@ -327,7 +411,9 @@ fn to_client_sse_anthropic_protocol() {
 // ── to_client_sse: openai protocol ──
 #[test]
 fn to_client_sse_openai_protocol() {
-    let event = ChatStreamEvent::Delta { text: "hi".to_string() };
+    let event = ChatStreamEvent::Delta {
+        text: "hi".to_string(),
+    };
     let sse = to_client_sse(&event, &Protocol::OpenAI, "gpt-4");
     // openai SSE should contain "data:" prefix
     assert!(sse.is_some(), "openai protocol should produce SSE");
@@ -336,7 +422,9 @@ fn to_client_sse_openai_protocol() {
 // ── to_client_sse: gemini protocol ──
 #[test]
 fn to_client_sse_gemini_protocol() {
-    let event = ChatStreamEvent::Delta { text: "hello".to_string() };
+    let event = ChatStreamEvent::Delta {
+        text: "hello".to_string(),
+    };
     // gemini protocol — may or may not produce SSE depending on implementation
     // just ensure it doesn't panic
     let _ = to_client_sse(&event, &Protocol::Gemini, "gemini-pro");
@@ -366,7 +454,10 @@ fn render_anthropic_with_reasoning_first() {
     assert_eq!(content.len(), 2);
     assert_eq!(content[0]["type"], "thinking");
     assert_eq!(content[0]["thinking"], "Thinking...");
-    assert!(content[0].get("signature").is_none(), "非 Anthropic 上游无签名，禁伪造");
+    assert!(
+        content[0].get("signature").is_none(),
+        "非 Anthropic 上游无签名，禁伪造"
+    );
     assert_eq!(content[1]["type"], "text");
     assert_eq!(content[1]["text"], "Answer");
 }
@@ -379,9 +470,11 @@ fn render_anthropic_reasoning_with_tools() {
         id: "test".to_string(),
         model: "claude-3".to_string(),
         text: Some("Calling function".to_string()),
-        tool_uses: vec![
-            ("tool-1".to_string(), "read".to_string(), json!({"path": "/tmp"})),
-        ],
+        tool_uses: vec![(
+            "tool-1".to_string(),
+            "read".to_string(),
+            json!({"path": "/tmp"}),
+        )],
         stop_reason: "tool_use".to_string(),
         input_tokens: 25,
         output_tokens: 12,
@@ -483,13 +576,21 @@ fn convert_response_openai_to_gemini() {
             "completion_tokens": 5
         }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Gemini, "gemini-pro")
-        .expect("openai→gemini should convert");
+    let out = convert_response(
+        &upstream,
+        &Protocol::OpenAI,
+        &Protocol::Gemini,
+        "gemini-pro",
+    )
+    .expect("openai→gemini should convert");
     let candidates = out["candidates"].as_array().unwrap();
     assert_eq!(candidates.len(), 1);
     assert_eq!(candidates[0]["finishReason"], "STOP", "stop→STOP");
     assert_eq!(candidates[0]["content"]["role"], "model");
-    assert_eq!(candidates[0]["content"]["parts"][0]["text"], "Response from OpenAI");
+    assert_eq!(
+        candidates[0]["content"]["parts"][0]["text"],
+        "Response from OpenAI"
+    );
     assert_eq!(out["usageMetadata"]["promptTokenCount"], 10);
     assert_eq!(out["usageMetadata"]["completionTokenCount"], 5);
 }
@@ -516,12 +617,20 @@ fn convert_response_case_cd7ff24d_openai_reasoning_to_anthropic() {
             "completion_tokens": 30
         }
     });
-    let out = convert_response(&upstream, &Protocol::OpenAI, &Protocol::Anthropic, "claude-3-opus")
-        .expect("case cd7ff24d: openai reasoning_content → anthropic content with reasoning");
+    let out = convert_response(
+        &upstream,
+        &Protocol::OpenAI,
+        &Protocol::Anthropic,
+        "claude-3-opus",
+    )
+    .expect("case cd7ff24d: openai reasoning_content → anthropic content with reasoning");
     let content = out["content"].as_array().unwrap();
     assert_eq!(content.len(), 1, "只有思维链 → 只出 thinking 块");
     assert_eq!(content[0]["type"], "thinking");
-    assert_eq!(content[0]["thinking"], "Let me analyze this step by step...");
+    assert_eq!(
+        content[0]["thinking"],
+        "Let me analyze this step by step..."
+    );
     assert_eq!(out["stop_reason"], "end_turn", "stop→end_turn");
     assert_eq!(out["usage"]["input_tokens"], 50);
     assert_eq!(out["usage"]["output_tokens"], 30);
@@ -539,7 +648,11 @@ const GEMINI_UPSTREAM_SSE: &str = concat!(
 #[test]
 fn gemini_upstream_to_anthropic_client_stream_e2e() {
     let events = parse_upstream_sse(GEMINI_UPSTREAM_SSE, &Protocol::Gemini);
-    assert_eq!(events.len(), 2, "delta + stop 两帧，无 [DONE] 哨兵也应正确落幕");
+    assert_eq!(
+        events.len(),
+        2,
+        "delta + stop 两帧，无 [DONE] 哨兵也应正确落幕"
+    );
     assert!(matches!(events[0], ChatStreamEvent::Delta { .. }));
     assert!(matches!(events[1], ChatStreamEvent::Stop { .. }));
 
@@ -549,9 +662,15 @@ fn gemini_upstream_to_anthropic_client_stream_e2e() {
             out.push_str(&sse);
         }
     }
-    assert!(out.contains("event: content_block_delta"), "delta 渲染为 anthropic content_block_delta");
+    assert!(
+        out.contains("event: content_block_delta"),
+        "delta 渲染为 anthropic content_block_delta"
+    );
     assert!(out.contains("\"text\":\"Hello\""));
-    assert!(out.contains("event: message_stop"), "stop 渲染为 anthropic message_stop");
+    assert!(
+        out.contains("event: message_stop"),
+        "stop 渲染为 anthropic message_stop"
+    );
 }
 
 #[test]
@@ -566,6 +685,12 @@ fn gemini_upstream_to_openai_client_stream_e2e() {
         }
     }
     assert!(out.starts_with("data: "), "openai SSE 帧须带 data: 前缀");
-    assert!(out.contains("\"content\":\"Hello\""), "delta 渲染为 openai chat.completion.chunk delta");
-    assert!(out.contains("\"finish_reason\""), "stop 渲染为 openai finish_reason 帧");
+    assert!(
+        out.contains("\"content\":\"Hello\""),
+        "delta 渲染为 openai chat.completion.chunk delta"
+    );
+    assert!(
+        out.contains("\"finish_reason\""),
+        "stop 渲染为 openai finish_reason 帧"
+    );
 }

@@ -21,7 +21,9 @@ const LOGOS_SUBDIR: &str = "logos";
 const LOGO_CACHE_EXTS: [&str; 5] = ["svg", "ico", "png", "jpg", "webp"];
 
 fn logo_cache_path_for_ext(app_data_dir: &Path, protocol_id: &str, ext: &str) -> PathBuf {
-    app_data_dir.join(LOGOS_SUBDIR).join(format!("{protocol_id}.{ext}"))
+    app_data_dir
+        .join(LOGOS_SUBDIR)
+        .join(format!("{protocol_id}.{ext}"))
 }
 
 /// legacy helper：只用于旧测试/兼容旧 `.png` 缓存；新同步按真实格式写 `.svg/.ico/.png`。
@@ -30,19 +32,28 @@ pub fn logo_cache_path(app_data_dir: &Path, protocol_id: &str) -> PathBuf {
 }
 
 pub fn logo_cached_path(app_data_dir: &Path, protocol_id: &str) -> Option<PathBuf> {
-    logo_cache_paths(app_data_dir, protocol_id)
-        .find(|path| std::fs::metadata(path).map(|m| m.len() > 0).unwrap_or(false))
+    logo_cache_paths(app_data_dir, protocol_id).find(|path| {
+        std::fs::metadata(path)
+            .map(|m| m.len() > 0)
+            .unwrap_or(false)
+    })
 }
 
-fn logo_cache_paths<'a>(app_data_dir: &'a Path, protocol_id: &'a str) -> impl Iterator<Item = PathBuf> + 'a {
-    LOGO_CACHE_EXTS.into_iter().map(move |ext| logo_cache_path_for_ext(app_data_dir, protocol_id, ext))
+fn logo_cache_paths<'a>(
+    app_data_dir: &'a Path,
+    protocol_id: &'a str,
+) -> impl Iterator<Item = PathBuf> + 'a {
+    LOGO_CACHE_EXTS
+        .into_iter()
+        .map(move |ext| logo_cache_path_for_ext(app_data_dir, protocol_id, ext))
 }
-
 
 /// `~/.aidog/logos/<protocol_id>.src` —— 记下该缓存是用哪个来源下的（`<slug>|<homepage>`）。
 /// registry 同步换了 `logo_url` 后这行对不上，缓存即判过期。
 fn logo_source_marker_path(app_data_dir: &Path, protocol_id: &str) -> PathBuf {
-    app_data_dir.join(LOGOS_SUBDIR).join(format!("{protocol_id}.src"))
+    app_data_dir
+        .join(LOGOS_SUBDIR)
+        .join(format!("{protocol_id}.src"))
 }
 
 fn logo_source_key(logo_slug: &str, homepage: &str) -> String {
@@ -52,8 +63,11 @@ fn logo_source_key(logo_slug: &str, homepage: &str) -> String {
 /// 缓存可直接复用 = 文件非空 **且** 旁记的来源与当前 registry 值一致。
 /// 旁记缺失（老版本留下的缓存）算过期，重下一次后补上旁记。
 fn cache_is_fresh(app_data_dir: &Path, protocol_id: &str, source_key: &str) -> bool {
-    let nonempty = logo_cache_paths(app_data_dir, protocol_id)
-        .any(|cache| std::fs::metadata(cache).map(|m| m.len() > 0).unwrap_or(false));
+    let nonempty = logo_cache_paths(app_data_dir, protocol_id).any(|cache| {
+        std::fs::metadata(cache)
+            .map(|m| m.len() > 0)
+            .unwrap_or(false)
+    });
     if !nonempty {
         return false;
     }
@@ -61,7 +75,6 @@ fn cache_is_fresh(app_data_dir: &Path, protocol_id: &str, source_key: &str) -> b
         .map(|s| s.trim() == source_key)
         .unwrap_or(false)
 }
-
 
 /// 返回 `~/.aidog/logos/`，不存在则建。失败回 None（caller skip 而非崩）。
 fn ensure_logos_dir(app_data_dir: &Path) -> Option<PathBuf> {
@@ -95,10 +108,16 @@ pub async fn sync_all_logos(db: Arc<Db>, app_data_dir: PathBuf) {
     let client = crate::gateway::http_client::build_http_client_system(&db, 20, 10).await;
 
     for (protocol_id, logo_slug, homepage) in entries {
-        if cache_is_fresh(&app_data_dir, &protocol_id, &logo_source_key(&logo_slug, &homepage)) {
+        if cache_is_fresh(
+            &app_data_dir,
+            &protocol_id,
+            &logo_source_key(&logo_slug, &homepage),
+        ) {
             continue; // 命中且来源未变
         }
-        if let Err(e) = sync_one_into(&client, &app_data_dir, &protocol_id, &logo_slug, &homepage).await {
+        if let Err(e) =
+            sync_one_into(&client, &app_data_dir, &protocol_id, &logo_slug, &homepage).await
+        {
             tracing::debug!(protocol = %protocol_id, error = %e, "logos sync: all sources failed, leave uncached");
         }
     }
@@ -115,11 +134,16 @@ pub async fn sync_one_logo(db: Arc<Db>, app_data_dir: PathBuf, protocol_id: Stri
             return;
         }
     };
-    if cache_is_fresh(&app_data_dir, &protocol_id, &logo_source_key(&logo_slug, &homepage)) {
+    if cache_is_fresh(
+        &app_data_dir,
+        &protocol_id,
+        &logo_source_key(&logo_slug, &homepage),
+    ) {
         return; // 已缓存且来源未变
     }
     let client = crate::gateway::http_client::build_http_client_system(&db, 20, 10).await;
-    if let Err(e) = sync_one_into(&client, &app_data_dir, &protocol_id, &logo_slug, &homepage).await {
+    if let Err(e) = sync_one_into(&client, &app_data_dir, &protocol_id, &logo_slug, &homepage).await
+    {
         tracing::debug!(protocol = %protocol_id, error = %e, "sync_one_logo: all sources failed");
     }
 }
@@ -155,10 +179,11 @@ async fn sync_one_into(
         let url = format!("https://cdn.simpleicons.org/{}", logo_slug);
         let cache = dir.join(format!("{protocol_id}.svg"));
         if let Ok(bytes) = fetch_bytes(client, &url).await
-            && write_if_nonzero(&cache, &bytes) {
-                mark(&cache);
-                return Ok(());
-            }
+            && write_if_nonzero(&cache, &bytes)
+        {
+            mark(&cache);
+            return Ok(());
+        }
     }
 
     // 路 2 / 3 需 homepage 域名
@@ -170,29 +195,38 @@ async fn sync_one_into(
     let fav_url = format!("https://{domain}/favicon.ico");
     let fav_cache = dir.join(format!("{protocol_id}.ico"));
     if let Ok(bytes) = fetch_bytes(client, &fav_url).await
-        && write_if_nonzero(&fav_cache, &bytes) {
-            mark(&fav_cache);
-            return Ok(());
-        }
+        && write_if_nonzero(&fav_cache, &bytes)
+    {
+        mark(&fav_cache);
+        return Ok(());
+    }
 
     // 路 3 clearbit（末路）
     let cb_url = format!("https://logo.clearbit.com/{domain}");
     let cb_cache = dir.join(format!("{protocol_id}.png"));
     if let Ok(bytes) = fetch_bytes(client, &cb_url).await
-        && write_if_nonzero(&cb_cache, &bytes) {
-            mark(&cb_cache);
-            return Ok(());
-        }
+        && write_if_nonzero(&cb_cache, &bytes)
+    {
+        mark(&cb_cache);
+        return Ok(());
+    }
 
     Err("all three sources failed".into())
 }
 
 async fn fetch_bytes(client: &reqwest::Client, url: &str) -> Result<Vec<u8>, String> {
-    let resp = client.get(url).send().await.map_err(|e| format!("fetch: {e}"))?;
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("fetch: {e}"))?;
     if !resp.status().is_success() {
         return Err(format!("status {}", resp.status()));
     }
-    resp.bytes().await.map(|b| b.to_vec()).map_err(|e| format!("read body: {e}"))
+    resp.bytes()
+        .await
+        .map(|b| b.to_vec())
+        .map_err(|e| format!("read body: {e}"))
 }
 
 /// 仅写非空 bytes（0 字节响应视为失败，三路都返空时不污染缓存）。
@@ -220,7 +254,9 @@ fn extract_domain(homepage: &str) -> Option<String> {
     } else {
         format!("https://{trimmed}")
     };
-    url::Url::parse(&with_scheme).ok().and_then(|u| u.host_str().map(|s| s.to_string()))
+    url::Url::parse(&with_scheme)
+        .ok()
+        .and_then(|u| u.host_str().map(|s| s.to_string()))
 }
 
 /// presets → `Vec<(protocol_id, logo_slug, homepage)>`。真值源是 `platform_preset` 表
@@ -228,13 +264,26 @@ fn extract_domain(homepage: &str) -> Option<String> {
 /// 所以同步下来的新 `logo_url` 不必等发版就生效。
 /// `~/.aidog/platform-presets.json` 覆盖链已移除，禁改回。
 fn extract_protocols(root: &serde_json::Value) -> Result<Vec<(String, String, String)>, String> {
-    let obj = root.get("protocols").and_then(|v| v.as_object())
+    let obj = root
+        .get("protocols")
+        .and_then(|v| v.as_object())
         .ok_or_else(|| "missing `protocols` object".to_string())?;
-    Ok(obj.iter().map(|(id, v)| {
-        let slug = v.get("logo_url").and_then(|x| x.as_str()).unwrap_or("").to_string();
-        let hp = v.get("homepage").and_then(|x| x.as_str()).unwrap_or("").to_string();
-        (id.clone(), slug, hp)
-    }).collect())
+    Ok(obj
+        .iter()
+        .map(|(id, v)| {
+            let slug = v
+                .get("logo_url")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+            let hp = v
+                .get("homepage")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+            (id.clone(), slug, hp)
+        })
+        .collect())
 }
 
 /// 单 protocol lookup：返 `(logo_slug, homepage)`，未找到返 Err。
@@ -244,8 +293,16 @@ async fn read_one_protocol(db: &Db, protocol_id: &str) -> Result<(String, String
     let entry = aidog_db::preset_entry(db, protocol_id)
         .await?
         .ok_or_else(|| format!("protocol `{protocol_id}` not found"))?;
-    let slug = entry.get("logo_url").and_then(|x| x.as_str()).unwrap_or("").to_string();
-    let hp = entry.get("homepage").and_then(|x| x.as_str()).unwrap_or("").to_string();
+    let slug = entry
+        .get("logo_url")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
+    let hp = entry
+        .get("homepage")
+        .and_then(|x| x.as_str())
+        .unwrap_or("")
+        .to_string();
     Ok((slug, hp))
 }
 
@@ -255,10 +312,19 @@ mod tests {
 
     #[test]
     fn extract_domain_handles_common_cases() {
-        assert_eq!(extract_domain("https://www.anthropic.com").as_deref(), Some("www.anthropic.com"));
-        assert_eq!(extract_domain("https://openai.com").as_deref(), Some("openai.com"));
+        assert_eq!(
+            extract_domain("https://www.anthropic.com").as_deref(),
+            Some("www.anthropic.com")
+        );
+        assert_eq!(
+            extract_domain("https://openai.com").as_deref(),
+            Some("openai.com")
+        );
         // scheme-less → 补 https
-        assert_eq!(extract_domain("deepseek.com").as_deref(), Some("deepseek.com"));
+        assert_eq!(
+            extract_domain("deepseek.com").as_deref(),
+            Some("deepseek.com")
+        );
         assert_eq!(extract_domain("").as_deref(), None);
         assert_eq!(extract_domain("   ").as_deref(), None);
         assert_eq!(extract_domain("not a url :// x").as_deref(), None);
@@ -277,7 +343,10 @@ mod tests {
         let db = aidog_db::test_support::test_db().await;
         // DB 空 → 回落 bundled：真实 registry 里 anthropic 带 slug
         let (bundled_slug, _) = read_one_protocol(&db, "anthropic").await.unwrap();
-        assert!(!bundled_slug.is_empty(), "bundled 兜底应给出 anthropic 的 slug");
+        assert!(
+            !bundled_slug.is_empty(),
+            "bundled 兜底应给出 anthropic 的 slug"
+        );
 
         // 上游改了 logo：同步一次即生效，无需发版
         aidog_db::upsert_platform_presets(
@@ -302,12 +371,14 @@ mod tests {
         let rows = vec![
             aidog_db::PlatformPreset {
                 code: "alpha".into(),
-                preset_data: r#"{"logo_url":"alpha-old","homepage":"https://alpha.example.com"}"#.into(),
+                preset_data: r#"{"logo_url":"alpha-old","homepage":"https://alpha.example.com"}"#
+                    .into(),
                 updated_at: 0,
             },
             aidog_db::PlatformPreset {
                 code: "beta".into(),
-                preset_data: r#"{"logo_url":"beta-old","homepage":"https://beta.example.com"}"#.into(),
+                preset_data: r#"{"logo_url":"beta-old","homepage":"https://beta.example.com"}"#
+                    .into(),
                 updated_at: 0,
             },
         ];
@@ -317,15 +388,23 @@ mod tests {
             &db,
             vec![aidog_db::PlatformPreset {
                 code: "alpha".into(),
-                preset_data: r#"{"logo_url":"alpha-new","homepage":"https://alpha.example.com"}"#.into(),
+                preset_data: r#"{"logo_url":"alpha-new","homepage":"https://alpha.example.com"}"#
+                    .into(),
                 updated_at: 0,
             }],
         )
         .await
         .unwrap();
 
-        assert_eq!(read_one_protocol(&db, "alpha").await.unwrap().0, "alpha-new");
-        assert_eq!(read_one_protocol(&db, "beta").await.unwrap().0, "beta-old", "失败平台的 slug 不该被清空");
+        assert_eq!(
+            read_one_protocol(&db, "alpha").await.unwrap().0,
+            "alpha-new"
+        );
+        assert_eq!(
+            read_one_protocol(&db, "beta").await.unwrap().0,
+            "beta-old",
+            "失败平台的 slug 不该被清空"
+        );
     }
 
     /// 缓存新鲜度按「来源是否变过」判，不只看文件在不在——否则换了 slug 也永远命中旧图。
@@ -337,21 +416,37 @@ mod tests {
         std::fs::write(logo_cache_path(dir, "alpha"), b"\x89PNG\r\n").unwrap();
 
         // 旁记缺失（老版本遗留缓存）→ 过期，重下一次
-        assert!(!cache_is_fresh(dir, "alpha", &logo_source_key("old", "https://a.example.com")));
+        assert!(!cache_is_fresh(
+            dir,
+            "alpha",
+            &logo_source_key("old", "https://a.example.com")
+        ));
 
         std::fs::write(
             logo_source_marker_path(dir, "alpha"),
             logo_source_key("old", "https://a.example.com"),
         )
         .unwrap();
-        assert!(cache_is_fresh(dir, "alpha", &logo_source_key("old", "https://a.example.com")));
+        assert!(cache_is_fresh(
+            dir,
+            "alpha",
+            &logo_source_key("old", "https://a.example.com")
+        ));
         assert!(
-            !cache_is_fresh(dir, "alpha", &logo_source_key("new", "https://a.example.com")),
+            !cache_is_fresh(
+                dir,
+                "alpha",
+                &logo_source_key("new", "https://a.example.com")
+            ),
             "slug 变了必须重下"
         );
         // 空文件不算命中
         std::fs::write(logo_cache_path(dir, "alpha"), b"").unwrap();
-        assert!(!cache_is_fresh(dir, "alpha", &logo_source_key("old", "https://a.example.com")));
+        assert!(!cache_is_fresh(
+            dir,
+            "alpha",
+            &logo_source_key("old", "https://a.example.com")
+        ));
     }
 
     #[test]

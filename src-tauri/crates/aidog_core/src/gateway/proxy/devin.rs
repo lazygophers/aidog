@@ -49,7 +49,13 @@ fn store_session_at(client_id: String, devin_id: String, now: std::time::Instant
     if map.len() > 128 {
         map.retain(|_, v| now.duration_since(v.created_at).as_secs() <= DEVIN_SESSION_TTL_SECS);
     }
-    map.insert(client_id, DevinSessionMapping { devin_id, created_at: now });
+    map.insert(
+        client_id,
+        DevinSessionMapping {
+            devin_id,
+            created_at: now,
+        },
+    );
 }
 
 /// 生产入口：用当前时刻查映射。
@@ -84,8 +90,12 @@ pub(crate) fn decide_session_reuse(
 
 /// 给 AirDog 构造的响应附 `x-devin-session-id` 头（client_id 空则跳过）。
 fn attach_session_header(resp: &mut axum::response::Response, client_id: &str) {
-    if client_id.is_empty() { return; }
-    let Ok(hv) = axum::http::HeaderValue::from_str(client_id) else { return };
+    if client_id.is_empty() {
+        return;
+    }
+    let Ok(hv) = axum::http::HeaderValue::from_str(client_id) else {
+        return;
+    };
     resp.headers_mut().insert(
         axum::http::HeaderName::from_static("x-devin-session-id"),
         hv,
@@ -144,10 +154,15 @@ pub(crate) async fn handle_devin(
     let api_key = platform.api_key.trim();
     if api_key.is_empty() {
         return devin_error(
-            &state, &mut log, &log_settings, lang, start,
+            &state,
+            &mut log,
+            &log_settings,
+            lang,
+            start,
             StatusCode::BAD_REQUEST,
             "devin platform missing api_key",
-        ).await;
+        )
+        .await;
     }
     // s6: devin 轮询超时（extra.devin.dev_timeout 秒，缺省 300）。nested 读取，禁 flat。
     // read_dev_timeout_secs 吃 &Value（沿用其既有测试形态），由已解析的 devin_extra 序列化而来，
@@ -167,10 +182,15 @@ pub(crate) async fn handle_devin(
         Ok(p) => p,
         Err(e) => {
             return devin_error(
-                &state, &mut log, &log_settings, lang, start,
+                &state,
+                &mut log,
+                &log_settings,
+                lang,
+                start,
                 StatusCode::BAD_REQUEST,
                 &format!("devin messages→prompt: {e}"),
-            ).await;
+            )
+            .await;
         }
     };
 
@@ -192,12 +212,24 @@ pub(crate) async fn handle_devin(
         let c = state.settings_cache.read().await;
         (c.system_timeout.clone(), c.proxy_client.clone())
     };
-    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 {
+        system_timeout.connect_timeout_secs
+    } else {
+        10
+    };
+    let req_timeout = if system_timeout.request_timeout_secs > 0 {
+        system_timeout.request_timeout_secs
+    } else {
+        300
+    };
     let client = http_client::build_http_client(
-        &proxy_client, req_timeout, conn_timeout,
-        Some(&platform.extra), None,
-    ).await;
+        &proxy_client,
+        req_timeout,
+        conn_timeout,
+        Some(&platform.extra),
+        None,
+    )
+    .await;
 
     // ── 1. resolve session id（s5: X-Devin-Session-Id 复用 / 否则新建）──
     //   有 header + 映射命中 + session 非终态 → POST messages 复用（省 ACU + 保上下文）
@@ -213,7 +245,10 @@ pub(crate) async fn handle_devin(
     // 命中映射 + probe 当前 status（任一缺失 → CreateNew）
     let mapped: Option<String> = header_id.as_ref().and_then(|hid| lookup_session(hid));
     let probed_status: Option<String> = match &mapped {
-        Some(id) => fetch_session_state(&client, &base_url, api_key, id).await.ok().map(|s| s.status),
+        Some(id) => fetch_session_state(&client, &base_url, api_key, id)
+            .await
+            .ok()
+            .map(|s| s.status),
         None => None,
     };
     let session_id: String = match decide_session_reuse(
@@ -230,7 +265,9 @@ pub(crate) async fn handle_devin(
                 status = probed_status.as_deref().unwrap_or("?"),
                 "devin reuse session via X-Devin-Session-Id"
             );
-            if let Err(e) = send_message_to_session(&client, &base_url, api_key, &mapped_id, &prompt).await {
+            if let Err(e) =
+                send_message_to_session(&client, &base_url, api_key, &mapped_id, &prompt).await
+            {
                 tracing::warn!(
                     platform_id = platform.id,
                     devin_id = %mapped_id,
@@ -238,25 +275,37 @@ pub(crate) async fn handle_devin(
                     "devin POST messages failed"
                 );
                 let mut r = devin_error(
-                    &state, &mut log, &log_settings, lang, start,
+                    &state,
+                    &mut log,
+                    &log_settings,
+                    lang,
+                    start,
                     StatusCode::BAD_GATEWAY,
                     &format!("devin send_message error: {e}"),
-                ).await;
+                )
+                .await;
                 attach_session_header(&mut r, &client_id);
                 return r;
             }
             mapped_id
         }
         SessionDecision::CreateNew => {
-            let new_id = match create_session(&client, &base_url, api_key, &prompt, requested_model).await {
+            let new_id = match create_session(&client, &base_url, api_key, &prompt, requested_model)
+                .await
+            {
                 Ok(id) => id,
                 Err(e) => {
                     tracing::warn!(platform_id = platform.id, error = %e, "devin create_session failed");
                     let mut r = devin_error(
-                        &state, &mut log, &log_settings, lang, start,
+                        &state,
+                        &mut log,
+                        &log_settings,
+                        lang,
+                        start,
                         StatusCode::BAD_GATEWAY,
                         &format!("devin create_session error: {e}"),
-                    ).await;
+                    )
+                    .await;
                     attach_session_header(&mut r, &client_id);
                     return r;
                 }
@@ -276,15 +325,22 @@ pub(crate) async fn handle_devin(
 
     // ── 2. poll until terminal (10s 间隔 + dev_timeout_secs 上限) ──
     //   s6: 超时 → 504 + 结构化 body（禁 200 假回复，spec design.md line 72-76）。
-    let final_state = match poll_session(&client, &base_url, api_key, &session_id, dev_timeout_secs).await {
+    let final_state = match poll_session(&client, &base_url, api_key, &session_id, dev_timeout_secs)
+        .await
+    {
         Ok(s) => s,
         Err(PollError::Other(e)) => {
             tracing::warn!(platform_id = platform.id, session_id = %session_id, error = %e, "devin poll_session failed");
             let mut r = devin_error(
-                &state, &mut log, &log_settings, lang, start,
+                &state,
+                &mut log,
+                &log_settings,
+                lang,
+                start,
                 StatusCode::BAD_GATEWAY,
                 &format!("devin poll_session error: {e}"),
-            ).await;
+            )
+            .await;
             attach_session_header(&mut r, &client_id);
             return r;
         }
@@ -306,10 +362,20 @@ pub(crate) async fn handle_devin(
                 // ponytail: 直接复用 stream_terminal_response 的 "timeout" 分支，最小改。
                 log.blocked_reason = "devin_timeout".into();
                 return stream_terminal_response(
-                    state, log, log_settings, source_protocol, requested_model,
-                    &session_id, "", acus_consumed, "timeout",
-                    None, start, &client_id,
-                ).await;
+                    state,
+                    log,
+                    log_settings,
+                    source_protocol,
+                    requested_model,
+                    &session_id,
+                    "",
+                    acus_consumed,
+                    "timeout",
+                    None,
+                    start,
+                    &client_id,
+                )
+                .await;
             }
             log.status_code = StatusCode::GATEWAY_TIMEOUT.as_u16() as i32;
             log.blocked_reason = "devin_timeout".into();
@@ -325,7 +391,8 @@ pub(crate) async fn handle_devin(
                 StatusCode::GATEWAY_TIMEOUT,
                 [(axum::http::header::CONTENT_TYPE, "application/json")],
                 timeout_body,
-            ).into_response();
+            )
+                .into_response();
             inject_trace_header(&mut r);
             attach_session_header(&mut r, &client_id);
             return r;
@@ -350,10 +417,15 @@ pub(crate) async fn handle_devin(
                 Err(e) => {
                     tracing::warn!(platform_id = platform.id, session_id = %session_id, error = %e, "devin get_messages failed");
                     let mut r = devin_error(
-                        &state, &mut log, &log_settings, lang, start,
+                        &state,
+                        &mut log,
+                        &log_settings,
+                        lang,
+                        start,
                         StatusCode::BAD_GATEWAY,
                         &format!("devin get_messages error: {e}"),
-                    ).await;
+                    )
+                    .await;
                     attach_session_header(&mut r, &client_id);
                     return r;
                 }
@@ -371,7 +443,12 @@ pub(crate) async fn handle_devin(
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::BAD_GATEWAY, [(axum::http::header::CONTENT_TYPE, "application/json")], body).into_response();
+            let mut r = (
+                StatusCode::BAD_GATEWAY,
+                [(axum::http::header::CONTENT_TYPE, "application/json")],
+                body,
+            )
+                .into_response();
             inject_trace_header(&mut r);
             attach_session_header(&mut r, &client_id);
             return r;
@@ -392,7 +469,12 @@ pub(crate) async fn handle_devin(
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::PAYMENT_REQUIRED, [(axum::http::header::CONTENT_TYPE, "application/json")], body).into_response();
+            let mut r = (
+                StatusCode::PAYMENT_REQUIRED,
+                [(axum::http::header::CONTENT_TYPE, "application/json")],
+                body,
+            )
+                .into_response();
             inject_trace_header(&mut r);
             attach_session_header(&mut r, &client_id);
             return r;
@@ -401,10 +483,15 @@ pub(crate) async fn handle_devin(
             // 兜底：未预期非终态 status（理论上 poll_session 只返终态）
             tracing::error!(platform_id = platform.id, session_id = %session_id, status = %other, "devin unexpected non-terminal status reached handler");
             let mut r = devin_error(
-                &state, &mut log, &log_settings, lang, start,
+                &state,
+                &mut log,
+                &log_settings,
+                lang,
+                start,
                 StatusCode::BAD_GATEWAY,
                 &format!("devin unexpected status: {other}"),
-            ).await;
+            )
+            .await;
             attach_session_header(&mut r, &client_id);
             return r;
         }
@@ -418,12 +505,28 @@ pub(crate) async fn handle_devin(
         // ponytail: s3 已 poll 到终态，流式分支在终态后再 emit chunks（不再二次 poll）；
         // 真正的边 poll 边 emit 留待 s5（stateful session 复用）——此处单请求内 poll 完再 chunk 也满足契约 5。
         return stream_terminal_response(
-            state, log, log_settings, source_protocol, requested_model,
-            &session_id, &content, acus_consumed, final_state.status.as_str(),
-            final_state.status_detail.as_deref(), start, &client_id,
-        ).await;
+            state,
+            log,
+            log_settings,
+            source_protocol,
+            requested_model,
+            &session_id,
+            &content,
+            acus_consumed,
+            final_state.status.as_str(),
+            final_state.status_detail.as_deref(),
+            start,
+            &client_id,
+        )
+        .await;
     }
-    let body = format_chat_response(source_protocol, &session_id, requested_model, &content, acus_consumed);
+    let body = format_chat_response(
+        source_protocol,
+        &session_id,
+        requested_model,
+        &content,
+        acus_consumed,
+    );
     let body_str = body.to_string();
 
     // ── 5. usage + est_cost 落 log（契约 9: est_cost=acus_consumed 禁 $ 折算）──
@@ -438,7 +541,12 @@ pub(crate) async fn handle_devin(
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
     upsert_log(&state, &log, &log_settings).await;
 
-    let mut r = (StatusCode::OK, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+    let mut r = (
+        StatusCode::OK,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        body_str,
+    )
+        .into_response();
     inject_trace_header(&mut r);
     attach_session_header(&mut r, &client_id);
     r
@@ -471,7 +579,11 @@ pub(crate) fn build_prompt(chat_req: &ChatRequest) -> Result<String, String> {
                         tracing::warn!(?b, "devin build_prompt: 非文本 system block 丢弃");
                     }
                 }
-                if buf.is_empty() { None } else { Some(buf.trim_end().to_string()) }
+                if buf.is_empty() {
+                    None
+                } else {
+                    Some(buf.trim_end().to_string())
+                }
             }
         };
         if let Some(t) = sys_text
@@ -547,7 +659,10 @@ pub(crate) fn is_terminal_status(status: &str) -> bool {
 /// 未知 detail → 通用 fallback。
 pub(crate) fn suspended_human_message(detail: &str) -> String {
     let lower = detail.to_lowercase();
-    if lower.contains("out_of_credits") || lower.contains("usage_limit_exceeded") || lower.contains("out_of_quota") {
+    if lower.contains("out_of_credits")
+        || lower.contains("usage_limit_exceeded")
+        || lower.contains("out_of_quota")
+    {
         "Devin session suspended: out of credits / quota exceeded".to_string()
     } else if lower.contains("inactivity") {
         "Devin session suspended due to inactivity".to_string()
@@ -653,7 +768,8 @@ pub(crate) fn format_devin_timeout_body(session_id: &str) -> String {
             "url": devin_session_url(session_id),
             "message": "Devin task still running, check url"
         }
-    }).to_string()
+    })
+    .to_string()
 }
 
 /// poll_session 错误：区分超时（带最后状态 → 504）与网络/解码错误（→ 502）。
@@ -666,15 +782,21 @@ pub(crate) enum PollError {
 }
 
 /// 按入站 source_protocol 格式化错误 body（error / suspended 终态用）。
-pub(crate) fn format_chat_error_body(source_protocol: &Protocol, session_id: &str, msg: &str) -> String {
+pub(crate) fn format_chat_error_body(
+    source_protocol: &Protocol,
+    session_id: &str,
+    msg: &str,
+) -> String {
     match source_protocol {
         Protocol::Anthropic => serde_json::json!({
             "type": "error",
             "error": { "type": "api_error", "message": msg, "session_id": session_id }
-        }).to_string(),
+        })
+        .to_string(),
         _ => serde_json::json!({
             "error": { "message": msg, "type": "devin_session_error", "session_id": session_id }
-        }).to_string(),
+        })
+        .to_string(),
     }
 }
 
@@ -694,10 +816,12 @@ async fn create_session(
         "prompt": prompt,
         "devin_mode": devin_mode,
     });
-    let resp = client.post(&url)
+    let resp = client
+        .post(&url)
         .bearer_auth(api_key)
         .json(&body)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("http: {e}"))?;
     if !resp.status().is_success() {
         let status = resp.status();
@@ -705,7 +829,9 @@ async fn create_session(
         return Err(format!("status {}: {}", status.as_u16(), text));
     }
     let v: Value = resp.json().await.map_err(|e| format!("decode: {e}"))?;
-    v.get("session_id").and_then(|x| x.as_str()).map(String::from)
+    v.get("session_id")
+        .and_then(|x| x.as_str())
+        .map(String::from)
         .ok_or_else(|| format!("missing session_id in response: {v}"))
 }
 
@@ -728,9 +854,11 @@ async fn fetch_session_state(
     session_id: &str,
 ) -> Result<DevinSessionState, String> {
     let url = format!("{base_url}/sessions/{session_id}");
-    let resp = client.get(&url)
+    let resp = client
+        .get(&url)
         .bearer_auth(api_key)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("http: {e}"))?;
     if !resp.status().is_success() {
         let status = resp.status();
@@ -739,9 +867,19 @@ async fn fetch_session_state(
     }
     let v: Value = resp.json().await.map_err(|e| format!("decode: {e}"))?;
     Ok(DevinSessionState {
-        status: v.get("status").and_then(|x| x.as_str()).unwrap_or("running").to_string(),
-        status_detail: v.get("status_detail").and_then(|x| x.as_str()).map(String::from),
-        acus_consumed: v.get("acus_consumed").and_then(|x| x.as_f64()).unwrap_or(0.0),
+        status: v
+            .get("status")
+            .and_then(|x| x.as_str())
+            .unwrap_or("running")
+            .to_string(),
+        status_detail: v
+            .get("status_detail")
+            .and_then(|x| x.as_str())
+            .map(String::from),
+        acus_consumed: v
+            .get("acus_consumed")
+            .and_then(|x| x.as_f64())
+            .unwrap_or(0.0),
     })
 }
 
@@ -756,10 +894,12 @@ async fn send_message_to_session(
 ) -> Result<(), String> {
     let url = format!("{base_url}/sessions/{session_id}/messages");
     let body = serde_json::json!({ "message": message });
-    let resp = client.post(&url)
+    let resp = client
+        .post(&url)
         .bearer_auth(api_key)
         .json(&body)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("http: {e}"))?;
     if !resp.status().is_success() {
         let status = resp.status();
@@ -784,22 +924,45 @@ async fn poll_session(
     let url = format!("{base_url}/sessions/{session_id}");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
     loop {
-        let resp = client.get(&url)
+        let resp = client
+            .get(&url)
             .bearer_auth(api_key)
-            .send().await
+            .send()
+            .await
             .map_err(|e| PollError::Other(format!("http: {e}")))?;
         if !resp.status().is_success() {
             let status = resp.status();
             let text = resp.text().await.unwrap_or_default();
-            return Err(PollError::Other(format!("status {}: {}", status.as_u16(), text)));
+            return Err(PollError::Other(format!(
+                "status {}: {}",
+                status.as_u16(),
+                text
+            )));
         }
-        let v: Value = resp.json().await.map_err(|e| PollError::Other(format!("decode: {e}")))?;
-        let status = v.get("status").and_then(|x| x.as_str()).unwrap_or("running").to_string();
-        let status_detail = v.get("status_detail").and_then(|x| x.as_str()).map(String::from);
-        let acus_consumed = v.get("acus_consumed").and_then(|x| x.as_f64()).unwrap_or(0.0);
+        let v: Value = resp
+            .json()
+            .await
+            .map_err(|e| PollError::Other(format!("decode: {e}")))?;
+        let status = v
+            .get("status")
+            .and_then(|x| x.as_str())
+            .unwrap_or("running")
+            .to_string();
+        let status_detail = v
+            .get("status_detail")
+            .and_then(|x| x.as_str())
+            .map(String::from);
+        let acus_consumed = v
+            .get("acus_consumed")
+            .and_then(|x| x.as_f64())
+            .unwrap_or(0.0);
         // ponytail: 当前迭代拿到的 state 即「最后一次 poll」——终态直接 return Ok，
         // 超时（下方 deadline check）时 state 仍是本轮最新，作 last_state 透传给 504 body。
-        let state = DevinSessionState { status: status.clone(), status_detail, acus_consumed };
+        let state = DevinSessionState {
+            status: status.clone(),
+            status_detail,
+            acus_consumed,
+        };
         if is_terminal_status(&status) {
             return Ok(state);
         }
@@ -818,9 +981,11 @@ async fn get_messages(
     session_id: &str,
 ) -> Result<String, String> {
     let url = format!("{base_url}/sessions/{session_id}/messages");
-    let resp = client.get(&url)
+    let resp = client
+        .get(&url)
         .bearer_auth(api_key)
-        .send().await
+        .send()
+        .await
         .map_err(|e| format!("http: {e}"))?;
     if !resp.status().is_success() {
         let status = resp.status();
@@ -830,10 +995,12 @@ async fn get_messages(
     let v: Value = resp.json().await.map_err(|e| format!("decode: {e}"))?;
     if let Some(arr) = v.as_array() {
         for m in arr.iter().rev() {
-            let is_devin = m.get("source").and_then(|s| s.as_str()).map(|s| s == "devin").unwrap_or(false);
-            if is_devin
-                && let Some(text) = m.get("message").and_then(|x| x.as_str())
-            {
+            let is_devin = m
+                .get("source")
+                .and_then(|s| s.as_str())
+                .map(|s| s == "devin")
+                .unwrap_or(false);
+            if is_devin && let Some(text) = m.get("message").and_then(|x| x.as_str()) {
                 return Ok(text.to_string());
             }
         }
@@ -894,33 +1061,84 @@ async fn stream_terminal_response(
     let sse_id = format!("chatcmpl-{session_id}");
     // ── 构造 SSE chunk 序列（Start → N×Delta → Stop/Error）──
     let chunks: Vec<String> = match final_status {
-        "exit" => build_devin_sse_seq(source_protocol, &sse_id, requested_model, &[content.to_string()], "stop"),
+        "exit" => build_devin_sse_seq(
+            source_protocol,
+            &sse_id,
+            requested_model,
+            &[content.to_string()],
+            "stop",
+        ),
         "error" => {
-            let mut v = vec![to_client_sse(&ChatStreamEvent::Start { id: sse_id.clone(), model: requested_model.to_string() }, source_protocol, requested_model).unwrap_or_default()];
+            let mut v = vec![
+                to_client_sse(
+                    &ChatStreamEvent::Start {
+                        id: sse_id.clone(),
+                        model: requested_model.to_string(),
+                    },
+                    source_protocol,
+                    requested_model,
+                )
+                .unwrap_or_default(),
+            ];
             v.push(sse_error_chunk(source_protocol, "Devin session error"));
             v
         }
         "suspended" => {
             let detail = final_status_detail.unwrap_or("unknown");
             let human = suspended_human_message(detail);
-            let mut v = vec![to_client_sse(&ChatStreamEvent::Start { id: sse_id.clone(), model: requested_model.to_string() }, source_protocol, requested_model).unwrap_or_default()];
+            let mut v = vec![
+                to_client_sse(
+                    &ChatStreamEvent::Start {
+                        id: sse_id.clone(),
+                        model: requested_model.to_string(),
+                    },
+                    source_protocol,
+                    requested_model,
+                )
+                .unwrap_or_default(),
+            ];
             v.push(sse_error_chunk(source_protocol, &human));
             v
         }
         "timeout" => {
             // s6: 轮询超时 → Start + error SSE chunk（spec design.md line 72-76，禁 200）
-            let mut v = vec![to_client_sse(&ChatStreamEvent::Start { id: sse_id.clone(), model: requested_model.to_string() }, source_protocol, requested_model).unwrap_or_default()];
-            v.push(sse_error_chunk(source_protocol, "Devin task still running, check url"));
+            let mut v = vec![
+                to_client_sse(
+                    &ChatStreamEvent::Start {
+                        id: sse_id.clone(),
+                        model: requested_model.to_string(),
+                    },
+                    source_protocol,
+                    requested_model,
+                )
+                .unwrap_or_default(),
+            ];
+            v.push(sse_error_chunk(
+                source_protocol,
+                "Devin task still running, check url",
+            ));
             v
         }
-        _ => build_devin_sse_seq(source_protocol, &sse_id, requested_model, &[content.to_string()], "stop"),
+        _ => build_devin_sse_seq(
+            source_protocol,
+            &sse_id,
+            requested_model,
+            &[content.to_string()],
+            "stop",
+        ),
     };
 
     // ── upsert log（终态后落库，est_cost = acus_consumed）──
     let (http_status, body_marker) = match final_status {
         "error" => (StatusCode::BAD_GATEWAY, "[devin stream error]".to_string()),
-        "suspended" => (StatusCode::PAYMENT_REQUIRED, "[devin stream suspended]".to_string()),
-        "timeout" => (StatusCode::GATEWAY_TIMEOUT, "[devin stream timeout]".to_string()),
+        "suspended" => (
+            StatusCode::PAYMENT_REQUIRED,
+            "[devin stream suspended]".to_string(),
+        ),
+        "timeout" => (
+            StatusCode::GATEWAY_TIMEOUT,
+            "[devin stream timeout]".to_string(),
+        ),
         _ => (StatusCode::OK, content.to_string()),
     };
     log.status_code = http_status.as_u16() as i32;
@@ -945,7 +1163,8 @@ async fn stream_terminal_response(
             (axum::http::header::CONNECTION, "keep-alive"),
         ],
         body,
-    ).into_response();
+    )
+        .into_response();
     inject_trace_header(&mut r);
     attach_session_header(&mut r, client_session_id);
     r
@@ -963,22 +1182,33 @@ pub(crate) fn build_devin_sse_seq(
     use aidog_adapter::converter::to_client_sse;
     let mut out: Vec<String> = Vec::new();
     if let Some(s) = to_client_sse(
-        &ChatStreamEvent::Start { id: sse_id.to_string(), model: model.to_string() },
-        source_protocol, model,
+        &ChatStreamEvent::Start {
+            id: sse_id.to_string(),
+            model: model.to_string(),
+        },
+        source_protocol,
+        model,
     ) {
         out.push(s);
     }
     for m in messages {
         // ponytail: Devin message 是离散产出，整条一个 delta chunk（非 token 切分）
         if !m.is_empty()
-            && let Some(s) = to_client_sse(&ChatStreamEvent::Delta { text: m.clone() }, source_protocol, model)
+            && let Some(s) = to_client_sse(
+                &ChatStreamEvent::Delta { text: m.clone() },
+                source_protocol,
+                model,
+            )
         {
             out.push(s);
         }
     }
     if let Some(s) = to_client_sse(
-        &ChatStreamEvent::Stop { finish_reason: Some(finish_reason.to_string()) },
-        source_protocol, model,
+        &ChatStreamEvent::Stop {
+            finish_reason: Some(finish_reason.to_string()),
+        },
+        source_protocol,
+        model,
     ) {
         out.push(s);
     }
@@ -1009,7 +1239,10 @@ mod tests {
     use serde_json::json;
 
     fn msg(role: Role, text: &str) -> Message {
-        Message { role, content: MessageContent::Text(text.into()) }
+        Message {
+            role,
+            content: MessageContent::Text(text.into()),
+        }
     }
 
     // ── build_prompt ──
@@ -1021,9 +1254,14 @@ mod tests {
             model: "devin-normal".into(),
             messages: vec![msg(Role::User, "hello")],
             system: None,
-            max_tokens: None, temperature: None, top_p: None,
-            stream: None, tools: None, tool_choice: None, extra: None,
-        thinking_mode: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+            thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[user] hello");
@@ -1040,12 +1278,20 @@ mod tests {
                 msg(Role::User, "how are you"),
             ],
             system: Some(SystemContent::Text("be concise".into())),
-            max_tokens: None, temperature: None, top_p: None,
-            stream: None, tools: None, tool_choice: None, extra: None,
-        thinking_mode: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+            thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
-        assert_eq!(p, "[system] be concise\n\n[user] hi\n\n[assistant] hello\n\n[user] how are you");
+        assert_eq!(
+            p,
+            "[system] be concise\n\n[user] hi\n\n[assistant] hello\n\n[user] how are you"
+        );
     }
 
     #[test]
@@ -1066,9 +1312,14 @@ mod tests {
                 content: MessageContent::Blocks(blocks),
             }],
             system: None,
-            max_tokens: None, temperature: None, top_p: None,
-            stream: None, tools: None, tool_choice: None, extra: None,
-        thinking_mode: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+            thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[user] first\nsecond");
@@ -1081,9 +1332,14 @@ mod tests {
             model: "devin-normal".into(),
             messages: vec![],
             system: None,
-            max_tokens: None, temperature: None, top_p: None,
-            stream: None, tools: None, tool_choice: None, extra: None,
-        thinking_mode: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+            thinking_mode: None,
         };
         assert!(build_prompt(&req).is_err());
     }
@@ -1093,14 +1349,16 @@ mod tests {
         let req = ChatRequest {
             thinking_budget: None,
             model: "devin-normal".into(),
-            messages: vec![
-                msg(Role::User, ""),
-                msg(Role::Assistant, "real"),
-            ],
+            messages: vec![msg(Role::User, ""), msg(Role::Assistant, "real")],
             system: None,
-            max_tokens: None, temperature: None, top_p: None,
-            stream: None, tools: None, tool_choice: None, extra: None,
-        thinking_mode: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+            thinking_mode: None,
         };
         let p = build_prompt(&req).unwrap();
         assert_eq!(p, "[assistant] real");
@@ -1131,7 +1389,14 @@ mod tests {
         for s in &["exit", "error", "suspended"] {
             assert!(is_terminal_status(s), "{s} should be terminal");
         }
-        for s in &["new", "claimed", "running", "resuming", "working", "waiting_for_user"] {
+        for s in &[
+            "new",
+            "claimed",
+            "running",
+            "resuming",
+            "working",
+            "waiting_for_user",
+        ] {
             assert!(!is_terminal_status(s), "{s} should NOT be terminal");
         }
     }
@@ -1198,40 +1463,102 @@ mod tests {
 
     #[test]
     fn sse_seq_openai_has_delta_and_done() {
-        let chunks = build_devin_sse_seq(&Protocol::OpenAI, "chatcmpl-s1", "devin-normal", &["hello".into()], "stop");
+        let chunks = build_devin_sse_seq(
+            &Protocol::OpenAI,
+            "chatcmpl-s1",
+            "devin-normal",
+            &["hello".into()],
+            "stop",
+        );
         // Start + Delta + Stop = 3 chunks
         assert_eq!(chunks.len(), 3, "openai seq: {:?}", chunks);
         // Start: data: {"object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"...}}]}
-        assert!(chunks[0].contains("chat.completion.chunk"), "start: {}", chunks[0]);
+        assert!(
+            chunks[0].contains("chat.completion.chunk"),
+            "start: {}",
+            chunks[0]
+        );
         assert!(chunks[0].contains("assistant"), "start role: {}", chunks[0]);
         // Delta: data: {"choices":[{"delta":{"content":"hello"}}]}
         assert!(chunks[1].contains("hello"), "delta: {}", chunks[1]);
-        assert!(chunks[1].contains("\"content\":\"hello\""), "delta content: {}", chunks[1]);
+        assert!(
+            chunks[1].contains("\"content\":\"hello\""),
+            "delta content: {}",
+            chunks[1]
+        );
         // Stop: 终态 finish_reason=stop + [DONE]
-        assert!(chunks[2].contains("\"finish_reason\":\"stop\""), "stop reason: {}", chunks[2]);
+        assert!(
+            chunks[2].contains("\"finish_reason\":\"stop\""),
+            "stop reason: {}",
+            chunks[2]
+        );
         assert!(chunks[2].contains("[DONE]"), "stop [DONE]: {}", chunks[2]);
     }
 
     #[test]
     fn sse_seq_anthropic_has_message_start_stop() {
-        let chunks = build_devin_sse_seq(&Protocol::Anthropic, "msg_s2", "devin-fast", &["world".into()], "end_turn");
+        let chunks = build_devin_sse_seq(
+            &Protocol::Anthropic,
+            "msg_s2",
+            "devin-fast",
+            &["world".into()],
+            "end_turn",
+        );
         assert_eq!(chunks.len(), 3, "anthropic seq: {:?}", chunks);
         // Start: event: message_start
-        assert!(chunks[0].contains("event: message_start"), "anthropic start: {}", chunks[0]);
-        assert!(chunks[0].contains("assistant"), "anthropic role: {}", chunks[0]);
+        assert!(
+            chunks[0].contains("event: message_start"),
+            "anthropic start: {}",
+            chunks[0]
+        );
+        assert!(
+            chunks[0].contains("assistant"),
+            "anthropic role: {}",
+            chunks[0]
+        );
         // Delta: event: content_block_delta + text_delta
-        assert!(chunks[1].contains("event: content_block_delta"), "anthropic delta: {}", chunks[1]);
-        assert!(chunks[1].contains("text_delta"), "anthropic delta type: {}", chunks[1]);
-        assert!(chunks[1].contains("world"), "anthropic delta text: {}", chunks[1]);
+        assert!(
+            chunks[1].contains("event: content_block_delta"),
+            "anthropic delta: {}",
+            chunks[1]
+        );
+        assert!(
+            chunks[1].contains("text_delta"),
+            "anthropic delta type: {}",
+            chunks[1]
+        );
+        assert!(
+            chunks[1].contains("world"),
+            "anthropic delta text: {}",
+            chunks[1]
+        );
         // Stop: message_delta + message_stop, stop_reason=end_turn
-        assert!(chunks[2].contains("event: message_delta"), "anthropic stop delta: {}", chunks[2]);
-        assert!(chunks[2].contains("event: message_stop"), "anthropic message_stop: {}", chunks[2]);
-        assert!(chunks[2].contains("end_turn"), "anthropic stop_reason: {}", chunks[2]);
+        assert!(
+            chunks[2].contains("event: message_delta"),
+            "anthropic stop delta: {}",
+            chunks[2]
+        );
+        assert!(
+            chunks[2].contains("event: message_stop"),
+            "anthropic message_stop: {}",
+            chunks[2]
+        );
+        assert!(
+            chunks[2].contains("end_turn"),
+            "anthropic stop_reason: {}",
+            chunks[2]
+        );
     }
 
     #[test]
     fn sse_seq_skips_empty_messages() {
-        let chunks = build_devin_sse_seq(&Protocol::OpenAI, "c", "m", &["".into(), "real".into(), "".into()], "stop");
+        let chunks = build_devin_sse_seq(
+            &Protocol::OpenAI,
+            "c",
+            "m",
+            &["".into(), "real".into(), "".into()],
+            "stop",
+        );
         // Start + 1 Delta（空跳过）+ Stop
         assert_eq!(chunks.len(), 3);
         assert!(chunks[1].contains("real"));
@@ -1242,10 +1569,17 @@ mod tests {
         // gemini: Start→None（跳过），Delta + Stop = 2 chunks（gemini sse 无 data:/event: 前缀，纯 JSON 行）
         let chunks = build_devin_sse_seq(&Protocol::Gemini, "c", "m", &["x".into()], "stop");
         assert_eq!(chunks.len(), 2, "gemini seq: {:?}", chunks);
-        assert!(chunks[0].contains("\"text\":\"x\""), "gemini delta: {}", chunks[0]);
+        assert!(
+            chunks[0].contains("\"text\":\"x\""),
+            "gemini delta: {}",
+            chunks[0]
+        );
         // 末块是 Stop（finishReason=STOP）
         let last = chunks.last().unwrap();
-        assert!(last.contains("finishReason"), "gemini stop finishReason: {last}");
+        assert!(
+            last.contains("finishReason"),
+            "gemini stop finishReason: {last}"
+        );
         assert!(last.contains("STOP"), "gemini STOP: {last}");
     }
 
@@ -1267,7 +1601,10 @@ mod tests {
     fn fresh_key(tag: &str) -> String {
         static COUNTER: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
         let n = COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        format!("test-key-{tag}-{n}-{}", std::time::Instant::now().elapsed().as_nanos())
+        format!(
+            "test-key-{tag}-{n}-{}",
+            std::time::Instant::now().elapsed().as_nanos()
+        )
     }
 
     #[test]
@@ -1379,8 +1716,14 @@ mod tests {
     #[test]
     fn read_dev_timeout_secs_default_when_absent() {
         // 无 devin key / 无 dev_timeout → 默认 300
-        assert_eq!(read_dev_timeout_secs(&json!({})), DEVIN_DEFAULT_TIMEOUT_SECS);
-        assert_eq!(read_dev_timeout_secs(&json!({"devin": {}})), DEVIN_DEFAULT_TIMEOUT_SECS);
+        assert_eq!(
+            read_dev_timeout_secs(&json!({})),
+            DEVIN_DEFAULT_TIMEOUT_SECS
+        );
+        assert_eq!(
+            read_dev_timeout_secs(&json!({"devin": {}})),
+            DEVIN_DEFAULT_TIMEOUT_SECS
+        );
         assert_eq!(
             read_dev_timeout_secs(&json!({"devin": {"org_id": "o-1"}})),
             DEVIN_DEFAULT_TIMEOUT_SECS,
@@ -1434,13 +1777,11 @@ mod tests {
         assert_eq!(err["type"], "devin_timeout", "type 必须 devin_timeout");
         assert_eq!(err["session_id"], "devin-abc123", "session_id 必须透传");
         assert_eq!(
-            err["url"],
-            "https://app.devin.ai/sessions/devin-abc123",
+            err["url"], "https://app.devin.ai/sessions/devin-abc123",
             "url 必须是 app.devin.ai 前台 session URL"
         );
         assert_eq!(
-            err["message"],
-            "Devin task still running, check url",
+            err["message"], "Devin task still running, check url",
             "message 文案对齐 spec"
         );
         // 禁 200 假回复：body 内不含 fake content / choices（chat 语义污染）
@@ -1496,8 +1837,14 @@ mod tests {
         );
         // 空 / 非 JSON / 缺 org_id / 顶层非字符串 → None
         assert_eq!(resolve_devin_org_id(&PlatformExtra::parse("")), None);
-        assert_eq!(resolve_devin_org_id(&PlatformExtra::parse("not json")), None);
-        assert_eq!(resolve_devin_org_id(&PlatformExtra::parse(r#"{"devin":{}}"#)), None);
+        assert_eq!(
+            resolve_devin_org_id(&PlatformExtra::parse("not json")),
+            None
+        );
+        assert_eq!(
+            resolve_devin_org_id(&PlatformExtra::parse(r#"{"devin":{}}"#)),
+            None
+        );
         assert_eq!(
             resolve_devin_org_id(&PlatformExtra::parse(r#"{"org_id":123}"#)),
             None

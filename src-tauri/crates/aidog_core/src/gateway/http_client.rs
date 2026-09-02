@@ -1,6 +1,6 @@
+use super::models::ProxyClientSettings;
 /// Shared HTTP client builder with optional upstream proxy support.
 use aidog_db::Db;
-use super::models::ProxyClientSettings;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -45,10 +45,11 @@ impl ClientCache {
             return;
         }
         if self.map.len() >= self.capacity
-            && let Some(old_key) = self.order.first() {
-                self.map.remove(old_key);
-                self.order.remove(0);
-            }
+            && let Some(old_key) = self.order.first()
+        {
+            self.map.remove(old_key);
+            self.order.remove(0);
+        }
         self.map.insert(key, client);
         self.order.push(key);
     }
@@ -68,8 +69,11 @@ fn global_client_cache() -> &'static Arc<RwLock<ClientCache>> {
 /// - `Some(true)` = explicitly enabled
 /// - `Some(false)` = explicitly disabled
 pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
-    if extra.trim().is_empty() { return None; }
-    serde_json::from_str::<serde_json::Value>(extra).ok()
+    if extra.trim().is_empty() {
+        return None;
+    }
+    serde_json::from_str::<serde_json::Value>(extra)
+        .ok()
         .and_then(|v| v.get("proxy_enabled").and_then(|f| f.as_bool()))
 }
 
@@ -171,12 +175,18 @@ mod tests {
 
     #[test]
     fn platform_proxy_enabled_explicit_true() {
-        assert_eq!(platform_proxy_enabled(r#"{"proxy_enabled":true}"#), Some(true));
+        assert_eq!(
+            platform_proxy_enabled(r#"{"proxy_enabled":true}"#),
+            Some(true)
+        );
     }
 
     #[test]
     fn platform_proxy_enabled_explicit_false() {
-        assert_eq!(platform_proxy_enabled(r#"{"proxy_enabled":false}"#), Some(false));
+        assert_eq!(
+            platform_proxy_enabled(r#"{"proxy_enabled":false}"#),
+            Some(false)
+        );
     }
 
     #[test]
@@ -200,8 +210,8 @@ mod tests {
     // ponytail: env::set_var 临时改 + 恢复，单测内顺序执行；其他 #[test] 不触 env，无并行污染。
     #[tokio::test]
     async fn build_http_client_disables_env_proxy_when_no_db_proxy() {
-        use std::sync::atomic::{AtomicUsize, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
 
         // 1. stub proxy：accept 连接计数后立刻 drop（模拟 proxy 端口；不该被连）。
         let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();

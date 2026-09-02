@@ -3,7 +3,7 @@
 //! 薄壳：转 `gateway::db` 的 `*_cli_proxy_provider` 函数。
 
 use aidog_db as db;
-use aidog_db::{Db};
+use aidog_db::Db;
 // TODO-unknown: self
 use aidog_core::gateway::models::{CliProxyProvider, CreateCliProxyProvider};
 use tauri::State;

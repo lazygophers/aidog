@@ -4,14 +4,14 @@
 use rusqlite::{Connection, OpenFlags};
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc};
 use tokio_rusqlite::Connection as AsyncConnection;
 
-pub mod models;
-pub mod logging;
-pub mod log_util;
 mod cache;
+pub mod log_util;
+pub mod logging;
+pub mod models;
 mod trace;
 
 pub mod helpers;
@@ -20,14 +20,13 @@ pub mod schema_early;
 pub mod schema_late;
 pub mod settings;
 pub mod test_support;
+pub use cache::*;
 pub use helpers::*;
 pub use models::*;
 pub use schema::*;
 pub use settings::*;
-pub use cache::*;
-pub use trace::{CURRENT_DB_CTX, DbCallCtx, fmt_caller};
 pub(crate) use trace::*;
-
+pub use trace::{CURRENT_DB_CTX, DbCallCtx, fmt_caller};
 
 /// 只读连接池大小（单点可调）。WAL 模式下「单写 + 多读并发」红利由这 N 条只读连接吃下，
 /// 让 UI 读查询不再排在代理密集写日志之后。动态扩容（空闲回收 / 加锁扩容）本轮不做。
@@ -178,9 +177,7 @@ pub struct Db(
 /// 一次单表查 `"group"`（无 JOIN / 子查询，仅 ~15 行），把 `auto_from_platform`（十进制字符串）
 /// 非空且未软删的自动分组建为 `group_key → CAST(auto_from_platform AS INTEGER)` 映射。
 /// 配合 `resolve_eff_pid` 在 Rust 内存逐行回溯，去掉所有读/写路径里的相关子查询。
-pub fn load_auto_from_map(
-    conn: &Connection,
-) -> rusqlite::Result<HashMap<String, i64>> {
+pub fn load_auto_from_map(conn: &Connection) -> rusqlite::Result<HashMap<String, i64>> {
     // config-db-split: "group" 表迁 platform.db，主库 Phase 1 调用时表可能不存在（首次新装 /
     // 已迁过）。缺表 → 返空 map（语义：无 auto_from_platform 映射），不阻断 init_tables。
     // backfill_stats_agg_if_empty 在 stats_agg 非空时本就跳过，auto_map 空无回归。
@@ -190,9 +187,7 @@ pub fn load_auto_from_map(
     ) else {
         return Ok(HashMap::new());
     };
-    let rows = stmt.query_map([], |r| {
-        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
-    })?;
+    let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)))?;
     let mut map = HashMap::new();
     for r in rows {
         let (gk, pid) = r?;
@@ -207,11 +202,7 @@ pub fn load_auto_from_map(
 /// 按 `group_key` 在 `load_auto_from_map` 的映射里回溯源平台 id，回溯不到则归 0。
 /// 与旧 `eff_pid_case` SQL CASE 表达式逐字段等价（直挂取原值 / auto 回溯 / 兜底 0）。
 #[inline]
-pub fn resolve_eff_pid(
-    platform_id: i64,
-    group_key: &str,
-    map: &HashMap<String, i64>,
-) -> i64 {
+pub fn resolve_eff_pid(platform_id: i64, group_key: &str, map: &HashMap<String, i64>) -> i64 {
     if platform_id != 0 {
         platform_id
     } else {
@@ -221,7 +212,9 @@ pub fn resolve_eff_pid(
 
 impl Db {
     pub async fn new(path: &str) -> Result<Self, String> {
-        let conn = AsyncConnection::open(path).await.map_err(|e| e.to_string())?;
+        let conn = AsyncConnection::open(path)
+            .await
+            .map_err(|e| e.to_string())?;
         // pragma 是 connection 级状态，绑定后台线程那条物理连接，设一次永久生效。
         // WAL 下 synchronous=NORMAL 安全；单连接模型下 busy_timeout 实际罕触发，设置无害。
         conn.call(|c| {
@@ -276,11 +269,9 @@ impl Db {
             let c = Self::open_proxy_log_conn(&pl_path).await?;
             (c, Some(pl_path))
         };
-        let proxy_log_read_pool = Self::build_read_pool(
-            proxy_log_path.as_deref().unwrap_or(path),
-            &proxy_log_conn,
-        )
-        .await?;
+        let proxy_log_read_pool =
+            Self::build_read_pool(proxy_log_path.as_deref().unwrap_or(path), &proxy_log_conn)
+                .await?;
 
         // platform.db：与主库平级独立 SQLite 文件，承载 platform / group / cli_proxy_provider 写
         // （独立 Mutex 不争元数据写锁，独立 WAL 不与主库读竞争）。内存库 fallback：
@@ -300,11 +291,8 @@ impl Db {
             let c = Self::open_platform_conn(&p_path).await?;
             (c, Some(p_path))
         };
-        let platform_read_pool = Self::build_read_pool(
-            platform_path.as_deref().unwrap_or(path),
-            &platform_conn,
-        )
-        .await?;
+        let platform_read_pool =
+            Self::build_read_pool(platform_path.as_deref().unwrap_or(path), &platform_conn).await?;
 
         Ok(Self(
             Arc::new(std::sync::Mutex::new(conn)),
@@ -418,8 +406,7 @@ impl Db {
     ) -> Result<ReadPoolHandle, String> {
         // 内存库判定：":memory:" / 含 "mode=memory"（URI 形式）/ 空路径（rusqlite 视为匿名临时库，
         // 多连接亦不共享）。任一命中即 fallback 复用写连接。
-        let is_memory =
-            path == ":memory:" || path.contains("mode=memory") || path.is_empty();
+        let is_memory = path == ":memory:" || path.contains("mode=memory") || path.is_empty();
         if is_memory {
             return Ok(ReadPoolHandle {
                 conns: Arc::new(vec![write_conn.clone()]),
@@ -435,7 +422,8 @@ impl Db {
         // shell export，切档须 `open --env AIDOG_SQLITE_READ_CACHE_KB=<KB 数> -a AiDog`。
         // 值语义同 SQLite 原生 `PRAGMA cache_size`：负数 = KiB（如 1024 → -1024）。写连接不设
         // 此 env（YAGNI，写档不参与二分，维持 SQLite 默认不变）。
-        let cache_pragma = Self::read_cache_pragma(std::env::var("AIDOG_SQLITE_READ_CACHE_KB").ok());
+        let cache_pragma =
+            Self::read_cache_pragma(std::env::var("AIDOG_SQLITE_READ_CACHE_KB").ok());
         for _ in 0..READ_POOL_SIZE {
             let c = AsyncConnection::open_with_flags(path, flags)
                 .await
@@ -681,7 +669,10 @@ impl Db {
         let ctx = self.3.clone();
         async move {
             let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
-            let conn = slot.lock().expect("proxy_log write conn slot poisoned").clone();
+            let conn = slot
+                .lock()
+                .expect("proxy_log write conn slot poisoned")
+                .clone();
             let cell1 = cell.clone();
             let req1 = req.clone();
             let r1 = conn
@@ -827,7 +818,10 @@ impl Db {
         let ctx = self.3.clone();
         async move {
             let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
-            let conn = slot.lock().expect("platform write conn slot poisoned").clone();
+            let conn = slot
+                .lock()
+                .expect("platform write conn slot poisoned")
+                .clone();
             let cell1 = cell.clone();
             let req1 = req.clone();
             let r1 = conn
@@ -986,10 +980,7 @@ impl Db {
     /// `Arc<Mutex<AsyncConnection>>`，本方法封装 lock+clone。这些调用方不走 `call_traced`
     /// 的重连重试机制（保留旧语义，仅代理热路径才需要兜底）。
     pub fn write_conn(&self) -> AsyncConnection {
-        self.0
-            .lock()
-            .expect("write conn slot poisoned")
-            .clone()
+        self.0.lock().expect("write conn slot poisoned").clone()
     }
 
     /// 取 platform.db 写连接的 clone（短暂持锁，纳秒级 channel sender clone）。
@@ -1016,9 +1007,8 @@ impl Db {
     /// 用于验证 `call_read_traced` 在某槽位死亡时能透明重试到下一条。
     pub async fn kill_next_read_slot(&self) {
         let conn = self.2.pick();
-        let _: tokio_rusqlite::Result<()> = conn
-            .call(|_c| panic!("test: kill read pool slot"))
-            .await;
+        let _: tokio_rusqlite::Result<()> =
+            conn.call(|_c| panic!("test: kill read pool slot")).await;
     }
 }
 
@@ -1026,10 +1016,7 @@ impl Db {
 ///
 /// 抽出为独立函数：避免在 `call_traced` / `call_read_traced` 的首调 + 重试闭包里重复定义
 /// `struct Clear; impl Drop`。每条闭包内 `let _g = set_db_ctx(...)` 即获得 RAII 守卫。
-fn set_db_ctx(
-    req: Option<String>,
-    caller: &'static std::panic::Location<'static>,
-) -> impl Drop {
+fn set_db_ctx(req: Option<String>, caller: &'static std::panic::Location<'static>) -> impl Drop {
     CURRENT_DB_CTX.with(|c| {
         *c.borrow_mut() = DbCallCtx {
             req,
@@ -1050,7 +1037,9 @@ fn set_db_ctx(
 /// 用于 `call_traced` 检测到 `ConnectionClosed` 后的兜底重连。auto_vacuum 不需重设
 /// （仅在「空库」时生效，重开时库已非空）。
 async fn reopen_write_conn(path: &str) -> Result<AsyncConnection, String> {
-    let conn = AsyncConnection::open(path).await.map_err(|e| e.to_string())?;
+    let conn = AsyncConnection::open(path)
+        .await
+        .map_err(|e| e.to_string())?;
     conn.call(|c| {
         c.execute_batch(
             "PRAGMA journal_mode=WAL; \
@@ -1086,53 +1075,53 @@ pub fn retention_cutoff_secs(secs: u64) -> Option<i64> {
 }
 
 // ─── 领域 DB 读写（2026-08-16 自 aidog_core::gateway::db 拆入）───
-mod platform;
-mod platform_lifecycle;
+mod cli_proxy;
+pub mod client_types_const;
 mod group;
 mod group_platform;
-mod middleware;
 mod maintenance;
+mod middleware;
 mod model_entry;
+mod platform;
+mod platform_lifecycle;
 mod price_resolve;
-mod cli_proxy;
-mod ui_extra;
 pub mod registry;
-pub mod client_types_const;
-pub use platform::*;
-pub use platform_lifecycle::*;
+mod ui_extra;
+pub use cli_proxy::*;
 pub use group::*;
 pub use group_platform::*;
-pub use middleware::*;
 pub use maintenance::*;
+pub use middleware::*;
 pub use model_entry::*;
+pub use platform::*;
+pub use platform_lifecycle::*;
 pub use price_resolve::*;
-pub use cli_proxy::*;
-pub use ui_extra::*;
 pub use registry::*;
+pub use ui_extra::*;
 
 #[cfg(test)]
-mod test_mod;
-#[cfg(test)]
-mod test_trace;
-#[cfg(test)]
-mod test_rw_pool;
-#[cfg(test)]
-mod test_model_entry;
-#[cfg(test)]
-mod test_price_resolve;
+mod test_cli_proxy;
 #[cfg(test)]
 mod test_group;
 #[cfg(test)]
 mod test_group_platform;
 #[cfg(test)]
+mod test_maintenance;
+#[cfg(test)]
+mod test_middleware;
+#[cfg(test)]
+mod test_mod;
+#[cfg(test)]
+mod test_model_entry;
+#[cfg(test)]
 mod test_platform;
 #[cfg(test)]
 mod test_platform_lifecycle;
 #[cfg(test)]
-mod test_middleware;
+mod test_price_resolve;
 #[cfg(test)]
-mod test_maintenance;
+mod test_rw_pool;
 #[cfg(test)]
-mod test_cli_proxy;
+mod test_trace;
 #[cfg(test)]
 mod test_ui_extra;

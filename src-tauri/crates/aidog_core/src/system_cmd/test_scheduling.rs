@@ -9,11 +9,16 @@ use aidog_db::test_support::test_db;
 async fn settings_roundtrip() {
     let db = test_db().await;
     let s = aidog_db::get_scheduling_settings(&db).await;
-    aidog_db::set_setting(&db, SetSettingInput {
-        scope: "scheduling".to_string(),
-        key: "settings".to_string(),
-        value: serde_json::to_value(&s).unwrap(),
-    }).await.unwrap();
+    aidog_db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "scheduling".to_string(),
+            key: "settings".to_string(),
+            value: serde_json::to_value(&s).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
     let s2 = aidog_db::get_scheduling_settings(&db).await;
     let _ = s2;
 }

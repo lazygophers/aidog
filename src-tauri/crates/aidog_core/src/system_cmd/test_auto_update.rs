@@ -1,6 +1,6 @@
 #![cfg(test)]
-use aidog_db as db;
 use super::*;
+use aidog_db as db;
 use aidog_db::test_support::test_db;
 
 /// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
@@ -16,17 +16,27 @@ async fn defaults_true_when_unset() {
 #[tokio::test]
 async fn roundtrip_persists() {
     let db = test_db().await;
-    db::set_setting(&db, SetSettingInput {
-        scope: "app".into(),
-        key: "auto_update_enabled".into(),
-        value: serde_json::Value::Bool(false),
-    }).await.unwrap();
+    db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "app".into(),
+            key: "auto_update_enabled".into(),
+            value: serde_json::Value::Bool(false),
+        },
+    )
+    .await
+    .unwrap();
     assert!(!load_auto_update_enabled(&db).await, "false persists");
-    db::set_setting(&db, SetSettingInput {
-        scope: "app".into(),
-        key: "auto_update_enabled".into(),
-        value: serde_json::Value::Bool(true),
-    }).await.unwrap();
+    db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "app".into(),
+            key: "auto_update_enabled".into(),
+            value: serde_json::Value::Bool(true),
+        },
+    )
+    .await
+    .unwrap();
     assert!(load_auto_update_enabled(&db).await, "true persists");
 }
 
@@ -34,10 +44,18 @@ async fn roundtrip_persists() {
 async fn corrupt_value_falls_back_to_true() {
     let db = test_db().await;
     // 直接写非 bool JSON，load 路径应兜底 true
-    db::set_setting(&db, SetSettingInput {
-        scope: "app".into(),
-        key: "auto_update_enabled".into(),
-        value: serde_json::Value::String("garbage".into()),
-    }).await.unwrap();
-    assert!(load_auto_update_enabled(&db).await, "non-bool falls back to true");
+    db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "app".into(),
+            key: "auto_update_enabled".into(),
+            value: serde_json::Value::String("garbage".into()),
+        },
+    )
+    .await
+    .unwrap();
+    assert!(
+        load_auto_update_enabled(&db).await,
+        "non-bool falls back to true"
+    );
 }

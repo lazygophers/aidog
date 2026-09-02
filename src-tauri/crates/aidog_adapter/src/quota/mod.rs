@@ -16,10 +16,10 @@ pub use script::CustomQueryCtx;
 
 use std::sync::Arc;
 
-use aidog_db::models::{Platform, Protocol};
 use aidog_db::Db;
+use aidog_db::models::{Platform, Protocol};
 
-use http::{err_quota, QUOTA_PLATFORM_ID};
+use http::{QUOTA_PLATFORM_ID, err_quota};
 use script::run_custom_query;
 
 // ── 完整查询结果 ─────────────────────────────────────────
@@ -39,7 +39,16 @@ pub async fn run_quota_script(
         .await
         .map(|p| p.quota_script)
         .unwrap_or_default();
-    run_script_at(db, protocol_code, base_url, api_key, extra, &materialized, platform_id).await
+    run_script_at(
+        db,
+        protocol_code,
+        base_url,
+        api_key,
+        extra,
+        &materialized,
+        platform_id,
+    )
+    .await
 }
 
 async fn run_script_at(
@@ -51,8 +60,7 @@ async fn run_script_at(
     materialized: &str,
     platform_id: i64,
 ) -> Option<PlatformQuota> {
-    let script =
-        aidog_db::registry::resolve_quota_script(protocol_code, extra, materialized)?;
+    let script = aidog_db::registry::resolve_quota_script(protocol_code, extra, materialized)?;
     Some(
         run_custom_query(
             db,
@@ -83,9 +91,19 @@ async fn platform_row(db: Option<&Arc<Db>>, platform_id: i64) -> Option<Platform
 
 /// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额（旧签名，调用方零改动）。
 /// platform_id 透传给落库日志（task_local scope），让 Logs 页能显示归属平台。
-pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, platform_id: i64) -> PlatformQuota {
+pub async fn query_quota(
+    db: Option<&Arc<Db>>,
+    base_url: &str,
+    api_key: &str,
+    platform_id: i64,
+) -> PlatformQuota {
     let row = platform_row(db, platform_id).await;
-    QUOTA_PLATFORM_ID.scope(platform_id, query_quota_with_row(db, base_url, api_key, row)).await
+    QUOTA_PLATFORM_ID
+        .scope(
+            platform_id,
+            query_quota_with_row(db, base_url, api_key, row),
+        )
+        .await
 }
 
 /// 行在 → 按行协议走脚本（协议是权威：newapi 两步查询 / devin ACU / 11 平台族全覆盖，
@@ -125,7 +143,12 @@ pub async fn query_quota_for(
     platform_id: i64,
 ) -> PlatformQuota {
     let row = platform_row(db, platform_id).await;
-    QUOTA_PLATFORM_ID.scope(platform_id, query_for_inner(db, protocol, base_url, api_key, row)).await
+    QUOTA_PLATFORM_ID
+        .scope(
+            platform_id,
+            query_for_inner(db, protocol, base_url, api_key, row),
+        )
+        .await
 }
 
 async fn query_for_inner(
@@ -142,7 +165,17 @@ async fn query_for_inner(
         Some(p) => (p.extra.as_str(), p.quota_script.as_str(), p.id as i64),
         None => ("", "", 0),
     };
-    if let Some(q) = run_script_at(db, &protocol.wire_str(), base_url, api_key, extra, materialized, platform_id).await {
+    if let Some(q) = run_script_at(
+        db,
+        &protocol.wire_str(),
+        base_url,
+        api_key,
+        extra,
+        materialized,
+        platform_id,
+    )
+    .await
+    {
         return q;
     }
     // 未注册平台回落 base_url 启发式（New API 系中转按 URL 判定）

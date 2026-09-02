@@ -45,7 +45,10 @@ fn toml_table_to_map_string_values_only() {
     m.insert("NUM".to_string(), toml::Value::Integer(42)); // non-string → filtered
     let result = toml_table_to_map(Some(&m));
     assert_eq!(result.get("KEY").unwrap(), "val");
-    assert!(!result.contains_key("NUM"), "non-string toml values should be filtered");
+    assert!(
+        !result.contains_key("NUM"),
+        "non-string toml values should be filtered"
+    );
 }
 
 #[test]
@@ -67,7 +70,10 @@ fn build_codex_entry_no_env_omits_env_field() {
     };
     let entry = build_codex_entry(&cfg);
     // No env key in output TOML
-    assert!(entry.get("env").is_none(), "empty env should produce no env subtable");
+    assert!(
+        entry.get("env").is_none(),
+        "empty env should produce no env subtable"
+    );
     let back = parse_codex_entry(&entry).expect("roundtrip");
     assert_eq!(back.command, "cmd");
     assert_eq!(back.args, vec!["a", "b"]);
@@ -123,9 +129,6 @@ fn write_and_read_codex_toml_roundtrip() {
     root.insert("key".to_string(), toml::Value::String("value".to_string()));
     write_codex_toml(&path, &toml::Value::Table(root)).expect("write should succeed");
     let read_back = read_codex_toml(&path).expect("read should succeed");
-    assert_eq!(
-        read_back.get("key").and_then(|v| v.as_str()),
-        Some("value")
-    );
+    assert_eq!(read_back.get("key").and_then(|v| v.as_str()), Some("value"));
     let _ = std::fs::remove_file(&path);
 }

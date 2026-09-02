@@ -1,6 +1,6 @@
 #![cfg(test)]
-use aidog_db as db;
 use super::*;
+use aidog_db as db;
 use aidog_db::test_support::test_db;
 
 /// aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
@@ -11,7 +11,16 @@ async fn app_log_settings_roundtrip() {
     let db = test_db().await;
     let s = load_app_log_settings_from_db(&db).await;
     let value = serde_json::to_value(&s).unwrap();
-    db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await.unwrap();
+    db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "app".to_string(),
+            key: "logging".to_string(),
+            value,
+        },
+    )
+    .await
+    .unwrap();
     let _ = load_app_log_settings_from_db(&db).await;
 }
 

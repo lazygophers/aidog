@@ -1,6 +1,6 @@
+use crate::{local_today_hour_key, utc_ms_to_local_hour_key};
 use aidog_db::{Db, load_auto_from_map, resolve_eff_pid};
-use crate::{utc_ms_to_local_hour_key, local_today_hour_key};
-use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
+use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 /// stats_agg_hourly 累计聚合列块（列序固定，row.get 依赖此序）：
 /// SUM(request_count), SUM(success_count), SUM(input/output/cache tokens), SUM(est_cost)。
@@ -37,10 +37,12 @@ fn recent_health_single(conn: &Connection, platform_id: u64, auto_keys: &[String
         for k in auto_keys {
             binds.push(k);
         }
-        format!(" OR (platform_id = 0 AND group_key IN ({}))", placeholders.join(", "))
+        format!(
+            " OR (platform_id = 0 AND group_key IN ({}))",
+            placeholders.join(", ")
+        )
     };
-    let where_clause =
-        format!("deleted_at = 0 AND (platform_id = ?1{group_clause})");
+    let where_clause = format!("deleted_at = 0 AND (platform_id = ?1{group_clause})");
     conn.query_row(
         &format!("SELECT COUNT(*), SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
          FROM (SELECT status_code FROM proxy_log WHERE {where_clause} ORDER BY created_at DESC LIMIT 5)"),
@@ -51,26 +53,29 @@ fn recent_health_single(conn: &Connection, platform_id: u64, auto_keys: &[String
 }
 
 #[track_caller]
-pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + '_ {
+pub fn get_platform_usage_stats(
+    db: &Db,
+    platform_id: u64,
+) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let today_key = local_today_hour_key();
-    // stats-agg-to-main-db s4：`"group"` 在 platform.db，stats_agg_hourly 在主库，proxy_log 在 log.db。
-    // 先 platform 库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
-    let pid_str = platform_id.to_string();
-    let auto_keys: Vec<String> = db
-        .call_read_platform_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare(
+        let today_key = local_today_hour_key();
+        // stats-agg-to-main-db s4：`"group"` 在 platform.db，stats_agg_hourly 在主库，proxy_log 在 log.db。
+        // 先 platform 库预查该 platform 作为 auto_from_platform 源的 group_key 列表（recent_health 回溯用）。
+        let pid_str = platform_id.to_string();
+        let auto_keys: Vec<String> = db
+            .call_read_platform_traced(None, __db_caller, move |conn| {
+                let mut stmt = conn.prepare(
                 "SELECT group_key FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0",
             )?;
-            let rows = stmt.query_map(params![pid_str], |r| r.get::<_, String>(0))?;
-            Ok(rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
-        })
-        .await
-        .map_err(|e| format!("platform usage stats load auto_keys: {e}"))?;
-    // 两阶段读（stats_agg_hourly 在主库 / proxy_log 在 log.db，跨库禁同闭包）：
-    // ① 主库读池：stats_agg_hourly 累计/今日；② log.db 读池：proxy_log 近 5 条健康度。
-    let mut stats = db
+                let rows = stmt.query_map(params![pid_str], |r| r.get::<_, String>(0))?;
+                Ok(rows.filter_map(|r| r.ok()).collect::<Vec<_>>())
+            })
+            .await
+            .map_err(|e| format!("platform usage stats load auto_keys: {e}"))?;
+        // 两阶段读（stats_agg_hourly 在主库 / proxy_log 在 log.db，跨库禁同闭包）：
+        // ① 主库读池：stats_agg_hourly 累计/今日；② log.db 读池：proxy_log 近 5 条健康度。
+        let mut stats = db
         .call_read_traced(None, __db_caller, move |conn| {
             // 累计/今日从聚合表查。stats_agg_hourly.platform_id 写入时已按 group.auto_from_platform
             // 回溯（upsert_stats_agg），故直接 `platform_id = ?1`，无需 proxy_log 那套子查询回溯。
@@ -108,16 +113,16 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
         })
         .await
         .map_err(|e| format!("platform usage stats agg: {e}"))?;
-    // ② log.db 读池：最近 5 条健康度（聚合表无法重建，裸查 proxy_log LIMIT 5 走索引）。
-    let (recent_failures, recent_total) = db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            Ok(recent_health_single(conn, platform_id, &auto_keys))
-        })
-        .await
-        .map_err(|e| format!("platform usage stats recent_health: {e}"))?;
-    stats.recent_failures = recent_failures;
-    stats.recent_total = recent_total;
-    Ok(stats)
+        // ② log.db 读池：最近 5 条健康度（聚合表无法重建，裸查 proxy_log LIMIT 5 走索引）。
+        let (recent_failures, recent_total) = db
+            .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+                Ok(recent_health_single(conn, platform_id, &auto_keys))
+            })
+            .await
+            .map_err(|e| format!("platform usage stats recent_health: {e}"))?;
+        stats.recent_failures = recent_failures;
+        stats.recent_total = recent_total;
+        Ok(stats)
     }
 }
 
@@ -127,12 +132,12 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
 pub fn get_last_test_result(
     db: &Db,
     platform_id: u64,
-) -> impl std::future::Future<Output = Result<Option<aidog_db::models::LastTestResult>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<Option<aidog_db::models::LastTestResult>, String>> + '_
+{
     let __db_caller = std::panic::Location::caller();
     async move {
-    // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
-    db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+        // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             let mut stmt = conn.prepare_cached(
                 "SELECT status_code, duration_ms, created_at, response_body \
@@ -175,13 +180,16 @@ pub fn get_last_test_result(
 }
 
 #[track_caller]
-pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + 'a {
+pub fn get_group_usage_stats<'a>(
+    db: &'a Db,
+    group_key: &'a str,
+) -> impl std::future::Future<Output = Result<aidog_db::models::PlatformUsageStats, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let group_key = group_key.to_string();
-    let today_key = local_today_hour_key();
-    // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
-    db
+        let group_key = group_key.to_string();
+        let today_key = local_today_hour_key();
+        // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
+        db
         .call_read_traced(None, __db_caller, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
@@ -232,17 +240,21 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
 #[track_caller]
 pub fn get_all_group_usage_stats(
     db: &Db,
-) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, aidog_db::models::PlatformUsageStats>, String>> + '_ {
+) -> impl std::future::Future<
+    Output = Result<
+        std::collections::HashMap<String, aidog_db::models::PlatformUsageStats>,
+        String,
+    >,
+> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare_cached(
-                &format!("SELECT group_key, {AGG_TOTAL_COLS} \
+        // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(&format!(
+                "SELECT group_key, {AGG_TOTAL_COLS} \
                  FROM stats_agg_hourly WHERE deleted_at = 0 AND group_key <> '' \
-                 GROUP BY group_key"),
-            )?;
+                 GROUP BY group_key"
+            ))?;
             let rows = stmt.query_map([], |row| {
                 let group_key: String = row.get(0)?;
                 let total: i64 = row.get(1).unwrap_or(0);
@@ -259,7 +271,11 @@ pub fn get_all_group_usage_stats(
                         total_input_tokens: inp,
                         total_output_tokens: out,
                         total_cache_tokens: cache,
-                        cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
+                        cache_rate: if inp + cache > 0 {
+                            cache as f64 / (inp + cache) as f64 * 100.0
+                        } else {
+                            0.0
+                        },
                         recent_failures: 0,
                         recent_total: 0,
                         total_cost: cost,
@@ -295,19 +311,23 @@ pub fn get_all_group_usage_stats(
 #[track_caller]
 pub fn platform_usage_stats_all(
     db: &Db,
-) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, aidog_db::models::PlatformUsageStats>, String>> + '_ {
+) -> impl std::future::Future<
+    Output = Result<std::collections::HashMap<u64, aidog_db::models::PlatformUsageStats>, String>,
+> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let today_key = local_today_hour_key();
-    // stats-agg-to-main-db s4：`"group"` 在 platform.db，stats_agg_hourly 在主库，proxy_log 在 log.db。
-    // 先 platform 库预查 auto_map（recent 的 eff_pid 内存回溯需要），再两阶段读（主库聚合 + log.db 近 5 条）。
-    let auto_map = db
-        .call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
-        .await
-        .map_err(|e| format!("all platform usage stats load auto_map: {e}"))?;
-    // ① 主库读池：全量聚合（每 platform_id 的 total/success/tokens/cost + 今日 tokens/cost），
-    // 直接从 stats_agg_hourly GROUP BY platform_id（已是 eff_pid，无需回溯）。
-    let mut map: std::collections::HashMap<u64, aidog_db::models::PlatformUsageStats> = db
+        let today_key = local_today_hour_key();
+        // stats-agg-to-main-db s4：`"group"` 在 platform.db，stats_agg_hourly 在主库，proxy_log 在 log.db。
+        // 先 platform 库预查 auto_map（recent 的 eff_pid 内存回溯需要），再两阶段读（主库聚合 + log.db 近 5 条）。
+        let auto_map = db
+            .call_read_platform_traced(None, __db_caller, |conn| {
+                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
+            .await
+            .map_err(|e| format!("all platform usage stats load auto_map: {e}"))?;
+        // ① 主库读池：全量聚合（每 platform_id 的 total/success/tokens/cost + 今日 tokens/cost），
+        // 直接从 stats_agg_hourly GROUP BY platform_id（已是 eff_pid，无需回溯）。
+        let mut map: std::collections::HashMap<u64, aidog_db::models::PlatformUsageStats> = db
         .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
                 &format!("SELECT platform_id, {AGG_TOTAL_COLS}, \
@@ -356,53 +376,53 @@ pub fn platform_usage_stats_all(
         .await
         .map_err(|e| format!("all platform usage stats agg: {e}"))?;
 
-    // ② log.db 读池：每平台最近 5 条健康度（recent_total/recent_failures）仍裸查 proxy_log：
-    // 聚合表无法重建请求级顺序。去 eff_pid 标量子查询/窗口函数：单表取
-    // (platform_id, group_key, status_code) 按 created_at DESC，内存逐行回溯 eff_pid，
-    // 每 eff_pid 取前 5 条（已按时间降序），统计 total/failures（与旧 ROW_NUMBER rn<=5 等价）。
-    let recent: std::collections::HashMap<i64, (i64, i64)> = db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            let mut recent_stmt = conn.prepare(
-                "SELECT platform_id, group_key, status_code FROM proxy_log \
+        // ② log.db 读池：每平台最近 5 条健康度（recent_total/recent_failures）仍裸查 proxy_log：
+        // 聚合表无法重建请求级顺序。去 eff_pid 标量子查询/窗口函数：单表取
+        // (platform_id, group_key, status_code) 按 created_at DESC，内存逐行回溯 eff_pid，
+        // 每 eff_pid 取前 5 条（已按时间降序），统计 total/failures（与旧 ROW_NUMBER rn<=5 等价）。
+        let recent: std::collections::HashMap<i64, (i64, i64)> = db
+            .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+                let mut recent_stmt = conn.prepare(
+                    "SELECT platform_id, group_key, status_code FROM proxy_log \
                  WHERE deleted_at = 0 ORDER BY created_at DESC",
-            )?;
-            // eff_pid → (取到的近 5 条计数, 其中失败数)
-            let mut recent: std::collections::HashMap<i64, (i64, i64)> =
-                std::collections::HashMap::new();
-            let rows_iter = recent_stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, i64>(0)?,    // platform_id
-                    row.get::<_, String>(1)?, // group_key
-                    row.get::<_, i64>(2)?,    // status_code
-                ))
-            })?;
-            for r in rows_iter {
-                let (platform_id, group_key, status_code) = r?;
-                let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
-                if eff_pid <= 0 {
-                    continue;
+                )?;
+                // eff_pid → (取到的近 5 条计数, 其中失败数)
+                let mut recent: std::collections::HashMap<i64, (i64, i64)> =
+                    std::collections::HashMap::new();
+                let rows_iter = recent_stmt.query_map([], |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,    // platform_id
+                        row.get::<_, String>(1)?, // group_key
+                        row.get::<_, i64>(2)?,    // status_code
+                    ))
+                })?;
+                for r in rows_iter {
+                    let (platform_id, group_key, status_code) = r?;
+                    let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
+                    if eff_pid <= 0 {
+                        continue;
+                    }
+                    let entry = recent.entry(eff_pid).or_insert((0, 0));
+                    if entry.0 >= 5 {
+                        continue; // 该 eff_pid 已收满近 5 条（行已按 created_at DESC）
+                    }
+                    entry.0 += 1;
+                    if !(200..300).contains(&(status_code as i32)) {
+                        entry.1 += 1;
+                    }
                 }
-                let entry = recent.entry(eff_pid).or_insert((0, 0));
-                if entry.0 >= 5 {
-                    continue; // 该 eff_pid 已收满近 5 条（行已按 created_at DESC）
-                }
-                entry.0 += 1;
-                if !(200..300).contains(&(status_code as i32)) {
-                    entry.1 += 1;
-                }
+                Ok(recent)
+            })
+            .await
+            .map_err(|e| format!("all platform usage stats recent_health: {e}"))?;
+        for (eff_pid, (recent_total, recent_failures)) in recent {
+            if let Some(stats) = map.get_mut(&(eff_pid as u64)) {
+                stats.recent_total = recent_total;
+                stats.recent_failures = recent_failures;
             }
-            Ok(recent)
-        })
-        .await
-        .map_err(|e| format!("all platform usage stats recent_health: {e}"))?;
-    for (eff_pid, (recent_total, recent_failures)) in recent {
-        if let Some(stats) = map.get_mut(&(eff_pid as u64)) {
-            stats.recent_total = recent_total;
-            stats.recent_failures = recent_failures;
         }
-    }
 
-    Ok(map)
+        Ok(map)
     }
 }
 
@@ -417,7 +437,10 @@ fn local_hour_key_to_utc_ms(key: &str) -> Option<i64> {
     // key 形如 "2026-06-21 09:00:00"，分秒恒为 00；用完整 %H:%M:%S 解析（chrono 需分秒占位
     // 才能构成完整 NaiveDateTime，字面 ":00:00" 会解析失败）。
     let naive = NaiveDateTime::parse_from_str(key, "%Y-%m-%d %H:%M:%S").ok()?;
-    Local.from_local_datetime(&naive).earliest().map(|dt| dt.timestamp_millis())
+    Local
+        .from_local_datetime(&naive)
+        .earliest()
+        .map(|dt| dt.timestamp_millis())
 }
 
 /// 动态窗口日用量速率核心（同步，锁内调用）。
@@ -468,16 +491,24 @@ fn hourly_rate_inner(
 /// 分组动态窗口日用量速率（$ / 小时），供 statusline 余额「剩余可用天数」配色。
 /// 无任何用量 → None（配色侧视作中性 / 不报警）。短持锁，不跨 await。
 #[track_caller]
-pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::future::Future<Output = Result<Option<f64>, String>> + 'a {
+pub fn get_group_hourly_rate<'a>(
+    db: &'a Db,
+    group_key: &'a str,
+) -> impl std::future::Future<Output = Result<Option<f64>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let now_ms = chrono::Utc::now().timestamp_millis();
-    let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
-    let group_key = group_key.to_string();
-    // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
-            Ok(hourly_rate_inner(conn, now_ms, &window_key, "group_key = ?2", &[&group_key])?)
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
+        let group_key = group_key.to_string();
+        // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
+        db.call_read_traced(None, __db_caller, move |conn| {
+            Ok(hourly_rate_inner(
+                conn,
+                now_ms,
+                &window_key,
+                "group_key = ?2",
+                &[&group_key],
+            )?)
         })
         .await
         .map_err(|e| format!("group hourly rate: {e}"))
@@ -490,19 +521,26 @@ pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
 /// group.auto_from_platform 回溯 platform_id=0 的自动分组日志），故直接 `platform_id = ?`，
 /// 无需 proxy_log 那套子查询回溯。无任何用量 → None（前端退中性）。短持锁，不跨 await。
 #[track_caller]
-pub fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<Option<f64>, String>> + '_ {
+pub fn get_platform_hourly_rate(
+    db: &Db,
+    platform_id: u64,
+) -> impl std::future::Future<Output = Result<Option<f64>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let now_ms = chrono::Utc::now().timestamp_millis();
-    let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
-    // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
+        // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
+        db.call_read_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
-            Ok(hourly_rate_inner(conn, now_ms, &window_key, "platform_id = ?2", &[&pid])?)
+            Ok(hourly_rate_inner(
+                conn,
+                now_ms,
+                &window_key,
+                "platform_id = ?2",
+                &[&pid],
+            )?)
         })
         .await
         .map_err(|e| format!("platform hourly rate: {e}"))
     }
 }
-

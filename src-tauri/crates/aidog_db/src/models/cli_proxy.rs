@@ -136,6 +136,9 @@ mod serde_tests {
     #[test]
     fn parse_models_corrupt_returns_empty() {
         assert!(parse_cli_proxy_models("not json").is_empty());
-        assert_eq!(parse_cli_proxy_models("[\"a\",\"b\"]"), vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(
+            parse_cli_proxy_models("[\"a\",\"b\"]"),
+            vec!["a".to_string(), "b".to_string()]
+        );
     }
 }

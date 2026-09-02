@@ -1,6 +1,6 @@
 //! skill 详情只读浏览：文件树列举 + 单文件读取（含路径遍历防护）。
 
-use super::types::{SkillDetail, SkillFile, SkillFileContent, BINARY_SNIFF_BYTES, MAX_READ_BYTES};
+use super::types::{BINARY_SNIFF_BYTES, MAX_READ_BYTES, SkillDetail, SkillFile, SkillFileContent};
 use std::fs;
 use std::path::PathBuf;
 
@@ -14,7 +14,10 @@ pub fn detail(installed_path: &str) -> Result<SkillDetail, String> {
         .canonicalize()
         .map_err(|e| format!("skill path not found: {e}"))?;
     if !canon.is_dir() {
-        return Err(format!("skill path is not a directory: {}", canon.display()));
+        return Err(format!(
+            "skill path is not a directory: {}",
+            canon.display()
+        ));
     }
     let skill_name = canon
         .file_name()
@@ -59,7 +62,9 @@ fn collect_files(base: &PathBuf, dir: &PathBuf, out: &mut Vec<SkillFile>) -> Res
                 .map_err(|e| format!("strip_prefix failed: {e}"))?
                 .to_string_lossy()
                 .replace('\\', "/");
-            let meta = ent.metadata().map_err(|e| format!("metadata failed: {e}"))?;
+            let meta = ent
+                .metadata()
+                .map_err(|e| format!("metadata failed: {e}"))?;
             let size = meta.len();
             let is_text = sniff_text(&path).unwrap_or(false);
             out.push(SkillFile {

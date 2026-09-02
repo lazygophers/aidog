@@ -22,7 +22,14 @@ async fn unsupported_platform_errors() {
 async fn query_quota_for_unsupported_protocol_falls_back_to_heuristic() {
     use aidog_db::models::Protocol;
     // 无 quota 脚本的协议 → 回落 base_url 启发式 → 无命中关键词 → Unsupported
-    let q = query_quota_for(None, &Protocol::OpenAI, "https://unknown.example.com/v1", "sk-x", 0).await;
+    let q = query_quota_for(
+        None,
+        &Protocol::OpenAI,
+        "https://unknown.example.com/v1",
+        "sk-x",
+        0,
+    )
+    .await;
     assert!(!q.success);
     assert!(q.error.as_deref().unwrap().contains("Unsupported"));
 }
