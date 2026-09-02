@@ -220,6 +220,81 @@ async fn cleanup_proxy_logs_hard_deletes_old_rows() {
     );
 }
 
+/// 建一条带 body 的日志行（四个 body 列各写一段文本），返回该行 body 字节总和。
+async fn insert_log_with_bodies(db: &aidog_db::Db, id: &str, created_at: i64) -> i64 {
+    let mut log = sample_log(id, "grp", created_at);
+    // 含中文 → UTF-8 多字节，验证字节口径（非字符口径）。
+    log.request_body = "{\"q\":\"你好\"}".into();
+    log.upstream_request_body = "{\"m\":\"x\"}".into();
+    log.response_body = "{\"ok\":true}".into();
+    log.user_response_body = "{\"ok\":true}".into();
+    let bytes = (log.request_body.len()
+        + log.upstream_request_body.len()
+        + log.response_body.len()
+        + log.user_response_body.len()) as i64;
+    upsert_proxy_log(db, log).await.unwrap();
+    bytes
+}
+
+/// 只读红线（票 02 验收①）：estimate_cleanup 调用前后行数与行内容完全不变。
+#[tokio::test]
+async fn estimate_cleanup_is_read_only() {
+    let db = test_db().await;
+    let old_created = (chrono::Utc::now() - chrono::Duration::days(100)).timestamp_millis();
+    let bytes = insert_log_with_bodies(&db, "old", old_created).await;
+    let before = count_all_proxy_logs(&db).await;
+
+    // 连调两次：既验证不改数据，也验证自身幂等（第二次结果与第一次一致）。
+    let e1 = estimate_cleanup(&db, 30, RetentionUnit::Day).await.unwrap();
+    let e2 = estimate_cleanup(&db, 30, RetentionUnit::Day).await.unwrap();
+
+    assert_eq!(
+        count_all_proxy_logs(&db).await,
+        before,
+        "estimate must not delete rows"
+    );
+    let row = get_proxy_log(&db, "old").await.unwrap().unwrap();
+    assert_eq!(row.request_body, "{\"q\":\"你好\"}", "body must be intact");
+    assert_eq!(e1, e2, "estimate must be repeatable");
+    assert_eq!(e1.overdue_rows, 1);
+    assert_eq!(e1.overdue_body_bytes, bytes);
+    assert!(e1.db_size_bytes > 0, "page_count × page_size must be > 0");
+}
+
+/// 口径一致（票 02 验收②）：预估的超期行数 = 随后 cleanup 实际删除的行数。
+#[tokio::test]
+async fn estimate_overdue_rows_matches_actual_deletion() {
+    let db = test_db().await;
+    let old = (chrono::Utc::now() - chrono::Duration::days(100)).timestamp_millis();
+    let older = (chrono::Utc::now() - chrono::Duration::days(60)).timestamp_millis();
+    let recent = (chrono::Utc::now() - chrono::Duration::days(1)).timestamp_millis();
+    insert_log_with_bodies(&db, "old", old).await;
+    insert_log_with_bodies(&db, "older", older).await;
+    insert_log_with_bodies(&db, "recent", recent).await;
+
+    let est = estimate_cleanup(&db, 30, RetentionUnit::Day).await.unwrap();
+    let before = count_all_proxy_logs(&db).await;
+    cleanup_proxy_logs(&db, 30, RetentionUnit::Day)
+        .await
+        .unwrap();
+    let deleted = before - count_all_proxy_logs(&db).await;
+    assert_eq!(est.overdue_rows, 2, "两行超 30 天");
+    assert_eq!(est.overdue_rows, deleted, "预估行数须等于实际删除行数");
+}
+
+/// 永久保留（value=0）：无超期数据，两个超期数为 0，库大小仍返回。
+#[tokio::test]
+async fn estimate_cleanup_forever_retention_reports_zero_overdue() {
+    let db = test_db().await;
+    let old = (chrono::Utc::now() - chrono::Duration::days(100)).timestamp_millis();
+    insert_log_with_bodies(&db, "old", old).await;
+
+    let est = estimate_cleanup(&db, 0, RetentionUnit::Day).await.unwrap();
+    assert_eq!(est.overdue_rows, 0);
+    assert_eq!(est.overdue_body_bytes, 0);
+    assert!(est.db_size_bytes > 0);
+}
+
 /// purge_deleted_proxy_logs 清历史 tombstone：软删残留行（deleted_at != 0）物理删除。
 #[tokio::test]
 async fn purge_deleted_clears_historical_tombstones() {
