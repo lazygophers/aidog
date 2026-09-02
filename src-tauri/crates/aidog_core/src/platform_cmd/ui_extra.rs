@@ -1,7 +1,5 @@
 //! UI 态持久化命令：前端 _ui_* 键写入 platform/group 的 extra JSON。
 use aidog_db as db;
-use aidog_db::Db;
-use tauri::State;
 
 crate::tauri_command! {
 /// 写 UI 态到 extra 单键（读改写）。target="platform"（"group" 待 group 表加 extra 列后开放）。
@@ -12,9 +10,8 @@ pub async fn set_ui_extra(
     target: String,
     id: u64,
     key: String,
-    value: serde_json::Value,
-    db: State<'_, Db>,
-) -> Result<(), String> {
+    value: serde_json::Value) -> Result<(), String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "set_ui_extra", target = %target, id, key = %key, "command invoked");
     db::update_extra_key(&db, &target, id, &key, value)
         .await
