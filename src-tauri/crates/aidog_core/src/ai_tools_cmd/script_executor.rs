@@ -1,8 +1,7 @@
 use crate::gateway;
 use crate::shared::*;
-use aidog_db::{self as db, Db};
+use aidog_db::{self as db};
 use gateway::models::*;
-use tauri::State;
 
 crate::tauri_command! {
 pub fn check_uv() -> Result<bool, String> {
@@ -12,7 +11,8 @@ pub fn check_uv() -> Result<bool, String> {
 
 crate::tauri_command! {
     /// 持久化用户的脚本执行器选择（"uv" | "python3"），供后续脚本生成读取，避免每次询问。
-    pub async fn set_script_executor(executor: String, db: State<'_, Db>) -> Result<(), String> {
+    pub async fn set_script_executor(executor: String) -> Result<(), String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "set_script_executor", executor = %executor, "command invoked");
         // 经 ScriptInvoker 规范化（"uv" → uv，其余 → python3），保证存库值与解析一致。
         let normalized = gateway::scripts::ScriptInvoker::from_setting(Some(&executor)).as_setting();
@@ -29,7 +29,8 @@ crate::tauri_command! {
     ///
     /// 走官方安装脚本 `curl -LsSf https://astral.sh/uv/install.sh | sh`（Unix）。
     /// 成功后持久化选择为 "uv"。Windows 暂不支持自动安装（返回错误，由前端引导手动）。
-    pub async fn install_uv(db: State<'_, Db>) -> Result<bool, String> {
+    pub async fn install_uv() -> Result<bool, String> {
+    let db = aidog_ctx::db();
         if detect_uv() {
             // 已安装 → 直接记录选择。
             db::set_setting(&db, SetSettingInput {

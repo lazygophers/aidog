@@ -1,7 +1,6 @@
 use crate::gateway;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-use tauri::State;
 
 // ─── AI 编程工具联动开关 ──────────────────────────
 //
@@ -93,7 +92,8 @@ pub async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String>
 }
 
 crate::tauri_command! {
-    pub async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsSettings, String> {
+    pub async fn coding_tools_settings_get() -> Result<CodingToolsSettings, String> {
+    let db = aidog_ctx::db();
         let current = load_coding_tools_settings(&db).await;
         Ok(current)
     }
@@ -102,9 +102,8 @@ crate::tauri_command! {
 crate::tauri_command! {
     pub async fn coding_tools_settings_set(
         apply_to_claude_plugin: Option<bool>,
-        skip_claude_onboarding: Option<bool>,
-        db: State<'_, Db>,
-    ) -> Result<CodingToolsSettings, String> {
+        skip_claude_onboarding: Option<bool>) -> Result<CodingToolsSettings, String> {
+    let db = aidog_ctx::db();
         let mut current = load_coding_tools_settings(&db).await;
 
         // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
