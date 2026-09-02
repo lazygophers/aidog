@@ -8,18 +8,23 @@ license = { workspace = true }
 # 票 07：命令层双展开开关。两者互不依赖，可同时开（默认）。
 # - desktop：`tauri_command!` 生成 `#[tauri::command]`，供桌面壳 `generate_handler!` 注册；
 # - http：额外生成 axum handler `<命令名>::http`，供无界面内核（票 08）挂 `/rpc/<命令名>`。
-# 关掉 desktop 只是不再生成 IPC 形态，crate 仍链 tauri（托盘/悬浮窗等桌面模块尚未拆分）。
+#
+# 票 08：`desktop` 现在**同时把 tauri 依赖本身开关掉**（`dep:tauri`）。关掉 desktop 后本 crate
+# 完全不链 tauri —— 这是无界面内核能在 Linux 服务器上跑的前提：tauri 会拖进 wry/tao →
+# webkit2gtk + gtk3 系统库，headless 机器上既装不起也不该装。
+# 桌面专属模块（`tauri_ctx` 全量、`tray_render` 里吃 `AppHandle`/`Menu` 的那几项）随之
+# `#[cfg(feature = "desktop")]`；命令体本身零 tauri 依赖（票 06 的 AppCtx 已经拔干净）。
 [features]
 default = ["desktop", "http"]
-desktop = []
+desktop = ["dep:tauri", "dep:tauri-plugin-notification", "dep:tauri-plugin-autostart"]
 http = []
 
 # C2 core-extract：gateway + shared + models + sync + hooks + tray_refresh + logging
 # 全部业务下沉此 crate。所有依赖从 [workspace.dependencies] 引，禁自定版本。
 [dependencies]
-tauri = { workspace = true }
-tauri-plugin-notification = { workspace = true }
-tauri-plugin-autostart = { workspace = true }
+tauri = { workspace = true, optional = true }
+tauri-plugin-notification = { workspace = true, optional = true }
+tauri-plugin-autostart = { workspace = true, optional = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

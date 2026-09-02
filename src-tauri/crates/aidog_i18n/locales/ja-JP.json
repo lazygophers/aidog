@@ -1,4 +1,13 @@
 {
+  "kernel.bindLan": "管理インターフェースへの LAN アクセス",
+  "kernel.bindLanDesc": "同一 LAN 内の他の端末からカーネルの管理インターフェースへのアクセスを許可します（オフの場合はこの端末の 127.0.0.1 のみ）",
+  "kernel.bindLanSecurity": "管理インターフェースは 210 個すべての管理コマンドを公開します：任意の設定の変更、全リクエストログ（リクエスト本文・レスポンス本文を含む）の閲覧、スクリプトの実行。オンにするとカーネルは 0.0.0.0 で待ち受け、下のアクセストークンのみで認証されます。",
+  "kernel.bindLanNotProxy": "これはプロキシの転送ポートのスイッチではありません。転送の LAN アクセスは上の「LAN アクセス」で別途設定します。両者は互いに影響しません。",
+  "kernel.bindLanRequiresAuth": "先にアクセストークンを設定してから、管理インターフェースの LAN アクセスを有効にしてください。",
+  "kernel.authToken": "管理インターフェースのアクセストークン",
+  "kernel.authTokenDesc": "管理インターフェースへのリクエストを Authorization: Bearer <トークン> で検証します。空欄にすると検証しません（その場合、管理インターフェースはこの端末からのみアクセスできます）。",
+  "kernel.authTokenPlaceholder": "空欄 = この端末のみ",
+  "kernel.saved": "保存しました",
   "modality.text2text": "テキスト → テキスト",
   "modality.text2image": "テキスト → 画像",
   "modality.text2video": "テキスト → 動画",
