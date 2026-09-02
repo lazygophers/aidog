@@ -43,7 +43,13 @@ src-tauri/              # Rust workspace（17 个 crate：root bin `aidog` + cra
       ai_tools_cmd/     # AI 工具命令（coding_tools/mcp/model_test/script_executor/skills 等）
       cli_proxy_cmd/    # CLI 代理命令（batch/import/platform/provider）
       cli_env.rs / settings.rs / defaults.rs / popover.rs / tray_render.rs   # 单文件命令族
-      command_macro.rs  # tauri_command! 宏（自动挂 #[tauri::command] + tracing instrument/error）
+      command_macro.rs  # tauri_command! 宏：6 分支 × 双展开（票 07）。feature `desktop` 出
+                        # #[tauri::command]，feature `http` 出 `<命令名>::http` 的 axum
+                        # handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个
+                        # feature 并转发给 aidog_core**（cfg 在展开处求值）：现有
+                        # aidog_backup / aidog_cli_proxy 已声明
+      http_command.rs   # HTTP 形态支撑：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端
+                        # 实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body
     aidog_ctx/          # AppCtx trait（进程级 OnceLock 单例，**零 tauri 依赖**）：命令拿 db /
                         # middleware / proxy handle / emit 一律走它，桌面壳实现在
                         # aidog_core/src/tauri_ctx.rs（唯一接 AppHandle 的地方），

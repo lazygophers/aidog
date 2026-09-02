@@ -5,6 +5,15 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
+# 票 07：命令层双展开开关。两者互不依赖，可同时开（默认）。
+# - desktop：`tauri_command!` 生成 `#[tauri::command]`，供桌面壳 `generate_handler!` 注册；
+# - http：额外生成 axum handler `<命令名>::http`，供无界面内核（票 08）挂 `/rpc/<命令名>`。
+# 关掉 desktop 只是不再生成 IPC 形态，crate 仍链 tauri（托盘/悬浮窗等桌面模块尚未拆分）。
+[features]
+default = ["desktop", "http"]
+desktop = []
+http = []
+
 # C2 core-extract：gateway + shared + models + sync + hooks + tray_refresh + logging
 # 全部业务下沉此 crate。所有依赖从 [workspace.dependencies] 引，禁自定版本。
 [dependencies]

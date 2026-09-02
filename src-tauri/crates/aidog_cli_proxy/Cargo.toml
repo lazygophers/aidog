@@ -5,6 +5,13 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
+# 票 07：本 crate 也用 aidog_core 的 `tauri_command!` 定义命令，两种展开形态的开关
+# 必须在**调用宏的 crate** 上声明（cfg 在展开处求值），并转发给 aidog_core。
+[features]
+default = ["desktop", "http"]
+desktop = ["aidog_core/desktop"]
+http = ["aidog_core/http"]
+
 # aidog_cli_proxy：CLIProxyAPI 域（拆自 aidog_core::gateway::cli_proxy_parser + cli_proxy_cmd，
 # 2026-08-16）。tauri commands 依赖 aidog_core 的 tauri_command! 宏与 quota/models。
 [dependencies]
