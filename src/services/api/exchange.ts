@@ -1,6 +1,6 @@
 // exchange.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type { ImportExportScope, ConflictDecision, ImportPreview, ImportReport, CcswitchDetection, CcswitchReadResult, Sub2ApiReadResult, BackupSettings, BackupResult } from "./types";
 
 export const importExportApi = {

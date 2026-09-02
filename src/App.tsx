@@ -1,5 +1,5 @@
 import { useState, useEffect, useTransition, lazy, Suspense } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { listen } from "./services/transport";
 import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
 import type { Tab } from "./pages/AppSettings";

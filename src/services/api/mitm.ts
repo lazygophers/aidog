@@ -1,7 +1,7 @@
 // mitm.ts — MITM (P3) 假 CA + 白名单配置 API。
 // sync master 07-03-proxy-relay-mitm：从 monolithic api.ts 迁入 arch 新结构。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 
 // ─── MITM (P3) — 假 CA + 白名单配置 ───────────────────────
 

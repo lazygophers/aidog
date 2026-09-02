@@ -1,6 +1,6 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
