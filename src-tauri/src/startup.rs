@@ -29,13 +29,14 @@ pub fn run() {
         // 就绪 + JS→Rust IPC), 实测 macOS 偶发不触发.
         // 此 handler 仅覆盖「点主窗口」场景 (主窗接 key 触发 popover resignKey);
         // 其余 3 失活场景 (点桌面 / silent_launch 主窗 hide 后点别处 / 点 Dock 菜单栏空白)
-        // 由 app_setup.rs 的 NSWindow.setHidesOnDeactivate:YES 覆盖 (app 失活即隐藏).
-        // 窗口复用：hide 而非 destroy，保留 webview + NSWindow 指针，下次 show 秒显。
+        // 由 popover_window.rs 每次建窗后设的 NSWindow.setHidesOnDeactivate:YES 覆盖
+        // (app 失活即隐藏 → 本回调随后销毁窗口).
+        // 按需创建：destroy 而非 hide，webview + NSWindow 全部释放，下次点击重建。
         .on_window_event(|window, event| {
             if let tauri::WindowEvent::Focused(false) = event
-                && window.label() == "popover"
+                && window.label() == crate::popover_window::LABEL
             {
-                let _ = window.hide();
+                crate::popover_window::close(&window.app_handle().clone());
             }
         })
         .setup(|app| crate::app_setup::setup(app))

@@ -150,12 +150,13 @@ function Popover() {
       ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
     }
     const cancel = reloadData();
-    // popover = 复用型 Tauri webview window（setup 预建隐藏，show/hide toggle）；
+    // popover = 按需创建的 Tauri webview window（托盘点击时建，收起即 destroy）；
     // 后端 log.rs app.emit 广播所有 webview，可达 → 事件订阅。1000ms debounce 避免高频 re-render。
+    // 窗口销毁后本模块的监听器随 webview 一起消失（per-webview 模块状态），无需额外清理。
     const unlisten = onProxyLogUpdated(() => { reloadData(); }, 1000);
-    // 窗口复用：Rust show() 后 emit "popover-shown" → 隐藏期累积变化的确定性刷新。
-    // 同时清 centerX，让下次 applySize 从 Rust 定位后的当前几何重新推导居中锚点
-    // （tray 位置若变化亦能对齐）。
+    // Rust show() 后 emit "popover-shown"：新建窗口下 mount 已自拉一次，此路径覆盖
+    // 「窗口已在但需重新定位」的竞态。同时清 centerX，让下次 applySize 从 Rust 定位后的
+    // 当前几何重新推导居中锚点（tray 位置若变化亦能对齐）。
     const shownPromise = listen("popover-shown", () => {
       centerXRef.current = null;
       yLogicalRef.current = null;
