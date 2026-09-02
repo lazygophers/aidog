@@ -138,8 +138,46 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
     }).await
         .map_err(|e| { tracing::error!(command = "proxy_log_settings_set", error = %e, "persist log settings failed"); e })?;
     run_retention_cleanup(&db, &settings).await;
+    // 保留期变了 → 调度周期必须跟着变：唤醒清理循环重读设置重算周期，不必重启应用。
+    wake_retention_scheduler();
     Ok(())
 }
+}
+
+/// 清理调度器唤醒信号（单消费者：app_setup 的清理循环）。
+///
+/// `notify_one` 语义：设置保存时若循环正在跑清理（无 waiter），permit 会被存住，
+/// 循环下一次 `notified()` 立即返回 —— 唤醒不会丢。
+fn retention_wake() -> &'static tokio::sync::Notify {
+    static WAKE: std::sync::OnceLock<tokio::sync::Notify> = std::sync::OnceLock::new();
+    WAKE.get_or_init(tokio::sync::Notify::new)
+}
+
+/// 唤醒清理调度器：让它立刻重读 `ProxyLogSettings` 并重算周期。
+pub fn wake_retention_scheduler() {
+    retention_wake().notify_one();
+}
+
+/// 读当前 `ProxyLogSettings` 派生本轮调度周期（派生规则见 `cleanup_interval_secs`）。
+/// 设置读不到时按 `Default`（新装 6h → 90 分钟）走，不返回写死的 24 小时。
+pub async fn retention_cleanup_interval(db: &Db) -> std::time::Duration {
+    let settings: ProxyLogSettings = aidog_db::get_setting(db, "proxy", "logging")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    std::time::Duration::from_secs(settings.cleanup_interval_secs())
+}
+
+/// 等下一个清理周期：`sleep(interval)` 与「设置变更唤醒」谁先到就返回谁。
+/// 返回 `true` = 被设置变更唤醒（调用方应重算周期，本轮不清理：`settings_set` 已自跑清理链）；
+/// `false` = 周期到点（调用方执行清理）。
+pub async fn wait_next_retention_cycle(interval: std::time::Duration) -> bool {
+    tokio::select! {
+        _ = tokio::time::sleep(interval) => false,
+        _ = retention_wake().notified() => true,
+    }
 }
 
 /// 跑 4 步 retention 清理链（user/upstream fields + retention_days + purge tombstone）。

@@ -220,6 +220,98 @@ async fn cleanup_proxy_logs_hard_deletes_old_rows() {
     );
 }
 
+/// 小时档保留期按**小时**而非天算截止点：3 小时前的行在「2 小时」保留期下必须被删，
+/// 同一个值配 Day 单位则必须留着（证明单位真的参与了截止点计算，没退化成天）。
+#[tokio::test]
+async fn cleanup_proxy_logs_hour_unit_cuts_by_hours() {
+    let db = test_db().await;
+    let three_hours_ago = (chrono::Utc::now() - chrono::Duration::hours(3)).timestamp_millis();
+    let half_hour_ago = (chrono::Utc::now() - chrono::Duration::minutes(30)).timestamp_millis();
+    insert_proxy_log_at(&db, three_hours_ago).await;
+    insert_proxy_log_at(&db, half_hour_ago).await;
+
+    // 值相同（2），单位 Day → 截止点是 2 天前，3 小时前的行还很新 → 一行不删。
+    cleanup_proxy_logs(&db, 2, RetentionUnit::Day)
+        .await
+        .unwrap();
+    assert_eq!(
+        count_all_proxy_logs(&db).await,
+        2,
+        "2 Day must not touch rows that are only hours old"
+    );
+
+    // 同值配 Hour → 截止点是 2 小时前 → 3 小时前那行删掉，30 分钟前那行留下。
+    cleanup_proxy_logs(&db, 2, RetentionUnit::Hour)
+        .await
+        .unwrap();
+    assert_eq!(
+        count_all_proxy_logs(&db).await,
+        1,
+        "2 Hour must delete the 3h-old row"
+    );
+}
+
+/// body 字段清空与整行删除各按自己那档保留期独立生效：
+/// 1 小时前的行 —— user body 档 1h 已过期（清空 body）、整行档 24h 未过期（行还在）；
+/// 且上游侧档设 0（永久）时该侧 body 一个字都不能动。
+#[tokio::test]
+async fn body_clear_and_row_delete_use_their_own_retention() {
+    let db = test_db().await;
+    let one_hour_ago = (chrono::Utc::now() - chrono::Duration::minutes(90)).timestamp_millis();
+    db.call_traced(None, std::panic::Location::caller(), move |c| {
+        c.execute(
+            "INSERT INTO proxy_log (id,model,group_key,platform_id,status_code,\
+             input_tokens,output_tokens,cache_tokens,est_cost,is_stream,source_protocol,\
+             request_body,user_response_body,upstream_request_body,response_body,\
+             created_at,deleted_at) \
+             VALUES ('tiers-1','m','g',1,200,1,1,0,0.0,0,'anthropic',\
+             'u-req','u-resp','up-req','up-resp',?1,0)",
+            params![one_hour_ago],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+
+    // 用户侧 1 小时（已过期）→ 清空；上游侧 0（永久保留）→ 不动；整行 24 小时（未到）→ 不删。
+    aidog_db::cleanup_user_request_fields(&db, 1, RetentionUnit::Hour)
+        .await
+        .unwrap();
+    aidog_db::cleanup_upstream_request_fields(&db, 0, RetentionUnit::Hour)
+        .await
+        .unwrap();
+    cleanup_proxy_logs(&db, 24, RetentionUnit::Hour)
+        .await
+        .unwrap();
+
+    let (u_req, u_resp, up_req, up_resp): (String, String, String, String) = db
+        .call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT request_body, user_response_body, upstream_request_body, response_body \
+                 FROM proxy_log WHERE id='tiers-1'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(u_req, "", "user body expired by its own tier");
+    assert_eq!(u_resp, "", "user response body expired by its own tier");
+    assert_eq!(up_req, "up-req", "upstream tier=0 keeps forever");
+    assert_eq!(up_resp, "up-resp", "upstream tier=0 keeps forever");
+    assert_eq!(
+        count_all_proxy_logs(&db).await,
+        1,
+        "row tier not expired → row survives body cleanup"
+    );
+
+    // 整行档缩到 1 小时 → 行被删（整行删除独立于 body 档）。
+    cleanup_proxy_logs(&db, 1, RetentionUnit::Hour)
+        .await
+        .unwrap();
+    assert_eq!(count_all_proxy_logs(&db).await, 0, "row tier now expired");
+}
+
 /// purge_deleted_proxy_logs 清历史 tombstone：软删残留行（deleted_at != 0）物理删除。
 #[tokio::test]
 async fn purge_deleted_clears_historical_tombstones() {
