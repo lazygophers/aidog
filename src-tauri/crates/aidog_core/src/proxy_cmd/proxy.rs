@@ -56,10 +56,8 @@ impl From<ProxyStartError> for String {
     }
 }
 
-// 结构化错误类型无法套 tauri_command! 宏（宏固定 Result<_, String>），手写等价的
-// instrument + debug 日志。
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+// 结构化错误类型走 tauri_command! 的兜底分支（不自动补 Err 日志，错误分支已手写）。
+crate::tauri_command! {
 pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, ProxyStartError> {
     tracing::debug!(command = "proxy_start", port, "command invoked");
     let other_err = |port: u16, message: String| ProxyStartError {
@@ -133,6 +131,7 @@ pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, Pro
     tracing::info!(command = "proxy_start", port, "proxy started");
     Ok(format!("proxy started on port {port}"))
 }
+}
 
 crate::tauri_command! {
 pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
@@ -151,13 +150,12 @@ pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
 }
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
-    tracing::debug!(command = "proxy_status", "command invoked");
     let handle = app.state::<ProxyHandle>();
     let h = handle.0.lock().map_err(|e| e.to_string())?;
     Ok(h.is_some())
+}
 }
 
 crate::tauri_command! {
@@ -191,8 +189,7 @@ pub async fn proxy_set_bind_lan(app: tauri::AppHandle, enabled: bool) -> Result<
 }
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_autolaunch", enabled, "command invoked");
     use tauri_plugin_autostart::ManagerExt;
@@ -207,17 +204,17 @@ pub fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), St
     }
     Ok(())
 }
+}
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
-    tracing::debug!(command = "app_get_autolaunch", "command invoked");
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
     manager.is_enabled().map_err(|e| {
         tracing::warn!(command = "app_get_autolaunch", error = %e, "get autolaunch failed");
         format!("get autolaunch: {e}")
     })
+}
 }
 
 crate::tauri_command! {
