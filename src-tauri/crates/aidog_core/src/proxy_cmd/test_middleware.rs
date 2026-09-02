@@ -2,11 +2,12 @@
 use super::*;
 use aidog_db as db;
 use aidog_db::test_support::test_db;
+use aidog_middleware::MiddlewareEngine;
 
 // aidog_core 不能 dev-dep aidog_test_util（后者依赖 aidog_core，会成环），
-// 故不经 tauri::State 走 command 包装层，直测 command 转发的 db:: 函数
+// 故不经 command 包装层，直测 command 转发的 db:: 函数
 // （command 本身只是薄转发 + tracing + engine.reload，逻辑等价）。
-// MiddlewareEngine::new() 0 参构造，reload(&db) 不依赖 tauri State。
+// MiddlewareEngine::new() 0 参构造，reload(&db) 不依赖 AppCtx 全局单例。
 
 fn create_payload(name: &str) -> CreateMiddlewareRule {
     serde_json::from_value(serde_json::json!({
