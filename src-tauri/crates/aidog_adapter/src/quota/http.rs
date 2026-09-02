@@ -137,6 +137,7 @@ pub(super) async fn quota_script_request(
     url: &str,
     body: Option<String>,
     headers: Vec<(String, String)>,
+    platform_id: i64,
 ) -> Result<serde_json::Value, String> {
     tracing::info!(method = %method, url = %url, "quota script outbound request");
     let mut req = client.request(method, url);
@@ -150,7 +151,7 @@ pub(super) async fn quota_script_request(
         Ok(r) => r,
         Err(e) => {
             let msg = e.to_string();
-            persist_quota_log(db, make_quota_log_for_script(url, 0, &msg)).await;
+            persist_quota_log(db, make_quota_log_for_script(url, 0, &msg, platform_id)).await;
             return Err(msg);
         }
     };
@@ -159,7 +160,7 @@ pub(super) async fn quota_script_request(
         Ok(t) => t,
         Err(e) => {
             let msg = e.to_string();
-            persist_quota_log(db, make_quota_log_for_script(url, status, &msg)).await;
+            persist_quota_log(db, make_quota_log_for_script(url, status, &msg, platform_id)).await;
             return Err(msg);
         }
     };
@@ -168,11 +169,11 @@ pub(super) async fn quota_script_request(
             "HTTP {status}: {}",
             text.chars().take(500).collect::<String>()
         );
-        persist_quota_log(db, make_quota_log_for_script(url, status, &msg)).await;
+        persist_quota_log(db, make_quota_log_for_script(url, status, &msg, platform_id)).await;
         return Err(msg);
     }
     // 成功响应落库 (保留 body 原文); parse 失败也落库 (body 已在, 便于排查)
-    persist_quota_log(db, make_quota_log_for_script(url, status, &text)).await;
+    persist_quota_log(db, make_quota_log_for_script(url, status, &text, platform_id)).await;
     serde_json::from_str(&text).map_err(|e| format!("JSON parse: {e}"))
 }
 
@@ -182,6 +183,7 @@ pub fn make_quota_log_for_script(
     url: &str,
     upstream_status: u16,
     body: &str,
+    platform_id: i64,
 ) -> aidog_db::models::ProxyLog {
     let created_at = now_millis();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -192,6 +194,7 @@ pub fn make_quota_log_for_script(
         body,
         0,
         created_at,
+        platform_id,
     );
     log.group_key = "[quota:script]".into();
     log
@@ -205,6 +208,7 @@ fn make_quota_log(
     body: &str,
     duration_ms: i32,
     created_at: i64,
+    platform_id: i64,
 ) -> aidog_db::models::ProxyLog {
     aidog_db::models::ProxyLog {
         id: request_id.to_string(),
@@ -213,7 +217,7 @@ fn make_quota_log(
         actual_model: String::new(),
         source_protocol: "quota".into(),
         target_protocol: String::new(),
-        platform_id: QUOTA_PLATFORM_ID.try_get().unwrap_or(0) as u64,
+        platform_id: platform_id.max(0) as u64,
         cli_proxy_provider_id: QUOTA_CLI_PROXY_PROVIDER_ID.try_get().ok(),
         request_headers: r#"{"source":"quota"}"#.into(),
         request_body: String::new(),

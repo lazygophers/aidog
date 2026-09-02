@@ -51,41 +51,48 @@ pub struct CustomQueryCtx {
 
 /// 执行 JS 自定义查询脚本，返回固定格式 PlatformQuota。
 /// platform_id 透传落库日志（与 query_quota 同 idiom）；db 供脚本出站 client
-/// 构建与 proxy_log 落库。
+/// 构建与 proxy_log 落库。platform_id=0 表示调用方没有平台行；此时保留
+/// 外层 task-local 平台归属，避免启发式脚本把真实平台 ID 覆盖成 0。
 pub async fn run_custom_query(
     db: Option<&Arc<Db>>,
     ctx: CustomQueryCtx,
     script: &str,
     platform_id: i64,
 ) -> PlatformQuota {
-    QUOTA_PLATFORM_ID
-        .scope(platform_id, {
-            let script = script.to_string();
-            let outbound = Outbound {
-                client: http_client(db).await,
-                db: db.cloned(),
-            };
-            async move {
-                // JS 引擎 Context 非 Send，spawn_blocking 线程内独占跑
-                let joined =
-                    tokio::task::spawn_blocking(move || eval_script(&ctx, &outbound, &script))
-                        .await;
-                match joined {
-                    Ok(Ok(quota)) => quota,
-                    Ok(Err(msg)) => err_quota(&msg),
-                    Err(e) => err_quota(&format!("script task failed: {e}")),
-                }
-            }
-        })
-        .await
+    let script = script.to_string();
+    let effective_platform_id = if platform_id > 0 {
+        platform_id
+    } else {
+        QUOTA_PLATFORM_ID.try_get().unwrap_or(0)
+    };
+    let outbound = Outbound {
+        client: http_client(db).await,
+        db: db.cloned(),
+        platform_id: effective_platform_id,
+    };
+    let run = async move {
+        // JS 引擎 Context 非 Send，spawn_blocking 线程内独占跑
+        let joined = tokio::task::spawn_blocking(move || eval_script(&ctx, &outbound, &script)).await;
+        match joined {
+            Ok(Ok(quota)) => quota,
+            Ok(Err(msg)) => err_quota(&msg),
+            Err(e) => err_quota(&format!("script task failed: {e}")),
+        }
+    };
+    if platform_id > 0 {
+        QUOTA_PLATFORM_ID.scope(platform_id, run).await
+    } else {
+        run.await
+    }
 }
 
-/// 脚本出站通道：eval 前（异步侧）build 好的 client + 落库用 db，
+/// 脚本出站通道：eval 前（异步侧）build 好的 client + 落库用 db + 平台归属，
 /// 经 `Context::insert_data` 注入，http.get/post native 函数内取用。
 #[derive(Clone)]
 struct Outbound {
     client: reqwest::Client,
     db: Option<Arc<Db>>,
+    platform_id: i64,
 }
 impl Finalize for Outbound {}
 // SAFETY: 字段（reqwest::Client / Option<Arc<Db>>）均非 boa Gc 可追踪类型。
@@ -233,6 +240,7 @@ fn fetch_and_to_json(
             &url,
             body,
             headers,
+            outbound.platform_id,
         ))
     });
     match result {
