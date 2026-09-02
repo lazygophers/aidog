@@ -22,10 +22,8 @@ pub(crate) fn expand_path(input: &str) -> std::path::PathBuf {
     std::path::PathBuf::from(input)
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
-    tracing::debug!(command = "fs_autocomplete", "command invoked");
     let path = expand_path(input.trim());
 
     // Determine parent dir and prefix filter
@@ -91,6 +89,7 @@ pub fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
     sorted.truncate(20);
 
     Ok(sorted)
+}
 }
 
 #[cfg(test)]

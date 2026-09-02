@@ -329,10 +329,8 @@ fn is_conflicting(installs: &[CliInstallation]) -> bool {
     distinct_versions.len() > 1 || runnable_mixed
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn cli_check_versions() -> Vec<CliToolStatus> {
-    tracing::debug!(command = "cli_check_versions", "command invoked");
     TOOLS
         .iter()
         .map(|&tool| {
@@ -356,6 +354,7 @@ pub fn cli_check_versions() -> Vec<CliToolStatus> {
             }
         })
         .collect()
+}
 }
 
 crate::tauri_command! {
@@ -523,10 +522,8 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
 }
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn cli_diagnose_conflicts() -> Vec<CliConflict> {
-    tracing::debug!(command = "cli_diagnose_conflicts", "command invoked");
     TOOLS
         .iter()
         .filter_map(|&tool| {
@@ -557,6 +554,7 @@ pub async fn cli_diagnose_conflicts() -> Vec<CliConflict> {
             })
         })
         .collect()
+}
 }
 
 /// 跑命令 + 非 0 退出码转 Err（含 stderr）。async 版本用于 install/upgrade。
@@ -606,13 +604,10 @@ fn has_update_available(local: &str, latest: &str) -> Option<bool> {
     Some(v_local < v_latest)
 }
 
+crate::tauri_command! {
 /// 检查 CLI 工具是否有更新可用（npm registry + semver 比对）。
 /// 返回值含 latest_version / has_update 字段（检测失败时为 None）。
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn cli_check_updates() -> Vec<CliToolStatus> {
-    tracing::debug!(command = "cli_check_updates", "command invoked");
-
     let mut results = Vec::new();
 
     for &tool in TOOLS {
@@ -691,6 +686,7 @@ pub async fn cli_check_updates() -> Vec<CliToolStatus> {
     }
 
     results
+}
 }
 
 #[cfg(test)]
