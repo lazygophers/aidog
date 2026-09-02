@@ -2856,5 +2856,11 @@
   "jsonEditor.format": "Format",
   "jsonEditor.searchHint": "Ctrl/⌘+F to find, Ctrl/⌘+Alt+F to replace",
   "platform.window_timezone": "Timezone",
-  "platform.window_timezone_utc_default": "UTC (default)"
+  "platform.window_timezone_utc_default": "UTC (default)",
+  "pathPicker.openHint": "Browsers have no native file dialog — type the path directly (start with ~/ to browse your home folder, Tab to complete).",
+  "pathPicker.saveHint": "Browsers have no native “Save as” dialog — type the full path to write to.",
+  "importExport.dropUnsupportedInBrowser": "A browser drop gives no full path — click here and type the path to your .aidogx file instead.",
+  "importExport.pickHintBrowser": "Click to type the full path to your .aidogx (with completion) · auto-decrypt · skills auto-installed",
+  "settings.backup.copyPath": "Copy backup path",
+  "about.updateDesktopOnly": "No update check in the browser — upgrade the kernel on the machine it runs on"
 }

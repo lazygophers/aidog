@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi, onProxyLogUpdated, type ProxyLogDetail } from "../../services/api";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { writeText } from "../../services/platform";
 
 /**
  * Logs 页详情态：当前打开的 ProxyLogDetail + 复制（全量 markdown / 单条 id）+ 打开/刷新详情。

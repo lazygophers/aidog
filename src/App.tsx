@@ -1,6 +1,7 @@
 import { useState, useEffect, useTransition, lazy, Suspense } from "react";
 import { listen } from "./services/transport";
-import { isPermissionGranted, requestPermission, sendNotification } from "@tauri-apps/plugin-notification";
+import { notify, isTauri } from "./services/platform";
+import { PathPickerHost } from "./components/shared/PathPickerHost";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
 import type { Tab } from "./pages/AppSettings";
 import { UpdatePromptModal } from "./components/UpdatePromptModal";
@@ -105,7 +106,10 @@ function App() {
   // 每日检测更新：启动调节流检查 (24h)，有更新弹自定义提醒 modal。
   // dev/未签名/无网络失败已在 service 内 catch 静默，不打扰。
   // 设置开关关闭 → 跳过启动自动检查（手动按钮仍可查）。
+  // 票 10：自动更新是桌面壳独有的（更新的是本机安装包）。浏览器形态下 `check()` 必然抛错，
+  // 与其让它每次启动都失败一次，不如直接不查 —— 内核的升级由部署方管。
   useEffect(() => {
+    if (!isTauri()) return;
     autoUpdateApi.get()
       .then((enabled) => { if (!enabled) return null; return checkForUpdateDailyThrottled(); })
       .then((upd) => { if (upd) setPendingUpdate(upd); })
@@ -150,13 +154,8 @@ function App() {
         const body = kind === "addr_in_use"
           ? i18n.t("proxy.startFailedPortInUse", { port })
           : i18n.t("proxy.startFailedOther", { port });
-        try {
-          let granted = await isPermissionGranted();
-          if (!granted) granted = (await requestPermission()) === "granted";
-          if (granted) sendNotification({ title: i18n.t("app.title"), body });
-        } catch (err) {
-          console.error("system notification failed", err);
-        }
+        // 票 10：桌面走 Tauri 通知插件，浏览器走 `window.Notification`，都在 platform.notify 里。
+        await notify(i18n.t("app.title"), body);
       },
     );
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
@@ -243,6 +242,8 @@ function App() {
           onClose={() => setPendingUpdate(null)}
         />
       )}
+      {/* 票 10：浏览器形态的「选路径」弹窗宿主。桌面版走原生对话框，这里永远渲染 null。 */}
+      <PathPickerHost />
     </div>
   );
 }

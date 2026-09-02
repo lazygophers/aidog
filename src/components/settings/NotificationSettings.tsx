@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "../../services/platform";
 import {
   notificationApi,
   scriptExecutorApi,

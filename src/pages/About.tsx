@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl, isTauri } from "../services/platform";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { aboutApi, cliEnvApi, type AboutInfo, type CliTool, type CliToolStatus, type CliConflict } from "../services/api";
 import { checkForUpdateManual } from "../services/updater";
@@ -286,14 +286,22 @@ export function About() {
             </div>
           )}
         </div>
-        <Button
-          variant="default"
-          className="ripple"
-          disabled={updBusy}
-          onClick={(e) => { makeRipple(e); handleCheckUpdate(); }}
-        >
-          {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
-        </Button>
+        {/* 票 10：自动更新换的是本机安装包，只有桌面壳有意义。浏览器形态下按钮必然报错，
+            换成一句说明，别给一个点了只会失败的按钮。 */}
+        {isTauri() ? (
+          <Button
+            variant="default"
+            className="ripple"
+            disabled={updBusy}
+            onClick={(e) => { makeRipple(e); handleCheckUpdate(); }}
+          >
+            {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
+          </Button>
+        ) : (
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            {t("about.updateDesktopOnly", "浏览器里不检查更新：升级内核请在部署它的机器上做")}
+          </div>
+        )}
       </div>
 
       {/* GitHub 链接 */}

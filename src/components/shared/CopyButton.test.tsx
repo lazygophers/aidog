@@ -3,9 +3,10 @@ import { render, screen } from "../../test/render";
 import userEvent from "@testing-library/user-event";
 import { CopyButton } from "./CopyButton";
 
-// 复制走 Tauri writeText（不是 navigator.clipboard —— WKWebView 无手势激活时会静默失败）。
+// 复制走 services/platform 的 writeText（票 10 起它按形态分流：桌面 Tauri 插件 /
+// 浏览器 navigator.clipboard。这里 mock 那一层，不关心它内部选哪条路）。
 const writeText = vi.hoisted(() => vi.fn(() => Promise.resolve()));
-vi.mock("@tauri-apps/plugin-clipboard-manager", () => ({ writeText }));
+vi.mock("../../services/platform", () => ({ writeText }));
 
 beforeEach(() => writeText.mockClear());
 // 用 fake timers 的用例若中途失败会把假时钟留给后续用例，让 userEvent 整体挂死。

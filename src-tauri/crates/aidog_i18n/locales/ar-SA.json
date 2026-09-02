@@ -2878,5 +2878,11 @@
   "jsonEditor.format": "تنسيق",
   "jsonEditor.searchHint": "Ctrl/⌘+F للبحث، Ctrl/⌘+Alt+F للاستبدال",
   "platform.window_timezone": "المنطقة الزمنية",
-  "platform.window_timezone_utc_default": "UTC (افتراضي)"
+  "platform.window_timezone_utc_default": "UTC (افتراضي)",
+  "pathPicker.openHint": "لا يوجد مربع حوار ملفات أصلي في المتصفح — اكتب المسار مباشرة (ابدأ بـ ~/ لتصفح مجلد المنزل، واضغط Tab للإكمال).",
+  "pathPicker.saveHint": "لا يوجد مربع حوار «حفظ باسم» أصلي في المتصفح — اكتب المسار الكامل المراد الكتابة إليه.",
+  "importExport.dropUnsupportedInBrowser": "الإفلات داخل المتصفح لا يوفّر المسار الكامل — انقر هنا واكتب مسار ملف ‎.aidogx‎ يدويًا.",
+  "importExport.pickHintBrowser": "انقر لكتابة المسار الكامل لملف ‎.aidogx‎ (مع الإكمال) · فكّ تشفير تلقائي · تثبيت تلقائي للمهارات",
+  "settings.backup.copyPath": "نسخ مسار النسخة الاحتياطية",
+  "about.updateDesktopOnly": "لا يتم التحقق من التحديثات في المتصفح — رقِّ النواة على الجهاز الذي تعمل عليه"
 }

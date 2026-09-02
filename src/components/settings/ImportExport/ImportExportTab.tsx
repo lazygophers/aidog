@@ -11,7 +11,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { save, open } from "@tauri-apps/plugin-dialog";
+import { pickPath } from "../../../services/pathPicker";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { isTauri } from "../../../services/transport";
 import {
@@ -132,7 +132,8 @@ export function ImportExportTab() {
     setExportMsg("");
     if (!exportPreview) return;
     try {
-      const path = await save({
+      const path = await pickPath({
+        save: true,
         defaultPath: `aidog-export-${new Date().toISOString().slice(0, 10)}.aidogx`,
         filters: [{ name: "AiDog Export", extensions: ["aidogx"] }],
       });
@@ -205,12 +206,11 @@ export function ImportExportTab() {
 
   const handlePickFile = async () => {
     try {
-      const selected = await open({
-        multiple: false,
+      const selected = await pickPath({
         filters: [{ name: "AiDog Export", extensions: ["aidogx"] }],
       });
-      if (!selected || typeof selected !== "string") return;
-      await loadPreview(selected as string);
+      if (!selected) return;
+      await loadPreview(selected);
     } catch (e) {
       setError(String(e));
     }
@@ -480,13 +480,27 @@ export function ImportExportTab() {
       <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <SectionHeader icon="worktree" title={t("importExport.importTitle", "导入")} desc={t("importExport.importDesc", "选择 .aidogx 文件，程序自动解密。冲突项逐条决策；Skill 自动安装并恢复原启用状态。")} />
 
-        {/* 导入入口：点击选文件 或 原生拖入 .aidogx（dragActive 高亮）。 */}
-        <DropZone
-          onClick={handlePickFile}
-          active={dragActive}
-          title={t("importExport.pickFile", "选择 .aidogx 文件")}
-          hint={t("importExport.dropHint", "点击选择，或将 .aidogx 拖到此处 · 自动解密 · Skill 自动安装")}
-        />
+        {/* 导入入口：点击选文件 或 原生拖入 .aidogx（dragActive 高亮）。
+            票 10：浏览器形态下拖入拿不到绝对路径（沙箱只给文件内容），而导入按路径走后端，
+            所以那里换文案 + 拦一下拖放，当场把原因说清楚，别让用户对着不动的框反复试。 */}
+        <div
+          onDragOver={isTauri() ? undefined : (e) => { e.preventDefault(); setDragActive(true); }}
+          onDragLeave={isTauri() ? undefined : () => setDragActive(false)}
+          onDrop={isTauri() ? undefined : (e) => {
+            e.preventDefault();
+            setDragActive(false);
+            setError(t("importExport.dropUnsupportedInBrowser", "浏览器里拖入文件取不到完整路径，请点这里手动填写 .aidogx 的路径。"));
+          }}
+        >
+          <DropZone
+            onClick={handlePickFile}
+            active={dragActive}
+            title={t("importExport.pickFile", "选择 .aidogx 文件")}
+            hint={isTauri()
+              ? t("importExport.dropHint", "点击选择，或将 .aidogx 拖到此处 · 自动解密 · Skill 自动安装")
+              : t("importExport.pickHintBrowser", "点击输入 .aidogx 的完整路径（支持补全）· 自动解密 · Skill 自动安装")}
+          />
+        </div>
 
         {preview && (
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>

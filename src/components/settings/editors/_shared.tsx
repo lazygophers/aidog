@@ -5,6 +5,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
+import { invoke, isTauri } from "../../../services/transport";
 import { type SettingField, type ObjectSubField } from "../../../services/claude-settings-schema";
 import { F, S } from "./tokens";
 import { SectionIcon } from "./icons";
@@ -571,11 +572,10 @@ export function PathInput({
     }
     const timeoutId = setTimeout(async () => {
       try {
-        let result: PathSuggestion[] = [];
-        if ((window as any).__TAURI_INTERNALS__) {
-          const core = await import("@tauri-apps/api/core");
-          result = await core.invoke<PathSuggestion[]>("fs_autocomplete", { input });
-        }
+        // 票 10：改走传输层。原先这里判 `__TAURI_INTERNALS__`、非 Tauri 就返空数组，
+        // 浏览器形态下补全会整个失灵 —— 而补全正是浏览器里代替原生对话框的那半边。
+        // `invoke` 在浏览器下走 `POST /rpc/fs_autocomplete`，同一个后端命令。
+        const result = await invoke<PathSuggestion[]>("fs_autocomplete", { input });
         setSuggestions(result);
         setShowSugg(result.length > 0);
         setHlIdx(-1);
@@ -663,15 +663,20 @@ export function PathInput({
             }
           }}
         />
-        <Button variant="ghost"
-          type="button"
-          
-          style={{ fontSize: F.body, padding: S.inputPad, flexShrink: 0 }}
-          onClick={pick}
-          title={pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件")}
-        >
-          <SectionIcon name="folder" size={15} />
-        </Button>
+        {/* 票 10：原生文件对话框只有桌面壳有。浏览器里这个按钮点了也弹不出东西，
+            直接不渲染 —— 左边的文本框 + 服务端补全就是浏览器形态的选路径方式。
+            （本组件同时被浏览器形态的 PathPickerHost 复用，若保留按钮还会递归弹窗。）*/}
+        {isTauri() && (
+          <Button variant="ghost"
+            type="button"
+
+            style={{ fontSize: F.body, padding: S.inputPad, flexShrink: 0 }}
+            onClick={pick}
+            title={pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件")}
+          >
+            <SectionIcon name="folder" size={15} />
+          </Button>
+        )}
       </div>
 
       {/* Autocomplete dropdown */}

@@ -1,5 +1,5 @@
 import { useState, memo } from "react";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { writeText } from "../../services/platform";
 import { F } from "../../domains/shared/tokens";
 import { useReveal } from "../../utils/motion";
 import type { ProxyLogSummary } from "../../services/api";
