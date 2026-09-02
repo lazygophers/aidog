@@ -3,7 +3,6 @@ use aidog_adapter as adapter;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
 use serde_json::Value;
-use tauri::State;
 
 // ── 测试上下文：准备阶段的聚合 ──
 struct TestContext {
@@ -394,9 +393,8 @@ fn handle_success_response(
 
 crate::tauri_command! {
     pub async fn model_test(
-        db: State<'_, Db>,
-        req: ModelTestRequest,
-    ) -> Result<ModelTestResult, String> {
+        req: ModelTestRequest) -> Result<ModelTestResult, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "model_test", platform_id = req.platform_id, "command invoked");
 
         // 阶段1：准备测试上下文
@@ -423,7 +421,7 @@ crate::tauri_command! {
         }
 
         // 构建 HTTP 客户端（复用 proxy.rs 逻辑；非请求路径，现读 DB settings）
-        let db_arc = std::sync::Arc::new(db.inner().clone());
+        let db_arc = std::sync::Arc::new(db.clone());
         let proxy_client_settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
         let client = gateway::http_client::build_http_client(
             &proxy_client_settings, 30, 10, Some(&ctx.platform.extra), None,
