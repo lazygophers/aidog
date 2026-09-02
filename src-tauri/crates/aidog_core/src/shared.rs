@@ -1,8 +1,6 @@
 use crate::gateway;
 use aidog_db::{self as db, Db};
-use std::sync::Mutex as StdMutex;
 use tauri::Manager;
-use tokio::task::JoinHandle;
 
 pub fn slugify(input: &str) -> String {
     input
@@ -32,8 +30,9 @@ pub fn slugify(input: &str) -> String {
         .join("-")
 }
 
-/// 代理服务器状态
-pub struct ProxyHandle(pub StdMutex<Option<JoinHandle<()>>>);
+/// 代理服务器状态。票 06 下沉到 `aidog_ctx`（与 Tauri 无关，改由 `AppCtx` 持有），
+/// 此处保留 re-export：`use crate::shared::*` 的调用点不必改 import。
+pub use aidog_ctx::ProxyHandle;
 
 fn default_bind_lan() -> bool {
     false

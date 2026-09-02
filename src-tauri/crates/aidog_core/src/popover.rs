@@ -5,7 +5,7 @@ use crate::shared::*;
 use crate::tray_render::tray_layout_with_stats;
 use aidog_db::Db;
 use gateway::models::*;
-use tauri::{Manager, State};
+use tauri::State;
 
 #[derive(serde::Serialize)]
 pub struct PopoverEntry {
@@ -53,10 +53,7 @@ crate::tauri_command! {
             value: c.value,
             color: c.color,
         }).collect();
-        let proxy_running = {
-            let handle = app.try_state::<ProxyHandle>();
-            handle.map(|h| h.0.lock().map(|g| g.is_some()).unwrap_or(false)).unwrap_or(false)
-        };
+        let proxy_running = aidog_ctx::ctx().proxy_handle().is_running();
         Ok(PopoverData {
             config,
             entries,

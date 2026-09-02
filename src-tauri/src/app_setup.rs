@@ -4,7 +4,7 @@ use aidog_core::gateway;
 use aidog_core::logging;
 use aidog_core::platform_cmd::quota::cold_start_init_tray_estimates;
 use aidog_core::proxy_cmd::proxy::{proxy_start, proxy_stop};
-use aidog_core::shared::{ProxyHandle, ProxySettings, aidog_data_dir, load_proxy_settings};
+use aidog_core::shared::{ProxySettings, aidog_data_dir, load_proxy_settings};
 use aidog_core::sync_settings::try_sync_settings;
 use aidog_core::system_cmd::app_log::{
     load_app_log_settings_from_db, migrate_log_settings_file_to_db,
@@ -240,10 +240,18 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         if let Err(e) = tauri::async_runtime::block_on(engine.reload(&db_state)) {
             tracing::warn!(error = %e, "middleware engine initial load failed");
         }
-        app.manage(engine);
-    }
+        app.manage(engine.clone());
 
-    app.manage(ProxyHandle(StdMutex::new(None)));
+        // 票 06：装进程级 AppCtx。必须在 Db + MiddlewareEngine 就绪之后、任何命令可能被
+        // 调用之前（命令走 invoke，webview 起来才可能触发，此处已足够早）。
+        // ProxyHandle 由 TauriCtx 独占持有，不再 app.manage —— 两份句柄会让
+        // 「代理是否在跑」在托盘 / popover / proxy_status 之间自相矛盾。
+        aidog_core::tauri_ctx::install(
+            app.handle().clone(),
+            app.state::<Db>().inner().clone(),
+            engine,
+        );
+    }
 
     // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
     aidog_backup::spawn_scheduler(app.handle().clone());

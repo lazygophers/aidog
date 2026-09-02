@@ -688,11 +688,7 @@ pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
 pub async fn build_tray_menu(
     app: &tauri::AppHandle,
 ) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
-    let running = {
-        let handle = app.state::<ProxyHandle>();
-        let h = handle.0.lock().map_err(|e| e.to_string())?;
-        h.is_some()
-    };
+    let running = aidog_ctx::ctx().proxy_handle().is_running();
 
     let settings = load_proxy_settings(app).await?;
     let status_text = if running {

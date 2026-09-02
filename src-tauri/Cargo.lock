@@ -202,6 +202,7 @@ version = "0.1.14"
 dependencies = [
  "aes-gcm",
  "aidog_adapter",
+ "aidog_ctx",
  "aidog_db",
  "aidog_hooks",
  "aidog_i18n",
@@ -260,6 +261,17 @@ dependencies = [
  "uuid",
  "webpki-roots 0.26.11",
  "zip 2.4.2",
+]
+
+[[package]]
+name = "aidog_ctx"
+version = "0.1.14"
+dependencies = [
+ "aidog_db",
+ "aidog_middleware",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

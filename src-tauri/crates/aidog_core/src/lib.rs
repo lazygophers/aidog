@@ -13,6 +13,8 @@ pub mod logging {
     pub use aidog_db::logging::*;
 }
 mod command_macro;
+// 票 06：AppCtx 的桌面壳实现（唯一把 AppHandle 接进命令层的地方）。
+pub mod tauri_ctx;
 pub mod hooks;
 pub mod sync_settings;
 pub mod tray_render;
