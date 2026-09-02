@@ -11,7 +11,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { open } from "@tauri-apps/plugin-dialog";
+import { pickPath } from "../../services/pathPicker";
 import {
   cliProxyApi,
   groupApi,
@@ -259,12 +259,12 @@ export function CliProxy() {
   };
 
   const pickFile = async (setter: (v: string) => void) => {
-    const picked = await open({ multiple: false });
-    if (picked && typeof picked === "string") setter(picked);
+    const picked = await pickPath();
+    if (picked) setter(picked);
   };
   const pickDir = async (setter: (v: string) => void) => {
-    const picked = await open({ directory: true, multiple: false });
-    if (picked && typeof picked === "string") setter(picked);
+    const picked = await pickPath({ directory: true });
+    if (picked) setter(picked);
   };
 
   const handleImport = async () => {

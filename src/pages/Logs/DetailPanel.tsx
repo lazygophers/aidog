@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { writeText } from "../../services/platform";
 import { F } from "../../domains/shared/tokens";
 import { CopyButton, MetaItem, RequestTabs } from "./primitives";
 import { safeParseJson } from "./types";

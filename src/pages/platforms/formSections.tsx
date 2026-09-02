@@ -7,7 +7,7 @@
 //   EndpointsSection 已移到 formSectionsEndpoints.tsx（体积大），通过末尾 re-export 暴露。
 import React, { useState, useEffect } from "react";
 import type { TFunction } from "i18next";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { writeText } from "../../services/platform";
 import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,

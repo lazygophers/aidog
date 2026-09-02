@@ -7,7 +7,7 @@
 
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
+import { writeText } from "../../services/platform";
 import { stringify as yamlStringify } from "yaml";
 import QRCode from "qrcode";
 import { Button } from "@/components/ui/button";

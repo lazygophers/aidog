@@ -42,6 +42,16 @@ export interface CaCommandSpec {
   manual_display: string;
 }
 
+/** `mitm_install_ca` 的执行结果（形状与原先 `Command.execute()` 的返回对齐）。 */
+export interface CaInstallOutcome {
+  /** 进程退出码；被信号杀死时为 null。 */
+  code: number | null;
+  stdout: string;
+  stderr: string;
+  /** 实际执行的提权程序路径（诊断展示用）。 */
+  program: string;
+}
+
 /** CA 卸载命令 spec（ST9 用）。 */
 export interface CaUninstallSpec {
   name: string;
@@ -63,8 +73,16 @@ export const mitmApi = {
   enable: () => invoke<void>("mitm_enable"),
   /** 禁用 MITM（保留 CA，仅 enabled=false）。 */
   disable: () => invoke<void>("mitm_disable"),
-  /** 准备装信任库：写 ca.pem + 返命名命令 spec。 */
+  /** 准备装信任库：写 ca.pem + 返命名命令 spec（手动装兜底弹窗的命令文案来源）。 */
   installCaPrepare: () => invoke<CaCommandSpec>("mitm_install_ca_prepare"),
+  /**
+   * **执行**装信任库的系统提权命令（票 10 下沉后端，桌面与浏览器两形态同一条路）。
+   *
+   * 原先由前端 `@tauri-apps/plugin-shell` 执行；浏览器里没有这个插件，且命令串本就不该
+   * 由前端掌握。后端命令串是编译期固定的（见 Rust `mitm_install_ca` 的文档注释），
+   * 提权仍由操作系统弹框确认。
+   */
+  installCa: () => invoke<CaInstallOutcome>("mitm_install_ca"),
   /** 准备卸信任库（ST9 用）。 */
   uninstallCaPrepare: () => invoke<CaUninstallSpec>("mitm_uninstall_ca_prepare"),
   /** shell execute 完成后回写 CA 安装状态。 */

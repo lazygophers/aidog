@@ -273,6 +273,7 @@ pub fn run() {
             // Platform defaults JSON（内置 const，无远端同步）
             aidog_core::defaults::get_defaults_json,
             aidog_core::defaults::get_protocol_logo_path,
+            aidog_core::defaults::get_protocol_logo_data_url,
             aidog_core::defaults::sync_protocol_logo,
             // Client types JSON（内置 const）
             aidog_core::defaults::get_client_types_json,
@@ -281,6 +282,7 @@ pub fn run() {
             aidog_core::proxy_cmd::mitm::mitm_enable,
             aidog_core::proxy_cmd::mitm::mitm_disable,
             aidog_core::proxy_cmd::mitm::mitm_install_ca_prepare,
+            aidog_core::proxy_cmd::mitm::mitm_install_ca,
             aidog_core::proxy_cmd::mitm::mitm_uninstall_ca_prepare,
             aidog_core::proxy_cmd::mitm::mitm_set_ca_installed,
             aidog_core::proxy_cmd::mitm::mitm_classify_trust_error,

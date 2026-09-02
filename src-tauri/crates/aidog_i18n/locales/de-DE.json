@@ -2878,5 +2878,11 @@
   "jsonEditor.format": "Formatieren",
   "jsonEditor.searchHint": "Ctrl/⌘+F suchen, Ctrl/⌘+Alt+F ersetzen",
   "platform.window_timezone": "Zeitzone",
-  "platform.window_timezone_utc_default": "UTC (Standard)"
+  "platform.window_timezone_utc_default": "UTC (Standard)",
+  "pathPicker.openHint": "Im Browser gibt es keinen nativen Dateidialog — geben Sie den Pfad direkt ein (~/ für Ihr Home-Verzeichnis, Tab zum Vervollständigen).",
+  "pathPicker.saveHint": "Im Browser gibt es keinen nativen „Speichern unter“-Dialog — geben Sie den vollständigen Zielpfad ein.",
+  "importExport.dropUnsupportedInBrowser": "Ein Drop im Browser liefert keinen vollständigen Pfad — klicken Sie hier und geben Sie den Pfad zur .aidogx-Datei ein.",
+  "importExport.pickHintBrowser": "Klicken und den vollständigen Pfad zur .aidogx eingeben (mit Vervollständigung) · automatisch entschlüsselt · Skills automatisch installiert",
+  "settings.backup.copyPath": "Backup-Pfad kopieren",
+  "about.updateDesktopOnly": "Im Browser wird nicht nach Updates gesucht — aktualisieren Sie den Kernel auf dem Rechner, auf dem er läuft"
 }
