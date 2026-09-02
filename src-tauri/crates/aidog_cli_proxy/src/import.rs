@@ -7,9 +7,8 @@
 
 use crate::parser::{CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason, parse_cpa_config};
 use aidog_core::gateway::models::{CreateCliProxyProvider, Protocol};
-use aidog_db::{self as db, Db};
+use aidog_db::{self as db};
 use serde::{Deserialize, Serialize};
-use tauri::State;
 
 /// 批量导入结果（非原子：成功入库，失败收集原因）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,9 +34,8 @@ aidog_core::tauri_command! {
     pub async fn cli_proxy_import(
         path: String,
         auth_dir: Option<String>,
-        group_id: Option<i64>,
-        db: State<'_, Db>,
-    ) -> Result<CliProxyImportResult, String> {
+        group_id: Option<i64>) -> Result<CliProxyImportResult, String> {
+    let db = aidog_ctx::db();
         tracing::debug!(command = "cli_proxy_import", path = %path, "command invoked");
         let parsed = parse_cpa_config(&path, auth_dir.as_deref())?;
         tracing::info!(
