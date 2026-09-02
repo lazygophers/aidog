@@ -7,15 +7,15 @@
 //! - batch_move_group: 移组/加组（操作 group_platform 关联）
 
 use crate::gateway::models::{BatchReport, PlatformModels, PlatformStatus, UpdatePlatform};
-use aidog_db::{self as db, Db, now};
+use aidog_db::{self as db, now};
 use rusqlite::params;
-use tauri::State;
 
 crate::tauri_command! {
 /// 批量删除平台（物理删 = 软删 platform + 清所有 group_platform 关联）
 ///
 /// 原子事务：任一失败 → 全部 rollback
-pub async fn batch_delete_platforms(db: State<'_, Db>, ids: Vec<u64>) -> Result<BatchReport, String> {
+pub async fn batch_delete_platforms( ids: Vec<u64>) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "batch_delete_platforms", count = ids.len(), "command invoked");
     if ids.is_empty() {
         return Ok(BatchReport { applied: 0, skipped: vec![] });
@@ -36,10 +36,9 @@ crate::tauri_command! {
 /// 原子事务：任一失败 → 全部 rollback
 /// 注意：当前实现将 models 视为 PlatformModels，前端需传递完整结构
 pub async fn batch_override_models(
-    db: State<'_, Db>,
     ids: Vec<u64>,
-    models: PlatformModels,
-) -> Result<BatchReport, String> {
+    models: PlatformModels) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "batch_override_models", count = ids.len(), "command invoked");
     if ids.is_empty() {
         return Ok(BatchReport { applied: 0, skipped: vec![] });
@@ -75,10 +74,9 @@ crate::tauri_command! {
 ///
 /// 只接受 "enabled" 或 "disabled"，拒绝 "auto_disabled"（系统熔断态不允许手动设置）
 pub async fn batch_set_status(
-    db: State<'_, Db>,
     ids: Vec<u64>,
-    status: String,
-) -> Result<BatchReport, String> {
+    status: String) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "batch_set_status", count = ids.len(), %status, "command invoked");
     if ids.is_empty() {
         return Ok(BatchReport { applied: 0, skipped: vec![] });
@@ -131,11 +129,10 @@ crate::tauri_command! {
 ///
 /// 原子事务：任一失败 → 全部 rollback
 pub async fn batch_move_group(
-    db: State<'_, Db>,
     ids: Vec<u64>,
     target_group_id: u64,
-    mode: String,
-) -> Result<BatchReport, String> {
+    mode: String) -> Result<BatchReport, String> {
+    let db = aidog_ctx::db();
     tracing::debug!(command = "batch_move_group", count = ids.len(), %mode, target_group_id, "command invoked");
     if ids.is_empty() {
         return Ok(BatchReport { applied: 0, skipped: vec![] });
