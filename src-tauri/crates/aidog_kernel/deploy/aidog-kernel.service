@@ -1,5 +1,11 @@
 ; aidog 无界面内核的 systemd 示例单元（票 08）。
 ;
+; Linux 上自己编译内核（Debian/Ubuntu）：
+;   sudo apt-get install -y pkg-config libssl-dev clang libclang-dev libspeechd-dev
+;   cargo build --release -p aidog_kernel --bin aidog-kernel
+;   （libspeechd 是通知语音播报后端；运行时还需要 libspeechd2。不装 GTK/WebKit：
+;     内核不链 tauri。已在 debian:bookworm 上实测通过。）
+;
 ; 安装：
 ;   sudo install -m 0755 aidog-kernel /usr/local/bin/aidog-kernel
 ;   sudo install -m 0644 aidog-kernel.service /etc/systemd/system/aidog-kernel.service
