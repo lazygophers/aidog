@@ -1428,6 +1428,7 @@
   "proxy.bindLan": "LAN Access",
   "proxy.bindLanApplied": "LAN access setting updated (proxy restarted automatically if running)",
   "proxy.bindLanDesc": "Allow other devices on the same local network to connect to this proxy (when off, only this machine can connect)",
+  "proxy.bindLanSecurity": "When on, the proxy listens on 0.0.0.0 and any device on the same local network can reach it, authenticated only by the group_key Bearer token; keep it off on untrusted networks.",
   "proxy.configDesc": "Set this environment variable in Claude Code to route requests through this proxy.",
   "proxy.configExportPath": "Written to",
   "proxy.configExported": "Config exported",
