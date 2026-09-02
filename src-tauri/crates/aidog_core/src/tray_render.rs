@@ -480,14 +480,10 @@ impl TrayMenuBuild for TrayMenuBuildImpl {
     {
         Box::pin(build_tray_menu(app))
     }
-    fn layout<'a>(
-        &'a self,
-    ) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>> {
+    fn layout<'a>(&'a self) -> Pin<Box<dyn Future<Output = TrayLayout> + Send + 'a>> {
         Box::pin(tray_layout(aidog_ctx::db()))
     }
-    fn separator<'a>(
-        &'a self,
-    ) -> Pin<Box<dyn Future<Output = String> + Send + 'a>> {
+    fn separator<'a>(&'a self) -> Pin<Box<dyn Future<Output = String> + Send + 'a>> {
         Box::pin(tray_separator(aidog_ctx::db()))
     }
 }

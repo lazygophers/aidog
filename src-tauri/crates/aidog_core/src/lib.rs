@@ -14,9 +14,9 @@ pub mod logging {
 }
 mod command_macro;
 // 票 06：AppCtx 的桌面壳实现（唯一把 AppHandle 接进命令层的地方）。
-pub mod tauri_ctx;
 pub mod hooks;
 pub mod sync_settings;
+pub mod tauri_ctx;
 pub mod tray_render;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
 pub mod popover;

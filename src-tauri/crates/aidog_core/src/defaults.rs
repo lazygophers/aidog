@@ -4,13 +4,11 @@
 //! 从未同步过才回落编译期内置那份（`aidog_db::registry`）。`~/.aidog/platform-presets.json`
 //! 本地文件覆盖链已彻底移除，禁改回。`client_types_const.rs` 仍是代码内常量。
 
-use aidog_db::Db;
-use tauri::State;
-
 const CLIENT_TYPES_BUNDLED: &str = crate::gateway::client_types_const::BUNDLED;
 
 crate::tauri_command! {
-    pub async fn get_defaults_json(db: State<'_, Db>) -> Result<String, String> {
+    pub async fn get_defaults_json() -> Result<String, String> {
+    let db = aidog_ctx::db();
         aidog_db::presets_doc_json(&db).await
     }
 }

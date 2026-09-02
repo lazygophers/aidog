@@ -3,9 +3,7 @@
 use crate::gateway;
 use crate::shared::*;
 use crate::tray_render::tray_layout_with_stats;
-use aidog_db::Db;
 use gateway::models::*;
-use tauri::State;
 
 #[derive(serde::Serialize)]
 pub struct PopoverEntry {
@@ -33,7 +31,8 @@ pub struct PopoverData {
 }
 
 crate::tauri_command! {
-    pub async fn popover_data(db: State<'_, Db>) -> Result<PopoverData, String> {
+    pub async fn popover_data() -> Result<PopoverData, String> {
+    let db = aidog_ctx::db();
         // today_stats 先取（tray_layout 若含 today_usage item 复用同一份，消重复聚合），
         // 其余 4 个无依赖 await 并发（config / layout / platform_today / proxy settings）。
         let today_stats = aidog_stats::today_stats(&db).await?;
@@ -67,7 +66,8 @@ crate::tauri_command! {
 
 crate::tauri_command! {
     /// 读取 PopoverConfig（无配置 → 默认配置）。
-    pub async fn popover_config_get(db: State<'_, Db>) -> Result<gateway::models::PopoverConfig, String> {
+    pub async fn popover_config_get() -> Result<gateway::models::PopoverConfig, String> {
+    let db = aidog_ctx::db();
         aidog_stats::get_popover_config(&db).await
     }
 }
@@ -75,16 +75,16 @@ crate::tauri_command! {
 crate::tauri_command! {
     /// 保存 PopoverConfig。
     pub async fn popover_config_set(
-        config: gateway::models::PopoverConfig,
-        db: State<'_, Db>,
-    ) -> Result<(), String> {
+        config: gateway::models::PopoverConfig) -> Result<(), String> {
+    let db = aidog_ctx::db();
         aidog_stats::set_popover_config(&db, &config).await
     }
 }
 
 crate::tauri_command! {
     /// 各平台当日使用（供设置页预览）。
-    pub async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<aidog_stats::TodayPlatformStat>, String> {
+    pub async fn popover_platform_today() -> Result<Vec<aidog_stats::TodayPlatformStat>, String> {
+    let db = aidog_ctx::db();
         aidog_stats::today_platform_stats(&db).await
     }
 }

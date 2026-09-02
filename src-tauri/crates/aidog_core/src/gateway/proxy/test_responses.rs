@@ -1,4 +1,3 @@
-
 #[test]
 fn responses_subendpoint_detection() {
     use super::is_responses_subendpoint;
