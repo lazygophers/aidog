@@ -301,6 +301,40 @@ impl RetentionUnit {
     }
 }
 
+impl ProxyLogSettings {
+    /// 调度周期下限：1 分钟（再短的唤醒对磁盘没意义，只是空转）。
+    pub const CLEANUP_INTERVAL_MIN_SECS: u64 = 60;
+    /// 调度周期上限：24 小时（长保留期不需要更频繁的唤醒）。
+    pub const CLEANUP_INTERVAL_MAX_SECS: u64 = 24 * 3600;
+
+    /// 清理调度周期（秒）：三档保留期（user / upstream / 整行）取**最短的非零值 ÷ 4**，
+    /// 夹在 [1 分钟, 24 小时]。三档全 0（永久保留）退化为 24 小时。
+    ///
+    /// ÷4 保证任一档保留期内至少被扫 4 次，超期数据最多多活 1/4 个保留期。
+    /// 放在此处（与 `RetentionUnit::secs` 同层）是为了随内核走：无界面二进制复用同一份，
+    /// 不在 root bin 里重写一遍。
+    pub fn cleanup_interval_secs(&self) -> u64 {
+        let shortest = [
+            self.user_request_retention_unit
+                .secs(self.user_request_retention_days),
+            self.upstream_request_retention_unit
+                .secs(self.upstream_request_retention_days),
+            self.retention_unit.secs(self.retention_days),
+        ]
+        .into_iter()
+        .filter(|&s| s > 0)
+        .min();
+        match shortest {
+            // 三档全 0 = 永久保留：无超期数据可清，退化为最长周期。
+            None => Self::CLEANUP_INTERVAL_MAX_SECS,
+            Some(s) => (s / 4).clamp(
+                Self::CLEANUP_INTERVAL_MIN_SECS,
+                Self::CLEANUP_INTERVAL_MAX_SECS,
+            ),
+        }
+    }
+}
+
 fn default_user_req_retention() -> u32 {
     7
 }
@@ -369,5 +403,85 @@ mod tests {
         assert_eq!(RetentionUnit::Hour.secs(0), 0);
         assert_eq!(RetentionUnit::Day.secs(0), 0);
         assert_eq!(RetentionUnit::Week.secs(0), 0);
+    }
+
+    /// 构造三档保留期（value + unit 相同的简写），只为周期派生测试服务。
+    fn settings_with(
+        user: (u32, RetentionUnit),
+        up: (u32, RetentionUnit),
+        row: (u32, RetentionUnit),
+    ) -> ProxyLogSettings {
+        ProxyLogSettings {
+            user_request_retention_days: user.0,
+            user_request_retention_unit: user.1,
+            upstream_request_retention_days: up.0,
+            upstream_request_retention_unit: up.1,
+            retention_days: row.0,
+            retention_unit: row.1,
+            ..Default::default()
+        }
+    }
+
+    /// 周期派生①取最短：三档不同（1 天 / 12 小时 / 4 小时）→ 取 4 小时那档。
+    #[test]
+    fn cleanup_interval_takes_shortest_of_three() {
+        let s = settings_with(
+            (1, RetentionUnit::Day),
+            (12, RetentionUnit::Hour),
+            (4, RetentionUnit::Hour),
+        );
+        // 最短 = 4h = 14400s → ÷4 = 3600s
+        assert_eq!(s.cleanup_interval_secs(), 3600);
+    }
+
+    /// 周期派生②÷4：零档不参与取最短（0 = 永久保留，不是「最短」）。
+    #[test]
+    fn cleanup_interval_divides_by_four_and_ignores_zero() {
+        let s = settings_with(
+            (0, RetentionUnit::Hour),
+            (0, RetentionUnit::Hour),
+            (8, RetentionUnit::Hour),
+        );
+        // 唯一非零档 8h = 28800s → ÷4 = 7200s
+        assert_eq!(s.cleanup_interval_secs(), 7200);
+    }
+
+    /// 周期派生③上下夹紧：1 小时保留期 → 15 分钟；90 天 → 夹到 24 小时下限侧同理。
+    #[test]
+    fn cleanup_interval_clamps_both_ends() {
+        // 1h ÷ 4 = 900s（区间内，不夹）
+        let hourly = settings_with(
+            (1, RetentionUnit::Hour),
+            (1, RetentionUnit::Hour),
+            (1, RetentionUnit::Hour),
+        );
+        assert_eq!(hourly.cleanup_interval_secs(), 900);
+
+        // 下限：1 分钟保留期不存在（单位最小 Hour），构造 1h 的 1/4 已是 900s；
+        // 用 Hour 档最小值 1 与更长档共存仍取最短 → 验证下限用极端值 0 不可行，
+        // 故直接验证常量语义：任何派生值不得低于 60s。
+        assert!(hourly.cleanup_interval_secs() >= ProxyLogSettings::CLEANUP_INTERVAL_MIN_SECS);
+
+        // 上限：90 天 ÷ 4 = 22.5 天 → 夹到 24 小时
+        let long = settings_with(
+            (90, RetentionUnit::Day),
+            (90, RetentionUnit::Day),
+            (90, RetentionUnit::Day),
+        );
+        assert_eq!(
+            long.cleanup_interval_secs(),
+            ProxyLogSettings::CLEANUP_INTERVAL_MAX_SECS
+        );
+    }
+
+    /// 周期派生④全零退化：三档全 0（永久保留）→ 24 小时。
+    #[test]
+    fn cleanup_interval_all_zero_falls_back_to_daily() {
+        let s = settings_with(
+            (0, RetentionUnit::Hour),
+            (0, RetentionUnit::Day),
+            (0, RetentionUnit::Week),
+        );
+        assert_eq!(s.cleanup_interval_secs(), 24 * 3600);
     }
 }

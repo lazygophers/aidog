@@ -127,3 +127,74 @@ async fn log_settings_roundtrip() {
         .unwrap_or_default();
     assert_eq!(got.retention_days, 30);
 }
+
+/// 构造三档同值同单位的设置，只为调度周期测试服务。
+fn settings_all(value: u32, unit: aidog_db::models::RetentionUnit) -> ProxyLogSettings {
+    ProxyLogSettings {
+        user_request_retention_days: value,
+        upstream_request_retention_days: value,
+        retention_days: value,
+        user_request_retention_unit: unit,
+        upstream_request_retention_unit: unit,
+        retention_unit: unit,
+        ..Default::default()
+    }
+}
+
+async fn save_log_settings(db: &aidog_db::Db, settings: &ProxyLogSettings) {
+    aidog_db::set_setting(
+        db,
+        gateway::models::SetSettingInput {
+            scope: "proxy".into(),
+            key: "logging".into(),
+            value: serde_json::to_value(settings).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+}
+
+/// 设置变更后周期跟着重算（无需重启）：改保留期 → 再读一次 `retention_cleanup_interval`
+/// 直接得到新周期。调度循环每轮都调它，故「改了要重启才生效」不可能发生。
+#[tokio::test]
+async fn retention_interval_recomputes_after_settings_change() {
+    let db = test_db().await;
+
+    // 设置缺失 → 走 Default（三档 6h）→ 6h/4 = 90min
+    assert_eq!(
+        retention_cleanup_interval(&db).await,
+        std::time::Duration::from_secs(5400)
+    );
+
+    // 用户改成三档全 1 小时 → 周期立刻变 15 分钟
+    save_log_settings(&db, &settings_all(1, aidog_db::models::RetentionUnit::Hour)).await;
+    assert_eq!(
+        retention_cleanup_interval(&db).await,
+        std::time::Duration::from_secs(900),
+        "1h retention must yield a 15min cycle without restart"
+    );
+
+    // 再改成 90 天 → 夹到 24 小时上限
+    save_log_settings(&db, &settings_all(90, aidog_db::models::RetentionUnit::Day)).await;
+    assert_eq!(
+        retention_cleanup_interval(&db).await,
+        std::time::Duration::from_secs(24 * 3600)
+    );
+}
+
+/// 设置保存唤醒调度器：`wake_retention_scheduler` 后，正在等 1 小时的循环立刻返回
+/// `true`（= 重算周期），不必等满周期、更不必重启。
+#[tokio::test]
+async fn wake_returns_from_long_sleep_immediately() {
+    wake_retention_scheduler();
+    let woken = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        wait_next_retention_cycle(std::time::Duration::from_secs(3600)),
+    )
+    .await
+    .expect("wake must cut the 1h sleep short");
+    assert!(
+        woken,
+        "returning true means: recompute interval, skip cleanup"
+    );
+}
