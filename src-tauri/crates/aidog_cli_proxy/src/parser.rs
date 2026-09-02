@@ -6,13 +6,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use serde_yaml;
 use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
 use std::fs;
+use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
-use super::archive::{
-    is_supported_archive, is_unsupported_archive, untar_archive, unzip_archive,
-};
+use super::archive::{is_supported_archive, is_unsupported_archive, untar_archive, unzip_archive};
 
 // ─── 数据结构 ───────────────────────────────────────────────────────
 
@@ -189,12 +187,9 @@ impl CpaConfigStub {
 
 /// 解析单个 YAML/JSON 文件，返回 CpaProvider 列表。
 fn parse_single_file(path: &Path) -> Result<Vec<CpaProvider>, String> {
-    let content = fs::read_to_string(path)
-        .map_err(|e| format!("读取文件失败: {e}"))?;
+    let content = fs::read_to_string(path).map_err(|e| format!("读取文件失败: {e}"))?;
 
-    let ext = path.extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("");
+    let ext = path.extension().and_then(|s| s.to_str()).unwrap_or("");
 
     // JSON 扩展名：先试 OAuth 凭据（CLIProxyAPI OAuth 凭据均 JSON 单文件）
     if ext == "json" {
@@ -208,11 +203,9 @@ fn parse_single_file(path: &Path) -> Result<Vec<CpaProvider>, String> {
     }
 
     let stub: CpaConfigStub = if ext == "yaml" || ext == "yml" {
-        serde_yaml::from_str(&content)
-            .map_err(|e| format!("YAML 解析失败: {e}"))?
+        serde_yaml::from_str(&content).map_err(|e| format!("YAML 解析失败: {e}"))?
     } else if ext == "json" {
-        serde_json::from_str(&content)
-            .map_err(|e| format!("JSON 解析失败: {e}"))?
+        serde_json::from_str(&content).map_err(|e| format!("JSON 解析失败: {e}"))?
     } else {
         return Err(format!("不支持的文件类型: {ext}"));
     };
@@ -225,22 +218,46 @@ fn parse_single_file(path: &Path) -> Result<Vec<CpaProvider>, String> {
 
     // 解析各段
     if let Some(arr) = stub.gemini_api_key {
-        providers.extend(parse_provider_array(&arr, CpaSourceSegment::GeminiApiKey, false));
+        providers.extend(parse_provider_array(
+            &arr,
+            CpaSourceSegment::GeminiApiKey,
+            false,
+        ));
     }
     if let Some(arr) = stub.interactions_api_key {
-        providers.extend(parse_provider_array(&arr, CpaSourceSegment::InteractionsApiKey, false));
+        providers.extend(parse_provider_array(
+            &arr,
+            CpaSourceSegment::InteractionsApiKey,
+            false,
+        ));
     }
     if let Some(arr) = stub.codex_api_key {
-        providers.extend(parse_provider_array(&arr, CpaSourceSegment::CodexApiKey, false));
+        providers.extend(parse_provider_array(
+            &arr,
+            CpaSourceSegment::CodexApiKey,
+            false,
+        ));
     }
     if let Some(arr) = stub.claude_api_key {
-        providers.extend(parse_provider_array(&arr, CpaSourceSegment::ClaudeApiKey, false));
+        providers.extend(parse_provider_array(
+            &arr,
+            CpaSourceSegment::ClaudeApiKey,
+            false,
+        ));
     }
     if let Some(arr) = stub.openai_compatibility {
-        providers.extend(parse_provider_array(&arr, CpaSourceSegment::OpenaiCompatibility, true));
+        providers.extend(parse_provider_array(
+            &arr,
+            CpaSourceSegment::OpenaiCompatibility,
+            true,
+        ));
     }
     if let Some(arr) = stub.vertex_api_key {
-        providers.extend(parse_provider_array(&arr, CpaSourceSegment::VertexApiKey, false));
+        providers.extend(parse_provider_array(
+            &arr,
+            CpaSourceSegment::VertexApiKey,
+            false,
+        ));
     }
 
     Ok(providers)
@@ -253,16 +270,27 @@ fn parse_single_file(path: &Path) -> Result<Vec<CpaProvider>, String> {
 ///
 /// - `openai_compat = false` (默认形态): `api-key` 直取, name=None, disabled=false
 /// - `openai_compat = true`  (openai-compatibility 段): `api-key-entries[].api-key` 取首, name/disabled 从字段
-fn parse_provider_array(arr: &Value, segment: CpaSourceSegment, openai_compat: bool) -> Vec<CpaProvider> {
+fn parse_provider_array(
+    arr: &Value,
+    segment: CpaSourceSegment,
+    openai_compat: bool,
+) -> Vec<CpaProvider> {
     let mut providers = Vec::new();
-    let Some(arr) = arr.as_array() else { return providers };
+    let Some(arr) = arr.as_array() else {
+        return providers;
+    };
     for item in arr {
-        let Some(obj) = item.as_object() else { continue };
+        let Some(obj) = item.as_object() else {
+            continue;
+        };
         let base_url = obj.get("base-url").and_then(|v| v.as_str()).unwrap_or("");
         // ponytail: bool 形态开关优于单字段 opts struct (单字段 struct 过度设计)
         let (api_key, name, disabled) = if openai_compat {
             let name = obj.get("name").and_then(|v| v.as_str()).map(String::from);
-            let disabled = obj.get("disabled").and_then(|v| v.as_bool()).unwrap_or(false);
+            let disabled = obj
+                .get("disabled")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
             // api-key-entries 数组取首 (CLIProxyAPI 多 key 轮询语义下取首个用于上游鉴权)
             let api_key = obj
                 .get("api-key-entries")
@@ -369,7 +397,8 @@ fn parse_oauth_json(content: &str) -> Option<Vec<CpaProvider>> {
     let cred: OAuthCredential = serde_json::from_str(content).ok()?;
     let oauth_type = CpaOAuthType::parse_oauth_type(&cred.cred_type)?;
     let access_token = cred.access_token?;
-    let models: Vec<String> = cred.model_aliases
+    let models: Vec<String> = cred
+        .model_aliases
         .unwrap_or_default()
         .into_iter()
         .map(|m| m.name)
@@ -377,7 +406,10 @@ fn parse_oauth_json(content: &str) -> Option<Vec<CpaProvider>> {
     Some(vec![CpaProvider {
         source_segment: CpaSourceSegment::OAuth,
         name: cred.email.clone(),
-        base_url: oauth_type.default_base_url().unwrap_or_default().to_string(),
+        base_url: oauth_type
+            .default_base_url()
+            .unwrap_or_default()
+            .to_string(),
         api_key: access_token,
         models,
         prefix: None,
@@ -479,7 +511,9 @@ fn deduplicate_providers(providers: Vec<CpaProvider>) -> Vec<CpaProvider> {
             if let Some(ref name) = provider.name {
                 if !seen_names.insert(name.clone()) {
                     // 已存在，合并模型
-                    if let Some(existing) = result.iter_mut().find(|p| p.name.as_ref() == Some(name)) {
+                    if let Some(existing) =
+                        result.iter_mut().find(|p| p.name.as_ref() == Some(name))
+                    {
                         merge_models(existing, &provider);
                     }
                     continue;
@@ -489,7 +523,8 @@ fn deduplicate_providers(providers: Vec<CpaProvider>) -> Vec<CpaProvider> {
                 // 无 name，按 base_url 去重
                 if !seen_keys.insert((provider.source_segment, provider.base_url.clone())) {
                     if let Some(existing) = result.iter_mut().find(|p| {
-                        p.source_segment == provider.source_segment && p.base_url == provider.base_url
+                        p.source_segment == provider.source_segment
+                            && p.base_url == provider.base_url
                     }) {
                         merge_models(existing, &provider);
                     }
@@ -534,7 +569,9 @@ fn deduplicate_providers(providers: Vec<CpaProvider>) -> Vec<CpaProvider> {
 
 /// 合并模型列表（去重）。
 fn merge_models(existing: &mut CpaProvider, new: &CpaProvider) {
-    let new_models: Vec<_> = new.models.iter()
+    let new_models: Vec<_> = new
+        .models
+        .iter()
         .filter(|m| !existing.models.contains(m))
         .cloned()
         .collect();
@@ -573,8 +610,7 @@ pub fn parse_cpa_config(path: &str, auth_dir: Option<&str>) -> Result<ParseResul
     if path.is_file() {
         if is_supported_archive(path) {
             // 压缩包：解压后扫描
-            let temp_dir = if path.extension()
-                .and_then(|s| s.to_str()) == Some("zip") {
+            let temp_dir = if path.extension().and_then(|s| s.to_str()) == Some("zip") {
                 unzip_archive(path)?
             } else {
                 untar_archive(path)?
@@ -666,15 +702,27 @@ mod tests {
     #[test]
     fn test_cpa_source_segment_yaml_keys() {
         assert_eq!(CpaSourceSegment::GeminiApiKey.yaml_key(), "gemini-api-key");
-        assert_eq!(CpaSourceSegment::OpenaiCompatibility.yaml_key(), "openai-compatibility");
+        assert_eq!(
+            CpaSourceSegment::OpenaiCompatibility.yaml_key(),
+            "openai-compatibility"
+        );
         assert!(CpaSourceSegment::all_keys().contains(&"codex-api-key"));
     }
 
     #[test]
     fn test_oauth_type_from_str() {
-        assert_eq!(CpaOAuthType::parse_oauth_type("xai"), Some(CpaOAuthType::Xai));
-        assert_eq!(CpaOAuthType::parse_oauth_type("XAi"), Some(CpaOAuthType::Xai));
-        assert_eq!(CpaOAuthType::parse_oauth_type("vertex"), Some(CpaOAuthType::Vertex));
+        assert_eq!(
+            CpaOAuthType::parse_oauth_type("xai"),
+            Some(CpaOAuthType::Xai)
+        );
+        assert_eq!(
+            CpaOAuthType::parse_oauth_type("XAi"),
+            Some(CpaOAuthType::Xai)
+        );
+        assert_eq!(
+            CpaOAuthType::parse_oauth_type("vertex"),
+            Some(CpaOAuthType::Vertex)
+        );
         assert_eq!(CpaOAuthType::parse_oauth_type("unknown"), None);
     }
 
@@ -917,7 +965,11 @@ mod tests {
         )
         .unwrap();
         // 无 token 的 OAuth 凭据 → 静默跳过
-        std::fs::write(dir.path().join("b.json"), r#"{"type":"claude","email":"z"}"#).unwrap();
+        std::fs::write(
+            dir.path().join("b.json"),
+            r#"{"type":"claude","email":"z"}"#,
+        )
+        .unwrap();
         // 非 OAuth JSON → 静默跳过
         std::fs::write(dir.path().join("c.json"), r#"{"type":"unknown"}"#).unwrap();
 
@@ -929,7 +981,10 @@ mod tests {
 
     #[test]
     fn test_default_base_url_static_mappings() {
-        assert_eq!(CpaOAuthType::Xai.default_base_url(), Some("https://api.x.ai"));
+        assert_eq!(
+            CpaOAuthType::Xai.default_base_url(),
+            Some("https://api.x.ai")
+        );
         assert_eq!(
             CpaOAuthType::Aistudio.default_base_url(),
             Some("https://generativelanguage.googleapis.com")
@@ -986,10 +1041,8 @@ mod tests {
 
     #[test]
     fn parse_provider_array_openai_compat_takes_first_entry_and_flags() {
-        let v = arr(
-            r#"[{"name":"n1","disabled":true,"base-url":"https://b.com",
-                 "api-key-entries":[{"api-key":"first"},{"api-key":"second"}]}]"#,
-        );
+        let v = arr(r#"[{"name":"n1","disabled":true,"base-url":"https://b.com",
+                 "api-key-entries":[{"api-key":"first"},{"api-key":"second"}]}]"#);
         let out = parse_provider_array(&v, CpaSourceSegment::OpenaiCompatibility, true);
         assert_eq!(out.len(), 1);
         // 多 key 轮询语义下取首个用于上游鉴权
@@ -1006,7 +1059,10 @@ mod tests {
         assert!(parse_provider_array(&arr("{}"), CpaSourceSegment::ClaudeApiKey, false).is_empty());
 
         let empty_entries = arr(r#"[{"name":"n","api-key-entries":[]}]"#);
-        assert!(parse_provider_array(&empty_entries, CpaSourceSegment::OpenaiCompatibility, true).is_empty());
+        assert!(
+            parse_provider_array(&empty_entries, CpaSourceSegment::OpenaiCompatibility, true)
+                .is_empty()
+        );
     }
 
     #[test]
@@ -1051,19 +1107,39 @@ mod tests {
     fn parse_single_file_rejects_unknown_ext_bad_syntax_and_non_cpa() {
         let d = tempfile::tempdir().expect("临时目录");
         let txt = write(d.path(), "a.txt", "whatever");
-        assert!(parse_single_file(&txt).unwrap_err().contains("不支持的文件类型"));
+        assert!(
+            parse_single_file(&txt)
+                .unwrap_err()
+                .contains("不支持的文件类型")
+        );
 
         let bad = write(d.path(), "bad.yaml", "\t: [unclosed");
-        assert!(parse_single_file(&bad).unwrap_err().contains("YAML 解析失败"));
+        assert!(
+            parse_single_file(&bad)
+                .unwrap_err()
+                .contains("YAML 解析失败")
+        );
 
         let badj = write(d.path(), "bad.json", "{not json");
-        assert!(parse_single_file(&badj).unwrap_err().contains("JSON 解析失败"));
+        assert!(
+            parse_single_file(&badj)
+                .unwrap_err()
+                .contains("JSON 解析失败")
+        );
 
         // 合法 YAML 但没有任何 CPA provider 段
         let other = write(d.path(), "other.yaml", "some-other-key: 1\n");
-        assert!(parse_single_file(&other).unwrap_err().contains("不是 CPA 配置文件"));
+        assert!(
+            parse_single_file(&other)
+                .unwrap_err()
+                .contains("不是 CPA 配置文件")
+        );
 
-        assert!(parse_single_file(&d.path().join("missing.yaml")).unwrap_err().contains("读取文件失败"));
+        assert!(
+            parse_single_file(&d.path().join("missing.yaml"))
+                .unwrap_err()
+                .contains("读取文件失败")
+        );
     }
 
     #[test]
@@ -1089,8 +1165,16 @@ mod tests {
     #[test]
     fn scan_auth_dir_recurses_and_skips_non_oauth_json() {
         let d = tempfile::tempdir().expect("临时目录");
-        write(d.path(), "ok.json", r#"{"type":"xai","access_token":"t1","email":"a@x.com"}"#);
-        write(d.path(), "nested/ok2.json", r#"{"type":"vertex","access_token":"t2","email":"b@x.com"}"#);
+        write(
+            d.path(),
+            "ok.json",
+            r#"{"type":"xai","access_token":"t1","email":"a@x.com"}"#,
+        );
+        write(
+            d.path(),
+            "nested/ok2.json",
+            r#"{"type":"vertex","access_token":"t2","email":"b@x.com"}"#,
+        );
         write(d.path(), "no_token.json", r#"{"type":"xai"}"#);
         write(d.path(), "not_oauth.json", r#"{"type":"whatever"}"#);
         write(d.path(), "skip.yaml", YAML_CFG);
@@ -1133,13 +1217,21 @@ mod tests {
         let cfg_dir = tempfile::tempdir().expect("临时目录");
         let auth_dir = tempfile::tempdir().expect("临时目录");
         let f = write(cfg_dir.path(), "cfg.yaml", YAML_CFG);
-        write(auth_dir.path(), "cred.json", r#"{"type":"xai","access_token":"t","email":"a@x.com"}"#);
+        write(
+            auth_dir.path(),
+            "cred.json",
+            r#"{"type":"xai","access_token":"t","email":"a@x.com"}"#,
+        );
 
         let r = parse_cpa_config(f.to_str().unwrap(), Some(auth_dir.path().to_str().unwrap()))
             .expect("应解析");
         assert_eq!(r.providers.len(), 2);
         assert_eq!(r.source_files.len(), 2); // 配置文件 + auth-dir
-        assert!(r.providers.iter().any(|p| p.source_segment == CpaSourceSegment::OAuth));
+        assert!(
+            r.providers
+                .iter()
+                .any(|p| p.source_segment == CpaSourceSegment::OAuth)
+        );
     }
 
     #[test]
@@ -1154,16 +1246,19 @@ mod tests {
 
     #[test]
     fn parse_cpa_config_missing_path_errors() {
-        assert!(parse_cpa_config("/definitely/not/here.yaml", None)
-            .unwrap_err()
-            .contains("路径不存在"));
+        assert!(
+            parse_cpa_config("/definitely/not/here.yaml", None)
+                .unwrap_err()
+                .contains("路径不存在")
+        );
     }
 
     #[test]
     fn parse_cpa_config_unsupported_archive_reports_skip_not_error() {
         let d = tempfile::tempdir().expect("临时目录");
         let f = write(d.path(), "bundle.rar", "binary");
-        let r = parse_cpa_config(f.to_str().unwrap(), None).expect("不支持的压缩包应返回 skip 而非 Err");
+        let r = parse_cpa_config(f.to_str().unwrap(), None)
+            .expect("不支持的压缩包应返回 skip 而非 Err");
         assert!(r.providers.is_empty());
         assert_eq!(r.skipped.len(), 1);
         assert!(r.skipped[0].reason.contains("不支持的压缩格式"));

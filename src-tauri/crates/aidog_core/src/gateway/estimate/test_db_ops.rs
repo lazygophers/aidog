@@ -1,7 +1,7 @@
-use aidog_db as db;
-use aidog_stats::DbInitTables;
 use super::*;
-use aidog_db::{now, Db};
+use aidog_db as db;
+use aidog_db::{Db, now};
+use aidog_stats::DbInitTables;
 // TODO-unknown: self
 use crate::gateway::estimate::{EstCodingPlan, EstTier};
 use crate::gateway::models::*;
@@ -40,7 +40,11 @@ async fn mk_platform(db: &Db, coding: bool) -> u64 {
         db,
         CreatePlatform {
             name: "p".into(),
-            platform_type: if coding { Protocol::Kimi } else { Protocol::DeepSeek },
+            platform_type: if coding {
+                Protocol::Kimi
+            } else {
+                Protocol::DeepSeek
+            },
             base_url: "https://example.com".into(),
             api_key: "sk".into(),
             extra: String::new(),
@@ -49,7 +53,8 @@ async fn mk_platform(db: &Db, coding: bool) -> u64 {
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None,
+            expires_at: None,
         },
     )
     .await
@@ -99,12 +104,18 @@ async fn coding_plan_delta_persists() {
         }],
         level: None,
     };
-    write_real_quota(&db, id, 0.0, &plan.to_json(), now()).await.unwrap();
+    write_real_quota(&db, id, 0.0, &plan.to_json(), now())
+        .await
+        .unwrap();
 
     apply_coding_plan_delta(&db, id, 1000.0).await.unwrap(); // +10%
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let stored = EstCodingPlan::from_json(&p.est_coding_plan);
-    assert!((stored.tiers[0].est_utilization - 10.0).abs() < 1e-9, "got {}", stored.tiers[0].est_utilization);
+    assert!(
+        (stored.tiers[0].est_utilization - 10.0).abs() < 1e-9,
+        "got {}",
+        stored.tiers[0].est_utilization
+    );
     assert_eq!(p.estimate_count, 1);
 }
 
@@ -139,7 +150,9 @@ async fn calibration_overwrite_resets() {
     };
     let prev = EstCodingPlan::from_json(&before.est_coding_plan);
     let calibrated = build_calibrated_coding_plan(&prev, &quota);
-    write_real_quota(&db, id, 0.0, &calibrated.to_json(), now()).await.unwrap();
+    write_real_quota(&db, id, 0.0, &calibrated.to_json(), now())
+        .await
+        .unwrap();
 
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
     assert_eq!(after.estimate_count, 0, "校准应重置 count");
@@ -169,7 +182,9 @@ async fn calibrate_from_quota_aligns_coding_plan() {
         }],
         level: None,
     };
-    write_real_quota(&db, id, 0.0, &drift.to_json(), 0).await.unwrap();
+    write_real_quota(&db, id, 0.0, &drift.to_json(), 0)
+        .await
+        .unwrap();
     apply_balance_delta(&db, id, 1.0).await.unwrap(); // count=1
 
     // 真查得 util_real=55%（GLM 方案 B，无 limit）
@@ -198,11 +213,19 @@ async fn calibrate_from_quota_aligns_coding_plan() {
     let stored = EstCodingPlan::from_json(&after.est_coding_plan);
     let t = &stored.tiers[0];
     // est 严格对齐真实（不被旧漂移 88% 残留）
-    assert!((t.est_utilization - 55.0).abs() < 1e-9, "est 应=真实 55，got {}", t.est_utilization);
+    assert!(
+        (t.est_utilization - 55.0).abs() < 1e-9,
+        "est 应=真实 55，got {}",
+        t.est_utilization
+    );
     assert!((t.util_at_last_real - 55.0).abs() < 1e-9, "基线应=真实");
     assert_eq!(t.tokens_since_real, 0.0, "累积应清零");
     // 拟合 coef = (55-40)/480000
-    assert!((t.coef_per_token - (15.0 / 480_000.0)).abs() < 1e-12, "coef = {}", t.coef_per_token);
+    assert!(
+        (t.coef_per_token - (15.0 / 480_000.0)).abs() < 1e-12,
+        "coef = {}",
+        t.coef_per_token
+    );
 }
 
 // ── calibrate_from_quota：余额平台 est_balance 严格对齐真实 ──
@@ -231,7 +254,11 @@ async fn calibrate_from_quota_aligns_balance() {
     calibrate_from_quota(&db, id, &quota, false).await;
 
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
-    assert!((after.est_balance_remaining - 99.9).abs() < 1e-9, "est_balance 应=真实 99.9，got {}", after.est_balance_remaining);
+    assert!(
+        (after.est_balance_remaining - 99.9).abs() < 1e-9,
+        "est_balance 应=真实 99.9，got {}",
+        after.est_balance_remaining
+    );
     assert_eq!(after.estimate_count, 0);
     assert!(after.last_real_query_at > 0);
 }
@@ -257,7 +284,10 @@ async fn calibrate_from_quota_failure_preserves() {
     let after = db::get_platform(&db, id).await.unwrap().unwrap();
     // 不重置：count 保留、last_real_query_at 保留、est 不变
     assert_eq!(after.estimate_count, 1, "失败不应重置 count");
-    assert_eq!(after.last_real_query_at, 12345, "失败不应改 last_real_query_at");
+    assert_eq!(
+        after.last_real_query_at, 12345,
+        "失败不应改 last_real_query_at"
+    );
     assert!((after.est_balance_remaining - (50.0 - 1.0)).abs() < 1e-9);
 }
 
@@ -329,7 +359,17 @@ async fn estimate_after_request_applies_peak_multiplier() {
     let extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#;
 
     estimate_after_request(
-        &db, id, "deepseek", "https://example.com", "sk", "test-model", extra, 1000, 500, 0, false,
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "test-model",
+        extra,
+        1000,
+        500,
+        0,
+        false,
     )
     .await;
 
@@ -337,7 +377,11 @@ async fn estimate_after_request_applies_peak_multiplier() {
     // 基准 cost = 1000*0.001 + 500*0.002 = 2.0；命中 x2 倍率 → 实扣 4.0
     let base_cost = balance_cost(1000, 500, 0, 0.001, 0.002, 0.0);
     assert!((base_cost - 2.0).abs() < 1e-9, "base_cost = {base_cost}");
-    assert!((p.est_balance_remaining - (100.0 - 2.0 * base_cost)).abs() < 1e-9, "got {}", p.est_balance_remaining);
+    assert!(
+        (p.est_balance_remaining - (100.0 - 2.0 * base_cost)).abs() < 1e-9,
+        "got {}",
+        p.est_balance_remaining
+    );
 }
 
 #[tokio::test]
@@ -345,12 +389,29 @@ async fn estimate_after_request_coding_path_no_calibration() {
     let db = mem_db().await;
     let id = mk_platform(&db, true).await;
     let plan = EstCodingPlan {
-        tiers: vec![EstTier { name: "five_hour".into(), has_base: true, limit: 10_000.0, ..Default::default() }],
+        tiers: vec![EstTier {
+            name: "five_hour".into(),
+            has_base: true,
+            limit: 10_000.0,
+            ..Default::default()
+        }],
         level: None,
     };
-    write_real_quota(&db, id, 0.0, &plan.to_json(), now()).await.unwrap();
+    write_real_quota(&db, id, 0.0, &plan.to_json(), now())
+        .await
+        .unwrap();
     estimate_after_request(
-        &db, id, "kimi", "https://example.com", "sk", "kimi-k2", "", 1000, 0, 0, true,
+        &db,
+        id,
+        "kimi",
+        "https://example.com",
+        "sk",
+        "kimi-k2",
+        "",
+        1000,
+        0,
+        0,
+        true,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();

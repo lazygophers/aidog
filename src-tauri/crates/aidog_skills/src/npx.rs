@@ -18,7 +18,13 @@ pub(super) fn apply_scope(args: &mut Vec<String>, scope: &SkillScope) {
 #[cfg(test)]
 fn is_mutating_args(extra_args: &[String]) -> bool {
     const MUTATING: &[&str] = &[
-        "install", "add", "remove", "uninstall", "enable", "disable", "update",
+        "install",
+        "add",
+        "remove",
+        "uninstall",
+        "enable",
+        "disable",
+        "update",
     ];
     extra_args
         .iter()

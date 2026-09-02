@@ -110,7 +110,10 @@ impl MessageContent {
     /// block 列表视图：Text 折叠为单 Text block。
     pub fn blocks(&self) -> Vec<ContentBlock> {
         match self {
-            MessageContent::Text(s) => vec![ContentBlock::Text { text: s.clone(), extra: None }],
+            MessageContent::Text(s) => vec![ContentBlock::Text {
+                text: s.clone(),
+                extra: None,
+            }],
             MessageContent::Blocks(blocks) => blocks.clone(),
         }
     }
@@ -119,7 +122,13 @@ impl MessageContent {
     pub fn push_block(&mut self, block: ContentBlock) {
         match self {
             MessageContent::Text(s) => {
-                *self = MessageContent::Blocks(vec![ContentBlock::Text { text: std::mem::take(s), extra: None }, block]);
+                *self = MessageContent::Blocks(vec![
+                    ContentBlock::Text {
+                        text: std::mem::take(s),
+                        extra: None,
+                    },
+                    block,
+                ]);
             }
             MessageContent::Blocks(blocks) => blocks.push(block),
         }
@@ -178,7 +187,11 @@ pub fn mark_tool_error(content: &str, is_error: Option<bool>) -> String {
 /// block 的纯文本视图：text 取原文，image 与其它类型降级为可读占位（不静默丢弃）。
 fn block_text_view(b: &serde_json::Value) -> String {
     match b.get("type").and_then(|t| t.as_str()) {
-        Some("text") => b.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),
+        Some("text") => b
+            .get("text")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string(),
         Some("image") => {
             let mt = b
                 .get("source")
@@ -189,7 +202,11 @@ fn block_text_view(b: &serde_json::Value) -> String {
         }
         Some(other) => format!("[{other} block]"),
         // 无 type 的元素：能取到 text 就取，取不到留空（与历史行为一致）
-        None => b.get("text").and_then(|t| t.as_str()).unwrap_or("").to_string(),
+        None => b
+            .get("text")
+            .and_then(|t| t.as_str())
+            .unwrap_or("")
+            .to_string(),
     }
 }
 
@@ -211,8 +228,12 @@ pub fn rest_keys(v: &serde_json::Value, known: &[&str]) -> Option<serde_json::Va
 }
 
 /// 把附加键并回 block object；已建模键不被覆盖。
-fn merge_extra(mut base: serde_json::Value, extra: &Option<serde_json::Value>) -> serde_json::Value {
-    if let (Some(serde_json::Value::Object(ex)), Some(obj)) = (extra.as_ref(), base.as_object_mut()) {
+fn merge_extra(
+    mut base: serde_json::Value,
+    extra: &Option<serde_json::Value>,
+) -> serde_json::Value {
+    if let (Some(serde_json::Value::Object(ex)), Some(obj)) = (extra.as_ref(), base.as_object_mut())
+    {
         for (k, v) in ex {
             if !obj.contains_key(k) {
                 obj.insert(k.clone(), v.clone());
@@ -278,7 +299,8 @@ impl<'de> Deserialize<'de> for ContentBlock {
                         let content = match tr.content {
                             serde_json::Value::String(s) => s,
                             serde_json::Value::Array(arr) => {
-                                let text = arr.iter().map(block_text_view).collect::<Vec<_>>().join("");
+                                let text =
+                                    arr.iter().map(block_text_view).collect::<Vec<_>>().join("");
                                 content_blocks = Some(arr);
                                 text
                             }
@@ -291,7 +313,10 @@ impl<'de> Deserialize<'de> for ContentBlock {
                             name: tr.name,
                             is_error: tr.is_error,
                             content_blocks,
-                            extra: rest_keys(&v, &["type", "tool_use_id", "content", "name", "is_error"]),
+                            extra: rest_keys(
+                                &v,
+                                &["type", "tool_use_id", "content", "name", "is_error"],
+                            ),
                         }
                     })
                     .map_err(|_| ())
@@ -313,11 +338,23 @@ impl Serialize for ContentBlock {
             ContentBlock::Text { text, extra } => {
                 merge_extra(serde_json::json!({ "type": "text", "text": text }), extra)
             }
-            ContentBlock::ToolUse { id, name, input, extra } => merge_extra(
+            ContentBlock::ToolUse {
+                id,
+                name,
+                input,
+                extra,
+            } => merge_extra(
                 serde_json::json!({ "type": "tool_use", "id": id, "name": name, "input": input }),
                 extra,
             ),
-            ContentBlock::ToolResult { tool_use_id, content, name, is_error, content_blocks, extra } => {
+            ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                name,
+                is_error,
+                content_blocks,
+                extra,
+            } => {
                 // 数组形态原样写回（image 等非文本 block 保真）；字符串形态写字符串
                 let content_v = match content_blocks {
                     Some(blocks) => serde_json::Value::Array(blocks.clone()),
@@ -507,9 +544,20 @@ mod tests {
     #[test]
     fn message_content_as_text_from_blocks() {
         let mc = MessageContent::Blocks(vec![
-            ContentBlock::Text { text: "a".into(), extra: None },
-            ContentBlock::ToolUse { id: "x".into(), name: "n".into(), input: json!({}), extra: None },
-            ContentBlock::Text { text: "b".into(), extra: None },
+            ContentBlock::Text {
+                text: "a".into(),
+                extra: None,
+            },
+            ContentBlock::ToolUse {
+                id: "x".into(),
+                name: "n".into(),
+                input: json!({}),
+                extra: None,
+            },
+            ContentBlock::Text {
+                text: "b".into(),
+                extra: None,
+            },
         ]);
         assert_eq!(mc.as_text(), "ab");
         assert_eq!(MessageContent::Text("solo".into()).as_text(), "solo");
@@ -524,7 +572,14 @@ mod tests {
     #[test]
     fn message_content_push_block_upgrades_text_to_blocks() {
         let mut mc = MessageContent::Text("t".into());
-        mc.push_block(ContentBlock::ToolResult { tool_use_id: "t1".into(), content: "ok".into(), name: None, is_error: None, content_blocks: None, extra: None });
+        mc.push_block(ContentBlock::ToolResult {
+            tool_use_id: "t1".into(),
+            content: "ok".into(),
+            name: None,
+            is_error: None,
+            content_blocks: None,
+            extra: None,
+        });
         match mc {
             MessageContent::Blocks(blocks) => {
                 assert_eq!(blocks.len(), 2);
@@ -539,20 +594,29 @@ mod tests {
 
     #[test]
     fn chat_stream_event_tool_and_reasoning_variants_serde() {
-        let e = ChatStreamEvent::ToolDelta { index: 1, id: Some("c1".into()), name: Some("f".into()), input: Some("{\"x\"".into()) };
+        let e = ChatStreamEvent::ToolDelta {
+            index: 1,
+            id: Some("c1".into()),
+            name: Some("f".into()),
+            input: Some("{\"x\"".into()),
+        };
         let v = serde_json::to_value(&e).unwrap();
         assert_eq!(v["type"], "tool_delta");
         assert_eq!(v["index"], 1);
         let e2: ChatStreamEvent = serde_json::from_value(v).unwrap();
         assert!(matches!(e2, ChatStreamEvent::ToolDelta { index: 1, .. }));
 
-        let r = ChatStreamEvent::ReasoningDelta { text: "think".into() };
+        let r = ChatStreamEvent::ReasoningDelta {
+            text: "think".into(),
+        };
         let v = serde_json::to_value(&r).unwrap();
         assert_eq!(v["type"], "reasoning_delta");
         let r2: ChatStreamEvent = serde_json::from_value(v).unwrap();
         assert!(matches!(r2, ChatStreamEvent::ReasoningDelta { ref text } if text == "think"));
 
-        let st = ChatStreamEvent::Stop { finish_reason: Some("tool_use".into()) };
+        let st = ChatStreamEvent::Stop {
+            finish_reason: Some("tool_use".into()),
+        };
         let v = serde_json::to_value(&st).unwrap();
         assert_eq!(v["type"], "stop");
         assert_eq!(v["finish_reason"], "tool_use");
@@ -572,7 +636,9 @@ mod tests {
         let v = json!({"type": "tool_use", "id": "call-1", "name": "my_tool", "input": {"x": 1}});
         let b: ContentBlock = serde_json::from_value(v).unwrap();
         match b {
-            ContentBlock::ToolUse { id, name, input, .. } => {
+            ContentBlock::ToolUse {
+                id, name, input, ..
+            } => {
                 assert_eq!(id, "call-1");
                 assert_eq!(name, "my_tool");
                 assert_eq!(input, json!({"x": 1}));
@@ -586,7 +652,11 @@ mod tests {
         let v = json!({"type": "tool_result", "tool_use_id": "t1", "content": "result-text"});
         let b: ContentBlock = serde_json::from_value(v).unwrap();
         match b {
-            ContentBlock::ToolResult { tool_use_id, content, .. } => {
+            ContentBlock::ToolResult {
+                tool_use_id,
+                content,
+                ..
+            } => {
                 assert_eq!(tool_use_id, "t1");
                 assert_eq!(content, "result-text");
             }
@@ -625,7 +695,10 @@ mod tests {
 
     #[test]
     fn content_block_serialize_text() {
-        let b = ContentBlock::Text { text: "hi".into(), extra: None };
+        let b = ContentBlock::Text {
+            text: "hi".into(),
+            extra: None,
+        };
         let v = serde_json::to_value(b).unwrap();
         assert_eq!(v["type"], "text");
         assert_eq!(v["text"], "hi");
@@ -633,7 +706,12 @@ mod tests {
 
     #[test]
     fn content_block_serialize_tool_use() {
-        let b = ContentBlock::ToolUse { id: "id-1".into(), name: "tool-x".into(), input: json!({"k": "v"}), extra: None };
+        let b = ContentBlock::ToolUse {
+            id: "id-1".into(),
+            name: "tool-x".into(),
+            input: json!({"k": "v"}),
+            extra: None,
+        };
         let v = serde_json::to_value(b).unwrap();
         assert_eq!(v["type"], "tool_use");
         assert_eq!(v["id"], "id-1");
@@ -643,7 +721,14 @@ mod tests {
 
     #[test]
     fn content_block_serialize_tool_result() {
-        let b = ContentBlock::ToolResult { tool_use_id: "tu-1".into(), content: "ok".into(), name: None, is_error: None, content_blocks: None, extra: None };
+        let b = ContentBlock::ToolResult {
+            tool_use_id: "tu-1".into(),
+            content: "ok".into(),
+            name: None,
+            is_error: None,
+            content_blocks: None,
+            extra: None,
+        };
         let v = serde_json::to_value(b).unwrap();
         assert_eq!(v["type"], "tool_result");
         assert_eq!(v["tool_use_id"], "tu-1");
@@ -668,8 +753,7 @@ mod tests {
             (json!({"type": "any"}), "any"),
             (json!({"type": "none"}), "none"),
         ] {
-            let _: ToolChoice = serde_json::from_value(tc.clone())
-                .unwrap_or(ToolChoice::Auto); // untagged may fail for some
+            let _: ToolChoice = serde_json::from_value(tc.clone()).unwrap_or(ToolChoice::Auto); // untagged may fail for some
             let _ = expected_type;
         }
     }
@@ -679,7 +763,10 @@ mod tests {
     #[test]
     fn role_serde_roundtrip() {
         assert_eq!(serde_json::to_value(Role::User).unwrap(), json!("user"));
-        assert_eq!(serde_json::to_value(Role::Assistant).unwrap(), json!("assistant"));
+        assert_eq!(
+            serde_json::to_value(Role::Assistant).unwrap(),
+            json!("assistant")
+        );
         assert_eq!(serde_json::to_value(Role::System).unwrap(), json!("system"));
         assert_eq!(serde_json::to_value(Role::Tool).unwrap(), json!("tool"));
     }

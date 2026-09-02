@@ -6,8 +6,14 @@ fn json_object_to_map_extracts_strings() {
     let v = serde_json::json!({"KEY": "val", "NUM": 42, "BOOL": true});
     let result = json_object_to_map(Some(&v));
     assert_eq!(result.get("KEY").unwrap(), "val");
-    assert!(!result.contains_key("NUM"), "non-string values should be filtered");
-    assert!(!result.contains_key("BOOL"), "bool values should be filtered");
+    assert!(
+        !result.contains_key("NUM"),
+        "non-string values should be filtered"
+    );
+    assert!(
+        !result.contains_key("BOOL"),
+        "bool values should be filtered"
+    );
 }
 
 #[test]
@@ -28,8 +34,14 @@ fn build_claude_entry_http_no_headers() {
     };
     let entry = build_claude_entry(&cfg);
     assert_eq!(entry.get("type").and_then(|v| v.as_str()), Some("http"));
-    assert_eq!(entry.get("url").and_then(|v| v.as_str()), Some("https://api.example.com/mcp"));
-    assert!(entry.get("headers").is_none(), "empty headers should not be included");
+    assert_eq!(
+        entry.get("url").and_then(|v| v.as_str()),
+        Some("https://api.example.com/mcp")
+    );
+    assert!(
+        entry.get("headers").is_none(),
+        "empty headers should not be included"
+    );
 }
 
 #[test]
@@ -48,7 +60,10 @@ fn build_claude_entry_http_with_headers() {
     };
     let entry = build_claude_entry(&cfg);
     let headers = entry.get("headers").expect("headers should be present");
-    assert_eq!(headers.get("Authorization").and_then(|v| v.as_str()), Some("Bearer tok"));
+    assert_eq!(
+        headers.get("Authorization").and_then(|v| v.as_str()),
+        Some("Bearer tok")
+    );
 }
 
 #[test]
@@ -76,7 +91,10 @@ fn build_claude_entry_stdio_empty_env_no_env_field() {
         headers: BTreeMap::new(),
     };
     let entry = build_claude_entry(&cfg);
-    assert!(entry.get("env").is_none(), "empty env should not be included");
+    assert!(
+        entry.get("env").is_none(),
+        "empty env should not be included"
+    );
     let back = parse_claude_entry(&entry).unwrap();
     assert_eq!(back.args, vec!["arg1"]);
 }
@@ -163,5 +181,8 @@ fn build_claude_entry_roundtrip() {
     let back = parse_claude_entry(&entry).expect("roundtrip");
     assert_eq!(back.command, "uvx");
     assert_eq!(back.args, cfg.args);
-    assert_eq!(back.env.get("HTTPS_PROXY").unwrap(), "http://127.0.0.1:7890");
+    assert_eq!(
+        back.env.get("HTTPS_PROXY").unwrap(),
+        "http://127.0.0.1:7890"
+    );
 }

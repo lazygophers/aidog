@@ -76,10 +76,7 @@ fn update_group_cols(
         .get("auto_from_platform")
         .and_then(|v| v.as_str())
         .unwrap_or("");
-    let sort_order = row
-        .get("sort_order")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
+    let sort_order = row.get("sort_order").and_then(|v| v.as_i64()).unwrap_or(0);
     tx.execute(
         "UPDATE \"group\" SET name = ?1, routing_mode = ?2, auto_from_platform = ?3, sort_order = ?4, updated_at = ?5 WHERE id = ?6",
         rusqlite::params![effective, routing_mode, auto_from_platform, sort_order, now, id],
@@ -126,7 +123,11 @@ fn insert_platform_row(
     // read 端 parse_models/parse_available_models/parse_endpoints 会刷 warn 日志（淹没真实问题）。
     // 故缺失/空时写标准空 JSON（与 db.rs create_platform serialize_* 默认值对齐）。
     let models = json_str(row, "models");
-    let models = if models.trim().is_empty() { "{}".to_string() } else { models };
+    let models = if models.trim().is_empty() {
+        "{}".to_string()
+    } else {
+        models
+    };
     let available_models = json_str(row, "available_models");
     let available_models = if available_models.trim().is_empty() {
         "[]".to_string()
@@ -134,7 +135,11 @@ fn insert_platform_row(
         available_models
     };
     let endpoints = json_str(row, "endpoints");
-    let endpoints = if endpoints.trim().is_empty() { "[]".to_string() } else { endpoints };
+    let endpoints = if endpoints.trim().is_empty() {
+        "[]".to_string()
+    } else {
+        endpoints
+    };
     tx.execute(
         "INSERT INTO platform
          (name, platform_type, base_url, api_key, extra, models, available_models, endpoints,
@@ -198,7 +203,11 @@ pub(super) fn effective_extra_with_breaker(row: &serde_json::Value) -> String {
     )
 }
 
-pub(super) async fn relink_group_platform(db: &Db, group_key: &str, platform_name: &str) -> Result<(), String> {
+pub(super) async fn relink_group_platform(
+    db: &Db,
+    group_key: &str,
+    platform_name: &str,
+) -> Result<(), String> {
     let g = group_key.to_string();
     let p = platform_name.to_string();
     // config-db-split：group/platform/group_platform 表落 platform.db，走 platform 写连接。
@@ -256,8 +265,7 @@ pub async fn snapshot_platform_ids(db: &Db) -> Result<std::collections::BTreeSet
     // config-db-split：platform 表落 platform.db，走 platform 写连接。
     db.platform_write_conn()
         .call(|conn| {
-            let mut stmt =
-                conn.prepare("SELECT id FROM platform WHERE deleted_at = 0")?;
+            let mut stmt = conn.prepare("SELECT id FROM platform WHERE deleted_at = 0")?;
             let ids = stmt
                 .query_map([], |r| r.get::<_, i64>(0))?
                 .collect::<Result<std::collections::BTreeSet<i64>, _>>()?;

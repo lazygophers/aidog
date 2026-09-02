@@ -24,9 +24,19 @@ fn apply_scope_project_no_g() {
 #[test]
 fn run_npx_in_scope_empty_project_path_fails() {
     let args = vec!["--version".to_string()];
-    let result = run_npx_in_scope(&args, &SkillScope::Project { path: "   ".to_string() }, None);
+    let result = run_npx_in_scope(
+        &args,
+        &SkillScope::Project {
+            path: "   ".to_string(),
+        },
+        None,
+    );
     assert!(!result.success);
-    assert!(result.stderr.contains("project path is empty"), "stderr was: {}", result.stderr);
+    assert!(
+        result.stderr.contains("project path is empty"),
+        "stderr was: {}",
+        result.stderr
+    );
 }
 
 /// run_npx_in_scope Global + 变更类命令 在测试中必须 panic — 测试硬拦防删用户 ~/.agents。
@@ -119,7 +129,9 @@ fn run_npx_in_scope_project_valid_path_attempts() {
     let args = vec!["--version".to_string()];
     let result = run_npx_in_scope(
         &args,
-        &SkillScope::Project { path: "/tmp".to_string() },
+        &SkillScope::Project {
+            path: "/tmp".to_string(),
+        },
         None,
     );
     // Either succeeds or fails gracefully — must not panic.

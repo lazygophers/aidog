@@ -1,11 +1,9 @@
 //! apply 白名单（Selection）过滤测试：仅勾选条目被写入，未勾选条目不落库。
 
-use aidog_stats::DbInitTables;
 use super::apply;
-use aidog_db::{list_all_settings_raw, Db};
-use crate::gateway::import_export::{
-    Manifest, Payload, Selection, SCOPE_PLATFORM, SCOPE_SETTING,
-};
+use crate::gateway::import_export::{Manifest, Payload, SCOPE_PLATFORM, SCOPE_SETTING, Selection};
+use aidog_db::{Db, list_all_settings_raw};
+use aidog_stats::DbInitTables;
 
 async fn test_db() -> Db {
     let db = Db::new(":memory:").await.expect("open memory db");
@@ -71,8 +69,8 @@ fn payload_with(platforms: &[&str], settings: &[(&str, &str, &str)]) -> Payload 
 async fn platform_names(db: &Db) -> Vec<String> {
     db.write_conn()
         .call(|conn| {
-            let mut stmt = conn
-                .prepare("SELECT name FROM platform WHERE deleted_at = 0 ORDER BY id")?;
+            let mut stmt =
+                conn.prepare("SELECT name FROM platform WHERE deleted_at = 0 ORDER BY id")?;
             let v = stmt
                 .query_map([], |r| r.get::<_, String>(0))?
                 .collect::<Result<Vec<String>, _>>()?;
@@ -95,11 +93,17 @@ async fn apply_selection_filters_unchecked_items() {
     sel.insert((SCOPE_PLATFORM.to_string(), "idx:0".to_string()));
     sel.insert((SCOPE_SETTING.to_string(), "ui:theme".to_string()));
 
-    let report = apply(payload, &[], Some(&sel), &db).await.expect("apply ok");
+    let report = apply(payload, &[], Some(&sel), &db)
+        .await
+        .expect("apply ok");
     assert!(report.errors.is_empty(), "no errors: {:?}", report.errors);
 
     // 平台：只导入了 alpha（idx:0），beta 被过滤。
-    assert_eq!(platform_names(&db).await, vec!["alpha".to_string()], "只导入勾选的 idx:0");
+    assert_eq!(
+        platform_names(&db).await,
+        vec!["alpha".to_string()],
+        "只导入勾选的 idx:0"
+    );
 
     // 设置：只导入了 ui:theme，ui:locale 被过滤。
     let settings = list_all_settings_raw(&db).await.unwrap();
@@ -118,5 +122,9 @@ async fn apply_none_selection_imports_all() {
     let payload = payload_with(&["alpha", "beta"], &[]);
     let report = apply(payload, &[], None, &db).await.expect("apply ok");
     assert!(report.errors.is_empty());
-    assert_eq!(platform_names(&db).await.len(), 2, "None selection 导入全部平台");
+    assert_eq!(
+        platform_names(&db).await.len(),
+        2,
+        "None selection 导入全部平台"
+    );
 }

@@ -1,6 +1,6 @@
 //! mock 非流式响应 / 错误 body 构造（按 source_protocol 分形态）。
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use aidog_db::models::Protocol;
 

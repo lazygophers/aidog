@@ -32,8 +32,8 @@ fn read_json_object(path: &PathBuf) -> Result<serde_json::Value, String> {
     if !path.exists() {
         return Ok(serde_json::json!({}));
     }
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("read {}: {e}", path.display()))?;
+    let content =
+        std::fs::read_to_string(path).map_err(|e| format!("read {}: {e}", path.display()))?;
     if content.trim().is_empty() {
         return Ok(serde_json::json!({}));
     }
@@ -154,7 +154,10 @@ mod tests {
         let _g = HomeGuard::new();
         // File doesn't exist → returns false (no-op)
         let cleared_before = clear_plugin_primary_key().unwrap();
-        assert!(!cleared_before, "clear on nonexistent file should return false");
+        assert!(
+            !cleared_before,
+            "clear on nonexistent file should return false"
+        );
         // Write, then clear
         write_plugin_primary_key().unwrap();
         let cleared = clear_plugin_primary_key().unwrap();
@@ -227,7 +230,10 @@ mod tests {
         let path = scratch_path("corrupt");
         std::fs::write(&path, "{\"primaryApiKey\": \"any\",}").unwrap();
         let err = read_json_object(&path).expect_err("corrupt JSON must error");
-        assert!(err.starts_with("parse "), "err should mark parse stage: {err}");
+        assert!(
+            err.starts_with("parse "),
+            "err should mark parse stage: {err}"
+        );
         assert!(
             err.contains(path.to_str().unwrap()),
             "err should name the offending file: {err}"

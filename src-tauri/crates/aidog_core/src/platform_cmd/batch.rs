@@ -6,8 +6,8 @@
 //! - batch_set_status: 改平台 status（仅 enabled/disabled）
 //! - batch_move_group: 移组/加组（操作 group_platform 关联）
 
-use crate::gateway::{models::{BatchReport, PlatformModels, PlatformStatus, UpdatePlatform}};
-use aidog_db::{self as db, now, Db};
+use crate::gateway::models::{BatchReport, PlatformModels, PlatformStatus, UpdatePlatform};
+use aidog_db::{self as db, Db, now};
 use rusqlite::params;
 use tauri::State;
 

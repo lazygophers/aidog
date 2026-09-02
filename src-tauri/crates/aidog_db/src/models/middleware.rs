@@ -59,7 +59,10 @@ impl Target {
 
     /// 是否响应侧（出站阶段求值）。
     pub fn is_response_side(&self) -> bool {
-        matches!(self, Target::ResponseBody | Target::ResponseHeaders | Target::Status)
+        matches!(
+            self,
+            Target::ResponseBody | Target::ResponseHeaders | Target::Status
+        )
     }
 }
 

@@ -1,7 +1,7 @@
 //! 自动检查更新开关（settings KV scope="app" key="auto_update_enabled"，JSON bool，默认 true）。
 //! 仅 gate 启动期 daily throttled check；手动按钮 (about 页) 不 gate。
 
-use crate::gateway::{models::SetSettingInput};
+use crate::gateway::models::SetSettingInput;
 use aidog_db::{self as db, Db};
 use tauri::State;
 

@@ -232,7 +232,8 @@ impl Protocol {
     /// `same_protocol_passthrough` 判定必须用精确 `==`，不可用本方法替代。
     pub fn same_wire_family(&self, other: &Protocol) -> bool {
         use Protocol::*;
-        let is_openai_family = |p: &Protocol| matches!(p, OpenAI | OpenAICompletions | OpenAIResponses);
+        let is_openai_family =
+            |p: &Protocol| matches!(p, OpenAI | OpenAICompletions | OpenAIResponses);
         (is_openai_family(self) && is_openai_family(other)) || self == other
     }
 
@@ -245,11 +246,35 @@ impl Protocol {
         matches!(
             self,
             Mock | ClaudeCode
-                | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiEn | KimiCoding
-                | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Bailian | BailianCoding | BailianEn | BailianCodingEn
-                | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
-                | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding | XiaomiMimoCodingEn
-                | Longcat | SenseNova | SenseNovaEn | Devin
+                | Glm
+                | GlmCoding
+                | GlmEn
+                | GlmCodingEn
+                | Kimi
+                | KimiEn
+                | KimiCoding
+                | MiniMax
+                | MiniMaxEn
+                | MinimaxCoding
+                | Codex
+                | Bailian
+                | BailianCoding
+                | BailianEn
+                | BailianCodingEn
+                | DeepSeek
+                | StepFun
+                | StepFunEn
+                | Doubao
+                | BytePlus
+                | QianFan
+                | QianfanCoding
+                | XiaomiMimo
+                | XiaomiMimoCoding
+                | XiaomiMimoCodingEn
+                | Longcat
+                | SenseNova
+                | SenseNovaEn
+                | Devin
         )
     }
 }
@@ -296,19 +321,32 @@ mod test_endpoints_locked {
     #[test]
     fn endpoints_locked_set() {
         let locked: &[(&str, bool)] = &[
-            ("glm", true), ("glm_coding", true), ("kimi", true), ("minimax", true),
-            ("minimax_coding", true), ("deepseek", true), ("qianfan_coding", true), ("xiaomi_mimo", true),
-            ("mock", true), ("claude_code", true), ("devin", true),
-            ("anthropic", false), ("openai", false), ("gemini", false),
-            ("newapi", false), ("openrouter", false), ("packycode", false),
-            ("siliconflow", false), ("cli-proxy", false), ("opencode_zen", false),
+            ("glm", true),
+            ("glm_coding", true),
+            ("kimi", true),
+            ("minimax", true),
+            ("minimax_coding", true),
+            ("deepseek", true),
+            ("qianfan_coding", true),
+            ("xiaomi_mimo", true),
+            ("mock", true),
+            ("claude_code", true),
+            ("devin", true),
+            ("anthropic", false),
+            ("openai", false),
+            ("gemini", false),
+            ("newapi", false),
+            ("openrouter", false),
+            ("packycode", false),
+            ("siliconflow", false),
+            ("cli-proxy", false),
+            ("opencode_zen", false),
         ];
         for (key, expect) in locked {
             let p: Protocol = serde_json::from_str(&format!("\"{key}\"")).unwrap();
             assert_eq!(p.endpoints_locked(), *expect, "{key} locked mismatch");
         }
     }
-
 }
 
 #[cfg(test)]
@@ -326,15 +364,16 @@ mod test_protocol_coding_variants {
             ("qianfan_coding", Protocol::QianfanCoding),
             ("xiaomi_mimo_coding", Protocol::XiaomiMimoCoding),
             // MiniMax Coding Plan 独立协议（minimax_coding）
-        ("minimax_coding", Protocol::MinimaxCoding),
-        // CLI 代理独立协议（cpa-standalone-module s2）
+            ("minimax_coding", Protocol::MinimaxCoding),
+            // CLI 代理独立协议（cpa-standalone-module s2）
             ("cli-proxy", Protocol::CliProxy),
             // Devin 平台（add-devin-support s1）
             ("devin", Protocol::Devin),
         ];
         for (key, expected) in cases {
             let json = format!("\"{key}\"");
-            let got: Protocol = serde_json::from_str(&json).unwrap_or_else(|e| panic!("{key}: {e}"));
+            let got: Protocol =
+                serde_json::from_str(&json).unwrap_or_else(|e| panic!("{key}: {e}"));
             assert_eq!(&got, expected, "deserialize mismatch for {key}");
             // Serialize（枚举 → JSON key，round-trip 对称）
             let back = serde_json::to_string(&got).unwrap();
@@ -382,7 +421,10 @@ mod test_from_db_str {
     /// 裸 wire 名（外部工具 / 老 seed SQL 直写）——2026-08-28 整池 ConnectionClosed 现场形态。
     #[test]
     fn bare_wire_name_parses() {
-        assert_eq!(Protocol::from_db_str("minimax_coding"), Protocol::MinimaxCoding);
+        assert_eq!(
+            Protocol::from_db_str("minimax_coding"),
+            Protocol::MinimaxCoding
+        );
         assert_eq!(Protocol::from_db_str("glm"), Protocol::Glm);
         assert_eq!(Protocol::from_db_str(" newapi "), Protocol::NewApi);
     }
@@ -390,7 +432,10 @@ mod test_from_db_str {
     /// 未知值回落 Anthropic 且不 panic（降级运行 / 未来新协议读旧版本）。
     #[test]
     fn unknown_falls_back_without_panic() {
-        assert_eq!(Protocol::from_db_str("no_such_protocol"), Protocol::Anthropic);
+        assert_eq!(
+            Protocol::from_db_str("no_such_protocol"),
+            Protocol::Anthropic
+        );
         assert_eq!(Protocol::from_db_str(""), Protocol::Anthropic);
         assert_eq!(Protocol::from_db_str("{\"a\":1}"), Protocol::Anthropic);
     }
@@ -402,13 +447,34 @@ mod test_routing_mode {
 
     #[test]
     fn from_str_or_default_all_variants() {
-        assert_eq!(RoutingMode::from_str_or_default("failover"), RoutingMode::Failover);
-        assert_eq!(RoutingMode::from_str_or_default("health_aware"), RoutingMode::HealthAware);
-        assert_eq!(RoutingMode::from_str_or_default("least_latency"), RoutingMode::LeastLatency);
-        assert_eq!(RoutingMode::from_str_or_default("sticky"), RoutingMode::Sticky);
-        assert_eq!(RoutingMode::from_str_or_default("load_balance"), RoutingMode::LoadBalance);
-        assert_eq!(RoutingMode::from_str_or_default("unknown"), RoutingMode::LoadBalance);
-        assert_eq!(RoutingMode::from_str_or_default(""), RoutingMode::LoadBalance);
+        assert_eq!(
+            RoutingMode::from_str_or_default("failover"),
+            RoutingMode::Failover
+        );
+        assert_eq!(
+            RoutingMode::from_str_or_default("health_aware"),
+            RoutingMode::HealthAware
+        );
+        assert_eq!(
+            RoutingMode::from_str_or_default("least_latency"),
+            RoutingMode::LeastLatency
+        );
+        assert_eq!(
+            RoutingMode::from_str_or_default("sticky"),
+            RoutingMode::Sticky
+        );
+        assert_eq!(
+            RoutingMode::from_str_or_default("load_balance"),
+            RoutingMode::LoadBalance
+        );
+        assert_eq!(
+            RoutingMode::from_str_or_default("unknown"),
+            RoutingMode::LoadBalance
+        );
+        assert_eq!(
+            RoutingMode::from_str_or_default(""),
+            RoutingMode::LoadBalance
+        );
     }
 }
 
@@ -459,10 +525,22 @@ mod test_platform_status {
 
     #[test]
     fn from_db_str_all_variants() {
-        assert_eq!(PlatformStatus::from_db_str("enabled"), PlatformStatus::Enabled);
-        assert_eq!(PlatformStatus::from_db_str("disabled"), PlatformStatus::Disabled);
-        assert_eq!(PlatformStatus::from_db_str("auto_disabled"), PlatformStatus::AutoDisabled);
-        assert_eq!(PlatformStatus::from_db_str("unknown"), PlatformStatus::Enabled);
+        assert_eq!(
+            PlatformStatus::from_db_str("enabled"),
+            PlatformStatus::Enabled
+        );
+        assert_eq!(
+            PlatformStatus::from_db_str("disabled"),
+            PlatformStatus::Disabled
+        );
+        assert_eq!(
+            PlatformStatus::from_db_str("auto_disabled"),
+            PlatformStatus::AutoDisabled
+        );
+        assert_eq!(
+            PlatformStatus::from_db_str("unknown"),
+            PlatformStatus::Enabled
+        );
         assert_eq!(PlatformStatus::from_db_str(""), PlatformStatus::Enabled);
     }
 }

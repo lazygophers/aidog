@@ -9,7 +9,7 @@
 use std::sync::Arc;
 
 use aidog_core::gateway::models::parse_quota_type;
-use aidog_core::gateway::quota::{with_cli_proxy_provider_id, PlatformQuota};
+use aidog_core::gateway::quota::{PlatformQuota, with_cli_proxy_provider_id};
 use aidog_db::{self as db, Db};
 use tauri::State;
 

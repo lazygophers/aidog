@@ -2,9 +2,9 @@
 //!
 //! 薄壳：转 `gateway::db` 的 `*_setting` 函数 + statusline 脚本生成 + claude code 配置读取。
 
+use crate::gateway;
 use crate::shared::*;
 use crate::sync_settings::try_sync_settings;
-use crate::gateway;
 use aidog_db::{self as db, Db};
 use tauri::State;
 
@@ -100,19 +100,44 @@ mod test_settings {
     async fn get_delete_list_settings() {
         let db = test_db().await;
 
-        assert!(db::get_setting(&db, "scope1", "k1").await.unwrap().is_none());
-        assert!(db::list_setting_keys(&db, "scope1").await.unwrap().is_empty());
+        assert!(
+            db::get_setting(&db, "scope1", "k1")
+                .await
+                .unwrap()
+                .is_none()
+        );
+        assert!(
+            db::list_setting_keys(&db, "scope1")
+                .await
+                .unwrap()
+                .is_empty()
+        );
 
-        db::set_setting(&db, SetSettingInput {
-            scope: "scope1".into(),
-            key: "k1".into(),
-            value: serde_json::json!({"v": 1}),
-        }).await.unwrap();
+        db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "scope1".into(),
+                key: "k1".into(),
+                value: serde_json::json!({"v": 1}),
+            },
+        )
+        .await
+        .unwrap();
 
-        assert!(db::get_setting(&db, "scope1", "k1").await.unwrap().is_some());
+        assert!(
+            db::get_setting(&db, "scope1", "k1")
+                .await
+                .unwrap()
+                .is_some()
+        );
         assert_eq!(db::list_setting_keys(&db, "scope1").await.unwrap().len(), 1);
 
         db::delete_setting(&db, "scope1", "k1").await.unwrap();
-        assert!(db::get_setting(&db, "scope1", "k1").await.unwrap().is_none());
+        assert!(
+            db::get_setting(&db, "scope1", "k1")
+                .await
+                .unwrap()
+                .is_none()
+        );
     }
 }

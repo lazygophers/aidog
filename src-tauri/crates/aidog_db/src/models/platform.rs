@@ -61,7 +61,16 @@ impl PlatformModels {
     #[allow(dead_code)]
     pub fn all_values(&self) -> Vec<String> {
         let mut v = Vec::new();
-        for s in [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt].into_iter().flatten() {
+        for s in [
+            &self.default,
+            &self.sonnet,
+            &self.opus,
+            &self.haiku,
+            &self.gpt,
+        ]
+        .into_iter()
+        .flatten()
+        {
             if !v.contains(s) {
                 v.push(s.clone());
             }
@@ -107,7 +116,11 @@ where
     D: serde::Deserializer<'de>,
 {
     let s = String::deserialize(deserializer).unwrap_or_default();
-    Ok(if s.trim().is_empty() { "default".to_string() } else { s })
+    Ok(if s.trim().is_empty() {
+        "default".to_string()
+    } else {
+        s
+    })
 }
 
 /// 平台协议端点：同一平台可支持多种协议，每种协议对应不同的 base_url
@@ -124,7 +137,10 @@ pub struct PlatformEndpoint {
     /// `deserialize_with` 容错：DB 中历史遗留空串 / null 归一化为 `"default"`，
     /// 非空未知值原值保留（String arbitrary，前端从 client-types.json 派生
     /// label 时未知 value 直接展示原值，无反序列化失败风险）。
-    #[serde(default = "default_client_type", deserialize_with = "deserialize_client_type_lenient")]
+    #[serde(
+        default = "default_client_type",
+        deserialize_with = "deserialize_client_type_lenient"
+    )]
     pub client_type: ClientType,
     /// 是否为 Coding Plan（针对支持编程代理订阅的平台，如 Kimi Code Plan）
     #[serde(default)]
@@ -268,7 +284,6 @@ pub struct DevinExtra {
     pub dev_timeout: Option<u64>,
 }
 
-
 /// `platform.extra` JSON 收敛 struct：已知业务键落具名字段，未知键（含前端 `_ui_*` 私有态）
 /// 经 `#[serde(flatten)] rest` 无损往返。**只读解析入口**——写回仍走 `extra` 原始字符串
 /// （`merge_breaker_into_extra` 等按需 patch 单键，不整体覆写，避免序列化裁掉 `rest` 之外的
@@ -326,7 +341,10 @@ pub fn merge_breaker_into_extra(extra: &str, b: &PlatformBreaker) -> String {
     if b.failure_threshold == 0 && b.open_secs == 0 && b.half_open_max == 0 {
         obj.remove("breaker");
     } else {
-        obj.insert("breaker".to_string(), serde_json::to_value(b).unwrap_or_default());
+        obj.insert(
+            "breaker".to_string(),
+            serde_json::to_value(b).unwrap_or_default(),
+        );
     }
     serde_json::to_string(&root).unwrap_or_else(|_| "{}".to_string())
 }
@@ -411,8 +429,22 @@ mod tests {
     #[test]
     fn attempts_roundtrip_with_items() {
         let items = vec![
-            ProxyAttempt { platform_id: 1, platform_name: "p1".into(), status_code: 200, error: "".into(), duration_ms: 150, ts: 0 },
-            ProxyAttempt { platform_id: 2, platform_name: "p2".into(), status_code: 500, error: "err".into(), duration_ms: 300, ts: 1 },
+            ProxyAttempt {
+                platform_id: 1,
+                platform_name: "p1".into(),
+                status_code: 200,
+                error: "".into(),
+                duration_ms: 150,
+                ts: 0,
+            },
+            ProxyAttempt {
+                platform_id: 2,
+                platform_name: "p2".into(),
+                status_code: 500,
+                error: "err".into(),
+                duration_ms: 300,
+                ts: 1,
+            },
         ];
         let s = serialize_attempts(&items);
         let parsed = parse_attempts(&s);
@@ -496,7 +528,10 @@ mod tests {
         // 序列化回 JSON 再解析，值应保持一致（往返）。
         let re_serialized = serde_json::to_string(&parsed).unwrap();
         let round_tripped = PlatformExtra::parse(&re_serialized);
-        assert_eq!(round_tripped.disable_during_peak, parsed.disable_during_peak);
+        assert_eq!(
+            round_tripped.disable_during_peak,
+            parsed.disable_during_peak
+        );
         assert_eq!(round_tripped.peak.len(), parsed.peak.len());
         assert_eq!(round_tripped.peak[0].start_hour, parsed.peak[0].start_hour);
     }
@@ -505,7 +540,10 @@ mod tests {
     fn platform_extra_unknown_keys_preserved_in_rest() {
         let extra = r#"{"_ui_collapsed":true,"peak":[]}"#;
         let parsed = PlatformExtra::parse(extra);
-        assert_eq!(parsed.rest.get("_ui_collapsed"), Some(&serde_json::json!(true)));
+        assert_eq!(
+            parsed.rest.get("_ui_collapsed"),
+            Some(&serde_json::json!(true))
+        );
         // rest 不应吞掉已知字段（peak 走专属字段，不落 rest）。
         assert!(parsed.rest.get("peak").is_none());
     }
@@ -523,16 +561,31 @@ mod tests {
     #[test]
     fn merge_breaker_all_zero_removes_breaker_key() {
         let extra = r#"{"proxy_enabled":true,"breaker":{"failure_threshold":3}}"#;
-        let b = PlatformBreaker { failure_threshold: 0, open_secs: 0, half_open_max: 0 };
+        let b = PlatformBreaker {
+            failure_threshold: 0,
+            open_secs: 0,
+            half_open_max: 0,
+        };
         let out = merge_breaker_into_extra(extra, &b);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
-        assert!(v.get("breaker").is_none(), "all-zero should remove breaker: {out}");
-        assert_eq!(v["proxy_enabled"], serde_json::json!(true), "other fields preserved: {out}");
+        assert!(
+            v.get("breaker").is_none(),
+            "all-zero should remove breaker: {out}"
+        );
+        assert_eq!(
+            v["proxy_enabled"],
+            serde_json::json!(true),
+            "other fields preserved: {out}"
+        );
     }
 
     #[test]
     fn merge_breaker_nonzero_inserts_breaker() {
-        let b = PlatformBreaker { failure_threshold: 3, open_secs: 60, half_open_max: 1 };
+        let b = PlatformBreaker {
+            failure_threshold: 3,
+            open_secs: 60,
+            half_open_max: 1,
+        };
         let out = merge_breaker_into_extra("{}", &b);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["breaker"]["failure_threshold"], 3);
@@ -541,7 +594,11 @@ mod tests {
 
     #[test]
     fn merge_breaker_empty_extra_starts_empty_object() {
-        let b = PlatformBreaker { failure_threshold: 1, open_secs: 10, half_open_max: 0 };
+        let b = PlatformBreaker {
+            failure_threshold: 1,
+            open_secs: 10,
+            half_open_max: 0,
+        };
         let out = merge_breaker_into_extra("", &b);
         let v: serde_json::Value = serde_json::from_str(&out).unwrap();
         assert_eq!(v["breaker"]["failure_threshold"], 1);
@@ -551,17 +608,35 @@ mod tests {
     #[test]
     fn platform_breaker_delegates_to_parse_breaker() {
         let p = Platform {
-            id: 1, name: "p".into(), platform_type: super::Protocol::OpenAI,
-            base_url: "http://x".into(), api_key: "k".into(),
+            id: 1,
+            name: "p".into(),
+            platform_type: super::Protocol::OpenAI,
+            base_url: "http://x".into(),
+            api_key: "k".into(),
             extra: r#"{"breaker":{"failure_threshold":7,"open_secs":90,"half_open_max":3}}"#.into(),
-            enabled: true, status: Default::default(), est_balance_remaining: 0.0,
-            models: PlatformModels::default(), available_models: vec![],
-            endpoints: vec![], manual_budgets: vec![],
-            auto_disabled_until: 0, auto_disable_strikes: 0,
-            created_at: 0, updated_at: 0, deleted_at: 0,
-            est_coding_plan: "".into(), last_real_query_at: 0, estimate_count: 0,
-            show_in_tray: false, tray_display: "".into(), sort_order: 0, balance_level: "".into(),
-            expires_at: 0, last_error: "".into(), last_error_at: 0, quota_script: String::new(),
+            enabled: true,
+            status: Default::default(),
+            est_balance_remaining: 0.0,
+            models: PlatformModels::default(),
+            available_models: vec![],
+            endpoints: vec![],
+            manual_budgets: vec![],
+            auto_disabled_until: 0,
+            auto_disable_strikes: 0,
+            created_at: 0,
+            updated_at: 0,
+            deleted_at: 0,
+            est_coding_plan: "".into(),
+            last_real_query_at: 0,
+            estimate_count: 0,
+            show_in_tray: false,
+            tray_display: "".into(),
+            sort_order: 0,
+            balance_level: "".into(),
+            expires_at: 0,
+            last_error: "".into(),
+            last_error_at: 0,
+            quota_script: String::new(),
         };
         let b = p.breaker();
         assert_eq!(b.failure_threshold, 7);

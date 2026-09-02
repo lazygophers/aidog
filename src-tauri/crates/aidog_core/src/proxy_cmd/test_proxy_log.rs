@@ -10,12 +10,33 @@ async fn list_count_get_clear_flow() {
     let db = test_db().await;
 
     assert_eq!(aidog_db::count_proxy_logs(&db).await.unwrap(), 0);
-    assert!(aidog_logs::list_proxy_logs(&db, 10, 0).await.unwrap().is_empty());
-    assert!(aidog_logs::get_proxy_log(&db, "none").await.unwrap().is_none());
+    assert!(
+        aidog_logs::list_proxy_logs(&db, 10, 0)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        aidog_logs::get_proxy_log(&db, "none")
+            .await
+            .unwrap()
+            .is_none()
+    );
 
     let filter = ProxyLogFilter::default();
-    assert!(aidog_logs::filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap().items.is_empty());
-    assert_eq!(aidog_logs::filtered_count_proxy_logs(&db, &filter).await.unwrap(), 0);
+    assert!(
+        aidog_logs::filtered_list_proxy_logs(&db, &filter, 10, 0)
+            .await
+            .unwrap()
+            .items
+            .is_empty()
+    );
+    assert_eq!(
+        aidog_logs::filtered_count_proxy_logs(&db, &filter)
+            .await
+            .unwrap(),
+        0
+    );
 
     aidog_logs::clear_proxy_logs(&db).await.unwrap();
 }
@@ -24,9 +45,22 @@ async fn list_count_get_clear_flow() {
 async fn distinct_models_empty() {
     let db = test_db().await;
 
-    let filter = ProxyLogFilter { exclude_sources: Some(vec!["test".into(), "quota".into()]), ..Default::default() };
-    assert!(aidog_logs::distinct_models_proxy_log(&db, &filter, false, 200).await.unwrap().is_empty());
-    assert!(aidog_logs::distinct_models_proxy_log(&db, &filter, true, 200).await.unwrap().is_empty());
+    let filter = ProxyLogFilter {
+        exclude_sources: Some(vec!["test".into(), "quota".into()]),
+        ..Default::default()
+    };
+    assert!(
+        aidog_logs::distinct_models_proxy_log(&db, &filter, false, 200)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        aidog_logs::distinct_models_proxy_log(&db, &filter, true, 200)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -35,9 +69,24 @@ async fn usage_stats_endpoints() {
 
     let _ = aidog_stats::get_platform_usage_stats(&db, 1).await.unwrap();
     let _ = aidog_stats::get_group_usage_stats(&db, "gk").await.unwrap();
-    assert!(aidog_stats::get_all_group_usage_stats(&db).await.unwrap().is_empty());
-    assert!(aidog_stats::platform_usage_stats_all(&db).await.unwrap().is_empty());
-    assert!(aidog_stats::get_last_test_result(&db, 1).await.unwrap().is_none());
+    assert!(
+        aidog_stats::get_all_group_usage_stats(&db)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        aidog_stats::platform_usage_stats_all(&db)
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        aidog_stats::get_last_test_result(&db, 1)
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -45,8 +94,12 @@ async fn log_settings_roundtrip() {
     let db = test_db().await;
 
     // default
-    let _: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
-        .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+    let _: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
     // set with retention cleanup branches exercised
     let settings = ProxyLogSettings {
         retention_days: 30,
@@ -55,11 +108,22 @@ async fn log_settings_roundtrip() {
         ..Default::default()
     };
     let value = serde_json::to_value(&settings).unwrap();
-    aidog_db::set_setting(&db, gateway::models::SetSettingInput {
-        scope: "proxy".into(), key: "logging".into(), value,
-    }).await.unwrap();
+    aidog_db::set_setting(
+        &db,
+        gateway::models::SetSettingInput {
+            scope: "proxy".into(),
+            key: "logging".into(),
+            value,
+        },
+    )
+    .await
+    .unwrap();
     run_retention_cleanup(&db, &settings).await;
-    let got: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging").await
-        .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+    let got: ProxyLogSettings = aidog_db::get_setting(&db, "proxy", "logging")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
     assert_eq!(got.retention_days, 30);
 }

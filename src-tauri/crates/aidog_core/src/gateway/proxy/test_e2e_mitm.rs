@@ -29,13 +29,13 @@
 //! 真实 TCP 更稳）。
 
 use super::*;
+use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
+use crate::gateway::scheduling;
 use aidog_db::test_support::{sample_group, test_db};
-use aidog_mitm::ca::{create_and_store_root_ca, RootCa};
+use aidog_middleware::MiddlewareEngine;
+use aidog_mitm::ca::{RootCa, create_and_store_root_ca};
 use aidog_mitm::cert_signer::CertSigner;
 use aidog_mitm::tls::accept_client;
-use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
-use aidog_middleware::MiddlewareEngine;
-use crate::gateway::scheduling;
 use axum::body::Body;
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::pki_types::ServerName;
@@ -45,7 +45,9 @@ use tokio::io::{AsyncRead, AsyncWrite};
 /// 测试用 ProxyState（内存 DB + 空 middleware/scheduler）。
 async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
     let db = test_db().await;
-    let ca = create_and_store_root_ca(&db).await.expect("create root CA in test db");
+    let ca = create_and_store_root_ca(&db)
+        .await
+        .expect("create root CA in test db");
     let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
@@ -134,21 +136,40 @@ async fn mitm_e2e_h1_tls_round_trip() {
 
     // 2. ProxyState + CA（DB 存）+ group + Anthropic 平台（base_url=stub）。
     let (state, ca) = make_state_with_ca().await;
-    let plat = aidog_db::create_platform(&state.db, CreatePlatform {
-        name: "mitm-e2e-stub".into(),
-        platform_type: Protocol::Anthropic,
-        base_url: upstream_url.clone(),
-        api_key: "sk-e2e-up".into(),
-        extra: String::new(),
-        models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, expires_at: None,
-    }).await.expect("create platform");
-    let group = aidog_db::create_group(
-        &state.db, sample_group("mitm-e2e-gk", vec![]),
-    ).await.expect("create group");
-    aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
-        platform_id: plat.id, priority: Some(0), weight: Some(1), level_priority: Some(0),
-    }]).await.expect("set group platforms");
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "mitm-e2e-stub".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: upstream_url.clone(),
+            api_key: "sk-e2e-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .expect("create platform");
+    let group = aidog_db::create_group(&state.db, sample_group("mitm-e2e-gk", vec![]))
+        .await
+        .expect("create group");
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .expect("set group platforms");
 
     // 3. MITM server 端：真实 TcpListener（模拟 CONNECT 后的 client TCP 连接）。
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -167,17 +188,24 @@ async fn mitm_e2e_h1_tls_round_trip() {
     });
 
     // 4. mock client：rustls client（信任 CA）→ TCP connect → TLS 握手 → hyper h1 发请求。
-    let tcp = tokio::net::TcpStream::connect(mitm_addr).await.expect("connect MITM");
+    let tcp = tokio::net::TcpStream::connect(mitm_addr)
+        .await
+        .expect("connect MITM");
     let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config_trusting_ca(&ca)));
     let server_name = ServerName::try_from("api.anthropic.com".to_string()).unwrap();
-    let tls_stream = connector.connect(server_name, tcp).await.expect("TLS handshake");
+    let tls_stream = connector
+        .connect(server_name, tcp)
+        .await
+        .expect("TLS handshake");
 
     // hyper h1 client over TLS stream：handshake → send_request。
     let (mut sender, conn) = hyper::client::conn::http1::Builder::new()
         .handshake(TokioIo::new(tls_stream))
         .await
         .expect("h1 client handshake");
-    tokio::spawn(async move { let _ = conn.await; });
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
 
     let req = hyper::Request::builder()
         .method("POST")
@@ -225,9 +253,18 @@ async fn mitm_e2e_h1_tls_round_trip() {
         "MITM e2e 明文路径 source_protocol 必须是 anthropic（AI 路径），非 http-connect"
     );
     assert_eq!(row.status_code, 200, "stub 上游 200 必须记账");
-    assert_eq!(row.group_key, "mitm-e2e-gk", "group_key 必须从明文 Authorization 解析");
-    assert_eq!(row.platform_id, plat.id, "platform_id 必须命中 stub 平台（路由生效）");
-    assert_eq!(row.input_tokens, 7, "input_tokens 必须从上游 usage 提取（采集生效）");
+    assert_eq!(
+        row.group_key, "mitm-e2e-gk",
+        "group_key 必须从明文 Authorization 解析"
+    );
+    assert_eq!(
+        row.platform_id, plat.id,
+        "platform_id 必须命中 stub 平台（路由生效）"
+    );
+    assert_eq!(
+        row.input_tokens, 7,
+        "input_tokens 必须从上游 usage 提取（采集生效）"
+    );
 
     // est_cost 在 ProxyLogSummary 不返回，查完整行验 cost 记账（盲转恒 0，AI 路径非 0）。
     let full = aidog_logs::get_proxy_log(&state.db, &row.id)
@@ -299,10 +336,15 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
 
     // 3. mock client：rustls client（信任 CA，advertise h2 ALPN）→ TLS 握手。
     //    **关键断言点 1**：ALPN 协商必须选出 h2（与 curl --http2 / 浏览器一致）。
-    let tcp = tokio::net::TcpStream::connect(mitm_addr).await.expect("connect MITM");
+    let tcp = tokio::net::TcpStream::connect(mitm_addr)
+        .await
+        .expect("connect MITM");
     let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config_trusting_ca_h2(&ca)));
     let server_name = ServerName::try_from("www.baidu.com".to_string()).unwrap();
-    let tls_stream = connector.connect(server_name, tcp).await.expect("TLS handshake");
+    let tls_stream = connector
+        .connect(server_name, tcp)
+        .await
+        .expect("TLS handshake");
     let (_, tls_session) = tls_stream.get_ref();
     let negotiated_alpn = tls_session.alpn_protocol();
     assert_eq!(
@@ -318,7 +360,9 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         .handshake(TokioIo::new(tls_stream))
         .await
         .expect("h2 client handshake");
-    tokio::spawn(async move { let _ = conn.await; });
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
 
     // 模拟 curl GET https://www.baidu.com/ —— 无 Authorization（触发 fallback passthrough），
     // Host: www.baidu.com（CONNECT target，非代理自身监听 host）。
@@ -331,7 +375,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         .unwrap();
     let resp = sender.send_request(req).await.expect(
         "h2 send_request 必须返回 Response —— 若此处 panic/err 即复现用户 CANCEL: \
-         h2 server 在回响应前/中 RST_STREAM"
+         h2 server 在回响应前/中 RST_STREAM",
     );
 
     // 5. **关键断言点**：forward 把上游响应（200 真上游 / 502 上游失败）完整经 h2 回传。

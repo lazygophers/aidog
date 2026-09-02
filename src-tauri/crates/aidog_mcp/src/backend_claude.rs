@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use super::types::{McpConfigRaw, McpTransport};
 use super::McpAgentBackend;
+use super::types::{McpConfigRaw, McpTransport};
 
 pub(super) struct ClaudeCodeBackend;
 
@@ -17,8 +17,7 @@ fn read_claude_json(path: &PathBuf) -> Result<serde_json::Value, String> {
     if !path.exists() {
         return Ok(serde_json::json!({}));
     }
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("read ~/.claude.json: {e}"))?;
+    let content = std::fs::read_to_string(path).map_err(|e| format!("read ~/.claude.json: {e}"))?;
     if content.trim().is_empty() {
         return Ok(serde_json::json!({}));
     }
@@ -26,8 +25,8 @@ fn read_claude_json(path: &PathBuf) -> Result<serde_json::Value, String> {
 }
 
 fn write_claude_json(path: &PathBuf, root: &serde_json::Value) -> Result<(), String> {
-    let s = serde_json::to_string_pretty(root)
-        .map_err(|e| format!("serialize ~/.claude.json: {e}"))?;
+    let s =
+        serde_json::to_string_pretty(root).map_err(|e| format!("serialize ~/.claude.json: {e}"))?;
     std::fs::write(path, s).map_err(|e| format!("write ~/.claude.json: {e}"))
 }
 
@@ -156,10 +155,7 @@ impl McpAgentBackend for ClaudeCodeBackend {
             return Ok(());
         }
         let mut root = read_claude_json(&path)?;
-        if let Some(servers) = root
-            .get_mut("mcpServers")
-            .and_then(|v| v.as_object_mut())
-        {
+        if let Some(servers) = root.get_mut("mcpServers").and_then(|v| v.as_object_mut()) {
             servers.remove(name);
         }
         write_claude_json(&path, &root)

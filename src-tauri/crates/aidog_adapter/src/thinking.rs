@@ -71,7 +71,10 @@ pub fn mode_from_effort(effort: Option<&str>) -> Option<ThinkingMode> {
 /// 入站：把各协议自己的「不要思考」表达（Responses/Chat 的 `effort:"none"`、
 /// Gemini 的 `thinkingBudget: 0`）归一成中立三态的显式禁用。
 pub fn disabled_mode() -> ThinkingMode {
-    ThinkingMode { kind: Some(KIND_DISABLED.to_string()), effort: None }
+    ThinkingMode {
+        kind: Some(KIND_DISABLED.to_string()),
+        effort: None,
+    }
 }
 
 /// 客户端是否**显式**要求禁用思考（Anthropic `thinking.type = "disabled"`）。
@@ -126,7 +129,11 @@ mod tests {
             assert_eq!(budget_to_effort(b), e, "{e} 档往返漂移");
         }
         for b in [EFFORT_LOW_BUDGET, EFFORT_MEDIUM_BUDGET, EFFORT_HIGH_BUDGET] {
-            assert_eq!(effort_to_budget(budget_to_effort(b)), Some(b), "{b} 预算往返漂移");
+            assert_eq!(
+                effort_to_budget(budget_to_effort(b)),
+                Some(b),
+                "{b} 预算往返漂移"
+            );
         }
     }
 

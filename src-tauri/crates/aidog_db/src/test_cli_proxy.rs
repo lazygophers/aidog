@@ -52,7 +52,10 @@ async fn cli_proxy_provider_crud_roundtrip() {
     upd.group_id = Some(42);
     upd.status = "disabled".into();
     upd.extra = "{\"k\":\"v\"}".into();
-    let updated = update_cli_proxy_provider(&db, id, upd).await.unwrap().unwrap();
+    let updated = update_cli_proxy_provider(&db, id, upd)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(updated.name, "p1-renamed");
     assert_eq!(updated.wire_protocol, "openai");
     assert_eq!(updated.models.len(), 2);
@@ -61,7 +64,12 @@ async fn cli_proxy_provider_crud_roundtrip() {
     assert_eq!(updated.extra, "{\"k\":\"v\"}");
 
     // update 不存在 → None
-    assert!(update_cli_proxy_provider(&db, 9999, input("x")).await.unwrap().is_none());
+    assert!(
+        update_cli_proxy_provider(&db, 9999, input("x"))
+            .await
+            .unwrap()
+            .is_none()
+    );
 
     // delete
     assert!(delete_cli_proxy_provider(&db, id).await.unwrap());
@@ -75,7 +83,9 @@ async fn cli_proxy_provider_crud_roundtrip() {
 async fn migration_045_idempotent() {
     let db = test_db().await;
     // 再跑一次 init —— 内部走完整 migration 流（含 20260727-14，原 045），不报错
-    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(()))).await.expect("re-init must be idempotent");
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .expect("re-init must be idempotent");
     // 表仍可用
     create_cli_proxy_provider(&db, input("after-reinit"))
         .await

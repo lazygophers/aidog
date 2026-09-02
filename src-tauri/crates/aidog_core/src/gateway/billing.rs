@@ -78,7 +78,11 @@ pub async fn calc_est_cost(
     let multiplier = if created_at_ms <= 0 {
         1.0
     } else {
-        resolved.multiplier(super::peak::resolve_multiplier(&windows, created_at_ms, model_name))
+        resolved.multiplier(super::peak::resolve_multiplier(
+            &windows,
+            created_at_ms,
+            model_name,
+        ))
     };
     let rp = &resolved.price;
     est_cost_from(
@@ -135,7 +139,15 @@ mod tests {
     /// ① base 无倍率：multiplier=1.0 → 直接 token × 单价。
     #[test]
     fn est_cost_from_base_no_multiplier() {
-        let cost = est_cost_from(1000, 500, 0, 3.0 / 1_000_000.0, 15.0 / 1_000_000.0, 0.0, 1.0);
+        let cost = est_cost_from(
+            1000,
+            500,
+            0,
+            3.0 / 1_000_000.0,
+            15.0 / 1_000_000.0,
+            0.0,
+            1.0,
+        );
         assert!((cost - (1000.0 * 3.0 / 1_000_000.0 + 500.0 * 15.0 / 1_000_000.0)).abs() < 1e-12);
     }
 
@@ -174,7 +186,15 @@ mod tests {
         });
         let hit = aidog_db::resolve_price_from(Some(&pd), true, 3.0, 3.0, 0, created_at_ms);
         assert_eq!(hit.multiplier(raw), 1.0);
-        let cost = est_cost_from(1000, 0, 0, hit.price.input_cost_per_token, 0.0, 0.0, hit.multiplier(raw));
+        let cost = est_cost_from(
+            1000,
+            0,
+            0,
+            hit.price.input_cost_per_token,
+            0.0,
+            0.0,
+            hit.multiplier(raw),
+        );
         // 3 倍只来自绝对价本身，不是 1e-6 × 3 再 × 3
         assert!((cost - 1000.0 * 3.0e-6).abs() < 1e-12);
     }

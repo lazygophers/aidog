@@ -1,107 +1,180 @@
 #![cfg(test)]
+use crate::*;
 use aidog_db::models::*;
 use aidog_db::test_support::*;
 use aidog_logs::*;
-use crate::*;
 
-    #[tokio::test]
-    async fn query_stats_platform_dim_and_filter() {
-        let db = test_db().await;
-        let p = insert_test_platform(&db, "P1").await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut lg = sample_log("l1", "g1", now);
-        lg.platform_id = p;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
-        let q = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: None };
-        let r = query_stats(&db, &q).await;
-        println!("NO-FILTER platform dim: {:?}", r.as_ref().err());
-        assert!(r.is_ok(), "no-filter platform dim failed: {:?}", r.err());
-        let q2 = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: Some(p.to_string()) };
-        let r2 = query_stats(&db, &q2).await;
-        println!("PLATFORM-FILTER: {:?}", r2.as_ref().err());
-        assert!(r2.is_ok(), "platform filter failed: {:?}", r2.err());
-        let res = r2.unwrap();
-        println!("overview total_requests = {}", res.overview.total_requests);
-        println!("dim entries = {}", res.dimension_data.len());
-    }
+#[tokio::test]
+async fn query_stats_platform_dim_and_filter() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "P1").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut lg = sample_log("l1", "g1", now);
+    lg.platform_id = p;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+        .await
+        .unwrap();
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("platform".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let r = query_stats(&db, &q).await;
+    println!("NO-FILTER platform dim: {:?}", r.as_ref().err());
+    assert!(r.is_ok(), "no-filter platform dim failed: {:?}", r.err());
+    let q2 = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("platform".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: Some(p.to_string()),
+    };
+    let r2 = query_stats(&db, &q2).await;
+    println!("PLATFORM-FILTER: {:?}", r2.as_ref().err());
+    assert!(r2.is_ok(), "platform filter failed: {:?}", r2.err());
+    let res = r2.unwrap();
+    println!("overview total_requests = {}", res.overview.total_requests);
+    println!("dim entries = {}", res.dimension_data.len());
+}
 
+/// 批量 `query_stats_batch` 必须逐项等于逐卡 `query_stats`（同 query 同结果，顺序对齐）。
+/// 覆盖浮窗各卡参数组合：overall/platform/group × today(hourly)/7d(daily)。
+#[tokio::test]
+async fn query_stats_batch_matches_per_query() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "P1").await;
+    let now = chrono::Utc::now().timestamp_millis();
 
+    // 两条日志：一条挂 P1/g1，一条挂 g2，覆盖 group/platform 过滤分支。
+    let mut a = sample_log("a", "g1", now);
+    a.platform_id = p;
+    a.status_code = 200;
+    a.input_tokens = 10;
+    a.output_tokens = 20;
+    a.cache_tokens = 5;
+    a.est_cost = 0.01;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("b", "g2", now);
+    b.platform_id = p;
+    b.status_code = 500;
+    b.input_tokens = 3;
+    b.output_tokens = 0;
+    b.est_cost = 0.0;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
 
-    /// 批量 `query_stats_batch` 必须逐项等于逐卡 `query_stats`（同 query 同结果，顺序对齐）。
-    /// 覆盖浮窗各卡参数组合：overall/platform/group × today(hourly)/7d(daily)。
-    #[tokio::test]
-    async fn query_stats_batch_matches_per_query() {
-        let db = test_db().await;
-        let p = insert_test_platform(&db, "P1").await;
-        let now = chrono::Utc::now().timestamp_millis();
+    let day = 86_400_000i64;
+    let queries = vec![
+        // overall 7d daily
+        StatsQuery {
+            start: Some(now - 7 * day),
+            end: Some(now),
+            granularity: Some("daily".into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: None,
+            filter_platform: None,
+        },
+        // overall today hourly
+        StatsQuery {
+            start: Some(now - day),
+            end: Some(now),
+            granularity: Some("hourly".into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: None,
+            filter_platform: None,
+        },
+        // platform 7d daily
+        StatsQuery {
+            start: Some(now - 7 * day),
+            end: Some(now),
+            granularity: Some("daily".into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: None,
+            filter_platform: Some(p.to_string()),
+        },
+        // group today hourly
+        StatsQuery {
+            start: Some(now - day),
+            end: Some(now),
+            granularity: Some("hourly".into()),
+            group_by: None,
+            filter_group: Some("g1".into()),
+            filter_model: None,
+            filter_platform: None,
+        },
+    ];
 
-        // 两条日志：一条挂 P1/g1，一条挂 g2，覆盖 group/platform 过滤分支。
-        let mut a = sample_log("a", "g1", now);
-        a.platform_id = p;
-        a.status_code = 200;
-        a.input_tokens = 10;
-        a.output_tokens = 20;
-        a.cache_tokens = 5;
-        a.est_cost = 0.01;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        let mut b = sample_log("b", "g2", now);
-        b.platform_id = p;
-        b.status_code = 500;
-        b.input_tokens = 3;
-        b.output_tokens = 0;
-        b.est_cost = 0.0;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+    let batch = query_stats_batch(&db, queries.clone())
+        .await
+        .expect("batch");
+    assert_eq!(batch.len(), queries.len(), "batch 长度须等于 query 数");
 
-        let day = 86_400_000i64;
-        let queries = vec![
-            // overall 7d daily
-            StatsQuery { start: Some(now - 7 * day), end: Some(now), granularity: Some("daily".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None },
-            // overall today hourly
-            StatsQuery { start: Some(now - day), end: Some(now), granularity: Some("hourly".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None },
-            // platform 7d daily
-            StatsQuery { start: Some(now - 7 * day), end: Some(now), granularity: Some("daily".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: Some(p.to_string()) },
-            // group today hourly
-            StatsQuery { start: Some(now - day), end: Some(now), granularity: Some("hourly".into()), group_by: None, filter_group: Some("g1".into()), filter_model: None, filter_platform: None },
-        ];
-
-        let batch = query_stats_batch(&db, queries.clone()).await.expect("batch");
-        assert_eq!(batch.len(), queries.len(), "batch 长度须等于 query 数");
-
-        for (i, q) in queries.iter().enumerate() {
-            let single = query_stats(&db, q).await.expect("single");
-            let bz = &batch[i];
-            // overview 全字段对账
-            assert_eq!(bz.overview.total_requests, single.overview.total_requests, "q{i} total_requests");
-            assert_eq!(bz.overview.total_input_tokens, single.overview.total_input_tokens, "q{i} input");
-            assert_eq!(bz.overview.total_output_tokens, single.overview.total_output_tokens, "q{i} output");
-            assert_eq!(bz.overview.total_cache_tokens, single.overview.total_cache_tokens, "q{i} cache");
-            assert!((bz.overview.total_cost - single.overview.total_cost).abs() < 1e-12, "q{i} cost");
-            assert!((bz.overview.success_rate - single.overview.success_rate).abs() < 1e-9, "q{i} success_rate");
-            // buckets：桶数与逐桶 cost/req 一致（曲线卡口径）
-            assert_eq!(bz.buckets.len(), single.buckets.len(), "q{i} bucket count");
-            for (j, (bb, sb)) in bz.buckets.iter().zip(single.buckets.iter()).enumerate() {
-                assert_eq!(bb.time_bucket, sb.time_bucket, "q{i} bucket{j} time");
-                assert_eq!(bb.total_requests, sb.total_requests, "q{i} bucket{j} req");
-                assert!((bb.total_cost - sb.total_cost).abs() < 1e-12, "q{i} bucket{j} cost");
-            }
+    for (i, q) in queries.iter().enumerate() {
+        let single = query_stats(&db, q).await.expect("single");
+        let bz = &batch[i];
+        // overview 全字段对账
+        assert_eq!(
+            bz.overview.total_requests, single.overview.total_requests,
+            "q{i} total_requests"
+        );
+        assert_eq!(
+            bz.overview.total_input_tokens, single.overview.total_input_tokens,
+            "q{i} input"
+        );
+        assert_eq!(
+            bz.overview.total_output_tokens, single.overview.total_output_tokens,
+            "q{i} output"
+        );
+        assert_eq!(
+            bz.overview.total_cache_tokens, single.overview.total_cache_tokens,
+            "q{i} cache"
+        );
+        assert!(
+            (bz.overview.total_cost - single.overview.total_cost).abs() < 1e-12,
+            "q{i} cost"
+        );
+        assert!(
+            (bz.overview.success_rate - single.overview.success_rate).abs() < 1e-9,
+            "q{i} success_rate"
+        );
+        // buckets：桶数与逐桶 cost/req 一致（曲线卡口径）
+        assert_eq!(bz.buckets.len(), single.buckets.len(), "q{i} bucket count");
+        for (j, (bb, sb)) in bz.buckets.iter().zip(single.buckets.iter()).enumerate() {
+            assert_eq!(bb.time_bucket, sb.time_bucket, "q{i} bucket{j} time");
+            assert_eq!(bb.total_requests, sb.total_requests, "q{i} bucket{j} req");
+            assert!(
+                (bb.total_cost - sb.total_cost).abs() < 1e-12,
+                "q{i} bucket{j} cost"
+            );
         }
     }
+}
 
+// 注：去 JOIN/子查询重构后 `bucket_time_expr`（SQL 片段拼接）已删除。
+// 分钟/5min 分桶改 Rust 内存（utc_ms_to_local_minute_key, chrono::Local），
+// 小时/日分桶读 stats_agg_hourly 已物化 localtime time_hour。其 localtime 语义改由
+// 下方 `bucket_daily_splits_on_local_midnight` / `stats_minute_and_5min_buckets` /
+// `utc_ms_to_local_hour_key_format` 行为级断言守卫（更强，非削弱）。
 
-
-    // 注：去 JOIN/子查询重构后 `bucket_time_expr`（SQL 片段拼接）已删除。
-    // 分钟/5min 分桶改 Rust 内存（utc_ms_to_local_minute_key, chrono::Local），
-    // 小时/日分桶读 stats_agg_hourly 已物化 localtime time_hour。其 localtime 语义改由
-    // 下方 `bucket_daily_splits_on_local_midnight` / `stats_minute_and_5min_buckets` /
-    // `utc_ms_to_local_hour_key_format` 行为级断言守卫（更强，非削弱）。
-
-    /// localtime 分桶按本地日界切分：构造跨本地午夜的两条日志，daily 桶须落不同日期键。
-    /// 用 SQLite 自身求出「本地午夜 ±1h」的 epoch ms，避免硬编码时区。
-    #[tokio::test]
-    async fn bucket_daily_splits_on_local_midnight() {
-        let db = test_db().await;
-        // 本地午夜的 epoch 秒：strftime 本地日期 00:00 转回 unixepoch。
-        let local_midnight_ms: i64 = db.call_traced(None, std::panic::Location::caller(), |conn| {
+/// localtime 分桶按本地日界切分：构造跨本地午夜的两条日志，daily 桶须落不同日期键。
+/// 用 SQLite 自身求出「本地午夜 ±1h」的 epoch ms，避免硬编码时区。
+#[tokio::test]
+async fn bucket_daily_splits_on_local_midnight() {
+    let db = test_db().await;
+    // 本地午夜的 epoch 秒：strftime 本地日期 00:00 转回 unixepoch。
+    let local_midnight_ms: i64 = db.call_traced(None, std::panic::Location::caller(), |conn| {
             let secs: i64 = conn.query_row(
                 "SELECT CAST(strftime('%s', strftime('%Y-%m-%d 00:00:00', 'now', 'localtime'), 'utc') AS INTEGER)",
                 [],
@@ -110,354 +183,536 @@ use crate::*;
             Ok(secs * 1000)
         }).await.unwrap();
 
-        // 午夜前 1 小时 + 午夜后 1 小时 → 本地相邻两天。
-        let before = local_midnight_ms - 3_600_000;
-        let after = local_midnight_ms + 3_600_000;
-        let mut a = sample_log("before", "g1", before);
-        a.est_cost = 0.01;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        let mut b = sample_log("after", "g1", after);
-        b.est_cost = 0.02;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+    // 午夜前 1 小时 + 午夜后 1 小时 → 本地相邻两天。
+    let before = local_midnight_ms - 3_600_000;
+    let after = local_midnight_ms + 3_600_000;
+    let mut a = sample_log("before", "g1", before);
+    a.est_cost = 0.01;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("after", "g1", after);
+    b.est_cost = 0.02;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
 
-        // 测试直插 proxy_log（绕过 proxy upsert_log 的聚合写）；daily 粒度读聚合表，须先重建。
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-        let q = StatsQuery {
-            start: Some(before - 3_600_000),
-            end: Some(after + 3_600_000),
-            granularity: Some("daily".into()),
-            group_by: None, filter_group: None, filter_model: None, filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        // 本地午夜两侧 → 两个不同的本地日桶。
-        assert_eq!(res.buckets.len(), 2, "跨本地午夜须分到 2 个 daily 桶，得到 {:?}", res.buckets.iter().map(|x| &x.time_bucket).collect::<Vec<_>>());
-        assert_ne!(res.buckets[0].time_bucket, res.buckets[1].time_bucket);
+    // 测试直插 proxy_log（绕过 proxy upsert_log 的聚合写）；daily 粒度读聚合表，须先重建。
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+    let q = StatsQuery {
+        start: Some(before - 3_600_000),
+        end: Some(after + 3_600_000),
+        granularity: Some("daily".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    // 本地午夜两侧 → 两个不同的本地日桶。
+    assert_eq!(
+        res.buckets.len(),
+        2,
+        "跨本地午夜须分到 2 个 daily 桶，得到 {:?}",
+        res.buckets
+            .iter()
+            .map(|x| &x.time_bucket)
+            .collect::<Vec<_>>()
+    );
+    assert_ne!(res.buckets[0].time_bucket, res.buckets[1].time_bucket);
+}
+
+/// available_models 只含实际有记录的模型（actual_model 优先），不含未请求的。
+/// 防回归：前端模型筛选项曾派生自配置列表（platform.available_models ∪ group mappings），
+/// 导致下拉列出从未请求过的模型。
+#[tokio::test]
+async fn stats_available_models_only_recorded() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut lg1 = sample_log("m1", "g1", now);
+    lg1.model = "claude-sonnet-4".into();
+    lg1.actual_model = "glm-4-plus".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg1, false, false))
+        .await
+        .unwrap();
+    let mut lg2 = sample_log("m2", "g1", now);
+    lg2.model = "gpt-4o".into();
+    lg2.actual_model = String::new(); // 回退到 model
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: None,
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let s = query_stats(&db, &q).await.expect("query_stats");
+    // actual_model 优先 → glm-4-plus；actual_model 空 → 回退 gpt-4o
+    assert!(
+        s.available_models.contains(&"glm-4-plus".to_string()),
+        "missing glm-4-plus: {:?}",
+        s.available_models
+    );
+    assert!(
+        s.available_models.contains(&"gpt-4o".to_string()),
+        "missing gpt-4o: {:?}",
+        s.available_models
+    );
+    // 未请求过的模型不应出现
+    assert!(
+        !s.available_models.iter().any(|m| m == "claude-sonnet-4"),
+        "requested model leaked: {:?}",
+        s.available_models
+    );
+    assert!(
+        !s.available_models.iter().any(|m| m == "never-used-model"),
+        "unrecorded model leaked: {:?}",
+        s.available_models
+    );
+
+    // filter_model 不应收缩 available_models（否则选中后下拉自缩）
+    let q2 = StatsQuery {
+        start: None,
+        end: None,
+        granularity: None,
+        group_by: None,
+        filter_group: None,
+        filter_model: Some("glm-4-plus".into()),
+        filter_platform: None,
+    };
+    let s2 = query_stats(&db, &q2).await.expect("query_stats filtered");
+    assert!(
+        s2.available_models.contains(&"gpt-4o".to_string()),
+        "filter_model shrank available_models: {:?}",
+        s2.available_models
+    );
+}
+
+/// 分钟 / 5 分钟分桶：合成同一小时内不同分钟的日志，断言分桶宽度正确。
+/// minute → 每分钟一桶；5min → floor 到 5 分钟边界一桶；hourly → 全部归一桶。
+#[tokio::test]
+async fn stats_minute_and_5min_buckets() {
+    let db = test_db().await;
+    // 固定基准：2026-06-16 10:00:00 UTC（毫秒）
+    let base = chrono::DateTime::parse_from_rfc3339("2026-06-16T10:00:00Z")
+        .unwrap()
+        .timestamp_millis();
+    // 6 条日志，分布在 10:00 / 10:01 / 10:03 / 10:06 / 10:12 / 10:14
+    let offsets_min = [0i64, 1, 3, 6, 12, 14];
+    for (i, m) in offsets_min.iter().enumerate() {
+        let ts = base + m * 60_000;
+        let lg = sample_log(&format!("b{i}"), "g1", ts);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+            .await
+            .unwrap();
     }
+    let start = base - 60_000;
+    let end = base + 20 * 60_000;
+    // hourly 读聚合表，须重建（minute/5min 仍读 proxy_log，不受影响）。
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
 
+    // minute：6 个不同分钟 → 6 桶
+    let q_min = StatsQuery {
+        start: Some(start),
+        end: Some(end),
+        granularity: Some("minute".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let r_min = query_stats(&db, &q_min).await.expect("minute stats");
+    assert_eq!(
+        r_min.buckets.len(),
+        6,
+        "minute 应 6 桶: {:?}",
+        r_min
+            .buckets
+            .iter()
+            .map(|b| &b.time_bucket)
+            .collect::<Vec<_>>()
+    );
 
+    // 5min：分钟落入 [00-04]→2(00,01,03), [05-09]→1(06), [10-14]→2(12,14) → 3 桶
+    let q_5 = StatsQuery {
+        start: Some(start),
+        end: Some(end),
+        granularity: Some("5min".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let r_5 = query_stats(&db, &q_5).await.expect("5min stats");
+    assert_eq!(
+        r_5.buckets.len(),
+        3,
+        "5min 应 3 桶: {:?}",
+        r_5.buckets
+            .iter()
+            .map(|b| &b.time_bucket)
+            .collect::<Vec<_>>()
+    );
+    // 第一桶（10:00）应聚合 3 条请求
+    let first = &r_5.buckets[0];
+    assert_eq!(first.total_requests, 3, "5min 首桶应聚 3 条: {first:?}");
 
-    /// available_models 只含实际有记录的模型（actual_model 优先），不含未请求的。
-    /// 防回归：前端模型筛选项曾派生自配置列表（platform.available_models ∪ group mappings），
-    /// 导致下拉列出从未请求过的模型。
-    #[tokio::test]
-    async fn stats_available_models_only_recorded() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut lg1 = sample_log("m1", "g1", now);
-        lg1.model = "claude-sonnet-4".into();
-        lg1.actual_model = "glm-4-plus".into();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg1, false, false)).await.unwrap();
-        let mut lg2 = sample_log("m2", "g1", now);
-        lg2.model = "gpt-4o".into();
-        lg2.actual_model = String::new(); // 回退到 model
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
+    // hourly：全在 10 点 → 1 桶
+    let q_h = StatsQuery {
+        start: Some(start),
+        end: Some(end),
+        granularity: Some("hourly".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let r_h = query_stats(&db, &q_h).await.expect("hourly stats");
+    assert_eq!(
+        r_h.buckets.len(),
+        1,
+        "hourly 应 1 桶: {:?}",
+        r_h.buckets
+            .iter()
+            .map(|b| &b.time_bucket)
+            .collect::<Vec<_>>()
+    );
+    assert_eq!(r_h.buckets[0].total_requests, 6, "hourly 桶应聚 6 条");
+}
 
-        let q = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: None, filter_platform: None };
-        let s = query_stats(&db, &q).await.expect("query_stats");
-        // actual_model 优先 → glm-4-plus；actual_model 空 → 回退 gpt-4o
-        assert!(s.available_models.contains(&"glm-4-plus".to_string()), "missing glm-4-plus: {:?}", s.available_models);
-        assert!(s.available_models.contains(&"gpt-4o".to_string()), "missing gpt-4o: {:?}", s.available_models);
-        // 未请求过的模型不应出现
-        assert!(!s.available_models.iter().any(|m| m == "claude-sonnet-4"), "requested model leaked: {:?}", s.available_models);
-        assert!(!s.available_models.iter().any(|m| m == "never-used-model"), "unrecorded model leaked: {:?}", s.available_models);
+/// utc_ms_to_local_hour_key 输出格式 "YYYY-MM-DD HH:00:00"。
+#[test]
+fn utc_ms_to_local_hour_key_format() {
+    // 2026-01-01 00:00:00 UTC = 1735689600000 ms
+    let key = utc_ms_to_local_hour_key(1735689600000);
+    // 输出必须包含正确格式（本地时区可能与 UTC 不同，只验格式）
+    assert!(key.len() == 19, "key must be 19 chars: {key}");
+    assert!(key.contains(':'), "key must contain ':': {key}");
+    assert!(key.ends_with(":00:00"), "key must end with :00:00: {key}");
+}
 
-        // filter_model 不应收缩 available_models（否则选中后下拉自缩）
-        let q2 = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: Some("glm-4-plus".into()), filter_platform: None };
-        let s2 = query_stats(&db, &q2).await.expect("query_stats filtered");
-        assert!(s2.available_models.contains(&"gpt-4o".to_string()), "filter_model shrank available_models: {:?}", s2.available_models);
+#[test]
+fn utc_ms_to_local_hour_key_zero_returns_empty_or_valid() {
+    // 0 ms = 1970-01-01 00:00:00 UTC; may be valid or empty depending on impl
+    let key = utc_ms_to_local_hour_key(0);
+    // either empty or valid format
+    if !key.is_empty() {
+        assert!(key.ends_with(":00:00"), "0ms key format: {key}");
     }
+}
 
+// bucket_time_expr_{minute,5min,hourly,daily} 单测随 `bucket_time_expr` 删除一并移除
+// （测的是已删私有 SQL 拼接函数的实现细节；分桶粒度/边界行为由上方 minute_5min /
+// daily_splits 集成测试断言，覆盖更强）。
 
+/// group_by=model 维度分解（agg 路径）。
+#[tokio::test]
+async fn stats_group_by_model_dimension() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("ma1", "g1", now);
+    a.model = "gpt-4o".into();
+    a.actual_model = "gpt-4o".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("ma2", "g1", now);
+    b.model = "claude-sonnet-4".into();
+    b.actual_model = "claude-sonnet-4".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
 
-    /// 分钟 / 5 分钟分桶：合成同一小时内不同分钟的日志，断言分桶宽度正确。
-    /// minute → 每分钟一桶；5min → floor 到 5 分钟边界一桶；hourly → 全部归一桶。
-    #[tokio::test]
-    async fn stats_minute_and_5min_buckets() {
-        let db = test_db().await;
-        // 固定基准：2026-06-16 10:00:00 UTC（毫秒）
-        let base = chrono::DateTime::parse_from_rfc3339("2026-06-16T10:00:00Z")
-            .unwrap()
-            .timestamp_millis();
-        // 6 条日志，分布在 10:00 / 10:01 / 10:03 / 10:06 / 10:12 / 10:14
-        let offsets_min = [0i64, 1, 3, 6, 12, 14];
-        for (i, m) in offsets_min.iter().enumerate() {
-            let ts = base + m * 60_000;
-            let lg = sample_log(&format!("b{i}"), "g1", ts);
-            insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
-                .await
-                .unwrap();
-        }
-        let start = base - 60_000;
-        let end = base + 20 * 60_000;
-        // hourly 读聚合表，须重建（minute/5min 仍读 proxy_log，不受影响）。
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("model".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(
+        res.dimension_data.len(),
+        2,
+        "2 models → 2 dimension entries"
+    );
+    let models: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+    assert!(models.contains(&"gpt-4o"), "gpt-4o missing: {:?}", models);
+    assert!(
+        models.contains(&"claude-sonnet-4"),
+        "claude-sonnet-4 missing: {:?}",
+        models
+    );
+}
 
-        // minute：6 个不同分钟 → 6 桶
-        let q_min = StatsQuery { start: Some(start), end: Some(end), granularity: Some("minute".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
-        let r_min = query_stats(&db, &q_min).await.expect("minute stats");
-        assert_eq!(r_min.buckets.len(), 6, "minute 应 6 桶: {:?}", r_min.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
+/// group_by=group 维度分解（agg 路径）。
+#[tokio::test]
+async fn stats_group_by_group_dimension() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("ga1", "grpA", now);
+    a.status_code = 200;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("ga2", "grpB", now);
+    b.status_code = 200;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
 
-        // 5min：分钟落入 [00-04]→2(00,01,03), [05-09]→1(06), [10-14]→2(12,14) → 3 桶
-        let q_5 = StatsQuery { start: Some(start), end: Some(end), granularity: Some("5min".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
-        let r_5 = query_stats(&db, &q_5).await.expect("5min stats");
-        assert_eq!(r_5.buckets.len(), 3, "5min 应 3 桶: {:?}", r_5.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
-        // 第一桶（10:00）应聚合 3 条请求
-        let first = &r_5.buckets[0];
-        assert_eq!(first.total_requests, 3, "5min 首桶应聚 3 条: {first:?}");
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("group".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(
+        res.dimension_data.len(),
+        2,
+        "2 groups → 2 dimension entries"
+    );
+    let groups: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+    assert!(groups.contains(&"grpA"), "grpA missing: {:?}", groups);
+    assert!(groups.contains(&"grpB"), "grpB missing: {:?}", groups);
+}
 
-        // hourly：全在 10 点 → 1 桶
-        let q_h = StatsQuery { start: Some(start), end: Some(end), granularity: Some("hourly".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
-        let r_h = query_stats(&db, &q_h).await.expect("hourly stats");
-        assert_eq!(r_h.buckets.len(), 1, "hourly 应 1 桶: {:?}", r_h.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
-        assert_eq!(r_h.buckets[0].total_requests, 6, "hourly 桶应聚 6 条");
+/// filter_model 过滤 minute 粒度（走 proxy_log 路径，非聚合表）。
+#[tokio::test]
+async fn stats_minute_filter_model() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("fm1", "g1", now);
+    a.model = "gpt-4o".into();
+    a.actual_model = "".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("fm2", "g1", now);
+    b.model = "claude-sonnet-4".into();
+    b.actual_model = "claude-sonnet-4".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+
+    let q = StatsQuery {
+        start: Some(now - 3_600_000),
+        end: Some(now + 3_600_000),
+        granularity: Some("minute".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: Some("gpt-4o".into()),
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(
+        res.overview.total_requests, 1,
+        "filter_model=gpt-4o should return 1"
+    );
+}
+
+/// filter_group + filter_platform minute 路径组合。
+#[tokio::test]
+async fn stats_minute_filter_group_and_platform() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "FP").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("fgp1", "grpFP", now);
+    a.platform_id = p;
+    a.status_code = 200;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("fgp2", "grpOther", now);
+    b.platform_id = p;
+    b.status_code = 200;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+
+    let q = StatsQuery {
+        start: Some(now - 3_600_000),
+        end: Some(now + 3_600_000),
+        granularity: Some("minute".into()),
+        group_by: None,
+        filter_group: Some("grpFP".into()),
+        filter_model: None,
+        filter_platform: Some(p.to_string()),
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(
+        res.overview.total_requests, 1,
+        "filter group+platform should return 1"
+    );
+}
+
+/// group_by=platform dimension via agg table.
+#[tokio::test]
+async fn stats_group_by_platform_dimension() {
+    let db = test_db().await;
+    let p = insert_test_platform(&db, "DimP").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("dp1", "g1", now);
+    a.platform_id = p;
+    a.status_code = 200;
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("platform".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert!(
+        !res.dimension_data.is_empty(),
+        "platform dimension should have entries"
+    );
+    assert!(
+        res.dimension_data.iter().any(|d| d.name == "DimP"),
+        "platform name DimP not found"
+    );
+}
+
+/// query_stats with no data returns zero overview.
+#[tokio::test]
+async fn stats_empty_db_returns_zero_overview() {
+    let db = test_db().await;
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.overview.total_requests, 0);
+    assert_eq!(res.buckets.len(), 0);
+    assert_eq!(res.dimension_data.len(), 0);
+}
+
+/// granularity=hourly produces hourly buckets.
+#[tokio::test]
+async fn stats_granularity_hourly_produces_hourly_buckets() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let lg = sample_log("h1", "grp_h", now);
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let q = StatsQuery {
+        start: Some(now - 3_600_000),
+        end: Some(now + 3_600_000),
+        granularity: Some("hourly".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.overview.total_requests, 1);
+    assert!(
+        !res.buckets.is_empty(),
+        "hourly granularity should have buckets"
+    );
+    // hourly bucket key is YYYY-MM-DD HH:00
+    if let Some(b) = res.buckets.first() {
+        assert!(
+            b.time_bucket.len() >= 10,
+            "hourly bucket key: {}",
+            b.time_bucket
+        );
     }
+}
 
-    /// utc_ms_to_local_hour_key 输出格式 "YYYY-MM-DD HH:00:00"。
-    #[test]
-    fn utc_ms_to_local_hour_key_format() {
-        // 2026-01-01 00:00:00 UTC = 1735689600000 ms
-        let key = utc_ms_to_local_hour_key(1735689600000);
-        // 输出必须包含正确格式（本地时区可能与 UTC 不同，只验格式）
-        assert!(key.len() == 19, "key must be 19 chars: {key}");
-        assert!(key.contains(':'), "key must contain ':': {key}");
-        assert!(key.ends_with(":00:00"), "key must end with :00:00: {key}");
-    }
+/// filter_model isolates by model name (uses actual_model field).
+#[tokio::test]
+async fn stats_filter_model_isolates_model() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    // stats_agg uses actual_model if non-empty; set actual_model to distinguish
+    let mut lg = sample_log("m1", "grp_m", now);
+    lg.actual_model = "unique-model-xyz".to_string();
+    let mut lg2 = sample_log("m2", "grp_m", now);
+    lg2.actual_model = "other-model-abc".to_string();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+        .await
+        .unwrap();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
 
-    #[test]
-    fn utc_ms_to_local_hour_key_zero_returns_empty_or_valid() {
-        // 0 ms = 1970-01-01 00:00:00 UTC; may be valid or empty depending on impl
-        let key = utc_ms_to_local_hour_key(0);
-        // either empty or valid format
-        if !key.is_empty() {
-            assert!(key.ends_with(":00:00"), "0ms key format: {key}");
-        }
-    }
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: Some("unique-model-xyz".into()),
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(
+        res.overview.total_requests, 1,
+        "filter_model should isolate to 1 request"
+    );
+}
 
-    // bucket_time_expr_{minute,5min,hourly,daily} 单测随 `bucket_time_expr` 删除一并移除
-    // （测的是已删私有 SQL 拼接函数的实现细节；分桶粒度/边界行为由上方 minute_5min /
-    // daily_splits 集成测试断言，覆盖更强）。
+/// group_by=model dimension returns model breakdown (additional).
+#[tokio::test]
+async fn stats_group_by_model_dimension_extra() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut lg = sample_log("md1", "grp_md", now);
+    lg.actual_model = "distinct-model-extra".to_string();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
 
-    /// group_by=model 维度分解（agg 路径）。
-    #[tokio::test]
-    async fn stats_group_by_model_dimension() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut a = sample_log("ma1", "g1", now);
-        a.model = "gpt-4o".into();
-        a.actual_model = "gpt-4o".into();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        let mut b = sample_log("ma2", "g1", now);
-        b.model = "claude-sonnet-4".into();
-        b.actual_model = "claude-sonnet-4".into();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-        let q = StatsQuery {
-            start: None, end: None,
-            granularity: Some("daily".into()),
-            group_by: Some("model".into()),
-            filter_group: None, filter_model: None, filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.dimension_data.len(), 2, "2 models → 2 dimension entries");
-        let models: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
-        assert!(models.contains(&"gpt-4o"), "gpt-4o missing: {:?}", models);
-        assert!(models.contains(&"claude-sonnet-4"), "claude-sonnet-4 missing: {:?}", models);
-    }
-
-    /// group_by=group 维度分解（agg 路径）。
-    #[tokio::test]
-    async fn stats_group_by_group_dimension() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut a = sample_log("ga1", "grpA", now);
-        a.status_code = 200;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        let mut b = sample_log("ga2", "grpB", now);
-        b.status_code = 200;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-        let q = StatsQuery {
-            start: None, end: None,
-            granularity: Some("daily".into()),
-            group_by: Some("group".into()),
-            filter_group: None, filter_model: None, filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.dimension_data.len(), 2, "2 groups → 2 dimension entries");
-        let groups: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
-        assert!(groups.contains(&"grpA"), "grpA missing: {:?}", groups);
-        assert!(groups.contains(&"grpB"), "grpB missing: {:?}", groups);
-    }
-
-    /// filter_model 过滤 minute 粒度（走 proxy_log 路径，非聚合表）。
-    #[tokio::test]
-    async fn stats_minute_filter_model() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut a = sample_log("fm1", "g1", now);
-        a.model = "gpt-4o".into();
-        a.actual_model = "".into();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        let mut b = sample_log("fm2", "g1", now);
-        b.model = "claude-sonnet-4".into();
-        b.actual_model = "claude-sonnet-4".into();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
-
-        let q = StatsQuery {
-            start: Some(now - 3_600_000), end: Some(now + 3_600_000),
-            granularity: Some("minute".into()),
-            group_by: None,
-            filter_group: None,
-            filter_model: Some("gpt-4o".into()),
-            filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.overview.total_requests, 1, "filter_model=gpt-4o should return 1");
-    }
-
-    /// filter_group + filter_platform minute 路径组合。
-    #[tokio::test]
-    async fn stats_minute_filter_group_and_platform() {
-        let db = test_db().await;
-        let p = insert_test_platform(&db, "FP").await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut a = sample_log("fgp1", "grpFP", now);
-        a.platform_id = p;
-        a.status_code = 200;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        let mut b = sample_log("fgp2", "grpOther", now);
-        b.platform_id = p;
-        b.status_code = 200;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
-
-        let q = StatsQuery {
-            start: Some(now - 3_600_000), end: Some(now + 3_600_000),
-            granularity: Some("minute".into()),
-            group_by: None,
-            filter_group: Some("grpFP".into()),
-            filter_model: None,
-            filter_platform: Some(p.to_string()),
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.overview.total_requests, 1, "filter group+platform should return 1");
-    }
-
-    /// group_by=platform dimension via agg table.
-    #[tokio::test]
-    async fn stats_group_by_platform_dimension() {
-        let db = test_db().await;
-        let p = insert_test_platform(&db, "DimP").await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut a = sample_log("dp1", "g1", now);
-        a.platform_id = p;
-        a.status_code = 200;
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-        let q = StatsQuery {
-            start: None, end: None,
-            granularity: Some("daily".into()),
-            group_by: Some("platform".into()),
-            filter_group: None, filter_model: None, filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert!(!res.dimension_data.is_empty(), "platform dimension should have entries");
-        assert!(res.dimension_data.iter().any(|d| d.name == "DimP"), "platform name DimP not found");
-    }
-
-    /// query_stats with no data returns zero overview.
-    #[tokio::test]
-    async fn stats_empty_db_returns_zero_overview() {
-        let db = test_db().await;
-        let q = StatsQuery {
-            start: None, end: None,
-            granularity: Some("daily".into()),
-            group_by: None,
-            filter_group: None, filter_model: None, filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.overview.total_requests, 0);
-        assert_eq!(res.buckets.len(), 0);
-        assert_eq!(res.dimension_data.len(), 0);
-    }
-
-    /// granularity=hourly produces hourly buckets.
-    #[tokio::test]
-    async fn stats_granularity_hourly_produces_hourly_buckets() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let lg = sample_log("h1", "grp_h", now);
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-        let q = StatsQuery {
-            start: Some(now - 3_600_000),
-            end: Some(now + 3_600_000),
-            granularity: Some("hourly".into()),
-            group_by: None,
-            filter_group: None,
-            filter_model: None,
-            filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.overview.total_requests, 1);
-        assert!(!res.buckets.is_empty(), "hourly granularity should have buckets");
-        // hourly bucket key is YYYY-MM-DD HH:00
-        if let Some(b) = res.buckets.first() {
-            assert!(b.time_bucket.len() >= 10, "hourly bucket key: {}", b.time_bucket);
-        }
-    }
-
-    /// filter_model isolates by model name (uses actual_model field).
-    #[tokio::test]
-    async fn stats_filter_model_isolates_model() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        // stats_agg uses actual_model if non-empty; set actual_model to distinguish
-        let mut lg = sample_log("m1", "grp_m", now);
-        lg.actual_model = "unique-model-xyz".to_string();
-        let mut lg2 = sample_log("m2", "grp_m", now);
-        lg2.actual_model = "other-model-abc".to_string();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-        let q = StatsQuery {
-            start: None,
-            end: None,
-            granularity: Some("daily".into()),
-            group_by: None,
-            filter_group: None,
-            filter_model: Some("unique-model-xyz".into()),
-            filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert_eq!(res.overview.total_requests, 1, "filter_model should isolate to 1 request");
-    }
-
-    /// group_by=model dimension returns model breakdown (additional).
-    #[tokio::test]
-    async fn stats_group_by_model_dimension_extra() {
-        let db = test_db().await;
-        let now = chrono::Utc::now().timestamp_millis();
-        let mut lg = sample_log("md1", "grp_md", now);
-        lg.actual_model = "distinct-model-extra".to_string();
-        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
-        rebuild_stats_agg_from_logs(&db).await.unwrap();
-
-        let q = StatsQuery {
-            start: None,
-            end: None,
-            granularity: Some("daily".into()),
-            group_by: Some("model".into()),
-            filter_group: None,
-            filter_model: None,
-            filter_platform: None,
-        };
-        let res = query_stats(&db, &q).await.unwrap();
-        assert!(!res.dimension_data.is_empty(), "model dimension should have entries");
-        assert!(res.dimension_data.iter().any(|d| d.name == "distinct-model-extra"), "model not found in dim");
-    }
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("model".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert!(
+        !res.dimension_data.is_empty(),
+        "model dimension should have entries"
+    );
+    assert!(
+        res.dimension_data
+            .iter()
+            .any(|d| d.name == "distinct-model-extra"),
+        "model not found in dim"
+    );
+}

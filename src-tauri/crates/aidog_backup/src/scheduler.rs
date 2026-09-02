@@ -7,9 +7,9 @@ use std::time::Duration;
 use tauri::Manager;
 
 use super::cleanup::{backup_dir, cleanup_expired, now_millis, timestamp_name_fragment};
-use super::{BackupSettings, ALL_SCOPES, BACKUP_EXT};
-use aidog_db::Db;
+use super::{ALL_SCOPES, BACKUP_EXT, BackupSettings};
 use aidog_core::gateway::import_export;
+use aidog_db::Db;
 
 /// 重入防护: 防启动检查与定时器唤醒同帧并发跑两次 backup。
 static BACKUP_RUNNING: AtomicBool = AtomicBool::new(false);
@@ -98,15 +98,7 @@ pub fn spawn_scheduler(app: tauri::AppHandle) {
 async fn notify_failure(db: &Db, error: &str) {
     let vars = std::collections::HashMap::new();
     let db_arc = std::sync::Arc::new(db.clone());
-    let _ = aidog_notification::dispatch(
-        &db_arc,
-        None,
-        None,
-        "error",
-        Some(error),
-        &vars,
-    )
-    .await;
+    let _ = aidog_notification::dispatch(&db_arc, None, None, "error", Some(error), &vars).await;
 }
 
 #[cfg(test)]

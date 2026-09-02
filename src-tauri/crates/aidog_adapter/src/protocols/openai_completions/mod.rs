@@ -4,8 +4,8 @@ pub mod convert;
 
 pub use convert::*;
 
-use crate::converter::traits::ProtocolConverter;
 use crate::converter::NonStreamResponse;
+use crate::converter::traits::ProtocolConverter;
 use crate::types::*;
 use serde_json::Value;
 

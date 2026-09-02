@@ -10,14 +10,14 @@
 //!   前端用 `@tauri-apps/plugin-shell` `Command.create(name, args).execute()` 触发 sudo 弹窗（D8）。
 //!   执行结果（exit code）由前端回传 `mitm_set_ca_installed(bool)` 落账。
 
+use crate::shared::aidog_data_dir;
+use aidog_db::models::SetSettingInput;
+use aidog_db::{Db, get_setting, set_setting};
 use aidog_mitm::ca::{
     classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
     sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
 };
-use aidog_mitm::whitelist::{evaluate_host, list_whitelist, WhitelistEntry};
-use aidog_db::{get_setting, set_setting, Db};
-use aidog_db::models::SetSettingInput;
-use crate::shared::aidog_data_dir;
+use aidog_mitm::whitelist::{WhitelistEntry, evaluate_host, list_whitelist};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -236,7 +236,8 @@ fn valid_rule_type(s: &str) -> Option<&'static str> {
 /// 从 setting 读白名单数组（None / 解析失败 → 空 Vec，与 list_whitelist 同 fallback）。
 async fn load_whitelist_array(db: &Db) -> Result<Vec<WhitelistEntry>, String> {
     match get_setting(db, MITM_SCOPE, MITM_WHITELIST_KEY).await? {
-        Some(v) => serde_json::from_value::<Vec<WhitelistEntry>>(v).map_err(|e| format!("parse whitelist: {e}")),
+        Some(v) => serde_json::from_value::<Vec<WhitelistEntry>>(v)
+            .map_err(|e| format!("parse whitelist: {e}")),
         None => Ok(Vec::new()),
     }
 }
@@ -431,17 +432,15 @@ fn parse_host_from_input(input: &str) -> String {
         trimmed.to_string()
     };
     if let Ok(parsed) = url::Url::parse(&candidate)
-        && let Some(host) = parsed.host_str() {
-            return host.to_lowercase();
-        }
+        && let Some(host) = parsed.host_str()
+    {
+        return host.to_lowercase();
+    }
     // 兜底：url crate 解析失败 → 取首段（剥 path/port）。
     // 例：`api.anthropic.com/v1` → `api.anthropic.com`；`api.anthropic.com:443` → `api.anthropic.com`。
-    let no_scheme = trimmed
-        .split("://")
-        .nth(1)
-        .unwrap_or(trimmed);
+    let no_scheme = trimmed.split("://").nth(1).unwrap_or(trimmed);
     no_scheme
-        .split([ '/', ':', '?', '#' ])
+        .split(['/', ':', '?', '#'])
         .next()
         .unwrap_or("")
         .to_lowercase()
@@ -472,24 +471,36 @@ fn untrust_command_spec(cert_pem: &str) -> (String, Vec<String>, String) {
 
 fn current_os_trust_command_name() -> String {
     #[cfg(target_os = "macos")]
-    { "macos-trust-ca".to_string() }
+    {
+        "macos-trust-ca".to_string()
+    }
     #[cfg(target_os = "windows")]
-    { "windows-trust-ca".to_string() }
+    {
+        "windows-trust-ca".to_string()
+    }
     #[cfg(all(unix, not(target_os = "macos")))]
     // Linux trust 走 /bin/sh -c "cp <pem> <dest> && update-ca-certificates"（ca.rs::trust_ca_command）。
     // capability `linux-shell-ca` 用 union regex 同时锁 trust 与 untrust 两种 -c 串。
-    { "linux-shell-ca".to_string() }
+    {
+        "linux-shell-ca".to_string()
+    }
 }
 
 fn current_os_untrust_command_name() -> String {
     #[cfg(target_os = "macos")]
-    { "macos-remove-ca".to_string() }
+    {
+        "macos-remove-ca".to_string()
+    }
     #[cfg(target_os = "windows")]
-    { "windows-remove-ca".to_string() }
+    {
+        "windows-remove-ca".to_string()
+    }
     #[cfg(all(unix, not(target_os = "macos")))]
     // Linux untrust 走 /bin/sh -c "rm -f <dest> && update-ca-certificates --fresh"（ca.rs::untrust_ca_command）。
     // 与 trust 共用 `linux-shell-ca` 命名命令（capability validator union regex 锁两形式）。
-    { "linux-shell-ca".to_string() }
+    {
+        "linux-shell-ca".to_string()
+    }
 }
 
 #[cfg(test)]
@@ -499,28 +510,46 @@ mod tests {
     // URL host 解析容错矩阵：完整 URL / scheme-relative / 裸 host / 含 port / 大小写。
     #[test]
     fn parse_host_full_url() {
-        assert_eq!(parse_host_from_input("https://api.anthropic.com/v1/messages"), "api.anthropic.com");
+        assert_eq!(
+            parse_host_from_input("https://api.anthropic.com/v1/messages"),
+            "api.anthropic.com"
+        );
     }
 
     #[test]
     fn parse_host_bare_host() {
-        assert_eq!(parse_host_from_input("api.anthropic.com"), "api.anthropic.com");
+        assert_eq!(
+            parse_host_from_input("api.anthropic.com"),
+            "api.anthropic.com"
+        );
     }
 
     #[test]
     fn parse_host_with_port() {
-        assert_eq!(parse_host_from_input("api.anthropic.com:443"), "api.anthropic.com");
-        assert_eq!(parse_host_from_input("https://api.anthropic.com:8443/path"), "api.anthropic.com");
+        assert_eq!(
+            parse_host_from_input("api.anthropic.com:443"),
+            "api.anthropic.com"
+        );
+        assert_eq!(
+            parse_host_from_input("https://api.anthropic.com:8443/path"),
+            "api.anthropic.com"
+        );
     }
 
     #[test]
     fn parse_host_scheme_relative() {
-        assert_eq!(parse_host_from_input("//api.anthropic.com/path"), "api.anthropic.com");
+        assert_eq!(
+            parse_host_from_input("//api.anthropic.com/path"),
+            "api.anthropic.com"
+        );
     }
 
     #[test]
     fn parse_host_lowercase_normalized() {
-        assert_eq!(parse_host_from_input("https://API.Anthropic.COM/"), "api.anthropic.com");
+        assert_eq!(
+            parse_host_from_input("https://API.Anthropic.COM/"),
+            "api.anthropic.com"
+        );
     }
 
     #[test]

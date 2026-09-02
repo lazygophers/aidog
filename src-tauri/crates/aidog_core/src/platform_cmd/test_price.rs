@@ -12,7 +12,18 @@ async fn resolve_price_falls_back_to_bundled_registry() {
     // 计费解析查 model_entry（票 T4；旧 model_price 表票 T6 已 DROP）：DB 未同步过，
     // 落到 bundled registry 的 (anthropic, claude-opus-4-6) 条目上。
     let settings = gateway::price_sync::get_sync_settings(&db).await;
-    let r = aidog_db::resolve_price(&db, "anthropic", "claude-opus-4-6", settings.fallback_input_price, settings.fallback_output_price, 0, 0, false).await.unwrap();
+    let r = aidog_db::resolve_price(
+        &db,
+        "anthropic",
+        "claude-opus-4-6",
+        settings.fallback_input_price,
+        settings.fallback_output_price,
+        0,
+        0,
+        false,
+    )
+    .await
+    .unwrap();
     assert_eq!(r.price.source, "model_entry");
     assert!(r.price.input_cost_per_token > 0.0);
     assert!(!r.peak_applied);

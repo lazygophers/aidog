@@ -106,19 +106,25 @@ pub(crate) async fn handle_count_tokens(
         settings: &sched_settings,
         sticky_key: Some(format!("{}|count_tokens", group.group_key)),
     };
-    let candidate_set =
-        match select_candidates_ctx(&state.db, group, &requested_model, Some(&sched_ctx)).await {
-            Ok(c) => c,
-            Err(e) => {
-                // 路由失败 → 本地估算兜底（不阻断 claude-cli）
-                tracing::warn!(group = %group.name, model = %requested_model, error = %e, "count_tokens: route failed, falling back to local estimate");
-                log.status_code = 200;
-                log.response_body = format!("route error (local estimate fallback): {e}");
-                let est_body = fallback_response!();
-                upsert_log(state, log, log_settings).await;
-                return est_response(&est_body);
-            }
-        };
+    let candidate_set = match select_candidates_ctx(
+        &state.db,
+        group,
+        &requested_model,
+        Some(&sched_ctx),
+    )
+    .await
+    {
+        Ok(c) => c,
+        Err(e) => {
+            // 路由失败 → 本地估算兜底（不阻断 claude-cli）
+            tracing::warn!(group = %group.name, model = %requested_model, error = %e, "count_tokens: route failed, falling back to local estimate");
+            log.status_code = 200;
+            log.response_body = format!("route error (local estimate fallback): {e}");
+            let est_body = fallback_response!();
+            upsert_log(state, log, log_settings).await;
+            return est_response(&est_body);
+        }
+    };
     let route = match candidate_set.candidates.into_iter().next() {
         Some(r) => r,
         None => {
@@ -169,10 +175,22 @@ pub(crate) async fn handle_count_tokens(
         let c = state.settings_cache.read().await;
         (c.system_timeout.clone(), c.proxy_client.clone())
     };
-    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
-    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let req_timeout = if system_timeout.request_timeout_secs > 0 {
+        system_timeout.request_timeout_secs
+    } else {
+        60
+    };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 {
+        system_timeout.connect_timeout_secs
+    } else {
+        10
+    };
     let client = super::http_client::build_http_client(
-        &proxy_client, req_timeout, conn_timeout, Some(&route.platform.extra), None,
+        &proxy_client,
+        req_timeout,
+        conn_timeout,
+        Some(&route.platform.extra),
+        None,
     )
     .await;
 
@@ -228,7 +246,11 @@ pub(crate) async fn handle_count_tokens(
     // 上游不支持该端点（4xx/5xx）→ 本地估算兜底，返回 200 而非透传错误
     tracing::warn!(url = %url, upstream_status = status.as_u16(), "count_tokens upstream unsupported, local estimate fallback");
     log.status_code = 200;
-    log.response_body = format!("upstream {} (local estimate fallback): {}", status.as_u16(), body_str);
+    log.response_body = format!(
+        "upstream {} (local estimate fallback): {}",
+        status.as_u16(),
+        body_str
+    );
     let est_body = fallback_response!();
     upsert_log(state, log, log_settings).await;
     est_response(&est_body)

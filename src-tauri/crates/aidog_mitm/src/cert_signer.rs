@@ -18,7 +18,7 @@ use std::time::Instant;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::sign::CertifiedKey;
 
-use super::ca::{sign_host_cert, RootCa};
+use super::ca::{RootCa, sign_host_cert};
 
 /// cert_signer 错（ST1 SignError 包装 + ST3 自有的 PEM / rustls 错）。
 ///
@@ -107,7 +107,10 @@ impl CertSigner {
             return Ok(cached.key);
         }
         let signed = sign_host_cert(&self.ca, host)?;
-        let ck = Arc::new(build_certified_key(signed.cert_pem, signed.private_key_pem)?);
+        let ck = Arc::new(build_certified_key(
+            signed.cert_pem,
+            signed.private_key_pem,
+        )?);
         let now = Instant::now();
         {
             let mut guard = self.cache.lock().unwrap();
@@ -169,7 +172,9 @@ fn parse_cert_chain_pem(cert_pem: &str) -> Result<Vec<CertificateDer<'static>>, 
         }
     }
     if chain.is_empty() {
-        return Err(CertSignError::Other("cert_pem has no X509Certificate".into()));
+        return Err(CertSignError::Other(
+            "cert_pem has no X509Certificate".into(),
+        ));
     }
     Ok(chain)
 }
@@ -179,9 +184,7 @@ fn parse_cert_chain_pem(cert_pem: &str) -> Result<Vec<CertificateDer<'static>>, 
 /// ponytail: 三种 Private*KeyDer 都是 PrivateKeyDer 的子类型构造器，各自 Into<PrivateKeyDer>。
 /// rustls-pemfile 返回具名 newtype（PrivatePkcs8KeyDer 等），不能在同一 match arm 绑定
 /// （类型不同）。逐 arm 提升为统一 PrivateKeyDer。
-fn parse_private_key_pem(
-    private_key_pem: &str,
-) -> Result<PrivateKeyDer<'static>, CertSignError> {
+fn parse_private_key_pem(private_key_pem: &str) -> Result<PrivateKeyDer<'static>, CertSignError> {
     use rustls_pemfile::Item;
     let mut cursor = std::io::Cursor::new(private_key_pem.as_bytes());
     loop {
@@ -204,7 +207,7 @@ fn parse_private_key_pem(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ca::{generate_root_ca, RootCa};
+    use crate::ca::{RootCa, generate_root_ca};
 
     /// 测试用 RootCa：从 rcgen 产物直接构造（ca.rs 的 `RootCa::new` 是私有关联函数，
     /// 跨模块不可达；这里用公开字段构造等价结构）。
@@ -256,9 +259,7 @@ mod tests {
     #[test]
     fn cert_signer_certified_key_nonempty() {
         let signer = CertSigner::new(test_ca());
-        let ck = signer
-            .certified_key_for("api.anthropic.com")
-            .expect("sign");
+        let ck = signer.certified_key_for("api.anthropic.com").expect("sign");
         assert!(!ck.cert.is_empty(), "cert chain must be non-empty");
         // end-entity cert DER 非空。
         assert!(!ck.cert[0].as_ref().is_empty());

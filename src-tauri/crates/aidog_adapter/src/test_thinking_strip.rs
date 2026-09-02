@@ -38,7 +38,10 @@ fn strip_anthropic_keeps_text_and_tool_use() {
 #[test]
 fn strip_noop_when_no_thinking() {
     let mut body = json!({ "content": [{ "type": "text", "text": "hi" }] });
-    assert!(!strip_thinking_in_body(&mut body, &Protocol::Anthropic), "无思维链不算改动");
+    assert!(
+        !strip_thinking_in_body(&mut body, &Protocol::Anthropic),
+        "无思维链不算改动"
+    );
 }
 
 #[test]
@@ -47,7 +50,11 @@ fn strip_openai_chat_reasoning_content() {
         "choices": [{ "message": { "role": "assistant", "content": "答案", "reasoning_content": "想" } }]
     });
     assert!(strip_thinking_in_body(&mut body, &Protocol::OpenAI));
-    assert!(body["choices"][0]["message"].get("reasoning_content").is_none());
+    assert!(
+        body["choices"][0]["message"]
+            .get("reasoning_content")
+            .is_none()
+    );
     assert_eq!(body["choices"][0]["message"]["content"], "答案");
 }
 
@@ -60,7 +67,9 @@ fn strip_gemini_thought_parts() {
         ]}}]
     });
     assert!(strip_thinking_in_body(&mut body, &Protocol::Gemini));
-    let parts = body["candidates"][0]["content"]["parts"].as_array().unwrap();
+    let parts = body["candidates"][0]["content"]["parts"]
+        .as_array()
+        .unwrap();
     assert_eq!(parts.len(), 1);
     assert_eq!(parts[0]["text"], "答案");
 }
@@ -96,7 +105,10 @@ fn sse_strip_handles_frame_split_across_chunks() {
     let mut out = s.push("event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_bl");
     out.push_str(&s.push("ock\":{\"type\":\"thinking\"}}\n\nevent: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\"}}\n\n"));
     out.push_str(&s.finish());
-    assert!(!out.contains("thinking"), "被 chunk 切断的 thinking 帧也要丢: {out}");
+    assert!(
+        !out.contains("thinking"),
+        "被 chunk 切断的 thinking 帧也要丢: {out}"
+    );
     assert!(out.contains("\"type\":\"text\""));
 }
 

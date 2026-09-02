@@ -14,7 +14,7 @@
 
 use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
 
-use super::{collect_patterns, replace_match, EvalView, MiddlewareEngine};
+use super::{EvalView, MiddlewareEngine, collect_patterns, replace_match};
 
 /// error classify 结果。喂给现有重试编排：
 /// - `retryable == false` → 重试编排立即返回不换候选（用 override_status/body 若有）。
@@ -62,8 +62,11 @@ impl MiddlewareEngine {
                     ActionKind::Mask | ActionKind::Override => {
                         for leaf in collect_patterns(&cr.conditions, Target::ResponseBody) {
                             *body = replace_match(
-                                leaf.match_type, &leaf.regex, &leaf.pattern,
-                                body, &step.params.replacement,
+                                leaf.match_type,
+                                &leaf.regex,
+                                &leaf.pattern,
+                                body,
+                                &step.params.replacement,
                             );
                         }
                     }
@@ -103,7 +106,12 @@ impl MiddlewareEngine {
             if !cr.conditions.eval(&view) {
                 continue;
             }
-            let Some(step) = cr.rule.actions.iter().find(|a| a.kind == ActionKind::Classify) else {
+            let Some(step) = cr
+                .rule
+                .actions
+                .iter()
+                .find(|a| a.kind == ActionKind::Classify)
+            else {
                 continue;
             };
             return Some(ErrorClassification {
@@ -145,8 +153,11 @@ impl MiddlewareEngine {
                     ActionKind::Mask | ActionKind::Override => {
                         for leaf in &leaves {
                             out = replace_match(
-                                leaf.match_type, &leaf.regex, &leaf.pattern,
-                                &out, &step.params.replacement,
+                                leaf.match_type,
+                                &leaf.regex,
+                                &leaf.pattern,
+                                &out,
+                                &step.params.replacement,
                             );
                         }
                     }

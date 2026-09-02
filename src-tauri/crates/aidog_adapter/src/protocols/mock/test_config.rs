@@ -4,7 +4,7 @@ use serde_json::json;
 /// 最小 ChatRequest（messages 用 Anthropic 兼容结构，role 仅 User/Assistant/System/Tool）。
 fn chat_req(messages: Vec<Message>) -> ChatRequest {
     ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "mock-model".to_string(),
         messages,
         system: None,
@@ -155,9 +155,10 @@ fn apply_field_response_text_and_error_mode_via_role() {
 fn message_blocks_content_concatenated_for_role_field() {
     let req = chat_req(vec![Message {
         role: Role::User,
-        content: MessageContent::Blocks(vec![
-            ContentBlock::Text { text: "10".to_string(), extra: None },
-        ]),
+        content: MessageContent::Blocks(vec![ContentBlock::Text {
+            text: "10".to_string(),
+            extra: None,
+        }]),
     }]);
     // role=user does not match any field; no change to defaults
     let cfg = resolve_mock_config("", &req, &json!({}));

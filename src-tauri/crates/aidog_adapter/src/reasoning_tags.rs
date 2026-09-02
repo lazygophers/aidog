@@ -64,7 +64,10 @@ impl InlineReasoningSplitter {
                     let hold = partial_tail_len(&self.buf, &[close]);
                     let emit_to = self.buf.len() - hold;
                     if emit_to > 0 {
-                        push_seg(&mut out, Segment::Reasoning(self.buf[..emit_to].to_string()));
+                        push_seg(
+                            &mut out,
+                            Segment::Reasoning(self.buf[..emit_to].to_string()),
+                        );
                         self.buf.drain(..emit_to);
                     }
                     break;
@@ -80,8 +83,9 @@ impl InlineReasoningSplitter {
                         self.buf.drain(..i);
                     }
                     // buf 现以 '<' 开头
-                    if let Some((open, close)) =
-                        TAG_PAIRS.iter().find(|(open, _)| self.buf.starts_with(*open))
+                    if let Some((open, close)) = TAG_PAIRS
+                        .iter()
+                        .find(|(open, _)| self.buf.starts_with(*open))
                     {
                         self.buf.drain(..open.len());
                         self.open_close_tag = Some(close);

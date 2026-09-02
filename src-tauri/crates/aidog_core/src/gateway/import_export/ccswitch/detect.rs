@@ -13,14 +13,15 @@ fn resolve_ccswitch_dir() -> Result<PathBuf, String> {
     let settings_path = default_dir.join("settings.json");
     if settings_path.exists()
         && let Ok(txt) = std::fs::read_to_string(&settings_path)
-            && let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt)
-                && let Some(custom) = v.get("configDir").and_then(|x| x.as_str())
-                    && !custom.is_empty() {
-                        let p = PathBuf::from(custom);
-                        if p.is_absolute() {
-                            return Ok(expand_tilde(&p));
-                        }
-                    }
+        && let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt)
+        && let Some(custom) = v.get("configDir").and_then(|x| x.as_str())
+        && !custom.is_empty()
+    {
+        let p = PathBuf::from(custom);
+        if p.is_absolute() {
+            return Ok(expand_tilde(&p));
+        }
+    }
     Ok(default_dir)
 }
 
@@ -28,9 +29,10 @@ fn resolve_ccswitch_dir() -> Result<PathBuf, String> {
 pub(super) fn expand_tilde(p: &Path) -> PathBuf {
     let s = p.to_string_lossy();
     if let Some(rest) = s.strip_prefix("~")
-        && let Some(home) = dirs::home_dir() {
-            return home.join(rest.trim_start_matches('/'));
-        }
+        && let Some(home) = dirs::home_dir()
+    {
+        return home.join(rest.trim_start_matches('/'));
+    }
     p.to_path_buf()
 }
 
@@ -72,8 +74,8 @@ pub async fn detect(override_path: Option<String>) -> Result<CcswitchDetection, 
 }
 
 fn count_providers_sqlite(db_path: &Path) -> Result<i64, String> {
-    let conn = rusqlite::Connection::open(db_path)
-        .map_err(|e| format!("open cc-switch db: {e}"))?;
+    let conn =
+        rusqlite::Connection::open(db_path).map_err(|e| format!("open cc-switch db: {e}"))?;
     let n: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM providers WHERE app_type IN ('claude','codex')",
@@ -86,11 +88,16 @@ fn count_providers_sqlite(db_path: &Path) -> Result<i64, String> {
 
 fn count_providers_json(json_path: &Path) -> Result<i64, String> {
     let txt = std::fs::read_to_string(json_path).map_err(|e| format!("read json: {e}"))?;
-    let v: serde_json::Value = serde_json::from_str(&txt).map_err(|e| format!("parse json: {e}"))?;
+    let v: serde_json::Value =
+        serde_json::from_str(&txt).map_err(|e| format!("parse json: {e}"))?;
     // MultiAppConfig: {claudeConfig:{providers:[...]}, codexConfig:{providers:[...]}}
     let mut n = 0i64;
     for key in &["claudeConfig", "codexConfig"] {
-        if let Some(arr) = v.get(key).and_then(|x| x.get("providers")).and_then(|x| x.as_array()) {
+        if let Some(arr) = v
+            .get(key)
+            .and_then(|x| x.get("providers"))
+            .and_then(|x| x.as_array())
+        {
             n += arr.len() as i64;
         }
     }
@@ -109,7 +116,10 @@ mod tests {
         let expanded = expand_tilde(&p);
         let s = expanded.to_string_lossy();
         // Should not start with ~ anymore
-        assert!(!s.starts_with('~'), "expanded path should not start with ~: {s}");
+        assert!(
+            !s.starts_with('~'),
+            "expanded path should not start with ~: {s}"
+        );
         assert!(s.contains("foo/bar"), "should contain the path: {s}");
     }
 
@@ -174,7 +184,11 @@ mod tests {
     #[tokio::test]
     async fn detect_with_override_nonexistent_dir() {
         let tmp_dir = tempfile::tempdir().unwrap();
-        let nonexistent = tmp_dir.path().join("no-such-dir").to_string_lossy().to_string();
+        let nonexistent = tmp_dir
+            .path()
+            .join("no-such-dir")
+            .to_string_lossy()
+            .to_string();
         let result = detect(Some(nonexistent)).await.unwrap();
         // Should report not found since the dir has no cc-switch.db or config.json
         assert!(!result.found);
@@ -188,7 +202,9 @@ mod tests {
         });
         let config_path = tmp_dir.path().join("config.json");
         std::fs::write(&config_path, config.to_string()).unwrap();
-        let result = detect(Some(tmp_dir.path().to_string_lossy().to_string())).await.unwrap();
+        let result = detect(Some(tmp_dir.path().to_string_lossy().to_string()))
+            .await
+            .unwrap();
         assert!(result.found);
         assert_eq!(result.source_type, "json");
         assert_eq!(result.provider_count, 1);
@@ -203,7 +219,9 @@ mod tests {
         let conn = rusqlite::Connection::open(&db_path).unwrap();
         conn.execute_batch("CREATE TABLE providers (id TEXT, app_type TEXT, name TEXT, settings_config TEXT, website_url TEXT)").unwrap();
         drop(conn);
-        let result = detect(Some(tmp_dir.path().to_string_lossy().to_string())).await.unwrap();
+        let result = detect(Some(tmp_dir.path().to_string_lossy().to_string()))
+            .await
+            .unwrap();
         assert!(result.found);
         assert_eq!(result.source_type, "sqlite");
     }

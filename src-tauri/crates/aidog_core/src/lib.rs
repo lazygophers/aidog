@@ -9,25 +9,27 @@
 
 pub mod gateway;
 pub mod shared;
-pub mod logging { pub use aidog_db::logging::*; }
-pub mod sync_settings;
-pub mod hooks;
-pub mod tray_render;
+pub mod logging {
+    pub use aidog_db::logging::*;
+}
 mod command_macro;
+pub mod hooks;
+pub mod sync_settings;
+pub mod tray_render;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
 pub mod popover;
 // C3 c3-commands 第 2 批：commands_cli_env / commands_config / commands_cli_proxy 下沉。
 pub mod cli_env;
-pub mod settings;
 pub mod defaults;
+pub mod settings;
 // C3 c3-commands 第 3 批：commands_system / commands_ai_tools 下沉。
-pub mod system_cmd;
 pub mod ai_tools_cmd;
 pub mod platform_cmd;
 pub mod proxy_cmd;
+pub mod system_cmd;
 
 // 顶层 re-export：commands 域 / root package / 测试常用类型直引 `aidog_core::<X>`。
-pub use gateway::models::*;
 pub use aidog_db::Db;
 pub use gateway::models::SetSettingInput;
-pub use tray_render::{refresh_tray_menu, TrayMenuBuild, TrayLayout, TrayColumn};
+pub use gateway::models::*;
+pub use tray_render::{TrayColumn, TrayLayout, TrayMenuBuild, refresh_tray_menu};

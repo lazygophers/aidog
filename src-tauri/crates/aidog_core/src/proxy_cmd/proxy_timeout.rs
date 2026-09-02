@@ -3,7 +3,6 @@ use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
-
 use gateway::models::ProxyTimeoutSettings;
 
 crate::tauri_command! {

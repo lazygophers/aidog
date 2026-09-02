@@ -1,7 +1,7 @@
 use serde_json::json;
 
-use crate::types::*;
 use super::{parse_openai_sse, to_openai_sse};
+use crate::types::*;
 
 #[test]
 fn parse_text_delta() {
@@ -24,7 +24,9 @@ fn parse_tool_delta() {
         "id": "c1", "function": {"name": "f", "arguments": "{}"}
     }]}}]});
     match parse_openai_sse(&d) {
-        Some(ChatStreamEvent::ToolDelta { id, name, input, .. }) => {
+        Some(ChatStreamEvent::ToolDelta {
+            id, name, input, ..
+        }) => {
             assert_eq!(id.as_deref(), Some("c1"));
             assert_eq!(name.as_deref(), Some("f"));
             assert_eq!(input.as_deref(), Some("{}"));
@@ -60,7 +62,10 @@ fn parse_missing_choices_none() {
 
 #[test]
 fn to_sse_start() {
-    let ev = ChatStreamEvent::Start { id: "x".into(), model: "m".into() };
+    let ev = ChatStreamEvent::Start {
+        id: "x".into(),
+        model: "m".into(),
+    };
     let s = to_openai_sse(&ev, "m").expect("start");
     assert!(s.contains("chat.completion.chunk"));
     assert!(s.contains("\"role\":\"assistant\""));
@@ -100,13 +105,20 @@ fn to_sse_tool_delta_input_only() {
 
 #[test]
 fn to_sse_tool_delta_empty_none() {
-    let ev = ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: None };
+    let ev = ChatStreamEvent::ToolDelta {
+        index: 0,
+        id: None,
+        name: None,
+        input: None,
+    };
     assert!(to_openai_sse(&ev, "m").is_none());
 }
 
 #[test]
 fn to_sse_stop_maps_end_turn() {
-    let ev = ChatStreamEvent::Stop { finish_reason: Some("end_turn".into()) };
+    let ev = ChatStreamEvent::Stop {
+        finish_reason: Some("end_turn".into()),
+    };
     let s = to_openai_sse(&ev, "m").expect("stop");
     assert!(s.contains("\"finish_reason\":\"stop\""));
     assert!(s.contains("[DONE]"));
@@ -114,14 +126,18 @@ fn to_sse_stop_maps_end_turn() {
 
 #[test]
 fn to_sse_stop_passthrough_other() {
-    let ev = ChatStreamEvent::Stop { finish_reason: Some("length".into()) };
+    let ev = ChatStreamEvent::Stop {
+        finish_reason: Some("length".into()),
+    };
     let s = to_openai_sse(&ev, "m").expect("stop");
     assert!(s.contains("\"finish_reason\":\"length\""));
 }
 
 #[test]
 fn to_sse_stop_default_none() {
-    let ev = ChatStreamEvent::Stop { finish_reason: None };
+    let ev = ChatStreamEvent::Stop {
+        finish_reason: None,
+    };
     let s = to_openai_sse(&ev, "m").expect("stop");
     assert!(s.contains("stop"));
 }
@@ -129,7 +145,11 @@ fn to_sse_stop_default_none() {
 #[test]
 fn to_sse_usage_none() {
     let ev = ChatStreamEvent::Usage {
-        usage: Usage { prompt_tokens: Some(1), completion_tokens: Some(1), total_tokens: Some(2) },
+        usage: Usage {
+            prompt_tokens: Some(1),
+            completion_tokens: Some(1),
+            total_tokens: Some(2),
+        },
     };
     assert!(to_openai_sse(&ev, "m").is_none());
 }
@@ -151,7 +171,9 @@ fn parse_empty_reasoning_content_none() {
 
 #[test]
 fn to_sse_reasoning_delta() {
-    let ev = ChatStreamEvent::ReasoningDelta { text: "reasoning...".into() };
+    let ev = ChatStreamEvent::ReasoningDelta {
+        text: "reasoning...".into(),
+    };
     let s = to_openai_sse(&ev, "m").expect("reasoning delta");
     assert!(s.contains("reasoning_content"));
     assert!(s.contains("reasoning..."));

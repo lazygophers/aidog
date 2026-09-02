@@ -34,10 +34,7 @@ fn direct_source_if_file(path: Option<&str>) -> Option<(String, String)> {
     Some((source_type.to_string(), p.to_string_lossy().into_owned()))
 }
 
-pub async fn read(
-    _db: &Db,
-    path: Option<String>,
-) -> Result<CcswitchReadResult, String> {
+pub async fn read(_db: &Db, path: Option<String>) -> Result<CcswitchReadResult, String> {
     // path = 文件路径 → 直读（不重跑 detect，避开文件被当目录的错配）；
     // 缺省 / 指向目录 / 文件不存在 → 探测后读。
     let (source_type, path_str) = match direct_source_if_file(path.as_deref()) {
@@ -68,8 +65,8 @@ pub async fn read(
 }
 
 fn read_sqlite(db_path: &Path) -> Result<Vec<CcProvider>, String> {
-    let conn = rusqlite::Connection::open(db_path)
-        .map_err(|e| format!("open cc-switch db: {e}"))?;
+    let conn =
+        rusqlite::Connection::open(db_path).map_err(|e| format!("open cc-switch db: {e}"))?;
     // 只取需要的列；gemini/hermes/... 等不导入。
     let mut stmt = conn
         .prepare(
@@ -85,7 +82,8 @@ fn read_sqlite(db_path: &Path) -> Result<Vec<CcProvider>, String> {
             let name: String = r.get(2)?;
             let sc_txt: String = r.get(3)?;
             let website_url: Option<String> = r.get(4).ok();
-            let sc: serde_json::Value = serde_json::from_str(&sc_txt).unwrap_or(serde_json::Value::Null);
+            let sc: serde_json::Value =
+                serde_json::from_str(&sc_txt).unwrap_or(serde_json::Value::Null);
             Ok((id, app_type, name, sc, website_url))
         })
         .map_err(|e| format!("query providers: {e}"))?;
@@ -100,12 +98,17 @@ fn read_sqlite(db_path: &Path) -> Result<Vec<CcProvider>, String> {
 
 fn read_json(json_path: &Path) -> Result<Vec<CcProvider>, String> {
     let txt = std::fs::read_to_string(json_path).map_err(|e| format!("read json: {e}"))?;
-    let v: serde_json::Value = serde_json::from_str(&txt).map_err(|e| format!("parse json: {e}"))?;
+    let v: serde_json::Value =
+        serde_json::from_str(&txt).map_err(|e| format!("parse json: {e}"))?;
 
     let mut out = Vec::new();
     // claudeConfig / codexConfig 各含 providers 数组。
     for (app_type, key) in [("claude", "claudeConfig"), ("codex", "codexConfig")] {
-        let Some(arr) = v.get(key).and_then(|x| x.get("providers")).and_then(|x| x.as_array()) else {
+        let Some(arr) = v
+            .get(key)
+            .and_then(|x| x.get("providers"))
+            .and_then(|x| x.as_array())
+        else {
             continue;
         };
         for (i, p) in arr.iter().enumerate() {
@@ -127,7 +130,13 @@ fn read_json(json_path: &Path) -> Result<Vec<CcProvider>, String> {
                 .get("settingsConfig")
                 .cloned()
                 .unwrap_or(serde_json::Value::Null);
-            out.push(build_provider(id, app_type.to_string(), name, settings_config, website_url));
+            out.push(build_provider(
+                id,
+                app_type.to_string(),
+                name,
+                settings_config,
+                website_url,
+            ));
         }
     }
     Ok(out)

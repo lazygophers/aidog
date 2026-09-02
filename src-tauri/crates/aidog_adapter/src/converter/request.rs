@@ -9,7 +9,11 @@ use super::super::types::*;
 ///
 /// - `wire_protocol`: 请求体格式（由 endpoint 协议决定：anthropic/openai/openai_responses/openai_completions/gemini）
 /// - `platform_protocol`: 平台类型（由平台主协议决定，决定 OpenAI-compatible 平台的 API 路径）
-pub fn convert_request(req: &ChatRequest, wire_protocol: &Protocol, platform_protocol: &Protocol) -> (Value, String) {
+pub fn convert_request(
+    req: &ChatRequest,
+    wire_protocol: &Protocol,
+    platform_protocol: &Protocol,
+) -> (Value, String) {
     match wire_protocol {
         Protocol::Anthropic => {
             let anthropic_req = super::super::anthropic::to_anthropic(req);
@@ -56,7 +60,11 @@ fn provider_api_path(_protocol: &Protocol) -> String {
 ///
 /// 路径约定：Anthropic/Gemini 的 base_url 不带版本，path 含 `/v1`；OpenAI 系（chat/responses/completions）
 /// base_url 约定带 `/v1`，path 只返后缀，禁重复拼。
-pub fn passthrough_api_path(wire_protocol: &Protocol, model: &str, platform_protocol: &Protocol) -> String {
+pub fn passthrough_api_path(
+    wire_protocol: &Protocol,
+    model: &str,
+    platform_protocol: &Protocol,
+) -> String {
     match wire_protocol {
         Protocol::Anthropic => "/v1/messages".to_string(),
         Protocol::Gemini => format!("/v1beta/models/{}:streamGenerateContent", model),
@@ -69,31 +77,42 @@ pub fn passthrough_api_path(wire_protocol: &Protocol, model: &str, platform_prot
 /// 将入站请求按源协议解析为内部 ChatRequest（支持所有 AI 请求协议）。
 ///
 /// 返回 `Err(String)` 携带解析失败原因(serde 错误细节等)，供上层记录到日志便于诊断。
-pub fn parse_incoming_request(source_protocol: &Protocol, body: &Value) -> Result<ChatRequest, String> {
+pub fn parse_incoming_request(
+    source_protocol: &Protocol,
+    body: &Value,
+) -> Result<ChatRequest, String> {
     match source_protocol {
-        Protocol::OpenAI => super::super::openai::from_openai(body).ok_or_else(|| "openai from_openai returned None".to_string()),
-        Protocol::OpenAIResponses => super::super::openai_responses::from_responses(body).ok_or_else(|| "openai_responses from_responses returned None".to_string()),
-        Protocol::OpenAICompletions => super::super::openai_completions::from_completions(body).ok_or_else(|| "openai_completions from_completions returned None".to_string()),
-        Protocol::Gemini => super::super::gemini::from_gemini(body).ok_or_else(|| "gemini from_gemini returned None".to_string()),
+        Protocol::OpenAI => super::super::openai::from_openai(body)
+            .ok_or_else(|| "openai from_openai returned None".to_string()),
+        Protocol::OpenAIResponses => super::super::openai_responses::from_responses(body)
+            .ok_or_else(|| "openai_responses from_responses returned None".to_string()),
+        Protocol::OpenAICompletions => super::super::openai_completions::from_completions(body)
+            .ok_or_else(|| "openai_completions from_completions returned None".to_string()),
+        Protocol::Gemini => super::super::gemini::from_gemini(body)
+            .ok_or_else(|| "gemini from_gemini returned None".to_string()),
         // Anthropic / 其余非 wire 平台变体: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化;
         // ContentBlock 已对未知类型(thinking/image/…)降级 Unknown, 失败时返回 serde 错误细节供诊断。
         // thinking.budget_tokens 落在 serde(flatten) extra 内，反序列化后提取到 thinking_budget。
         _ => {
-            let mut req: ChatRequest = serde_json::from_value(body.clone()).map_err(|e| e.to_string())?;
-            req.thinking_budget = req.extra
+            let mut req: ChatRequest =
+                serde_json::from_value(body.clone()).map_err(|e| e.to_string())?;
+            req.thinking_budget = req
+                .extra
                 .as_ref()
                 .and_then(|e| e.get("thinking"))
                 .and_then(|t| t.get("budget_tokens"))
                 .and_then(|v| v.as_u64())
                 .map(|v| v as u32);
             // thinking.type 三态与 output_config.effort 档位同样落在 extra 内，提取到 thinking_mode
-            let kind = req.extra
+            let kind = req
+                .extra
                 .as_ref()
                 .and_then(|e| e.get("thinking"))
                 .and_then(|t| t.get("type"))
                 .and_then(|v| v.as_str())
                 .map(str::to_string);
-            let effort = req.extra
+            let effort = req
+                .extra
                 .as_ref()
                 .and_then(|e| e.get("output_config"))
                 .and_then(|c| c.get("effort"))

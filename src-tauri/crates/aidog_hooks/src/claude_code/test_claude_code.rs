@@ -80,7 +80,11 @@ fn inject_reconfig_removes_stale_events() {
     // 改配置：先注入 Stop+Notification，再注入仅 SessionEnd → 旧 aidog 项应被清。
     let mut cfg = json!({});
     let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
-    inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop", "Notification"]));
+    inject_claude_code_hooks(
+        &mut cfg,
+        &scripts,
+        &enabled_events(&["Stop", "Notification"]),
+    );
     inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["SessionEnd"]));
     // 旧 Stop/Notification aidog 项已清。
     assert!(cfg["hooks"].get("Stop").is_none());
@@ -159,7 +163,11 @@ fn remove_strips_aidog_within_mixed_group() {
 fn remove_claude_code_drops_empty_hooks_object() {
     let mut cfg = json!({});
     let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
-    inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop", "Notification"]));
+    inject_claude_code_hooks(
+        &mut cfg,
+        &scripts,
+        &enabled_events(&["Stop", "Notification"]),
+    );
     remove_claude_code_hooks(&mut cfg);
     // 没有用户 hook → hooks 对象删除
     assert!(cfg.get("hooks").is_none());
@@ -174,7 +182,11 @@ fn notify_hooks_fragment_shape() {
         "/u/.aidog/scripts/aidog-notify-complete.py",
         "/u/.aidog/scripts/aidog-notify.py",
     );
-    inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop", "Notification"]));
+    inject_claude_code_hooks(
+        &mut cfg,
+        &scripts,
+        &enabled_events(&["Stop", "Notification"]),
+    );
     let fragment = cfg.get("hooks").cloned().unwrap();
     // 片段含 Stop / Notification，且不含 _aidog_hooks 标记（标记在外层 config）。
     assert!(fragment.get("Stop").is_some());
@@ -194,12 +206,18 @@ fn notify_hooks_fragment_shape() {
 
 #[test]
 fn marker_enabled_parsing() {
-    assert!(hooks_marker_enabled(&json!({ "_aidog_hooks": { "enabled": true } })));
-    assert!(!hooks_marker_enabled(&json!({ "_aidog_hooks": { "enabled": false } })));
+    assert!(hooks_marker_enabled(
+        &json!({ "_aidog_hooks": { "enabled": true } })
+    ));
+    assert!(!hooks_marker_enabled(
+        &json!({ "_aidog_hooks": { "enabled": false } })
+    ));
     // marker 缺失 → false
     assert!(!hooks_marker_enabled(&json!({})));
     // enabled 非布尔 → false
-    assert!(!hooks_marker_enabled(&json!({ "_aidog_hooks": { "enabled": "yes" } })));
+    assert!(!hooks_marker_enabled(
+        &json!({ "_aidog_hooks": { "enabled": "yes" } })
+    ));
     // marker 非对象 → false
     assert!(!hooks_marker_enabled(&json!({ "_aidog_hooks": true })));
 }

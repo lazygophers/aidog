@@ -56,7 +56,7 @@ pub use types::{
 pub use types::{SkillFile, SkillInfo};
 
 pub use bulk::{align_agents, enable_all, install_batch, uninstall_batch};
-pub use cache::{invalidate, list_cached, list_refresh, CachedSkills};
+pub use cache::{CachedSkills, invalidate, list_cached, list_refresh};
 pub use catalog::{browse_catalog, search};
 pub use detail::{detail, read_file};
 pub use env::{check_env, runtime_path};

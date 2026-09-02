@@ -62,13 +62,27 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
     if let Some(remote) = remote_index_updated {
         let s = get_sync_settings(db).await;
         if s.registry_last_updated > 0 && remote <= s.registry_last_updated {
-            tracing::info!(remote, local = s.registry_last_updated, "registry sync skipped: index not newer");
+            tracing::info!(
+                remote,
+                local = s.registry_last_updated,
+                "registry sync skipped: index not newer"
+            );
             save_sync_settings(
                 db,
-                &super::models::PriceSyncSettings { last_sync_at: aidog_db::now(), ..s },
+                &super::models::PriceSyncSettings {
+                    last_sync_at: aidog_db::now(),
+                    ..s
+                },
             )
             .await;
-            return Ok(PriceSyncResult { added: 0, updated: 0, unchanged: 0, failed: 0, total: 0, failures: Vec::new() });
+            return Ok(PriceSyncResult {
+                added: 0,
+                updated: 0,
+                unchanged: 0,
+                failed: 0,
+                total: 0,
+                failures: Vec::new(),
+            });
         }
     }
 
@@ -110,7 +124,10 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
             Ok(b) => b,
             Err(error) => {
                 tracing::warn!(file = %job.path, %error, "registry sync: file failed, keeping db row");
-                failures.push(SyncFailure { file: job.path, error });
+                failures.push(SyncFailure {
+                    file: job.path,
+                    error,
+                });
                 continue;
             }
         };
@@ -122,12 +139,18 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
                     preset_data: body,
                     updated_at: 0,
                 }),
-                _ => failures.push(SyncFailure { file: job.path, error: "invalid platform json".into() }),
+                _ => failures.push(SyncFailure {
+                    file: job.path,
+                    error: "invalid platform json".into(),
+                }),
             }
         } else {
             match aidog_db::model_entry_from_json(&job.platform_code, &body) {
                 Some(e) => entries.push(e),
-                None => failures.push(SyncFailure { file: job.path, error: "invalid model json".into() }),
+                None => failures.push(SyncFailure {
+                    file: job.path,
+                    error: "invalid model json".into(),
+                }),
             }
         }
     }
@@ -142,9 +165,18 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
     let presets: Vec<PlatformPreset> = presets
         .into_iter()
         .filter(|p| match old_presets.get(&p.code) {
-            None => { added += 1; true }
-            Some(old) if *old == p.preset_data => { unchanged += 1; false }
-            Some(_) => { updated += 1; true }
+            None => {
+                added += 1;
+                true
+            }
+            Some(old) if *old == p.preset_data => {
+                unchanged += 1;
+                false
+            }
+            Some(_) => {
+                updated += 1;
+                true
+            }
         })
         .collect();
 
@@ -155,17 +187,34 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         .collect();
     let entries: Vec<ModelEntry> = entries
         .into_iter()
-        .filter(|e| match old_entries.get(&(e.platform_code.clone(), e.model_id.clone())) {
-            None => { added += 1; true }
-            Some(old) if *old == e.price_data => { unchanged += 1; false }
-            Some(_) => { updated += 1; true }
-        })
+        .filter(
+            |e| match old_entries.get(&(e.platform_code.clone(), e.model_id.clone())) {
+                None => {
+                    added += 1;
+                    true
+                }
+                Some(old) if *old == e.price_data => {
+                    unchanged += 1;
+                    false
+                }
+                Some(_) => {
+                    updated += 1;
+                    true
+                }
+            },
+        )
         .collect();
 
     // DB 写入同样 best-effort：一行脏数据不该吞掉整轮结果（`last_sync_at` 不写、
     // failures 清单整个丢失、前端只看到一个字符串错误）。写失败的行并进 failures。
-    failures.extend(write_failures("platform_preset", aidog_db::upsert_platform_presets(db, presets).await));
-    failures.extend(write_failures("model_entry", aidog_db::upsert_model_entries_best_effort(db, entries).await));
+    failures.extend(write_failures(
+        "platform_preset",
+        aidog_db::upsert_platform_presets(db, presets).await,
+    ));
+    failures.extend(write_failures(
+        "model_entry",
+        aidog_db::upsert_model_entries_best_effort(db, entries).await,
+    ));
     // preset 写入作废了热路径缓存，这里把新值装回去（路由/计费与前端读同一份）。
     if let Err(e) = aidog_db::refresh_presets_cache(db).await {
         tracing::warn!(error = %e, "registry sync: refresh presets cache failed");
@@ -189,8 +238,22 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
     .await;
 
     let failed = failures.len() as u32;
-    tracing::info!(added, updated, unchanged, failed, total, "registry sync completed");
-    Ok(PriceSyncResult { added, updated, unchanged, failed, total, failures })
+    tracing::info!(
+        added,
+        updated,
+        unchanged,
+        failed,
+        total,
+        "registry sync completed"
+    );
+    Ok(PriceSyncResult {
+        added,
+        updated,
+        unchanged,
+        failed,
+        total,
+        failures,
+    })
 }
 
 /// DB 写入结果 → 失败清单：整个事务打不开记一条（`what` 定位到表），单行失败逐条记。
@@ -204,17 +267,26 @@ fn write_failures(
             for (file, error) in &rows {
                 tracing::warn!(%file, %error, "registry sync: db row write failed");
             }
-            rows.into_iter().map(|(file, error)| SyncFailure { file, error }).collect()
+            rows.into_iter()
+                .map(|(file, error)| SyncFailure { file, error })
+                .collect()
         }
         Err(error) => {
             tracing::error!(table = what, %error, "registry sync: db write failed");
-            vec![SyncFailure { file: what.to_string(), error }]
+            vec![SyncFailure {
+                file: what.to_string(),
+                error,
+            }]
         }
     }
 }
 
 /// 逐源回退拉单个 registry 文件（`path` 是 registry 内相对路径）。全部源失败才返 Err。
-async fn fetch_with_fallback(client: &reqwest::Client, bases: &[&str], path: &str) -> Result<String, String> {
+async fn fetch_with_fallback(
+    client: &reqwest::Client,
+    bases: &[&str],
+    path: &str,
+) -> Result<String, String> {
     let mut last = "no source configured".to_string();
     for base in bases {
         match fetch_one(client, &format!("{base}/{path}")).await {
@@ -229,7 +301,11 @@ async fn fetch_with_fallback(client: &reqwest::Client, bases: &[&str], path: &st
 }
 
 async fn fetch_one(client: &reqwest::Client, url: &str) -> Result<String, String> {
-    let resp = client.get(url).send().await.map_err(|e| format!("fetch: {e}"))?;
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| format!("fetch: {e}"))?;
     if !resp.status().is_success() {
         return Err(format!("status {}", resp.status()));
     }
@@ -255,11 +331,14 @@ pub async fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSett
             return;
         }
     };
-    if let Err(e) = aidog_db::set_setting(db, super::models::SetSettingInput {
-        scope: "pricing".into(),
-        key: "sync".into(),
-        value,
-    })
+    if let Err(e) = aidog_db::set_setting(
+        db,
+        super::models::SetSettingInput {
+            scope: "pricing".into(),
+            key: "sync".into(),
+            value,
+        },
+    )
     .await
     {
         tracing::warn!(error = %e, "save price sync settings: db write failed");

@@ -1,5 +1,5 @@
-use aidog_stats::DbInitTables;
 use super::*;
+use aidog_stats::DbInitTables;
 use serde_json::json;
 
 #[test]
@@ -12,14 +12,11 @@ fn claude_env_extract() {
             "ANTHROPIC_DEFAULT_HAIKU_MODEL": "claude-haiku-4-5"
         }
     });
-    let p = build_provider(
-        "id1".into(),
-        "claude".into(),
-        "Test".into(),
-        sc,
-        None,
+    let p = build_provider("id1".into(), "claude".into(), "Test".into(), sc, None);
+    assert_eq!(
+        p.detected_base_url.as_deref(),
+        Some("https://api.example.com")
     );
-    assert_eq!(p.detected_base_url.as_deref(), Some("https://api.example.com"));
     assert_eq!(p.detected_api_key.as_deref(), Some("sk-token-xxx"));
     assert!(p.codex_config_parsed.is_none());
 }
@@ -70,14 +67,20 @@ fn codex_settings_config_extract() {
         "config": "model_provider = \"newapi\"\nmodel = \"gpt-5.4\"\n\n[model_providers]\n[model_providers.newapi]\nname = \"NewAPI\"\nbase_url = \"https://api.cometapi.com/v1\"\nwire_api = \"responses\"\nrequires_openai_auth = true\n"
     });
     let p = build_provider("codex1".into(), "codex".into(), "Comet".into(), sc, None);
-    assert_eq!(p.detected_api_key.as_deref(), Some("sk-y21zAr0Mp5UL600I7DyetzQ6kFYITzXDELdoY5vU3tmtZ6o6"));
+    assert_eq!(
+        p.detected_api_key.as_deref(),
+        Some("sk-y21zAr0Mp5UL600I7DyetzQ6kFYITzXDELdoY5vU3tmtZ6o6")
+    );
     let cp = p.codex_config_parsed.expect("codex_config_parsed");
     assert_eq!(cp.model.as_deref(), Some("gpt-5.4"));
     assert_eq!(cp.model_provider.as_deref(), Some("newapi"));
     assert_eq!(cp.base_url.as_deref(), Some("https://api.cometapi.com/v1"));
     assert_eq!(cp.wire_api.as_deref(), Some("responses"));
     assert_eq!(cp.provider_name.as_deref(), Some("NewAPI"));
-    assert_eq!(p.detected_base_url.as_deref(), Some("https://api.cometapi.com/v1"));
+    assert_eq!(
+        p.detected_base_url.as_deref(),
+        Some("https://api.cometapi.com/v1")
+    );
 }
 
 #[test]
@@ -171,7 +174,10 @@ fn direct_source_returns_none_for_dir_or_missing_or_empty() {
 
     // 不存在路径 → None。
     let missing = dir.join("nope.db");
-    assert_eq!(direct_source_if_file(Some(&missing.to_string_lossy())), None);
+    assert_eq!(
+        direct_source_if_file(Some(&missing.to_string_lossy())),
+        None
+    );
 
     // 缺省 / 空串 → None。
     assert_eq!(direct_source_if_file(None), None);
@@ -205,7 +211,10 @@ fn read_sqlite_returns_providers() {
     assert_eq!(providers.len(), 2);
     let claude = providers.iter().find(|p| p.app_type == "claude").unwrap();
     assert_eq!(claude.id, "p1");
-    assert_eq!(claude.detected_base_url.as_deref(), Some("https://test.example.com"));
+    assert_eq!(
+        claude.detected_base_url.as_deref(),
+        Some("https://test.example.com")
+    );
     assert_eq!(claude.detected_api_key.as_deref(), Some("sk-tok"));
     assert_eq!(claude.website_url.as_deref(), Some("https://example.com"));
 
@@ -245,13 +254,18 @@ async fn read_async_with_sqlite_file_path() {
     let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
 
-    let result = read(&db, Some(db_path.to_string_lossy().to_string())).await.unwrap();
+    let result = read(&db, Some(db_path.to_string_lossy().to_string()))
+        .await
+        .unwrap();
     std::fs::remove_dir_all(&dir).ok();
 
     assert_eq!(result.source_type, "sqlite");
     assert_eq!(result.providers.len(), 1);
     assert_eq!(result.providers[0].id, "a1");
-    assert_eq!(result.providers[0].detected_base_url.as_deref(), Some("https://alpha.com"));
+    assert_eq!(
+        result.providers[0].detected_base_url.as_deref(),
+        Some("https://alpha.com")
+    );
 }
 
 #[tokio::test]
@@ -272,7 +286,9 @@ async fn read_async_with_config_json_file_path() {
     let db = aidog_db::Db::new(":memory:").await.unwrap();
     db.init_tables().await.unwrap();
 
-    let result = read(&db, Some(json_path.to_string_lossy().to_string())).await.unwrap();
+    let result = read(&db, Some(json_path.to_string_lossy().to_string()))
+        .await
+        .unwrap();
     std::fs::remove_dir_all(&dir).ok();
 
     assert_eq!(result.source_type, "json");

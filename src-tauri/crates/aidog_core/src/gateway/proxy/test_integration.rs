@@ -3,9 +3,9 @@
 //! 覆盖成功转发 / 非 2xx failover / 早退分支（无 group 404 / bad body 400 / 健康端点）。
 
 use super::*;
+use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
 use aidog_db::test_support::test_db;
 use aidog_middleware::MiddlewareEngine;
-use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use std::sync::Arc;
@@ -79,18 +79,16 @@ async fn setup_group_with_upstream(state: &Arc<ProxyState>, gk: &str, base_url: 
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None,
+            expires_at: None,
         },
     )
     .await
     .unwrap();
 
-    let group = aidog_db::create_group(
-        &state.db,
-        aidog_db::test_support::sample_group(gk, vec![]),
-    )
-    .await
-    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
 
     aidog_db::set_group_platforms(
         &state.db,
@@ -135,10 +133,11 @@ fn hello_endpoint_matches_prefixed_paths() {
 }
 
 /// Claude Code 启动预热探测 `HEAD /proxy/api/hello`（无 Authorization）：
-/// 应 200 + 不落 proxy_log（修复前：resolve_group None → 404 且每次探测落一行）。
+/// 应 200 + 落 request log（source_protocol=test），方便用户从请求日志页看到探测请求。
 #[tokio::test]
-async fn hello_probe_returns_ok_and_no_log() {
+async fn hello_probe_returns_ok_and_records_request_log() {
     let state = make_state(test_db().await).await;
+    let mut ids = Vec::new();
     for method in ["HEAD", "GET"] {
         let req = HttpRequest::builder()
             .method(method)
@@ -147,10 +146,24 @@ async fn hello_probe_returns_ok_and_no_log() {
             .unwrap();
         let resp = handle_proxy(AxumState(state.clone()), req).await;
         assert_eq!(resp.status(), StatusCode::OK, "method={method}");
+        flush_log_queue(&state).await;
+        let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+            .await
+            .unwrap();
+        let id = logs.last().expect("hello log missing").id.clone();
+        ids.push(id);
     }
-    flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
-    assert!(logs.is_empty(), "预热探测不应落 proxy_log, got: {logs:?}");
+    assert_eq!(ids.len(), 2);
+    for id in ids {
+        let row = aidog_logs::get_proxy_log(&state.db, &id)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.source_protocol, "test");
+        assert_eq!(row.status_code, 200);
+        assert!(row.done);
+        assert!(row.request_url.ends_with("/proxy/api/hello"));
+    }
 }
 
 #[tokio::test]
@@ -195,7 +208,10 @@ async fn x_api_key_resolves_group_and_forwards() {
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
-    assert!(logs.iter().any(|l| l.status_code == 200 && l.group_key == "gkxapi"));
+    assert!(
+        logs.iter()
+            .any(|l| l.status_code == 200 && l.group_key == "gkxapi")
+    );
 }
 
 /// 复现 request 3ed5a698：客户端发 `disable_thinking: true`，上游（MiniMax-M2 这类内置思考
@@ -214,7 +230,9 @@ async fn disable_thinking_strips_thinking_from_passthrough_response() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     let content = json["content"].as_array().unwrap();
     assert!(
@@ -233,9 +251,14 @@ async fn thinking_blocks_preserved_without_disable_flag() {
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gkkeep", &upstream).await;
 
-    let req = messages_request("gkkeep", r#"{"model":"m","messages":[{"role":"user","content":"hi"}]}"#);
+    let req = messages_request(
+        "gkkeep",
+        r#"{"model":"m","messages":[{"role":"user","content":"hi"}]}"#,
+    );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(json["content"][0]["type"], "thinking", "{json}");
     assert_eq!(json["content"][1]["text"], "答案");
@@ -259,7 +282,10 @@ async fn successful_forward_to_stub_upstream() {
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
-    assert!(logs.iter().any(|l| l.status_code == 200 && l.group_key == "gk1"));
+    assert!(
+        logs.iter()
+            .any(|l| l.status_code == 200 && l.group_key == "gk1")
+    );
 }
 
 #[tokio::test]
@@ -346,7 +372,10 @@ async fn models_endpoint_returns_static_openai() {
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v.get("object").and_then(|o| o.as_str()), Some("list"));
     let data = v.get("data").and_then(|d| d.as_array()).unwrap();
-    assert!(data.iter().any(|m| m.get("id").and_then(|i| i.as_str()) == Some("claude-opus-4-8")));
+    assert!(
+        data.iter()
+            .any(|m| m.get("id").and_then(|i| i.as_str()) == Some("claude-opus-4-8"))
+    );
 }
 
 /// GET /proxy/models 无 Authorization（tokenless）→ 200 + anthropic 格式静态列表（不再 404）。
@@ -366,7 +395,10 @@ async fn models_endpoint_tokenless_returns_static_anthropic() {
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v.get("has_more").and_then(|h| h.as_bool()), Some(false));
     let data = v.get("data").and_then(|d| d.as_array()).unwrap();
-    assert!(data.iter().any(|m| m.get("type").and_then(|t| t.as_str()) == Some("model")));
+    assert!(
+        data.iter()
+            .any(|m| m.get("type").and_then(|t| t.as_str()) == Some("model"))
+    );
 }
 
 /// POST /v1/messages/count_tokens → handle_count_tokens（透传优先 / 本地估算兜底）。
@@ -431,17 +463,15 @@ async fn setup_mock_group(state: &Arc<ProxyState>, gk: &str, extra: &str) {
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None,
+            expires_at: None,
         },
     )
     .await
     .unwrap();
-    let group = aidog_db::create_group(
-        &state.db,
-        aidog_db::test_support::sample_group(gk, vec![]),
-    )
-    .await
-    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
@@ -473,13 +503,18 @@ async fn mock_platform_intercepts_nonstream() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     // 落库一条 mock 请求日志（假 token 生效）
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
-    assert!(logs.iter().any(|l| l.group_key == "gkmock" && l.status_code == 200));
+    assert!(
+        logs.iter()
+            .any(|l| l.group_key == "gkmock" && l.status_code == 200)
+    );
 }
 
 /// Mock 平台 error_mode=http_error → 本地生成错误响应（自定义 status）。
@@ -526,14 +561,22 @@ async fn mock_platform_error_rate_ratio() {
         }
     }
     let ratio = hits_429 as f64 / 200.0;
-    assert!((0.02..=0.08).contains(&ratio), "429 ratio {ratio} ({hits_429}/200) out of [0.02, 0.08]");
+    assert!(
+        (0.02..=0.08).contains(&ratio),
+        "429 ratio {ratio} ({hits_429}/200) out of [0.02, 0.08]"
+    );
 }
 
 /// Mock 平台 stream_override=true → 本地生成 SSE 流。
 #[tokio::test]
 async fn mock_platform_stream_override() {
     let state = make_state(test_db().await).await;
-    setup_mock_group(&state, "gkmockstream", r#"{"mock":{"stream_override":true}}"#).await;
+    setup_mock_group(
+        &state,
+        "gkmockstream",
+        r#"{"mock":{"stream_override":true}}"#,
+    )
+    .await;
 
     let req = messages_request(
         "gkmockstream",
@@ -541,7 +584,9 @@ async fn mock_platform_stream_override() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 }
 
 /// Mock 平台 ttft_ms/inter_chunk_ms 独立生效：首包时延 ≈ ttft_ms，chunk 间隔 ≈ inter_chunk_ms
@@ -628,9 +673,15 @@ async fn mock_platform_delay_ms_only_backward_compat() {
         prev = now;
     }
     // 首包 = delay_ms（顶层 sleep）+ delay_ms（stream 首 chunk 前 sleep）≈ 60ms
-    assert!(ttft.unwrap().as_millis() >= 40, "delay_ms-only 首包应含双重 30ms sleep");
+    assert!(
+        ttft.unwrap().as_millis() >= 40,
+        "delay_ms-only 首包应含双重 30ms sleep"
+    );
     for gap in &gaps {
-        assert!(gap.as_millis() >= 15 && gap.as_millis() <= 90, "gap={gap:?} 应 ≈30ms±");
+        assert!(
+            gap.as_millis() >= 15 && gap.as_millis() <= 90,
+            "gap={gap:?} 应 ≈30ms±"
+        );
     }
 }
 
@@ -655,17 +706,15 @@ async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &s
             }]),
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None,
+            expires_at: None,
         },
     )
     .await
     .unwrap();
-    let group = aidog_db::create_group(
-        &state.db,
-        aidog_db::test_support::sample_group(gk, vec![]),
-    )
-    .await
-    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
@@ -697,7 +746,10 @@ async fn same_protocol_passthrough_skips_conversion() {
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
-    assert!(logs.iter().any(|l| l.group_key == "gkpt" && l.status_code == 200));
+    assert!(
+        logs.iter()
+            .any(|l| l.group_key == "gkpt" && l.status_code == 200)
+    );
 }
 
 /// 同协议透传 + 流式：anthropic endpoint + stream:true → 透传 SSE 不重格式化。
@@ -714,7 +766,9 @@ async fn same_protocol_passthrough_stream() {
     );
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 }
 
 /// 流式请求 stream:true → finish 走 SSE 聚合分支（StreamAggregator）。
@@ -732,7 +786,9 @@ async fn streaming_request_passes_through() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     // drain body 触发流式聚合
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -760,17 +816,15 @@ async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str
             }]),
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None,
+            expires_at: None,
         },
     )
     .await
     .unwrap();
-    let group = aidog_db::create_group(
-        &state.db,
-        aidog_db::test_support::sample_group(gk, vec![]),
-    )
-    .await
-    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
     aidog_db::set_group_platforms(
         &state.db,
         group.id,
@@ -804,13 +858,17 @@ async fn responses_subendpoint_get_relays_upstream() {
     let req = responses_get("gkresp", "/v1/responses/resp_1");
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v.get("id").and_then(|x| x.as_str()), Some("resp_1"));
 
     // 落库：source/target_protocol = openai_responses
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     assert!(logs.iter().any(|l| l.group_key == "gkresp"
         && l.source_protocol == "openai_responses"
         && l.status_code == 200));
@@ -834,14 +892,19 @@ async fn responses_subendpoint_post_cancel_forwards_body() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let summary = logs.iter().find(|l| l.group_key == "gkrc").unwrap();
     let log = aidog_logs::get_proxy_log(&state.db, &summary.id)
         .await
         .unwrap()
         .unwrap();
     // URL 不重复拼 /v1（base_url 已含 /v1）
-    assert!(log.upstream_request_url.ends_with("/responses/resp_2/cancel"));
+    assert!(
+        log.upstream_request_url
+            .ends_with("/responses/resp_2/cancel")
+    );
     assert_eq!(log.source_protocol, "openai_responses");
 }
 
@@ -869,8 +932,13 @@ async fn responses_subendpoint_fallback_first_enabled_platform() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
-    assert!(logs.iter().any(|l| l.group_key == "gkrfb" && l.source_protocol == "openai_responses"));
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
+    assert!(
+        logs.iter()
+            .any(|l| l.group_key == "gkrfb" && l.source_protocol == "openai_responses")
+    );
 }
 
 /// 子端点：组内无任何 enabled 平台 → 503。
@@ -919,7 +987,12 @@ fn notify_headers(bearer: Option<&str>) -> axum::http::HeaderMap {
 #[tokio::test]
 async fn notify_missing_auth_returns_401() {
     let state = make_state(test_db().await).await;
-    let resp = handle_notify(AxumState(state), notify_headers(None), Bytes::from_static(b"{}")).await;
+    let resp = handle_notify(
+        AxumState(state),
+        notify_headers(None),
+        Bytes::from_static(b"{}"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
@@ -927,7 +1000,12 @@ async fn notify_missing_auth_returns_401() {
 #[tokio::test]
 async fn notify_empty_bearer_returns_401() {
     let state = make_state(test_db().await).await;
-    let resp = handle_notify(AxumState(state), notify_headers(Some("")), Bytes::from_static(b"{}")).await;
+    let resp = handle_notify(
+        AxumState(state),
+        notify_headers(Some("")),
+        Bytes::from_static(b"{}"),
+    )
+    .await;
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
@@ -978,7 +1056,9 @@ async fn notify_success_dispatches_and_returns_result() {
     );
     let resp = handle_notify(AxumState(state.clone()), notify_headers(Some("gkn2")), body).await;
     assert_eq!(resp.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
     // DispatchResult 字段存在
     assert!(v.get("dispatched").is_some());
@@ -1034,7 +1114,10 @@ fn is_api_endpoint_covers_main_paths() {
 #[test]
 fn should_fallback_passthrough_decision_matrix() {
     use super::endpoint::should_fallback_passthrough;
-    let listen = Some((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
+    let listen = Some((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        9892u16,
+    ));
 
     // MITM 解密（Host = 外部域名，非代理自身）→ 直通，**不看 path**（Bug B 修法核心）
     assert!(should_fallback_passthrough("www.baidu.com", listen));
@@ -1047,7 +1130,10 @@ fn should_fallback_passthrough_decision_matrix() {
     // listen_addr = None（测试 / 未启动）→ 保守不直通
     assert!(!should_fallback_passthrough("www.baidu.com", None));
     // 0.0.0.0 bind：客户端通常连 127.0.0.1，视为自身
-    let listen_lan = Some((std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)), 9892u16));
+    let listen_lan = Some((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)),
+        9892u16,
+    ));
     assert!(!should_fallback_passthrough("127.0.0.1:9892", listen_lan));
     // 非 loopback、非 listen ip 的外部 host → MITM 解密灌入 → 直通
     assert!(should_fallback_passthrough("api.example.com", listen_lan));
@@ -1061,7 +1147,10 @@ fn should_fallback_passthrough_decision_matrix() {
 async fn fallback_passthrough_mitm_unmatched_logs_virtual_bucket() {
     let state = make_state(test_db().await).await;
     // 设置 listen_addr（模拟 start_proxy 绑定后的状态）。
-    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        9892u16,
+    ));
 
     // Host = 外部 host（模拟 MITM 解密灌入），path = /（非 API），无 Authorization。
     // 上游 https://nonexistent.invalid 必然 TLS/DNS 失败 → 502。
@@ -1077,20 +1166,32 @@ async fn fallback_passthrough_mitm_unmatched_logs_virtual_bucket() {
 
     // 虚拟桶落库：group_key="未匹配"，platform_id=0，cost=0。
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
-    assert!(bucket.is_some(), "虚拟桶 proxy_log 应落库 (group_key=未匹配), logs: {:?}", logs.iter().map(|l| &l.group_key).collect::<Vec<_>>());
+    assert!(
+        bucket.is_some(),
+        "虚拟桶 proxy_log 应落库 (group_key=未匹配), logs: {:?}",
+        logs.iter().map(|l| &l.group_key).collect::<Vec<_>>()
+    );
     let b = bucket.unwrap();
     assert_eq!(b.platform_id, 0, "虚拟桶 platform_id=0");
     assert_eq!(b.status_code, 502, "上游不可达 → 502");
-    assert_eq!(b.source_protocol, "passthrough_unmatched", "虚拟桶 source_protocol 标记");
+    assert_eq!(
+        b.source_protocol, "passthrough_unmatched",
+        "虚拟桶 source_protocol 标记"
+    );
 }
 
 /// API path + 错 token + Host = 代理自身 → 仍 404（不旁路直通）。
 #[tokio::test]
 async fn api_path_wrong_token_still_404_no_bypass() {
     let state = make_state(test_db().await).await;
-    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        9892u16,
+    ));
 
     // 错 token + API path + 代理自身 host → 404，不进 fallback。
     let req = HttpRequest::builder()
@@ -1105,8 +1206,13 @@ async fn api_path_wrong_token_still_404_no_bypass() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
     // 不落虚拟桶
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
-    assert!(!logs.iter().any(|l| l.group_key == "未匹配"), "API path 未匹配不应进虚拟桶");
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
+    assert!(
+        !logs.iter().any(|l| l.group_key == "未匹配"),
+        "API path 未匹配不应进虚拟桶"
+    );
 }
 
 /// Bug B 核心修复回归：MITM 解密灌入 + API path（含 /v1/messages）+ 上游真实 key
@@ -1123,7 +1229,10 @@ async fn api_path_wrong_token_still_404_no_bypass() {
 async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
     let state = make_state(test_db().await).await;
     // 代理监听端口与 stub 不同（stub 端口由 spawn 异步绑定），Host=stub 端口被判为「非自身」→ 直通。
-    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        65535u16,
+    ));
 
     let stub_url = spawn_stub_http_echo("glm-anthropic-ok-sentinel").await;
     let proxy_url = spawn_proxy_router(state.clone()).await;
@@ -1146,11 +1255,15 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
     );
     let proxy_addr = proxy_url.strip_prefix("http://").unwrap_or(&proxy_url);
     let mut stream = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
-    tokio::io::AsyncWriteExt::write_all(&mut stream, req_bytes.as_bytes()).await.unwrap();
+    tokio::io::AsyncWriteExt::write_all(&mut stream, req_bytes.as_bytes())
+        .await
+        .unwrap();
 
     // 读完整响应（Connection: close）。
     let mut resp_buf = Vec::with_capacity(4096);
-    tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut resp_buf).await.ok();
+    tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut resp_buf)
+        .await
+        .ok();
     let resp_str = String::from_utf8_lossy(&resp_buf);
     // Bug B 修复前：is_api_endpoint 拦死 → 404 no matching group；
     // Bug B 修复后：host 判定前置 → 透明转发 stub → 200 + stub 原文。
@@ -1166,13 +1279,18 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
     // proxy_log 落虚拟桶 + 完整 url（host + path + query）。
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
-    let bucket = logs.iter().find(|l| l.group_key == "未匹配")
+    let bucket = logs
+        .iter()
+        .find(|l| l.group_key == "未匹配")
         .expect("虚拟桶 proxy_log 应落库");
     assert_eq!(bucket.platform_id, 0);
     assert_eq!(bucket.status_code, 200);
 
     // Bug A：request_url 含 scheme://host/path?query 完整 url（不再是 origin-form path-only）。
-    let full = aidog_logs::get_proxy_log(&state.db, &bucket.id).await.unwrap().unwrap();
+    let full = aidog_logs::get_proxy_log(&state.db, &bucket.id)
+        .await
+        .unwrap()
+        .unwrap();
     let stub_authority = stub_url.strip_prefix("http://").unwrap_or(&stub_url);
     assert!(
         full.request_url.contains(stub_authority),
@@ -1180,7 +1298,8 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
         full.request_url
     );
     assert!(
-        full.request_url.contains("/api/anthropic/v1/messages?beta=true"),
+        full.request_url
+            .contains("/api/anthropic/v1/messages?beta=true"),
         "request_url 含 path+query，实际: {}",
         full.request_url
     );
@@ -1192,7 +1311,8 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
     assert!(
         full.upstream_request_url == full.request_url,
         "fallback 直通 upstream_request_url 应等同 request_url，实际: upstream={} request={}",
-        full.upstream_request_url, full.request_url
+        full.upstream_request_url,
+        full.request_url
     );
 }
 
@@ -1207,7 +1327,11 @@ async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
 /// 起一个 stub HTTP 上游，所有方法/path 返回固定 200 + body（含 sentinel 便于断言）。
 async fn spawn_stub_http_echo(body: &'static str) -> String {
     let app = axum::Router::new().fallback(axum::routing::any(move || async move {
-        (axum::http::StatusCode::OK, [("content-type", "text/plain")], body)
+        (
+            axum::http::StatusCode::OK,
+            [("content-type", "text/plain")],
+            body,
+        )
     }));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -1242,7 +1366,10 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
     // listen_addr 设为代理自身 loopback（任意端口均可，识别代理自身用）；具体端口由
     // spawn_proxy_router 异步绑定，should_fallback_passthrough 用 loopback host 名 + 端口
     // 比对识别。这里设一个**非** stub 端口的 loopback 地址，让外部 host（stub）被判为「非自身」。
-    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        65535u16,
+    ));
 
     let stub_url = spawn_stub_http_echo("baidu-orig-html-sentinel").await;
     let proxy_url = spawn_proxy_router(state.clone()).await;
@@ -1263,13 +1390,19 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
-    assert!(bucket.is_some(), "absolute-form forward 必须落虚拟桶 proxy_log");
+    assert!(
+        bucket.is_some(),
+        "absolute-form forward 必须落虚拟桶 proxy_log"
+    );
     let b = bucket.unwrap();
     assert_eq!(b.platform_id, 0, "虚拟桶 platform_id=0");
     assert_eq!(b.status_code, 200, "上游 stub 返 200 → 终态 200");
     assert_eq!(b.source_protocol, "passthrough_unmatched");
     // 取完整行查 upstream_request_url（summary 不含此字段）。
-    let full = aidog_logs::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
+    let full = aidog_logs::get_proxy_log(&state.db, &b.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(full.est_cost, 0.0, "虚拟桶不计费");
     assert!(
         full.upstream_request_url.contains("127.0.0.1"),
@@ -1288,7 +1421,10 @@ async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
 #[tokio::test]
 async fn path_only_uri_still_hits_health_endpoint_no_regression() {
     let state = make_state(test_db().await).await;
-    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        65535u16,
+    ));
 
     let proxy_url = spawn_proxy_router(state.clone()).await;
 
@@ -1318,7 +1454,10 @@ async fn path_only_uri_still_hits_health_endpoint_no_regression() {
 #[tokio::test]
 async fn absolute_form_https_uri_scheme_adaptive() {
     let state = make_state(test_db().await).await;
-    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        65535u16,
+    ));
 
     let app = super::build_router(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -1332,11 +1471,15 @@ Host: example.invalid\r\n\
 Connection: close\r\n\
 \r\n";
     let mut stream = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
-    tokio::io::AsyncWriteExt::write_all(&mut stream, req_bytes).await.unwrap();
+    tokio::io::AsyncWriteExt::write_all(&mut stream, req_bytes)
+        .await
+        .unwrap();
 
     // 读完整响应（Connection: close 上游会关连接）。
     let mut resp_buf = Vec::with_capacity(4096);
-    tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut resp_buf).await.ok();
+    tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut resp_buf)
+        .await
+        .ok();
     let resp_str = String::from_utf8_lossy(&resp_buf);
     // example.invalid 不可达 → 502（fallback 直通构造 https://example.invalid/path 失败）。
     assert!(
@@ -1349,7 +1492,10 @@ Connection: close\r\n\
     let logs = aidog_logs::list_proxy_logs(&state.db, 50, 0).await.unwrap();
     let bucket = logs.iter().find(|l| l.group_key == "未匹配");
     let b = bucket.expect("absolute-form HTTPS 必须落虚拟桶 proxy_log");
-    let full = aidog_logs::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
+    let full = aidog_logs::get_proxy_log(&state.db, &b.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
         full.upstream_request_url.starts_with("https://"),
         "HTTPS absolute-form scheme 自适应 → upstream URL 用 https://，实际: {}",
@@ -1441,7 +1587,9 @@ async fn transport_error_retries_same_platform_then_succeeds() {
     );
 
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let row = logs
         .iter()
         .find(|l| l.group_key == "gkflaky")
@@ -1470,7 +1618,9 @@ async fn transport_error_exhausted_logs_error_chain() {
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
 
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let summary = logs
         .iter()
         .find(|l| l.group_key == "gkdead")
@@ -1506,12 +1656,16 @@ async fn truncated_stream_logs_502_not_200() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     // 已发出的 SSE 头/内容保留（不向客户端硬报错），终态判定落在日志侧。
     assert_eq!(resp.status(), StatusCode::OK);
-    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
 
     // guard.flush 走 tokio::spawn 落库，给写队列一个调度窗口。
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let row = logs
         .iter()
         .find(|l| l.group_key == "gktrunc")
@@ -1534,14 +1688,19 @@ async fn spawn_recording_upstream(
     body: &'static str,
 ) -> (String, Arc<std::sync::Mutex<Vec<(String, String)>>>) {
     use axum::routing::any;
-    let rec: Arc<std::sync::Mutex<Vec<(String, String)>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let rec: Arc<std::sync::Mutex<Vec<(String, String)>>> =
+        Arc::new(std::sync::Mutex::new(Vec::new()));
     let rec_srv = rec.clone();
     let app = axum::Router::new().fallback(any(move |req: HttpRequest<Body>| {
         let rec = rec_srv.clone();
         async move {
             let uri = req.uri().to_string();
-            let bytes = axum::body::to_bytes(req.into_body(), 1 << 20).await.unwrap_or_default();
-            rec.lock().unwrap().push((uri, String::from_utf8_lossy(&bytes).to_string()));
+            let bytes = axum::body::to_bytes(req.into_body(), 1 << 20)
+                .await
+                .unwrap_or_default();
+            rec.lock()
+                .unwrap()
+                .push((uri, String::from_utf8_lossy(&bytes).to_string()));
             (
                 axum::http::StatusCode::OK,
                 [("content-type", "application/json")],
@@ -1581,7 +1740,8 @@ async fn setup_gemini_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_
             }]),
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None,
+            expires_at: None,
         },
     )
     .await
@@ -1652,6 +1812,9 @@ async fn gemini_passthrough_uses_remapped_model_in_path_not_body() {
             sent.get("model").is_none(),
             "gemini 出站 body 不应含顶层 model 键（客户端原体带的也须剔除）: {sent}"
         );
-        assert_eq!(sent["contents"][0]["parts"][0]["text"], "hi", "透传体其余内容不动: {sent}");
+        assert_eq!(
+            sent["contents"][0]["parts"][0]["text"], "hi",
+            "透传体其余内容不动: {sent}"
+        );
     }
 }

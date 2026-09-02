@@ -1,15 +1,8 @@
 use super::*;
-use rusqlite::{params, OptionalExtension, Result as SqlResult};
-
-
-
-
-
-
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// SELECT 列序
-pub const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script";
+pub const PLATFORM_COLUMNS: &str = "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script";
 
 /// 从查询行构造 Platform
 pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -51,7 +44,6 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     })
 }
 
-
 /// 按 id 批量取未软删平台 → id→Platform 映射（动态 IN 占位）。供去 JOIN 后关联表行
 /// 与 platform 内存重组用（get_group_platforms J2 等）。软删平台不返回（等价旧 `p.deleted_at=0`）。
 pub fn load_platforms_by_ids(
@@ -61,7 +53,10 @@ pub fn load_platforms_by_ids(
     if ids.is_empty() {
         return Ok(std::collections::HashMap::new());
     }
-    let placeholders = (1..=ids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
+    let placeholders = (1..=ids.len())
+        .map(|i| format!("?{i}"))
+        .collect::<Vec<_>>()
+        .join(",");
     let sql = format!(
         "SELECT {PLATFORM_COLUMNS} FROM platform WHERE id IN ({placeholders}) AND deleted_at = 0"
     );
@@ -78,41 +73,44 @@ pub fn load_platforms_by_ids(
 }
 
 #[track_caller]
-pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
+pub fn create_platform(
+    db: &Db,
+    mut input: CreatePlatform,
+) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ts = now();
-    let platform_type_str = serde_json::to_string(&input.platform_type).unwrap();
-    // If name is empty, auto-generate: {platform_type}-{random8}
-    if input.name.trim().is_empty() {
-        let proto_label = format!("{:?}", input.platform_type).to_lowercase();
-        let rand_suffix = &uuid::Uuid::new_v4().simple().to_string()[..8];
-        input.name = format!("{}-{}", proto_label, rand_suffix);
-    }
-    let models = input.models.unwrap_or_default();
-    let models_str = serialize_models(&models);
-    let available_models = input.available_models.unwrap_or_default();
-    let available_str = serialize_available_models(&available_models);
-    // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
-    let endpoints = if input.platform_type.endpoints_locked() {
-        crate::registry::default_endpoints(&input.platform_type.wire_str())
-    } else {
-        input.endpoints.unwrap_or_default()
-    };
-    let endpoints_str = serialize_endpoints(&endpoints);
-    let manual_budgets = input.manual_budgets.unwrap_or_default();
-    let manual_budgets_str = crate::models::serialize_manual_budgets(&manual_budgets);
-    let expires_at = input.expires_at.unwrap_or(0).max(0);
-    // quota 脚本物化（quota-scripts spec T4）：创建即物化选中（或首条）变体 / 自定义脚本，
-    // 零配置开箱即用；无脚本协议 → 空串。仅用户操作路径（create/update）物化，远程同步不动。
-    let quota_script = crate::registry::materialize_quota_script(
-        &input.platform_type.wire_str(),
-        &input.extra,
-        "",
-        true,
-    );
+        let ts = now();
+        let platform_type_str = serde_json::to_string(&input.platform_type).unwrap();
+        // If name is empty, auto-generate: {platform_type}-{random8}
+        if input.name.trim().is_empty() {
+            let proto_label = format!("{:?}", input.platform_type).to_lowercase();
+            let rand_suffix = &uuid::Uuid::new_v4().simple().to_string()[..8];
+            input.name = format!("{}-{}", proto_label, rand_suffix);
+        }
+        let models = input.models.unwrap_or_default();
+        let models_str = serialize_models(&models);
+        let available_models = input.available_models.unwrap_or_default();
+        let available_str = serialize_available_models(&available_models);
+        // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
+        let endpoints = if input.platform_type.endpoints_locked() {
+            crate::registry::default_endpoints(&input.platform_type.wire_str())
+        } else {
+            input.endpoints.unwrap_or_default()
+        };
+        let endpoints_str = serialize_endpoints(&endpoints);
+        let manual_budgets = input.manual_budgets.unwrap_or_default();
+        let manual_budgets_str = crate::models::serialize_manual_budgets(&manual_budgets);
+        let expires_at = input.expires_at.unwrap_or(0).max(0);
+        // quota 脚本物化（quota-scripts spec T4）：创建即物化选中（或首条）变体 / 自定义脚本，
+        // 零配置开箱即用；无脚本协议 → 空串。仅用户操作路径（create/update）物化，远程同步不动。
+        let quota_script = crate::registry::materialize_quota_script(
+            &input.platform_type.wire_str(),
+            &input.extra,
+            "",
+            true,
+        );
 
-    let id = db
+        let id = db
 
         .call_platform_traced(None, __db_caller, {
             let name = input.name.clone();
@@ -130,48 +128,50 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
         })
         .await
         .map_err(|e| format!("create platform: {e}"))?;
-    // 新平台暂不属任何组，理论上不影响现有 GroupDetail；失效仅为防御性一致（成本极低）。
-    db.invalidate_group_details_cache();
+        // 新平台暂不属任何组，理论上不影响现有 GroupDetail；失效仅为防御性一致（成本极低）。
+        db.invalidate_group_details_cache();
 
-    Ok(Platform {
-        id,
-        name: input.name,
-        platform_type: input.platform_type,
-        base_url: input.base_url,
-        api_key: input.api_key,
-        extra: input.extra,
-        models,
-        available_models,
-        endpoints,
-        enabled: true,
-        created_at: ts,
-        updated_at: ts,
-        deleted_at: 0,
-        est_balance_remaining: 0.0,
-        est_coding_plan: String::new(),
-        last_real_query_at: 0,
-        estimate_count: 0,
-        show_in_tray: false,
-        tray_display: "balance".to_string(),
-        sort_order: 0,
-        manual_budgets,
-        status: crate::models::PlatformStatus::Enabled,
-        auto_disabled_until: 0,
-        auto_disable_strikes: 0,
-        expires_at,
-        balance_level: String::new(),
-        last_error: String::new(),
-        last_error_at: 0,
-        quota_script,
-    })
+        Ok(Platform {
+            id,
+            name: input.name,
+            platform_type: input.platform_type,
+            base_url: input.base_url,
+            api_key: input.api_key,
+            extra: input.extra,
+            models,
+            available_models,
+            endpoints,
+            enabled: true,
+            created_at: ts,
+            updated_at: ts,
+            deleted_at: 0,
+            est_balance_remaining: 0.0,
+            est_coding_plan: String::new(),
+            last_real_query_at: 0,
+            estimate_count: 0,
+            show_in_tray: false,
+            tray_display: "balance".to_string(),
+            sort_order: 0,
+            manual_budgets,
+            status: crate::models::PlatformStatus::Enabled,
+            auto_disabled_until: 0,
+            auto_disable_strikes: 0,
+            expires_at,
+            balance_level: String::new(),
+            last_error: String::new(),
+            last_error_at: 0,
+            quota_script,
+        })
     }
 }
 
 #[track_caller]
-pub fn list_platforms(db: &Db) -> impl std::future::Future<Output = Result<Vec<Platform>, String>> + '_ {
+pub fn list_platforms(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Vec<Platform>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db
+        db
         .call_read_platform_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
             let mut stmt = conn.prepare(&sql)?;
@@ -186,25 +186,16 @@ pub fn list_platforms(db: &Db) -> impl std::future::Future<Output = Result<Vec<P
 /// 按 id 批量取未软删平台（跨 crate 公开版，包一层 `load_platforms_by_ids`）。
 /// 供 tray_layout 等需按一批 platform_id 渲染的场景消 N+1 单查（IN 批量替代逐 id get_platform）。
 #[track_caller]
-pub fn get_platforms_by_ids<'a>(db: &'a Db, ids: &[i64]) -> impl std::future::Future<Output = Result<std::collections::HashMap<i64, Platform>, String>> + 'a {
+pub fn get_platforms_by_ids<'a>(
+    db: &'a Db,
+    ids: &[i64],
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<i64, Platform>, String>> + 'a
+{
     let __db_caller = std::panic::Location::caller();
     let ids = ids.to_vec();
     async move {
-        db.call_read_platform_traced(None, __db_caller, move |conn| Ok(load_platforms_by_ids(conn, &ids)?))
-            .await
-            .map_err(|e| e.to_string())
-    }
-}
-
-#[track_caller]
-pub fn get_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Result<Option<Platform>, String>> + '_ {
-    let __db_caller = std::panic::Location::caller();
-    async move {
-    db
-        .call_read_platform_traced(None, __db_caller, move |conn| {
-            let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
-            let mut stmt = conn.prepare(&sql)?;
-            Ok(stmt.query_row(params![id as i64], row_to_platform).optional()?)
+        db.call_read_platform_traced(None, __db_caller, move |conn| {
+            Ok(load_platforms_by_ids(conn, &ids)?)
         })
         .await
         .map_err(|e| e.to_string())
@@ -212,112 +203,142 @@ pub fn get_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Resul
 }
 
 #[track_caller]
-pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
+pub fn get_platform(
+    db: &Db,
+    id: u64,
+) -> impl std::future::Future<Output = Result<Option<Platform>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let existing = get_platform(db, input.id).await?.ok_or("platform not found")?;
-
-    // 手动预算：编辑表单只提供配置（kind/unit/amount/window_hours/enabled），
-    // consumed/window_start_at 由系统维护——按 id 对齐既有项，保留运行时累计值，
-    // 避免每次保存清零已用额度。新增项（id 无匹配）保留传入 consumed（默认 0）。
-    let manual_budgets = match input.manual_budgets {
-        Some(incoming) => incoming
-            .into_iter()
-            .map(|mut b| {
-                if let Some(prev) = existing.manual_budgets.iter().find(|p| p.id == b.id) {
-                    b.consumed = prev.consumed;
-                    b.window_start_at = prev.window_start_at;
-                }
-                b
-            })
-            .collect(),
-        None => existing.manual_budgets.clone(),
-    };
-
-    // ── 三态 status 解析（优先级：显式 status > 旧 enabled 兼容入参 > 既有值）──
-    // 前端三态切换走 status；旧前端 / 旧调用仍可只传 enabled（true→Enabled, false→Disabled）。
-    // 禁止从前端入参置 AutoDisabled（仅系统 401/403 联动 set_platform_auto_disabled 设置）。
-    use crate::models::PlatformStatus;
-    let mut new_status = match input.status {
-        Some(PlatformStatus::AutoDisabled) => existing.status, // 拒绝外部置自动禁用，保持原状
-        Some(s) => s,
-        None => match input.enabled {
-            Some(true) => PlatformStatus::Enabled,
-            Some(false) => PlatformStatus::Disabled,
-            None => existing.status,
-        },
-    };
-    let mut auto_disabled_until = existing.auto_disabled_until;
-    let mut auto_disable_strikes = existing.auto_disable_strikes;
-
-    // 手动重新启用 auto_disabled / disabled 平台 → 清退避状态
-    if new_status == PlatformStatus::Enabled {
-        auto_disabled_until = 0;
-        auto_disable_strikes = 0;
+        db.call_read_platform_traced(None, __db_caller, move |conn| {
+            let sql =
+                format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
+            let mut stmt = conn.prepare(&sql)?;
+            Ok(stmt
+                .query_row(params![id as i64], row_to_platform)
+                .optional()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
     }
+}
 
-    // 过期时间：None=不动；Some(0)=清空（永不过期）；Some(t)=设为 t（负值钳 0）。
-    // 独立于 status 枚举：用户改值（清空/延后）即恢复路由候选，无需退避试探。
-    let expires_at = match input.expires_at {
-        Some(v) => v.max(0),
-        None => existing.expires_at,
-    };
+#[track_caller]
+pub fn update_platform(
+    db: &Db,
+    input: UpdatePlatform,
+) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let existing = get_platform(db, input.id)
+            .await?
+            .ok_or("platform not found")?;
 
-    // ── 改 api_key 自恢复：当前 auto_disabled 且 api_key 变化 → 立即恢复 enabled 清退避 ──
-    let new_api_key = input.api_key.clone().unwrap_or_else(|| existing.api_key.clone());
-    if existing.status == PlatformStatus::AutoDisabled
-        && new_api_key != existing.api_key
-        && new_status == PlatformStatus::AutoDisabled
-    {
-        new_status = PlatformStatus::Enabled;
-        auto_disabled_until = 0;
-        auto_disable_strikes = 0;
-    }
+        // 手动预算：编辑表单只提供配置（kind/unit/amount/window_hours/enabled），
+        // consumed/window_start_at 由系统维护——按 id 对齐既有项，保留运行时累计值，
+        // 避免每次保存清零已用额度。新增项（id 无匹配）保留传入 consumed（默认 0）。
+        let manual_budgets = match input.manual_budgets {
+            Some(incoming) => incoming
+                .into_iter()
+                .map(|mut b| {
+                    if let Some(prev) = existing.manual_budgets.iter().find(|p| p.id == b.id) {
+                        b.consumed = prev.consumed;
+                        b.window_start_at = prev.window_start_at;
+                    }
+                    b
+                })
+                .collect(),
+            None => existing.manual_budgets.clone(),
+        };
 
-    let platform_type = input.platform_type.unwrap_or(existing.platform_type.clone());
-    // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
-    let endpoints = if platform_type.endpoints_locked() {
-        crate::registry::default_endpoints(&platform_type.wire_str())
-    } else {
-        input.endpoints.unwrap_or(existing.endpoints)
-    };
+        // ── 三态 status 解析（优先级：显式 status > 旧 enabled 兼容入参 > 既有值）──
+        // 前端三态切换走 status；旧前端 / 旧调用仍可只传 enabled（true→Enabled, false→Disabled）。
+        // 禁止从前端入参置 AutoDisabled（仅系统 401/403 联动 set_platform_auto_disabled 设置）。
+        use crate::models::PlatformStatus;
+        let mut new_status = match input.status {
+            Some(PlatformStatus::AutoDisabled) => existing.status, // 拒绝外部置自动禁用，保持原状
+            Some(s) => s,
+            None => match input.enabled {
+                Some(true) => PlatformStatus::Enabled,
+                Some(false) => PlatformStatus::Disabled,
+                None => existing.status,
+            },
+        };
+        let mut auto_disabled_until = existing.auto_disabled_until;
+        let mut auto_disable_strikes = existing.auto_disable_strikes;
 
-    // quota 脚本再物化：协议变更（旧列是别的协议的脚本）/ 选了变体 / 自定义脚本 → 重写；
-    // 其余保留现值（远程同步的 registry 变体更新不自动换已物化脚本，spec 存储决策）。
-    let quota_script = crate::registry::materialize_quota_script(
-        &platform_type.wire_str(),
-        input.extra.as_deref().unwrap_or(&existing.extra),
-        &existing.quota_script,
-        platform_type != existing.platform_type,
-    );
+        // 手动重新启用 auto_disabled / disabled 平台 → 清退避状态
+        if new_status == PlatformStatus::Enabled {
+            auto_disabled_until = 0;
+            auto_disable_strikes = 0;
+        }
 
-    let updated = Platform {
-        quota_script,
-        name: input.name.unwrap_or(existing.name),
-        platform_type,
-        base_url: input.base_url.unwrap_or(existing.base_url),
-        api_key: input.api_key.unwrap_or(existing.api_key),
-        extra: input.extra.unwrap_or(existing.extra),
-        models: input.models.unwrap_or(existing.models),
-        available_models: input.available_models.unwrap_or(existing.available_models),
-        endpoints,
-        // enabled 列从 status 同步（向后兼容）：仅 Enabled → true
-        enabled: new_status == PlatformStatus::Enabled,
-        status: new_status,
-        auto_disabled_until,
-        auto_disable_strikes,
-        expires_at,
-        manual_budgets,
-        updated_at: now(),
-        ..existing
-    };
+        // 过期时间：None=不动；Some(0)=清空（永不过期）；Some(t)=设为 t（负值钳 0）。
+        // 独立于 status 枚举：用户改值（清空/延后）即恢复路由候选，无需退避试探。
+        let expires_at = match input.expires_at {
+            Some(v) => v.max(0),
+            None => existing.expires_at,
+        };
 
-    let platform_type_str = serde_json::to_string(&updated.platform_type).unwrap();
-    let models_str = serialize_models(&updated.models);
-    let available_str = serialize_available_models(&updated.available_models);
-    let endpoints_str = serialize_endpoints(&updated.endpoints);
-    let manual_budgets_str = crate::models::serialize_manual_budgets(&updated.manual_budgets);
-    db
+        // ── 改 api_key 自恢复：当前 auto_disabled 且 api_key 变化 → 立即恢复 enabled 清退避 ──
+        let new_api_key = input
+            .api_key
+            .clone()
+            .unwrap_or_else(|| existing.api_key.clone());
+        if existing.status == PlatformStatus::AutoDisabled
+            && new_api_key != existing.api_key
+            && new_status == PlatformStatus::AutoDisabled
+        {
+            new_status = PlatformStatus::Enabled;
+            auto_disabled_until = 0;
+            auto_disable_strikes = 0;
+        }
+
+        let platform_type = input
+            .platform_type
+            .unwrap_or(existing.platform_type.clone());
+        // 厂商直连平台端点锁死：忽略传入，强制内置 preset 端点（Protocol::endpoints_locked）
+        let endpoints = if platform_type.endpoints_locked() {
+            crate::registry::default_endpoints(&platform_type.wire_str())
+        } else {
+            input.endpoints.unwrap_or(existing.endpoints)
+        };
+
+        // quota 脚本再物化：协议变更（旧列是别的协议的脚本）/ 选了变体 / 自定义脚本 → 重写；
+        // 其余保留现值（远程同步的 registry 变体更新不自动换已物化脚本，spec 存储决策）。
+        let quota_script = crate::registry::materialize_quota_script(
+            &platform_type.wire_str(),
+            input.extra.as_deref().unwrap_or(&existing.extra),
+            &existing.quota_script,
+            platform_type != existing.platform_type,
+        );
+
+        let updated = Platform {
+            quota_script,
+            name: input.name.unwrap_or(existing.name),
+            platform_type,
+            base_url: input.base_url.unwrap_or(existing.base_url),
+            api_key: input.api_key.unwrap_or(existing.api_key),
+            extra: input.extra.unwrap_or(existing.extra),
+            models: input.models.unwrap_or(existing.models),
+            available_models: input.available_models.unwrap_or(existing.available_models),
+            endpoints,
+            // enabled 列从 status 同步（向后兼容）：仅 Enabled → true
+            enabled: new_status == PlatformStatus::Enabled,
+            status: new_status,
+            auto_disabled_until,
+            auto_disable_strikes,
+            expires_at,
+            manual_budgets,
+            updated_at: now(),
+            ..existing
+        };
+
+        let platform_type_str = serde_json::to_string(&updated.platform_type).unwrap();
+        let models_str = serialize_models(&updated.models);
+        let available_str = serialize_available_models(&updated.available_models);
+        let endpoints_str = serialize_endpoints(&updated.endpoints);
+        let manual_budgets_str = crate::models::serialize_manual_budgets(&updated.manual_budgets);
+        db
         .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
             let base_url = updated.base_url.clone();
@@ -359,10 +380,10 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
         })
         .await
         .map_err(|e| format!("update platform: {e}"))?;
-    // platform 字段内嵌于 GroupDetail.platforms，更新后须失效以免 Groups 页读旧值。
-    db.invalidate_group_details_cache();
+        // platform 字段内嵌于 GroupDetail.platforms，更新后须失效以免 Groups 页读旧值。
+        db.invalidate_group_details_cache();
 
-    Ok(updated)
+        Ok(updated)
     }
 }
 
@@ -375,11 +396,14 @@ const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
 /// 仅在当前非用户手动 disabled 时生效（不覆盖用户主动关闭的平台）。
 /// 返回更新后的退避截止时间戳（毫秒），供日志记录。
 #[track_caller]
-pub fn set_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+pub fn set_platform_auto_disabled(
+    db: &Db,
+    id: u64,
+) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ts = now();
-    let until = db
+        let ts = now();
+        let until = db
         
         .call_platform_traced(None, __db_caller, move |conn| {
             // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
@@ -409,20 +433,23 @@ pub fn set_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Future<
         })
         .await
         .map_err(|e| format!("set platform auto-disabled: {e}"))?;
-    // status/auto_disabled_until 内嵌于 GroupDetail.platforms，失效保 Groups 页一致。
-    db.invalidate_group_details_cache();
-    Ok(until)
+        // status/auto_disabled_until 内嵌于 GroupDetail.platforms，失效保 Groups 页一致。
+        db.invalidate_group_details_cache();
+        Ok(until)
     }
 }
 
 /// 2xx 成功：若平台当前为 auto_disabled（试探成功），恢复 enabled 并清退避状态。
 /// 用户手动 disabled / 已 enabled 平台不动。
 #[track_caller]
-pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn recover_platform_auto_disabled(
+    db: &Db,
+    id: u64,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let ts = now();
-    db
+        let ts = now();
+        db
         .call_platform_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE platform SET status='enabled', enabled=1, auto_disable_strikes=0, auto_disabled_until=0, updated_at=?1 WHERE id=?2 AND status='auto_disabled'",
@@ -432,8 +459,8 @@ pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Fut
         })
         .await
         .map_err(|e| format!("recover platform auto-disabled: {e}"))?;
-    db.invalidate_group_details_cache();
-    Ok(())
+        db.invalidate_group_details_cache();
+        Ok(())
     }
 }
 
@@ -461,7 +488,6 @@ pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> R
         .map_err(|e| e.to_string())
         .map(|_| ())
 }
-
 
 /// 平台余额扣减（estimate 热路径）：est_balance_remaining -= cost + estimate_count+1。
 /// est_balance_remaining 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。

@@ -1,6 +1,6 @@
 use super::*;
+use rusqlite::{Connection, Result as SqlResult, params};
 use serde::Serialize;
-use rusqlite::{params, Connection, Result as SqlResult};
 
 /// 含 `deleted_at` 列、纳入每日统一软删清理的表清单。
 ///
@@ -33,9 +33,7 @@ pub const SOFT_DELETE_TABLES_PLATFORM: &[(&str, &str)] = &[
 
 /// log.db 下的软删表清单（s5：purge 按归属拆 handle）。
 /// `notification` 表无 `deleted_at` 列（s7 范围，本次不动归属），不在此清单也不在主清单。
-pub const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
-    ("proxy_log", "proxy_log"),
-];
+pub const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[("proxy_log", "proxy_log")];
 
 /// 每日定时清理：跨表永久删除软删行（`deleted_at > 0 AND deleted_at < now - older_than_secs`）。
 ///
@@ -53,21 +51,21 @@ pub const SOFT_DELETE_TABLES_PROXY_LOG: &[(&str, &str)] = &[
 pub fn purge_all_soft_deleted(
     db: &Db,
     older_than_secs: i64,
-) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, u64>, String>> + '_ {
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, u64>, String>> + '_
+{
     let __db_caller = std::panic::Location::caller();
     async move {
         let cutoff_ms = now() - older_than_secs.saturating_mul(1000);
         let mut map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
         let mut failures: u32 = 0;
-        let total_tables =
-            SOFT_DELETE_TABLES.len() + SOFT_DELETE_TABLES_PLATFORM.len() + SOFT_DELETE_TABLES_PROXY_LOG.len();
+        let total_tables = SOFT_DELETE_TABLES.len()
+            + SOFT_DELETE_TABLES_PLATFORM.len()
+            + SOFT_DELETE_TABLES_PROXY_LOG.len();
 
         // 主库表（setting）走 call_traced。
         // ponytail: 三清单 + 同构闭包，比抽泛型 helper（需参数化 handle 方法引用）更短更直白。
         for &(sql_ident, key) in SOFT_DELETE_TABLES {
-            let sql = format!(
-                "DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1"
-            );
+            let sql = format!("DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1");
             let res = db
                 .call_traced(None, __db_caller, move |conn| {
                     Ok(conn.execute(&sql, params![cutoff_ms])? as u64)
@@ -90,9 +88,7 @@ pub fn purge_all_soft_deleted(
         // platform.db 表（platform / "group" / group_platform）走 call_platform_traced。
         // 内存库 fallback 下 platform_handle == 主连接，purge 仍正确（DELETE 幂等，第二次 0 行）。
         for &(sql_ident, key) in SOFT_DELETE_TABLES_PLATFORM {
-            let sql = format!(
-                "DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1"
-            );
+            let sql = format!("DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1");
             let res = db
                 .call_platform_traced(None, __db_caller, move |conn| {
                     Ok(conn.execute(&sql, params![cutoff_ms])? as u64)
@@ -114,9 +110,7 @@ pub fn purge_all_soft_deleted(
         }
         // log.db 表（proxy_log）走 call_proxy_log_traced。
         for &(sql_ident, key) in SOFT_DELETE_TABLES_PROXY_LOG {
-            let sql = format!(
-                "DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1"
-            );
+            let sql = format!("DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1");
             let res = db
                 .call_proxy_log_traced(None, __db_caller, move |conn| {
                     Ok(conn.execute(&sql, params![cutoff_ms])? as u64)
@@ -145,7 +139,6 @@ pub fn purge_all_soft_deleted(
     }
 }
 
-
 /// 老库 auto_vacuum 迁移：探测当前 auto_vacuum（0=NONE/1=FULL/2=INCREMENTAL），
 /// 非 INCREMENTAL(2) 则 `PRAGMA auto_vacuum=INCREMENTAL` + `VACUUM`（VACUUM 重建库切换模式），
 /// 成功后置 setting(db/compact_migrated_v1)=true 持久标记，幂等。
@@ -158,27 +151,29 @@ pub fn purge_all_soft_deleted(
 /// **VACUUM 不在事务内**（rusqlite 独立调用），锁库期间代理请求排队（busy_timeout 兜底）。
 /// 失败仅返回 Err，调用方（启动 spawn）warn 不阻塞，不置标记，下次启动重试。
 #[track_caller]
-pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
+pub fn migrate_auto_vacuum(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // 幂等标记：已迁移直接跳过
-    if let Ok(Some(v)) = get_setting(db, "db", "compact_migrated_v1").await
-        && v == serde_json::Value::Bool(true) {
+        // 幂等标记：已迁移直接跳过
+        if let Ok(Some(v)) = get_setting(db, "db", "compact_migrated_v1").await
+            && v == serde_json::Value::Bool(true)
+        {
             return Ok(false);
         }
-    // 主库：探测 auto_vacuum，非 INCREMENTAL 则 VACUUM 重建切换模式。
-    let main_current: i64 = db
-        .call_traced(None, __db_caller, |c| {
-            Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
-        })
-        .await
-        .map_err(|e| format!("probe main auto_vacuum: {e}"))?;
-    let mut migrated = false;
-    if main_current != 2 {
-        // VACUUM 必须在 autocommit（无活动事务）下执行，不能包在 transaction 内；
-        // rusqlite 独立 execute_batch 默认 autocommit。先 checkpoint 合并 WAL 避免模式约束。
-        db
+        // 主库：探测 auto_vacuum，非 INCREMENTAL 则 VACUUM 重建切换模式。
+        let main_current: i64 = db
             .call_traced(None, __db_caller, |c| {
+                Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+            })
+            .await
+            .map_err(|e| format!("probe main auto_vacuum: {e}"))?;
+        let mut migrated = false;
+        if main_current != 2 {
+            // VACUUM 必须在 autocommit（无活动事务）下执行，不能包在 transaction 内；
+            // rusqlite 独立 execute_batch 默认 autocommit。先 checkpoint 合并 WAL 避免模式约束。
+            db.call_traced(None, __db_caller, |c| {
                 let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
                 c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
                 // VACUUM 清空 sqlite_stat1，重建统计（迁移 034 已建过一次，VACUUM 后须重跑）。
@@ -187,21 +182,20 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
             })
             .await
             .map_err(|e| format!("migrate main auto_vacuum (VACUUM): {e}"))?;
-        tracing::info!("main auto_vacuum migrated to INCREMENTAL via VACUUM");
-        migrated = true;
-    }
-    // platform.db + log.db：同模式探测 + VACUUM 重建。内存库 fallback 下三 handle 共享同一物理
-    // 连接，主库 VACUUM 已覆盖，跳过避免二次 VACUUM。
-    if !db.is_memory() {
-        let platform_current: i64 = db
-            .call_platform_traced(None, __db_caller, |c| {
-                Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
-            })
-            .await
-            .map_err(|e| format!("probe platform auto_vacuum: {e}"))?;
-        if platform_current != 2 {
-            db
+            tracing::info!("main auto_vacuum migrated to INCREMENTAL via VACUUM");
+            migrated = true;
+        }
+        // platform.db + log.db：同模式探测 + VACUUM 重建。内存库 fallback 下三 handle 共享同一物理
+        // 连接，主库 VACUUM 已覆盖，跳过避免二次 VACUUM。
+        if !db.is_memory() {
+            let platform_current: i64 = db
                 .call_platform_traced(None, __db_caller, |c| {
+                    Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+                })
+                .await
+                .map_err(|e| format!("probe platform auto_vacuum: {e}"))?;
+            if platform_current != 2 {
+                db.call_platform_traced(None, __db_caller, |c| {
                     let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
                     c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
                     let _ = c.execute_batch("ANALYZE;");
@@ -209,18 +203,17 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
                 })
                 .await
                 .map_err(|e| format!("migrate platform auto_vacuum (VACUUM): {e}"))?;
-            tracing::info!("platform auto_vacuum migrated to INCREMENTAL via VACUUM");
-            migrated = true;
-        }
-        let proxy_current: i64 = db
-            .call_proxy_log_traced(None, __db_caller, |c| {
-                Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
-            })
-            .await
-            .map_err(|e| format!("probe proxy_log auto_vacuum: {e}"))?;
-        if proxy_current != 2 {
-            db
+                tracing::info!("platform auto_vacuum migrated to INCREMENTAL via VACUUM");
+                migrated = true;
+            }
+            let proxy_current: i64 = db
                 .call_proxy_log_traced(None, __db_caller, |c| {
+                    Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+                })
+                .await
+                .map_err(|e| format!("probe proxy_log auto_vacuum: {e}"))?;
+            if proxy_current != 2 {
+                db.call_proxy_log_traced(None, __db_caller, |c| {
                     let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
                     c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
                     let _ = c.execute_batch("ANALYZE;");
@@ -228,20 +221,20 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
                 })
                 .await
                 .map_err(|e| format!("migrate proxy_log auto_vacuum (VACUUM): {e}"))?;
-            tracing::info!("proxy_log auto_vacuum migrated to INCREMENTAL via VACUUM");
-            migrated = true;
+                tracing::info!("proxy_log auto_vacuum migrated to INCREMENTAL via VACUUM");
+                migrated = true;
+            }
         }
-    }
-    set_setting(
-        db,
-        SetSettingInput {
-            scope: "db".into(),
-            key: "compact_migrated_v1".into(),
-            value: serde_json::Value::Bool(true),
-        },
-    )
-    .await?;
-    Ok(migrated)
+        set_setting(
+            db,
+            SetSettingInput {
+                scope: "db".into(),
+                key: "compact_migrated_v1".into(),
+                value: serde_json::Value::Bool(true),
+            },
+        )
+        .await?;
+        Ok(migrated)
     }
 }
 
@@ -254,64 +247,66 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
 /// 用于设置页「立即压缩数据库」按钮：比 incremental 更激进，整库重写。
 /// VACUUM 不在事务内（独立 conn 调用）；锁库期间请求排队，UI 有警示。
 #[track_caller]
-pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<CompactResult, String>> + '_ {
+pub fn compact_database(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<CompactResult, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // 主库 VACUUM
-    let main = db
-        .call_traced(None, __db_caller, |c| {
-            let before = db_size_bytes(c)?;
-            // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
-            let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-            c.execute_batch("VACUUM;")?;
-            // VACUUM 重建库会清空 sqlite_stat1，重跑 ANALYZE 重建统计避免规划器退化。
-            let _ = c.execute_batch("ANALYZE;");
-            let after = db_size_bytes(c)?;
-            Ok(CompactResult {
-                before_bytes: before,
-                after_bytes: after,
+        // 主库 VACUUM
+        let main = db
+            .call_traced(None, __db_caller, |c| {
+                let before = db_size_bytes(c)?;
+                // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
+                let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+                c.execute_batch("VACUUM;")?;
+                // VACUUM 重建库会清空 sqlite_stat1，重跑 ANALYZE 重建统计避免规划器退化。
+                let _ = c.execute_batch("ANALYZE;");
+                let after = db_size_bytes(c)?;
+                Ok(CompactResult {
+                    before_bytes: before,
+                    after_bytes: after,
+                })
             })
-        })
-        .await
-        .map_err(|e| format!("compact main database: {e}"))?;
-    // 内存库 fallback：三 handle 同物理连接，主库 VACUUM 已覆盖，跳过 platform / log.db。
-    if db.is_memory() {
-        return Ok(main);
-    }
-    // platform.db VACUUM
-    let platform = db
-        .call_platform_traced(None, __db_caller, |c| {
-            let before = db_size_bytes(c)?;
-            let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-            c.execute_batch("VACUUM;")?;
-            let _ = c.execute_batch("ANALYZE;");
-            let after = db_size_bytes(c)?;
-            Ok(CompactResult {
-                before_bytes: before,
-                after_bytes: after,
+            .await
+            .map_err(|e| format!("compact main database: {e}"))?;
+        // 内存库 fallback：三 handle 同物理连接，主库 VACUUM 已覆盖，跳过 platform / log.db。
+        if db.is_memory() {
+            return Ok(main);
+        }
+        // platform.db VACUUM
+        let platform = db
+            .call_platform_traced(None, __db_caller, |c| {
+                let before = db_size_bytes(c)?;
+                let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+                c.execute_batch("VACUUM;")?;
+                let _ = c.execute_batch("ANALYZE;");
+                let after = db_size_bytes(c)?;
+                Ok(CompactResult {
+                    before_bytes: before,
+                    after_bytes: after,
+                })
             })
-        })
-        .await
-        .map_err(|e| format!("compact platform database: {e}"))?;
-    // log.db VACUUM
-    let proxy = db
-        .call_proxy_log_traced(None, __db_caller, |c| {
-            let before = db_size_bytes(c)?;
-            let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
-            c.execute_batch("VACUUM;")?;
-            let _ = c.execute_batch("ANALYZE;");
-            let after = db_size_bytes(c)?;
-            Ok(CompactResult {
-                before_bytes: before,
-                after_bytes: after,
+            .await
+            .map_err(|e| format!("compact platform database: {e}"))?;
+        // log.db VACUUM
+        let proxy = db
+            .call_proxy_log_traced(None, __db_caller, |c| {
+                let before = db_size_bytes(c)?;
+                let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+                c.execute_batch("VACUUM;")?;
+                let _ = c.execute_batch("ANALYZE;");
+                let after = db_size_bytes(c)?;
+                Ok(CompactResult {
+                    before_bytes: before,
+                    after_bytes: after,
+                })
             })
+            .await
+            .map_err(|e| format!("compact proxy_log database: {e}"))?;
+        Ok(CompactResult {
+            before_bytes: main.before_bytes + platform.before_bytes + proxy.before_bytes,
+            after_bytes: main.after_bytes + platform.after_bytes + proxy.after_bytes,
         })
-        .await
-        .map_err(|e| format!("compact proxy_log database: {e}"))?;
-    Ok(CompactResult {
-        before_bytes: main.before_bytes + platform.before_bytes + proxy.before_bytes,
-        after_bytes: main.after_bytes + platform.after_bytes + proxy.after_bytes,
-    })
     }
 }
 
@@ -361,12 +356,18 @@ pub struct CompactResult {
 /// user_response_headers / user_response_body（与 from_log 的 strip_user 列集对称）。
 /// Does NOT delete the log row — keeps token stats and metadata.
 #[track_caller]
-pub fn cleanup_user_request_fields(db: &Db, value: u32, unit: RetentionUnit) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn cleanup_user_request_fields(
+    db: &Db,
+    value: u32,
+    unit: RetentionUnit,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else { return Ok(()); };
-    // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
-    db
+        let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else {
+            return Ok(());
+        };
+        // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
+        db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' \
@@ -390,12 +391,18 @@ pub fn cleanup_user_request_fields(db: &Db, value: u32, unit: RetentionUnit) -> 
 /// 注意：仅改清理逻辑，存量大体积 body 的实际回收发生在用户下次 retention 周期运行
 /// 触发本 UPDATE + 后续 incremental_vacuum，迁移本身不强清存量（避免启动期长锁）。
 #[track_caller]
-pub fn cleanup_upstream_request_fields(db: &Db, value: u32, unit: RetentionUnit) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+pub fn cleanup_upstream_request_fields(
+    db: &Db,
+    value: u32,
+    unit: RetentionUnit,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else { return Ok(()); };
-    // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
-    db
+        let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else {
+            return Ok(());
+        };
+        // proxy_log 在 log.db（proxy-log-db-split s3），走专用写连接。
+        db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '', field_trace = '' \
@@ -413,13 +420,15 @@ pub fn cleanup_upstream_request_fields(db: &Db, value: u32, unit: RetentionUnit)
 pub fn count_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
-    db
-        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
+        // proxy_log 在 log.db（proxy-log-db-split s3），走专用读池。
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0",
+                [],
+                |row| row.get(0),
+            )?)
         })
         .await
         .map_err(|e| e.to_string())
     }
 }
-

@@ -1,31 +1,43 @@
-use crate::shared::*;
 use crate::gateway;
+use crate::shared::*;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-use tauri::{State, Emitter};
-
+use tauri::{Emitter, State};
 
 pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
     let group_key = slugify(&format!("{}-auto", platform.name));
-    let group = db::create_group(db, CreateGroup {
-        name: group_key.clone(),
-        group_key: Some(group_key),
-        routing_mode: RoutingMode::HealthAware,
-        auto_from_platform: platform.id.to_string(),
-        request_timeout_secs: 0,
-        connect_timeout_secs: 0,
-        source_protocol: None,
-        max_retries: 10,
-        model_mappings: Vec::new(),
-        env_vars: Vec::new(),
-    }).await?;
-    db::set_group_platforms(db, group.id, &[GroupPlatformInput {
-        platform_id: platform.id,
-        priority: Some(0),
-        weight: Some(1),
-        level_priority: None,
-    }]).await?;
-    tracing::info!(platform_id = platform.id, group_id = group.id, "created auto group for platform");
+    let group = db::create_group(
+        db,
+        CreateGroup {
+            name: group_key.clone(),
+            group_key: Some(group_key),
+            routing_mode: RoutingMode::HealthAware,
+            auto_from_platform: platform.id.to_string(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: 10,
+            model_mappings: Vec::new(),
+            env_vars: Vec::new(),
+        },
+    )
+    .await?;
+    db::set_group_platforms(
+        db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: platform.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: None,
+        }],
+    )
+    .await?;
+    tracing::info!(
+        platform_id = platform.id,
+        group_id = group.id,
+        "created auto group for platform"
+    );
     Ok(())
 }
 

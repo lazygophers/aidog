@@ -52,10 +52,15 @@ pub(crate) async fn handle_mock(
     };
     match effective_error_mode {
         "http_error" => {
-            tracing::warn!(platform_id = log.platform_id, status = cfg.status_code, "mock error_mode=http_error");
+            tracing::warn!(
+                platform_id = log.platform_id,
+                status = cfg.status_code,
+                "mock error_mode=http_error"
+            );
             let body = mock::build_error_body(source_protocol, cfg.status_code, "mock http_error");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
-            let status = StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            let status =
+                StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             log.status_code = cfg.status_code as i32;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.response_body = body_str.clone();
@@ -63,20 +68,29 @@ pub(crate) async fn handle_mock(
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
             return {
-                let mut r = (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+                let mut r = (
+                    status,
+                    [(axum::http::header::CONTENT_TYPE, "application/json")],
+                    body_str,
+                )
+                    .into_response();
                 inject_trace_header(&mut r);
                 r
             };
         }
         "rate_limit_429" => {
-            tracing::warn!(platform_id = log.platform_id, "mock error_mode=rate_limit_429 (429)");
+            tracing::warn!(
+                platform_id = log.platform_id,
+                "mock error_mode=rate_limit_429 (429)"
+            );
             let body = mock::build_error_body(source_protocol, 429, "mock rate limit");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             log.status_code = 429;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
-            log.user_response_headers = r#"{"content-type":"application/json","retry-after":"5"}"#.to_string();
+            log.user_response_headers =
+                r#"{"content-type":"application/json","retry-after":"5"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
             return {
                 let mut r = (
@@ -93,7 +107,10 @@ pub(crate) async fn handle_mock(
             };
         }
         "timeout" => {
-            tracing::warn!(platform_id = log.platform_id, "mock error_mode=timeout (will sleep then 504)");
+            tracing::warn!(
+                platform_id = log.platform_id,
+                "mock error_mode=timeout (will sleep then 504)"
+            );
             // sleep 上限保护，不真 hang 连接
             tokio::time::sleep(std::time::Duration::from_secs(600)).await;
             let body = mock::build_error_body(source_protocol, 504, "mock timeout");
@@ -105,7 +122,11 @@ pub(crate) async fn handle_mock(
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
             return {
-                let mut r = (StatusCode::GATEWAY_TIMEOUT, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str)
+                let mut r = (
+                    StatusCode::GATEWAY_TIMEOUT,
+                    [(axum::http::header::CONTENT_TYPE, "application/json")],
+                    body_str,
+                )
                     .into_response();
                 inject_trace_header(&mut r);
                 r
@@ -120,8 +141,25 @@ pub(crate) async fn handle_mock(
         // mock 无 platform.extra / 无 preset 默认 → peak multiplier 恒 1.0；
         // 传 0 / 0 跳过 peak 查询（calc_est_cost 早退）。
         let now_ms = aidog_db::now();
-        let est = crate::gateway::billing::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens, 0, now_ms).await;
-        let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, now_ms).await;
+        let est = crate::gateway::billing::calc_est_cost(
+            &state.db,
+            &log.actual_model,
+            "mock",
+            log.input_tokens,
+            log.output_tokens,
+            log.cache_tokens,
+            0,
+            now_ms,
+        )
+        .await;
+        let _ = super::manual_budget::apply_manual_budgets(
+            &state.db,
+            log.platform_id,
+            est,
+            mb_total,
+            now_ms,
+        )
+        .await;
     }
 
     // stream_override 优先于请求 is_stream
@@ -173,7 +211,12 @@ pub(crate) async fn handle_mock(
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
     upsert_log(&state, &log, &log_settings).await;
 
-    let mut r = (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+    let mut r = (
+        status,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        body_str,
+    )
+        .into_response();
     inject_trace_header(&mut r);
     r
 }
@@ -187,7 +230,10 @@ mod test_error_rate {
     fn error_rate_hit_ratio_within_tolerance() {
         let hits = (0..2000).filter(|_| mock_error_hit(0.05)).count();
         let ratio = hits as f64 / 2000.0;
-        assert!((0.02..=0.08).contains(&ratio), "hit ratio {ratio} out of [0.02, 0.08]");
+        assert!(
+            (0.02..=0.08).contains(&ratio),
+            "hit ratio {ratio} out of [0.02, 0.08]"
+        );
     }
 
     #[test]

@@ -1,10 +1,14 @@
 #![cfg(test)]
 use super::*;
 
-const LOCALES: [&str; 8] = ["en-US", "zh-Hans", "ar-SA", "fr-FR", "de-DE", "ru-RU", "ja-JP", "es-ES"];
+const LOCALES: [&str; 8] = [
+    "en-US", "zh-Hans", "ar-SA", "fr-FR", "de-DE", "ru-RU", "ja-JP", "es-ES",
+];
 
 fn protocols() -> &'static Map<String, Value> {
-    presets()["protocols"].as_object().expect("protocols object")
+    presets()["protocols"]
+        .as_object()
+        .expect("protocols object")
 }
 
 #[test]
@@ -18,15 +22,23 @@ fn index_platform_list_matches_platform_files() {
         .collect();
     let mut found: Vec<&str> = PLATFORM_FILES.iter().map(|(c, _)| *c).collect();
     found.sort_unstable();
-    assert_eq!(listed, found, "index.json 平台清单须与 platforms/*/platform.json 一致");
-    assert_eq!(protocols().len(), PLATFORM_FILES.len(), "有 platform.json 解析失败被跳过");
+    assert_eq!(
+        listed, found,
+        "index.json 平台清单须与 platforms/*/platform.json 一致"
+    );
+    assert_eq!(
+        protocols().len(),
+        PLATFORM_FILES.len(),
+        "有 platform.json 解析失败被跳过"
+    );
 }
 
 /// index.json 的 `models` 数组是远程同步的逐文件拉取清单：漏一个文件 = 该模型永远同步不下来，
 /// 而 bundled 读取层照样有（build.rs 自动发现），线上才暴露。这里锁死两者零差集。
 #[test]
 fn index_model_list_matches_model_files() {
-    let mut on_disk: std::collections::BTreeMap<&str, Vec<&str>> = std::collections::BTreeMap::new();
+    let mut on_disk: std::collections::BTreeMap<&str, Vec<&str>> =
+        std::collections::BTreeMap::new();
     for (code, file, _) in MODEL_FILES {
         on_disk.entry(code).or_default().push(file);
     }
@@ -35,9 +47,17 @@ fn index_model_list_matches_model_files() {
         listed.sort();
         let mut found = on_disk.remove(e.code.as_str()).unwrap_or_default();
         found.sort_unstable();
-        assert_eq!(listed, found, "{} 的 index.json models 清单与磁盘文件不一致", e.code);
+        assert_eq!(
+            listed, found,
+            "{} 的 index.json models 清单与磁盘文件不一致",
+            e.code
+        );
     }
-    assert!(on_disk.is_empty(), "这些平台目录未登记进 index.json: {:?}", on_disk.keys());
+    assert!(
+        on_disk.is_empty(),
+        "这些平台目录未登记进 index.json: {:?}",
+        on_disk.keys()
+    );
 }
 
 /// 所有登记平台必带 platform.json；`pricing_only` 只允许纯协议豁免（现应为空）。
@@ -45,14 +65,27 @@ fn index_model_list_matches_model_files() {
 #[test]
 fn every_platform_entry_carries_platform_file() {
     let idx = bundled_index();
-    let po = idx.iter().filter(|e| e.platform_file.is_none()).collect::<Vec<_>>();
-    assert!(po.is_empty(), "非纯协议平台不得豁免 platform.json: {:?}", po.iter().map(|e| e.code.clone()).collect::<Vec<_>>());
+    let po = idx
+        .iter()
+        .filter(|e| e.platform_file.is_none())
+        .collect::<Vec<_>>();
+    assert!(
+        po.is_empty(),
+        "非纯协议平台不得豁免 platform.json: {:?}",
+        po.iter().map(|e| e.code.clone()).collect::<Vec<_>>()
+    );
     for code in ["litellm", "meta", "mistral", "xai"] {
         let e = idx.iter().find(|e| e.code == code).expect(code);
         assert!(e.platform_file.is_some(), "{code} 必须有 platform.json");
         assert!(!e.models.is_empty(), "{code} 模型清单不可为空");
     }
-    assert!(idx.iter().find(|e| e.code == "anthropic").expect("anthropic").platform_file.is_some());
+    assert!(
+        idx.iter()
+            .find(|e| e.code == "anthropic")
+            .expect("anthropic")
+            .platform_file
+            .is_some()
+    );
 }
 
 /// DB 同步后的 presets 文档与 bundled 同形状；单份脏 JSON 只丢该协议，不炸整篇。
@@ -76,13 +109,22 @@ fn every_protocol_has_full_brand_fields() {
             assert!(entry[field].is_string(), "{code}.{field} 须为字符串");
         }
         assert!(entry["keywords"].is_array(), "{code}.keywords 须为数组");
-        assert!(entry["source_urls"]["docs"].is_string(), "{code}.source_urls.docs 缺失");
+        assert!(
+            entry["source_urls"]["docs"].is_string(),
+            "{code}.source_urls.docs 缺失"
+        );
         for l in LOCALES {
             let name = entry["name"][l].as_str().unwrap_or("");
             assert!(!name.trim().is_empty(), "{code}.name.{l} 缺失或空");
         }
-        assert!(!entry["homepage"].as_str().expect("homepage").is_empty(), "{code}.homepage 空");
-        assert!(!entry["color"].as_str().expect("color").is_empty(), "{code}.color 空");
+        assert!(
+            !entry["homepage"].as_str().expect("homepage").is_empty(),
+            "{code}.homepage 空"
+        );
+        assert!(
+            !entry["color"].as_str().expect("color").is_empty(),
+            "{code}.color 空"
+        );
     }
 }
 
@@ -118,7 +160,10 @@ fn known_simpleicons_slugs_are_valid() {
         if slug.is_empty() {
             continue;
         }
-        assert!(allowed.contains(slug), "{code}.logo_url `{slug}` 不在已核验 Simple Icons slug 白名单");
+        assert!(
+            allowed.contains(slug),
+            "{code}.logo_url `{slug}` 不在已核验 Simple Icons slug 白名单"
+        );
     }
 }
 
@@ -130,7 +175,10 @@ fn model_file_paths_use_forward_slash() {
         assert!(!file.contains('\\'), "{code}/{file} 路径分隔符须归一成 /");
     }
     // vendor 子目录的模型确实存在，否则本断言恒真而无意义
-    assert!(MODEL_FILES.iter().any(|(_, f, _)| f.contains('/')), "registry 应有 vendor 子目录模型");
+    assert!(
+        MODEL_FILES.iter().any(|(_, f, _)| f.contains('/')),
+        "registry 应有 vendor 子目录模型"
+    );
 }
 
 /// 票 13-C：更新的 DB 行覆盖 bundled 同 code，bundled 里 DB 缺的补齐。
@@ -157,7 +205,10 @@ fn merge_presets_doc_keeps_newer_bundled_over_stale_db_row() {
     let bundled_stamp = presets()["protocols"]["glm_coding"]["last_updated"]
         .as_i64()
         .expect("bundled glm_coding 须带 last_updated");
-    let stale = format!(r#"{{"last_updated":{},"homepage":"https://stale"}}"#, bundled_stamp - 1);
+    let stale = format!(
+        r#"{{"last_updated":{},"homepage":"https://stale"}}"#,
+        bundled_stamp - 1
+    );
     let doc = merge_presets_doc([("glm_coding", stale.as_str())], Some(bundled_stamp - 1));
     // 旧行被忽略：bundled 的 quota_scripts 仍在，homepage 不是旧行那个
     assert_ne!(doc["protocols"]["glm_coding"]["homepage"], "https://stale");
@@ -165,8 +216,14 @@ fn merge_presets_doc_keeps_newer_bundled_over_stale_db_row() {
     // 文档级 last_updated 取 bundled 与 DB 的较大值
     assert!(doc["last_updated"].as_i64().unwrap() >= bundled_stamp - 1);
     // 无 last_updated 的旧行（戳缺失按 0 处理）同样不覆盖
-    let doc2 = merge_presets_doc([("glm_coding", r#"{"homepage":"https://nostamp"}"#)], Some(1));
-    assert_ne!(doc2["protocols"]["glm_coding"]["homepage"], "https://nostamp");
+    let doc2 = merge_presets_doc(
+        [("glm_coding", r#"{"homepage":"https://nostamp"}"#)],
+        Some(1),
+    );
+    assert_ne!(
+        doc2["protocols"]["glm_coding"]["homepage"],
+        "https://nostamp"
+    );
 }
 
 /// 票 13-D：DB 同步下来的端点覆盖编译期内置那份，`endpoints_locked` 保存不再把
@@ -183,15 +240,30 @@ fn endpoints_follow_db_synced_preset() {
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].base_url, "https://db.example/v1");
     // 未被 DB 覆盖的协议照旧走 bundled 端点
-    let urls = |d: &Value| endpoints_in(d, "openai").iter().map(|e| e.base_url.clone()).collect::<Vec<_>>();
+    let urls = |d: &Value| {
+        endpoints_in(d, "openai")
+            .iter()
+            .map(|e| e.base_url.clone())
+            .collect::<Vec<_>>()
+    };
     assert_eq!(urls(&merged), urls(presets()));
 }
 
 /// R12：`endpoints_locked()` 协议保存时强制用 preset 端点，读空会清空用户端点。
 #[test]
 fn default_endpoints_present_for_direct_vendors() {
-    for code in ["anthropic", "openai", "gemini", "deepseek", "glm_coding", "glm_coding_en"] {
-        assert!(!default_endpoints(code).is_empty(), "{code} 默认端点不可为空");
+    for code in [
+        "anthropic",
+        "openai",
+        "gemini",
+        "deepseek",
+        "glm_coding",
+        "glm_coding_en",
+    ] {
+        assert!(
+            !default_endpoints(code).is_empty(),
+            "{code} 默认端点不可为空"
+        );
     }
 }
 
@@ -214,7 +286,10 @@ fn every_model_has_an_official_platform() {
     for (code, _file, json) in MODEL_FILES {
         let e = parse(code, json);
         let id = e["model_id"].as_str().expect("model_id");
-        assert!(seen.insert(format!("{code}/{id}")), "{code} 内 model_id `{id}` 重复");
+        assert!(
+            seen.insert(format!("{code}/{id}")),
+            "{code} 内 model_id `{id}` 重复"
+        );
         assert!(e["capabilities"].is_array(), "{code}/{id} 缺 capabilities");
         let slot = official.entry(id.to_string()).or_default();
         if e["official"] == Value::Bool(true) {
@@ -284,9 +359,17 @@ fn quota_scripts_in_and_selection() {
 
     // 选中：id 命中 / 缺省首条 / id 失效回落首条
     let vs = quota_scripts_in(presets(), "glm");
-    assert_eq!(select_quota_variant(&vs, Some("default")).unwrap().id, "default");
+    assert_eq!(
+        select_quota_variant(&vs, Some("default")).unwrap().id,
+        "default"
+    );
     assert_eq!(select_quota_variant(&vs, None).unwrap().id, "default");
-    assert_eq!(select_quota_variant(&vs, Some("renamed-by-remote")).unwrap().id, "default");
+    assert_eq!(
+        select_quota_variant(&vs, Some("renamed-by-remote"))
+            .unwrap()
+            .id,
+        "default"
+    );
     assert!(select_quota_variant(&[], None).is_none());
 }
 
@@ -294,37 +377,91 @@ fn quota_scripts_in_and_selection() {
 /// 锁 bundled 文档的关键词 → 协议映射（同族共享关键词取文档序首个 = base 变体）。
 #[test]
 fn quota_code_for_base_url_matches_bundled_keywords() {
-    assert_eq!(quota_code_for_base_url("https://api.kimi.com/coding/v1").as_deref(), Some("kimi"));
-    assert_eq!(quota_code_for_base_url("https://open.bigmodel.cn/api/paas/v4").as_deref(), Some("glm"));
-    assert_eq!(quota_code_for_base_url("https://api.z.ai/api/paas/v4").as_deref(), Some("glm"));
-    assert_eq!(quota_code_for_base_url("https://api.minimaxi.com/v1").as_deref(), Some("minimax"));
-    assert_eq!(quota_code_for_base_url("https://api.minimax.io/v1").as_deref(), Some("minimax_en"));
-    assert_eq!(quota_code_for_base_url("https://api.deepseek.com").as_deref(), Some("deepseek"));
-    assert_eq!(quota_code_for_base_url("https://api.stepfun.com/v1").as_deref(), Some("stepfun"));
-    assert_eq!(quota_code_for_base_url("https://api.stepfun.ai/v1").as_deref(), Some("stepfun_en"));
-    assert_eq!(quota_code_for_base_url("https://api.siliconflow.cn/v1").as_deref(), Some("siliconflow"));
-    assert_eq!(quota_code_for_base_url("https://api.siliconflow.com/v1").as_deref(), Some("siliconflow_en"));
-    assert_eq!(quota_code_for_base_url("https://openrouter.ai/api/v1").as_deref(), Some("openrouter"));
-    assert_eq!(quota_code_for_base_url("https://api.novita.ai/v1").as_deref(), Some("novita"));
+    assert_eq!(
+        quota_code_for_base_url("https://api.kimi.com/coding/v1").as_deref(),
+        Some("kimi")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://open.bigmodel.cn/api/paas/v4").as_deref(),
+        Some("glm")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.z.ai/api/paas/v4").as_deref(),
+        Some("glm")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.minimaxi.com/v1").as_deref(),
+        Some("minimax")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.minimax.io/v1").as_deref(),
+        Some("minimax_en")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.deepseek.com").as_deref(),
+        Some("deepseek")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.stepfun.com/v1").as_deref(),
+        Some("stepfun")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.stepfun.ai/v1").as_deref(),
+        Some("stepfun_en")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.siliconflow.cn/v1").as_deref(),
+        Some("siliconflow")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.siliconflow.com/v1").as_deref(),
+        Some("siliconflow_en")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://openrouter.ai/api/v1").as_deref(),
+        Some("openrouter")
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://api.novita.ai/v1").as_deref(),
+        Some("novita")
+    );
     // 无命中 / newapi（自部署中转，无专属域名关键词）→ None
-    assert_eq!(quota_code_for_base_url("https://unknown.example.com/v1"), None);
-    assert_eq!(quota_code_for_base_url("https://my-newapi.example.com/v1"), None);
+    assert_eq!(
+        quota_code_for_base_url("https://unknown.example.com/v1"),
+        None
+    );
+    assert_eq!(
+        quota_code_for_base_url("https://my-newapi.example.com/v1"),
+        None
+    );
 }
 
 #[test]
 fn resolve_quota_script_fallback_chain() {
     let first = quota_scripts_in(presets(), "deepseek")[0].script.clone();
     // ① 物化列非空 → 直接用之（不被 extra 覆盖）
-    assert_eq!(resolve_quota_script("deepseek", r#"{"quota_script_id":"x"}"#, "MATERIALIZED"), Some("MATERIALIZED".into()));
+    assert_eq!(
+        resolve_quota_script("deepseek", r#"{"quota_script_id":"x"}"#, "MATERIALIZED"),
+        Some("MATERIALIZED".into())
+    );
     // ② 无物化列：extra.quota_custom_script 优先于变体
     assert_eq!(
         resolve_quota_script("deepseek", r#"{"quota_custom_script":"return 1"}"#, ""),
         Some("return 1".into())
     );
     // ③ id 命中 / 缺省 / 失效 → 首条变体正文
-    assert_eq!(resolve_quota_script("deepseek", r#"{"quota_script_id":"default"}"#, ""), Some(first.clone()));
-    assert_eq!(resolve_quota_script("deepseek", "{}", ""), Some(first.clone()));
-    assert_eq!(resolve_quota_script("deepseek", r#"{"quota_script_id":"gone"}"#, ""), Some(first));
+    assert_eq!(
+        resolve_quota_script("deepseek", r#"{"quota_script_id":"default"}"#, ""),
+        Some(first.clone())
+    );
+    assert_eq!(
+        resolve_quota_script("deepseek", "{}", ""),
+        Some(first.clone())
+    );
+    assert_eq!(
+        resolve_quota_script("deepseek", r#"{"quota_script_id":"gone"}"#, ""),
+        Some(first)
+    );
     // 无脚本协议 → None（调用方维持 Unsupported err）
     assert_eq!(resolve_quota_script("kimi_en", "{}", ""), None);
     // extra 非 JSON → 不炸，走首条
@@ -339,17 +476,31 @@ fn materialize_quota_script_rules() {
     assert_eq!(materialize_quota_script("kimi_en", "{}", "", true), "");
     // 自定义脚本优先（即使 id 也在）
     assert_eq!(
-        materialize_quota_script("glm", r#"{"quota_script_id":"default","quota_custom_script":"return 9"}"#, "OLD", false),
+        materialize_quota_script(
+            "glm",
+            r#"{"quota_script_id":"default","quota_custom_script":"return 9"}"#,
+            "OLD",
+            false
+        ),
         "return 9"
     );
     // id 有值 → 重写为选中变体（远程更新待拉入）
-    assert_eq!(materialize_quota_script("glm", r#"{"quota_script_id":"default"}"#, "OLD", false), first);
+    assert_eq!(
+        materialize_quota_script("glm", r#"{"quota_script_id":"default"}"#, "OLD", false),
+        first
+    );
     // id 失效 → 回落首条重写
-    assert_eq!(materialize_quota_script("glm", r#"{"quota_script_id":"gone"}"#, "OLD", false), first);
+    assert_eq!(
+        materialize_quota_script("glm", r#"{"quota_script_id":"gone"}"#, "OLD", false),
+        first
+    );
     // 无 id + 列已有值 + 协议未变 → 保留（已物化脚本不随远程同步自动换）
     assert_eq!(materialize_quota_script("glm", "{}", "OLD", false), "OLD");
     // 协议变更（旧列是别的协议的脚本）→ 重物化
-    assert_eq!(materialize_quota_script("glm", "{}", "OLD-OTHER-PROTO", true), first);
+    assert_eq!(
+        materialize_quota_script("glm", "{}", "OLD-OTHER-PROTO", true),
+        first
+    );
     // 协议变更为无脚本协议 → 清列
     assert_eq!(materialize_quota_script("openai", "{}", "OLD", true), "");
 }

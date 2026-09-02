@@ -11,7 +11,10 @@ use serde_json::Value;
 ///   / prompt_tokens_details.cached_tokens→cache_read
 ///
 /// `reasoning_content`(GLM 思维链等非标准字段)被忽略，不影响 content/tool_use 产出。
-pub fn parse_openai_response(body: &Value, fallback_model: &str) -> Option<crate::converter::NonStreamResponse> {
+pub fn parse_openai_response(
+    body: &Value,
+    fallback_model: &str,
+) -> Option<crate::converter::NonStreamResponse> {
     let choices = body.get("choices")?.as_array()?;
     let choice = choices.first()?;
     let message = choice.get("message")?;
@@ -121,15 +124,17 @@ pub fn render_openai_response(r: &crate::converter::NonStreamResponse) -> Option
 
     // 添加 content（仅文本，不含 reasoning）
     if let Some(text) = &r.text
-        && !text.is_empty() {
-            message["content"] = serde_json::json!(text);
-        }
+        && !text.is_empty()
+    {
+        message["content"] = serde_json::json!(text);
+    }
 
     // 添加 reasoning_content（独立字段）
     if let Some(reasoning) = &r.reasoning
-        && !reasoning.is_empty() {
-            message["reasoning_content"] = serde_json::json!(reasoning);
-        }
+        && !reasoning.is_empty()
+    {
+        message["reasoning_content"] = serde_json::json!(reasoning);
+    }
 
     // 添加 tool_calls
     if !r.tool_uses.is_empty() {

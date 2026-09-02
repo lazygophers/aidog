@@ -4,8 +4,8 @@ use rusqlite::params;
 
 use super::algo::{apply_tier_delta, balance_cost, calibrate_tier, should_calibrate};
 use super::model::EstCodingPlan;
-use aidog_db::{now, Db};
 use crate::gateway::quota::PlatformQuota;
+use aidog_db::{Db, now};
 
 /// 读取平台校准状态（短持锁）
 pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64), String> {
@@ -91,10 +91,21 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
                 .find(|p| p.name == t.name)
                 .cloned()
                 .unwrap_or_default();
-            calibrate_tier(&prev_tier, &t.name, t.utilization, has_base, t.limit, t.resets_at.as_deref(), now())
+            calibrate_tier(
+                &prev_tier,
+                &t.name,
+                t.utilization,
+                has_base,
+                t.limit,
+                t.resets_at.as_deref(),
+                now(),
+            )
         })
         .collect();
-    EstCodingPlan { tiers, level: cp.level.clone() }
+    EstCodingPlan {
+        tiers,
+        level: cp.level.clone(),
+    }
 }
 
 /// 用一次真查结果对齐 est（严格覆盖）：est_balance/est_coding_plan = 真实值，
@@ -102,7 +113,12 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
 /// 供 GUI 手动真查 + 冷启动初始化复用——确保真查发生时 est 立即严格对齐真实，
 /// 避免 raw CodingPlanInfo JSON 直写 est_coding_plan（字段 utilization≠est_utilization）导致 est 显 0/偏差。
 /// 一次短读拿 prev coding plan（用于拟合）→ 锁外纯计算 → write_real_quota 短持锁覆盖。
-pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota, is_coding_plan: bool) {
+pub async fn calibrate_from_quota(
+    db: &Db,
+    platform_id: u64,
+    quota: &PlatformQuota,
+    is_coding_plan: bool,
+) {
     if !quota.success {
         tracing::warn!(platform_id, is_coding_plan, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
         return;
@@ -148,7 +164,9 @@ async fn run_calibration(
 ) {
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
-    let quota = crate::gateway::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await;
+    let quota =
+        crate::gateway::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64)
+            .await;
     // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }
@@ -177,13 +195,23 @@ pub async fn estimate_after_request(
     let is_peak = crate::gateway::peak::is_in_peak_window(&windows, now(), model);
     // resolve_price 单次解析，余额扣减（balance delta）与手动预算 est_cost 复用同一结果
     // （同一 (platform_type, model, input_tokens)，结果等价），避免对余额平台重复解析两次。
-    let resolved =
-        aidog_db::resolve_price(db, platform_type, model, 0.0, 0.0, input_tokens, now(), is_peak)
-            .await
-            .ok();
+    let resolved = aidog_db::resolve_price(
+        db,
+        platform_type,
+        model,
+        0.0,
+        0.0,
+        input_tokens,
+        now(),
+        is_peak,
+    )
+    .await
+    .ok();
     // 高峰绝对价已含涨价 → 倍率压成 1.0，否则乘平台 peak 倍率（避免双重计价）。
     let raw_mult = crate::gateway::peak::resolve_multiplier(&windows, now(), model);
-    let peak_mult = resolved.as_ref().map_or(raw_mult, |r| r.multiplier(raw_mult));
+    let peak_mult = resolved
+        .as_ref()
+        .map_or(raw_mult, |r| r.multiplier(raw_mult));
     let resolved_price = resolved.map(|r| r.price);
 
     // 1. 增量预估
@@ -232,9 +260,10 @@ pub async fn estimate_after_request(
 
     // 2. 校准判定（短读，锁外 await）
     if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await
-        && should_calibrate(now(), last_real, count) {
-            run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
-        }
+        && should_calibrate(now(), last_real, count)
+    {
+        run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
+    }
 }
 
 #[cfg(test)]

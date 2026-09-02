@@ -23,11 +23,16 @@ pub struct TrayColor {
     pub value: String,
 }
 
-fn default_color_mode() -> String { "follow".to_string() }
+fn default_color_mode() -> String {
+    "follow".to_string()
+}
 
 impl Default for TrayColor {
     fn default() -> Self {
-        Self { mode: default_color_mode(), value: String::new() }
+        Self {
+            mode: default_color_mode(),
+            value: String::new(),
+        }
     }
 }
 
@@ -74,11 +79,21 @@ pub struct TrayItem {
     pub order: i32,
 }
 
-fn default_item_type() -> String { "platform".to_string() }
-fn default_display() -> String { "balance".to_string() }
-fn default_font_size() -> f64 { 9.0 }
-fn default_line_mode() -> String { "two".to_string() }
-fn default_align() -> String { "left".to_string() }
+fn default_item_type() -> String {
+    "platform".to_string()
+}
+fn default_display() -> String {
+    "balance".to_string()
+}
+fn default_font_size() -> f64 {
+    9.0
+}
+fn default_line_mode() -> String {
+    "two".to_string()
+}
+fn default_align() -> String {
+    "left".to_string()
+}
 
 /// 托盘整体配置（存 settings: scope="tray", key="config"）。
 /// 行模式（单/两行）改为每 item 各自 `line_mode`，全局仅保留 separator（多 item 间分隔）。
@@ -92,7 +107,9 @@ pub struct TrayConfig {
     pub items: Vec<TrayItem>,
 }
 
-fn default_separator() -> String { "  ".to_string() }
+fn default_separator() -> String {
+    "  ".to_string()
+}
 
 impl Default for TrayConfig {
     fn default() -> Self {
@@ -151,11 +168,19 @@ pub struct PopoverItem {
     pub color: TrayColor,
 }
 
-fn default_popover_scope() -> String { "overall".to_string() }
-fn default_popover_time_window() -> String { "7d".to_string() }
-fn default_popover_size() -> String { "m".to_string() }
+fn default_popover_scope() -> String {
+    "overall".to_string()
+}
+fn default_popover_time_window() -> String {
+    "7d".to_string()
+}
+fn default_popover_size() -> String {
+    "m".to_string()
+}
 
-fn default_popover_item_type() -> String { "today_cost".to_string() }
+fn default_popover_item_type() -> String {
+    "today_cost".to_string()
+}
 
 /// Popover 单行布局元信息（按 row 索引）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -166,7 +191,9 @@ pub struct RowMeta {
     pub cols: i32,
 }
 
-fn default_cols() -> i32 { 1 }
+fn default_cols() -> i32 {
+    1
+}
 
 /// Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]

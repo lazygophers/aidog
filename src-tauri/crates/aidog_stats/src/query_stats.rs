@@ -1,7 +1,7 @@
-use std::collections::HashMap;
-use aidog_db::{platform_id_name_map, Db, load_auto_from_map, resolve_eff_pid};
 use aidog_db::models::*;
-use rusqlite::{Connection};
+use aidog_db::{Db, load_auto_from_map, platform_id_name_map, resolve_eff_pid};
+use rusqlite::Connection;
+use std::collections::HashMap;
 
 /// minute/5min 路径的过滤参数（hourly/daily 走聚合表另算，不用本结构）。
 struct QueryParams {
@@ -11,43 +11,48 @@ struct QueryParams {
 }
 
 #[track_caller]
-pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::Future<Output = Result<StatsResult, String>> + 'a {
+pub fn query_stats<'a>(
+    db: &'a Db,
+    query: &'a StatsQuery,
+) -> impl std::future::Future<Output = Result<StatsResult, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let query = query.clone();
-    // 跨库预查（stats-agg-to-main-db s5）：stats_agg_hourly 在主库，proxy_log 在 log.db，
-    // `"group"` / `platform` 表在 platform.db → 预查 auto_map + platform_names 移入读闭包。
-    // 按粒度路由 handle：agg（hourly/daily/None）走主库读池（stats_agg_hourly 主库 s1），
-    // minute/5min 走 log.db 读池（proxy_log 主库已 20260727-18 DROP）。
-    let needs_auto_map = matches!(query.granularity.as_deref(), Some("minute") | Some("5min"));
-    let auto_map = if needs_auto_map {
-        db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        let query = query.clone();
+        // 跨库预查（stats-agg-to-main-db s5）：stats_agg_hourly 在主库，proxy_log 在 log.db，
+        // `"group"` / `platform` 表在 platform.db → 预查 auto_map + platform_names 移入读闭包。
+        // 按粒度路由 handle：agg（hourly/daily/None）走主库读池（stats_agg_hourly 主库 s1），
+        // minute/5min 走 log.db 读池（proxy_log 主库已 20260727-18 DROP）。
+        let needs_auto_map = matches!(query.granularity.as_deref(), Some("minute") | Some("5min"));
+        let auto_map = if needs_auto_map {
+            db.call_read_platform_traced(None, __db_caller, |conn| {
+                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
             .await
             .map_err(|e| format!("query_stats load auto_map: {e}"))?
-    } else {
-        HashMap::new()
-    };
-    let platform_names = db
-        .call_read_platform_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
-        .await
-        .map_err(|e| format!("query_stats load platform_names: {e}"))?;
-    if needs_auto_map {
-        db
-            .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+        } else {
+            HashMap::new()
+        };
+        let platform_names = db
+            .call_read_platform_traced(None, __db_caller, |conn| {
+                platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
+            .await
+            .map_err(|e| format!("query_stats load platform_names: {e}"))?;
+        if needs_auto_map {
+            db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
                 query_stats_inner(conn, &query, &auto_map, &platform_names)
                     .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
             })
             .await
             .map_err(|e| e.to_string())
-    } else {
-        db
-            .call_read_traced(None, __db_caller, move |conn| {
+        } else {
+            db.call_read_traced(None, __db_caller, move |conn| {
                 query_stats_inner(conn, &query, &auto_map, &platform_names)
                     .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
             })
             .await
             .map_err(|e| e.to_string())
-    }
+        }
     }
 }
 
@@ -56,81 +61,94 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
 ///
 /// 单卡值与 `query_stats`（逐卡）完全一致：复用同一 `query_stats_inner`，不合并/不丢维度。
 #[track_caller]
-pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future::Future<Output = Result<Vec<StatsResult>, String>> + '_ {
+pub fn query_stats_batch(
+    db: &Db,
+    queries: Vec<StatsQuery>,
+) -> impl std::future::Future<Output = Result<Vec<StatsResult>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    // 跨库预查（同 query_stats）：auto_map + platform_names 在 platform 库，预查移入读闭包。
-    // minute/5min 查询需 auto_map（eff_pid 内存回溯）；agg 查询不用（_auto_map）。
-    let any_minute = queries.iter().any(|q| matches!(q.granularity.as_deref(), Some("minute") | Some("5min")));
-    let auto_map = if any_minute {
-        db.call_read_platform_traced(None, __db_caller, |conn| load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
+        // 跨库预查（同 query_stats）：auto_map + platform_names 在 platform 库，预查移入读闭包。
+        // minute/5min 查询需 auto_map（eff_pid 内存回溯）；agg 查询不用（_auto_map）。
+        let any_minute = queries
+            .iter()
+            .any(|q| matches!(q.granularity.as_deref(), Some("minute") | Some("5min")));
+        let auto_map = if any_minute {
+            db.call_read_platform_traced(None, __db_caller, |conn| {
+                load_auto_from_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
             .await
             .map_err(|e| format!("query_stats_batch load auto_map: {e}"))?
-    } else {
-        HashMap::new()
-    };
-    let platform_names = db
-        .call_read_platform_traced(None, __db_caller, |conn| platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into())))
-        .await
-        .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
-    // 按粒度分两组保留原 idx（stats-agg-to-main-db s5）：agg 走主库读池（stats_agg_hourly 主库），
-    // minute/5min 走 log.db 读池（proxy_log）。混批两次闭包，仍 ≤ 2 次 IPC；纯批单次。
-    let (agg_idx, minute_idx): (Vec<usize>, Vec<usize>) = queries
-        .iter()
-        .enumerate()
-        .fold((Vec::new(), Vec::new()), |(mut a, mut m), (i, q)| {
-            if matches!(q.granularity.as_deref(), Some("minute") | Some("5min")) {
-                m.push(i);
-            } else {
-                a.push(i);
-            }
-            (a, m)
-        });
-    let mut results: Vec<Option<StatsResult>> = (0..queries.len()).map(|_| None).collect();
+        } else {
+            HashMap::new()
+        };
+        let platform_names = db
+            .call_read_platform_traced(None, __db_caller, |conn| {
+                platform_id_name_map(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+            })
+            .await
+            .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
+        // 按粒度分两组保留原 idx（stats-agg-to-main-db s5）：agg 走主库读池（stats_agg_hourly 主库），
+        // minute/5min 走 log.db 读池（proxy_log）。混批两次闭包，仍 ≤ 2 次 IPC；纯批单次。
+        let (agg_idx, minute_idx): (Vec<usize>, Vec<usize>) =
+            queries
+                .iter()
+                .enumerate()
+                .fold((Vec::new(), Vec::new()), |(mut a, mut m), (i, q)| {
+                    if matches!(q.granularity.as_deref(), Some("minute") | Some("5min")) {
+                        m.push(i);
+                    } else {
+                        a.push(i);
+                    }
+                    (a, m)
+                });
+        let mut results: Vec<Option<StatsResult>> = (0..queries.len()).map(|_| None).collect();
 
-    // agg 批：主库读池串行跑 query_stats_inner（agg 分支）。
-    if !agg_idx.is_empty() {
-        let pick: Vec<StatsQuery> = agg_idx.iter().map(|&i| queries[i].clone()).collect();
-        let am = auto_map.clone(); // agg 路径 query_stats_inner 签名要求，实际未用
-        let pn = platform_names.clone();
-        let out: Vec<StatsResult> = db
-            .call_read_traced(None, __db_caller, move |conn| {
-                let mut out = Vec::with_capacity(pick.len());
-                for q in &pick {
-                    out.push(
-                        query_stats_inner(conn, q, &am, &pn)
-                            .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
-                    );
-                }
-                Ok(out)
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-        for (i, r) in agg_idx.into_iter().zip(out) {
-            results[i] = Some(r);
+        // agg 批：主库读池串行跑 query_stats_inner（agg 分支）。
+        if !agg_idx.is_empty() {
+            let pick: Vec<StatsQuery> = agg_idx.iter().map(|&i| queries[i].clone()).collect();
+            let am = auto_map.clone(); // agg 路径 query_stats_inner 签名要求，实际未用
+            let pn = platform_names.clone();
+            let out: Vec<StatsResult> = db
+                .call_read_traced(None, __db_caller, move |conn| {
+                    let mut out = Vec::with_capacity(pick.len());
+                    for q in &pick {
+                        out.push(
+                            query_stats_inner(conn, q, &am, &pn)
+                                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                        );
+                    }
+                    Ok(out)
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+            for (i, r) in agg_idx.into_iter().zip(out) {
+                results[i] = Some(r);
+            }
         }
-    }
-    // minute 批：log.db 读池串行跑 query_stats_inner（minute 分支，proxy_log 内存聚合）。
-    if !minute_idx.is_empty() {
-        let pick: Vec<StatsQuery> = minute_idx.iter().map(|&i| queries[i].clone()).collect();
-        let out: Vec<StatsResult> = db
-            .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-                let mut out = Vec::with_capacity(pick.len());
-                for q in &pick {
-                    out.push(
-                        query_stats_inner(conn, q, &auto_map, &platform_names)
-                            .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
-                    );
-                }
-                Ok(out)
-            })
-            .await
-            .map_err(|e| e.to_string())?;
-        for (i, r) in minute_idx.into_iter().zip(out) {
-            results[i] = Some(r);
+        // minute 批：log.db 读池串行跑 query_stats_inner（minute 分支，proxy_log 内存聚合）。
+        if !minute_idx.is_empty() {
+            let pick: Vec<StatsQuery> = minute_idx.iter().map(|&i| queries[i].clone()).collect();
+            let out: Vec<StatsResult> = db
+                .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+                    let mut out = Vec::with_capacity(pick.len());
+                    for q in &pick {
+                        out.push(
+                            query_stats_inner(conn, q, &auto_map, &platform_names)
+                                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                        );
+                    }
+                    Ok(out)
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+            for (i, r) in minute_idx.into_iter().zip(out) {
+                results[i] = Some(r);
+            }
         }
-    }
-    Ok(results.into_iter().map(|r| r.expect("idx covered by agg/minute partition")).collect())
+        Ok(results
+            .into_iter()
+            .map(|r| r.expect("idx covered by agg/minute partition"))
+            .collect())
     }
 }
 
@@ -184,10 +202,8 @@ fn query_stats_inner_agg(
         "time_hour >= ?1".to_string(),
         "time_hour <= ?2".to_string(),
     ];
-    let mut binds: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
-        Box::new(start_key.clone()),
-        Box::new(end_key.clone()),
-    ];
+    let mut binds: Vec<Box<dyn rusqlite::types::ToSql>> =
+        vec![Box::new(start_key.clone()), Box::new(end_key.clone())];
     if let Some(ref g) = query.filter_group {
         where_parts.push(format!("group_key = ?{}", binds.len() + 1));
         binds.push(Box::new(g.clone()));
@@ -199,7 +215,10 @@ fn query_stats_inner_agg(
     }
     if let Some(ref p) = query.filter_platform {
         // 聚合表 platform_id 已是 eff_pid，直接整数等值。
-        where_parts.push(format!("platform_id = CAST(?{} AS INTEGER)", binds.len() + 1));
+        where_parts.push(format!(
+            "platform_id = CAST(?{} AS INTEGER)",
+            binds.len() + 1
+        ));
         binds.push(Box::new(p.clone()));
     }
     let where_sql = where_parts.join(" AND ");
@@ -285,16 +304,23 @@ fn query_stats_inner_agg(
                     let pid: i64 = row.get(0).unwrap_or(0);
                     let req: i64 = row.get(1).unwrap_or(0);
                     let sum_dur: i64 = row.get(6).unwrap_or(0);
-                    Ok((pid, DimensionEntry {
-                        name: String::new(), // 下方按 pid 回填
-                        total_requests: row.get(1).unwrap_or(0),
-                        success_count: row.get(2).unwrap_or(0),
-                        input_tokens: row.get(3).unwrap_or(0),
-                        output_tokens: row.get(4).unwrap_or(0),
-                        cache_tokens: row.get(5).unwrap_or(0),
-                        avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
-                        total_cost: row.get(7).unwrap_or(0.0),
-                    }))
+                    Ok((
+                        pid,
+                        DimensionEntry {
+                            name: String::new(), // 下方按 pid 回填
+                            total_requests: row.get(1).unwrap_or(0),
+                            success_count: row.get(2).unwrap_or(0),
+                            input_tokens: row.get(3).unwrap_or(0),
+                            output_tokens: row.get(4).unwrap_or(0),
+                            cache_tokens: row.get(5).unwrap_or(0),
+                            avg_duration_ms: if req > 0 {
+                                sum_dur as f64 / req as f64
+                            } else {
+                                0.0
+                            },
+                            total_cost: row.get(7).unwrap_or(0.0),
+                        },
+                    ))
                 })
                 .map_err(|e| format!("agg dimension: {e}"))?
                 .filter_map(|r| r.ok())
@@ -302,7 +328,10 @@ fn query_stats_inner_agg(
             // platform_names 由调用方跨库预查自 platform 库传入（agg 走主库读池，无 platform 表）。
             rows.into_iter()
                 .map(|(pid, mut e)| {
-                    e.name = platform_names.get(&pid).cloned().unwrap_or_else(|| "未知".to_string());
+                    e.name = platform_names
+                        .get(&pid)
+                        .cloned()
+                        .unwrap_or_else(|| "未知".to_string());
                     e
                 })
                 .collect()
@@ -329,7 +358,11 @@ fn query_stats_inner_agg(
                         input_tokens: row.get(3).unwrap_or(0),
                         output_tokens: row.get(4).unwrap_or(0),
                         cache_tokens: row.get(5).unwrap_or(0),
-                        avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
+                        avg_duration_ms: if req > 0 {
+                            sum_dur as f64 / req as f64
+                        } else {
+                            0.0
+                        },
                         total_cost: row.get(7).unwrap_or(0.0),
                     })
                 })
@@ -354,7 +387,10 @@ fn query_stats_inner_agg(
         am_binds.push(Box::new(g.clone()));
     }
     if let Some(ref p) = query.filter_platform {
-        am_parts.push(format!("platform_id = CAST(?{} AS INTEGER)", am_binds.len() + 1));
+        am_parts.push(format!(
+            "platform_id = CAST(?{} AS INTEGER)",
+            am_binds.len() + 1
+        ));
         am_binds.push(Box::new(p.clone()));
     }
     let am_where = am_parts.join(" AND ");
@@ -369,14 +405,26 @@ fn query_stats_inner_agg(
         .filter_map(|r| r.ok())
         .collect();
 
-    Ok(StatsResult { overview, buckets, dimension_data, available_models })
+    Ok(StatsResult {
+        overview,
+        buckets,
+        dimension_data,
+        available_models,
+    })
 }
 
-pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map: &HashMap<String, i64>, platform_names: &HashMap<i64, String>) -> Result<StatsResult, String> {
-    let end = query.end.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
-    let start = query.start.unwrap_or_else(|| {
-        (chrono::Utc::now() - chrono::Duration::days(7)).timestamp_millis()
-    });
+pub(crate) fn query_stats_inner(
+    conn: &Connection,
+    query: &StatsQuery,
+    auto_map: &HashMap<String, i64>,
+    platform_names: &HashMap<i64, String>,
+) -> Result<StatsResult, String> {
+    let end = query
+        .end
+        .unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
+    let start = query
+        .start
+        .unwrap_or_else(|| (chrono::Utc::now() - chrono::Duration::days(7)).timestamp_millis());
 
     let qp = QueryParams {
         filter_group: query.filter_group.clone(),
@@ -398,7 +446,10 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     // （log.db 无 "group"/platform 表，禁在 proxy_log 闭包内现取）。
     let five_min = matches!(query.granularity.as_deref(), Some("5min"));
     // filter_platform value = eff_pid 十进制字符串；解析为整数后内存按行 eff_pid 等值过滤。
-    let want_pid: Option<i64> = qp.filter_platform.as_ref().and_then(|s| s.parse::<i64>().ok());
+    let want_pid: Option<i64> = qp
+        .filter_platform
+        .as_ref()
+        .and_then(|s| s.parse::<i64>().ok());
 
     // SQL 仅下推 time/group/model 过滤（eff_pid 过滤搬内存）。
     let mut where_parts = vec![
@@ -415,10 +466,13 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     }
     let where_sql = where_parts.join(" AND ");
     // eff_pid 过滤搬内存后，filter_platform 不再进 SQL：只绑 start/end/group/model。
-    let mut binds: Vec<Box<dyn rusqlite::types::ToSql>> =
-        vec![Box::new(start), Box::new(end)];
-    if let Some(ref g) = qp.filter_group { binds.push(Box::new(g.clone())); }
-    if let Some(ref m) = qp.filter_model { binds.push(Box::new(m.clone())); }
+    let mut binds: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(start), Box::new(end)];
+    if let Some(ref g) = qp.filter_group {
+        binds.push(Box::new(g.clone()));
+    }
+    if let Some(ref m) = qp.filter_model {
+        binds.push(Box::new(m.clone()));
+    }
     let refs: Vec<&dyn rusqlite::types::ToSql> = binds.iter().map(|b| b.as_ref()).collect();
 
     // 取全部命中行的原始字段（含 eff_pid 回溯所需 platform_id/group_key）。
@@ -474,9 +528,15 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     let mut ov_dur = 0i64;
     let mut ov_cost = 0.0f64;
     for r in &rows {
-        if let Some(w) = want_pid && r.eff_pid != w { continue; }
+        if let Some(w) = want_pid
+            && r.eff_pid != w
+        {
+            continue;
+        }
         ov_total += 1;
-        if is_2xx(r.status_code) { ov_success += 1; }
+        if is_2xx(r.status_code) {
+            ov_success += 1;
+        }
         ov_input += r.input;
         ov_output += r.output;
         ov_cache += r.cache;
@@ -485,26 +545,55 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     }
     let overview = StatsOverview {
         total_requests: ov_total as i32,
-        success_rate: if ov_total > 0 { ov_success as f64 / ov_total as f64 * 100.0 } else { 0.0 },
+        success_rate: if ov_total > 0 {
+            ov_success as f64 / ov_total as f64 * 100.0
+        } else {
+            0.0
+        },
         total_input_tokens: ov_input,
         total_output_tokens: ov_output,
         total_cache_tokens: ov_cache,
-        cache_rate: if ov_input + ov_cache > 0 { ov_cache as f64 / (ov_input + ov_cache) as f64 * 100.0 } else { 0.0 },
+        cache_rate: if ov_input + ov_cache > 0 {
+            ov_cache as f64 / (ov_input + ov_cache) as f64 * 100.0
+        } else {
+            0.0
+        },
         // SQL AVG(duration_ms) 对所有命中行（含 NULL→0 这里已 COALESCE）求均值。
-        avg_duration_ms: if ov_total > 0 { ov_dur as f64 / ov_total as f64 } else { 0.0 },
+        avg_duration_ms: if ov_total > 0 {
+            ov_dur as f64 / ov_total as f64
+        } else {
+            0.0
+        },
         total_cost: ov_cost,
     };
 
     // ── Time buckets ──（按本地分钟桶 key 分组，ORDER BY key 升序）
     #[derive(Default)]
-    struct Bkt { req: i64, succ: i64, err: i64, input: i64, output: i64, cache: i64, dur: i64, cost: f64 }
+    struct Bkt {
+        req: i64,
+        succ: i64,
+        err: i64,
+        input: i64,
+        output: i64,
+        cache: i64,
+        dur: i64,
+        cost: f64,
+    }
     let mut bmap: std::collections::HashMap<String, Bkt> = std::collections::HashMap::new();
     for r in &rows {
-        if let Some(w) = want_pid && r.eff_pid != w { continue; }
+        if let Some(w) = want_pid
+            && r.eff_pid != w
+        {
+            continue;
+        }
         let key = utc_ms_to_local_minute_key(r.created_at, five_min);
         let b = bmap.entry(key).or_default();
         b.req += 1;
-        if is_2xx(r.status_code) { b.succ += 1; } else { b.err += 1; }
+        if is_2xx(r.status_code) {
+            b.succ += 1;
+        } else {
+            b.err += 1;
+        }
         b.input += r.input;
         b.output += r.output;
         b.cache += r.cache;
@@ -525,7 +614,11 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
                 input_tokens: b.input,
                 output_tokens: b.output,
                 cache_tokens: b.cache,
-                avg_duration_ms: if b.req > 0 { b.dur as f64 / b.req as f64 } else { 0.0 },
+                avg_duration_ms: if b.req > 0 {
+                    b.dur as f64 / b.req as f64
+                } else {
+                    0.0
+                },
                 total_cost: b.cost,
             }
         })
@@ -535,21 +628,39 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
     let dimension_data: Vec<DimensionEntry> = if let Some(ref gb) = query.group_by {
         // 维度键 → 累计桶；platform 维度键为 eff_pid 字符串，其余为列值。
         #[derive(Default)]
-        struct Dim { req: i64, succ: i64, input: i64, output: i64, cache: i64, dur: i64, cost: f64 }
+        struct Dim {
+            req: i64,
+            succ: i64,
+            input: i64,
+            output: i64,
+            cache: i64,
+            dur: i64,
+            cost: f64,
+        }
         let mut dmap: std::collections::HashMap<i64, Dim> = std::collections::HashMap::new();
         let mut smap: std::collections::HashMap<String, Dim> = std::collections::HashMap::new();
         let is_platform = gb == "platform";
         for r in &rows {
-            if let Some(w) = want_pid && r.eff_pid != w { continue; }
+            if let Some(w) = want_pid
+                && r.eff_pid != w
+            {
+                continue;
+            }
             let d = if is_platform {
                 dmap.entry(r.eff_pid).or_default()
             } else {
                 // model 维度用 actual_model（与旧 SQL GROUP BY actual_model 一致）；否则 group_key。
-                let k = if gb == "model" { r.actual_model.clone() } else { r.group_key.clone() };
+                let k = if gb == "model" {
+                    r.actual_model.clone()
+                } else {
+                    r.group_key.clone()
+                };
                 smap.entry(k).or_default()
             };
             d.req += 1;
-            if is_2xx(r.status_code) { d.succ += 1; }
+            if is_2xx(r.status_code) {
+                d.succ += 1;
+            }
             d.input += r.input;
             d.output += r.output;
             d.cache += r.cache;
@@ -560,13 +671,20 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
         let mut entries: Vec<DimensionEntry> = if is_platform {
             dmap.into_iter()
                 .map(|(pid, d)| DimensionEntry {
-                    name: platform_names.get(&pid).cloned().unwrap_or_else(|| "未知".to_string()),
+                    name: platform_names
+                        .get(&pid)
+                        .cloned()
+                        .unwrap_or_else(|| "未知".to_string()),
                     total_requests: d.req as i32,
                     success_count: d.succ as i32,
                     input_tokens: d.input,
                     output_tokens: d.output,
                     cache_tokens: d.cache,
-                    avg_duration_ms: if d.req > 0 { d.dur as f64 / d.req as f64 } else { 0.0 },
+                    avg_duration_ms: if d.req > 0 {
+                        d.dur as f64 / d.req as f64
+                    } else {
+                        0.0
+                    },
                     total_cost: d.cost,
                 })
                 .collect()
@@ -579,7 +697,11 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
                     input_tokens: d.input,
                     output_tokens: d.output,
                     cache_tokens: d.cache,
-                    avg_duration_ms: if d.req > 0 { d.dur as f64 / d.req as f64 } else { 0.0 },
+                    avg_duration_ms: if d.req > 0 {
+                        d.dur as f64 / d.req as f64
+                    } else {
+                        0.0
+                    },
                     total_cost: d.cost,
                 })
                 .collect()
@@ -604,33 +726,48 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery, auto_map:
         am_parts.push("group_key = ?3".to_string());
     }
     let am_where = am_parts.join(" AND ");
-    let mut am_binds: Vec<Box<dyn rusqlite::types::ToSql>> =
-        vec![Box::new(start), Box::new(end)];
-    if let Some(ref g) = qp.filter_group { am_binds.push(Box::new(g.clone())); }
+    let mut am_binds: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(start), Box::new(end)];
+    if let Some(ref g) = qp.filter_group {
+        am_binds.push(Box::new(g.clone()));
+    }
     let am_refs: Vec<&dyn rusqlite::types::ToSql> = am_binds.iter().map(|b| b.as_ref()).collect();
     let mut model_set: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
     conn.prepare(&format!(
-            "SELECT platform_id, group_key, actual_model, model FROM proxy_log WHERE {am_where}"
+        "SELECT platform_id, group_key, actual_model, model FROM proxy_log WHERE {am_where}"
+    ))
+    .map_err(|e| e.to_string())?
+    .query_map(am_refs.as_slice(), |r| {
+        let platform_id: i64 = r.get(0)?;
+        let group_key: String = r.get(1)?;
+        let actual_model: String = r.get(2)?;
+        let model: String = r.get(3)?;
+        Ok((
+            resolve_eff_pid(platform_id, group_key.as_str(), auto_map),
+            if !actual_model.is_empty() {
+                actual_model
+            } else {
+                model
+            },
         ))
-        .map_err(|e| e.to_string())?
-        .query_map(am_refs.as_slice(), |r| {
-            let platform_id: i64 = r.get(0)?;
-            let group_key: String = r.get(1)?;
-            let actual_model: String = r.get(2)?;
-            let model: String = r.get(3)?;
-            Ok((resolve_eff_pid(platform_id, group_key.as_str(), auto_map),
-                if !actual_model.is_empty() { actual_model } else { model }))
-        })
-        .map_err(|e| format!("available_models: {e}"))?
-        .filter_map(|r| r.ok())
-        .for_each(|(eff_pid, m)| {
-            if let Some(w) = want_pid && eff_pid != w { return; }
-            model_set.insert(m);
-        });
+    })
+    .map_err(|e| format!("available_models: {e}"))?
+    .filter_map(|r| r.ok())
+    .for_each(|(eff_pid, m)| {
+        if let Some(w) = want_pid
+            && eff_pid != w
+        {
+            return;
+        }
+        model_set.insert(m);
+    });
     let available_models: Vec<String> = model_set.into_iter().collect();
 
-    Ok(StatsResult { overview, buckets, dimension_data, available_models })
+    Ok(StatsResult {
+        overview,
+        buckets,
+        dimension_data,
+        available_models,
+    })
 }
 
 // ─── Model Price CRUD ──────────────────────────────────────
-

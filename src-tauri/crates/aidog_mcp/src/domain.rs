@@ -9,8 +9,8 @@ use super::types::{
     ImportReport, McpAgent, McpConfigRaw, McpImportPayload, McpScanItem, McpServerInfo,
     McpServerRow, McpTransport, McpUpdatePayload,
 };
-use aidog_db::{Db, now};
 use crate::store;
+use aidog_db::{Db, now};
 
 /// 扫描所有 agent 配置，去重合并（同名取首次出现的配置）。
 pub async fn scan_all(db: &Db) -> Result<Vec<McpScanItem>, String> {
@@ -136,10 +136,14 @@ pub fn parse_pasted_json(json: &str) -> Result<Vec<(String, McpConfigRaw)>, Stri
     };
     let out: Vec<(String, McpConfigRaw)> = servers
         .iter()
-        .filter_map(|(name, val)| super::backend_claude::parse_claude_entry(val).map(|c| (name.clone(), c)))
+        .filter_map(|(name, val)| {
+            super::backend_claude::parse_claude_entry(val).map(|c| (name.clone(), c))
+        })
         .collect();
     if out.is_empty() {
-        return Err("未解析到有效 MCP 配置（需 {\"mcpServers\":{名称:{...}}} 或 {名称:{...}} 格式）".into());
+        return Err(
+            "未解析到有效 MCP 配置（需 {\"mcpServers\":{名称:{...}}} 或 {名称:{...}} 格式）".into(),
+        );
     }
     Ok(out)
 }
@@ -378,13 +382,14 @@ pub async fn update_server(
     for agent in &kept {
         let be = backend_for(*agent);
         if payload.name != old.name
-            && let Err(e) = be.remove(old_name) {
-                tracing::warn!(
-                    agent = agent.slug(),
-                    error = %e,
-                    "mcp update: remove old-name agent config failed"
-                );
-            }
+            && let Err(e) = be.remove(old_name)
+        {
+            tracing::warn!(
+                agent = agent.slug(),
+                error = %e,
+                "mcp update: remove old-name agent config failed"
+            );
+        }
         be.write(&payload.name, &cfg)
             .map_err(|e| format!("write {} config: {e}", agent.slug()))?;
     }
@@ -393,11 +398,7 @@ pub async fn update_server(
     if payload.name != old.name {
         store::delete_mcp_server(db, old_name).await?;
     }
-    let enabled_csv = kept
-        .iter()
-        .map(|a| a.slug())
-        .collect::<Vec<_>>()
-        .join(",");
+    let enabled_csv = kept.iter().map(|a| a.slug()).collect::<Vec<_>>().join(",");
     let now = now();
     let row = McpServerRow {
         id: old.id,

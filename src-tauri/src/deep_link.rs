@@ -66,7 +66,11 @@ pub fn parse_url(url: &url::Url) -> Option<DeepLinkPayload> {
         .query_pairs()
         .find_map(|(k, v)| (k == "data").then(|| v.into_owned()))
         .unwrap_or_default();
-    Some(DeepLinkPayload { entity, action, data })
+    Some(DeepLinkPayload {
+        entity,
+        action,
+        data,
+    })
 }
 
 /// 处理一组唤起 URL：逐个 parse → emit `aidog-deep-link`。
@@ -133,11 +137,14 @@ mod tests {
     #[test]
     fn parse_platform_import_with_data() {
         let p = parse_url(&url("aidog://platform/import?data=dGVzdA==")).unwrap();
-        assert_eq!(p, DeepLinkPayload {
-            entity: "platform".into(),
-            action: "import".into(),
-            data: "dGVzdA==".into(),
-        });
+        assert_eq!(
+            p,
+            DeepLinkPayload {
+                entity: "platform".into(),
+                action: "import".into(),
+                data: "dGVzdA==".into(),
+            }
+        );
     }
 
     #[test]
@@ -200,4 +207,3 @@ mod tests {
         assert_eq!(p.data, "first");
     }
 }
-

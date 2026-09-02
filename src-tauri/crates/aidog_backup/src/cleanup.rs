@@ -40,7 +40,10 @@ pub async fn cleanup_expired(retention_days: i64) -> Result<u32, String> {
 /// 核心: 对指定 dir 清理超期 `.aidogx` (按文件 mtime 秒精度比较)。
 ///
 /// 拆出便于单测 (注入临时 dir)。返回删除数。
-pub(crate) async fn cleanup_expired_in_dir(dir: &std::path::Path, retention_days: i64) -> Result<u32, String> {
+pub(crate) async fn cleanup_expired_in_dir(
+    dir: &std::path::Path,
+    retention_days: i64,
+) -> Result<u32, String> {
     let cutoff_secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)

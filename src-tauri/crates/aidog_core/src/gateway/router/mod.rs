@@ -14,7 +14,7 @@ mod model_mapping;
 mod ordering;
 
 #[allow(unused_imports)]
-pub use candidates::{select_candidates, select_candidates_ctx, CandidateSet, ScheduleCtx};
+pub use candidates::{CandidateSet, ScheduleCtx, select_candidates, select_candidates_ctx};
 
 /// 出站 max_tokens 裁剪（convert_request 前调用）。
 ///
@@ -48,7 +48,11 @@ pub struct RouteResult {
 ///
 /// `request_model`：当前请求的模型名（用于 peak model scope 过滤，PRD 07-09 D2）。
 /// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
-pub(crate) fn candidate_state(platform: &Platform, now_ms: i64, request_model: &str) -> Option<bool> {
+pub(crate) fn candidate_state(
+    platform: &Platform,
+    now_ms: i64,
+    request_model: &str,
+) -> Option<bool> {
     // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
     if platform.expires_at > 0 && now_ms >= platform.expires_at {
         return None;
@@ -99,7 +103,9 @@ pub(crate) fn sole_platform(gps: &[GroupPlatformDetail]) -> Option<&GroupPlatfor
     if gps.len() == 1 {
         return Some(&gps[0]);
     }
-    let mut it = gps.iter().filter(|gp| gp.platform.status == PlatformStatus::Enabled);
+    let mut it = gps
+        .iter()
+        .filter(|gp| gp.platform.status == PlatformStatus::Enabled);
     match (it.next(), it.next()) {
         (Some(only), None) => Some(only),
         _ => None,

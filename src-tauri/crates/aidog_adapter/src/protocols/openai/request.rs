@@ -1,7 +1,9 @@
 use serde_json::Value;
 
+use super::{
+    OpenAIFunction, OpenAIFunctionCall, OpenAIMessage, OpenAIRequest, OpenAITool, OpenAIToolCall,
+};
 use crate::types::*;
-use super::{OpenAIFunction, OpenAIFunctionCall, OpenAIMessage, OpenAIRequest, OpenAITool, OpenAIToolCall};
 
 /// 从内部 ChatRequest 转为 OpenAI 格式
 pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
@@ -13,7 +15,8 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
             SystemContent::Text(t) => Value::String(t.clone()),
             SystemContent::Blocks(blocks) => {
                 // Extract text from blocks for OpenAI compatibility
-                let texts: Vec<&str> = blocks.iter()
+                let texts: Vec<&str> = blocks
+                    .iter()
                     .filter_map(|b| b.get("text").and_then(|v| v.as_str()))
                     .collect();
                 Value::String(texts.join("\n"))
@@ -64,7 +67,9 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 let tool_calls: Vec<OpenAIToolCall> = blocks
                     .iter()
                     .filter_map(|b| match b {
-                        ContentBlock::ToolUse { id, name, input, .. } => Some(OpenAIToolCall {
+                        ContentBlock::ToolUse {
+                            id, name, input, ..
+                        } => Some(OpenAIToolCall {
                             id: id.clone(),
                             r#type: "function".to_string(),
                             function: OpenAIFunctionCall {
@@ -87,10 +92,18 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 }
 
                 // 处理 tool_result 块 → tool message(每个 tool_result 单独成 tool message)
-                let has_tool_result = blocks.iter().any(|b| matches!(b, ContentBlock::ToolResult { .. }));
+                let has_tool_result = blocks
+                    .iter()
+                    .any(|b| matches!(b, ContentBlock::ToolResult { .. }));
                 if has_tool_result {
                     for b in blocks {
-                        if let ContentBlock::ToolResult { tool_use_id, content, is_error, .. } = b {
+                        if let ContentBlock::ToolResult {
+                            tool_use_id,
+                            content,
+                            is_error,
+                            ..
+                        } = b
+                        {
                             messages.push(OpenAIMessage {
                                 role: "tool".to_string(),
                                 // OpenAI tool message 只吃文本：失败标注与非文本 block 的占位都在文本里
@@ -135,9 +148,11 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                 if !image_parts.is_empty() {
                     let mut content_arr: Vec<Value> = Vec::new();
                     if let Some(tc) = text_content.clone()
-                        && let Value::String(t) = &tc && !t.is_empty() {
-                            content_arr.push(serde_json::json!({ "type": "text", "text": t }));
-                        }
+                        && let Value::String(t) = &tc
+                        && !t.is_empty()
+                    {
+                        content_arr.push(serde_json::json!({ "type": "text", "text": t }));
+                    }
                     content_arr.extend(image_parts);
                     messages.push(OpenAIMessage {
                         role: role.to_string(),
@@ -164,7 +179,11 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
     }
 
     // 服务端工具在 OpenAI 侧无执行方，整条不下发；全被丢弃时不写 tools 键
-    let kept_tools: Vec<&Tool> = req.tools.as_deref().map(|ts| client_tools(ts, "openai")).unwrap_or_default();
+    let kept_tools: Vec<&Tool> = req
+        .tools
+        .as_deref()
+        .map(|ts| client_tools(ts, "openai"))
+        .unwrap_or_default();
     let tools = {
         let mapped: Vec<OpenAITool> = kept_tools
             .iter()
@@ -186,14 +205,14 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         .as_ref()
         .filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools))
         .map(|tc| match tc {
-        ToolChoice::Auto => serde_json::json!("auto"),
-        ToolChoice::Any => serde_json::json!("required"),
-        ToolChoice::None => serde_json::json!("none"),
-        ToolChoice::Named { name } => serde_json::json!({
-            "type": "function",
-            "function": { "name": name }
-        }),
-    });
+            ToolChoice::Auto => serde_json::json!("auto"),
+            ToolChoice::Any => serde_json::json!("required"),
+            ToolChoice::None => serde_json::json!("none"),
+            ToolChoice::Named { name } => serde_json::json!({
+                "type": "function",
+                "function": { "name": name }
+            }),
+        });
 
     OpenAIRequest {
         model: req.model.clone(),

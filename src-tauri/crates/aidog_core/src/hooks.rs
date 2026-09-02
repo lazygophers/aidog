@@ -1,10 +1,9 @@
+use crate::gateway;
 use crate::shared::*;
 use crate::sync_settings::do_sync_group_settings;
-use crate::gateway;
 use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
-
 
 pub fn generate_hook_scripts(
     invoker: gateway::scripts::ScriptInvoker,
@@ -25,15 +24,17 @@ pub fn generate_hook_scripts(
         let _ = (path, filename);
         Ok(())
     };
-    let write_type_script = |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
-        let path = scripts_dir.join(filename);
-        let content = aidog_hooks::build_hook_script(notif_type);
-        std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
-        chmod755(&path, filename)?;
-        // 迁移清理：删除 ~/.aidog/ 根下旧版 bash 脚本（避免残留）。
-        cleanup_legacy_root_script(legacy);
-        Ok(invoker.command_for(&path.to_string_lossy()))
-    };
+    let write_type_script =
+        |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
+            let path = scripts_dir.join(filename);
+            let content = aidog_hooks::build_hook_script(notif_type);
+            std::fs::write(&path, &content)
+                .map_err(|e| format!("write hook script {filename}: {e}"))?;
+            chmod755(&path, filename)?;
+            // 迁移清理：删除 ~/.aidog/ 根下旧版 bash 脚本（避免残留）。
+            cleanup_legacy_root_script(legacy);
+            Ok(invoker.command_for(&path.to_string_lossy()))
+        };
     // 通用事件脚本（N2）：读 stdin hook_event_name，无内插 type。
     let event_path = scripts_dir.join(aidog_hooks::SCRIPT_EVENT_NOTIFY);
     std::fs::write(&event_path, aidog_hooks::build_event_notify_script())
@@ -59,7 +60,10 @@ pub fn generate_hook_scripts(
 pub async fn enabled_hook_events(db: &Db) -> Vec<String> {
     let settings = aidog_db::get_notification_settings(db).await;
     if settings.per_event.is_empty() {
-        return gateway::models::DEFAULT_ON_EVENTS.iter().map(|s| s.to_string()).collect();
+        return gateway::models::DEFAULT_ON_EVENTS
+            .iter()
+            .map(|s| s.to_string())
+            .collect();
     }
     settings
         .per_event
@@ -77,18 +81,26 @@ pub async fn seed_default_templates(db: &Db) -> Result<(), String> {
     let mut changed = false;
     for t in [NotifType::TaskComplete, NotifType::WaitingInput] {
         let key = t.as_str().to_string();
-        let entry = settings.per_type.entry(key).or_insert_with(TypeSetting::default);
+        let entry = settings
+            .per_type
+            .entry(key)
+            .or_insert_with(TypeSetting::default);
         if entry.template.trim().is_empty() {
             entry.template = t.default_template().to_string();
             changed = true;
         }
     }
     if changed {
-        aidog_db::set_setting(db, SetSettingInput {
-            scope: "notification".to_string(),
-            key: "settings".to_string(),
-            value: serde_json::to_value(&settings).map_err(|e| format!("serialize notification settings: {e}"))?,
-        }).await?;
+        aidog_db::set_setting(
+            db,
+            SetSettingInput {
+                scope: "notification".to_string(),
+                key: "settings".to_string(),
+                value: serde_json::to_value(&settings)
+                    .map_err(|e| format!("serialize notification settings: {e}"))?,
+            },
+        )
+        .await?;
     }
     Ok(())
 }
@@ -97,11 +109,15 @@ pub async fn seed_default_templates(db: &Db) -> Result<(), String> {
 /// 无基线配置时回退编译内默认（defaults/settings.json 默认开）。
 /// `&Db` 版本：供 command 包装层转发，也供测试直调（不经 tauri::State，见 test_hooks 模块注释）。
 async fn default_hooks_enabled_from_db(db: &Db) -> bool {
-    let config = aidog_db::get_setting(db, "global", "claude_code").await
-        .ok().flatten()
+    let config = aidog_db::get_setting(db, "global", "claude_code")
+        .await
+        .ok()
+        .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
-        .unwrap_or_else(|| serde_json::from_str(include_str!("../../../defaults/settings.json"))
-            .unwrap_or(serde_json::Value::Object(Default::default())));
+        .unwrap_or_else(|| {
+            serde_json::from_str(include_str!("../../../defaults/settings.json"))
+                .unwrap_or(serde_json::Value::Object(Default::default()))
+        });
     aidog_hooks::hooks_marker_enabled(&config)
 }
 
@@ -260,7 +276,7 @@ crate::tauri_command! {
 #[cfg(test)]
 mod test_hooks {
     use super::*;
-    use aidog_db::test_support::{test_db, sample_group, HomeGuard};
+    use aidog_db::test_support::{HomeGuard, sample_group, test_db};
 
     /// aidog_core 不能 dev-dep aidog_test_util（循环依赖），故不经 tauri::State/AppHandle
     /// 走 command 包装层，直测 &Db 版本函数（command 本身只是薄转发）。
@@ -270,10 +286,7 @@ mod test_hooks {
         let db = test_db().await;
         let events = enabled_hook_events(&db).await;
         assert!(!events.is_empty());
-        assert_eq!(
-            events.len(),
-            gateway::models::DEFAULT_ON_EVENTS.len()
-        );
+        assert_eq!(events.len(), gateway::models::DEFAULT_ON_EVENTS.len());
     }
 
     #[tokio::test]
@@ -281,14 +294,21 @@ mod test_hooks {
         let db = test_db().await;
         seed_default_templates(&db).await.unwrap();
         let settings = aidog_db::get_notification_settings(&db).await;
-        let complete = settings.per_type.get(NotifType::TaskComplete.as_str()).unwrap();
+        let complete = settings
+            .per_type
+            .get(NotifType::TaskComplete.as_str())
+            .unwrap();
         assert!(!complete.template.trim().is_empty());
         let first_template = complete.template.clone();
         // 幂等：再跑一次不覆盖已有模板
         seed_default_templates(&db).await.unwrap();
         let settings2 = aidog_db::get_notification_settings(&db).await;
         assert_eq!(
-            settings2.per_type.get(NotifType::TaskComplete.as_str()).unwrap().template,
+            settings2
+                .per_type
+                .get(NotifType::TaskComplete.as_str())
+                .unwrap()
+                .template,
             first_template
         );
     }
@@ -314,30 +334,46 @@ mod test_hooks {
     async fn claude_code_inject_remove_and_sync() {
         let _guard = HomeGuard::new();
         let db = test_db().await;
-        aidog_db::create_group(&db, sample_group("default", vec![])).await.unwrap();
+        aidog_db::create_group(&db, sample_group("default", vec![]))
+            .await
+            .unwrap();
 
         // inject（&Db 版本等价逻辑，绕开 tauri::State/AppHandle 依赖的 port 解析）
-        let mut config: serde_json::Value = serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
+        let mut config: serde_json::Value =
+            serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
         let events = enabled_hook_events(&db).await;
         let invoker = gateway::scripts::ScriptInvoker::Python3;
         let scripts = generate_hook_scripts(invoker).unwrap();
         aidog_hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
-        aidog_db::set_setting(&db, SetSettingInput {
-            scope: "global".to_string(),
-            key: "claude_code".to_string(),
-            value: config.clone(),
-        }).await.unwrap();
+        aidog_db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: config.clone(),
+            },
+        )
+        .await
+        .unwrap();
         do_sync_group_settings(&db, 0).await.unwrap();
         assert!(config.get("hooks").is_some());
 
         // remove
-        let mut config2 = aidog_db::get_setting(&db, "global", "claude_code").await.unwrap().unwrap();
+        let mut config2 = aidog_db::get_setting(&db, "global", "claude_code")
+            .await
+            .unwrap()
+            .unwrap();
         aidog_hooks::remove_claude_code_hooks(&mut config2);
-        aidog_db::set_setting(&db, SetSettingInput {
-            scope: "global".to_string(),
-            key: "claude_code".to_string(),
-            value: config2.clone(),
-        }).await.unwrap();
+        aidog_db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: config2.clone(),
+            },
+        )
+        .await
+        .unwrap();
         assert!(config2.get("hooks").and_then(|h| h.get("Stop")).is_none());
     }
 
@@ -349,18 +385,24 @@ mod test_hooks {
         let default_val = default_hooks_enabled_from_db(&db).await;
 
         // 写 marker 翻转，验证读回一致
-        let mut config: serde_json::Value = serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
+        let mut config: serde_json::Value =
+            serde_json::from_str(include_str!("../../../defaults/settings.json")).unwrap();
         if let Some(obj) = config.as_object_mut() {
             obj.insert(
                 aidog_hooks::MARKER_HOOKS.to_string(),
                 serde_json::json!({ "enabled": !default_val }),
             );
         }
-        aidog_db::set_setting(&db, SetSettingInput {
-            scope: "global".to_string(),
-            key: "claude_code".to_string(),
-            value: config,
-        }).await.unwrap();
+        aidog_db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: config,
+            },
+        )
+        .await
+        .unwrap();
         let flipped = default_hooks_enabled_from_db(&db).await;
         assert_eq!(flipped, !default_val);
     }

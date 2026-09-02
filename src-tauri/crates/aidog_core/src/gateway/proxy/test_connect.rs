@@ -2,9 +2,9 @@
 //! 覆盖 host 匹配命中 / 未命中 + upsert_connect_log 落行（source_protocol=http-connect）。
 //! + 根因回归门：authority-form URI target 解析（修复前 path() 返空 → 502，修复后 200）。
 use super::*;
+use crate::gateway::models::{CreatePlatform, Protocol};
 use aidog_db::test_support;
 use aidog_middleware::MiddlewareEngine;
-use crate::gateway::models::{CreatePlatform, Protocol};
 use axum::body::Body;
 use axum::http::Request as HttpRequest;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -37,23 +37,32 @@ async fn make_state() -> Arc<ProxyState> {
 async fn match_platform_by_host_hits_main_base_url() {
     let db = test_support::test_db().await;
     // 平台 base_url host = api.test-connect-hit.example
-    let p = aidog_db::create_platform(&db, CreatePlatform {
-        name: "conn-hit".into(),
-        platform_type: Protocol::Anthropic,
-        base_url: "https://api.test-connect-hit.example/v1".into(),
-        api_key: "sk-test".into(),
-        extra: String::new(),
-        models: None,
-        available_models: None,
-        endpoints: None,
-        manual_budgets: None,
-        auto_group: None,
-        join_group_ids: None,
-        expires_at: None,
-    }).await.expect("create platform");
+    let p = aidog_db::create_platform(
+        &db,
+        CreatePlatform {
+            name: "conn-hit".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://api.test-connect-hit.example/v1".into(),
+            api_key: "sk-test".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .expect("create platform");
 
     let hit = endpoint::match_platform_by_host(&db, "api.test-connect-hit.example").await;
-    assert_eq!(hit.map(|(id, _)| id), Some(p.id), "CONNECT host 命中平台主 base_url 必须返回 platform_id");
+    assert_eq!(
+        hit.map(|(id, _)| id),
+        Some(p.id),
+        "CONNECT host 命中平台主 base_url 必须返回 platform_id"
+    );
 
     let miss = endpoint::match_platform_by_host(&db, "api.does-not-exist.example").await;
     assert!(miss.is_none(), "未命中任何平台 base_url host 必须返回 None");
@@ -72,7 +81,10 @@ async fn upsert_connect_log_writes_http_connect_row() {
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
-        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+        agg_done: std::sync::Mutex::new((
+            std::collections::VecDeque::new(),
+            std::collections::HashSet::new(),
+        )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
@@ -80,14 +92,25 @@ async fn upsert_connect_log_writes_http_connect_row() {
     spawn_log_writer(state.clone(), log_rx);
 
     log::upsert_connect_log(
-        &state, "conn-log-1".into(), String::new(), 0,
-        "api.example.com:443".into(), 200, 42,
-    ).await;
+        &state,
+        "conn-log-1".into(),
+        String::new(),
+        0,
+        "api.example.com:443".into(),
+        200,
+        42,
+    )
+    .await;
     flush_log_queue(&state).await;
 
-    let row = aidog_logs::get_proxy_log(&state.db, "conn-log-1").await
-        .expect("query proxy_log").expect("row must exist");
-    assert_eq!(row.source_protocol, "http-connect", "source_protocol 标记隧道");
+    let row = aidog_logs::get_proxy_log(&state.db, "conn-log-1")
+        .await
+        .expect("query proxy_log")
+        .expect("row must exist");
+    assert_eq!(
+        row.source_protocol, "http-connect",
+        "source_protocol 标记隧道"
+    );
     assert_eq!(row.target_protocol, "http-connect");
     assert_eq!(row.platform_id, 0, "未命中 → platform_id=0");
     assert_eq!(row.status_code, 200);
@@ -105,9 +128,7 @@ async fn connect_authority_form_resolves_target() {
     // mock 上游：accept 即可（handle_connect 只需 connect 成功建链路，upgrade 在 spawn task 内 pending）。
     let upstream = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let upstream_addr = upstream.local_addr().unwrap();
-    tokio::spawn(async move {
-        while upstream.accept().await.is_ok() {}
-    });
+    tokio::spawn(async move { while upstream.accept().await.is_ok() {} });
 
     let state = make_state().await;
     // authority-form URI：http crate 解析后 path 空、authority=`host:port`。
@@ -285,13 +306,13 @@ async fn connect_tunnel_flushes_prefetch_to_upstream() {
 
     // 5. 关键断言：mock 上游收到的首字节必须是流水线 payload（修复后 flush 到 upstream）。
     //    修复前会 fail（payload 被回灌 client → 上游读到空 / 读不到 → channel 超时）。
-    let upstream_first = tokio::time::timeout(
-        std::time::Duration::from_secs(3),
-        rx.recv(),
-    ).await.expect("上游必须在 3s 内收到 flush 的 payload（修复前 flush 错对象致上游永远收不到）");
+    let upstream_first = tokio::time::timeout(std::time::Duration::from_secs(3), rx.recv())
+        .await
+        .expect("上游必须在 3s 内收到 flush 的 payload（修复前 flush 错对象致上游永远收不到）");
     let upstream_first = upstream_first.expect("upstream channel must yield first bytes");
     assert_eq!(
-        upstream_first, b"PREFETCH_PAYLOAD".to_vec(),
+        upstream_first,
+        b"PREFETCH_PAYLOAD".to_vec(),
         "上游首字节必须是客户端流水线写的 payload（修复后 flush 到 upstream）；\
          修复前 flush 写错对象回灌 client，上游收不到 payload"
     );
@@ -328,7 +349,10 @@ async fn connect_mitm_route_split_whitelist_and_suspect() {
     let miss_unknown = matches_db(&db, "api.unknown.example").await;
     assert!(!miss_unknown, "未 seed 的 host 必不命中白名单");
     let candidate_blind = miss_unknown && !mitm_state().is_suspect("api.unknown.example").await;
-    assert!(!candidate_blind, "白名单未命中 → mitm_candidate 必 false（走 P1 blind_relay）");
+    assert!(
+        !candidate_blind,
+        "白名单未命中 → mitm_candidate 必 false（走 P1 blind_relay）"
+    );
 
     // 3. suspect 标记后 → 即便白名单命中也必 false（降级 blind_relay，design 失败模式表第 3 行）。
     //    用 anthropic host 模拟 pinning fail 后 mark_suspect：后续 candidate 必 false。
@@ -415,8 +439,8 @@ async fn connect_mitm_non_candidate_blind_relay_no_regression() {
 /// 等价 serve_plaintext_http 的调用路径），确认 ST5 接入点正确。
 #[tokio::test]
 async fn mitm_forward_plaintext_request_hits_ai_path() {
-    use aidog_db::test_support::{sample_group, test_db};
     use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
+    use aidog_db::test_support::{sample_group, test_db};
 
     // 1. stub 上游 axum server（Anthropic 协议格式 200 响应）。
     let upstream_body = r#"{"id":"msg_mitm","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
@@ -454,19 +478,40 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
         log_tx,
     });
     spawn_log_writer(state.clone(), log_rx);
-    let plat = aidog_db::create_platform(&state.db, CreatePlatform {
-        name: "mitm-stub".into(),
-        platform_type: Protocol::Anthropic,
-        base_url: upstream_url,
-        api_key: "sk-up".into(),
-        extra: String::new(),
-        models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, expires_at: None,
-    }).await.unwrap();
-    let group = aidog_db::create_group(&state.db, sample_group("mitm-gk", vec![])).await.unwrap();
-    aidog_db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
-        platform_id: plat.id, priority: Some(0), weight: Some(1), level_priority: Some(0),
-    }]).await.unwrap();
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "mitm-stub".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: upstream_url,
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, sample_group("mitm-gk", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
 
     // 3. 构造明文 Request（模拟 MITM 解密后 hyper 转换出的 axum Request）。
     //    客户端发官方 Anthropic 协议（CONNECT api.anthropic.com:443 + POST /v1/messages），
@@ -483,7 +528,9 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
 
     // 4. 灌入 handle_proxy_core（ST5 接入点，等价 serve_plaintext_http 内的调用）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let resp = handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone()).await;
+    let resp =
+        handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone())
+            .await;
 
     // 5. 断言走 AI 路径：响应 200（stub 上游回成功）。
     assert_eq!(
@@ -496,17 +543,31 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
     //    关键：source_protocol=anthropic（detect_source_protocol("/v1/messages")），
     //    非 http-connect（盲转专用）。这证明明文 Request 走了完整 AI 请求链。
     flush_log_queue(&state).await;
-    let row = aidog_logs::get_proxy_log(&state.db, &request_id).await
-        .expect("query proxy_log").expect("proxy_log row must exist");
+    let row = aidog_logs::get_proxy_log(&state.db, &request_id)
+        .await
+        .expect("query proxy_log")
+        .expect("proxy_log row must exist");
     assert_eq!(
         row.source_protocol, "anthropic",
         "MITM 明文路径 source_protocol 必须是 anthropic（AI 路径），非 http-connect（盲转路径）"
     );
     assert_eq!(row.status_code, 200, "stub 上游 200 必须记账");
-    assert_eq!(row.group_key, "mitm-gk", "group_key 必须解析正确（明文 Authorization 可见）");
-    assert_eq!(row.platform_id, plat.id, "platform_id 必须命中 stub 平台（路由生效）");
-    assert_eq!(row.input_tokens, 5, "input_tokens 必须从上游响应 usage 提取（采集生效）");
-    assert!(row.est_cost > 0.0, "est_cost 必须非 0（cost 估算生效，盲转路径恒 0）");
+    assert_eq!(
+        row.group_key, "mitm-gk",
+        "group_key 必须解析正确（明文 Authorization 可见）"
+    );
+    assert_eq!(
+        row.platform_id, plat.id,
+        "platform_id 必须命中 stub 平台（路由生效）"
+    );
+    assert_eq!(
+        row.input_tokens, 5,
+        "input_tokens 必须从上游响应 usage 提取（采集生效）"
+    );
+    assert!(
+        row.est_cost > 0.0,
+        "est_cost 必须非 0（cost 估算生效，盲转路径恒 0）"
+    );
 }
 
 /// ST5 失败模式回归：明文 Request 缺 Authorization（无 group）→ handle_proxy_core 返 404，
@@ -539,11 +600,15 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
         .method("POST")
         .uri("/v1/messages")
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"model":"claude-3","messages":[]}"#.to_string()))
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[]}"#.to_string(),
+        ))
         .unwrap();
 
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let resp = handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone()).await;
+    let resp =
+        handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone())
+            .await;
 
     // AI 路径 404（no matching group），非盲转（盲转无 group 概念，恒 200/502）。
     assert_eq!(
@@ -554,10 +619,15 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
 
     // proxy_log 行存在 + status=404（AI 路径全量记账，盲转不落 AI 行）。
     flush_log_queue(&state).await;
-    let row = aidog_logs::get_proxy_log(&state.db, &request_id).await
-        .expect("query proxy_log").expect("proxy_log row must exist");
+    let row = aidog_logs::get_proxy_log(&state.db, &request_id)
+        .await
+        .expect("query proxy_log")
+        .expect("proxy_log row must exist");
     assert_eq!(row.status_code, 404, "AI 路径 404 必须落 proxy_log");
-    assert_eq!(row.source_protocol, "", "group 解析失败时 source_protocol 未设（仍非 http-connect）");
+    assert_eq!(
+        row.source_protocol, "",
+        "group 解析失败时 source_protocol 未设（仍非 http-connect）"
+    );
 }
 
 // ── ST6 HTTP/2 auto 协议转换 ─────────────────────────────────────────────────
@@ -585,20 +655,22 @@ async fn mitm_serve_plaintext_auto_builder_serves_http() {
     let (client_io, server_io) = tokio::io::duplex(8 * 1024);
 
     // 2. service_fn：收到 Request 回 200 + 固定 body（不调 handle_proxy_core，聚焦 auto 协议层）。
-    let svc = hyper::service::service_fn(|_req: hyper::Request<hyper::body::Incoming>| async move {
-        Ok::<_, std::convert::Infallible>(
-            hyper::Response::builder()
-                .status(StatusCode::OK)
-                .body(axum::body::Body::from("auto-ok"))
-                .unwrap(),
-        )
-    });
+    let svc =
+        hyper::service::service_fn(|_req: hyper::Request<hyper::body::Incoming>| async move {
+            Ok::<_, std::convert::Infallible>(
+                hyper::Response::builder()
+                    .status(StatusCode::OK)
+                    .body(axum::body::Body::from("auto-ok"))
+                    .unwrap(),
+            )
+        });
 
     // 3. serve_plaintext 等价路径：auto::Builder + TokioExecutor 在 duplex 服务端跑。
     //    auto Builder 读首字节检测协议（h1 直接进 http1 server，h2 读 preface 分发 http2 server）。
     let server_task = tokio::spawn(async move {
         let io = TokioIo::new(server_io);
-        let builder = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+        let builder =
+            hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
         let _ = builder.serve_connection(io, svc).await;
     });
 
@@ -656,7 +728,10 @@ async fn connect_timeout_applied_to_tcp_handshake() {
 
 /// 取一个未监听的 127.0.0.1 端口地址（bind 后 drop → 端口关闭，connect 必拒绝）。
 fn closed_loopback_target() -> String {
-    let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
+    let addr = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap();
     // drop listener 后端口立即关闭，TcpStream::connect 必 RST = connection refused。
     format!("{addr}")
 }
@@ -666,20 +741,30 @@ fn closed_loopback_target() -> String {
 /// latency EMA 仍 None（record_failure 不更新 EMA，防 CONNECT TCP 握手延迟污染 AI LeastLatency）。
 #[tokio::test]
 async fn connect_failure_records_breaker_fail_count() {
-    use aidog_db::test_support;
     use crate::gateway::models::{CreatePlatform, Protocol};
     use crate::gateway::scheduling::{BreakerState, BreakerThresholds};
+    use aidog_db::test_support;
 
     let db = test_support::test_db().await;
-    let p = aidog_db::create_platform(&db, CreatePlatform {
-        name: "connect-fail".into(),
-        platform_type: Protocol::Anthropic,
-        base_url: "https://connect-fail.example/v1".into(),
-        api_key: "sk".into(),
-        extra: String::new(),
-        models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, expires_at: None,
-    }).await.unwrap();
+    let p = aidog_db::create_platform(
+        &db,
+        CreatePlatform {
+            name: "connect-fail".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://connect-fail.example/v1".into(),
+            api_key: "sk".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
@@ -688,7 +773,10 @@ async fn connect_failure_records_breaker_fail_count() {
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
-        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+        agg_done: std::sync::Mutex::new((
+            std::collections::VecDeque::new(),
+            std::collections::HashSet::new(),
+        )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
@@ -696,7 +784,11 @@ async fn connect_failure_records_breaker_fail_count() {
 
     // 触发失败：127.0.0.1 关闭端口（立即 RST = connection refused，秒级失败）。
     // platform_id = p.id（直接传，模拟 host 匹配后传入）。
-    let th = BreakerThresholds { failure_threshold: 5, open_secs: 60, half_open_max: 2 };
+    let th = BreakerThresholds {
+        failure_threshold: 5,
+        open_secs: 60,
+        half_open_max: 2,
+    };
     let target = closed_loopback_target();
     let res = connect::tcp_connect_accounted(&state, &target, p.id, Some(&th), 5).await;
     assert!(res.is_err(), "关闭端口必拒绝连接");
@@ -726,20 +818,30 @@ async fn connect_failure_records_breaker_fail_count() {
 /// 关键断言：失败后 platform.last_error 非空 + last_error_at > 0。
 #[tokio::test]
 async fn connect_failure_sets_platform_last_error() {
-    use aidog_db::test_support;
     use crate::gateway::models::{CreatePlatform, Protocol};
     use crate::gateway::scheduling::BreakerThresholds;
+    use aidog_db::test_support;
 
     let db = test_support::test_db().await;
-    let p = aidog_db::create_platform(&db, CreatePlatform {
-        name: "last-err".into(),
-        platform_type: Protocol::Anthropic,
-        base_url: "https://last-err.example/v1".into(),
-        api_key: "sk".into(),
-        extra: String::new(),
-        models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None, expires_at: None,
-    }).await.unwrap();
+    let p = aidog_db::create_platform(
+        &db,
+        CreatePlatform {
+            name: "last-err".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://last-err.example/v1".into(),
+            api_key: "sk".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
     let (log_tx, _log_rx) = tokio::sync::mpsc::channel(1024);
     let state = Arc::new(ProxyState {
         db: Arc::new(db),
@@ -748,19 +850,29 @@ async fn connect_failure_sets_platform_last_error() {
         scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
         sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
         log_snapshots: dashmap::DashMap::new(),
-        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+        agg_done: std::sync::Mutex::new((
+            std::collections::VecDeque::new(),
+            std::collections::HashSet::new(),
+        )),
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
     });
 
-    let th = BreakerThresholds { failure_threshold: 5, open_secs: 60, half_open_max: 2 };
+    let th = BreakerThresholds {
+        failure_threshold: 5,
+        open_secs: 60,
+        half_open_max: 2,
+    };
     let target = closed_loopback_target();
     let res = connect::tcp_connect_accounted(&state, &target, p.id, Some(&th), 5).await;
     assert!(res.is_err(), "关闭端口必拒绝连接");
 
     // 读回 platform，验 last_error 已写。
-    let p_after = aidog_db::get_platform(&state.db, p.id).await.unwrap().unwrap();
+    let p_after = aidog_db::get_platform(&state.db, p.id)
+        .await
+        .unwrap()
+        .unwrap();
     assert!(
         !p_after.last_error.is_empty(),
         "TCP 失败必须 set_platform_last_error 使 last_error 非空，实际: {:?}",
@@ -896,9 +1008,3 @@ async fn c6_reset_suspects_returns_count_and_clears() {
     assert!(!state.is_suspect("reset-a.example").await);
     assert!(!state.is_suspect("reset-b.example").await);
 }
-
-
-
-
-
-

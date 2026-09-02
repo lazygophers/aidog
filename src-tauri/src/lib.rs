@@ -4,9 +4,9 @@
 //! hooks / tray_refresh / logging 全部下沉 aidog_core crate（C2 core-extract）；启动 Builder +
 //! handler 注册在 `startup`，setup 初始化逻辑在 `app_setup`。纯结构搬移，零行为变更。
 
-mod commands;
 mod app_setup;
-mod startup;
+mod commands;
 mod deep_link;
+mod startup;
 
 pub use startup::run;

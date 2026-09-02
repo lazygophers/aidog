@@ -77,12 +77,18 @@ fn stream_tag_split_across_chunks() {
 fn stream_reasoning_emitted_incrementally() {
     // 思维链段内无闭标签时，正文部分立即下发（不攒到闭标签才吐，避免首 token 时延退化）
     let mut sp = InlineReasoningSplitter::new();
-    assert_eq!(sp.push("<thinking>第一段"), vec![Segment::Reasoning("第一段".into())]);
+    assert_eq!(
+        sp.push("<thinking>第一段"),
+        vec![Segment::Reasoning("第一段".into())]
+    );
     assert!(sp.in_reasoning());
-    assert_eq!(sp.push("第二段</thinking>正文"), vec![
-        Segment::Reasoning("第二段".into()),
-        Segment::Text("正文".into()),
-    ]);
+    assert_eq!(
+        sp.push("第二段</thinking>正文"),
+        vec![
+            Segment::Reasoning("第二段".into()),
+            Segment::Text("正文".into()),
+        ]
+    );
     assert!(!sp.in_reasoning());
     assert!(sp.finish().is_empty());
 }
@@ -97,7 +103,10 @@ fn stream_unclosed_tag_flushed_as_reasoning_on_finish() {
 fn stream_multibyte_char_split_across_chunks_not_corrupted() {
     // `<` 后跟中文：partial_tail_len 必须落在字符边界（否则切片 panic）
     let segs = feed(&["a<", "中文</b>"]);
-    assert!(segs.iter().all(|s| matches!(s, Segment::Text(_))), "全是正文: {segs:?}");
+    assert!(
+        segs.iter().all(|s| matches!(s, Segment::Text(_))),
+        "全是正文: {segs:?}"
+    );
     let joined: String = segs
         .iter()
         .map(|s| match s {
@@ -110,5 +119,8 @@ fn stream_multibyte_char_split_across_chunks_not_corrupted() {
 #[test]
 fn stream_plain_text_passthrough() {
     let segs = feed(&["普通", "文本"]);
-    assert_eq!(segs, vec![Segment::Text("普通".into()), Segment::Text("文本".into())]);
+    assert_eq!(
+        segs,
+        vec![Segment::Text("普通".into()), Segment::Text("文本".into())]
+    );
 }

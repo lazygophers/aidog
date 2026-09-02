@@ -13,7 +13,12 @@ fn plan_align_action_matrix() {
 /// align_agents: from == to → noop immediately.
 #[test]
 fn align_agents_same_agent_noop() {
-    let r = align_agents(SkillAgent::Claude, SkillAgent::Claude, &SkillScope::Global, None);
+    let r = align_agents(
+        SkillAgent::Claude,
+        SkillAgent::Claude,
+        &SkillScope::Global,
+        None,
+    );
     assert!(r.success);
     assert_eq!(r.stdout, "noop: source equals target");
 }
@@ -96,9 +101,16 @@ fn install_batch_args_merges_skills_and_agents_global() {
     assert_eq!(
         args,
         vec![
-            "add", "a/b", "-a", "claude-code", "codex",
-            "-s", "s1", "s2",
-            "-g", "-y",
+            "add",
+            "a/b",
+            "-a",
+            "claude-code",
+            "codex",
+            "-s",
+            "s1",
+            "s2",
+            "-g",
+            "-y",
         ]
     );
 }
@@ -121,7 +133,12 @@ fn install_batch_empty_inputs_error() {
 
 #[test]
 fn uninstall_batch_args_names_then_scope() {
-    let args = uninstall_batch_args(&["x".into(), "y".into()], &SkillScope::Project { path: "/tmp/p".into() });
+    let args = uninstall_batch_args(
+        &["x".into(), "y".into()],
+        &SkillScope::Project {
+            path: "/tmp/p".into(),
+        },
+    );
     assert_eq!(args, vec!["remove", "x", "y", "-y"]);
     let args = uninstall_batch_args(&["x".into()], &SkillScope::Global);
     assert_eq!(args, vec!["remove", "x", "-g", "-y"]);

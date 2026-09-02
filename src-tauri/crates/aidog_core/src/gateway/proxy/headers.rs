@@ -11,13 +11,11 @@ pub(crate) fn inject_trace_header(response: &mut axum::response::Response) {
     if !cfg!(debug_assertions) {
         return;
     }
-    let id = crate::logging::current_trace_id()
-        .unwrap_or_else(crate::logging::new_trace_id);
+    let id = crate::logging::current_trace_id().unwrap_or_else(crate::logging::new_trace_id);
     if let Ok(hv) = axum::http::HeaderValue::from_str(&id) {
-        response.headers_mut().insert(
-            axum::http::HeaderName::from_static("x-aidog-trace"),
-            hv,
-        );
+        response
+            .headers_mut()
+            .insert(axum::http::HeaderName::from_static("x-aidog-trace"), hv);
     }
 }
 
@@ -74,10 +72,7 @@ pub(crate) fn is_official_anthropic_host(upstream_url: &str) -> bool {
         .split_once("://")
         .map(|(_, rest)| rest)
         .unwrap_or(upstream_url);
-    let authority = after_scheme
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or("");
+    let authority = after_scheme.split(['/', '?', '#']).next().unwrap_or("");
     // 去 userinfo（user:pass@host）+ 端口
     let host = authority
         .rsplit_once('@')
@@ -97,16 +92,14 @@ fn strip_anthropic_beta_for_third_party(name: &str, upstream_url: &str) -> bool 
 
 /// 鉴权凭证头名（proxy_log 脱敏判定，不区分大小写）。
 /// `api-key` 系小米 token-plan openai 端点要求的鉴权头（与 Authorization 同发），属凭证须 redact。
-const SENSITIVE_AUTH_HEADERS: &[&str] = &[
-    "authorization",
-    "api-key",
-    "x-api-key",
-    "x-goog-api-key",
-];
+const SENSITIVE_AUTH_HEADERS: &[&str] =
+    &["authorization", "api-key", "x-api-key", "x-goog-api-key"];
 
 /// 判定 header 是否为需脱敏的鉴权凭证头（不区分大小写）。
 pub(crate) fn is_sensitive_auth_header(name: &str) -> bool {
-    SENSITIVE_AUTH_HEADERS.iter().any(|h| name.eq_ignore_ascii_case(h))
+    SENSITIVE_AUTH_HEADERS
+        .iter()
+        .any(|h| name.eq_ignore_ascii_case(h))
 }
 
 /// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
@@ -121,7 +114,10 @@ pub(crate) fn passthrough_convert_headers(
     let mut out = reqwest::header::HeaderMap::new();
     for (k, v) in orig {
         let name = k.as_str();
-        if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+        if STRIPPED_ON_CONVERT_PASSTHROUGH
+            .iter()
+            .any(|s| name.eq_ignore_ascii_case(s))
+        {
             continue;
         }
         if strip_anthropic_beta_for_third_party(name, upstream_url) {
@@ -258,10 +254,7 @@ fn fill_placeholder(template: &str, api_key_value: &str) -> String {
 
 /// 查 simulation entry 的 protocol-specific headers 数组（缺失 protocol key → `default` 兜底；
 /// `default` 也缺 → 空切片，apply 路径再兜底 Bearer）。
-fn resolve_auth_headers<'a>(
-    sim: &'a Simulation,
-    protocol_key: &str,
-) -> &'a [SimulationHeader] {
+fn resolve_auth_headers<'a>(sim: &'a Simulation, protocol_key: &str) -> &'a [SimulationHeader] {
     sim.auth
         .get(protocol_key)
         .or_else(|| sim.auth.get("default"))
@@ -276,8 +269,7 @@ fn resolve_simulation<'a>(
     map: &'a std::collections::HashMap<String, Simulation>,
     client_type: &str,
 ) -> Option<&'a Simulation> {
-    map.get(client_type)
-        .or_else(|| map.get("default"))
+    map.get(client_type).or_else(|| map.get("default"))
 }
 
 pub fn apply_client_headers(
@@ -330,7 +322,8 @@ fn uuid_sim() -> String {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_nanos();
-    format!("{:08x}-{:04}-4{:03}-{:04}-{:012x}",
+    format!(
+        "{:08x}-{:04}-4{:03}-{:04}-{:012x}",
         (ts as u32).wrapping_mul(0x45d9f3b),
         (ts >> 16) as u16,
         ((ts >> 32) as u16) & 0x0fff,
@@ -355,14 +348,18 @@ pub fn build_upstream_headers(
     // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT；非官方 anthropic 端点剔 anthropic-beta）。脱敏敏感值。
     for (k, v) in orig {
         let name = k.as_str();
-        if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+        if STRIPPED_ON_CONVERT_PASSTHROUGH
+            .iter()
+            .any(|s| name.eq_ignore_ascii_case(s))
+        {
             continue;
         }
         if strip_anthropic_beta_for_third_party(name, upstream_url) {
             continue;
         }
         let val = v.to_str().unwrap_or("");
-        let val = if name.eq_ignore_ascii_case("cookie") || name.eq_ignore_ascii_case("set-cookie") {
+        let val = if name.eq_ignore_ascii_case("cookie") || name.eq_ignore_ascii_case("set-cookie")
+        {
             "[REDACTED]".to_string()
         } else {
             val.to_string()
@@ -402,7 +399,7 @@ pub fn redact_key(key: &str) -> String {
     if key.len() <= 12 {
         "[REDACTED]".into()
     } else {
-        format!("{}****{}", &key[..4], &key[key.len()-4..])
+        format!("{}****{}", &key[..4], &key[key.len() - 4..])
     }
 }
 
@@ -414,20 +411,20 @@ pub fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Pro
             // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
             // 用模型名 + 短随机串生成会话级 cache key
             if let Some(obj) = body.as_object_mut() {
-                let model = obj.get("model")
+                let model = obj
+                    .get("model")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown");
-                let session_id = format!("aidog-{}-{:06x}",
+                let session_id = format!(
+                    "aidog-{}-{:06x}",
                     model,
                     std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap_or_default()
-                        .as_secs() / 300  // 5-minute window
+                        .as_secs()
+                        / 300 // 5-minute window
                 );
-                obj.insert(
-                    "prompt_cache_key".to_string(),
-                    Value::String(session_id),
-                );
+                obj.insert("prompt_cache_key".to_string(), Value::String(session_id));
             }
         }
         _ => {

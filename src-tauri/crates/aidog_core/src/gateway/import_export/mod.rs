@@ -18,8 +18,8 @@ pub mod skills_sync;
 pub mod sub2api;
 
 pub use ccswitch::{CcswitchDetection, CcswitchReadResult};
-pub use sub2api::Sub2ApiReadResult;
 pub use container::{decrypt, encrypt};
+pub use sub2api::Sub2ApiReadResult;
 
 #[cfg(test)]
 #[path = "test_collect.rs"]

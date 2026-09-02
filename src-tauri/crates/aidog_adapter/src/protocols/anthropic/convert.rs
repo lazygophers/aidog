@@ -1,5 +1,5 @@
-use serde_json::Value;
 use crate::types::*;
+use serde_json::Value;
 
 /// Anthropic Messages API 请求格式
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -68,24 +68,35 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
                         .filter_map(|b| match b {
                             // 只保留已知类型;Unknown(thinking/redacted_thinking/image 等)跳过,
                             // 避免上游不支持 Anthropic 扩展类型导致 400 InvalidParameter
-                            ContentBlock::Text { .. } | ContentBlock::ToolUse { .. } | ContentBlock::ToolResult { .. } => {
+                            ContentBlock::Text { .. }
+                            | ContentBlock::ToolUse { .. }
+                            | ContentBlock::ToolResult { .. } => {
                                 Some(serde_json::to_value(b).unwrap())
                             }
                             // thinking block 带 signature 时原样透传（回传 Anthropic 多轮需有效签名）；
                             // 无 signature（Gemini thought part 等来源）不回传，降级不报错
                             ContentBlock::Unknown(v)
                                 if v.get("type").and_then(|t| t.as_str()) == Some("thinking")
-                                    && v.get("signature").is_some() => Some(v.clone()),
+                                    && v.get("signature").is_some() =>
+                            {
+                                Some(v.clone())
+                            }
                             // image block（中立规范 = Anthropic image 结构）原样透传
                             ContentBlock::Unknown(v)
-                                if v.get("type").and_then(|t| t.as_str()) == Some("image") => Some(v.clone()),
+                                if v.get("type").and_then(|t| t.as_str()) == Some("image") =>
+                            {
+                                Some(v.clone())
+                            }
                             ContentBlock::Unknown(_) => None,
                         })
                         .collect();
                     Value::Array(arr)
                 }
             };
-            AnthropicMessage { role: role.to_string(), content }
+            AnthropicMessage {
+                role: role.to_string(),
+                content,
+            }
         })
         .collect();
 
@@ -126,13 +137,11 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
             crate::thinking::outbound_budget(req)
                 .map(|b| serde_json::json!({ "type": "enabled", "budget_tokens": b }))
         },
-        tool_choice: req.tool_choice.as_ref().map(|tc| {
-            match tc {
-                ToolChoice::Auto => serde_json::json!({"type": "auto"}),
-                ToolChoice::Any => serde_json::json!({"type": "any"}),
-                ToolChoice::None => serde_json::json!({"type": "none"}),
-                ToolChoice::Named { name } => serde_json::json!({"type": "tool", "name": name}),
-            }
+        tool_choice: req.tool_choice.as_ref().map(|tc| match tc {
+            ToolChoice::Auto => serde_json::json!({"type": "auto"}),
+            ToolChoice::Any => serde_json::json!({"type": "any"}),
+            ToolChoice::None => serde_json::json!({"type": "none"}),
+            ToolChoice::Named { name } => serde_json::json!({"type": "tool", "name": name}),
         }),
     }
 }
@@ -158,7 +167,9 @@ pub fn strip_unsigned_thinking_blocks(body: &mut Value) -> usize {
         blocks.retain(|b| {
             let ty = b.get("type").and_then(|t| t.as_str()).unwrap_or("");
             let unsigned_thinking = matches!(ty, "thinking" | "redacted_thinking")
-                && b.get("signature").and_then(|s| s.as_str()).is_none_or(str::is_empty);
+                && b.get("signature")
+                    .and_then(|s| s.as_str())
+                    .is_none_or(str::is_empty);
             if unsigned_thinking {
                 removed += 1;
             }
@@ -179,9 +190,16 @@ pub fn strip_unsigned_thinking_blocks(body: &mut Value) -> usize {
 }
 
 /// 解析 Anthropic Messages API 非流式响应为归一 NonStreamResponse
-pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<crate::converter::NonStreamResponse> {
+pub fn parse_anthropic_response(
+    body: &Value,
+    fallback_model: &str,
+) -> Option<crate::converter::NonStreamResponse> {
     let id = body.get("id")?.as_str()?.to_string();
-    let model = body.get("model")?.as_str().unwrap_or(fallback_model).to_string();
+    let model = body
+        .get("model")?
+        .as_str()
+        .unwrap_or(fallback_model)
+        .to_string();
 
     let content = body.get("content")?.as_array()?;
     let mut text_parts: Vec<String> = Vec::new();
@@ -205,14 +223,18 @@ pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<cr
             "tool_use" => {
                 let id = block.get("id")?.as_str()?.to_string();
                 let name = block.get("name")?.as_str()?.to_string();
-                let input = block.get("input").cloned().unwrap_or_else(|| Value::Object(Default::default()));
+                let input = block
+                    .get("input")
+                    .cloned()
+                    .unwrap_or_else(|| Value::Object(Default::default()));
                 tool_uses.push((id, name, input));
             }
             _ => {} // 跳过未知类型（如 redacted_thinking 等）
         }
     }
 
-    let stop_reason = body.get("stop_reason")
+    let stop_reason = body
+        .get("stop_reason")
         .and_then(|v| v.as_str())
         .unwrap_or("end_turn")
         .to_string();
@@ -220,7 +242,8 @@ pub fn parse_anthropic_response(body: &Value, fallback_model: &str) -> Option<cr
     let usage = body.get("usage")?;
     let input_tokens = usage.get("input_tokens")?.as_i64()?;
     let output_tokens = usage.get("output_tokens")?.as_i64()?;
-    let cache_read_tokens = usage.get("cache_read_tokens")
+    let cache_read_tokens = usage
+        .get("cache_read_tokens")
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
 
@@ -269,15 +292,22 @@ pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
                 }),
                 "thinking_delta" => {
                     // Anth Claude thinking 流式增量（reasoning_content）
-                    delta.get("thinking").and_then(|v| v.as_str()).filter(|t| !t.is_empty()).map(|thinking| ChatStreamEvent::ReasoningDelta {
-                        text: thinking.to_string(),
-                    })
+                    delta
+                        .get("thinking")
+                        .and_then(|v| v.as_str())
+                        .filter(|t| !t.is_empty())
+                        .map(|thinking| ChatStreamEvent::ReasoningDelta {
+                            text: thinking.to_string(),
+                        })
                 }
                 "input_json_delta" => Some(ChatStreamEvent::ToolDelta {
                     index: data.get("index")?.as_u64()? as u32,
                     id: None,
                     name: None,
-                    input: delta.get("partial_json").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    input: delta
+                        .get("partial_json")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string()),
                 }),
                 _ => None,
             }
@@ -288,7 +318,10 @@ pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
                 "tool_use" => Some(ChatStreamEvent::ToolDelta {
                     index: data.get("index")?.as_u64()? as u32,
                     id: cb.get("id").and_then(|v| v.as_str()).map(|s| s.to_string()),
-                    name: cb.get("name").and_then(|v| v.as_str()).map(|s| s.to_string()),
+                    name: cb
+                        .get("name")
+                        .and_then(|v| v.as_str())
+                        .map(|s| s.to_string()),
                     input: None,
                 }),
                 _ => None,
@@ -296,7 +329,10 @@ pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
         }
         "message_delta" => {
             let delta = data.get("delta")?;
-            let stop_reason = delta.get("stop_reason").and_then(|v| v.as_str()).map(|s| s.to_string());
+            let stop_reason = delta
+                .get("stop_reason")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
             Some(ChatStreamEvent::Stop {
                 finish_reason: stop_reason,
             })

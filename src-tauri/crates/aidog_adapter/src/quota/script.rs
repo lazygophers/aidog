@@ -35,8 +35,7 @@ use boa_engine::{
 };
 
 use super::http::{
-    err_quota, http_client, now_millis, quota_script_request, PlatformQuota,
-    QUOTA_PLATFORM_ID,
+    PlatformQuota, QUOTA_PLATFORM_ID, err_quota, http_client, now_millis, quota_script_request,
 };
 use std::sync::Arc;
 
@@ -59,21 +58,26 @@ pub async fn run_custom_query(
     script: &str,
     platform_id: i64,
 ) -> PlatformQuota {
-    QUOTA_PLATFORM_ID.scope(platform_id, {
-        let script = script.to_string();
-        let outbound = Outbound { client: http_client(db).await, db: db.cloned() };
-        async move {
-            // JS 引擎 Context 非 Send，spawn_blocking 线程内独占跑
-            let joined = tokio::task::spawn_blocking(move || eval_script(&ctx, &outbound, &script))
-                .await;
-            match joined {
-                Ok(Ok(quota)) => quota,
-                Ok(Err(msg)) => err_quota(&msg),
-                Err(e) => err_quota(&format!("script task failed: {e}")),
+    QUOTA_PLATFORM_ID
+        .scope(platform_id, {
+            let script = script.to_string();
+            let outbound = Outbound {
+                client: http_client(db).await,
+                db: db.cloned(),
+            };
+            async move {
+                // JS 引擎 Context 非 Send，spawn_blocking 线程内独占跑
+                let joined =
+                    tokio::task::spawn_blocking(move || eval_script(&ctx, &outbound, &script))
+                        .await;
+                match joined {
+                    Ok(Ok(quota)) => quota,
+                    Ok(Err(msg)) => err_quota(&msg),
+                    Err(e) => err_quota(&format!("script task failed: {e}")),
+                }
             }
-        }
-    })
-    .await
+        })
+        .await
 }
 
 /// 脚本出站通道：eval 前（异步侧）build 好的 client + 落库用 db，
@@ -100,9 +104,21 @@ fn eval_script(
 
     // ── 注入 ctx 对象 ──
     let ctx_obj = ObjectInitializer::new(&mut ctx)
-        .property(js_string!("baseUrl"), js_string!(qctx.base_url.as_str()), Attribute::all())
-        .property(js_string!("apiKey"), js_string!(qctx.api_key.as_str()), Attribute::all())
-        .property(js_string!("extra"), js_string!(qctx.extra.as_str()), Attribute::all())
+        .property(
+            js_string!("baseUrl"),
+            js_string!(qctx.base_url.as_str()),
+            Attribute::all(),
+        )
+        .property(
+            js_string!("apiKey"),
+            js_string!(qctx.api_key.as_str()),
+            Attribute::all(),
+        )
+        .property(
+            js_string!("extra"),
+            js_string!(qctx.extra.as_str()),
+            Attribute::all(),
+        )
         .build();
     ctx.register_global_property(js_string!("ctx"), ctx_obj, Attribute::all())
         .map_err(|e| e.to_string())?;
@@ -110,16 +126,22 @@ fn eval_script(
     // ── 注入 http 对象 ──
     let http_obj = ObjectInitializer::new(&mut ctx)
         .function(NativeFunction::from_fn_ptr(http_get), js_string!("get"), 1)
-        .function(NativeFunction::from_fn_ptr(http_post), js_string!("post"), 2)
+        .function(
+            NativeFunction::from_fn_ptr(http_post),
+            js_string!("post"),
+            2,
+        )
         .build();
     ctx.register_global_property(js_string!("http"), http_obj, Attribute::all())
         .map_err(|e| e.to_string())?;
 
     // ── eval ──
     // 脚本按函数体语义执行（顶层 return 合法）：自动包裹 IIFE
-    let wrapped = format!("(function() {{
+    let wrapped = format!(
+        "(function() {{
 {script}
-}})()");
+}})()"
+    );
     let result = ctx
         .eval(Source::from_bytes(wrapped.as_bytes()))
         .map_err(|e| format!("script error: {e}"))?;
@@ -138,14 +160,27 @@ fn parse_result(json: serde_json::Value) -> PlatformQuota {
         serde_json::Value::Object(o) => o,
         other => return err_quota(&format!("script must return an object, got: {other}")),
     };
-    let success = obj.get("success").and_then(|v| v.as_bool()).unwrap_or(false);
+    let success = obj
+        .get("success")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
     if !success {
-        let msg = obj.get("error").and_then(|v| v.as_str()).unwrap_or("script returned success=false");
+        let msg = obj
+            .get("error")
+            .and_then(|v| v.as_str())
+            .unwrap_or("script returned success=false");
         return err_quota(msg);
     }
-    let balance = obj.get("balance").and_then(|b| serde_json::from_value(b.clone()).ok());
-    let coding_plan = obj.get("coding_plan").and_then(|c| serde_json::from_value(c.clone()).ok());
-    let newapi_user_id = obj.get("newapi_user_id").and_then(|v| v.as_str()).map(str::to_string);
+    let balance = obj
+        .get("balance")
+        .and_then(|b| serde_json::from_value(b.clone()).ok());
+    let coding_plan = obj
+        .get("coding_plan")
+        .and_then(|c| serde_json::from_value(c.clone()).ok());
+    let newapi_user_id = obj
+        .get("newapi_user_id")
+        .and_then(|v| v.as_str())
+        .map(str::to_string);
     PlatformQuota {
         success: true,
         error: None,
@@ -161,7 +196,9 @@ fn parse_result(json: serde_json::Value) -> PlatformQuota {
 
 fn outbound_from_ctx(ctx: &Context) -> JsResult<Outbound> {
     ctx.get_data::<Outbound>().cloned().ok_or_else(|| {
-        JsNativeError::error().with_message("script outbound client missing").into()
+        JsNativeError::error()
+            .with_message("script outbound client missing")
+            .into()
     })
 }
 
@@ -206,17 +243,33 @@ fn fetch_and_to_json(
 
 fn http_get(_this: &JsValue, args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
     let outbound = outbound_from_ctx(ctx)?;
-    let url = args.get_or_undefined(0).to_string(ctx)?.to_std_string_escaped();
+    let url = args
+        .get_or_undefined(0)
+        .to_string(ctx)?
+        .to_std_string_escaped();
     let headers = js_headers_to_vec(args.get_or_undefined(1), ctx)?;
     fetch_and_to_json(&outbound, ctx, reqwest::Method::GET, url, None, headers)
 }
 
 fn http_post(_this: &JsValue, args: &[JsValue], ctx: &mut Context) -> JsResult<JsValue> {
     let outbound = outbound_from_ctx(ctx)?;
-    let url = args.get_or_undefined(0).to_string(ctx)?.to_std_string_escaped();
-    let body = args.get_or_undefined(1).to_string(ctx)?.to_std_string_escaped();
+    let url = args
+        .get_or_undefined(0)
+        .to_string(ctx)?
+        .to_std_string_escaped();
+    let body = args
+        .get_or_undefined(1)
+        .to_string(ctx)?
+        .to_std_string_escaped();
     let headers = js_headers_to_vec(args.get_or_undefined(2), ctx)?;
-    fetch_and_to_json(&outbound, ctx, reqwest::Method::POST, url, Some(body), headers)
+    fetch_and_to_json(
+        &outbound,
+        ctx,
+        reqwest::Method::POST,
+        url,
+        Some(body),
+        headers,
+    )
 }
 
 #[cfg(test)]

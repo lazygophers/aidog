@@ -6,13 +6,12 @@
 
 use super::*;
 use crate::models::{
-    parse_cli_proxy_models, serialize_cli_proxy_models, CliProxyProvider, CreateCliProxyProvider,
+    CliProxyProvider, CreateCliProxyProvider, parse_cli_proxy_models, serialize_cli_proxy_models,
 };
-use rusqlite::{params, OptionalExtension};
+use rusqlite::{OptionalExtension, params};
 
 /// SELECT 列序
-const CLI_PROXY_COLUMNS: &str =
-    "id, name, wire_protocol, base_url, api_key, models, extra, quota, status, group_id, created_at, updated_at";
+const CLI_PROXY_COLUMNS: &str = "id, name, wire_protocol, base_url, api_key, models, extra, quota, status, group_id, created_at, updated_at";
 
 /// 从查询行构造 CliProxyProvider
 fn row_to_provider(row: &rusqlite::Row) -> rusqlite::Result<CliProxyProvider> {
@@ -40,8 +39,9 @@ pub fn list_cli_proxy_providers(
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_platform_traced(None, __db_caller, move |conn| {
-            let mut stmt =
-                conn.prepare(&format!("SELECT {CLI_PROXY_COLUMNS} FROM cli_proxy_provider ORDER BY id"))?;
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {CLI_PROXY_COLUMNS} FROM cli_proxy_provider ORDER BY id"
+            ))?;
             let rows = stmt.query_map([], row_to_provider)?;
             let mut out = Vec::new();
             for r in rows {

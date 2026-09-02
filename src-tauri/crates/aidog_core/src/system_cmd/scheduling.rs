@@ -3,7 +3,6 @@ use aidog_db::Db;
 use gateway::models::*;
 use tauri::State;
 
-
 // ─── Scheduling & Breaker Settings ─────────────────────────
 
 crate::tauri_command! {

@@ -22,7 +22,12 @@ pub fn about_info() -> AboutInfo {
         os: std::env::consts::OS.to_string(),
         arch: std::env::consts::ARCH.to_string(),
         family: std::env::consts::FAMILY.to_string(),
-        profile: if cfg!(debug_assertions) { "debug" } else { "release" }.to_string(),
+        profile: if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        }
+        .to_string(),
         git_commit: env!("AIDOG_GIT_COMMIT").to_string(),
         build_time: env!("AIDOG_BUILD_TIME").to_string(),
     }

@@ -1,5 +1,5 @@
-use crate::shared::*;
 use crate::gateway;
+use crate::shared::*;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;

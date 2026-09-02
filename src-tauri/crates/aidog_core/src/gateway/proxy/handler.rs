@@ -1,10 +1,7 @@
 use super::*;
 
 /// 主代理处理函数 — 渐进式日志：每个阶段即时 upsert，用 request_id 串联
-pub async fn handle_proxy(
-    state: AxumState<Arc<ProxyState>>,
-    req: Request,
-) -> Response {
+pub async fn handle_proxy(state: AxumState<Arc<ProxyState>>, req: Request) -> Response {
     // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
     // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -13,9 +10,10 @@ pub async fn handle_proxy(
     // 该请求生命周期内所有子 tracing 行自动携带两者。
     let trace_id = crate::logging::trace_id_from_request_id(&request_id);
     let span = tracing::info_span!("req", trace_id = %trace_id, request_id = %request_id);
-    handle_proxy_inner(state, req, request_id).instrument(span).await
+    handle_proxy_inner(state, req, request_id)
+        .instrument(span)
+        .await
 }
-
 
 /// 请求级中断兜底 guard：客户端断连 / 请求 future 被 axum drop（任一 .await 未完成返回）时，
 /// 把仍卡在 status_code=0 的 proxy_log 行补写为终态 499（client closed request）。
@@ -52,7 +50,8 @@ impl Drop for RequestLogGuard {
         // 在 runtime 上下文内等价（tokio::spawn 即 Handle::current().spawn）。
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
             use tracing::Instrument;
-            let parent = crate::logging::current_trace_id().unwrap_or_else(crate::logging::gen_trace_id);
+            let parent =
+                crate::logging::current_trace_id().unwrap_or_else(crate::logging::gen_trace_id);
             let child = crate::logging::gen_child_id(&parent);
             let span = tracing::info_span!("spawn", name = %"reqlog_guard", trace_id = %child);
             handle.spawn(async move {
@@ -116,7 +115,7 @@ pub(crate) async fn handle_proxy_core(
         group_key: String::new(),
         model: String::new(),
         actual_model: String::new(),
-        source_protocol: String::new(),  // will be set from group
+        source_protocol: String::new(), // will be set from group
         target_protocol: String::new(),
         platform_id: 0,
         request_headers: String::new(),
@@ -170,7 +169,8 @@ pub(crate) async fn handle_proxy_core(
     // Extract auth header and path BEFORE consuming the request
     // group token 来源: Authorization: Bearer <key> (OpenAI/通用) 或 x-api-key (Anthropic SDK/claude-cli)。
     // 二者皆承载 group_key —— 只读前者会让原生 Anthropic 客户端 (仅发 x-api-key) 在 resolve_group 落空 → 404 no matching group。
-    let auth_header = req.headers()
+    let auth_header = req
+        .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
@@ -187,9 +187,20 @@ pub(crate) async fn handle_proxy_core(
 
     // ── Claude Code 连接预热探测分流（必须在读 body / 首次 upsert_log 之前）──
     // 客户端启动对 base_url 发 `HEAD /api/hello`（base_url 带 /proxy 前缀 → `/proxy/api/hello`），
-    // 无 Authorization → 走 resolve_group 必 404，且每次探测落一行 proxy_log 污染统计（实测 263 行）。
-    // 与 `/` `/proxy` 健康端点同语义：200 + 身份 JSON，不落库、不碰上游、不解析 body。
+    // 无 Authorization → 走 resolve_group 必 404。
+    // 新需求：探测也进入「请求日志」页，source_protocol=test；仍不碰上游、不解析 body。
     if is_hello_endpoint(&path) {
+        log.source_protocol = "test".into();
+        log.request_url =
+            build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string());
+        log.status_code = 200;
+        log.upstream_status_code = 200;
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.into();
+        log.user_response_body = r#"{"service":"aidog","ok":true}"#.into();
+        log.response_body = log.user_response_body.clone();
+        log.done = true;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(&state, &log, &log_settings).await;
         return handle_root().await;
     }
 
@@ -197,8 +208,8 @@ pub(crate) async fn handle_proxy_core(
     // origin-form URI（MITM 解密灌入 / reverse proxy）只有 path 段，须从 Host header 重构完整 url。
     // absolute-form（forward proxy `GET http://host/path`）req.uri() 本身含 scheme+host，build_url_from_host
     // 兼容（直接取 uri.scheme_str）；缺 Host header 时 fallback origin-form path-only 行为（不破坏旧日志）。
-    log.request_url = build_url_from_host(req.headers(), req.uri())
-        .unwrap_or_else(|| req.uri().to_string());
+    log.request_url =
+        build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string());
 
     // ── 捕获原始请求量（用于 Claude Code 纯透传：未 redact 的真实 header / method / uri）──
     // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前 clone 原始量。
@@ -216,7 +227,11 @@ pub(crate) async fn handle_proxy_core(
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody))).into_response();
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody)),
+            )
+                .into_response();
             inject_trace_header(&mut r);
             return r;
         }
@@ -235,7 +250,11 @@ pub(crate) async fn handle_proxy_core(
     let (raw_model, req_value_opt) = serde_json::from_slice::<Value>(&bytes)
         .ok()
         .map(|v| {
-            let model = v.get("model").and_then(|m| m.as_str()).map(String::from).unwrap_or_default();
+            let model = v
+                .get("model")
+                .and_then(|m| m.as_str())
+                .map(String::from)
+                .unwrap_or_default();
             (model, Some(v))
         })
         .unwrap_or_else(|| (String::new(), None));
@@ -267,13 +286,21 @@ pub(crate) async fn handle_proxy_core(
                 if should_fallback_passthrough(host_header, state.listen_addr.get().copied()) {
                     tracing::info!(host = %host_header, path = %path, "no matching group → fallback passthrough to orig host");
                     return forward_passthrough_to_orig_host(
-                        &state, &mut log, &log_settings,
-                        orig_method, orig_uri, orig_headers, bytes,
-                        start, lang,
-                    ).await;
+                        &state,
+                        &mut log,
+                        &log_settings,
+                        orig_method,
+                        orig_uri,
+                        orig_headers,
+                        bytes,
+                        start,
+                        lang,
+                    )
+                    .await;
                 }
                 if let Some(ref token) = auth_header {
-                    log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
+                    log.response_body =
+                        format!("no matching group for token '{}' or path '{}'", token, path);
                     log.status_code = 404;
                     log.done = true;
                     log.duration_ms = start.elapsed().as_millis() as i32;
@@ -287,7 +314,11 @@ pub(crate) async fn handle_proxy_core(
                     log.done = true;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(&state, &log, &log_settings).await;
-                    let mut r = (StatusCode::NOT_FOUND, i18n::t(lang, ErrorKey::NoMatchingGroup)).into_response();
+                    let mut r = (
+                        StatusCode::NOT_FOUND,
+                        i18n::t(lang, ErrorKey::NoMatchingGroup),
+                    )
+                        .into_response();
                     inject_trace_header(&mut r);
                     return r;
                 }
@@ -311,7 +342,15 @@ pub(crate) async fn handle_proxy_core(
     // create（裸 /v1/responses，无尾段）不被拦，继续走下方 parse + same_protocol_passthrough（已 work）。
     if is_responses_subendpoint(&path) {
         return handle_responses_subendpoint(
-            &state, &mut log, &log_settings, &group, &orig_method, &bytes, &path, start, lang,
+            &state,
+            &mut log,
+            &log_settings,
+            &group,
+            &orig_method,
+            &bytes,
+            &path,
+            start,
+            lang,
         )
         .await;
     }
@@ -335,24 +374,36 @@ pub(crate) async fn handle_proxy_core(
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {}", i18n::t(lang, ErrorKey::ParseJson), "invalid JSON")).into_response();
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                format!("{}: {}", i18n::t(lang, ErrorKey::ParseJson), "invalid JSON"),
+            )
+                .into_response();
             inject_trace_header(&mut r);
             return r;
         }
     };
-    let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&source_protocol, &req_value) {
-        Ok(r) => r,
-        Err(e) => {
-            log.response_body = format!("failed to parse request for protocol ({}): {e}", log.source_protocol);
-            log.status_code = 400;
-            log.done = true;
-            log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::BAD_REQUEST, i18n::t(lang, ErrorKey::ParseRequest)).into_response();
-            inject_trace_header(&mut r);
-            return r;
-        }
-    };
+    let mut chat_req: ChatRequest =
+        match adapter::parse_incoming_request(&source_protocol, &req_value) {
+            Ok(r) => r,
+            Err(e) => {
+                log.response_body = format!(
+                    "failed to parse request for protocol ({}): {e}",
+                    log.source_protocol
+                );
+                log.status_code = 400;
+                log.done = true;
+                log.duration_ms = start.elapsed().as_millis() as i32;
+                upsert_log(&state, &log, &log_settings).await;
+                let mut r = (
+                    StatusCode::BAD_REQUEST,
+                    i18n::t(lang, ErrorKey::ParseRequest),
+                )
+                    .into_response();
+                inject_trace_header(&mut r);
+                return r;
+            }
+        };
 
     let is_stream = chat_req.stream.unwrap_or(false);
     log.is_stream = is_stream;
@@ -364,7 +415,11 @@ pub(crate) async fn handle_proxy_core(
     } else {
         raw_model
     };
-    let requested_model = if chat_req.model.is_empty() { raw_model } else { chat_req.model.clone() };
+    let requested_model = if chat_req.model.is_empty() {
+        raw_model
+    } else {
+        chat_req.model.clone()
+    };
     log.model = requested_model.clone();
     // 路由按 `chat_req.model` 选候选（下方 select_candidates_ctx），gemini 源此处仍为空，
     // 补齐后模型映射与出站 path 才拿得到模型名。其余协议 model 本就来自 body，此赋值等价空操作。
@@ -376,11 +431,29 @@ pub(crate) async fn handle_proxy_core(
     // settings 读取 fail-open（异常 → Default 总开关 ON）；apply 内单条规则异常不阻断主链路。
     // 顺序：request_filter→sensitive_word→redaction→content_filter→dynamic_injection。
     {
-        let mw_settings = state.settings_cache.read().await.middleware_settings.clone();
-        if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
-            state.middleware.apply_inbound(&mw_settings, &mut chat_req, Some(&group.group_key))
+        let mw_settings = state
+            .settings_cache
+            .read()
+            .await
+            .middleware_settings
+            .clone();
+        if let InboundOutcome::Blocked {
+            blocked_by,
+            blocked_reason,
+        } = state
+            .middleware
+            .apply_inbound(&mw_settings, &mut chat_req, Some(&group.group_key))
         {
-            return block_inbound(&state, log, &log_settings, lang, blocked_by, blocked_reason, start).await;
+            return block_inbound(
+                &state,
+                log,
+                &log_settings,
+                lang,
+                blocked_by,
+                blocked_reason,
+                start,
+            )
+            .await;
         }
     }
 
@@ -404,7 +477,14 @@ pub(crate) async fn handle_proxy_core(
         settings: &sched_settings,
         sticky_key,
     };
-    let candidate_set = match select_candidates_ctx(&state.db, &group, &chat_req.model, Some(&sched_ctx)).await {
+    let candidate_set = match select_candidates_ctx(
+        &state.db,
+        &group,
+        &chat_req.model,
+        Some(&sched_ctx),
+    )
+    .await
+    {
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
@@ -418,7 +498,11 @@ pub(crate) async fn handle_proxy_core(
                 log.response_body = format!("route error: {e}");
                 log.duration_ms = start.elapsed().as_millis() as i32;
                 upsert_log(&state, &log, &log_settings).await;
-                let mut r = (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+                let mut r = (
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
+                )
+                    .into_response();
                 inject_trace_header(&mut r);
                 return r;
             }
@@ -427,7 +511,11 @@ pub(crate) async fn handle_proxy_core(
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
+            )
+                .into_response();
             inject_trace_header(&mut r);
             return r;
         }
@@ -510,7 +598,6 @@ pub(crate) async fn handle_proxy_core(
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
 
-
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
         // 超过最大重试次数（attempt_idx 从 0 起；max_retries=2 → 最多 3 次尝试 idx 0/1/2）
         if attempt_idx > max_retries {
@@ -547,12 +634,14 @@ pub(crate) async fn handle_proxy_core(
         }
     } // ── end retry loop (for candidate) ──
 
-
     // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
     // 仅 attempt_idx > max_retries 的 break 会落到这里）。返回 503 + 已记录的 attempts。
     log.status_code = 503;
     log.done = true;
-    let err_body = format!("{}: all candidates exhausted", i18n::t(lang, ErrorKey::Upstream));
+    let err_body = format!(
+        "{}: all candidates exhausted",
+        i18n::t(lang, ErrorKey::Upstream)
+    );
     log.response_body = "all candidates exhausted".to_string();
     log.user_response_body = err_body.clone();
     log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();

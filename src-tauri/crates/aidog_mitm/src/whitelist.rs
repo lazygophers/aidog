@@ -14,7 +14,7 @@
 //!
 //! 设计依据：design.md §2、spec `.trellis/spec/backend/proxy-connect-relay.md`。
 
-use aidog_db::{get_setting, Db};
+use aidog_db::{Db, get_setting};
 use serde::{Deserialize, Serialize};
 
 /// MITM 白名单在 setting 表的 key（scope=mitm，value = WhitelistEntry JSON 数组）。
@@ -25,14 +25,13 @@ const MITM_SCOPE: &str = "mitm";
 /// 内置 MITM 规则集（从 aidog_db 单源再导出，供 command 层直接引用）。
 pub use aidog_db::DEFAULT_RULES;
 
-
 /// 白名单行（setting 表 mitm:whitelist JSON 数组元素）。
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WhitelistEntry {
     pub host_pattern: String, // 规则值（domain/suffix 域名 / keyword 子串 / ipcidr CIDR 串）
     pub rule_type: String,    // "domain" | "suffix" | "keyword" | "ipcidr"
     pub enabled: bool,
-    pub source: String,       // "default" | "user"
+    pub source: String, // "default" | "user"
 }
 
 /// host 是否命中给定白名单条目集合（enabled=true 的才参与匹配）。
@@ -330,7 +329,10 @@ mod tests {
             entry("ipcidr", "24.199.123.28/32", true),
         ];
         // 各类型各自命中
-        assert!(matches_host(entries.clone(), "chat.openai.com.cdn.cloudflare.net")); // domain
+        assert!(matches_host(
+            entries.clone(),
+            "chat.openai.com.cdn.cloudflare.net"
+        )); // domain
         assert!(matches_host(entries.clone(), "api.anthropic.com")); // suffix
         assert!(matches_host(entries.clone(), "openai.com")); // suffix 裸域
         assert!(matches_host(entries.clone(), "myopenai.tool")); // keyword 子串
@@ -348,8 +350,14 @@ mod tests {
         assert_eq!(DEFAULT_RULES.len(), 37, "DEFAULT_RULES must be 37 entries");
         let mut patterns: Vec<&str> = DEFAULT_RULES.iter().map(|(_, p)| *p).collect();
         patterns.sort();
-        let n_unique = patterns.iter().collect::<std::collections::HashSet<_>>().len();
-        assert_eq!(n_unique, 37, "all host_patterns must be unique (DB UNIQUE constraint)");
+        let n_unique = patterns
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        assert_eq!(
+            n_unique, 37,
+            "all host_patterns must be unique (DB UNIQUE constraint)"
+        );
         // rule_type 全部合法
         for (rt, _) in DEFAULT_RULES {
             assert!(
@@ -407,8 +415,14 @@ mod tests {
         assert_eq!(skipped, 1, "skipped: the 1 pre-existing default rule");
 
         // 自定义条目未被 import 循环触及（不在 DEFAULT_RULES 中），source 仍为 'user'。
-        let custom = entries.iter().find(|e| e.host_pattern == "my-custom-host.example.com").unwrap();
-        assert_eq!(custom.source, "user", "custom entry must be untouched by import");
+        let custom = entries
+            .iter()
+            .find(|e| e.host_pattern == "my-custom-host.example.com")
+            .unwrap();
+        assert_eq!(
+            custom.source, "user",
+            "custom entry must be untouched by import"
+        );
 
         // 总条目：37 默认 + 1 自定义 = 38。
         assert_eq!(entries.len(), 38, "total entries: 37 default + 1 custom");
@@ -473,13 +487,20 @@ mod tests {
                 source: if i < 3 { "default" } else { "user" }.to_string(),
             })
             .collect();
-        assert_eq!(entries.len(), 5, "precondition: 5 entries (3 default + 2 user)");
+        assert_eq!(
+            entries.len(),
+            5,
+            "precondition: 5 entries (3 default + 2 user)"
+        );
 
         // 复刻 command 的 clear：返数组长度 → 写空数组。
         let n = entries.len();
 
         // 验收：返 N=5 + 新数组空。
-        assert_eq!(n, 5, "clear must return count of all 5 entries (default + user)");
+        assert_eq!(
+            n, 5,
+            "clear must return count of all 5 entries (default + user)"
+        );
         let after: Vec<WhitelistEntry> = Vec::new();
         assert!(after.is_empty(), "array must be empty after clear");
     }

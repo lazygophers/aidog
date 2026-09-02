@@ -139,7 +139,9 @@ pub(super) fn apply_home_env(cmd: &mut Command) {
     if let Some(h) = home {
         cmd.env("HOME", h);
     } else {
-        tracing::warn!("apply_home_env: dirs::home_dir() 返 None 且 HOME env 缺失，skills claude-code 检测可能漏");
+        tracing::warn!(
+            "apply_home_env: dirs::home_dir() 返 None 且 HOME env 缺失，skills claude-code 检测可能漏"
+        );
     }
     if let Some(c) = claude_config {
         cmd.env("CLAUDE_CONFIG_DIR", c);

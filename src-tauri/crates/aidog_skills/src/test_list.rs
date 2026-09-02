@@ -1,6 +1,6 @@
 use super::*;
-use aidog_db::test_support::HomeGuard;
 use crate::types::{SkillAgent, SkillScope};
+use aidog_db::test_support::HomeGuard;
 use std::fs;
 use std::os::unix::fs::symlink;
 use tempfile::TempDir;
@@ -65,7 +65,10 @@ fn build_skill_infos_emits_all_fields_and_filters_empty() {
     let alpha = items.iter().find(|s| s.name == "alpha").unwrap();
     assert_eq!(alpha.source.as_deref(), Some("o/r"));
     assert_eq!(alpha.source_type.as_deref(), Some("github"));
-    assert_eq!(alpha.source_url.as_deref(), Some("https://github.com/o/r.git"));
+    assert_eq!(
+        alpha.source_url.as_deref(),
+        Some("https://github.com/o/r.git")
+    );
     assert_eq!(alpha.skill_folder_hash.as_deref(), Some("h1"));
     assert_eq!(alpha.plugin_name.as_deref(), Some("plug"));
     assert_eq!(alpha.installed_at.as_deref(), Some("2026-01-01T00:00:00Z"));
@@ -73,11 +76,13 @@ fn build_skill_infos_emits_all_fields_and_filters_empty() {
     // project scope 未创建本地 symlink → enabled_agents 应为空。
     assert!(alpha.enabled_agents.is_empty());
     // installed_path 应含 .agents/skills/<name>。
-    assert!(alpha
-        .installed_path
-        .as_deref()
-        .unwrap()
-        .ends_with("/.agents/skills/alpha"));
+    assert!(
+        alpha
+            .installed_path
+            .as_deref()
+            .unwrap()
+            .ends_with("/.agents/skills/alpha")
+    );
 
     // beta 空/whitespace source/sourceType → 这些字段过滤为 None。
     let beta = items.iter().find(|s| s.name == "beta").unwrap();
@@ -123,11 +128,7 @@ fn list_installed_reads_lockfile_and_detects_symlinks_global() {
         "alpha":{"source":"o/r"},
         "beta":{"source":"p/q"}
     }"#;
-    fs::write(
-        agents_dir.join(".skill-lock.json"),
-        lock_json(3, lock_body),
-    )
-    .unwrap();
+    fs::write(agents_dir.join(".skill-lock.json"), lock_json(3, lock_body)).unwrap();
 
     let (items, ok) = list_installed(&SkillScope::Global, None);
     assert!(ok);
@@ -299,4 +300,3 @@ impl Drop for ScopedVar {
         }
     }
 }
-

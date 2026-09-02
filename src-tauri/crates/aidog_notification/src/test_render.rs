@@ -3,26 +3,49 @@ use aidog_db::models::{NotifForm, NotifType};
 use std::collections::HashMap;
 
 fn vars(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
+    pairs
+        .iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect()
 }
 
 #[test]
 fn channels_per_form() {
     assert_eq!(
         channels_for_form(NotifForm::Full),
-        Channels { tts: true, popup: true, sound: true, inbox: true }
+        Channels {
+            tts: true,
+            popup: true,
+            sound: true,
+            inbox: true
+        }
     );
     assert_eq!(
         channels_for_form(NotifForm::PopupOnly),
-        Channels { tts: false, popup: true, sound: false, inbox: true }
+        Channels {
+            tts: false,
+            popup: true,
+            sound: false,
+            inbox: true
+        }
     );
     assert_eq!(
         channels_for_form(NotifForm::InboxOnly),
-        Channels { tts: false, popup: false, sound: false, inbox: true }
+        Channels {
+            tts: false,
+            popup: false,
+            sound: false,
+            inbox: true
+        }
     );
     assert_eq!(
         channels_for_form(NotifForm::SoundOnly),
-        Channels { tts: false, popup: false, sound: true, inbox: false }
+        Channels {
+            tts: false,
+            popup: false,
+            sound: true,
+            inbox: false
+        }
     );
 }
 
@@ -30,7 +53,12 @@ fn channels_per_form() {
 fn render_template_priority() {
     let v = vars(&[("project", "aidog")]);
     // template 优先；title 现取 vars["project"]
-    let (title, body) = render(NotifType::TaskComplete, "{project} 完成", Some("ignored"), &v);
+    let (title, body) = render(
+        NotifType::TaskComplete,
+        "{project} 完成",
+        Some("ignored"),
+        &v,
+    );
     assert_eq!(title, "aidog");
     assert_eq!(body, "aidog 完成");
     // template 空 → content

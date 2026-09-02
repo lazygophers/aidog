@@ -59,7 +59,14 @@ fn install_args_global_claude() {
     );
     assert_eq!(
         args,
-        vec!["add", "vercel-labs/skills@foo", "-a", "claude-code", "-g", "-y"]
+        vec![
+            "add",
+            "vercel-labs/skills@foo",
+            "-a",
+            "claude-code",
+            "-g",
+            "-y"
+        ]
     );
     assert!(!args.contains(&"-s".to_string()));
 }
@@ -75,7 +82,13 @@ fn install_args_project_codex_no_g() {
     );
     assert_eq!(
         args,
-        vec!["add", "xixu-me/skills@github-actions-docs", "-a", "codex", "-y"]
+        vec![
+            "add",
+            "xixu-me/skills@github-actions-docs",
+            "-a",
+            "codex",
+            "-y"
+        ]
     );
 }
 
@@ -118,14 +131,26 @@ fn disable_args_project_no_g() {
 #[test]
 fn enable_empty_path_fails() {
     // path 为空 → 明确错误，不真跑 npx。
-    let r = enable("whatever", "   ", SkillAgent::Claude, &SkillScope::Global, None);
+    let r = enable(
+        "whatever",
+        "   ",
+        SkillAgent::Claude,
+        &SkillScope::Global,
+        None,
+    );
     assert!(!r.success);
     assert!(r.stderr.contains("no installed path"));
 }
 
 #[test]
 fn enable_empty_name_fails() {
-    let r = enable("  ", "/p/foo", SkillAgent::Claude, &SkillScope::Global, None);
+    let r = enable(
+        "  ",
+        "/p/foo",
+        SkillAgent::Claude,
+        &SkillScope::Global,
+        None,
+    );
     assert!(!r.success);
 }
 
@@ -139,21 +164,33 @@ fn disable_empty_name_fails() {
 fn install_empty_id_fails() {
     let r = install("  ", &[SkillAgent::Claude], &SkillScope::Global, None);
     assert!(!r.success);
-    assert!(r.stderr.contains("skill id is empty"), "stderr: {}", r.stderr);
+    assert!(
+        r.stderr.contains("skill id is empty"),
+        "stderr: {}",
+        r.stderr
+    );
 }
 
 #[test]
 fn install_empty_agents_fails() {
     let r = install("some/skill@foo", &[], &SkillScope::Global, None);
     assert!(!r.success);
-    assert!(r.stderr.contains("no agent selected"), "stderr: {}", r.stderr);
+    assert!(
+        r.stderr.contains("no agent selected"),
+        "stderr: {}",
+        r.stderr
+    );
 }
 
 #[test]
 fn uninstall_empty_name_fails() {
     let r = uninstall("  ", &SkillScope::Global, None);
     assert!(!r.success);
-    assert!(r.stderr.contains("skill name is empty"), "stderr: {}", r.stderr);
+    assert!(
+        r.stderr.contains("skill name is empty"),
+        "stderr: {}",
+        r.stderr
+    );
 }
 
 /// uninstall_all global scope args：`["remove", "--all", "-g"]`。

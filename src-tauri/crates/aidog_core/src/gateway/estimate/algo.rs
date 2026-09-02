@@ -1,6 +1,6 @@
 //! 纯算法（可单测）：校准判定 / 增量预估 / pace 配色 / 真查拟合
 
-use super::model::{EstTier, CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS};
+use super::model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstTier};
 
 /// 校准判定：距上次真查 >5min 或 预估次数 >=100
 pub fn should_calibrate(now_ms: i64, last_real_query_at: i64, estimate_count: i64) -> bool {
@@ -46,7 +46,8 @@ pub fn apply_tier_delta(tier: &mut EstTier, tokens: f64) {
     // 方案 B
     tier.tokens_since_real += tokens;
     if tier.coef_per_token > 0.0 {
-        tier.est_utilization = tier.util_at_last_real + tier.tokens_since_real * tier.coef_per_token;
+        tier.est_utilization =
+            tier.util_at_last_real + tier.tokens_since_real * tier.coef_per_token;
         if tier.est_utilization > 100.0 {
             tier.est_utilization = 100.0;
         }
@@ -185,7 +186,11 @@ fn parse_resets_to_ms(raw: &str) -> Option<i64> {
     }
     if let Ok(ms) = raw.parse::<i64>() {
         // 启发式：>1e12 视作 ms，否则视作秒。
-        return Some(if ms > 1_000_000_000_000 { ms } else { ms * 1000 });
+        return Some(if ms > 1_000_000_000_000 {
+            ms
+        } else {
+            ms * 1000
+        });
     }
     None
 }

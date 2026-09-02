@@ -25,9 +25,14 @@ async fn rules_crud_and_settings() {
 
     let base = db::list_middleware_rules(&db).await.unwrap().len();
 
-    let rule = db::create_middleware_rule(&db, create_payload("r1")).await.unwrap();
+    let rule = db::create_middleware_rule(&db, create_payload("r1"))
+        .await
+        .unwrap();
     engine.reload(&db).await.unwrap();
-    assert_eq!(db::list_middleware_rules(&db).await.unwrap().len(), base + 1);
+    assert_eq!(
+        db::list_middleware_rules(&db).await.unwrap().len(),
+        base + 1
+    );
 
     let upd: UpdateMiddlewareRule = serde_json::from_value(serde_json::json!({
         "id": rule.id,
@@ -45,12 +50,22 @@ async fn rules_crud_and_settings() {
     assert_eq!(db::list_middleware_rules(&db).await.unwrap().len(), base);
 
     // settings roundtrip
-    let s: MiddlewareSettings = aidog_db::get_setting(&db, "middleware", "settings").await
-        .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-    aidog_db::set_setting(&db, SetSettingInput {
-        scope: "middleware".to_string(), key: "settings".to_string(),
-        value: serde_json::to_value(&s).unwrap(),
-    }).await.unwrap();
+    let s: MiddlewareSettings = aidog_db::get_setting(&db, "middleware", "settings")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    aidog_db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "middleware".to_string(),
+            key: "settings".to_string(),
+            value: serde_json::to_value(&s).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
 }
 
 #[tokio::test]
@@ -58,37 +73,59 @@ async fn builtin_rule_cannot_be_deleted() {
     let db = test_db().await;
     // builtin seed 落库（migration）→ 取一条内置规则尝试删除应被拒
     let rules = db::list_middleware_rules(&db).await.unwrap();
-    let builtin = rules.iter().find(|r| r.is_builtin).expect("builtin rules seeded");
-    let err = db::delete_middleware_rule(&db, builtin.id).await.unwrap_err();
-    assert!(err.contains("cannot be deleted"), "builtin delete refused: {err}");
+    let builtin = rules
+        .iter()
+        .find(|r| r.is_builtin)
+        .expect("builtin rules seeded");
+    let err = db::delete_middleware_rule(&db, builtin.id)
+        .await
+        .unwrap_err();
+    assert!(
+        err.contains("cannot be deleted"),
+        "builtin delete refused: {err}"
+    );
 }
 
 #[tokio::test]
 async fn builtin_rule_update_only_allows_toggle() {
     let db = test_db().await;
     let rules = db::list_middleware_rules(&db).await.unwrap();
-    let builtin = rules.iter().find(|r| r.is_builtin).expect("builtin rules seeded").clone();
+    let builtin = rules
+        .iter()
+        .find(|r| r.is_builtin)
+        .expect("builtin rules seeded")
+        .clone();
     // 仅翻转 enabled：允许
-    db::update_middleware_rule(&db, UpdateMiddlewareRule {
-        id: builtin.id,
-        name: builtin.name.clone(),
-        description: builtin.description.clone(),
-        conditions: builtin.conditions.clone(),
-        actions: builtin.actions.clone(),
-        applies_to: builtin.applies_to.clone(),
-        priority: builtin.priority,
-        enabled: !builtin.enabled,
-    }).await.unwrap();
+    db::update_middleware_rule(
+        &db,
+        UpdateMiddlewareRule {
+            id: builtin.id,
+            name: builtin.name.clone(),
+            description: builtin.description.clone(),
+            conditions: builtin.conditions.clone(),
+            actions: builtin.actions.clone(),
+            applies_to: builtin.applies_to.clone(),
+            priority: builtin.priority,
+            enabled: !builtin.enabled,
+        },
+    )
+    .await
+    .unwrap();
     // 改名：拒绝（内容归 seed 管）
-    let err = db::update_middleware_rule(&db, UpdateMiddlewareRule {
-        id: builtin.id,
-        name: "hijacked".to_string(),
-        description: builtin.description.clone(),
-        conditions: builtin.conditions.clone(),
-        actions: builtin.actions.clone(),
-        applies_to: builtin.applies_to.clone(),
-        priority: builtin.priority,
-        enabled: builtin.enabled,
-    }).await.unwrap_err();
+    let err = db::update_middleware_rule(
+        &db,
+        UpdateMiddlewareRule {
+            id: builtin.id,
+            name: "hijacked".to_string(),
+            description: builtin.description.clone(),
+            conditions: builtin.conditions.clone(),
+            actions: builtin.actions.clone(),
+            applies_to: builtin.applies_to.clone(),
+            priority: builtin.priority,
+            enabled: builtin.enabled,
+        },
+    )
+    .await
+    .unwrap_err();
     assert!(err.contains("only supports enable/disable"), "{err}");
 }

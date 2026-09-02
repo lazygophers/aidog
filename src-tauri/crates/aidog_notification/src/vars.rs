@@ -24,7 +24,11 @@ pub fn substitute_vars_fill_empty(template: &str, vars: &HashMap<String, String>
 }
 
 /// 占位替换核心。`fill_empty=true` 时缺失/未知占位替换为空串，否则保留原文。
-fn substitute_vars_impl(template: &str, vars: &HashMap<String, String>, fill_empty: bool) -> String {
+fn substitute_vars_impl(
+    template: &str,
+    vars: &HashMap<String, String>,
+    fill_empty: bool,
+) -> String {
     let mut out = String::with_capacity(template.len());
     let bytes = template.as_bytes();
     let mut i = 0;
@@ -34,8 +38,8 @@ fn substitute_vars_impl(template: &str, vars: &HashMap<String, String>, fill_emp
             if let Some(rel) = template[i + 1..].find('}') {
                 let key = &template[i + 1..i + 1 + rel];
                 // 键须为合法占位名（非空 + 仅 [a-zA-Z0-9_]）
-                let valid = !key.is_empty()
-                    && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
+                let valid =
+                    !key.is_empty() && key.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
                 if valid {
                     if let Some(v) = vars.get(key) {
                         out.push_str(v);

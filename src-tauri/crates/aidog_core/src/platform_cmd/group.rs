@@ -1,10 +1,9 @@
-use crate::shared::*;
-use crate::sync_settings::{try_sync_settings, do_sync_group_settings};
 use crate::gateway;
+use crate::shared::*;
+use crate::sync_settings::{do_sync_group_settings, try_sync_settings};
 use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;
-
 
 crate::tauri_command! {
 pub async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {

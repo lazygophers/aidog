@@ -111,7 +111,10 @@ pub fn store_presets_cache(doc: Value) -> (Arc<Value>, Arc<String>) {
     let json = Arc::new(doc.to_string());
     let doc = Arc::new(doc);
     if let Ok(mut guard) = PRESET_CACHE.write() {
-        *guard = Some(PresetCache { doc: doc.clone(), json: json.clone() });
+        *guard = Some(PresetCache {
+            doc: doc.clone(),
+            json: json.clone(),
+        });
     }
     (doc, json)
 }
@@ -141,13 +144,15 @@ pub fn presets_doc<'a>(
 ) -> Value {
     let protocols: Map<String, Value> = entries
         .into_iter()
-        .filter_map(|(code, json)| match serde_json::from_str::<Map<String, Value>>(json) {
-            Ok(v) => Some((code.to_string(), Value::Object(v))),
-            Err(e) => {
-                tracing::warn!(error = %e, code, "platform preset json 解析失败，跳过该协议");
-                None
-            }
-        })
+        .filter_map(
+            |(code, json)| match serde_json::from_str::<Map<String, Value>>(json) {
+                Ok(v) => Some((code.to_string(), Value::Object(v))),
+                Err(e) => {
+                    tracing::warn!(error = %e, code, "platform preset json 解析失败，跳过该协议");
+                    None
+                }
+            },
+        )
         .collect();
     serde_json::json!({ "last_updated": last_updated, "protocols": protocols })
 }
@@ -338,12 +343,16 @@ fn extra_str_key(extra_json: &str, key: &str) -> Option<String> {
 /// ② `extra.quota_custom_script` 非空 → 用户手写脚本；
 /// ③ [`select_quota_variant`] 选中变体（`extra.quota_script_id` → 首条，零配置开箱即用）。
 /// 返回 None = 该协议无任何脚本（调用方维持原 err 行为）。
-pub fn resolve_quota_script(protocol: &str, extra_json: &str, materialized: &str) -> Option<String> {
+pub fn resolve_quota_script(
+    protocol: &str,
+    extra_json: &str,
+    materialized: &str,
+) -> Option<String> {
     if !materialized.trim().is_empty() {
         return Some(materialized.to_string());
     }
-    if let Some(custom) = extra_str_key(extra_json, "quota_custom_script")
-        .filter(|s| !s.trim().is_empty())
+    if let Some(custom) =
+        extra_str_key(extra_json, "quota_custom_script").filter(|s| !s.trim().is_empty())
     {
         return Some(custom);
     }
@@ -365,8 +374,8 @@ pub fn materialize_quota_script(
     current: &str,
     type_changed: bool,
 ) -> String {
-    if let Some(custom) = extra_str_key(extra_json, "quota_custom_script")
-        .filter(|s| !s.trim().is_empty())
+    if let Some(custom) =
+        extra_str_key(extra_json, "quota_custom_script").filter(|s| !s.trim().is_empty())
     {
         return custom;
     }
@@ -405,7 +414,8 @@ pub fn parse_index_last_updated(json: &str) -> Option<i64> {
 }
 
 pub fn parse_index(json: &str) -> Result<Vec<IndexEntry>, String> {
-    let root: Map<String, Value> = serde_json::from_str(json).map_err(|e| format!("index.json: {e}"))?;
+    let root: Map<String, Value> =
+        serde_json::from_str(json).map_err(|e| format!("index.json: {e}"))?;
     let mut out = Vec::new();
     for (key, with_platform) in [("platforms", true), ("pricing_only", false)] {
         let Some(arr) = root.get(key).and_then(Value::as_array) else {
@@ -418,13 +428,25 @@ pub fn parse_index(json: &str) -> Result<Vec<IndexEntry>, String> {
             out.push(IndexEntry {
                 code: code.to_string(),
                 platform_file: with_platform
-                    .then(|| e.get("platform_file").and_then(Value::as_str).map(str::to_string))
+                    .then(|| {
+                        e.get("platform_file")
+                            .and_then(Value::as_str)
+                            .map(str::to_string)
+                    })
                     .flatten(),
-                models_dir: e.get("models_dir").and_then(Value::as_str).unwrap_or_default().to_string(),
+                models_dir: e
+                    .get("models_dir")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
                 models: e
                     .get("models")
                     .and_then(Value::as_array)
-                    .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|s| s.as_str().map(String::from))
+                            .collect()
+                    })
                     .unwrap_or_default(),
             });
         }

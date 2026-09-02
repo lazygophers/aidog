@@ -99,7 +99,9 @@ fn t_en(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetDaily => "Budget will reset at local midnight.",
         ErrorKey::BudgetResetRolling => "Budget will reset after the rolling window elapses.",
         ErrorKey::BudgetResetFixed => "Budget will reset at the next fixed window boundary.",
-        ErrorKey::BudgetResetTotal => "Total budget exhausted; increase or reset the limit to resume.",
+        ErrorKey::BudgetResetTotal => {
+            "Total budget exhausted; increase or reset the limit to resume."
+        }
         ErrorKey::Upstream => "upstream",
         ErrorKey::MiddlewareBlocked => "Request blocked by a middleware rule",
     }
@@ -133,7 +135,9 @@ fn t_ja(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetDaily => "予算は現地の深夜にリセットされます。",
         ErrorKey::BudgetResetRolling => "予算はローリングウィンドウ経過後にリセットされます。",
         ErrorKey::BudgetResetFixed => "予算は次の固定ウィンドウ境界でリセットされます。",
-        ErrorKey::BudgetResetTotal => "総予算を使い切りました。制限を増やすかリセットしてください。",
+        ErrorKey::BudgetResetTotal => {
+            "総予算を使い切りました。制限を増やすかリセットしてください。"
+        }
         ErrorKey::Upstream => "アップストリーム",
         ErrorKey::MiddlewareBlocked => "リクエストはミドルウェアルールによってブロックされました",
     }
@@ -149,7 +153,9 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetExhausted => "Budget manuel épuisé",
         ErrorKey::BudgetResetDaily => "Le budget sera réinitialisé à minuit.",
         ErrorKey::BudgetResetRolling => "Le budget sera réinitialisé après la fenêtre glissante.",
-        ErrorKey::BudgetResetFixed => "Le budget sera réinitialisé à la prochaine limite de fenêtre fixe.",
+        ErrorKey::BudgetResetFixed => {
+            "Le budget sera réinitialisé à la prochaine limite de fenêtre fixe."
+        }
         ErrorKey::BudgetResetTotal => "Budget total épuisé ; augmentez ou réinitialisez la limite.",
         ErrorKey::Upstream => "amont",
         ErrorKey::MiddlewareBlocked => "Requête bloquée par une règle de middleware",
@@ -165,9 +171,15 @@ fn t_de(key: ErrorKey) -> &'static str {
         ErrorKey::Route => "Routing",
         ErrorKey::BudgetExhausted => "Manuelles Budget aufgebraucht",
         ErrorKey::BudgetResetDaily => "Das Budget wird um Mitternacht zurückgesetzt.",
-        ErrorKey::BudgetResetRolling => "Das Budget wird nach Ablauf des rollierenden Fensters zurückgesetzt.",
-        ErrorKey::BudgetResetFixed => "Das Budget wird an der nächsten festen Fenstergrenze zurückgesetzt.",
-        ErrorKey::BudgetResetTotal => "Gesamtbudget aufgebraucht; erhöhen oder setzen Sie das Limit zurück.",
+        ErrorKey::BudgetResetRolling => {
+            "Das Budget wird nach Ablauf des rollierenden Fensters zurückgesetzt."
+        }
+        ErrorKey::BudgetResetFixed => {
+            "Das Budget wird an der nächsten festen Fenstergrenze zurückgesetzt."
+        }
+        ErrorKey::BudgetResetTotal => {
+            "Gesamtbudget aufgebraucht; erhöhen oder setzen Sie das Limit zurück."
+        }
         ErrorKey::Upstream => "Upstream",
         ErrorKey::MiddlewareBlocked => "Anfrage durch eine Middleware-Regel blockiert",
     }
@@ -183,7 +195,9 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetExhausted => "Ручной бюджет исчерпан",
         ErrorKey::BudgetResetDaily => "Бюджет будет сброшен в полночь.",
         ErrorKey::BudgetResetRolling => "Бюджет будет сброшен после окончания скользящего окна.",
-        ErrorKey::BudgetResetFixed => "Бюджет будет сброшен на следующей границе фиксированного окна.",
+        ErrorKey::BudgetResetFixed => {
+            "Бюджет будет сброшен на следующей границе фиксированного окна."
+        }
         ErrorKey::BudgetResetTotal => "Общий бюджет исчерпан; увеличьте или сбросьте лимит.",
         ErrorKey::Upstream => "вышестоящий",
         ErrorKey::MiddlewareBlocked => "Запрос заблокирован правилом промежуточного слоя",
@@ -200,8 +214,12 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetExhausted => "تم استنفاد الميزانية اليدوية",
         ErrorKey::BudgetResetDaily => "سيتم إعادة تعيين الميزانية في منتصف الليل.",
         ErrorKey::BudgetResetRolling => "سيتم إعادة تعيين الميزانية بعد انتهاء النافذة المتدحرجة.",
-        ErrorKey::BudgetResetFixed => "سيتم إعادة تعيين الميزانية عند حدود النافذة الثابتة التالية.",
-        ErrorKey::BudgetResetTotal => "تم استنفاد الميزانية الإجمالية؛ قم بزيادة الحد أو إعادة تعيينه.",
+        ErrorKey::BudgetResetFixed => {
+            "سيتم إعادة تعيين الميزانية عند حدود النافذة الثابتة التالية."
+        }
+        ErrorKey::BudgetResetTotal => {
+            "تم استنفاد الميزانية الإجمالية؛ قم بزيادة الحد أو إعادة تعيينه."
+        }
         ErrorKey::Upstream => "المنبع",
         ErrorKey::MiddlewareBlocked => "تم حظر الطلب بواسطة قاعدة الوسيط",
     }
@@ -216,9 +234,15 @@ fn t_es(key: ErrorKey) -> &'static str {
         ErrorKey::Route => "enrutamiento",
         ErrorKey::BudgetExhausted => "Presupuesto manual agotado",
         ErrorKey::BudgetResetDaily => "El presupuesto se restablecerá a medianoche local.",
-        ErrorKey::BudgetResetRolling => "El presupuesto se restablecerá tras finalizar la ventana móvil.",
-        ErrorKey::BudgetResetFixed => "El presupuesto se restablecerá en el próximo límite de ventana fija.",
-        ErrorKey::BudgetResetTotal => "Presupuesto total agotado; aumente o restablezca el límite para continuar.",
+        ErrorKey::BudgetResetRolling => {
+            "El presupuesto se restablecerá tras finalizar la ventana móvil."
+        }
+        ErrorKey::BudgetResetFixed => {
+            "El presupuesto se restablecerá en el próximo límite de ventana fija."
+        }
+        ErrorKey::BudgetResetTotal => {
+            "Presupuesto total agotado; aumente o restablezca el límite para continuar."
+        }
         ErrorKey::Upstream => "origen",
         ErrorKey::MiddlewareBlocked => "Solicitud bloqueada por una regla de middleware",
     }

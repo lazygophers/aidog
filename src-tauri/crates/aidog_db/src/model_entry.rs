@@ -6,7 +6,7 @@
 
 use super::*;
 use crate::models::{ModelEntry, ModelEntryGroup, ModelInfoSnapshot, PlatformPreset};
-use rusqlite::{params, OptionalExtension, Result as SqlResult};
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
 use std::sync::OnceLock;
 
 const MODEL_ENTRY_COLUMNS: &str = "platform_code, model_id, canonical_model, family, version, predecessor, capabilities, builtin_tools_excluded, max_input_tokens, max_output_tokens, context_window, official, price_data, updated_at, display_name";
@@ -83,11 +83,20 @@ fn ui_entry(e: ModelEntry) -> ModelEntry {
 pub fn model_entry_from_json(platform_code: &str, raw: &str) -> Option<ModelEntry> {
     let v: serde_json::Value = serde_json::from_str(raw).ok()?;
     let model_id = v.get("model_id")?.as_str()?.to_string();
-    let text = |k: &str| v.get(k).and_then(|x| x.as_str()).unwrap_or_default().to_string();
+    let text = |k: &str| {
+        v.get(k)
+            .and_then(|x| x.as_str())
+            .unwrap_or_default()
+            .to_string()
+    };
     let list = |k: &str| {
         v.get(k)
             .and_then(|x| x.as_array())
-            .map(|a| a.iter().filter_map(|s| s.as_str().map(String::from)).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(|s| s.as_str().map(String::from))
+                    .collect()
+            })
             .unwrap_or_default()
     };
     let canonical_model = match text("canonical_model") {
@@ -159,8 +168,11 @@ pub fn group_by_canonical(
     pricing_only: &std::collections::HashSet<String>,
 ) -> Vec<ModelEntryGroup> {
     entries.sort_by(|a, b| {
-        (&a.canonical_model, &a.platform_code, &a.model_id)
-            .cmp(&(&b.canonical_model, &b.platform_code, &b.model_id))
+        (&a.canonical_model, &a.platform_code, &a.model_id).cmp(&(
+            &b.canonical_model,
+            &b.platform_code,
+            &b.model_id,
+        ))
     });
     let mut out: Vec<ModelEntryGroup> = Vec::new();
     for e in entries {
@@ -198,7 +210,10 @@ pub type WriteFailure = (String, String);
 /// 批量 upsert 模型条目（单事务）。整批必须全成功，任一行失败即整批回滚并 Err。
 /// 同步路径请用 [`upsert_model_entries_best_effort`]。
 #[track_caller]
-pub fn upsert_model_entries(db: &Db, entries: Vec<ModelEntry>) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
+pub fn upsert_model_entries(
+    db: &Db,
+    entries: Vec<ModelEntry>,
+) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
         let ts = now();
@@ -351,7 +366,11 @@ pub fn count_model_entries(db: &Db) -> impl std::future::Future<Output = Result<
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row("SELECT COUNT(*) FROM model_entry WHERE deleted_at = 0", [], |r| r.get(0))?)
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM model_entry WHERE deleted_at = 0",
+                [],
+                |r| r.get(0),
+            )?)
         })
         .await
         .map_err(|e| e.to_string())
@@ -362,21 +381,30 @@ pub fn count_model_entries(db: &Db) -> impl std::future::Future<Output = Result<
 /// 同步的「新增 / 更新 / 未变」分类必须走这条——带兜底的 [`list_model_entries`] 在空表时
 /// 会返回 bundled 快照，会把首次同步的全部条目误判成「未变」。
 #[track_caller]
-pub fn select_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> impl std::future::Future<Output = Result<Vec<ModelEntry>, String>> + 'a {
+pub fn select_model_entries<'a>(
+    db: &'a Db,
+    platform_code: Option<&'a str>,
+) -> impl std::future::Future<Output = Result<Vec<ModelEntry>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
         let code = platform_code.map(str::to_string);
         db.call_read_traced(None, __db_caller, move |conn| {
-            let base = format!("SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE deleted_at = 0");
+            let base =
+                format!("SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE deleted_at = 0");
             let order = " ORDER BY platform_code, model_id";
             match &code {
                 Some(c) => {
-                    let mut stmt = conn.prepare(&format!("{base} AND platform_code = ?1{order}"))?;
-                    Ok(stmt.query_map(params![c], row_to_model_entry)?.collect::<SqlResult<Vec<_>>>()?)
+                    let mut stmt =
+                        conn.prepare(&format!("{base} AND platform_code = ?1{order}"))?;
+                    Ok(stmt
+                        .query_map(params![c], row_to_model_entry)?
+                        .collect::<SqlResult<Vec<_>>>()?)
                 }
                 None => {
                     let mut stmt = conn.prepare(&format!("{base}{order}"))?;
-                    Ok(stmt.query_map([], row_to_model_entry)?.collect::<SqlResult<Vec<_>>>()?)
+                    Ok(stmt
+                        .query_map([], row_to_model_entry)?
+                        .collect::<SqlResult<Vec<_>>>()?)
                 }
             }
         })
@@ -388,7 +416,10 @@ pub fn select_model_entries<'a>(db: &'a Db, platform_code: Option<&'a str>) -> i
 /// 列模型条目：`platform_code` 为 None 即全量。DB 无任何条目 → 回落 bundled registry。
 /// 本函数不带 `#[track_caller]`（DB 访问在 `select_model_entries` / `count_model_entries`
 /// 内各自记 caller），故用 `async fn` 而非本模块其余处的 `impl Future` idiom。
-pub async fn list_model_entries(db: &Db, platform_code: Option<&str>) -> Result<Vec<ModelEntry>, String> {
+pub async fn list_model_entries(
+    db: &Db,
+    platform_code: Option<&str>,
+) -> Result<Vec<ModelEntry>, String> {
     let rows = select_model_entries(db, platform_code).await?;
     if !rows.is_empty() {
         return Ok(rows.into_iter().map(ui_entry).collect());
@@ -419,7 +450,11 @@ fn bundled_entry(platform_code: &str, model_id: &str) -> Option<&'static ModelEn
 /// 那批拉失败的模型在下一轮成功前一直掉进 fallback 单价（票 13-E）。
 /// 顺带去掉了每次 miss 的全表 `COUNT(*)`（票 13-G：这是计费热路径）。
 #[track_caller]
-pub fn get_model_entry<'a>(db: &'a Db, platform_code: &'a str, model_id: &'a str) -> impl std::future::Future<Output = Result<Option<ModelEntry>, String>> + 'a {
+pub fn get_model_entry<'a>(
+    db: &'a Db,
+    platform_code: &'a str,
+    model_id: &'a str,
+) -> impl std::future::Future<Output = Result<Option<ModelEntry>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
         let (code, id) = (platform_code.to_string(), model_id.to_string());
@@ -446,7 +481,10 @@ pub fn get_model_entry<'a>(db: &'a Db, platform_code: &'a str, model_id: &'a str
 /// 「`pricing[platform]` → 顶层单价」回退链：没有它，这些平台的每一次请求都按
 /// fallback 单价计费（`claude-sonnet-4-5` 输出价 $15 → $3），余额扣减长期偏高。
 #[track_caller]
-pub fn get_model_entry_any_platform<'a>(db: &'a Db, model_id: &'a str) -> impl std::future::Future<Output = Result<Option<ModelEntry>, String>> + 'a {
+pub fn get_model_entry_any_platform<'a>(
+    db: &'a Db,
+    model_id: &'a str,
+) -> impl std::future::Future<Output = Result<Option<ModelEntry>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
         let id = model_id.to_string();
@@ -482,12 +520,16 @@ pub async fn model_entry_for_billing(
     if let Some(e) = get_model_entry(db, platform_code, model_id).await? {
         return Ok(Some((e, false)));
     }
-    Ok(get_model_entry_any_platform(db, model_id).await?.map(|e| (e, true)))
+    Ok(get_model_entry_any_platform(db, model_id)
+        .await?
+        .map(|e| (e, true)))
 }
 
 /// 列平台预设裸行（无 bundled 兜底）。空 = DB 从未同步过。
 #[track_caller]
-pub fn select_platform_presets(db: &Db) -> impl std::future::Future<Output = Result<Vec<PlatformPreset>, String>> + '_ {
+pub fn select_platform_presets(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Vec<PlatformPreset>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
@@ -533,7 +575,8 @@ pub async fn presets_doc_value(db: &Db) -> Result<serde_json::Value, String> {
     let rows = select_platform_presets(db).await?;
     let last_updated = rows.iter().map(|r| r.updated_at).max().map(|ms| ms / 1000);
     Ok(crate::registry::merge_presets_doc(
-        rows.iter().map(|r| (r.code.as_str(), r.preset_data.as_str())),
+        rows.iter()
+            .map(|r| (r.code.as_str(), r.preset_data.as_str())),
         last_updated,
     ))
 }
@@ -555,11 +598,16 @@ pub async fn preset_entry(db: &Db, code: &str) -> Result<Option<serde_json::Valu
         })
         .await
         .map_err(|e| e.to_string())?;
-    let bundled = crate::registry::presets().get("protocols").and_then(|p| p.get(code)).cloned();
+    let bundled = crate::registry::presets()
+        .get("protocols")
+        .and_then(|p| p.get(code))
+        .cloned();
     if let Some(raw) = row {
         if let Ok(v) = serde_json::from_str::<serde_json::Value>(&raw) {
             let stamp = |x: Option<&serde_json::Value>| {
-                x.and_then(|v| v.get("last_updated")).and_then(serde_json::Value::as_i64).unwrap_or(0)
+                x.and_then(|v| v.get("last_updated"))
+                    .and_then(serde_json::Value::as_i64)
+                    .unwrap_or(0)
             };
             if stamp(bundled.as_ref()) > stamp(Some(&v)) {
                 return Ok(bundled);

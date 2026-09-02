@@ -43,7 +43,6 @@ pub struct TimeWindow {
     pub end_at: Option<i64>,
 }
 
-
 // 统计查询与聚合结果模型。
 
 use serde::{Deserialize, Serialize};

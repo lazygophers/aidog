@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use super::types::{McpConfigRaw, McpTransport};
 use super::McpAgentBackend;
+use super::types::{McpConfigRaw, McpTransport};
 
 pub(super) struct CodexBackend;
 
@@ -16,8 +16,7 @@ fn read_codex_toml(path: &PathBuf) -> Result<toml::Value, String> {
     if !path.exists() {
         return Ok(toml::Value::Table(toml::map::Map::new()));
     }
-    let content = std::fs::read_to_string(path)
-        .map_err(|e| format!("read config.toml: {e}"))?;
+    let content = std::fs::read_to_string(path).map_err(|e| format!("read config.toml: {e}"))?;
     if content.trim().is_empty() {
         return Ok(toml::Value::Table(toml::map::Map::new()));
     }
@@ -32,7 +31,9 @@ fn write_codex_toml(path: &PathBuf, root: &toml::Value) -> Result<(), String> {
     std::fs::write(path, s).map_err(|e| format!("write config.toml: {e}"))
 }
 
-fn toml_table_to_map(tbl: Option<&toml::map::Map<String, toml::Value>>) -> BTreeMap<String, String> {
+fn toml_table_to_map(
+    tbl: Option<&toml::map::Map<String, toml::Value>>,
+) -> BTreeMap<String, String> {
     tbl.map(|m| {
         m.iter()
             .filter_map(|(k, v)| v.as_str().map(|s| (k.clone(), s.to_string())))
@@ -125,9 +126,7 @@ impl McpAgentBackend for CodexBackend {
             .ok_or("config.toml root is not a table")?
             .entry("mcp_servers".to_string())
             .or_insert_with(|| toml::Value::Table(toml::map::Map::new()));
-        let servers_tbl = servers
-            .as_table_mut()
-            .ok_or("mcp_servers is not a table")?;
+        let servers_tbl = servers.as_table_mut().ok_or("mcp_servers is not a table")?;
         servers_tbl.insert(name.to_string(), build_codex_entry(cfg));
         write_codex_toml(&path, &root)
     }
@@ -138,10 +137,7 @@ impl McpAgentBackend for CodexBackend {
             return Ok(());
         }
         let mut root = read_codex_toml(&path)?;
-        if let Some(servers) = root
-            .get_mut("mcp_servers")
-            .and_then(|v| v.as_table_mut())
-        {
+        if let Some(servers) = root.get_mut("mcp_servers").and_then(|v| v.as_table_mut()) {
             servers.remove(name);
         }
         write_codex_toml(&path, &root)

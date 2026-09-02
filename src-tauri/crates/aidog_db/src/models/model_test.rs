@@ -69,7 +69,10 @@ pub fn random_test_challenge() -> (String, String) {
             1 => {
                 // 保证非负，便于关键词在开头
                 let (hi, lo) = if a >= b { (a, b) } else { (b, a) };
-                (format!("{} 减 {} 等于多少？", hi, lo), (hi - lo).to_string())
+                (
+                    format!("{} 减 {} 等于多少？", hi, lo),
+                    (hi - lo).to_string(),
+                )
             }
             _ => (format!("{} 乘以 {} 等于多少？", a, b), (a * b).to_string()),
         }

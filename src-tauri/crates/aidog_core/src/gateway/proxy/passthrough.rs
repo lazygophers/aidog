@@ -43,12 +43,18 @@ pub(crate) async fn handle_passthrough(
         stream_error_msg_stop: true,
     };
     relay_passthrough(
-        state, log, log_settings,
+        state,
+        log,
+        log_settings,
         url,
-        orig_method, orig_headers, bytes,
-        start, lang,
+        orig_method,
+        orig_headers,
+        bytes,
+        start,
+        lang,
         &opts,
-    ).await
+    )
+    .await
 }
 
 /// 透传共享骨架：URL → http client → headers → send → resp headers → 非流式 relay / 流式 StreamLogGuard。
@@ -85,17 +91,24 @@ async fn relay_passthrough(
     // JSON Parse error / 内容残缺。透传语义上不替客户端施加任意 body 超时；connect_timeout 仍保护连接期，
     // 客户端自有超时兜底，上游真断由 stream-error-graceful-passthrough 合成 message_stop 兜底。
     let req_timeout = 0u64;
-    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let client = super::http_client::build_http_client(
-        &proxy_client, req_timeout, conn_timeout,
-        None, None,
-    ).await;
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 {
+        system_timeout.connect_timeout_secs
+    } else {
+        10
+    };
+    let client =
+        super::http_client::build_http_client(&proxy_client, req_timeout, conn_timeout, None, None)
+            .await;
 
     // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）；
     // forward 分支额外剥 Proxy-* 协商头（避免上游收到代理协商头）。
     let mut fwd_headers = passthrough_headers(&orig_headers);
     if opts.strip_proxy_headers {
-        for name in &["proxy-authorization", "proxy-connection", "proxy-authenticate"] {
+        for name in &[
+            "proxy-authorization",
+            "proxy-connection",
+            "proxy-authenticate",
+        ] {
             fwd_headers.remove(*name);
         }
     }
@@ -118,7 +131,13 @@ async fn relay_passthrough(
 
     let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
         Ok(m) => m,
-        Err(_) => if opts.protocol_tag == "claude_code" { reqwest::Method::POST } else { reqwest::Method::GET },
+        Err(_) => {
+            if opts.protocol_tag == "claude_code" {
+                reqwest::Method::POST
+            } else {
+                reqwest::Method::GET
+            }
+        }
     };
     let mut req_builder = client.request(method, &url).body(bytes.to_vec());
     req_builder = req_builder.headers(fwd_headers);
@@ -134,7 +153,11 @@ async fn relay_passthrough(
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
-            let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+            let mut r = (
+                StatusCode::BAD_GATEWAY,
+                format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream)),
+            )
+                .into_response();
             inject_trace_header(&mut r);
             return r;
         }
@@ -205,8 +228,16 @@ async fn relay_passthrough(
             log.cache_tokens = cache_tokens;
         }
         // 透传：upstream body == client body（无协议转换），仍按侧 gate 落库
-        log.response_body = if record_upstream_body { cap_nonstream_body(&body) } else { String::new() };
-        log.user_response_body = if record_client_body { cap_nonstream_body(&body) } else { String::new() };
+        log.response_body = if record_upstream_body {
+            cap_nonstream_body(&body)
+        } else {
+            String::new()
+        };
+        log.user_response_body = if record_client_body {
+            cap_nonstream_body(&body)
+        } else {
+            String::new()
+        };
         log.user_response_headers = log.upstream_response_headers.clone();
         upsert_log(state, log, log_settings).await;
 
@@ -258,10 +289,12 @@ async fn relay_passthrough(
     // 上游流自然耗尽哨兵（同 finish.rs::finish_stream）：Stream 返 None 时置 exhausted 位，
     // 使 Drop 兜底 flush 区分「上游读完」与「客户端断连」。恒返 Ready(None)，不产 item。
     let agg_end = agg.clone();
-    let upstream_stream = resp.bytes_stream().chain(futures::stream::poll_fn(move |_| {
-        agg_end.mark_exhausted();
-        std::task::Poll::Ready(None)
-    }));
+    let upstream_stream = resp
+        .bytes_stream()
+        .chain(futures::stream::poll_fn(move |_| {
+            agg_end.mark_exhausted();
+            std::task::Poll::Ready(None)
+        }));
     let stream = upstream_stream.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -356,34 +389,40 @@ pub(crate) fn build_static_models_json(proto: &Protocol) -> Value {
     if *proto == Protocol::Gemini {
         let models: Vec<Value> = STATIC_MODEL_IDS
             .iter()
-            .map(|id| serde_json::json!({
-                "name": format!("models/{id}"),
-                "version": "1",
-                "displayName": id,
-                "supportedGenerationMethods": ["generateContent", "countTokens"],
-            }))
+            .map(|id| {
+                serde_json::json!({
+                    "name": format!("models/{id}"),
+                    "version": "1",
+                    "displayName": id,
+                    "supportedGenerationMethods": ["generateContent", "countTokens"],
+                })
+            })
             .collect();
         serde_json::json!({ "models": models })
     } else if *proto == Protocol::OpenAI {
         let data: Vec<Value> = STATIC_MODEL_IDS
             .iter()
-            .map(|id| serde_json::json!({
-                "id": id,
-                "object": "model",
-                "created": 0,
-                "owned_by": "aidog",
-            }))
+            .map(|id| {
+                serde_json::json!({
+                    "id": id,
+                    "object": "model",
+                    "created": 0,
+                    "owned_by": "aidog",
+                })
+            })
             .collect();
         serde_json::json!({ "object": "list", "data": data })
     } else {
         let data: Vec<Value> = STATIC_MODEL_IDS
             .iter()
-            .map(|id| serde_json::json!({
-                "type": "model",
-                "id": id,
-                "display_name": id,
-                "created_at": "2026-01-01T00:00:00Z",
-            }))
+            .map(|id| {
+                serde_json::json!({
+                    "type": "model",
+                    "id": id,
+                    "display_name": id,
+                    "created_at": "2026-01-01T00:00:00Z",
+                })
+            })
             .collect();
         let first = STATIC_MODEL_IDS.first().copied().unwrap_or("");
         let last = STATIC_MODEL_IDS.last().copied().unwrap_or("");
@@ -452,11 +491,7 @@ pub(crate) fn build_url_from_host(
     headers: &axum::http::HeaderMap,
     uri: &axum::http::Uri,
 ) -> Option<String> {
-    let host = headers
-        .get(axum::http::header::HOST)?
-        .to_str()
-        .ok()?
-        .trim();
+    let host = headers.get(axum::http::header::HOST)?.to_str().ok()?.trim();
     if host.is_empty() {
         return None;
     }
@@ -514,12 +549,18 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         stream_error_msg_stop: false, // 非 anthropic wire，空收尾即可
     };
     relay_passthrough(
-        state, log, log_settings,
+        state,
+        log,
+        log_settings,
         url,
-        orig_method, orig_headers, bytes,
-        start, lang,
+        orig_method,
+        orig_headers,
+        bytes,
+        start,
+        lang,
         &opts,
-    ).await
+    )
+    .await
 }
 
 /// 判定请求 path（已含 group/proxy 前缀）是否为模型列表端点。

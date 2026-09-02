@@ -11,7 +11,11 @@ pub fn from_openai_responses(body: &[u8]) -> Result<Value, String> {
 
 /// siliconflow_en 平台格式 → OpenAI Responses 格式
 pub fn to_openai_responses(body: &[u8]) -> Result<Value, String> {
-    let value: Value = serde_json::from_slice(body)
-        .map_err(|e| format!("{} to {} error: {}", "siliconflow_en", "OpenAI Responses", e))?;
+    let value: Value = serde_json::from_slice(body).map_err(|e| {
+        format!(
+            "{} to {} error: {}",
+            "siliconflow_en", "OpenAI Responses", e
+        )
+    })?;
     Ok(value)
 }

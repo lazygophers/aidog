@@ -64,9 +64,8 @@ pub fn update_extra_key<'a>(
                     root = serde_json::Value::Object(obj);
                 }
             }
-            let new_str = serde_json::to_string(&root).map_err(|e| {
-                rusqlite::Error::ToSqlConversionFailure(Box::new(e))
-            })?;
+            let new_str = serde_json::to_string(&root)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
             let n = conn.execute(&sql_write, params![new_str, id as i64])?;
             Ok(n)
         })

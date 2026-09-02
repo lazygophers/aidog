@@ -89,7 +89,11 @@ pub fn align_agents(
 
 /// 为某 agent 启用当前 scope 下全部已装 skills（只增不减，非破坏性）。
 /// 逐 skill：agent 未启用则 `enable()`，已启用跳过。
-pub fn enable_all(agent: SkillAgent, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+pub fn enable_all(
+    agent: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
     // `list_installed` 新签名返 (items, ok)；enable_all 取实时态忽略失败信号（ok=false 时 items 空等价 noop）。
     let (skills, _ok) = list_installed(scope, proxy_url);
     let mut enabled_n = 0usize;
@@ -129,7 +133,10 @@ pub(super) fn group_ids_by_repo(ids: &[String]) -> BTreeMap<String, Vec<String>>
         }
         match id.rsplit_once('@') {
             Some((repo, skill)) if !repo.is_empty() && !skill.is_empty() => {
-                groups.entry(repo.to_string()).or_default().push(skill.to_string());
+                groups
+                    .entry(repo.to_string())
+                    .or_default()
+                    .push(skill.to_string());
             }
             _ => {
                 groups.entry(id.to_string()).or_default();
@@ -203,7 +210,11 @@ pub fn install_batch(
             stdout.push_str(&format!("[{repo}] {}", res.stdout.trim()));
         }
     }
-    SkillsOpResult { success, stdout, stderr }
+    SkillsOpResult {
+        success,
+        stdout,
+        stderr,
+    }
 }
 
 /// 构造批量卸载 args：`remove <n1> <n2> [-g] -y`（CLI 原生支持多 skill 位置参数）。
@@ -217,8 +228,16 @@ pub(super) fn uninstall_batch_args(names: &[String], scope: &SkillScope) -> Vec<
 
 /// 批量卸载（破坏性，前端二次确认）：`remove <names...> [-g] -y` 一次 npx 调用，
 /// 删规范存储 + 所有 agent 启用配置。names 为空 → 错误。
-pub fn uninstall_batch(names: &[String], scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
-    let names: Vec<String> = names.iter().map(|n| n.trim().to_string()).filter(|n| !n.is_empty()).collect();
+pub fn uninstall_batch(
+    names: &[String],
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let names: Vec<String> = names
+        .iter()
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty())
+        .collect();
     if names.is_empty() {
         return SkillsOpResult {
             success: false,

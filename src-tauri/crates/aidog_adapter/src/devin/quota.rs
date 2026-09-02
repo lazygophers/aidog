@@ -31,7 +31,7 @@ use std::sync::Arc;
 
 use aidog_db::Db;
 
-use crate::quota::http::{err_quota, PlatformQuota};
+use crate::quota::http::{PlatformQuota, err_quota};
 
 /// Devin 用量查询入口。
 ///

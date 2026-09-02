@@ -1,7 +1,7 @@
-use serde_json::Value;
-use crate::converter::traits::ProtocolConverter;
 use crate::converter::NonStreamResponse;
+use crate::converter::traits::ProtocolConverter;
 use crate::types::*;
+use serde_json::Value;
 
 mod parse;
 mod request;
@@ -22,8 +22,8 @@ impl ProtocolConverter for OpenAIConverter {
     }
 
     fn parse_incoming(&self, body: &[u8]) -> Result<ChatRequest, String> {
-        let value: Value = serde_json::from_slice(body)
-            .map_err(|e| format!("OpenAI parse error: {}", e))?;
+        let value: Value =
+            serde_json::from_slice(body).map_err(|e| format!("OpenAI parse error: {}", e))?;
         from_openai(&value).ok_or_else(|| "OpenAI parse failed".to_string())
     }
 
@@ -35,23 +35,21 @@ impl ProtocolConverter for OpenAIConverter {
     }
 
     fn parse_sse(&self, chunk: &[u8]) -> Result<Vec<ChatStreamEvent>, String> {
-        let value: Value = serde_json::from_slice(chunk)
-            .map_err(|e| format!("OpenAI SSE parse error: {}", e))?;
+        let value: Value =
+            serde_json::from_slice(chunk).map_err(|e| format!("OpenAI SSE parse error: {}", e))?;
         parse_openai_sse(&value)
             .map(|e| vec![e])
             .ok_or_else(|| "OpenAI SSE parse failed".to_string())
     }
 
     fn to_client_sse(&self, event: &ChatStreamEvent) -> Result<String, String> {
-        to_openai_sse(event, "openai")
-            .ok_or_else(|| "OpenAI to_client_sse failed".to_string())
+        to_openai_sse(event, "openai").ok_or_else(|| "OpenAI to_client_sse failed".to_string())
     }
 
     fn parse_response(&self, body: &[u8]) -> Result<NonStreamResponse, String> {
         let value: Value = serde_json::from_slice(body)
             .map_err(|e| format!("OpenAI response parse error: {}", e))?;
-        parse_openai_response(&value, "")
-            .ok_or_else(|| "OpenAI response parse failed".to_string())
+        parse_openai_response(&value, "").ok_or_else(|| "OpenAI response parse failed".to_string())
     }
 }
 

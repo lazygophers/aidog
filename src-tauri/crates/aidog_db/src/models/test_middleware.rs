@@ -6,7 +6,10 @@ use super::*;
 fn target_match_action_kind_serde_snake_case() {
     let t: Target = serde_json::from_str("\"request_body\"").unwrap();
     assert_eq!(t, Target::RequestBody);
-    assert_eq!(serde_json::to_string(&Target::ResponseHeaders).unwrap(), "\"response_headers\"");
+    assert_eq!(
+        serde_json::to_string(&Target::ResponseHeaders).unwrap(),
+        "\"response_headers\""
+    );
     let m: MatchType = serde_json::from_str("\"contains\"").unwrap();
     assert_eq!(m, MatchType::Contains);
     let a: ActionKind = serde_json::from_str("\"classify\"").unwrap();
@@ -71,9 +74,19 @@ fn validate_rule_phases_rejects_mixed() {
     // 同阶段通过
     let ok = ConditionNode::All {
         children: vec![
-            ConditionNode::Leaf(ConditionLeaf { target: Target::RequestBody, field: String::new(), match_type: MatchType::Contains, pattern: "a".into() }),
+            ConditionNode::Leaf(ConditionLeaf {
+                target: Target::RequestBody,
+                field: String::new(),
+                match_type: MatchType::Contains,
+                pattern: "a".into(),
+            }),
             ConditionNode::Any {
-                children: vec![ConditionNode::Leaf(ConditionLeaf { target: Target::Model, field: String::new(), match_type: MatchType::Exact, pattern: "m".into() })],
+                children: vec![ConditionNode::Leaf(ConditionLeaf {
+                    target: Target::Model,
+                    field: String::new(),
+                    match_type: MatchType::Exact,
+                    pattern: "m".into(),
+                })],
             },
         ],
     };
@@ -81,8 +94,18 @@ fn validate_rule_phases_rejects_mixed() {
     // 混阶段拒绝（请求侧 + 响应侧）
     let mixed = ConditionNode::All {
         children: vec![
-            ConditionNode::Leaf(ConditionLeaf { target: Target::RequestBody, field: String::new(), match_type: MatchType::Contains, pattern: "a".into() }),
-            ConditionNode::Leaf(ConditionLeaf { target: Target::Status, field: String::new(), match_type: MatchType::Contains, pattern: "4".into() }),
+            ConditionNode::Leaf(ConditionLeaf {
+                target: Target::RequestBody,
+                field: String::new(),
+                match_type: MatchType::Contains,
+                pattern: "a".into(),
+            }),
+            ConditionNode::Leaf(ConditionLeaf {
+                target: Target::Status,
+                field: String::new(),
+                match_type: MatchType::Contains,
+                pattern: "4".into(),
+            }),
         ],
     };
     let err = validate_rule_phases(&mixed).unwrap_err();

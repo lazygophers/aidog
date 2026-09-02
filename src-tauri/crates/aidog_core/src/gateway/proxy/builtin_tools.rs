@@ -67,15 +67,19 @@ fn in_strip_set(name: &str, strip: &[String]) -> bool {
 
 /// 取工具定义名：anthropic 扁平 `{name}` 优先，openai `{function:{name}}` 兜底。
 fn tool_def_name(t: &Value) -> Option<&str> {
-    t.get("name")
-        .and_then(Value::as_str)
-        .or_else(|| t.get("function").and_then(|f| f.get("name")).and_then(Value::as_str))
+    t.get("name").and_then(Value::as_str).or_else(|| {
+        t.get("function")
+            .and_then(|f| f.get("name"))
+            .and_then(Value::as_str)
+    })
 }
 
 /// 从出站 body 的 `tools` 数组剔除命中定义；数组清空时连 `tool_choice` 一并移除
 /// （tools 为空时 tool_choice 残留会触发上游 400）。返回剔除数。
 pub fn strip_tools(body: &mut Value, strip: &[String]) -> usize {
-    let Some(arr) = body.get("tools").and_then(Value::as_array) else { return 0 };
+    let Some(arr) = body.get("tools").and_then(Value::as_array) else {
+        return 0;
+    };
     let keep: Vec<Value> = arr
         .iter()
         .filter(|t| tool_def_name(t).is_none_or(|n| !in_strip_set(n, strip)))
@@ -104,7 +108,11 @@ pub fn apply_builtin_tool_compat(body: &mut Value, model: &str, global_enabled: 
     }
     let removed = strip_tools(body, &[]);
     if removed > 0 {
-        tracing::info!(model, removed, "builtin-tool-compat: stripped builtin tool defs");
+        tracing::info!(
+            model,
+            removed,
+            "builtin-tool-compat: stripped builtin tool defs"
+        );
     }
 }
 
@@ -157,8 +165,12 @@ mod tests {
     fn strip_empty_list_removes_all_builtin_keeps_custom() {
         let mut b = anthropic_body();
         assert_eq!(strip_tools(&mut b, &[]), 2);
-        let names: Vec<&str> = b["tools"].as_array().unwrap().iter()
-            .map(|t| t["name"].as_str().unwrap()).collect();
+        let names: Vec<&str> = b["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
         assert_eq!(names, ["get_weather"]);
     }
 
@@ -173,8 +185,12 @@ mod tests {
     fn strip_openai_function_shape() {
         let mut b = openai_body();
         assert_eq!(strip_tools(&mut b, &[]), 1);
-        let names: Vec<&str> = b["tools"].as_array().unwrap().iter()
-            .map(|t| t["function"]["name"].as_str().unwrap()).collect();
+        let names: Vec<&str> = b["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["function"]["name"].as_str().unwrap())
+            .collect();
         assert_eq!(names, ["get_weather"]);
     }
 
@@ -208,8 +224,12 @@ mod tests {
         // 全局开 → 任意模型剔除全部内置工具，保留自定义工具
         let mut b = anthropic_body();
         apply_builtin_tool_compat(&mut b, "glm-4.7", true);
-        let names: Vec<&str> = b["tools"].as_array().unwrap().iter()
-            .map(|t| t["name"].as_str().unwrap()).collect();
+        let names: Vec<&str> = b["tools"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|t| t["name"].as_str().unwrap())
+            .collect();
         assert_eq!(names, ["get_weather"]);
 
         let mut b = anthropic_body();
@@ -236,7 +256,10 @@ mod tests {
         assert_eq!(log.blocked_reason, "");
 
         // 已有 blocked 标记不覆盖
-        let mut log = ProxyLog { blocked_reason: "peak".into(), ..Default::default() };
+        let mut log = ProxyLog {
+            blocked_reason: "peak".into(),
+            ..Default::default()
+        };
         mark_tools_4xx(&mut log, &anthropic_body(), 400);
         assert_eq!(log.blocked_reason, "peak");
     }

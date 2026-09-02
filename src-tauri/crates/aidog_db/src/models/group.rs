@@ -62,8 +62,12 @@ pub struct Group {
     pub extra: String,
 }
 
-fn default_source_protocol() -> String { "anthropic".to_string() }
-fn default_max_retries() -> u32 { 10 }
+fn default_source_protocol() -> String {
+    "anthropic".to_string()
+}
+fn default_max_retries() -> u32 {
+    10
+}
 
 #[derive(Debug, Deserialize)]
 pub struct CreateGroup {
@@ -88,7 +92,9 @@ pub struct CreateGroup {
     pub env_vars: Vec<EnvVar>,
 }
 
-fn default_source_protocol_opt() -> Option<String> { Some("anthropic".to_string()) }
+fn default_source_protocol_opt() -> Option<String> {
+    Some("anthropic".to_string())
+}
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateGroup {

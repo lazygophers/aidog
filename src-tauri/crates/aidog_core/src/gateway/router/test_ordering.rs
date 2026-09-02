@@ -1,5 +1,5 @@
-use super::super::candidates::ScheduleCtx;
 use super::super::super::scheduling::{SchedulerState, StickyTable};
+use super::super::candidates::ScheduleCtx;
 use super::super::test_mod::{mk_gp, mk_gp_exp, mk_gp_lp};
 use super::*;
 
@@ -11,11 +11,18 @@ fn mk_settings() -> SchedulingBreakerSettings {
 fn least_latency_orders_by_ema_ascending() {
     let sched = SchedulerState::new();
     // p1 EMA=300, p2 EMA=100, p3 无样本(MAX)
-    sched.inc_inflight(1); sched.record_success(1, 300);
-    sched.inc_inflight(2); sched.record_success(2, 100);
+    sched.inc_inflight(1);
+    sched.record_success(1, 300);
+    sched.inc_inflight(2);
+    sched.record_success(2, 100);
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
 
     let gp1 = mk_gp(1, 1, 0);
     let gp2 = mk_gp(2, 1, 0);
@@ -35,7 +42,9 @@ fn sticky_binds_then_falls_back() {
     let settings = mk_settings();
     let now = aidog_db::now();
     let ctx = ScheduleCtx {
-        scheduler: &sched, sticky: &sticky, settings: &settings,
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
         sticky_key: Some("grpA|client1".to_string()),
     };
     let gp1 = mk_gp(1, 1, 0);
@@ -63,12 +72,20 @@ fn least_latency_level_priority_tiebreak() {
     // 同延迟档时 level_priority 高者先；延迟主导不被 level_priority 推翻。
     let sched = SchedulerState::new();
     // p1,p2 同延迟 EMA=100；p3 延迟 200（更慢）
-    sched.inc_inflight(1); sched.record_success(1, 100);
-    sched.inc_inflight(2); sched.record_success(2, 100);
-    sched.inc_inflight(3); sched.record_success(3, 200);
+    sched.inc_inflight(1);
+    sched.record_success(1, 100);
+    sched.inc_inflight(2);
+    sched.record_success(2, 100);
+    sched.inc_inflight(3);
+    sched.record_success(3, 200);
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
 
     // p1 lp=5, p2 lp=10（同延迟，p2 应先）; p3 lp=10 但延迟更高（仍排末尾，延迟主导）
     let gp1 = mk_gp_lp(1, 1, 0, 5);
@@ -77,7 +94,10 @@ fn least_latency_level_priority_tiebreak() {
     let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
     order_least_latency(&mut v, Some(&ctx));
     // 同延迟 100 档：p2(lp10) 先于 p1(lp5)；p3(延迟200) 末尾（延迟主导，不被高 lp 提前）
-    assert_eq!(v.iter().map(|g| g.platform.id).collect::<Vec<_>>(), vec![2, 1, 3]);
+    assert_eq!(
+        v.iter().map(|g| g.platform.id).collect::<Vec<_>>(),
+        vec![2, 1, 3]
+    );
 }
 
 // ── order_load_balance ──
@@ -117,7 +137,10 @@ fn load_balance_two_equal_weight_both_pickable() {
     order_load_balance(&mut v2, 5);
     assert_eq!(v2.len(), 2);
     assert_eq!(v2[0].platform.id, 2, "seed=5 should pick p2");
-    assert_ne!(v[0].platform.id, v2[0].platform.id, "different seeds pick different first platform");
+    assert_ne!(
+        v[0].platform.id, v2[0].platform.id,
+        "different seeds pick different first platform"
+    );
 }
 
 #[test]
@@ -133,7 +156,10 @@ fn load_balance_higher_weight_preferred() {
     // Sort before call: sort by weight desc → [p2(10), p1(1)]
     order_load_balance(&mut v, 1);
     // After sort desc by weight: p2=10 comes first; seed=1 → rand=1 → 1-10=-9<0 at pick=0, no swap → p2 stays first
-    assert_eq!(v[0].platform.id, 2, "higher weight platform p2 should be first for seed=1");
+    assert_eq!(
+        v[0].platform.id, 2,
+        "higher weight platform p2 should be first for seed=1"
+    );
 }
 
 #[test]
@@ -163,7 +189,9 @@ fn apply_sticky_empty_candidates_no_panic() {
     let sticky = StickyTable::new();
     let settings = mk_settings();
     let ctx = ScheduleCtx {
-        scheduler: &sched, sticky: &sticky, settings: &settings,
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
         sticky_key: Some("key".to_string()),
     };
     let mut v: Vec<&GroupPlatformDetail> = vec![];
@@ -209,7 +237,7 @@ fn failover_sorts_by_expiry_asc_within_same_priority() {
 fn failover_priority_dominates_expiry() {
     // priority 主序不变：priority 更优(0) 的平台即便永不过期，仍排在 priority 较差(1) 但快过期平台之前。
     // 即 expires_at 仅在同 priority 内生效（prd 边界决策 3）。
-    let gp_p0_noexp = mk_gp_exp(1, 1, 0, 0);       // priority 0, 永不过期
+    let gp_p0_noexp = mk_gp_exp(1, 1, 0, 0); // priority 0, 永不过期
     let gp_p1_expiring = mk_gp_exp(2, 1, 1, 1_000); // priority 1, 快过期
     let mut v: Vec<&GroupPlatformDetail> = vec![&gp_p1_expiring, &gp_p0_noexp];
     v.sort_by_key(|gp| {
@@ -250,9 +278,9 @@ fn failover_same_expiry_falls_through_to_stable_order() {
 #[test]
 fn failover_mixed_expiry_zero_at_end_within_priority() {
     // 混合场景：同 priority 内，有期限平台（不论快慢）均排在 expires_at=0 之前。
-    let gp_noexp = mk_gp_exp(1, 1, 5, 0);            // 永不过期
+    let gp_noexp = mk_gp_exp(1, 1, 5, 0); // 永不过期
     let gp_far = mk_gp_exp(2, 1, 5, 99_999_999_999); // 远未来
-    let gp_near = mk_gp_exp(3, 1, 5, 1_111);         // 近未来
+    let gp_near = mk_gp_exp(3, 1, 5, 1_111); // 近未来
     let mut v: Vec<&GroupPlatformDetail> = vec![&gp_noexp, &gp_far, &gp_near];
     v.sort_by_key(|gp| {
         (
@@ -276,12 +304,20 @@ fn least_latency_expiry_tiebreak_within_same_ema() {
     // p1 永不过期(0) / p2 远未来 / p3 近未来（快过期）
     // 期望：同 EMA 档内按 expires_at 升序 → p3（近）→ p2（远）→ p1（永不过期末尾）。
     let sched = SchedulerState::new();
-    sched.inc_inflight(1); sched.record_success(1, 100);
-    sched.inc_inflight(2); sched.record_success(2, 100);
-    sched.inc_inflight(3); sched.record_success(3, 100);
+    sched.inc_inflight(1);
+    sched.record_success(1, 100);
+    sched.inc_inflight(2);
+    sched.record_success(2, 100);
+    sched.inc_inflight(3);
+    sched.record_success(3, 100);
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
 
     let gp1 = mk_gp_exp(1, 1, 0, 0);
     let gp2 = mk_gp_exp(2, 1, 0, 10_000_000_000);
@@ -299,14 +335,21 @@ fn least_latency_expiry_tiebreak_within_same_ema() {
 fn least_latency_ema_dominates_expiry() {
     // 延迟主键不被 expiry 推翻：低延迟但永不过期平台仍排在高延迟但快过期平台之前。
     let sched = SchedulerState::new();
-    sched.inc_inflight(1); sched.record_success(1, 100); // 低延迟，永不过期
-    sched.inc_inflight(2); sched.record_success(2, 500); // 高延迟，快过期
+    sched.inc_inflight(1);
+    sched.record_success(1, 100); // 低延迟，永不过期
+    sched.inc_inflight(2);
+    sched.record_success(2, 500); // 高延迟，快过期
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
 
-    let gp1 = mk_gp_exp(1, 1, 0, 0);          // EMA=100, 永不过期
-    let gp2 = mk_gp_exp(2, 1, 0, 1_000);      // EMA=500, 快过期
+    let gp1 = mk_gp_exp(1, 1, 0, 0); // EMA=100, 永不过期
+    let gp2 = mk_gp_exp(2, 1, 0, 1_000); // EMA=500, 快过期
     let mut v: Vec<&GroupPlatformDetail> = vec![&gp2, &gp1];
     order_least_latency(&mut v, Some(&ctx));
     assert_eq!(
@@ -322,11 +365,18 @@ fn least_latency_expiry_before_level_priority() {
     // p1: 永不过期 + level_priority 高(10)；p2: 快过期 + level_priority 低(1)。
     // 期望 p2（快过期）先于 p1，即便 p1 的 level_priority 更高。
     let sched = SchedulerState::new();
-    sched.inc_inflight(1); sched.record_success(1, 100);
-    sched.inc_inflight(2); sched.record_success(2, 100);
+    sched.inc_inflight(1);
+    sched.record_success(1, 100);
+    sched.inc_inflight(2);
+    sched.record_success(2, 100);
     let sticky = StickyTable::new();
     let settings = mk_settings();
-    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
 
     // mk_gp_exp 默认 level_priority=5；改造为指定值
     let mut p1 = mk_gp_exp(1, 1, 0, 0);
@@ -405,11 +455,17 @@ fn sticky_inherits_load_balance_expiry_tiebreak() {
     let settings = mk_settings();
     let now = aidog_db::now();
     let ctx = ScheduleCtx {
-        scheduler: &sched, sticky: &sticky, settings: &settings,
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
         sticky_key: Some("grpB|client1".to_string()),
     };
     apply_sticky(&mut v, Some(&ctx), now);
     // 无既有绑定 → 写绑定为当前首选（最早过期 p3）
-    assert_eq!(sticky.get("grpB|client1", now), Some(3), "Sticky 绑定到最早过期首选 p3");
+    assert_eq!(
+        sticky.get("grpB|client1", now),
+        Some(3),
+        "Sticky 绑定到最早过期首选 p3"
+    );
     assert_eq!(v[0].platform.id, 3, "首选仍为最早过期平台");
 }

@@ -11,7 +11,10 @@ fn qctx() -> CustomQueryCtx {
 
 fn outbound() -> Outbound {
     // 纯 eval 测试不触网，client 仅占位
-    Outbound { client: reqwest::Client::new(), db: None }
+    Outbound {
+        client: reqwest::Client::new(),
+        db: None,
+    }
 }
 
 async fn spawn_stub(status: u16, body: &'static str) -> String {
@@ -88,7 +91,11 @@ fn script_returns_newapi_user_id() {
     )
     .unwrap();
     assert!(q.success);
-    assert_eq!(q.newapi_user_id.as_deref(), Some("42"), "顶层 newapi_user_id 须透传");
+    assert_eq!(
+        q.newapi_user_id.as_deref(),
+        Some("42"),
+        "顶层 newapi_user_id 须透传"
+    );
 
     // 未返回时缺省 None
     let q = eval_script(&qctx(), &outbound(), r#"return { success: true };"#).unwrap();
@@ -156,7 +163,10 @@ async fn script_http_error_propagates() {
     )
     .await;
     assert!(!q.success);
-    assert!(q.error.unwrap().starts_with("caught:"), "脚本须能 catch http 错误");
+    assert!(
+        q.error.unwrap().starts_with("caught:"),
+        "脚本须能 catch http 错误"
+    );
 }
 
 /// 出站走 CLIENT_BUILDER 注入的 client（app_setup 注系统代理 client 的同一通道），
@@ -216,7 +226,10 @@ async fn script_outbound_error_persists_log() {
     );
     let q = run_custom_query(Some(&db), qctx(), &script, 0).await;
     assert!(!q.success);
-    assert!(q.error.unwrap().starts_with("caught:"), "脚本须能 catch 非 2xx");
+    assert!(
+        q.error.unwrap().starts_with("caught:"),
+        "脚本须能 catch 非 2xx"
+    );
 
     let logs = aidog_logs::list_proxy_logs(&db, 100, 0).await.unwrap();
     let hit = logs

@@ -114,12 +114,7 @@ pub fn import_skills(entries: &[SkillExportEntry], report: &mut ImportReport) {
     }
 }
 
-fn build_add_args(
-    name: &str,
-    source: &str,
-    agent: SkillAgent,
-    scope: &SkillScope,
-) -> Vec<String> {
+fn build_add_args(name: &str, source: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
     let mut args = vec![
         "add".to_string(),
         source.to_string(),
@@ -144,9 +139,10 @@ fn run_npx(args: &[String], scope: &SkillScope) -> skills::SkillsOpResult {
         cmd.env("PATH", p);
     }
     if let SkillScope::Project { path } = scope
-        && !path.trim().is_empty() {
-            cmd.current_dir(path);
-        }
+        && !path.trim().is_empty()
+    {
+        cmd.current_dir(path);
+    }
     match cmd.output() {
         Ok(o) => skills::SkillsOpResult {
             success: o.status.success(),
@@ -226,7 +222,12 @@ mod tests {
     // ── build_add_args ──
     #[test]
     fn build_add_args_global_scope() {
-        let args = build_add_args("my-skill", "owner/repo", SkillAgent::Claude, &SkillScope::Global);
+        let args = build_add_args(
+            "my-skill",
+            "owner/repo",
+            SkillAgent::Claude,
+            &SkillScope::Global,
+        );
         // Should include: add, source, -s, name, -a, slug, -g, -y
         assert_eq!(&args[0], "add");
         assert_eq!(&args[1], "owner/repo");
@@ -234,17 +235,25 @@ mod tests {
         assert_eq!(&args[3], "my-skill");
         assert_eq!(&args[4], "-a");
         assert_eq!(&args[5], "claude-code");
-        assert!(args.contains(&"-g".to_string()), "global scope should add -g");
+        assert!(
+            args.contains(&"-g".to_string()),
+            "global scope should add -g"
+        );
         assert!(args.contains(&"-y".to_string()), "should add -y");
     }
 
     #[test]
     fn build_add_args_project_scope_no_global_flag() {
-        let scope = SkillScope::Project { path: "/tmp/myproject".to_string() };
+        let scope = SkillScope::Project {
+            path: "/tmp/myproject".to_string(),
+        };
         let args = build_add_args("tool", "src/tool", SkillAgent::Codex, &scope);
         assert_eq!(&args[0], "add");
         assert_eq!(&args[5], "codex");
-        assert!(!args.contains(&"-g".to_string()), "project scope must NOT add -g");
+        assert!(
+            !args.contains(&"-g".to_string()),
+            "project scope must NOT add -g"
+        );
         assert!(args.contains(&"-y".to_string()));
     }
 
@@ -296,8 +305,16 @@ mod tests {
         };
         let mut report = ImportReport::default();
         import_skills(&[entry], &mut report);
-        assert_eq!(report.errors.len(), 1, "should have 1 error for unknown agent");
-        assert!(report.errors[0].contains("unknown agent"), "got: {}", report.errors[0]);
+        assert_eq!(
+            report.errors.len(),
+            1,
+            "should have 1 error for unknown agent"
+        );
+        assert!(
+            report.errors[0].contains("unknown agent"),
+            "got: {}",
+            report.errors[0]
+        );
     }
 
     /// import_skills with disabled agent → 跳过不 remove（导入只增不减语义，防误删现有启用）。
@@ -316,8 +333,14 @@ mod tests {
         let mut report = ImportReport::default();
         import_skills(&[entry], &mut report);
         // 完全 no-op：无 applied 计数，无 error，无 panic。
-        assert!(report.applied.is_empty(), "disabled agent should not bump applied");
-        assert!(report.errors.is_empty(), "disabled agent should not produce errors");
+        assert!(
+            report.applied.is_empty(),
+            "disabled agent should not bump applied"
+        );
+        assert!(
+            report.errors.is_empty(),
+            "disabled agent should not produce errors"
+        );
     }
 
     /// export_skills does not panic (may return empty if npx not available).
@@ -335,8 +358,14 @@ mod tests {
             source: "owner/repo".to_string(),
             scope: SkillScope::Global,
             agents: vec![
-                AgentState { display: "Claude Code".to_string(), enabled: true },
-                AgentState { display: "Codex".to_string(), enabled: false },
+                AgentState {
+                    display: "Claude Code".to_string(),
+                    enabled: true,
+                },
+                AgentState {
+                    display: "Codex".to_string(),
+                    enabled: false,
+                },
             ],
         };
         let json = serde_json::to_string(&entry).unwrap();

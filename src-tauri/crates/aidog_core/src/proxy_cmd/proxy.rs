@@ -7,9 +7,8 @@ use aidog_middleware::MiddlewareEngine;
 // 跨 command 依赖 + 零新 wiring 代码。
 use crate::gateway;
 use aidog_db::{self as db, Db};
-use tauri::{Emitter, Manager};
 use std::sync::Arc;
-
+use tauri::{Emitter, Manager};
 
 /// proxy_start 命令的结构化错误（proxy-port-no-drift s2：区分「端口占用」与「其他绑定失败」，
 /// 供前端错误条 / s3 系统通知据此判别，禁靠字符串前缀匹配）。`message` 是英文调试信息，
@@ -41,7 +40,11 @@ impl From<gateway::proxy::ProxyBindError> for ProxyStartError {
             gateway::proxy::ProxyBindError::AddrInUse(_) => ProxyStartErrorKind::AddrInUse,
             gateway::proxy::ProxyBindError::Other(..) => ProxyStartErrorKind::Other,
         };
-        Self { kind, port, message: e.to_string() }
+        Self {
+            kind,
+            port,
+            message: e.to_string(),
+        }
     }
 }
 
@@ -57,17 +60,21 @@ impl From<ProxyStartError> for String {
 // instrument + debug 日志。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-pub async fn proxy_start(
-    port: u16,
-    app: tauri::AppHandle,
-) -> Result<String, ProxyStartError> {
+pub async fn proxy_start(port: u16, app: tauri::AppHandle) -> Result<String, ProxyStartError> {
     tracing::debug!(command = "proxy_start", port, "command invoked");
-    let other_err = |port: u16, message: String| ProxyStartError { kind: ProxyStartErrorKind::Other, port, message };
+    let other_err = |port: u16, message: String| ProxyStartError {
+        kind: ProxyStartErrorKind::Other,
+        port,
+        message,
+    };
 
     // 检查是否已运行
     let handle = app.state::<ProxyHandle>();
     {
-        let h = handle.0.lock().map_err(|e| other_err(port, e.to_string()))?;
+        let h = handle
+            .0
+            .lock()
+            .map_err(|e| other_err(port, e.to_string()))?;
         if h.is_some() {
             tracing::warn!(command = "proxy_start", "proxy already running");
             return Err(other_err(port, "proxy already running".to_string()));
@@ -77,20 +84,37 @@ pub async fn proxy_start(
     // 复用主 Db 实例（app.manage 在 app_setup 注入，含 proxy_log / stats_agg 独立 handle +
     // 读池 + 进程内缓存）。禁独立 Db::new：会开第二条 log.db 写连接，与主实例争锁且
     // 绕过 proxy_log/settings 缓存，致数据不一致。clone 廉价（Arc 引用计数，共享同一后台线程）。
-    let proxy_db = std::sync::Arc::new(
-        app.state::<Db>().inner().clone()
-    );
+    let proxy_db = std::sync::Arc::new(app.state::<Db>().inner().clone());
 
     // 读取绑定模式（0.0.0.0 LAN / 127.0.0.1 本机）；地址只在 bind 时读取一次。
-    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9890, autostart: true, silent_launch: false, bind_lan: true });
+    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings {
+        port: 9890,
+        autostart: true,
+        silent_launch: false,
+        bind_lan: true,
+    });
 
     // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
     let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();
-    let proxy_handle = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware, saved.bind_lan).await
-        .map_err(|e| { let err: ProxyStartError = e.into(); tracing::error!(command = "proxy_start", port, error = %err, "start_proxy failed"); err })?;
+    let proxy_handle = gateway::proxy::start_proxy(
+        proxy_db,
+        port,
+        Some(app.clone()),
+        middleware,
+        saved.bind_lan,
+    )
+    .await
+    .map_err(|e| {
+        let err: ProxyStartError = e.into();
+        tracing::error!(command = "proxy_start", port, error = %err, "start_proxy failed");
+        err
+    })?;
 
     {
-        let mut h = handle.0.lock().map_err(|e| other_err(port, e.to_string()))?;
+        let mut h = handle
+            .0
+            .lock()
+            .map_err(|e| other_err(port, e.to_string()))?;
         *h = Some(proxy_handle);
     }
 
@@ -98,9 +122,10 @@ pub async fn proxy_start(
 
     // 同步所有分组的 settings 文件
     if let Some(db) = app.try_state::<Db>()
-        && let Err(e) = do_sync_group_settings(&db, port).await {
-            tracing::warn!(command = "proxy_start", port, error = %e, "sync group settings after start failed");
-        }
+        && let Err(e) = do_sync_group_settings(&db, port).await
+    {
+        tracing::warn!(command = "proxy_start", port, error = %e, "sync group settings after start failed");
+    }
 
     // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
     let _ = app.emit("tray-refresh", ());
@@ -173,7 +198,10 @@ pub fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), St
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
     if enabled {
-        manager.enable().map_err(|e| { tracing::error!(command = "app_set_autolaunch", error = %e, "enable autolaunch failed"); format!("enable autolaunch: {e}") })?;
+        manager.enable().map_err(|e| {
+            tracing::error!(command = "app_set_autolaunch", error = %e, "enable autolaunch failed");
+            format!("enable autolaunch: {e}")
+        })?;
     } else {
         manager.disable().map_err(|e| { tracing::error!(command = "app_set_autolaunch", error = %e, "disable autolaunch failed"); format!("disable autolaunch: {e}") })?;
     }
@@ -186,7 +214,10 @@ pub fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
     tracing::debug!(command = "app_get_autolaunch", "command invoked");
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
-    manager.is_enabled().map_err(|e| { tracing::warn!(command = "app_get_autolaunch", error = %e, "get autolaunch failed"); format!("get autolaunch: {e}") })
+    manager.is_enabled().map_err(|e| {
+        tracing::warn!(command = "app_get_autolaunch", error = %e, "get autolaunch failed");
+        format!("get autolaunch: {e}")
+    })
 }
 
 crate::tauri_command! {

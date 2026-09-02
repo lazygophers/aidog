@@ -76,11 +76,7 @@ pub fn list_installed(scope: &SkillScope, _proxy_url: Option<&str>) -> (Vec<Skil
 fn canonical_skills_dir(scope: &SkillScope) -> Option<PathBuf> {
     match scope {
         SkillScope::Global => dirs::home_dir().map(|h| h.join(".agents").join("skills")),
-        SkillScope::Project { path } => Some(
-            Path::new(path)
-                .join(".agents")
-                .join("skills"),
-        ),
+        SkillScope::Project { path } => Some(Path::new(path).join(".agents").join("skills")),
     }
 }
 
@@ -89,11 +85,9 @@ fn canonical_skills_dir(scope: &SkillScope) -> Option<PathBuf> {
 fn lock_file_path(scope: &SkillScope) -> Option<PathBuf> {
     match scope {
         SkillScope::Global => dirs::home_dir().map(|h| h.join(".agents").join(".skill-lock.json")),
-        SkillScope::Project { path } => Some(
-            Path::new(path)
-                .join(".agents")
-                .join(".skill-lock.json"),
-        ),
+        SkillScope::Project { path } => {
+            Some(Path::new(path).join(".agents").join(".skill-lock.json"))
+        }
     }
 }
 
@@ -140,22 +134,14 @@ fn agent_project_skills_dir(agent: SkillAgent, project_path: &str) -> Option<Pat
     if project_path.trim().is_empty() {
         return None;
     }
-    Some(
-        Path::new(project_path)
-            .join(".agents")
-            .join("skills"),
-    )
+    Some(Path::new(project_path).join(".agents").join("skills"))
 }
 
 /// 探测某 skill 在某 agent 是否已启用（目录或 symlink 存在）。
 /// global → `~/.<agent>/skills/<name>`；project → `<project>/.agents/skills/<name>`。
 ///
 /// 用 `path.exists()` 判断（symlink 指向已删目录时 exists() 返 false，符合语义）。
-fn is_skill_enabled_for_agent(
-    name: &str,
-    agent: SkillAgent,
-    scope: &SkillScope,
-) -> bool {
+fn is_skill_enabled_for_agent(name: &str, agent: SkillAgent, scope: &SkillScope) -> bool {
     if name.is_empty() {
         return false;
     }
@@ -238,9 +224,7 @@ pub(super) fn build_skill_infos(lock: LockFile, scope: &SkillScope) -> Vec<Skill
                 .as_ref()
                 .map(|c| c.join(&name).to_string_lossy().into_owned());
             // description：读 SKILL.md frontmatter（installed_path 存在才尝试）。
-            let description = installed_path
-                .as_deref()
-                .and_then(read_skill_description);
+            let description = installed_path.as_deref().and_then(read_skill_description);
             // 空白归一化：trim 后空 → None（避免 "  " 等无效 source 显示）。
             let non_empty = |s: Option<String>| -> Option<String> {
                 s.and_then(|v| {

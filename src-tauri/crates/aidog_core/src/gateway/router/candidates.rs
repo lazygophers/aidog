@@ -1,13 +1,16 @@
 //! 候选选取：根据分组路由规则选择**有序候选平台列表**，用于失败逐个重试。
 
-use aidog_db as db;
 use super::super::models::*;
+use super::super::peak;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::super::time_windows;
-use super::super::peak;
 use super::model_mapping::resolve_model;
-use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
-use super::{candidate_state, sole_platform, RouteResult};
+use super::ordering::{
+    apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency,
+    order_load_balance,
+};
+use super::{RouteResult, candidate_state, sole_platform};
+use aidog_db as db;
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
@@ -38,7 +41,10 @@ impl ExtraCache {
     fn new(extra: &str, platform_type: &Protocol) -> Self {
         let time_windows = time_windows::parse_platform_time_windows(extra);
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
-        Self { time_windows, peak_windows }
+        Self {
+            time_windows,
+            peak_windows,
+        }
     }
 }
 
@@ -57,16 +63,15 @@ fn read_cli_proxy_provider_id(extra: &str) -> Option<u64> {
 /// 注入单一合成 endpoint：protocol = provider.wire_protocol parse 为 Protocol；
 /// parse 失败返回原 platform 不变（caller 已按 Protocol::CliProxy 过滤，正常应可 parse）。
 fn apply_cli_proxy_override(mut p: Platform, provider: &CliProxyProvider) -> Platform {
-    let wire: Protocol = serde_json::from_value(
-        serde_json::Value::String(provider.wire_protocol.clone()),
-    )
-    .unwrap_or_else(|_| {
-        tracing::warn!(
-            platform_id = p.id, wire = %provider.wire_protocol,
-            "cli-proxy: invalid wire_protocol, falling back to Anthropic"
-        );
-        Protocol::Anthropic
-    });
+    let wire: Protocol =
+        serde_json::from_value(serde_json::Value::String(provider.wire_protocol.clone()))
+            .unwrap_or_else(|_| {
+                tracing::warn!(
+                    platform_id = p.id, wire = %provider.wire_protocol,
+                    "cli-proxy: invalid wire_protocol, falling back to Anthropic"
+                );
+                Protocol::Anthropic
+            });
     p.base_url = provider.base_url.clone();
     p.api_key = provider.api_key.clone();
     p.endpoints = vec![PlatformEndpoint {
@@ -85,7 +90,11 @@ fn resolve_cli_proxy_target_model(provider: &CliProxyProvider, source_model: &st
     if provider.models.iter().any(|m| m == base) {
         return base.to_string();
     }
-    provider.models.first().cloned().unwrap_or_else(|| base.to_string())
+    provider
+        .models
+        .first()
+        .cloned()
+        .unwrap_or_else(|| base.to_string())
 }
 
 /// cli-proxy 平台预解析结果（per platform_id）。
@@ -121,7 +130,10 @@ pub async fn select_candidates_ctx(
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
 ) -> Result<CandidateSet, String> {
-    let mapping = group.model_mappings.iter().find(|m| m.source_model == source_model);
+    let mapping = group
+        .model_mappings
+        .iter()
+        .find(|m| m.source_model == source_model);
     let mapped_target_model = mapping.map(|m| m.target_model.clone());
     let mapped_platform_id = mapping.map(|m| m.target_platform_id).filter(|id| *id != 0);
 
@@ -135,8 +147,14 @@ pub async fn select_candidates_ctx(
 
     // ── 阶段 -1: 预解析所有 platform.extra（避免每个候选重复解析）──
     // ponytail: 在入口处统一解析 time_windows 和 peak，缓存传递给 helper 函数
-    let extra_cache: ExtraCacheMap = group_platforms.iter()
-        .map(|gp| (gp.platform.id, ExtraCache::new(&gp.platform.extra, &gp.platform.platform_type)))
+    let extra_cache: ExtraCacheMap = group_platforms
+        .iter()
+        .map(|gp| {
+            (
+                gp.platform.id,
+                ExtraCache::new(&gp.platform.extra, &gp.platform.platform_type),
+            )
+        })
         .collect();
 
     // ── 阶段 -1b: cli-proxy 平台预解析（cpa-standalone-module s2）──
@@ -170,7 +188,8 @@ pub async fn select_candidates_ctx(
             }
             Ok(None) => {
                 tracing::warn!(
-                    platform_id = gp.platform.id, provider_id = pid,
+                    platform_id = gp.platform.id,
+                    provider_id = pid,
                     "cli-proxy provider not found; excluding platform"
                 );
                 cli_cache.skip.insert(gp.platform.id);
@@ -185,14 +204,34 @@ pub async fn select_candidates_ctx(
     // ── 阶段 0: 单启用平台分组短路 ──
     if let Some(only) = sole_platform(&group_platforms) {
         return handle_single_platform(
-            db, group, only, source_model, ctx,
-            &mapped_target_model, mapping, now_ms, &extra_cache, &cli_cache
-        ).await;
+            db,
+            group,
+            only,
+            source_model,
+            ctx,
+            &mapped_target_model,
+            mapping,
+            now_ms,
+            &extra_cache,
+            &cli_cache,
+        )
+        .await;
     }
 
     // ── 阶段 1: 候选分桶过滤 ──
-    let FilteredCandidates { mut active, mut probe, breaker_rejected, peak_disabled_count } =
-        filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, &cli_cache);
+    let FilteredCandidates {
+        mut active,
+        mut probe,
+        breaker_rejected,
+        peak_disabled_count,
+    } = filter_candidates(
+        &group_platforms,
+        ctx,
+        now_ms,
+        source_model,
+        &extra_cache,
+        &cli_cache,
+    );
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
@@ -240,11 +279,21 @@ pub async fn select_candidates_ctx(
             );
             return Err("peak_disabled".to_string());
         }
-        return Err("no available platform (all disabled, backing off, or circuit-broken)".to_string());
+        return Err(
+            "no available platform (all disabled, backing off, or circuit-broken)".to_string(),
+        );
     }
 
     // ── 阶段 6: 生成最终候选 ──
-    let candidates = build_route_results(ordered, &mapped_target_model, now_ms, source_model, mapping, &extra_cache, &cli_cache);
+    let candidates = build_route_results(
+        ordered,
+        &mapped_target_model,
+        now_ms,
+        source_model,
+        mapping,
+        &extra_cache,
+        &cli_cache,
+    );
 
     tracing::info!(
         group = %group.name, source_model = %source_model,
@@ -279,13 +328,16 @@ async fn handle_single_platform(
     }
 
     // cli-proxy 单平台且 provider 缺失/disabled → 硬停（同手动 disabled 语义）
-    if only.platform.platform_type == Protocol::CliProxy && cli_cache.skip.contains(&only.platform.id) {
+    if only.platform.platform_type == Protocol::CliProxy
+        && cli_cache.skip.contains(&only.platform.id)
+    {
         return Err("group's only cli-proxy platform has missing or disabled provider".to_string());
     }
 
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
     let cache = extra_cache.get(&only.platform.id);
-    let peak_windows: &[peak::TimeWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
+    let peak_windows: &[peak::TimeWindow] =
+        cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
     if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
@@ -301,8 +353,10 @@ async fn handle_single_platform(
             .clone()
             .unwrap_or_else(|| resolve_cli_proxy_target_model(provider, source_model))
     } else {
-        let time_rules: &[serde_json::Value] = cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
-        let effective_models = resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
+        let time_rules: &[serde_json::Value] =
+            cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
+        let effective_models =
+            resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
         mapped_target_model
             .clone()
             .unwrap_or_else(|| resolve_model(&effective_models, source_model))
@@ -368,7 +422,8 @@ fn filter_candidates<'a>(
         if auto_state.is_none() {
             // 区分高峰禁用与其他排除原因（使用缓存避免重新解析）
             let cache = extra_cache.get(&gp.platform.id);
-            let peak_windows: &[peak::TimeWindow] = cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
+            let peak_windows: &[peak::TimeWindow] =
+                cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
             if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
                 peak_disabled_count += 1;
             }
@@ -377,17 +432,22 @@ fn filter_candidates<'a>(
 
         // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定
         if let Some(c) = ctx
-            && breaker_enabled {
-                let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
-                let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
-                match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
-                    Admission::Reject => {
-                        breaker_rejected.push((gp, auto_state));
-                        continue;
-                    }
-                    Admission::Probe | Admission::Allow => {}
+            && breaker_enabled
+        {
+            let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
+            let th = BreakerThresholds {
+                failure_threshold: ft,
+                open_secs: os,
+                half_open_max: hom,
+            };
+            match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
+                Admission::Reject => {
+                    breaker_rejected.push((gp, auto_state));
+                    continue;
                 }
+                Admission::Probe | Admission::Allow => {}
             }
+        }
 
         match auto_state {
             Some(false) => active.push(gp),
@@ -396,7 +456,12 @@ fn filter_candidates<'a>(
         }
     }
 
-    FilteredCandidates { active, probe, breaker_rejected, peak_disabled_count }
+    FilteredCandidates {
+        active,
+        probe,
+        breaker_rejected,
+        peak_disabled_count,
+    }
 }
 
 // ── Helper: 按路由模式排序 ──
@@ -464,10 +529,11 @@ fn merge_and_promote_mapping<'a>(
 
     // 显式映射目标平台提到最前（若它本身在候选集中）
     if let Some(target_id) = mapped_platform_id
-        && let Some(pos) = ordered.iter().position(|gp| gp.platform.id == target_id) {
-            let gp = ordered.remove(pos);
-            ordered.insert(0, gp);
-        }
+        && let Some(pos) = ordered.iter().position(|gp| gp.platform.id == target_id)
+    {
+        let gp = ordered.remove(pos);
+        ordered.insert(0, gp);
+    }
 
     ordered
 }
@@ -504,8 +570,10 @@ fn build_route_results(
                 tm.clone()
             } else {
                 let cache = extra_cache.get(&gp.platform.id);
-                let time_rules: &[serde_json::Value] = cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
-                let effective_models = resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
+                let time_rules: &[serde_json::Value] =
+                    cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
+                let effective_models =
+                    resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
                 resolve_model(&effective_models, source_model)
             };
             RouteResult {

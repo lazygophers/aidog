@@ -6,15 +6,17 @@ use aidog_db::Db;
 /// 扫描冲突（同名 group、同 scope+key setting、同 model_name price、文件已存在）。
 /// platform 不参与冲突检测：platform.name 非唯一（无 UNIQUE 约束），导入始终建新行
 /// （见 upsert_platform_row），无"覆盖现有"语义，故无冲突可报。
-pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<ConflictItem>, String> {
+pub(super) async fn detect_conflicts(
+    payload: &Payload,
+    db: &Db,
+) -> Result<Vec<ConflictItem>, String> {
     let mut out = Vec::new();
 
-    let existing_group_keys: std::collections::BTreeSet<String> =
-        aidog_db::list_groups(db)
-            .await?
-            .into_iter()
-            .map(|g| g.group_key)
-            .collect();
+    let existing_group_keys: std::collections::BTreeSet<String> = aidog_db::list_groups(db)
+        .await?
+        .into_iter()
+        .map(|g| g.group_key)
+        .collect();
     for g in &payload.group {
         // group_key 作冲突键（fallback name 兼容老导出）；name 仅作显示。
         let gkey = g
@@ -27,14 +29,15 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
             .or(gkey)
             .unwrap_or("");
         if let Some(k) = gkey
-            && existing_group_keys.contains(k) {
-                out.push(ConflictItem {
-                    scope: super::super::SCOPE_GROUP.to_string(),
-                    key: k.to_string(),
-                    existing_summary: format!("已存在同密钥分组「{gname}」"),
-                    incoming_summary: format!("导入将覆盖分组「{gname}」配置"),
-                });
-            }
+            && existing_group_keys.contains(k)
+        {
+            out.push(ConflictItem {
+                scope: super::super::SCOPE_GROUP.to_string(),
+                key: k.to_string(),
+                existing_summary: format!("已存在同密钥分组「{gname}」"),
+                incoming_summary: format!("导入将覆盖分组「{gname}」配置"),
+            });
+        }
     }
 
     let existing_setting_keys: std::collections::BTreeSet<String> =
@@ -58,35 +61,38 @@ pub(super) async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<C
     // 文件类冲突：codex_global / claude_code_global / 各 profile
     if let Some(text) = &payload.codex_global
         && let Ok(path) = crate::gateway::codex::codex_home_public()
-            && path.join("config.toml").exists() {
-                out.push(ConflictItem {
-                    scope: super::super::SCOPE_CODEX.to_string(),
-                    key: "codex_global".to_string(),
-                    existing_summary: "~/.codex/config.toml 已存在".to_string(),
-                    incoming_summary: format!("导入将覆盖（备份原文件）, {} 字节", text.len()),
-                });
-            }
+        && path.join("config.toml").exists()
+    {
+        out.push(ConflictItem {
+            scope: super::super::SCOPE_CODEX.to_string(),
+            key: "codex_global".to_string(),
+            existing_summary: "~/.codex/config.toml 已存在".to_string(),
+            incoming_summary: format!("导入将覆盖（备份原文件）, {} 字节", text.len()),
+        });
+    }
     for nt in &payload.codex_profiles {
         if let Ok(path) = crate::gateway::codex::profile_path_public(&nt.name)
-            && path.exists() {
-                out.push(ConflictItem {
-                    scope: super::super::SCOPE_CODEX.to_string(),
-                    key: format!("codex_profile:{}", nt.name),
-                    existing_summary: format!("~/.codex/{}.config.toml 已存在", nt.name),
-                    incoming_summary: format!("覆盖（备份原文件），{} 字节", nt.text.len()),
-                });
-            }
+            && path.exists()
+        {
+            out.push(ConflictItem {
+                scope: super::super::SCOPE_CODEX.to_string(),
+                key: format!("codex_profile:{}", nt.name),
+                existing_summary: format!("~/.codex/{}.config.toml 已存在", nt.name),
+                incoming_summary: format!("覆盖（备份原文件），{} 字节", nt.text.len()),
+            });
+        }
     }
     if payload.claude_code_global.is_some()
         && let Some(home) = dirs::home_dir()
-            && home.join(".claude").join("settings.json").exists() {
-                out.push(ConflictItem {
-                    scope: super::super::SCOPE_CLAUDE_CODE.to_string(),
-                    key: "claude_code_global".to_string(),
-                    existing_summary: "~/.claude/settings.json 已存在".to_string(),
-                    incoming_summary: "导入将覆盖（备份原文件）".to_string(),
-                });
-            }
+        && home.join(".claude").join("settings.json").exists()
+    {
+        out.push(ConflictItem {
+            scope: super::super::SCOPE_CLAUDE_CODE.to_string(),
+            key: "claude_code_global".to_string(),
+            existing_summary: "~/.claude/settings.json 已存在".to_string(),
+            incoming_summary: "导入将覆盖（备份原文件）".to_string(),
+        });
+    }
     for nt in &payload.claude_code_group_settings {
         if let Some(home) = dirs::home_dir() {
             let p = home

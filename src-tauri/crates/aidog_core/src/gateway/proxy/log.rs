@@ -49,7 +49,11 @@ fn is_terminal_log(log: &ProxyLog) -> bool {
 /// 挪进各分支内部构造——中间态在队满（`capacity()==0`）时提前 return，不再付出 `ProxyLog`
 /// 全量深拷贝（8 个大 String 字段 + `Vec<ProxyAttempt>`）只为立刻被丢弃的浪费。非满队路径与
 /// 终态路径行为不变（仍构造 + 发送，语义零变化，见验收: 中间态深拷贝仅在"确定要丢"时跳过）。
-pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
+pub(crate) async fn upsert_log(
+    state: &Arc<ProxyState>,
+    log: &ProxyLog,
+    settings: &ProxyLogSettings,
+) {
     if is_terminal_log(log) {
         let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
         if state.log_tx.send(msg).await.is_err() {
@@ -95,8 +99,24 @@ pub(crate) fn spawn_log_writer(
         while let Some(msg) = rx.recv().await {
             match msg {
                 LogMsg::Upsert(log, settings) => process_upsert(&state, &log, &settings).await,
-                LogMsg::Connect { id, group_key, platform_id, request_url, status_code, duration_ms } => {
-                    process_connect_log(&state, id, group_key, platform_id, request_url, status_code, duration_ms).await;
+                LogMsg::Connect {
+                    id,
+                    group_key,
+                    platform_id,
+                    request_url,
+                    status_code,
+                    duration_ms,
+                } => {
+                    process_connect_log(
+                        &state,
+                        id,
+                        group_key,
+                        platform_id,
+                        request_url,
+                        status_code,
+                        duration_ms,
+                    )
+                    .await;
                 }
                 #[cfg(test)]
                 LogMsg::Barrier(ack) => {
@@ -120,7 +140,11 @@ pub(crate) async fn flush_log_queue(state: &Arc<ProxyState>) {
 /// upsert 落库主逻辑（原 upsert_log 函数体，现只在 `spawn_log_writer` 内单 writer 串行调用）。
 /// 语义不变：Respects ProxyLogSettings: if logging disabled, does nothing;
 /// if user/upstream recording disabled, clears those fields before writing.
-pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
+pub(crate) async fn process_upsert(
+    state: &Arc<ProxyState>,
+    log: &ProxyLog,
+    settings: &ProxyLogSettings,
+) {
     // ── 聚合统计写入（解耦于日志开关）──
     // 必须在 `!settings.enabled` 早退之前：关日志时统计仍需写。仅终态请求计入
     // （status!=0 且 done 置位，与下方 is_terminal 同判定，避免中间节点重复计）。
@@ -135,10 +159,8 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
     // proxy_log 单行照旧保留 input_tokens + est_cost（供单行审计可见），仅聚合路径跳过。
     // 识别复用 request_url 判定，避免加列迁移；与 is_count_tokens_endpoint 同款尾段匹配。
     let is_count_tokens = is_count_tokens_endpoint(&log.request_url);
-    let first_agg = log.status_code != 0
-        && log.done
-        && !is_count_tokens
-        && agg_mark_first(state, &log.id);
+    let first_agg =
+        log.status_code != 0 && log.done && !is_count_tokens && agg_mark_first(state, &log.id);
 
     // est_cost 统一计算（两分支复用，避免重复 get_platform + calc_est_cost 调用）。
     // 结果存局部变量，first_agg 分支用值，日志写入分支用 Option（后续覆盖）。
@@ -163,17 +185,19 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
             .flatten()
             .map(|p| p.platform_type.wire_str())
             .unwrap_or_default();
-        Some(crate::gateway::billing::calc_est_cost(
-            &state.db,
-            &model_name,
-            &platform_type,
-            log.input_tokens,
-            log.output_tokens,
-            log.cache_tokens,
-            log.platform_id as i64,
-            log.created_at,
+        Some(
+            crate::gateway::billing::calc_est_cost(
+                &state.db,
+                &model_name,
+                &platform_type,
+                log.input_tokens,
+                log.output_tokens,
+                log.cache_tokens,
+                log.platform_id as i64,
+                log.created_at,
+            )
+            .await,
         )
-        .await)
     } else {
         None
     };
@@ -182,7 +206,11 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
         let cost = est_cost_value.unwrap_or(log.est_cost);
         let agg_input = aidog_stats::StatsAggInput {
             created_at: log.created_at,
-            model: if log.actual_model.is_empty() { log.model.clone() } else { log.actual_model.clone() },
+            model: if log.actual_model.is_empty() {
+                log.model.clone()
+            } else {
+                log.actual_model.clone()
+            },
             group_key: log.group_key.clone(),
             platform_id: log.platform_id as i64,
             status_code: log.status_code,
@@ -238,18 +266,26 @@ pub(crate) async fn process_upsert(state: &Arc<ProxyState>, log: &ProxyLog, sett
     let write_ok = match prev {
         None => {
             // 首节点：建行。成功后存快照供后续 diff。
-            let ok = aidog_logs::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
+            let ok = aidog_logs::insert_proxy_log_columns(&state.db, cols.clone())
+                .await
+                .is_ok();
             if ok {
                 // OOM 止血：快照表只留 meta（清空 body/headers 大字段），N 并发不累积大 String。
-                state.log_snapshots.insert(id.clone(), cols.into_snapshot_meta());
+                state
+                    .log_snapshots
+                    .insert(id.clone(), cols.into_snapshot_meta());
             }
             ok
         }
         Some(prev) => {
             // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
-            let ok = aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
+            let ok = aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev)
+                .await
+                .is_ok();
             if ok {
-                state.log_snapshots.insert(id.clone(), cols.into_snapshot_meta());
+                state
+                    .log_snapshots
+                    .insert(id.clone(), cols.into_snapshot_meta());
             }
             ok
         }
@@ -363,27 +399,30 @@ pub(crate) fn spawn_estimate(
     let ptype = platform_type.wire_str();
     let db = state.db.clone();
     let app = state.app.clone();
-    tokio::spawn(async move {
-        super::estimate::estimate_after_request(
-            &db,
-            platform_id,
-            &ptype,
-            &quota_base_url,
-            &api_key,
-            &model,
-            &extra,
-            input_tokens as i64,
-            output_tokens as i64,
-            cache_tokens as i64,
-            is_coding_plan,
-        )
-        .await;
-        // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）
-        if let Some(app) = app {
-            use tauri::Emitter;
-            let _ = app.emit("tray-refresh", ());
+    tokio::spawn(
+        async move {
+            super::estimate::estimate_after_request(
+                &db,
+                platform_id,
+                &ptype,
+                &quota_base_url,
+                &api_key,
+                &model,
+                &extra,
+                input_tokens as i64,
+                output_tokens as i64,
+                cache_tokens as i64,
+                is_coding_plan,
+            )
+            .await;
+            // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）
+            if let Some(app) = app {
+                use tauri::Emitter;
+                let _ = app.emit("tray-refresh", ());
+            }
         }
-    }.instrument(span));
+        .instrument(span),
+    );
 }
 
 /// P1 CONNECT 隧道元数据写入：独立路径，**不走 upsert_log**。
@@ -404,7 +443,14 @@ pub(crate) async fn upsert_connect_log(
     status_code: i32,
     duration_ms: i32,
 ) {
-    let msg = LogMsg::Connect { id: id.clone(), group_key, platform_id, request_url, status_code, duration_ms };
+    let msg = LogMsg::Connect {
+        id: id.clone(),
+        group_key,
+        platform_id,
+        request_url,
+        status_code,
+        duration_ms,
+    };
     if state.log_tx.send(msg).await.is_err() {
         tracing::warn!(id = %id, "log writer channel closed, connect log dropped");
     }

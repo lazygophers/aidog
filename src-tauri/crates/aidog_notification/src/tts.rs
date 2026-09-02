@@ -51,7 +51,9 @@ pub fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
             }
             #[cfg(not(target_os = "macos"))]
             {
-                tracing::debug!("notify: mac_say backend on non-macOS, falling back to cross_platform");
+                tracing::debug!(
+                    "notify: mac_say backend on non-macOS, falling back to cross_platform"
+                );
                 speak_cross_platform(text);
             }
         }

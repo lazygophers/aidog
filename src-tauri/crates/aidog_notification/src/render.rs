@@ -2,8 +2,8 @@
 
 use std::collections::HashMap;
 
-use aidog_db::models::{NotifForm, NotifType};
 use super::vars::substitute_vars;
+use aidog_db::models::{NotifForm, NotifType};
 
 /// 分发选定通道（按 form 解析；纯函数便于单测）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -24,10 +24,30 @@ pub struct Channels {
 /// TTS 还需 setting.tts && settings.tts_enabled 才真正播报（在 dispatch 内取与）。
 pub fn channels_for_form(form: NotifForm) -> Channels {
     match form {
-        NotifForm::Full => Channels { tts: true, popup: true, sound: true, inbox: true },
-        NotifForm::PopupOnly => Channels { tts: false, popup: true, sound: false, inbox: true },
-        NotifForm::InboxOnly => Channels { tts: false, popup: false, sound: false, inbox: true },
-        NotifForm::SoundOnly => Channels { tts: false, popup: false, sound: true, inbox: false },
+        NotifForm::Full => Channels {
+            tts: true,
+            popup: true,
+            sound: true,
+            inbox: true,
+        },
+        NotifForm::PopupOnly => Channels {
+            tts: false,
+            popup: true,
+            sound: false,
+            inbox: true,
+        },
+        NotifForm::InboxOnly => Channels {
+            tts: false,
+            popup: false,
+            sound: false,
+            inbox: true,
+        },
+        NotifForm::SoundOnly => Channels {
+            tts: false,
+            popup: false,
+            sound: true,
+            inbox: false,
+        },
     }
 }
 

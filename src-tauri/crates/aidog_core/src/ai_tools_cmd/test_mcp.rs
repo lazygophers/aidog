@@ -26,7 +26,10 @@ async fn list_add_delete() {
 
     let info = gateway::mcp::add_server(&db, payload("srv")).await.unwrap();
     let _ = info;
-    assert_eq!(aidog_mcp::store::list_mcp_servers(&db).await.unwrap().len(), 1);
+    assert_eq!(
+        aidog_mcp::store::list_mcp_servers(&db).await.unwrap().len(),
+        1
+    );
 
     // duplicate add errs
     assert!(gateway::mcp::add_server(&db, payload("srv")).await.is_err());
@@ -35,7 +38,12 @@ async fn list_add_delete() {
 
     // delete (no enabled agents → no FS writes)
     gateway::mcp::delete_server(&db, "srv").await.unwrap();
-    assert!(aidog_mcp::store::list_mcp_servers(&db).await.unwrap().is_empty());
+    assert!(
+        aidog_mcp::store::list_mcp_servers(&db)
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]

@@ -5,9 +5,7 @@
 //! 与旧 `commands_platform::cpa_import` 解耦：旧 mapper 输出 MappedPlatform（建 platform 表行），
 //! 新 mapper 输出 CreateCliProxyProvider（建 cli_proxy_provider 表行）。
 
-use crate::parser::{
-    parse_cpa_config, CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason,
-};
+use crate::parser::{CpaOAuthType, CpaProvider, CpaSourceSegment, SkipReason, parse_cpa_config};
 use aidog_core::gateway::models::{CreateCliProxyProvider, Protocol};
 use aidog_db::{self as db, Db};
 use serde::{Deserialize, Serialize};
@@ -91,9 +89,9 @@ fn resolve_wire_protocol(p: &CpaProvider) -> String {
         CpaSourceSegment::ClaudeApiKey => Protocol::Anthropic,
         // Vertex API key 走 Gemini wire（Google AI generateContent 格式）。
         CpaSourceSegment::VertexApiKey => Protocol::Gemini,
-        CpaSourceSegment::OpenaiCompatibility => protocol_for_openai_compat_name(
-            p.name.as_deref().unwrap_or(""),
-        ),
+        CpaSourceSegment::OpenaiCompatibility => {
+            protocol_for_openai_compat_name(p.name.as_deref().unwrap_or(""))
+        }
         CpaSourceSegment::OAuth => match p.oauth_type {
             // grok 原生 /responses 端点 → openai_responses wire（与旧 CPA Grok 协议标注一致）。
             Some(CpaOAuthType::Xai) => Protocol::OpenAIResponses,
@@ -110,7 +108,11 @@ fn resolve_wire_protocol(p: &CpaProvider) -> String {
     // Protocol → serde key（剥引号）。
     serde_json::to_string(&proto)
         .ok()
-        .and_then(|s| s.strip_prefix('"').and_then(|s| s.strip_suffix('"')).map(String::from))
+        .and_then(|s| {
+            s.strip_prefix('"')
+                .and_then(|s| s.strip_suffix('"'))
+                .map(String::from)
+        })
         .unwrap_or_else(|| "openai".to_string())
 }
 
@@ -217,10 +219,16 @@ fn build_extra(p: &CpaProvider) -> String {
     }
     let mut root = serde_json::Map::new();
     if let Some(prefix) = &p.prefix {
-        root.insert("cpa_prefix".to_string(), serde_json::Value::String(prefix.clone()));
+        root.insert(
+            "cpa_prefix".to_string(),
+            serde_json::Value::String(prefix.clone()),
+        );
     }
     if !p.headers.is_empty() {
-        root.insert("cpa_headers".to_string(), serde_json::to_value(&p.headers).unwrap());
+        root.insert(
+            "cpa_headers".to_string(),
+            serde_json::to_value(&p.headers).unwrap(),
+        );
     }
     serde_json::to_string(&serde_json::Value::Object(root)).unwrap_or_default()
 }
@@ -350,23 +358,17 @@ openai-compatibility:
         )
         .unwrap();
 
-        let parsed = parse_cpa_config(
-            yaml_path.to_str().unwrap(),
-            None,
-        )
-        .expect("parse_cpa_config 应成功");
+        let parsed =
+            parse_cpa_config(yaml_path.to_str().unwrap(), None).expect("parse_cpa_config 应成功");
         assert_eq!(parsed.providers.len(), 3, "应解析 3 个 provider");
 
         // 验证映射后 wire_protocol 正确（gemini / anthropic / glm）
-        let wires: Vec<String> = parsed
-            .providers
-            .iter()
-            .map(resolve_wire_protocol)
-            .collect();
+        let wires: Vec<String> = parsed.providers.iter().map(resolve_wire_protocol).collect();
         assert!(wires.contains(&"gemini".to_string()), "wires={:?}", wires);
         assert!(
             wires.contains(&"anthropic".to_string()),
-            "wires={:?}", wires
+            "wires={:?}",
+            wires
         );
         assert!(wires.contains(&"glm".to_string()), "wires={:?}", wires);
 
@@ -385,11 +387,7 @@ openai-compatibility:
 
         // api-key 段 name 派生 = wire-host（gemini 域 → host=com → "gemini-com"）
         let gemini = inputs.iter().find(|i| i.wire_protocol == "gemini").unwrap();
-        assert!(
-            gemini.name.starts_with("gemini"),
-            "got {}",
-            gemini.name
-        );
+        assert!(gemini.name.starts_with("gemini"), "got {}", gemini.name);
     }
 
     #[test]

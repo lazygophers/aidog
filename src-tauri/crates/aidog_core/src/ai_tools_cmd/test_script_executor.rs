@@ -1,6 +1,6 @@
 #![cfg(test)]
-use aidog_db as db;
 use super::*;
+use aidog_db as db;
 use aidog_db::test_support::test_db;
 
 // check_uv_runs 已删除：它 spawn 真实 `uv` 二进制探测，无实质断言（注释「just exercise
@@ -14,10 +14,15 @@ async fn set_executor_normalizes() {
     let db = test_db().await;
     for executor in ["uv", "python3", "garbage"] {
         let normalized = gateway::scripts::ScriptInvoker::from_setting(Some(executor)).as_setting();
-        db::set_setting(&db, SetSettingInput {
-            scope: "app".to_string(),
-            key: "script_executor".to_string(),
-            value: serde_json::Value::String(normalized.to_string()),
-        }).await.unwrap();
+        db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: "app".to_string(),
+                key: "script_executor".to_string(),
+                value: serde_json::Value::String(normalized.to_string()),
+            },
+        )
+        .await
+        .unwrap();
     }
 }

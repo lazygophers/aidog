@@ -1,9 +1,9 @@
-use tracing_subscriber::{layer::SubscriberExt, layer::Context, EnvFilter, Layer, Registry};
-use tracing_subscriber::registry::LookupSpan;
-use tracing_appender::rolling::RollingFileAppender;
 use std::cell::RefCell;
 use std::time::Duration;
-use tracing_subscriber::fmt::{FormatEvent, FmtContext};
+use tracing_appender::rolling::RollingFileAppender;
+use tracing_subscriber::fmt::{FmtContext, FormatEvent};
+use tracing_subscriber::registry::LookupSpan;
+use tracing_subscriber::{EnvFilter, Layer, Registry, layer::Context, layer::SubscriberExt};
 
 thread_local! {
     /// 当前线程上「活跃 span 链」携带的链路 id 栈（栈顶 = 最内层带 id 的 span）。
@@ -76,30 +76,38 @@ impl<S> Layer<S> for TraceIdLayer
 where
     S: tracing::Subscriber + for<'a> LookupSpan<'a>,
 {
-    fn on_new_span(&self, attrs: &tracing::span::Attributes<'_>, id: &tracing::span::Id, ctx: Context<'_, S>) {
+    fn on_new_span(
+        &self,
+        attrs: &tracing::span::Attributes<'_>,
+        id: &tracing::span::Id,
+        ctx: Context<'_, S>,
+    ) {
         let mut visitor = TraceIdVisitor::default();
         attrs.record(&mut visitor);
         if let Some(tid) = visitor.id
-            && let Some(span) = ctx.span(id) {
-                span.extensions_mut().insert(SpanTraceId(tid));
-            }
+            && let Some(span) = ctx.span(id)
+        {
+            span.extensions_mut().insert(SpanTraceId(tid));
+        }
     }
 
     fn on_enter(&self, id: &tracing::span::Id, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(id)
-            && let Some(SpanTraceId(tid)) = span.extensions().get::<SpanTraceId>() {
-                let tid = tid.clone();
-                TRACE_ID_STACK.with(|s| s.borrow_mut().push(tid));
-            }
+            && let Some(SpanTraceId(tid)) = span.extensions().get::<SpanTraceId>()
+        {
+            let tid = tid.clone();
+            TRACE_ID_STACK.with(|s| s.borrow_mut().push(tid));
+        }
     }
 
     fn on_exit(&self, id: &tracing::span::Id, ctx: Context<'_, S>) {
         if let Some(span) = ctx.span(id)
-            && span.extensions().get::<SpanTraceId>().is_some() {
-                TRACE_ID_STACK.with(|s| {
-                    s.borrow_mut().pop();
-                });
-            }
+            && span.extensions().get::<SpanTraceId>().is_some()
+        {
+            TRACE_ID_STACK.with(|s| {
+                s.borrow_mut().pop();
+            });
+        }
     }
 }
 
@@ -117,9 +125,15 @@ pub struct AppLogSettings {
     pub retention_hours: u32,
 }
 
-fn default_true() -> bool { true }
-fn default_level() -> String { "info".to_string() }
-fn default_retention_hours() -> u32 { 3 }
+fn default_true() -> bool {
+    true
+}
+fn default_level() -> String {
+    "info".to_string()
+}
+fn default_retention_hours() -> u32 {
+    3
+}
 
 impl Default for AppLogSettings {
     fn default() -> Self {
@@ -165,7 +179,11 @@ fn default_filter(level: &str) -> EnvFilter {
 fn build_file_appender(
     data_dir: &std::path::Path,
     settings: &AppLogSettings,
-) -> Option<(tracing_appender::non_blocking::NonBlocking, tracing_appender::non_blocking::WorkerGuard, std::path::PathBuf)> {
+) -> Option<(
+    tracing_appender::non_blocking::NonBlocking,
+    tracing_appender::non_blocking::WorkerGuard,
+    std::path::PathBuf,
+)> {
     let log_dir = data_dir.join("logs");
     if let Err(e) = std::fs::create_dir_all(&log_dir) {
         tracing::warn!(error = %e, dir = %log_dir.display(), "failed to create log dir; falling back to console-only");
@@ -204,7 +222,10 @@ fn file_filter(settings: &AppLogSettings) -> EnvFilter {
 /// main() 返回前的最后一刻, 严格早于 guard drop 的窗口只有「进程已在退出」, 不存在「函数返回
 /// 后日志还没写完但 guard 已没」的中间态。**禁止**把返回值绑到 `init_logging` 内部局部变量
 /// (那样函数一返回 guard 就 drop, 后台线程立刻停)。
-pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) -> Option<tracing_appender::non_blocking::WorkerGuard> {
+pub fn init_logging(
+    data_dir: &std::path::Path,
+    settings: &AppLogSettings,
+) -> Option<tracing_appender::non_blocking::WorkerGuard> {
     // Dev: console 强制 debug (RUST_LOG 可覆盖); Release: 遵循 settings.level。
     let console_filter = if cfg!(debug_assertions) {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter("debug"))
@@ -220,7 +241,11 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) -> Op
         .event_format(AidogFormat { ansi: true })
         .with_filter(console_filter);
 
-    let mode = if cfg!(debug_assertions) { "dev" } else { "release" };
+    let mode = if cfg!(debug_assertions) {
+        "dev"
+    } else {
+        "release"
+    };
     let file_on = settings.file_enabled;
 
     // dev / release 共用 build_file_appender + file_filter; file_enabled=false → 跳过。
@@ -251,14 +276,20 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) -> Op
                 // 目录创建失败: 退化为 console-only。
                 let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
                 let _ = tracing::subscriber::set_global_default(subscriber);
-                tracing::warn!(mode = mode, "logging initialized (console only; log dir creation failed)");
+                tracing::warn!(
+                    mode = mode,
+                    "logging initialized (console only; log dir creation failed)"
+                );
                 None
             }
         }
     } else {
         let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
         let _ = tracing::subscriber::set_global_default(subscriber);
-        tracing::info!(mode = mode, "logging initialized (console only, file disabled)");
+        tracing::info!(
+            mode = mode,
+            "logging initialized (console only, file disabled)"
+        );
         None
     }
 }
@@ -399,7 +430,11 @@ struct AidogFormat {
 mod ansi {
     pub const RESET: &str = "\x1b[0m";
     pub fn wrap(code: u8, s: &str, ansi: bool) -> String {
-        if ansi { format!("\x1b[{code}m{s}{RESET}") } else { s.to_string() }
+        if ansi {
+            format!("\x1b[{code}m{s}{RESET}")
+        } else {
+            s.to_string()
+        }
     }
 }
 
@@ -517,9 +552,13 @@ impl tracing::field::Visit for MsgCollector {
 
 /// Clean up old log files beyond retention period
 pub fn cleanup_old_logs(data_dir: &std::path::Path, retention_hours: u32) {
-    if retention_hours == 0 { return; }
+    if retention_hours == 0 {
+        return;
+    }
     let log_dir = data_dir.join("logs");
-    if !log_dir.exists() { return; }
+    if !log_dir.exists() {
+        return;
+    }
 
     let cutoff = std::time::SystemTime::now() - Duration::from_secs(retention_hours as u64 * 3600);
 
@@ -528,10 +567,11 @@ pub fn cleanup_old_logs(data_dir: &std::path::Path, retention_hours: u32) {
             let path = entry.path();
             if path.extension().and_then(|e| e.to_str()) == Some("log")
                 && let Ok(metadata) = entry.metadata()
-                    && let Ok(modified) = metadata.modified()
-                        && modified < cutoff {
-                            let _ = std::fs::remove_file(&path);
-                        }
+                && let Ok(modified) = metadata.modified()
+                && modified < cutoff
+            {
+                let _ = std::fs::remove_file(&path);
+            }
         }
     }
 }
@@ -567,7 +607,11 @@ mod tests {
     fn worker_guard_drop_flushes_pending_writes() {
         use std::io::Write as _;
         let tmp = tempfile::tempdir().expect("tempdir");
-        let settings = AppLogSettings { file_enabled: true, level: "info".into(), retention_hours: 3 };
+        let settings = AppLogSettings {
+            file_enabled: true,
+            level: "info".into(),
+            retention_hours: 3,
+        };
         let (mut non_blocking, guard, log_dir) =
             build_file_appender(tmp.path(), &settings).expect("appender should build");
 
@@ -606,7 +650,9 @@ mod tests {
     // `<data_dir>/logs/aidog-*.log` 是否被写入 (见 prd.md Acceptance Criteria)。
 
     fn is_root_id(s: &str) -> bool {
-        s.len() == 6 && s.chars().all(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
+        s.len() == 6
+            && s.chars()
+                .all(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
     }
 
     #[test]
@@ -633,9 +679,15 @@ mod tests {
         let parent = "abc123";
         let child = gen_child_id(parent);
         assert_eq!(child.len(), 6 + 1 + 6, "child id = parent.6chars");
-        assert!(child.starts_with("abc123."), "child id must start with parent + '.'");
+        assert!(
+            child.starts_with("abc123."),
+            "child id must start with parent + '.'"
+        );
         let suffix = &child[7..];
-        assert!(is_root_id(suffix), "child suffix must be 6 [0-9a-z], got {suffix}");
+        assert!(
+            is_root_id(suffix),
+            "child suffix must be 6 [0-9a-z], got {suffix}"
+        );
     }
 
     #[test]
@@ -711,27 +763,31 @@ mod tests {
         impl<'a> MakeWriter<'a> for BufMaker {
             type Writer = BufWriter;
             fn make_writer(&'a self) -> Self::Writer {
-                BufWriter { buf: self.0.clone() }
+                BufWriter {
+                    buf: self.0.clone(),
+                }
             }
         }
-        struct BufWriter { buf: Arc<Mutex<Vec<u8>>> }
+        struct BufWriter {
+            buf: Arc<Mutex<Vec<u8>>>,
+        }
         impl std::io::Write for BufWriter {
             fn write(&mut self, b: &[u8]) -> std::io::Result<usize> {
                 self.buf.lock().unwrap().extend_from_slice(b);
                 Ok(b.len())
             }
-            fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
         }
 
         let buf: Arc<Mutex<Vec<u8>>> = Arc::new(Mutex::new(Vec::new()));
-        let subscriber = Registry::default()
-            .with(TraceIdLayer)
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .with_writer(BufMaker(buf.clone()))
-                    .with_ansi(ansi)
-                    .event_format(AidogFormat { ansi }),
-            );
+        let subscriber = Registry::default().with(TraceIdLayer).with(
+            tracing_subscriber::fmt::layer()
+                .with_writer(BufMaker(buf.clone()))
+                .with_ansi(ansi)
+                .event_format(AidogFormat { ansi }),
+        );
         let _guard = tracing::subscriber::set_default(subscriber);
         body();
         let bytes = std::mem::take(&mut *buf.lock().unwrap());
@@ -758,7 +814,10 @@ mod tests {
         // 字段顺序: time level file:line func msg traceid — msg 在 traceid 之前。
         let msg_idx = out.find("hello world").unwrap_or(usize::MAX);
         let tid_idx = out.find("deadbeef").unwrap_or(usize::MAX);
-        assert!(msg_idx < tid_idx, "msg must come before traceid; got: {out:?}");
+        assert!(
+            msg_idx < tid_idx,
+            "msg must come before traceid; got: {out:?}"
+        );
     }
 
     #[test]
@@ -829,10 +888,18 @@ mod tests {
         let lvl = line.find("INFO");
         let msg = line.find("ordertest");
         let tid = line.find("ztop00");
-        assert!(lvl.is_some() && msg.is_some() && tid.is_some(),
-            "all 3 markers must be present; got: {line:?}");
-        assert!(lvl.unwrap() < msg.unwrap(), "level must precede msg; got: {line:?}");
-        assert!(msg.unwrap() < tid.unwrap(), "msg must precede traceid; got: {line:?}");
+        assert!(
+            lvl.is_some() && msg.is_some() && tid.is_some(),
+            "all 3 markers must be present; got: {line:?}"
+        );
+        assert!(
+            lvl.unwrap() < msg.unwrap(),
+            "level must precede msg; got: {line:?}"
+        );
+        assert!(
+            msg.unwrap() < tid.unwrap(),
+            "msg must precede traceid; got: {line:?}"
+        );
     }
 
     // ---- MsgCollector 业务字段渲染（回归 07-06-log-format-field-loss）----
@@ -873,7 +940,10 @@ mod tests {
         let line = out.lines().last().unwrap_or("");
         // 行尾 traceid 段 = span scope 取的 topid1, 不是 event 的 fromevent。
         let last_token = line.split_whitespace().last().unwrap_or("");
-        assert_eq!(last_token, "topid1", "traceid 段取 span scope; got: {line:?}");
+        assert_eq!(
+            last_token, "topid1",
+            "traceid 段取 span scope; got: {line:?}"
+        );
         // extra 里不能有 trace_id=fromevent（去重生效）。
         assert!(
             !line.contains("trace_id=fromevent"),
@@ -917,7 +987,10 @@ mod tests {
             "spawn_traced child must inherit parent prefix; got {tid:?}"
         );
         let suffix = tid.strip_prefix("parent.").unwrap_or("");
-        assert!(is_root_id(suffix), "child suffix must be 6 [0-9a-z]; got {suffix:?}");
+        assert!(
+            is_root_id(suffix),
+            "child suffix must be 6 [0-9a-z]; got {suffix:?}"
+        );
         // 反向 grep 契约: 用 parent prefix 能命中 child。
         let _ = parent_tid; // parent prefix 字符串在断言里直接用字面量
     }
@@ -944,7 +1017,10 @@ mod tests {
         let tid = captured.lock().unwrap().clone().unwrap_or_default();
         // 格式: root(6).suffix(6)
         let dot = tid.rfind('.').unwrap_or(usize::MAX);
-        assert!(dot < tid.len(), "orphan child must contain '.', got {tid:?}");
+        assert!(
+            dot < tid.len(),
+            "orphan child must contain '.', got {tid:?}"
+        );
         let (root, suffix) = tid.split_at(dot);
         let suffix = &suffix[1..]; // skip '.'
         assert!(

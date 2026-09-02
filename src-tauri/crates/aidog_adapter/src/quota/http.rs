@@ -92,7 +92,14 @@ pub fn now_millis() -> i64 {
 
 pub fn err_quota(msg: &str) -> PlatformQuota {
     tracing::warn!(error = %msg, "quota query failed");
-    PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
+    PlatformQuota {
+        success: false,
+        error: Some(msg.to_string()),
+        queried_at: now_millis(),
+        balance: None,
+        coding_plan: None,
+        newapi_user_id: None,
+    }
 }
 
 /// 系统代理感知的 client 构建器（aidog_core 启动时注入 build_http_client_system；
@@ -157,7 +164,10 @@ pub(super) async fn quota_script_request(
         }
     };
     if !(200..300).contains(&status) {
-        let msg = format!("HTTP {status}: {}", text.chars().take(500).collect::<String>());
+        let msg = format!(
+            "HTTP {status}: {}",
+            text.chars().take(500).collect::<String>()
+        );
         persist_quota_log(db, make_quota_log_for_script(url, status, &msg)).await;
         return Err(msg);
     }
@@ -168,9 +178,21 @@ pub(super) async fn quota_script_request(
 
 /// JS 自定义查询脚本出站请求日志（与 make_quota_log 同型，duration/created 简化）。
 /// quota_script_request 单点调用（成功/失败均落）。
-pub fn make_quota_log_for_script(url: &str, upstream_status: u16, body: &str) -> aidog_db::models::ProxyLog {
+pub fn make_quota_log_for_script(
+    url: &str,
+    upstream_status: u16,
+    body: &str,
+) -> aidog_db::models::ProxyLog {
     let created_at = now_millis();
-    let mut log = make_quota_log("", url, upstream_status as i32, body, 0, created_at);
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let mut log = make_quota_log(
+        &request_id,
+        url,
+        upstream_status as i32,
+        body,
+        0,
+        created_at,
+    );
     log.group_key = "[quota:script]".into();
     log
 }
@@ -228,8 +250,8 @@ fn make_quota_log(
 /// 落库 quota 日志 (仅 db 可写时; 测试传 None 跳过)。
 async fn persist_quota_log(db: Option<&Arc<Db>>, log: aidog_db::models::ProxyLog) {
     if let Some(d) = db
-        && let Err(e) = aidog_logs::upsert_proxy_log(d, log).await {
-            tracing::warn!(error = %e, "persist quota log failed");
-        }
+        && let Err(e) = aidog_logs::upsert_proxy_log(d, log).await
+    {
+        tracing::warn!(error = %e, "persist quota log failed");
+    }
 }
-

@@ -22,12 +22,12 @@ mod scripts;
 
 // 对外路径保持不变（`gateway::hooks::X`）：re-export 各子模块的公开项。
 pub use claude_code::{
-    hooks_marker_enabled, inject_claude_code_hooks, remove_claude_code_hooks, MARKER_HOOKS,
+    MARKER_HOOKS, hooks_marker_enabled, inject_claude_code_hooks, remove_claude_code_hooks,
 };
 pub use codex::{inject_codex_notify, remove_codex_notify};
 pub use scripts::{
-    build_event_notify_script, build_hook_script, ScriptPaths, LEGACY_SCRIPT_COMPLETE,
-    LEGACY_SCRIPT_WAITING, SCRIPT_COMPLETE, SCRIPT_EVENT_NOTIFY,
+    LEGACY_SCRIPT_COMPLETE, LEGACY_SCRIPT_WAITING, SCRIPT_COMPLETE, SCRIPT_EVENT_NOTIFY,
+    ScriptPaths, build_event_notify_script, build_hook_script,
 };
 
 /// hook 客户端类型。

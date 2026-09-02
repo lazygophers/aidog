@@ -16,18 +16,42 @@ pub(crate) fn resolve_timeout(
     group: &Group,
     system: &ProxyTimeoutSettings,
 ) -> (u64, u64) {
-    let sys_req = if system.request_timeout_secs > 0 { system.request_timeout_secs } else { 300 };
-    let sys_conn = if system.connect_timeout_secs > 0 { system.connect_timeout_secs } else { 10 };
+    let sys_req = if system.request_timeout_secs > 0 {
+        system.request_timeout_secs
+    } else {
+        300
+    };
+    let sys_conn = if system.connect_timeout_secs > 0 {
+        system.connect_timeout_secs
+    } else {
+        10
+    };
 
     let (grp_req, grp_conn) = (
-        if group.request_timeout_secs > 0 { group.request_timeout_secs } else { sys_req },
-        if group.connect_timeout_secs > 0 { group.connect_timeout_secs } else { sys_conn },
+        if group.request_timeout_secs > 0 {
+            group.request_timeout_secs
+        } else {
+            sys_req
+        },
+        if group.connect_timeout_secs > 0 {
+            group.connect_timeout_secs
+        } else {
+            sys_conn
+        },
     );
 
     match mapping {
         Some(m) => (
-            if m.request_timeout_secs > 0 { m.request_timeout_secs } else { grp_req },
-            if m.connect_timeout_secs > 0 { m.connect_timeout_secs } else { grp_conn },
+            if m.request_timeout_secs > 0 {
+                m.request_timeout_secs
+            } else {
+                grp_req
+            },
+            if m.connect_timeout_secs > 0 {
+                m.connect_timeout_secs
+            } else {
+                grp_conn
+            },
         ),
         None => (grp_req, grp_conn),
     }
@@ -39,28 +63,41 @@ mod tests {
     use crate::gateway::models::{Group, ModelMapping, RoutingMode};
 
     fn system(req: u64, conn: u64) -> ProxyTimeoutSettings {
-        ProxyTimeoutSettings { request_timeout_secs: req, connect_timeout_secs: conn }
+        ProxyTimeoutSettings {
+            request_timeout_secs: req,
+            connect_timeout_secs: conn,
+        }
     }
 
     fn group_with(req: u64, conn: u64) -> Group {
         Group {
-            id: 1, name: "g".into(), group_key: "gk".into(),
+            id: 1,
+            name: "g".into(),
+            group_key: "gk".into(),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: String::new(),
-            created_at: 0, updated_at: 0, deleted_at: 0,
-            request_timeout_secs: req, connect_timeout_secs: conn,
+            created_at: 0,
+            updated_at: 0,
+            deleted_at: 0,
+            request_timeout_secs: req,
+            connect_timeout_secs: conn,
             source_protocol: "anthropic".into(),
-            sort_order: 0, max_retries: 2,
-            model_mappings: vec![], is_default: false,
-            env_vars: vec![], extra: String::new(),
+            sort_order: 0,
+            max_retries: 2,
+            model_mappings: vec![],
+            is_default: false,
+            env_vars: vec![],
+            extra: String::new(),
         }
     }
 
     fn mapping_with(req: u64, conn: u64) -> ModelMapping {
         ModelMapping {
-            source_model: "m".into(), target_model: "m".into(),
+            source_model: "m".into(),
+            target_model: "m".into(),
             target_platform_id: 1,
-            request_timeout_secs: req, connect_timeout_secs: conn,
+            request_timeout_secs: req,
+            connect_timeout_secs: conn,
         }
     }
 

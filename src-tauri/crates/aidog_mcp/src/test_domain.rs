@@ -4,7 +4,7 @@
 // 提前 drop 会让并行测试线程交叉改 HOME → 串话。故有意保留 std Mutex 守卫跨 await。
 #![allow(clippy::await_holding_lock)]
 use super::*;
-use aidog_db::test_support::{test_db, HomeGuard};
+use aidog_db::test_support::{HomeGuard, test_db};
 use std::collections::BTreeMap;
 
 fn payload(name: &str) -> McpUpdatePayload {

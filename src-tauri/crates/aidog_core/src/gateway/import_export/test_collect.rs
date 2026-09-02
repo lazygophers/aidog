@@ -1,6 +1,6 @@
 //! 导出收集器覆盖：各 scope 从 DB + FS 组装 Payload。HOME 隔离保证 codex/claude_code/skills 读 tempdir。
 use super::*;
-use aidog_db::test_support::{sample_platform, test_db, HomeGuard};
+use aidog_db::test_support::{HomeGuard, sample_platform, test_db};
 
 fn all_scopes() -> Vec<String> {
     [
@@ -35,12 +35,9 @@ async fn collect_platform_and_group_and_pairs() {
     let plat = aidog_db::create_platform(&db, sample_platform("p"))
         .await
         .unwrap();
-    let grp = aidog_db::create_group(
-        &db,
-        aidog_db::test_support::sample_group("g", vec![]),
-    )
-    .await
-    .unwrap();
+    let grp = aidog_db::create_group(&db, aidog_db::test_support::sample_group("g", vec![]))
+        .await
+        .unwrap();
     aidog_db::set_group_platforms(
         &db,
         grp.id,
@@ -80,7 +77,11 @@ async fn collect_settings_scope() {
     let p = collect::collect(&db, &[SCOPE_SETTING.to_string()])
         .await
         .unwrap();
-    assert!(p.setting.iter().any(|[s, k, _]| s == "app" && k == "locale"));
+    assert!(
+        p.setting
+            .iter()
+            .any(|[s, k, _]| s == "app" && k == "locale")
+    );
 }
 
 #[tokio::test]
@@ -141,11 +142,13 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
     // model_entry（scope 字符串仍叫 model_price，行形状自票 T4 起是 ModelEntry）
     aidog_db::upsert_model_entries(
         &db,
-        vec![aidog_db::model_entry_from_json(
-            "openai",
-            r#"{"model_id":"gpt-test","price":{"input":0.000001},"max_output_tokens":2000}"#,
-        )
-        .unwrap()],
+        vec![
+            aidog_db::model_entry_from_json(
+                "openai",
+                r#"{"model_id":"gpt-test","price":{"input":0.000001},"max_output_tokens":2000}"#,
+            )
+            .unwrap(),
+        ],
     )
     .await
     .unwrap();
@@ -235,7 +238,9 @@ async fn collect_platform_strips_empty_extra_and_runtime() {
     insert_platform_with_extra(&db, "empty-braces", "{}").await;
     insert_platform_with_extra(&db, "empty-string", "").await;
 
-    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()])
+        .await
+        .unwrap();
     assert_eq!(p.platform.len(), 2, "应收集 2 个平台");
 
     for plat in &p.platform {
@@ -265,7 +270,10 @@ async fn collect_platform_strips_empty_extra_and_runtime() {
             !obj.contains_key("available_models"),
             "空 available_models 应省略: {plat}"
         );
-        assert!(!obj.contains_key("endpoints"), "空 endpoints 应省略: {plat}");
+        assert!(
+            !obj.contains_key("endpoints"),
+            "空 endpoints 应省略: {plat}"
+        );
         // 核心配置字段保留。
         assert!(obj.contains_key("name"));
         assert!(obj.contains_key("platform_type"));
@@ -286,7 +294,9 @@ async fn collect_platform_extra_as_object() {
     )
     .await;
 
-    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()])
+        .await
+        .unwrap();
     assert_eq!(p.platform.len(), 1);
     let plat = &p.platform[0];
     let extra = plat.get("extra").expect("非空 extra 应保留");
@@ -306,13 +316,12 @@ async fn collect_platform_invalid_extra_falls_back_to_omit() {
     let db = test_db().await;
     insert_platform_with_extra(&db, "bad-json", "not-valid-json").await;
 
-    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()])
+        .await
+        .unwrap();
     assert_eq!(p.platform.len(), 1);
     let plat = &p.platform[0];
-    assert!(
-        plat.get("extra").is_none(),
-        "非法 extra 应兜底省略: {plat}"
-    );
+    assert!(plat.get("extra").is_none(), "非法 extra 应兜底省略: {plat}");
 }
 
 /// 导出清洗：仅空白字符的 extra → 省略。
@@ -322,7 +331,9 @@ async fn collect_platform_whitespace_only_extra_omitted() {
     let db = test_db().await;
     insert_platform_with_extra(&db, "ws-only", "   ").await;
 
-    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()])
+        .await
+        .unwrap();
     assert_eq!(p.platform.len(), 1);
     assert!(p.platform[0].get("extra").is_none());
 }
@@ -342,7 +353,9 @@ async fn collect_platform_strips_ui_keys_from_extra() {
     // 仅含 `_ui_*` → strip 后空 obj → 省略（与「空 extra 省略」对称）。
     insert_platform_with_extra(&db, "ui-only", r#"{"_ui_collapsed":true}"#).await;
 
-    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()])
+        .await
+        .unwrap();
     assert_eq!(p.platform.len(), 2);
 
     let with_ui = p

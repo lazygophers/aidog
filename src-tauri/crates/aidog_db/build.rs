@@ -46,12 +46,19 @@ fn main() {
     codes.sort();
 
     for dir in codes {
-        let code = dir.file_name().expect("code").to_string_lossy().into_owned();
+        let code = dir
+            .file_name()
+            .expect("code")
+            .to_string_lossy()
+            .into_owned();
 
         let platform_json = dir.join("platform.json");
         if platform_json.exists() {
             println!("cargo:rerun-if-changed={}", platform_json.display());
-            let _ = writeln!(platform_files, "    ({code:?}, include_str!({platform_json:?})),");
+            let _ = writeln!(
+                platform_files,
+                "    ({code:?}, include_str!({platform_json:?})),"
+            );
         }
 
         let models_dir = dir.join("models");
@@ -80,6 +87,7 @@ fn main() {
          pub static MODEL_FILES: &[(&str, &str, &str)] = &[\n{model_files}];\n"
     );
 
-    let out = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("registry_includes.rs");
+    let out =
+        PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("registry_includes.rs");
     std::fs::write(&out, src).expect("write registry_includes.rs");
 }

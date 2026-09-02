@@ -7,9 +7,15 @@ fn fmt_caller_uses_basename_and_line() {
     let loc = std::panic::Location::caller(); // 本测试函数所在位置
     let out = fmt_caller(loc);
     // 形如 "<basename>.rs:<line>"：仅文件名末段（无路径分隔符）+ 冒号 + 数字行号。
-    assert!(!out.contains('/') && !out.contains('\\'), "应只含文件名末段, got {out}");
+    assert!(
+        !out.contains('/') && !out.contains('\\'),
+        "应只含文件名末段, got {out}"
+    );
     assert!(out.contains(".rs:"), "got {out}");
-    assert!(out.rsplit(':').next().unwrap().parse::<u32>().is_ok(), "got {out}");
+    assert!(
+        out.rsplit(':').next().unwrap().parse::<u32>().is_ok(),
+        "got {out}"
+    );
 }
 
 /// 空上下文（无 call_traced 设置）→ profile 回调取值应回退为 "-"。

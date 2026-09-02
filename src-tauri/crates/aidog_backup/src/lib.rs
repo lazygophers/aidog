@@ -21,7 +21,7 @@ pub use scheduler::{run_backup, spawn_scheduler};
 use aidog_db as db;
 use serde::{Deserialize, Serialize};
 
-use aidog_db::{Db};
+use aidog_db::Db;
 // TODO-unknown: self
 use aidog_core::gateway::import_export;
 use aidog_core::gateway::models::SetSettingInput;
@@ -125,7 +125,8 @@ impl BackupSettings {
 
     /// 写入 db (全字段 upsert)。
     pub async fn save(&self, db: &Db) -> Result<(), String> {
-        let value = serde_json::to_value(self).map_err(|e| format!("serialize backup settings: {e}"))?;
+        let value =
+            serde_json::to_value(self).map_err(|e| format!("serialize backup settings: {e}"))?;
         db::set_setting(
             db,
             SetSettingInput {

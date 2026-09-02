@@ -1,11 +1,11 @@
 // 通用导入：声明为 pub(crate) use，子模块通过 `use super::*;` 复用，避免逐文件重复 import。
 pub(crate) use axum::{
+    Json, Router,
     body::{Body, Bytes},
     extract::{Request, State as AxumState},
     http::StatusCode,
     response::{IntoResponse, Response},
     routing::{get, post},
-    Json, Router,
 };
 pub(crate) use futures::StreamExt;
 pub(crate) use serde_json::Value;
@@ -15,23 +15,22 @@ pub(crate) use tracing::Instrument;
 // gateway 子模块整体 re-export：保证子模块内 `aidog_db::X` / `super::estimate::Y` 等
 // 完整路径解析（原 proxy.rs 的 super=gateway，拆分后子模块 super=proxy，靠此 re-export 等价）。
 pub(crate) use super::{
-    estimate, http_client, log_util, manual_budget, models, router,
-    scheduling, usage_color,
+    estimate, http_client, log_util, manual_budget, models, router, scheduling, usage_color,
 };
 
-pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
-pub(crate) use aidog_db::Db;
 pub(crate) use super::i18n::{self, ErrorKey, Lang};
-pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
 pub(crate) use super::models::{
     ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings,
 };
-pub(crate) use super::router::{select_candidates_ctx, RouteResult, ScheduleCtx};
+pub(crate) use super::router::{RouteResult, ScheduleCtx, select_candidates_ctx};
+pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
+pub(crate) use aidog_db::Db;
+pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
 
 mod bench;
 mod builtin_tools;
-mod count_tokens;
 mod connect;
+mod count_tokens;
 mod devin;
 mod endpoint;
 mod finish;
@@ -39,11 +38,11 @@ mod forward;
 mod group_info;
 mod handler;
 mod headers;
-mod non_success;
 mod health;
 mod log;
 mod middleware_body;
 mod mock;
+mod non_success;
 mod notify;
 mod passthrough;
 mod responses;
@@ -54,17 +53,17 @@ mod timeout;
 mod tokenizer;
 
 #[cfg(test)]
-mod test_integration;
+mod test_agg_dedup;
 #[cfg(test)]
-mod test_group_info;
+mod test_bind;
 #[cfg(test)]
 mod test_connect;
 #[cfg(test)]
 mod test_e2e_mitm;
 #[cfg(test)]
-mod test_agg_dedup;
+mod test_group_info;
 #[cfg(test)]
-mod test_bind;
+mod test_integration;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
@@ -84,55 +83,54 @@ pub use headers::redact_key;
 pub use passthrough::{apply_models_auth, build_models_url};
 
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
+pub(crate) use bench::handle_bench_query;
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
-    detect_source_protocol, infer_passthrough_protocol_from_ua,
-    match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
+    detect_source_protocol, infer_passthrough_protocol_from_ua, match_platform_by_host,
+    model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
     should_fallback_passthrough,
 };
-pub(crate) use finish::{finish_nonstream, finish_stream, AttemptCtx};
-pub(crate) use forward::{forward_attempt, AttemptOutcome};
-pub(crate) use non_success::handle_non_success;
-pub(crate) use bench::handle_bench_query;
+pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
+pub(crate) use forward::{AttemptOutcome, forward_attempt};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     format_pretty_json, inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
     passthrough_headers,
 };
+pub(crate) use non_success::handle_non_success;
 // is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
 #[allow(unused_imports)]
 pub(crate) use headers::is_official_anthropic_host;
 pub(crate) use health::{handle_root, is_hello_endpoint};
 // remove_log_snapshot/spawn_log_writer/LogMsg 仅测试文件 unqualified 消费（本 mod.rs 走 log:: 全限定路径）；
 // 非 test cfg 下重导出未被引用，同 is_official_anthropic_host 先例 allow。
-#[allow(unused_imports)]
-pub(crate) use log::{
-    block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, spawn_log_writer,
-    upsert_connect_log, upsert_log, LogMsg,
-};
 #[cfg(test)]
 pub(crate) use log::flush_log_queue;
+#[allow(unused_imports)]
+pub(crate) use log::{
+    LogMsg, block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, spawn_log_writer,
+    upsert_connect_log, upsert_log,
+};
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
-    STATIC_MODEL_IDS,
-    build_url_from_host, forward_passthrough_to_orig_host, handle_models_static,
+    STATIC_MODEL_IDS, build_url_from_host, forward_passthrough_to_orig_host, handle_models_static,
     handle_passthrough, is_models_endpoint,
 };
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
-    classify_429, classify_stream_first, err_chain, extract_error_message,
-    filter_upstream_resp_headers, is_nonstream_body_valid, is_status_retryable,
-    is_transport_retryable, resp_headers_to_log_json, transport_retry_backoff,
-    truncate_attempt_error, truncate_peek_text, StreamPeek, TRANSPORT_RETRY_MAX,
+    StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first, err_chain,
+    extract_error_message, filter_upstream_resp_headers, is_nonstream_body_valid,
+    is_status_retryable, is_transport_retryable, resp_headers_to_log_json, transport_retry_backoff,
+    truncate_attempt_error, truncate_peek_text,
 };
+pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};
 pub(crate) use stream::{
+    SseLineReassembler, StreamAggregator, StreamEstCtx, StreamLogGuard, Utf8ChunkReassembler,
     cap_nonstream_body, extract_usage, replace_model_in_json, replace_model_in_sse_text,
-    resolve_is_stream, StreamAggregator, StreamEstCtx, StreamLogGuard, SseLineReassembler,
-    Utf8ChunkReassembler,
+    resolve_is_stream,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
-pub(crate) use settings_cache::{register as register_settings_cache, ProxySettingsCache};
 
 /// 从 DB 读取 app locale，失败则回退英文
 pub(crate) async fn get_lang(db: &Db) -> Lang {
@@ -175,7 +173,10 @@ pub struct ProxyState {
     /// 容量上限 AGG_DEDUP_CAP，超限按 FIFO 淘汰最旧 id（同一请求的多次终态调用集中在极短窗口，
     /// 只要窗口覆盖住实际并发量，淘汰不会误判）。HashSet 判存 + VecDeque 记顺序。
     /// 容量取值依据见 AGG_DEDUP_CAP 定义处注释。
-    pub agg_done: std::sync::Mutex<(std::collections::VecDeque<String>, std::collections::HashSet<String>)>,
+    pub agg_done: std::sync::Mutex<(
+        std::collections::VecDeque<String>,
+        std::collections::HashSet<String>,
+    )>,
     /// 代理实际监听地址（bind_ip, port）。start_proxy 绑定成功后填入，
     /// 供 fallback 直通判定识别「代理自身 host 直连」vs「MITM 解密灌入」（Host ≠ 自身）。
     /// None = 未启动 / 测试构造的 state；fallback 走保守分支（不直通，保留 404）。
@@ -294,7 +295,10 @@ pub async fn start_proxy(
             scheduler: Arc::new(super::scheduling::SchedulerState::new()),
             sticky: Arc::new(super::scheduling::StickyTable::new()),
             log_snapshots: dashmap::DashMap::new(),
-            agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+            agg_done: std::sync::Mutex::new((
+                std::collections::VecDeque::new(),
+                std::collections::HashSet::new(),
+            )),
             listen_addr: std::sync::OnceLock::new(),
             settings_cache,
             log_tx,
@@ -304,7 +308,11 @@ pub async fn start_proxy(
 
     // bind_lan=true → 0.0.0.0（局域网其他设备可连，靠 group_key Bearer 鉴权兜底）
     // bind_lan=false → 127.0.0.1（仅本机）
-    let bind_ip: [u8; 4] = if bind_lan { [0, 0, 0, 0] } else { [127, 0, 0, 1] };
+    let bind_ip: [u8; 4] = if bind_lan {
+        [0, 0, 0, 0]
+    } else {
+        [127, 0, 0, 1]
+    };
     let addr = std::net::SocketAddr::from((bind_ip, port));
     let listener = match tokio::net::TcpListener::bind(addr).await {
         Ok(l) => l,
@@ -323,7 +331,9 @@ pub async fn start_proxy(
     // 记录实际监听地址供 fallback 直通判定（识别代理自身 host vs MITM 解密灌入）。
     // OnceLock：bind 成功后地址不变，忽略 set 失败（state 被复用场景理论不存在）。
     let _ = state.listen_addr.set((
-        std::net::IpAddr::V4(std::net::Ipv4Addr::new(bind_ip[0], bind_ip[1], bind_ip[2], bind_ip[3])),
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(
+            bind_ip[0], bind_ip[1], bind_ip[2], bind_ip[3],
+        )),
         port,
     ));
 

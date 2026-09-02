@@ -200,9 +200,13 @@ fn model_roundtrip_preserved_all_directions() {
             let (out, path) = convert_request(&req, &tgt_proto, &Protocol::OpenAI);
             // Gemini 官方形态 model 在 URL 路径段（body 无 model 字段），按协议约定分别断言
             let carried = if tgt_name == "gemini" {
-                path.contains(&req.model).then_some(String::new()).map(|_| path.clone())
+                path.contains(&req.model)
+                    .then_some(String::new())
+                    .map(|_| path.clone())
             } else {
-                out.get("model").and_then(|m| m.as_str()).map(str::to_string)
+                out.get("model")
+                    .and_then(|m| m.as_str())
+                    .map(str::to_string)
             };
             let Some(carried) = carried else {
                 panic!("{src_name} → {tgt_name}: model 丢失（body 与 path 均无）");
@@ -217,7 +221,10 @@ fn model_roundtrip_preserved_all_directions() {
 // ═══ ticket 02：入站参数提取 round-trip ═══
 
 /// 参数保留断言：目标 body 按协议形态抽三参（Gemini 走 generationConfig camelCase）
-fn params_of(target: &Protocol, body: &serde_json::Value) -> (Option<u32>, Option<f32>, Option<f32>) {
+fn params_of(
+    target: &Protocol,
+    body: &serde_json::Value,
+) -> (Option<u32>, Option<f32>, Option<f32>) {
     match target {
         Protocol::Gemini => {
             let g = &body["generationConfig"];
@@ -268,7 +275,11 @@ fn ticket02_params_roundtrip_all_sources_to_three_targets() {
         let req = parse_incoming_request(&src_proto, &body)
             .unwrap_or_else(|e| panic!("{src_name} parse failed: {e}"));
         assert_eq!(req.max_tokens, Some(777), "{src_name}: parse 丢 max_tokens");
-        assert_eq!(req.temperature, Some(0.5), "{src_name}: parse 丢 temperature");
+        assert_eq!(
+            req.temperature,
+            Some(0.5),
+            "{src_name}: parse 丢 temperature"
+        );
         assert_eq!(req.top_p, Some(0.9), "{src_name}: parse 丢 top_p");
         for (tgt_name, tgt_proto) in [
             ("anthropic", Protocol::Anthropic),
@@ -277,7 +288,11 @@ fn ticket02_params_roundtrip_all_sources_to_three_targets() {
         ] {
             let (out, _) = convert_request(&req, &tgt_proto, &Protocol::OpenAI);
             let (mx, t, p) = params_of(&tgt_proto, &out);
-            assert_eq!(mx, Some(777), "{src_name} → {tgt_name}: max_tokens 丢失, body: {out}");
+            assert_eq!(
+                mx,
+                Some(777),
+                "{src_name} → {tgt_name}: max_tokens 丢失, body: {out}"
+            );
             assert_eq!(t, Some(0.5), "{src_name} → {tgt_name}: temperature 丢失");
             assert_eq!(p, Some(0.9), "{src_name} → {tgt_name}: top_p 丢失");
         }
@@ -293,7 +308,10 @@ fn ticket02_no_params_no_defaults() {
     });
     let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::OpenAI);
-    assert!(out.get("generationConfig").is_none(), "无参请求 Gemini 不应产 generationConfig: {out}");
+    assert!(
+        out.get("generationConfig").is_none(),
+        "无参请求 Gemini 不应产 generationConfig: {out}"
+    );
 }
 
 // ═══ ticket 03：工具调用 OpenAI↔Anthropic（非流式请求体双向） ═══
@@ -331,28 +349,48 @@ fn ticket03_openai_to_anthropic_tool_roundtrip() {
     assert_eq!(tools.len(), 1);
     assert_eq!(tools[0]["name"], "get_weather");
     assert_eq!(tools[0]["description"], "query weather");
-    assert_eq!(tools[0]["input_schema"]["properties"]["city"]["type"], "string");
+    assert_eq!(
+        tools[0]["input_schema"]["properties"]["city"]["type"],
+        "string"
+    );
 
     // assistant tool_use block：id/name/input(对象)
     let msgs = out["messages"].as_array().expect("messages");
-    let tool_use_msgs: Vec<&Value> = msgs.iter()
-        .filter(|m| m["content"].as_array()
-            .map(|bs| bs.iter().any(|b| b["type"] == "tool_use"))
-            .unwrap_or(false))
+    let tool_use_msgs: Vec<&Value> = msgs
+        .iter()
+        .filter(|m| {
+            m["content"]
+                .as_array()
+                .map(|bs| bs.iter().any(|b| b["type"] == "tool_use"))
+                .unwrap_or(false)
+        })
         .collect();
-    assert_eq!(tool_use_msgs.len(), 1, "应恰一条含 tool_use 的 assistant 消息: {out}");
-    let tu = tool_use_msgs[0]["content"].as_array().unwrap().iter()
-        .find(|b| b["type"] == "tool_use").unwrap();
+    assert_eq!(
+        tool_use_msgs.len(),
+        1,
+        "应恰一条含 tool_use 的 assistant 消息: {out}"
+    );
+    let tu = tool_use_msgs[0]["content"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["type"] == "tool_use")
+        .unwrap();
     assert_eq!(tu["id"], "call_w1");
     assert_eq!(tu["name"], "get_weather");
     assert_eq!(tu["input"]["city"], "Beijing");
 
     // user tool_result block：tool_use_id 关联
-    let tr = msgs.iter()
-        .filter_map(|m| m["content"].as_array()
-            .map(|bs| bs.iter().find(|b| b["type"] == "tool_result").cloned())
-            .unwrap_or(None))
-        .next().expect("tool_result block 缺失");
+    let tr = msgs
+        .iter()
+        .filter_map(|m| {
+            m["content"]
+                .as_array()
+                .map(|bs| bs.iter().find(|b| b["type"] == "tool_result").cloned())
+                .unwrap_or(None)
+        })
+        .next()
+        .expect("tool_result block 缺失");
     assert_eq!(tr["tool_use_id"], "call_w1");
     assert!(tr["content"].as_str().unwrap().contains("temp"));
 }
@@ -383,21 +421,31 @@ fn ticket03_anthropic_to_openai_tool_roundtrip() {
 
     let tools = out["tools"].as_array().expect("openai tools");
     assert_eq!(tools[0]["function"]["name"], "get_weather");
-    assert_eq!(tools[0]["function"]["parameters"]["properties"]["city"]["type"], "string");
+    assert_eq!(
+        tools[0]["function"]["parameters"]["properties"]["city"]["type"],
+        "string"
+    );
 
     let msgs = out["messages"].as_array().unwrap();
     // assistant tool_calls：arguments 是合法 JSON 字符串且语义等价
-    let asst = msgs.iter().find(|m| m["role"] == "assistant" && m["tool_calls"].is_array())
+    let asst = msgs
+        .iter()
+        .find(|m| m["role"] == "assistant" && m["tool_calls"].is_array())
         .expect("assistant tool_calls 消息缺失");
     let tc = &asst["tool_calls"][0];
     assert_eq!(tc["id"], "call_w1");
     assert_eq!(tc["function"]["name"], "get_weather");
-    let args = tc["function"]["arguments"].as_str().expect("arguments 须为字符串");
+    let args = tc["function"]["arguments"]
+        .as_str()
+        .expect("arguments 须为字符串");
     let parsed: Value = serde_json::from_str(args).expect("arguments 须为合法 JSON");
     assert_eq!(parsed["city"], "Beijing");
 
     // tool message：tool_call_id 关联
-    let tool_msg = msgs.iter().find(|m| m["role"] == "tool").expect("tool 消息缺失");
+    let tool_msg = msgs
+        .iter()
+        .find(|m| m["role"] == "tool")
+        .expect("tool 消息缺失");
     assert_eq!(tool_msg["tool_call_id"], "call_w1");
     assert!(tool_msg["content"].as_str().unwrap().contains("temp"));
 }
@@ -430,7 +478,8 @@ fn ticket03_multiple_tool_uses_no_id_mixup() {
 /// 无工具请求行为不变（守卫式）
 #[test]
 fn ticket03_no_tools_unchanged() {
-    let body = json!({"model": "m", "max_tokens": 10, "messages": [{"role": "user", "content": "hi"}]});
+    let body =
+        json!({"model": "m", "max_tokens": 10, "messages": [{"role": "user", "content": "hi"}]});
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert!(out.get("tools").is_none());
@@ -444,14 +493,21 @@ fn ticket04_tool_choice_openai_to_anthropic() {
         (json!("auto"), "auto", None),
         (json!("none"), "none", None),
         (json!("required"), "any", None),
-        (json!({"type": "function", "function": {"name": "get_weather"}}), "tool", Some("get_weather")),
+        (
+            json!({"type": "function", "function": {"name": "get_weather"}}),
+            "tool",
+            Some("get_weather"),
+        ),
     ] {
         let mut body = openai_tool_body();
         body["tool_choice"] = oa.clone();
         let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::OpenAI);
         let tc = &out["tool_choice"];
-        assert_eq!(tc["type"], expect_type, "tool_choice {oa} → {expect_type} 映射错: {tc}");
+        assert_eq!(
+            tc["type"], expect_type,
+            "tool_choice {oa} → {expect_type} 映射错: {tc}"
+        );
         if let Some(name) = expect_name {
             assert_eq!(tc["name"], name);
         }
@@ -476,14 +532,20 @@ fn ticket05_openai_tools_to_gemini() {
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::OpenAI);
 
     // functionDeclarations
-    let decls = out["tools"][0]["functionDeclarations"].as_array().expect("functionDeclarations");
+    let decls = out["tools"][0]["functionDeclarations"]
+        .as_array()
+        .expect("functionDeclarations");
     assert_eq!(decls[0]["name"], "get_weather");
     assert_eq!(decls[0]["description"], "query weather");
-    assert_eq!(decls[0]["parameters"]["properties"]["city"]["type"], "string");
+    assert_eq!(
+        decls[0]["parameters"]["properties"]["city"]["type"],
+        "string"
+    );
 
     let contents = out["contents"].as_array().unwrap();
     // functionCall part：name + args 对象
-    let fc = contents.iter()
+    let fc = contents
+        .iter()
         .flat_map(|c| c["parts"].as_array().cloned().unwrap_or_default())
         .find(|p| p["functionCall"].is_object())
         .expect("functionCall part 缺失");
@@ -491,13 +553,21 @@ fn ticket05_openai_tools_to_gemini() {
     assert_eq!(fc["functionCall"]["args"]["city"], "Beijing");
 
     // functionResponse part：name = 工具名（非 tool_use_id）
-    let fr = contents.iter()
+    let fr = contents
+        .iter()
         .flat_map(|c| c["parts"].as_array().cloned().unwrap_or_default())
         .find(|p| p["functionResponse"].is_object())
         .expect("functionResponse part 缺失");
-    assert_eq!(fr["functionResponse"]["name"], "get_weather",
-        "Gemini 靠 name 关联 functionResponse ↔ functionCall，禁用 tool_use_id");
-    assert!(fr["functionResponse"]["response"]["result"].as_str().unwrap().contains("temp"));
+    assert_eq!(
+        fr["functionResponse"]["name"], "get_weather",
+        "Gemini 靠 name 关联 functionResponse ↔ functionCall，禁用 tool_use_id"
+    );
+    assert!(
+        fr["functionResponse"]["response"]["result"]
+            .as_str()
+            .unwrap()
+            .contains("temp")
+    );
 }
 
 #[test]
@@ -519,21 +589,59 @@ fn ticket05_gemini_tools_to_openai() {
 
     // tools 定义 parse
     assert_eq!(req.tools.as_ref().expect("tools")[0].name, "get_weather");
-    assert_eq!(req.tools.as_ref().unwrap()[0].input_schema["properties"]["city"]["type"], "string");
+    assert_eq!(
+        req.tools.as_ref().unwrap()[0].input_schema["properties"]["city"]["type"],
+        "string"
+    );
 
     // functionCall → ToolUse（无 id 自生成）；functionResponse → ToolResult（name 回填 id 规则配对）
-    let fc_msg = req.messages.iter().find(|m| m.content.blocks().iter().any(|b| matches!(b, ContentBlock::ToolUse { .. })))
+    let fc_msg = req
+        .messages
+        .iter()
+        .find(|m| {
+            m.content
+                .blocks()
+                .iter()
+                .any(|b| matches!(b, ContentBlock::ToolUse { .. }))
+        })
         .expect("ToolUse 消息缺失");
-    let tu = fc_msg.content.blocks().into_iter()
-        .find_map(|b| if let ContentBlock::ToolUse { id, name, input, .. } = b { Some((id, name, input)) } else { None })
+    let tu = fc_msg
+        .content
+        .blocks()
+        .into_iter()
+        .find_map(|b| {
+            if let ContentBlock::ToolUse {
+                id, name, input, ..
+            } = b
+            {
+                Some((id, name, input))
+            } else {
+                None
+            }
+        })
         .unwrap();
     assert_eq!(tu.1, "get_weather");
     assert_eq!(tu.2["city"], "Beijing");
     assert!(!tu.0.is_empty(), "Gemini 无 id 须自生成");
 
-    let tr = req.messages.iter()
-        .find_map(|m| m.content.blocks().into_iter()
-            .find_map(|b| if let ContentBlock::ToolResult { tool_use_id, content, name, .. } = b { Some((tool_use_id, content, name)) } else { None }))
+    let tr = req
+        .messages
+        .iter()
+        .find_map(|m| {
+            m.content.blocks().into_iter().find_map(|b| {
+                if let ContentBlock::ToolResult {
+                    tool_use_id,
+                    content,
+                    name,
+                    ..
+                } = b
+                {
+                    Some((tool_use_id, content, name))
+                } else {
+                    None
+                }
+            })
+        })
         .expect("ToolResult 消息缺失");
     assert_eq!(tr.2.as_deref(), Some("get_weather"));
     assert!(tr.1.contains("temp"));
@@ -541,13 +649,22 @@ fn ticket05_gemini_tools_to_openai() {
     // → OpenAI 出站：arguments JSON 字符串、tool_call_id 关联
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     let msgs = out["messages"].as_array().unwrap();
-    let asst = msgs.iter().find(|m| m["tool_calls"].is_array()).expect("tool_calls");
+    let asst = msgs
+        .iter()
+        .find(|m| m["tool_calls"].is_array())
+        .expect("tool_calls");
     let tc = &asst["tool_calls"][0];
     assert_eq!(tc["function"]["name"], "get_weather");
     let args: Value = serde_json::from_str(tc["function"]["arguments"].as_str().unwrap()).unwrap();
     assert_eq!(args["city"], "Beijing");
-    let tool_msg = msgs.iter().find(|m| m["role"] == "tool").expect("tool message");
-    assert_eq!(tool_msg["tool_call_id"], tc["id"], "tool_call_id 须与自生成 id 一致");
+    let tool_msg = msgs
+        .iter()
+        .find(|m| m["role"] == "tool")
+        .expect("tool message");
+    assert_eq!(
+        tool_msg["tool_call_id"], tc["id"],
+        "tool_call_id 须与自生成 id 一致"
+    );
 }
 
 // ─── ticket 06: thinking / reasoning 双向 ───
@@ -561,10 +678,17 @@ fn ticket06_anthropic_thinking_switch_outbound() {
         "messages": [{ "role": "user", "content": "hi" }]
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
-    assert_eq!(req.thinking_budget, Some(10240), "入站解析须提取 budget_tokens");
+    assert_eq!(
+        req.thinking_budget,
+        Some(10240),
+        "入站解析须提取 budget_tokens"
+    );
 
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], 10240);
+    assert_eq!(
+        g["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+        10240
+    );
 
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(o["reasoning_effort"], "high", "10240 > 8192 → high");
@@ -585,7 +709,10 @@ fn ticket06_openai_reasoning_effort_outbound() {
     assert_eq!(a["thinking"]["budget_tokens"], req.thinking_budget.unwrap());
 
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], req.thinking_budget.unwrap());
+    assert_eq!(
+        g["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+        req.thinking_budget.unwrap()
+    );
 }
 
 /// Gemini thinkingBudget → 中立 → Anthropic thinking.budget_tokens
@@ -615,7 +742,10 @@ fn ticket06_no_thinking_no_fields() {
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert!(a.get("thinking").is_none());
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert!(g["generationConfig"].get("thinkingConfig").is_none() || g["generationConfig"]["thinkingConfig"].is_null());
+    assert!(
+        g["generationConfig"].get("thinkingConfig").is_none()
+            || g["generationConfig"]["thinkingConfig"].is_null()
+    );
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert!(o.get("reasoning_effort").is_none());
 }
@@ -638,7 +768,12 @@ fn ticket06_thinking_block_anthropic_roundtrip_and_gemini() {
 
     // Anthropic round-trip：thinking block + signature 原样保留
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    let asst = a["messages"].as_array().unwrap().iter().find(|m| m["role"] == "assistant").unwrap();
+    let asst = a["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "assistant")
+        .unwrap();
     let think_block = a_thinking_block(&asst["content"]);
     assert_eq!(think_block["thinking"], "pondering");
     assert_eq!(think_block["signature"], "sig-123", "signature 透传不丢");
@@ -647,8 +782,12 @@ fn ticket06_thinking_block_anthropic_roundtrip_and_gemini() {
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     let contents = g["contents"].as_array().unwrap();
     let model_turn = contents.iter().find(|c| c["role"] == "model").unwrap();
-    let thought = model_turn["parts"].as_array().unwrap().iter()
-        .find(|p| p.get("thought").and_then(|v| v.as_bool()).unwrap_or(false)).unwrap();
+    let thought = model_turn["parts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p.get("thought").and_then(|v| v.as_bool()).unwrap_or(false))
+        .unwrap();
     assert_eq!(thought["text"], "pondering");
 }
 
@@ -672,13 +811,21 @@ fn ticket06_gemini_thought_part_to_anthropic() {
     // 出站 Anthropic：无 signature 降级不回传、不报错
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     let think_any = a["messages"].as_array().unwrap().iter().any(|m| {
-        m["content"].as_array().map(|arr| arr.iter().any(|b| b["type"] == "thinking")).unwrap_or(false)
+        m["content"]
+            .as_array()
+            .map(|arr| arr.iter().any(|b| b["type"] == "thinking"))
+            .unwrap_or(false)
     });
     assert!(!think_any, "无 signature thinking block 降级不回传");
 }
 
 fn a_thinking_block(content: &Value) -> &Value {
-    content.as_array().unwrap().iter().find(|b| b["type"] == "thinking").unwrap()
+    content
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|b| b["type"] == "thinking")
+        .unwrap()
 }
 
 // ─── ticket 09: 多模态图片双向 ───
@@ -713,7 +860,10 @@ fn ticket09_openai_image_outbound() {
     assert_eq!(parts[0]["text"], "看图");
     assert_eq!(parts[1]["inlineData"]["mimeType"], "image/png");
     assert_eq!(parts[1]["inlineData"]["data"], "QUJD");
-    assert_eq!(parts[2]["fileData"]["fileUri"], "https://example.com/cat.jpg");
+    assert_eq!(
+        parts[2]["fileData"]["fileUri"],
+        "https://example.com/cat.jpg"
+    );
 }
 
 /// Anthropic image(base64/url) → 中立 → OpenAI image_url(data URL 重组 / 原 url)
@@ -729,10 +879,15 @@ fn ticket09_anthropic_image_to_openai() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    let arr = o["messages"][0]["content"].as_array().expect("带图消息须用数组 content");
+    let arr = o["messages"][0]["content"]
+        .as_array()
+        .expect("带图消息须用数组 content");
     let imgs: Vec<&Value> = arr.iter().filter(|b| b["type"] == "image_url").collect();
     assert_eq!(imgs.len(), 2);
-    assert_eq!(imgs[0]["image_url"]["url"], "data:image/jpeg;base64,RGVG", "base64 须重组 data URL");
+    assert_eq!(
+        imgs[0]["image_url"]["url"], "data:image/jpeg;base64,RGVG",
+        "base64 须重组 data URL"
+    );
     assert_eq!(imgs[1]["image_url"]["url"], "https://example.com/dog.png");
 }
 
@@ -769,7 +924,6 @@ fn ticket09_text_only_no_regression() {
     assert_eq!(o["messages"][0]["content"], "hi", "纯文本数组折叠回字符串");
 }
 
-
 // ─── ticket 07: 富流式 SSE parse 侧 ───
 
 use crate::converter::response::parse_upstream_sse;
@@ -789,26 +943,59 @@ fn ticket07_anthropic_sse_mixed_events() {
         "data: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"tool_use\"}}\n\n",
     );
     let evs = parse_upstream_sse(raw, &Protocol::Anthropic);
-    let kinds: Vec<&str> = evs.iter().map(|e| match e {
-        ChatStreamEvent::Start { .. } => "start",
-        ChatStreamEvent::Delta { .. } => "delta",
-        ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
-        ChatStreamEvent::ToolDelta { .. } => "tool",
-        ChatStreamEvent::Stop { .. } => "stop",
-        ChatStreamEvent::Usage { .. } => "usage",
-    }).collect();
-    assert_eq!(kinds, vec!["start", "delta", "reasoning", "tool", "tool", "tool", "stop"]);
+    let kinds: Vec<&str> = evs
+        .iter()
+        .map(|e| match e {
+            ChatStreamEvent::Start { .. } => "start",
+            ChatStreamEvent::Delta { .. } => "delta",
+            ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
+            ChatStreamEvent::ToolDelta { .. } => "tool",
+            ChatStreamEvent::Stop { .. } => "stop",
+            ChatStreamEvent::Usage { .. } => "usage",
+        })
+        .collect();
+    assert_eq!(
+        kinds,
+        vec![
+            "start",
+            "delta",
+            "reasoning",
+            "tool",
+            "tool",
+            "tool",
+            "stop"
+        ]
+    );
 
     // ToolDelta 三段语义：start 带 id/name；两段 partial_json 分片
-    let tools: Vec<_> = evs.iter().filter_map(|e| if let ChatStreamEvent::ToolDelta { index, id, name, input } = e {
-        Some((*index, id.clone(), name.clone(), input.clone()))
-    } else { None }).collect();
-    assert_eq!(tools[0], (2, Some("tu_1".into()), Some("get_weather".into()), None));
+    let tools: Vec<_> = evs
+        .iter()
+        .filter_map(|e| {
+            if let ChatStreamEvent::ToolDelta {
+                index,
+                id,
+                name,
+                input,
+            } = e
+            {
+                Some((*index, id.clone(), name.clone(), input.clone()))
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(
+        tools[0],
+        (2, Some("tu_1".into()), Some("get_weather".into()), None)
+    );
     assert_eq!(tools[1].3.as_deref(), Some("{\"city\":"));
     assert_eq!(tools[2].3.as_deref(), Some("\"BJ\"}"));
     // 分片聚合后合法 JSON
     let joined: String = tools[1..].iter().filter_map(|t| t.3.clone()).collect();
-    assert_eq!(serde_json::from_str::<serde_json::Value>(&joined).unwrap()["city"], "BJ");
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&joined).unwrap()["city"],
+        "BJ"
+    );
 }
 
 /// OpenAI 真实 SSE chunk 序列 → 中立事件序列（reasoning_content + tool_calls 分片）
@@ -824,24 +1011,46 @@ fn ticket07_openai_sse_mixed_events() {
     );
     let evs = parse_upstream_sse(raw, &Protocol::OpenAI);
     // 首 chunk role-only delta → 无事件（无 content/tool）也 OK；断言语义序列
-    let kinds: Vec<&str> = evs.iter().map(|e| match e {
-        ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
-        ChatStreamEvent::Delta { .. } => "delta",
-        ChatStreamEvent::ToolDelta { .. } => "tool",
-        ChatStreamEvent::Stop { .. } => "stop",
-        _ => "other",
-    }).collect();
-    assert!(kinds.contains(&"reasoning"), "须有 reasoning 事件: {kinds:?}");
+    let kinds: Vec<&str> = evs
+        .iter()
+        .map(|e| match e {
+            ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
+            ChatStreamEvent::Delta { .. } => "delta",
+            ChatStreamEvent::ToolDelta { .. } => "tool",
+            ChatStreamEvent::Stop { .. } => "stop",
+            _ => "other",
+        })
+        .collect();
+    assert!(
+        kinds.contains(&"reasoning"),
+        "须有 reasoning 事件: {kinds:?}"
+    );
     assert!(kinds.contains(&"delta"));
     assert_eq!(kinds.iter().filter(|k| **k == "tool").count(), 2);
     assert!(kinds.contains(&"stop"), "[DONE] → stop");
 
-    let tools: Vec<_> = evs.iter().filter_map(|e| if let ChatStreamEvent::ToolDelta { id, name, input, .. } = e {
-        Some((id.clone(), name.clone(), input.clone()))
-    } else { None }).collect();
-    assert_eq!(tools[0], (Some("call_1".into()), Some("f".into()), Some("".into())));
+    let tools: Vec<_> = evs
+        .iter()
+        .filter_map(|e| {
+            if let ChatStreamEvent::ToolDelta {
+                id, name, input, ..
+            } = e
+            {
+                Some((id.clone(), name.clone(), input.clone()))
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(
+        tools[0],
+        (Some("call_1".into()), Some("f".into()), Some("".into()))
+    );
     let args: String = tools.iter().filter_map(|t| t.2.clone()).collect();
-    assert_eq!(serde_json::from_str::<serde_json::Value>(&args).unwrap()["a"], 1);
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&args).unwrap()["a"],
+        1
+    );
 }
 
 /// Gemini 真实 SSE chunk 序列 → 中立事件序列（text + thought + functionCall）
@@ -854,16 +1063,28 @@ fn ticket07_gemini_sse_mixed_events() {
         "data: {\"candidates\":[{\"finishReason\":\"STOP\"}]}\n\n",
     );
     let evs = parse_upstream_sse(raw, &Protocol::Gemini);
-    let kinds: Vec<&str> = evs.iter().map(|e| match e {
-        ChatStreamEvent::Delta { .. } => "delta",
-        ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
-        ChatStreamEvent::ToolDelta { .. } => "tool",
-        ChatStreamEvent::Stop { .. } => "stop",
-        _ => "other",
-    }).collect();
+    let kinds: Vec<&str> = evs
+        .iter()
+        .map(|e| match e {
+            ChatStreamEvent::Delta { .. } => "delta",
+            ChatStreamEvent::ReasoningDelta { .. } => "reasoning",
+            ChatStreamEvent::ToolDelta { .. } => "tool",
+            ChatStreamEvent::Stop { .. } => "stop",
+            _ => "other",
+        })
+        .collect();
     assert_eq!(kinds, vec!["delta", "reasoning", "tool", "stop"]);
 
-    let tool = evs.iter().find_map(|e| if let ChatStreamEvent::ToolDelta { name, input, .. } = e { Some((name.clone(), input.clone())) } else { None }).unwrap();
+    let tool = evs
+        .iter()
+        .find_map(|e| {
+            if let ChatStreamEvent::ToolDelta { name, input, .. } = e {
+                Some((name.clone(), input.clone()))
+            } else {
+                None
+            }
+        })
+        .unwrap();
     assert_eq!(tool.0.as_deref(), Some("f"));
     let args: serde_json::Value = serde_json::from_str(tool.1.as_deref().unwrap()).unwrap();
     assert_eq!(args["a"], 1);
@@ -873,18 +1094,33 @@ fn ticket07_gemini_sse_mixed_events() {
 #[test]
 fn ticket07_text_only_sse_no_regression() {
     for (proto, raw, expect) in [
-        (Protocol::Anthropic,
+        (
+            Protocol::Anthropic,
             "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
-            "hi"),
-        (Protocol::OpenAI,
+            "hi",
+        ),
+        (
+            Protocol::OpenAI,
             "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
-            "hi"),
-        (Protocol::Gemini,
+            "hi",
+        ),
+        (
+            Protocol::Gemini,
             "data: {\"candidates\":[{\"content\":{\"parts\":[{\"text\":\"hi\"}]}},\n\n",
-            ""),
+            "",
+        ),
     ] {
         let evs = parse_upstream_sse(raw, &proto);
-        let text: String = evs.iter().filter_map(|e| if let ChatStreamEvent::Delta { text } = e { Some(text.clone()) } else { None }).collect();
+        let text: String = evs
+            .iter()
+            .filter_map(|e| {
+                if let ChatStreamEvent::Delta { text } = e {
+                    Some(text.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
         if !expect.is_empty() {
             assert_eq!(text, expect, "{proto:?}");
         }
@@ -901,34 +1137,68 @@ use crate::converter::response::AnthropicSseState;
 fn ticket08_anthropic_sse_state_machine() {
     let mut st = AnthropicSseState::default();
     let events = [
-        ChatStreamEvent::Start { id: "m1".into(), model: "claude-x".into() },
-        ChatStreamEvent::Delta { text: "你好".into() },
+        ChatStreamEvent::Start {
+            id: "m1".into(),
+            model: "claude-x".into(),
+        },
+        ChatStreamEvent::Delta {
+            text: "你好".into(),
+        },
         ChatStreamEvent::ReasoningDelta { text: "想".into() },
-        ChatStreamEvent::ToolDelta { index: 0, id: Some("tu_1".into()), name: Some("get_weather".into()), input: None },
-        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("{\"city\":".into()) },
-        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("\"BJ\"}".into()) },
-        ChatStreamEvent::Stop { finish_reason: Some("tool_use".into()) },
+        ChatStreamEvent::ToolDelta {
+            index: 0,
+            id: Some("tu_1".into()),
+            name: Some("get_weather".into()),
+            input: None,
+        },
+        ChatStreamEvent::ToolDelta {
+            index: 0,
+            id: None,
+            name: None,
+            input: Some("{\"city\":".into()),
+        },
+        ChatStreamEvent::ToolDelta {
+            index: 0,
+            id: None,
+            name: None,
+            input: Some("\"BJ\"}".into()),
+        },
+        ChatStreamEvent::Stop {
+            finish_reason: Some("tool_use".into()),
+        },
     ];
     let frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
     let wire = frames.join("");
 
     // thinking 走独立 block + thinking_delta（非 text_delta）
-    assert!(wire.contains("\"type\":\"thinking_delta\""), "思考须走 thinking_delta");
+    assert!(
+        wire.contains("\"type\":\"thinking_delta\""),
+        "思考须走 thinking_delta"
+    );
     // text block 与 thinking/tool 的 wire index 均从 0 起连续：text=0, thinking=1, tool=2
-    assert!(wire.contains("\"type\":\"tool_use\"") && wire.contains("\"index\":2"), "tool block wire index 须接续分配");
+    assert!(
+        wire.contains("\"type\":\"tool_use\"") && wire.contains("\"index\":2"),
+        "tool block wire index 须接续分配"
+    );
     // 两段 partial_json 分片原样下发
     assert!(wire.contains("\"partial_json\":\"{\\\"city\\\":\""));
     assert!(wire.contains("\"partial_json\":\"\\\"BJ\\\"}\""));
     // Stop 前须关全部 block：content_block_stop × 3
-    assert_eq!(wire.matches("event: content_block_stop").count(), 3, "text/thinking/tool 三块都要 close");
+    assert_eq!(
+        wire.matches("event: content_block_stop").count(),
+        3,
+        "text/thinking/tool 三块都要 close"
+    );
     // 聚合后 arguments 合法 JSON
     let mut args = String::new();
     for line in wire.lines() {
         if let Some(d) = line.strip_prefix("data: ")
             && let Ok(v) = serde_json::from_str::<Value>(d)
-            && v["type"] == "content_block_delta" && v["delta"]["type"] == "input_json_delta" {
-                args.push_str(v["delta"]["partial_json"].as_str().unwrap());
-            }
+            && v["type"] == "content_block_delta"
+            && v["delta"]["type"] == "input_json_delta"
+        {
+            args.push_str(v["delta"]["partial_json"].as_str().unwrap());
+        }
     }
     assert_eq!(serde_json::from_str::<Value>(&args).unwrap()["city"], "BJ");
     // stop_reason 透传
@@ -941,12 +1211,39 @@ fn ticket08_multi_tool_interleaved() {
     // Anthropic：两个中立 index 交错 → 各自 wire index / stop
     let mut st = AnthropicSseState::default();
     let events = [
-        ChatStreamEvent::ToolDelta { index: 0, id: Some("a".into()), name: Some("f1".into()), input: None },
-        ChatStreamEvent::ToolDelta { index: 1, id: Some("b".into()), name: Some("f2".into()), input: None },
-        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("{\"x\":".into()) },
-        ChatStreamEvent::ToolDelta { index: 1, id: None, name: None, input: Some("{}".into()) },
-        ChatStreamEvent::ToolDelta { index: 0, id: None, name: None, input: Some("1}".into()) },
-        ChatStreamEvent::Stop { finish_reason: Some("tool_use".into()) },
+        ChatStreamEvent::ToolDelta {
+            index: 0,
+            id: Some("a".into()),
+            name: Some("f1".into()),
+            input: None,
+        },
+        ChatStreamEvent::ToolDelta {
+            index: 1,
+            id: Some("b".into()),
+            name: Some("f2".into()),
+            input: None,
+        },
+        ChatStreamEvent::ToolDelta {
+            index: 0,
+            id: None,
+            name: None,
+            input: Some("{\"x\":".into()),
+        },
+        ChatStreamEvent::ToolDelta {
+            index: 1,
+            id: None,
+            name: None,
+            input: Some("{}".into()),
+        },
+        ChatStreamEvent::ToolDelta {
+            index: 0,
+            id: None,
+            name: None,
+            input: Some("1}".into()),
+        },
+        ChatStreamEvent::Stop {
+            finish_reason: Some("tool_use".into()),
+        },
     ];
     let frames: Vec<String> = events.iter().filter_map(|e| st.push(e)).collect();
     let wire = frames.join("");
@@ -956,20 +1253,25 @@ fn ticket08_multi_tool_interleaved() {
     for line in wire.lines() {
         if let Some(d) = line.strip_prefix("data: ")
             && let Ok(v) = serde_json::from_str::<Value>(d)
-            && v["type"] == "content_block_delta" && v["delta"]["type"] == "input_json_delta" {
-                let idx = v["index"].as_u64().unwrap();
-                let pj = v["delta"]["partial_json"].as_str().unwrap();
-                match pj {
-                    "{\"x\":" | "1}" => assert_eq!(idx, 0, "中立 index 0 分片须落 wire 0: {pj}"),
-                    "{}" => assert_eq!(idx, 1, "中立 index 1 分片须落 wire 1"),
-                    _ => {}
-                }
+            && v["type"] == "content_block_delta"
+            && v["delta"]["type"] == "input_json_delta"
+        {
+            let idx = v["index"].as_u64().unwrap();
+            let pj = v["delta"]["partial_json"].as_str().unwrap();
+            match pj {
+                "{\"x\":" | "1}" => assert_eq!(idx, 0, "中立 index 0 分片须落 wire 0: {pj}"),
+                "{}" => assert_eq!(idx, 1, "中立 index 1 分片须落 wire 1"),
+                _ => {}
             }
+        }
     }
     assert_eq!(wire.matches("event: content_block_stop").count(), 2);
 
     // OpenAI：出站 tool_calls[].index 用中立 index，无状态即可
-    let openai_frames: Vec<String> = events.iter().filter_map(|e| crate::converter::response::to_client_sse(e, &Protocol::OpenAI, "m")).collect();
+    let openai_frames: Vec<String> = events
+        .iter()
+        .filter_map(|e| crate::converter::response::to_client_sse(e, &Protocol::OpenAI, "m"))
+        .collect();
     let o = openai_frames.join("");
     assert!(o.contains("\"id\":\"a\"") && o.contains("\"id\":\"b\""));
     assert!(o.contains("\"arguments\":\"{\\\"x\\\":\""));
@@ -980,16 +1282,25 @@ fn ticket08_multi_tool_interleaved() {
 fn ticket08_text_only_state_machine_no_regression() {
     let mut st = AnthropicSseState::default();
     let events = [
-        ChatStreamEvent::Start { id: "m".into(), model: "c".into() },
+        ChatStreamEvent::Start {
+            id: "m".into(),
+            model: "c".into(),
+        },
         ChatStreamEvent::Delta { text: "h".into() },
         ChatStreamEvent::Delta { text: "i".into() },
-        ChatStreamEvent::Stop { finish_reason: None },
+        ChatStreamEvent::Stop {
+            finish_reason: None,
+        },
     ];
     let wire: String = events.iter().filter_map(|e| st.push(e)).collect();
     assert!(wire.contains("message_start"));
     assert!(wire.contains("\"text\":\"h\"") && wire.contains("\"text\":\"i\""));
     assert!(wire.contains("message_stop"));
-    assert_eq!(wire.matches("event: content_block_stop").count(), 1, "单 text 块 close 一次");
+    assert_eq!(
+        wire.matches("event: content_block_stop").count(),
+        1,
+        "单 text 块 close 一次"
+    );
 }
 
 // ═══════════════════════════ field-adapt 票 04 / 06 / 07 ═══════════════════════════
@@ -1014,7 +1325,10 @@ fn fa_anthropic_body() -> serde_json::Value {
 
 /// 出站 body 里第一个匹配 type 的 content block（跨 message 找）
 fn fa_first_block<'a>(out: &'a serde_json::Value, ty: &str) -> &'a serde_json::Value {
-    out["messages"].as_array().expect("messages").iter()
+    out["messages"]
+        .as_array()
+        .expect("messages")
+        .iter()
         .filter_map(|m| m["content"].as_array())
         .flatten()
         .find(|b| b["type"] == ty)
@@ -1023,7 +1337,10 @@ fn fa_first_block<'a>(out: &'a serde_json::Value, ty: &str) -> &'a serde_json::V
 
 /// openai 出站里第一条 tool message 的 content 文本
 fn fa_openai_tool_text(out: &serde_json::Value) -> String {
-    out["messages"].as_array().expect("messages").iter()
+    out["messages"]
+        .as_array()
+        .expect("messages")
+        .iter()
         .find(|m| m["role"] == "tool")
         .and_then(|m| m["content"].as_str())
         .unwrap_or_else(|| panic!("出站没有 tool message: {out}"))
@@ -1033,17 +1350,25 @@ fn fa_openai_tool_text(out: &serde_json::Value) -> String {
 /// 各目标协议出站的工具名清单（没有 tools 键 → 空 Vec）
 fn fa_tool_names(target: &Protocol, out: &serde_json::Value) -> Vec<String> {
     let arr = match target {
-        Protocol::Gemini => out.get("tools")
+        Protocol::Gemini => out
+            .get("tools")
             .and_then(|t| t.get(0))
             .and_then(|t| t.get("functionDeclarations"))
             .and_then(|v| v.as_array())
             .cloned()
             .unwrap_or_default(),
-        _ => out.get("tools").and_then(|v| v.as_array()).cloned().unwrap_or_default(),
+        _ => out
+            .get("tools")
+            .and_then(|v| v.as_array())
+            .cloned()
+            .unwrap_or_default(),
     };
     arr.iter()
         .map(|t| match target {
-            Protocol::OpenAI => t["function"]["name"].as_str().unwrap_or_default().to_string(),
+            Protocol::OpenAI => t["function"]["name"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
             _ => t["name"].as_str().unwrap_or_default().to_string(),
         })
         .collect()
@@ -1063,23 +1388,48 @@ fn fa04_is_error_recognizable_on_four_targets() {
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
 
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    assert_eq!(fa_first_block(&out, "tool_result")["is_error"], json!(true), "anthropic 出站丢 is_error: {out}");
+    assert_eq!(
+        fa_first_block(&out, "tool_result")["is_error"],
+        json!(true),
+        "anthropic 出站丢 is_error: {out}"
+    );
 
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    assert!(fa_openai_tool_text(&out).starts_with("[tool_error] "), "openai tool 结果未标注失败: {out}");
+    assert!(
+        fa_openai_tool_text(&out).starts_with("[tool_error] "),
+        "openai tool 结果未标注失败: {out}"
+    );
 
     let (out, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
-    let output = out["input"].as_array().expect("input").iter()
-        .find(|i| i["type"] == "function_call_output").expect("function_call_output")["output"]
-        .as_str().unwrap().to_string();
-    assert!(output.starts_with("[tool_error] "), "responses 工具结果未标注失败: {out}");
+    let output = out["input"]
+        .as_array()
+        .expect("input")
+        .iter()
+        .find(|i| i["type"] == "function_call_output")
+        .expect("function_call_output")["output"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        output.starts_with("[tool_error] "),
+        "responses 工具结果未标注失败: {out}"
+    );
 
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    let resp = out["contents"].as_array().expect("contents").iter()
+    let resp = out["contents"]
+        .as_array()
+        .expect("contents")
+        .iter()
         .flat_map(|c| c["parts"].as_array().unwrap().iter())
-        .find(|p| p.get("functionResponse").is_some()).expect("functionResponse")
-        ["functionResponse"]["response"]["result"].as_str().unwrap().to_string();
-    assert!(resp.starts_with("[tool_error] "), "gemini 工具结果未标注失败: {out}");
+        .find(|p| p.get("functionResponse").is_some())
+        .expect("functionResponse")["functionResponse"]["response"]["result"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(
+        resp.starts_with("[tool_error] "),
+        "gemini 工具结果未标注失败: {out}"
+    );
 }
 
 /// 数组形态 content：anthropic 目标保留 image block 原样，纯文本目标降级为可读占位而非丢弃
@@ -1097,15 +1447,22 @@ fn fa04_tool_result_image_survives_anthropic_and_degrades_to_placeholder() {
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
 
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    let content = fa_first_block(&out, "tool_result")["content"].as_array()
+    let content = fa_first_block(&out, "tool_result")["content"]
+        .as_array()
         .unwrap_or_else(|| panic!("anthropic tool_result content 应保持数组: {out}"));
-    let img = content.iter().find(|b| b["type"] == "image").unwrap_or_else(|| panic!("image block 丢了: {out}"));
+    let img = content
+        .iter()
+        .find(|b| b["type"] == "image")
+        .unwrap_or_else(|| panic!("image block 丢了: {out}"));
     assert_eq!(img["source"]["data"], json!("AAA"), "图像数据丢失: {out}");
 
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     let text = fa_openai_tool_text(&out);
     assert!(text.contains("see"), "文本段丢失: {out}");
-    assert!(text.contains("[image: image/png]"), "image block 未降级为占位: {out}");
+    assert!(
+        text.contains("[image: image/png]"),
+        "image block 未降级为占位: {out}"
+    );
 }
 
 /// 非 text 非 image 的未知 block 类型留痕（占位带原 type，不静默丢）
@@ -1121,7 +1478,11 @@ fn fa04_unknown_block_in_tool_result_leaves_trace() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    assert_eq!(fa_openai_tool_text(&out), "[document block]", "未知 block 未留痕: {out}");
+    assert_eq!(
+        fa_openai_tool_text(&out),
+        "[document block]",
+        "未知 block 未留痕: {out}"
+    );
 }
 
 /// 回归防线：纯文本 tool_result 行为不变（content 仍是字符串、无 is_error 键、无标注前缀）
@@ -1138,10 +1499,17 @@ fn fa04_plain_text_tool_result_unchanged() {
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     let b = fa_first_block(&out, "tool_result");
     assert_eq!(b["content"], json!("ok"), "字符串 content 被改写: {out}");
-    assert!(b.get("is_error").is_none(), "未失败的 tool_result 不应出现 is_error: {out}");
+    assert!(
+        b.get("is_error").is_none(),
+        "未失败的 tool_result 不应出现 is_error: {out}"
+    );
 
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    assert_eq!(fa_openai_tool_text(&out), "ok", "openai tool 结果被改写: {out}");
+    assert_eq!(
+        fa_openai_tool_text(&out),
+        "ok",
+        "openai tool 结果被改写: {out}"
+    );
 }
 
 // ── 票 06：cache_control 保真 ──
@@ -1152,12 +1520,27 @@ fn fa06_cache_control_on_message_block_and_tool_reaches_anthropic() {
     let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
 
-    assert_eq!(fa_first_block(&out, "text")["cache_control"], json!({"type": "ephemeral"}),
-        "message 块的 cache_control 丢了: {out}");
-    let tool = out["tools"].as_array().expect("tools").iter()
-        .find(|t| t["name"] == "get_weather").expect("get_weather");
-    assert_eq!(tool["cache_control"], json!({"type": "ephemeral"}), "tool 定义的 cache_control 丢了: {out}");
-    assert_eq!(tool["input_schema"], json!({"type": "object"}), "客户端工具 schema 不应被改写: {out}");
+    assert_eq!(
+        fa_first_block(&out, "text")["cache_control"],
+        json!({"type": "ephemeral"}),
+        "message 块的 cache_control 丢了: {out}"
+    );
+    let tool = out["tools"]
+        .as_array()
+        .expect("tools")
+        .iter()
+        .find(|t| t["name"] == "get_weather")
+        .expect("get_weather");
+    assert_eq!(
+        tool["cache_control"],
+        json!({"type": "ephemeral"}),
+        "tool 定义的 cache_control 丢了: {out}"
+    );
+    assert_eq!(
+        tool["input_schema"],
+        json!({"type": "object"}),
+        "客户端工具 schema 不应被改写: {out}"
+    );
 }
 
 /// 回归断言（非修复）：system 块是 raw Value 数组，anthropic 出站原样透传，cache_control 本就不丢
@@ -1165,8 +1548,11 @@ fn fa06_cache_control_on_message_block_and_tool_reaches_anthropic() {
 fn fa06_system_block_cache_control_is_passthrough_regression() {
     let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    assert_eq!(out["system"][0]["cache_control"], json!({"type": "ephemeral"}),
-        "system 块的 cache_control 丢了: {out}");
+    assert_eq!(
+        out["system"][0]["cache_control"],
+        json!({"type": "ephemeral"}),
+        "system 块的 cache_control 丢了: {out}"
+    );
 }
 
 /// 守卫式：不支持 prompt caching 的目标不出现 cache_control（不能靠发上游不认的字段来「通过」）
@@ -1176,10 +1562,17 @@ fn fa06_cache_control_absent_on_non_anthropic_targets() {
     for (name, target, platform) in [
         ("openai", Protocol::OpenAI, Protocol::OpenAI),
         ("gemini", Protocol::Gemini, Protocol::Gemini),
-        ("openai_responses", Protocol::OpenAIResponses, Protocol::OpenAI),
+        (
+            "openai_responses",
+            Protocol::OpenAIResponses,
+            Protocol::OpenAI,
+        ),
     ] {
         let (out, _) = convert_request(&req, &target, &platform);
-        assert!(!out.to_string().contains("cache_control"), "{name} 出站不应含 cache_control: {out}");
+        assert!(
+            !out.to_string().contains("cache_control"),
+            "{name} 出站不应含 cache_control: {out}"
+        );
     }
 }
 
@@ -1191,11 +1584,22 @@ fn fa07_server_tool_type_preserved_to_anthropic() {
     let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
 
-    let tool = out["tools"].as_array().expect("tools").iter()
-        .find(|t| t["name"] == "web_search").unwrap_or_else(|| panic!("服务端工具整条丢了: {out}"));
-    assert_eq!(tool["type"], json!("web_search_20250305"), "服务端工具 type 丢了: {out}");
+    let tool = out["tools"]
+        .as_array()
+        .expect("tools")
+        .iter()
+        .find(|t| t["name"] == "web_search")
+        .unwrap_or_else(|| panic!("服务端工具整条丢了: {out}"));
+    assert_eq!(
+        tool["type"],
+        json!("web_search_20250305"),
+        "服务端工具 type 丢了: {out}"
+    );
     assert_eq!(tool["max_uses"], json!(5), "服务端工具配置键丢了: {out}");
-    assert!(tool.get("input_schema").is_none(), "服务端工具不应带兜底空 schema: {out}");
+    assert!(
+        tool.get("input_schema").is_none(),
+        "服务端工具不应带兜底空 schema: {out}"
+    );
 }
 
 /// 非 anthropic 目标：服务端工具整条不下发，不产出空 schema 的假 function；客户端工具照常在
@@ -1205,12 +1609,22 @@ fn fa07_server_tool_not_downgraded_to_fake_function() {
     for (name, target, platform) in [
         ("openai", Protocol::OpenAI, Protocol::OpenAI),
         ("gemini", Protocol::Gemini, Protocol::Gemini),
-        ("openai_responses", Protocol::OpenAIResponses, Protocol::OpenAI),
+        (
+            "openai_responses",
+            Protocol::OpenAIResponses,
+            Protocol::OpenAI,
+        ),
     ] {
         let (out, _) = convert_request(&req, &target, &platform);
         let names = fa_tool_names(&target, &out);
-        assert!(!names.iter().any(|n| n == "web_search"), "{name} 不应下发服务端工具: {out}");
-        assert!(names.iter().any(|n| n == "get_weather"), "{name} 客户端工具不应被误伤: {out}");
+        assert!(
+            !names.iter().any(|n| n == "web_search"),
+            "{name} 不应下发服务端工具: {out}"
+        );
+        assert!(
+            names.iter().any(|n| n == "get_weather"),
+            "{name} 客户端工具不应被误伤: {out}"
+        );
     }
 }
 
@@ -1230,12 +1644,19 @@ fn fa07_client_tools_unchanged() {
         ("anthropic", Protocol::Anthropic, Protocol::Anthropic),
         ("openai", Protocol::OpenAI, Protocol::OpenAI),
         ("gemini", Protocol::Gemini, Protocol::Gemini),
-        ("openai_responses", Protocol::OpenAIResponses, Protocol::OpenAI),
+        (
+            "openai_responses",
+            Protocol::OpenAIResponses,
+            Protocol::OpenAI,
+        ),
     ] {
         let (out, _) = convert_request(&req, &target, &platform);
         let names = fa_tool_names(&target, &out);
         assert_eq!(names.len(), 2, "{name} 客户端工具数变了: {out}");
-        assert!(names.iter().any(|n| n == "explicit_custom"), "{name} 丢了 custom 工具: {out}");
+        assert!(
+            names.iter().any(|n| n == "explicit_custom"),
+            "{name} 丢了 custom 工具: {out}"
+        );
     }
 }
 
@@ -1249,7 +1670,10 @@ fn fa07_all_server_tools_means_no_tools_key() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    assert!(out.get("tools").is_none(), "openai 出站不应出现空 tools: {out}");
+    assert!(
+        out.get("tools").is_none(),
+        "openai 出站不应出现空 tools: {out}"
+    );
 }
 
 // ═══ fa05：max_completion_tokens 入站归一 ═══
@@ -1263,7 +1687,11 @@ fn fa05_max_completion_tokens_only_reaches_three_targets() {
         "messages": [{"role": "user", "content": "hi"}]
     });
     let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
-    assert_eq!(req.max_tokens, Some(9000), "入站未归一 max_completion_tokens");
+    assert_eq!(
+        req.max_tokens,
+        Some(9000),
+        "入站未归一 max_completion_tokens"
+    );
     for (tgt_name, tgt_proto) in [
         ("anthropic", Protocol::Anthropic),
         ("openai", Protocol::OpenAI),
@@ -1271,7 +1699,11 @@ fn fa05_max_completion_tokens_only_reaches_three_targets() {
     ] {
         let (out, _) = convert_request(&req, &tgt_proto, &Protocol::OpenAI);
         let (mx, _, _) = params_of(&tgt_proto, &out);
-        assert_eq!(mx, Some(9000), "openai → {tgt_name}: 未按用户设定值下发（4096 即为回归）, body: {out}");
+        assert_eq!(
+            mx,
+            Some(9000),
+            "openai → {tgt_name}: 未按用户设定值下发（4096 即为回归）, body: {out}"
+        );
     }
 }
 
@@ -1300,7 +1732,10 @@ fn fa05_max_tokens_only_unchanged() {
     assert_eq!(req.max_tokens, Some(777));
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(out["max_tokens"], json!(777));
-    assert!(out.get("max_completion_tokens").is_none(), "出站不应凭空多出新键: {out}");
+    assert!(
+        out.get("max_completion_tokens").is_none(),
+        "出站不应凭空多出新键: {out}"
+    );
 }
 
 /// 守卫式：两键都不传时不产默认值（openai 目标不写 max_tokens，也不写新键）。
@@ -1334,7 +1769,11 @@ fn fa03_adaptive_effort_reaches_all_four_targets() {
     // anthropic：adaptive 是 pi/Claude Code 私有 type，归一成官方 enabled + 换算预算
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(a["thinking"]["type"], "enabled", "{a}");
-    assert_eq!(a["thinking"]["budget_tokens"], json!(16384), "high → 16384: {a}");
+    assert_eq!(
+        a["thinking"]["budget_tokens"],
+        json!(16384),
+        "high → 16384: {a}"
+    );
 
     // openai chat：档位原值直传
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
@@ -1346,7 +1785,11 @@ fn fa03_adaptive_effort_reaches_all_four_targets() {
 
     // gemini：档位换算成 thinkingBudget
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(16384), "{g}");
+    assert_eq!(
+        g["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+        json!(16384),
+        "{g}"
+    );
 }
 
 /// 入参形态 B：只有档位名（OpenAI `reasoning_effort`）→ 四目标协议各自写出档位
@@ -1359,13 +1802,21 @@ fn fa03_effort_only_reaches_all_four_targets() {
     let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
 
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    assert_eq!(a["thinking"], json!({ "type": "enabled", "budget_tokens": 8192 }), "{a}");
+    assert_eq!(
+        a["thinking"],
+        json!({ "type": "enabled", "budget_tokens": 8192 }),
+        "{a}"
+    );
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(o["reasoning_effort"], "medium", "{o}");
     let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
     assert_eq!(r["reasoning"]["effort"], "medium", "{r}");
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(8192), "{g}");
+    assert_eq!(
+        g["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+        json!(8192),
+        "{g}"
+    );
 }
 
 /// 换算表只有一份：openai `low` → responses → 回 openai 仍是 `low`（修前三套表会抬成 medium）
@@ -1383,7 +1834,10 @@ fn fa03_single_conversion_table_no_roundtrip_drift() {
         // 数字侧同样不漂：anthropic ↔ gemini 预算与档位互为定值
         let (a, _) = convert_request(&back, &Protocol::Anthropic, &Protocol::Anthropic);
         let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-        assert_eq!(a["thinking"]["budget_tokens"], g["generationConfig"]["thinkingConfig"]["thinkingBudget"]);
+        assert_eq!(
+            a["thinking"]["budget_tokens"],
+            g["generationConfig"]["thinkingConfig"]["thinkingBudget"]
+        );
     }
 }
 
@@ -1408,20 +1862,28 @@ fn fa03_explicit_disable_beats_effort() {
     assert_eq!(a["thinking"], json!({ "type": "disabled" }), "{a}");
 
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    assert!(o.get("reasoning_effort").is_none(), "chat 的禁用写法按 host 分叉，adapter 只保证不开启: {o}");
+    assert!(
+        o.get("reasoning_effort").is_none(),
+        "chat 的禁用写法按 host 分叉，adapter 只保证不开启: {o}"
+    );
 
     let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
     assert_eq!(r["reasoning"], json!({ "effort": "none" }), "{r}");
 
     let (g, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(g["generationConfig"]["thinkingConfig"]["thinkingBudget"], json!(0), "{g}");
+    assert_eq!(
+        g["generationConfig"]["thinkingConfig"]["thinkingBudget"],
+        json!(0),
+        "{g}"
+    );
 }
 
 /// 各协议自己的「不要思考」表达归一到同一个禁用判据：
 /// Responses `effort:"none"` 与 Gemini `thinkingBudget:0` 都不得被出站当成 0 预算的开启请求。
 #[test]
 fn fa03_per_protocol_disable_forms_normalize() {
-    let responses_none = json!({ "model": "gpt-5", "input": "hi", "reasoning": { "effort": "none" } });
+    let responses_none =
+        json!({ "model": "gpt-5", "input": "hi", "reasoning": { "effort": "none" } });
     let req = parse_incoming_request(&Protocol::OpenAIResponses, &responses_none).expect("parse");
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(a["thinking"], json!({ "type": "disabled" }), "{a}");
@@ -1432,7 +1894,11 @@ fn fa03_per_protocol_disable_forms_normalize() {
     });
     let req = parse_incoming_request(&Protocol::Gemini, &gemini_zero).expect("parse");
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    assert_eq!(a["thinking"], json!({ "type": "disabled" }), "0 预算不是「开启且预算 0」: {a}");
+    assert_eq!(
+        a["thinking"],
+        json!({ "type": "disabled" }),
+        "0 预算不是「开启且预算 0」: {a}"
+    );
 }
 
 // ═══════════════ 票 09：Gemini 生成参数保真 ═══════════════
@@ -1462,15 +1928,26 @@ fn fa09_gemini_generation_config_full_roundtrip() {
     assert_eq!(g["stopSequences"], json!(["END", "STOP"]), "{out}");
     assert_eq!(g["topK"], json!(40), "{out}");
     assert_eq!(g["responseMimeType"], json!("application/json"), "{out}");
-    assert_eq!(g["responseSchema"]["properties"]["city"]["type"], json!("string"), "{out}");
+    assert_eq!(
+        g["responseSchema"]["properties"]["city"]["type"],
+        json!("string"),
+        "{out}"
+    );
     assert_eq!(g["thinkingConfig"]["includeThoughts"], json!(true), "{out}");
     assert_eq!(g["thinkingConfig"]["thinkingBudget"], json!(1024), "{out}");
-    assert_eq!(out["safetySettings"][0]["threshold"], json!("BLOCK_NONE"), "{out}");
+    assert_eq!(
+        out["safetySettings"][0]["threshold"],
+        json!("BLOCK_NONE"),
+        "{out}"
+    );
     // 原有 4 项不因扩字段而回归
     assert_eq!(g["maxOutputTokens"], json!(512), "{out}");
     assert_eq!(g["temperature"], json!(0.5), "{out}");
     // gemini 的模型名只进 URL path，body 不得多出 model 键
-    assert!(out.get("model").is_none(), "gemini body 不应含 model 键: {out}");
+    assert!(
+        out.get("model").is_none(),
+        "gemini body 不应含 model 键: {out}"
+    );
 }
 
 /// anthropic → gemini：`stop_sequences` / `top_k` 落到 gemini 的对应键
@@ -1485,7 +1962,11 @@ fn fa09_anthropic_stop_and_top_k_to_gemini() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(out["generationConfig"]["stopSequences"], json!(["\n\nHuman:"]), "{out}");
+    assert_eq!(
+        out["generationConfig"]["stopSequences"],
+        json!(["\n\nHuman:"]),
+        "{out}"
+    );
     assert_eq!(out["generationConfig"]["topK"], json!(5), "{out}");
 }
 
@@ -1498,7 +1979,11 @@ fn fa09_string_stop_normalized_to_array_for_gemini() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(out["generationConfig"]["stopSequences"], json!(["END"]), "{out}");
+    assert_eq!(
+        out["generationConfig"]["stopSequences"],
+        json!(["END"]),
+        "{out}"
+    );
 }
 
 /// `response_format`（OpenAI 形态 JSON 模式）→ gemini `responseMimeType` + `responseSchema`。
@@ -1514,7 +1999,11 @@ fn fa09_response_format_json_schema_maps_to_gemini() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(out["generationConfig"]["responseMimeType"], json!("application/json"), "{out}");
+    assert_eq!(
+        out["generationConfig"]["responseMimeType"],
+        json!("application/json"),
+        "{out}"
+    );
     assert_eq!(out["generationConfig"]["responseSchema"], schema, "{out}");
 
     // json_object 形态：只出 mime，不造 schema
@@ -1525,8 +2014,15 @@ fn fa09_response_format_json_schema_maps_to_gemini() {
     });
     let req2 = parse_incoming_request(&Protocol::Anthropic, &body2).expect("parse");
     let (out2, _) = convert_request(&req2, &Protocol::Gemini, &Protocol::Gemini);
-    assert_eq!(out2["generationConfig"]["responseMimeType"], json!("application/json"), "{out2}");
-    assert!(out2["generationConfig"].get("responseSchema").is_none(), "{out2}");
+    assert_eq!(
+        out2["generationConfig"]["responseMimeType"],
+        json!("application/json"),
+        "{out2}"
+    );
+    assert!(
+        out2["generationConfig"].get("responseSchema").is_none(),
+        "{out2}"
+    );
 }
 
 /// gate 回归：新字段单独存在（无 maxOutputTokens / temperature / topP / thinkingBudget）
@@ -1534,22 +2030,34 @@ fn fa09_response_format_json_schema_maps_to_gemini() {
 #[test]
 fn fa09_generation_config_gate_covers_new_fields_alone() {
     for (name, body) in [
-        ("stopSequences", json!({
-            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
-            "generationConfig": {"stopSequences": ["END"]}
-        })),
-        ("topK", json!({
-            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
-            "generationConfig": {"topK": 3}
-        })),
-        ("responseMimeType", json!({
-            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
-            "generationConfig": {"responseMimeType": "application/json"}
-        })),
-        ("responseSchema", json!({
-            "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
-            "generationConfig": {"responseSchema": {"type": "object"}}
-        })),
+        (
+            "stopSequences",
+            json!({
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+                "generationConfig": {"stopSequences": ["END"]}
+            }),
+        ),
+        (
+            "topK",
+            json!({
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+                "generationConfig": {"topK": 3}
+            }),
+        ),
+        (
+            "responseMimeType",
+            json!({
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+                "generationConfig": {"responseMimeType": "application/json"}
+            }),
+        ),
+        (
+            "responseSchema",
+            json!({
+                "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
+                "generationConfig": {"responseSchema": {"type": "object"}}
+            }),
+        ),
     ] {
         let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
@@ -1565,7 +2073,11 @@ fn fa09_generation_config_gate_covers_new_fields_alone() {
 fn fa09_no_generation_params_no_nodes() {
     let body = json!({"contents": [{"role": "user", "parts": [{"text": "hi"}]}]});
     let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
-    assert!(req.extra.is_none(), "无生成参数时不应产生 extra: {:?}", req.extra);
+    assert!(
+        req.extra.is_none(),
+        "无生成参数时不应产生 extra: {:?}",
+        req.extra
+    );
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     assert!(out.get("generationConfig").is_none(), "{out}");
     assert!(out.get("safetySettings").is_none(), "{out}");
@@ -1580,11 +2092,23 @@ fn fa09_gemini_only_keys_do_not_leak_to_other_targets() {
         "safetySettings": [{"category": "c", "threshold": "t"}]
     });
     let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
-    for (name, tgt) in [("anthropic", Protocol::Anthropic), ("openai", Protocol::OpenAI)] {
+    for (name, tgt) in [
+        ("anthropic", Protocol::Anthropic),
+        ("openai", Protocol::OpenAI),
+    ] {
         let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
-        assert!(out.get("safetySettings").is_none(), "{name} 目标不应出现 safetySettings: {out}");
-        assert!(out.get("stopSequences").is_none(), "{name} 目标不应出现 gemini 键名: {out}");
-        assert!(out.get("topK").is_none(), "{name} 目标不应出现 gemini 键名: {out}");
+        assert!(
+            out.get("safetySettings").is_none(),
+            "{name} 目标不应出现 safetySettings: {out}"
+        );
+        assert!(
+            out.get("stopSequences").is_none(),
+            "{name} 目标不应出现 gemini 键名: {out}"
+        );
+        assert!(
+            out.get("topK").is_none(),
+            "{name} 目标不应出现 gemini 键名: {out}"
+        );
     }
 }
 
@@ -1627,7 +2151,11 @@ fn fa11_responses_and_completions_inbound_unmodeled_fields_reach_gemini() {
     for (src, body) in cases {
         let req = parse_incoming_request(&src, &body).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
-        assert_eq!(out["generationConfig"]["stopSequences"], json!(["END"]), "{src:?} {out}");
+        assert_eq!(
+            out["generationConfig"]["stopSequences"],
+            json!(["END"]),
+            "{src:?} {out}"
+        );
         assert_eq!(out["generationConfig"]["topK"], json!(7), "{src:?} {out}");
     }
 }
@@ -1642,7 +2170,12 @@ fn fa11_extra_does_not_leak_unknown_keys_to_outbound() {
         "stop": ["END"]
     });
     let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
-    for tgt in [Protocol::Anthropic, Protocol::OpenAI, Protocol::Gemini, Protocol::OpenAIResponses] {
+    for tgt in [
+        Protocol::Anthropic,
+        Protocol::OpenAI,
+        Protocol::Gemini,
+        Protocol::OpenAIResponses,
+    ] {
         let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
         assert!(
             !out.to_string().contains("my_private_flag"),
@@ -1669,12 +2202,22 @@ fn fa11_tool_choice_naming_dropped_server_tool_is_omitted() {
 
     for tgt in [Protocol::OpenAI, Protocol::OpenAIResponses] {
         let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
-        assert!(out.get("tool_choice").is_none(), "{tgt:?} 应整条省掉 tool_choice: {out}");
-        assert!(out.get("tools").is_some(), "{tgt:?} 客户端工具不应被误伤: {out}");
+        assert!(
+            out.get("tool_choice").is_none(),
+            "{tgt:?} 应整条省掉 tool_choice: {out}"
+        );
+        assert!(
+            out.get("tools").is_some(),
+            "{tgt:?} 客户端工具不应被误伤: {out}"
+        );
     }
     // anthropic 目标能执行服务端工具，tool_choice 照常写出
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
-    assert_eq!(out["tool_choice"], json!({"type": "tool", "name": "web_search"}), "{out}");
+    assert_eq!(
+        out["tool_choice"],
+        json!({"type": "tool", "name": "web_search"}),
+        "{out}"
+    );
 }
 
 /// 指名的是客户端工具时行为不变（回归防线：别把正常的 tool_choice 一起丢了）。
@@ -1688,7 +2231,11 @@ fn fa11_tool_choice_naming_client_tool_unchanged() {
     });
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-    assert_eq!(out["tool_choice"], json!({"type": "function", "function": {"name": "calc"}}), "{out}");
+    assert_eq!(
+        out["tool_choice"],
+        json!({"type": "function", "function": {"name": "calc"}}),
+        "{out}"
+    );
 }
 
 /// 缺口 6：`includeThoughts` 此前挂在 `thinkingConfig` 上，而该节点只在有 thinkingBudget
@@ -1704,7 +2251,10 @@ fn fa11_gemini_include_thoughts_survives_without_budget() {
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     let tc = &out["generationConfig"]["thinkingConfig"];
     assert_eq!(tc["includeThoughts"], json!(true), "{out}");
-    assert!(tc.get("thinkingBudget").is_none(), "无预算时不得写出 thinkingBudget（0 = 禁用思考）: {out}");
+    assert!(
+        tc.get("thinkingBudget").is_none(),
+        "无预算时不得写出 thinkingBudget（0 = 禁用思考）: {out}"
+    );
 }
 
 /// 预算与 includeThoughts 并存时两者都写出（回归防线）。
@@ -1741,7 +2291,10 @@ fn fa11_completions_prompt_keeps_tool_blocks() {
     let prompt = out["prompt"].as_str().expect("prompt");
     assert!(prompt.contains("calc"), "工具名应进 prompt: {prompt}");
     assert!(prompt.contains("boom"), "工具结果应进 prompt: {prompt}");
-    assert!(prompt.contains(crate::types::TOOL_ERROR_PREFIX.trim()), "失败标记应进 prompt: {prompt}");
+    assert!(
+        prompt.contains(crate::types::TOOL_ERROR_PREFIX.trim()),
+        "失败标记应进 prompt: {prompt}"
+    );
 }
 
 /// 纯文本对话的 prompt 渲染不变（回归防线：上一条的改动只对工具块生效）。
@@ -1772,7 +2325,11 @@ fn fa11_tool_choice_unrelated_to_server_tool_filter_is_passed_through() {
     for body in cases {
         let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
-        assert_eq!(out["tool_choice"]["function"]["name"], json!("ghost"), "{out}");
+        assert_eq!(
+            out["tool_choice"]["function"]["name"],
+            json!("ghost"),
+            "{out}"
+        );
     }
 }
 
@@ -1806,12 +2363,29 @@ fn fa11_cache_control_sample_shape_survives_anthropic_conversion() {
     let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
 
-    assert_eq!(out["system"][1]["cache_control"]["type"], json!("ephemeral"), "{out}");
-    assert_eq!(out["messages"][0]["content"][0]["cache_control"]["type"], json!("ephemeral"), "{out}");
-    assert_eq!(out["messages"][1]["content"][0]["cache_control"]["type"], json!("ephemeral"), "{out}");
-    assert_eq!(out["messages"][2]["content"][0]["cache_control"]["type"], json!("ephemeral"), "{out}");
     assert_eq!(
-        out.to_string().matches("cache_control").count(), 4,
+        out["system"][1]["cache_control"]["type"],
+        json!("ephemeral"),
+        "{out}"
+    );
+    assert_eq!(
+        out["messages"][0]["content"][0]["cache_control"]["type"],
+        json!("ephemeral"),
+        "{out}"
+    );
+    assert_eq!(
+        out["messages"][1]["content"][0]["cache_control"]["type"],
+        json!("ephemeral"),
+        "{out}"
+    );
+    assert_eq!(
+        out["messages"][2]["content"][0]["cache_control"]["type"],
+        json!("ephemeral"),
+        "{out}"
+    );
+    assert_eq!(
+        out.to_string().matches("cache_control").count(),
+        4,
         "4 个真实位置各一处，不多不少: {out}"
     );
 

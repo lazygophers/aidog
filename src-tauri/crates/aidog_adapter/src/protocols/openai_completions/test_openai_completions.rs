@@ -5,16 +5,30 @@ use crate::protocols::openai_completions::convert::*;
 #[test]
 fn to_completions_joins_messages() {
     let req = ChatRequest {
-            thinking_budget: None,
+        thinking_budget: None,
         model: "m".into(),
         messages: vec![
-            Message { role: Role::System, content: MessageContent::Text("sys".into()) },
-            Message { role: Role::User, content: MessageContent::Text("hi".into()) },
+            Message {
+                role: Role::System,
+                content: MessageContent::Text("sys".into()),
+            },
+            Message {
+                role: Role::User,
+                content: MessageContent::Text("hi".into()),
+            },
             Message {
                 role: Role::Assistant,
                 content: MessageContent::Blocks(vec![
-                    ContentBlock::Text { text: "a".into(), extra: None },
-                    ContentBlock::ToolUse { id: "i".into(), name: "f".into(), input: json!({}), extra: None },
+                    ContentBlock::Text {
+                        text: "a".into(),
+                        extra: None,
+                    },
+                    ContentBlock::ToolUse {
+                        id: "i".into(),
+                        name: "f".into(),
+                        input: json!({}),
+                        extra: None,
+                    },
                 ]),
             },
             Message {
@@ -22,7 +36,10 @@ fn to_completions_joins_messages() {
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: "i".into(),
                     content: "r".into(),
-                    name: None, is_error: None, content_blocks: None, extra: None
+                    name: None,
+                    is_error: None,
+                    content_blocks: None,
+                    extra: None,
                 }]),
             },
         ],
@@ -51,7 +68,10 @@ fn to_completions_joins_messages() {
 fn to_completions_fills_stop_from_extra() {
     let base = |extra: Option<serde_json::Value>| ChatRequest {
         model: "m".into(),
-        messages: vec![Message { role: Role::User, content: MessageContent::Text("hi".into()) }],
+        messages: vec![Message {
+            role: Role::User,
+            content: MessageContent::Text("hi".into()),
+        }],
         system: None,
         max_tokens: None,
         temperature: None,
@@ -73,7 +93,11 @@ fn to_completions_fills_stop_from_extra() {
         Some(vec!["END".to_string()]),
         "anthropic 写法 + 字符串形态"
     );
-    assert_eq!(to_completions(&base(Some(json!({"stop": 42})))).stop, None, "非法形态不写出");
+    assert_eq!(
+        to_completions(&base(Some(json!({"stop": 42})))).stop,
+        None,
+        "非法形态不写出"
+    );
 }
 
 #[test]
@@ -102,8 +126,8 @@ fn from_completions_missing_prompt_defaults_empty() {
 // ── render_completions_response 测试 ──
 #[test]
 fn render_completions_text_only() {
-    use crate::converter::NonStreamResponse;
     use super::render_completions_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
@@ -126,8 +150,8 @@ fn render_completions_text_only() {
 
 #[test]
 fn render_completions_with_reasoning() {
-    use crate::converter::NonStreamResponse;
     use super::render_completions_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
@@ -148,8 +172,8 @@ fn render_completions_with_reasoning() {
 
 #[test]
 fn render_completions_max_tokens_maps_length() {
-    use crate::converter::NonStreamResponse;
     use super::render_completions_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "test".to_string(),
@@ -169,8 +193,8 @@ fn render_completions_max_tokens_maps_length() {
 
 #[test]
 fn render_completions_empty_message() {
-    use crate::converter::NonStreamResponse;
     use super::render_completions_response;
+    use crate::converter::NonStreamResponse;
 
     let r = NonStreamResponse {
         id: "empty".to_string(),
@@ -282,10 +306,14 @@ fn parse_completions_sse_text_and_stop() {
     use crate::types::ChatStreamEvent;
 
     let chunk = json!({"id":"cmpl_1","choices":[{"text":"Hi","index":0}]});
-    assert!(matches!(parse_completions_sse(&chunk), Some(ChatStreamEvent::Delta { ref text }) if text == "Hi"));
+    assert!(
+        matches!(parse_completions_sse(&chunk), Some(ChatStreamEvent::Delta { ref text }) if text == "Hi")
+    );
 
     let fin = json!({"id":"cmpl_1","choices":[{"text":"","index":0,"finish_reason":"stop"}]});
-    assert!(matches!(parse_completions_sse(&fin), Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "stop"));
+    assert!(
+        matches!(parse_completions_sse(&fin), Some(ChatStreamEvent::Stop { finish_reason: Some(ref r) }) if r == "stop")
+    );
 
     let empty = json!({"id":"cmpl_1","choices":[{"text":"","index":0}]});
     assert!(parse_completions_sse(&empty).is_none());

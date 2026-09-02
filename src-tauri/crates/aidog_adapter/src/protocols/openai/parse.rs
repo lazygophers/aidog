@@ -1,7 +1,7 @@
 use serde_json::Value;
 
-use crate::types::*;
 use super::OpenAIRequest;
+use crate::types::*;
 
 /// 从 OpenAI 格式请求解析为内部 ChatRequest
 pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
@@ -10,7 +10,8 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
     let mut messages = Vec::new();
     let mut system = None;
     // tool_call id → 函数名（tool 消息回填 ToolResult.name 用；Gemini 出站靠 name 关联）
-    let mut call_names: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut call_names: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
 
     for m in &openai_req.messages {
         let role = match m.role.as_str() {
@@ -20,7 +21,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 // Extract system message
                 if let Some(content) = &m.content {
                     system = Some(SystemContent::Text(
-                        content.as_str().unwrap_or("").to_string()
+                        content.as_str().unwrap_or("").to_string(),
                     ));
                 }
                 continue;
@@ -35,16 +36,22 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
             // Add text content if present
             if let Some(content) = &m.content
                 && let Some(text) = content.as_str()
-                    && !text.is_empty() {
-                        blocks.push(ContentBlock::Text { text: text.to_string(), extra: None });
-                    }
+                && !text.is_empty()
+            {
+                blocks.push(ContentBlock::Text {
+                    text: text.to_string(),
+                    extra: None,
+                });
+            }
             for tc in tool_calls {
-                let input: serde_json::Value = serde_json::from_str(&tc.function.arguments).unwrap_or(serde_json::Value::Object(Default::default()));
+                let input: serde_json::Value = serde_json::from_str(&tc.function.arguments)
+                    .unwrap_or(serde_json::Value::Object(Default::default()));
                 call_names.insert(tc.id.clone(), tc.function.name.clone());
                 blocks.push(ContentBlock::ToolUse {
                     id: tc.id.clone(),
                     name: tc.function.name.clone(),
-                    input, extra: None
+                    input,
+                    extra: None,
                 });
             }
             messages.push(Message {
@@ -56,15 +63,16 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
 
         // tool_call_id → tool_result
         if let Some(tool_call_id) = &m.tool_call_id {
-            let content = m.content.as_ref()
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let content = m.content.as_ref().and_then(|v| v.as_str()).unwrap_or("");
             messages.push(Message {
                 role: Role::Tool,
                 content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
                     tool_use_id: tool_call_id.clone(),
                     content: content.to_string(),
-                    name: call_names.get(tool_call_id).cloned(), is_error: None, content_blocks: None, extra: None
+                    name: call_names.get(tool_call_id).cloned(),
+                    is_error: None,
+                    content_blocks: None,
+                    extra: None,
                 }]),
             });
             continue;
@@ -74,13 +82,22 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         let content = match &m.content {
             Some(Value::String(s)) => MessageContent::Text(s.clone()),
             Some(Value::Array(parts)) => {
-                let mut texts: Vec<ContentBlock> = parts.iter()
+                let mut texts: Vec<ContentBlock> = parts
+                    .iter()
                     .filter_map(|p| {
                         // 纯字符串元素 或 {type:"text"} object
                         if let Some(s) = p.as_str() {
-                            Some(ContentBlock::Text { text: s.to_string(), extra: None })
+                            Some(ContentBlock::Text {
+                                text: s.to_string(),
+                                extra: None,
+                            })
                         } else {
-                            p.get("text").and_then(|t| t.as_str()).map(|s| ContentBlock::Text { text: s.to_string(), extra: None })
+                            p.get("text")
+                                .and_then(|t| t.as_str())
+                                .map(|s| ContentBlock::Text {
+                                    text: s.to_string(),
+                                    extra: None,
+                                })
                         }
                     })
                     .collect();
@@ -131,7 +148,10 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
 
     // reasoning_effort → 思考预算（换算表统一在 `crate::thinking`，票 03；此前这里的 low=2048
     // 与出站表的 low<=4096 不自洽，openai → responses 往返会把 low 抬成 medium）
-    let thinking_budget = openai_req.reasoning_effort.as_deref().and_then(crate::thinking::effort_to_budget);
+    let thinking_budget = openai_req
+        .reasoning_effort
+        .as_deref()
+        .and_then(crate::thinking::effort_to_budget);
 
     let tool_choice = openai_req.tool_choice.and_then(|tc| {
         if tc.is_string() {
@@ -142,10 +162,13 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                 _ => None,
             }
         } else if tc.is_object() {
-            let name = tc.get("function")
+            let name = tc
+                .get("function")
                 .and_then(|f| f.get("name"))
                 .and_then(|n| n.as_str())?;
-            Some(ToolChoice::Named { name: name.to_string() })
+            Some(ToolChoice::Named {
+                name: name.to_string(),
+            })
         } else {
             None
         }
@@ -174,8 +197,16 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         extra: rest_keys(
             body,
             &[
-                "model", "messages", "max_tokens", "max_completion_tokens", "temperature",
-                "top_p", "stream", "tools", "tool_choice", "reasoning_effort",
+                "model",
+                "messages",
+                "max_tokens",
+                "max_completion_tokens",
+                "temperature",
+                "top_p",
+                "stream",
+                "tools",
+                "tool_choice",
+                "reasoning_effort",
             ],
         ),
         // 档位原值与 thinking_budget 并存：预算是换算后的数字，档位保留客户端原字面量

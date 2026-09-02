@@ -64,7 +64,11 @@ impl UsageLevel {
 ///   - `cycle_ms`：周期时长（ms）；None = 未知 name（无周期概念）
 ///
 /// 缺 remain / cycle / 利用率非法 → `Neutral`（不静默走旧利用率阈值，不误报）。
-pub fn coding_tier_level(utilization: f64, remain_ms: Option<i64>, cycle_ms: Option<i64>) -> UsageLevel {
+pub fn coding_tier_level(
+    utilization: f64,
+    remain_ms: Option<i64>,
+    cycle_ms: Option<i64>,
+) -> UsageLevel {
     if !utilization.is_finite() || utilization < 0.0 {
         return UsageLevel::Neutral;
     }
@@ -186,9 +190,18 @@ mod tests {
 
     #[test]
     fn coding_no_data_is_neutral() {
-        assert_eq!(coding_tier_level(50.0, None, Some(1000)), UsageLevel::Neutral);
-        assert_eq!(coding_tier_level(50.0, Some(500), None), UsageLevel::Neutral);
-        assert_eq!(coding_tier_level(-1.0, Some(500), Some(1000)), UsageLevel::Neutral);
+        assert_eq!(
+            coding_tier_level(50.0, None, Some(1000)),
+            UsageLevel::Neutral
+        );
+        assert_eq!(
+            coding_tier_level(50.0, Some(500), None),
+            UsageLevel::Neutral
+        );
+        assert_eq!(
+            coding_tier_level(-1.0, Some(500), Some(1000)),
+            UsageLevel::Neutral
+        );
     }
 
     #[test]
@@ -196,11 +209,20 @@ mod tests {
         // 配额耗尽（util≥100）→ Red，绕过 pace。weekly 剩 2d（elapsed≈0.71）按 pace 会判绿。
         let cycle = 7 * 24 * 3_600_000; // weekly ms
         let remain = 2 * 24 * 3_600_000; // 剩 2d
-        assert_eq!(coding_tier_level(100.0, Some(remain), Some(cycle)), UsageLevel::Red);
+        assert_eq!(
+            coding_tier_level(100.0, Some(remain), Some(cycle)),
+            UsageLevel::Red
+        );
         // 上溢（异常但不可用）也红
-        assert_eq!(coding_tier_level(150.0, Some(remain), Some(cycle)), UsageLevel::Red);
+        assert_eq!(
+            coding_tier_level(150.0, Some(remain), Some(cycle)),
+            UsageLevel::Red
+        );
         // 边界：99.9 仍走 pace（非本修复目标）
-        assert_ne!(coding_tier_level(99.9, Some(remain), Some(cycle)), UsageLevel::Red);
+        assert_ne!(
+            coding_tier_level(99.9, Some(remain), Some(cycle)),
+            UsageLevel::Red
+        );
     }
 
     #[test]

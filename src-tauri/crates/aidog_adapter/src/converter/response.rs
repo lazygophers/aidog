@@ -12,7 +12,9 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEve
         Protocol::Anthropic => super::super::anthropic::parse_anthropic_sse(data),
         Protocol::Gemini => super::super::gemini::parse_gemini_sse(data),
         Protocol::OpenAIResponses => super::super::openai_responses::parse_responses_sse(data),
-        Protocol::OpenAICompletions => super::super::openai_completions::parse_completions_sse(data),
+        Protocol::OpenAICompletions => {
+            super::super::openai_completions::parse_completions_sse(data)
+        }
         // 剩余 OpenAI 系（chat completions 格式及其平台变体）共用 OpenAI SSE 解析
         _ => super::super::openai::parse_openai_sse(data),
     }
@@ -26,15 +28,20 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEve
 pub fn parse_upstream_sse(text: &str, wire_protocol: &Protocol) -> Vec<ChatStreamEvent> {
     let mut events = Vec::new();
     for line in text.lines() {
-        let Some(data) = line.strip_prefix("data: ") else { continue };
+        let Some(data) = line.strip_prefix("data: ") else {
+            continue;
+        };
         if data.trim() == "[DONE]" {
-            events.push(ChatStreamEvent::Stop { finish_reason: Some("end_turn".to_string()) });
+            events.push(ChatStreamEvent::Stop {
+                finish_reason: Some("end_turn".to_string()),
+            });
             continue;
         }
         if let Ok(json) = serde_json::from_str::<Value>(data)
-            && let Some(event) = parse_sse(&json, wire_protocol) {
-                events.push(event);
-            }
+            && let Some(event) = parse_sse(&json, wire_protocol)
+        {
+            events.push(event);
+        }
     }
     events
 }
@@ -84,8 +91,12 @@ pub fn convert_response(
     let parsed = match wire_protocol {
         Protocol::Anthropic => super::super::anthropic::parse_anthropic_response(body, model),
         Protocol::OpenAI => super::super::openai::parse_openai_response(body, model),
-        Protocol::OpenAIResponses => super::super::openai_responses::parse_responses_response(body, model),
-        Protocol::OpenAICompletions => super::super::openai_completions::parse_completions_response(body, model),
+        Protocol::OpenAIResponses => {
+            super::super::openai_responses::parse_responses_response(body, model)
+        }
+        Protocol::OpenAICompletions => {
+            super::super::openai_completions::parse_completions_response(body, model)
+        }
         Protocol::Gemini => super::super::gemini::parse_gemini_response(body, model),
         _ => None, // 非目标协议回退透传
     };
@@ -96,8 +107,12 @@ pub fn convert_response(
     match client_protocol {
         Protocol::Anthropic => Some(render_anthropic_response(&parsed)),
         Protocol::OpenAI => Some(super::super::openai::render_openai_response(&parsed)?),
-        Protocol::OpenAIResponses => Some(super::super::openai_responses::render_responses_response(&parsed)?),
-        Protocol::OpenAICompletions => Some(super::super::openai_completions::render_completions_response(&parsed)?),
+        Protocol::OpenAIResponses => Some(
+            super::super::openai_responses::render_responses_response(&parsed)?,
+        ),
+        Protocol::OpenAICompletions => {
+            Some(super::super::openai_completions::render_completions_response(&parsed)?)
+        }
         Protocol::Gemini => Some(super::super::gemini::render_gemini_response(&parsed)?),
         _ => None, // 未知客户端协议回退透传
     }
@@ -112,7 +127,9 @@ pub fn convert_response(
 ///
 /// 上游同时给了结构化 reasoning 与行内标签时，结构化的排前，行内的追加在后（出现顺序）。
 fn normalize_inline_reasoning(mut r: NonStreamResponse) -> NonStreamResponse {
-    let Some(text) = r.text.as_deref() else { return r };
+    let Some(text) = r.text.as_deref() else {
+        return r;
+    };
     if !super::super::reasoning_tags::has_inline_reasoning_tag(text) {
         return r;
     }
@@ -139,13 +156,15 @@ pub fn render_anthropic_response(r: &NonStreamResponse) -> Value {
     let mut content: Vec<Value> = Vec::new();
     // thinking 块排首位（Anthropic 规定 thinking 必须在同一条消息的正文块之前）
     if let Some(reasoning) = &r.reasoning
-        && !reasoning.is_empty() {
-            content.push(serde_json::json!({ "type": "thinking", "thinking": reasoning }));
-        }
+        && !reasoning.is_empty()
+    {
+        content.push(serde_json::json!({ "type": "thinking", "thinking": reasoning }));
+    }
     if let Some(text) = &r.text
-        && !text.is_empty() {
-            content.push(serde_json::json!({ "type": "text", "text": text }));
-        }
+        && !text.is_empty()
+    {
+        content.push(serde_json::json!({ "type": "text", "text": text }));
+    }
     for (id, name, input) in &r.tool_uses {
         content.push(serde_json::json!({
             "type": "tool_use",
@@ -190,87 +209,37 @@ pub fn to_client_sse_stateful(
 ) -> Option<String> {
     use Protocol::*;
     match source_protocol {
-        OpenAI | OpenAIResponses | OpenAICompletions => super::super::openai::to_openai_sse(event, _model),
+        OpenAI | OpenAIResponses | OpenAICompletions => {
+            super::super::openai::to_openai_sse(event, _model)
+        }
         Gemini => super::super::gemini::to_gemini_sse(event, _model),
         _ => state.push(event),
     }
 }
 
-pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &Protocol, model: &str) -> Option<String> {
+pub fn to_client_sse(
+    event: &ChatStreamEvent,
+    source_protocol: &Protocol,
+    model: &str,
+) -> Option<String> {
     use Protocol::*;
     match source_protocol {
-        OpenAI | OpenAIResponses | OpenAICompletions => super::super::openai::to_openai_sse(event, model),
+        OpenAI | OpenAIResponses | OpenAICompletions => {
+            super::super::openai::to_openai_sse(event, model)
+        }
         Gemini => super::super::gemini::to_gemini_sse(event, model),
-        Anthropic
-        | Mock
-        | ClaudeCode
-        | Glm
-        | GlmCoding
-        | GlmEn
-        | GlmCodingEn
-        | Kimi
-        | KimiEn
-        | KimiCoding
-        | MiniMax
-        | MiniMaxEn
-        | MinimaxCoding
-        | Codex
-        | Bailian
-        | BailianCoding
-        | BailianEn
-        | BailianCodingEn
-        | DeepSeek
-        | StepFun
-        | StepFunEn
-        | Doubao
-        | BytePlus
-        | QianFan
-        | QianfanCoding
-        | XiaomiMimo
-        | XiaomiMimoCoding
-        | XiaomiMimoCodingEn
-        | Longcat
-        | SenseNova
-        | SenseNovaEn
-        | OpenRouter
-        | SiliconFlow
-        | SiliconFlowEn
-        | AiHubMix
-        | DmxApi
-        | ModelScope
-        | ShengSuanYun
-        | AtlasCloud
-        | Novita
-        | TheRouter
-        | CherryIn
-        | PackyCode
-        | Cubence
-        | AiGoCode
-        | RightCode
-        | AiCodeMirror
-        | Nvidia
-        | Pateway
-        | CcSub
-        | ApiKeyFun
-        | SudoCode
-        | ClaudeApi
-        | ClaudeCN
-        | RunApi
-        | RelaxyCode
-        | CrazyRouter
-        | SssAiCode
-        | Compshare
-        | CompshareCoding
-        | Micu
-        | CTok
-        | EFlowCode
-        | LemonData
-        | PipeLlm
-        | OpenCode
-        | OpenCodeZen
-        | NewApi
-        | CliProxy
-        | Devin => to_anthropic_sse(event),
+        Anthropic | Mock | ClaudeCode | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiEn
+        | KimiCoding | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Bailian | BailianCoding
+        | BailianEn | BailianCodingEn | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
+        | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding | XiaomiMimoCodingEn
+        | Longcat | SenseNova | SenseNovaEn | OpenRouter | SiliconFlow | SiliconFlowEn
+        | AiHubMix | DmxApi | ModelScope | ShengSuanYun | AtlasCloud | Novita | TheRouter
+        | CherryIn | PackyCode | Cubence | AiGoCode | RightCode | AiCodeMirror | Nvidia
+        | Pateway | CcSub | ApiKeyFun | SudoCode | ClaudeApi | ClaudeCN | RunApi | RelaxyCode
+        | CrazyRouter | SssAiCode | Compshare | CompshareCoding | Micu | CTok | EFlowCode
+        | LemonData | PipeLlm | OpenCode | OpenCodeZen | NewApi | CliProxy | Devin => {
+            to_anthropic_sse(event)
+        }
     }
 }
 
@@ -331,7 +300,12 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
                 }
             })
         )),
-        ChatStreamEvent::ToolDelta { index, id, name, input } => {
+        ChatStreamEvent::ToolDelta {
+            index,
+            id,
+            name,
+            input,
+        } => {
             let mut parts = Vec::new();
 
             // tool_use 开始
@@ -501,20 +475,26 @@ impl AnthropicSseState {
                 ));
                 Some(parts.join(""))
             }
-            ChatStreamEvent::ToolDelta { index, id, name, input } => {
+            ChatStreamEvent::ToolDelta {
+                index,
+                id,
+                name,
+                input,
+            } => {
                 let mut parts = Vec::new();
                 // 首帧（带 id/name）→ wire index 分配 + content_block_start
                 if !self.tool_wire.contains_key(index)
-                    && let (Some(id), Some(name)) = (id, name) {
-                        // text 块后续不再有；开 tool 块前不必关 text（Anthropic 允许交错块？
-                        // 实际须按序——文本块先 close。简化：首个 tool 块出现时 close text 块。）
-                        let wire = self.alloc_block();
-                        self.tool_wire.insert(*index, wire);
-                        parts.push(format!(
+                    && let (Some(id), Some(name)) = (id, name)
+                {
+                    // text 块后续不再有；开 tool 块前不必关 text（Anthropic 允许交错块？
+                    // 实际须按序——文本块先 close。简化：首个 tool 块出现时 close text 块。）
+                    let wire = self.alloc_block();
+                    self.tool_wire.insert(*index, wire);
+                    parts.push(format!(
                             "event: content_block_start\ndata: {}\n\n",
                             serde_json::json!({ "type": "content_block_start", "index": wire, "content_block": { "type": "tool_use", "id": id, "name": name, "input": {} } })
                         ));
-                    }
+                }
                 if let Some(input) = input {
                     let wire = self.tool_wire.get(index).copied().unwrap_or(*index);
                     parts.push(format!(
@@ -522,14 +502,22 @@ impl AnthropicSseState {
                         serde_json::json!({ "type": "content_block_delta", "index": wire, "delta": { "type": "input_json_delta", "partial_json": input } })
                     ));
                 }
-                if parts.is_empty() { None } else { Some(parts.join("")) }
+                if parts.is_empty() {
+                    None
+                } else {
+                    Some(parts.join(""))
+                }
             }
             ChatStreamEvent::Stop { finish_reason } => {
                 let mut parts = Vec::new();
                 // 关全部开块（text / thinking / tool × n），wire index 升序
                 let mut closes: Vec<u32> = Vec::new();
-                if let Some(i) = self.text_index { closes.push(i); }
-                if let Some(i) = self.thinking_index { closes.push(i); }
+                if let Some(i) = self.text_index {
+                    closes.push(i);
+                }
+                if let Some(i) = self.thinking_index {
+                    closes.push(i);
+                }
                 closes.extend(self.tool_wire.values().copied());
                 closes.sort();
                 for c in closes {

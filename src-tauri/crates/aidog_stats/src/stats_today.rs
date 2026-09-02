@@ -1,8 +1,8 @@
-use aidog_db::settings::{get_setting, set_setting};
 use aidog_db::Db;
-use serde::{Deserialize, Serialize};
 use aidog_db::models::*;
-use rusqlite::{params, Result as SqlResult};
+use aidog_db::settings::{get_setting, set_setting};
+use rusqlite::{Result as SqlResult, params};
+use serde::{Deserialize, Serialize};
 
 /// 今日统计摘要（供托盘预览使用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,23 +35,35 @@ pub fn local_today_hour_key() -> String {
 pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodayStats, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let today_key = local_today_hour_key();
+        let today_key = local_today_hour_key();
 
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
+        db.call_read_traced(None, __db_caller, move |conn| {
             // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
-            let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
-                .query_row(
-                    "SELECT COALESCE(SUM(sum_input_tokens), 0), \
+            let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (
+                i64,
+                i64,
+                i64,
+                i64,
+                f64,
+            ) = conn.query_row(
+                "SELECT COALESCE(SUM(sum_input_tokens), 0), \
                      COALESCE(SUM(sum_output_tokens), 0), \
                      COALESCE(SUM(sum_cache_tokens), 0), \
                      COALESCE(SUM(request_count), 0), \
                      COALESCE(SUM(sum_est_cost), 0.0) \
                      FROM stats_agg_hourly WHERE time_hour >= ?1 AND deleted_at = 0",
-                    params![today_key],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
-                )?;
+                params![today_key],
+                |row| {
+                    Ok((
+                        row.get(0)?,
+                        row.get(1)?,
+                        row.get(2)?,
+                        row.get(3)?,
+                        row.get(4)?,
+                    ))
+                },
+            )?;
 
             let tokens = input_tokens + output_tokens;
             let cache_rate = if input_tokens + cache_tokens > 0 {
@@ -97,18 +109,20 @@ pub struct TodayPlatformStat {
 /// 平台名应用层合并（含已软删平台，名仍可显示；查不到则空字符串）：先单表 GROUP BY
 /// stats_agg_hourly，再单表查 platform id→name，Rust HashMap 合并（跨库禁 JOIN）。
 #[track_caller]
-pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result<Vec<TodayPlatformStat>, String>> + '_ {
+pub fn today_platform_stats(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Vec<TodayPlatformStat>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    let today_key = local_today_hour_key();
+        let today_key = local_today_hour_key();
 
-    // stats_agg_hourly 已迁回主库（s1）；platform 表也在主库 → 同库，但仍走两次读（聚合 + 名字）
-    // 以复用 prepare_cached，避免 JOIN 触发新索引需求。先主库读池跑聚合（含排序），再查 platform 名。
-    let mut rows: Vec<(i64, i64, f64, i64)> = db
-        .call_read_traced(None, __db_caller, move |conn| {
-            // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
-            // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
-            let sql = "
+        // stats_agg_hourly 已迁回主库（s1）；platform 表也在主库 → 同库，但仍走两次读（聚合 + 名字）
+        // 以复用 prepare_cached，避免 JOIN 触发新索引需求。先主库读池跑聚合（含排序），再查 platform 名。
+        let mut rows: Vec<(i64, i64, f64, i64)> = db
+            .call_read_traced(None, __db_caller, move |conn| {
+                // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
+                // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
+                let sql = "
                 SELECT platform_id AS eff_pid,
                        COALESCE(SUM(sum_input_tokens + sum_output_tokens), 0) AS tokens,
                        COALESCE(SUM(sum_est_cost), 0.0) AS cost,
@@ -117,42 +131,49 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
                 WHERE time_hour >= ?1 AND deleted_at = 0
                 GROUP BY platform_id
                 ORDER BY cost DESC, tokens DESC";
-            let mut stmt = conn.prepare_cached(sql)?;
-            let rows = stmt
-                .query_map(params![today_key], |row| {
-                    let pid: i64 = row.get(0)?;
-                    Ok((pid, row.get::<_, i64>(1)?, row.get::<_, f64>(2)?, row.get::<_, i64>(3)?))
-                })?
-                .collect::<SqlResult<Vec<_>>>()?;
-            Ok(rows)
-        })
-        .await
-        .map_err(|e| format!("today platform stats agg: {e}"))?;
+                let mut stmt = conn.prepare_cached(sql)?;
+                let rows = stmt
+                    .query_map(params![today_key], |row| {
+                        let pid: i64 = row.get(0)?;
+                        Ok((
+                            pid,
+                            row.get::<_, i64>(1)?,
+                            row.get::<_, f64>(2)?,
+                            row.get::<_, i64>(3)?,
+                        ))
+                    })?
+                    .collect::<SqlResult<Vec<_>>>()?;
+                Ok(rows)
+            })
+            .await
+            .map_err(|e| format!("today platform stats agg: {e}"))?;
 
-    // platform.db 预查全量 platform id→name 映射（含软删平台，名仍可显示）。
-    let names: std::collections::HashMap<i64, String> = db
-        .call_read_platform_traced(None, __db_caller, move |conn| {
-            let mut name_stmt = conn.prepare("SELECT id, name FROM platform")?;
-            let names = name_stmt
-                .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
-                .collect::<SqlResult<Vec<_>>>()?
-                .into_iter()
-                .collect();
-            Ok(names)
-        })
-        .await
-        .map_err(|e| format!("today platform stats names: {e}"))?;
+        // platform.db 预查全量 platform id→name 映射（含软删平台，名仍可显示）。
+        let names: std::collections::HashMap<i64, String> = db
+            .call_read_platform_traced(None, __db_caller, move |conn| {
+                let mut name_stmt = conn.prepare("SELECT id, name FROM platform")?;
+                let names = name_stmt
+                    .query_map([], |row| {
+                        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+                    })?
+                    .collect::<SqlResult<Vec<_>>>()?
+                    .into_iter()
+                    .collect();
+                Ok(names)
+            })
+            .await
+            .map_err(|e| format!("today platform stats names: {e}"))?;
 
-    Ok(rows
-        .drain(..)
-        .map(|(pid, tokens, cost, reqs)| TodayPlatformStat {
-            platform_id: pid.max(0) as u64,
-            platform_name: names.get(&pid).cloned().unwrap_or_default(),
-            tokens,
-            cost,
-            requests: reqs,
-        })
-        .collect())
+        Ok(rows
+            .drain(..)
+            .map(|(pid, tokens, cost, reqs)| TodayPlatformStat {
+                platform_id: pid.max(0) as u64,
+                platform_name: names.get(&pid).cloned().unwrap_or_default(),
+                tokens,
+                cost,
+                requests: reqs,
+            })
+            .collect())
     }
 }
 
@@ -161,27 +182,32 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
 /// 读取 PopoverConfig。无配置 / 损坏 → 默认配置（不持久化，按需懒生成）。
 pub async fn get_popover_config(db: &Db) -> Result<aidog_db::models::PopoverConfig, String> {
     if let Some(v) = get_setting(db, "popover", "config").await?
-        && !v.is_null() {
-            let cfg: aidog_db::models::PopoverConfig =
-                serde_json::from_value(v).unwrap_or_else(|e| {
-                    tracing::warn!(error = %e, "popover config JSON is corrupt, falling back to default");
-                    aidog_db::models::PopoverConfig::default()
-                });
-            return Ok(cfg);
-        }
+        && !v.is_null()
+    {
+        let cfg: aidog_db::models::PopoverConfig = serde_json::from_value(v).unwrap_or_else(|e| {
+            tracing::warn!(error = %e, "popover config JSON is corrupt, falling back to default");
+            aidog_db::models::PopoverConfig::default()
+        });
+        return Ok(cfg);
+    }
     Ok(aidog_db::models::PopoverConfig::default())
 }
 
 /// 写入 PopoverConfig 到 settings。
-pub async fn set_popover_config(db: &Db, cfg: &aidog_db::models::PopoverConfig) -> Result<(), String> {
+pub async fn set_popover_config(
+    db: &Db,
+    cfg: &aidog_db::models::PopoverConfig,
+) -> Result<(), String> {
     let value = serde_json::to_value(cfg).map_err(|e| format!("serialize popover config: {e}"))?;
-    set_setting(db, SetSettingInput {
-        scope: "popover".to_string(),
-        key: "config".to_string(),
-        value,
-    })
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: "popover".to_string(),
+            key: "config".to_string(),
+            value,
+        },
+    )
     .await
 }
 
 // ─── Group CRUD ────────────────────────────────────────────
-

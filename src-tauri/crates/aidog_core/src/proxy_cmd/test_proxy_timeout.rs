@@ -8,12 +8,26 @@ use aidog_db::test_support::test_db;
 #[tokio::test]
 async fn timeout_roundtrip() {
     let db = test_db().await;
-    let s: ProxyTimeoutSettings = aidog_db::get_setting(&db, "proxy", "timeout").await
-        .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-    aidog_db::set_setting(&db, SetSettingInput {
-        scope: "proxy".to_string(), key: "timeout".to_string(),
-        value: serde_json::to_value(&s).unwrap(),
-    }).await.unwrap();
-    let _got: ProxyTimeoutSettings = aidog_db::get_setting(&db, "proxy", "timeout").await
-        .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+    let s: ProxyTimeoutSettings = aidog_db::get_setting(&db, "proxy", "timeout")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    aidog_db::set_setting(
+        &db,
+        SetSettingInput {
+            scope: "proxy".to_string(),
+            key: "timeout".to_string(),
+            value: serde_json::to_value(&s).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    let _got: ProxyTimeoutSettings = aidog_db::get_setting(&db, "proxy", "timeout")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
 }

@@ -47,18 +47,32 @@ fn index_with(last_updated: u64) -> String {
 const ALPHA_PLATFORM: &str = r##"{"name":{"en-US":"Alpha"},"logo_url":"alpha","color":"#111111"}"##;
 const BETA_PLATFORM: &str = r##"{"name":{"en-US":"Beta"},"logo_url":"beta","color":"#222222"}"##;
 const A1: &str = r#"{"model_id":"a-1","canonical_model":"a-1","official":true,"capabilities":["text"],"max_input_tokens":100}"#;
-const B1: &str = r#"{"model_id":"b-1","canonical_model":"a-1","official":false,"capabilities":["text"]}"#;
-const A1_LITELLM: &str = r#"{"model_id":"a-1","canonical_model":"a-1","official":false,"capabilities":["text"]}"#;
+const B1: &str =
+    r#"{"model_id":"b-1","canonical_model":"a-1","official":false,"capabilities":["text"]}"#;
+const A1_LITELLM: &str =
+    r#"{"model_id":"a-1","canonical_model":"a-1","official":false,"capabilities":["text"]}"#;
 
 /// 完整快照：4 个文件全在（index.last_updated 可配，模拟上游发版）。
 fn full_with(last_updated: u64) -> BTreeMap<String, String> {
     BTreeMap::from([
         ("index.json".to_string(), index_with(last_updated)),
-        ("platforms/alpha/platform.json".to_string(), ALPHA_PLATFORM.to_string()),
-        ("platforms/beta/platform.json".to_string(), BETA_PLATFORM.to_string()),
-        ("platforms/alpha/models/a-1.json".to_string(), A1.to_string()),
+        (
+            "platforms/alpha/platform.json".to_string(),
+            ALPHA_PLATFORM.to_string(),
+        ),
+        (
+            "platforms/beta/platform.json".to_string(),
+            BETA_PLATFORM.to_string(),
+        ),
+        (
+            "platforms/alpha/models/a-1.json".to_string(),
+            A1.to_string(),
+        ),
         ("platforms/beta/models/b-1.json".to_string(), B1.to_string()),
-        ("platforms/litellm/models/a-1.json".to_string(), A1_LITELLM.to_string()),
+        (
+            "platforms/litellm/models/a-1.json".to_string(),
+            A1_LITELLM.to_string(),
+        ),
     ])
 }
 
@@ -84,7 +98,10 @@ async fn full_sync_upserts_every_file_from_index() {
     assert!(r.failures.is_empty());
 
     let presets = aidog_db::select_platform_presets(&db).await.unwrap();
-    assert_eq!(presets.iter().map(|p| p.code.as_str()).collect::<Vec<_>>(), ["alpha", "beta"]);
+    assert_eq!(
+        presets.iter().map(|p| p.code.as_str()).collect::<Vec<_>>(),
+        ["alpha", "beta"]
+    );
     let entries = aidog_db::select_model_entries(&db, None).await.unwrap();
     assert_eq!(entries.len(), 3);
     let a1 = entries.iter().find(|e| e.platform_code == "alpha").unwrap();
@@ -106,7 +123,10 @@ async fn partial_failure_keeps_existing_rows_and_reports_files() {
     let mut broken = full_newer();
     broken.remove("platforms/beta/platform.json");
     broken.remove("platforms/beta/models/b-1.json");
-    broken.insert("platforms/alpha/platform.json".to_string(), r##"{"name":{"en-US":"Alpha Renamed"},"logo_url":"alpha2","color":"#111111"}"##.to_string());
+    broken.insert(
+        "platforms/alpha/platform.json".to_string(),
+        r##"{"name":{"en-US":"Alpha Renamed"},"logo_url":"alpha2","color":"#111111"}"##.to_string(),
+    );
     let base = spawn_registry(broken).await;
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
 
@@ -117,16 +137,34 @@ async fn partial_failure_keeps_existing_rows_and_reports_files() {
     assert_eq!(r.added, 0);
     let mut files: Vec<&str> = r.failures.iter().map(|f| f.file.as_str()).collect();
     files.sort_unstable();
-    assert_eq!(files, ["platforms/beta/models/b-1.json", "platforms/beta/platform.json"]);
+    assert_eq!(
+        files,
+        [
+            "platforms/beta/models/b-1.json",
+            "platforms/beta/platform.json"
+        ]
+    );
     assert!(r.failures.iter().all(|f| f.error.contains("404")));
 
     // best-effort：失败平台的品牌字段与模型条目原样保留，没被清空也没被部分覆盖
     let presets = aidog_db::select_platform_presets(&db).await.unwrap();
-    let beta = presets.iter().find(|p| p.code == "beta").expect("beta 行不可消失");
+    let beta = presets
+        .iter()
+        .find(|p| p.code == "beta")
+        .expect("beta 行不可消失");
     assert_eq!(beta.preset_data, BETA_PLATFORM);
     let alpha = presets.iter().find(|p| p.code == "alpha").unwrap();
-    assert!(alpha.preset_data.contains("Alpha Renamed"), "成功平台的新名字要生效");
-    assert!(aidog_db::select_model_entries(&db, Some("beta")).await.unwrap().len() == 1);
+    assert!(
+        alpha.preset_data.contains("Alpha Renamed"),
+        "成功平台的新名字要生效"
+    );
+    assert!(
+        aidog_db::select_model_entries(&db, Some("beta"))
+            .await
+            .unwrap()
+            .len()
+            == 1
+    );
 }
 
 /// 品牌字段整份随 `preset_data` 入库：8 locale 名字、logo slug、色值、keywords 数组、
@@ -138,8 +176,14 @@ async fn sync_carries_brand_fields_and_display_name() {
 
     let db = test_db().await;
     let mut files = full();
-    files.insert("platforms/alpha/platform.json".to_string(), RICH_PLATFORM.to_string());
-    files.insert("platforms/alpha/models/a-1.json".to_string(), RICH_MODEL.to_string());
+    files.insert(
+        "platforms/alpha/platform.json".to_string(),
+        RICH_PLATFORM.to_string(),
+    );
+    files.insert(
+        "platforms/alpha/models/a-1.json".to_string(),
+        RICH_MODEL.to_string(),
+    );
     let base = spawn_registry(files).await;
     sync_registry_from(&db, &[&base]).await.unwrap();
 
@@ -149,13 +193,24 @@ async fn sync_carries_brand_fields_and_display_name() {
     assert_eq!(v["name"]["zh-Hans"], "阿尔法");
     assert_eq!(v["logo_url"], "alpha");
     assert_eq!(v["color"], "#111111");
-    assert_eq!(v["keywords"].as_array().unwrap().len(), 3, "keywords 数组不得被截断");
-    assert_eq!(v["source_urls"]["pricing"], "https://alpha.example.com/pricing");
+    assert_eq!(
+        v["keywords"].as_array().unwrap().len(),
+        3,
+        "keywords 数组不得被截断"
+    );
+    assert_eq!(
+        v["source_urls"]["pricing"],
+        "https://alpha.example.com/pricing"
+    );
 
-    let a1 = aidog_db::select_model_entries(&db, Some("alpha")).await.unwrap();
+    let a1 = aidog_db::select_model_entries(&db, Some("alpha"))
+        .await
+        .unwrap();
     assert_eq!(a1[0].display_name, "Alpha 1", "模型展示名随同步入库");
     // 上游没写 display_name 的条目在读取层回落 model_id，不留空单元格
-    let b1 = aidog_db::list_model_entries(&db, Some("beta")).await.unwrap();
+    let b1 = aidog_db::list_model_entries(&db, Some("beta"))
+        .await
+        .unwrap();
     assert_eq!(b1[0].display_name, "b-1");
 }
 
@@ -166,7 +221,10 @@ async fn failed_platform_keeps_brand_fields_intact() {
 
     let db = test_db().await;
     let mut files = full();
-    files.insert("platforms/beta/platform.json".to_string(), RICH_BETA.to_string());
+    files.insert(
+        "platforms/beta/platform.json".to_string(),
+        RICH_BETA.to_string(),
+    );
     let base = spawn_registry(files.clone()).await;
     sync_registry_from(&db, &[&base]).await.unwrap();
 
@@ -180,7 +238,10 @@ async fn failed_platform_keeps_brand_fields_intact() {
     assert_eq!(r.failures[0].file, "platforms/beta/platform.json");
 
     let presets = aidog_db::select_platform_presets(&db).await.unwrap();
-    let beta = presets.iter().find(|p| p.code == "beta").expect("beta 行不可消失");
+    let beta = presets
+        .iter()
+        .find(|p| p.code == "beta")
+        .expect("beta 行不可消失");
     let v: serde_json::Value = serde_json::from_str(&beta.preset_data).unwrap();
     assert_eq!(v["name"]["en-US"], "Beta Inc");
     assert_eq!(v["name"]["ja-JP"], "ベータ");
@@ -197,10 +258,23 @@ async fn second_identical_sync_skips_then_bumped_index_is_all_unchanged() {
     sync_registry_from(&db, &[&base]).await.unwrap();
 
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
-    assert_eq!((r.added, r.updated, r.unchanged, r.failed, r.total), (0, 0, 0, 0, 0),
-        "index last_updated 未变 → 整轮跳过");
-    assert_eq!(aidog_db::select_model_entries(&db, None).await.unwrap().len(), 3, "DB 数据原样");
-    assert!(get_sync_settings(&db).await.last_sync_at > 0, "跳过也写 last_sync_at，周期判定不空转");
+    assert_eq!(
+        (r.added, r.updated, r.unchanged, r.failed, r.total),
+        (0, 0, 0, 0, 0),
+        "index last_updated 未变 → 整轮跳过"
+    );
+    assert_eq!(
+        aidog_db::select_model_entries(&db, None)
+            .await
+            .unwrap()
+            .len(),
+        3,
+        "DB 数据原样"
+    );
+    assert!(
+        get_sync_settings(&db).await.last_sync_at > 0,
+        "跳过也写 last_sync_at，周期判定不空转"
+    );
 
     let base = spawn_registry(full_newer()).await;
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
@@ -219,7 +293,13 @@ async fn index_fetch_failure_aborts_round() {
     let empty = spawn_registry(BTreeMap::new()).await;
     let err = sync_registry_from(&db, &[&empty]).await.unwrap_err();
     assert!(err.starts_with("index.json:"), "{err}");
-    assert_eq!(aidog_db::select_model_entries(&db, None).await.unwrap().len(), 3);
+    assert_eq!(
+        aidog_db::select_model_entries(&db, None)
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
 }
 
 /// 主源整体不可达时逐文件回退到第二源（jsDelivr → raw 的本地等价）。
@@ -238,17 +318,38 @@ async fn falls_back_to_secondary_source_per_file() {
 async fn invalid_payload_counts_as_failure_without_writing() {
     let db = test_db().await;
     let mut dirty = full();
-    dirty.insert("platforms/beta/models/b-1.json".to_string(), r#"{"no_model_id":true}"#.to_string());
-    dirty.insert("platforms/beta/platform.json".to_string(), "{not json".to_string());
+    dirty.insert(
+        "platforms/beta/models/b-1.json".to_string(),
+        r#"{"no_model_id":true}"#.to_string(),
+    );
+    dirty.insert(
+        "platforms/beta/platform.json".to_string(),
+        "{not json".to_string(),
+    );
     let base = spawn_registry(dirty).await;
     let r = sync_registry_from(&db, &[&base]).await.unwrap();
 
     assert_eq!(r.failed, 2);
     assert_eq!(r.added, 3);
     assert!(r.failures.iter().any(|f| f.error == "invalid model json"));
-    assert!(r.failures.iter().any(|f| f.error == "invalid platform json"));
-    assert!(aidog_db::select_platform_presets(&db).await.unwrap().iter().all(|p| p.code != "beta"));
-    assert!(aidog_db::select_model_entries(&db, Some("beta")).await.unwrap().is_empty());
+    assert!(
+        r.failures
+            .iter()
+            .any(|f| f.error == "invalid platform json")
+    );
+    assert!(
+        aidog_db::select_platform_presets(&db)
+            .await
+            .unwrap()
+            .iter()
+            .all(|p| p.code != "beta")
+    );
+    assert!(
+        aidog_db::select_model_entries(&db, Some("beta"))
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 /// 票 13-F：一轮里有文件失败时，成功的行照样落库、`last_sync_at` 照写、
@@ -264,8 +365,17 @@ async fn partial_round_still_commits_and_stamps_last_sync_at() {
     assert_eq!(r.failed, 1);
     assert_eq!(r.failures.len(), 1);
     assert_eq!(r.added, 4, "拉到的 4 个文件必须落库");
-    assert_eq!(aidog_db::select_model_entries(&db, None).await.unwrap().len(), 2);
-    assert!(get_sync_settings(&db).await.last_sync_at > 0, "last_sync_at 不能因部分失败而不写");
+    assert_eq!(
+        aidog_db::select_model_entries(&db, None)
+            .await
+            .unwrap()
+            .len(),
+        2
+    );
+    assert!(
+        get_sync_settings(&db).await.last_sync_at > 0,
+        "last_sync_at 不能因部分失败而不写"
+    );
 }
 
 #[tokio::test]
@@ -315,5 +425,8 @@ async fn maybe_auto_sync_returns_none_when_not_due() {
         fallback_output_price: 3.0,
     };
     save_sync_settings(&db, &settings).await;
-    assert!(maybe_auto_sync(&db).await.unwrap().is_none(), "未到间隔不该同步");
+    assert!(
+        maybe_auto_sync(&db).await.unwrap().is_none(),
+        "未到间隔不该同步"
+    );
 }

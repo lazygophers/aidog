@@ -13,7 +13,7 @@ pub struct ResolvedPrice {
     pub input_cost_per_token: f64,
     pub output_cost_per_token: f64,
     pub cache_read_input_token_cost: f64,
-    pub source: String,  // "platform_override" | "default_platform" | "top_level" | "fallback"
+    pub source: String, // "platform_override" | "default_platform" | "top_level" | "fallback"
 }
 
 /// 模型价格同步设置
@@ -41,8 +41,12 @@ pub struct PriceSyncSettings {
     pub fallback_output_price: f64,
 }
 
-fn default_sync_interval() -> u64 { 86400 }
-fn default_fallback_price() -> f64 { 3.0 }
+fn default_sync_interval() -> u64 {
+    86400
+}
+fn default_fallback_price() -> f64 {
+    3.0
+}
 
 impl Default for PriceSyncSettings {
     fn default() -> Self {

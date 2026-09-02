@@ -4,7 +4,7 @@
 //! `ensure_object` / `references_aidog_script` helper（pub(crate)）做对象保障与 aidog 识别。
 
 use super::claude_code::{ensure_object, references_aidog_script};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// 在 Codex `config.toml` 的 JSON 视图中注入顶层 `notify`。
 ///
@@ -18,16 +18,15 @@ pub fn inject_codex_notify(config: &mut Value, complete_script: &str) {
 
 /// 移除 Codex 中 aidog 注入的 `notify`（仅当其指向 aidog 脚本时；保留用户自定义 notify）。
 pub fn remove_codex_notify(config: &mut Value) {
-    let Some(obj) = config.as_object_mut() else { return };
+    let Some(obj) = config.as_object_mut() else {
+        return;
+    };
     let is_aidog = obj
         .get("notify")
         .and_then(|v| v.as_array())
         .map(|a| {
-            a.iter().any(|v| {
-                v.as_str()
-                    .map(references_aidog_script)
-                    .unwrap_or(false)
-            })
+            a.iter()
+                .any(|v| v.as_str().map(references_aidog_script).unwrap_or(false))
         })
         .unwrap_or(false);
     if is_aidog {
