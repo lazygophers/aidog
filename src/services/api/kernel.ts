@@ -4,7 +4,7 @@
 // 执行脚本），与 proxy.ts 里 `proxyApi.setBindLan` 管的**转发端口**是两个互不相干的开关。
 // 两边在设置页也分列两处，别在任何一侧读另一侧的值。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type { KernelSettings } from "./types";
 
 // 开启绑定开关但未配鉴权凭据时，后端 reject 的字符串就是这个 i18n key。

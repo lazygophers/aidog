@@ -1,6 +1,6 @@
 // scheduling.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
-import { invoke } from "@tauri-apps/api/core";
+import { invoke } from "../transport";
 import type { MiddlewareRule, CreateMiddlewareRule, UpdateMiddlewareRule, MiddlewareSettings, SchedulingBreakerSettings } from "./types";
 
 export const middlewareApi = {

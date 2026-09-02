@@ -1,7 +1,7 @@
 // proxy.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
-import { invoke } from "@tauri-apps/api/core";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { invoke } from "../transport";
+import { listen, type UnlistenFn } from "../transport";
 import type { ProxySettings, ProxyStartError, ProxyClientSettings, ProxyLogSummary, ProxyLogPage, ProxyLogDetail, ProxyLogSettings, ProxyTimeoutSettings, ProxyLogFilter, RequestLogSummary, CleanupEstimate } from "./types";
 
 // proxy_start 失败时 invoke() 以 ProxyStartError 结构体（非纯字符串）reject（Rust 侧
