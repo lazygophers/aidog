@@ -33,8 +33,7 @@ impl FetchModelsError {
     }
 }
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
@@ -173,6 +172,7 @@ pub async fn platform_fetch_models(
         .unwrap_or_default();
 
     Ok(models)
+}
 }
 
 #[cfg(test)]

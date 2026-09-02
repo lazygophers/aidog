@@ -330,23 +330,26 @@ pub fn sync_groups(
     Ok(written)
 }
 
+crate::tauri_command! {
 /// `~/.pi/agent/models.json` 绝对路径（前端展示用）。
-#[tauri::command]
 pub fn pi_models_path() -> Result<String, String> {
     Ok(models_path()?.to_string_lossy().to_string())
 }
+}
 
+crate::tauri_command! {
 /// 读 `~/.pi/agent/settings.json`。文件不存在 → 空对象（前端据此填推荐默认）。
-#[tauri::command]
 pub fn pi_settings_read() -> Result<Value, String> {
     read_json_object(&settings_path()?)
 }
+}
 
+crate::tauri_command! {
 /// 整份写回 `~/.pi/agent/settings.json`。
 /// 前端读的是整份文件、改的是其中几个键，因此整份写回不会丢 schema 未覆盖的键。
-#[tauri::command]
 pub fn pi_settings_write(config: Value) -> Result<(), String> {
     write_if_changed(&settings_path()?, &config).map(|_| ())
+}
 }
 
 #[cfg(test)]

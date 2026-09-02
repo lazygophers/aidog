@@ -4,11 +4,10 @@ use aidog_db::{self as db, Db};
 use gateway::models::*;
 use tauri::State;
 
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+crate::tauri_command! {
 pub fn check_uv() -> Result<bool, String> {
-    tracing::debug!(command = "check_uv", "command invoked");
     Ok(detect_uv())
+}
 }
 
 crate::tauri_command! {
