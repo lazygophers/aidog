@@ -27,7 +27,6 @@ pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
 pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
 
-mod bench;
 mod builtin_tools;
 mod connect;
 mod count_tokens;
@@ -83,7 +82,6 @@ pub use headers::redact_key;
 pub use passthrough::{apply_models_auth, build_models_url};
 
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
-pub(crate) use bench::handle_bench_query;
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, match_platform_by_host,
@@ -354,10 +352,6 @@ fn build_router(state: Arc<ProxyState>) -> Router {
     Router::new()
         .route("/api/group-info", post(handle_group_info))
         .route("/api/notify", post(handle_notify))
-        // ponytail: 量测专用调试端点，驱动固定查询走真实读连接池以复现 page cache 常驻
-        // （见 sqlite-page-cache-residency/design.md「数据流」），无鉴权但 localhost-only
-        // 绑定 + 只读查询零副作用，与 /api/group-info 同信任边界。
-        .route("/api/debug/bench-query", post(handle_bench_query))
         // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
         // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
         // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。

@@ -46,7 +46,7 @@ crate::tauri_command! {
         let config = config?;
         let platform_today = platform_today?;
         let settings = settings.unwrap_or(ProxySettings {
-            port: 9890, autostart: false, silent_launch: false, bind_lan: true,
+            port: 9890, autostart: false, silent_launch: false, bind_lan: false,
         });
         let entries: Vec<PopoverEntry> = layout.columns.into_iter().map(|c| PopoverEntry {
             name: c.name,

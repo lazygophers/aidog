@@ -33,7 +33,7 @@ src/                    # React 前端
     *.ts                # 各模块 API（groups/platforms/proxy/stats/settings/skills/mcp 等）
   themes/               # 每主题 light/dark CSS 变量
   utils/                # pinyin(拼音搜索) / formatters(统一数值格式化) / navGuard(无路由离页拦截)
-src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crate）
+src-tauri/              # Rust workspace（16 个 crate：root bin `aidog` + crates/ 下 15 个）
   crates/
     aidog_core/         # 核心库 + 全部 206 个 #[tauri::command]（准数以 startup.rs 注册表为准）
       gateway/          # models/db/estimate/price_sync/proxy/quota/router/billing/usage_color/peak/time_windows 等
@@ -81,7 +81,7 @@ src-tauri/              # Rust workspace（aidog_core + aidog_test_util 两 crat
 
 ### Local API
 - 应用 API 端点以 `/api/` 开头，仅允许 POST 方法
-- `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权，localhost-only
+- `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权。**唯一防线就是这个 Bearer**：代理无任何来源 IP 检查（全库零 `ConnectInfo` / `is_loopback` / `peer_addr`），`bind_lan=true` 时监听 `0.0.0.0`，同局域网设备可直达 `/api/*`。新增 `/api/*` 端点必须自带鉴权，禁按「localhost-only」假设省略。`bind_lan` 默认 false（仅 `127.0.0.1`）
 - `GET /` + `GET /proxy`：健康端点，返回 `{"service":"aidog","ok":true}`，无鉴权、不落 proxy_log、跳过组路由（客户端启动探测命中代理根 URL 用，禁删）
 - `GET /models` + `GET /v1/models`：总是返回静态默认模型列表（Claude+Codex 官方默认 const），**不依赖 group / token、不 relay 上游**，按 path 协议格式化（含 `/v1/`→openai 列表格式；裸 `/proxy/models`→anthropic 列表格式）。分流前置于 `resolve_group` 之前，tokenless 探测不再 404。仍落 proxy_log(status=200)。静态模型 id 月级腐化需手工核对 `STATIC_MODEL_IDS`（`gateway/proxy/passthrough.rs`）。
 - statusline bash 脚本通过 `ANTHROPIC_BASE_URL`（推导代理根 URL）+ `ANTHROPIC_AUTH_TOKEN`（= group_name）调用端点

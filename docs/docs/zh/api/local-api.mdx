@@ -11,7 +11,6 @@ Local API 绑定本机代理。业务端点以 `/api/` 开头且只接受 POST�
 | --- | --- | --- |
 | `POST /api/group-info` | `Bearer <group_key>` | statusline 查询单平台分组的本地预估信息；多平台或无平台返回 `applicable:false` |
 | `POST /api/notify` | `Bearer <group_key>` | hook 脚本触发本机通知；body 支持 `event`、`type`、`content`、`vars` |
-| `POST /api/debug/bench-query` | localhost-only | 调试量测端点，不作为普通用户 API |
 | `GET /`、`GET /proxy` | 无 | 健康检查，返回身份 JSON，不进组路由、不落代理日志 |
 | `GET /models`、`GET /v1/models` | 无 | 返回静态默认模型列表，分流发生在分组解析前 |
 

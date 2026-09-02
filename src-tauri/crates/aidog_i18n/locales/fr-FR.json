@@ -1450,6 +1450,7 @@
   "proxy.bindLan": "Accès réseau local",
   "proxy.bindLanApplied": "Paramètre d'accès réseau local mis à jour (proxy redémarré automatiquement s'il était actif)",
   "proxy.bindLanDesc": "Autoriser les autres appareils du même réseau local à se connecter à ce proxy (désactivé : seul cet ordinateur peut se connecter)",
+  "proxy.bindLanSecurity": "Une fois activé, le proxy écoute sur 0.0.0.0 et tout appareil du même réseau local peut y accéder, authentifié uniquement par le jeton Bearer group_key ; laissez-le désactivé sur les réseaux non fiables.",
   "proxy.configDesc": "Définissez cette variable pour Claude Code.",
   "proxy.configExportPath": "Écrit dans",
   "proxy.configExported": "Config exportée",
