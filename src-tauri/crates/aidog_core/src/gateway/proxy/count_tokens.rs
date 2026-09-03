@@ -149,11 +149,9 @@ pub(crate) async fn handle_count_tokens(
         .find(|ep| matches!(ep.protocol, Protocol::Anthropic))
         .map(|ep| ep.base_url.clone())
         .unwrap_or_else(|| route.platform.base_url.clone());
-    // URL：base_url + /v1/messages/count_tokens（anthropic base_url 不含 /v1，与 build_models_url 同款拼接）
-    let url = format!(
-        "{}/v1/messages/count_tokens",
-        base_url.trim_end_matches('/')
-    );
+    // URL：base_url + /v1/messages/count_tokens。base_url 已含 /v1（newapi 聚合站、
+    // 回退到 openai 端点 base_url 时）由 join_upstream_path 去重，否则拼出 /v1/v1/... → 404。
+    let url = super::passthrough::join_upstream_path(&base_url, "/v1/messages/count_tokens");
     log.upstream_request_url = url.clone();
     log.upstream_request_headers =
         r#"{"x-api-key":"[REDACTED]","anthropic-version":"2023-06-01"}"#.to_string();
