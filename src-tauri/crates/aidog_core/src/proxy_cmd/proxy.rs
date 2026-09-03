@@ -231,6 +231,9 @@ pub async fn proxy_client_set_settings(settings: gateway::models::ProxyClientSet
         key: "proxy_client".to_string(),
         value,
     }).await
-        .map_err(|e| { tracing::error!(command = "proxy_client_set_settings", error = %e, "persist proxy client settings failed"); e })
+        .map_err(|e| { tracing::error!(command = "proxy_client_set_settings", error = %e, "persist proxy client settings failed"); e })?;
+    // 同 proxy_log_settings_set：请求路径读 settings_cache 快照，不刷则新设置要重启代理才生效。
+    gateway::proxy::refresh_proxy_settings_cache(db).await;
+    Ok(())
 }
 }

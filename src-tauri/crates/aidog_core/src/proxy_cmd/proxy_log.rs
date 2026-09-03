@@ -143,6 +143,9 @@ pub async fn proxy_log_settings_set( settings: ProxyLogSettings) -> Result<(), S
         value,
     }).await
         .map_err(|e| { tracing::error!(command = "proxy_log_settings_set", error = %e, "persist log settings failed"); e })?;
+    // 运行中的 proxy 每请求读 settings_cache 的 typed 快照，不回查 DB：
+    // 只写 DB 不刷缓存 → 刚打开的日志开关要重启代理才生效（日志页一直空）。
+    gateway::proxy::refresh_proxy_settings_cache(db).await;
     run_retention_cleanup(db, &settings).await;
     // 保留期变了 → 调度周期必须跟着变：唤醒清理循环重读设置重算周期，不必重启应用。
     wake_retention_scheduler();
