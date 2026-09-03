@@ -31,6 +31,17 @@ describe("buildRecommendedDiffTree", () => {
     expect(buildRecommendedDiffTree({ a: 1 }, { a: 1 })).toEqual([]);
   });
 
+  it("不把 _aidog_* 物化出来的 statusLine / subagentStatusLine / hooks 列为删除项", () => {
+    const current = {
+      statusLine: { type: "command", command: "uv run --script ~/.aidog/scripts/aidog-statusline.py" },
+      subagentStatusLine: { type: "command", command: "uv run --script ~/.aidog/scripts/aidog-subagent-statusline.py" },
+      hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "rtk hook claude" }] }] },
+      userOnly: "keep",
+    };
+    const diff = buildRecommendedDiffTree(current, { _aidog_statusline: { enabled: true } });
+    expect(diff.map((n) => n.path)).toEqual(["userOnly"]);
+  });
+
   it("跳过 _aidog_ 内部键", () => {
     const diff = buildRecommendedDiffTree({}, { _aidog_hooks: { enabled: true }, a: 1 });
     expect(diff.map((n) => n.path)).toEqual(["a"]);
