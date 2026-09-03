@@ -7,7 +7,13 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mockIPC, clearMocks } from "@tauri-apps/api/mocks";
-import { invoke, listen, isTauri, __resetEventSourceForTests } from "./transport";
+import {
+  invoke,
+  listen,
+  isTauri,
+  RPC_UNAUTHORIZED,
+  __resetEventSourceForTests,
+} from "./transport";
 
 /** 最小 EventSource 桩：只实现 transport 用到的那几个成员。 */
 class FakeEventSource {
@@ -115,6 +121,32 @@ describe("transport 分流", () => {
 
     expect(httpErr).toEqual(tauriErr);
     expect(httpErr).toEqual({ kind: "addr_in_use", port: 8080 });
+  });
+
+  it("401 被认出来是未授权，而不是 JSON 解析报错", async () => {
+    // 内核 `server.rs::UNAUTHORIZED_BODY` 回的就是这段 JSON 字符串字面量。
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response('"unauthorized"', {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+    const err = await invoke("about_info").catch((e) => e);
+    expect(err).toBe(RPC_UNAUTHORIZED);
+    expect(err).not.toBeInstanceOf(SyntaxError);
+  });
+
+  it("非 JSON 的错误响应抛原文，不被 SyntaxError 顶替", async () => {
+    // 反向代理自己的错误页 / 静态资源 fallback 都不是 JSON。
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("<html>502 Bad Gateway</html>", { status: 502 })),
+    );
+    const err = await invoke("about_info").catch((e) => e);
+    expect(err).toBe("<html>502 Bad Gateway</html>");
   });
 
   it("Tauri 存在时 listen 走事件总线，不开 SSE", async () => {

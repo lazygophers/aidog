@@ -8,7 +8,7 @@ license = { workspace = true }
 # 票 08：无界面内核二进制。
 #
 # 不带参数 = 纯内核（代理转发 + 定时任务，**不开任何 HTTP 管理面**）；
-# `--ui` = 额外挂 /rpc/<命令>（210 个）、SSE /events、静态前端资源。
+# `--ui` = 额外挂 /rpc/<命令>（211 个）、SSE /events、静态前端资源。
 #
 # 依赖侧的硬约束：**全部命令 crate 必须 `default-features = false, features = ["http"]`**。
 # 打开 `desktop` 会把 tauri 拉回来 → wry/tao → webkit2gtk + gtk3，headless Linux 上装不起

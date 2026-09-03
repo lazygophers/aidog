@@ -44,6 +44,14 @@ export function isTauri(): boolean {
   return typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 }
 
+/**
+ * 未授权时管理面 reject 的值（内核 `server.rs::UNAUTHORIZED_BODY`）。
+ *
+ * 配了访问令牌但请求没带对 Bearer 时，`invoke` 抛的就是这个字符串。判断方式：
+ * `e === RPC_UNAUTHORIZED`。
+ */
+export const RPC_UNAUTHORIZED = "unauthorized";
+
 /** HTTP 形态的命令调用：`POST /rpc/<cmd>`，body = args。 */
 async function httpInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const res = await fetch(`${RPC_PREFIX}${cmd}`, {
@@ -53,7 +61,17 @@ async function httpInvoke<T>(cmd: string, args?: Record<string, unknown>): Promi
   });
   // 无返回值的命令（Rust `()`）body 是 "null"；空 body 也按 null 处理。
   const text = await res.text();
-  const data = text.length > 0 ? JSON.parse(text) : null;
+  let data: unknown = null;
+  if (text.length > 0) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      // 这是网络边界，回什么都可能：命中静态资源 fallback 拿到 index.html、被反向代理
+      // 拦下拿到它自己的错误页，都不是 JSON。此时把原文当错误值抛出去，别让 SyntaxError
+      // 顶替掉真正的失败原因（真错误被掩盖过一次，见 UNAUTHORIZED_BODY 的注释）。
+      throw text;
+    }
+  }
   if (!res.ok) {
     // 与 Tauri 的 reject 对齐：抛出的就是错误值本身（`Result<_, String>` 即字符串，
     // 结构化错误即对象 —— `isProxyStartError` 这类类型守卫两条路都成立）。
