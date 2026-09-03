@@ -26,6 +26,8 @@
     "feedbackSurveyRate": 0,
     "includeCoAuthoredBy": false,
     "isolatePeerMachines": true,
+    "disableArtifact": true,
+    "disableRemoteControl": true,
     "_aidog_statusline": {
         "enabled": true
     },
@@ -39,7 +41,6 @@
         "commit": "",
         "pr": ""
     },
-
     "enabledPlugins": {
         "caveman@caveman": true,
         "i-have-adhd@i-have-adhd": true,
@@ -197,6 +198,7 @@
         ]
     },
     "env": {
+      "CLAUDE_CODE_DISABLE_ARTIFACT": 1,
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "3",
         "CLAUDE_CODE_FORK_SUBAGENT": "1",
@@ -225,39 +227,39 @@
     },
     "extraKnownMarketplaces": {
         "caveman": {
+            "autoUpdate": true,
             "source": {
                 "repo": "JuliusBrussee/caveman",
                 "source": "github"
-            },
-            "autoUpdate": true
+            }
         },
         "ccplugin-market": {
+            "autoUpdate": true,
             "source": {
                 "repo": "lazygophers/ccplugin",
                 "source": "github"
-            },
-            "autoUpdate": true
+            }
         },
         "claude-code-warp": {
+            "autoUpdate": true,
             "source": {
                 "repo": "warpdotdev/claude-code-warp",
                 "source": "github"
-            },
-            "autoUpdate": true
+            }
         },
         "i-have-adhd": {
+            "autoUpdate": true,
             "source": {
                 "repo": "ayghri/i-have-adhd",
                 "source": "github"
-            },
-            "autoUpdate": true
+            }
         },
         "ponytail": {
+            "autoUpdate": true,
             "source": {
                 "repo": "DietrichGebert/ponytail",
                 "source": "github"
-            },
-            "autoUpdate": true
+            }
         }
     }
 }
