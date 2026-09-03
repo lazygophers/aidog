@@ -275,6 +275,44 @@ fn models_url_construction() {
     );
 }
 
+// ── 版本段去重：base_url 已含 /v1 时 anthropic 系 api_path 不再拼出 /v1/v1 ──
+#[test]
+fn join_upstream_path_dedupes_version_segment() {
+    use super::passthrough::join_upstream_path;
+    // newapi 聚合站：base_url 含 /v1 + anthropic api_path 自带 /v1 → 只保留一份（原为 404 的 /v1/v1）
+    assert_eq!(
+        join_upstream_path(
+            "https://api.cometapi.com/v1",
+            "/v1/messages/count_tokens"
+        ),
+        "https://api.cometapi.com/v1/messages/count_tokens"
+    );
+    assert_eq!(
+        join_upstream_path("https://api.cometapi.com/v1/", "/v1/messages"),
+        "https://api.cometapi.com/v1/messages"
+    );
+    // 官方 anthropic：base_url 无版本段 → 照旧拼 /v1
+    assert_eq!(
+        join_upstream_path("https://api.anthropic.com", "/v1/messages"),
+        "https://api.anthropic.com/v1/messages"
+    );
+    // openai 兼容：api_path 不以版本段起头 → 不动
+    assert_eq!(
+        join_upstream_path("https://api.openai.com/v1", "/chat/completions"),
+        "https://api.openai.com/v1/chat/completions"
+    );
+    // gemini：base /v1 与 api_path /v1beta 不是同一段，禁误合并
+    assert_eq!(
+        join_upstream_path("https://x.com/v1", "/v1beta/models/m:streamGenerateContent"),
+        "https://x.com/v1/v1beta/models/m:streamGenerateContent"
+    );
+    // 聚合站以 anthropic 协议登记 → models 列表同样不重复拼 /v1
+    assert_eq!(
+        build_models_url(&super::Protocol::Anthropic, "https://api.cometapi.com/v1"),
+        "https://api.cometapi.com/v1/models"
+    );
+}
+
 // ── 模型列表鉴权按协议分流：anthropic x-api-key vs openai Bearer ──
 #[test]
 fn models_auth_by_protocol() {

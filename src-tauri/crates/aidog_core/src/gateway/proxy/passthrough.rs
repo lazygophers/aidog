@@ -571,14 +571,38 @@ pub(crate) fn is_models_endpoint(path: &str) -> bool {
     p.ends_with("/v1/models") || p.ends_with("/models")
 }
 
+/// 拼 `base_url + api_path`，并消掉重复的版本段。
+///
+/// url-construction-rule 说 base_url 已含版本前缀，但 anthropic 系 api_path 自带 `/v1`
+/// （`passthrough_api_path` / `build_models_url` / count_tokens 都写死）。两者相遇 —— 例如
+/// newapi 聚合站 base_url `https://api.cometapi.com/v1` 接 `/v1/messages/count_tokens` ——
+/// 就拼出 `/v1/v1/...`，上游 404。故：api_path 首段与 base_url 末段同名时只保留一份。
+/// 官方 anthropic（base_url 无 `/v1`）与 openai 兼容（api_path 不以版本段起头）行为不变。
+pub fn join_upstream_path(base_url: &str, api_path: &str) -> String {
+    let base = base_url.trim_end_matches('/');
+    let first_seg = api_path
+        .trim_start_matches('/')
+        .split('/')
+        .next()
+        .unwrap_or("");
+    if !first_seg.is_empty()
+        && base.rsplit('/').next() == Some(first_seg)
+        && let Some(rest) = api_path.strip_prefix(&format!("/{first_seg}"))
+    {
+        return format!("{base}{rest}");
+    }
+    format!("{base}{api_path}")
+}
+
 /// 按平台协议构造上游模型列表端点 URL（遵 url-construction-rule：base_url 已含版本前缀，仅 trim 尾 `/` + 端点后缀，禁额外拼版本）。
-/// 三类后缀：Anthropic → `/v1/models`（base_url 通常不含 /v1）；Bailian → `/compatible-mode/v1/models`；
+/// 三类后缀：Anthropic → `/v1/models`（base_url 通常不含 /v1，含则由 `join_upstream_path` 去重）；
+/// Bailian → `/compatible-mode/v1/models`；
 /// 其余 OpenAI 兼容（含 glm `.../api/paas/v4`、openai `.../v1`）→ `/models`。
 /// 与 lib.rs `platform_fetch_models` 单一事实源，避免按协议拉 /models 的 URL 构造重复腐化。
 pub fn build_models_url(protocol: &Protocol, base_url: &str) -> String {
     let base = base_url.trim_end_matches('/');
     match protocol {
-        Protocol::Anthropic => format!("{base}/v1/models"),
+        Protocol::Anthropic => join_upstream_path(base, "/v1/models"),
         Protocol::Bailian => format!("{base}/compatible-mode/v1/models"),
         _ => format!("{base}/models"),
     }

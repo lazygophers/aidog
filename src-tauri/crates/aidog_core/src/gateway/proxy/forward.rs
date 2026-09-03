@@ -507,7 +507,8 @@ pub(crate) async fn forward_attempt(
 
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
-    let mut url = format!("{}{}", base_url, api_path);
+    // api_path 版本段与 base_url 末段重复时去重（anthropic 系 api_path 自带 /v1，聚合站 base_url 也带）。
+    let mut url = super::passthrough::join_upstream_path(base_url, &api_path);
     // Gemini streamGenerateContent 不带 alt=sse 时上游返回单个 JSON 数组（非 SSE），流式解析全部落空。
     if matches!(target_protocol_enum, Protocol::Gemini) && is_stream {
         url.push_str("?alt=sse");
