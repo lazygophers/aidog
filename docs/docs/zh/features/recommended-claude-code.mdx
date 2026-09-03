@@ -168,15 +168,18 @@ flowchart LR
 
 ## 插件市场与插件
 
-`extraKnownMarketplaces` 显式登记三个市场，均开启 `autoUpdate`：
+`extraKnownMarketplaces` 显式登记六个市场，均开启 `autoUpdate`：
 
 | 市场 | 仓库 |
 | --- | --- |
+| `caveman` | `JuliusBrussee/caveman` |
 | `ccplugin-market` | `lazygophers/ccplugin` |
 | `claude-code-warp` | `warpdotdev/claude-code-warp` |
 | `claude-plugins-official` | `anthropics/claude-plugins-official` |
+| `i-have-adhd` | `ayghri/i-have-adhd` |
+| `ponytail` | `DietrichGebert/ponytail` |
 
-`enabledPlugins` 里 `claude-code-setup`、`code-modernization`、`code-review`、`code-simplifier` 四个官方插件全部为 `false` —— 市场已登记、随时可开，但默认不加载，不占上下文。
+`enabledPlugins` 里 `caveman`、`i-have-adhd`、`ponytail` 三个默认开启（输出风格与工作方式类插件，随会话生效）；`claude-code-setup`、`code-modernization`、`code-review`、`code-simplifier` 四个官方插件全部为 `false` —— 市场已登记、随时可开，但默认不加载，不占上下文。
 
 ## 相关页面
 

@@ -214,6 +214,13 @@
     "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL": "1"
   },
   "extraKnownMarketplaces": {
+    "caveman": {
+      "source": {
+        "repo": "JuliusBrussee/caveman",
+        "source": "github"
+      },
+      "autoUpdate": true
+    },
     "ccplugin-market": {
       "source": {
         "repo": "lazygophers/ccplugin",
@@ -234,12 +241,29 @@
         "source": "github"
       },
       "autoUpdate": true
+    },
+    "i-have-adhd": {
+      "source": {
+        "repo": "ayghri/i-have-adhd",
+        "source": "github"
+      },
+      "autoUpdate": true
+    },
+    "ponytail": {
+      "source": {
+        "repo": "DietrichGebert/ponytail",
+        "source": "github"
+      },
+      "autoUpdate": true
     }
   },
   "enabledPlugins": {
+    "caveman@caveman": true,
     "claude-code-setup@claude-plugins-official": false,
     "code-modernization@claude-plugins-official": false,
     "code-review@claude-plugins-official": false,
-    "code-simplifier@claude-plugins-official": false
+    "code-simplifier@claude-plugins-official": false,
+    "i-have-adhd@i-have-adhd": true,
+    "ponytail@ponytail": true
   }
 }
