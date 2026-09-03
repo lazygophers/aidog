@@ -1,97 +1,64 @@
-//! 票 08 验收：内核绑定开关（默认关 / 开启需凭据 / 与代理 `bind_lan` 互不影响）。
+//! 内核管理面设置验收（票 08，2026-09-03 审查后收窄）：
+//! 管理面永远只绑 127.0.0.1，设置里没有任何能改这件事的字段；凭据仍可配。
 use super::*;
 use aidog_db::test_support::test_db;
 
-/// 验收「内核绑定开关默认关，关时只在 127.0.0.1 可达」的前半段：新装（DB 无
-/// `kernel/settings` 记录）读出来必须是关，且解析成的监听 IP 是回环。
+/// 新装（DB 无 `kernel/settings` 记录）读出来是默认端口 + 无凭据。
 #[tokio::test]
-async fn fresh_install_defaults_to_loopback() {
+async fn fresh_install_defaults() {
     let db = test_db().await;
     let s = load_kernel_settings(&db).await;
-    assert!(!s.bind_lan, "内核绑定开关必须默认关");
-    assert_eq!(
-        s.bind_ip(),
-        std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-        "关的时候必须只绑 127.0.0.1"
-    );
+    assert_eq!(s.port, 9891, "默认端口 9891，与代理的 9890 分开");
     assert!(!s.has_auth(), "新装不应凭空带凭据");
 }
 
-/// 字段缺失（旧记录 / 手写 JSON）同样走默认关，而不是被 serde 当成 true。
+/// 老库里残留的 `bind_lan` 键必须被忽略，而不是让整份设置解析失败退回默认
+/// （退回默认会把用户配好的端口/凭据吃掉）。
 #[test]
-fn missing_field_defaults_to_off() {
-    let s: KernelSettings = serde_json::from_str(r#"{"port":9891}"#).unwrap();
-    assert!(!s.bind_lan);
+fn legacy_bind_lan_key_is_ignored_not_fatal() {
+    let s: KernelSettings =
+        serde_json::from_str(r#"{"port":9999,"bind_lan":true,"auth_token":"secret"}"#).unwrap();
+    assert_eq!(s.port, 9999);
+    assert_eq!(s.auth_token, "secret");
+}
+
+/// 序列化后的设置里**不得**再出现绑定地址字段：管理面绑哪已不是配置项。
+#[test]
+fn serialized_settings_have_no_bind_field() {
+    let v = serde_json::to_value(KernelSettings::default()).unwrap();
+    assert!(
+        v.get("bind_lan").is_none(),
+        "管理面永远 127.0.0.1，不得再有 bind_lan 字段"
+    );
+}
+
+/// 纯空白凭据不算「已配置」。
+#[test]
+fn whitespace_only_credential_does_not_count() {
+    let s = KernelSettings {
+        port: 9891,
+        auth_token: "   ".into(),
+    };
     assert!(!s.has_auth());
 }
 
-/// 开启后监听 0.0.0.0（开关语义本身）。
-#[test]
-fn enabled_binds_all_interfaces() {
-    let s = KernelSettings {
-        port: 9891,
-        bind_lan: true,
-        auth_token: "secret".into(),
-    };
-    assert_eq!(
-        s.bind_ip(),
-        std::net::IpAddr::V4(std::net::Ipv4Addr::UNSPECIFIED)
-    );
-}
-
-/// 验收「未配置鉴权凭据时开启开关被拒绝并给出原因」：
-/// 命令返回 Err(原因 key)，且 DB 里的值**没有**被改成 true。
+/// 端口与凭据能落库并读回。
 #[tokio::test]
-async fn enabling_without_credentials_is_refused_and_not_persisted() {
-    let db = test_db().await;
-    let mut s = load_kernel_settings(&db).await;
-    s.bind_lan = true;
-
-    let err = save_kernel_settings(&db, &s)
-        .await
-        .expect_err("未配凭据时开启必须被拒绝");
-    assert_eq!(
-        err, "kernel.bindLanRequiresAuth",
-        "必须给出可翻译的拒绝原因，而不是静默失败"
-    );
-
-    let after = load_kernel_settings(&db).await;
-    assert!(!after.bind_lan, "被拒绝的开启不得落库");
-}
-
-/// 纯空白凭据不算「已配置」（否则一个空格就能绕过硬前提）。
-#[tokio::test]
-async fn whitespace_only_credential_does_not_count() {
+async fn settings_round_trip() {
     let db = test_db().await;
     let s = KernelSettings {
         port: 9891,
-        bind_lan: true,
-        auth_token: "   ".into(),
-    };
-    assert!(save_kernel_settings(&db, &s).await.is_err());
-}
-
-/// 配了凭据后允许开启，并且能读回。
-#[tokio::test]
-async fn enabling_with_credentials_persists() {
-    let db = test_db().await;
-    let s = KernelSettings {
-        port: 9891,
-        bind_lan: true,
         auth_token: "secret".into(),
     };
     save_kernel_settings(&db, &s).await.unwrap();
-    let after = load_kernel_settings(&db).await;
-    assert_eq!(after, s);
+    assert_eq!(load_kernel_settings(&db).await, s);
 }
 
-/// 验收「开关不读取也不影响代理的 `bind_lan`」：两侧各自落在不同 setting key 上，
-/// 改内核那侧后代理侧原样不动，反之亦然。
+/// 内核设置与代理设置各存各的 key，互不覆盖：改内核侧后代理的 `bind_lan` 原样不动。
 #[tokio::test]
-async fn kernel_switch_is_independent_from_proxy_bind_lan() {
+async fn kernel_settings_are_independent_from_proxy_settings() {
     let db = test_db().await;
 
-    // 代理侧：用户既有的局域网转发开着。
     crate::shared::save_proxy_settings_to_db(
         &db,
         &crate::shared::ProxySettings {
@@ -104,26 +71,20 @@ async fn kernel_switch_is_independent_from_proxy_bind_lan() {
     .await
     .unwrap();
 
-    // 内核侧仍必须是关的 —— 不得从代理那侧继承 true。
-    let k = load_kernel_settings(&db).await;
-    assert!(!k.bind_lan, "内核开关不得读取代理的 bind_lan");
-
-    // 反向：开内核开关（带凭据）后，代理侧的值不变。
     save_kernel_settings(
         &db,
         &KernelSettings {
             port: 9891,
-            bind_lan: true,
             auth_token: "secret".into(),
         },
     )
     .await
     .unwrap();
+
     let p = crate::shared::load_proxy_settings(&db).await.unwrap();
-    assert!(p.bind_lan, "代理侧的既有设置不得被内核开关改动");
+    assert!(p.bind_lan, "代理侧的既有设置不得被内核设置改动");
     assert_eq!(p.port, 9890);
 
-    // 两把 key 各存各的，互不覆盖。
     assert!(
         aidog_db::get_setting(&db, "kernel", "settings")
             .await

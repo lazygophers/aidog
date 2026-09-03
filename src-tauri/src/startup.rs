@@ -98,7 +98,6 @@ pub fn run() {
             // 内核管理面绑定开关（票 08）：与上面代理的 bind_lan 是两个互不读取的开关。
             aidog_core::kernel_settings::kernel_settings_get,
             aidog_core::kernel_settings::kernel_settings_set,
-            aidog_core::kernel_settings::kernel_set_bind_lan,
             aidog_core::proxy_cmd::proxy::app_set_autolaunch,
             aidog_core::proxy_cmd::proxy::app_get_autolaunch,
             aidog_core::proxy_cmd::proxy::app_set_silent_launch,
