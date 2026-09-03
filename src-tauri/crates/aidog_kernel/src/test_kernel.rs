@@ -39,31 +39,33 @@ fn unknown_argument_is_an_error_not_a_silent_default() {
 
 /// `management_bind_addr` 是全进程唯一决定「开不开管理面监听」的地方（`run` 里只有这一处
 /// 调 `serve_management`）。不带 `--ui` 时它返回 `None`，即一个 socket 都不绑 ——
-/// 且这与内核设置里怎么配无关（哪怕开关开着、凭据也配了）。
+/// 且这与内核设置里怎么配无关。
 #[test]
 fn pure_kernel_never_binds_a_management_socket() {
     let opts = Options {
         ui: false,
         ui_dir: None,
     };
-    let wide_open = KernelSettings {
+    let configured = KernelSettings {
         port: 9891,
-        bind_lan: true,
         auth_token: "secret".into(),
     };
-    assert_eq!(management_bind_addr(&opts, &KernelSettings::default()), None);
     assert_eq!(
-        management_bind_addr(&opts, &wide_open),
+        management_bind_addr(&opts, &KernelSettings::default()),
+        None
+    );
+    assert_eq!(
+        management_bind_addr(&opts, &configured),
         None,
-        "纯内核形态下即使设置里开着绑定开关也不得开管理面"
+        "纯内核形态下不论设置怎么配都不得开管理面"
     );
 }
 
-// ─── 验收：绑定开关默认关 / 开启需凭据 / 与代理 bind_lan 无关 ─────────────
+// ─── 验收：管理面永远只绑 127.0.0.1 ───────────────────────────────────────
 
-/// 默认（开关关）时只绑 127.0.0.1。
+/// `--ui` 的管理面绑回环，端口取设置。
 #[test]
-fn switch_off_binds_loopback_only() {
+fn management_always_binds_loopback() {
     let opts = Options {
         ui: true,
         ui_dir: None,
@@ -73,41 +75,25 @@ fn switch_off_binds_loopback_only() {
     assert_eq!(addr.port(), 9891, "默认端口 9891，与代理的 9890 分开");
 }
 
-/// 开关开 + 已配凭据 → 0.0.0.0。
+/// 配了凭据、换了端口，绑定地址依然是回环 —— 没有任何设置能把管理面开到 0.0.0.0。
+/// 跨机访问的唯一路径是用户自己架反向代理回连本机。
 #[test]
-fn switch_on_with_credentials_binds_all_interfaces() {
+fn no_setting_can_expose_management_beyond_loopback() {
     let opts = Options {
         ui: true,
         ui_dir: None,
     };
     let s = KernelSettings {
-        port: 9891,
-        bind_lan: true,
+        port: 18891,
         auth_token: "secret".into(),
     };
+    let addr = management_bind_addr(&opts, &s).unwrap();
     assert_eq!(
-        management_bind_addr(&opts, &s).unwrap().ip(),
-        IpAddr::V4(Ipv4Addr::UNSPECIFIED)
-    );
-}
-
-/// 开关开但没凭据（库被手改 / 从别的机器拷来）→ 拒绝开放，降级回环。
-#[test]
-fn switch_on_without_credentials_refuses_to_expose() {
-    let opts = Options {
-        ui: true,
-        ui_dir: None,
-    };
-    let s = KernelSettings {
-        port: 9891,
-        bind_lan: true,
-        auth_token: String::new(),
-    };
-    assert_eq!(
-        management_bind_addr(&opts, &s).unwrap().ip(),
+        addr.ip(),
         IpAddr::V4(Ipv4Addr::LOCALHOST),
-        "未配凭据时绝不能监听 0.0.0.0"
+        "管理面绝不能监听 0.0.0.0"
     );
+    assert_eq!(addr.port(), 18891, "端口仍可配");
 }
 
 // ─── 路由表 ────────────────────────────────────────────────────────────────
@@ -198,7 +184,7 @@ async fn rpc_command_error_maps_to_non_2xx() {
     assert_eq!(resp.status(), 400);
 }
 
-/// 验收：管理面只在 127.0.0.1 可达（开关关时）。绑定地址即证据 —— 0.0.0.0 与 127.0.0.1
+/// 验收：管理面只在 127.0.0.1 可达。绑定地址即证据 —— 0.0.0.0 与 127.0.0.1
 /// 在 socket 层是两种不同的绑定，前者才会接受来自其它网卡的连接。
 #[tokio::test]
 async fn management_listens_on_loopback_only_by_default() {
@@ -237,6 +223,35 @@ async fn management_requires_bearer_when_credential_configured() {
         .await
         .unwrap();
     assert_eq!(ok.status(), 200);
+}
+
+/// 401 的响应体必须是**合法 JSON**，否则前端 `httpInvoke` 的 `JSON.parse` 会抛
+/// `SyntaxError`，把真正的「未授权」掩盖成「解析失败」。
+#[tokio::test]
+async fn unauthorized_response_body_is_json() {
+    let (base, _ctx, _addr) = spawn_test_management("s3cret").await;
+    let resp = reqwest::Client::new()
+        .post(format!("{base}/rpc/about_info"))
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 401);
+    assert_eq!(
+        resp.headers()
+            .get("content-type")
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default(),
+        "application/json"
+    );
+    let text = resp.text().await.unwrap();
+    let parsed: serde_json::Value =
+        serde_json::from_str(&text).expect("401 body 必须能被 JSON.parse 解析");
+    assert_eq!(
+        parsed.as_str(),
+        Some("unauthorized"),
+        "前端要能从这个值认出是未授权"
+    );
 }
 
 /// 验收：`/events` 能建立 SSE 连接，emit 后收到事件，且 payload 形状不变

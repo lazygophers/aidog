@@ -2,7 +2,7 @@
 //!
 //! 三块：
 //!
-//! 1. `/rpc/<命令>` —— 210 个命令的 HTTP 形态，语义等价前端的 `invoke(name, args)`（见
+//! 1. `/rpc/<命令>` —— 211 个命令的 HTTP 形态，语义等价前端的 `invoke(name, args)`（见
 //!    `aidog_core::http_command`）。表在 [`crate::rpc`]。
 //! 2. `/events` —— SSE 事件流。只有一个事件被前端消费（`proxy-log-updated`，payload 是
 //!    平台 id 数字），但这里不过滤，原样广播，形状与 Tauri `emit` 一字不差。
@@ -15,10 +15,13 @@
 //! 凭据 = [`aidog_core::kernel_settings::KernelSettings::auth_token`]，Bearer 语义与既有
 //! `/api/*` 一致（`Authorization: Bearer <token>`）。
 //!
-//! - 凭据非空 → **所有**管理面请求都校验（含静态资源；与绑定地址无关）；
-//! - 凭据为空 → 不校验。这只可能发生在 127.0.0.1 形态：开 `bind_lan` 的硬前提就是先配凭据
-//!   （`kernel_settings::save_kernel_settings` 入口拦截），内核启动时还会再验一次
-//!   （[`crate::run`]），两处都过不去就不会监听 0.0.0.0。
+//! - 凭据非空 → **所有**管理面请求都校验（含静态资源）；
+//! - 凭据为空 → 不校验。
+//!
+//! 管理面**永远只绑 127.0.0.1**（[`crate::management_bind_addr`]），所以凭据为空时够得着
+//! 它的只有本机进程。配了凭据仍有意义：反向代理回连本机时，同机的其他进程同样够得着这个
+//! 端口。注意 Bearer 头带不进浏览器的文档导航与 `EventSource` —— 配了凭据后浏览器界面本身
+//! 不可直接使用，跨机访问的正解是让反向代理负责鉴权。
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -86,6 +89,13 @@ pub fn management_router(state: ManagementState, ui_dir: Option<PathBuf>) -> Rou
         .with_state(state)
 }
 
+/// 鉴权失败的响应体。**必须是合法 JSON**：前端 `services/transport.ts::httpInvoke` 对
+/// 管理面的响应统一 `JSON.parse`，回一段裸文本（旧实现的 `"unauthorized"` 五个字母）会让
+/// 它抛 `SyntaxError`，真正的 401 被掩盖成「解析失败」。这里回的是一个 JSON 字符串字面量，
+/// 与 `Result<_, String>` 的 `Err` 走 `http_command` 时的 body 形状一致 —— 前端两条路拿到
+/// 的都是同一个字符串。
+const UNAUTHORIZED_BODY: &str = "\"unauthorized\"";
+
 /// Bearer 鉴权。凭据为空时直接放行（见模块文档）。
 async fn auth_mw(State(state): State<ManagementState>, req: Request<Body>, next: Next) -> Response {
     if state.auth_token.is_empty() {
@@ -105,7 +115,12 @@ async fn auth_mw(State(state): State<ManagementState>, req: Request<Body>, next:
         path = %req.uri().path(),
         "kernel: management request rejected (bad or missing bearer token)"
     );
-    (StatusCode::UNAUTHORIZED, "unauthorized").into_response()
+    (
+        StatusCode::UNAUTHORIZED,
+        [(header::CONTENT_TYPE, "application/json")],
+        UNAUTHORIZED_BODY,
+    )
+        .into_response()
 }
 
 /// SSE 事件流。每个连接一个 broadcast 订阅。
