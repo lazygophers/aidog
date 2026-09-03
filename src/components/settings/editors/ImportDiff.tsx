@@ -190,15 +190,28 @@ export function buildImportDiffTree(
 }
 
 /**
+ * 由 `_aidog_*` 内部配置物化出来的原生字段，不是用户在这棵 diff 里编辑的对象：
+ * `statusLine` / `subagentStatusLine` 由 `materializeStatuslineFields` 每次保存时
+ * 从 `_aidog_statusline` / `_aidog_subagent_statusline` 重新生成，`hooks` 由 Rust 侧
+ * `inject_claude_code_hooks` 按 `_aidog_hooks` 注入。RECOMMENDED_CONFIG 只带
+ * `_aidog_*` 源字段、不带物化结果，若不排除，用户已启用的状态栏 / 通知 hook 会被
+ * 列成「删除」项——而它们下一次保存又会被重新写回，提示本身就是错的。
+ */
+const DERIVED_KEYS = new Set(["statusLine", "subagentStatusLine", "hooks"]);
+
+/**
  * 推荐配置差异树：与「从 Claude Code 导入」共用同一棵 diff / 同一个选择弹窗，
  * 唯一区别是不做 aidog managed 过滤（推荐值本就是 aidog 自己的默认）。
- * 推荐配置里没有、当前配置里有的键照常列为「删除」项，由用户逐项决定。
+ * 推荐配置里没有、当前配置里有的键照常列为「删除」项，由用户逐项决定；
+ * 例外是 `DERIVED_KEYS`，它们由 `_aidog_*` 物化而来，不参与本 diff。
  */
 export function buildRecommendedDiffTree(
   current: Record<string, any>,
   recommended: Record<string, any>,
 ): DiffNode[] {
-  return buildImportDiffTree(current, recommended, new Set());
+  return buildImportDiffTree(current, recommended, new Set()).filter(
+    (n) => !DERIVED_KEYS.has(n.path),
+  );
 }
 
 export function ImportDiffModal({
