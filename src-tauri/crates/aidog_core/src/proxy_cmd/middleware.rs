@@ -72,7 +72,10 @@ pub async fn middleware_settings_set(
         key: "settings".to_string(),
         value: serde_json::to_value(&settings).map_err(|e| format!("serialize middleware settings: {e}"))?,
     }).await
-        .map_err(|e| { tracing::error!(command = "middleware_settings_set", error = %e, "persist middleware settings failed"); e })
+        .map_err(|e| { tracing::error!(command = "middleware_settings_set", error = %e, "persist middleware settings failed"); e })?;
+    // 同 proxy_log_settings_set：请求路径读 settings_cache 快照，不刷则新设置要重启代理才生效。
+    crate::gateway::proxy::refresh_proxy_settings_cache(db).await;
+    Ok(())
 }
 }
 
