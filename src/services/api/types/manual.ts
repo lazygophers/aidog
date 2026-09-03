@@ -520,13 +520,12 @@ export interface ProxySettings {
 /**
  * 无界面内核**管理面**的监听设置（Rust `aidog_core::kernel_settings::KernelSettings`，票 08）。
  *
- * 注意与上面 `ProxySettings.bind_lan` 的区别：那个开放的是转发端口，这个开放的是管理接口
- * （210 个命令，含改配置、读全部日志、执行脚本）。**两个开关互不读取**，前后端都一样。
- * `auth_token` 为空 = 未配凭据，此时后端拒绝把 `bind_lan` 置为 true。
+ * **没有绑定地址字段**：管理面永远只监听 127.0.0.1，跨机访问由用户自行架反向代理。
+ * 上面 `ProxySettings.bind_lan` 管的是转发端口，是另一个维度，两者互不读取。
+ * `auth_token` 为空 = 不校验（够得着的只有本机进程）。
  */
 export interface KernelSettings {
   port: number;
-  bind_lan: boolean;
   auth_token: string;
 }
 

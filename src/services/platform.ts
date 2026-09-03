@@ -17,8 +17,9 @@
 // **静态 import 是安全的**：这些插件模块加载时不碰 `window.__TAURI_INTERNALS__`，
 // 只有真调用才会。（会同步抛的是 `getCurrentWebview()` 那类，不在本模块里。）
 //
-// 剪贴板的非安全上下文兜底不是多余的：内核绑到局域网时页面地址是 `http://192.168.x.x:port`，
-// 浏览器判定为**非**安全上下文，`navigator.clipboard` 直接是 `undefined`。
+// 剪贴板的非安全上下文兜底不是多余的：内核管理面自己只绑 127.0.0.1（安全上下文），但跨机
+// 访问的推荐做法是用户自己架反向代理，反代若以明文 `http://` 对外（局域网里很常见），页面
+// 就落在**非**安全上下文里，`navigator.clipboard` 直接是 `undefined`。
 
 import { writeText as tauriWriteText, readText as tauriReadText } from "@tauri-apps/plugin-clipboard-manager";
 import { openUrl as tauriOpenUrl, revealItemInDir as tauriRevealItemInDir } from "@tauri-apps/plugin-opener";

@@ -1,17 +1,16 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Switch } from "@/components/ui/switch";
-import { kernelApi, KERNEL_BIND_REQUIRES_AUTH, type KernelSettings } from "../../services/api";
+import { kernelApi, type KernelSettings } from "../../services/api";
 
 /**
- * 无界面内核**管理面**设置（票 08）。
+ * 无界面内核**管理面**设置（票 08，2026-09-03 审查后收窄）。
  *
- * 与 StartupSection 里代理的「局域网访问」开关**分列两处、互不读取**：那个开放的是转发
- * 端口，这个开放的是管理接口（210 个命令，含改配置、读全部请求日志、执行脚本）。文案必须
- * 把这件事写明，否则用户会以为两个开关是一回事。
+ * 管理面永远只监听 127.0.0.1，**没有开放到局域网的开关**：它开放的是全部管理命令（改任意
+ * 配置、读全部请求日志、执行脚本），而它唯一的鉴权是一个静态 Bearer，还带不进浏览器的文档
+ * 导航与 EventSource。跨机访问交给用户自己架反向代理（nginx / caddy）负责 TLS 与鉴权。
  *
- * 开启的硬前提：先填访问令牌。没填就切开关，后端 reject（消息 = `kernel.bindLanRequiresAuth`），
- * 这里把它翻译成人话展示，并把开关弹回关的状态。
+ * 这里只剩两件可配的事：端口、访问令牌。StartupSection 里代理的「局域网访问」开关管的是
+ * 转发端口，是另一个维度，别把两者混为一谈。
  */
 export function KernelSection() {
   const { t } = useTranslation();
@@ -27,7 +26,7 @@ export function KernelSection() {
         setSettings(s);
         setToken(s.auth_token);
       })
-      .catch(() => setSettings({ port: 9891, bind_lan: false, auth_token: "" }));
+      .catch(() => setSettings({ port: 9891, auth_token: "" }));
   }, []);
 
   if (!settings) return null;
@@ -44,41 +43,27 @@ export function KernelSection() {
       setSettings(next);
       flash(t("kernel.saved"));
     } catch (e: any) {
-      const raw = typeof e === "string" ? e : e?.toString?.() ?? "";
-      setError(raw.includes(KERNEL_BIND_REQUIRES_AUTH) ? t("kernel.bindLanRequiresAuth") : raw);
+      setError(typeof e === "string" ? e : e?.toString?.() ?? "");
     }
   };
 
-  const rowStyle = {
-    padding: "16px 20px",
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-  } as const;
-
   return (
     <>
-      {/* 管理面绑定开关 —— 独立于代理的 bind_lan */}
-      <div className="glass-surface" style={rowStyle}>
-        <div style={{ paddingRight: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.bindLan")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-            {t("kernel.bindLanDesc")}
-          </div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-            {t("kernel.bindLanSecurity")}
-          </div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-            {t("kernel.bindLanNotProxy")}
-          </div>
+      {/* 监听地址是写死的事实，不是开关 —— 如实告诉用户，并给出跨机访问的正确做法 */}
+      <div className="glass-surface" style={{ padding: "16px 20px" }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.loopbackOnly")}</div>
+        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          {t("kernel.loopbackOnlyDesc")}
         </div>
-        <Switch
-          checked={settings.bind_lan}
-          onCheckedChange={(val) => persist({ ...settings, bind_lan: val })}
-        />
+        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          {t("kernel.remoteAccess")}
+        </div>
+        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          {t("kernel.notProxy")}
+        </div>
       </div>
 
-      {/* 访问令牌 —— 开启上面那个开关的前提 */}
+      {/* 访问令牌 —— 反代回连本机时防同机其他进程 */}
       <div className="glass-surface" style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("kernel.authToken")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>

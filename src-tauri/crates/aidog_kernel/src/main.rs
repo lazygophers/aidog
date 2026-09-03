@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! aidog-kernel          纯内核：代理转发 + 定时任务，不开任何 HTTP 管理面
-//! aidog-kernel --ui     额外挂 /rpc/<命令>（210 个）、SSE /events、静态前端资源
+//! aidog-kernel --ui     额外挂 /rpc/<命令>（211 个）、SSE /events、静态前端资源
 //! ```
 //!
 //! 两种形态跑的是**同一套**代理转发、协议转换、路由、计费、统计、MCP、skills、hooks 与
@@ -32,7 +32,8 @@ aidog-kernel — aidog 的无界面内核
   aidog-kernel --ui         额外提供 HTTP 管理接口 /rpc/*、事件流 /events 与 Web 界面
 
 选项:
-  --ui              开启管理面（监听地址与端口见「设置 → 内核管理面」，默认 127.0.0.1:9891）
+  --ui              开启管理面（**只监听 127.0.0.1**；端口见「设置 → 内核管理面」，默认 9891。
+                    要从别的设备访问，请自行架反向代理回连本机）
   --ui-dir <PATH>   Web 界面静态资源目录（默认取环境变量 AIDOG_UI_DIR，再回落
                     <可执行文件目录>/ui，最后 ./dist）
   -h, --help        打印本帮助
@@ -202,10 +203,11 @@ async fn run(opts: Options) -> Result<(), String> {
 /// 管理面该绑在哪 —— **唯一**决定「有没有 HTTP 管理面在听」的地方。
 ///
 /// - 没带 `--ui` → `None`：一个 socket 都不开（纯内核形态的定义）。
-/// - 带了 `--ui` → 地址取内核自己的设置，**不读代理的 `bind_lan`**（两个开关互不相干）。
-/// - 开关开着却没配凭据 → 降级回 127.0.0.1 并报错。设置写入时已经拦过一次
-///   （`save_kernel_settings`），这里是第二道闸：库文件被手改 / 从别的机器拷来，
-///   也不能凭空把 210 个管理命令开到 0.0.0.0。
+/// - 带了 `--ui` → **永远 `127.0.0.1`**，只有端口可配。没有任何开关能把它换成 `0.0.0.0`。
+///
+/// 要从别的设备访问界面，请自行架反向代理（nginx / caddy）回连本机，由它负责 TLS 与鉴权
+/// （2026-09-03 审查裁决，理由见 `aidog_core::kernel_settings` 模块文档）。代理端口自己的
+/// `ProxySettings::bind_lan` 是另一个维度，这里**不读**。
 fn management_bind_addr(
     opts: &Options,
     settings: &aidog_core::kernel_settings::KernelSettings,
@@ -213,17 +215,10 @@ fn management_bind_addr(
     if !opts.ui {
         return None;
     }
-    if settings.bind_lan && !settings.has_auth() {
-        tracing::error!(
-            "kernel: bind switch is on but no auth credential is configured; \
-             refusing to listen on 0.0.0.0, falling back to 127.0.0.1"
-        );
-        return Some(std::net::SocketAddr::new(
-            std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-            settings.port,
-        ));
-    }
-    Some(std::net::SocketAddr::new(settings.bind_ip(), settings.port))
+    Some(std::net::SocketAddr::new(
+        std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
+        settings.port,
+    ))
 }
 
 /// 起管理面。
