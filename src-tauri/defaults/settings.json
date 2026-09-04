@@ -13,25 +13,71 @@
     "prefersReducedMotion": true,
     "showThinkingSummaries": true,
     "showTurnDuration": true,
+    "autoUpdatesChannel": "latest",
     "skipDangerousModePermissionPrompt": true,
     "spinnerTipsEnabled": true,
     "teammateMode": "in-process",
     "terminalProgressBarEnabled": true,
     "tui": "fullscreen",
+    "awaySummaryEnabled": true,
     "verbose": true,
     "viewMode": "verbose",
+    "axScreenReader": false,
     "alwaysThinkingEnabled": true,
     "fastMode": false,
     "skillListingMaxDescChars": 1024,
     "feedbackSurveyRate": 0,
     "includeCoAuthoredBy": false,
     "isolatePeerMachines": true,
+    "agentPushNotifEnabled": false,
     "disableArtifact": true,
     "disableRemoteControl": true,
-    "_aidog_statusline": {
-        "enabled": true
+    "advisorModel": "opus",
+    "askUserQuestionTimeout": "never",
+    "companyAnnouncements": [
+        "删繁就简三秋树，领异标新二月花",
+        "操千曲而后晓声，观千剑而后识器",
+        "千淘万漉虽辛苦，吹尽狂沙始到金",
+        "行到水穷处，坐看云起时",
+        "醉后不知天在水，满船清梦压星河",
+        "掬水月在手，弄花香满衣",
+        "山静似太古，日长如小年",
+        "细雨湿衣看不见，闲花落地听无声",
+        "人间有味是清欢",
+        "殷勤昨夜三更雨，又得浮生一日凉",
+        "小舟从此逝，江海寄余生",
+        "休对故人思故国，且将新火试新茶",
+        "自在飞花轻似梦，无边丝雨细如愁",
+        "雾失楼台，月迷津渡",
+        "落花人独立，微雨燕双飞",
+        "叶上初阳干宿雨，水面清圆，一一风荷举",
+        "流光容易把人抛，红了樱桃，绿了芭蕉",
+        "春水碧于天，画船听雨眠",
+        "惆怅东栏一株雪，人生看得几清明",
+        "苔花如米小，也学牡丹开",
+        "我有一瓢酒，可以慰风尘",
+        "向来枉费推移力，此日中流自在行",
+        "万物静观皆自得，四时佳兴与人同",
+        "城中桃李愁风雨，春在溪头荠菜花",
+        "因过竹院逢僧话，偷得浮生半日闲",
+        "我见青山多妩媚，料青山见我应如是"
+    ],
+    "autoMode": {
+      "classifyAllShell": false,
+      "environment": [
+            "$defaults"
+          ],
+          "allow": [
+            "$defaults"
+          ],
+          "soft_deny": [
+            "$defaults"
+          ],
+          "hard_deny": [
+            "$defaults"
+          ]
     },
-    "_aidog_subagent_statusline": {
+    "_aidog_statusline": {
         "enabled": true
     },
     "_aidog_hooks": {
@@ -52,7 +98,6 @@
             "Artifact",
             "Monitor",
             "NotebookEdit",
-            "PushNotification",
             "Read(**/.env)",
             "Read(**/.env.*)",
             "Read(**/.env.local)",
@@ -149,11 +194,20 @@
             "Edit(**/*.pdb)",
             "Edit(**/*.wasm)"
         ],
+        "allow": [
+          "Bash(go mod *)",
+          "Bash(yarn install)",
+          "Bash(pnpm install)"
+        ],
         "ask": [
+            "Read(~/.zshrc)",
+            "Read(~/.zshprofile)",
+            "Read(~/.bashrc)",
+            "Read(~/.bashprofile)",
+            "Read(~/.profile)",
             "Edit(**/go.mod)",
             "Edit(**/package.json)",
             "Edit(**/Cargo.toml)",
-            "Edit(**/Gemfile)",
             "Edit(**/pyproject.toml)",
             "Edit(**/requirements.txt)",
             "Edit(**/Pipfile)",
@@ -176,37 +230,25 @@
             "Edit(**/settings.gradle.kts)",
             "Edit(**/gradle.properties)",
             "Edit(**/pnpm-workspace.yaml)",
-            "Edit(**/lerna.json)",
-            "Edit(**/turbo.json)",
-            "Edit(**/nx.json)",
             "Edit(**/generated/**)",
             "Edit(**/__generated__/**)",
-            "Edit(**/gen/**)",
-            "Edit(**/autogen/**)",
             "Edit(**/*.generated.*)",
             "Edit(**/dist/**)",
             "Edit(**/build/**)",
             "Edit(**/out/**)",
             "Edit(**/target/**)",
-            "Edit(**/mocks/**)",
-            "Edit(**/mock_*.go)",
-            "Edit(**/*_mock.go)",
-            "Edit(**/*.mock.ts)",
-            "Edit(**/migrations/**)",
             "Edit(**/*.snap)",
             "Edit(**/*.d.ts)"
         ]
     },
     "env": {
-      "CLAUDE_CODE_DISABLE_ARTIFACT": 1,
+      "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "3",
         "CLAUDE_CODE_FORK_SUBAGENT": "1",
-        "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000",
-        "CLAUDE_CODE_HIDE_CWD": "1",
+        "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "9999",
         "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE": "1",
         "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1",
-        "BASH_MAX_OUTPUT_LENGTH": "10240",
         "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF": "1",
         "CLAUDE_CODE_DISABLE_CRON": "1",
         "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
@@ -215,7 +257,6 @@
         "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
         "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
         "NO_PROXY": "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,*.cn",
-        "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "10240",
         "FORCE_AUTOUPDATE_PLUGINS": "1",
         "DO_NOT_TRACK": "1",
         "CLAUDE_CODE_EFFORT_LEVEL": "medium",
