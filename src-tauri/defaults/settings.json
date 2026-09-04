@@ -2,7 +2,7 @@
     "$schema": "https://json.schemastore.org/claude-code-settings.json",
     "language": "zh-Hans",
     "autoCompactEnabled": true,
-    "autoConnectIde": true,
+    "autoConnectIde": false,
     "autoMemoryEnabled": true,
     "autoScrollEnabled": true,
     "cleanupPeriodDays": 30,
@@ -16,6 +16,7 @@
     "showTurnDuration": true,
     "enableArtifact": false,
     "autoUpdatesChannel": "latest",
+    "autoInstallIdeExtension": true,
     "skipDangerousModePermissionPrompt": true,
     "spinnerTipsEnabled": true,
     "spinnerTipsOverride": {
@@ -60,6 +61,9 @@
             "采薇"
         ]
     },
+    "workflowKeywordTriggerEnabled": false,
+    "wheelScrollAccelerationEnabled": true,
+    "ultracode": true,
     "teammateMode": "in-process",
     "terminalProgressBarEnabled": true,
     "tui": "fullscreen",
