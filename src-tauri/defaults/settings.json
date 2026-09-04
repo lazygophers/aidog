@@ -39,6 +39,27 @@
             "白鹭立雪，愚人看鹭"
         ]
     },
+    "spinnerVerbs": {
+        "mode": "replace",
+        "verbs": [
+            "推敲",
+            "雕琢",
+            "打磨",
+            "酝酿",
+            "凝神",
+            "静思",
+            "沉潜",
+            "研墨",
+            "织锦",
+            "执卷",
+            "观星",
+            "问道",
+            "听雨",
+            "踏雪",
+            "问茶",
+            "采薇"
+        ]
+    },
     "teammateMode": "in-process",
     "terminalProgressBarEnabled": true,
     "tui": "fullscreen",
