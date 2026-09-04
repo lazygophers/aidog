@@ -52,6 +52,9 @@ pub struct PlatformHealth {
     pub latency_ema_ms: f64,
     /// 当前在途请求数。
     pub inflight: u32,
+    /// 配额冷却截止（unix ms，0 = 无）。429 配额耗尽且上游给出重置时间时设置：
+    /// 该时刻前不参与调度，但**不改 DB status**（平台在 UI 仍是启用态，只是不被选中）。
+    pub quota_cooldown_until_ms: i64,
 }
 
 impl Default for PlatformHealth {
@@ -60,6 +63,7 @@ impl Default for PlatformHealth {
             breaker: BreakerState::default(),
             latency_ema_ms: 0.0,
             inflight: 0,
+            quota_cooldown_until_ms: 0,
         }
     }
 }
@@ -114,6 +118,24 @@ impl SchedulerState {
             .ok()
             .and_then(|g| g.get(&platform_id).map(|h| h.inflight))
             .unwrap_or(0)
+    }
+
+    /// 429 配额耗尽：把平台冷却到上游给出的重置时刻（取 max，不缩短已有冷却）。
+    /// 纯内存维度——不写 DB status，平台不被标记为禁用，只是这段时间不进候选。
+    pub fn set_quota_cooldown(&self, platform_id: u64, until_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            h.quota_cooldown_until_ms = h.quota_cooldown_until_ms.max(until_ms);
+        }
+    }
+
+    /// 该平台此刻是否处于配额冷却中（到点自动失效，无需清理）。
+    pub fn quota_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.quota_cooldown_until_ms))
+            .is_some_and(|until| until > now_ms)
     }
 
     /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
@@ -407,6 +429,22 @@ mod tests {
         assert_eq!(s.inflight(6), 1);
         s.record_failure(6, &thresholds(5, 30, 2), 0);
         assert_eq!(s.inflight(6), 0);
+    }
+
+    #[test]
+    fn quota_cooldown_expires_and_never_shortens() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        assert!(!s.quota_cooled(7, now));
+        s.set_quota_cooldown(7, now + 5000);
+        assert!(s.quota_cooled(7, now));
+        // 更早的截止时间不缩短已有冷却
+        s.set_quota_cooldown(7, now + 1000);
+        assert!(s.quota_cooled(7, now + 2000));
+        // 到点即失效
+        assert!(!s.quota_cooled(7, now + 5000));
+        // 冷却不影响熔断维度（仍 Allow）
+        assert_eq!(s.admission(7, &thresholds(3, 30, 2), now, true), Admission::Allow);
     }
 
     #[test]

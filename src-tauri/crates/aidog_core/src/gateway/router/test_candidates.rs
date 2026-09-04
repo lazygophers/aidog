@@ -144,6 +144,44 @@ async fn single_platform_forces_request_when_circuit_broken() {
     assert_eq!(set.candidates[0].platform.id, p.id);
 }
 
+/// 配额冷却（429 配额耗尽）：冷却中的平台不进候选，但 DB status 保持 enabled（不被标记禁用）；
+/// 到点后自动回到候选。
+#[tokio::test]
+async fn quota_cooldown_excludes_candidate_without_disabling() {
+    let db = mk_test_db().await;
+    let cooled = mk_db_platform(&db, "GLM").await;
+    let other = mk_db_platform(&db, "Kimi").await;
+    let g = mk_db_group(&db, "multi", &[cooled.id, other.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default(); // 熔断总开关关：冷却维度独立
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+    let now = db::now();
+    sched.set_quota_cooldown(cooled.id, now + 3_600_000);
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
+        .await
+        .expect("other platform still available");
+    assert!(
+        set.candidates.iter().all(|c| c.platform.id != cooled.id),
+        "quota-cooled platform must not be scheduled"
+    );
+
+    // DB status 未被改成 auto_disabled（UI 仍显示启用）
+    let row = db::get_platform(&db, cooled.id)
+        .await
+        .expect("get platform")
+        .expect("platform exists");
+    assert_eq!(row.status, PlatformStatus::Enabled);
+    assert_eq!(row.auto_disabled_until, 0);
+}
+
 /// 单平台分组：唯一平台 auto_disabled（401/403 退避中）时仍必请求。
 #[tokio::test]
 async fn single_platform_forces_request_when_auto_disabled() {

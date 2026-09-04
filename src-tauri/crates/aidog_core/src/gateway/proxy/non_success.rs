@@ -74,21 +74,26 @@ pub(crate) async fn handle_non_success(
 
     // ── 429 配额耗尽 + 上游给出明确恢复时间 → 冷却该平台到那个时刻 ──
     //   解析不到时间就什么都不做（保持原 failover 语义），不猜冷却时长。
-    //   到点后 candidate_state 自动放行试探，成功即 recover_platform_auto_disabled 恢复。
+    //   **纯内存维度**（scheduler）：配额用完不是平台故障，不写 DB status——平台在 UI 仍是
+    //   启用态，只是这段时间不进候选（select_candidates_ctx 的配额冷却过滤）。
+    //   到点自动恢复调度，同时排一个真查把额度对齐真实（冷却期无请求 → 无请求驱动校准）。
     if let Some(until) = is_429_quota_exhausted
         .then(|| parse_quota_reset_at(retry_after.as_deref(), &body, aidog_db::now()))
         .flatten()
     {
-        match aidog_db::set_platform_quota_cooldown(&state.db, route.platform.id, until).await {
-            Ok(applied) if applied > 0 => tracing::warn!(
-                platform = %route.platform.name, platform_id = route.platform.id,
-                quota_cooldown_until = applied, "platform cooled down until upstream quota reset"
-            ),
-            Ok(_) => {} // 用户手动 disabled，不动
-            Err(e) => {
-                tracing::error!(platform_id = route.platform.id, error = %e, "quota cooldown failed")
-            }
-        }
+        state.scheduler.set_quota_cooldown(route.platform.id, until);
+        super::estimate::spawn_refresh_at(
+            state.db.clone(),
+            route.platform.id,
+            route.platform.base_url.clone(),
+            route.platform.api_key.clone(),
+            until,
+        );
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id,
+            quota_cooldown_until = until,
+            "platform out of scheduling until upstream quota reset (not disabled)"
+        );
     }
 
     // ── 自动禁用（指数退避，换下个候选）：仅 401/403 鉴权失败、402 余额不足 ──

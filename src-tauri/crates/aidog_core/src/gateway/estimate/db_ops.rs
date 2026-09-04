@@ -151,6 +151,32 @@ pub async fn calibrate_from_quota(
     tracing::info!(platform_id, is_coding_plan, coding_json_len = coding_json.len(), result = ?result, "calibrate_from_quota done");
 }
 
+/// 配额重置时刻主动真查一次并校准（不等下一个请求）。
+///
+/// 冷却期内平台不被调度 → 没有请求驱动的校准，`est_coding_plan` 会一直停在耗尽值。
+/// 排一个定时任务到重置时刻（+2s 让上游窗口确实翻篇），真查回来即对齐真实额度并刷托盘。
+/// coding plan / 余额平台由真查结果自身判定（`coding_plan.is_some()`，同 persist_quota_to_db）。
+/// 内存态：进程重启丢失该定时，下次请求再遇 429 会重新排。
+pub fn spawn_refresh_at(
+    db: std::sync::Arc<Db>,
+    platform_id: u64,
+    base_url: String,
+    api_key: String,
+    at_ms: i64,
+) {
+    let delay_ms = (at_ms - now()).max(0) as u64 + 2_000;
+    tokio::spawn(async move {
+        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+        let quota =
+            crate::gateway::quota::query_quota(Some(&db), &base_url, &api_key, platform_id as i64)
+                .await;
+        let is_coding_plan = quota.coding_plan.is_some();
+        calibrate_from_quota(&db, platform_id, &quota, is_coding_plan).await;
+        aidog_ctx::emit_unit("tray-refresh");
+        tracing::info!(platform_id, "quota refreshed at upstream reset time");
+    });
+}
+
 /// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
 /// query_quota 按平台行协议路由 registry 脚本（quota-scripts T4）：newapi 两步查询 /
 /// devin ACU / 11 平台族统一覆盖（旧行为缺口：devin 未特判 → base_url 启发式打不中
