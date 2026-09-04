@@ -435,6 +435,16 @@ pub(crate) async fn forward_attempt(
     // 不折成 `max_tokens` 的话下方 cap 找不到槽位 → 超模型上限的值原样上送（票 05）。
     fold_openai_max_completion_tokens(&mut req_body, target_protocol_enum);
 
+    // ── 图片块默认 detail 剔除（透传与转换两分支共用本 seam）──
+    // OpenAI SDK 会自己填 `image_url.detail:"auto"`，部分兼容上游只认 low/high 见 auto 即 400。
+    let stripped_detail = strip_default_image_detail(&mut req_body, target_protocol_enum);
+    if stripped_detail > 0 {
+        tracing::info!(
+            count = stripped_detail, model = %actual_model,
+            "stripped default image_url.detail=auto before upstream"
+        );
+    }
+
     // ── max_tokens 出站裁剪（body 层，透传与转换两分支共用本 seam）──
     // 上限口径与上方 chat_req 侧同源（同一个 `model_max`，不会出现「裁两次不同上限」）：
     // 转换分支此处为幂等复裁（chat_req 已裁到同值，不再命中）；透传分支此处是唯一生效点，
@@ -1092,6 +1102,38 @@ fn fold_openai_max_completion_tokens(body: &mut Value, wire: &Protocol) {
     {
         obj.insert("max_tokens".to_string(), v);
     }
+}
+
+/// 剔除多模态图片块里的默认 `image_url.detail: "auto"`（openai wire 家族，透传与转换共用）。
+///
+/// `auto` 是 OpenAI 侧默认值，省略与显式写等价（<https://platform.openai.com/docs/guides/images-vision>
+/// 「detail ... defaults to auto」）；但部分 OpenAI 兼容上游只认 `low` / `high`，见到 `auto`
+/// 直接 400：MiniMax 实测 `invalid params, invalid image detail: auto (2013)`
+/// （request 2a28c917b08a436f8f4e273b777ece27，客户端为 OpenAI python SDK，SDK 自己填的 auto）。
+/// 故只剔默认值，显式 `low` / `high` 原样上送（语义不可省）。
+///
+/// 返回剔除条数（0 = body 逐字节不变）。
+fn strip_default_image_detail(body: &mut Value, wire: &Protocol) -> usize {
+    if !wire.same_wire_family(&Protocol::OpenAI) {
+        return 0;
+    }
+    fn walk(v: &mut Value) -> usize {
+        match v {
+            Value::Array(items) => items.iter_mut().map(walk).sum(),
+            Value::Object(obj) => {
+                let mut n = 0;
+                if let Some(Value::Object(img)) = obj.get_mut("image_url")
+                    && img.get("detail").and_then(Value::as_str) == Some("auto")
+                {
+                    img.remove("detail");
+                    n += 1;
+                }
+                n + obj.values_mut().map(walk).sum::<usize>()
+            }
+            _ => 0,
+        }
+    }
+    walk(body)
 }
 
 /// 官方 OpenAI Chat Completions 的输出长度键改写（票 05）。
@@ -2088,7 +2130,7 @@ mod test_field_passthrough {
 mod test_openai_max_completion_tokens {
     use super::{
         Protocol, cap_body_max_tokens, fold_openai_max_completion_tokens,
-        rename_openai_max_tokens_key,
+        rename_openai_max_tokens_key, strip_default_image_detail,
     };
     use aidog_adapter::converter::{convert_request, parse_incoming_request};
     use serde_json::json;
@@ -2189,6 +2231,31 @@ mod test_openai_max_completion_tokens {
             OFFICIAL
         ));
         assert_eq!(b, json!({"model": "m"}), "未传 max_tokens 时不产键");
+    }
+
+    /// `detail:"auto"` 是 SDK 填的默认值 → 剔除；显式 low/high 与非 openai wire 不动。
+    #[test]
+    fn strips_only_default_image_detail() {
+        let mk = || {
+            json!({"model": "m", "messages": [{"role": "user", "content": [
+                {"type": "text", "text": "hi"},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64,AA", "detail": "auto"}},
+                {"type": "image_url", "image_url": {"url": "u2", "detail": "high"}}
+            ]}]})
+        };
+        let mut b = mk();
+        assert_eq!(strip_default_image_detail(&mut b, &Protocol::OpenAI), 1);
+        let blocks = &b["messages"][0]["content"];
+        assert!(
+            blocks[1]["image_url"].get("detail").is_none(),
+            "auto 应被剔除: {b}"
+        );
+        assert_eq!(blocks[1]["image_url"]["url"], json!("data:image/png;base64,AA"));
+        assert_eq!(blocks[2]["image_url"]["detail"], json!("high"), "显式值不动");
+
+        let mut b = mk();
+        assert_eq!(strip_default_image_detail(&mut b, &Protocol::Anthropic), 0);
+        assert_eq!(b, mk(), "非 openai wire body 逐字节不变");
     }
 }
 
