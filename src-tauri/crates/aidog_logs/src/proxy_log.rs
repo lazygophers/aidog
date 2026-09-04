@@ -46,9 +46,49 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
     })
 }
 
+/// 按 `ProxyLogSettings` 就地清空「原始信息」两侧列。
+///
+/// **口径唯一真值源**：本函数与 [`ProxyLogColumns::from_log`] 必须清同一组列
+/// （`raw_field_sides_match` 用同一份数据双跑两条路径断言一致，改一边漏另一边即红）。
+/// 用户侧 4 列受 `log_user_request`，上游侧 5 列（含 `field_trace`）受 `log_upstream_request`。
+pub fn strip_raw_sides(
+    log: &mut aidog_db::models::ProxyLog,
+    strip_user: bool,
+    strip_upstream: bool,
+) {
+    if strip_user {
+        log.request_headers.clear();
+        log.request_body.clear();
+        log.user_response_headers.clear();
+        log.user_response_body.clear();
+    }
+    if strip_upstream {
+        log.upstream_request_headers.clear();
+        log.upstream_request_body.clear();
+        log.upstream_response_headers.clear();
+        log.response_body.clear();
+        log.field_trace.clear();
+    }
+}
+
+/// 读 `proxy.logging` 设置（缺失 / 解析失败 → 默认值：master 开、两侧原始信息关）。
+async fn log_settings(db: &Db) -> ProxyLogSettings {
+    aidog_db::get_setting(db, "proxy", "logging")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
 /// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging.
 /// 取 owned `ProxyLog`：调用方（upsert_log）已为脱敏 clone 一份，此处接管所有权
 /// 直接 move 进后台线程闭包，消除原先「调用方 clone + 本函数再 clone」的双重全量复制。
+///
+/// **本函数自带 ProxyLogSettings 门禁**（master switch + 两侧「原始信息」开关）：代理热路径外的
+/// 写入方（quota 脚本、model_fetch 等）直接构造 ProxyLog 调这里，若门禁只留在 `upsert_log`
+/// 里，这些行会绕过开关把 headers / body / 上游正文原样入库（实测 `[quota:script]` 行在两个
+/// 开关都关时仍存着上游余额响应正文与含 api_key 的 URL）。
 #[track_caller]
 pub fn upsert_proxy_log(
     db: &Db,
@@ -56,6 +96,16 @@ pub fn upsert_proxy_log(
 ) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
+        let settings = log_settings(db).await;
+        if !settings.enabled {
+            return Ok(()); // master switch 关 → 不落库（与 upsert_log 早退同语义）
+        }
+        let mut log = log;
+        strip_raw_sides(
+            &mut log,
+            !settings.log_user_request,
+            !settings.log_upstream_request,
+        );
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             let attempts_str = aidog_db::models::serialize_attempts(&log.attempts);
@@ -1208,5 +1258,150 @@ mod test_last_success_platform {
             last_success_platform_id(&db, "none".into()).await.unwrap(),
             None
         );
+    }
+}
+
+/// `upsert_proxy_log` 的 ProxyLogSettings 门禁（quota 脚本 / model_fetch 等非代理写入方走这条路）。
+#[cfg(test)]
+mod test_upsert_gate {
+    use super::super::{ProxyLogColumns, strip_raw_sides, upsert_proxy_log};
+    use aidog_db::Db;
+    use aidog_db::models::{ProxyLog, ProxyLogSettings};
+
+    fn filled_log() -> ProxyLog {
+        ProxyLog {
+            id: "gate1".into(),
+            group_key: "[quota:script]".into(),
+            request_headers: r#"{"source":"quota"}"#.into(),
+            request_body: "user-req".into(),
+            user_response_headers: r#"{"content-type":"application/json"}"#.into(),
+            user_response_body: "user-resp".into(),
+            upstream_request_headers: r#"{"authorization":"[REDACTED]"}"#.into(),
+            upstream_request_body: "up-req".into(),
+            upstream_response_headers: r#"{"x":"1"}"#.into(),
+            response_body: "up-resp".into(),
+            field_trace: "trace".into(),
+            status_code: 200,
+            ..Default::default()
+        }
+    }
+
+    async fn db_with_settings(s: &ProxyLogSettings) -> Db {
+        let db = Db::new(":memory:").await.unwrap();
+        aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .unwrap();
+        aidog_db::set_setting(
+            &db,
+            aidog_db::models::SetSettingInput {
+                scope: "proxy".into(),
+                key: "logging".into(),
+                value: serde_json::to_value(s).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+        db
+    }
+
+    /// 落库后各「原始信息」列的长度（0 = 被清空 / 无行 → None）。
+    async fn stored(db: &Db, id: &str) -> Option<Vec<usize>> {
+        let id = id.to_string();
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT request_headers, request_body, user_response_headers, user_response_body, \
+                     upstream_request_headers, upstream_request_body, upstream_response_headers, \
+                     response_body, field_trace FROM proxy_log WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| {
+                        (0..9)
+                            .map(|i| r.get::<_, String>(i).map(|s| s.len()))
+                            .collect::<rusqlite::Result<Vec<_>>>()
+                    },
+                )
+                .ok())
+        })
+        .await
+        .unwrap()
+    }
+
+    /// 只开「记录实际上游请求」：用户侧 4 列清空，上游侧 5 列保留。
+    #[tokio::test]
+    async fn upstream_only_setting_strips_user_side() {
+        let s = ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: true,
+            ..Default::default()
+        };
+        let db = db_with_settings(&s).await;
+        upsert_proxy_log(&db, filled_log()).await.unwrap();
+        let lens = stored(&db, "gate1").await.expect("row written");
+        assert_eq!(&lens[..4], &[0, 0, 0, 0], "用户侧未被清空: {lens:?}");
+        assert!(lens[4..].iter().all(|&n| n > 0), "上游侧被误清: {lens:?}");
+    }
+
+    /// 两个开关都关：只留元数据，九列原始信息全空。
+    #[tokio::test]
+    async fn both_off_strips_everything() {
+        let s = ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: false,
+            ..Default::default()
+        };
+        let db = db_with_settings(&s).await;
+        upsert_proxy_log(&db, filled_log()).await.unwrap();
+        let lens = stored(&db, "gate1").await.expect("row written");
+        assert!(lens.iter().all(|&n| n == 0), "仍有原始信息入库: {lens:?}");
+    }
+
+    /// master switch 关 → 整行不落库。
+    #[tokio::test]
+    async fn master_switch_off_writes_no_row() {
+        let s = ProxyLogSettings {
+            enabled: false,
+            ..Default::default()
+        };
+        let db = db_with_settings(&s).await;
+        upsert_proxy_log(&db, filled_log()).await.unwrap();
+        assert!(stored(&db, "gate1").await.is_none(), "master 关仍落库");
+    }
+
+    /// 清空口径漂移守卫：strip_raw_sides 与 ProxyLogColumns::from_log 必须清同一组列。
+    #[test]
+    fn raw_field_sides_match() {
+        for (su, sup) in [(false, false), (true, false), (false, true), (true, true)] {
+            let cols = ProxyLogColumns::from_log(&filled_log(), su, sup);
+            let mut log = filled_log();
+            strip_raw_sides(&mut log, su, sup);
+            let via_cols = [
+                cols.request_headers.len(),
+                cols.request_body.len(),
+                cols.user_response_headers.len(),
+                cols.user_response_body.len(),
+                cols.upstream_request_headers.len(),
+                cols.upstream_request_body.len(),
+                cols.upstream_response_headers.len(),
+                cols.response_body.len(),
+                cols.field_trace.len(),
+            ];
+            let via_strip = [
+                log.request_headers.len(),
+                log.request_body.len(),
+                log.user_response_headers.len(),
+                log.user_response_body.len(),
+                log.upstream_request_headers.len(),
+                log.upstream_request_body.len(),
+                log.upstream_response_headers.len(),
+                log.response_body.len(),
+                log.field_trace.len(),
+            ];
+            assert_eq!(
+                via_cols, via_strip,
+                "strip_user={su} strip_upstream={sup}: 两条路径清空的列不一致"
+            );
+        }
     }
 }
