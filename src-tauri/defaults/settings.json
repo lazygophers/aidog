@@ -103,7 +103,19 @@
             ],
             "allowWrite": [
                 "/tmp",
-                "/private/tmp"
+                "/private/tmp",
+                "~/.local/share/mise",
+                "~/.local/state/mise",
+                "~/.config/mise",
+                "~/.local/bin",
+                "~/.cache",
+                "~/Library/Caches",
+                "~/.cargo",
+                "~/.rustup",
+                "~/.npm",
+                "~/.yarn",
+                "~/.bun",
+                "~/go/pkg/mod"
             ]
         },
         "network": {
