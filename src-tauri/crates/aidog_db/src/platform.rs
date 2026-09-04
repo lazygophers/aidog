@@ -439,6 +439,51 @@ pub fn set_platform_auto_disabled(
     }
 }
 
+/// 429 配额耗尽且上游给出明确恢复时间：把平台冷却到该时间点（到点由 candidate_state 自动试探）。
+///
+/// 与 [`set_platform_auto_disabled`] 的区别：截止时间由上游给定而非指数退避，
+/// 故 **不累加 strikes**（配额重置是确定事件，不是失败试探）。
+/// 用户手动 disabled 的平台不动；已有更晚的截止时间不缩短（取 max）。
+/// 返回实际生效的截止时间戳（毫秒）；平台不存在或用户已禁用 → 0。
+#[track_caller]
+pub fn set_platform_quota_cooldown(
+    db: &Db,
+    id: u64,
+    until_ms: i64,
+) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let ts = now();
+        let until = db
+        .call_platform_traced(None, __db_caller, move |conn| {
+            let row: Option<(String, i64)> = conn
+                .query_row(
+                    "SELECT status, auto_disabled_until FROM platform WHERE id = ?1 AND deleted_at = 0",
+                    params![id as i64],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+                )
+                .optional()?;
+            let (status, cur_until) = match row {
+                Some(v) => v,
+                None => return Ok(0i64),
+            };
+            if status == "disabled" {
+                return Ok(0i64);
+            }
+            let until = cur_until.max(until_ms);
+            conn.execute(
+                "UPDATE platform SET status='auto_disabled', enabled=0, auto_disabled_until=?1, updated_at=?2 WHERE id=?3",
+                params![until, ts, id as i64],
+            )?;
+            Ok(until)
+        })
+        .await
+        .map_err(|e| format!("set platform quota cooldown: {e}"))?;
+        db.invalidate_group_details_cache();
+        Ok(until)
+    }
+}
+
 /// 2xx 成功：若平台当前为 auto_disabled（试探成功），恢复 enabled 并清退避状态。
 /// 用户手动 disabled / 已 enabled 平台不动。
 #[track_caller]
