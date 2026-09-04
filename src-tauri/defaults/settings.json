@@ -61,6 +61,24 @@
             "采薇"
         ]
     },
+    "worktree": {
+        "symlinkDirectories": [
+            "node_modules",
+            ".pnpm-store",
+            ".next",
+            ".nuxt",
+            ".turbo",
+            ".cache",
+            "target",
+            ".venv",
+            "venv",
+            ".tox",
+            ".dart_tool",
+            "build",
+            ".gradle",
+            "Pods"
+        ]
+    },
     "workflowKeywordTriggerEnabled": false,
     "wheelScrollAccelerationEnabled": true,
     "ultracode": true,
