@@ -413,6 +413,49 @@ fn classify_429_rate_limit() {
     assert!(!classify_429(""));
 }
 
+/// GLM 1308 实际文案（5 小时窗口用满），此前因只匹配「用量上限」被误判为限流。
+#[test]
+fn classify_429_glm_1308_usage_limit() {
+    assert!(classify_429(
+        "[1308][已达到 5 小时的使用上限。您的限额将在 2026-09-04 21:37:35 重置。][2026090419022083a96c37c41f498c]"
+    ));
+}
+
+// ── parse_quota_reset_at：Retry-After 优先 / body 时间戳兜底 / 越界丢弃 ──
+#[test]
+fn parse_quota_reset_prefers_retry_after_seconds() {
+    let now = 1_700_000_000_000;
+    assert_eq!(
+        parse_quota_reset_at(Some("300"), "no timestamp here", now),
+        Some(now + 300_000)
+    );
+}
+
+#[test]
+fn parse_quota_reset_from_glm_body_timestamp() {
+    use chrono::TimeZone;
+    // 本机时区的 2026-09-04 21:37:35
+    let expect = chrono::Local
+        .with_ymd_and_hms(2026, 9, 4, 21, 37, 35)
+        .single()
+        .unwrap()
+        .timestamp_millis();
+    let now = expect - 2 * 60 * 60 * 1000; // 重置前 2 小时
+    let body = r#"{"error":{"code":"1308","message":"已达到 5 小时的使用上限。您的限额将在 2026-09-04 21:37:35 重置。"}}"#;
+    assert_eq!(parse_quota_reset_at(None, body, now), Some(expect));
+}
+
+#[test]
+fn parse_quota_reset_rejects_past_and_far_future() {
+    let now = 1_700_000_000_000;
+    // 已过去的时间 → None
+    assert_eq!(parse_quota_reset_at(Some("-10"), "", now), None);
+    // 超过 24h 上限 → None
+    assert_eq!(parse_quota_reset_at(Some("90000"), "", now), None);
+    // 无 Retry-After 且 body 无时间戳 → None
+    assert_eq!(parse_quota_reset_at(None, "quota exhausted", now), None);
+}
+
 // ── truncate_peek_text：空流 502 取证截断（≤4KB 原样 / 超出带 truncated 标记 / 空串回退占位）──
 #[test]
 fn truncate_peek_text_empty_returns_empty() {

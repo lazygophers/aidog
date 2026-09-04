@@ -81,9 +81,11 @@ pub(crate) fn resp_headers_to_log_json(
 /// 只看 message 文本，禁按 error.type（MiniMax 配额耗尽 type 也是 rate_limit_error）。
 /// 无 marker 命中默认 false（保守按限流，避免误判配额）。
 pub(crate) fn classify_429(message: &str) -> bool {
-    const QUOTA_MARKERS: [&str; 6] = [
+    const QUOTA_MARKERS: [&str; 8] = [
         "quota exhausted",
         "用量上限",
+        "使用上限",  // GLM 1308「已达到 5 小时的使用上限」
+        "使用限制",  // 同族措辞（周/月限额）
         "token plan",
         "insufficient",
         "余额",
@@ -91,6 +93,49 @@ pub(crate) fn classify_429(message: &str) -> bool {
     ];
     let lower = message.to_lowercase();
     QUOTA_MARKERS.iter().any(|m| lower.contains(m))
+}
+
+/// 配额冷却上限（24h）：超出一律丢弃，防上游给出离谱值或时区解析偏差把平台长期锁死。
+const MAX_QUOTA_COOLDOWN_MS: i64 = 24 * 60 * 60 * 1000;
+
+/// 从 429 响应解析「配额恢复时间」→ 绝对毫秒时间戳，供 `set_platform_quota_cooldown` 使用。
+///
+/// 两个来源，先 header 后 body：
+/// 1. `Retry-After`：HTTP 标准（RFC 9110），整数秒。
+/// 2. body 里第一个 `YYYY-MM-DD HH:MM:SS`（GLM 1308「您的限额将在 2026-09-04 21:37:35 重置」），
+///    按**本机时区**解释 —— 上游返回的是请求方看到的钟面时间。
+///
+/// 结果必须落在 `(now, now + 24h]`，否则返回 None（调用方退回原有 failover 语义，不冷却）。
+pub(crate) fn parse_quota_reset_at(
+    retry_after: Option<&str>,
+    body: &str,
+    now_ms: i64,
+) -> Option<i64> {
+    let from_header = retry_after
+        .and_then(|v| v.trim().parse::<i64>().ok())
+        .map(|secs| now_ms + secs * 1000);
+    from_header
+        .or_else(|| parse_body_datetime_ms(body))
+        .filter(|&t| t > now_ms && t - now_ms <= MAX_QUOTA_COOLDOWN_MS)
+}
+
+/// 抓 body 里第一个 `YYYY-MM-DD HH:MM:SS`（允许 `T` 分隔），按本机时区转毫秒时间戳。
+fn parse_body_datetime_ms(body: &str) -> Option<i64> {
+    use chrono::TimeZone;
+    static RE: std::sync::OnceLock<regex::Regex> = std::sync::OnceLock::new();
+    let re = RE.get_or_init(|| {
+        regex::Regex::new(r"(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}:\d{2})").expect("static regex")
+    });
+    let caps = re.captures(body)?;
+    let naive = chrono::NaiveDateTime::parse_from_str(
+        &format!("{} {}", &caps[1], &caps[2]),
+        "%Y-%m-%d %H:%M:%S",
+    )
+    .ok()?;
+    chrono::Local
+        .from_local_datetime(&naive)
+        .single()
+        .map(|dt| dt.timestamp_millis())
 }
 
 /// 截断 attempt error 字段（上游错误体可能很大，attempts JSON 列只存摘要）

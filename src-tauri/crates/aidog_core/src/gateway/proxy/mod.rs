@@ -119,7 +119,8 @@ pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoin
 pub(crate) use retry::{
     StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first, err_chain,
     extract_error_message, filter_upstream_resp_headers, is_nonstream_body_valid,
-    is_status_retryable, is_transport_retryable, resp_headers_to_log_json, transport_retry_backoff,
+    is_status_retryable, is_transport_retryable, parse_quota_reset_at, resp_headers_to_log_json,
+    transport_retry_backoff,
     truncate_attempt_error, truncate_peek_text,
 };
 pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};

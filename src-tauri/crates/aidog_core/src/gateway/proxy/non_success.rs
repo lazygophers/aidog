@@ -19,6 +19,12 @@ pub(crate) async fn handle_non_success(
     is_last_candidate: bool,
     log_settings: &ProxyLogSettings,
 ) -> AttemptOutcome {
+    // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见下）
+    let retry_after = resp
+        .headers()
+        .get(reqwest::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_string);
     let body = resp.text().await.unwrap_or_default();
     let duration_ms = start.elapsed().as_millis() as i64;
     let code = status.as_u16();
@@ -64,6 +70,25 @@ pub(crate) async fn handle_non_success(
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
     } else {
         state.scheduler.record_ignored(route.platform.id);
+    }
+
+    // ── 429 配额耗尽 + 上游给出明确恢复时间 → 冷却该平台到那个时刻 ──
+    //   解析不到时间就什么都不做（保持原 failover 语义），不猜冷却时长。
+    //   到点后 candidate_state 自动放行试探，成功即 recover_platform_auto_disabled 恢复。
+    if let Some(until) = is_429_quota_exhausted
+        .then(|| parse_quota_reset_at(retry_after.as_deref(), &body, aidog_db::now()))
+        .flatten()
+    {
+        match aidog_db::set_platform_quota_cooldown(&state.db, route.platform.id, until).await {
+            Ok(applied) if applied > 0 => tracing::warn!(
+                platform = %route.platform.name, platform_id = route.platform.id,
+                quota_cooldown_until = applied, "platform cooled down until upstream quota reset"
+            ),
+            Ok(_) => {} // 用户手动 disabled，不动
+            Err(e) => {
+                tracing::error!(platform_id = route.platform.id, error = %e, "quota cooldown failed")
+            }
+        }
     }
 
     // ── 自动禁用（指数退避，换下个候选）：仅 401/403 鉴权失败、402 余额不足 ──
