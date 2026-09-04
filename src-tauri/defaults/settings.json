@@ -79,6 +79,25 @@
             "Pods"
         ]
     },
+    "sandbox": {
+        "enabled": true,
+        "filesystem": {
+            "denyRead": [
+                "~/.ssh",
+                "~/.aws",
+                "~/.config/gcloud",
+                "~/.claude/.credentials.json",
+                "~/.netrc",
+                "~/.pgpass",
+                "~/.kdbx"
+            ]
+        },
+        "network": {
+            "allowedDomains": ["*"],
+            "allowLocalBinding": true,
+            "allowAllUnixSockets": true
+        }
+    },
     "workflowKeywordTriggerEnabled": false,
     "wheelScrollAccelerationEnabled": true,
     "ultracode": true,
@@ -105,7 +124,7 @@
     "fastModePerSessionOptIn": true,
     "askUserQuestionTimeout": "never",
     "disableDeepLinkRegistration": "disable",
-    "includeGitInstructions": true,
+    "includeGitInstructions": false,
     "fallbackModel": [
       "opus",
       "sonnet"
@@ -161,7 +180,8 @@
     },
     "attribution": {
         "commit": "",
-        "pr": ""
+        "pr": "",
+        "sessionUrl": ""
     },
     "enabledPlugins": {
         "caveman@caveman": true,
@@ -170,6 +190,13 @@
     },
     "permissions": {
         "defaultMode": "bypassPermissions",
+        "additionalDirectories": [
+          ".claude/",
+          ".ask-ui/",
+          ".wiki/",
+          ".scratch/",
+          "graphify-out/"
+        ],
         "deny": [
             "Artifact",
             "Monitor",
