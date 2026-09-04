@@ -132,6 +132,60 @@ async fn two_platforms_not_applicable() {
     assert_eq!(v["applicable"], false);
 }
 
+/// 多平台组有成功记录时，按「最近成功命中的平台」出数据（applicable == true）。
+#[tokio::test]
+async fn two_platforms_with_success_log_uses_last_platform() {
+    let state = make_state(test_db().await).await;
+    let p1 = aidog_db::create_platform(&state.db, sample_platform("a"))
+        .await
+        .unwrap();
+    let p2 = aidog_db::create_platform(&state.db, sample_platform("b"))
+        .await
+        .unwrap();
+    let g = aidog_db::create_group(&state.db, sample_group("g3", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        g.id,
+        &[
+            GroupPlatformInput {
+                platform_id: p1.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(0),
+            },
+            GroupPlatformInput {
+                platform_id: p2.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(0),
+            },
+        ],
+    )
+    .await
+    .unwrap();
+    let pid = p2.id as i64;
+    state
+        .db
+        .call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO proxy_log (id, platform_id, group_key, status_code, created_at, updated_at, deleted_at) \
+                 VALUES ('log-g3', ?1, 'g3', 200, 1000, 0, 0)",
+                rusqlite::params![pid],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+    let resp = handle_group_info(AxumState(state), bearer("g3")).await;
+    let v = body_json(resp).await;
+    assert_eq!(v["applicable"], true);
+    assert_eq!(v["last_platform_name"], p2.name);
+    assert!(v["coding_plan"].is_array());
+}
+
 /// 单启用平台分组短路（single-enabled-platform-shortcut）：3 平台仅 1 enabled，其余 disabled → applicable == true。
 #[tokio::test]
 async fn multi_platform_sole_enabled_applicable() {

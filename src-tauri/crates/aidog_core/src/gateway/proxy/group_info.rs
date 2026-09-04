@@ -123,22 +123,21 @@ async fn handle_group_info_inner(
             ok_empty!();
         }
     };
-    let Some(gp) = crate::gateway::router::sole_platform(&platforms) else {
-        // 多平台组：不适用预估，但组已定位——带上 group_name + 最近命中平台名
-        //（statusline L3 group-route 段消费），再以 applicable=false 返回。
-        let last_platform_name =
-            match aidog_logs::last_success_platform_id(&state.db, group_key.clone()).await {
-                Ok(Some(pid)) => platforms
-                    .iter()
-                    .find(|gp| gp.platform.id as i64 == pid)
-                    .map(|gp| gp.platform.name.clone()),
-                _ => None,
-            };
+    // 平台选择：单平台组直接取；多平台组回落「最近成功命中的平台」= 当前激活平台，
+    // 让 statusline 展示它的 coding plan / 余额（组级 usage 统计仍按 group_key 聚合）。
+    let selected = match crate::gateway::router::sole_platform(&platforms) {
+        Some(gp) => Some(gp),
+        None => match aidog_logs::last_success_platform_id(&state.db, group_key.clone()).await {
+            Ok(Some(pid)) => platforms.iter().find(|gp| gp.platform.id as i64 == pid),
+            _ => None,
+        },
+    };
+    let Some(gp) = selected else {
+        // 多平台组且尚无成功请求：选不出激活平台，只带 group_name 以 applicable=false 返回。
         let mut r = (
             StatusCode::OK,
             Json(GroupInfoResp {
                 group_name: Some(group.name.clone()),
-                last_platform_name,
                 ..empty()
             }),
         )
