@@ -395,7 +395,8 @@ struct FilteredCandidates<'a> {
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
-/// 再叠加熔断准入门（Open/HalfOpen 满踢出），高峰禁用计数。
+/// 再叠加配额冷却（429 配额耗尽，内存态，不改 DB status）与熔断准入门
+/// （Open/HalfOpen 满踢出），高峰禁用计数。
 /// cli-proxy 平台 provider 缺失/disabled（cli_cache.skip）→ 跳过（同 disabled 语义）。
 fn filter_candidates<'a>(
     group_platforms: &'a [GroupPlatformDetail],
@@ -428,6 +429,18 @@ fn filter_candidates<'a>(
                 peak_disabled_count += 1;
             }
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
+        }
+
+        // 配额冷却维度（内存态，与熔断总开关无关）：429 配额耗尽 + 上游给出重置时间的平台
+        // 在重置前不参与调度（DB status 不变，平台仍是启用态）。
+        if let Some(c) = ctx
+            && c.scheduler.quota_cooled(gp.platform.id, now_ms)
+        {
+            tracing::debug!(
+                platform_id = gp.platform.id, platform = %gp.platform.name,
+                "candidate skipped: quota cooldown until upstream reset"
+            );
+            continue;
         }
 
         // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定

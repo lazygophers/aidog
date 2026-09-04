@@ -98,7 +98,7 @@ pub(crate) fn classify_429(message: &str) -> bool {
 /// 配额冷却上限（24h）：超出一律丢弃，防上游给出离谱值或时区解析偏差把平台长期锁死。
 const MAX_QUOTA_COOLDOWN_MS: i64 = 24 * 60 * 60 * 1000;
 
-/// 从 429 响应解析「配额恢复时间」→ 绝对毫秒时间戳，供 `set_platform_quota_cooldown` 使用。
+/// 从 429 响应解析「配额恢复时间」→ 绝对毫秒时间戳，供 `SchedulerState::set_quota_cooldown` 使用。
 ///
 /// 两个来源，先 header 后 body：
 /// 1. `Retry-After`：HTTP 标准（RFC 9110），整数秒。
