@@ -93,7 +93,6 @@
         "enabled": true,
         "filesystem": {
             "denyRead": [
-                "~/.ssh",
                 "~/.aws",
                 "~/.config/gcloud",
                 "~/.claude/.credentials.json",
