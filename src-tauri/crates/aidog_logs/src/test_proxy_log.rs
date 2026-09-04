@@ -5,12 +5,34 @@ use aidog_db::now;
 use aidog_db::test_support::*;
 use rusqlite::params;
 
+/// `upsert_proxy_log` 自带 ProxyLogSettings 门禁（两侧「原始信息」默认关 → body/headers 入库即清空）。
+/// 需要 body 原样落库的用例先开这两个开关。
+async fn enable_raw_logging(db: &aidog_db::Db) {
+    let settings = ProxyLogSettings {
+        enabled: true,
+        log_user_request: true,
+        log_upstream_request: true,
+        ..Default::default()
+    };
+    aidog_db::set_setting(
+        db,
+        SetSettingInput {
+            scope: "proxy".into(),
+            key: "logging".into(),
+            value: serde_json::to_value(settings).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+}
+
 /// 字段完整性红线：渐进式「首节点 INSERT + 后续节点部分列 UPDATE」累积写入后，
 /// proxy_log 整行所有列必须与旧「全列 INSERT OR REPLACE 终态」等价。
 /// 含 strip(脱敏)、token、est_cost、attempts、is_stream、blocked_* 等全字段覆盖。
 #[tokio::test]
 async fn progressive_columns_equals_full_replace() {
     let db = test_db().await;
+    enable_raw_logging(&db).await; // 旧路径经 upsert_proxy_log，需两侧开关开才落 body
     let now_ms = now();
 
     // 构造一条完整请求的「终态」ProxyLog（含全字段非默认值，验证无字段丢失）。
@@ -314,6 +336,7 @@ async fn body_clear_and_row_delete_use_their_own_retention() {
 
 /// 建一条带 body 的日志行（四个 body 列各写一段文本），返回该行 body 字节总和。
 async fn insert_log_with_bodies(db: &aidog_db::Db, id: &str, created_at: i64) -> i64 {
+    enable_raw_logging(db).await;
     let mut log = sample_log(id, "grp", created_at);
     // 含中文 → UTF-8 多字节，验证字节口径（非字符口径）。
     log.request_body = "{\"q\":\"你好\"}".into();
