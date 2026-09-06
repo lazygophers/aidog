@@ -126,7 +126,7 @@ fn invalid_regex_fail_open_never_matches() {
     )]);
     let mut cr = chat_req("s", "hello");
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Continue
     );
 }
@@ -163,17 +163,17 @@ fn condition_tree_all_any_nesting() {
     )]);
     let mut cr = chat_req("", "xxfooxxbarxx");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Blocked { .. }
     ));
     let mut cr = chat_req("", "baz");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Blocked { .. }
     ));
     let mut cr = chat_req("", "foo"); // AND 缺第二支
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Continue
     );
 }
@@ -229,7 +229,7 @@ fn inbound_mask_rewrites_message_and_system() {
         "secret sk-abcdefghijklmnopqrst in system",
         "key sk-abcdefghijklmnopqrst here",
     );
-    e.apply_inbound(&settings_on(), &mut cr, None, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new());
     assert!(!collect_request_text(&cr).contains("sk-"));
     assert!(collect_request_text(&cr).contains("****"));
 }
@@ -244,7 +244,7 @@ fn inbound_mask_fields_limit_to_messages() {
         vec![mask_step("[gone]", &["messages"])],
     )]);
     let mut cr = chat_req("secret in system", "secret in msg");
-    e.apply_inbound(&settings_on(), &mut cr, None, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new());
     let text = collect_request_text(&cr);
     assert!(text.contains("[gone]"), "messages masked");
     assert!(text.contains("secret in system"), "system untouched");
@@ -267,7 +267,7 @@ fn inbound_override_regex_capture_backrefs() {
         )],
     )]);
     let mut cr = chat_req("", "today is 2026/08/24 ok");
-    e.apply_inbound(&settings_on(), &mut cr, None, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new());
     assert!(collect_request_text(&cr).contains("2026-08-24"));
 }
 
@@ -288,8 +288,56 @@ fn inbound_inject_system_append() {
         )],
     )]);
     let mut cr = chat_req("base", "u");
-    e.apply_inbound(&settings_on(), &mut cr, None, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new());
     assert!(matches!(&cr.system, Some(SystemContent::Text(t)) if t.contains("INJECTED")));
+}
+
+// ─── 入站 inject / header_set 收集（票 03） ─────────────────
+
+/// 只有一条恒命中的 inject/header_set 规则的引擎。
+fn header_set_engine(target: &str, value: &str) -> MiddlewareEngine {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "hs",
+        ConditionNode::All { children: vec![] },
+        vec![step(
+            ActionKind::Inject,
+            ActionParams {
+                inject_mode: "header_set".to_string(),
+                target: target.to_string(),
+                value: value.to_string(),
+                ..Default::default()
+            },
+        )],
+    )]);
+    e
+}
+
+#[test]
+fn inbound_inject_header_set_collected() {
+    let e = header_set_engine("X-Custom", "v1");
+    let mut cr = chat_req("base", "u");
+    let mut injects = Vec::new();
+    e.apply_inbound(&settings_on(), &mut cr, None, None, &mut injects);
+    assert_eq!(injects, vec![("X-Custom".to_string(), "v1".to_string())]);
+    // body 不受影响（header_set 不碰 system / extra）
+    assert!(matches!(&cr.system, Some(SystemContent::Text(t)) if t == "base"));
+
+    // platform 层挂载点同样收集
+    let mut cr2 = chat_req("base", "u");
+    let mut injects2 = Vec::new();
+    e.apply_inbound_platform(&settings_on(), &mut cr2, 7, None, &mut injects2);
+    assert_eq!(injects2, vec![("X-Custom".to_string(), "v1".to_string())]);
+}
+
+#[test]
+fn inbound_inject_header_set_empty_target_skipped() {
+    let e = header_set_engine("", "v1");
+    let mut cr = chat_req("base", "u");
+    let mut injects = Vec::new();
+    e.apply_inbound(&settings_on(), &mut cr, None, None, &mut injects);
+    assert!(injects.is_empty(), "空 header 名不收集");
 }
 
 #[test]
@@ -311,7 +359,7 @@ fn terminal_block_stops_later_rules() {
     ]);
     let mut cr = chat_req("", "x");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Blocked { .. }
     ));
     assert!(!collect_request_text(&cr).contains("NEVER"));
@@ -430,7 +478,7 @@ fn master_switch_off_disables_everything() {
     let mut cr = chat_req("", "x");
     let off = MiddlewareSettings { enabled: false };
     assert_eq!(
-        e.apply_inbound(&off, &mut cr, None, None),
+        e.apply_inbound(&off, &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Continue
     );
 }
@@ -466,13 +514,19 @@ fn inbound_header_condition_matches() {
     let headers = r#"{"user-agent":"claude-cli/2.0.1","accept":"*/*"}"#;
     let mut cr = chat_req("", "hi");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None, Some(headers)),
+        e.apply_inbound(
+            &settings_on(),
+            &mut cr,
+            None,
+            Some(headers),
+            &mut Vec::new()
+        ),
         InboundOutcome::Blocked { .. }
     ));
     // platform 层挂载点同样生效
     let mut cr2 = chat_req("", "hi");
     assert!(matches!(
-        e.apply_inbound_platform(&settings_on(), &mut cr2, 7, Some(headers)),
+        e.apply_inbound_platform(&settings_on(), &mut cr2, 7, Some(headers), &mut Vec::new()),
         InboundOutcome::Blocked { .. }
     ));
 }
@@ -486,7 +540,8 @@ fn inbound_header_condition_not_matched_when_value_differs() {
             &settings_on(),
             &mut cr,
             None,
-            Some(r#"{"user-agent":"codex_cli_rs/0.9"}"#)
+            Some(r#"{"user-agent":"codex_cli_rs/0.9"}"#),
+            &mut Vec::new()
         ),
         InboundOutcome::Continue
     );
@@ -498,13 +553,19 @@ fn inbound_header_condition_absent_header_does_not_match() {
     let mut cr = chat_req("", "hi");
     // header 不存在
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut cr, None, Some(r#"{"accept":"*/*"}"#)),
+        e.apply_inbound(
+            &settings_on(),
+            &mut cr,
+            None,
+            Some(r#"{"accept":"*/*"}"#),
+            &mut Vec::new()
+        ),
         InboundOutcome::Continue
     );
     // 无 HTTP 上下文（挂载点未传 headers）
     let mut cr2 = chat_req("", "hi");
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut cr2, None, None),
+        e.apply_inbound(&settings_on(), &mut cr2, None, None, &mut Vec::new()),
         InboundOutcome::Continue
     );
 }
@@ -519,7 +580,8 @@ fn inbound_header_name_matching_is_case_insensitive() {
             &settings_on(),
             &mut cr,
             None,
-            Some(r#"{"user-agent":"claude-cli/2.0.1"}"#)
+            Some(r#"{"user-agent":"claude-cli/2.0.1"}"#),
+            &mut Vec::new()
         ),
         InboundOutcome::Blocked { .. }
     ));
@@ -531,7 +593,8 @@ fn inbound_header_name_matching_is_case_insensitive() {
             &settings_on(),
             &mut cr2,
             None,
-            Some(r#"{"Anthropic-Beta":"oauth-2025-04-20"}"#)
+            Some(r#"{"Anthropic-Beta":"oauth-2025-04-20"}"#),
+            &mut Vec::new()
         ),
         InboundOutcome::Blocked { .. }
     ));

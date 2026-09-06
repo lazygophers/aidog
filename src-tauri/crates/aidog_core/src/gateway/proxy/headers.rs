@@ -102,6 +102,66 @@ pub(crate) fn is_sensitive_auth_header(name: &str) -> bool {
         .any(|h| name.eq_ignore_ascii_case(h))
 }
 
+/// 中间件 `inject`/`header_set` **不得覆盖**的头名（不区分大小写）。
+///
+/// 两类，都是「代理自己拥有」的头，被规则覆盖只会坏事而不是配置能力：
+///   1. 认证凭证（`SENSITIVE_AUTH_HEADERS`）——覆盖 = 拿用户规则替换平台 api_key，
+///      等于给了中间件一个绕过平台凭证的口子；安全上一律拒绝。
+///   2. 传输/形态头（host / content-length / content-type / user-agent 及 hop-by-hop）——
+///      由 reqwest 按目标 URL+body 重设，或由 `apply_client_headers` 按 client_type 模拟；
+///      注入后会被覆盖或产生同名多值，不如当场拒绝并告诉用户。
+///
+/// 其余头（含 cookie、各类自定义头）允许注入。
+const HEADER_INJECT_DENYLIST: &[&str] = &[
+    "host",
+    "content-length",
+    "content-type",
+    "user-agent",
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "te",
+    "trailer",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+];
+
+/// 校验中间件收集到的 header 注入，产出可直接写进上游请求的 (名, 值) 对。
+///
+/// 跳过并 warn（不阻断请求）的三种：认证头/代理自有头（见 [`HEADER_INJECT_DENYLIST`]）、
+/// 头名非法（空名、含控制字符或分隔符）、头值非法（含控制字符）。
+/// 同名多条时后者覆盖前者（与调用方 `HeaderMap::insert` 的替换语义一致）。
+pub(crate) fn sanitize_header_injects(
+    injects: &[(String, String)],
+) -> Vec<(reqwest::header::HeaderName, reqwest::header::HeaderValue)> {
+    let mut out: Vec<(reqwest::header::HeaderName, reqwest::header::HeaderValue)> = Vec::new();
+    for (name, value) in injects {
+        if is_sensitive_auth_header(name)
+            || HEADER_INJECT_DENYLIST
+                .iter()
+                .any(|d| name.eq_ignore_ascii_case(d))
+        {
+            tracing::warn!(
+                header = %name,
+                "middleware inject header_set: refusing to override proxy-owned header, skipped"
+            );
+            continue;
+        }
+        let Ok(hn) = reqwest::header::HeaderName::from_bytes(name.as_bytes()) else {
+            tracing::warn!(header = %name, "middleware inject header_set: invalid header name, skipped");
+            continue;
+        };
+        let Ok(hv) = reqwest::header::HeaderValue::from_str(value) else {
+            tracing::warn!(header = %name, "middleware inject header_set: invalid header value, skipped");
+            continue;
+        };
+        out.retain(|(k, _)| *k != hn);
+        out.push((hn, hv));
+    }
+    out
+}
+
 /// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
 /// 其余（anthropic-* / x-stainless-* / x-app / session-id / originator / version / 未知自定义头）
 /// 原样透传 —— 跨协议（如 CC 入站转 OpenAI）也带，上游忽略未知头不报错，保留利于诊断。

@@ -28,7 +28,11 @@ pub(crate) async fn forward_attempt(
     orig_headers: &axum::http::HeaderMap,
     sched_settings: &super::models::SchedulingBreakerSettings,
     start: std::time::Instant,
+    group_header_injects: &[(String, String)],
 ) -> AttemptOutcome {
+    // group 层（路由前）收集到的 header 注入 + 下方 platform 层新增的，一起写进上游请求头。
+    // 每个候选各建一份，换平台重试时不残留上一候选的注入。
+    let mut header_injects: Vec<(String, String)> = group_header_injects.to_vec();
     let actual_model = route.target_model.clone();
 
     // OpenCode Zen：api_key 留空 → 注入匿名免费 key（$opencode）；用户填了用用户的。
@@ -266,6 +270,7 @@ pub(crate) async fn forward_attempt(
     // block 在 forward 前返回，对透传/转换分支均生效；mask/inject 改写 chat_req，
     // 转换分支(convert_request 读 chat_req)由此生效；同协议透传分支用 req_value 原体，
     // 由下方 `apply_middleware_body` 在出站 body 上补齐（票 02）。
+    // inject 的 header_set 只收集进 header_injects，两条分支共用下方同一个上游请求头构造点。
     {
         let mw_settings = state
             .settings_cache
@@ -279,6 +284,7 @@ pub(crate) async fn forward_attempt(
             chat_req,
             route.platform.id as i64,
             Some(&log.request_headers),
+            &mut header_injects,
         );
         match outcome {
             InboundOutcome::Blocked {
@@ -489,6 +495,7 @@ pub(crate) async fn forward_attempt(
             target_protocol_enum,
             &actual_model,
             route.platform.id as i64,
+            Some(&log.request_headers),
         );
         if middleware_changed {
             tracing::info!(
@@ -583,7 +590,7 @@ pub(crate) async fn forward_attempt(
     // convert 路径：先铺底透传入站头（anthropic-* / x-stainless-* / x-app / session-id 等，
     // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
     // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
-    let upstream_headers = build_upstream_headers(
+    let mut upstream_headers = build_upstream_headers(
         &client_type,
         target_protocol_enum,
         &eff_api_key,
@@ -591,10 +598,28 @@ pub(crate) async fn forward_attempt(
         &url,
     );
 
+    // ── 中间件 header 注入（inject / header_set，转换与透传两分支共用本 seam）──
+    // 认证头 / 代理自有头拒绝覆盖、非法头名值跳过，均记 warn 不阻断（见 sanitize_header_injects）。
+    // 写进透传底座（insert = 替换同名客户端头），底座里的名与 apply_client_headers 覆盖的
+    // UA/auth/CT 不相交（后者全在拒绝名单里），故不会产生同名多值。
+    let injected = sanitize_header_injects(&header_injects);
+    let mut passthrough_base = passthrough_convert_headers(orig_headers, &url);
+    for (n, v) in &injected {
+        passthrough_base.insert(n.clone(), v.clone());
+        // 日志镜像实发：同名替换后追加（受 log_upstream_request 开关控制，值照常按敏感头脱敏）。
+        upstream_headers.retain(|(k, _)| !k.eq_ignore_ascii_case(n.as_str()));
+        let shown = if n.as_str() == "cookie" {
+            "[REDACTED]".to_string()
+        } else {
+            v.to_str().unwrap_or("").to_string()
+        };
+        upstream_headers.push((n.to_string(), shown));
+    }
+
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .headers(passthrough_convert_headers(orig_headers, &url))
+        .headers(passthrough_base)
         .body(req_body_str.clone());
 
     // ── 覆盖 UA + auth（平台 api_key）──

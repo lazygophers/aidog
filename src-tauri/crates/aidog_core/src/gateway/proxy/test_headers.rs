@@ -1217,3 +1217,77 @@ fn build_upstream_headers_all_client_types_protocol_matrix() {
 
 // 占位符引擎 {uuid}：codex conversation_id/session_id 已按「session-id 透传不注入」规则删除，
 // 当前 JSON 无 {uuid} 消费者；engine（fill_placeholder L253-257）保留供未来扩展，此处不验。
+
+// ─── 中间件 header 注入的校验（票 03） ───────────────────────
+
+fn pairs(v: &[(&str, &str)]) -> Vec<(String, String)> {
+    v.iter()
+        .map(|(a, b)| (a.to_string(), b.to_string()))
+        .collect()
+}
+
+fn sanitized(v: &[(&str, &str)]) -> Vec<(String, String)> {
+    sanitize_header_injects(&pairs(v))
+        .into_iter()
+        .map(|(n, val)| (n.to_string(), val.to_str().unwrap_or("").to_string()))
+        .collect()
+}
+
+#[test]
+fn header_inject_normal_pair_passes() {
+    assert_eq!(
+        sanitized(&[("X-Trace-Id", "abc123"), ("x-Team", "core")]),
+        pairs(&[("x-trace-id", "abc123"), ("x-team", "core")]),
+        "合法头名归一为小写后原样放行"
+    );
+}
+
+#[test]
+fn header_inject_auth_headers_refused() {
+    for name in [
+        "Authorization",
+        "authorization",
+        "x-api-key",
+        "X-Goog-Api-Key",
+        "api-key",
+    ] {
+        assert!(
+            sanitized(&[(name, "sk-attacker")]).is_empty(),
+            "{name} 属认证头，中间件不得覆盖"
+        );
+    }
+}
+
+#[test]
+fn header_inject_proxy_owned_headers_refused() {
+    for name in ["Host", "Content-Length", "Content-Type", "User-Agent"] {
+        assert!(
+            sanitized(&[(name, "x")]).is_empty(),
+            "{name} 由代理/reqwest 自己设，拒绝覆盖"
+        );
+    }
+}
+
+#[test]
+fn header_inject_invalid_name_or_value_skipped_not_fatal() {
+    // 空名 / 含控制字符 / 含分隔符的头名，以及含控制字符的头值：跳过但不影响同批合法项。
+    assert_eq!(
+        sanitized(&[
+            ("", "v"),
+            ("X-Bad\nName", "v"),
+            ("X Bad", "v"),
+            ("X-Ok", "line1\nline2"),
+            ("X-Good", "fine"),
+        ]),
+        pairs(&[("x-good", "fine")])
+    );
+}
+
+#[test]
+fn header_inject_same_name_last_wins() {
+    assert_eq!(
+        sanitized(&[("X-Env", "dev"), ("x-env", "prod")]),
+        pairs(&[("x-env", "prod")]),
+        "同名多条后者覆盖前者（与 HeaderMap::insert 替换语义一致）"
+    );
+}

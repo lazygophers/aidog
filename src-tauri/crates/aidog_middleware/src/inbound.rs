@@ -7,6 +7,10 @@
 //!
 //! request_headers 叶子的取值来自挂载点传入的 `req_headers`（客户端原始请求头的 JSON
 //! 对象字符串，敏感头已按 proxy_log 规则脱敏）。
+//!
+//! `inject` 的 `header_set` 模式在本层只**收集**（name, value）对进 `header_injects` 出参，
+//! 真正写进上游请求头由 HTTP 层做（`gateway/proxy/forward.rs`）——引擎不持有 HTTP 类型，
+//! 头名合法性与「不许覆盖认证头」的取舍也归 HTTP 层（见 `proxy/headers.rs::sanitize_header_injects`）。
 
 use aidog_adapter::{ChatRequest, MessageContent, SystemContent};
 use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
@@ -37,6 +41,7 @@ impl MiddlewareEngine {
     /// 入站规则执行（路由前挂载点：group 层）。
     /// `req_headers`：客户端原始请求头的 JSON 对象字符串（敏感头已脱敏），供
     /// request_headers 条件叶子求值；None = 无 HTTP 上下文，header 叶子不命中。
+    /// `header_injects`：`inject`/`header_set` 命中时追加 (header 名, 值)；由调用方写进上游请求。
     /// 返回 [`InboundOutcome`]：`Continue` 放行（可能已原地改写 chat_req），`Blocked` 拦截。
     pub fn apply_inbound(
         &self,
@@ -44,11 +49,12 @@ impl MiddlewareEngine {
         chat_req: &mut ChatRequest,
         group_key: Option<&str>,
         req_headers: Option<&str>,
+        header_injects: &mut Vec<(String, String)>,
     ) -> InboundOutcome {
         if !settings.enabled {
             return InboundOutcome::Continue;
         }
-        self.apply_inbound_inner(chat_req, group_key, None, req_headers)
+        self.apply_inbound_inner(chat_req, group_key, None, req_headers, header_injects)
     }
 
     /// 入站规则执行（候选选定后挂载点：platform 层）。
@@ -60,11 +66,18 @@ impl MiddlewareEngine {
         chat_req: &mut ChatRequest,
         platform_id: i64,
         req_headers: Option<&str>,
+        header_injects: &mut Vec<(String, String)>,
     ) -> InboundOutcome {
         if !settings.enabled {
             return InboundOutcome::Continue;
         }
-        self.apply_inbound_inner(chat_req, None, Some(platform_id), req_headers)
+        self.apply_inbound_inner(
+            chat_req,
+            None,
+            Some(platform_id),
+            req_headers,
+            header_injects,
+        )
     }
 
     fn apply_inbound_inner(
@@ -73,6 +86,7 @@ impl MiddlewareEngine {
         group_key: Option<&str>,
         platform_id: Option<i64>,
         req_headers: Option<&str>,
+        header_injects: &mut Vec<(String, String)>,
     ) -> InboundOutcome {
         // 观察模式命中累积（不终止：observe 的语义就是「什么都不改，只记一笔」）。
         let mut observed: Vec<String> = Vec::new();
@@ -117,7 +131,7 @@ impl MiddlewareEngine {
                         apply_rewrite_inbound(&cr, step, chat_req);
                     }
                     ActionKind::Inject => {
-                        apply_inject(cr.rule.id, &step.params, chat_req);
+                        apply_inject(cr.rule.id, &step.params, chat_req, header_injects);
                     }
                     ActionKind::Warn => {
                         tracing::warn!(
@@ -191,6 +205,12 @@ impl MiddlewareEngine {
     /// 只做 mask / override / inject —— **block 已在 chat_req 层（forward 分叉前）判定并返回**，
     /// 此处不重复拦截（同一套规则、同口径聚合文本，Value 层不会新命中一条 block）。
     ///
+    /// 也不做 header_set —— **header 注入已在 chat_req 层（forward 分叉前）收集**，两条分支
+    /// 共用同一个上游请求头构造点；此处再收一次会把同一条规则的 header 注入两遍。
+    ///
+    /// `req_headers` 与 chat_req 层同源（proxy_log 已脱敏的请求头 JSON），不传则
+    /// header 条件驱动的 mask/override 在透传分支不命中。
+    ///
     /// 已知限制：本入口不带 body JSON path 上下文 → `request_body` 带 field 的叶子退化为
     /// 整文本匹配（与 chat_req 层同口径）。方向是「更容易命中」，不会漏掉用户配的脱敏规则。
     pub fn apply_inbound_texts(
@@ -198,6 +218,7 @@ impl MiddlewareEngine {
         settings: &MiddlewareSettings,
         texts: &mut InboundTexts<'_>,
         platform_id: i64,
+        req_headers: Option<&str>,
     ) {
         if !settings.enabled {
             return;
@@ -207,6 +228,7 @@ impl MiddlewareEngine {
             let matched = {
                 let view = EvalView {
                     req_text: texts.aggregate(),
+                    req_headers,
                     model: texts.model,
                     ..Default::default()
                 };
@@ -292,12 +314,9 @@ fn collect_inject(
                 value: params.value.clone(),
             });
         }
-        "header_set" => {
-            tracing::debug!(
-                rule_id,
-                "middleware inject header_set: not supported at body layer, skipped"
-            );
-        }
+        // header_set 在 chat_req 层（forward 分叉前）已收集并作用于上游请求头，
+        // 两条分支共用同一构造点；此处再收一次 = 同条规则注入两遍。
+        "header_set" => {}
         other => {
             tracing::warn!(rule_id, mode = %other, "middleware inject: unknown inject_mode, skip");
         }
@@ -349,9 +368,14 @@ fn apply_rewrite_inbound(
     }
 }
 
-/// inject 动作：按 inject_mode 注入。header_set 在入站无 HTTP 上下文 → 记日志跳过
-///（入站 chat_req 抽象无 header；与旧引擎一致）。
-fn apply_inject(rule_id: i64, params: &aidog_db::models::ActionParams, chat_req: &mut ChatRequest) {
+/// inject 动作：按 inject_mode 注入。system_append / body_set 原地改写 chat_req；
+/// header_set 只把 (名, 值) 收进 `header_injects`，由 HTTP 层写进上游请求。
+fn apply_inject(
+    rule_id: i64,
+    params: &aidog_db::models::ActionParams,
+    chat_req: &mut ChatRequest,
+    header_injects: &mut Vec<(String, String)>,
+) {
     match params.inject_mode.as_str() {
         "system_append" => {
             let appended = match chat_req.system.take() {
@@ -382,10 +406,11 @@ fn apply_inject(rule_id: i64, params: &aidog_db::models::ActionParams, chat_req:
             }
         }
         "header_set" => {
-            tracing::debug!(
-                rule_id,
-                "middleware inject header_set: not supported at inbound chat_req layer, skipped"
-            );
+            if params.target.is_empty() {
+                tracing::warn!(rule_id, "middleware inject header_set: empty target, skip");
+                return;
+            }
+            header_injects.push((params.target.clone(), params.value.clone()));
         }
         other => {
             tracing::warn!(rule_id, mode = %other, "middleware inject: unknown inject_mode, skip");

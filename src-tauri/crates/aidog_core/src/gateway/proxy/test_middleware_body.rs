@@ -74,7 +74,85 @@ fn engine_with(rules: Vec<MiddlewareRule>) -> MiddlewareEngine {
 
 /// 跑一遍透传改写，返回是否改写。
 fn run(engine: &MiddlewareEngine, body: &mut Value, wire: &Protocol) -> bool {
-    apply_middleware_body(engine, &settings_on(), body, wire, "test-model", 7)
+    run_with_headers(engine, body, wire, None)
+}
+
+/// 同上，但带 proxy_log 口径的请求头 JSON（header 条件驱动的规则用）。
+fn run_with_headers(
+    engine: &MiddlewareEngine,
+    body: &mut Value,
+    wire: &Protocol,
+    req_headers: Option<&str>,
+) -> bool {
+    apply_middleware_body(
+        engine,
+        &settings_on(),
+        body,
+        wire,
+        "test-model",
+        7,
+        req_headers,
+    )
+}
+
+// ─── header 条件驱动的改写在透传分支同样命中（票 03） ───────────────
+
+/// 条件 = request_headers 叶子 + request_body 叶子（pattern 来源），动作 = mask。
+/// 票 01 只给 chat_req 层通了 headers，透传层没通 → 同一条规则在「恰好同协议」时不命中。
+#[test]
+fn passthrough_header_condition_drives_mask() {
+    let cond = ConditionNode::All {
+        children: vec![
+            ConditionNode::Leaf(ConditionLeaf {
+                target: Target::RequestHeaders,
+                field: "user-agent".to_string(),
+                match_type: MatchType::Contains,
+                pattern: "claude-cli".to_string(),
+            }),
+            body_contains_leaf(SECRET),
+        ],
+    };
+    let engine = engine_with(vec![rule(cond, vec![mask_step("[REDACTED]", &[])])]);
+    let mk_body = || {
+        json!({
+            "model": "claude-3", "max_tokens": 100,
+            "messages": [{"role": "user", "content": format!("use {SECRET}")}]
+        })
+    };
+
+    // header 命中 → 脱敏生效
+    let mut hit = mk_body();
+    assert!(run_with_headers(
+        &engine,
+        &mut hit,
+        &Protocol::Anthropic,
+        Some(r#"{"user-agent":"claude-cli/2.0.1"}"#)
+    ));
+    assert_eq!(hit["messages"][0]["content"], json!("use [REDACTED]"));
+
+    // header 不命中 → 逐字节不动
+    let mut miss = mk_body();
+    assert!(!run_with_headers(
+        &engine,
+        &mut miss,
+        &Protocol::Anthropic,
+        Some(r#"{"user-agent":"codex_cli_rs/0.9"}"#)
+    ));
+    assert_eq!(miss, mk_body());
+}
+
+/// header_set 在 body 层不产生任何写回：它由 chat_req 层收集、由 forward 写进上游请求头，
+/// 两处都收会注入两遍。
+#[test]
+fn passthrough_header_set_is_noop_on_body() {
+    let engine = engine_with(vec![rule(
+        ConditionNode::All { children: vec![] },
+        vec![inject_step("header_set", "X-Custom", "v1")],
+    )]);
+    let mut body = json!({"model": "claude-3", "messages": []});
+    let before = body.clone();
+    assert!(!run(&engine, &mut body, &Protocol::Anthropic));
+    assert_eq!(body, before);
 }
 
 // ─── mask / override：敏感串不因「恰好同协议」原样上送 ───────────────
@@ -254,6 +332,7 @@ fn disabled_settings_leave_body_untouched() {
         &Protocol::Anthropic,
         "test-model",
         7,
+        None,
     );
     assert!(!changed);
     assert_eq!(body, original);
