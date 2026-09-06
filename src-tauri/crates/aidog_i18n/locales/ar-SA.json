@@ -2869,7 +2869,7 @@
   "middleware.maskFieldsAll": "كل الحقول (messages + system)",
   "middleware.clearConditions": "مسح الشروط",
   "middleware.conditions": "الشروط",
-  "middleware.dslHint": "بناء الجملة: ALL(...)/ANY(...)/ورقة، الورقة = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "الصياغة: ALL(...)/ANY(...)/NOT(...)/ورقة، الورقة = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "فاشل",
   "middleware.fieldHint": "الحقل (فارغ = الكل / مسار JSON / اسم الترويسة)",
   "middleware.target.model": "النموذج",
@@ -2890,5 +2890,13 @@
   "importExport.dropUnsupportedInBrowser": "الإفلات داخل المتصفح لا يوفّر المسار الكامل — انقر هنا واكتب مسار ملف ‎.aidogx‎ يدويًا.",
   "importExport.pickHintBrowser": "انقر لكتابة المسار الكامل لملف ‎.aidogx‎ (مع الإكمال) · فكّ تشفير تلقائي · تثبيت تلقائي للمهارات",
   "settings.backup.copyPath": "نسخ مسار النسخة الاحتياطية",
-  "about.updateDesktopOnly": "لا يتم التحقق من التحديثات في المتصفح — رقِّ النواة على الجهاز الذي تعمل عليه"
+  "about.updateDesktopOnly": "لا يتم التحقق من التحديثات في المتصفح — رقِّ النواة على الجهاز الذي تعمل عليه",
+  "middleware.node.all": "AND (تطابق الكل)",
+  "middleware.node.any": "OR (تطابق أي منها)",
+  "middleware.node.not": "NOT (نفي)",
+  "middleware.checksumHint": "يتم تشغيل المجموع الاختباري بعد تطابق التعبير النمطي؛ ما يفشل لا يُحتسب",
+  "middleware.checksum.none": "بدون مجموع اختباري",
+  "middleware.checksum.luhn": "Luhn (بطاقة مصرفية)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "بطاقة الهوية الصينية"
 }

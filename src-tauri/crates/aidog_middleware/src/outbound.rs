@@ -77,6 +77,7 @@ impl MiddlewareEngine {
                                 leaf.match_type,
                                 &leaf.regex,
                                 &leaf.pattern,
+                                &leaf.validator,
                                 body,
                                 &step.params.replacement,
                             );
@@ -172,6 +173,7 @@ impl MiddlewareEngine {
                                 leaf.match_type,
                                 &leaf.regex,
                                 &leaf.pattern,
+                                &leaf.validator,
                                 &out,
                                 &step.params.replacement,
                             );

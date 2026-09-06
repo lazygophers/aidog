@@ -107,15 +107,22 @@ pub struct ConditionLeaf {
     pub field: String,
     pub match_type: MatchType,
     pub pattern: String,
+    /// 校验位二次校验器名（票 09）。空 = 不校验；`luhn` / `iban` / `cn_id`。
+    /// 非空时：正则命中的片段还必须通过该校验才算命中（挡掉纯正则的误报）。
+    /// 未知名字视同空（fail-open，只按正则判定）。
+    #[serde(default)]
+    pub validator: String,
 }
 
-/// 条件树节点：嵌套 ALL/ANY 组或叶子。
+/// 条件树节点：嵌套 ALL/ANY/NOT 组或叶子。
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ConditionNode {
     All { children: Vec<ConditionNode> },
     Any { children: Vec<ConditionNode> },
+    /// 取反（票 09）：单子节点，求值结果取非。白名单类条件（「不是这几个模型就拦」）靠它表达。
+    Not { child: Box<ConditionNode> },
     Leaf(ConditionLeaf),
 }
 
@@ -324,6 +331,7 @@ pub fn validate_rule_phases(node: &ConditionNode) -> Result<(), String> {
                 }
                 Ok(())
             }
+            ConditionNode::Not { child } => walk(child, phase),
             ConditionNode::Leaf(leaf) => {
                 if leaf.pattern.is_empty() {
                     // 空 pattern：contains/exact 会恒命中（隐藏兜底复活），regex 恒不命中——一律拒绝。

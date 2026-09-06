@@ -3,6 +3,7 @@ use crate::schema_late::*;
 use crate::{Db, load_auto_from_map, now};
 use rusqlite::Connection;
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
+use serde_json::Value;
 
 /// 主库迁出的 notification 行（migration 20260727-20, 原 049）。由 init_tables 在主库闭包内读出 + DROP 主库
 /// 残留表后，传入 proxy_log_late 写入 log.db.notification。空 Vec = 主库表已不存在（已迁移过）。
@@ -359,12 +360,75 @@ pub const BUILTIN_KEY_VALUE_PATTERN: &str = r#"(?i)\b(password|passwd|pwd|secret
 
 /// 单条内置规则种子定义（统一引擎模型：conditions/actions 为 ConditionNode/ActionStep JSON）。
 pub struct BuiltinRuleSpec {
-    pub(crate) name: &'static str,
-    pub(crate) description: &'static str,
-    pub(crate) conditions: &'static str,
-    pub(crate) actions: &'static str,
-    pub(crate) priority: i64,
+    pub name: &'static str,
+    pub description: &'static str,
+    pub conditions: &'static str,
+    pub actions: &'static str,
+    pub priority: i64,
+    /// 首次 INSERT 的 enabled 值（票 09：新增的内置识别器默认关，用户主动勾选才生效）。
+    /// 升级 UPDATE 路径不碰 enabled，用户的启停状态永不被覆盖。
+    pub default_enabled: bool,
 }
+
+// ── 票 09 内置识别器：正则 + 校验位（validator）二次校验，选题依据 Microsoft Presidio
+//    supported entities 里正则可判定的那部分，不引 NLP。──
+
+/// 云厂商密钥：AWS Access Key Id / Secret Access Key（带上下文词，纯 40 字符串误报太高）
+/// 加各 LLM 平台 token 前缀。**平台前缀段由 registry `key_prefixes` 数据驱动生成**
+/// （项目 CLAUDE.md 硬约束：平台前缀禁在代码硬编码）。
+static CLOUD_SECRET_PATTERN: std::sync::LazyLock<String> = std::sync::LazyLock::new(|| {
+    let mut prefixes: Vec<String> = Vec::new();
+    if let Some(protocols) = crate::registry::presets()
+        .get("protocols")
+        .and_then(Value::as_object)
+    {
+        for entry in protocols.values() {
+            let Some(list) = entry.get("key_prefixes").and_then(Value::as_array) else {
+                continue;
+            };
+            for p in list.iter().filter_map(Value::as_str) {
+                let esc = regex_lite_escape(p);
+                if !prefixes.contains(&esc) {
+                    prefixes.push(esc);
+                }
+            }
+        }
+    }
+    prefixes.sort(); // 稳定顺序：否则每次 seed 都产出不同 conditions 文本
+    let vendor = if prefixes.is_empty() {
+        String::new()
+    } else {
+        format!("|(?:{})[A-Za-z0-9._\\-]{{12,}}", prefixes.join("|"))
+    };
+    format!(
+        r"(?:\b(?:AKIA|ASIA)[0-9A-Z]{{16}}\b|(?i:aws)[A-Za-z_\-]{{0,20}}(?:secret|key)[A-Za-z_\-]{{0,20}}\s*[=:]\s*[\x22']?[A-Za-z0-9/+]{{40}}{vendor})"
+    )
+});
+
+/// 正则元字符转义（key_prefixes 里现有 `-` / `_`，将来可能出现 `.` 等）。
+fn regex_lite_escape(s: &str) -> String {
+    s.chars()
+        .flat_map(|c| {
+            let esc = matches!(
+                c,
+                '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '|' | '\\'
+            );
+            esc.then_some('\\').into_iter().chain(std::iter::once(c))
+        })
+        .collect()
+}
+
+/// IP（IPv4 点分 + IPv6 全写/压缩常见形）与 MAC 地址。
+pub const BUILTIN_IP_MAC_PATTERN: &str = r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b|\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\b|\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b";
+/// 信用卡号（12–19 位，可含空格/连字符分组）。**必须配 validator=luhn**，否则误报满天飞。
+pub const BUILTIN_CREDIT_CARD_PATTERN: &str = r"\b(?:\d[ \-]?){11,18}\d\b";
+/// IBAN（ISO 13616：2 位国家码 + 2 位校验位 + 11–30 位字母数字）。**必须配 validator=iban**。
+pub const BUILTIN_IBAN_PATTERN: &str = r"\b[A-Z]{2}\d{2}[A-Z0-9]{11,30}\b";
+/// 中国大陆二代身份证（18 位，末位可 X）。**必须配 validator=cn_id**。
+pub const BUILTIN_CN_ID_PATTERN: &str = r"\b\d{17}[\dXx]\b";
+/// 美国社保号 SSN。无校验位，改用官方有效段枚举（area 001–899 去掉 666、group 01–99、
+/// serial 0001–9999）降误报。Rust regex 无 lookahead，故把合法区间正面展开而非负向排除。
+pub const BUILTIN_US_SSN_PATTERN: &str = r"\b(?:0(?:0[1-9]|[1-9][0-9])|[1-5][0-9]{2}|6[0-5][0-9]|66[0-57-9]|6[7-9][0-9]|[78][0-9]{2})[ \-]?(?:0[1-9]|[1-9][0-9])[ \-]?(?:000[1-9]|00[1-9][0-9]|0[1-9][0-9]{2}|[1-9][0-9]{3})\b";
 
 /// 密钥脱敏规则的 conditions JSON：pattern 由 [`BUILTIN_SECRET_PATTERN`] 单点生成，
 /// 禁在此再抄一份正则字面量（抄第二份必漂移；schema_late 迁移路径同样引用该常量）。
@@ -382,7 +446,40 @@ static SECRET_RULE_CONDITIONS: std::sync::LazyLock<String> = std::sync::LazyLock
     .to_string()
 });
 
-/// 内置预设规则清单（票 03：密钥/邮箱/手机/DB-Redis 凭据脱敏 + 日期改写 + 默认错误分类）。
+/// 单叶子 regex 条件树 JSON（票 09 内置识别器共用）。`validator` 空 = 只按正则判定。
+fn regex_leaf_conditions(pattern: &str, validator: &str) -> String {
+    serde_json::json!({
+        "kind": "any",
+        "children": [{
+            "kind": "leaf",
+            "target": "request_body",
+            "field": "",
+            "match_type": "regex",
+            "pattern": pattern,
+            "validator": validator,
+        }],
+    })
+    .to_string()
+}
+
+/// 票 09 六条内置识别器的 conditions JSON（正则常量单点生成，禁再抄字面量）。
+static PII_CONDITIONS: std::sync::LazyLock<[String; 6]> = std::sync::LazyLock::new(|| {
+    [
+        regex_leaf_conditions(&CLOUD_SECRET_PATTERN, ""),
+        regex_leaf_conditions(BUILTIN_IP_MAC_PATTERN, ""),
+        regex_leaf_conditions(BUILTIN_CREDIT_CARD_PATTERN, "luhn"),
+        regex_leaf_conditions(BUILTIN_IBAN_PATTERN, "iban"),
+        regex_leaf_conditions(BUILTIN_CN_ID_PATTERN, "cn_id"),
+        regex_leaf_conditions(BUILTIN_US_SSN_PATTERN, ""),
+    ]
+});
+
+/// 内置识别器统一的脱敏动作（mask messages+system）。
+const PII_MASK_ACTIONS: &str =
+    r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#;
+
+/// 内置预设规则清单（票 03：密钥/邮箱/手机/DB-Redis 凭据脱敏 + 日期改写 + 默认错误分类；
+/// 票 09 追加六条内置识别器，默认关闭）。
 /// 全部显式 regex 条件（无空 pattern 隐藏兜底，ADR 0003）；error 分类按 response_body 命中。
 pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
     static SPECS: std::sync::LazyLock<Vec<BuiltinRuleSpec>> = std::sync::LazyLock::new(|| {
@@ -393,6 +490,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: SECRET_RULE_CONDITIONS.as_str(),
                 actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
                 priority: 10,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·邮箱脱敏",
@@ -400,6 +498,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"[a-zA-Z0-9._%+\\-]+@[a-zA-Z0-9.\\-]+\\.[a-zA-Z]{2,}"}]}"#,
                 actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
                 priority: 11,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·手机号脱敏",
@@ -407,6 +506,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?:\\+?\\d{1,3}[\\s\\-]?)?1[3-9]\\d{9}|\\+\\d{6,15}"}]}"#,
                 actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
                 priority: 12,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·数据库/Redis 凭据脱敏",
@@ -414,6 +514,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(?:mysql|postgres(?:ql)?|redis|mssql|mongodb(?:\\+srv)?|amqp)://[^\\s@/:\"']+(?::[^\\s/'\"]+)?@"}]}"#,
                 actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
                 priority: 13,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·配置式密钥脱敏",
@@ -421,6 +522,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(?i)\\b(password|passwd|pwd|secret|api_key|apikey|access_token)\\s*[=:]\\s*[\"']?[A-Za-z0-9_\\-./+=]{8,}"}]}"#,
                 actions: r#"[{"kind":"mask","params":{"replacement":"****","fields":["messages","system"]}}]"#,
                 priority: 14,
+                default_enabled: true,
             },
             // ── 日期格式改写防检测（request_body 改写，regex capture $1-$2-$3）──
             // Claude Code system prompt 注入斜杠日期 YYYY/MM/DD（中文区惯用格式），
@@ -431,6 +533,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"request_body","field":"","match_type":"regex","pattern":"(\\d{4})/(\\d{1,2})/(\\d{1,2})"}]}"#,
                 actions: r#"[{"kind":"mask","params":{"replacement":"$1-$2-$3","fields":["messages","system"]}}]"#,
                 priority: 15,
+                default_enabled: true,
             },
             // ── 默认错误分类（response_body 条件 + classify 动作，retryable=false）──
             BuiltinRuleSpec {
@@ -439,6 +542,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(context length|context window|maximum context|prompt is too long|too many tokens|reduce the length|maximum.*tokens)"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"prompt_limit","retryable":false}}]"#,
                 priority: 20,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·内容审查拦截",
@@ -446,6 +550,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(content filter|content_filter|content policy|safety|flagged|moderation|responsible_ai_policy)"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"content_filter","retryable":false}}]"#,
                 priority: 21,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·PDF/文件超限",
@@ -453,6 +558,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(pdf.*(too many pages|exceed|too large|limit)|too many pages|file.*too large|maximum.*pages)"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"pdf_limit","retryable":false}}]"#,
                 priority: 22,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·思考链错误",
@@ -460,6 +566,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(thinking|reasoning).*(not (supported|allowed|enabled)|invalid|must be|required|error)"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"thinking_error","retryable":false}}]"#,
                 priority: 23,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·参数错误",
@@ -467,6 +574,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid.*parameter|unsupported parameter|unknown parameter|parameter.*(invalid|not supported)|unexpected.*field)"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"parameter_error","retryable":false}}]"#,
                 priority: 24,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·非法请求",
@@ -474,6 +582,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(invalid_request_error|invalid request|bad request|malformed)"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"invalid_request","retryable":false}}]"#,
                 priority: 25,
+                default_enabled: true,
             },
             BuiltinRuleSpec {
                 name: "内置·缓存超限",
@@ -481,6 +590,56 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
                 conditions: r#"{"kind":"any","children":[{"kind":"leaf","target":"response_body","field":"","match_type":"regex","pattern":"(?i)(cache.*(limit|exceed|too many)|prompt cache|cache_control.*(limit|exceed|maximum))"}]}"#,
                 actions: r#"[{"kind":"classify","params":{"category":"cache_limit","retryable":false}}]"#,
                 priority: 26,
+                default_enabled: true,
+            },
+            // ── 票 09 内置识别器：默认关闭，用户在「中间件规则」里勾选启用 ──
+            BuiltinRuleSpec {
+                name: "内置·云厂商密钥脱敏",
+                description: "脱敏 AWS Access Key / Secret 与各 LLM 平台 token 前缀（前缀清单来自 registry key_prefixes，随平台数据自动扩展）。",
+                conditions: PII_CONDITIONS[0].as_str(),
+                actions: PII_MASK_ACTIONS,
+                priority: 30,
+                default_enabled: false,
+            },
+            BuiltinRuleSpec {
+                name: "内置·IP/MAC 地址脱敏",
+                description: "脱敏 IPv4 / IPv6 地址与 MAC 地址。",
+                conditions: PII_CONDITIONS[1].as_str(),
+                actions: PII_MASK_ACTIONS,
+                priority: 31,
+                default_enabled: false,
+            },
+            BuiltinRuleSpec {
+                name: "内置·信用卡号脱敏",
+                description: "脱敏 12–19 位银行卡号；正则命中后再跑 Luhn 校验位，校验不过的数字串原样保留。",
+                conditions: PII_CONDITIONS[2].as_str(),
+                actions: PII_MASK_ACTIONS,
+                priority: 32,
+                default_enabled: false,
+            },
+            BuiltinRuleSpec {
+                name: "内置·IBAN 脱敏",
+                description: "脱敏国际银行账号 IBAN；正则命中后再跑 ISO 13616 mod-97 校验，校验不过的不算命中。",
+                conditions: PII_CONDITIONS[3].as_str(),
+                actions: PII_MASK_ACTIONS,
+                priority: 33,
+                default_enabled: false,
+            },
+            BuiltinRuleSpec {
+                name: "内置·中国身份证号脱敏",
+                description: "脱敏 18 位中国大陆身份证号；正则命中后再跑 GB 11643 校验位，校验不过的 18 位数字原样保留。",
+                conditions: PII_CONDITIONS[4].as_str(),
+                actions: PII_MASK_ACTIONS,
+                priority: 34,
+                default_enabled: false,
+            },
+            BuiltinRuleSpec {
+                name: "内置·美国社保号脱敏",
+                description: "脱敏美国社保号 SSN（按官方有效号段判定，排除 000/666/9xx 等无效段）。",
+                conditions: PII_CONDITIONS[5].as_str(),
+                actions: PII_MASK_ACTIONS,
+                priority: 35,
+                default_enabled: false,
             },
         ]
     });
@@ -489,7 +648,7 @@ pub fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
 
 /// 首启/升级 seed 内置预设中间件规则。幂等：按 (name, is_builtin=1) 判定；
 /// 已存在 → **强制覆盖内容**（description/conditions/actions/priority），保留 enabled
-/// （用户禁用态不被升级重置）；不存在 → INSERT (enabled=1, is_builtin=1)。
+/// （用户启停态不被升级重置）；不存在 → INSERT (enabled = spec.default_enabled, is_builtin=1)。
 /// 在 [`Db::init_tables`] migration 末尾、同一 connection 闭包内同步调用。
 pub fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
     let (inserted, updated) = seed_builtin_middleware_rules_counted(conn)?;
@@ -573,7 +732,7 @@ pub fn seed_builtin_middleware_rules_counted(conn: &rusqlite::Connection) -> Sql
         conn.execute(
             "INSERT INTO middleware_rule
                (name, description, conditions, actions, applies_to, priority, enabled, is_builtin, failed, created_at, updated_at)
-             VALUES (?1, ?2, ?3, ?4, '{}', ?5, 1, 1, 0, ?6, ?6)",
+             VALUES (?1, ?2, ?3, ?4, '{}', ?5, ?7, 1, 0, ?6, ?6)",
             params![
                 spec.name,
                 spec.description,
@@ -581,6 +740,7 @@ pub fn seed_builtin_middleware_rules_counted(conn: &rusqlite::Connection) -> Sql
                 spec.actions,
                 spec.priority,
                 ts,
+                spec.default_enabled as i64,
             ],
         )?;
         inserted += 1;

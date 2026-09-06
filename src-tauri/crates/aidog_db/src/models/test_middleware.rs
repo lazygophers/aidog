@@ -29,6 +29,7 @@ fn condition_node_tagged_serde_roundtrip() {
                     field: "messages.0.content".to_string(),
                     match_type: MatchType::Regex,
                     pattern: "sk-\\w+".to_string(),
+                    validator: String::new(),
                 })],
             },
             ConditionNode::Leaf(ConditionLeaf {
@@ -36,6 +37,7 @@ fn condition_node_tagged_serde_roundtrip() {
                 field: String::new(),
                 match_type: MatchType::Exact,
                 pattern: "429".to_string(),
+                validator: String::new(),
             }),
         ],
     };
@@ -79,6 +81,7 @@ fn validate_rule_phases_rejects_mixed() {
                 field: String::new(),
                 match_type: MatchType::Contains,
                 pattern: "a".into(),
+                validator: String::new(),
             }),
             ConditionNode::Any {
                 children: vec![ConditionNode::Leaf(ConditionLeaf {
@@ -86,6 +89,7 @@ fn validate_rule_phases_rejects_mixed() {
                     field: String::new(),
                     match_type: MatchType::Exact,
                     pattern: "m".into(),
+                    validator: String::new(),
                 })],
             },
         ],
@@ -99,12 +103,14 @@ fn validate_rule_phases_rejects_mixed() {
                 field: String::new(),
                 match_type: MatchType::Contains,
                 pattern: "a".into(),
+                validator: String::new(),
             }),
             ConditionNode::Leaf(ConditionLeaf {
                 target: Target::Status,
                 field: String::new(),
                 match_type: MatchType::Contains,
                 pattern: "4".into(),
+                validator: String::new(),
             }),
         ],
     };
@@ -120,6 +126,7 @@ fn validate_rule_rejects_empty_pattern() {
         field: String::new(),
         match_type: MatchType::Contains,
         pattern: String::new(),
+        validator: String::new(),
     });
     let err = validate_rule_phases(&empty).unwrap_err();
     assert!(err.contains("empty pattern"), "{err}");

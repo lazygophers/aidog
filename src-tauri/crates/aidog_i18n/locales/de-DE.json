@@ -2869,7 +2869,7 @@
   "middleware.maskFieldsAll": "Alle Felder (messages + system)",
   "middleware.clearConditions": "Bedingungen leeren",
   "middleware.conditions": "Bedingungen",
-  "middleware.dslHint": "Syntax: ALL(...)/ANY(...)/Blatt, Blatt = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "Syntax: ALL(...)/ANY(...)/NOT(...)/Blatt, Blatt = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "Fehlgeschlagen",
   "middleware.fieldHint": "Feld (leer =Ganzes / JSON-Pfad / Header-Name)",
   "middleware.target.model": "Modell",
@@ -2890,5 +2890,13 @@
   "importExport.dropUnsupportedInBrowser": "Ein Drop im Browser liefert keinen vollständigen Pfad — klicken Sie hier und geben Sie den Pfad zur .aidogx-Datei ein.",
   "importExport.pickHintBrowser": "Klicken und den vollständigen Pfad zur .aidogx eingeben (mit Vervollständigung) · automatisch entschlüsselt · Skills automatisch installiert",
   "settings.backup.copyPath": "Backup-Pfad kopieren",
-  "about.updateDesktopOnly": "Im Browser wird nicht nach Updates gesucht — aktualisieren Sie den Kernel auf dem Rechner, auf dem er läuft"
+  "about.updateDesktopOnly": "Im Browser wird nicht nach Updates gesucht — aktualisieren Sie den Kernel auf dem Rechner, auf dem er läuft",
+  "middleware.node.all": "AND (alle erfüllt)",
+  "middleware.node.any": "OR (eine genügt)",
+  "middleware.node.not": "NOT (Negation)",
+  "middleware.checksumHint": "Nach dem Regex-Treffer wird die Prüfsumme geprüft; Fehlschläge zählen nicht",
+  "middleware.checksum.none": "Keine Prüfsumme",
+  "middleware.checksum.luhn": "Luhn (Bankkarte)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "Chinesischer Personalausweis"
 }

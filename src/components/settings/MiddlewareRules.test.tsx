@@ -26,6 +26,7 @@ const leaf = (target: string, pattern: string) => ({
   field: "",
   match_type: "contains" as const,
   pattern,
+  validator: "",
 });
 
 const mk = (over: Partial<MiddlewareRule>): MiddlewareRule => ({
@@ -171,6 +172,7 @@ describe("RuleForm（票 04/05：卡片编辑器 + DSL）", () => {
           field: "",
           match_type: "contains",
           pattern: "sk-abc",
+          validator: "",
         },
         actions: [{ kind: "mask", params: expect.objectContaining({ replacement: "****", fields: [] }) }],
         applies_to: { platforms: [], groups: [], models: [] },
@@ -212,8 +214,8 @@ describe("RuleForm（票 04/05：卡片编辑器 + DSL）", () => {
         conditions: {
           kind: "all",
           children: [
-            { kind: "leaf", target: "request_body", field: "", match_type: "regex", pattern: "a+" },
-            { kind: "leaf", target: "model", field: "", match_type: "exact", pattern: "m" },
+            { kind: "leaf", target: "request_body", field: "", match_type: "regex", pattern: "a+", validator: "" },
+            { kind: "leaf", target: "model", field: "", match_type: "exact", pattern: "m", validator: "" },
           ],
         },
       }),

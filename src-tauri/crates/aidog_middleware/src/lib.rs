@@ -12,6 +12,7 @@
 
 mod inbound;
 mod outbound;
+mod validators;
 
 #[cfg(test)]
 pub(crate) mod test_mod;
@@ -40,6 +41,7 @@ const REGEX_DFA_SIZE_LIMIT: usize = 1 << 20; // 1 MiB
 pub enum CompiledNode {
     All(Vec<CompiledNode>),
     Any(Vec<CompiledNode>),
+    Not(Box<CompiledNode>),
     Leaf {
         leaf: ConditionLeaf,
         regex: Option<Arc<Regex>>,
@@ -51,6 +53,7 @@ impl CompiledNode {
     fn any_leaf<F: Fn(&ConditionLeaf) -> bool>(&self, f: &F) -> bool {
         match self {
             CompiledNode::All(cs) | CompiledNode::Any(cs) => cs.iter().any(|c| c.any_leaf(f)),
+            CompiledNode::Not(c) => c.any_leaf(f),
             CompiledNode::Leaf { leaf, .. } => f(leaf),
         }
     }
@@ -165,18 +168,27 @@ impl CompiledNode {
             Target::Model => Some(view.model.to_string()),
         };
         let Some(text) = text else { return false };
+        let v = leaf.validator.as_str();
         match leaf.match_type {
-            MatchType::Regex => regex.as_ref().map(|re| re.is_match(&text)).unwrap_or(false),
-            MatchType::Contains => text.contains(&leaf.pattern),
-            MatchType::Exact => text == leaf.pattern,
+            // validator 非空：正则命中的每个片段还要过校验位，全挂 = 不命中（票 09）。
+            MatchType::Regex => match regex.as_ref() {
+                Some(re) if v.is_empty() => re.is_match(&text),
+                Some(re) => re
+                    .find_iter(&text)
+                    .any(|m| validators::validate(v, m.as_str())),
+                None => false,
+            },
+            MatchType::Contains => text.contains(&leaf.pattern) && validators::validate(v, &text),
+            MatchType::Exact => text == leaf.pattern && validators::validate(v, &text),
         }
     }
 
-    /// 条件树求值。空组：All([]) = true（vacuous），Any([]) = false。
+    /// 条件树求值。空组：All([]) = true（vacuous），Any([]) = false；Not 取子节点非。
     pub(crate) fn eval(&self, view: &EvalView) -> bool {
         match self {
             CompiledNode::All(cs) => cs.iter().all(|c| c.eval(view)),
             CompiledNode::Any(cs) => cs.iter().any(|c| c.eval(view)),
+            CompiledNode::Not(c) => !c.eval(view),
             CompiledNode::Leaf { leaf, regex } => Self::leaf_matches(leaf, regex, view),
         }
     }
@@ -277,6 +289,7 @@ fn compile_node(node: &ConditionNode) -> CompiledNode {
         ConditionNode::Any { children } => {
             CompiledNode::Any(children.iter().map(compile_node).collect())
         }
+        ConditionNode::Not { child } => CompiledNode::Not(Box::new(compile_node(child))),
         ConditionNode::Leaf(leaf) => CompiledNode::Leaf {
             leaf: leaf.clone(),
             regex: if leaf.match_type == MatchType::Regex {
@@ -289,27 +302,40 @@ fn compile_node(node: &ConditionNode) -> CompiledNode {
 }
 
 /// 按 match_type 在文本中替换命中片段为 replacement（regex 支持捕获组 $1；编译失败 fail-open）。
+/// `validator` 非空时只替换过了校验位的片段（票 09：Luhn 挂掉的 16 位数字保持原样）。
 pub(crate) fn replace_match(
     match_type: MatchType,
     regex: &Option<Arc<Regex>>,
     pattern: &str,
+    validator: &str,
     s: &str,
     replacement: &str,
 ) -> String {
     match match_type {
         MatchType::Regex => match regex.as_ref() {
-            Some(re) => re.replace_all(s, replacement).into_owned(),
+            Some(re) if validator.is_empty() => re.replace_all(s, replacement).into_owned(),
+            Some(re) => re
+                .replace_all(s, |caps: &regex::Captures| {
+                    let hit = &caps[0];
+                    if !validators::validate(validator, hit) {
+                        return hit.to_string();
+                    }
+                    let mut out = String::new();
+                    caps.expand(replacement, &mut out);
+                    out
+                })
+                .into_owned(),
             None => s.to_string(),
         },
         MatchType::Contains => {
-            if pattern.is_empty() {
+            if pattern.is_empty() || !validators::validate(validator, s) {
                 s.to_string()
             } else {
                 s.replace(pattern, replacement)
             }
         }
         MatchType::Exact => {
-            if s == pattern {
+            if s == pattern && validators::validate(validator, s) {
                 replacement.to_string()
             } else {
                 s.to_string()
@@ -323,6 +349,7 @@ pub(crate) struct RewriteLeaf {
     pub match_type: MatchType,
     pub regex: Option<Arc<Regex>>,
     pub pattern: String,
+    pub validator: String,
 }
 
 /// 编译正则，附带 size/dfa 上限防护。失败返回 None（调用方记日志 + 跳过）。
@@ -336,18 +363,23 @@ fn compile_regex(pattern: &str) -> Option<Arc<Regex>> {
 }
 
 /// 收集条件树内指定 target 的叶子（mask/override 按这些 pattern 替换文本命中片段）。
+///
+/// **Not 子树整棵跳过**：取反节点里的 pattern 表达的是「不该出现的东西」，
+/// 把它当改写模式会把用户想保留的文本抹掉（票 09）。
 pub(crate) fn collect_patterns(node: &CompiledNode, target: Target) -> Vec<RewriteLeaf> {
     fn walk(node: &CompiledNode, target: Target, out: &mut Vec<RewriteLeaf>) {
         match node {
             CompiledNode::All(cs) | CompiledNode::Any(cs) => {
                 cs.iter().for_each(|c| walk(c, target, out))
             }
+            CompiledNode::Not(_) => {}
             CompiledNode::Leaf { leaf, regex } => {
                 if leaf.target == target {
                     out.push(RewriteLeaf {
                         match_type: leaf.match_type,
                         regex: regex.clone(),
                         pattern: leaf.pattern.clone(),
+                        validator: leaf.validator.clone(),
                     });
                 }
             }

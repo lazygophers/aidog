@@ -2847,7 +2847,7 @@
   "middleware.maskFieldsAll": "全部字段（messages + system）",
   "middleware.clearConditions": "清空条件",
   "middleware.conditions": "条件",
-  "middleware.dslHint": "语法: ALL(...)/ANY(...)/叶子，叶子 = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "语法：ALL(...)/ANY(...)/NOT(...)/叶子，叶子 = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "失效",
   "middleware.fieldHint": "字段（空=整体 / JSON path / header 名）",
   "middleware.target.model": "模型",
@@ -2868,5 +2868,13 @@
   "importExport.dropUnsupportedInBrowser": "浏览器里拖入文件取不到完整路径，请点这里手动填写 .aidogx 的路径。",
   "importExport.pickHintBrowser": "点击输入 .aidogx 的完整路径（支持补全）· 自动解密 · Skill 自动安装",
   "settings.backup.copyPath": "复制备份路径",
-  "about.updateDesktopOnly": "浏览器里不检查更新：升级内核请在部署它的机器上做"
+  "about.updateDesktopOnly": "浏览器里不检查更新：升级内核请在部署它的机器上做",
+  "middleware.node.all": "AND (全部满足)",
+  "middleware.node.any": "OR (任一满足)",
+  "middleware.node.not": "NOT (取反)",
+  "middleware.checksumHint": "正则命中后再跑校验位，校验不过的不算命中",
+  "middleware.checksum.none": "无校验位",
+  "middleware.checksum.luhn": "Luhn (银行卡)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "中国身份证"
 }

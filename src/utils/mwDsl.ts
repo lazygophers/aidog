@@ -1,9 +1,10 @@
 // mwDsl.ts — 中间件条件树 DSL（票 05）。
 // 树 JSON 是唯一存储真值；DSL 只是前端视图。语法（S 表达式风格，括号内换行随意）：
 //
-//   ALL( 叶子 叶子 ... )      ANY( 叶子 叶子 ... )      叶子
-//   叶子 := target[.field] OP "pattern"
+//   ALL( 叶子 叶子 ... )      ANY( 叶子 叶子 ... )      NOT( 单个子条件 )      叶子
+//   叶子 := target[.field] OP "pattern" [checksum 校验器名]
 //   OP := contains | regex | exact
+//   校验器名 := luhn | iban | cn_id （票 09：正则命中后再跑校验位，挂了不算命中）
 //
 // 往返保证：tree → dsl → tree 与原树深度相等（叶子顺序保持）。
 
@@ -15,12 +16,14 @@ const OPS = ["contains", "regex", "exact"] as const;
 /** 叶子 → DSL（pattern 用 JSON 字符串转义，可含任意字符）。 */
 export function leafToDsl(l: ConditionLeaf): string {
   const field = l.field ? `.${l.field}` : "";
-  return `${l.target}${field} ${l.match_type} ${JSON.stringify(l.pattern)}`;
+  const checksum = l.validator ? ` checksum ${l.validator}` : "";
+  return `${l.target}${field} ${l.match_type} ${JSON.stringify(l.pattern)}${checksum}`;
 }
 
 /** 树 → DSL（递归；叶子直接输出）。 */
 export function treeToDsl(node: ConditionNode): string {
   if (node.kind === "leaf") return leafToDsl(node);
+  if (node.kind === "not") return `NOT(\n  ${treeToDsl(node.child)}\n)`;
   const inner = node.children.map(treeToDsl);
   if (inner.length === 1) return inner[0];
   return `${node.kind.toUpperCase()}(\n  ${inner.join("\n  ")}\n)`;
@@ -89,6 +92,13 @@ class Parser {
   }
   parseExpr(): ConditionNode {
     const { tok, pos } = this.peek();
+    if (tok.t === "word" && tok.v === "NOT") {
+      this.take();
+      if (this.take().t !== "(") throw err(pos, "NOT 后缺 '('");
+      const child = this.parseExpr();
+      if (this.take().t !== ")") throw err(pos, "NOT() 只接受一个子条件");
+      return { kind: "not", child };
+    }
     if (tok.t === "word" && (tok.v === "ALL" || tok.v === "ANY")) {
       this.take();
       if (this.take().t !== "(") throw err(pos, `${tok.v} 后缺 '('`);
@@ -121,11 +131,21 @@ class Parser {
     }
     const patTok = this.take();
     if (patTok.t !== "str") throw err(pos, "期望双引号 pattern");
+    // 可选尾缀 `checksum <name>`（票 09 校验位二次校验）。
+    let validator = "";
+    const after = this.peek();
+    if (after.tok.t === "word" && after.tok.v === "checksum") {
+      this.take();
+      const nameTok = this.take();
+      if (nameTok.t !== "word") throw err(after.pos, "checksum 后缺校验器名");
+      validator = nameTok.v;
+    }
     const leaf = {
       target: target as ConditionLeaf["target"],
       field,
       match_type: opTok.v as ConditionLeaf["match_type"],
       pattern: patTok.v,
+      validator,
     };
     return { kind: "leaf" as const, ...leaf };
   }

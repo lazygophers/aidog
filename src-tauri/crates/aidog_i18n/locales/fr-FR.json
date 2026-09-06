@@ -2869,7 +2869,7 @@
   "middleware.maskFieldsAll": "Tous les champs (messages + system)",
   "middleware.clearConditions": "Effacer les conditions",
   "middleware.conditions": "Conditions",
-  "middleware.dslHint": "Syntaxe : ALL(...)/ANY(...)/feuille, feuille = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "Syntaxe : ALL(...)/ANY(...)/NOT(...)/feuille, feuille = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "Échec",
   "middleware.fieldHint": "Champ (vide = total / chemin JSON / nom d’en-tête)",
   "middleware.target.model": "Modèle",
@@ -2890,5 +2890,13 @@
   "importExport.dropUnsupportedInBrowser": "Un glisser-déposer dans le navigateur ne fournit pas le chemin complet — cliquez ici et saisissez le chemin du fichier .aidogx.",
   "importExport.pickHintBrowser": "Cliquez pour saisir le chemin complet du .aidogx (avec complétion) · déchiffrement auto · skills installés auto",
   "settings.backup.copyPath": "Copier le chemin de la sauvegarde",
-  "about.updateDesktopOnly": "Pas de vérification des mises à jour dans le navigateur — mettez à jour le noyau sur la machine qui l'héberge"
+  "about.updateDesktopOnly": "Pas de vérification des mises à jour dans le navigateur — mettez à jour le noyau sur la machine qui l'héberge",
+  "middleware.node.all": "AND (toutes remplies)",
+  "middleware.node.any": "OR (au moins une)",
+  "middleware.node.not": "NOT (négation)",
+  "middleware.checksumHint": "Vérifie la somme de contrôle après le regex ; les échecs ne comptent pas",
+  "middleware.checksum.none": "Sans somme de contrôle",
+  "middleware.checksum.luhn": "Luhn (carte bancaire)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "Carte d'identité chinoise"
 }

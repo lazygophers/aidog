@@ -44,6 +44,7 @@ fn default_failed_conditions() -> crate::models::ConditionNode {
         field: String::new(),
         match_type: crate::models::MatchType::Exact,
         pattern: "\u{0}unparseable-rule".to_string(),
+        validator: String::new(),
     })
 }
 

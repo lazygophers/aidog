@@ -124,6 +124,7 @@ async fn collect_new_scopes_roundtrip_and_key_consistency() {
                     field: String::new(),
                     match_type: crate::gateway::models::MatchType::Contains,
                     pattern: "foo".into(),
+                    validator: String::new(),
                 },
             ),
             actions: vec![crate::gateway::models::ActionStep {

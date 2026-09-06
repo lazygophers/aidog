@@ -9,4 +9,10 @@ export type ConditionLeaf = { target: Target,
 /**
  * 空 = 目标整体文本；request_body/response_body 支持 JSON path（如 messages.0.content）
  */
-field: string, match_type: MatchType, pattern: string, };
+field: string, match_type: MatchType, pattern: string, 
+/**
+ * 校验位二次校验器名（票 09）。空 = 不校验；`luhn` / `iban` / `cn_id`。
+ * 非空时：正则命中的片段还必须通过该校验才算命中（挡掉纯正则的误报）。
+ * 未知名字视同空（fail-open，只按正则判定）。
+ */
+validator: string, };

@@ -2869,7 +2869,7 @@
   "middleware.maskFieldsAll": "Все поля (messages + system)",
   "middleware.clearConditions": "Очистить условия",
   "middleware.conditions": "Условия",
-  "middleware.dslHint": "Синтаксис: ALL(...)/ANY(...)/лист, лист = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "Синтаксис: ALL(...)/ANY(...)/NOT(...)/лист, лист = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "Ошибка",
   "middleware.fieldHint": "Поле (пусто = целиком / JSON-путь / имя заголовка)",
   "middleware.target.model": "Модель",
@@ -2890,5 +2890,13 @@
   "importExport.dropUnsupportedInBrowser": "Перетаскивание в браузере не даёт полный путь — нажмите здесь и введите путь к файлу .aidogx.",
   "importExport.pickHintBrowser": "Нажмите и введите полный путь к .aidogx (с автодополнением) · авторасшифровка · навыки ставятся автоматически",
   "settings.backup.copyPath": "Скопировать путь к резервной копии",
-  "about.updateDesktopOnly": "В браузере обновления не проверяются — обновляйте ядро на машине, где оно запущено"
+  "about.updateDesktopOnly": "В браузере обновления не проверяются — обновляйте ядро на машине, где оно запущено",
+  "middleware.node.all": "AND (все выполнены)",
+  "middleware.node.any": "OR (любое из них)",
+  "middleware.node.not": "NOT (отрицание)",
+  "middleware.checksumHint": "После совпадения регулярного выражения проверяется контрольная сумма; неудачные не засчитываются",
+  "middleware.checksum.none": "Без контрольной суммы",
+  "middleware.checksum.luhn": "Luhn (банковская карта)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "Удостоверение личности КНР"
 }
