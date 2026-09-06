@@ -90,6 +90,7 @@ fn run_with_headers(
         body,
         wire,
         "test-model",
+        None,
         7,
         req_headers,
     )
@@ -332,6 +333,7 @@ fn disabled_settings_leave_body_untouched() {
         &mut body,
         &Protocol::Anthropic,
         "test-model",
+        None,
         7,
         None,
     );

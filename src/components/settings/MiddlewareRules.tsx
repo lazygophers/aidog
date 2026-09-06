@@ -628,6 +628,13 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
           value={value.models.join(",")}
           onChange={(v) => onChange({ ...value, models: v.split(",").map((x) => x.trim()).filter(Boolean) })}
         />
+        {/* 口径提示（评审 F5）：预算闸门的花费聚合按上游实际模型名统计，两侧必须填同一个名字。 */}
+        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
+          {t(
+            "middleware.appliesModelsHint",
+            "填上游实际模型名（配了模型重映射就填映射之后的那个）。预算闸门按这个名字统计花费。",
+          )}
+        </span>
       </label>
     </div>
   );

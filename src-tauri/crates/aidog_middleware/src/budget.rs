@@ -9,12 +9,23 @@
 //!
 //! **无预算规则 = 零 DB 查询**：先按 applies_to + 条件树筛出带 budget_gate 的规则，
 //! 一条都没有就直接返回，热路径不多一次 IO。
+//!
+//! ## `applies_to.models` 的口径（两侧必须一致，票 06 评审 F5）
+//!
+//! 规则选中侧（这里）与花费聚合侧（[`aidog_stats::window_spend`]）比对的是**同一个名字**：
+//! **上游实际模型名**，也就是平台侧模型重映射之后、真正发给上游的那个名字
+//! （聚合表 `stats_agg_hourly.model` 存的就是它）。
+//! 调用方据此传 `model` 参数：
+//! - platform 挂载点（`forward.rs`）已经路由完，传 `route.target_model`（= actual_model）；
+//! - group 挂载点（`handler.rs`）路由还没发生，平台未知、重映射结果也未知，只能传客户端
+//!   请求名。**未配模型重映射时两者相同**；配了重映射又要按模型限额，请把规则的作用范围
+//!   同时限定到平台（那样规则归属到 platform 挂载点，拿得到真名）。
 
 use aidog_adapter::ChatRequest;
 use aidog_db::Db;
 use aidog_db::models::{ActionKind, MiddlewareSettings};
 
-use super::{EvalView, InboundOutcome, MiddlewareEngine, inbound::collect_request_text};
+use super::{EvalView, InboundOutcome, MiddlewareEngine, Mount, inbound::collect_request_text};
 
 /// 单条预算闸门规则的当前窗口状态（前端展示已用 / 剩余用；也是拒绝判定的输入）。
 #[derive(Debug, Clone, PartialEq)]
@@ -46,12 +57,13 @@ impl MiddlewareEngine {
     /// 返回 `(rule_id, rule_name, budget_usd, applies_to)`，供查库与状态展示复用。
     fn budget_rules(
         &self,
+        mount: Mount,
         group_key: Option<&str>,
         platform_id: Option<i64>,
         model: &str,
         view: Option<&EvalView>,
     ) -> Vec<(i64, String, f64, aidog_db::models::AppliesTo)> {
-        self.request_rules(group_key, platform_id, model)
+        self.request_rules(mount, group_key, platform_id, model)
             .into_iter()
             .filter(|cr| view.is_none_or(|v| cr.conditions.eval(v)))
             .flat_map(|cr| {
@@ -77,11 +89,17 @@ impl MiddlewareEngine {
     /// 命中条件树且带 budget_gate 动作的规则，逐条查本自然月已花费；
     /// 任一条 `已花费 >= 预算` → `Blocked`（调用方落审计日志 + 403，est_cost 记 0）。
     /// 查库失败 fail-open（放行 + warn）：预算查不出来不该把用户的请求全打死。
+    ///
+    /// 挂载点归属由 `platform_id` 派生（本函数只在两个入站挂载点被调用：group 层传 None、
+    /// platform 层传 Some），保证同一条规则只查一次库。见 [`Mount`]。
+    /// `model` 的口径见本模块头部注释。
+    #[allow(clippy::too_many_arguments)]
     pub async fn check_budget(
         &self,
         settings: &MiddlewareSettings,
         db: &Db,
         chat_req: &ChatRequest,
+        model: &str,
         group_key: Option<&str>,
         platform_id: Option<i64>,
         req_headers: Option<&str>,
@@ -89,10 +107,15 @@ impl MiddlewareEngine {
         if !settings.enabled {
             return InboundOutcome::Continue;
         }
+        let mount = if platform_id.is_some() {
+            Mount::Platform
+        } else {
+            Mount::Group
+        };
         // 先只按 applies_to 粗筛（不聚合请求文本）：常态是一条预算规则都没有，
         // 此时热路径连 `collect_request_text` 的整段拷贝都省掉，更不查库。
         if self
-            .budget_rules(group_key, platform_id, &chat_req.model, None)
+            .budget_rules(mount, group_key, platform_id, model, None)
             .is_empty()
         {
             return InboundOutcome::Continue;
@@ -100,10 +123,10 @@ impl MiddlewareEngine {
         let view = EvalView {
             req_text: collect_request_text(chat_req),
             req_headers,
-            model: chat_req.model.as_str(),
+            model,
             ..Default::default()
         };
-        let gates = self.budget_rules(group_key, platform_id, &chat_req.model, Some(&view));
+        let gates = self.budget_rules(mount, group_key, platform_id, model, Some(&view));
         for (rule_id, rule_name, budget_usd, applies_to) in gates {
             let spent = match aidog_stats::month_spend(db, &applies_to).await {
                 Ok(v) => v,

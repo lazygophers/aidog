@@ -2847,6 +2847,7 @@
   "middleware.addLeaf": "Condición",
   "middleware.appliesGroups": "Grupos (vacío = todos)",
   "middleware.appliesModels": "Modelos (separados por comas, vacío = todos)",
+  "middleware.appliesModelsHint": "Indica el nombre del modelo del proveedor (el posterior al remapeo de modelos, si lo hay). Los límites de presupuesto agregan el gasto por este nombre.",
   "middleware.appliesPlatforms": "Plataformas (vacío = todas)",
   "middleware.appliesTo": "Se aplica a (vacío = sin límites; varios valores = cualquier coincidencia)",
   "middleware.appliesAll": "Todos",

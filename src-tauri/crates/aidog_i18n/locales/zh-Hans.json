@@ -2847,6 +2847,7 @@
   "middleware.addLeaf": "条件",
   "middleware.appliesGroups": "分组（空 = 全部）",
   "middleware.appliesModels": "模型（逗号分隔，空 = 全部）",
+  "middleware.appliesModelsHint": "填上游实际模型名（配了模型重映射就填映射之后的那个）。预算闸门按这个名字统计花费。",
   "middleware.appliesPlatforms": "平台（空 = 全部）",
   "middleware.appliesTo": "应用范围（各自空 = 不限；多值命中任一）",
   "middleware.appliesAll": "全部",

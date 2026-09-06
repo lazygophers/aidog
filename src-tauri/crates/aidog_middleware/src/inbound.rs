@@ -1,6 +1,8 @@
 //! 入站规则执行（请求侧条件，ADR 0003 统一引擎）。
 //!
 //! 挂载点：handler.rs 路由前（group 层）与 forward.rs 候选选定后（platform 层）。
+//! **一条规则只在其中一个挂载点执行**，归属由 `applies_to.platforms` 是否为空决定
+//! （见 [`crate::Mount`]）——两个挂载点各跑一遍会把 inject 追加两次、预算查两次库。
 //! 规则按 priority 升序堆叠执行；命中（条件树求值 true）后跑动作链，
 //! block 终止一切；mask/override 替换请求文本中命中条件叶子 pattern 的片段；
 //! inject 注入 system/body；warn 仅记日志；classify 属错误路径，入站忽略。
@@ -15,7 +17,7 @@
 use aidog_adapter::{ChatRequest, MessageContent, SystemContent};
 use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
 
-use super::{CompiledRule, EvalView, MiddlewareEngine, collect_patterns, replace_match};
+use super::{CompiledRule, EvalView, MiddlewareEngine, Mount, collect_patterns, replace_match};
 
 /// 入站执行结果。
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,16 +56,27 @@ impl MiddlewareEngine {
         if !settings.enabled {
             return InboundOutcome::Continue;
         }
-        self.apply_inbound_inner(chat_req, group_key, None, req_headers, header_injects)
+        self.apply_inbound_inner(
+            Mount::Group,
+            chat_req,
+            group_key,
+            None,
+            req_headers,
+            header_injects,
+        )
     }
 
     /// 入站规则执行（候选选定后挂载点：platform 层）。
     /// 与 [`apply_inbound`] 同一套规则堆叠（applies_to 已区分 group/platform 维度），
     /// 无旧三级 scope 概念，仅是第二个挂载点（platform id 此时才可用）。
+    ///
+    /// `group_key` 必须由调用方透传：同时限定 groups + platforms 的规则只在本挂载点判定
+    /// （见 [`Mount`]），拿不到 group_key 就永不命中。
     pub fn apply_inbound_platform(
         &self,
         settings: &MiddlewareSettings,
         chat_req: &mut ChatRequest,
+        group_key: Option<&str>,
         platform_id: i64,
         req_headers: Option<&str>,
         header_injects: &mut Vec<(String, String)>,
@@ -72,8 +85,9 @@ impl MiddlewareEngine {
             return InboundOutcome::Continue;
         }
         self.apply_inbound_inner(
+            Mount::Platform,
             chat_req,
-            None,
+            group_key,
             Some(platform_id),
             req_headers,
             header_injects,
@@ -82,6 +96,7 @@ impl MiddlewareEngine {
 
     fn apply_inbound_inner(
         &self,
+        mount: Mount,
         chat_req: &mut ChatRequest,
         group_key: Option<&str>,
         platform_id: Option<i64>,
@@ -90,7 +105,7 @@ impl MiddlewareEngine {
     ) -> InboundOutcome {
         // 观察模式命中累积（不终止：observe 的语义就是「什么都不改，只记一笔」）。
         let mut observed: Vec<String> = Vec::new();
-        for cr in self.request_rules(group_key, platform_id, &chat_req.model) {
+        for cr in self.request_rules(mount, group_key, platform_id, &chat_req.model) {
             // 每条规则求值前重新聚合文本（前序规则的 mask/inject 已改写请求）。
             let matched = {
                 let view = EvalView {
@@ -214,17 +229,22 @@ impl MiddlewareEngine {
     ///
     /// 已知限制：本入口不带 body JSON path 上下文 → `request_body` 带 field 的叶子退化为
     /// 整文本匹配（与 chat_req 层同口径）。方向是「更容易命中」，不会漏掉用户配的脱敏规则。
+    ///
+    /// 挂载点归属用 [`Mount::Any`]（不是 `Platform`）：透传分支上 chat_req 层的改写会被丢弃
+    /// （出站发的是 `req_value` 原体），故 group 维规则的 mask 必须在这里补做一遍，
+    /// 这不是「同一条规则跑两遍」而是同一次执行落在另一条分支上。
     pub fn apply_inbound_texts(
         &self,
         settings: &MiddlewareSettings,
         texts: &mut InboundTexts<'_>,
+        group_key: Option<&str>,
         platform_id: i64,
         req_headers: Option<&str>,
     ) {
         if !settings.enabled {
             return;
         }
-        for cr in self.request_rules(None, Some(platform_id), texts.model) {
+        for cr in self.request_rules(Mount::Any, group_key, Some(platform_id), texts.model) {
             // 每条规则求值前重新聚合文本（前序规则的 mask 已改写）。
             let matched = {
                 let view = EvalView {

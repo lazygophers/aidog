@@ -12,6 +12,9 @@ import type { ConditionNode, ConditionLeaf } from "../services/api";
 
 const TARGETS = ["request_body", "request_headers", "response_body", "response_headers", "status", "model"] as const;
 const OPS = ["contains", "regex", "exact"] as const;
+// 与 Rust `aidog_middleware::validators::validate` 的分支一一对应。未知名在后端是
+// fail-closed（整条规则不命中），所以拼错必须在保存前就报出来，不能让它静默失效。
+const VALIDATORS = ["luhn", "iban", "cn_id"] as const;
 
 /** 叶子 → DSL（pattern 用 JSON 字符串转义，可含任意字符）。 */
 export function leafToDsl(l: ConditionLeaf): string {
@@ -138,6 +141,9 @@ class Parser {
       this.take();
       const nameTok = this.take();
       if (nameTok.t !== "word") throw err(after.pos, "checksum 后缺校验器名");
+      if (!(VALIDATORS as readonly string[]).includes(nameTok.v)) {
+        throw err(after.pos, `未知校验器 '${nameTok.v}'（可选: ${VALIDATORS.join(" / ")}）`);
+      }
       validator = nameTok.v;
     }
     const leaf = {

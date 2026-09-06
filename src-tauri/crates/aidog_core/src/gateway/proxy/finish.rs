@@ -240,12 +240,15 @@ where
         .await
         .middleware_settings
         .clone();
-    let mw_active = mw_settings.enabled;
     let mw_group = group.group_key.clone();
     let mw_platform_id = route.platform.id as i64;
     // 滑窗脱敏器（票 05）：窗口大小在建流时按当前生效规则一次性定死（流中途改规则不影响本流）。
-    let mut mw_masker =
-        mw_engine.stream_masker(&mw_settings, Some(mw_group.as_str()), Some(mw_platform_id));
+    let mut mw_masker = mw_engine.stream_masker(
+        &mw_settings,
+        Some(mw_group.as_str()),
+        Some(mw_platform_id),
+        requested_model,
+    );
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
@@ -445,26 +448,16 @@ where
         //   走 StreamMasker 滑窗：每块尾部至多 window 字节延后一块下发，故被 SSE 分块切成
         //   两半的密钥/敏感词照样命中。首字延迟代价上界 = 一个 chunk（不是整条流）。
         //   见终止符时同块冲刷尾窗，确保 flush 落库的 client_body 与实发字节一致。
-        //   总开关 OFF / 无 mask 规则时 window=0，退化为原逐块行为，零额外延迟。──
-        let out_bytes = if mw_active && mw_masker.is_active() {
-            let mut rewritten = mw_masker.push(&String::from_utf8_lossy(&out_bytes));
+        //   总开关 OFF / 无 mask 规则时 window=0（is_active()=false），整段跳过：原始 Bytes
+        //   原样下发，连一次 UTF-8 解码都不做，零额外延迟。
+        //   走 push_bytes 而非 push(from_utf8_lossy(..))：SSE 可在任意字节切块，lossy 会把
+        //   被切成两半的中文字符变成 `�`（评审 F1）。──
+        let out_bytes = if mw_masker.is_active() {
+            let mut rewritten = mw_masker.push_bytes(&out_bytes);
             if has_stream_terminator(&text) {
                 rewritten.push_str(&mw_masker.finish());
             }
             Bytes::from(rewritten)
-        } else if mw_active && !out_bytes.is_empty() {
-            let original = String::from_utf8_lossy(&out_bytes);
-            let rewritten = mw_engine.apply_outbound_stream_chunk(
-                &mw_settings,
-                &original,
-                Some(&mw_group),
-                Some(mw_platform_id),
-            );
-            if rewritten == original.as_ref() {
-                out_bytes
-            } else {
-                Bytes::from(rewritten)
-            }
         } else {
             out_bytes
         };

@@ -83,38 +83,53 @@ async fn window_spend_resets_across_month_boundary() {
 }
 
 /// 性能红线：聚合必须走 `idx_stats_agg_time` 的范围扫，不得 SCAN 全表。
+///
+/// EXPLAIN 的是 `window_spend` **实际执行的那条 SQL**（`spend_sql` 同一个函数），
+/// 不是手抄副本——抄一份的话，生产 SQL 改成全表扫这条测试照样绿（评审 F8）。
+/// 并且断言具体索引名 `idx_stats_agg_time`，换成别的索引也要被拦下。
 #[tokio::test]
 async fn window_spend_uses_time_index() {
     let db = test_db().await;
     seed(&db, "l1", "ga", 1, "m-one", 1.0).await;
     rebuild_stats_agg_from_logs(&db).await.unwrap();
 
-    // 两种形态各查一次执行计划：无三维过滤（只有 time_hour 范围）/ 带 platform 过滤。
-    for (label, sql) in [
-        (
-            "time-range only",
-            "EXPLAIN QUERY PLAN SELECT COALESCE(SUM(sum_est_cost), 0.0) \
-             FROM stats_agg_hourly WHERE deleted_at = 0 AND time_hour >= '2000-01-01 00:00:00'",
-        ),
+    // 两种形态各查一次执行计划，并各自钉死规划器该选的那条索引：
+    // 只有时间范围 → 走 idx_stats_agg_time；带 platform 等值过滤 → 规划器改走
+    // idx_stats_agg_platform（等值比范围选择性高），同样不是全表扫。
+    for (label, applies, want_index) in [
+        ("time-range only", at(vec![], vec![], vec![]), "idx_stats_agg_time"),
         (
             "three-dim filter",
-            "EXPLAIN QUERY PLAN SELECT COALESCE(SUM(sum_est_cost), 0.0) \
-             FROM stats_agg_hourly WHERE deleted_at = 0 AND time_hour >= '2000-01-01 00:00:00' \
-             AND platform_id IN (1) AND group_key IN ('ga') AND model IN ('m-one')",
+            at(vec![1], vec!["ga"], vec!["m-one"]),
+            "idx_stats_agg_platform",
         ),
     ] {
+        let sql = format!(
+            "EXPLAIN QUERY PLAN {}",
+            crate::budget::spend_sql(
+                applies.platforms.len(),
+                applies.groups.len(),
+                applies.models.len(),
+            )
+        );
+        let window_start = local_month_start_key();
         let plan: String = db
             .call_read_traced(None, std::panic::Location::caller(), move |conn| {
-                let mut stmt = conn.prepare(sql)?;
-                let rows = stmt.query_map([], |r| r.get::<_, String>(3))?;
+                use rusqlite::types::ToSql;
+                let mut binds: Vec<&dyn ToSql> = vec![&window_start];
+                binds.extend(applies.platforms.iter().map(|p| p as &dyn ToSql));
+                binds.extend(applies.groups.iter().map(|g| g as &dyn ToSql));
+                binds.extend(applies.models.iter().map(|m| m as &dyn ToSql));
+                let mut stmt = conn.prepare(&sql)?;
+                let rows = stmt.query_map(binds.as_slice(), |r| r.get::<_, String>(3))?;
                 Ok(rows.filter_map(|r| r.ok()).collect::<Vec<_>>().join(" | "))
             })
             .await
             .unwrap();
         println!("[{label}] query plan: {plan}");
         assert!(
-            plan.contains("USING INDEX") || plan.contains("USING COVERING INDEX"),
-            "[{label}] 聚合查询未走索引（会全表扫）: {plan}"
+            plan.contains(want_index),
+            "[{label}] 聚合查询未走 {want_index}: {plan}"
         );
         assert!(
             !plan.contains("SCAN stats_agg_hourly"),

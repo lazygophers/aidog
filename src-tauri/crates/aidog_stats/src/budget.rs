@@ -32,11 +32,28 @@ fn in_clause(col: &str, len: usize, next_idx: &mut usize) -> Option<String> {
     Some(format!(" AND {col} IN ({})", ph.join(", ")))
 }
 
+/// 构造聚合 SQL（`?1` = window_start，三维过滤占位从 `?2` 起顺次编号）。
+///
+/// 单独抽出来是为了让索引红线测试 EXPLAIN **生产查询本身**，而不是一份手抄的副本
+/// （评审 F8：抄一份的话，这里改成全表扫测试照样绿）。
+pub(crate) fn spend_sql(n_platforms: usize, n_groups: usize, n_models: usize) -> String {
+    let mut idx = 2usize;
+    let p_clause = in_clause("platform_id", n_platforms, &mut idx).unwrap_or_default();
+    let g_clause = in_clause("group_key", n_groups, &mut idx).unwrap_or_default();
+    let m_clause = in_clause("model", n_models, &mut idx).unwrap_or_default();
+    format!(
+        "SELECT COALESCE(SUM(sum_est_cost), 0.0) FROM stats_agg_hourly \
+         WHERE deleted_at = 0 AND time_hour >= ?1{p_clause}{g_clause}{m_clause}"
+    )
+}
+
 /// 指定窗口起点起、按 `applies_to` 三维过滤后的累计花费（美元）。
 ///
 /// 三维语义与 `CompiledRule::applies` 对称：各维空 = 不限，多值 = 命中任一，维间 AND。
 /// 注意 model 维匹配的是 `stats_agg_hourly.model`（写入时取 actual_model，为空才回落
-/// 请求模型名）——模型重映射生效时，作用范围里应填**上游实际模型名**。
+/// 请求模型名）——即**上游实际模型名**。这是预算功能 model 维的唯一口径，规则选中侧
+/// （`aidog_middleware::budget`）与前端提示都按它写；配了模型重映射又要按模型限额时，
+/// 规则的作用范围必须同时限定平台，否则路由前的挂载点只拿得到客户端请求名。
 #[track_caller]
 pub fn window_spend<'a>(
     db: &'a Db,
@@ -49,15 +66,7 @@ pub fn window_spend<'a>(
     let models = applies_to.models.clone();
     async move {
         db.call_read_traced(None, __db_caller, move |conn| {
-            // ?1 = window_start；三维过滤的占位从 ?2 起顺次编号。
-            let mut idx = 2usize;
-            let p_clause = in_clause("platform_id", platforms.len(), &mut idx).unwrap_or_default();
-            let g_clause = in_clause("group_key", groups.len(), &mut idx).unwrap_or_default();
-            let m_clause = in_clause("model", models.len(), &mut idx).unwrap_or_default();
-            let sql = format!(
-                "SELECT COALESCE(SUM(sum_est_cost), 0.0) FROM stats_agg_hourly \
-                 WHERE deleted_at = 0 AND time_hour >= ?1{p_clause}{g_clause}{m_clause}"
-            );
+            let sql = spend_sql(platforms.len(), groups.len(), models.len());
             let mut binds: Vec<&dyn ToSql> = vec![&window_start];
             binds.extend(platforms.iter().map(|p| p as &dyn ToSql));
             binds.extend(groups.iter().map(|g| g as &dyn ToSql));
