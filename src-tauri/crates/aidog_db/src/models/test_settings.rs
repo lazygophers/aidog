@@ -199,8 +199,10 @@ fn to_reqwest_proxy_with_auth() {
 
 #[test]
 fn effective_no_proxy_empty_falls_back_to_default() {
-    let mut s = ProxyClientSettings::default();
-    s.no_proxy = "   ".into();
+    let s = ProxyClientSettings {
+        no_proxy: "   ".into(),
+        ..Default::default()
+    };
     // 空/空白 → DEFAULT_NO_PROXY（内网 + .cn + 中国平台域）
     assert_eq!(s.effective_no_proxy(), DEFAULT_NO_PROXY);
     assert!(s.effective_no_proxy().contains("192.168.0.0/16"));
@@ -210,7 +212,9 @@ fn effective_no_proxy_empty_falls_back_to_default() {
 
 #[test]
 fn effective_no_proxy_custom_wins() {
-    let mut s = ProxyClientSettings::default();
-    s.no_proxy = "internal.corp,10.0.0.0/8".into();
+    let s = ProxyClientSettings {
+        no_proxy: "internal.corp,10.0.0.0/8".into(),
+        ..Default::default()
+    };
     assert_eq!(s.effective_no_proxy(), "internal.corp,10.0.0.0/8");
 }
