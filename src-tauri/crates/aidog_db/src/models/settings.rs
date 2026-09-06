@@ -111,7 +111,14 @@ pub struct ProxyClientSettings {
     /// SOCKS5 时 DNS 走代理解析 (socks5h vs socks5)
     #[serde(default = "default_true")]
     pub dns_over_proxy: bool,
+    /// 不走代理的 host 列表（NO_PROXY 语义：逗号分隔，域名后缀/IP/CIDR）；空 = DEFAULT_NO_PROXY
+    #[serde(default)]
+    pub no_proxy: String,
 }
+
+/// no_proxy 缺省列表：内网/局域网/loopback/link-local + `.cn` + 已支持的中国地区平台
+/// API 域（registry 2026-09-06 endpoint host 的注册域快照，新增中国平台时同步补一行）。
+pub const DEFAULT_NO_PROXY: &str = "localhost,127.0.0.1,::1,0.0.0.0,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,169.254.0.0/16,fe80::/10,.local,.internal,.cn,aliyuncs.com,deepseek.com,volces.com,bigmodel.cn,kimi.com,moonshot.cn,moonshot.ai,minimaxi.com,minimax.io,modelscope.cn,baidubce.com,sensenova.cn,sensenova.ai,siliconflow.cn,siliconflow.com,stepfun.com,stepfun.ai,xiaomimimo.com,z.ai,compshare.cn,modelverse.cn";
 
 fn default_proxy_type() -> String {
     "socks5".to_string()
@@ -133,11 +140,21 @@ impl Default for ProxyClientSettings {
             username: String::new(),
             password: String::new(),
             dns_over_proxy: true,
+            no_proxy: String::new(),
         }
     }
 }
 
 impl ProxyClientSettings {
+    /// 生效的 no_proxy 列表：用户非空配置优先，空 = DEFAULT_NO_PROXY。
+    pub fn effective_no_proxy(&self) -> &str {
+        if self.no_proxy.trim().is_empty() {
+            DEFAULT_NO_PROXY
+        } else {
+            &self.no_proxy
+        }
+    }
+
     /// Build a reqwest::Proxy from settings. Returns None if not enabled.
     pub fn to_reqwest_proxy(&self) -> Option<reqwest::Proxy> {
         if !self.enabled {
@@ -159,7 +176,8 @@ impl ProxyClientSettings {
         if !self.username.is_empty() {
             proxy = proxy.basic_auth(&self.username, &self.password);
         }
-        Some(proxy)
+        let no_proxy = reqwest::NoProxy::from_string(self.effective_no_proxy());
+        Some(proxy.no_proxy(no_proxy))
     }
 }
 

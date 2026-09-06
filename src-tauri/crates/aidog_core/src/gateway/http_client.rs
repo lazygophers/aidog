@@ -16,8 +16,9 @@ pub async fn load_proxy_client_settings(db: &Db) -> ProxyClientSettings {
         .unwrap_or_default()
 }
 
-/// Client cache key: (use_proxy, timeout_secs, conn_timeout_secs)
-type ClientKey = (bool, u64, u64);
+/// Client cache key: (use_proxy, effective no_proxy, timeout_secs, conn_timeout_secs)
+/// no_proxy 入键：编辑排除列表后必须重建 client 才生效（proxy 在 client 构建期固化）。
+type ClientKey = (bool, String, u64, u64);
 
 /// Simple LRU cache for reqwest::Client instances.
 /// Reuses TLS/connections across requests with same proxy+timeout config.
@@ -50,7 +51,7 @@ impl ClientCache {
             self.map.remove(old_key);
             self.order.remove(0);
         }
-        self.map.insert(key, client);
+        self.map.insert(key.clone(), client);
         self.order.push(key);
     }
 }
@@ -104,12 +105,21 @@ pub async fn build_http_client(
         }
     };
 
-    let cache_key = (use_proxy, timeout_secs, conn_timeout_secs);
+    let cache_key = (
+        use_proxy,
+        if use_proxy {
+            settings.effective_no_proxy().to_string()
+        } else {
+            String::new()
+        },
+        timeout_secs,
+        conn_timeout_secs,
+    );
 
     // Try cache first (read lock, fast path)
     {
         let cache = global_client_cache().read().unwrap();
-        if let Some(client) = cache.get(cache_key) {
+        if let Some(client) = cache.get(cache_key.clone()) {
             return (*client).clone();
         }
     }

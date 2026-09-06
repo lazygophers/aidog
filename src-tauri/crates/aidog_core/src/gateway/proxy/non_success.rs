@@ -100,11 +100,12 @@ pub(crate) async fn handle_non_success(
         );
     }
 
-    // ── 自动禁用（指数退避，换下个候选）：仅 401/403 鉴权失败、402 余额不足 ──
-    //   401/403/402 单次即禁用；429（无论配额耗尽还是限流）不再触发 auto_disable，
-    //   统一按决策 A 走 failover 换下个候选。熔断仍按 classify_429 区分配额/限流（见上）。
-    //   其它状态码（含 404/405/429）不自动禁用，仅按决策 A 走 failover 重试。
-    if code == 401 || code == 403 || code == 402 {
+    // ── 自动禁用（指数退避，换下个候选）：仅 401 鉴权失败、402 余额不足 ──
+    //   403 一律不自动禁用（区域封锁常返 403，误禁用代价高）；区域封锁的 401 同样不禁用
+    //   （is_region_blocked 按 message 文本分类）。429（无论配额耗尽还是限流）不触发
+    //   auto_disable，统一按决策 A 走 failover 换下个候选。熔断仍按 classify_429 区分
+    //   配额/限流（见上）。其它状态码（含 403/404/405/429）不自动禁用，仅按决策 A 走 failover 重试。
+    if (code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body))) || code == 402 {
         match aidog_db::set_platform_auto_disabled(&state.db, route.platform.id).await {
             Ok(until) if until > 0 => tracing::warn!(
                 platform = %route.platform.name, platform_id = route.platform.id, status = code,
