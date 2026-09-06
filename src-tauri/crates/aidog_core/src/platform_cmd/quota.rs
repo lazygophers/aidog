@@ -64,47 +64,69 @@ pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &P
     gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan).await;
 }
 
-/// 冷启动 est 初始化：对 tray 中启用、且从未真查过（last_real_query_at==0）的平台，
-/// 后台触发一次真查并校准对齐 est=真实。避免冷启动 tray 显 0/旧偏差大。
-/// 不阻塞：每平台 spawn 独立 async（锁外 await 真查，calibrate_from_quota 短持锁写）。
+/// 冷启动同时真查的平台数上限（出站并发，避免启动瞬间 N 个 HTTP）。
+const COLD_START_CONCURRENCY: usize = 4;
+
+/// 冷启动 est 初始化：对**所有启用、带 key、且有 quota 查询脚本**的平台后台真查一次并校准。
+/// 两件事一起解决：
+/// ① est 冷启动即有值——不再只覆盖 tray 平台，Groups 卡片 / Home 汇总（只读 est，自身不发
+///    真查）打开就有余额，不必手点刷新按钮；
+/// ② 重排 coding plan 的窗口重置定时——`spawn_refresh_at` 是内存态，进程重启即丢，
+///    这里真查一次由 `calibrate_from_quota` 顺带排回下一个 `resets_at`。
+/// 不阻塞：分批 spawn（每批 COLD_START_CONCURRENCY 个并发），每平台失败即跳过。
 /// 真查完成后发 tray-refresh，让主线程刷新托盘显示。
-pub async fn cold_start_init_tray_estimates() {
+pub async fn cold_start_init_estimates() {
     let db_state = aidog_ctx::db();
-    let Ok(Some(config)) = db::get_tray_config(db_state).await else {
+    let Ok(list) = db::list_platforms(db_state).await else {
         return;
     };
-    // 收集 tray 启用、platform 类型、且 last_real_query_at==0 的平台
-    let mut targets: Vec<gateway::models::Platform> = Vec::new();
-    for item in config
-        .items
-        .iter()
-        .filter(|i| i.enabled && i.item_type == "platform")
-    {
-        let Some(pid) = item.platform_id else {
-            continue;
-        };
-        if let Ok(Some(p)) = db::get_platform(db_state, pid).await
-            && p.last_real_query_at == 0
-        {
-            targets.push(p);
+    // 10 分钟内刚真查过的跳过：连续重启不重复轰上游（est 仍新鲜，定时由下次校准补排）。
+    let fresh_before = db::now() - 10 * 60_000;
+    let targets: Vec<gateway::models::Platform> = list
+        .into_iter()
+        .filter(|p| {
+            p.enabled
+                && !p.api_key.trim().is_empty()
+                && p.last_real_query_at < fresh_before
+                && has_quota_script(p)
+        })
+        .collect();
+    for batch in targets.chunks(COLD_START_CONCURRENCY) {
+        let tasks: Vec<_> = batch
+            .iter()
+            .cloned()
+            .map(|p| {
+                tokio::spawn(async move {
+                    let db = aidog_ctx::db();
+                    let db_arc = Arc::new(db.clone());
+                    // 统一脚本路径（quota-scripts T4）：query_quota 按平台行协议路由（物化列 →
+                    // registry 变体），newapi 两步查询 / devin ACU / 11 平台族全覆盖，
+                    // 不再 newapi/devin 三分支特判。
+                    let q = gateway::quota::query_quota(
+                        Some(&db_arc),
+                        &p.base_url,
+                        &p.api_key,
+                        p.id as i64,
+                    )
+                    .await;
+                    if !q.success {
+                        return; // 失败保留，下次再试（不重置 last_real_query_at）
+                    }
+                    let is_coding_plan = q.coding_plan.is_some();
+                    gateway::estimate::calibrate_from_quota(db, p.id, &q, is_coding_plan).await;
+                    aidog_ctx::emit_unit("tray-refresh");
+                })
+            })
+            .collect();
+        for t in tasks {
+            let _ = t.await;
         }
     }
-    for p in targets {
-        tokio::spawn(async move {
-            let db = aidog_ctx::db();
-            let db_arc = Arc::new(db.clone());
-            // 统一脚本路径（quota-scripts T4）：query_quota 按平台行协议路由（物化列 →
-            // registry 变体），newapi 两步查询 / devin ACU / 11 平台族全覆盖，
-            // 不再 newapi/devin 三分支特判。
-            let q =
-                gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64)
-                    .await;
-            if !q.success {
-                return; // 失败保留，下次再试（不重置 last_real_query_at）
-            }
-            let is_coding_plan = q.coding_plan.is_some();
-            gateway::estimate::calibrate_from_quota(db, p.id, &q, is_coding_plan).await;
-            aidog_ctx::emit_unit("tray-refresh");
-        });
-    }
+}
+
+/// 该平台能否查 quota：与前端 `platformHasQuotaScript` 同口径——物化列 / 自定义脚本 /
+/// 行协议的 registry 变体任一命中即可查。无脚本的平台不发无谓出站（也不落错误日志）。
+fn has_quota_script(p: &gateway::models::Platform) -> bool {
+    db::registry::resolve_quota_script(&p.platform_type.wire_str(), &p.extra, &p.quota_script)
+        .is_some()
 }

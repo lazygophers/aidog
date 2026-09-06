@@ -149,6 +149,60 @@ pub async fn calibrate_from_quota(
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
     tracing::info!(platform_id, is_coding_plan, coding_json_len = coding_json.len(), result = ?result, "calibrate_from_quota done");
+    schedule_reset_refresh(db, platform_id, quota).await;
+}
+
+/// 已排定的重置刷新（platform_id → 目标时刻 unix ms）。同一平台同一时刻只排一次定时。
+/// 内存态：进程重启即空，由冷启动真查重新排（见 `cold_start_init_estimates`）。
+static RESET_REFRESH: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<u64, i64>>,
+> = std::sync::OnceLock::new();
+
+/// 排入去重表：已有一个「未到点且时刻相差 <60s」的定时 → 返回 false（不重复排）。
+fn claim_refresh_slot(platform_id: u64, at_ms: i64, now_ms: i64) -> bool {
+    let map = RESET_REFRESH.get_or_init(Default::default);
+    let Ok(mut g) = map.lock() else { return false };
+    if let Some(&existing) = g.get(&platform_id)
+        && existing > now_ms
+        && (existing - at_ms).abs() < 60_000
+    {
+        return false;
+    }
+    g.insert(platform_id, at_ms);
+    true
+}
+
+/// coding plan 各档 `resets_at` 里最早的一个「足够靠后的未来时刻」（unix ms）。
+/// 30s 下限防抖：上游返回过去/临界时刻时不排（否则真查→再排→再真查自激）。
+/// 24h 上限与 `parse_quota_reset_at` 同口径：更远的时刻由下次真查再排。
+fn earliest_reset_ms(quota: &PlatformQuota, now_ms: i64) -> Option<i64> {
+    quota
+        .coding_plan
+        .as_ref()?
+        .tiers
+        .iter()
+        .filter_map(|t| super::algo::parse_resets_to_ms(t.resets_at.as_deref()?))
+        .filter(|&ms| ms > now_ms + 30_000 && ms < now_ms + 24 * 3_600_000)
+        .min()
+}
+
+/// coding plan 窗口重置时刻主动真查（不等下一个请求、不等 429）。
+/// 真查结果里每档带 `resets_at` → 排到最早那个时刻；到点刷新回来又带下一窗口的
+/// `resets_at` → 自续，无需周期轮询。非 coding plan（余额平台）无 `resets_at` → 不排。
+async fn schedule_reset_refresh(db: &Db, platform_id: u64, quota: &PlatformQuota) {
+    let Some(at_ms) = earliest_reset_ms(quota, now()) else {
+        return;
+    };
+    let Ok(Some(p)) = aidog_db::get_platform(db, platform_id).await else {
+        return;
+    };
+    spawn_refresh_at(
+        std::sync::Arc::new(db.clone()),
+        platform_id,
+        p.base_url,
+        p.api_key,
+        at_ms,
+    );
 }
 
 /// 配额重置时刻主动真查一次并校准（不等下一个请求）。
@@ -156,7 +210,8 @@ pub async fn calibrate_from_quota(
 /// 冷却期内平台不被调度 → 没有请求驱动的校准，`est_coding_plan` 会一直停在耗尽值。
 /// 排一个定时任务到重置时刻（+2s 让上游窗口确实翻篇），真查回来即对齐真实额度并刷托盘。
 /// coding plan / 余额平台由真查结果自身判定（`coding_plan.is_some()`，同 persist_quota_to_db）。
-/// 内存态：进程重启丢失该定时，下次请求再遇 429 会重新排。
+/// 内存态：进程重启丢失该定时，冷启动真查会重新排（`cold_start_init_estimates`）。
+/// 同平台同时刻去重（`claim_refresh_slot`）：429 冷却与真查自续可能排到同一时刻，只留一个。
 pub fn spawn_refresh_at(
     db: std::sync::Arc<Db>,
     platform_id: u64,
@@ -164,6 +219,9 @@ pub fn spawn_refresh_at(
     api_key: String,
     at_ms: i64,
 ) {
+    if !claim_refresh_slot(platform_id, at_ms, now()) {
+        return;
+    }
     let delay_ms = (at_ms - now()).max(0) as u64 + 2_000;
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;

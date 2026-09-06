@@ -179,7 +179,7 @@ fn derive_window_start(name: &str, resets_at: Option<&str>, now_ms: i64) -> Opti
 }
 
 /// 解析 resets_at：先按 ISO8601，再按裸 millis 数字。
-fn parse_resets_to_ms(raw: &str) -> Option<i64> {
+pub(super) fn parse_resets_to_ms(raw: &str) -> Option<i64> {
     let raw = raw.trim();
     if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(raw) {
         return Some(dt.timestamp_millis());
