@@ -273,14 +273,18 @@ pub(crate) async fn forward_attempt(
             .await
             .middleware_settings
             .clone();
-        if let InboundOutcome::Blocked {
-            blocked_by,
-            blocked_reason,
-        } = state.middleware.apply_inbound_platform(
+        // request_headers 条件同 group 层：用已脱敏的 log.request_headers。
+        let outcome = state.middleware.apply_inbound_platform(
             &mw_settings,
             chat_req,
             route.platform.id as i64,
-        ) {
+            Some(&log.request_headers),
+        );
+        if let InboundOutcome::Blocked {
+            blocked_by,
+            blocked_reason,
+        } = outcome
+        {
             log.platform_id = route.platform.id;
             return AttemptOutcome::Respond(
                 block_inbound(

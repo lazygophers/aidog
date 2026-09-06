@@ -5,7 +5,8 @@
 //! block 终止一切；mask/override 替换请求文本中命中条件叶子 pattern 的片段；
 //! inject 注入 system/body；warn 仅记日志；classify 属错误路径，入站忽略。
 //!
-//! 已知限制：chat_req 抽象层无请求 headers → request_headers 叶子恒不命中（文档化）。
+//! request_headers 叶子的取值来自挂载点传入的 `req_headers`（客户端原始请求头的 JSON
+//! 对象字符串，敏感头已按 proxy_log 规则脱敏）。
 
 use aidog_adapter::{ChatRequest, MessageContent, SystemContent};
 use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
@@ -28,17 +29,20 @@ pub enum InboundOutcome {
 
 impl MiddlewareEngine {
     /// 入站规则执行（路由前挂载点：group 层）。
+    /// `req_headers`：客户端原始请求头的 JSON 对象字符串（敏感头已脱敏），供
+    /// request_headers 条件叶子求值；None = 无 HTTP 上下文，header 叶子不命中。
     /// 返回 [`InboundOutcome`]：`Continue` 放行（可能已原地改写 chat_req），`Blocked` 拦截。
     pub fn apply_inbound(
         &self,
         settings: &MiddlewareSettings,
         chat_req: &mut ChatRequest,
         group_key: Option<&str>,
+        req_headers: Option<&str>,
     ) -> InboundOutcome {
         if !settings.enabled {
             return InboundOutcome::Continue;
         }
-        self.apply_inbound_inner(chat_req, group_key, None)
+        self.apply_inbound_inner(chat_req, group_key, None, req_headers)
     }
 
     /// 入站规则执行（候选选定后挂载点：platform 层）。
@@ -49,11 +53,12 @@ impl MiddlewareEngine {
         settings: &MiddlewareSettings,
         chat_req: &mut ChatRequest,
         platform_id: i64,
+        req_headers: Option<&str>,
     ) -> InboundOutcome {
         if !settings.enabled {
             return InboundOutcome::Continue;
         }
-        self.apply_inbound_inner(chat_req, None, Some(platform_id))
+        self.apply_inbound_inner(chat_req, None, Some(platform_id), req_headers)
     }
 
     fn apply_inbound_inner(
@@ -61,12 +66,14 @@ impl MiddlewareEngine {
         chat_req: &mut ChatRequest,
         group_key: Option<&str>,
         platform_id: Option<i64>,
+        req_headers: Option<&str>,
     ) -> InboundOutcome {
         for cr in self.request_rules(group_key, platform_id, &chat_req.model) {
             // 每条规则求值前重新聚合文本（前序规则的 mask/inject 已改写请求）。
             let matched = {
                 let view = EvalView {
                     req_text: collect_request_text(chat_req),
+                    req_headers,
                     model: chat_req.model.as_str(),
                     ..Default::default()
                 };

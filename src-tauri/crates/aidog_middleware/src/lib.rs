@@ -88,7 +88,7 @@ pub(crate) struct EvalView<'a> {
     pub req_text: String,
     /// 请求 body 原始 JSON（JSON path 定位用；透传分支可为 None）
     pub req_body_json: Option<Value>,
-    /// 请求 headers（JSON 对象字符串；chat_req 抽象层无 → None，header 叶子恒不命中）
+    /// 请求 headers（JSON 对象字符串；由挂载点从客户端原始请求头传入，敏感头已脱敏）
     pub req_headers: Option<&'a str>,
     pub model: &'a str,
     pub resp_body: Option<&'a str>,

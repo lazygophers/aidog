@@ -437,12 +437,18 @@ pub(crate) async fn handle_proxy_core(
             .await
             .middleware_settings
             .clone();
+        // request_headers 条件求值用 log.request_headers（已按 proxy_log 规则脱敏的
+        // 请求头 JSON），规则可匹配 header 名/非敏感值，敏感头值为 [REDACTED] 不落明文。
+        let outcome = state.middleware.apply_inbound(
+            &mw_settings,
+            &mut chat_req,
+            Some(&group.group_key),
+            Some(&log.request_headers),
+        );
         if let InboundOutcome::Blocked {
             blocked_by,
             blocked_reason,
-        } = state
-            .middleware
-            .apply_inbound(&mw_settings, &mut chat_req, Some(&group.group_key))
+        } = outcome
         {
             return block_inbound(
                 &state,
