@@ -53,6 +53,26 @@ pub async fn middleware_delete_rule(
 }
 
 crate::tauri_command! {
+/// 票 06：全部预算闸门规则的当前自然月窗口状态（已用 / 剩余，前端规则行展示）。
+pub async fn middleware_budget_status() -> Result<Vec<MiddlewareBudgetStatus>, String> {
+    let db = aidog_ctx::db();
+    let engine = aidog_ctx::ctx().middleware();
+    Ok(engine
+        .budget_states(db)
+        .await
+        .into_iter()
+        .map(|s| MiddlewareBudgetStatus {
+            remaining_usd: s.remaining_usd(),
+            rule_id: s.rule_id,
+            rule_name: s.rule_name,
+            budget_usd: s.budget_usd,
+            spent_usd: s.spent_usd,
+        })
+        .collect())
+}
+}
+
+crate::tauri_command! {
 pub async fn middleware_settings_get() -> Result<MiddlewareSettings, String> {
     let db = aidog_ctx::db();
     Ok(aidog_db::get_setting(db, "middleware", "settings").await

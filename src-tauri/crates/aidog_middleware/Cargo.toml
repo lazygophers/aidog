@@ -10,6 +10,7 @@ license = { workspace = true }
 [dependencies]
 aidog_db = { path = "../aidog_db" }
 aidog_adapter = { path = "../aidog_adapter" }
+aidog_stats = { path = "../aidog_stats" }
 serde = { workspace = true }
 serde_json = { workspace = true }
 regex = { workspace = true }
@@ -17,4 +18,4 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true }
-aidog_stats = { path = "../aidog_stats" }
+chrono = { workspace = true }

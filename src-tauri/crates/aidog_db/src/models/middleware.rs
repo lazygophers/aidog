@@ -143,6 +143,10 @@ pub enum ActionKind {
     Override,
     /// 错误分类（终止性；category/retryable/override_status/override_body 喂重试编排）
     Classify,
+    /// 成本预算闸门（票 06）：本自然月内 applies_to 范围的累计花费 ≥ `params.budget_usd`
+    /// 即拒绝请求。判定需查库（异步），故不在同步的 inbound 动作链内执行，
+    /// 由 `MiddlewareEngine::check_budget` 单独一趟处理（inbound/outbound 均忽略本 kind）。
+    BudgetGate,
 }
 
 impl ActionKind {
@@ -154,10 +158,13 @@ impl ActionKind {
             ActionKind::Inject => "inject",
             ActionKind::Override => "override",
             ActionKind::Classify => "classify",
+            ActionKind::BudgetGate => "budget_gate",
         }
     }
 
     /// 终止性动作：停止本链及后续规则。
+    /// budget_gate 超限时也终止请求，但判定在 `check_budget` 那一趟，
+    /// 不参与同步动作链的 terminal 语义。
     pub fn is_terminal(&self) -> bool {
         matches!(self, ActionKind::Block | ActionKind::Classify)
     }
@@ -198,6 +205,9 @@ pub struct ActionParams {
     /// 请求照常转发照常计费，用于拿真实流量验证正则不误伤；缺省 false = 真拦截。
     #[serde(default)]
     pub observe: bool,
+    /// budget_gate：本自然月预算上限（美元）。≤ 0 = 未配置，闸门不生效。
+    #[serde(default)]
+    pub budget_usd: f64,
 }
 
 impl Default for ActionParams {
@@ -213,6 +223,7 @@ impl Default for ActionParams {
             override_status: None,
             override_body: None,
             observe: false,
+            budget_usd: 0.0,
         }
     }
 }
@@ -356,6 +367,20 @@ pub fn validate_rule_phases(node: &ConditionNode) -> Result<(), String> {
     }
     let mut phase = None;
     walk(node, &mut phase)
+}
+
+/// 预算闸门规则的当前窗口状态（票 06，`middleware_budget_status` 返回体）。
+/// 窗口固定自然月；`spent_usd` 取本月 `stats_agg_hourly` 内 applies_to 范围的累计花费。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct MiddlewareBudgetStatus {
+    #[ts(type = "number")]
+    pub rule_id: i64,
+    pub rule_name: String,
+    pub budget_usd: f64,
+    pub spent_usd: f64,
+    /// 剩余额度，已超限为负。
+    pub remaining_usd: f64,
 }
 
 /// 中间件总设置（settings KV：scope="middleware" key="settings"）。

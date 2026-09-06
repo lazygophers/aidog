@@ -384,6 +384,7 @@ dependencies = [
  "aidog_adapter",
  "aidog_db",
  "aidog_stats",
+ "chrono",
  "regex",
  "serde",
  "serde_json",

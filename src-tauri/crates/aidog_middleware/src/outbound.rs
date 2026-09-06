@@ -89,8 +89,12 @@ impl MiddlewareEngine {
                             "middleware outbound: warn rule matched"
                         );
                     }
-                    // block：响应已到达无法收回；inject 属入站；classify 属非 2xx 路径。
-                    ActionKind::Block | ActionKind::Inject | ActionKind::Classify => {}
+                    // block：响应已到达无法收回；inject 属入站；classify 属非 2xx 路径；
+                    // budget_gate 属入站（check_budget）。
+                    ActionKind::Block
+                    | ActionKind::Inject
+                    | ActionKind::Classify
+                    | ActionKind::BudgetGate => {}
                 }
             }
         }

@@ -9,10 +9,12 @@ import type { MiddlewareRule } from "../../services/api";
 
 const listRules = vi.hoisted(() => vi.fn());
 const updateRule = vi.hoisted(() => vi.fn());
+const budgetStatus = vi.hoisted(() => vi.fn());
 vi.mock("../../services/api/scheduling", () => ({
   middlewareApi: {
     listRules: (...a: unknown[]) => listRules(...a),
     updateRule: (...a: unknown[]) => updateRule(...a),
+    budgetStatus: () => budgetStatus(),
   },
 }));
 const platformList = vi.hoisted(() => vi.fn());
@@ -50,6 +52,7 @@ beforeEach(() => {
   updateRule.mockReset();
   platformList.mockReset().mockResolvedValue([]);
   groupList.mockReset().mockResolvedValue([]);
+  budgetStatus.mockReset().mockResolvedValue([]);
 });
 
 describe("MiddlewareRulesPanel（统一引擎列表）", () => {
@@ -126,6 +129,31 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     render(<MiddlewareRulesPanel />);
     await waitFor(() => expect(screen.getByText("wild")).toBeTruthy());
     expect(screen.getByText("scoped")).toBeTruthy();
+  });
+
+  // 票 06：预算闸门规则行展示本月已用 / 剩余额度；超限时提示已超预算。
+  it("预算闸门规则：展示本月已用与剩余额度", async () => {
+    listRules.mockResolvedValue([
+      mk({ id: 7, name: "budget-rule", actions: [{ kind: "budget_gate", params: { budget_usd: 10 } }] }),
+    ]);
+    budgetStatus.mockResolvedValue([
+      { rule_id: 7, rule_name: "budget-rule", budget_usd: 10, spent_usd: 3, remaining_usd: 7 },
+    ]);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("budget-rule")).toBeTruthy());
+    expect(screen.getByText(/middleware\.budgetUsed \$3\.00 \/ \$10\.00/)).toBeTruthy();
+    expect(screen.getByText(/middleware\.budgetRemaining \$7\.00/)).toBeTruthy();
+  });
+
+  it("预算闸门规则：已超限显示超预算提示", async () => {
+    listRules.mockResolvedValue([
+      mk({ id: 7, name: "budget-rule", actions: [{ kind: "budget_gate", params: { budget_usd: 10 } }] }),
+    ]);
+    budgetStatus.mockResolvedValue([
+      { rule_id: 7, rule_name: "budget-rule", budget_usd: 10, spent_usd: 12.5, remaining_usd: -2.5 },
+    ]);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("middleware.budgetExceeded")).toBeTruthy());
   });
 
   it("新增 / 编辑走弹窗：默认无 dialog，点开后 role=dialog 存在，关闭后消失", async () => {

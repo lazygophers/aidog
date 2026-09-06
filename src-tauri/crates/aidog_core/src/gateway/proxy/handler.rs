@@ -470,6 +470,33 @@ pub(crate) async fn handle_proxy_core(
             InboundOutcome::Observed { blocked_by } => record_observed(&mut log, blocked_by),
             InboundOutcome::Continue => {}
         }
+        // 成本预算闸门（票 06）：本自然月花费超预算 → 拒绝。无 budget_gate 规则时零查询。
+        if let InboundOutcome::Blocked {
+            blocked_by,
+            blocked_reason,
+        } = state
+            .middleware
+            .check_budget(
+                &mw_settings,
+                &state.db,
+                &chat_req,
+                Some(&group.group_key),
+                None,
+                Some(&log.request_headers),
+            )
+            .await
+        {
+            return block_inbound(
+                &state,
+                log,
+                &log_settings,
+                lang,
+                blocked_by,
+                blocked_reason,
+                start,
+            )
+            .await;
+        }
     }
 
     // ── 路由选择有序候选平台列表（失败逐个重试）──

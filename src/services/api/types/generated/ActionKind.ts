@@ -3,4 +3,4 @@
 /**
  * 动作种类。
  */
-export type ActionKind = "mask" | "block" | "warn" | "inject" | "override" | "classify";
+export type ActionKind = "mask" | "block" | "warn" | "inject" | "override" | "classify" | "budget_gate";

@@ -44,4 +44,8 @@ override_body: string | null,
  * block：观察模式。true = 命中只落审计日志（proxy_log.blocked_reason='observe'）并放行，
  * 请求照常转发照常计费，用于拿真实流量验证正则不误伤；缺省 false = 真拦截。
  */
-observe: boolean, };
+observe: boolean, 
+/**
+ * budget_gate：本自然月预算上限（美元）。≤ 0 = 未配置，闸门不生效。
+ */
+budget_usd: number, };

@@ -16,7 +16,9 @@ import {
   type ActionStep,
   type AppliesTo,
   type ActionKind,
+  type MiddlewareBudgetStatus,
 } from "../../services/api";
+import { formatCostUsd } from "../../utils/formatters";
 import { F, S } from "./editors";
 import { IconClose, IconEdit } from "../icons";
 import { Button } from "@/components/ui/button";
@@ -162,7 +164,7 @@ function MultiSelect<T extends number | string>({
 
 const TARGETS = ["request_body", "request_headers", "response_body", "response_headers", "status", "model"] as const;
 const MATCH_TYPES = ["contains", "regex", "exact"] as const;
-const ACTION_KINDS = ["mask", "block", "warn", "inject", "override", "classify"] as const;
+const ACTION_KINDS = ["mask", "block", "warn", "inject", "override", "classify", "budget_gate"] as const;
 // mask 的 fields 是闭集：Rust 侧 inbound.rs 只认 "messages" / "system"，
 // 写别的值等于什么都不 mask（静默失效），故这里用多选而非自由文本。
 const MASK_FIELDS = ["messages", "system"] as const;
@@ -220,6 +222,7 @@ function actionLabel(t: TFunction, a: ActionKind): string {
     inject: t("middleware.action.inject", "注入"),
     override: t("middleware.action.override", "改写"),
     classify: t("middleware.action.classify", "分类"),
+    budget_gate: t("middleware.action.budgetGate", "预算闸门"),
   };
   return map[a];
 }
@@ -400,6 +403,7 @@ function defaultParams(): ActionStep["params"] {
     override_status: null,
     override_body: null,
     observe: false,
+    budget_usd: 0,
   };
 }
 
@@ -420,7 +424,7 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
     onChange(next);
   };
   const add = () => onChange([...steps, { kind: "warn", params: defaultParams() }]);
-  const terminal = (k: ActionKind) => k === "block" || k === "classify";
+  const terminal = (k: ActionKind) => k === "block" || k === "classify" || k === "budget_gate";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {steps.map((st, i) => (
@@ -511,6 +515,25 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                   onChange={(v) => setStep(i, { ...st, params: { ...st.params, value: v } })}
                 />
               </div>
+            </div>
+          )}
+          {st.kind === "budget_gate" && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>$</span>
+              <Input
+                style={{ fontSize: F.hint, minWidth: 110, flex: "0 1 160px" }}
+                type="number"
+                min={0}
+                step="0.01"
+                placeholder={t("middleware.budgetAmount", "本月预算上限（美元）")}
+                value={st.params.budget_usd || ""}
+                onChange={(e) =>
+                  setStep(i, { ...st, params: { ...st.params, budget_usd: Number(e.target.value) || 0 } })
+                }
+              />
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                {t("middleware.budgetHint", "本自然月内作用范围的累计花费达到该金额后，请求被拒绝（每月 1 号归零）")}
+              </span>
             </div>
           )}
           {st.kind === "classify" && (
@@ -866,12 +889,13 @@ export function RuleFormDialog({
 
 interface RuleRowProps {
   rule: MiddlewareRule;
+  budget?: MiddlewareBudgetStatus;
   onEdit: (rule: MiddlewareRule) => void;
   onToggle: (rule: MiddlewareRule) => void;
   onDelete: (id: number) => void;
 }
 
-function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
+function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
   const { t } = useTranslation();
   return (
     <div
@@ -932,6 +956,45 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
             {conditionsSummary(rule.conditions)}
           </div>
         )}
+        {budget && (
+          <div style={{ marginTop: 4, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {/* 本自然月已用 / 上限进度条：超限变红，剩余额度紧随其后 */}
+            <div
+              style={{
+                position: "relative",
+                flex: "1 1 120px",
+                minWidth: 100,
+                maxWidth: 220,
+                height: 4,
+                borderRadius: 2,
+                background: "var(--border)",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.min(100, (budget.spent_usd / budget.budget_usd) * 100)}%`,
+                  height: "100%",
+                  background: budget.remaining_usd <= 0 ? "var(--color-danger)" : "var(--color-accent)",
+                }}
+              />
+            </div>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              {t("middleware.budgetUsed", "本月已用")} {formatCostUsd(budget.spent_usd)} /{" "}
+              {formatCostUsd(budget.budget_usd)}
+            </span>
+            <span
+              style={{
+                fontSize: 11,
+                color: budget.remaining_usd <= 0 ? "var(--color-danger)" : "var(--text-tertiary)",
+              }}
+            >
+              {budget.remaining_usd <= 0
+                ? t("middleware.budgetExceeded", "已超预算，请求被拒绝")
+                : `${t("middleware.budgetRemaining", "剩余")} ${formatCostUsd(budget.remaining_usd)}`}
+            </span>
+          </div>
+        )}
       </div>
 
       <Switch
@@ -965,6 +1028,8 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
 export function MiddlewareRulesPanel() {
   const { t } = useTranslation();
   const [rules, setRules] = useState<MiddlewareRule[]>([]);
+  // 预算闸门规则的本月已用 / 剩余（rule_id → 状态）。无 budget_gate 规则时为空 Map。
+  const [budgets, setBudgets] = useState<Map<number, MiddlewareBudgetStatus>>(new Map());
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<MiddlewareRule | undefined>(undefined);
@@ -977,6 +1042,13 @@ export function MiddlewareRulesPanel() {
     try {
       const all = await middlewareApi.listRules();
       setRules(all || []);
+      // 预算状态查库（每规则一次聚合），与规则列表同批刷新；失败不影响列表渲染。
+      try {
+        const st = await middlewareApi.budgetStatus();
+        setBudgets(new Map((st || []).map((b) => [b.rule_id, b])));
+      } catch (e) {
+        console.error("middleware budget status failed", e);
+      }
     } catch (e) {
       console.error("list middleware rules failed", e);
       setError(String(e));
@@ -1060,6 +1132,7 @@ export function MiddlewareRulesPanel() {
             <RuleRow
               key={rule.id}
               rule={rule}
+              budget={budgets.get(rule.id)}
               onEdit={openEdit}
               onToggle={handleToggle}
               onDelete={handleDelete}
