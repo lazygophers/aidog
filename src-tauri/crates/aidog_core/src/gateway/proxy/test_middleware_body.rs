@@ -108,6 +108,7 @@ fn passthrough_header_condition_drives_mask() {
                 field: "user-agent".to_string(),
                 match_type: MatchType::Contains,
                 pattern: "claude-cli".to_string(),
+                validator: String::new(),
             }),
             body_contains_leaf(SECRET),
         ],
