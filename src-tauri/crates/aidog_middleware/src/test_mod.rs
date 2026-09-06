@@ -124,7 +124,7 @@ fn invalid_regex_fail_open_never_matches() {
     )]);
     let mut cr = chat_req("s", "hello");
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut cr, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None),
         InboundOutcome::Continue
     );
 }
@@ -160,17 +160,17 @@ fn condition_tree_all_any_nesting() {
     )]);
     let mut cr = chat_req("", "xxfooxxbarxx");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None),
         InboundOutcome::Blocked { .. }
     ));
     let mut cr = chat_req("", "baz");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None),
         InboundOutcome::Blocked { .. }
     ));
     let mut cr = chat_req("", "foo"); // AND 缺第二支
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut cr, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None),
         InboundOutcome::Continue
     );
 }
@@ -226,7 +226,7 @@ fn inbound_mask_rewrites_message_and_system() {
         "secret sk-abcdefghijklmnopqrst in system",
         "key sk-abcdefghijklmnopqrst here",
     );
-    e.apply_inbound(&settings_on(), &mut cr, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None);
     assert!(!collect_request_text(&cr).contains("sk-"));
     assert!(collect_request_text(&cr).contains("****"));
 }
@@ -241,7 +241,7 @@ fn inbound_mask_fields_limit_to_messages() {
         vec![mask_step("[gone]", &["messages"])],
     )]);
     let mut cr = chat_req("secret in system", "secret in msg");
-    e.apply_inbound(&settings_on(), &mut cr, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None);
     let text = collect_request_text(&cr);
     assert!(text.contains("[gone]"), "messages masked");
     assert!(text.contains("secret in system"), "system untouched");
@@ -264,7 +264,7 @@ fn inbound_override_regex_capture_backrefs() {
         )],
     )]);
     let mut cr = chat_req("", "today is 2026/08/24 ok");
-    e.apply_inbound(&settings_on(), &mut cr, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None);
     assert!(collect_request_text(&cr).contains("2026-08-24"));
 }
 
@@ -285,7 +285,7 @@ fn inbound_inject_system_append() {
         )],
     )]);
     let mut cr = chat_req("base", "u");
-    e.apply_inbound(&settings_on(), &mut cr, None);
+    e.apply_inbound(&settings_on(), &mut cr, None, None);
     assert!(matches!(&cr.system, Some(SystemContent::Text(t)) if t.contains("INJECTED")));
 }
 
@@ -308,7 +308,7 @@ fn terminal_block_stops_later_rules() {
     ]);
     let mut cr = chat_req("", "x");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None),
         InboundOutcome::Blocked { .. }
     ));
     assert!(!collect_request_text(&cr).contains("NEVER"));
@@ -326,9 +326,110 @@ fn master_switch_off_disables_everything() {
     let mut cr = chat_req("", "x");
     let off = MiddlewareSettings { enabled: false };
     assert_eq!(
-        e.apply_inbound(&off, &mut cr, None),
+        e.apply_inbound(&off, &mut cr, None, None),
         InboundOutcome::Continue
     );
+}
+
+// ─── 入站 request_headers 条件（票 01） ─────────────────────
+
+/// 以 header 名为 field 的 contains 叶子。
+fn header_leaf(name: &str, pattern: &str) -> ConditionNode {
+    ConditionNode::Leaf(ConditionLeaf {
+        target: Target::RequestHeaders,
+        field: name.to_string(),
+        match_type: MatchType::Contains,
+        pattern: pattern.to_string(),
+    })
+}
+
+/// 只有 header 条件的 block 规则引擎。
+fn header_block_engine(field: &str, pattern: &str) -> MiddlewareEngine {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "ua",
+        header_leaf(field, pattern),
+        vec![step(ActionKind::Block, ActionParams::default())],
+    )]);
+    e
+}
+
+#[test]
+fn inbound_header_condition_matches() {
+    let e = header_block_engine("user-agent", "claude-cli");
+    let headers = r#"{"user-agent":"claude-cli/2.0.1","accept":"*/*"}"#;
+    let mut cr = chat_req("", "hi");
+    assert!(matches!(
+        e.apply_inbound(&settings_on(), &mut cr, None, Some(headers)),
+        InboundOutcome::Blocked { .. }
+    ));
+    // platform 层挂载点同样生效
+    let mut cr2 = chat_req("", "hi");
+    assert!(matches!(
+        e.apply_inbound_platform(&settings_on(), &mut cr2, 7, Some(headers)),
+        InboundOutcome::Blocked { .. }
+    ));
+}
+
+#[test]
+fn inbound_header_condition_not_matched_when_value_differs() {
+    let e = header_block_engine("user-agent", "claude-cli");
+    let mut cr = chat_req("", "hi");
+    assert_eq!(
+        e.apply_inbound(
+            &settings_on(),
+            &mut cr,
+            None,
+            Some(r#"{"user-agent":"codex_cli_rs/0.9"}"#)
+        ),
+        InboundOutcome::Continue
+    );
+}
+
+#[test]
+fn inbound_header_condition_absent_header_does_not_match() {
+    let e = header_block_engine("anthropic-beta", "oauth");
+    let mut cr = chat_req("", "hi");
+    // header 不存在
+    assert_eq!(
+        e.apply_inbound(&settings_on(), &mut cr, None, Some(r#"{"accept":"*/*"}"#)),
+        InboundOutcome::Continue
+    );
+    // 无 HTTP 上下文（挂载点未传 headers）
+    let mut cr2 = chat_req("", "hi");
+    assert_eq!(
+        e.apply_inbound(&settings_on(), &mut cr2, None, None),
+        InboundOutcome::Continue
+    );
+}
+
+#[test]
+fn inbound_header_name_matching_is_case_insensitive() {
+    // 规则写混合大小写、实际请求头小写
+    let e = header_block_engine("User-Agent", "claude-cli");
+    let mut cr = chat_req("", "hi");
+    assert!(matches!(
+        e.apply_inbound(
+            &settings_on(),
+            &mut cr,
+            None,
+            Some(r#"{"user-agent":"claude-cli/2.0.1"}"#)
+        ),
+        InboundOutcome::Blocked { .. }
+    ));
+    // 规则写小写、实际请求头混合大小写
+    let e2 = header_block_engine("anthropic-beta", "oauth");
+    let mut cr2 = chat_req("", "hi");
+    assert!(matches!(
+        e2.apply_inbound(
+            &settings_on(),
+            &mut cr2,
+            None,
+            Some(r#"{"Anthropic-Beta":"oauth-2025-04-20"}"#)
+        ),
+        InboundOutcome::Blocked { .. }
+    ));
 }
 
 // ─── 出站 / 错误分类 ────────────────────────────────────────
