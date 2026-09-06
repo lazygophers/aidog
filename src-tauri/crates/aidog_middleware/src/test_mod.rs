@@ -387,7 +387,7 @@ fn observe_block_allows_request_and_reports_hit() {
         vec![block_step(true)],
     )]);
     let mut cr = chat_req("", "a secret here");
-    match e.apply_inbound(&settings_on(), &mut cr, None, None) {
+    match e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()) {
         InboundOutcome::Observed { blocked_by } => assert_eq!(blocked_by, "rule#7 watcher"),
         other => panic!("expected Observed, got {other:?}"),
     }
@@ -396,7 +396,7 @@ fn observe_block_allows_request_and_reports_hit() {
     // 不命中 → 仍是 Continue。
     let mut clean = chat_req("", "nothing here");
     assert_eq!(
-        e.apply_inbound(&settings_on(), &mut clean, None, None),
+        e.apply_inbound(&settings_on(), &mut clean, None, None, &mut Vec::new()),
         InboundOutcome::Continue
     );
 }
@@ -412,7 +412,7 @@ fn observe_false_still_blocks() {
     )]);
     let mut cr = chat_req("", "a secret here");
     assert!(matches!(
-        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()),
         InboundOutcome::Blocked { .. }
     ));
 }
@@ -430,7 +430,7 @@ fn observe_does_not_stop_later_rules() {
         ),
     ]);
     let mut cr = chat_req("", "x");
-    match e.apply_inbound(&settings_on(), &mut cr, None, None) {
+    match e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()) {
         InboundOutcome::Observed { blocked_by } => assert_eq!(blocked_by, "rule#1 watch"),
         other => panic!("expected Observed, got {other:?}"),
     }
@@ -446,7 +446,7 @@ fn multiple_observe_hits_are_joined() {
         mk_rule(2, "b", leaf(Target::RequestBody, "x"), vec![block_step(true)]),
     ]);
     let mut cr = chat_req("", "x");
-    match e.apply_inbound(&settings_on(), &mut cr, None, None) {
+    match e.apply_inbound(&settings_on(), &mut cr, None, None, &mut Vec::new()) {
         InboundOutcome::Observed { blocked_by } => {
             assert_eq!(blocked_by, "rule#1 a; rule#2 b")
         }
