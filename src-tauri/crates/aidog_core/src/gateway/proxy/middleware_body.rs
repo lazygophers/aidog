@@ -29,6 +29,9 @@ enum Side {
 /// 透传 body 上应用 middleware 入站改写。返回是否真的改写了 body（调用方记日志）。
 ///
 /// 无命中规则时**一个字节都不动**（不写回、不注入），保证「无规则透传逐字节不变」。
+///
+/// `req_headers`：proxy_log 已脱敏的客户端请求头 JSON，与 chat_req 层同源；
+/// 不传则 header 条件驱动的 mask/override 在透传分支不命中（票 03 补齐）。
 pub(crate) fn apply_middleware_body(
     engine: &MiddlewareEngine,
     settings: &MiddlewareSettings,
@@ -36,6 +39,7 @@ pub(crate) fn apply_middleware_body(
     wire: &Protocol,
     model: &str,
     platform_id: i64,
+    req_headers: Option<&str>,
 ) -> bool {
     let mut texts = InboundTexts::new(model);
     for side in [Side::System, Side::Messages] {
@@ -50,7 +54,7 @@ pub(crate) fn apply_middleware_body(
     }
     let before = (texts.system.clone(), texts.messages.clone());
 
-    engine.apply_inbound_texts(settings, &mut texts, platform_id);
+    engine.apply_inbound_texts(settings, &mut texts, platform_id, req_headers);
 
     let rewritten = before.0 != texts.system || before.1 != texts.messages;
     if !rewritten && texts.injects.is_empty() {

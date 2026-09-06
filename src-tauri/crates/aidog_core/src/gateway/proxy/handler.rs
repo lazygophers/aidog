@@ -427,6 +427,10 @@ pub(crate) async fn handle_proxy_core(
         chat_req.model = requested_model.clone();
     }
 
+    // group 层命中的 inject/header_set 在此收集，路由后由 forward_attempt 写进上游请求头
+    //（此处还没选定平台，谈不上"上游请求"）。
+    let mut group_header_injects: Vec<(String, String)> = Vec::new();
+
     // ── 中间件入站规则（global/group 层，路由前）──
     // settings 读取 fail-open（异常 → Default 总开关 ON）；apply 内单条规则异常不阻断主链路。
     // 顺序：request_filter→sensitive_word→redaction→content_filter→dynamic_injection。
@@ -444,6 +448,7 @@ pub(crate) async fn handle_proxy_core(
             &mut chat_req,
             Some(&group.group_key),
             Some(&log.request_headers),
+            &mut group_header_injects,
         );
         match outcome {
             InboundOutcome::Blocked {
@@ -636,6 +641,7 @@ pub(crate) async fn handle_proxy_core(
             &orig_headers,
             &sched_settings,
             start,
+            &group_header_injects,
         )
         .await
         {
