@@ -6,10 +6,9 @@
 //     classify 属错误路径，不在此。
 //   - 非 2xx：classify_error 求值响应侧规则，取链内 classify 步骤产出
 //     ErrorClassification 喂现有重试编排（本层不引入熔断器）。
-//   - 流式 SSE：apply_outbound_stream_chunk 逐块应用 mask/override。
-//     **已知限制**：逐块替换在 chunk 边界处可能漏匹配（密钥被切到两个 chunk），
-//     滑窗跨块匹配列为后续（design 备注）。另：流式挂载点仍不传 model / 上游响应头，
-//     故 applies_to.models 与 response_headers 条件在流式路径尚未生效（票 05 处理）。
+//   - 流式 SSE：StreamMasker（滑窗）逐块应用 mask/override，跨 chunk 边界不漏匹配
+//     （尾窗延后一块下发，票 05）。流式挂载点仍不传 model / 上游响应头，故
+//     applies_to.models 与 response_headers 条件在流式路径尚未生效。
 //
 // 非流式 2xx 与非 2xx 两条路径均传入请求 model 与上游响应头 JSON：
 //   - model 取**客户端请求的模型名**（remap 前），与入站主挂载点 handler.rs 同口径；
@@ -17,9 +16,15 @@
 //   - resp_headers 为 `{name: value}` JSON 字符串，header 名匹配大小写不敏感
 //     （见 lib.rs::header_value）。
 
-use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
+use std::sync::Arc;
+
+use aidog_db::models::{ActionKind, MatchType, MiddlewareSettings, Target};
 
 use super::{EvalView, MiddlewareEngine, collect_patterns, replace_match};
+
+/// 含正则叶子时的尾窗保守上界（字节）。正则的最大匹配长度不可静态求（`.*` 等无界），
+/// 取一个覆盖常见密钥/证件号长度的常数；literal 叶子按自身长度动态取，不吃这个上界。
+const REGEX_WINDOW_BYTES: usize = 256;
 
 /// error classify 结果。喂给现有重试编排：
 /// - `retryable == false` → 重试编排立即返回不换候选（用 override_status/body 若有）。
@@ -137,10 +142,9 @@ impl MiddlewareEngine {
         None
     }
 
-    /// 流式 SSE 逐块改写：对单个 chunk 文本应用 mask/override（与非流式同语义，逐块）。
-    /// 返回改写后文本（无命中 → 原样返回）。
-    ///
-    /// **已知限制**：跨 chunk 边界的密钥/敏感词可能漏匹配（被切两半），滑窗后续实现。
+    /// 流式 SSE 逐块改写：对单段文本应用 mask/override（与非流式同语义）。
+    /// 返回改写后文本（无命中 → 原样返回）。跨 chunk 边界由 [`StreamMasker`] 的尾窗保证，
+    /// 本函数只做块内替换，调用方须经 StreamMasker 而非直接逐 chunk 调用。
     /// block/inject/classify 流式不适用（block 已发字节无法收回，由首块前的入站层负责）。
     pub fn apply_outbound_stream_chunk(
         &self,
@@ -183,6 +187,105 @@ impl MiddlewareEngine {
                 }
             }
         }
+        out
+    }
+
+    /// 建流式滑窗脱敏器（每条流一个，见 [`StreamMasker`]）。
+    /// 尾窗大小按当前生效的响应侧 mask/override 规则动态取：literal 叶子取 pattern 字节长，
+    /// 正则叶子取 [`REGEX_WINDOW_BYTES`]。无此类规则（或总开关 OFF）→ 窗口 0，纯透传零延迟。
+    pub fn stream_masker(
+        self: &Arc<Self>,
+        settings: &MiddlewareSettings,
+        group_key: Option<&str>,
+        platform_id: Option<i64>,
+    ) -> StreamMasker {
+        let mut window = 0usize;
+        if settings.enabled {
+            for cr in self.response_rules(group_key, platform_id, "") {
+                if !cr
+                    .rule
+                    .actions
+                    .iter()
+                    .any(|a| matches!(a.kind, ActionKind::Mask | ActionKind::Override))
+                {
+                    continue;
+                }
+                for leaf in collect_patterns(&cr.conditions, Target::ResponseBody) {
+                    let w = match leaf.match_type {
+                        MatchType::Regex => REGEX_WINDOW_BYTES,
+                        MatchType::Contains | MatchType::Exact => leaf.pattern.len(),
+                    };
+                    window = window.max(w);
+                }
+            }
+        }
+        StreamMasker {
+            engine: self.clone(),
+            settings: settings.clone(),
+            group_key: group_key.map(str::to_string),
+            platform_id,
+            window,
+            pending: String::new(),
+        }
+    }
+}
+
+/// 流式脱敏滑窗：把每个 chunk 的**尾部 window 字节**扣住延到下一块再下发，
+/// 于是被 SSE 分块切成两半的密钥/敏感词在拼接后仍能被同一套规则命中。
+///
+/// 首字延迟代价有明确上界：任一字节最多**延后一个 chunk**下发（不是延后到流末），
+/// 且只有落在尾窗内的至多 `window` 字节会被延；window ≤ 256 字节（正则上界）或最长
+/// literal pattern 长度。无 mask/override 响应规则时 window = 0，退化为零拷贝透传。
+///
+/// 生命周期 = 一条流。客户端断连时本结构随 stream 一起 Drop，扣住的字节从未下发 → 不泄漏；
+/// 上游中断 / 流正常结束都必须调 [`StreamMasker::finish`] 把残留冲刷出去，不能吞。
+pub struct StreamMasker {
+    engine: Arc<MiddlewareEngine>,
+    settings: MiddlewareSettings,
+    group_key: Option<String>,
+    platform_id: Option<i64>,
+    window: usize,
+    pending: String,
+}
+
+impl StreamMasker {
+    /// 本流是否需要滑窗（无生效 mask/override 规则 → false，调用方可整段跳过）。
+    pub fn is_active(&self) -> bool {
+        self.window > 0
+    }
+
+    /// 吃进一个 chunk 文本，返回本次可安全下发的（已脱敏）文本。
+    fn mask(&self, text: &str) -> String {
+        self.engine.apply_outbound_stream_chunk(
+            &self.settings,
+            text,
+            self.group_key.as_deref(),
+            self.platform_id,
+        )
+    }
+
+    pub fn push(&mut self, text: &str) -> String {
+        if self.window == 0 {
+            return self.mask(text);
+        }
+        self.pending.push_str(text);
+        let mut masked = self.mask(&self.pending);
+        // 扣住尾窗：不足一窗则整段扣住（跨 3+ 个极小 chunk 的敏感串也能拼齐）。
+        let mut cut = masked.len().saturating_sub(self.window);
+        while cut > 0 && !masked.is_char_boundary(cut) {
+            cut -= 1;
+        }
+        self.pending = masked.split_off(cut);
+        masked
+    }
+
+    /// 流末冲刷：返回尾窗内残留（已脱敏）。幂等，再调返回空串。
+    pub fn finish(&mut self) -> String {
+        if self.pending.is_empty() {
+            return String::new();
+        }
+        let out = self.mask(&self.pending);
+        self.pending.clear();
         out
     }
 }
