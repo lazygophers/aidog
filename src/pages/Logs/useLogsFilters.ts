@@ -27,6 +27,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
   const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");
   const [filterModelText, setFilterModelText] = useState<string>("");
   const [filterPath, setFilterPath] = useState<string>("");
+  // 中间件观察模式命中（票 04）："" = 全部；"observed" = 仅 blocked_reason='observe' 的行
+  const [filterObserved, setFilterObserved] = useState<string>("");
 
   useEffect(() => {
     platformApi.list().then(setPlatforms).catch(() => {});
@@ -49,10 +51,11 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
       f.model_type = filterModelType;
     }
     if (filterPath.trim()) f.path = filterPath.trim();
+    if (filterObserved === "observed") f.observed = true;
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModelText, filterModelType, filterPath]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModelText, filterModelType, filterPath, filterObserved]);
 
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim() || filterPath.trim());
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim() || filterPath.trim() || filterObserved);
 
   const [modelOptions, setModelOptions] = useState<string[]>([]);
   useEffect(() => {
@@ -74,6 +77,7 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
     setFilterModelText("");
     setFilterModelType("actual");
     setFilterPath("");
+    setFilterObserved("");
   };
 
   const platformMap = useMemo(() => {
@@ -91,8 +95,8 @@ export function useLogsFilters(initialFilter?: { platformId?: number; groupKey?:
 
   return {
     t,
-    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModelType, filterModelText, filterPath,
-    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModelType, setFilterModelText, setFilterPath,
+    platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModelType, filterModelText, filterPath, filterObserved,
+    setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModelType, setFilterModelText, setFilterPath, setFilterObserved,
     activeFilter, hasFilter, clearFilter, modelOptions,
     platformMap, groupName,
   };

@@ -40,9 +40,9 @@ export function ListView({ filters, list, openDetail, copyRow }: {
   }, []);
   const {
     t, platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime,
-    filterModelType, filterModelText, filterPath,
+    filterModelType, filterModelText, filterPath, filterObserved,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
-    setFilterModelType, setFilterModelText, setFilterPath,
+    setFilterModelType, setFilterModelText, setFilterPath, setFilterObserved,
     modelOptions, hasFilter, clearFilter, platformMap, groupName,
   } = filters;
   const {
@@ -135,6 +135,15 @@ export function ListView({ filters, list, openDetail, copyRow }: {
             { value: "30d", label: "30d" },
           ]}
           placeholder={t("logs.filterTime", "时间")}
+        />
+        {/* 中间件观察模式命中（票 04）：只看「规则命中但放行」的请求 */}
+        <FilterSelect
+          value={filterObserved}
+          onChange={setFilterObserved}
+          options={[
+            { value: "observed", label: t("logs.observedOnly", "观察模式命中") },
+          ]}
+          placeholder={t("logs.filterMiddleware", "中间件")}
         />
         {/* Model type toggle */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: F.small }}>

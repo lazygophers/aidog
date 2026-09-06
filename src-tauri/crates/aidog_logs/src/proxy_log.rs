@@ -729,6 +729,13 @@ fn build_filter_where(
         p.push(Box::new(pid));
         idx += 1;
     }
+    // 中间件观察模式命中（票 04）：写入点 gateway/proxy/log.rs::record_observed 的固定值
+    // 'observe'，与真实拦截（reason = 规则描述）区分。Some(false)/None 不加谓词。
+    if filter.observed == Some(true) {
+        parts.push(format!("AND blocked_reason = ?{idx}"));
+        p.push(Box::new("observe".to_string()));
+        idx += 1;
+    }
     let _ = idx;
 
     let where_sql = if parts.is_empty() {
@@ -983,7 +990,7 @@ mod tests {
                 id TEXT, platform_id INTEGER, group_key TEXT, status_code INTEGER,
                 created_at INTEGER, model TEXT, actual_model TEXT, request_url TEXT,
                 deleted_at INTEGER DEFAULT 0,
-                source_protocol TEXT, cli_proxy_provider_id INTEGER
+                source_protocol TEXT, cli_proxy_provider_id INTEGER, blocked_reason TEXT
             );",
             )
             .unwrap();
@@ -1088,8 +1095,43 @@ mod tests {
                 sources: Some(vec!["test".into(), "quota".into()]),
                 exclude_sources: Some(vec!["claude_code".into()]),
                 cli_proxy_provider_id: Some(42),
+                observed: Some(true),
                 ..Default::default()
             });
+        }
+
+        #[test]
+        fn observed_filter_matches_only_observe_rows() {
+            // 观察模式筛选（票 04）：只留 blocked_reason='observe'，真实拦截行与普通行都排除。
+            let conn = Connection::open_in_memory().unwrap();
+            conn.execute_batch(
+                "CREATE TABLE proxy_log (deleted_at INTEGER DEFAULT 0, blocked_reason TEXT);
+                 INSERT INTO proxy_log (blocked_reason) VALUES ('observe'), ('matched middleware rule'), ('');",
+            )
+            .unwrap();
+            let count = |filter: &ProxyLogFilter| -> i64 {
+                let (where_sql, params) = build_filter_where(filter);
+                let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+                let bind: Vec<&dyn rusqlite::types::ToSql> =
+                    params.iter().map(|b| b.as_ref()).collect();
+                conn.query_row(&sql, bind.as_slice(), |r| r.get(0)).unwrap()
+            };
+            assert_eq!(
+                count(&ProxyLogFilter {
+                    observed: Some(true),
+                    ..Default::default()
+                }),
+                1
+            );
+            // Some(false) / None 不加谓词 → 全量。
+            assert_eq!(
+                count(&ProxyLogFilter {
+                    observed: Some(false),
+                    ..Default::default()
+                }),
+                3
+            );
+            assert_eq!(count(&ProxyLogFilter::default()), 3);
         }
     }
 

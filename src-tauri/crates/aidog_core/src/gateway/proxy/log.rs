@@ -329,6 +329,23 @@ pub(crate) fn remove_log_snapshot(state: &Arc<ProxyState>, id: &str) {
     state.log_snapshots.remove(id);
 }
 
+/// 观察模式命中的审计标记（`proxy_log.blocked_reason` 的固定机读值，票 04）。
+/// 与真实拦截区分：真拦截的 reason 是规则描述/`matched middleware rule`，本值恒为 `observe`。
+/// 日志页「观察模式命中」筛选按此值等值匹配（`ProxyLogFilter::observed`）。
+pub(crate) const OBSERVE_REASON: &str = "observe";
+
+/// 中间件观察模式命中：只标审计列，**不改状态码、不改 est_cost**（请求照常转发照常计费）。
+/// 多个挂载点（group 层 / platform 层）先后命中时追加，不覆盖。
+pub(crate) fn record_observed(log: &mut ProxyLog, blocked_by: String) {
+    tracing::info!(blocked_by = %blocked_by, "middleware inbound: observe-mode hit, request continues");
+    if log.blocked_by.is_empty() {
+        log.blocked_by = blocked_by;
+    } else {
+        log.blocked_by = format!("{}; {}", log.blocked_by, blocked_by);
+    }
+    log.blocked_reason = OBSERVE_REASON.to_string();
+}
+
 /// 中间件入站拦截：写审计日志（blocked_by/blocked_reason，不计费）并立即返回 403。
 /// 参照现有 parse 错误返回模式；body 为结构化 JSON，便于客户端识别拦截。
 #[allow(clippy::too_many_arguments)]

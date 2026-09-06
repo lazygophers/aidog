@@ -378,7 +378,13 @@ function defaultParams(): ActionStep["params"] {
     retryable: true,
     override_status: null,
     override_body: null,
+    observe: false,
   };
+}
+
+/** 规则里是否存在「观察模式」的 block 动作（列表徽标用）。 */
+function hasObserve(steps: ActionStep[]): boolean {
+  return steps.some((s) => s.kind === "block" && s.params.observe);
 }
 
 function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange: (s: ActionStep[]) => void }) {
@@ -441,6 +447,20 @@ function ActionChainEditor({ steps, onChange }: { steps: ActionStep[]; onChange:
                   />
                 </div>
               )}
+            </div>
+          )}
+          {st.kind === "block" && (
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 11 }}>
+                <Switch
+                  checked={st.params.observe}
+                  onCheckedChange={(v) => setStep(i, { ...st, params: { ...st.params, observe: v } })}
+                />
+                {t("middleware.observe", "观察模式")}
+              </label>
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                {t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
+              </span>
             </div>
           )}
           {st.kind === "inject" && (
@@ -861,6 +881,15 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
           <span className="badge" style={{ fontSize: 10 }}>
             {actionsSummary(t, rule.actions)}
           </span>
+          {hasObserve(rule.actions) && (
+            <span
+              className="badge"
+              style={{ fontSize: 10, color: "var(--color-warning)" }}
+              title={t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
+            >
+              {t("middleware.observe", "观察模式")}
+            </span>
+          )}
           {!!appliesSummary(rule.applies_to) && (
             <span className="badge" style={{ fontSize: 10 }}>
               {appliesSummary(rule.applies_to)}

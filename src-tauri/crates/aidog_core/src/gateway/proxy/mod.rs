@@ -106,8 +106,8 @@ pub(crate) use health::{handle_root, is_hello_endpoint};
 pub(crate) use log::flush_log_queue;
 #[allow(unused_imports)]
 pub(crate) use log::{
-    LogMsg, block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, spawn_log_writer,
-    upsert_connect_log, upsert_log,
+    LogMsg, block_inbound, get_log_settings, record_observed, remove_log_snapshot, spawn_estimate,
+    spawn_log_writer, upsert_connect_log, upsert_log,
 };
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
