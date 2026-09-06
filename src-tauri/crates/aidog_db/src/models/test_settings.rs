@@ -4,8 +4,8 @@
 //! 引用的 `parse_breaker` / `merge_breaker_into_extra` / `Platform` 等经 models::* 重导出。
 
 use super::super::{
-    Platform, PlatformBreaker, PlatformModels, PlatformStatus, Protocol, ProxyClientSettings,
-    SchedulingBreakerSettings, merge_breaker_into_extra, parse_breaker,
+    DEFAULT_NO_PROXY, Platform, PlatformBreaker, PlatformModels, PlatformStatus, Protocol,
+    ProxyClientSettings, SchedulingBreakerSettings, merge_breaker_into_extra, parse_breaker,
 };
 
 /// 最小 Platform，仅设 extra 用于 breaker 解析测试。
@@ -117,6 +117,7 @@ fn to_reqwest_proxy_disabled_returns_none() {
         username: "".into(),
         password: "".into(),
         dns_over_proxy: false,
+        no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_none());
 }
@@ -131,6 +132,7 @@ fn to_reqwest_proxy_enabled_socks5_returns_some() {
         username: "".into(),
         password: "".into(),
         dns_over_proxy: false,
+        no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_some());
 }
@@ -145,6 +147,7 @@ fn to_reqwest_proxy_socks5h_dns_over_proxy() {
         username: "".into(),
         password: "".into(),
         dns_over_proxy: true,
+        no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_some());
 }
@@ -159,6 +162,7 @@ fn to_reqwest_proxy_http_type() {
         username: "".into(),
         password: "".into(),
         dns_over_proxy: false,
+        no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_some());
 }
@@ -173,6 +177,7 @@ fn to_reqwest_proxy_https_type() {
         username: "user".into(),
         password: "pass".into(),
         dns_over_proxy: false,
+        no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_some());
 }
@@ -187,6 +192,25 @@ fn to_reqwest_proxy_with_auth() {
         username: "alice".into(),
         password: "secret".into(),
         dns_over_proxy: false,
+        no_proxy: String::new(),
     };
     assert!(s.to_reqwest_proxy().is_some());
+}
+
+#[test]
+fn effective_no_proxy_empty_falls_back_to_default() {
+    let mut s = ProxyClientSettings::default();
+    s.no_proxy = "   ".into();
+    // 空/空白 → DEFAULT_NO_PROXY（内网 + .cn + 中国平台域）
+    assert_eq!(s.effective_no_proxy(), DEFAULT_NO_PROXY);
+    assert!(s.effective_no_proxy().contains("192.168.0.0/16"));
+    assert!(s.effective_no_proxy().contains(".cn"));
+    assert!(s.effective_no_proxy().contains("deepseek.com"));
+}
+
+#[test]
+fn effective_no_proxy_custom_wins() {
+    let mut s = ProxyClientSettings::default();
+    s.no_proxy = "internal.corp,10.0.0.0/8".into();
+    assert_eq!(s.effective_no_proxy(), "internal.corp,10.0.0.0/8");
 }

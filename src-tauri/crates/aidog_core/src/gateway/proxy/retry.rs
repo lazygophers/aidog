@@ -108,6 +108,31 @@ pub(crate) fn classify_429(message: &str) -> bool {
     QUOTA_MARKERS.iter().any(|m| lower.contains(m))
 }
 
+/// 区分 401 是否区域/地区封锁：区域封锁的 401 不触发 auto_disable（换代理即恢复，
+/// 禁用无意义）。与 classify_429 同 idiom：只看 message 文本，小写子串 marker。
+/// 无 marker 命中默认 false（保守按普通鉴权失败，保持原 auto_disable 行为）。
+pub(crate) fn is_region_blocked(message: &str) -> bool {
+    const REGION_MARKERS: [&str; 15] = [
+        "not available in your country",
+        "not available in your region",
+        "not available in this region",
+        "country, region",
+        "country not supported",
+        "region not supported",
+        "unsupported country",
+        "unsupported region",
+        "geo-restrict",
+        "geo restrict",
+        "service area",
+        "地区不支持",
+        "地区限制",
+        "区域限制",
+        "国家或地区",
+    ];
+    let lower = message.to_lowercase();
+    REGION_MARKERS.iter().any(|m| lower.contains(m))
+}
+
 /// 配额冷却上限（24h）：超出一律丢弃，防上游给出离谱值或时区解析偏差把平台长期锁死。
 const MAX_QUOTA_COOLDOWN_MS: i64 = 24 * 60 * 60 * 1000;
 
@@ -189,7 +214,7 @@ pub(crate) fn truncate_peek_text(text: &str) -> String {
 ///
 /// - **不重试（硬错，换平台也没用）**：400 / 422 —— 请求体本身非法（协议转换产物上游拒收），
 ///   遍历其他平台同样会被拒，直接返客户端避免无谓遍历。
-/// - **重试**：401 / 403（鉴权，配合 auto_disabled）、404 / 405（死端点，配合 strike）、
+/// - **重试**：401 / 403（鉴权/区域，仅 401 非区域触发 auto_disabled）、404 / 405（死端点，配合 strike）、
 ///   429（限流/配额，换平台可能成功）、所有 5xx（上游故障）、其余未知非 2xx（保守重试）。
 ///
 /// 连接错误 / 超时不经此函数（在 send() Err 分支已按可重试处理）。

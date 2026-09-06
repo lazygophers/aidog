@@ -17,6 +17,7 @@ fn proxy_settings(
         username: user.to_string(),
         password: pass.to_string(),
         dns_over_proxy,
+        no_proxy: String::new(),
     }
 }
 

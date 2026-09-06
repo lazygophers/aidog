@@ -338,6 +338,52 @@ async fn upstream_401_auto_disables_platform() {
 }
 
 #[tokio::test]
+async fn upstream_403_does_not_auto_disable_platform() {
+    // 403 一律不自动禁用（区域封锁常返 403，误禁用代价高）
+    let upstream = spawn_stub_upstream(403, r#"{"error":"forbidden"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk403", &upstream).await;
+
+    let req = messages_request(
+        "gk403",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let _ = handle_proxy(AxumState(state.clone()), req).await;
+
+    flush_log_queue(&state).await;
+    let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+    assert!(
+        plats.iter().all(|p| p.auto_disabled_until == 0),
+        "403 不应触发 auto_disable"
+    );
+}
+
+#[tokio::test]
+async fn upstream_401_region_blocked_does_not_auto_disable_platform() {
+    // 区域封锁的 401 不自动禁用（换代理即恢复，禁用无意义）
+    let upstream = spawn_stub_upstream(
+        401,
+        r#"{"error":{"message":"Country, region, or territory not supported"}}"#,
+    )
+    .await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk401r", &upstream).await;
+
+    let req = messages_request(
+        "gk401r",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let _ = handle_proxy(AxumState(state.clone()), req).await;
+
+    flush_log_queue(&state).await;
+    let plats = aidog_db::list_platforms(&state.db).await.unwrap();
+    assert!(
+        plats.iter().all(|p| p.auto_disabled_until == 0),
+        "区域封锁 401 不应触发 auto_disable"
+    );
+}
+
+#[tokio::test]
 async fn malformed_json_body_returns_400() {
     let state = make_state(test_db().await).await;
     let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;

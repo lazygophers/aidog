@@ -413,6 +413,30 @@ fn classify_429_rate_limit() {
     assert!(!classify_429(""));
 }
 
+// ── is_region_blocked：区域封锁 401=true / 普通鉴权失败=false ──
+#[test]
+fn region_blocked_markers() {
+    // OpenAI 官方区域封锁文案
+    assert!(is_region_blocked(
+        "Country, region, or territory not supported"
+    ));
+    assert!(is_region_blocked("Service is not available in your region"));
+    assert!(is_region_blocked("This model is not available in this region yet"));
+    // 中文区域封锁文案
+    assert!(is_region_blocked("该服务在你所在的地区限制访问"));
+    assert!(is_region_blocked("因国家或地区限制，无法提供服务"));
+}
+
+#[test]
+fn region_blocked_plain_auth_is_false() {
+    // 普通鉴权失败不含区域 marker → 保持 auto_disable
+    assert!(!is_region_blocked("invalid api key"));
+    assert!(!is_region_blocked("unauthorized"));
+    assert!(!is_region_blocked(""));
+    // 大小写不敏感
+    assert!(is_region_blocked("NOT AVAILABLE IN YOUR COUNTRY"));
+}
+
 /// GLM 1308 实际文案（5 小时窗口用满），此前因只匹配「用量上限」被误判为限流。
 #[test]
 fn classify_429_glm_1308_usage_limit() {

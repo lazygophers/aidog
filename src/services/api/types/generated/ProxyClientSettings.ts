@@ -8,4 +8,8 @@ proxy_type: string, host: string, port: number, username: string, password: stri
 /**
  * SOCKS5 时 DNS 走代理解析 (socks5h vs socks5)
  */
-dns_over_proxy: boolean, };
+dns_over_proxy: boolean, 
+/**
+ * 不走代理的 host 列表（NO_PROXY 语义：逗号分隔，域名后缀/IP/CIDR）；空 = DEFAULT_NO_PROXY
+ */
+no_proxy: string, };

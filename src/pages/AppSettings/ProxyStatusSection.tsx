@@ -203,6 +203,20 @@ export function UpstreamProxySection({ s }: { s: SystemSettings }) {
               <Switch checked={proxyClient.dns_over_proxy} onCheckedChange={(c) => handleProxyClientChange({ dns_over_proxy: c })} />
             </div>
           )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("proxy.noProxy", "不走代理")}
+            </label>
+            <Input
+              value={proxyClient.no_proxy}
+              onChange={(e) => handleProxyClientChange({ no_proxy: e.target.value })}
+              placeholder={t("proxy.noProxyPlaceholder", "留空使用默认：内网、局域网、.cn、中国平台域名")}
+              style={{ width: "100%", height: 28, fontSize: 12 }}
+            />
+            <div className="text-tertiary" style={{ fontSize: 11 }}>
+              {t("proxy.noProxyDesc", "逗号分隔：域名后缀、IP、CIDR；匹配的主机直连不走代理")}
+            </div>
+          </div>
         </div>
       )}
     </div>
