@@ -57,7 +57,7 @@ async fn spend(db: &Db, group_key: &str, platform_id: i64, model: &str, cost: f6
 
 async fn check(engine: &MiddlewareEngine, db: &Db, group: Option<&str>) -> InboundOutcome {
     engine
-        .check_budget(&ON, db, &chat_req("", "hi"), group, None, None)
+        .check_budget(&ON, db, &chat_req("", "hi"), "test-model", group, None, None)
         .await
 }
 
@@ -217,7 +217,7 @@ async fn applies_to_scopes_both_spend_and_request() {
         },
     );
     assert!(matches!(
-        e.check_budget(&ON, &db, &chat_req("", "hi"), None, Some(2), None)
+        e.check_budget(&ON, &db, &chat_req("", "hi"), "test-model", Some("ga"), Some(2), None)
             .await,
         InboundOutcome::Blocked { .. }
     ));
@@ -243,7 +243,7 @@ async fn master_switch_off_bypasses() {
     let e = engine_with(1.0, AppliesTo::default());
     let off = MiddlewareSettings { enabled: false };
     assert_eq!(
-        e.check_budget(&off, &db, &chat_req("", "hi"), Some("ga"), None, None)
+        e.check_budget(&off, &db, &chat_req("", "hi"), "test-model", Some("ga"), None, None)
             .await,
         InboundOutcome::Continue
     );

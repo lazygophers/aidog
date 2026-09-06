@@ -387,7 +387,8 @@ static CLOUD_SECRET_PATTERN: std::sync::LazyLock<String> = std::sync::LazyLock::
                 continue;
             };
             for p in list.iter().filter_map(Value::as_str) {
-                let esc = regex_lite_escape(p);
+                // 正则元字符转义（key_prefixes 里现有 `-` / `_`，将来可能出现 `.` 等）。
+                let esc = regex::escape(p);
                 if !prefixes.contains(&esc) {
                     prefixes.push(esc);
                 }
@@ -404,19 +405,6 @@ static CLOUD_SECRET_PATTERN: std::sync::LazyLock<String> = std::sync::LazyLock::
         r"(?:\b(?:AKIA|ASIA)[0-9A-Z]{{16}}\b|(?i:aws)[A-Za-z_\-]{{0,20}}(?:secret|key)[A-Za-z_\-]{{0,20}}\s*[=:]\s*[\x22']?[A-Za-z0-9/+]{{40}}{vendor})"
     )
 });
-
-/// 正则元字符转义（key_prefixes 里现有 `-` / `_`，将来可能出现 `.` 等）。
-fn regex_lite_escape(s: &str) -> String {
-    s.chars()
-        .flat_map(|c| {
-            let esc = matches!(
-                c,
-                '.' | '+' | '*' | '?' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '|' | '\\'
-            );
-            esc.then_some('\\').into_iter().chain(std::iter::once(c))
-        })
-        .collect()
-}
 
 /// IP（IPv4 点分 + IPv6 全写/压缩常见形）与 MAC 地址。
 pub const BUILTIN_IP_MAC_PATTERN: &str = r"\b(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\b|\b(?:[0-9A-Fa-f]{1,4}:){7}[0-9A-Fa-f]{1,4}\b|\b(?:[0-9A-Fa-f]{2}[:\-]){5}[0-9A-Fa-f]{2}\b";

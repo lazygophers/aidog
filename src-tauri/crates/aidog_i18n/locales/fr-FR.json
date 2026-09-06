@@ -2869,6 +2869,7 @@
   "middleware.addLeaf": "Condition",
   "middleware.appliesGroups": "Groupes (vide = tous)",
   "middleware.appliesModels": "Modèles (séparés par des virgules, vide = tous)",
+  "middleware.appliesModelsHint": "Indiquez le nom du modèle en amont (celui après remappage, le cas échéant). Les garde-fous de budget agrègent les dépenses sur ce nom.",
   "middleware.appliesPlatforms": "Plateformes (vide = toutes)",
   "middleware.appliesTo": "S’applique à (vide = sans limite ; plusieurs valeurs = correspondance)",
   "middleware.appliesAll": "Tous",

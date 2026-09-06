@@ -67,6 +67,10 @@ describe("mwDsl round-trip", () => {
     expect(treeToDsl(t)).toContain("checksum luhn");
     expect(parseDsl(treeToDsl(t))).toEqual(t);
   });
+
+  it("未知校验器名保存前就报错（后端 fail-closed，拼错会让整条规则静默失效）", () => {
+    expect(() => parseDsl('request_body regex "\\\\d{16}" checksum luhnn')).toThrow("未知校验器");
+  });
 });
 
 describe("mwDsl 错误定位", () => {

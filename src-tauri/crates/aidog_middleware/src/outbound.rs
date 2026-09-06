@@ -7,10 +7,11 @@
 //   - 非 2xx：classify_error 求值响应侧规则，取链内 classify 步骤产出
 //     ErrorClassification 喂现有重试编排（本层不引入熔断器）。
 //   - 流式 SSE：StreamMasker（滑窗）逐块应用 mask/override，跨 chunk 边界不漏匹配
-//     （尾窗延后一块下发，票 05）。流式挂载点仍不传 model / 上游响应头，故
-//     applies_to.models 与 response_headers 条件在流式路径尚未生效。
+//     （尾窗延后一块下发，票 05）。model 与两条非流式路径同口径传入（评审 F4），
+//     故 applies_to.models 在流式下同样生效、窗口大小也把 models 限定的规则算进去。
+//     上游响应头条件流式仍不生效（建流时逐块求值拿不到整段 body 语义，见下方注释）。
 //
-// 非流式 2xx 与非 2xx 两条路径均传入请求 model 与上游响应头 JSON：
+// 三条路径均传入请求 model 与上游响应头 JSON（流式无响应头）：
 //   - model 取**客户端请求的模型名**（remap 前），与入站主挂载点 handler.rs 同口径；
 //     平台侧 remap 后的 actual_model 属路由内部量，不作为 applies_to.models 的匹配对象。
 //   - resp_headers 为 `{name: value}` JSON 字符串，header 名匹配大小写不敏感
@@ -149,20 +150,21 @@ impl MiddlewareEngine {
 
     /// 流式 SSE 逐块改写：对单段文本应用 mask/override（与非流式同语义）。
     /// 返回改写后文本（无命中 → 原样返回）。跨 chunk 边界由 [`StreamMasker`] 的尾窗保证，
-    /// 本函数只做块内替换，调用方须经 StreamMasker 而非直接逐 chunk 调用。
+    /// 本函数只做块内替换，**只许经 [`StreamMasker`] 调用**（私有即为强制）。
     /// block/inject/classify 流式不适用（block 已发字节无法收回，由首块前的入站层负责）。
-    pub fn apply_outbound_stream_chunk(
+    pub(crate) fn apply_outbound_stream_chunk(
         &self,
         settings: &MiddlewareSettings,
         text: &str,
         group_key: Option<&str>,
         platform_id: Option<i64>,
+        model: &str,
     ) -> String {
         if !settings.enabled {
             return text.to_string();
         }
         let mut out = text.to_string();
-        for cr in self.response_rules(group_key, platform_id, "") {
+        for cr in self.response_rules(group_key, platform_id, model) {
             // 逐块无法用条件树做整体求值（条件可能依赖完整 body）——退化：
             // 命中叶子 pattern 的片段直接按链内 mask/override 替换（块内匹配）。
             let leaves = collect_patterns(&cr.conditions, Target::ResponseBody);
@@ -204,10 +206,12 @@ impl MiddlewareEngine {
         settings: &MiddlewareSettings,
         group_key: Option<&str>,
         platform_id: Option<i64>,
+        model: &str,
     ) -> StreamMasker {
         let mut window = 0usize;
         if settings.enabled {
-            for cr in self.response_rules(group_key, platform_id, "") {
+            // model 必须参与筛选：漏传会让 models 限定的规则不进窗口计算 → 漏窗（评审 F4）。
+            for cr in self.response_rules(group_key, platform_id, model) {
                 if !cr
                     .rule
                     .actions
@@ -230,8 +234,10 @@ impl MiddlewareEngine {
             settings: settings.clone(),
             group_key: group_key.map(str::to_string),
             platform_id,
+            model: model.to_string(),
             window,
             pending: String::new(),
+            byte_tail: Vec::new(),
         }
     }
 }
@@ -250,8 +256,11 @@ pub struct StreamMasker {
     settings: MiddlewareSettings,
     group_key: Option<String>,
     platform_id: Option<i64>,
+    model: String,
     window: usize,
     pending: String,
+    /// UTF-8 边界缓冲：chunk 末尾**不完整的多字节序列**（1–3 字节）留到下一块再拼。
+    byte_tail: Vec<u8>,
 }
 
 impl StreamMasker {
@@ -267,7 +276,39 @@ impl StreamMasker {
             text,
             self.group_key.as_deref(),
             self.platform_id,
+            &self.model,
         )
+    }
+
+    /// 吃进一个 chunk 的**原始字节**（流式挂载点的正式入口）。
+    ///
+    /// SSE 传输层可以在任意字节处切块，一个中文字符（3 字节）完全可能被切成两半。
+    /// 这里先做 UTF-8 边界缓冲：末尾不完整的多字节序列扣下来留到下一块，与尾窗同一套
+    /// 「延后下发」机制。**不用 `from_utf8_lossy` 兜底**——那会把半个汉字变成 `U+FFFD`，
+    /// 拼回来的另一半也废了，正文被永久破坏（评审 F1）。
+    ///
+    /// 真正非法的字节（`error_len` 有值，不是被切断的前缀）不缓冲：留着也拼不回来，
+    /// 缓冲区会无限涨；照旧 lossy 放行。
+    pub fn push_bytes(&mut self, bytes: &[u8]) -> String {
+        let buf = if self.byte_tail.is_empty() {
+            bytes.to_vec()
+        } else {
+            let mut b = std::mem::take(&mut self.byte_tail);
+            b.extend_from_slice(bytes);
+            b
+        };
+        let split = match std::str::from_utf8(&buf) {
+            Ok(_) => buf.len(),
+            // error_len = None：输入到此为止，尾部是被切断的多字节序列前缀 → 留到下一块。
+            Err(e) if e.error_len().is_none() => e.valid_up_to(),
+            Err(_) => buf.len(),
+        };
+        self.byte_tail.extend_from_slice(&buf[split..]);
+        if split == 0 {
+            return String::new();
+        }
+        let text = String::from_utf8_lossy(&buf[..split]).into_owned();
+        self.push(&text)
     }
 
     pub fn push(&mut self, text: &str) -> String {
@@ -286,7 +327,14 @@ impl StreamMasker {
     }
 
     /// 流末冲刷：返回尾窗内残留（已脱敏）。幂等，再调返回空串。
+    /// UTF-8 边界缓冲里的残字节也一并放行：流已结束，另一半永远不会来了，此时
+    /// lossy 是唯一选择（比静默吞掉字节好）。
     pub fn finish(&mut self) -> String {
+        if !self.byte_tail.is_empty() {
+            let tail = std::mem::take(&mut self.byte_tail);
+            self.pending
+                .push_str(&String::from_utf8_lossy(&tail));
+        }
         if self.pending.is_empty() {
             return String::new();
         }

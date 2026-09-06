@@ -32,12 +32,14 @@ enum Side {
 ///
 /// `req_headers`：proxy_log 已脱敏的客户端请求头 JSON，与 chat_req 层同源；
 /// 不传则 header 条件驱动的 mask/override 在透传分支不命中（票 03 补齐）。
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_middleware_body(
     engine: &MiddlewareEngine,
     settings: &MiddlewareSettings,
     body: &mut Value,
     wire: &Protocol,
     model: &str,
+    group_key: Option<&str>,
     platform_id: i64,
     req_headers: Option<&str>,
 ) -> bool {
@@ -54,7 +56,7 @@ pub(crate) fn apply_middleware_body(
     }
     let before = (texts.system.clone(), texts.messages.clone());
 
-    engine.apply_inbound_texts(settings, &mut texts, platform_id, req_headers);
+    engine.apply_inbound_texts(settings, &mut texts, group_key, platform_id, req_headers);
 
     let rewritten = before.0 != texts.system || before.1 != texts.messages;
     if !rewritten && texts.injects.is_empty() {

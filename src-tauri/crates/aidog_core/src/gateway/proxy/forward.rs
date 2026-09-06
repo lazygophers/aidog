@@ -282,6 +282,9 @@ pub(crate) async fn forward_attempt(
         let outcome = state.middleware.apply_inbound_platform(
             &mw_settings,
             chat_req,
+            // group_key 必须透传：同时限定 groups + platforms 的规则只在本挂载点判定，
+            // 少了它 g_ok 恒 false → 规则永不命中（评审 F2）。
+            Some(&group.group_key),
             route.platform.id as i64,
             Some(&log.request_headers),
             &mut header_injects,
@@ -311,8 +314,9 @@ pub(crate) async fn forward_attempt(
             }
             InboundOutcome::Continue => {}
         }
-        // 成本预算闸门（票 06）：platform 维作用范围的规则在此才拿得到 platform_id。
-        // group 维已在路由前判过；无 budget_gate 规则时零查询。
+        // 成本预算闸门（票 06）：限定了平台的规则在此才拿得到 platform_id（未限定平台的
+        // 已在路由前的 group 挂载点判过，不会重复查库）。无 budget_gate 规则时零查询。
+        // model 传 actual_model：与花费聚合侧 stats_agg_hourly.model 同口径（评审 F5）。
         if let InboundOutcome::Blocked {
             blocked_by,
             blocked_reason,
@@ -322,7 +326,8 @@ pub(crate) async fn forward_attempt(
                 &mw_settings,
                 &state.db,
                 chat_req,
-                None,
+                &actual_model,
+                Some(&group.group_key),
                 Some(route.platform.id as i64),
                 Some(&log.request_headers),
             )
@@ -525,6 +530,7 @@ pub(crate) async fn forward_attempt(
             &mut req_body,
             target_protocol_enum,
             &actual_model,
+            Some(&group.group_key),
             route.platform.id as i64,
             Some(&log.request_headers),
         );

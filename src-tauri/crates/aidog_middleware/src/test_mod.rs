@@ -187,7 +187,7 @@ fn mixed_phase_rule_evaluates_on_response_side_only() {
         leaf(Target::ResponseBody, "err"),
         vec![mask_step("****", &[])],
     )]);
-    assert!(e.request_rules(None, None, "m").is_empty());
+    assert!(e.request_rules(Mount::Any, None, None, "m").is_empty());
     assert_eq!(e.response_rules(None, None, "").len(), 1);
 }
 
@@ -203,15 +203,22 @@ fn applies_to_filters_platform_group_model() {
         models: vec!["m-a".to_string()],
     };
     e.rebuild_from_rules(vec![r]);
-    assert_eq!(e.request_rules(Some("g1"), Some(7), "m-a").len(), 1);
-    assert!(e.request_rules(None, Some(8), "m-a").is_empty());
-    assert!(e.request_rules(Some("g2"), Some(7), "m-a").is_empty());
-    assert!(e.request_rules(Some("g1"), Some(7), "m-b").is_empty());
+    let rules = |g, p, m| e.request_rules(Mount::Any, g, p, m).len();
+    assert_eq!(rules(Some("g1"), Some(7), "m-a"), 1);
+    assert_eq!(rules(None, Some(8), "m-a"), 0);
+    assert_eq!(rules(Some("g2"), Some(7), "m-a"), 0);
+    assert_eq!(rules(Some("g1"), Some(7), "m-b"), 0);
+    // 挂载点归属：platforms 非空 → 只在 platform 挂载点出现（评审 F3）。
+    assert_eq!(e.request_rules(Mount::Platform, Some("g1"), Some(7), "m-a").len(), 1);
+    assert_eq!(e.request_rules(Mount::Group, Some("g1"), Some(7), "m-a").len(), 0);
     // 空 = 不限
     let mut r2 = mk_rule(2, "wild", leaf(Target::RequestBody, "y"), vec![]);
     r2.applies_to = AppliesTo::default();
     e.rebuild_from_rules(vec![r2]);
-    assert_eq!(e.request_rules(None, None, "anything").len(), 1);
+    assert_eq!(e.request_rules(Mount::Any, None, None, "anything").len(), 1);
+    // platforms 为空 → 只在 group 挂载点出现。
+    assert_eq!(e.request_rules(Mount::Group, None, None, "anything").len(), 1);
+    assert_eq!(e.request_rules(Mount::Platform, None, Some(7), "anything").len(), 0);
 }
 
 // ─── 入站动作 ───────────────────────────────────────────────
@@ -324,11 +331,82 @@ fn inbound_inject_header_set_collected() {
     // body 不受影响（header_set 不碰 system / extra）
     assert!(matches!(&cr.system, Some(SystemContent::Text(t)) if t == "base"));
 
-    // platform 层挂载点同样收集
+    // 挂载点归属（评审 F3）：未限定平台的规则**只**在 group 层执行，platform 层不再重复收集
+    //（否则同一条 header 注入两遍、system_append 追加两遍）。
     let mut cr2 = chat_req("base", "u");
     let mut injects2 = Vec::new();
-    e.apply_inbound_platform(&settings_on(), &mut cr2, 7, None, &mut injects2);
-    assert_eq!(injects2, vec![("X-Custom".to_string(), "v1".to_string())]);
+    e.apply_inbound_platform(&settings_on(), &mut cr2, None, 7, None, &mut injects2);
+    assert!(injects2.is_empty(), "未限定平台的规则不该在 platform 层重复执行");
+
+    // 限定了平台的规则则相反：只在 platform 层执行。
+    let e2 = header_set_engine("X-Custom", "v1");
+    e2.rebuild_from_rules(vec![scoped(
+        mk_rule(1, "hs", ConditionNode::All { children: vec![] }, vec![step(
+            ActionKind::Inject,
+            ActionParams {
+                inject_mode: "header_set".to_string(),
+                target: "X-Custom".to_string(),
+                value: "v1".to_string(),
+                ..Default::default()
+            },
+        )]),
+        vec![7],
+        vec![],
+    )]);
+    let mut cr3 = chat_req("base", "u");
+    let mut injects3 = Vec::new();
+    e2.apply_inbound(&settings_on(), &mut cr3, None, None, &mut injects3);
+    assert!(injects3.is_empty(), "限定了平台的规则不在 group 层执行");
+    e2.apply_inbound_platform(&settings_on(), &mut cr3, None, 7, None, &mut injects3);
+    assert_eq!(injects3, vec![("X-Custom".to_string(), "v1".to_string())]);
+}
+
+/// 给规则套上 applies_to（挂载点归属由 `platforms` 是否为空决定，见 `crate::Mount`）。
+pub(crate) fn scoped(
+    mut rule: MiddlewareRule,
+    platforms: Vec<i64>,
+    groups: Vec<&str>,
+) -> MiddlewareRule {
+    rule.applies_to = AppliesTo {
+        platforms,
+        groups: groups.into_iter().map(String::from).collect(),
+        models: Vec::new(),
+    };
+    rule
+}
+
+/// 评审 F2：同时限定 groups + platforms 的规则必须能命中——platform 挂载点已透传 group_key。
+#[test]
+fn inbound_rule_scoped_to_both_group_and_platform_matches() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![scoped(
+        mk_rule(
+            1,
+            "both",
+            ConditionNode::All { children: vec![] },
+            vec![step(ActionKind::Block, ActionParams::default())],
+        ),
+        vec![7],
+        vec!["ga"],
+    )]);
+    // group + platform 都对上 → 拦截。
+    let mut cr = chat_req("", "hi");
+    assert!(matches!(
+        e.apply_inbound_platform(&settings_on(), &mut cr, Some("ga"), 7, None, &mut Vec::new()),
+        InboundOutcome::Blocked { .. }
+    ));
+    // group 不对 → 放行（不是「因为拿不到 group_key 所以永不命中」，而是真的不匹配）。
+    let mut cr = chat_req("", "hi");
+    assert_eq!(
+        e.apply_inbound_platform(&settings_on(), &mut cr, Some("gb"), 7, None, &mut Vec::new()),
+        InboundOutcome::Continue
+    );
+    // group 层不执行（platforms 非空 → 归属 platform 挂载点）。
+    let mut cr = chat_req("", "hi");
+    assert_eq!(
+        e.apply_inbound(&settings_on(), &mut cr, Some("ga"), None, &mut Vec::new()),
+        InboundOutcome::Continue
+    );
 }
 
 #[test]
@@ -523,10 +601,38 @@ fn inbound_header_condition_matches() {
         ),
         InboundOutcome::Blocked { .. }
     ));
-    // platform 层挂载点同样生效
+    // platform 层挂载点：同一条规则（未限定平台）已在 group 层执行过，此处不重复判定。
     let mut cr2 = chat_req("", "hi");
+    assert_eq!(
+        e.apply_inbound_platform(
+            &settings_on(),
+            &mut cr2,
+            None,
+            7,
+            Some(headers),
+            &mut Vec::new()
+        ),
+        InboundOutcome::Continue
+    );
+    // 限定了平台的同款规则则在 platform 层生效（header 条件同样可用）。
+    let e2 = header_block_engine("user-agent", "claude-cli");
+    let rules = e2.snapshot();
+    e2.rebuild_from_rules(
+        rules
+            .into_iter()
+            .map(|c| scoped(c.rule, vec![7], vec![]))
+            .collect(),
+    );
+    let mut cr3 = chat_req("", "hi");
     assert!(matches!(
-        e.apply_inbound_platform(&settings_on(), &mut cr2, 7, Some(headers), &mut Vec::new()),
+        e2.apply_inbound_platform(
+            &settings_on(),
+            &mut cr3,
+            None,
+            7,
+            Some(headers),
+            &mut Vec::new()
+        ),
         InboundOutcome::Blocked { .. }
     ));
 }
@@ -827,7 +933,7 @@ fn stream_chunk_masking() {
         leaf(Target::ResponseBody, "secret"),
         vec![mask_step("****", &[])],
     )]);
-    let out = e.apply_outbound_stream_chunk(&settings_on(), "a secret b", None, None);
+    let out = e.apply_outbound_stream_chunk(&settings_on(), "a secret b", None, None, "");
     assert_eq!(out, "a **** b");
 }
 
@@ -842,7 +948,7 @@ fn masker_for(pattern: &str, regex: bool) -> crate::StreamMasker {
         contains_leaf(Target::ResponseBody, pattern)
     };
     e.rebuild_from_rules(vec![mk_rule(1, "m", cond, vec![mask_step("****", &[])])]);
-    e.stream_masker(&settings_on(), None, None)
+    e.stream_masker(&settings_on(), None, None, "")
 }
 
 /// 逐块喂 + 流末冲刷，返回客户端实际收到的完整文本。
@@ -902,12 +1008,73 @@ fn stream_window_regex_rule_uses_constant_upper_bound() {
     assert_eq!(out, "key **** end");
 }
 
+/// 评审 F1：SSE 传输层可在任意字节切块，多字节字符被切成两半时不得变成 `�`。
+#[test]
+fn stream_bytes_preserve_utf8_split_across_chunks() {
+    let mut m = masker_for("topsecret", false);
+    assert!(m.is_active(), "滑窗激活才会走改写路径（F1 只在这条路径上发生）");
+    // "中文内容" 的第一个字 "中" = E4 B8 AD，从第 2 个字节切开喂两块。
+    let full = "hello 中文内容 world".as_bytes();
+    let cut = "hello ".len() + 1; // 落在 "中" 的三字节序列中间
+    let mut out = String::new();
+    out.push_str(&m.push_bytes(&full[..cut]));
+    out.push_str(&m.push_bytes(&full[cut..]));
+    out.push_str(&m.finish());
+    assert!(
+        !out.contains('\u{FFFD}'),
+        "多字节字符被 lossy 破坏成替换符: {out:?}"
+    );
+    assert_eq!(out, "hello 中文内容 world");
+}
+
+/// 每个字节单独一块（最坏切法）：每个中文字都被切 3 次，仍要完整还原。
+#[test]
+fn stream_bytes_preserve_utf8_byte_by_byte() {
+    let mut m = masker_for("topsecret", false);
+    let src = "编码 emoji 🐕 与 ASCII 混排";
+    let mut out = String::new();
+    for b in src.as_bytes() {
+        out.push_str(&m.push_bytes(std::slice::from_ref(b)));
+    }
+    out.push_str(&m.finish());
+    assert!(!out.contains('\u{FFFD}'), "逐字节喂入被破坏: {out:?}");
+    assert_eq!(out, src);
+}
+
+/// 中文正文里夹敏感串、且中文与敏感串都跨块：脱敏照做，中文照样不坏。
+#[test]
+fn stream_bytes_masks_secret_without_breaking_chinese() {
+    let mut m = masker_for("topsecret", false);
+    let full = "前缀中文 topsecret 后缀中文".as_bytes();
+    let cut = "前缀中".len() + 1; // 切在 "文" 的中间
+    let cut2 = "前缀中文 tops".len();
+    let mut out = String::new();
+    out.push_str(&m.push_bytes(&full[..cut]));
+    out.push_str(&m.push_bytes(&full[cut..cut2]));
+    out.push_str(&m.push_bytes(&full[cut2..]));
+    out.push_str(&m.finish());
+    assert!(!out.contains('\u{FFFD}'), "中文被破坏: {out:?}");
+    assert_eq!(out, "前缀中文 **** 后缀中文");
+}
+
+/// 真非法字节（不是被切断的前缀）不许卡在缓冲里：照旧 lossy 放行，缓冲区不无限涨。
+#[test]
+fn stream_bytes_invalid_utf8_is_not_buffered_forever() {
+    let mut m = masker_for("topsecret", false);
+    let out = m.push_bytes(&[0xFF, 0xFE, b'a']);
+    let tail = m.finish();
+    assert!(
+        format!("{out}{tail}").contains('a'),
+        "非法字节后的正文被吞: {out:?}{tail:?}"
+    );
+}
+
 #[test]
 fn stream_window_inactive_without_mask_rules() {
     // 无 mask/override 响应规则 → window=0，零延迟透传（首字延迟不受影响）。
     let e = std::sync::Arc::new(MiddlewareEngine::new());
     e.rebuild_from_rules(vec![]);
-    let mut m = e.stream_masker(&settings_on(), None, None);
+    let mut m = e.stream_masker(&settings_on(), None, None, "");
     assert!(!m.is_active());
     assert_eq!(m.push("abc"), "abc");
     assert_eq!(m.finish(), "");
@@ -922,7 +1089,7 @@ fn stream_window_inactive_when_master_off() {
         contains_leaf(Target::ResponseBody, "topsecret"),
         vec![mask_step("****", &[])],
     )]);
-    let m = e.stream_masker(&MiddlewareSettings { enabled: false }, None, None);
+    let m = e.stream_masker(&MiddlewareSettings { enabled: false }, None, None, "");
     assert!(!m.is_active(), "master off → 不进滑窗，不加延迟");
 }
 
@@ -1223,13 +1390,16 @@ fn cloud_secret_pattern_is_registry_driven() {
         .find(|s| s.name == "内置·云厂商密钥脱敏")
         .expect("云厂商密钥内置规则存在")
         .conditions;
+    let node: ConditionNode = serde_json::from_str(conds).expect("conditions JSON 可解析");
     for prefix in ["sk-ant-", "ark-"] {
+        // 前缀进正则前过 regex::escape（`-` 是元字符 → `\-`），再被 JSON 序列化（`\` → `\\`）。
+        let in_json = serde_json::to_string(&regex::escape(prefix)).unwrap();
+        let in_json = in_json.trim_matches('"');
         assert!(
-            conds.contains(prefix),
-            "conditions 应包含 registry 前缀 {prefix}"
+            conds.contains(in_json),
+            "conditions 应包含 registry 前缀 {prefix}（JSON 内形态 {in_json}）"
         );
     }
-    let node: ConditionNode = serde_json::from_str(conds).expect("conditions JSON 可解析");
     assert!(eval_req(&node, "AKIAIOSFODNN7EXAMPLE"));
     assert!(eval_req(&node, "key sk-ant-api03-abcdefghijklmnop"));
     assert!(!eval_req(&node, "just a normal sentence"));

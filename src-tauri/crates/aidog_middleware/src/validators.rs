@@ -4,16 +4,21 @@
 //! 这些叶子在 `ConditionLeaf::validator` 里指定校验器名，正则命中的片段必须再过一遍
 //! 校验位算法才算命中；校验失败的片段既不触发条件、也不被 mask 替换。
 //!
-//! 未知校验器名 → `true`（fail-open，退化为纯正则），避免拼错名字让规则静默全失效。
+//! 未知校验器名 → `false`（fail-closed）+ warn。ADR 0003 §3「显式化，无隐藏兜底」：
+//! 拼错 `luhn` 若退回纯正则，规则会把任意 16 位数字都当卡号改写，**误伤面反而扩大**。
+//! 不命中 = 什么都不改，是这里唯一安全的失败方向；warn 让拼错在日志里可见。
 
-/// 按名字跑校验位校验。`s` 是正则命中的原始片段（可含分隔符）。
+/// 按名字跑校验位校验。`s` 是命中片段（正则的 match、contains/exact 的 pattern 本身）。
 pub(crate) fn validate(name: &str, s: &str) -> bool {
     match name {
         "" => true,
         "luhn" => luhn(s),
         "iban" => iban(s),
         "cn_id" => cn_id(s),
-        _ => true,
+        other => {
+            tracing::warn!(validator = %other, "middleware: unknown validator name, rule treated as no-match");
+            false
+        }
     }
 }
 
@@ -131,8 +136,11 @@ mod tests {
     }
 
     #[test]
-    fn unknown_validator_is_fail_open() {
+    fn unknown_validator_is_fail_closed() {
+        // 空名 = 不校验（正常路径）。
         assert!(validate("", "anything"));
-        assert!(validate("no-such-validator", "anything"));
+        // 拼错的名字不许退回纯正则：不命中 = 不改写，误伤面不扩大。
+        assert!(!validate("no-such-validator", "anything"));
+        assert!(!validate("Luhn", "4111111111111111"), "名字大小写敏感");
     }
 }

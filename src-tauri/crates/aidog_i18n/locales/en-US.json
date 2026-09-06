@@ -2847,6 +2847,7 @@
   "middleware.addLeaf": "Condition",
   "middleware.appliesGroups": "Groups (empty = all)",
   "middleware.appliesModels": "Models (comma-separated, empty = all)",
+  "middleware.appliesModelsHint": "Use the upstream model name (the one after model remapping, if configured). Budget gates aggregate spend by this name.",
   "middleware.appliesPlatforms": "Platforms (empty = all)",
   "middleware.appliesTo": "Applies to (each empty = unrestricted; multiple values = any match)",
   "middleware.appliesAll": "All",

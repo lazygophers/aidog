@@ -2869,6 +2869,7 @@
   "middleware.addLeaf": "Условие",
   "middleware.appliesGroups": "Группы (пусто = все)",
   "middleware.appliesModels": "Модели (через запятую, пусто = все)",
+  "middleware.appliesModelsHint": "Укажите имя модели на стороне провайдера (после переназначения модели, если оно настроено). Бюджетные лимиты считают расходы по этому имени.",
   "middleware.appliesPlatforms": "Платформы (пусто = все)",
   "middleware.appliesTo": "Применяется к (пусто = без ограничений; несколько значений = любое совпадение)",
   "middleware.appliesAll": "Все",

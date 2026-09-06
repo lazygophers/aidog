@@ -2869,6 +2869,7 @@
   "middleware.addLeaf": "Bedingung",
   "middleware.appliesGroups": "Gruppen (leer = alle)",
   "middleware.appliesModels": "Modelle (kommagetrennt, leer = alle)",
+  "middleware.appliesModelsHint": "Den Upstream-Modellnamen angeben (nach dem Modell-Remapping, falls konfiguriert). Budget-Gates aggregieren die Kosten über diesen Namen.",
   "middleware.appliesPlatforms": "Plattformen (leer = alle)",
   "middleware.appliesTo": "Gilt für (leer = uneingeschränkt; mehrere Werte = beliebige Übereinstimmung)",
   "middleware.appliesAll": "Alle",

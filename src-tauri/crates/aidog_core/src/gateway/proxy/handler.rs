@@ -480,6 +480,9 @@ pub(crate) async fn handle_proxy_core(
                 &mw_settings,
                 &state.db,
                 &chat_req,
+                // 路由还没发生 → 拿不到重映射后的上游模型名，只能用客户端请求名。
+                // 口径说明见 aidog_middleware::budget 模块头。
+                &chat_req.model,
                 Some(&group.group_key),
                 None,
                 Some(&log.request_headers),

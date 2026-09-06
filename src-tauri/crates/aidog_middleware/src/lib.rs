@@ -74,16 +74,46 @@ pub struct CompiledRule {
     pub conditions: CompiledNode,
 }
 
+/// 挂载点归属。入站有两个挂载点（路由前的 group 层、候选选定后的 platform 层），
+/// **同一条规则只许在其中一个执行动作**——否则 `inject/system_append` 会追加两遍、
+/// `budget_gate` 会查两次库。
+///
+/// 归属判据 = `applies_to.platforms` 是否为空：
+/// - 非空 → [`Mount::Platform`]：只在 platform 挂载点判定。那里 `platform_id` 才可用，
+///   且调用方**必须一并透传 group_key**，否则同时限定 groups + platforms 的规则
+///   会因 `g_ok` 恒 false 而永不命中。
+/// - 为空 → [`Mount::Group`]：只在 group 挂载点判定（更早拦截，省一次路由）。
+///
+/// 出站（单挂载点，两维皆已知）与透传 body 层用 [`Mount::Any`]，不做归属切分。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Mount {
+    Group,
+    Platform,
+    Any,
+}
+
 impl CompiledRule {
     /// Applies To 过滤：三维各自空 = 不限；多值 = 任一命中；三维间 AND。
-    fn applies(&self, group_key: Option<&str>, platform_id: Option<i64>, model: &str) -> bool {
+    /// 另叠加挂载点归属（见 [`Mount`]），保证一条规则只在一个入站挂载点执行。
+    fn applies(
+        &self,
+        mount: Mount,
+        group_key: Option<&str>,
+        platform_id: Option<i64>,
+        model: &str,
+    ) -> bool {
         let at = &self.rule.applies_to;
+        let mount_ok = match mount {
+            Mount::Group => at.platforms.is_empty(),
+            Mount::Platform => !at.platforms.is_empty(),
+            Mount::Any => true,
+        };
         let p_ok =
             at.platforms.is_empty() || platform_id.is_some_and(|pid| at.platforms.contains(&pid));
         let g_ok =
             at.groups.is_empty() || group_key.is_some_and(|gk| at.groups.iter().any(|g| g == gk));
         let m_ok = at.models.is_empty() || at.models.iter().any(|m| m == model);
-        p_ok && g_ok && m_ok
+        mount_ok && p_ok && g_ok && m_ok
     }
 }
 
@@ -182,8 +212,12 @@ impl CompiledNode {
                     .any(|m| validators::validate(v, m.as_str())),
                 None => false,
             },
-            MatchType::Contains => text.contains(&leaf.pattern) && validators::validate(v, &text),
-            MatchType::Exact => text == leaf.pattern && validators::validate(v, &text),
+            // contains/exact 的命中片段就是 pattern 本身（不是整段文本）——
+            // 校验器必须跑在片段上，否则 contains + luhn 恒不命中（整段文本过不了 Luhn）。
+            MatchType::Contains => {
+                text.contains(&leaf.pattern) && validators::validate(v, &leaf.pattern)
+            }
+            MatchType::Exact => text == leaf.pattern && validators::validate(v, &leaf.pattern),
         }
     }
 
@@ -252,6 +286,7 @@ impl MiddlewareEngine {
     fn phase_rules(
         &self,
         phase: bool,
+        mount: Mount,
         group_key: Option<&str>,
         platform_id: Option<i64>,
         model: &str,
@@ -259,28 +294,29 @@ impl MiddlewareEngine {
         self.snapshot()
             .into_iter()
             .filter(|c| c.conditions.is_response_side() == phase)
-            .filter(|c| c.applies(group_key, platform_id, model))
+            .filter(|c| c.applies(mount, group_key, platform_id, model))
             .collect()
     }
 
-    /// 入站侧规则（请求侧条件）。
+    /// 入站侧规则（请求侧条件）。`mount` 决定归属，见 [`Mount`]。
     pub(crate) fn request_rules(
         &self,
+        mount: Mount,
         group_key: Option<&str>,
         platform_id: Option<i64>,
         model: &str,
     ) -> Vec<CompiledRule> {
-        self.phase_rules(false, group_key, platform_id, model)
+        self.phase_rules(false, mount, group_key, platform_id, model)
     }
 
-    /// 出站侧规则（响应侧条件）。
+    /// 出站侧规则（响应侧条件）。出站只有一个挂载点，两维皆已知 → [`Mount::Any`]。
     pub(crate) fn response_rules(
         &self,
         group_key: Option<&str>,
         platform_id: Option<i64>,
         model: &str,
     ) -> Vec<CompiledRule> {
-        self.phase_rules(true, group_key, platform_id, model)
+        self.phase_rules(true, Mount::Any, group_key, platform_id, model)
     }
 }
 
@@ -331,15 +367,16 @@ pub(crate) fn replace_match(
                 .into_owned(),
             None => s.to_string(),
         },
+        // 校验器跑在命中片段（= pattern 本身）上，与 leaf_matches 同口径，不跑整段文本。
         MatchType::Contains => {
-            if pattern.is_empty() || !validators::validate(validator, s) {
+            if pattern.is_empty() || !validators::validate(validator, pattern) {
                 s.to_string()
             } else {
                 s.replace(pattern, replacement)
             }
         }
         MatchType::Exact => {
-            if s == pattern && validators::validate(validator, s) {
+            if s == pattern && validators::validate(validator, pattern) {
                 replacement.to_string()
             } else {
                 s.to_string()

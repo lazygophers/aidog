@@ -2869,6 +2869,7 @@
   "middleware.addLeaf": "شرط",
   "middleware.appliesGroups": "المجموعات (فارغ = الكل)",
   "middleware.appliesModels": "النماذج (مفصولة بفواصل، فارغ = الكل)",
+  "middleware.appliesModelsHint": "استخدم اسم النموذج لدى المزود (الاسم بعد إعادة تعيين النموذج إن وُجد). تجمع بوابات الميزانية الإنفاق حسب هذا الاسم.",
   "middleware.appliesPlatforms": "المنصات (فارغ = الكل)",
   "middleware.appliesTo": "يطبَّق على (فارغ = بلا قيد؛ قيم متعددة = أي تطابق)",
   "middleware.appliesAll": "الكل",
