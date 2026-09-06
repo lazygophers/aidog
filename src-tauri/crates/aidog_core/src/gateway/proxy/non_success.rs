@@ -18,6 +18,8 @@ pub(crate) async fn handle_non_success(
     attempt_ts: i64,
     is_last_candidate: bool,
     log_settings: &ProxyLogSettings,
+    // 客户端请求的模型名（remap 前）：中间件 applies_to.models 的匹配对象。
+    requested_model: &str,
 ) -> AttemptOutcome {
     // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见下）
     let retry_after = resp
@@ -25,6 +27,8 @@ pub(crate) async fn handle_non_success(
         .get(reqwest::header::RETRY_AFTER)
         .and_then(|v| v.to_str().ok())
         .map(str::to_string);
+    // 中间件 response_headers 条件用；同样须在 text() 消费 resp 前取。
+    let resp_headers_json = upstream_headers_to_json(resp.headers());
     let body = resp.text().await.unwrap_or_default();
     let duration_ms = start.elapsed().as_millis() as i64;
     let code = status.as_u16();
@@ -131,6 +135,8 @@ pub(crate) async fn handle_non_success(
             &body,
             Some(&group.group_key),
             Some(route.platform.id as i64),
+            requested_model,
+            Some(&resp_headers_json),
         )
     };
     // ── 决策 A：状态码硬错圈定 ──

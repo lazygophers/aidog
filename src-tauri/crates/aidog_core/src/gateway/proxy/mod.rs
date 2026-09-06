@@ -121,7 +121,7 @@ pub(crate) use retry::{
     extract_error_message, filter_upstream_resp_headers, is_nonstream_body_valid,
     is_status_retryable, is_transport_retryable, parse_quota_reset_at, resp_headers_to_log_json,
     transport_retry_backoff,
-    truncate_attempt_error, truncate_peek_text,
+    truncate_attempt_error, truncate_peek_text, upstream_headers_to_json,
 };
 pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};
 pub(crate) use stream::{

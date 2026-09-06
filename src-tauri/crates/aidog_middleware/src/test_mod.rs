@@ -444,7 +444,7 @@ fn outbound_mask_rewrites_body() {
         vec![mask_step("****", &[])],
     )]);
     let mut body = "leak sk-abcdefghijklmnopqrst end".to_string();
-    e.apply_outbound(&settings_on(), &mut body, None, None);
+    e.apply_outbound(&settings_on(), &mut body, None, None, "", None);
     assert_eq!(body, "leak **** end");
 }
 
@@ -485,20 +485,167 @@ fn classify_error_returns_first_match() {
             "Request too large: context length exceeded",
             None,
             None,
+            "",
+            None,
         )
         .unwrap();
     assert_eq!(c.category, "prompt_limit");
     assert!(!c.retryable);
     let c2 = e
-        .classify_error(&settings_on(), 500, "boom", None, None)
+        .classify_error(&settings_on(), 500, "boom", None, None, "", None)
         .unwrap();
     assert_eq!(c2.category, "other");
     assert!(c2.retryable);
     // catchall（status 叶子 [0-9]+）覆盖任意非 2xx——「任意非 2xx 命中」的显式翻译语义。
     assert!(
-        e.classify_error(&settings_on(), 400, "nothing here", None, None)
+        e.classify_error(&settings_on(), 400, "nothing here", None, None, "", None)
             .is_some()
     );
+}
+
+// ─── 票 02：出站上下文（applies_to.models + response_headers）────────────────
+
+/// applies_to.models 限定 "gpt-4o" 的响应侧规则：出站传入该 model 才改写。
+#[test]
+fn outbound_applies_to_models_filters_by_request_model() {
+    let e = MiddlewareEngine::new();
+    let mut rule = mk_rule(
+        1,
+        "only-gpt4o",
+        leaf(Target::ResponseBody, "secret"),
+        vec![mask_step("****", &[])],
+    );
+    rule.applies_to.models = vec!["gpt-4o".to_string()];
+    e.rebuild_from_rules(vec![rule]);
+
+    let mut hit = "a secret b".to_string();
+    e.apply_outbound(&settings_on(), &mut hit, None, None, "gpt-4o", None);
+    assert_eq!(hit, "a **** b", "限定模型命中时必须改写");
+
+    let mut miss = "a secret b".to_string();
+    e.apply_outbound(&settings_on(), &mut miss, None, None, "claude-3-opus", None);
+    assert_eq!(miss, "a secret b", "非限定模型不得改写");
+
+    // 空 model（无请求模型上下文）同样不命中非空 models 限定。
+    let mut blank = "a secret b".to_string();
+    e.apply_outbound(&settings_on(), &mut blank, None, None, "", None);
+    assert_eq!(blank, "a secret b");
+}
+
+/// 错误分类路径同样按 applies_to.models 过滤。
+#[test]
+fn classify_error_applies_to_models_filters_by_request_model() {
+    let e = MiddlewareEngine::new();
+    let mut rule = mk_rule(
+        1,
+        "only-gpt4o",
+        leaf(Target::Status, "[0-9]+"),
+        vec![step(
+            ActionKind::Classify,
+            ActionParams {
+                category: "scoped".to_string(),
+                ..Default::default()
+            },
+        )],
+    );
+    rule.applies_to.models = vec!["gpt-4o".to_string()];
+    e.rebuild_from_rules(vec![rule]);
+
+    let hit = e
+        .classify_error(&settings_on(), 500, "boom", None, None, "gpt-4o", None)
+        .expect("限定模型命中");
+    assert_eq!(hit.category, "scoped");
+    assert!(
+        e.classify_error(&settings_on(), 500, "boom", None, None, "claude-3-opus", None)
+            .is_none(),
+        "非限定模型不得命中"
+    );
+}
+
+/// response_headers 叶子按 header 名匹配，且大小写不敏感（上游头名常已被规范成小写）。
+#[test]
+fn classify_error_response_headers_condition_case_insensitive() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "hdr",
+        ConditionNode::Leaf(ConditionLeaf {
+            target: Target::ResponseHeaders,
+            field: "X-Upstream-Flag".to_string(),
+            match_type: MatchType::Contains,
+            pattern: "tripped".to_string(),
+        }),
+        vec![step(
+            ActionKind::Classify,
+            ActionParams {
+                category: "upstream_flag".to_string(),
+                ..Default::default()
+            },
+        )],
+    )]);
+
+    // 规则里写的是 X-Upstream-Flag，实际头名小写 → 仍须命中。
+    let headers = r#"{"x-upstream-flag":"tripped","content-type":"application/json"}"#;
+    let c = e
+        .classify_error(&settings_on(), 503, "err", None, None, "", Some(headers))
+        .expect("header 名大小写不敏感命中");
+    assert_eq!(c.category, "upstream_flag");
+
+    // 头存在但值不含 pattern → 不命中。
+    let other = r#"{"x-upstream-flag":"ok"}"#;
+    assert!(
+        e.classify_error(&settings_on(), 503, "err", None, None, "", Some(other))
+            .is_none()
+    );
+    // 调用方未传响应头 → 该叶子不命中（fail-open，不误判）。
+    assert!(
+        e.classify_error(&settings_on(), 503, "err", None, None, "", None)
+            .is_none()
+    );
+}
+
+/// 出站 2xx 路径也能读到响应头：header 条件成立时才对 body 应用改写。
+#[test]
+fn outbound_response_headers_condition_gates_rewrite() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "hdr-gated",
+        ConditionNode::All {
+            children: vec![
+                ConditionNode::Leaf(ConditionLeaf {
+                    target: Target::ResponseHeaders,
+                    field: "X-Redact".to_string(),
+                    match_type: MatchType::Exact,
+                    pattern: "1".to_string(),
+                }),
+                leaf(Target::ResponseBody, "secret"),
+            ],
+        },
+        vec![mask_step("****", &[])],
+    )]);
+
+    let mut hit = "a secret b".to_string();
+    e.apply_outbound(
+        &settings_on(),
+        &mut hit,
+        None,
+        None,
+        "",
+        Some(r#"{"x-redact":"1"}"#),
+    );
+    assert_eq!(hit, "a **** b");
+
+    let mut miss = "a secret b".to_string();
+    e.apply_outbound(
+        &settings_on(),
+        &mut miss,
+        None,
+        None,
+        "",
+        Some(r#"{"x-redact":"0"}"#),
+    );
+    assert_eq!(miss, "a secret b");
 }
 
 #[test]

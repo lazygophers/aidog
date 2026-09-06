@@ -8,9 +8,14 @@
 //     ErrorClassification 喂现有重试编排（本层不引入熔断器）。
 //   - 流式 SSE：apply_outbound_stream_chunk 逐块应用 mask/override。
 //     **已知限制**：逐块替换在 chunk 边界处可能漏匹配（密钥被切到两个 chunk），
-//     滑窗跨块匹配列为后续（design 备注）。
+//     滑窗跨块匹配列为后续（design 备注）。另：流式挂载点仍不传 model / 上游响应头，
+//     故 applies_to.models 与 response_headers 条件在流式路径尚未生效（票 05 处理）。
 //
-// response_headers 叶子挂载点无上游 header JSON（调用方未传）→ 恒不命中（文档化）。
+// 非流式 2xx 与非 2xx 两条路径均传入请求 model 与上游响应头 JSON：
+//   - model 取**客户端请求的模型名**（remap 前），与入站主挂载点 handler.rs 同口径；
+//     平台侧 remap 后的 actual_model 属路由内部量，不作为 applies_to.models 的匹配对象。
+//   - resp_headers 为 `{name: value}` JSON 字符串，header 名匹配大小写不敏感
+//     （见 lib.rs::header_value）。
 
 use aidog_db::models::{ActionKind, MiddlewareSettings, Target};
 
@@ -43,15 +48,17 @@ impl MiddlewareEngine {
         body: &mut String,
         group_key: Option<&str>,
         platform_id: Option<i64>,
+        model: &str,
+        resp_headers: Option<&str>,
     ) {
         if !settings.enabled {
             return;
         }
-        // 出站挂载点无请求 model 可用（chat_req 已消费）→ model 空串，
-        // applies_to.models 非空的响应侧规则不在此命中（文档化限制）。
-        for cr in self.response_rules(group_key, platform_id, "") {
+        for cr in self.response_rules(group_key, platform_id, model) {
             let view = EvalView {
+                model,
                 resp_body: Some(body.as_str()),
+                resp_headers,
                 ..Default::default()
             };
             if !cr.conditions.eval(&view) {
@@ -86,6 +93,7 @@ impl MiddlewareEngine {
     /// 错误分类（非 2xx 路径）：求值响应侧规则（status/response_body 条件），
     /// 取链内 classify 步骤产出 [`ErrorClassification`]。无命中 → None（走默认重试语义）。
     /// 命中多条 → 取第一条（priority 升序已在缓存排序）。
+    #[allow(clippy::too_many_arguments)]
     pub fn classify_error(
         &self,
         settings: &MiddlewareSettings,
@@ -93,16 +101,20 @@ impl MiddlewareEngine {
         body: &str,
         group_key: Option<&str>,
         platform_id: Option<i64>,
+        model: &str,
+        resp_headers: Option<&str>,
     ) -> Option<ErrorClassification> {
         if !settings.enabled {
             return None;
         }
         let view = EvalView {
+            model,
             resp_body: Some(body),
+            resp_headers,
             status: Some(status),
             ..Default::default()
         };
-        for cr in self.response_rules(group_key, platform_id, "") {
+        for cr in self.response_rules(group_key, platform_id, model) {
             if !cr.conditions.eval(&view) {
                 continue;
             }

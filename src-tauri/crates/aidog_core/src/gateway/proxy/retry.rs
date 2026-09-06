@@ -75,6 +75,19 @@ pub(crate) fn resp_headers_to_log_json(
     Value::Object(h).to_string()
 }
 
+/// 把上游响应头序列化为 `{name: value}` JSON 字符串（日志列 upstream_response_headers 与
+/// 中间件 response_headers 条件共用同一格式）。非 UTF-8 头值跳过；多值同名头保留首值。
+pub(crate) fn upstream_headers_to_json(headers: &reqwest::header::HeaderMap) -> String {
+    let mut h = serde_json::Map::new();
+    for (k, v) in headers {
+        if let Ok(s) = v.to_str() {
+            h.entry(k.as_str().to_string())
+                .or_insert_with(|| Value::String(s.to_string()));
+        }
+    }
+    Value::Object(h).to_string()
+}
+
 /// 区分 429：配额耗尽（true）vs 限流 transient（false）。仅用于熔断分类（C3）：
 /// 配额耗尽不计熔断（record_ignored），限流计熔断（record_failure）。
 /// 429 不再触发 auto_disable（无论配额还是限流），统一走 failover 换下个候选。

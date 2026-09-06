@@ -122,11 +122,14 @@ pub(crate) async fn finish_nonstream(
             .await
             .middleware_settings
             .clone();
+        let mw_resp_headers = upstream_headers_to_json(upstream_resp_headers);
         state.middleware.apply_outbound(
             &mw_settings,
             &mut s,
             Some(&group.group_key),
             Some(route.platform.id as i64),
+            requested_model,
+            Some(&mw_resp_headers),
         );
         s.into_bytes()
     };
