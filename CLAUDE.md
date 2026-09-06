@@ -1,61 +1,16 @@
 - 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
 - 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
 - 禁 `git push`，等明确指令
+- `cd src-tauri && cargo clippy` 的 warning 必须清干净
 
-## 技术栈
+## 项目结构要点
 
-Tauri 2.0 + React 19 + TypeScript + Rust + Yarn
+- `command_macro.rs` 的 `tauri_command!` 宏双展开：feature `desktop` 出 `#[tauri::command]`，feature `http` 出 `<命令名>::http` 的 axum handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个 feature 并转发给 aidog_core**（cfg 在展开处求值）：现有 aidog_backup / aidog_cli_proxy 已声明。
+- `http_command.rs`：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body。
+- `aidog_ctx` 的 `AppCtx` trait（进程级 OnceLock 单例）必须**零 tauri 依赖**：命令拿 db / middleware / proxy handle / emit 一律走它，`aidog_core/src/tauri_ctx.rs` 是唯一接 `AppHandle` 的地方，无头内核（票 08）实现同一 trait。
+- `aidog_test_util` 依赖 `aidog_core`，故 `aidog_core` 不可反向 dev-dep。
+- `src/services/api/` 是目录不是单文件；`src/pages/Settings.tsx` 是编排容器，子组件在 `src/components/settings/`。
 
-## 快速开始
-
-```bash
-yarn                          # 装前端依赖
-yarn tauri dev                # 启动桌面应用（dev）
-yarn build                    # 前端构建（tsc && vite build）
-yarn test                     # 前端测试（vitest run，src/utils/*.test.ts 等 18 个测试文件）
-cd src-tauri && cargo build   # 仅构 Rust 后端
-cd src-tauri && cargo clippy  # Rust lint（warning 必须清）
-cd src-tauri && cargo test    # Rust 测试（db/proxy/converter/router/usage_color 等有 #[test]）
-```
-> 前端测试：18 个 .test.ts/.test.tsx 文件（utils/*.test.ts 10 个 + api.test.ts + defaults.test.ts + 6 个组件测试），run with `yarn test`。
-
-## 项目结构
-
-```
-src/                    # React 前端
-  pages/                # 页面组件（About/AppSettings/CodexSettings/Groups/Home/Logs/Mcp/ModelInfo/ModelTestPanel/Notifications/Platforms/PopoverConfigTab/Settings/SkillDetailView/SkillInstallView/Skills/Stats/TrayConfigTab）— Settings 为编排容器，子组件见 components/settings/；ModelInfo/ 是「模型信息」页（原 PricingTab 位置，双 tab 列表 + 详情）
-  components/
-    settings/           # 设置页拆分组件（editors.tsx 全部字段/特殊编辑器 + 令牌 F/S + Header/AnchorNav/UnsavedModal）
-    shared/             # 三页共享展示组件（CompactCard/StatChip/BalanceBar/colorScale/usageColor）
-  services/api/         # TS 类型定义 + Tauri invoke 封装（目录，非单文件）
-    index.ts            # 主入口
-    types/              # 类型定义目录
-    *.ts                # 各模块 API（groups/platforms/proxy/stats/settings/skills/mcp 等）
-  themes/               # 每主题 light/dark CSS 变量
-  utils/                # pinyin(拼音搜索) / formatters(统一数值格式化) / navGuard(无路由离页拦截)
-src-tauri/              # Rust workspace（17 个 crate：root bin `aidog` + crates/ 下 16 个）
-  crates/
-    aidog_core/         # 核心库 + 全部 206 个 #[tauri::command]（准数以 startup.rs 注册表为准）
-      gateway/          # models/db/estimate/price_sync/proxy/quota/router/billing/usage_color/peak/time_windows 等
-      system_cmd/       # 系统命令（about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete）
-      platform_cmd/     # 平台命令（group/platform/quota/stats/price/model_fetch 等）
-      proxy_cmd/        # 代理命令（proxy/middleware/mitm/proxy_log/proxy_timeout 等）
-      ai_tools_cmd/     # AI 工具命令（coding_tools/mcp/model_test/script_executor/skills 等）
-      cli_proxy_cmd/    # CLI 代理命令（batch/import/platform/provider）
-      cli_env.rs / settings.rs / defaults.rs / popover.rs / tray_render.rs   # 单文件命令族
-      command_macro.rs  # tauri_command! 宏：6 分支 × 双展开（票 07）。feature `desktop` 出
-                        # #[tauri::command]，feature `http` 出 `<命令名>::http` 的 axum
-                        # handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个
-                        # feature 并转发给 aidog_core**（cfg 在展开处求值）：现有
-                        # aidog_backup / aidog_cli_proxy 已声明
-      http_command.rs   # HTTP 形态支撑：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端
-                        # 实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body
-    aidog_ctx/          # AppCtx trait（进程级 OnceLock 单例，**零 tauri 依赖**）：命令拿 db /
-                        # middleware / proxy handle / emit 一律走它，桌面壳实现在
-                        # aidog_core/src/tauri_ctx.rs（唯一接 AppHandle 的地方），
-                        # 无头内核（票 08）实现同一 trait
-    aidog_test_util/    # 测试工具（依赖 aidog_core，故 aidog_core 不可反向 dev-dep）
-```
 > command 注册表在 `src-tauri/src/startup.rs` 的 `tauri::generate_handler![...]`，**它是前端 invoke 名的唯一真值源**（invoke 名取 `#[tauri::command]` 函数名，与模块路径无关）。搬迁命令后用该集合零差集自比对即可证明 invoke 名未变。
 
 ## 关键约束
