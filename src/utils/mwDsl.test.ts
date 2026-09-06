@@ -4,12 +4,13 @@ import { describe, it, expect } from "vitest";
 import { treeToDsl, parseDsl, dslErrorPos } from "./mwDsl";
 import type { ConditionNode } from "../services/api";
 
-const leaf = (target: string, pattern: string, match_type = "contains", field = ""): ConditionNode => ({
+const leaf = (target: string, pattern: string, match_type = "contains", field = "", validator = ""): ConditionNode => ({
   kind: "leaf",
   target,
   field,
   match_type,
   pattern,
+  validator,
 } as ConditionNode);
 
 describe("mwDsl round-trip", () => {
@@ -46,6 +47,26 @@ describe("mwDsl round-trip", () => {
     // treeToDsl 折叠单子组为叶子；往返结果与其唯一子节点等价。
     expect(parseDsl(treeToDsl(one))).toEqual(one.children[0]);
   });
+
+  it("NOT 节点往返一致（含嵌套）", () => {
+    const t: ConditionNode = { kind: "not", child: leaf("model", "gpt", "contains") };
+    expect(parseDsl(treeToDsl(t))).toEqual(t);
+
+    const nested: ConditionNode = {
+      kind: "all",
+      children: [
+        leaf("request_body", "hi"),
+        { kind: "not", child: { kind: "any", children: [leaf("model", "a", "exact"), leaf("model", "b", "exact")] } },
+      ],
+    };
+    expect(parseDsl(treeToDsl(nested))).toEqual(nested);
+  });
+
+  it("checksum 尾缀往返一致", () => {
+    const t = leaf("request_body", "\\d{16}", "regex", "", "luhn");
+    expect(treeToDsl(t)).toContain("checksum luhn");
+    expect(parseDsl(treeToDsl(t))).toEqual(t);
+  });
 });
 
 describe("mwDsl 错误定位", () => {
@@ -73,6 +94,11 @@ describe("mwDsl 错误定位", () => {
     expect(() => parseDsl("request_body contains")).toThrow();
     expect(() => parseDsl("ALL(request_body contains \"x\"")).toThrow();
     expect(() => parseDsl("ALL()")).toThrow();
+  });
+
+  it("NOT() 多于一个子条件拒绝", () => {
+    expect(() => parseDsl('NOT(request_body contains "x" model exact "y")')).toThrow();
+    expect(() => parseDsl('NOT request_body contains "x"')).toThrow();
   });
 
   it("条件后多余内容拒绝", () => {

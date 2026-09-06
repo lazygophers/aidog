@@ -2847,7 +2847,7 @@
   "middleware.maskFieldsAll": "Todos los campos (messages + system)",
   "middleware.clearConditions": "Borrar condiciones",
   "middleware.conditions": "Condiciones",
-  "middleware.dslHint": "Sintaxis: ALL(...)/ANY(...)/hoja, hoja = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "Sintaxis: ALL(...)/ANY(...)/NOT(...)/hoja, hoja = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "Fallido",
   "middleware.fieldHint": "Campo (vacío = entero / ruta JSON / nombre de cabecera)",
   "middleware.target.model": "Modelo",
@@ -2868,5 +2868,13 @@
   "importExport.dropUnsupportedInBrowser": "Arrastrar en el navegador no da la ruta completa: haga clic aquí y escriba la ruta del archivo .aidogx.",
   "importExport.pickHintBrowser": "Haga clic para escribir la ruta completa del .aidogx (con autocompletado) · descifrado automático · skills instaladas automáticamente",
   "settings.backup.copyPath": "Copiar la ruta de la copia de seguridad",
-  "about.updateDesktopOnly": "En el navegador no se buscan actualizaciones: actualice el núcleo en la máquina donde se ejecuta"
+  "about.updateDesktopOnly": "En el navegador no se buscan actualizaciones: actualice el núcleo en la máquina donde se ejecuta",
+  "middleware.node.all": "AND (todas coinciden)",
+  "middleware.node.any": "OR (cualquiera coincide)",
+  "middleware.node.not": "NOT (negación)",
+  "middleware.checksumHint": "Comprueba el dígito de control tras el regex; los fallos no cuentan",
+  "middleware.checksum.none": "Sin dígito de control",
+  "middleware.checksum.luhn": "Luhn (tarjeta bancaria)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "DNI de China"
 }

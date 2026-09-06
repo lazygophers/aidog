@@ -38,6 +38,7 @@ fn body_contains_leaf(pattern: &str) -> ConditionNode {
         field: String::new(),
         match_type: MatchType::Contains,
         pattern: pattern.to_string(),
+        validator: String::new(),
     })
 }
 

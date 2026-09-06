@@ -183,6 +183,8 @@ function mixedPhase(node: ConditionNode): string | null {
         throw new Error(`混阶段条件被拒：'${n.target}' 与请求侧条件不能同树`);
       }
       phase = p;
+    } else if (n.kind === "not") {
+      walk(n.child);
     } else {
       n.children.forEach(walk);
     }
@@ -202,8 +204,10 @@ function conditionsSummary(node: ConditionNode): string {
   if (node.kind === "leaf") {
     const tgt = { request_body: "req.body", request_headers: "req.headers", response_body: "resp.body", response_headers: "resp.headers", status: "status", model: "model" }[node.target] ?? node.target;
     const field = node.field ? `.${node.field}` : "";
-    return `${tgt}${field} ${node.match_type} /${node.pattern}/`;
+    const checksum = node.validator ? ` +${node.validator}` : "";
+    return `${tgt}${field} ${node.match_type} /${node.pattern}/${checksum}`;
   }
+  if (node.kind === "not") return `NOT(${conditionsSummary(node.child)})`;
   const joined = node.children.map(conditionsSummary).join(node.kind === "all" ? " AND " : " OR ");
   return node.children.length > 1 ? `(${joined})` : joined || "∅";
 }
@@ -247,7 +251,7 @@ interface NodeEditorProps {
 }
 
 /** 空条件叶子（新增子条件 / 顶层清空后的初始形态）。 */
-const EMPTY_LEAF: ConditionNode = { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "" };
+const EMPTY_LEAF: ConditionNode = { kind: "leaf", target: "request_body", field: "", match_type: "contains", pattern: "", validator: "" };
 
 function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<NodeEditorProps, "depth"> & { node: Extract<ConditionNode, { kind: "leaf" }> }) {
   const { t } = useTranslation();
@@ -287,6 +291,17 @@ function ConditionLeafEditor({ node, onChange, onRemove, removeLabel }: Omit<Nod
           onChange={(v) => onChange({ ...node, pattern: v })}
         />
       </div>
+      {node.match_type === "regex" && (
+        <Select value={node.validator || "none"} onValueChange={(v) => onChange({ ...node, validator: v === "none" ? "" : v })}>
+          <SelectTrigger title={t("middleware.checksumHint", "正则命中后再跑校验位，校验不过的不算命中")} style={{ fontSize: F.hint, width: "auto", minWidth: 110, flexShrink: 0 }}><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">{t("middleware.checksum.none", "无校验位")}</SelectItem>
+            <SelectItem value="luhn">{t("middleware.checksum.luhn", "Luhn (银行卡)")}</SelectItem>
+            <SelectItem value="iban">{t("middleware.checksum.iban", "IBAN")}</SelectItem>
+            <SelectItem value="cn_id">{t("middleware.checksum.cn_id", "中国身份证")}</SelectItem>
+          </SelectContent>
+        </Select>
+      )}
       {onRemove && (
         <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
           <IconClose size={12} />
@@ -313,16 +328,17 @@ function ConditionNodeEditor({ node, onChange, onRemove, removeLabel, depth }: N
   if (node.kind === "leaf") {
     return <ConditionLeafEditor node={node} onChange={onChange} onRemove={onRemove} removeLabel={removeLabel} />;
   }
-  const setChild = (i: number, c: ConditionNode) => onChange({ ...node, children: node.children.map((x, j) => (j === i ? c : x)) });
-  const removeChild = (i: number) => onChange({ ...node, children: node.children.filter((_, j) => j !== i) });
+  // NOT 是单子节点组（票 09）；这里统一按「子节点数组」处理，写回时按 kind 还原形状。
+  const isNot = node.kind === "not";
+  const children = isNot ? [node.child] : node.children;
+  const write = (cs: ConditionNode[]) =>
+    onChange(isNot ? { kind: "not", child: cs[0] ?? EMPTY_LEAF } : { ...node, children: cs });
+  const setChild = (i: number, c: ConditionNode) => write(children.map((x, j) => (j === i ? c : x)));
+  const removeChild = (i: number) => write(children.filter((_, j) => j !== i));
   const addChild = (leaf: boolean) =>
-    onChange({
-      ...node,
-      children: [
-        ...node.children,
-        leaf ? EMPTY_LEAF : { kind: "any", children: [EMPTY_LEAF] },
-      ],
-    });
+    write([...children, leaf ? EMPTY_LEAF : { kind: "any", children: [EMPTY_LEAF] }]);
+  const setKind = (v: "all" | "any" | "not") =>
+    onChange(v === "not" ? { kind: "not", child: children[0] ?? EMPTY_LEAF } : { kind: v, children });
   return (
     <div
       style={{
@@ -337,28 +353,33 @@ function ConditionNodeEditor({ node, onChange, onRemove, removeLabel, depth }: N
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <Select value={node.kind} onValueChange={(v) => onChange({ ...node, kind: v as "all" | "any" })}>
+        <Select value={node.kind} onValueChange={(v) => setKind(v as "all" | "any" | "not")}>
           <SelectTrigger style={{ fontSize: F.hint, width: "auto", minWidth: 92, flexShrink: 0 }}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">AND (全部满足)</SelectItem>
-            <SelectItem value="any">OR (任一满足)</SelectItem>
+            <SelectItem value="all">{t("middleware.node.all", "AND (全部满足)")}</SelectItem>
+            <SelectItem value="any">{t("middleware.node.any", "OR (任一满足)")}</SelectItem>
+            <SelectItem value="not">{t("middleware.node.not", "NOT (取反)")}</SelectItem>
           </SelectContent>
         </Select>
         <div style={{ flex: 1 }} />
-        <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(true)}>
-          + {t("middleware.addLeaf", "条件")}
-        </Button>
-        <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(false)}>
-          + {t("middleware.addGroup", "子组")}
-        </Button>
+        {!isNot && (
+          <>
+            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(true)}>
+              + {t("middleware.addLeaf", "条件")}
+            </Button>
+            <Button variant="ghost" style={{ fontSize: 11 }} onClick={() => addChild(false)}>
+              + {t("middleware.addGroup", "子组")}
+            </Button>
+          </>
+        )}
         {onRemove && (
           <Button variant="ghost" onClick={onRemove} title={removeLabel ?? t("action.delete", "删除")} style={{ color: "var(--text-tertiary)" }}>
             <IconClose size={12} />
           </Button>
         )}
       </div>
-      {node.children.map((c, i) => (
-        <ConditionNodeEditor key={i} node={c} onChange={(n) => setChild(i, n)} onRemove={() => removeChild(i)} depth={depth + 1} />
+      {children.map((c, i) => (
+        <ConditionNodeEditor key={i} node={c} onChange={(n) => setChild(i, n)} onRemove={isNot ? undefined : () => removeChild(i)} depth={depth + 1} />
       ))}
     </div>
   );

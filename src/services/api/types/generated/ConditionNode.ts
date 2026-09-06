@@ -2,6 +2,6 @@
 import type { ConditionLeaf } from "./ConditionLeaf";
 
 /**
- * 条件树节点：嵌套 ALL/ANY 组或叶子。
+ * 条件树节点：嵌套 ALL/ANY/NOT 组或叶子。
  */
-export type ConditionNode = { "kind": "all", children: Array<ConditionNode>, } | { "kind": "any", children: Array<ConditionNode>, } | { "kind": "leaf" } & ConditionLeaf;
+export type ConditionNode = { "kind": "all", children: Array<ConditionNode>, } | { "kind": "any", children: Array<ConditionNode>, } | { "kind": "not", child: ConditionNode, } | { "kind": "leaf" } & ConditionLeaf;

@@ -37,6 +37,7 @@ pub(crate) fn leaf(target: Target, pattern: &str) -> ConditionNode {
         field: String::new(),
         match_type: MatchType::Regex,
         pattern: pattern.to_string(),
+        validator: String::new(),
     })
 }
 
@@ -46,6 +47,7 @@ pub(crate) fn contains_leaf(target: Target, pattern: &str) -> ConditionNode {
         field: String::new(),
         match_type: MatchType::Contains,
         pattern: pattern.to_string(),
+        validator: String::new(),
     })
 }
 
@@ -149,6 +151,7 @@ fn condition_tree_all_any_nesting() {
                 match_type: MatchType::Exact,
                 // 聚合文本带尾部换行（collect_request_text 每段 push('\n')）
                 pattern: "baz\n".to_string(),
+                validator: String::new(),
             }),
         ],
     };
@@ -441,6 +444,7 @@ fn header_leaf(name: &str, pattern: &str) -> ConditionNode {
         field: name.to_string(),
         match_type: MatchType::Contains,
         pattern: pattern.to_string(),
+        validator: String::new(),
     })
 }
 
@@ -675,6 +679,7 @@ fn classify_error_response_headers_condition_case_insensitive() {
             field: "X-Upstream-Flag".to_string(),
             match_type: MatchType::Contains,
             pattern: "tripped".to_string(),
+            validator: String::new(),
         }),
         vec![step(
             ActionKind::Classify,
@@ -719,6 +724,7 @@ fn outbound_response_headers_condition_gates_rewrite() {
                     field: "X-Redact".to_string(),
                     match_type: MatchType::Exact,
                     pattern: "1".to_string(),
+                    validator: String::new(),
                 }),
                 leaf(Target::ResponseBody, "secret"),
             ],
@@ -989,4 +995,197 @@ pub(crate) fn collect_request_text(chat_req: &ChatRequest) -> String {
         }
     }
     buf
+}
+
+// ─── 票 09：NOT 算子 + 内置识别器（正则 + 校验位）────────────────────────
+
+/// 带校验器的 regex 叶子。
+fn checked_leaf(pattern: &str, validator: &str) -> ConditionNode {
+    ConditionNode::Leaf(ConditionLeaf {
+        target: Target::RequestBody,
+        field: String::new(),
+        match_type: MatchType::Regex,
+        pattern: pattern.to_string(),
+        validator: validator.to_string(),
+    })
+}
+
+fn not(child: ConditionNode) -> ConditionNode {
+    ConditionNode::Not {
+        child: Box::new(child),
+    }
+}
+
+/// 对请求文本求值一棵条件树（走真实 compile → eval 路径）。
+fn eval_req(tree: &ConditionNode, text: &str) -> bool {
+    let compiled = compile_node(tree);
+    let view = EvalView {
+        req_text: text.to_string(),
+        model: "test-model",
+        ..Default::default()
+    };
+    compiled.eval(&view)
+}
+
+#[test]
+fn not_node_negates_leaf() {
+    let tree = not(contains_leaf(Target::RequestBody, "secret"));
+    assert!(!eval_req(&tree, "this has a secret"));
+    assert!(eval_req(&tree, "nothing here"));
+}
+
+#[test]
+fn not_node_nested_double_negation_and_whitelist() {
+    // NOT(NOT(x)) == x
+    let double = not(not(contains_leaf(Target::RequestBody, "abc")));
+    assert!(eval_req(&double, "xx abc yy"));
+    assert!(!eval_req(&double, "xx yy"));
+
+    // 白名单：ALL(含 "req", NOT(ANY(allow1, allow2))) —— 不在白名单里才命中。
+    let tree = ConditionNode::All {
+        children: vec![
+            contains_leaf(Target::RequestBody, "req"),
+            not(ConditionNode::Any {
+                children: vec![
+                    contains_leaf(Target::RequestBody, "allow1"),
+                    contains_leaf(Target::RequestBody, "allow2"),
+                ],
+            }),
+        ],
+    };
+    assert!(eval_req(&tree, "req from somewhere"));
+    assert!(!eval_req(&tree, "req from allow2"));
+    assert!(!eval_req(&tree, "req from allow1"));
+    // 前半不满足 → 整体不命中（NOT 不会把它救回来）
+    assert!(!eval_req(&tree, "nothing"));
+}
+
+#[test]
+fn not_subtree_patterns_excluded_from_mask() {
+    // NOT 里的 pattern 表达「不该出现的东西」，不能当改写模式，否则会抹掉要保留的文本。
+    let tree = ConditionNode::All {
+        children: vec![
+            leaf(Target::RequestBody, "keep-me"),
+            not(leaf(Target::RequestBody, "do-not-mask")),
+        ],
+    };
+    let compiled = compile_node(&tree);
+    let pats: Vec<String> = collect_patterns(&compiled, Target::RequestBody)
+        .into_iter()
+        .map(|p| p.pattern)
+        .collect();
+    assert_eq!(pats, vec!["keep-me".to_string()]);
+}
+
+#[test]
+fn credit_card_checksum_rejects_regex_only_false_positive() {
+    let tree = checked_leaf(aidog_db::BUILTIN_CREDIT_CARD_PATTERN, "luhn");
+    // 正例：Luhn 合法的测试卡号（含分隔符形式）。
+    assert!(eval_req(&tree, "card 4111111111111111 on file"));
+    assert!(eval_req(&tree, "card 4111 1111 1111 1111 on file"));
+    // 反例：16 位数字，正则照样命中，Luhn 校验挂 → 不算命中。
+    assert!(
+        pat_matches(aidog_db::BUILTIN_CREDIT_CARD_PATTERN, "1234567812345678"),
+        "前提：正则确实命中这串数字（证明拦截来自 checksum 而非正则）"
+    );
+    assert!(!eval_req(&tree, "order id 1234567812345678"));
+    assert!(!eval_req(&tree, "trace 4111111111111112"));
+}
+
+#[test]
+fn credit_card_mask_leaves_checksum_failures_intact() {
+    let tree = checked_leaf(aidog_db::BUILTIN_CREDIT_CARD_PATTERN, "luhn");
+    let compiled = compile_node(&tree);
+    let pats = collect_patterns(&compiled, Target::RequestBody);
+    let p = &pats[0];
+    let out = replace_match(
+        p.match_type,
+        &p.regex,
+        &p.pattern,
+        &p.validator,
+        "card 4111111111111111 order 1234567812345678",
+        "****",
+    );
+    assert_eq!(out, "card **** order 1234567812345678");
+}
+
+#[test]
+fn iban_and_cn_id_checksum_reject_false_positives() {
+    let iban = checked_leaf(aidog_db::BUILTIN_IBAN_PATTERN, "iban");
+    assert!(eval_req(&iban, "pay to GB82WEST12345698765432 please"));
+    assert!(
+        pat_matches(aidog_db::BUILTIN_IBAN_PATTERN, "GB82WEST12345698765433"),
+        "前提：正则命中这串（拦截来自 mod-97 校验）"
+    );
+    assert!(!eval_req(&iban, "pay to GB82WEST12345698765433 please"));
+
+    let cn = checked_leaf(aidog_db::BUILTIN_CN_ID_PATTERN, "cn_id");
+    assert!(eval_req(&cn, "id 11010519491231002X here"));
+    assert!(
+        pat_matches(aidog_db::BUILTIN_CN_ID_PATTERN, "110105194912310021"),
+        "前提：正则命中 18 位数字（拦截来自 GB 11643 校验位）"
+    );
+    assert!(!eval_req(&cn, "id 110105194912310021 here"));
+}
+
+#[test]
+fn ip_mac_and_ssn_pattern_samples() {
+    let ipmac = checked_leaf(aidog_db::BUILTIN_IP_MAC_PATTERN, "");
+    assert!(eval_req(&ipmac, "host 192.168.1.10"));
+    assert!(eval_req(&ipmac, "mac 3C:22:FB:0A:1B:2C"));
+    assert!(eval_req(
+        &ipmac,
+        "v6 2001:0db8:85a3:0000:0000:8a2e:0370:7334"
+    ));
+    assert!(!eval_req(&ipmac, "version 999.999.999.999"));
+    assert!(!eval_req(&ipmac, "just words"));
+
+    let ssn = checked_leaf(aidog_db::BUILTIN_US_SSN_PATTERN, "");
+    assert!(eval_req(&ssn, "ssn 078-05-1120"));
+    assert!(eval_req(&ssn, "ssn 078051120"));
+    // 官方无效段：area 000 / 666 / 9xx，group 00，serial 0000。
+    assert!(!eval_req(&ssn, "ssn 000-12-3456"));
+    assert!(!eval_req(&ssn, "ssn 666-12-3456"));
+    assert!(!eval_req(&ssn, "ssn 900-12-3456"));
+    assert!(!eval_req(&ssn, "ssn 078-00-1120"));
+    assert!(!eval_req(&ssn, "ssn 078-05-0000"));
+}
+
+#[test]
+fn cloud_secret_pattern_is_registry_driven() {
+    // 平台前缀来自 registry key_prefixes（禁代码硬编码）：抽两个 registry 里确有的前缀验证，
+    // 并确认 seed 出来的 conditions JSON 里带着它们。
+    let conds = aidog_db::builtin_rule_specs()
+        .iter()
+        .find(|s| s.name == "内置·云厂商密钥脱敏")
+        .expect("云厂商密钥内置规则存在")
+        .conditions;
+    for prefix in ["sk-ant-", "ark-"] {
+        assert!(
+            conds.contains(prefix),
+            "conditions 应包含 registry 前缀 {prefix}"
+        );
+    }
+    let node: ConditionNode = serde_json::from_str(conds).expect("conditions JSON 可解析");
+    assert!(eval_req(&node, "AKIAIOSFODNN7EXAMPLE"));
+    assert!(eval_req(&node, "key sk-ant-api03-abcdefghijklmnop"));
+    assert!(!eval_req(&node, "just a normal sentence"));
+}
+
+#[test]
+fn pii_recognizers_seed_disabled_by_default() {
+    for spec in aidog_db::builtin_rule_specs() {
+        let expect_off = spec.name.contains("云厂商密钥")
+            || spec.name.contains("IP/MAC")
+            || spec.name.contains("信用卡")
+            || spec.name.contains("IBAN")
+            || spec.name.contains("身份证")
+            || spec.name.contains("社保号");
+        assert_eq!(
+            spec.default_enabled,
+            !expect_off,
+            "内置识别器默认关闭、历史内置规则默认开启：{}",
+            spec.name
+        );
+    }
 }

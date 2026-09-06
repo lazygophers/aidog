@@ -2869,7 +2869,7 @@
   "middleware.maskFieldsAll": "すべてのフィールド（messages + system）",
   "middleware.clearConditions": "条件をクリア",
   "middleware.conditions": "条件",
-  "middleware.dslHint": "構文: ALL(...)/ANY(...)/リーフ、リーフ = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "構文: ALL(...)/ANY(...)/NOT(...)/リーフ、リーフ = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "失敗",
   "middleware.fieldHint": "フィールド（空 = 全体 / JSON パス / ヘッダー名）",
   "middleware.target.model": "モデル",
@@ -2890,5 +2890,13 @@
   "importExport.dropUnsupportedInBrowser": "ブラウザーへのドロップでは完全なパスが取得できません。ここをクリックして .aidogx のパスを入力してください。",
   "importExport.pickHintBrowser": "クリックして .aidogx の完全なパスを入力（補完あり）· 自動復号 · Skill 自動インストール",
   "settings.backup.copyPath": "バックアップのパスをコピー",
-  "about.updateDesktopOnly": "ブラウザーでは更新を確認しません。カーネルの更新は実行中のマシンで行ってください"
+  "about.updateDesktopOnly": "ブラウザーでは更新を確認しません。カーネルの更新は実行中のマシンで行ってください",
+  "middleware.node.all": "AND (すべて一致)",
+  "middleware.node.any": "OR (いずれか一致)",
+  "middleware.node.not": "NOT (否定)",
+  "middleware.checksumHint": "正規表現の一致後にチェックディジットを検証し、不合格は一致とみなしません",
+  "middleware.checksum.none": "チェックディジットなし",
+  "middleware.checksum.luhn": "Luhn (銀行カード)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "中国身分証"
 }

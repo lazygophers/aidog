@@ -2847,7 +2847,7 @@
   "middleware.maskFieldsAll": "All fields (messages + system)",
   "middleware.clearConditions": "Clear conditions",
   "middleware.conditions": "Conditions",
-  "middleware.dslHint": "Syntax: ALL(...)/ANY(...)/leaf, leaf = target[.field] contains|regex|exact \"pattern\"",
+  "middleware.dslHint": "Syntax: ALL(...)/ANY(...)/NOT(...)/leaf, leaf = target[.field] contains|regex|exact \"pattern\" [checksum luhn|iban|cn_id]",
   "middleware.failed": "Failed",
   "middleware.fieldHint": "Field (empty = whole / JSON path / header name)",
   "middleware.target.model": "Model",
@@ -2868,5 +2868,13 @@
   "importExport.dropUnsupportedInBrowser": "A browser drop gives no full path — click here and type the path to your .aidogx file instead.",
   "importExport.pickHintBrowser": "Click to type the full path to your .aidogx (with completion) · auto-decrypt · skills auto-installed",
   "settings.backup.copyPath": "Copy backup path",
-  "about.updateDesktopOnly": "No update check in the browser — upgrade the kernel on the machine it runs on"
+  "about.updateDesktopOnly": "No update check in the browser — upgrade the kernel on the machine it runs on",
+  "middleware.node.all": "AND (all match)",
+  "middleware.node.any": "OR (any match)",
+  "middleware.node.not": "NOT (negate)",
+  "middleware.checksumHint": "Run a checksum after the regex match; matches failing it do not count",
+  "middleware.checksum.none": "No checksum",
+  "middleware.checksum.luhn": "Luhn (bank card)",
+  "middleware.checksum.iban": "IBAN",
+  "middleware.checksum.cn_id": "China ID card"
 }

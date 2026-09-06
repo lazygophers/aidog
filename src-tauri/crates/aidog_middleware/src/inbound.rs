@@ -256,7 +256,7 @@ fn rewrite_texts(
     let replace = |s: &str| -> String {
         let mut out = s.to_string();
         for p in &leaves {
-            out = replace_match(p.match_type, &p.regex, &p.pattern, &out, replacement);
+            out = replace_match(p.match_type, &p.regex, &p.pattern, &p.validator, &out, replacement);
         }
         out
     };
@@ -323,7 +323,7 @@ fn apply_rewrite_inbound(
     let replace = |s: &str| -> String {
         let mut out = s.to_string();
         for p in &leaves {
-            out = replace_match(p.match_type, &p.regex, &p.pattern, &out, replacement);
+            out = replace_match(p.match_type, &p.regex, &p.pattern, &p.validator, &out, replacement);
         }
         out
     };
