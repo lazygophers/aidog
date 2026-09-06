@@ -418,3 +418,66 @@ async fn estimate_after_request_coding_path_no_calibration() {
     let stored = EstCodingPlan::from_json(&p.est_coding_plan);
     assert!(stored.tiers[0].est_utilization > 0.0);
 }
+
+// ── 窗口重置自续定时：取最早的未来 resets_at，过去/临界/超 24h 的不排 ──
+#[test]
+fn earliest_reset_picks_nearest_future_tier() {
+    let now = 1_700_000_000_000i64;
+    let mk = |tiers: Vec<QuotaTier>| PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now,
+        balance: None,
+        coding_plan: Some(CodingPlanInfo { tiers, level: None }),
+        newapi_user_id: None,
+    };
+    let tier = |name: &str, resets_at: Option<i64>| QuotaTier {
+        name: name.into(),
+        utilization: 10.0,
+        resets_at: resets_at.map(|ms| ms.to_string()),
+        limit: None,
+        remaining: None,
+    };
+
+    // 两档都在未来 → 取最早
+    let q = mk(vec![
+        tier("weekly_limit", Some(now + 6 * 3_600_000)),
+        tier("five_hour", Some(now + 3_600_000)),
+    ]);
+    assert_eq!(earliest_reset_ms(&q, now), Some(now + 3_600_000));
+
+    // 过去 / 30s 内 / 超 24h 的都不排
+    let q = mk(vec![
+        tier("five_hour", Some(now - 1000)),
+        tier("weekly_limit", Some(now + 10_000)),
+    ]);
+    assert_eq!(earliest_reset_ms(&q, now), None);
+    let q = mk(vec![tier("weekly_limit", Some(now + 25 * 3_600_000))]);
+    assert_eq!(earliest_reset_ms(&q, now), None);
+
+    // 无 resets_at / 非 coding plan → None
+    let q = mk(vec![tier("five_hour", None)]);
+    assert_eq!(earliest_reset_ms(&q, now), None);
+    let q = PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now,
+        balance: None,
+        coding_plan: None,
+        newapi_user_id: None,
+    };
+    assert_eq!(earliest_reset_ms(&q, now), None);
+}
+
+// ── 定时去重：同平台同时刻只排一次，到点后可再排；不同时刻各排各的 ──
+#[test]
+fn claim_refresh_slot_dedups_same_target() {
+    let now = 1_700_000_000_000i64;
+    let pid = 987_654u64; // 本测试专用 id，避免与其他测试共用全局表冲突
+    assert!(claim_refresh_slot(pid, now + 3_600_000, now));
+    assert!(!claim_refresh_slot(pid, now + 3_600_000, now), "同时刻不重复排");
+    assert!(!claim_refresh_slot(pid, now + 3_630_000, now), "相差 <60s 视作同一次");
+    assert!(claim_refresh_slot(pid, now + 7_200_000, now), "另一个时刻单独排");
+    // 已排的时刻到点后（now 越过它）不再挡新的一次
+    assert!(claim_refresh_slot(pid, now + 7_200_000, now + 7_200_001));
+}

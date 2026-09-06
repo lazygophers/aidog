@@ -2,7 +2,7 @@
 use aidog_core::ai_tools_cmd::coding_tools::ensure_default_coding_tools_settings;
 use aidog_core::gateway;
 use aidog_core::logging;
-use aidog_core::platform_cmd::quota::cold_start_init_tray_estimates;
+use aidog_core::platform_cmd::quota::cold_start_init_estimates;
 use aidog_core::proxy_cmd::proxy::{proxy_start, proxy_stop};
 use aidog_core::shared::{ProxySettings, aidog_data_dir, load_proxy_settings};
 use aidog_core::sync_settings::try_sync_settings;
@@ -582,13 +582,14 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
-    // 冷启动 est 初始化：tray 平台从未真查（last_real_query_at==0）→ 后台真查对齐 est=真实。
+    // 冷启动 est 初始化：所有启用且可查 quota 的平台后台真查对齐 est=真实，
+    // 并重排 coding plan 窗口重置定时（内存态，重启即丢）。
     {
         tauri::async_runtime::spawn(async move {
             use tracing::Instrument;
             let span =
-                tracing::info_span!("cold_start_init_tray", trace_id = %logging::new_trace_id());
-            cold_start_init_tray_estimates().instrument(span).await;
+                tracing::info_span!("cold_start_init_est", trace_id = %logging::new_trace_id());
+            cold_start_init_estimates().instrument(span).await;
         });
     }
 
