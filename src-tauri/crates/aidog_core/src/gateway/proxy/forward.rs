@@ -311,6 +311,37 @@ pub(crate) async fn forward_attempt(
             }
             InboundOutcome::Continue => {}
         }
+        // 成本预算闸门（票 06）：platform 维作用范围的规则在此才拿得到 platform_id。
+        // group 维已在路由前判过；无 budget_gate 规则时零查询。
+        if let InboundOutcome::Blocked {
+            blocked_by,
+            blocked_reason,
+        } = state
+            .middleware
+            .check_budget(
+                &mw_settings,
+                &state.db,
+                chat_req,
+                None,
+                Some(route.platform.id as i64),
+                Some(&log.request_headers),
+            )
+            .await
+        {
+            log.platform_id = route.platform.id;
+            return AttemptOutcome::Respond(
+                block_inbound(
+                    state,
+                    log.clone(),
+                    log_settings,
+                    lang,
+                    blocked_by,
+                    blocked_reason,
+                    start,
+                )
+                .await,
+            );
+        }
     }
 
     // ── 手动预算耗尽阻断（mock / 上游平台均适用，转发前惰性只读判定，不写库）──

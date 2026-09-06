@@ -1,6 +1,7 @@
 //! aidog_stats：统计读写 crate（query_stats / stats_agg / stats_today / usage_stats，
 //! 拆自 aidog_core::gateway::db）。aidog_core 经 `gateway::db` re-export 保持旧路径。
 
+mod budget;
 mod query_stats;
 mod stats_agg;
 mod stats_today;
@@ -14,6 +15,7 @@ mod test_stats_today;
 mod test_usage_stats;
 mod usage_stats;
 
+pub use budget::*;
 pub use query_stats::*;
 pub use stats_agg::*;
 pub use stats_today::*;

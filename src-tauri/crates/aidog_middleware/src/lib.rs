@@ -10,13 +10,17 @@
 //! 集成方式：MiddlewareEngine 独立单例，Tauri `app.manage(Arc<MiddlewareEngine>)`；
 //! CRUD 写库后 `engine.reload(&db)`；ProxyState 注入同一 Arc。
 
+mod budget;
 mod inbound;
 mod outbound;
 mod validators;
 
 #[cfg(test)]
+mod test_budget;
+#[cfg(test)]
 pub(crate) mod test_mod;
 
+pub use budget::{BUDGET_BLOCKED_REASON, BudgetState};
 pub use inbound::{InboundInject, InboundOutcome, InboundTexts};
 #[allow(unused_imports)]
 pub use outbound::{ErrorClassification, StreamMasker};

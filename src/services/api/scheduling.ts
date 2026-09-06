@@ -1,7 +1,7 @@
 // scheduling.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { MiddlewareRule, CreateMiddlewareRule, UpdateMiddlewareRule, MiddlewareSettings, SchedulingBreakerSettings } from "./types";
+import type { MiddlewareRule, CreateMiddlewareRule, UpdateMiddlewareRule, MiddlewareSettings, MiddlewareBudgetStatus, SchedulingBreakerSettings } from "./types";
 
 export const middlewareApi = {
   /** 列出全部规则（后端按 priority 升序、id 升序）。 */
@@ -14,6 +14,8 @@ export const middlewareApi = {
     invoke<MiddlewareRule>("middleware_update_rule", { input }),
   /** 删除规则；写库后自动 reload。 */
   deleteRule: (id: number) => invoke<void>("middleware_delete_rule", { id }),
+  /** 票 06：各预算闸门规则本自然月的已用 / 剩余额度（无 budget_gate 规则 → 空数组）。 */
+  budgetStatus: () => invoke<MiddlewareBudgetStatus[]>("middleware_budget_status"),
   /** 读取中间件总设置（无配置 → 默认 enabled=true）。 */
   getSettings: () => invoke<MiddlewareSettings>("middleware_settings_get"),
   /** 保存中间件总设置。 */

@@ -21,6 +21,7 @@ export * from "./GroupPlatformDetail";
 export * from "./LastTestResult";
 export * from "./ManualBudget";
 export * from "./MatchType";
+export * from "./MiddlewareBudgetStatus";
 export * from "./MiddlewareRule";
 export * from "./MiddlewareSettings";
 export * from "./ModelMapping";

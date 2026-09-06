@@ -140,7 +140,8 @@ impl MiddlewareEngine {
                         );
                     }
                     // classify 属错误路径（非 2xx 出站），入站忽略。
-                    ActionKind::Classify => {}
+                    // budget_gate 需查库（异步），由 check_budget 单独一趟处理。
+                    ActionKind::Classify | ActionKind::BudgetGate => {}
                 }
             }
         }
@@ -253,8 +254,9 @@ impl MiddlewareEngine {
                     }
                     // block 已在 chat_req 层返回，此处不可达；保守终止该规则剩余动作。
                     ActionKind::Block => break,
-                    // classify 属错误路径（非 2xx 出站），入站忽略。
-                    ActionKind::Classify => {}
+                    // classify 属错误路径（非 2xx 出站），入站忽略；
+                    // budget_gate 由 check_budget 单独一趟处理。
+                    ActionKind::Classify | ActionKind::BudgetGate => {}
                 }
             }
         }
