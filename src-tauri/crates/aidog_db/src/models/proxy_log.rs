@@ -235,6 +235,11 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional, type = "number | null")]
     pub cli_proxy_provider_id: Option<i64>,
+    /// 中间件观察模式命中筛选（票 04）：Some(true) = 仅 `blocked_reason='observe'` 的行；
+    /// None / Some(false) = 不加此谓词（全部）。
+    #[serde(default)]
+    #[ts(optional, type = "boolean | null")]
+    pub observed: Option<bool>,
 }
 
 /// 手动「立即清理」前的只读预估（三个数）。

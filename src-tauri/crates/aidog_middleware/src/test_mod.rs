@@ -314,6 +314,107 @@ fn terminal_block_stops_later_rules() {
     assert!(!collect_request_text(&cr).contains("NEVER"));
 }
 
+// ─── 观察模式（票 04）────────────────────────────────────────
+
+fn block_step(observe: bool) -> ActionStep {
+    step(
+        ActionKind::Block,
+        ActionParams {
+            observe,
+            ..Default::default()
+        },
+    )
+}
+
+#[test]
+fn observe_block_allows_request_and_reports_hit() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        7,
+        "watcher",
+        leaf(Target::RequestBody, "secret"),
+        vec![block_step(true)],
+    )]);
+    let mut cr = chat_req("", "a secret here");
+    match e.apply_inbound(&settings_on(), &mut cr, None, None) {
+        InboundOutcome::Observed { blocked_by } => assert_eq!(blocked_by, "rule#7 watcher"),
+        other => panic!("expected Observed, got {other:?}"),
+    }
+    // 请求原文未被改动（观察模式不碰 body）。
+    assert!(collect_request_text(&cr).contains("a secret here"));
+    // 不命中 → 仍是 Continue。
+    let mut clean = chat_req("", "nothing here");
+    assert_eq!(
+        e.apply_inbound(&settings_on(), &mut clean, None, None),
+        InboundOutcome::Continue
+    );
+}
+
+#[test]
+fn observe_false_still_blocks() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "hard",
+        leaf(Target::RequestBody, "secret"),
+        vec![block_step(false)],
+    )]);
+    let mut cr = chat_req("", "a secret here");
+    assert!(matches!(
+        e.apply_inbound(&settings_on(), &mut cr, None, None),
+        InboundOutcome::Blocked { .. }
+    ));
+}
+
+#[test]
+fn observe_does_not_stop_later_rules() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![
+        mk_rule(1, "watch", leaf(Target::RequestBody, "x"), vec![block_step(true)]),
+        mk_rule(
+            2,
+            "later",
+            leaf(Target::RequestBody, "x"),
+            vec![mask_step("MASKED", &[])],
+        ),
+    ]);
+    let mut cr = chat_req("", "x");
+    match e.apply_inbound(&settings_on(), &mut cr, None, None) {
+        InboundOutcome::Observed { blocked_by } => assert_eq!(blocked_by, "rule#1 watch"),
+        other => panic!("expected Observed, got {other:?}"),
+    }
+    // 观察模式只中和 block，后续规则照常生效。
+    assert!(collect_request_text(&cr).contains("MASKED"));
+}
+
+#[test]
+fn multiple_observe_hits_are_joined() {
+    let e = MiddlewareEngine::new();
+    e.rebuild_from_rules(vec![
+        mk_rule(1, "a", leaf(Target::RequestBody, "x"), vec![block_step(true)]),
+        mk_rule(2, "b", leaf(Target::RequestBody, "x"), vec![block_step(true)]),
+    ]);
+    let mut cr = chat_req("", "x");
+    match e.apply_inbound(&settings_on(), &mut cr, None, None) {
+        InboundOutcome::Observed { blocked_by } => {
+            assert_eq!(blocked_by, "rule#1 a; rule#2 b")
+        }
+        other => panic!("expected Observed, got {other:?}"),
+    }
+}
+
+#[test]
+fn legacy_action_params_json_without_observe_defaults_false() {
+    // 旧规则的 actions JSON 列里没有 observe 字段 → serde default false，读取不报错。
+    let steps: Vec<ActionStep> =
+        serde_json::from_str(r#"[{"kind":"block","params":{"replacement":"****"}}]"#).unwrap();
+    assert_eq!(steps.len(), 1);
+    assert!(!steps[0].params.observe);
+    // params 整体缺省同样成立。
+    let steps: Vec<ActionStep> = serde_json::from_str(r#"[{"kind":"block"}]"#).unwrap();
+    assert!(!steps[0].params.observe);
+}
+
 #[test]
 fn master_switch_off_disables_everything() {
     let e = MiddlewareEngine::new();

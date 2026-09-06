@@ -280,24 +280,30 @@ pub(crate) async fn forward_attempt(
             route.platform.id as i64,
             Some(&log.request_headers),
         );
-        if let InboundOutcome::Blocked {
-            blocked_by,
-            blocked_reason,
-        } = outcome
-        {
-            log.platform_id = route.platform.id;
-            return AttemptOutcome::Respond(
-                block_inbound(
-                    state,
-                    log.clone(),
-                    log_settings,
-                    lang,
-                    blocked_by,
-                    blocked_reason,
-                    start,
-                )
-                .await,
-            );
+        match outcome {
+            InboundOutcome::Blocked {
+                blocked_by,
+                blocked_reason,
+            } => {
+                log.platform_id = route.platform.id;
+                return AttemptOutcome::Respond(
+                    block_inbound(
+                        state,
+                        log.clone(),
+                        log_settings,
+                        lang,
+                        blocked_by,
+                        blocked_reason,
+                        start,
+                    )
+                    .await,
+                );
+            }
+            // 观察模式命中（票 04）：请求照常转发、照常计费，只标审计列。
+            InboundOutcome::Observed { blocked_by } => {
+                super::record_observed(log, blocked_by);
+            }
+            InboundOutcome::Continue => {}
         }
     }
 

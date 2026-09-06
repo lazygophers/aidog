@@ -100,6 +100,23 @@ describe("MiddlewareRulesPanel（统一引擎列表）", () => {
     );
   });
 
+  it("观察模式徽标（票 04）：block 带 observe 才出，普通 block 不出", async () => {
+    const blockStep = (observe: boolean) => ({
+      kind: "block" as const,
+      params: { replacement: "****", fields: [], inject_mode: "", target: "", value: "", category: "", retryable: true, override_status: null, override_body: null, observe },
+    });
+    listRules.mockResolvedValue([mk({ id: 1, name: "watching", actions: [blockStep(true)] })]);
+    const { unmount } = render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("watching")).toBeTruthy());
+    expect(screen.getByText("middleware.observe")).toBeTruthy();
+    unmount();
+
+    listRules.mockResolvedValue([mk({ id: 2, name: "hard-block", actions: [blockStep(false)] })]);
+    render(<MiddlewareRulesPanel />);
+    await waitFor(() => expect(screen.getByText("hard-block")).toBeTruthy());
+    expect(screen.queryByText("middleware.observe")).toBeNull();
+  });
+
   it("全局面板不按范围过滤：限定平台的规则也列出（唯一配置入口）", async () => {
     listRules.mockResolvedValue([
       mk({ id: 5, name: "scoped", applies_to: { platforms: [8], groups: [], models: [] } }),

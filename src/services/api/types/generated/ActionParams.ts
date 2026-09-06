@@ -39,4 +39,9 @@ override_status: number | null,
 /**
  * classify：覆写回客户端响应体
  */
-override_body: string | null, };
+override_body: string | null, 
+/**
+ * block：观察模式。true = 命中只落审计日志（proxy_log.blocked_reason='observe'）并放行，
+ * 请求照常转发照常计费，用于拿真实流量验证正则不误伤；缺省 false = 真拦截。
+ */
+observe: boolean, };

@@ -445,21 +445,25 @@ pub(crate) async fn handle_proxy_core(
             Some(&group.group_key),
             Some(&log.request_headers),
         );
-        if let InboundOutcome::Blocked {
-            blocked_by,
-            blocked_reason,
-        } = outcome
-        {
-            return block_inbound(
-                &state,
-                log,
-                &log_settings,
-                lang,
+        match outcome {
+            InboundOutcome::Blocked {
                 blocked_by,
                 blocked_reason,
-                start,
-            )
-            .await;
+            } => {
+                return block_inbound(
+                    &state,
+                    log,
+                    &log_settings,
+                    lang,
+                    blocked_by,
+                    blocked_reason,
+                    start,
+                )
+                .await;
+            }
+            // 观察模式命中（票 04）：请求照常转发、照常计费，只标审计列。
+            InboundOutcome::Observed { blocked_by } => record_observed(&mut log, blocked_by),
+            InboundOutcome::Continue => {}
         }
     }
 

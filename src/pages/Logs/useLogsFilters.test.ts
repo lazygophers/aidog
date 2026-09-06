@@ -57,6 +57,16 @@ describe("useLogsFilters", () => {
     expect(r.result.current.activeFilter.status).toBe(-1);
   });
 
+  it("filterObserved=observed 时 activeFilter.observed=true（票 04 观察模式命中筛选）", () => {
+    const r = renderHook(() => useLogsFilters());
+    expect(r.result.current.activeFilter.observed).toBeUndefined();
+    act(() => r.result.current.setFilterObserved("observed"));
+    expect(r.result.current.activeFilter.observed).toBe(true);
+    expect(r.result.current.hasFilter).toBe(true);
+    act(() => r.result.current.setFilterObserved(""));
+    expect(r.result.current.activeFilter.observed).toBeUndefined();
+  });
+
   it("clearFilter 把全部筛选字段复位为初始值", () => {
     const r = renderHook(() => useLogsFilters());
     act(() => {
@@ -65,6 +75,7 @@ describe("useLogsFilters", () => {
       r.result.current.setFilterStatus("error");
       r.result.current.setFilterModelText("x");
       r.result.current.setFilterPath("/v1");
+      r.result.current.setFilterObserved("observed");
     });
     expect(r.result.current.hasFilter).toBe(true);
     act(() => r.result.current.clearFilter());
@@ -75,6 +86,7 @@ describe("useLogsFilters", () => {
     expect(r.result.current.filterModelText).toBe("");
     expect(r.result.current.filterModelType).toBe("actual");
     expect(r.result.current.filterPath).toBe("");
+    expect(r.result.current.filterObserved).toBe("");
   });
 
   it("platformMap/groupName 由异步加载的 platforms/groups 派生", async () => {

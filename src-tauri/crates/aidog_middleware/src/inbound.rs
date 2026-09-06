@@ -18,6 +18,12 @@ use super::{CompiledRule, EvalView, MiddlewareEngine, collect_patterns, replace_
 pub enum InboundOutcome {
     /// 放行（chat_req 可能已被 mask/inject 原地改写）。
     Continue,
+    /// 观察模式命中：block 动作带 `params.observe` → **不拦截**，请求照常转发照常计费，
+    /// 只把命中事实交给调用方落审计日志（`blocked_reason='observe'`）。多条命中以 `; ` 串联。
+    Observed {
+        /// 命中规则标识（`rule#id name`，多条以 `; ` 连接）。
+        blocked_by: String,
+    },
     /// 拦截：写审计日志不计费，立即返回 4xx。
     Blocked {
         /// 命中规则标识（rule#id name）。
@@ -68,6 +74,8 @@ impl MiddlewareEngine {
         platform_id: Option<i64>,
         req_headers: Option<&str>,
     ) -> InboundOutcome {
+        // 观察模式命中累积（不终止：observe 的语义就是「什么都不改，只记一笔」）。
+        let mut observed: Vec<String> = Vec::new();
         for cr in self.request_rules(group_key, platform_id, &chat_req.model) {
             // 每条规则求值前重新聚合文本（前序规则的 mask/inject 已改写请求）。
             let matched = {
@@ -85,8 +93,19 @@ impl MiddlewareEngine {
             for step in &cr.rule.actions {
                 match step.kind {
                     ActionKind::Block => {
+                        let by = format!("rule#{} {}", cr.rule.id, cr.rule.name);
+                        // 观察模式：不拦截，记一笔后跳过本规则剩余动作（block 本就是终止性的），
+                        // 但继续跑后续规则——observe 只中和这一条 block，不改变其他规则的效果。
+                        if step.params.observe {
+                            tracing::info!(
+                                rule_id = cr.rule.id, rule_name = %cr.rule.name,
+                                "middleware inbound: observe-mode block matched, request allowed"
+                            );
+                            observed.push(by);
+                            break;
+                        }
                         return InboundOutcome::Blocked {
-                            blocked_by: format!("rule#{} {}", cr.rule.id, cr.rule.name),
+                            blocked_by: by,
                             blocked_reason: if cr.rule.description.is_empty() {
                                 "matched middleware rule".to_string()
                             } else {
@@ -111,7 +130,13 @@ impl MiddlewareEngine {
                 }
             }
         }
-        InboundOutcome::Continue
+        if observed.is_empty() {
+            InboundOutcome::Continue
+        } else {
+            InboundOutcome::Observed {
+                blocked_by: observed.join("; "),
+            }
+        }
     }
 }
 

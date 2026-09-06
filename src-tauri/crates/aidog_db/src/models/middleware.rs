@@ -187,6 +187,10 @@ pub struct ActionParams {
     /// classify：覆写回客户端响应体
     #[serde(default)]
     pub override_body: Option<String>,
+    /// block：观察模式。true = 命中只落审计日志（proxy_log.blocked_reason='observe'）并放行，
+    /// 请求照常转发照常计费，用于拿真实流量验证正则不误伤；缺省 false = 真拦截。
+    #[serde(default)]
+    pub observe: bool,
 }
 
 impl Default for ActionParams {
@@ -201,6 +205,7 @@ impl Default for ActionParams {
             retryable: true,
             override_status: None,
             override_body: None,
+            observe: false,
         }
     }
 }
