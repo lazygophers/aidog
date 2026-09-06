@@ -18,7 +18,7 @@ pub(crate) mod test_mod;
 
 pub use inbound::{InboundInject, InboundOutcome, InboundTexts};
 #[allow(unused_imports)]
-pub use outbound::ErrorClassification;
+pub use outbound::{ErrorClassification, StreamMasker};
 
 use std::sync::Arc;
 use std::sync::RwLock;

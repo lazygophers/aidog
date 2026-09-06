@@ -1,4 +1,5 @@
 use super::*;
+use crate::gateway::proxy::stream::has_stream_terminator;
 
 /// forward_attempt 里一次路由决策产出的协议/模型元数据，供 finish_nonstream / finish_stream 共用。
 /// 收拢原先散落的 5 个协议相关参数（source_protocol / target_protocol_enum /
@@ -242,6 +243,9 @@ where
     let mw_active = mw_settings.enabled;
     let mw_group = group.group_key.clone();
     let mw_platform_id = route.platform.id as i64;
+    // 滑窗脱敏器（票 05）：窗口大小在建流时按当前生效规则一次性定死（流中途改规则不影响本流）。
+    let mut mw_masker =
+        mw_engine.stream_masker(&mw_settings, Some(mw_group.as_str()), Some(mw_platform_id));
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
@@ -303,13 +307,31 @@ where
         disable_thinking.then(|| adapter::SseThinkingStripper::new(client_protocol.clone()));
     // 上游流自然耗尽哨兵：chain 在 map 之前，上游 Stream 返 None 时置 exhausted 位，使 Drop
     // 兜底 flush 能区分「上游读完（无 [DONE]/message_stop 也算正常收尾，如 Gemini）」与
-    // 「客户端提前断连」。poll_fn 恒返 Ready(None)，不产 item，对下游 map / 客户端字节零影响。
+    // 「客户端提前断连」。哨兵额外产一个 `None` item（上游 item 包成 `Some`），供 map 冲刷
+    // 滑窗尾窗残留——无终止符收尾（如 Gemini）时全靠它，尾窗内文本不能被吞。
     let agg_end = agg.clone();
-    let stream = stream.chain(futures::stream::poll_fn(move |_| {
+    let mut end_sentinel_done = false;
+    let stream = stream.map(Some).chain(futures::stream::poll_fn(move |_| {
+        if end_sentinel_done {
+            return std::task::Poll::Ready(None);
+        }
+        end_sentinel_done = true;
         agg_end.mark_exhausted();
-        std::task::Poll::Ready(None)
+        std::task::Poll::Ready(Some(None))
     }));
-    let stream = stream.map(move |chunk_result| {
+    let stream = stream.map(move |item| {
+        let Some(chunk_result) = item else {
+            // 流末哨兵：冲刷尾窗残留（已含终止符的那块已冲刷过 → 此处为空串，幂等）。
+            let tail = mw_masker.finish();
+            if tail.is_empty() {
+                return Ok::<_, std::io::Error>(Bytes::new());
+            }
+            let tail = Bytes::from(tail);
+            if record_client_body {
+                guard.agg.push_client(&tail);
+            }
+            return Ok::<_, std::io::Error>(tail);
+        };
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
@@ -320,7 +342,13 @@ where
                 tracing::warn!(error = %e, "SSE upstream stream chunk error; sending error frame");
                 // 终态标记：本次流是被上游掐断的（flush 回写 502，禁再记 200 成功）。
                 guard.agg.mark_upstream_err();
-                let mut out = upstream_break_error_frame(&client_protocol);
+                // 上游中断也要把滑窗扣住的正文先冲出去（在 error 帧之前，顺序即原文顺序），
+                // 否则最后 window 字节被静默吞掉。冲刷后 masker 为空，不再卡任何字节。
+                let mut out = mw_masker.finish();
+                if !out.is_empty() && record_client_body {
+                    guard.agg.push_client(&Bytes::from(out.clone()));
+                }
+                out.push_str(&upstream_break_error_frame(&client_protocol));
                 out.push_str(
                     &adapter::to_client_sse(
                         &ChatStreamEvent::Stop {
@@ -413,10 +441,18 @@ where
             Bytes::from(output)
         };
 
-        // ── 中间件出站流式逐块改写：对下发客户端的 chunk 文本应用 mask/override/sensitive。
-        //   逐块正则替换；跨 chunk 边界的密钥/敏感词可能漏匹配（已知限制，滑窗后续）。
-        //   总开关 OFF 时跳过。在记录 client_body 前改写，确保审计与下发一致（脱敏后版本）。──
-        let out_bytes = if mw_active && !out_bytes.is_empty() {
+        // ── 中间件出站流式改写：对下发客户端的 chunk 文本应用 mask/override/sensitive。
+        //   走 StreamMasker 滑窗：每块尾部至多 window 字节延后一块下发，故被 SSE 分块切成
+        //   两半的密钥/敏感词照样命中。首字延迟代价上界 = 一个 chunk（不是整条流）。
+        //   见终止符时同块冲刷尾窗，确保 flush 落库的 client_body 与实发字节一致。
+        //   总开关 OFF / 无 mask 规则时 window=0，退化为原逐块行为，零额外延迟。──
+        let out_bytes = if mw_active && mw_masker.is_active() {
+            let mut rewritten = mw_masker.push(&String::from_utf8_lossy(&out_bytes));
+            if has_stream_terminator(&text) {
+                rewritten.push_str(&mw_masker.finish());
+            }
+            Bytes::from(rewritten)
+        } else if mw_active && !out_bytes.is_empty() {
             let original = String::from_utf8_lossy(&out_bytes);
             let rewritten = mw_engine.apply_outbound_stream_chunk(
                 &mw_settings,

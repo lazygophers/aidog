@@ -351,6 +351,33 @@ pub(crate) struct StreamEstCtx {
     pub(crate) coding_plan: bool,
 }
 
+/// chunk 文本是否含 SSE 终止标记（`data: [DONE]` / Anthropic `message_stop` 两形态）。
+/// flush_if_done 与流式滑窗脱敏的尾窗冲刷（finish.rs）共用同一判定，二者不得各写一份。
+pub(crate) fn has_stream_terminator(text: &str) -> bool {
+    for line in text.lines() {
+        let line = line.trim();
+        if let Some(data) = line.strip_prefix("data: ") {
+            let data = data.trim();
+            if data == "[DONE]" {
+                return true;
+            }
+            // Anthropic message_stop 也可能以 data 行携带 type 字段出现
+            if data.contains("\"type\":\"message_stop\"")
+                || data.contains("\"type\": \"message_stop\"")
+            {
+                return true;
+            }
+        }
+        // SSE event 行形式：`event: message_stop`
+        if let Some(ev) = line.strip_prefix("event: ")
+            && ev.trim() == "message_stop"
+        {
+            return true;
+        }
+    }
+    false
+}
+
 impl StreamLogGuard {
     /// 若 chunk 文本含 SSE 终止标记则触发 flush（确定性回写，不依赖 Drop 兜底）。
     /// 覆盖两类协议终止符：
@@ -362,29 +389,8 @@ impl StreamLogGuard {
     ///
     /// 正常结束走此路径回写（token 已累加完整）；仍未命中（如上游中途断裂无终止符）由 Drop 兜底。
     pub(crate) fn flush_if_done(&self, text: &str) {
-        for line in text.lines() {
-            let line = line.trim();
-            if let Some(data) = line.strip_prefix("data: ") {
-                let data = data.trim();
-                if data == "[DONE]" {
-                    self.flush_with(200);
-                    return;
-                }
-                // Anthropic message_stop 也可能以 data 行携带 type 字段出现
-                if data.contains("\"type\":\"message_stop\"")
-                    || data.contains("\"type\": \"message_stop\"")
-                {
-                    self.flush_with(200);
-                    return;
-                }
-            }
-            // SSE event 行形式：`event: message_stop`
-            if let Some(ev) = line.strip_prefix("event: ")
-                && ev.trim() == "message_stop"
-            {
-                self.flush_with(200);
-                return;
-            }
+        if has_stream_terminator(text) {
+            self.flush_with(200);
         }
     }
 

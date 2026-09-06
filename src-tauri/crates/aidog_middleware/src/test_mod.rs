@@ -661,6 +661,101 @@ fn stream_chunk_masking() {
     assert_eq!(out, "a **** b");
 }
 
+// ─── 票 05：流式滑窗（跨 chunk 脱敏）─────────────────────────
+
+/// 建一个「literal 命中即 mask」的引擎 + 滑窗器。
+fn masker_for(pattern: &str, regex: bool) -> crate::StreamMasker {
+    let e = std::sync::Arc::new(MiddlewareEngine::new());
+    let cond = if regex {
+        leaf(Target::ResponseBody, pattern)
+    } else {
+        contains_leaf(Target::ResponseBody, pattern)
+    };
+    e.rebuild_from_rules(vec![mk_rule(1, "m", cond, vec![mask_step("****", &[])])]);
+    e.stream_masker(&settings_on(), None, None)
+}
+
+/// 逐块喂 + 流末冲刷，返回客户端实际收到的完整文本。
+fn drive(m: &mut crate::StreamMasker, chunks: &[&str]) -> String {
+    let mut out = String::new();
+    for c in chunks {
+        out.push_str(&m.push(c));
+    }
+    out.push_str(&m.finish());
+    out
+}
+
+#[test]
+fn stream_window_masks_secret_split_across_two_chunks() {
+    // 本票核心：敏感串被 SSE 分块切成两半，滑窗拼接后仍被脱敏。
+    let mut m = masker_for("topsecret", false);
+    let out = drive(&mut m, &["prefix tops", "ecret suffix"]);
+    assert!(!out.contains("topsecret"), "cross-chunk secret leaked: {out}");
+    assert_eq!(out, "prefix **** suffix");
+}
+
+#[test]
+fn stream_window_masks_secret_split_across_many_tiny_chunks() {
+    // 单块极小（1 字节），敏感串横跨 9 个 chunk。
+    let mut m = masker_for("topsecret", false);
+    let chunks: Vec<&str> = vec!["a", "t", "o", "p", "s", "e", "c", "r", "e", "t", "b"];
+    let out = drive(&mut m, &chunks);
+    assert_eq!(out, "a****b", "cross-chunk secret leaked: {out}");
+}
+
+#[test]
+fn stream_window_flushes_tail_at_end_of_stream() {
+    // 尾窗残留必须在 finish 时下发，不能吞（无敏感串也一样）。
+    let mut m = masker_for("topsecret", false);
+    let out = drive(&mut m, &["hello ", "world"]);
+    assert_eq!(out, "hello world");
+    // finish 幂等：再调返回空串。
+    assert_eq!(m.finish(), "");
+}
+
+#[test]
+fn stream_window_drop_without_finish_leaks_nothing() {
+    // 客户端断连 = masker 直接 Drop：扣住的字节从未下发（不泄漏），也不卡住其他状态。
+    let mut m = masker_for("topsecret", false);
+    let emitted = m.push("head tops");
+    drop(m);
+    assert!(!emitted.contains("tops"), "tail must be withheld: {emitted}");
+}
+
+#[test]
+fn stream_window_regex_rule_uses_constant_upper_bound() {
+    // 正则叶子 → 保守常数窗口；跨块的密钥同样命中。
+    let mut m = masker_for(r"sk-[A-Za-z0-9]{20}", true);
+    assert!(m.is_active());
+    let out = drive(&mut m, &["key sk-abcdefghij", "klmnopqrst end"]);
+    assert!(!out.contains("sk-abcdefghijklmnopqrst"), "leaked: {out}");
+    assert_eq!(out, "key **** end");
+}
+
+#[test]
+fn stream_window_inactive_without_mask_rules() {
+    // 无 mask/override 响应规则 → window=0，零延迟透传（首字延迟不受影响）。
+    let e = std::sync::Arc::new(MiddlewareEngine::new());
+    e.rebuild_from_rules(vec![]);
+    let mut m = e.stream_masker(&settings_on(), None, None);
+    assert!(!m.is_active());
+    assert_eq!(m.push("abc"), "abc");
+    assert_eq!(m.finish(), "");
+}
+
+#[test]
+fn stream_window_inactive_when_master_off() {
+    let e = std::sync::Arc::new(MiddlewareEngine::new());
+    e.rebuild_from_rules(vec![mk_rule(
+        1,
+        "m",
+        contains_leaf(Target::ResponseBody, "topsecret"),
+        vec![mask_step("****", &[])],
+    )]);
+    let m = e.stream_masker(&MiddlewareSettings { enabled: false }, None, None);
+    assert!(!m.is_active(), "master off → 不进滑窗，不加延迟");
+}
+
 // ─── 票 03：内置 pattern 命中/排除样本 ───────────────────────
 
 fn pat_matches(pat: &str, text: &str) -> bool {
