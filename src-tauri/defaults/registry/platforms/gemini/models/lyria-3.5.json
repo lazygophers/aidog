@@ -1,0 +1,15 @@
+{
+  "last_updated": 1788766169,
+  "model_id": "lyria-3.5",
+  "canonical_model": "lyria-3.5",
+  "display_name": "Lyria 3.5",
+  "predecessor": "lyria-3-pro-preview",
+  "capabilities": [
+    "audio"
+  ],
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.08
+  }
+}
