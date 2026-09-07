@@ -1,7 +1,7 @@
 {
   "last_updated": 1788766169,
-  "model_id": "qwen3.8-max",
-  "canonical_model": "qwen3.8-max",
+  "model_id": "qwen3.8-max-2026-09-02",
+  "canonical_model": "qwen3.8-max-2026-09-02",
   "capabilities": [
     "text"
   ],
@@ -14,5 +14,6 @@
   },
   "max_input_tokens": 991808,
   "context_window": 1000000,
-  "max_output_tokens": 131072
+  "max_output_tokens": 131072,
+  "display_name": "Qwen3.8-Max (2026-09-02)"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1788766169,
   "endpoints": {
     "default": [
       {
@@ -10,11 +10,12 @@
   },
   "models": {
     "default": {
-      "default": "gemini-3.7-flash"
+      "default": "gemini-3.8-flash"
     }
   },
   "model_list": {
     "default": [
+      "gemini-3.8-flash",
       "gemini-3.5-flash-lite",
       "gemini-3.6-flash",
       "gemini-3.7-flash",
@@ -165,7 +166,9 @@
       "xai/grok-4.20-reasoning",
       "zai-org/glm-4.7-maas",
       "zai-org/glm-5-2-maas",
-      "zai-org/glm-5-maas"
+      "zai-org/glm-5-maas",
+      "lyria-3.5",
+      "claude-fable-5-1@default"
     ]
   },
   "name": {

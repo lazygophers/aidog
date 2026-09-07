@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788252919,
+  "last_updated": 1788766169,
   "platforms": [
     {
       "code": "aihubmix",
@@ -430,6 +430,7 @@
         "claude-3-7-sonnet-20250219.json",
         "claude-3-haiku-20240307.json",
         "claude-3-opus-20240229.json",
+        "claude-fable-5-1.json",
         "claude-fable-5.json",
         "claude-haiku-4-5-20251001.json",
         "claude-haiku-4-5.json",
@@ -1012,7 +1013,8 @@
         "wanx2.1-t2v-plus.json",
         "wanx2.1-t2v-turbo.json",
         "wanx2.1-vace-plus.json",
-        "xiaomi/mimo-v2.5-pro.json"
+        "xiaomi/mimo-v2.5-pro.json",
+        "qwen3.8-max-2026-09-02.json"
       ]
     },
     {
@@ -1357,6 +1359,7 @@
         "qwen3.8-2.4t-a95b.json",
         "qwen3.8-27b.json",
         "qwen3.8-flash.json",
+        "qwen3.8-max-2026-09-02.json",
         "qwen3.8-max-prime.json",
         "qwen3.8-max.json",
         "qwq-plus.json",
@@ -1765,6 +1768,7 @@
         "qwen3.8-2.4t-a95b.json",
         "qwen3.8-27b.json",
         "qwen3.8-flash.json",
+        "qwen3.8-max-2026-09-02.json",
         "qwen3.8-max.json",
         "qwq-plus.json",
         "text-embedding-v3.json",
@@ -1864,6 +1868,7 @@
       "platform_file": "platforms/claude_code/platform.json",
       "models_dir": "platforms/claude_code/models",
       "models": [
+        "claude-fable-5-1.json",
         "claude-fable-5.json",
         "claude-haiku-4-5-20251001.json",
         "claude-haiku-4-5.json",
@@ -2314,6 +2319,7 @@
         "claude-3-opus@20240229.json",
         "claude-3-sonnet.json",
         "claude-3-sonnet@20240229.json",
+        "claude-fable-5-1@default.json",
         "claude-fable-5@default.json",
         "claude-haiku-4-5@20251001.json",
         "claude-opus-4-1@20250805.json",
@@ -2379,6 +2385,7 @@
         "gemini-3.5-transcribe.json",
         "gemini-3.6-flash.json",
         "gemini-3.7-flash.json",
+        "gemini-3.8-flash.json",
         "gemini-embedding-001.json",
         "gemini-embedding-2-preview.json",
         "gemini-embedding-2.json",
@@ -2410,6 +2417,7 @@
         "jamba-1.5.json",
         "lyria-3-clip-preview.json",
         "lyria-3-pro-preview.json",
+        "lyria-3.5.json",
         "lyria-realtime-exp.json",
         "meta/llama-3.1-405b-instruct-maas.json",
         "meta/llama-3.3-70b-instruct-maas.json",
@@ -2957,7 +2965,10 @@
         "muse-image-1.0.json",
         "muse-spark-1.1.json",
         "muse-spark-1.2-contributor.json",
-        "muse-spark-1.2.json"
+        "muse-spark-1.2.json",
+        "muse-spark-1.3-contributor.json",
+        "muse-spark-1.3.json",
+        "muse-voice-transcribe-1.0.json"
       ],
       "name": "Meta Model API"
     },
@@ -3464,6 +3475,7 @@
         "gpt-5.6-terra.json",
         "gpt-5.6.json",
         "gpt-5.json",
+        "gpt-6-astra.json",
         "gpt-audio-1.5.json",
         "gpt-audio-mini.json",
         "gpt-audio.json",

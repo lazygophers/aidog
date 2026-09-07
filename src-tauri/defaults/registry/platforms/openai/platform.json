@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1788766169,
   "endpoints": {
     "default": [
       {
@@ -16,6 +16,7 @@
   },
   "model_list": {
     "default": [
+      "gpt-6-astra",
       "gpt-5.6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-luna",
