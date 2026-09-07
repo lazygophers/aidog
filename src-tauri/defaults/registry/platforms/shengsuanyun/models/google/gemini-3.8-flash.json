@@ -1,0 +1,21 @@
+{
+  "last_updated": 1788769178,
+  "model_id": "google/gemini-3.8-flash",
+  "canonical_model": "gemini-3.8-flash",
+  "display_name": "Gemini 3.8 Flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": false,
+  "price": {
+    "input": 0.72916666667,
+    "output": 3.64583333333,
+    "cache_read": 0.07361111111
+  },
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 65536,
+  "context_window": 1048576
+}

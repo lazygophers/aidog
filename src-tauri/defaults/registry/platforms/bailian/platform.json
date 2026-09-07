@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1788769178,
   "endpoints": {
     "default": [
       {
@@ -37,6 +37,7 @@
     "default": [
       "qwen3.8-max",
       "qwen3.8-max-2026-09-02",
+      "qwen3.8-max-0902",
       "qwen3.8-flash",
       "qwen3.8-27b",
       "qwen3.8-2.4t-a95b",

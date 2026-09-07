@@ -1,0 +1,30 @@
+{
+  "last_updated": 1788769178,
+  "model_id": "openai/gpt-6-astra",
+  "canonical_model": "gpt-6-astra",
+  "display_name": "GPT-6 Astra",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1e-05,
+    "output": 5e-05,
+    "cache_read": 1e-06,
+    "cache_write": 1.25e-05,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 2e-05,
+        "output": 7.5e-05,
+        "cache_read": 2e-06
+      }
+    ]
+  }
+}

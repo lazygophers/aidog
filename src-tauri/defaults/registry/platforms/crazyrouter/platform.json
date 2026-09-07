@@ -23,6 +23,8 @@
   },
   "model_list": {
     "default": [
+      "gpt-6-astra",
+      "claude-fable-5-1",
       "claude-fable-5",
       "claude-haiku-4-5",
       "claude-opus-4-5",
@@ -206,5 +208,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788086468
+  "last_updated": 1788769178
 }

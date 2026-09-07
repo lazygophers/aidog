@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1788769178,
   "endpoints": {
     "default": [
       {
@@ -21,6 +21,8 @@
   },
   "model_list": {
     "default": [
+      "qwen3.8-max-0902",
+      "gemini-3.8-flash",
       "claude-opus-4-8",
       "claude-sonnet-4-6",
       "claude-haiku-4-5",
