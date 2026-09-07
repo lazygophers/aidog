@@ -1,14 +1,14 @@
 {
-  "last_updated": 1788067647,
-  "model_id": "claude-fable-5@default",
-  "canonical_model": "claude-fable-5@default",
+  "last_updated": 1788769178,
+  "model_id": "claude-fable-5",
+  "canonical_model": "claude-fable-5",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1000000,
   "max_output_tokens": 128000,
   "context_window": 128000,
-  "official": false,
+  "official": true,
   "price": {
     "input": 1e-05,
     "output": 5e-05,

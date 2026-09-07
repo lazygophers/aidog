@@ -1,0 +1,19 @@
+{
+  "last_updated": 1788769178,
+  "model_id": "muse-spark-1.3",
+  "canonical_model": "muse-spark-1.3",
+  "display_name": "Muse Spark 1.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "context_window": 1048576,
+  "official": false,
+  "price": {
+    "input": 1.25e-06,
+    "output": 4.25e-06,
+    "cache_read": 1.5e-07
+  }
+}
