@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067646,
-  "model_id": "claude-opus-4-8@default",
-  "canonical_model": "claude-opus-4-8@default",
+  "last_updated": 1788769178,
+  "model_id": "claude-opus-4-8",
+  "canonical_model": "claude-opus-4-8",
   "capabilities": [
     "text"
   ],

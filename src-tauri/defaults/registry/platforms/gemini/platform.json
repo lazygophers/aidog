@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1788769178,
   "endpoints": {
     "default": [
       {
@@ -38,16 +38,16 @@
       "claude-3-opus@20240229",
       "claude-3-sonnet",
       "claude-3-sonnet@20240229",
-      "claude-fable-5@default",
+      "claude-fable-5",
       "claude-haiku-4-5@20251001",
       "claude-opus-4-1@20250805",
       "claude-opus-4-5@20251101",
-      "claude-opus-4-6@default",
-      "claude-opus-4-7@default",
-      "claude-opus-4-8@default",
+      "claude-opus-4-6",
+      "claude-opus-4-7",
+      "claude-opus-4-8",
       "claude-opus-4@20250514",
       "claude-sonnet-4-5@20250929",
-      "claude-sonnet-4-6@default",
+      "claude-sonnet-4-6",
       "claude-sonnet-4@20250514",
       "codestral-2",
       "codestral-2@001",
@@ -168,7 +168,7 @@
       "zai-org/glm-5-2-maas",
       "zai-org/glm-5-maas",
       "lyria-3.5",
-      "claude-fable-5-1@default"
+      "claude-fable-5-1"
     ]
   },
   "name": {

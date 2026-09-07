@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788766169,
-  "model_id": "claude-fable-5-1@default",
-  "canonical_model": "claude-fable-5-1@default",
+  "last_updated": 1788769178,
+  "model_id": "claude-fable-5-1",
+  "canonical_model": "claude-fable-5-1",
   "capabilities": [
     "text"
   ],

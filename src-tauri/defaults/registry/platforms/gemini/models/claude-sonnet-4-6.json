@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067646,
-  "model_id": "claude-sonnet-4-6@default",
-  "canonical_model": "claude-sonnet-4-6@default",
+  "last_updated": 1788769178,
+  "model_id": "claude-sonnet-4-6",
+  "canonical_model": "claude-sonnet-4-6",
   "capabilities": [
     "text"
   ],
