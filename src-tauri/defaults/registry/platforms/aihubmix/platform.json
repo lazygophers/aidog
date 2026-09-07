@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1788769178,
   "endpoints": {
     "default": [
       {
@@ -26,6 +26,11 @@
   },
   "model_list": {
     "default": [
+      "qwen3.8-max-2026-09-02",
+      "muse-spark-1.3",
+      "gemini-3.8-flash",
+      "gpt-6-astra",
+      "claude-fable-5-1",
       "claude-opus-4-8",
       "claude-sonnet-4-6",
       "claude-sonnet-4-5",
