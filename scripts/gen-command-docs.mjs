@@ -28,7 +28,7 @@ function sorted(values) {
 function parseStartup(source) {
   const handler = source.match(/generate_handler!\s*\[([\s\S]*?)\]\s*\)/);
   if (!handler) throw new Error("startup.rs 中找不到 generate_handler! 注册表");
-  // 注册表条目不止 aidog_core：workspace 拆分后 aidog_backup / aidog_cli_proxy 等 crate
+  // 注册表条目不止 aidog_core：workspace 拆分后 aidog_backup 等 crate
   // 也直接注册 command，写死 `aidog_core::` 会把它们整批漏掉（表现为「TS wrapper 未注册 startup」误报）。
   const entries = [...handler[1].matchAll(/\baidog_[a-z0-9_]+::[A-Za-z0-9_:]+::([A-Za-z0-9_]+)\s*,?/g)];
   if (!entries.length) throw new Error("startup.rs 注册表为空或格式无法解析");

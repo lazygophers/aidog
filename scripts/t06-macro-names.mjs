@@ -13,8 +13,7 @@ const files = execSync("find src-tauri -name '*.rs' -not -path '*/target/*'", {
   .split("\n");
 
 // 票 07：测试模块里也会用 `tauri_command!` 定义夹具命令（宏的 HTTP 展开要按分支取样），
-// 它们不进 `generate_handler!`，比对时必须排除。判据不是文件名（`aidog_cli_proxy/src/
-// test_cmd.rs` 是**生产**命令 `cli_proxy_test` 的家），而是「被 `#[cfg(test)] #[path=..]`
+// 它们不进 `generate_handler!`，比对时必须排除。判据不是文件名，而是「被 `#[cfg(test)] #[path=..]`
 // 挂进来的文件」——只有这种文件不参与编译产物。
 const testOnly = new Set();
 for (const f of files) {
