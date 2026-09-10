@@ -517,7 +517,6 @@ async fn process_connect_log(
         created_at: now,
         updated_at: now,
         deleted_at: 0,
-        cli_proxy_provider_id: None,
         done: 1,
         // CONNECT 隧道日志不经出站 body 构造 seam，无字段留痕（票 10）。
         field_trace: String::new(),

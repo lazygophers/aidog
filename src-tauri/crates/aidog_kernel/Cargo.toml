@@ -20,7 +20,6 @@ path = "src/main.rs"
 [dependencies]
 aidog_core = { path = "../aidog_core", default-features = false, features = ["http"] }
 aidog_backup = { path = "../aidog_backup", default-features = false, features = ["http"] }
-aidog_cli_proxy = { path = "../aidog_cli_proxy", default-features = false, features = ["http"] }
 aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 aidog_logs = { path = "../aidog_logs" }

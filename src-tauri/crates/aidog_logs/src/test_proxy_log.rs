@@ -788,8 +788,7 @@ async fn filtered_list_model_type_actual() {
     assert_eq!(rows[0].id, "mta-1");
 }
 
-/// list_request_logs (cli-proxy-request-log s3)：默认 sources=[test,quota]，
-/// 排除纯代理转发行；LEFT JOIN cli_proxy_provider 带 provider name。
+/// list_request_logs：默认 sources=[test,quota]，排除纯代理转发行。
 #[tokio::test]
 async fn list_request_logs_filters_test_and_quota() {
     let db = test_db().await;
@@ -798,7 +797,6 @@ async fn list_request_logs_filters_test_and_quota() {
     // 三行：1 条 test + 1 条 quota + 1 条 anthropic 代理转发
     let mut l_test = sample_log("t1", "g", now);
     l_test.source_protocol = "test".into();
-    l_test.cli_proxy_provider_id = Some(7);
     let mut l_quota = sample_log("q1", "g", now - 100);
     l_quota.source_protocol = "quota".into();
     let mut l_fwd = sample_log("f1", "g", now - 50);
@@ -813,18 +811,6 @@ async fn list_request_logs_filters_test_and_quota() {
         .await
         .unwrap();
 
-    // 插入关联 cli_proxy_provider id=7（list_request_logs LEFT JOIN 应带出 name）。
-    db.call_traced(None, std::panic::Location::caller(), |conn| {
-            conn.execute(
-                "INSERT INTO cli_proxy_provider (id, name, wire_protocol, base_url, models, extra, status, created_at, updated_at) \
-                 VALUES (7, 'prov-A', 'openai', 'https://x', '[]', '{}', 'active', 0, 0)",
-                [],
-            )?;
-            Ok(())
-        })
-        .await
-        .unwrap();
-
     // 默认 sources 兜底 → 仅返 test + quota 两行（按 created_at DESC：t1, q1）
     let filter_default = aidog_db::models::ProxyLogFilter::default();
     let rows = list_request_logs(&db, &filter_default, 10, 0)
@@ -835,13 +821,8 @@ async fn list_request_logs_filters_test_and_quota() {
         2,
         "default sources should exclude anthropic forward"
     );
-    assert_eq!(rows[0].base.id, "t1");
-    assert_eq!(rows[1].base.id, "q1");
-    // LEFT JOIN：test 行带 provider_id=7 + name="prov-A"；quota 行均 None
-    assert_eq!(rows[0].cli_proxy_provider_id, Some(7));
-    assert_eq!(rows[0].cli_proxy_provider_name.as_deref(), Some("prov-A"));
-    assert!(rows[1].cli_proxy_provider_id.is_none());
-    assert!(rows[1].cli_proxy_provider_name.is_none());
+    assert_eq!(rows[0].id, "t1");
+    assert_eq!(rows[1].id, "q1");
 
     // 显式 sources 覆盖：传 [anthropic] → 仅返代理转发行
     let filter_override = aidog_db::models::ProxyLogFilter {
@@ -852,33 +833,7 @@ async fn list_request_logs_filters_test_and_quota() {
         .await
         .unwrap();
     assert_eq!(rows2.len(), 1);
-    assert_eq!(rows2[0].base.id, "f1");
-
-    // cli_proxy_provider_id 筛选 → 仅返 provider_id=7 的 test 行
-    let filter_by_pid = aidog_db::models::ProxyLogFilter {
-        cli_proxy_provider_id: Some(7),
-        ..Default::default()
-    };
-    let rows3 = list_request_logs(&db, &filter_by_pid, 10, 0).await.unwrap();
-    assert_eq!(rows3.len(), 1);
-    assert_eq!(rows3[0].base.id, "t1");
-
-    // provider 已删（DELETE id=7）→ LEFT JOIN 仍返行但 name=None
-    db.call_traced(None, std::panic::Location::caller(), |conn| {
-        conn.execute("DELETE FROM cli_proxy_provider WHERE id = 7", [])?;
-        Ok(())
-    })
-    .await
-    .unwrap();
-    let rows4 = list_request_logs(&db, &filter_default, 10, 0)
-        .await
-        .unwrap();
-    let t1 = rows4.iter().find(|r| r.base.id == "t1").unwrap();
-    assert_eq!(t1.cli_proxy_provider_id, Some(7), "fk column unchanged");
-    assert!(
-        t1.cli_proxy_provider_name.is_none(),
-        "deleted provider → name None"
-    );
+    assert_eq!(rows2[0].id, "f1");
 }
 
 /// exclude_sources：Logs 主页排除 test/quota → 仅纯代理转发。

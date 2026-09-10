@@ -106,8 +106,9 @@ fn rpc_table_has_no_duplicates() {
     let before = sorted.len();
     sorted.dedup();
     assert_eq!(before, sorted.len(), "/rpc 路由表里有重复命令名");
+    // 阈值 150：CLI 代理移除后表从 211 降到 200，只作「宏没展开全」的下限护栏，不追命令总数。
     assert!(
-        before > 200,
+        before > 150,
         "路由表规模异常（{before}），可能是宏没展开全"
     );
 }

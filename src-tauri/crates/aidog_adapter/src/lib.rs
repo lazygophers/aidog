@@ -23,7 +23,6 @@ pub mod cherryin;
 pub mod claude_code;
 pub mod claudeapi;
 pub mod claudecn;
-pub mod cli_proxy;
 pub mod codex;
 pub mod compshare;
 pub mod compshare_coding;

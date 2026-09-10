@@ -13,8 +13,6 @@
 // `aidog_core::settings::*` / `aidog_core::defaults::*` 路径调用。
 // cli_env 原下沉 commands_cli_env crate（C9），同批迁入 aidog_core，crate 删除，
 // startup.rs 用 `aidog_core::cli_env::*`。
-// cli_proxy provider/platform/import/batch 原下沉 commands_cli_proxy crate，同批迁入
-// aidog_core::cli_proxy_cmd，crate 删除，startup.rs 用 `aidog_core::cli_proxy_cmd::*`。
 // about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete 原下沉 commands_system
 // crate（C6），C3 c3-commands 第 3 批再迁入 aidog_core::system_cmd，crate 删除。startup.rs
 // generate_handler 直接用 `aidog_core::system_cmd::*` 路径调用。

@@ -16,7 +16,7 @@ mod command_macro;
 // 票 07：`tauri_command!` 的 HTTP 形态支撑（参数取值 / 返回值归一 / 错误响应）。
 #[cfg(feature = "http")]
 pub mod http_command;
-// 票 07：宏展开里用的第三方路径经 `$crate::` 转发，这样 aidog_backup / aidog_cli_proxy
+// 票 07：宏展开里用的第三方路径经 `$crate::` 转发，这样 aidog_backup
 // 这类只借宏定义命令的 crate 不必自己再引 axum。
 #[cfg(feature = "http")]
 #[doc(hidden)]
@@ -35,7 +35,7 @@ pub mod tray_render;
 pub mod kernel_settings;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
 pub mod popover;
-// C3 c3-commands 第 2 批：commands_cli_env / commands_config / commands_cli_proxy 下沉。
+// C3 c3-commands 第 2 批：commands_cli_env / commands_config 下沉。
 pub mod cli_env;
 pub mod defaults;
 pub mod settings;

@@ -77,7 +77,7 @@ async fn run_script_at(
 }
 
 /// platform_id > 0 且 db 可用时读平台行（协议路由 + extra + 物化脚本列）；
-/// 否则 None（base_url 启发式路径，如 cli_proxy provider 探测）。
+/// 否则 None（base_url 启发式路径）。
 async fn platform_row(db: Option<&Arc<Db>>, platform_id: i64) -> Option<Platform> {
     if platform_id <= 0 {
         return None;
