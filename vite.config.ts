@@ -50,6 +50,13 @@ export default defineConfig(async () => ({
     environment: "jsdom",
     setupFiles: ["./src/test/setup.ts"],
     css: false,
+    // 默认 5s 在满载机器上不够：userEvent 驱动的组件测试单跑 1-2s，并发跑时同一批
+    // jsdom worker 抢 CPU 会冲到 6s+，表现为随机文件超时（每次失败集合都不同）。
+    // 15s 只挡真正卡死的用例，不改变任何断言。
+    testTimeout: 15000,
+    // 默认 workers = CPU-1（本机 8 核起 7 个）。jsdom + userEvent 的组件测试是 CPU 密集型，
+    // 7 个并跑互相抢核，等待型断言（waitFor/findBy）随机超时。压到 4 个换稳定。
+    maxWorkers: 4,
     include: ["src/**/*.{test,spec}.{ts,tsx}"],
     coverage: {
       provider: "v8",
