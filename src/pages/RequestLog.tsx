@@ -5,13 +5,11 @@ import {
   requestLogApi,
   proxyLogApi,
   platformApi,
-  cliProxyApi,
   onProxyLogUpdated,
-  type RequestLogSummary,
+  type ProxyLogSummary,
   type ProxyLogDetail,
   type ProxyLogFilter,
   type Platform,
-  type CliProxyProvider,
 } from "../services/api";
 import { F } from "../domains/shared/tokens";
 import { LogRow, Pagination, FilterSelect, ThCell } from "./Logs/primitives";
@@ -25,7 +23,7 @@ import { TableHeader, TableBody } from "@/components/ui/table";
 // ponytail: RequestLog 自管 list + filter + detail state；复用 Logs/primitives (LogRow/Pagination/ThCell/FilterSelect)
 // + Logs/DetailPanel（ProxyLogDetail 经 proxyLogApi.get 取回 — request_log_list 仅摘要行）。
 // 详情现为 Sheet 叠加（DetailPanel 内部以 Radix Portal 渲染），列表恒常可见。
-// 筛选维度: 类型(test/quota) / 平台 / cli-proxy provider / 状态 / 时间 — 独立于 Logs 主页。
+// 筛选维度: 类型(test/quota) / 平台 / 状态 / 时间 — 独立于 Logs 主页。
 // 后端 request_log_list 默认 sources=[test,quota]（db 兜底），前端 filter.sources 显式覆盖。
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -76,7 +74,7 @@ function buildMarkdown(d: ProxyLogDetail): string {
 
 export function RequestLog() {
   const { t } = useTranslation();
-  const [logs, setLogs] = useState<RequestLogSummary[]>([]);
+  const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
@@ -84,10 +82,8 @@ export function RequestLog() {
 
   // ── Filter state ──
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  const [providers, setProviders] = useState<CliProxyProvider[]>([]);
   const [filterType, setFilterType] = useState<TypeFilter>("all");
   const [filterPlatform, setFilterPlatform] = useState<string>("");
-  const [filterProvider, setFilterProvider] = useState<string>("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
 
@@ -98,7 +94,6 @@ export function RequestLog() {
 
   useEffect(() => {
     platformApi.list().then(setPlatforms).catch(() => {});
-    cliProxyApi.list().then(setProviders).catch(() => {});
   }, []);
 
   const activeFilter: ProxyLogFilter = useMemo(() => {
@@ -106,16 +101,15 @@ export function RequestLog() {
     const srcs = typeToSources(filterType);
     if (srcs) f.sources = srcs;
     if (filterPlatform) f.platform_id = Number(filterPlatform);
-    if (filterProvider) f.cli_proxy_provider_id = Number(filterProvider);
     if (filterStatus === "success") f.status = 200;
     else if (filterStatus === "error") f.status = -1;
     const tr = timePresetToRange(filterTime);
     if (tr.start) f.time_start = tr.start;
     if (tr.end) f.time_end = tr.end;
     return f;
-  }, [filterType, filterPlatform, filterProvider, filterStatus, filterTime]);
+  }, [filterType, filterPlatform, filterStatus, filterTime]);
 
-  const hasFilter = !!(filterType !== "all" || filterPlatform || filterProvider || filterStatus || filterTime !== "all");
+  const hasFilter = !!(filterType !== "all" || filterPlatform || filterStatus || filterTime !== "all");
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -171,7 +165,6 @@ export function RequestLog() {
   const clearFilter = () => {
     setFilterType("all");
     setFilterPlatform("");
-    setFilterProvider("");
     setFilterStatus("");
     setFilterTime("all");
   };
@@ -182,7 +175,7 @@ export function RequestLog() {
     return m;
   }, [platforms]);
 
-  // ponytail: RequestLog 无 group 维度（test/quota 走 cli-proxy 不经 group 路由）→ groupName 直返 group_key。
+  // ponytail: RequestLog 无 group 维度（test/quota 不经 group 路由）→ groupName 直返 group_key。
   const groupName = (k: string) => k || "-";
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -224,13 +217,6 @@ export function RequestLog() {
               { value: "quota", label: t("requestLog.typeQuota", "余额") },
             ]}
             placeholder={t("requestLog.filterType", "类型")}
-          />
-          {/* Provider */}
-          <FilterSelect
-            value={filterProvider}
-            onChange={setFilterProvider}
-            options={providers.map(p => ({ value: String(p.id), label: p.name }))}
-            placeholder={t("requestLog.filterProvider", "Provider")}
           />
           {/* Platform */}
           <FilterSelect
@@ -284,7 +270,6 @@ export function RequestLog() {
                   <ThCell>{t("logs.time")}</ThCell>
                   <ThCell>{t("logs.group")}</ThCell>
                   <ThCell>{t("logs.platform", "平台")}</ThCell>
-                  <ThCell>{t("requestLog.colProvider", "Provider")}</ThCell>
                   <ThCell>{t("logs.model", "原始模型")}</ThCell>
                   <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
                   <ThCell>{t("logs.status")}</ThCell>
@@ -301,7 +286,6 @@ export function RequestLog() {
                       idx={idx}
                       platformName={platformMap.get(log.platform_id) || "-"}
                       groupName={groupName(log.group_key)}
-                      providerName={log.cli_proxy_provider_name ?? null}
                       onOpen={openDetail}
                       onCopy={copyRow}
                       t={t}

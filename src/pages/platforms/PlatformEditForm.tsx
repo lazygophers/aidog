@@ -5,7 +5,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
-import { cliProxyApi, type CliProxyProvider } from "../../services/api";
 import {
   SearchableProtocolSelect, MockConfigEditor,
   type ProtocolOption,
@@ -93,25 +92,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
-  // 编辑 cli-proxy 平台时反查 provider（models/base_url/api_key 只读自 provider）。
-  const [cliProxyProvider, setCliProxyProvider] = useState<CliProxyProvider | null>(null);
-  const isCliProxyEditing = !!editing && editing.platform_type === "cli-proxy";
-
-  // 编辑 cli-proxy 平台时按 extra.cli_proxy_provider_id 拉 provider（只读展示 models/base_url/api_key 来源）。
-  useEffect(() => {
-    if (!isCliProxyEditing || !editing) { setCliProxyProvider(null); return; }
-    let cancelled = false;
-    try {
-      const extra = editing.extra ? JSON.parse(editing.extra) : {};
-      const pid = extra?.cli_proxy_provider_id;
-      if (typeof pid !== "number") { setCliProxyProvider(null); return; }
-      cliProxyApi.get(pid)
-        .then(p => { if (!cancelled) setCliProxyProvider(p ?? null); })
-        .catch(() => { if (!cancelled) setCliProxyProvider(null); });
-    } catch { setCliProxyProvider(null); }
-    return () => { cancelled = true; };
-  }, [isCliProxyEditing, editing]);
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Edit page header */}
@@ -136,9 +116,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
           <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
             disabled={!name
-              || (isCliProxyEditing
-                  ? false
-                  : (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey))))}>
+              || (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
             {editing
               ? t("action.save")
               : batchPreviewKeys && batchPreviewKeys.length > 1
@@ -197,51 +175,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           </FormSection>
         )}
 
-        {/* cli-proxy 平台只读提示（cpa-standalone-module s6）：models/base_url/api_key 由 provider 注入，
-            platform 行字段留空，编辑表单内禁改 endpoints/auth/models 区。 */}
-        {isCliProxyEditing && (
-          <FormSection
-            title={t("platform.cliProxy.inheritedTitle", "cli-proxy 继承字段（只读）")}
-            desc={t("platform.cliProxy.inheritedDesc", "以下字段从 cli-proxy provider 继承，请到 cli-proxy 页编辑")}
-          >
-            <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13 }}>
-              <div>
-                <div style={{ color: "var(--text-tertiary)", fontSize: 11, marginBottom: 4 }}>
-                  {t("platform.cliProxy.provider", "Provider")}
-                </div>
-                <div>{cliProxyProvider?.name ?? "—"}</div>
-              </div>
-              <div>
-                <div style={{ color: "var(--text-tertiary)", fontSize: 11, marginBottom: 4 }}>
-                  {t("platform.cliProxy.wireProtocol", "入站协议")}
-                </div>
-                <div>{cliProxyProvider?.wire_protocol ?? "—"}</div>
-              </div>
-              <div>
-                <div style={{ color: "var(--text-tertiary)", fontSize: 11, marginBottom: 4 }}>
-                  {t("platform.cliProxy.baseUrl", "Base URL")}
-                </div>
-                <div style={{ wordBreak: "break-all" }}>{cliProxyProvider?.base_url ?? "—"}</div>
-              </div>
-              <div>
-                <div style={{ color: "var(--text-tertiary)", fontSize: 11, marginBottom: 4 }}>
-                  {t("platform.cliProxy.models", "模型")}
-                </div>
-                {cliProxyProvider && cliProxyProvider.models.length > 0 ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {cliProxyProvider.models.map(m => (
-                      <span key={m} style={{
-                        padding: "2px 8px", borderRadius: "var(--radius-sm)",
-                        background: "var(--bg-glass)", border: "1px solid var(--border)",
-                        fontSize: 12,
-                      }}>{m}</span>
-                    ))}
-                  </div>
-                ) : <div>—</div>}
-              </div>
-            </div>
-          </FormSection>
-        )}
 
         {/* 配额查询脚本（registry 变体 + 自定义伪变体 + requires 动态表单）。
             registry 无内置变体的协议直接进自定义脚本编辑态（否则没法给这类平台写脚本）；
@@ -276,8 +209,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
-        {/* Protocol Endpoints（mock / 透传 / cli-proxy 平台隐藏，无可编辑上游） */}
-        {!isMock && !isPassthrough && !isCliProxyEditing && (
+        {/* Protocol Endpoints（mock / 透传平台隐藏，无可编辑上游） */}
+        {!isMock && !isPassthrough && (
         <>
         <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} />
 

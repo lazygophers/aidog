@@ -19,7 +19,6 @@ const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats }
 const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ default: m.Notifications })));
 const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
 const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
-const CliProxy = lazy(() => import("./pages/CliProxy").then(m => ({ default: m.CliProxy })));
 const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
 const About = lazy(() => import("./pages/About").then(m => ({ default: m.About })));
 import {
@@ -35,7 +34,6 @@ import { requestNavigation } from "./utils/navGuard";
 const BASE_NAV: NavItem[] = [
   { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.platform" },
-  { id: "cli-proxy", icon: "proxy", labelKey: "nav.cliProxy", section: "nav.section.platform" },
   { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
   { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats" },
   { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
@@ -224,7 +222,6 @@ function App() {
           <div className="animate-fade-in" key={effectiveNav}>
             {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
             {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
-            {effectiveNav === "cli-proxy" && <CliProxy />}
             {effectiveNav === "request-log" && <RequestLog />}
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
             {effectiveNav === "logs" && <Logs initialFilter={navContext} />}

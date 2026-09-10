@@ -29,10 +29,6 @@ sources?: Array<string>,
  */
 exclude_sources?: Array<string>, 
 /**
- * CLI 代理 provider id 筛选（cli_proxy_provider_id = ?）。请求日志页按 provider 归属过滤。
- */
-cli_proxy_provider_id?: number | null, 
-/**
  * 中间件观察模式命中筛选（票 04）：Some(true) = 仅 `blocked_reason='observe'` 的行；
  * None / Some(false) = 不加此谓词（全部）。
  */

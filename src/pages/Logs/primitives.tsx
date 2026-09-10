@@ -266,8 +266,6 @@ interface LogRowProps {
   idx?: number;
   platformName: string;
   groupName: string;
-  /** CLI 代理 provider 名（请求日志页传入；代理日志页不传 → 不渲染该列） */
-  providerName?: string | null;
   onOpen: (id: string) => void;
   onCopy: (id: string) => void;
   t: TFunc;
@@ -277,7 +275,7 @@ interface LogRowProps {
 // stagger idx*60 错峰；<tr> 不能加 glass-surface (position:relative 破坏 sticky 列),
 // 故只挂 reveal + hover-lift (纯 transform/opacity，不依赖 position)；
 // hover 反馈仍走 shadcn TableRow 的 hover:bg-muted/50。
-export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupName, providerName, onOpen, onCopy, t }: LogRowProps) {
+export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupName, onOpen, onCopy, t }: LogRowProps) {
   const { ref, shown } = useReveal<HTMLTableRowElement>(idx * 60);
   return (
     <TableRow
@@ -298,9 +296,6 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
           )}
         </span>
       </TdCell>
-      {providerName !== undefined && (
-        <TdCell><span style={PLATFORM_NAME_STYLE}>{providerName || "-"}</span></TdCell>
-      )}
       <TdCell>
         <span style={INLINE_FLEX_STYLE}>
           <span style={MODEL_NAME_STYLE}>{log.model || "-"}</span>

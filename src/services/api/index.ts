@@ -16,7 +16,6 @@ export * from "./stats";
 export * from "./pricing";
 export * from "./skills";
 export * from "./mcp";
-export * from "./cliProxy";
 export * from "./exchange";
 export * from "./mitm";
 export * from "./ui_extra";
