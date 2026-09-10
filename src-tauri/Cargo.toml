@@ -152,7 +152,6 @@ aidog_db = { path = "crates/aidog_db" }
 aidog_logs = { path = "crates/aidog_logs" }
 aidog_stats = { path = "crates/aidog_stats" }
 aidog_mcp = { path = "crates/aidog_mcp" }
-aidog_cli_proxy = { path = "crates/aidog_cli_proxy" }
 aidog_backup = { path = "crates/aidog_backup" }
 aidog_middleware = { path = "crates/aidog_middleware" }
 aidog_adapter = { path = "crates/aidog_adapter" }

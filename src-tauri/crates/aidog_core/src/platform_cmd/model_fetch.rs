@@ -85,7 +85,6 @@ pub async fn platform_fetch_models(
             created_at,
             updated_at: created_at,
             deleted_at: 0,
-            cli_proxy_provider_id: None,
             done: true,
             // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
             field_trace: String::new(),

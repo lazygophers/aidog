@@ -144,7 +144,6 @@ pub(crate) async fn handle_proxy_core(
         updated_at: created_at,
         done: false,
         deleted_at: 0,
-        cli_proxy_provider_id: None,
         field_trace: String::new(),
     };
 

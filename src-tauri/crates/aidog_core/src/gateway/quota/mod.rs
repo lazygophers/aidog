@@ -3,7 +3,6 @@
 //! `run_quota_script` → `script::run_custom_query`）；本模块仅 re-export 保持
 //! `gateway::quota::*` 调用路径不变。
 
-pub use aidog_adapter::quota::http::with_cli_proxy_provider_id;
 pub use aidog_adapter::quota::{
     BalanceInfo, CodingPlanInfo, PlatformQuota, QuotaTier, query_quota, query_quota_for,
 };

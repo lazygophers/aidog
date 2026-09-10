@@ -120,7 +120,7 @@ pub fn run() {
             aidog_core::proxy_cmd::proxy_log::proxy_log_settings_set,
             aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_expired,
             aidog_core::proxy_cmd::proxy_log::proxy_log_cleanup_estimate,
-            // Request Logs (cli-proxy test/quota page)
+            // Request Logs (test/quota page)
             aidog_core::proxy_cmd::proxy_log::request_log_list,
             // Stats aggregation settings + rebuild
             aidog_core::platform_cmd::stats::stats_settings_get,
@@ -242,19 +242,6 @@ pub fn run() {
             aidog_core::platform_cmd::quota::platform_query_quota_newapi,
             aidog_core::platform_cmd::quota::platform_query_quota_devin,
             aidog_core::platform_cmd::platform::platform_reorder,
-            // CLI Proxy（cpa-standalone-module s3）：provider CRUD + test + platform + import
-            aidog_cli_proxy::provider::cli_proxy_list,
-            aidog_cli_proxy::provider::cli_proxy_get,
-            aidog_cli_proxy::provider::cli_proxy_create,
-            aidog_cli_proxy::provider::cli_proxy_update,
-            aidog_cli_proxy::provider::cli_proxy_delete,
-            aidog_cli_proxy::test_cmd::cli_proxy_test,
-            aidog_cli_proxy::platform::create_cli_proxy_platform,
-            aidog_cli_proxy::import::cli_proxy_import,
-            // CLI Proxy batch ops（cli-proxy-batch-delete s1）
-            aidog_cli_proxy::batch::batch_delete_cli_proxy_providers,
-            aidog_cli_proxy::batch::batch_override_cli_proxy_models,
-            aidog_cli_proxy::batch::batch_set_cli_proxy_quota,
             // Model Prices
             aidog_core::platform_cmd::price::model_price_sync,
             aidog_core::platform_cmd::price::price_sync_settings_get,
