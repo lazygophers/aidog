@@ -51,6 +51,7 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `get_defaults_json` | 否 | `src-tauri/crates/aidog_core/src/defaults.rs` | `src/services/api/platforms.ts` |
 | `get_last_test_result` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_log.rs` | `src/services/api/platforms.ts` |
 | `get_managed_paths` | 否 | `src-tauri/crates/aidog_core/src/sync_settings.rs` | `src/services/api/settings.ts` |
+| `get_protocol_logo_data_url` | 是 | `src-tauri/crates/aidog_core/src/defaults.rs` | 无 TS wrapper |
 | `get_protocol_logo_path` | 否 | `src-tauri/crates/aidog_core/src/defaults.rs` | `src/services/api/platforms.ts` |
 | `group_create` | 否 | `src-tauri/crates/aidog_core/src/platform_cmd/group.rs` | `src/services/api/groups.ts` |
 | `group_delete` | 否 | `src-tauri/crates/aidog_core/src/platform_cmd/group.rs` | `src/services/api/groups.ts` |
@@ -72,6 +73,8 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `import_read_file` | 否 | `src-tauri/crates/aidog_backup/src/commands.rs` | `src/services/api/exchange.ts` |
 | `inject_hooks` | 否 | `src-tauri/crates/aidog_core/src/hooks.rs` | `src/services/api/notification.ts` |
 | `install_uv` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/script_executor.rs` | `src/services/api/system.ts` |
+| `kernel_settings_get` | 否 | `src-tauri/crates/aidog_core/src/kernel_settings.rs` | `src/services/api/kernel.ts` |
+| `kernel_settings_set` | 否 | `src-tauri/crates/aidog_core/src/kernel_settings.rs` | `src/services/api/kernel.ts` |
 | `mcp_add` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/mcp.rs` | `src/services/api/mcp.ts` |
 | `mcp_delete` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/mcp.rs` | `src/services/api/mcp.ts` |
 | `mcp_import` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/mcp.rs` | `src/services/api/mcp.ts` |
@@ -82,6 +85,7 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `mcp_set_agent` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/mcp.rs` | `src/services/api/mcp.ts` |
 | `mcp_share_export` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/mcp.rs` | `src/services/api/mcp.ts` |
 | `mcp_update` | 否 | `src-tauri/crates/aidog_core/src/ai_tools_cmd/mcp.rs` | `src/services/api/mcp.ts` |
+| `middleware_budget_status` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/middleware.rs` | `src/services/api/scheduling.ts` |
 | `middleware_create_rule` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/middleware.rs` | `src/services/api/scheduling.ts` |
 | `middleware_delete_rule` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/middleware.rs` | `src/services/api/scheduling.ts` |
 | `middleware_list_rules` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/middleware.rs` | `src/services/api/scheduling.ts` |
@@ -91,6 +95,7 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `mitm_classify_trust_error` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | `src/services/api/mitm.ts` |
 | `mitm_disable` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | `src/services/api/mitm.ts` |
 | `mitm_enable` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | `src/services/api/mitm.ts` |
+| `mitm_install_ca` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | `src/services/api/mitm.ts` |
 | `mitm_install_ca_prepare` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | `src/services/api/mitm.ts` |
 | `mitm_reset_suspects` | 是 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | 无 TS wrapper |
 | `mitm_set_ca_installed` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/mitm.rs` | `src/services/api/mitm.ts` |
@@ -144,6 +149,7 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `proxy_client_get_settings` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy.rs` | `src/services/api/proxy.ts` |
 | `proxy_client_set_settings` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy.rs` | `src/services/api/proxy.ts` |
 | `proxy_get_settings` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy.rs` | `src/services/api/proxy.ts` |
+| `proxy_log_cleanup_estimate` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_log.rs` | `src/services/api/proxy.ts` |
 | `proxy_log_cleanup_expired` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_log.rs` | `src/services/api/proxy.ts` |
 | `proxy_log_clear` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_log.rs` | `src/services/api/proxy.ts` |
 | `proxy_log_count` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_log.rs` | `src/services/api/proxy.ts` |
