@@ -21,6 +21,20 @@ function filesUnder(dir, suffix) {
   return result;
 }
 
+// 票 07：测试模块里也会用 `tauri_command!` 定义夹具命令（如 t07_echo），它们不进
+// `generate_handler!`，比对时必须排除。判据同 scripts/t06-macro-names.mjs：文件是被
+// `#[cfg(test)] #[path = ".."]` 挂进来的 —— 只有这种文件不参与编译产物。
+function testOnlyFiles(files) {
+  const testOnly = new Set();
+  for (const file of files) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const match of source.matchAll(/#\[cfg\(test\)\]\s*#\[path\s*=\s*"([^"]+)"\]/g)) {
+      testOnly.add(file.replace(/[^/]+$/, match[1]));
+    }
+  }
+  return testOnly;
+}
+
 function sorted(values) {
   return [...values].sort((a, b) => a.localeCompare(b));
 }
@@ -87,7 +101,9 @@ ${rows.join("\n")}
 
 try {
   const startup = parseStartup(fs.readFileSync(startupPath, "utf8"));
-  const rust = parseRust(filesUnder(rustRoot, ".rs"));
+  const rustFiles = filesUnder(rustRoot, ".rs");
+  const testOnly = testOnlyFiles(rustFiles);
+  const rust = parseRust(rustFiles.filter((file) => !testOnly.has(file)));
   const ts = parseTs(filesUnder(tsRoot, ".ts"));
   const startupSet = new Set(startup.keys());
   const rustSet = new Set(rust.keys());
