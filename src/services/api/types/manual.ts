@@ -4,17 +4,15 @@
 //   1. 锁定 enum（c4-protocol 并行改 protocol.rs，本轮禁加 #[derive(TS)]，Rust 端仍是唯一真值源）
 //   2. camelCase DTO（跨层 snake_case 硬约束下唯一例外，Rust 侧本就 #[serde(rename_all = "camelCase")]）
 //   3. 非 aidog_core::gateway::models crate（commands_* / aidog_core 其他子模块，本 subtask 授权编辑范围仅
-//      gateway/models/**，越界不碰；多为 commands_platform/commands_system/commands_cli_env/commands_cli_proxy）
+//      gateway/models/**，越界不碰；多为 commands_platform/commands_system/commands_cli_env）
 //   4. 前端派生 / 无 Rust 同名结构（字面量联合类型细化、或数据本就来自 serde_json::Value 内嵌子对象，
 //      Rust 侧无强类型 struct 承载，只能手写）
-//   5. aidog_core::gateway::models 内已知 drift / 不兼容豁免（ProxyLogDetail↔ProxyLog 字段差、
-//      RequestLogSummary 的 #[serde(flatten)]，ts-rs 生成不出对应形状）
+//   5. aidog_core::gateway::models 内已知 drift / 不兼容豁免（ProxyLogDetail↔ProxyLog 字段差，
+//      ts-rs 生成不出对应形状）
 //   6. 其余待核实（尚无法 100% 确认 Rust 侧真实来源，暂手写占位）
 //
 // generated/ 下由 ts-rs `cargo test -p aidog_core` 产出的类型不放这里，见 generated/index.ts。
 // 迁移完成：part1~5.ts + check-types.mjs 已删，Rust 侧 gateway/models/** 为唯一真值源。
-
-import type { ProxyLogSummary } from "./generated/ProxyLogSummary";
 
 // ─── 1. 锁定 enum（Protocol / RoutingMode / PlatformStatus）──────────────
 // c4-protocol 正并行重构 src-tauri/crates/aidog_core/src/gateway/models/protocol.rs，
@@ -42,8 +40,6 @@ export type Protocol =
   | "newapi"
   // ── 订阅透传 ──
   | "claude_code"
-  // ── CLI 代理（cpa-standalone-module）：platform_type 仅标识，wire/base_url/api_key/models 由 candidate resolve 时从 cli_proxy_provider 表注入 ──
-  | "cli-proxy"
   // ── Devin（Cognition）：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层，preset 无标准 endpoint ──
   | "devin"
   // ── 测试 ──
@@ -64,8 +60,7 @@ export type RoutingMode =
 export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
 
 // ─── 2. camelCase DTO（跨层 snake_case 硬约束下的唯一例外）──────────────
-// 以下均对应 Rust `#[serde(rename_all = "camelCase")]` 结构（mcp.rs / cli-proxy 中间层 /
-// cc-switch 导入 / codex 解析），禁加 #[derive(TS)]（会与 snake_case 契约冲突），维持手写。
+// 以下均对应 Rust `#[serde(rename_all = "camelCase")]` 结构（mcp.rs / cc-switch 导入 / codex 解析），禁加 #[derive(TS)]（会与 snake_case 契约冲突），维持手写。
 
 export type McpAgentSlug = "claude-code" | "codex";
 
@@ -187,7 +182,6 @@ export interface Sub2ApiReadResult {
 // 以下 Rust 定义已核实位置，均不在本 subtask 授权编辑范围（gateway/models/**）内：
 // SharePlatform/FetchModelsError → commands_platform；AboutInfo → commands_system；
 // CliInstallation/CliToolStatus/CliConflict → commands_cli_env；
-// CliProxyImportFailure/CliProxyImportResult → commands_cli_proxy；
 // CodingToolsSettings → commands_ai_tools；ProxySettings/TodayStats/TodayPlatformStat/
 // AppLogSettings/MockConfig/BackupSettings/BackupResult/QuotaTier/BalanceInfo/
 // CodingPlanInfo/PlatformQuota → aidog_core 内但在 gateway/models 之外
@@ -269,26 +263,6 @@ export interface CliConflict {
   is_conflicting: boolean;
   /** 仅报告 + 建议，不自动卸载（破坏性操作禁主动执行）。 */
   suggestion: string;
-}
-
-/** `cli_proxy_import` 单条失败原因（非原子：成功入库，失败收集）。 */
-export interface CliProxyImportFailure {
-  name: string;
-  error: string;
-}
-
-/** `cli_proxy_import` 跳过项（rar/7z、解析失败、无 cpa 段等）。 */
-export interface CliProxyImportSkipReason {
-  path: string;
-  reason: string;
-}
-
-/** `cli_proxy_import` 返回。 */
-export interface CliProxyImportResult {
-  created: import("./generated/CliProxyProvider").CliProxyProvider[];
-  failed: CliProxyImportFailure[];
-  skipped: CliProxyImportSkipReason[];
-  source_files: string[];
 }
 
 export interface CodingToolsSettings {
@@ -642,11 +616,9 @@ export interface NotifyDispatchResult {
 }
 
 // ─── 5. aidog_core::gateway::models 内已知 drift / 不兼容豁免 ──────────
-// 二者均在授权编辑范围内，但故意不加 #[derive(TS)]：
-// - ProxyLogDetail：Rust 侧同义结构名为 `ProxyLog`（proxy_log.rs），且比 TS 手写版本多 3 字段
-//   （blocked_by/blocked_reason/cli_proxy_provider_id），属 c1-typedrift 已知遗留 drift，本轮不碰。
-// - RequestLogSummary：对应 Rust `#[serde(flatten)] ProxyLogSummary` + 2 字段，ts-rs 不支持
-//   flatten 映射到 TS `extends`，故保留手写（用 TS `extends` 表达 flatten 语义）。
+// 在授权编辑范围内，但故意不加 #[derive(TS)]：
+// - ProxyLogDetail：Rust 侧同义结构名为 `ProxyLog`（proxy_log.rs），且比 TS 手写版本多 2 字段
+//   （blocked_by/blocked_reason），属 c1-typedrift 已知遗留 drift，本轮不碰。
 
 export interface ProxyLogDetail {
   id: string;
@@ -681,17 +653,6 @@ export interface ProxyLogDetail {
   created_at: number;
   updated_at: number;
   deleted_at: number;
-}
-
-/**
- * 请求日志页摘要行（对应 Rust `RequestLogSummary`）。
- * `#[serde(flatten)] ProxyLogSummary` + cli-proxy provider 归属信息。
- */
-export interface RequestLogSummary extends ProxyLogSummary {
-  /** proxy_log.cli_proxy_provider_id（走传统 platform 路由为 null） */
-  cli_proxy_provider_id?: number | null;
-  /** LEFT JOIN cli_proxy_provider.name；provider 已删 / 走 platform 路由均为 null */
-  cli_proxy_provider_name?: string | null;
 }
 
 // ─── 6. 待核实（import/export 子系统，尚未定位 Rust 侧确切来源，占位手写）──
