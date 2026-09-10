@@ -178,7 +178,7 @@ fn cleanup_cpa_stats_agg(conn: &rusqlite::Connection, cpa_pids: &[i64]) {
     }
 }
 
-/// 读主库 4 表（platform / "group" / group_platform / cli_proxy_provider）全行（**不 DROP**）。
+/// 读主库 3 表（platform / "group" / group_platform）全行（**不 DROP**）。
 /// config-db-split crash-safe 四阶段迁移的 Phase 1 read：仅读不删，Phase 3 成功后才由 Phase 4 DROP。
 /// 表不存在（已迁过 / 新装主库从未建）→ 返空 TableRows，Phase 3 INSERT for 空转。
 /// ponytail: 全列 SELECT * + Value 动态类型，比硬编码 80+ 列 tuple 短得多且抗列漂移；保 id 列在首位。
@@ -249,7 +249,7 @@ pub fn init_tables_raw(
         // Phase 1: 主库 migration（不含 4 表 DDL）+ 读 4 表全部行 + 读 proxy_log 阶段所需预数据。
         // crash-safe：仅读不 DROP。auto_map 读主库 "group" 表（首次迁移仍在；二次启动空表 →
         // backfill_stats_agg_if_empty 跳过，无回归）。cpa_pids / notif_rows 同 Phase 2 消费。
-        let (auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows) = db
+        let (auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows) = db
             .call_traced(None, __db_caller, {
                 let backfill = backfill.clone();
                 move |conn| {
@@ -265,11 +265,10 @@ pub fn init_tables_raw(
                     // migration 逻辑；post-migration 一次性清理等价、幂等、零回归。
                     cleanup_cpa_stats_agg(conn, &cpa_pids);
                     let notif_rows = migrate_main_notification_out(conn);
-                    // 读 4 表全行（保 id）。首次迁移主库仍有存量；二次启动主库已 DROP → 空 TableRows。
+                    // 读 3 表全行（保 id）。首次迁移主库仍有存量；二次启动主库已 DROP → 空 TableRows。
                     let plat_rows = read_platform_tables_out(conn, "platform");
                     let grp_rows = read_platform_tables_out(conn, "\"group\"");
                     let gp_rows = read_platform_tables_out(conn, "group_platform");
-                    let cpa_rows = read_platform_tables_out(conn, "cli_proxy_provider");
                     // 主库残留 notification 表 DROP（20260727-20，原 049：notif_rows 已读出待 Phase 2 落 log.db）。
                     let _ = conn.execute("DROP TABLE IF EXISTS notification", []);
                     if !plat_rows.1.is_empty() || !grp_rows.1.is_empty() {
@@ -277,13 +276,10 @@ pub fn init_tables_raw(
                             platform_rows = plat_rows.1.len(),
                             group_rows = grp_rows.1.len(),
                             group_platform_rows = gp_rows.1.len(),
-                            cli_proxy_rows = cpa_rows.1.len(),
-                            "config-db-split: 主库 4 表数据读出待迁 platform.db",
+                            "config-db-split: 主库 3 表数据读出待迁 platform.db",
                         );
                     }
-                    Ok((
-                        auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows, cpa_rows,
-                    ))
+                    Ok((auto_map, cpa_pids, notif_rows, plat_rows, grp_rows, gp_rows))
                 }
             })
             .await
@@ -300,16 +296,15 @@ pub fn init_tables_raw(
         .await
         .map_err(|e| e.to_string())?;
 
-        // Phase 3: platform.db migration（建 4 表 DDL + 历史 ALTER + INSERT OR IGNORE 保 id 回填）。
+        // Phase 3: platform.db migration（建 3 表 DDL + 历史 ALTER + INSERT OR IGNORE 保 id 回填）。
         // crash-safe：INSERT OR IGNORE 可任意重放。内存库 fallback 下 platform handle = 主内存连接
-        // clone，与 Phase 1 同物理库，4 表数据仍在（Phase 1 未 DROP），INSERT OR IGNORE 全部 id 冲突跳过。
+        // clone，与 Phase 1 同物理库，3 表数据仍在（Phase 1 未 DROP），INSERT OR IGNORE 全部 id 冲突跳过。
         db.call_platform_traced(None, __db_caller, move |conn| {
             run_migrations_platform_early(conn)?;
             run_migrations_platform_late(conn)?;
             insert_platform_table_rows(conn, "platform", &plat_rows.0, &plat_rows.1)?;
             insert_platform_table_rows(conn, "\"group\"", &grp_rows.0, &grp_rows.1)?;
             insert_platform_table_rows(conn, "group_platform", &gp_rows.0, &gp_rows.1)?;
-            insert_platform_table_rows(conn, "cli_proxy_provider", &cpa_rows.0, &cpa_rows.1)?;
             // 回填之后再清：首次迁移（主库存量 → platform.db）若先清，回填会把待删行原样搬回。
             cleanup_delisted_platform_rows(conn);
             Ok(())
@@ -317,9 +312,10 @@ pub fn init_tables_raw(
         .await
         .map_err(|e| e.to_string())?;
 
-        // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达）。crash 前未达 Phase 4 → 下次启动 Phase 1
-        // 仍能读到 4 表（read 幂等）+ Phase 3 INSERT OR IGNORE 跳过已回填行（id 冲突），无重复无丢失。
-        // 内存库 fallback：platform handle = 主内存 conn clone，DROP 会清掉共享物理连接上的 4 表
+        // Phase 4: 主库 DROP × 4（仅 Phase 3 成功后达；cli_proxy_provider 随 CLI 代理移除，只清不迁）。
+        // crash 前未达 Phase 4 → 下次启动 Phase 1 仍能读到 3 表（read 幂等）+ Phase 3 INSERT OR IGNORE
+        // 跳过已回填行（id 冲突），无重复无丢失。
+        // 内存库 fallback：platform handle = 主内存 conn clone，DROP 会清掉共享物理连接上的 3 表
         // 致后续 call_platform_traced 访问失败 → 内存库跳过 Phase 4（main 与 platform 同 conn，
         // DROP main 等于 DROP platform；文件库才有「main 残留待清 + platform 独立存在」语义）。
         if !db.is_memory() {

@@ -152,7 +152,7 @@ struct ReconnectCtx {
 /// - `self.5`：`ReadPoolHandle` proxy_log 只读池（N=8），供 UI 查 proxy_log 走
 ///   `call_read_proxy_log_traced`，不阻塞主库读池。
 /// - `self.6`：**platform 写连接槽**（拆库后 `~/.aidog/platform.db` 独立 handle，
-///   独立 Mutex，platform / group / cli_proxy_provider 写走此槽，不与元数据写锁竞争）。
+///   独立 Mutex，platform / group 写走此槽，不与元数据写锁竞争）。
 ///   访问走 `call_platform_traced`。内存库 fallback 下复用主内存连接（同 read_pool idiom）。
 /// - `self.7`：`ReadPoolHandle` platform 只读池（N=8），供 UI 查 platform 走
 ///   `call_read_platform_traced`，不阻塞主库读池。
@@ -273,7 +273,7 @@ impl Db {
             Self::build_read_pool(proxy_log_path.as_deref().unwrap_or(path), &proxy_log_conn)
                 .await?;
 
-        // platform.db：与主库平级独立 SQLite 文件，承载 platform / group / cli_proxy_provider 写
+        // platform.db：与主库平级独立 SQLite 文件，承载 platform / group 写
         // （独立 Mutex 不争元数据写锁，独立 WAL 不与主库读竞争）。内存库 fallback：
         // platform handle 复用主内存连接（同 build_read_pool idiom），测试无感。
         //
@@ -647,7 +647,7 @@ impl Db {
     /// 本方法仅承载 proxy_log 路径。内存库 fallback 下 `self.4` 是主内存连接 clone
     /// （同 `build_read_pool` idiom），测试代码无感。
     ///
-    /// 跨表读约束：log.db 无 `"group"` / `platform` / `cli_proxy_provider` 表，
+    /// 跨表读约束：log.db 无 `"group"` / `platform` 表，
     /// 本方法闭包内**禁**跨表 JOIN 这些主库表（s4 改应用层合并）。当前 s1 仅加基础设施，
     /// 现有 ~39 站点仍在 s3 切换。
     pub fn call_proxy_log_traced<F, R>(
@@ -792,7 +792,7 @@ impl Db {
     /// 同 ConnectionClosed 重连重试），唯一差异是连接来源——取 `self.6`（platform
     /// 独立 Mutex 写槽），重连走 `ReconnectCtx::platform_path`。
     ///
-    /// 拆库后 platform / group / cli_proxy_provider 的写 / DDL / 事务走本方法（独立于主库元数据
+    /// 拆库后 platform / group 的写 / DDL / 事务走本方法（独立于主库元数据
     /// 写锁，platform 密集写不再阻塞 proxy_log 写队列）。内存库 fallback 下 `self.6`
     /// 是主内存连接 clone（同 `build_read_pool` idiom），测试代码无感。
     ///
@@ -878,7 +878,7 @@ impl Db {
 
     /// platform.db 只读 chokepoint：与 `call_read_proxy_log_traced` **完整同形 / 同语义**，
     /// 唯一差异是读池来源——取 `self.7`（platform 独立 N=8 读池）。供 UI 查 platform /
-    /// group / cli_proxy_provider 纯 SELECT 热读路径走，不阻塞主库 / log 库读池。同 `call_read_traced`：
+    /// group 纯 SELECT 热读路径走，不阻塞主库 / log 库读池。同 `call_read_traced`：
     /// 某槽位死亡时 `pick()` 重试下一条，不替换死槽位。
     pub fn call_read_platform_traced<F, R>(
         &self,
@@ -986,7 +986,7 @@ impl Db {
     /// 取 platform.db 写连接的 clone（短暂持锁，纳秒级 channel sender clone）。
     ///
     /// 与 `write_conn` 同形，唯连接来源为 `self.6`（platform 写槽）。供历史「直接访问
-    /// `db.0.call(...)`」模式中触及 platform / group / group_platform / cli_proxy_provider
+    /// `db.0.call(...)`」模式中触及 platform / group / group_platform
     /// 的调用方（`db_rows.rs` upsert / `estimate::db_ops` / `manual_budget` 等）切换而来。
     /// 内存库 fallback 下 `self.6` 是主内存连接 clone，与 `write_conn()` 同物理库，测试无感。
     pub fn platform_write_conn(&self) -> AsyncConnection {
@@ -1075,7 +1075,6 @@ pub fn retention_cutoff_secs(secs: u64) -> Option<i64> {
 }
 
 // ─── 领域 DB 读写（2026-08-16 自 aidog_core::gateway::db 拆入）───
-mod cli_proxy;
 pub mod client_types_const;
 mod group;
 mod group_platform;
@@ -1087,7 +1086,6 @@ mod platform_lifecycle;
 mod price_resolve;
 pub mod registry;
 mod ui_extra;
-pub use cli_proxy::*;
 pub use group::*;
 pub use group_platform::*;
 pub use maintenance::*;
@@ -1100,7 +1098,6 @@ pub use registry::*;
 pub use ui_extra::*;
 
 #[cfg(test)]
-mod test_cli_proxy;
 #[cfg(test)]
 mod test_group;
 #[cfg(test)]

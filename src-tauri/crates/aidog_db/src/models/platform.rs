@@ -294,7 +294,6 @@ pub struct DevinExtra {
 /// - `disable_during_peak` ← `parse_disable_during_peak`
 /// - `peak` ← `parse_platform_peak`
 /// - `time_windows` ← `parse_platform_time_windows`
-/// - `cli_proxy_provider_id` ← `router::candidates::read_cli_proxy_provider_id`
 /// - `devin` ← `gateway::proxy::devin`（org_id 经 `resolve_devin_org_id` 脚本同款两层兜底、
 ///   dev_timeout 经 `read_dev_timeout_secs`，均 nested）
 /// - `mock` ← `adapter::mock::config::resolve_mock_config`
@@ -308,8 +307,6 @@ pub struct PlatformExtra {
     pub peak: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub time_windows: Vec<serde_json::Value>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub cli_proxy_provider_id: Option<u64>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub devin: Option<DevinExtra>,
     #[serde(default, skip_serializing_if = "Option::is_none")]

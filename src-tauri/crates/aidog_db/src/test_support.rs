@@ -156,7 +156,6 @@ pub fn sample_log(id: &str, group_key: &str, created_at: i64) -> ProxyLog {
         created_at,
         updated_at: created_at,
         deleted_at: 0,
-        cli_proxy_provider_id: None,
         done: true,
         field_trace: String::new(),
     }

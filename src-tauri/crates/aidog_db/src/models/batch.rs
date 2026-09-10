@@ -1,6 +1,6 @@
-//! 批量操作共享结果类型（cli-proxy-batch-delete s1）。
+//! 批量操作共享结果类型。
 //!
-//! 从 commands_platform::batch 提到核心层，供 commands_platform / commands_cli_proxy 复用。
+//! 从 commands_platform::batch 提到核心层，供 commands_platform 复用。
 
 /// 批量操作结果
 #[derive(Debug, Clone, serde::Serialize)]
