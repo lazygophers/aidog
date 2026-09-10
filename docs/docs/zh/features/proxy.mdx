@@ -1,6 +1,6 @@
 ---
 title: 代理服务
-description: 启动本地代理并管理地址、超时、中间件和 CLI 代理。
+description: 启动本地代理并管理地址、超时和中间件。
 ---
 
 # 代理服务
@@ -11,7 +11,7 @@ import { ProductDemo } from '../../../theme/components/ProductDemo';
 
 ## 当前实现
 
-侧栏的 `cli-proxy` 入口挂载 `src/pages/CliProxy.tsx`，不是单独的「代理服务」服务页。代理启动与状态控制命令在 `src/services/api/proxy.ts`，Rust 实现位于 `proxy_cmd::proxy`、`proxy_cmd::proxy_log`、`gateway::proxy` 和相关模块。
+代理启动与状态控制命令在 `src/services/api/proxy.ts`，Rust 实现位于 `proxy_cmd::proxy`、`proxy_cmd::proxy_log`、`gateway::proxy` 和相关模块。
 
 当前默认代理端口在源码里是 `9890`。Local API 健康检查走 `/` 和 `/proxy`，模型发现走 `/models` 和 `/v1/models`；这些端点在代理路由中有专门分流。
 

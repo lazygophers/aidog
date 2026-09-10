@@ -5,7 +5,7 @@
 
 ## 项目结构要点
 
-- `command_macro.rs` 的 `tauri_command!` 宏双展开：feature `desktop` 出 `#[tauri::command]`，feature `http` 出 `<命令名>::http` 的 axum handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个 feature 并转发给 aidog_core**（cfg 在展开处求值）：现有 aidog_backup / aidog_cli_proxy 已声明。
+- `command_macro.rs` 的 `tauri_command!` 宏双展开：feature `desktop` 出 `#[tauri::command]`，feature `http` 出 `<命令名>::http` 的 axum handler（两者默认都开）。**用本宏定义命令的 crate 必须自己声明这两个 feature 并转发给 aidog_core**（cfg 在展开处求值）：现有 aidog_backup 已声明。
 - `http_command.rs`：参数按 camelCase→snake_case 取（对齐 Tauri v2 与前端实际发的键）、返回值序列化、Err → 非 2xx + 同样的 JSON body。
 - `aidog_ctx` 的 `AppCtx` trait（进程级 OnceLock 单例）必须**零 tauri 依赖**：命令拿 db / middleware / proxy handle / emit 一律走它，`aidog_core/src/tauri_ctx.rs` 是唯一接 `AppHandle` 的地方，无头内核（票 08）实现同一 trait。
 - `aidog_test_util` 依赖 `aidog_core`，故 `aidog_core` 不可反向 dev-dep。
