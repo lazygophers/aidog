@@ -24,7 +24,6 @@ pub const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
 ];
 
 /// platform.db 下的软删表清单（config-db-split：4 表迁 platform.db 后 purge 走 platform handle）。
-/// `cli_proxy_provider` 无 `deleted_at` 列（硬删语义），不在此清单。
 pub const SOFT_DELETE_TABLES_PLATFORM: &[(&str, &str)] = &[
     ("platform", "platform"),
     ("\"group\"", "group"),

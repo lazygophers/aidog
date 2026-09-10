@@ -25,7 +25,7 @@ pub fn run_migrations_late(
         "ALTER TABLE model_price ADD COLUMN context_window INTEGER",
         [],
     );
-    // Migration 原编号 022–048 (platform.db 内重编为 20260727-02..16): platform / "group" / group_platform / cli_proxy_provider
+    // Migration 原编号 022–048 (platform.db 内重编为 20260727-02..16): platform / "group" / group_platform
     // 的 ALTER / 数据回填 / 045 建表 / 046 CPA 清理 / 048 quota →
     // run_migrations_platform_late（落 platform.db）。主库零 platform/group DDL。
     // Migration 20260727-13 (原 030): 「Claude Code / Codex 联动」重命名为通用「AI 编程工具」。
@@ -477,11 +477,8 @@ pub fn run_migrations_proxy_log_late(
             params![pid],
         );
     }
-    // Migration 20260727-17 (原 047): proxy_log 加 cli_proxy_provider_id。
-    let _ = conn.execute(
-        "ALTER TABLE proxy_log ADD COLUMN cli_proxy_provider_id INTEGER",
-        [],
-    );
+    // Migration 20260727-17 (原 047) 已废：proxy_log.cli_proxy_provider_id 随 CLI 代理功能
+    // 移除，ADD 语句删除，存量库由下方 20260910-02 DROP COLUMN 清理。
     // Migration 20260824-01 (票 06 stream-full-log): proxy_log 加 done 终态列，取代
     // `response_body == "[stream]"` 哨兵的终态判定（log.rs 背压/聚合 gate/快照移除）。
     let _ = conn.execute(
@@ -523,14 +520,18 @@ pub fn run_migrations_proxy_log_late(
             params![t, title, body, ts],
         );
     }
+    // Migration 20260910-02 (cli-proxy-removal): proxy_log 去 cli_proxy_provider_id 列
+    // （20260727-17 加入，随 CLI 代理功能移除）。该列无索引、非主键，SQLite 3.35+ 可直接
+    // DROP COLUMN，无需整表重建。幂等：列已不存在 → 语句报错被 `let _ =` 吞。
+    let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN cli_proxy_provider_id", []);
     Ok(())
 }
 
 /// platform.db 的 late migrations（platform.db 库内序 20260727-01..16 + 20260729-01，原 `run_migrations_late`
-/// 内所有操作 platform / "group" / group_platform / cli_proxy_provider 的迁移: 原 022 auto_group /
+/// 内所有操作 platform / "group" / group_platform 的迁移: 原 022 auto_group /
 /// 023–024 group 重建 / 025 GLM coding_plan 回填 / 026 breaker backfill + 列裁剪 / 027 is_default /
 /// 029 level_priority / 036 expires_at / 037 last_error / 038 env_vars / 039 last_error 重提 /
-/// 044 extra / 045 cli_proxy_provider 建表 / 046 CPA 清理 / 048 quota / 20260729-01 清 W2 peak_hours 副本 /
+/// 044 extra / 046 CPA 清理 / 20260729-01 清 W2 peak_hours 副本 /
 /// 20260829-01 extra 键 time_models→time_windows / 20260829-02 extra 键 peak_hours→peak）。
 ///
 /// 由 `Db::init_tables` Phase 3 在 `call_platform_traced` 闭包内、紧随
@@ -792,23 +793,8 @@ ALTER TABLE "group_new" RENAME TO "group";
         [],
     );
 
-    // Migration 20260727-14 (原 045): cli_proxy_provider 表。
-    conn.execute_batch(
-                    "CREATE TABLE IF NOT EXISTS cli_proxy_provider (
-                       id            INTEGER PRIMARY KEY AUTOINCREMENT,
-                       name          TEXT NOT NULL,
-                       wire_protocol TEXT NOT NULL,
-                       base_url      TEXT NOT NULL,
-                       api_key       TEXT NOT NULL DEFAULT '',
-                       models        TEXT NOT NULL DEFAULT '[]',
-                       extra         TEXT NOT NULL DEFAULT '{}',
-                       status        TEXT NOT NULL DEFAULT 'active',
-                       group_id      INTEGER,
-                       created_at    INTEGER NOT NULL,
-                       updated_at    INTEGER NOT NULL
-                     );
-                     CREATE INDEX IF NOT EXISTS idx_cli_proxy_group ON cli_proxy_provider(group_id) WHERE group_id IS NOT NULL;",
-                )?;
+    // Migration 20260727-14 (原 045) 已废：cli_proxy_provider 建表随 CLI 代理功能移除，
+    // 建表语句删除，存量库的该表由下方 20260910-01 DROP。
 
     // Migration 20260727-15 (原 046): 清理旧 CPA(CLIProxyAPI) 平台数据 —— platform.db 部分。
     // proxy_log 删除归 run_migrations_proxy_log_late（log.db，cpa_pids 预查传入）；
@@ -824,11 +810,7 @@ ALTER TABLE "group_new" RENAME TO "group";
         [],
     );
 
-    // Migration 20260727-16 (原 048): cli_proxy_provider 加 quota JSON 列。
-    let _ = conn.execute(
-        "ALTER TABLE cli_proxy_provider ADD COLUMN quota TEXT NOT NULL DEFAULT '{}'",
-        [],
-    );
+    // Migration 20260727-16 (原 048) 已废：cli_proxy_provider.quota 列随建表一并移除。
 
     // Migration 20260729-01: 清 platform.extra.peak_hours 里「导入默认配置」历史遗留的
     // W2 副本（preset 已改 bundled 值，用户点过导入按钮复制进 extra 的旧窗口删不掉，
@@ -851,6 +833,21 @@ ALTER TABLE "group_new" RENAME TO "group";
         "ALTER TABLE platform ADD COLUMN quota_script TEXT NOT NULL DEFAULT ''",
         [],
     );
+
+    // Migration 20260910-01 (cli-proxy-removal): CLI 代理功能整体移除。
+    // 存量 cli-proxy 平台行删除（协议变体已从 Protocol 枚举移除，留着会回落 anthropic
+    // 且 base_url 为空 → 永远请求失败的坏行）；关联 group_platform 一并清理；provider 表 DROP。
+    // platform_type 由 serde_json::to_string 写入，值带引号，两种形态都匹配。
+    let _ = conn.execute(
+        "DELETE FROM group_platform WHERE platform_id IN \
+         (SELECT id FROM platform WHERE platform_type IN ('\"cli-proxy\"', 'cli-proxy'))",
+        [],
+    );
+    let _ = conn.execute(
+        "DELETE FROM platform WHERE platform_type IN ('\"cli-proxy\"', 'cli-proxy')",
+        [],
+    );
+    let _ = conn.execute("DROP TABLE IF EXISTS cli_proxy_provider", []);
     Ok(())
 }
 

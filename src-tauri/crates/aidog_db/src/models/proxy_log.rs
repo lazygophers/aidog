@@ -74,9 +74,6 @@ pub struct ProxyLog {
     pub updated_at: i64,
     #[serde(default)]
     pub deleted_at: i64,
-    /// 经 CLI 代理上游（cli_proxy_provider 表）路由时记录的 provider id；走传统 platform 路由为 None。
-    #[serde(default)]
-    pub cli_proxy_provider_id: Option<i64>,
     /// 终态标记（stream-full-log 票 06）：请求日志生命周期完结（非流式终态 / 流式 flush /
     /// 断连兜底 / 中断补写）时置位。取代旧 `response_body == "[stream]"` 哨兵的终态判定
     /// （背压分支、聚合去重 gate、快照移除条件）。中间态（status=0 或流式聚合中）恒 false。
@@ -140,22 +137,6 @@ pub struct LastTestResult {
     pub error: String,
     /// 测试响应正文（成功/失败均带），截断 ~4000 字符；供前端 JSON 解析结构化展示。
     pub response_body: String,
-}
-
-/// 请求日志页摘要行 = `ProxyLogSummary` + 关联 CLI 代理 provider 信息。
-/// 由 `list_request_logs` 应用层合并 cli_proxy_provider 产出（provider 已删则 name=None）：
-/// 单表读 proxy_log 取行 → 主库 IN 批量查 id→name → Rust HashMap 合并（跨库禁 JOIN）。
-/// 独立于 `ProxyLogSummary`，因请求日志页要展示 provider 归属（代理转发日志页无此字段）。
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RequestLogSummary {
-    #[serde(flatten)]
-    pub base: ProxyLogSummary,
-    /// proxy_log.cli_proxy_provider_id（走传统 platform 路由为 None）
-    #[serde(default)]
-    pub cli_proxy_provider_id: Option<i64>,
-    /// 应用层合并自 cli_proxy_provider.name；provider 行被删 / 走 platform 路由均为 None
-    #[serde(default)]
-    pub cli_proxy_provider_name: Option<String>,
 }
 
 /// Summary row for list view (excludes large body fields)
@@ -231,10 +212,6 @@ pub struct ProxyLogFilter {
     #[serde(default)]
     #[ts(optional)]
     pub exclude_sources: Option<Vec<String>>,
-    /// CLI 代理 provider id 筛选（cli_proxy_provider_id = ?）。请求日志页按 provider 归属过滤。
-    #[serde(default)]
-    #[ts(optional, type = "number | null")]
-    pub cli_proxy_provider_id: Option<i64>,
     /// 中间件观察模式命中筛选（票 04）：Some(true) = 仅 `blocked_reason='observe'` 的行；
     /// None / Some(false) = 不加此谓词（全部）。
     #[serde(default)]

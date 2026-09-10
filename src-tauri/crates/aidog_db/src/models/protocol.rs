@@ -175,11 +175,6 @@ pub enum Protocol {
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
-    /// CLI 代理（cpa-standalone-module）：platform_type 仅作平台标识，
-    /// wire/base_url/api_key/models 由 candidate resolve 时从 `cli_proxy_provider` 表拉
-    /// （`extra.cli_proxy_provider_id` 关联）。`platform.models` 字段只读，被 provider.models 覆盖。
-    #[serde(rename = "cli-proxy")]
-    CliProxy,
     /// Devin（Cognition）平台：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层。
     /// API base `https://api.devin.ai`，Bearer `cog_` key + `org-` 前缀 org_id，计费 ACU，无原生流式。
     /// preset endpoints 为空（无标准 wire endpoint），models 5 档虚拟映射 devin-normal/fast/lite/ultra/fusion。
@@ -240,7 +235,7 @@ impl Protocol {
     /// 厂商直连平台（glm / kimi / minimax / deepseek 等官方端点固定）端点锁死：
     /// 禁止用户填写 / 修改协议端点，保存时强制重置为内置 preset 端点（db/platform.rs）。
     /// 前端镜像集合：`src/domains/platforms/constants.ts::ENDPOINTS_LOCKED_PROTOCOLS`（跨层对称，禁单侧改）。
-    /// 通用平台（5 wire 协议 + 聚合 / 第三方 / 中转段 + cli_proxy）不受限。
+    /// 通用平台（5 wire 协议 + 聚合 / 第三方 / 中转段）不受限。
     pub fn endpoints_locked(&self) -> bool {
         use Protocol::*;
         matches!(
@@ -317,7 +312,7 @@ mod test_endpoints_locked {
     use super::*;
 
     /// 跨层对称锚点：locked 集合与前端 `ENDPOINTS_LOCKED_PROTOCOLS`（constants.ts）必须同集。
-    /// 通用段（wire 协议 / 聚合 / 第三方 / 中转 / cli_proxy）抽查不锁，厂商段抽查锁死。
+    /// 通用段（wire 协议 / 聚合 / 第三方 / 中转）抽查不锁，厂商段抽查锁死。
     #[test]
     fn endpoints_locked_set() {
         let locked: &[(&str, bool)] = &[
@@ -339,7 +334,6 @@ mod test_endpoints_locked {
             ("openrouter", false),
             ("packycode", false),
             ("siliconflow", false),
-            ("cli-proxy", false),
             ("opencode_zen", false),
         ];
         for (key, expect) in locked {
@@ -365,8 +359,6 @@ mod test_protocol_coding_variants {
             ("xiaomi_mimo_coding", Protocol::XiaomiMimoCoding),
             // MiniMax Coding Plan 独立协议（minimax_coding）
             ("minimax_coding", Protocol::MinimaxCoding),
-            // CLI 代理独立协议（cpa-standalone-module s2）
-            ("cli-proxy", Protocol::CliProxy),
             // Devin 平台（add-devin-support s1）
             ("devin", Protocol::Devin),
         ];
