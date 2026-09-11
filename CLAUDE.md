@@ -67,7 +67,7 @@
 
 ### Issue tracker
 
-票以 markdown 文件存 `.scratch/<feature>/`（不用 GitHub Issues，避免与 `.skein/` 形成双任务系统对不上账）。见 `docs/agents/issue-tracker.md`。
+票发到 GitHub Issues（repo: `lazygophers/aidog`，走 `gh` CLI），不再用本地 `.scratch/` 票（2026-09-12 迁移）。见 `docs/agents/issue-tracker.md`。
 
 ### Triage labels
 
