@@ -16,7 +16,7 @@ vi.mock("../../services/api", () => ({
 }));
 
 vi.mock("../../domains/platforms/defaults", () => ({
-  getProtocolLabelMap: vi.fn().mockResolvedValue({ glm: "智谱 GLM", openrouter: "OpenRouter" }),
+  getProtocolLabelMap: vi.fn().mockResolvedValue({ glm: "智谱 GLM", openrouter: "OpenRouter", aihubmix: "AIHubMix" }),
 }));
 
 // 票 10：复制统一走 services/platform（按 Tauri / 浏览器分流），mock 换到那一层。
@@ -172,6 +172,42 @@ describe("ModelInfoTab", () => {
     expect(within(dialog).getByText("glm-4.5")).toBeInTheDocument();
     expect(within(dialog).getByText("modelInfo.priceDefault")).toBeInTheDocument();
     expect(within(dialog).getByText("modelInfo.pricePeak")).toBeInTheDocument();
+  });
+
+  it("详情弹窗: 同平台多条 model_id 各一个 tab，非 canonical 条目带 model_id 后缀", async () => {
+    // 复现 glm-5.3 重复：aihubmix 对同一 canonical 挂 coding-/按量/free 三条 SKU。
+    // 修复前 tab 的 key/value 只有 platform_code → 三 tab 同值互相覆盖，视觉只剩一个。
+    snapshotMock.mockResolvedValue({
+      ...SNAPSHOT,
+      groups: [
+        {
+          canonical_model: "glm-5.3",
+          display_name: "GLM-5.3",
+          primary_platform: "aihubmix",
+          entries: [
+            entry({ platform_code: "aihubmix", model_id: "coding-glm-5.3", canonical_model: "glm-5.3",
+                     display_name: "GLM-5.3", price_data: JSON.stringify({ price: { input: 6e-8 } }) }),
+            entry({ platform_code: "aihubmix", model_id: "glm-5.3", canonical_model: "glm-5.3",
+                     display_name: "GLM-5.3", price_data: JSON.stringify({ price: { input: 1.13e-6 } }) }),
+            entry({ platform_code: "aihubmix", model_id: "coding-glm-5.3-free", canonical_model: "glm-5.3",
+                     display_name: "GLM-5.3", price_data: JSON.stringify({ price: { input: 0 } }) }),
+          ],
+        },
+      ],
+    });
+    render(<ModelInfoTab />);
+    fireEvent.click(await screen.findByText("GLM-5.3"));
+    const dialog = await screen.findByRole("dialog");
+    // 三条 SKU = 三个 tab，不再被同 value 覆盖成一个
+    const tabs = within(dialog).getAllByRole("tab");
+    expect(tabs).toHaveLength(3);
+    // model_id = canonical 的 tab 无后缀；另两条带 model_id 后缀区分
+    expect(within(dialog).getByRole("tab", { name: "AIHubMix" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "AIHubMix· coding-glm-5.3" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("tab", { name: "AIHubMix· coding-glm-5.3-free" })).toBeInTheDocument();
+    // 默认选中 primary（coding-glm-5.3），面板请求名与 tab 对得上
+    expect(within(dialog).getByText("modelInfo.requestName")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("coding-glm-5.3").length).toBeGreaterThanOrEqual(1);
   });
 
   it("同步失败清单: partial failures 列出文件与原因", async () => {
