@@ -21,29 +21,61 @@ pub fn balance_cost(
         + cache_tokens as f64 * cache_read_input_token_cost
 }
 
-/// 对单个 tier 应用一次请求的 token 增量（read-modify-write 的纯函数部分）。
-///   - Kimi（has_base）：精确，每 token 的 % = 100/limit。
-///   - GLM/MiniMax（方案 B）：有 coef → est = util_at_last_real + tokens_since_real×coef；
-///     冷启动（coef==0）不预估，est 维持真值（util_at_last_real）。
-pub fn apply_tier_delta(tier: &mut EstTier, tokens: f64) {
+/// 对单个 tier 应用一次请求的增量（read-modify-write 的纯函数部分）。
+///   - `prompt_count`（GLM/Kimi/MiniMax/百炼）：按次扣。has_base → 每请求 +`100/limit`
+///     （Kimi 精确）；无 → 拟合 `coef_per_request`（`est = util_at_last_real + requests_since_real × coef`，
+///     冷启动不预估，est 维持真值）。token 不参与。
+///   - `mcp_time`（GLM mcp_monthly）：MCP 使用时长口径，与请求无关 → 不增量，只靠真查校准。
+///   - `response_inline`：响应头/体自带配额真值 → 不增量。
+///   - `tokens` / `""`（缺省，向后兼容旧 JSON）：has_base → 每 token +`100/limit`；
+///     无 → 拟合 `coef_per_token`（`est = util_at_last_real + tokens_since_real × coef`）。
+///   - 旧 JSON 无 unit 但 name == "mcp_monthly" 的存量行：同样不增量（历史特判保留，
+///     校准后 unit 会被脚本返回值覆盖为 `mcp_time`）。
+pub fn apply_tier_delta(tier: &mut EstTier, requests: i64, tokens: f64) {
+    let per_request_unit = tier.unit == "prompt_count";
+    let no_increment = tier.unit == "mcp_time"
+        || tier.unit == "response_inline"
+        || (tier.unit.is_empty() && tier.name == "mcp_monthly");
+    if no_increment {
+        return;
+    }
+    if per_request_unit {
+        if requests <= 0 {
+            return;
+        }
+        tier.requests_since_real += requests as f64;
+        if tier.has_base && tier.limit > 0.0 {
+            // Kimi 精确增量：每请求 % = 100/limit
+            tier.est_utilization += requests as f64 * (100.0 / tier.limit);
+            if tier.est_utilization > 100.0 {
+                tier.est_utilization = 100.0;
+            }
+            return;
+        }
+        // 方案 B（按次拟合）
+        if tier.coef_per_request > 0.0 {
+            tier.est_utilization =
+                tier.util_at_last_real + tier.requests_since_real * tier.coef_per_request;
+            if tier.est_utilization > 100.0 {
+                tier.est_utilization = 100.0;
+            }
+        }
+        // 冷启动（无 coef）：不预估，est_utilization 保持真值不动
+        return;
+    }
+    // tokens / 缺省兜底
     if tokens <= 0.0 {
         return;
     }
-    // mcp_monthly（GLM）用量单位是 MCP 调用次数，与 LLM token 不同口径：has_base 的
-    // 100/limit 精确增量会把单请求百万级 token 直接推到 100%（线上实测 est=100% vs
-    // 真值 5%）。该 tier 不做 token 增量预估，只靠真查校准刷新。
-    if tier.name == "mcp_monthly" {
-        return;
-    }
     if tier.has_base && tier.limit > 0.0 {
-        // Kimi 精确增量
+        // Kimi 精确增量（token 口径）
         tier.est_utilization += tokens * (100.0 / tier.limit);
         if tier.est_utilization > 100.0 {
             tier.est_utilization = 100.0;
         }
         return;
     }
-    // 方案 B
+    // 方案 B（按 token 拟合）
     tier.tokens_since_real += tokens;
     if tier.coef_per_token > 0.0 {
         tier.est_utilization =
@@ -116,10 +148,12 @@ pub fn tier_usage_level(tier: &EstTier, now_ms: i64) -> crate::gateway::usage_co
 
 /// 真查校准：用上游真值覆盖某 tier，并（方案 B）尝试拟合 coef。
 ///   - has_base（Kimi）：直接记 limit + est_utilization = 真值。
-///   - 方案 B：拟合 `coef = (util_real - util_at_last_real) / tokens_since_real`，
-///     仅当无跨 reset（util_real >= util_at_last_real）且 tokens_since_real > 0；
+///   - 方案 B：`unit == "prompt_count"` 拟合 `coef_per_request = Δutil/Δ请求数`（分母
+///     `requests_since_real`），否则拟合 `coef = Δutil/Δtoken`（分母 `tokens_since_real`）。
+///     仅当无跨 reset（util_real >= util_at_last_real）且分母 > 0；
 ///     reset（util_real < util_at_last_real）→ 丢弃本窗口样本，coef 保留；
-///     最后重置基线：util_at_last_real = util_real，tokens_since_real = 0，est = 真值。
+///     最后重置基线：util_at_last_real = util_real，分母清零，est = 真值。
+#[allow(clippy::too_many_arguments)]
 pub fn calibrate_tier(
     prev: &EstTier,
     name: &str,
@@ -128,6 +162,7 @@ pub fn calibrate_tier(
     limit: Option<f64>,
     resets_at: Option<&str>,
     now_ms: i64,
+    unit: &str,
 ) -> EstTier {
     // window_start 推算：真查若给 resets_at 且 name 有已知周期 → window_start = resets_at - cycle；
     // 否则保留 prev.window_start（首次真查无 resets_at 时退 0 → 配色中性，不误报）。
@@ -137,32 +172,48 @@ pub fn calibrate_tier(
             name: name.to_string(),
             est_utilization: util_real,
             coef_per_token: 0.0,
+            coef_per_request: 0.0,
             util_at_last_real: util_real,
             tokens_since_real: 0.0,
+            requests_since_real: 0.0,
             has_base: true,
             limit: limit.unwrap_or(0.0),
             window_start,
+            unit: unit.to_string(),
         };
     }
-    // 方案 B 拟合
-    let mut coef = prev.coef_per_token;
+    // 方案 B 拟合（分母按 unit 口径选）
+    let per_request = unit == "prompt_count";
+    let (mut coef_token, mut coef_req) = (prev.coef_per_token, prev.coef_per_request);
+    let denominator = if per_request {
+        prev.requests_since_real
+    } else {
+        prev.tokens_since_real
+    };
     let is_reset = util_real < prev.util_at_last_real;
-    if !is_reset && prev.tokens_since_real > 0.0 {
-        let fitted = (util_real - prev.util_at_last_real) / prev.tokens_since_real;
+    if !is_reset && denominator > 0.0 {
+        let fitted = (util_real - prev.util_at_last_real) / denominator;
         if fitted > 0.0 {
-            coef = fitted;
+            if per_request {
+                coef_req = fitted;
+            } else {
+                coef_token = fitted;
+            }
         }
     }
     // reset 时丢弃本窗口样本（coef 保留），仅重置基线
     EstTier {
         name: name.to_string(),
         est_utilization: util_real,
-        coef_per_token: coef,
+        coef_per_token: coef_token,
+        coef_per_request: coef_req,
         util_at_last_real: util_real,
         tokens_since_real: 0.0,
+        requests_since_real: 0.0,
         has_base: false,
         limit: 0.0,
         window_start,
+        unit: unit.to_string(),
     }
 }
 

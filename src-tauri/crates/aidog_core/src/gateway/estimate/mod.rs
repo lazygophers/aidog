@@ -16,6 +16,7 @@
 //!   - `db_ops`  — DB 集成（原子自减 / read-modify-write / 校准覆盖 / 请求后入口）
 
 mod algo;
+mod anchors;
 mod db_ops;
 mod model;
 
@@ -28,8 +29,10 @@ pub use algo::{
 #[allow(unused_imports)]
 pub use db_ops::{
     apply_balance_delta, apply_coding_plan_delta, build_calibrated_coding_plan,
-    calibrate_from_quota, estimate_after_request, read_estimate_state, spawn_refresh_at,
-    write_real_quota,
+    calibrate_from_quota, estimate_after_request, read_estimate_state, seed_plan_anchor_if_empty,
+    spawn_refresh_at, write_real_quota,
 };
+#[allow(unused_imports)]
+pub use anchors::{anchors_in, default_plan_quota_anchors};
 #[allow(unused_imports)]
 pub use model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstCodingPlan, EstTier};

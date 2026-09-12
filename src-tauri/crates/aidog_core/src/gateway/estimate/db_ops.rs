@@ -25,8 +25,14 @@ pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64)
 pub use aidog_db::apply_balance_delta;
 
 /// coding plan 预估：一次闭包内 SELECT→修改→UPDATE（read-modify-write 串行，避免并发覆盖）。
-/// 同时 estimate_count+1。
-pub async fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> Result<(), String> {
+/// 同时 estimate_count+1。`requests` 是本次触发预估的请求数（正常 1；unit==prompt_count
+/// 的 tier 按它扣，token 只喂 tokens 兜底口径）。
+pub async fn apply_coding_plan_delta(
+    db: &Db,
+    platform_id: u64,
+    requests: i64,
+    tokens: f64,
+) -> Result<(), String> {
     db.platform_write_conn()
         .call(move |conn| {
             let json: String = conn.query_row(
@@ -36,7 +42,7 @@ pub async fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> 
             )?;
             let mut plan = EstCodingPlan::from_json(&json);
             for tier in plan.tiers.iter_mut() {
-                apply_tier_delta(tier, tokens);
+                apply_tier_delta(tier, requests, tokens);
             }
             conn.execute(
                 "UPDATE platform SET est_coding_plan = ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
@@ -48,6 +54,35 @@ pub async fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> 
         .map_err(|e| e.to_string())?;
     db.invalidate_group_details_cache();
     Ok(())
+}
+
+/// 静态锚点播种（spec B2）：无查询 API 平台（bailian_coding）用 registry `plan_quotas`
+/// 的绝对额度作 has_base 锚点。仅当 est_coding_plan 为空时写（幂等，不覆盖已有预估/校准）。
+pub async fn seed_plan_anchor_if_empty(db: &Db, platform_id: u64, protocol: &str) -> bool {
+    let anchors = super::anchors::default_plan_quota_anchors(protocol);
+    if anchors.is_empty() {
+        return false;
+    }
+    let json: String = db
+        .platform_write_conn()
+        .call(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT est_coding_plan FROM platform WHERE id = ?1",
+                    params![platform_id as i64],
+                    |r| r.get(0),
+                )
+                .unwrap_or_default())
+        })
+        .await
+        .unwrap_or_default();
+    if !EstCodingPlan::from_json(&json).tiers.is_empty() {
+        return false;
+    }
+    let plan = EstCodingPlan { tiers: anchors, level: None };
+    write_real_quota(db, platform_id, 0.0, &plan.to_json(), now())
+        .await
+        .is_ok()
 }
 
 /// 校准覆盖（短写）：用真值覆盖 est_balance_remaining + est_coding_plan，
@@ -99,6 +134,9 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
                 t.limit,
                 t.resets_at.as_deref(),
                 now(),
+                // unit 透传（spec B1）：脚本声明 prompt_count/mcp_time/tokens/response_inline，
+                // 缺失 = tokens 兜底
+                t.unit.as_deref().unwrap_or("tokens"),
             )
         })
         .collect();
@@ -301,7 +339,7 @@ pub async fn estimate_after_request(
     // 1. 增量预估
     if is_coding_plan {
         let total = (input_tokens + output_tokens + cache_tokens) as f64;
-        let _ = apply_coding_plan_delta(db, platform_id, total).await;
+        let _ = apply_coding_plan_delta(db, platform_id, 1, total).await;
     } else if let Some(ref price) = resolved_price {
         // 按量平台扣金额
         let cost = balance_cost(
