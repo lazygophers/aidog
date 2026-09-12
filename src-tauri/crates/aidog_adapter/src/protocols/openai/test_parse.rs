@@ -198,3 +198,34 @@ fn invalid_tool_choice_string_is_none() {
     let req = from_openai(&body).expect("parsed");
     assert!(req.tool_choice.is_none());
 }
+
+// ── A3: input_audio → 中立 Media ──
+
+#[test]
+fn input_audio_part_parses_to_media_block() {
+    let body = json!({
+        "model": "gpt-4o-audio",
+        "messages": [{
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "transcribe"},
+                {"type": "input_audio", "input_audio": {"data": "aGVsbG8=", "format": "wav"}}
+            ]
+        }]
+    });
+    let req = from_openai(&body).expect("parsed");
+    match &req.messages[0].content {
+        MessageContent::Blocks(blocks) => {
+            assert!(matches!(blocks[0], ContentBlock::Text { .. }));
+            match &blocks[1] {
+                ContentBlock::Media { media_type, data, url } => {
+                    assert_eq!(media_type, "audio/wav");
+                    assert_eq!(data.as_deref(), Some("aGVsbG8="));
+                    assert!(url.is_none());
+                }
+                _ => panic!("expected Media"),
+            }
+        }
+        _ => panic!("expected blocks"),
+    }
+}

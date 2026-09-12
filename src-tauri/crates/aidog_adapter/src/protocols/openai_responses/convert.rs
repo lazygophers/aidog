@@ -40,13 +40,60 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         let role_str = match m.role { Role::User => "user", Role::Assistant => "assistant", Role::System => "developer", Role::Tool => "tool" };
         // Responses 的 part 类型按角色分：助手轮是模型产出（output_text），其余轮是输入（input_text）
         let part_type = if matches!(m.role, Role::Assistant) { "output_text" } else { "input_text" };
-        m.content.blocks().into_iter().filter_map(move |b| match b {
-            ContentBlock::Text { text, .. } => Some(serde_json::json!({"type":"message","role":role_str,"content":[{"type":part_type,"text":text}]})),
-            ContentBlock::ToolUse { id, name, input, .. } => Some(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()})),
-            // function_call_output.output 只吃文本：失败标注与非文本 block 的占位都在文本里
-            ContentBlock::ToolResult { tool_use_id, content, is_error, .. } => Some(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":mark_tool_error(&content, is_error)})),
-            ContentBlock::Unknown(_) => None,
-        })
+        // 逐 block 保序：Text / image block 先攒进 pending 消息缓冲，遇到工具 block 时
+        // 先 flush 缓冲再出工具 item（保持 block 顺序）；A1 的 tool_result 图片提升到
+        // 全部 item 之后的 user message（function_call_output.output 只吃文本，图片必丢）。
+        let mut out: Vec<Value> = Vec::new();
+        let mut msg_parts: Vec<Value> = Vec::new();
+        let mut lifted_images: Vec<Value> = Vec::new();
+        let flush = |out: &mut Vec<Value>, msg_parts: &mut Vec<Value>, role_str: &str| {
+            if !msg_parts.is_empty() {
+                out.push(serde_json::json!({"type":"message","role":role_str,"content":msg_parts.clone()}));
+                msg_parts.clear();
+            }
+        };
+        for b in m.content.blocks() {
+            match b {
+                ContentBlock::Text { text, .. } => msg_parts.push(serde_json::json!({"type":part_type,"text":text})),
+                // A2：中立 image block → input_image 段（Responses 侧 image_url 是扁平字符串）
+                ContentBlock::Unknown(v) if v.get("type").and_then(|t| t.as_str()) == Some("image") => {
+                    if let Some(part) = input_image_part(&v) {
+                        msg_parts.push(part);
+                    }
+                }
+                ContentBlock::ToolUse { id, name, input, .. } => {
+                    flush(&mut out, &mut msg_parts, role_str);
+                    out.push(serde_json::json!({"type":"function_call","call_id":id,"name":name,"arguments":input.to_string()}));
+                }
+                ContentBlock::ToolResult { tool_use_id, content, is_error, content_blocks, .. } => {
+                    if let Some(cbs) = content_blocks {
+                        for cb in cbs {
+                            if cb.get("type").and_then(|t| t.as_str()) == Some("image")
+                                && let Some(part) = input_image_part(&cb)
+                            {
+                                lifted_images.push(part);
+                            }
+                        }
+                    }
+                    flush(&mut out, &mut msg_parts, role_str);
+                    // function_call_output.output 只吃文本：失败标注与非文本 block 的占位都在文本里
+                    out.push(serde_json::json!({"type":"function_call_output","call_id":tool_use_id,"output":mark_tool_error(&content, is_error)}));
+                }
+                // audio/video：Responses API 无 audio 输入形状，丢弃并留痕（spec A3）
+                ContentBlock::Media { media_type, .. } => {
+                    tracing::warn!(
+                        media_type,
+                        "Media block dropped: Responses 目标协议不支持 audio/video 输入"
+                    );
+                }
+                ContentBlock::Unknown(_) => {}
+            }
+        }
+        flush(&mut out, &mut msg_parts, role_str);
+        if !lifted_images.is_empty() {
+            out.push(serde_json::json!({"type":"message","role":"user","content":lifted_images}));
+        }
+        out
     }).collect();
     let instructions = req.system.as_ref().map(|system| match system {
         SystemContent::Text(text) => text.clone(),
@@ -97,6 +144,31 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
         tools,
         tool_choice,
         reasoning,
+    }
+}
+
+/// 中立 image block（Unknown，Anthropic image 结构）→ Responses `input_image` 段。
+/// Responses 侧 `image_url` 是扁平字符串（data URL 或远程地址）；`file_id` 源原样回写。
+fn input_image_part(v: &Value) -> Option<Value> {
+    let src = v.get("source")?;
+    match src.get("type").and_then(|t| t.as_str()) {
+        Some("base64") => Some(serde_json::json!({
+            "type": "input_image",
+            "image_url": format!(
+                "data:{};base64,{}",
+                src.get("media_type").and_then(|m| m.as_str()).unwrap_or("application/octet-stream"),
+                src.get("data").and_then(|d| d.as_str()).unwrap_or(""),
+            )
+        })),
+        Some("url") => Some(serde_json::json!({
+            "type": "input_image",
+            "image_url": src.get("url").and_then(|u| u.as_str()).unwrap_or("")
+        })),
+        Some("file_id") => Some(serde_json::json!({
+            "type": "input_image",
+            "file_id": src.get("file_id").and_then(|f| f.as_str()).unwrap_or("")
+        })),
+        _ => None,
     }
 }
 
@@ -388,11 +460,8 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
                             "tool" => Role::Tool,
                             _ => Role::User,
                         };
-                        let content = extract_content_text(item.get("content"));
-                        messages.push(Message {
-                            role,
-                            content: MessageContent::Text(content),
-                        });
+                        let content = extract_content(item.get("content"));
+                        messages.push(Message { role, content });
                     }
                 }
             }
@@ -494,23 +563,70 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
     })
 }
 
-/// 提取一个 Responses input item 的 `content` 文本：
-/// 支持字符串、或 typed parts 数组（`input_text` / `output_text` / `text` 的 `text` 字段）。
-fn extract_content_text(content: Option<&Value>) -> String {
-    match content {
-        Some(Value::String(s)) => s.clone(),
-        Some(Value::Array(parts)) => parts
-            .iter()
-            .filter_map(|p| {
-                // 优先 part.text；兼容 {"type":"input_text","text":"..."}
-                p.get("text")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-            })
-            .collect::<Vec<_>>()
-            .join(""),
-        _ => String::new(),
+/// 提取一个 Responses input item 的 `content`：字符串 / typed parts 数组。
+///
+/// 文本 part（`input_text` / `output_text` / `text`）→ Text block；`input_image` part →
+/// 中立 image block（spec A2：image_url 的 data URL 拆 media_type + base64，与 openai
+/// chat 的 parse 同构；`file_id` 原样保留）。单一纯文本折叠回 `MessageContent::Text`。
+fn extract_content(content: Option<&Value>) -> MessageContent {
+    let Some(content) = content else {
+        return MessageContent::Text(String::new());
+    };
+    let Value::Array(parts) = content else {
+        return MessageContent::Text(match content {
+            Value::String(s) => s.clone(),
+            other => other.to_string(),
+        });
+    };
+    let mut texts: Vec<String> = Vec::new();
+    let mut images: Vec<ContentBlock> = Vec::new();
+    for p in parts {
+        match p.get("type").and_then(Value::as_str) {
+            // 优先 part.text；兼容 {"type":"input_text","text":"..."}；多段文本 join 成单 Text（旧行为）
+            Some("input_text") | Some("output_text") | Some("text") | None => {
+                if let Some(t) = p.get("text").and_then(Value::as_str) {
+                    texts.push(t.to_string());
+                }
+            }
+            Some("input_image") => {
+                let source = if let Some(url) = p
+                    .get("image_url")
+                    .map(|u| match u {
+                        Value::String(s) => s.clone(),
+                        other => other.get("url").and_then(Value::as_str).unwrap_or_default().to_string(),
+                    })
+                    .filter(|s| !s.is_empty())
+                {
+                    if let Some(rest) = url.strip_prefix("data:") {
+                        match rest.split_once(";base64,") {
+                            Some((media_type, data)) => serde_json::json!({
+                                "type": "base64", "media_type": media_type, "data": data
+                            }),
+                            // 非标准 data URL：整串当 url 送
+                            None => serde_json::json!({ "type": "url", "url": url }),
+                        }
+                    } else {
+                        serde_json::json!({ "type": "url", "url": url })
+                    }
+                } else if let Some(fid) = p.get("file_id").and_then(Value::as_str) {
+                    serde_json::json!({ "type": "file_id", "file_id": fid })
+                } else {
+                    continue;
+                };
+                images.push(ContentBlock::Unknown(serde_json::json!({ "type": "image", "source": source })));
+            }
+            _ => {}
+        }
     }
+    if images.is_empty() {
+        return MessageContent::Text(texts.join(""));
+    }
+    let mut blocks: Vec<ContentBlock> = Vec::new();
+    if !texts.is_empty() {
+        blocks.push(ContentBlock::Text { text: texts.join(""), extra: None });
+    }
+    blocks.extend(images);
+    MessageContent::Blocks(blocks)
 }
 
 /// 解析 OpenAI Responses SSE 事件（`response.*` 事件流）为统一 ChatStreamEvent。
@@ -1161,4 +1277,106 @@ mod tests {
         assert!(parsed.reasoning.is_none());
         assert!(parsed.tool_uses.is_empty());
     }
+
+// ── A2/A1 多模态（spec 2026-09-12）──
+
+#[test]
+fn from_responses_input_image_url_and_data_url() {
+    let body = json!({
+        "model": "gpt-5",
+        "input": [
+            { "role": "user", "content": [
+                {"type": "input_text", "text": "compare"},
+                {"type": "input_image", "image_url": "data:image/png;base64,aGk="},
+                {"type": "input_image", "image_url": "https://x/1.png"}
+            ]}
+        ]
+    });
+    let req = from_responses(&body).expect("parse");
+    match &req.messages[0].content {
+        MessageContent::Blocks(blocks) => {
+            assert!(matches!(blocks[0], ContentBlock::Text { ref text, .. } if text == "compare"));
+            assert!(matches!(&blocks[1], ContentBlock::Unknown(v)
+                if v["type"] == "image"
+                    && v["source"]["type"] == "base64"
+                    && v["source"]["media_type"] == "image/png"
+                    && v["source"]["data"] == "aGk="));
+            assert!(matches!(&blocks[2], ContentBlock::Unknown(v)
+                if v["type"] == "image" && v["source"]["url"] == "https://x/1.png"));
+        }
+        _ => panic!("expected blocks"),
+    }
+}
+
+#[test]
+fn from_responses_input_image_file_id() {
+    let body = json!({
+        "model": "gpt-5",
+        "input": [
+            { "role": "user", "content": [
+                {"type": "input_image", "file_id": "file-abc"}
+            ]}
+        ]
+    });
+    let req = from_responses(&body).expect("parse");
+    match &req.messages[0].content {
+        MessageContent::Blocks(blocks) => {
+            assert!(matches!(&blocks[0], ContentBlock::Unknown(v)
+                if v["source"]["type"] == "file_id" && v["source"]["file_id"] == "file-abc"));
+        }
+        _ => panic!("expected blocks"),
+    }
+}
+
+// A2 roundtrip：中立 image → input_image（base64 拼回 data URL / url 直写 / file_id 回写）
+#[test]
+fn to_responses_image_block_roundtrip() {
+    let req = ChatRequest {
+        thinking_budget: None,
+        model: "gpt-5".into(),
+        messages: vec![Message {
+            role: Role::User,
+            content: MessageContent::Blocks(vec![
+                ContentBlock::Text { text: "see".into(), extra: None },
+                ContentBlock::Unknown(json!({"type":"image","source":{"type":"base64","media_type":"image/png","data":"aGk="}})),
+            ]),
+        }],
+        system: None, max_tokens: None, temperature: None, top_p: None, stream: None,
+        tools: None, tool_choice: None, extra: None, thinking_mode: None,
+    };
+    let out = to_responses(&req);
+    let content = &out.input[0]["content"];
+    assert_eq!(content[0]["type"], "input_text");
+    assert_eq!(content[1]["type"], "input_image");
+    assert_eq!(content[1]["image_url"], "data:image/png;base64,aGk=");
+}
+
+// A1：tool_result 内图片提升到紧随 function_call_output 的 user message item
+#[test]
+fn to_responses_tool_result_images_lifted_to_user_message() {
+    let req = ChatRequest {
+        thinking_budget: None,
+        model: "gpt-5".into(),
+        messages: vec![Message {
+            role: Role::Tool,
+            content: MessageContent::Blocks(vec![ContentBlock::ToolResult {
+                tool_use_id: "call_1".into(),
+                content: "[image: image/png]".into(),
+                name: None, is_error: None,
+                content_blocks: Some(vec![json!({"type":"image","source":{"type":"url","url":"https://x/1.png"}})]),
+                extra: None,
+            }]),
+        }],
+        system: None, max_tokens: None, temperature: None, top_p: None, stream: None,
+        tools: None, tool_choice: None, extra: None, thinking_mode: None,
+    };
+    let out = to_responses(&req);
+    assert_eq!(out.input.len(), 2);
+    assert_eq!(out.input[0]["type"], "function_call_output");
+    assert_eq!(out.input[0]["output"], "[image: image/png]");
+    assert_eq!(out.input[1]["type"], "message");
+    assert_eq!(out.input[1]["role"], "user");
+    assert_eq!(out.input[1]["content"][0]["type"], "input_image");
+    assert_eq!(out.input[1]["content"][0]["image_url"], "https://x/1.png");
+}
 }

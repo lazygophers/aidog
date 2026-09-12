@@ -290,3 +290,102 @@ fn tool_choice_named() {
     assert_eq!(tc["type"], "function");
     assert_eq!(tc["function"]["name"], "my_tool");
 }
+
+// ── A1/A3 多模态（spec 2026-09-12）──
+
+// A1: tool_result 数组形态 content 含 image → tool message 留占位文本，图片提升到紧随的 user message
+#[test]
+fn tool_result_images_lifted_to_adjacent_user_message() {
+    let req = base_req(vec![user_blocks(vec![
+        ContentBlock::ToolResult {
+            tool_use_id: "call_1".into(),
+            content: "[image: image/png]".into(),
+            name: None,
+            is_error: None,
+            content_blocks: Some(vec![
+                serde_json::json!({"type":"text","text":"screenshot"}),
+                serde_json::json!({"type":"image","source":{"type":"base64","media_type":"image/png","data":"aGk="}}),
+            ]),
+            extra: None,
+        },
+    ])]);
+    let out = to_openai(&req);
+    // tool message(占位文本) + 紧随的 user message(image_url 段)
+    assert_eq!(out.messages.len(), 2);
+    assert_eq!(out.messages[0].role, "tool");
+    assert_eq!(out.messages[0].content, Some(Value::String("[image: image/png]".into())));
+    assert_eq!(out.messages[1].role, "user");
+    let arr = out.messages[1].content.as_ref().unwrap().as_array().unwrap();
+    assert_eq!(arr[0]["type"], "image_url");
+    assert_eq!(arr[0]["image_url"]["url"], "data:image/png;base64,aGk=");
+}
+
+// A1 变体: 多条 tool_result 的图片合并进同一条 user message
+#[test]
+fn multiple_tool_result_images_merge_into_one_user_message() {
+    let img = || serde_json::json!({"type":"image","source":{"type":"url","url":"https://x/1.png"}});
+    let req = base_req(vec![user_blocks(vec![
+        ContentBlock::ToolResult {
+            tool_use_id: "c1".into(), content: String::new(), name: None, is_error: None,
+            content_blocks: Some(vec![img()]), extra: None,
+        },
+        ContentBlock::ToolResult {
+            tool_use_id: "c2".into(), content: String::new(), name: None, is_error: None,
+            content_blocks: Some(vec![img()]), extra: None,
+        },
+    ])]);
+    let out = to_openai(&req);
+    assert_eq!(out.messages.len(), 3);
+    assert_eq!(out.messages[2].role, "user");
+    let arr = out.messages[2].content.as_ref().unwrap().as_array().unwrap();
+    assert_eq!(arr.len(), 2, "两条 tool_result 的图片合并进一条 user message");
+    assert_eq!(arr[0]["image_url"]["url"], "https://x/1.png");
+}
+
+// A1: tool_result 图片 + 残余文本混排 → 同一条 user message 里 text 段 + image_url 段
+#[test]
+fn tool_result_image_with_residual_text_in_same_user_message() {
+    let req = base_req(vec![user_blocks(vec![
+        ContentBlock::ToolResult {
+            tool_use_id: "c1".into(), content: String::new(), name: None, is_error: None,
+            content_blocks: Some(vec![serde_json::json!({"type":"image","source":{"type":"base64","media_type":"image/png","data":"aGk="}})]),
+            extra: None,
+        },
+        ContentBlock::Text { text: "now do X".into(), extra: None },
+    ])]);
+    let out = to_openai(&req);
+    assert_eq!(out.messages.len(), 2);
+    let arr = out.messages[1].content.as_ref().unwrap().as_array().unwrap();
+    assert_eq!(arr[0]["type"], "text");
+    assert_eq!(arr[0]["text"], "now do X");
+    assert_eq!(arr[1]["type"], "image_url");
+}
+
+// A3: audio Media → OpenAI input_audio 段（format 取 audio/ 子类型）
+#[test]
+fn media_audio_becomes_input_audio_part() {
+    let req = base_req(vec![user_blocks(vec![
+        ContentBlock::Text { text: "listen".into(), extra: None },
+        ContentBlock::Media { media_type: "audio/wav".into(), data: Some("aGVsbG8=".into()), url: None },
+    ])]);
+    let out = to_openai(&req);
+    assert_eq!(out.messages.len(), 1);
+    let arr = out.messages[0].content.as_ref().unwrap().as_array().unwrap();
+    assert_eq!(arr[0]["type"], "text");
+    assert_eq!(arr[1]["type"], "input_audio");
+    assert_eq!(arr[1]["input_audio"]["format"], "wav");
+    assert_eq!(arr[1]["input_audio"]["data"], "aGVsbG8=");
+}
+
+// A3: video Media / url-only audio → OpenAI chat 无法表达，丢弃（不产生段，也不崩）
+#[test]
+fn media_video_and_url_audio_dropped() {
+    let req = base_req(vec![user_blocks(vec![
+        ContentBlock::Media { media_type: "video/mp4".into(), data: Some("AAAA".into()), url: None },
+        ContentBlock::Media { media_type: "audio/wav".into(), data: None, url: Some("https://x/a.wav".into()) },
+        ContentBlock::Text { text: "t".into(), extra: None },
+    ])]);
+    let out = to_openai(&req);
+    // 全部 media 被丢后只剩文本，回落纯字符串 content
+    assert_eq!(out.messages[0].content, Some(Value::String("t".into())));
+}

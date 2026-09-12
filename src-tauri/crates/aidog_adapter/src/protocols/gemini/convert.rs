@@ -208,6 +208,26 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                                 _ => GeminiPart { text: None, thought: None, function_call: None, function_response: None, extra: None },
                             }
                         }
+                    // audio/video typed 块（spec A3）→ inlineData(base64) / fileData(url)
+                    ContentBlock::Media { media_type, data, url } => {
+                        if let Some(d) = data {
+                            GeminiPart {
+                                text: None, thought: None, function_call: None, function_response: None,
+                                extra: Some(serde_json::json!({
+                                    "inlineData": { "mimeType": media_type, "data": d }
+                                })),
+                            }
+                        } else if let Some(u) = url {
+                            GeminiPart {
+                                text: None, thought: None, function_call: None, function_response: None,
+                                extra: Some(serde_json::json!({
+                                    "fileData": { "mimeType": media_type, "fileUri": u }
+                                })),
+                            }
+                        } else {
+                            GeminiPart { text: None, thought: None, function_call: None, function_response: None, extra: None }
+                        }
+                    }
                     // 未覆盖 block(…): 尝试取 text，否则空 part(保留消息位)
                     ContentBlock::Unknown(v) => GeminiPart {
                         text: v.get("text").and_then(|t| t.as_str()).map(|s| s.to_string()),
@@ -578,27 +598,47 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
         let parts = c.get("parts")?.as_array()?;
         let mut text_parts = Vec::new();
         let mut thinking_blocks: Vec<ContentBlock> = Vec::new();
-        let mut image_blocks: Vec<ContentBlock> = Vec::new();
+        let mut media_blocks: Vec<ContentBlock> = Vec::new();
         for p in parts {
-            // inlineData / fileData → 中立 image block
+            // inlineData / fileData → 中立 block。按 mimeType 分流（spec A3 bug 修复：
+            // 此前不分 mimeType 一律标 image，audio/video 会被 image 路径错送）：
+            // image/* → image block（形状 = Anthropic image 结构），其余 → typed Media。
             if let Some(inline) = p.get("inlineData") {
-                image_blocks.push(ContentBlock::Unknown(serde_json::json!({
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": inline.get("mimeType").cloned().unwrap_or(serde_json::json!("application/octet-stream")),
-                        "data": inline.get("data").cloned().unwrap_or(serde_json::Value::String(String::new())),
-                    }
-                })));
+                let mime = inline.get("mimeType").and_then(|v| v.as_str()).unwrap_or("application/octet-stream");
+                if mime.starts_with("image/") {
+                    media_blocks.push(ContentBlock::Unknown(serde_json::json!({
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": mime,
+                            "data": inline.get("data").cloned().unwrap_or(serde_json::Value::String(String::new())),
+                        }
+                    })));
+                } else {
+                    media_blocks.push(ContentBlock::Media {
+                        media_type: mime.to_string(),
+                        data: inline.get("data").and_then(|v| v.as_str()).map(str::to_string),
+                        url: None,
+                    });
+                }
                 continue;
             }
             if let Some(file) = p.get("fileData")
                 && let Some(uri) = file.get("fileUri").and_then(|v| v.as_str())
             {
-                image_blocks.push(ContentBlock::Unknown(serde_json::json!({
-                    "type": "image",
-                    "source": { "type": "url", "url": uri }
-                })));
+                let mime = file.get("mimeType").and_then(|v| v.as_str());
+                match mime {
+                    Some(m) if !m.starts_with("image/") => media_blocks.push(ContentBlock::Media {
+                        media_type: m.to_string(),
+                        data: None,
+                        url: Some(uri.to_string()),
+                    }),
+                    // 无 mimeType 维持旧行为（按 image 处理：fileData 既往只有图片路径）
+                    _ => media_blocks.push(ContentBlock::Unknown(serde_json::json!({
+                        "type": "image",
+                        "source": { "type": "url", "url": uri }
+                    }))),
+                }
                 continue;
             }
             if let Some(t) = p.get("text").and_then(|v| v.as_str()) {
@@ -644,7 +684,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 });
             }
         }
-        if !tool_blocks.is_empty() || !thinking_blocks.is_empty() || !image_blocks.is_empty() {
+        if !tool_blocks.is_empty() || !thinking_blocks.is_empty() || !media_blocks.is_empty() {
             let mut blocks: Vec<ContentBlock> = text_parts
                 .into_iter()
                 .map(|t| ContentBlock::Text {
@@ -653,7 +693,7 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 })
                 .collect();
             blocks.extend(thinking_blocks);
-            blocks.extend(image_blocks);
+            blocks.extend(media_blocks);
             blocks.extend(tool_blocks);
             messages.push(Message {
                 role,

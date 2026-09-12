@@ -166,6 +166,20 @@ pub enum ContentBlock {
         content_blocks: Option<Vec<serde_json::Value>>,
         extra: Option<serde_json::Value>,
     },
+    /// audio/video typed 块（多模态全链路，spec A3）。
+    ///
+    /// image 不并型（继续走 [`ContentBlock::Unknown`]，spec 遗留取舍）：image 的中立形状
+    /// 本就是 Anthropic image block，并型 diff 大且收益仅少一个 match 臂。
+    /// `data`(base64) 与 `url` 二选一：gemini inlineData / openai input_audio 走 data，
+    /// gemini fileData 走 url。
+    Media {
+        /// MIME 类型（`audio/wav` / `video/mp4` …）
+        media_type: String,
+        /// base64 载荷
+        data: Option<String>,
+        /// 远程地址
+        url: Option<String>,
+    },
     /// 未覆盖的 block 类型，原样保留(透传/诊断用)。
     Unknown(serde_json::Value),
 }
@@ -321,6 +335,23 @@ impl<'de> Deserialize<'de> for ContentBlock {
                     })
                     .map_err(|_| ())
             }
+            "media" => {
+                #[derive(Deserialize)]
+                struct M {
+                    media_type: String,
+                    #[serde(default)]
+                    data: Option<String>,
+                    #[serde(default)]
+                    url: Option<String>,
+                }
+                serde_json::from_value::<M>(v.clone())
+                    .map(|m| ContentBlock::Media {
+                        media_type: m.media_type,
+                        data: m.data,
+                        url: m.url,
+                    })
+                    .map_err(|_| ())
+            }
             _ => Err(()),
         };
         Ok(parsed.unwrap_or(ContentBlock::Unknown(v)))
@@ -368,6 +399,20 @@ impl Serialize for ContentBlock {
                     v["is_error"] = serde_json::json!(is_error);
                 }
                 merge_extra(v, extra)
+            }
+            ContentBlock::Media {
+                media_type,
+                data,
+                url,
+            } => {
+                let mut v = serde_json::json!({ "type": "media", "media_type": media_type });
+                if let Some(d) = data {
+                    v["data"] = serde_json::json!(d);
+                }
+                if let Some(u) = url {
+                    v["url"] = serde_json::json!(u);
+                }
+                v
             }
         };
         v.serialize(serializer)
@@ -789,5 +834,41 @@ mod tests {
         assert!(v.is_array());
         let sc2: SystemContent = serde_json::from_value(v).unwrap();
         assert!(matches!(sc2, SystemContent::Blocks(_)));
+    }
+
+    // ── A3: Media serde ──
+
+    #[test]
+    fn content_block_media_serde_roundtrip() {
+        let m = ContentBlock::Media {
+            media_type: "audio/wav".into(),
+            data: Some("aGVsbG8=".into()),
+            url: None,
+        };
+        let v = serde_json::to_value(&m).unwrap();
+        assert_eq!(v["type"], "media");
+        assert_eq!(v["media_type"], "audio/wav");
+        assert_eq!(v["data"], "aGVsbG8=");
+        assert!(v.get("url").is_none());
+        let back: ContentBlock = serde_json::from_value(v).unwrap();
+        assert!(matches!(back, ContentBlock::Media { media_type, data: Some(_), url: None } if media_type == "audio/wav"));
+
+        let m2 = ContentBlock::Media {
+            media_type: "video/mp4".into(),
+            data: None,
+            url: Some("https://x/v.mp4".into()),
+        };
+        let v2 = serde_json::to_value(&m2).unwrap();
+        assert_eq!(v2["url"], "https://x/v.mp4");
+        let back2: ContentBlock = serde_json::from_value(v2).unwrap();
+        assert!(matches!(back2, ContentBlock::Media { url: Some(_), data: None, .. }));
+    }
+
+    #[test]
+    fn content_block_media_bad_shape_falls_back_unknown() {
+        // media_type 缺失/类型不符 → Unknown 原样保留
+        let v = json!({"type": "media"});
+        let b: ContentBlock = serde_json::from_value(v.clone()).unwrap();
+        assert!(matches!(b, ContentBlock::Unknown(x) if x == v));
     }
 }
