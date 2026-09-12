@@ -1,6 +1,6 @@
 - 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
 - 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
-- 禁 `git push`，等明确指令
+- **全量 git 授权（2026-09-12 用户永久授权）**：`git push`、创建/合并 PR、code review、切换分支（checkout / switch）均无需逐次确认。仅剩高危项仍需当轮明示：force push、改写历史、删分支/删远端 ref
 - `cd src-tauri && cargo clippy` 的 warning 必须清干净
 
 ## 项目结构要点
