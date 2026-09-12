@@ -33,6 +33,10 @@ export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
     (a, b) => Number(pricingOnly.has(a.platform_code)) - Number(pricingOnly.has(b.platform_code)),
   );
   const title = nameParts(group.display_name, group.canonical_model);
+  // tab 唯一键：同平台可对同一 canonical 挂多条 model_id（aihubmix coding-/free- 变体、
+  // bailian 日期别名对），单用 platform_code 做 key/value 会撞——同名 tab 重复且
+  // TabsContent 同 value 互相覆盖。platform_code/model_id 是 model_entry 主键，天然唯一。
+  const tabKey = (e: ModelEntry) => `${e.platform_code}/${e.model_id}`;
 
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -49,13 +53,17 @@ export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
           </DialogTitle>
         </DialogHeader>
 
-        <Tabs defaultValue={group.primary_platform || entries[0]?.platform_code || ""}>
+        <Tabs defaultValue={tabKey(entries.find(e => e.platform_code === group.primary_platform) ?? entries[0])}>
           <TabsList style={{ display: "flex", flexWrap: "wrap", height: "auto" }}>
             {entries.map(e => (
-              <TabsTrigger key={e.platform_code} value={e.platform_code} style={{ fontSize: F.small }}>
+              <TabsTrigger key={tabKey(e)} value={tabKey(e)} style={{ fontSize: F.small }}>
                 <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                   <ProtocolLogo protocol={e.platform_code as Protocol} size={14} />
                   {labelMap[e.platform_code] ?? e.platform_code}
+                  {/* 同平台多 SKU：model_id ≠ canonical 时补后缀区分（coding-/free-/日期别名） */}
+                  {e.model_id !== group.canonical_model && (
+                    <span className="text-tertiary" style={{ fontSize: 10 }}>· {e.model_id}</span>
+                  )}
                   {pricingOnly.has(e.platform_code) && (
                     <span className="text-tertiary">{t("modelInfo.priceRefOnly")}</span>
                   )}
@@ -64,7 +72,7 @@ export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
             ))}
           </TabsList>
           {entries.map(e => (
-            <TabsContent key={e.platform_code} value={e.platform_code}>
+            <TabsContent key={tabKey(e)} value={tabKey(e)}>
               <EntryDetail entry={e} />
             </TabsContent>
           ))}
