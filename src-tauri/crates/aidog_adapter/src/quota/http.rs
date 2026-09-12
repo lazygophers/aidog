@@ -68,6 +68,10 @@ pub struct QuotaTier {
     /// 绝对剩余量（token 数）。仅 Kimi 等暴露绝对量的平台有值。
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remaining: Option<f64>,
+    /// 计费单位（spec B1，registry quota 脚本声明）：`prompt_count`（按次）/ `mcp_time` /
+    /// `tokens` / `response_inline`。缺失 = tokens 兜底。透传到 EstTier.unit 决定增量口径。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
 }
 
 pub fn now_millis() -> i64 {

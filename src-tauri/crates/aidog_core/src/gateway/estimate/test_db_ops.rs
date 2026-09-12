@@ -101,6 +101,9 @@ async fn coding_plan_delta_persists() {
             has_base: true,
             limit: 10_000.0,
             window_start: 0,
+            coef_per_request: 0.0,
+            requests_since_real: 0.0,
+            unit: String::new(),
         }],
         level: None,
     };
@@ -108,7 +111,7 @@ async fn coding_plan_delta_persists() {
         .await
         .unwrap();
 
-    apply_coding_plan_delta(&db, id, 1000.0).await.unwrap(); // +10%
+    apply_coding_plan_delta(&db, id, 0, 1000.0).await.unwrap(); // +10%
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     let stored = EstCodingPlan::from_json(&p.est_coding_plan);
     assert!(
@@ -143,6 +146,7 @@ async fn calibration_overwrite_resets() {
                 resets_at: None,
                 limit: Some(10_000.0),
                 remaining: Some(7_000.0),
+                unit: Some("prompt_count".into()),
             }],
             level: Some("pro".into()),
         }),
@@ -179,6 +183,9 @@ async fn calibrate_from_quota_aligns_coding_plan() {
             has_base: false,
             limit: 0.0,
             window_start: 0,
+            coef_per_request: 0.0,
+            requests_since_real: 0.0,
+            unit: String::new(),
         }],
         level: None,
     };
@@ -200,6 +207,7 @@ async fn calibrate_from_quota_aligns_coding_plan() {
                 resets_at: None,
                 limit: None,
                 remaining: None,
+                unit: None,
             }],
             level: Some("max".into()),
         }),
@@ -437,6 +445,7 @@ fn earliest_reset_picks_nearest_future_tier() {
         resets_at: resets_at.map(|ms| ms.to_string()),
         limit: None,
         remaining: None,
+        unit: None,
     };
 
     // 两档都在未来 → 取最早

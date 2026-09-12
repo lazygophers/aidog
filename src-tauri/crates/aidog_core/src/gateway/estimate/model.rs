@@ -25,12 +25,20 @@ pub struct EstTier {
     /// 方案 B 拟合系数：每 token 增加的利用率百分点（冷启动为 0 = 未知）
     #[serde(default)]
     pub coef_per_token: f64,
+    /// 方案 B 拟合系数（`unit == "prompt_count"` 且无绝对基数）：每**请求**增加的利用率百分点。
+    /// coding plan 按条数扣费（GLM 官方「一次 prompt 指一次提问」），token 口径拟合会把
+    /// 大上下文请求放大成数条 prompt 的消耗。
+    #[serde(default)]
+    pub coef_per_request: f64,
     /// 上次真查时的利用率（拟合基线）
     #[serde(default)]
     pub util_at_last_real: f64,
-    /// 自上次真查以来累计 token（拟合分母）
+    /// 自上次真查以来累计 token（拟合分母；tokens / 兜底口径用）
     #[serde(default)]
     pub tokens_since_real: f64,
+    /// 自上次真查以来累计请求数（拟合分母；prompt_count 口径用）
+    #[serde(default)]
+    pub requests_since_real: f64,
     /// 是否有绝对基数（Kimi limit/remaining → 精确预估）
     #[serde(default)]
     pub has_base: bool,
@@ -42,6 +50,13 @@ pub struct EstTier {
     /// 0 / 缺失 = 无可靠周期起点 → 配色退中性（usage_color，不静默走旧利用率阈值）。
     #[serde(default)]
     pub window_start: i64,
+    /// 计费单位（spec B1，serde default 向后兼容旧 JSON）：
+    /// - `prompt_count`：按次扣。has_base → 每请求 +`100/limit`；无 → 拟合 [`Self::coef_per_request`]
+    /// - `mcp_time`：MCP 使用时长，不增量只真查
+    /// - `tokens` / `""`（缺省）：按 token 扣，现行为兜底
+    /// - `response_inline`：响应头/体带配额真值，本地不增量
+    #[serde(default)]
+    pub unit: String,
 }
 
 impl EstCodingPlan {
