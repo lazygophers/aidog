@@ -50,6 +50,9 @@ pub fn to_completions(req: &ChatRequest) -> CompletionsRequest {
                             "\n[tool_result] {}",
                             mark_tool_error(content, *is_error)
                         )),
+                        ContentBlock::Media { media_type, .. } => {
+                            Some(format!("\n[{media_type} block]"))
+                        }
                         ContentBlock::Unknown(_) => None,
                     })
                     .collect::<Vec<_>>()

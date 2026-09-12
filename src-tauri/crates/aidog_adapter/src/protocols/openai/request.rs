@@ -96,14 +96,28 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                     .iter()
                     .any(|b| matches!(b, ContentBlock::ToolResult { .. }));
                 if has_tool_result {
+                    // A1：tool_result 数组形态 content 里的 image block 提升到紧随 tool message
+                    // 的 user message（OpenAI tool message 只吃文本，图片留在里面必丢）；
+                    // 多条 tool_result 的图片合并进同一条 user message，不虚构新轮次。
+                    let mut lifted_images: Vec<Value> = Vec::new();
                     for b in blocks {
                         if let ContentBlock::ToolResult {
                             tool_use_id,
                             content,
                             is_error,
+                            content_blocks,
                             ..
                         } = b
                         {
+                            if let Some(cbs) = content_blocks {
+                                for cb in cbs {
+                                    if cb.get("type").and_then(|t| t.as_str()) == Some("image")
+                                        && let Some(part) = image_part_from_block(cb)
+                                    {
+                                        lifted_images.push(part);
+                                    }
+                                }
+                            }
                             messages.push(OpenAIMessage {
                                 role: "tool".to_string(),
                                 // OpenAI tool message 只吃文本：失败标注与非文本 block 的占位都在文本里
@@ -113,39 +127,65 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                             });
                         }
                     }
-                    // tool_result 与 text 混排时,残余文本另起一条 user message,避免静默丢内容
-                    if let Some(tc) = text_content {
-                        messages.push(OpenAIMessage {
-                            role: "user".to_string(),
-                            content: Some(tc),
-                            tool_calls: None,
-                            tool_call_id: None,
-                        });
+                    // tool_result 与 text 混排时残余文本并入同一条 user message（有图才用
+                    // array 形态带图；无图维持旧字符串形态，避免 Kimi 拒多模态数组结构）
+                    match (text_content.clone(), !lifted_images.is_empty()) {
+                        (Some(tc), false) => {
+                            messages.push(OpenAIMessage {
+                                role: "user".to_string(),
+                                content: Some(tc),
+                                tool_calls: None,
+                                tool_call_id: None,
+                            });
+                        }
+                        (tc, true) => {
+                            let mut content_arr: Vec<Value> = Vec::new();
+                            if let Some(Value::String(t)) = tc.as_ref()
+                                && !t.is_empty()
+                            {
+                                content_arr.push(serde_json::json!({ "type": "text", "text": t }));
+                            }
+                            content_arr.extend(lifted_images);
+                            messages.push(OpenAIMessage {
+                                role: "user".to_string(),
+                                content: Some(Value::Array(content_arr)),
+                                tool_calls: None,
+                                tool_call_id: None,
+                            });
+                        }
+                        (None, false) => {}
                     }
                     continue;
                 }
 
-                // image block → OpenAI 多模态数组 content（text 段 + image_url 段）
-                let image_parts: Vec<Value> = blocks.iter()
+                // image block → OpenAI 多模态数组 content（text 段 + image_url 段）；
+                // audio Media → input_audio 段（spec A3，OpenAI chat 只收 base64）
+                let media_parts: Vec<Value> = blocks.iter()
                     .filter_map(|b| match b {
-                        ContentBlock::Unknown(v) if v.get("type").and_then(|t| t.as_str()) == Some("image") => {
-                            let src = v.get("source")?;
-                            let url = match src.get("type").and_then(|t| t.as_str()) {
-                                // base64 source 重组 data URL
-                                Some("base64") => format!(
-                                    "data:{};base64,{}",
-                                    src.get("media_type").and_then(|m| m.as_str()).unwrap_or("application/octet-stream"),
-                                    src.get("data").and_then(|d| d.as_str()).unwrap_or(""),
-                                ),
-                                Some("url") => src.get("url").and_then(|u| u.as_str())?.to_string(),
-                                _ => return None,
-                            };
-                            Some(serde_json::json!({ "type": "image_url", "image_url": { "url": url } }))
+                        ContentBlock::Unknown(v) if v.get("type").and_then(|t| t.as_str()) == Some("image") => image_part_from_block(v),
+                        ContentBlock::Media { media_type, data, url } => {
+                            // input_audio 只认 {data, format}：format 取 media_type 的子类型（audio/wav → wav）；
+                            // 非 audio（video 等）或无 base64 的（url 源，OpenAI chat 不收远程音频）只能丢
+                            let fmt = media_type.strip_prefix("audio/").unwrap_or_default();
+                            match (data, url) {
+                                (Some(d), _) if !fmt.is_empty() => Some(serde_json::json!({
+                                    "type": "input_audio", "input_audio": { "data": d, "format": fmt }
+                                })),
+                                (data, url) => {
+                                    tracing::warn!(
+                                        media_type,
+                                        has_data = data.is_some(),
+                                        has_url = url.is_some(),
+                                        "Media block dropped: OpenAI chat 只收 base64 audio 的 input_audio"
+                                    );
+                                    None
+                                }
+                            }
                         }
                         _ => None,
                     })
                     .collect();
-                if !image_parts.is_empty() {
+                if !media_parts.is_empty() {
                     let mut content_arr: Vec<Value> = Vec::new();
                     if let Some(tc) = text_content.clone()
                         && let Value::String(t) = &tc
@@ -153,7 +193,7 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
                     {
                         content_arr.push(serde_json::json!({ "type": "text", "text": t }));
                     }
-                    content_arr.extend(image_parts);
+                    content_arr.extend(media_parts);
                     messages.push(OpenAIMessage {
                         role: role.to_string(),
                         content: Some(Value::Array(content_arr)),
@@ -233,6 +273,23 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
         // 显式禁用指令统一由 `forward.rs::apply_disable_thinking` 负责。
         reasoning_effort: crate::thinking::outbound_effort(req),
     }
+}
+
+/// 中立 image block（Unknown，Anthropic image 结构）→ OpenAI `image_url` 段。
+/// base64 source 重组 data URL；其余 source 形态（file_id 等）OpenAI chat 无法表达，返回 None。
+fn image_part_from_block(v: &Value) -> Option<Value> {
+    let src = v.get("source")?;
+    let url = match src.get("type").and_then(|t| t.as_str()) {
+        // base64 source 重组 data URL
+        Some("base64") => format!(
+            "data:{};base64,{}",
+            src.get("media_type").and_then(|m| m.as_str()).unwrap_or("application/octet-stream"),
+            src.get("data").and_then(|d| d.as_str()).unwrap_or(""),
+        ),
+        Some("url") => src.get("url").and_then(|u| u.as_str())?.to_string(),
+        _ => return None,
+    };
+    Some(serde_json::json!({ "type": "image_url", "image_url": { "url": url } }))
 }
 
 #[cfg(test)]

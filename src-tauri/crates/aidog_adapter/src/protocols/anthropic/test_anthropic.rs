@@ -289,3 +289,25 @@ fn parse_anthropic_response_minimal() {
     assert!(parsed.reasoning.is_none());
     assert!(parsed.tool_uses.is_empty());
 }
+
+// ── A3: Media → Anthropic 目标丢弃（无 audio 输入形状），不 panic 不污染输出 ──
+#[test]
+fn to_anthropic_media_block_dropped() {
+    let req = ChatRequest {
+        thinking_budget: None,
+        model: "claude".into(),
+        messages: vec![Message {
+            role: Role::User,
+            content: MessageContent::Blocks(vec![
+                ContentBlock::Text { text: "listen".into(), extra: None },
+                ContentBlock::Media { media_type: "audio/wav".into(), data: Some("aGVsbG8=".into()), url: None },
+            ]),
+        }],
+        system: None, max_tokens: None, temperature: None, top_p: None, stream: None,
+        tools: None, tool_choice: None, extra: None, thinking_mode: None,
+    };
+    let out = to_anthropic(&req);
+    let arr = out.messages[0].content.as_array().unwrap();
+    assert_eq!(arr.len(), 1, "Media 被丢弃，只剩 text block");
+    assert_eq!(arr[0]["type"], "text");
+}

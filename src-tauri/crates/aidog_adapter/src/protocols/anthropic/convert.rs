@@ -87,6 +87,15 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
                             {
                                 Some(v.clone())
                             }
+                            // audio/video：Anthropic Messages API 无 audio 输入形状
+                            // （anthropic-sdk-python#1198 未落地），丢弃并留痕（spec A3）
+                            ContentBlock::Media { media_type, .. } => {
+                                tracing::warn!(
+                                    media_type,
+                                    "Media block dropped: Anthropic 目标协议不支持 audio/video 输入"
+                                );
+                                None
+                            }
                             ContentBlock::Unknown(_) => None,
                         })
                         .collect();

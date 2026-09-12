@@ -593,3 +593,86 @@ fn render_gemini_empty_message() {
     );
     assert_eq!(out["candidates"][0]["content"]["parts"][0]["text"], "");
 }
+
+// ── A3 多模态（spec 2026-09-12）──
+
+// openai 源 Media(audio) → gemini 目标 inlineData(audio/wav) roundtrip
+#[test]
+fn media_audio_roundtrip_inline_data() {
+    let r = req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "listen".into(), extra: None },
+            ContentBlock::Media { media_type: "audio/wav".into(), data: Some("aGVsbG8=".into()), url: None },
+        ]),
+    }]);
+    let g = to_gemini(&r);
+    let part = &g.contents[0].parts[1];
+    assert_eq!(part.text, None);
+    assert_eq!(part.extra.as_ref().unwrap()["inlineData"]["mimeType"], "audio/wav");
+    assert_eq!(part.extra.as_ref().unwrap()["inlineData"]["data"], "aGVsbG8=");
+    // 回程：from_gemini 解析回 Media
+    let body = serde_json::to_value(&g).unwrap();
+    let back = from_gemini(&body).unwrap();
+    match &back.messages[0].content {
+        MessageContent::Blocks(blocks) => {
+            assert!(matches!(blocks[0], ContentBlock::Text { .. }));
+            match &blocks[1] {
+                ContentBlock::Media { media_type, data, url } => {
+                    assert_eq!(media_type, "audio/wav");
+                    assert_eq!(data.as_deref(), Some("aGVsbG8="));
+                    assert!(url.is_none());
+                }
+                _ => panic!("expected Media"),
+            }
+        }
+        _ => panic!("expected blocks"),
+    }
+}
+
+// Media url 源 → fileData{mimeType, fileUri}
+#[test]
+fn media_url_becomes_file_data() {
+    let r = req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Blocks(vec![ContentBlock::Media {
+            media_type: "video/mp4".into(), data: None, url: Some("https://x/v.mp4".into()),
+        }]),
+    }]);
+    let g = to_gemini(&r);
+    let extra = g.contents[0].parts[0].extra.as_ref().unwrap();
+    assert_eq!(extra["fileData"]["mimeType"], "video/mp4");
+    assert_eq!(extra["fileData"]["fileUri"], "https://x/v.mp4");
+}
+
+// bug 修复：inlineData mimeType 非前缀 image/* 不再误标 image
+#[test]
+fn from_gemini_inline_data_splits_by_mimetype() {
+    let body = json!({
+        "contents": [{
+            "role": "user",
+            "parts": [
+                { "text": "compare" },
+                { "inlineData": { "mimeType": "image/png", "data": "aGk=" } },
+                { "inlineData": { "mimeType": "audio/wav", "data": "eHg=" } },
+                { "fileData": { "mimeType": "video/mp4", "fileUri": "https://x/v.mp4" } },
+                { "fileData": { "fileUri": "https://x/legacy.png" } }
+            ]
+        }]
+    });
+    let req = from_gemini(&body).unwrap();
+    match &req.messages[0].content {
+        MessageContent::Blocks(blocks) => {
+            assert_eq!(blocks.len(), 5);
+            assert!(matches!(blocks[0], ContentBlock::Text { .. }));
+            // image/* 仍是 image block
+            assert!(matches!(&blocks[1], ContentBlock::Unknown(v) if v["type"] == "image" && v["source"]["media_type"] == "image/png"));
+            // 非 image/* → typed Media
+            assert!(matches!(&blocks[2], ContentBlock::Media { media_type, data: Some(_), url: None } if media_type == "audio/wav"));
+            assert!(matches!(&blocks[3], ContentBlock::Media { media_type, data: None, url: Some(u) } if media_type == "video/mp4" && u == "https://x/v.mp4"));
+            // fileData 无 mimeType：维持旧行为按 image url 处理
+            assert!(matches!(&blocks[4], ContentBlock::Unknown(v) if v["type"] == "image" && v["source"]["url"] == "https://x/legacy.png"));
+        }
+        _ => panic!("expected blocks"),
+    }
+}

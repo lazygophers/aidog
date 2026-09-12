@@ -116,6 +116,21 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
                     })
                     .collect();
                 texts.extend(images);
+                // input_audio → 中立 Media（spec A3：format 子类型拼回 audio/<format>）
+                let audio: Vec<ContentBlock> = parts.iter()
+                    .filter_map(|p| {
+                        if p.get("type").and_then(|t| t.as_str()) != Some("input_audio") { return None; }
+                        let ia = p.get("input_audio")?;
+                        let data = ia.get("data")?.as_str()?;
+                        let fmt = ia.get("format").and_then(|f| f.as_str()).unwrap_or("wav");
+                        Some(ContentBlock::Media {
+                            media_type: format!("audio/{fmt}"),
+                            data: Some(data.to_string()),
+                            url: None,
+                        })
+                    })
+                    .collect();
+                texts.extend(audio);
                 let texts = texts;
                 if texts.len() == 1 {
                     if let ContentBlock::Text { text, .. } = &texts[0] {
