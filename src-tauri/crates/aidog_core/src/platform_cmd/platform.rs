@@ -87,6 +87,17 @@ pub async fn platform_list() -> Result<Vec<Platform>, String> {
             _ => None,
         };
         p.balance_level = gateway::usage_color::balance_level(days_remaining).as_str().to_string();
+        // B3 折算行：coding plan 平台按 est_coding_plan 首个 window_start>0 的 tier
+        // 起 SUM(est_cost)。无 window_start（未校准/无锚点）→ 0（前端不渲染）。
+        if let Some(since) = gateway::estimate::EstCodingPlan::from_json(&p.est_coding_plan)
+            .tiers
+            .iter()
+            .map(|t| t.window_start)
+            .find(|ws| *ws > 0)
+        {
+            p.coding_window_cost =
+                aidog_stats::sum_est_cost_since(db, p.id, since).await.unwrap_or(0.0);
+        }
     }
     Ok(platforms)
 }

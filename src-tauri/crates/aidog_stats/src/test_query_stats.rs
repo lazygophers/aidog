@@ -22,6 +22,7 @@ async fn query_stats_platform_dim_and_filter() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let r = query_stats(&db, &q).await;
     println!("NO-FILTER platform dim: {:?}", r.as_ref().err());
@@ -34,6 +35,7 @@ async fn query_stats_platform_dim_and_filter() {
         filter_group: None,
         filter_model: None,
         filter_platform: Some(p.to_string()),
+        filter_coding_plan: None,
     };
     let r2 = query_stats(&db, &q2).await;
     println!("PLATFORM-FILTER: {:?}", r2.as_ref().err());
@@ -66,6 +68,7 @@ async fn dimension_cache_rate_matches_input_plus_cache_tokens() {
             filter_group: None,
             filter_model: None,
             filter_platform: None,
+            filter_coding_plan: None,
         };
         let res = query_stats(&db, &q).await.unwrap();
         let dim = res
@@ -117,6 +120,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_group: None,
             filter_model: None,
             filter_platform: None,
+            filter_coding_plan: None,
         },
         // overall today hourly
         StatsQuery {
@@ -127,6 +131,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_group: None,
             filter_model: None,
             filter_platform: None,
+            filter_coding_plan: None,
         },
         // platform 7d daily
         StatsQuery {
@@ -137,6 +142,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_group: None,
             filter_model: None,
             filter_platform: Some(p.to_string()),
+            filter_coding_plan: None,
         },
         // group today hourly
         StatsQuery {
@@ -147,6 +153,7 @@ async fn query_stats_batch_matches_per_query() {
             filter_group: Some("g1".into()),
             filter_model: None,
             filter_platform: None,
+            filter_coding_plan: None,
         },
     ];
 
@@ -241,6 +248,7 @@ async fn bucket_daily_splits_on_local_midnight() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     // 本地午夜两侧 → 两个不同的本地日桶。
@@ -285,6 +293,7 @@ async fn stats_available_models_only_recorded() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let s = query_stats(&db, &q).await.expect("query_stats");
     // actual_model 优先 → glm-4-plus；actual_model 空 → 回退 gpt-4o
@@ -319,6 +328,7 @@ async fn stats_available_models_only_recorded() {
         filter_group: None,
         filter_model: Some("glm-4-plus".into()),
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let s2 = query_stats(&db, &q2).await.expect("query_stats filtered");
     assert!(
@@ -360,6 +370,7 @@ async fn stats_minute_and_5min_buckets() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let r_min = query_stats(&db, &q_min).await.expect("minute stats");
     assert_eq!(
@@ -382,6 +393,7 @@ async fn stats_minute_and_5min_buckets() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let r_5 = query_stats(&db, &q_5).await.expect("5min stats");
     assert_eq!(
@@ -406,6 +418,7 @@ async fn stats_minute_and_5min_buckets() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let r_h = query_stats(&db, &q_h).await.expect("hourly stats");
     assert_eq!(
@@ -472,6 +485,7 @@ async fn stats_group_by_model_dimension() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -513,6 +527,7 @@ async fn stats_group_by_group_dimension() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -551,6 +566,7 @@ async fn stats_minute_filter_model() {
         filter_group: None,
         filter_model: Some("gpt-4o".into()),
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -586,6 +602,7 @@ async fn stats_minute_filter_group_and_platform() {
         filter_group: Some("grpFP".into()),
         filter_model: None,
         filter_platform: Some(p.to_string()),
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -616,6 +633,7 @@ async fn stats_group_by_platform_dimension() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert!(
@@ -640,6 +658,7 @@ async fn stats_empty_db_returns_zero_overview() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(res.overview.total_requests, 0);
@@ -666,6 +685,7 @@ async fn stats_granularity_hourly_produces_hourly_buckets() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(res.overview.total_requests, 1);
@@ -709,6 +729,7 @@ async fn stats_filter_model_isolates_model() {
         filter_group: None,
         filter_model: Some("unique-model-xyz".into()),
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -737,6 +758,7 @@ async fn stats_group_by_model_dimension_extra() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert!(
@@ -749,4 +771,68 @@ async fn stats_group_by_model_dimension_extra() {
             .any(|d| d.name == "distinct-model-extra"),
         "model not found in dim"
     );
+}
+
+/// filter_coding_plan 只算 coding plan 平台（endpoints 任一 coding_plan=true，spec B3）。
+/// 覆盖 agg（daily 读聚合表 SQL IN 过滤）+ minute（proxy_log 内存 eff_pid 过滤）两路径。
+#[tokio::test]
+async fn stats_filter_coding_plan_both_paths() {
+    use rusqlite::params;
+    let db = test_db().await;
+    let cp = insert_test_platform(&db, "CP").await;
+    let plain = insert_test_platform(&db, "Plain").await;
+    // CP 平台 endpoints 标 coding_plan=true（与 router/ordering.rs 判定同口径）。
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
+                params![
+                    r#"[{"protocol":"anthropic","base_url":"https://example.com","client_type":"default","coding_plan":true}]"#,
+                    cp as i64
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+
+    let now = chrono::Utc::now().timestamp_millis();
+    for (pid, tag) in [(cp, "cp1"), (plain, "pl1")] {
+        let mut lg = sample_log(tag, "g1", now);
+        lg.platform_id = pid;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+            .await
+            .unwrap();
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    for granularity in ["daily", "minute"] {
+        let q = StatsQuery {
+            start: Some(now - 3_600_000),
+            end: Some(now + 3_600_000),
+            granularity: Some(granularity.into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: None,
+            filter_platform: None,
+            filter_coding_plan: Some(true),
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(
+            res.overview.total_requests, 1,
+            "{granularity}: 只应剩 coding plan 平台的 1 条请求"
+        );
+    }
+    // 不过滤 → 2 条（flag 只在 Some(true) 生效）。
+    let q = StatsQuery {
+        start: Some(now - 3_600_000),
+        end: Some(now + 3_600_000),
+        granularity: Some("daily".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: Some(false),
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.overview.total_requests, 2, "Some(false) 不应过滤");
 }

@@ -7,6 +7,9 @@ struct GroupInfoResp {
     balance: f64,
     /// 累计预估花费（$ / 平台币种），基于 est_cost 聚合
     spent: f64,
+    /// 本周期折算花费 $（spec B3）：coding plan 平台按 est tier window_start 起
+    /// SUM(est_cost)；非 coding plan / 无 window_start → 0（statusline 段隐藏）。
+    coding_window_cost: f64,
     coding_plan: Vec<CodingTierResp>,
     requests: i64,
     /// 成功率（0-100）
@@ -64,6 +67,7 @@ async fn handle_group_info_inner(
         applicable: false,
         balance: 0.0,
         spent: 0.0,
+        coding_window_cost: 0.0,
         coding_plan: Vec::new(),
         requests: 0,
         success_rate: 0.0,
@@ -286,10 +290,27 @@ async fn handle_group_info_inner(
         .as_str()
         .to_string();
 
+    // B3 折算 $：coding plan tier 的 window_start 起按 platform_id 聚合 est_cost
+    // （stats_agg_hourly 的 platform_id 已是回溯后 eff_pid，与该平台日志对齐）。
+    let since = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
+        .tiers
+        .iter()
+        .map(|t| t.window_start)
+        .find(|&ws| ws > 0);
+    let coding_window_cost = match since {
+        Some(since) => {
+            aidog_stats::sum_est_cost_since(&state.db, platform.id, since)
+                .await
+                .unwrap_or(0.0)
+        }
+        None => 0.0,
+    };
+
     let resp = GroupInfoResp {
         applicable: true,
         balance,
         spent: stats.total_cost,
+        coding_window_cost,
         coding_plan,
         requests: stats.total_requests,
         success_rate,

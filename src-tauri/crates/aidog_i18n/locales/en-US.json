@@ -2820,5 +2820,9 @@
   "middleware.checksum.none": "No checksum",
   "middleware.checksum.luhn": "Luhn (bank card)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "China ID card"
+  "middleware.checksum.cn_id": "China ID card",
+  "stats.codingPlanOnly": "Coding Plan only",
+  "stats.planAll": "All billing",
+  "platform.codingWindowCost": "This cycle est.",
+  "platform.codingPlanPrice": "Plan"
 }

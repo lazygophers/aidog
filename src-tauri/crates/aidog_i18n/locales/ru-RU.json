@@ -2842,5 +2842,9 @@
   "middleware.checksum.none": "Без контрольной суммы",
   "middleware.checksum.luhn": "Luhn (банковская карта)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "Удостоверение личности КНР"
+  "middleware.checksum.cn_id": "Удостоверение личности КНР",
+  "stats.codingPlanOnly": "Только Coding Plan",
+  "stats.planAll": "Вся тарификация",
+  "platform.codingWindowCost": "За текущий цикл",
+  "platform.codingPlanPrice": "Тариф"
 }

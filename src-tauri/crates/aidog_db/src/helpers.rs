@@ -32,6 +32,26 @@ pub fn platform_id_name_map(
     Ok(map)
 }
 
+/// coding plan 平台 id 集（endpoints 任一 `coding_plan=true`，与 router/ordering.rs 口径一致）。
+/// spec B3 Stats「仅 Coding Plan」筛选：两路径按 eff_pid ∈ set 过滤。
+pub fn coding_plan_id_set(
+    conn: &rusqlite::Connection,
+) -> SqlResult<std::collections::HashSet<i64>> {
+    let mut stmt = conn.prepare_cached("SELECT id, endpoints FROM platform")?;
+    let set = stmt
+        .query_map([], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<SqlResult<Vec<_>>>()?
+        .into_iter()
+        .filter_map(|(id, eps)| {
+            let eps: Vec<crate::models::PlatformEndpoint> = serde_json::from_str(&eps).ok()?;
+            eps.iter().any(|ep| ep.coding_plan).then_some(id)
+        })
+        .collect();
+    Ok(set)
+}
+
 /// 从上游错误体提取人类可读 message，优先嵌套 `error.message`，回退顶层 `message`。
 /// 非 JSON / 无字段 / 空白 → None（调用方回退 truncate_attempt_error）。
 pub fn extract_error_message(body: &str) -> Option<String> {

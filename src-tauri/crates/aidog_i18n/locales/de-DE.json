@@ -2842,5 +2842,9 @@
   "middleware.checksum.none": "Keine Prüfsumme",
   "middleware.checksum.luhn": "Luhn (Bankkarte)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "Chinesischer Personalausweis"
+  "middleware.checksum.cn_id": "Chinesischer Personalausweis",
+  "stats.codingPlanOnly": "Nur Coding-Plan",
+  "stats.planAll": "Alle Abrechnungen",
+  "platform.codingWindowCost": "Geschätzt diese Periode",
+  "platform.codingPlanPrice": "Tarif"
 }

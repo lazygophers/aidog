@@ -2820,5 +2820,9 @@
   "middleware.checksum.none": "Sin dígito de control",
   "middleware.checksum.luhn": "Luhn (tarjeta bancaria)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "DNI de China"
+  "middleware.checksum.cn_id": "DNI de China",
+  "stats.codingPlanOnly": "Solo Coding Plan",
+  "stats.planAll": "Todo el cobro",
+  "platform.codingWindowCost": "Estimado del ciclo",
+  "platform.codingPlanPrice": "Plan"
 }

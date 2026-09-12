@@ -2842,5 +2842,9 @@
   "middleware.checksum.none": "بدون مجموع اختباري",
   "middleware.checksum.luhn": "Luhn (بطاقة مصرفية)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "بطاقة الهوية الصينية"
+  "middleware.checksum.cn_id": "بطاقة الهوية الصينية",
+  "stats.codingPlanOnly": "خطط البرمجة فقط",
+  "stats.planAll": "كل الفوترة",
+  "platform.codingWindowCost": "تقدير هذه الدورة",
+  "platform.codingPlanPrice": "الخطة"
 }

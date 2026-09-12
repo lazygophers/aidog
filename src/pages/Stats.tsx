@@ -136,6 +136,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const [filterGroup, setFilterGroup] = useState(initialFilter?.groupKey ?? "");
   const [filterModel, setFilterModel] = useState("");
   const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
+  // 仅 Coding Plan 平台筛选（spec B3）：true → 后端 filter_coding_plan=true
+  const [filterCodingPlan, setFilterCodingPlan] = useState(false);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // 协议搜索词（registry name 全 locale + keywords）：平台筛选下拉跨语言搜索用
@@ -170,6 +172,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
           : undefined,
         filter_model: filterModel || undefined,
         filter_platform: filterPlatform || undefined,
+        filter_coding_plan: filterCodingPlan || undefined,
       };
       const prevR = previousRange(range.start, range.end);
       // 当前周期 + 上一等长周期并行查询（上一周期仅用 overview 做环比）
@@ -198,7 +201,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       console.error(e);
     }
     setLoading(false);
-  }, [preset, granularity, groupBy, filterGroup, filterModel, filterPlatform]);
+  }, [preset, granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -217,7 +220,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   useEffect(() => onProxyLogUpdated(() => { loadFilterOptions(); }), [loadFilterOptions]);
 
   // 维度 / 筛选变化时重置分页
-  useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, preset]);
+  useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan, preset]);
 
   // 模型筛选项来自实际 proxy_log 记录（后端 available_models），非配置列表
   const allModels = useMemo(
@@ -365,9 +368,18 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
           options={[...allPlatforms, { value: "0", label: t("stats.noPlatform", "无平台") }]}
           emptyLabel={t("stats.noMatch", "无匹配")}
         />
+        {/* Filter: coding plan（订阅套餐平台，spec B3） */}
+        <Select value={filterCodingPlan ? "coding" : "all"} onValueChange={v => setFilterCodingPlan(v === "coding")}>
+          <SelectTrigger style={{ fontSize: 12, width: 130, height: 30 }}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">{t("stats.planAll", "全部计费")}</SelectItem>
+            <SelectItem value="coding">{t("stats.codingPlanOnly", "仅 Coding Plan")}</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
-
-      {loading && !data ? (
+      {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)", fontSize: F.hint }}>
           {t("stats.loading", "加载中...")}
         </div>

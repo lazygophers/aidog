@@ -232,6 +232,12 @@ pub struct Platform {
     /// 手动预算限额列表（仅无上游 quota 自动支持平台；请求驱动扣减 + 耗尽阻断）
     #[serde(default)]
     pub manual_budgets: Vec<ManualBudget>,
+    /// 本周期折算花费 $（非 DB 列；`platform_list` 对 coding plan 平台按 est_coding_plan
+    /// 首个 window_start>0 的 tier 起 SUM(est_cost) 填充，spec B3 折算行用）。
+    /// 缺省 0 → 前端不渲染折算行。`skip_deserializing` 避免从前端入参反序列化。
+    #[serde(default, skip_deserializing)]
+    #[ts(type = "number")]
+    pub coding_window_cost: f64,
     /// 余额使用速率配色级别（非 DB 列；`platform_list` 按动态窗口日速率算 days_remaining 后填充）。
     /// "red"|"yellow"|"green"|"neutral"，前端列表页余额只消费此 level 不重算阈值（usage_color 唯一源）。
     /// 缺省空串 → 前端退中性。`skip_deserializing` 避免从前端入参反序列化。
@@ -630,6 +636,7 @@ mod tests {
             tray_display: "".into(),
             sort_order: 0,
             balance_level: "".into(),
+            coding_window_cost: 0.0,
             expires_at: 0,
             last_error: "".into(),
             last_error_at: 0,

@@ -65,6 +65,10 @@ pub struct StatsQuery {
     pub filter_model: Option<String>,
     #[ts(optional)]
     pub filter_platform: Option<String>,
+    /// 仅统计 coding plan 平台（endpoints 任一 coding_plan=true，spec B3）。
+    /// true = 过滤；false / None = 不过滤。
+    #[ts(optional)]
+    pub filter_coding_plan: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
