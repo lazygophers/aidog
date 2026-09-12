@@ -80,6 +80,16 @@ pub async fn cold_start_init_estimates() {
     let Ok(list) = db::list_platforms(db_state).await else {
         return;
     };
+    // 无查询脚本但 registry 带 plan_quotas 的平台（spec B2，bailian_coding）：
+    // 播种静态锚点（幂等，仅 est 为空时写），纯本地 per-request 预估，无需真查。
+    for p in list.iter().filter(|p| p.enabled && !has_quota_script(p)) {
+        let _ = gateway::estimate::seed_plan_anchor_if_empty(
+            db_state,
+            p.id,
+            &p.platform_type.wire_str(),
+        )
+        .await;
+    }
     // 10 分钟内刚真查过的跳过：连续重启不重复轰上游（est 仍新鲜，定时由下次校准补排）。
     let fresh_before = db::now() - 10 * 60_000;
     let targets: Vec<gateway::models::Platform> = list
