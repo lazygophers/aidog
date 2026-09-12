@@ -64,6 +64,7 @@ export type SegmentType =
   // aidog group segments
   | "group-balance"  // aidog group: 预估余额
   | "group-spent"    // aidog group: 累计预估花费
+  | "group-window-cost" // aidog group: 本配额周期折算花费（coding plan，0 隐藏）
   | "group-coding"   // aidog group: coding plan 利用率
   | "group-requests" // aidog group: 请求数 · 成功率
   | "group-cache"    // aidog group: 缓存命中率
@@ -104,7 +105,7 @@ export const VALUE_COLORABLE: Set<SegmentType> = new Set([
 
 /** Segment types that consume the shared aidog group-info endpoint. */
 export const GROUP_SEG_TYPES = new Set<SegmentType>([
-  "group-balance", "group-spent", "group-coding",
+  "group-balance", "group-spent", "group-window-cost", "group-coding",
   "group-requests", "group-cache", "group-tokens", "group-route",
 ]);
 
@@ -233,6 +234,17 @@ export const SEGMENT_DEFS: SegmentDef[] = [
     toPreview: (o) => `${o.prefix ?? "$"}1.23`,
     fields: [
       { key: "prefix", label: "前缀", type: "string", placeholder: "$" },
+    ],
+  },
+  {
+    type: "group-window-cost",
+    name: "周期折算",
+    icon: "bolt",
+    desc: "当前分组本配额周期折算花费 $（coding plan 平台自窗口起点累计 est_cost，0/非 coding 隐藏）",
+    defaultOptions: { prefix: "折算$" },
+    toPreview: (o) => `${o.prefix ?? "折算$"}4.56`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "折算$" },
     ],
   },
   {
@@ -719,6 +731,8 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
     options: { dynamicColor: true } },
   { id: "d-balance", type: "group-balance", enabled: true, newline: false,
     options: { dynamicColor: true, prefix: "$", affixPre: "·" } },
+  { id: "d-wcost", type: "group-window-cost", enabled: true, newline: false,
+    options: { prefix: "$", affixPre: "·" } },
   { id: "d-route", type: "group-route", enabled: true, newline: false,
     options: { affixPre: "·" } },
   { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",

@@ -2842,5 +2842,9 @@
   "middleware.checksum.none": "チェックディジットなし",
   "middleware.checksum.luhn": "Luhn (銀行カード)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "中国身分証"
+  "middleware.checksum.cn_id": "中国身分証",
+  "stats.codingPlanOnly": "Coding Plan のみ",
+  "stats.planAll": "全課金",
+  "platform.codingWindowCost": "今周期の換算",
+  "platform.codingPlanPrice": "プラン"
 }

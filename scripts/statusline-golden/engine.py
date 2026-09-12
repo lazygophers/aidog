@@ -467,6 +467,16 @@ def seg_group_spent(inp, o, gi):
     val = "%.2f" % (jround(get(gi, "spent", default=0) * 100) / 100)
     return (o.get("prefix", "$")) + val
 
+def seg_group_window_cost(inp, o, gi):
+    # 本配额周期折算花费（spec B3）：coding plan 平台自首个窗口起点累计 est_cost。
+    # 0（非 coding plan / 无窗口 / 周期内无请求）→ 整段隐藏。
+    if not _group_applicable(gi):
+        return None
+    c = jround(get(gi, "coding_window_cost", default=0) * 100) / 100
+    if c <= 0:
+        return None
+    return (o.get("prefix", "$")) + "%.2f" % c
+
 # coding plan 配额色阈值：按剩余配额% 着色（与显示数字同口径），与 usage_color.rs
 # 同阈值（<40 红 / <60 黄 / ≥60 绿）。不再消费后端 pace-based level —— 那按剩余时间%
 # 着色，窗口初期 elapsed 小 → pace 大 → 即便配额剩 90%+ 也显红，与显示数字矛盾。
@@ -615,12 +625,14 @@ RENDERERS = {
     "output-style": seg_output_style, "thinking": seg_thinking, "token-warn": seg_token_warn,
     "agent": seg_agent, "agent-badge": seg_agent_badge, "custom": seg_custom,
     "group-balance": seg_group_balance, "group-spent": seg_group_spent,
+    "group-window-cost": seg_group_window_cost,
     "group-coding": seg_group_coding, "group-requests": seg_group_requests,
     "group-cache": seg_group_cache, "group-tokens": seg_group_tokens,
     "group-route": seg_group_route,
 }
 
-GROUP_TYPES = {"group-balance", "group-spent", "group-coding", "group-requests",
+GROUP_TYPES = {"group-balance", "group-spent", "group-window-cost",
+               "group-coding", "group-requests",
                "group-cache", "group-tokens", "group-route"}
 VALUE_COLORABLE = {"context-pct", "context-bar", "cost", "rate-limits", "cost-usd",
                    "context-remaining", "rate-limit-5h", "rate-limit-7d",

@@ -16,6 +16,7 @@ async fn query_and_batch() {
         filter_group: None,
         filter_model: None,
         filter_platform: None,
+        filter_coding_plan: None,
     };
     let _ = aidog_stats::query_stats(&db, &q).await.unwrap();
     let batch = aidog_stats::query_stats_batch(&db, vec![q.clone(), q])

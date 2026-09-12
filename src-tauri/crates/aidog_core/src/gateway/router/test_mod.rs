@@ -29,6 +29,7 @@ pub(super) fn mk_platform(status: PlatformStatus, until: i64) -> Platform {
         sort_order: 0,
         manual_budgets: vec![],
         balance_level: String::new(),
+        coding_window_cost: 0.0,
         last_error: String::new(),
         last_error_at: 0,
         quota_script: String::new(),

@@ -488,6 +488,36 @@ fn hourly_rate_inner(
     Ok(Some(total / span_hours))
 }
 
+/// 某平台自 `since_ms` 起累计预估花费（stats_agg_hourly 聚合表口径，B3 折算行用）。
+/// coding plan 平台按 est_coding_plan tier 的 `window_start` 起聚合 est_cost，
+/// 得「本周期折算 $」。无用量 / since 无效 → 0.0。短持锁，不跨 await。
+#[track_caller]
+pub fn sum_est_cost_since(
+    db: &Db,
+    platform_id: u64,
+    since_ms: i64,
+) -> impl std::future::Future<Output = Result<f64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        if since_ms <= 0 {
+            return Ok(0.0);
+        }
+        let since_key = utc_ms_to_local_hour_key(since_ms);
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let pid = platform_id as i64;
+            let total: f64 = conn.query_row(
+                "SELECT COALESCE(SUM(sum_est_cost), 0.0) FROM stats_agg_hourly \
+                 WHERE time_hour >= ?1 AND deleted_at = 0 AND platform_id = ?2",
+                rusqlite::params![since_key, pid],
+                |row| row.get(0),
+            )?;
+            Ok(total)
+        })
+        .await
+        .map_err(|e| format!("sum est cost since: {e}"))
+    }
+}
+
 /// 分组动态窗口日用量速率（$ / 小时），供 statusline 余额「剩余可用天数」配色。
 /// 无任何用量 → None（配色侧视作中性 / 不报警）。短持锁，不跨 await。
 #[track_caller]

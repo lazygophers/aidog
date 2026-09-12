@@ -2842,5 +2842,9 @@
   "middleware.checksum.none": "Sans somme de contrôle",
   "middleware.checksum.luhn": "Luhn (carte bancaire)",
   "middleware.checksum.iban": "IBAN",
-  "middleware.checksum.cn_id": "Carte d'identité chinoise"
+  "middleware.checksum.cn_id": "Carte d'identité chinoise",
+  "stats.codingPlanOnly": "Plans de code uniquement",
+  "stats.planAll": "Toute la facturation",
+  "platform.codingWindowCost": "Est. ce cycle",
+  "platform.codingPlanPrice": "Forfait"
 }

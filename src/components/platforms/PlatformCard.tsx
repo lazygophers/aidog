@@ -108,6 +108,13 @@ export const PlatformCard = memo(function PlatformCard({
     [p, quotaRaw, quotaPreferReal],
   );
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
+  // B3 折算行：手填套餐月价（platform.extra.plan_price，¥/月），有才显示套餐段
+  const planPrice = (() => {
+    try {
+      const v = (JSON.parse(p.extra || "{}") as Record<string, unknown>).plan_price;
+      return typeof v === "number" ? v : undefined;
+    } catch { return undefined; }
+  })();
   // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
@@ -455,6 +462,13 @@ export const PlatformCard = memo(function PlatformCard({
                       {formatCostUsd(u.total_cost)}
                     </span>
                   </div>
+                )}
+                {/* B3 折算行：本周期（首个配额窗口 window_start 起）累计折算 $ + 手填套餐价 */}
+                {hasCodingEndpoint && p.coding_window_cost > 0 && (
+                  <span style={{ flexShrink: 0, fontSize: 10, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+                    {t("platform.codingWindowCost", "本周期折算")} {formatCostUsd(p.coding_window_cost)}
+                    {planPrice != null && ` · ${t("platform.codingPlanPrice", "套餐")} ¥${planPrice}/月`}
+                  </span>
                 )}
                 {/* Coding plan tiers */}
                 {quota.balanceRemaining == null && quota.tiers.length > 0 && (

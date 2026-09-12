@@ -1,7 +1,7 @@
 use aidog_db::models::*;
-use aidog_db::{Db, load_auto_from_map, platform_id_name_map, resolve_eff_pid};
+use aidog_db::{Db, coding_plan_id_set, load_auto_from_map, platform_id_name_map, resolve_eff_pid};
 use rusqlite::Connection;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// minute/5min 路径的过滤参数（hourly/daily 走聚合表另算，不用本结构）。
 struct QueryParams {
@@ -38,22 +38,41 @@ pub fn query_stats<'a>(
             })
             .await
             .map_err(|e| format!("query_stats load platform_names: {e}"))?;
+        let coding_ids = coding_id_filter(db, &query.filter_coding_plan, __db_caller).await?;
         if needs_auto_map {
             db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
-                query_stats_inner(conn, &query, &auto_map, &platform_names)
+                query_stats_inner(conn, &query, &auto_map, &platform_names, &coding_ids)
                     .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
             })
             .await
             .map_err(|e| e.to_string())
         } else {
             db.call_read_traced(None, __db_caller, move |conn| {
-                query_stats_inner(conn, &query, &auto_map, &platform_names)
+                query_stats_inner(conn, &query, &auto_map, &platform_names, &coding_ids)
                     .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
             })
             .await
             .map_err(|e| e.to_string())
         }
     }
+}
+
+/// `filter_coding_plan == Some(true)` 时从 platform 库预查 coding plan 平台 id 集
+/// （与 platform_names 同模式：跨库预查后传入读闭包）。None = 不过滤。
+async fn coding_id_filter(
+    db: &Db,
+    want: &Option<bool>,
+    caller: &'static std::panic::Location<'static>,
+) -> Result<Option<HashSet<i64>>, String> {
+    if *want != Some(true) {
+        return Ok(None);
+    }
+    db.call_read_platform_traced(None, caller, |conn| {
+        coding_plan_id_set(conn).map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+    })
+    .await
+    .map(Some)
+    .map_err(|e| format!("query_stats load coding_ids: {e}"))
 }
 
 /// 批量统计查询：一次 IPC + 一次连接借用内串行跑 N 个 `query_stats_inner`，
@@ -87,6 +106,12 @@ pub fn query_stats_batch(
             })
             .await
             .map_err(|e| format!("query_stats_batch load platform_names: {e}"))?;
+        // coding plan id 集与具体 query 无关，任一 query 要筛就预查一份共享。
+        let coding_ids = if queries.iter().any(|q| q.filter_coding_plan == Some(true)) {
+            coding_id_filter(db, &Some(true), __db_caller).await?
+        } else {
+            None
+        };
         // 按粒度分两组保留原 idx（stats-agg-to-main-db s5）：agg 走主库读池（stats_agg_hourly 主库），
         // minute/5min 走 log.db 读池（proxy_log）。混批两次闭包，仍 ≤ 2 次 IPC；纯批单次。
         let (agg_idx, minute_idx): (Vec<usize>, Vec<usize>) =
@@ -108,12 +133,13 @@ pub fn query_stats_batch(
             let pick: Vec<StatsQuery> = agg_idx.iter().map(|&i| queries[i].clone()).collect();
             let am = auto_map.clone(); // agg 路径 query_stats_inner 签名要求，实际未用
             let pn = platform_names.clone();
+            let ci = coding_ids.clone();
             let out: Vec<StatsResult> = db
                 .call_read_traced(None, __db_caller, move |conn| {
                     let mut out = Vec::with_capacity(pick.len());
                     for q in &pick {
                         out.push(
-                            query_stats_inner(conn, q, &am, &pn)
+                            query_stats_inner(conn, q, &am, &pn, &ci)
                                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
                         );
                     }
@@ -133,7 +159,7 @@ pub fn query_stats_batch(
                     let mut out = Vec::with_capacity(pick.len());
                     for q in &pick {
                         out.push(
-                            query_stats_inner(conn, q, &auto_map, &platform_names)
+                            query_stats_inner(conn, q, &auto_map, &platform_names, &coding_ids)
                                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
                         );
                     }
@@ -182,6 +208,30 @@ fn utc_ms_to_local_minute_key(ms: i64, five_min: bool) -> String {
         .unwrap_or_default()
 }
 
+/// `platform_id IN (?N,?N+1,...)` 片段（spec B3 coding plan 筛选）。集合空 → `1=0`
+/// （无匹配平台，SQLite 不接受裸 `IN ()`）。返回 (SQL 片段, 绑定值)。
+fn in_clause(ids: &HashSet<i64>, next_idx: usize) -> (String, Vec<i64>) {
+    if ids.is_empty() {
+        return ("1=0".to_string(), Vec::new());
+    }
+    let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", next_idx + i)).collect();
+    (
+        format!("platform_id IN ({})", placeholders.join(",")),
+        ids.iter().copied().collect(),
+    )
+}
+
+/// query 要求筛 coding plan 且调用方已预查到 id 集 → Some(set)；否则 None（不过滤）。
+/// （单查询懒查；批量共享一份集合，由本函数按各 query 自身 flag 决定用不用。）
+fn coding_effective_set<'a>(
+    query: &StatsQuery,
+    coding_ids: &'a Option<HashSet<i64>>,
+) -> Option<&'a HashSet<i64>> {
+    (query.filter_coding_plan == Some(true))
+        .then_some(coding_ids.as_ref())
+        .flatten()
+}
+
 /// 从聚合表 stats_agg_hourly 跑统计查询（hourly/daily 粒度 + 任意 filter/group_by）。
 /// 时间范围按本地小时桶字典序比较；daily 桶 = substr(time_hour,1,10)，hourly 桶 = time_hour。
 fn query_stats_inner_agg(
@@ -191,7 +241,9 @@ fn query_stats_inner_agg(
     end: i64,
     _auto_map: &HashMap<String, i64>,
     platform_names: &HashMap<i64, String>,
+    coding_ids: &Option<HashSet<i64>>,
 ) -> Result<StatsResult, String> {
+    let coding_set = coding_effective_set(query, coding_ids);
     // start 向下取整到所属本地小时桶；end 同理（time_hour <= end_hour 含 end 所在整点桶）。
     let start_key = utc_ms_to_local_hour_key(start);
     let end_key = utc_ms_to_local_hour_key(end);
@@ -220,6 +272,13 @@ fn query_stats_inner_agg(
             binds.len() + 1
         ));
         binds.push(Box::new(p.clone()));
+    }
+    if let Some(set) = coding_set {
+        let (sql, vals) = in_clause(set, binds.len() + 1);
+        for v in vals {
+            binds.push(Box::new(v));
+        }
+        where_parts.push(sql);
     }
     let where_sql = where_parts.join(" AND ");
     let refs: Vec<&dyn rusqlite::types::ToSql> = binds.iter().map(|b| b.as_ref()).collect();
@@ -407,6 +466,13 @@ fn query_stats_inner_agg(
         ));
         am_binds.push(Box::new(p.clone()));
     }
+    if let Some(set) = coding_set {
+        let (sql, vals) = in_clause(set, am_binds.len() + 1);
+        for v in vals {
+            am_binds.push(Box::new(v));
+        }
+        am_parts.push(sql);
+    }
     let am_where = am_parts.join(" AND ");
     let am_refs: Vec<&dyn rusqlite::types::ToSql> = am_binds.iter().map(|b| b.as_ref()).collect();
     let available_models: Vec<String> = conn
@@ -432,6 +498,7 @@ pub(crate) fn query_stats_inner(
     query: &StatsQuery,
     auto_map: &HashMap<String, i64>,
     platform_names: &HashMap<i64, String>,
+    coding_ids: &Option<HashSet<i64>>,
 ) -> Result<StatsResult, String> {
     let end = query
         .end
@@ -450,7 +517,17 @@ pub(crate) fn query_stats_inner(
     // minute / 5min 粒度聚合表不覆盖（hourly 桶无法下钻到分钟），仍走下方 proxy_log 原路径。
     match query.granularity.as_deref() {
         Some("minute") | Some("5min") => {} // fall through to proxy_log path
-        _ => return query_stats_inner_agg(conn, query, start, end, auto_map, platform_names),
+        _ => {
+            return query_stats_inner_agg(
+                conn,
+                query,
+                start,
+                end,
+                auto_map,
+                platform_names,
+                coding_ids,
+            )
+        }
     }
 
     // minute/5min 细粒度走 proxy_log 原始行；eff_pid（auto 分组 platform_id=0 回溯源平台）
@@ -464,6 +541,12 @@ pub(crate) fn query_stats_inner(
         .filter_platform
         .as_ref()
         .and_then(|s| s.parse::<i64>().ok());
+    // coding plan 过滤（spec B3）：eff_pid ∈ coding_set；两条件 AND，均内存判定。
+    let coding_set = coding_effective_set(query, coding_ids);
+    let keep = |eff_pid: i64| {
+        want_pid.is_none_or(|w| eff_pid == w)
+            && coding_set.is_none_or(|cs| cs.contains(&eff_pid))
+    };
 
     // SQL 仅下推 time/group/model 过滤（eff_pid 过滤搬内存）。
     let mut where_parts = vec![
@@ -542,9 +625,7 @@ pub(crate) fn query_stats_inner(
     let mut ov_dur = 0i64;
     let mut ov_cost = 0.0f64;
     for r in &rows {
-        if let Some(w) = want_pid
-            && r.eff_pid != w
-        {
+        if !keep(r.eff_pid) {
             continue;
         }
         ov_total += 1;
@@ -595,9 +676,7 @@ pub(crate) fn query_stats_inner(
     }
     let mut bmap: std::collections::HashMap<String, Bkt> = std::collections::HashMap::new();
     for r in &rows {
-        if let Some(w) = want_pid
-            && r.eff_pid != w
-        {
+        if !keep(r.eff_pid) {
             continue;
         }
         let key = utc_ms_to_local_minute_key(r.created_at, five_min);
@@ -655,9 +734,7 @@ pub(crate) fn query_stats_inner(
         let mut smap: std::collections::HashMap<String, Dim> = std::collections::HashMap::new();
         let is_platform = gb == "platform";
         for r in &rows {
-            if let Some(w) = want_pid
-                && r.eff_pid != w
-            {
+            if !keep(r.eff_pid) {
                 continue;
             }
             let d = if is_platform {
@@ -777,9 +854,7 @@ pub(crate) fn query_stats_inner(
     .map_err(|e| format!("available_models: {e}"))?
     .filter_map(|r| r.ok())
     .for_each(|(eff_pid, m)| {
-        if let Some(w) = want_pid
-            && eff_pid != w
-        {
+        if !keep(eff_pid) {
             return;
         }
         model_set.insert(m);

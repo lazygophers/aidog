@@ -98,6 +98,7 @@ export const CONFIGS = {
     segments: [
       seg("g-bal", "group-balance", { prefix: "余额 ", dynamicColor: false }),
       seg("g-spent", "group-spent", { prefix: "$", affixPre: " · " }),
+      seg("g-wcost", "group-window-cost", { prefix: "$", affixPre: " · " }),
       seg("g-coding", "group-coding", { dynamicColor: false }, { newline: true }),
       seg("g-req", "group-requests", { affixPre: " · " }),
       seg("g-cache", "group-cache", { prefix: "缓存 ", affixPre: " · " }),
