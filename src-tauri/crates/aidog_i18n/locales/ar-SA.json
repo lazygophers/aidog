@@ -1887,6 +1887,8 @@
   "stats.daily": "يومي",
   "stats.desc": "عرض حجم الطلبات واستخدام الرموز حسب المنصة والمجموعة والنموذج",
   "stats.dimName": "الاسم",
+"stats.costShare": "حصة التكلفة",
+"stats.donutRest": "أخرى",
   "stats.dimensionRank": "ترتيب الأبعاد",
   "stats.errors": "أخطاء",
   "stats.fineGranBadge": "· على المدى القصير فقط",

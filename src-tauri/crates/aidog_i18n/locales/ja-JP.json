@@ -1887,6 +1887,8 @@
   "stats.daily": "日別",
   "stats.desc": "プラットフォーム、グループ、モデル別のリクエスト数とトークン消費の傾向",
   "stats.dimName": "名前",
+"stats.costShare": "コスト比率",
+"stats.donutRest": "その他",
   "stats.dimensionRank": "ディメンション順位",
   "stats.errors": "エラー",
   "stats.fineGranBadge": "· 短期間のみ",

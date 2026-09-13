@@ -1887,6 +1887,8 @@
   "stats.daily": "Journalier",
   "stats.desc": "Volume de requetes et consommation de tokens par plateforme, groupe et modele",
   "stats.dimName": "Nom",
+"stats.costShare": "Répartition des coûts",
+"stats.donutRest": "Autres",
   "stats.dimensionRank": "Classement",
   "stats.errors": "Erreurs",
   "stats.fineGranBadge": "· court terme uniquement",

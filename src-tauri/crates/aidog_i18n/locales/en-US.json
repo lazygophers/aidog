@@ -1865,6 +1865,8 @@
   "stats.daily": "Daily",
   "stats.desc": "View request volume and token usage by platform, group, and model",
   "stats.dimName": "Name",
+"stats.costShare": "Cost share",
+"stats.donutRest": "Other",
   "stats.dimensionRank": "Dimension Ranking",
   "stats.errors": "Errors",
   "stats.fineGranBadge": "· short-term only",
