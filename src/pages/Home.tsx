@@ -1,8 +1,9 @@
-// ─── 首页 · 指挥中心 (Command Center) ──────────────────────────────────
-// 一屏掌控：顶部代理状态条 → 大 KPI 数字带（今日花费/Token/请求/缓存）→ 放大趋势主图（24h 三曲线）
-// → 底部双栏（分组平台速览·总余额 | 今日平台 Top5）→ 快捷操作。
-// 从现有设计系统长出（Liquid Glass + CSS 变量 + 共享组件 / formatters / usageColor），
-// 真实数据 only，无数据留诚实空态；深度分析留 Stats，本页只做概览与跳转入口。
+// ─── 首页 · 命令面板（Command Palette · #36 / spec C3）─────────────────
+// 单块命令面板：琥珀渐变眉条 → 搜索栏式状态行（运行态点 + 端口 + ⌘C 复制地址）
+// → 四 KPI 紧凑行（每格行内 sparkline，花费=琥珀其余灰阶）→ 24h 紧凑双线趋势
+// （琥珀主线 + 灰阶虚线辅线）→ 平台 Top4（迷你环形 + 行内占比条 + 等宽数字）
+// → 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C 视觉示意，键位绑定不做）。
+// 旧三曲线主图删除，深分析归 Stats。数据源（各区独立 catch）/ reveal 入场 / RTL / i18n 不变。
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
@@ -10,92 +11,128 @@ import {
   proxyApi,
   trayConfigApi,
   popoverConfigApi,
-  groupDetailApi,
   platformApi,
   statsApi,
   onProxyLogUpdated,
   type TodayStats,
   type TodayPlatformStat,
-  type GroupDetail,
   type Platform,
   type StatsBucket,
 } from "../services/api";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
-import { smoothPath } from "../utils/chart";
-import { BalanceBar, costLevel, levelColor, CopyButton, useReveal, useCounter, makeRipple } from "../components/shared";
-import { Button } from "@/components/ui/button";
+import { writeText } from "../services/platform";
+import { useReveal } from "../components/shared";
+import { seriesColor } from "@/components/charts";
 import { F } from "../domains/shared/tokens";
-import {
-  IconCost,
-  IconBolt,
-  IconPackage,
-  IconCard,
-  IconPlatforms,
-  IconStats,
-  IconLogs,
-} from "../components/icons";
 
 const DEFAULT_PORT = 7890;
-const TOP_PLATFORMS = 5;
+const TOP_PLATFORMS = 4;
 
-// CopyButton 抽至 components/shared（消重 D6）
+// 命令面板视觉 token（direction-approved.md 锁定）：分层中性面 s1/s2、行线、SF Mono 数字栈。
+const PANEL = {
+  fg: "#f5f5f0",
+  muted: "#8a8580",
+  s1: "#0e0e0e",
+  s2: "#151514",
+  line: "rgba(255,255,255,.07)",
+  mono: '"SF Mono", ui-monospace, Menlo, monospace',
+} as const;
+// 琥珀渐变眉条（Raycast 品牌渐变位换琥珀系）。
+const BROW_GRADIENT = "linear-gradient(90deg, #64521d, #e8c547 55%, #f2dc8a)";
 
 /**
- * 大 KPI 单元：放大数字 + 可选副文本（如缩写量级）+ 小图标标签。今日概览的视觉主角之一。
- * 向后兼容两种模式：
- * - 传 `numeric` → useCounter raf 滚动到目标值，`format` 决定展示形态（默认 toLocaleString）。
- * - 不传 `numeric`（或 undefined）→ 直接渲染 `value` 字符串（原行为，保护既有调用方）。
- * `decimals` 仅 numeric 模式生效（useCounter 第二参，控小数位）。
+ * 数值序列 → 归一化 [x,y] 点集（sparkline / 趋势线共用）：
+ * y 按 min-max 缩放进 [pad, h-pad]（平坦序列落中线，不除零）；x 均分（单点居中）。
  */
-type KpiCellProps = {
-  icon: React.ReactNode;
-  value?: string;
-  numeric?: number;
-  format?: (n: number) => string;
-  decimals?: number;
-  sub?: string;
-  label: string;
-  color?: string;
-};
-function KpiCell({ icon, value, numeric, format, decimals, sub, label, color }: KpiCellProps) {
-  const useCounterMode = typeof numeric === "number" && Number.isFinite(numeric);
-  const { ref: counterRef, display } = useCounter(
-    useCounterMode ? (numeric as number) : 0,
-    decimals ?? 0,
-  );
-  // ponytail: useCounter 进入视口才滚动；display 已含 toFixed/localeString 格式化。
-  // format 模式（成本/百分比/大数缩写）从 display 反解析数字再走 format, 得到滚动中的目标格式串。
-  // fallback 分支（非 numeric 模式）直接显 value, 保持向后兼容。
-  let renderValue: string;
-  if (useCounterMode) {
-    if (format) {
-      const n = parseFloat(display.replace(/[^\d.-]/g, ""));
-      renderValue = format(Number.isFinite(n) ? n : (numeric as number));
-    } else {
-      renderValue = display;
-    }
-  } else {
-    renderValue = value ?? "";
-  }
+export function normPoints(
+  values: number[],
+  w: number,
+  h: number,
+  pad = 2,
+): Array<[number, number]> {
+  if (values.length === 0) return [];
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min;
+  return values.map((v, i) => [
+    values.length > 1 ? (i / (values.length - 1)) * w : w / 2,
+    span > 0 ? pad + (1 - (v - min) / span) * (h - 2 * pad) : h / 2,
+  ]);
+}
+
+const ptsToPolyline = (pts: Array<[number, number]>) =>
+  pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+const ptsToPath = (pts: Array<[number, number]>) =>
+  pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
+
+/** KPI 格行内 sparkline：100×22 viewBox 无填充折线（公共层无现成组件，最小 SVG 内联）。 */
+function Sparkline({ values, color }: { values: number[]; color: string }) {
+  if (values.length < 2) return null;
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
-      <span
-        ref={useCounterMode ? counterRef : undefined}
-        className={useCounterMode ? "counter" : undefined}
-        style={{ fontSize: F.kpi, fontWeight: 700, lineHeight: 1.05, color: color ?? "var(--text-primary)", letterSpacing: "-0.01em" }}
-      >
-        {renderValue}
-      </span>
-      {sub && (
-        <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 500, lineHeight: 1, marginTop: -1 }}>
-          {sub}
-        </span>
-      )}
-      <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 5 }}>
-        <span style={{ display: "inline-flex", opacity: 0.85 }}>{icon}</span>
+    <svg
+      viewBox="0 0 100 22"
+      preserveAspectRatio="none"
+      style={{ display: "block", marginTop: 8, width: "100%", height: 22 }}
+    >
+      <polyline
+        points={ptsToPolyline(normPoints(values, 100, 22))}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  );
+}
+
+/** KPI 紧凑格：等宽 label + 等宽 tabular-nums 大数字 + 行内 sparkline。 */
+function KpiCell({ label, value, spark, amber }: { label: string; value: string; spark: number[]; amber?: boolean }) {
+  return (
+    <div style={{ padding: "14px 16px", minWidth: 0 }}>
+      <div style={{ fontFamily: PANEL.mono, fontSize: 10, letterSpacing: ".1em", color: PANEL.muted, whiteSpace: "nowrap" }}>
         {label}
-      </span>
+      </div>
+      <div
+        style={{
+          fontFamily: PANEL.mono,
+          fontSize: 24,
+          fontWeight: 700,
+          fontVariantNumeric: "tabular-nums",
+          color: PANEL.fg,
+          marginTop: 3,
+          whiteSpace: "nowrap",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+        }}
+      >
+        {value}
+      </div>
+      <Sparkline values={spark} color={amber ? seriesColor(0) : seriesColor(1)} />
     </div>
+  );
+}
+
+/** 平台行迷你环形：琥珀弧 = share（该平台花费 / Top4 合计），余弧弱灰。 */
+function MiniRing({ share }: { share: number }) {
+  const r = 9;
+  const c = 2 * Math.PI * r;
+  const len = Math.max(0, Math.min(1, share)) * c;
+  return (
+    <svg viewBox="0 0 26 26" width={26} height={26} style={{ flexShrink: 0 }}>
+      <circle cx={13} cy={13} r={r} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth={5} />
+      <circle
+        cx={13}
+        cy={13}
+        r={r}
+        fill="none"
+        stroke={seriesColor(0)}
+        strokeWidth={5}
+        strokeDasharray={`${len.toFixed(2)} ${c.toFixed(2)}`}
+        transform="rotate(-90 13 13)"
+      />
+    </svg>
   );
 }
 
@@ -105,15 +142,14 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   const [port, setPort] = useState<number>(DEFAULT_PORT);
   const [today, setToday] = useState<TodayStats | null>(null);
   const [platformsToday, setPlatformsToday] = useState<TodayPlatformStat[]>([]);
-  const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [trendBuckets, setTrendBuckets] = useState<StatsBucket[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hoveredBucket, setHoveredBucket] = useState<number | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // 并行拉取，各区独立 catch 兜底（单 API 失败该区空态，不整页崩）。
   const load = useCallback(async () => {
-    // 最近 24 小时 hourly 趋势：now-24h → now 滚动窗口（24 桶）。
+    // 最近 24 小时 hourly 趋势：now-24h → now 滚动窗口（24 桶），喂 KPI sparkline + 双线趋势区。
     const now = new Date();
     const windowStart = now.getTime() - 24 * 3600 * 1000;
     await Promise.all([
@@ -121,7 +157,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
       trayConfigApi.todayStats().then(setToday).catch(() => setToday(null)),
       popoverConfigApi.platformToday().then(setPlatformsToday).catch(() => setPlatformsToday([])),
-      groupDetailApi.list().then(setGroups).catch(() => setGroups([])),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
@@ -130,17 +165,24 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   }, []);
 
   useEffect(() => { load(); }, [load]);
-  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载今日 / 平台用量。
+  // 请求完成后后端 emit "proxy-log-updated" → 重载今日 / 平台用量 / 趋势。
   useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
 
   const proxyBaseUrl = `http://127.0.0.1:${port}/proxy`;
+  const copyUrl = useCallback(() => {
+    writeText(proxyBaseUrl)
+      .then(() => {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 1500);
+      })
+      .catch(() => {});
+  }, [proxyBaseUrl]);
 
   // 今日是否有数据：requests/cost/tokens 任一 > 0。
   const hasTodayData = !!today && (today.total_requests > 0 || today.cost > 0 || today.tokens > 0);
 
   // 总余额 = 关联平台 est_balance_remaining 求和（平台级属性，无 per-group 概念）。
   const totalBalance = platforms.reduce((acc, p) => acc + (p.est_balance_remaining || 0), 0);
-  const enabledCount = platforms.filter(p => p.status === "enabled").length;
 
   // 平台今日用量 top N（已用 cost 降序）。
   const topPlatforms = [...platformsToday]
@@ -148,449 +190,270 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
     .sort((a, b) => b.cost - a.cost)
     .slice(0, TOP_PLATFORMS);
   const maxPlatformCost = topPlatforms.reduce((m, p) => Math.max(m, p.cost), 0);
+  const topCostSum = topPlatforms.reduce((s, p) => s + p.cost, 0);
 
-  // 最近 24 小时请求趋势：各小时桶的 total_requests。峰值 / 总请求用于标注 + 柱高归一化。
+  // 24h 趋势 / KPI sparkline 序列（hourly 桶）。
+  const reqSeries = trendBuckets.map(b => b.total_requests);
+  const costSeries = trendBuckets.map(b => b.total_cost);
+  const tokensSeries = trendBuckets.map(b => b.input_tokens + b.output_tokens + b.cache_tokens);
+  const cacheSeries = trendBuckets.map(b => b.cache_tokens);
   const trendPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_requests), 0);
-  const trendTotal = trendBuckets.reduce((s, b) => s + b.total_requests, 0);
-  const hasTrend = trendTotal > 0;
+  const hasTrend = reqSeries.some(v => v > 0);
 
   const statusColor = running == null
-    ? "var(--text-tertiary)"
-    : running ? "var(--color-success)" : "var(--text-tertiary)";
+    ? PANEL.muted
+    : running ? "var(--color-success)" : PANEL.muted;
   const statusText = running == null
     ? t("home.statusUnknown", "未知")
     : running ? t("home.statusRunning", "运行中") : t("home.statusStopped", "已停止");
 
-  // 萤火虫动效：4 区块 reveal 入场错峰（0/80/160/240ms）。
-  const revealStatusBar = useReveal<HTMLDivElement>(0);
-  const revealKpi = useReveal<HTMLDivElement>(80);
-  const revealTrend = useReveal<HTMLDivElement>(160);
-  const revealBottom = useReveal<HTMLDivElement>(240);
+  // 24h 趋势 SVG 几何：viewBox 640×88，主线（请求）琥珀 + 面积填充，辅线（花费）灰阶虚线独立归一化。
+  const TW = 640;
+  const TH = 88;
+  const mainPts = normPoints(reqSeries, TW, TH, 8);
+  const mainPath = ptsToPath(mainPts);
+  const areaPath = mainPts.length > 1 ? `${mainPath} L ${TW},${TH} L 0,${TH} Z` : "";
+  const auxPath = ptsToPath(normPoints(costSeries, TW, TH, 8));
+
+  // 萤火虫动效：面板内 5 区块 reveal 入场错峰（0/70/140/210/280ms）。
+  const revealSearch = useReveal<HTMLDivElement>(0);
+  const revealKpi = useReveal<HTMLDivElement>(70);
+  const revealTrend = useReveal<HTMLDivElement>(140);
+  const revealPlats = useReveal<HTMLDivElement>(210);
+  const revealFoot = useReveal<HTMLDivElement>(280);
+
+  const kpis = hasTodayData && today
+    ? [
+      { label: t("home.cost", "费用"), value: formatCostUsd(today.cost), spark: costSeries, amber: true },
+      { label: t("home.tokens", "Token"), value: formatNumber(today.tokens), spark: tokensSeries },
+      { label: t("home.requests", "请求"), value: formatNumber(today.total_requests), spark: reqSeries },
+      { label: t("home.cacheRate", "缓存率"), value: formatPercent(today.cache_rate), spark: cacheSeries },
+    ]
+    : [];
+
+  const footChips = [
+    { label: t("home.addPlatform", "添加平台"), kbd: "⌘N", run: () => onNavigate("platforms") },
+    { label: t("home.viewStats", "查看统计"), kbd: "⌘S", run: () => onNavigate("stats") },
+    { label: t("home.viewLogs", "查看日志"), kbd: "⌘L", run: () => onNavigate("logs") },
+    { label: t("home.copyBaseUrl", "复制代理地址"), kbd: "⌘C", run: copyUrl },
+  ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720, margin: "0 auto", width: "100%" }}>
       {/* Header */}
       <div>
         <div className="section-title">{t("page.home", "首页")}</div>
         <div className="section-desc">{t("home.desc", "代理状态、今日用量与分组平台速览")}</div>
       </div>
 
-      {/* 1. 状态条：代理运行状态 + 端口 + 复制 base_url */}
-      <div
-        ref={revealStatusBar.ref}
-        className={`glass-surface flow-border reveal${revealStatusBar.shown ? " in" : ""}`}
-        style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}
-      >
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 9, height: 9, borderRadius: "50%", background: statusColor, flexShrink: 0, boxShadow: running ? "0 0 0 4px color-mix(in srgb, var(--color-success) 18%, transparent)" : "none" }} />
-          <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("home.proxyStatus", "代理服务")}</span>
-          <span style={{ fontSize: F.body, fontWeight: 700, color: statusColor }}>{statusText}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("home.port", "端口")}</span>
-          <span style={{ fontSize: F.hint, fontWeight: 600 }}>{port}</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", minWidth: 0 }}>
-          <code style={{ fontSize: F.small, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{proxyBaseUrl}</code>
-          <CopyButton text={proxyBaseUrl} label={t("home.copyBaseUrl", "复制代理地址")} title={t("home.copyBaseUrlTitle", "复制代理 base_url")} />
-        </div>
-      </div>
+      {/* 琥珀渐变眉条（Raycast 品牌渐变位换琥珀系） */}
+      <div style={{ height: 3, borderRadius: 2, background: BROW_GRADIENT }} />
 
-      {/* 2. 大 KPI 数字带：今日花费 / Token / 请求 / 缓存率（视觉主角 · 无数据诚实空态） */}
+      {/* 命令面板单块 */}
       <div
-        ref={revealKpi.ref}
-        className={`glass-surface flow-border reveal${revealKpi.shown ? " in" : ""}`}
-        style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}
+        style={{
+          background: PANEL.s1,
+          border: `1px solid ${PANEL.line}`,
+          borderRadius: 14,
+          overflow: "hidden",
+          boxShadow: "0 8px 32px rgba(0,0,0,.6)",
+        }}
       >
-        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.todayTitle", "今日概览")}</div>
-        {hasTodayData ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 18, columnGap: 28 }}>
-            <KpiCell
-              icon={<IconCost size={13} />}
-              numeric={today!.cost}
-              format={formatCostUsd}
-              decimals={2}
-              label={t("home.cost", "费用")}
-              color={levelColor(costLevel(today!.cost))}
-            />
-            <KpiCell
-              icon={<IconBolt size={13} />}
-              numeric={today!.tokens}
-              format={formatNumber}
-              sub={formatNumber(today!.tokens)}
-              label={t("home.tokens", "Token")}
-            />
-            <KpiCell
-              icon={<IconLogs size={13} />}
-              numeric={today!.total_requests}
-              format={formatNumber}
-              sub={formatNumber(today!.total_requests)}
-              label={t("home.requests", "请求")}
-            />
-            <KpiCell
-              icon={<IconPackage size={13} />}
-              numeric={today!.cache_rate}
-              format={(n) => formatPercent(n)}
-              decimals={1}
-              label={t("home.cacheRate", "缓存率")}
-            />
-          </div>
-        ) : (
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "8px 0" }}>
-            {t("home.noToday", "今日暂无请求")}
-          </div>
-        )}
-        {/* Token 明细：input / output / cache（弱色小号，title 显示完整数） */}
-        {hasTodayData && (
-          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: F.small, color: "var(--text-tertiary)", borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-            <span title={today!.input_tokens.toLocaleString("en-US")}>
-              {t("home.tokenInput", "输入")} <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{formatNumber(today!.input_tokens)}</span>
-            </span>
-            <span title={today!.output_tokens.toLocaleString("en-US")}>
-              {t("home.tokenOutput", "输出")} <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{formatNumber(today!.output_tokens)}</span>
-            </span>
-            <span title={today!.cache_tokens.toLocaleString("en-US")}>
-              {t("home.tokenCache", "缓存")} <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{formatNumber(today!.cache_tokens)}</span>
-            </span>
-          </div>
-        )}
-      </div>
+        {/* 1. 搜索栏式状态行：运行态点 + 端口 + ⌘C 复制地址 */}
+        <div
+          ref={revealSearch.ref}
+          className={`reveal${revealSearch.shown ? " in" : ""}`}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+        >
+          <span
+            style={{
+              width: 10,
+              height: 10,
+              borderRadius: "50%",
+              flexShrink: 0,
+              background: statusColor,
+              boxShadow: running ? "0 0 0 4px color-mix(in srgb, var(--color-success) 14%, transparent)" : "none",
+            }}
+          />
+          <span style={{ fontSize: F.body, fontWeight: 600, color: PANEL.fg, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {t("home.proxyStatus", "代理服务")} {statusText} · {t("home.port", "端口")} {port}
+          </span>
+          <button
+            type="button"
+            className="cmd-kb"
+            style={{ marginInlineStart: "auto" }}
+            title={t("home.copyBaseUrlTitle", "复制代理 base_url")}
+            onClick={copyUrl}
+          >
+            <span className="k">⌘C</span>
+            {copied ? "✓" : t("home.copyBaseUrl", "复制代理地址")}
+          </button>
+        </div>
 
-      {/* 3. 放大趋势主图 · 今日（hourly 三曲线：请求数 + tokens 总数 + 花费） */}
-      <div
-        ref={revealTrend.ref}
-        className={`glass-surface flow-border reveal${revealTrend.shown ? " in" : ""}`}
-        style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}
-      >
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.trendTitle", "请求趋势 · 今日")}</div>
-          {hasTrend && (
-            <div style={{ display: "flex", gap: 14, fontSize: F.small, alignItems: "center" }}>
-              {/* 图例 */}
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 10, height: 3, background: "var(--accent)", borderRadius: 2 }} />
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendRequests", "请求数")}</span>
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 10, height: 3, background: "var(--color-info)", borderRadius: 2 }} />
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTokens", "Tokens")}</span>
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 10, height: 3, background: "var(--color-warning)", borderRadius: 2 }} />
-                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendCost", "花费")}</span>
-                </span>
+        {/* 2. 四 KPI 紧凑行：今日花费（琥珀 sparkline）/ Token / 请求 / 缓存率（灰阶） */}
+        <div
+          ref={revealKpi.ref}
+          className={`reveal${revealKpi.shown ? " in" : ""}`}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", borderBottom: `1px solid ${PANEL.line}` }}
+        >
+          {kpis.length > 0 ? (
+            kpis.map((k, i) => (
+              <div key={k.label} style={{ borderInlineEnd: i < kpis.length - 1 ? `1px solid ${PANEL.line}` : undefined }}>
+                <KpiCell {...k} />
               </div>
-              <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendPeak", "峰值")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendPeak)}</span></span>
-              <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTotal", "总请求")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendTotal)}</span></span>
+            ))
+          ) : (
+            <div style={{ padding: "14px 16px", fontSize: F.hint, color: PANEL.muted }}>
+              {loading ? "" : t("home.noToday", "今日暂无请求")}
             </div>
           )}
         </div>
-        {hasTrend ? (
-          (() => {
-            // SVG 三曲线图：请求数（accent）+ tokens 总数（info）+ 花费（warning）。指挥中心 → 高度放大到 150。
-            const W = 1000;            // viewBox 宽
-            const H = 150;             // viewBox 高（放大主图）
-            const PAD_T = 10;          // 顶部留白
-            const n = trendBuckets.length;
-            const plotH = H - PAD_T;
-            const xAt = (i: number) => n > 1 ? (i / (n - 1)) * W : W / 2;
 
-            // 请求数归一化
-            const yAtRequests = (v: number) => PAD_T + (trendPeak > 0 ? (1 - v / trendPeak) : 1) * plotH;
-
-            // tokens 总数归一化
-            const tokensPeak = trendBuckets.reduce((m, b) => {
-              const totalTokens = b.input_tokens + b.output_tokens + b.cache_tokens;
-              return Math.max(m, totalTokens);
-            }, 0);
-            const yAtTokens = (v: number) => PAD_T + (tokensPeak > 0 ? (1 - v / tokensPeak) : 1) * plotH;
-
-            // 花费归一化（独立标尺）
-            const costPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_cost), 0);
-            const yAtCost = (v: number) => PAD_T + (costPeak > 0 ? (1 - v / costPeak) : 1) * plotH;
-
-            const ptsRequests = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtRequests(b.total_requests), b }));
-            const ptsTokens = trendBuckets.map((b, i) => ({
-              x: xAt(i),
-              y: yAtTokens(b.input_tokens + b.output_tokens + b.cache_tokens),
-              b
-            }));
-            const ptsCost = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtCost(b.total_cost), b }));
-
-            const requestsPath = smoothPath(ptsRequests, PAD_T, H);
-            const tokensPath = smoothPath(ptsTokens, PAD_T, H);
-            const costPath = smoothPath(ptsCost, PAD_T, H);
-
-            // 峰值索引
-            const peakIdxRequests = ptsRequests.reduce((mi, p, i) => p.b.total_requests > ptsRequests[mi].b.total_requests ? i : mi, 0);
-
-            return (
-              <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 2 }}>
-                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 150, display: "block", overflow: "visible" }}>
-                  <defs>
-                    <linearGradient id="homeTrendArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.26" />
-                      <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
-                    </linearGradient>
-                  </defs>
-                  {/* 请求数面积填充 */}
-                  <path
-                    d={`${requestsPath} L ${ptsRequests[n - 1].x.toFixed(1)},${H} L ${ptsRequests[0].x.toFixed(1)},${H} Z`}
-                    fill="url(#homeTrendArea)"
-                  />
-                  {/* 请求数曲线（accent） */}
-                  <path
-                    d={requestsPath}
-                    fill="none"
-                    stroke="var(--accent)"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                  />
-                  {/* tokens 曲线（info，无填充） */}
-                  <path
-                    d={tokensPath}
-                    fill="none"
-                    stroke="var(--color-info)"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                    opacity={0.85}
-                  />
-                  {/* 花费曲线（warning，无填充，与 tokens 同模式避免三色面积打架） */}
-                  <path
-                    d={costPath}
-                    fill="none"
-                    stroke="var(--color-warning)"
-                    strokeWidth={2}
-                    strokeLinejoin="round"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                    opacity={0.85}
-                  />
-                  {/* hover 命中区（每桶一竖条，透明） */}
-                  {ptsRequests.map((p, i) => (
-                    <rect
+        {/* 3. 24h 紧凑双线趋势：琥珀主线（请求，面积填充）+ 灰阶虚线辅线（花费，独立标尺） */}
+        <div
+          ref={revealTrend.ref}
+          className={`reveal${revealTrend.shown ? " in" : ""}`}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+            <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.trend24h", "24 小时趋势")}</b>
+            <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
+              HOURLY · {t("home.trendRequests", "请求数")} / {t("home.trendCost", "花费")}
+              {hasTrend && ` · ${t("home.trendPeak", "峰值")} ${formatNumber(trendPeak)}`}
+            </span>
+          </div>
+          {hasTrend ? (
+            <>
+              <svg viewBox={`0 0 ${TW} ${TH}`} preserveAspectRatio="none" style={{ display: "block", width: "100%", height: TH }}>
+                <defs>
+                  <linearGradient id="homeCmdTrendArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor={seriesColor(0)} stopOpacity=".2" />
+                    <stop offset="1" stopColor={seriesColor(0)} stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+                <g stroke="rgba(255,255,255,.05)">
+                  <line x1={0} y1={22} x2={TW} y2={22} />
+                  <line x1={0} y1={44} x2={TW} y2={44} />
+                  <line x1={0} y1={66} x2={TW} y2={66} />
+                </g>
+                <path d={areaPath} fill="url(#homeCmdTrendArea)" />
+                <path d={mainPath} fill="none" stroke={seriesColor(0)} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+                <path d={auxPath} fill="none" stroke={seriesColor(1)} strokeWidth={1.2} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
+              </svg>
+              {/* x 轴整点小时标注：每 6 桶（hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"） */}
+              <div style={{ position: "relative", height: 12 }}>
+                {trendBuckets.map((b, i) =>
+                  i % 6 === 0 ? (
+                    <span
                       key={i}
-                      x={(p.x - W / (n * 2)).toFixed(1)}
-                      y={0}
-                      width={(W / n).toFixed(1)}
-                      height={H}
-                      fill="transparent"
-                      onMouseEnter={() => setHoveredBucket(i)}
-                      onMouseLeave={() => setHoveredBucket(null)}
-                    />
-                  ))}
-                  {/* 请求数峰值点高亮（drop-shadow glow 萤火虫签名，对齐 CostTrendChart） */}
-                  {trendPeak > 0 && (
-                    <circle
-                      cx={ptsRequests[peakIdxRequests].x.toFixed(1)}
-                      cy={ptsRequests[peakIdxRequests].y.toFixed(1)}
-                      r={3.5}
-                      fill="var(--accent)"
-                      vectorEffect="non-scaling-stroke"
-                      style={{ filter: "drop-shadow(0 0 4px var(--accent))", transition: "cx .2s ease, cy .2s ease" }}
-                    />
-                  )}
-                </svg>
-                {/* 自定义 Tooltip */}
-                {hoveredBucket != null && trendBuckets[hoveredBucket] && (
-                  <div
-                    style={{
-                      position: "absolute",
-                      top: -8,
-                      left: `${(xAt(hoveredBucket) / W) * 100}%`,
-                      transform: "translateX(-50%)",
-                      background: "var(--bg-floating)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 8,
-                      padding: "8px 12px",
-                      boxShadow: "var(--shadow-md)",
-                      pointerEvents: "none",
-                      zIndex: 10,
-                      minWidth: 140,
-                    }}
-                  >
-                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
-                      {/* hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"；取 "HH:00"（slice(-5) 会取成秒位 "00:00"）。 */}
-                      {trendBuckets[hoveredBucket].time_bucket.slice(11, 16)}
-                    </div>
-                    {/* 请求数 + 变化 */}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendRequests", "请求数")}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
-                        {formatNumber(trendBuckets[hoveredBucket].total_requests)}
-                      </span>
-                      {hoveredBucket > 0 && (
-                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                          {(() => {
-                            const prev = trendBuckets[hoveredBucket - 1].total_requests;
-                            const curr = trendBuckets[hoveredBucket].total_requests;
-                            const diff = curr - prev;
-                            if (prev === 0) {
-                              return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
-                            }
-                            const pct = ((diff / prev) * 100).toFixed(0);
-                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
-                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
-                          })()}
-                        </span>
-                      )}
-                    </div>
-                    {/* tokens + 变化 */}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendTokens", "Tokens")}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-info)" }}>
-                        {formatNumber(trendBuckets[hoveredBucket].input_tokens + trendBuckets[hoveredBucket].output_tokens + trendBuckets[hoveredBucket].cache_tokens)}
-                      </span>
-                      {hoveredBucket > 0 && (
-                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                          {(() => {
-                            const currTokens = trendBuckets[hoveredBucket].input_tokens + trendBuckets[hoveredBucket].output_tokens + trendBuckets[hoveredBucket].cache_tokens;
-                            const prevTokens = trendBuckets[hoveredBucket - 1].input_tokens + trendBuckets[hoveredBucket - 1].output_tokens + trendBuckets[hoveredBucket - 1].cache_tokens;
-                            const diff = currTokens - prevTokens;
-                            if (prevTokens === 0) {
-                              return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
-                            }
-                            const pct = ((diff / prevTokens) * 100).toFixed(0);
-                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
-                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
-                          })()}
-                        </span>
-                      )}
-                    </div>
-                    {/* 花费 + 变化 */}
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginTop: 4 }}>
-                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendCost", "花费")}</span>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-warning)" }}>
-                        {formatCostUsd(trendBuckets[hoveredBucket].total_cost)}
-                      </span>
-                      {hoveredBucket > 0 && (
-                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
-                          {(() => {
-                            const prevCost = trendBuckets[hoveredBucket - 1].total_cost;
-                            const currCost = trendBuckets[hoveredBucket].total_cost;
-                            const diff = currCost - prevCost;
-                            if (prevCost === 0) {
-                              return <span style={{ color: "var(--color-success)" }}> (+{formatCostUsd(diff)} new)</span>;
-                            }
-                            const pct = ((diff / prevCost) * 100).toFixed(0);
-                            const color = diff >= 0 ? "var(--color-success)" : "var(--color-danger)";
-                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
-                          })()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                      style={{
+                        position: "absolute",
+                        left: `${((i / (trendBuckets.length - 1)) * 100).toFixed(1)}%`,
+                        transform: "translateX(-50%)",
+                        fontFamily: PANEL.mono,
+                        fontSize: 8,
+                        color: PANEL.muted,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {b.time_bucket.slice(11, 13)}
+                    </span>
+                  ) : null,
                 )}
-                {/* x 轴整点小时标注：每 4 桶 */}
-                <div style={{ position: "relative", height: 12 }}>
-                  {trendBuckets.map((b, i) =>
-                    i % 4 === 0 ? (
-                      <span
-                        key={i}
-                        style={{
-                          position: "absolute",
-                          left: `${(xAt(i) / W) * 100}%`,
-                          transform: "translateX(-50%)",
-                          fontSize: 8,
-                          color: "var(--text-tertiary)",
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {b.time_bucket.slice(11, 13)}
-                      </span>
-                    ) : null
-                  )}
-                </div>
               </div>
-            );
-          })()
-        ) : (
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "8px 0" }}>
-            {t("home.trendEmpty", "今日暂无请求")}
-          </div>
-        )}
-      </div>
-
-      {/* 4. 底部双栏：左=分组/平台速览·总余额  右=今日平台用量 Top5 */}
-      <div
-        ref={revealBottom.ref}
-        className={`reveal${revealBottom.shown ? " in" : ""}`}
-        style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "stretch" }}
-      >
-        {/* 左：分组/平台速览 + 总余额 */}
-        <div className="glass-surface flow-border" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.overviewTitle", "分组 / 平台速览")}</div>
-          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: F.title, fontWeight: 700 }}>{groups.length}</span>
-              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("home.groups", "分组")}</span>
+            </>
+          ) : (
+            <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "8px 0" }}>
+              {loading ? "" : t("home.noToday", "今日暂无请求")}
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: F.title, fontWeight: 700 }}>{platforms.length}</span>
-              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
-                {t("home.platforms", "平台")}
-                {platforms.length > 0 && (
-                  <span style={{ marginLeft: 4 }}>{t("home.enabledCount", "{{count}} 启用", { count: enabledCount })}</span>
-                )}
-              </span>
-            </div>
-          </div>
-          {totalBalance > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-              <span style={{ fontSize: F.small, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4 }}>
-                <IconCard size={12} /> {t("home.totalBalance", "总余额")}
-              </span>
-              <BalanceBar remaining={totalBalance} />
-            </div>
-          )}
-          {!loading && groups.length === 0 && platforms.length === 0 && (
-            <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("home.noPlatforms", "暂无分组或平台")}</div>
           )}
         </div>
 
-        {/* 右：今日平台用量 Top5 */}
-        <div className="glass-surface flow-border" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <span style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.topPlatforms", "今日平台用量")}</span>
+        {/* 4. 平台 Top4：迷你环形（花费占比）+ 行内占比条 + 等宽数字 */}
+        <div
+          ref={revealPlats.ref}
+          className={`reveal${revealPlats.shown ? " in" : ""}`}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+        >
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
+            <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.topPlatforms", "今日平台用量")}</b>
+            <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
+              TOP {TOP_PLATFORMS} · {t("home.trendCost", "花费")}
+            </span>
+          </div>
           {topPlatforms.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {topPlatforms.map(p => (
-                <div key={p.platform_id} className="hover-lift" style={{ display: "flex", flexDirection: "column", gap: 3, padding: "4px 6px", borderRadius: "var(--radius-sm)" }}>
-                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                    <span style={{ fontSize: F.hint, fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.platform_name}</span>
-                    <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{formatNumber(p.requests)} · {formatNumber(p.tokens)}</span>
-                    <span style={{ fontSize: F.hint, fontWeight: 700, color: levelColor(costLevel(p.cost)) }}>{formatCostUsd(p.cost)}</span>
-                  </div>
-                  <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
-                    <div style={{ width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`, height: "100%", background: "var(--accent)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
-                  </div>
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {topPlatforms.map((p, i) => (
+                <div
+                  key={p.platform_id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "9px 0",
+                    borderBottom: i < topPlatforms.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
+                  }}
+                >
+                  <MiniRing share={topCostSum > 0 ? p.cost / topCostSum : 0} />
+                  <span style={{ fontSize: F.small + 1, fontWeight: 600, color: PANEL.fg, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.platform_name}
+                  </span>
+                  <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
+                    <span
+                      style={{
+                        display: "block",
+                        width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`,
+                        height: "100%",
+                        background: seriesColor(0),
+                        borderRadius: 2,
+                        transition: "width 0.3s ease",
+                      }}
+                    />
+                  </span>
+                  <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap" }}>
+                    {formatNumber(p.requests)} · {formatNumber(p.tokens)}
+                  </span>
+                  <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap" }}>
+                    {formatCostUsd(p.cost)}
+                  </span>
                 </div>
               ))}
             </div>
           ) : (
-            <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "4px 0" }}>{t("home.noToday", "今日暂无请求")}</div>
+            <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>
+              {loading ? "" : t("home.noToday", "今日暂无请求")}
+            </div>
           )}
         </div>
-      </div>
 
-      {/* 5. 快捷操作 */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.quickActions", "快捷操作")}</div>
-        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <Button variant="default" className="ripple" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={(e) => { makeRipple(e); onNavigate("platforms"); }}>
-            <IconPlatforms size={15} /> {t("home.addPlatform", "添加平台")}
-          </Button>
-          <Button variant="default" className="ripple" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={(e) => { makeRipple(e); onNavigate("stats"); }}>
-            <IconStats size={15} /> {t("home.viewStats", "查看统计")}
-          </Button>
-          <Button variant="default" className="ripple" style={{ gap: 6, fontSize: 13, height: "auto", padding: "6px 12px" }} onClick={(e) => { makeRipple(e); onNavigate("logs"); }}>
-            <IconLogs size={15} /> {t("home.viewLogs", "查看日志")}
-          </Button>
-          <CopyButton text={proxyBaseUrl} label={t("home.copyBaseUrl", "复制代理地址")} title={t("home.copyBaseUrlTitle", "复制代理 base_url")} />
+        {/* 5. 总余额行 + 快捷键 footer */}
+        <div ref={revealFoot.ref} className={`reveal${revealFoot.shown ? " in" : ""}`}>
+          {totalBalance > 0 && (
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "baseline",
+                gap: 12,
+                padding: "12px 16px",
+                borderBottom: `1px solid ${PANEL.line}`,
+                fontSize: F.small,
+                color: PANEL.muted,
+              }}
+            >
+              <span>{t("home.totalBalance", "总余额")}</span>
+              <b style={{ fontSize: 17, color: PANEL.fg, fontFamily: PANEL.mono, fontVariantNumeric: "tabular-nums" }}>
+                {formatCostUsd(totalBalance)}
+              </b>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 8, padding: "12px 14px", flexWrap: "wrap" }}>
+            {footChips.map(c => (
+              <button key={c.kbd} type="button" className="cmd-kb" onClick={c.run}>
+                {c.label} <span className="k">{c.kbd}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>
