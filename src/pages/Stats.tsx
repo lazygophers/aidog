@@ -42,6 +42,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
+import { ShareDonut } from "@/components/shared/ShareDonut";
 
 type TimePreset = "today" | "7d" | "30d";
 
@@ -569,6 +570,16 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               })()}
             </div>
           )}
+
+          {/* 成本占比环形图（#26 图表引擎原型：Recharts v3 公共层验证） */}
+          {dims.length > 1 ? (
+            <div className="glass-surface" style={{ padding: "16px 20px" }}>
+              <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 12 }}>
+                {t("stats.costShare", "成本占比")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
+              </div>
+              <ShareDonut entries={dims} />
+            </div>
+          ) : null}
 
           {/* Dimension table（列排序 + 分页） */}
           {dims.length > 0 ? (

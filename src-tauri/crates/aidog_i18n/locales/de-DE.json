@@ -1887,6 +1887,8 @@
   "stats.daily": "Täglich",
   "stats.desc": "Anfragen und Token-Verbrauch nach Plattform, Gruppe und Modell",
   "stats.dimName": "Name",
+"stats.costShare": "Kostenanteil",
+"stats.donutRest": "Weitere",
   "stats.dimensionRank": "Dimensionen-Rang",
   "stats.errors": "Fehler",
   "stats.fineGranBadge": "· nur kurzfristig",

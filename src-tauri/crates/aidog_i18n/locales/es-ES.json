@@ -1865,6 +1865,8 @@
   "stats.daily": "Diario",
   "stats.desc": "Ver volumen de peticiones y uso de tokens por plataforma, grupo y modelo",
   "stats.dimName": "Nombre",
+"stats.costShare": "Proporción de costos",
+"stats.donutRest": "Otros",
   "stats.dimensionRank": "Ranking por dimensión",
   "stats.errors": "Errores",
   "stats.fineGranBadge": "· solo a corto plazo",

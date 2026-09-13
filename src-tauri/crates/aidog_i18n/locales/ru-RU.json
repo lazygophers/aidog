@@ -1887,6 +1887,8 @@
   "stats.daily": "По дням",
   "stats.desc": "Объём запросов и потребление токенов по платформам, группам и моделям",
   "stats.dimName": "Название",
+"stats.costShare": "Доля затрат",
+"stats.donutRest": "Прочее",
   "stats.dimensionRank": "Рейтинг",
   "stats.errors": "Ошибки",
   "stats.fineGranBadge": "· только краткосрочно",
