@@ -190,3 +190,29 @@ pub struct ScatterHistogram {
     #[ts(type = "Array<Array<number>>")]
     pub counts: Vec<Vec<u64>>,
 }
+
+/// 配额快照查询（chart-engine D4 / #34）：时间窗 + 可选平台过滤，
+/// 返回快照序列（`QuotaSnapshot` 按 created_at 升序），供 C4 仪表盘趋势与 Stats 配额 tab。
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct QuotaSnapshotsQuery {
+    #[ts(optional, type = "number | null")]
+    pub start: Option<i64>,
+    #[ts(optional, type = "number | null")]
+    pub end: Option<i64>,
+    /// 限定平台；None = 全部平台。
+    #[ts(optional, type = "number | null")]
+    pub platform_id: Option<u64>,
+}
+
+/// 单条配额快照（chart-engine D4 / #34）：真实余额查询成功时的 `est_balance_remaining` 落库值。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct QuotaSnapshot {
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    pub est_balance_remaining: f64,
+    /// 毫秒 Unix 时间戳。
+    #[ts(type = "number")]
+    pub created_at: i64,
+}

@@ -43,6 +43,8 @@ export * from "./PriceSyncResult";
 export * from "./SyncFailure";
 export * from "./PriceSyncSettings";
 export * from "./ProxyAttempt";
+export * from "./QuotaSnapshot";
+export * from "./QuotaSnapshotsQuery";
 export * from "./ProxyClientSettings";
 export * from "./CleanupEstimate";
 export * from "./ProxyLogFilter";
