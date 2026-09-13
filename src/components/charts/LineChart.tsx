@@ -103,8 +103,9 @@ export function LineChart({
   );
   const fmt = valueFormat ?? ((n: number) => n.toLocaleString());
   const rightFmt = rightValueFormat ?? fmt;
-  // tooltip 右轴系列按 label 分派 rightFmt（label 撞名时退左轴格式化，可接受的已知上限）。
-  const rightLabels = new Set(rightKeys.map((k) => String(effConfig[k]?.label ?? k)));
+  // tooltip 右轴系列按 dataKey 分派 rightFmt（recharts formatter 的 name 恒为 dataKey，
+  // 早期按 label 建集合在 label≠key 时永不命中，右轴格式化静默退左轴）。
+  const rightKeySet = new Set(rightKeys);
   const spanMs = domain.xMax - domain.xMin;
   const sub = downsampled ? (
     <>
@@ -187,8 +188,9 @@ export function LineChart({
             content={
               <ChartTooltipContent
                 labelFormatter={(label: unknown) => formatTimeTick(Number(label), spanMs)}
-                formatter={tooltipValueRows((n, name) =>
-                  rightLabels.has(String(name)) ? rightFmt(n) : fmt(n),
+                formatter={tooltipValueRows(
+                  (n, name) => (rightKeySet.has(String(name)) ? rightFmt(n) : fmt(n)),
+                  (name) => effConfig[String(name)]?.label ?? String(name),
                 )}
               />
             }

@@ -136,7 +136,7 @@ export function StackedAreaChart({
             content={
               <ChartTooltipContent
                 labelFormatter={(label: unknown) => formatTimeTick(Number(label), spanMs)}
-                formatter={tooltipValueRows(fmt)}
+                formatter={tooltipValueRows(fmt, (name) => config[String(name)]?.label ?? String(name))}
               />
             }
           />
