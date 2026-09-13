@@ -3,10 +3,13 @@
 
 mod budget;
 mod query_stats;
+mod scatter_hist;
 mod stats_agg;
 mod stats_today;
 #[cfg(test)]
 mod test_query_stats;
+#[cfg(test)]
+mod test_scatter_hist;
 #[cfg(test)]
 mod test_stats_agg;
 #[cfg(test)]
@@ -17,6 +20,7 @@ mod usage_stats;
 
 pub use budget::*;
 pub use query_stats::*;
+pub use scatter_hist::*;
 pub use stats_agg::*;
 pub use stats_today::*;
 pub use usage_stats::*;
