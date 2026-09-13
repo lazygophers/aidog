@@ -57,4 +57,14 @@ describe("LineChart", () => {
     );
     expect(texts.some((tx) => tx != null && tx.includes("$"))).toBe(true);
   });
+
+  it("mini mode renders bare: no card shell, no visible axis ticks, no grid", () => {
+    const { container } = render(<LineChart mini config={config} data={rows(24)} />);
+    expect(container.querySelector("svg")).toBeTruthy();
+    expect(container.querySelectorAll(".recharts-line-curve").length).toBe(2);
+    // 裸渲染：无 ChartCard 的 glass-surface 壳；轴 hide 后无刻度文本；无网格线
+    expect(container.querySelector(".glass-surface")).toBeNull();
+    expect(container.querySelectorAll(".recharts-cartesian-axis-tick-value").length).toBe(0);
+    expect(container.querySelectorAll(".recharts-cartesian-grid").length).toBe(0);
+  });
 });

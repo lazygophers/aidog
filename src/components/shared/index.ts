@@ -6,7 +6,6 @@ export { CompactCard, type CompactCardProps } from "./CompactCard";
 export { FilterDropdown, type FilterDropdownProps } from "./FilterDropdown";
 export { StatChip, type StatChipProps } from "./StatChip";
 export { BalanceBar, type BalanceBarProps } from "./BalanceBar";
-export { CostTrendChart, type CostTrendChartProps } from "./CostTrendChart";
 export {
   TestResultBody,
   type TestResultBodyProps,

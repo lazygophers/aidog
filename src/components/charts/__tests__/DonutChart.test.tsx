@@ -39,4 +39,19 @@ describe("DonutChart", () => {
     expect(fills[1]).toBe("var(--chart-2)");
     expect(fills[2]).toBe("var(--chart-3)");
   });
+
+  it("mini renders bare with legend rows; showLegend=false hides the side list", () => {
+    const { container, rerender } = render(<DonutChart mini animate={false} data={entries(3)} />);
+    // 裸渲染：无 ChartCard 壳；图例行仍在
+    expect(container.querySelector(".glass-surface")).toBeNull();
+    expect(screen.getByText("p1")).toBeTruthy();
+
+    rerender(<DonutChart mini animate={false} data={entries(3)} showLegend={false} />);
+    expect(screen.queryByText("p1")).toBeNull();
+  });
+
+  it("mini returns null instead of the empty-state card when under two slices", () => {
+    const { container } = render(<DonutChart mini animate={false} data={[{ name: "only", value: 5 }]} />);
+    expect(container.innerHTML).toBe("");
+  });
 });
