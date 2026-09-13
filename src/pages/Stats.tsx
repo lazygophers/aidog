@@ -12,7 +12,7 @@ import {
   type GroupDetail,
   type Platform,
 } from "../services/api";
-import { formatNumber, formatCost, successRate } from "../utils/formatters";
+import { formatNumber, formatCost, formatCostUsd, successRate } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
@@ -42,7 +42,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { ShareDonut } from "@/components/shared/ShareDonut";
+import { DonutChart } from "@/components/charts";
 
 type TimePreset = "today" | "7d" | "30d";
 
@@ -571,14 +571,18 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             </div>
           )}
 
-          {/* 成本占比环形图（#26 图表引擎原型：Recharts v3 公共层验证） */}
+          {/* 成本占比环形图（#35 收编进图表引擎 DonutChart，原 ShareDonut 已删） */}
           {dims.length > 1 ? (
-            <div className="glass-surface" style={{ padding: "16px 20px" }}>
-              <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 12 }}>
-                {t("stats.costShare", "成本占比")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
-              </div>
-              <ShareDonut entries={dims} />
-            </div>
+            <DonutChart
+              title={
+                <>
+                  {t("stats.costShare", "成本占比")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
+                </>
+              }
+              data={dims.filter(e => e.total_cost > 0).map(e => ({ name: e.name, value: e.total_cost }))}
+              formatValue={formatCostUsd}
+              centerLabel={t("stats.totalCost", "预估成本")}
+            />
           ) : null}
 
           {/* Dimension table（列排序 + 分页） */}

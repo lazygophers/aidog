@@ -24,3 +24,19 @@ export function ChartsTooltip({
     />
   );
 }
+
+/**
+ * tooltip 数值行 formatter 工厂：给 ChartTooltipContent 的 formatter，
+ * 渲染「色点 + 系列名 + fmt 格式化值」单行（ShareDonut 范式提炼，四组件共用）。
+ */
+export function tooltipValueRows(fmt: (n: number) => string) {
+  return (value: unknown, name: unknown, item: { color?: string } | undefined): React.ReactNode => (
+    <div key={String(name)} className="flex w-full items-center justify-between gap-3">
+      <span className="flex items-center gap-1.5 text-muted-foreground">
+        <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: item?.color }} />
+        {String(name)}
+      </span>
+      <span className="font-mono font-medium tabular-nums">{fmt(Number(value))}</span>
+    </div>
+  );
+}

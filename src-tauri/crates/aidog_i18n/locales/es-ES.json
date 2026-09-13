@@ -106,6 +106,7 @@
   "appSettings.systemTab": "Sistema",
   "appSettings.trayTab": "Bandeja",
   "charts.noData": "Sin datos",
+  "charts.downsampled": "Reducido a {{count}} puntos",
   "codex.sectionApproval": "Aprobación y sandbox",
   "codex.sectionCore": "Modelo central",
   "codex.sectionDiagnostics": "Diagnóstico",
