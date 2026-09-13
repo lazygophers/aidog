@@ -230,6 +230,7 @@ pub fn run() {
             aidog_core::gateway::pi::pi_settings_write,
             // Statistics
             aidog_core::platform_cmd::stats::stats_query,
+            aidog_core::platform_cmd::stats::scatter_histogram,
             aidog_core::ai_tools_cmd::model_test::model_test,
             // Platform Usage
             aidog_core::proxy_cmd::proxy_log::platform_usage_stats,

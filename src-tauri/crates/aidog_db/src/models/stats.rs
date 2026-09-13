@@ -152,3 +152,41 @@ pub struct StatsResult {
     #[serde(default)]
     pub series: Vec<StatsSeries>,
 }
+
+
+/// 散点直方图查询（chart-engine D2 / #33）：时间窗 + 可选 filter，
+/// filter 语义对齐 `StatsQuery` 的同名 `filter_*` 字段（不含粒度/分组/序列维度——
+/// 散点矩阵本身即结果形态，无桶粒度与维度拆分概念）。
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ScatterHistogramQuery {
+    #[ts(optional, type = "number | null")]
+    pub start: Option<i64>,
+    #[ts(optional, type = "number | null")]
+    pub end: Option<i64>,
+    #[ts(optional)]
+    pub filter_group: Option<String>,
+    #[ts(optional)]
+    pub filter_model: Option<String>,
+    #[ts(optional)]
+    pub filter_platform: Option<String>,
+    /// 仅统计 coding plan 平台（语义同 `StatsQuery.filter_coding_plan`）。
+    #[ts(optional)]
+    pub filter_coding_plan: Option<bool>,
+}
+
+/// 散点直方图（chart-engine D2 / #33）：服务端 bin 化的 `(duration_bin × cost_bin)` 矩阵。
+/// `counts[i][j]` = duration 落第 i 个 bin 且 est_cost 落第 j 个 bin 的请求数；
+/// 边界数组长度 = bin 数 + 1（`[start, start+step, ..., start+n*step]`）。
+/// 空窗口 / 全过滤掉 → 三个数组全空（不报错）。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ScatterHistogram {
+    /// duration bin 边界（ms）。
+    pub duration_bins: Vec<f64>,
+    /// est_cost bin 边界（$）。
+    pub cost_bins: Vec<f64>,
+    /// u64 越过 JS 安全整数区间的概率可忽略（单 bin 请求数 < 2^53），按 number 导出。
+    #[ts(type = "Array<Array<number>>")]
+    pub counts: Vec<Vec<u64>>,
+}
