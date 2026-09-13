@@ -41,3 +41,20 @@ export function heatColor(t: number): string {
   const alpha = HEAT_MIN_ALPHA + (HEAT_MAX_ALPHA - HEAT_MIN_ALPHA) * clamp(t, 0, 1);
   return `rgba(${HEAT_RGB}, ${alpha.toFixed(3)})`;
 }
+
+// ── ChartConfig 默认色注入（spec §A3：色板语义在 ChartConfig 层表达）──
+import type { ChartConfig } from "@/components/ui/chart";
+
+/**
+ * 按 config 键序补默认系列色：第 i 个键未显式给 color（且无 theme 双色定义）时
+ * 补 seriesColor(i)（首位琥珀，其余灰阶）。组件统一走这里，再交 ChartStyle 落
+ * `--color-<key>`，系列引用 `var(--color-<key>)`。
+ */
+export function withDefaultColors(config: ChartConfig): ChartConfig {
+  return Object.fromEntries(
+    Object.entries(config).map(([key, item], i) => [
+      key,
+      item.color ?? item.theme ? item : { ...item, color: seriesColor(i) },
+    ]),
+  );
+}

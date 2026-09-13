@@ -106,6 +106,7 @@
   "appSettings.systemTab": "系统",
   "appSettings.trayTab": "托盘",
   "charts.noData": "暂无数据",
+  "charts.downsampled": "已降采样至 {{count}} 点",
   "codex.sectionApproval": "审批与沙箱",
   "codex.sectionCore": "核心模型",
   "codex.sectionDiagnostics": "诊断",

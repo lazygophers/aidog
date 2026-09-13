@@ -106,6 +106,7 @@
   "appSettings.systemTab": "Система",
   "appSettings.trayTab": "Трей",
   "charts.noData": "Нет данных",
+  "charts.downsampled": "Прорежено до {{count}} точек",
   "codex.sectionApproval": "Подтверждение и песочница",
   "codex.sectionCore": "Основная модель",
   "codex.sectionDiagnostics": "Диагностика",
