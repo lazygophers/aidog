@@ -58,6 +58,8 @@ export * from "./RuleType";
 export * from "./SchedulingBreakerSettings";
 export * from "./StatsBucket";
 export * from "./StatsOverview";
+export * from "./ScatterHistogram";
+export * from "./ScatterHistogramQuery";
 export * from "./StatsQuery";
 export * from "./StatsResult";
 export * from "./StatsSettings";
