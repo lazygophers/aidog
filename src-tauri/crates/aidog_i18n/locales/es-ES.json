@@ -105,6 +105,7 @@
   "appSettings.schedulingTab": "Planificación",
   "appSettings.systemTab": "Sistema",
   "appSettings.trayTab": "Bandeja",
+  "charts.noData": "Sin datos",
   "codex.sectionApproval": "Aprobación y sandbox",
   "codex.sectionCore": "Modelo central",
   "codex.sectionDiagnostics": "Diagnóstico",

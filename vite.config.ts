@@ -68,6 +68,7 @@ export default defineConfig(async () => ({
       // （避免为薄编排壳硬凑行覆盖）。其纯函数逻辑已抽至 utils/shared，单独测覆盖。
       include: [
         "src/utils/**/*.ts",
+        "src/components/charts/*.ts",
         "src/components/shared/**/*.{ts,tsx}",
         "src/services/api/**/*.ts",
       ],
