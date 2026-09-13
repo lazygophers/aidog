@@ -36,6 +36,18 @@ describe("LineChart", () => {
     expect(container.querySelector("svg")).toBeTruthy();
   });
 
+  it("renders legend with config labels for multi-series, none for single", () => {
+    const multi = render(<LineChart config={config} data={rows(24)} />);
+    const legend = multi.container.querySelector(".recharts-legend-wrapper");
+    expect(legend).toBeTruthy();
+    // legend 标签走 config label（内部键 cost/tokens 不外露）
+    expect(legend?.textContent).toContain("cost");
+    expect(legend?.textContent).toContain("tokens");
+
+    const single = render(<LineChart config={{ cost: { label: "cost" } }} data={rows(12)} />);
+    expect(single.container.querySelector(".recharts-legend-wrapper")).toBeNull();
+  });
+
   it("formats Y axis ticks through valueFormat", () => {
     const { container } = render(
       <LineChart config={{ cost: { label: "cost" } }} data={rows(12)} valueFormat={(n) => `$${n.toFixed(2)}`} />,
