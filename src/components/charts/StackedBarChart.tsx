@@ -98,7 +98,7 @@ export function StackedBarChart({
             />
           )}
           <ChartsTooltip
-            content={<ChartTooltipContent formatter={tooltipValueRows(fmt)} />}
+            content={<ChartTooltipContent formatter={tooltipValueRows(fmt, (name) => config[String(name)]?.label ?? String(name))} />}
           />
           {seriesKeys.map((k) => (
             <Bar key={k} dataKey={k} stackId="s" fill={`var(--color-${k})`} {...drawInProps()} />
