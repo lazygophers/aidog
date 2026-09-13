@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -9,11 +9,12 @@ import {
   type StatsResult,
   type StatsQuery,
   type StatsOverview,
+  type StatsBucket,
+  type StatsSeries,
   type GroupDetail,
   type Platform,
 } from "../services/api";
 import { formatNumber, formatCost, formatCostUsd, successRate } from "../utils/formatters";
-import { smoothPath } from "../utils/chart";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import {
@@ -42,7 +43,8 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { DonutChart } from "@/components/charts";
+import { DonutChart, LineChart, HourHeatmap, GaugeChart } from "@/components/charts";
+import type { ChartConfig } from "@/components/ui/chart";
 
 type TimePreset = "today" | "7d" | "30d";
 
@@ -77,11 +79,73 @@ function delta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
+// ── 主图区四 tab（spec C1）：时间序列 / 占比 / 密度 / 配额 ──
+type StatsTab = "trend" | "share" | "density" | "quota";
+const TABS: { id: StatsTab; key: string }[] = [
+  { id: "trend", key: "stats.tabTrend" },
+  { id: "share", key: "stats.tabShare" },
+  { id: "density", key: "stats.tabDensity" },
+  { id: "quota", key: "stats.tabQuota" },
+];
+
 // time_bucket 格式随粒度变：daily "YYYY-MM-DD" | minute/5min "YYYY-MM-DD HH:MM" | hourly "YYYY-MM-DD HH:00:00"。
-// x 轴短标：含时间段取 HH:MM（hourly→HH:00），仅日期取 MM-DD。slice(-5) 对 hourly 会误取秒位恒显 "00:00"。
-const tickLabel = (b: string): string => (b.includes(" ") ? b.slice(11, 16) : b.slice(5));
-// tooltip 标题：hourly（19 字符）去尾秒位，避免 ":00:00" 误读为分钟级精度。
-const fullLabel = (b: string): string => (b.length === 19 ? b.slice(0, 16) : b);
+// → 本地时区 ms：含时间段补 T 走本地解析；纯日期补 T00:00:00（裸日期按 UTC 午夜解析，西半球时区标签会偏一天）。
+export function bucketMs(tb: string): number {
+  return Date.parse(tb.includes(" ") ? tb.replace(" ", "T") : `${tb}T00:00:00`);
+}
+
+export interface TrendChartData {
+  config: ChartConfig;
+  rows: Record<string, unknown>[];
+  multi: boolean;
+}
+
+const reqSum = (bs: StatsBucket[]) => bs.reduce((s, b) => s + b.total_requests, 0);
+
+// 时间序列 tab 数据：series_by 多序列 → 合并宽表（键 s0.. 安全 CSS 变量名，按总量降序 → 主琥珀线 = 最大维度值）；
+// series 空 / 单序列（未传 series_by 的旧后端、单维度）→ buckets 总量单序列。
+export function buildTrendChartData(
+  buckets: StatsBucket[],
+  series: StatsSeries[],
+  singleLabel: string,
+): TrendChartData {
+  if (series.length > 1) {
+    const ordered = [...series].sort((a, b) => reqSum(b.buckets) - reqSum(a.buckets));
+    const rowMap = new Map<string, Record<string, unknown>>();
+    ordered.forEach((s, i) => {
+      for (const b of s.buckets) {
+        let row = rowMap.get(b.time_bucket);
+        if (!row) {
+          row = { x: bucketMs(b.time_bucket) };
+          rowMap.set(b.time_bucket, row);
+        }
+        row[`s${i}`] = b.total_requests;
+      }
+    });
+    const rows = [...rowMap.values()].sort((a, b) => (a.x as number) - (b.x as number));
+    const config: ChartConfig = Object.fromEntries(ordered.map((s, i) => [`s${i}`, { label: s.name }]));
+    return { config, rows, multi: true };
+  }
+  return {
+    config: { v: { label: singleLabel } },
+    rows: buckets.map((b) => ({ x: bucketMs(b.time_bucket), v: b.total_requests })),
+    multi: false,
+  };
+}
+
+// 密度 tab：hourly/minute 桶 → (星期 getDay 0=周日, 小时) 请求量聚合（HourHeatmap 格式）。
+// daily 桶无小时信息不入格（调用方喂 hourly 粒度数据，诚实不摊假）。
+export function buildHeatCells(buckets: StatsBucket[]): { day: number; hour: number; value: number }[] {
+  const m = new Map<number, number>();
+  for (const b of buckets) {
+    if (!b.time_bucket.includes(" ")) continue;
+    const d = new Date(b.time_bucket.replace(" ", "T"));
+    if (Number.isNaN(d.getTime())) continue;
+    const k = d.getDay() * 24 + d.getHours();
+    m.set(k, (m.get(k) ?? 0) + b.total_requests);
+  }
+  return [...m].map(([k, value]) => ({ day: Math.floor(k / 24), hour: k % 24, value }));
+}
 
 // ── 粒度可读标注（趋势图右上角；auto 降级时加「（自动）」后缀让用户知情） ──
 function granLabel(g: StatsQuery["granularity"], auto: boolean, t: TFunction): string {
@@ -154,31 +218,39 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(0);
 
-  // 趋势图 hover
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const chartRef = useRef<HTMLDivElement>(null);
+  // 四 tab（spec C1）：本地 state 切主图区，筛选条/Overview 卡/维度表不受影响
+  const [activeTab, setActiveTab] = useState<StatsTab>("trend");
+  // 密度 tab 按需 hourly 桶（主查询粒度可能是 daily，无小时信息可用）
+  const [heatBuckets, setHeatBuckets] = useState<StatsBucket[] | null>(null);
 
   // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
   // "0" 在平台筛选 truthy，直接透传后端 CAST AS INTEGER = 0（无平台）。
   const NO_GROUP_SENTINEL = "__none__";
+  // 筛选条公共查询体：主查询 / 环比查询 / 密度 hourly 查询共用
+  const baseQuery = useCallback(
+    (): Omit<StatsQuery, "start" | "end"> => ({
+      granularity,
+      group_by: groupBy,
+      filter_group: filterGroup
+        ? (filterGroup === NO_GROUP_SENTINEL ? "" : filterGroup)
+        : undefined,
+      filter_model: filterModel || undefined,
+      filter_platform: filterPlatform || undefined,
+      filter_coding_plan: filterCodingPlan || undefined,
+    }),
+    [granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan],
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const range = getTimeRange(preset);
-      const base: Omit<StatsQuery, "start" | "end"> = {
-        granularity,
-        group_by: groupBy,
-        filter_group: filterGroup
-          ? (filterGroup === NO_GROUP_SENTINEL ? "" : filterGroup)
-          : undefined,
-        filter_model: filterModel || undefined,
-        filter_platform: filterPlatform || undefined,
-        filter_coding_plan: filterCodingPlan || undefined,
-      };
+      const base = baseQuery();
       const prevR = previousRange(range.start, range.end);
       // 当前周期 + 上一等长周期并行查询（上一周期仅用 overview 做环比）
       const [result, prev] = await Promise.all([
-        statsApi.query({ ...base, start: range.start, end: range.end }),
+        // series_by=group_by：时间序列 tab 按维度多序列（chart-engine D1 / #32）
+        statsApi.query({ ...base, series_by: groupBy, start: range.start, end: range.end }),
         statsApi.query({ ...base, start: prevR.start, end: prevR.end }).catch(() => null),
       ]);
       setPrevOverview(prev?.overview ?? null);
@@ -202,9 +274,21 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       console.error(e);
     }
     setLoading(false);
-  }, [preset, granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan]);
+  }, [baseQuery, preset, granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan]);
 
   useEffect(() => { load(); }, [load]);
+
+  // 密度 tab 按需拉 hourly 桶：粒度选择是主查询概念，热力图需要小时信息，固定 hourly（走聚合表）
+  useEffect(() => {
+    if (activeTab !== "density") return;
+    let cancelled = false;
+    const range = getTimeRange(preset);
+    statsApi
+      .query({ ...baseQuery(), granularity: "hourly", start: range.start, end: range.end })
+      .then((r) => { if (!cancelled) setHeatBuckets(r.buckets); })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [activeTab, preset, baseQuery]);
 
   // 请求完成后后端 emit "proxy-log-updated" → debounce 重载（依赖 load，刷新尊重当前时间范围/筛选）
   useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
@@ -237,8 +321,11 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const buckets = data?.buckets ?? [];
   const dims = data?.dimension_data ?? [];
 
-  // Chart scaling
-  const maxReq = Math.max(1, ...buckets.map(b => b.total_requests));
+  // 时间序列 tab：series_by 多序列（无 series 回落 buckets 单序列）
+  const trend = useMemo(
+    () => buildTrendChartData(buckets, data?.series ?? [], t("stats.requests", "请求")),
+    [buckets, data, t],
+  );
 
   // 维度表排序结果
   const sortedDims = useMemo(() => {
@@ -454,12 +541,39 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             />
           </div>
 
-          {/* Trend chart（平滑曲线 + hover tooltip） */}
-          {buckets.length > 0 && (
-            <div className="glass-surface" style={{ padding: "16px 20px" }}>
-              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-                <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("stats.requestTrend", "请求趋势")}</div>
-                <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
+          {/* 主图区四 tab（spec C1）：tab 本地 state 切换，筛选条作用于所有 tab */}
+          <div role="tablist" aria-label={t("page.stats", "使用统计")} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {TABS.map(({ id, key }) => (
+              <Button
+                key={id}
+                role="tab"
+                aria-selected={activeTab === id}
+                variant={activeTab === id ? "default" : "ghost"}
+                style={{
+                  fontSize: 12,
+                  padding: "4px 10px",
+                  height: "auto",
+                  ...(activeTab === id
+                    ? {
+                        background: "var(--accent-subtle)",
+                        color: "var(--primary)",
+                        borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                      }
+                    : {}),
+                }}
+                onClick={() => setActiveTab(id)}
+              >
+                {t(key)}
+              </Button>
+            ))}
+          </div>
+
+          {/* 时间序列 tab：公共层 LineChart 替换旧自研 SVG 趋势图；series_by 多序列（主琥珀线 = 最大维度值） */}
+          {activeTab === "trend" && (
+            <LineChart
+              title={t("stats.requestTrend", "请求趋势")}
+              subtitle={
+                <>
                   {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
                   {(effectiveGran === "minute" || effectiveGran === "5min") && (
                     <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
@@ -467,112 +581,16 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                       {t("stats.fineGranBadge", "· 仅短期可用")}
                     </span>
                   )}
-                </div>
-              </div>
-              {(() => {
-                // SVG 曲线图：viewBox 固定坐标系，preserveAspectRatio=none 横向拉满，纵向固定高
-                const W = 1000;
-                const Hsvg = 100;
-                const PAD_T = 8;
-                const n = buckets.length;
-                const plotH = Hsvg - PAD_T;
-                const xAt = (i: number) => (n > 1 ? (i / (n - 1)) * W : W / 2);
-                const yAt = (v: number) => PAD_T + (maxReq > 0 ? 1 - v / maxReq : 1) * plotH;
-                const pts = buckets.map((b, i) => ({ x: xAt(i), y: yAt(b.total_requests) }));
-                const linePath = smoothPath(pts, PAD_T, Hsvg);
-                const areaPath = n > 0 ? `${linePath} L ${pts[n - 1].x.toFixed(1)},${Hsvg} L ${pts[0].x.toFixed(1)},${Hsvg} Z` : "";
-                const peakIdx = buckets.reduce((mi, b, i) => (b.total_requests > buckets[mi].total_requests ? i : mi), 0);
-                // x 轴标注密度：桶多时稀疏取样，避免重叠（≤12 全标，否则每 ~ceil(n/8) 标一个）
-                const step = n <= 12 ? 1 : Math.ceil(n / 8);
-                return (
-                  <div ref={chartRef} style={{ display: "flex", flexDirection: "column", gap: 2 }} onMouseLeave={() => setHoverIdx(null)}>
-                    <div style={{ position: "relative" }}>
-                      <svg viewBox={`0 0 ${W} ${Hsvg}`} preserveAspectRatio="none" style={{ width: "100%", height: 120, display: "block", overflow: "visible" }}>
-                        <defs>
-                          <linearGradient id="statsTrendArea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.28" />
-                            <stop offset="100%" stopColor="var(--primary)" stopOpacity="0.02" />
-                          </linearGradient>
-                        </defs>
-                        <path d={areaPath} fill="url(#statsTrendArea)" />
-                        <path
-                          d={linePath}
-                          fill="none"
-                          stroke="color-mix(in srgb, var(--primary) 82%, #000)"
-                          strokeWidth={2}
-                          strokeLinejoin="round"
-                          strokeLinecap="round"
-                          vectorEffect="non-scaling-stroke"
-                        />
-                        {/* hover 命中区（每桶一竖条，透明） */}
-                        {pts.map((p, i) => (
-                          <rect
-                            key={i}
-                            x={(p.x - W / (n * 2)).toFixed(1)}
-                            y={0}
-                            width={(W / n).toFixed(1)}
-                            height={Hsvg}
-                            fill="transparent"
-                            onMouseEnter={() => setHoverIdx(i)}
-                          />
-                        ))}
-                        {/* hover 高亮点 */}
-                        {hoverIdx !== null && pts[hoverIdx] && (
-                          <circle cx={pts[hoverIdx].x.toFixed(1)} cy={pts[hoverIdx].y.toFixed(1)} r={3.5} fill="var(--primary)" vectorEffect="non-scaling-stroke" />
-                        )}
-                        {/* 峰值点高亮（克制，单点） */}
-                        {maxReq > 1 && hoverIdx === null && (
-                          <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--primary)" vectorEffect="non-scaling-stroke" />
-                        )}
-                        {/* 末点 glow（对齐 CostTrendChart，强调最新数据） */}
-                        {n > 0 && pts[n - 1] && (
-                          <circle
-                            cx={pts[n - 1].x.toFixed(1)}
-                            cy={pts[n - 1].y.toFixed(1)}
-                            r={3.5}
-                            fill="var(--primary)"
-                            vectorEffect="non-scaling-stroke"
-                            style={{ filter: "drop-shadow(0 0 4px var(--primary))" }}
-                          />
-                        )}
-                      </svg>
-                      {/* hover tooltip（绝对定位 glass-elevated） */}
-                      {hoverIdx !== null && buckets[hoverIdx] && (
-                        <ChartTooltip
-                          bucket={buckets[hoverIdx]}
-                          pos={hoverIdx / Math.max(1, buckets.length - 1)}
-                          t={t}
-                        />
-                      )}
-                    </div>
-                    {/* x 轴标注：minute/5min/hourly 显 HH:MM，daily 显 MM-DD（见 tickLabel） */}
-                    <div style={{ position: "relative", height: 12 }}>
-                      {buckets.map((b, i) =>
-                        i % step === 0 ? (
-                          <span
-                            key={i}
-                            style={{
-                              position: "absolute",
-                              left: `${(xAt(i) / W) * 100}%`,
-                              transform: "translateX(-50%)",
-                              fontSize: 8,
-                              color: "var(--text-tertiary)",
-                              whiteSpace: "nowrap",
-                            }}
-                          >
-                            {tickLabel(b.time_bucket)}
-                          </span>
-                        ) : null,
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
+                </>
+              }
+              config={trend.config}
+              data={trend.rows}
+              valueFormat={formatNumber}
+            />
           )}
 
-          {/* 成本占比环形图（#35 收编进图表引擎 DonutChart，原 ShareDonut 已删） */}
-          {dims.length > 1 ? (
+          {/* 占比 tab：成本占比环形（#35 收编进图表引擎 DonutChart），维度切换沿用 groupBy */}
+          {activeTab === "share" && (
             <DonutChart
               title={
                 <>
@@ -583,7 +601,26 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               formatValue={formatCostUsd}
               centerLabel={t("stats.totalCost", "预估成本")}
             />
-          ) : null}
+          )}
+
+          {/* 密度 tab：星期 × 小时请求热力（hourly 按需查询；未到数据前 ChartCard 诚实空态） */}
+          {activeTab === "density" && (
+            <HourHeatmap
+              title={t("stats.heatTitle", "请求密度（星期 × 小时）")}
+              data={buildHeatCells(heatBuckets ?? [])}
+              formatValue={formatNumber}
+            />
+          )}
+
+          {/* 配额 tab：D4 quota_snapshot 后端（票 T4）未完成 → 诚实空态占位，不造假数据（票面允许） */}
+          {activeTab === "quota" && (
+            <GaugeChart
+              value={0}
+              max={0}
+              title={t("stats.quotaTitle", "配额快照")}
+              emptyHint={t("stats.quotaPendingHint", "配额历史落库（quota_snapshot）尚未上线，暂无数据")}
+            />
+          )}
 
           {/* Dimension table（列排序 + 分页） */}
           {dims.length > 0 ? (
@@ -699,64 +736,6 @@ function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, 
       </div>
       {deltaNode}
     </Card>
-  );
-}
-
-// ── 趋势图 tooltip ──
-interface ChartTooltipProps {
-  bucket: {
-    time_bucket: string;
-    total_requests: number;
-    success_count: number;
-    error_count: number;
-    total_cost: number;
-    avg_duration_ms: number;
-  };
-  /** 0–1，桶在 x 轴的相对位置，用于左右对齐避免溢出。 */
-  pos: number;
-  t: TFunction;
-}
-
-function ChartTooltip({ bucket, pos, t }: ChartTooltipProps) {
-  const rate = successRate(bucket.success_count, bucket.total_requests);
-  const left = pos <= 0.5;
-  return (
-    <div
-      className="glass-elevated"
-      style={{
-        position: "absolute",
-        top: 0,
-        [left ? "left" : "right"]: `${left ? pos * 100 : (1 - pos) * 100}%`,
-        transform: left ? "translateX(8px)" : "translateX(-8px)",
-        padding: "8px 12px",
-        borderRadius: "var(--radius-sm)",
-        pointerEvents: "none",
-        zIndex: 10,
-        minWidth: 150,
-        display: "flex",
-        flexDirection: "column",
-        gap: 3,
-        fontSize: F.small,
-      }}
-    >
-      <div style={{ fontWeight: 700, marginBottom: 2 }}>{fullLabel(bucket.time_bucket)}</div>
-      <Row label={t("stats.requests", "请求")} value={formatNumber(bucket.total_requests)} />
-      <Row label={t("stats.success", "成功")} value={formatNumber(bucket.success_count)}
-        color={levelColor(successRateLevel(rate, bucket.total_requests))} />
-      <Row label={t("stats.errors", "失败")} value={formatNumber(bucket.error_count)}
-        color={bucket.error_count > 0 ? "var(--color-danger)" : undefined} />
-      <Row label={t("stats.avgMs", "平均延迟")} value={`${bucket.avg_duration_ms.toFixed(0)} ms`} />
-      <Row label={t("stats.totalCost", "预估成本")} value={"$" + formatCost(bucket.total_cost)} />
-    </div>
-  );
-}
-
-function Row({ label, value, color }: { label: string; value: string; color?: string }) {
-  return (
-    <div style={{ display: "flex", justifyContent: "space-between", gap: 16 }}>
-      <span style={{ color: "var(--text-secondary)" }}>{label}</span>
-      <span style={{ fontWeight: 600, color: color ?? "var(--text-primary)" }}>{value}</span>
-    </div>
   );
 }
 

@@ -60,6 +60,7 @@ export * from "./StatsBucket";
 export * from "./StatsOverview";
 export * from "./StatsQuery";
 export * from "./StatsResult";
+export * from "./StatsSeries";
 export * from "./StatsSettings";
 export * from "./TrayColor";
 export * from "./TrayConfig";

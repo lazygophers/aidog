@@ -2,7 +2,7 @@
 // xKey 取时间戳（number ms 或 Date；串会被 " "→"T" 归一再 Date.parse，Safari 兼容）。
 // data 需按 x 升序（LTTB 前提，代理日志 bucket 天然有序）。
 import { useMemo, type ReactNode } from "react";
-import { CartesianGrid, Line, LineChart as RechartsLineChart, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Legend, Line, LineChart as RechartsLineChart, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { ChartCard } from "./ChartCard";
@@ -120,6 +120,17 @@ export function LineChart({
             tickLine={false}
             axisLine={false}
           />
+          {/* 多系列图例（spec C1 时间序列 tab 按维度多序列）：标签取 config label（s0 等安全键不外露） */}
+          {seriesKeys.length > 1 && (
+            <Legend
+              verticalAlign="top"
+              align="left"
+              iconType="plainline"
+              iconSize={12}
+              wrapperStyle={{ fontSize: 11, color: "var(--text-secondary)" }}
+              formatter={(v: unknown) => effConfig[String(v)]?.label ?? String(v)}
+            />
+          )}
           <ChartsTooltip
             content={
               <ChartTooltipContent
