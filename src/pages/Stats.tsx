@@ -415,16 +415,23 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
 
   const overview = data?.overview;
   const buckets = data?.buckets ?? [];
-  const dims = data?.dimension_data ?? [];
+  // 维度名回溯失败兜底：Rust 返空串（与 stats_today 口径一致），此处统一归「未知平台」。
+  // 单点归一化，donut / 维度表 / 趋势图例 / 维度热力四消费点全覆盖。
+  const unknownPlatform = t("popover.unknownPlatform", "未知平台");
+  const dims = (data?.dimension_data ?? []).map(d => (d.name ? d : { ...d, name: unknownPlatform }));
+  const series = useMemo(
+    () => (data?.series ?? []).map(s => (s.name ? s : { ...s, name: unknownPlatform })),
+    [data, unknownPlatform],
+  );
 
   // 时间序列 tab：series_by 多序列（无 series 回落 buckets 单序列）
   const trend = useMemo(
-    () => buildTrendChartData(buckets, data?.series ?? [], t("stats.requests", "请求")),
-    [buckets, data, t],
+    () => buildTrendChartData(buckets, series, t("stats.requests", "请求")),
+    [buckets, series, t],
   );
 
   // 占比 tab 维度热力（#39）：维度 × 日活跃格子（series 空 → DimensionHeatmap 诚实空态）
-  const dimHeat = useMemo(() => buildDimensionDayCells(data?.series ?? []), [data]);
+  const dimHeat = useMemo(() => buildDimensionDayCells(series), [series]);
 
   // 维度表排序结果
   const sortedDims = useMemo(() => {
