@@ -1,6 +1,14 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { PRIMARY_COLOR, seriesColor, seriesColors, heatColor, HEAT_MIN_ALPHA, HEAT_MAX_ALPHA } from "../palette";
+import {
+  PRIMARY_COLOR,
+  seriesColor,
+  seriesColors,
+  heatColor,
+  HEAT_MIN_ALPHA,
+  HEAT_MAX_ALPHA,
+  withDefaultColors,
+} from "../palette";
 
 describe("seriesColor", () => {
   it("index 0 and negative → primary amber", () => {
@@ -53,5 +61,31 @@ describe("heatColor", () => {
   it("t outside [0,1] clamps to endpoints", () => {
     expect(heatColor(-1)).toBe(heatColor(0));
     expect(heatColor(2)).toBe(heatColor(1));
+  });
+});
+
+describe("withDefaultColors", () => {
+  it("injects seriesColor when neither color nor theme given", () => {
+    const out = withDefaultColors({
+      cost: { label: "cost" },
+      tokens: { label: "tokens" },
+    });
+    expect(out.cost).toEqual({ label: "cost", color: "var(--primary)" });
+    expect(out.tokens).toEqual({ label: "tokens", color: "var(--chart-2)" });
+  });
+
+  it("keeps explicit color untouched", () => {
+    const out = withDefaultColors({ cost: { label: "cost", color: "#abc" } });
+    expect(out.cost).toEqual({ label: "cost", color: "#abc" });
+  });
+
+  it("keeps theme-only item untouched (theme wins, no color injected)", () => {
+    const item = { label: "cost", theme: { light: "#111", dark: "#222" } };
+    expect(withDefaultColors({ cost: item }).cost).toEqual(item);
+  });
+
+  it("preserves other fields on injection", () => {
+    const out = withDefaultColors({ tokens: { label: "t", valueFormat: () => "" } });
+    expect(out.tokens.valueFormat).toBeTypeOf("function");
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect } from "vitest";
-import { niceTicks, formatTimeTick } from "../ticks";
+import { niceTicks, formatTimeTick, bucketMs, xNum } from "../ticks";
 
 describe("niceTicks", () => {
   it("0..100 → nice 1/2/5 步长刻度，含两端", () => {
@@ -67,5 +67,41 @@ describe("formatTimeTick", () => {
 
   it("invalid timestamp → empty string", () => {
     expect(formatTimeTick(NaN, 24 * HOUR)).toBe("");
+  });
+});
+
+describe("bucketMs", () => {
+  it("minute/hourly bucket with time part → local parse via T", () => {
+    // 本地时区构造：目标串的本地 ms = 同一本地墙钟的 ms
+    const local = new Date(2026, 8, 13, 9, 30, 0).getTime();
+    expect(bucketMs("2026-09-13 09:30")).toBe(local);
+    expect(bucketMs("2026-09-13 09:00:00")).toBe(new Date(2026, 8, 13, 9, 0, 0).getTime());
+  });
+
+  it("daily bucket (date only) → local midnight", () => {
+    expect(bucketMs("2026-09-13")).toBe(new Date(2026, 8, 13, 0, 0, 0).getTime());
+  });
+});
+
+describe("xNum", () => {
+  it("number passes through unchanged", () => {
+    expect(xNum(123.5)).toBe(123.5);
+  });
+
+  it("Date → its timestamp", () => {
+    const d = new Date(2026, 8, 13, 10, 0, 0);
+    expect(xNum(d)).toBe(d.getTime());
+  });
+
+  it("string with space → normalized local parse", () => {
+    expect(xNum("2026-09-13 09:30")).toBe(new Date(2026, 8, 13, 9, 30, 0).getTime());
+  });
+
+  it("date-only string → UTC midnight (xNum 不做本地归一，与 bucketMs 不同)", () => {
+    expect(xNum("2026-09-13")).toBe(Date.UTC(2026, 8, 13));
+  });
+
+  it("invalid string → NaN (axis falls back)", () => {
+    expect(xNum("not-a-date")).toBeNaN();
   });
 });
