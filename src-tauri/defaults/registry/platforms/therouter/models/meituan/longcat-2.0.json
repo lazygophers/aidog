@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1789258661,
   "model_id": "meituan/longcat-2.0",
   "canonical_model": "longcat-2.0",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "deepseek/deepseek-v4-pro-0813:batch",
   "canonical_model": "deepseek-v4-pro-0813",
+  "family": "deepseek",
   "capabilities": [
     "text",
     "tool_use",

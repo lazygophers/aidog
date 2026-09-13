@@ -1,9 +1,16 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1789258661,
   "model_id": "bigmodel/glm-5.3",
   "canonical_model": "glm-5.3",
+  "family": "glm",
+  "version": "5.3",
+  "predecessor": "glm-5.2",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "official": true,
   "price": {

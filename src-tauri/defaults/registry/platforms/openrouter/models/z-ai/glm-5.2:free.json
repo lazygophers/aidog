@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "z-ai/glm-5.2:free",
   "canonical_model": "glm-5.2",
+  "family": "glm",
+  "version": "5.2",
+  "predecessor": "glm-5.1",
   "capabilities": [
     "text",
     "tool_use",

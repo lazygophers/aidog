@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1789258661,
   "model_id": "baidu/ernie-4.5-turbo-32k",
   "canonical_model": "ernie-4.5-turbo-32k",
+  "family": "ernie",
   "capabilities": [
     "text"
   ],

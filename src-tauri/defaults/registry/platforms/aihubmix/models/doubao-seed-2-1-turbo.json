@@ -1,8 +1,12 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "doubao-seed-2-1-turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
-  "capabilities": [],
+  "context_window": 256000,
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "official": true,
   "price": {
     "input": 4.6475e-7,

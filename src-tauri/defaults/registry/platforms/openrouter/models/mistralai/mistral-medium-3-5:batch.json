@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "mistralai/mistral-medium-3-5:batch",
   "canonical_model": "mistral-medium-3-5",
+  "family": "mistral",
   "capabilities": [
     "text",
     "vision",

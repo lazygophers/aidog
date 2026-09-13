@@ -1,9 +1,15 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1789258661,
   "model_id": "coding-glm-5.1-free",
   "canonical_model": "glm-5.1",
+  "family": "glm",
+  "version": "5.1",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "max_input_tokens": 204800,
   "max_output_tokens": 131072,

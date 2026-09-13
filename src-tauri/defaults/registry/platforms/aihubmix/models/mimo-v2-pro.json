@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "mimo-v2-pro",
   "canonical_model": "mimo-v2-pro",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

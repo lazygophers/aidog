@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1789258661,
   "model_id": "claude-opus-5",
   "canonical_model": "claude-opus-5",
+  "family": "claude",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "display_name": "Claude Opus 5 on Google Cloud",
   "capabilities": [
     "text"

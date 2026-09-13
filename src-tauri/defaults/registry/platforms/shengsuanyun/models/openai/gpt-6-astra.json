@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788769178,
+  "last_updated": 1789258661,
   "model_id": "openai/gpt-6-astra",
   "canonical_model": "gpt-6-astra",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "display_name": "GPT-6 Astra",
   "capabilities": [
     "text",

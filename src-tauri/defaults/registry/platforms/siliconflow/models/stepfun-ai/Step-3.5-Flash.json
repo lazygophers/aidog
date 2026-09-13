@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "stepfun-ai/Step-3.5-Flash",
   "canonical_model": "step-3.5-flash",
+  "family": "stepfun",
   "capabilities": [
     "text"
   ],

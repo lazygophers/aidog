@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1789258661,
   "model_id": "google/gemma-4-31b-it",
   "canonical_model": "gemma-4-31b-it",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

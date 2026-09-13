@@ -1,9 +1,13 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1789258661,
   "model_id": "glm-5.2",
   "canonical_model": "glm-5.2",
+  "version": "5.2",
+  "predecessor": "glm-5.1",
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "official": false,
   "family": "glm",

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "anthropic/claude-opus-5",
   "canonical_model": "claude-opus-5",
+  "family": "claude",
   "capabilities": [
     "text",
     "vision",

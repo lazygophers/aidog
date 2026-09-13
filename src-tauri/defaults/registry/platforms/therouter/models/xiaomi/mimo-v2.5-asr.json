@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788086879,
+  "last_updated": 1789258661,
   "model_id": "xiaomi/mimo-v2.5-asr",
   "canonical_model": "mimo-v2.5-asr",
+  "family": "mimo",
   "capabilities": [
     "audio"
   ],

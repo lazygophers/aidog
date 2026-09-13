@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067644,
+  "last_updated": 1789258661,
   "model_id": "claude-opus-4-8",
   "canonical_model": "claude-opus-4-8",
+  "thinking_supported": true,
   "display_name": "Claude Opus 4.8",
   "family": "claude",
   "capabilities": [

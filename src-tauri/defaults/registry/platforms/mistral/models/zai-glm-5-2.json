@@ -1,10 +1,14 @@
 {
-  "last_updated": 1788149245,
+  "last_updated": 1789258661,
   "model_id": "zai-glm-5-2",
   "canonical_model": "glm-5.2",
+  "version": "5.2",
+  "predecessor": "glm-5.1",
   "family": "glm",
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,

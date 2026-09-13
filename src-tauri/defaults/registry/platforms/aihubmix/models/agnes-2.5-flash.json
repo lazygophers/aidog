@@ -1,8 +1,12 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "agnes-2.5-flash",
   "canonical_model": "agnes-2.5-flash",
-  "capabilities": [],
+  "context_window": 512000,
+  "family": "agnes",
+  "capabilities": [
+    "text"
+  ],
   "official": true,
   "price": {
     "input": 3e-8,

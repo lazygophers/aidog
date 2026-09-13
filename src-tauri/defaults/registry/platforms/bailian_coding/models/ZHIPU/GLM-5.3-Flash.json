@@ -1,9 +1,16 @@
 {
-  "last_updated": 1788184022,
+  "last_updated": 1789258661,
   "model_id": "ZHIPU/GLM-5.3-Flash",
   "canonical_model": "glm-5.3-flash",
+  "family": "glm",
+  "version": "5.3",
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "capabilities": [
-    "text"
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
   ],
   "official": false,
   "price": {

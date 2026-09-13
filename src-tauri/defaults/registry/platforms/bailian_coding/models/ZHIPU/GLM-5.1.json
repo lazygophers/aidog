@@ -1,9 +1,15 @@
 {
-  "last_updated": 1788184022,
+  "last_updated": 1789258661,
   "model_id": "ZHIPU/GLM-5.1",
   "canonical_model": "glm-5.1",
+  "family": "glm",
+  "version": "5.1",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "official": false,
   "price": {

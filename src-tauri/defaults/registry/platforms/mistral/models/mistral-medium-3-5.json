@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1789258661,
   "model_id": "mistral-medium-3-5",
   "canonical_model": "mistral-medium-3-5",
+  "family": "mistral",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788098169,
+  "last_updated": 1789258661,
   "model_id": "tencent/hy4-preview",
   "canonical_model": "hy4-preview",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],
