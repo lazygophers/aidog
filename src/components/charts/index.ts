@@ -17,3 +17,5 @@ export { GaugeChart, type GaugeChartProps, type GaugeTrendPoint } from "./GaugeC
 export { StackedAreaChart, type StackedAreaChartProps } from "./StackedAreaChart";
 export { StackedBarChart, type StackedBarChartProps } from "./StackedBarChart";
 export { DimensionHeatmap, type DimensionHeatmapProps } from "./DimensionHeatmap";
+// T10（#40）：散点直方图（服务端 bin 化矩阵）+ GaugeChart 趋势态
+export { ScatterChart, scatterPoints, type ScatterChartProps, type ScatterPoint } from "./ScatterChart";

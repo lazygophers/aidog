@@ -1,8 +1,8 @@
-// Stats 四 tab（#37 T7）纯函数单测：时间序列宽表合并 / 时刻热力聚合 / bucket 本地时区解析。
-// 断言一律用 new Date(y, m, d, h, min) 同基准构造，不依赖跑测试机器的时区。
+// Stats 四 tab（#37 T7）纯函数单测：时间序列宽表合并 / 时刻热力聚合 / bucket 本地时区解析 /
+// 配额快照 → 仪表盘数据（T10）。断言一律用 new Date(y, m, d, h, min) 同基准构造，不依赖跑测试机器的时区。
 import { describe, it, expect } from "vitest";
-import { bucketMs, buildTrendChartData, buildHeatCells, buildDimensionDayCells } from "./Stats";
-import type { StatsBucket, StatsSeries } from "../services/api";
+import { bucketMs, buildTrendChartData, buildHeatCells, buildDimensionDayCells, buildQuotaGauges } from "./Stats";
+import type { StatsBucket, StatsSeries, QuotaSnapshot } from "../services/api";
 
 function bucket(tb: string, requests: number): StatsBucket {
   return {
@@ -109,5 +109,32 @@ describe("buildDimensionDayCells", () => {
   });
   it("series 空 → 空格子（DimensionHeatmap 诚实空态）", () => {
     expect(buildDimensionDayCells([])).toEqual([]);
+  });
+});
+
+describe("buildQuotaGauges", () => {
+  const snap = (platform_id: number, est_balance_remaining: number, created_at: number): QuotaSnapshot =>
+    ({ platform_id, est_balance_remaining, created_at });
+  const MIN = 60_000;
+
+  it("按平台分组：current=最新快照，peak=窗口峰值，trend fraction=余额/峰值（at 为 Unix 秒）", () => {
+    // p1 乱序喂入（纯函数不依赖调用侧升序约定）
+    const snaps = [
+      snap(1, 4, 3 * MIN), // p1 最新 → current=4，peak=10
+      snap(1, 10, 1 * MIN),
+      snap(2, 5, 2 * MIN), // p2 单点 → current=peak=5
+    ];
+    const gauges = buildQuotaGauges(snaps);
+    expect(gauges).toEqual([
+      { platformId: 2, current: 5, peak: 5, trend: [{ at: 120, fraction: 1 }] },
+      { platformId: 1, current: 4, peak: 10, trend: [{ at: 60, fraction: 1 }, { at: 180, fraction: 0.4 }] },
+    ]);
+    // 按当前余额降序：p2(5) 在 p1(4) 前
+    expect(gauges[0].platformId).toBe(2);
+  });
+
+  it("峰值 ≤ 0 的平台剔除（喂仪表盘也是空态，不如不出卡）；空输入 → 空数组", () => {
+    expect(buildQuotaGauges([snap(3, 0, MIN)])).toEqual([]);
+    expect(buildQuotaGauges([])).toEqual([]);
   });
 });

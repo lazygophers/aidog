@@ -1,11 +1,11 @@
 // ── 快照仪表盘（#35 批次一）：DOM+CSS conic/radial 自研（spec §A1/C4），零 canvas 零 Recharts。
-// 快照态：琥珀弧 + 灰轨 + 中央 百分比/数值。趋势态接口已留（trend props），
-// 趋势数据后端 T4（quota_snapshot 表）未到，暂不渲染。
+// 快照态：琥珀弧 + 灰轨 + 中央 百分比/数值。趋势态（T10 / #40 接通）：卡内下方
+// 迷你 sparkline（琥珀主线，fraction 序列；≥2 点画线，单点画点）。
 import { type ReactNode } from "react";
 import { clamp, formatPercent } from "@/utils/formatters";
 import { ChartCard } from "./ChartCard";
 
-/** 趋势态预留接口：at = 事件 Unix 秒，fraction = 当时占比 [0,1]（T4 落库后喂）。 */
+/** 趋势态数据：at = 事件 Unix 秒，fraction = 当时占比 [0,1]（quota_snapshots 喂）。 */
 export interface GaugeTrendPoint {
   at: number;
   fraction: number;
@@ -22,7 +22,7 @@ export interface GaugeChartProps {
   label?: ReactNode;
   /** 直径 px，默认 160。 */
   size?: number;
-  /** 趋势态预留（快照态忽略；T4 后端到位后启用）。 */
+  /** 趋势态（快照态之上叠加）：≥2 点在仪表下方画 fraction sparkline。 */
   trend?: GaugeTrendPoint[];
   title?: ReactNode;
   subtitle?: ReactNode;
@@ -36,7 +36,7 @@ export function GaugeChart({
   formatValue,
   label,
   size = 160,
-  trend: _trend,
+  trend,
   title,
   subtitle,
   emptyHint,
@@ -95,6 +95,42 @@ export function GaugeChart({
           )}
         </div>
       </div>
+      {trend != null && trend.length > 0 && (
+        <TrendSparkline points={trend} width={size} />
+      )}
     </ChartCard>
+  );
+}
+
+// ── 趋势 sparkline：fraction 序列 → 等宽折线（x 按 at 归一，y 上=1 下=0）。单点 → 圆点。 ──
+function TrendSparkline({ points, width }: { points: GaugeTrendPoint[]; width: number }) {
+  const H = 30;
+  const PAD = 2;
+  const t0 = points[0].at;
+  const tSpan = Math.max(1e-9, points[points.length - 1].at - t0);
+  const x = (p: GaugeTrendPoint) => PAD + ((p.at - t0) / tSpan) * (width - PAD * 2);
+  const y = (p: GaugeTrendPoint) => PAD + (1 - clamp(p.fraction, 0, 1)) * (H - PAD * 2);
+  return (
+    <svg
+      data-testid="gauge-trend"
+      role="img"
+      width={width}
+      height={H}
+      style={{ display: "block", margin: "10px auto 0" }}
+      shapeRendering="crispEdges"
+    >
+      {points.length > 1 ? (
+        <polyline
+          points={points.map((p) => `${x(p)},${y(p)}`).join(" ")}
+          fill="none"
+          stroke="var(--primary)"
+          strokeWidth={1.5}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ) : (
+        <circle cx={x(points[0])} cy={y(points[0])} r={2} fill="var(--primary)" />
+      )}
+    </svg>
   );
 }
