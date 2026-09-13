@@ -23,6 +23,8 @@ async fn query_stats_platform_dim_and_filter() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let r = query_stats(&db, &q).await;
     println!("NO-FILTER platform dim: {:?}", r.as_ref().err());
@@ -36,6 +38,8 @@ async fn query_stats_platform_dim_and_filter() {
         filter_model: None,
         filter_platform: Some(p.to_string()),
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let r2 = query_stats(&db, &q2).await;
     println!("PLATFORM-FILTER: {:?}", r2.as_ref().err());
@@ -69,6 +73,8 @@ async fn dimension_cache_rate_matches_input_plus_cache_tokens() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            series_by: None,
+            limit: None,
         };
         let res = query_stats(&db, &q).await.unwrap();
         let dim = res
@@ -121,6 +127,8 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            series_by: None,
+            limit: None,
         },
         // overall today hourly
         StatsQuery {
@@ -132,6 +140,8 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            series_by: None,
+            limit: None,
         },
         // platform 7d daily
         StatsQuery {
@@ -143,6 +153,8 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: Some(p.to_string()),
             filter_coding_plan: None,
+            series_by: None,
+            limit: None,
         },
         // group today hourly
         StatsQuery {
@@ -154,6 +166,8 @@ async fn query_stats_batch_matches_per_query() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: None,
+            series_by: None,
+            limit: None,
         },
     ];
 
@@ -249,6 +263,8 @@ async fn bucket_daily_splits_on_local_midnight() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     // 本地午夜两侧 → 两个不同的本地日桶。
@@ -294,6 +310,8 @@ async fn stats_available_models_only_recorded() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let s = query_stats(&db, &q).await.expect("query_stats");
     // actual_model 优先 → glm-4-plus；actual_model 空 → 回退 gpt-4o
@@ -329,6 +347,8 @@ async fn stats_available_models_only_recorded() {
         filter_model: Some("glm-4-plus".into()),
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let s2 = query_stats(&db, &q2).await.expect("query_stats filtered");
     assert!(
@@ -371,6 +391,8 @@ async fn stats_minute_and_5min_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let r_min = query_stats(&db, &q_min).await.expect("minute stats");
     assert_eq!(
@@ -394,6 +416,8 @@ async fn stats_minute_and_5min_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let r_5 = query_stats(&db, &q_5).await.expect("5min stats");
     assert_eq!(
@@ -419,6 +443,8 @@ async fn stats_minute_and_5min_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let r_h = query_stats(&db, &q_h).await.expect("hourly stats");
     assert_eq!(
@@ -486,6 +512,8 @@ async fn stats_group_by_model_dimension() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -528,6 +556,8 @@ async fn stats_group_by_group_dimension() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -567,6 +597,8 @@ async fn stats_minute_filter_model() {
         filter_model: Some("gpt-4o".into()),
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -603,6 +635,8 @@ async fn stats_minute_filter_group_and_platform() {
         filter_model: None,
         filter_platform: Some(p.to_string()),
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -634,6 +668,8 @@ async fn stats_group_by_platform_dimension() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert!(
@@ -659,6 +695,8 @@ async fn stats_empty_db_returns_zero_overview() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(res.overview.total_requests, 0);
@@ -686,6 +724,8 @@ async fn stats_granularity_hourly_produces_hourly_buckets() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(res.overview.total_requests, 1);
@@ -730,6 +770,8 @@ async fn stats_filter_model_isolates_model() {
         filter_model: Some("unique-model-xyz".into()),
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(
@@ -759,6 +801,8 @@ async fn stats_group_by_model_dimension_extra() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert!(
@@ -815,6 +859,8 @@ async fn stats_filter_coding_plan_both_paths() {
             filter_model: None,
             filter_platform: None,
             filter_coding_plan: Some(true),
+            series_by: None,
+            limit: None,
         };
         let res = query_stats(&db, &q).await.unwrap();
         assert_eq!(
@@ -832,7 +878,189 @@ async fn stats_filter_coding_plan_both_paths() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: Some(false),
+        series_by: None,
+        limit: None,
     };
     let res = query_stats(&db, &q).await.unwrap();
     assert_eq!(res.overview.total_requests, 2, "Some(false) 不应过滤");
+}
+
+// ─── chart-engine #32：交叉聚合 series（D1）+ LIMIT 参数化（D3）───
+
+/// series_by=platform（agg 路径）：按平台拆分逐桶序列，序列合计 = overview 总量（不重不漏），
+/// 序列按总请求数降序，桶 key 与总 buckets 同口径。
+#[tokio::test]
+async fn stats_series_by_platform_agg() {
+    let db = test_db().await;
+    let pa = insert_test_platform(&db, "SerA").await;
+    let pb = insert_test_platform(&db, "SerB").await;
+    let now = chrono::Utc::now().timestamp_millis();
+    // SerA 2 条 + SerB 1 条（同一小时桶）→ 序列降序 SerA 在前。
+    for (i, pid) in [(0, pa), (1, pa), (0, pb)] {
+        let mut lg = sample_log(&format!("sp{i}{pid}"), "g1", now);
+        lg.platform_id = pid;
+        lg.status_code = 200;
+        lg.est_cost = 0.01;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+            .await
+            .unwrap();
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let q = StatsQuery {
+        start: Some(now - 3_600_000),
+        end: Some(now + 3_600_000),
+        granularity: Some("hourly".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: Some("platform".into()),
+        limit: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.series.len(), 2, "2 平台 → 2 序列: {:?}", res.series);
+    assert_eq!(res.series[0].name, "SerA", "总请求数降序：SerA(2) 在前");
+    assert_eq!(res.series[1].name, "SerB");
+    let a_total: i32 = res.series[0].buckets.iter().map(|b| b.total_requests).sum();
+    let b_total: i32 = res.series[1].buckets.iter().map(|b| b.total_requests).sum();
+    assert_eq!(a_total, 2, "SerA 序列合计请求数");
+    assert_eq!(b_total, 1, "SerB 序列合计请求数");
+    assert_eq!(
+        a_total + b_total,
+        res.overview.total_requests,
+        "序列合计 = overview 总请求数（不重不漏）"
+    );
+    assert_eq!(res.series[0].buckets.len(), 1, "同小时 → 1 桶");
+    assert_eq!(
+        res.series[0].buckets[0].time_bucket, res.buckets[0].time_bucket,
+        "序列桶 key 与总 buckets 同口径"
+    );
+}
+
+/// series_by=model（minute 路径，proxy_log 裸扫）：桶+维度双键内存聚合，跨桶累计正确。
+#[tokio::test]
+async fn stats_series_by_model_minute() {
+    let db = test_db().await;
+    let base = chrono::DateTime::parse_from_rfc3339("2026-06-16T10:00:00Z")
+        .unwrap()
+        .timestamp_millis();
+    // m-x 2 条（10:00 / 10:01 两桶）+ m-y 1 条（10:03）。
+    for (id, min, model) in [("sx0", 0i64, "m-x"), ("sx1", 1, "m-x"), ("sy3", 3, "m-y")] {
+        let mut lg = sample_log(id, "g1", base + min * 60_000);
+        lg.model = model.into();
+        lg.actual_model = model.into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+            .await
+            .unwrap();
+    }
+
+    let q = StatsQuery {
+        start: Some(base - 60_000),
+        end: Some(base + 20 * 60_000),
+        granularity: Some("minute".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: Some("model".into()),
+        limit: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.series.len(), 2, "2 模型 → 2 序列");
+    assert_eq!(res.series[0].name, "m-x", "总请求数降序：m-x(2) 在前");
+    assert_eq!(res.series[0].buckets.len(), 2, "m-x 跨 2 个分钟桶");
+    let x_total: i32 = res.series[0].buckets.iter().map(|b| b.total_requests).sum();
+    let y_total: i32 = res.series[1].buckets.iter().map(|b| b.total_requests).sum();
+    assert_eq!(x_total, 2);
+    assert_eq!(y_total, 1);
+    assert_eq!(
+        x_total + y_total,
+        res.overview.total_requests,
+        "序列合计 = overview 总请求数"
+    );
+    // 桶 key 升序（复刻 buckets 排序）
+    let keys: Vec<&str> = res.series[0].buckets.iter().map(|b| b.time_bucket.as_str()).collect();
+    assert!(keys[0] < keys[1], "序列桶 key 须升序: {keys:?}");
+}
+
+/// limit 参数化（D3）：dimension_data 与 series 共用基数上限；agg 与 minute 两路径均生效。
+#[tokio::test]
+async fn stats_limit_caps_dimension_and_series() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    // 3 个模型，请求数 3/2/1 → limit=2 只留 top2。
+    for (model, count) in [("lm-a", 3i32), ("lm-b", 2), ("lm-c", 1)] {
+        for i in 0..count {
+            let mut lg = sample_log(&format!("{model}{i}"), "g1", now);
+            lg.model = model.into();
+            lg.actual_model = model.into();
+            insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+                .await
+                .unwrap();
+        }
+    }
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    // agg 路径 dimension_data LIMIT
+    let mut q = StatsQuery {
+        start: Some(now - 3_600_000),
+        end: Some(now + 3_600_000),
+        granularity: Some("daily".into()),
+        group_by: Some("model".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: None,
+        limit: Some(2),
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.dimension_data.len(), 2, "limit=2 截断维度");
+    let names: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+    assert!(names.contains(&"lm-a") && names.contains(&"lm-b"), "top2 保留: {names:?}");
+    assert!(!names.contains(&"lm-c"), "lm-c 应被截掉: {names:?}");
+
+    // series 基数沿用同一 limit
+    q.group_by = None;
+    q.series_by = Some("model".into());
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.series.len(), 2, "series 同受 limit 截断");
+    assert_eq!(res.series[0].name, "lm-a");
+    let a_total: i32 = res.series[0].buckets.iter().map(|b| b.total_requests).sum();
+    assert_eq!(a_total, 3, "lm-a 3 条");
+
+    // minute 路径 dimension truncate
+    q.granularity = Some("minute".into());
+    q.group_by = Some("model".into());
+    q.series_by = None;
+    q.limit = Some(1);
+    let res = query_stats(&db, &q).await.unwrap();
+    assert_eq!(res.dimension_data.len(), 1, "minute 路径 limit=1");
+    assert_eq!(res.dimension_data[0].name, "lm-a", "留请求数最多的");
+}
+
+/// 无 series_by → series 为空数组（向后兼容，chart-engine D1）。
+#[tokio::test]
+async fn stats_no_series_by_empty_series() {
+    let db = test_db().await;
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: None,
+        limit: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    assert!(
+        res.series.is_empty(),
+        "未传 series_by 时 series 须为空数组（向后兼容）"
+    );
 }

@@ -42,6 +42,8 @@ async fn cache_rate_never_exceeds_100() {
         filter_model: None,
         filter_platform: None,
         filter_coding_plan: None,
+        series_by: None,
+        limit: None,
     };
     let s = query_stats(&db, &q).await.expect("query_stats");
     println!("overview cache_rate = {}", s.overview.cache_rate);

@@ -5,4 +5,15 @@ export type StatsQuery = { start?: number | null, end?: number | null, granulari
  * 仅统计 coding plan 平台（endpoints 任一 coding_plan=true，spec B3）。
  * true = 过滤；false / None = 不过滤。
  */
-filter_coding_plan?: boolean, };
+filter_coding_plan?: boolean, 
+/**
+ * 交叉聚合维度（chart-engine D1 / #32）：值 = `platform` / `model` / `group`。
+ * Some → `series` 按该维度拆分返回；None / 未识别值 → `series` 空数组（向后兼容）。
+ * 字段名与既有 `group_by` / `filter_*` 一致走 snake_case（前端 StatsQuery 同名）。
+ */
+series_by?: string, 
+/**
+ * 维度基数上限（chart-engine D3 / #32）：约束 `dimension_data` 与 `series` 条数，
+ * 缺省 50（替换原 SQL 硬编码 LIMIT 50）。
+ */
+limit?: number, };

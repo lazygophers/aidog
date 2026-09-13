@@ -221,6 +221,17 @@ fn in_clause(ids: &HashSet<i64>, next_idx: usize) -> (String, Vec<i64>) {
     )
 }
 
+/// `series_by` 归一（chart-engine D1）：已知维度（platform/model/group）原样返回，
+/// None / 未识别值 → None（`series` 为空，向后兼容）。
+fn series_dim(query: &StatsQuery) -> Option<&'static str> {
+    match query.series_by.as_deref() {
+        Some("platform") => Some("platform"),
+        Some("model") => Some("model"),
+        Some("group") => Some("group"),
+        _ => None,
+    }
+}
+
 /// query 要求筛 coding plan 且调用方已预查到 id 集 → Some(set)；否则 None（不过滤）。
 /// （单查询懒查；批量共享一份集合，由本函数按各 query 自身 flag 决定用不用。）
 fn coding_effective_set<'a>(
@@ -244,6 +255,8 @@ fn query_stats_inner_agg(
     coding_ids: &Option<HashSet<i64>>,
 ) -> Result<StatsResult, String> {
     let coding_set = coding_effective_set(query, coding_ids);
+    // 维度基数上限（D3）：dimension_data 与 series 共用，缺省 50（原硬编码值）。
+    let limit = query.limit.unwrap_or(50) as usize;
     // start 向下取整到所属本地小时桶；end 同理（time_hour <= end_hour 含 end 所在整点桶）。
     let start_key = utc_ms_to_local_hour_key(start);
     let end_key = utc_ms_to_local_hour_key(end);
@@ -354,7 +367,7 @@ fn query_stats_inner_agg(
                 "SELECT platform_id AS pid, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
                  COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
                  COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
-                 FROM stats_agg_hourly WHERE {where_sql} GROUP BY platform_id ORDER BY 2 DESC LIMIT 50"
+                 FROM stats_agg_hourly WHERE {where_sql} GROUP BY platform_id ORDER BY 2 DESC LIMIT {limit}"
             );
             let rows: Vec<(i64, DimensionEntry)> = conn
                 .prepare(&dim_sql)
@@ -410,7 +423,7 @@ fn query_stats_inner_agg(
                 "SELECT {dim_col} AS dim, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
                  COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
                  COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
-                 FROM stats_agg_hourly WHERE {where_sql} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT 50"
+                 FROM stats_agg_hourly WHERE {where_sql} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT {limit}"
             );
             conn.prepare(&dim_sql)
                 .map_err(|e| e.to_string())?
@@ -443,6 +456,79 @@ fn query_stats_inner_agg(
                 .filter_map(|r| r.ok())
                 .collect()
         }
+    } else {
+        vec![]
+    };
+
+    // ── Cross-aggregation series (D1) ──
+    // 聚合表路径：桶 × 维度双键 GROUP BY（零 schema 改动，四元组表直接多聚一维）。
+    // 维度基数沿用 dimension_data 的 LIMIT（D3）；platform 维度键为 eff_pid（整数列），
+    // 读出即转十进制字符串，名称内存回填（含软删平台名仍可显示）。
+    let series: Vec<StatsSeries> = if let Some(dim) = series_dim(query) {
+        let (dim_expr, is_pid) = match dim {
+            "platform" => ("platform_id", true),
+            "model" => ("model", false),
+            _ => ("group_key", false),
+        };
+        let mut smap: HashMap<String, std::collections::BTreeMap<String, StatsBucket>> =
+            HashMap::new();
+        let mut totals: HashMap<String, i64> = HashMap::new();
+        conn.prepare(&format!(
+            "SELECT {dim_expr} AS d, {bucket_expr} AS b, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
+             COALESCE(SUM(error_count),0), COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), \
+             COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), \
+             COALESCE(SUM(sum_est_cost),0.0) \
+             FROM stats_agg_hourly WHERE {where_sql} GROUP BY d, b ORDER BY d, b"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(refs.as_slice(), |row| {
+            let req: i64 = row.get(2).unwrap_or(0);
+            let sum_dur: i64 = row.get(8).unwrap_or(0);
+            // platform 维度是 INTEGER 列：读 i64 转字符串，避免 get::<String> 列型不匹配。
+            let d = if is_pid {
+                row.get::<_, i64>(0).map(|v| v.to_string()).unwrap_or_default()
+            } else {
+                row.get::<_, String>(0).unwrap_or_default()
+            };
+            let b = StatsBucket {
+                time_bucket: row.get(1).unwrap_or_default(),
+                total_requests: row.get(2).unwrap_or(0),
+                success_count: row.get(3).unwrap_or(0),
+                error_count: row.get(4).unwrap_or(0),
+                input_tokens: row.get(5).unwrap_or(0),
+                output_tokens: row.get(6).unwrap_or(0),
+                cache_tokens: row.get(7).unwrap_or(0),
+                avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
+                total_cost: row.get(9).unwrap_or(0.0),
+            };
+            Ok((d, b))
+        })
+        .map_err(|e| format!("agg series: {e}"))?
+        .filter_map(|r| r.ok())
+        .for_each(|(d, b)| {
+            *totals.entry(d.clone()).or_insert(0) += b.total_requests as i64;
+            smap.entry(d).or_default().insert(b.time_bucket.clone(), b);
+        });
+        // 维度排序（总请求数降序）+ LIMIT + platform 名称回填。
+        let mut dims: Vec<String> = smap.keys().cloned().collect();
+        dims.sort_by_key(|d| std::cmp::Reverse(totals.get(d).copied().unwrap_or(0)));
+        dims.truncate(limit);
+        dims.into_iter()
+            .map(|d| {
+                let name = if is_pid {
+                    d.parse::<i64>()
+                        .ok()
+                        .and_then(|pid| platform_names.get(&pid).cloned())
+                        .unwrap_or_else(|| "未知".to_string())
+                } else {
+                    d.clone()
+                };
+                StatsSeries {
+                    name,
+                    buckets: smap.remove(&d).unwrap_or_default().into_values().collect(),
+                }
+            })
+            .collect()
     } else {
         vec![]
     };
@@ -490,6 +576,7 @@ fn query_stats_inner_agg(
         buckets,
         dimension_data,
         available_models,
+        series,
     })
 }
 
@@ -543,6 +630,8 @@ pub(crate) fn query_stats_inner(
         .and_then(|s| s.parse::<i64>().ok());
     // coding plan 过滤（spec B3）：eff_pid ∈ coding_set；两条件 AND，均内存判定。
     let coding_set = coding_effective_set(query, coding_ids);
+    // 维度基数上限（D3）：dimension_data 与 series 共用，缺省 50（原硬编码值）。
+    let limit = query.limit.unwrap_or(50) as usize;
     let keep = |eff_pid: i64| {
         want_pid.is_none_or(|w| eff_pid == w)
             && coding_set.is_none_or(|cs| cs.contains(&eff_pid))
@@ -695,26 +784,25 @@ pub(crate) fn query_stats_inner(
     }
     let mut bucket_keys: Vec<String> = bmap.keys().cloned().collect();
     bucket_keys.sort();
+    // Bkt → StatsBucket 组装（buckets 与 series 共用）。
+    let to_bucket = |k: &str, b: &Bkt| StatsBucket {
+        time_bucket: k.to_string(),
+        total_requests: b.req as i32,
+        success_count: b.succ as i32,
+        error_count: b.err as i32,
+        input_tokens: b.input,
+        output_tokens: b.output,
+        cache_tokens: b.cache,
+        avg_duration_ms: if b.req > 0 {
+            b.dur as f64 / b.req as f64
+        } else {
+            0.0
+        },
+        total_cost: b.cost,
+    };
     let buckets: Vec<StatsBucket> = bucket_keys
         .into_iter()
-        .map(|k| {
-            let b = &bmap[&k];
-            StatsBucket {
-                time_bucket: k.clone(),
-                total_requests: b.req as i32,
-                success_count: b.succ as i32,
-                error_count: b.err as i32,
-                input_tokens: b.input,
-                output_tokens: b.output,
-                cache_tokens: b.cache,
-                avg_duration_ms: if b.req > 0 {
-                    b.dur as f64 / b.req as f64
-                } else {
-                    0.0
-                },
-                total_cost: b.cost,
-            }
-        })
+        .map(|k| to_bucket(&k, &bmap[&k]))
         .collect();
 
     // ── Dimension breakdown ──（platform 维度按 eff_pid 内存分组 + 补名；model/group 按列分组）
@@ -808,8 +896,67 @@ pub(crate) fn query_stats_inner(
                 .collect()
         };
         entries.sort_by_key(|e| std::cmp::Reverse(e.total_requests));
-        entries.truncate(50);
+        entries.truncate(limit);
         entries
+    } else {
+        vec![]
+    };
+
+    // ── Cross-aggregation series (D1, minute 路径) ──
+    // 桶 + 维度双键内存聚合（与上方 bmap 同 Bkt 累计口径；eff_pid 过滤同 keep）。
+    // model 维度用 actual_model（与 minute 路径 dimension breakdown 一致）；
+    // platform 维度键为 eff_pid 字符串，名称经 platform_names 回填。
+    let series: Vec<StatsSeries> = if let Some(dim) = series_dim(query) {
+        let is_pid = dim == "platform";
+        let mut smap: HashMap<String, HashMap<String, Bkt>> = HashMap::new();
+        for r in &rows {
+            if !keep(r.eff_pid) {
+                continue;
+            }
+            let dk = match dim {
+                "platform" => r.eff_pid.to_string(),
+                "model" => r.actual_model.clone(),
+                _ => r.group_key.clone(),
+            };
+            let key = utc_ms_to_local_minute_key(r.created_at, five_min);
+            let b = smap.entry(dk).or_default().entry(key).or_default();
+            b.req += 1;
+            if is_2xx(r.status_code) {
+                b.succ += 1;
+            } else {
+                b.err += 1;
+            }
+            b.input += r.input;
+            b.output += r.output;
+            b.cache += r.cache;
+            b.dur += r.duration;
+            b.cost += r.est_cost;
+        }
+        // 维度排序（总请求数降序）+ LIMIT；桶内按 key 升序（复刻 buckets 排序）。
+        let mut dims: Vec<(String, i64)> = smap
+            .iter()
+            .map(|(d, m)| (d.clone(), m.values().map(|b| b.req).sum()))
+            .collect();
+        dims.sort_by_key(|(_, total)| std::cmp::Reverse(*total));
+        dims.truncate(limit);
+        dims.into_iter()
+            .map(|(d, _)| {
+                let name = if is_pid {
+                    d.parse::<i64>()
+                        .ok()
+                        .and_then(|pid| platform_names.get(&pid).cloned())
+                        .unwrap_or_else(|| "未知".to_string())
+                } else {
+                    d.clone()
+                };
+                let mut keys: Vec<String> = smap[&d].keys().cloned().collect();
+                keys.sort();
+                StatsSeries {
+                    name,
+                    buckets: keys.iter().map(|k| to_bucket(k, &smap[&d][k])).collect(),
+                }
+            })
+            .collect()
     } else {
         vec![]
     };
@@ -866,6 +1013,7 @@ pub(crate) fn query_stats_inner(
         buckets,
         dimension_data,
         available_models,
+        series,
     })
 }
 

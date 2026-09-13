@@ -69,6 +69,15 @@ pub struct StatsQuery {
     /// true = 过滤；false / None = 不过滤。
     #[ts(optional)]
     pub filter_coding_plan: Option<bool>,
+    /// 交叉聚合维度（chart-engine D1 / #32）：值 = `platform` / `model` / `group`。
+    /// Some → `series` 按该维度拆分返回；None / 未识别值 → `series` 空数组（向后兼容）。
+    /// 字段名与既有 `group_by` / `filter_*` 一致走 snake_case（前端 StatsQuery 同名）。
+    #[ts(optional)]
+    pub series_by: Option<String>,
+    /// 维度基数上限（chart-engine D3 / #32）：约束 `dimension_data` 与 `series` 条数，
+    /// 缺省 50（替换原 SQL 硬编码 LIMIT 50）。
+    #[ts(optional)]
+    pub limit: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -123,6 +132,14 @@ pub struct DimensionEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct StatsSeries {
+    /// 维度值（platform 维度 = 平台名；model / group 维度 = 列值）。
+    pub name: String,
+    pub buckets: Vec<StatsBucket>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct StatsResult {
     pub overview: StatsOverview,
     pub buckets: Vec<StatsBucket>,
@@ -130,4 +147,8 @@ pub struct StatsResult {
     /// 当前筛选范围（日期 + 分组 + 平台，不含 filter_model）内实际有记录的模型名，
     /// 供前端模型筛选下拉使用（避免列出配置过但无请求的模型）。
     pub available_models: Vec<String>,
+    /// 交叉聚合序列（chart-engine D1 / #32）：`series_by` 有值时按维度拆分的逐桶序列；
+    /// 未传 → 空数组（向后兼容）。serde default 容忍旧 JSON 无该键。
+    #[serde(default)]
+    pub series: Vec<StatsSeries>,
 }
