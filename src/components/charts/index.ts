@@ -13,3 +13,5 @@ export { DonutChart, type DonutChartProps } from "./DonutChart";
 export { HourHeatmap, type HourHeatmapProps } from "./HourHeatmap";
 export { HourHeatBar, type HourHeatBarProps } from "./HourHeatBar";
 export { GaugeChart, type GaugeChartProps, type GaugeTrendPoint } from "./GaugeChart";
+// T10（#40）：散点直方图（服务端 bin 化矩阵）+ GaugeChart 趋势态
+export { ScatterChart, scatterPoints, type ScatterChartProps, type ScatterPoint } from "./ScatterChart";

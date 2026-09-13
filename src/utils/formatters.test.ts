@@ -5,6 +5,7 @@ import {
   formatBytes,
   formatCost,
   formatCostUsd,
+  formatDurationMs,
   formatPercent,
   successRate,
   sumTokens,
@@ -165,6 +166,14 @@ describe("formatRelativeTime", () => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
     expect(formatRelativeTime(NOW + DAY)).toBe("刚刚");
+  });
+});
+
+describe("formatDurationMs", () => {
+  it("三档单位：ms / 秒 / 分钟（各 1 位小数边界）", () => {
+    expect(formatDurationMs(823)).toBe("823 ms");
+    expect(formatDurationMs(1500)).toBe("1.5 s");
+    expect(formatDurationMs(90_000)).toBe("1.5 min");
   });
 });
 

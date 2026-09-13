@@ -33,4 +33,21 @@ describe("GaugeChart", () => {
     rerender(<GaugeChart value={999} max={100} />);
     expect(bgOf()).toContain("360deg");
   });
+
+  it("renders trend sparkline polyline for multi-point series, dot for single", () => {
+    const { container, rerender } = render(
+      <GaugeChart value={3} max={10} trend={[{ at: 0, fraction: 1 }, { at: 60, fraction: 0.3 }]} />,
+    );
+    const spark = () => container.querySelector('[data-testid="gauge-trend"]');
+    expect(spark()?.querySelector("polyline")).toBeTruthy();
+    expect(spark()?.querySelector("circle")).toBeNull();
+
+    rerender(<GaugeChart value={3} max={10} trend={[{ at: 0, fraction: 0.3 }]} />);
+    expect(spark()?.querySelector("polyline")).toBeNull();
+    expect(spark()?.querySelector("circle")).toBeTruthy();
+
+    // 无 trend → 不画 sparkline
+    rerender(<GaugeChart value={3} max={10} />);
+    expect(spark()).toBeNull();
+  });
 });
