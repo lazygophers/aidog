@@ -2,10 +2,10 @@
 // 单块命令面板：琥珀渐变眉条 → 搜索栏式状态行（运行态点 + 端口 + ⌘C 复制地址）
 // → 四 KPI 紧凑行（每格行内 sparkline，花费=琥珀其余灰阶）→ 24h 紧凑双线趋势
 // （琥珀主线 + 灰阶虚线辅线）→ 平台 Top4（迷你环形 + 行内占比条 + 等宽数字）
-// → 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C 视觉示意，键位绑定不做）。
+// → 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C chip 可点击 + keydown 绑定同动作）。
 // 旧三曲线主图删除，深分析归 Stats。数据源（各区独立 catch）/ reveal 入场 / RTL / i18n 不变。
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   proxyApi,
@@ -22,7 +22,7 @@ import {
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
-import { seriesColor } from "@/components/charts";
+import { LineChart, bucketMs, seriesColor } from "@/components/charts";
 import { F } from "../domains/shared/tokens";
 
 const DEFAULT_PORT = 7890;
@@ -41,7 +41,7 @@ const PANEL = {
 const BROW_GRADIENT = "linear-gradient(90deg, #64521d, #e8c547 55%, #f2dc8a)";
 
 /**
- * 数值序列 → 归一化 [x,y] 点集（sparkline / 趋势线共用）：
+ * 数值序列 → 归一化 [x,y] 点集（KPI sparkline 用）：
  * y 按 min-max 缩放进 [pad, h-pad]（平坦序列落中线，不除零）；x 均分（单点居中）。
  */
 export function normPoints(
@@ -62,8 +62,6 @@ export function normPoints(
 
 const ptsToPolyline = (pts: Array<[number, number]>) =>
   pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
-const ptsToPath = (pts: Array<[number, number]>) =>
-  pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
 /** KPI 格行内 sparkline：100×22 viewBox 无填充折线（公共层无现成组件，最小 SVG 内联）。 */
 function Sparkline({ values, color }: { values: number[]; color: string }) {
@@ -207,13 +205,16 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
     ? t("home.statusUnknown", "未知")
     : running ? t("home.statusRunning", "运行中") : t("home.statusStopped", "已停止");
 
-  // 24h 趋势 SVG 几何：viewBox 640×88，主线（请求）琥珀 + 面积填充，辅线（花费）灰阶虚线独立归一化。
-  const TW = 640;
-  const TH = 88;
-  const mainPts = normPoints(reqSeries, TW, TH, 8);
-  const mainPath = ptsToPath(mainPts);
-  const areaPath = mainPts.length > 1 ? `${mainPath} L ${TW},${TH} L 0,${TH} Z` : "";
-  const auxPath = ptsToPath(normPoints(costSeries, TW, TH, 8));
+  // 24h 趋势行数据（公共层 LineChart 双 Y 轴消费，spec §B2：归一化不手写）：
+  // 主线 req 挂左轴（琥珀 + 面积填充），辅线 cost 挂右轴独立标尺（灰阶虚线）。
+  const trendRows = useMemo(
+    () => trendBuckets.map(b => ({
+      x: bucketMs(b.time_bucket),
+      req: b.total_requests,
+      cost: b.total_cost,
+    })),
+    [trendBuckets],
+  );
 
   // 萤火虫动效：面板内 5 区块 reveal 入场错峰（0/70/140/210/280ms）。
   const revealSearch = useReveal<HTMLDivElement>(0);
@@ -231,12 +232,34 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
     ]
     : [];
 
-  const footChips = [
-    { label: t("home.addPlatform", "添加平台"), kbd: "⌘N", run: () => onNavigate("platforms") },
-    { label: t("home.viewStats", "查看统计"), kbd: "⌘S", run: () => onNavigate("stats") },
-    { label: t("home.viewLogs", "查看日志"), kbd: "⌘L", run: () => onNavigate("logs") },
-    { label: t("home.copyBaseUrl", "复制代理地址"), kbd: "⌘C", run: copyUrl },
-  ];
+  const footChips = useMemo(
+    () => [
+      { label: t("home.addPlatform", "添加平台"), kbd: "⌘N", key: "n", run: () => onNavigate("platforms") },
+      { label: t("home.viewStats", "查看统计"), kbd: "⌘S", key: "s", run: () => onNavigate("stats") },
+      { label: t("home.viewLogs", "查看日志"), kbd: "⌘L", key: "l", run: () => onNavigate("logs") },
+      { label: t("home.copyBaseUrl", "复制代理地址"), kbd: "⌘C", key: "c", run: copyUrl },
+    ],
+    [t, onNavigate, copyUrl],
+  );
+
+  // 快捷键绑定（footer chip 同动作）：Mac ⌘ 为主、Ctrl 兼容；焦点在输入类元素时不触发，
+  // 防打断输入；命中即 preventDefault 抢占 —— ⌘C 是复制代理地址（chip onClick 同语义），
+  // 不抢占会变成系统复制。卸载 / chips 变化时摘监听。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.altKey || !(e.metaKey || e.ctrlKey)) return;
+      const k = e.key.toLowerCase();
+      if (!/^[a-z]$/.test(k)) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable)) return;
+      const chip = footChips.find(c => c.key === k);
+      if (!chip) return;
+      e.preventDefault();
+      chip.run();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [footChips]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720, margin: "0 auto", width: "100%" }}>
@@ -324,22 +347,18 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           </div>
           {hasTrend ? (
             <>
-              <svg viewBox={`0 0 ${TW} ${TH}`} preserveAspectRatio="none" style={{ display: "block", width: "100%", height: TH }}>
-                <defs>
-                  <linearGradient id="homeCmdTrendArea" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0" stopColor={seriesColor(0)} stopOpacity=".2" />
-                    <stop offset="1" stopColor={seriesColor(0)} stopOpacity="0" />
-                  </linearGradient>
-                </defs>
-                <g stroke="rgba(255,255,255,.05)">
-                  <line x1={0} y1={22} x2={TW} y2={22} />
-                  <line x1={0} y1={44} x2={TW} y2={44} />
-                  <line x1={0} y1={66} x2={TW} y2={66} />
-                </g>
-                <path d={areaPath} fill="url(#homeCmdTrendArea)" />
-                <path d={mainPath} fill="none" stroke={seriesColor(0)} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
-                <path d={auxPath} fill="none" stroke={seriesColor(1)} strokeWidth={1.2} strokeDasharray="3 3" vectorEffect="non-scaling-stroke" />
-              </svg>
+              {/* 紧凑双线趋势走公共层双 Y 轴（mini：去轴去网格，标尺仍独立生效） */}
+              <LineChart
+                mini
+                area
+                height={88}
+                xKey="x"
+                data={trendRows}
+                config={{ req: { label: t("home.trendRequests", "请求数"), color: seriesColor(0) } }}
+                rightConfig={{ cost: { label: t("home.trendCost", "花费"), color: seriesColor(1) } }}
+                rightValueFormat={formatCostUsd}
+                dashedKeys={["cost"]}
+              />
               {/* x 轴整点小时标注：每 6 桶（hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"） */}
               <div style={{ position: "relative", height: 12 }}>
                 {trendBuckets.map((b, i) =>

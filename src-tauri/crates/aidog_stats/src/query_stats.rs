@@ -232,6 +232,39 @@ fn series_dim(query: &StatsQuery) -> Option<&'static str> {
     }
 }
 
+/// series 维度尾段共享（agg / minute 两路径同形，chart-engine review S4）：
+/// 总量降序 → truncate(limit) → platform 维度名回填。
+/// 名字回溯失败返空串，前端归「未知」（与 stats_today 口径一致，review S1）。
+/// `total_of` / `buckets_of` 参数化两路径口径差异：agg 桶值已是 BTreeMap 有序 StatsBucket，
+/// minute 是 HashMap<Bkt> 需按 key 升序 + to_bucket 转换。
+fn finalize_series_dims<B>(
+    mut smap: HashMap<String, B>,
+    is_pid: bool,
+    platform_names: &HashMap<i64, String>,
+    limit: usize,
+    total_of: impl Fn(&B) -> i64,
+    buckets_of: impl Fn(B) -> Vec<StatsBucket>,
+) -> Vec<StatsSeries> {
+    let mut dims: Vec<String> = smap.keys().cloned().collect();
+    dims.sort_by_key(|d| std::cmp::Reverse(total_of(&smap[d])));
+    dims.truncate(limit);
+    dims.into_iter()
+        .filter_map(|d| {
+            let name = if is_pid {
+                d.parse::<i64>()
+                    .ok()
+                    .and_then(|pid| platform_names.get(&pid).cloned())
+                    .unwrap_or_default()
+            } else {
+                d.clone()
+            };
+            smap
+                .remove(&d)
+                .map(|b| StatsSeries { name, buckets: buckets_of(b) })
+        })
+        .collect()
+}
+
 /// query 要求筛 coding plan 且调用方已预查到 id 集 → Some(set)；否则 None（不过滤）。
 /// （单查询懒查；批量共享一份集合，由本函数按各 query 自身 flag 决定用不用。）
 fn coding_effective_set<'a>(
@@ -405,12 +438,10 @@ fn query_stats_inner_agg(
                 .filter_map(|r| r.ok())
                 .collect();
             // platform_names 由调用方跨库预查自 platform 库传入（agg 走主库读池，无 platform 表）。
+            // 回溯失败返空串，前端归「未知」（与 stats_today 口径一致，review S1）。
             rows.into_iter()
                 .map(|(pid, mut e)| {
-                    e.name = platform_names
-                        .get(&pid)
-                        .cloned()
-                        .unwrap_or_else(|| "未知".to_string());
+                    e.name = platform_names.get(&pid).cloned().unwrap_or_default();
                     e
                 })
                 .collect()
@@ -472,7 +503,6 @@ fn query_stats_inner_agg(
         };
         let mut smap: HashMap<String, std::collections::BTreeMap<String, StatsBucket>> =
             HashMap::new();
-        let mut totals: HashMap<String, i64> = HashMap::new();
         conn.prepare(&format!(
             "SELECT {dim_expr} AS d, {bucket_expr} AS b, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
              COALESCE(SUM(error_count),0), COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), \
@@ -506,29 +536,19 @@ fn query_stats_inner_agg(
         .map_err(|e| format!("agg series: {e}"))?
         .filter_map(|r| r.ok())
         .for_each(|(d, b)| {
-            *totals.entry(d.clone()).or_insert(0) += b.total_requests as i64;
             smap.entry(d).or_default().insert(b.time_bucket.clone(), b);
         });
-        // 维度排序（总请求数降序）+ LIMIT + platform 名称回填。
-        let mut dims: Vec<String> = smap.keys().cloned().collect();
-        dims.sort_by_key(|d| std::cmp::Reverse(totals.get(d).copied().unwrap_or(0)));
-        dims.truncate(limit);
-        dims.into_iter()
-            .map(|d| {
-                let name = if is_pid {
-                    d.parse::<i64>()
-                        .ok()
-                        .and_then(|pid| platform_names.get(&pid).cloned())
-                        .unwrap_or_else(|| "未知".to_string())
-                } else {
-                    d.clone()
-                };
-                StatsSeries {
-                    name,
-                    buckets: smap.remove(&d).unwrap_or_default().into_values().collect(),
-                }
-            })
-            .collect()
+        // 维度排序（总请求数降序）+ LIMIT + platform 名称回填：与 minute 路径共享尾段（S4）。
+        finalize_series_dims(
+            smap,
+            is_pid,
+            platform_names,
+            limit,
+            |m: &std::collections::BTreeMap<String, StatsBucket>| {
+                m.values().map(|b| b.total_requests as i64).sum()
+            },
+            |m: std::collections::BTreeMap<String, StatsBucket>| m.into_values().collect(),
+        )
     } else {
         vec![]
     };
@@ -850,10 +870,8 @@ pub(crate) fn query_stats_inner(
         let mut entries: Vec<DimensionEntry> = if is_platform {
             dmap.into_iter()
                 .map(|(pid, d)| DimensionEntry {
-                    name: platform_names
-                        .get(&pid)
-                        .cloned()
-                        .unwrap_or_else(|| "未知".to_string()),
+                    // 回溯失败空串，前端归「未知」（review S1）。
+                    name: platform_names.get(&pid).cloned().unwrap_or_default(),
                     total_requests: d.req as i32,
                     success_count: d.succ as i32,
                     input_tokens: d.input,
@@ -932,31 +950,20 @@ pub(crate) fn query_stats_inner(
             b.dur += r.duration;
             b.cost += r.est_cost;
         }
-        // 维度排序（总请求数降序）+ LIMIT；桶内按 key 升序（复刻 buckets 排序）。
-        let mut dims: Vec<(String, i64)> = smap
-            .iter()
-            .map(|(d, m)| (d.clone(), m.values().map(|b| b.req).sum()))
-            .collect();
-        dims.sort_by_key(|(_, total)| std::cmp::Reverse(*total));
-        dims.truncate(limit);
-        dims.into_iter()
-            .map(|(d, _)| {
-                let name = if is_pid {
-                    d.parse::<i64>()
-                        .ok()
-                        .and_then(|pid| platform_names.get(&pid).cloned())
-                        .unwrap_or_else(|| "未知".to_string())
-                } else {
-                    d.clone()
-                };
-                let mut keys: Vec<String> = smap[&d].keys().cloned().collect();
+        // 维度排序（总请求数降序）+ LIMIT + platform 名称回填：与 agg 路径共享尾段（S4）；
+        // 桶内按 key 升序（复刻 buckets 排序，BTreeMap 口径差异经 buckets_of 参数化）。
+        finalize_series_dims(
+            smap,
+            is_pid,
+            platform_names,
+            limit,
+            |m: &HashMap<String, Bkt>| m.values().map(|b| b.req).sum(),
+            |m: HashMap<String, Bkt>| {
+                let mut keys: Vec<String> = m.keys().cloned().collect();
                 keys.sort();
-                StatsSeries {
-                    name,
-                    buckets: keys.iter().map(|k| to_bucket(k, &smap[&d][k])).collect(),
-                }
-            })
-            .collect()
+                keys.into_iter().map(|k| to_bucket(&k, &m[&k])).collect()
+            },
+        )
     } else {
         vec![]
     };

@@ -67,4 +67,30 @@ describe("LineChart", () => {
     expect(container.querySelectorAll(".recharts-cartesian-axis-tick-value").length).toBe(0);
     expect(container.querySelectorAll(".recharts-cartesian-grid").length).toBe(0);
   });
+
+  it("dual Y axis: right series on right scale, area fill under main, dashed aux line", () => {
+    const { container } = render(
+      <LineChart
+        config={{ req: { label: "req" } }}
+        rightConfig={{ cost: { label: "cost" } }}
+        rightValueFormat={(n) => `$${n.toFixed(2)}`}
+        area
+        dashedKeys={["cost"]}
+        data={rows(24).map((r) => ({ x: r.x, req: Number(r.tokens), cost: Number(r.cost) }))}
+      />,
+    );
+    // x + 左右两条 Y 轴（单轴时是 2 条）
+    expect(container.querySelectorAll(".recharts-cartesian-axis").length).toBe(3);
+    // 主系列下方面积填充（Area）
+    expect(container.querySelectorAll(".recharts-area-area").length).toBe(1);
+    // 左右系列各一条折线
+    expect(container.querySelectorAll(".recharts-line-curve").length).toBe(2);
+    // 右轴刻度走 rightValueFormat（$ 前缀）
+    const texts = Array.from(container.querySelectorAll(".recharts-cartesian-axis-tick-value")).map(
+      (el) => el.textContent,
+    );
+    expect(texts.some((tx) => tx != null && tx.includes("$"))).toBe(true);
+    // dashedKeys 的 stroke-dasharray 断言不可行：jsdom 无 getTotalLength，
+    // recharts draw-in 动画把 dasharray 改写成 "0px 0px"（真实浏览器动画结束恢复 "3 3"）。
+  });
 });
