@@ -32,6 +32,16 @@ pub async fn scatter_histogram(
 }
 }
 
+crate::tauri_command! {
+/// 配额快照序列（chart-engine D4 / #34）：时间窗内某平台（或全部平台）的
+/// quota_snapshot 事件序列，供 C4 仪表盘趋势与 Stats 配额 tab。空平台/空窗 → 空数组。
+pub async fn quota_snapshots(
+    query: QuotaSnapshotsQuery) -> Result<Vec<QuotaSnapshot>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::quota_snapshots(db, &query).await
+}
+}
+
 use gateway::models::StatsSettings;
 
 crate::tauri_command! {
