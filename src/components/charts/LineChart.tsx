@@ -8,16 +8,9 @@ import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/compone
 import { ChartCard } from "./ChartCard";
 import { ChartsTooltip, tooltipValueRows } from "./tooltip";
 import { withDefaultColors } from "./palette";
-import { formatTimeTick, niceTicks } from "./ticks";
+import { formatTimeTick, niceTicks, xNum } from "./ticks";
 import { downsampleLTTB } from "./downsample";
 import { drawInProps } from "./drawIn";
-
-/** x 值归一为 ms 时间戳：number 原样，Date 取时间，串归一后 Date.parse（NaN 交轴自动回落）。 */
-function xNum(v: unknown): number {
-  if (typeof v === "number") return v;
-  if (v instanceof Date) return v.getTime();
-  return Date.parse(String(v).replace(" ", "T"));
-}
 
 export interface LineChartProps {
   /** 系列声明：每个 key 一条线，label 进 tooltip/legend；缺 color 按键序走公共层色板。 */

@@ -13,3 +13,7 @@ export { DonutChart, type DonutChartProps } from "./DonutChart";
 export { HourHeatmap, type HourHeatmapProps } from "./HourHeatmap";
 export { HourHeatBar, type HourHeatBarProps } from "./HourHeatBar";
 export { GaugeChart, type GaugeChartProps, type GaugeTrendPoint } from "./GaugeChart";
+// 批次二三组件（#39）：series_by 交叉聚合消费
+export { StackedAreaChart, type StackedAreaChartProps } from "./StackedAreaChart";
+export { StackedBarChart, type StackedBarChartProps } from "./StackedBarChart";
+export { DimensionHeatmap, type DimensionHeatmapProps } from "./DimensionHeatmap";

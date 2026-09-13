@@ -26,6 +26,12 @@ describe("niceTicks", () => {
     expect(niceTicks(0, 4, 5)).toEqual([0, 1, 2, 3, 4]);
   });
 
+  it("步长整跨数据域 → 末刻度补一档覆盖 max（防按刻度定轴域后顶值被裁）", () => {
+    // 0..7 with 4 ticks → step 5：循环止于 5，再补 10
+    expect(niceTicks(0, 7, 4)).toEqual([0, 5, 10]);
+    expect(niceTicks(0, 7, 4).every((t) => t >= 0)).toBe(true);
+  });
+
   it("min === max → single tick", () => {
     expect(niceTicks(7, 7, 5)).toEqual([7]);
   });

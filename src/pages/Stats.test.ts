@@ -1,7 +1,7 @@
 // Stats 四 tab（#37 T7）纯函数单测：时间序列宽表合并 / 时刻热力聚合 / bucket 本地时区解析。
 // 断言一律用 new Date(y, m, d, h, min) 同基准构造，不依赖跑测试机器的时区。
 import { describe, it, expect } from "vitest";
-import { bucketMs, buildTrendChartData, buildHeatCells } from "./Stats";
+import { bucketMs, buildTrendChartData, buildHeatCells, buildDimensionDayCells } from "./Stats";
 import type { StatsBucket, StatsSeries } from "../services/api";
 
 function bucket(tb: string, requests: number): StatsBucket {
@@ -76,5 +76,38 @@ describe("buildHeatCells", () => {
   });
   it("脏时间串跳过不抛", () => {
     expect(buildHeatCells([bucket("bad bucket", 1)])).toEqual([]);
+  });
+});
+
+describe("buildDimensionDayCells", () => {
+  it("series 桶按本地日聚合，行按总量降序（首现序）", () => {
+    const cells = buildDimensionDayCells(
+      [
+        series("glm", [bucket("2026-09-12", 1), bucket("2026-09-13 10:00:00", 2)]),
+        series("claude", [bucket("2026-09-12", 5), bucket("2026-09-13 09:00:00", 5), bucket("2026-09-14", 1)]),
+      ],
+      2,
+    );
+    // claude 总量 11 > glm 3 → claude 行在前；hourly 桶摊入当日
+    expect(cells).toEqual([
+      { name: "claude", day: new Date(2026, 8, 12).getTime(), value: 5 },
+      { name: "claude", day: new Date(2026, 8, 13).getTime(), value: 5 },
+      { name: "claude", day: new Date(2026, 8, 14).getTime(), value: 1 },
+      { name: "glm", day: new Date(2026, 8, 12).getTime(), value: 1 },
+      { name: "glm", day: new Date(2026, 8, 13).getTime(), value: 2 },
+    ]);
+  });
+  it("topN 截断丢弃尾部维度", () => {
+    const cells = buildDimensionDayCells(
+      [
+        series("a", [bucket("2026-09-12", 10)]),
+        series("b", [bucket("2026-09-12", 5)]),
+      ],
+      1,
+    );
+    expect(cells).toEqual([{ name: "a", day: new Date(2026, 8, 12).getTime(), value: 10 }]);
+  });
+  it("series 空 → 空格子（DimensionHeatmap 诚实空态）", () => {
+    expect(buildDimensionDayCells([])).toEqual([]);
   });
 });

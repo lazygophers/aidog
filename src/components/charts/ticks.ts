@@ -11,6 +11,7 @@ function niceStep(norm: number, mag: number): number {
 /**
  * nice-ticks：给数据域 [min, max] 生成含两端的「好看」均匀刻度（1/2/5 步长）。
  * 调用方直接喂给 Recharts CartesianAxis 的 ticks。
+ * - 刻度域覆盖整个数据域（末刻度 ≥ max：步长跨过 max 时补一档，防调用方按刻度定轴域后顶值被裁）
  * - min === max 或 max < min → 单刻度 [min]（退化域，调用方自行加 padding）
  * - 非有限值（NaN/Infinity，脏数据漏到轴上）→ []（轴回落 recharts 自动刻度）
  */
@@ -25,6 +26,10 @@ export function niceTicks(min: number, max: number, tickCount = 5): number[] {
   for (let v = Math.floor(min / step) * step; v <= max + step / 2; v += step) {
     ticks.push(Number(v.toPrecision(12)));
   }
+  // 末刻度仍够不到 max（步长整跨数据域）→ 再补一档，保证覆盖
+  if (ticks[ticks.length - 1] < max) {
+    ticks.push(Number((ticks[ticks.length - 1] + step).toPrecision(12)));
+  }
   return ticks;
 }
 
@@ -38,6 +43,16 @@ const HOUR_MS = 3_600_000;
  */
 export function bucketMs(tb: string): number {
   return Date.parse(tb.includes(" ") ? tb.replace(" ", "T") : `${tb}T00:00:00`);
+}
+
+/**
+ * x 值归一为 ms 时间戳：number 原样，Date 取时间，串归一后 Date.parse（NaN 交轴自动回落）。
+ * 自 LineChart 收编（#39：堆叠面积同为时间横轴，归一属公共层）。
+ */
+export function xNum(v: unknown): number {
+  if (typeof v === "number") return v;
+  if (v instanceof Date) return v.getTime();
+  return Date.parse(String(v).replace(" ", "T"));
 }
 
 /**
