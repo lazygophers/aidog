@@ -543,6 +543,8 @@ export type PopoverItemType =
   | "proxy_status"
   | "platform_balance"
   | "cost_trend"
+  | "platform_share"
+  | "hour_heatbar"
   | "platform_metric"
   | "group_cost"
   | "group_tokens"
@@ -570,7 +572,7 @@ export interface PopoverItem {
   scope?: PopoverTrendScope;
   /** scope!=overall：group → group_key；platform → platform_id 字符串。 */
   scope_ref?: string | null;
-  /** cost_trend / platform_metric：时间窗。旧配置无此字段后端默认 "7d"。 */
+  /** cost_trend / platform_metric / platform_share：时间窗（hour_heatbar 固定今日）。旧配置无此字段后端默认 "7d"。 */
   time_window?: PopoverTrendWindow;
   /** 二维布局行号。旧配置无此字段后端默认 0；渲染层 `row ?? order` fallback 老用户各占一行。 */
   row?: number;

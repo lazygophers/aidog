@@ -37,13 +37,16 @@ export interface LineChartProps {
   className?: string;
   /** Recharts 子组件穿透（ReferenceLine 等直接写这里）。 */
   children?: ReactNode;
+  /** 迷你模式（spec §C2 浮窗曲线）：去 ChartCard 容器 / 网格 / 轴 / 图例，仅曲线 + tooltip；
+   *  轴保留为 hide（非删除），tooltip 时间标签仍走 labelFormatter。高度缺省 64。 */
+  mini?: boolean;
 }
 
 export function LineChart({
   config,
   data,
   xKey = "x",
-  height = 240,
+  height,
   valueFormat,
   tickCount = 5,
   title,
@@ -51,6 +54,7 @@ export function LineChart({
   emptyHint,
   className,
   children,
+  mini = false,
 }: LineChartProps) {
   const { t } = useTranslation();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
@@ -91,15 +95,17 @@ export function LineChart({
     subtitle
   );
 
-  return (
-    <ChartCard title={title} subtitle={sub} empty={data.length === 0} emptyHint={emptyHint} className={className}>
-      <ChartContainer config={effConfig} className="w-full" style={{ height }}>
-        <RechartsLineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis
-            dataKey={xKey}
-            type="number"
-            scale="time"
+  const effHeight = height ?? (mini ? 64 : 240);
+
+  const chart = (
+    <ChartContainer config={effConfig} className="w-full" style={{ height: effHeight }}>
+      <RechartsLineChart data={rows} margin={mini ? { top: 4, right: 4, bottom: 0, left: 0 } : { top: 8, right: 12, bottom: 0, left: 0 }}>
+        {!mini && <CartesianGrid vertical={false} strokeDasharray="3 3" />}
+        <XAxis
+          dataKey={xKey}
+          type="number"
+          scale="time"
+          hide={mini}
             {...(xTicks.length > 0 && {
               ticks: xTicks,
               domain: [xTicks[0], xTicks[xTicks.length - 1]] as [number, number],
@@ -112,6 +118,7 @@ export function LineChart({
           />
           <YAxis
             width={48}
+            hide={mini}
             {...(domain.yTicks.length > 0 && {
               ticks: domain.yTicks,
               domain: [domain.yTicks[0], domain.yTicks[domain.yTicks.length - 1]] as [number, number],
@@ -121,7 +128,7 @@ export function LineChart({
             axisLine={false}
           />
           {/* 多系列图例（spec C1 时间序列 tab 按维度多序列）：标签取 config label（s0 等安全键不外露） */}
-          {seriesKeys.length > 1 && (
+          {!mini && seriesKeys.length > 1 && (
             <Legend
               verticalAlign="top"
               align="left"
@@ -145,14 +152,20 @@ export function LineChart({
               dataKey={k}
               stroke={`var(--color-${k})`}
               strokeWidth={2}
-              dot={rows.length <= 60}
-              activeDot={{ r: 3 }}
+              dot={mini ? false : rows.length <= 60}
+              activeDot={{ r: mini ? 2.5 : 3 }}
               {...drawInProps()}
             />
           ))}
           {children}
         </RechartsLineChart>
       </ChartContainer>
+  );
+  // mini：裸渲染（浮窗自带卡片壳），空态由调用方前置判定（诚实空态文案归浮窗）
+  if (mini) return chart;
+  return (
+    <ChartCard title={title} subtitle={sub} empty={data.length === 0} emptyHint={emptyHint} className={className}>
+      {chart}
     </ChartCard>
   );
 }

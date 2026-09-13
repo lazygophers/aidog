@@ -30,6 +30,10 @@ export interface DonutChartProps {
   className?: string;
   /** 入场动画（默认开；扇区动画依赖 rAF 步进，测试环境传 false 才挂载扇区）。 */
   animate?: boolean;
+  /** 迷你模式（spec §C2 浮窗环形）：去 ChartCard 容器，空态判定归调用方前置。 */
+  mini?: boolean;
+  /** 侧列占比图例（默认开；迷你小尺寸卡片可关）。 */
+  showLegend?: boolean;
 }
 
 export function DonutChart({
@@ -43,6 +47,8 @@ export function DonutChart({
   emptyHint,
   className,
   animate = true,
+  mini = false,
+  showLegend = true,
 }: DonutChartProps) {
   const { t } = useTranslation();
 
@@ -69,16 +75,16 @@ export function DonutChart({
   const total = useMemo(() => slices.reduce((s, d) => s + d.value, 0), [slices]);
   const config = useMemo<ChartConfig>(() => ({ value: {} }), []);
 
-  // 单一有效扇区构不成占比图（100% 一块），走诚实空态
+  // 单一有效扇区构不成占比图（100% 一块），走诚实空态；mini 时空态归调用方（返 null）
   if (slices.length < 2) {
+    if (mini) return null;
     return (
       <ChartCard title={title} subtitle={subtitle} empty emptyHint={emptyHint} className={className}>{null}</ChartCard>
     );
   }
 
-  return (
-    <ChartCard title={title} subtitle={subtitle} emptyHint={emptyHint} className={className}>
-      <div style={{ display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+  const body = (
+    <div style={{ display: "flex", alignItems: "center", gap: mini ? 12 : 24, flexWrap: "wrap" }}>
         <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }}>
           <ChartContainer config={config} className="h-full w-full">
             <RechartsPieChart>
@@ -118,37 +124,44 @@ export function DonutChart({
               pointerEvents: "none",
             }}
           >
-            <span style={{ fontSize: 15, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+            <span style={{ fontSize: mini ? 12 : 15, fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
               {fmt(total)}
             </span>
             {centerLabel != null && (
-              <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{centerLabel}</span>
+              <span style={{ fontSize: mini ? 9 : 10, color: "var(--text-tertiary)" }}>{centerLabel}</span>
             )}
           </div>
         </div>
-        <div style={{ flex: 1, minWidth: 180, fontSize: 12, fontVariantNumeric: "tabular-nums" }}>
-          {slices.map((d) => (
-            <div
-              key={d.name}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "5px 0",
-                borderBottom: "1px solid var(--border)",
-              }}
-            >
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: d.fill, flexShrink: 0 }} />
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {d.name}
-              </span>
-              <span style={{ marginLeft: "auto", color: "var(--text-secondary)" }}>
-                {formatPercent(d.percent)}
-              </span>
-            </div>
-          ))}
-        </div>
+        {showLegend && (
+          <div style={{ flex: 1, minWidth: mini ? 120 : 180, fontSize: mini ? 11 : 12, fontVariantNumeric: "tabular-nums" }}>
+            {slices.map((d) => (
+              <div
+                key={d.name}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: mini ? "3px 0" : "5px 0",
+                  borderBottom: "1px solid var(--border)",
+                }}
+              >
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: d.fill, flexShrink: 0 }} />
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {d.name}
+                </span>
+                <span style={{ marginLeft: "auto", color: "var(--text-secondary)" }}>
+                  {formatPercent(d.percent)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+  );
+  if (mini) return body;
+  return (
+    <ChartCard title={title} subtitle={subtitle} emptyHint={emptyHint} className={className}>
+      {body}
     </ChartCard>
   );
 }

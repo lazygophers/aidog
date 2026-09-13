@@ -29,6 +29,12 @@ export function makeItem(
   if (type === "cost_trend") {
     return { ...base, scope: "overall", scope_ref: null, time_window: "7d" };
   }
+  if (type === "platform_share") {
+    return { ...base, time_window: "7d" };
+  }
+  if (type === "hour_heatbar") {
+    return { ...base, time_window: "today" };
+  }
   if (type === "platform_metric") {
     return { ...base, scope: "platform", scope_ref: platforms[0] ? String(platforms[0].id) : null, time_window: "today" };
   }

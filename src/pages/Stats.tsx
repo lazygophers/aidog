@@ -43,8 +43,11 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { DonutChart, LineChart, HourHeatmap, GaugeChart } from "@/components/charts";
+import { DonutChart, LineChart, HourHeatmap, GaugeChart, bucketMs } from "@/components/charts";
 import type { ChartConfig } from "@/components/ui/chart";
+
+// 桶解析已收编公共层（charts/ticks.ts）；re-export 维持 Stats.test.ts 既有导入路径。
+export { bucketMs };
 
 type TimePreset = "today" | "7d" | "30d";
 
@@ -88,11 +91,7 @@ const TABS: { id: StatsTab; key: string }[] = [
   { id: "quota", key: "stats.tabQuota" },
 ];
 
-// time_bucket 格式随粒度变：daily "YYYY-MM-DD" | minute/5min "YYYY-MM-DD HH:MM" | hourly "YYYY-MM-DD HH:00:00"。
-// → 本地时区 ms：含时间段补 T 走本地解析；纯日期补 T00:00:00（裸日期按 UTC 午夜解析，西半球时区标签会偏一天）。
-export function bucketMs(tb: string): number {
-  return Date.parse(tb.includes(" ") ? tb.replace(" ", "T") : `${tb}T00:00:00`);
-}
+// time_bucket 串 → ms 见公共层 bucketMs（charts/ticks.ts，本文件顶部 re-export）。
 
 export interface TrendChartData {
   config: ChartConfig;

@@ -31,6 +31,16 @@ export function niceTicks(min: number, max: number, tickCount = 5): number[] {
 const HOUR_MS = 3_600_000;
 
 /**
+ * 后端 time_bucket 串 → 本地时区 ms：
+ * daily "YYYY-MM-DD" | minute/5min "YYYY-MM-DD HH:MM" | hourly "YYYY-MM-DD HH:00:00"。
+ * 含时间段补 T 走本地解析；纯日期补 T00:00:00（裸日期按 UTC 午夜解析，西半球时区标签会偏一天）。
+ * 自 Stats.tsx 收编（T8：浮窗曲线与 Stats 共用，桶解析属公共层）。
+ */
+export function bucketMs(tb: string): number {
+  return Date.parse(tb.includes(" ") ? tb.replace(" ", "T") : `${tb}T00:00:00`);
+}
+
+/**
  * 时间轴刻度标签：按横轴总跨度（spanMs = max - min）选粒度，全部本地时区。
  * - ≤ 48h → "HH:MM"（含跨日的日内窗）
  * - ≤ 60 天 → "MM-DD"
