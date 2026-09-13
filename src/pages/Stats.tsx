@@ -43,7 +43,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { DonutChart, LineChart, HourHeatmap, GaugeChart, bucketMs } from "@/components/charts";
+import { DonutChart, LineChart, StackedAreaChart, HourHeatmap, DimensionHeatmap, GaugeChart, bucketMs } from "@/components/charts";
 import type { ChartConfig } from "@/components/ui/chart";
 
 // 桶解析已收编公共层（charts/ticks.ts）；re-export 维持 Stats.test.ts 既有导入路径。
@@ -146,6 +146,25 @@ export function buildHeatCells(buckets: StatsBucket[]): { day: number; hour: num
   return [...m].map(([k, value]) => ({ day: Math.floor(k / 24), hour: k % 24, value }));
 }
 
+// 维度×日格子（占比 tab 维度热力，#39）：series 逐桶按本地日聚合（hourly/minute 桶摊入当日，
+// daily 桶本身就是日）。行取总量降序 topN（D3 LIMIT 50 全画则行图过高，热力看头部维度）。
+export function buildDimensionDayCells(
+  series: StatsSeries[],
+  topN = 8,
+): { name: string; day: number; value: number }[] {
+  const ordered = [...series].sort((a, b) => reqSum(b.buckets) - reqSum(a.buckets)).slice(0, topN);
+  return ordered.flatMap((s) => {
+    const perDay = new Map<number, number>();
+    for (const b of s.buckets) {
+      const ms = bucketMs(b.time_bucket);
+      if (Number.isNaN(ms)) continue;
+      const day = new Date(ms).setHours(0, 0, 0, 0);
+      perDay.set(day, (perDay.get(day) ?? 0) + b.total_requests);
+    }
+    return [...perDay].map(([day, value]) => ({ name: s.name, day, value }));
+  });
+}
+
 // ── 粒度可读标注（趋势图右上角；auto 降级时加「（自动）」后缀让用户知情） ──
 function granLabel(g: StatsQuery["granularity"], auto: boolean, t: TFunction): string {
   const base =
@@ -219,6 +238,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
 
   // 四 tab（spec C1）：本地 state 切主图区，筛选条/Overview 卡/维度表不受影响
   const [activeTab, setActiveTab] = useState<StatsTab>("trend");
+  // 时间序列 tab 视图切换（#39 批次二）：多序列时折线 / 堆叠面积两态
+  const [trendStacked, setTrendStacked] = useState(false);
   // 密度 tab 按需 hourly 桶（主查询粒度可能是 daily，无小时信息可用）
   const [heatBuckets, setHeatBuckets] = useState<StatsBucket[] | null>(null);
 
@@ -325,6 +346,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     () => buildTrendChartData(buckets, data?.series ?? [], t("stats.requests", "请求")),
     [buckets, data, t],
   );
+
+  // 占比 tab 维度热力（#39）：维度 × 日活跃格子（series 空 → DimensionHeatmap 诚实空态）
+  const dimHeat = useMemo(() => buildDimensionDayCells(data?.series ?? []), [data]);
 
   // 维度表排序结果
   const sortedDims = useMemo(() => {
@@ -567,39 +591,108 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             ))}
           </div>
 
-          {/* 时间序列 tab：公共层 LineChart 替换旧自研 SVG 趋势图；series_by 多序列（主琥珀线 = 最大维度值） */}
+          {/* 时间序列 tab：公共层 LineChart / StackedAreaChart（多序列可切堆叠视图，#39 批次二）；
+              series_by 多序列（主琥珀线 = 最大维度值） */}
           {activeTab === "trend" && (
-            <LineChart
-              title={t("stats.requestTrend", "请求趋势")}
-              subtitle={
-                <>
-                  {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
-                  {(effectiveGran === "minute" || effectiveGran === "5min") && (
-                    <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
-                      style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
-                      {t("stats.fineGranBadge", "· 仅短期可用")}
-                    </span>
-                  )}
-                </>
-              }
-              config={trend.config}
-              data={trend.rows}
-              valueFormat={formatNumber}
-            />
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {trend.multi && (
+                <div role="group" aria-label={t("stats.viewMode", "视图")} style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                  <Button
+                    variant={!trendStacked ? "default" : "ghost"}
+                    aria-pressed={!trendStacked}
+                    style={{
+                      fontSize: 12, padding: "4px 10px", height: "auto",
+                      ...(!trendStacked
+                        ? {
+                            background: "var(--accent-subtle)",
+                            color: "var(--primary)",
+                            borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                          }
+                        : {}),
+                    }}
+                    onClick={() => setTrendStacked(false)}
+                  >
+                    {t("stats.viewLine", "折线")}
+                  </Button>
+                  <Button
+                    variant={trendStacked ? "default" : "ghost"}
+                    aria-pressed={trendStacked}
+                    style={{
+                      fontSize: 12, padding: "4px 10px", height: "auto",
+                      ...(trendStacked
+                        ? {
+                            background: "var(--accent-subtle)",
+                            color: "var(--primary)",
+                            borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                          }
+                        : {}),
+                    }}
+                    onClick={() => setTrendStacked(true)}
+                  >
+                    {t("stats.viewStacked", "堆叠")}
+                  </Button>
+                </div>
+              )}
+              {trendStacked && trend.multi ? (
+                <StackedAreaChart
+                  title={t("stats.requestTrend", "请求趋势")}
+                  subtitle={
+                    <>
+                      {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                      {(effectiveGran === "minute" || effectiveGran === "5min") && (
+                        <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
+                          style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
+                          {t("stats.fineGranBadge", "· 仅短期可用")}
+                        </span>
+                      )}
+                    </>
+                  }
+                  config={trend.config}
+                  data={trend.rows}
+                  valueFormat={formatNumber}
+                />
+              ) : (
+                <LineChart
+                  title={t("stats.requestTrend", "请求趋势")}
+                  subtitle={
+                    <>
+                      {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                      {(effectiveGran === "minute" || effectiveGran === "5min") && (
+                        <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
+                          style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
+                          {t("stats.fineGranBadge", "· 仅短期可用")}
+                        </span>
+                      )}
+                    </>
+                  }
+                  config={trend.config}
+                  data={trend.rows}
+                  valueFormat={formatNumber}
+                />
+              )}
+            </div>
           )}
 
-          {/* 占比 tab：成本占比环形（#35 收编进图表引擎 DonutChart），维度切换沿用 groupBy */}
+          {/* 占比 tab：成本占比环形（#35 收编进图表引擎 DonutChart），维度切换沿用 groupBy；
+              维度×日活跃热力（#39 批次二 DimensionHeatmap 消费落点——密度 tab 已被 HourHeatmap 占据） */}
           {activeTab === "share" && (
-            <DonutChart
-              title={
-                <>
-                  {t("stats.costShare", "成本占比")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
-                </>
-              }
-              data={dims.filter(e => e.total_cost > 0).map(e => ({ name: e.name, value: e.total_cost }))}
-              formatValue={formatCostUsd}
-              centerLabel={t("stats.totalCost", "预估成本")}
-            />
+            <>
+              <DonutChart
+                title={
+                  <>
+                    {t("stats.costShare", "成本占比")} — {t(`stats.by${groupBy.charAt(0).toUpperCase() + groupBy.slice(1)}`, groupBy)}
+                  </>
+                }
+                data={dims.filter(e => e.total_cost > 0).map(e => ({ name: e.name, value: e.total_cost }))}
+                formatValue={formatCostUsd}
+                centerLabel={t("stats.totalCost", "预估成本")}
+              />
+              <DimensionHeatmap
+                title={t("stats.dimHeatTitle", "活跃热力（维度 × 日）")}
+                data={dimHeat}
+                formatValue={formatNumber}
+              />
+            </>
           )}
 
           {/* 密度 tab：星期 × 小时请求热力（hourly 按需查询；未到数据前 ChartCard 诚实空态） */}
