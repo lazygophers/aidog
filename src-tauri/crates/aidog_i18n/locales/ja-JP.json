@@ -106,6 +106,7 @@
   "appSettings.systemTab": "システム",
   "appSettings.trayTab": "トレイ",
   "charts.noData": "データなし",
+  "charts.downsampled": "{{count}} 点に間引き表示",
   "codex.sectionApproval": "承認とサンドボックス",
   "codex.sectionCore": "コアモデル",
   "codex.sectionDiagnostics": "診断",

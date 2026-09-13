@@ -106,6 +106,7 @@
   "appSettings.systemTab": "System",
   "appSettings.trayTab": "Tray",
   "charts.noData": "No data available",
+  "charts.downsampled": "Downsampled to {{count}} points",
   "codex.sectionApproval": "Approval & Sandbox",
   "codex.sectionCore": "Core Model",
   "codex.sectionDiagnostics": "Diagnostics",

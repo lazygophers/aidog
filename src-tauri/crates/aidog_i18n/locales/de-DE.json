@@ -106,6 +106,7 @@
   "appSettings.systemTab": "System",
   "appSettings.trayTab": "Systemleiste",
   "charts.noData": "Keine Daten",
+  "charts.downsampled": "Auf {{count}} Punkte reduziert",
   "codex.sectionApproval": "Freigabe & Sandbox",
   "codex.sectionCore": "Kernmodell",
   "codex.sectionDiagnostics": "Diagnose",
