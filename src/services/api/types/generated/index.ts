@@ -62,6 +62,7 @@ export * from "./ScatterHistogram";
 export * from "./ScatterHistogramQuery";
 export * from "./StatsQuery";
 export * from "./StatsResult";
+export * from "./StatsSeries";
 export * from "./StatsSettings";
 export * from "./TrayColor";
 export * from "./TrayConfig";
