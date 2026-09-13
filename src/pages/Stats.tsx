@@ -13,6 +13,8 @@ import {
   type StatsSeries,
   type GroupDetail,
   type Platform,
+  type QuotaSnapshot,
+  type ScatterHistogram,
 } from "../services/api";
 import { formatNumber, formatCost, formatCostUsd, successRate } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
@@ -43,7 +45,7 @@ import {
   TableHead,
   TableCell,
 } from "@/components/ui/table";
-import { DonutChart, LineChart, StackedAreaChart, HourHeatmap, DimensionHeatmap, GaugeChart, bucketMs } from "@/components/charts";
+import { DonutChart, LineChart, StackedAreaChart, HourHeatmap, DimensionHeatmap, GaugeChart, ScatterChart, bucketMs, type GaugeTrendPoint } from "@/components/charts";
 import type { ChartConfig } from "@/components/ui/chart";
 
 // 桶解析已收编公共层（charts/ticks.ts）；re-export 维持 Stats.test.ts 既有导入路径。
@@ -165,6 +167,40 @@ export function buildDimensionDayCells(
   });
 }
 
+// ── 配额 tab：快照序列 → 每平台仪表盘数据（T10 / #40）──
+// current = 该平台最新快照余额；peak = 窗口内峰值余额（快照无总量字段，仪表盘 fraction
+// 语义 = 当前 / 峰值）；trend = fraction 序列（GaugeTrendPoint.at 为 Unix 秒）。
+// 按当前余额降序（主平台排前）；peak ≤ 0 的组剔除（喂 GaugeChart 也是空态，不如不出卡）。
+export interface QuotaGauge {
+  platformId: number;
+  current: number;
+  peak: number;
+  trend: GaugeTrendPoint[];
+}
+
+export function buildQuotaGauges(snaps: QuotaSnapshot[]): QuotaGauge[] {
+  const byPlatform = new Map<number, QuotaSnapshot[]>();
+  for (const s of snaps) {
+    const arr = byPlatform.get(s.platform_id);
+    if (arr) arr.push(s);
+    else byPlatform.set(s.platform_id, [s]);
+  }
+  const gauges: QuotaGauge[] = [];
+  for (const [platformId, arr] of byPlatform) {
+    // 后端按 created_at 升序返回；仍显式排序一次，纯函数不依赖调用侧约定
+    arr.sort((a, b) => a.created_at - b.created_at);
+    const peak = Math.max(...arr.map((s) => s.est_balance_remaining));
+    if (!(peak > 0)) continue;
+    gauges.push({
+      platformId,
+      current: arr[arr.length - 1].est_balance_remaining,
+      peak,
+      trend: arr.map((s) => ({ at: Math.floor(s.created_at / 1000), fraction: s.est_balance_remaining / peak })),
+    });
+  }
+  return gauges.sort((a, b) => b.current - a.current);
+}
+
 // ── 粒度可读标注（趋势图右上角；auto 降级时加「（自动）」后缀让用户知情） ──
 function granLabel(g: StatsQuery["granularity"], auto: boolean, t: TFunction): string {
   const base =
@@ -242,6 +278,11 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const [trendStacked, setTrendStacked] = useState(false);
   // 密度 tab 按需 hourly 桶（主查询粒度可能是 daily，无小时信息可用）
   const [heatBuckets, setHeatBuckets] = useState<StatsBucket[] | null>(null);
+  // 密度 tab 第二视图（T10）：时刻热力 ⇄ 请求散点（spec C1 四 tab 结构不动，视图切主图区内容）
+  const [densityView, setDensityView] = useState<"heat" | "scatter">("heat");
+  // 散点矩阵（D2 bin 化）与配额快照序列（D4）均按需拉取
+  const [scatterHist, setScatterHist] = useState<ScatterHistogram | null>(null);
+  const [quotaSnaps, setQuotaSnaps] = useState<QuotaSnapshot[] | null>(null);
 
   // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
   // "0" 在平台筛选 truthy，直接透传后端 CAST AS INTEGER = 0（无平台）。
@@ -309,6 +350,41 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       .catch(console.error);
     return () => { cancelled = true; };
   }, [activeTab, preset, baseQuery]);
+
+  // 密度 tab 散点视图按需拉 bin 化矩阵（D2）：filter 语义同主查询（granularity/group_by 不适用）
+  useEffect(() => {
+    if (activeTab !== "density" || densityView !== "scatter") return;
+    let cancelled = false;
+    const range = getTimeRange(preset);
+    const f = baseQuery();
+    statsApi
+      .scatterHistogram({
+        start: range.start,
+        end: range.end,
+        filter_group: f.filter_group,
+        filter_model: f.filter_model,
+        filter_platform: f.filter_platform,
+        filter_coding_plan: f.filter_coding_plan,
+      })
+      .then((h) => { if (!cancelled) setScatterHist(h); })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [activeTab, densityView, preset, baseQuery]);
+
+  // 配额 tab 按需拉快照序列（D4）：时间窗沿用页面 preset；平台筛选沿用筛选条
+  // （「无平台」sentinel 0：quota_snapshot 只记真实平台，直接置空走诚实空态）
+  useEffect(() => {
+    if (activeTab !== "quota") return;
+    if (filterPlatform === "0") { setQuotaSnaps([]); return; }
+    let cancelled = false;
+    const range = getTimeRange(preset);
+    const pid = filterPlatform ? Number(filterPlatform) : null;
+    statsApi
+      .quotaSnapshots({ start: range.start, end: range.end, platform_id: pid })
+      .then((s) => { if (!cancelled) setQuotaSnaps(s); })
+      .catch(console.error);
+    return () => { cancelled = true; };
+  }, [activeTab, preset, filterPlatform]);
 
   // 请求完成后后端 emit "proxy-log-updated" → debounce 重载（依赖 load，刷新尊重当前时间范围/筛选）
   useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
@@ -695,24 +771,86 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             </>
           )}
 
-          {/* 密度 tab：星期 × 小时请求热力（hourly 按需查询；未到数据前 ChartCard 诚实空态） */}
+          {/* 密度 tab（T10 起双视图）：时刻热力 ⇄ 请求散点（延迟 × 成本，D2 服务端 bin 化）。
+              视图切换按钮样式沿用 tab 按钮惯例；筛选条照常作用于两视图。 */}
           {activeTab === "density" && (
-            <HourHeatmap
-              title={t("stats.heatTitle", "请求密度（星期 × 小时）")}
-              data={buildHeatCells(heatBuckets ?? [])}
-              formatValue={formatNumber}
-            />
+            <>
+              <div style={{ display: "flex", gap: 4 }}>
+                {(["heat", "scatter"] as const).map((v) => (
+                  <Button
+                    key={v}
+                    aria-pressed={densityView === v}
+                    variant={densityView === v ? "default" : "ghost"}
+                    style={{
+                      fontSize: 12,
+                      padding: "4px 10px",
+                      height: "auto",
+                      ...(densityView === v
+                        ? {
+                            background: "var(--accent-subtle)",
+                            color: "var(--primary)",
+                            borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                          }
+                        : {}),
+                    }}
+                    onClick={() => setDensityView(v)}
+                  >
+                    {v === "heat"
+                      ? t("stats.densityViewHeat", "时刻热力")
+                      : t("stats.densityViewScatter", "请求分布")}
+                  </Button>
+                ))}
+              </div>
+              {densityView === "heat" ? (
+                <HourHeatmap
+                  title={t("stats.heatTitle", "请求密度（星期 × 小时）")}
+                  data={buildHeatCells(heatBuckets ?? [])}
+                  formatValue={formatNumber}
+                />
+              ) : (
+                <ScatterChart
+                  title={t("stats.scatterTitle", "请求分布（延迟 × 成本）")}
+                  histogram={scatterHist ?? { duration_bins: [], cost_bins: [], counts: [] }}
+                />
+              )}
+            </>
           )}
 
-          {/* 配额 tab：D4 quota_snapshot 后端（票 T4）未完成 → 诚实空态占位，不造假数据（票面允许） */}
-          {activeTab === "quota" && (
-            <GaugeChart
-              value={0}
-              max={0}
-              title={t("stats.quotaTitle", "配额快照")}
-              emptyHint={t("stats.quotaPendingHint", "配额历史落库（quota_snapshot）尚未上线，暂无数据")}
-            />
-          )}
+          {/* 配额 tab（T10 接通 D4）：每平台 GaugeChart 快照 + 趋势 sparkline；
+              无快照 → 诚实空态（快照仅在真实余额查询成功时产生） */}
+          {activeTab === "quota" && (() => {
+            const gauges = buildQuotaGauges(quotaSnaps ?? []);
+            if (gauges.length === 0) {
+              return (
+                <GaugeChart
+                  value={0}
+                  max={0}
+                  title={t("stats.quotaTitle", "配额快照")}
+                  emptyHint={t("stats.quotaEmptyHint", "暂无配额快照；平台余额真实查询成功后会自动记录")}
+                />
+              );
+            }
+            return (
+              <div>
+                <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 8 }}>
+                  {t("stats.quotaPeakNote", "占比 = 当前余额 / 窗口内峰值余额")}
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  {gauges.map((g) => (
+                    <GaugeChart
+                      key={g.platformId}
+                      value={g.current}
+                      max={g.peak}
+                      title={platforms.find(p => p.id === g.platformId)?.name ?? `#${g.platformId}`}
+                      formatValue={(n) => formatCostUsd(n)}
+                      trend={g.trend}
+                      className="hover-lift"
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Dimension table（列排序 + 分页） */}
           {dims.length > 0 ? (
