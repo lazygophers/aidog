@@ -22,11 +22,13 @@ export const ALL_ITEM_TYPES: PopoverItemType[] = [
   "group_requests",
   "group_balance",
   "cost_trend",
+  "platform_share",
+  "hour_heatbar",
 ];
 
 /** 可重复添加的多实例类型（各自独立配置）。 */
 export const MULTI_INSTANCE_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>([
-  "cost_trend", "platform_metric", "group_cost", "group_tokens", "group_requests", "group_balance",
+  "cost_trend", "platform_share", "hour_heatbar", "platform_metric", "group_cost", "group_tokens", "group_requests", "group_balance",
 ]);
 
 /** group_* 系列：scope 锁 "group"，配置 UI 显示分组下拉。 */
@@ -48,6 +50,8 @@ export const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: strin
   group_requests: { key: "popover.itemGroupRequests", fallback: "分组今日请求" },
   group_balance: { key: "popover.itemGroupBalance", fallback: "分组余额" },
   cost_trend: { key: "popover.itemCostTrend", fallback: "消费趋势" },
+  platform_share: { key: "popover.itemPlatformShare", fallback: "平台占比" },
+  hour_heatbar: { key: "popover.itemHourHeat", fallback: "今日热力" },
 };
 
 export const TREND_WINDOWS: PopoverTrendWindow[] = ["today", "7d", "30d"];

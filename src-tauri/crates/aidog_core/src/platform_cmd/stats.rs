@@ -20,6 +20,28 @@ pub async fn stats_query_batch(
 }
 }
 
+
+crate::tauri_command! {
+/// 散点直方图（chart-engine D2 / #33）：proxy_log 逐请求 (duration, est_cost) 的
+/// 服务端 bin 化，返回 (duration_bin × cost_bin) 计数矩阵。独立 command 非 stats_query 扩展
+/// （散点要逐请求联合分布，聚合表不保留）。
+pub async fn scatter_histogram(
+    query: ScatterHistogramQuery) -> Result<ScatterHistogram, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::scatter_histogram(db, &query).await
+}
+}
+
+crate::tauri_command! {
+/// 配额快照序列（chart-engine D4 / #34）：时间窗内某平台（或全部平台）的
+/// quota_snapshot 事件序列，供 C4 仪表盘趋势与 Stats 配额 tab。空平台/空窗 → 空数组。
+pub async fn quota_snapshots(
+    query: QuotaSnapshotsQuery) -> Result<Vec<QuotaSnapshot>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::quota_snapshots(db, &query).await
+}
+}
+
 use gateway::models::StatsSettings;
 
 crate::tauri_command! {

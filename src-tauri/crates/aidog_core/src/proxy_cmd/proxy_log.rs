@@ -219,6 +219,15 @@ pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
     }
+    // quota_snapshot 同策略删整行（chart-engine T4 / #34，spec D4「retention 对齐 90d」：
+    // 与 proxy_log retention_days 共用同一清理链与同一设置）。
+    if settings.retention_days > 0
+        && let Err(e) =
+            aidog_stats::cleanup_quota_snapshots(db, settings.retention_days, settings.retention_unit)
+                .await
+    {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup quota_snapshots failed");
+    }
     // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
     // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
     if let Err(e) = aidog_logs::purge_deleted_proxy_logs(db).await {
