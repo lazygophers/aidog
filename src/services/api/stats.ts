@@ -1,7 +1,7 @@
 // stats.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { ScatterHistogram, ScatterHistogramQuery, StatsQuery, StatsResult, StatsSettings } from "./types";
+import type { QuotaSnapshot, QuotaSnapshotsQuery, ScatterHistogram, ScatterHistogramQuery, StatsQuery, StatsResult, StatsSettings } from "./types";
 
 export const statsApi = {
   query: (query: StatsQuery) =>
@@ -14,6 +14,9 @@ export const statsApi = {
   /** 散点直方图（#33）：服务端 bin 化的 (duration × cost) 计数矩阵，前端 ScatterChart 直接渲染。 */
   scatterHistogram: (query: ScatterHistogramQuery) =>
     invoke<ScatterHistogram>("scatter_histogram", { query }),
+  /** 配额快照序列（#34）：时间窗内某平台（或全部平台）的余额历史，供配额趋势图。 */
+  quotaSnapshots: (query: QuotaSnapshotsQuery) =>
+    invoke<QuotaSnapshot[]>("quota_snapshots", { query }),
 };
 
 // ─── Stats Settings (聚合表 retention) ────────────────────

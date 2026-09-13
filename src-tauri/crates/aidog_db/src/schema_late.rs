@@ -272,6 +272,24 @@ CREATE TABLE IF NOT EXISTS platform_preset (
     // 一并下线（票 T5），没有承接入口，故直接丢弃。
     // 前向单线、无 down：DROP 幂等靠 IF EXISTS。
     conn.execute_batch("DROP TABLE IF EXISTS model_price;")?;
+
+    // Migration 20260913-01 (chart-engine T4 / #34): quota_snapshot 事件式配额历史表。
+    //
+    // 无定时器：真实余额查询成功时（estimate::calibrate_from_quota 成功路径）顺手插一行，
+    // 供 C4 仪表盘趋势与 Stats 配额 tab。retention 对齐 proxy_log retention_days
+    // （run_retention_cleanup 链删整行，90d 同策略）。落主库（时序统计数据，
+    // 同 stats_agg_hourly 的语义归属 + retention/VACUUM 安全结论，不放 log.db/platform.db）。
+    // created_at 毫秒 Unix（与 proxy_log / now() 口径一致）。
+    conn.execute_batch(
+        r#"CREATE TABLE IF NOT EXISTS quota_snapshot (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    platform_id           INTEGER NOT NULL,
+    est_balance_remaining REAL NOT NULL DEFAULT 0,
+    created_at            INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_quota_snapshot_platform ON quota_snapshot(platform_id, created_at);"#,
+    )?;
     Ok(())
 }
 
