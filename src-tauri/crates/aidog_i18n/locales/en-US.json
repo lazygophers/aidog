@@ -105,6 +105,7 @@
   "appSettings.schedulingTab": "Scheduling",
   "appSettings.systemTab": "System",
   "appSettings.trayTab": "Tray",
+  "charts.noData": "No data available",
   "codex.sectionApproval": "Approval & Sandbox",
   "codex.sectionCore": "Core Model",
   "codex.sectionDiagnostics": "Diagnostics",

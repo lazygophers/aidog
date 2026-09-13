@@ -105,6 +105,7 @@
   "appSettings.schedulingTab": "スケジューリング",
   "appSettings.systemTab": "システム",
   "appSettings.trayTab": "トレイ",
+  "charts.noData": "データなし",
   "codex.sectionApproval": "承認とサンドボックス",
   "codex.sectionCore": "コアモデル",
   "codex.sectionDiagnostics": "診断",

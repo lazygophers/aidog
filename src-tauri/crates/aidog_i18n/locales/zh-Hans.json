@@ -105,6 +105,7 @@
   "appSettings.schedulingTab": "调度熔断",
   "appSettings.systemTab": "系统",
   "appSettings.trayTab": "托盘",
+  "charts.noData": "暂无数据",
   "codex.sectionApproval": "审批与沙箱",
   "codex.sectionCore": "核心模型",
   "codex.sectionDiagnostics": "诊断",
