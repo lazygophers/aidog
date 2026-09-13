@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "moonshotai/Kimi-K2.7-Code",
   "canonical_model": "Kimi-K2.7-Code",
+  "family": "kimi",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1789258661,
   "model_id": "gemini-3.1-pro-preview-search",
   "canonical_model": "gemini-3.1-pro-preview",
+  "family": "gemini",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

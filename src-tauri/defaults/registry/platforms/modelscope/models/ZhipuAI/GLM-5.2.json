@@ -1,9 +1,16 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1789258661,
   "model_id": "ZhipuAI/GLM-5.2",
   "canonical_model": "glm-5.2",
+  "family": "glm",
+  "version": "5.2",
+  "predecessor": "glm-5.1",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,

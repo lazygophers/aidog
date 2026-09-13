@@ -1,9 +1,16 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1789258661,
   "model_id": "glm-4.5v",
   "canonical_model": "glm-4.5v",
+  "family": "glm",
+  "version": "4.5",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
   ],
   "max_input_tokens": 65536,
   "max_output_tokens": 32000,

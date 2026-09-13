@@ -1,8 +1,11 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "grok-4-1-fast-non-reasoning",
   "canonical_model": "grok-4-1-fast-non-reasoning",
-  "capabilities": [],
+  "context_window": 2000000,
+  "capabilities": [
+    "text"
+  ],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,

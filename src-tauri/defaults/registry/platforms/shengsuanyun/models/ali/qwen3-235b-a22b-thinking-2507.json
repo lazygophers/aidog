@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1789258661,
   "model_id": "ali/qwen3-235b-a22b-thinking-2507",
   "canonical_model": "qwen3-235b-a22b-thinking-2507",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

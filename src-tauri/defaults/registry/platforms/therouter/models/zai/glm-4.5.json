@@ -1,9 +1,15 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1789258661,
   "model_id": "zai/glm-4.5",
   "canonical_model": "glm-4.5",
+  "family": "glm",
+  "version": "4.5",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "official": true,
   "price": {

@@ -1,8 +1,11 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "grok-4",
   "canonical_model": "grok-4",
-  "capabilities": [],
+  "context_window": 256000,
+  "capabilities": [
+    "text"
+  ],
   "official": true,
   "price": {
     "input": 0.0000033,

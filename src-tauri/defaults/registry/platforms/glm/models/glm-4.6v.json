@@ -1,9 +1,13 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1789258661,
   "model_id": "glm-4.6v",
   "canonical_model": "glm-4.6v",
+  "family": "glm",
+  "version": "4.6",
   "capabilities": [
-    "text"
+    "text",
+    "vision",
+    "tool_use"
   ],
   "max_input_tokens": 131072,
   "max_output_tokens": 32768,

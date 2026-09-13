@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1789258661,
   "model_id": "zhipu/glm-ocr",
   "canonical_model": "glm-ocr",
+  "family": "glm",
   "capabilities": [
     "text",
     "vision"

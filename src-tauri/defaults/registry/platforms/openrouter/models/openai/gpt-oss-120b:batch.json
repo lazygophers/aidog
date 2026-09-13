@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "openai/gpt-oss-120b:batch",
   "canonical_model": "gpt-oss-120b",
+  "family": "gpt",
   "capabilities": [
     "text",
     "tool_use",

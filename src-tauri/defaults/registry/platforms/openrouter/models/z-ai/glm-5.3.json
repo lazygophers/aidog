@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "z-ai/glm-5.3",
   "canonical_model": "glm-5.3",
+  "family": "glm",
+  "version": "5.3",
+  "predecessor": "glm-5.2",
   "capabilities": [
     "text",
     "tool_use",
@@ -12,7 +15,7 @@
   "context_window": 1310720,
   "official": true,
   "thinking_supported": true,
-  "thinking_toggleable": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.4e-06,
     "output": 4.4e-06,

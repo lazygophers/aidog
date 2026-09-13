@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1789258661,
   "model_id": "glm-ocr",
   "canonical_model": "glm-ocr",
+  "family": "glm",
   "display_name": "GLM-OCR",
   "capabilities": [
     "text",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1789258661,
   "model_id": "anthropic/claude-opus-4.8",
   "canonical_model": "claude-opus-4.8",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

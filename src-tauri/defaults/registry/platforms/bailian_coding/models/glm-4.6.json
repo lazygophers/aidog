@@ -1,9 +1,15 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1789258661,
   "model_id": "glm-4.6",
   "canonical_model": "glm-4.6",
+  "family": "glm",
+  "version": "4.6",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "reasoning"
   ],
   "official": false,
   "price": {

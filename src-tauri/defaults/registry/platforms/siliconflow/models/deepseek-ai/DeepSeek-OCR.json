@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1789258661,
   "model_id": "deepseek-ai/DeepSeek-OCR",
   "canonical_model": "DeepSeek-OCR",
+  "family": "deepseek",
   "capabilities": [
     "text",
     "vision"

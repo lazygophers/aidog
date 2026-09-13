@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788101961,
+  "last_updated": 1789258661,
   "model_id": "gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
+  "family": "gpt",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "display_name": "GPT-OSS-120B",
   "capabilities": [
     "text",

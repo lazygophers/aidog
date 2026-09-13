@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1789258661,
   "model_id": "ali/qwen3.8-27b",
   "canonical_model": "qwen3.8-27b",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

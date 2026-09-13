@@ -1,7 +1,12 @@
 {
-  "last_updated": 1788144513,
+  "last_updated": 1789258661,
   "model_id": "glm-5",
   "canonical_model": "glm-5",
+  "family": "glm",
+  "version": "5",
+  "predecessor": "glm-4.7",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text",
     "tool_use",

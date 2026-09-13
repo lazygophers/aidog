@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1789258661,
   "model_id": "hy3",
   "canonical_model": "hy3",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],

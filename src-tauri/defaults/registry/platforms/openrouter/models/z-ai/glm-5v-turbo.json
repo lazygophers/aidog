@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1789258661,
   "model_id": "z-ai/glm-5v-turbo",
   "canonical_model": "glm-5v-turbo",
+  "family": "glm",
+  "version": "5",
   "capabilities": [
     "text",
     "vision",

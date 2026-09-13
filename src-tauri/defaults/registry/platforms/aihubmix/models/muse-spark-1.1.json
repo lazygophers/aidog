@@ -1,8 +1,18 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "muse-spark-1.1",
   "canonical_model": "muse-spark-1.1",
-  "capabilities": [],
+  "context_window": 1048576,
+  "family": "muse",
+  "version": "1.1",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "official": true,
   "price": {
     "input": 0.000001375,

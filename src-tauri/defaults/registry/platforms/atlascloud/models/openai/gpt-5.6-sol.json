@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1789258661,
   "model_id": "openai/gpt-5.6-sol",
   "canonical_model": "gpt-5.6-sol",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "capabilities": [
     "text",
     "vision"

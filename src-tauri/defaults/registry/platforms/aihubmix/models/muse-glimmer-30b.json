@@ -1,8 +1,13 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789258661,
   "model_id": "muse-glimmer-30b",
   "canonical_model": "muse-glimmer-30b",
-  "capabilities": [],
+  "context_window": 131072,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text"
+  ],
   "official": true,
   "price": {
     "input": 3.5e-7,
