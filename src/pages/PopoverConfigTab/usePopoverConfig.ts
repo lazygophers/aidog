@@ -284,6 +284,10 @@ export function usePopoverConfig(): PopoverConfigData {
         return t("popover.previewTrend", "消费曲线（{{window}}）", {
           window: t(`popover.trendWindow_${"7d"}`, "近 7 天"),
         });
+      case "platform_share":
+        return t("popover.itemPlatformShare", "平台占比");
+      case "hour_heatbar":
+        return t("popover.itemHourHeat", "今日热力");
       case "platform_metric":
         return t("popover.itemPlatformMetric", "指定平台指标");
       case "group_cost":

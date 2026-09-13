@@ -2,10 +2,16 @@
 import type { DimensionEntry } from "./DimensionEntry";
 import type { StatsBucket } from "./StatsBucket";
 import type { StatsOverview } from "./StatsOverview";
+import type { StatsSeries } from "./StatsSeries";
 
 export type StatsResult = { overview: StatsOverview, buckets: Array<StatsBucket>, dimension_data: Array<DimensionEntry>, 
 /**
  * 当前筛选范围（日期 + 分组 + 平台，不含 filter_model）内实际有记录的模型名，
  * 供前端模型筛选下拉使用（避免列出配置过但无请求的模型）。
  */
-available_models: Array<string>, };
+available_models: Array<string>, 
+/**
+ * 交叉聚合序列（chart-engine D1 / #32）：`series_by` 有值时按维度拆分的逐桶序列；
+ * 未传 → 空数组（向后兼容）。serde default 容忍旧 JSON 无该键。
+ */
+series: Array<StatsSeries>, };

@@ -17,7 +17,7 @@ import type {
   GroupDetail,
 } from "../services/api";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
-import { CostTrendChart } from "./shared/CostTrendChart";
+import { LineChart, DonutChart, HourHeatBar, bucketMs } from "./charts";
 
 /** 浮窗各统计卡数据：item.id → 该卡批量查询结果（一次 IPC 拉全部，见 popover.tsx）。 */
 export type PopoverStatsMap = Map<string, StatsResult>;
@@ -209,20 +209,25 @@ function buildTrendQuery(item: PopoverItem): StatsQuery {
 const STATS_ITEM_TYPES = new Set([
   "cost_trend",
   "platform_metric",
+  "platform_share",
+  "hour_heatbar",
   "group_cost",
   "group_tokens",
   "group_requests",
 ]);
 
-/** 单卡的查询参数（含 group_tokens/group_requests 强制今日窗）；不需查询 → null。 */
+/** 单卡的查询参数（含强制今日窗）；不需查询 → null。 */
 function buildItemQuery(item: PopoverItem): StatsQuery | null {
   if (!STATS_ITEM_TYPES.has(item.item_type)) return null;
-  // group_tokens / group_requests 强制今日窗（无视 item.time_window），与原逐卡逻辑一致。
+  // group_tokens / group_requests / hour_heatbar 强制今日窗（hour_heatbar 固定 hourly 24 桶），与原逐卡逻辑一致。
   const eff =
-    item.item_type === "group_tokens" || item.item_type === "group_requests"
+    item.item_type === "group_tokens" || item.item_type === "group_requests" || item.item_type === "hour_heatbar"
       ? ({ ...item, time_window: "today" } as PopoverItem)
       : item;
-  return buildTrendQuery(eff);
+  const q = buildTrendQuery(eff);
+  // 环形卡：series_by=platform 拆平台序列（chart-engine D1），前端逐序列聚合成占比条目。
+  if (item.item_type === "platform_share") q.series_by = "platform";
+  return q;
 }
 
 /**
@@ -292,13 +297,110 @@ function CostTrendCard({
         <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
       ) : (
         <>
-          <CostTrendChart buckets={buckets} />
+          {/* 公共层 LineChart 迷你化（T8 迁移，旧内联 SVG 曲线已删） */}
+          <LineChart
+            mini
+            height={size === "s" ? 44 : size === "m" ? 56 : 72}
+            config={{ v: { label: t("popover.trendCostSeries", "花费") } }}
+            data={buckets.map((b) => ({ x: bucketMs(b.time_bucket), v: b.total_cost }))}
+            valueFormat={formatCostUsd}
+          />
           {size === "l" && (
             <div className="popover-metric-sub">
               {t("popover.trendTotal", "合计")} <span style={colorStyle}>{formatCostUsd(total)}</span>
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// ─── Platform share card（环形，spec §C2 三件套之二）─────────
+
+/** platform_share：窗口内各平台花费占比（series_by=platform 逐序列聚合）。 */
+function PlatformShareCard({
+  size,
+  t,
+  stats,
+  statsLoaded,
+}: {
+  size: Size;
+  t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
+}) {
+  const failed = statsLoaded && !stats;
+  const series = stats ? stats.series : null;
+  // 逐序列聚合窗口总花费 → DonutChart 占比条目（value 0 的序列被组件自身过滤，这里先滤掉算有效数）
+  const entries = series
+    ? series.map((s) => ({
+        name: s.name,
+        value: s.buckets.reduce((sum, b) => sum + b.total_cost, 0),
+      }))
+    : null;
+  const effective = entries ? entries.filter((e) => e.value > 0) : [];
+
+  return (
+    <div className={`popover-section pc-${size}`}>
+      {size !== "s" && <div className="popover-stats-title">{t("popover.itemPlatformShare", "平台占比")}</div>}
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : entries === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : effective.length < 2 ? (
+        // 不足两个有效扇区构不成占比（与 DonutChart 空态判据一致），诚实空态不画假环
+        <div className="popover-empty">{t("charts.noData", "暂无数据")}</div>
+      ) : (
+        <DonutChart
+          mini
+          data={effective}
+          topN={size === "s" ? 3 : 4}
+          size={size === "s" ? 64 : size === "m" ? 88 : 104}
+          showLegend={size !== "s"}
+          formatValue={formatCostUsd}
+          centerLabel={t("popover.trendTotal", "合计")}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Hour heat bar card（迷你热力条，spec §C2 三件套之三）────
+
+/** hour_heatbar：今日 0-23 时请求量热力横条（固定今日窗，请求密度与 HourHeatmap 同口径）。 */
+function HourHeatCard({
+  size,
+  t,
+  stats,
+  statsLoaded,
+}: {
+  size: Size;
+  t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
+}) {
+  const failed = statsLoaded && !stats;
+  const buckets = stats ? stats.buckets : null;
+
+  return (
+    <div className={`popover-section pc-${size}`}>
+      {size !== "s" && <div className="popover-stats-title">{t("popover.itemHourHeat", "今日热力")}</div>}
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : buckets === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : buckets.length === 0 ? (
+        <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
+      ) : (
+        <HourHeatBar
+          data={buckets.map((b) => ({
+            hour: new Date(bucketMs(b.time_bucket)).getHours(),
+            value: b.total_requests,
+          }))}
+          formatValue={formatNumber}
+          ariaLabel={t("popover.itemHourHeat", "今日热力")}
+        />
       )}
     </div>
   );
@@ -587,6 +689,10 @@ export function renderItem(
       return <PlatformToday key={item.id} data={data} size={size} colorStyle={cs} />;
     case "cost_trend":
       return <CostTrendCard key={item.id} item={item} data={data} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
+    case "platform_share":
+      return <PlatformShareCard key={item.id} size={size} t={t} stats={stats} statsLoaded={statsLoaded} />;
+    case "hour_heatbar":
+      return <HourHeatCard key={item.id} size={size} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "platform_metric":
       return <PlatformMetricCard key={item.id} item={item} data={data} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "group_cost":

@@ -55,6 +55,10 @@ export function ScopeConfig({
       </div>
     );
   }
+  if (item.item_type === "platform_share") {
+    // 占比环固定整体口径（平台间占比，scope 无意义），仅可选时间窗。
+    return <WindowSelect item={item} t={t} onUpdate={onUpdate} def="7d" />;
+  }
   if (item.item_type === "platform_metric") {
     return (
       <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>

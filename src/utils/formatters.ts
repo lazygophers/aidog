@@ -61,6 +61,17 @@ export function formatCostUsd(n: number): string {
 }
 
 /**
+ * 延迟格式化（ms → 人读单位）：<1s 用 ms，<1min 用秒（1 位小数），其余用分钟（1 位小数）。
+ * 散点图轴 / tooltip 用（chart-engine T10）。
+ */
+export function formatDurationMs(ms: number): string {
+  const abs = Math.abs(ms);
+  if (abs < 1000) return `${Math.round(ms)} ms`;
+  if (abs < 60_000) return `${(ms / 1000).toFixed(1)} s`;
+  return `${(ms / 60_000).toFixed(1)} min`;
+}
+
+/**
  * 百分比格式化：值已是 0–100 的百分数，保留 `digits` 位（默认 1）。
  * 例：formatPercent(98.7) → "98.7%"，formatPercent(98.7, 0) → "99%"。
  */

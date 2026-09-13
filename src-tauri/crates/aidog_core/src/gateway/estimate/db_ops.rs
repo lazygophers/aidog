@@ -186,6 +186,14 @@ pub async fn calibrate_from_quota(
         String::new()
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
+    // chart-engine T4 / #34：真实余额查询成功 → 顺手落一条 quota_snapshot（事件式，无定时器）。
+    // coding plan 无按量余额（est_balance 强制 0），不落快照避免趋势被 0 污染。
+    if !is_coding_plan
+        && let Some(b) = &quota.balance
+        && let Err(e) = aidog_stats::insert_quota_snapshot(db, platform_id, b.remaining).await
+    {
+        tracing::warn!(platform_id, error = %e, "insert quota snapshot failed");
+    }
     tracing::info!(platform_id, is_coding_plan, coding_json_len = coding_json.len(), result = ?result, "calibrate_from_quota done");
     schedule_reset_refresh(db, platform_id, quota).await;
 }

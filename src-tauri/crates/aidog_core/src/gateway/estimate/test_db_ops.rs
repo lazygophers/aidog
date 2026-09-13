@@ -234,6 +234,15 @@ async fn calibrate_from_quota_aligns_coding_plan() {
         "coef = {}",
         t.coef_per_token
     );
+
+    // chart-engine T4 / #34：coding plan 无按量余额，不落 quota_snapshot（防 0 污染趋势）。
+    let snaps = aidog_stats::quota_snapshots(
+        &db,
+        &QuotaSnapshotsQuery { start: None, end: None, platform_id: Some(id) },
+    )
+    .await
+    .unwrap();
+    assert!(snaps.is_empty());
 }
 
 // ── calibrate_from_quota：余额平台 est_balance 严格对齐真实 ──
@@ -269,6 +278,16 @@ async fn calibrate_from_quota_aligns_balance() {
     );
     assert_eq!(after.estimate_count, 0);
     assert!(after.last_real_query_at > 0);
+
+    // chart-engine T4 / #34：真查成功顺手落一条 quota_snapshot（值 = 真实余额）。
+    let snaps = aidog_stats::quota_snapshots(
+        &db,
+        &QuotaSnapshotsQuery { start: None, end: None, platform_id: Some(id) },
+    )
+    .await
+    .unwrap();
+    assert_eq!(snaps.len(), 1);
+    assert!((snaps[0].est_balance_remaining - 99.9).abs() < 1e-9);
 }
 
 // ── 真查失败不重置（保留预估）──

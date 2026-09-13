@@ -69,6 +69,15 @@ pub struct StatsQuery {
     /// true = 过滤；false / None = 不过滤。
     #[ts(optional)]
     pub filter_coding_plan: Option<bool>,
+    /// 交叉聚合维度（chart-engine D1 / #32）：值 = `platform` / `model` / `group`。
+    /// Some → `series` 按该维度拆分返回；None / 未识别值 → `series` 空数组（向后兼容）。
+    /// 字段名与既有 `group_by` / `filter_*` 一致走 snake_case（前端 StatsQuery 同名）。
+    #[ts(optional)]
+    pub series_by: Option<String>,
+    /// 维度基数上限（chart-engine D3 / #32）：约束 `dimension_data` 与 `series` 条数，
+    /// 缺省 50（替换原 SQL 硬编码 LIMIT 50）。
+    #[ts(optional)]
+    pub limit: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
@@ -123,6 +132,14 @@ pub struct DimensionEntry {
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct StatsSeries {
+    /// 维度值（platform 维度 = 平台名；model / group 维度 = 列值）。
+    pub name: String,
+    pub buckets: Vec<StatsBucket>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct StatsResult {
     pub overview: StatsOverview,
     pub buckets: Vec<StatsBucket>,
@@ -130,4 +147,72 @@ pub struct StatsResult {
     /// 当前筛选范围（日期 + 分组 + 平台，不含 filter_model）内实际有记录的模型名，
     /// 供前端模型筛选下拉使用（避免列出配置过但无请求的模型）。
     pub available_models: Vec<String>,
+    /// 交叉聚合序列（chart-engine D1 / #32）：`series_by` 有值时按维度拆分的逐桶序列；
+    /// 未传 → 空数组（向后兼容）。serde default 容忍旧 JSON 无该键。
+    #[serde(default)]
+    pub series: Vec<StatsSeries>,
+}
+
+
+/// 散点直方图查询（chart-engine D2 / #33）：时间窗 + 可选 filter，
+/// filter 语义对齐 `StatsQuery` 的同名 `filter_*` 字段（不含粒度/分组/序列维度——
+/// 散点矩阵本身即结果形态，无桶粒度与维度拆分概念）。
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ScatterHistogramQuery {
+    #[ts(optional, type = "number | null")]
+    pub start: Option<i64>,
+    #[ts(optional, type = "number | null")]
+    pub end: Option<i64>,
+    #[ts(optional)]
+    pub filter_group: Option<String>,
+    #[ts(optional)]
+    pub filter_model: Option<String>,
+    #[ts(optional)]
+    pub filter_platform: Option<String>,
+    /// 仅统计 coding plan 平台（语义同 `StatsQuery.filter_coding_plan`）。
+    #[ts(optional)]
+    pub filter_coding_plan: Option<bool>,
+}
+
+/// 散点直方图（chart-engine D2 / #33）：服务端 bin 化的 `(duration_bin × cost_bin)` 矩阵。
+/// `counts[i][j]` = duration 落第 i 个 bin 且 est_cost 落第 j 个 bin 的请求数；
+/// 边界数组长度 = bin 数 + 1（`[start, start+step, ..., start+n*step]`）。
+/// 空窗口 / 全过滤掉 → 三个数组全空（不报错）。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ScatterHistogram {
+    /// duration bin 边界（ms）。
+    pub duration_bins: Vec<f64>,
+    /// est_cost bin 边界（$）。
+    pub cost_bins: Vec<f64>,
+    /// u64 越过 JS 安全整数区间的概率可忽略（单 bin 请求数 < 2^53），按 number 导出。
+    #[ts(type = "Array<Array<number>>")]
+    pub counts: Vec<Vec<u64>>,
+}
+
+/// 配额快照查询（chart-engine D4 / #34）：时间窗 + 可选平台过滤，
+/// 返回快照序列（`QuotaSnapshot` 按 created_at 升序），供 C4 仪表盘趋势与 Stats 配额 tab。
+#[derive(Debug, Clone, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct QuotaSnapshotsQuery {
+    #[ts(optional, type = "number | null")]
+    pub start: Option<i64>,
+    #[ts(optional, type = "number | null")]
+    pub end: Option<i64>,
+    /// 限定平台；None = 全部平台。
+    #[ts(optional, type = "number | null")]
+    pub platform_id: Option<u64>,
+}
+
+/// 单条配额快照（chart-engine D4 / #34）：真实余额查询成功时的 `est_balance_remaining` 落库值。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct QuotaSnapshot {
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    pub est_balance_remaining: f64,
+    /// 毫秒 Unix 时间戳。
+    #[ts(type = "number")]
+    pub created_at: i64,
 }
