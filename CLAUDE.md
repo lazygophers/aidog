@@ -67,7 +67,7 @@
 
 ### Issue tracker
 
-票发到 GitHub Issues（repo: `lazygophers/aidog`，走 `gh` CLI），不再用本地 `.scratch/` 票（2026-09-12 迁移）。见 `docs/agents/issue-tracker.md`。
+票存本地 markdown：`.scratch/<feature-slug>/`（一 feature 一目录，票一文件，2026-09-14 迁回；GitHub Issues 留作历史存档）。见 `docs/agents/issue-tracker.md`。
 
 ### Triage labels
 
