@@ -380,12 +380,38 @@ pub(crate) const STATIC_MODEL_IDS: &[&str] = &[
     "gpt-4o-mini",
 ];
 
+/// canonical_model → 最大上下文（`max_input_tokens` 优先，缺失回落 `context_window`）。
+/// 同名模型多平台条目取最大值。纯函数，便于单测。
+pub(crate) fn build_context_map(
+    entries: &[aidog_db::models::ModelEntry],
+) -> std::collections::HashMap<String, i64> {
+    let mut map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
+    for e in entries {
+        let Some(ctx) = e.max_input_tokens.or(e.context_window) else { continue };
+        match map.get_mut(&e.canonical_model) {
+            Some(v) => *v = (*v).max(ctx),
+            None => {
+                map.insert(e.canonical_model.clone(), ctx);
+            }
+        }
+    }
+    map
+}
+
 /// 按入站协议构造静态模型列表 JSON（纯函数，便于单测，免起 HTTP / DB）。
+/// `ctx_map` = [`build_context_map`] 产物；命中时每模型附 `max_input_tokens`（= 模型最大上下文，
+/// 字段名对齐 Anthropic Models API），客户端（Claude Code / Codex）据此按模型真实上下文
+/// 决定自动压缩时机，替代已移除的手动压缩窗口配置。未命中不附该键。
 /// - openai（`/v1/models` 等含 `/v1/`）→ `{"object":"list","data":[{"id","object","created","owned_by"}]}`
 /// - gemini（`/v1beta/models`）→ `{"models":[{"name":"models/<id>","displayName",...}]}`
 /// - 其余（含 `/proxy/models` 裸路径回退 anthropic）→
 ///   `{"data":[{"type","id","display_name","created_at"}],"has_more":false,"first_id","last_id"}`
-pub(crate) fn build_static_models_json(proto: &Protocol) -> Value {
+pub(crate) fn build_static_models_json(
+    proto: &Protocol,
+    ctx_map: &std::collections::HashMap<String, i64>,
+) -> Value {
+    // 命中才附键：未登记的模型不带 max_input_tokens，客户端回落自家默认。
+    let ctx_of = |id: &str| ctx_map.get(id).copied();
     if *proto == Protocol::Gemini {
         let models: Vec<Value> = STATIC_MODEL_IDS
             .iter()
@@ -403,12 +429,16 @@ pub(crate) fn build_static_models_json(proto: &Protocol) -> Value {
         let data: Vec<Value> = STATIC_MODEL_IDS
             .iter()
             .map(|id| {
-                serde_json::json!({
+                let mut m = serde_json::json!({
                     "id": id,
                     "object": "model",
                     "created": 0,
                     "owned_by": "aidog",
-                })
+                });
+                if let Some(n) = ctx_of(id) {
+                    m["max_input_tokens"] = n.into();
+                }
+                m
             })
             .collect();
         serde_json::json!({ "object": "list", "data": data })
@@ -416,12 +446,16 @@ pub(crate) fn build_static_models_json(proto: &Protocol) -> Value {
         let data: Vec<Value> = STATIC_MODEL_IDS
             .iter()
             .map(|id| {
-                serde_json::json!({
+                let mut m = serde_json::json!({
                     "type": "model",
                     "id": id,
                     "display_name": id,
                     "created_at": "2026-01-01T00:00:00Z",
-                })
+                });
+                if let Some(n) = ctx_of(id) {
+                    m["max_input_tokens"] = n.into();
+                }
+                m
             })
             .collect();
         let first = STATIC_MODEL_IDS.first().copied().unwrap_or("");
@@ -447,7 +481,13 @@ pub(crate) async fn handle_models_static(
     start: std::time::Instant,
 ) -> Response {
     let proto = detect_source_protocol(path);
-    let body = build_static_models_json(&proto);
+    // 每模型附最大上下文（registry canonical 匹配，DB 空 → bundled 兜底在 list_model_entries 内）。
+    // 查询失败 best-effort：不带上下文照常返回列表，不让 /models 探测因 DB 抖动 5xx。
+    let ctx_map = aidog_db::list_model_entries(&state.db, None)
+        .await
+        .map(|entries| build_context_map(&entries))
+        .unwrap_or_default();
+    let body = build_static_models_json(&proto, &ctx_map);
     let body_str = body.to_string();
 
     log.source_protocol = proto.wire_str();
