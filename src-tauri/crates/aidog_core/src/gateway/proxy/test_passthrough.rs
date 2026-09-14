@@ -356,7 +356,10 @@ fn models_auth_by_protocol() {
 // ── 静态模型列表：openai 格式 = {object:list, data:[{id,object,created,owned_by}]} ──
 #[test]
 fn static_models_openai_format() {
-    let v = build_static_models_json(&Protocol::OpenAI);
+    let mut ctx = std::collections::HashMap::new();
+    ctx.insert("claude-fable-5".to_string(), 1_000_000_i64);
+    ctx.insert("gpt-5.5".to_string(), 400_000_i64);
+    let v = build_static_models_json(&Protocol::OpenAI, &ctx);
     assert_eq!(v.get("object").and_then(|o| o.as_str()), Some("list"));
     let data = v
         .get("data")
@@ -368,6 +371,18 @@ fn static_models_openai_format() {
     assert!(first.get("id").and_then(|i| i.as_str()).is_some());
     assert!(first.get("created").is_some());
     assert!(first.get("owned_by").is_some());
+    // max_input_tokens：命中附键、未命中不带
+    let by_id =
+        |id: &str| data.iter().find(|m| m.get("id").and_then(|i| i.as_str()) == Some(id)).unwrap();
+    assert_eq!(
+        by_id("claude-fable-5").get("max_input_tokens").and_then(|n| n.as_i64()),
+        Some(1_000_000)
+    );
+    assert_eq!(
+        by_id("gpt-5.5").get("max_input_tokens").and_then(|n| n.as_i64()),
+        Some(400_000)
+    );
+    assert!(by_id("gpt-4o-mini").get("max_input_tokens").is_none());
     // 模型集内容
     let ids: Vec<&str> = data
         .iter()
@@ -386,7 +401,7 @@ fn static_models_openai_format() {
 #[test]
 fn static_models_anthropic_format() {
     // 裸路径回退 anthropic
-    let v = build_static_models_json(&Protocol::Anthropic);
+    let v = build_static_models_json(&Protocol::Anthropic, &std::collections::HashMap::new());
     let data = v
         .get("data")
         .and_then(|d| d.as_array())
@@ -416,7 +431,7 @@ fn static_models_anthropic_format() {
 // ── 静态模型列表：gemini 格式 = {models:[{name:"models/<id>",displayName,...}]} ──
 #[test]
 fn static_models_gemini_format() {
-    let v = build_static_models_json(&Protocol::Gemini);
+    let v = build_static_models_json(&Protocol::Gemini, &std::collections::HashMap::new());
     let models = v
         .get("models")
         .and_then(|m| m.as_array())
@@ -434,6 +449,46 @@ fn static_models_gemini_format() {
             .and_then(|m| m.as_array())
             .is_some()
     );
+}
+
+// ── canonical → 最大上下文映射：max_input_tokens 优先、缺失回落 context_window、多平台取最大 ──
+#[test]
+fn context_map_prefers_max_input_then_max_across_platforms() {
+    let stub = || aidog_db::ModelEntry {
+        platform_code: String::new(),
+        model_id: String::new(),
+        display_name: String::new(),
+        canonical_model: String::new(),
+        family: String::new(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec![],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: None,
+        max_output_tokens: None,
+        context_window: None,
+        official: false,
+        price_data: String::new(),
+        updated_at: 0,
+    };
+    let e = |platform: &str, canonical: &str, max_in: Option<i64>, ctx: Option<i64>| {
+        let mut m = stub();
+        m.platform_code = platform.to_string();
+        m.model_id = format!("{canonical}@{platform}");
+        m.canonical_model = canonical.to_string();
+        m.max_input_tokens = max_in;
+        m.context_window = ctx;
+        m
+    };
+    let map = build_context_map(&[
+        e("openrouter", "claude-fable-5", Some(1_000_000), Some(128_000)),
+        e("gemini", "claude-fable-5", None, Some(200_000)), // 回落 context_window，仍小于另一平台
+        e("crazyrouter", "gpt-5.5", None, Some(400_000)),   // 唯一条目 → 回落生效
+        e("x", "no-ctx-model", None, None),                 // 两键全空 → 不入 map
+    ]);
+    assert_eq!(map.get("claude-fable-5").copied(), Some(1_000_000));
+    assert_eq!(map.get("gpt-5.5").copied(), Some(400_000));
+    assert!(!map.contains_key("no-ctx-model"));
 }
 
 // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──

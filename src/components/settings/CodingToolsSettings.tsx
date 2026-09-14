@@ -5,13 +5,11 @@
 //   日期改写防检测          → 镜像 middleware_rule.enabled（非 coding_tools_settings）
 //   language                → ~/.claude/settings.json language key（复用 claudeTab sync 路径）
 //   努力级别                → 单值双写：claude 顶层 effortLevel + codex model_reasoning_effort；读时 claude 优先
-//   自动压缩窗口            → 单值双写：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW（数字）+
-//                             codex model_auto_compact_token_limit（字符串）；读时 claude 优先
 //   代理设置                → 仅 Claude：env.HTTP_PROXY/HTTPS_PROXY/ALL_PROXY/NO_PROXY（4 键）。
 //                             Codex config.toml 无原生 proxy 字段（官方 issue #4242/#6060 未实现），
 //                             codex 侧由「复制启动命令」注入代理 env（另见 Groups 启动命令复制点）。
 // writeClaudeConfigField（services/api/settings.ts）统一「读全量 → 改 → 写回 → sync」路径，
-// language / compact-claude 共用。runCommit 统一 5 项「乐观翻转 → persist → 回滚/提示」模板。
+// language 共用。runCommit 统一 5 项「乐观翻转 → persist → 回滚/提示」模板。
 // dirtyRef 防 React 19 StrictMode 双 mount 下慢 get() resolve 覆盖用户已操作值（见 runCommit）。
 
 import { useEffect, useRef, useState } from "react";
@@ -75,22 +73,6 @@ const emptyProxy = (): { url: string; no: string } => ({ url: "", no: "" });
 // datalist 原生允许下拉选 + 自由输入任意 URL。
 const PROXY_URL_PRESETS = ["7890", "8080", "1080", "7899"].map((p) => `http://127.0.0.1:${p}`);
 
-// 自动压缩窗口：原始 token 字符串 → K 输入值（180000 → "180"，1500 → "1.5"）。
-function tokensToDraft(s: string): string {
-  if (!s) return "";
-  const n = Number(s);
-  if (!Number.isFinite(n)) return "";
-  const k = n / 1000;
-  return Number.isInteger(k) ? String(k) : String(k);
-}
-// K 输入 → 原始 token 字符串。空串 = 清除；非法返 null（caller 报错）。
-function parseCompactInput(s: string): string | null {
-  const m = s.trim();
-  if (!m) return "";
-  if (!/^\d+(\.\d+)?$/.test(m)) return null;
-  return String(Math.round(Number(m) * 1000));
-}
-
 // 3 个同构开关卡片：标题 + 描述 + 落点 hint + Toggle。抽出消除 JSX 复制。
 // ponytail: 每实例独立 useReveal (React 规则禁 map 内条件 hook) +
 // hover-lift + reveal 萤火虫入场 (stagger idx*60)。
@@ -138,9 +120,6 @@ export function CodingToolsSettingsTab() {
   const [language, setLanguage] = useState<string>("");
   // 努力级别：claude 顶层 effortLevel 优先，codex model_reasoning_effort 回落。
   const [effort, setEffort] = useState<string>("");
-  // 自动压缩窗口：draft = 用户编辑中的 K 值；applied = 已落盘原始 token 字符串。
-  const [compactDraft, setCompactDraft] = useState<string>("");
-  const [compactApplied, setCompactApplied] = useState<string>("");
   // 内置工具兼容总开关：与系统 tab 同一 setting（scope proxy / key builtin_tool_compat），
   // 非本页私有态 —— 两处入口读写同源，改一处另一处重挂载即同步。
   const [btcGlobal, setBtcGlobal] = useState(false);
@@ -170,13 +149,31 @@ export function CodingToolsSettingsTab() {
       .catch((e) => { if (!cancelled) setError(String(e)); })
       .finally(() => { if (!cancelled) setLoading(false); });
 
-    // language（claude_code.language）+ compact（claude env 优先，codex 回落）。
+    // language（claude_code.language）+ 旧压缩窗口键清理。
     Promise.all([
       settingsApi.get("global", "claude_code").catch(() => null),
       codexApi.read().catch(() => null),
     ]).then(([cfg, cx]) => {
+      // 遗留键清理：自动压缩窗口配置已移除（/models 接口现按模型最大上下文返回
+      // max_input_tokens，客户端自行判定压缩时机），旧值残留会继续压过客户端自动判定，
+      // 挂载时一次性剥掉两侧键。失败静默：清理不阻塞页面加载，下次挂载再试。
+      // 先于 dirtyRef guard 执行——清理不碰 React state，用户已操作也无妨。
+      const cfgObj = cfg as Record<string, any> | null;
+      const envVal = (cfgObj?.env as Record<string, any> | undefined)?.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+      if (envVal != null && envVal !== "") {
+        void writeClaudeConfigField((c) => {
+          const env: Record<string, any> = { ...((c.env as Record<string, any>) ?? {}) };
+          delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
+          return { ...c, env };
+        }).catch(() => {});
+      }
+      const cxCfg = cx as Record<string, any> | null;
+      if (cxCfg && cxCfg.model_auto_compact_token_limit != null) {
+        const { model_auto_compact_token_limit: _drop, ...rest } = cxCfg;
+        void codexApi.write(rest).catch(() => {});
+      }
       if (cancelled || dirtyRef.current) return;
-      const obj = cfg as Record<string, any> | null;
+      const obj = cfgObj;
       const lang = obj?.language;
       if (typeof lang === "string") setLanguage(lang);
       const effortVal = (obj as any)?.effortLevel;
@@ -185,15 +182,6 @@ export function CodingToolsSettingsTab() {
         ? effortVal
         : typeof codexEffort === "string" && codexEffort ? codexEffort : "";
       setEffort(eff || EFFORT_DEFAULT);
-      const envVal = (obj?.env as Record<string, any> | undefined)?.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
-      const codexVal = (cx as Record<string, any> | null)?.model_auto_compact_token_limit;
-      const compact = envVal != null && envVal !== ""
-        ? String(envVal)
-        : codexVal != null && codexVal !== "" ? String(codexVal) : "";
-      if (compact) {
-        setCompactApplied(compact);
-        setCompactDraft(tokensToDraft(compact));
-      }
       // 代理设置：三键不一致取首个非空作 URL 显示；NO_PROXY 单独。
       const env = (obj?.env as Record<string, any> | undefined);
       const url = PROXY_URL_KEYS
@@ -204,7 +192,7 @@ export function CodingToolsSettingsTab() {
       setProxyDraft(loaded);
       proxyAppliedRef.current = loaded;
     }).catch(() => {
-      // 读失败不阻塞开关加载：language 留空，compact 留空
+      // 读失败不阻塞开关加载：language 留空
     });
 
     // 内置工具兼容总开关：settings scope proxy / key builtin_tool_compat（缺省 = 关）。
@@ -334,44 +322,6 @@ export function CodingToolsSettingsTab() {
         updatedCx.model_reasoning_effort = next;
         await codexApi.write(updatedCx);
         return true;
-      },
-    );
-  };
-
-  // 自动压缩窗口：单值双写 claude env + codex config。空串 = 清除两侧键。
-  // 输入框单位为 K（外侧静态标签），存原始 token = K × 1000，允许 1 位小数（1.5K = 1500）。
-  const handleCompactCommit = (raw: string) => {
-    if (busy) return;
-    const parsed = parseCompactInput(raw);
-    if (parsed === null) {
-      setError(t("codingTools.compact.invalid", "请输入非负整数"));
-      setCompactDraft(tokensToDraft(compactApplied));
-      return;
-    }
-    const next = parsed;
-    runCommit(
-      () => { /* draft 保持用户输入；applied 等 persist 确认后再写 */ },
-      () => {
-        setCompactApplied(compactApplied);  // 闭包 = 翻转前 prev
-        setCompactDraft(tokensToDraft(compactApplied));
-      },
-      async () => {
-        // claude：env.CLAUDE_CODE_AUTO_COMPACT_WINDOW
-        await writeClaudeConfigField((c) => {
-          const env: Record<string, any> = { ...((c.env as Record<string, any>) ?? {}) };
-          if (next) env.CLAUDE_CODE_AUTO_COMPACT_WINDOW = next;
-          else delete env.CLAUDE_CODE_AUTO_COMPACT_WINDOW;
-          return { ...c, env };
-        });
-        // codex：model_auto_compact_token_limit
-        const cx = (await codexApi.read()) as Record<string, any> | null;
-        const updatedCx: Record<string, any> = { ...(cx ?? {}) };
-        if (next) updatedCx.model_auto_compact_token_limit = next;
-        else delete updatedCx.model_auto_compact_token_limit;
-        await codexApi.write(updatedCx);
-        setCompactApplied(next);
-        setCompactDraft(tokensToDraft(next));
-        return Boolean(next);
       },
     );
   };
@@ -534,55 +484,9 @@ export function CodingToolsSettingsTab() {
 </Select>
       </CodingSectionCard>
 
-      {/* 自动压缩窗口：claude env.CLAUDE_CODE_AUTO_COMPACT_WINDOW + codex model_auto_compact_token_limit */}
-      <CodingSectionCard staggerMs={420} style={{
-        padding: "16px 20px",
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        gap: 16,
-      }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.compact.title")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-            {t("codingTools.compact.desc")}
-          </div>
-          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
-            claude · env.CLAUDE_CODE_AUTO_COMPACT_WINDOW · codex · model_auto_compact_token_limit
-          </div>
-          {compactApplied && (
-            <div className="text-tertiary" style={{ fontSize: 11, marginTop: 4 }}>
-              {t("codingTools.compact.current", "当前")}: {compactApplied} tokens
-            </div>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <Input
-
-            type="number"
-            min={0}
-            step="0.1"
-            style={{ fontSize: 13, width: 110, padding: "4px 8px" }}
-            value={compactDraft}
-            placeholder="200"
-            onChange={(e) => setCompactDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                (e.target as HTMLInputElement).blur();
-              }
-            }}
-            onBlur={() => {
-              if (tokensToDraft(compactApplied) !== compactDraft) void handleCompactCommit(compactDraft);
-            }}
-            disabled={busy}
-          />
-          <span style={{ fontSize: 13, color: "var(--text-secondary)", fontWeight: 600 }}>K</span>
-        </div>
-      </CodingSectionCard>
-
       {/* 代理设置：URL 写 HTTP/HTTPS/ALL 三键同值 + NO_PROXY 单独（onBlur 批量提交）。
           Codex 无 config 级 proxy 字段，由「复制启动命令」注入 env（另见 Groups 启动命令复制点）。 */}
-      <CodingSectionCard staggerMs={480} style={{ padding: "16px 20px" }}>
+      <CodingSectionCard staggerMs={420} style={{ padding: "16px 20px" }}>
         <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.proxy.title")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
           {t("codingTools.proxy.desc")}
